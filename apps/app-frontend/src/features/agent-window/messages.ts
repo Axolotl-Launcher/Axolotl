@@ -290,6 +290,19 @@ export const agentWindowMessages = defineMessages({
     },
     pasteLogName: { id: 'app.agent-window.chat.paste-log-name', defaultMessage: 'Game log' },
     lineCount: { id: 'app.agent-window.chat.line-count', defaultMessage: '{count} lines' },
+    changesPill: {
+        id: 'app.agent-window.chat.changes-pill',
+        defaultMessage: 'Changes in this task',
+    },
+    changesTitle: {
+        id: 'app.agent-window.chat.changes-title',
+        defaultMessage: 'What this task changed',
+    },
+    changesUndo: { id: 'app.agent-window.chat.changes-undo', defaultMessage: 'Ask to undo them' },
+    undoAllPrompt: {
+        id: 'app.agent-window.chat.undo-all-prompt',
+        defaultMessage: 'Undo all the changes in this task',
+    },
     previewFile: { id: 'app.agent-window.chat.preview-file', defaultMessage: 'Preview {name}' },
     moreLines: { id: 'app.agent-window.chat.more-lines', defaultMessage: '{count} more lines' },
     pastedAsFile: {

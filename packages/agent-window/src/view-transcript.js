@@ -249,7 +249,7 @@ function updateText(node, item, { active, last }) {
     node.classList.toggle('is-streaming', active && last)
 }
 
-const KINDS = {
+export const KINDS = {
     update: ['up', 'changeKindUpdate'],
     rollback: ['refresh', 'changeKindRollback'],
     new: ['plus', 'changeKindNew'],

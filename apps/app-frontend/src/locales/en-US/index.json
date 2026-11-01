@@ -389,6 +389,18 @@
   "app.agent-window.chat.line-count": {
     "message": "{count} lines"
   },
+  "app.agent-window.chat.changes-pill": {
+    "message": "Changes in this task"
+  },
+  "app.agent-window.chat.changes-title": {
+    "message": "What this task changed"
+  },
+  "app.agent-window.chat.changes-undo": {
+    "message": "Ask to undo them"
+  },
+  "app.agent-window.chat.undo-all-prompt": {
+    "message": "Undo all the changes in this task"
+  },
   "app.agent-window.chat.preview-file": {
     "message": "Preview {name}"
   },

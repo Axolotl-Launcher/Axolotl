@@ -1,7 +1,8 @@
 // Popovers, dialogs and toasts.
 import { button, element, h, icon, logLines } from './dom.js'
-import { text } from './messages.js'
+import { text, whenLabel } from './messages.js'
 import { currentThread, modelsAvailable, session } from './session.js'
+import { KINDS } from './view-transcript.js'
 
 // ---------- pickers ----------
 
@@ -476,4 +477,56 @@ export function openFilePeek(file, anchor) {
     peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
     peek.style.top = `${Math.round(above ? rect.top - 8 - peek.offsetHeight : rect.bottom + 8)}px`
     peek.dataset.side = above ? 'above' : 'below'
+}
+
+// ---------- changes ----------
+
+// What the open task has changed, newest last, with one way to ask for all of
+// it to be undone. Undoing goes through the agent, so it is planned and
+// approved like any other change.
+export function openChanges(entries, anchor) {
+    const peek = element('changes-peek')
+    if (peek.matches(':popover-open')) peek.hidePopover()
+    peek.replaceChildren(
+        h('div', { class: 'changes-head' }, [
+            h('strong', { text: text('changesTitle') }),
+            h('span', { text: String(entries.length) }),
+        ]),
+        h(
+            'ul',
+            { class: 'changes-list' },
+            entries.map(({ change, turn }) => {
+                const kind = KINDS[change.kind]
+                return h('li', {}, [
+                    h('span', { class: 'changes-icon' }, [
+                        icon(kind?.[0] || change.icon || 'cube'),
+                    ]),
+                    h('span', { class: 'changes-copy' }, [
+                        h('strong', { text: change.name }),
+                        h('span', {
+                            text: [kind ? text(kind[1]) : '', whenLabel(turn.createdAt)]
+                                .filter(Boolean)
+                                .join(' · '),
+                        }),
+                    ]),
+                    change.to
+                        ? h('code', {
+                              class: 'changes-diff',
+                              text: change.from ? `${change.from} → ${change.to}` : change.to,
+                          })
+                        : null,
+                ])
+            }),
+        ),
+        h('div', { class: 'changes-foot' }, [
+            button({ class: 'secondary-button small', data: { followup: text('undoAllPrompt') } }, [
+                icon('refresh'),
+                h('span', { text: text('changesUndo') }),
+            ]),
+        ]),
+    )
+    peek.showPopover()
+    const rect = anchor.getBoundingClientRect()
+    peek.style.left = `${Math.round(Math.max(12, Math.min(rect.left, window.innerWidth - peek.offsetWidth - 12)))}px`
+    peek.style.top = `${Math.round(Math.max(12, rect.top - 8 - peek.offsetHeight))}px`
 }

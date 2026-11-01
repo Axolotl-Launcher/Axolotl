@@ -389,6 +389,18 @@
   "app.agent-window.chat.line-count": {
     "message": "{count} 行"
   },
+  "app.agent-window.chat.changes-pill": {
+    "message": "本次改动"
+  },
+  "app.agent-window.chat.changes-title": {
+    "message": "这个任务改动了什么"
+  },
+  "app.agent-window.chat.changes-undo": {
+    "message": "让 Agent 撤销这些改动"
+  },
+  "app.agent-window.chat.undo-all-prompt": {
+    "message": "撤销这个任务里的所有改动"
+  },
   "app.agent-window.chat.preview-file": {
     "message": "预览{name}"
   },

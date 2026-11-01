@@ -1054,15 +1054,13 @@ it('previews a pasted log with its errors, warnings and stack frames told apart'
     await page.evaluate((value) => {
         const data = new DataTransfer()
         data.setData('text/plain', value)
-        document
-            .getElementById('message-input')!
-            .dispatchEvent(
-                new ClipboardEvent('paste', {
-                    clipboardData: data,
-                    bubbles: true,
-                    cancelable: true,
-                }),
-            )
+        document.getElementById('message-input')!.dispatchEvent(
+            new ClipboardEvent('paste', {
+                clipboardData: data,
+                bubbles: true,
+                cancelable: true,
+            }),
+        )
     }, log)
     expect(await page.locator('#attachment-list .file-chip').getAttribute('data-kind')).toBe('log')
     await page.locator('#attachment-list .file-open').click()
@@ -1072,4 +1070,25 @@ it('previews a pasted log with its errors, warnings and stack frames told apart'
     expect(await peek.locator('.log-line.is-warn').count()).toBe(1)
     expect(await peek.locator('.log-line.is-trace').count()).toBe(20)
     expect(await peek.locator('code').textContent()).toBe(log)
+})
+
+it('lists what the task changed and asks the agent to undo it', async () => {
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+    const pill = page.locator('#changes-pill')
+    expect(await pill.isVisible()).toBe(true)
+    expect(await pill.locator('.changes-count').textContent()).toBe('1')
+    await pill.click()
+    const list = page.locator('#changes-peek')
+    await list.waitFor()
+    expect(await list.locator('li').count()).toBe(1)
+    expect(await list.locator('li').textContent()).toContain('Entity Culling')
+    expect(await list.locator('.changes-diff').textContent()).toBe('1.7.4 → 1.7.2')
+    await list.locator('[data-followup]').click()
+    await page.locator('.turn').nth(1).waitFor()
+    expect(await page.locator('.turn').nth(1).locator('.user-bubble').textContent()).toBe(
+        messages.undoAllPrompt,
+    )
+    expect(await pill.isHidden()).toBe(true)
 })

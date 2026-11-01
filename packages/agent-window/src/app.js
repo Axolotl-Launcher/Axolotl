@@ -38,11 +38,18 @@ import {
     STORAGE_KEY,
     threadStatus,
 } from './state.js'
-import { placeComposer, renderApprovalBar, renderComposer, resizeInput } from './view-composer.js'
+import {
+    appliedChanges,
+    placeComposer,
+    renderApprovalBar,
+    renderComposer,
+    resizeInput,
+} from './view-composer.js'
 import { heroListens, renderHelp, renderHome } from './view-home.js'
 import {
     acceptConfirm,
     bindTips,
+    openChanges,
     openFilePeek,
     closeMenu,
     closePicker,
@@ -1300,6 +1307,7 @@ const actions = {
             )
     },
     'toggle-activity': (event, target) => toggleActivity(target),
+    'show-changes': (event, target) => openChanges(appliedChanges(currentThread()), target),
     'show-steps': (event, target) => showAllSteps(target),
     'jump-latest': () => follower.toBottom(),
 }
@@ -1369,6 +1377,8 @@ document.addEventListener('click', (event) => {
         const file = findAttachment(data.copyPaste)
         if (file) copyText(file.text)
     } else if (data.followup) {
+        const peek = element('changes-peek')
+        if (peek.matches(':popover-open')) peek.hidePopover()
         const input = element('message-input')
         input.value = data.followup
         input.dispatchEvent(new Event('input', { bubbles: true }))

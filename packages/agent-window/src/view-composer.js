@@ -1,6 +1,6 @@
 // The composer: what to do, where (instance) and with which model. While the
 // agent works it turns into a stop button and queues follow-ups.
-import { pendingPlan } from './agent.js'
+import { includedChanges, pendingPlan } from './agent.js'
 import { button, element, h, icon } from './dom.js'
 import { sizeLabel, text } from './messages.js'
 import {
@@ -76,6 +76,25 @@ export function renderComposer() {
     renderAttachments(thread)
     renderQueue(thread, active)
     renderNote(thread)
+    renderChangesPill(thread, active || awaiting)
+}
+
+// Every change the task has written, with the request it came from.
+export function appliedChanges(thread) {
+    return thread.turns.flatMap((turn) =>
+        turn.run.items
+            .filter((item) => item.type === 'plan' && item.state === 'applied')
+            .flatMap((item) => includedChanges(item).map((change) => ({ change, turn }))),
+    )
+}
+
+// Once a task has written changes, a pill above the composer counts them and
+// opens the list; it steps aside while the agent works or waits for approval.
+function renderChangesPill(thread, busy) {
+    const pill = element('changes-pill')
+    const count = appliedChanges(thread).length
+    pill.hidden = !count || busy
+    if (!pill.hidden) pill.querySelector('.changes-count').textContent = String(count)
 }
 
 export function resizeInput() {

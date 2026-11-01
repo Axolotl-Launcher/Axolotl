@@ -440,6 +440,16 @@
                     <div id="composer-wrap" class="composer-wrap">
                         <div id="slash-menu" class="slash-menu" role="listbox" hidden></div>
                         <div id="approval-bar" class="approval-bar" hidden></div>
+                        <button
+                            id="changes-pill"
+                            class="changes-pill"
+                            type="button"
+                            data-action="show-changes"
+                            hidden
+                        >
+                            <svg><use href="#i-layers" /></svg><span data-text="changesPill"></span
+                            ><span class="changes-count"></span>
+                        </button>
                         <div id="queue-list" class="queue-list" hidden></div>
                         <form id="composer" class="composer" data-testid="composer">
                             <div id="attachment-list" class="attachment-list" hidden></div>
@@ -696,5 +706,6 @@
         <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
         <div id="tip" class="tip" popover="manual" aria-hidden="true"></div>
         <div id="file-peek" class="popover file-peek" popover="auto"></div>
+        <div id="changes-peek" class="popover changes-peek" popover="auto"></div>
     </body>
 </html>

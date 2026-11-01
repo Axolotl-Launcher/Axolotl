@@ -1790,6 +1790,120 @@ code {
     font-size: 12px;
     color: var(--fg-3);
 }
+.changes-pill {
+    gap: 7px;
+    height: 30px;
+    margin: 0 0 8px 2px;
+    padding: 0 12px 0 10px;
+    border-radius: 999px;
+    background: var(--card);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    color: var(--fg-2);
+    font-size: 12.5px;
+    font-weight: 600;
+    animation: rise-in 280ms var(--ease-settle) both;
+}
+.changes-pill:hover {
+    color: var(--fg);
+}
+.changes-pill svg {
+    width: 15px;
+    height: 15px;
+    color: var(--accent-ink);
+}
+.changes-count {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-variant-numeric: tabular-nums;
+}
+.changes-peek {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    width: min(460px, calc(100vw - 24px));
+    max-height: min(420px, 60vh);
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: var(--overlay);
+    box-shadow: var(--shadow-pop);
+}
+.changes-peek:popover-open {
+    display: flex;
+}
+.changes-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 8px;
+    font-size: 13.5px;
+}
+.changes-head span {
+    color: var(--fg-3);
+    font-variant-numeric: tabular-nums;
+}
+.changes-list {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0 6px 6px;
+    overflow: auto;
+    list-style: none;
+}
+.changes-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 10px;
+}
+.changes-list li:hover {
+    background: var(--hover);
+}
+.changes-icon {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border-radius: 8px;
+    background: var(--accent-faint);
+    color: var(--accent-ink);
+}
+.changes-icon svg {
+    width: 15px;
+    height: 15px;
+}
+.changes-copy {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    font-size: 13px;
+}
+.changes-copy span {
+    color: var(--fg-3);
+    font-size: 11.5px;
+}
+.changes-diff {
+    flex: none;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--hover);
+    color: var(--fg-2);
+    font: 11.5px/1.5 var(--font-mono);
+}
+.changes-foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 10px 10px;
+    border-top: 1px solid var(--line);
+}
 .approval-bar {
     display: flex;
     align-items: center;

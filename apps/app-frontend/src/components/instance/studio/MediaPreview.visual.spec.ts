@@ -219,7 +219,9 @@ it('writes the edited bytes back and returns to the preview', async () => {
     await findButton(wrapper, 'Edit')!.trigger('click')
     await wrapper.find('[data-testid="editor-save"]').trigger('click')
 
-    expect(wrapper.emitted('save')).toEqual([[{ location: LOCATION, bytes: EDITED_BYTES }]])
+    expect(wrapper.emitted('save')).toEqual([
+        [{ location: LOCATION, original: PNG_BYTES, bytes: EDITED_BYTES }],
+    ])
     expect(wrapper.find('[data-testid="studio-image-editor"]').exists()).toBe(false)
     expect(wrapper.find('img').exists()).toBe(true)
 })
@@ -235,7 +237,9 @@ it('writes an edit to the file the editor was opened for', async () => {
     })
     await wrapper.find('[data-testid="editor-save"]').trigger('click')
 
-    expect(wrapper.emitted('save')).toEqual([[{ location: LOCATION, bytes: EDITED_BYTES }]])
+    expect(wrapper.emitted('save')).toEqual([
+        [{ location: LOCATION, original: PNG_BYTES, bytes: EDITED_BYTES }],
+    ])
 })
 
 it('discards the edit when it is cancelled', async () => {

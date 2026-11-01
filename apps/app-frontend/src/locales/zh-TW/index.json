@@ -8363,6 +8363,9 @@
   "instance.files.studio.editor-loading": {
     "message": "正在載入編輯器……"
   },
+  "instance.files.studio.edit-conflict": {
+    "message": "此檔案在開啟後已被外部修改，編輯內容未儲存。"
+  },
   "instance.files.studio.empty-description": {
     "message": "從資源管理器開啟檔案。"
   },

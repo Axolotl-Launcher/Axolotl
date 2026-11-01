@@ -116,6 +116,10 @@ const messages = defineMessages({
         id: 'instance.files.studio.save-failed',
         defaultMessage: 'Could not save file',
     },
+    editConflict: {
+        id: 'instance.files.studio.edit-conflict',
+        defaultMessage: 'This file changed on disk after it was opened. The edit was not saved.',
+    },
     loadingFile: {
         id: 'instance.files.studio.loading-file',
         defaultMessage: 'Loading file...',
@@ -337,13 +341,38 @@ function notifyOperationFailure(error: unknown) {
     })
 }
 
-async function writeEditedImage({ location, bytes }: MediaEditSave) {
+async function writeEditedImage({ location, original, bytes }: MediaEditSave) {
     try {
+        // The file may have been replaced since the preview read it - by a
+        // screenshot, another editor, or the user's own tooling. The edit was
+        // drawn over `original`, so writing it over newer bytes would silently
+        // undo whatever changed them.
+        if (!sameBytes(await readMediaBytes(location), original)) {
+            addNotification({
+                title: formatMessage(messages.saveFailed),
+                text: formatMessage(messages.editConflict),
+                type: 'error',
+            })
+            return
+        }
         await writeMediaBytes(location, bytes)
         mediaRevision.value += 1
     } catch (error) {
         notifyOperationFailure(error)
     }
+}
+
+async function readMediaBytes(location: MediaEditLocation): Promise<Uint8Array> {
+    if (location.instanceId) return readStudioBinary(location.instanceId, location.path)
+    return readFile(await join(location.root, ...location.path.split('/')))
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+    if (left.byteLength !== right.byteLength) return false
+    for (let index = 0; index < left.byteLength; index += 1) {
+        if (left[index] !== right[index]) return false
+    }
+    return true
 }
 
 async function writeMediaBytes(location: MediaEditLocation, bytes: Uint8Array) {

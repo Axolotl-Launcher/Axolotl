@@ -13,6 +13,7 @@ const studio = vi.hoisted(() => ({
     readStudioText: vi.fn(),
     writeStudioBinary: vi.fn(),
     openPath: vi.fn(),
+    notify: vi.fn(),
 }))
 
 // A real 1x1 transparent PNG: the preview has to decode actual image bytes, so a
@@ -119,7 +120,7 @@ vi.mock('@modrinth/ui', async () => {
             deleteLabel: { id: 'common.delete', defaultMessage: 'Delete' },
         },
         defineMessages: (messages: unknown) => messages,
-        injectNotificationManager: () => ({ addNotification: vi.fn() }),
+        injectNotificationManager: () => ({ addNotification: studio.notify }),
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),
@@ -217,6 +218,24 @@ it('releases the previous preview when another file becomes active', async () =>
     await openTreeFile(wrapper, 'screenshots/pack.jar')
 
     expect(revoke).toHaveBeenCalledWith(previewUrl)
+})
+
+it('refuses to write an edit over a file that changed since it was opened', async () => {
+    const wrapper = await mountStudio({ instance: { id: 'instance' } as unknown as GameInstance })
+    await openScreenshot(wrapper)
+
+    // Another program replaced the file while the editor was still open, so the
+    // bytes the edit was drawn over are no longer what the file holds.
+    studio.readStudioBinary.mockResolvedValue(Uint8Array.from([...PNG_BYTES, 1]))
+
+    const edit = wrapper.findAll('button').find((button) => button.text() === 'Edit')
+    if (!edit) throw new Error('the preview does not offer the editor')
+    await edit.trigger('click')
+    await wrapper.find('[data-testid="editor-save"]').trigger('click')
+    await flushPromises()
+
+    expect(studio.writeStudioBinary).not.toHaveBeenCalled()
+    expect(studio.notify).toHaveBeenCalled()
 })
 
 it('writes an image edit to the file the editor was opened for', async () => {

@@ -15416,6 +15416,9 @@
   "instance.files.studio.editor-loading": {
     "message": "Loading editor..."
   },
+  "instance.files.studio.edit-conflict": {
+    "message": "This file changed on disk after it was opened. The edit was not saved."
+  },
   "instance.files.studio.empty-description": {
     "message": "Open any text file from the explorer."
   },

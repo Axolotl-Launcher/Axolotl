@@ -17,5 +17,11 @@ export interface MediaEditLocation {
 
 export interface MediaEditSave {
     location: MediaEditLocation
+    /**
+     * The bytes the editor was opened from. The edit was derived from them, so
+     * a file that no longer matches has been changed by someone else and the
+     * edit cannot be written without discarding that change.
+     */
+    original: Uint8Array
     bytes: Uint8Array
 }

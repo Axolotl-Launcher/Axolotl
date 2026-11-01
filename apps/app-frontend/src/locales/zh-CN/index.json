@@ -13547,6 +13547,9 @@
   "instance.files.studio.editor-loading": {
     "message": "正在加载编辑器……"
   },
+  "instance.files.studio.edit-conflict": {
+    "message": "该文件在打开后已被外部修改，编辑内容未保存。"
+  },
   "instance.files.studio.empty-description": {
     "message": "从资源管理器打开文件。"
   },

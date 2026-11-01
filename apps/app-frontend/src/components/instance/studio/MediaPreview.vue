@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EditIcon, MaximizeIcon, ZoomInIcon, ZoomOutIcon } from '@modrinth/assets'
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { canEditImage } from './image-encoding'
 import { clampPreviewScale, fitPreviewScale } from './image-preview-geometry'
@@ -75,6 +75,9 @@ const editing = ref(false)
 // tab or the instance to change, so the destination is captured on open instead
 // of being read again when the bytes are ready.
 const editLocation = ref<MediaEditLocation | null>(null)
+// The bytes the editor drew over, kept so the page can tell whether the file was
+// replaced on disk while the edit was in progress.
+const editOriginal = shallowRef<Uint8Array | null>(null)
 
 let stageObserver: ResizeObserver | null = null
 let stopPointerDrag: (() => void) | null = null
@@ -192,18 +195,21 @@ function onPointerDown(event: PointerEvent) {
 function startEditing() {
     if (!props.location || !props.content) return
     editLocation.value = props.location
+    editOriginal.value = props.content
     editing.value = true
 }
 
 function stopEditing() {
     editing.value = false
     editLocation.value = null
+    editOriginal.value = null
 }
 
 function onSave(bytes: Uint8Array) {
     const location = editLocation.value
-    if (!location) return
-    emit('save', { location, bytes })
+    const original = editOriginal.value
+    if (!location || !original) return
+    emit('save', { location, original, bytes })
     stopEditing()
 }
 

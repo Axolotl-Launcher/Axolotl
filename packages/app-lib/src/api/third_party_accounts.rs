@@ -16,6 +16,8 @@ const CLIENT_ID: &str = "axolotl";
 const FLOW_TTL: u64 = 300;
 static SESSION: LazyLock<Mutex<Session>> = LazyLock::new(Mutex::default);
 
+pub mod shimu;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountProfile {
@@ -131,6 +133,8 @@ impl Session {
             .as_ref()
             .is_some_and(|flow| flow.deadline <= now)
         {
+            self.completed_flow_id =
+                self.pending.as_ref().map(|flow| flow.state.clone());
             self.pending = None;
             self.outcome = Some(AuthorizationStatus::TimedOut);
         }
@@ -165,6 +169,8 @@ impl Session {
                 Some(code)
             }
             (None, Some(error)) => {
+                self.completed_flow_id =
+                    self.pending.as_ref().map(|flow| flow.state.clone());
                 self.pending = None;
                 self.outcome = Some(if error == "access_denied" {
                     AuthorizationStatus::Denied
@@ -302,7 +308,7 @@ fn authorization_url(state: &str) -> String {
     url.query_pairs_mut()
         .append_pair("client_id", CLIENT_ID)
         .append_pair("redirect_uri", REDIRECT_URI)
-        .append_pair("scope", "user:info")
+        .append_pair("scope", "user:info,post:read,file:download")
         .append_pair("state", state);
     url.into()
 }

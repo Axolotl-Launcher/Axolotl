@@ -1,4 +1,83 @@
 {
+  "app.schematics.instances-error": {
+    "message": "Could not load your instances."
+  },
+  "app.browse.schematics-project-type": {
+    "message": "Schematics"
+  },
+  "app.schematics.source": {
+    "message": "Shimu Space"
+  },
+  "app.schematics.login-title": {
+    "message": "Connect Shimu Space"
+  },
+  "app.schematics.login-description": {
+    "message": "Sign in to browse free schematics and install them into your Minecraft instances."
+  },
+  "app.schematics.login": {
+    "message": "Sign in to Shimu Space"
+  },
+  "app.schematics.waiting": {
+    "message": "Complete authorization in your browser"
+  },
+  "app.schematics.expired": {
+    "message": "Reconnect Shimu Space"
+  },
+  "app.schematics.load-error": {
+    "message": "Could not load free schematics."
+  },
+  "app.schematics.account-error": {
+    "message": "Could not read your Shimu Space account."
+  },
+  "app.schematics.empty-title": {
+    "message": "No free schematics found"
+  },
+  "app.schematics.empty-description": {
+    "message": "Try another page or a different search."
+  },
+  "app.schematics.loading": {
+    "message": "Loading free schematics…"
+  },
+  "app.schematics.retry": {
+    "message": "Retry"
+  },
+  "app.schematics.search": {
+    "message": "Search schematics"
+  },
+  "app.schematics.sort.hot": { "message": "Popular" },
+  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.author-summary": {
+    "message": "{author} · {summary}"
+  },
+  "app.schematics.select-instance": {
+    "message": "Choose an instance"
+  },
+  "app.schematics.install": {
+    "message": "Install"
+  },
+  "app.schematics.installing": {
+    "message": "Installing…"
+  },
+  "app.schematics.preview": { "message": "Preview" },
+  "app.schematics.files": { "message": "Files" },
+  "app.schematics.creator": { "message": "Creator" },
+  "app.schematics.source-heading": { "message": "Source" },
+  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.installed": {
+    "message": "Installed"
+  },
+  "app.schematics.install-success": {
+    "message": "Schematic installed"
+  },
+  "app.schematics.install-failed": {
+    "message": "Could not install this schematic. Please try again."
+  },
+  "app.schematics.file-exists": {
+    "message": "A file with this name already exists in the instance. Choose another instance or rename the existing file."
+  },
+  "app.schematics.login-failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
   "app.third-party.connected-notification": {
     "message": "Connected to Shimu Space"
   },
@@ -75,7 +154,7 @@
     "message": "Account connection is unavailable in this build."
   },
   "app.third-party.permissions": {
-    "message": "Authorization: read your account profile. Authorization expires after 3 days; you will need to sign in again."
+    "message": "Authorization: read your profile and posts, and download resources. Authorization expires after 3 days; you will need to sign in again."
   },
   "app.third-party.browser": {
     "message": "Complete the authorization in your browser."

@@ -10,6 +10,7 @@ const PROJECT_TYPES = new Set([
     'shader',
     'plugin',
     'server',
+    'schematic',
 ])
 
 const SETTINGS_TABS = new Set<string>(

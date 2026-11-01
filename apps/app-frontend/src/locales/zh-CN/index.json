@@ -1,4 +1,83 @@
 {
+  "app.schematics.instances-error": {
+    "message": "无法读取实例列表。"
+  },
+  "app.browse.schematics-project-type": {
+    "message": "投影"
+  },
+  "app.schematics.source": {
+    "message": "拾木空间"
+  },
+  "app.schematics.login-title": {
+    "message": "连接拾木空间"
+  },
+  "app.schematics.login-description": {
+    "message": "登录后即可浏览免费投影，并安装到你的 Minecraft 实例。"
+  },
+  "app.schematics.login": {
+    "message": "登录拾木空间"
+  },
+  "app.schematics.waiting": {
+    "message": "请在浏览器中完成授权"
+  },
+  "app.schematics.expired": {
+    "message": "重新连接拾木空间"
+  },
+  "app.schematics.load-error": {
+    "message": "无法加载免费投影。"
+  },
+  "app.schematics.account-error": {
+    "message": "无法读取拾木空间账户。"
+  },
+  "app.schematics.empty-title": {
+    "message": "未找到免费投影"
+  },
+  "app.schematics.empty-description": {
+    "message": "可以切换其他页码，或尝试其他关键词。"
+  },
+  "app.schematics.loading": {
+    "message": "正在加载免费投影…"
+  },
+  "app.schematics.retry": {
+    "message": "重试"
+  },
+  "app.schematics.search": {
+    "message": "搜索投影"
+  },
+  "app.schematics.sort.hot": { "message": "热门" },
+  "app.schematics.sort.featured": { "message": "精选" },
+  "app.schematics.author-summary": {
+    "message": "{author} · {summary}"
+  },
+  "app.schematics.select-instance": {
+    "message": "选择实例"
+  },
+  "app.schematics.install": {
+    "message": "安装"
+  },
+  "app.schematics.installing": {
+    "message": "正在安装…"
+  },
+  "app.schematics.preview": { "message": "预览" },
+  "app.schematics.files": { "message": "文件" },
+  "app.schematics.creator": { "message": "创作者" },
+  "app.schematics.source-heading": { "message": "来源" },
+  "app.schematics.preview-source": { "message": "拾木空间 · {fileName}" },
+  "app.schematics.installed": {
+    "message": "已安装"
+  },
+  "app.schematics.install-success": {
+    "message": "投影已安装"
+  },
+  "app.schematics.install-failed": {
+    "message": "未能安装此投影，请重试。"
+  },
+  "app.schematics.file-exists": {
+    "message": "实例中已有同名投影。请选择其他实例，或先重命名已有文件。"
+  },
+  "app.schematics.login-failed": {
+    "message": "未能完成连接，请重试。"
+  },
   "app.third-party.connected-notification": {
     "message": "已成功连接拾木空间"
   },
@@ -75,7 +154,7 @@
     "message": "此版本暂不可连接账户。"
   },
   "app.third-party.permissions": {
-    "message": "授权内容：读取账户资料。授权有效期为 3 天，过期后需要重新登录。"
+    "message": "授权内容：读取账户资料和帖子、下载资源。授权有效期为 3 天，过期后需要重新登录。"
   },
   "app.third-party.browser": {
     "message": "请在浏览器中完成授权。"

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 
 export type SchematicPreviewSource =
+    | { kind: 'shimu'; postId: number; fileName: string }
     | { kind: 'external'; path: string }
     | { kind: 'instance'; instanceId: string; relativePath: string }
     | { kind: 'instance_file'; instanceId: string; relativePath: string }

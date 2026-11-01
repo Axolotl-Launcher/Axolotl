@@ -9,6 +9,9 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cancel_authorization,
             disconnect,
             check_connection,
+            shimu_list_schematics,
+            shimu_get_schematic,
+            shimu_install_schematic,
         ])
         .build()
 }
@@ -36,4 +39,40 @@ pub fn disconnect() -> Result<()> {
 #[tauri::command]
 pub async fn check_connection() -> Result<AccountSummary> {
     Ok(third_party_accounts::check_connection().await?)
+}
+
+#[tauri::command]
+pub async fn shimu_list_schematics(
+    page: u32,
+    query: String,
+    page_size: u32,
+    sort: String,
+) -> Result<theseus::third_party_accounts::shimu::SchematicPage> {
+    Ok(
+        theseus::third_party_accounts::shimu::list(
+            page, query, page_size, sort,
+        )
+        .await?,
+    )
+}
+
+#[tauri::command]
+pub async fn shimu_get_schematic(
+    post_id: u64,
+) -> Result<theseus::third_party_accounts::shimu::SchematicDetail> {
+    Ok(theseus::third_party_accounts::shimu::detail(post_id).await?)
+}
+
+#[tauri::command]
+pub async fn shimu_install_schematic(
+    instance_id: String,
+    post_id: u64,
+    file_name: String,
+) -> Result<String> {
+    Ok(theseus::third_party_accounts::shimu::install(
+        instance_id,
+        post_id,
+        file_name,
+    )
+    .await?)
 }

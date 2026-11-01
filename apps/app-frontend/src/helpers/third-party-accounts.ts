@@ -13,6 +13,20 @@ export interface ThirdPartyAccount {
 export const thirdPartyAccountKey = ['third-party-accounts', 'shimu'] as const
 
 const notifiedAuthorizationFlows = new Set<string>()
+let authorizationReturn: { flowId: string; route: string } | null = null
+
+export async function consumeThirdPartyAuthorizationReturn(): Promise<string | null> {
+    if (!authorizationReturn) return null
+    const account = await getThirdPartyAccount()
+    if (
+        account.flowId !== authorizationReturn.flowId ||
+        !['succeeded', 'denied', 'failed', 'timedOut'].includes(account.authorization ?? '')
+    )
+        return null
+    const target = authorizationReturn.route
+    authorizationReturn = null
+    return target
+}
 
 export function claimThirdPartyAuthorizationNotification(account: ThirdPartyAccount): boolean {
     if (
@@ -31,19 +45,29 @@ export function getThirdPartyAccount(): Promise<ThirdPartyAccount> {
     return invoke('plugin:third-party-accounts|get_account')
 }
 
-export function beginThirdPartyAuthorization(): Promise<{
+export async function beginThirdPartyAuthorization(returnTo?: string): Promise<{
     flowId: string
     authorizationUrl: string
 }> {
-    return invoke('plugin:third-party-accounts|begin_authorization')
+    const flow = await invoke<{ flowId: string; authorizationUrl: string }>(
+        'plugin:third-party-accounts|begin_authorization',
+    )
+    const target = returnTo ? new URL(returnTo, 'https://launcher.invalid') : null
+    authorizationReturn =
+        target?.origin === 'https://launcher.invalid' && target.pathname === '/browse/schematic'
+            ? { flowId: flow.flowId, route: `${target.pathname}${target.search}` }
+            : null
+    return flow
 }
 
-export function cancelThirdPartyAuthorization(flowId: string): Promise<void> {
-    return invoke('plugin:third-party-accounts|cancel_authorization', { flowId })
+export async function cancelThirdPartyAuthorization(flowId: string): Promise<void> {
+    await invoke('plugin:third-party-accounts|cancel_authorization', { flowId })
+    if (authorizationReturn?.flowId === flowId) authorizationReturn = null
 }
 
-export function disconnectThirdPartyAccount(): Promise<void> {
-    return invoke('plugin:third-party-accounts|disconnect')
+export async function disconnectThirdPartyAccount(): Promise<void> {
+    await invoke('plugin:third-party-accounts|disconnect')
+    authorizationReturn = null
 }
 
 export function checkThirdPartyAccount(): Promise<ThirdPartyAccount> {

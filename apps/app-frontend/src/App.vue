@@ -163,6 +163,7 @@ import {
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
+import { consumeThirdPartyAuthorizationReturn } from '@/helpers/third-party-accounts'
 import {
     areUpdatesEnabled,
     backupAppDbForUpdate,
@@ -2393,6 +2394,13 @@ async function handleCommand(e) {
         return
     }
     if (e.event === 'OpenSettings') {
+        if (e.tab === 'third-party-accounts') {
+            const returnTo = await consumeThirdPartyAuthorizationReturn().catch(handleError)
+            if (returnTo) {
+                await router.push(returnTo)
+                return
+            }
+        }
         const target = resolveSettingsRoute(e.tab ?? null, e.entry ?? null)
         await router.push({ path: target.path, hash: target.hash })
         if (target.entry) {

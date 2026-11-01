@@ -29,6 +29,7 @@ import type {
 import {
     BrowsePageLayout,
     BrowseSidebar,
+    BrowseSourceSelector,
     Button,
     commonMessages,
     CreationFlowModal,
@@ -39,7 +40,6 @@ import {
     getTargetInstallPreferences,
     injectNotificationManager,
     isVersionTypeMatch,
-    PopoutMenu,
     preferencesDiffer,
     provideBrowseManager,
     requestInstall,
@@ -811,6 +811,10 @@ const {
 const { offline } = useNetworkStatus()
 
 const messages = defineMessages({
+    schematicsProjectType: {
+        id: 'app.browse.schematics-project-type',
+        defaultMessage: 'Schematics',
+    },
     serverSourceUnavailable: {
         id: 'app.browse.server-source-unavailable',
         defaultMessage: 'The server content source is unavailable. Try again later.',
@@ -1243,6 +1247,7 @@ const selectableProjectTypes = computed(() => {
             resourcepacks: formatMessage(messages.resourcepacksProjectType),
             datapacks: formatMessage(messages.datapacksProjectType),
             maps: formatMessage(messages.mapsProjectType),
+            schematics: formatMessage(messages.schematicsProjectType),
             shaders: formatMessage(messages.shadersProjectType),
             servers: formatMessage(messages.serversProjectType),
             favorites: formatMessage(messages.favoritesProjectType),
@@ -2715,30 +2720,20 @@ provideBrowseManager({
                         <ChevronDownIcon class="size-4" />
                     </span>
                 </Button>
-                <PopoutMenu
+                <BrowseSourceSelector
                     v-if="projectType !== 'server' && !isWorldMapBrowse"
-                    placement="bottom-end"
-                >
-                    <Button size="md" class="flex items-center gap-2"
-                        ><component :is="sourceIcon" class="h-5 w-5" />
-                        <span>{{ formatMessage(currentSourceLabel) }}</span>
-                    </Button>
-                    <template #menu>
-                        <div class="flex w-min flex-col gap-1 p-1">
-                            <Button
-                                v-for="option in sourceOptions"
-                                :key="option.id"
-                                :type="contentSource === option.id ? 'colored' : 'quiet'"
-                                class="flex w-full items-center gap-2 !justify-start text-left"
-                                :disabled="!browseInitialized"
-                                @click="selectContentSource(option.id)"
-                            >
-                                <component :is="option.icon" class="h-4 w-4" />
-                                {{ formatMessage(option.label) }}
-                            </Button>
-                        </div>
-                    </template>
-                </PopoutMenu>
+                    :selected="contentSource"
+                    :label="formatMessage(currentSourceLabel)"
+                    :icon="sourceIcon"
+                    :options="
+                        sourceOptions.map((option) => ({
+                            ...option,
+                            label: formatMessage(option.label),
+                        }))
+                    "
+                    :disabled="!browseInitialized"
+                    @select="selectContentSource"
+                />
             </template>
             <template #after>
                 <ContextMenu ref="contextMenuRef" @option-clicked="handleOptionsClick">

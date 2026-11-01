@@ -90,7 +90,7 @@ const messages = defineMessages({
     permissions: {
         id: 'app.third-party.permissions',
         defaultMessage:
-            'Authorization: read your account profile. Authorization expires after 3 days; you will need to sign in again.',
+            'Authorization: read your profile and posts, and download resources. Authorization expires after 3 days; you will need to sign in again.',
     },
     browser: {
         id: 'app.third-party.browser',

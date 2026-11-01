@@ -60,7 +60,7 @@ fn authorization_uses_fixed_registration_and_minimal_scope() {
     let query: HashMap<_, _> = url.query_pairs().collect();
     assert_eq!(query["client_id"], CLIENT_ID);
     assert_eq!(query["redirect_uri"], REDIRECT_URI);
-    assert_eq!(query["scope"], "user:info");
+    assert_eq!(query["scope"], "user:info,post:read,file:download");
     assert_eq!(query["state"], "random-state");
     assert!(!query.contains_key("client_secret"));
 }

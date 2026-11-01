@@ -137,6 +137,7 @@ const metadataComplete = ref(false)
 const committedView = shallowRef<FavoritesView | null>(null)
 
 const messages = defineMessages({
+    schematics: { id: 'app.browse.schematics-project-type', defaultMessage: 'Schematics' },
     refreshing: {
         id: 'app.content-favorites.refreshing',
         defaultMessage: 'Updating favorites…',
@@ -358,6 +359,7 @@ const projectTabs = computed(() => {
             resourcepacks: formatMessage(messages.resourcepacks),
             datapacks: formatMessage(messages.datapacks),
             maps: formatMessage(messages.maps),
+            schematics: formatMessage(messages.schematics),
             shaders: formatMessage(messages.shaders),
             servers: formatMessage(messages.servers),
             favorites: formatMessage(messages.title),

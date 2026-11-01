@@ -94,7 +94,7 @@
             />
             <div
                 v-if="!!$slots.actions"
-                class="flex justify-end gap-1 empty:hidden smart-clickable:allow-pointer-events"
+                class="col-start-[-2] flex justify-end gap-1 empty:hidden smart-clickable:allow-pointer-events"
             >
                 <slot name="actions" />
             </div>

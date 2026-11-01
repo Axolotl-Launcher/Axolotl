@@ -3062,6 +3062,7 @@ provideContentManager({
                       : null,
             toggleDisabled: item.instanceCapabilities?.canToggle === false,
             hideSwitchVersion:
+                item.project_type === 'schematic' ||
                 (isPackLocked.value && item.instanceOwnershipKind === 'pack_managed') ||
                 item.instanceCapabilities?.canChangeVersion === false,
             pendingManualDownload: item.pendingManualDownload,

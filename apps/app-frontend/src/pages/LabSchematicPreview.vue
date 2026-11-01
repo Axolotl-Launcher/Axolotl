@@ -70,6 +70,7 @@ import {
 } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { schematicMessages } from '@/components/browse/schematics/messages'
 import SchematicBlockPickerModal from '@/components/lab/schematic-preview/SchematicBlockPickerModal.vue'
 import SchematicInfoModal from '@/components/lab/schematic-preview/SchematicInfoModal.vue'
 import SchematicInstancePickerModal from '@/components/lab/schematic-preview/SchematicInstancePickerModal.vue'
@@ -1406,6 +1407,8 @@ function openRecent(record: RecentSchematic) {
 }
 
 function formatSource(record: RecentSchematic) {
+    if (record.source.kind === 'shimu')
+        return formatMessage(schematicMessages.previewSource, { fileName: record.source.fileName })
     if (record.source.kind === 'external') return record.source.path
     const instance = instances.value.find((item) => item.id === record.source.instanceId)
     return `${instance?.name ?? record.source.instanceId} · schematics/${record.source.relativePath}`
@@ -1520,6 +1523,12 @@ onMounted(async () => {
     await setupNativeDrop().catch(() => undefined)
     if (disposed) return
 
+    const postId = Number(route.query.shimu)
+    const fileName = typeof route.query.file === 'string' ? route.query.file : ''
+    if (Number.isSafeInteger(postId) && postId > 0 && /\.(litematic|schem)$/i.test(fileName)) {
+        await openSource({ kind: 'shimu', postId, fileName })
+        return
+    }
     const instanceId = typeof route.query.instance === 'string' ? route.query.instance : ''
     const relativePath = typeof route.query.path === 'string' ? route.query.path : ''
     if (

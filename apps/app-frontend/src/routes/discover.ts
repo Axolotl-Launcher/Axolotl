@@ -22,6 +22,16 @@ export const discoverRoutes: RouteRecordRaw[] = [
         },
     },
     {
+        path: '/browse/schematic',
+        name: 'DiscoverSchematics',
+        component: () => import('@/pages/Schematics.vue'),
+        meta: {
+            useContext: true,
+            breadcrumb: [{ name: '?BrowseTitle' }],
+            pageTransitionGroup: 'browse',
+        },
+    },
+    {
         path: '/browse/:projectType',
         name: 'DiscoverContent',
         component: () => import('@/pages/Browse.vue'),
@@ -110,6 +120,16 @@ export const discoverRoutes: RouteRecordRaw[] = [
             breadcrumb: [{ name: '?Project' }],
             discordActivity: 'Browsing mods...',
             pageTransitionGroup: 'planet-minecraft-project',
+        },
+    },
+    {
+        path: '/project/shimu/:id/:tab(files)?',
+        name: 'ShimuProject',
+        component: () => import('@/pages/project/Shimu.vue'),
+        meta: {
+            useContext: true,
+            breadcrumb: [{ name: '?Project' }],
+            pageTransitionGroup: 'shimu-project',
         },
     },
     {

@@ -94,6 +94,7 @@ fn valid_project_type(value: &str) -> bool {
             | "shader"
             | "plugin"
             | "server"
+            | "schematic"
     )
 }
 

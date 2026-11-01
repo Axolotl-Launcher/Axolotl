@@ -189,7 +189,7 @@ nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
     };
     settings = {
       appearance = {
-        locale = "zh_CN";
+        locale = "zh-CN";
         theme = "dark";
       };
       download.max_concurrent_downloads = 16;

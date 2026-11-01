@@ -59,7 +59,7 @@ in
       '';
       example = {
         appearance = {
-          locale = "zh_CN";
+          locale = "zh-CN";
           theme = "dark";
         };
         download.max_concurrent_downloads = 16;
@@ -88,8 +88,12 @@ in
   config =
     with config.programs.axolotl-launcher;
     mkIf enable {
+      # The launcher reads a deployment's documents from its own directory under
+      # the configuration home, so each file is linked there rather than at the
+      # top of the home directory.
       home.file = lib.mapAttrs' (
-        name: data: lib.nameValuePair "axolotl-launcher/${name}.json" (documentFile data)
+        name: data:
+        lib.nameValuePair "${config.xdg.configHome}/axolotl-launcher/${name}.json" (documentFile data)
       ) settings;
 
       home.packages = [

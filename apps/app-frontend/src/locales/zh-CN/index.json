@@ -87,7 +87,7 @@
     "message": "进度"
   },
   "app.agent-window.chat.close-panel": {
-    "message": "关闭进度"
+    "message": "关闭进度面板"
   },
   "app.agent-window.chat.panel-empty": {
     "message": "任务开始后，这里会显示进度。"
@@ -96,7 +96,7 @@
     "message": "步骤"
   },
   "app.agent-window.chat.panel-changes": {
-    "message": "变更"
+    "message": "改动"
   },
   "app.agent-window.chat.panel-log": {
     "message": "执行记录"
@@ -114,7 +114,7 @@
     "message": "权限"
   },
   "app.agent-window.chat.ask-first": {
-    "message": "变更前询问"
+    "message": "改动前先询问"
   },
   "app.agent-window.chat.unselected": {
     "message": "未选择"
@@ -144,7 +144,7 @@
     "message": "已拒绝"
   },
   "app.agent-window.chat.state-superseded": {
-    "message": "已替换"
+    "message": "已被替换"
   },
   "app.agent-window.chat.state-interrupted": {
     "message": "已中断"
@@ -189,7 +189,7 @@
     "message": "帮我搭建一个适合 6 GB 内存的轻量生存整合包。"
   },
   "app.agent-window.chat.intro-title": {
-    "message": "它是怎么工作的"
+    "message": "使用说明"
   },
   "app.agent-window.chat.intro-dismiss": {
     "message": "知道了"
@@ -219,19 +219,19 @@
     "message": "消息"
   },
   "app.agent-window.chat.prompt": {
-    "message": "描述你想做的事，输入 / 用快捷指令，@ 选实例"
+    "message": "描述你想做的事，输入 / 调出快捷指令，@ 选择实例"
   },
   "app.agent-window.chat.slash-title": {
     "message": "快捷指令"
   },
   "app.agent-window.chat.mention-title": {
-    "message": "让 Agent 处理哪个实例"
+    "message": "选择要处理的实例"
   },
   "app.agent-window.chat.prompt-followup": {
     "message": "继续提问…"
   },
   "app.agent-window.chat.prompt-queued": {
-    "message": "可以补充说明，会在当前任务结束后发送"
+    "message": "补充说明，会在 Agent 完成后发送"
   },
   "app.agent-window.chat.prompt-awaiting": {
     "message": "对方案有疑问或想调整，可以直接说…"
@@ -285,7 +285,7 @@
     "message": "模型不可用"
   },
   "app.agent-window.chat.model-search": {
-    "message": "搜索模型或提供商"
+    "message": "搜索模型或供应商"
   },
   "app.agent-window.chat.no-models": {
     "message": "没有启用的模型"
@@ -294,7 +294,7 @@
     "message": "AI 功能已关闭"
   },
   "app.agent-window.chat.setup-model-hint": {
-    "message": "Agent 使用你自己的 AI 提供商。在 Axolotl 中打开“设置 → AI”，开启 AI、添加提供商并启用模型后，再回来检查。"
+    "message": "Agent 使用你自己的 AI 供应商。请在 Axolotl 中打开「设置 → AI 功能」，开启 AI 功能、添加供应商并启用模型，然后回来重新检查。"
   },
   "app.agent-window.chat.check-again": {
     "message": "重新检查"
@@ -312,7 +312,7 @@
     "message": "停止"
   },
   "app.agent-window.chat.queue-message": {
-    "message": "在当前任务结束后发送"
+    "message": "Agent 完成后发送"
   },
   "app.agent-window.chat.queued-tag": {
     "message": "排队中"
@@ -429,7 +429,7 @@
     "message": "在 Modrinth 等网站上搜索模组、资源包或光影包"
   },
   "app.agent-window.chat.tool-help-resource-list-releases": {
-    "message": "看看某个模组或资源包有哪些版本适合这个实例"
+    "message": "列出某个模组或资源包适合该实例的版本"
   },
   "app.agent-window.chat.tool-help-resource-prepare-install": {
     "message": "规划安装，检查还需要哪些前置，暂时不会安装"
@@ -447,7 +447,7 @@
     "message": "执行检查过的更新方案，替换旧文件"
   },
   "app.agent-window.chat.tool-help-resource-history-list": {
-    "message": "查看实例里模组最近的变动，以及哪些旧版本还能恢复"
+    "message": "查看实例中模组最近的改动，以及哪些旧版本还能恢复"
   },
   "app.agent-window.chat.tool-help-resource-history-rollback": {
     "message": "把模组换回你之前用过的版本"
@@ -456,7 +456,7 @@
     "message": "列出实例里已安装的内容，以及各自是否启用"
   },
   "app.agent-window.chat.tool-help-logs-list": {
-    "message": "列出实例的日志和崩溃报告，但不打开它们"
+    "message": "列出实例的日志和崩溃报告，但不打开"
   },
   "app.agent-window.chat.tool-help-logs-read": {
     "message": "读取游戏日志，找出出错的地方"
@@ -468,7 +468,7 @@
     "message": "给实例创建快照，以后可以用它恢复"
   },
   "app.agent-window.chat.tool-help-launch-set-memory": {
-    "message": "设置这个实例的游戏能使用多少内存"
+    "message": "设置实例的游戏可以使用多少内存"
   },
   "app.agent-window.chat.tool-help-install-job-get": {
     "message": "查看安装进度，以及是否安装成功"
@@ -537,7 +537,7 @@
     "message": "说出你想做的事"
   },
   "app.agent-window.chat.tour-compose-body": {
-    "message": "用自己的话写下来就行，就像问一位朋友，不用记任何命令。"
+    "message": "用自己的话写下来就行，就像问朋友一样，不用记任何命令。"
   },
   "app.agent-window.chat.tour-slash": {
     "message": "常用操作的快捷指令"
@@ -558,7 +558,7 @@
     "message": "你点头，它才动手"
   },
   "app.agent-window.chat.tour-safety-body": {
-    "message": "发送后，Agent 会先检查，再给你看方案。只有你批准了，它才会做改动。"
+    "message": "发送后，Agent 会先检查，再给你看方案。你确认之后，它才会做改动。"
   },
   "app.agent-window.chat.tour-stop": {
     "message": "随时可以停下"
@@ -597,7 +597,7 @@
     "message": "正在处理…"
   },
   "app.agent-window.chat.applying": {
-    "message": "正在应用变更…"
+    "message": "正在应用改动…"
   },
   "app.agent-window.chat.esc-to-stop": {
     "message": "停止"
@@ -612,7 +612,7 @@
     "message": "显示前面 {count} 个步骤"
   },
   "app.agent-window.chat.steps-done-named": {
-    "message": "{title} 等 {count} 个步骤"
+    "message": "{title} · 共 {count} 步"
   },
   "app.agent-window.chat.answer-again": {
     "message": "重新回答"
@@ -648,13 +648,13 @@
     "message": "这个任务改动了什么"
   },
   "app.agent-window.chat.changes-undo": {
-    "message": "让 Agent 撤销这些改动"
+    "message": "让 Agent 撤销"
   },
   "app.agent-window.chat.undo-all-prompt": {
     "message": "撤销这个任务里的所有改动"
   },
   "app.agent-window.chat.preview-file": {
-    "message": "预览{name}"
+    "message": "预览 {name}"
   },
   "app.agent-window.chat.more-lines": {
     "message": "还有 {count} 行"
@@ -666,7 +666,7 @@
     "message": "改为直接粘贴"
   },
   "app.agent-window.chat.plan-kicker": {
-    "message": "拟执行的变更"
+    "message": "建议的改动"
   },
   "app.agent-window.chat.manual-change": {
     "message": "需手动"
@@ -699,7 +699,7 @@
     "message": "将跳过 {count} 项：{names}"
   },
   "app.agent-window.chat.nothing-selected": {
-    "message": "至少保留一项变更"
+    "message": "至少保留一项改动"
   },
   "app.agent-window.chat.plan-applied-partial": {
     "message": "已应用 {done} 项 · 跳过 {skipped} 项"
@@ -717,19 +717,19 @@
     "message": "等待你确认"
   },
   "app.agent-window.chat.approve": {
-    "message": "确认并执行"
+    "message": "确认并应用"
   },
   "app.agent-window.chat.decline": {
     "message": "拒绝"
   },
   "app.agent-window.chat.applying-progress": {
-    "message": "正在应用变更 · {done}/{total}"
+    "message": "正在应用改动 · {done}/{total}"
   },
   "app.agent-window.chat.plan-applied": {
     "message": "已应用"
   },
   "app.agent-window.chat.plan-declined": {
-    "message": "已拒绝，没有做任何修改。"
+    "message": "已拒绝，没有做任何改动。"
   },
   "app.agent-window.chat.plan-superseded": {
     "message": "已被你的新消息替换"
@@ -738,19 +738,19 @@
     "message": "未执行"
   },
   "app.agent-window.chat.plan-unknown": {
-    "message": "应用过程中被中断，可以核对实际写入了哪些内容。"
+    "message": "应用过程中被中断。可以核对状态，看看实际写入了哪些内容。"
   },
   "app.agent-window.chat.preview-result": {
-    "message": "预览模拟结果 · 实际未做修改"
+    "message": "预览中的模拟结果 · 实际没有改动"
   },
   "app.agent-window.chat.notice-stopped": {
-    "message": "已停止，没有做任何修改。"
+    "message": "已停止，没有做任何改动。"
   },
   "app.agent-window.chat.notice-interrupted": {
     "message": "窗口关闭时任务被中断。"
   },
   "app.agent-window.chat.notice-detached": {
-    "message": "在应用过程中停止，部分变更可能已经写入。"
+    "message": "应用过程中已停止，部分改动可能已经写入。"
   },
   "app.agent-window.chat.retry": {
     "message": "重试"
@@ -783,13 +783,13 @@
     "message": "完全访问"
   },
   "app.agent-window.chat.full-access-hint": {
-    "message": "允许删除内容等高影响操作。"
+    "message": "允许删除内容等影响较大的操作。"
   },
   "app.agent-window.chat.computer-use": {
     "message": "界面操作"
   },
   "app.agent-window.chat.computer-use-hint": {
-    "message": "仅在你明确要求时，允许观察和操作启动器界面。"
+    "message": "仅在你明确要求时，允许 Agent 查看和操作启动器界面。"
   },
   "app.agent-window.chat.permission-pending": {
     "message": "正在读取权限…"
@@ -801,7 +801,7 @@
     "message": "执行服务尚未连接，暂时无法修改权限。"
   },
   "app.agent-window.chat.permission-error": {
-    "message": "无法读取权限设置，请重新打开后重试。"
+    "message": "无法读取权限，请重新打开设置后重试。"
   },
   "app.agent-window.chat.permission-save-error": {
     "message": "无法保存权限设置，已保留原设置。"
@@ -810,7 +810,7 @@
     "message": "启用完全访问？"
   },
   "app.agent-window.chat.full-access-warning": {
-    "message": "智能体后续将能够删除内容和修改启动器数据，可能造成文件丢失。仅在你信任当前任务时启用。"
+    "message": "执行服务接入后，Agent 将能删除内容、修改启动器数据，可能导致文件丢失。请只在你信任的任务中启用。"
   },
   "app.agent-window.chat.enable-full-access": {
     "message": "启用完全访问"
@@ -834,13 +834,13 @@
     "message": "详细"
   },
   "app.agent-window.chat.instructions-label": {
-    "message": "长期说明"
+    "message": "固定要求"
   },
   "app.agent-window.chat.instructions-hint": {
     "message": "每次请求都会带上，比如回复用的语言、偏好的加载器。"
   },
   "app.agent-window.chat.instructions-placeholder": {
-    "message": "例如：用中文回答，优先 Fabric 模组，不要删除任何存档。"
+    "message": "例如：用中文回答，优先 Fabric 模组，不要删除任何世界。"
   },
   "app.agent-window.chat.history-title": {
     "message": "历史记录"
@@ -858,13 +858,13 @@
     "message": "清除所有任务？"
   },
   "app.agent-window.chat.clear-history-body": {
-    "message": "这台设备上的所有任务都会被移除。如需保留，请先导出。当前草稿会保留。"
+    "message": "这台设备上的所有任务都会被移除。如需留存，请先导出。当前草稿不受影响。"
   },
   "app.agent-window.chat.about-title": {
     "message": "入门"
   },
   "app.agent-window.chat.about-models": {
-    "message": "Agent 使用你在启动器中设置的 AI 提供商和模型，API 密钥只保存在启动器中。"
+    "message": "Agent 使用你在启动器中设置的 AI 供应商和模型，API 密钥只保存在启动器中。"
   },
   "app.agent-window.chat.show-intro": {
     "message": "重新显示入门说明"
@@ -876,19 +876,19 @@
     "message": "Agent 如何工作"
   },
   "app.agent-window.chat.help-lead": {
-    "message": "Agent 可以查看你的启动器并替你做修改，每次修改前都会请你确认方案。"
+    "message": "Agent 可以查看你的启动器并替你完成改动，每次改动前都会先请你确认方案。"
   },
   "app.agent-window.chat.help-facts-title": {
-    "message": "你需要知道"
+    "message": "几点说明"
   },
   "app.agent-window.chat.help-fact-model": {
-    "message": "它使用你在启动器设置中配置的 AI 提供商，无需账号或订阅。"
+    "message": "它使用你在启动器设置中配置的 AI 供应商，无需账号或订阅。"
   },
   "app.agent-window.chat.help-fact-scope": {
     "message": "在输入框下方选择实例，可以让它专注于该实例的模组、日志和世界。"
   },
   "app.agent-window.chat.help-fact-screen": {
-    "message": "除非你开启界面控制并明确提出，它不会操作启动器界面。"
+    "message": "除非你开启「界面操作」并明确要求，否则它不会操作启动器界面。"
   },
   "app.agent-window.chat.shortcuts-title": {
     "message": "快捷键"
@@ -930,7 +930,7 @@
     "message": "任务"
   },
   "app.agent-window.chat.toggle-panel": {
-    "message": "显示或隐藏进度"
+    "message": "显示或隐藏进度面板"
   },
   "app.agent-window.chat.shortcut-sidebar": {
     "message": "显示或隐藏任务列表"
@@ -945,7 +945,7 @@
     "message": "删除这个任务？"
   },
   "app.agent-window.chat.delete-body": {
-    "message": "它的记录会从这台设备上移除。"
+    "message": "该任务的记录将从这台设备上移除。"
   },
   "app.agent-window.chat.delete": {
     "message": "删除"
@@ -966,22 +966,22 @@
     "message": "无法读取启动器配置"
   },
   "app.agent-window.chat.storage-error": {
-    "message": "无法保存对话，请检查可用空间。输入已保留。"
+    "message": "无法保存对话，请检查剩余存储空间。你输入的内容已保留。"
   },
   "app.agent-window.chat.storage-load-error": {
     "message": "无法读取已保存的对话，新消息可能无法保存。"
   },
   "app.agent-window.chat.storage-recovery": {
-    "message": "无法读取已保存的历史，请先导出备份，再开始新历史。"
+    "message": "无法读取已保存的历史记录。请先导出，再重置历史记录。"
   },
   "app.agent-window.chat.storage-export-error": {
-    "message": "无法导出已保存历史，原始数据仍保留。"
+    "message": "无法导出历史记录，原始数据未受影响。"
   },
   "app.agent-window.chat.reset-history": {
-    "message": "开始新历史"
+    "message": "重置历史记录"
   },
   "app.agent-window.chat.reset-history-warning": {
-    "message": "已保存的历史将被替换。请先导出备份，当前草稿会保留。"
+    "message": "已保存的历史记录将被替换，建议先导出备份。当前草稿会保留。"
   },
   "app.agent-window.chat.export-draft": {
     "message": "导出草稿"

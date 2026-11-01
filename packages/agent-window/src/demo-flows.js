@@ -84,14 +84,14 @@ export const FLOWS = [
                 ['logs_read', '读取崩溃报告', 'Entity Culling 的 Mixin 注入失败'],
                 [
                     'resource_history_list',
-                    '查看最近的变更',
+                    '查看最近的改动',
                     '昨晚 Entity Culling 从 1.7.2 更新到了 1.7.4',
                 ],
             ],
-            answer: '崩溃来自昨晚更新的 **Entity Culling**，崩溃报告停在这里：\n\n```log\n[Render thread/ERROR]: Mixin apply failed entityculling.mixins.json:WorldRendererMixin\norg.spongepowered.asm.mixin.throwables.MixinApplyError\n```\n\n时间就在它从 `1.7.2` 更新到 `1.7.4` 的五分钟后。旧版本文件还在本地备份里，可以换回去。',
+            answer: '崩溃来自昨晚更新的 **Entity Culling**，崩溃报告停在这里：\n\n```log\n[Render thread/ERROR]: Mixin apply failed entityculling.mixins.json:WorldRendererMixin\norg.spongepowered.asm.mixin.throwables.MixinApplyError\n```\n\n时间就在它从 `1.7.2` 更新到 `1.7.4` 的五分钟后。旧版本文件还在本地备份里，我可以帮你换回去。',
             plan: {
                 title: '{instance} · 崩溃修复',
-                summary: '1 项变更',
+                summary: '1 项改动',
                 approval: '用本地备份把 Entity Culling 换回 1.7.2',
                 changes: [
                     {
@@ -111,7 +111,7 @@ export const FLOWS = [
                 ],
             },
             progress: [
-                ['读取崩溃报告', '实例、日志与最近的变更'],
+                ['读取崩溃报告', '实例、日志与最近的改动'],
                 ['定位原因', 'Entity Culling 1.7.4 加载失败'],
                 ['确认后回滚', '从备份恢复 1.7.2'],
             ],
@@ -119,7 +119,7 @@ export const FLOWS = [
                 [
                     'resource_history_rollback',
                     '回滚 Entity Culling',
-                    '已换回 1.7.2 · 安装任务已排队',
+                    '已换回 1.7.2 · 已加入安装队列',
                     1,
                 ],
                 ['install_job_get', '核对安装结果', 'Entity Culling 1.7.2 已安装'],
@@ -129,9 +129,9 @@ export const FLOWS = [
                 text: 'Entity Culling 已换回 1.7.2。启动游戏后即可确认崩溃是否解决。',
                 next: ['启动游戏确认一下', '撤销这次改动'],
             },
-            check: '回滚任务已经完成：Entity Culling 1.7.2 已安装。',
+            check: '回滚已完成：Entity Culling 1.7.2 已安装。',
             followup:
-                '我重新核对了一遍：崩溃报告和变更记录都没有变化，方案仍是回滚 Entity Culling。',
+                '我重新核对了一遍：崩溃报告和改动记录都没有变化，方案仍是回滚 Entity Culling。',
         },
     },
     {
@@ -185,14 +185,14 @@ export const FLOWS = [
             followup: 'Checked again: the game is still closed, so the world can be backed up.',
         },
         zh: {
-            title: '备份世界存档',
+            title: '备份世界',
             working: '正在查找世界…',
             reads: [
                 ['world_list', '列出世界', '{instance} 中有 3 个世界'],
                 ['world_get', '读取世界信息', '山间小屋 · 生存 · 困难'],
                 ['process_list', '检查游戏是否在运行', '{instance} 没有在运行'],
             ],
-            answer: '可以直接备份 **山间小屋**。游戏没有运行，存档没有被占用。\n\n备份会以 ZIP 形式保存到这个实例的 backups 文件夹，不会改动存档本身。',
+            answer: '可以直接备份**山间小屋**。游戏没有在运行，世界没有被占用。\n\n备份会以 ZIP 形式保存到这个实例的 backups 文件夹，不会改动世界本身。',
             plan: {
                 title: '山间小屋 · 世界备份',
                 summary: '1 个新文件',
@@ -207,10 +207,10 @@ export const FLOWS = [
                         to: '新建 ZIP',
                     },
                 ],
-                notes: ['保存到实例的 backups 文件夹', '不修改存档'],
+                notes: ['保存到实例的 backups 文件夹', '世界本身不受影响'],
                 scope: [
                     { label: '新建备份', count: 1 },
-                    { label: '修改存档', count: 0 },
+                    { label: '修改世界', count: 0 },
                 ],
             },
             progress: [
@@ -219,7 +219,7 @@ export const FLOWS = [
                 ['确认后备份', '创建 ZIP'],
             ],
             writes: [
-                ['world_backup', '备份世界', '备份任务已排队', 1],
+                ['world_backup', '备份世界', '已加入备份队列', 1],
                 ['operations_get', '核对备份', 'ZIP 已创建，412 MB'],
             ],
             result: {
@@ -337,14 +337,14 @@ export const FLOWS = [
             working: '正在查找兼容的模组…',
             reads: [
                 ['system_get_memory', '检查系统内存', '共 16 GB，可用 7.8 GB'],
-                ['metadata_list_loader_versions', '查询加载器版本', 'Fabric 1.21.1 稳定版'],
+                ['metadata_list_loader_versions', '查询加载器版本', '1.21.1 可用的 Fabric 稳定版'],
                 ['resource_search', '搜索模组', 'Modrinth · Fabric 1.21.1 · 性能类'],
                 ['resource_list_releases', '确认可用版本', '三个模组都有 1.21.1 版本'],
             ],
-            answer: '用三个性能模组搭一个轻量生存整合包。\n\n系统可用内存 7.8 GB，分配 4 GB 能留出余量。三个模组都来自 Modrinth，并支持 Fabric 1.21.1。依赖要等实例创建后才能检查，如有新增会先问你。',
+            answer: '可以用三个性能模组搭一个轻量生存整合包。\n\n系统可用内存 7.8 GB，分配 4 GB 能留出余量。三个模组都来自 Modrinth，并支持 Fabric 1.21.1。前置模组要等实例创建后才能检查，如果需要额外安装，会先问你。',
             plan: {
                 title: '轻量生存 · 新整合包',
-                summary: '5 项变更',
+                summary: '5 项改动',
                 approval: '新建实例并安装 3 个模组',
                 changes: [
                     {
@@ -389,7 +389,7 @@ export const FLOWS = [
                         to: '4 GB',
                     },
                 ],
-                notes: ['Fabric · 1.21.1', '创建后再检查依赖'],
+                notes: ['Fabric · 1.21.1', '创建后再检查前置'],
                 scope: [
                     { label: '新建实例', count: 1 },
                     { label: '安装模组', count: 3 },
@@ -404,16 +404,16 @@ export const FLOWS = [
             writes: [
                 ['instance_create', '创建实例', '轻量生存 · Fabric 1.21.1', 1],
                 ['install_job_get', '等待实例安装', '实例已就绪'],
-                ['resource_prepare_install', '检查模组', '无新增依赖，无冲突'],
-                ['resource_execute_plan', '安装模组', '安装任务已排队', 3],
+                ['resource_prepare_install', '检查模组', '无需额外前置，无冲突'],
+                ['resource_execute_plan', '安装模组', '已加入安装队列', 3],
                 ['launch_set_memory', '设置内存', '4096 MiB', 1],
             ],
             result: {
                 title: '整合包已就绪',
-                text: '「轻量生存」已创建，装好 3 个模组，内存设为 4 GB。',
+                text: '「轻量生存」已创建，装好了 3 个模组，内存设为 4 GB。',
                 next: ['再加一个小地图模组', '启动这个新实例'],
             },
-            check: '实例已存在，三个模组均已安装。',
+            check: '实例已创建，三个模组均已安装。',
             followup: '重新核对过了：三个模组仍有 Fabric 1.21.1 版本，方案不变。',
         },
     },
@@ -512,16 +512,16 @@ export const FLOWS = [
             working: '正在检查兼容性…',
             reads: [
                 ['instance_get', '读取实例', '{instance} · Minecraft {version} · {loader}'],
-                ['content_list', '列出已安装的模组', '86 个条目，均已启用'],
+                ['content_list', '列出已安装的模组', '共 86 项，均已启用'],
                 ['logs_read', '读取最近的日志', '没有崩溃或模组报错'],
-                ['resource_check_updates', '检查兼容更新', '86 个中有 2 个可以更新'],
+                ['resource_check_updates', '检查兼容更新', '86 项中有 2 项可更新'],
                 ['resource_prepare_update', '生成更新方案', 'Sodium、Lithium · 无冲突'],
                 ['backup_get_config', '读取备份设置', '已启用快照'],
             ],
-            answer: '有两个性能模组可以安全更新：**Sodium** 和 **Lithium**。\n\n渲染距离往往影响更大，但没有对应的工具，我不会改动它。需要的话可以在游戏的视频设置里调低。',
+            answer: '两个性能模组有兼容的更新：**Sodium** 和 **Lithium**。\n\n渲染距离往往影响更大，但我没有调整它的工具，所以不会动它。你可以在游戏的视频设置里自己调低。',
             plan: {
                 title: '{instance} · 性能优化',
-                summary: '2 项变更 · 1 项需手动',
+                summary: '2 项改动 · 1 项需手动',
                 approval: '先创建快照，再更新 2 个模组',
                 changes: [
                     {
@@ -550,7 +550,7 @@ export const FLOWS = [
                         manual: true,
                     },
                 ],
-                notes: ['先创建实例快照', '无新增依赖'],
+                notes: ['先创建实例快照', '无需新增前置'],
                 scope: [
                     { label: '更新模组', count: 2 },
                     { label: '创建快照', count: 1 },
@@ -563,18 +563,18 @@ export const FLOWS = [
                 ['确认后应用', '先快照，再更新'],
             ],
             writes: [
-                ['backup_create', '创建快照', '快照已完成，可在备份中恢复', 0],
-                ['resource_execute_changes', '更新模组', '安装任务已排队', 2],
+                ['backup_create', '创建快照', '快照已创建，可在备份中恢复', 0],
+                ['resource_execute_changes', '更新模组', '已加入安装队列', 2],
                 ['install_job_get', '核对安装结果', 'Sodium 0.6.13、Lithium 0.14.8 已安装'],
             ],
             result: {
                 title: '更新已完成',
                 text: 'Sodium 和 Lithium 已更新。更新前为 {instance} 创建了快照，可以随时从备份中恢复。',
-                next: ['看看现在是否流畅', '撤回这次更新'],
+                next: ['看看现在是不是更流畅了', '撤销这次更新'],
             },
-            check: '快照已存在，两个模组都已安装完成。',
+            check: '快照已创建，两个模组都已安装完成。',
             followup:
-                '重新核对了方案：仍是 2 个模组更新。渲染距离没有对应工具，需要时可在游戏内调整。',
+                '重新核对了方案：仍是更新 2 个模组。渲染距离没有对应的工具，需要的话可以在游戏里自己调整。',
         },
     },
 ]
@@ -597,7 +597,7 @@ export const GENERIC = {
         readsWithInstance: [
             ['instance_get', '读取实例', '{instance} · Minecraft {version} · {loader}'],
         ],
-        answer: '这个预览可以演示四个示例任务：\n\n- 排查启动崩溃\n- 让游戏运行更流畅\n- 备份世界存档\n- 搭建轻量整合包\n\n可以试着提出其中一个。除了实例信息外没有读取其他内容，也没有做任何修改。',
+        answer: '这个预览可以演示四个示例任务：\n\n- 排查启动崩溃\n- 让游戏运行更流畅\n- 备份世界\n- 搭建轻量整合包\n\n可以试试其中任意一个。除了实例列表，没有读取其他内容，也没有做任何改动。',
     },
 }
 
@@ -633,7 +633,7 @@ export const CHECK_STEP = {
         'Read the status of the queued jobs',
         'Status checked',
     ],
-    zh: ['operations_get', '核对写入情况', '读取已排队任务的状态', '已核对'],
+    zh: ['operations_get', '核对写入情况', '读取排队中的后台操作状态', '状态已核对'],
 }
 
 export const SKIPPED = {
@@ -649,7 +649,7 @@ export const FAILURE = {
     },
     zh: {
         title: '暂时无法连接 Modrinth',
-        text: '请求超时，没有做任何修改。检查网络后可以重试。',
+        text: '请求超时，没有做任何改动。请检查网络后重试。',
         step: '请求超时',
     },
 }

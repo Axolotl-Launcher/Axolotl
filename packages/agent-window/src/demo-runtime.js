@@ -265,8 +265,9 @@ export class DemoRuntime {
             }
             await playback.wait(250)
             this.#progress(playback, copy.progress, ['done', 'done', 'done'])
+            // Chinese sentences follow a full stop directly; English ones after a space.
             const note = skipped.length
-                ? ` ${fill(SKIPPED[lang], { names: skipped.join(lang === 'zh' ? '、' : ', ') })}`
+                ? `${lang === 'zh' ? '' : ' '}${fill(SKIPPED[lang], { names: skipped.join(lang === 'zh' ? '、' : ', ') })}`
                 : ''
             playback.send({ type: 'result', ...copy.result, text: copy.result.text + note })
             playback.send({ type: 'done' })

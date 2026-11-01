@@ -1,10 +1,12 @@
 //! Theseus settings management interface
 
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
 pub use crate::state::documents::settings::SettingLayer;
+use crate::state::documents::settings::{DANGER_ZONE, DOMAINS};
 use crate::state::store::{Handle, atom};
 pub use crate::{
     State,
@@ -254,6 +256,165 @@ pub fn patch_json(settings: &Settings) -> Value {
     Value::Object(domains)
 }
 
+/// Which keys an export writes.
+#[derive(Debug, Clone, Copy)]
+pub enum ExportKind {
+    /// Every domain, carrying the value every one of its known keys reads as.
+    Effective,
+    /// Only the keys that differ from the build's defaults, and only the
+    /// domains that carry one of them.
+    Patch,
+}
+
+/// The documents an export writes, named by the domain each one belongs to and
+/// holding nothing but that domain's keys.
+///
+/// A document is the shape the launcher's own files take, `schema_version`
+/// included, so an archive of them can be unzipped into the settings directory
+/// and read as the configuration it describes: the version it states is the one
+/// this build writes that domain in, which is what a file has to record for the
+/// next read to interpret it. An `Effective` export states every key, since a
+/// value equal to the default is what the export is for; a `Patch` export
+/// leaves a domain out when it has nothing to write, the way `patch_json`
+/// leaves it out of its answer.
+pub fn export_documents(
+    settings: &Settings,
+    kind: ExportKind,
+) -> Vec<(String, Value)> {
+    match kind {
+        ExportKind::Effective => {
+            let Value::Object(values) = effective_json(settings) else {
+                return Vec::new();
+            };
+            DOMAINS
+                .iter()
+                .map(|&(name, keys, schema_version)| {
+                    let mut data = Map::new();
+                    for &key in keys {
+                        if let Some(value) = values.get(key) {
+                            data.insert(key.to_string(), value.clone());
+                        }
+                    }
+                    (name.to_string(), document(schema_version, data))
+                })
+                .collect()
+        }
+        ExportKind::Patch => {
+            let Value::Object(values) = patch_json(settings) else {
+                return Vec::new();
+            };
+            let mut documents = Vec::new();
+            for &(name, _, schema_version) in DOMAINS {
+                let Some(Value::Object(data)) = values.get(name) else {
+                    continue;
+                };
+                documents.push((
+                    name.to_string(),
+                    document(schema_version, data.clone()),
+                ));
+            }
+            documents
+        }
+    }
+}
+
+/// One settings document, in the shape the launcher's own files take.
+fn document(schema_version: u32, data: Map<String, Value>) -> Value {
+    let mut document = Map::new();
+    document.insert("schema_version".to_string(), Value::from(schema_version));
+    document.insert("data".to_string(), Value::Object(data));
+    Value::Object(document)
+}
+
+/// What importing a file would find in it, so the user can be told before
+/// anything of it is applied.
+#[derive(Debug, Default, serde::Serialize)]
+pub struct ImportScan {
+    /// The domains the file carries a document for.
+    pub domains: Vec<String>,
+    /// The keys of `DANGER_ZONE` the file would actually set.
+    pub dangerous: Vec<String>,
+}
+
+/// What an import wrote.
+#[derive(Debug, Default, serde::Serialize)]
+pub struct ImportResult {
+    /// The local documents it replaced.
+    pub documents: usize,
+    /// The imported values it dropped because this build cannot read them as
+    /// the settings they name.
+    pub dropped: usize,
+}
+
+/// Reads what `input` would import: the known domains it carries a document
+/// for, and the dangerous settings it actually sets.
+///
+/// A file a user was handed may carry names beside the domains; those are not
+/// settings documents, so they are passed over rather than refused. A dangerous
+/// key is reported only for the domain whose key list carries it, because one
+/// written into the wrong document is read as no setting at all. A key belongs
+/// to one domain, so the list needs no ordering of its own.
+pub fn import_scan(input: &Value) -> ImportScan {
+    let mut scan = ImportScan::default();
+    let Some(values) = input.as_object() else {
+        return scan;
+    };
+    for &(name, keys, _) in DOMAINS {
+        let Some(data) = values.get(name).and_then(Value::as_object) else {
+            continue;
+        };
+        scan.domains.push(name.to_string());
+        for &key in keys {
+            if DANGER_ZONE.contains(&key) && data.contains_key(key) {
+                scan.dangerous.push(key.to_string());
+            }
+        }
+    }
+    scan
+}
+
+/// Everything the runtime derives from the settings, re-applied after a change
+/// that did not go through the row.
+///
+/// A document operation can replace part of its documents and then answer an
+/// error, so the effective values may differ from the ones the runtime took at
+/// the last write. Each step that fails is reported in the log rather than
+/// returned: the caller's own answer is about the write, and replacing it with
+/// a failure of the refresh would hide what landed.
+async fn refresh(state: &Arc<State>) {
+    let settings = match Settings::get(&state.data).await {
+        Ok(settings) => settings,
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "Skipping the settings refresh: the settings cannot be read"
+            );
+            return;
+        }
+    };
+    crate::util::download::telemetry::set_enabled(
+        settings.advanced_download_info_enabled(),
+    );
+    if let Err(error) = state.update_http_client_for_settings(&settings).await {
+        tracing::warn!(
+            %error,
+            "Keeping the network clients built from the previous settings"
+        );
+    }
+    state.update_download_settings(&settings);
+    if let Err(error) = crate::set_log_level(&settings.log_level) {
+        tracing::warn!(%error, "Keeping the previous log level");
+    }
+    if let Err(error) =
+        crate::telemetry::set_enabled(state, settings.telemetry).await
+    {
+        tracing::debug!(target: "theseus::telemetry", %error, "Failed to apply telemetry state");
+    }
+    if let Err(error) = state.discord_rpc.clear_to_default(true).await {
+        tracing::debug!(target: "theseus::telemetry", %error, "Failed to apply Discord RPC state");
+    }
+}
+
 /// Every key of the settings with what each layer says about it.
 pub async fn layers() -> crate::Result<Vec<SettingLayer>> {
     let state = State::get().await?;
@@ -266,7 +427,9 @@ pub async fn layers() -> crate::Result<Vec<SettingLayer>> {
 /// `expected` is the local value the caller saw: a value that no longer matches
 /// is one the user changed since, which is theirs to keep. Everything else the
 /// runtime derives from the settings is refreshed here, the same way `patch`
-/// does after a write, because the effective value changed without a row write.
+/// does after a write, because the effective value changed without a row write —
+/// and it is refreshed whatever the clear answered, since a clear that failed
+/// after the document was replaced left the same change behind.
 pub async fn clear_override(
     key: &str,
     expected: &Value,
@@ -278,17 +441,9 @@ pub async fn clear_override(
         key,
         expected,
     )
-    .await?;
-    if !cleared {
-        return Ok(false);
-    }
-    let settings = Settings::get(&state.data).await?;
-    crate::util::download::telemetry::set_enabled(
-        settings.advanced_download_info_enabled(),
-    );
-    state.update_http_client_for_settings(&settings).await?;
-    state.update_download_settings(&settings);
-    Ok(true)
+    .await;
+    refresh(&state).await;
+    cleared
 }
 
 /// Rewrites every local settings document in the shape this build knows, and
@@ -300,38 +455,40 @@ pub async fn clear_override(
 /// What a rewrite cannot keep is in the documents' own log.
 ///
 /// The effective values change without a row write, so everything the runtime
-/// derives from them is refreshed here the way `patch` refreshes it.
+/// derives from them is refreshed here the way `patch` refreshes it, and the
+/// rewrite's own failure is what the caller is told: the domains it did write
+/// are in effect either way.
 pub async fn sanitise() -> crate::Result<usize> {
     let _guard = SETTINGS_WRITE.lock().await;
     let state = State::get().await?;
     let written =
-        crate::state::documents::settings::sanitise(&state.data).await?;
-    let settings = Settings::get(&state.data).await?;
-    crate::util::download::telemetry::set_enabled(
-        settings.advanced_download_info_enabled(),
-    );
-    state.update_http_client_for_settings(&settings).await?;
-    state.update_download_settings(&settings);
-    Ok(written)
+        crate::state::documents::settings::sanitise(&state.data).await;
+    refresh(&state).await;
+    written
 }
 
-/// Merges an exported settings document into the local documents, and reports
-/// how many domains were written.
+/// Merges the documents of an exported archive into the local documents, and
+/// reports what was written.
 ///
-/// The description of what a merge does is the document writer's; what is here
-/// is the same refresh `sanitise` makes, for the same reason.
-pub async fn import(input: Value) -> crate::Result<usize> {
+/// The description of what a merge does is the document writer's, and so is the
+/// answer `allow_danger` gives about `DANGER_ZONE`; what is here is the refresh
+/// the runtime needs after it. That refresh happens whatever the merge
+/// answered, and the merge's own answer is what the caller is told: a merge that
+/// wrote part of its domains and then failed still changed them.
+pub async fn import(
+    input: Value,
+    allow_danger: bool,
+) -> crate::Result<ImportResult> {
     let _guard = SETTINGS_WRITE.lock().await;
     let state = State::get().await?;
-    let written =
-        crate::state::documents::settings::import(&state.data, input).await?;
-    let settings = Settings::get(&state.data).await?;
-    crate::util::download::telemetry::set_enabled(
-        settings.advanced_download_info_enabled(),
-    );
-    state.update_http_client_for_settings(&settings).await?;
-    state.update_download_settings(&settings);
-    Ok(written)
+    let imported = crate::state::documents::settings::import(
+        &state.data,
+        input,
+        allow_danger,
+    )
+    .await;
+    refresh(&state).await;
+    imported
 }
 
 #[tracing::instrument]

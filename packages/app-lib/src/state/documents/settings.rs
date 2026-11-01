@@ -59,6 +59,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde_json::{Map, Value};
 
 use super::{Documents, Shipped, Stored, WRITES};
+use crate::api::settings::ImportResult;
 use crate::state::settings::Settings;
 use crate::state::store::Handle;
 
@@ -286,6 +287,11 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
     ),
 ];
 
+/// 导入一份别人给的文件时会被执行或注入进程环境的键；它们是设置，但据此可以让
+/// 启动器运行任意命令，所以导入前要先让用户看见。
+pub(crate) const DANGER_ZONE: &[&str] =
+    &["hooks", "custom_env_vars", "extra_launch_args"];
+
 /// The domains whose writes have moved to their document.
 ///
 /// A write of the row reaches the domains listed here by stating each of the
@@ -475,9 +481,16 @@ pub struct SettingLayer {
     /// the deployment ships no document for the domain or no value for the key:
     /// a key it leaves out is one it does not pin.
     pub provided: Option<Value>,
+    /// Whether the deployment's document names the key at all. `provided` alone
+    /// cannot answer that, because a key a document states as `null` and one it
+    /// leaves out both read as nothing there, and a caller that offers to pin a
+    /// key or to clear an override has to tell the two apart.
+    pub provided_present: bool,
     /// The value the local document holds, and nothing when the user has not
     /// written the key. A key with a value here is what an override is.
     pub local: Option<Value>,
+    /// The same question for the local document.
+    pub local_present: bool,
     /// What the key reads as, which is `Settings::get`'s answer and already
     /// composed of every layer and normalized.
     pub effective: Value,
@@ -541,7 +554,13 @@ pub(crate) async fn layers(
                     .as_ref()
                     .and_then(|provided| provided.get(key))
                     .cloned(),
+                provided_present: provided
+                    .as_ref()
+                    .is_some_and(|provided| provided.contains_key(key)),
                 local: local.as_ref().and_then(|local| local.get(key)).cloned(),
+                local_present: local
+                    .as_ref()
+                    .is_some_and(|local| local.contains_key(key)),
                 effective,
             });
         }
@@ -795,9 +814,12 @@ pub(crate) async fn prune_redundant(
 ///
 /// What is written is the effective settings projected the way `store` projects
 /// them: the domain's known keys, minus one holding what the deployment
-/// provides, minus one holding the build's default. Everything else is dropped,
-/// including the keys this build cannot name, which is what "clean up" means
-/// here and why the operation is offered explicitly rather than run at a start.
+/// provides, minus one holding the build's default. A key the local document
+/// carries is stated as an override of a provided value, the way a write names
+/// it, so the user's own entries survive the rewrite while a copy of a provided
+/// value still goes. Everything else is dropped, including the keys this build
+/// cannot name, which is what "clean up" means here and why the operation is
+/// offered explicitly rather than run at a start.
 ///
 /// Every domain is written, an empty one included: the version is the thing that
 /// has to be reset, and a domain left out would keep the version that made it
@@ -833,7 +855,19 @@ pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
             }
             Shipped::Missing => Document::new(),
         };
-        let target = domain_values(keys, &values, &shipped, &defaults, None);
+        // The keys the local document holds are the user's own statements, so
+        // they are what a rewrite states as `changed`: a rewrite that named no
+        // key would drop the user's override of a provided value, which is the
+        // one entry of theirs the projection cannot recover from the settings.
+        let local: BTreeSet<String> =
+            match documents.stored::<Document>(name, schema_version).await {
+                Stored::Ready { document } | Stored::Newer { document } => {
+                    document.into_iter().map(|(key, _)| key).collect()
+                }
+                Stored::Missing | Stored::Unreadable => BTreeSet::new(),
+            };
+        let target =
+            domain_values(keys, &values, &shipped, &defaults, Some(&local));
         match replace(&documents, name, schema_version, &target).await {
             Ok(()) => written += 1,
             Err(error) => {
@@ -855,15 +889,16 @@ pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
     Ok(written)
 }
 
-/// Merges a settings document into the local documents, and reports how many
-/// domains were written.
+/// Merges the documents of an imported archive into the local documents, and
+/// reports what was written.
 ///
-/// The input is a patch in the shape `patch_json` exports: one object per
-/// domain, one entry per key. A key the file names wins over the one the domain
-/// already holds — the file is the newer statement of the two — and a key the
-/// domain holds and the file leaves out is kept, which is what makes this a
-/// merge rather than a store: a file exported by another build names the keys
-/// that build knows, and replacing the document with it would drop the rest.
+/// The input is the `data` of the file an archive carries per domain, keyed by
+/// that domain: one object per domain, one entry per key. A key the file names
+/// wins over the one the domain already holds — the file is the newer statement
+/// of the two — and a key the domain holds and the file leaves out is kept,
+/// which is what makes this a merge rather than a store: a file exported by
+/// another build names the keys that build knows, and replacing the document
+/// with it would drop the rest.
 ///
 /// A key whose value is the one the deployment provides is dropped rather than
 /// written: a local copy would be the last word for it, so the deployment's own
@@ -872,15 +907,23 @@ pub(crate) async fn sanitise(handle: &Handle) -> crate::Result<usize> {
 /// shadows a value something else decides, and dropping them would lose what the
 /// user exported on purpose.
 ///
-/// Nothing is written before every domain is read and projected: a name
-/// `DOMAINS` does not list, a deployment document this build cannot read and a
-/// local document it cannot read all answer an error with the disk untouched,
-/// which is the promise an irreversible write makes. A domain the input does not
-/// name is left as it stands, byte for byte.
+/// `allow_danger` is what the user answered about `DANGER_ZONE`: without it the
+/// keys it lists are dropped from the file before anything is merged, so the
+/// rest of the import still lands. `dropped` in the answer counts the values of
+/// known keys this build cannot read as the setting they name — a file is
+/// someone else's statement, so one bad value costs that value and not the
+/// import, and the local document keeps what it held for it.
+///
+/// Nothing is written before every domain is read, projected and judged: a
+/// deployment document this build cannot read and a local document it cannot
+/// read both answer an error with the disk untouched, which is the promise an
+/// irreversible write makes. A domain the input does not name is left as it
+/// stands, byte for byte.
 pub(crate) async fn import(
     handle: &Handle,
     input: Value,
-) -> crate::Result<usize> {
+    allow_danger: bool,
+) -> crate::Result<ImportResult> {
     let Value::Object(input) = input else {
         return Err(crate::ErrorKind::InputError(
             "A settings document is an object of domains".to_string(),
@@ -896,24 +939,40 @@ pub(crate) async fn import(
             .iter()
             .find(|(domain, _, _)| *domain == name.as_str())
         else {
-            return Err(crate::ErrorKind::InputError(format!(
-                "No settings document is named {name}"
-            ))
-            .into());
+            // An archive is a file the user was handed rather than one this
+            // build wrote, so a name beside the domains is not a reason to
+            // refuse the whole import: it is a file this build has nothing to
+            // say about.
+            tracing::debug!(
+                document = %name,
+                "Ignoring an imported settings document of an unknown name"
+            );
+            continue;
         };
-        let Value::Object(imported) = imported else {
+        let Value::Object(mut imported) = imported else {
             return Err(crate::ErrorKind::InputError(format!(
                 "The settings document for {name} is not an object of keys"
             ))
             .into());
         };
+        if !allow_danger {
+            for &key in DANGER_ZONE {
+                imported.remove(key);
+            }
+        }
         named.push((domain, keys, schema_version, imported));
     }
     let Some(documents) = handle.settings_documents() else {
-        return Ok(0);
+        return Ok(ImportResult::default());
     };
     let defaults = default_values()?;
     let _writing = WRITES.lock().await;
+    // What each imported value is judged against: the settings as they read now,
+    // so a key beside the one being judged answers this build's type for it.
+    let mut projection: Document = serde_json::from_value(
+        serde_json::to_value(Settings::get(handle).await?)?,
+    )?;
+    let mut dropped = 0_usize;
     let mut targets = Vec::with_capacity(named.len());
     for (name, keys, schema_version, imported) in named {
         let shipped = match documents.shipped_keys(name, schema_version).await {
@@ -945,9 +1004,31 @@ pub(crate) async fn import(
                 return Err(unreadable.into());
             }
         };
-        target.extend(imported);
-        // Only the keys the domain lists are judged, so a key from another shape
-        // survives the merge as the file wrote it.
+        for (key, value) in imported {
+            // Only the keys the domain lists are judged, so a key from another
+            // shape survives the merge as the file wrote it.
+            if !keys.contains(&key.as_str()) {
+                target.insert(key, value);
+                continue;
+            }
+            match lay(&mut projection, &key, &value) {
+                Lay::Read | Lay::LowerBound => {
+                    target.insert(key, value);
+                }
+                // What the document held for the key is kept rather than
+                // replaced: a value this build cannot read would cost the
+                // setting the user already has.
+                Lay::Unreadable(error) => {
+                    dropped += 1;
+                    tracing::warn!(
+                        document = name,
+                        key = %key,
+                        %error,
+                        "Dropping an imported settings value that cannot be read"
+                    );
+                }
+            }
+        }
         for &key in keys {
             let covered = target.get(key).is_some_and(|value| {
                 shipped.get(key).is_some_and(|provided| {
@@ -981,7 +1062,10 @@ pub(crate) async fn import(
         ))
         .into());
     }
-    Ok(written)
+    Ok(ImportResult {
+        documents: written,
+        dropped,
+    })
 }
 
 /// Writes a document for every domain from `settings`, leaving out the keys
@@ -1607,40 +1691,68 @@ fn overlay(
         let Some(value) = source.get(key) else {
             continue;
         };
-        let kept = values.insert(key.to_string(), value.clone());
-        let mut unreadable = settings_error(values);
-
-        // A negative number is the one value the type cannot take that still
-        // has a nearest value inside its range. Read as zero it lands on that
-        // field's lower bound once `normalize` runs, where dropping the key
-        // would put back the default, which is not the nearest value to it.
-        if unreadable.is_some() && is_negative_integer(value) {
-            values.insert(key.to_string(), Value::from(0));
-            unreadable = settings_error(values);
-            if unreadable.is_none() {
-                tracing::warn!(
-                    document = name,
-                    key,
-                    "Reading a negative settings value as its lower bound"
-                );
-                continue;
-            }
-        }
-
-        if let Some(error) = unreadable {
-            if let Some(kept) = kept {
-                values.insert(key.to_string(), kept);
-            } else {
-                values.remove(key);
-            }
-            tracing::warn!(
+        match lay(values, key, value) {
+            Lay::Read => {}
+            Lay::LowerBound => tracing::warn!(
+                document = name,
+                key,
+                "Reading a negative settings value as its lower bound"
+            ),
+            Lay::Unreadable(error) => tracing::warn!(
                 document = name,
                 key,
                 %error,
                 "Ignoring a settings value that cannot be read"
-            );
+            ),
         }
     }
+}
+
+/// What one key of a layer did to the settings when its value was laid over
+/// them.
+enum Lay {
+    /// The value reads as the type the key belongs to.
+    Read,
+    /// A negative number, read as its field's lower bound.
+    LowerBound,
+    /// The type cannot take the value, which cost that key and no other.
+    Unreadable(serde_json::Error),
+}
+
+/// Lays `value` over `values` as the setting `key` names, and answers what came
+/// of it.
+///
+/// A value the type cannot take leaves `values` as the layer below gave them, so
+/// one bad value costs its own key: a read is a whole `Settings`, and a value of
+/// the wrong type would otherwise fail it outright instead of that key. A
+/// negative number is the one value that still has a nearest value inside its
+/// range: read as zero it lands on that field's lower bound once `normalize`
+/// runs, where dropping the key would put back the default, which is not the
+/// nearest value to it.
+fn lay(values: &mut Map<String, Value>, key: &str, value: &Value) -> Lay {
+    let kept = values.insert(key.to_string(), value.clone());
+    let mut unreadable = settings_error(values);
+
+    if unreadable.is_some() && is_negative_integer(value) {
+        values.insert(key.to_string(), Value::from(0));
+        unreadable = settings_error(values);
+        if unreadable.is_none() {
+            return Lay::LowerBound;
+        }
+    }
+
+    let Some(error) = unreadable else {
+        return Lay::Read;
+    };
+    match kept {
+        Some(kept) => {
+            values.insert(key.to_string(), kept);
+        }
+        None => {
+            values.remove(key);
+        }
+    }
+    Lay::Unreadable(error)
 }
 
 /// Why `values` does not read as `Settings`, when they do not.

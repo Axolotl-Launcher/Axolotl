@@ -98,7 +98,7 @@
     --shadow-accent:
         0 0 0 1px color-mix(in srgb, var(--agent-accent) 34%, transparent),
         0 2px 4px rgb(0 0 0 / 0.04), 0 10px 18px rgb(0 0 0 / 0.05),
-        0 18px 44px -10px color-mix(in srgb, var(--agent-accent) 30%, transparent);
+        0 14px 32px -16px color-mix(in srgb, var(--agent-accent) 22%, transparent);
 
     --r-sm: 8px;
     --r-md: 12px;

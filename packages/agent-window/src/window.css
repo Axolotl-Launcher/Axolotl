@@ -1618,6 +1618,148 @@ code {
     font-weight: 600;
 }
 
+/* ---------- first-run tour ---------- */
+
+/* A soft dim with a rounded window onto one part of the new task page, and a
+   small card beside it. Only the card takes the pointer: clicks reach the
+   page, and doing anything there ends the tour. */
+.tour {
+    --tour-dim: rgb(0 0 0 / 0.42);
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    pointer-events: none;
+}
+/* Dark themes need a deeper dim, as their well is already close to black;
+   light ones a lighter one. Both then step back by about as much. */
+@supports (color: oklch(from red l c h / calc(alpha * 0.5))) {
+    .tour {
+        --tour-dim: oklch(from var(--agent-background) 0.13 0 0 / calc(0.56 - l * 0.3));
+    }
+}
+.tour-dim {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: var(--tour-dim);
+    stroke: none;
+}
+.tour-hole > * {
+    transition: transform 420ms var(--ease-settle);
+}
+.tour-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: min(316px, calc(100vw - 24px));
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 10px;
+    padding: 14px 14px 12px;
+    border-radius: var(--r-lg);
+    background: var(--overlay);
+    box-shadow: var(--shadow-pop);
+    pointer-events: auto;
+    transition: translate 420ms var(--ease-settle);
+}
+.tour.is-instant .tour-card,
+.tour.is-instant .tour-hole > * {
+    transition: none;
+}
+.tour.is-leaving .tour-card {
+    pointer-events: none;
+}
+/* The card is focused as a whole on opening; its buttons show the ring. */
+.tour-card:focus-visible {
+    outline: none;
+}
+.tour-axo {
+    grid-row: 1 / span 2;
+    margin-top: -3px;
+}
+.tour-title {
+    margin: 0;
+    align-self: center;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.45;
+}
+.tour-copy {
+    grid-column: 2;
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--fg-2);
+}
+:lang(zh) .tour-copy {
+    line-height: 1.75;
+}
+.tour-copy p {
+    margin: 0 0 10px;
+}
+.tour-notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--fg-3);
+}
+.tour-copy > .tour-notes:first-child {
+    margin-top: 5px;
+}
+.tour-notes li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tour-notes kbd {
+    min-width: 22px;
+}
+.tour-notes svg {
+    width: 16px;
+    height: 16px;
+    margin: 0 3px;
+    color: var(--accent-ink);
+}
+.tour-foot {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 14px;
+}
+.tour-dots {
+    display: flex;
+    gap: 5px;
+    padding-left: 2px;
+}
+.tour-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--line-strong);
+    transition: background-color 240ms ease;
+}
+.tour-dots i[data-current] {
+    background: var(--accent);
+}
+.tour-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.text-button.tour-skip {
+    color: var(--fg-3);
+}
+.text-button.tour-skip:hover {
+    color: var(--fg);
+    background: var(--hover);
+}
+
 /* ---------- composer ---------- */
 
 .composer-dock {

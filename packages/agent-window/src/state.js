@@ -64,8 +64,8 @@ export const CHANGE_KINDS = ['update', 'rollback', 'new', 'install', 'setting', 
  * }} Thread
  * @typedef {{
  *   version: 2, activeId: string, sidebarOpen: boolean, panelOpen: boolean,
- *   introDismissed: boolean, lastSelection: Selection | null, threads: Thread[],
- *   detail: string, instructions: string,
+ *   introDismissed: boolean, tourDone: boolean, lastSelection: Selection | null,
+ *   threads: Thread[], detail: string, instructions: string,
  * }} Store
  * @typedef {Pick<Storage, 'getItem' | 'setItem'>} StorageArea
  */
@@ -133,6 +133,7 @@ export function initialStore() {
         sidebarOpen: true,
         panelOpen: false,
         introDismissed: false,
+        tourDone: false,
         lastSelection: null,
         threads: [thread],
         detail: 'balanced',
@@ -387,6 +388,7 @@ export function parseStore(raw) {
         sidebarOpen: value.sidebarOpen !== false,
         panelOpen: value.panelOpen === true,
         introDismissed: value.introDismissed === true,
+        tourDone: value.tourDone === true,
         lastSelection: selection(value.lastSelection),
         threads,
         detail: oneOf(value.detail, DETAIL_LEVELS, 'balanced'),

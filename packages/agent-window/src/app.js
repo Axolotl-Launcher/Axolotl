@@ -54,7 +54,16 @@ import {
     renderComposer,
     resizeInput,
 } from './view-composer.js'
-import { heroListens, renderHelp, renderHome } from './view-home.js'
+import {
+    closeTour,
+    heroListens,
+    homeSettled,
+    openTour,
+    refreshTour,
+    renderHelp,
+    renderHome,
+    tourOpen,
+} from './view-home.js'
 import {
     acceptConfirm,
     announce,
@@ -350,9 +359,64 @@ function render() {
     renderProgressRing()
     renderBanners()
     renderSettings()
+    syncTour()
     element('preview-badge').hidden = !isPreview()
     updateTicker()
     return true
+}
+
+// ---------- first-run tour ----------
+
+// The tour is offered once per window on a first run that opens on the new
+// task page. It waits for a quiet moment, and anything the user does first (a
+// click, a key, a focus, typing) lets the offer go until the window opens
+// again: someone already finding their way is not interrupted.
+const TOUR_DELAY = 1200
+
+function offerTour() {
+    if (session.store.tourDone || session.store.introDismissed) return
+    const quiet = new AbortController()
+    const timer = setTimeout(() => {
+        quiet.abort()
+        if (tourAllowed()) startTour()
+    }, TOUR_DELAY)
+    const busy = () => {
+        clearTimeout(timer)
+        quiet.abort()
+    }
+    for (const name of ['pointerdown', 'keydown', 'focusin', 'input'])
+        document.addEventListener(name, busy, { capture: true, signal: quiet.signal })
+}
+
+function tourAllowed() {
+    const thread = currentThread()
+    return (
+        catalogReady() &&
+        !session.loadError &&
+        !document.hidden &&
+        !session.store.tourDone &&
+        !session.store.introDismissed &&
+        !thread.turns.length &&
+        !thread.draft.trim() &&
+        !thread.attachments.length &&
+        !drawer &&
+        !document.querySelector('dialog[open], .popover:popover-open')
+    )
+}
+
+// However it ends, the tour is not offered again; settings can replay it.
+function startTour() {
+    openTour(() => {
+        session.store.tourDone = true
+        persistSoon()
+    })
+}
+
+// The tour belongs to the new task page: a task in the open thread ends it.
+function syncTour() {
+    if (!tourOpen()) return
+    if (currentThread().turns.length) closeTour()
+    else refreshTour()
 }
 
 // Agent events arrive quickly; patch the affected turn once per frame.
@@ -975,14 +1039,15 @@ function selectThread(id) {
     }, 'thread')
 }
 
+// Settles once the new task page is showing, with the focus in its composer.
 function createThread() {
     const thread = currentThread()
     if (!thread.turns.length && !thread.draft && !thread.title) {
         element('message-input').focus()
         if (narrow()) setSidebar(false)
-        return
+        return Promise.resolve()
     }
-    morph(() => {
+    return morph(() => {
         if (
             commit((next) => {
                 const fresh = newThread(structuredClone(next.lastSelection))
@@ -1168,6 +1233,7 @@ function resetHistory() {
             selection: draft.selection,
         })
         fresh.introDismissed = session.store.introDismissed
+        fresh.tourDone = session.store.tourDone
         fresh.sidebarOpen = session.store.sidebarOpen
         for (const handle of session.handles.values()) handle.stop()
         session.handles.clear()
@@ -1344,6 +1410,23 @@ const actions = {
         element('settings-dialog').close()
         createThread()
         renderHome()
+    },
+    // Replays on the new task page, which the tour is about, once that page has
+    // settled in, and only if nothing was started there in the meantime.
+    'replay-tour': () => {
+        element('settings-dialog').close()
+        createThread()
+            .then(homeSettled)
+            .then(() => {
+                const thread = currentThread()
+                if (
+                    !tourOpen() &&
+                    !thread.turns.length &&
+                    !thread.draft.trim() &&
+                    !document.querySelector('dialog[open], .popover:popover-open')
+                )
+                    startTour()
+            })
     },
     'dismiss-intro': () => {
         const intro = element('intro')
@@ -1954,6 +2037,7 @@ async function boot() {
     ensureRuntime()
     void revealWindow()
     if (session.loadError && catalogReady()) notify(text('storageLoadError'), 'error')
+    offerTour()
 }
 
 window.addEventListener('agent-host-ready', boot)

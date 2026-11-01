@@ -335,6 +335,57 @@
   "app.agent-window.chat.copy-text": {
     "message": "Copy text"
   },
+  "app.agent-window.chat.tour-name": {
+    "message": "Quick tour"
+  },
+  "app.agent-window.chat.tour-step": {
+    "message": "Step {current} of {total}"
+  },
+  "app.agent-window.chat.tour-compose-title": {
+    "message": "Say what you want"
+  },
+  "app.agent-window.chat.tour-compose-body": {
+    "message": "Write it in your own words, the way you’d ask a friend. There are no commands to learn."
+  },
+  "app.agent-window.chat.tour-slash": {
+    "message": "Shortcuts for common jobs"
+  },
+  "app.agent-window.chat.tour-mention": {
+    "message": "Pick an instance to work on"
+  },
+  "app.agent-window.chat.tour-pickers-title": {
+    "message": "Where it works, and with what"
+  },
+  "app.agent-window.chat.tour-instance": {
+    "message": "The instance it works on, or the whole launcher"
+  },
+  "app.agent-window.chat.tour-model": {
+    "message": "The AI model it uses, from your launcher settings"
+  },
+  "app.agent-window.chat.tour-safety-title": {
+    "message": "Nothing changes without you"
+  },
+  "app.agent-window.chat.tour-safety-body": {
+    "message": "After you send, the agent looks first and shows you a plan. It only makes changes once you approve."
+  },
+  "app.agent-window.chat.tour-stop": {
+    "message": "Stop it at any time"
+  },
+  "app.agent-window.chat.tour-skip": {
+    "message": "Skip"
+  },
+  "app.agent-window.chat.tour-back": {
+    "message": "Back"
+  },
+  "app.agent-window.chat.tour-next": {
+    "message": "Next"
+  },
+  "app.agent-window.chat.tour-finish": {
+    "message": "Got it"
+  },
+  "app.agent-window.chat.replay-tour": {
+    "message": "Take the tour again"
+  },
   "app.agent-window.chat.copied": {
     "message": "Copied"
   },

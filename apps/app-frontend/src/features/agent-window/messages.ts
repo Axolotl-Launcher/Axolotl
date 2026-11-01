@@ -263,6 +263,55 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
+    tourName: { id: 'app.agent-window.chat.tour-name', defaultMessage: 'Quick tour' },
+    tourStep: {
+        id: 'app.agent-window.chat.tour-step',
+        defaultMessage: 'Step {current} of {total}',
+    },
+    tourComposeTitle: {
+        id: 'app.agent-window.chat.tour-compose-title',
+        defaultMessage: 'Say what you want',
+    },
+    tourComposeBody: {
+        id: 'app.agent-window.chat.tour-compose-body',
+        defaultMessage:
+            'Write it in your own words, the way you’d ask a friend. There are no commands to learn.',
+    },
+    tourSlash: {
+        id: 'app.agent-window.chat.tour-slash',
+        defaultMessage: 'Shortcuts for common jobs',
+    },
+    tourMention: {
+        id: 'app.agent-window.chat.tour-mention',
+        defaultMessage: 'Pick an instance to work on',
+    },
+    tourPickersTitle: {
+        id: 'app.agent-window.chat.tour-pickers-title',
+        defaultMessage: 'Where it works, and with what',
+    },
+    tourInstance: {
+        id: 'app.agent-window.chat.tour-instance',
+        defaultMessage: 'The instance it works on, or the whole launcher',
+    },
+    tourModel: {
+        id: 'app.agent-window.chat.tour-model',
+        defaultMessage: 'The AI model it uses, from your launcher settings',
+    },
+    tourSafetyTitle: {
+        id: 'app.agent-window.chat.tour-safety-title',
+        defaultMessage: 'Nothing changes without you',
+    },
+    tourSafetyBody: {
+        id: 'app.agent-window.chat.tour-safety-body',
+        defaultMessage:
+            'After you send, the agent looks first and shows you a plan. It only makes changes once you approve.',
+    },
+    tourStop: { id: 'app.agent-window.chat.tour-stop', defaultMessage: 'Stop it at any time' },
+    tourSkip: { id: 'app.agent-window.chat.tour-skip', defaultMessage: 'Skip' },
+    tourBack: { id: 'app.agent-window.chat.tour-back', defaultMessage: 'Back' },
+    tourNext: { id: 'app.agent-window.chat.tour-next', defaultMessage: 'Next' },
+    tourFinish: { id: 'app.agent-window.chat.tour-finish', defaultMessage: 'Got it' },
+    replayTour: { id: 'app.agent-window.chat.replay-tour', defaultMessage: 'Take the tour again' },
     copied: { id: 'app.agent-window.chat.copied', defaultMessage: 'Copied' },
     copyCode: { id: 'app.agent-window.chat.copy-code', defaultMessage: 'Copy code' },
     linkCopied: { id: 'app.agent-window.chat.link-copied', defaultMessage: 'Link copied' },

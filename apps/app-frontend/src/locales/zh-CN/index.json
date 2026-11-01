@@ -335,6 +335,57 @@
   "app.agent-window.chat.copy-text": {
     "message": "复制文本"
   },
+  "app.agent-window.chat.tour-name": {
+    "message": "快速导览"
+  },
+  "app.agent-window.chat.tour-step": {
+    "message": "第 {current} 步，共 {total} 步"
+  },
+  "app.agent-window.chat.tour-compose-title": {
+    "message": "说出你想做的事"
+  },
+  "app.agent-window.chat.tour-compose-body": {
+    "message": "用自己的话写下来就行，就像问一位朋友，不用记任何命令。"
+  },
+  "app.agent-window.chat.tour-slash": {
+    "message": "常用操作的快捷指令"
+  },
+  "app.agent-window.chat.tour-mention": {
+    "message": "选择要处理的实例"
+  },
+  "app.agent-window.chat.tour-pickers-title": {
+    "message": "在哪儿做，用什么做"
+  },
+  "app.agent-window.chat.tour-instance": {
+    "message": "要处理的实例，或整个启动器"
+  },
+  "app.agent-window.chat.tour-model": {
+    "message": "它使用的 AI 模型，来自启动器设置"
+  },
+  "app.agent-window.chat.tour-safety-title": {
+    "message": "你点头，它才动手"
+  },
+  "app.agent-window.chat.tour-safety-body": {
+    "message": "发送后，Agent 会先检查，再给你看方案。只有你批准了，它才会做改动。"
+  },
+  "app.agent-window.chat.tour-stop": {
+    "message": "随时可以停下"
+  },
+  "app.agent-window.chat.tour-skip": {
+    "message": "跳过"
+  },
+  "app.agent-window.chat.tour-back": {
+    "message": "上一步"
+  },
+  "app.agent-window.chat.tour-next": {
+    "message": "下一步"
+  },
+  "app.agent-window.chat.tour-finish": {
+    "message": "知道了"
+  },
+  "app.agent-window.chat.replay-tour": {
+    "message": "再看一遍导览"
+  },
   "app.agent-window.chat.copied": {
     "message": "已复制"
   },

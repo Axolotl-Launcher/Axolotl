@@ -1491,3 +1491,116 @@ it('tells screen readers once per change what the agent is doing, never token by
     ])
     expect(await page.locator('#messages').getAttribute('aria-busy')).toBeNull()
 })
+
+const TOUR_TARGETS = ['#composer', '#composer .composer-toolbar', '#send-button']
+
+const storedTourDone = () =>
+    page.evaluate((key) => JSON.parse(localStorage.getItem(key) || '{}').tourDone, STORE)
+
+// The card sits beside the stop's target, inside the window, never over it.
+async function expectTourStop(step: number) {
+    const card = page.locator('.tour-card')
+    expect(await card.getAttribute('data-step')).toBe(String(step))
+    const box = (await card.boundingBox())!
+    const target = (await page.locator(TOUR_TARGETS[step]).boundingBox())!
+    const viewport = page.viewportSize()!
+    expect(box.y >= target.y + target.height || box.y + box.height <= target.y).toBe(true)
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width)
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height)
+}
+
+it('offers a first-run tour once the new task page is quiet and walks it by keyboard', async () => {
+    const card = page.locator('.tour-card')
+    await page.clock.runFor(1_500)
+    await card.waitFor()
+    // A named, non-modal dialog that holds the focus and lets the page be used.
+    expect(await card.getAttribute('role')).toBe('dialog')
+    expect(await card.getAttribute('aria-label')).toBeTruthy()
+    expect(await card.getAttribute('aria-modal')).toBeNull()
+    expect(await isFocused(card)).toBe(true)
+    expect(
+        await page.locator('.tour').evaluate((node) => getComputedStyle(node).pointerEvents),
+    ).toBe('none')
+    await expectTourStop(0)
+    expect(await card.locator('[data-tour="back"]').isHidden()).toBe(true)
+
+    // Arrow keys and Enter go on, and each new stop is read out.
+    await page.keyboard.press('ArrowRight')
+    await expectTourStop(1)
+    const said = () => page.locator('#announcer p').allTextContents()
+    expect(await said()).toContain(await card.locator('.tour-title').textContent())
+    await page.keyboard.press('Enter')
+    await expectTourStop(2)
+    expect(await said()).toContain(await card.locator('.tour-title').textContent())
+    expect(await card.locator('[data-tour="skip"]').isHidden()).toBe(true)
+    await page.keyboard.press('ArrowRight')
+    await expectTourStop(2)
+    await page.keyboard.press('ArrowLeft')
+    await expectTourStop(1)
+    await page.keyboard.press('ArrowRight')
+
+    // The last stop's button finishes, and the focus goes to the composer.
+    await tabTo(card.locator('[data-tour="next"]'))
+    await page.keyboard.press('Enter')
+    expect(await page.locator('.tour').count()).toBe(0)
+    expect(await isFocused(page.locator('#message-input'))).toBe(true)
+
+    await page.reload()
+    await ready()
+    expect(await storedTourDone()).toBe(true)
+    await page.clock.runFor(3_000)
+    expect(await page.locator('.tour').count()).toBe(0)
+})
+
+it('skips the tour with Escape, replays it from settings and gives way to the page', async () => {
+    const card = page.locator('.tour-card')
+    await page.clock.runFor(1_500)
+    await card.waitFor()
+    await page.keyboard.press('ArrowRight')
+    // Escape belongs to the tour: it skips, and the focus goes to the composer.
+    await page.keyboard.press('Escape')
+    expect(await page.locator('.tour').count()).toBe(0)
+    expect(await isFocused(page.locator('#message-input'))).toBe(true)
+    await page.clock.runFor(500)
+    expect(await storedTourDone()).toBe(true)
+
+    // Settings replays it from the first stop on a new task page, also on a
+    // narrow window.
+    await send('Hello there')
+    await untilSettled()
+    await page.setViewportSize({ width: 420, height: 760 })
+    await page.locator('#settings-button').click()
+    await page.locator('[data-action="replay-tour"]').click()
+    await card.waitFor()
+    expect(await page.locator('#settings-dialog').evaluate((node) => node.open)).toBe(false)
+    expect(await page.locator('#composer-home #composer').count()).toBe(1)
+    expect(await isFocused(card)).toBe(true)
+    await expectTourStop(0)
+    await card.locator('[data-tour="next"]').click()
+    await card.locator('[data-tour="next"]').click()
+    await expectTourStop(2)
+    await card.locator('[data-tour="back"]').click()
+    await expectTourStop(1)
+
+    // Using the page instead ends it, and the click still lands.
+    await page.locator('#message-input').click()
+    expect(await page.locator('.tour').count()).toBe(0)
+    await page.keyboard.type('Hi')
+    expect(await page.locator('#message-input').inputValue()).toBe('Hi')
+})
+
+it('never offers the tour over typing or while the open task has turns', async () => {
+    await page.locator('#message-input').fill('My game')
+    await page.clock.runFor(3_000)
+    expect(await page.locator('.tour').count()).toBe(0)
+
+    // A first run that already sent something opens on that task.
+    await send('Hello there')
+    await untilSettled()
+    await page.reload()
+    await ready()
+    expect(await storedTourDone()).not.toBe(true)
+    await page.clock.runFor(3_000)
+    expect(await page.locator('.tour').count()).toBe(0)
+})

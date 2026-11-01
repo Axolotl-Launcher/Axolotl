@@ -13607,6 +13607,9 @@
   "instance.files.studio.not-text-file": {
     "message": "此文件不是文本文件，无法在 Studio 中打开。"
   },
+  "instance.files.studio.open-in-schematic-workshop": {
+    "message": "使用“投影工坊”打开"
+  },
   "instance.files.studio.open-in-system": {
     "message": "从系统中打开"
   },

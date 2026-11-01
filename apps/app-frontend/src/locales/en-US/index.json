@@ -15476,6 +15476,9 @@
   "instance.files.studio.not-text-file": {
     "message": "This file is not a text file and cannot be opened in Studio."
   },
+  "instance.files.studio.open-in-schematic-workshop": {
+    "message": "Open with schematic workshop"
+  },
   "instance.files.studio.open-in-system": {
     "message": "Open in system"
   },

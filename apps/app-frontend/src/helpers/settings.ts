@@ -348,14 +348,7 @@ export async function update(patch: AppSettingsPatch): Promise<AppSettings> {
 }
 
 export type SettingsLayerDomain =
-    | 'appearance'
-    | 'download'
-    | 'game'
-    | 'backup'
-    | 'bootstrap'
-    | 'network'
-    | 'privacy'
-    | 'state'
+    'appearance' | 'download' | 'game' | 'backup' | 'bootstrap' | 'network' | 'privacy' | 'state'
 
 /** One setting as provided by the deployment, stored locally and currently in effect. */
 export type SettingLayer = {

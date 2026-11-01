@@ -225,10 +225,7 @@ async function refreshSettings() {
  * either way, then the mounted sections read the stored values again and the
  * failure is reported against what the interface now shows.
  */
-async function runSettingsFileOperation(
-    operation: SettingsOperation,
-    write: () => Promise<void>,
-) {
+async function runSettingsFileOperation(operation: SettingsOperation, write: () => Promise<void>) {
     busy.value = operation
     let failure: unknown
     try {
@@ -477,9 +474,7 @@ async function importPendingArchive(danger: ImportDanger) {
                     >
                         <code class="break-all font-mono text-xs">{{ entry.key }}</code>
                     </th>
-                    <td
-                        class="border-0 border-t border-solid border-surface-4 py-2 pr-3 align-top"
-                    >
+                    <td class="border-0 border-t border-solid border-surface-4 py-2 pr-3 align-top">
                         <span
                             class="line-clamp-4 break-all font-mono text-xs text-[var(--color-text-default)]"
                             :title="settingValue(entry.before)"
@@ -487,9 +482,7 @@ async function importPendingArchive(danger: ImportDanger) {
                             {{ settingValue(entry.before) }}
                         </span>
                     </td>
-                    <td
-                        class="border-0 border-t border-solid border-surface-4 py-2 align-top"
-                    >
+                    <td class="border-0 border-t border-solid border-surface-4 py-2 align-top">
                         <span
                             class="line-clamp-4 break-all font-mono text-xs text-[var(--color-text-default)]"
                             :title="settingValue(entry.after)"

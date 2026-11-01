@@ -764,9 +764,8 @@ function main() {
     const state = planDowngrade(db, args.to)
     note(`database: ${db}`)
 
-    if (state.applied.length === 0) {
-        note(`nothing to do: no applied migration at or after ${args.to}`)
-        if (state.failed.length > 0) reportPlan(state)
+    if (state.applied.length === 0 && state.failed.length === 0) {
+        note(`nothing to do: no migration at or after ${args.to}`)
         return
     }
 

@@ -247,7 +247,7 @@ console.log('refusals')
     // A failed record blocks sqlx with `Dirty` even when every applied record
     // is gone; the warning promises removal, so the record must actually go.
     const failedDb = path.join(settingsDir, 'beta', 'failed-record.db')
-    sampleDatabase(failedDb)
+    sampleDatabase(failedDb, { applied: [] })
     const database = new DatabaseSync(failedDb)
     database
         .prepare(

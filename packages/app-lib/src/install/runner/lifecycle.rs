@@ -45,6 +45,7 @@ async fn worker_result(
         .catch_unwind()
         .await
         .unwrap_or_else(|_| {
+            tracing::error!("Install worker panicked; recovery is required");
             Err(ErrorKind::OtherError(
                 "Install worker panicked; recovery is required".into(),
             )
@@ -74,8 +75,9 @@ pub(super) async fn supervise_install_worker(
         .await
         {
             // Only a recovery failure deserves the "recovery could not
-            // finish" report; the work error below is not one.
-            tracing::error!(%job_id, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+            // finish" report; the work error below is not one. Keep both
+            // errors: recovery may not have persisted the work error.
+            tracing::error!(%job_id, work_error = %error, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
             return Err(recovery_error);
         }
     }
@@ -380,7 +382,7 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
             })
             .await
             {
-                tracing::error!(%job_id, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+                tracing::error!(%job_id, work_error = %error, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
                 return Err(recovery_error);
             }
             return Err(error);

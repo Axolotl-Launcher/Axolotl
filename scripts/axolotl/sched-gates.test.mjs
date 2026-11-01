@@ -2,6 +2,7 @@
 // exists to reject.
 
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
@@ -19,7 +20,7 @@ import { checkConsistency } from './sched-resource-consistency-check.mjs'
 import { tagViolations } from './sched-tag-check.mjs'
 import { awaitedSendsInL0 } from './sched-unbounded-sender-check.mjs'
 import { checkWhitelist } from './sched-whitelist-check.mjs'
-import { missingGolden } from './sched-resource-golden-check.mjs'
+import { frozenMismatch, missingGolden } from './sched-resource-golden-check.mjs'
 import { buildInventory } from './sched-resource-inventory.mjs'
 import { loadPolicy, maskRust, rankFingerprint, scanMethodHits, sourcesOf, stripTestItems, workspaceCrates } from './sched-utils.mjs'
 
@@ -50,6 +51,13 @@ test('golden check fails when the generator drops a golden item (K0.5)', () => {
         ['G-3', 'G-4'],
     )
     assert.deepEqual(missingGolden(files.inventory), [])
+})
+
+test('the frozen golden hash rejects an edited set (K0.7)', () => {
+    const text = '{"G-1":[]}\n'
+    const expected = `${createHash('sha256').update(text).digest('hex')}  sched-resource-golden.json\n`
+    assert.equal(frozenMismatch(text, expected), false)
+    assert.equal(frozenMismatch(text.replace('[]', '["x"]'), expected), true, 'an edited set must not match the recorded hash')
 })
 
 test('consistency passes on the generated files', () => {

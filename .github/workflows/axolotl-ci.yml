@@ -102,9 +102,9 @@ jobs:
       - name: Check Discord release notifications
         run: node --test scripts/axolotl/publish-discord-release.test.mjs
       - name: Check scheduler resource gates
-        # Advisory until the team adopts the scheduler policy: these gates fail
-        # on any new lock, spawn or std::fs site until its policy entry lands.
-        continue-on-error: true
+        # Blocking since the scheduler policy is part of the tree: a new lock,
+        # spawn or std::fs site fails until its policy entry lands, and a stale
+        # rank fingerprint fails until it is re-reviewed.
         # Every gate runs even after one fails; the step fails at the end and
         # names each failed gate.
         run: |

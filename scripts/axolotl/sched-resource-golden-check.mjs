@@ -5,8 +5,19 @@
 // Usage: node scripts/axolotl/sched-resource-golden-check.mjs [--inventory <sched-resource-inventory.json>]
 // Without --inventory the inventory is regenerated in-process.
 
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { buildInventory } from './sched-resource-inventory.mjs'
-import { isMain, loadPolicy, parseArgs, readJson } from './sched-utils.mjs'
+import { isMain, loadPolicy, parseArgs, readJson, repoRoot, sha256 } from './sched-utils.mjs'
+
+export const GOLDEN_FILE = 'scripts/axolotl/sched-resource-golden.json'
+export const GOLDEN_SHA256 = 'scripts/axolotl/sched-resource-golden.sha256'
+
+/** Whether the frozen file's bytes are the ones the recorded hash covers. */
+export function frozenMismatch(goldenText, shaText) {
+    const expected = shaText.trim().split(/\s+/)[0]
+    return expected !== sha256(goldenText)
+}
 
 // FROZEN GOLDEN SET — items may be added; removing one needs a reviewed change
 // to this file (its sha256 is recorded with the phase-0 evidence). Membership
@@ -101,6 +112,18 @@ export function missingGolden(inventory) {
 
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
+    // K0.7: the golden set is frozen by a recorded hash. Editing it requires
+    // updating both the file and the recorded hash in the same reviewed change.
+    const goldenText = readFileSync(path.resolve(repoRoot, GOLDEN_FILE), 'utf8')
+    if (goldenText !== `${JSON.stringify(GOLDEN, null, 2)}\n`) {
+        console.error(`the inline golden set and ${GOLDEN_FILE} disagree; edit both in the same reviewed change`)
+        process.exit(1)
+    }
+    const shaText = readFileSync(path.resolve(repoRoot, GOLDEN_SHA256), 'utf8')
+    if (frozenMismatch(goldenText, shaText)) {
+        console.error(`${GOLDEN_FILE} does not match ${GOLDEN_SHA256}; a frozen change needs the hash updated in review`)
+        process.exit(1)
+    }
     const inventory = args.inventory ? readJson(args.inventory) : buildInventory(loadPolicy()).inventory
     const missing = missingGolden(inventory)
     const apps = inventory.items.filter((item) => item.crate === 'apps/app' && item.kind === 'static' && item.status === 'registered')

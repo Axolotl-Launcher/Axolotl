@@ -268,6 +268,18 @@ async function cleanUpLocalSettings() {
     }
 }
 
+/** Scans the archive afresh and shows the modal for what it holds at this moment. */
+async function reviewImport(inputPath: string) {
+    const scan = await scanSettingsImport(inputPath)
+    pendingImport.value = { path: inputPath }
+    dangerRows.value = scan.dangerous
+    if (scan.dangerous.length > 0) {
+        dangerConfirm.value?.show()
+    } else {
+        importConfirm.value?.show()
+    }
+}
+
 async function chooseImportArchive() {
     if (busy.value) return
 
@@ -280,15 +292,9 @@ async function chooseImportArchive() {
         })
         if (!inputPath) return
 
-        const scan = await scanSettingsImport(inputPath)
-        pendingImport.value = { path: inputPath }
-        dangerRows.value = scan.dangerous
-        if (scan.dangerous.length > 0) {
-            dangerConfirm.value?.show()
-        } else {
-            importConfirm.value?.show()
-        }
+        await reviewImport(inputPath)
     } catch (error) {
+        pendingImport.value = null
         handleError(error)
     } finally {
         busy.value = null

@@ -149,6 +149,18 @@
   "app.agent-window.chat.suggest-pack": {
     "message": "搭建整合包"
   },
+  "app.agent-window.chat.suggest-crash-hint": {
+    "message": "读取崩溃报告，找出原因"
+  },
+  "app.agent-window.chat.suggest-smooth-hint": {
+    "message": "检查拖慢游戏的模组与设置"
+  },
+  "app.agent-window.chat.suggest-backup-hint": {
+    "message": "改动之前先存一份 ZIP"
+  },
+  "app.agent-window.chat.suggest-pack-hint": {
+    "message": "按你的内存挑选兼容模组"
+  },
   "app.agent-window.chat.prompt-crash": {
     "message": "我的游戏一启动就崩溃，帮我找出原因并给出修复方案。"
   },
@@ -559,6 +571,12 @@
   },
   "app.agent-window.chat.shortcut-sidebar": {
     "message": "显示或隐藏任务列表"
+  },
+  "app.agent-window.chat.shortcut-settings": {
+    "message": "打开设置"
+  },
+  "app.agent-window.chat.edit-message": {
+    "message": "编辑后重新发送"
   },
   "app.agent-window.chat.delete-title": {
     "message": "删除这个任务？"

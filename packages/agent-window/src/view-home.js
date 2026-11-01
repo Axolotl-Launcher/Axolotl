@@ -6,10 +6,10 @@ import { text } from './messages.js'
 import { session } from './session.js'
 
 export const SUGGESTIONS = [
-    ['wrench', 'suggestCrash', 'promptCrash'],
-    ['zap', 'suggestSmooth', 'promptSmooth'],
-    ['archive', 'suggestBackup', 'promptBackup'],
-    ['layers', 'suggestPack', 'promptPack'],
+    ['wrench', 'suggestCrash', 'promptCrash', 'suggestCrashHint'],
+    ['zap', 'suggestSmooth', 'promptSmooth', 'suggestSmoothHint'],
+    ['archive', 'suggestBackup', 'promptBackup', 'suggestBackupHint'],
+    ['layers', 'suggestPack', 'promptPack', 'suggestPackHint'],
 ]
 
 const STEPS = [
@@ -38,10 +38,13 @@ export function renderHome() {
     const mark = element('hero-mark')
     if (!mark.firstChild) mark.append(axolotl({ mood: 'idle', className: 'hero-axo' }))
     element('suggestions').replaceChildren(
-        ...SUGGESTIONS.map(([name, label, prompt], index) =>
+        ...SUGGESTIONS.map(([name, label, prompt, hint], index) =>
             button({ class: 'suggestion', data: { prompt }, style: `--index: ${index}` }, [
                 h('span', { class: 'suggestion-icon' }, [icon(name)]),
-                h('span', { class: 'suggestion-label', text: text(label) }),
+                h('span', { class: 'suggestion-label' }, [
+                    h('span', { text: text(label) }),
+                    h('small', { text: text(hint) }),
+                ]),
                 icon('arrow-right', 'suggestion-go'),
             ]),
         ),
@@ -71,6 +74,7 @@ export function renderHelp() {
         ['Ctrl N', 'shortcutNew'],
         ['Ctrl K', 'shortcutPalette'],
         ['Ctrl B', 'shortcutSidebar'],
+        ['Ctrl ,', 'shortcutSettings'],
     ]
     element('help-body').replaceChildren(
         h('p', { class: 'help-lead', text: text('helpLead') }),

@@ -149,6 +149,18 @@
   "app.agent-window.chat.suggest-pack": {
     "message": "Set up a modpack"
   },
+  "app.agent-window.chat.suggest-crash-hint": {
+    "message": "Read the crash report and find the cause"
+  },
+  "app.agent-window.chat.suggest-smooth-hint": {
+    "message": "Check mods and settings that slow it down"
+  },
+  "app.agent-window.chat.suggest-backup-hint": {
+    "message": "Save a ZIP before you change anything"
+  },
+  "app.agent-window.chat.suggest-pack-hint": {
+    "message": "Pick compatible mods for your memory"
+  },
   "app.agent-window.chat.prompt-crash": {
     "message": "My game crashes on launch. Find out why and suggest a fix."
   },
@@ -559,6 +571,12 @@
   },
   "app.agent-window.chat.shortcut-sidebar": {
     "message": "Show or hide the task list"
+  },
+  "app.agent-window.chat.shortcut-settings": {
+    "message": "Open settings"
+  },
+  "app.agent-window.chat.edit-message": {
+    "message": "Edit and send again"
   },
   "app.agent-window.chat.delete-title": {
     "message": "Delete this task?"

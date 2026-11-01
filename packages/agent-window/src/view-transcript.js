@@ -55,6 +55,14 @@ function userRow(turn) {
             h('time', { text: dateLabel(turn.createdAt) }),
             button(
                 {
+                    class: 'icon-button tiny edit-turn',
+                    label: text('editMessage'),
+                    data: { editTurn: turn.id },
+                },
+                icon('edit'),
+            ),
+            button(
+                {
                     class: 'icon-button tiny',
                     label: text('copy'),
                     data: { copyTurn: turn.id, copyKind: 'user' },
@@ -364,6 +372,7 @@ function updatePlan(node, item, { turn }) {
     if (first) {
         const plan = item.plan
         node.append(
+            h('span', { class: 'plan-orbit', 'aria-hidden': 'true' }),
             h('header', { class: 'plan-header' }, [
                 h('div', {}, [
                     h('span', { class: 'plan-kicker', text: text('planKicker') }),

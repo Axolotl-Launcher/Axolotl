@@ -10,6 +10,27 @@
         <link rel="stylesheet" href="/window.css" />
         <script defer src="/window.js"></script>
         <script type="module" src="/app.js"></script>
+        <!-- Fetch the whole module graph at once instead of import by import. -->
+        <link rel="modulepreload" href="/agent.js" />
+        <link rel="modulepreload" href="/dom.js" />
+        <link rel="modulepreload" href="/mascot.js" />
+        <link rel="modulepreload" href="/messages.js" />
+        <link rel="modulepreload" href="/motion.js" />
+        <link rel="modulepreload" href="/session.js" />
+        <link rel="modulepreload" href="/state.js" />
+        <link rel="modulepreload" href="/view-composer.js" />
+        <link rel="modulepreload" href="/view-home.js" />
+        <link rel="modulepreload" href="/view-overlays.js" />
+        <link rel="modulepreload" href="/view-palette.js" />
+        <link rel="modulepreload" href="/view-panel.js" />
+        <link rel="modulepreload" href="/view-rail.js" />
+        <link rel="modulepreload" href="/view-sidebar.js" />
+        <link rel="modulepreload" href="/view-slash.js" />
+        <link rel="modulepreload" href="/view-transcript.js" />
+        <link rel="modulepreload" href="/demo-runtime.js" />
+        <link rel="modulepreload" href="/demo-flows.js" />
+        <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin />
+        <link rel="preload" href="/fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin />
     </head>
     <body>
         <svg class="icon-definitions" aria-hidden="true">

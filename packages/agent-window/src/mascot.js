@@ -9,15 +9,18 @@ const NS = 'http://www.w3.org/2000/svg'
 const MOODS = ['idle', 'think', 'happy', 'sad']
 const ONE_SHOTS = new Set(['happy', 'sad'])
 
-// Fetch and decode every strip of a size once, so the first switch to a mood
-// does not show an empty box while its image loads.
+// Fetch and decode the strips a size actually plays once, so the first switch
+// to a mood does not show an empty box. The large mark only idles on the
+// new-task page; the small one works, celebrates and droops in the status
+// line. A large strip decodes to about 10 MB, so the unused ones stay cold.
+const PLAYED = { '': ['idle'], '-sm': ['think', 'happy', 'sad'] }
 const warmed = new Map()
 function warm(node) {
     const suffix = node.classList.contains('axo-sm') ? '-sm' : ''
     if (warmed.has(suffix) || typeof Image !== 'function') return
     warmed.set(
         suffix,
-        MOODS.map((mood) => {
+        PLAYED[suffix].map((mood) => {
             const image = new Image()
             image.src = `/mascot/${mood}${suffix}.png`
             image.decode?.().catch(() => {})

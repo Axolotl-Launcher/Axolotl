@@ -97,6 +97,22 @@ export const agentWindowMessages = defineMessages({
         defaultMessage: 'Back up a world',
     },
     suggestPack: { id: 'app.agent-window.chat.suggest-pack', defaultMessage: 'Set up a modpack' },
+    suggestCrashHint: {
+        id: 'app.agent-window.chat.suggest-crash-hint',
+        defaultMessage: 'Read the crash report and find the cause',
+    },
+    suggestSmoothHint: {
+        id: 'app.agent-window.chat.suggest-smooth-hint',
+        defaultMessage: 'Check mods and settings that slow it down',
+    },
+    suggestBackupHint: {
+        id: 'app.agent-window.chat.suggest-backup-hint',
+        defaultMessage: 'Save a ZIP before you change anything',
+    },
+    suggestPackHint: {
+        id: 'app.agent-window.chat.suggest-pack-hint',
+        defaultMessage: 'Pick compatible mods for your memory',
+    },
     promptCrash: {
         id: 'app.agent-window.chat.prompt-crash',
         defaultMessage: 'My game crashes on launch. Find out why and suggest a fix.',
@@ -468,6 +484,14 @@ export const agentWindowMessages = defineMessages({
     shortcutSidebar: {
         id: 'app.agent-window.chat.shortcut-sidebar',
         defaultMessage: 'Show or hide the task list',
+    },
+    shortcutSettings: {
+        id: 'app.agent-window.chat.shortcut-settings',
+        defaultMessage: 'Open settings',
+    },
+    editMessage: {
+        id: 'app.agent-window.chat.edit-message',
+        defaultMessage: 'Edit and send again',
     },
     deleteTitle: { id: 'app.agent-window.chat.delete-title', defaultMessage: 'Delete this task?' },
     deleteBody: {

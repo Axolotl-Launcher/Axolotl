@@ -1181,7 +1181,7 @@ const actions = {
 
 document.addEventListener('click', (event) => {
     const target = event.target.closest(
-        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link]',
+        '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn]',
     )
     if (!target || target.disabled) return
     const data = target.dataset
@@ -1247,7 +1247,16 @@ document.addEventListener('click', (event) => {
     else if (data.copyCode !== undefined)
         copyText(target.closest('.code-block').querySelector('code').textContent)
     else if (data.copyLink) copyText(data.copyLink, text('linkCopied'))
-    else if (data.removeAttachment) {
+    else if (data.editTurn) {
+        // Puts the request back in the composer to change and send again.
+        const turn = currentThread().turns.find((entry) => entry.id === data.editTurn)
+        const input = element('message-input')
+        if (!turn) return
+        input.value = turn.text
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        input.focus()
+        input.setSelectionRange(input.value.length, input.value.length)
+    } else if (data.removeAttachment) {
         const thread = currentThread()
         thread.attachments = thread.attachments.filter((file) => file.id !== data.removeAttachment)
         persistSoon()
@@ -1462,6 +1471,9 @@ document.addEventListener('keydown', (event) => {
             event.preventDefault()
             if (element('palette').open) element('palette').close()
             else if (!overlay) showPalette()
+        } else if (key === ',') {
+            event.preventDefault()
+            if (!overlay) actions.settings()
         } else if (key === 'b') {
             event.preventDefault()
             if (!overlay) setSidebar(!sidebarShown())

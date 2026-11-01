@@ -13,8 +13,8 @@ import {
     toggleChange,
 } from '../../../../../packages/agent-window/src/agent.js'
 import { FLOWS, GENERIC } from '../../../../../packages/agent-window/src/demo-flows.js'
-import { markdownBlocks } from '../../../../../packages/agent-window/src/dom.js'
 import { DemoRuntime } from '../../../../../packages/agent-window/src/demo-runtime.js'
+import { markdownBlocks } from '../../../../../packages/agent-window/src/dom.js'
 import { setLocale } from '../../../../../packages/agent-window/src/messages.js'
 import { newRun } from '../../../../../packages/agent-window/src/state.js'
 

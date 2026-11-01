@@ -28,12 +28,6 @@
     src: url('/fonts/inter-600.woff2') format('woff2');
 }
 
-@property --orbit {
-    syntax: '<angle>';
-    inherits: false;
-    initial-value: 0deg;
-}
-
 :root {
     /* The launcher's motion vocabulary. */
     --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
@@ -1062,8 +1056,8 @@ code {
     position: relative;
     display: grid;
     place-items: center;
-    width: 200px;
-    height: 132px;
+    width: 240px;
+    height: 156px;
     animation: rise-in 700ms var(--ease-reveal) both;
 }
 .hero-glow {
@@ -1096,14 +1090,14 @@ code {
 }
 .hero-mark {
     position: relative;
-    width: 132px;
-    height: 132px;
+    width: 156px;
+    height: 156px;
     display: grid;
     place-items: center;
 }
 .hero-mark .axo {
-    width: 124px;
-    height: 124px;
+    width: 150px;
+    height: 150px;
     view-transition-name: agent-mark;
 }
 .hero h2 {
@@ -1127,14 +1121,14 @@ code {
 }
 .suggestions {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     width: min(700px, 100%);
     margin-top: 16px;
 }
-@container (max-width: 640px) {
+@container (max-width: 520px) {
     .suggestions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
     }
 }
 .suggestion {
@@ -1189,9 +1183,20 @@ code {
 .suggestion-label {
     flex: 1;
     min-width: 0;
-    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 13.5px;
     font-weight: 500;
     line-height: 1.35;
+}
+.suggestion-label small {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--fg-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .suggestion-go {
     width: 15px;
@@ -1642,6 +1647,11 @@ code {
     flex-direction: column;
     gap: 18px;
 }
+/* Long tasks: older turns skip layout and paint while they are off screen. */
+.turn:not(:nth-last-child(-n + 2)) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 520px;
+}
 .is-arriving {
     animation: rise-in 460ms var(--ease-reveal) both;
 }
@@ -1693,6 +1703,10 @@ code {
 }
 .turn-actions {
     margin: -10px 0 0 -6px;
+}
+/* Only the latest request can be edited and sent again. */
+.turn:not(:last-child) .edit-turn {
+    display: none;
 }
 .turn-actions:empty {
     display: none;
@@ -2066,24 +2080,38 @@ code {
         inset 0 0 0 1px color-mix(in srgb, var(--agent-accent) 30%, var(--line-strong)),
         var(--shadow-accent);
 }
-.plan-card[data-state='pending']::before {
-    content: '';
+/* The light is a rotating gradient seen through a ring-shaped mask, so the
+   animation is a plain rotation the compositor runs without repainting. */
+.plan-orbit {
     position: absolute;
     inset: 0;
     z-index: 2;
+    display: none;
     padding: 1.5px;
     border-radius: inherit;
-    background: conic-gradient(
-        from var(--orbit),
-        transparent 0 62%,
-        color-mix(in srgb, var(--agent-accent) 90%, #fff) 78%,
-        transparent 92%
-    );
+    overflow: hidden;
     mask:
         linear-gradient(#000 0 0) content-box,
         linear-gradient(#000 0 0);
     mask-composite: exclude;
     pointer-events: none;
+}
+.plan-card[data-state='pending'] .plan-orbit {
+    display: block;
+}
+.plan-orbit::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 150%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    background: conic-gradient(
+        transparent 0 62%,
+        color-mix(in srgb, var(--agent-accent) 90%, #fff) 78%,
+        transparent 92%
+    );
     animation: orbit 5.2s linear infinite;
 }
 .plan-header {
@@ -3866,7 +3894,7 @@ p.plan-state {
 }
 @keyframes orbit {
     to {
-        --orbit: 360deg;
+        rotate: 360deg;
     }
 }
 @keyframes glow {

@@ -1324,15 +1324,35 @@ impl Process {
                     break (status, missing, manually_killed, final_playtime);
                 }
                 // The detector stopped (quiesce, error or panic) without
-                // reporting an exit. The record cannot be cleaned up while the
-                // game may still be running; leave it and say so.
-                None => {
-                    tracing::warn!(
-                        instance = %instance_id,
-                        "The process detector stopped without reporting an exit; the instance stays shown as running"
-                    );
-                    return Ok(());
-                }
+                // reporting an exit. If the child is gone, synthesize the exit
+                // and finish the normal cleanup; that is the in-session
+                // compensation for a lost exit event. If it still runs, the
+                // record cannot be cleaned up and is left with a warning.
+                None => match state.process_manager.try_wait(uuid) {
+                    Ok(Some(Some(status))) => {
+                        let manually_killed =
+                            state.process_manager.was_manually_killed(uuid);
+                        break (status, false, manually_killed, None);
+                    }
+                    Ok(Some(None)) => {
+                        tracing::warn!(
+                            instance = %instance_id,
+                            "The process detector stopped without reporting an exit while the game still runs; the instance stays shown as running"
+                        );
+                        return Ok(());
+                    }
+                    Ok(None) => {
+                        break (ExitStatus::default(), true, false, None);
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            instance = %instance_id,
+                            %error,
+                            "The process detector stopped and the process could not be re-checked"
+                        );
+                        return Ok(());
+                    }
+                },
             }
         };
         if let Some(mut process) = state.process_manager.remove(uuid) {
@@ -1844,5 +1864,180 @@ mod playtime_clock_tests {
         let mut clock = PlaytimeClock::new();
         clock.carry(30);
         assert!(clock.take(true).is_some_and(|tick| tick.elapsed >= 30));
+    }
+}
+
+/// The 17 shared accesses of L0-1 (spec §5.2, tasks.md T3.2). Each test names
+/// one item and asserts the detector does not perform it while the reaction
+/// side does, so a regression that moves an access back onto L0 fails here.
+/// This is the source-level separation criterion; the full subprocess/Tauri
+/// acceptance runs remain listed in the task plan.
+#[cfg(test)]
+mod l0_separation_tests {
+    const SOURCE: &str = include_str!("process.rs");
+
+    fn function_body(name: &str, indent: &str) -> &'static str {
+        let marker = format!("\n{indent}async fn {name}(");
+        let start = SOURCE
+            .find(&marker)
+            .unwrap_or_else(|| panic!("{name} not found"));
+        let rest = &SOURCE[start..];
+        let close = format!("\n{indent}}}\n");
+        let end = rest
+            .find(&close)
+            .unwrap_or_else(|| panic!("{name} has no end"))
+            + close.len();
+        &rest[..end]
+    }
+
+    fn detector() -> &'static str {
+        function_body("detect_process_exit", "    ")
+    }
+
+    fn reaction() -> &'static str {
+        function_body("react_to_process", "    ")
+    }
+
+    fn playtime() -> &'static str {
+        function_body("record_playtime", "")
+    }
+
+    fn absent(body: &str, needle: &str) {
+        assert!(
+            !body.contains(needle),
+            "the L0 detector must not contain {needle:?}"
+        );
+    }
+
+    fn present(body: &str, needle: &str) {
+        assert!(
+            body.contains(needle),
+            "the reaction side must contain {needle:?}"
+        );
+    }
+
+    #[test]
+    fn l0_process_monitor_does_not_touch_shared_resources() {
+        for needle in [
+            ".pool",
+            "emit_process",
+            "std::fs::",
+            "Command::new",
+            "tokio::spawn",
+            ".lock()",
+        ] {
+            absent(detector(), needle);
+        }
+    }
+
+    #[test]
+    fn l0_playtime_events_are_queued_not_written_item_2() {
+        absent(detector(), "add_instance_recent_playtime");
+        present(playtime(), "add_instance_recent_playtime");
+    }
+
+    #[test]
+    fn l0_playtime_events_are_queued_not_written_item_3() {
+        absent(detector(), "record_instance_daily_playtime");
+        present(playtime(), "record_instance_daily_playtime");
+    }
+
+    #[test]
+    fn l0_monitor_loop_body_has_no_await_on_shared_resources() {
+        absent(detector(), ".pool");
+        absent(detector(), "record_instance");
+        present(detector(), "Delivery::Lossy");
+        present(detector(), "tokio::time::sleep");
+    }
+
+    #[test]
+    fn l0_does_not_await_child_output_tasks() {
+        absent(detector(), "output_task.await");
+        present(reaction(), "output_task.await");
+    }
+
+    #[test]
+    fn l0_playtime_events_are_queued_not_written_item_6() {
+        absent(detector(), "record_playtime");
+        present(reaction(), "record_playtime");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_7() {
+        absent(detector(), "snapshot_crash_reports");
+        present(reaction(), "snapshot_crash_reports");
+    }
+
+    #[test]
+    fn l0_post_upgrade_record_runs_at_l3() {
+        absent(detector(), "record_post_upgrade_launch_best_effort");
+        present(reaction(), "record_post_upgrade_launch_best_effort");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_9() {
+        absent(detector(), "append_to_log_file");
+        present(reaction(), "append_to_log_file");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_10() {
+        absent(detector(), "save_successful_mod_snapshot");
+        present(reaction(), "save_successful_mod_snapshot");
+    }
+
+    #[test]
+    fn l0_does_not_await_event_emission() {
+        absent(detector(), "emit_process");
+        present(reaction(), "ProcessPayloadType::Finished");
+    }
+
+    #[test]
+    fn l0_has_no_detached_spawn_item_12() {
+        absent(detector(), "tokio::spawn");
+        present(reaction(), "tokio::spawn");
+    }
+
+    #[test]
+    fn l0_has_no_detached_spawn_item_13() {
+        absent(detector(), "tokio::spawn");
+        present(reaction(), "reconcile_instance");
+    }
+
+    #[test]
+    fn l0_does_not_call_discord_rpc() {
+        absent(detector(), "discord_rpc");
+        present(reaction(), "discord_rpc.clear_to_default");
+    }
+
+    #[test]
+    fn l0_multiplayer_notify_is_dispatched() {
+        absent(detector(), "minecraft_process_finished");
+        present(reaction(), "minecraft_process_finished");
+    }
+
+    #[test]
+    fn l0_post_exit_file_io_is_dispatched_item_16() {
+        absent(detector(), "get_instance");
+        present(reaction(), "get_instance");
+    }
+
+    #[test]
+    fn l0_post_exit_hook_runs_at_l2() {
+        absent(detector(), "Command::new");
+        present(reaction(), "Command::new");
+    }
+
+    #[test]
+    fn finished_event_implies_log_buffer_has_last_line() {
+        let body = reaction();
+        let pumps = body.find("output_task.await").expect("pumps are awaited");
+        let finished = body
+            .find("ProcessPayloadType::Finished")
+            .expect("Finished is emitted");
+        assert!(
+            pumps < finished,
+            "the output pumps must finish before the Finished event"
+        );
     }
 }

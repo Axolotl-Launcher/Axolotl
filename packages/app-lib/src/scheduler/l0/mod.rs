@@ -34,7 +34,7 @@ fn executor() -> Option<&'static L0Executor> {
 
 /// Runs an L0 task on the L0 executor, or on the current runtime when the
 /// executor is unavailable or has already exited.
-pub fn spawn<F>(task: F) -> tokio::task::JoinHandle<F::Output>
+pub fn spawn<F>(task: F) -> tokio::sync::oneshot::Receiver<F::Output>
 where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
@@ -49,10 +49,22 @@ where
             tracing::warn!(
                 "The L0 executor has exited; running L0 work on the current runtime"
             );
-            tokio::spawn(task)
+            spawn_on_current(task)
         }
-        None => tokio::spawn(task),
+        None => spawn_on_current(task),
     }
+}
+
+fn spawn_on_current<F>(task: F) -> tokio::sync::oneshot::Receiver<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    let (output, received) = tokio::sync::oneshot::channel();
+    tokio::spawn(async move {
+        let _ = output.send(task.await);
+    });
+    received
 }
 
 /// A quiesce token over the live executor's control table, so a detector sees

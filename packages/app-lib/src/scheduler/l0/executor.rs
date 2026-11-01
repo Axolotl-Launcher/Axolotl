@@ -3,12 +3,21 @@
 //! for the shared blocking pool nor competes with the main runtime's workers.
 
 use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc as std_mpsc;
 use std::time::Duration;
 
+use tokio::sync::{mpsc, oneshot};
+
 use super::control::ControlTable;
+use crate::scheduler::supervisor::Supervisor;
+
+/// A task handed to the driver's supervisor.
+type BoxedTask = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+
+/// How many tasks may wait for the driver to enter them into the supervisor.
+const SUBMISSION_QUEUE: usize = 64;
 
 /// How often the driver thread writes `L0_HEARTBEAT_AT`.
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_millis(250);
@@ -22,28 +31,18 @@ const BLOCKING_THREADS: usize = 4;
 pub const DRIVER_THREAD_NAME: &str = "theseus-l0";
 pub const BLOCKING_THREAD_NAME: &str = "theseus-l0-blocking";
 
-/// Decrements the pending count even when the task is dropped.
-struct PendingGuard(Arc<AtomicUsize>);
-
-impl Drop for PendingGuard {
-    fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::AcqRel);
-    }
-}
-
 pub struct L0Executor {
     handle: tokio::runtime::Handle,
     control: Arc<ControlTable>,
-    pending: Arc<AtomicUsize>,
+    submit: mpsc::Sender<BoxedTask>,
     thread: std::thread::JoinHandle<()>,
 }
 
 impl L0Executor {
     pub fn start(control: Arc<ControlTable>) -> std::io::Result<Self> {
         let (handle_tx, handle_rx) = std_mpsc::channel();
+        let (submit, mut submissions) = mpsc::channel(SUBMISSION_QUEUE);
         let driver_control = control.clone();
-        let pending = Arc::new(AtomicUsize::new(0));
-        let driver_pending = pending.clone();
         let thread = std::thread::Builder::new()
             .name(DRIVER_THREAD_NAME.into())
             .spawn(move || {
@@ -61,26 +60,56 @@ impl L0Executor {
                         }
                     };
                 let _ = handle_tx.send(Ok(runtime.handle().clone()));
-                runtime.block_on(async {
-                    while !driver_control.quiesce_requested()
-                        && !driver_control.abort_requested()
-                    {
-                        driver_control.heartbeat();
-                        tokio::time::sleep(HEARTBEAT_INTERVAL).await;
+                runtime.block_on(async move {
+                    // The driver owns the supervisor: every L0 task is spawned
+                    // into one JoinSet, so a panic is reported and the cancel
+                    // authority (abort_all) stays here, not on the caller.
+                    let mut supervisor = Supervisor::new();
+                    let mut heartbeat =
+                        tokio::time::interval(HEARTBEAT_INTERVAL);
+                    loop {
+                        let has_tasks = !supervisor.is_empty();
+                        tokio::select! {
+                            _ = heartbeat.tick() => driver_control.heartbeat(),
+                            Some(task) = submissions.recv() => {
+                                supervisor.spawn("l0-task", task);
+                            }
+                            joined = supervisor.join_next(), if has_tasks => {
+                                if let Some(exit) = joined {
+                                    tracing::debug!(?exit, "L0 task ended");
+                                }
+                            }
+                        }
+                        if driver_control.quiesce_requested()
+                            || driver_control.abort_requested()
+                        {
+                            break;
+                        }
                     }
                     // A quiesced task returns at its next safety point; keep
-                    // driving the runtime so it can, instead of dropping it
-                    // on the spot. Abort is the cancel path and stays
-                    // immediate. Whatever misses the window is dropped by the
-                    // bounded runtime shutdown below.
-                    if !driver_control.abort_requested() {
+                    // driving and reaping so it can, instead of dropping it on
+                    // the spot. Abort is the cancel path and stays immediate.
+                    if driver_control.abort_requested() {
+                        supervisor.abort_all();
+                    } else {
                         let deadline =
                             tokio::time::Instant::now() + DRAIN_WINDOW;
-                        while driver_pending.load(Ordering::Acquire) > 0
+                        while (!supervisor.is_empty()
+                            || !submissions.is_empty())
                             && tokio::time::Instant::now() < deadline
                         {
-                            tokio::time::sleep(Duration::from_millis(10)).await;
+                            let has_tasks = !supervisor.is_empty();
+                            tokio::select! {
+                                _ = tokio::time::sleep(Duration::from_millis(10)) => {},
+                                Some(task) = submissions.recv() => {
+                                    supervisor.spawn("l0-task", task);
+                                }
+                                joined = supervisor.join_next(), if has_tasks => {
+                                    let _ = joined;
+                                }
+                            }
                         }
+                        supervisor.abort_all();
                     }
                 });
                 // The drain above is the grace for async tasks; this drops
@@ -94,7 +123,7 @@ impl L0Executor {
         Ok(Self {
             handle,
             control,
-            pending,
+            submit,
             thread,
         })
     }
@@ -110,27 +139,41 @@ impl L0Executor {
         !self.thread.is_finished()
     }
 
-    /// Runs `task` on the L0 runtime.
-    pub fn spawn<F>(&self, task: F) -> tokio::task::JoinHandle<F::Output>
+    /// Runs `task` on the L0 runtime, supervised by the driver's JoinSet.
+    pub fn spawn<F>(&self, task: F) -> oneshot::Receiver<F::Output>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        let pending = self.pending.clone();
-        let handle = self.handle.spawn(async move {
-            // Count only a task the runtime actually polled: a spawn that
-            // loses the race with shutdown is dropped unpolled and must not
-            // pin the counter (which would make every later drain wait).
-            pending.fetch_add(1, Ordering::AcqRel);
-            let _guard = PendingGuard(pending);
-            task.await
+        let (output, received) = oneshot::channel();
+        let task: BoxedTask = Box::pin(async move {
+            let _ = output.send(task.await);
         });
-        if !self.is_running() {
-            tracing::warn!(
-                "The L0 executor exited while a task was being spawned; the task may have been cancelled"
-            );
+        match self.submit.try_send(task) {
+            Ok(()) => {}
+            Err(mpsc::error::TrySendError::Full(task)) => {
+                // The submission queue is bounded; L0 never blocks its
+                // caller. The task still runs on L0, just outside the
+                // supervisor's accounting for this submission.
+                tracing::warn!(
+                    "L0 submission queue is full; running the task outside the supervisor"
+                );
+                self.handle.spawn(task);
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                tracing::warn!(
+                    "The L0 executor is shutting down; the task was not run"
+                );
+            }
         }
-        handle
+        received
+    }
+
+    /// Asks the supervisor to abort every pending L0 task (cancel semantics,
+    /// no safety-point drain). The driver owns the abort; callers only set the
+    /// request flag.
+    pub fn abort_all(&self) {
+        self.control.request_abort();
     }
 
     /// Runs blocking work on L0's own pool, never the shared one.

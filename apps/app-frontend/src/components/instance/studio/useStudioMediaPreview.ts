@@ -49,6 +49,7 @@ export function useStudioMediaPreview(
     revision: MaybeRefOrGetter<number> = 0,
 ) {
     const url = ref('')
+    const bytes = ref(0)
     const loading = ref(false)
     const failed = ref(false)
     let generation = 0
@@ -65,17 +66,19 @@ export function useStudioMediaPreview(
             const token = ++generation
             release()
             failed.value = false
+            bytes.value = 0
             loading.value = current !== null
             if (!current) return
 
             try {
-                const bytes = await load(current.path)
+                const content = await load(current.path)
                 if (token !== generation) return
                 // The DOM types reject an array view that may be backed by a
                 // shared buffer; both readers hand back a plain buffer.
-                const blob = new Blob([bytes as BlobPart], {
+                const blob = new Blob([content as BlobPart], {
                     type: studioMediaMimeType(current.name),
                 })
+                bytes.value = content.byteLength
                 url.value = URL.createObjectURL(blob)
             } catch (error) {
                 if (token !== generation) return
@@ -93,5 +96,5 @@ export function useStudioMediaPreview(
         release()
     })
 
-    return { url, loading, failed }
+    return { url, bytes, loading, failed }
 }

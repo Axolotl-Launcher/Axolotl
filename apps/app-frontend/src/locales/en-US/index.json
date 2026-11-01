@@ -15488,11 +15488,23 @@
   "instance.files.studio.paste": {
     "message": "Paste"
   },
+  "instance.files.studio.preview-actual-size": {
+    "message": "Actual size"
+  },
   "instance.files.studio.preview-failed": {
     "message": "This file could not be previewed."
   },
+  "instance.files.studio.preview-fit": {
+    "message": "Fit to window"
+  },
   "instance.files.studio.preview-loading": {
     "message": "Loading preview..."
+  },
+  "instance.files.studio.preview-zoom-in": {
+    "message": "Zoom in"
+  },
+  "instance.files.studio.preview-zoom-out": {
+    "message": "Zoom out"
   },
   "instance.files.studio.refresh": {
     "message": "Refresh files"

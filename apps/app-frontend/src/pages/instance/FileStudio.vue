@@ -288,6 +288,7 @@ const mediaDocument = computed(() => (mediaKind.value ? activeDocument.value : n
 
 const {
     url: mediaPreviewUrl,
+    bytes: mediaPreviewBytes,
     loading: mediaPreviewLoading,
     failed: mediaPreviewFailed,
 } = useStudioMediaPreview(mediaDocument, readBinary)
@@ -931,6 +932,7 @@ onBeforeRouteLeave(() => {
                         :kind="mediaKind"
                         :url="mediaPreviewUrl"
                         :name="selectedName"
+                        :bytes="mediaPreviewBytes"
                         :loading="mediaPreviewLoading"
                         :failed="mediaPreviewFailed"
                         @open-in-system="openInSystem(selectedFilePath)"

@@ -8435,11 +8435,23 @@
   "instance.files.studio.paste": {
     "message": "貼上"
   },
+  "instance.files.studio.preview-actual-size": {
+    "message": "實際大小"
+  },
   "instance.files.studio.preview-failed": {
     "message": "無法預覽此檔案。"
   },
+  "instance.files.studio.preview-fit": {
+    "message": "符合視窗"
+  },
   "instance.files.studio.preview-loading": {
     "message": "正在載入預覽……"
+  },
+  "instance.files.studio.preview-zoom-in": {
+    "message": "放大"
+  },
+  "instance.files.studio.preview-zoom-out": {
+    "message": "縮小"
   },
   "instance.files.studio.save-failed": {
     "message": "無法儲存檔案"

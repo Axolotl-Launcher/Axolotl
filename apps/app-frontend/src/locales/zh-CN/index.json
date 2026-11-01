@@ -13619,11 +13619,23 @@
   "instance.files.studio.paste": {
     "message": "粘贴"
   },
+  "instance.files.studio.preview-actual-size": {
+    "message": "实际大小"
+  },
   "instance.files.studio.preview-failed": {
     "message": "无法预览此文件。"
   },
+  "instance.files.studio.preview-fit": {
+    "message": "适应窗口"
+  },
   "instance.files.studio.preview-loading": {
     "message": "正在加载预览……"
+  },
+  "instance.files.studio.preview-zoom-in": {
+    "message": "放大"
+  },
+  "instance.files.studio.preview-zoom-out": {
+    "message": "缩小"
   },
   "instance.files.studio.refresh": {
     "message": "刷新文件"

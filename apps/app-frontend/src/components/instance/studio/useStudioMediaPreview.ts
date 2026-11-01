@@ -29,6 +29,10 @@ export function studioMediaMimeType(name: string): string {
     return extension ? (MEDIA_TYPES[extension] ?? '') : ''
 }
 
+function isImage(name: string): boolean {
+    return studioMediaMimeType(name).startsWith('image/')
+}
+
 /**
  * Builds a preview URL from the file's bytes instead of its path.
  *
@@ -50,8 +54,8 @@ export function useStudioMediaPreview(
 ) {
     const url = ref('')
     const bytes = ref(0)
-    // The editor needs the bytes themselves, not just the URL they were turned
-    // into: a canvas cannot read back a blob URL it did not draw.
+    // Only the image editor needs the bytes themselves, not just the URL they
+    // were turned into: a canvas cannot read back a blob URL it did not draw.
     const content = shallowRef<Uint8Array | null>(null)
     const loading = ref(false)
     const failed = ref(false)
@@ -83,7 +87,10 @@ export function useStudioMediaPreview(
                     type: studioMediaMimeType(current.name),
                 })
                 bytes.value = payload.byteLength
-                content.value = payload
+                // A video plays from its object URL, so keeping the bytes as
+                // well would hold a second copy of a file that can run to
+                // hundreds of megabytes for no benefit.
+                content.value = isImage(current.name) ? payload : null
                 url.value = URL.createObjectURL(blob)
             } catch (error) {
                 if (token !== generation) return

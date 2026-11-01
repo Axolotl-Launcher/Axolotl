@@ -7,7 +7,7 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 /// The five scheduling levels; a lower level is more privileged.
 #[derive(
@@ -100,6 +100,8 @@ pub struct TagRegistry {
     id: u64,
     generation: u64,
     next: AtomicU64,
+    /// Reserved entries, so concurrent mints cannot overflow [`MAX_ENTRIES`].
+    entries: AtomicUsize,
     live: DashMap<u64, TagRecord>,
     mints: DashMap<String, usize>,
 }
@@ -110,6 +112,7 @@ impl TagRegistry {
             id: NEXT_REGISTRY.fetch_add(1, Ordering::Relaxed),
             generation,
             next: AtomicU64::new(1),
+            entries: AtomicUsize::new(0),
             live: DashMap::new(),
             mints: DashMap::new(),
         }
@@ -123,13 +126,27 @@ impl TagRegistry {
     /// `Supervisor::mint`. Returns `None` at [`MAX_ENTRIES`] instead of
     /// growing without bound or aborting.
     pub(super) fn mint(&self, level: Level, origin: &str) -> Option<Tag> {
-        if self.live.len() >= MAX_ENTRIES {
-            tracing::warn!(
-                origin,
-                limit = MAX_ENTRIES,
-                "The scheduling tag registry is full; refusing to mint"
-            );
-            return None;
+        // Reserve the entry atomically: a `len()` check followed by an insert
+        // lets concurrent mints all pass the check and exceed the bound.
+        let mut reserved = self.entries.load(Ordering::Acquire);
+        loop {
+            if reserved >= MAX_ENTRIES {
+                tracing::warn!(
+                    origin,
+                    limit = MAX_ENTRIES,
+                    "The scheduling tag registry is full; refusing to mint"
+                );
+                return None;
+            }
+            match self.entries.compare_exchange_weak(
+                reserved,
+                reserved + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(actual) => reserved = actual,
+            }
         }
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let tag = Tag {
@@ -168,8 +185,8 @@ impl TagRegistry {
 
     /// Ends a tag's life; its record leaves the registry.
     pub fn release(&self, tag: Tag) {
-        if self.owns(&tag) {
-            self.live.remove(&tag.id);
+        if self.owns(&tag) && self.live.remove(&tag.id).is_some() {
+            self.entries.fetch_sub(1, Ordering::AcqRel);
         }
     }
 

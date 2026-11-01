@@ -221,6 +221,7 @@ vi.mock('@modrinth/ui', async () => {
                 'PopoutMenu',
                 'BrowsePageLayout',
                 'BrowseSidebar',
+                'BrowseSourceSelector',
                 'BrowseInstallHeader',
                 'CreationFlowModal',
                 'NavTabs',

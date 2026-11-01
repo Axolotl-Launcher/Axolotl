@@ -501,6 +501,7 @@ async fn run_task_probe(
         use crate::util::download::endpoint_selection::tuning::{
             TRIALS, TrialKind,
         };
+        // sched-order: theseus::util::download::endpoint_selection::tuning::TRIALS
         let Some(_trial) = TRIALS.acquire(
             TrialKind::Endpoint,
             Instant::now(),
@@ -531,6 +532,7 @@ async fn run_task_probe(
         .await
         .unwrap_or(false);
     {
+        // sched-order: theseus::util::download::route_health::TaskProbeState.families
         let mut families = plan.state.families.lock();
         if let Some(entry) = families.get_mut(&plan.family) {
             if completed {

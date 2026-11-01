@@ -716,6 +716,9 @@ fn main() {
     std::mem::forget(rt);
     tauri::async_runtime::set(handle);
 
+    #[cfg(dev)]
+    let tauri_context = tauri::generate_context!();
+    #[cfg(not(dev))]
     let tauri_context = tauri::tauri_build_context!();
 
     let _log_guard = theseus::start_logger(&tauri_context.config().identifier);

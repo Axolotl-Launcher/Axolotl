@@ -118,6 +118,7 @@ pub async fn import_world_save(
         inner_base,
         crate::install::critical_section::whitelisted(
             crate::install::critical_section::WhitelistSite::InstanceWorldImport,
+            &_instance_lock,
         )
         .into(),
     )

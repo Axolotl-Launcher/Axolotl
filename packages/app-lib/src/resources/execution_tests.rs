@@ -3430,5 +3430,8 @@ async fn a_satisfied_filename_dependency_is_rechecked_before_any_file_is_replace
 }
 
 fn test_access() -> WriteAccess<'static> {
-    critical_section::whitelisted(critical_section::WhitelistSite::Tests).into()
+    critical_section::whitelisted_for_test(
+        critical_section::WhitelistSite::Tests,
+    )
+    .into()
 }

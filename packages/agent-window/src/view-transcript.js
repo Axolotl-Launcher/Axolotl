@@ -587,6 +587,8 @@ function planFooter(item, turn) {
             return h('p', { class: 'plan-state' }, [icon('close'), text('planDeclined')])
         case 'superseded':
             return h('p', { class: 'plan-state' }, [icon('refresh'), text('planSuperseded')])
+        case 'stopped':
+            return h('p', { class: 'plan-state' }, [icon('stop'), text('planStopped')])
         default:
             return h('p', { class: 'plan-state is-unknown' }, [
                 icon('warning'),

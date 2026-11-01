@@ -548,6 +548,9 @@
   "app.agent-window.chat.plan-superseded": {
     "message": "已被你的新消息替换"
   },
+  "app.agent-window.chat.plan-stopped": {
+    "message": "未执行"
+  },
   "app.agent-window.chat.plan-unknown": {
     "message": "应用过程中被中断，可以核对实际写入了哪些内容。"
   },

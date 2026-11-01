@@ -423,6 +423,7 @@ export const agentWindowMessages = defineMessages({
         id: 'app.agent-window.chat.plan-superseded',
         defaultMessage: 'Replaced by your newer message',
     },
+    planStopped: { id: 'app.agent-window.chat.plan-stopped', defaultMessage: 'Not carried out' },
     planUnknown: {
         id: 'app.agent-window.chat.plan-unknown',
         defaultMessage: 'Interrupted while applying. Check the status to see what was written.',

@@ -148,13 +148,16 @@ export function applyEvent(run, event, now = Date.now()) {
             break
         case 'error':
             closeActivity(run, now)
-            for (const activity of run.items)
-                if (activity.type === 'activity')
-                    for (const step of activity.steps)
+            for (const item of run.items) {
+                if (item.type === 'activity')
+                    for (const step of item.steps)
                         if (step.status === 'running') {
                             step.status = 'failed'
                             step.endedAt = now
                         }
+                // A plan the failed run left waiting can no longer be approved.
+                if (item.type === 'plan' && item.state === 'pending') item.state = 'stopped'
+            }
             run.items.push({
                 id: id(),
                 type: 'error',
@@ -186,8 +189,8 @@ export function applyEvent(run, event, now = Date.now()) {
 
 // Marks the plan as being written; the runtime then reports steps and results.
 export function beginApply(run) {
-    const plan = run.items.findLast((item) => item.type === 'plan')
-    if (!plan || plan.state !== 'pending' || !includedChanges(plan).length) return false
+    const plan = pendingPlan(run)
+    if (!plan || !includedChanges(plan).length) return false
     plan.state = 'applying'
     run.status = 'applying'
     run.endedAt = null

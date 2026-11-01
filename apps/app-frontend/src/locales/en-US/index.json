@@ -548,6 +548,9 @@
   "app.agent-window.chat.plan-superseded": {
     "message": "Replaced by your newer message"
   },
+  "app.agent-window.chat.plan-stopped": {
+    "message": "Not carried out"
+  },
   "app.agent-window.chat.plan-unknown": {
     "message": "Interrupted while applying. Check the status to see what was written."
   },

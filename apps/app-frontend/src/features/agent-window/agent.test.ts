@@ -342,3 +342,17 @@ it('splits streamed Markdown into blocks, including an unfinished code fence', (
     expect(blocks[2].items).toEqual(['one', 'two'])
     expect(blocks[6]).toMatchObject({ lang: 'log', text: 'line one\n\nline two' })
 })
+
+it('voids a waiting plan when the run fails and only approves a waiting run', () => {
+    const run = newRun()
+    applyEvent(run, {
+        type: 'plan',
+        plan: { title: 'Fix', changes: [{ name: 'Sodium', kind: 'update', from: '1', to: '2' }] },
+    })
+    expect(pendingPlan(run)).not.toBeNull()
+    applyEvent(run, { type: 'error', title: 'Lost connection', text: '' })
+    expect(run.status).toBe('failed')
+    expect(run.items.find((item) => item.type === 'plan').state).toBe('stopped')
+    expect(pendingPlan(run)).toBeNull()
+    expect(beginApply(run)).toBe(false)
+})

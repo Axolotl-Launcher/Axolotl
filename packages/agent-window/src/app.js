@@ -741,11 +741,20 @@ function request(thread, turn, extra = {}) {
     }
 }
 
+// Each launch holds a ticket for its turn. Events from a run the user stopped,
+// that finished, or that a newer launch replaced are dropped instead of
+// reopening the turn.
+const tickets = new Map()
+
 async function launch(threadId, turnId, mode) {
     await ensureRuntime()
     const found = findTurn(threadId, turnId)
     if (!found || !session.runtime?.[mode]) return
-    const emit = (event) => onRuntimeEvent(threadId, turnId, event)
+    const ticket = {}
+    tickets.set(turnId, ticket)
+    const emit = (event) => {
+        if (tickets.get(turnId) === ticket) onRuntimeEvent(threadId, turnId, event)
+    }
     const extra =
         mode === 'approve'
             ? (() => {
@@ -787,6 +796,7 @@ function onRuntimeEvent(threadId, turnId, event) {
     refreshTurn(threadId, turnId)
     if (event.type === 'done' || event.type === 'error') {
         session.handles.delete(turnId)
+        tickets.delete(turnId)
         persistNow()
         settle(thread.id, before)
     }
@@ -932,6 +942,7 @@ function stop() {
     const before = turn.run.status
     session.handles.get(turn.id)?.stop()
     session.handles.delete(turn.id)
+    tickets.delete(turn.id)
     stopRun(turn.run)
     persistNow()
     refreshTurn(thread.id, turn.id, true)

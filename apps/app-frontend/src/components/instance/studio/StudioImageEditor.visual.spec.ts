@@ -153,6 +153,9 @@ it('cancels without saving', async () => {
 
 it('leaves escape to a focused property control instead of closing the editor', async () => {
     const wrapper = mountEditor()
+    // The property controls only exist once a tool that has one is active, which
+    // the initialiser resets; wait for it so the pen is the last word.
+    await vi.waitFor(() => expect(wrapper.text()).toContain('1 × 1'))
     const pen = wrapper
         .findAll('[role="toolbar"] button')
         .find((button) => button.attributes('aria-label') === 'Pen')

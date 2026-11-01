@@ -438,4 +438,59 @@ mod tests {
             && record.at > 0));
         assert_eq!((bypass.granted(), bypass.denied()), (1, 1));
     }
+
+    #[test]
+    fn b4_a_second_reference_to_the_same_tag_is_still_self() {
+        // The tag cannot be cloned, but a caller can pass the same waiter
+        // through a second reference; identity is by id, not address.
+        let registry = TagRegistry::new(1);
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let same = &waiter;
+        let mut bypass = ReclaimBypass::new();
+        assert_eq!(
+            bypass.request(same, request(&waiter), Instant::now()),
+            Err(Denial::SelfInitiated),
+        );
+        assert_eq!((bypass.granted(), bypass.denied()), (0, 1));
+    }
+
+    #[test]
+    fn a_lease_names_the_tag_it_was_granted_to() {
+        let registry = TagRegistry::new(1);
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let other = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let mut bypass = ReclaimBypass::new();
+        let now = Instant::now();
+        let lease = bypass.grant(request(&waiter), now).unwrap();
+        assert!(lease.still_holds(&waiter));
+        assert!(!lease.still_holds(&other), "a lease is one tag's");
+        assert!(!lease.reaches(Level::L0, now + BYPASS_LEASE_TTL));
+    }
+
+    #[test]
+    fn the_rate_limit_table_does_not_grow_without_bound() {
+        let registry = TagRegistry::new(1);
+        let mut bypass = ReclaimBypass::new();
+        let now = Instant::now();
+        for index in 0..64 {
+            let waiter = registry
+                .mint(Level::L4, "reclaim")
+                .expect("the registry is below its cap");
+            let _ = bypass.grant(request(&waiter), now);
+            assert!(bypass.last_grant.len() <= index + 1);
+        }
+        // Once the interval has passed, granting prunes the old entries.
+        let later = now + BYPASS_GRANT_INTERVAL;
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let _ = bypass.grant(request(&waiter), later);
+        assert_eq!(bypass.last_grant.len(), 1, "expired grants are pruned");
+    }
 }

@@ -8366,6 +8366,18 @@
   "instance.files.studio.edit-deleted": {
     "message": "此檔案在編輯儲存前已被刪除。"
   },
+  "instance.files.studio.discard-image-confirm": {
+    "message": "捨棄"
+  },
+  "instance.files.studio.discard-image-description": {
+    "message": "圖片有尚未儲存的修改，開啟其他檔案會捨棄這些修改。"
+  },
+  "instance.files.studio.discard-image-keep": {
+    "message": "繼續編輯"
+  },
+  "instance.files.studio.discard-image-title": {
+    "message": "捨棄圖片編輯？"
+  },
   "instance.files.studio.edit-conflict": {
     "message": "此檔案在開啟後已被外部修改，編輯內容未儲存。"
   },

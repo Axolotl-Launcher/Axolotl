@@ -78,6 +78,8 @@ const editLocation = ref<MediaEditLocation | null>(null)
 // The bytes the editor drew over, kept so the page can tell whether the file was
 // replaced on disk while the edit was in progress.
 const editOriginal = shallowRef<Uint8Array | null>(null)
+// Whether the canvas holds changes the file does not have yet.
+const editDirty = ref(false)
 
 let stageObserver: ResizeObserver | null = null
 let stopPointerDrag: (() => void) | null = null
@@ -201,6 +203,7 @@ function startEditing() {
 
 function stopEditing() {
     editing.value = false
+    editDirty.value = false
     editLocation.value = null
     editOriginal.value = null
 }
@@ -214,6 +217,15 @@ function onSave(bytes: Uint8Array) {
     // leaves the file untouched with no way to retry.
     emit('save', { location, original, bytes })
 }
+
+defineExpose({
+    /** Whether the editor is on screen, so a reload can wait for it to close. */
+    isEditing: computed(() => editing.value),
+    /** Whether closing the editor would throw away changes. */
+    hasUnsavedEdits: computed(() => editing.value && editDirty.value),
+    /** Closes the editor and drops its canvas. */
+    discardEdits: stopEditing,
+})
 
 watch(
     () => props.url,
@@ -300,6 +312,7 @@ onBeforeUnmount(() => {
             :name="name"
             @save="onSave"
             @cancel="stopEditing"
+            @dirty="editDirty = $event"
             @error="emit('editFailed', $event)"
         />
         <div

@@ -13550,6 +13550,18 @@
   "instance.files.studio.edit-deleted": {
     "message": "该文件在编辑保存前已被删除。"
   },
+  "instance.files.studio.discard-image-confirm": {
+    "message": "放弃"
+  },
+  "instance.files.studio.discard-image-description": {
+    "message": "图片有尚未保存的修改，打开其他文件会丢弃这些修改。"
+  },
+  "instance.files.studio.discard-image-keep": {
+    "message": "继续编辑"
+  },
+  "instance.files.studio.discard-image-title": {
+    "message": "放弃图片编辑？"
+  },
   "instance.files.studio.edit-conflict": {
     "message": "该文件在打开后已被外部修改，编辑内容未保存。"
   },

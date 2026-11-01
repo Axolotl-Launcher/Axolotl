@@ -29,7 +29,7 @@ import {
     useImageEditor,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { reencodeImageBytes } from './image-encoding'
 
@@ -43,6 +43,7 @@ const emit = defineEmits<{
     cancel: []
     save: [bytes: Uint8Array]
     error: [error: unknown]
+    dirty: [dirty: boolean]
 }>()
 
 const studioMessages = defineMessages({
@@ -131,6 +132,10 @@ const toolGroups = [
 >
 
 const eraserModes: ScreenshotEraserMode[] = ['element', 'area']
+
+// The history starts on a snapshot of the untouched image, so anything that can
+// be undone is a change that has not been written to the file yet.
+watch(canUndo, (dirty) => emit('dirty', dirty), { immediate: true })
 
 const canvasElement = ref<HTMLCanvasElement>()
 const viewport = ref<HTMLElement>()

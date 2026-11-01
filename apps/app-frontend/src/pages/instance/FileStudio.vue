@@ -124,6 +124,23 @@ const messages = defineMessages({
         id: 'instance.files.studio.edit-deleted',
         defaultMessage: 'This file was removed before the edit could be saved.',
     },
+    discardImageTitle: {
+        id: 'instance.files.studio.discard-image-title',
+        defaultMessage: 'Discard the image edit?',
+    },
+    discardImageDescription: {
+        id: 'instance.files.studio.discard-image-description',
+        defaultMessage:
+            'The image has changes that have not been saved. Opening another file discards them.',
+    },
+    discardImageKeep: {
+        id: 'instance.files.studio.discard-image-keep',
+        defaultMessage: 'Keep editing',
+    },
+    discardImageConfirm: {
+        id: 'instance.files.studio.discard-image-confirm',
+        defaultMessage: 'Discard',
+    },
     loadingFile: {
         id: 'instance.files.studio.loading-file',
         defaultMessage: 'Loading file...',
@@ -175,7 +192,10 @@ const createName = ref('')
 const studioEditor = ref<InstanceType<typeof StudioEditor> | InstanceType<typeof NbtEditor> | null>(
     null,
 )
+const mediaPreview = ref<InstanceType<typeof MediaPreview> | null>(null)
+const discardModal = ref<InstanceType<typeof NewModal> | null>(null)
 const nbtFiles = new Map<string, NbtFile>()
+let settleDiscard: ((confirmed: boolean) => void) | null = null
 
 const {
     documents,
@@ -396,6 +416,44 @@ async function writeMediaBytes(location: MediaEditLocation, bytes: Uint8Array) {
     if (location.instanceId) return writeStudioBinary(location.instanceId, location.path, bytes)
     return replaceFile(await join(location.root, ...location.path.split('/')), bytes)
 }
+
+/**
+ * Whether switching away from the open image editor may proceed.
+ *
+ * Text documents are written to disk when the active tab changes, but an image
+ * lives on a canvas until it is saved: switching documents unmounts the editor
+ * and the pixels are gone. The user decides instead of losing the edit quietly.
+ */
+function confirmDiscardImageEdits(): Promise<boolean> {
+    if (!mediaPreview.value?.hasUnsavedEdits) return Promise.resolve(true)
+    return new Promise((resolve) => {
+        settleDiscard = resolve
+        discardModal.value?.show()
+    })
+}
+
+function resolveDiscard(confirmed: boolean) {
+    const settle = settleDiscard
+    if (!settle) return
+    settleDiscard = null
+    if (confirmed) mediaPreview.value?.discardEdits()
+    discardModal.value?.hide()
+    settle(confirmed)
+}
+
+/**
+ * Reloading the preview under an open editor would unmount the canvas and take
+ * the edit with it, so a change on disk waits until the editor is closed.
+ */
+const mediaPendingReload = ref(false)
+watch(
+    () => mediaPreview.value?.isEditing ?? false,
+    (editing) => {
+        if (editing || !mediaPendingReload.value) return
+        mediaPendingReload.value = false
+        mediaRevision.value += 1
+    },
+)
 
 function exitStudio() {
     if (props.server) {
@@ -653,7 +711,8 @@ async function processFileChanges(changedPaths: string[]) {
     // screenshot, another editor, or the crop this page just wrote) has to be
     // read again rather than left showing the previous content.
     if (mediaKind.value && activeDocument.value && paths.has(activeDocument.value.path)) {
-        mediaRevision.value += 1
+        if (mediaPreview.value?.isEditing) mediaPendingReload.value = true
+        else mediaRevision.value += 1
     }
 }
 
@@ -696,6 +755,12 @@ onBeforeUnmount(() => {
 
 async function openFile(node: StudioTreeNode) {
     if (node.type !== 'file' || fileLoading.value || isDeleting(node.path)) return
+    if (node.path === activePath.value) return
+    if (!(await confirmDiscardImageEdits())) return
+    await openFileNow(node)
+}
+
+async function openFileNow(node: StudioTreeNode) {
     const version = pathVersion(node.path)
 
     const existingDocument = documents.value.find((document) => document.path === node.path)
@@ -793,6 +858,8 @@ async function openFile(node: StudioTreeNode) {
 }
 
 async function activateTab(path: string) {
+    if (path === activePath.value) return
+    if (!(await confirmDiscardImageEdits())) return
     await activateDocument(path)
 }
 
@@ -862,6 +929,24 @@ onBeforeRouteLeave(() => {
         <section
             class="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(13rem,22rem)_minmax(0,1fr)] overflow-hidden rounded-[20px] border border-solid border-surface-4 bg-surface-1 shadow-sm"
         >
+            <NewModal
+                ref="discardModal"
+                :header="formatMessage(messages.discardImageTitle)"
+                max-width="420px"
+                :on-hide="() => resolveDiscard(false)"
+            >
+                <p class="m-0 text-sm text-secondary">
+                    {{ formatMessage(messages.discardImageDescription) }}
+                </p>
+                <template #actions>
+                    <Button @click="resolveDiscard(false)">
+                        {{ formatMessage(messages.discardImageKeep) }}
+                    </Button>
+                    <Button type="colored" color="red" @click="resolveDiscard(true)">
+                        {{ formatMessage(messages.discardImageConfirm) }}
+                    </Button>
+                </template>
+            </NewModal>
             <NewModal
                 ref="createModal"
                 :header="formatMessage(messages.createItem)"
@@ -1040,6 +1125,7 @@ onBeforeRouteLeave(() => {
                     </div>
                     <MediaPreview
                         v-if="mediaKind"
+                        ref="mediaPreview"
                         :kind="mediaKind"
                         :url="mediaPreviewUrl"
                         :name="selectedName"

@@ -15419,6 +15419,18 @@
   "instance.files.studio.edit-deleted": {
     "message": "This file was removed before the edit could be saved."
   },
+  "instance.files.studio.discard-image-confirm": {
+    "message": "Discard"
+  },
+  "instance.files.studio.discard-image-description": {
+    "message": "The image has changes that have not been saved. Opening another file discards them."
+  },
+  "instance.files.studio.discard-image-keep": {
+    "message": "Keep editing"
+  },
+  "instance.files.studio.discard-image-title": {
+    "message": "Discard the image edit?"
+  },
   "instance.files.studio.edit-conflict": {
     "message": "This file changed on disk after it was opened. The edit was not saved."
   },

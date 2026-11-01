@@ -78,10 +78,16 @@ vi.mock('@/components/instance/studio/StudioImageEditor.vue', async () => {
             setup:
                 (_, { emit }) =>
                 () =>
-                    h('button', {
-                        'data-testid': 'editor-save',
-                        onClick: () => emit('save', EDITED_BYTES),
-                    }),
+                    h('div', [
+                        h('button', {
+                            'data-testid': 'editor-save',
+                            onClick: () => emit('save', EDITED_BYTES),
+                        }),
+                        h('button', {
+                            'data-testid': 'editor-dirty',
+                            onClick: () => emit('dirty', true),
+                        }),
+                    ]),
         }),
     }
 })
@@ -93,10 +99,11 @@ vi.mock('@modrinth/ui', async () => {
     const passThrough = (name: string) =>
         defineComponent({
             name,
-            setup:
-                (_, { slots }) =>
-                () =>
-                    h('div', slots.default?.()),
+            setup: (_, { slots, expose }) => {
+                // The page opens the discard prompt through the template ref.
+                expose({ show: () => undefined, hide: () => undefined })
+                return () => h('div', [slots.default?.(), slots.actions?.()])
+            },
         })
     return {
         Button: defineComponent({
@@ -236,6 +243,28 @@ it('refuses to write an edit over a file that changed since it was opened', asyn
 
     expect(studio.writeStudioBinary).not.toHaveBeenCalled()
     expect(studio.notify).toHaveBeenCalled()
+})
+
+it('asks before a file switch discards an image edit', async () => {
+    const wrapper = await mountStudio({ instance: { id: 'instance' } as unknown as GameInstance })
+    await openScreenshot(wrapper)
+
+    const edit = wrapper.findAll('button').find((button) => button.text() === 'Edit')
+    if (!edit) throw new Error('the preview does not offer the editor')
+    await edit.trigger('click')
+    await wrapper.find('[data-testid="editor-dirty"]').trigger('click')
+
+    await openTreeFile(wrapper, 'screenshots/pack.jar')
+    // The switch waits for an answer instead of unmounting the canvas, which
+    // would take the edit with it.
+    expect(wrapper.find('[data-testid="editor-save"]').exists()).toBe(true)
+
+    const discard = wrapper.findAll('button').find((button) => button.text() === 'Discard')
+    if (!discard) throw new Error('the prompt does not offer discarding')
+    await discard.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="editor-save"]').exists()).toBe(false)
 })
 
 it('keeps the edit open when the write fails', async () => {

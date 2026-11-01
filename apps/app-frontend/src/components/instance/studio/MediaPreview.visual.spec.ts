@@ -58,7 +58,7 @@ vi.mock('./StudioImageEditor.vue', async () => {
         default: defineComponent({
             name: 'StudioImageEditor',
             props: { content: Object, mimeType: String, name: String },
-            emits: ['save', 'cancel', 'error'],
+            emits: ['save', 'cancel', 'error', 'dirty'],
             setup:
                 (_, { emit }) =>
                 () =>
@@ -70,6 +70,10 @@ vi.mock('./StudioImageEditor.vue', async () => {
                         h('button', {
                             'data-testid': 'editor-cancel',
                             onClick: () => emit('cancel'),
+                        }),
+                        h('button', {
+                            'data-testid': 'editor-dirty',
+                            onClick: () => emit('dirty', true),
                         }),
                     ]),
         }),
@@ -247,6 +251,26 @@ it('writes an edit to the file the editor was opened for', async () => {
     expect(wrapper.emitted('save')).toEqual([
         [{ location: LOCATION, original: PNG_BYTES, bytes: EDITED_BYTES }],
     ])
+})
+
+it('reports an edit that has not been written yet', async () => {
+    const wrapper = mountPreview()
+    const preview = wrapper.vm as unknown as {
+        isEditing: boolean
+        hasUnsavedEdits: boolean
+        discardEdits: () => void
+    }
+    await findButton(wrapper, 'Edit')!.trigger('click')
+    expect(preview.isEditing).toBe(true)
+    expect(preview.hasUnsavedEdits).toBe(false)
+
+    await wrapper.find('[data-testid="editor-dirty"]').trigger('click')
+    expect(preview.hasUnsavedEdits).toBe(true)
+
+    preview.discardEdits()
+    await nextTick()
+    expect(preview.isEditing).toBe(false)
+    expect(wrapper.find('img').exists()).toBe(true)
 })
 
 it('discards the edit when it is cancelled', async () => {

@@ -232,7 +232,14 @@ function planFooter(item, turn) {
     switch (item.state) {
         case 'pending':
             return h('div', { class: 'plan-actions' }, [
-                h('p', { class: 'plan-promise' }, [icon('shield'), text('approvalPromise')]),
+                // Says what approving does, in the plan's own words, above the promise.
+                h('div', { class: 'plan-promise' }, [
+                    icon('shield'),
+                    h('span', {}, [
+                        item.plan.approval ? h('strong', { text: item.plan.approval }) : null,
+                        h('span', { text: text('approvalPromise') }),
+                    ]),
+                ]),
                 h('div', { class: 'plan-buttons' }, [
                     button({
                         class: 'secondary-button',

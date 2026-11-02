@@ -2542,7 +2542,16 @@ fn export_sponge_v3(session: &PreviewSession) -> Result<Vec<u8>, String> {
     } else if session.litematic_root().is_some() {
         schematic.insert("Entities", litematic_entities_to_sponge(session));
     }
-    let mut root = NbtCompound::new();
+    // A version 3 source may carry tags next to `Schematic`, and those have to
+    // survive the round trip. A version 2 source is rebuilt from an empty root
+    // so its top level block data and `Version` cannot leak into a version 3
+    // file.
+    let mut root = preserved
+        .filter(|preserved| {
+            preserved.root.get::<_, &NbtCompound>("Schematic").is_ok()
+        })
+        .map(|preserved| preserved.root.clone())
+        .unwrap_or_default();
     root.insert("Schematic", schematic);
     let mut output = Vec::new();
     quartz_nbt::io::write_nbt(
@@ -3878,6 +3887,42 @@ mod tests {
                 .get::<_, &str>("CustomName")
                 .unwrap(),
             "Cart"
+        );
+    }
+
+    #[test]
+    fn sponge_root_siblings_survive_export() {
+        let mut fixture = sponge_container_fixture(3);
+        fixture.insert("ExtensionData", "keep me");
+        let session = parse_sponge(
+            fixture,
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let root = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        assert_eq!(root.get::<_, &str>("ExtensionData").unwrap(), "keep me");
+
+        // A version 2 source is rewritten from an empty root, so its top level
+        // fields must not leak into the version 3 output.
+        let session = parse_sponge(
+            sponge_container_fixture(2),
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let root = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        assert!(root.get::<_, i16>("Width").is_err());
+        assert_eq!(
+            root.get::<_, &NbtCompound>("Schematic")
+                .unwrap()
+                .get::<_, i32>("Version")
+                .unwrap(),
+            3
         );
     }
 

@@ -5,7 +5,11 @@
 //!
 //! Running games are tracked in memory only (`ProcessManager`), so a process
 //! exit an L0 event could not report leaves nothing behind for a restart to
-//! repair; the old `processes` table is retired upstream.
+//! repair: the old `processes` table is retired upstream, and the spec's
+//! `AppClosed` compensation has no persisted row left to repair. The loss is
+//! bounded to the current session; a restart starts with no process records.
+//! Interrupted install jobs are recovered by `install::recover_interrupted_jobs`
+//! before this entry runs.
 
 use crate::State;
 

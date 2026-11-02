@@ -17,6 +17,12 @@ const RUST_SOURCE_PATTERN = /const CATALOG_SOURCE: &str = "LobeHub ([0-9a-f]{40}
 // Keep this list in sync with SPONSORED_PROVIDERS in packages/app-lib/src/api/ai.rs.
 const SPONSORED_PROVIDER_IDS = ['codeflow', 'fastai']
 
+// Sponsored providers that publish their model list without authentication are
+// synchronized from it; the others keep their hand-maintained models.
+const SPONSORED_MODEL_SOURCES = {
+    codeflow: 'https://codeflow.sh/api/pricing',
+}
+
 function assertSponsoredProvidersPreserved(rustSource) {
     for (const providerId of SPONSORED_PROVIDER_IDS) {
         const pattern = new RegExp(`provider!\\s*\\(\\s*"${providerId}"`)
@@ -167,6 +173,50 @@ function createModelBankLoader(upstreamRoot) {
     }
 }
 
+// Reads the pricing format `{ models: [{ model, displayName }] }`, in the
+// order the sponsor's model square lists them.
+async function fetchSponsoredModels(providerId, url) {
+    const response = await fetch(url, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(20_000),
+    })
+    if (!response.ok) {
+        throw new Error(`${providerId} model list request failed with HTTP ${response.status}`)
+    }
+    const body = requireObject(await response.json(), `${providerId} model list`)
+    if (!Array.isArray(body.models)) {
+        throw new Error(`${providerId} model list has no models array`)
+    }
+
+    const seen = new Set()
+    return body.models.map((model) => {
+        requireObject(model, `${providerId} model`)
+        if (typeof model.model !== 'string' || !model.model || model.model !== model.model.trim()) {
+            throw new Error(`${providerId} model has an invalid id: ${JSON.stringify(model.model)}`)
+        }
+        if (seen.has(model.model)) throw new Error(`Duplicate ${providerId} model: ${model.model}`)
+        seen.add(model.model)
+        const displayName = model.displayName || model.model
+        if (typeof displayName !== 'string' || !displayName.trim()) {
+            throw new Error(`${providerId} model ${model.model} has no display name`)
+        }
+        return { id: model.model, name: displayName, enabled: true }
+    })
+}
+
+function assertCheckModelListed(rustSource, providerId, models) {
+    const pattern = new RegExp(
+        `provider!\\s*\\(\\s*"${providerId}",\\s*"[^"]*",\\s*\\w+,\\s*"[^"]*",\\s*"([^"]+)"`,
+    )
+    const checkModel = pattern.exec(rustSource)?.[1]
+    if (!checkModel) throw new Error(`Unable to find the ${providerId} check model in ai.rs`)
+    if (!models.some((model) => model.id === checkModel)) {
+        throw new Error(
+            `${providerId} no longer lists its check model ${checkModel}; update it in ai.rs`,
+        )
+    }
+}
+
 function validateCurrentCatalog(catalog, rustSource) {
     requireObject(catalog, 'Current model catalog')
     const providers = requireObject(catalog.providers, 'Current model catalog providers')
@@ -189,7 +239,7 @@ function validateCurrentCatalog(catalog, rustSource) {
     return providers
 }
 
-function buildCatalog(models, currentProviders) {
+function buildCatalog(models, currentProviders, sponsoredModels) {
     if (!Array.isArray(models)) {
         throw new Error('LOBE_DEFAULT_MODEL_LIST must be an array')
     }
@@ -230,6 +280,14 @@ function buildCatalog(models, currentProviders) {
     }
 
     for (const providerId of SPONSORED_PROVIDER_IDS) {
+        const fetchedModels = sponsoredModels[providerId]
+        if (fetchedModels) {
+            providers[providerId] = fetchedModels
+            console.log(
+                `Synchronized ${fetchedModels.length} sponsored model(s) for ${providerId} from ${SPONSORED_MODEL_SOURCES[providerId]}`,
+            )
+            continue
+        }
         const sponsorModels = currentProviders[providerId]
         if (!sponsorModels?.length) continue
         providers[providerId] = [...sponsorModels]
@@ -267,9 +325,23 @@ assertSponsoredProvidersPreserved(rustSource)
 const currentCatalog = JSON.parse(catalogText)
 const currentProviders = validateCurrentCatalog(currentCatalog, rustSource)
 const loadModels = createModelBankLoader(upstreamRoot)
+// A sponsor's outage or bad response keeps its current models instead of
+// blocking the LobeHub update; the warning is annotated on the workflow run.
+const sponsoredModels = {}
+for (const [providerId, url] of Object.entries(SPONSORED_MODEL_SOURCES)) {
+    try {
+        const models = await fetchSponsoredModels(providerId, url)
+        assertCheckModelListed(rustSource, providerId, models)
+        sponsoredModels[providerId] = models
+    } catch (error) {
+        const message = `Keeping the current ${providerId} models: ${error.message}`
+        console.warn(process.env.GITHUB_ACTIONS === 'true' ? `::warning::${message}` : message)
+    }
+}
 const { providers, synchronizedCount, upstreamChatCount } = buildCatalog(
     await loadModels(),
     currentProviders,
+    sponsoredModels,
 )
 const providersChanged = JSON.stringify(providers) !== JSON.stringify(currentProviders)
 

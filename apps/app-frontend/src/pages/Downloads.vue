@@ -462,6 +462,13 @@
                         :heading="formatMessage(messages.noFileDetailsTitle)"
                         :description="formatMessage(messages.noFileDetails)"
                     />
+                    <DownloadDiagnosticsPanel
+                        v-if="
+                            themeStore.devMode &&
+                            themeStore.getFeatureFlag('advanced_download_info')
+                        "
+                        :job-id="job.job_id"
+                    />
                 </div>
             </Card>
         </div>
@@ -583,17 +590,21 @@ import {
     type InstallJobStatus,
     type InstallPhaseId,
 } from '@/helpers/install'
+import { installJobResourceMatches, installJobTitle } from '@/helpers/install-job-presentation'
+import { isActiveInstallJobStatus } from '@/helpers/install-job-status'
 import {
     effectiveInstallProgress,
     effectiveParallelProgress,
     hasDeterminateInstallProgress,
     installProgressFraction,
     installProgressTextSource,
+    isInstallMainTrackComplete as isMainTrackComplete,
 } from '@/helpers/install-progress'
 import type { LoadingBar } from '@/helpers/state'
 import { instanceKeys, instanceListQueryOptions } from '@/pages/instance/query-options'
 import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
+import { useTheming } from '@/store/state'
 
 import {
     createDownloadFocusState,
@@ -601,11 +612,13 @@ import {
     reconcileDownloadFocus,
     stopDownloadFocusAutoFollow,
 } from './download-focus'
+import DownloadDiagnosticsPanel from './downloads/DownloadDiagnosticsPanel.vue'
 import { isSuccessfulUpgradeJob, upgradeResultLocation } from './instance/upgrade/result'
 
 type DownloadItem = InstallJobSnapshot['items'][number]
 
 const manager = injectDownloadManager()
+const themeStore = useTheming()
 const queryClient = useQueryClient()
 const instancesQuery = useQuery(instanceListQueryOptions())
 const instanceNames = computed(
@@ -987,6 +1000,7 @@ const visibleJobs = computed(() => {
         return (
             !normalized ||
             jobTitle(job).toLowerCase().includes(normalized) ||
+            installJobResourceMatches(job, normalized) ||
             targetInstanceName(job)?.toLowerCase().includes(normalized) ||
             job.job_id.includes(normalized)
         )
@@ -1023,12 +1037,7 @@ const emptyState = computed(() => {
     }
 })
 function jobTitle(job: InstallJobSnapshot) {
-    return (
-        job.display?.title ||
-        (job.details.type === 'instance' ? job.details.name : null) ||
-        (job.details.type === 'modpack' ? job.details.title : null) ||
-        jobTypeLabel(job)
-    )
+    return installJobTitle(job, formatMessage, jobTypeLabel(job))
 }
 
 function displayIcon(icon: string) {
@@ -1120,6 +1129,7 @@ function isLocalRecoveryValidation(job: InstallJobSnapshot) {
 
 function jobPhaseLabel(job: InstallJobSnapshot) {
     if (job.rollback_error) return formatMessage(messages.cleanupIncomplete)
+    if (!isActiveInstallJobStatus(job.status)) return statusLabel(job.status)
     // Older queued content jobs were initialized with the generic instance phase.
     // Keep their label meaningful while they are resumed or waiting for the worker.
     if (job.kind === 'install_content' && job.phase === 'preparing_instance') {
@@ -1203,13 +1213,6 @@ function parallelPercent(job: InstallJobSnapshot) {
 
 function isFinished(job: InstallJobSnapshot) {
     return job.status === 'succeeded'
-}
-
-function isMainTrackComplete(job: InstallJobSnapshot) {
-    if (isFinished(job)) return true
-    const progress = effectiveInstallProgress(job)
-    if (job.phase === 'downloading_content' && progress?.total === 0) return true
-    return hasDeterminateInstallProgress(progress) && progress.current >= progress.total
 }
 
 function isParallelTrackComplete(job: InstallJobSnapshot) {

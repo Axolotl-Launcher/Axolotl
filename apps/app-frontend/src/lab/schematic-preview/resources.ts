@@ -8,6 +8,7 @@ export type SchematicWorkerResources = {
     defaultBlockProperties: Record<string, Record<string, string>>
     textureUvs: Record<string, [number, number, number, number]>
     missingTextureUv: [number, number, number, number]
+    bubbleUv: [number, number, number, number]
 }
 
 export type SchematicBlockNames = {
@@ -22,6 +23,8 @@ export type LoadedSchematicResources = {
     availableBlockStates: SchematicBlockState[]
     texture: CanvasTexture
     atlas: HTMLCanvasElement
+    /** Parts of the preview that had to be given up to keep the rest working. */
+    warnings: string[]
 }
 
 type JsonObject = Record<string, unknown>
@@ -219,6 +222,38 @@ export async function createSchematicResources(
     const builtInAtlas = await builtin.loadBuiltinAtlas(signal)
     context.drawImage(builtInAtlas, 0, 0)
     builtInAtlas.close()
+    // The bubble sprite is a particle in the game, so it never lands in the atlas on its own. It is
+    // pasted into the atlas's unused rows instead of shipping as a second texture: every pass then
+    // samples one image, and a pass can never end up drawing untextured white quads.
+    const bubbleOrigin = builtin.BUILTIN_BUBBLE_ORIGIN
+    // The empty rows below the block textures, collapsed to a point. Bubbles are decoration, so a
+    // sprite that will not load must not cost the whole preview: the pass keeps sampling the atlas
+    // and draws nothing, instead of taking down the resources every other pass needs.
+    let bubbleUv: [number, number, number, number] = [
+        bubbleOrigin.x / canvas.width,
+        bubbleOrigin.y / canvas.height,
+        bubbleOrigin.x / canvas.width,
+        bubbleOrigin.y / canvas.height,
+    ]
+    const warnings: string[] = []
+    let bubbleSprite: ImageBitmap | undefined
+    try {
+        bubbleSprite = await builtin.loadBuiltinBubbleParticle(signal)
+        context.drawImage(bubbleSprite, bubbleOrigin.x, bubbleOrigin.y)
+        bubbleUv = [
+            bubbleOrigin.x / canvas.width,
+            bubbleOrigin.y / canvas.height,
+            (bubbleOrigin.x + bubbleSprite.width) / canvas.width,
+            (bubbleOrigin.y + bubbleSprite.height) / canvas.height,
+        ]
+    } catch (error) {
+        signal?.throwIfAborted()
+        warnings.push(
+            `Bubble columns are drawn without bubbles because the sprite failed to load: ${error instanceof Error ? error.message : String(error)}`,
+        )
+    } finally {
+        bubbleSprite?.close()
+    }
     const availableBuiltinStates = builtin.listBuiltinBlockStates()
     const builtInBlocks = builtin.loadBuiltinBlockResources(version, palette)
     const previewBlocks = builtin.loadBuiltinBlockResources(version, [
@@ -239,12 +274,15 @@ export async function createSchematicResources(
             ...builtInBlocks,
             textureUvs,
             missingTextureUv,
+            bubbleUv,
         },
         previewResources: {
             ...previewBlocks,
             textureUvs,
             missingTextureUv,
+            bubbleUv,
         },
         texture,
+        warnings,
     }
 }

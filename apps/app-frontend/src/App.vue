@@ -108,6 +108,7 @@ import { minecraftLaunchErrorKey } from '@/composables/useMinecraftLaunchError'
 import { setupMojangAuthMonitor, useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { AxolotlBrandConfig, config, getOfficialLabrinthBaseUrl } from '@/config'
+import { startMcpUiBridge } from '@/features/mcp/interface'
 import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
 import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
@@ -162,6 +163,7 @@ import {
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
+import { consumeThirdPartyAuthorizationReturn } from '@/helpers/third-party-accounts'
 import {
     areUpdatesEnabled,
     backupAppDbForUpdate,
@@ -201,6 +203,7 @@ import {
 import { createServerInstall, provideServerInstall } from '@/providers/server-install'
 import { setupProviders } from '@/providers/setup'
 import { setupAuthProvider } from '@/providers/setup/auth'
+import { setupContentInstallPreviews } from '@/providers/setup/content-install-previews'
 import { setupLoadingStateProvider } from '@/providers/setup/loading-state'
 import { useError } from '@/store/error.js'
 import { useTheming } from '@/store/state'
@@ -270,11 +273,13 @@ const forceSidebar = computed(
     () => route.path.startsWith('/browse') || route.path.startsWith('/project'),
 )
 const forceSidebarHidden = computed(() => route.path === '/settings')
+const hideSidebarForPage = computed(() => route.name === 'SkinEditor')
 /** Console fullscreen collapses the account sidebar so its controls stay reachable. */
 const consoleFullscreenActive = ref(false)
 const sidebarVisible = computed(
     () =>
         !forceSidebarHidden.value &&
+        !hideSidebarForPage.value &&
         !consoleFullscreenActive.value &&
         (sidebarToggled.value || forceSidebar.value),
 )
@@ -1562,8 +1567,13 @@ async function setupApp() {
     await localePreparation
     stateInitialized.value = true
     const stopMcpSync = await startMcpStateSync()
-    if (appUnmounted) stopMcpSync()
-    else stopMcpStateSync = stopMcpSync
+    const stopMcpUi = await startMcpUiBridge(router)
+    const stopMcp = () => {
+        stopMcpUi()
+        stopMcpSync()
+    }
+    if (appUnmounted) stopMcp()
+    else stopMcpStateSync = stopMcp
     if (privacyConsentPending.value) {
         await nextTick()
         privacyConsentModal.value?.show({
@@ -2158,6 +2168,12 @@ const {
 const modInstallModal = ref()
 const resourceInstallPreview = ref<InstanceType<typeof ResourceOperationPreviewModal> | null>(null)
 const contentInstallPreviewModal = ref<InstanceType<typeof ContentInstallPreviewModal> | null>(null)
+setupContentInstallPreviews({
+    resourcePreview: resourceInstallPreview,
+    contentPreview: contentInstallPreviewModal,
+    contentSelection,
+    contentInstall,
+})
 const modpackAlreadyInstalledModal = ref()
 const contentInstallModpackInstallModal = ref<InstanceType<typeof ModpackInstallModal> | null>(null)
 const handleContentInstallModpackDuplicateGoToInstance = (instanceId: string) =>
@@ -2326,9 +2342,6 @@ onMounted(() => {
     setContentIncompatibilityWarningModal(incompatibilityWarningModal.value)
     dropIncompatibilityWarningModal.value = incompatibilityWarningModal.value
     setContentInstallModal(modInstallModal.value)
-    contentSelection.setPreviewModal(contentInstallPreviewModal.value)
-    contentSelection.setResourceInstallPreview(resourceInstallPreview.value)
-    contentInstall.setResourceInstallPreview(resourceInstallPreview.value)
     setContentInstallModpackInstallModal(contentInstallModpackInstallModal.value!)
     setContentInstallCurseForgeManualDownloadsModal(
         contentInstallCurseForgeManualDownloadsModal.value,
@@ -2385,6 +2398,13 @@ async function handleCommand(e) {
         return
     }
     if (e.event === 'OpenSettings') {
+        if (e.tab === 'third-party-accounts') {
+            const returnTo = await consumeThirdPartyAuthorizationReturn().catch(handleError)
+            if (returnTo) {
+                await router.push(returnTo)
+                return
+            }
+        }
         const target = resolveSettingsRoute(e.tab ?? null, e.entry ?? null)
         await router.push({ path: target.path, hash: target.hash })
         if (target.entry) {
@@ -3224,7 +3244,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             class="app-sidebar mt-px shrink-0 flex flex-col border-0 border-l-[1px] border-[--brand-gradient-border] border-solid"
         >
             <button
-                v-if="!forceSidebar && !forceSidebarHidden"
+                v-if="!forceSidebar && !forceSidebarHidden && !hideSidebarForPage"
                 v-tooltip.left="
                     sidebarToggled
                         ? formatMessage(messages.collapseSidebar)

@@ -66,6 +66,7 @@ impl InstallJobRecord {
             details: self.state.progress.details.clone(),
             parallel: self.state.progress.parallel.clone(),
             display: self.state.display.clone(),
+            resource_names: self.state.resource_names.clone(),
             error: self.state.error.clone(),
             rollback_error: self.state.rollback_error.clone(),
             pause_reason: self.state.pause_reason.clone(),
@@ -653,6 +654,9 @@ mod tests {
     #[tokio::test]
     async fn store_write_entry_times_out_and_reports() {
         let (_temp, app_state) = fixture().await;
+        app_state.set_install_db_permit_timeout_for_test(
+            std::time::Duration::from_millis(20),
+        );
         let id = Uuid::new_v4();
         let job = InstallJobState::new(InstallRequest::ChangeContent {
             instance_id: "first".into(),

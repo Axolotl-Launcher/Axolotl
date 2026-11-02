@@ -71,6 +71,33 @@ fn a_descending_pair_within_a_family_lands_in_the_violation_list() {
 }
 
 #[test]
+fn a_pair_already_logged_does_not_hide_a_later_violation() {
+    // Ascending first (`t::a` then `t::b`, a pair), then the same two idents
+    // in the descending order: the plain-pair dedup must not suppress the
+    // violation of the same pair.
+    let dir = tempfile::tempdir().unwrap();
+    let (probe, out) = small_probe(dir.path(), json!([]));
+    let a = probe.hold(holder(), "t::a");
+    probe.touch(holder(), "t::b");
+    probe.release(holder(), a);
+
+    let b = probe.hold(holder(), "t::b");
+    probe.touch(holder(), "t::a");
+    probe.release(holder(), b);
+
+    // Both orders are recorded as pairs (`b -> a` is not the same key as
+    // `a -> b`), and the descending one is *also* reported as a violation.
+    // The point of the test: the pair record for `a -> b` must not suppress
+    // the violation for `b -> a`.
+    let pairs = kinds(&out, "pair");
+    assert_eq!(pairs.len(), 2, "one record per ordered pair");
+    let violations = kinds(&out, "violation");
+    assert_eq!(violations.len(), 1, "the descending pair is still reported");
+    assert_eq!(violations[0]["held"], "t::b");
+    assert_eq!(violations[0]["acquired"], "t::a");
+}
+
+#[test]
 fn a_listed_exception_is_a_pair_not_a_violation() {
     let dir = tempfile::tempdir().unwrap();
     let (probe, out) = small_probe(

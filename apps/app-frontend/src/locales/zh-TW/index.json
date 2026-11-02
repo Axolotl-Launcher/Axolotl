@@ -3389,8 +3389,29 @@
   "app.lab.gradient-text.title": {
     "message": "漸變文字生成器"
   },
+  "app.lab.skin-editor.auto-save.error": {
+    "message": "自動儲存失敗"
+  },
+  "app.lab.skin-editor.auto-save.off": {
+    "message": "自動儲存已關閉"
+  },
+  "app.lab.skin-editor.auto-save.saved": {
+    "message": "草稿已儲存 {time}"
+  },
+  "app.lab.skin-editor.auto-save.saving": {
+    "message": "正在儲存草稿…"
+  },
+  "app.lab.skin-editor.auto-save.unsaved": {
+    "message": "有未儲存的變更"
+  },
+  "app.lab.skin-editor.auto-save.up-to-date": {
+    "message": "已是最新"
+  },
   "app.lab.skin-editor.description": {
     "message": "在本機建立和編輯 Minecraft 玩家外觀。"
+  },
+  "app.lab.skin-editor.discard-draft-failed": {
+    "message": "無法刪除恢復草稿。請留在目前頁面後重試。"
   },
   "app.lab.skin-editor.export-skin": {
     "message": "Minecraft 外觀 PNG"
@@ -3404,11 +3425,71 @@
   "app.lab.skin-editor.loading": {
     "message": "正在載入外觀編輯器"
   },
+  "app.lab.skin-editor.recovery.body": {
+    "message": "恢復草稿儲存於 {date}。"
+  },
+  "app.lab.skin-editor.recovery.continue": {
+    "message": "繼續"
+  },
+  "app.lab.skin-editor.recovery.start-new": {
+    "message": "新建"
+  },
+  "app.lab.skin-editor.recovery.title": {
+    "message": "要繼續上次的外觀嗎？"
+  },
   "app.lab.skin-editor.retry": {
     "message": "再試一次"
   },
+  "app.lab.skin-editor.save": {
+    "message": "儲存 PNG"
+  },
+  "app.lab.skin-editor.settings.auto-save": {
+    "message": "自動儲存恢復草稿"
+  },
+  "app.lab.skin-editor.settings.auto-save-description": {
+    "message": "恢復草稿僅儲存在本裝置，與匯出的 PNG 檔案相互獨立。"
+  },
+  "app.lab.skin-editor.settings.cancel": {
+    "message": "取消"
+  },
+  "app.lab.skin-editor.settings.interval": {
+    "message": "儲存間隔（秒）"
+  },
+  "app.lab.skin-editor.settings.interval-description": {
+    "message": "請輸入 5 到 600 秒之間的數值。"
+  },
+  "app.lab.skin-editor.settings.save": {
+    "message": "儲存設定"
+  },
+  "app.lab.skin-editor.settings.title": {
+    "message": "編輯器設定"
+  },
+  "app.lab.skin-editor.settings.tooltip": {
+    "message": "外觀編輯器設定"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave": {
+    "message": "離開前提醒未儲存的變更"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave-description": {
+    "message": "關閉自動儲存時，為保護你的作品，此提醒會始終啟用。"
+  },
   "app.lab.skin-editor.title": {
     "message": "外觀編輯器"
+  },
+  "app.lab.skin-editor.unsaved.body": {
+    "message": "離開前儲存外觀，或放棄目前的變更。"
+  },
+  "app.lab.skin-editor.unsaved.discard": {
+    "message": "放棄"
+  },
+  "app.lab.skin-editor.unsaved.save": {
+    "message": "儲存 PNG"
+  },
+  "app.lab.skin-editor.unsaved.stay": {
+    "message": "留下"
+  },
+  "app.lab.skin-editor.unsaved.title": {
+    "message": "外觀尚未儲存"
   },
   "app.lab.mod-translation.active-count": {
     "message": "{count} 個任務進行中"

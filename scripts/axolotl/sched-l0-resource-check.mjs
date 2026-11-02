@@ -51,7 +51,10 @@ export function l0FunctionViolations(sources, policy) {
             }
         }
         for (const match of code.matchAll(/\.await\b/g)) {
-            const statement = code.slice(0, match.index).split(/[;{}]/).at(-1)
+            // The statement since the last `;`/brace, then since the last
+            // completed await: a chain such as `allowed().await?.write().await`
+            // must not inherit the first call's allowance.
+            const statement = code.slice(0, match.index).split(/[;{}]/).at(-1).split(/\.await\b/).at(-1)
             if (!entry.allowedAwaits.some((allowed) => new RegExp(allowed).test(statement))) {
                 violations.push(`${entry.file}:${body.from + code.slice(0, match.index).split('\n').length - 1} L0 function ${entry.fn} awaits ${statement.trim().replace(/\s+/g, ' ')}`)
             }

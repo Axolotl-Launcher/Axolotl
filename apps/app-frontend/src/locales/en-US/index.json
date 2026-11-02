@@ -1,4 +1,200 @@
 {
+  "app.schematics.source.reden": { "message": "Reden" },
+  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
+  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
+  "app.schematics.sort.default": { "message": "Source order" },
+  "app.schematics.sort.name": { "message": "Name" },
+  "app.schematics.login-required-sources": {
+    "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
+  },
+  "app.schematics.open-source": { "message": "View on source website" },
+  "app.schematics.instances-error": {
+    "message": "Could not load your instances."
+  },
+  "app.browse.schematics-project-type": {
+    "message": "Schematics"
+  },
+  "app.schematics.source": {
+    "message": "Shimu Space"
+  },
+  "app.schematics.login-title": {
+    "message": "Connect Shimu Space"
+  },
+  "app.schematics.login-description": {
+    "message": "Sign in to browse free schematics from Shimu Space and install them into your Minecraft instances."
+  },
+  "app.schematics.login": {
+    "message": "Sign in to Shimu Space"
+  },
+  "app.schematics.waiting": {
+    "message": "Complete authorization in your browser"
+  },
+  "app.schematics.expired": {
+    "message": "Reconnect Shimu Space"
+  },
+  "app.schematics.load-error": {
+    "message": "Could not load schematics."
+  },
+  "app.schematics.account-error": {
+    "message": "Could not read your Shimu Space account."
+  },
+  "app.schematics.empty-title": {
+    "message": "No schematics found"
+  },
+  "app.schematics.empty-description": {
+    "message": "Try another page or a different search."
+  },
+  "app.schematics.loading": {
+    "message": "Loading schematics…"
+  },
+  "app.schematics.retry": {
+    "message": "Retry"
+  },
+  "app.schematics.search": {
+    "message": "Search schematics"
+  },
+  "app.schematics.sort.hot": { "message": "Popular" },
+  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.author-summary": {
+    "message": "{author} · {summary}"
+  },
+  "app.schematics.select-instance": {
+    "message": "Choose an instance"
+  },
+  "app.schematics.install": {
+    "message": "Install"
+  },
+  "app.schematics.installing": {
+    "message": "Installing…"
+  },
+  "app.schematics.preview": { "message": "Preview" },
+  "app.schematics.files": { "message": "Files" },
+  "app.schematics.creator": { "message": "Creator" },
+  "app.schematics.source-heading": { "message": "Source" },
+  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.installed": {
+    "message": "Installed"
+  },
+  "app.schematics.install-success": {
+    "message": "Schematic installed"
+  },
+  "app.schematics.install-failed": {
+    "message": "Could not install this schematic. Please try again."
+  },
+  "app.schematics.file-exists": {
+    "message": "A file with this name already exists in the instance. Choose another instance or rename the existing file."
+  },
+  "app.schematics.login-failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
+  "app.third-party.connected-notification": {
+    "message": "Connected to Shimu Space"
+  },
+  "app.third-party.description": {
+    "message": "Connect external accounts for use in the launcher."
+  },
+  "app.third-party.shimu": {
+    "message": "Shimu Space"
+  },
+  "app.third-party.shimu-purpose": {
+    "message": "Connect your Shimu Space account."
+  },
+  "app.third-party.identity": {
+    "message": "{nickname} · {username}"
+  },
+  "app.third-party.connected": {
+    "message": "Connected"
+  },
+  "app.third-party.disconnected": {
+    "message": "Not connected"
+  },
+  "app.third-party.expired": {
+    "message": "Sign in again"
+  },
+  "app.third-party.waiting": {
+    "message": "Waiting for authorization"
+  },
+  "app.third-party.exchanging": {
+    "message": "Completing connection"
+  },
+  "app.third-party.connect": {
+    "message": "Connect"
+  },
+  "app.third-party.reconnect": {
+    "message": "Reconnect"
+  },
+  "app.third-party.cancel": {
+    "message": "Cancel"
+  },
+  "app.third-party.more": {
+    "message": "Shimu Space account options"
+  },
+  "app.third-party.check": {
+    "message": "Check connection"
+  },
+  "app.third-party.disconnect": {
+    "message": "Disconnect"
+  },
+  "app.third-party.disconnect-title": {
+    "message": "Disconnect Shimu Space?"
+  },
+  "app.third-party.disconnect-description": {
+    "message": "This removes the account credential from this launcher. To revoke the authorization at Shimu Space, manage it on their website."
+  },
+  "app.third-party.denied": {
+    "message": "Authorization was declined. You can connect again."
+  },
+  "app.third-party.timed-out": {
+    "message": "Authorization timed out. Connect again to continue."
+  },
+  "app.third-party.failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
+  "app.third-party.load-failed": {
+    "message": "Could not read the account status."
+  },
+  "app.third-party.check-failed": {
+    "message": "Could not check the connection. Please try again."
+  },
+  "app.third-party.action-failed": {
+    "message": "The account operation failed. Please try again."
+  },
+  "app.third-party.retry": {
+    "message": "Retry"
+  },
+  "app.third-party.unavailable": {
+    "message": "Account connection is unavailable in this build."
+  },
+  "app.third-party.permissions": {
+    "message": "Authorization: read your profile and posts, and download resources. Authorization expires after 3 days; you will need to sign in again."
+  },
+  "app.third-party.browser": {
+    "message": "Complete the authorization in your browser."
+  },
+  "app.third-party.search": {
+    "message": "Shimu mcimg OAuth account authorization sign in connect"
+  },
+  "app.settings.tabs.third-party-accounts": {
+    "message": "Third-party accounts"
+  },
+  "app.downloads.task.install-content": {
+    "message": "Install content"
+  },
+  "app.downloads.task.install-content-named": {
+    "message": "Install content: {name}"
+  },
+  "app.downloads.task.install-content-batch": {
+    "message": "Install content: {name} ({count} items)"
+  },
+  "app.downloads.task.change-content": {
+    "message": "Change content"
+  },
+  "app.downloads.task.change-content-named": {
+    "message": "Change content: {name}"
+  },
+  "app.downloads.task.change-content-batch": {
+    "message": "Change content: {name} ({count} items)"
+  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },
@@ -970,6 +1166,12 @@
   },
   "app.browse.preparing-selected": {
     "message": "Preparing {completed}/{total}"
+  },
+  "app.browse.reviewing-selected": {
+    "message": "Reviewing content changes…"
+  },
+  "app.browse.queueing-selected": {
+    "message": "Adding to download queue…"
   },
   "app.browse.project-type.datapacks": {
     "message": "Data Packs"
@@ -3047,6 +3249,9 @@
   "app.instance.content.check-failures": {
     "message": "{count, plural, one {# check failed} other {# checks failed}}"
   },
+  "app.instance.content.processing": {
+    "message": "Updating instance files… Content will refresh when this finishes."
+  },
   "app.instance.content.checking": {
     "message": "Refreshing… {current}/{total}"
   },
@@ -3830,6 +4035,12 @@
   "app.instances.edit-groups": {
     "message": "Edit groups"
   },
+  "app.instances.game-directory.managed": {
+    "message": "Axolotl data directory"
+  },
+  "app.instances.game-directory.managed-short": {
+    "message": "Axolotl"
+  },
   "app.instances.group-by": {
     "message": "Group by"
   },
@@ -3853,6 +4064,9 @@
   },
   "app.instances.group.expand": {
     "message": "Expand group"
+  },
+  "app.instances.group.game-directory": {
+    "message": "Game directory"
   },
   "app.instances.group.game-version": {
     "message": "Game version"
@@ -6009,7 +6223,7 @@
     "message": "Collapse folder {name}"
   },
   "app.lab.schematic-preview.instance-picker.empty": {
-    "message": "No .litematic or .schem files were found in this instance."
+    "message": "No schematic files were found in this instance."
   },
   "app.lab.schematic-preview.instance-picker.expand-folder": {
     "message": "Expand folder {name}"
@@ -7769,8 +7983,29 @@
   "app.lab.seed-map.zoom-to-show": {
     "message": "Zoom in to show {layer}"
   },
+  "app.lab.skin-editor.auto-save.error": {
+    "message": "Auto-save failed"
+  },
+  "app.lab.skin-editor.auto-save.off": {
+    "message": "Auto-save off"
+  },
+  "app.lab.skin-editor.auto-save.saved": {
+    "message": "Draft saved {time}"
+  },
+  "app.lab.skin-editor.auto-save.saving": {
+    "message": "Saving draft…"
+  },
+  "app.lab.skin-editor.auto-save.unsaved": {
+    "message": "Unsaved changes"
+  },
+  "app.lab.skin-editor.auto-save.up-to-date": {
+    "message": "Up to date"
+  },
   "app.lab.skin-editor.description": {
     "message": "Create and edit Minecraft player skins locally."
+  },
+  "app.lab.skin-editor.discard-draft-failed": {
+    "message": "The recovery draft could not be discarded. Stay on this page and try again."
   },
   "app.lab.skin-editor.export-skin": {
     "message": "Minecraft skin PNG"
@@ -7784,11 +8019,71 @@
   "app.lab.skin-editor.loading": {
     "message": "Loading skin editor"
   },
+  "app.lab.skin-editor.recovery.body": {
+    "message": "A recovery draft was saved on {date}."
+  },
+  "app.lab.skin-editor.recovery.continue": {
+    "message": "Continue"
+  },
+  "app.lab.skin-editor.recovery.start-new": {
+    "message": "Start new"
+  },
+  "app.lab.skin-editor.recovery.title": {
+    "message": "Continue last skin?"
+  },
   "app.lab.skin-editor.retry": {
     "message": "Try again"
   },
+  "app.lab.skin-editor.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.settings.auto-save": {
+    "message": "Automatically save a recovery draft"
+  },
+  "app.lab.skin-editor.settings.auto-save-description": {
+    "message": "Recovery drafts stay on this device and are separate from exported PNG files."
+  },
+  "app.lab.skin-editor.settings.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.skin-editor.settings.interval": {
+    "message": "Save interval (seconds)"
+  },
+  "app.lab.skin-editor.settings.interval-description": {
+    "message": "Use a value between 5 and 600 seconds."
+  },
+  "app.lab.skin-editor.settings.save": {
+    "message": "Save settings"
+  },
+  "app.lab.skin-editor.settings.title": {
+    "message": "Editor settings"
+  },
+  "app.lab.skin-editor.settings.tooltip": {
+    "message": "Skin editor settings"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave": {
+    "message": "Warn before leaving with unsaved changes"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave-description": {
+    "message": "When auto-save is off, this warning is always enabled to protect your work."
+  },
   "app.lab.skin-editor.title": {
     "message": "Skin editor"
+  },
+  "app.lab.skin-editor.unsaved.body": {
+    "message": "Save your skin before leaving, or discard the current changes."
+  },
+  "app.lab.skin-editor.unsaved.discard": {
+    "message": "Discard"
+  },
+  "app.lab.skin-editor.unsaved.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.unsaved.stay": {
+    "message": "Stay"
+  },
+  "app.lab.skin-editor.unsaved.title": {
+    "message": "Unsaved skin"
   },
   "app.lab.title": {
     "message": "Lab"
@@ -8424,7 +8719,7 @@
     "message": "Possible issue: OpenJ9 is not compatible with this instance"
   },
   "app.minecraft-crash.diagnosis.out-of-memory.action": {
-    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs."
+    "message": "You can try increasing the instance memory allocation, or removing memory-heavy Mods and resource packs. If the log reports that the system is out of physical RAM or swap space, lower the allocation or close other programs instead."
   },
   "app.minecraft-crash.diagnosis.out-of-memory.title": {
     "message": "Possible issue: Minecraft ran out of memory"
@@ -9141,7 +9436,7 @@
     "message": "Craft data pack recipes"
   },
   "app.onboarding.lab-schematic.description": {
-    "message": "Open a local .litematic or .schem file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
+    "message": "Open a local schematic file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
   },
   "app.onboarding.lab-schematic.title": {
     "message": "Inspect a build before placing it"
@@ -9940,6 +10235,15 @@
   },
   "app.resources.operation.apply": {
     "message": "Queue changes"
+  },
+  "app.resources.operation.force-install": {
+    "message": "Force install without dependencies"
+  },
+  "app.resources.operation.force-install-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies."
+  },
+  "app.resources.operation.force-install-compatibility-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies and accept its Minecraft or loader compatibility mismatches."
   },
   "app.resources.operation.artifact": {
     "message": "{source} · release {release} · {file}"
@@ -11411,6 +11715,30 @@
   "app.settings.environment-variables.invalid-format": {
     "message": "Use NAME=value, separated by spaces. A name and an equals sign are required; the value may be empty or contain more equals signs."
   },
+  "app.settings.export.all-button": {
+    "message": "Export all settings files…"
+  },
+  "app.settings.export.all-label": {
+    "message": "All settings files"
+  },
+  "app.settings.export.exported-text": {
+    "message": "The settings archive was saved to {path}"
+  },
+  "app.settings.export.exported-title": {
+    "message": "Settings exported"
+  },
+  "app.settings.export.patch-button": {
+    "message": "Export patch…"
+  },
+  "app.settings.export.patch-description": {
+    "message": "Only keys that differ from the defaults. The archive holds one document per domain; unzip it and use it directly as a deployment config."
+  },
+  "app.settings.export.patch-label": {
+    "message": "Deployment patch"
+  },
+  "app.settings.export.title": {
+    "message": "Manage settings files"
+  },
   "app.settings.feature-flags.advanced-filters-collapsed": {
     "message": "Collapse advanced filters by default"
   },
@@ -12621,7 +12949,7 @@
     "message": "Network connections"
   },
   "app.settings.logs.export.modal.network-connections-hint": {
-    "message": "Run fresh tests for all services using launcher network settings when exporting, including a short download sample."
+    "message": "Run fresh service tests using launcher network settings, including a short download sample. Also include captured file timings, request speeds and remote addresses when advanced download information is enabled."
   },
   "app.settings.logs.export.modal.range": {
     "message": "Time range"
@@ -12835,6 +13163,12 @@
   },
   "app.settings.network.url": {
     "message": "Request URL"
+  },
+  "app.settings.override.hint": {
+    "message": "Overrides the deployed value."
+  },
+  "app.settings.override.restore": {
+    "message": "Restore deployed value"
   },
   "app.settings.privacy.data-handling": {
     "message": "Telemetry uses a random installation identifier and sends only a daily activity signal. Turning telemetry off clears pending data immediately."
@@ -16712,6 +17046,9 @@
   "instance.upgrade.select.loading-fabric-versions": {
     "message": "Loading Fabric versions…"
   },
+  "instance.upgrade.select.downgrade-unsupported": {
+    "message": "Downgrading is not supported."
+  },
   "instance.upgrade.select.loading-versions": {
     "message": "Loading Minecraft versions…"
   },
@@ -17107,5 +17444,278 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "Unknown file warning"
+  },
+  "app.skins.player.title": {
+    "message": "Find player skin"
+  },
+  "app.skins.player.input": {
+    "message": "Player name or UUID"
+  },
+  "app.skins.player.search": {
+    "message": "Search"
+  },
+  "app.skins.player.download": {
+    "message": "Download PNG"
+  },
+  "app.skins.player.import": {
+    "message": "Add to saved skins"
+  },
+  "app.skins.player.imported": {
+    "message": "Added to saved skins"
+  },
+  "app.skins.player.invalid-input": {
+    "message": "Enter a valid Java player name or UUID."
+  },
+  "app.skins.player.not-found": {
+    "message": "Player not found. Check the name or UUID."
+  },
+  "app.skins.player.no-custom-skin": {
+    "message": "This player has no custom skin."
+  },
+  "app.skins.player.rate-limited": {
+    "message": "Too many requests. Please wait before trying again."
+  },
+  "app.skins.player.unavailable": {
+    "message": "Could not load this skin. Check your connection and try again."
+  },
+  "app.skins.player.save-failed": {
+    "message": "Could not save the skin. Please try again."
+  },
+  "app.downloads.diagnostics.title": {
+    "message": "Advanced download information"
+  },
+  "app.downloads.diagnostics.file": {
+    "message": "File"
+  },
+  "app.downloads.diagnostics.waiting": {
+    "message": "Waiting for download observations. Start a download after enabling this option."
+  },
+  "app.downloads.diagnostics.loading": {
+    "message": "Loading download information…"
+  },
+  "app.downloads.diagnostics.unavailable": {
+    "message": "Download information could not be refreshed. Retrying…"
+  },
+  "app.downloads.diagnostics.disabled": {
+    "message": "Download observation is disabled."
+  },
+  "app.downloads.diagnostics.elapsed": {
+    "message": "File elapsed time"
+  },
+  "app.downloads.diagnostics.network-elapsed": {
+    "message": "Network time"
+  },
+  "app.downloads.diagnostics.received": {
+    "message": "Received bytes"
+  },
+  "app.downloads.diagnostics.active-requests": {
+    "message": "Active requests"
+  },
+  "app.downloads.diagnostics.effective-requests": {
+    "message": "Requests receiving data"
+  },
+  "app.downloads.diagnostics.physical-connections": {
+    "message": "Physical connections"
+  },
+  "app.downloads.diagnostics.effective-physical": {
+    "message": "Connections receiving data"
+  },
+  "app.downloads.diagnostics.configured-limit": {
+    "message": "Configured limit"
+  },
+  "app.downloads.diagnostics.effective-cap": {
+    "message": "Current request limit"
+  },
+  "app.downloads.diagnostics.target": {
+    "message": "Target requests"
+  },
+  "app.downloads.diagnostics.held": {
+    "message": "Held permits"
+  },
+  "app.downloads.diagnostics.pool": {
+    "message": "Available pool permits"
+  },
+  "app.downloads.diagnostics.address": {
+    "message": "Remote address"
+  },
+  "app.downloads.diagnostics.protocol": {
+    "message": "Protocol / socket"
+  },
+  "app.downloads.diagnostics.speed": {
+    "message": "Request speed"
+  },
+  "app.downloads.diagnostics.duration": {
+    "message": "Request time"
+  },
+  "app.downloads.diagnostics.state": {
+    "message": "State"
+  },
+  "app.downloads.diagnostics.slow": {
+    "message": "Slow"
+  },
+  "app.downloads.diagnostics.proxy": {
+    "message": "Proxy"
+  },
+  "app.downloads.diagnostics.socket": {
+    "message": "Socket #{id}"
+  },
+  "app.downloads.diagnostics.seconds": {
+    "message": "{seconds} s"
+  },
+  "app.downloads.diagnostics.rate": {
+    "message": "{speed}/s"
+  },
+  "app.downloads.diagnostics.priority": {
+    "message": "Active / slow first"
+  },
+  "app.downloads.diagnostics.note": {
+    "message": "Each row is a request or HTTP/2 stream; streams may share a socket. Unknown physical connection counts are shown as —. Active speeds use recent samples; finished speeds are averages. Slow means below 256 KiB/s after warm-up. Receiving data means bytes arrived within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.fileSelectionGuide": {
+    "message": "Choose a file, and its download summary will appear below."
+  },
+  "app.downloads.diagnostics.truncated": {
+    "message": "Observation limits reached: {files} earlier files and {transfers} earlier requests are omitted."
+  },
+  "app.downloads.diagnostics.no-requests": {
+    "message": "No requests observed for this file yet."
+  },
+  "app.downloads.diagnostics.active": {
+    "message": "Active"
+  },
+  "app.downloads.diagnostics.connecting": {
+    "message": "Connecting"
+  },
+  "app.downloads.diagnostics.completed": {
+    "message": "Completed"
+  },
+  "app.downloads.diagnostics.closed": {
+    "message": "Closed"
+  },
+  "app.downloads.diagnostics.failed": {
+    "message": "Failed"
+  },
+  "app.downloads.diagnostics.canceled": {
+    "message": "Canceled"
+  },
+  "app.settings.feature-flags.advanced-download-info": {
+    "message": "Advanced download information"
+  },
+  "app.settings.feature-flags.advanced-download-info-description": {
+    "message": "Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections."
+  },
+  "app.downloads.diagnostics.elapsed-help": {
+    "message": "Time spent processing this file, including resource waits, existing-file checks, transfer, writing and integrity verification. This is not the entire installation time."
+  },
+  "app.downloads.diagnostics.network-elapsed-help": {
+    "message": "Time from the first recorded request starting to the last request finishing, including connection setup, response waits and retry gaps. Parallel request times are not added together."
+  },
+  "app.downloads.diagnostics.received-help": {
+    "message": "Total response body bytes received, excluding headers and TLS overhead. Retries may count duplicate bytes, so this can differ from the file size; cached files may show zero."
+  },
+  "app.downloads.diagnostics.active-requests-help": {
+    "message": "Requests or HTTP/2 streams currently in the active state, excluding those still connecting. Active requests may be waiting without receiving data."
+  },
+  "app.downloads.diagnostics.effective-requests-help": {
+    "message": "Active requests that received bytes within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.physical-connections-help": {
+    "message": "Distinct identifiable physical connections used by this file’s active requests. HTTP/2 streams may share a connection. Idle connections are excluded; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.effective-physical-help": {
+    "message": "Distinct identifiable connections with an active request that received bytes within the last 2 seconds. Shared connections count once; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.configured-limit-help": {
+    "message": "Configured resource permit limit for the global download pool. Shared across files and tasks; this is not a physical connection count or a per-file allocation."
+  },
+  "app.downloads.diagnostics.effective-cap-help": {
+    "message": "Adaptive concurrency limit for this file, adjusted for remaining data, available resources and failures. Completed files retain the last reported value."
+  },
+  "app.downloads.diagnostics.target-help": {
+    "message": "Concurrency the scheduler aims to maintain for this file, subject to available permits and splittable work. This is not the active request count; completed files retain the last value."
+  },
+  "app.downloads.diagnostics.held-help": {
+    "message": "Download resource permits currently held by this file’s scheduler. These are not physical connections and are released when the file finishes."
+  },
+  "app.downloads.diagnostics.pool-help": {
+    "message": "Currently available resource permits in the global download pool, shared with other files and tasks. This is not the number of sockets the operating system can open."
+  },
+  "app.settings.export.cleanup-label": {
+    "message": "Local settings files"
+  },
+  "app.settings.export.cleanup-button": {
+    "message": "Clean up…"
+  },
+  "app.settings.export.cleanup-running": {
+    "message": "Cleaning up…"
+  },
+  "app.settings.export.cleanup-confirm-title": {
+    "message": "Clean up local settings files?"
+  },
+  "app.settings.export.cleanup-confirm-description": {
+    "message": "Rewrites every local settings document, discarding unknown and redundant keys. This cannot be undone."
+  },
+  "app.settings.export.cleanup-confirm-proceed": {
+    "message": "Clean up"
+  },
+  "app.settings.export.cleanup-done-title": {
+    "message": "Local settings files cleaned up"
+  },
+  "app.settings.export.cleanup-done-text": {
+    "message": "{count, plural, =0 {No local settings document needed rewriting.} one {Rewrote # local settings document.} other {Rewrote # local settings documents.}}"
+  },
+  "app.settings.export.import-label": {
+    "message": "Settings archive"
+  },
+  "app.settings.export.import-button": {
+    "message": "Import…"
+  },
+  "app.settings.export.import-running": {
+    "message": "Importing…"
+  },
+  "app.settings.export.import-confirm-title": {
+    "message": "Import settings?"
+  },
+  "app.settings.export.import-confirm-description": {
+    "message": "Merges the archive into your local settings. Where both set the same key, the imported value wins. This cannot be undone."
+  },
+  "app.settings.export.import-confirm-proceed": {
+    "message": "Import"
+  },
+  "app.settings.export.imported-title": {
+    "message": "Settings imported"
+  },
+  "app.settings.export.imported-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}}"
+  },
+  "app.settings.export.import-danger-title": {
+    "message": "The settings you are about to import may be dangerous"
+  },
+  "app.settings.export.import-danger-description": {
+    "message": "The settings you are about to import will change {keys}."
+  },
+  "app.settings.export.import-danger-key-column": {
+    "message": "Dangerous setting"
+  },
+  "app.settings.export.import-danger-before-column": {
+    "message": "Before import"
+  },
+  "app.settings.export.import-danger-after-column": {
+    "message": "After import"
+  },
+  "app.settings.export.import-danger-note": {
+    "message": "They change the arguments the game is started with or the commands that run before it, and may also change the environment of the game process, for example by injecting environment variables. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them."
+  },
+  "app.settings.export.import-danger-cancel": {
+    "message": "Cancel import"
+  },
+  "app.settings.export.import-danger-skip": {
+    "message": "Skip dangerous settings"
+  },
+  "app.settings.export.import-danger-allow": {
+    "message": "Continue import"
+  },
+  "app.settings.export.imported-dropped-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"
   }
 }

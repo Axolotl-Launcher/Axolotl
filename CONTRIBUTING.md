@@ -12,6 +12,7 @@
 - **pnpm**：以根目录 [`package.json`](package.json) 的 `packageManager` 为准
 - **Rust**：以 [`rust-toolchain.toml`](rust-toolchain.toml) 为准
 - [Tauri v2 系统依赖](https://v2.tauri.app/start/prerequisites/)
+- **Linux 链接器**：[`.cargo/config.toml`](.cargo/config.toml) 让 Linux 构建使用 [mold](https://github.com/rui314/mold) 链接，需要 `ld.mold` 在 `PATH` 中，且 C 编译器为 GCC 12.1+ 或 Clang。用发行版的包管理器安装即可（Debian/Ubuntu：`sudo apt install mold`；Fedora：`sudo dnf install mold`；Arch：`sudo pacman -S mold`），`nix develop` 已自带。Windows 仍使用 rust-lld，macOS 仍使用系统链接器，无需额外安装。
 
 ### 启动开发环境
 

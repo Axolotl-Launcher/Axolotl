@@ -155,6 +155,11 @@ const RULES: &[Rule] = &[
             "Out of Memory Error",
             "Could not reserve enough space",
             "InsufficientMemory",
+            // The JVM could not get memory from the OS. `hs_err_pid*.log` reports these
+            // when the machine (not the Java heap) is exhausted, which is the same
+            // user-facing problem: the game ran out of memory.
+            "Native memory allocation (malloc) failed",
+            "insufficient memory for the Java Runtime Environment to continue",
         ],
     },
     Rule {
@@ -1693,6 +1698,17 @@ mod tests {
         assert_eq!(findings[0].id, "out_of_memory");
         assert_eq!(findings[0].evidence[0].line, 2);
         assert_eq!(findings[0].evidence[0].filename, "latest.log");
+    }
+
+    #[test]
+    fn reports_native_memory_exhaustion_as_out_of_memory() {
+        let findings = analyze_sources(&[source(
+            "hs_err_pid12432.log",
+            "# There is insufficient memory for the Java Runtime Environment to continue.\n\
+             # Native memory allocation (malloc) failed to allocate 1048576 bytes for Chunk::new",
+        )]);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].id, "out_of_memory");
     }
 
     #[test]

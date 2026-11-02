@@ -63,6 +63,61 @@ where
     rows.into_iter().map(TryInto::try_into).collect()
 }
 
+/// Removes files outside scanner ownership after upserts settle their paths.
+/// Entries go first so their metadata is removed rather than detached.
+pub(crate) async fn remove_untracked_instance_files(
+    instance_id: &str,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<bool> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, relative_path FROM instance_files WHERE instance_id = ?",
+    )
+    .bind(instance_id)
+    .fetch_all(&mut **tx)
+    .await?;
+
+    let stale_ids: Vec<String> = rows
+        .into_iter()
+        .filter(|(_, relative_path)| {
+            !super::super::filesystem::should_retain_instance_file_path(
+                relative_path,
+            )
+        })
+        .map(|(id, _)| id)
+        .collect();
+    if stale_ids.is_empty() {
+        return Ok(false);
+    }
+
+    let mut removed_entries = false;
+    for chunk in stale_ids.chunks(400) {
+        let mut entries = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_content_entries WHERE instance_id = ",
+        );
+        entries.push_bind(instance_id).push(" AND file_id IN (");
+        let mut separated = entries.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        removed_entries |=
+            entries.build().execute(&mut **tx).await?.rows_affected() > 0;
+
+        let mut files = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "DELETE FROM instance_files WHERE instance_id = ",
+        );
+        files.push_bind(instance_id).push(" AND id IN (");
+        let mut separated = files.separated(", ");
+        for id in chunk {
+            separated.push_bind(id.as_str());
+        }
+        separated.push_unseparated(")");
+        files.build().execute(&mut **tx).await?;
+    }
+
+    Ok(removed_entries)
+}
+
 pub(crate) async fn mark_instance_files_missing(
     instance_id: &str,
     tx: &mut Transaction<'_, Sqlite>,

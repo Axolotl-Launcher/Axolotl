@@ -10,18 +10,50 @@ import { defaultOutDir, isMain, loadPolicy, outputPaths, parseArgs, readJson, so
 export const WHITELIST_LIMIT = 10
 const CRITICAL_SECTION = 'packages/app-lib/src/install/critical_section.rs'
 
+/** Splits an enum body on the commas outside braces/parens/brackets. */
+function splitEnumBody(body) {
+    const segments = []
+    let depth = 0
+    let start = 0
+    for (let index = 0; index < body.length; index++) {
+        const character = body[index]
+        if ('{(['.includes(character)) depth++
+        else if ('})]'.includes(character)) depth--
+        else if (character === ',' && depth === 0) {
+            segments.push([start, index])
+            start = index + 1
+        }
+    }
+    segments.push([start, body.length])
+    return segments
+}
+
 /** Non-test variants of `enum WhitelistSite`, each with its doc comment. */
 export function whitelistVariants(source) {
     const start = source.code.search(/\benum\s+WhitelistSite\s*\{/)
     if (start < 0) return null
     const open = source.code.indexOf('{', start)
-    const close = source.code.indexOf('}', open)
+    // The enum's own closing brace, not the first `}` of a struct variant.
+    let depth = 0
+    let close = -1
+    for (let index = open; index < source.code.length; index++) {
+        if (source.code[index] === '{') depth++
+        else if (source.code[index] === '}' && --depth === 0) {
+            close = index
+            break
+        }
+    }
+    if (close < 0) return null
     const variants = []
-    for (const match of source.code.slice(open + 1, close).matchAll(/\b([A-Z]\w*)\s*,/g)) {
-        const line = source.code.slice(0, open + 1 + match.index).split('\n').length
+    for (const [from, to] of splitEnumBody(source.code.slice(open + 1, close))) {
+        const segment = source.code.slice(open + 1 + from, open + 1 + to)
+        const name = segment.match(/(?:^|\n)\s*(?:#\[[^\]]*\]\s*)*([A-Z]\w*)/)
+        if (!name) continue
+        const offset = open + 1 + from + name.index + name[0].lastIndexOf(name[1])
+        const line = source.code.slice(0, offset).split('\n').length
         const docs = []
         for (let index = line - 2; index >= 0 && /^\s*\/\/\//.test(source.rawLines[index]); index--) docs.unshift(source.rawLines[index].replace(/^\s*\/\/\/\s?/, ''))
-        variants.push({ name: match[1], line, doc: docs.join(' ') })
+        variants.push({ name: name[1], line, doc: docs.join(' ') })
     }
     return variants
 }

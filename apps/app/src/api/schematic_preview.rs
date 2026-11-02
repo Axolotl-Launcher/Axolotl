@@ -20,6 +20,11 @@ const MAX_DECOMPRESSED_SIZE: u64 = 512 * 1024 * 1024;
 const MAX_VOLUME: u64 = 128_000_000;
 const MAX_PALETTE_ENTRIES: usize = 1_048_576;
 const MAX_EDIT_BLOCKS: usize = 250_000;
+/// Upper bound on the source NBT the preview keeps alive. Parsing is already
+/// bounded by `MAX_DECOMPRESSED_SIZE`, but that only covers peak memory while
+/// reading; the preserved tags stay resident for the whole session, and two
+/// sessions are cached at once.
+const MAX_PRESERVED_BYTES: u64 = 128 * 1024 * 1024;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(
@@ -257,6 +262,69 @@ impl SpongePreserved {
             .get::<_, &NbtCompound>("Metadata")
             .ok()
     }
+}
+
+/// Rough uncompressed size of a tag tree. Counted rather than serialised so the
+/// check does not allocate a second copy of what it is measuring.
+fn nbt_size(tag: &NbtTag) -> u64 {
+    match tag {
+        NbtTag::Byte(_) => 1,
+        NbtTag::Short(_) => 2,
+        NbtTag::Int(_) | NbtTag::Float(_) => 4,
+        NbtTag::Long(_) | NbtTag::Double(_) => 8,
+        NbtTag::ByteArray(values) => values.len() as u64,
+        NbtTag::String(value) => value.len() as u64,
+        NbtTag::List(list) => list_size(list),
+        NbtTag::Compound(compound) => compound_size(compound),
+        NbtTag::IntArray(values) => values.len() as u64 * 4,
+        NbtTag::LongArray(values) => values.len() as u64 * 8,
+    }
+}
+
+fn compound_size(compound: &NbtCompound) -> u64 {
+    compound
+        .inner()
+        .iter()
+        .map(|(key, tag)| key.len() as u64 + 1 + nbt_size(tag))
+        .sum()
+}
+
+fn list_size(list: &NbtList) -> u64 {
+    list.into_iter().map(nbt_size).sum::<u64>() + 5
+}
+
+/// Rejects schematics whose unmodelled data would sit in memory for as long as
+/// the session lives. Exporting such a file faithfully is not worth letting a
+/// hand-crafted archive pin hundreds of megabytes per cached session.
+fn ensure_preserved_within_budget(
+    preserved: &PreservedSchematic,
+) -> Result<(), String> {
+    check_preserved_budget(preserved, MAX_PRESERVED_BYTES)
+}
+
+fn preserved_size(preserved: &PreservedSchematic) -> u64 {
+    match preserved {
+        PreservedSchematic::Litematic(root) => compound_size(root),
+        PreservedSchematic::Sponge(preserved) => {
+            compound_size(&preserved.root)
+                + list_size(&preserved.entities)
+                + list_size(&preserved.block_entities)
+        }
+    }
+}
+
+fn check_preserved_budget(
+    preserved: &PreservedSchematic,
+    budget: u64,
+) -> Result<(), String> {
+    if preserved_size(preserved) > budget {
+        return Err(format!(
+            "This schematic carries more than {} MiB of block entity, entity, \
+             tick or metadata data, which the preview cannot keep in memory",
+            budget / (1024 * 1024)
+        ));
+    }
+    Ok(())
 }
 
 /// An MCP-owned document is separate from the two UI preview slots. Dropping
@@ -995,9 +1063,10 @@ fn parse_litematic(
         entity_count,
         block_entity_count,
     })?;
-    session.preserved = Some(PreservedSchematic::Litematic(Arc::new(
-        preserved_litematic_root(root),
-    )));
+    let preserved =
+        PreservedSchematic::Litematic(Arc::new(preserved_litematic_root(root)));
+    ensure_preserved_within_budget(&preserved)?;
+    session.preserved = Some(preserved);
     Ok(session)
 }
 
@@ -1159,9 +1228,12 @@ fn parse_sponge(
         block_entity_count: nbt_list_len(block_container, "BlockEntities")
             as u64,
     })?;
-    session.preserved = Some(PreservedSchematic::Sponge(Arc::new(
-        sponge_preserved(root, format_version),
+    let preserved = PreservedSchematic::Sponge(Arc::new(sponge_preserved(
+        root,
+        format_version,
     )));
+    ensure_preserved_within_budget(&preserved)?;
+    session.preserved = Some(preserved);
     Ok(session)
 }
 
@@ -3937,6 +4009,22 @@ mod tests {
                 .unwrap(),
             3
         );
+    }
+
+    #[test]
+    fn oversized_preserved_data_is_rejected() {
+        let session = container_session();
+        let preserved = session.preserved.as_ref().unwrap();
+        let size = preserved_size(preserved);
+        assert!(size > 0);
+        assert!(check_preserved_budget(preserved, 8).is_err());
+        assert!(check_preserved_budget(preserved, size).is_ok());
+        // The size estimate counts what the exporter would write back.
+        let root = match preserved {
+            PreservedSchematic::Litematic(root) => root.as_ref(),
+            PreservedSchematic::Sponge(_) => panic!("expected a litematic"),
+        };
+        assert!(compound_size(root) >= 8);
     }
 
     #[test]

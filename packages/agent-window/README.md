@@ -47,7 +47,7 @@ Window (`src/`):
 - `dom.js`: the `h()` element builder (text nodes only), icons, the Markdown and log renderers and
   the focus helpers.
 - `motion.js`: `morph()` (View Transitions), `animate()`, `ScrollFollower` and `reducedMotion`.
-- `mascot.js`, `mascot.css`: the axolotl's moods, gaze and cross-dissolve, and the pixel loader.
+- `mascot.js`, `mascot.css`: the axolotl's moods and cross-dissolve, and the pixel loader.
 - `view-home.js`: the new task page: the hero axolotl, suggestions, the intro card, the first-run
   tour and the help dialog.
 - `view-composer.js`: the composer, attachment chips, the follow-up queue, the approval bar and the
@@ -624,7 +624,7 @@ Large strips have 192 px frames for the 96 px hero; small ones (`-sm`) have 56 p
 | `happy`  | 27     | 0.9 s  | once        | large, small | Hero when clicked; status line when a run ends done or awaiting; tour end. |
 | `sad`    | 24     | 0.8 s  | once, holds | small        | Status line when a run fails.                                              |
 | `hello`  | 45     | 1.5 s  | once        | large        | Hero when the new task page comes into view.                               |
-| `look`   | 54     | 1.8 s  | once        | large        | Hero every 9 to 16 s while idle; its frames also serve `gaze()`.           |
+| `look`   | 54     | 1.8 s  | once        | large        | Hero every 9 to 16 s while idle.                                           |
 | `attend` | 15     | 0.5 s  | once, holds | large        | Hero while a request is being typed.                                       |
 | `nod`    | 21     | 0.7 s  | once        | small        | Status line on approval, then `work`; the tour card at each step.          |
 
@@ -632,9 +632,8 @@ Large strips have 192 px frames for the 96 px hero; small ones (`-sm`) have 56 p
   frame it replaces, which is frozen on a `::after` ghost for 180 ms (`GHOST_MS`). Setting a
   one-shot again replays it, except `attend`. With `then`, a one-shot hands over to that mood when
   it ends, unless another mood was set meanwhile. Under reduced motion it goes straight to `then`.
-- `gaze(node, x)` holds the `look` frame whose head faces `x`, from -1 (far left) to 1 (far right),
-  and `gaze(node, null)` lets go. The hero follows the pointer while idle and lets go after 2.4 s
-  at rest.
+- The hero does not follow the pointer around the page (it read as being watched); it perks up
+  (`attend`) while the pointer rests on it and settles when the pointer leaves.
 - A mood without a strip at a size has no CSS rule there and shows `idle`. `mascot.js` preloads
   only the strips each size plays (`PLAYED`).
 - While the agent works, CSS pixel bubbles rise from the status-line mark, faster while writing.

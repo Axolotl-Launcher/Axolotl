@@ -3444,6 +3444,17 @@ mod tests {
             .collect()
     }
 
+    /// Checks the fixture's diamond stack survived, not merely that some stack
+    /// did: a conversion that replaced it with any other single item would
+    /// still leave the list length at one.
+    fn assert_diamond_stack(list: &NbtList) {
+        assert_eq!(list.len(), 1);
+        let item = list_compound(list, 0);
+        assert_eq!(item.get::<_, i8>("Slot").unwrap(), 0);
+        assert_eq!(item.get::<_, &str>("id").unwrap(), "minecraft:diamond");
+        assert_eq!(item.get::<_, i32>("count").unwrap(), 64);
+    }
+
     #[test]
     fn sponge_v2_and_v3_fixtures_parse_offsets_and_varints() {
         for version in [2, 3] {
@@ -3897,11 +3908,7 @@ mod tests {
                 "minecraft:chest",
                 "v{version}"
             );
-            assert_eq!(
-                chest.get::<_, &NbtList>("Items").unwrap().len(),
-                1,
-                "v{version}"
-            );
+            assert_diamond_stack(chest.get::<_, &NbtList>("Items").unwrap());
             let entities = region.get::<_, &NbtList>("Entities").unwrap();
             assert_eq!(entities.len(), 1, "v{version}");
             let entity = list_compound(entities, 0);
@@ -3949,14 +3956,12 @@ mod tests {
         assert_eq!(chest.get::<_, &[i32]>("Pos").unwrap(), &[0, 0, 0][..]);
         assert_eq!(chest.get::<_, &str>("Id").unwrap(), "minecraft:chest");
         // Version 3 keeps the payload nested under `Data`.
-        assert_eq!(
+        assert_diamond_stack(
             chest
                 .get::<_, &NbtCompound>("Data")
                 .unwrap()
                 .get::<_, &NbtList>("Items")
-                .unwrap()
-                .len(),
-            1
+                .unwrap(),
         );
         let entities = schematic.get::<_, &NbtList>("Entities").unwrap();
         assert_eq!(entities.len(), 1);
@@ -4082,14 +4087,12 @@ mod tests {
         // region-local chest at 0,0,0 stays at 0,0,0.
         assert_eq!(chest.get::<_, &[i32]>("Pos").unwrap(), &[0, 0, 0][..]);
         assert_eq!(chest.get::<_, &str>("Id").unwrap(), "minecraft:chest");
-        assert_eq!(
+        assert_diamond_stack(
             chest
                 .get::<_, &NbtCompound>("Data")
                 .unwrap()
                 .get::<_, &NbtList>("Items")
-                .unwrap()
-                .len(),
-            1
+                .unwrap(),
         );
         let entities = schematic.get::<_, &NbtList>("Entities").unwrap();
         assert_eq!(entities.len(), 1);

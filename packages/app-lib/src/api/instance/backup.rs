@@ -4384,7 +4384,12 @@ mod tests {
 
     #[test]
     fn rejects_paths_outside_the_instance() {
-        for path in ["", ".", "..", "../saves", "/saves", "C:\\saves"] {
+        let mut paths = vec!["", ".", "..", "../saves", "/saves"];
+        // A drive-relative path only exists on Windows; on Unix `C:/saves` is
+        // an ordinary relative directory name.
+        #[cfg(windows)]
+        paths.push("C:\\saves");
+        for path in paths {
             assert!(normalize_relative_directory(path).is_err(), "{path}");
         }
     }

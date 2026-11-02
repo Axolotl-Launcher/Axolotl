@@ -199,6 +199,24 @@ it('closes on an outside click without pulling focus back to the trigger', async
     expect(document.activeElement).not.toBe(wrapper.get('button').element)
 })
 
+it('reports a colour once when the panel closes after the change', async () => {
+    const wrapper = await openPicker()
+
+    presetGroups()[0].querySelectorAll('button')[12].click()
+    await flushPromises()
+    await closePicker()
+
+    expect(wrapper.emitted('change')).toEqual([['#835432']])
+})
+
+it('reports nothing when the panel is dismissed without a change', async () => {
+    const wrapper = await openPicker()
+
+    await closePicker()
+
+    expect(wrapper.emitted('change')).toBeUndefined()
+})
+
 it('lists a committed colour under recent colours on the next open', async () => {
     await openPicker()
     presetGroups()[0].querySelectorAll('button')[12].click()

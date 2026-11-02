@@ -143,6 +143,14 @@ const hsv = ref<HsvColor>(hexToHsv(props.modelValue) ?? { h: 0, s: 0, v: 0 })
 const displayHex = computed(() => hsvToHex(hsv.value.h, hsv.value.s, hsv.value.v))
 const hexDraft = ref(displayHex.value)
 
+/**
+ * The colour this picker last reported through `change`. Closing the panel
+ * commits, so without this a panel that was merely opened and dismissed would
+ * report the colour it opened with — and a caller that treats `change` as "add
+ * this colour" would add a stop the user never asked for.
+ */
+const lastCommitted = ref(displayHex.value)
+
 const triggerClasses = computed(() => (props.size === 'sm' ? 'size-8 p-[3px]' : 'size-9 p-1'))
 
 const swatchRadius = computed(() => (props.size === 'sm' ? 'rounded-[5px]' : 'rounded-[8px]'))
@@ -197,14 +205,17 @@ function emitValue() {
 }
 
 function commit() {
+    const hex = displayHex.value
+    if (hex === lastCommitted.value) return
+    lastCommitted.value = hex
     if (props.showRecentColors) {
         recentColors.value = rememberRecentColor(
-            displayHex.value,
+            hex,
             props.recentColorsStorageKey,
             props.recentColorsLimit,
         )
     }
-    emit('change', displayHex.value)
+    emit('change', hex)
 }
 
 function togglePanel() {
@@ -227,6 +238,9 @@ function openPanel() {
         )
     }
     positioned.value = false
+    // Each session starts from the colour the panel opens with, so a caller
+    // that disabled the picker mid-session cannot leave a stale commit behind.
+    lastCommitted.value = displayHex.value
     open.value = true
     emit('open')
 }

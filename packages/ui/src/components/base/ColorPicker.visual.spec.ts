@@ -56,6 +56,11 @@ async function openPicker(props: Record<string, unknown> = {}) {
     await waitFor(() => panel() !== null && getComputedStyle(panel()!).visibility === 'visible', {
         label: 'the picker panel',
     })
+    // The entrance animation scales the panel, so measuring or clicking it
+    // mid-flight would read a transformed box.
+    await waitFor(() => getComputedStyle(panel()!).transform === 'none', {
+        label: 'the panel entrance animation',
+    })
     return wrapper
 }
 
@@ -77,6 +82,14 @@ it('renders the sixteen dye presets in one group', async () => {
 
     const [dyes] = presetGroups()
     expect(dyes.querySelectorAll('button')).toHaveLength(16)
+})
+
+it('animates the panel in once it is positioned', async () => {
+    await openPicker()
+
+    const styles = getComputedStyle(panel()!)
+    expect(styles.animationName).toContain('color-picker-panel-in')
+    expect(styles.animationDuration).toBe('0.16s')
 })
 
 it('marks swatch hover with a border instead of lifting the swatch', async () => {

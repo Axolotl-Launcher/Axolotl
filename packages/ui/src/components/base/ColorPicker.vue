@@ -402,6 +402,7 @@ onBeforeUnmount(() => {
             role="dialog"
             :aria-label="label ?? formatMessage(messages.dialogLabel)"
             class="fixed top-0 left-0 z-[9999] flex w-60 flex-col gap-3 rounded-[14px] border border-solid border-surface-5 bg-surface-4 p-3 shadow-[var(--shadow-raised)]"
+            :class="{ 'color-picker-panel': positioned }"
             :style="positioned ? panelStyle : { visibility: 'hidden' }"
             @keydown.escape.stop.prevent="closePanel({ restoreFocus: true })"
         >
@@ -566,6 +567,31 @@ onBeforeUnmount(() => {
         border-radius: 50%;
         background: transparent;
         box-shadow: 0 0 0 1px rgb(0 0 0 / 45%);
+    }
+}
+
+/**
+ * The panel is inserted hidden until `computePosition` resolves, so the class
+ * is applied with the position rather than with the element. Animating on
+ * insert would finish while the panel is still invisible.
+ */
+.color-picker-panel {
+    animation: color-picker-panel-in 160ms cubic-bezier(0, 0, 0.2, 1);
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+@keyframes color-picker-panel-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
     }
 }
 </style>

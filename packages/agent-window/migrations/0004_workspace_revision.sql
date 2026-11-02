@@ -1,0 +1,1 @@
+ALTER TABLE workspace_state ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;

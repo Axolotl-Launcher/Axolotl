@@ -33,6 +33,7 @@ pub struct Run {
     pub model_results:
         Mutex<HashMap<String, (serde_json::Value, serde_json::Value)>>,
     pub model_serial: Mutex<()>,
+    pub write_serial: Mutex<()>,
     pub control: Mutex<()>,
 }
 
@@ -44,6 +45,7 @@ pub struct Worker {
 
 #[derive(Default)]
 pub struct Queue {
+    pub deleted_threads: HashSet<String>,
     pub cancelled: HashSet<String>,
     pub worker: Option<Worker>,
     pub runs: HashMap<String, Arc<Run>>,
@@ -52,6 +54,7 @@ pub struct Queue {
 
 #[derive(Default)]
 pub struct AgentRuntime {
+    pub workspace_mutations: Mutex<()>,
     pub database: OnceCell<AgentStore>,
     pub queue: Mutex<Queue>,
     pub wake: Notify,
@@ -64,18 +67,12 @@ impl AgentRuntime {
             .get_or_try_init(|| async {
                 let state = theseus::State::get_if_initialized()
                     .ok_or("Launcher is still initializing")?;
-                let database = theseus::current_app_database_path(
-                    &state.directories.app_identifier,
-                )
-                .await
-                .map_err(|e| e.to_string())?;
-                AgentStore::open(
-                    database
-                        .parent()
-                        .ok_or("Launcher database directory is unavailable")?,
-                )
-                .await
-                .map_err(|e| e.to_string())
+                let directory = state
+                    .active_database_directory()
+                    .map_err(|e| e.to_string())?;
+                AgentStore::open(&directory)
+                    .await
+                    .map_err(|e| e.to_string())
             })
             .await
     }
@@ -166,7 +163,11 @@ impl AgentRuntime {
             job.messages = self
                 .store()
                 .await?
-                .conversation_messages(&run.request.thread_id)
+                .conversation_transcript(
+                    &run.request.thread_id,
+                    &run.request.provider_id,
+                    &run.request.model_id,
+                )
                 .await
                 .map_err(|e| e.to_string())?;
             if let Some(current) = current {

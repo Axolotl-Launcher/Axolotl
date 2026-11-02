@@ -110,6 +110,9 @@ pub struct ExecutionRequest {
     pub tool: String,
     pub arguments: Value,
     pub is_write: bool,
+    /// Trusted native-host classification; never deserialized from worker input.
+    #[serde(skip)]
+    pub recovery_control: bool,
     pub approval: Option<ApprovalPermit>,
 }
 

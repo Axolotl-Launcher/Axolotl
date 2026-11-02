@@ -1,4 +1,25 @@
 {
+  "app.agent-window.chat.receipt-applied": {
+    "message": "Applied"
+  },
+  "app.agent-window.chat.receipt-failed": {
+    "message": "Failed"
+  },
+  "app.agent-window.chat.receipt-skipped": {
+    "message": "Not executed"
+  },
+  "app.agent-window.chat.receipt-unknown": {
+    "message": "Not confirmed"
+  },
+  "app.agent-window.chat.native-unavailable": {
+    "message": "Agent is unavailable. Reopen the window and retry."
+  },
+  "app.agent-window.chat.task-computer-use": {
+    "message": "Allow launcher UI"
+  },
+  "app.agent-window.chat.attachment-unreadable": {
+    "message": "Could not read this file. Attach a text file or paste its contents."
+  },
   "app.agent-window.chat.toggle-sidebar": {
     "message": "Show or hide the task list"
   },
@@ -992,15 +1013,27 @@
   "app.agent-window.title": {
     "message": "Axolotl Agent Window"
   },
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
-  "app.schematics.sort.default": { "message": "Source order" },
-  "app.schematics.sort.name": { "message": "Name" },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "{sources} could not be loaded."
+  },
+  "app.schematics.sort.default": {
+    "message": "Source order"
+  },
+  "app.schematics.sort.name": {
+    "message": "Name"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
   },
-  "app.schematics.open-source": { "message": "View on source website" },
+  "app.schematics.open-source": {
+    "message": "View on source website"
+  },
   "app.schematics.instances-error": {
     "message": "Could not load your instances."
   },
@@ -1046,8 +1079,12 @@
   "app.schematics.search": {
     "message": "Search schematics"
   },
-  "app.schematics.sort.hot": { "message": "Popular" },
-  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.sort.hot": {
+    "message": "Popular"
+  },
+  "app.schematics.sort.featured": {
+    "message": "Featured"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -1060,11 +1097,21 @@
   "app.schematics.installing": {
     "message": "Installing…"
   },
-  "app.schematics.preview": { "message": "Preview" },
-  "app.schematics.files": { "message": "Files" },
-  "app.schematics.creator": { "message": "Creator" },
-  "app.schematics.source-heading": { "message": "Source" },
-  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.preview": {
+    "message": "Preview"
+  },
+  "app.schematics.files": {
+    "message": "Files"
+  },
+  "app.schematics.creator": {
+    "message": "Creator"
+  },
+  "app.schematics.source-heading": {
+    "message": "Source"
+  },
+  "app.schematics.preview-source": {
+    "message": "Shimu Space · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "Installed"
   },
@@ -18716,5 +18763,8 @@
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"
+  },
+  "app.agent-window.chat.native-connecting": {
+    "message": "Connecting…"
   }
 }

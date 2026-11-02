@@ -506,6 +506,10 @@
                                     </button>
                                 </div>
                                 <div class="composer-actions">
+                                    <label id="task-computer-use" class="chip-button" hidden>
+                                        <input id="task-computer-use-input" type="checkbox" />
+                                        <span data-text="taskComputerUse"></span>
+                                    </label>
                                     <button
                                         id="model-button"
                                         class="chip-button model-button"
@@ -659,7 +663,7 @@
                     </label>
                     <p id="permission-status" class="settings-status" role="status"></p>
                 </section>
-                <section class="settings-section">
+                <section class="settings-section" hidden>
                     <h3 data-text="conversationTitle"></h3>
                     <div class="setting-row">
                         <span class="setting-copy"
@@ -699,7 +703,7 @@
                         ></textarea>
                     </label>
                 </section>
-                <section class="settings-section">
+                <section class="settings-section" hidden>
                     <h3 data-text="historyTitle"></h3>
                     <p class="settings-lead" data-text="localHistory"></p>
                     <div class="settings-actions">
@@ -717,7 +721,7 @@
                         </button>
                     </div>
                 </section>
-                <section class="settings-section">
+                <section class="settings-section" hidden>
                     <h3 data-text="aboutTitle"></h3>
                     <p class="settings-lead" data-text="aboutModels"></p>
                     <div class="settings-actions">

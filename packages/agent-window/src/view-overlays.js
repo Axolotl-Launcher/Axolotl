@@ -695,7 +695,9 @@ export function openChanges(entries, anchor) {
                         icon(kind?.[0] || change.icon || 'cube'),
                     ]),
                     h('span', { class: 'changes-copy' }, [
-                        h('strong', { text: change.name }),
+                        h('strong', {
+                            text: change.meta ? change.meta.replaceAll('_', ' ') : change.name,
+                        }),
                         h('span', {
                             text: [kind ? text(kind[1]) : '', whenLabel(turn.createdAt)]
                                 .filter(Boolean)

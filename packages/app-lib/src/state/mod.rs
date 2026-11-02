@@ -266,6 +266,23 @@ impl State {
         .await
     }
 
+    /// Directory this process opened, independent of the next-launch channel selection.
+    pub fn active_database_directory(
+        &self,
+    ) -> crate::Result<std::path::PathBuf> {
+        self.pool
+            .connect_options()
+            .get_filename()
+            .parent()
+            .map(std::path::Path::to_path_buf)
+            .ok_or_else(|| {
+                crate::ErrorKind::FSError(
+                    "Active database directory is unavailable".into(),
+                )
+                .into()
+            })
+    }
+
     /// Stops further database writes before recording a clean-shutdown fingerprint.
     pub async fn finish_database_session(&self) -> crate::Result<()> {
         let database = self.pool.connect_options().get_filename().to_path_buf();

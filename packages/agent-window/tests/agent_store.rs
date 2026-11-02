@@ -30,6 +30,7 @@ async fn setup() -> (tempfile::TempDir, AgentStore, Attempt, ExecutionRequest) {
         tool: "instances_rename".into(),
         arguments: json!({"id":"instance", "name":"new"}),
         is_write: true,
+        recovery_control: false,
         approval: Some(ApprovalPermit {
             id: "approval".into(),
             revision: 1,

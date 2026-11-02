@@ -1,6 +1,30 @@
 import { defineMessages, type MessageDescriptor } from '@modrinth/ui'
 
 export const agentWindowMessages = defineMessages({
+    receiptApplied: { id: 'app.agent-window.chat.receipt-applied', defaultMessage: 'Applied' },
+    receiptFailed: { id: 'app.agent-window.chat.receipt-failed', defaultMessage: 'Failed' },
+    receiptSkipped: { id: 'app.agent-window.chat.receipt-skipped', defaultMessage: 'Not executed' },
+    receiptUnknown: {
+        id: 'app.agent-window.chat.receipt-unknown',
+        defaultMessage: 'Not confirmed',
+    },
+
+    nativeUnavailable: {
+        id: 'app.agent-window.chat.native-unavailable',
+        defaultMessage: 'Agent is unavailable. Reopen the window and retry.',
+    },
+    nativeConnecting: {
+        id: 'app.agent-window.chat.native-connecting',
+        defaultMessage: 'Connecting…',
+    },
+    taskComputerUse: {
+        id: 'app.agent-window.chat.task-computer-use',
+        defaultMessage: 'Allow launcher UI',
+    },
+    attachmentUnreadable: {
+        id: 'app.agent-window.chat.attachment-unreadable',
+        defaultMessage: 'Could not read this file. Attach a text file or paste its contents.',
+    },
     toggleSidebar: {
         id: 'app.agent-window.chat.toggle-sidebar',
         defaultMessage: 'Show or hide the task list',

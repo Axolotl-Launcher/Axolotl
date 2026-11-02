@@ -79,17 +79,24 @@ fn messages(messages: &[ChatMessage]) -> (String, Vec<Value>) {
                 .iter()
                 .flat_map(|message| &message.tool_calls)
                 .find(|call| Some(&call.id) == message.tool_call_id.as_ref());
-            let mut response = json!({ "name": call.map(|call| call.name.as_str()).unwrap_or("unknown"), "response": { "result": message.content } });
+            let mut response = json!({ "name": call.map(|call| call.name.as_str()).unwrap_or("unknown"), "response": if message.tool_error {json!({ "error": message.content })} else {json!({ "result": message.content })} });
             if let Some(call) = call
                 && call.id.starts_with("google:")
             {
                 response["id"] = json!(call.id.trim_start_matches("google:"));
             }
-            json!([{ "functionResponse": response }])
+            let mut parts = vec![json!({"functionResponse":response})];
+            parts.extend(image_parts(message));
+            json!(parts)
         } else if message.role == "assistant" && message.opaque.is_array() {
             message.opaque.clone()
         } else {
-            json!([{ "text": message.content }])
+            let mut parts = Vec::new();
+            if !message.content.is_empty() {
+                parts.push(json!({"text":message.content}));
+            }
+            parts.extend(image_parts(message));
+            json!(parts)
         };
         let role = if message.role == "assistant" {
             "model"
@@ -108,6 +115,10 @@ fn messages(messages: &[ChatMessage]) -> (String, Vec<Value>) {
         }
     }
     (system, contents)
+}
+
+fn image_parts(message: &ChatMessage) -> impl Iterator<Item = Value> + '_ {
+    message.images.iter().map(|image| json!({"inlineData":{"mimeType":image.mime_type,"data":image.data}}))
 }
 
 pub(super) fn parse(value: &Value) -> crate::Result<ChatMessage> {
@@ -162,5 +173,27 @@ mod tests {
             "read_log_file"
         );
         assert_eq!(contents[1]["parts"].as_array().unwrap().len(), 2);
+    }
+    #[test]
+    fn tool_error_and_images_are_kept_in_generate_content_user_parts() {
+        let mut tool = super::super::assistant();
+        tool.role = "tool".into();
+        tool.content = "capture failed".into();
+        tool.tool_error = true;
+        tool.tool_call_id = Some("call1".into());
+        tool.images.push(ModelImage {
+            mime_type: "image/webp".into(),
+            data: "aW1hZ2U=".into(),
+        });
+        let (_, output) = messages(&[tool]);
+        assert_eq!(output[0]["role"], "user");
+        assert_eq!(
+            output[0]["parts"][0]["functionResponse"]["response"]["error"],
+            "capture failed"
+        );
+        assert_eq!(
+            output[0]["parts"][1],
+            json!({"inlineData":{"mimeType":"image/webp","data":"aW1hZ2U="}})
+        );
     }
 }

@@ -5,12 +5,15 @@
 
 mod records;
 mod runtime;
+mod transcript;
+mod workspace;
 
 pub use records::*;
 pub use runtime::*;
 use serde_json::Value;
 use sqlx::{Row, SqliteConnection, SqlitePool, sqlite::SqliteConnectOptions};
 use std::{path::Path, time::Duration};
+pub use workspace::*;
 
 static MIGRATIONS: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 type Result<T> = std::result::Result<T, StoreError>;
@@ -94,24 +97,7 @@ impl AgentStore {
     /// can be removed. FK cascades remove its checkpoints and approval permits.
     pub async fn delete_thread(&self, id: &str) -> Result<()> {
         let mut tx = self.pool.begin().await?;
-        let active: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts WHERE thread_id = ? AND state IN ('queued', 'running', 'awaiting')")
-            .bind(id).fetch_one(&mut *tx).await?;
-        if active != 0 {
-            return Err(StoreError::Conflict(
-                "Stop the task before deleting it",
-            ));
-        }
-        let writing: i64 = sqlx::query_scalar("SELECT count(*) FROM executions e JOIN attempts a ON a.id = e.attempt_id WHERE a.thread_id = ? AND e.state = 'started'")
-            .bind(id).fetch_one(&mut *tx).await?;
-        if writing != 0 {
-            return Err(StoreError::Conflict(
-                "Wait for started operations to settle before deleting their records",
-            ));
-        }
-        sqlx::query("DELETE FROM threads WHERE id = ?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
+        delete_thread_in(&mut tx, id).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -343,6 +329,7 @@ impl AgentStore {
         valid_id(&call.call_id)?;
         let mut tx = self.pool.begin().await?;
         require_running(&mut tx, &call.attempt_id).await?;
+        let attempt = require_live(&mut tx, &call.attempt_id).await?;
         let arguments = encode_arguments(&call.arguments)?;
         if let Some(existing) =
             get_execution(&mut tx, &call.attempt_id, &call.call_id).await?
@@ -358,6 +345,29 @@ impl AgentStore {
             return Ok(Admission::Existing(existing));
         }
         if call.is_write {
+            let input: Option<String> = sqlx::query_scalar(
+                "SELECT payload FROM attempt_inputs WHERE attempt_id = ?",
+            )
+            .bind(&call.attempt_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if input
+                .as_deref()
+                .map(serde_json::from_str::<Value>)
+                .transpose()?
+                .is_some_and(|input| input["check_only"] == true)
+            {
+                return Err(StoreError::Conflict(
+                    "Verification runs cannot perform writes",
+                ));
+            }
+            let unsettled: i64 = sqlx::query_scalar("SELECT count(*) FROM executions e JOIN attempts a ON a.id = e.attempt_id WHERE a.thread_id = ? AND e.is_write = 1 AND e.state IN ('started', 'unknown')")
+                .bind(&attempt.thread_id).fetch_one(&mut *tx).await?;
+            if unsettled != 0 && !call.recovery_control {
+                return Err(StoreError::Conflict(
+                    "Writes have unconfirmed results; verify readonly before new mutations or use explicit cancellation controls",
+                ));
+            }
             let permit = call
                 .approval
                 .as_ref()
@@ -626,4 +636,27 @@ pub fn redact(value: Value) -> Value {
         }
         value => value,
     }
+}
+
+async fn delete_thread_in(
+    connection: &mut SqliteConnection,
+    id: &str,
+) -> Result<()> {
+    let active: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts WHERE thread_id = ? AND state IN ('queued', 'running', 'awaiting')")
+            .bind(id).fetch_one(&mut *connection).await?;
+    if active != 0 {
+        return Err(StoreError::Conflict("Stop the task before deleting it"));
+    }
+    let writing: i64 = sqlx::query_scalar("SELECT count(*) FROM executions e JOIN attempts a ON a.id = e.attempt_id WHERE a.thread_id = ? AND e.state = 'started'")
+            .bind(id).fetch_one(&mut *connection).await?;
+    if writing != 0 {
+        return Err(StoreError::Conflict(
+            "Wait for started operations to settle before deleting their records",
+        ));
+    }
+    sqlx::query("DELETE FROM threads WHERE id = ?")
+        .bind(id)
+        .execute(&mut *connection)
+        .await?;
+    Ok(())
 }

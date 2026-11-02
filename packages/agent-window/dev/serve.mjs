@@ -52,6 +52,7 @@ function hostScript(messages) {
     let policy = { full_access: false, computer_use: false }
     const fail = query.get('fail') === 'plan' ? 'plan' : Number(query.get('fail')) || 0
     window.AgentHost = {
+        preview: true,
         appearance: {
             locale: query.get('lang') || 'en-US',
             background: light ? '#ebebeb' : '#101215',

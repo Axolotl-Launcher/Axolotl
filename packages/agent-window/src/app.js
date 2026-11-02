@@ -1,9 +1,11 @@
 import {
     activitySteps,
     applyEvent,
+    applyNativeSnapshot,
     beginApply,
     createRuntime,
     declinePlan,
+    includedChanges,
     pendingPlan,
     stopRun,
     supersedePlan,
@@ -37,18 +39,16 @@ import {
 import {
     ACTIVE_STATUSES,
     activeThread,
+    createStorage,
     initialStore,
     lastTurn,
-    LEGACY_STORAGE_KEY,
-    loadStore,
     MAX_ATTACHMENTS,
     MAX_INSTRUCTIONS,
     MAX_PASTE,
+    mergeAcknowledged,
     newRun,
     newThread,
     newTurn,
-    saveStore,
-    STORAGE_KEY,
     threadStatus,
 } from './state.js'
 import {
@@ -115,11 +115,22 @@ const WIDE = 1100
 const PASTE_LINES = 16
 const PASTE_CHARS = 2500
 
-try {
-    session.store = loadStore()
-} catch {
-    session.store = initialStore()
-    session.loadError = true
+session.store = initialStore()
+const storage = createStorage(
+    window.AgentHost,
+    (() => {
+        try {
+            return window.localStorage
+        } catch {
+            return undefined
+        }
+    })(),
+)
+let storageQueue = Promise.resolve()
+const serializeStorage = (work) => {
+    const result = storageQueue.then(work, work)
+    storageQueue = result.catch(() => {})
+    return result
 }
 
 let renderedThread = null
@@ -130,6 +141,7 @@ let contextRequest = 0
 let contextFlight = null
 let permissionRequest = 0
 let ticker = 0
+let contextTicker = 0
 const follower = new ScrollFollower(element('message-scroll'), () => renderJump())
 
 // The thread or turn with this id, from a store or the copy a commit changes.
@@ -139,50 +151,46 @@ const byId = (list, id) => list.find((entry) => entry.id === id)
 
 // User actions are all-or-nothing: if history cannot be saved, nothing changes
 // and the draft stays in the composer.
-function commit(change) {
-    const next = structuredClone(session.store)
-    change(next, activeThread(next))
-    try {
-        if (session.loadError) throw new Error('Saved history requires recovery')
-        session.store = saveStore(next)
-        clearTimeout(persistTimer)
-        persistTimer = 0
-        if (session.storageError) {
+async function commit(change) {
+    return serializeStorage(async () => {
+        const base = structuredClone(session.store)
+        const next = structuredClone(base)
+        change(next, activeThread(next))
+        try {
+            if (session.loadError) throw new Error('Saved history requires recovery')
+            await storage.save(next)
+            session.store = mergeAcknowledged(base, next, session.store)
             session.storageError = false
             renderBanners()
+            return true
+        } catch {
+            session.storageError = true
+            renderBanners()
+            notify(text('storageError'), 'error')
+            return false
         }
-        return true
-    } catch {
-        session.storageError = true
-        renderBanners()
-        notify(text('storageError'), 'error')
-        return false
-    }
+    })
 }
 
-// Agent events must never be lost because storage is full, so they change the
-// live store and are saved shortly after.
 function persistSoon(delay = 400) {
     if (!persistTimer) persistTimer = setTimeout(persistNow, delay)
 }
 
-function persistNow() {
+async function persistNow() {
     clearTimeout(persistTimer)
     persistTimer = 0
     if (session.loadError) return
-    try {
-        session.store = saveStore(session.store)
-        if (session.storageError) {
+    return serializeStorage(async () => {
+        try {
+            await storage.save(structuredClone(session.store))
             session.storageError = false
             renderBanners()
-        }
-    } catch {
-        if (!session.storageError) {
+        } catch {
             session.storageError = true
             renderBanners()
             notify(text('storageError'), 'error')
         }
-    }
+    })
 }
 
 // ---------- rendering ----------
@@ -653,7 +661,9 @@ function refreshContext() {
 
 let runtimeFlight = null
 function ensureRuntime() {
-    const wantsNative = !!window.AgentHost?.runtime && session.context.execution_available
+    const wantsNative =
+        !!window.AgentHost?.runtimeInvoke ||
+        (!!window.AgentHost?.runtime && session.context.execution_available)
     // Only `preview: true` marks the scripted runtime. Anything else is native,
     // so a native runtime that leaves `preview` out still hands back to Preview.
     if (session.runtime && isPreview() !== wantsNative) return Promise.resolve()
@@ -689,6 +699,9 @@ async function refreshPermissions() {
         const policy = await window.AgentHost.getPermissions()
         if (request !== permissionRequest || disposed) return
         session.permissions = readPolicy(policy)
+        if (!session.permissions.full_access || !session.permissions.computer_use)
+            session.computerUseTasks.clear()
+        renderComposer()
         session.permissionReadError = false
     } catch {
         if (request === permissionRequest) session.permissionReadError = true
@@ -713,6 +726,9 @@ async function savePermissions(next) {
         const policy = await window.AgentHost.setPermissions(next)
         if (disposed) return false
         session.permissions = readPolicy(policy)
+        if (!session.permissions.full_access || !session.permissions.computer_use)
+            session.computerUseTasks.clear()
+        renderComposer()
         session.permissionReadError = false
         return true
     } catch {
@@ -743,6 +759,10 @@ function request(thread, turn, extra = {}) {
         resume: structuredClone(turn.run.resume),
         // Standing preferences from Settings, sent with every request.
         instructions: session.store.instructions,
+        computerUse:
+            session.computerUseTasks.has(thread.id) &&
+            session.permissions.full_access &&
+            session.permissions.computer_use,
         ...extra,
     }
 }
@@ -758,6 +778,7 @@ async function launch(threadId, turnId, mode) {
     if (!found || !session.runtime?.[mode]) return
     // The ticket remembers the status the run started from, so settling can
     // tell a plan that arrived during the run from one already waiting.
+    session.handles.get(turnId)?.detach?.()
     const ticket = { from: found.turn.run.status }
     tickets.set(turnId, ticket)
     const emit = (event) => {
@@ -769,6 +790,8 @@ async function launch(threadId, turnId, mode) {
                   const plan = found.turn.run.items.findLast((item) => item.type === 'plan')
                   return {
                       planId: plan?.plan.id,
+                      revision: plan?.plan.revision,
+                      selected: includedChanges(plan).map((change) => change.name),
                       excluded: (plan?.excluded || []).map(
                           (index) => plan.plan.changes[index].name,
                       ),
@@ -788,24 +811,44 @@ async function launch(threadId, turnId, mode) {
 function onRuntimeEvent(threadId, turnId, event) {
     const found = findTurn(threadId, turnId)
     if (!found) {
-        session.handles.get(turnId)?.stop()
+        session.handles.get(turnId)?.detach?.()
         session.handles.delete(turnId)
         return
     }
     const { thread, turn } = found
+    if (event.type === 'decision-error') {
+        stopRun(turn.run)
+        notify(String(event.error), 'error')
+        refreshTurn(threadId, turnId)
+        persistSoon()
+        return
+    }
+    if (event.type === 'connection') {
+        session.contextError = true
+        renderBanners()
+        return
+    }
+    if (event.nativeResume) turn.run.resume = event.nativeResume
     const before = turn.run.status
     if (event.type === 'title') {
         if (!thread.titleEdited && event.title) thread.title = String(event.title).slice(0, 120)
         renderHeader()
+    } else if (event.type === 'snapshot') {
+        turn.run.nativeComputerUse = event.computerUse === true
+        applyNativeSnapshot(turn.run, event.state, event.receipts)
     } else applyEvent(turn.run, event)
     announceRun(threadId, turnId, before)
     thread.updatedAt = Date.now()
     persistSoon()
     refreshTurn(threadId, turnId)
-    if (event.type === 'done' || event.type === 'error') {
+    if (
+        ((event.type === 'done' || event.type === 'error') && !event.transient) ||
+        (event.type === 'snapshot' && event.terminal)
+    ) {
         // A plan event already moved the run to awaiting, so comparing with the
         // status just before done would hide the "waiting for you" toast.
         const from = tickets.get(turnId)?.from ?? before
+        session.handles.get(turnId)?.detach?.()
         session.handles.delete(turnId)
         tickets.delete(turnId)
         persistNow()
@@ -856,14 +899,28 @@ function settle(threadId, before) {
         sendQueued(thread.id, thread.queue[0].id)
 }
 
-function startTurn(threadId, message) {
+async function startTurn(threadId, message) {
     let created = null
+    const previous = lastTurn(findThread(threadId))
+    const waiting = pendingPlan(previous?.run)
+    if (waiting && !isPreview()) {
+        try {
+            await window.AgentHost.runtimeInvoke('decide', {
+                batchId: waiting.plan.id,
+                revision: waiting.plan.revision,
+                selected: [],
+            })
+        } catch (error) {
+            notify(String(error), 'error')
+            return false
+        }
+    }
     const first = !findThread(threadId)?.turns.length
     // The turn exists only once it is saved. A failed save leaves the draft,
     // the queue and the transcript as they were, and nothing is launched.
-    const change = () => {
+    const change = async () => {
         let turnId = null
-        const saved = commit((next) => {
+        const saved = await commit((next) => {
             const thread = byId(next.threads, threadId)
             const last = lastTurn(thread)
             if (last) supersedePlan(last.run)
@@ -893,16 +950,27 @@ function startTurn(threadId, message) {
         return true
     }
     if (first && threadId === session.store.activeId)
-        return morph(() => {
-            if (change()) render()
+        return morph(async () => {
+            if (await change()) render()
         }, 'send').then(begin)
-    if (change()) render()
+    if (await change()) render()
     return Promise.resolve(begin())
 }
 
+const attachmentReads = new Map()
+let submitting = false
 async function submit() {
+    if (submitting) return
+    submitting = true
+    try {
+        await submitReady()
+    } finally {
+        submitting = false
+    }
+}
+async function submitReady() {
     const thread = currentThread()
-    const value = element('message-input').value.trim()
+    let value = element('message-input').value.trim()
     // A pasted crash report or a file can be the whole request.
     if (!value && !thread.attachments.length) return
     await ensureRuntime()
@@ -910,11 +978,18 @@ async function submit() {
         openPicker('model', element('model-button'))
         return
     }
+    await Promise.all([...attachmentReads.values()])
+    if (thread.id !== currentThread().id) return
+    if (thread.attachments.some((entry) => typeof entry.text !== 'string')) {
+        notify(text('attachmentUnreadable'), 'error')
+        return
+    }
+    value = element('message-input').value.trim()
     const attachments = structuredClone(thread.attachments)
     const last = lastTurn(thread)
     if (last && ACTIVE_STATUSES.includes(last.run.status)) {
         if (
-            commit((next, active) => {
+            await commit((next, active) => {
                 active.queue.push({
                     id: crypto.randomUUID(),
                     text: value,
@@ -928,7 +1003,7 @@ async function submit() {
             render()
         return
     }
-    startTurn(thread.id, {
+    return startTurn(thread.id, {
         text: value,
         attachments,
         apply: (active) => {
@@ -951,12 +1026,17 @@ function sendQueued(threadId, queuedId) {
     })
 }
 
-function stop() {
+async function stop() {
     const thread = currentThread()
     const turn = lastTurn(thread)
     if (!turn || !ACTIVE_STATUSES.includes(turn.run.status)) return
     const before = turn.run.status
-    session.handles.get(turn.id)?.stop()
+    try {
+        await session.handles.get(turn.id)?.stop()
+    } catch (error) {
+        notify(String(error), 'error')
+        return
+    }
     session.handles.delete(turn.id)
     tickets.delete(turn.id)
     stopRun(turn.run)
@@ -965,15 +1045,15 @@ function stop() {
     announceRun(thread.id, turn.id, before)
 }
 
-function approve(turnId) {
+async function approve(turnId) {
     const thread = currentThread()
     let ok = false
     if (
-        commit((next, active) => {
+        (await commit((next, active) => {
             const turn = byId(active.turns, turnId)
             ok = !!turn && beginApply(turn.run)
             if (ok) active.updatedAt = Date.now()
-        }) &&
+        })) &&
         ok
     ) {
         refreshTurn(thread.id, turnId, true)
@@ -982,23 +1062,40 @@ function approve(turnId) {
     }
 }
 
-function decline(turnId) {
+async function decline(turnId) {
     const thread = currentThread()
     let ok = false
-    commit((next, active) => {
+    if (!isPreview()) {
+        const turn = byId(thread.turns, turnId)
+        const plan = pendingPlan(turn?.run)
+        if (!plan) return
+        try {
+            await window.AgentHost.runtimeInvoke('decide', {
+                batchId: plan.plan.id,
+                revision: plan.plan.revision,
+                selected: [],
+            })
+        } catch (error) {
+            notify(String(error), 'error')
+            return
+        }
+    }
+    const saved = await commit((next, active) => {
         const turn = byId(active.turns, turnId)
         ok = !!turn && declinePlan(turn.run)
     })
-    if (!ok) return
+    if (!saved || !ok) return
     refreshTurn(thread.id, turnId, true)
     announceRun(thread.id, turnId, 'awaiting')
-    if (thread.queue.length) sendQueued(thread.id, currentThread().queue[0].id)
+    if (!isPreview()) {
+        await restoreRuns()
+    } else if (thread.queue.length) sendQueued(thread.id, currentThread().queue[0].id)
 }
 
-function retry(turnId) {
+async function retry(turnId) {
     const thread = currentThread()
     if (
-        commit((next, active) => {
+        await commit((next, active) => {
             const turn = byId(active.turns, turnId)
             if (!turn) return
             turn.run = newRun()
@@ -1014,12 +1111,17 @@ function retry(turnId) {
     }
 }
 
-function checkStatus(turnId) {
+async function checkStatus(turnId) {
     const thread = currentThread()
     if (
-        commit((next, active) => {
+        await commit((next, active) => {
             const turn = byId(active.turns, turnId)
             if (!turn || turn.run.status !== 'detached') return
+            turn.run.resume = {
+                attempt_id: crypto.randomUUID(),
+                cursor: 0,
+                verify_attempt: turn.run.resume?.attempt_id,
+            }
             turn.run.status = 'running'
             turn.run.endedAt = null
             turn.run.phaseAt = Date.now()
@@ -1029,6 +1131,39 @@ function checkStatus(turnId) {
         launch(thread.id, turnId, 'check')
         announceRun(thread.id, turnId)
     }
+}
+
+async function restoreRuns() {
+    if (!window.AgentHost?.runtimeInvoke || !session.runtime?.follow) return
+    for (const thread of session.store.threads) {
+        try {
+            const snapshot = await window.AgentHost.runtimeInvoke('snapshot', {
+                threadId: thread.id,
+            })
+            for (const attempt of snapshot.attempts) {
+                const turn = thread.turns.find((entry) => entry.id === attempt.turn_id)
+                if (!turn || turn.run.preview || session.handles.has(turn.id)) continue
+                if (turn.run.resume?.attempt_id && turn.run.resume.attempt_id !== attempt.id)
+                    continue
+                const cursor = turn.run.resume?.cursor || 0
+                turn.run.resume = { attempt_id: attempt.id, cursor }
+                applyNativeSnapshot(turn.run, attempt.state, snapshot.results?.[attempt.id])
+                const ticket = { from: turn.run.status }
+                tickets.set(turn.id, ticket)
+                const emit = (event) => {
+                    if (tickets.get(turn.id) === ticket) onRuntimeEvent(thread.id, turn.id, event)
+                }
+                session.handles.set(
+                    turn.id,
+                    session.runtime.follow(thread.id, attempt.id, cursor, emit),
+                )
+            }
+        } catch {
+            session.contextError = true
+            renderBanners()
+        }
+    }
+    render()
 }
 
 // ---------- threads ----------
@@ -1042,9 +1177,9 @@ function selectThread(id) {
         if (fromDrawer) element('message-input').focus()
         return
     }
-    morph(() => {
+    morph(async () => {
         if (
-            commit((next) => {
+            await commit((next) => {
                 next.activeId = id
                 delete byId(next.threads, id)?.unread
             })
@@ -1065,9 +1200,9 @@ function createThread() {
         if (narrow()) setSidebar(false)
         return Promise.resolve()
     }
-    return morph(() => {
+    return morph(async () => {
         if (
-            commit((next) => {
+            await commit((next) => {
                 const fresh = newThread(structuredClone(next.lastSelection))
                 fresh.instanceId = activeThread(next).instanceId
                 next.threads.push(fresh)
@@ -1081,29 +1216,30 @@ function createThread() {
     }, 'thread').then(() => element('message-input').focus())
 }
 
-function deleteThread(id) {
-    session.handles.forEach((handle, turnId) => {
-        if (findThread(id)?.turns.some((turn) => turn.id === turnId)) {
-            handle.stop()
-            session.handles.delete(turnId)
-        }
-    })
-    const ok = commit((next) => {
+async function deleteThread(id) {
+    const removedTurns = new Set(findThread(id)?.turns.map((turn) => turn.id) || [])
+    const ok = await commit((next) => {
         next.threads = next.threads.filter((thread) => thread.id !== id)
         if (!next.threads.length) next.threads.push(newThread(structuredClone(next.lastSelection)))
         if (!next.threads.some((thread) => thread.id === next.activeId))
             next.activeId = [...next.threads].sort((a, b) => b.updatedAt - a.updatedAt)[0].id
     })
     if (ok) {
+        for (const [turnId, handle] of session.handles) {
+            if (removedTurns.has(turnId)) {
+                handle.detach?.()
+                session.handles.delete(turnId)
+            }
+        }
         fillSelection()
         render()
     }
     return ok
 }
 
-function renameThread(id, value) {
+async function renameThread(id, value) {
     if (!value) return false
-    const ok = commit((next) => {
+    const ok = await commit((next) => {
         const thread = byId(next.threads, id)
         if (!thread) return
         thread.title = value.slice(0, 120)
@@ -1139,9 +1275,9 @@ function findAttachment(id) {
     )
 }
 
-function togglePin(id) {
+async function togglePin(id) {
     if (
-        commit((next) => {
+        await commit((next) => {
             const thread = byId(next.threads, id)
             if (thread?.pinned) delete thread.pinned
             else if (thread) thread.pinned = true
@@ -1237,7 +1373,7 @@ function exportFile(name, content) {
 
 function exportHistory() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
+        const raw = JSON.stringify(session.store)
         if (raw === null) throw new Error('History unavailable')
         exportFile('axolotl-agent-history.json', raw)
     } catch {
@@ -1245,7 +1381,7 @@ function exportHistory() {
     }
 }
 
-function resetHistory() {
+async function resetHistory() {
     const draft = currentThread()
     try {
         const fresh = initialStore()
@@ -1258,9 +1394,10 @@ function resetHistory() {
         fresh.introDismissed = session.store.introDismissed
         fresh.tourDone = session.store.tourDone
         fresh.sidebarOpen = session.store.sidebarOpen
-        for (const handle of session.handles.values()) handle.stop()
+        await serializeStorage(() => storage.save(fresh))
+        for (const handle of session.handles.values()) handle.detach?.()
         session.handles.clear()
-        session.store = saveStore(fresh)
+        session.store = fresh
         session.loadError = false
         session.storageError = false
         renderedThread = null
@@ -1291,12 +1428,18 @@ function addFiles(files) {
     persistSoon()
     renderComposer()
     element('message-input').focus()
-    for (const { file, entry } of picked)
-        if (TEXT_FILE.test(file.name) && file.size <= MAX_READ && typeof file.text === 'function')
-            file.text().then(
-                (value) => readInto(entry.id, value),
-                () => {},
-            )
+    for (const { file, entry } of picked) {
+        if (TEXT_FILE.test(file.name) && file.size <= MAX_READ && typeof file.text === 'function') {
+            const reading = file
+                .text()
+                .then(
+                    (value) => readInto(entry.id, value),
+                    () => {},
+                )
+                .finally(() => attachmentReads.delete(entry.id))
+            attachmentReads.set(entry.id, reading)
+        }
+    }
 }
 
 // Gives an attached text file its contents once read, wherever its draft is now.
@@ -1307,7 +1450,7 @@ function readInto(id, value) {
     if (!attachment) return
     Object.assign(attachment, {
         kind: pasteKind(value),
-        text: value.slice(0, MAX_PASTE),
+        text: window.AgentHost?.runtimeInvoke ? value : value.slice(0, MAX_PASTE),
         lines: value.split(/\r\n|\r|\n/).length,
     })
     persistSoon()
@@ -1341,7 +1484,7 @@ function addPaste(value, lines) {
         name: taken ? `${base} ${taken + 1}` : base,
         size: new Blob([value]).size,
         kind,
-        text: value.slice(0, MAX_PASTE),
+        text: window.AgentHost?.runtimeInvoke ? value : value.slice(0, MAX_PASTE),
         lines,
     })
     persistSoon()
@@ -1428,14 +1571,25 @@ const actions = {
             accept: text('clearHistory'),
             icon: 'trash',
             danger: true,
-            onAccept: () => {
-                const ok = resetHistory()
+            onAccept: async () => {
+                const ok = await resetHistory()
                 if (ok) element('settings-dialog').close()
                 return ok
             },
         }),
-    'retry-storage': () => {
-        persistNow()
+    'retry-storage': async () => {
+        if (session.loadError) {
+            try {
+                session.store = await storage.load()
+                session.loadError = false
+                render()
+                await restoreRuns()
+            } catch {
+                notify(text('storageLoadError'), 'error')
+                return
+            }
+        }
+        await persistNow()
         if (!session.storageError) notify(text('storageSaved'), 'success')
     },
     'show-intro': () => {
@@ -1516,7 +1670,7 @@ function focusAfterRemove(list, attribute, index) {
     ;(buttons[Math.min(index, buttons.length - 1)] || element('message-input')).focus()
 }
 
-document.addEventListener('click', (event) => {
+document.addEventListener('click', async (event) => {
     const target = event.target.closest(
         '[data-action], [data-thread], [data-thread-menu], [data-prompt], [data-model], [data-instance], [data-copy-turn], [data-remove-attachment], [data-remove-queued], [data-send-queued], [data-menu-rename], [data-menu-delete], [data-toggle-change], [data-copy-code], [data-copy-link], [data-edit-turn], [data-mark-turn], [data-menu-pin], [data-menu-copy], [data-followup], [data-file-preview], [data-copy-paste]',
     )
@@ -1524,7 +1678,7 @@ document.addEventListener('click', (event) => {
     const data = target.dataset
     if (data.action) {
         if (target.type === 'submit') return
-        actions[data.action]?.(event, target)
+        await actions[data.action]?.(event, target)
         // These start or settle a run and redraw the button that was pressed;
         // the focus waits in the composer, where Escape stops the run.
         if (RUN_ACTIONS.has(data.action) && !focusable(target)) element('message-input').focus()
@@ -1557,7 +1711,7 @@ document.addEventListener('click', (event) => {
         })
     } else if (data.model !== undefined) {
         if (
-            commit((next, thread) => {
+            await commit((next, thread) => {
                 thread.selection = { provider_id: data.provider, model_id: data.model }
                 next.lastSelection = structuredClone(thread.selection)
             })
@@ -1568,7 +1722,7 @@ document.addEventListener('click', (event) => {
         }
     } else if (data.instance !== undefined) {
         if (
-            commit((next, thread) => {
+            await commit((next, thread) => {
                 thread.instanceId = data.instance || null
             })
         ) {
@@ -1595,7 +1749,7 @@ document.addEventListener('click', (event) => {
         // Marks an answer so the navigator flags it for coming back to.
         const turnId = data.markTurn
         if (
-            commit((next, thread) => {
+            await commit((next, thread) => {
                 const turn = byId(thread.turns, turnId)
                 if (turn?.marked) delete turn.marked
                 else if (turn) turn.marked = true
@@ -1628,7 +1782,7 @@ document.addEventListener('click', (event) => {
         const index = currentThread().queue.findIndex((entry) => entry.id === data.removeQueued)
         const focused = target === document.activeElement
         if (
-            commit((next, thread) => {
+            await commit((next, thread) => {
                 thread.queue = thread.queue.filter((entry) => entry.id !== data.removeQueued)
             })
         ) {
@@ -1644,10 +1798,10 @@ document.addEventListener('click', (event) => {
         const [turnId, index] = data.toggleChange.split(':')
         let ok = false
         if (
-            commit((next, thread) => {
+            (await commit((next, thread) => {
                 const turn = byId(thread.turns, turnId)
                 ok = !!turn && toggleChange(turn.run, Number(index))
-            }) &&
+            })) &&
             ok
         )
             refreshTurn(session.store.activeId, turnId, true)
@@ -1881,7 +2035,7 @@ bindTips()
 guardFocus(() => element('message-input'))
 bindOverlays(() => element('message-input'))
 // A picked shortcut either fills in a starter request or runs a window action.
-bindSlash((entry) => {
+bindSlash(async (entry) => {
     const input = element('message-input')
     if (entry.mention) {
         // The "@name" goes; the instance becomes the task's context, and its
@@ -1890,7 +2044,7 @@ bindSlash((entry) => {
         input.setRangeText('', entry.mention.start, end, 'end')
         input.dispatchEvent(new Event('input', { bubbles: true }))
         if (
-            commit((next, thread) => {
+            await commit((next, thread) => {
                 thread.instanceId = entry.instance?.id || null
             })
         ) {
@@ -1935,6 +2089,13 @@ element('permission-full-access').addEventListener('change', (event) => {
             onAccept: () => savePermissions({ full_access: true, computer_use: false }),
         })
     else savePermissions({ full_access: false, computer_use: false })
+})
+
+element('task-computer-use-input').addEventListener('change', (event) => {
+    const threadId = currentThread().id
+    if (event.target.checked && session.permissions.full_access && session.permissions.computer_use)
+        session.computerUseTasks.add(threadId)
+    else session.computerUseTasks.delete(threadId)
 })
 
 element('permission-computer-use').addEventListener('change', (event) => {
@@ -2085,10 +2246,20 @@ async function boot() {
     if (booted) return
     booted = true
     await window.AgentHost?.ready
+    try {
+        session.store = await storage.load()
+    } catch {
+        session.loadError = true
+    }
     render()
     document.documentElement.dataset.ready = 'true'
     refreshContext()
-    ensureRuntime()
+    await ensureRuntime()
+    await refreshPermissions()
+    await restoreRuns()
+    contextTicker = setInterval(() => {
+        if (!document.hidden) refreshContext()
+    }, 5000)
     void revealWindow()
     if (session.loadError && catalogReady()) notify(text('storageLoadError'), 'error')
     offerTour()
@@ -2098,7 +2269,10 @@ window.addEventListener('agent-host-ready', boot)
 window.addEventListener('agent-appearance-updated', () => {
     if (booted && render()) refreshContext()
 })
-window.addEventListener('focus', () => refreshContext())
+window.addEventListener('focus', () => {
+    refreshContext()
+    refreshPermissions()
+})
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshContext()
     else if (persistTimer) persistNow()
@@ -2106,16 +2280,20 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => {
     if (persistTimer) persistNow()
     disposed = true
+    for (const handle of session.handles.values()) handle.detach?.()
+    session.handles.clear()
     ++contextRequest
     contextFlight = null
     ++permissionRequest
     clearInterval(ticker)
+    clearInterval(contextTicker)
     ticker = 0
 })
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
         disposed = false
         refreshContext()
+        restoreRuns()
     }
 })
 window.addEventListener('resize', () => {

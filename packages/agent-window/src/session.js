@@ -15,6 +15,7 @@ export const session = {
     permissionReadError: false,
     search: '',
     handles: new Map(),
+    computerUseTasks: new Set(),
 }
 
 export function currentThread() {

@@ -9,14 +9,14 @@ let transition = null
 // rest cross-fades. Falls back to an instant update.
 export function morph(change, kind = 'page') {
     if (reducedMotion.matches || !document.startViewTransition || document.hidden) {
-        change()
-        return Promise.resolve()
+        return Promise.resolve(change())
     }
     transition?.skipTransition()
     document.documentElement.dataset.morph = kind
     let result
     transition = document.startViewTransition(() => {
         result = change()
+        return result
     })
     const current = transition
     // A transition cut short by the next one, as when Ctrl ] steps through

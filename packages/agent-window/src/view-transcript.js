@@ -483,7 +483,18 @@ function versionTo(from, to) {
     ])
 }
 
-function changeRow(change, index, turnId) {
+function changeRow(change, index, turnId, receipts) {
+    const receipt = receipts?.actions?.find((entry) => entry.call_id === change.name)
+    const receiptKey =
+        receipt && receipt.state !== 'pending'
+            ? {
+                  applied: 'receiptApplied',
+                  succeeded: 'receiptApplied',
+                  failed: 'receiptFailed',
+                  not_executed: 'receiptSkipped',
+                  rejected: 'receiptSkipped',
+              }[receipt.state] || 'receiptUnknown'
+            : null
     // The glyph only repeats the name's initials.
     const mark = change.glyph
         ? h('span', {
@@ -525,7 +536,7 @@ function changeRow(change, index, turnId) {
         mark,
         h('span', { class: 'change-copy' }, [
             h('span', { class: 'change-title' }, [
-                h('strong', { text: change.name }),
+                h('strong', { text: change.meta ? change.meta.replaceAll('_', ' ') : change.name }),
                 badge,
                 // A newcomer can ask about one change before deciding. The
                 // question replaces this plan; the agent answers and proposes
@@ -535,11 +546,23 @@ function changeRow(change, index, turnId) {
                     : button(
                           {
                               class: 'change-why',
-                              data: { followup: text('askWhy', { name: change.name }) },
+                              data: {
+                                  followup: text('askWhy', {
+                                      name: change.meta
+                                          ? change.meta.replaceAll('_', ' ')
+                                          : change.name,
+                                  }),
+                              },
                           },
                           text('why'),
                       ),
             ]),
+            h('span', {
+                class: 'change-note',
+                data: { receipt: change.name },
+                hidden: !receiptKey,
+                text: receiptKey ? text(receiptKey) : '',
+            }),
             change.note || change.meta
                 ? h('span', { class: 'change-note' }, [
                       change.note ? h('span', { text: change.note }) : null,
@@ -555,7 +578,9 @@ function changeRow(change, index, turnId) {
                       class: 'change-toggle',
                       role: 'checkbox',
                       'aria-checked': 'true',
-                      label: text('includeChange', { name: change.name }),
+                      label: text('includeChange', {
+                          name: change.meta ? change.meta.replaceAll('_', ' ') : change.name,
+                      }),
                       data: { toggleChange: `${turnId}:${index}` },
                   },
                   icon('check'),
@@ -645,7 +670,7 @@ function planFooter(item, turn) {
 
 function updatePlan(node, item, { turn }) {
     const excluded = item.excluded || []
-    const signature = `${item.state}:${item.done}:${excluded.join()}`
+    const signature = `${item.state}:${item.done}:${excluded.join()}:${JSON.stringify(item.receipts)}`
     if (node.dataset.signature === signature) return
     const first = !node.dataset.signature
     node.dataset.signature = signature
@@ -667,7 +692,9 @@ function updatePlan(node, item, { turn }) {
             h(
                 'ul',
                 { class: 'change-list' },
-                plan.changes.map((change, index) => changeRow(change, index, turn.id)),
+                plan.changes.map((change, index) =>
+                    changeRow(change, index, turn.id, item.receipts),
+                ),
             ),
             plan.notes.length
                 ? h(
@@ -692,6 +719,21 @@ function updatePlan(node, item, { turn }) {
         toggle.setAttribute('aria-checked', String(!out))
         toggle.setAttribute('aria-disabled', String(!open))
         toggle.tabIndex = open ? 0 : -1
+    }
+    for (const label of node.querySelectorAll('[data-receipt]')) {
+        const receipt = item.receipts?.actions?.find(
+            (entry) => entry.call_id === label.dataset.receipt,
+        )
+        label.hidden = !receipt || receipt.state === 'pending'
+        if (receipt)
+            label.textContent = text(
+                {
+                    applied: 'receiptApplied',
+                    failed: 'receiptFailed',
+                    not_executed: 'receiptSkipped',
+                    rejected: 'receiptSkipped',
+                }[receipt.state] || 'receiptUnknown',
+            )
     }
     const footer = node.querySelector('.plan-footer')
     footer.replaceChildren(planFooter(item, turn))

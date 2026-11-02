@@ -1,4 +1,5 @@
 mod execution;
+mod native_jobs;
 mod state;
 mod types;
 mod worker;
@@ -62,8 +63,15 @@ async fn agent_runtime_load(
     runtime: State<'_, AgentRuntime>,
 ) -> Result<Value, String> {
     ui(&window)?;
+    let _workspace = runtime.workspace_mutations.lock().await;
+    let head = runtime
+        .store()
+        .await?
+        .workspace_head()
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(
-        json!({"workspace":runtime.store().await?.workspace().await.map_err(|e|e.to_string())?, "threads":runtime.store().await?.threads().await.map_err(|e|e.to_string())?}),
+        json!({"workspace":head.workspace,"workspace_revision":head.revision,"threads":runtime.store().await?.threads().await.map_err(|e|e.to_string())?}),
     )
 }
 
@@ -72,14 +80,49 @@ async fn agent_runtime_save(
     window: WebviewWindow,
     runtime: State<'_, AgentRuntime>,
     workspace: Value,
-) -> Result<(), String> {
+    expected_revision: i64,
+    deleted_thread_ids: Option<Vec<String>>,
+) -> Result<i64, String> {
     ui(&window)?;
-    runtime
-        .store()
-        .await?
-        .set_workspace(&workspace)
+    let _workspace = runtime.workspace_mutations.lock().await;
+    let store = runtime.store().await?;
+    let head = store.workspace_head().await.map_err(|e| e.to_string())?;
+    if head.revision != expected_revision {
+        return Err(
+            "Agent workspace changed; reload saved history before retrying"
+                .into(),
+        );
+    }
+    let deleted = deleted_thread_ids.unwrap_or_default();
+    let mut attempts = agent_window::persistence::validate_workspace_update(
+        head.workspace.as_ref(),
+        &workspace,
+        &deleted,
+    )
+    .map_err(|e| e.to_string())?;
+    attempts.extend(
+        runtime
+            .queue
+            .lock()
+            .await
+            .runs
+            .iter()
+            .filter(|(_, run)| deleted.contains(&run.request.thread_id))
+            .map(|(id, _)| id.clone()),
+    );
+    for attempt in attempts {
+        runtime.cancel(&attempt).await?;
+    }
+    let mut queue = runtime.queue.lock().await;
+    let revision = store
+        .save_workspace(&workspace, expected_revision, &deleted)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    queue.deleted_threads.extend(deleted.iter().cloned());
+    queue
+        .runs
+        .retain(|_, run| !deleted.contains(&run.request.thread_id));
+    Ok(revision)
 }
 
 #[tauri::command]
@@ -87,9 +130,19 @@ async fn agent_runtime_import(
     window: WebviewWindow,
     runtime: State<'_, AgentRuntime>,
     import_id: String,
-    threads: Vec<(String, Value)>,
+    threads: Vec<Value>,
 ) -> Result<bool, String> {
     ui(&window)?;
+    let threads = threads
+        .into_iter()
+        .map(|thread| {
+            let id = thread["id"]
+                .as_str()
+                .ok_or("Imported task has no identity")?
+                .to_owned();
+            Ok((id, thread))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
     runtime
         .store()
         .await?
@@ -138,9 +191,21 @@ async fn agent_runtime_snapshot(
 ) -> Result<Value, String> {
     ui(&window)?;
     let store = runtime.store().await?;
-    Ok(
-        json!({"attempts":store.attempts(&thread_id).await.map_err(|e|e.to_string())?}),
-    )
+    let attempts = store
+        .attempts(&thread_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut results = serde_json::Map::new();
+    for attempt in &attempts {
+        results.insert(
+            attempt.id.clone(),
+            store
+                .applied_result(&attempt.id)
+                .await
+                .map_err(|e| e.to_string())?,
+        );
+    }
+    Ok(json!({"attempts":attempts,"results":results}))
 }
 
 #[tauri::command]
@@ -181,7 +246,7 @@ async fn agent_runtime_submit(
     }
     let mut text = request.text.clone();
     for attachment in &request.attachments {
-        let content = attachment["text"].as_str().filter(|text| !text.is_empty() && text.len() <= 800_000).ok_or("Finish reading attachments before sending; filenames alone are not readable content")?;
+        let content = attachment["text"].as_str().filter(|text| !text.is_empty() && text.len() <= 2 * 1024 * 1024).ok_or("Finish reading attachments before sending; filenames alone are not readable content")?;
         let name = attachment["name"].as_str().unwrap_or("Attachment");
         text.push_str(&format!(
             "\n<attachment name={}>\n{}\n</attachment>",
@@ -212,13 +277,24 @@ async fn agent_runtime_submit(
     .map_err(|e| e.to_string())?;
     worker::ensure(&app).await?;
     let store = runtime.store().await?;
+    execution::reconcile(&app, &runtime, &request.thread_id).await?;
+    let unsettled = store
+        .unsettled_writes(&request.thread_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    if !unsettled.is_empty() {
+        context.push_str(&format!("\nPrior writes still have unknown outcomes. Readonly verification must settle native receipts before new mutations. Explicit cancellation/stop controls remain available with normal approval. Never replay these writes or claim they succeeded: {}", serde_json::to_string(&unsettled).map_err(|e|e.to_string())?));
+    }
     let scope_id = if let Some(id) = &request.verify_attempt {
         let target = store
             .attempt(id)
             .await
             .map_err(|e| e.to_string())?
             .ok_or("Verification target no longer exists")?;
-        if !request.check_only || target.thread_id != request.thread_id {
+        if !request.check_only
+            || target.thread_id != request.thread_id
+            || !target.state.is_terminal()
+        {
             return Err("Verification target belongs to another task".into());
         }
         let evidence = store
@@ -231,7 +307,11 @@ async fn agent_runtime_submit(
         format!("agent:{}", request.attempt_id)
     };
     let mut messages = store
-        .conversation_messages(&request.thread_id)
+        .conversation_transcript(
+            &request.thread_id,
+            &request.provider_id,
+            &request.model_id,
+        )
         .await
         .map_err(|e| e.to_string())?;
     messages.push(json!({"role":"user","content":text}));
@@ -256,6 +336,9 @@ async fn agent_runtime_submit(
     }
     if queue.cancelled.contains(&request.attempt_id) {
         return Err("Task was stopped before submission completed".into());
+    }
+    if queue.deleted_threads.contains(&request.thread_id) {
+        return Err("Task was deleted before submission completed".into());
     }
     store.ensure_thread(&request.thread_id, &json!({"id":request.thread_id,"title":request.text.chars().take(80).collect::<String>()})).await.map_err(|e|e.to_string())?;
     if !store
@@ -285,6 +368,7 @@ async fn agent_runtime_submit(
             latest_model: Mutex::new(Value::Null),
             model_results: Mutex::new(Default::default()),
             model_serial: Mutex::new(()),
+            write_serial: Mutex::new(()),
             control: Mutex::new(()),
         }),
     );
@@ -400,10 +484,19 @@ async fn agent_worker_catalog(
 ) -> Result<Value, String> {
     worker(&runtime, &window, &worker_id).await?;
     let run = leased_run(&runtime, &attempt_id, &lease_id).await?;
+    let unsettled = runtime
+        .store()
+        .await?
+        .has_unsettled_writes(&run.request.thread_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(json!(
         launcher_tools::registry::catalog()
             .iter()
             .filter(|entry| execution::allowed(&app, &run, entry).is_ok())
+            .filter(|entry| execution::available_with_unsettled(
+                entry, unsettled
+            ))
             .collect::<Vec<_>>()
     ))
 }
@@ -432,20 +525,23 @@ async fn agent_worker_model(
         }
         return Ok(result.clone());
     }
-    if turn["messages"].as_array().is_some_and(|messages| {
-        messages.iter().any(|m| {
-            m["images"]
-                .as_array()
-                .is_some_and(|images| !images.is_empty())
-        })
-    }) {
-        return Err(
-            "Image transport is not connected for this runtime yet".into()
-        );
-    }
     budget(&run.models, 64)?;
     let input = serde_json::from_value(turn.clone())
         .map_err(|e| format!("Invalid model turn: {e}"))?;
+    theseus::ai::chat::ChatModel::validate_agent_turn(&input)
+        .map_err(|e| e.to_string())?;
+    runtime
+        .store()
+        .await?
+        .save_model_input(
+            &attempt_id,
+            &request_id,
+            turn["messages"]
+                .as_array()
+                .ok_or("Model messages must be an array")?,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     let emit = |event_type: &str, text: &str| {
         if !run.cancel.is_cancelled() {
             let _ = on_event
@@ -455,7 +551,7 @@ async fn agent_worker_model(
     let reply = tokio::select! {
         biased;
         _ = run.cancel.cancelled() => return Err("Agent task stopped".into()),
-        reply = run.model.turn(input, &emit) => reply.map_err(|e|e.to_string())?,
+        reply = run.model.turn_for_agent(input, &emit) => reply.map_err(|e|e.to_string())?,
     };
     for call in &reply.tool_calls {
         if call.name == "write_todos" {
@@ -463,6 +559,12 @@ async fn agent_worker_model(
         }
     }
     let reply = serde_json::to_value(reply).map_err(|e| e.to_string())?;
+    runtime
+        .store()
+        .await?
+        .save_model_reply(&attempt_id, &request_id, &reply)
+        .await
+        .map_err(|e| e.to_string())?;
     *run.latest_model.lock().await = reply.clone();
     run.model_results
         .lock()
@@ -521,6 +623,12 @@ async fn agent_worker_approval(
     if run.cancel.is_cancelled() {
         return Err("Task stopped".into());
     }
+    let unsettled = runtime
+        .store()
+        .await?
+        .has_unsettled_writes(&run.request.thread_id)
+        .await
+        .map_err(|e| e.to_string())?;
     let latest = run.latest_model.lock().await;
     let id = uuid::Uuid::new_v4().to_string();
     let expires_at = SystemTime::now()
@@ -545,6 +653,9 @@ async fn agent_worker_approval(
         )
         .map_err(|e| e.to_string())?;
         execution::allowed(&app, &run, entry)?;
+        if !execution::available_with_unsettled(entry, unsettled) {
+            return Err("Unconfirmed writes require readonly verification or explicit cancellation before new mutations".into());
+        }
         if !latest["tool_calls"].as_array().is_some_and(|calls| {
             calls.iter().any(|call| {
                 call["id"] == action.call_id
@@ -744,8 +855,8 @@ async fn agent_worker_complete(
         runtime
             .publish(
                 &attempt_id,
-                &uuid::Uuid::new_v4().to_string(),
-                json!({"type":"done"}),
+                &format!("{attempt_id}:done"),
+                json!({"type":"done","applied":runtime.store().await?.applied_result(&attempt_id).await.map_err(|e|e.to_string())?}),
             )
             .await?;
         AttemptState::Completed

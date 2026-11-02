@@ -1,7 +1,11 @@
 import { AIMessage, type BaseMessage, ToolMessage } from '@langchain/core/messages'
 import { tool } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
-import { createDeepAgent, registerHarnessProfile } from 'deepagents/browser'
+import {
+    createDeepAgent,
+    createFilesystemMiddleware,
+    registerHarnessProfile,
+} from 'deepagents/browser'
 import { createMiddleware, todoListMiddleware } from 'langchain'
 
 import { HostCheckpointer } from './checkpointer.ts'
@@ -35,7 +39,7 @@ export const EXCLUDED_TOOLS = [
 
 registerHarnessProfile('axolotl-agent', {
     excludedTools: EXCLUDED_TOOLS,
-    excludedMiddleware: ['HumanInTheLoopMiddleware'],
+    excludedMiddleware: ['HumanInTheLoopMiddleware', 'SummarizationMiddleware'],
     generalPurposeSubagent: { enabled: false },
 })
 
@@ -354,7 +358,15 @@ export async function runAgent(
         checkpointer: new HostCheckpointer(job.attempt_id, gateway),
         systemPrompt: `${AGENT_PROMPT}\nUser language: ${job.locale}\nDefault context:\n${job.context}\nStanding user preferences:\n${job.instructions}${job.check_only ? '\nThis run is READONLY verification. Do not propose or perform writes.' : ''}`,
         subagents: [],
-        middleware: [checklistMiddleware, guard, approval],
+        middleware: [
+            createFilesystemMiddleware({
+                toolTokenLimitBeforeEvict: null,
+                humanMessageTokenLimitBeforeEvict: null,
+            }),
+            checklistMiddleware,
+            guard,
+            approval,
+        ],
         interruptOn,
     })
     // New attempts get new graph threads; only explicit UI decisions resume interrupts.

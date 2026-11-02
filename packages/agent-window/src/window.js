@@ -18,6 +18,9 @@
     }
     window.AgentHost = host
     if (native) {
+        host.native = true
+        host.runtimeInvoke = (command, args) =>
+            invoke(`plugin:agent-runtime|agent_runtime_${command}`, args)
         host.getPermissions = () => agentInvoke('agent_window_get_permissions')
         host.setPermissions = (permissions) =>
             agentInvoke('agent_window_set_permissions', { permissions })

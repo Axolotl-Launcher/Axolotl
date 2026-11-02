@@ -87,6 +87,7 @@ beforeEach(async () => {
         Object.assign(window, {
             agentFixture: fixture,
             AgentHost: {
+                preview: true,
                 appearance: {
                     locale: 'en-US',
                     labels: {
@@ -1975,4 +1976,24 @@ it('tells you when a task in the background is waiting for approval', async () =
     expect(await page.locator('.toast').first().textContent()).toContain(
         messages.toastAwaiting.split('{title}')[1].trim().slice(0, 4),
     )
+})
+
+it('waits for attachment contents before sending', async () => {
+    await page.evaluate(() => {
+        const file = new File(['log'], 'latest.log', { type: 'text/plain' })
+        file.text = () =>
+            new Promise((resolve) => Reflect.set(window, 'finishAttachmentRead', resolve))
+        const data = new DataTransfer()
+        data.items.add(file)
+        document
+            .getElementById('conversation')!
+            .dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: data }))
+    })
+    await page.locator('#message-input').fill('Read this log')
+    await page.locator('#send-button').click()
+    expect(await page.locator('.turn').count()).toBe(0)
+    await page.evaluate(() => Reflect.get(window, 'finishAttachmentRead')('Read this complete log'))
+    await page.locator('.turn').waitFor()
+    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), STORE)
+    expect(stored.threads[0].turns[0].attachments[0].text).toBe('Read this complete log')
 })

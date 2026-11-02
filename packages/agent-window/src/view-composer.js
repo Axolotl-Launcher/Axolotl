@@ -32,6 +32,15 @@ export function renderComposer() {
         instance?.name || (thread.instanceId ? text('contextRemoved') : text('allLauncher'))
     element('instance-button').classList.toggle('is-warning', !!thread.instanceId && !instance)
 
+    const taskComputer = element('task-computer-use')
+    taskComputer.hidden = !(session.permissions.full_access && session.permissions.computer_use)
+    const taskControl = element('task-computer-use-input')
+    taskControl.disabled = active || awaiting
+    taskControl.checked =
+        (active || awaiting
+            ? (last?.run.nativeComputerUse ?? session.computerUseTasks.has(thread.id))
+            : session.computerUseTasks.has(thread.id)) && !taskComputer.hidden
+
     const model = modelChoice(thread.selection)
     const ready = modelsAvailable()
     let label = model?.model.name

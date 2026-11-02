@@ -211,7 +211,7 @@ async fn agent_window_get_context(
         ai_enabled: ai.settings.enabled,
         providers,
         instances,
-        execution_available: false,
+        execution_available: true,
     })
 }
 

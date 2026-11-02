@@ -30,6 +30,160 @@ pub struct ApprovalBatch {
 }
 
 impl AgentStore {
+    /// Includes active runs: an SDK may catch a tool error and continue the same
+    /// graph, so uncertainty cannot be scoped only to older attempts.
+    pub async fn has_unsettled_writes(&self, thread_id: &str) -> Result<bool> {
+        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM executions e JOIN attempts a ON a.id = e.attempt_id WHERE a.thread_id = ? AND e.is_write = 1 AND e.state IN ('started', 'unknown')")
+            .bind(thread_id).fetch_one(&self.pool).await?;
+        Ok(count != 0)
+    }
+
+    pub async fn unsettled_writes(
+        &self,
+        thread_id: &str,
+    ) -> Result<Vec<Value>> {
+        let rows = sqlx::query("SELECT e.attempt_id, e.call_id, e.tool, e.arguments, e.result FROM executions e JOIN attempts a ON a.id = e.attempt_id WHERE a.thread_id = ? AND a.state IN ('completed', 'failed', 'cancelled', 'interrupted') AND e.is_write = 1 AND e.state IN ('started', 'unknown') ORDER BY e.rowid")
+            .bind(thread_id).fetch_all(&self.pool).await?;
+        rows.into_iter().map(|row| {
+            let result: Option<Value> = row.get::<Option<String>, _>("result").map(|value| serde_json::from_str(&value)).transpose()?;
+            Ok(serde_json::json!({"attempt_id":row.get::<String,_>("attempt_id"),"call_id":row.get::<String,_>("call_id"),"tool":row.get::<String,_>("tool"),"arguments":serde_json::from_str::<Value>(row.get("arguments"))?,"result":result.clone(),"operation_id":result.as_ref().and_then(|value|value["structured_content"]["operation_id"].as_str())}))
+        }).collect()
+    }
+
+    /// Only the native executor may supply this observation, obtained directly
+    /// from operations_get under the original operation owner's scope.
+    pub async fn reconcile_operation(
+        &self,
+        attempt_id: &str,
+        call_id: &str,
+        observed: &Value,
+    ) -> Result<bool> {
+        let mut tx = self.pool.begin().await?;
+        let execution = get_execution(&mut tx, attempt_id, call_id)
+            .await?
+            .ok_or(StoreError::Conflict("Unknown execution"))?;
+        let content = &observed["structured_content"];
+        let operation = execution.result.as_ref().and_then(|value| {
+            value["structured_content"]["operation_id"].as_str()
+        });
+        if operation.is_none()
+            || content["operation_id"].as_str() != operation
+            || content["tool"].as_str() != Some(execution.tool.as_str())
+            || observed["is_error"] != false
+        {
+            return Err(StoreError::Conflict(
+                "Operation observation does not match the persisted execution",
+            ));
+        }
+        let state = match content["status"].as_str() {
+            Some("succeeded") => "completed",
+            Some("failed" | "cancelled") => "failed",
+            _ => return Ok(false),
+        };
+        let mut result = observed.clone();
+        result["is_error"] = Value::Bool(state == "failed");
+        let changed = sqlx::query("UPDATE executions SET state = ?, result = ? WHERE attempt_id = ? AND call_id = ? AND state IN ('started', 'unknown')")
+            .bind(state).bind(encode(&redact(result))?).bind(attempt_id).bind(call_id).execute(&mut *tx).await?.rows_affected() == 1;
+        tx.commit().await?;
+        Ok(changed)
+    }
+
+    /// Host-only compare-and-set of a retained execution receipt. The host must
+    /// classify observations from the original native producer and its exact
+    /// read-only job queries; this method does not accept worker/model evidence.
+    /// `failed = None` retains an unresolved receipt and never grants replay.
+    pub async fn reconcile_execution_receipt(
+        &self,
+        attempt_id: &str,
+        call_id: &str,
+        previous: &Value,
+        observed: &Value,
+        failed: Option<bool>,
+    ) -> Result<bool> {
+        let mut tx = self.pool.begin().await?;
+        let execution = get_execution(&mut tx, attempt_id, call_id)
+            .await?
+            .ok_or(StoreError::Conflict("Unknown execution"))?;
+        if !matches!(execution.state.as_str(), "started" | "unknown") {
+            return Ok(false);
+        }
+        if execution.result.as_ref() != Some(previous) {
+            return Err(StoreError::Conflict(
+                "Execution receipt changed during reconciliation",
+            ));
+        }
+        if let Some(failed) = failed {
+            if observed["is_error"] != failed {
+                return Err(StoreError::Conflict(
+                    "Completion status does not match native receipt",
+                ));
+            }
+        }
+        let state = match failed {
+            Some(true) => "failed",
+            Some(false) => "completed",
+            None => execution.state.as_str(),
+        };
+        let changed = sqlx::query("UPDATE executions SET state = ?, result = ? WHERE attempt_id = ? AND call_id = ? AND state IN ('started', 'unknown')")
+            .bind(state).bind(encode(&redact(observed.clone()))?).bind(attempt_id).bind(call_id)
+            .execute(&mut *tx).await?.rows_affected() == 1;
+        tx.commit().await?;
+        Ok(changed)
+    }
+
+    /// Business completion is a projection of selected execution receipts, never
+    /// of the model's final text. Missing receipts remain explicitly incomplete.
+    pub async fn applied_result(&self, attempt_id: &str) -> Result<Value> {
+        let selections: Vec<String> = sqlx::query_scalar("SELECT selected FROM approval_batches WHERE attempt_id = ? AND selected IS NOT NULL ORDER BY rowid")
+            .bind(attempt_id).fetch_all(&self.pool).await?;
+        let mut selected = HashSet::new();
+        for selection in selections {
+            selected.extend(serde_json::from_str::<Vec<String>>(&selection)?);
+        }
+        let mut actions = Vec::new();
+        let (mut applied, mut failed, mut unknown, mut not_executed) =
+            (0, 0, 0, 0);
+        for approval in self.approvals(attempt_id).await? {
+            if !selected.contains(&approval.approval.call_id) {
+                actions.push(serde_json::json!({"call_id":approval.approval.call_id,"tool":approval.approval.tool,"state":if approval.state == "pending" { "pending" } else { "rejected" }}));
+                continue;
+            }
+            let execution = self
+                .execution(attempt_id, &approval.approval.call_id)
+                .await?;
+            let state = match execution
+                .as_ref()
+                .map(|execution| execution.state.as_str())
+            {
+                Some("completed")
+                    if execution
+                        .as_ref()
+                        .and_then(|e| e.result.as_ref())
+                        .is_some_and(|r| r["is_error"] == false) =>
+                {
+                    applied += 1;
+                    "applied"
+                }
+                Some("failed") => {
+                    failed += 1;
+                    "failed"
+                }
+                Some(_) => {
+                    unknown += 1;
+                    "unknown"
+                }
+                None => {
+                    not_executed += 1;
+                    "not_executed"
+                }
+            };
+            actions.push(serde_json::json!({"call_id":approval.approval.call_id,"tool":approval.approval.tool,"state":state}));
+        }
+        Ok(
+            serde_json::json!({"selected":selected.len(),"applied":applied,"failed":failed,"unknown":unknown,"not_executed":not_executed,"complete":applied == selected.len(),"actions":actions}),
+        )
+    }
+
     pub async fn execution_evidence(
         &self,
         attempt_id: &str,
@@ -60,7 +214,7 @@ impl AgentStore {
         call_id: &str,
         result: &Value,
     ) -> Result<()> {
-        sqlx::query("UPDATE executions SET result = ? WHERE attempt_id = ? AND call_id = ? AND state = 'started'")
+        sqlx::query("UPDATE executions SET result = ? WHERE attempt_id = ? AND call_id = ? AND state IN ('started', 'unknown')")
             .bind(encode(&redact(result.clone()))?).bind(attempt_id).bind(call_id).execute(&self.pool).await?;
         Ok(())
     }
@@ -77,19 +231,12 @@ impl AgentStore {
     }
 
     pub async fn workspace(&self) -> Result<Option<Value>> {
-        let payload: Option<String> = sqlx::query_scalar(
-            "SELECT payload FROM workspace_state WHERE id = 1",
-        )
-        .fetch_optional(&self.pool)
-        .await?;
-        payload
-            .map(|value| Ok(serde_json::from_str(&value)?))
-            .transpose()
+        Ok(self.workspace_head().await?.workspace)
     }
 
     pub async fn set_workspace(&self, payload: &Value) -> Result<()> {
-        sqlx::query("INSERT INTO workspace_state(id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload")
-            .bind(encode(payload)?).execute(&self.pool).await?;
+        let head = self.workspace_head().await?;
+        self.save_workspace(payload, head.revision, &[]).await?;
         Ok(())
     }
 

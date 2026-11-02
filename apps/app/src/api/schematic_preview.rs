@@ -1999,6 +1999,7 @@ fn transform_entry_list(
         let NbtTag::Compound(compound) = entry else {
             continue;
         };
+        transform_entry_orientation(compound, transform);
         let Some(position) = preserved_entry_position(compound) else {
             continue;
         };
@@ -2006,6 +2007,40 @@ fn transform_entry_list(
             compound,
             transform_preserved_position(position, size, transform),
         );
+    }
+}
+
+/// Keeps an entity looking the way the transform turned the world: yaw is the
+/// only orientation field both formats agree on, and it lives at the top level
+/// in Litematic but under `Data` in Sponge.
+fn transform_entry_orientation(
+    compound: &mut NbtCompound,
+    transform: PreviewTransform,
+) {
+    transform_yaw(compound, transform);
+    if let Ok(data) = compound.get_mut::<_, &mut NbtCompound>("Data") {
+        transform_yaw(data, transform);
+    }
+}
+
+fn transform_yaw(compound: &mut NbtCompound, transform: PreviewTransform) {
+    let Ok(rotation) = compound.get_mut::<_, &mut NbtList>("Rotation") else {
+        return;
+    };
+    let yaw = match rotation.inner_mut().first() {
+        Some(NbtTag::Float(value)) => *value,
+        _ => return,
+    };
+    // Yaw 0 faces south and increases towards west, so the clockwise mapping
+    // (x, z) -> (z, -x) turns it by -90 degrees.
+    let rotated = match transform {
+        PreviewTransform::RotateClockwise => yaw - 90.0,
+        PreviewTransform::RotateCounterClockwise => yaw + 90.0,
+        PreviewTransform::MirrorX => -yaw,
+        PreviewTransform::MirrorZ => 180.0 - yaw,
+    };
+    if let Some(slot) = rotation.inner_mut().first_mut() {
+        *slot = NbtTag::Float(rotated.rem_euclid(360.0));
     }
 }
 
@@ -3236,6 +3271,10 @@ mod tests {
         }
         entity.insert("Pos", entity_position);
         entity.insert("Id", "minecraft:hopper_minecart");
+        let mut rotation = NbtList::new();
+        for value in [90.0f32, 0.0] {
+            rotation.push(value);
+        }
         // Version 3 nests the payload under `Data`; version 2 keeps it flat
         // next to `Pos` and `Id`, so the fixture exercises both shapes.
         if version == 3 {
@@ -3244,10 +3283,12 @@ mod tests {
             block_entity.insert("Data", block_data);
             let mut entity_data = NbtCompound::new();
             entity_data.insert("CustomName", "Cart");
+            entity_data.insert("Rotation", rotation);
             entity.insert("Data", entity_data);
         } else {
             block_entity.insert("Items", items);
             entity.insert("CustomName", "Cart");
+            entity.insert("Rotation", rotation);
         }
         let mut block_entities = NbtList::new();
         block_entities.push(block_entity);
@@ -3932,6 +3973,48 @@ mod tests {
                 local,
                 "{transform:?}"
             );
+        }
+    }
+
+    #[test]
+    fn transforms_rotate_preserved_entity_orientation() {
+        // The fixture entity faces yaw 90 (west).
+        for (transform, expected) in [
+            (PreviewTransform::RotateClockwise, 0.0f32),
+            (PreviewTransform::RotateCounterClockwise, 180.0),
+            (PreviewTransform::MirrorX, 270.0),
+            (PreviewTransform::MirrorZ, 90.0),
+        ] {
+            let mut session = parse_sponge(
+                sponge_container_fixture(3),
+                "fixture.schem".into(),
+                "fixture.schem".into(),
+                None,
+                None,
+            )
+            .unwrap();
+            session.apply_transform(transform).unwrap();
+            let exported =
+                read_root(&export_litematic(&session).unwrap()).unwrap();
+            let region = exported
+                .get::<_, &NbtCompound>("Regions")
+                .unwrap()
+                .get::<_, &NbtCompound>("Main")
+                .unwrap();
+            let entity = list_compound(
+                region.get::<_, &NbtList>("Entities").unwrap(),
+                0,
+            );
+            let yaw = match entity
+                .get::<_, &NbtList>("Rotation")
+                .unwrap()
+                .into_iter()
+                .next()
+            {
+                Some(NbtTag::Float(value)) => *value,
+                _ => panic!("entity has no yaw"),
+            };
+            assert_eq!(yaw, expected, "{transform:?}");
         }
     }
 

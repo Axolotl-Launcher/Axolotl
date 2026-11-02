@@ -17,6 +17,7 @@
     "test:e2e": "wdio run wdio.browser.conf.ts"
   },
   "dependencies": {
+    "@axolotl/agent-runtime": "workspace:*",
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/utilities": "3.2.2",
     "@dnd-kit/vue": "^0.5.0",

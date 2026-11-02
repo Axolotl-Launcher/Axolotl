@@ -173,6 +173,7 @@ jobs:
         run: |
           pnpm --filter @modrinth/ui lint
           pnpm --filter @modrinth/app-frontend lint
+          pnpm --filter @axolotl/agent-runtime lint
           pnpm --filter @modrinth/assets lint
           pnpm --filter @modrinth/utils lint
           pnpm --filter @modrinth/server lint
@@ -183,6 +184,10 @@ jobs:
         run: pnpm --filter @modrinth/ui test
       - name: Test desktop frontend
         run: pnpm --filter @modrinth/app-frontend test
+      - name: Test Agent runtime
+        run: |
+          pnpm --filter @axolotl/agent-runtime typecheck
+          pnpm --filter @axolotl/agent-runtime test
       - name: Test desktop frontend overlays
         run: pnpm --filter @modrinth/app-frontend test:visual
 

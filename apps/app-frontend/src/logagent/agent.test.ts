@@ -283,20 +283,19 @@ it('accepts standard content blocks without displaying reasoning blocks', () => 
 
 it('the complete agent loop accepts a final response normalized into content blocks', async () => {
     const generate = LogAgentModel.prototype._generate
-    vi.spyOn(
-        LogAgentModel.prototype,
-        '_generate',
-        async function (this: LogAgentModel, ...args: Parameters<typeof generate>) {
-            const result = await generate.apply(this, args)
-            for (const generation of result.generations) {
-                generation.message = new AIMessage({
-                    ...generation.message,
-                    contentBlocks: generation.message.contentBlocks,
-                })
-            }
-            return result
-        },
-    )
+    vi.spyOn(LogAgentModel.prototype, '_generate').mockImplementation(async function (
+        this: LogAgentModel,
+        ...args: Parameters<typeof generate>
+    ) {
+        const result = await generate.apply(this, args)
+        for (const generation of result.generations) {
+            generation.message = new AIMessage({
+                ...generation.message,
+                contentBlocks: generation.message.contentBlocks,
+            })
+        }
+        return result
+    })
     const output = await runLocalAgent(
         session,
         {

@@ -189,14 +189,27 @@ it('closes on escape and returns focus to the trigger', async () => {
     expect(document.activeElement).toBe(wrapper.get('button').element)
 })
 
-it('closes on an outside click without pulling focus back to the trigger', async () => {
+it('leaves the field that dismissed the picker with its focus', async () => {
     const wrapper = await openPicker()
+    const outside = document.createElement('input')
+    document.body.append(outside)
 
-    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
-    await flushPromises()
+    try {
+        outside.focus()
+        expect(document.activeElement).toBe(outside)
 
-    expect(panel()).toBeNull()
-    expect(document.activeElement).not.toBe(wrapper.get('button').element)
+        outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+        await flushPromises()
+
+        expect(panel()).toBeNull()
+        // Not merely "focus is not on the trigger": a handler that blurred the
+        // field and left focus on the body would pass that weaker check while
+        // still losing the caret the user just placed.
+        expect(document.activeElement).toBe(outside)
+        expect(document.activeElement).not.toBe(wrapper.get('button').element)
+    } finally {
+        outside.remove()
+    }
 })
 
 it('reports a colour once when the panel closes after the change', async () => {

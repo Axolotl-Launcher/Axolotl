@@ -217,10 +217,38 @@ struct SessionRegion {
 struct PreviewSession {
     manifest: PreviewManifest,
     regions: Vec<SessionRegion>,
-    /// Original Litematic NBT that the preview does not model: block entities,
-    /// entities, scheduled ticks, region/root metadata and unknown fields.
-    /// Exports rebuild block data from the session and copy the rest verbatim.
-    preserved: Option<Arc<NbtCompound>>,
+    /// NBT that the preview does not model: block entities, entities, scheduled
+    /// ticks, region/root metadata and unknown fields. Exports rebuild block
+    /// data from the session and carry the rest over.
+    preserved: Option<PreservedSchematic>,
+}
+
+#[derive(Clone)]
+enum PreservedSchematic {
+    /// Original Litematic root, minus the block arrays.
+    Litematic(Arc<NbtCompound>),
+    /// Sponge data normalised to the version 3 shape.
+    Sponge(Arc<SpongePreserved>),
+}
+
+#[derive(Clone)]
+struct SpongePreserved {
+    /// Original root minus the block arrays and the entity lists.
+    root: NbtCompound,
+    /// `{ Pos: double[3], Id, Data }` entries.
+    entities: NbtList,
+    /// `{ Pos: int[3], Id, Data }` entries.
+    block_entities: NbtList,
+}
+
+impl SpongePreserved {
+    /// Version 3 nests everything under `Schematic`; version 2 uses the root.
+    fn schematic(&self) -> NbtCompound {
+        self.root
+            .get::<_, &NbtCompound>("Schematic")
+            .cloned()
+            .unwrap_or_else(|_| self.root.clone())
+    }
 }
 
 /// An MCP-owned document is separate from the two UI preview slots. Dropping
@@ -959,7 +987,9 @@ fn parse_litematic(
         entity_count,
         block_entity_count,
     })?;
-    session.preserved = Some(Arc::new(preserved_litematic_root(root)));
+    session.preserved = Some(PreservedSchematic::Litematic(Arc::new(
+        preserved_litematic_root(root),
+    )));
     Ok(session)
 }
 
@@ -1103,7 +1133,7 @@ fn parse_sponge(
     }
     builder.finish_region(region);
     let metadata = schematic.get::<_, &NbtCompound>("Metadata").ok();
-    builder.finish(ManifestMetadata {
+    let mut session = builder.finish(ManifestMetadata {
         source_path,
         source_instance_id,
         file_name,
@@ -1120,7 +1150,130 @@ fn parse_sponge(
         entity_count: nbt_list_len(schematic, "Entities") as u64,
         block_entity_count: nbt_list_len(block_container, "BlockEntities")
             as u64,
-    })
+    })?;
+    session.preserved = Some(PreservedSchematic::Sponge(Arc::new(
+        sponge_preserved(root, format_version),
+    )));
+    Ok(session)
+}
+
+/// Keeps the Sponge data the preview cannot edit, normalised to the version 3
+/// entry shape (`{ Pos, Id, Data }`) so later exports can re-emit or convert
+/// it regardless of the source version.
+fn sponge_preserved(root: NbtCompound, format_version: i32) -> SpongePreserved {
+    let (entities, block_entities) = {
+        let schematic = if format_version == 3 {
+            root.get::<_, &NbtCompound>("Schematic").unwrap_or(&root)
+        } else {
+            &root
+        };
+        let block_container = if format_version == 3 {
+            schematic
+                .get::<_, &NbtCompound>("Blocks")
+                .unwrap_or(schematic)
+        } else {
+            schematic
+        };
+        (
+            sponge_entity_list(schematic),
+            sponge_block_entity_list(block_container),
+        )
+    };
+    let mut root = root;
+    if format_version == 3 {
+        if let Ok(schematic) = root.get_mut::<_, &mut NbtCompound>("Schematic")
+        {
+            strip_sponge_block_data(schematic);
+            if let Ok(blocks) =
+                schematic.get_mut::<_, &mut NbtCompound>("Blocks")
+            {
+                strip_sponge_block_data(blocks);
+            }
+        }
+    } else {
+        strip_sponge_block_data(&mut root);
+    }
+    SpongePreserved {
+        root,
+        entities,
+        block_entities,
+    }
+}
+
+fn strip_sponge_block_data(compound: &mut NbtCompound) {
+    for key in [
+        "Palette",
+        "PaletteMax",
+        "BlockData",
+        "Data",
+        "BlockEntities",
+        "Entities",
+    ] {
+        compound.inner_mut().remove(key);
+    }
+}
+
+fn sponge_entity_list(schematic: &NbtCompound) -> NbtList {
+    let mut output = NbtList::new();
+    let Ok(entries) = schematic.get::<_, &NbtList>("Entities") else {
+        return output;
+    };
+    for entry in entries {
+        let NbtTag::Compound(compound) = entry else {
+            continue;
+        };
+        if compound.get::<_, &NbtCompound>("Data").is_ok() {
+            output.push(compound.clone());
+            continue;
+        }
+        output.push(wrap_sponge_entry(compound, None));
+    }
+    output
+}
+
+fn sponge_block_entity_list(container: &NbtCompound) -> NbtList {
+    let mut output = NbtList::new();
+    let Ok(entries) = container.get::<_, &NbtList>("BlockEntities") else {
+        return output;
+    };
+    for entry in entries {
+        let NbtTag::Compound(compound) = entry else {
+            continue;
+        };
+        if compound.get::<_, &NbtCompound>("Data").is_ok() {
+            output.push(compound.clone());
+            continue;
+        }
+        output.push(wrap_sponge_entry(
+            compound,
+            compound.get::<_, &[i32]>("Pos").ok(),
+        ));
+    }
+    output
+}
+
+/// Wraps a flat version 2 entry into the version 3 `{ Pos, Id, Data }` shape.
+fn wrap_sponge_entry(
+    compound: &NbtCompound,
+    block_position: Option<&[i32]>,
+) -> NbtCompound {
+    let id = compound
+        .get::<_, &str>("Id")
+        .unwrap_or("minecraft:unknown")
+        .to_string();
+    let mut data = compound.clone();
+    data.inner_mut().remove("Pos");
+    data.inner_mut().remove("Id");
+    data.insert("id", id.as_str());
+    let mut wrapped = NbtCompound::new();
+    if let Some(position) = block_position {
+        wrapped.insert("Pos", NbtTag::IntArray(position.to_vec()));
+    } else if let Ok(position) = compound.get::<_, &NbtList>("Pos") {
+        wrapped.insert("Pos", position.clone());
+    }
+    wrapped.insert("Id", id.as_str());
+    wrapped.insert("Data", data);
+    wrapped
 }
 
 struct SessionBuilder {
@@ -1445,13 +1598,26 @@ impl PreviewSession {
         });
     }
 
-    fn preserved_region(&self, name: &str) -> Option<&NbtCompound> {
-        self.preserved
-            .as_deref()?
+    fn litematic_root(&self) -> Option<&NbtCompound> {
+        match self.preserved.as_ref()? {
+            PreservedSchematic::Litematic(root) => Some(root.as_ref()),
+            PreservedSchematic::Sponge(_) => None,
+        }
+    }
+
+    fn litematic_region(&self, name: &str) -> Option<&NbtCompound> {
+        self.litematic_root()?
             .get::<_, &NbtCompound>("Regions")
             .ok()?
             .get::<_, &NbtCompound>(name)
             .ok()
+    }
+
+    fn sponge_preserved(&self) -> Option<&SpongePreserved> {
+        match self.preserved.as_ref()? {
+            PreservedSchematic::Sponge(preserved) => Some(preserved.as_ref()),
+            PreservedSchematic::Litematic(_) => None,
+        }
     }
 
     fn transform_preserved_data(
@@ -1459,28 +1625,46 @@ impl PreviewSession {
         transform: PreviewTransform,
         sizes: &[(String, [u32; 3])],
     ) {
-        let Some(preserved) = self.preserved.as_deref() else {
-            return;
-        };
-        let mut regions = NbtCompound::new();
-        if let Ok(original) = preserved.get::<_, &NbtCompound>("Regions") {
-            for (name, tag) in original.inner() {
-                let NbtTag::Compound(region) = tag else {
-                    regions.insert(name.as_str(), tag.clone());
-                    continue;
-                };
-                let mut region = region.clone();
-                if let Some((_, size)) =
-                    sizes.iter().find(|(candidate, _)| candidate == name)
+        let next = match self.preserved.as_ref() {
+            Some(PreservedSchematic::Litematic(preserved)) => {
+                let mut root = preserved.as_ref().clone();
+                let mut regions = NbtCompound::new();
+                if let Ok(original) =
+                    preserved.get::<_, &NbtCompound>("Regions")
                 {
-                    transform_preserved_region(&mut region, *size, transform);
+                    for (name, tag) in original.inner() {
+                        let NbtTag::Compound(region) = tag else {
+                            regions.insert(name.as_str(), tag.clone());
+                            continue;
+                        };
+                        let mut region = region.clone();
+                        if let Some((_, size)) = sizes
+                            .iter()
+                            .find(|(candidate, _)| candidate == name)
+                        {
+                            transform_preserved_region(
+                                &mut region,
+                                *size,
+                                transform,
+                            );
+                        }
+                        regions.insert(name.as_str(), region);
+                    }
                 }
-                regions.insert(name.as_str(), region);
+                root.insert("Regions", regions);
+                Some(PreservedSchematic::Litematic(Arc::new(root)))
             }
-        }
-        let mut root = preserved.clone();
-        root.insert("Regions", regions);
-        self.preserved = Some(Arc::new(root));
+            Some(PreservedSchematic::Sponge(preserved)) => {
+                let size =
+                    sizes.first().map(|(_, size)| *size).unwrap_or_default();
+                let mut next = preserved.as_ref().clone();
+                transform_entry_list(&mut next.entities, size, transform);
+                transform_entry_list(&mut next.block_entities, size, transform);
+                Some(PreservedSchematic::Sponge(Arc::new(next)))
+            }
+            None => None,
+        };
+        self.preserved = next;
     }
 
     fn apply_transform(
@@ -1714,9 +1898,11 @@ const PRESERVED_POSITION_LISTS: [&str; 4] = [
 
 #[derive(Clone, Copy)]
 enum PreservedPosition {
-    /// Block entities and scheduled ticks use flat `x`/`y`/`z` int tags.
-    Block([i32; 3]),
-    /// Entities use the vanilla `Pos` list of doubles.
+    /// Litematic block entities and scheduled ticks use flat `x`/`y`/`z` tags.
+    FlatBlock([i32; 3]),
+    /// Sponge block entities and scheduled ticks use a `Pos` int array.
+    ArrayBlock([i32; 3]),
+    /// Entities use a `Pos` list of doubles in both formats.
     Point([f64; 3]),
 }
 
@@ -1728,7 +1914,14 @@ fn preserved_entry_position(
         compound.get::<_, i32>("y"),
         compound.get::<_, i32>("z"),
     ) {
-        return Some(PreservedPosition::Block([x, y, z]));
+        return Some(PreservedPosition::FlatBlock([x, y, z]));
+    }
+    if let Ok(values) = compound.get::<_, &[i32]>("Pos")
+        && values.len() >= 3
+    {
+        return Some(PreservedPosition::ArrayBlock([
+            values[0], values[1], values[2],
+        ]));
     }
     let list = compound.get::<_, &NbtList>("Pos").ok()?;
     if list.len() < 3 {
@@ -1750,10 +1943,13 @@ fn write_preserved_entry_position(
     position: PreservedPosition,
 ) {
     match position {
-        PreservedPosition::Block(values) => {
+        PreservedPosition::FlatBlock(values) => {
             compound.insert("x", values[0]);
             compound.insert("y", values[1]);
             compound.insert("z", values[2]);
+        }
+        PreservedPosition::ArrayBlock(values) => {
+            compound.insert("Pos", NbtTag::IntArray(values.to_vec()));
         }
         PreservedPosition::Point(values) => {
             let mut list = NbtList::new();
@@ -1765,31 +1961,51 @@ fn write_preserved_entry_position(
     }
 }
 
+fn transform_preserved_position(
+    position: PreservedPosition,
+    size: [u32; 3],
+    transform: PreviewTransform,
+) -> PreservedPosition {
+    match position {
+        PreservedPosition::FlatBlock(values) => PreservedPosition::FlatBlock(
+            transform_local_position(values, size, transform),
+        ),
+        PreservedPosition::ArrayBlock(values) => PreservedPosition::ArrayBlock(
+            transform_local_position(values, size, transform),
+        ),
+        PreservedPosition::Point(values) => PreservedPosition::Point(
+            transform_local_point(values, size, transform),
+        ),
+    }
+}
+
+fn transform_entry_list(
+    list: &mut NbtList,
+    size: [u32; 3],
+    transform: PreviewTransform,
+) {
+    for entry in list.inner_mut().iter_mut() {
+        let NbtTag::Compound(compound) = entry else {
+            continue;
+        };
+        let Some(position) = preserved_entry_position(compound) else {
+            continue;
+        };
+        write_preserved_entry_position(
+            compound,
+            transform_preserved_position(position, size, transform),
+        );
+    }
+}
+
 fn transform_preserved_region(
     region: &mut NbtCompound,
     size: [u32; 3],
     transform: PreviewTransform,
 ) {
     for key in PRESERVED_POSITION_LISTS {
-        let Ok(list) = region.get_mut::<_, &mut NbtList>(key) else {
-            continue;
-        };
-        for entry in list.inner_mut().iter_mut() {
-            let NbtTag::Compound(compound) = entry else {
-                continue;
-            };
-            let Some(position) = preserved_entry_position(compound) else {
-                continue;
-            };
-            let moved = match position {
-                PreservedPosition::Block(values) => PreservedPosition::Block(
-                    transform_local_position(values, size, transform),
-                ),
-                PreservedPosition::Point(values) => PreservedPosition::Point(
-                    transform_local_point(values, size, transform),
-                ),
-            };
-            write_preserved_entry_position(compound, moved);
+        if let Ok(list) = region.get_mut::<_, &mut NbtList>(key) {
+            transform_entry_list(list, size, transform);
         }
     }
 }
@@ -1894,7 +2110,7 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
             ((usize::BITS - (palette.len() - 1).leading_zeros()) as usize)
                 .max(2)
         };
-        let original = session.preserved_region(&region.manifest.name);
+        let original = session.litematic_region(&region.manifest.name);
         let mut exported_region = original.cloned().unwrap_or_default();
         // The block array always starts at the minimum corner, so the region
         // geometry is normalised to it exactly like the rebuilt block data.
@@ -1909,10 +2125,26 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
             NbtTag::LongArray(pack_litematic_values(&block_states, bits)),
         );
         if original.is_none() {
-            exported_region.insert("Entities", NbtList::new());
-            exported_region.insert("TileEntities", NbtList::new());
-            exported_region.insert("PendingBlockTicks", NbtList::new());
-            exported_region.insert("PendingFluidTicks", NbtList::new());
+            // A region rebuilt from a Sponge source has no Litematic NBT of its
+            // own, and Litematica reads these lists unconditionally.
+            for key in [
+                "Entities",
+                "TileEntities",
+                "PendingBlockTicks",
+                "PendingFluidTicks",
+            ] {
+                exported_region.insert(key, NbtList::new());
+            }
+        }
+        if let Some(preserved) = session.sponge_preserved() {
+            exported_region.insert(
+                "TileEntities",
+                sponge_block_entities_to_litematic(session, region, preserved),
+            );
+            exported_region.insert(
+                "Entities",
+                sponge_entities_to_litematic(session, region, preserved),
+            );
         }
         regions.insert(region.manifest.name.as_str(), exported_region);
     }
@@ -1922,8 +2154,7 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
         .map(|value| value.as_millis().min(i64::MAX as u128) as i64)
         .unwrap_or_default();
     let mut metadata = session
-        .preserved
-        .as_deref()
+        .litematic_root()
         .and_then(|root| root.get::<_, &NbtCompound>("Metadata").ok())
         .cloned()
         .unwrap_or_default();
@@ -1957,14 +2188,14 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
         litematic_vec3(session.manifest.size.map(|value| value as i32)),
     );
 
-    let mut root = session.preserved.as_deref().cloned().unwrap_or_default();
-    if session.preserved.is_none() {
+    let mut root = session.litematic_root().cloned().unwrap_or_default();
+    if session.litematic_root().is_none() {
         root.insert("Version", 6i32);
         root.insert("SubVersion", 1i32);
     }
     if let Some(data_version) = session.manifest.data_version {
         root.insert("MinecraftDataVersion", data_version);
-    } else if session.preserved.is_none() {
+    } else if session.litematic_root().is_none() {
         root.insert("MinecraftDataVersion", 0i32);
     }
     root.insert("Metadata", metadata);
@@ -1978,6 +2209,186 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
     )
     .map_err(|error| format!("Unable to export Litematic: {error}"))?;
     Ok(output)
+}
+
+fn sponge_entry_data(compound: &NbtCompound) -> NbtCompound {
+    let mut data = compound
+        .get::<_, &NbtCompound>("Data")
+        .cloned()
+        .unwrap_or_default();
+    if let Ok(id) = compound.get::<_, &str>("Id") {
+        data.insert("id", id);
+    }
+    data
+}
+
+fn position_as_block(position: PreservedPosition) -> [i32; 3] {
+    match position {
+        PreservedPosition::FlatBlock(values)
+        | PreservedPosition::ArrayBlock(values) => values,
+        PreservedPosition::Point(values) => {
+            values.map(|value| value.floor() as i32)
+        }
+    }
+}
+
+fn sponge_block_entities_to_litematic(
+    session: &PreviewSession,
+    region: &SessionRegion,
+    preserved: &SpongePreserved,
+) -> NbtList {
+    let mut output = NbtList::new();
+    for entry in &preserved.block_entities {
+        let NbtTag::Compound(compound) = entry else {
+            continue;
+        };
+        let Some(PreservedPosition::ArrayBlock(position)) =
+            preserved_entry_position(compound)
+        else {
+            continue;
+        };
+        let mut data = sponge_entry_data(compound);
+        for (axis, key) in ["x", "y", "z"].into_iter().enumerate() {
+            data.insert(
+                key,
+                session.manifest.min[axis] + position[axis]
+                    - region.manifest.min[axis],
+            );
+        }
+        output.push(data);
+    }
+    output
+}
+
+fn sponge_entities_to_litematic(
+    session: &PreviewSession,
+    region: &SessionRegion,
+    preserved: &SpongePreserved,
+) -> NbtList {
+    let mut output = NbtList::new();
+    for entry in &preserved.entities {
+        let NbtTag::Compound(compound) = entry else {
+            continue;
+        };
+        let Some(PreservedPosition::Point(position)) =
+            preserved_entry_position(compound)
+        else {
+            continue;
+        };
+        let mut data = sponge_entry_data(compound);
+        let mut list = NbtList::new();
+        for (axis, value) in position.into_iter().enumerate() {
+            list.push(
+                f64::from(session.manifest.min[axis]) + value
+                    - f64::from(region.manifest.min[axis]),
+            );
+        }
+        data.insert("Pos", list);
+        output.push(data);
+    }
+    output
+}
+
+fn sponge_entry_from_litematic(
+    compound: &NbtCompound,
+    position: PreservedPosition,
+) -> NbtCompound {
+    let mut data = compound.clone();
+    for key in ["x", "y", "z", "Pos"] {
+        data.inner_mut().remove(key);
+    }
+    let id = data
+        .get::<_, &str>("id")
+        .unwrap_or("minecraft:unknown")
+        .to_string();
+    let mut entry = NbtCompound::new();
+    match position {
+        PreservedPosition::Point(values) => {
+            let mut list = NbtList::new();
+            for value in values {
+                list.push(value);
+            }
+            entry.insert("Pos", list);
+        }
+        PreservedPosition::FlatBlock(values)
+        | PreservedPosition::ArrayBlock(values) => {
+            entry.insert("Pos", NbtTag::IntArray(values.to_vec()));
+        }
+    }
+    entry.insert("Id", id.as_str());
+    entry.insert("Data", data);
+    entry
+}
+
+fn litematic_block_entities_to_sponge(session: &PreviewSession) -> NbtList {
+    let mut output = NbtList::new();
+    for region in &session.regions {
+        let Some(original) = session.litematic_region(&region.manifest.name)
+        else {
+            continue;
+        };
+        let Ok(entries) = original.get::<_, &NbtList>("TileEntities") else {
+            continue;
+        };
+        for entry in entries {
+            let NbtTag::Compound(compound) = entry else {
+                continue;
+            };
+            let Some(position) = preserved_entry_position(compound) else {
+                continue;
+            };
+            let block = position_as_block(position);
+            let mut moved = [0i32; 3];
+            for axis in 0..3 {
+                moved[axis] = region.manifest.min[axis] + block[axis]
+                    - session.manifest.min[axis];
+            }
+            output.push(sponge_entry_from_litematic(
+                compound,
+                PreservedPosition::ArrayBlock(moved),
+            ));
+        }
+    }
+    output
+}
+
+fn litematic_entities_to_sponge(session: &PreviewSession) -> NbtList {
+    let mut output = NbtList::new();
+    for region in &session.regions {
+        let Some(original) = session.litematic_region(&region.manifest.name)
+        else {
+            continue;
+        };
+        let Ok(entries) = original.get::<_, &NbtList>("Entities") else {
+            continue;
+        };
+        for entry in entries {
+            let NbtTag::Compound(compound) = entry else {
+                continue;
+            };
+            let Some(position) = preserved_entry_position(compound) else {
+                continue;
+            };
+            let point = match position {
+                PreservedPosition::Point(values) => values,
+                PreservedPosition::FlatBlock(values)
+                | PreservedPosition::ArrayBlock(values) => [
+                    f64::from(values[0]) + 0.5,
+                    f64::from(values[1]),
+                    f64::from(values[2]) + 0.5,
+                ],
+            };
+            let moved = std::array::from_fn(|axis| {
+                f64::from(region.manifest.min[axis]) + point[axis]
+                    - f64::from(session.manifest.min[axis])
+            });
+            output.push(sponge_entry_from_litematic(
+                compound,
+                PreservedPosition::Point(moved),
+            ));
+        }
+    }
+    output
 }
 
 fn export_sponge_v3(session: &PreviewSession) -> Result<Vec<u8>, String> {
@@ -2016,11 +2427,33 @@ fn export_sponge_v3(session: &PreviewSession) -> Result<Vec<u8>, String> {
             }
         }
     }
-    let mut blocks = NbtCompound::new();
+    // A Sponge source keeps everything the preview does not edit; a Litematic
+    // source has to be converted entry by entry.
+    let preserved = session.sponge_preserved();
+    let mut preserved_schematic = preserved.map(SpongePreserved::schematic);
+    let mut blocks = preserved_schematic
+        .as_ref()
+        .and_then(|schematic| {
+            schematic.get::<_, &NbtCompound>("Blocks").cloned().ok()
+        })
+        .unwrap_or_default();
     blocks.insert("Palette", palette);
     blocks.insert("PaletteMax", session.manifest.palette.len() as i32);
     blocks.insert("BlockData", NbtTag::ByteArray(block_data));
-    let mut metadata = NbtCompound::new();
+    if let Some(preserved) = preserved {
+        blocks.insert("BlockEntities", preserved.block_entities.clone());
+    } else if session.litematic_root().is_some() {
+        blocks.insert(
+            "BlockEntities",
+            litematic_block_entities_to_sponge(session),
+        );
+    }
+    let mut metadata = preserved_schematic
+        .as_ref()
+        .and_then(|schematic| {
+            schematic.get::<_, &NbtCompound>("Metadata").cloned().ok()
+        })
+        .unwrap_or_default();
     metadata.insert(
         "Name",
         session
@@ -2032,7 +2465,7 @@ fn export_sponge_v3(session: &PreviewSession) -> Result<Vec<u8>, String> {
     if let Some(author) = &session.manifest.author {
         metadata.insert("Author", author.as_str());
     }
-    let mut schematic = NbtCompound::new();
+    let mut schematic = preserved_schematic.take().unwrap_or_default();
     schematic.insert("Version", 3i32);
     schematic.insert(
         "DataVersion",
@@ -2044,6 +2477,11 @@ fn export_sponge_v3(session: &PreviewSession) -> Result<Vec<u8>, String> {
     schematic.insert("Offset", NbtTag::IntArray(session.manifest.min.to_vec()));
     schematic.insert("Metadata", metadata);
     schematic.insert("Blocks", blocks);
+    if let Some(preserved) = preserved {
+        schematic.insert("Entities", preserved.entities.clone());
+    } else if session.litematic_root().is_some() {
+        schematic.insert("Entities", litematic_entities_to_sponge(session));
+    }
     let mut root = NbtCompound::new();
     root.insert("Schematic", schematic);
     let mut output = Vec::new();
@@ -2764,6 +3202,88 @@ mod tests {
         root
     }
 
+    /// 2x1x1 Sponge schematic holding one chest at the origin, one minecart
+    /// entity on top of it, and a non-default `Offset`.
+    fn sponge_container_fixture(version: i32) -> NbtCompound {
+        let mut palette = NbtCompound::new();
+        palette.insert("minecraft:air", 0i32);
+        palette.insert("minecraft:chest", 1i32);
+        let mut item = NbtCompound::new();
+        item.insert("Slot", 0i8);
+        item.insert("id", "minecraft:diamond");
+        item.insert("count", 64i32);
+        let mut items = NbtList::new();
+        items.push(item);
+
+        let mut block_entity = NbtCompound::new();
+        block_entity.insert("Pos", NbtTag::IntArray(vec![0, 0, 0]));
+        block_entity.insert("Id", "minecraft:chest");
+        let mut entity = NbtCompound::new();
+        let mut entity_position = NbtList::new();
+        for value in [0.5f64, 0.0, 0.5] {
+            entity_position.push(value);
+        }
+        entity.insert("Pos", entity_position);
+        entity.insert("Id", "minecraft:hopper_minecart");
+        // Version 3 nests the payload under `Data`; version 2 keeps it flat
+        // next to `Pos` and `Id`, so the fixture exercises both shapes.
+        if version == 3 {
+            let mut block_data = NbtCompound::new();
+            block_data.insert("Items", items);
+            block_entity.insert("Data", block_data);
+            let mut entity_data = NbtCompound::new();
+            entity_data.insert("CustomName", "Cart");
+            entity.insert("Data", entity_data);
+        } else {
+            block_entity.insert("Items", items);
+            entity.insert("CustomName", "Cart");
+        }
+        let mut block_entities = NbtList::new();
+        block_entities.push(block_entity);
+        let mut entities = NbtList::new();
+        entities.push(entity);
+
+        let mut blocks = NbtCompound::new();
+        blocks.insert("Palette", palette);
+        blocks.insert("BlockData", NbtTag::ByteArray(vec![1, 0]));
+        blocks.insert("BlockEntities", block_entities);
+        let mut schematic = NbtCompound::new();
+        schematic.insert("Version", version);
+        schematic.insert("DataVersion", 3700i32);
+        schematic.insert("Width", 2i16);
+        schematic.insert("Height", 1i16);
+        schematic.insert("Length", 1i16);
+        schematic.insert("Offset", NbtTag::IntArray(vec![-4, 8, 2]));
+        schematic.insert("Entities", entities);
+        if version == 3 {
+            schematic.insert("Blocks", blocks);
+            let mut root = NbtCompound::new();
+            root.insert("Schematic", schematic);
+            root
+        } else {
+            for (key, value) in blocks.into_inner() {
+                schematic.insert(key, value);
+            }
+            schematic
+        }
+    }
+
+    fn list_compound(list: &NbtList, index: usize) -> &NbtCompound {
+        match list.into_iter().nth(index) {
+            Some(NbtTag::Compound(compound)) => compound,
+            _ => panic!("entry {index} is missing or not a compound"),
+        }
+    }
+
+    fn list_doubles(list: &NbtList) -> Vec<f64> {
+        list.into_iter()
+            .filter_map(|tag| match tag {
+                NbtTag::Double(value) => Some(*value),
+                _ => None,
+            })
+            .collect()
+    }
+
     #[test]
     fn sponge_v2_and_v3_fixtures_parse_offsets_and_varints() {
         for version in [2, 3] {
@@ -3156,33 +3676,226 @@ mod tests {
     }
 
     #[test]
-    fn sponge_sources_still_export_an_empty_litematic_skeleton() {
+    fn sponge_container_and_entity_data_survive_litematic_export() {
+        for version in [2, 3] {
+            let session = parse_sponge(
+                sponge_container_fixture(version),
+                "fixture.schem".into(),
+                "fixture.schem".into(),
+                None,
+                None,
+            )
+            .unwrap();
+            let exported =
+                read_root(&export_litematic(&session).unwrap()).unwrap();
+            // Sponge sources still produce a plain version 6 skeleton root.
+            assert_eq!(exported.get::<_, i32>("Version").unwrap(), 6);
+            assert_eq!(exported.get::<_, i32>("SubVersion").unwrap(), 1);
+            let region = exported
+                .get::<_, &NbtCompound>("Regions")
+                .unwrap()
+                .get::<_, &NbtCompound>("Main")
+                .unwrap();
+            assert_eq!(
+                compound_vec3(
+                    region.get::<_, &NbtCompound>("Position").unwrap()
+                )
+                .unwrap(),
+                [-4, 8, 2],
+                "v{version}"
+            );
+            let tiles = region.get::<_, &NbtList>("TileEntities").unwrap();
+            assert_eq!(tiles.len(), 1, "v{version}");
+            let chest = list_compound(tiles, 0);
+            assert_eq!(compound_vec3(chest).unwrap(), [0, 0, 0], "v{version}");
+            assert_eq!(
+                chest.get::<_, &str>("id").unwrap(),
+                "minecraft:chest",
+                "v{version}"
+            );
+            assert_eq!(
+                chest.get::<_, &NbtList>("Items").unwrap().len(),
+                1,
+                "v{version}"
+            );
+            let entities = region.get::<_, &NbtList>("Entities").unwrap();
+            assert_eq!(entities.len(), 1, "v{version}");
+            let entity = list_compound(entities, 0);
+            assert_eq!(
+                entity.get::<_, &str>("id").unwrap(),
+                "minecraft:hopper_minecart",
+                "v{version}"
+            );
+            assert_eq!(
+                entity.get::<_, &str>("CustomName").unwrap(),
+                "Cart",
+                "v{version}"
+            );
+            assert_eq!(
+                list_doubles(entity.get::<_, &NbtList>("Pos").unwrap()),
+                vec![0.5, 0.0, 0.5],
+                "v{version}"
+            );
+            for key in ["PendingBlockTicks", "PendingFluidTicks"] {
+                assert_eq!(
+                    region.get::<_, &NbtList>(key).unwrap().len(),
+                    0,
+                    "{key} v{version}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sponge_roundtrip_preserves_container_and_entity_data() {
         let session = parse_sponge(
-            sponge_fixture(3),
+            sponge_container_fixture(3),
             "fixture.schem".into(),
             "fixture.schem".into(),
             None,
             None,
         )
         .unwrap();
-        let exported = read_root(&export_litematic(&session).unwrap()).unwrap();
-        assert_eq!(exported.get::<_, i32>("Version").unwrap(), 6);
-        assert_eq!(exported.get::<_, i32>("SubVersion").unwrap(), 1);
-        let region = exported
-            .get::<_, &NbtCompound>("Regions")
-            .unwrap()
-            .get::<_, &NbtCompound>("Main")
-            .unwrap();
-        for key in [
-            "Entities",
-            "TileEntities",
-            "PendingBlockTicks",
-            "PendingFluidTicks",
+        let root = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        let schematic = root.get::<_, &NbtCompound>("Schematic").unwrap();
+        let blocks = schematic.get::<_, &NbtCompound>("Blocks").unwrap();
+        let tiles = blocks.get::<_, &NbtList>("BlockEntities").unwrap();
+        assert_eq!(tiles.len(), 1);
+        let chest = list_compound(tiles, 0);
+        assert_eq!(chest.get::<_, &[i32]>("Pos").unwrap(), &[0, 0, 0][..]);
+        assert_eq!(chest.get::<_, &str>("Id").unwrap(), "minecraft:chest");
+        // Version 3 keeps the payload nested under `Data`.
+        assert_eq!(
+            chest
+                .get::<_, &NbtCompound>("Data")
+                .unwrap()
+                .get::<_, &NbtList>("Items")
+                .unwrap()
+                .len(),
+            1
+        );
+        let entities = schematic.get::<_, &NbtList>("Entities").unwrap();
+        assert_eq!(entities.len(), 1);
+        let entity = list_compound(entities, 0);
+        assert_eq!(
+            entity.get::<_, &str>("Id").unwrap(),
+            "minecraft:hopper_minecart"
+        );
+        assert_eq!(
+            entity
+                .get::<_, &NbtCompound>("Data")
+                .unwrap()
+                .get::<_, &str>("CustomName")
+                .unwrap(),
+            "Cart"
+        );
+    }
+
+    #[test]
+    fn litematic_container_data_converts_to_sponge_entries() {
+        let session = container_session();
+        let root = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        let schematic = root.get::<_, &NbtCompound>("Schematic").unwrap();
+        assert_eq!(
+            schematic.get::<_, &[i32]>("Offset").unwrap(),
+            &[8, 2, -4][..]
+        );
+        let blocks = schematic.get::<_, &NbtCompound>("Blocks").unwrap();
+        let tiles = blocks.get::<_, &NbtList>("BlockEntities").unwrap();
+        assert_eq!(tiles.len(), 1);
+        let chest = list_compound(tiles, 0);
+        // Sponge positions are relative to the schematic origin, so the
+        // region-local chest at 0,0,0 stays at 0,0,0.
+        assert_eq!(chest.get::<_, &[i32]>("Pos").unwrap(), &[0, 0, 0][..]);
+        assert_eq!(chest.get::<_, &str>("Id").unwrap(), "minecraft:chest");
+        assert_eq!(
+            chest
+                .get::<_, &NbtCompound>("Data")
+                .unwrap()
+                .get::<_, &NbtList>("Items")
+                .unwrap()
+                .len(),
+            1
+        );
+        let entities = schematic.get::<_, &NbtList>("Entities").unwrap();
+        assert_eq!(entities.len(), 1);
+        let entity = list_compound(entities, 0);
+        assert_eq!(
+            entity.get::<_, &str>("Id").unwrap(),
+            "minecraft:hopper_minecart"
+        );
+        assert_eq!(
+            list_doubles(entity.get::<_, &NbtList>("Pos").unwrap()),
+            vec![0.5, 0.0, 0.5]
+        );
+    }
+
+    #[test]
+    fn transforms_move_sponge_container_and_entity_data() {
+        for transform in [
+            PreviewTransform::RotateClockwise,
+            PreviewTransform::RotateCounterClockwise,
+            PreviewTransform::MirrorX,
+            PreviewTransform::MirrorZ,
         ] {
-            assert_eq!(
-                region.get::<_, &NbtList>(key).unwrap().len(),
+            let mut session = parse_sponge(
+                sponge_container_fixture(3),
+                "fixture.schem".into(),
+                "fixture.schem".into(),
+                None,
+                None,
+            )
+            .unwrap();
+            session.apply_transform(transform).unwrap();
+            let exported =
+                read_root(&export_litematic(&session).unwrap()).unwrap();
+            let reimported = parse_litematic(
+                exported.clone(),
+                "exported.litematic".into(),
+                "exported.litematic".into(),
+                None,
+                None,
+            )
+            .unwrap();
+            let region = exported
+                .get::<_, &NbtCompound>("Regions")
+                .unwrap()
+                .get::<_, &NbtCompound>("Main")
+                .unwrap();
+            let min = compound_vec3(
+                region.get::<_, &NbtCompound>("Position").unwrap(),
+            )
+            .unwrap();
+            let chest = list_compound(
+                region.get::<_, &NbtList>("TileEntities").unwrap(),
                 0,
-                "{key}"
+            );
+            let local = compound_vec3(chest).unwrap();
+            let world =
+                [min[0] + local[0], min[1] + local[1], min[2] + local[2]];
+            // The chest block and its container data must stay on one cell.
+            assert_eq!(
+                palette_at(&reimported, 0, world).name,
+                "minecraft:chest",
+                "{transform:?}"
+            );
+            let entity = list_compound(
+                region.get::<_, &NbtList>("Entities").unwrap(),
+                0,
+            );
+            let Some(PreservedPosition::Point(point)) =
+                preserved_entry_position(entity)
+            else {
+                panic!("entity has no position");
+            };
+            assert_eq!(
+                [
+                    point[0].floor() as i32,
+                    point[1].floor() as i32,
+                    point[2].floor() as i32
+                ],
+                local,
+                "{transform:?}"
             );
         }
     }

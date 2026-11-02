@@ -70,6 +70,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node --test scripts/axolotl/ci-changes.test.mjs
+          node --test scripts/axolotl/rust-coverage.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
           node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
@@ -393,6 +394,52 @@ jobs:
         env:
           NITRO_PRESET: ${{ matrix.nitro-preset }}
         run: pnpm --filter @axolotl/website build
+
+  # Reports Rust line coverage for the whole workspace. A single OS keeps the
+  # cost near the existing matrix while still measuring every crate, which the
+  # filtered `cargo test` steps in the desktop job never do.
+  # This job is deliberately outside `desktop-ci-result` until a stable baseline
+  # exists: the 75% target is enforced by a later change that adds
+  # `--fail-under-lines` and joins the aggregation gate.
+  coverage:
+    name: Measure Rust coverage
+    needs: [changes, guardrails, resources]
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-24.04
+    env:
+      SQLX_OFFLINE: true
+      # Instrumented tests reach the same deep async chains as the desktop job.
+      RUST_MIN_STACK: 67108864
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
+        with:
+          profile: ci
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      # cargo-llvm-cov shells out to llvm-cov and llvm-profdata from this component.
+      - name: Install LLVM coverage tools
+        run: rustup component add llvm-tools-preview
+      - name: Measure coverage
+        run: node scripts/axolotl/rust-coverage.mjs
+      - name: Publish coverage summary
+        run: |
+          summary="$(cat target/coverage/total.txt)"
+          echo "$summary"
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rust-coverage
+          path: target/coverage/
+          retention-days: 7
+          if-no-files-found: error
 
   desktop-ci-result:
     name: Desktop CI result

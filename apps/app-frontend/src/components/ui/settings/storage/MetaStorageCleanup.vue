@@ -198,7 +198,7 @@ async function clean() {
         void analyze()
     } catch (cause) {
         error.value = 'cleanFailed'
-        errorDetail.value = errorText(cause)
+        errorDetail.value = errorText(cause, formatMessage(storageMessages.unknownError))
         console.warn('[storage] Metadata cleanup failed', cause)
     } finally {
         cleaning.value = false

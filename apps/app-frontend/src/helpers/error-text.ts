@@ -28,14 +28,18 @@ export function errorMessage(error: unknown): string | null {
  *
  * `String()` on a serialized error object yields `[object Object]`, which is what
  * the user would otherwise read in a failure dialog.
+ *
+ * Pass a localized `unknownError` when the text reaches the user: this module has
+ * no i18n context, and the English default is only meant for callers that just
+ * pattern-match the result.
  */
-export function errorText(error: unknown): string {
+export function errorText(error: unknown, unknownError = 'Unknown error'): string {
     const message = errorMessage(error)
     if (message !== null) return message
     try {
         return String(error)
     } catch {
         // Only reachable for values whose own conversion throws.
-        return 'Unknown error'
+        return unknownError
     }
 }

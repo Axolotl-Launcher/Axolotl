@@ -40,7 +40,7 @@ async function clear() {
         emit('cleared')
     } catch (error) {
         failed.value = true
-        errorDetail.value = errorText(error)
+        errorDetail.value = errorText(error, formatMessage(storageMessages.unknownError))
         console.warn('[storage] Cache cleanup failed', error)
     } finally {
         busy.value = false

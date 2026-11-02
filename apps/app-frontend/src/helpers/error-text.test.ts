@@ -54,3 +54,30 @@ it('never throws on a value that cannot be inspected', () => {
     expect(errorMessage(hostile)).toBeNull()
     expect(errorText(hostile)).toBe('Unknown error')
 })
+
+it('never throws when reading the message property itself throws', () => {
+    // `has` succeeds so the read proceeds; only the `get` trap throws. This is a
+    // separate branch from the test above, where `has` rejects first.
+    const hostile = new Proxy(
+        {},
+        {
+            has: () => true,
+            get() {
+                throw new Error('get trap')
+            },
+        },
+    )
+    expect(errorMessage(hostile)).toBeNull()
+    expect(errorText(hostile)).toBe('Unknown error')
+})
+
+it('uses the caller-provided fallback when the value cannot be converted', () => {
+    // Reachable through the second catch in `errorText`, not the message read.
+    const hostile = {
+        toString() {
+            throw new Error('toString trap')
+        },
+    }
+    expect(errorMessage(hostile)).toBeNull()
+    expect(errorText(hostile, '未知错误')).toBe('未知错误')
+})

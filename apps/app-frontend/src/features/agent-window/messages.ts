@@ -263,6 +263,57 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
+    dropToPin: { id: 'app.agent-window.chat.drop-to-pin', defaultMessage: 'Release to pin' },
+    dropToUnpin: { id: 'app.agent-window.chat.drop-to-unpin', defaultMessage: 'Release to unpin' },
+    draftShort: { id: 'app.agent-window.chat.draft-short', defaultMessage: 'Draft' },
+    draftKept: {
+        id: 'app.agent-window.chat.draft-kept',
+        defaultMessage: 'Your unsent draft is waiting here',
+    },
+    feedPeek: {
+        id: 'app.agent-window.chat.feed-peek',
+        defaultMessage: 'Drag here to feed it to the axolotl',
+    },
+    feedReady: {
+        id: 'app.agent-window.chat.feed-ready',
+        defaultMessage: 'Let go to feed it to the axolotl',
+    },
+    feedReadyHint: {
+        id: 'app.agent-window.chat.feed-ready-hint',
+        defaultMessage: 'This deletes the task',
+    },
+    feedAsk: {
+        id: 'app.agent-window.chat.feed-ask',
+        defaultMessage: 'This task left some backups behind',
+    },
+    feedAskBody: {
+        id: 'app.agent-window.chat.feed-ask-body',
+        defaultMessage: 'Delete them as well?',
+    },
+    keepBackups: { id: 'app.agent-window.chat.keep-backups', defaultMessage: 'Keep them' },
+    discardBackups: {
+        id: 'app.agent-window.chat.discard-backups',
+        defaultMessage: 'Delete them too',
+    },
+    taskFed: { id: 'app.agent-window.chat.task-fed', defaultMessage: 'Task deleted' },
+    undo: { id: 'app.agent-window.chat.undo', defaultMessage: 'Undo' },
+    backupsDiscarded: {
+        id: 'app.agent-window.chat.backups-discarded',
+        defaultMessage:
+            'Deleted the task and {count} backups. This is a preview: no files were actually touched.',
+    },
+    leftoverOld: {
+        id: 'app.agent-window.chat.leftover-old',
+        defaultMessage: 'Old version kept when it was updated',
+    },
+    leftoverReplaced: {
+        id: 'app.agent-window.chat.leftover-replaced',
+        defaultMessage: 'Version kept when it was rolled back',
+    },
+    leftoverBackup: {
+        id: 'app.agent-window.chat.leftover-backup',
+        defaultMessage: 'Backup this task made',
+    },
     detailPreviewJava: {
         id: 'app.agent-window.chat.detail-preview-java',
         defaultMessage: 'Check Java',

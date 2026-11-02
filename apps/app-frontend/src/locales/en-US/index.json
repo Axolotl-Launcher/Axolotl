@@ -335,6 +335,57 @@
   "app.agent-window.chat.copy-text": {
     "message": "Copy text"
   },
+  "app.agent-window.chat.drop-to-pin": {
+    "message": "Release to pin"
+  },
+  "app.agent-window.chat.drop-to-unpin": {
+    "message": "Release to unpin"
+  },
+  "app.agent-window.chat.draft-short": {
+    "message": "Draft"
+  },
+  "app.agent-window.chat.draft-kept": {
+    "message": "Your unsent draft is waiting here"
+  },
+  "app.agent-window.chat.feed-peek": {
+    "message": "Drag here to feed it to the axolotl"
+  },
+  "app.agent-window.chat.feed-ready": {
+    "message": "Let go to feed it to the axolotl"
+  },
+  "app.agent-window.chat.feed-ready-hint": {
+    "message": "This deletes the task"
+  },
+  "app.agent-window.chat.feed-ask": {
+    "message": "This task left some backups behind"
+  },
+  "app.agent-window.chat.feed-ask-body": {
+    "message": "Delete them as well?"
+  },
+  "app.agent-window.chat.keep-backups": {
+    "message": "Keep them"
+  },
+  "app.agent-window.chat.discard-backups": {
+    "message": "Delete them too"
+  },
+  "app.agent-window.chat.task-fed": {
+    "message": "Task deleted"
+  },
+  "app.agent-window.chat.undo": {
+    "message": "Undo"
+  },
+  "app.agent-window.chat.backups-discarded": {
+    "message": "Deleted the task and {count} backups. This is a preview: no files were actually touched."
+  },
+  "app.agent-window.chat.leftover-old": {
+    "message": "Old version kept when it was updated"
+  },
+  "app.agent-window.chat.leftover-replaced": {
+    "message": "Version kept when it was rolled back"
+  },
+  "app.agent-window.chat.leftover-backup": {
+    "message": "Backup this task made"
+  },
   "app.agent-window.chat.detail-preview-java": {
     "message": "Check Java"
   },

@@ -1,10 +1,12 @@
-// Task history: pinned tasks first, then newest first, with a quiet marker for
-// tasks that are working or waiting for the user.
+// Task history: pinned tasks first, in the order they were placed, then newest
+// first, with a quiet marker for tasks that are working or waiting for the user.
+// The new task page is not a task until something is sent from it, so its
+// unsent draft never adds a row.
 import { button, element, h, icon } from './dom.js'
 import { axolotl, pixelLoader } from './mascot.js'
 import { text } from './messages.js'
 import { reducedMotion } from './motion.js'
-import { session } from './session.js'
+import { currentThread, session } from './session.js'
 import { ACTIVE_STATUSES, threadStatus } from './state.js'
 
 const STATUS_LABELS = {
@@ -12,6 +14,18 @@ const STATUS_LABELS = {
     awaiting: 'statusAwaiting',
     attention: 'statusAttention',
 }
+
+// Pinned tasks keep the place they were dragged to; ones pinned before places
+// existed, or from the menu, sort by recency among themselves.
+export function byPlace(a, b) {
+    const pinned = Number(!!b.pinned) - Number(!!a.pinned)
+    if (pinned) return pinned
+    const rank = a.pinned ? (a.rank ?? Infinity) - (b.rank ?? Infinity) : 0
+    return (Number.isNaN(rank) ? 0 : rank) || b.updatedAt - a.updatedAt
+}
+
+// Whether a task has been started, and so has a row in the list.
+export const listed = (thread) => thread.turns.length > 0 || !!thread.title
 
 function group(timestamp) {
     const day = new Date(timestamp)
@@ -63,10 +77,24 @@ function snippet(thread, query) {
     return ''
 }
 
+// While a task is being dragged the list holds still; what changed meanwhile
+// is drawn once it is dropped.
+let held = false
+let stale = false
+export function holdSidebar(hold) {
+    held = hold
+    if (!hold && stale) renderSidebar()
+}
+
 export function renderSidebar() {
+    if (held) {
+        stale = true
+        return
+    }
+    stale = false
     const query = session.search.trim().toLocaleLowerCase()
     const visible = session.store.threads
-        .filter((thread) => thread.turns.length || thread.draft || thread.title)
+        .filter(listed)
         .filter(
             (thread) =>
                 !query ||
@@ -74,7 +102,7 @@ export function renderSidebar() {
                     .toLocaleLowerCase()
                     .includes(query),
         )
-        .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt - a.updatedAt)
+        .sort(byPlace)
     const rows = []
     let previous
     for (const thread of visible) {
@@ -111,7 +139,7 @@ export function renderSidebar() {
                 'div',
                 {
                     class: `thread-row${selected ? ' is-selected' : ''}${thread.unread ? ' is-unread' : ''}${shown.has(thread.id) ? ' is-kept' : ''}`,
-                    data: { state: status, row: thread.id },
+                    data: { state: status, row: thread.id, ...(thread.pinned && { pinned: '' }) },
                 },
                 [
                     link,
@@ -154,6 +182,25 @@ export function renderSidebar() {
               ]),
     )
     placeHighlight(list)
+    // Away from the new task page, its button shows when an unsent draft is
+    // waiting there.
+    const waiting =
+        listed(currentThread()) &&
+        session.store.threads.some(
+            (thread) =>
+                !listed(thread) &&
+                thread.id !== session.store.activeId &&
+                (thread.draft.trim() || thread.attachments.length),
+        )
+    const start = document.querySelector('.new-task')
+    start.classList.toggle('has-draft', waiting)
+    if (waiting) {
+        start.dataset.tip = text('draftKept')
+        start.dataset.draft = text('draftShort')
+    } else {
+        delete start.dataset.tip
+        delete start.dataset.draft
+    }
 }
 
 // One highlight lives behind the rows and glides to the selected task, so

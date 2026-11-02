@@ -46,7 +46,8 @@ Window (`src/`):
   family's (`instance_`, `resource_` and so on), else "A launcher tool".
 - `dom.js`: the `h()` element builder (text nodes only), icons, the Markdown and log renderers and
   the focus helpers.
-- `motion.js`: `morph()` (View Transitions), `animate()`, `ScrollFollower` and `reducedMotion`.
+- `motion.js`: `morph()` (View Transitions), `animate()`, `finishEntrances()` (history shown
+  again skips its entrances), `ScrollFollower` and `reducedMotion`.
 - `mascot.js`, `mascot.css`: the axolotl's moods and cross-dissolve, and the pixel loader.
 - `view-home.js`: the new task page: the hero axolotl, suggestions, the intro card, the first-run
   tour and the help dialog.
@@ -54,8 +55,14 @@ Window (`src/`):
   changes pill.
 - `view-transcript.js`: turns, step groups, Markdown answers, plan cards, results and notices,
   with history built lazily.
-- `view-sidebar.js`: the task list: pinned tasks first, day groups, search, status dots and
-  progress.
+- `view-sidebar.js`: the task list: pinned tasks first (in the order they were dragged to), day
+  groups, search, status dots and progress. The new task page is only listed once something is
+  sent from it, and New task returns to its unsent draft.
+- `view-drag.js`: carrying task rows. Dropped at the top or among the pinned tasks, a task is
+  pinned there; dropped below them, it is unpinned. Carried out of the sidebar, it is fed to the
+  axolotl: deleted, with Undo. If its applied plans left backups (the version an update or a
+  rollback replaced, a backup it made), the axolotl asks whether those go too. Only the preview
+  can delete them, since a native runtime has no call for it yet, so there it does not ask.
 - `view-panel.js`: the Progress panel (checklist, changes, context and tool calls) and the progress
   ring.
 - `view-rail.js`: the message navigator beside the transcript, with marks.

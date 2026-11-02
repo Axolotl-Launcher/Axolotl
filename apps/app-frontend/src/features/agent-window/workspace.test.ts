@@ -1153,6 +1153,70 @@ it('pins a task from its context menu and names icon buttons with their shortcut
     expect(await page.locator('#tip').getAttribute('class')).not.toContain('is-shown')
 })
 
+it('keeps an unsent new task draft out of the list, and New task returns to it', async () => {
+    await send('Hello there')
+    await untilSettled()
+    await page.getByTestId('new-chat').click()
+    await page.locator('#message-input').fill('Back up my world later')
+    expect(await page.locator('.thread-name').count()).toBe(1)
+
+    await page.locator('.thread-link').first().click()
+    await page.clock.runFor(400)
+    expect(await page.locator('.new-task').getAttribute('data-draft')).toBe(messages.draftShort)
+    await page.getByTestId('new-chat').click()
+    await page.clock.runFor(400)
+    expect(await page.locator('#message-input').inputValue()).toBe('Back up my world later')
+    expect(await page.locator('.new-task').getAttribute('data-draft')).toBeNull()
+    expect(await page.locator('.thread-name').count()).toBe(1)
+})
+
+it('pins a task dragged to the top and feeds tasks to the axolotl, which asks about backups', async () => {
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+    await page.getByTestId('new-chat').click()
+    await send('Hello there')
+    await untilSettled()
+    const names = () => page.locator('.thread-name').allTextContents()
+    const [newest, crash] = await names()
+    const carry = async (row: number, x: number, y: number) => {
+        const box = (await page.locator('.thread-link').nth(row).boundingBox())!
+        await page.mouse.move(box.x + 40, box.y + box.height / 2)
+        await page.mouse.down()
+        await page.mouse.move(x, y, { steps: 4 })
+        await page.mouse.up()
+        await page.clock.runFor(50)
+    }
+
+    // Dropped at the top, the older task is pinned there and is not opened.
+    const top = (await page.locator('.thread-link').first().boundingBox())!
+    await carry(1, top.x + 40, top.y + 2)
+    expect(await page.locator('.list-group').first().textContent()).toBe(messages.pinned)
+    expect(await names()).toEqual([crash, newest])
+    expect(await page.locator('.thread-link[aria-current="page"] .thread-name').textContent()).toBe(
+        newest,
+    )
+
+    // Fed to the axolotl, the crash fix asks about the version its rollback kept.
+    const main = (await page.locator('#conversation').boundingBox())!
+    const middle = [main.x + main.width / 2, main.y + main.height / 2] as const
+    await carry(0, ...middle)
+    expect(await page.locator('#feed-zone').getAttribute('data-state')).toBe('asking')
+    expect(await page.locator('.feed-leftovers li').textContent()).toContain('Entity Culling 1.7.4')
+    expect(await names()).toEqual([newest])
+    await page.keyboard.press('Escape')
+    await page.clock.runFor(50)
+    expect(await page.locator('#feed-zone').isHidden()).toBe(true)
+    await page.locator('.toast .text-button').last().click()
+    expect(await names()).toEqual([crash, newest])
+
+    // A task that left nothing behind goes without a question.
+    await carry(1, ...middle)
+    expect(await page.locator('.feed-leftovers li').count()).toBe(0)
+    expect(await page.locator('#feed-zone').isHidden()).toBe(true)
+    expect(await names()).toEqual([crash])
+})
+
 it('puts what the open task offers first in the command menu', async () => {
     await send('Hello there')
     await untilSettled()
@@ -2019,7 +2083,7 @@ it('leaves a new task empty when its first request cannot be saved', async () =>
     expect(await page.locator('#announcer').textContent()).not.toContain(messages.thinking)
 })
 
-it('redraws the task list only when the first request’s draft starts or empties', async () => {
+it('leaves the task list alone while the first request is typed and erased', async () => {
     await page.evaluate(() => {
         const seen: string[] = []
         Reflect.set(window, 'listChanges', seen)
@@ -2034,10 +2098,9 @@ it('redraws the task list only when the first request’s draft starts or emptie
     expect(await rows.count()).toBe(0)
     await page.locator('#message-input').focus()
     await page.keyboard.type('Hello')
-    expect(await changes()).toEqual(['H'])
-    expect(await rows.count()).toBe(1)
+    expect(await rows.count()).toBe(0)
     for (let index = 0; index < 5; index++) await page.keyboard.press('Backspace')
-    expect(await changes()).toEqual(['H', ''])
+    expect(await changes()).toEqual([])
     expect(await rows.count()).toBe(0)
 })
 

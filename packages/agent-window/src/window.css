@@ -4936,6 +4936,432 @@ p.plan-state {
 
 /* ---------- keyframes ---------- */
 
+/* ---------- carrying tasks ---------- */
+
+/* An unsent draft waits behind New task: a small tag says so, and steps
+   aside for the shortcut on hover. */
+.new-task {
+    position: relative;
+}
+.new-task.has-draft::after {
+    content: attr(data-draft);
+    position: absolute;
+    top: 50%;
+    right: 9px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    translate: 0 -50%;
+    animation: pop-in 260ms var(--ease-pop) both;
+    transition: opacity 160ms ease;
+}
+.new-task.has-draft:is(:hover, :focus-visible)::after {
+    opacity: 0;
+}
+
+.is-dragging-task,
+.is-dragging-task * {
+    cursor: grabbing !important;
+    user-select: none;
+}
+/* Rows make room while a task is carried, so the gliding highlight steps
+   back and the selected row carries its own tint until the drop. */
+.is-dragging-task .thread-highlight {
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+.is-dragging-task .thread-row.is-selected:not(.is-drag-source) {
+    background: var(--accent-soft);
+}
+.is-dragging-task .thread-row:not(.is-selected):hover {
+    background: none;
+}
+.is-dragging-task .thread-more {
+    visibility: hidden;
+}
+
+/* The row the task was lifted from: a dashed outline while the task would
+   come back to it, folding shut once it would land somewhere else. */
+.thread-row.is-drag-source {
+    height: var(--row-height);
+    overflow: hidden;
+    transition:
+        height 240ms var(--ease-settle),
+        margin 240ms var(--ease-settle),
+        opacity 160ms ease;
+}
+.thread-row.is-drag-source > * {
+    opacity: 0.35;
+}
+.thread-row.is-drag-source::before {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    border: 1.5px dashed var(--line-strong);
+    border-radius: 10px;
+}
+.thread-row.is-drag-source.is-away {
+    height: 0;
+    margin-bottom: 0;
+    opacity: 0;
+}
+.thread-row.is-landing > * {
+    opacity: 0;
+}
+
+.drag-ghost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 70;
+    pointer-events: none;
+    transform-origin: 50% 50%;
+    will-change: transform;
+}
+.drag-card {
+    --tilt: 0deg;
+    border-radius: 10px;
+    background: var(--card);
+    box-shadow:
+        0 0 0 1px var(--line-strong),
+        var(--shadow-pop);
+    transform: rotate(var(--tilt)) scale(1.03);
+    transition:
+        transform 200ms var(--ease-settle),
+        box-shadow 200ms ease,
+        background-color 200ms ease;
+}
+.drag-card {
+    display: flex;
+    align-items: center;
+}
+.drag-card .thread-link {
+    flex: 1;
+    min-width: 0;
+    color: var(--fg);
+}
+.drag-intent {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+    max-width: 0;
+    margin-right: 0;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--on-accent);
+    background: var(--accent);
+    opacity: 0;
+    transition:
+        max-width 260ms var(--ease-settle),
+        padding 260ms var(--ease-settle),
+        margin 260ms var(--ease-settle),
+        opacity 160ms ease;
+}
+.drag-intent svg {
+    flex: none;
+    width: 13px;
+    height: 13px;
+}
+.drag-intent:is([data-kind='pin'], [data-kind='unpin']) {
+    max-width: 120px;
+    margin-right: 8px;
+    padding: 3px 9px 3px 7px;
+    opacity: 1;
+}
+.drag-intent[data-kind='unpin'] {
+    color: var(--fg-2);
+    background: var(--hover-strong);
+}
+/* Over the axolotl the card shrinks a little, as if already on its way in. */
+[data-drag-place='feed'] .drag-card {
+    transform: rotate(var(--tilt)) scale(0.88);
+    box-shadow:
+        0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent),
+        0 14px 32px -12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.drag-ghost.is-landing .drag-card {
+    transform: none;
+    background: transparent;
+    box-shadow: none;
+    transition-duration: 260ms;
+}
+
+/* Where a carried task would land among the pinned ones. */
+.drop-slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    margin-bottom: 1px;
+    padding: 0 12px;
+    overflow: hidden;
+    border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--accent-ink);
+    background: var(--accent-faint);
+    animation: slot-open 240ms var(--ease-settle) both;
+}
+.drop-slot svg {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    animation: pin-in 420ms var(--ease-pop) 60ms both;
+}
+.drop-slot[data-kind='unpin'] {
+    border-color: var(--line-strong);
+    color: var(--fg-3);
+    background: transparent;
+}
+.drop-slot.is-leaving {
+    animation: slot-close 180ms ease both;
+}
+@keyframes slot-open {
+    from {
+        height: 0;
+        opacity: 0;
+        border-width: 0;
+    }
+}
+@keyframes slot-close {
+    to {
+        height: 0;
+        margin-bottom: 0;
+        opacity: 0;
+        border-width: 0;
+    }
+}
+@keyframes pin-in {
+    from {
+        opacity: 0;
+        transform: translateY(-7px) rotate(-24deg);
+    }
+}
+
+/* Out of the sidebar, the axolotl waits to be fed. While a task is carried
+   it sits quietly over the conversation; once the task is over it, it leans
+   in, and the conversation behind dims. */
+.feed-zone {
+    position: fixed;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    container-type: size;
+    transition: opacity 220ms ease;
+}
+.feed-zone::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 300px;
+    background: linear-gradient(
+        to right,
+        color-mix(in srgb, var(--agent-background) 92%, transparent) 30%,
+        transparent
+    );
+    opacity: 0;
+    transition: opacity 240ms ease;
+}
+.feed-zone[data-state='peek']::after {
+    opacity: 1;
+}
+.feed-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(
+            circle at 50% 44%,
+            color-mix(in srgb, var(--accent) 16%, transparent),
+            transparent 46%
+        ),
+        color-mix(in srgb, var(--agent-background) 94%, transparent);
+    opacity: 0;
+    transition: opacity 240ms ease;
+}
+.feed-zone:is([data-state='ready'], [data-state='eating'], [data-state='asking'])::before {
+    opacity: 1;
+}
+.feed-zone[data-state='asking'] {
+    pointer-events: auto;
+}
+.feed-zone[data-state='leaving'] {
+    opacity: 0;
+}
+@starting-style {
+    .feed-zone[data-state='peek'] {
+        opacity: 0;
+    }
+}
+.feed-stage {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 32px);
+    text-align: center;
+    transition:
+        transform 460ms var(--ease-spring),
+        opacity 200ms ease;
+}
+.feed-zone[data-state='peek'] .feed-stage {
+    max-width: 180px;
+    opacity: 0.92;
+    transform: translateX(calc(-50cqw + 112px));
+}
+.feed-zone[data-state='peek'] .feed-title {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--fg-2);
+}
+.feed-mascot {
+    position: relative;
+    width: 168px;
+    height: 168px;
+    margin-bottom: 4px;
+    transition:
+        width 420ms var(--ease-spring),
+        height 420ms var(--ease-spring);
+}
+.feed-zone[data-state='peek'] .feed-mascot {
+    width: 84px;
+    height: 84px;
+}
+.feed-mascot .axo {
+    width: 100%;
+    height: 100%;
+    transition: transform 460ms var(--ease-spring);
+}
+.feed-zone.is-munching .feed-mascot {
+    animation: munch 520ms var(--ease-settle);
+}
+@keyframes munch {
+    30% {
+        transform: scale(1.08, 0.9);
+    }
+    60% {
+        transform: scale(0.96, 1.05);
+    }
+}
+/* Asking, it tilts its head and a pixel question mark pops up over it. */
+.feed-zone[data-state='asking'] .feed-mascot .axo {
+    transform: rotate(-8deg);
+}
+.feed-ask {
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    width: 25px;
+    height: 35px;
+    color: var(--accent);
+    opacity: 0;
+    transform: translateY(10px) scale(0.3) rotate(-16deg);
+    transition:
+        transform 420ms var(--ease-pop),
+        opacity 160ms ease;
+}
+.feed-ask svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--agent-background) 60%, transparent));
+}
+.feed-zone[data-state='asking'] .feed-ask {
+    opacity: 1;
+    transform: none;
+    animation: ask-bob 1.8s ease-in-out 500ms infinite;
+}
+@keyframes ask-bob {
+    50% {
+        translate: 0 -4px;
+    }
+}
+.feed-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--fg);
+    text-wrap: balance;
+}
+.feed-hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--fg-3);
+}
+.feed-hint:empty {
+    display: none;
+}
+.feed-question {
+    display: none;
+}
+.feed-zone[data-state='asking'] .feed-question {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(380px, 100%);
+    margin-top: 10px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    text-align: left;
+    background: var(--card);
+    box-shadow: var(--shadow-pop);
+    animation: rise-in 320ms var(--ease-settle) both;
+}
+.feed-leftovers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.feed-leftovers li {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    column-gap: 10px;
+    align-items: center;
+}
+.feed-leftovers svg {
+    grid-row: span 2;
+    width: 28px;
+    height: 28px;
+    padding: 6px;
+    border-radius: 8px;
+    color: var(--accent-ink);
+    background: var(--accent-faint);
+}
+.feed-leftover-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg);
+}
+.feed-leftover-note {
+    font-size: 12px;
+    color: var(--fg-3);
+}
+.feed-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 @keyframes rise-in {
     from {
         opacity: 0;

@@ -8,18 +8,19 @@ import { pathToFileURL } from 'node:url'
 // helpers the `theseus` test modules need. Cargo unifies features per
 // invocation, so the workspace cannot be measured in one pass: the library
 // crates are measured without the shell, then the shell is measured alone.
-export function coveragePasses() {
+//
+// Runs go through nextest because it gives every test its own process. Several
+// suites share process-global state (tracked servers, the initialized launcher
+// state) and fail intermittently when they see each other's leftovers, which
+// they do under libtest's in-process thread pool.
+export function coveragePasses({ ignoreRunFail = false } = {}) {
+    const common = ['llvm-cov', 'nextest', '--no-report', '--locked']
+    // cargo-llvm-cov rejects --ignore-run-fail together with --no-fail-fast, so
+    // only one of them is ever passed; nextest reports every failure either way.
+    if (ignoreRunFail) common.push('--ignore-run-fail')
     return [
-        [
-            'llvm-cov',
-            '--workspace',
-            '--exclude',
-            'theseus_gui',
-            '--no-report',
-            '--no-fail-fast',
-            '--locked',
-        ],
-        ['llvm-cov', '--package', 'theseus_gui', '--no-report', '--no-fail-fast', '--locked'],
+        [...common, '--workspace', '--exclude', 'theseus_gui'],
+        [...common, '--package', 'theseus_gui'],
     ]
 }
 
@@ -57,6 +58,7 @@ function main() {
             total: { type: 'string', default: path.join('target', 'coverage', 'total.txt') },
             open: { type: 'boolean', default: false },
             'fail-under': { type: 'string' },
+            'ignore-run-fail': { type: 'boolean', default: false },
         },
     })
 
@@ -69,7 +71,8 @@ function main() {
 
     // A measurement run must not merge profiling data left by an earlier run.
     run('cargo', ['llvm-cov', 'clean', '--workspace'])
-    for (const args of coveragePasses()) run('cargo', args)
+    for (const args of coveragePasses({ ignoreRunFail: values['ignore-run-fail'] }))
+        run('cargo', args)
 
     run('cargo', ['llvm-cov', 'report', '--lcov', '--output-path', lcov])
     run('cargo', ['llvm-cov', 'report', '--html', '--output-dir', html])

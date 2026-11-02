@@ -249,6 +249,14 @@ impl SpongePreserved {
             .cloned()
             .unwrap_or_else(|_| self.root.clone())
     }
+
+    fn schematic_metadata(&self) -> Option<&NbtCompound> {
+        self.root
+            .get::<_, &NbtCompound>("Schematic")
+            .unwrap_or(&self.root)
+            .get::<_, &NbtCompound>("Metadata")
+            .ok()
+    }
 }
 
 /// An MCP-owned document is separate from the two UI preview slots. Dropping
@@ -1634,6 +1642,20 @@ impl PreviewSession {
         }
     }
 
+    /// Metadata the source file carried, whichever format it came from. Both
+    /// exporters seed from it so converting between formats does not drop
+    /// fields the manifest does not model.
+    fn source_metadata(&self) -> Option<NbtCompound> {
+        match self.preserved.as_ref()? {
+            PreservedSchematic::Litematic(root) => {
+                root.get::<_, &NbtCompound>("Metadata").ok().cloned()
+            }
+            PreservedSchematic::Sponge(preserved) => {
+                preserved.schematic_metadata().cloned()
+            }
+        }
+    }
+
     fn transform_preserved_data(
         &mut self,
         transform: PreviewTransform,
@@ -2213,11 +2235,7 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_millis().min(i64::MAX as u128) as i64)
         .unwrap_or_default();
-    let mut metadata = session
-        .litematic_root()
-        .and_then(|root| root.get::<_, &NbtCompound>("Metadata").ok())
-        .cloned()
-        .unwrap_or_default();
+    let mut metadata = session.source_metadata().unwrap_or_default();
     metadata.insert(
         "Name",
         session
@@ -2508,12 +2526,7 @@ fn export_sponge_v3(session: &PreviewSession) -> Result<Vec<u8>, String> {
             litematic_block_entities_to_sponge(session),
         );
     }
-    let mut metadata = preserved_schematic
-        .as_ref()
-        .and_then(|schematic| {
-            schematic.get::<_, &NbtCompound>("Metadata").cloned().ok()
-        })
-        .unwrap_or_default();
+    let mut metadata = session.source_metadata().unwrap_or_default();
     metadata.insert(
         "Name",
         session
@@ -3924,6 +3937,44 @@ mod tests {
                 .unwrap(),
             3
         );
+    }
+
+    #[test]
+    fn conversion_keeps_source_metadata() {
+        // Litematic metadata the manifest does not model reaches Sponge.
+        let session = container_session();
+        let root = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        let metadata = root
+            .get::<_, &NbtCompound>("Schematic")
+            .unwrap()
+            .get::<_, &NbtCompound>("Metadata")
+            .unwrap();
+        assert_eq!(
+            metadata.get::<_, &[i32]>("PreviewImageData").unwrap(),
+            &[1, 2, 3][..]
+        );
+
+        // Sponge metadata the manifest does not model reaches Litematic.
+        let mut fixture = sponge_container_fixture(3);
+        let mut sponge_metadata = NbtCompound::new();
+        sponge_metadata.insert("Date", 1234i64);
+        sponge_metadata.insert("CustomField", "keep me");
+        fixture
+            .get_mut::<_, &mut NbtCompound>("Schematic")
+            .unwrap()
+            .insert("Metadata", sponge_metadata);
+        let session = parse_sponge(
+            fixture,
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let root = read_root(&export_litematic(&session).unwrap()).unwrap();
+        let metadata = root.get::<_, &NbtCompound>("Metadata").unwrap();
+        assert_eq!(metadata.get::<_, i64>("Date").unwrap(), 1234);
+        assert_eq!(metadata.get::<_, &str>("CustomField").unwrap(), "keep me");
     }
 
     #[test]

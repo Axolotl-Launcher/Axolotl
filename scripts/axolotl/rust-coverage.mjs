@@ -13,11 +13,14 @@ import { pathToFileURL } from 'node:url'
 // suites share process-global state (tracked servers, the initialized launcher
 // state) and fail intermittently when they see each other's leftovers, which
 // they do under libtest's in-process thread pool.
+//
+// nextest is fail-fast like libtest, so `--no-fail-fast` is always passed: a
+// red run must list every broken test, not just the first one. `--ignore-run-fail`
+// is the opposite trade-off and replaces it when a report is wanted from a run
+// whose tests already failed; cargo-llvm-cov rejects the two together.
 export function coveragePasses({ ignoreRunFail = false } = {}) {
     const common = ['llvm-cov', 'nextest', '--no-report', '--locked']
-    // cargo-llvm-cov rejects --ignore-run-fail together with --no-fail-fast, so
-    // only one of them is ever passed; nextest reports every failure either way.
-    if (ignoreRunFail) common.push('--ignore-run-fail')
+    common.push(ignoreRunFail ? '--ignore-run-fail' : '--no-fail-fast')
     return [
         [...common, '--workspace', '--exclude', 'theseus_gui'],
         [...common, '--package', 'theseus_gui'],

@@ -30,11 +30,14 @@ test('tests run in their own processes so global state cannot leak between them'
 })
 
 test('run failures can be tolerated so a report still gets generated', () => {
+    for (const args of coveragePasses())
+        assert.ok(args.includes('--no-fail-fast'), 'every failure must be reported')
     const tolerant = coveragePasses({ ignoreRunFail: true })
-    for (const args of tolerant) assert.ok(args.includes('--ignore-run-fail'))
-    for (const args of coveragePasses()) assert.ok(!args.includes('--ignore-run-fail'))
-    // cargo-llvm-cov rejects the two flags together.
-    for (const args of tolerant) assert.ok(!args.includes('--no-fail-fast'))
+    for (const args of tolerant) {
+        assert.ok(args.includes('--ignore-run-fail'))
+        // cargo-llvm-cov rejects the two flags together.
+        assert.ok(!args.includes('--no-fail-fast'))
+    }
 })
 
 test('the LCOV summary sums every record', () => {

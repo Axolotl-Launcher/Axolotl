@@ -1,0 +1,17 @@
+{
+  "identifier": "agent-runtime",
+  "description": "Background Agent execution only; no task submission or approval authority",
+  "local": true,
+  "windows": ["agent-runtime"],
+  "permissions": [
+    "agent-runtime:allow-agent-worker-ready",
+    "agent-runtime:allow-agent-worker-next",
+    "agent-runtime:allow-agent-worker-catalog",
+    "agent-runtime:allow-agent-worker-model",
+    "agent-runtime:allow-agent-worker-tool",
+    "agent-runtime:allow-agent-worker-approval",
+    "agent-runtime:allow-agent-worker-event",
+    "agent-runtime:allow-agent-worker-checkpoint",
+    "agent-runtime:allow-agent-worker-complete"
+  ]
+}

@@ -880,6 +880,7 @@ fn main() {
 
     builder = builder
         .plugin(api::agent_window::init())
+        .plugin(api::agent_runtime::init())
         .plugin(api::ai::init())
         .plugin(api::third_party_accounts::init())
         .plugin(api::schematics::init())
@@ -993,6 +994,7 @@ fn main() {
                 if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
                     tauri::async_runtime::block_on(async {
                         api::mcp::shutdown(app).await;
+                        api::agent_runtime::shutdown(app).await;
                         let killed = theseus::servers::shutdown_all().await;
                         if killed > 0 {
                             tracing::info!(

@@ -110,6 +110,71 @@ fn agent_window_open_is_registered_and_only_available_to_main() {
 }
 
 #[test]
+fn agent_runtime_commands_have_separate_ui_and_worker_authorities() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/agent_runtime/mod.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "agent-runtime");
+    assert_eq!(runtime, manifest);
+    assert_eq!(runtime.len(), 18);
+    let worker: serde_json::Value = serde_json::from_str(include_str!(
+        "../capabilities/agent-runtime.json"
+    ))
+    .unwrap();
+    let ui: serde_json::Value = serde_json::from_str(include_str!(
+        "../capabilities/agent-runtime-ui.json"
+    ))
+    .unwrap();
+    assert_eq!(worker["windows"], serde_json::json!(["agent-runtime"]));
+    assert_eq!(ui["windows"], serde_json::json!(["agent-window"]));
+    for (capability, prefix) in
+        [(&worker, "agent_worker_"), (&ui, "agent_runtime_")]
+    {
+        let expected: BTreeSet<String> = runtime
+            .iter()
+            .filter(|command| command.starts_with(prefix))
+            .map(|command| {
+                format!("agent-runtime:allow-{}", command.replace('_', "-"))
+            })
+            .collect();
+        let actual: BTreeSet<String> = capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|permission| permission.as_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(actual, expected);
+    }
+    let config: serde_json::Value =
+        serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+    for capability in ["agent-runtime", "agent-runtime-ui"] {
+        assert!(
+            config["app"]["security"]["capabilities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == capability)
+        );
+    }
+    let release: serde_json::Value =
+        serde_json::from_str(include_str!("../tauri-release.conf.json"))
+            .unwrap();
+    for capability in ["agent-window", "agent-runtime", "agent-runtime-ui"] {
+        assert!(
+            release["app"]["security"]["capabilities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == capability)
+        );
+    }
+    assert!(
+        include_str!("../src/main.rs")
+            .contains(".plugin(api::agent_runtime::init())")
+    );
+}
+
+#[test]
 fn mcp_commands_are_registered_and_limited_to_the_main_window() {
     let runtime = runtime_commands(include_str!("../src/api/mcp/mod.rs"))
         .into_iter()

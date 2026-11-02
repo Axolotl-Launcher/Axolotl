@@ -4,8 +4,10 @@
 //! retried IPC cannot turn one user action into two writes. Recovery never resumes work.
 
 mod records;
+mod runtime;
 
 pub use records::*;
+pub use runtime::*;
 use serde_json::Value;
 use sqlx::{Row, SqliteConnection, SqlitePool, sqlite::SqliteConnectOptions};
 use std::{path::Path, time::Duration};
@@ -58,6 +60,8 @@ impl AgentStore {
         .await?;
         sqlx::query("UPDATE approvals SET state = 'expired' WHERE state IN ('pending', 'approved')")
             .execute(&mut *tx).await?;
+        sqlx::query("UPDATE approval_batches SET state = 'expired' WHERE state = 'pending'")
+            .execute(&mut *tx).await?;
         sqlx::query("UPDATE attempts SET state = 'interrupted', computer_use = 0 WHERE state IN ('queued', 'running', 'awaiting')")
             .execute(&mut *tx).await?;
         tx.commit().await?;
@@ -95,6 +99,13 @@ impl AgentStore {
         if active != 0 {
             return Err(StoreError::Conflict(
                 "Stop the task before deleting it",
+            ));
+        }
+        let writing: i64 = sqlx::query_scalar("SELECT count(*) FROM executions e JOIN attempts a ON a.id = e.attempt_id WHERE a.thread_id = ? AND e.state = 'started'")
+            .bind(id).fetch_one(&mut *tx).await?;
+        if writing != 0 {
+            return Err(StoreError::Conflict(
+                "Wait for started operations to settle before deleting their records",
             ));
         }
         sqlx::query("DELETE FROM threads WHERE id = ?")
@@ -195,6 +206,8 @@ impl AgentStore {
             == 1;
         if changed && to.is_terminal() {
             sqlx::query("UPDATE approvals SET state = 'expired' WHERE attempt_id = ? AND state IN ('pending', 'approved')")
+                .bind(id).execute(&mut *tx).await?;
+            sqlx::query("UPDATE approval_batches SET state = 'expired' WHERE attempt_id = ? AND state = 'pending'")
                 .bind(id).execute(&mut *tx).await?;
         }
         tx.commit().await?;

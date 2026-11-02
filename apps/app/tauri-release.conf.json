@@ -7,7 +7,14 @@
   },
   "app": {
     "security": {
-      "capabilities": ["core", "plugins", "updater"]
+      "capabilities": [
+        "core",
+        "plugins",
+        "agent-window",
+        "agent-runtime",
+        "agent-runtime-ui",
+        "updater"
+      ]
     }
   },
   "plugins": {

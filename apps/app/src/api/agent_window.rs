@@ -249,7 +249,10 @@ where
     move |invoke| {
         // App-level commands without an app ACL manifest bypass capabilities.
         // The independent blank window must not initialize or control the app.
-        if invoke.message.webview_ref().label() == agent_window::WINDOW_LABEL {
+        if matches!(
+            invoke.message.webview_ref().label(),
+            agent_window::WINDOW_LABEL | super::agent_runtime::WORKER_LABEL
+        ) {
             invoke
                 .resolver
                 .reject("Agent Window has no launcher command access");

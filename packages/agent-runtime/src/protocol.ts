@@ -78,12 +78,14 @@ export interface RuntimeJob {
     messages: ModelMessage[]
     resume?: {
         call_ids: string[]
-        decisions: ({ type: 'approve' } | { type: 'reject'; message: string })[]
+        decisions: ApprovalDecision[]
     }
     model_turns: number
     tool_calls: number
     check_only: boolean
 }
+
+export type ApprovalDecision = { type: 'approve' } | { type: 'reject'; message: string }
 
 export type RuntimeEvent =
     | { type: 'text'; delta: string }

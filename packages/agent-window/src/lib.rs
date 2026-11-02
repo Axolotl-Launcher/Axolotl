@@ -1,7 +1,14 @@
 pub mod persistence;
 
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        atomic::{AtomicU8, Ordering},
+    },
+    time::Duration,
+};
 use tauri::{
     AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry,
 };
@@ -406,7 +413,7 @@ impl<W: WindowOperations> WindowLifecycle<W> {
 pub struct AgentWindow {
     lifecycle: WindowLifecycle<WebviewWindow<Wry>>,
     appearance: RwLock<Appearance>,
-    permissions: RwLock<Permissions>,
+    permissions: AtomicU8,
 }
 
 impl AgentWindow {
@@ -419,7 +426,16 @@ impl AgentWindow {
     }
 
     pub async fn permissions(&self) -> Permissions {
-        *self.permissions.read().await
+        self.permissions_now()
+    }
+
+    /// Synchronous authorization checks also run inside the shared tool executor.
+    pub fn permissions_now(&self) -> Permissions {
+        let value = self.permissions.load(Ordering::Acquire);
+        Permissions {
+            full_access: value & 1 != 0,
+            computer_use: value & 3 == 3,
+        }
     }
 
     pub async fn close(
@@ -437,7 +453,11 @@ impl AgentWindow {
         mut permissions: Permissions,
     ) -> Permissions {
         permissions.computer_use &= permissions.full_access;
-        *self.permissions.write().await = permissions;
+        self.permissions.store(
+            u8::from(permissions.full_access)
+                | (u8::from(permissions.computer_use) << 1),
+            Ordering::Release,
+        );
         permissions
     }
 

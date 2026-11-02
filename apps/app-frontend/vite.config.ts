@@ -174,6 +174,10 @@ export default defineConfig(({ command }) => ({
     envPrefix: ['VITE_', 'TAURI_', 'MODRINTH_'],
     build: {
         rolldownOptions: {
+            input: {
+                main: resolve(projectRootDir, 'index.html'),
+                'agent-runtime': resolve(projectRootDir, 'agent-runtime.html'),
+            },
             onwarn(warning, defaultHandler) {
                 if (warning.code === 'INEFFECTIVE_DYNAMIC_IMPORT') return
                 defaultHandler(warning)

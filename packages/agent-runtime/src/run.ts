@@ -2,13 +2,15 @@ import { AIMessage, type BaseMessage, ToolMessage } from '@langchain/core/messag
 import { tool } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
 import { createDeepAgent, registerHarnessProfile } from 'deepagents/browser'
-import { createMiddleware, humanInTheLoopMiddleware, todoListMiddleware } from 'langchain'
+import { createMiddleware, todoListMiddleware } from 'langchain'
 
 import { HostCheckpointer } from './checkpointer.ts'
+import { nodeInterrupt } from './interrupt.ts'
 import { deserializeMessage, LauncherChatModel, serializeMessage } from './model.ts'
 import { AGENT_PROMPT } from './prompt.ts'
 import type {
     ApprovalAction,
+    ApprovalDecision,
     RunOutcome,
     RuntimeGateway,
     RuntimeJob,
@@ -133,6 +135,7 @@ export async function runAgent(
     let toolCalls = job.tool_calls
     let events = Promise.resolve()
     let streamed = false
+    let checklist = '[]'
     const pendingOperations = new Map<string, { id: string; title: string; tool: string }>()
     const emitModel = (event: { event_type: string; data: Record<string, unknown> }) => {
         if (signal.aborted || event.event_type !== 'delta' || typeof event.data.text !== 'string')
@@ -218,8 +221,32 @@ export async function runAgent(
         ),
     )
 
+    const checklistMiddleware = todoListMiddleware()
     const guard = createMiddleware({
         name: 'LauncherToolsOnly',
+        stateSchema: checklistMiddleware.stateSchema,
+        beforeModel: async (state) => {
+            const todos = (
+                state as typeof state & { todos?: { content: string; status: string }[] }
+            ).todos
+            if (!Array.isArray(todos)) return
+            const signature = JSON.stringify(todos)
+            if (signature === checklist) return
+            checklist = signature
+            await gateway.emit({
+                type: 'progress',
+                steps: todos.map((todo) => ({
+                    title: todo.content,
+                    detail: '',
+                    status:
+                        todo.status === 'completed'
+                            ? 'done'
+                            : todo.status === 'in_progress'
+                              ? 'running'
+                              : 'pending',
+                })),
+            })
+        },
         afterModel: async (state) => {
             signal.throwIfAborted()
             const last = state.messages.at(-1)
@@ -248,37 +275,62 @@ export async function runAgent(
                 { allowedDecisions: ['approve', 'reject'] as ('approve' | 'reject')[] },
             ]),
     )
-    const hitl = humanInTheLoopMiddleware({ interruptOn })
-    const afterModel = hitl.afterModel
-    if (!afterModel || typeof afterModel !== 'object')
-        throw new Error('Unsupported approval middleware contract')
     const approval = createMiddleware({
-        ...hitl,
         name: 'LauncherWriteApproval',
         afterModel: {
-            ...afterModel,
-            hook: async (...args: Parameters<typeof afterModel.hook>) => {
-                const last = args[0].messages.at(-1)
-                const originalCalls =
-                    last && AIMessage.isInstance(last) ? [...(last.tool_calls ?? [])] : []
-                const result = await afterModel.hook(...args)
+            canJumpTo: ['model'],
+            hook: async (state, runtime) => {
+                const last = state.messages.at(-1)
+                if (!last || !AIMessage.isInstance(last)) return
+                const originalCalls = [...(last.tool_calls ?? [])]
+                const reviewed = originalCalls.filter((call) => interruptOn[call.name])
+                if (!reviewed.length) return
+                // Use DeepAgent's interruptOn selection with a node-bound LangGraph
+                // interrupt. The pinned stock HITL hook loses browser async context.
+                const response = nodeInterrupt(
+                    {
+                        actionRequests: reviewed.map((call) => ({
+                            name: call.name,
+                            args: call.args,
+                        })),
+                        reviewConfigs: reviewed.map((call) => ({
+                            actionName: call.name,
+                            allowedDecisions: ['approve', 'reject'],
+                        })),
+                    },
+                    runtime.configurable,
+                ) as { decisions?: ApprovalDecision[] }
+                const decisions = response?.decisions
                 if (
-                    !job.resume?.decisions.some((decision) => decision.type === 'reject') ||
-                    !result ||
-                    !originalCalls.length
+                    !Array.isArray(decisions) ||
+                    decisions.length !== reviewed.length ||
+                    decisions.some((decision) => !['approve', 'reject'].includes(decision.type))
                 )
-                    return result
-                const decisions = new Map(
-                    job.resume.call_ids.map((id, index) => [id, job.resume!.decisions[index]]),
+                    throw new Error('Approval decisions do not match the pending actions')
+                if (
+                    !job.resume ||
+                    reviewed.some((call, index) => call.id !== job.resume!.call_ids[index])
                 )
+                    throw new Error('Approval identities do not match the pending actions')
+                if (decisions.every((decision) => decision.type === 'approve')) return
+                const selected = new Map(reviewed.map((call, index) => [call.id, decisions[index]]))
                 const results: ToolMessage[] = []
-                // langchain 1.5.10 jumps to model after any rejection and discards the
-                // approved calls. Finish those exact, host-approved calls before that
-                // jump, retaining rejected messages as refusal evidence. No edits/retries.
                 for (const call of originalCalls) {
+                    const decision = selected.get(call.id)
+                    if (decision?.type === 'reject') {
+                        results.push(
+                            new ToolMessage({
+                                tool_call_id: call.id ?? '',
+                                name: call.name,
+                                content:
+                                    decision.message ||
+                                    'User rejected this action. It was not executed. Do not retry it.',
+                                status: 'error',
+                            }),
+                        )
+                        continue
+                    }
                     const definition = definitions.get(call.name)
-                    const decision = decisions.get(call.id ?? '')
-                    if (decision?.type === 'reject') continue
                     if (definition && (definition.read_only || decision?.type === 'approve'))
                         results.push(await execute(definition, call.args, call.id ?? ''))
                     else if (call.name === 'write_todos')
@@ -292,8 +344,7 @@ export async function runAgent(
                         )
                     else throw new Error('Approval does not cover the pending tool call')
                 }
-                if (last && AIMessage.isInstance(last)) last.tool_calls = originalCalls
-                return { ...result, messages: [...(result.messages ?? []), ...results] }
+                return { messages: [last, ...results], jumpTo: 'model' as const }
             },
         },
     })
@@ -303,7 +354,7 @@ export async function runAgent(
         checkpointer: new HostCheckpointer(job.attempt_id, gateway),
         systemPrompt: `${AGENT_PROMPT}\nUser language: ${job.locale}\nDefault context:\n${job.context}\nStanding user preferences:\n${job.instructions}${job.check_only ? '\nThis run is READONLY verification. Do not propose or perform writes.' : ''}`,
         subagents: [],
-        middleware: [todoListMiddleware(), guard, approval],
+        middleware: [checklistMiddleware, guard, approval],
         interruptOn,
     })
     // New attempts get new graph threads; only explicit UI decisions resume interrupts.

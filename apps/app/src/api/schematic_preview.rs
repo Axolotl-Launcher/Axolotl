@@ -1875,12 +1875,23 @@ fn transform_local_point(
         point[2] - f64::from(cell[2]),
     ];
     let moved = transform_local_position(cell, size, transform);
+    // A transform that reverses an axis also reverses the offset inside the
+    // cell, so the fraction is complemented on every reversed axis. Rotating
+    // clockwise maps X onto Z and therefore reverses X; counter clockwise
+    // reverses Z.
     let fraction = match transform {
-        PreviewTransform::RotateClockwise
-        | PreviewTransform::RotateCounterClockwise => {
-            [fraction[2], fraction[1], fraction[0]]
+        PreviewTransform::RotateClockwise => {
+            [fraction[2], fraction[1], 1.0 - fraction[0]]
         }
-        PreviewTransform::MirrorX | PreviewTransform::MirrorZ => fraction,
+        PreviewTransform::RotateCounterClockwise => {
+            [1.0 - fraction[2], fraction[1], fraction[0]]
+        }
+        PreviewTransform::MirrorX => {
+            [1.0 - fraction[0], fraction[1], fraction[2]]
+        }
+        PreviewTransform::MirrorZ => {
+            [fraction[0], fraction[1], 1.0 - fraction[2]]
+        }
     };
     [
         f64::from(moved[0]) + fraction[0],
@@ -3606,6 +3617,30 @@ mod tests {
         );
         assert_eq!(reimported.manifest.entity_count, 1);
         assert_eq!(reimported.manifest.block_entity_count, 1);
+    }
+
+    #[test]
+    fn transforms_complement_entity_offsets_on_reversed_axes() {
+        // Inside cell 0,0,0 of a 2x1x1 region, a quarter of the way along X
+        // and Z.
+        let point = [0.25, 0.0, 0.25];
+        let size = [2, 1, 1];
+        for (transform, expected) in [
+            // X is reversed, so the cell moves to 1 and the offset flips.
+            (PreviewTransform::MirrorX, [1.75, 0.0, 0.25]),
+            // Z is reversed, so the cell stays and the Z offset flips.
+            (PreviewTransform::MirrorZ, [0.25, 0.0, 0.75]),
+            // Clockwise sends X to Z, so the X offset flips into Z.
+            (PreviewTransform::RotateClockwise, [0.25, 0.0, 1.75]),
+            // Counter clockwise sends Z to X, so the Z offset flips into X.
+            (PreviewTransform::RotateCounterClockwise, [0.75, 0.0, 0.25]),
+        ] {
+            assert_eq!(
+                transform_local_point(point, size, transform),
+                expected,
+                "{transform:?}"
+            );
+        }
     }
 
     #[test]

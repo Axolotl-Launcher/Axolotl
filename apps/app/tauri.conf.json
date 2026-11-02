@@ -10,6 +10,7 @@
     "active": true,
     "category": "Game",
     "copyright": "",
+    "publisher": "Garbage Human Studio",
     "targets": "all",
     "externalBin": [],
     "resources": ["resources/blockbench-skin"],

@@ -347,6 +347,10 @@ impl AgentStore {
         })).transpose()
     }
 
+    pub async fn batch_pending(&self, id: &str) -> Result<bool> {
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM approval_batches WHERE id = ? AND state = 'pending')").bind(id).fetch_one(&self.pool).await?)
+    }
+
     /// Resolves every action in one transaction and resumes the attempt only once.
     /// The caller schedules work only when true is returned. Duplicate UI IPC is inert.
     pub async fn decide_batch(
@@ -391,6 +395,11 @@ impl AgentStore {
         let now: i64 = sqlx::query_scalar("SELECT unixepoch()")
             .fetch_one(&mut *tx)
             .await?;
+        if row.get::<String, _>("state") == "pending"
+            && row.get::<i64, _>("expires_at") <= now
+        {
+            return Err(StoreError::ApprovalExpired);
+        }
         if row.get::<String, _>("state") != "pending"
             || row.get::<i64, _>("expires_at") <= now
             || attempt.state != AttemptState::Awaiting

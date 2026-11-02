@@ -21985,5 +21985,8 @@
   },
   "app.agent-window.chat.native-connecting": {
     "message": "正在连接…"
+  },
+  "app.agent-window.chat.approval-expired": {
+    "message": "方案已过期。点击重试，重新生成并确认方案。"
   }
 }

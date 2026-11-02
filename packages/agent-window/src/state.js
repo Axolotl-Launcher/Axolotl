@@ -106,6 +106,33 @@ export function newTurn(thread, message) {
     }
 }
 
+// A native follow-up is admitted to the backend as soon as its stable identity
+// and captured task context have been acknowledged by workspace storage.
+export function newNativeQueued(thread, message, instructions, computerUse) {
+    return { ...newTurn(thread, message), native: true, instructions, computerUse }
+}
+
+export function adoptNativeQueued(thread, queuedId) {
+    const entry = thread.queue.find((queued) => queued.id === queuedId)
+    const existing = thread.turns.find((turn) => turn.id === queuedId)
+    if (!entry) return existing || null
+    const turn = existing || {
+        id: entry.id,
+        createdAt: entry.createdAt,
+        text: entry.text,
+        attachments: entry.attachments,
+        instanceId: entry.instanceId,
+        selection: entry.selection,
+        run: entry.run,
+    }
+    if (!existing) {
+        thread.turns.push(turn)
+        thread.turns.sort((left, right) => left.createdAt - right.createdAt)
+    }
+    thread.queue = thread.queue.filter((queued) => queued.id !== queuedId)
+    return turn
+}
+
 /** @returns {Run} */
 export function newRun() {
     return {
@@ -347,6 +374,15 @@ function createStoreParser(native) {
             text: string(value.text, MAX_TEXT),
             attachments: list(value.attachments, attachment, MAX_ATTACHMENTS),
             createdAt: time(value.createdAt) || Date.now(),
+            ...(native &&
+                value.native === true && {
+                    native: true,
+                    instanceId: optionalString(value.instanceId),
+                    selection: selection(value.selection),
+                    run: run(value.run),
+                    instructions: string(value.instructions, MAX_INSTRUCTIONS),
+                    computerUse: value.computerUse === true,
+                }),
         }
     }
 

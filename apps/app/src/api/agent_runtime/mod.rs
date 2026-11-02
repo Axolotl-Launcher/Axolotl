@@ -275,7 +275,6 @@ async fn agent_runtime_submit(
     )
     .await
     .map_err(|e| e.to_string())?;
-    worker::ensure(&app).await?;
     let store = runtime.store().await?;
     execution::reconcile(&app, &runtime, &request.thread_id).await?;
     let unsettled = store
@@ -375,6 +374,10 @@ async fn agent_runtime_submit(
     queue.pending.push_back(id.clone());
     drop(queue);
     runtime.wake.notify_waiters();
+    if let Err(error) = worker::ensure(&app).await {
+        runtime.cancel(&id).await?;
+        return Err(error);
+    }
     Ok(json!({"attempt_id":id}))
 }
 
@@ -390,6 +393,7 @@ async fn agent_runtime_cancel(
 
 #[tauri::command]
 async fn agent_runtime_decide(
+    app: AppHandle,
     window: WebviewWindow,
     runtime: State<'_, AgentRuntime>,
     batch_id: String,
@@ -415,10 +419,31 @@ async fn agent_runtime_decide(
     } else {
         None
     };
-    let changed = store
-        .decide_batch(&batch_id, revision, &selected)
+    let pending = store
+        .batch_pending(&batch_id)
         .await
         .map_err(|e| e.to_string())?;
+    if pending {
+        if let Some(run) = &run {
+            for action in &batch.actions {
+                if selected.contains(&action.call_id) {
+                    let entry = launcher_tools::registry::get(&action.tool)
+                        .ok_or("Approval tool is no longer available")?;
+                    execution::allowed(&app, run, entry)?;
+                }
+            }
+        }
+    }
+    let changed = match store.decide_batch(&batch_id, revision, &selected).await
+    {
+        Ok(changed) => changed,
+        Err(agent_window::persistence::StoreError::ApprovalExpired) => {
+            drop(_control);
+            runtime.cancel(&batch.attempt_id).await?;
+            return Err("approval_expired".into());
+        }
+        Err(error) => return Err(error.to_string()),
+    };
     if changed {
         let run = run.as_ref().ok_or("Approval cannot resume after a launcher restart; continue the task manually")?;
         if run.cancel.is_cancelled() {

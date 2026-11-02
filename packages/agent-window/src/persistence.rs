@@ -20,6 +20,8 @@ type Result<T> = std::result::Result<T, StoreError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("Approval expired; prepare a fresh plan")]
+    ApprovalExpired,
     #[error("Agent database error: {0}")]
     Database(#[from] sqlx::Error),
     #[error("Agent database migration error: {0}")]

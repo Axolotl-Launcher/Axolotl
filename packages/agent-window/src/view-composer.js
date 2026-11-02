@@ -212,7 +212,7 @@ function renderQueue(thread, active) {
             h('div', { class: 'queued' }, [
                 icon('clock'),
                 h('span', { class: 'queued-text', text: entry.text }),
-                active
+                active || entry.native
                     ? h('span', { class: 'queued-tag', text: text('queuedTag') })
                     : button({
                           class: 'text-button',

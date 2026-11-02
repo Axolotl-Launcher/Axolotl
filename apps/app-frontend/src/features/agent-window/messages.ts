@@ -1,6 +1,10 @@
 import { defineMessages, type MessageDescriptor } from '@modrinth/ui'
 
 export const agentWindowMessages = defineMessages({
+    approvalExpired: {
+        id: 'app.agent-window.chat.approval-expired',
+        defaultMessage: 'This plan expired. Retry to prepare a fresh plan for review.',
+    },
     receiptApplied: { id: 'app.agent-window.chat.receipt-applied', defaultMessage: 'Applied' },
     receiptFailed: { id: 'app.agent-window.chat.receipt-failed', defaultMessage: 'Failed' },
     receiptSkipped: { id: 'app.agent-window.chat.receipt-skipped', defaultMessage: 'Not executed' },

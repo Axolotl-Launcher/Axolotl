@@ -43,7 +43,12 @@ pub fn validate_workspace_update(
             .ok_or(StoreError::Conflict(
                 "Task removal was not in the acknowledged workspace",
             ))?;
-        for turn in thread["turns"].as_array().into_iter().flatten() {
+        for turn in thread["turns"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .chain(thread["queue"].as_array().into_iter().flatten())
+        {
             if let Some(attempt) = turn["run"]["resume"]["attempt_id"].as_str()
             {
                 valid_id(attempt)?;

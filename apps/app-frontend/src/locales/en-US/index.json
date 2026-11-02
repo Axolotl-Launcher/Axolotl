@@ -18766,5 +18766,8 @@
   },
   "app.agent-window.chat.native-connecting": {
     "message": "Connecting…"
+  },
+  "app.agent-window.chat.approval-expired": {
+    "message": "This plan expired. Retry to prepare a fresh plan for review."
   }
 }

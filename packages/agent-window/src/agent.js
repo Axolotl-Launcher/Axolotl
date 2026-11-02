@@ -446,6 +446,16 @@ export class NativeRuntime {
         })
             .then(() => handle.attach())
             .catch((error) => {
+                if (String(error).includes('approval_expired')) {
+                    handle.detach()
+                    emit({
+                        type: 'error',
+                        title: text('stateStopped'),
+                        text: text('approvalExpired'),
+                        retryable: true,
+                    })
+                    return
+                }
                 emit({ type: 'decision-error', error: String(error) })
                 handle.attach()
             })

@@ -39,6 +39,7 @@ import {
 import {
     ACTIVE_STATUSES,
     activeThread,
+    adoptNativeQueued,
     createStorage,
     initialStore,
     lastTurn,
@@ -46,6 +47,7 @@ import {
     MAX_INSTRUCTIONS,
     MAX_PASTE,
     mergeAcknowledged,
+    newNativeQueued,
     newRun,
     newThread,
     newTurn,
@@ -895,7 +897,7 @@ function settle(threadId, before) {
             },
         )
     }
-    if (thread.queue.length && !ACTIVE_STATUSES.includes(status))
+    if (isPreview() && thread.queue.length && !ACTIVE_STATUSES.includes(status))
         sendQueued(thread.id, thread.queue[0].id)
 }
 
@@ -903,13 +905,14 @@ async function startTurn(threadId, message) {
     let created = null
     const previous = lastTurn(findThread(threadId))
     const waiting = pendingPlan(previous?.run)
-    if (waiting && !isPreview()) {
+    if (waiting && !isPreview() && !previous.run.preview) {
         try {
-            await window.AgentHost.runtimeInvoke('decide', {
-                batchId: waiting.plan.id,
-                revision: waiting.plan.revision,
-                selected: [],
+            await window.AgentHost.runtimeInvoke('cancel', {
+                attemptId: previous.run.resume.attempt_id,
             })
+            session.handles.get(previous.id)?.detach?.()
+            session.handles.delete(previous.id)
+            tickets.delete(previous.id)
         } catch (error) {
             notify(String(error), 'error')
             return false
@@ -988,19 +991,33 @@ async function submitReady() {
     const attachments = structuredClone(thread.attachments)
     const last = lastTurn(thread)
     if (last && ACTIVE_STATUSES.includes(last.run.status)) {
-        if (
-            await commit((next, active) => {
-                active.queue.push({
-                    id: crypto.randomUUID(),
-                    text: value,
-                    attachments,
-                    createdAt: Date.now(),
-                })
-                active.draft = ''
-                active.attachments = []
-            })
-        )
+        let queuedId
+        const saved = await commit((next) => {
+            const active = byId(next.threads, thread.id)
+            const queued = isPreview()
+                ? {
+                      id: crypto.randomUUID(),
+                      text: value,
+                      attachments,
+                      createdAt: Date.now(),
+                  }
+                : newNativeQueued(
+                      active,
+                      { text: value, attachments },
+                      next.instructions,
+                      session.computerUseTasks.has(active.id) &&
+                          session.permissions.full_access &&
+                          session.permissions.computer_use,
+                  )
+            queuedId = queued.id
+            active.queue.push(queued)
+            active.draft = ''
+            active.attachments = []
+        })
+        if (saved) {
             render()
+            if (!isPreview()) watchNativeQueued(thread.id, queuedId, true)
+        }
         return
     }
     return startTurn(thread.id, {
@@ -1013,10 +1030,94 @@ async function submitReady() {
     })
 }
 
+function watchNativeQueued(threadId, queuedId, submit = false) {
+    const thread = findThread(threadId)
+    const entry = thread?.queue.find((queued) => queued.id === queuedId)
+    if (!entry?.native || session.handles.has(queuedId)) return
+    const ticket = { from: entry.run.status }
+    tickets.set(queuedId, ticket)
+    const emit = (event) => {
+        if (tickets.get(queuedId) !== ticket || disposed) return
+        const current = findThread(threadId)
+        const queued = current?.queue.find((queued) => queued.id === queuedId)
+        if (!queued) {
+            onRuntimeEvent(threadId, queuedId, event)
+            return
+        }
+        if (event.type === 'connection') {
+            session.contextError = true
+            renderBanners()
+            return
+        }
+        if (event.nativeResume) queued.run.resume = event.nativeResume
+        if (event.type === 'resume') {
+            queued.run.resume = event.data
+            persistSoon()
+            return
+        }
+        if (event.type === 'snapshot' && event.state === 'queued') {
+            persistSoon()
+            return
+        }
+        adoptNativeQueued(current, queuedId)
+        if (threadId === session.store.activeId) syncTranscript()
+        renderComposer()
+        onRuntimeEvent(threadId, queuedId, event)
+    }
+    try {
+        const handle = submit
+            ? session.runtime.start(
+                  request(thread, entry, {
+                      instructions: entry.instructions,
+                      computerUse: entry.computerUse,
+                  }),
+                  emit,
+              )
+            : session.runtime.follow(
+                  threadId,
+                  entry.run.resume.attempt_id,
+                  entry.run.resume.cursor || 0,
+                  emit,
+              )
+        session.handles.set(queuedId, handle)
+    } catch (error) {
+        emit({ type: 'error', title: text('runtimeError'), text: String(error), retryable: true })
+    }
+}
+
+async function removeQueued(threadId, queuedId) {
+    const entry = findThread(threadId)?.queue.find((queued) => queued.id === queuedId)
+    if (!entry) return false
+    if (entry.native) {
+        session.handles.get(queuedId)?.detach?.()
+        session.handles.delete(queuedId)
+        tickets.delete(queuedId)
+        try {
+            await window.AgentHost.runtimeInvoke('cancel', {
+                attemptId: entry.run.resume.attempt_id,
+            })
+        } catch (error) {
+            notify(String(error), 'error')
+            watchNativeQueued(threadId, queuedId)
+            return false
+        }
+    }
+    const saved = await commit((next) => {
+        const thread = byId(next.threads, threadId)
+        thread.queue = thread.queue.filter((queued) => queued.id !== queuedId)
+    })
+    if (!saved && entry.native) watchNativeQueued(threadId, queuedId)
+    return saved
+}
+
 function sendQueued(threadId, queuedId) {
     const thread = findThread(threadId)
     const entry = thread?.queue.find((item) => item.id === queuedId)
     if (!entry) return
+    if (entry.native) {
+        watchNativeQueued(threadId, queuedId)
+        return
+    }
     startTurn(threadId, {
         text: entry.text,
         attachments: entry.attachments,
@@ -1141,6 +1242,16 @@ async function restoreRuns() {
                 threadId: thread.id,
             })
             for (const attempt of snapshot.attempts) {
+                const queued = thread.queue.find(
+                    (entry) =>
+                        entry.native &&
+                        entry.id === attempt.turn_id &&
+                        entry.run.resume?.attempt_id === attempt.id,
+                )
+                if (queued) {
+                    watchNativeQueued(thread.id, queued.id)
+                    continue
+                }
                 const turn = thread.turns.find((entry) => entry.id === attempt.turn_id)
                 if (!turn || turn.run.preview || session.handles.has(turn.id)) continue
                 if (turn.run.resume?.attempt_id && turn.run.resume.attempt_id !== attempt.id)
@@ -1157,6 +1268,19 @@ async function restoreRuns() {
                     turn.id,
                     session.runtime.follow(thread.id, attempt.id, cursor, emit),
                 )
+            }
+            for (const queued of [...thread.queue]) {
+                if (
+                    !queued.native ||
+                    snapshot.attempts.some((attempt) => attempt.turn_id === queued.id)
+                )
+                    continue
+                // A saved intent without an admitted server attempt needs a manual continuation.
+                // Closing or restarting the launcher must never replay it automatically.
+                const turn = adoptNativeQueued(thread, queued.id)
+                turn.run.status = 'interrupted'
+                turn.run.endedAt = Date.now()
+                persistSoon()
             }
         } catch {
             session.contextError = true
@@ -1217,7 +1341,10 @@ function createThread() {
 }
 
 async function deleteThread(id) {
-    const removedTurns = new Set(findThread(id)?.turns.map((turn) => turn.id) || [])
+    const removedThread = findThread(id)
+    const removedTurns = new Set(
+        [...(removedThread?.turns || []), ...(removedThread?.queue || [])].map((turn) => turn.id),
+    )
     const ok = await commit((next) => {
         next.threads = next.threads.filter((thread) => thread.id !== id)
         if (!next.threads.length) next.threads.push(newThread(structuredClone(next.lastSelection)))
@@ -1781,11 +1908,7 @@ document.addEventListener('click', async (event) => {
     } else if (data.removeQueued) {
         const index = currentThread().queue.findIndex((entry) => entry.id === data.removeQueued)
         const focused = target === document.activeElement
-        if (
-            await commit((next, thread) => {
-                thread.queue = thread.queue.filter((entry) => entry.id !== data.removeQueued)
-            })
-        ) {
+        if (await removeQueued(session.store.activeId, data.removeQueued)) {
             renderComposer()
             if (focused) focusAfterRemove('queue-list', 'data-remove-queued', index)
         }

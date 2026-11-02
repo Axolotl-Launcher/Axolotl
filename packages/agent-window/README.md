@@ -10,10 +10,8 @@ stop the agent at any time.
 
 The crate embeds plain ES modules (there is no bundler) and serves them over the `axolotl-agent://`
 protocol from the `ASSETS` table in `src/lib.rs`. A strict CSP applies, navigation is locked to the
-entry document, and the window cannot call launcher commands. The real agent backend is not
-connected yet. Until it is, a scripted runtime plays four sample tasks and the window labels itself
-**Preview**. This README is for the people who will connect that backend and for reviewers of
-PR #1039.
+entry document, and the window cannot call launcher commands. Native tasks use the background DeepAgent runtime through the `agent-runtime` plugin. The browser
+development server explicitly enables a scripted **Preview**; native failures never enable it.
 
 ## Layout of the package
 
@@ -280,28 +278,17 @@ a run with status `declined` or `superseded`.
   `null`. Answer again is offered on the latest turn when it ended done, declined or superseded and
   wrote nothing.
 
-### Leaving Preview
+### Native runtime and recovery
 
-The window uses the native runtime only when all of these hold:
+`window.js` exposes `AgentHost.runtimeInvoke` using `plugin:agent-runtime|agent_runtime_*`.
+`NativeRuntime` submits stable attempt IDs, sends approval batch revisions and actual call IDs,
+and polls the durable event journal by sequence. Resume data and cursors are saved with each
+turn. Reopening maps snapshot attempts by `turn_id` and replays only later events. Closing
+only detaches polling; the explicit Stop action sends cancellation. Applied plans require
+successful execution receipts. Interrupted or unknown writes remain unconfirmed and can be checked.
 
-1. `window.AgentHost.runtime` is set. The natural place is the native branch of `window.js`, next
-   to `getContext`.
-2. `getContext()` returns `execution_available: true`. `agent_window_get_context` returns `false`
-   for now.
-3. No Preview run is in flight. The window switches at its next context refresh.
-
-Only `preview: true` marks a runtime as the Preview. `ensureRuntime()` treats any other value,
-`false` or none at all, as native, so a native runtime still hands back to Preview when
-`execution_available` later turns false. Setting `preview: false` says so plainly.
-
-Once Preview is off, the badge and the composer note go, new runs are not marked `preview`,
-results lose "Simulated in preview", and sending needs a model.
-
-The window can only call commands of the `agent-window` plugin. Each new command needs an entry in
-`generate_handler!` in `apps/app/src/api/agent_window.rs`, in the plugin's command list in
-`apps/app/build.rs`, in `apps/app/capabilities/agent-window.json` and in the parity test
-`apps/app/tests/instance_command_manifest_parity.rs`. The CSP only allows `connect-src ipc:` and
-`http://ipc.localhost`, so events have to come back over Tauri IPC.
+Preview requires `AgentHost.preview === true` outside the native window. Missing native
+capabilities produce a recoverable error.
 
 ### A minimal runtime
 
@@ -424,7 +411,9 @@ The window enforces these rules:
 
 ## Persistence
 
-History stays on the device, in the window origin's `localStorage`, under
+Native history stays in Rust storage. Workspace saves use an expected revision and are acknowledged
+before transactional actions change the live UI. Legacy browser history is imported once. Only
+the development preview uses the window origin's `localStorage`, under
 `axolotl.agent-window.store.v2`. Everything read back is rebuilt field by field (`parseStore`):
 wrong types fall back to defaults, duplicate ids are dropped, strings are cut to their limits and
 unknown states become `interrupted`, `unknown` or `done`.

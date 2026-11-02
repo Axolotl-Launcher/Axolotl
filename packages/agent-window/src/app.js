@@ -21,7 +21,7 @@ import {
     restoreFocus,
 } from './dom.js'
 import { setLocale, text } from './messages.js'
-import { animate, morph, reducedMotion, ScrollFollower } from './motion.js'
+import { animate, finishEntrances, morph, reducedMotion, ScrollFollower } from './motion.js'
 import {
     currentThread,
     findThread,
@@ -91,6 +91,7 @@ import {
     renderPicker,
     renderSettings,
     toast,
+    togglePicker,
 } from './view-overlays.js'
 import { bindPalette, openPalette } from './view-palette.js'
 import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
@@ -514,8 +515,17 @@ function updateTicker() {
 let planObserver = null
 let planVisible = true
 let observed = null
+let observedThread = null
 function observePlan() {
-    const last = lastTurn(currentThread())
+    const thread = currentThread()
+    // Another task starts with the bar hidden; the observer shows it on its
+    // first report if that task's plan is out of view. What the last task's
+    // plan did never shows for a frame.
+    if (thread.id !== observedThread) {
+        observedThread = thread.id
+        planVisible = true
+    }
+    const last = lastTurn(thread)
     const actions =
         (pendingPlan(last?.run) && turnNode(last.id)?.querySelector('.plan-card .plan-actions')) ||
         null
@@ -1042,19 +1052,39 @@ function selectThread(id) {
         if (fromDrawer) element('message-input').focus()
         return
     }
-    morph(() => {
+    // Only the conversation changes, so the window does not fade as a whole.
+    // When one of the two is the new task page the composer changes place and
+    // the page morphs so it can glide there; between two conversations the
+    // new one settles into the pane at once.
+    const moves = !currentThread().turns.length !== !findThread(id)?.turns.length
+    const change = () => {
         if (
-            commit((next) => {
+            !commit((next) => {
                 next.activeId = id
                 delete byId(next.threads, id)?.unread
             })
-        ) {
-            drawer = null
-            fillSelection()
-            render()
-            if (fromDrawer) element('message-input').focus()
-        }
-    }, 'thread')
+        )
+            return false
+        drawer = null
+        fillSelection()
+        render()
+        // What the task already shows is not new: its header state, the pills
+        // over the composer and a drafted task's page appear as they are,
+        // like its history.
+        finishEntrances(element('conversation'))
+        if (fromDrawer) element('message-input').focus()
+        return true
+    }
+    if (moves) morph(change, 'thread')
+    else if (change())
+        animate(
+            element('messages'),
+            [
+                { opacity: 0.7, transform: 'translateY(4px)' },
+                { opacity: 1, transform: 'none' },
+            ],
+            { duration: 160, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+        )
 }
 
 // Settles once the new task page is showing, with the focus in its composer.
@@ -1383,12 +1413,10 @@ const actions = {
         refreshPermissions()
     },
     'model-picker': (event, target) => {
-        refreshContext()
-        openPicker('model', target)
+        if (togglePicker('model', target, event)) refreshContext()
     },
     'instance-picker': (event, target) => {
-        refreshContext()
-        openPicker('instance', target)
+        if (togglePicker('instance', target, event)) refreshContext()
     },
     'close-dialog': () => {
         for (const dialog of document.querySelectorAll('dialog[open]')) {

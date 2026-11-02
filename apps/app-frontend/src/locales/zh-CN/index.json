@@ -335,6 +335,36 @@
   "app.agent-window.chat.copy-text": {
     "message": "复制文本"
   },
+  "app.agent-window.chat.detail-preview-java": {
+    "message": "检查 Java"
+  },
+  "app.agent-window.chat.detail-preview-memory": {
+    "message": "检查内存"
+  },
+  "app.agent-window.chat.detail-preview-pick": {
+    "message": "选择实例"
+  },
+  "app.agent-window.chat.detail-preview-read": {
+    "message": "读取实例"
+  },
+  "app.agent-window.chat.detail-preview-log": {
+    "message": "读取崩溃报告"
+  },
+  "app.agent-window.chat.detail-preview-now": {
+    "message": "正在读取崩溃报告…"
+  },
+  "app.agent-window.chat.detail-caption-concise": {
+    "message": "每组步骤收成一行，只显示当前这一步。"
+  },
+  "app.agent-window.chat.detail-caption-balanced": {
+    "message": "Agent 工作时展开步骤，完成后自动收起。"
+  },
+  "app.agent-window.chat.detail-caption-detailed": {
+    "message": "所有步骤保持展开，并显示用到的工具。"
+  },
+  "app.agent-window.chat.plan-lead": {
+    "message": "建议方案"
+  },
   "app.agent-window.chat.tool-family-launcher": {
     "message": "查看或管理启动器本身，比如它的版本和更新"
   },
@@ -664,9 +694,6 @@
   },
   "app.agent-window.chat.paste-as-text": {
     "message": "改为直接粘贴"
-  },
-  "app.agent-window.chat.plan-kicker": {
-    "message": "建议的改动"
   },
   "app.agent-window.chat.manual-change": {
     "message": "需手动"

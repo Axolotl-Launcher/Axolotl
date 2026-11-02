@@ -392,6 +392,45 @@ it('groups models by provider and explains setup while no model is available', a
     expect(await page.locator('#instance-label').textContent()).toBe('Morning Mist')
 })
 
+it('closes a picker on a second click of its button and switches between the two', async () => {
+    const picker = page.locator('#picker')
+    const instance = page.locator('#instance-button')
+    const model = page.locator('#model-button')
+    const state = async () => ({
+        open: await picker.evaluate((node) => node.matches(':popover-open')),
+        instance: await instance.getAttribute('aria-expanded'),
+        model: await model.getAttribute('aria-expanded'),
+    })
+    await instance.click()
+    expect(await state()).toEqual({ open: true, instance: 'true', model: 'false' })
+    // The press itself moves the focus out of the picker, which closes it
+    // before the click; the click must not open it again.
+    await instance.click()
+    expect(await state()).toEqual({ open: false, instance: 'false', model: 'false' })
+    expect(await isFocused(instance)).toBe(true)
+    await instance.click()
+    expect(await state()).toEqual({ open: true, instance: 'true', model: 'false' })
+    // The other button switches pickers.
+    await model.click()
+    expect(await state()).toEqual({ open: true, instance: 'false', model: 'true' })
+    await model.click()
+    expect(await state()).toEqual({ open: false, instance: 'false', model: 'false' })
+    expect(await isFocused(model)).toBe(true)
+    // From the keyboard the button opens it, and Escape closes it onto the button.
+    await page.keyboard.press('Enter')
+    expect(await state()).toEqual({ open: true, instance: 'false', model: 'true' })
+    await page.keyboard.press('Escape')
+    expect(await state()).toEqual({ open: false, instance: 'false', model: 'false' })
+    await expect.poll(() => isFocused(model)).toBe(true)
+    // Pressed and released elsewhere, a button does not remember the press.
+    await instance.click()
+    await instance.dispatchEvent('pointerdown')
+    await page.keyboard.press('Escape')
+    await expect.poll(() => isFocused(instance)).toBe(true)
+    await page.keyboard.press('Enter')
+    expect(await state()).toEqual({ open: true, instance: 'true', model: 'false' })
+})
+
 it('keeps permission confirmation open during the write and shows retryable failures inside it', async () => {
     await page.locator('#settings-button').click()
     await page.locator('#permission-full-access').click()
@@ -1143,6 +1182,12 @@ it('keeps step groups open or folded by the chosen detail and remembers standing
     expect(
         await groups.evaluateAll((nodes) => nodes.every((node) => node.hasAttribute('data-open'))),
     ).toBe(true)
+    // Detailed names every step's tool, not only the one under the pointer.
+    expect(
+        await page
+            .locator('.step-tool:not([hidden])')
+            .evaluateAll((nodes) => nodes.every((node) => getComputedStyle(node).opacity === '1')),
+    ).toBe(true)
     await page.locator('#instructions-input').fill('Answer in English and prefer Fabric.')
     await page.clock.runFor(1_000)
 
@@ -1408,6 +1453,106 @@ it('steps through tasks with Ctrl [ and Ctrl ]', async () => {
     expect(await page.locator('#conversation-title').textContent()).toBe(newest)
 })
 
+it('switches between tasks in place, without fading the window or replaying their history', async () => {
+    await send('My game crashes on launch')
+    await (await untilPlan()).click()
+    await untilSettled()
+    await page.getByTestId('new-chat').click()
+    await send('Hello there')
+    await untilSettled()
+    const [newest, older] = await page
+        .locator('.thread-link')
+        .evaluateAll((links) => links.map((link) => (link as HTMLElement).dataset.thread))
+    // With motion on, every view transition is counted.
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.evaluate(() => {
+        const start = document.startViewTransition.bind(document)
+        Reflect.set(window, 'transitions', 0)
+        document.startViewTransition = (update) => {
+            Reflect.set(window, 'transitions', Reflect.get(window, 'transitions') + 1)
+            return start(update)
+        }
+    })
+    // Entrances CSS started under a node that are still to finish; the
+    // axolotl's own moods and endless loops do not count.
+    const entrances = (selector: string) =>
+        page
+            .locator(selector)
+            .evaluate(
+                (node) =>
+                    node
+                        .getAnimations({ subtree: true })
+                        .filter(
+                            (animation) =>
+                                animation instanceof CSSAnimation &&
+                                animation.playState === 'running' &&
+                                animation.effect?.getComputedTiming().endTime !== Infinity &&
+                                !(animation.effect as KeyframeEffect).target?.closest('.axo'),
+                        ).length,
+            )
+
+    // Between two conversations the new one is in place at once: no
+    // transition of the whole window, and its plan, steps and result show
+    // as they are rather than rising, drawing and popping in again.
+    await page.locator(`.thread-link[data-thread="${older}"]`).click()
+    expect(await page.locator('#conversation-title').textContent()).toBe(
+        await page.locator(`#thread-name-${older}`).textContent(),
+    )
+    expect(await page.locator('.plan-card .change').count()).toBeGreaterThan(0)
+    expect(await entrances('#messages')).toBe(0)
+    expect(await entrances('#conversation')).toBe(0)
+    expect(await page.evaluate(() => Reflect.get(window, 'transitions'))).toBe(0)
+    await page.locator(`.thread-link[data-thread="${newest}"]`).click()
+    expect(await entrances('#messages')).toBe(0)
+    expect(await page.evaluate(() => Reflect.get(window, 'transitions'))).toBe(0)
+
+    // To or from the new task page the composer changes place, so that one
+    // still morphs and the composer glides.
+    await page.getByTestId('new-chat').click()
+    await page.locator('#composer-home #composer').waitFor()
+    await page.locator('#message-input').fill('A draft')
+    const before = await page.evaluate(() => Reflect.get(window, 'transitions'))
+    await page.locator(`.thread-link[data-thread="${older}"]`).click()
+    await page.locator('#composer-dock #composer').waitFor()
+    expect(await page.evaluate(() => Reflect.get(window, 'transitions'))).toBe(before + 1)
+})
+
+it('closes the status line smoothly after its run, and opens it again for a new run', async () => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await send('Hello there')
+    const status = page.locator('#messages > .turn:last-child .run-status')
+    const hidden = () => status.evaluate((node) => (node as HTMLElement).hidden)
+    const untilLeaving = async () => {
+        for (let index = 0; index < 40 && !(await status.getAttribute('data-leaving')); index++)
+            await page.clock.runFor(250)
+        expect(await status.getAttribute('data-leaving')).toBeTruthy()
+    }
+    // The axolotl reacts first, then the line closes over a few frames
+    // rather than vanishing, and only then is hidden.
+    await untilLeaving()
+    await page.clock.runFor(1_400)
+    expect(await status.getAttribute('data-moving')).toBe('out')
+    expect(await hidden()).toBe(false)
+    await expect.poll(hidden).toBe(true)
+    expect(await status.getAttribute('data-moving')).toBeNull()
+
+    // Answered again, the same turn opens its line in place.
+    const again = page.locator('#messages > .turn:last-child [data-action="retry"]')
+    await again.evaluate((node) => (node as HTMLElement).click())
+    expect(await hidden()).toBe(false)
+    expect(await status.getAttribute('data-moving')).toBe('in')
+    await expect.poll(() => status.getAttribute('data-moving')).toBeNull()
+
+    // A run that starts while the line is closing takes it back open.
+    await untilLeaving()
+    await page.clock.runFor(1_400)
+    expect(await status.getAttribute('data-moving')).toBe('out')
+    await again.evaluate((node) => (node as HTMLElement).click())
+    await expect.poll(() => status.getAttribute('data-moving')).toBeNull()
+    expect(await hidden()).toBe(false)
+    expect(await status.evaluate((node) => node.getBoundingClientRect().height)).toBeGreaterThan(24)
+})
+
 it('renames a task in place by double-clicking its title', async () => {
     await send('Hello there')
     await untilSettled()
@@ -1510,6 +1655,65 @@ it('walks the steps-shown choice with arrow keys as a single tab stop', async ()
     expect(await isFocused(page.locator('#instructions-input'))).toBe(true)
     await page.keyboard.press('Shift+Tab')
     expect(await focusedChoice()).toBe('detailed')
+})
+
+it('previews each steps-shown choice under it, in one picture that only changes level', async () => {
+    await page.locator('#settings-button').click()
+    const preview = page.locator('#detail-preview')
+    // Decorative: the radio group carries the choice for screen readers.
+    expect(await preview.getAttribute('aria-hidden')).toBe('true')
+    expect(await preview.getAttribute('data-level')).toBe('balanced')
+    expect(await preview.locator('.dp-tool').allTextContents()).toEqual([
+        'java_list',
+        'system_get_memory',
+        'instance_list',
+        'instance_get',
+        'logs_read',
+    ])
+    const well = await preview.locator('.dp-well').elementHandle()
+    // What shows at each level: which groups are open (done, working), whether
+    // tool names show, which of the working group's two labels shows, and the
+    // one caption that does.
+    const shown = () =>
+        preview.evaluate((node) => {
+            const visible = (element: Element) => getComputedStyle(element).opacity === '1'
+            const groups = [...node.querySelectorAll('.dp-group')]
+            return {
+                open: groups.map(
+                    (group) =>
+                        getComputedStyle(group.querySelector('.dp-body')!).gridTemplateRows !==
+                        '0px',
+                ),
+                tools: [...node.querySelectorAll('.dp-tool')].every(visible),
+                label: [...groups[1].querySelectorAll('.dp-label > span')].findIndex(visible),
+                captions: [...node.querySelectorAll('.dp-caption > span')]
+                    .filter(visible)
+                    .map((caption) => (caption as HTMLElement).dataset.for),
+            }
+        })
+    expect(await shown()).toEqual({
+        open: [false, true],
+        tools: false,
+        label: 1,
+        captions: ['balanced'],
+    })
+    await page.locator('#detail-choice [data-detail="concise"]').click()
+    expect(await preview.getAttribute('data-level')).toBe('concise')
+    expect(await shown()).toEqual({
+        open: [false, false],
+        tools: false,
+        label: 0,
+        captions: ['concise'],
+    })
+    await page.locator('#detail-choice [data-detail="detailed"]').click()
+    expect(await shown()).toEqual({
+        open: [true, true],
+        tools: true,
+        label: 1,
+        captions: ['detailed'],
+    })
+    // The picture is built once, so a new level can move rather than redraw.
+    expect(await well!.evaluate((node) => node.isConnected)).toBe(true)
 })
 
 it('gives the focus back to what opened a popover or menu, even after a redraw', async () => {

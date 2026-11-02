@@ -335,6 +335,36 @@
   "app.agent-window.chat.copy-text": {
     "message": "Copy text"
   },
+  "app.agent-window.chat.detail-preview-java": {
+    "message": "Check Java"
+  },
+  "app.agent-window.chat.detail-preview-memory": {
+    "message": "Check memory"
+  },
+  "app.agent-window.chat.detail-preview-pick": {
+    "message": "Choose the instance"
+  },
+  "app.agent-window.chat.detail-preview-read": {
+    "message": "Read the instance"
+  },
+  "app.agent-window.chat.detail-preview-log": {
+    "message": "Read the crash report"
+  },
+  "app.agent-window.chat.detail-preview-now": {
+    "message": "Reading the crash report…"
+  },
+  "app.agent-window.chat.detail-caption-concise": {
+    "message": "Each group folds into one line that shows only the step at hand."
+  },
+  "app.agent-window.chat.detail-caption-balanced": {
+    "message": "Steps show while the agent works and fold away when it’s done."
+  },
+  "app.agent-window.chat.detail-caption-detailed": {
+    "message": "Every step stays open, with the tool it used."
+  },
+  "app.agent-window.chat.plan-lead": {
+    "message": "Proposed plan"
+  },
   "app.agent-window.chat.tool-family-launcher": {
     "message": "Looks at or manages the launcher itself, like its version and updates"
   },
@@ -664,9 +694,6 @@
   },
   "app.agent-window.chat.paste-as-text": {
     "message": "Paste as text"
-  },
-  "app.agent-window.chat.plan-kicker": {
-    "message": "Proposed changes"
   },
   "app.agent-window.chat.manual-change": {
     "message": "Do it yourself"

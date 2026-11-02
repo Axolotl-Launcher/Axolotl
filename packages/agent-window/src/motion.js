@@ -31,6 +31,19 @@ export function morph(change, kind = 'page') {
     return current.updateCallbackDone.then(() => result)
 }
 
+// Content that is shown again rather than arriving, such as a task opened from
+// the list, skips the entrances CSS gives its parts (rows rising in, ticks
+// drawing, icons popping): they jump to their end. Loops keep running, and the
+// axolotl keeps its own moods.
+export function finishEntrances(node) {
+    for (const animation of node.getAnimations({ subtree: true })) {
+        if (!(animation instanceof CSSAnimation)) continue
+        if (animation.effect?.getComputedTiming().endTime === Infinity) continue
+        if (animation.effect?.target?.closest('.axo')) continue
+        animation.finish()
+    }
+}
+
 export function animate(node, frames, options = {}) {
     if (reducedMotion.matches || !node?.isConnected || !node.getClientRects().length) return null
     const animation = node.animate(frames, {

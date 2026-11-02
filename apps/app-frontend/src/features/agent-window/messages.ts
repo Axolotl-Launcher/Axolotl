@@ -263,6 +263,43 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
+    detailPreviewJava: {
+        id: 'app.agent-window.chat.detail-preview-java',
+        defaultMessage: 'Check Java',
+    },
+    detailPreviewMemory: {
+        id: 'app.agent-window.chat.detail-preview-memory',
+        defaultMessage: 'Check memory',
+    },
+    detailPreviewPick: {
+        id: 'app.agent-window.chat.detail-preview-pick',
+        defaultMessage: 'Choose the instance',
+    },
+    detailPreviewRead: {
+        id: 'app.agent-window.chat.detail-preview-read',
+        defaultMessage: 'Read the instance',
+    },
+    detailPreviewLog: {
+        id: 'app.agent-window.chat.detail-preview-log',
+        defaultMessage: 'Read the crash report',
+    },
+    detailPreviewNow: {
+        id: 'app.agent-window.chat.detail-preview-now',
+        defaultMessage: 'Reading the crash report…',
+    },
+    detailCaptionConcise: {
+        id: 'app.agent-window.chat.detail-caption-concise',
+        defaultMessage: 'Each group folds into one line that shows only the step at hand.',
+    },
+    detailCaptionBalanced: {
+        id: 'app.agent-window.chat.detail-caption-balanced',
+        defaultMessage: 'Steps show while the agent works and fold away when it’s done.',
+    },
+    detailCaptionDetailed: {
+        id: 'app.agent-window.chat.detail-caption-detailed',
+        defaultMessage: 'Every step stays open, with the tool it used.',
+    },
+    planLead: { id: 'app.agent-window.chat.plan-lead', defaultMessage: 'Proposed plan' },
     toolFamilyLauncher: {
         id: 'app.agent-window.chat.tool-family-launcher',
         defaultMessage: 'Looks at or manages the launcher itself, like its version and updates',
@@ -631,7 +668,6 @@ export const agentWindowMessages = defineMessages({
         defaultMessage: 'Long text was attached as a file',
     },
     pasteAsText: { id: 'app.agent-window.chat.paste-as-text', defaultMessage: 'Paste as text' },
-    planKicker: { id: 'app.agent-window.chat.plan-kicker', defaultMessage: 'Proposed changes' },
     manualChange: { id: 'app.agent-window.chat.manual-change', defaultMessage: 'Do it yourself' },
     changeKindUpdate: { id: 'app.agent-window.chat.change-kind-update', defaultMessage: 'Update' },
     changeKindRollback: {

@@ -46,6 +46,36 @@ cargo fmt --all --check
 cargo check --package theseus_gui --features updater
 ```
 
+### Rust 覆盖率
+
+CI 的 `coverage` 作业用 [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) 在 Linux 上测量 workspace 的行覆盖率，`scripts/axolotl/rust-coverage.mjs` 是本地与 CI 共用的唯一入口。产物在 `target/coverage/` 下（`lcov.info`、`total.txt`、`summary.txt`、`html/`），CI 把它整个作为 `rust-coverage` 工件上传，保留 7 天。
+
+本地先准备工具与构建前置条件（子模块缺失时 `apps/app` 的构建脚本会失败；跳过 Blockbench 皮肤编辑器可以省下一次前端构建）：
+
+```powershell
+cargo install cargo-llvm-cov --version 0.9.1 --locked
+rustup component add llvm-tools-preview
+git submodule update --init --recursive
+$env:AXOLOTL_SKIP_BLOCKBENCH_BUILD = "1"
+```
+
+运行方式：
+
+```powershell
+# 完整测量，跑完自动打开 HTML 报告
+pnpm coverage:rust
+# 完整测量，只产出报告与 lcov，不打开浏览器
+pnpm coverage:rust:lcov
+# 只测一个 crate，迭代更快
+cargo llvm-cov -p theseus --html --open
+```
+
+`theseus_gui` 会启用 `theseus/tauri`，而该特性会把 `theseus` 测试需要的一组辅助函数编译掉，Cargo 又按单次调用统一特性，所以整条命令不能一次跑完整个 workspace：脚本先测除壳以外的所有 crate（`theseus` 不带 `tauri`），再单独测壳。两轮 profiling 数据会在生成报告时合并，同一行只要任一轮执行过就算已覆盖。
+
+插桩构建与报告都写在 `target/` 下（`target/llvm-cov-target/`、`target/coverage/`），已被忽略，不会出现在 `git status` 中。
+
+口径说明：指标是 `cargo llvm-cov report` 的 TOTAL 行覆盖率，只统计当前操作系统上编译得到的代码，因此 Linux 的 CI 数字不包含 `cfg(windows)` / `cfg(target_os = "macos")` 分支。`cargo-llvm-cov` 默认把 `tests/`、`examples/`、`benches/` 目录与 `tests.rs`、`*_tests.rs`、`*-tests.rs` 这类测试专用文件排除在分母之外；写在源码里的内联 `#[cfg(test)] mod tests` 计入分母，测试执行时会被命中。按当前源码结构（内联测试约占可报告行的 35%），75% 的行覆盖率大约对应 61% 的生产代码覆盖率，改 Rust 代码时请以这个口径判断目标，不要用排除文件的方式把缺口藏起来。
+
 ### 构建缓存与磁盘空间
 
 Rust 编译产物位于 `target` 目录，首次完整构建可能占用数 GB 空间。Turbo 仅缓存前端输出，不会缓存 `target/**`。桌面应用的 Tauri 构建任务已明确关闭 Turbo 缓存。

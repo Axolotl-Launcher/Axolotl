@@ -34,6 +34,29 @@ function assertPublishedManifest(published, expected) {
             throw mismatch()
         }
     }
+
+    // Releases published before the artifacts field existed keep verifying without it.
+    const artifacts = published.artifacts
+    if (artifacts === undefined) {
+        console.log('Preserved published manifest without a non-updater artifact list')
+        return
+    }
+    if (typeof artifacts !== 'object' || Array.isArray(artifacts)) throw mismatch()
+    const keys = Object.keys(expected.artifacts ?? {})
+    if (Object.keys(artifacts).sort().join() !== [...keys].sort().join()) throw mismatch()
+    for (const key of keys) {
+        const actual = artifacts[key]
+        const wanted = expected.artifacts[key]
+        if (!actual || typeof actual !== 'object') throw mismatch()
+        if (
+            actual.name !== wanted.name ||
+            actual.platform !== wanted.platform ||
+            actual.url !== wanted.url
+        ) {
+            throw mismatch()
+        }
+        if (actual.sha256 !== undefined && actual.sha256 !== wanted.sha256) throw mismatch()
+    }
 }
 
 export function finalizeGithubRelease(tag, directory, { publishedOnly = false, run = gh } = {}) {
@@ -80,7 +103,7 @@ export function finalizeGithubRelease(tag, directory, { publishedOnly = false, r
             '--clobber',
         ])
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-        verifyUpdateManifest(manifest, tag)
+        verifyUpdateManifest(manifest, tag, 'github', release)
         assertPublishedManifest(manifest, expected)
         console.log(`Preserved published updater manifest for ${tag}`)
     } else {

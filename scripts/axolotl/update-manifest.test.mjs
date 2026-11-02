@@ -17,6 +17,7 @@ test('generate stable tagged URLs from draft assets and verify the repository an
         'Axolotl.Launcher_aarch64.AppImage.tar.gz',
         'Axolotl.Launcher_amd64.AppImage.tar.gz',
         'Axolotl.Launcher_x64-setup.nsis.zip',
+        'Axolotl_Launcher_x64_portable.zip',
     ]
     const platformNames = {
         'darwin-aarch64': names[0],
@@ -72,6 +73,14 @@ test('generate stable tagged URLs from draft assets and verify the repository an
                 assert.equal(update.signature, signature)
             for (const [platform, name] of Object.entries(platformNames))
                 assert.equal(manifest.platforms[platform].sha256, sha256(name))
+            assert.deepEqual(manifest.artifacts, {
+                portable: {
+                    platform: 'windows-x86_64',
+                    name: names[4],
+                    sha256: sha256(names[4]),
+                    url: `https://github.com/${repository}/releases/download/${tag}/${names[4]}`,
+                },
+            })
             const verified = verify(repository)
             assert.equal(verified.status, 0, verified.stderr)
         }
@@ -125,6 +134,10 @@ test('generate stable tagged URLs from draft assets and verify the repository an
                 'https://cnb.cool/axlmc/Axolotl/-/releases/download/',
             )
         }
+        cnbManifest.artifacts.portable.url = cnbManifest.artifacts.portable.url.replace(
+            'https://github.com/Axolotl-Launcher/Axolotl/releases/download/',
+            'https://cnb.cool/axlmc/Axolotl/-/releases/download/',
+        )
         fs.writeFileSync(outputPath, JSON.stringify(cnbManifest))
         const cnbResult = verify(undefined, 'cnb')
         assert.equal(cnbResult.status, 0, cnbResult.stderr)

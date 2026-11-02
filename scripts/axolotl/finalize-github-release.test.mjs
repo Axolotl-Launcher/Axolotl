@@ -14,6 +14,7 @@ const names = [
     'Axolotl_aarch64.AppImage.tar.gz',
     'Axolotl_amd64.AppImage.tar.gz',
     'Axolotl_x64-setup.nsis.zip',
+    'Axolotl_Launcher_x64_portable.zip',
 ]
 
 function fixture(t) {
@@ -81,7 +82,7 @@ test('publish draft assets, refresh public metadata and preserve the manifest on
     const { directory, state, run } = fixture(t)
     const release = finalizeGithubRelease(tag, directory, { run })
     assert.equal(release.draft, false)
-    assert.equal(release.assets.length, 9)
+    assert.equal(release.assets.length, 11)
     assert.equal(
         JSON.parse(state.manifest).platforms['darwin-aarch64'].url,
         assetDownloadUrl(tag, names[0]),
@@ -157,6 +158,37 @@ test('a published manifest with a divergent SHA-256 is rejected', (t) => {
     state.calls.length = 0
     assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
     assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+})
+
+test('a published manifest with a divergent portable artifact is rejected', (t) => {
+    const { directory, state, run } = fixture(t)
+    finalizeGithubRelease(tag, directory, { run })
+    const manifest = JSON.parse(state.manifest)
+    assert.equal(manifest.artifacts.portable.name, names[4])
+    manifest.artifacts.portable.sha256 = createHash('sha256').update('other').digest('hex')
+    state.manifest = JSON.stringify(manifest)
+    state.calls.length = 0
+    assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
+    assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+})
+
+test('a legacy manifest without an artifact list keeps verifying', (t) => {
+    const { directory, state, run } = fixture(t)
+    finalizeGithubRelease(tag, directory, { run })
+    const manifest = JSON.parse(state.manifest)
+    delete manifest.artifacts
+    state.manifest = JSON.stringify(manifest)
+    state.calls.length = 0
+    const logs = []
+    const log = console.log
+    console.log = (message) => logs.push(String(message))
+    try {
+        finalizeGithubRelease(tag, directory, { run })
+    } finally {
+        console.log = log
+    }
+    assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+    assert(logs.includes('Preserved published manifest without a non-updater artifact list'))
 })
 
 test('excluded or malformed tags cannot issue GitHub commands', (t) => {

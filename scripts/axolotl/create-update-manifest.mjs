@@ -16,6 +16,13 @@ export const updaterTargets = [
     { platforms: ['windows-x86_64'], assetSuffix: '_x64-setup.nsis.zip' },
 ]
 
+// Artifacts that are not used by the updater but whose digests packaging channels
+// (for example a Scoop manifest) need published alongside it. They live in their own
+// top-level field so the updater's `platforms` contract stays untouched.
+export const portableTargets = [
+    { key: 'portable', platform: 'windows-x86_64', assetSuffix: '_x64_portable.zip' },
+]
+
 export function createUpdateManifest(release, signaturesPath, tag) {
     verifyRelease(release, tag)
     const platforms = {}
@@ -42,11 +49,31 @@ export function createUpdateManifest(release, signaturesPath, tag) {
         const url = assetDownloadUrl(tag, asset.name)
         for (const platform of target.platforms) platforms[platform] = { signature, url, sha256 }
     }
+    const artifacts = {}
+    for (const target of portableTargets) {
+        const matches = release.assets.filter((asset) => asset.name.endsWith(target.assetSuffix))
+        if (matches.length === 0) continue
+        if (matches.length > 1) {
+            throw new Error(
+                `Expected one release asset ending in ${target.assetSuffix}, found ${matches.length}`,
+            )
+        }
+        const asset = matches[0]
+        artifacts[target.key] = {
+            platform: target.platform,
+            name: asset.name,
+            sha256: assetSha256(asset),
+            url: assetDownloadUrl(tag, asset.name),
+        }
+    }
     return {
         version: releaseVersion(tag),
         notes: release.body ?? '',
         pub_date: release.published_at || new Date().toISOString(),
         platforms,
+        // Omitted for releases published before this field existed; the verifier treats it
+        // as optional for the same reason it treats a platform `sha256` as optional.
+        ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
     }
 }
 

@@ -8,12 +8,13 @@ import test from 'node:test'
 test('CNB mirrors the configured GitHub repository and verifies the final tagged manifest', (t) => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-cnb-test-'))
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-    const tag = 'v1.10.0-beta.5'
+    const tag = 'v1.11.0-beta.1'
     const names = [
         'Axolotl_universal.app.tar.gz',
         'Axolotl_aarch64.AppImage.tar.gz',
         'Axolotl_amd64.AppImage.tar.gz',
         'Axolotl_x64-setup.nsis.zip',
+        'Axolotl_Launcher_1.11.0-beta.1_x64_portable.zip',
     ]
     const platforms = Object.fromEntries(
         ['darwin-aarch64', 'darwin-x86_64', 'linux-aarch64', 'linux-x86_64', 'windows-x86_64'].map(
@@ -26,7 +27,18 @@ test('CNB mirrors the configured GitHub repository and verifies the final tagged
             ],
         ),
     )
-    const manifest = { version: tag.slice(1), platforms }
+    const manifest = {
+        version: tag.slice(1),
+        platforms,
+        artifacts: {
+            portable: {
+                platform: 'windows-x86_64',
+                name: names[4],
+                sha256: 'a'.repeat(64),
+                url: `https://github.com/Example/Fork/releases/download/${tag}/${names[4]}`,
+            },
+        },
+    }
     const release = {
         id: 123,
         tag_name: tag,
@@ -93,9 +105,17 @@ test('CNB mirrors the configured GitHub repository and verifies the final tagged
     )
     assert.equal(result.status, 0, result.stderr)
     const output = JSON.parse(fs.readFileSync(path.join(directory, 'latest.json'), 'utf8'))
-    assert.equal(output.version, '1.10.0-beta.5')
+    assert.equal(output.version, '1.11.0-beta.1')
     assert.equal(
         output.platforms['darwin-aarch64'].url,
         `https://cnb.cool/axlmc/Axolotl/-/releases/download/${tag}/${names[0]}`,
     )
+    assert.deepEqual(output.artifacts, {
+        portable: {
+            platform: 'windows-x86_64',
+            name: names[4],
+            sha256: 'a'.repeat(64),
+            url: `https://cnb.cool/axlmc/Axolotl/-/releases/download/${tag}/${names[4]}`,
+        },
+    })
 })

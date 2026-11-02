@@ -84,6 +84,17 @@ it('replaces the native colour dialog with a themed panel', async () => {
     expect(panel()?.classList.contains('bg-surface-4')).toBe(true)
 })
 
+it('applies a caller class to the trigger, not to a phantom root', async () => {
+    const wrapper = await mountThemed(
+        ColorPicker,
+        { modelValue: '#ff0000', class: 'shrink-0' },
+        'dark',
+    )
+    mounted.push(wrapper)
+
+    expect(wrapper.get('span').classes()).toContain('shrink-0')
+})
+
 it('renders the sixteen dye presets in one group', async () => {
     await openPicker()
 

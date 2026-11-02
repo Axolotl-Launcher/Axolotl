@@ -48,6 +48,10 @@ const emit = defineEmits<{
     close: []
 }>()
 
+// The component renders a fragment (trigger plus a teleported panel), so Vue has
+// no single root to put a caller's `class` on. Forward it to the trigger instead.
+defineOptions({ inheritAttrs: false })
+
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
@@ -426,7 +430,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <span ref="triggerRef" class="inline-flex min-w-0">
+    <span ref="triggerRef" class="inline-flex min-w-0" v-bind="$attrs">
         <slot name="trigger" :toggle="togglePanel" :open="open" :expanded="open">
             <button
                 type="button"

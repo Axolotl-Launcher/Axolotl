@@ -48,7 +48,7 @@ fn instance(gauge: &Arc<Gauge>) -> Built<()> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn abort_then_immediate_rebuild_never_runs_two_instances() {
     let gauge = Arc::new(Gauge::default());
-    let slot = Arc::new(EvictionSlot::live(instance(&gauge)));
+    let slot = Arc::new(EvictionSlot::live(1, instance(&gauge)));
     for _ in 0..50 {
         let evict = {
             let slot = Arc::clone(&slot);
@@ -92,7 +92,7 @@ async fn abort_then_immediate_rebuild_never_runs_two_instances() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_rebuilds_build_one_instance() {
     let gauge = Arc::new(Gauge::default());
-    let slot = Arc::new(EvictionSlot::live(instance(&gauge)));
+    let slot = Arc::new(EvictionSlot::live(1, instance(&gauge)));
     slot.evict().await;
     let rebuilds: Vec<_> = (0..8)
         .map(|_| {

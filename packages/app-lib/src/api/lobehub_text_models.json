@@ -1,5 +1,5 @@
 {
-  "source": "LobeHub 483c4a343e437bf6e812b5f71a9a47ce7b5c7be4 model-bank chat models",
+  "source": "LobeHub 700c8349e35477cb602975f8089c942e96bc9601 model-bank chat models",
   "providers": {
     "ai21": [
       {
@@ -597,6 +597,11 @@
       {
         "id": "claude-haiku-5-5",
         "name": "Claude Haiku 5.5",
+        "enabled": true
+      },
+      {
+        "id": "claude-sonnet-5-5",
+        "name": "Claude Sonnet 5.5",
         "enabled": true
       },
       {
@@ -1347,6 +1352,11 @@
     ],
     "deepseek": [
       {
+        "id": "deepseek-flash",
+        "name": "DeepSeek V4.1 Flash",
+        "enabled": true
+      },
+      {
         "id": "deepseek-v4-flash",
         "name": "DeepSeek V4 Flash",
         "enabled": true
@@ -1954,6 +1964,11 @@
         "enabled": false
       },
       {
+        "id": "gemini-4-argon",
+        "name": "Gemini 4 Argon",
+        "enabled": true
+      },
+      {
         "id": "gemini-3.8-flash",
         "name": "Gemini 3.8 Flash",
         "enabled": true
@@ -1976,6 +1991,11 @@
       {
         "id": "gemini-3.5-flash-lite",
         "name": "Gemini 3.5 Flash-Lite",
+        "enabled": true
+      },
+      {
+        "id": "gemini-nano-banana-2.1",
+        "name": "Nano Banana 2.1",
         "enabled": true
       },
       {
@@ -3688,6 +3708,16 @@
       }
     ],
     "moonshot": [
+      {
+        "id": "kimi-k3.1-pro",
+        "name": "Kimi K3.1 Pro",
+        "enabled": false
+      },
+      {
+        "id": "kimi-k3.1-pro-highspeed",
+        "name": "Kimi K3.1 Pro HighSpeed",
+        "enabled": false
+      },
       {
         "id": "kimi-k3",
         "name": "Kimi K3",

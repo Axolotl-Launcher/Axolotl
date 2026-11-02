@@ -54,7 +54,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -102,9 +102,9 @@ jobs:
       - name: Check Discord release notifications
         run: node --test scripts/axolotl/publish-discord-release.test.mjs
       - name: Check scheduler resource gates
-        # Advisory until the team adopts the scheduler policy: these gates fail
-        # on any new lock, spawn or std::fs site until its policy entry lands.
-        continue-on-error: true
+        # Blocking since the scheduler policy is part of the tree: a new lock,
+        # spawn or std::fs site fails until its policy entry lands, and a stale
+        # rank fingerprint fails until it is re-reviewed.
         # Every gate runs even after one fails; the step fails at the end and
         # names each failed gate.
         run: |
@@ -127,10 +127,16 @@ jobs:
           gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
           gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
           gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
-          # Exit 1 from these two means the design falls back to per-family
-          # orders (an accepted outcome); only other codes fail.
+          gate 0 node scripts/axolotl/sched-whitelist-check.mjs
+          gate 0 node scripts/axolotl/sched-enter-ban-check.mjs
+          gate 0 node scripts/axolotl/sched-tag-check.mjs
+          gate 0 node scripts/axolotl/sched-unbounded-sender-check.mjs
+          # Exit 1 here means the design falls back to per-family orders (an
+          # accepted outcome, spec §11.8 R5); only other codes fail.
           gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs
-          gate 1 node scripts/axolotl/sched-order-annotation-check.mjs
+          # Within each family the order is enforced: every acquisition point
+          # the per-family order can judge must carry an annotation.
+          gate 0 node scripts/axolotl/sched-order-annotation-check.mjs --require-annotations
           if [ "${#failed[@]}" -gt 0 ]; then
             printf 'failed scheduler gates:\n'
             printf '  %s\n' "${failed[@]}"
@@ -153,7 +159,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -191,7 +197,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -278,6 +284,20 @@ jobs:
       - name: Test the store collections
         if: runner.os == 'Linux'
         run: cargo test --package theseus state::store::tests
+      # The scheduler: tags and their cap, the L0 executor, queue, quiesce,
+      # supervision, the critical-section API and telemetry reconciliation.
+      # Hermetic (timers, temp dirs, in-memory sqlite); Linux only for matrix
+      # cost. These suites were in no filter, so the Node gates were the only
+      # thing watching the scheduler.
+      - name: Test the scheduler
+        if: runner.os == 'Linux'
+        run: |
+          cargo test --package theseus scheduler::
+          cargo test --package theseus install::critical_section
+          cargo test --package theseus telemetry::reconcile
+          cargo test --package theseus state::process::playtime_clock
+          cargo test --package theseus state::process::l0_separation_tests
+          cargo test --package theseus state::process::stopped_detector_tests
       # The account secrets: a row keeps a secret the credential store will not
       # take, and moving the rows into the store keeps the rows it already moved.
       # Hermetic (in-memory sqlite, and a store substituted for the platform's).
@@ -359,7 +379,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

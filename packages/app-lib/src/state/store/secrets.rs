@@ -138,6 +138,35 @@ pub(crate) fn key(parts: &[&str]) -> String {
     key
 }
 
+/// Reads an entry whose caller has no database fallback. A missing or locked
+/// system store must remain an error rather than looking like a signed-out user.
+pub(crate) fn read_entry(key: &str) -> crate::Result<Option<String>> {
+    if unavailable() {
+        return Err(unreadable());
+    }
+    backend().get(key).map_err(|_| unreadable())
+}
+
+/// Writes or removes an entry that must stay entirely in the system store.
+/// Callers with long records split them before reaching this boundary.
+pub(crate) fn write_entry(key: &str, value: Option<&str>) -> crate::Result<()> {
+    if unavailable() {
+        return Err(unreadable());
+    }
+    match value {
+        Some(value) if size(value) <= MOST => backend().set(key, value),
+        Some(_) => {
+            return Err(crate::ErrorKind::InputError(
+                "The credential exceeds the system store entry limit"
+                    .to_string(),
+            )
+            .into());
+        }
+        None => backend().delete(key),
+    }
+    .map_err(|_| unreadable())
+}
+
 /// Stores one secret, and says whether the store holds it now.
 pub(crate) async fn keep(key: String, value: &str) -> bool {
     if unavailable() {

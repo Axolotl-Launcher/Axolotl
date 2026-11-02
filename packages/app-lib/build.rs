@@ -61,6 +61,10 @@ fn set_env() {
         .collect();
 
     for (var_name, var_value) in &dotenv_values {
+        // Ignore obsolete shared credentials left in local configuration.
+        if var_name == "SHIMU_OAUTH_CLIENT_SECRET" {
+            continue;
+        }
         if var_name == "DATABASE_URL"
             || var_name == "CURSEFORGE_API_KEY"
             || var_name == DATA_DIR_SUFFIX_VAR

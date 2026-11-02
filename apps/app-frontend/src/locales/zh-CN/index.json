@@ -1,4 +1,200 @@
 {
+  "app.schematics.source.reden": { "message": "Reden" },
+  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
+  "app.schematics.failed-sources": { "message": "暂时无法加载：{sources}" },
+  "app.schematics.sort.default": { "message": "来源默认顺序" },
+  "app.schematics.sort.name": { "message": "名称" },
+  "app.schematics.login-required-sources": {
+    "message": "{count} 个来源需要<login-link>登录</login-link>"
+  },
+  "app.schematics.open-source": { "message": "在来源网站查看" },
+  "app.schematics.instances-error": {
+    "message": "无法读取实例列表。"
+  },
+  "app.browse.schematics-project-type": {
+    "message": "投影"
+  },
+  "app.schematics.source": {
+    "message": "拾木空间"
+  },
+  "app.schematics.login-title": {
+    "message": "连接拾木空间"
+  },
+  "app.schematics.login-description": {
+    "message": "登录后即可浏览拾木空间的免费投影，并安装到你的 Minecraft 实例。"
+  },
+  "app.schematics.login": {
+    "message": "登录拾木空间"
+  },
+  "app.schematics.waiting": {
+    "message": "请在浏览器中完成授权"
+  },
+  "app.schematics.expired": {
+    "message": "重新连接拾木空间"
+  },
+  "app.schematics.load-error": {
+    "message": "无法加载投影。"
+  },
+  "app.schematics.account-error": {
+    "message": "无法读取拾木空间账户。"
+  },
+  "app.schematics.empty-title": {
+    "message": "未找到投影"
+  },
+  "app.schematics.empty-description": {
+    "message": "可以切换其他页码，或尝试其他关键词。"
+  },
+  "app.schematics.loading": {
+    "message": "正在加载投影…"
+  },
+  "app.schematics.retry": {
+    "message": "重试"
+  },
+  "app.schematics.search": {
+    "message": "搜索投影"
+  },
+  "app.schematics.sort.hot": { "message": "热门" },
+  "app.schematics.sort.featured": { "message": "精选" },
+  "app.schematics.author-summary": {
+    "message": "{author} · {summary}"
+  },
+  "app.schematics.select-instance": {
+    "message": "选择实例"
+  },
+  "app.schematics.install": {
+    "message": "安装"
+  },
+  "app.schematics.installing": {
+    "message": "正在安装…"
+  },
+  "app.schematics.preview": { "message": "预览" },
+  "app.schematics.files": { "message": "文件" },
+  "app.schematics.creator": { "message": "创作者" },
+  "app.schematics.source-heading": { "message": "来源" },
+  "app.schematics.preview-source": { "message": "拾木空间 · {fileName}" },
+  "app.schematics.installed": {
+    "message": "已安装"
+  },
+  "app.schematics.install-success": {
+    "message": "投影已安装"
+  },
+  "app.schematics.install-failed": {
+    "message": "未能安装此投影，请重试。"
+  },
+  "app.schematics.file-exists": {
+    "message": "实例中已有同名投影。请选择其他实例，或先重命名已有文件。"
+  },
+  "app.schematics.login-failed": {
+    "message": "未能完成连接，请重试。"
+  },
+  "app.third-party.connected-notification": {
+    "message": "已成功连接拾木空间"
+  },
+  "app.third-party.description": {
+    "message": "连接第三方账户，供启动器中的相关功能使用。"
+  },
+  "app.third-party.shimu": {
+    "message": "拾木空间"
+  },
+  "app.third-party.shimu-purpose": {
+    "message": "连接你的拾木空间账户。"
+  },
+  "app.third-party.identity": {
+    "message": "{nickname} · {username}"
+  },
+  "app.third-party.connected": {
+    "message": "已连接"
+  },
+  "app.third-party.disconnected": {
+    "message": "未连接"
+  },
+  "app.third-party.expired": {
+    "message": "需要重新登录"
+  },
+  "app.third-party.waiting": {
+    "message": "等待授权"
+  },
+  "app.third-party.exchanging": {
+    "message": "正在完成连接"
+  },
+  "app.third-party.connect": {
+    "message": "连接"
+  },
+  "app.third-party.reconnect": {
+    "message": "重新连接"
+  },
+  "app.third-party.cancel": {
+    "message": "取消"
+  },
+  "app.third-party.more": {
+    "message": "拾木空间账户选项"
+  },
+  "app.third-party.check": {
+    "message": "检查连接"
+  },
+  "app.third-party.disconnect": {
+    "message": "断开连接"
+  },
+  "app.third-party.disconnect-title": {
+    "message": "断开拾木空间连接？"
+  },
+  "app.third-party.disconnect-description": {
+    "message": "这会从本启动器移除账户凭据。如需在拾木空间撤销授权，请前往其网站管理。"
+  },
+  "app.third-party.denied": {
+    "message": "已拒绝授权，你可以重新连接。"
+  },
+  "app.third-party.timed-out": {
+    "message": "授权已超时，请重新连接。"
+  },
+  "app.third-party.failed": {
+    "message": "未能完成连接，请重试。"
+  },
+  "app.third-party.load-failed": {
+    "message": "无法读取账户状态。"
+  },
+  "app.third-party.check-failed": {
+    "message": "连接检查失败，请重试。"
+  },
+  "app.third-party.action-failed": {
+    "message": "账户操作失败，请重试。"
+  },
+  "app.third-party.retry": {
+    "message": "重试"
+  },
+  "app.third-party.unavailable": {
+    "message": "此版本暂不可连接账户。"
+  },
+  "app.third-party.permissions": {
+    "message": "授权内容：读取账户资料和帖子、下载资源。授权有效期为 3 天，过期后需要重新登录。"
+  },
+  "app.third-party.browser": {
+    "message": "请在浏览器中完成授权。"
+  },
+  "app.third-party.search": {
+    "message": "拾木空间 mcimg OAuth 账户 授权 登录 连接"
+  },
+  "app.settings.tabs.third-party-accounts": {
+    "message": "第三方账户"
+  },
+  "app.downloads.task.install-content": {
+    "message": "安装内容"
+  },
+  "app.downloads.task.install-content-named": {
+    "message": "安装内容：{name}"
+  },
+  "app.downloads.task.install-content-batch": {
+    "message": "安装内容：{name} 等 {count} 项"
+  },
+  "app.downloads.task.change-content": {
+    "message": "变更内容"
+  },
+  "app.downloads.task.change-content-named": {
+    "message": "变更内容：{name}"
+  },
+  "app.downloads.task.change-content-batch": {
+    "message": "变更内容：{name} 等 {count} 项"
+  },
   "app.drop.minecraft-root-added": {
     "message": "已添加 Minecraft 文件夹"
   },
@@ -2158,6 +2354,12 @@
   },
   "app.browse.preparing-selected": {
     "message": "正在准备 {completed}/{total}"
+  },
+  "app.browse.reviewing-selected": {
+    "message": "正在预览内容变更…"
+  },
+  "app.browse.queueing-selected": {
+    "message": "正在加入下载队列…"
   },
   "app.browse.project-type.datapacks": {
     "message": "数据包"
@@ -5898,7 +6100,7 @@
     "message": "折叠文件夹 {name}"
   },
   "app.lab.schematic-preview.instance-picker.empty": {
-    "message": "该实例中没有找到 .litematic 或 .schem 文件。"
+    "message": "该实例中没有找到投影文件。"
   },
   "app.lab.schematic-preview.instance-picker.expand-folder": {
     "message": "展开文件夹 {name}"
@@ -8640,7 +8842,7 @@
     "message": "制作数据包配方"
   },
   "app.onboarding.lab-schematic.description": {
-    "message": "打开本地 .litematic 或 .schem 文件，也可以从已安装实例中选择。3D 工作区集中提供查看、测量、图层控制、材料统计和本地编辑。"
+    "message": "打开本地投影文件，也可以从已安装实例中选择。3D 工作区集中提供查看、测量、图层控制、材料统计和本地编辑。"
   },
   "app.onboarding.lab-schematic.title": {
     "message": "放置前先检查建筑"
@@ -10157,6 +10359,30 @@
   "app.settings.downloading": {
     "message": "正在下载 v{version}"
   },
+  "app.settings.export.all-button": {
+    "message": "导出全部设置文件…"
+  },
+  "app.settings.export.all-label": {
+    "message": "全部设置文件"
+  },
+  "app.settings.export.exported-text": {
+    "message": "设置归档已保存到 {path}"
+  },
+  "app.settings.export.exported-title": {
+    "message": "设置已导出"
+  },
+  "app.settings.export.patch-button": {
+    "message": "导出补丁…"
+  },
+  "app.settings.export.patch-description": {
+    "message": "只包含与默认值不同的键。归档里是每个域的文档文件，解压后可直接作为部署配置使用。"
+  },
+  "app.settings.export.patch-label": {
+    "message": "部署补丁"
+  },
+  "app.settings.export.title": {
+    "message": "管理设置文件"
+  },
   "app.settings.feature-flags.reset-to-default": {
     "message": "恢复默认值"
   },
@@ -11377,6 +11603,12 @@
   },
   "app.settings.logs.retention.title": {
     "message": "日志自动保留策略"
+  },
+  "app.settings.override.hint": {
+    "message": "已覆盖部署提供的值。"
+  },
+  "app.settings.override.restore": {
+    "message": "恢复部署值"
   },
   "app.settings.privacy.data-handling": {
     "message": "遥测使用随机安装标识，仅发送每日活跃信号。关闭遥测会立即清空待发送数据。"
@@ -14930,6 +15162,9 @@
   "instance.upgrade.select.loading-fabric-versions": {
     "message": "正在加载 Fabric 版本……"
   },
+  "instance.upgrade.select.downgrade-unsupported": {
+    "message": "不支持降级版本。"
+  },
   "instance.upgrade.select.loading-versions": {
     "message": "正在加载 Minecraft 版本……"
   },
@@ -15658,6 +15893,15 @@
   },
   "app.resources.operation.apply": {
     "message": "加入任务队列"
+  },
+  "app.resources.operation.force-install": {
+    "message": "忽略依赖并强制安装"
+  },
+  "app.resources.operation.force-install-tooltip": {
+    "message": "{reason} 尝试仅安装所选内容，不安装依赖。"
+  },
+  "app.resources.operation.force-install-compatibility-tooltip": {
+    "message": "{reason} 尝试仅安装所选内容，不安装依赖，并接受其 Minecraft 版本或加载器不兼容的情况。"
   },
   "app.resources.operation.empty": {
     "message": "无需变更文件。"
@@ -20414,6 +20658,9 @@
   "app.lab.command-generator.arg.waypoint.value.desc": {
     "message": "颜色或样式"
   },
+  "app.instance.content.processing": {
+    "message": "正在更新实例文件……完成后将自动刷新内容。"
+  },
   "app.instance.content.checking": {
     "message": "刷新…… {current}/{total}"
   },
@@ -20614,5 +20861,83 @@
   },
   "app.downloads.diagnostics.pool-help": {
     "message": "全局共享下载池当前剩余的资源额度，会受其他文件和任务影响。"
+  },
+  "app.settings.export.cleanup-label": {
+    "message": "本地设置文件"
+  },
+  "app.settings.export.cleanup-button": {
+    "message": "整理…"
+  },
+  "app.settings.export.cleanup-running": {
+    "message": "正在整理…"
+  },
+  "app.settings.export.cleanup-confirm-title": {
+    "message": "整理本地设置文件？"
+  },
+  "app.settings.export.cleanup-confirm-description": {
+    "message": "会重写全部本地设置文档，并丢弃未知和冗余的键。此操作不可撤销。"
+  },
+  "app.settings.export.cleanup-confirm-proceed": {
+    "message": "整理"
+  },
+  "app.settings.export.cleanup-done-title": {
+    "message": "本地设置文件已整理"
+  },
+  "app.settings.export.cleanup-done-text": {
+    "message": "{count, plural, =0 {没有文档需要重写。} other {已重写 # 个本地设置文档。}}"
+  },
+  "app.settings.export.import-label": {
+    "message": "设置归档"
+  },
+  "app.settings.export.import-button": {
+    "message": "导入…"
+  },
+  "app.settings.export.import-running": {
+    "message": "正在导入…"
+  },
+  "app.settings.export.import-confirm-title": {
+    "message": "导入设置？"
+  },
+  "app.settings.export.import-confirm-description": {
+    "message": "归档会与现有本地设置合并，冲突的键以导入的归档为准。此操作不可撤销。"
+  },
+  "app.settings.export.import-confirm-proceed": {
+    "message": "导入"
+  },
+  "app.settings.export.imported-title": {
+    "message": "设置已导入"
+  },
+  "app.settings.export.imported-text": {
+    "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}}"
+  },
+  "app.settings.export.import-danger-title": {
+    "message": "即将导入的设置可能存在危险"
+  },
+  "app.settings.export.import-danger-description": {
+    "message": "您即将导入的设置将会修改 {keys}。"
+  },
+  "app.settings.export.import-danger-key-column": {
+    "message": "危险设置"
+  },
+  "app.settings.export.import-danger-before-column": {
+    "message": "导入前"
+  },
+  "app.settings.export.import-danger-after-column": {
+    "message": "导入后"
+  },
+  "app.settings.export.import-danger-note": {
+    "message": "它们会修改启动游戏时的参数或者运行前自动执行的命令，还可能改变游戏进程的环境（例如注入环境变量）。如果您不信任文件的来源或不理解它们的含义和作用，那么应该取消导入或跳过这些危险设置。请确保仅在您完全理解并信任它们时继续。"
+  },
+  "app.settings.export.import-danger-cancel": {
+    "message": "取消导入"
+  },
+  "app.settings.export.import-danger-skip": {
+    "message": "跳过危险设置"
+  },
+  "app.settings.export.import-danger-allow": {
+    "message": "继续导入"
+  },
+  "app.settings.export.imported-dropped-text": {
+    "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}} {dropped, plural, other {另有 # 个值因类型不合法被忽略。}}"
   }
 }

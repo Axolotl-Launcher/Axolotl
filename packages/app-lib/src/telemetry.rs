@@ -107,6 +107,29 @@ async fn run_cycle(
     Ok(())
 }
 
+/// Startup reconciliation of the telemetry cycle. The cycle's writes are not
+/// one transaction, so a previous session can stop between them: the identity
+/// may exist without today's heartbeat, error events from older clients may
+/// remain, and the outbox may be only partly trimmed. Each step is atomic on
+/// its own (the heartbeat and its day are one unit) or idempotent (the trims),
+/// so running them once more converges.
+pub(crate) async fn reconcile(state: &State) -> crate::Result<()> {
+    let _database_permit = state.acquire_install_db_permit().await?;
+    if !is_enabled(state).await? {
+        TelemetryOutbox::set_all(&state.data, &[]).await?;
+        return Ok(());
+    }
+    ensure_identity(state).await?;
+    TelemetryOutbox::set_scoped(
+        &state.data,
+        &TelemetryOutboxScope::Kind(TelemetryEventType::Error),
+        &[],
+    )
+    .await?;
+    enqueue_heartbeat(state).await?;
+    cleanup_outbox(state).await
+}
+
 async fn is_enabled(state: &State) -> crate::Result<bool> {
     let settings = Settings::get(&state.data).await?;
     Ok(settings.telemetry && settings.telemetry_consent_version > 0)
@@ -367,5 +390,83 @@ mod tests {
         assert_eq!(payload.as_object().unwrap().len(), 4);
         assert!(payload.get("download_stats").is_none());
         assert_eq!(payload["type"], "heartbeat");
+    }
+}
+
+#[cfg(test)]
+mod reconcile_tests {
+    use super::*;
+
+    async fn fixture(enabled: bool) -> (tempfile::TempDir, Arc<State>) {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = crate::state::DirectoryInfo {
+            settings_dir: temp.path().into(),
+            config_dir: temp.path().into(),
+            app_identifier: "telemetry-test".into(),
+        };
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(2)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(temp.path().join("state.db"))
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        sqlx::query(
+            "UPDATE settings SET telemetry = ?, telemetry_consent_version = ?",
+        )
+        .bind(enabled)
+        .bind(i64::from(enabled))
+        .execute(&pool)
+        .await
+        .unwrap();
+        let state = crate::state::test_state(directories, pool).await.unwrap();
+        (temp, state)
+    }
+
+    async fn heartbeats(state: &State) -> i64 {
+        sqlx::query_scalar(
+            "SELECT COUNT(*) FROM telemetry_outbox WHERE dedupe_key LIKE 'heartbeat:%'",
+        )
+        .fetch_one(&state.pool)
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn an_interrupted_cycle_converges_and_repeats_harmlessly() {
+        let (_temp, state) = fixture(true).await;
+        // A session that stopped after creating its identity, before today's
+        // heartbeat was queued.
+        ensure_identity(&state).await.unwrap();
+        assert_eq!(heartbeats(&state).await, 0);
+
+        reconcile(&state).await.unwrap();
+        assert_eq!(heartbeats(&state).await, 1, "the heartbeat is queued");
+        reconcile(&state).await.unwrap();
+        assert_eq!(heartbeats(&state).await, 1, "and only once");
+        state.pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn disabled_telemetry_leaves_an_empty_outbox() {
+        let (_temp, state) = fixture(true).await;
+        reconcile(&state).await.unwrap();
+        assert_eq!(heartbeats(&state).await, 1);
+        sqlx::query("UPDATE settings SET telemetry = 0")
+            .execute(&state.pool)
+            .await
+            .unwrap();
+        reconcile(&state).await.unwrap();
+        let left: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM telemetry_outbox")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+        assert_eq!(left, 0);
+        state.pool.close().await;
     }
 }

@@ -288,7 +288,7 @@ pub async fn export_launcher_logs(
     // would silently ship secrets, so fail rather than degrade.
     let state = theseus::State::get().await?;
     let mut archive = LauncherLogArchive::new(&output_path)?;
-    let writer = &mut archive.writer;
+    let mut writer = &mut archive.writer;
 
     let (exported_logs, skipped_logs) =
         write_exported_logs(writer, range, level, &state).await?;
@@ -875,11 +875,11 @@ pub async fn get_opening_command(
         .map(|path| path.to_string_lossy().to_string());
 
     return if let Some(payload) = payload.as_ref() {
-        tracing::info!("opening command {payload}");
+        tracing::info!("opening command {}", command_log_label(payload));
 
         Ok(Some(handler::parse_command(payload).await?))
     } else if let Some(cmd_arg) = cmd_arg {
-        tracing::info!("opening command {cmd_arg:?}");
+        tracing::info!("opening command received");
 
         Ok(Some(handler::parse_command(&cmd_arg).await?))
     } else {
@@ -893,11 +893,11 @@ pub async fn get_opening_command() -> Result<Option<CommandPayload>> {
     // Tauri is not CLI, we use arguments as path to file to call
     let cmd_arg = std::env::args_os().nth(1);
 
-    tracing::info!("opening command {cmd_arg:?}");
+    tracing::info!("opening command received");
 
     let cmd_arg = cmd_arg.map(|path| path.to_string_lossy().to_string());
     if let Some(cmd) = cmd_arg {
-        tracing::debug!("Opening command: {:?}", cmd);
+        tracing::debug!("Opening command: {}", command_log_label(&cmd));
         return Ok(Some(handler::parse_command(&cmd).await?));
     }
     Ok(None)
@@ -913,11 +913,60 @@ pub async fn get_minecraft_news(
     )
 }
 
-// helper function called when redirected by a weblink (ie: modrith://do-something) or when redirected by a .mrpack file (in which case its a filepath)
-// We hijack the deep link library (which also contains functionality for instance-checking)
+pub(crate) fn command_log_label(command: &str) -> &str {
+    if theseus::third_party_accounts::is_callback_candidate(command)
+        || serde_json::from_str::<Vec<String>>(command).is_ok_and(|commands| {
+            commands.iter().any(|command| {
+                theseus::third_party_accounts::is_callback_candidate(command)
+            })
+        })
+    {
+        "[OAuth callback]"
+    } else {
+        command
+    }
+}
+
+// Both protocol callbacks and file-opening commands arrive through this path.
 pub async fn handle_command(command: String) -> Result<()> {
-    tracing::info!("handle command: {command}");
-    Ok(theseus::handler::parse_and_emit_command(&command).await?)
+    let mut first_error = None;
+    for command in command_strings(command) {
+        tracing::info!("handle command: {}", command_log_label(&command));
+        if let Err(error) =
+            theseus::handler::parse_and_emit_command(&command).await
+        {
+            first_error.get_or_insert(error);
+        }
+    }
+    if let Some(error) = first_error {
+        return Err(error.into());
+    }
+    Ok(())
+}
+
+pub(crate) fn command_strings(command: String) -> Vec<String> {
+    serde_json::from_str::<Vec<String>>(&command)
+        .unwrap_or_else(|_| vec![command])
+}
+
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+
+    #[test]
+    fn opening_events_preserve_every_command_in_order() {
+        assert_eq!(
+            command_strings("axolotl://browse/mod".into()),
+            ["axolotl://browse/mod"]
+        );
+        assert_eq!(
+            command_strings(
+                r#"["axolotl://browse/mod","example.mrpack"]"#.into()
+            ),
+            ["axolotl://browse/mod", "example.mrpack"]
+        );
+        assert!(command_strings("[]".into()).is_empty());
+    }
 }
 
 // Remove when (and if) https://github.com/tauri-apps/tauri/issues/12022 is implemented

@@ -269,8 +269,10 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             });
         if let Some(record) = artifact {
             item.artifact_ref = Some(record.artifact.reference.clone());
-            item.capabilities.can_change_version = item.materialization_state
-                == PackMemberMaterializationState::Present;
+            item.capabilities.can_change_version = item.project_type
+                != crate::state::ProjectType::Schematic
+                && item.materialization_state
+                    == PackMemberMaterializationState::Present;
             item.compatibility =
                 record.declared_compatibility.as_ref().map(|declared| {
                     let kind = match item.project_type {

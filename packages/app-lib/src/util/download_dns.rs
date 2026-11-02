@@ -238,15 +238,20 @@ impl DownloadDnsResolver {
     ) -> Result<(), &'static str> {
         let host = normalize_host(host)?;
         let resolver_host = normalize_host(resolver_host)?;
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.host_overrides
         let mut overrides = self.host_overrides.lock();
         if host == resolver_host {
             overrides.remove(&host);
         } else {
             overrides.insert(host.clone(), resolver_host);
         }
+        // sched-order-release: theseus::util::download_dns::DownloadDnsResolver.host_overrides
         drop(overrides);
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_resolved temporary
         self.last_resolved.lock().remove(&host);
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_failed temporary
         self.last_failed.lock().remove(&host);
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.candidate_snapshots temporary
         self.candidate_snapshots.lock().remove(&host);
         Ok(())
     }
@@ -254,9 +259,13 @@ impl DownloadDnsResolver {
     #[allow(dead_code)]
     pub fn clear_host_override(&self, host: &str) -> Result<(), &'static str> {
         let host = normalize_host(host)?;
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.host_overrides temporary
         self.host_overrides.lock().remove(&host);
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_resolved temporary
         self.last_resolved.lock().remove(&host);
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_failed temporary
         self.last_failed.lock().remove(&host);
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.candidate_snapshots temporary
         self.candidate_snapshots.lock().remove(&host);
         Ok(())
     }
@@ -278,14 +287,17 @@ impl DownloadDnsResolver {
     }
 
     pub fn record_host_success(&self, host: &str, address: IpAddr) {
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_resolved
         let mut cached = self.last_resolved.lock();
         if let Some(entry) = cached
             .get_mut(host)
             .filter(|entry| entry.addresses.contains(&address))
         {
             entry.consecutive_connection_failures = 0;
+            // sched-order-release: theseus::util::download_dns::DownloadDnsResolver.last_resolved
             drop(cached);
             self.record_result(address, 0.5);
+            // sched-order: theseus::util::download_dns::DownloadDnsResolver.successful_addresses
             let mut successful = self.successful_addresses.lock();
             let addresses = successful.entry(host.to_string()).or_default();
             addresses.retain(|_, timestamp| {
@@ -610,6 +622,7 @@ impl DownloadDnsResolver {
                 return Ok(answers);
             }
             let host_lock = {
+                // sched-order: theseus::util::download_dns::DownloadDnsResolver.candidate_hosts
                 let mut hosts = self.candidate_hosts.lock();
                 if hosts.len() >= MAX_METADATA_HOSTS {
                     hosts.retain(|_, lock| Arc::strong_count(lock) > 1);
@@ -655,6 +668,7 @@ impl DownloadDnsResolver {
                 let now = Instant::now();
                 // System lookup has no authoritative TTL. Reuse the age of
                 // the existing cache rather than refreshing it on every call.
+                // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_resolved temporary
                 let expires_at = self
                     .last_resolved
                     .lock()
@@ -681,6 +695,7 @@ impl DownloadDnsResolver {
                 return Ok(vec![answer]);
             }
 
+            // sched-order: theseus::util::download_dns::DownloadDnsResolver.dns_answers temporary
             let mut answers = self
                 .dns_answers
                 .lock()

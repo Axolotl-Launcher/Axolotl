@@ -4,6 +4,7 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 
 import type { ContentItem } from '../types'
 import { useContentPipeline } from './content-pipeline'
+import { getContentTabMap } from './content-tab-memory'
 
 vi.mock('#ui/composables/i18n', () => ({
     defineMessage: (message: unknown) => message,
@@ -12,6 +13,124 @@ vi.mock('#ui/composables/i18n', () => ({
         formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
     }),
 }))
+
+it.each([
+    { preloaded: true, search: '' },
+    { preloaded: false, search: '' },
+    { preloaded: true, search: 'Target' },
+    { preloaded: false, search: 'Target' },
+])(
+    'publishes the first real snapshot before rendering an empty table ($preloaded, $search)',
+    async ({ preloaded, search }) => {
+        vi.useFakeTimers()
+        const snapshot: ContentItem[] = Array.from({ length: 19 }, (_, index) => ({
+            id: `first-${index}`,
+            file_name: index === 0 ? 'Target.jar' : `other-${index}.jar`,
+            enabled: true,
+            project_type: 'mod',
+        }))
+        const items = ref<ContentItem[]>(preloaded ? snapshot : [])
+        const modpackItems = ref<ContentItem[]>([])
+        const memoryKey = `initial-${preloaded}-${search}`
+        const searchMemory = getContentTabMap<string, string>('search')
+        searchMemory.set(`${memoryKey}:search`, search)
+        let pipeline!: ReturnType<typeof useContentPipeline>
+        const wrapper = mount(
+            defineComponent({
+                setup() {
+                    pipeline = useContentPipeline({
+                        items,
+                        modpackItems,
+                        sortItems: (items) => items,
+                        getItemId: (item) => item.id,
+                        memoryKey,
+                    })
+                    return () =>
+                        h('div', [
+                            h('input', {
+                                placeholder: `Search ${pipeline.searchableItemCount.value}`,
+                            }),
+                            h(
+                                'span',
+                                pipeline.filteredItems.value.length
+                                    ? pipeline.filteredItems.value
+                                          .map((item) => item.file_name)
+                                          .join(',')
+                                    : 'No content found',
+                            ),
+                        ])
+                },
+            }),
+        )
+        try {
+            if (!preloaded) {
+                items.value = snapshot
+                await nextTick()
+            }
+            // No timers have elapsed: raw count, filtered rows and filter counts agree.
+            expect(wrapper.get('input').attributes('placeholder')).toBe('Search 19')
+            expect(wrapper.text()).not.toContain('No content found')
+            expect(pipeline.filteredItems.value).toHaveLength(search ? 1 : 19)
+            expect(pipeline.filterCounts.value.mod).toBe(search ? 1 : 19)
+            // Later snapshots keep the bounded batching behavior rather than rerunning per patch.
+            items.value = [
+                ...snapshot,
+                { ...snapshot[0], id: 'later', file_name: 'Target-later.jar' },
+            ]
+            await nextTick()
+            expect(pipeline.filteredItems.value).toHaveLength(search ? 1 : 19)
+            await vi.advanceTimersByTimeAsync(100)
+            expect(pipeline.filteredItems.value).toHaveLength(search ? 2 : 20)
+        } finally {
+            wrapper.unmount()
+            searchMemory.delete(`${memoryKey}:search`)
+            vi.useRealTimers()
+        }
+    },
+)
+
+it('publishes a modpack-only first snapshot and its restored search immediately', async () => {
+    vi.useFakeTimers()
+    const memoryKey = 'initial-modpack-only'
+    const searchMemory = getContentTabMap<string, string>('search')
+    searchMemory.set(`${memoryKey}:search`, 'Target')
+    const modpackItems = ref<ContentItem[]>([])
+    let pipeline!: ReturnType<typeof useContentPipeline>
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                pipeline = useContentPipeline({
+                    items: ref([]),
+                    modpackItems,
+                    sortItems: (items) => items,
+                    getItemId: (item) => item.id,
+                    memoryKey,
+                })
+                return () =>
+                    h(
+                        'div',
+                        pipeline.filteredModpackItems.value.map((item) =>
+                            h('span', item.file_name),
+                        ),
+                    )
+            },
+        }),
+    )
+    try {
+        modpackItems.value = [
+            { id: 'pack', file_name: 'Target.jar', project_type: 'mod', enabled: true },
+        ]
+        await nextTick()
+        expect(pipeline.searchableItemCount.value).toBe(1)
+        expect(pipeline.filteredModpackItems.value).toHaveLength(1)
+        expect(pipeline.filterCounts.value.mod).toBe(1)
+        expect(wrapper.text()).toBe('Target.jar')
+    } finally {
+        wrapper.unmount()
+        searchMemory.delete(`${memoryKey}:search`)
+        vi.useRealTimers()
+    }
+})
 
 it('keeps an update filter through zero results and admits progressive candidates', async () => {
     const items = ref<ContentItem[]>([

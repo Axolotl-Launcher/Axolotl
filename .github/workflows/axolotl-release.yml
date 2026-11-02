@@ -51,7 +51,7 @@ jobs:
           submodules: recursive
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -422,7 +422,7 @@ jobs:
           ref: main
           path: website-publish
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - name: Generate website release data from the release tag
         run: |
           if [[ "${RELEASE_TAG}" != *-* ]]; then
@@ -482,6 +482,20 @@ jobs:
             --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME" \
             --branch main \
             --commit-message "Launcher ${RELEASE_TAG} (GitHub Actions ${GITHUB_RUN_ID})"
+
+  sync-website-release-data:
+    name: Sync release data to the website repository
+    # Finish the legacy deployment before triggering the independent website deployment.
+    needs: [verify-and-publish, publish-website]
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'website') }}
+    uses: ./.github/workflows/sync-website-release-data.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+      release-metadata-artifact: published-release-metadata
+      deploy-unchanged: ${{ github.event_name == 'workflow_dispatch' }}
+    secrets:
+      WEBSITE_SYNC_APP_PRIVATE_KEY: ${{ secrets.WEBSITE_SYNC_APP_PRIVATE_KEY }}
+      WEBSITE_SYNC_TOKEN: ${{ secrets.WEBSITE_SYNC_TOKEN }}
 
   mirror-cnb:
     name: Mirror release to CNB

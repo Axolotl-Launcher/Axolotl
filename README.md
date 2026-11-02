@@ -39,8 +39,13 @@
 
 <table>
   <tr>
+    <td width="105"><img src="./.github/assets/rainyun-logo.png" width="72" alt="Rainyun Logo" /></td>
+    <td><strong>雨云</strong><br>雨云是新一代国产云计算服务提供商，为广大服主提供简单易用、高性能、高性价比的游戏专用服务器。独家动态计费服务，自研高可用面板服，热门整合包一键快速安装。</td>
+    <td><a href="https://www.rainyun.com/mystic_">访问雨云</a></td>
+  </tr>
+  <tr>
     <td width="105"><img src="./.github/assets/codeflow-logo.png" width="72" alt="CodeFlow Logo" /></td>
-    <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型<br>原生协议转发 · 无需海外网络 · 支付宝即充即用</td>
+    <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型。原生协议转发，体验与官方一致，Claude Code、Codex 等工具开箱即用；多线路互为备份，请求失败自动切换；¥1 可充 $5 额度，余额永不过期；无需海外网络，支付宝即充即用。</td>
     <td><a href="https://codeflow.sh/register?invite=4UHP2KYH">访问 CodeFlow</a></td>
   </tr>
   <tr>
@@ -184,16 +189,44 @@ nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 {
   programs.axolotl-launcher = {
     enable = true;
+    launchEnv = {
+      KEY = "VAL";
+    };
+    settings = {
+      appearance = {
+        locale = "zh-CN";
+        theme = "dark";
+      };
+      download.max_concurrent_downloads = 16;
+      java = {
+        runtimes = [
+          {
+            path = "${pkgs.jdk21}/bin/java";
+            major_version = 21;
+            full_version = pkgs.jdk21.version;
+            distribution = "Temurin";
+          }
+        ];
+        defaults = [
+          {
+            major_version = 21;
+            path = "${pkgs.jdk21}/bin/java";
+          }
+        ];
+      };
+      # ...
+    };
   };
 }
 ```
 
 可选属性
 
-| 键        | 类型    | 默认值  | 说明                                                                                                                                       |
-| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| enable    | `bool`  | `false` | 设置为`true`以启用 Axolotl Launcher。                                                                                                      |
-| launchEnv | `attrs` | `{ }`   | Axolotl Launcher 启动时额外的环境变量。例如`{ HELLO = 1; world = "two"; }`能为 Axolotl Launcher 设置额外的环境变量`HELLO=1`和`world=two`。 |
+| 键          | 类型    | 默认值  | 说明                             |
+|:----------- |:-------:|:-------:|:-------------------------------- |
+| `enable`    | `bool`  | `false` | 设置为`true`以启用美西螈启动器   |
+| `launchEnv` | `attrs` | `{ }`   | 运行美西螈启动器时额外的环境变量 |
+| `settings`  | `attrs` | `{ }`   | 提供美西螈启动器设置的默认值     |
 
 </details>
 

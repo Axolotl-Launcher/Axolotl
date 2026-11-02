@@ -17,6 +17,7 @@ import {
 import {
     Accordion,
     Button,
+    ColorPicker,
     Combobox,
     defineMessages,
     injectNotificationManager,
@@ -66,7 +67,6 @@ import {
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const editor = useTemplateRef<HTMLDivElement>('editor')
-const newColorPicker = useTemplateRef<HTMLInputElement>('newColorPicker')
 const activeTextFormats = ref<TextFormat[]>([])
 const editorSelection = shallowRef<Range | null>(null)
 const obfuscationFrame = ref(0)
@@ -409,10 +409,6 @@ function updateColor(index: number, value: string) {
     if (color) colors.value[index] = color
 }
 
-function openNewColorPicker() {
-    newColorPicker.value?.click()
-}
-
 function addPickedColor(value: string) {
     const color = normalizeHexColor(value)
     if (color) replaceColors([...colors.value, color])
@@ -732,21 +728,17 @@ function formatAdapterName(adapterId: GradientFormatId): string {
                                 @click="randomizeColors"
                                 ><RefreshCwIcon />
                             </Button>
-                            <input
-                                ref="newColorPicker"
-                                type="color"
-                                :value="colors[colors.length - 1]"
-                                :aria-label="formatMessage(messages.addColor)"
-                                class="lab-new-color-picker"
-                                @change="addPickedColor(($event.target as HTMLInputElement).value)"
-                            />
-                            <Button
-                                type="colored"
-                                color="brand"
-                                size="2xs"
-                                @click="openNewColorPicker"
-                                ><PlusIcon />{{ formatMessage(messages.addColor) }}
-                            </Button>
+                            <ColorPicker
+                                :model-value="colors[colors.length - 1]"
+                                :label="formatMessage(messages.addColor)"
+                                @change="addPickedColor"
+                            >
+                                <template #trigger="{ toggle }">
+                                    <Button type="colored" color="brand" size="2xs" @click="toggle"
+                                        ><PlusIcon />{{ formatMessage(messages.addColor) }}
+                                    </Button>
+                                </template>
+                            </ColorPicker>
                         </div>
                     </div>
                     <div
@@ -755,19 +747,13 @@ function formatAdapterName(adapterId: GradientFormatId): string {
                     ></div>
                     <div class="lab-color-list">
                         <div v-for="(color, index) in colors" :key="index" class="lab-color-row">
-                            <label class="lab-color-swatch" :style="{ backgroundColor: color }">
-                                <input
-                                    type="color"
-                                    :value="color"
-                                    :aria-label="`${formatMessage(messages.colorsTitle)} ${index + 1}`"
-                                    @input="
-                                        updateColor(
-                                            index,
-                                            ($event.target as HTMLInputElement).value,
-                                        )
-                                    "
-                                />
-                            </label>
+                            <ColorPicker
+                                :model-value="color"
+                                :label="`${formatMessage(messages.colorsTitle)} ${index + 1}`"
+                                size="sm"
+                                class="justify-self-center"
+                                @update:model-value="updateColor(index, $event)"
+                            />
                             <StyledInput
                                 v-model="colorInputValues[index]"
                                 size="small"
@@ -1102,49 +1088,6 @@ function formatAdapterName(adapterId: GradientFormatId): string {
 
 .lab-color-row + .lab-color-row {
     border-top: 1px solid var(--color-surface-4);
-}
-
-.lab-color-swatch {
-    position: relative;
-    display: block;
-    width: 2rem;
-    height: 2rem;
-    margin-inline: auto;
-    overflow: hidden;
-    border: 2px solid var(--color-surface-5);
-    border-radius: 0.375rem;
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
-    cursor: pointer;
-}
-
-.lab-color-swatch:focus-within {
-    border-color: var(--color-brand);
-    outline: 2px solid var(--color-brand-shadow);
-    outline-offset: 1px;
-}
-
-.lab-color-swatch input,
-.lab-new-color-picker {
-    appearance: auto !important;
-    -webkit-appearance: auto !important;
-}
-
-.lab-color-swatch input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
-.lab-new-color-picker {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
 }
 
 .lab-segmented {

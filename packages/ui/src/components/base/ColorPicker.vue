@@ -378,16 +378,23 @@ function onDocumentPointerDown(event: PointerEvent) {
 }
 
 let stopAutoUpdate: (() => void) | undefined
+let positionRequest = 0
 
 async function updatePosition() {
     const trigger = triggerRef.value
     const panel = panelRef.value
     if (!trigger || !panel) return
+    // Scrolling or resizing can start several updates before any of them
+    // resolves, and they do not resolve in order. Only the newest may write:
+    // an older computation landing last would put the panel back where the
+    // trigger used to be.
+    const request = ++positionRequest
     const { x, y } = await computePosition(trigger, panel, {
         strategy: 'fixed',
         placement: 'bottom-start',
         middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
     })
+    if (request !== positionRequest) return
     panelStyle.value = { left: `${x}px`, top: `${y}px` }
     positioned.value = true
 }

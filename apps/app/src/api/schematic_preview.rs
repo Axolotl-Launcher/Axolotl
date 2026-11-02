@@ -217,6 +217,10 @@ struct SessionRegion {
 struct PreviewSession {
     manifest: PreviewManifest,
     regions: Vec<SessionRegion>,
+    /// Original Litematic NBT that the preview does not model: block entities,
+    /// entities, scheduled ticks, region/root metadata and unknown fields.
+    /// Exports rebuild block data from the session and copy the rest verbatim.
+    preserved: Option<Arc<NbtCompound>>,
 }
 
 /// An MCP-owned document is separate from the two UI preview slots. Dropping
@@ -940,7 +944,7 @@ fn parse_litematic(
         block_entity_count += nbt_list_len(region, "TileEntities") as u64;
         builder.finish_region(session_region);
     }
-    builder.finish(ManifestMetadata {
+    let mut session = builder.finish(ManifestMetadata {
         source_path,
         source_instance_id,
         file_name,
@@ -954,7 +958,23 @@ fn parse_litematic(
         modified_at,
         entity_count,
         block_entity_count,
-    })
+    })?;
+    session.preserved = Some(Arc::new(preserved_litematic_root(root)));
+    Ok(session)
+}
+
+/// Strips the two region keys that every export regenerates from the session,
+/// so retaining the original NBT does not duplicate the block array.
+fn preserved_litematic_root(mut root: NbtCompound) -> NbtCompound {
+    if let Ok(regions) = root.get_mut::<_, &mut NbtCompound>("Regions") {
+        for (_, tag) in regions.inner_mut().iter_mut() {
+            if let NbtTag::Compound(region) = tag {
+                region.inner_mut().remove("BlockStatePalette");
+                region.inner_mut().remove("BlockStates");
+            }
+        }
+    }
+    root
 }
 
 fn parse_sponge(
@@ -1300,6 +1320,7 @@ impl SessionBuilder {
         Ok(PreviewSession {
             manifest,
             regions: self.regions,
+            preserved: None,
         })
     }
 }
@@ -1424,12 +1445,55 @@ impl PreviewSession {
         });
     }
 
+    fn preserved_region(&self, name: &str) -> Option<&NbtCompound> {
+        self.preserved
+            .as_deref()?
+            .get::<_, &NbtCompound>("Regions")
+            .ok()?
+            .get::<_, &NbtCompound>(name)
+            .ok()
+    }
+
+    fn transform_preserved_data(
+        &mut self,
+        transform: PreviewTransform,
+        sizes: &[(String, [u32; 3])],
+    ) {
+        let Some(preserved) = self.preserved.as_deref() else {
+            return;
+        };
+        let mut regions = NbtCompound::new();
+        if let Ok(original) = preserved.get::<_, &NbtCompound>("Regions") {
+            for (name, tag) in original.inner() {
+                let NbtTag::Compound(region) = tag else {
+                    regions.insert(name.as_str(), tag.clone());
+                    continue;
+                };
+                let mut region = region.clone();
+                if let Some((_, size)) =
+                    sizes.iter().find(|(candidate, _)| candidate == name)
+                {
+                    transform_preserved_region(&mut region, *size, transform);
+                }
+                regions.insert(name.as_str(), region);
+            }
+        }
+        let mut root = preserved.clone();
+        root.insert("Regions", regions);
+        self.preserved = Some(Arc::new(root));
+    }
+
     fn apply_transform(
         &mut self,
         transform: PreviewTransform,
     ) -> Result<(), String> {
         let transform_min = self.manifest.min;
         let transform_max = self.manifest.max;
+        let preserved_sizes = self
+            .regions
+            .iter()
+            .map(|region| (region.manifest.name.clone(), region.manifest.size))
+            .collect::<Vec<_>>();
         for region in &mut self.regions {
             let previous = region.clone();
             let mut transformed = SessionRegion {
@@ -1538,6 +1602,7 @@ impl PreviewSession {
             (self.manifest.max[2] - self.manifest.min[2] + 1) as u32,
         ];
         self.refresh_manifest();
+        self.transform_preserved_data(transform, &preserved_sizes);
         Ok(())
     }
 }
@@ -1586,6 +1651,147 @@ fn transform_position(
             .try_into()
             .map_err(|_| "Transformed Z coordinate is out of range")?,
     ])
+}
+
+/// Litematic stores block entities, entities and scheduled ticks in the same
+/// region-local space as the block array, so a transform permutes their
+/// coordinates exactly like the block indices.
+fn transform_local_position(
+    position: [i32; 3],
+    size: [u32; 3],
+    transform: PreviewTransform,
+) -> [i32; 3] {
+    let width = size[0] as i32;
+    let depth = size[2] as i32;
+    match transform {
+        PreviewTransform::RotateClockwise => {
+            [position[2], position[1], width - 1 - position[0]]
+        }
+        PreviewTransform::RotateCounterClockwise => {
+            [depth - 1 - position[2], position[1], position[0]]
+        }
+        PreviewTransform::MirrorX => {
+            [width - 1 - position[0], position[1], position[2]]
+        }
+        PreviewTransform::MirrorZ => {
+            [position[0], position[1], depth - 1 - position[2]]
+        }
+    }
+}
+
+fn transform_local_point(
+    point: [f64; 3],
+    size: [u32; 3],
+    transform: PreviewTransform,
+) -> [f64; 3] {
+    let cell = point.map(|value| value.floor() as i32);
+    let fraction = [
+        point[0] - f64::from(cell[0]),
+        point[1] - f64::from(cell[1]),
+        point[2] - f64::from(cell[2]),
+    ];
+    let moved = transform_local_position(cell, size, transform);
+    let fraction = match transform {
+        PreviewTransform::RotateClockwise
+        | PreviewTransform::RotateCounterClockwise => {
+            [fraction[2], fraction[1], fraction[0]]
+        }
+        PreviewTransform::MirrorX | PreviewTransform::MirrorZ => fraction,
+    };
+    [
+        f64::from(moved[0]) + fraction[0],
+        f64::from(moved[1]) + fraction[1],
+        f64::from(moved[2]) + fraction[2],
+    ]
+}
+
+const PRESERVED_POSITION_LISTS: [&str; 4] = [
+    "Entities",
+    "TileEntities",
+    "PendingBlockTicks",
+    "PendingFluidTicks",
+];
+
+#[derive(Clone, Copy)]
+enum PreservedPosition {
+    /// Block entities and scheduled ticks use flat `x`/`y`/`z` int tags.
+    Block([i32; 3]),
+    /// Entities use the vanilla `Pos` list of doubles.
+    Point([f64; 3]),
+}
+
+fn preserved_entry_position(
+    compound: &NbtCompound,
+) -> Option<PreservedPosition> {
+    if let (Ok(x), Ok(y), Ok(z)) = (
+        compound.get::<_, i32>("x"),
+        compound.get::<_, i32>("y"),
+        compound.get::<_, i32>("z"),
+    ) {
+        return Some(PreservedPosition::Block([x, y, z]));
+    }
+    let list = compound.get::<_, &NbtList>("Pos").ok()?;
+    if list.len() < 3 {
+        return None;
+    }
+    let mut values = [0.0f64; 3];
+    for (index, tag) in list.into_iter().enumerate().take(3) {
+        match tag {
+            NbtTag::Double(value) => values[index] = *value,
+            NbtTag::Float(value) => values[index] = f64::from(*value),
+            _ => return None,
+        }
+    }
+    Some(PreservedPosition::Point(values))
+}
+
+fn write_preserved_entry_position(
+    compound: &mut NbtCompound,
+    position: PreservedPosition,
+) {
+    match position {
+        PreservedPosition::Block(values) => {
+            compound.insert("x", values[0]);
+            compound.insert("y", values[1]);
+            compound.insert("z", values[2]);
+        }
+        PreservedPosition::Point(values) => {
+            let mut list = NbtList::new();
+            for value in values {
+                list.push(value);
+            }
+            compound.insert("Pos", list);
+        }
+    }
+}
+
+fn transform_preserved_region(
+    region: &mut NbtCompound,
+    size: [u32; 3],
+    transform: PreviewTransform,
+) {
+    for key in PRESERVED_POSITION_LISTS {
+        let Ok(list) = region.get_mut::<_, &mut NbtList>(key) else {
+            continue;
+        };
+        for entry in list.inner_mut().iter_mut() {
+            let NbtTag::Compound(compound) = entry else {
+                continue;
+            };
+            let Some(position) = preserved_entry_position(compound) else {
+                continue;
+            };
+            let moved = match position {
+                PreservedPosition::Block(values) => PreservedPosition::Block(
+                    transform_local_position(values, size, transform),
+                ),
+                PreservedPosition::Point(values) => PreservedPosition::Point(
+                    transform_local_point(values, size, transform),
+                ),
+            };
+            write_preserved_entry_position(compound, moved);
+        }
+    }
 }
 
 fn write_varint(mut value: u32, output: &mut Vec<i8>) {
@@ -1688,7 +1894,10 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
             ((usize::BITS - (palette.len() - 1).leading_zeros()) as usize)
                 .max(2)
         };
-        let mut exported_region = NbtCompound::new();
+        let original = session.preserved_region(&region.manifest.name);
+        let mut exported_region = original.cloned().unwrap_or_default();
+        // The block array always starts at the minimum corner, so the region
+        // geometry is normalised to it exactly like the rebuilt block data.
         exported_region.insert("Position", litematic_vec3(region.manifest.min));
         exported_region.insert(
             "Size",
@@ -1699,10 +1908,12 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
             "BlockStates",
             NbtTag::LongArray(pack_litematic_values(&block_states, bits)),
         );
-        exported_region.insert("Entities", NbtList::new());
-        exported_region.insert("TileEntities", NbtList::new());
-        exported_region.insert("PendingBlockTicks", NbtList::new());
-        exported_region.insert("PendingFluidTicks", NbtList::new());
+        if original.is_none() {
+            exported_region.insert("Entities", NbtList::new());
+            exported_region.insert("TileEntities", NbtList::new());
+            exported_region.insert("PendingBlockTicks", NbtList::new());
+            exported_region.insert("PendingFluidTicks", NbtList::new());
+        }
         regions.insert(region.manifest.name.as_str(), exported_region);
     }
 
@@ -1710,7 +1921,12 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_millis().min(i64::MAX as u128) as i64)
         .unwrap_or_default();
-    let mut metadata = NbtCompound::new();
+    let mut metadata = session
+        .preserved
+        .as_deref()
+        .and_then(|root| root.get::<_, &NbtCompound>("Metadata").ok())
+        .cloned()
+        .unwrap_or_default();
     metadata.insert(
         "Name",
         session
@@ -1741,13 +1957,16 @@ fn export_litematic(session: &PreviewSession) -> Result<Vec<u8>, String> {
         litematic_vec3(session.manifest.size.map(|value| value as i32)),
     );
 
-    let mut root = NbtCompound::new();
-    root.insert("Version", 6i32);
-    root.insert("SubVersion", 1i32);
-    root.insert(
-        "MinecraftDataVersion",
-        session.manifest.data_version.unwrap_or_default(),
-    );
+    let mut root = session.preserved.as_deref().cloned().unwrap_or_default();
+    if session.preserved.is_none() {
+        root.insert("Version", 6i32);
+        root.insert("SubVersion", 1i32);
+    }
+    if let Some(data_version) = session.manifest.data_version {
+        root.insert("MinecraftDataVersion", data_version);
+    } else if session.preserved.is_none() {
+        root.insert("MinecraftDataVersion", 0i32);
+    }
     root.insert("Metadata", metadata);
     root.insert("Regions", regions);
     let mut output = Vec::new();
@@ -2670,6 +2889,301 @@ mod tests {
                     "minecraft:cinnabar"
                 );
             }
+        }
+    }
+
+    fn container_litematic_fixture() -> NbtCompound {
+        let mut palette = NbtList::new();
+        for name in ["minecraft:chest", "minecraft:stone", "minecraft:cave_air"]
+        {
+            palette.push(palette_entry(name));
+        }
+        // "Storage" spans 3x1x2 blocks with a negative X size, so the stored
+        // Position is the far corner instead of the minimum corner.
+        let packed = pack_litematic_values(&[0, 1, 1, 1, 1, 2], 2);
+
+        let mut item = NbtCompound::new();
+        item.insert("Slot", 0i8);
+        item.insert("id", "minecraft:diamond");
+        item.insert("count", 64i32);
+        let mut items = NbtList::new();
+        items.push(item);
+        let mut chest = vec3(0, 0, 0);
+        chest.insert("id", "minecraft:chest");
+        chest.insert("Items", items);
+        let mut tile_entities = NbtList::new();
+        tile_entities.push(chest);
+
+        let mut entity = NbtCompound::new();
+        entity.insert("id", "minecraft:hopper_minecart");
+        let mut entity_position = NbtList::new();
+        for value in [0.5f64, 0.0, 0.5] {
+            entity_position.push(value);
+        }
+        entity.insert("Pos", entity_position);
+        let mut entities = NbtList::new();
+        entities.push(entity);
+
+        let mut tick = vec3(2, 0, 1);
+        tick.insert("Block", "minecraft:stone");
+        tick.insert("Time", 20i32);
+        let mut ticks = NbtList::new();
+        ticks.push(tick);
+
+        let mut region = NbtCompound::new();
+        region.insert("Position", vec3(10, 2, -4));
+        region.insert("Size", vec3(-3, 1, 2));
+        region.insert("BlockStatePalette", palette);
+        region.insert("BlockStates", NbtTag::LongArray(packed));
+        region.insert("TileEntities", tile_entities);
+        region.insert("Entities", entities);
+        region.insert("PendingBlockTicks", ticks.clone());
+        region.insert("PendingFluidTicks", ticks);
+        region.insert("CustomRegion", "keep region data");
+        let mut regions = NbtCompound::new();
+        regions.insert("Storage", region);
+
+        let mut metadata = NbtCompound::new();
+        metadata.insert("Name", "Storage");
+        metadata.insert("Author", "Fixture");
+        metadata.insert("TimeCreated", 1i64);
+        metadata.insert("PreviewImageData", NbtTag::IntArray(vec![1, 2, 3]));
+
+        let mut root = NbtCompound::new();
+        root.insert("Version", 7i32);
+        root.insert("SubVersion", 1i32);
+        root.insert("MinecraftDataVersion", 5005i32);
+        root.insert("CustomRoot", "keep root data");
+        root.insert("Metadata", metadata);
+        root.insert("Regions", regions);
+        root
+    }
+
+    fn container_session() -> PreviewSession {
+        parse_litematic(
+            container_litematic_fixture(),
+            "fixture.litematic".into(),
+            "fixture.litematic".into(),
+            None,
+            None,
+        )
+        .unwrap()
+    }
+
+    fn assert_preserved_litematic(root: &NbtCompound) {
+        let original = container_litematic_fixture();
+        for key in [
+            "Version",
+            "SubVersion",
+            "MinecraftDataVersion",
+            "CustomRoot",
+        ] {
+            assert_eq!(
+                root.inner().get(key),
+                original.inner().get(key),
+                "{key}"
+            );
+        }
+        assert_eq!(
+            root.get::<_, &NbtCompound>("Metadata")
+                .unwrap()
+                .get::<_, &[i32]>("PreviewImageData")
+                .unwrap(),
+            &[1, 2, 3][..]
+        );
+        let original_region = original
+            .get::<_, &NbtCompound>("Regions")
+            .unwrap()
+            .get::<_, &NbtCompound>("Storage")
+            .unwrap();
+        let region = root
+            .get::<_, &NbtCompound>("Regions")
+            .unwrap()
+            .get::<_, &NbtCompound>("Storage")
+            .unwrap();
+        // Geometry is normalised to the minimum corner, matching the block
+        // array that the export rebuilds from the session.
+        assert_eq!(
+            compound_vec3(region.get::<_, &NbtCompound>("Position").unwrap())
+                .unwrap(),
+            [8, 2, -4]
+        );
+        assert_eq!(
+            compound_vec3(region.get::<_, &NbtCompound>("Size").unwrap())
+                .unwrap(),
+            [3, 1, 2]
+        );
+        for key in [
+            "Entities",
+            "TileEntities",
+            "PendingBlockTicks",
+            "PendingFluidTicks",
+            "CustomRegion",
+        ] {
+            assert_eq!(
+                region.inner().get(key),
+                original_region.inner().get(key),
+                "{key}"
+            );
+        }
+    }
+
+    #[test]
+    fn litematic_roundtrip_preserves_container_entity_and_tick_data() {
+        let session = container_session();
+        let exported = read_root(&export_litematic(&session).unwrap()).unwrap();
+        assert_preserved_litematic(&exported);
+        let reimported = parse_litematic(
+            exported,
+            "exported.litematic".into(),
+            "exported.litematic".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(reimported.manifest.entity_count, 1);
+        assert_eq!(reimported.manifest.block_entity_count, 1);
+        assert_eq!(
+            palette_at(&reimported, 0, [8, 2, -4]).name,
+            "minecraft:chest"
+        );
+    }
+
+    #[test]
+    fn editing_an_ordinary_block_keeps_container_entity_and_tick_data() {
+        let mut session = container_session();
+        let region_id = session.regions[0].manifest.id.clone();
+        apply_session_edits(
+            &mut session,
+            vec![PreviewBlockEdit {
+                region_id,
+                position: [10, 2, -4],
+                palette_index: 0,
+            }],
+            Some(PreviewBlockState {
+                name: "andesite".into(),
+                properties: BTreeMap::new(),
+            }),
+        )
+        .unwrap();
+        let exported = read_root(&export_litematic(&session).unwrap()).unwrap();
+        assert_preserved_litematic(&exported);
+        let reimported = parse_litematic(
+            exported,
+            "exported.litematic".into(),
+            "exported.litematic".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            palette_at(&reimported, 0, [10, 2, -4]).name,
+            "minecraft:andesite"
+        );
+        assert_eq!(
+            palette_at(&reimported, 0, [9, 2, -4]).name,
+            "minecraft:stone"
+        );
+        assert_eq!(reimported.manifest.entity_count, 1);
+        assert_eq!(reimported.manifest.block_entity_count, 1);
+    }
+
+    #[test]
+    fn transforms_move_preserved_data_with_the_blocks() {
+        for transform in [
+            PreviewTransform::RotateClockwise,
+            PreviewTransform::RotateCounterClockwise,
+            PreviewTransform::MirrorX,
+            PreviewTransform::MirrorZ,
+        ] {
+            let mut session = container_session();
+            session.apply_transform(transform).unwrap();
+            let exported =
+                read_root(&export_litematic(&session).unwrap()).unwrap();
+            let reimported = parse_litematic(
+                exported.clone(),
+                "exported.litematic".into(),
+                "exported.litematic".into(),
+                None,
+                None,
+            )
+            .unwrap();
+            let region = exported
+                .get::<_, &NbtCompound>("Regions")
+                .unwrap()
+                .get::<_, &NbtCompound>("Storage")
+                .unwrap();
+            let min = compound_vec3(
+                region.get::<_, &NbtCompound>("Position").unwrap(),
+            )
+            .unwrap();
+            let tiles = region.get::<_, &NbtList>("TileEntities").unwrap();
+            assert_eq!(tiles.len(), 1, "{transform:?}");
+            let NbtTag::Compound(chest) = tiles.into_iter().next().unwrap()
+            else {
+                panic!("tile entity is not a compound");
+            };
+            let local = compound_vec3(chest).unwrap();
+            let world =
+                [min[0] + local[0], min[1] + local[1], min[2] + local[2]];
+            assert_eq!(
+                palette_at(&reimported, 0, world).name,
+                "minecraft:chest",
+                "{transform:?}"
+            );
+            let entities = region.get::<_, &NbtList>("Entities").unwrap();
+            let NbtTag::Compound(entity) = entities.into_iter().next().unwrap()
+            else {
+                panic!("entity is not a compound");
+            };
+            let Some(PreservedPosition::Point(point)) =
+                preserved_entry_position(entity)
+            else {
+                panic!("entity has no position");
+            };
+            assert_eq!(
+                [
+                    point[0].floor() as i32,
+                    point[1].floor() as i32,
+                    point[2].floor() as i32
+                ],
+                local,
+                "{transform:?}"
+            );
+            assert_eq!(reimported.manifest.entity_count, 1);
+            assert_eq!(reimported.manifest.block_entity_count, 1);
+        }
+    }
+
+    #[test]
+    fn sponge_sources_still_export_an_empty_litematic_skeleton() {
+        let session = parse_sponge(
+            sponge_fixture(3),
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let exported = read_root(&export_litematic(&session).unwrap()).unwrap();
+        assert_eq!(exported.get::<_, i32>("Version").unwrap(), 6);
+        assert_eq!(exported.get::<_, i32>("SubVersion").unwrap(), 1);
+        let region = exported
+            .get::<_, &NbtCompound>("Regions")
+            .unwrap()
+            .get::<_, &NbtCompound>("Main")
+            .unwrap();
+        for key in [
+            "Entities",
+            "TileEntities",
+            "PendingBlockTicks",
+            "PendingFluidTicks",
+        ] {
+            assert_eq!(
+                region.get::<_, &NbtList>(key).unwrap().len(),
+                0,
+                "{key}"
+            );
         }
     }
 

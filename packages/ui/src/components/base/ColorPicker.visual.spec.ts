@@ -217,6 +217,40 @@ it('reports nothing when the panel is dismissed without a change', async () => {
     expect(wrapper.emitted('change')).toBeUndefined()
 })
 
+it('stops painting the colour once a drag is interrupted', async () => {
+    const wrapper = await openPicker()
+    const box = area().getBoundingClientRect()
+
+    // Escape closes the panel before the pointer is released, so the drag never
+    // ends through its own pointerup.
+    area().dispatchEvent(
+        new PointerEvent('pointerdown', {
+            bubbles: true,
+            pointerId: 1,
+            clientX: box.left + box.width * 0.9,
+            clientY: box.top + 8,
+        }),
+    )
+    await flushPromises()
+    area().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    const dragged = wrapper.emitted('update:modelValue')?.at(-1)?.[0]
+    expect(dragged).not.toBe('#ff0000')
+
+    await openTrigger(wrapper)
+    area().dispatchEvent(
+        new PointerEvent('pointermove', {
+            bubbles: true,
+            pointerId: 1,
+            clientX: box.left + 4,
+            clientY: box.top + 8,
+        }),
+    )
+    await flushPromises()
+
+    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toBe(dragged)
+})
+
 it('lists a committed colour under recent colours on the next open', async () => {
     await openPicker()
     presetGroups()[0].querySelectorAll('button')[12].click()

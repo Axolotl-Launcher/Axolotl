@@ -126,6 +126,7 @@ const DYE_NAME_MESSAGES: Record<string, MessageDescriptor> = {
 const open = ref(false)
 const positioned = ref(false)
 const dragging = ref(false)
+const dragPointerId = ref<number | null>(null)
 const editingHex = ref(false)
 const triggerRef = ref<HTMLElement>()
 const panelRef = ref<HTMLElement>()
@@ -247,6 +248,8 @@ function openPanel() {
 
 function closePanel({ commit: shouldCommit = true, restoreFocus = false } = {}) {
     if (!open.value) return
+    // Before the panel unmounts: the element goes away, the drag flag does not.
+    endDrag()
     open.value = false
     emit('close')
     if (shouldCommit) commit()
@@ -268,12 +271,33 @@ function updateFromPointer(event: PointerEvent) {
     })
 }
 
+/**
+ * Ends a drag, whether the pointer was released or the panel closed under it.
+ * The flag outlives the element it belongs to, so leaving it set would let the
+ * next pointer move over a reopened panel paint a colour nobody is dragging.
+ */
+function endDrag() {
+    const area = areaRef.value
+    const pointerId = dragPointerId.value
+    if (area && pointerId !== null && area.hasPointerCapture(pointerId)) {
+        area.releasePointerCapture(pointerId)
+    }
+    dragPointerId.value = null
+    dragging.value = false
+}
+
 function onAreaPointerDown(event: PointerEvent) {
     if (props.disabled) return
     event.preventDefault()
-    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-    areaRef.value?.focus()
     dragging.value = true
+    dragPointerId.value = event.pointerId
+    areaRef.value?.focus()
+    try {
+        ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+    } catch {
+        // A pointer that is already gone has nothing to capture. The drag still
+        // tracks while the pointer stays over the area, so this is not fatal.
+    }
     updateFromPointer(event)
 }
 
@@ -282,11 +306,9 @@ function onAreaPointerMove(event: PointerEvent) {
     updateFromPointer(event)
 }
 
-function onAreaPointerUp(event: PointerEvent) {
+function onAreaPointerUp() {
     if (!dragging.value) return
-    dragging.value = false
-    const area = event.currentTarget as HTMLElement
-    if (area.hasPointerCapture(event.pointerId)) area.releasePointerCapture(event.pointerId)
+    endDrag()
     commit()
 }
 

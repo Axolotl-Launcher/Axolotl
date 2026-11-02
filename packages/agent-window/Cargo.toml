@@ -6,8 +6,21 @@ rust-version.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { workspace = true, features = [
+  "json",
+  "macros",
+  "migrate",
+  "runtime-tokio",
+  "sqlite"
+] }
 tauri = { workspace = true }
-tokio = { workspace = true, features = ["sync", "time"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "sync", "time"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

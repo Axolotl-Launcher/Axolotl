@@ -1,3 +1,5 @@
+pub mod persistence;
+
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use tauri::{

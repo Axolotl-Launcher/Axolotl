@@ -1,5 +1,6 @@
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
+    println!("cargo::rerun-if-changed=migrations");
     if matches!(
         std::env::var("CARGO_CFG_TARGET_OS").as_deref(),
         Ok("windows")

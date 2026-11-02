@@ -180,9 +180,11 @@ export function rememberRecentColor(
 }
 
 function resolveStorage(): Storage | null {
-    if (typeof localStorage === 'undefined') return null
     try {
-        return localStorage
+        // The probe has to sit inside the guard too: `typeof` avoids a
+        // ReferenceError for an undeclared name, but a webview that blocks
+        // storage still evaluates the getter and throws.
+        return typeof localStorage === 'undefined' ? null : localStorage
     } catch {
         return null
     }

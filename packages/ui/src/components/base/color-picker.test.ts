@@ -106,6 +106,18 @@ test('returns an empty recent list when storage is unavailable', () => {
     assert.deepEqual(rememberRecentColor('#ff0000'), ['#ff0000'])
 })
 
+test('survives a webview whose storage getter throws on access', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        get() {
+            throw new Error('SecurityError: storage is blocked')
+        },
+    })
+
+    assert.deepEqual(readRecentColors(), [])
+    assert.deepEqual(rememberRecentColor('#ff0000'), ['#ff0000'])
+})
+
 test('moves a repeated colour to the front instead of duplicating it', () => {
     installStorage()
     rememberRecentColor('#ff0000')

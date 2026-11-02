@@ -143,6 +143,16 @@ it('closes on escape and returns focus to the trigger', async () => {
     expect(document.activeElement).toBe(wrapper.get('button').element)
 })
 
+it('closes on an outside click without pulling focus back to the trigger', async () => {
+    const wrapper = await openPicker()
+
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    await flushPromises()
+
+    expect(panel()).toBeNull()
+    expect(document.activeElement).not.toBe(wrapper.get('button').element)
+})
+
 it('lists a committed colour under recent colours on the next open', async () => {
     await openPicker()
     presetGroups()[0].querySelectorAll('button')[12].click()

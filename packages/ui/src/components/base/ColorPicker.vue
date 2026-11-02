@@ -170,7 +170,7 @@ watch(displayHex, (hex) => {
 watch(
     () => props.disabled,
     (disabled) => {
-        if (disabled) closePanel(false)
+        if (disabled) closePanel({ commit: false })
     },
 )
 
@@ -221,12 +221,15 @@ function openPanel() {
     emit('open')
 }
 
-function closePanel(shouldCommit = true) {
+function closePanel({ commit: shouldCommit = true, restoreFocus = false } = {}) {
     if (!open.value) return
     open.value = false
     emit('close')
     if (shouldCommit) commit()
-    triggerRef.value?.querySelector<HTMLElement>('button')?.focus()
+    // Only pull focus back when the picker dismissed itself, such as on
+    // Escape. Restoring it after a click elsewhere would steal the focus the
+    // user just moved.
+    if (restoreFocus) triggerRef.value?.querySelector<HTMLElement>('button')?.focus()
 }
 
 function updateFromPointer(event: PointerEvent) {
@@ -400,7 +403,7 @@ onBeforeUnmount(() => {
             :aria-label="label ?? formatMessage(messages.dialogLabel)"
             class="fixed top-0 left-0 z-[9999] flex w-60 flex-col gap-3 rounded-[14px] border border-solid border-surface-5 bg-surface-4 p-3 shadow-[var(--shadow-raised)]"
             :style="positioned ? panelStyle : { visibility: 'hidden' }"
-            @keydown.escape.stop.prevent="closePanel()"
+            @keydown.escape.stop.prevent="closePanel({ restoreFocus: true })"
         >
             <div
                 ref="areaRef"

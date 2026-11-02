@@ -1043,7 +1043,7 @@ async fn export_failure_cancel_and_file_changes_preserve_existing_output() {
 }
 
 #[tokio::test]
-async fn export_uses_exact_bytes_and_valid_public_urls_and_keeps_real_environment()
+async fn export_uses_exact_bytes_and_valid_public_urls_and_writes_no_environment()
  {
     let (root, service, _, _) = setup(true).await;
     std::fs::write(root.path().join("file.jar"), "data").unwrap();
@@ -1056,25 +1056,33 @@ async fn export_uses_exact_bytes_and_valid_public_urls_and_keeps_real_environmen
         1,
     )
     .await;
+    // Modrinth's legacy sides call singleplayer-capable server mods
+    // client-unsupported; writing that would make installers skip them.
     for p in draft.projects.values_mut() {
         p.protocol = Some(
-            serde_json::json!({"client_side": "optional", "server_side": "unsupported"}),
+            serde_json::json!({"client_side": "unsupported", "server_side": "required"}),
         );
     }
-    let plan = build(
-        &draft,
-        1,
+    for format in [
         ResourceExportFormat::Modrinth,
-        info(),
-        vec![],
-        &SourceId::modrinth(),
-    )
-    .unwrap();
-    let (_, value) = super::formats::manifest(&plan).unwrap();
-    assert_eq!(
-        value["files"][0]["env"],
-        serde_json::json!({"client": "optional", "server": "unsupported"})
-    );
+        ResourceExportFormat::GenericZip,
+    ] {
+        let mut plan =
+            build(&draft, 1, format, info(), vec![], &SourceId::modrinth())
+                .unwrap();
+        let (_, value) = super::formats::manifest(&plan).unwrap();
+        assert!(value["files"][0].get("env").is_none());
+        let ExportFileAction::Download { environment, .. } = &mut plan.files[0]
+        else {
+            panic!()
+        };
+        assert_eq!(environment.client, ArtifactEnvironmentRequirement::Unknown);
+        assert_eq!(environment.server, ArtifactEnvironmentRequirement::Unknown);
+        // A plan frozen by an older version may still carry a side.
+        environment.client = ArtifactEnvironmentRequirement::Unsupported;
+        let (_, value) = super::formats::manifest(&plan).unwrap();
+        assert!(value["files"][0].get("env").is_none());
+    }
     let ExportSourceResolution::Matched { artifacts, .. } =
         &mut draft.results.get_mut("file.jar").unwrap().resolutions[0]
     else {

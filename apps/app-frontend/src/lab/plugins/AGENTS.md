@@ -1,6 +1,6 @@
 # Lab Plugins
 
-Read the [lab plugin standard](../../../../../standards/frontend/LAB_PLUGINS.md) before changing the plugin host or adding a plugin.
+Read the [lab plugin standard](../../../../../standards/frontend/LAB_PLUGINS.md) before changing the plugin host or adding a plugin. When writing a plugin, load the [`lab-plugin` skill](../../../../../.agents/skills/lab-plugin/SKILL.md) instead of re-deriving the steps here.
 
 ## Boundaries
 

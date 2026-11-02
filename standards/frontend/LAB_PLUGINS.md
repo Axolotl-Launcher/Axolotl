@@ -1,91 +1,91 @@
-# Lab Plugins
+# 实验室插件
 
-How to add a plugin to the desktop app's Lab, and what the launcher guarantees a plugin. Applies to `apps/app-frontend/src/lab/plugins/`.
+英文版：[LAB_PLUGINS.en.md](LAB_PLUGINS.en.md)。适用范围：`apps/app-frontend/src/lab/plugins/`。
 
-A plugin is a TypeScript package compiled into the launcher. It is not downloaded at runtime: a plugin folder plus a rebuild is the whole installation story. That keeps plugins inside normal code review and type checking, and it means the launcher can never load code it did not build.
+插件是一段被编译进启动器的 TypeScript 代码，不是运行时下载的。装插件的全部含义就是"放一个文件夹，重新构建"——这换来两件事：插件代码走正常的类型检查和评审，启动器也永远加载不了自己没有构建过的代码。
 
-## Folder Layout
+## 目录
 
 ```
 apps/app-frontend/src/lab/plugins/
-  types.ts            contract: manifest, tool, slots, context
-  validation.ts       discovery rules, importable without Vite globs
-  registry.ts         discovers ./packages/*/index.ts and validates the batch
-  state.ts            enabled/disabled and error state, persisted
-  slots.ts            resolves slot contributions in render order
-  plugin-tools.ts     turns plugins with a tool page into lab hub cards
-  context.ts          storage and log handed to a plugin
-  use-lab-plugin-text.ts  resolves descriptor-or-string text
-  packages/<id>/      the plugins themselves
+  types.ts                契约：manifest、tool、slots、context
+  validation.ts           校验规则，可脱离 Vite 单独引用
+  registry.ts             发现 ./packages/*/index.ts 并整批校验
+  state.ts                启用/停用与故障状态，持久化
+  slots.ts                按渲染顺序汇总插槽贡献
+  plugin-tools.ts         把有工具页的插件转成实验室卡片
+  context.ts              交给插件的存储与日志
+  use-lab-plugin-text.ts  解析文案（描述符或纯字符串）
+  packages/<id>/          插件本体
 ```
 
-`packages/<id>/index.ts` is the only file the launcher looks for. Its default export must be a `LabPlugin`. The folder name must equal `manifest.id`, because the id is also the route parameter of the plugin's tool page (`/lab/p/<id>`).
+`packages/<id>/index.ts` 是启动器唯一会找的文件，默认导出必须是 `LabPlugin`。文件夹名必须等于 `manifest.id`，因为 id 同时是插件页面的路由参数（`/lab/p/<id>`）。
 
-Adding a plugin therefore changes nothing else: no registry edit, no route, no lab hub edit, no cover image. The hub lists it, the router reaches it, and the plugin page toggles it, all from the manifest.
+所以加插件不需要动任何其他地方：不进注册表、不加路由、不改实验室页面、不配封面图。卡片、路由、开关全部从 manifest 推出来。
 
-## The Contract
+## 契约
 
 ```ts
 import { defineLabPlugin } from '@/lab/plugins/types'
 
 export default defineLabPlugin({
     manifest: { ... },
-    tool: { ... },      // optional
-    slots: [ ... ],     // optional
+    tool: { ... },   // 可选
+    slots: [ ... ],  // 可选
 })
 ```
 
-At least one of `tool` and `slots` is required. A plugin that renders nothing is rejected.
+`tool` 和 `slots` 至少要有一个。什么都不渲染的插件会被拒绝。
 
 ### `manifest`
 
-| Field | Type | Required | What it does |
-| --- | --- | --- | --- |
-| `id` | `string` | yes | Kebab-case identity. Must equal the folder name. Becomes the route parameter and the storage namespace. |
-| `name` | `LabPluginText` | yes | Card title, page heading, plugin list row, error messages. |
-| `description` | `LabPluginText` | yes | One sentence under the name. |
-| `version` | `string` | yes | Semantic version, e.g. `1.0.0`. Shown next to the name. Used only for display. |
-| `author` | `string` | no | Shown after the version. |
-| `category` | `'creation' \| 'maintenance' \| 'world'` | no | Which lab hub filter the card belongs to. Defaults to `creation`. |
-| `icon` | Vue `Component` | no | Fallback card icon when the plugin has no cover image. |
-| `permissions` | `LabPluginPermission[]` | no | Disclosed on the plugin page. See [Permissions](#permissions). |
+| 字段          | 类型                                     | 必填 | 作用                                                     |
+| ------------- | ---------------------------------------- | ---- | -------------------------------------------------------- |
+| `id`          | `string`                                 | 是   | 短横线小写标识，必须等于文件夹名，用作路由参数和存储分区 |
+| `name`        | `LabPluginText`                          | 是   | 卡片标题、页面标题、插件列表行、错误提示                 |
+| `description` | `LabPluginText`                          | 是   | 名字下面那句话                                           |
+| `version`     | `string`                                 | 是   | 语义化版本，如 `1.0.0`，只用于显示                       |
+| `author`      | `string`                                 | 否   | 显示在版本号后面                                         |
+| `category`    | `'creation' \| 'maintenance' \| 'world'` | 否   | 实验室分类筛选，默认 `creation`                          |
+| `icon`        | Vue 组件                                 | 否   | 没有封面图时的卡片图标                                   |
+| `permissions` | `LabPluginPermission[]`                  | 否   | 在插件页展示给用户，见「权限」                           |
 
 ### `tool`
 
-| Field | Type | Required | What it does |
-| --- | --- | --- | --- |
-| `title` | `LabPluginText` | yes | Card title. Usually the same descriptor as `manifest.name`. |
-| `description` | `LabPluginText` | yes | Card description. |
-| `icon` | Vue `Component` | no | Overrides `manifest.icon`. |
-| `category` | category | no | Overrides `manifest.category`. |
-| `component` | Vue `Component` | yes | Body of `/lab/p/<id>`. The host renders it inside the error boundary; it owns everything below the page heading. |
+| 字段          | 类型            | 必填 | 作用                                                                 |
+| ------------- | --------------- | ---- | -------------------------------------------------------------------- |
+| `title`       | `LabPluginText` | 是   | 卡片标题，通常与 `manifest.name` 是同一个描述符                      |
+| `description` | `LabPluginText` | 是   | 卡片说明                                                             |
+| `icon`        | Vue 组件        | 否   | 覆盖 `manifest.icon`                                                 |
+| `category`    | 同上            | 否   | 覆盖 `manifest.category`                                             |
+| `component`   | Vue 组件        | 是   | `/lab/p/<id>` 的正文，宿主用错误边界包住它；页面标题以下的空间全归它 |
 
 ### `slots`
 
-Array of contributions. Each contribution:
+数组，每一项：
 
-| Field | Type | Required | What it does |
-| --- | --- | --- | --- |
-| `slot` | `LabPluginSlotName` | yes | Which launcher surface to fill. Unknown names reject the plugin. |
-| `component` | Vue `Component` | yes | Rendered in the slot. Receives the slot context as props. |
-| `order` | `number` | no | Lower renders first. Ties sort by plugin id, so order is stable. |
+| 字段        | 类型                | 必填 | 作用                                           |
+| ----------- | ------------------- | ---- | ---------------------------------------------- |
+| `slot`      | `LabPluginSlotName` | 是   | 填哪个位置，未知名字会拒绝整个插件             |
+| `component` | Vue 组件            | 是   | 渲染在该位置，以 props 接收上下文              |
+| `order`     | `number`            | 否   | 越小越靠前，相同则按插件 id 排序，保证顺序稳定 |
 
-## Slots
+## 插槽
 
-Slots are the only way a plugin touches UI it does not own. The launcher decides where each slot is and how it is laid out, so a plugin can add a control without breaking the surrounding page.
+插槽是插件触碰"不属于自己的界面"的唯一方式。位置和排版由启动器决定，插件只负责往里面放一个组件，不会把周围页面搞乱。
 
-| Slot | Where | Props |
-| --- | --- | --- |
-| `lab.hub.footer` | Bottom of the lab hub, below the tool list | none |
-| `instance.actions` | Instance page action row, after the settings button | `{ instance: GameInstance }` |
+| 插槽               | 位置                         | Props                        |
+| ------------------ | ---------------------------- | ---------------------------- |
+| `lab.hub.footer`   | 实验室页面底部，工具列表下方 | 无                           |
+| `instance.actions` | 实例页操作栏，设置按钮之后   | `{ instance: GameInstance }` |
 
-A slot component that throws is replaced by a one-line notice and the plugin is turned off. The rest of the row keeps working.
+插槽组件抛错时会被换成一行提示，插件随即停用，操作栏其余部分照常工作。
 
-Adding a slot means adding its name to `LAB_PLUGIN_SLOTS`, its props to `LabPluginSlotContexts`, and one `<LabPluginSlot name="..." />` at the host location. Existing plugins are unaffected.
+新增一个插槽要动三处：`LAB_PLUGIN_SLOTS` 加名字、`LabPluginSlotContexts` 加 props 类型、宿主位置插一行 `<LabPluginSlot name="..." />`。已有插件不受影响。
 
-## Context
+## 上下文
 
-Plugin components read their context with `useLabPluginContext()`:
+插件组件用 `useLabPluginContext()` 拿自己的上下文：
 
 ```ts
 import { useLabPluginContext } from '@/lab/plugins/types'
@@ -93,74 +93,103 @@ import { useLabPluginContext } from '@/lab/plugins/types'
 const { pluginId, storage, log } = useLabPluginContext()
 ```
 
-| Member | What it does |
-| --- | --- |
-| `pluginId` | The running plugin's manifest id. |
-| `storage.read(key, fallback)` | Reads a JSON value namespaced to this plugin. Returns `fallback` when the key is absent or unreadable. |
-| `storage.write(key, value)` | Stores a JSON-serialisable value. Swallows quota and availability errors. |
-| `storage.remove(key)` | Deletes one key. |
-| `log(message, detail?)` | `console.info` with the plugin id prefixed. |
+| 成员                          | 作用                                                     |
+| ----------------------------- | -------------------------------------------------------- |
+| `pluginId`                    | 当前插件的 manifest id                                   |
+| `storage.read(key, fallback)` | 读本插件命名空间下的 JSON，缺失或读不出时返回 `fallback` |
+| `storage.write(key, value)`   | 写入可序列化的值，容量或可用性问题会被吞掉               |
+| `storage.remove(key)`         | 删掉一个键                                               |
+| `log(message, detail?)`       | 带插件 id 前缀的 `console.info`                          |
 
-Calling `useLabPluginContext()` outside a plugin render throws, because a plugin without an id and storage cannot behave correctly.
+在插件之外调用会抛错——没有 id 和存储的插件不可能行为正确。
 
-## Discovery and Validation
+## 发现与校验
 
-`registry.ts` globs `./packages/*/index.ts` eagerly at build time. `validation.ts` then checks each module, and rejects the folder with a reason instead of failing the build:
+`registry.ts` 在构建期用 glob 一次性拿到 `./packages/*/index.ts`，`validation.ts` 逐个检查，不合格就**拒绝这个文件夹并记下原因**，而不是让构建失败。
 
-- default export missing or not an object
-- `manifest` missing, or `id` missing / not kebab-case / different from the folder
-- `name` or `description` missing or empty
-- `version` not a semantic version
-- `tool` present but missing `title`, `description` or `component`
-- `slots` present but holding an unknown slot name or a non-numeric `order`
-- neither `tool` nor `slots`
-- duplicate id (first folder wins)
+会被拒绝的情况：
 
-Rejections are listed on `/lab/plugins` under "Skipped folders". They never break the launcher, so a half-written plugin is visible instead of silent.
+- 没有默认导出，或默认导出不是对象
+- `manifest` 缺失，或 `id` 缺失 / 不是短横线小写 / 与文件夹名不一致
+- `name` 或 `description` 缺失或为空
+- `version` 不是语义化版本
+- 有 `tool` 但缺 `title`、`description` 或 `component`
+- 有 `slots` 但插槽名未知，或 `order` 不是数字
+- `tool` 和 `slots` 都没有
+- id 重复（先发现的文件夹生效）
 
-## Enable, Disable and Failures
+拒绝记录显示在 `/lab/plugins` 的「被跳过的文件夹」里。它们永远不会弄挂启动器，所以写了一半的插件是可见的，而不是静默消失。
 
-`state.ts` stores two lists under `axolotl-lab-plugin-state`: `disabled` ids and `failures`. A plugin is enabled unless it is in `disabled`.
+## 启用、停用与故障
 
-- Toggling a plugin off hides its card and its slot contributions immediately.
-- A plugin that throws is disabled automatically and its message is stored.
-- Turning it back on clears the stored failure.
-- Unreadable storage falls back to "everything enabled", so a corrupted entry cannot hide every plugin.
+`state.ts` 在 `axolotl-lab-plugin-state` 下存两份数据：停用列表 `disabled` 和故障记录 `failures`。不在停用列表里就是启用。
 
-## Permissions
+- 关掉插件，卡片和它的插槽贡献立刻消失
+- 插件抛错会被自动停用，异常信息被记下来
+- 重新打开会清掉那条故障记录
+- 存储读不出来时按"全部启用"处理，避免一条坏数据把插件全藏起来
 
-`manifest.permissions` is a disclosure list shown on the plugin page:
+## 权限
 
-| Permission | Meaning |
-| --- | --- |
-| `instances:read` | Reads the instance list or instance details |
-| `files:read` | Reads files the user selects |
-| `files:write` | Writes files the user selects |
-| `network` | Makes network requests |
-| `clipboard` | Reads or writes the clipboard |
+`manifest.permissions` 是一份**告知清单**，显示在插件页：
 
-**Permissions are declared, not enforced.** A plugin runs un-sandboxed in the launcher process, so the list tells the user what to expect; it does not stop anything. Review is the actual control, which is why plugins are compiled in rather than installed by users.
+| 权限             | 含义                   |
+| ---------------- | ---------------------- |
+| `instances:read` | 读取实例列表或实例详情 |
+| `files:read`     | 读取用户选择的文件     |
+| `files:write`    | 写入用户选择的文件     |
+| `network`        | 发起网络请求           |
+| `clipboard`      | 读写剪贴板             |
 
-## Text and Localization
+**权限是声明，不是强制。** 插件运行在启动器进程里，没有沙箱；这份清单告诉用户"它打算碰什么"，拦不住任何东西。真正的控制手段是代码评审——这也是插件必须编译进启动器、而不是由用户安装的原因。
 
-`LabPluginText` is either a plain string or a message descriptor from `defineMessage`. Plugins shipped in this repository pass descriptors and add their ids to `apps/app-frontend/src/locales/en-US/index.json` and `zh-CN/index.json`, so the copy is translated like the rest of the app. Third-party plugins pass plain strings and are shown as written.
+## 文案
 
-## Adding a Plugin
+`LabPluginText` 可以是纯字符串，也可以是 `defineMessage` 的描述符。仓库内的插件一律用描述符，并把 id 加进 `apps/app-frontend/src/locales/en-US/index.json` 和 `zh-CN/index.json`，这样文案和其他界面一样有翻译。第三方插件传纯字符串，界面照原样显示。
 
-```powershell
-node scripts/axolotl/new-lab-plugin.mjs my-plugin "My plugin"
-```
+`pnpm axolotl:i18n-check` 会检查：键是否两边都有、是否为空、中英是否完全相同、ICU 参数是否匹配。
 
-The script writes `packages/my-plugin/index.ts` and a starter component, then prints the locale ids to add. To add one by hand, copy `packages/motd-preview/`, rename the folder, and change `manifest.id` to match.
+## 新增插件：八步
 
-## Reference Plugins
+1. **定 id。** 小写短横线，如 `schematic-batch-rename`。它是文件夹名、路由参数和存储分区，改一次等于换了个插件。
+2. **生成骨架。** 在仓库根目录跑 `pnpm axolotl:new-lab-plugin schematic-batch-rename "批量重命名投影"`，会写出 `packages/<id>/index.ts` 和起始组件，并打印需要补的文案 id。
+3. **决定怎么露脸。** 有 `tool` 就多一张卡片和一个页面；有 `slots` 就往现成位置塞组件；两个都要也行，但不能都没有。
+4. **写 manifest。** `name`、`description`、`version` 必填，`category` 决定归到哪个筛选，`permissions` 是你告诉用户它会碰什么。
+5. **用现成组件搭界面。** `Button`、`Card`、`StyledInput`、`TagItem`、`EmptyState`、`Toggle`，图标从 `@modrinth/assets` 取。现成组件都不合适时再用原生标签加工具类。
+6. **补文案。** 每个 `defaultMessage` 在中英两个 locale 里都要有，键名 `app.lab.plugins.<id>.<name>`。和组件同一次改完，别留到后面。
+7. **跑门禁。** `pnpm --filter @modrinth/app-frontend lint`、`pnpm --filter @modrinth/app-frontend exec vitest run --project unit src/lab/plugins`、`pnpm axolotl:check-agents`、`pnpm axolotl:i18n-check`。
+8. **打开看。** `pnpm app:dev`，确认卡片在、页面能进，然后把开关关一次再开一次，把停用路径也走一遍。
 
-- `packages/motd-preview/` — a tool page with plugin-scoped storage, no permissions.
-- `packages/copy-instance-id/` — a slot-only plugin that adds one button to the instance action row.
+不要手动往 `registry.ts`、`routes/lab.ts` 或 `Lab.vue` 里添加条目——手写的条目会和自动发现重复。
 
-## Limits
+## 常见错误
 
-- No lifecycle hooks. A plugin exists only while its tool page or slot is mounted.
-- No runtime install. Users cannot add a plugin without rebuilding the launcher.
-- No background work. Long jobs must live inside the component that started them.
-- Styles come from the shared Tailwind preset; a plugin may not ship its own stylesheet.
+按实际发生频率排：
+
+- **文件夹名和 `manifest.id` 对不上。** 文件夹才是身份，不一致会被拒（`manifest.id "x" does not match folder "y"`），表现为插件没出现。
+- **忘了加文案。** 英文正常、中文显示成一串键名，或者 `i18n-check` 直接红。
+- **什么都不渲染。** 既没有 `tool` 也没有 `slots`，故意拒绝——否则它只是占着文件夹。
+- **去改共享文件。** 契约确实需要新字段时改 `types.ts` 没问题；为了一个插件去改 `registry.ts`、`routes/lab.ts`、`Lab.vue`，通常说明它该用插槽。
+- **自己写样式表。** 会在另一套主题下崩。用 `var(--color-text-primary)`、`bg-surface-2`、`border-surface-5` 这类变量。
+- **以为权限会拦。** 不会，见「权限」。
+- **在 `onMounted` 里干重活。** 工具页一打开就卡住整个实验室。放到按钮后面。
+- **把大块数据塞进存储。** `storage` 是 `localStorage`，几 MB 还和其他部分共用。只放 id、路径、小配置。
+
+## 交给智能体
+
+给智能体派活时，把这三样说清楚就够了：插件要做什么（用户视角）、在哪儿出现（工具页 / 哪个插槽）、要不要持久化什么。
+
+那边有一份专门的技能：[`.agents/skills/lab-plugin/SKILL.md`](../../.agents/skills/lab-plugin/SKILL.md)，写了步骤、验收标准和几个明确的"不要做"。派活时直接指向它，比贴一大段说明省事。
+
+## 示例插件
+
+- `packages/motd-preview/` —— 有工具页，用了插件自己的存储，不声明权限。
+- `packages/copy-instance-id/` —— 只有插槽，往实例操作栏加一个按钮。
+
+## 边界
+
+- **没有生命周期钩子。** 插件只在它的工具页或插槽挂载期间存在。
+- **不能运行时安装。** 用户不重新构建就加不了插件。
+- **没有后台任务。** 长任务只能活在发起它的组件里。
+- **不能自带样式表。** 样式来自共享的 Tailwind 预设。
+- **权限只是告知。** 启动器不阻止插件调用 capabilities 已放行的 Tauri 命令，所以插件代码和普通代码一样要评审。

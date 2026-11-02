@@ -486,7 +486,7 @@ onBeforeUnmount(() => {
                         type="button"
                         :aria-label="formatMessage(DYE_NAME_MESSAGES[preset.id])"
                         :aria-pressed="displayHex === preset.hex"
-                        class="size-5 cursor-pointer rounded-[4px] border border-solid border-[color-mix(in_srgb,var(--color-text-primary)_25%,transparent)] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+                        class="size-5 cursor-pointer rounded-[4px] border border-solid border-[color-mix(in_srgb,var(--color-text-primary)_25%,transparent)] transition-[border-color] hover:border-[color:var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
                         :class="
                             displayHex === preset.hex
                                 ? 'outline-2 outline-offset-1 outline-brand'
@@ -514,7 +514,7 @@ onBeforeUnmount(() => {
                         type="button"
                         :aria-label="hex"
                         :aria-pressed="displayHex === hex"
-                        class="size-5 cursor-pointer rounded-[4px] border border-solid border-[color-mix(in_srgb,var(--color-text-primary)_25%,transparent)] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+                        class="size-5 cursor-pointer rounded-[4px] border border-solid border-[color-mix(in_srgb,var(--color-text-primary)_25%,transparent)] transition-[border-color] hover:border-[color:var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
                         :class="
                             displayHex === hex ? 'outline-2 outline-offset-1 outline-brand' : ''
                         "

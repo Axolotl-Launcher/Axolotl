@@ -42,6 +42,12 @@ function channels(hex: string) {
     ]
 }
 
+/** Reads the alpha out of a computed colour, which omits it when it is 1. */
+function alphaOf(color: string) {
+    const match = /\/(\s*[\d.]+)\s*\)/.exec(color)
+    return match ? Number(match[1]) : 1
+}
+
 async function openPicker(props: Record<string, unknown> = {}) {
     const wrapper = await mountThemed(ColorPicker, { modelValue: '#ff0000', ...props }, 'dark')
     mounted.push(wrapper)
@@ -71,6 +77,26 @@ it('renders the sixteen dye presets in one group', async () => {
 
     const [dyes] = presetGroups()
     expect(dyes.querySelectorAll('button')).toHaveLength(16)
+})
+
+it('marks swatch hover with a border instead of lifting the swatch', async () => {
+    await openPicker()
+
+    const swatch = presetGroups()[0].querySelectorAll('button')[0] as HTMLElement
+    await userEvent.unhover(swatch)
+    const restingBorder = getComputedStyle(swatch).borderTopColor
+    expect(getComputedStyle(swatch).transform).toBe('none')
+
+    await userEvent.hover(swatch)
+    await waitFor(() => getComputedStyle(swatch).borderTopColor !== restingBorder, {
+        label: 'the hover border',
+    })
+    // Read again once the border transition has settled, otherwise the
+    // intermediate colour would satisfy the comparison on its own.
+    await new Promise((resolve) => setTimeout(resolve, 250))
+
+    expect(getComputedStyle(swatch).transform).toBe('none')
+    expect(alphaOf(getComputedStyle(swatch).borderTopColor)).toBeGreaterThan(alphaOf(restingBorder))
 })
 
 it('emits the dye hex when a preset is picked', async () => {

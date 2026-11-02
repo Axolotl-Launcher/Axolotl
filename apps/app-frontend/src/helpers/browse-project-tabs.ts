@@ -5,6 +5,7 @@ export interface BrowseProjectTabLabels {
     datapacks: string
     maps: string
     shaders: string
+    schematics: string
     servers: string
     favorites: string
 }
@@ -22,6 +23,7 @@ export interface BrowseProjectTabOptions {
     datapacks?: boolean
     servers?: boolean
     favorites?: boolean
+    schematics?: boolean
 }
 
 export interface BrowseProjectTabVisibilityInput {
@@ -49,6 +51,7 @@ export function getBrowseProjectTabOptions({
         mods: !hasInstance || instance?.loader !== 'vanilla',
         datapacks: !hasInstance || (!isServerInstance && supportsDataPacks(instance?.game_version)),
         servers: !hasInstanceContext,
+        schematics: !isServerInstance,
     }
 }
 
@@ -76,6 +79,11 @@ export function createBrowseProjectTabs(
         },
         { label: labels.maps, href: `/browse/world${suffix}` },
         { label: labels.shaders, href: `/browse/shader${suffix}` },
+        {
+            label: labels.schematics,
+            href: `/browse/schematic${suffix}`,
+            shown: options.schematics ?? true,
+        },
         {
             label: labels.servers,
             href: `/browse/server${suffix}`,

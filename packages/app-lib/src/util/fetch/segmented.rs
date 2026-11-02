@@ -155,6 +155,7 @@ pub(crate) async fn download_segment(
     let mut last_slow_speed = None;
     for attempt in 1..=SEGMENT_RETRY_ATTEMPTS {
         let requested_start = range.start + {
+            // sched-order: theseus::util::fetch::segment::DownloadRange.state
             let state = range.state.lock();
             state.downloaded
         };
@@ -314,6 +315,7 @@ pub(crate) async fn download_segment(
                 Ok(Some(chunk)) => chunk,
                 Ok(None) => break,
                 Err(_) if tail_eligible => {
+                    // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
                     let hedge_start =
                         range.start + range.state.lock().downloaded;
                     let hedge_end = range.end();
@@ -322,6 +324,7 @@ pub(crate) async fn download_segment(
                         && hedge_count.load(Ordering::Acquire)
                             < MAX_TAIL_HEDGES_PER_FILE;
                     if hedge_reserved {
+                        // sched-order: theseus::util::fetch::throttle::TAIL_HEDGE_SEMAPHORE
                         let global_permit = TAIL_HEDGE_SEMAPHORE.try_acquire();
                         let connection_permit =
                             try_acquire_native_connection(route, semaphore);
@@ -504,6 +507,7 @@ pub(crate) async fn download_segment(
             }
             let pressure =
                 crate::util::download::local_resources::pressure(part_path);
+            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
             let downloaded_range = range.state.lock().downloaded;
             if let crate::util::download::native_slow::SlowDecision::Probe {
                 bytes_per_second,
@@ -560,6 +564,7 @@ pub(crate) async fn download_segment(
                 .flush()
                 .await
                 .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
+            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
             counters.commit(
                 requested_start,
                 range.start + range.state.lock().downloaded,
@@ -571,11 +576,13 @@ pub(crate) async fn download_segment(
                 .flush()
                 .await
                 .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
+            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
             counters.commit(
                 requested_start,
                 range.start + range.state.lock().downloaded,
             );
             let downloaded_after_attempt = {
+                // sched-order: theseus::util::fetch::segment::DownloadRange.state
                 let state = range.state.lock();
                 state.downloaded
             };
@@ -666,6 +673,7 @@ pub(crate) async fn checkpoint_completed_ranges(
     let mut completed = ranges
         .iter()
         .filter_map(|range| {
+            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
             let state = range.state.lock();
             state.completed.then_some((range.start, state.end + 1))
         })
@@ -872,6 +880,7 @@ pub(crate) async fn try_segmented_download(
     let health =
         route_health_key(route, request.resource)
             .map(|key| {
+                // sched-order: theseus::util::download::route_health::ROUTE_HEALTH temporary
                 ROUTE_HEALTH.lock().get(&key).cloned().unwrap_or_else(|| {
                     persisted_route_health(&key, route.proxy)
                 })
@@ -880,7 +889,10 @@ pub(crate) async fn try_segmented_download(
     let disk_cap =
         crate::util::download::local_resources::http1_range_limit(part_path)
             .await;
-    let range_recovery = (request.batch_download && request.prefer_http1)
+    // Slow single-file downloads need the same small-range budget as batch
+    // tails; the normal 4 MiB grain would cap their recovery at one request.
+    let range_recovery = (request.supports_range_recovery()
+        && request.prefer_http1)
         || request.minimum_range_connections(size) > 1;
     let mut concurrency_cap = adaptive_range_cap(
         remaining_size,
@@ -1204,6 +1216,7 @@ pub(crate) async fn try_segmented_download(
                     let Some(permit) = try_acquire_native_connection(route, semaphore) else { break; };
                     pending_ranges.pop_front();
                     let range = ranges[index].clone();
+                    // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
                     range.state.lock().active = true;
                     downloads.push(download_segment(
                         route, range, size, request.header.as_ref(), credentials, None,
@@ -1226,6 +1239,7 @@ pub(crate) async fn try_segmented_download(
                 crate::util::download::telemetry::record_budget(request, configured_limit, concurrency_cap, retained_ranges, active_ranges);
                 let remaining_bytes = ranges
                     .iter()
+                    // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
                     .filter(|range| !range.state.lock().completed)
                     .map(DownloadRange::remaining)
                     .sum();
@@ -1299,6 +1313,7 @@ pub(crate) async fn try_segmented_download(
                 let trial = if recovering_ranges {
                     None
                 } else {
+                    // sched-order: theseus::util::download::endpoint_selection::tuning::TRIALS
                     let Some(trial) = TRIALS.acquire(
                         TrialKind::Ranges,
                         Instant::now(),

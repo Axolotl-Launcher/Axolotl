@@ -244,6 +244,24 @@ console.log('refusals')
 }
 
 {
+    // A failed record blocks sqlx with `Dirty` even when every applied record
+    // is gone; the warning promises removal, so the record must actually go.
+    const failedDb = path.join(settingsDir, 'beta', 'failed-record.db')
+    sampleDatabase(failedDb, { applied: [] })
+    const database = new DatabaseSync(failedDb)
+    database
+        .prepare(
+            `INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time)
+             VALUES (?, ?, FALSE, X'00', 0)`,
+        )
+        .run(CLOSE_BEHAVIOR + 100, 'failed-migration')
+    database.close()
+
+    const result = run(['--db', failedDb, '--to', String(CLOSE_BEHAVIOR), '--apply'])
+    check('removes a failed migration record', result.status === 0 && migrations(failedDb).length === 0, result.output)
+}
+
+{
     const stranger = path.join(settingsDir, 'beta', 'stranger.db')
     fs.mkdirSync(path.dirname(stranger), { recursive: true })
     new DatabaseSync(stranger).exec('CREATE TABLE unrelated (a)')
@@ -564,6 +582,41 @@ console.log('the account secret marks: added forward, dropped by a downgrade')
     old.exec('COMMIT')
     check('re-upgrading adds the marks back', ['minecraft_users', 'minecraft_device_tokens', 'modrinth_users'].every((table) => columns(file, table).includes('secrets_externalized')))
     check('and leaves every row unmoved', old.prepare('SELECT COUNT(*) AS count FROM minecraft_users WHERE secrets_externalized <> 0').get().count === 0)
+    old.close()
+}
+
+// --- the scheduling level of install jobs -------------------------------------
+
+console.log('install jobs gain a scheduling level and lose it on downgrade')
+{
+    const LEVEL = 20261103130000
+    const file = path.join(directory, 'level', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < LEVEL))
+    database.exec(`
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
+            VALUES ('frozen', 'sample', 'install_content', 'queued', '{}', 1, 2);
+    `)
+    const original = database.prepare('SELECT * FROM install_jobs').all()
+    for (const name of later) apply(name)
+    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    database.close()
+    const downgrade = run(['--db', file, '--to', String(LEVEL), '--apply'])
+    check('a downgrade removes the level column', downgrade.status === 0 && !columns(file, 'install_jobs').includes('level'), downgrade.output)
+    const old = new DatabaseSync(file)
+    assert.deepEqual(old.prepare('SELECT * FROM install_jobs').all(), original)
+    old.exec('BEGIN')
+    for (const name of later) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name))
+        old.exec(sql.toString())
+        old.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+            .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+    }
+    old.exec('COMMIT')
+    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
     old.close()
 }
 

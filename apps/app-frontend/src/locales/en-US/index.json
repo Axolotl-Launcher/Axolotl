@@ -1,4 +1,200 @@
 {
+  "app.schematics.source.reden": { "message": "Reden" },
+  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
+  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
+  "app.schematics.sort.default": { "message": "Source order" },
+  "app.schematics.sort.name": { "message": "Name" },
+  "app.schematics.login-required-sources": {
+    "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
+  },
+  "app.schematics.open-source": { "message": "View on source website" },
+  "app.schematics.instances-error": {
+    "message": "Could not load your instances."
+  },
+  "app.browse.schematics-project-type": {
+    "message": "Schematics"
+  },
+  "app.schematics.source": {
+    "message": "Shimu Space"
+  },
+  "app.schematics.login-title": {
+    "message": "Connect Shimu Space"
+  },
+  "app.schematics.login-description": {
+    "message": "Sign in to browse free schematics from Shimu Space and install them into your Minecraft instances."
+  },
+  "app.schematics.login": {
+    "message": "Sign in to Shimu Space"
+  },
+  "app.schematics.waiting": {
+    "message": "Complete authorization in your browser"
+  },
+  "app.schematics.expired": {
+    "message": "Reconnect Shimu Space"
+  },
+  "app.schematics.load-error": {
+    "message": "Could not load schematics."
+  },
+  "app.schematics.account-error": {
+    "message": "Could not read your Shimu Space account."
+  },
+  "app.schematics.empty-title": {
+    "message": "No schematics found"
+  },
+  "app.schematics.empty-description": {
+    "message": "Try another page or a different search."
+  },
+  "app.schematics.loading": {
+    "message": "Loading schematics…"
+  },
+  "app.schematics.retry": {
+    "message": "Retry"
+  },
+  "app.schematics.search": {
+    "message": "Search schematics"
+  },
+  "app.schematics.sort.hot": { "message": "Popular" },
+  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.author-summary": {
+    "message": "{author} · {summary}"
+  },
+  "app.schematics.select-instance": {
+    "message": "Choose an instance"
+  },
+  "app.schematics.install": {
+    "message": "Install"
+  },
+  "app.schematics.installing": {
+    "message": "Installing…"
+  },
+  "app.schematics.preview": { "message": "Preview" },
+  "app.schematics.files": { "message": "Files" },
+  "app.schematics.creator": { "message": "Creator" },
+  "app.schematics.source-heading": { "message": "Source" },
+  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.installed": {
+    "message": "Installed"
+  },
+  "app.schematics.install-success": {
+    "message": "Schematic installed"
+  },
+  "app.schematics.install-failed": {
+    "message": "Could not install this schematic. Please try again."
+  },
+  "app.schematics.file-exists": {
+    "message": "A file with this name already exists in the instance. Choose another instance or rename the existing file."
+  },
+  "app.schematics.login-failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
+  "app.third-party.connected-notification": {
+    "message": "Connected to Shimu Space"
+  },
+  "app.third-party.description": {
+    "message": "Connect external accounts for use in the launcher."
+  },
+  "app.third-party.shimu": {
+    "message": "Shimu Space"
+  },
+  "app.third-party.shimu-purpose": {
+    "message": "Connect your Shimu Space account."
+  },
+  "app.third-party.identity": {
+    "message": "{nickname} · {username}"
+  },
+  "app.third-party.connected": {
+    "message": "Connected"
+  },
+  "app.third-party.disconnected": {
+    "message": "Not connected"
+  },
+  "app.third-party.expired": {
+    "message": "Sign in again"
+  },
+  "app.third-party.waiting": {
+    "message": "Waiting for authorization"
+  },
+  "app.third-party.exchanging": {
+    "message": "Completing connection"
+  },
+  "app.third-party.connect": {
+    "message": "Connect"
+  },
+  "app.third-party.reconnect": {
+    "message": "Reconnect"
+  },
+  "app.third-party.cancel": {
+    "message": "Cancel"
+  },
+  "app.third-party.more": {
+    "message": "Shimu Space account options"
+  },
+  "app.third-party.check": {
+    "message": "Check connection"
+  },
+  "app.third-party.disconnect": {
+    "message": "Disconnect"
+  },
+  "app.third-party.disconnect-title": {
+    "message": "Disconnect Shimu Space?"
+  },
+  "app.third-party.disconnect-description": {
+    "message": "This removes the account credential from this launcher. To revoke the authorization at Shimu Space, manage it on their website."
+  },
+  "app.third-party.denied": {
+    "message": "Authorization was declined. You can connect again."
+  },
+  "app.third-party.timed-out": {
+    "message": "Authorization timed out. Connect again to continue."
+  },
+  "app.third-party.failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
+  "app.third-party.load-failed": {
+    "message": "Could not read the account status."
+  },
+  "app.third-party.check-failed": {
+    "message": "Could not check the connection. Please try again."
+  },
+  "app.third-party.action-failed": {
+    "message": "The account operation failed. Please try again."
+  },
+  "app.third-party.retry": {
+    "message": "Retry"
+  },
+  "app.third-party.unavailable": {
+    "message": "Account connection is unavailable in this build."
+  },
+  "app.third-party.permissions": {
+    "message": "Authorization: read your profile and posts, and download resources. Authorization expires after 3 days; you will need to sign in again."
+  },
+  "app.third-party.browser": {
+    "message": "Complete the authorization in your browser."
+  },
+  "app.third-party.search": {
+    "message": "Shimu mcimg OAuth account authorization sign in connect"
+  },
+  "app.settings.tabs.third-party-accounts": {
+    "message": "Third-party accounts"
+  },
+  "app.downloads.task.install-content": {
+    "message": "Install content"
+  },
+  "app.downloads.task.install-content-named": {
+    "message": "Install content: {name}"
+  },
+  "app.downloads.task.install-content-batch": {
+    "message": "Install content: {name} ({count} items)"
+  },
+  "app.downloads.task.change-content": {
+    "message": "Change content"
+  },
+  "app.downloads.task.change-content-named": {
+    "message": "Change content: {name}"
+  },
+  "app.downloads.task.change-content-batch": {
+    "message": "Change content: {name} ({count} items)"
+  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },
@@ -970,6 +1166,12 @@
   },
   "app.browse.preparing-selected": {
     "message": "Preparing {completed}/{total}"
+  },
+  "app.browse.reviewing-selected": {
+    "message": "Reviewing content changes…"
+  },
+  "app.browse.queueing-selected": {
+    "message": "Adding to download queue…"
   },
   "app.browse.project-type.datapacks": {
     "message": "Data Packs"
@@ -3046,6 +3248,9 @@
   },
   "app.instance.content.check-failures": {
     "message": "{count, plural, one {# check failed} other {# checks failed}}"
+  },
+  "app.instance.content.processing": {
+    "message": "Updating instance files… Content will refresh when this finishes."
   },
   "app.instance.content.checking": {
     "message": "Refreshing… {current}/{total}"
@@ -6021,7 +6226,7 @@
     "message": "Collapse folder {name}"
   },
   "app.lab.schematic-preview.instance-picker.empty": {
-    "message": "No .litematic or .schem files were found in this instance."
+    "message": "No schematic files were found in this instance."
   },
   "app.lab.schematic-preview.instance-picker.expand-folder": {
     "message": "Expand folder {name}"
@@ -9486,7 +9691,7 @@
     "message": "Craft data pack recipes"
   },
   "app.onboarding.lab-schematic.description": {
-    "message": "Open a local .litematic or .schem file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
+    "message": "Open a local schematic file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
   },
   "app.onboarding.lab-schematic.title": {
     "message": "Inspect a build before placing it"
@@ -10285,6 +10490,15 @@
   },
   "app.resources.operation.apply": {
     "message": "Queue changes"
+  },
+  "app.resources.operation.force-install": {
+    "message": "Force install without dependencies"
+  },
+  "app.resources.operation.force-install-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies."
+  },
+  "app.resources.operation.force-install-compatibility-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies and accept its Minecraft or loader compatibility mismatches."
   },
   "app.resources.operation.artifact": {
     "message": "{source} · release {release} · {file}"
@@ -11756,6 +11970,30 @@
   "app.settings.environment-variables.invalid-format": {
     "message": "Use NAME=value, separated by spaces. A name and an equals sign are required; the value may be empty or contain more equals signs."
   },
+  "app.settings.export.all-button": {
+    "message": "Export all settings files…"
+  },
+  "app.settings.export.all-label": {
+    "message": "All settings files"
+  },
+  "app.settings.export.exported-text": {
+    "message": "The settings archive was saved to {path}"
+  },
+  "app.settings.export.exported-title": {
+    "message": "Settings exported"
+  },
+  "app.settings.export.patch-button": {
+    "message": "Export patch…"
+  },
+  "app.settings.export.patch-description": {
+    "message": "Only keys that differ from the defaults. The archive holds one document per domain; unzip it and use it directly as a deployment config."
+  },
+  "app.settings.export.patch-label": {
+    "message": "Deployment patch"
+  },
+  "app.settings.export.title": {
+    "message": "Manage settings files"
+  },
   "app.settings.feature-flags.advanced-filters-collapsed": {
     "message": "Collapse advanced filters by default"
   },
@@ -13180,6 +13418,12 @@
   },
   "app.settings.network.url": {
     "message": "Request URL"
+  },
+  "app.settings.override.hint": {
+    "message": "Overrides the deployed value."
+  },
+  "app.settings.override.restore": {
+    "message": "Restore deployed value"
   },
   "app.settings.privacy.data-handling": {
     "message": "Telemetry uses a random installation identifier and sends only a daily activity signal. Turning telemetry off clears pending data immediately."
@@ -17057,6 +17301,9 @@
   "instance.upgrade.select.loading-fabric-versions": {
     "message": "Loading Fabric versions…"
   },
+  "instance.upgrade.select.downgrade-unsupported": {
+    "message": "Downgrading is not supported."
+  },
   "instance.upgrade.select.loading-versions": {
     "message": "Loading Minecraft versions…"
   },
@@ -17647,5 +17894,83 @@
   },
   "app.downloads.diagnostics.pool-help": {
     "message": "Currently available resource permits in the global download pool, shared with other files and tasks. This is not the number of sockets the operating system can open."
+  },
+  "app.settings.export.cleanup-label": {
+    "message": "Local settings files"
+  },
+  "app.settings.export.cleanup-button": {
+    "message": "Clean up…"
+  },
+  "app.settings.export.cleanup-running": {
+    "message": "Cleaning up…"
+  },
+  "app.settings.export.cleanup-confirm-title": {
+    "message": "Clean up local settings files?"
+  },
+  "app.settings.export.cleanup-confirm-description": {
+    "message": "Rewrites every local settings document, discarding unknown and redundant keys. This cannot be undone."
+  },
+  "app.settings.export.cleanup-confirm-proceed": {
+    "message": "Clean up"
+  },
+  "app.settings.export.cleanup-done-title": {
+    "message": "Local settings files cleaned up"
+  },
+  "app.settings.export.cleanup-done-text": {
+    "message": "{count, plural, =0 {No local settings document needed rewriting.} one {Rewrote # local settings document.} other {Rewrote # local settings documents.}}"
+  },
+  "app.settings.export.import-label": {
+    "message": "Settings archive"
+  },
+  "app.settings.export.import-button": {
+    "message": "Import…"
+  },
+  "app.settings.export.import-running": {
+    "message": "Importing…"
+  },
+  "app.settings.export.import-confirm-title": {
+    "message": "Import settings?"
+  },
+  "app.settings.export.import-confirm-description": {
+    "message": "Merges the archive into your local settings. Where both set the same key, the imported value wins. This cannot be undone."
+  },
+  "app.settings.export.import-confirm-proceed": {
+    "message": "Import"
+  },
+  "app.settings.export.imported-title": {
+    "message": "Settings imported"
+  },
+  "app.settings.export.imported-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}}"
+  },
+  "app.settings.export.import-danger-title": {
+    "message": "The settings you are about to import may be dangerous"
+  },
+  "app.settings.export.import-danger-description": {
+    "message": "The settings you are about to import will change {keys}."
+  },
+  "app.settings.export.import-danger-key-column": {
+    "message": "Dangerous setting"
+  },
+  "app.settings.export.import-danger-before-column": {
+    "message": "Before import"
+  },
+  "app.settings.export.import-danger-after-column": {
+    "message": "After import"
+  },
+  "app.settings.export.import-danger-note": {
+    "message": "They change the arguments the game is started with or the commands that run before it, and may also change the environment of the game process, for example by injecting environment variables. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them."
+  },
+  "app.settings.export.import-danger-cancel": {
+    "message": "Cancel import"
+  },
+  "app.settings.export.import-danger-skip": {
+    "message": "Skip dangerous settings"
+  },
+  "app.settings.export.import-danger-allow": {
+    "message": "Continue import"
+  },
+  "app.settings.export.imported-dropped-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"
   }
 }

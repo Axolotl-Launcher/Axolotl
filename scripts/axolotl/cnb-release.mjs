@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { portableTargets } from './create-update-manifest.mjs'
 import { isExcludedRelease, selectLatestStableRelease } from './release-policy.mjs'
 import {
     assetDownloadUrl,
@@ -282,10 +283,21 @@ function createCnbManifest(githubManifest, mirroredNames) {
         }
     }
 
+    const artifacts = {}
+    for (const target of portableTargets) {
+        const artifact = githubManifest.artifacts?.[target.key]
+        if (!artifact) continue
+        if (!mirroredNames.has(artifact.name)) {
+            throw new Error(`GitHub release is missing artifact ${artifact.name} for ${target.key}`)
+        }
+        artifacts[target.key] = { ...artifact, url: assetDownloadUrl(tag, artifact.name, 'cnb') }
+    }
+
     return {
         ...githubManifest,
         version: tag.replace(/^v/, ''),
         platforms,
+        ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
     }
 }
 
@@ -327,7 +339,7 @@ async function finalizeRelease() {
     const release = await ensureRelease(githubRelease)
     const mirroredNames = await mirrorGithubAssets(release, githubRelease)
     const manifest = createCnbManifest(githubManifest, mirroredNames)
-    verifyUpdateManifest(manifest, tag, 'cnb')
+    verifyUpdateManifest(manifest, tag, 'cnb', githubRelease)
     const manifestPath = path.join(outputDirectory, 'latest.json')
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
     await uploadAsset(release, manifestPath)

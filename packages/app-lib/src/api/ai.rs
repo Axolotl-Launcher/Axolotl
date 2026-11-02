@@ -1,7 +1,6 @@
 //! AI provider catalog, credentials, and text-generation adapters.
 
 pub mod chat;
-mod credentials;
 
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -21,11 +20,11 @@ use uuid::Uuid;
 
 use crate::state::documents;
 use crate::state::documents::ai::{AiDocument, ProviderConfig};
+use crate::util::oauth_credentials as credentials;
 use crate::{ErrorKind, State};
 
-const CATALOG_SOURCE: &str = "LobeHub 483c4a343e437bf6e812b5f71a9a47ce7b5c7be4";
+const CATALOG_SOURCE: &str = "LobeHub 700c8349e35477cb602975f8089c942e96bc9601";
 const KEYRING_PREFIX: &str = "ai-provider";
-const OAUTH_CREDENTIAL: &str = "oauth";
 const API_KEY_CREDENTIAL: &str = "api-key";
 const AWS_ACCESS_KEY_ID_CREDENTIAL: &str = "aws-access-key-id";
 const AWS_SECRET_ACCESS_KEY_CREDENTIAL: &str = "aws-secret-access-key";

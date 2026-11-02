@@ -1,6 +1,8 @@
 //! Fetch native tests.
 
-use crate::util::download::constants::FILE_VALIDATION_CONCURRENCY;
+use crate::util::download::constants::{
+    FILE_VALIDATION_CONCURRENCY, PARTIAL_FILE_SUFFIX,
+};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -282,6 +284,65 @@ async fn check_h2_fallback(
     }
     h2_server.abort();
     http1_server.abort();
+}
+
+#[tokio::test]
+async fn small_verified_file_recovers_parallel_ranges_after_http2_fallback() {
+    let _guard = super::fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    RANGE_SPLITTING_PROTOCOL_FAILURES.lock().clear();
+    RANGE_SPLITTING_SUPPORTED.lock().clear();
+    let data = Arc::new(
+        (0..2 * 1024 * 1024)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, requests, normal_requests, server) =
+        spawn_range_server(data.clone(), Default::default()).await;
+    let mut primary =
+        route(url.clone(), DownloadRouteSource::Official, false, true);
+    primary.proxy = ProxyPolicy::Direct;
+    let directory = tempfile::tempdir().unwrap();
+    let semaphore = FetchSemaphore(Semaphore::new(16));
+    for recovering in [false, true] {
+        let mut request = DownloadRequest::new(&url, ResourceClass::Modrinth)
+            .with_integrity(
+                Integrity::sha1(hash.clone()).with_size(data.len() as u64),
+            );
+        request.prefer_http1 = recovering;
+        assert!(!request.batch_download);
+        let destination = directory.path().join(format!("small-{recovering}"));
+        let part = suffixed_path(&destination, PARTIAL_FILE_SUFFIX);
+        let prefix = 64 * 1024;
+        tokio::fs::write(&part, &data[..prefix]).await.unwrap();
+        let before = requests.load(Ordering::Relaxed);
+        let result = run_native_download_attempts(
+            request,
+            &destination,
+            &semaphore,
+            None,
+            vec![primary.clone()],
+            part.clone(),
+            None,
+        )
+        .await
+        .unwrap();
+        let count = requests.load(Ordering::Relaxed) - before;
+        if recovering {
+            assert!(count > 1, "slow fallback must split the remaining bytes");
+        } else {
+            assert_eq!(
+                count, 1,
+                "healthy small files should stay single-stream"
+            );
+        }
+        assert_eq!(result.size, data.len() as u64);
+        assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+        assert!(!part.exists());
+        assert_eq!(semaphore.0.available_permits(), 16);
+    }
+    assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+    server.abort();
 }
 
 #[tokio::test]

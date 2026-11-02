@@ -525,42 +525,186 @@ export function functionBodies(source) {
     return bodies
 }
 
-/** `// sched-order: <module_path::IDENT>` annotations on acquisition points (design v8 §4.9). */
+/** `{ open, close }` offsets of every brace pair in masked code. */
+function blockRanges(code) {
+    const blocks = []
+    const stack = []
+    for (let i = 0; i < code.length; i++) {
+        if (code[i] === '{') stack.push(i)
+        else if (code[i] === '}' && stack.length > 0) blocks.push({ open: stack.pop(), close: i })
+    }
+    return blocks
+}
+
+/** Last line of the innermost block around the first code on `line`. */
+function innermostBlockEnd(source, blocks, line) {
+    const text = source.lines[line - 1] ?? ''
+    const offset = source.starts[line - 1] + Math.max(0, text.search(/\S/))
+    let best = null
+    for (const block of blocks) {
+        if (block.open < offset && offset < block.close && (!best || block.close - block.open < best.close - best.open)) best = block
+    }
+    return best ? lineOf(source.starts, best.close) : source.lines.length
+}
+
+/**
+ * `// sched-order: <module_path::IDENT> [temporary]` annotations on
+ * acquisition points (design v8 §4.9), plus `// sched-order-release: <IDENT>`
+ * where a held guard is dropped explicitly. An annotation on a line of its own
+ * names the statement below it. A held guard lasts to its release line or the
+ * end of the innermost block around its statement; a `temporary` one ends
+ * with its statement. This is a static approximation: it does not follow
+ * guards returned from or passed into other functions.
+ */
 export function scanOrderAnnotations(sources) {
     const annotations = []
     for (const source of sources) {
         const bodies = functionBodies(source)
+        const blocks = blockRanges(source.code)
+        const releases = []
         source.rawLines.forEach((text, index) => {
-            const match = text.match(/\/\/\s*sched-order:\s*(\S+)/)
+            const release = text.match(/\/\/\s*sched-order-release:\s*(\S+)/)
+            if (release) releases.push({ line: index + 1, ident: release[1] })
+        })
+        source.rawLines.forEach((text, index) => {
+            const match = text.match(/\/\/\s*sched-order:\s*(\S+)(\s+temporary\b)?/)
             if (!match) return
             const line = index + 1
-            const body = bodies.filter((candidate) => candidate.from <= line && line <= candidate.to).at(-1)
-            annotations.push({ file: source.rel, line, ident: match[1], fn: body ? `${body.name}@${body.from}` : null })
+            let statement = line
+            while (statement < source.lines.length && source.lines[statement - 1].trim() === '') statement++
+            const body = bodies.filter((candidate) => candidate.from <= statement && statement <= candidate.to).at(-1)
+            const temporary = Boolean(match[2])
+            const blockEnd = innermostBlockEnd(source, blocks, statement)
+            const release = releases.find((candidate) => candidate.ident === match[1] && candidate.line > statement && candidate.line <= blockEnd)
+            annotations.push({
+                file: source.rel,
+                line,
+                statement,
+                ident: match[1],
+                fn: body ? `${body.name}@${body.from}` : null,
+                temporary,
+                until: temporary ? statement : (release?.line ?? blockEnd),
+            })
         })
     }
     return annotations
 }
 
+/** Idents on a cycle of `edges` (held → acquired), one list per cycle found. */
+function findCycles(edges) {
+    const next = new Map()
+    for (const { held, acquired } of edges) {
+        if (!next.has(held.ident)) next.set(held.ident, new Set())
+        next.get(held.ident).add(acquired.ident)
+    }
+    const cycles = []
+    const state = new Map()
+    const path = []
+    const visit = (node) => {
+        state.set(node, 'open')
+        path.push(node)
+        for (const target of next.get(node) ?? []) {
+            if (state.get(target) === 'open') cycles.push([...path.slice(path.indexOf(target)), target])
+            else if (!state.has(target)) visit(target)
+        }
+        path.pop()
+        state.set(node, 'done')
+    }
+    for (const node of next.keys()) if (!state.has(node)) visit(node)
+    return cycles
+}
+
 /**
- * Checks annotations against the registry: each ident must be registered, and
- * within one function the annotated acquisitions must ascend in rank.
+ * Checks annotations against the registry and the per-family order (spec
+ * §6.3.4 fallback, accepted as R5): each ident must be registered, and while a
+ * guard is held every later acquisition of the same scope family must ascend
+ * in rank. Families are not ordered against each other. A descending pair
+ * listed in `exceptions` is allowed only while the nested pairs stay acyclic.
  */
-export function checkAnnotations(annotations, registry) {
-    const ranks = new Map(registry.items.map((item) => [item.ident, item.rank]))
-    const unreachable = annotations.filter((annotation) => !ranks.has(annotation.ident))
-    const descending = []
+export function checkAnnotations(annotations, registry, exceptions = []) {
+    const items = new Map(registry.items.map((item) => [item.ident, item]))
+    const unreachable = annotations.filter((annotation) => !items.has(annotation.ident))
     const byFunction = new Map()
-    for (const annotation of annotations.filter((candidate) => ranks.has(candidate.ident) && candidate.fn)) {
+    for (const annotation of annotations.filter((candidate) => items.has(candidate.ident) && candidate.fn)) {
         const key = `${annotation.file}\0${annotation.fn}`
         if (!byFunction.has(key)) byFunction.set(key, [])
         byFunction.get(key).push(annotation)
     }
+    const edges = []
+    let crossFamily = 0
     for (const sequence of byFunction.values()) {
-        for (let i = 1; i < sequence.length; i++) {
-            if (ranks.get(sequence[i].ident) <= ranks.get(sequence[i - 1].ident)) descending.push({ held: sequence[i - 1], acquired: sequence[i] })
+        for (const held of sequence) {
+            if (held.temporary) continue
+            const from = held.statement ?? held.line
+            const until = held.until ?? Infinity
+            for (const acquired of sequence) {
+                const at = acquired.statement ?? acquired.line
+                if (acquired === held || at <= from || at > until) continue
+                if (items.get(acquired.ident).scopeClass === items.get(held.ident).scopeClass) edges.push({ held, acquired })
+                else crossFamily++
+            }
         }
     }
-    return { unreachable, descending }
+    const rank = (annotation) => items.get(annotation.ident).rank
+    const excepted = (edge) => exceptions.some((exception) => exception.held === edge.held.ident && exception.acquired === edge.acquired.ident)
+    const backwards = edges.filter((edge) => rank(edge.acquired) <= rank(edge.held))
+    return {
+        unreachable,
+        edges,
+        crossFamily,
+        descending: backwards.filter((edge) => !excepted(edge)),
+        exempted: backwards.filter(excepted),
+        cycles: findCycles(edges),
+    }
+}
+
+/** Methods that build a resource rather than acquire it. */
+export const CONSTRUCTOR_METHODS = new Set(['Semaphore::new', 'const_new'])
+
+/**
+ * Splits the acquisition points of registered resources by what the
+ * per-family order can judge. Points in a function that takes two or more
+ * resources of one family need an annotation; the rest are exempt by rule:
+ * F0 builds the resource, F1 is the only resource of its family the function
+ * takes, so no in-function order exists to violate.
+ */
+export function orderCoverage(getpoints, registry, annotations, sources) {
+    const family = new Map(registry.items.map((item) => [item.ident, item.scopeClass]))
+    const bodies = new Map(sources.map((source) => [source.rel, functionBodies(source)]))
+    const fnOf = (file, line) => {
+        const body = (bodies.get(file) ?? []).filter((candidate) => candidate.from <= line && line <= candidate.to).at(-1)
+        return body ? `${body.name}@${body.from}` : null
+    }
+    const exempt = []
+    const byFunction = new Map()
+    for (const point of getpoints.items) {
+        const idents = point.idents.filter((ident) => family.has(ident))
+        if (idents.length === 0) continue
+        if (CONSTRUCTOR_METHODS.has(point.method)) {
+            exempt.push({ ...point, rule: 'F0' })
+            continue
+        }
+        const key = `${point.file}\0${fnOf(point.file, point.line)}`
+        if (!byFunction.has(key)) byFunction.set(key, [])
+        byFunction.get(key).push({ ...point, idents })
+    }
+    const constrained = []
+    for (const points of byFunction.values()) {
+        const perFamily = new Map()
+        for (const ident of points.flatMap((point) => point.idents)) {
+            if (!perFamily.has(family.get(ident))) perFamily.set(family.get(ident), new Set())
+            perFamily.get(family.get(ident)).add(ident)
+        }
+        if ([...perFamily.values()].some((idents) => idents.size > 1)) constrained.push(...points)
+        else exempt.push(...points.map((point) => ({ ...point, rule: 'F1' })))
+    }
+    const covers = (annotation, point) =>
+        annotation.file === point.file &&
+        point.idents.includes(annotation.ident) &&
+        annotation.statement <= point.line &&
+        point.line - annotation.statement <= 10
+    const uncovered = constrained.filter((point) => !annotations.some((annotation) => covers(annotation, point)))
+    return { constrained, uncovered, exempt }
 }
 
 export function parseArgs(argv) {

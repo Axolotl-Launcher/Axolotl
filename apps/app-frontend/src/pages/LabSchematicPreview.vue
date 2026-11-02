@@ -71,12 +71,14 @@ import {
 } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { schematicMessages, schematicSourceMessages } from '@/components/browse/schematics/messages'
 import SchematicBlockPickerModal from '@/components/lab/schematic-preview/SchematicBlockPickerModal.vue'
 import SchematicInfoModal from '@/components/lab/schematic-preview/SchematicInfoModal.vue'
 import SchematicInstancePickerModal from '@/components/lab/schematic-preview/SchematicInstancePickerModal.vue'
 import SchematicMaterialSwatch from '@/components/lab/schematic-preview/SchematicMaterialSwatch.vue'
 import SchematicStateCard from '@/components/lab/schematic-preview/SchematicStateCard.vue'
 import { list } from '@/helpers/instance'
+import { isSchematicFileName, isSchematicSource } from '@/helpers/schematics'
 import type { GameInstance } from '@/helpers/types.d.ts'
 import {
     applySchematicEdits,
@@ -607,7 +609,12 @@ async function loadInstances() {
 async function chooseLocalFile() {
     const path = await open({
         multiple: false,
-        filters: [{ name: 'Minecraft schematics', extensions: ['litematic', 'schem'] }],
+        filters: [
+            {
+                name: 'Minecraft schematics',
+                extensions: ['litematic', 'schem', 'schematic', 'nbt'],
+            },
+        ],
     })
     if (!disposed && typeof path === 'string') await openSource({ kind: 'external', path })
 }
@@ -1364,7 +1371,7 @@ async function exportMaterials() {
     const session = captureSession(opened)
     try {
         const path = await save({
-            defaultPath: `${opened.fileName.replace(/\.(litematic|schem)$/i, '')}-materials.csv`,
+            defaultPath: `${opened.fileName.replace(/\.(litematic|schem|schematic|nbt)$/i, '')}-materials.csv`,
             filters: [{ name: 'CSV', extensions: ['csv'] }],
         })
         if (!path || !isCurrentSession(session)) return
@@ -1389,7 +1396,7 @@ async function exportMaterialsJson() {
     const session = captureSession(opened)
     try {
         const path = await save({
-            defaultPath: `${opened.fileName.replace(/\.(litematic|schem)$/i, '')}-materials.json`,
+            defaultPath: `${opened.fileName.replace(/\.(litematic|schem|schematic|nbt)$/i, '')}-materials.json`,
             filters: [{ name: 'JSON', extensions: ['json'] }],
         })
         if (!path || !isCurrentSession(session)) return
@@ -1408,7 +1415,7 @@ async function exportSchematic(format: 'schem' | 'litematic') {
     try {
         const extension = format === 'schem' ? 'schem' : 'litematic'
         const path = await save({
-            defaultPath: `${opened.fileName.replace(/\.(litematic|schem)$/i, '')}-edited.${extension}`,
+            defaultPath: `${opened.fileName.replace(/\.(litematic|schem|schematic|nbt)$/i, '')}-edited.${extension}`,
             filters: [
                 format === 'schem'
                     ? { name: 'Sponge schematic', extensions: ['schem'] }
@@ -1435,7 +1442,7 @@ async function exportPng() {
     const session = captureSession(opened)
     try {
         const path = await save({
-            defaultPath: `${opened.fileName.replace(/\.(litematic|schem)$/i, '')}-preview.png`,
+            defaultPath: `${opened.fileName.replace(/\.(litematic|schem|schematic|nbt)$/i, '')}-preview.png`,
             filters: [{ name: 'PNG', extensions: ['png'] }],
         })
         if (!path || !isCurrentSession(session)) return
@@ -1484,6 +1491,10 @@ function openRecent(record: RecentSchematic) {
 }
 
 function formatSource(record: RecentSchematic) {
+    if (record.source.kind === 'remote')
+        return `${formatMessage(schematicSourceMessages[record.source.source])} · ${record.source.fileName}`
+    if (record.source.kind === 'shimu')
+        return formatMessage(schematicMessages.previewSource, { fileName: record.source.fileName })
     if (record.source.kind === 'external') return record.source.path
     const instance = instances.value.find((item) => item.id === record.source.instanceId)
     return `${instance?.name ?? record.source.instanceId} · schematics/${record.source.relativePath}`
@@ -1520,7 +1531,7 @@ async function setupNativeDrop() {
                 dragging.value = false
                 return
             }
-            const path = payload.paths?.find((item) => /\.(litematic|schem)$/i.test(item))
+            const path = payload.paths?.find((item) => isSchematicFileName(item))
             const inside = pointInWorkspace(payload.position)
             if (payload.type === 'enter' || payload.type === 'over')
                 dragging.value = Boolean(path && inside)
@@ -1598,12 +1609,32 @@ onMounted(async () => {
     await setupNativeDrop().catch(() => undefined)
     if (disposed) return
 
+    if (
+        isSchematicSource(route.query.source) &&
+        typeof route.query.project === 'string' &&
+        typeof route.query.file === 'string' &&
+        isSchematicFileName(route.query.file)
+    ) {
+        await openSource({
+            kind: 'remote',
+            source: route.query.source,
+            projectId: route.query.project,
+            fileName: route.query.file,
+        })
+        return
+    }
+    const postId = Number(route.query.shimu)
+    const fileName = typeof route.query.file === 'string' ? route.query.file : ''
+    if (Number.isSafeInteger(postId) && postId > 0 && isSchematicFileName(fileName)) {
+        await openSource({ kind: 'shimu', postId, fileName })
+        return
+    }
     const instanceId = typeof route.query.instance === 'string' ? route.query.instance : ''
     const relativePath = typeof route.query.path === 'string' ? route.query.path : ''
     if (
         instanceId &&
         relativePath &&
-        /\.(litematic|schem)$/i.test(relativePath) &&
+        isSchematicFileName(relativePath) &&
         instances.value.some((instance) => instance.id === instanceId)
     ) {
         await openSource({ kind: 'instance_file', instanceId, relativePath })

@@ -231,7 +231,8 @@ pub(crate) async fn attach_compatibility(
                     && item.materialization_state
                         == crate::state::PackMemberMaterializationState::Present
                 {
-                    item.capabilities.can_change_version = true;
+                    item.capabilities.can_change_version = item.project_type
+                        != crate::state::ProjectType::Schematic;
                 }
                 if item.resource_id.is_none() {
                     item.resource_id = identities

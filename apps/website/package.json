@@ -21,7 +21,7 @@
     "@types/node": "^24.13.3",
     "@vitest/browser-playwright": "4.1.12",
     "autoprefixer": "^10.5.5",
-    "nuxt": "^4.6.2",
+    "nuxt": "^4.6.3",
     "playwright": "1.63.0",
     "postcss": "^8.5.28",
     "prettier-plugin-tailwindcss": "^0.6.14",

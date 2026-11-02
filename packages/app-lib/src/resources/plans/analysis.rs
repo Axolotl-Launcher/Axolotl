@@ -318,7 +318,9 @@ async fn update_inner(
             "analysis session belongs to a different instance",
         ));
     }
+    // sched-order: theseus::resources::plans::analysis::AnalysisSession.touched temporary
     *session.touched.lock().unwrap() = Instant::now();
+    // sched-order: theseus::resources::plans::analysis::AnalysisSession.data
     let mut data =
         lock_session_data(&session, cancel, Duration::from_secs(20)).await?;
     let operation_cancel = cancel.child_token();

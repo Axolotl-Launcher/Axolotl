@@ -935,7 +935,7 @@ onBeforeRouteLeave(() => {
                 max-width="420px"
                 :on-hide="() => resolveDiscard(false)"
             >
-                <p class="m-0 text-sm text-secondary">
+                <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
                     {{ formatMessage(messages.discardImageDescription) }}
                 </p>
                 <template #actions>

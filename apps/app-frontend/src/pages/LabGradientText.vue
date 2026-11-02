@@ -733,8 +733,14 @@ function formatAdapterName(adapterId: GradientFormatId): string {
                                 :label="formatMessage(messages.addColor)"
                                 @change="addPickedColor"
                             >
-                                <template #trigger="{ toggle }">
-                                    <Button type="colored" color="brand" size="2xs" @click="toggle"
+                                <template #trigger="{ toggle, expanded }">
+                                    <Button
+                                        type="colored"
+                                        color="brand"
+                                        size="2xs"
+                                        aria-haspopup="dialog"
+                                        :aria-expanded="expanded"
+                                        @click="toggle"
                                         ><PlusIcon />{{ formatMessage(messages.addColor) }}
                                     </Button>
                                 </template>

@@ -1160,26 +1160,33 @@ fn parse_sponge(
 /// Keeps the Sponge data the preview cannot edit, normalised to the version 3
 /// entry shape (`{ Pos, Id, Data }`) so later exports can re-emit or convert
 /// it regardless of the source version.
-fn sponge_preserved(root: NbtCompound, format_version: i32) -> SpongePreserved {
-    let (entities, block_entities) = {
-        let schematic = if format_version == 3 {
-            root.get::<_, &NbtCompound>("Schematic").unwrap_or(&root)
-        } else {
-            &root
-        };
-        let block_container = if format_version == 3 {
-            schematic
-                .get::<_, &NbtCompound>("Blocks")
-                .unwrap_or(schematic)
-        } else {
-            schematic
-        };
-        (
-            sponge_entity_list(schematic),
-            sponge_block_entity_list(block_container),
-        )
-    };
-    let mut root = root;
+fn sponge_preserved(
+    mut root: NbtCompound,
+    format_version: i32,
+) -> SpongePreserved {
+    // Take the entry lists out of the tree before normalising them. Cloning
+    // them would hold two copies of every payload at peak, and the stripped
+    // originals would be dropped immediately afterwards anyway.
+    let mut entities = NbtList::new();
+    let mut block_entities = NbtList::new();
+    if format_version == 3 {
+        if let Ok(schematic) = root.get_mut::<_, &mut NbtCompound>("Schematic")
+        {
+            entities = sponge_entity_list(take_nbt_list(schematic, "Entities"));
+            if let Ok(blocks) =
+                schematic.get_mut::<_, &mut NbtCompound>("Blocks")
+            {
+                block_entities = sponge_block_entity_list(take_nbt_list(
+                    blocks,
+                    "BlockEntities",
+                ));
+            }
+        }
+    } else {
+        entities = sponge_entity_list(take_nbt_list(&mut root, "Entities"));
+        block_entities =
+            sponge_block_entity_list(take_nbt_list(&mut root, "BlockEntities"));
+    }
     if format_version == 3 {
         if let Ok(schematic) = root.get_mut::<_, &mut NbtCompound>("Schematic")
         {
@@ -1213,17 +1220,23 @@ fn strip_sponge_block_data(compound: &mut NbtCompound) {
     }
 }
 
-fn sponge_entity_list(schematic: &NbtCompound) -> NbtList {
+/// Removes a list from a compound, handing its entries over instead of
+/// copying them.
+fn take_nbt_list(compound: &mut NbtCompound, key: &str) -> Vec<NbtTag> {
+    match compound.inner_mut().remove(key) {
+        Some(NbtTag::List(list)) => list.into_inner(),
+        _ => Vec::new(),
+    }
+}
+
+fn sponge_entity_list(entries: Vec<NbtTag>) -> NbtList {
     let mut output = NbtList::new();
-    let Ok(entries) = schematic.get::<_, &NbtList>("Entities") else {
-        return output;
-    };
     for entry in entries {
         let NbtTag::Compound(compound) = entry else {
             continue;
         };
         if compound.get::<_, &NbtCompound>("Data").is_ok() {
-            output.push(compound.clone());
+            output.push(compound);
             continue;
         }
         output.push(wrap_sponge_entry(compound, None));
@@ -1231,48 +1244,49 @@ fn sponge_entity_list(schematic: &NbtCompound) -> NbtList {
     output
 }
 
-fn sponge_block_entity_list(container: &NbtCompound) -> NbtList {
+fn sponge_block_entity_list(entries: Vec<NbtTag>) -> NbtList {
     let mut output = NbtList::new();
-    let Ok(entries) = container.get::<_, &NbtList>("BlockEntities") else {
-        return output;
-    };
     for entry in entries {
         let NbtTag::Compound(compound) = entry else {
             continue;
         };
         if compound.get::<_, &NbtCompound>("Data").is_ok() {
-            output.push(compound.clone());
+            output.push(compound);
             continue;
         }
-        output.push(wrap_sponge_entry(
-            compound,
-            compound.get::<_, &[i32]>("Pos").ok(),
-        ));
+        let position = compound
+            .get::<_, &[i32]>("Pos")
+            .ok()
+            .filter(|value| value.len() >= 3)
+            .map(|value| [value[0], value[1], value[2]]);
+        output.push(wrap_sponge_entry(compound, position));
     }
     output
 }
 
 /// Wraps a flat version 2 entry into the version 3 `{ Pos, Id, Data }` shape.
 fn wrap_sponge_entry(
-    compound: &NbtCompound,
-    block_position: Option<&[i32]>,
+    mut compound: NbtCompound,
+    block_position: Option<[i32; 3]>,
 ) -> NbtCompound {
     let id = compound
         .get::<_, &str>("Id")
         .unwrap_or("minecraft:unknown")
         .to_string();
-    let mut data = compound.clone();
-    data.inner_mut().remove("Pos");
-    data.inner_mut().remove("Id");
-    data.insert("id", id.as_str());
+    // A version 2 entity keeps its position as a double list, which has to be
+    // read before the payload is moved into `Data`.
+    let point = compound.get::<_, &NbtList>("Pos").ok().cloned();
+    compound.inner_mut().remove("Pos");
+    compound.inner_mut().remove("Id");
+    compound.insert("id", id.as_str());
     let mut wrapped = NbtCompound::new();
     if let Some(position) = block_position {
         wrapped.insert("Pos", NbtTag::IntArray(position.to_vec()));
-    } else if let Ok(position) = compound.get::<_, &NbtList>("Pos") {
-        wrapped.insert("Pos", position.clone());
+    } else if let Some(point) = point {
+        wrapped.insert("Pos", point);
     }
     wrapped.insert("Id", id.as_str());
-    wrapped.insert("Data", data);
+    wrapped.insert("Data", compound);
     wrapped
 }
 

@@ -105,9 +105,7 @@ const messages = defineMessages({
 const VERSION_OPTIONS = ['26.2', '1.21', '1.20.1', '1.19.2', '1.18.2'] as const
 const PRESET_OPTIONS = ['NORMAL', 'LARGE_BIOMES', 'SINGLE_BIOME'] as const
 
-const versionOptions = computed(() =>
-    VERSION_OPTIONS.map((value) => ({ value, label: value })),
-)
+const versionOptions = computed(() => VERSION_OPTIONS.map((value) => ({ value, label: value })))
 
 function presetLabel(value: (typeof PRESET_OPTIONS)[number]) {
     if (value === 'LARGE_BIOMES') return formatMessage(messages.presetLargeBiomes)
@@ -141,9 +139,7 @@ onMounted(async () => {
     }
 })
 
-const canScan = computed(
-    () => !!seed.value.trim() && !scanning.value && available.value === true,
-)
+const canScan = computed(() => !!seed.value.trim() && !scanning.value && available.value === true)
 
 async function run() {
     if (!canScan.value) return
@@ -232,7 +228,11 @@ async function copyTeleport(hit: { x: number; z: number; y: number }) {
                 <template v-if="result.lowestY !== null">
                     {{ formatMessage(messages.lowest, { y: result.lowestY.toFixed(1) }) }} ·
                 </template>
-                {{ formatMessage(messages.elapsed, { seconds: (result.elapsedMs / 1000).toFixed(1) }) }}
+                {{
+                    formatMessage(messages.elapsed, {
+                        seconds: (result.elapsedMs / 1000).toFixed(1),
+                    })
+                }}
             </span>
         </template>
 

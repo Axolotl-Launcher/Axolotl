@@ -102,9 +102,7 @@ onMounted(async () => {
     }
 })
 
-const canScan = computed(
-    () => !!seed.value.trim() && !scanning.value && available.value === true,
-)
+const canScan = computed(() => !!seed.value.trim() && !scanning.value && available.value === true)
 
 // A finished scan describes the inputs it ran with, so changing one of them must
 // drop the old table instead of letting its coordinates pass for the new search.
@@ -183,7 +181,11 @@ async function copyTeleport(hit: { centerX: number; centerZ: number }) {
                 <template v-if="result.bestSpawners !== null">
                     {{ formatMessage(messages.best, { count: result.bestSpawners }) }} ·
                 </template>
-                {{ formatMessage(messages.elapsed, { seconds: (result.elapsedMs / 1000).toFixed(1) }) }}
+                {{
+                    formatMessage(messages.elapsed, {
+                        seconds: (result.elapsedMs / 1000).toFixed(1),
+                    })
+                }}
             </span>
         </template>
 

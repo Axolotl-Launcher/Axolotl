@@ -156,6 +156,28 @@ export function readRecentColors(
 }
 
 /**
+ * Merges recent-colour lists into one, newest first, keeping the first
+ * occurrence of each colour and stopping at `limit`.
+ *
+ * Storage can accept a write and still report the previous list, so the caller
+ * keeps its in-session list and merges it with what storage returns instead of
+ * trusting either source alone.
+ */
+export function mergeRecentColors(lists: readonly string[][], limit: number): string[] {
+    const merged: string[] = []
+    if (limit <= 0) return merged
+    for (const list of lists) {
+        for (const entry of list) {
+            const hex = normalizeHex(entry)
+            if (!hex || merged.includes(hex)) continue
+            merged.push(hex)
+            if (merged.length >= limit) return merged
+        }
+    }
+    return merged
+}
+
+/**
  * Moves `value` to the front of the recent list, dropping the oldest entry past
  * the limit. Returns the updated list even when persisting fails.
  */

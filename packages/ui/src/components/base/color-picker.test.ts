@@ -6,6 +6,7 @@ import {
     hexToRgb,
     hsvToHex,
     hsvToRgb,
+    mergeRecentColors,
     MINECRAFT_DYE_COLORS,
     normalizeHex,
     readRecentColors,
@@ -170,4 +171,32 @@ test('returns an empty list for a non-positive limit', () => {
     rememberRecentColor('#ff0000')
     assert.deepEqual(readRecentColors(undefined, 0), [])
     assert.deepEqual(rememberRecentColor('#00ff00', undefined, 0), [])
+})
+
+test('merges recent lists newest first without repeating a colour', () => {
+    assert.deepEqual(
+        mergeRecentColors(
+            [
+                ['#111111', '#222222'],
+                ['#222222', '#333333'],
+            ],
+            8,
+        ),
+        ['#111111', '#222222', '#333333'],
+    )
+})
+
+test('stops merging at the limit', () => {
+    assert.deepEqual(mergeRecentColors([['#111111', '#222222'], ['#333333']], 2), [
+        '#111111',
+        '#222222',
+    ])
+})
+
+test('normalizes and skips entries that are not hex colours when merging', () => {
+    assert.deepEqual(mergeRecentColors([['nope', '#ABCDEF', '#abc']], 8), ['#abcdef', '#aabbcc'])
+})
+
+test('merges to nothing for a non-positive limit', () => {
+    assert.deepEqual(mergeRecentColors([['#111111']], 0), [])
 })

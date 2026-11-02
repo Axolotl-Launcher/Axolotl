@@ -7,6 +7,7 @@ import {
     hexToHsv,
     type HsvColor,
     hsvToHex,
+    mergeRecentColors,
     MINECRAFT_DYE_COLORS,
     normalizeHex,
     readRecentColors,
@@ -214,7 +215,16 @@ function togglePanel() {
 function openPanel() {
     if (props.disabled || open.value) return
     if (props.showRecentColors) {
-        recentColors.value = readRecentColors(props.recentColorsStorageKey, props.recentColorsLimit)
+        // Merge instead of replacing: a webview can reject the write and then
+        // report the previous list, which would drop the colours committed in
+        // this session as soon as the panel is reopened.
+        recentColors.value = mergeRecentColors(
+            [
+                recentColors.value,
+                readRecentColors(props.recentColorsStorageKey, props.recentColorsLimit),
+            ],
+            props.recentColorsLimit,
+        )
     }
     positioned.value = false
     open.value = true

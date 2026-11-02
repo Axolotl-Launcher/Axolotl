@@ -1,7 +1,7 @@
 import { userEvent } from '@vitest/browser/context'
-import type { mount } from '@vue/test-utils'
+import type { mount, VueWrapper } from '@vue/test-utils'
 import { flushPromises } from '@vue/test-utils'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { mountThemed, waitFor } from '../../test/visual-harness'
 import ColorPicker from './ColorPicker.vue'
@@ -48,9 +48,17 @@ function alphaOf(color: string) {
     return match ? Number(match[1]) : 1
 }
 
+type PickerWrapper = VueWrapper
+
 async function openPicker(props: Record<string, unknown> = {}) {
     const wrapper = await mountThemed(ColorPicker, { modelValue: '#ff0000', ...props }, 'dark')
     mounted.push(wrapper)
+    await openTrigger(wrapper)
+    return wrapper
+}
+
+/** Reopens the same instance, which keeps the state the component holds in memory. */
+async function openTrigger(wrapper: PickerWrapper) {
     await wrapper.get('button').trigger('click')
     await flushPromises()
     await waitFor(() => panel() !== null && getComputedStyle(panel()!).visibility === 'visible', {
@@ -61,7 +69,6 @@ async function openPicker(props: Record<string, unknown> = {}) {
     await waitFor(() => getComputedStyle(panel()!).transform === 'none', {
         label: 'the panel entrance animation',
     })
-    return wrapper
 }
 
 async function closePicker() {
@@ -205,6 +212,24 @@ it('lists a committed colour under recent colours on the next open', async () =>
     const recent = groups[1].querySelectorAll('button')
     expect(recent).toHaveLength(1)
     expect(recent[0].getAttribute('aria-label')).toBe('#835432')
+})
+
+it('keeps recent colours after storage rejects the write', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('QuotaExceededError')
+    })
+
+    const wrapper = await openPicker()
+    presetGroups()[0].querySelectorAll('button')[12].click()
+    await flushPromises()
+    await closePicker()
+    await openTrigger(wrapper)
+
+    setItem.mockRestore()
+
+    const groups = presetGroups()
+    expect(groups).toHaveLength(2)
+    expect(groups[1].querySelectorAll('button')[0].getAttribute('aria-label')).toBe('#835432')
 })
 
 it('keeps recent colours out of the panel when the caller opts out', async () => {

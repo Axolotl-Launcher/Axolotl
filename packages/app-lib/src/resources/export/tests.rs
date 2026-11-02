@@ -1063,6 +1063,12 @@ async fn export_uses_exact_bytes_and_valid_public_urls_and_writes_no_environment
             serde_json::json!({"client_side": "unsupported", "server_side": "required"}),
         );
     }
+    let has_entry_without_env = |value: &serde_json::Value| {
+        let files = value["files"].as_array().unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0]["path"], "file.jar");
+        assert!(files[0].get("env").is_none());
+    };
     for format in [
         ResourceExportFormat::Modrinth,
         ResourceExportFormat::GenericZip,
@@ -1071,7 +1077,7 @@ async fn export_uses_exact_bytes_and_valid_public_urls_and_writes_no_environment
             build(&draft, 1, format, info(), vec![], &SourceId::modrinth())
                 .unwrap();
         let (_, value) = super::formats::manifest(&plan).unwrap();
-        assert!(value["files"][0].get("env").is_none());
+        has_entry_without_env(&value);
         let ExportFileAction::Download { environment, .. } = &mut plan.files[0]
         else {
             panic!()
@@ -1081,7 +1087,7 @@ async fn export_uses_exact_bytes_and_valid_public_urls_and_writes_no_environment
         // A plan frozen by an older version may still carry a side.
         environment.client = ArtifactEnvironmentRequirement::Unsupported;
         let (_, value) = super::formats::manifest(&plan).unwrap();
-        assert!(value["files"][0].get("env").is_none());
+        has_entry_without_env(&value);
     }
     let ExportSourceResolution::Matched { artifacts, .. } =
         &mut draft.results.get_mut("file.jar").unwrap().resolutions[0]

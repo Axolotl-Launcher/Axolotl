@@ -152,4 +152,16 @@ export const instanceHandlers: Handlers = {
     'plugin:instance|instance_get_many': ({ instanceIds }) =>
         structuredClone((instanceIds as string[]).map(byId).filter(Boolean)),
     'plugin:instance|instance_list_backup_operations': () => [],
+    'plugin:instance|instance_get_full_path': ({ instanceId }) => byId(instanceId)?.path ?? null,
+    // No instance has run in this page, so there is no protocol to report and no log yet.
+    'plugin:worlds|get_instance_protocol_version': () => null,
+    'plugin:logs|logs_get_minecraft_latest_log_cursor': ({ cursor }) => ({
+        cursor: Number(cursor ?? 0),
+        output: '',
+        new_file: false,
+    }),
+    'plugin:logs|logs_get_live_log_buffer': () => '',
+    'plugin:logs|logs_get_logs': () => [],
+    'plugin:logs|logs_analyze_crash': () => null,
+    'plugin:logs|logs_clear_live_log_buffer': () => {},
 }

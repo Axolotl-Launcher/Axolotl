@@ -115,6 +115,10 @@ export const settingsHandlers: Handlers = {
     },
     'plugin:auth|set_mojang_auth_use_mirror': () => true,
     // Translating needs a provider the demo cannot reach, so it never starts on its own.
+    // Every setting is the demo's own: none comes from a deployment.
+    'plugin:settings|settings_layers': () => [],
+    // The browser does not list installed fonts; the font pickers offer the app's own.
+    'plugin:fonts|fonts_get_system_fonts': () => [],
     'plugin:translation|translation_get_settings': (): TranslationSettings => ({
         provider: 'google',
         target_language: 'zh-CN',

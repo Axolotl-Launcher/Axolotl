@@ -885,6 +885,22 @@ impl DownloadDnsResolver {
             .insert(host.to_string(), addresses);
     }
 
+    /// The port a test fixture listens on, when the test address set for
+    /// `host` names one. Loopback fixtures bind an ephemeral port while the
+    /// routed URL carries the scheme default, so a connect path that falls
+    /// back to the URL's port would reach 443 and never the fixture.
+    #[cfg(test)]
+    pub(crate) fn test_port(&self, host: &str) -> Option<u16> {
+        let host = normalize_host(host).ok()?;
+        let resolution_host = self.resolution_host(&host);
+        self.test_addresses
+            .lock()
+            .get(&resolution_host)
+            .and_then(|addresses| addresses.first())
+            .map(SocketAddr::port)
+            .filter(|port| *port != 0)
+    }
+
     #[cfg(test)]
     fn set_test_lookup_delay(&self, host: &str, delay: Duration) {
         self.test_lookup_delays

@@ -45,5 +45,15 @@
     "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
     "sources": ["packages/app-lib/src/api/content_search/WikiEntries.txt (v1.10.0)"],
     "note": "MC 百科 entries for the recorded slugs: [wiki ID, Chinese name]"
+  },
+  "instance-content.json": {
+    "fetchedAt": "2026-10-23T11:35:41+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "modrinth.index.json of each pinned modpack version (data/modpacks.json)",
+      "POST https://api.modrinth.com/v2/version_files (algorithm sha1)",
+      "https://api.modrinth.com/v2/projects?ids=[...]"
+    ],
+    "note": "one row per installed file; custom-fabric is the plain Fabric 26.3 instance; the icons of these projects are bundled in assets/projects"
   }
 }

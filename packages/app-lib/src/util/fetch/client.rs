@@ -18,6 +18,27 @@ use std::sync::{Arc, LazyLock};
 #[cfg(test)]
 use std::time;
 
+/// Roots a test added to the clients it builds, so general clients trust the
+/// same loopback CA as the pinned ones.
+#[cfg(test)]
+tokio::task_local! {
+    static TEST_TRUST_ROOTS: Vec<reqwest::Certificate>;
+}
+
+/// The test roots in scope, or an empty list outside `with_test_trust_roots`.
+#[cfg(test)]
+fn test_trust_roots() -> Vec<reqwest::Certificate> {
+    TEST_TRUST_ROOTS.try_with(Clone::clone).unwrap_or_default()
+}
+
+#[cfg(test)]
+pub(crate) async fn with_test_trust_roots<F: std::future::Future>(
+    roots: Vec<reqwest::Certificate>,
+    future: F,
+) -> F::Output {
+    TEST_TRUST_ROOTS.scope(roots, future).await
+}
+
 pub(crate) fn is_h2_protocol_failure(error: &reqwest::Error) -> bool {
     let mut chain = String::new();
     let mut source = error.source();
@@ -162,6 +183,17 @@ impl DownloadClients {
             let builder = file_reqwest_client_builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .danger_accept_invalid_certs(ignore_ssl_errors);
+            // Loopback fixtures sign their own certificates. Pinned clients get
+            // the root from `trust_test_root`, but a request that falls back to
+            // one of these general clients would fail with `UnknownIssuer`, so
+            // the test root has to reach them too.
+            #[cfg(test)]
+            let builder = match test_trust_roots() {
+                roots if roots.is_empty() => builder,
+                roots => roots.iter().fold(builder, |builder, root| {
+                    builder.add_root_certificate(root.clone())
+                }),
+            };
             // Reqwest does not expose a socket-lifetime admission hook. In
             // automatic mode its idle sockets would outlive request permits
             // and accumulate alongside probes and new endpoint generations.

@@ -868,6 +868,10 @@ async fn automatic_native_h2_recovery(range_count: Option<usize>) {
         .endpoints
         .pinned_clients
         .trust_test_root(fast.root.clone());
+    // A request that falls back to the general clients must trust the same
+    // loopback CAs, or it fails with `UnknownIssuer` instead of exercising the
+    // recovery this test is about.
+    let request_roots = vec![slow.root.clone(), fast.root.clone()];
     *clients.endpoints.probe_fixture.lock() =
         Some(super::super::coordinator::ProbeFixture {
             metered: false,
@@ -910,39 +914,44 @@ async fn automatic_native_h2_recovery(range_count: Option<usize>) {
         crate::util::fetch::FetchSemaphore(tokio::sync::Semaphore::new(8));
     let transfer = proxy_context::with_snapshot(
         clients,
-        h2_pool::with_test_tls_config(Arc::new(config), async {
-            let mut route = fixture_route();
-            route.proxy = ProxyPolicy::System;
-            let initial = h2_pool::shared_connection(&route, true, true, false)
-                .await
-                .unwrap();
-            assert_eq!(initial.remote_addr, Some(slow.address));
-            let result = native_slow::with_test_timing(
-                Duration::from_millis(75),
-                Duration::from_millis(150),
-                crate::util::fetch::download_endpoint_fixture(
-                    request.clone(),
-                    &destination,
-                    &semaphore,
-                ),
-            )
-            .await;
-            assert!(
-                initial.bytes_transferred_for_scheduler() > 0,
-                "production must consume the native H2 pool rather than only reqwest H2"
-            );
-            if range_count.is_some() {
-                let selected = h2_pool::shared_batch_connection(&route, true)
-                    .await
-                    .unwrap();
-                assert_eq!(selected.remote_addr, Some(fast.address));
+        h2_pool::with_test_tls_config(
+            Arc::new(config),
+            crate::util::fetch::with_test_trust_roots(request_roots, async {
+                let mut route = fixture_route();
+                route.proxy = ProxyPolicy::System;
+                let initial =
+                    h2_pool::shared_connection(&route, true, true, false)
+                        .await
+                        .unwrap();
+                assert_eq!(initial.remote_addr, Some(slow.address));
+                let result = native_slow::with_test_timing(
+                    Duration::from_millis(75),
+                    Duration::from_millis(150),
+                    crate::util::fetch::download_endpoint_fixture(
+                        request.clone(),
+                        &destination,
+                        &semaphore,
+                    ),
+                )
+                .await;
                 assert!(
-                    selected.bytes_transferred_for_scheduler() > 0,
-                    "unfinished range must consume native H2 on the new peer"
+                    initial.bytes_transferred_for_scheduler() > 0,
+                    "production must consume the native H2 pool rather than only reqwest H2"
                 );
-            }
-            result
-        }),
+                if range_count.is_some() {
+                    let selected =
+                        h2_pool::shared_batch_connection(&route, true)
+                            .await
+                            .unwrap();
+                    assert_eq!(selected.remote_addr, Some(fast.address));
+                    assert!(
+                        selected.bytes_transferred_for_scheduler() > 0,
+                        "unfinished range must consume native H2 on the new peer"
+                    );
+                }
+                result
+            }),
+        ),
     );
     let result = tokio::time::timeout(Duration::from_secs(15), transfer)
         .await

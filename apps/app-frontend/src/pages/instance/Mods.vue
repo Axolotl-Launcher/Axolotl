@@ -443,7 +443,12 @@ import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
 
-import { modsContentPending, modsContentScopeTransition } from './mods-content-state'
+import {
+    createContentRefreshSettlement,
+    modsContentLoading,
+    modsContentPending,
+    modsContentScopeTransition,
+} from './mods-content-state'
 
 const messages = defineMessages({
     instanceContentProcessing: {
@@ -1250,6 +1255,7 @@ const contentRefreshTask = ref<ContentRefreshTask | null>(null)
 let contentRefreshSubscription: ReturnType<typeof createContentRefreshSubscription> | undefined
 let contentRefreshConnection: Promise<void> | undefined
 let subscribedInstanceId: string | undefined
+const contentRefreshSettlement = createContentRefreshSettlement()
 
 async function connectContentRefresh() {
     const instanceId = props.instance.id
@@ -1257,6 +1263,7 @@ async function connectContentRefresh() {
         return contentRefreshConnection
     contentRefreshSubscription?.dispose()
     subscribedInstanceId = instanceId
+    contentRefreshSettlement.reset()
     const itemCache = new WeakMap<InstanceContentSnapshotItem, ContentItem>()
     let snapshot: InstanceContentData['snapshot'] | undefined
     const subscription = createContentRefreshSubscription(
@@ -1269,7 +1276,11 @@ async function connectContentRefresh() {
             )
                 return
             contentRefreshTask.value = state.task
-            loading.value = state.snapshot.items.length === 0 && (state.task?.running ?? true)
+            loading.value = modsContentLoading({
+                hasSnapshot: true,
+                hasItems: state.snapshot.items.length > 0,
+                settled: contentRefreshSettlement.observe(state.task),
+            })
             if (snapshot === state.snapshot) return
             snapshot = state.snapshot
             const data = normalizeInstanceContentSnapshot(instanceId, state.snapshot, itemCache)
@@ -1330,6 +1341,7 @@ function invalidateContentRequests(clearState = false) {
     contentRefreshSubscription = undefined
     contentRefreshConnection = undefined
     subscribedInstanceId = undefined
+    contentRefreshSettlement.reset()
     contentEnrichmentController?.abort()
     contentRequestGeneration += 1
     contentTitleEnrichment.clear()
@@ -2621,9 +2633,11 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
         suspendContentRequests()
         return
     }
-    loading.value =
-        !contentSnapshot.value ||
-        mergedProjects.value.length + displayedLinkedModpackContentItems.value.length === 0
+    loading.value = modsContentLoading({
+        hasSnapshot: contentSnapshot.value !== null,
+        hasItems: mergedProjects.value.length + displayedLinkedModpackContentItems.value.length > 0,
+        settled: contentRefreshSettlement.settled,
+    })
     const instanceId = props.instance.id
     const generation = ++contentRequestGeneration
     contentEnrichmentController?.abort()
@@ -2633,11 +2647,19 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
         await connectContentRefresh()
         if (!isCurrentContentRequest(instanceId, generation)) return
         if (alreadyConnected) await contentRefreshSubscription?.reload()
-        await contentRefreshSubscription?.start(
+        const task = await contentRefreshSubscription?.start(
             cacheBehaviour === 'bypass' || cacheBehaviour === 'must_revalidate'
                 ? 'force_remote'
                 : 'normal',
         )
+        if (task && isCurrentContentRequest(instanceId, generation))
+            loading.value = modsContentLoading({
+                hasSnapshot: contentSnapshot.value !== null,
+                hasItems:
+                    mergedProjects.value.length + displayedLinkedModpackContentItems.value.length >
+                    0,
+                settled: contentRefreshSettlement.started(task.id),
+            })
     } catch (error) {
         if (!isCurrentContentRequest(instanceId, generation)) return
         handleError(error as Error)

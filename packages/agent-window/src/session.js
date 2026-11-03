@@ -16,6 +16,7 @@ export const session = {
     search: '',
     handles: new Map(),
     computerUseTasks: new Set(),
+    editing: null,
 }
 
 export function currentThread() {

@@ -627,7 +627,7 @@
     "message": "{count} steps"
   },
   "app.agent-window.chat.steps-running": {
-    "message": "Working · step {count}"
+    "message": "Working · {count} steps"
   },
   "app.agent-window.chat.earlier-steps": {
     "message": "Show {count} earlier steps"
@@ -18769,5 +18769,260 @@
   },
   "app.agent-window.chat.approval-expired": {
     "message": "This plan expired. Retry to prepare a fresh plan for review."
+  },
+  "app.agent-window.chat.review-launcher-changes": {
+    "message": "Review launcher changes"
+  },
+  "app.agent-window.chat.editing-message": {
+    "message": "Editing message · later replies will be regenerated. Applied changes remain."
+  },
+  "app.agent-window.chat.save-and-resend": {
+    "message": "Save and resend"
+  },
+  "app.agent-window.chat.argument-unset": {
+    "message": "Not set"
+  },
+  "app.agent-window.chat.argument-empty": {
+    "message": "Empty"
+  },
+  "app.agent-window.chat.argument-yes": {
+    "message": "Yes"
+  },
+  "app.agent-window.chat.argument-no": {
+    "message": "No"
+  },
+  "app.agent-window.chat.argument-name": {
+    "message": "Name"
+  },
+  "app.agent-window.chat.argument-instance-id": {
+    "message": "Instance"
+  },
+  "app.agent-window.chat.argument-game-version": {
+    "message": "Minecraft version"
+  },
+  "app.agent-window.chat.argument-loader": {
+    "message": "Mod loader"
+  },
+  "app.agent-window.chat.argument-loader-version": {
+    "message": "Loader version"
+  },
+  "app.agent-window.chat.argument-version": {
+    "message": "Version"
+  },
+  "app.agent-window.chat.argument-source": {
+    "message": "Source"
+  },
+  "app.agent-window.chat.argument-project-id": {
+    "message": "Project"
+  },
+  "app.agent-window.chat.argument-release-id": {
+    "message": "Release"
+  },
+  "app.agent-window.chat.argument-resource-type": {
+    "message": "Resource type"
+  },
+  "app.agent-window.chat.argument-plan-id": {
+    "message": "Plan"
+  },
+  "app.agent-window.chat.argument-revision": {
+    "message": "Revision"
+  },
+  "app.agent-window.chat.argument-entry-id": {
+    "message": "Content entry"
+  },
+  "app.agent-window.chat.argument-enabled": {
+    "message": "Enabled"
+  },
+  "app.agent-window.chat.argument-path": {
+    "message": "Path"
+  },
+  "app.agent-window.chat.argument-directory": {
+    "message": "Directory"
+  },
+  "app.agent-window.chat.argument-world-id": {
+    "message": "World"
+  },
+  "app.agent-window.chat.argument-server-id": {
+    "message": "Server"
+  },
+  "app.agent-window.chat.argument-job-id": {
+    "message": "Task"
+  },
+  "app.agent-window.chat.argument-operation-id": {
+    "message": "Operation"
+  },
+  "app.agent-window.chat.argument-memory": {
+    "message": "Memory"
+  },
+  "app.agent-window.chat.argument-min-mb": {
+    "message": "Minimum memory (MiB)"
+  },
+  "app.agent-window.chat.argument-max-mb": {
+    "message": "Maximum memory (MiB)"
+  },
+  "app.agent-window.chat.argument-java-id": {
+    "message": "Java runtime"
+  },
+  "app.agent-window.chat.argument-account-id": {
+    "message": "Account"
+  },
+  "app.agent-window.chat.argument-content": {
+    "message": "Content"
+  },
+  "app.agent-window.chat.argument-text": {
+    "message": "Text"
+  },
+  "app.agent-window.chat.argument-command": {
+    "message": "Command"
+  },
+  "app.agent-window.chat.argument-value": {
+    "message": "Value"
+  },
+  "app.agent-window.chat.argument-key": {
+    "message": "Setting"
+  },
+  "app.agent-window.chat.argument-overwrite": {
+    "message": "Overwrite"
+  },
+  "app.agent-window.chat.argument-recursive": {
+    "message": "Include subdirectories"
+  },
+  "app.agent-window.chat.argument-destination": {
+    "message": "Destination"
+  },
+  "app.agent-window.chat.argument-target": {
+    "message": "Target"
+  },
+  "app.agent-window.chat.argument-format": {
+    "message": "Format"
+  },
+  "app.agent-window.chat.argument-group": {
+    "message": "Group"
+  },
+  "app.agent-window.chat.argument-group-id": {
+    "message": "Group"
+  },
+  "app.agent-window.chat.argument-mod-loader": {
+    "message": "Mod loader"
+  },
+  "app.agent-window.chat.argument-mod-loader-version": {
+    "message": "Loader version"
+  },
+  "app.agent-window.chat.argument-channel": {
+    "message": "Channel"
+  },
+  "app.agent-window.chat.argument-snapshot-id": {
+    "message": "Backup snapshot"
+  },
+  "app.agent-window.chat.argument-confirm": {
+    "message": "Confirm"
+  },
+  "app.agent-window.chat.argument-ignore-dependencies": {
+    "message": "Skip dependencies"
+  },
+  "app.agent-window.chat.argument-accept-compatibility-nodes": {
+    "message": "Accept compatibility conflicts"
+  },
+  "app.agent-window.chat.install-resource-count": {
+    "message": "Installation plan · {count} items"
+  },
+  "app.agent-window.chat.update-resource-count": {
+    "message": "Update plan · {count} items"
+  },
+  "app.agent-window.chat.install-modpack": {
+    "message": "Install {name}"
+  },
+  "app.agent-window.chat.plan-game-versions": {
+    "message": "Supported Minecraft versions"
+  },
+  "app.agent-window.chat.pack-replacement-effect": {
+    "message": "Replaces managed pack content and may overwrite overrides or remove files."
+  },
+  "app.agent-window.chat.pack-new-instance-effect": {
+    "message": "Creates a new instance and installs the selected pack release."
+  },
+  "app.agent-window.chat.plan-replace": {
+    "message": "Replace"
+  },
+  "app.agent-window.chat.plan-enable": {
+    "message": "Enable"
+  },
+  "app.agent-window.chat.plan-keep": {
+    "message": "Keep"
+  },
+  "app.agent-window.chat.plan-dependency": {
+    "message": "Dependency"
+  },
+  "app.agent-window.chat.plan-dependencies-skipped": {
+    "message": "Dependency analysis is disabled for this plan."
+  },
+  "app.agent-window.chat.plan-dependency-install-skipped": {
+    "message": "Dependencies will not be installed automatically."
+  },
+  "app.agent-window.chat.plan-subject": {
+    "message": "Affected resource"
+  },
+  "app.agent-window.chat.plan-required": {
+    "message": "Required"
+  },
+  "app.agent-window.chat.plan-actual": {
+    "message": "Current"
+  },
+  "app.agent-window.chat.plan-original-details": {
+    "message": "Original details"
+  },
+  "app.agent-window.chat.plan-compatibility-accepted": {
+    "message": "{name}: accepts conflicts for {dimensions}."
+  },
+  "app.agent-window.chat.plan-details-unavailable": {
+    "message": "This older record does not contain the installation details."
+  },
+  "app.agent-window.chat.technical-details": {
+    "message": "Technical details"
+  },
+  "app.agent-window.chat.plan-issue-source-unavailable": {
+    "message": "Source unavailable"
+  },
+  "app.agent-window.chat.plan-issue-identity-unconfirmed": {
+    "message": "Resource identity is unconfirmed"
+  },
+  "app.agent-window.chat.plan-issue-version-conflict": {
+    "message": "Conflicting resource versions"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-unknown": {
+    "message": "Compatibility has not been confirmed"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-mismatch": {
+    "message": "Game or loader compatibility conflict"
+  },
+  "app.agent-window.chat.plan-issue-artifact-mismatch": {
+    "message": "Selected file does not match"
+  },
+  "app.agent-window.chat.plan-issue-invalid-path": {
+    "message": "Invalid installation path"
+  },
+  "app.agent-window.chat.plan-issue-missing-dependency": {
+    "message": "Required dependency is missing"
+  },
+  "app.agent-window.chat.plan-issue-dependency-analysis-failed": {
+    "message": "Dependency analysis failed"
+  },
+  "app.agent-window.chat.plan-issue-stale-revision": {
+    "message": "Plan is out of date"
+  },
+  "app.agent-window.chat.plan-issue-manual-download-required": {
+    "message": "A manual download is required"
+  },
+  "app.agent-window.chat.plan-issue-file-not-writable": {
+    "message": "Target file is not writable"
+  },
+  "app.agent-window.chat.plan-issue-file-write-skipped": {
+    "message": "A file will be skipped"
+  },
+  "app.agent-window.chat.plan-world-scope": {
+    "message": "World: {path}"
+  },
+  "app.agent-window.chat.plan-issue-unknown": {
+    "message": "Plan warning"
   }
 }

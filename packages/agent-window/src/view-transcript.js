@@ -8,8 +8,9 @@ import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
 import { animate, reducedMotion } from './motion.js'
 import { currentThread, session } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
-import { toolHelp } from './tools.js'
+import { argumentRows, changeArguments, changeTitle, toolHelp } from './tools.js'
 import { fileChip } from './view-composer.js'
+import { installationReview } from './view-installation.js'
 import { stateLabel } from './view-panel.js'
 
 const root = () => element('messages')
@@ -484,6 +485,8 @@ function versionTo(from, to) {
 }
 
 function changeRow(change, index, turnId, receipts) {
+    const title = changeTitle(change)
+    const arguments_ = changeArguments(change)
     const receipt = receipts?.actions?.find((entry) => entry.call_id === change.name)
     const receiptKey =
         receipt && receipt.state !== 'pending'
@@ -493,6 +496,8 @@ function changeRow(change, index, turnId, receipts) {
                   failed: 'receiptFailed',
                   not_executed: 'receiptSkipped',
                   rejected: 'receiptSkipped',
+                  running: 'applying',
+                  queued: 'queuedTag',
               }[receipt.state] || 'receiptUnknown'
             : null
     // The glyph only repeats the name's initials.
@@ -504,7 +509,7 @@ function changeRow(change, index, turnId, receipts) {
               style: `--mark-hue: ${hue(change.name)}`,
           })
         : h('span', { class: 'change-mark' }, [icon(change.icon || 'cube')])
-    const kind = !change.manual && KINDS[change.kind]
+    const kind = !change.manual && !change.review && KINDS[change.kind]
     const badge = change.manual
         ? h('span', { class: 'change-kind is-manual', text: text('manualChange') })
         : kind
@@ -532,66 +537,101 @@ function changeRow(change, index, turnId, receipts) {
                       versionTo(change.from, change.to),
                   ],
               )
-    return h('li', { class: `change${change.manual ? ' is-manual' : ''}`, data: { index } }, [
-        mark,
-        h('span', { class: 'change-copy' }, [
-            h('span', { class: 'change-title' }, [
-                h('strong', { text: change.meta ? change.meta.replaceAll('_', ' ') : change.name }),
-                badge,
-                // A newcomer can ask about one change before deciding. The
-                // question replaces this plan; the agent answers and proposes
-                // it again.
-                change.manual
-                    ? null
-                    : button(
-                          {
-                              class: 'change-why',
-                              data: {
-                                  followup: text('askWhy', {
-                                      name: change.meta
-                                          ? change.meta.replaceAll('_', ' ')
-                                          : change.name,
-                                  }),
+    return h(
+        'li',
+        {
+            class: `change${change.manual ? ' is-manual' : ''}${change.review ? ' is-installation' : ''}`,
+            data: { index },
+        },
+        [
+            mark,
+            h('span', { class: 'change-copy' }, [
+                h('span', { class: 'change-title' }, [
+                    h('strong', { text: title }),
+                    badge,
+                    // A newcomer can ask about one change before deciding. The
+                    // question replaces this plan; the agent answers and proposes
+                    // it again.
+                    change.manual
+                        ? null
+                        : button(
+                              {
+                                  class: 'change-why',
+                                  data: {
+                                      followup: text('askWhy', {
+                                          name: title,
+                                      }),
+                                  },
                               },
-                          },
-                          text('why'),
-                      ),
+                              text('why'),
+                          ),
+                ]),
+                h('span', {
+                    class: 'change-note',
+                    data: { receipt: change.name },
+                    hidden: !receiptKey,
+                    text: receiptKey ? text(receiptKey) : '',
+                }),
+                change.review
+                    ? installationReview(change.review)
+                    : arguments_?.plan_id
+                      ? h('p', { class: 'change-note', text: text('planDetailsUnavailable') })
+                      : arguments_
+                        ? h(
+                              'dl',
+                              { class: 'change-arguments' },
+                              argumentRows(arguments_, session.context.instances).flatMap((row) => [
+                                  h('dt', { text: row.label }),
+                                  h('dd', { text: row.value }),
+                              ]),
+                          )
+                        : change.note || change.meta
+                          ? h('span', { class: 'change-note' }, [
+                                change.note ? h('span', { text: change.note }) : null,
+                                change.meta
+                                    ? h('span', { class: 'change-meta', text: change.meta })
+                                    : null,
+                            ])
+                          : null,
+                arguments_
+                    ? h('details', { class: 'change-technical' }, [
+                          h('summary', { text: text('technicalDetails') }),
+                          h(
+                              'dl',
+                              { class: 'change-arguments' },
+                              argumentRows(arguments_, session.context.instances, true).flatMap(
+                                  (row) => [
+                                      h('dt', { text: row.label }),
+                                      h('dd', { text: row.value }),
+                                  ],
+                              ),
+                          ),
+                      ])
+                    : null,
             ]),
-            h('span', {
-                class: 'change-note',
-                data: { receipt: change.name },
-                hidden: !receiptKey,
-                text: receiptKey ? text(receiptKey) : '',
-            }),
-            change.note || change.meta
-                ? h('span', { class: 'change-note' }, [
-                      change.note ? h('span', { text: change.note }) : null,
-                      change.meta ? h('span', { class: 'change-meta', text: change.meta }) : null,
-                  ])
-                : null,
-        ]),
-        diff || h('span'),
-        change.manual
-            ? h('span')
-            : button(
-                  {
-                      class: 'change-toggle',
-                      role: 'checkbox',
-                      'aria-checked': 'true',
-                      label: text('includeChange', {
-                          name: change.meta ? change.meta.replaceAll('_', ' ') : change.name,
-                      }),
-                      data: { toggleChange: `${turnId}:${index}` },
-                  },
-                  icon('check'),
-              ),
-    ])
+            diff || h('span'),
+            change.manual
+                ? h('span')
+                : button(
+                      {
+                          class: 'change-toggle',
+                          role: 'checkbox',
+                          'aria-checked': 'true',
+                          label: text('includeChange', {
+                              name: title,
+                          }),
+                          data: { toggleChange: `${turnId}:${index}` },
+                      },
+                      icon('check'),
+                  ),
+        ],
+    )
 }
 
 function planFooter(item, turn) {
     const included = includedChanges(item)
     const total = included.length
-    const skipped = (item.excluded || []).map((index) => item.plan.changes[index].name)
+    const skipped = (item.excluded || []).map((index) => changeTitle(item.plan.changes[index]))
     const turnId = turn.id
     switch (item.state) {
         case 'pending':
@@ -685,7 +725,12 @@ function updatePlan(node, item, { turn }) {
             h('header', { class: 'plan-header' }, [
                 h('div', {}, [
                     h('span', { class: 'plan-kicker', text: text('planKicker') }),
-                    h('h3', { id: `plan-${item.id}`, text: plan.title }),
+                    h('h3', {
+                        id: `plan-${item.id}`,
+                        text: plan.title_key
+                            ? text(plan.title_key)
+                            : plan.title || text('reviewLauncherChanges'),
+                    }),
                 ]),
                 plan.summary ? h('span', { class: 'plan-count', text: plan.summary }) : null,
             ]),
@@ -732,6 +777,8 @@ function updatePlan(node, item, { turn }) {
                     failed: 'receiptFailed',
                     not_executed: 'receiptSkipped',
                     rejected: 'receiptSkipped',
+                    running: 'applying',
+                    queued: 'queuedTag',
                 }[receipt.state] || 'receiptUnknown',
             )
     }

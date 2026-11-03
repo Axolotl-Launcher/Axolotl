@@ -134,6 +134,10 @@ impl AgentStore {
     /// Business completion is a projection of selected execution receipts, never
     /// of the model's final text. Missing receipts remain explicitly incomplete.
     pub async fn applied_result(&self, attempt_id: &str) -> Result<Value> {
+        let live = self
+            .attempt(attempt_id)
+            .await?
+            .is_some_and(|attempt| !attempt.state.is_terminal());
         let selections: Vec<String> = sqlx::query_scalar("SELECT selected FROM approval_batches WHERE attempt_id = ? AND selected IS NOT NULL ORDER BY rowid")
             .bind(attempt_id).fetch_all(&self.pool).await?;
         let mut selected = HashSet::new();
@@ -168,10 +172,12 @@ impl AgentStore {
                     failed += 1;
                     "failed"
                 }
+                Some("started") if live => "running",
                 Some(_) => {
                     unknown += 1;
                     "unknown"
                 }
+                None if live => "queued",
                 None => {
                     not_executed += 1;
                     "not_executed"

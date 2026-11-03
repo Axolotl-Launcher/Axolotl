@@ -2,6 +2,7 @@
 import { button, element, focusable, focusPlace, h, icon, logLines, restoreFocus } from './dom.js'
 import { text, whenLabel } from './messages.js'
 import { currentThread, modelsAvailable, permissionsAvailable, session } from './session.js'
+import { changeTitle } from './tools.js'
 import { PASTE_ICONS } from './view-composer.js'
 import { KINDS } from './view-transcript.js'
 
@@ -696,7 +697,7 @@ export function openChanges(entries, anchor) {
                     ]),
                     h('span', { class: 'changes-copy' }, [
                         h('strong', {
-                            text: change.meta ? change.meta.replaceAll('_', ' ') : change.name,
+                            text: changeTitle(change),
                         }),
                         h('span', {
                             text: [kind ? text(kind[1]) : '', whenLabel(turn.createdAt)]

@@ -92,3 +92,74 @@ export function toolFamily(tool) {
 export function toolHelp(tool) {
     return text(TOOLS.get(tool) || toolFamily(tool) || 'toolGeneric')
 }
+
+export function changeTitle(change) {
+    if (change.review?.mode === 'resources')
+        return text(
+            change.review.intent === 'install' ? 'installResourceCount' : 'updateResourceCount',
+            { count: change.review.actions.length },
+        )
+    if (change.review?.mode === 'modpack')
+        return text('installModpack', { name: change.review.pack?.title || change.review.name })
+    return change.tool || changeArguments(change)
+        ? toolHelp(change.tool || change.meta)
+        : change.meta || change.name
+}
+
+// Read older saved approvals without exposing their serialized JSON as prose.
+export function changeArguments(change) {
+    if (change.arguments && typeof change.arguments === 'object') return change.arguments
+    if (!change.meta || !change.note?.startsWith('{')) return null
+    try {
+        const value = JSON.parse(change.note)
+        return value && typeof value === 'object' && !Array.isArray(value) ? value : null
+    } catch {
+        return null
+    }
+}
+
+export function argumentRows(arguments_, instances = [], technical = false) {
+    const rows = []
+    function visit(value, path) {
+        if (value && typeof value === 'object') {
+            const entries = Object.entries(value)
+            if (entries.length) {
+                for (const [key, child] of entries) {
+                    const label = Array.isArray(value) ? String(Number(key) + 1) : fieldLabel(key)
+                    visit(child, [...path, label])
+                }
+                return
+            }
+        }
+        let display =
+            value == null
+                ? text('argumentUnset')
+                : value === true
+                  ? text('argumentYes')
+                  : value === false
+                    ? text('argumentNo')
+                    : typeof value === 'object'
+                      ? text('argumentEmpty')
+                      : String(value)
+        const target =
+            path.at(-1) === fieldLabel('instance_id') &&
+            instances.find((instance) => instance.id === value)
+        if (target) display = technical ? `${target.name} (${value})` : target.name
+        rows.push({ label: path.join(' › '), value: display })
+    }
+    for (const [key, value] of Object.entries(arguments_)) {
+        if (!technical && ['project_id', 'release_id', 'plan_id', 'revision'].includes(key))
+            continue
+        visit(value, [fieldLabel(key)])
+    }
+    return rows
+}
+
+function fieldLabel(key) {
+    const messageKey = `argument${key
+        .split('_')
+        .map((part) => part[0]?.toUpperCase() + part.slice(1))
+        .join('')}`
+    const translated = text(messageKey)
+    return translated === messageKey ? key.replaceAll('_', ' ') : translated
+}

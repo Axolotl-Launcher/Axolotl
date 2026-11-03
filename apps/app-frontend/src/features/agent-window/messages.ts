@@ -1,6 +1,246 @@
 import { defineMessages, type MessageDescriptor } from '@modrinth/ui'
 
 export const agentWindowMessages = defineMessages({
+    planIssueUnknown: {
+        id: 'app.agent-window.chat.plan-issue-unknown',
+        defaultMessage: 'Plan warning',
+    },
+    planWorldScope: {
+        id: 'app.agent-window.chat.plan-world-scope',
+        defaultMessage: 'World: {path}',
+    },
+    installResourceCount: {
+        id: 'app.agent-window.chat.install-resource-count',
+        defaultMessage: 'Installation plan · {count} items',
+    },
+    updateResourceCount: {
+        id: 'app.agent-window.chat.update-resource-count',
+        defaultMessage: 'Update plan · {count} items',
+    },
+    installModpack: {
+        id: 'app.agent-window.chat.install-modpack',
+        defaultMessage: 'Install {name}',
+    },
+    planGameVersions: {
+        id: 'app.agent-window.chat.plan-game-versions',
+        defaultMessage: 'Supported Minecraft versions',
+    },
+    packReplacementEffect: {
+        id: 'app.agent-window.chat.pack-replacement-effect',
+        defaultMessage:
+            'Replaces managed pack content and may overwrite overrides or remove files.',
+    },
+    packNewInstanceEffect: {
+        id: 'app.agent-window.chat.pack-new-instance-effect',
+        defaultMessage: 'Creates a new instance and installs the selected pack release.',
+    },
+    planReplace: { id: 'app.agent-window.chat.plan-replace', defaultMessage: 'Replace' },
+    planEnable: { id: 'app.agent-window.chat.plan-enable', defaultMessage: 'Enable' },
+    planKeep: { id: 'app.agent-window.chat.plan-keep', defaultMessage: 'Keep' },
+    planDependency: { id: 'app.agent-window.chat.plan-dependency', defaultMessage: 'Dependency' },
+    planDependenciesSkipped: {
+        id: 'app.agent-window.chat.plan-dependencies-skipped',
+        defaultMessage: 'Dependency analysis is disabled for this plan.',
+    },
+    planDependencyInstallSkipped: {
+        id: 'app.agent-window.chat.plan-dependency-install-skipped',
+        defaultMessage: 'Dependencies will not be installed automatically.',
+    },
+    planSubject: { id: 'app.agent-window.chat.plan-subject', defaultMessage: 'Affected resource' },
+    planRequired: { id: 'app.agent-window.chat.plan-required', defaultMessage: 'Required' },
+    planActual: { id: 'app.agent-window.chat.plan-actual', defaultMessage: 'Current' },
+    planOriginalDetails: {
+        id: 'app.agent-window.chat.plan-original-details',
+        defaultMessage: 'Original details',
+    },
+    planCompatibilityAccepted: {
+        id: 'app.agent-window.chat.plan-compatibility-accepted',
+        defaultMessage: '{name}: accepts conflicts for {dimensions}.',
+    },
+    planDetailsUnavailable: {
+        id: 'app.agent-window.chat.plan-details-unavailable',
+        defaultMessage: 'This older record does not contain the installation details.',
+    },
+    technicalDetails: {
+        id: 'app.agent-window.chat.technical-details',
+        defaultMessage: 'Technical details',
+    },
+    planIssueSourceUnavailable: {
+        id: 'app.agent-window.chat.plan-issue-source-unavailable',
+        defaultMessage: 'Source unavailable',
+    },
+    planIssueIdentityUnconfirmed: {
+        id: 'app.agent-window.chat.plan-issue-identity-unconfirmed',
+        defaultMessage: 'Resource identity is unconfirmed',
+    },
+    planIssueVersionConflict: {
+        id: 'app.agent-window.chat.plan-issue-version-conflict',
+        defaultMessage: 'Conflicting resource versions',
+    },
+    planIssueCompatibilityUnknown: {
+        id: 'app.agent-window.chat.plan-issue-compatibility-unknown',
+        defaultMessage: 'Compatibility has not been confirmed',
+    },
+    planIssueCompatibilityMismatch: {
+        id: 'app.agent-window.chat.plan-issue-compatibility-mismatch',
+        defaultMessage: 'Game or loader compatibility conflict',
+    },
+    planIssueArtifactMismatch: {
+        id: 'app.agent-window.chat.plan-issue-artifact-mismatch',
+        defaultMessage: 'Selected file does not match',
+    },
+    planIssueInvalidPath: {
+        id: 'app.agent-window.chat.plan-issue-invalid-path',
+        defaultMessage: 'Invalid installation path',
+    },
+    planIssueMissingDependency: {
+        id: 'app.agent-window.chat.plan-issue-missing-dependency',
+        defaultMessage: 'Required dependency is missing',
+    },
+    planIssueDependencyAnalysisFailed: {
+        id: 'app.agent-window.chat.plan-issue-dependency-analysis-failed',
+        defaultMessage: 'Dependency analysis failed',
+    },
+    planIssueStaleRevision: {
+        id: 'app.agent-window.chat.plan-issue-stale-revision',
+        defaultMessage: 'Plan is out of date',
+    },
+    planIssueManualDownloadRequired: {
+        id: 'app.agent-window.chat.plan-issue-manual-download-required',
+        defaultMessage: 'A manual download is required',
+    },
+    planIssueFileNotWritable: {
+        id: 'app.agent-window.chat.plan-issue-file-not-writable',
+        defaultMessage: 'Target file is not writable',
+    },
+    planIssueFileWriteSkipped: {
+        id: 'app.agent-window.chat.plan-issue-file-write-skipped',
+        defaultMessage: 'A file will be skipped',
+    },
+    reviewLauncherChanges: {
+        id: 'app.agent-window.chat.review-launcher-changes',
+        defaultMessage: 'Review launcher changes',
+    },
+    editingMessage: {
+        id: 'app.agent-window.chat.editing-message',
+        defaultMessage:
+            'Editing message · later replies will be regenerated. Applied changes remain.',
+    },
+    saveAndResend: {
+        id: 'app.agent-window.chat.save-and-resend',
+        defaultMessage: 'Save and resend',
+    },
+    argumentUnset: { id: 'app.agent-window.chat.argument-unset', defaultMessage: 'Not set' },
+    argumentEmpty: { id: 'app.agent-window.chat.argument-empty', defaultMessage: 'Empty' },
+    argumentYes: { id: 'app.agent-window.chat.argument-yes', defaultMessage: 'Yes' },
+    argumentNo: { id: 'app.agent-window.chat.argument-no', defaultMessage: 'No' },
+    argumentName: { id: 'app.agent-window.chat.argument-name', defaultMessage: 'Name' },
+    argumentInstanceId: {
+        id: 'app.agent-window.chat.argument-instance-id',
+        defaultMessage: 'Instance',
+    },
+    argumentGameVersion: {
+        id: 'app.agent-window.chat.argument-game-version',
+        defaultMessage: 'Minecraft version',
+    },
+    argumentLoader: { id: 'app.agent-window.chat.argument-loader', defaultMessage: 'Mod loader' },
+    argumentLoaderVersion: {
+        id: 'app.agent-window.chat.argument-loader-version',
+        defaultMessage: 'Loader version',
+    },
+    argumentVersion: { id: 'app.agent-window.chat.argument-version', defaultMessage: 'Version' },
+    argumentSource: { id: 'app.agent-window.chat.argument-source', defaultMessage: 'Source' },
+    argumentProjectId: {
+        id: 'app.agent-window.chat.argument-project-id',
+        defaultMessage: 'Project',
+    },
+    argumentReleaseId: {
+        id: 'app.agent-window.chat.argument-release-id',
+        defaultMessage: 'Release',
+    },
+    argumentResourceType: {
+        id: 'app.agent-window.chat.argument-resource-type',
+        defaultMessage: 'Resource type',
+    },
+    argumentPlanId: { id: 'app.agent-window.chat.argument-plan-id', defaultMessage: 'Plan' },
+    argumentRevision: { id: 'app.agent-window.chat.argument-revision', defaultMessage: 'Revision' },
+    argumentEntryId: {
+        id: 'app.agent-window.chat.argument-entry-id',
+        defaultMessage: 'Content entry',
+    },
+    argumentEnabled: { id: 'app.agent-window.chat.argument-enabled', defaultMessage: 'Enabled' },
+    argumentPath: { id: 'app.agent-window.chat.argument-path', defaultMessage: 'Path' },
+    argumentDirectory: {
+        id: 'app.agent-window.chat.argument-directory',
+        defaultMessage: 'Directory',
+    },
+    argumentWorldId: { id: 'app.agent-window.chat.argument-world-id', defaultMessage: 'World' },
+    argumentServerId: { id: 'app.agent-window.chat.argument-server-id', defaultMessage: 'Server' },
+    argumentJobId: { id: 'app.agent-window.chat.argument-job-id', defaultMessage: 'Task' },
+    argumentOperationId: {
+        id: 'app.agent-window.chat.argument-operation-id',
+        defaultMessage: 'Operation',
+    },
+    argumentMemory: { id: 'app.agent-window.chat.argument-memory', defaultMessage: 'Memory' },
+    argumentMinMb: {
+        id: 'app.agent-window.chat.argument-min-mb',
+        defaultMessage: 'Minimum memory (MiB)',
+    },
+    argumentMaxMb: {
+        id: 'app.agent-window.chat.argument-max-mb',
+        defaultMessage: 'Maximum memory (MiB)',
+    },
+    argumentJavaId: {
+        id: 'app.agent-window.chat.argument-java-id',
+        defaultMessage: 'Java runtime',
+    },
+    argumentAccountId: {
+        id: 'app.agent-window.chat.argument-account-id',
+        defaultMessage: 'Account',
+    },
+    argumentContent: { id: 'app.agent-window.chat.argument-content', defaultMessage: 'Content' },
+    argumentText: { id: 'app.agent-window.chat.argument-text', defaultMessage: 'Text' },
+    argumentCommand: { id: 'app.agent-window.chat.argument-command', defaultMessage: 'Command' },
+    argumentValue: { id: 'app.agent-window.chat.argument-value', defaultMessage: 'Value' },
+    argumentKey: { id: 'app.agent-window.chat.argument-key', defaultMessage: 'Setting' },
+    argumentOverwrite: {
+        id: 'app.agent-window.chat.argument-overwrite',
+        defaultMessage: 'Overwrite',
+    },
+    argumentRecursive: {
+        id: 'app.agent-window.chat.argument-recursive',
+        defaultMessage: 'Include subdirectories',
+    },
+    argumentDestination: {
+        id: 'app.agent-window.chat.argument-destination',
+        defaultMessage: 'Destination',
+    },
+    argumentTarget: { id: 'app.agent-window.chat.argument-target', defaultMessage: 'Target' },
+    argumentFormat: { id: 'app.agent-window.chat.argument-format', defaultMessage: 'Format' },
+    argumentGroup: { id: 'app.agent-window.chat.argument-group', defaultMessage: 'Group' },
+    argumentGroupId: { id: 'app.agent-window.chat.argument-group-id', defaultMessage: 'Group' },
+    argumentModLoader: {
+        id: 'app.agent-window.chat.argument-mod-loader',
+        defaultMessage: 'Mod loader',
+    },
+    argumentModLoaderVersion: {
+        id: 'app.agent-window.chat.argument-mod-loader-version',
+        defaultMessage: 'Loader version',
+    },
+    argumentChannel: { id: 'app.agent-window.chat.argument-channel', defaultMessage: 'Channel' },
+    argumentSnapshotId: {
+        id: 'app.agent-window.chat.argument-snapshot-id',
+        defaultMessage: 'Backup snapshot',
+    },
+    argumentConfirm: { id: 'app.agent-window.chat.argument-confirm', defaultMessage: 'Confirm' },
+    argumentIgnoreDependencies: {
+        id: 'app.agent-window.chat.argument-ignore-dependencies',
+        defaultMessage: 'Skip dependencies',
+    },
+    argumentAcceptCompatibilityNodes: {
+        id: 'app.agent-window.chat.argument-accept-compatibility-nodes',
+        defaultMessage: 'Accept compatibility conflicts',
+    },
     approvalExpired: {
         id: 'app.agent-window.chat.approval-expired',
         defaultMessage: 'This plan expired. Retry to prepare a fresh plan for review.',
@@ -617,7 +857,7 @@ export const agentWindowMessages = defineMessages({
     stepsDone: { id: 'app.agent-window.chat.steps-done', defaultMessage: '{count} steps' },
     stepsRunning: {
         id: 'app.agent-window.chat.steps-running',
-        defaultMessage: 'Working · step {count}',
+        defaultMessage: 'Working · {count} steps',
     },
     earlierSteps: {
         id: 'app.agent-window.chat.earlier-steps',

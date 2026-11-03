@@ -74,7 +74,8 @@ function applyReceipts(run, summary, terminal) {
         }
         item.done = applied
         if (selected.length && applied === selected.length) item.state = 'applied'
-        else if (unknown) item.state = 'unknown'
+        else if (unknown && terminal) item.state = 'unknown'
+        else if (!terminal && selected.length) item.state = 'applying'
         else if (actions.some((action) => action.state === 'pending')) continue
         else if (!selected.length && actions.some((action) => action.state === 'rejected'))
             item.state = 'declined'
@@ -150,7 +151,15 @@ export function applyEvent(run, event, now = Date.now()) {
             run.items.push({
                 id: id(),
                 type: 'plan',
-                plan: { id: id(), notes: [], scope: [], ...event.plan },
+                plan: {
+                    id: id(),
+                    notes: [],
+                    scope: [],
+                    ...event.plan,
+                    ...(event.plan.title === 'Review launcher changes' && {
+                        title_key: 'reviewLauncherChanges',
+                    }),
+                },
                 state: 'pending',
                 done: 0,
                 excluded: [],
@@ -419,6 +428,10 @@ export class NativeRuntime {
                         check_only: checkOnly,
                         computer_use: request.computerUse === true,
                         verify_attempt: checkOnly ? previous : null,
+                        history_attempts:
+                            request.history
+                                ?.map((turn) => turn.run?.resume?.attempt_id)
+                                .filter(Boolean) || [],
                     },
                 }),
             )
@@ -473,7 +486,7 @@ export class NativeRuntime {
                 let snapshot = await this.invoke('snapshot', { threadId })
                 if (detached) return
                 let attempt = snapshot.attempts.find((entry) => entry.id === attemptId)
-                let terminalJournal = false
+                let journalChanged = false
                 let events
                 do {
                     events = await this.invoke('events', { threadId, after: cursor })
@@ -481,8 +494,7 @@ export class NativeRuntime {
                     for (const event of events) {
                         if (event.sequence <= cursor) continue
                         if (event.attempt_id === attemptId) {
-                            if (event.payload.type === 'done' || event.payload.type === 'error')
-                                terminalJournal = true
+                            journalChanged = true
                             emit({
                                 ...event.payload,
                                 transient: true,
@@ -492,7 +504,7 @@ export class NativeRuntime {
                         cursor = event.sequence
                     }
                 } while (!detached && events.length === 500)
-                if (!detached && terminalJournal) {
+                if (!detached && journalChanged) {
                     snapshot = await this.invoke('snapshot', { threadId })
                     if (detached) return
                     attempt = snapshot.attempts.find((entry) => entry.id === attemptId)

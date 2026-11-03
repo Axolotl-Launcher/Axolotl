@@ -574,7 +574,10 @@ function announceRun(threadId, turnId, before) {
     if (phase(run.status) === 'working') announce(run.label || text('thinking'))
     else if (run.status === 'applying') announce(text('applying'))
     else if (run.status === 'awaiting')
-        announce(stateLabel('awaiting'), pendingPlan(run)?.plan.title)
+        announce(
+            stateLabel('awaiting'),
+            pendingPlan(run)?.plan.title || text('reviewLauncherChanges'),
+        )
     else if (run.status === 'failed')
         announce(stateLabel('failed'), last('error')?.title, last('error')?.text)
     else if (run.status === 'done' && last('result'))
@@ -748,6 +751,16 @@ async function savePermissions(next) {
 function request(thread, turn, extra = {}) {
     const index = thread.turns.findIndex((entry) => entry.id === turn.id)
     const instance = instanceChoice(turn.instanceId)
+    const history =
+        index >= 0
+            ? thread.turns.slice(0, index)
+            : [
+                  ...thread.turns,
+                  ...thread.queue.slice(
+                      0,
+                      thread.queue.findIndex((entry) => entry.id === turn.id),
+                  ),
+              ]
     return {
         thread: { id: thread.id, title: thread.title },
         turn: { id: turn.id, text: turn.text, attachments: structuredClone(turn.attachments) },
@@ -757,7 +770,7 @@ function request(thread, turn, extra = {}) {
         scope: !turn.instanceId ? 'launcher' : instance ? 'instance' : 'missing',
         instances: session.context.instances,
         model: modelChoice(turn.selection),
-        history: structuredClone(thread.turns.slice(0, index)),
+        history: structuredClone(history),
         resume: structuredClone(turn.run.resume),
         // Standing preferences from Settings, sent with every request.
         instructions: session.store.instructions,
@@ -989,6 +1002,7 @@ async function submitReady() {
     }
     value = element('message-input').value.trim()
     const attachments = structuredClone(thread.attachments)
+    if (session.editing?.threadId === thread.id) return submitEdit(thread.id, value, attachments)
     const last = lastTurn(thread)
     if (last && ACTIVE_STATUSES.includes(last.run.status)) {
         let queuedId
@@ -1028,6 +1042,61 @@ async function submitReady() {
             active.attachments = []
         },
     })
+}
+
+function cancelEdit() {
+    const editing = session.editing
+    if (!editing) return
+    const thread = findThread(editing.threadId)
+    if (thread) {
+        thread.draft = editing.draft
+        thread.attachments = editing.attachments
+    }
+    session.editing = null
+    persistSoon()
+    renderComposer()
+}
+
+async function submitEdit(threadId, value, attachments) {
+    const thread = findThread(threadId)
+    const editing = session.editing
+    const index = thread.turns.findIndex((turn) => turn.id === editing.turnId)
+    if (index < 0) return false
+    const original = thread.turns[index]
+    const removed = [...thread.turns.slice(index), ...thread.queue]
+    try {
+        for (const turn of removed) {
+            if (!isPreview() && !turn.run?.preview && turn.run?.resume?.attempt_id)
+                await window.AgentHost.runtimeInvoke('cancel', {
+                    attemptId: turn.run.resume.attempt_id,
+                })
+            session.handles.get(turn.id)?.detach?.()
+            session.handles.delete(turn.id)
+            tickets.delete(turn.id)
+        }
+    } catch (error) {
+        notify(String(error), 'error')
+        return false
+    }
+    const replacement = newTurn(thread, { text: value, attachments })
+    replacement.id = original.id
+    replacement.instanceId = original.instanceId
+    replacement.run.preview = isPreview()
+    const saved = await commit((next) => {
+        const active = byId(next.threads, threadId)
+        active.turns = [...active.turns.slice(0, index), replacement]
+        active.queue = []
+        active.draft = editing.draft
+        active.attachments = editing.attachments
+        active.updatedAt = Date.now()
+    })
+    if (!saved) return false
+    if (session.editing === editing) session.editing = null
+    if (session.store.activeId === threadId) renderTranscript(findThread(threadId))
+    render()
+    follower.toBottom(true)
+    launch(threadId, replacement.id, 'start')
+    return true
 }
 
 function watchNativeQueued(threadId, queuedId, submit = false) {
@@ -1293,6 +1362,7 @@ async function restoreRuns() {
 // ---------- threads ----------
 
 function selectThread(id) {
+    if (id !== session.store.activeId) cancelEdit()
     // Picked from the drawer, the task is worked on next: the focus goes to
     // its composer rather than to the drawer's toggle.
     const fromDrawer = drawer === 'sidebar' && element('sidebar').contains(document.activeElement)
@@ -1318,6 +1388,7 @@ function selectThread(id) {
 
 // Settles once the new task page is showing, with the focus in its composer.
 function createThread() {
+    cancelEdit()
     const thread = currentThread()
     if (!thread.turns.length && !thread.draft && !thread.title) {
         element('message-input').focus()
@@ -1636,6 +1707,7 @@ function copy(turnId, kind) {
 // ---------- events ----------
 
 const actions = {
+    'cancel-edit': cancelEdit,
     'toggle-sidebar': () => setSidebar(!sidebarShown()),
     'toggle-tasks': () => setPanel(!panelShown()),
     'close-drawers': () => {
@@ -1889,12 +1961,20 @@ document.addEventListener('click', async (event) => {
         copyText(target.closest('.code-block').querySelector('code').textContent)
     else if (data.copyLink) copyText(data.copyLink, text('linkCopied'))
     else if (data.editTurn) {
-        // Puts the request back in the composer to change and send again.
-        const turn = byId(currentThread().turns, data.editTurn)
+        const thread = currentThread()
+        const turn = byId(thread.turns, data.editTurn)
         const input = element('message-input')
         if (!turn) return
-        input.value = turn.text
-        input.dispatchEvent(new Event('input', { bubbles: true }))
+        cancelEdit()
+        session.editing = {
+            threadId: thread.id,
+            turnId: turn.id,
+            draft: thread.draft,
+            attachments: structuredClone(thread.attachments),
+        }
+        thread.draft = turn.text
+        thread.attachments = structuredClone(turn.attachments)
+        renderComposer()
         input.focus()
         input.setSelectionRange(input.value.length, input.value.length)
     } else if (data.removeAttachment) {

@@ -221,8 +221,36 @@ function createStoreParser(native) {
             icon: optionalString(value.icon, 40),
             kind: oneOf(value.kind, CHANGE_KINDS, null),
             meta: string(value.meta, 200),
+            tool: optionalString(value.tool, 200),
+            arguments:
+                value.arguments && typeof value.arguments === 'object'
+                    ? structuredClone(value.arguments)
+                    : null,
+            review: installationReview(value.review),
             manual: value.manual === true,
         }
+    }
+
+    function installationReview(value) {
+        if (value == null) return null
+        const valid =
+            value &&
+            typeof value === 'object' &&
+            !Array.isArray(value) &&
+            ((value.mode === 'resources' &&
+                Array.isArray(value.actions) &&
+                value.actions.every(
+                    (action) =>
+                        action &&
+                        typeof action.title === 'string' &&
+                        typeof action.target_path === 'string',
+                )) ||
+                (value.mode === 'modpack' && value.pack && typeof value.pack === 'object'))
+        if (!valid) {
+            if (native) throw new Error('Invalid installation review')
+            return null
+        }
+        return structuredClone(value)
     }
 
     function plan(value) {
@@ -232,6 +260,10 @@ function createStoreParser(native) {
             revision: Number.isInteger(value.revision) ? value.revision : 1,
             expires_at: value.expires_at,
             title: string(value.title, 200),
+            title_key:
+                value.title === 'Review launcher changes'
+                    ? 'reviewLauncherChanges'
+                    : optionalString(value.title_key, 100),
             summary: string(value.summary, 200),
             approval: string(value.approval, 400),
             changes: list(value.changes, change, 50),

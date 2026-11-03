@@ -76,11 +76,14 @@ export function renderComposer() {
     resizeInput()
 
     const send = element('send-button')
-    const stopMode = active && !thread.draft.trim() && !thread.attachments.length
+    const editing = session.editing?.threadId === thread.id
+    const stopMode = !editing && active && !thread.draft.trim() && !thread.attachments.length
     send.classList.toggle('is-stop', stopMode)
     send.dataset.action = stopMode ? 'stop' : ''
     send.type = stopMode ? 'button' : 'submit'
-    const sendLabel = text(stopMode ? 'stop' : active ? 'queueMessage' : 'send')
+    const sendLabel = text(
+        editing ? 'saveAndResend' : stopMode ? 'stop' : active ? 'queueMessage' : 'send',
+    )
     send.setAttribute('aria-label', sendLabel)
     send.dataset.tip = sendLabel
     send.dataset.keys = stopMode ? 'Esc' : 'Enter'
@@ -234,6 +237,15 @@ function renderQueue(thread, active) {
 
 function renderNote(thread) {
     const note = element('composer-note')
+    if (session.editing?.threadId === thread.id) {
+        note.hidden = false
+        note.replaceChildren(
+            icon('edit'),
+            h('span', { text: text('editingMessage') }),
+            button({ class: 'text-button', data: { action: 'cancel-edit' }, text: text('cancel') }),
+        )
+        return
+    }
     const show = !thread.turns.length && isPreview()
     note.hidden = !show
     if (show) note.replaceChildren(icon('info'), h('span', { text: text('previewNote') }))
@@ -254,7 +266,12 @@ export function renderApprovalBar(visible) {
                 icon('shield'),
                 h('span', {}, [
                     h('strong', { text: text('approvalWaiting') }),
-                    h('span', { text: plan.plan.approval || plan.plan.title }),
+                    h('span', {
+                        text:
+                            plan.plan.approval ||
+                            (plan.plan.title_key ? text(plan.plan.title_key) : plan.plan.title) ||
+                            text('reviewLauncherChanges'),
+                    }),
                 ]),
             ]),
             h('div', { class: 'approval-buttons' }, [

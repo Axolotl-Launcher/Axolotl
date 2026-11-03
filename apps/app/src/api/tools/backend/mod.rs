@@ -19,6 +19,7 @@ mod metadata;
 mod modpacks;
 mod multiplayer;
 mod preferences;
+mod presentation;
 mod queries;
 mod resource_history;
 mod resource_updates;
@@ -56,6 +57,15 @@ pub(super) struct LauncherBackend {
 }
 
 impl LauncherBackend {
+    pub(super) async fn describe_change(
+        &self,
+        name: &str,
+        arguments: &Value,
+        scope: &str,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> Result<Option<Value>, ToolError> {
+        presentation::describe(self, name, arguments, scope, cancel).await
+    }
     pub(super) fn new(app: tauri::AppHandle) -> Self {
         Self {
             app: Some(app),

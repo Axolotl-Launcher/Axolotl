@@ -708,7 +708,32 @@ async fn agent_worker_approval(
             revision: 1,
             expires_at,
         });
-        changes.push(json!({"name":action.call_id,"note":action.arguments.to_string(),"meta":action.name,"kind":if entry.destructive {"remove"} else {"setting"},"manual":false}));
+        let review = app
+            .state::<crate::api::tools::LauncherTools>()
+            .describe_change(
+                &action.name,
+                &action.arguments,
+                &run.scope_id,
+                &run.cancel,
+            )
+            .await
+            .map_err(|error| format!("{}: {}", error.code, error.message))?;
+        if run.cancel.is_cancelled() {
+            return Err("Task stopped".into());
+        }
+        execution::allowed(&app, &run, entry)?;
+        let kind = if review.is_some() {
+            if action.name == "resource_execute_changes" {
+                "update"
+            } else {
+                "install"
+            }
+        } else if entry.destructive {
+            "remove"
+        } else {
+            "setting"
+        };
+        changes.push(json!({"name":action.call_id,"tool":action.name,"arguments":action.arguments,"review":review,"meta":action.name,"kind":kind,"icon":if review.is_some() {"download"} else {"cube"},"manual":false}));
     }
     drop(latest);
     runtime
@@ -723,7 +748,7 @@ async fn agent_worker_approval(
         })
         .await
         .map_err(|e| e.to_string())?;
-    runtime.publish(&attempt_id, &uuid::Uuid::new_v4().to_string(), json!({"type":"plan","plan":{"id":id,"revision":1,"expires_at":expires_at,"title":"Review launcher changes","summary":"","changes":changes}})).await?;
+    runtime.publish(&attempt_id, &uuid::Uuid::new_v4().to_string(), json!({"type":"plan","plan":{"id":id,"revision":1,"expires_at":expires_at,"title_key":"reviewLauncherChanges","title":"","summary":"","changes":changes}})).await?;
     run.state.store(AWAITING, Ordering::Release);
     runtime.wake.notify_waiters();
     Ok(())

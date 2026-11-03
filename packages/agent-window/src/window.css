@@ -2828,6 +2828,88 @@ code {
     gap: 12px;
     padding: 16px 18px 12px;
 }
+.change-arguments {
+    display: grid;
+    grid-template-columns: minmax(5rem, 35%) minmax(0, 1fr);
+    gap: 4px 12px;
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.change-arguments dt {
+    color: var(--fg-2);
+    overflow-wrap: anywhere;
+}
+.change-arguments dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    max-height: 16rem;
+    overflow-y: auto;
+}
+.installation-review {
+    display: grid;
+    gap: 12px;
+    margin-top: 8px;
+}
+.change.is-installation {
+    align-items: start;
+}
+.change.is-installation .change-title {
+    color: var(--fg);
+}
+.installation-files {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.installation-files > li {
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+}
+.installation-file-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+    color: var(--fg-2);
+}
+.installation-file-title strong {
+    color: var(--fg);
+    font-weight: 600;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.installation-path {
+    display: block;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+    color: var(--fg-2);
+}
+.installation-path.is-from {
+    color: var(--fg-3);
+    text-decoration: line-through;
+}
+.installation-warning {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--warning) 9%, transparent);
+    color: var(--fg-2);
+    font-size: 12px;
+}
+.installation-warning strong {
+    color: var(--warning);
+}
+.change-technical {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--fg-3);
+}
+.change-technical summary,
+.installation-warning summary {
+    cursor: pointer;
+}
 .plan-kicker {
     display: inline-flex;
     align-items: center;

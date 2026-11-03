@@ -627,7 +627,7 @@
     "message": "{count} 个步骤"
   },
   "app.agent-window.chat.steps-running": {
-    "message": "处理中 · 第 {count} 步"
+    "message": "处理中 · 共 {count} 步"
   },
   "app.agent-window.chat.earlier-steps": {
     "message": "显示前面 {count} 个步骤"
@@ -21988,5 +21988,260 @@
   },
   "app.agent-window.chat.approval-expired": {
     "message": "方案已过期。点击重试，重新生成并确认方案。"
+  },
+  "app.agent-window.chat.review-launcher-changes": {
+    "message": "确认启动器改动"
+  },
+  "app.agent-window.chat.editing-message": {
+    "message": "正在修改消息 · 后续回复将重新生成，已执行的改动不会撤销。"
+  },
+  "app.agent-window.chat.save-and-resend": {
+    "message": "保存并重新发送"
+  },
+  "app.agent-window.chat.argument-unset": {
+    "message": "未设置"
+  },
+  "app.agent-window.chat.argument-empty": {
+    "message": "空"
+  },
+  "app.agent-window.chat.argument-yes": {
+    "message": "是"
+  },
+  "app.agent-window.chat.argument-no": {
+    "message": "否"
+  },
+  "app.agent-window.chat.argument-name": {
+    "message": "名称"
+  },
+  "app.agent-window.chat.argument-instance-id": {
+    "message": "实例"
+  },
+  "app.agent-window.chat.argument-game-version": {
+    "message": "Minecraft 版本"
+  },
+  "app.agent-window.chat.argument-loader": {
+    "message": "模组加载器"
+  },
+  "app.agent-window.chat.argument-loader-version": {
+    "message": "加载器版本"
+  },
+  "app.agent-window.chat.argument-version": {
+    "message": "版本"
+  },
+  "app.agent-window.chat.argument-source": {
+    "message": "来源"
+  },
+  "app.agent-window.chat.argument-project-id": {
+    "message": "项目"
+  },
+  "app.agent-window.chat.argument-release-id": {
+    "message": "发布版本"
+  },
+  "app.agent-window.chat.argument-resource-type": {
+    "message": "资源类型"
+  },
+  "app.agent-window.chat.argument-plan-id": {
+    "message": "方案"
+  },
+  "app.agent-window.chat.argument-revision": {
+    "message": "修订版本"
+  },
+  "app.agent-window.chat.argument-entry-id": {
+    "message": "内容条目"
+  },
+  "app.agent-window.chat.argument-enabled": {
+    "message": "启用"
+  },
+  "app.agent-window.chat.argument-path": {
+    "message": "路径"
+  },
+  "app.agent-window.chat.argument-directory": {
+    "message": "目录"
+  },
+  "app.agent-window.chat.argument-world-id": {
+    "message": "世界"
+  },
+  "app.agent-window.chat.argument-server-id": {
+    "message": "服务器"
+  },
+  "app.agent-window.chat.argument-job-id": {
+    "message": "任务"
+  },
+  "app.agent-window.chat.argument-operation-id": {
+    "message": "操作"
+  },
+  "app.agent-window.chat.argument-memory": {
+    "message": "内存"
+  },
+  "app.agent-window.chat.argument-min-mb": {
+    "message": "最小内存（MiB）"
+  },
+  "app.agent-window.chat.argument-max-mb": {
+    "message": "最大内存（MiB）"
+  },
+  "app.agent-window.chat.argument-java-id": {
+    "message": "Java 运行时"
+  },
+  "app.agent-window.chat.argument-account-id": {
+    "message": "账户"
+  },
+  "app.agent-window.chat.argument-content": {
+    "message": "内容"
+  },
+  "app.agent-window.chat.argument-text": {
+    "message": "文本"
+  },
+  "app.agent-window.chat.argument-command": {
+    "message": "命令"
+  },
+  "app.agent-window.chat.argument-value": {
+    "message": "值"
+  },
+  "app.agent-window.chat.argument-key": {
+    "message": "设置项"
+  },
+  "app.agent-window.chat.argument-overwrite": {
+    "message": "覆盖"
+  },
+  "app.agent-window.chat.argument-recursive": {
+    "message": "包含子目录"
+  },
+  "app.agent-window.chat.argument-destination": {
+    "message": "目标路径"
+  },
+  "app.agent-window.chat.argument-target": {
+    "message": "目标"
+  },
+  "app.agent-window.chat.argument-format": {
+    "message": "格式"
+  },
+  "app.agent-window.chat.argument-group": {
+    "message": "分组"
+  },
+  "app.agent-window.chat.argument-group-id": {
+    "message": "分组"
+  },
+  "app.agent-window.chat.argument-mod-loader": {
+    "message": "模组加载器"
+  },
+  "app.agent-window.chat.argument-mod-loader-version": {
+    "message": "加载器版本"
+  },
+  "app.agent-window.chat.argument-channel": {
+    "message": "通道"
+  },
+  "app.agent-window.chat.argument-snapshot-id": {
+    "message": "备份快照"
+  },
+  "app.agent-window.chat.argument-confirm": {
+    "message": "确认"
+  },
+  "app.agent-window.chat.argument-ignore-dependencies": {
+    "message": "跳过依赖"
+  },
+  "app.agent-window.chat.argument-accept-compatibility-nodes": {
+    "message": "接受兼容性冲突"
+  },
+  "app.agent-window.chat.install-resource-count": {
+    "message": "安装方案 · {count} 项"
+  },
+  "app.agent-window.chat.update-resource-count": {
+    "message": "更新方案 · {count} 项"
+  },
+  "app.agent-window.chat.install-modpack": {
+    "message": "安装 {name}"
+  },
+  "app.agent-window.chat.plan-game-versions": {
+    "message": "支持的 Minecraft 版本"
+  },
+  "app.agent-window.chat.pack-replacement-effect": {
+    "message": "将替换受管理的整合包内容，可能覆盖配置文件或移除文件。"
+  },
+  "app.agent-window.chat.pack-new-instance-effect": {
+    "message": "将创建新实例并安装所选整合包版本。"
+  },
+  "app.agent-window.chat.plan-replace": {
+    "message": "替换"
+  },
+  "app.agent-window.chat.plan-enable": {
+    "message": "启用"
+  },
+  "app.agent-window.chat.plan-keep": {
+    "message": "保留"
+  },
+  "app.agent-window.chat.plan-dependency": {
+    "message": "依赖"
+  },
+  "app.agent-window.chat.plan-dependencies-skipped": {
+    "message": "此方案将跳过依赖分析。"
+  },
+  "app.agent-window.chat.plan-dependency-install-skipped": {
+    "message": "此方案不会自动安装依赖。"
+  },
+  "app.agent-window.chat.plan-subject": {
+    "message": "相关资源"
+  },
+  "app.agent-window.chat.plan-required": {
+    "message": "要求"
+  },
+  "app.agent-window.chat.plan-actual": {
+    "message": "当前"
+  },
+  "app.agent-window.chat.plan-original-details": {
+    "message": "原始说明"
+  },
+  "app.agent-window.chat.plan-compatibility-accepted": {
+    "message": "{name}：已选择接受{dimensions}兼容性冲突。"
+  },
+  "app.agent-window.chat.plan-details-unavailable": {
+    "message": "此旧记录未保存安装方案明细。"
+  },
+  "app.agent-window.chat.technical-details": {
+    "message": "技术详情"
+  },
+  "app.agent-window.chat.plan-issue-source-unavailable": {
+    "message": "资源来源不可用"
+  },
+  "app.agent-window.chat.plan-issue-identity-unconfirmed": {
+    "message": "资源身份尚未确认"
+  },
+  "app.agent-window.chat.plan-issue-version-conflict": {
+    "message": "资源版本冲突"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-unknown": {
+    "message": "兼容性尚未确认"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-mismatch": {
+    "message": "游戏版本或加载器不兼容"
+  },
+  "app.agent-window.chat.plan-issue-artifact-mismatch": {
+    "message": "所选文件不匹配"
+  },
+  "app.agent-window.chat.plan-issue-invalid-path": {
+    "message": "安装路径无效"
+  },
+  "app.agent-window.chat.plan-issue-missing-dependency": {
+    "message": "缺少必要依赖"
+  },
+  "app.agent-window.chat.plan-issue-dependency-analysis-failed": {
+    "message": "依赖分析失败"
+  },
+  "app.agent-window.chat.plan-issue-stale-revision": {
+    "message": "方案已失效"
+  },
+  "app.agent-window.chat.plan-issue-manual-download-required": {
+    "message": "需要手动下载文件"
+  },
+  "app.agent-window.chat.plan-issue-file-not-writable": {
+    "message": "目标文件不可写"
+  },
+  "app.agent-window.chat.plan-issue-file-write-skipped": {
+    "message": "将跳过文件写入"
+  },
+  "app.agent-window.chat.plan-world-scope": {
+    "message": "世界：{path}"
+  },
+  "app.agent-window.chat.plan-issue-unknown": {
+    "message": "方案警告"
   }
 }

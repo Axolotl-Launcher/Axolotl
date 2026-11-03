@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { argumentRows, changeTitle } from '../src/tools.js'
+import { setLocale, text } from '../src/messages.js'
 
 import { applyEvent, applyNativeSnapshot, createRuntime, NativeRuntime } from '../src/agent.js'
 import {
@@ -14,6 +16,106 @@ import {
 
 const memory = (raw) => ({ getItem: (key) => (key === STORAGE_KEY ? raw : null), setItem() {} })
 const flush = () => new Promise((resolve) => setImmediate(resolve))
+
+test('live write receipts stay applying until the native attempt settles', () => {
+    const run = newRun()
+    applyEvent(run, { type: 'plan', plan: { changes: [{ name: 'call' }] } })
+    const receipts = { unknown: 0, actions: [{ call_id: 'call', state: 'running' }] }
+    applyNativeSnapshot(run, 'running', receipts)
+    assert.equal(run.status, 'applying')
+    assert.equal(run.items[0].state, 'applying')
+    applyNativeSnapshot(run, 'completed', {
+        unknown: 0,
+        actions: [{ call_id: 'call', state: 'applied' }],
+    })
+    assert.equal(run.status, 'done')
+    assert.equal(run.items[0].state, 'applied')
+})
+
+test('approval arguments and step counts use localized labels, including old stored plans', () => {
+    setLocale('zh-CN', {
+        argumentName: '名称',
+        argumentYes: '是',
+        argumentEnabled: '启用',
+        toolHelpInstanceCreate: '创建实例',
+        stepsRunning: '处理中 · 共 {count} 步',
+    })
+    assert.equal(text('stepsRunning', { count: 3 }), '处理中 · 共 3 步')
+    assert.equal(changeTitle({ meta: 'instance_create', note: '{"name":"我的实例"}' }), '创建实例')
+    assert.deepEqual(argumentRows({ name: '我的实例', enabled: true }), [
+        { label: '名称', value: '我的实例' },
+        { label: '启用', value: '是' },
+    ])
+    setLocale('en-US')
+})
+
+test('native storage preserves frozen installation details without making IDs the display name', () => {
+    setLocale('en-US', { argumentInstanceId: 'Instance' })
+    const store = initialStore()
+    const review = {
+        mode: 'resources',
+        intent: 'install',
+        dependencies_checked: true,
+        install_dependencies: true,
+        instance: {
+            id: 'local:target',
+            name: '机械动力',
+            game_version: '1.21.1',
+            loader: 'neoforge',
+        },
+        actions: [
+            {
+                title: 'Create',
+                version: '6.0.10',
+                source: 'modrinth',
+                target_path: 'mods/create.jar',
+                dependency: false,
+            },
+        ],
+        issues: [],
+        exceptions: [],
+    }
+    store.threads[0].turns.push({
+        id: 'turn',
+        text: 'Install Create',
+        attachments: [],
+        run: {
+            ...newRun(),
+            status: 'awaiting',
+            items: [
+                {
+                    id: 'plan',
+                    type: 'plan',
+                    state: 'pending',
+                    plan: {
+                        changes: [
+                            {
+                                name: 'call',
+                                tool: 'resource_execute_plan',
+                                arguments: { plan_id: 'opaque', revision: 1 },
+                                review,
+                            },
+                        ],
+                    },
+                },
+            ],
+        },
+    })
+    const loaded = parseNativeStore(JSON.stringify(store))
+    const change = loaded.threads[0].turns[0].run.items[0].plan.changes[0]
+    assert.deepEqual(change.review, review)
+    assert.deepEqual(
+        argumentRows({ instance_id: 'local:target', plan_id: 'opaque', revision: 1 }, [
+            { id: 'local:target', name: '机械动力' },
+        ]),
+        [{ label: 'Instance', value: '机械动力' }],
+    )
+    assert.equal(
+        argumentRows(change.arguments, [], true).some((row) => row.value === 'opaque'),
+        true,
+    )
+    setLocale('en-US')
+})
 
 test('native missing backend never becomes demo, explicit preview does', async () => {
     const unavailable = await createRuntime({ native: true, preview: true }, {})
@@ -85,7 +187,7 @@ test('native polling deduplicates cursor replay and detach never cancels', async
     assert.equal(events[1].nativeResume.cursor, 5)
     assert.deepEqual(
         calls.map(([name]) => name),
-        ['snapshot', 'events'],
+        ['snapshot', 'events', 'snapshot'],
     )
 })
 
@@ -115,12 +217,26 @@ test('done needs successful receipts before a plan is applied', () => {
     run.status = 'applying'
     applyEvent(run, {
         type: 'done',
-        applied: { selected: 1, applied: 1, failed: 0, unknown: 0, complete: true },
+        applied: {
+            selected: 1,
+            applied: 1,
+            failed: 0,
+            unknown: 0,
+            complete: true,
+            actions: [{ call_id: 'call-1', state: 'applied' }],
+        },
     })
     assert.equal(run.items[0].state, 'applied')
     applyEvent(run, {
         type: 'done',
-        applied: { selected: 1, applied: 0, failed: 0, unknown: 1, complete: false },
+        applied: {
+            selected: 1,
+            applied: 0,
+            failed: 0,
+            unknown: 1,
+            complete: false,
+            actions: [{ call_id: 'call-1', state: 'unknown' }],
+        },
     })
     assert.equal(run.items[0].state, 'unknown')
 })
@@ -162,6 +278,7 @@ test('check submits read only and binds verification to prior attempt', async ()
             turn: { id: 'turn', text: 'check', attachments: [] },
             resume: { attempt_id: 'write-attempt' },
             model: { provider: { provider_id: 'provider' }, model: { id: 'model' } },
+            history: [{ run: { resume: { attempt_id: 'visible-history' } } }],
         },
         () => {},
     )
@@ -172,6 +289,7 @@ test('check submits read only and binds verification to prior attempt', async ()
     assert.equal(submitted.verify_attempt, 'write-attempt')
     assert.equal(submitted.computer_use, false)
     assert.equal(submitted.turn_id, 'turn')
+    assert.deepEqual(submitted.history_attempts, ['visible-history'])
 })
 
 test('acknowledged rename wins an AI title race and retains concurrent draft and stream', () => {

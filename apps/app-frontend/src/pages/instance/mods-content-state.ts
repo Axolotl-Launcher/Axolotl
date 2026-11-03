@@ -27,6 +27,43 @@ export function modsContentLoading(state: {
     return !state.hasSnapshot || (!state.hasItems && !state.settled)
 }
 
+/**
+ * Tracks whether a refresh round watched by this view has finished. A task
+ * that is already finished when the view first sees it belongs to an earlier
+ * visit and says nothing about the current files, so only a round seen running
+ * or started here counts. A round can finish before `start` returns, so
+ * `started` also settles on a finish observed just before it.
+ */
+export function createContentRefreshSettlement() {
+    let round: string | undefined
+    let last: { id: string; running: boolean } | undefined
+    let settled = false
+    const check = () => {
+        if (last && !last.running && last.id === round) settled = true
+        return settled
+    }
+    return {
+        get settled() {
+            return settled
+        },
+        observe(task: { id: string; running: boolean } | null | undefined) {
+            if (!task) return settled
+            last = task
+            if (task.running) round = task.id
+            return check()
+        },
+        started(id: string) {
+            round = id
+            return check()
+        },
+        reset() {
+            round = undefined
+            last = undefined
+            settled = false
+        },
+    }
+}
+
 export function modsContentPending(state: {
     busy: boolean
     hasSnapshot: boolean

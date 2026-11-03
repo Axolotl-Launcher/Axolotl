@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 
 import modsSource from './Mods.vue?raw'
 import {
+    createContentRefreshSettlement,
     modsContentLoading,
     modsContentPending,
     modsContentScopeTransition,
@@ -78,7 +79,8 @@ it('refreshes once installation finishes and keeps the initial read pending', ()
         modsSource.indexOf('function enrichContentData('),
     )
     expect(init).toContain('hasSnapshot: contentSnapshot.value !== null')
-    expect(init).toContain('settled: contentRefreshSettled')
+    expect(init).toContain('settled: contentRefreshSettlement.settled')
+    expect(init).toContain('settled: contentRefreshSettlement.started(task.id)')
     expect(
         modsContentPending({ busy: false, hasSnapshot: true, hasItems: false, loading: true }),
     ).toBe(true)
@@ -100,14 +102,33 @@ it('keeps an empty list pending only until the first refresh round settles', () 
         modsSource.indexOf('async function connectContentRefresh()'),
         modsSource.indexOf('async function retryFailedContent()'),
     )
-    expect(subscribe).toContain('contentRefreshSettled = false')
-    expect(subscribe).toContain(
-        'if (state.task && !state.task.running) contentRefreshSettled = true',
-    )
-    expect(subscribe).toContain('settled: contentRefreshSettled')
+    expect(subscribe).toContain('contentRefreshSettlement.reset()')
+    expect(subscribe).toContain('settled: contentRefreshSettlement.observe(state.task)')
     const invalidate = modsSource.slice(
         modsSource.indexOf('function invalidateContentRequests('),
         modsSource.indexOf('function suspendContentRequests()'),
     )
-    expect(invalidate).toContain('contentRefreshSettled = false')
+    expect(invalidate).toContain('contentRefreshSettlement.reset()')
+})
+
+it('settles only on a refresh round watched by the current view', () => {
+    const settlement = createContentRefreshSettlement()
+    // A round finished during an earlier visit says nothing about the current files.
+    expect(settlement.observe({ id: 'earlier', running: false })).toBe(false)
+    expect(settlement.observe({ id: 'current', running: true })).toBe(false)
+    expect(settlement.observe({ id: 'earlier', running: false })).toBe(false)
+    expect(settlement.observe({ id: 'current', running: false })).toBe(true)
+    expect(settlement.observe({ id: 'later', running: true })).toBe(true)
+
+    settlement.reset()
+    expect(settlement.settled).toBe(false)
+    expect(settlement.observe({ id: 'later', running: false })).toBe(false)
+    expect(settlement.started('next')).toBe(false)
+    expect(settlement.observe({ id: 'next', running: false })).toBe(true)
+})
+
+it('settles a round that finished before start answered', () => {
+    const settlement = createContentRefreshSettlement()
+    expect(settlement.observe({ id: 'fast', running: false })).toBe(false)
+    expect(settlement.started('fast')).toBe(true)
 })

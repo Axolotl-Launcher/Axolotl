@@ -20,23 +20,31 @@ use std::time;
 
 /// Roots a test added to the clients it builds, so general clients trust the
 /// same loopback CA as the pinned ones.
+///
+/// This is a registry rather than a task-local scope: `DownloadClients::build`
+/// runs when a fixture constructs its clients, which happens before the test
+/// enters the future that issues requests. A scope bound around the requests
+/// would therefore arrive too late to affect the built clients.
 #[cfg(test)]
-tokio::task_local! {
-    static TEST_TRUST_ROOTS: Vec<reqwest::Certificate>;
-}
+static TEST_TRUST_ROOTS: LazyLock<
+    parking_lot::Mutex<Vec<reqwest::Certificate>>,
+> = LazyLock::new(Default::default);
 
-/// The test roots in scope, or an empty list outside `with_test_trust_roots`.
+/// The test roots registered so far.
 #[cfg(test)]
 fn test_trust_roots() -> Vec<reqwest::Certificate> {
-    TEST_TRUST_ROOTS.try_with(Clone::clone).unwrap_or_default()
+    TEST_TRUST_ROOTS.lock().clone()
 }
 
+/// Registers `roots` for every client this test builds afterwards.
+///
+/// Roots are process-wide because the client that needs them is built by a
+/// fixture outside any scope. Each test gets its own process under nextest, and
+/// the loopback CAs are self-signed and unique per fixture, so one test's roots
+/// cannot make another test's traffic trusted.
 #[cfg(test)]
-pub(crate) async fn with_test_trust_roots<F: std::future::Future>(
-    roots: Vec<reqwest::Certificate>,
-    future: F,
-) -> F::Output {
-    TEST_TRUST_ROOTS.scope(roots, future).await
+pub(crate) fn register_test_trust_roots(roots: Vec<reqwest::Certificate>) {
+    TEST_TRUST_ROOTS.lock().extend(roots);
 }
 
 pub(crate) fn is_h2_protocol_failure(error: &reqwest::Error) -> bool {

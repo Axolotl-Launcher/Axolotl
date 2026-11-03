@@ -153,6 +153,9 @@ pub(crate) fn finalize_rollback_state(
     if !cleanup_succeeded {
         return;
     }
+    // An error left by an earlier failed attempt no longer describes this
+    // job; keeping it would still count it as pending recovery.
+    job_state.rollback_error = None;
     job_state.record_event(InstallJobEventKind::RollbackCompleted);
     job_state.progress.phase = InstallPhaseId::Finalizing;
     job_state.progress.progress = None;

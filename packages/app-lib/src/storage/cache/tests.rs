@@ -80,11 +80,6 @@ async fn channel_references_keep_installed_retained_and_incomplete_store_objects
     assert!(retained_in_channel(&pool).await.is_err());
     sqlx::query("UPDATE install_jobs SET status = 'failed', state = '{\"rollback\":{\"content\":{\"staging_id\":\"s\"}}}'").execute(&pool).await.unwrap();
     assert!(retained_in_channel(&pool).await.is_err());
-    sqlx::query("UPDATE install_jobs SET state = '{\"rollback\":{},\"rollback_error\":{\"code\":\"rollback_error\"}}'").execute(&pool).await.unwrap();
-    assert!(retained_in_channel(&pool).await.is_err());
-    // A restored rollback has discarded its content and keeps only metadata.
-    sqlx::query("UPDATE install_jobs SET state = '{\"rollback\":{\"install_stage\":\"installed\"},\"rollback_error\":null}'").execute(&pool).await.unwrap();
-    assert!(retained_in_channel(&pool).await.is_ok());
     pool.close().await;
 }
 

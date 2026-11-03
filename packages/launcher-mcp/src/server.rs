@@ -30,6 +30,26 @@ impl Server {
         full_access: bool,
         require_auth: bool,
         info: LauncherInfo,
+        backend: Arc<dyn crate::Backend>,
+        changed: impl Fn(Snapshot) + Send + Sync + 'static,
+    ) -> std::io::Result<Self> {
+        Self::start_with_runtime(
+            port,
+            token,
+            full_access,
+            require_auth,
+            Arc::new(crate::ToolRuntime::new(info, backend)),
+            changed,
+        )
+        .await
+    }
+
+    pub async fn start_with_runtime(
+        port: u16,
+        token: String,
+        full_access: bool,
+        require_auth: bool,
+        runtime: Arc<crate::ToolRuntime>,
         changed: impl Fn(Snapshot) + Send + Sync + 'static,
     ) -> std::io::Result<Self> {
         let listener =
@@ -39,6 +59,8 @@ impl Server {
         sessions.session_config.init_timeout = Some(Duration::from_secs(60));
         sessions.session_config.keep_alive = Some(Duration::from_secs(90));
         let shared = Arc::new(Shared {
+            info: runtime.info().clone(),
+            runtime,
             inner: Mutex::new(Inner {
                 snapshot: Snapshot {
                     running: true,
@@ -53,7 +75,6 @@ impl Server {
             changed: Arc::new(changed),
             sessions: Arc::new(sessions),
             token,
-            info,
             shutdown: CancellationToken::new(),
             admission: Semaphore::new(1),
         });
@@ -69,7 +90,7 @@ impl Server {
             StreamableHttpServerConfig::default()
                 .with_cancellation_token(shared.shutdown.clone())
                 .with_json_response(true)
-                .with_max_request_body_bytes(16 * 1024)
+                .with_max_request_body_bytes(4 * 1024 * 1024)
                 .enforce_origin_validation(),
         );
         let app = Router::new()
@@ -97,6 +118,32 @@ impl Server {
             .unwrap_or_else(|e| e.into_inner())
             .snapshot
             .clone()
+    }
+
+    /// Revalidate a backend's pending UI request immediately before dispatch.
+    pub fn control_is_active(
+        &self,
+        control_id: &str,
+        full_access: bool,
+    ) -> bool {
+        let inner = self.shared.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner
+            .active
+            .as_ref()
+            .and_then(|id| inner.slots.get(id))
+            .is_some_and(|slot| {
+                inner.snapshot.running
+                    && (!full_access || inner.snapshot.full_access)
+                    && slot.initialized
+                    && slot.connection.connected
+                    && !slot.connection.awaiting_approval
+                    && !slot.cancel.is_cancelled()
+                    && slot.control_id.as_deref() == Some(control_id)
+                    && slot
+                        .control_cancel
+                        .as_ref()
+                        .is_some_and(|cancel| !cancel.is_cancelled())
+            })
     }
 
     pub fn approve(&self, id: &str) -> bool {

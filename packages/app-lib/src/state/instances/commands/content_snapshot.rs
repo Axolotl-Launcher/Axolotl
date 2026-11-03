@@ -1151,7 +1151,9 @@ fn snapshot_item(
             can_toggle: present,
             can_delete: present,
             can_update: present && has_provider,
-            can_change_version: present && has_provider,
+            can_change_version: present
+                && has_provider
+                && project_type != crate::state::ProjectType::Schematic,
             can_restore_pack_default: member.is_some()
                 && (override_kind != PackMemberOverrideKind::None
                     || materialization_state

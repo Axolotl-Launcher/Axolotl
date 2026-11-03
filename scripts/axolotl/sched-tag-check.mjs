@@ -15,12 +15,12 @@ export function tagViolations(sources) {
     const definition = tag.code.match(/((?:#\[[^\]]*\]\s*)*)pub\s+struct\s+Tag\s*\{/)
     if (!definition) return [`${TAG}: struct Tag not found`]
     // Attributes come from the masked code, so doc comments cannot match.
-    if (/\b(Deserialize|Clone|Copy)\b/.test(definition[1])) violations.push(`${TAG}: Tag derives Deserialize, Clone or Copy`)
+    if (/\b(Deserialize|Clone|Copy|Default)\b/.test(definition[1])) violations.push(`${TAG}: Tag derives Deserialize, Clone, Copy or Default`)
     const open = definition.index + definition[0].length - 1
     const body = tag.code.slice(open + 1, matchingBrace(tag.code, open))
     if (/\bpub\b/.test(body)) violations.push(`${TAG}: Tag has a public field`)
     for (const source of sources) {
-        for (const match of source.code.matchAll(/\bimpl\b[^{;]*\b(From|TryFrom|Deserialize|Clone)\b[^{;]*\bfor\s+(?:\w+::)*Tag\b(?!\w)/g)) {
+        for (const match of source.code.matchAll(/\bimpl\b[^{;]*\b(From|TryFrom|Deserialize|Clone|Default)\b[^{;]*\bfor\s+(?:\w+::)*Tag\b(?!\w)/g)) {
             violations.push(`${source.rel}:${lineOf(source.starts, match.index)} implements ${match[1]} for Tag`)
         }
         if (source.rel === TAG) continue

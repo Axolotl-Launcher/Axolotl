@@ -317,6 +317,90 @@ it('polls stale active jobs, preserves events received during reads and stops on
     }
 })
 
+it('modpack request updates exclude archive and parallel Minecraft bytes from content progress', async () => {
+    vi.useFakeTimers()
+    const content: InstallJobSnapshot = {
+        ...job('running', '2026-10-31T12:00:00Z'),
+        kind: 'create_modpack_instance',
+        provider: 'modrinth',
+        phase: 'downloading_content',
+        progress: { current: 1, total: 2, secondary: { current: 40, total: 100 } },
+        summary: {
+            files_completed: 1,
+            files_total: 2,
+            bytes_downloaded: 40,
+            bytes_total: 100,
+            fallback_count: 0,
+        },
+        items: [
+            {
+                id: 'pack.mrpack',
+                name: 'pack.mrpack',
+                status: 'completed',
+                bytes_downloaded: 200,
+                bytes_total: 200,
+            },
+            {
+                id: 'minecraft.jar',
+                name: 'minecraft.jar',
+                status: 'downloading',
+                bytes_downloaded: 20,
+                bytes_total: 80,
+            },
+            {
+                id: 'mods/a.jar',
+                name: 'mods/a.jar',
+                status: 'completed',
+                bytes_downloaded: 40,
+                bytes_total: 40,
+            },
+            {
+                id: 'mods/b.jar',
+                name: 'mods/b.jar',
+                status: 'queued',
+                bytes_downloaded: 0,
+                bytes_total: 60,
+            },
+        ],
+    }
+    backend.list.mockResolvedValue({ jobs: [content] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const request = backend.requests.mock.calls[0][0]
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            name: 'mods/b.jar',
+            url: 'https://cdn.modrinth.com/data/b.jar',
+            source: 'official',
+            bytes_total: 60,
+            attempt: 1,
+            max_attempts: 3,
+        })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            bytes: 10,
+            status: 'downloading',
+            speed_bytes_per_second: 10,
+            eta_seconds: 5,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        const updated = manager.jobs.value[0]
+        expect(updated.items[3].status).toBe('downloading')
+        expect(updated.items[3].bytes_downloaded).toBe(10)
+        expect(updated.progress).toEqual(content.progress)
+        expect(updated.summary.bytes_downloaded).toBe(40)
+        expect(updated.summary.bytes_total).toBe(100)
+    } finally {
+        manager.dispose()
+        vi.useRealTimers()
+    }
+})
+
 it('pack archive request progress advances the main bar without overwriting later phases', async () => {
     vi.useFakeTimers()
     const initial: InstallJobSnapshot = {

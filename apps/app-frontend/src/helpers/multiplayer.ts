@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core'
 
 import type { TerracottaState } from '@/helpers/terracotta'
 
+import { errorText } from './error-text.ts'
+
 export type MultiplayerProvider = 'terracotta' | 'hongshi'
 export type HongshiStatus =
     | 'unsupported'
@@ -94,17 +96,8 @@ export function selectedNodePreference(current: string, nodes: HongshiNode[]): s
     return current === 'auto' || nodes.some((node) => node.name === current) ? current : 'auto'
 }
 
-export function multiplayerErrorText(error: unknown): string {
-    if (
-        error &&
-        typeof error === 'object' &&
-        'message' in error &&
-        typeof error.message === 'string'
-    ) {
-        return error.message
-    }
-    return String(error)
-}
+/** @deprecated Use `errorText` from `@/helpers/error-text` so callers share one implementation. */
+export const multiplayerErrorText = errorText
 
 const command = (name: string) => `plugin:multiplayer|${name}`
 

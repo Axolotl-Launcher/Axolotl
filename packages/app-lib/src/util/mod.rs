@@ -12,6 +12,7 @@ pub mod jre;
 pub mod mojang;
 pub mod network;
 pub mod network_diagnostics;
+pub(crate) mod oauth_credentials;
 pub mod platform;
 pub mod protocol_version;
 pub mod proxy;

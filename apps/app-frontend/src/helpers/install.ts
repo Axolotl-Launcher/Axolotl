@@ -171,6 +171,7 @@ export interface InstallJobSnapshot {
         | { type: 'import'; launcher_type: string; instance_folder: string }
     parallel?: InstallParallelProgress | null
     display?: { title: string; icon?: string | null } | null
+    resource_names?: string[]
     error?: InstallErrorView | null
     rollback_error?: InstallErrorView | null
     pause_reason?: InstallPauseReason | null

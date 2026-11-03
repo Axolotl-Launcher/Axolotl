@@ -1,13 +1,40 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn third_party_account_commands_are_registered_and_limited_to_main_window() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/third_party_accounts.rs"));
+    assert_eq!(
+        runtime,
+        manifest_commands(include_str!("../build.rs"), "third-party-accounts")
+    );
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "third-party-accounts:default")
+    );
+    assert!(
+        include_str!("../src/main.rs")
+            .contains(".plugin(api::third_party_accounts::init())")
+    );
+}
+
+#[test]
 fn mcp_commands_are_registered_and_limited_to_the_main_window() {
     let runtime = runtime_commands(include_str!("../src/api/mcp/mod.rs"))
         .into_iter()
-        .map(|command| command.strip_prefix("commands::").unwrap_or(command))
+        .map(|command| command.rsplit("::").next().unwrap())
         .collect::<BTreeSet<_>>();
     let manifest = manifest_commands(include_str!("../build.rs"), "mcp");
     assert_eq!(runtime, manifest);
+    assert!(runtime.contains("mcp_ui_claim"));
+    assert!(runtime.contains("mcp_ui_respond"));
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
@@ -48,6 +75,33 @@ fn runtime_commands(source: &str) -> BTreeSet<&str> {
         .map(str::trim)
         .filter(|command| !command.is_empty())
         .collect()
+}
+
+#[test]
+fn player_skin_lookup_is_registered_and_allowed_for_main_window() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/minecraft_skins.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "minecraft-skins");
+    assert!(runtime.contains("lookup_player_skin"));
+    assert!(runtime.difference(&manifest).next().is_none());
+    let capabilities: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert!(
+        capabilities["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "main")
+    );
+    assert!(
+        capabilities["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "minecraft-skins:default")
+    );
 }
 
 fn manifest_commands<'a>(source: &'a str, plugin: &str) -> BTreeSet<&'a str> {
@@ -292,5 +346,59 @@ fn mod_translation_runtime_handlers_match_the_build_manifest() {
             .unwrap()
             .iter()
             .any(|permission| permission == "mod-translation:default")
+    );
+}
+
+#[test]
+fn download_diagnostics_is_registered_and_limited_to_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/install.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "install");
+    assert_eq!(runtime, manifest);
+    assert!(runtime.contains("download_diagnostics"));
+    let frontend =
+        include_str!("../../app-frontend/src/helpers/download-diagnostics.ts");
+    assert!(frontend.contains("plugin:install|download_diagnostics"));
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "install:default")
+    );
+}
+
+#[test]
+fn settings_commands_are_registered_and_limited_to_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/settings.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "settings");
+    assert_eq!(
+        runtime, manifest,
+        "settings commands must be identical in the runtime handler and the \
+         build-time manifest"
+    );
+    for command in [
+        "settings_layers",
+        "settings_override_clear",
+        "settings_sanitise",
+        "settings_import_scan",
+        "settings_import",
+        "settings_export",
+    ] {
+        assert!(runtime.contains(command));
+    }
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "settings:default")
     );
 }

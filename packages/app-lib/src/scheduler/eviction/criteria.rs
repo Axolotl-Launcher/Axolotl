@@ -64,6 +64,23 @@ pub struct Assessment {
     pub condition: Option<&'static str>,
 }
 
+/// Proof that a service passed every swap-out criterion. Only
+/// [`Assessment::token`] produces one, and an assessment that is not
+/// swappable yields `None`, so a slot cannot be created for an ineligible
+/// service.
+#[derive(Clone, Copy, Debug)]
+pub struct Swappable {
+    _priv: (),
+}
+
+impl Assessment {
+    /// The eligibility token for this assessment, or `None` when it fails any
+    /// criterion (including the `spawn_blocking` veto).
+    pub fn token(&self) -> Option<Swappable> {
+        self.criteria.swappable().then_some(Swappable { _priv: () })
+    }
+}
+
 /// The one unconditional member of L1.
 pub const LOG_RING_BUFFER: Assessment = Assessment {
     name: "LogRingBuffer",
@@ -72,33 +89,63 @@ pub const LOG_RING_BUFFER: Assessment = Assessment {
     condition: None,
 };
 
+/// The three conditional candidates, each failing C1c or C4 as it stands.
+/// They are listed so the gap is recorded rather than hidden: the code that
+/// would make one swappable is named in `condition`, and until that code
+/// exists the service must not be handed to [`crate::scheduler::eviction::EvictionSlot`].
 pub const CANDIDATES: [Assessment; 3] = [
     Assessment {
         name: "config_sync",
         path: "packages/app-lib/src/state/instances/config_sync.rs",
-        criteria: Criteria::ALL,
+        // `write_config_file` -> `io::write`, which is `spawn_blocking`
+        // (util/io.rs). A blocking write cannot be aborted, so C1c vetoes.
+        criteria: Criteria {
+            // The loop is started through `State::spawn_background`, not a
+            // per-tag slot, so C1b fails until it moves into the slot.
+            c1b_tasks_in_tag_joinset: false,
+            c1c_no_spawn_blocking: false,
+            c4_rebuild_entry: false,
+            ..Criteria::ALL
+        },
         condition: Some(
-            "its loop runs in the slot's JoinSet instead of the state's background \
-             tracker, and the dirty-instance set is empty, so no options write is \
-             in flight (C1b, C3)",
+            "the options write moves to an abortable async path, its loop runs \
+             in the slot's JoinSet, the dirty-instance set is empty, and a \
+             rebuild entry exists (C1c, C1b, C3, C4)",
         ),
     },
     Assessment {
         name: "endpoint selection coordinator",
         path: "packages/app-lib/src/util/download/endpoint_selection/coordinator.rs",
-        criteria: Criteria::ALL,
+        // Probe rounds spawn detached tasks (coordinator.rs) and the hint
+        // store persists through `spawn_blocking`, so C1c/C1b fail; there is
+        // no rebuild entry.
+        criteria: Criteria {
+            c1b_tasks_in_tag_joinset: false,
+            c1c_no_spawn_blocking: false,
+            c4_rebuild_entry: false,
+            ..Criteria::ALL
+        },
         condition: Some(
-            "no download holds a lease from it and its probe tasks run in the \
-             slot's JoinSet (C1b, C3)",
+            "probe tasks run in the slot's JoinSet, the hint store stops using \
+             spawn_blocking, no download holds a lease, and a rebuild entry \
+             exists (C1b, C1c, C3, C4)",
         ),
     },
     Assessment {
         name: "google_ip warm-up",
         path: "packages/app-lib/src/api/google_ip.rs",
-        criteria: Criteria::ALL,
+        // The refresh task is parked in a static and the client pool lives in
+        // another static, so neither the task nor the pool can be dropped by
+        // the slot; there is no rebuild entry.
+        criteria: Criteria {
+            c1a_no_external_handle: false,
+            c1b_tasks_in_tag_joinset: false,
+            c4_rebuild_entry: false,
+            ..Criteria::ALL
+        },
         condition: Some(
-            "no IP refresh task is running; the pinned translation client's pooled \
-             connections close when the pool is dropped (C1a, C3)",
+            "the refresh task and the client pool are owned by the slot rather \
+             than statics, and a rebuild entry exists (C1a, C1b, C4)",
         ),
     },
 ];
@@ -140,10 +187,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn l1_has_three_conditional_candidates() {
+    fn l1_has_three_conditional_candidates_that_are_not_yet_swappable() {
         assert_eq!(CANDIDATES.len(), 3);
         for candidate in CANDIDATES {
-            assert!(candidate.criteria.swappable(), "{}", candidate.name);
+            // Each fails at least one criterion today; the condition names
+            // the code that would have to change first. Claiming `swappable`
+            // here would let an unready service be evicted.
+            assert!(
+                !candidate.criteria.swappable(),
+                "{} is not swappable until its condition holds",
+                candidate.name
+            );
+            assert!(
+                !candidate.criteria.c4_rebuild_entry,
+                "{} has no rebuild entry",
+                candidate.name
+            );
             assert!(
                 candidate.condition.is_some(),
                 "{} is a candidate only under its condition",
@@ -185,20 +244,30 @@ mod tests {
 
     /// C1c, checked on the candidates' sources rather than asserted.
     #[test]
-    fn no_candidate_uses_spawn_blocking() {
-        let sources = [
-            include_str!("../../state/instances/config_sync.rs"),
-            include_str!(
-                "../../util/download/endpoint_selection/coordinator.rs"
-            ),
-            include_str!("../../api/google_ip.rs"),
-        ];
-        for (candidate, source) in CANDIDATES.iter().zip(sources) {
-            assert!(
-                !source.contains("spawn_blocking"),
-                "{} uses spawn_blocking",
-                candidate.name
-            );
-        }
+    fn the_spawn_blocking_veto_stays_recorded_for_each_candidate() {
+        // The veto must stay on in the table while the blocking write is
+        // still reachable: `config_sync` reaches it through `io::write` and
+        // the coordinator through its hint store, so a literal grep of the
+        // candidate file cannot see it. This pins the recorded verdicts.
+        let vetoed: Vec<_> = CANDIDATES
+            .iter()
+            .filter(|candidate| !candidate.criteria.c1c_no_spawn_blocking)
+            .map(|candidate| candidate.name)
+            .collect();
+        assert_eq!(
+            vetoed,
+            ["config_sync", "endpoint selection coordinator"],
+            "the blocking paths of both candidates are still in place"
+        );
+        // config_sync's loop is started by `State::spawn_background`, not the
+        // slot's JoinSet, so C1b must stay false too.
+        assert!(
+            !CANDIDATES[0].criteria.c1b_tasks_in_tag_joinset,
+            "config_sync's loop is outside the slot"
+        );
+        assert!(
+            !CANDIDATES[2].criteria.c1a_no_external_handle,
+            "google_ip's pool and refresh task live in statics"
+        );
     }
 }

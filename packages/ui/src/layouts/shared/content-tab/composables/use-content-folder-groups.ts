@@ -1,7 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 
-import { buildFileTreeRows, collectFileTreeFolders, type FileTreeEntry } from '#ui/utils/file-tree'
+import { buildFileTreeRows, type FileTreeEntry } from '#ui/utils/file-tree'
 
 import type { ContentCardTableItem, ContentItem } from '../types'
 
@@ -21,7 +21,6 @@ export interface UseContentFolderGroupsOptions extends ContentFolderGroupPolicy 
     modpackChildIdSet: ComputedRef<Set<string>>
     searchQuery: Ref<string>
     expandedGroups: Ref<Set<string>>
-    persistExpandedGroups: (groups: Set<string>) => void
     getItemId: (item: ContentItem) => string
     mapToTableItem: (item: ContentItem, group?: string) => ContentCardTableItem
     locale: Ref<string>
@@ -31,9 +30,9 @@ type GroupedItem = FileTreeEntry & { item: ContentItem }
 
 /**
  * Renders items that share a folder path as collapsible group rows while
- * keeping everything else flat. New folders are expanded the first time they
- * appear so freshly added content stays visible; expansion state is shared
- * through the caller-provided `expandedGroups` set.
+ * keeping everything else flat. Folders stay collapsed until the user opens
+ * them; expansion state is shared through the caller-provided
+ * `expandedGroups` set.
  */
 export function useContentFolderGroups(options: UseContentFolderGroupsOptions) {
     const {
@@ -41,7 +40,6 @@ export function useContentFolderGroups(options: UseContentFolderGroupsOptions) {
         modpackChildIdSet,
         searchQuery,
         expandedGroups,
-        persistExpandedGroups,
         getItemId,
         mapToTableItem,
         isGroupedItem,
@@ -86,25 +84,6 @@ export function useContentFolderGroups(options: UseContentFolderGroupsOptions) {
         }
         return paths
     })
-
-    const seenFolderPaths = ref(new Set<string>())
-    watch(
-        groupedEntries,
-        (entries) => {
-            const folderPaths = collectFileTreeFolders(entries)
-            const newPaths = folderPaths.filter((path) => !seenFolderPaths.value.has(path))
-            if (newPaths.length === 0) return
-            for (const path of newPaths) {
-                seenFolderPaths.value.add(path)
-            }
-            expandedGroups.value = new Set([
-                ...expandedGroups.value,
-                ...newPaths.map(folderGroupId),
-            ])
-            persistExpandedGroups(expandedGroups.value)
-        },
-        { immediate: true },
-    )
 
     /** Group headers and their children, or flat rows while searching. */
     const folderRows = computed<ContentCardTableItem[]>(() => {

@@ -46,8 +46,35 @@ pub enum HolderState {
 pub struct BypassRequest<'a> {
     pub waiter: &'a Tag,
     pub resource: &'static str,
-    pub waited: Duration,
-    pub holder: HolderState,
+    pub observed: ObservedHold,
+}
+
+/// What the scheduler saw, not what the waiter claims: the field is private
+/// and the only constructor is [`ObservedHold::observe`], which the scheduler
+/// calls. A task holding a second tag can therefore not assert a long wait or
+/// a stalled holder to pass a healthy one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ObservedHold {
+    waited: Duration,
+    holder: HolderState,
+}
+
+impl ObservedHold {
+    /// Records what the scheduler observed about the contended resource.
+    pub(in crate::scheduler) fn observe(
+        waited: Duration,
+        holder: HolderState,
+    ) -> Self {
+        Self { waited, holder }
+    }
+
+    pub fn waited(&self) -> Duration {
+        self.waited
+    }
+
+    pub fn holder(&self) -> HolderState {
+        self.holder
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -112,10 +139,17 @@ impl Lease {
     }
 
     /// A lease may pass a holder in any band, L0 included; this is the only
-    /// way past an L0 holder (`bands::preempts` never is).
+    /// way past an L0 holder (`bands::preempts` never is). An expired lease
+    /// reaches nothing.
     pub fn reaches(&self, holder: Level, now: Instant) -> bool {
         let _ = holder;
         self.valid_at(now)
+    }
+
+    /// Whether the waiter's tag is still the one this lease was granted to.
+    /// A lease whose tag has been released or superseded must not be used.
+    pub fn still_holds(&self, waiter: &Tag) -> bool {
+        waiter.id() == self.tag
     }
 }
 
@@ -132,7 +166,10 @@ impl ReclaimBypass {
         Self::default()
     }
 
-    /// A grant the scheduler decides from what it observed.
+    /// The scheduler's own grant, decided from state it observed. Not callable
+    /// from a task: the observed wait and holder are passed in, and the only
+    /// task-facing entry ([`ReclaimBypass::request`]) refuses a self-request,
+    /// so a task never reaches this with its own waiter.
     pub(in crate::scheduler) fn grant(
         &mut self,
         request: BypassRequest<'_>,
@@ -141,16 +178,46 @@ impl ReclaimBypass {
         self.settle(request, false, now)
     }
 
-    /// A grant a task asks for on the waiter's behalf, proving who it is
-    /// with its own tag. The waiter's own tag is refused (B-4).
+    /// A grant a task asks for on the waiter's behalf, proving who it is with
+    /// its own tag. Asking with the waiter's own tag is refused (B-4); tags
+    /// are compared by id, so a second reference to the same tag is still
+    /// recognised as the waiter.
+    ///
+    /// The wait and the holder state are passed as plain values here because
+    /// this is the task-facing entry: it may only *ask*. The decision values
+    /// that matter are the ones the scheduler builds with
+    /// [`ObservedHold::observe`] for [`ReclaimBypass::grant`], and B-4 rests
+    /// on that split, not on who fills these two arguments.
     pub fn request(
         &mut self,
         asker: &Tag,
         request: BypassRequest<'_>,
         now: Instant,
     ) -> Result<Lease, Denial> {
-        let self_initiated = std::ptr::eq(asker, request.waiter);
+        let self_initiated = asker.id() == request.waiter.id();
         self.settle(request, self_initiated, now)
+    }
+
+    /// The same request, built from values a task can name: the scheduler
+    /// records what it observed and hands the request to [`Self::request`].
+    pub fn ask(
+        &mut self,
+        asker: &Tag,
+        waiter: &Tag,
+        resource: &'static str,
+        waited: Duration,
+        holder: HolderState,
+        now: Instant,
+    ) -> Result<Lease, Denial> {
+        self.request(
+            asker,
+            BypassRequest {
+                waiter,
+                resource,
+                observed: ObservedHold::observe(waited, holder),
+            },
+            now,
+        )
     }
 
     fn settle(
@@ -173,6 +240,12 @@ impl ReclaimBypass {
             at: now_millis(),
         });
         decision?;
+        // Bound the per-tag rate-limit map: ids are never reused within a
+        // registry, so dropping an entry older than the interval is safe and
+        // keeps a long-lived launcher from growing it without limit.
+        self.last_grant.retain(|_, last| {
+            now.saturating_duration_since(*last) < BYPASS_GRANT_INTERVAL
+        });
         self.last_grant.insert(tag, now);
         Ok(Lease {
             tag,
@@ -192,11 +265,11 @@ impl ReclaimBypass {
         if self_initiated {
             return Err(Denial::SelfInitiated);
         }
-        if request.waited <= BYPASS_MIN_WAIT {
+        if request.observed.waited() <= BYPASS_MIN_WAIT {
             return Err(Denial::WaitTooShort);
         }
-        if request.holder != HolderState::StalledWhileRunning {
-            return Err(Denial::HolderNotStalled(request.holder));
+        if request.observed.holder() != HolderState::StalledWhileRunning {
+            return Err(Denial::HolderNotStalled(request.observed.holder()));
         }
         if self.last_grant.get(&tag).is_some_and(|last| {
             now.saturating_duration_since(*last) < BYPASS_GRANT_INTERVAL
@@ -207,14 +280,9 @@ impl ReclaimBypass {
     }
 
     fn record(&mut self, record: AuditRecord) {
-        tracing::info!(
-            target: "theseus::scheduler::bypass",
-            tag = record.tag,
-            resource = record.resource,
-            granted = record.granted,
-            condition = record.condition,
-            "Reclaim bypass decision"
-        );
+        // The bounded in-memory audit and the counters are updated first; the
+        // log line is emitted last, so a slow subscriber cannot hold up the
+        // decision bookkeeping.
         if record.granted {
             self.granted += 1;
         } else {
@@ -223,6 +291,14 @@ impl ReclaimBypass {
         if self.audit.len() == AUDIT_CAPACITY {
             self.audit.pop_front();
         }
+        tracing::info!(
+            target: "theseus::scheduler::bypass",
+            tag = record.tag,
+            resource = record.resource,
+            granted = record.granted,
+            condition = record.condition,
+            "Reclaim bypass decision"
+        );
         self.audit.push_back(record);
     }
 
@@ -250,15 +326,19 @@ mod tests {
         BypassRequest {
             waiter,
             resource: RESOURCE,
-            waited: BYPASS_MIN_WAIT + Duration::from_millis(1),
-            holder: HolderState::StalledWhileRunning,
+            observed: ObservedHold::observe(
+                BYPASS_MIN_WAIT + Duration::from_millis(1),
+                HolderState::StalledWhileRunning,
+            ),
         }
     }
 
     #[test]
     fn a_stalled_holder_is_bypassed_for_one_lease() {
         let registry = TagRegistry::new(1);
-        let waiter = registry.mint(Level::L4, "reclaim");
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
         let lease = bypass.grant(request(&waiter), now).unwrap();
@@ -272,7 +352,9 @@ mod tests {
     #[test]
     fn a_lease_reaches_into_l0_and_keeps_the_level() {
         let registry = TagRegistry::new(1);
-        let waiter = registry.mint(Level::L4, "reclaim");
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
         let lease = bypass.grant(request(&waiter), now).unwrap();
@@ -289,10 +371,15 @@ mod tests {
     #[test]
     fn b1_a_short_wait_is_refused() {
         let registry = TagRegistry::new(1);
-        let waiter = registry.mint(Level::L4, "reclaim");
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
         let mut bypass = ReclaimBypass::new();
         let short = BypassRequest {
-            waited: BYPASS_MIN_WAIT,
+            observed: ObservedHold::observe(
+                BYPASS_MIN_WAIT,
+                HolderState::StalledWhileRunning,
+            ),
             ..request(&waiter)
         };
         assert_eq!(
@@ -304,8 +391,12 @@ mod tests {
     #[test]
     fn b2_a_tag_gets_one_grant_per_interval() {
         let registry = TagRegistry::new(1);
-        let waiter = registry.mint(Level::L4, "reclaim");
-        let other = registry.mint(Level::L4, "reclaim");
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let other = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
         bypass.grant(request(&waiter), now).unwrap();
@@ -329,11 +420,16 @@ mod tests {
     #[test]
     fn b3_only_a_stalled_holder_is_passed() {
         let registry = TagRegistry::new(1);
-        let waiter = registry.mint(Level::L4, "reclaim");
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
         let mut bypass = ReclaimBypass::new();
         for holder in [HolderState::PausedByDesign, HolderState::Progressing] {
             let blocked = BypassRequest {
-                holder,
+                observed: ObservedHold::observe(
+                    BYPASS_MIN_WAIT + Duration::from_millis(1),
+                    holder,
+                ),
                 ..request(&waiter)
             };
             assert_eq!(
@@ -346,8 +442,12 @@ mod tests {
     #[test]
     fn b4_a_waiter_cannot_grant_itself_and_every_decision_is_audited() {
         let registry = TagRegistry::new(1);
-        let waiter = registry.mint(Level::L4, "reclaim");
-        let asker = registry.mint(Level::L4, "reclaim");
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let asker = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
         let mut bypass = ReclaimBypass::new();
         assert_eq!(
             bypass.request(&waiter, request(&waiter), Instant::now()),
@@ -365,5 +465,60 @@ mod tests {
             && record.resource == RESOURCE
             && record.at > 0));
         assert_eq!((bypass.granted(), bypass.denied()), (1, 1));
+    }
+
+    #[test]
+    fn b4_a_second_reference_to_the_same_tag_is_still_self() {
+        // The tag cannot be cloned, but a caller can pass the same waiter
+        // through a second reference; identity is by id, not address.
+        let registry = TagRegistry::new(1);
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let same = &waiter;
+        let mut bypass = ReclaimBypass::new();
+        assert_eq!(
+            bypass.request(same, request(&waiter), Instant::now()),
+            Err(Denial::SelfInitiated),
+        );
+        assert_eq!((bypass.granted(), bypass.denied()), (0, 1));
+    }
+
+    #[test]
+    fn a_lease_names_the_tag_it_was_granted_to() {
+        let registry = TagRegistry::new(1);
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let other = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let mut bypass = ReclaimBypass::new();
+        let now = Instant::now();
+        let lease = bypass.grant(request(&waiter), now).unwrap();
+        assert!(lease.still_holds(&waiter));
+        assert!(!lease.still_holds(&other), "a lease is one tag's");
+        assert!(!lease.reaches(Level::L0, now + BYPASS_LEASE_TTL));
+    }
+
+    #[test]
+    fn the_rate_limit_table_does_not_grow_without_bound() {
+        let registry = TagRegistry::new(1);
+        let mut bypass = ReclaimBypass::new();
+        let now = Instant::now();
+        for index in 0..64 {
+            let waiter = registry
+                .mint(Level::L4, "reclaim")
+                .expect("the registry is below its cap");
+            let _ = bypass.grant(request(&waiter), now);
+            assert!(bypass.last_grant.len() <= index + 1);
+        }
+        // Once the interval has passed, granting prunes the old entries.
+        let later = now + BYPASS_GRANT_INTERVAL;
+        let waiter = registry
+            .mint(Level::L4, "reclaim")
+            .expect("the registry is below its cap");
+        let _ = bypass.grant(request(&waiter), later);
+        assert_eq!(bypass.last_grant.len(), 1, "expired grants are pruned");
     }
 }

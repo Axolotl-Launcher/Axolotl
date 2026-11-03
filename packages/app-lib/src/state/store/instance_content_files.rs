@@ -181,6 +181,14 @@ where
             invalidated_provider_identity = true;
         }
     }
+    if complete {
+        invalidated_provider_identity |=
+            sqlite::files::remove_untracked_instance_files(
+                instance_id,
+                &mut tx,
+            )
+            .await?;
+    }
     if invalidated_provider_identity
         && let Some(content_set) = content_set.as_ref()
     {

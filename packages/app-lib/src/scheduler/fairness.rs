@@ -18,6 +18,11 @@ use super::tag::Level;
 pub const QUEUE_MAX_DEPTH: usize = 8;
 /// spec §11.6 N6 (3 × the 20 s admission timeout).
 pub const STALL_TIMEOUT: Duration = Duration::from_secs(60);
+/// L3 is never refused, but this many queued L3 units is reported as a leak.
+pub const L3_QUEUE_WARN_DEPTH: usize = 32;
+/// L3's band for service order: above L4's base band (4), so no aged bounded
+/// unit (which can reach band 0 at most) ever ties with it.
+const L3_BAND: u32 = 5;
 
 pub fn queue_max_wait_upper_bound() -> Duration {
     T_MAX_SERVICE * QUEUE_MAX_DEPTH as u32
@@ -85,6 +90,22 @@ impl<T> FairQueue<T> {
         if level != Level::L3 && bounded >= QUEUE_MAX_DEPTH {
             return Err(QueueFull);
         }
+        // L3 is never refused (spec §11.2 item 23), but a caller that keeps
+        // queueing grows the queue without limit. Count it and say so once
+        // past a ceiling, so the risk is visible instead of silent.
+        if level == Level::L3 {
+            let queued_l3 = self
+                .units
+                .iter()
+                .filter(|unit| unit.level == Level::L3)
+                .count();
+            if queued_l3 >= L3_QUEUE_WARN_DEPTH {
+                tracing::warn!(
+                    queued_l3,
+                    "L3 work keeps queueing past the warning depth; the queue is unbounded by design"
+                );
+            }
+        }
         self.units.push_back(Unit {
             instance: instance.to_owned(),
             level,
@@ -96,9 +117,16 @@ impl<T> FairQueue<T> {
 
     /// The next unit to serve: the most privileged effective band, then the
     /// instance after the one served last, then that instance's oldest unit.
+    ///
+    /// L3 has its own band above every bounded band, so a bounded unit can
+    /// never starve it, and an L3 unit is only served once no bounded work
+    /// is queued (the spec gives L3 no wait bound). It is kept out of the
+    /// aging arithmetic on purpose: aging moves bounded work up, and letting
+    /// it move L3 would let L3 overtake units whose bound depends on being
+    /// served first.
     pub fn next(&mut self, now: Instant) -> Option<Unit<T>> {
         let band_of = |unit: &Unit<T>| match unit.level {
-            Level::L3 => Level::L3 as u32,
+            Level::L3 => L3_BAND,
             level => effective_band(
                 level,
                 now.saturating_duration_since(unit.enqueued),
@@ -174,7 +202,13 @@ mod tests {
                 .push(&unit.instance, Level::L2, now, unit.item)
                 .unwrap();
             now += T_MAX_SERVICE;
-            assert!(now - start <= Duration::from_secs(60), "c was starved");
+            // The spec's bound is 8 s (K4.10): fail at the bound itself, not
+            // at a looser smoke-test ceiling.
+            assert!(
+                now - start <= queue_max_wait_upper_bound(),
+                "c was starved past the {:?} bound",
+                queue_max_wait_upper_bound()
+            );
         };
         let waited = served_at - (start + Duration::from_millis(1));
         assert!(
@@ -182,6 +216,7 @@ mod tests {
             "c waited {waited:?}, bound {:?}",
             queue_max_wait_upper_bound()
         );
+        assert_eq!(queue_max_wait_upper_bound(), Duration::from_secs(8));
     }
 
     /// Band numbers grow as privilege falls: a steady stream of L1 requests
@@ -201,7 +236,10 @@ mod tests {
             }
             now += T_MAX_SERVICE;
             queue.push("busy", Level::L1, now, "l1").unwrap();
-            assert!(now - start <= Duration::from_secs(60), "L2 was starved");
+            assert!(
+                now - start <= super::super::aging::max_wait_bound(),
+                "L2 was starved past the aging bound"
+            );
         };
         assert!(served_at - start <= super::super::aging::max_wait_bound());
     }

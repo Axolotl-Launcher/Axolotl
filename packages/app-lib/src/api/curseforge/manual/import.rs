@@ -335,6 +335,7 @@ pub(super) async fn install_manual_download(
             None,
             crate::install::critical_section::whitelisted(
                 crate::install::critical_section::WhitelistSite::CurseForgeManualWorldImport,
+                &_instance_lock,
             )
             .into(),
         )

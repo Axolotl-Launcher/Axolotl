@@ -98,15 +98,21 @@ pub fn snapshot(sources: &Sources<'_>) -> SchedulerView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scheduler::bypass::{BypassRequest, HolderState};
+    use crate::scheduler::bypass::{BypassRequest, HolderState, ObservedHold};
     use std::time::{Duration, Instant};
 
     #[test]
     fn the_view_reports_each_guard_and_changes_nothing() {
         let tags = TagRegistry::new(1);
-        let waiter = tags.mint(Level::L4, "view");
-        let _l1 = tags.mint(Level::L1, "view");
-        let _other_l1 = tags.mint(Level::L1, "view");
+        let waiter = tags
+            .mint(Level::L4, "view")
+            .expect("the registry is below its cap");
+        let _l1 = tags
+            .mint(Level::L1, "view")
+            .expect("the registry is below its cap");
+        let _other_l1 = tags
+            .mint(Level::L1, "view")
+            .expect("the registry is below its cap");
         let mut bypass = ReclaimBypass::new();
         let now = Instant::now();
         for waited in [Duration::from_millis(10), Duration::from_secs(1)] {
@@ -114,8 +120,10 @@ mod tests {
                 BypassRequest {
                     waiter: &waiter,
                     resource: "theseus::state::State.install_db_semaphore",
-                    waited,
-                    holder: HolderState::StalledWhileRunning,
+                    observed: ObservedHold::observe(
+                        waited,
+                        HolderState::StalledWhileRunning,
+                    ),
                 },
                 now,
             );

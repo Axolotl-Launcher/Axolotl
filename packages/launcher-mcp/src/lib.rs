@@ -1,13 +1,13 @@
 //! Local MCP transport and launcher session lifecycle.
+mod catalog;
 mod control;
 mod http;
-mod info;
 mod protocol;
 mod server;
 mod session;
 mod tools;
 
-pub use info::LauncherInfo;
+pub use launcher_tools::*;
 pub use server::Server;
 pub use session::{Connection, Snapshot};
 

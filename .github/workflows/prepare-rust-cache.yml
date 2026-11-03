@@ -10,6 +10,7 @@ on:
       - rust-toolchain.toml
       - '**/.cargo/config.toml'
       - .github/actions/setup-desktop-rust/**
+      - .github/actions/setup-mold/**
       - .github/workflows/axolotl-release.yml
       - .github/workflows/prepare-rust-cache.yml
 
@@ -33,9 +34,9 @@ jobs:
             target: ''
           - runner: windows-2025
             target: ''
-          - runner: macos-15
+          - runner: macos-26
             target: aarch64-apple-darwin
-          - runner: macos-15-intel
+          - runner: macos-26-intel
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     env:

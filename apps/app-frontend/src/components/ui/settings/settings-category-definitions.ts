@@ -15,6 +15,7 @@ export type SettingsCategoryId =
     | 'network-connection'
     | 'storage-backups'
     | 'privacy-data'
+    | 'third-party-accounts'
     | 'updates'
     | 'about'
     | 'logs'
@@ -147,6 +148,14 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
         }),
         group: 'data-privacy',
         onboardingId: 'settings-tab-storage-backups',
+    },
+    {
+        id: 'third-party-accounts',
+        name: defineMessage({
+            id: 'app.settings.tabs.third-party-accounts',
+            defaultMessage: 'Third-party accounts',
+        }),
+        group: 'data-privacy',
     },
     {
         id: 'privacy-data',

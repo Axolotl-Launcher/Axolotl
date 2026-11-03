@@ -862,7 +862,7 @@ pub(crate) fn preserved_update_relative_path(
     Ok(relative_path)
 }
 
-async fn configured_update_relative_path(
+pub(crate) async fn configured_update_relative_path(
     current_path: &str,
     old_name: Option<&str>,
     new_name: &str,
@@ -951,7 +951,7 @@ pub(crate) async fn finalize_updated_project_path(
     Ok(final_path)
 }
 
-async fn rename_project_file(
+pub(crate) async fn rename_project_file(
     instance_id: &str,
     current_path: &str,
     new_path: &str,
@@ -3246,6 +3246,25 @@ async fn begin_content_write(
     Ok(pool.begin_with("BEGIN IMMEDIATE").await?)
 }
 
+/// Runs the pre-section recovery of a previous file operation under a
+/// critical section, so a cancel that lands mid-rollback cannot drop it.
+async fn recover_content_files(
+    state: &State,
+    instance_id: &str,
+    base: &std::path::Path,
+) -> crate::Result<()> {
+    critical_section::with_critical_section(
+        async |_guard| {
+            content_file_operations::recover(state, instance_id, base).await
+        },
+        async |_unscoped| {
+            content_file_operations::recover(state, instance_id, base).await
+        },
+        async |_closing| Err(critical_section::closing_error()),
+    )
+    .await
+}
+
 pub(crate) async fn toggle_disable_project(
     instance_id: &str,
     project_path: &str,
@@ -3260,7 +3279,7 @@ pub(crate) async fn toggle_disable_project(
         .await?;
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
-    content_file_operations::recover(state, instance_id, &base).await?;
+    recover_content_files(state, instance_id, &base).await?;
     let (current_path, _, _) =
         resolve_toggle_paths(&base, project_path, desired_enabled)?;
     let file = rename_indexed_file(
@@ -3305,7 +3324,7 @@ pub(crate) async fn toggle_content_entries(
         .await?;
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
-    content_file_operations::recover(state, instance_id, &base).await?;
+    recover_content_files(state, instance_id, &base).await?;
     let mut seen_ids = std::collections::HashSet::new();
     let mut seen_paths = std::collections::HashSet::new();
     let mut operations = Vec::new();
@@ -3604,7 +3623,7 @@ pub(crate) async fn remove_project(
 
     let scope = resolve_content_scope(instance_id, None, state).await?;
     let base = instance_full_path(state, &scope.instance);
-    content_file_operations::recover(state, instance_id, &base).await?;
+    recover_content_files(state, instance_id, &base).await?;
     let file = files::get_instance_file_by_relative_path(
         &scope.instance.id,
         project_path,

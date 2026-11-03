@@ -6,12 +6,16 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Debug, Default)]
+use tokio::sync::Notify;
+
+#[derive(Default)]
 pub struct ControlTable {
     quiesce_requested: AtomicBool,
     abort_requested: AtomicBool,
     safety_point_at: AtomicU64,
     heartbeat_at: AtomicU64,
+    /// Wakes every task parked on quiesce, not only the token that asked.
+    quiesce_wake: Notify,
 }
 
 impl ControlTable {
@@ -21,12 +25,19 @@ impl ControlTable {
             abort_requested: AtomicBool::new(false),
             safety_point_at: AtomicU64::new(0),
             heartbeat_at: AtomicU64::new(0),
+            quiesce_wake: Notify::const_new(),
         }
     }
 
     /// `QUIESCE_REQUESTED`: L0 finishes its current unit and returns.
     pub fn request_quiesce(&self) {
         self.quiesce_requested.store(true, Ordering::Release);
+        self.quiesce_wake.notify_waiters();
+    }
+
+    /// The wake-up side of quiesce, shared by every token over this table.
+    pub fn quiesce_wake(&self) -> &Notify {
+        &self.quiesce_wake
     }
 
     pub fn quiesce_requested(&self) -> bool {

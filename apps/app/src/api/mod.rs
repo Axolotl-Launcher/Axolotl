@@ -19,6 +19,7 @@ pub mod multiplayer;
 pub mod planet_minecraft;
 pub mod process;
 pub mod schematic_preview;
+pub mod schematics;
 pub mod seed_map;
 pub mod servers;
 pub mod settings;
@@ -28,6 +29,8 @@ pub mod system_accent;
 pub mod tags;
 pub mod telemetry;
 pub mod terracotta;
+pub mod third_party_accounts;
+pub(crate) mod tools;
 pub mod translation;
 pub mod utils;
 

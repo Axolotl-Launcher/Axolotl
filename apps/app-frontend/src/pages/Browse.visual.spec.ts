@@ -1,5 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { IntlMessageFormat } from 'intl-messageformat'
 import { expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
+
+import zhMessages from '@/locales/zh-CN/index.json'
 
 import Browse from './Browse.vue'
 
@@ -19,6 +23,8 @@ const api = vi.hoisted(() => ({
     extraQuery: null as unknown,
     context: null as unknown,
     enabled: null as unknown,
+    selection: null as unknown,
+    locale: 'en',
     query: {} as Record<string, string>,
     memory: {
         modpack: {
@@ -157,22 +163,85 @@ vi.mock('@/providers/content-selection', async () => {
     const { ref } = await import('vue')
     return {
         makeContentSelectionKey: () => '',
-        injectContentSelection: () => ({
-            targetInstance: ref(null),
-            instances: ref([]),
-            selectedProjects: ref([]),
-            selectedCount: ref(0),
-            state: ref('idle'),
-            progress: ref(null),
-            refreshInstances: vi.fn(),
-            refreshInstalledIdentities: vi.fn(),
-            setTarget: vi.fn(),
-            isInstalling: () => false,
-            isSelected: () => false,
-            isInstalledIdentity: () => false,
-        }),
+        injectContentSelection: () =>
+            (api.selection = {
+                targetInstance: ref(null),
+                instances: ref([]),
+                selectedProjects: ref([]),
+                selectedCount: ref(0),
+                state: ref('idle'),
+                progress: ref({ completed: 0, total: 0 }),
+                refreshInstances: vi.fn(),
+                refreshInstalledIdentities: vi.fn(),
+                setTarget: vi.fn(),
+                isInstalling: () => false,
+                isSelected: () => false,
+                isInstalledIdentity: () => false,
+            }),
     }
 })
+
+it.each(['en', 'zh-CN'])(
+    'uses localized stage feedback instead of a world-only 0/0 count while reviewing mods (%s)',
+    async (locale) => {
+        api.locale = locale
+        const { useRoute } = await import('vue-router')
+        const route = useRoute()
+        route.params.projectType = 'mod'
+        route.query = { source: 'modrinth' }
+        api.capability.mockResolvedValue({ configured: true })
+        const wrapper = mount(Browse, {
+            global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+        })
+        const selection = reactive(
+            api.selection as {
+                targetInstance: unknown
+                state: unknown
+                progress: unknown
+            },
+        )
+        try {
+            await flushPromises()
+            selection.targetInstance = {
+                id: 'target',
+                name: 'Target',
+                game_version: '1.20.4',
+                loader: 'fabric',
+            }
+            const context = () =>
+                (
+                    api.context as {
+                        installContext: {
+                            value: { processingLabel: string; isInstallingSelected: boolean }
+                        }
+                    }
+                ).installContext.value
+            selection.state = 'reviewing'
+            await flushPromises()
+            expect(context().isInstallingSelected).toBe(true)
+            expect(context().processingLabel).toBe(
+                locale === 'zh-CN' ? '正在预览内容变更…' : 'Reviewing content changes…',
+            )
+            selection.state = 'queueing'
+            await flushPromises()
+            expect(context().processingLabel).toBe(
+                locale === 'zh-CN' ? '正在加入下载队列…' : 'Adding to download queue…',
+            )
+            selection.state = 'validating'
+            selection.progress = { completed: 1, total: 2 }
+            await flushPromises()
+            expect(context().processingLabel).toBe(
+                locale === 'zh-CN' ? '正在准备 1/2' : 'Preparing 1/2',
+            )
+        } finally {
+            wrapper.unmount()
+            route.query = {}
+            api.selection = null
+            api.locale = 'en'
+            api.refresh.mockClear()
+        }
+    },
+)
 vi.mock('@/providers/server-install', async () => {
     const { ref } = await import('vue')
     return { injectServerInstall: () => ({ installingServerProjects: ref({}) }) }
@@ -221,6 +290,7 @@ vi.mock('@modrinth/ui', async () => {
                 'PopoutMenu',
                 'BrowsePageLayout',
                 'BrowseSidebar',
+                'BrowseSourceSelector',
                 'BrowseInstallHeader',
                 'CreationFlowModal',
                 'NavTabs',
@@ -287,6 +357,7 @@ vi.mock('@modrinth/ui', async () => {
             }
         },
         commonMessages: {
+            installingContentLabel: { defaultMessage: 'Installing content' },
             retryButton: { defaultMessage: 'Retry' },
             backButton: { defaultMessage: 'Back' },
             installButton: { defaultMessage: 'Install' },
@@ -326,7 +397,17 @@ vi.mock('@modrinth/ui', async () => {
         }),
         injectPopupNotificationManager: () => ({ addPopupNotification: vi.fn() }),
         useVIntl: () => ({
-            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+            formatMessage: (
+                message: { id?: string; defaultMessage: string },
+                values?: Record<string, string | number>,
+            ) =>
+                new IntlMessageFormat(
+                    api.locale === 'zh-CN'
+                        ? ((zhMessages as Record<string, { message: string }>)[message.id ?? '']
+                              ?.message ?? message.defaultMessage)
+                        : message.defaultMessage,
+                    api.locale,
+                ).format(values),
         }),
     }
 })

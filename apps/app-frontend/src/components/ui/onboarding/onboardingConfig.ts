@@ -469,7 +469,7 @@ export const onboardingMessages = defineMessages({
     labSchematicDescription: {
         id: 'app.onboarding.lab-schematic.description',
         defaultMessage:
-            'Open a local .litematic or .schem file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together.',
+            'Open a local schematic file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together.',
     },
     skip: { id: 'app.onboarding.action.skip', defaultMessage: 'Leave the tour' },
     mascotAlt: { id: 'app.onboarding.mascot-alt', defaultMessage: 'Axolotl guide' },

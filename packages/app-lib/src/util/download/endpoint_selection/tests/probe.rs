@@ -126,7 +126,10 @@ impl TlsFixture {
                                 let mut connection = h2::server::handshake(stream).await.unwrap();
                                 let mut transfers = tokio::task::JoinSet::new();
                                 while let Some(request) = connection.accept().await {
-                                    let (request, mut respond) = request.unwrap();
+                                    // A client that gives up on this peer closes
+                                    // the connection; that is a result the tests
+                                    // provoke, not a fixture failure.
+                                    let Ok((request, mut respond)) = request else { break };
                                     counted.fetch_add(1, Ordering::SeqCst);
                                     assert_eq!(request.uri().host(), Some("cdn.modrinth.com"));
                                     assert!(request.headers().get(header::AUTHORIZATION).is_none());

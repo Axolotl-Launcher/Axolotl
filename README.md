@@ -39,8 +39,13 @@
 
 <table>
   <tr>
+    <td width="105"><img src="./.github/assets/rainyun-logo.png" width="72" alt="Rainyun Logo" /></td>
+    <td><strong>雨云</strong><br>雨云是新一代国产云计算服务提供商，为广大服主提供简单易用、高性能、高性价比的游戏专用服务器。独家动态计费服务，自研高可用面板服，热门整合包一键快速安装。</td>
+    <td><a href="https://www.rainyun.com/mystic_">访问雨云</a></td>
+  </tr>
+  <tr>
     <td width="105"><img src="./.github/assets/codeflow-logo.png" width="72" alt="CodeFlow Logo" /></td>
-    <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型<br>原生协议转发 · 无需海外网络 · 支付宝即充即用</td>
+    <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型。原生协议转发，体验与官方一致，Claude Code、Codex 等工具开箱即用；多线路互为备份，请求失败自动切换；¥1 可充 $5 额度，余额永不过期；无需海外网络，支付宝即充即用。</td>
     <td><a href="https://codeflow.sh/register?invite=4UHP2KYH">访问 CodeFlow</a></td>
   </tr>
   <tr>

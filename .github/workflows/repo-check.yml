@@ -46,7 +46,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run typos checks
-        uses: crate-ci/typos@bbaefadf97b0ec5fdc942684b647f1a6ab250274 # v1.46.0
+        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
 
   # see <https://github.com/influxdata/datafusion-udf-wasm/pull/275>
   tombi:
@@ -57,7 +57,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install tombi
-        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
         with:
           tool: tombi@1.1.2
       - name: Run tombi lint

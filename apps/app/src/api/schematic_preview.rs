@@ -1252,20 +1252,24 @@ fn sponge_preserved(
     if format_version == 3 {
         if let Ok(schematic) = root.get_mut::<_, &mut NbtCompound>("Schematic")
         {
-            entities = sponge_entity_list(take_nbt_list(schematic, "Entities"));
+            entities =
+                sponge_entity_list(take_nbt_list(schematic, "Entities"), true);
             if let Ok(blocks) =
                 schematic.get_mut::<_, &mut NbtCompound>("Blocks")
             {
-                block_entities = sponge_block_entity_list(take_nbt_list(
-                    blocks,
-                    "BlockEntities",
-                ));
+                block_entities = sponge_block_entity_list(
+                    take_nbt_list(blocks, "BlockEntities"),
+                    true,
+                );
             }
         }
     } else {
-        entities = sponge_entity_list(take_nbt_list(&mut root, "Entities"));
-        block_entities =
-            sponge_block_entity_list(take_nbt_list(&mut root, "BlockEntities"));
+        entities =
+            sponge_entity_list(take_nbt_list(&mut root, "Entities"), false);
+        block_entities = sponge_block_entity_list(
+            take_nbt_list(&mut root, "BlockEntities"),
+            false,
+        );
     }
     if format_version == 3 {
         if let Ok(schematic) = root.get_mut::<_, &mut NbtCompound>("Schematic")
@@ -1309,28 +1313,33 @@ fn take_nbt_list(compound: &mut NbtCompound, key: &str) -> Vec<NbtTag> {
     }
 }
 
-fn sponge_entity_list(entries: Vec<NbtTag>) -> NbtList {
+/// Normalises a version 2 entry list into the version 3 shape. Whether an
+/// entry still needs wrapping is decided by the source version, not by the
+/// presence of a `Data` key: a version 2 payload may carry its own `Data`
+/// compound, and reading that as the version 3 wrapper would leave the rest of
+/// the payload outside it and drop those fields on conversion.
+fn sponge_entity_list(entries: Vec<NbtTag>, nested: bool) -> NbtList {
     let mut output = NbtList::new();
     for entry in entries {
         let NbtTag::Compound(compound) = entry else {
             continue;
         };
-        if compound.get::<_, &NbtCompound>("Data").is_ok() {
+        if nested {
             output.push(compound);
-            continue;
+        } else {
+            output.push(wrap_sponge_entry(compound, None));
         }
-        output.push(wrap_sponge_entry(compound, None));
     }
     output
 }
 
-fn sponge_block_entity_list(entries: Vec<NbtTag>) -> NbtList {
+fn sponge_block_entity_list(entries: Vec<NbtTag>, nested: bool) -> NbtList {
     let mut output = NbtList::new();
     for entry in entries {
         let NbtTag::Compound(compound) = entry else {
             continue;
         };
-        if compound.get::<_, &NbtCompound>("Data").is_ok() {
+        if nested {
             output.push(compound);
             continue;
         }
@@ -3586,6 +3595,21 @@ mod tests {
         varint_indices(biomes, "Data")
     }
 
+    /// A version 2 schematic whose entity payload carries a compound named
+    /// `Data`, which the version 3 wrapper also uses for the payload itself.
+    fn sponge_v2_fixture_with_data_payload() -> NbtCompound {
+        let mut root = sponge_container_fixture(2);
+        let entities = root.get_mut::<_, &mut NbtList>("Entities").unwrap();
+        let Some(NbtTag::Compound(entity)) = entities.inner_mut().first_mut()
+        else {
+            panic!("fixture has no entity");
+        };
+        let mut payload = NbtCompound::new();
+        payload.insert("value", 1i32);
+        entity.insert("Data", payload);
+        root
+    }
+
     #[test]
     fn sponge_v2_and_v3_fixtures_parse_offsets_and_varints() {
         for version in [2, 3] {
@@ -4408,6 +4432,48 @@ mod tests {
         let schematic = exported.get::<_, &NbtCompound>("Schematic").unwrap();
         // A stale array cannot be permuted, so it must not be re-emitted.
         assert!(schematic.get::<_, &NbtCompound>("Biomes").is_err());
+    }
+
+    #[test]
+    fn version_2_payloads_that_contain_data_are_still_wrapped() {
+        let session = parse_sponge(
+            sponge_v2_fixture_with_data_payload(),
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let exported = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        let schematic = exported.get::<_, &NbtCompound>("Schematic").unwrap();
+        let entity =
+            list_compound(schematic.get::<_, &NbtList>("Entities").unwrap(), 0);
+        assert_eq!(
+            entity.get::<_, &str>("Id").unwrap(),
+            "minecraft:hopper_minecart"
+        );
+        // The whole version 2 payload moves under the wrapper, including the
+        // field that happens to be called `Data`.
+        let data = entity.get::<_, &NbtCompound>("Data").unwrap();
+        assert_eq!(data.get::<_, &str>("CustomName").unwrap(), "Cart");
+        assert_eq!(
+            data.get::<_, &NbtCompound>("Data")
+                .unwrap()
+                .get::<_, i32>("value")
+                .unwrap(),
+            1
+        );
+        let litematic =
+            read_root(&export_litematic(&session).unwrap()).unwrap();
+        let region = litematic
+            .get::<_, &NbtCompound>("Regions")
+            .unwrap()
+            .get::<_, &NbtCompound>("Main")
+            .unwrap();
+        let converted =
+            list_compound(region.get::<_, &NbtList>("Entities").unwrap(), 0);
+        // Converting must not mistake the payload's `Data` for the payload.
+        assert_eq!(converted.get::<_, &str>("CustomName").unwrap(), "Cart");
     }
 
     #[test]

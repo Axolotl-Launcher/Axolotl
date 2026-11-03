@@ -76,6 +76,8 @@ cargo llvm-cov -p theseus --html --open
 
 口径说明：指标是 `cargo llvm-cov report` 的 TOTAL 行覆盖率，只统计当前操作系统上编译得到的代码，因此 Linux 的 CI 数字不包含 `cfg(windows)` / `cfg(target_os = "macos")` 分支。`cargo-llvm-cov` 默认把 `tests/`、`examples/`、`benches/` 目录与 `tests.rs`、`*_tests.rs`、`*-tests.rs` 这类测试专用文件排除在分母之外；写在源码里的内联 `#[cfg(test)] mod tests` 计入分母，测试执行时会被命中。按当前源码结构（内联测试约占可报告行的 35%），75% 的行覆盖率大约对应 61% 的生产代码覆盖率，改 Rust 代码时请以这个口径判断目标，不要用排除文件的方式把缺口藏起来。
 
+首次实测基线是 **59.97%（159990/266762 行）**，因此 CI 现在用棘轮门槛 `COVERAGE_MIN_LINES = 59`（`.github/workflows/axolotl-ci.yml` 的 `coverage` 作业）：它只防回退，不是目标值。目标是 75%，补测试推进后要同步调高这个数，**不允许为了让某个改动过关而下调**。门槛接入 `Desktop CI result` 汇总闸，不达标会阻断合并。覆盖率作业失败时，`rust-coverage` 工件仍会照常上传，先看 `total.txt` 和 HTML 报告定位缺口；常见热点见 `.agents/plans/` 下的基线记录。
+
 ### 构建缓存与磁盘空间
 
 Rust 编译产物位于 `target` 目录，首次完整构建可能占用数 GB 空间。Turbo 仅缓存前端输出，不会缓存 `target/**`。桌面应用的 Tauri 构建任务已明确关闭 Turbo 缓存。

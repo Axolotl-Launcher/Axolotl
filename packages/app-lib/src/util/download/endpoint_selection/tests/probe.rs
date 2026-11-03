@@ -123,7 +123,11 @@ impl TlsFixture {
                             let Ok(mut stream) = acceptor.accept(socket).await else { return };
                             assert_eq!(stream.get_ref().1.server_name(), Some(expected_host.as_str()));
                             if protocol == Protocol::H2 {
-                                let mut connection = h2::server::handshake(stream).await.unwrap();
+                                // A probe may dial this peer over HTTP/1 before
+                                // the selection settles; rustls then refuses the
+                                // `h2` ALPN and the handshake fails. That is a
+                                // state the tests provoke, not a fixture fault.
+                                let Ok(mut connection) = h2::server::handshake(stream).await else { return };
                                 let mut transfers = tokio::task::JoinSet::new();
                                 while let Some(request) = connection.accept().await {
                                     // A client that gives up on this peer closes

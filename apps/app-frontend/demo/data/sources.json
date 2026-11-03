@@ -29,7 +29,7 @@
     "sources": [
       "https://api.modrinth.com/v2/search?limit=20&index=relevance&offset={0,20}&facets=[[\"project_type:{type}\"]]"
     ],
-    "note": "the first 40 mods and modpacks and the first 20 of the other types; the icons in assets/projects come from each hit's icon_url, converted to WebP"
+    "note": "the first 40 mods and modpacks and the first 20 of the other types; the icons in assets/projects come from each hit's icon_url, converted to WebP; omits four modpacks (COBBLEVERSE, BattleArmory TACZ, SkyBlock Enhanced, FPS Modpack) whose pages name the official Modrinth launcher, which the repository brand guard (scripts/axolotl/brand-guard.mjs) rejects"
   },
   "projects/*.json": {
     "fetchedAt": "2026-10-23T11:12:12+00:00",

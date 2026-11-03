@@ -531,6 +531,94 @@ export const agentWindowMessages = defineMessages({
     copy: { id: 'app.agent-window.chat.copy', defaultMessage: 'Copy message' },
     copyAnswer: { id: 'app.agent-window.chat.copy-answer', defaultMessage: 'Copy answer' },
     copyText: { id: 'app.agent-window.chat.copy-text', defaultMessage: 'Copy text' },
+    dropToPin: { id: 'app.agent-window.chat.drop-to-pin', defaultMessage: 'Release to pin' },
+    dropToUnpin: { id: 'app.agent-window.chat.drop-to-unpin', defaultMessage: 'Release to unpin' },
+    draftShort: { id: 'app.agent-window.chat.draft-short', defaultMessage: 'Draft' },
+    draftKept: {
+        id: 'app.agent-window.chat.draft-kept',
+        defaultMessage: 'Your unsent draft is waiting here',
+    },
+    feedPeek: {
+        id: 'app.agent-window.chat.feed-peek',
+        defaultMessage: 'Drag here to feed it to the axolotl',
+    },
+    feedReady: {
+        id: 'app.agent-window.chat.feed-ready',
+        defaultMessage: 'Let go to feed it to the axolotl',
+    },
+    feedReadyHint: {
+        id: 'app.agent-window.chat.feed-ready-hint',
+        defaultMessage: 'This deletes the task',
+    },
+    feedAsk: {
+        id: 'app.agent-window.chat.feed-ask',
+        defaultMessage: 'This task left some backups behind',
+    },
+    feedAskBody: {
+        id: 'app.agent-window.chat.feed-ask-body',
+        defaultMessage: 'Delete them as well?',
+    },
+    keepBackups: { id: 'app.agent-window.chat.keep-backups', defaultMessage: 'Keep them' },
+    discardBackups: {
+        id: 'app.agent-window.chat.discard-backups',
+        defaultMessage: 'Delete them too',
+    },
+    taskFed: { id: 'app.agent-window.chat.task-fed', defaultMessage: 'Task deleted' },
+    undo: { id: 'app.agent-window.chat.undo', defaultMessage: 'Undo' },
+    backupsDiscarded: {
+        id: 'app.agent-window.chat.backups-discarded',
+        defaultMessage:
+            'Deleted the task and {count} backups. This is a preview: no files were actually touched.',
+    },
+    leftoverOld: {
+        id: 'app.agent-window.chat.leftover-old',
+        defaultMessage: 'Old version kept when it was updated',
+    },
+    leftoverReplaced: {
+        id: 'app.agent-window.chat.leftover-replaced',
+        defaultMessage: 'Version kept when it was rolled back',
+    },
+    leftoverBackup: {
+        id: 'app.agent-window.chat.leftover-backup',
+        defaultMessage: 'Backup this task made',
+    },
+    detailPreviewJava: {
+        id: 'app.agent-window.chat.detail-preview-java',
+        defaultMessage: 'Check Java',
+    },
+    detailPreviewMemory: {
+        id: 'app.agent-window.chat.detail-preview-memory',
+        defaultMessage: 'Check memory',
+    },
+    detailPreviewPick: {
+        id: 'app.agent-window.chat.detail-preview-pick',
+        defaultMessage: 'Choose the instance',
+    },
+    detailPreviewRead: {
+        id: 'app.agent-window.chat.detail-preview-read',
+        defaultMessage: 'Read the instance',
+    },
+    detailPreviewLog: {
+        id: 'app.agent-window.chat.detail-preview-log',
+        defaultMessage: 'Read the crash report',
+    },
+    detailPreviewNow: {
+        id: 'app.agent-window.chat.detail-preview-now',
+        defaultMessage: 'Reading the crash report…',
+    },
+    detailCaptionConcise: {
+        id: 'app.agent-window.chat.detail-caption-concise',
+        defaultMessage: 'Each group folds into one line that shows only the step at hand.',
+    },
+    detailCaptionBalanced: {
+        id: 'app.agent-window.chat.detail-caption-balanced',
+        defaultMessage: 'Steps show while the agent works and fold away when it’s done.',
+    },
+    detailCaptionDetailed: {
+        id: 'app.agent-window.chat.detail-caption-detailed',
+        defaultMessage: 'Every step stays open, with the tool it used.',
+    },
+    planLead: { id: 'app.agent-window.chat.plan-lead', defaultMessage: 'Proposed plan' },
     toolFamilyLauncher: {
         id: 'app.agent-window.chat.tool-family-launcher',
         defaultMessage: 'Looks at or manages the launcher itself, like its version and updates',
@@ -899,7 +987,6 @@ export const agentWindowMessages = defineMessages({
         defaultMessage: 'Long text was attached as a file',
     },
     pasteAsText: { id: 'app.agent-window.chat.paste-as-text', defaultMessage: 'Paste as text' },
-    planKicker: { id: 'app.agent-window.chat.plan-kicker', defaultMessage: 'Proposed changes' },
     manualChange: { id: 'app.agent-window.chat.manual-change', defaultMessage: 'Do it yourself' },
     changeKindUpdate: { id: 'app.agent-window.chat.change-kind-update', defaultMessage: 'Update' },
     changeKindRollback: {

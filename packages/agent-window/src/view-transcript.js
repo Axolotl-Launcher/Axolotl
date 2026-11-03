@@ -5,7 +5,7 @@ import { includedChanges } from './agent.js'
 import { append, button, element, h, hue, icon, renderMarkdown } from './dom.js'
 import { axolotl, pixelLoader, setMood } from './mascot.js'
 import { dateLabel, durationLabel, text, whenLabel } from './messages.js'
-import { animate, reducedMotion } from './motion.js'
+import { animate, finishEntrances, reducedMotion } from './motion.js'
 import { currentThread, session } from './session.js'
 import { ACTIVE_STATUSES } from './state.js'
 import { argumentRows, changeArguments, changeTitle, toolHelp } from './tools.js'
@@ -58,6 +58,8 @@ export function renderTranscript(thread) {
     // that still has the estimated height.
     nodes.forEach(place)
     quietly(() => root().replaceChildren(...nodes))
+    // History is shown as it is; nothing in it arrives again.
+    finishEntrances(root())
 }
 
 // Patches the thread on screen: gone turns leave, new ones arrive at the
@@ -94,6 +96,7 @@ function showOlder(thread, index) {
     // lays out only what lies above its turn.
     if (index === undefined) nodes.forEach(place)
     quietly(() => keepView(() => root().prepend(...nodes)))
+    for (const node of nodes) finishEntrances(node)
     return true
 }
 
@@ -240,7 +243,7 @@ export function syncTurn(thread, turn, node = turnNode(turn.id), fresh = true) {
         }
         updateItem(child, item, { thread, turn, active, last: index === lastIndex })
     })
-    syncStatus(status, turn, active)
+    syncStatus(status, turn, active, fresh)
     syncNotice(notice, thread, turn)
     syncActions(actions, turn, active, thread.turns.at(-1)?.id === turn.id)
     if (node.dataset.status !== run.status) node.dataset.status = run.status
@@ -722,17 +725,23 @@ function updatePlan(node, item, { turn }) {
         node.tabIndex = -1
         append(node, [
             h('span', { class: 'plan-orbit', 'aria-hidden': 'true' }),
+            // The title beside a tile, and one quiet line that says what it is
+            // and how much it changes. A pixel on the tile marks a plan that
+            // waits for you; decided, the tile goes quiet.
             h('header', { class: 'plan-header' }, [
-                h('div', {}, [
-                    h('span', { class: 'plan-kicker', text: text('planKicker') }),
+                h('span', { class: 'plan-tile', 'aria-hidden': 'true' }, [icon('list')]),
+                h('div', { class: 'plan-heading' }, [
                     h('h3', {
                         id: `plan-${item.id}`,
                         text: plan.title_key
                             ? text(plan.title_key)
                             : plan.title || text('reviewLauncherChanges'),
                     }),
+                    h('p', {
+                        class: 'plan-meta',
+                        text: [text('planLead'), plan.summary].filter(Boolean).join(' · '),
+                    }),
                 ]),
-                plan.summary ? h('span', { class: 'plan-count', text: plan.summary }) : null,
             ]),
             h(
                 'ul',
@@ -851,10 +860,127 @@ const EXIT_MOODS = { done: 'happy', awaiting: 'happy', failed: 'sad' }
 const EXIT_LABELS = { done: 'stateDone', awaiting: 'stateAwaiting', failed: 'stateFailed' }
 const leaving = new WeakMap()
 
-function syncStatus(node, turn, active) {
+// The line comes and goes without moving what is around it: its height and
+// the gap it adds open or close in step, while the line itself fades and
+// lifts (opacity and transform, which the compositor runs). Leaving, the
+// axolotl sinks out of it. A run that starts again while the line leaves
+// turns the exit round. Each is over within 300 ms; reduced motion skips
+// them.
+const SETTLE = 'cubic-bezier(0.22, 1, 0.36, 1)'
+const moving = new WeakMap()
+
+// The gap the line adds to its column: none when it is alone there.
+function ownGap(node) {
+    const shared = [...node.parentElement.children].some(
+        (child) => child !== node && child.getClientRects().length,
+    )
+    return shared ? parseFloat(getComputedStyle(node.parentElement).rowGap) || 0 : 0
+}
+
+function stopMoving(node) {
+    const motion = moving.get(node)
+    moving.delete(node)
+    for (const animation of motion?.animations || []) animation.cancel()
+    delete node.dataset.moving
+}
+
+function enterStatus(node) {
+    if (reducedMotion.matches || !node.isConnected || node.hidden) return
+    stopMoving(node)
+    const height = node.getBoundingClientRect().height
+    const gap = ownGap(node)
+    node.dataset.moving = 'in'
+    const motion = {
+        animations: [
+            node.animate(
+                [
+                    { height: '0px', marginTop: `${-gap}px` },
+                    { height: `${height}px`, marginTop: '0px' },
+                ],
+                { duration: 260, easing: SETTLE, fill: 'forwards' },
+            ),
+            node.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1 }], {
+                duration: 220,
+                delay: 40,
+                easing: SETTLE,
+                fill: 'both',
+            }),
+        ],
+    }
+    moving.set(node, motion)
+    Promise.all(motion.animations.map((animation) => animation.finished)).then(
+        () => moving.get(node) === motion && stopMoving(node),
+        () => {},
+    )
+}
+
+function exitStatus(node) {
+    // A run that started again since then keeps the line.
+    if (!node.dataset.leaving) return
+    stopMoving(node)
+    if (reducedMotion.matches || !node.isConnected || !node.getClientRects().length) {
+        node.hidden = true
+        delete node.dataset.leaving
+        return
+    }
+    const height = node.getBoundingClientRect().height
+    const gap = ownGap(node)
+    node.dataset.moving = 'out'
+    const motion = {
+        animations: [
+            node.animate(
+                [{ opacity: 1 }, { opacity: 0, transform: 'translateY(-3px) scale(0.98)' }],
+                {
+                    duration: 200,
+                    easing: 'ease-out',
+                    fill: 'forwards',
+                },
+            ),
+            node
+                .querySelector('.status-mark')
+                .animate(
+                    [{ opacity: 1 }, { opacity: 0, transform: 'translateY(8px) scale(0.86)' }],
+                    { duration: 200, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' },
+                ),
+            node.animate(
+                [
+                    { height: `${height}px`, marginTop: '0px' },
+                    { height: '0px', marginTop: `${-gap}px` },
+                ],
+                { duration: 260, delay: 40, easing: SETTLE, fill: 'both' },
+            ),
+        ],
+    }
+    moving.set(node, motion)
+    motion.animations[2].finished.then(
+        () => {
+            if (moving.get(node) !== motion || motion.back) return
+            node.hidden = true
+            delete node.dataset.leaving
+            stopMoving(node)
+        },
+        () => {},
+    )
+}
+
+// A run that starts while the line leaves takes it back the way it went.
+function returnStatus(node) {
+    const motion = moving.get(node)
+    if (node.dataset.moving !== 'out' || motion.back) return
+    motion.back = true
+    for (const animation of motion.animations) animation.reverse()
+    Promise.all(motion.animations.map((animation) => animation.finished)).then(
+        () => moving.get(node) === motion && stopMoving(node),
+        () => {},
+    )
+}
+
+function syncStatus(node, turn, active, fresh) {
     if (active) {
         clearTimeout(leaving.get(node))
         delete node.dataset.leaving
+        returnStatus(node)
+        const shown = !node.hidden
         node.hidden = false
         if (!node.childElementCount)
             node.append(
@@ -879,12 +1005,17 @@ function syncStatus(node, turn, active) {
             turn.run.label || text(turn.run.status === 'applying' ? 'applying' : 'thinking'),
         )
         updateElapsed(node, turn)
+        // A new turn rises in as a whole; a turn that works again (approved,
+        // retried, checked) opens its line in place. History just shows it.
+        // The line's neighbours are synced after it, so it measures then.
+        if (!shown && fresh) queueMicrotask(() => enterStatus(node))
         return
     }
     if (node.hidden || node.dataset.leaving) return
     const mood = EXIT_MOODS[turn.run.status]
     if (!mood || reducedMotion.matches || !node.isConnected) {
-        node.hidden = true
+        node.dataset.leaving = 'out'
+        queueMicrotask(() => exitStatus(node))
         return
     }
     node.dataset.leaving = mood
@@ -893,10 +1024,7 @@ function syncStatus(node, turn, active) {
     node.querySelector('.shimmer').textContent = text(EXIT_LABELS[turn.run.status])
     leaving.set(
         node,
-        setTimeout(() => {
-            node.hidden = true
-            delete node.dataset.leaving
-        }, 1400),
+        setTimeout(() => exitStatus(node), 1400),
     )
 }
 

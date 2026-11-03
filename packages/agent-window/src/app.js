@@ -23,7 +23,7 @@ import {
     restoreFocus,
 } from './dom.js'
 import { setLocale, text } from './messages.js'
-import { animate, morph, reducedMotion, ScrollFollower } from './motion.js'
+import { animate, finishEntrances, morph, reducedMotion, ScrollFollower } from './motion.js'
 import {
     currentThread,
     findThread,
@@ -93,11 +93,13 @@ import {
     renderPicker,
     renderSettings,
     toast,
+    togglePicker,
 } from './view-overlays.js'
 import { bindPalette, openPalette } from './view-palette.js'
 import { renderPanel, renderProgressRing, stateLabel } from './view-panel.js'
 import { bindRail, renderRail } from './view-rail.js'
-import { progressOf, renderSidebar } from './view-sidebar.js'
+import { bindTaskDrag } from './view-drag.js'
+import { byPlace, listed, progressOf, renderSidebar } from './view-sidebar.js'
 import { bindSlash, closeSlash, slashKeydown, syncSlash } from './view-slash.js'
 import {
     bindTranscript,
@@ -524,8 +526,17 @@ function updateTicker() {
 let planObserver = null
 let planVisible = true
 let observed = null
+let observedThread = null
 function observePlan() {
-    const last = lastTurn(currentThread())
+    const thread = currentThread()
+    // Another task starts with the bar hidden; the observer shows it on its
+    // first report if that task's plan is out of view. What the last task's
+    // plan did never shows for a frame.
+    if (thread.id !== observedThread) {
+        observedThread = thread.id
+        planVisible = true
+    }
+    const last = lastTurn(thread)
     const actions =
         (pendingPlan(last?.run) && turnNode(last.id)?.querySelector('.plan-card .plan-actions')) ||
         null
@@ -1287,11 +1298,12 @@ async function checkStatus(turnId) {
         await commit((next, active) => {
             const turn = byId(active.turns, turnId)
             if (!turn || turn.run.status !== 'detached') return
-            turn.run.resume = {
-                attempt_id: crypto.randomUUID(),
-                cursor: 0,
-                verify_attempt: turn.run.resume?.attempt_id,
-            }
+            if (!isPreview())
+                turn.run.resume = {
+                    attempt_id: crypto.randomUUID(),
+                    cursor: 0,
+                    verify_attempt: turn.run.resume?.attempt_id,
+                }
             turn.run.status = 'running'
             turn.run.endedAt = null
             turn.run.phaseAt = Date.now()
@@ -1361,7 +1373,7 @@ async function restoreRuns() {
 
 // ---------- threads ----------
 
-function selectThread(id) {
+async function selectThread(id) {
     if (id !== session.store.activeId) cancelEdit()
     // Picked from the drawer, the task is worked on next: the focus goes to
     // its composer rather than to the drawer's toggle.
@@ -1371,33 +1383,71 @@ function selectThread(id) {
         if (fromDrawer) element('message-input').focus()
         return
     }
-    morph(async () => {
+    // Only the conversation changes, so the window does not fade as a whole.
+    // When one of the two is the new task page the composer changes place and
+    // the page morphs so it can glide there; between two conversations the
+    // new one settles into the pane at once.
+    const moves = !currentThread().turns.length !== !findThread(id)?.turns.length
+    const change = async () => {
         if (
-            await commit((next) => {
+            !(await commit((next) => {
                 next.activeId = id
                 delete byId(next.threads, id)?.unread
-            })
-        ) {
-            drawer = null
-            fillSelection()
-            render()
-            if (fromDrawer) element('message-input').focus()
-        }
-    }, 'thread')
+            }))
+        )
+            return false
+        drawer = null
+        fillSelection()
+        render()
+        // What the task already shows is not new: its header state, the pills
+        // over the composer and a drafted task's page appear as they are,
+        // like its history.
+        finishEntrances(element('conversation'))
+        if (fromDrawer) element('message-input').focus()
+        return true
+    }
+    if (moves) return morph(change, 'thread')
+    if (await change())
+        animate(
+            element('messages'),
+            [
+                { opacity: 0.7, transform: 'translateY(4px)' },
+                { opacity: 1, transform: 'none' },
+            ],
+            { duration: 160, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+        )
 }
 
 // Settles once the new task page is showing, with the focus in its composer.
+// The page is not a task until something is sent from it, so it keeps what was
+// typed there: leaving and coming back finds the draft as it was.
 function createThread() {
     cancelEdit()
     const thread = currentThread()
-    if (!thread.turns.length && !thread.draft && !thread.title) {
+    if (!listed(thread)) {
         element('message-input').focus()
         if (narrow()) setSidebar(false)
         return Promise.resolve()
     }
+    const waiting = session.store.threads
+        .filter((entry) => !listed(entry) && !entry.queue.length)
+        .sort((a, b) => b.updatedAt - a.updatedAt)[0]
     return morph(async () => {
         if (
             await commit((next) => {
+                // Empty new task pages left over from before are tidied away.
+                next.threads = next.threads.filter(
+                    (entry) =>
+                        listed(entry) ||
+                        entry.id === waiting?.id ||
+                        entry.draft.trim() ||
+                        entry.attachments.length ||
+                        entry.queue.length,
+                )
+                if (waiting) {
+                    next.activeId = waiting.id
+                    return
+                }
                 const fresh = newThread(structuredClone(next.lastSelection))
                 fresh.instanceId = activeThread(next).instanceId
                 next.threads.push(fresh)
@@ -1425,7 +1475,9 @@ async function deleteThread(id) {
     if (ok) {
         for (const [turnId, handle] of session.handles) {
             if (removedTurns.has(turnId)) {
+                tickets.delete(turnId)
                 handle.detach?.()
+                if (isPreview()) handle.stop?.()
                 session.handles.delete(turnId)
             }
         }
@@ -1477,11 +1529,95 @@ async function togglePin(id) {
     if (
         await commit((next) => {
             const thread = byId(next.threads, id)
-            if (thread?.pinned) delete thread.pinned
-            else if (thread) thread.pinned = true
+            if (thread?.pinned) {
+                delete thread.pinned
+                delete thread.rank
+            } else if (thread) {
+                const ranks = next.threads
+                    .filter((entry) => entry.pinned)
+                    .map((entry) => entry.rank ?? 0)
+                thread.pinned = true
+                thread.rank = Math.min(0, ...ranks) - 1
+            }
         })
     )
         renderSidebar()
+}
+
+// ---------- carrying tasks ----------
+
+// What a task left in the launcher that nothing needs any more: the version an
+// update or a rollback replaced, and backups it made, read from its applied
+// plans. Only the preview can delete them for now; a native runtime has no
+// call for it yet, so there the axolotl does not ask.
+function leftoversOf(thread) {
+    if (!isPreview()) return []
+    const found = []
+    for (const turn of thread.turns)
+        for (const entry of turn.run.items) {
+            if (entry.type !== 'plan' || entry.state !== 'applied') continue
+            entry.plan.changes.forEach((change, index) => {
+                if (change.manual || entry.excluded.includes(index)) return
+                if ((change.kind === 'update' || change.kind === 'rollback') && change.from)
+                    found.push({
+                        name: `${change.name} ${change.from}`,
+                        note: text(change.kind === 'update' ? 'leftoverOld' : 'leftoverReplaced'),
+                    })
+                else if (change.kind === 'backup')
+                    found.push({ name: change.name, note: text('leftoverBackup') })
+            })
+        }
+    return found
+}
+
+// A task brought back by Undo lost its live work when it was deleted, so it
+// returns the way it would after a restart.
+function revive(thread) {
+    for (const turn of thread.turns) {
+        if (turn.run.status === 'thinking' || turn.run.status === 'running')
+            turn.run.status = 'interrupted'
+        if (turn.run.status === 'applying') turn.run.status = 'detached'
+    }
+    return thread
+}
+
+function placePinned(id, index) {
+    return commit((next) => {
+        const moved = byId(next.threads, id)
+        if (!moved) return
+        const order = next.threads.filter((entry) => entry.pinned && entry !== moved).sort(byPlace)
+        order.splice(index, 0, moved)
+        order.forEach((entry, rank) => {
+            entry.pinned = true
+            entry.rank = rank
+        })
+    })
+}
+
+async function feedThread(id) {
+    const thread = findThread(id)
+    if (!thread) return null
+    const saved = revive(structuredClone(thread))
+    const wasActive = session.store.activeId === id
+    const leftovers = leftoversOf(thread)
+    if (!(await deleteThread(id))) return null
+    return {
+        leftovers,
+        undo: isPreview()
+            ? async () => {
+                  if (findThread(saved.id)) return
+                  if (
+                      await commit((next) => {
+                          next.threads.push(saved)
+                          if (wasActive) next.activeId = saved.id
+                      })
+                  ) {
+                      fillSelection()
+                      render()
+                  }
+              }
+            : null,
+    }
 }
 
 function askRename(id) {
@@ -1725,12 +1861,10 @@ const actions = {
         refreshPermissions()
     },
     'model-picker': (event, target) => {
-        refreshContext()
-        openPicker('model', target)
+        if (togglePicker('model', target, event)) refreshContext()
     },
     'instance-picker': (event, target) => {
-        refreshContext()
-        openPicker('instance', target)
+        if (togglePicker('instance', target, event)) refreshContext()
     },
     'close-dialog': () => {
         for (const dialog of document.querySelectorAll('dialog[open]')) {
@@ -2019,16 +2153,12 @@ element('composer').addEventListener('submit', (event) => {
 element('message-input').addEventListener('input', (event) => {
     // Unsaved text stays in memory when storage fails; sending is transactional.
     const thread = currentThread()
-    const listed = !!thread.draft
     thread.draft = event.target.value
     persistSoon(250)
     heroListens(!!event.target.value.trim())
     renderComposer()
     syncSlash(event.target.value)
     element('conversation-more').hidden = !thread.turns.length && !thread.draft
-    // A new task without a title is listed only while it has a draft, so its row
-    // comes and goes when the draft does; other keystrokes leave the list alone.
-    if (!thread.turns.length && !thread.title && listed !== !!thread.draft) renderSidebar()
 })
 
 element('message-input').addEventListener('keydown', (event) => {
@@ -2232,6 +2362,23 @@ element('picker-search').addEventListener('keydown', (event) => {
 element('picker-options').addEventListener('keydown', pickerKeydown)
 bindPalette()
 bindRail()
+bindTaskDrag({
+    pin: async (id, index) => {
+        const ok = await placePinned(id, index)
+        if (ok) announce(text('pinned'))
+        return ok
+    },
+    unpin: (id) =>
+        commit((next) => {
+            const thread = byId(next.threads, id)
+            delete thread?.pinned
+            delete thread?.rank
+        }),
+    feed: feedThread,
+    // Only the preview gets here, and it says that no files were touched.
+    discard: (leftovers) =>
+        toast(text('backupsDiscarded', { count: leftovers.length }), null, 'success'),
+})
 bindTranscript()
 bindTips()
 // Focus that would drop to the page lands in the composer at the latest.
@@ -2362,7 +2509,7 @@ function showPalette() {
         ],
         threads: [...session.store.threads]
             .filter((entry) => entry !== thread || !current.length)
-            .filter((entry) => entry.turns.length || entry.draft)
+            .filter(listed)
             .sort((a, b) => b.updatedAt - a.updatedAt)
             .map((entry) => ({
                 icon: 'message',

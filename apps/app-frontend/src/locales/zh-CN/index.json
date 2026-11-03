@@ -356,6 +356,87 @@
   "app.agent-window.chat.copy-text": {
     "message": "复制文本"
   },
+  "app.agent-window.chat.drop-to-pin": {
+    "message": "松手即置顶"
+  },
+  "app.agent-window.chat.drop-to-unpin": {
+    "message": "松手取消置顶"
+  },
+  "app.agent-window.chat.draft-short": {
+    "message": "草稿"
+  },
+  "app.agent-window.chat.draft-kept": {
+    "message": "未发送的草稿还在这里"
+  },
+  "app.agent-window.chat.feed-peek": {
+    "message": "拖到这里，喂给美西螈"
+  },
+  "app.agent-window.chat.feed-ready": {
+    "message": "松手，喂给美西螈"
+  },
+  "app.agent-window.chat.feed-ready-hint": {
+    "message": "这个任务会被删除"
+  },
+  "app.agent-window.chat.feed-ask": {
+    "message": "这个任务还留下了一些备份"
+  },
+  "app.agent-window.chat.feed-ask-body": {
+    "message": "要一起删掉吗？"
+  },
+  "app.agent-window.chat.keep-backups": {
+    "message": "留着"
+  },
+  "app.agent-window.chat.discard-backups": {
+    "message": "一起删掉"
+  },
+  "app.agent-window.chat.task-fed": {
+    "message": "任务已删除"
+  },
+  "app.agent-window.chat.undo": {
+    "message": "撤销"
+  },
+  "app.agent-window.chat.backups-discarded": {
+    "message": "已删除任务和 {count} 份备份。这是预览，没有真的动任何文件。"
+  },
+  "app.agent-window.chat.leftover-old": {
+    "message": "更新时留下的旧版本"
+  },
+  "app.agent-window.chat.leftover-replaced": {
+    "message": "回退时留下的版本"
+  },
+  "app.agent-window.chat.leftover-backup": {
+    "message": "这个任务创建的备份"
+  },
+  "app.agent-window.chat.detail-preview-java": {
+    "message": "检查 Java"
+  },
+  "app.agent-window.chat.detail-preview-memory": {
+    "message": "检查内存"
+  },
+  "app.agent-window.chat.detail-preview-pick": {
+    "message": "选择实例"
+  },
+  "app.agent-window.chat.detail-preview-read": {
+    "message": "读取实例"
+  },
+  "app.agent-window.chat.detail-preview-log": {
+    "message": "读取崩溃报告"
+  },
+  "app.agent-window.chat.detail-preview-now": {
+    "message": "正在读取崩溃报告…"
+  },
+  "app.agent-window.chat.detail-caption-concise": {
+    "message": "每组步骤收成一行，只显示当前这一步。"
+  },
+  "app.agent-window.chat.detail-caption-balanced": {
+    "message": "Agent 工作时展开步骤，完成后自动收起。"
+  },
+  "app.agent-window.chat.detail-caption-detailed": {
+    "message": "所有步骤保持展开，并显示用到的工具。"
+  },
+  "app.agent-window.chat.plan-lead": {
+    "message": "建议方案"
+  },
   "app.agent-window.chat.tool-family-launcher": {
     "message": "查看或管理启动器本身，比如它的版本和更新"
   },
@@ -685,9 +766,6 @@
   },
   "app.agent-window.chat.paste-as-text": {
     "message": "改为直接粘贴"
-  },
-  "app.agent-window.chat.plan-kicker": {
-    "message": "建议的改动"
   },
   "app.agent-window.chat.manual-change": {
     "message": "需手动"

@@ -260,7 +260,7 @@ export class DemoRuntime {
                 playback.send({ type: 'step', step: { id, title, detail, tool }, status: 'done' })
                 if (rows) {
                     done = Math.min(done + rows, included)
-                    playback.send({ type: 'applied', done })
+                    playback.send({ type: 'applied', done, complete: done === included })
                 }
             }
             await playback.wait(250)

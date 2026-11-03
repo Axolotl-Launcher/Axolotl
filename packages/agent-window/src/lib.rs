@@ -48,6 +48,7 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
     script!("state.js"),
     script!("tools.js"),
     script!("view-composer.js"),
+    script!("view-drag.js"),
     script!("view-home.js"),
     script!("view-installation.js"),
     script!("view-overlays.js"),

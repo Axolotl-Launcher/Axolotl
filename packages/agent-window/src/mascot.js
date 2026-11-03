@@ -70,47 +70,11 @@ export function setMood(node, mood, { then } = {}) {
     // Without motion a one-shot is over as soon as it starts.
     if (after && reducedMotion.matches) return setMood(node, after)
     follow(node, next, after)
-    const held = release(node)
     const same = node.dataset.mood === next
-    if (same && !REPLAY.has(next) && !held) return
-    if (!held) ghost(node)
+    if (same && !REPLAY.has(next)) return
+    ghost(node)
     node.dataset.mood = next
     if (same) replay(node)
-}
-
-// The large mark can turn its head towards the pointer: gaze(node, x) holds
-// the frame of the look strip whose head faces x (-1 far left, 1 far right),
-// and gaze(node, null) lets go with the usual cross-dissolve. The first
-// glance in look turns right and its way back from the left holds the left,
-// so each side is a run of frames that turns smoothly away from rest.
-const LOOK_FRAMES = 54
-const GAZE = { right: [1, 9], left: [47, 37] }
-export function gaze(node, x) {
-    if (!node || node.classList.contains('axo-sm') || reducedMotion.matches) return
-    if (x === null) {
-        release(node)
-        return
-    }
-    if (!('gaze' in node.dataset)) {
-        ghost(node)
-        node.dataset.gaze = ''
-    }
-    const [from, to] = x >= 0 ? GAZE.right : GAZE.left
-    const frame = Math.round(from + (to - from) * Math.min(1, Math.abs(x)))
-    node.style.setProperty('--axo-gaze', `${(frame / (LOOK_FRAMES - 1)) * 100}%`)
-}
-
-function release(node) {
-    if (!('gaze' in node.dataset)) return false
-    fade(
-        node,
-        getComputedStyle(node).backgroundImage,
-        LOOK_FRAMES,
-        node.style.getPropertyValue('--axo-gaze') || '0%',
-    )
-    delete node.dataset.gaze
-    node.style.removeProperty('--axo-gaze')
-    return true
 }
 
 // Freezes the frame the mark shows on its ::after ghost, which mascot.css

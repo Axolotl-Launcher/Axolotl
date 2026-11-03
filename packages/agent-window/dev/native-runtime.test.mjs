@@ -52,6 +52,8 @@ test('approval arguments and step counts use localized labels, including old sto
 test('native storage preserves frozen installation details without making IDs the display name', () => {
     setLocale('en-US', { argumentInstanceId: 'Instance' })
     const store = initialStore()
+    store.threads[0].pinned = true
+    store.threads[0].rank = 3
     const review = {
         mode: 'resources',
         intent: 'install',
@@ -102,6 +104,7 @@ test('native storage preserves frozen installation details without making IDs th
         },
     })
     const loaded = parseNativeStore(JSON.stringify(store))
+    assert.equal(loaded.threads[0].rank, 3)
     const change = loaded.threads[0].turns[0].run.items[0].plan.changes[0]
     assert.deepEqual(change.review, review)
     assert.deepEqual(

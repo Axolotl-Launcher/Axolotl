@@ -1,5 +1,6 @@
 // Popovers (pickers, menus, previews and tooltips), dialogs, settings and toasts.
 import { button, element, focusable, focusPlace, h, icon, logLines, restoreFocus } from './dom.js'
+import { pixelLoader } from './mascot.js'
 import { text, whenLabel } from './messages.js'
 import { currentThread, modelsAvailable, permissionsAvailable, session } from './session.js'
 import { changeTitle } from './tools.js'
@@ -53,20 +54,53 @@ export function bindOverlays(fallback) {
                 restoreFocus(openers.get(dialog), fallback())
         })
     element('menu').addEventListener('keydown', menuKeydown)
+    // Pressing the picker's own button moves the focus out of the picker,
+    // which closes it before the click arrives; so whether it was open is
+    // read here, as the pointer goes down.
+    document.addEventListener(
+        'pointerdown',
+        (event) => {
+            pressedOpen = pickerOpen() && pickerAnchor?.contains(event.target) ? pickerAnchor : null
+        },
+        true,
+    )
 }
 
 // ---------- pickers ----------
 
 let pickerKind = null
+let pickerAnchor = null
+let pressedOpen = null
 
 export function pickerOpen() {
     return element('picker').matches(':popover-open')
+}
+
+// The model and instance buttons open their picker and close it again, like
+// any button that opens a menu; the other button switches pickers. A click
+// from the pointer counts what the picker was when the pointer went down, a
+// key press what it is now. With no event (a shortcut, the command menu) the
+// picker just opens.
+export function togglePicker(kind, anchor, event = null) {
+    const wasOpen =
+        event?.detail > 0
+            ? pressedOpen === anchor
+            : !!event && pickerOpen() && pickerKind === kind && pickerAnchor === anchor
+    pressedOpen = null
+    if (!wasOpen) {
+        openPicker(kind, anchor)
+        return true
+    }
+    closePicker()
+    anchor.focus()
+    return false
 }
 
 export function openPicker(kind, anchor) {
     const picker = element('picker')
     closePopover(picker)
     pickerKind = kind
+    pickerAnchor = anchor
     picker.setAttribute('aria-label', text(kind))
     const search = element('picker-search')
     search.value = ''
@@ -459,6 +493,7 @@ export function renderSettings() {
         choice.setAttribute('aria-checked', String(checked))
         choice.tabIndex = checked ? 0 : -1
     }
+    renderDetailPreview()
     const instructions = element('instructions-input')
     if (document.activeElement !== instructions) instructions.value = session.store.instructions
     element('settings-dialog')
@@ -466,6 +501,91 @@ export function renderSettings() {
         .forEach((close) => {
             close.disabled = session.permissionsSaving
         })
+}
+
+// A miniature of a task part-way through, drawn in the step groups' own
+// marks, under the steps-shown choice: a finished group, then one at work on
+// its third step. Concise folds both, the working one to the step at hand;
+// balanced opens the working one; detailed opens both and names each tool.
+// The picture is built once per catalog and only its level changes, so CSS
+// can move it from one level to the next.
+const PREVIEW_DONE = [
+    ['detailPreviewJava', 'java_list'],
+    ['detailPreviewMemory', 'system_get_memory'],
+]
+const PREVIEW_WORKING = [
+    ['detailPreviewPick', 'instance_list'],
+    ['detailPreviewRead', 'instance_get'],
+    ['detailPreviewLog', 'logs_read'],
+]
+const PREVIEW_LEVELS = {
+    concise: 'detailCaptionConcise',
+    balanced: 'detailCaptionBalanced',
+    detailed: 'detailCaptionDetailed',
+}
+
+function previewGroup(working, labels, steps) {
+    return h('div', { class: 'dp-group', data: { state: working ? 'running' : 'done' } }, [
+        h('div', { class: 'dp-head' }, [
+            h('span', { class: 'dp-mark' }, [working ? pixelLoader() : icon('check-circle')]),
+            h(
+                'span',
+                { class: 'dp-label' },
+                labels.map((label) => h('span', { text: label })),
+            ),
+            icon('right', 'dp-chevron'),
+        ]),
+        h('div', { class: 'dp-body' }, [
+            h('div', { class: 'dp-clip' }, [
+                h(
+                    'ol',
+                    { class: 'dp-steps' },
+                    steps.map(([title, tool], index) => {
+                        const now = working && index === steps.length - 1
+                        return h(
+                            'li',
+                            { class: 'dp-step', data: { state: now ? 'running' : 'done' } },
+                            [
+                                h('span', { class: 'dp-icon' }, [
+                                    now ? pixelLoader() : icon('check'),
+                                ]),
+                                h('span', { class: 'dp-title', text: title }),
+                                h('code', { class: 'dp-tool', text: tool }),
+                            ],
+                        )
+                    }),
+                ),
+            ]),
+        ]),
+    ])
+}
+
+function renderDetailPreview() {
+    const preview = element('detail-preview')
+    if (preview.dataset.level !== session.store.detail) preview.dataset.level = session.store.detail
+    const done = PREVIEW_DONE.map(([key, tool]) => [text(key), tool])
+    const working = PREVIEW_WORKING.map(([key, tool]) => [text(key), tool])
+    const labels = [
+        text('stepsDoneNamed', { title: done[0][0], count: done.length }),
+        text('detailPreviewNow'),
+        text('stepsRunning', { count: working.length }),
+    ]
+    const captions = Object.entries(PREVIEW_LEVELS).map(([level, key]) => [level, text(key)])
+    const signature = JSON.stringify([done, working, labels, captions])
+    if (preview.dataset.signature === signature) return
+    preview.dataset.signature = signature
+    preview.replaceChildren(
+        h('div', { class: 'dp-well' }, [
+            previewGroup(false, [labels[0]], done),
+            // Folded, the working group names the step at hand; open, it counts.
+            previewGroup(true, [labels[1], labels[2]], working),
+        ]),
+        h(
+            'p',
+            { class: 'dp-caption' },
+            captions.map(([level, caption]) => h('span', { data: { for: level }, text: caption })),
+        ),
+    )
 }
 
 // ---------- toasts ----------

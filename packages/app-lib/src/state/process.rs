@@ -19,17 +19,19 @@ use std::fmt::Debug;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::process::ExitStatus;
 use std::sync::{
     Arc, LazyLock,
     atomic::{AtomicU64, Ordering},
 };
+use std::task::{Context, Poll};
 use std::time::Instant;
 #[cfg(feature = "tauri")]
 use tauri::Emitter;
 use tempfile::TempDir;
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, BufReader, ReadBuf};
+use tokio::process::{Child, ChildStderr, ChildStdout, Command};
 use uuid::Uuid;
 
 const LAUNCHER_LOG_PATH: &str = "launcher_log.txt";
@@ -40,6 +42,24 @@ const MAX_PERSISTED_LOG_LINE_BYTES: usize = 256 * 1024;
 const LOG_TRUNCATION_MARKER: &str = " … [log output truncated by Axolotl] … ";
 const PROCESS_INITIALIZATION_TIMEOUT: std::time::Duration =
     std::time::Duration::from_secs(15);
+
+enum ProcessOutputReader {
+    Stdout(ChildStdout),
+    Stderr(ChildStderr),
+}
+
+impl AsyncRead for ProcessOutputReader {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buffer: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Stdout(reader) => Pin::new(reader).poll_read(cx, buffer),
+            Self::Stderr(reader) => Pin::new(reader).poll_read(cx, buffer),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct CrashReportSnapshot {
@@ -452,7 +472,7 @@ impl ProcessManager {
                     &instance_path,
                     &instance_name,
                     &process_id,
-                    stdout,
+                    ProcessOutputReader::Stdout(stdout),
                     log_path_clone,
                     xml_logging,
                 )
@@ -473,7 +493,7 @@ impl ProcessManager {
                     &instance_path,
                     &instance_name,
                     &process_id,
-                    stderr,
+                    ProcessOutputReader::Stderr(stderr),
                     log_path_clone,
                     xml_logging,
                 )
@@ -747,17 +767,15 @@ impl Process {
         Ok(Some(String::from_utf8_lossy(&line).into_owned()))
     }
 
-    async fn process_output<R>(
+    async fn process_output(
         instance_id: &str,
         _instance_path: &str,
         instance_name: &str,
         process_id: &str,
-        reader: R,
-        log_path: impl AsRef<Path>,
+        reader: ProcessOutputReader,
+        log_path: PathBuf,
         xml_logging: bool,
-    ) where
-        R: tokio::io::AsyncRead + Unpin,
-    {
+    ) {
         let mut buf_reader = BufReader::new(reader);
 
         if xml_logging {
@@ -1748,6 +1766,41 @@ mod post_upgrade_tests {
         assert!(first.contains("truncated by Axolotl"));
         assert!(first.len() <= MAX_PERSISTED_LOG_LINE_BYTES);
         assert_eq!(second, "next\n");
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn process_output_reader_preserves_both_streams_and_eof() {
+        use std::process::Stdio;
+        use tokio::io::AsyncReadExt;
+
+        let mut child = Command::new("cmd.exe")
+            .args(["/d", "/c", "echo stdout& echo stderr 1>&2"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let mut stdout =
+            ProcessOutputReader::Stdout(child.stdout.take().unwrap());
+        let mut stderr =
+            ProcessOutputReader::Stderr(child.stderr.take().unwrap());
+        let mut output = Vec::new();
+        let mut errors = Vec::new();
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            let (out, err) = tokio::join!(
+                stdout.read_to_end(&mut output),
+                stderr.read_to_end(&mut errors)
+            );
+            out.unwrap();
+            err.unwrap();
+            assert!(child.wait().await.unwrap().success());
+        })
+        .await
+        .unwrap();
+        assert_eq!(String::from_utf8(output).unwrap().trim(), "stdout");
+        assert_eq!(String::from_utf8(errors).unwrap().trim(), "stderr");
     }
 
     #[test]

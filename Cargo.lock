@@ -7232,6 +7232,8 @@ dependencies = [
  "regex",
  "reqwest",
  "rgb",
+ "ring",
+ "rsa",
  "rustls",
  "rustls-native-certs",
  "rustls-pki-types",

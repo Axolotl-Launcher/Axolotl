@@ -63,7 +63,6 @@ hyper-util = { workspace = true, features = [
 iana-time-zone = { workspace = true }
 indicatif = { workspace = true, optional = true }
 itertools = { workspace = true }
-jsonwebtoken = { workspace = true }
 keyring = { workspace = true }
 local-ip-address = { workspace = true }
 md5 = { workspace = true }
@@ -96,6 +95,7 @@ reqwest = { workspace = true, features = [
   "system-proxy",
 ] }
 rgb = { workspace = true }
+ring = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 rustls-pki-types = { workspace = true }
@@ -156,7 +156,9 @@ zip = { workspace = true }
 
 [dev-dependencies]
 chrono-tz = "0.10.4"
+jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
 rcgen = { version = "0.14.7", default-features = false, features = ["ring"] }
+rsa = "0.9.10"
 
 [build-dependencies]
 dotenvy = { workspace = true }

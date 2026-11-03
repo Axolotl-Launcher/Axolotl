@@ -155,9 +155,14 @@ const environments: Record<string, string> = {
     'optional/optional': 'client_or_server',
 }
 
+/** The environment tag Modrinth derives from a project's two side fields, when they name one. */
+export function environmentTag(hit: RecordedHit): string | null {
+    return environments[`${hit.client_side}/${hit.server_side}`] ?? null
+}
+
 /** What the backend's Modrinth provider reports for a project (providers/modrinth.rs). */
 export function projectMetadata(hit: RecordedHit | RecordedProject): SourceProjectMetadata {
-    const environment = environments[`${hit.client_side}/${hit.server_side}`]
+    const environment = environmentTag(hit)
     return {
         environments: environment ? [environment] : [],
         project: { source: 'modrinth', projectId: hit.id },

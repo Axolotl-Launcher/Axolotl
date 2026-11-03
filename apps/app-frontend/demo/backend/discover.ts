@@ -15,6 +15,7 @@ import type { ThirdPartyAccount } from '@/helpers/third-party-accounts'
 
 import wikiEntries from '../data/content-names.json'
 import {
+    environmentTag,
     projectDocument,
     projectDocumentV3,
     projectMetadata,
@@ -46,20 +47,20 @@ function matchesPredicate(hit: RecordedHit, field: string, values: string[]) {
     switch (field) {
         case 'category':
             return values.some((value) => hit.categories.includes(value.replace(/^modrinth:/, '')))
+        // Selected loaders arrive as their own field, unprefixed (resource-search-filter.ts).
+        case 'loader':
+            return values.some((value) => hit.loaders.includes(value))
         case 'gameVersion':
             return values.some((value) => hit.game_versions.includes(value))
         case 'license':
             return values.includes(hit.license?.id ?? '')
         case 'projectId':
             return values.includes(hit.id)
-        case 'environment':
-            return values.every((value) =>
-                value === 'client'
-                    ? hit.client_side !== 'unsupported'
-                    : value === 'server'
-                      ? hit.server_side !== 'unsupported'
-                      : true,
-            )
+        // Browse sends the environment tags a side accepts, such as `client_only`.
+        case 'environment': {
+            const environment = environmentTag(hit)
+            return environment !== null && values.includes(environment)
+        }
         default:
             return true
     }

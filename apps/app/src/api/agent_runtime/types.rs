@@ -23,6 +23,8 @@ pub struct SubmitRequest {
     pub computer_use: bool,
     #[serde(default)]
     pub verify_attempt: Option<String>,
+    #[serde(default)]
+    pub history_attempts: Option<Vec<String>>,
 }
 
 fn locale() -> String {

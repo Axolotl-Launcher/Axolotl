@@ -83,7 +83,10 @@ export class FixtureHost implements RuntimeGateway {
     }
     async tool(request: ToolRequest) {
         const definition = this.definitions.find((item) => item.name === request.name)
-        if (!definition?.read_only && !this.allowed.has(request.call_id))
+        if (
+            (definition?.requires_approval ?? !definition?.read_only) &&
+            !this.allowed.has(request.call_id)
+        )
             throw new Error('Write attempted before host approval')
         this.calls.push(request)
         return this.output

@@ -19,6 +19,78 @@ use std::{
 use tauri::{AppHandle, Manager};
 use tokio_util::sync::CancellationToken;
 
+/// Planning owns cached handles but does not change installed user content.
+/// Keep registry read-only/locking semantics separate from native consent.
+pub(super) fn requires_approval(entry: &ToolDefinition) -> bool {
+    !entry.read_only
+        && !matches!(
+            entry.name.as_ref(),
+            "resource_prepare_install"
+                | "resource_prepare_update"
+                | "resource_prepare_switch"
+                | "resource_revise_plan"
+                | "modpack_prepare_install"
+                | "modpack_prepare_local"
+        )
+}
+
+/// Models often spell absent optional values as null (or an empty cursor).
+/// Canonicalize before archiving/binding calls; required and unknown fields
+/// still go through the registry's normal validation.
+pub(super) fn normalize_model_arguments(reply: &mut Value, tools: &Value) {
+    for call in reply["tool_calls"].as_array_mut().into_iter().flatten() {
+        let Some(entry) = call["name"].as_str().and_then(registry::get) else {
+            continue;
+        };
+        let Some(arguments) = call["args"].as_object_mut() else {
+            continue;
+        };
+        let required = entry.input_schema["required"].as_array();
+        let properties = &entry.input_schema["properties"];
+        let paged = entry.read_only
+            && matches!(
+                entry.name.as_ref(),
+                "resource_search" | "resource_list_releases"
+            );
+        let cursor_rule = tools
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|tool| {
+                tool["function"]["name"].as_str() == Some(entry.name.as_ref())
+            })
+            .and_then(|tool| {
+                tool["function"]["parameters"]["properties"].get("cursor")
+            });
+        arguments.retain(|name, value| {
+            // The runtime offers paging only after observing a returned token.
+            // An unoffered cursor/first-page marker is omitted before binding
+            // this readonly call, never forwarded as a guessed continuation.
+            if name == "cursor"
+                && paged
+                && (cursor_rule.is_none()
+                    || cursor_rule
+                        .and_then(|rule| rule["enum"].as_array())
+                        .is_some_and(|allowed| !allowed.contains(value))
+                    || value.as_str().is_some_and(|cursor| {
+                        cursor.eq_ignore_ascii_case("initial")
+                    }))
+            {
+                return false;
+            }
+            let optional = properties.get(name).is_some()
+                && !required
+                    .is_some_and(|keys| keys.iter().any(|key| key == name));
+            !(optional
+                && (value.is_null()
+                    || (value.as_str() == Some("")
+                        && properties[name]["minLength"]
+                            .as_u64()
+                            .is_some_and(|min| min > 0))))
+        });
+    }
+}
+
 pub fn allowed(
     app: &AppHandle,
     run: &Run,
@@ -114,6 +186,13 @@ pub async fn tool(
     let entry = registry::get(&request.name).ok_or("Unknown launcher tool")?;
     registry::validate(entry, &request.arguments).map_err(|e| e.to_string())?;
     allowed(app, &run, entry)?;
+    if let Err(error) = super::resource_targets::validate(&request).await {
+        return serde_json::to_value(launcher_tools::ToolOutput::from_result(
+            &request.name,
+            Err(error),
+        ))
+        .map_err(|e| e.to_string());
+    }
     // Hold ordinary writes through native completion. Explicit stop/cancel tools
     // bypass this lock so they can stop the very job the ordinary write awaits.
     let _write = if !entry.read_only && !recovery_control(entry) {
@@ -125,7 +204,7 @@ pub async fn tool(
     if !entry.read_only {
         reconcile(app, runtime, &run.request.thread_id).await?;
     }
-    let approval = if entry.read_only {
+    let approval = if !requires_approval(entry) {
         None
     } else {
         store
@@ -148,7 +227,7 @@ pub async fn tool(
             call_id: request.call_id.clone(),
             tool: request.name.clone(),
             arguments: Value::Object(request.arguments.clone()),
-            is_write: !entry.read_only,
+            is_write: requires_approval(entry),
             recovery_control: recovery_control(entry),
             approval,
         })

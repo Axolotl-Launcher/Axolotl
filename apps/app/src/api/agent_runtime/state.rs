@@ -163,10 +163,11 @@ impl AgentRuntime {
             job.messages = self
                 .store()
                 .await?
-                .conversation_transcript(
+                .conversation_transcript_for_attempts(
                     &run.request.thread_id,
                     &run.request.provider_id,
                     &run.request.model_id,
+                    run.request.history_attempts.as_deref(),
                 )
                 .await
                 .map_err(|e| e.to_string())?;

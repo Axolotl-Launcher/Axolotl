@@ -90,10 +90,40 @@ impl AgentStore {
         provider_id: &str,
         model_id: &str,
     ) -> Result<Vec<Value>> {
-        let row = sqlx::query("SELECT t.attempt_id, t.input, t.reply, i.payload AS configuration FROM model_turns t JOIN attempts a ON a.id = t.attempt_id LEFT JOIN attempt_inputs i ON i.attempt_id = a.id WHERE a.thread_id = ? AND a.state IN ('completed', 'failed', 'cancelled', 'interrupted') ORDER BY a.rowid DESC, t.sequence DESC LIMIT 1")
-            .bind(thread_id).fetch_optional(&self.pool).await?;
+        self.conversation_transcript_for_attempts(
+            thread_id,
+            provider_id,
+            model_id,
+            None,
+        )
+        .await
+    }
+
+    /// Visible turns select the conversation branch. Older execution receipts
+    /// remain intact, but discarded replies never re-enter the model history.
+    pub async fn conversation_transcript_for_attempts(
+        &self,
+        thread_id: &str,
+        provider_id: &str,
+        model_id: &str,
+        history_attempts: Option<&[String]>,
+    ) -> Result<Vec<Value>> {
+        if let Some(ids) = history_attempts {
+            for id in ids {
+                valid_id(id)?;
+            }
+        }
+        let history =
+            history_attempts.map(serde_json::to_string).transpose()?;
+        let row = sqlx::query("SELECT t.attempt_id, t.input, t.reply, i.payload AS configuration FROM model_turns t JOIN attempts a ON a.id = t.attempt_id LEFT JOIN attempt_inputs i ON i.attempt_id = a.id WHERE a.thread_id = ? AND (? IS NULL OR a.id IN (SELECT value FROM json_each(?))) AND a.state IN ('completed', 'failed', 'cancelled', 'interrupted') ORDER BY a.rowid DESC, t.sequence DESC LIMIT 1")
+            .bind(thread_id).bind(&history).bind(&history).fetch_optional(&self.pool).await?;
         let Some(row) = row else {
-            return self.conversation_messages(thread_id).await;
+            let rows = sqlx::query("SELECT m.payload FROM messages m JOIN attempts a ON a.id = m.attempt_id WHERE m.thread_id = ? AND (? IS NULL OR a.id IN (SELECT value FROM json_each(?))) AND a.state = 'completed' ORDER BY m.rowid")
+                .bind(thread_id).bind(&history).bind(&history).fetch_all(&self.pool).await?;
+            return rows
+                .into_iter()
+                .map(|row| Ok(serde_json::from_str(row.get("payload"))?))
+                .collect();
         };
         let attempt_id: String = row.get("attempt_id");
         let mut messages: Vec<Value> = serde_json::from_str(row.get("input"))?;

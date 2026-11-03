@@ -15,12 +15,14 @@ import { AGENT_PROMPT } from './prompt.ts'
 import type {
     ApprovalAction,
     ApprovalDecision,
+    ModelMessage,
     RunOutcome,
     RuntimeGateway,
     RuntimeJob,
     ToolDefinition,
     ToolOutput,
 } from './protocol.ts'
+import { assertCorrectedCalls, canonical, prepareModelTurn } from './tool-recovery.ts'
 
 export const MODEL_LIMIT = 64
 export const TOOL_LIMIT = 256
@@ -42,16 +44,6 @@ registerHarnessProfile('axolotl-agent', {
     excludedMiddleware: ['HumanInTheLoopMiddleware', 'SummarizationMiddleware'],
     generalPurposeSubagent: { enabled: false },
 })
-
-function canonical(value: unknown): string {
-    if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
-    if (value && typeof value === 'object')
-        return `{${Object.entries(value)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
-            .join(',')}}`
-    return JSON.stringify(value)
-}
 
 function content(output: ToolOutput) {
     const blocks: (
@@ -140,6 +132,7 @@ export async function runAgent(
     let events = Promise.resolve()
     let streamed = false
     let checklist = '[]'
+    let latestInput: ModelMessage[] = []
     const pendingOperations = new Map<string, { id: string; title: string; tool: string }>()
     const emitModel = (event: { event_type: string; data: Record<string, unknown> }) => {
         if (signal.aborted || event.event_type !== 'delta' || typeof event.data.text !== 'string')
@@ -158,7 +151,12 @@ export async function runAgent(
                     )
                 signal.throwIfAborted()
                 streamed = false
-                const response = await gateway.modelTurn(turn, onEvent, modelSignal ?? signal)
+                latestInput = turn.messages
+                const response = await gateway.modelTurn(
+                    prepareModelTurn(turn, definitions),
+                    onEvent,
+                    modelSignal ?? signal,
+                )
                 if (!streamed && response.content)
                     events = events.then(() =>
                         gateway.emit({ type: 'text', delta: response.content }),
@@ -180,10 +178,23 @@ export async function runAgent(
         if (!callId) throw new Error('Tool call has no stable identifier')
         const step = { id: callId, title: definition.name, tool: definition.name }
         await gateway.emit({ type: 'step', step, status: 'running' })
-        const output = await gateway.tool(
-            { call_id: callId, name: definition.name, arguments: args },
-            signal,
-        )
+        let output: ToolOutput
+        try {
+            output = await gateway.tool(
+                { call_id: callId, name: definition.name, arguments: args },
+                signal,
+            )
+        } catch (error) {
+            signal.throwIfAborted()
+            // Validation/permission failures belong to this call. Let the model
+            // correct the arguments instead of aborting the entire graph.
+            const message = error instanceof Error ? error.message : String(error)
+            output = {
+                is_error: true,
+                structured_content: { error: { message } },
+                content: [{ type: 'text', text: message }],
+            }
+        }
         signal.throwIfAborted()
         const result = output.structured_content as {
             operation_id?: string
@@ -255,6 +266,15 @@ export async function runAgent(
             signal.throwIfAborted()
             const last = state.messages.at(-1)
             if (last && AIMessage.isInstance(last)) {
+                assertCorrectedCalls(
+                    (last.tool_calls || []).map((call) => ({
+                        id: call.id || '',
+                        name: call.name,
+                        args: call.args,
+                    })),
+                    latestInput,
+                    definitions,
+                )
                 toolCalls +=
                     last.tool_calls?.filter((call) => call.name === 'write_todos').length ?? 0
                 if (toolCalls > TOOL_LIMIT)
@@ -273,7 +293,7 @@ export async function runAgent(
     })
     const interruptOn = Object.fromEntries(
         catalog
-            .filter((definition) => !definition.read_only)
+            .filter((definition) => definition.requires_approval ?? !definition.read_only)
             .map((definition) => [
                 definition.name,
                 { allowedDecisions: ['approve', 'reject'] as ('approve' | 'reject')[] },
@@ -335,7 +355,12 @@ export async function runAgent(
                         continue
                     }
                     const definition = definitions.get(call.name)
-                    if (definition && (definition.read_only || decision?.type === 'approve'))
+                    if (
+                        definition &&
+                        (definition.read_only ||
+                            definition.requires_approval === false ||
+                            decision?.type === 'approve')
+                    )
                         results.push(await execute(definition, call.args, call.id ?? ''))
                     else if (call.name === 'write_todos')
                         results.push(

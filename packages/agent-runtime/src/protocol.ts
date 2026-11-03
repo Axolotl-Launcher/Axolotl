@@ -45,6 +45,8 @@ export interface ToolDefinition {
     input_schema: Record<string, unknown>
     access: 'public' | 'controlled' | 'full_access'
     read_only: boolean
+    /** Native consent policy; planning can own handles without changing user files. */
+    requires_approval?: boolean
     idempotent: boolean
     destructive: boolean
     execution: { deferred: boolean; interrupts_mutation: boolean }

@@ -6,6 +6,56 @@ import { FixtureHost, job } from './fixtures.ts'
 const signal = () => new AbortController().signal
 
 describe('real DeepAgent graph over the host gateway', () => {
+    it('runs installation planning without consent while keeping it separate from execution', async () => {
+        const host = new FixtureHost()
+        host.definitions = [
+            { ...host.definitions[1], name: 'resource_prepare_install', requires_approval: false },
+        ]
+        host.respond = (_, index) =>
+            index === 1
+                ? {
+                      role: 'assistant',
+                      content: '',
+                      tool_calls: [
+                          {
+                              id: 'plan',
+                              name: 'resource_prepare_install',
+                              args: { name: 'Create' },
+                          },
+                      ],
+                  }
+                : { role: 'assistant', content: 'Plan ready for review.' }
+        const outcome = await runAgent(job(), host, signal())
+        expect(outcome.status).toBe('completed')
+        expect(host.approvals).toHaveLength(0)
+        expect(host.calls.map((call) => call.name)).toEqual(['resource_prepare_install'])
+        expect(host.turns[1].messages.find((message) => message.role === 'tool')?.tool_error).toBe(
+            false,
+        )
+    })
+    it('returns rejected IPC tool calls as tool errors so the model can correct them', async () => {
+        const host = new FixtureHost()
+        host.respond = (_, index) =>
+            index === 1
+                ? {
+                      role: 'assistant',
+                      content: '',
+                      tool_calls: [{ id: 'invalid', name: 'instances_list', args: {} }],
+                  }
+                : { role: 'assistant', content: 'Corrected the query.' }
+        host.tool = async () => {
+            throw 'Invalid or unknown argument: cursor'
+        }
+        const result = await runAgent(job(), host, signal())
+        expect(result.status).toBe('completed')
+        expect(host.turns[1].messages.find((message) => message.role === 'tool')).toMatchObject({
+            tool_call_id: 'invalid',
+            tool_error: true,
+        })
+        expect(
+            host.turns[1].messages.find((message) => message.role === 'tool')?.content,
+        ).toContain('Invalid or unknown argument: cursor')
+    })
     it('streams text and exposes only registered tools plus internal todos', async () => {
         const host = new FixtureHost()
         const outcome = await runAgent(job(), host, signal())

@@ -1,5 +1,6 @@
 mod execution;
 mod native_jobs;
+mod resource_targets;
 mod state;
 mod types;
 mod worker;
@@ -259,7 +260,7 @@ async fn agent_runtime_submit(
             .await
             .map_err(|e| e.to_string())?
             .ok_or("Selected instance is no longer available")?;
-        json!({"instance_id":id,"name":instance.instance.name,"game_version":instance.applied_content_set.game_version}).to_string()
+        json!({"instance_id":id,"name":instance.instance.name,"game_version":instance.applied_content_set.game_version,"loader":instance.applied_content_set.loader,"loader_version":instance.applied_content_set.loader_version,"install_stage":instance.instance.install_stage}).to_string()
     } else {
         "Launcher-wide task. No default instance selected.".into()
     };
@@ -306,10 +307,11 @@ async fn agent_runtime_submit(
         format!("agent:{}", request.attempt_id)
     };
     let mut messages = store
-        .conversation_transcript(
+        .conversation_transcript_for_attempts(
             &request.thread_id,
             &request.provider_id,
             &request.model_id,
+            request.history_attempts.as_deref(),
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -522,6 +524,12 @@ async fn agent_worker_catalog(
             .filter(|entry| execution::available_with_unsettled(
                 entry, unsettled
             ))
+            .map(|entry| {
+                let mut definition = json!(resource_targets::definition(entry));
+                definition["requires_approval"] =
+                    json!(execution::requires_approval(entry));
+                definition
+            })
             .collect::<Vec<_>>()
     ))
 }
@@ -583,7 +591,8 @@ async fn agent_worker_model(
             budget(&run.tools, 256)?;
         }
     }
-    let reply = serde_json::to_value(reply).map_err(|e| e.to_string())?;
+    let mut reply = serde_json::to_value(reply).map_err(|e| e.to_string())?;
+    execution::normalize_model_arguments(&mut reply, &turn["tools"]);
     runtime
         .store()
         .await?
@@ -666,7 +675,7 @@ async fn agent_worker_approval(
     for (index, action) in actions.iter().enumerate() {
         let entry = launcher_tools::registry::get(&action.name)
             .ok_or("Unknown approval tool")?;
-        if entry.read_only || run.request.check_only {
+        if !execution::requires_approval(entry) || run.request.check_only {
             return Err("Only business writes require approval".into());
         }
         launcher_tools::registry::validate(

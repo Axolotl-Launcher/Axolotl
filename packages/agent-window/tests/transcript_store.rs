@@ -60,6 +60,7 @@ async fn continuation_keeps_successful_receipts_and_closes_unexecuted_calls_with
         tool: "read_state".into(),
         arguments: json!({}),
         is_write: false,
+        recovery_control: false,
         approval: None,
     };
     assert!(matches!(
@@ -112,6 +113,92 @@ async fn continuation_keeps_successful_receipts_and_closes_unexecuted_calls_with
         store.attempt("attempt").await.unwrap().unwrap().state,
         AttemptState::Cancelled
     );
+}
+
+#[tokio::test]
+async fn edited_history_excludes_discarded_turns_without_deleting_receipts() {
+    let (_dir, store) = setup().await;
+    store
+        .save_model_input(
+            "attempt",
+            "first",
+            &[json!({"role":"user","content":"first question"})],
+        )
+        .await
+        .unwrap();
+    store
+        .save_model_reply(
+            "attempt",
+            "first",
+            &json!({"role":"assistant","content":"first answer"}),
+        )
+        .await
+        .unwrap();
+    store
+        .transition("attempt", AttemptState::Running, AttemptState::Completed)
+        .await
+        .unwrap();
+    store
+        .enqueue_attempt(
+            &Attempt {
+                id: "discarded".into(),
+                thread_id: "thread".into(),
+                turn_id: "later".into(),
+                state: AttemptState::Queued,
+                computer_use: false,
+            },
+            &json!({"provider_id":"provider","model_id":"model"}),
+        )
+        .await
+        .unwrap();
+    store
+        .transition("discarded", AttemptState::Queued, AttemptState::Running)
+        .await
+        .unwrap();
+    store
+        .save_model_input(
+            "discarded",
+            "later",
+            &[json!({"role":"user","content":"discarded question"})],
+        )
+        .await
+        .unwrap();
+    store
+        .save_model_reply(
+            "discarded",
+            "later",
+            &json!({"role":"assistant","content":"discarded answer"}),
+        )
+        .await
+        .unwrap();
+    store
+        .transition("discarded", AttemptState::Running, AttemptState::Completed)
+        .await
+        .unwrap();
+    let history = store
+        .conversation_transcript_for_attempts(
+            "thread",
+            "provider",
+            "model",
+            Some(&["attempt".into()]),
+        )
+        .await
+        .unwrap();
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[1]["content"], "first answer");
+    assert!(
+        store
+            .conversation_transcript_for_attempts(
+                "thread",
+                "provider",
+                "model",
+                Some(&[])
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(store.attempt("discarded").await.unwrap().is_some());
 }
 
 #[tokio::test]

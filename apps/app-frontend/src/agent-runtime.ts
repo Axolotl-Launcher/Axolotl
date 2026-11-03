@@ -11,8 +11,17 @@ type LeasedJob = RuntimeJob & { lease_id: string }
 const workerId = window.__AXOLOTL_AGENT_WORKER_ID__
 if (!workerId) throw new Error('Agent worker bootstrap is missing')
 
-const workerInvoke = <T>(command: string, args: Record<string, unknown> = {}) =>
-    invoke<T>(`plugin:agent-runtime|agent_worker_${command}`, { workerId, ...args })
+const workerInvoke = async <T>(command: string, args: Record<string, unknown> = {}) => {
+    try {
+        return await invoke<T>(`plugin:agent-runtime|agent_worker_${command}`, {
+            workerId,
+            ...args,
+        })
+    } catch (error) {
+        // LangGraph annotates thrown errors with task metadata; IPC rejects with strings.
+        throw error instanceof Error ? error : new Error(String(error))
+    }
+}
 
 function gateway(job: LeasedJob): RuntimeGateway {
     const args = { attemptId: job.attempt_id, leaseId: job.lease_id }

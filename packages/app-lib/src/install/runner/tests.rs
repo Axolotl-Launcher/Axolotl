@@ -1323,6 +1323,22 @@ fn interrupted_upgrade_uses_terminal_phase_after_successful_recovery() {
 }
 
 #[test]
+fn successful_rollback_clears_an_earlier_rollback_error() {
+    let mut job_state = upgrade_job_state();
+    job_state.progress.phase = InstallPhaseId::RollingBack;
+    job_state.rollback_error = Some(InstallErrorView::from_message(
+        "rollback_error",
+        InstallPhaseId::RollingBack,
+        "rollback failed",
+    ));
+
+    recovery::finalize_rollback_state(&mut job_state, true);
+
+    assert!(job_state.rollback_error.is_none());
+    assert_eq!(job_state.progress.phase, InstallPhaseId::Finalizing);
+}
+
+#[test]
 fn rollback_failure_keeps_recovery_phase_and_error() {
     let mut job_state = upgrade_job_state();
     job_state.progress.phase = InstallPhaseId::RollingBack;

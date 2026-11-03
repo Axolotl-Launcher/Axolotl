@@ -96,7 +96,6 @@ function modpackInstance(
         timePlayed,
         createdAgo,
         {
-            install_stage: 'pack_installed',
             link: {
                 type: 'modrinth_modpack',
                 project_id: projectId,

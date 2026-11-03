@@ -142,7 +142,7 @@ export function instancePlaySessions() {
         }))
 }
 
-function byId(id: unknown) {
+export function byId(id: unknown) {
     return instances.find((entry) => entry.id === id) ?? null
 }
 

@@ -8,6 +8,7 @@ import { homeHandlers } from './home'
 import { instanceHandlers } from './instances'
 import { roomHandlers } from './rooms'
 import { runtimeHandlers } from './runtime'
+import { screenshotHandlers } from './screenshots'
 import { serverHandlers } from './servers'
 import { settingsHandlers } from './settings'
 import { skinHandlers } from './skins'
@@ -23,6 +24,7 @@ const handlers: Handlers = {
     ...instanceHandlers,
     ...roomHandlers,
     ...runtimeHandlers,
+    ...screenshotHandlers,
     ...serverHandlers,
     ...settingsHandlers,
     ...skinHandlers,
@@ -62,7 +64,9 @@ export function installDemoBackend() {
                 return null
             }
             // Tauri hands the frontend JSON: dates arrive as strings, undefined fields vanish.
+            // Binary replies (`tauri::ipc::Response`) arrive as an ArrayBuffer instead.
             const result = await handler((args ?? {}) as Record<string, unknown>)
+            if (result instanceof ArrayBuffer) return result
             return result === undefined ? null : JSON.parse(JSON.stringify(result))
         },
         { shouldMockEvents: true },

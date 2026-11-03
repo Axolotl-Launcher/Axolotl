@@ -68,5 +68,11 @@
     "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
     "sources": ["each file's source: the server jar, Java and command it ran, and when"],
     "note": "console output of a first start, the listed commands and a stop, with the folder the run left behind; lines replay with their original timing"
+  },
+  "screenshots.json": {
+    "fetchedAt": "2026-10-23T11:41:19+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": ["https://api.modrinth.com/v2/project/{id} gallery[].raw_url"],
+    "note": "gallery images of Fabulously Optimized, Cobblemon, Iris and Sodium, resized to WebP in assets/screenshots and shown as the instances' screenshots; each entry keeps its source_url"
   }
 }

@@ -33,7 +33,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import hongshiIcon from '@/assets/multiplayer/hongshi.png'
-import terracottaIcon from '@/assets/multiplayer/terracotta.png'
+import terracottaIcon from '@/assets/multiplayer/terracotta.webp'
 import { useMultiplayerSession } from '@/composables/useMultiplayerSession'
 import { hongshiErrorMessage } from '@/helpers/hongshi-messages'
 import {

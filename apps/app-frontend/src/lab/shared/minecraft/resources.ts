@@ -1,5 +1,5 @@
 import atlasLayoutData from './assets/texture-atlas.json'
-import atlasUrl from './assets/texture-atlas.png?url'
+import atlasUrl from './assets/texture-atlas.webp?url'
 import type { JavaVersionId } from './types.ts'
 
 export type TextureAtlas = {

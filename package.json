@@ -44,6 +44,7 @@
     "keep-a-changelog": "^3.0.2",
     "pngjs": "7.0.0",
     "prettier": "^3.9.6",
+    "sharp": "0.35.5",
     "turbo": "^2.11.8",
     "vue": "^3.5.42",
     "yaml": "^2.8.3"

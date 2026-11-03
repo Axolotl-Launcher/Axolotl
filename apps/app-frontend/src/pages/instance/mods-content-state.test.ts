@@ -1,7 +1,11 @@
 import { expect, it } from 'vitest'
 
 import modsSource from './Mods.vue?raw'
-import { modsContentPending, modsContentScopeTransition } from './mods-content-state'
+import {
+    modsContentLoading,
+    modsContentPending,
+    modsContentScopeTransition,
+} from './mods-content-state'
 
 const ready = { id: 'test-instance', install_stage: 'installed' } as const
 const busy = { ...ready, install_stage: 'minecraft_installing' } as const
@@ -73,10 +77,8 @@ it('refreshes once installation finishes and keeps the initial read pending', ()
         modsSource.indexOf('async function initProjectsInternal('),
         modsSource.indexOf('function enrichContentData('),
     )
-    expect(init).toContain('!contentSnapshot.value ||')
-    expect(init).toContain(
-        'mergedProjects.value.length + displayedLinkedModpackContentItems.value.length === 0',
-    )
+    expect(init).toContain('hasSnapshot: contentSnapshot.value !== null')
+    expect(init).toContain('settled: contentRefreshSettled')
     expect(
         modsContentPending({ busy: false, hasSnapshot: true, hasItems: false, loading: true }),
     ).toBe(true)
@@ -86,4 +88,26 @@ it('refreshes once installation finishes and keeps the initial read pending', ()
     expect(
         modsContentPending({ busy: false, hasSnapshot: false, hasItems: false, loading: false }),
     ).toBe(false)
+})
+
+it('keeps an empty list pending only until the first refresh round settles', () => {
+    expect(modsContentLoading({ hasSnapshot: false, hasItems: false, settled: false })).toBe(true)
+    expect(modsContentLoading({ hasSnapshot: true, hasItems: false, settled: false })).toBe(true)
+    // A confirmed empty instance refreshes in place instead of flashing the loading state.
+    expect(modsContentLoading({ hasSnapshot: true, hasItems: false, settled: true })).toBe(false)
+    expect(modsContentLoading({ hasSnapshot: true, hasItems: true, settled: false })).toBe(false)
+    const subscribe = modsSource.slice(
+        modsSource.indexOf('async function connectContentRefresh()'),
+        modsSource.indexOf('async function retryFailedContent()'),
+    )
+    expect(subscribe).toContain('contentRefreshSettled = false')
+    expect(subscribe).toContain(
+        'if (state.task && !state.task.running) contentRefreshSettled = true',
+    )
+    expect(subscribe).toContain('settled: contentRefreshSettled')
+    const invalidate = modsSource.slice(
+        modsSource.indexOf('function invalidateContentRequests('),
+        modsSource.indexOf('function suspendContentRequests()'),
+    )
+    expect(invalidate).toContain('contentRefreshSettled = false')
 })

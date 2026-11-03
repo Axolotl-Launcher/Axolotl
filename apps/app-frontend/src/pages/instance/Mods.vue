@@ -443,7 +443,11 @@ import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
 
-import { modsContentPending, modsContentScopeTransition } from './mods-content-state'
+import {
+    modsContentLoading,
+    modsContentPending,
+    modsContentScopeTransition,
+} from './mods-content-state'
 
 const messages = defineMessages({
     instanceContentProcessing: {
@@ -1250,6 +1254,7 @@ const contentRefreshTask = ref<ContentRefreshTask | null>(null)
 let contentRefreshSubscription: ReturnType<typeof createContentRefreshSubscription> | undefined
 let contentRefreshConnection: Promise<void> | undefined
 let subscribedInstanceId: string | undefined
+let contentRefreshSettled = false
 
 async function connectContentRefresh() {
     const instanceId = props.instance.id
@@ -1257,6 +1262,7 @@ async function connectContentRefresh() {
         return contentRefreshConnection
     contentRefreshSubscription?.dispose()
     subscribedInstanceId = instanceId
+    contentRefreshSettled = false
     const itemCache = new WeakMap<InstanceContentSnapshotItem, ContentItem>()
     let snapshot: InstanceContentData['snapshot'] | undefined
     const subscription = createContentRefreshSubscription(
@@ -1269,7 +1275,12 @@ async function connectContentRefresh() {
             )
                 return
             contentRefreshTask.value = state.task
-            loading.value = state.snapshot.items.length === 0 && (state.task?.running ?? true)
+            if (state.task && !state.task.running) contentRefreshSettled = true
+            loading.value = modsContentLoading({
+                hasSnapshot: true,
+                hasItems: state.snapshot.items.length > 0,
+                settled: contentRefreshSettled,
+            })
             if (snapshot === state.snapshot) return
             snapshot = state.snapshot
             const data = normalizeInstanceContentSnapshot(instanceId, state.snapshot, itemCache)
@@ -1330,6 +1341,7 @@ function invalidateContentRequests(clearState = false) {
     contentRefreshSubscription = undefined
     contentRefreshConnection = undefined
     subscribedInstanceId = undefined
+    contentRefreshSettled = false
     contentEnrichmentController?.abort()
     contentRequestGeneration += 1
     contentTitleEnrichment.clear()
@@ -2621,9 +2633,11 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
         suspendContentRequests()
         return
     }
-    loading.value =
-        !contentSnapshot.value ||
-        mergedProjects.value.length + displayedLinkedModpackContentItems.value.length === 0
+    loading.value = modsContentLoading({
+        hasSnapshot: contentSnapshot.value !== null,
+        hasItems: mergedProjects.value.length + displayedLinkedModpackContentItems.value.length > 0,
+        settled: contentRefreshSettled,
+    })
     const instanceId = props.instance.id
     const generation = ++contentRequestGeneration
     contentEnrichmentController?.abort()

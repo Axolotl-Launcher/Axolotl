@@ -1,4 +1,5 @@
 export * from './base'
+export * from './code-editor'
 export * from './flows'
 export { default as ImageViewerEditor } from './image-viewer-editor/index.vue'
 export type {

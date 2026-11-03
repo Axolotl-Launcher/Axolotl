@@ -13,11 +13,6 @@
     "@modrinth/tooling-config": "workspace:*"
   },
   "dependencies": {
-    "@codemirror/commands": "^6.11.0",
-    "@codemirror/lang-markdown": "^6.5.2",
-    "@codemirror/language": "^6.12.4",
-    "@codemirror/state": "^6.7.4",
-    "@codemirror/view": "^6.43.11",
     "@types/markdown-it": "^14.2.0",
     "@types/three": "^0.185.4",
     "dayjs": "^1.11.23",

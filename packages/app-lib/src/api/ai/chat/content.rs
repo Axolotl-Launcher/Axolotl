@@ -1,5 +1,23 @@
 use super::*;
 
+pub(super) fn responses_tools(tools: &[Value]) -> Vec<Value> {
+    tools
+        .iter()
+        .map(|tool| {
+            let function = &tool["function"];
+            // Responses otherwise normalizes schemas toward strict mode. Registry
+            // optional fields must stay optional, just as they are over MCP.
+            json!({
+                "type": "function",
+                "name": function["name"],
+                "description": function["description"],
+                "parameters": function["parameters"],
+                "strict": function["strict"].as_bool().unwrap_or(false),
+            })
+        })
+        .collect()
+}
+
 pub(super) fn openai_messages(
     messages: &[ChatMessage],
     ollama: bool,
@@ -250,7 +268,20 @@ pub(super) fn responses_messages(
         match message.role.as_str() {
             "system" => { instructions.push_str(&message.content); instructions.push('\n'); }
             "tool" => input.push(json!({"type":"function_call_output","call_id":message.tool_call_id,"output":if message.images.is_empty() {json!(text(message))} else {json!(openai_parts(&text(message), &message.images, true))}})),
-            "assistant" if message.opaque.is_array() => input.extend(message.opaque.as_array().unwrap().iter().cloned()),
+            "assistant" if message.opaque.is_array() => {
+                for original in message.opaque.as_array().unwrap() {
+                    let mut item = original.clone();
+                    if item["type"] == "function_call"
+                        && let Some(call) = message.tool_calls.iter().find(|call| item["call_id"] == call.id)
+                    {
+                        // Keep provider IDs/reasoning intact, but replay the
+                        // canonical arguments that the host actually executed.
+                        item["name"] = json!(call.name);
+                        item["arguments"] = json!(call.args.to_string());
+                    }
+                    input.push(item);
+                }
+            }
             "assistant" => {
                 if !message.content.is_empty() { input.push(json!({"role":"assistant","content":message.content})); }
                 for call in &message.tool_calls { input.push(json!({"type":"function_call","call_id":call.id,"name":call.name,"arguments":call.args.to_string()})); }

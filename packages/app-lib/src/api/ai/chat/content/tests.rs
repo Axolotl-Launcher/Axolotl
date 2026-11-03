@@ -1,5 +1,37 @@
 use super::*;
 
+#[test]
+fn responses_tools_preserve_optional_arguments() {
+    let parameters = json!({"type":"object","properties":{"query":{"type":"string"},"cursor":{"type":"string","minLength":1}},"required":["query"],"additionalProperties":false});
+    let mut tool = json!({"type":"function","function":{"name":"resource_search","description":"Search","parameters":parameters}});
+    let output = responses_tools(&[tool.clone()]);
+    assert_eq!(output[0]["strict"], false);
+    assert_eq!(output[0]["parameters"], parameters);
+    assert_eq!(tool["function"].get("strict"), None);
+    tool["function"]["strict"] = json!(true);
+    assert_eq!(responses_tools(&[tool])[0]["strict"], true);
+}
+
+#[test]
+fn responses_history_uses_canonical_calls_without_rewriting_reasoning() {
+    let mut message = assistant();
+    message.tool_calls = vec![ToolCall {
+        id: "call".into(),
+        name: "resource_search".into(),
+        args: json!({"query":"Create"}),
+    }];
+    let reasoning = json!({"type":"reasoning","id":"reasoning","encrypted_content":"keep-verbatim"});
+    message.opaque = json!([reasoning, {"type":"function_call","id":"provider-id","call_id":"call","name":"resource_search","arguments":"{\"query\":\"Create\",\"cursor\":\"initial\"}"}]);
+    let (_, items) = responses_messages(&[message]);
+    assert_eq!(items[0], reasoning);
+    assert_eq!(items[1]["id"], "provider-id");
+    assert_eq!(
+        serde_json::from_str::<Value>(items[1]["arguments"].as_str().unwrap())
+            .unwrap(),
+        json!({"query":"Create"})
+    );
+}
+
 fn image(data: &str) -> ModelImage {
     ModelImage {
         mime_type: "image/png".into(),

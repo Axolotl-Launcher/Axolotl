@@ -300,7 +300,7 @@ impl ChatModel {
     ) -> crate::Result<ChatMessage> {
         let (instructions, mut input) =
             content::responses_messages(&turn.messages);
-        let tools = turn.tools.iter().map(|tool| json!({ "type": "function", "name": tool["function"]["name"], "description": tool["function"]["description"], "parameters": tool["function"]["parameters"] })).collect::<Vec<_>>();
+        let tools = content::responses_tools(&turn.tools);
         let lite = self.definition.id == "chatgpt"
             && matches!(
                 self.model_id.as_str(),

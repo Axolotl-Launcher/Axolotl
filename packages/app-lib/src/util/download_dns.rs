@@ -1163,11 +1163,19 @@ impl Resolve for DownloadDnsResolver {
         let host = name.as_str().to_string();
         let resolver = self.clone();
         Box::pin(async move {
+            // reqwest pairs each resolved address with the URL's port, so the
+            // port here is a placeholder for production. Tests point a host at
+            // a loopback fixture on an ephemeral port and cannot use 443, so
+            // hand back the port the test address was set with.
+            #[cfg(test)]
+            let test_port = resolver.test_port(&host);
+            #[cfg(not(test))]
+            let test_port = None;
             let addresses = resolver
                 .refresh(&host)
                 .await?
                 .into_iter()
-                .map(|address| SocketAddr::new(address, 0))
+                .map(|address| SocketAddr::new(address, test_port.unwrap_or(0)))
                 .collect::<Vec<_>>();
             Ok(Box::new(addresses.into_iter()) as Addrs)
         })

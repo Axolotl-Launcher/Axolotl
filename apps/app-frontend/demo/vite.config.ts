@@ -2,6 +2,7 @@ import { resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { type ConfigEnv, defineConfig, mergeConfig, type UserConfig } from 'vite'
 
+import appPackage from '../package.json'
 import appConfig from '../vite.config'
 
 const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -35,6 +36,8 @@ export default defineConfig((env: ConfigEnv) => {
                 },
             ],
         },
+        // tauri.conf.json takes its version from this package.json, which each release tag sets.
+        define: { __AXOLOTL_DEMO_VERSION__: JSON.stringify(appPackage.version) },
         server: { port: 5202, strictPort: false },
         build: {
             outDir: resolve(projectRoot, 'demo/dist'),

@@ -1,11 +1,14 @@
 import tauriConf from '../../../app/tauri.conf.json'
 import type { Handlers } from './types'
 
+/** The launcher version, defined by demo/vite.config.ts (tauri.conf.json only names its file). */
+declare const __AXOLOTL_DEMO_VERSION__: string
+
 const ignore = () => null
 
 /** Process, window and update commands of the desktop shell. */
 export const appHandlers: Handlers = {
-    'plugin:app|version': () => tauriConf.version,
+    'plugin:app|version': () => __AXOLOTL_DEMO_VERSION__,
     'plugin:app|name': () => tauriConf.productName,
     initialize_state: ignore,
     show_window: ignore,

@@ -81,10 +81,11 @@ export const screenshotHandlers: Handlers = {
         )
         return group
     },
-    'plugin:instance|instance_rename_screenshot_group': ({ id, newName }) => {
-        groups = groups.map((group) =>
-            group.id === id ? { ...group, name: String(newName) } : group,
-        )
+    'plugin:instance|instance_rename_screenshot_group': ({ id, newName }): ScreenshotGroup => {
+        if (!groups.some((group) => group.id === id)) throw new Error(`Unknown group ${String(id)}`)
+        const renamed = { id: String(id), name: String(newName) }
+        groups = groups.map((group) => (group.id === id ? renamed : group))
+        return renamed
     },
     'plugin:instance|instance_delete_screenshot_group': ({ id }) => {
         groups = groups.filter((group) => group.id !== id)

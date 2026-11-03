@@ -10,6 +10,7 @@ members = [
   "packages/launcher-mcp",
   "packages/launcher-tools",
   "packages/path-util",
+  "third-party/tauri-plugin-http",
 ]
 
 [workspace.package]
@@ -106,7 +107,7 @@ quick-xml = "0.41.0"
 # Stays on 0.8 until p256 updates to 0.9. Floor at 0.8.8 (GHSA-cq8v-f236-94qc).
 rand = "0.8.8"
 regex = "1.12.2"
-reqwest = { version = "0.12.24", default-features = false }
+reqwest = { version = "0.13.4", default-features = false }
 rgb = "0.8.52"
 rmcp = { version = "3.7.0", default-features = false, features = [
   "server",
@@ -139,7 +140,7 @@ tauri-build = "2.4.1"
 tauri-plugin-deep-link = "2.4.3"
 tauri-plugin-dialog = "2.4.0"
 tauri-plugin-fs = "2.4.5"
-tauri-plugin-http = "2.5.7"
+tauri-plugin-http = { path = "third-party/tauri-plugin-http" }
 tauri-plugin-opener = "2.5.0"
 tauri-plugin-os = "2.3.1"
 tauri-plugin-single-instance = "2.3.4"

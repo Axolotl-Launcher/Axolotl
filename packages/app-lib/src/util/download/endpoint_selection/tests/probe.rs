@@ -281,7 +281,7 @@ impl TlsFixture {
         };
         let mut builder = probe_client_builder(&candidate, &target);
         if trust_fixture {
-            builder = builder.add_root_certificate(self.root.clone());
+            builder = builder.tls_certs_only([self.root.clone()]);
         }
         ProbeSession::with_client(
             candidate,
@@ -353,11 +353,11 @@ async fn pinned_redirect_uses_other_hosts_normal_client_and_removes_authorizatio
     )
     .await;
     let mut clients = production_clients(&origin);
-    let fallback = reqwest::Client::builder()
+    let fallback = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .http1_only()
-        .add_root_certificate(other.root.clone())
+        .tls_certs_only([other.root.clone()])
         .resolve("different.invalid", other.address)
         .build()
         .unwrap();

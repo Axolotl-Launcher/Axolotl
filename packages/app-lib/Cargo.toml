@@ -84,15 +84,16 @@ reqwest = { workspace = true, features = [
   "brotli",
   "charset",
   "deflate",
+  "form",
   "gzip",
   "http2",
   "json",
-  "macos-system-configuration",
   "multipart",
-  "rustls-tls-native-roots",
-  "rustls-tls-webpki-roots",
+  "query",
+  "rustls-no-provider",
   "socks",
   "stream",
+  "system-proxy",
 ] }
 rgb = { workspace = true }
 rustls = { workspace = true }

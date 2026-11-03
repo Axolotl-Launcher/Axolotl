@@ -157,7 +157,7 @@ impl Default for DownloadDnsResolver {
             doh_enabled: false,
             doh_endpoints: Arc::new(vec![Arc::from(BUILTIN_DOH_SERVERS[0])]),
             doh_clients: Arc::new(vec![
-                reqwest::Client::builder()
+                crate::util::http::client_builder()
                     .no_proxy()
                     .timeout(DOH_REQUEST_TIMEOUT)
                     .connect_timeout(DOH_CONNECT_TIMEOUT)
@@ -202,8 +202,10 @@ impl DownloadDnsResolver {
         let mut doh_clients = Vec::with_capacity(endpoints.len());
         for _ in &endpoints {
             let builder = match proxy {
-                Some(proxy) => proxy.apply(reqwest::Client::builder())?,
-                None => reqwest::Client::builder().no_proxy(),
+                Some(proxy) => {
+                    proxy.apply(crate::util::http::client_builder())?
+                }
+                None => crate::util::http::client_builder().no_proxy(),
             };
             doh_clients.push(
                 builder
@@ -1193,7 +1195,10 @@ mod tests {
         resolver.doh_endpoints =
             Arc::new(vec![Arc::from(format!("http://{address}/dns-query"))]);
         resolver.doh_clients = Arc::new(vec![
-            reqwest::Client::builder().no_proxy().build().unwrap(),
+            crate::util::http::client_builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
         ]);
         let addresses = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
@@ -1217,10 +1222,13 @@ mod tests {
         resolver.doh_endpoints =
             Arc::new(vec![Arc::from(format!("http://{address}/dns-query"))]);
         resolver.doh_clients = Arc::new(vec![
-            reqwest::Client::builder().no_proxy().build().unwrap(),
+            crate::util::http::client_builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
         ]);
         let (port, server) = spawn_ipv4_server().await;
-        let response = reqwest::Client::builder()
+        let response = crate::util::http::client_builder()
             .no_proxy()
             .connect_timeout(DNS_LOOKUP_TIMEOUT)
             .dns_resolver(Arc::new(resolver))
@@ -1255,7 +1263,10 @@ mod tests {
             let mut resolver = DownloadDnsResolver::with_doh(true).unwrap();
             resolver.doh_endpoints = Arc::new(vec![endpoint.clone()]);
             resolver.doh_clients = Arc::new(vec![
-                reqwest::Client::builder().no_proxy().build().unwrap(),
+                crate::util::http::client_builder()
+                    .no_proxy()
+                    .build()
+                    .unwrap(),
             ]);
             resolver.remember_answer(
                 "localhost",
@@ -1311,7 +1322,10 @@ mod tests {
             listener.local_addr().unwrap()
         ))]);
         resolver.doh_clients = Arc::new(vec![
-            reqwest::Client::builder().no_proxy().build().unwrap(),
+            crate::util::http::client_builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
         ]);
         let addresses = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
@@ -1508,7 +1522,7 @@ mod tests {
         host: &str,
         port: u16,
     ) -> String {
-        reqwest::Client::builder()
+        crate::util::http::client_builder()
             .no_proxy()
             .connect_timeout(Duration::from_secs(2))
             .dns_resolver(Arc::new(resolver))
@@ -1708,7 +1722,7 @@ mod tests {
         let listener = tokio::net::TcpListener::bind(address).await.unwrap();
         let refused = listener.local_addr().unwrap();
         drop(listener);
-        let error = reqwest::Client::builder()
+        let error = crate::util::http::client_builder()
             .no_proxy()
             .resolve("redirect-target.test", refused)
             .timeout(Duration::from_secs(2))

@@ -327,7 +327,7 @@ fn is_direct_cdn_icon_url(url: &str) -> bool {
 
 static DIRECT_ICON_CLIENT: std::sync::LazyLock<reqwest::Client> =
     std::sync::LazyLock::new(|| {
-        reqwest::Client::builder()
+        crate::util::http::client_builder()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(std::time::Duration::from_secs(15))
             .read_timeout(std::time::Duration::from_secs(30))

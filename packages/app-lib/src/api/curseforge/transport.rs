@@ -198,7 +198,7 @@ async fn api_permit(
 }
 
 static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .connect_timeout(Duration::from_secs(15))
         .read_timeout(Duration::from_secs(30))
         .redirect(reqwest::redirect::Policy::none())
@@ -217,7 +217,7 @@ async fn response_body(
 
 #[cfg(debug_assertions)]
 static LOCAL_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .connect_timeout(Duration::from_secs(15))
         .read_timeout(Duration::from_secs(30))
         .redirect(reqwest::redirect::Policy::none())

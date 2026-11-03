@@ -7,7 +7,6 @@ use tauri::http::HeaderValue;
 use tauri::http::header::ACCEPT;
 use tauri::{Manager, ResourceId, Runtime, Webview};
 use tauri_plugin_http::reqwest;
-use tauri_plugin_http::reqwest::ClientBuilder;
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
 use theseus::fetch::{
     DownloadRequest, FetchProgressFn, Integrity, ResourceClass,
@@ -94,7 +93,7 @@ async fn fetch_update_artifact(
     version: &str,
     download_url: Option<&Url>,
 ) -> Result<UpdateArtifact> {
-    let response = ClientBuilder::new()
+    let response = theseus::http_client_builder()
         .user_agent(launcher_user_agent())
         .timeout(UPDATE_DOWNLOAD_TIMEOUT)
         .build()?
@@ -342,7 +341,8 @@ pub async fn get_update_size<R: Runtime>(
         );
     }
 
-    let mut request = ClientBuilder::new().user_agent(launcher_user_agent());
+    let mut request =
+        theseus::http_client_builder().user_agent(launcher_user_agent());
     if let Some(timeout) = update.timeout {
         request = request.timeout(timeout);
     }

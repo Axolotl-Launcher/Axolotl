@@ -322,7 +322,7 @@ mod tests {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         drop(listener);
-        let error = reqwest::Client::builder()
+        let error = crate::util::http::client_builder()
             .no_proxy()
             .connect_timeout(std::time::Duration::from_secs(10))
             .build()

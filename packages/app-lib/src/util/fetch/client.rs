@@ -50,7 +50,7 @@ pub(crate) fn reqwest_client_builder() -> reqwest::ClientBuilder {
     };
     #[cfg(not(test))]
     let read_timeout = FILE_TRANSFER_READ_TIMEOUT;
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if retired_sources::is_retired(attempt.url()) {
                 attempt.error(NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED)

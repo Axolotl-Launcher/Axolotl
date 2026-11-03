@@ -36,7 +36,7 @@ const OAUTH_REFRESH_SKEW_SECONDS: u64 = 120;
 const OAUTH_DEFAULT_TOKEN_TTL_SECONDS: u64 = 60 * 60;
 
 static AI_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .timeout(Duration::from_secs(45))
         .user_agent(crate::launcher_user_agent())
         .build()
@@ -44,7 +44,7 @@ static AI_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
 });
 
 static AI_TRANSLATION_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .timeout(Duration::from_secs(90))
         .user_agent(crate::launcher_user_agent())
         .build()
@@ -3674,7 +3674,7 @@ mod tests {
 
     #[test]
     fn opencode_session_headers_are_stable_and_provider_scoped() {
-        let client = reqwest::Client::builder()
+        let client = crate::util::http::client_builder()
             .user_agent(crate::launcher_user_agent())
             .build()
             .unwrap();
@@ -4073,7 +4073,7 @@ mod tests {
             "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8"
         );
         let request = sign_bedrock_request(
-            reqwest::Client::new().post(
+            crate::util::http::client_builder().build().unwrap().post(
                 "https://bedrock-runtime.us-east-1.amazonaws.com/model/example/invoke",
             ),
             "https://bedrock-runtime.us-east-1.amazonaws.com/model/example/invoke",

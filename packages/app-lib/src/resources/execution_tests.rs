@@ -696,6 +696,15 @@ async fn restoring_a_missing_current_artifact_executes_without_inventing_a_backu
         .unwrap()
         .remove(0);
     assert!(!current.missing);
+    assert_eq!(current.entry_id, original.entry_id);
+    assert_eq!(current.artifact, original.artifact);
+    assert!(
+        sqlx::query("PRAGMA foreign_key_check")
+            .fetch_all(&state.pool)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     let history = history::list_with_state("instance", None, &state)
         .await
         .unwrap();

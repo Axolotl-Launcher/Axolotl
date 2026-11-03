@@ -1,6 +1,12 @@
 import fs from 'node:fs'
 
-import { portableTargets, updaterTargets } from './create-update-manifest.mjs'
+import {
+    firstTagWithArtifacts,
+    portableArtifactName,
+    portableTargets,
+    requiresArtifacts,
+    updaterTargets,
+} from './create-update-manifest.mjs'
 import { isMain, releaseVersion, verifyAssetUrl } from './release-utils.mjs'
 
 export function verifyUpdateManifest(manifest, tag, source = 'github', release) {
@@ -52,6 +58,10 @@ export function verifyUpdateManifest(manifest, tag, source = 'github', release) 
             ) {
                 throw new Error(`Invalid manifest artifact: ${key}`)
             }
+            // A stale zip attached to a newer release must not be described as this version's.
+            if (artifact.name !== portableArtifactName(tag)) {
+                throw new Error(`Manifest artifact ${key} does not match ${expectedVersion}`)
+            }
             const filename = decodeURIComponent(new URL(artifact.url).pathname.split('/').at(-1))
             if (filename !== artifact.name) {
                 throw new Error(`Manifest artifact ${key} does not match its download URL`)
@@ -62,9 +72,13 @@ export function verifyUpdateManifest(manifest, tag, source = 'github', release) 
             verifyAssetUrl(artifact.url, tag, filename, source)
         }
     }
+    // Releases older than the one that introduced the field never had a manifest with it.
+    if (!requiresArtifacts(tag)) return
     for (const target of portableTargets) {
         if (manifest.artifacts?.[target.key]) continue
-        console.log(`Manifest has no ${target.key} artifact; releases before it are still accepted`)
+        throw new Error(
+            `Manifest is missing the ${target.key} artifact required since ${firstTagWithArtifacts}`,
+        )
     }
 }
 

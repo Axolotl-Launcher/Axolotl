@@ -12006,6 +12006,9 @@
   "app.settings.storage.total-description": {
     "message": "总大小包含符号链接与 Junction 引用的大小"
   },
+  "app.settings.storage.unknownError": {
+    "message": "未知错误"
+  },
   "app.settings.storage.update": {
     "message": "更新"
   },

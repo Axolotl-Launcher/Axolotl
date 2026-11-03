@@ -35,14 +35,16 @@ function assertPublishedManifest(published, expected) {
         }
     }
 
-    // Releases published before the artifacts field existed keep verifying without it.
+    // Releases published before the artifacts field existed keep verifying without it, but a
+    // release whose expected manifest lists artifacts must not ship one that lacks them.
     const artifacts = published.artifacts
+    const keys = Object.keys(expected.artifacts ?? {})
     if (artifacts === undefined) {
+        if (keys.length > 0) throw mismatch()
         console.log('Preserved published manifest without a non-updater artifact list')
         return
     }
     if (typeof artifacts !== 'object' || Array.isArray(artifacts)) throw mismatch()
-    const keys = Object.keys(expected.artifacts ?? {})
     if (Object.keys(artifacts).sort().join() !== [...keys].sort().join()) throw mismatch()
     for (const key of keys) {
         const actual = artifacts[key]

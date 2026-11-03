@@ -355,4 +355,52 @@ pub(super) mod enabled {
             }
         }
     }
+
+    #[cfg(test)]
+    mod table_tests {
+        use super::*;
+        use serde_json::json;
+
+        fn out() -> PathBuf {
+            std::env::temp_dir()
+                .join(format!("sched-instrument-{}", std::process::id()))
+                .join("violations.json")
+        }
+
+        #[test]
+        fn a_registry_without_items_disables_the_table() {
+            assert!(
+                Table::from_json(&json!({}), &json!({}), out()).is_none(),
+                "a registry without items cannot drive the guard"
+            );
+            assert!(
+                Table::from_json(&json!({ "items": [] }), &json!({}), out())
+                    .is_some(),
+                "an empty item list is a valid, empty table"
+            );
+        }
+
+        #[test]
+        fn an_item_without_a_rank_or_scope_is_skipped() {
+            let table = Table::from_json(
+                &json!({ "items": [
+                    { "ident": "t::kept", "rank": 1, "scopeClass": "S8" },
+                    { "ident": "t::no_rank", "scopeClass": "S8" },
+                    { "ident": "t::no_scope", "rank": 2 },
+                    { "rank": 3, "scopeClass": "S8" }
+                ] }),
+                &json!({}),
+                out(),
+            )
+            .unwrap();
+            assert!(table.ranks.contains_key("t::kept"));
+            assert_eq!(table.ranks.len(), 1, "incomplete items are dropped");
+        }
+
+        #[test]
+        fn a_holder_describes_itself_for_the_violation_record() {
+            let thread = Holder::Thread(std::thread::current().id());
+            assert!(!thread.describe().is_empty());
+        }
+    }
 }

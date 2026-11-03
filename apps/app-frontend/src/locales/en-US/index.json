@@ -13860,6 +13860,9 @@
   "app.settings.storage.unknown": {
     "message": "Kept"
   },
+  "app.settings.storage.unknownError": {
+    "message": "Unknown error"
+  },
   "app.settings.storage.unknownUsage": {
     "message": "Files whose usage cannot be verified are kept."
   },

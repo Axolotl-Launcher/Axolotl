@@ -62,6 +62,9 @@ function main() {
             open: { type: 'boolean', default: false },
             'fail-under': { type: 'string' },
             'ignore-run-fail': { type: 'boolean', default: false },
+            // CI sets this so a failing test suite still produces the report:
+            // a red run is exactly when the lcov and HTML matter.
+            'keep-report-on-test-fail': { type: 'boolean', default: false },
         },
     })
 
@@ -74,8 +77,16 @@ function main() {
 
     // A measurement run must not merge profiling data left by an earlier run.
     run('cargo', ['llvm-cov', 'clean', '--workspace'])
-    for (const args of coveragePasses({ ignoreRunFail: values['ignore-run-fail'] }))
-        run('cargo', args)
+    let testsFailed = false
+    for (const args of coveragePasses({ ignoreRunFail: values['ignore-run-fail'] })) {
+        try {
+            run('cargo', args)
+        } catch (error) {
+            if (!values['keep-report-on-test-fail']) throw error
+            testsFailed = true
+            console.error(`Coverage run failed; reporting what was measured: ${error.message}`)
+        }
+    }
 
     run('cargo', ['llvm-cov', 'report', '--lcov', '--output-path', lcov])
     run('cargo', ['llvm-cov', 'report', '--html', '--output-dir', html])
@@ -111,6 +122,7 @@ function main() {
             process.exitCode = 1
         }
     }
+    if (testsFailed) process.exitCode = 1
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {

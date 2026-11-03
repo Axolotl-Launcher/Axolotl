@@ -1,8 +1,7 @@
 //! The provider and content vocabulary a favorite is described in.
 //!
-//! It lives on its own so both the logic that uses a favorite and the
-//! collection that stores one can depend on it, without either depending on
-//! the other.
+//! It lives on its own so the command surface and the resource layer depend on
+//! the vocabulary without depending on each other.
 
 use serde::{Deserialize, Serialize};
 
@@ -52,19 +51,6 @@ impl ContentFavoriteType {
             Self::Resourcepack => "resourcepack",
             Self::Datapack => "datapack",
             Self::Shader => "shader",
-        }
-    }
-
-    pub(crate) fn parse(value: &str) -> crate::Result<Self> {
-        match value {
-            "mod" => Ok(Self::Mod),
-            "resourcepack" => Ok(Self::Resourcepack),
-            "datapack" => Ok(Self::Datapack),
-            "shader" => Ok(Self::Shader),
-            _ => Err(crate::ErrorKind::InputError(format!(
-                "Unsupported content favorite type: {value}"
-            ))
-            .into()),
         }
     }
 }

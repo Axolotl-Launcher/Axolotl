@@ -15,7 +15,7 @@ import {
 } from '@modrinth/ui'
 
 import { useDownloadSource } from '~/composables/use-download-source'
-import { type DownloadSource, downloadSources } from '~/utils/download-sources'
+import { createDownloadSources, type DownloadSource } from '~/utils/download-sources'
 
 type Theme = 'system' | 'light' | 'dark' | 'oled'
 type SettingsTab = 'appearance' | 'downloads' | 'language'
@@ -24,6 +24,13 @@ const open = defineModel<boolean>({ required: true })
 const { formatMessage } = useVIntl()
 const { locale, setLocale } = injectI18n()
 const { selectedSource, resolvedSource, setDownloadSource } = useDownloadSource()
+const config = useRuntimeConfig()
+const downloadSources = createDownloadSources({
+    githubUrl: config.public.githubUrl,
+    updateServerUrl: config.public.updateServerUrl,
+    updateArtifactUrl: config.public.updateArtifactUrl,
+    gitlinkReleasesUrl: config.public.gitlinkReleasesUrl,
+})
 
 const preferredTheme = ref<Theme>('system')
 const systemTheme = ref<'light' | 'dark'>('dark')

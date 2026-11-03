@@ -97,3 +97,49 @@ it('switching release routes preserves the new version’s dependency details wh
         wrapper.unmount()
     }
 })
+
+it('renders the version before its dependency details arrive', async () => {
+    route.params.version = 'with-dependency'
+    let complete!: (value: unknown[]) => void
+    vi.mocked(get_project_many).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                complete = resolve
+            }),
+    )
+    const wrapper = mount(
+        defineComponent({
+            setup: () => () =>
+                h(Suspense, null, {
+                    default: () =>
+                        h(Version, {
+                            project: { id: 'project' },
+                            versions: [
+                                {
+                                    id: 'with-dependency',
+                                    name: 'With dependency',
+                                    dependencies: [{ project_id: 'slow-dependency' }],
+                                },
+                            ],
+                            members: [],
+                            install: () => {},
+                            installed: false,
+                            installing: false,
+                            installedVersion: '',
+                        } as never),
+                }),
+        }),
+        { global: { stubs: { RouterLink: true }, directives: { tooltip: {} } } },
+    )
+    try {
+        await flushPromises()
+        expect(wrapper.text()).toContain('"version":"with-dependency"')
+        expect(wrapper.text()).toContain('"loading":true')
+        complete([{ id: 'slow-dependency' }])
+        await flushPromises()
+        expect(wrapper.text()).toContain('slow-dependency')
+        expect(wrapper.text()).toContain('"loading":false')
+    } finally {
+        wrapper.unmount()
+    }
+})

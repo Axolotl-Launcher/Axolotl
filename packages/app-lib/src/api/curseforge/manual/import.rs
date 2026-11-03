@@ -95,7 +95,7 @@ pub(crate) async fn import_pending_manual_download_from_path(
     source_path: &Path,
 ) -> crate::Result<Option<String>> {
     let state = State::get().await?;
-    let pending = crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    let pending = crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         instance_id,
         &state.pool,
     )
@@ -275,7 +275,7 @@ pub(super) async fn install_manual_download(
         )
         .await?;
         let state = State::get().await?;
-        let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+        let content_set = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
             instance_id,
             &state.pool,
         )
@@ -287,7 +287,7 @@ pub(super) async fn install_manual_download(
         })?;
         let _instance_lock = state.lock_instance_content(instance_id).await;
         let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-        crate::state::instances::adapters::sqlite::content_rows::complete_pending_manual_download(
+        crate::state::instances::adapters::sqlite::pack_members::complete_pending_manual_download(
             instance_id,
             &download.project_id.to_string(),
             &download.file_id.to_string(),
@@ -295,7 +295,7 @@ pub(super) async fn install_manual_download(
             &mut tx,
         )
         .await?;
-        crate::state::instances::adapters::sqlite::content_rows::bump_content_set_revision_in_transaction(
+        crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
             &content_set.id,
             &mut tx,
         )
@@ -325,11 +325,19 @@ pub(super) async fn install_manual_download(
         )
         .await?;
         let state = State::get().await?;
+        // Held through the import and the record that completes it (the lock
+        // is reentrant), so no content change or deletion runs in between.
+        let _instance_lock = state.lock_instance_content(instance_id).await;
         let world_name = crate::state::instances::commands::import_world_save(
             &state,
             instance_id,
             &verified_source,
             None,
+            crate::install::critical_section::whitelisted(
+                crate::install::critical_section::WhitelistSite::CurseForgeManualWorldImport,
+                &_instance_lock,
+            )
+            .into(),
         )
         .await?;
         complete_manual_world_download(instance_id, download).await?;
@@ -351,13 +359,13 @@ pub(super) async fn install_manual_download(
         instance_id,
         format!("{target_folder}/{file_name}"),
         localized_candidate,
-        &state.pool,
+        &state,
     )
     .await?;
     let full_path = crate::api::instance::get_full_path(instance_id)
         .await?
         .join(&relative_path);
-    let previous_path =
+    let (previous_path, verified_modified) =
         crate::state::materialize_verified_project_download_copy(
             source_path,
             &full_path,
@@ -403,6 +411,26 @@ pub(super) async fn install_manual_download(
         relative_path = %relative_path,
         "Completed CurseForge pending manual download record"
     );
+    if let Err(error) = state
+        .file_fingerprints
+        .seed_verified(
+            &state,
+            instance_id,
+            &crate::api::instance::get_full_path(instance_id).await?,
+            &relative_path,
+            crate::resources::ArtifactIntegrity {
+                size: Some(size),
+                hashes: vec![crate::resources::ContentHash {
+                    algorithm: crate::resources::HashAlgorithm::Sha1,
+                    value: sha1.into(),
+                }],
+            },
+            verified_modified,
+        )
+        .await
+    {
+        tracing::warn!(%error, "Could not save verified manual download fingerprint");
+    }
     if download.ownership_kind
         == crate::state::instances::ContentOwnershipKind::PackManaged
         && download.operation_kind
@@ -419,7 +447,7 @@ pub(crate) async fn mark_pack_member_version_override(
 ) -> crate::Result<()> {
     let state = State::get().await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+    let content_set = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
         instance_id,
         &state.pool,
     )
@@ -430,23 +458,15 @@ pub(crate) async fn mark_pack_member_version_override(
         )
     })?;
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    let updated = sqlx::query(
-        "UPDATE instance_pack_members
-         SET override_kind = 'version', modified_at = ?
-         WHERE content_entry_id IN (
-            SELECT entry.id
-            FROM instance_content_entries entry
-            INNER JOIN instance_files file ON file.id = entry.file_id
-            WHERE entry.content_set_id = ? AND file.relative_path = ?
-         )",
+    let updated = crate::state::instances::adapters::sqlite::pack_members::mark_path_version_override_in_transaction(
+        &content_set.id,
+        relative_path,
+        chrono::Utc::now().timestamp(),
+        &mut tx,
     )
-    .bind(chrono::Utc::now().timestamp())
-    .bind(&content_set.id)
-    .bind(relative_path)
-    .execute(&mut *tx)
     .await?;
-    if updated.rows_affected() > 0 {
-        crate::state::instances::adapters::sqlite::content_rows::bump_content_set_revision_in_transaction(
+    if updated > 0 {
+        crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
             &content_set.id,
             &mut tx,
         )

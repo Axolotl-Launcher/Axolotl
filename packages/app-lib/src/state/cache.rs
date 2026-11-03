@@ -1,4 +1,6 @@
 use crate::api::curseforge::CurseForgeProject;
+use crate::state::store::cache::{Cache, CacheKey, CacheRecord};
+use crate::state::store::{Collection as _, Handle};
 use crate::state::{
     CurseForgeProjectId, ModrinthProjectId, ModrinthVersionId, ProjectType,
 };
@@ -290,6 +292,8 @@ fn cache_read_failure(
     .into()
 }
 
+/// The cache rows of `pool`, named the way the store names them.
+///
 /// Cached modpack file hashes for filtering content
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CachedModpackFiles {
@@ -1931,6 +1935,28 @@ impl CachedEntry {
         );
     }
 
+    /// The row this entry is stored as.
+    fn stored(&self) -> crate::Result<(CacheKey, CacheRecord)> {
+        let data = match self.data.as_ref() {
+            Some(value) => {
+                Some(serde_json::to_string(&value.to_json_value()?)?)
+            }
+            None => None,
+        };
+
+        Ok((
+            CacheKey {
+                data_type: self.type_.as_str().to_string(),
+                id: self.id.clone(),
+            },
+            CacheRecord {
+                alias: self.alias.clone(),
+                data,
+                expires: self.expires,
+            },
+        ))
+    }
+
     #[tracing::instrument(skip(pool, fetch_semaphore))]
     pub async fn get(
         type_: CacheValueType,
@@ -2206,7 +2232,7 @@ impl CachedEntry {
                         type_,
                         expired_keys,
                         &state.api_semaphore,
-                        &state.pool,
+                        state.cache_pool(),
                         false,
                     )
                     .await?
@@ -2217,7 +2243,7 @@ impl CachedEntry {
                     Self::persist_fetched_cache_best_effort(
                         type_,
                         &values,
-                        &state.pool,
+                        state.cache_pool(),
                         CacheRefreshSource::Background,
                     )
                     .await;
@@ -2254,7 +2280,7 @@ impl CachedEntry {
             uri_path: Option<&'static str>,
             keys: &DashSet<impl Display + Eq + Hash + Serialize>,
             fetch_semaphore: &FetchSemaphore,
-            pool: &SqlitePool,
+            _pool: &SqlitePool,
         ) -> crate::Result<Vec<T>> {
             const MAX_REQUEST_SIZE: usize = 800;
 
@@ -2276,7 +2302,6 @@ impl CachedEntry {
                     None,
                     uri_path,
                     fetch_semaphore,
-                    pool,
                 )
             }))
             .await?;
@@ -2356,7 +2381,6 @@ impl CachedEntry {
                             None,
                             $uri_path,
                             &fetch_semaphore,
-                            pool,
                         )
                         .await?,
                     )
@@ -2518,7 +2542,6 @@ impl CachedEntry {
                             game_version.as_deref(),
                             url,
                             fetch_semaphore,
-                            pool,
                             force_refresh,
                         )
                     },
@@ -2550,7 +2573,6 @@ impl CachedEntry {
                         None,
                         None,
                         fetch_semaphore,
-                        pool,
                     ),
                 )
                 .await;
@@ -2569,7 +2591,6 @@ impl CachedEntry {
                             None,
                             None,
                             fetch_semaphore,
-                            pool,
                         )
                         .await?
                     }
@@ -2585,7 +2606,6 @@ impl CachedEntry {
                             None,
                             None,
                             fetch_semaphore,
-                            pool,
                         )
                         .await?
                     }
@@ -2857,6 +2877,44 @@ impl CachedEntry {
         Ok(value)
     }
 
+    /// Writes entries outside any open unit. A cache is derived data, so a
+    /// failure here is logged rather than carried to a caller whose own
+    /// transaction has already committed.
+    pub(crate) async fn store_best_effort(items: &[Self], pool: &SqlitePool) {
+        if items.is_empty() {
+            return;
+        }
+        if let Err(error) = Self::upsert_many(items, pool).await {
+            tracing::warn!(
+                error = %error,
+                entry_count = items.len(),
+                "Failed to persist cache entries; continuing without them"
+            );
+        }
+    }
+
+    /// Drops entries outside any open unit. A hash entry is dropped before the
+    /// write that replaces it commits, so a run stopping between the two reads
+    /// a miss instead of the metadata of the file it replaced.
+    pub(crate) async fn forget_best_effort(items: &[Self], pool: &SqlitePool) {
+        if items.is_empty() {
+            return;
+        }
+        let handle = Handle::new(pool.clone());
+        for item in items {
+            let key = CacheKey {
+                data_type: item.type_.as_str().to_string(),
+                id: item.id.clone(),
+            };
+            if let Err(error) = Cache::set(&handle, &key, None).await {
+                tracing::warn!(
+                    error = %error,
+                    "Failed to drop a cache entry; continuing without it"
+                );
+            }
+        }
+    }
+
     pub(crate) async fn upsert_many(
         items: &[Self],
         exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
@@ -2954,7 +3012,6 @@ impl CachedEntry {
         version_id: &str,
         file_hashes: Vec<String>,
         project_ids: Vec<String>,
-        _pool: &SqlitePool,
     ) -> crate::Result<()> {
         let state = crate::State::get().await?;
         let service = state
@@ -2977,24 +3034,18 @@ impl CachedEntry {
         version_id: &str,
         file_hashes: Vec<String>,
         project_ids: Vec<String>,
-        pool: &SqlitePool,
     ) {
-        if let Err(error) = Self::cache_modpack_files(
-            version_id,
-            file_hashes,
-            project_ids,
-            pool,
-        )
-        .await
+        if let Err(error) =
+            Self::cache_modpack_files(version_id, file_hashes, project_ids)
+                .await
         {
             tracing::warn!(%error, "Pack index cache write failed");
         }
     }
 
-    pub async fn get_modpack_files(
+    pub(crate) async fn get_modpack_files(
         version_id: &str,
-        pool: &SqlitePool,
-        _fetch_semaphore: &FetchSemaphore,
+        handle: &Handle,
     ) -> crate::Result<Option<CachedModpackFiles>> {
         let state = crate::State::get().await?;
         let service = state
@@ -3009,7 +3060,15 @@ impl CachedEntry {
         if service.cache().generation().await > 0 {
             return Ok(None);
         }
-        let data: Option<String> = sqlx::query_scalar("SELECT data FROM cache WHERE id = ? AND data_type = 'modpack_files' AND length(CAST(data AS BLOB)) <= 1048576").bind(version_id).fetch_optional(pool).await?;
+        let data = Cache::get(
+            handle,
+            &CacheKey {
+                data_type: CacheValueType::ModpackFiles.as_str().to_string(),
+                id: version_id.to_string(),
+            },
+        )
+        .await?
+        .and_then(|row| row.data);
         let index = data
             .and_then(|data| {
                 serde_json::from_str::<CachedModpackFiles>(&data).ok()
@@ -3054,14 +3113,14 @@ impl CachedEntry {
     }
 }
 
-pub async fn cache_file_hash(
+pub(crate) async fn cache_file_hash(
     bytes: bytes::Bytes,
     instance_path: &str,
     path: &str,
     known_hash: Option<&str>,
     project_type: Option<ProjectType>,
     known_modrinth_file: Option<KnownModrinthFile<'_>>,
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+    handle: &Handle,
 ) -> crate::Result<()> {
     let size = bytes.len();
 
@@ -3078,19 +3137,19 @@ pub async fn cache_file_hash(
         hash,
         project_type,
         known_modrinth_file,
-        exec,
+        handle,
     )
     .await
 }
 
-pub async fn cache_file_hash_metadata(
+pub(crate) async fn cache_file_hash_metadata(
     instance_path: &str,
     path: &str,
     size: u64,
     hash: String,
     project_type: Option<ProjectType>,
     known_modrinth_file: Option<KnownModrinthFile<'_>>,
-    exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+    handle: &Handle,
 ) -> crate::Result<()> {
     let (project_id, version_id) =
         known_modrinth_file.map_or((None, None), |metadata| {
@@ -3101,19 +3160,18 @@ pub async fn cache_file_hash_metadata(
         });
 
     // Streamed extraction already computed these values, so avoid buffering the file just to cache them.
-    CachedEntry::upsert_many(
-        &[CacheValue::FileHash(CachedFileHash {
-            path: format!("{instance_path}/{path}"),
-            size,
-            hash,
-            project_type,
-            project_id,
-            version_id,
-        })
-        .get_entry()],
-        exec,
-    )
-    .await?;
+    let (key, record) = CacheValue::FileHash(CachedFileHash {
+        path: format!("{instance_path}/{path}"),
+        size,
+        hash,
+        project_type,
+        project_id,
+        version_id,
+    })
+    .get_entry()
+    .stored()?;
+
+    Cache::set(handle, &key, Some(&record)).await?;
 
     Ok(())
 }

@@ -222,6 +222,56 @@ pub struct InstanceUpgradeFixedConstraint {
     pub version_id: String,
 }
 
+/// Stages of creating an upgrade plan, in the order they run.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InstanceUpgradePlanningPhase {
+    ReadingContent,
+    CheckingCandidates,
+    Solving,
+    Validating,
+}
+
+/// One content item while its plan is still being created. `status` is
+/// absent until the item has been checked against its candidate releases.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstanceUpgradeItemProgress {
+    pub content_id: String,
+    pub relative_path: String,
+    pub project_type: ProjectType,
+    pub provider: Option<ContentProvider>,
+    pub project_id: Option<String>,
+    pub status: Option<InstanceUpgradeItemStatus>,
+}
+
+/// Reported while an upgrade plan is created. It only describes the work in
+/// progress; the finished [`InstanceUpgradePlan`] is the result to act on.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum InstanceUpgradePlanningProgress {
+    /// `total` is zero while the amount of work is not known yet.
+    Phase {
+        phase: InstanceUpgradePlanningPhase,
+        completed: usize,
+        total: usize,
+    },
+    /// The items being planned, first as identified and again once each has
+    /// been checked against its candidate releases.
+    Items {
+        items: Vec<InstanceUpgradeItemProgress>,
+    },
+    /// Candidate releases of one project, a root or a dependency, were checked.
+    /// `stable` counts compatible releases on the stable channel; whether a
+    /// prerelease or shader runtime is acceptable is decided per item later.
+    #[serde(rename_all = "camelCase")]
+    Candidates {
+        provider: ContentProvider,
+        project_id: String,
+        stable: usize,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceUpgradePlan {

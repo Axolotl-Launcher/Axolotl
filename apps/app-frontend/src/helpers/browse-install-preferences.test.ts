@@ -1,11 +1,9 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
 import type { Labrinth } from '@modrinth/api-client'
 import {
     getLatestMatchingInstallVersion,
     getTargetInstallPreferences,
 } from '@modrinth/ui/src/layouts/shared/browse-tab/composables/install-logic.ts'
+import { expect, it } from 'vitest'
 
 function version(
     id: string,
@@ -24,17 +22,17 @@ function version(
     } as Labrinth.Versions.v2.Version
 }
 
-test('resource packs ignore the target game version and match the Minecraft loader', () => {
+it('resource packs ignore the target game version and match the Minecraft loader', () => {
     const preferences = getTargetInstallPreferences(
         { gameVersion: '26.2', loader: 'neoforge' },
         'resourcepack',
     )
 
-    assert.deepEqual(preferences, {
+    expect(preferences).toEqual({
         gameVersions: [],
         loaders: ['minecraft'],
     })
-    assert.equal(
+    expect(
         getLatestMatchingInstallVersion(
             [
                 version('minecraft-resource-pack', ['minecraft']),
@@ -42,17 +40,16 @@ test('resource packs ignore the target game version and match the Minecraft load
             ],
             preferences,
         )?.id,
-        'minecraft-resource-pack',
-    )
+    ).toBe('minecraft-resource-pack')
 })
 
-test('automatic installs prefer a compatible release over a newer beta', () => {
+it('automatic installs prefer a compatible release over a newer beta', () => {
     const preferences = getTargetInstallPreferences(
         { gameVersion: '1.21.1', loader: 'neoforge' },
         'mod',
     )
 
-    assert.equal(
+    expect(
         getLatestMatchingInstallVersion(
             [
                 version('newer-beta', ['neoforge'], {
@@ -65,25 +62,23 @@ test('automatic installs prefer a compatible release over a newer beta', () => {
             ],
             preferences,
         )?.id,
-        'stable-release',
-    )
+    ).toBe('stable-release')
 })
 
-test('shader packs use their Iris compatibility tag instead of the target mod loader', () => {
+it('shader packs use their Iris compatibility tag instead of the target mod loader', () => {
     const preferences = getTargetInstallPreferences(
         { gameVersion: '1.21.1', loader: 'neoforge' },
         'shader',
     )
 
-    assert.deepEqual(preferences, {
+    expect(preferences).toEqual({
         gameVersions: ['1.21.1'],
         loaders: ['iris'],
     })
-    assert.equal(
+    expect(
         getLatestMatchingInstallVersion(
             [version('iris-shader-pack', ['iris']), version('neoforge-mod', ['neoforge'])],
             preferences,
         )?.id,
-        'iris-shader-pack',
-    )
+    ).toBe('iris-shader-pack')
 })

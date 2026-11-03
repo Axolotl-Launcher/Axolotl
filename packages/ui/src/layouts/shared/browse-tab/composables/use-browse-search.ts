@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useDebugLogger } from '#ui/composables/debug-logger'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
+import { MAX_RESULTS_OPTIONS } from '#ui/utils/browse-max-results'
 import type {
     EnvironmentSearchOverride,
     FilterType,
@@ -109,6 +110,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         currentFilters,
         toggledGroups,
         maxResults,
+        setMaxResultsProgrammatically,
         currentPage,
         overriddenProvidedFilterTypes,
         filters,
@@ -158,18 +160,31 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
     })
 
     const effectiveMaxResultsOptions = computed(
-        () => options.maxResultsOptions?.value ?? [5, 10, 15, 20, 50, 100],
+        () => options.maxResultsOptions?.value ?? MAX_RESULTS_OPTIONS,
     )
 
-    watch(effectiveMaxResultsOptions, (opts) => {
-        if (!opts.includes(maxResults.value)) {
-            maxResults.value = opts.reduce((prev, curr) =>
+    watch(
+        effectiveMaxResultsOptions,
+        (opts) => {
+            // An empty list means the caller has not populated options yet.
+            // Reducing over it would throw and take the whole page down.
+            if (opts.length === 0) return
+            if (opts.includes(maxResults.value)) return
+
+            const nearest = opts.reduce((prev, curr) =>
                 Math.abs(curr - maxResults.value) <= Math.abs(prev - maxResults.value)
                     ? curr
                     : prev,
             )
-        }
-    })
+            // Mark the write as automatic so it does not overwrite the user's
+            // saved preference with this tab's smaller maximum.
+            setMaxResultsProgrammatically(nearest)
+        },
+        // `immediate` matters for the persisted value: a page size stored while
+        // a tab offered 100 must still snap to a valid option on a tab whose
+        // maximum is 50, before the first request goes out.
+        { immediate: true },
+    )
 
     const effectiveDisplayMode = computed(() => options.displayMode?.value ?? 'list')
     const effectiveLayout = computed<'list' | 'compact' | 'grid'>(() =>

@@ -1,11 +1,9 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
 import type {
     PopupNotification,
     PopupNotificationProgressItem,
     WebNotification,
 } from '@modrinth/ui'
+import { expect, it } from 'vitest'
 
 import { loadNotificationDismissals } from './notification-dismissals.ts'
 import {
@@ -63,7 +61,7 @@ function readDismissals(keys: Record<string, unknown>, fieldCount: number, legac
     }
 }
 
-test('legacy popup keys dismiss notifications with and without progress items', () => {
+it('legacy popup keys dismiss notifications with and without progress items', () => {
     const notification = popupNotification(progressItems('job-1'))
     const dismissed = readDismissals(
         {
@@ -76,11 +74,11 @@ test('legacy popup keys dismiss notifications with and without progress items', 
         3,
     )
 
-    assert.ok(dismissed.legacyKeys.has(legacyPopupNotificationKey(popupNotification())))
-    assert.ok(dismissed.legacyKeys.has(legacyPopupNotificationKey(notification)))
+    expect(dismissed.legacyKeys.has(legacyPopupNotificationKey(popupNotification()))).toBeTruthy()
+    expect(dismissed.legacyKeys.has(legacyPopupNotificationKey(notification))).toBeTruthy()
 })
 
-test('six-field popup v2 keys migrate to seven fields without hiding another progress set', () => {
+it('six-field popup v2 keys migrate to seven fields without hiding another progress set', () => {
     const notification = popupNotification()
     const dismissed = readDismissals(
         {
@@ -93,11 +91,13 @@ test('six-field popup v2 keys migrate to seven fields without hiding another pro
         3,
     )
 
-    assert.ok(dismissed.keys.has(popupNotificationKey(notification)))
-    assert.ok(!dismissed.keys.has(popupNotificationKey(popupNotification(progressItems('job-1')))))
+    expect(dismissed.keys.has(popupNotificationKey(notification))).toBeTruthy()
+    expect(
+        !dismissed.keys.has(popupNotificationKey(popupNotification(progressItems('job-1')))),
+    ).toBeTruthy()
 })
 
-test('seven-field popup keys sort progress ids and distinguish different sets', () => {
+it('seven-field popup keys sort progress ids and distinguish different sets', () => {
     const dismissed = readDismissals(
         {
             'axolotl:dismissed-popup-notifications-v2': {
@@ -117,15 +117,17 @@ test('seven-field popup keys sort progress ids and distinguish different sets', 
         7,
     )
 
-    assert.ok(
+    expect(
         dismissed.keys.has(
             popupNotificationKey(popupNotification(progressItems('job-2', 'job-1'))),
         ),
-    )
-    assert.ok(!dismissed.keys.has(popupNotificationKey(popupNotification(progressItems('job-3')))))
+    ).toBeTruthy()
+    expect(
+        !dismissed.keys.has(popupNotificationKey(popupNotification(progressItems('job-3')))),
+    ).toBeTruthy()
 })
 
-test('clearedAt and web notification records remain compatible', () => {
+it('clearedAt and web notification records remain compatible', () => {
     const webNotification: WebNotification = {
         id: 1,
         title: '旧标题',
@@ -145,7 +147,9 @@ test('clearedAt and web notification records remain compatible', () => {
         4,
     )
 
-    assert.equal(dismissed.clearedAt! > Date.now(), true)
-    assert.ok(dismissed.keys.has(webNotificationKey(webNotification)))
-    assert.ok(dismissed.keys.has(JSON.stringify(['legacy', 'content', 'error', 'E_TEST'])))
+    expect(dismissed.clearedAt! > Date.now()).toBe(true)
+    expect(dismissed.keys.has(webNotificationKey(webNotification))).toBeTruthy()
+    expect(
+        dismissed.keys.has(JSON.stringify(['legacy', 'content', 'error', 'E_TEST'])),
+    ).toBeTruthy()
 })

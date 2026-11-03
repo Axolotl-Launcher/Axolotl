@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createHomeRefresh, homeWorldsChanged } from './home-refresh.ts'
 
-test('bursts share one read, with one trailing read for changes arriving in flight', async () => {
+it('bursts share one read, with one trailing read for changes arriving in flight', async () => {
     let calls = 0
     let finish!: () => void
     const refresh = createHomeRefresh(
@@ -17,16 +16,16 @@ test('bursts share one read, with one trailing read for changes arriving in flig
         () => false,
     )
     const pending = refresh()
-    for (let i = 0; i < 100; i++) assert.equal(refresh(), pending)
+    for (let i = 0; i < 100; i++) expect(refresh()).toBe(pending)
     await new Promise((resolve) => setTimeout(resolve, 150))
-    assert.equal(calls, 1)
+    expect(calls).toBe(1)
     for (let i = 0; i < 100; i++) void refresh()
     finish()
     await pending
-    assert.equal(calls, 2)
+    expect(calls).toBe(2)
 })
 
-test('disposed pages do not dispatch queued reads', async () => {
+it('disposed pages do not dispatch queued reads', async () => {
     let disposed = false
     let calls = 0
     const refresh = createHomeRefresh(
@@ -39,12 +38,12 @@ test('disposed pages do not dispatch queued reads', async () => {
     disposed = true
     await pending
     await refresh()
-    assert.equal(calls, 0)
+    expect(calls).toBe(0)
 })
 
-test('world refresh excludes content, screenshots and generic sync noise', () => {
+it('world refresh excludes content, screenshots and generic sync noise', () => {
     for (const event of ['content_changed', 'screenshots_updated', 'synced'])
-        assert.equal(homeWorldsChanged(event), false)
+        expect(homeWorldsChanged(event)).toBe(false)
     for (const event of [
         'created',
         'removed',
@@ -53,5 +52,5 @@ test('world refresh excludes content, screenshots and generic sync noise', () =>
         'server_joined',
         'servers_updated',
     ])
-        assert.equal(homeWorldsChanged(event), true)
+        expect(homeWorldsChanged(event)).toBe(true)
 })

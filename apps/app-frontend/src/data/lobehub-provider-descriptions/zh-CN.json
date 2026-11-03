@@ -16,6 +16,7 @@
   "chatgpt.description": "通过 Codex 使用包含在您的 ChatGPT 订阅中的模型，无需 OpenAI 平台 API 密钥。",
   "cloudflare.description": "在 Cloudflare 全球网络上运行无服务器、GPU 加速的机器学习模型。",
   "codeflow.description": "更稳、更省地调用顶级 AI 模型\n原生协议转发 · 无需海外网络 · 支付宝即充即用",
+  "fastai.description": "面向开发者的 AI API 聚合平台，支持 OpenAI、Claude、Gemini、Grok 等主流大模型，兼容 OpenAI API 协议。\n充值 1:1（1 元 = 1 美元 API 额度）· 对公自助开票 · 企业 SLA 保证 · 微信支付宝直充",
   "cohere.description": "Cohere 提供前沿的多语言模型、先进的检索能力和 AI 工作空间，为现代企业提供一体化、安全的平台。",
   "cometapi.description": "CometAPI 提供对 OpenAI、Anthropic、Google 等前沿模型的访问，用户可根据不同需求选择最优模型与价格。",
   "comfyui.description": "一个强大的开源工作流引擎，支持图像、视频和音频生成，兼容 SD、FLUX、Qwen、混元、WAN 等模型，支持节点式编辑与私有部署。",

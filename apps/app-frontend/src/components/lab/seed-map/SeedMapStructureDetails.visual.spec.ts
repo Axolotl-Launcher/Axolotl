@@ -286,7 +286,7 @@ it('loads original End city and ship geometry on demand and switches modes witho
     await wrapper.setProps({ version: '26.2' })
     expect(wrapper.find('[data-testid="seed-map-blocks-mode"]').exists()).toBe(true)
     expect(canvas.dataset.renderMode).toBe('frames')
-}, 30000)
+})
 
 it.each([
     'shipwreck',
@@ -406,7 +406,6 @@ it.each([
         await wrapper.get('[data-testid="seed-map-frames-mode"]').trigger('click')
         expect(canvas.dataset.renderMode).toBe('frames')
     },
-    30000,
 )
 
 it('assigns texture-derived colors to individual model faces and preserves them through rotation', () => {
@@ -513,7 +512,7 @@ it('meshes every enabled template variant with original resources and bounded wo
     } finally {
         worker.terminate()
     }
-}, 30000)
+})
 
 it('cancels pending block work when switching back to frames or leaving the preview', async () => {
     const terminate = vi.fn()
@@ -563,7 +562,7 @@ it('cancels pending block work when switching back to frames or leaving the prev
     } finally {
         vi.unstubAllGlobals()
     }
-}, 30000)
+})
 
 it('shows camera-relative positive axes and toggles depth-independent chest highlights', async () => {
     const wrapper = mount(SeedMapLayoutPreview, {
@@ -661,7 +660,7 @@ it('shows camera-relative positive axes and toggles depth-independent chest high
     )
     await wrapper.get('[data-testid="seed-map-chest-xray"]').trigger('click')
     expect(canvas.dataset.chestXray).toBe('true')
-}, 30000)
+})
 
 it('recovers from a block worker failure without losing frames or the selection', async () => {
     let reply: ((event: MessageEvent) => void) | undefined
@@ -717,7 +716,7 @@ it('recovers from a block worker failure without losing frames or the selection'
     } finally {
         vi.unstubAllGlobals()
     }
-}, 30000)
+})
 
 it('keeps a newer structure selection when an older calculation finishes later', async () => {
     let resolveOld!: (value: unknown) => void
@@ -750,7 +749,7 @@ it('keeps a newer structure selection when an older calculation finishes later',
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(wrapper.text()).toContain('90°')
     expect(wrapper.text()).not.toContain('180°')
-}, 30000)
+})
 
 it('renders interactive 3D bounds and keeps map selection synchronized without inventing heights', async () => {
     calls.details.mockResolvedValue({
@@ -837,7 +836,7 @@ it('renders interactive 3D bounds and keeps map selection synchronized without i
             element: wrapper.element,
             path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/seed-map-layout-3d.png`,
         })
-}, 30000)
+})
 
 it('retains a selectable horizontal fallback after a WebGL context loss', async () => {
     calls.details.mockResolvedValue({
@@ -869,7 +868,7 @@ it('retains a selectable horizontal fallback after a WebGL context loss', async 
     await wrapper.get('svg[aria-label] rect').trigger('click')
     expect(wrapper.emitted('focus')?.at(-1)?.[0]).toMatchObject({ id: 0 })
     expect(wrapper.text()).toContain('Retry 3D preview')
-}, 30000)
+})
 
 it.each(['en-US', 'zh-CN'])(
     'summarizes unavailable capabilities for a supported detail response in %s and collapses for a new structure',

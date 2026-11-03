@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 
+import { abortable } from '../../helpers/abortable.ts'
 import type { SeedMapDimension } from './biomes.ts'
 import type { SeedMapFeature, SeedMapFeatureKind } from './features.ts'
 import type { SeedMapOreHit, SeedMapOreKind } from './ores.ts'
@@ -284,16 +285,31 @@ export async function getSeedMapBiomeAt(query: {
     return await invoke<number>('plugin:seed-map|seed_map_biome_at', query)
 }
 
-export async function scanSeedMapOres(request: {
-    seed: string
-    edition: SeedMapEdition
-    version: string
-    dimension: SeedMapDimension
-    ores: SeedMapOreKind[]
-    chunks: number[]
-}): Promise<SeedMapOreScanChunk[]> {
-    return await invoke<SeedMapOreScanChunk[]>('plugin:seed-map|seed_map_scan_ores', {
+/**
+ * Scans chunks for ore candidates. Aborting rejects at once and stops the
+ * native scan at its next check instead of letting it finish the batch.
+ */
+export async function scanSeedMapOres(
+    request: {
+        seed: string
+        edition: SeedMapEdition
+        version: string
+        dimension: SeedMapDimension
+        ores: SeedMapOreKind[]
+        chunks: number[]
+    },
+    signal?: AbortSignal,
+): Promise<SeedMapOreScanChunk[]> {
+    signal?.throwIfAborted()
+    // Random rather than a counter: a counter restarts with a reloaded page
+    // while an older scan with the same ID may still be finishing natively.
+    const requestId = Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - 1)) + 1
+    const scan = invoke<SeedMapOreScanChunk[]>('plugin:seed-map|seed_map_scan_ores', {
         request,
+        requestId,
+    })
+    return await abortable(scan, signal, () => {
+        void invoke('plugin:seed-map|seed_map_cancel_ore_scan', { requestId }).catch(() => {})
     })
 }
 

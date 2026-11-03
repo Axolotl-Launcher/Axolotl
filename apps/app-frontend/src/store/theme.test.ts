@@ -1,20 +1,19 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { applySystemAccentHue, DEFAULT_CUSTOM_ACCENT_COLOR, hexToHsl } from './theme.ts'
 
-test('applies the system hue with the custom accent saturation and lightness', () => {
+it('applies the system hue with the custom accent saturation and lightness', () => {
     const system = hexToHsl('#0078d4')
     const custom = hexToHsl(DEFAULT_CUSTOM_ACCENT_COLOR)
     const result = hexToHsl(applySystemAccentHue('#0078d4'))
 
-    assert.ok(Math.abs(result.h - system.h) < 1)
-    assert.ok(Math.abs(result.s - custom.s) < 1)
-    assert.ok(Math.abs(result.l - custom.l) < 1)
+    expect(Math.abs(result.h - system.h) < 1).toBeTruthy()
+    expect(Math.abs(result.s - custom.s) < 1).toBeTruthy()
+    expect(Math.abs(result.l - custom.l) < 1).toBeTruthy()
 })
 
-test('preserves hue values at the red boundary', () => {
+it('preserves hue values at the red boundary', () => {
     const result = hexToHsl(applySystemAccentHue('#ff0000'))
 
-    assert.ok(result.h < 1 || result.h > 359)
+    expect(result.h < 1 || result.h > 359).toBeTruthy()
 })

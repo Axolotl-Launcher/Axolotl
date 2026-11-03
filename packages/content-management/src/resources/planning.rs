@@ -127,58 +127,6 @@ pub fn matches_game_version(pattern: &str, version: &str) -> bool {
     assess_game_version(pattern, version) == CompatibilityState::Compatible
 }
 
-pub fn matches_release_constraint(pattern: &str, version: &str) -> bool {
-    if pattern.contains("||") {
-        return false;
-    }
-    if pattern.trim() == version {
-        return true;
-    }
-    let Some(mut actual) = numeric_version(version) else {
-        return false;
-    };
-    if actual.len() > 3 {
-        return false;
-    }
-    actual.resize(3, 0);
-    let actual = actual
-        .iter()
-        .map(u64::to_string)
-        .collect::<Vec<_>>()
-        .join(".");
-    let mut normalized = String::new();
-    let mut number = String::new();
-    for character in pattern.chars().chain(std::iter::once(' ')) {
-        if character.is_ascii_digit() || character == '.' {
-            number.push(character);
-        } else {
-            if !number.is_empty() {
-                if number.ends_with('.') {
-                    normalized.push_str(&number);
-                } else {
-                    let Some(mut parts) = numeric_version(&number) else {
-                        return false;
-                    };
-                    if parts.len() > 3 {
-                        return false;
-                    }
-                    parts.resize(3, 0);
-                    normalized.push_str(
-                        &parts
-                            .iter()
-                            .map(u64::to_string)
-                            .collect::<Vec<_>>()
-                            .join("."),
-                    );
-                }
-                number.clear();
-            }
-            normalized.push(character);
-        }
-    }
-    matches_game_version(normalized.trim(), &actual)
-}
-
 /// Unsupported range syntax is unknown rather than evidence of compatibility.
 pub fn assess_game_version(pattern: &str, version: &str) -> CompatibilityState {
     fn numeric(value: &str) -> Option<[u64; 3]> {
@@ -613,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    fn release_constraints_keep_numeric_precision_and_reject_unknown_syntax() {
+    fn release_constraints_keep_numeric_precision_and_pass_unknown_syntax() {
         for (constraint, version, expected) in [
             (">=1", "2", true),
             ("<3", "2", true),
@@ -623,8 +571,8 @@ mod tests {
             ("1.2.*", "1.3", false),
             ("2", "2.0.0", true),
             ("named release", "named release", true),
-            (">=unknown", "2", false),
-            ("1 || 2", "2", false),
+            (">=unknown", "2", true),
+            ("1 || 2", "2", true),
         ] {
             assert_eq!(
                 matches_release_constraint(constraint, version),

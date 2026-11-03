@@ -10,6 +10,7 @@ import {
 import { lobeProviderIcons } from '@/data/lobeProviderIcons'
 
 import CodeFlowLogo from './CodeFlowLogo.vue'
+import FastAILogo from './FastAILogo.vue'
 import LobeBrandCombine from './LobeBrandCombine.vue'
 
 const props = withDefaults(
@@ -34,6 +35,7 @@ const iconComponents = new Proxy({} as Record<string, Component | undefined>, {
 const soraGradientId = useId()
 const providerConfig = computed(() => lobeProviderIcons[props.value.toLocaleLowerCase()])
 const isCodeFlow = computed(() => props.value.toLocaleLowerCase() === 'codeflow')
+const isFastAI = computed(() => props.value.toLocaleLowerCase() === 'fastai')
 const avatarConfig = computed(() => providerConfig.value?.avatar)
 const avatarComponent = computed(() => {
     if (!providerConfig.value || !avatarConfig.value) return undefined
@@ -156,6 +158,7 @@ const avatarStyle = computed(() => ({
             }"
         />
         <CodeFlowLogo v-else-if="isCodeFlow" :size="size" />
+        <FastAILogo v-else-if="isFastAI" :size="size" />
         <span v-else>{{ value.slice(0, 1).toLocaleUpperCase() }}</span>
     </span>
 
@@ -252,6 +255,7 @@ const avatarStyle = computed(() => ({
             :size="size * 1.16"
         />
         <CodeFlowLogo v-else-if="isCodeFlow" :size="combineSize" />
+        <FastAILogo v-else-if="isFastAI" :size="combineSize" />
         <LobeBrandCombine v-else :brand="combineBrand" :size="combineSize" />
     </span>
 
@@ -265,12 +269,13 @@ const avatarStyle = computed(() => ({
         aria-hidden="true"
     >
         <CodeFlowLogo v-if="isCodeFlow" :size="size" />
+        <FastAILogo v-else-if="isFastAI" :size="size" />
         <LobeBrandCombine v-else :brand="combineBrand" :size="combineSize" />
         <span
-            v-if="isCodeFlow"
+            v-if="isCodeFlow || isFastAI"
             class="font-semibold"
             :style="{ fontSize: `${Math.round(size * 0.536)}px`, letterSpacing: '-0.01em' }"
-            >CodeFlow</span
+            >{{ isFastAI ? 'FastAI' : 'CodeFlow' }}</span
         >
     </span>
 

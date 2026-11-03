@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { loadSkinArmorPreview, saveSkinArmorPreview } from './skin-armor-preview.ts'
 
@@ -22,7 +21,7 @@ function withStorage(run: (values: Map<string, string>) => void): void {
     }
 }
 
-test('armor preview selections survive storage round trips', () => {
+it('armor preview selections survive storage round trips', () => {
     withStorage(() => {
         const config = loadSkinArmorPreview()
         config.helmet.material = 'diamond'
@@ -30,11 +29,11 @@ test('armor preview selections survive storage round trips', () => {
         config.helmet.trimMaterial = 'gold'
         saveSkinArmorPreview(config)
 
-        assert.deepEqual(loadSkinArmorPreview(), config)
+        expect(loadSkinArmorPreview()).toEqual(config)
     })
 })
 
-test('invalid stored armor values fall back per slot and field', () => {
+it('invalid stored armor values fall back per slot and field', () => {
     withStorage((values) => {
         values.set(
             'axolotl:skin-armor-preview',
@@ -45,16 +44,16 @@ test('invalid stored armor values fall back per slot and field', () => {
         )
 
         const config = loadSkinArmorPreview()
-        assert.deepEqual(config.helmet, {
+        expect(config.helmet).toEqual({
             material: 'diamond',
             trimPattern: null,
             trimMaterial: 'gold',
         })
-        assert.deepEqual(config.boots, {
+        expect(config.boots).toEqual({
             material: null,
             trimPattern: 'sentry',
             trimMaterial: 'iron',
         })
-        assert.equal(config.chestplate.material, null)
+        expect(config.chestplate.material).toBe(null)
     })
 })

@@ -1,12 +1,14 @@
 use super::*;
 use crate::state::DirectoryInfo;
-use crate::state::instances::adapters::sqlite::{content_rows, instance_rows};
+use crate::state::instances::adapters::sqlite::instance_rows;
 use crate::state::instances::commands::{
     remove_project, sync_content_files, toggle_content_entries,
     toggle_disable_project,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use crate::state::instances::adapters::sqlite::{content_sets, files};
 
 async fn fixture() -> (tempfile::TempDir, Arc<State>, PathBuf, Vec<String>) {
     let temp = tempfile::tempdir().unwrap();
@@ -52,11 +54,51 @@ async fn journal_count(state: &State) -> i64 {
 }
 
 #[tokio::test]
+async fn toggles_and_ten_remote_refreshes_reuse_the_same_byte_evidence() {
+    use crate::util::download::verified_file::track_scans;
+
+    use crate::state::instances::adapters::sqlite::{content_sets, files};
+    let (_temp, state, _root, ids) = fixture().await;
+    let cancel = tokio_util::sync::CancellationToken::new();
+    for enabled in [false, true] {
+        let (result, scans) = track_scans(toggle_content_entries(
+            "instance",
+            &ids,
+            Some(enabled),
+            &state,
+        ))
+        .await;
+        result.unwrap();
+        assert_eq!(
+            scans, 0,
+            "controlled moves reuse a validated attribute baseline"
+        );
+        let (result, scans) =
+            track_scans(sync_content_files("instance", &state)).await;
+        result.unwrap();
+        assert_eq!(scans, 0, "the renamed baseline survives the next scan");
+    }
+    for _ in 0..10 {
+        let (result, scans) =
+            track_scans(crate::resources::installed::refresh_snapshot(
+                &state, "instance", &cancel,
+            ))
+            .await;
+        result.unwrap();
+        assert_eq!(
+            scans, 0,
+            "force-remote refresh cannot reread unchanged content"
+        );
+    }
+    state.pool.close().await;
+}
+
+#[tokio::test]
 async fn direct_and_batch_toggle_restore_files_after_database_failure() {
     for single in [true, false] {
         let (_temp, state, root, ids) = fixture().await;
         let revision =
-            content_rows::get_applied_content_set("instance", &state.pool)
+            content_sets::get_applied_content_set("instance", &state.pool)
                 .await
                 .unwrap()
                 .unwrap()
@@ -88,7 +130,7 @@ async fn direct_and_batch_toggle_restore_files_after_database_failure() {
         }
         assert_eq!(journal_count(&state).await, 0);
         assert_eq!(
-            content_rows::get_applied_content_set("instance", &state.pool)
+            content_sets::get_applied_content_set("instance", &state.pool)
                 .await
                 .unwrap()
                 .unwrap()
@@ -96,7 +138,7 @@ async fn direct_and_batch_toggle_restore_files_after_database_failure() {
             revision
         );
         assert!(
-            content_rows::get_instance_files("instance", &state.pool)
+            files::get_instance_files("instance", &state.pool)
                 .await
                 .unwrap()
                 .iter()
@@ -110,7 +152,7 @@ async fn direct_and_batch_toggle_restore_files_after_database_failure() {
             .await
             .unwrap();
         assert!(
-            content_rows::get_instance_files("instance", &state.pool)
+            files::get_instance_files("instance", &state.pool)
                 .await
                 .unwrap()
                 .iter()
@@ -134,7 +176,7 @@ async fn deletion_database_failure_restores_the_original_file() {
     assert_eq!(std::fs::read(root.join("mods/a.jar")).unwrap(), b"a bytes");
     assert_eq!(journal_count(&state).await, 0);
     assert!(
-        content_rows::get_instance_file_by_relative_path(
+        files::get_instance_file_by_relative_path(
             "instance",
             "mods/a.jar",
             &state.pool
@@ -157,10 +199,13 @@ async fn restarted_recovery_restores_uncommitted_files_and_finishes_committed_de
             &root,
             vec![("mods/a.jar".into(), "mods/a.removing".into())],
             true,
+            test_access(),
         )
         .await
         .unwrap();
-        publish(&state, "instance", &root).await.unwrap();
+        publish(&state, "instance", &root, test_access())
+            .await
+            .unwrap();
         if committed {
             let mut tx = state.pool.begin().await.unwrap();
             sqlx::query("DELETE FROM instance_content_entries WHERE file_id IN (SELECT id FROM instance_files WHERE relative_path = 'mods/a.jar')").execute(&mut *tx).await.unwrap();
@@ -170,7 +215,7 @@ async fn restarted_recovery_restores_uncommitted_files_and_finishes_committed_de
             .execute(&mut *tx)
             .await
             .unwrap();
-            content_rows::bump_content_set_revision_in_transaction(
+            content_sets::bump_content_set_revision_in_transaction(
                 "set", &mut tx,
             )
             .await
@@ -202,7 +247,7 @@ async fn restarted_recovery_restores_uncommitted_files_and_finishes_committed_de
         assert!(!root.join("mods/a.removing").exists());
         assert_eq!(journal_count(&reopened).await, 0);
         assert_eq!(
-            content_rows::get_instance_file_by_relative_path(
+            files::get_instance_file_by_relative_path(
                 "instance",
                 "mods/a.jar",
                 &reopened.pool
@@ -233,16 +278,20 @@ async fn rollback_conflicts_keep_the_journal_and_do_not_overwrite_external_files
         &root,
         vec![("mods/a.jar".into(), "mods/a.jar.disabled".into())],
         false,
+        test_access(),
     )
     .await
     .unwrap();
-    publish(&state, "instance", &root).await.unwrap();
+    publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap();
     std::fs::write(root.join("mods/a.jar"), b"external replacement").unwrap();
     let error = rollback_error(
         &state,
         "instance",
         &root,
         recovery_error("database failure"),
+        test_access(),
     )
     .await;
     assert!(error.to_string().contains("database failure"));
@@ -268,10 +317,13 @@ async fn failed_committed_cleanup_stays_successful_and_can_be_retried() {
         &root,
         vec![("mods/a.jar".into(), "mods/a.removing".into())],
         true,
+        test_access(),
     )
     .await
     .unwrap();
-    publish(&state, "instance", &root).await.unwrap();
+    publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap();
     let mut tx = state.pool.begin().await.unwrap();
     mark_committed("instance", &mut tx).await.unwrap();
     tx.commit().await.unwrap();
@@ -298,10 +350,13 @@ async fn a_scan_recovers_a_dropped_toggle_before_indexing_files() {
         &root,
         vec![("mods/a.jar".into(), "mods/a.jar.disabled".into())],
         false,
+        test_access(),
     )
     .await
     .unwrap();
-    publish(&state, "instance", &root).await.unwrap();
+    publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap();
     let files = sync_content_files("instance", &state).await.unwrap();
     assert!(files.iter().all(|file| file.enabled));
     assert!(root.join("mods/a.jar").exists());
@@ -328,13 +383,17 @@ async fn a_partial_publish_failure_is_recoverable_without_losing_the_first_file(
             ("mods/b.jar".into(), "mods/b.jar.disabled".into()),
         ],
         false,
+        test_access(),
     )
     .await
     .unwrap();
     std::fs::remove_file(root.join("mods/b.jar")).unwrap();
-    let failure = publish(&state, "instance", &root).await.unwrap_err();
+    let failure = publish(&state, "instance", &root, test_access())
+        .await
+        .unwrap_err();
     assert!(root.join("mods/a.jar.disabled").exists());
-    let failure = rollback_error(&state, "instance", &root, failure).await;
+    let failure =
+        rollback_error(&state, "instance", &root, failure, test_access()).await;
     assert!(failure.to_string().contains("recovery requires retry"));
     assert_eq!(journal_count(&state).await, 1);
     std::fs::write(root.join("mods/b.jar"), b"b bytes").unwrap();
@@ -356,7 +415,7 @@ async fn committed_toggle_is_not_rolled_back_when_journal_cleanup_fails() {
             .unwrap();
     assert_eq!(path, "mods/a.jar.disabled");
     assert_eq!(journal_count(&state).await, 1);
-    let file = content_rows::get_instance_file_by_relative_path(
+    let file = files::get_instance_file_by_relative_path(
         "instance",
         &path,
         &state.pool,
@@ -374,4 +433,151 @@ async fn committed_toggle_is_not_rolled_back_when_journal_cleanup_fails() {
     assert!(!root.join("mods/a.jar").exists());
     assert_eq!(journal_count(&state).await, 0);
     state.pool.close().await;
+}
+
+#[tokio::test]
+async fn schematic_publication_recovers_source_and_revision_after_restart() {
+    use crate::resources::*;
+    use crate::state::instances::commands::install_schematic::{
+        Publication, commit_publication,
+    };
+    for committed in [false, true] {
+        let (_temp, state, root, _ids) = fixture().await;
+        let revision =
+            content_sets::get_applied_content_set("instance", &state.pool)
+                .await
+                .unwrap()
+                .unwrap()
+                .revision;
+        let bytes = b"schematic payload";
+        let artifact = ResourceArtifact {
+            reference: SourceArtifactRef {
+                release: SourceReleaseRef {
+                    project: SourceProjectRef {
+                        source: SourceId::new("reden").unwrap(),
+                        project_id: SourceProjectId::new("example").unwrap(),
+                    },
+                    release_id: SourceReleaseId::new("release").unwrap(),
+                },
+                artifact_id: SourceArtifactId::new("example.nbt").unwrap(),
+            },
+            file_name: Some("example.nbt".into()),
+            role: ArtifactRole::Primary,
+            available: Some(true),
+            integrity: ArtifactIntegrity {
+                size: Some(bytes.len() as u64),
+                hashes: vec![ContentHash {
+                    algorithm: HashAlgorithm::Sha1,
+                    value: sha1_smol::Sha1::from(bytes.as_slice()).hexdigest(),
+                }],
+            },
+            acquisition: ArtifactAcquisition::Unavailable,
+            dependencies: vec![],
+        };
+        let publication = Publication {
+            content_set_id: "set".into(),
+            relative_path: "schematics/example.nbt".into(),
+            staging_path: "schematics/.axolotl-schematic-test".into(),
+            artifact: artifact.clone(),
+        };
+        std::fs::create_dir_all(root.join("schematics")).unwrap();
+        std::fs::write(root.join(&publication.staging_path), bytes).unwrap();
+        prepare_schematic(&state, "instance", &root, &publication)
+            .await
+            .unwrap();
+        std::fs::rename(
+            root.join(&publication.staging_path),
+            root.join(&publication.relative_path),
+        )
+        .unwrap();
+        // Dropping here models the publication/commit crash window. The other
+        // branch models a crash after commit, before journal cleanup.
+        if committed {
+            commit_publication(&state, "instance", &publication)
+                .await
+                .unwrap();
+        }
+        let directories = DirectoryInfo {
+            settings_dir: state.directories.settings_dir.clone(),
+            config_dir: state.directories.config_dir.clone(),
+            app_identifier: state.directories.app_identifier.clone(),
+        };
+        let db = state.pool.connect_options().get_filename().to_owned();
+        state.pool.close().await;
+        drop(state);
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(db)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        let reopened =
+            crate::state::test_state(directories, pool).await.unwrap();
+        recover_content_file_operations(&reopened).await.unwrap();
+        recover_content_file_operations(&reopened).await.unwrap();
+        // Reconciliation must retain both .nbt tracking and the exact source.
+        sync_content_files("instance", &reopened).await.unwrap();
+        let payload: String = sqlx::query_scalar("SELECT artifact FROM resource_installed_artifacts WHERE entry_id IN (SELECT id FROM instance_content_entries WHERE file_id IN (SELECT id FROM instance_files WHERE instance_id = 'instance' AND relative_path = 'schematics/example.nbt'))")
+            .fetch_one(&reopened.pool).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<ResourceArtifact>(&payload).unwrap(),
+            artifact
+        );
+        assert_eq!(
+            content_sets::get_applied_content_set("instance", &reopened.pool)
+                .await
+                .unwrap()
+                .unwrap()
+                .revision,
+            revision + 1
+        );
+        assert_eq!(journal_count(&reopened).await, 0);
+        assert_eq!(
+            std::fs::read(root.join(&publication.relative_path)).unwrap(),
+            bytes
+        );
+        reopened.pool.close().await;
+    }
+}
+
+#[tokio::test]
+async fn unpublished_schematic_journal_cleans_staging_without_importing() {
+    let (_temp, state, root, _ids) = fixture().await;
+    let payload = serde_json::json!({
+        "root": io::canonicalize(&root).unwrap().to_string_lossy(),
+        "delete": false,
+        "files": [],
+        "schematic": {
+            "content_set_id": "set",
+            "relative_path": "schematics/not-published.nbt",
+            "staging_path": "schematics/.axolotl-schematic-test",
+            "artifact": {
+                "reference": {"release": {"project": {"source": "reden", "projectId": "example"}, "releaseId": "release"}, "artifactId": "example.nbt"},
+                "fileName": "example.nbt", "role": "primary", "available": true,
+                "integrity": {"size": 1, "hashes": [{"algorithm": "sha1", "value": sha1_smol::Sha1::from(b"a").hexdigest()}]},
+                "acquisition": {"kind": "unavailable"}, "dependencies": []
+            }
+        }
+    });
+    std::fs::create_dir_all(root.join("schematics")).unwrap();
+    std::fs::write(root.join("schematics/.axolotl-schematic-test"), b"a")
+        .unwrap();
+    journals::set(&state.data, "instance", &payload.to_string())
+        .await
+        .unwrap();
+    recover_content_file_operations(&state).await.unwrap();
+    assert!(!root.join("schematics/not-published.nbt").exists());
+    assert!(!root.join("schematics/.axolotl-schematic-test").exists());
+    assert_eq!(journal_count(&state).await, 0);
+    state.pool.close().await;
+}
+
+fn test_access() -> crate::install::critical_section::WriteAccess<'static> {
+    crate::install::critical_section::whitelisted_for_test(
+        crate::install::critical_section::WhitelistSite::Tests,
+    )
+    .into()
 }

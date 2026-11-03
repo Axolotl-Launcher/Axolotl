@@ -406,7 +406,7 @@ async fn download_minecraft_file_with_semaphore(
 }
 
 async fn download_minecraft_file_with_candidates(
-    st: &State,
+    _st: &State,
     urls: &[String],
     sha1: Option<&str>,
     expected_size: Option<u64>,
@@ -455,14 +455,7 @@ async fn download_minecraft_file_with_candidates(
         );
     }
     let Some(progress) = progress else {
-        return download_to_path(
-            request,
-            destination,
-            semaphore,
-            &st.pool,
-            None,
-        )
-        .await;
+        return download_to_path(request, destination, semaphore, None).await;
     };
 
     let last_downloaded = Arc::new(AtomicU64::new(0));
@@ -491,7 +484,6 @@ async fn download_minecraft_file_with_candidates(
         request,
         destination,
         semaphore,
-        &st.pool,
         Some(&mut progress_fn as &mut FetchProgressFn<'_>),
     )
     .await
@@ -916,6 +908,28 @@ fn asset_file_is_usable(path: &Path, expected_size: u64) -> bool {
     })
 }
 
+async fn verified_asset_is_usable(
+    path: &Path,
+    sha1: &str,
+    size: u64,
+) -> crate::Result<bool> {
+    match tokio::fs::metadata(path).await {
+        Ok(metadata) if !metadata.is_file() || metadata.len() != size => {
+            return Ok(false);
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(false);
+        }
+        Err(error) => return Err(error.into()),
+    }
+    match verify_file(path, &Integrity::sha1(sha1).with_size(size)).await {
+        Ok(_) => Ok(true),
+        Err(error) if is_integrity_error(&error) => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
 fn missing_log_config_bytes(
     st: &State,
     version: &GameVersionInfo,
@@ -1193,7 +1207,6 @@ pub async fn download_version_info(
             None,
             None,
             &st.api_semaphore,
-            &st.pool,
         )
         .await
         {
@@ -1212,7 +1225,6 @@ pub async fn download_version_info(
                     None,
                     None,
                     &st.api_semaphore,
-                    &st.pool,
                 )
                 .await
                 {
@@ -1259,7 +1271,6 @@ pub async fn download_version_info(
                     None,
                     None,
                     &st.api_semaphore,
-                    &st.pool,
                 )
                 .await?
             }
@@ -1887,6 +1898,24 @@ struct FallbackAsset {
     logical_items: u32,
 }
 
+fn fallback_batch_asset(item: H2BatchAsset) -> FallbackAsset {
+    FallbackAsset {
+        name: item.sha1.clone(),
+        // Resolve the policy from the declared official URL again. A selected
+        // batch mirror must not become the authority of a fallback request.
+        url: format!(
+            "https://resources.download.minecraft.net/{}/{}",
+            &item.sha1[..2],
+            item.sha1
+        ),
+        hash: item.sha1,
+        size: item.size,
+        resource_path: item.destination,
+        legacy_resource_paths: item.legacy_destinations,
+        logical_items: item.logical_items,
+    }
+}
+
 fn build_fallback_asset(
     st: &State,
     name: &str,
@@ -2097,13 +2126,8 @@ pub async fn download_assets(
             let (batch_items, rerouted_items): (Vec<_>, Vec<_>) = batch_items
                 .into_iter()
                 .partition(|item| url_authority(&item.url) == route_authority);
-            if !rerouted_items.is_empty() {
-                return Err(crate::ErrorKind::NetworkError(format!(
-                    "{} Minecraft assets resolved to a different batch authority",
-                    rerouted_items.len(),
-                ))
-                .into());
-            }
+            fallback_assets
+                .extend(rerouted_items.into_iter().map(fallback_batch_asset));
             let callback = {
                 let progress = progress.clone();
                 let loading_bar = loading_bar.cloned();
@@ -2126,7 +2150,7 @@ pub async fn download_assets(
                     })
                 }
             };
-            download_asset_batch_via_h2(
+            let unresolved = download_asset_batch_via_h2(
                 &route,
                 batch_items,
                 ASSET_BATCH_CONCURRENCY,
@@ -2134,12 +2158,11 @@ pub async fn download_assets(
                 callback,
             )
             .await?;
+            fallback_assets
+                .extend(unresolved.into_iter().map(fallback_batch_asset));
         } else {
-            return Err(crate::ErrorKind::NetworkError(
-                "No download route could be resolved for Minecraft assets"
-                    .to_string(),
-            )
-            .into());
+            fallback_assets
+                .extend(batch_items.into_iter().map(fallback_batch_asset));
         }
     }
 
@@ -2172,13 +2195,13 @@ pub async fn download_assets(
         })
         .await?;
 
-    // Local runtime reuse may still need a regular download when its source
-    // file is unavailable. Batch failures are surfaced instead of retried here.
+    // The batch returns only unresolved physical objects. Completed objects
+    // have already reported progress and never enter this path, even on force.
     let fallback_assets = coalesce_fallback_assets(fallback_assets);
     if !fallback_assets.is_empty() {
         futures::stream::iter(fallback_assets)
             .map(Ok::<FallbackAsset, crate::Error>)
-            .try_for_each_concurrent(ASSET_BATCH_CONCURRENCY, |item| {
+            .try_for_each_concurrent(st.download_concurrency().clamp(1, ASSET_BATCH_CONCURRENCY), |item| {
                 let progress = progress.clone();
                 let semaphore = &asset_download_semaphore;
                 async move {
@@ -2186,7 +2209,7 @@ pub async fn download_assets(
                     let hash = &item.hash;
                     let name = &item.name;
                     let should_fetch_object = force
-                        || !asset_file_is_usable(resource_path, item.size);
+                        || !verified_asset_is_usable(resource_path, hash, item.size).await?;
                     let legacy_resource_paths = item
                         .legacy_resource_paths
                         .iter()
@@ -2197,12 +2220,7 @@ pub async fn download_assets(
                         })
                         .collect::<Vec<_>>();
                     let should_fetch_legacy = !legacy_resource_paths.is_empty();
-                    let fetch_progress =
-                        if should_fetch_object || should_fetch_legacy {
-                            progress.clone()
-                        } else {
-                            None
-                        };
+                    let fetch_progress = should_fetch_object.then(|| progress.clone()).flatten();
                     if should_fetch_object {
                         let context = InstallErrorContext::new(
                             "download Minecraft asset",
@@ -2237,17 +2255,15 @@ pub async fn download_assets(
                             },
                         )
                         .await?;
+                        // Both local reuse and the downloader verify SHA-1.
+                        // Assets additionally require their declared size.
+                        if tokio::fs::metadata(resource_path).await?.len() != item.size {
+                            return Err(crate::ErrorKind::OtherError("Downloaded Minecraft asset failed size validation".into()).into());
+                        }
                         if reused {
                             tracing::trace!("Reused asset with hash {hash}");
                         } else {
                             tracing::trace!("Fetched asset with hash {hash}");
-                        }
-                        if item.logical_items > 1
-                            && let Some(progress) = &fetch_progress
-                        {
-                            for _ in 1..item.logical_items {
-                                progress.add_bytes(item.size).await?;
-                            }
                         }
                     }
                     if should_fetch_legacy {
@@ -2258,14 +2274,15 @@ pub async fn download_assets(
                                 &st.io_semaphore,
                             )
                             .await?;
-                            if !should_fetch_object
-                                && let Some(progress) = &fetch_progress
-                            {
-                                progress.add_bytes(item.size).await?;
-                            }
                             tracing::trace!(
                                 "Copied legacy asset with hash {hash}"
                             );
+                        }
+                    }
+
+                    if let Some(progress) = &progress {
+                        for _ in fallback_progress_units(item.logical_items, should_fetch_object) {
+                            progress.add_bytes(item.size).await?;
                         }
                     }
 
@@ -2291,6 +2308,13 @@ pub async fn download_assets(
 
     tracing::debug!("Done loading assets!");
     Ok(())
+}
+
+fn fallback_progress_units(
+    logical_items: u32,
+    fetched: bool,
+) -> std::ops::Range<u32> {
+    u32::from(fetched)..logical_items
 }
 
 #[tracing::instrument(skip_all, fields(version))]
@@ -3259,6 +3283,39 @@ mod tests {
             items[0].legacy_resource_paths,
             vec![first_legacy, second_legacy]
         );
+    }
+
+    #[test]
+    fn fallback_counts_each_logical_asset_once_independently_of_legacy_aliases()
+    {
+        assert_eq!(fallback_progress_units(3, false).count(), 3);
+        assert_eq!(fallback_progress_units(3, true).count(), 2);
+        assert_eq!(fallback_progress_units(1, true).count(), 0);
+        let item = fallback_batch_asset(H2BatchAsset {
+            url: "https://mirror.example/ab/object".into(),
+            destination: "object".into(),
+            legacy_destinations: vec!["legacy".into()],
+            sha1: "ab".repeat(20),
+            size: 7,
+            logical_items: 3,
+        });
+        assert!(
+            item.url
+                .starts_with("https://resources.download.minecraft.net/")
+        );
+        assert_eq!(item.logical_items, 3);
+        assert_eq!(item.legacy_resource_paths.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn fallback_validates_the_hash_of_an_existing_same_size_asset() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("asset");
+        std::fs::write(&path, b"good").unwrap();
+        let hash = sha1_smol::Sha1::from(b"good").hexdigest();
+        assert!(verified_asset_is_usable(&path, &hash, 4).await.unwrap());
+        std::fs::write(&path, b"evil").unwrap();
+        assert!(!verified_asset_is_usable(&path, &hash, 4).await.unwrap());
     }
 
     #[test]

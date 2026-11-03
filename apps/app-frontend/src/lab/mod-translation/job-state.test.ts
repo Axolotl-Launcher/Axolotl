@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     countModTranslationJobs,
@@ -62,52 +61,51 @@ function snapshot(events: ModTranslationTaskEvent[] = []): ModTranslationTaskSna
     }
 }
 
-test('percent uses verified weight and forces successful completion to 100', () => {
-    assert.equal(modTranslationPercent(progress({ weightVerified: 50, weightTotal: 100 })), 50)
-    assert.equal(modTranslationPercent(progress({ weightVerified: 100, weightTotal: 100 })), 99)
-    assert.equal(
+it('percent uses verified weight and forces successful completion to 100', () => {
+    expect(modTranslationPercent(progress({ weightVerified: 50, weightTotal: 100 }))).toBe(50)
+    expect(modTranslationPercent(progress({ weightVerified: 100, weightTotal: 100 }))).toBe(99)
+    expect(
         modTranslationPercent(
             progress({ weightVerified: 20, weightTotal: 100, finished: true, ok: true }),
         ),
-        100,
-    )
+    ).toBe(100)
 })
 
-test('snapshot replays ordered events', () => {
+it('snapshot replays ordered events', () => {
     const job = jobFromSnapshot(
         snapshot([
             event(1, { progress: progress({ phase: 'prepare', message: 'prepare' }) }),
             event(2, { progress: progress({ phase: 'language', message: 'language' }) }),
         ]),
     )
-    assert.equal(job.lastSequence, 2)
-    assert.equal(job.phase, 'language')
-    assert.equal(job.timeline.length, 2)
+    expect(job.lastSequence).toBe(2)
+    expect(job.phase).toBe('language')
+    expect(job.timeline.length).toBe(2)
 })
 
-test('duplicate and stale events are ignored', () => {
+it('duplicate and stale events are ignored', () => {
     const initial = jobFromSnapshot(snapshot([event(1)]))
-    assert.strictEqual(reduceModTranslationJob(initial, event(1)), initial)
-    assert.strictEqual(reduceModTranslationJob(initial, event(0)), initial)
+    expect(reduceModTranslationJob(initial, event(1))).toBe(initial)
+    expect(reduceModTranslationJob(initial, event(0))).toBe(initial)
 })
 
-test('out-of-order events wait for the missing sequence and then replay in order', () => {
+it('out-of-order events wait for the missing sequence and then replay in order', () => {
     const initial = jobFromSnapshot(snapshot())
     const first = replayContiguousTaskEvents(initial, [
         event(2, { progress: progress({ message: 'second' }) }),
     ])
-    assert.equal(first.job.lastSequence, 0)
-    assert.equal(first.pending.length, 1)
+    expect(first.job.lastSequence).toBe(0)
+    expect(first.pending.length).toBe(1)
     const second = replayContiguousTaskEvents(first.job, [
         ...first.pending,
         event(1, { progress: progress({ message: 'first' }) }),
     ])
-    assert.equal(second.job.lastSequence, 2)
-    assert.equal(second.job.message, 'second')
-    assert.deepEqual(second.pending, [])
+    expect(second.job.lastSequence).toBe(2)
+    expect(second.job.message).toBe('second')
+    expect(second.pending).toEqual([])
 })
 
-test('phase never regresses', () => {
+it('phase never regresses', () => {
     const initial = jobFromSnapshot(
         snapshot([event(1, { progress: progress({ phase: 'validation' }) })]),
     )
@@ -115,10 +113,10 @@ test('phase never regresses', () => {
         initial,
         event(2, { progress: progress({ phase: 'language' }) }),
     )
-    assert.equal(next.phase, 'validation')
+    expect(next.phase).toBe('validation')
 })
 
-test('zero-weight phase events preserve the last measurable progress', () => {
+it('zero-weight phase events preserve the last measurable progress', () => {
     const initial = jobFromSnapshot(
         snapshot([
             event(1, {
@@ -139,25 +137,24 @@ test('zero-weight phase events preserve the last measurable progress', () => {
             }),
         }),
     )
-    assert.equal(next.percent, 24)
-    assert.equal(next.completed, 6)
-    assert.equal(next.total, 21)
-    assert.equal(next.weightVerified, 6)
-    assert.equal(next.weightTotal, 25)
+    expect(next.percent).toBe(24)
+    expect(next.completed).toBe(6)
+    expect(next.total).toBe(21)
+    expect(next.weightVerified).toBe(6)
+    expect(next.weightTotal).toBe(25)
 })
 
-test('job counts distinguish failed tasks from successful completion', () => {
-    assert.deepEqual(
+it('job counts distinguish failed tasks from successful completion', () => {
+    expect(
         countModTranslationJobs([
             { status: 'completed' },
             { status: 'failed' },
             { status: 'running' },
         ]),
-        { running: 1, completed: 1, failed: 1 },
-    )
+    ).toEqual({ running: 1, completed: 1, failed: 1 })
 })
 
-test('failed packaging signal preserves the actual working phase and error', () => {
+it('failed packaging signal preserves the actual working phase and error', () => {
     const initial = jobFromSnapshot(
         snapshot([event(1, { progress: progress({ phase: 'repair' }) })]),
     )
@@ -169,11 +166,11 @@ test('failed packaging signal preserves the actual working phase and error', () 
             error: { code: 'UNSUPPORTED_RESOURCE', message: 'unsupported path' },
         }),
     )
-    assert.equal(next.phase, 'repair')
-    assert.equal(next.error?.code, 'UNSUPPORTED_RESOURCE')
+    expect(next.phase).toBe('repair')
+    expect(next.error?.code).toBe('UNSUPPORTED_RESOURCE')
 })
 
-test('successful task is always shown as 100 percent', () => {
+it('successful task is always shown as 100 percent', () => {
     const next = reduceModTranslationJob(
         jobFromSnapshot(snapshot()),
         event(1, {
@@ -181,10 +178,10 @@ test('successful task is always shown as 100 percent', () => {
             progress: progress({ finished: true, ok: true, weightVerified: 1, weightTotal: 10 }),
         }),
     )
-    assert.equal(next.percent, 100)
+    expect(next.percent).toBe(100)
 })
 
-test('timeline groups typed repair activity without exposing raw JSON as the title', () => {
+it('timeline groups typed repair activity without exposing raw JSON as the title', () => {
     const entries = mapTaskEventsToTimeline([
         event(1, {
             eventType: 'activity',
@@ -202,7 +199,7 @@ test('timeline groups typed repair activity without exposing raw JSON as the tit
             },
         }),
     ])
-    assert.equal(entries[0].title, '发现 16 个疑难项')
-    assert.equal(entries[0].pass, 1)
-    assert.deepEqual(entries[0].debug, { request: { entries: [] } })
+    expect(entries[0].title).toBe('发现 16 个疑难项')
+    expect(entries[0].pass).toBe(1)
+    expect(entries[0].debug).toEqual({ request: { entries: [] } })
 })

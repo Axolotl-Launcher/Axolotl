@@ -651,7 +651,6 @@ async fn download_with_engine(
         request,
         destination,
         &state.download_semaphore,
-        &state.pool,
         Some(progress_fn.as_mut()),
     )
     .await?;
@@ -776,14 +775,8 @@ async fn download_metadata_jar(
 ) -> Result<()> {
     let request = DownloadRequest::new(url, ResourceClass::Modpack)
         .with_integrity(integrity);
-    download_to_path(
-        request,
-        destination,
-        &state.download_semaphore,
-        &state.pool,
-        None,
-    )
-    .await?;
+    download_to_path(request, destination, &state.download_semaphore, None)
+        .await?;
     Ok(())
 }
 

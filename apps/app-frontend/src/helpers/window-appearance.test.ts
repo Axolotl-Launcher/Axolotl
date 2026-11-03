@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createWindowAppearanceController, type WindowAppearance } from './window-appearance.ts'
 
@@ -11,7 +10,7 @@ const transparent: WindowAppearance = {
     maximized: false,
 }
 
-test('applies an update that arrives in the microtask where the previous request settles', async () => {
+it('applies an update that arrives in the microtask where the previous request settles', async () => {
     let release!: (value: { cssBorder: boolean; warnings: string[] }) => void
     const response = new Promise<{ cssBorder: boolean; warnings: string[] }>((resolve) => {
         release = resolve
@@ -37,10 +36,10 @@ test('applies an update that arrives in the microtask where the previous request
     })
     await first
     await last
-    assert.deepEqual(applied, [true, false])
+    expect(applied).toEqual([true, false])
 })
 
-test('serializes updates, drops intermediate states, and never publishes a stale frame result', async () => {
+it('serializes updates, drops intermediate states, and never publishes a stale frame result', async () => {
     let release!: () => void
     const blocked = new Promise<void>((resolve) => {
         release = resolve
@@ -62,19 +61,16 @@ test('serializes updates, drops intermediate states, and never publishes a stale
     const last = controller.update({ ...transparent, transparent: false })
     release()
     await Promise.all([first, second, last])
-    assert.deepEqual(
-        applied.map((state) => [state.transparent, state.blur]),
-        [
-            [true, true],
-            [false, true],
-        ],
-    )
-    assert.ok(borders.every((value) => !value))
+    expect(applied.map((state) => [state.transparent, state.blur])).toEqual([
+        [true, true],
+        [false, true],
+    ])
+    expect(borders.every((value) => !value)).toBeTruthy()
     await controller.update(transparent)
-    assert.equal(borders.at(-1), true)
+    expect(borders.at(-1)).toBe(true)
 })
 
-test('native decorations and maximization suppress CSS, then restoration reapplies it', async () => {
+it('native decorations and maximization suppress CSS, then restoration reapplies it', async () => {
     let border = false
     const controller = createWindowAppearanceController(
         async () => {},
@@ -85,16 +81,16 @@ test('native decorations and maximization suppress CSS, then restoration reappli
         () => {},
     )
     await controller.update(transparent)
-    assert.equal(border, true)
+    expect(border).toBe(true)
     await controller.update({ ...transparent, decorated: true })
-    assert.equal(border, false)
+    expect(border).toBe(false)
     await controller.update({ ...transparent, maximized: true })
-    assert.equal(border, false)
+    expect(border).toBe(false)
     await controller.update(transparent)
-    assert.equal(border, true)
+    expect(border).toBe(true)
 })
 
-test('a frame failure leaves CSS disabled and later updates still run', async () => {
+it('a frame failure leaves CSS disabled and later updates still run', async () => {
     let fail = true
     let border = true
     const errors: unknown[] = []
@@ -110,14 +106,14 @@ test('a frame failure leaves CSS disabled and later updates still run', async ()
         (error) => errors.push(error),
     )
     await controller.update(transparent)
-    assert.equal(border, false)
+    expect(border).toBe(false)
     fail = false
     await controller.update(transparent)
-    assert.equal(border, false)
-    assert.equal(errors.length, 2)
+    expect(border).toBe(false)
+    expect(errors.length).toBe(2)
 })
 
-test('unmount discards pending work and ignores the completing native operation', async () => {
+it('unmount discards pending work and ignores the completing native operation', async () => {
     let release!: () => void
     const blocked = new Promise<void>((resolve) => {
         release = resolve
@@ -148,11 +144,11 @@ test('unmount discards pending work and ignores the completing native operation'
     release()
     await first
     await controller.update(transparent)
-    assert.equal(count, 1)
-    assert.equal(border, false)
+    expect(count).toBe(1)
+    expect(border).toBe(false)
 })
 
-test('applies the frame after effects settle and still suppresses native borders after an effect failure', async () => {
+it('applies the frame after effects settle and still suppresses native borders after an effect failure', async () => {
     const operations: string[] = []
     const warnings: unknown[] = []
     const controller = createWindowAppearanceController(
@@ -168,6 +164,6 @@ test('applies the frame after effects settle and still suppresses native borders
         (error) => warnings.push(error),
     )
     await controller.update(transparent)
-    assert.deepEqual(operations, ['effects', 'frame'])
-    assert.match(String(warnings[0]), /unsupported blur/)
+    expect(operations).toEqual(['effects', 'frame'])
+    expect(String(warnings[0])).toMatch(/unsupported blur/)
 })

@@ -10,6 +10,11 @@ use sha2::{Digest, Sha256};
 use tokio::process::Command;
 
 use super::{CensoredString, isolated_minecraft_root, resolve_instance_path};
+use crate::state::store::Collection as _;
+use crate::state::store::crash_analysis_mod_snapshots::{
+    CrashAnalysisModSnapshotKey, CrashAnalysisModSnapshotRecord,
+    CrashAnalysisModSnapshots,
+};
 use crate::{State, prelude::Credentials, util::io::IOError};
 
 const RUN_ASSOCIATION_WINDOW: Duration = Duration::from_secs(3 * 60);
@@ -150,6 +155,11 @@ const RULES: &[Rule] = &[
             "Out of Memory Error",
             "Could not reserve enough space",
             "InsufficientMemory",
+            // The JVM could not get memory from the OS. `hs_err_pid*.log` reports these
+            // when the machine (not the Java heap) is exhausted, which is the same
+            // user-facing problem: the game ran out of memory.
+            "Native memory allocation (malloc) failed",
+            "insufficient memory for the Java Runtime Environment to continue",
         ],
     },
     Rule {
@@ -700,7 +710,7 @@ async fn collect_crash_context(
         collect_candidates(&instance_root, &state.directories).await?;
     let selected = select_run_candidates(candidates);
     let sources = read_sources(selected).await;
-    let credentials = Credentials::get_all(&state.pool)
+    let credentials = Credentials::get_all(&state.data)
         .await?
         .into_iter()
         .collect::<Vec<_>>();
@@ -763,34 +773,43 @@ pub async fn save_successful_mod_snapshot(
     let content =
         crate::state::list_content(instance_id, None, None, &state).await?;
     let snapshot = scan_mod_snapshot(&mods_path, &content).await?;
-    let mut transaction = state.pool.begin().await?;
-    sqlx::query(
-        "DELETE FROM crash_analysis_mod_snapshots WHERE instance_id = ?",
-    )
-    .bind(instance_id)
-    .execute(&mut *transaction)
-    .await?;
-    for (filename, size, sha256) in snapshot {
-        let item = content.iter().find(|item| item.file_name == filename);
-        let project = item.and_then(|item| item.project.as_ref());
-        let version = item.and_then(|item| item.version.as_ref());
-        sqlx::query(
-            "INSERT INTO crash_analysis_mod_snapshots (instance_id, filename, size, sha256, project_id, project_title, icon_url, version_id, version_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(instance_id)
-        .bind(&filename)
-        .bind(size as i64)
-        .bind(sha256)
-        .bind(project.map(|project| project.id.clone()))
-        .bind(project.map(|project| project.title.clone()))
-        .bind(project.and_then(|project| project.icon_url.clone()))
-        .bind(version.map(|version| version.id.clone()))
-        .bind(version.map(|version| version.version_number.clone()))
-        .execute(&mut *transaction)
-        .await?;
-    }
-    transaction.commit().await?;
-    Ok(())
+    let entries = snapshot
+        .into_iter()
+        .map(|(filename, size, sha256)| {
+            let item = content.iter().find(|item| item.file_name == filename);
+            let project = item.and_then(|item| item.project.as_ref());
+            let version = item.and_then(|item| item.version.as_ref());
+            (
+                CrashAnalysisModSnapshotKey {
+                    instance_id: instance_id.to_string(),
+                    filename,
+                },
+                CrashAnalysisModSnapshotRecord {
+                    size,
+                    sha256,
+                    project_id: project.map(|project| project.id.clone()),
+                    project_title: project.map(|project| project.title.clone()),
+                    icon_url: project
+                        .and_then(|project| project.icon_url.clone()),
+                    version_id: version.map(|version| version.id.clone()),
+                    version_number: version
+                        .map(|version| version.version_number.clone()),
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    let instance_id = instance_id.to_string();
+    state
+        .derived
+        .write(async |handle| {
+            CrashAnalysisModSnapshots::set_scoped(
+                handle,
+                &instance_id,
+                &entries,
+            )
+            .await
+        })
+        .await
 }
 
 pub async fn undo_added_mod(
@@ -833,21 +852,35 @@ async fn compare_mod_snapshot(
     instance_root: &Path,
 ) -> crate::Result<Vec<CrashModChange>> {
     let state = State::get().await?;
-    let previous = sqlx::query_as::<_, (String, u64, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
-        "SELECT filename, size, sha256, project_id, project_title, icon_url, version_id, version_number FROM crash_analysis_mod_snapshots WHERE instance_id = ?",
-    )
-    .bind(instance_id)
-    .fetch_all(&state.pool)
-    .await?
-    .into_iter()
-    .map(|(filename, size, hash, project_id, project_title, icon_url, version_id, version_number)| (filename, (size, hash, project_id, project_title, icon_url, version_id, version_number)))
-    .collect::<std::collections::HashMap<_, _>>();
+    let instance_id = instance_id.to_string();
+    let previous = state
+        .derived
+        .read(async |handle| {
+            CrashAnalysisModSnapshots::get_scoped(handle, &instance_id).await
+        })
+        .await?
+        .into_iter()
+        .map(|(key, record)| {
+            (
+                key.filename,
+                (
+                    record.size,
+                    record.sha256,
+                    record.project_id,
+                    record.project_title,
+                    record.icon_url,
+                    record.version_id,
+                    record.version_number,
+                ),
+            )
+        })
+        .collect::<std::collections::HashMap<_, _>>();
     if previous.is_empty() {
         return Ok(Vec::new());
     }
-    crate::state::sync_content_files(instance_id, &state).await?;
+    crate::state::sync_content_files(&instance_id, &state).await?;
     let content =
-        crate::state::list_content(instance_id, None, None, &state).await?;
+        crate::state::list_content(&instance_id, None, None, &state).await?;
     let current = scan_mod_snapshot(&instance_root.join("mods"), &[])
         .await?
         .into_iter()
@@ -1665,6 +1698,17 @@ mod tests {
         assert_eq!(findings[0].id, "out_of_memory");
         assert_eq!(findings[0].evidence[0].line, 2);
         assert_eq!(findings[0].evidence[0].filename, "latest.log");
+    }
+
+    #[test]
+    fn reports_native_memory_exhaustion_as_out_of_memory() {
+        let findings = analyze_sources(&[source(
+            "hs_err_pid12432.log",
+            "# There is insufficient memory for the Java Runtime Environment to continue.\n\
+             # Native memory allocation (malloc) failed to allocate 1048576 bytes for Chunk::new",
+        )]);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].id, "out_of_memory");
     }
 
     #[test]

@@ -8,6 +8,13 @@ use super::orchestration::{
     backup_bytes, create_synced_directories, option_effective,
     seed_from_instance, synced_options_path,
 };
+use crate::state::store::Collection as _;
+use crate::state::store::instance_sync_checkpoints::{
+    CheckpointScope, InstanceSyncCheckpoints,
+};
+use crate::state::store::synced_hotbar_state::{
+    HotbarStateRecord, Singleton as HotbarSingleton, SyncedHotbarState,
+};
 use crate::state::{InstanceMetadata, SyncedOption};
 use crate::util::io;
 use crate::{ErrorKind, State};
@@ -473,18 +480,16 @@ async fn remove_other_hotbar_checkpoint(
     state: &State,
 ) -> crate::Result<()> {
     let variant = family.as_str();
-    sqlx::query!(
-        "
-        DELETE FROM instance_sync_checkpoints
-        WHERE instance_id = ?
-            AND feature = 'creative_hotbars'
-            AND variant != ?
-        ",
-        instance_id,
-        variant,
-    )
-    .execute(&state.pool)
-    .await?;
+    let scope = CheckpointScope {
+        instance_id: instance_id.to_string(),
+        feature: "creative_hotbars".to_string(),
+    };
+    let kept = InstanceSyncCheckpoints::get_scoped(&state.data, &scope)
+        .await?
+        .into_iter()
+        .filter(|(key, _)| key.variant != variant)
+        .collect::<Vec<_>>();
+    InstanceSyncCheckpoints::set_scoped(&state.data, &scope, &kept).await?;
     Ok(())
 }
 
@@ -503,16 +508,7 @@ pub(super) fn empty_hotbar_root() -> NbtCompound {
 pub(super) async fn read_hotbar_state(
     state: &State,
 ) -> crate::Result<HotbarState> {
-    let row = sqlx::query!(
-        r#"
-        SELECT schema_version AS "schema_version!: i64",
-            revision AS "revision!: i64", nbt
-        FROM synced_hotbar_state
-        WHERE singleton = 1
-        "#,
-    )
-    .fetch_optional(&state.pool)
-    .await?;
+    let row = SyncedHotbarState::get(&state.data, &HotbarSingleton).await?;
     if let Some(row) = row {
         return Ok(HotbarState {
             schema_version: row.schema_version,
@@ -528,15 +524,7 @@ pub(super) async fn read_hotbar_state(
 }
 
 pub(super) async fn hotbar_state_exists(state: &State) -> crate::Result<bool> {
-    Ok(sqlx::query_scalar!(
-        r#"
-        SELECT EXISTS(
-            SELECT 1 FROM synced_hotbar_state WHERE singleton = 1
-        ) AS "exists!: bool"
-        "#,
-    )
-    .fetch_one(&state.pool)
-    .await?)
+    SyncedHotbarState::exists(&state.data).await
 }
 
 pub(super) fn hotbar_family_root(
@@ -568,21 +556,15 @@ pub(super) async fn write_hotbar_state(
     hotbar_state: &HotbarState,
 ) -> crate::Result<()> {
     let bytes = nbt_to_bytes(&hotbar_state.nbt)?;
-    sqlx::query!(
-        "
-        INSERT INTO synced_hotbar_state
-            (singleton, schema_version, revision, nbt)
-        VALUES (1, ?, ?, ?)
-        ON CONFLICT(singleton) DO UPDATE SET
-            schema_version = excluded.schema_version,
-            revision = excluded.revision,
-            nbt = excluded.nbt
-        ",
-        hotbar_state.schema_version,
-        hotbar_state.revision,
-        bytes,
+    SyncedHotbarState::set(
+        &state.data,
+        &HotbarSingleton,
+        Some(&HotbarStateRecord {
+            schema_version: hotbar_state.schema_version,
+            revision: hotbar_state.revision,
+            nbt: bytes,
+        }),
     )
-    .execute(&state.pool)
     .await?;
     Ok(())
 }

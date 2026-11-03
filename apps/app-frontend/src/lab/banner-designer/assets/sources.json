@@ -1,0 +1,34 @@
+{
+  "EditedAt": "2026-10-26T18:40:00+08:00",
+  "sources": [
+    {
+      "id": "banner-pattern-textures",
+      "repository": "https://github.com/InventivetalentDev/minecraft-assets",
+      "ref": "26.3",
+      "path": "assets/minecraft/textures/entity/banner/*.png",
+      "note": "Alpha masks extracted from the front face (20 × 40 px, columns 1-20 and rows 1-40 of the 42 × 41 banner wrap) of the vanilla banner pattern textures. Minecraft and its original resources are Copyright Mojang Studios / Microsoft and are used only to identify compatible game content."
+    },
+    {
+      "id": "banner-pattern-registry",
+      "repository": "https://github.com/misode/mcmeta",
+      "ref": "data",
+      "path": "data/minecraft/banner_pattern/*.json",
+      "note": "Java Edition pattern registry ids, asset ids and translation keys."
+    },
+    {
+      "id": "banner-pattern-names",
+      "repository": "https://zh.minecraft.wiki/w/旗帜/Patterns",
+      "note": "Heraldic English names and Simplified Chinese pattern names."
+    },
+    {
+      "id": "banner-data",
+      "repository": "https://zh.minecraft.wiki/w/旗帜",
+      "note": "Item data components, the six-pattern limit and the banners that generate in structures."
+    },
+    {
+      "id": "banner-design-tutorial",
+      "repository": "https://zh.minecraft.wiki/w/Tutorial:旗帜设计",
+      "note": "Letter, digit and card suit alphabets. The pattern and dye sequence of every glyph was read from the `block.minecraft.banner.*` translation templates of the recipe table."
+    }
+  ]
+}

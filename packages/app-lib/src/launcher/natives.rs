@@ -262,10 +262,16 @@ fn build_manifest(
             if entry.is_dir() {
                 continue;
             }
-            let Some(relative_path) = safe_entry_path(entry.name()) else {
+            let entry_name = entry.name().map_err(|error| {
+                native_error(format!(
+                    "Failed to read native archive entry name {}: {error}",
+                    archive.archive_path.display()
+                ))
+            })?;
+            let Some(relative_path) = safe_entry_path(&entry_name) else {
                 tracing::warn!(
                     archive = %archive.archive_path.display(),
-                    entry = entry.name(),
+                    entry = %entry_name,
                     "Ignored unsafe native archive entry"
                 );
                 continue;

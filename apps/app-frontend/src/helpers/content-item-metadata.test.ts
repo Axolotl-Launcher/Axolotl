@@ -1,11 +1,9 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
 import type { ContentItem } from '@modrinth/ui'
+import { expect, it } from 'vitest'
 
 import { mergeContentItemMetadata } from './content-item-metadata.ts'
 
-test('lazy display metadata retains the resource update and history of the stable entry', () => {
+it('lazy display metadata retains the resource update and history of the stable entry', () => {
     const item = {
         instanceEntryId: 'entry-a',
         instanceMaterializationState: 'present',
@@ -19,22 +17,21 @@ test('lazy display metadata retains the resource update and history of the stabl
         { provider: 'curseforge', target_file_id: 42 },
     ]) {
         const refreshed = mergeContentItemMetadata(item, { update } as ContentItem)
-        assert.equal(refreshed.instanceEntryId, 'entry-a')
-        assert.equal(refreshed.instanceCapabilities?.canUpdate, true)
-        assert.equal(refreshed.instanceCapabilities?.canChangeVersion, true)
-        assert.equal(refreshed.update, null)
-        assert.deepEqual(refreshed.resourceUpdate, item.resourceUpdate)
-        assert.deepEqual(refreshed.rollback, item.rollback)
-        assert.equal(
+        expect(refreshed.instanceEntryId).toBe('entry-a')
+        expect(refreshed.instanceCapabilities?.canUpdate).toBe(true)
+        expect(refreshed.instanceCapabilities?.canChangeVersion).toBe(true)
+        expect(refreshed.update).toBe(null)
+        expect(refreshed.resourceUpdate).toEqual(item.resourceUpdate)
+        expect(refreshed.rollback).toEqual(item.rollback)
+        expect(
             mergeContentItemMetadata(refreshed, { update: null } as ContentItem)
                 .instanceCapabilities?.canUpdate,
-            true,
-        )
-        assert.equal(item.instanceCapabilities?.canUpdate, false)
+        ).toBe(true)
+        expect(item.instanceCapabilities?.canUpdate).toBe(false)
     }
 })
 
-test('lazy metadata never replaces actual path, entry identity or connector origin with stale presentation', () => {
+it('lazy metadata never replaces actual path, entry identity or connector origin with stale presentation', () => {
     const item = {
         instanceEntryId: 'entry',
         instanceFileId: 'file',
@@ -62,10 +59,10 @@ test('lazy metadata never replaces actual path, entry identity or connector orig
         'enabled',
         'instanceMaterializationState',
     ] as const)
-        assert.equal(merged[key], item[key])
+        expect(merged[key]).toBe(item[key])
 })
 
-test('update metadata does not enable mutation of a missing or removed file', () => {
+it('update metadata does not enable mutation of a missing or removed file', () => {
     for (const instanceMaterializationState of ['missing', 'removed', 'pending_manual']) {
         const item = {
             instanceMaterializationState,
@@ -74,14 +71,11 @@ test('update metadata does not enable mutation of a missing or removed file', ()
         const metadata = {
             update: { provider: 'modrinth', target_version_id: 'new' },
         } as ContentItem
-        assert.equal(
-            mergeContentItemMetadata(item, metadata).instanceCapabilities?.canUpdate,
-            false,
-        )
+        expect(mergeContentItemMetadata(item, metadata).instanceCapabilities?.canUpdate).toBe(false)
     }
 })
 
-test('lazy recognition preserves actual provenance, ownership and compatibility', () => {
+it('lazy recognition preserves actual provenance, ownership and compatibility', () => {
     for (const installedSource of [null, 'curseforge']) {
         const item = {
             instanceEntryId: 'entry-a',
@@ -99,8 +93,8 @@ test('lazy recognition preserves actual provenance, ownership and compatibility'
             instanceOwnershipKind: 'user_added',
             compatibility: null,
         } as ContentItem)
-        assert.equal(merged.installedSource, installedSource)
-        assert.equal(merged.instanceOwnershipKind, 'pack_managed')
-        assert.deepEqual(merged.compatibility, item.compatibility)
+        expect(merged.installedSource).toBe(installedSource)
+        expect(merged.instanceOwnershipKind).toBe('pack_managed')
+        expect(merged.compatibility).toEqual(item.compatibility)
     }
 })

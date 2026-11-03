@@ -487,7 +487,7 @@ pub async fn scan_storage_with_progress(
     let _scan = SCAN_LOCK.lock().await;
     let directories = dirs()?;
     let settings =
-        crate::state::Settings::get(&crate::State::get().await?.pool).await?;
+        crate::state::Settings::get(&crate::State::get().await?.data).await?;
     let backup = settings
         .backup_repository_path
         .filter(|path| !path.trim().is_empty())

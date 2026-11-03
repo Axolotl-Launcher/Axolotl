@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import type { ExportCategory, ExportFileSnapshot } from '@/helpers/resources'
 
@@ -47,15 +46,15 @@ const initial = (): ExportSelectionDraft => ({
     excluded: [],
 })
 
-test('defaults contain all nested files and omit runtime, old and unselected world files', () => {
-    assert.deepEqual(selectedFiles(files, initial()), [
+it('defaults contain all nested files and omit runtime, old and unselected world files', () => {
+    expect(selectedFiles(files, initial())).toEqual([
         'mods/a.jar',
         'mods/nested/b.jar',
         'shaderpacks/a.zip',
         'shaderpacks/a.zip.txt',
     ])
 })
-test('manual exclusions and inclusions survive changing categories and returning', () => {
+it('manual exclusions and inclusions survive changing categories and returning', () => {
     let draft = reviseFileSelection(files, initial(), [
         'mods/a.jar',
         'mods/runtime/cache',
@@ -63,40 +62,39 @@ test('manual exclusions and inclusions survive changing categories and returning
         'shaderpacks/a.zip.txt',
     ])
     draft = reviseCategorySelection(draft, category('mods'), false)
-    assert.deepEqual(selectedFiles(files, draft), [
+    expect(selectedFiles(files, draft)).toEqual([
         'mods/runtime/cache',
         'shaderpacks/a.zip',
         'shaderpacks/a.zip.txt',
     ])
     draft = reviseCategorySelection(draft, category('mods'), true)
-    assert.deepEqual(selectedFiles(files, draft), [
+    expect(selectedFiles(files, draft)).toEqual([
         'mods/a.jar',
         'mods/runtime/cache',
         'shaderpacks/a.zip',
         'shaderpacks/a.zip.txt',
     ])
-    assert.ok(draft.excluded.includes('mods/nested/b.jar'))
+    expect(draft.excluded.includes('mods/nested/b.jar')).toBeTruthy()
 })
-test('shader settings and packs are separate leaves with independent selection', () => {
+it('shader settings and packs are separate leaves with independent selection', () => {
     const shaders = category('shaders', true, [category('pack'), category('settings')])
-    assert.deepEqual(defaultCategories([shaders]), ['pack', 'settings'])
+    expect(defaultCategories([shaders])).toEqual(['pack', 'settings'])
     const draft = reviseCategorySelection(initial(), shaders.children[1], false)
-    assert.ok(selectedFiles(files, draft).includes('shaderpacks/a.zip'))
-    assert.ok(!selectedFiles(files, draft).includes('shaderpacks/a.zip.txt'))
+    expect(selectedFiles(files, draft).includes('shaderpacks/a.zip')).toBeTruthy()
+    expect(!selectedFiles(files, draft).includes('shaderpacks/a.zip.txt')).toBeTruthy()
 })
-test('snapshot selection never accepts a new or forbidden path from a caller', () => {
+it('snapshot selection never accepts a new or forbidden path from a caller', () => {
     const draft = reviseFileSelection(files, initial(), [
         'mods/a.jar',
         'assets/secret',
         'mods/new.jar',
     ])
-    assert.deepEqual(selectedFiles(files, draft), ['mods/a.jar'])
+    expect(selectedFiles(files, draft)).toEqual(['mods/a.jar'])
 })
-test('restore removes only manual changes and keeps the current category choices', () => {
+it('restore removes only manual changes and keeps the current category choices', () => {
     const draft = reviseCategorySelection(initial(), category('pack'), false)
     const changed = reviseFileSelection(files, draft, ['mods/a.jar'])
-    assert.deepEqual(
-        selectedFiles(files, { ...changed, included: [], excluded: [] }),
+    expect(selectedFiles(files, { ...changed, included: [], excluded: [] })).toEqual(
         selectedFiles(files, draft),
     )
 })

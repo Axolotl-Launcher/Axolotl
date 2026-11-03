@@ -15,10 +15,75 @@ pub const INITIAL_ARTIFACT_PROBE_LIMIT: usize = 3;
 pub const HISTORY_PAGE_LIMIT: usize = 2;
 pub const HISTORY_ARTIFACT_PROBE_LIMIT: usize = 10;
 
-#[derive(Clone, Debug)]
+pub(crate) fn recognition_source_failure(error: &ResourceError) -> bool {
+    matches!(
+        error,
+        ResourceError::Network { .. }
+            | ResourceError::Unavailable
+            | ResourceError::InvalidResponse(_)
+            | ResourceError::Unsupported(_)
+    )
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LocalArtifactIdentity {
     pub integrity: ArtifactIntegrity,
     pub fingerprint: Option<u32>,
+}
+
+fn local_identity_key(integrity: &ArtifactIntegrity) -> Option<String> {
+    // The scanner's current SHA-1 and size address the bytes, independently
+    // of their path, provider recognition, or a cart's instance revision.
+    let sha1 = integrity.hashes.iter().find(|hash| {
+        hash.algorithm == HashAlgorithm::Sha1
+            && hash.value.len() == 40
+            && hash.value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    })?;
+    Some(format!(
+        "local-identity-v1:{}:{}",
+        integrity.size?,
+        sha1.value.to_ascii_lowercase()
+    ))
+}
+
+impl super::cache::ResourceCache {
+    pub(crate) async fn local_identity(
+        &self,
+        integrity: &ArtifactIntegrity,
+    ) -> Option<LocalArtifactIdentity> {
+        let cached: LocalArtifactIdentity =
+            self.evidence(&local_identity_key(integrity)?).await?;
+        (exact_integrity(integrity, &cached.integrity)
+            && cached.fingerprint.is_some()
+            && [HashAlgorithm::Sha256, HashAlgorithm::Sha512].iter().all(
+                |algorithm| {
+                    cached.integrity.hashes.iter().any(|hash| {
+                        &hash.algorithm == algorithm
+                            && hash.value.len()
+                                == if *algorithm == HashAlgorithm::Sha256 {
+                                    64
+                                } else {
+                                    128
+                                }
+                            && hash
+                                .value
+                                .bytes()
+                                .all(|byte| byte.is_ascii_hexdigit())
+                    })
+                },
+            ))
+        .then_some(cached)
+    }
+
+    pub(crate) async fn store_local_identity(
+        &self,
+        identity: &LocalArtifactIdentity,
+        generation: i64,
+    ) {
+        if let Some(key) = local_identity_key(&identity.integrity) {
+            self.store_evidence(&key, identity, generation).await;
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -70,6 +135,69 @@ pub fn exact_integrity(
     strong
 }
 
+/// A byte match alone does not establish that two projects are the same resource.
+pub(crate) fn project_confirmation_rejection(
+    left: &SourceProjectMetadata,
+    right: &SourceProjectMetadata,
+    left_artifact: &ResourceArtifact,
+    right_artifact: &ResourceArtifact,
+) -> Option<&'static str> {
+    if left_artifact.reference.release.project != left.project
+        || right_artifact.reference.release.project != right.project
+    {
+        Some("artifact belongs to a different project")
+    } else if !left.types.iter().any(|kind| right.types.contains(kind)) {
+        Some("project resource types do not overlap")
+    } else if !super::valid_artifact(left_artifact)
+        || !super::valid_artifact(right_artifact)
+    {
+        Some("artifact metadata is incomplete or invalid")
+    } else if verify_artifact_pair(left_artifact, right_artifact).is_none() {
+        Some("primary artifacts lack matching strong byte evidence")
+    } else {
+        None
+    }
+}
+
+/// Optional discovery may retain a valid primary source without linking a
+/// counterpart. Persistence failures and cancellation still fail the operation.
+pub(crate) async fn try_confirm_projects(
+    store: &crate::state::resources::ResourceStore,
+    left: &SourceProjectMetadata,
+    right: &SourceProjectMetadata,
+    left_artifact: &ResourceArtifact,
+    right_artifact: &ResourceArtifact,
+    cancel: &CancellationToken,
+) -> ResourceResult<Option<ResourceId>> {
+    if cancel.is_cancelled() {
+        return Err(ResourceError::Canceled);
+    }
+    if let Some(reason) = project_confirmation_rejection(
+        left,
+        right,
+        left_artifact,
+        right_artifact,
+    ) {
+        tracing::info!(
+            left = ?left.project,
+            right = ?right.project,
+            left_types = ?left.types,
+            right_types = ?right.types,
+            left_role = ?left_artifact.role,
+            right_role = ?right_artifact.role,
+            left_size = ?left_artifact.integrity.size,
+            right_size = ?right_artifact.integrity.size,
+            reason,
+            "Skipped optional resource project association"
+        );
+        return Ok(None);
+    }
+    store
+        .confirm_projects(left, right, left_artifact, right_artifact)
+        .await
+        .map(Some)
+}
+
 pub fn verify_artifact_pair(
     left: &ResourceArtifact,
     right: &ResourceArtifact,
@@ -89,6 +217,93 @@ pub fn verify_artifact_pair(
 }
 
 impl ResourceService {
+    /// Recognition can find the same bytes on differently classified projects.
+    /// Try usable metadata without changing an explicitly recorded identity.
+    pub(crate) async fn select_recognized_artifact(
+        self: &std::sync::Arc<Self>,
+        matches: &[ResourceArtifact],
+        existing: Option<&SourceArtifactRef>,
+        origin: Option<&SourceId>,
+        preferred: &SourceId,
+        kind: ResourceType,
+        ambiguous: bool,
+        policy: CachePolicy,
+        cancel: &CancellationToken,
+    ) -> ResourceResult<Option<(ResourceArtifact, SourceProjectMetadata)>> {
+        let pinned = if let Some(existing) = existing {
+            Some(existing.release.project.clone())
+        } else if let Some(origin) = origin {
+            let projects = matches
+                .iter()
+                .filter(|artifact| {
+                    &artifact.reference.release.project.source == origin
+                })
+                .map(|artifact| artifact.reference.release.project.clone())
+                .collect::<std::collections::HashSet<_>>();
+            if projects.len() != 1 {
+                return Ok(None);
+            }
+            projects.into_iter().next()
+        } else {
+            if ambiguous {
+                return Ok(None);
+            }
+            None
+        };
+        let pinned_id =
+            if let (Some(store), Some(project)) = (self.store(), &pinned) {
+                store.lookup(project).await?
+            } else {
+                None
+            };
+        let mut candidates = matches.iter().collect::<Vec<_>>();
+        candidates.sort_by_key(|artifact| {
+            (
+                existing != Some(&artifact.reference),
+                pinned.as_ref() != Some(&artifact.reference.release.project),
+                &artifact.reference.release.project.source != preferred,
+            )
+        });
+        let mut failure = None;
+        for artifact in candidates {
+            if cancel.is_cancelled() {
+                return Err(ResourceError::Canceled);
+            }
+            let project = &artifact.reference.release.project;
+            if let Some(pinned) = &pinned
+                && project != pinned
+                && !(if let (Some(store), Some(id)) = (self.store(), &pinned_id)
+                {
+                    store.lookup(project).await?.as_ref() == Some(id)
+                } else {
+                    false
+                })
+            {
+                continue;
+            }
+            let metadata = match self
+                .project_document_with_policy(project, None, cancel, policy)
+                .await
+            {
+                Ok(document) => document.metadata,
+                Err(error) if recognition_source_failure(&error) => {
+                    failure = Some(error);
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
+            if !metadata.types.contains(&kind) {
+                continue;
+            }
+            return Ok(Some((artifact.clone(), metadata)));
+        }
+        if let Some(error) = failure {
+            Err(error)
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Uses metadata hashes and at most two release pages. Sources requiring
     /// a local fingerprint are probed by the opposing hash-capable source,
     /// without downloading files or enumerating an entire project history.

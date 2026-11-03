@@ -12,11 +12,17 @@ import { computed, nextTick, onBeforeUnmount, ref, shallowRef, triggerRef } from
 
 import type { InstallJobSnapshot } from '@/helpers/install'
 import { refresh_content } from '@/helpers/instance'
+import { resourceAnalysisRequest } from '@/helpers/resource-analysis-request'
+import {
+    resourceFailureFeedback,
+    resourcePlanIssueFeedback,
+} from '@/helpers/resource-operation-feedback'
 import { resourceOperationError, resourceSourceName } from '@/helpers/resource-operation-logic'
 import {
     type ResourceDependencyNode,
     resourceGet,
     type ResourceOperationIntent,
+    type ResourceOperationPhase,
     type ResourceOperationPlan,
     type ResourceOperationProgress,
     type ResourcePlanDecision,
@@ -31,6 +37,8 @@ import {
 import { get_instance_worlds } from '@/helpers/worlds'
 import type { ContentAnalysisReview } from '@/providers/content-analysis'
 
+import { indexResourceOperationPreview } from './resource-operation-preview-index'
+
 const { formatMessage } = useVIntl()
 const messages = defineMessages({
     invalidPath: {
@@ -40,10 +48,6 @@ const messages = defineMessages({
     identityUnconfirmed: {
         id: 'app.resources.operation.identity-unconfirmed',
         defaultMessage: 'The selected resource could not be identified reliably.',
-    },
-    staleRevision: {
-        id: 'app.resources.operation.stale-revision',
-        defaultMessage: 'The instance changed. Refresh this preview before continuing.',
     },
     world: { id: 'app.resources.operation.world', defaultMessage: 'Target world for data packs' },
     noWorlds: {
@@ -55,6 +59,30 @@ const messages = defineMessages({
     loading: {
         id: 'app.resources.operation.loading',
         defaultMessage: 'Resolving releases and dependencies…',
+    },
+    loadingCollectingConstraints: {
+        id: 'app.resources.operation.loading-collecting-constraints',
+        defaultMessage: 'Collecting the version requirements of installed content…',
+    },
+    loadingIdentifyingInstalled: {
+        id: 'app.resources.operation.loading-identifying-installed',
+        defaultMessage: 'Identifying installed content…',
+    },
+    loadingPrefetching: {
+        id: 'app.resources.operation.loading-prefetching',
+        defaultMessage: 'Fetching project details…',
+    },
+    loadingRefreshingContent: {
+        id: 'app.resources.operation.loading-refreshing-content',
+        defaultMessage: 'Checking installed files…',
+    },
+    loadingReresolving: {
+        id: 'app.resources.operation.loading-reresolving',
+        defaultMessage: 'Resolving dependencies again to settle version conflicts…',
+    },
+    loadingValidating: {
+        id: 'app.resources.operation.loading-validating',
+        defaultMessage: 'Checking that the files can be written…',
     },
     artifact: {
         id: 'app.resources.operation.artifact',
@@ -106,15 +134,20 @@ const messages = defineMessages({
     refresh: { id: 'app.resources.operation.refresh', defaultMessage: 'Refresh this preview' },
     cancel: { id: 'app.resources.operation.cancel', defaultMessage: 'Cancel' },
     apply: { id: 'app.resources.operation.apply', defaultMessage: 'Queue changes' },
+    forceInstall: {
+        id: 'app.resources.operation.force-install',
+        defaultMessage: 'Force install without dependencies',
+    },
+    forceInstallTooltip: {
+        id: 'app.resources.operation.force-install-tooltip',
+        defaultMessage: '{reason} Try installing only the selected content without dependencies.',
+    },
+    forceInstallCompatibilityTooltip: {
+        id: 'app.resources.operation.force-install-compatibility-tooltip',
+        defaultMessage:
+            '{reason} Try installing only the selected content without dependencies and accept its Minecraft or loader compatibility mismatches.',
+    },
     empty: { id: 'app.resources.operation.empty', defaultMessage: 'No file changes are needed.' },
-    manualDownload: {
-        id: 'app.resources.operation.manual-download',
-        defaultMessage: '{name} requires a manual download and cannot be installed automatically.',
-    },
-    pathOccupied: {
-        id: 'app.resources.operation.path-occupied',
-        defaultMessage: '{path} is already used by another file, so it cannot be installed.',
-    },
     sourceUnavailable: {
         id: 'app.resources.operation.source-unavailable',
         defaultMessage: 'The source cannot provide this item right now.',
@@ -143,6 +176,27 @@ const messages = defineMessages({
     conflictDetails: {
         id: 'app.resources.operation.conflict.details',
         defaultMessage: 'Conflict details',
+    },
+    reviewIssues: {
+        id: 'app.resources.operation.review-issues',
+        defaultMessage: 'Installation issues',
+    },
+    issueSubject: {
+        id: 'app.resources.operation.issue-subject',
+        defaultMessage: '{subject}: {reason}',
+    },
+    issueSource: {
+        id: 'app.resources.operation.issue-source',
+        defaultMessage: '{subject} ({source}): {reason}',
+    },
+    fileIssue: {
+        id: 'app.resources.operation.file-issue',
+        defaultMessage: '{reason} File: {path}',
+    },
+    compatibilityDetail: {
+        id: 'app.resources.operation.compatibility-detail',
+        defaultMessage:
+            '{subject}: {assessment}. Choose a matching version, or install the selected content with these compatibility exceptions.',
     },
     compatibilitySummary: {
         id: 'app.resources.operation.compatibility-summary',
@@ -247,10 +301,6 @@ const messages = defineMessages({
         id: 'app.resources.operation.skip-unwritable',
         defaultMessage: 'Force install writable files',
     },
-    fileNotWritable: {
-        id: 'app.resources.operation.file-not-writable',
-        defaultMessage: 'Cannot write {path}. Close any program using this file or skip it.',
-    },
     fileWriteSkipped: {
         id: 'app.resources.operation.file-write-skipped',
         defaultMessage: '{path} will be skipped because it cannot be written.',
@@ -276,8 +326,28 @@ type OperationInput = {
 const modal = ref<InstanceType<typeof NewModal> | null>(null)
 const plan = ref<ResourceOperationPlan | null>(null)
 const progressNodes = shallowRef(new Map<string, ResourceDependencyNode>())
+/** Shown plan nodes the running analysis retracted; hidden until its plan arrives. */
+const removedNodes = shallowRef(new Set<string>())
+/** What the running analysis reports doing; null while it resolves nodes. */
+const progressPhase = ref<ResourceOperationPhase | null>(null)
+const progressRound = ref(0)
+const phaseMessages = {
+    collectingConstraints: messages.loadingCollectingConstraints,
+    identifyingInstalled: messages.loadingIdentifyingInstalled,
+    prefetching: messages.loadingPrefetching,
+    refreshingContent: messages.loadingRefreshingContent,
+    validating: messages.loadingValidating,
+} satisfies Record<ResourceOperationPhase, unknown>
+const progressMessage = computed(() =>
+    progressPhase.value
+        ? phaseMessages[progressPhase.value]
+        : progressRound.value > 0
+          ? messages.loadingReresolving
+          : messages.loading,
+)
 const displayedNodes = computed(() => {
     const nodes = new Map((plan.value?.nodes ?? []).map((node) => [node.id, node]))
+    for (const id of removedNodes.value) nodes.delete(id)
     for (const [id, node] of progressNodes.value) nodes.set(id, node)
     return [...nodes.values()]
 })
@@ -293,12 +363,16 @@ const needsWorld = computed(
         ) ?? false,
 )
 const queueing = ref(false)
+/** Only the queue request writes; analysis and plan revisions before it stay cancellable. */
+const committing = ref(false)
 const closing = ref(false)
 const queueFailed = ref(false)
 const dependenciesIgnored = ref(false)
 const error = ref<string | null>(null)
+const errorSummary = ref<string | null>(null)
 const names = ref<Record<string, { title: string; iconUrl: string | null; summary?: string }>>({})
 let controller: AbortController | null = null
+let disposed = false
 let generation = 0
 let resolveShow: ((job: InstallJobSnapshot | null) => void) | null = null
 const submittedRoots = ref<string[]>([])
@@ -312,6 +386,39 @@ const candidates = computed(() =>
 )
 type PlanIssue = ResourceOperationPlan['issues'][number]
 type Notice = { text: string; blocking: boolean }
+function isSelectedIssue(issue: PlanIssue, context: ResourceOperationPlan | null) {
+    if (issue.context) return !issue.context.dependency
+    return context?.activeRoots.includes(issue.selectionId ?? '') ?? false
+}
+function issueSubject(issue: PlanIssue, context: ResourceOperationPlan | null) {
+    const node = context?.nodes.find((node) => node.id === issue.selectionId)
+    return (
+        (issue.selectionId ? names.value[issue.selectionId]?.title : undefined) ||
+        issue.context?.subject ||
+        node?.artifact?.fileName ||
+        formatMessage(
+            isSelectedIssue(issue, context)
+                ? messages.conflictSelectedContent
+                : messages.conflictDependency,
+        )
+    )
+}
+function issueDetail(issue: PlanIssue, context: ResourceOperationPlan | null, reason: string) {
+    const selection = context?.selections.find((selection) => selection.id === issue.selectionId)
+    const source =
+        issue.context?.source ||
+        (selection?.resource.kind === 'source' ? selection.resource.project.source : undefined)
+    return formatMessage(source ? messages.issueSource : messages.issueSubject, {
+        subject: issueSubject(issue, context),
+        source: source ? resourceSourceName(source) : '',
+        reason,
+    })
+}
+function showFailure(failure: unknown) {
+    const feedback = resourceFailureFeedback(failure, formatMessage)
+    error.value = feedback.detail
+    errorSummary.value = feedback.summary
+}
 function conflictNotice(issue: PlanIssue, context: ResourceOperationPlan | null): string {
     const detail = issue.conflict
     if (!detail) return formatMessage(messages.versionConflict)
@@ -344,33 +451,49 @@ function conflictNotice(issue: PlanIssue, context: ResourceOperationPlan | null)
     return message ? formatMessage(message, values) : formatMessage(messages.versionConflict)
 }
 function issueNotice(issue: PlanIssue, context = plan.value): Notice | null {
-    if (issue.code === 'compatibilityUnknown' || issue.code === 'compatibilityMismatch') return null
     const node = context?.nodes.find((candidate) => candidate.id === issue.selectionId)
+    if (issue.code === 'compatibilityUnknown' || issue.code === 'compatibilityMismatch') {
+        const assessment = node
+            ? formatMessage(messages.assessment, {
+                  game: formatMessage(messages.state, { state: node.compatibility.gameVersion }),
+                  loader: formatMessage(messages.state, { state: node.compatibility.loader }),
+              })
+            : formatMessage(messages.compatibilitySummary)
+        return {
+            text: formatMessage(messages.compatibilityDetail, {
+                subject: issueSubject(issue, context),
+                assessment,
+            }),
+            blocking: issue.blocking,
+        }
+    }
+    if (!['versionConflict', 'fileWriteSkipped'].includes(issue.code)) {
+        const reason =
+            issue.code === 'missingDependency' && node?.state === 'missing'
+                ? formatMessage(messages.unselectedDependency)
+                : resourcePlanIssueFeedback(issue, formatMessage, isSelectedIssue(issue, context))
+                      .detail
+        const path = issue.message.startsWith('target already exists: ')
+            ? issue.message.slice('target already exists: '.length)
+            : ['fileNotWritable', 'invalidPath'].includes(issue.code) &&
+                !issue.message.includes(': ') &&
+                !issue.message.startsWith('invalid') &&
+                /[\\/]|\.[a-z0-9]{1,8}$/i.test(issue.message)
+              ? issue.message
+              : undefined
+        return {
+            text: issueDetail(
+                issue,
+                context,
+                path ? formatMessage(messages.fileIssue, { path, reason }) : reason,
+            ),
+            blocking: issue.blocking,
+        }
+    }
     const text = (() => {
         switch (issue.code) {
-            case 'fileNotWritable':
-                return formatMessage(messages.fileNotWritable, { path: issue.message })
             case 'fileWriteSkipped':
                 return formatMessage(messages.fileWriteSkipped, { path: issue.message })
-            case 'manualDownloadRequired':
-                return formatMessage(messages.manualDownload, {
-                    name: node ? name(node) : (issue.selectionId ?? ''),
-                })
-            case 'invalidPath':
-                return issue.message.startsWith('target already exists: ')
-                    ? formatMessage(messages.pathOccupied, {
-                          path: issue.message.slice('target already exists: '.length),
-                      })
-                    : formatMessage(messages.invalidPath)
-            case 'sourceUnavailable':
-                return issue.blocking
-                    ? formatMessage(messages.sourceUnavailable)
-                    : formatMessage(messages.unresolvedOptional)
-            case 'missingDependency':
-                if (node?.state === 'missing') return formatMessage(messages.unselectedDependency)
-                return formatMessage(messages.missingDependency)
-            case 'dependencyAnalysisFailed':
-                return formatMessage(messages.dependencyAnalysisFailed)
             case 'versionConflict':
                 if (issue.conflict) return conflictNotice(issue, context)
                 if (
@@ -381,14 +504,8 @@ function issueNotice(issue: PlanIssue, context = plan.value): Notice | null {
                 return issue.blocking
                     ? formatMessage(messages.versionConflict)
                     : formatMessage(messages.unresolvedOptional)
-            case 'artifactMismatch':
-                return formatMessage(messages.artifactMismatch)
-            case 'identityUnconfirmed':
-                return formatMessage(messages.identityUnconfirmed)
-            case 'staleRevision':
-                return formatMessage(messages.staleRevision)
             default:
-                return resourceOperationError(issue.message, formatMessage)
+                return resourceFailureFeedback(issue.message, formatMessage).detail
         }
     })()
     return { text, blocking: issue.blocking }
@@ -398,7 +515,12 @@ const notices = computed(() => {
     const bound = new Map<string, Notice[]>()
     const other: Notice[] = []
     for (const issue of plan.value?.issues ?? []) {
-        if (issue.code === 'versionConflict') continue
+        if (
+            issue.code === 'versionConflict' ||
+            issue.blocking ||
+            issue.code === 'dependencyAnalysisFailed'
+        )
+            continue
         const notice = issueNotice(issue)
         if (!notice) continue
         const node = nodes.find((candidate) => candidate.id === issue.selectionId)
@@ -415,11 +537,21 @@ const notices = computed(() => {
 const conflictNotices = computed(() => {
     const unique = new Map<string, Notice>()
     for (const issue of plan.value?.issues ?? []) {
-        if (issue.code !== 'versionConflict') continue
+        if (
+            issue.code !== 'versionConflict' &&
+            !issue.blocking &&
+            issue.code !== 'dependencyAnalysisFailed'
+        )
+            continue
         const notice = issueNotice(issue)
         if (notice) unique.set(notice.text, notice)
     }
     return [...unique.values()]
+})
+const reviewMessages = computed(() => {
+    const values = conflictNotices.value.map((notice) => notice.text)
+    if (error.value) values.push(...error.value.split('\n').filter(Boolean))
+    return [...new Set(values)]
 })
 function noticesFor(node: ResourceDependencyNode) {
     return notices.value.bound.get(node.id) ?? []
@@ -435,7 +567,11 @@ function requiresForceInstall(value: ResourceOperationPlan) {
     return value.issues.some((issue) => issue.blocking || issue.code === 'dependencyAnalysisFailed')
 }
 const forceInstall = computed(
-    () => !plan.value || requiresForceInstall(plan.value) || !plan.value.actions.length,
+    () =>
+        !!error.value ||
+        !plan.value ||
+        requiresForceInstall(plan.value) ||
+        !plan.value.actions.length,
 )
 function installationErrors(value: ResourceOperationPlan): string[] {
     return [
@@ -468,8 +604,9 @@ function installationErrors(value: ResourceOperationPlan): string[] {
         ),
     ]
 }
-const applyTooltip = computed(() => {
+const applyIssueSummary = computed(() => {
     if (!forceInstall.value) return undefined
+    if (errorSummary.value && error.value) return errorSummary.value
     if (!plan.value)
         return formatMessage(
             needsWorld.value && !targetWorld.value
@@ -495,8 +632,41 @@ const applyTooltip = computed(() => {
         ['missingDependency', messages.missingDependency],
         ['dependencyAnalysisFailed', messages.dependencyAnalysisSummary],
     ] as const
-    const summary = summaries.find(([code]) => codes.has(code))?.[1]
+    const selectedSummary = summaries.find(([code]) => codes.has(code))
+    const summary = selectedSummary?.[1]
+    const issue = plan.value.issues.find(
+        (issue) =>
+            issue.code === selectedSummary?.[0] &&
+            issue.code !== 'versionConflict' &&
+            !issue.code.startsWith('compatibility'),
+    )
+    if (issue)
+        return resourcePlanIssueFeedback(issue, formatMessage, isSelectedIssue(issue, plan.value))
+            .summary
     return formatMessage(summary ?? messages.empty)
+})
+const applyTooltip = computed(() => {
+    if (!forceInstall.value) return undefined
+    const acceptsCompatibility = plan.value?.nodes.some(
+        (node) =>
+            node.artifact &&
+            node.state !== 'optionalCandidate' &&
+            (['gameVersion', 'loader'] as const).some(
+                (dimension) =>
+                    node.compatibility[dimension] === 'incompatible' &&
+                    !plan.value?.exceptions.some(
+                        (exception) =>
+                            exception.selectionId === node.id &&
+                            exception.dimensions.includes(dimension),
+                    ),
+            ),
+    )
+    return formatMessage(
+        acceptsCompatibility
+            ? messages.forceInstallCompatibilityTooltip
+            : messages.forceInstallTooltip,
+        { reason: applyIssueSummary.value ?? '' },
+    )
 })
 const canSkipUnwritable = computed(
     () =>
@@ -523,18 +693,27 @@ function explicitRoots(node: ResourceDependencyNode): string[] {
           ? [node.id]
           : []
 }
+const previewIndex = computed(() => indexResourceOperationPreview(plan.value, name))
 function requiredBy(id: string, kind = 'required') {
-    return [
-        ...new Set(
-            (plan.value?.edges ?? [])
-                .filter((edge) => edge.child === id && edge.kind === kind)
-                .map((edge) => plan.value?.nodes.find((node) => node.id === edge.parent))
-                .filter((node): node is ResourceDependencyNode => !!node)
-                .map(name),
-        ),
-    ].join(', ')
+    return previewIndex.value.requiredBy.get(id)?.get(kind) ?? ''
 }
 async function enrich(value: ResourceOperationPlan, signal: AbortSignal, current: number) {
+    const unresolved = value.selections.filter(
+        (selection) =>
+            !value.nodes.some((node) => node.id === selection.id) && !names.value[selection.id],
+    )
+    void Promise.allSettled(
+        unresolved.map(async (selection) => {
+            const resource = await resourceGet(selection.resource, undefined, undefined, signal)
+            if (current !== generation || signal.aborted) return
+            const project = resource.projects[0]
+            if (project)
+                names.value = {
+                    ...names.value,
+                    [selection.id]: { title: project.title, iconUrl: project.iconUrl },
+                }
+        }),
+    )
     const refs = value.nodes
         .filter((node) => node.state !== 'satisfied' && !names.value[node.id])
         .flatMap((node) => {
@@ -615,38 +794,71 @@ async function run(
     const current = generation
     controller?.abort()
     controller = new AbortController()
-    const signal = controller.signal
+    const request = controller
+    const signal = request.signal
+    const isCurrent = () => current === generation && controller === request
     busy.value = true
-    progressNodes.value = new Map()
+    clearProgress()
     error.value = null
+    errorSummary.value = null
     retryAction = () => run(action, ignoreDependencies)
     let acceptingProgress = true
     try {
-        const value = await action(signal, (progress) => {
-            if (!acceptingProgress || current !== generation || signal.aborted) return
-            progressNodes.value.set(progress.node.id, progress.node)
-            triggerRef(progressNodes)
-            if (progress.metadata)
-                names.value[progress.node.id] = {
-                    title: progress.metadata.title,
-                    iconUrl: progress.metadata.iconUrl,
-                    summary:
-                        progress.node.state === 'satisfied' ? undefined : progress.metadata.summary,
-                }
-        })
-        if (current !== generation || signal.aborted) return
+        const value = await resourceAnalysisRequest(request, (signal) =>
+            action(signal, (progress) => {
+                if (!acceptingProgress || !isCurrent() || signal.aborted) return
+                applyProgress(progress)
+            }),
+        )
+        if (!isCurrent() || signal.aborted) return
         plan.value = value
         dependenciesIgnored.value = ignoreDependencies
         void enrich(value, signal, current)
         return value
     } catch (failure) {
-        if (current === generation && !signal.aborted)
-            error.value = resourceOperationError(failure, formatMessage)
+        if (isCurrent() && (!signal.aborted || signal.reason?.name === 'TimeoutError'))
+            showFailure(failure)
     } finally {
         acceptingProgress = false
-        if (current === generation && !signal.aborted) {
+        if (isCurrent()) {
             busy.value = false
-            progressNodes.value = new Map()
+            clearProgress()
+        }
+    }
+}
+function clearProgress() {
+    progressNodes.value = new Map()
+    removedNodes.value = new Set()
+    progressPhase.value = null
+    progressRound.value = 0
+}
+function applyProgress(progress: ResourceOperationProgress) {
+    switch (progress.kind) {
+        case 'phase':
+            progressPhase.value = progress.phase
+            return
+        case 'roundStarted':
+            progressPhase.value = null
+            progressRound.value = progress.round
+            return
+        case 'nodeRemoved':
+            progressNodes.value.delete(progress.nodeId)
+            triggerRef(progressNodes)
+            removedNodes.value.add(progress.nodeId)
+            triggerRef(removedNodes)
+            return
+        case 'node': {
+            const { node, metadata } = progress
+            progressPhase.value = null
+            if (removedNodes.value.delete(node.id)) triggerRef(removedNodes)
+            progressNodes.value.set(node.id, node)
+            triggerRef(progressNodes)
+            if (metadata)
+                names.value[node.id] = {
+                    title: metadata.title,
+                    iconUrl: metadata.iconUrl,
+                    summary: node.state === 'satisfied' ? undefined : metadata.summary,
+                }
         }
     }
 }
@@ -659,7 +871,7 @@ async function revise(decision: ResourcePlanDecision) {
         decision.kind === 'ignoreDependencies' || dependenciesIgnored.value,
     )
 }
-function hide() {
+function release() {
     generation++
     input.value?.analysis?.signal.removeEventListener('abort', invalidateAnalysis)
     controller?.abort()
@@ -667,15 +879,28 @@ function hide() {
     resolveShow = null
     resolve?.(null)
 }
+function hide() {
+    const analysis =
+        !closing.value && busy.value && !committing.value ? input.value?.analysis : null
+    release()
+    // Leaving during analysis stops the cart's analysis too; the selection itself is kept.
+    analysis?.cancel()
+    // A queued submission keeps its controls locked until the close animation ends.
+    if (!committing.value && !closing.value) {
+        busy.value = false
+        queueing.value = false
+    }
+}
 function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
-    if (queueing.value) return Promise.resolve(null)
-    hide()
+    if (disposed || !modal.value || queueing.value) return Promise.resolve(null)
+    release()
     input.value = value
     plan.value = null
-    progressNodes.value = new Map()
+    clearProgress()
     submittedRoots.value = []
     names.value = {}
     error.value = null
+    errorSummary.value = null
     queueFailed.value = false
     dependenciesIgnored.value = false
     retryAction = null
@@ -707,8 +932,7 @@ function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
                     )
                 })
                 .catch((failure) => {
-                    if (current === generation)
-                        error.value = resourceOperationError(failure, formatMessage)
+                    if (current === generation) showFailure(failure)
                 })
                 .finally(() => {
                     if (current === generation) busy.value = false
@@ -783,6 +1007,7 @@ async function submit(retryStale: boolean) {
     if (!input.value || !canApply.value) return
     if (needsWorld.value && !targetWorld.value) {
         error.value = formatMessage(messages.noWorlds)
+        errorSummary.value = formatMessage(messages.noWorlds)
         return
     }
     const current = generation
@@ -790,6 +1015,7 @@ async function submit(retryStale: boolean) {
     queueing.value = true
     queueFailed.value = false
     error.value = null
+    errorSummary.value = null
     try {
         let reviewed = plan.value
         if (!reviewed || requiresForceInstall(reviewed)) {
@@ -819,7 +1045,7 @@ async function submit(retryStale: boolean) {
                 if (!node.artifact || node.state === 'optionalCandidate') return []
                 const dimensions = (['gameVersion', 'loader'] as const).filter(
                     (dimension) =>
-                        node.compatibility[dimension] !== 'compatible' &&
+                        node.compatibility[dimension] === 'incompatible' &&
                         !selectedOnly.exceptions.some(
                             (exception) =>
                                 exception.selectionId === node.id &&
@@ -871,7 +1097,21 @@ async function submit(retryStale: boolean) {
             return
         }
         busy.value = true
-        const job = await resourceQueuePlan(reviewed.id, reviewed.revision)
+        committing.value = true
+        let job: InstallJobSnapshot
+        try {
+            const resourceNames = Object.fromEntries(
+                reviewed.nodes.flatMap((node) => {
+                    const title = names.value[node.id]?.title
+                    return title?.trim() ? [[node.id, title]] : []
+                }),
+            )
+            job = await resourceQueuePlan(reviewed.id, reviewed.revision, resourceNames)
+        } finally {
+            // Only the queue request itself is locked; the refresh after a stale
+            // plan below is analysis again and must stay cancellable.
+            committing.value = false
+        }
         if (generation !== current) return
         const skippedRoots = new Set(
             reviewed.issues
@@ -907,7 +1147,7 @@ async function submit(retryStale: boolean) {
             }
             return
         }
-        error.value = resourceOperationError(failure, formatMessage)
+        showFailure(failure)
         retryAction = apply
         queueFailed.value = true
     } finally {
@@ -969,7 +1209,10 @@ function accept(node: ResourceDependencyNode, dimension: 'gameVersion' | 'loader
         },
     })
 }
-onBeforeUnmount(hide)
+onBeforeUnmount(() => {
+    disposed = true
+    hide()
+})
 function showInstall(value: {
     analysis?: ContentAnalysisReview
     importFiles?: Record<string, string>
@@ -986,13 +1229,12 @@ async function showInstallSelection(value: Parameters<typeof showInstall>[0]) {
     return job ? { job, activeRoots: [...submittedRoots.value] } : null
 }
 async function cancel() {
-    if (queueing.value) return
+    if (committing.value || closing.value) return
     hide()
     const current = generation
-    busy.value = false
     plan.value = null
     input.value = null
-    progressNodes.value = new Map()
+    clearProgress()
     await nextTick()
     if (generation !== current) return
     await modal.value?.hide()
@@ -1005,26 +1247,40 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
         ref="modal"
         :header="formatMessage(messages.header)"
         :on-hide="hide"
-        :disable-close="(busy || queueing) && !closing"
+        :disable-close="committing && !closing"
         scrollable
         width="min(42rem, 90vw)"
     >
         <div class="flex flex-col gap-4">
             <Admonition
-                v-if="conflictNotices.length && !busy"
+                v-if="reviewMessages.length && !busy"
                 type="warning"
-                :header="formatMessage(messages.conflictDetails)"
+                :header="
+                    formatMessage(
+                        !error && plan?.issues.every((issue) => issue.code === 'versionConflict')
+                            ? messages.conflictDetails
+                            : messages.reviewIssues,
+                    )
+                "
+                :role="error ? 'alert' : undefined"
                 data-resource-conflicts
             >
                 <ul class="m-0 grid list-disc gap-3 pl-5 text-sm leading-relaxed">
-                    <li
-                        v-for="notice in conflictNotices"
-                        :key="notice.text"
-                        class="[overflow-wrap:anywhere]"
-                    >
-                        {{ notice.text }}
+                    <li v-for="text in reviewMessages" :key="text" class="[overflow-wrap:anywhere]">
+                        {{ text }}
                     </li>
                 </ul>
+                <template v-if="error" #actions>
+                    <Button
+                        v-if="retryAction"
+                        :disabled="busy || queueing"
+                        @click="retryAction?.()"
+                        >{{ formatMessage(messages.retry) }}</Button
+                    >
+                    <Button v-if="queueFailed" :disabled="busy || queueing" @click="refresh">{{
+                        formatMessage(messages.refresh)
+                    }}</Button>
+                </template>
             </Admonition>
             <div v-if="needsWorld" class="flex flex-col gap-2">
                 <label>{{ formatMessage(messages.world) }}</label>
@@ -1046,15 +1302,6 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     })
                 }}
             </p>
-            <div v-if="error" class="flex flex-col gap-2" role="alert">
-                <p class="m-0">{{ error }}</p>
-                <Button v-if="retryAction" :disabled="busy" @click="retryAction?.()">{{
-                    formatMessage(messages.retry)
-                }}</Button>
-                <Button v-if="queueFailed" :disabled="busy" @click="refresh">{{
-                    formatMessage(messages.refresh)
-                }}</Button>
-            </div>
             <div
                 v-for="node in active"
                 :key="node.id"
@@ -1130,7 +1377,7 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     {{ notice.text }}
                 </p>
                 <p
-                    v-for="action in plan?.actions.filter((action) => action.nodeId === node.id)"
+                    v-for="action in previewIndex.actions.get(node.id)"
                     :key="action.entryId"
                     class="m-0 break-all text-sm"
                 >
@@ -1161,7 +1408,7 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     >
                         <Button
                             v-if="
-                                node.compatibility[dimension] !== 'compatible' &&
+                                node.compatibility[dimension] === 'incompatible' &&
                                 !plan?.exceptions.some(
                                     (exception) =>
                                         exception.selectionId === node.id &&
@@ -1215,7 +1462,9 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                 role="status"
                 data-operation-skeleton
             >
-                <span class="sr-only">{{ formatMessage(messages.loading) }}</span>
+                <p class="m-0 text-sm text-[var(--color-text-tertiary)]" data-operation-phase>
+                    {{ formatMessage(progressMessage) }}
+                </p>
                 <div
                     class="flex flex-col gap-2 rounded-lg border border-surface-4 bg-surface-2 p-3"
                     aria-hidden="true"
@@ -1249,7 +1498,7 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
         </div>
         <template #actions>
             <div class="flex items-center justify-end gap-2">
-                <Button :disabled="busy || queueing" @click="modal?.hide()">{{
+                <Button :disabled="committing || closing" @click="cancel">{{
                     formatMessage(messages.cancel)
                 }}</Button>
                 <Button
@@ -1265,7 +1514,9 @@ defineExpose({ show, showInstall, showInstallSelection, cancel })
                     :color="forceInstall ? 'orange' : 'brand'"
                     :disabled="!canApply"
                     @click="apply"
-                    >{{ formatMessage(messages.apply) }}</Button
+                    >{{
+                        formatMessage(forceInstall ? messages.forceInstall : messages.apply)
+                    }}</Button
                 >
             </div>
         </template>

@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import test from 'node:test'
 import { gunzipSync } from 'node:zlib'
+
+import { expect, it } from 'vitest'
 
 import type { SeedMapStructureDetails, SeedMapStructurePiece } from './advanced.ts'
 import {
@@ -28,83 +28,84 @@ const piece = (name: string, rotation = 0, id = 0): SeedMapStructurePiece => ({
     position: { x: -30_000_000, y: 0, z: 29_999_900 },
 })
 
-test('bundled original 26.3 templates include every engine End city piece and ship', () => {
-    assert.equal(pack.schemaVersion, 2)
-    assert.equal(pack.version, '26.3')
-    assert.equal(pack.dataVersion, 5023)
-    assert.equal(Object.keys(pack.templates).length, 139)
+it('bundled original 26.3 templates include every engine End city piece and ship', () => {
+    expect(pack.schemaVersion).toBe(2)
+    expect(pack.version).toBe('26.3')
+    expect(pack.dataVersion).toBe(5023)
+    expect(Object.keys(pack.templates).length).toBe(139)
     for (const name of END_CITY_TEMPLATE_NAMES) {
         const template = pack.templates[`end_city/${name}`]
-        assert.ok(template)
-        assert.ok(template.blocks.length)
+        expect(template).toBeTruthy()
+        expect(template.blocks.length).toBeTruthy()
         for (const [x, y, z, state] of template.blocks) {
-            assert.ok([x, y, z].every((value, axis) => value >= 0 && value < template.size[axis]))
-            assert.ok(template.palette[state].name.startsWith('minecraft:'))
+            expect(
+                [x, y, z].every((value, axis) => value >= 0 && value < template.size[axis]),
+            ).toBeTruthy()
+            expect(template.palette[state].name.startsWith('minecraft:')).toBeTruthy()
         }
     }
-    assert.deepEqual(pack.templates['end_city/ship'].size, [13, 24, 29])
-    assert.equal(supportsStructureBlocks('26.3', 'end-city'), true)
-    assert.equal(supportsStructureBlocks('26.3', 'ancient-city'), true)
-    assert.equal(supportsStructureBlocks('26.2', 'end-city'), true)
-    assert.equal(supportsStructureBlocks('26.3', 'fortress'), false)
-    assert.notDeepEqual(
-        pack.textureColors['minecraft:block/purpur_block'],
+    expect(pack.templates['end_city/ship'].size).toEqual([13, 24, 29])
+    expect(supportsStructureBlocks('26.3', 'end-city')).toBe(true)
+    expect(supportsStructureBlocks('26.3', 'ancient-city')).toBe(true)
+    expect(supportsStructureBlocks('26.2', 'end-city')).toBe(true)
+    expect(supportsStructureBlocks('26.3', 'fortress')).toBe(false)
+    expect(pack.textureColors['minecraft:block/purpur_block']).not.toEqual(
         pack.textureColors['minecraft:block/end_stone_bricks'],
     )
-    assert.ok(
+    expect(
         pack.textureColors['minecraft:block/purpur_block'][0] >
             pack.textureColors['minecraft:block/purpur_block'][1],
-    )
-    assert.ok(
+    ).toBeTruthy()
+    expect(
         pack.textureColors['minecraft:block/end_stone_bricks'][1] >
             pack.textureColors['minecraft:block/end_stone_bricks'][2],
-    )
+    ).toBeTruthy()
 })
 
-test('historical template resources resolve engine aliases and preserve version capabilities', () => {
+it('historical template resources resolve engine aliases and preserve version capabilities', () => {
     for (const version of ['1.9.4', '1.10.2', '1.12.2', '1.13.2', '1.17.1', '1.19.2', '26.2']) {
-        assert.equal(supportsStructureBlocks(version, 'end-city'), true, version)
+        expect(supportsStructureBlocks(version, 'end-city'), version).toBe(true)
     }
-    assert.equal(seedMapStructureResourceVersion('1.20'), '1.20.6')
-    assert.equal(supportsStructureBlocks('1.20', 'ancient-city'), true)
-    assert.equal(supportsStructureBlocks('1.18.2', 'ancient-city'), false)
-    assert.equal(supportsStructureBlocks('b1.7', 'end-city'), false)
+    expect(seedMapStructureResourceVersion('1.20')).toBe('1.20.6')
+    expect(supportsStructureBlocks('1.20', 'ancient-city')).toBe(true)
+    expect(supportsStructureBlocks('1.18.2', 'ancient-city')).toBe(false)
+    expect(supportsStructureBlocks('b1.7', 'end-city')).toBe(false)
 })
 
-test('every bundled version has intact assets and versioned ancient city layout, blocks and loot', () => {
+it('every bundled version has intact assets and versioned ancient city layout, blocks and loot', () => {
     const catalog = JSON.parse(
         readFileSync(new URL('./assets/catalog.json', import.meta.url), 'utf8'),
     )
     for (const version of Object.keys(catalog.versions)) {
         const source = seedMapStructureResourceVersion(version)
-        assert.ok(catalog.versions[source] && !catalog.versions[source].resourceVersion, version)
+        expect(
+            catalog.versions[source] && !catalog.versions[source].resourceVersion,
+            version,
+        ).toBeTruthy()
         if (source !== version) continue
         const read = (name: string) =>
             readFileSync(new URL(`./assets/versions/${source}/${name}`, import.meta.url))
         const bytes = read('structures.json.gz')
         const provenance = JSON.parse(read('sources.json').toString())
-        assert.equal(
-            createHash('sha256').update(bytes).digest('hex'),
+        expect(createHash('sha256').update(bytes).digest('hex'), source).toBe(
             provenance.assetSha256,
-            source,
         )
         const resource = JSON.parse(gunzipSync(bytes).toString()) as StructureTemplatePack
-        assert.equal(resource.version, source)
-        assert.equal(resource.dataVersion, catalog.versions[source].dataVersion)
-        assert.deepEqual(
-            Object.keys(resource.templates),
+        expect(resource.version).toBe(source)
+        expect(resource.dataVersion).toBe(catalog.versions[source].dataVersion)
+        expect(Object.keys(resource.templates)).toEqual(
             Object.keys(catalog.versions[source].templates),
         )
         for (const [id, template] of Object.entries(resource.templates)) {
             for (const [x, y, z, state] of template.blocks) {
-                assert.ok(
+                expect(
                     [x, y, z].every((value, axis) => value >= 0 && value < template.size[axis]),
                     `${source}: ${id}`,
-                )
-                assert.ok(
+                ).toBeTruthy()
+                expect(
                     template.palette[state]?.name.startsWith('minecraft:'),
                     `${source}: ${id}: ${state}`,
-                )
+                ).toBeTruthy()
             }
         }
         if (!supportsStructureBlocks(source, 'ancient-city')) continue
@@ -128,50 +129,47 @@ test('every bundled version has intact assets and versioned ancient city layout,
                 ),
             ),
         ].sort()
-        assert.deepEqual(layout.missingTemplates, missing, source)
+        expect(layout.missingTemplates, source).toEqual(missing)
         const nativeRoot = new URL(
             `../../../../app/src/seed_map/assets/versions/${source}/`,
             import.meta.url,
         )
         const blocksBytes = readFileSync(new URL('ancient-city-blocks.json.gz', nativeRoot))
-        assert.equal(
-            createHash('sha256').update(blocksBytes).digest('hex'),
+        expect(createHash('sha256').update(blocksBytes).digest('hex'), source).toBe(
             provenance.ancientCityBlocksSha256,
-            source,
         )
-        assert.deepEqual(
-            readFileSync(new URL('ancient-city-layout.json.gz', nativeRoot)),
+        expect(readFileSync(new URL('ancient-city-layout.json.gz', nativeRoot))).toEqual(
             read('ancient-city-layout.json.gz'),
         )
         const native = JSON.parse(gunzipSync(blocksBytes).toString())
-        assert.equal(native.version, source)
+        expect(native.version).toBe(source)
         for (const table of ['chests/ancient_city', 'chests/ancient_city_ice_box']) {
-            assert.ok(native.lootTables[table]?.pools.length > 0, `${source}: ${table}`)
+            expect(native.lootTables[table]?.pools.length > 0, `${source}: ${table}`).toBeTruthy()
         }
     }
 })
 
-test('all four rotations preserve block count, negative/far coordinates and template origin', () => {
+it('all four rotations preserve block count, negative/far coordinates and template origin', () => {
     const original = assembleStructureBlocks([piece('ship')], pack)
-    assert.ok(original.size > 500)
+    expect(original.size > 500).toBeTruthy()
     for (const rotation of [0, 90, 180, 270]) {
         const rotated = assembleStructureBlocks([piece('ship', rotation)], pack)
-        assert.equal(rotated.size, original.size)
+        expect(rotated.size).toBe(original.size)
         for (const block of original.values()) {
             const offset = rotateStructurePosition(
                 [block.position[0] + 30_000_000, block.position[1], block.position[2] - 29_999_900],
                 rotation,
             )
-            assert.ok(
+            expect(
                 rotated.has([-30_000_000 + offset[0], offset[1], 29_999_900 + offset[2]].join(',')),
-            )
-            assert.notEqual(block.state.name, 'minecraft:structure_block')
+            ).toBeTruthy()
+            expect(block.state.name).not.toBe('minecraft:structure_block')
         }
     }
-    assert.deepEqual(rotateStructurePosition([5, 4, 7], 90), [-7, 4, 5])
+    expect(rotateStructurePosition([5, 4, 7], 90)).toEqual([-7, 4, 5])
 })
 
-test('piece order, air overwrite and ignored structure markers retain Minecraft placement semantics', () => {
+it('piece order, air overwrite and ignored structure markers retain Minecraft placement semantics', () => {
     const data: StructureTemplatePack = {
         schemaVersion: 2,
         resources: pack.resources,
@@ -206,25 +204,27 @@ test('piece order, air overwrite and ignored structure markers retain Minecraft 
         },
     }
     const pieces = [piece('base_floor'), piece('second_floor_1', 0, 1)]
-    assert.equal(assembleStructureBlocks(pieces, data).size, 3)
+    expect(assembleStructureBlocks(pieces, data).size).toBe(3)
     data.templates['end_city/second_floor_1'].overwriteAir = true
     const blocks = assembleStructureBlocks(pieces, data)
-    assert.equal(blocks.size, 2)
-    assert.ok([...blocks.values()].every((block) => block.pieceId === 0))
-    assert.equal(assembleStructureBlocks(pieces.toReversed(), data).size, 3)
+    expect(blocks.size).toBe(2)
+    expect([...blocks.values()].every((block) => block.pieceId === 0)).toBeTruthy()
+    expect(assembleStructureBlocks(pieces.toReversed(), data).size).toBe(3)
 })
 
-test('rejects unsupported pieces, versions, rotations, unknown positions and oversized requests', () => {
-    assert.throws(() => assembleStructureBlocks([piece('unknown')], pack))
-    assert.throws(() => assembleStructureBlocks([piece('ship', 45)], pack))
-    assert.throws(() => assembleStructureBlocks([{ ...piece('ship'), positionKnown: false }], pack))
-    assert.throws(() => assembleStructureBlocks([piece('ship')], { ...pack, version: '26.2' }))
-    assert.throws(() =>
+it('rejects unsupported pieces, versions, rotations, unknown positions and oversized requests', () => {
+    expect(() => assembleStructureBlocks([piece('unknown')], pack)).toThrow()
+    expect(() => assembleStructureBlocks([piece('ship', 45)], pack)).toThrow()
+    expect(() =>
+        assembleStructureBlocks([{ ...piece('ship'), positionKnown: false }], pack),
+    ).toThrow()
+    expect(() => assembleStructureBlocks([piece('ship')], { ...pack, version: '26.2' })).toThrow()
+    expect(() =>
         assembleStructureBlocks(
             Array.from({ length: 2049 }, () => piece('ship')),
             pack,
         ),
-    )
+    ).toThrow()
 })
 
 const variant: NonNullable<SeedMapStructureDetails['variant']> = {
@@ -255,43 +255,43 @@ const details = (
 })
 const query = { version: '26.3', x: -17, z: 33 }
 
-test('all bundled template sizes and palette indices are valid, including eight shipwreck palettes', () => {
+it('all bundled template sizes and palette indices are valid, including eight shipwreck palettes', () => {
     for (const template of Object.values(pack.templates)) {
         for (const palette of template.alternativePalettes ?? [template.palette]) {
             for (const [x, y, z, index] of template.blocks) {
-                assert.ok(
+                expect(
                     [x, y, z].every((value, axis) => value >= 0 && value < template.size[axis]),
-                )
-                assert.ok(palette[index].name.startsWith('minecraft:'))
+                ).toBeTruthy()
+                expect(palette[index].name.startsWith('minecraft:')).toBeTruthy()
             }
         }
     }
-    assert.equal(pack.templates['shipwreck/rightsideup_full'].alternativePalettes!.length, 8)
+    expect(pack.templates['shipwreck/rightsideup_full'].alternativePalettes!.length).toBe(8)
 })
 
-test('shipwreck template origins and rotations are preserved and all 20 variants assemble', () => {
+it('shipwreck template origins and rotations are preserved and all 20 variants assemble', () => {
     const names = Object.keys(pack.templates).filter((name) => name.startsWith('shipwreck/'))
-    assert.equal(names.length, 20)
+    expect(names.length).toBe(20)
     for (const name of names)
         for (const rotation of [0, 90, 180, 270]) {
             const source = piece(name, rotation)
             const placements = seedMapTemplatePieces(details([source]), query, 'shipwreck')
-            assert.equal(placements.length, 1)
-            assert.deepEqual(placements[0].position, source.position)
+            expect(placements.length).toBe(1)
+            expect(placements[0].position).toEqual(source.position)
             const blocks = assembleStructureBlocks(placements, pack)
-            assert.ok(blocks.size > 20)
+            expect(blocks.size > 20).toBeTruthy()
             for (const block of blocks.values())
                 for (const axis of ['x', 'y', 'z'] as const) {
                     const i = ['x', 'y', 'z'].indexOf(axis)
-                    assert.ok(
+                    expect(
                         block.position[i] >= placements[0].min![axis] &&
                             block.position[i] <= placements[0].max![axis],
-                    )
+                    ).toBeTruthy()
                 }
         }
 })
 
-test('igloo pivots keep the shaft connected for every encoded rotation and basement depth', () => {
+it('igloo pivots keep the shaft connected for every encoded rotation and basement depth', () => {
     const top = { ...piece('igloo/top'), position: { x: -32, y: 90, z: 32 } }
     for (const rotation of [0, 90])
         for (const mirror of [0, 1])
@@ -307,8 +307,8 @@ test('igloo pivots keep the shaft connected for every encoded rotation and basem
                     query,
                     'igloo',
                 )
-                assert.equal(placements.length, size + 1)
-                assert.ok(assembleStructureBlocks(placements, pack).size > 200)
+                expect(placements.length).toBe(size + 1)
+                expect(assembleStructureBlocks(placements, pack).size > 200).toBeTruthy()
                 const actualRotation = rotation + mirror * 180
                 const opening = (
                     placement: SeedMapStructurePiece,
@@ -320,15 +320,15 @@ test('igloo pivots keep the shaft connected for every encoded rotation and basem
                 const topPlacement = placements.find((p) => p.templateId === 'igloo/top')!
                 const bottomPlacement = placements.find((p) => p.templateId === 'igloo/bottom')!
                 const topOpening = opening(topPlacement, [3, 0, 5])
-                assert.deepEqual(opening(bottomPlacement, [3, 0, 7]), topOpening)
+                expect(opening(bottomPlacement, [3, 0, 7])).toEqual(topOpening)
                 for (const middle of placements.filter((p) => p.templateId === 'igloo/middle'))
-                    assert.deepEqual(opening(middle, [1, 0, 1]), topOpening)
-                assert.equal(bottomPlacement.position.y, 90 - 3 - size * 3)
+                    expect(opening(middle, [1, 0, 1])).toEqual(topOpening)
+                expect(bottomPlacement.position.y).toBe(90 - 3 - size * 3)
             }
-    assert.equal(seedMapTemplatePieces(details([top]), query, 'igloo').length, 1)
+    expect(seedMapTemplatePieces(details([top]), query, 'igloo').length).toBe(1)
 })
 
-test('ruined portal mirrors and all fossil variants produce bounded template blocks at negative chunk positions', () => {
+it('ruined portal mirrors and all fossil variants produce bounded template blocks at negative chunk positions', () => {
     for (const rotation of [0, 90, 180, 270])
         for (const mirror of [0, 1]) {
             const placements = seedMapTemplatePieces(
@@ -336,17 +336,17 @@ test('ruined portal mirrors and all fossil variants produce bounded template blo
                 query,
                 'ruined-portal',
             )
-            assert.equal(placements.length, 1)
+            expect(placements.length).toBe(1)
             const blocks = assembleStructureBlocks(placements, pack)
             for (const block of blocks.values()) {
-                assert.ok(
+                expect(
                     block.position[0] >= placements[0].min!.x &&
                         block.position[0] <= placements[0].max!.x,
-                )
-                assert.ok(
+                ).toBeTruthy()
+                expect(
                     block.position[2] >= placements[0].min!.z &&
                         block.position[2] <= placements[0].max!.z,
-                )
+                ).toBeTruthy()
             }
         }
     for (let start = 0; start < 14; start++) {
@@ -355,23 +355,22 @@ test('ruined portal mirrors and all fossil variants produce bounded template blo
             query,
             'nether-fossil',
         )
-        assert.equal(placements.length, 1)
-        assert.deepEqual(placements[0].position, { x: -29, y: 62, z: 37 })
-        assert.ok(assembleStructureBlocks(placements, pack).size > 0)
+        expect(placements.length).toBe(1)
+        expect(placements[0].position).toEqual({ x: -29, y: 62, z: 37 })
+        expect(assembleStructureBlocks(placements, pack).size > 0).toBeTruthy()
     }
 })
 
-test('unknown position structures and procedural structures are not advertised as template predictions', () => {
+it('unknown position structures and procedural structures are not advertised as template predictions', () => {
     for (const kind of ['bastion', 'abandoned-camp', 'stronghold', 'fortress', 'desert-pyramid'])
-        assert.deepEqual(seedMapTemplatePieces(details([piece('unknown')]), query, kind), [])
-    assert.deepEqual(
+        expect(seedMapTemplatePieces(details([piece('unknown')]), query, kind)).toEqual([])
+    expect(
         seedMapTemplatePieces(
             details([piece('shipwreck/rightsideup_full')]),
             { ...query, version: '1.12.2' },
             'shipwreck',
         ),
-        [],
-    )
+    ).toEqual([])
     const tower = seedMapTemplatePieces(
         details([{ ...piece('pillager_outpost/watchtower'), rotation: 0 }], {
             ...variant,
@@ -380,6 +379,6 @@ test('unknown position structures and procedural structures are not advertised a
         query,
         'outpost',
     )
-    assert.equal(tower.length, 1)
-    assert.equal(tower[0].rotation, 270)
+    expect(tower.length).toBe(1)
+    expect(tower[0].rotation).toBe(270)
 })

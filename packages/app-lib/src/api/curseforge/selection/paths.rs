@@ -168,7 +168,7 @@ async fn persist_manual_modpack_archive(
 ) -> crate::Result<()> {
     let state = State::get().await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+    let content_set = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
         instance_id,
         &state.pool,
     )
@@ -180,7 +180,7 @@ async fn persist_manual_modpack_archive(
     })?;
     let now = chrono::Utc::now();
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    crate::state::instances::adapters::sqlite::content_rows::upsert_pending_manual_download_in_transaction(
+    crate::state::instances::adapters::sqlite::pack_members::upsert_pending_manual_download_in_transaction(
         &crate::state::instances::PendingManualDownload {
             id: format!("manual-download:{}", uuid::Uuid::new_v4()),
             instance_id: instance_id.to_string(),
@@ -212,7 +212,7 @@ async fn persist_manual_modpack_archive(
         &mut tx,
     )
     .await?;
-    crate::state::instances::adapters::sqlite::content_rows::bump_content_set_revision_in_transaction(
+    crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
         &content_set.id,
         &mut tx,
     )
@@ -230,7 +230,7 @@ async fn persist_manual_world_archive(
     let _instance_lock = state.lock_instance_content(instance_id).await;
     let now = chrono::Utc::now();
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    crate::state::instances::adapters::sqlite::content_rows::upsert_pending_manual_download_in_transaction(
+    crate::state::instances::adapters::sqlite::pack_members::upsert_pending_manual_download_in_transaction(
         &crate::state::instances::PendingManualDownload {
             id: format!("manual-download:{}", uuid::Uuid::new_v4()),
             instance_id: instance_id.to_string(),
@@ -273,7 +273,7 @@ pub(crate) async fn complete_manual_world_download(
     let state = State::get().await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
     let mut tx = state.pool.begin_with("BEGIN IMMEDIATE").await?;
-    crate::state::instances::adapters::sqlite::content_rows::complete_pending_manual_download(
+    crate::state::instances::adapters::sqlite::pack_members::complete_pending_manual_download(
         instance_id,
         &download.project_id.to_string(),
         &download.file_id.to_string(),
@@ -298,7 +298,7 @@ pub(crate) async fn persist_manual_download(
     let project_type = managed_project_type(&download.project_type)?;
     let state = State::get().await?;
     let _instance_lock = state.lock_instance_content(instance_id).await;
-    let content_set = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+    let content_set = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
         instance_id,
         &state.pool,
     )
@@ -323,13 +323,11 @@ pub(crate) async fn persist_manual_download(
     let pack_member_id = if download.ownership_kind
         == crate::state::instances::ContentOwnershipKind::PackManaged
     {
-        let existing_id = sqlx::query_scalar::<_, String>(
-            "SELECT id FROM instance_pack_members
-             WHERE content_set_id = ? AND member_key = ?",
+        let existing_id = crate::state::instances::adapters::sqlite::pack_members::find_member_id_by_key(
+            &content_set.id,
+            &member_key,
+            &mut *tx,
         )
-        .bind(&content_set.id)
-        .bind(&member_key)
-        .fetch_optional(&mut *tx)
         .await?;
         if download.operation_kind
             == crate::state::instances::ManualDownloadOperationKind::PackUpdate
@@ -339,7 +337,7 @@ pub(crate) async fn persist_manual_download(
             let member_id = existing_id.unwrap_or_else(|| {
                 format!("pack-member:{}", uuid::Uuid::new_v4())
             });
-            crate::state::instances::adapters::sqlite::content_rows::upsert_pack_member_in_transaction(
+            crate::state::instances::adapters::sqlite::pack_members::upsert_pack_member_in_transaction(
             &crate::state::instances::PackMember {
                 id: member_id.clone(),
                 content_set_id: content_set.id.clone(),
@@ -374,7 +372,7 @@ pub(crate) async fn persist_manual_download(
     } else {
         None
     };
-    crate::state::instances::adapters::sqlite::content_rows::upsert_pending_manual_download_in_transaction(
+    crate::state::instances::adapters::sqlite::pack_members::upsert_pending_manual_download_in_transaction(
         &crate::state::instances::PendingManualDownload {
             id: format!("manual-download:{}", uuid::Uuid::new_v4()),
             instance_id: instance_id.to_string(),
@@ -406,7 +404,7 @@ pub(crate) async fn persist_manual_download(
         &mut tx,
     )
     .await?;
-    crate::state::instances::adapters::sqlite::content_rows::bump_content_set_revision_in_transaction(
+    crate::state::instances::adapters::sqlite::content_sets::bump_content_set_revision_in_transaction(
         &content_set.id,
         &mut tx,
     )

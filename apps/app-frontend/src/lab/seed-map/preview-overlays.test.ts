@@ -1,7 +1,5 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
 import { Quaternion, Vector3 } from 'three'
+import { expect, it } from 'vitest'
 
 import type { SeedMapStructureDetails } from './advanced.ts'
 import { seedMapPreviewAxes } from './preview-overlays.ts'
@@ -12,19 +10,19 @@ import {
 } from './structure-blocks.ts'
 import { seedMapKnownLayoutChests } from './structure-layout.ts'
 
-test('world axis indicators use camera orientation and positive Minecraft directions', () => {
+it('world axis indicators use camera orientation and positive Minecraft directions', () => {
     const axes = seedMapPreviewAxes(new Quaternion())
-    assert.equal(axes.find((axis) => axis.axis === 'X')!.x, 28)
-    assert.equal(axes.find((axis) => axis.axis === 'Y')!.y, -28)
-    assert.equal(axes.find((axis) => axis.axis === 'Z')!.depth, 1)
+    expect(axes.find((axis) => axis.axis === 'X')!.x).toBe(28)
+    expect(axes.find((axis) => axis.axis === 'Y')!.y).toBe(-28)
+    expect(axes.find((axis) => axis.axis === 'Z')!.depth).toBe(1)
     const rotated = seedMapPreviewAxes(
         new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 2),
     )
-    assert.ok(Math.abs(rotated.find((axis) => axis.axis === 'Z')!.x + 28) < 0.0001)
-    assert.ok(Math.abs(rotated.find((axis) => axis.axis === 'X')!.depth - 1) < 0.0001)
+    expect(Math.abs(rotated.find((axis) => axis.axis === 'Z')!.x + 28) < 0.0001).toBeTruthy()
+    expect(Math.abs(rotated.find((axis) => axis.axis === 'X')!.depth - 1) < 0.0001).toBeTruthy()
 })
 
-test('Nether fortress chest heights follow the validated turn-room rule and exclude unknown heights', () => {
+it('Nether fortress chest heights follow the validated turn-room rule and exclude unknown heights', () => {
     const details: SeedMapStructureDetails = {
         supported: true,
         truncated: false,
@@ -62,18 +60,15 @@ test('Nether fortress chest heights follow the validated turn-room rule and excl
             { id: 12, piece: 3, x: 0, z: 0, table: 'chests/nether_bridge' },
         ],
     }
-    assert.deepEqual(
-        seedMapKnownLayoutChests(details, 'fortress').map((chest) => chest.position),
-        [
-            [-8, 66, -18],
-            [-33, 74, -39],
-        ],
-    )
-    assert.deepEqual(seedMapKnownLayoutChests(details, 'stronghold'), [])
-    assert.deepEqual(seedMapKnownLayoutChests(null, 'fortress'), [])
+    expect(seedMapKnownLayoutChests(details, 'fortress').map((chest) => chest.position)).toEqual([
+        [-8, 66, -18],
+        [-33, 74, -39],
+    ])
+    expect(seedMapKnownLayoutChests(details, 'stronghold')).toEqual([])
+    expect(seedMapKnownLayoutChests(null, 'fortress')).toEqual([])
 })
 
-test('chest markers use final template blocks after air processing, mirror and rotation', () => {
+it('chest markers use final template blocks after air processing, mirror and rotation', () => {
     const pack: StructureTemplatePack = {
         schemaVersion: 2,
         version: '26.3',
@@ -121,13 +116,7 @@ test('chest markers use final template blocks after air processing, mirror and r
         },
     ]
     const chests = structureChestBlocks(assembleStructureBlocks(pieces, pack))
-    assert.deepEqual(
-        chests.map((chest) => chest.position),
-        [[-100, 70, 19]],
-    )
-    assert.ok(chests.every((chest) => chest.pieceId === 0))
-    assert.deepEqual(
-        chests.map((chest) => chest.name),
-        ['minecraft:trapped_chest'],
-    )
+    expect(chests.map((chest) => chest.position)).toEqual([[-100, 70, 19]])
+    expect(chests.every((chest) => chest.pieceId === 0)).toBeTruthy()
+    expect(chests.map((chest) => chest.name)).toEqual(['minecraft:trapped_chest'])
 })

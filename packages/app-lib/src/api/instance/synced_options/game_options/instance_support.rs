@@ -30,7 +30,7 @@ pub(super) struct ParticipatingInstance {
 pub(super) async fn load_participating_instances(
     state: &State,
 ) -> crate::Result<Vec<ParticipatingInstance>> {
-    if !game_options_sync_is_enabled(&state.pool).await? {
+    if !game_options_sync_is_enabled(&state.data).await? {
         return Ok(Vec::new());
     }
     let instances = crate::state::list_instances(&state.pool).await?;

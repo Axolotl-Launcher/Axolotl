@@ -690,7 +690,7 @@ it('automatically paints visible layouts without a selection, shares requests wi
     await wrapper!.get('aside button[aria-label="Close structure details"]').trigger('click')
     expect(vm.selection).toBeNull()
     expect(wrapper!.find('aside').exists()).toBe(false)
-}, 30000)
+})
 
 it('paints unselected Ancient city piece projections on the map canvas', async () => {
     const details: SeedMapStructureDetails = {

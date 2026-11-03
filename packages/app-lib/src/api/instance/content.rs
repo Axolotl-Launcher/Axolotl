@@ -291,7 +291,7 @@ pub async fn apply_content_update_plan(
         return Ok(ContentUpdateApplyResult::Queued { job });
     }
 
-    let current_revision = crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+    let current_revision = crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
         &plan.instance_id,
         &state.pool,
     )
@@ -628,7 +628,7 @@ pub async fn get_dependencies_as_content_items(
     crate::state::dependencies_to_content_items(
         &dependencies,
         cache_behaviour,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -688,6 +688,7 @@ mod tests {
         file_id: Option<&str>,
     ) -> InstanceContentSnapshotItem {
         InstanceContentSnapshotItem {
+            resource_update: None,
             artifact_ref: None,
             compatibility: None,
             resource_id: None,

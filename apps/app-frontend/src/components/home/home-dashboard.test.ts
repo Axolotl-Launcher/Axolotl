@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     addHomeWidget,
@@ -30,80 +29,76 @@ import {
 
 function greetingOptionsOf(config: ReturnType<typeof createDefaultHomeDashboard>) {
     const widget = config.widgets.find((candidate) => candidate.kind === 'greeting')
-    assert.ok(widget, 'the default dashboard has a greeting widget')
+    expect(widget, 'the default dashboard has a greeting widget').toBeTruthy()
     return { widget, options: widget.options }
 }
 
-test('derives one to four columns from the dashboard container width', () => {
-    assert.equal(getHomeGridColumnCount(0), 1)
-    assert.equal(getHomeGridColumnCount(495), 1)
-    assert.equal(getHomeGridColumnCount(496), 2)
-    assert.equal(getHomeGridColumnCount(752), 3)
-    assert.equal(getHomeGridColumnCount(2000), 4)
+it('derives one to four columns from the dashboard container width', () => {
+    expect(getHomeGridColumnCount(0)).toBe(1)
+    expect(getHomeGridColumnCount(495)).toBe(1)
+    expect(getHomeGridColumnCount(496)).toBe(2)
+    expect(getHomeGridColumnCount(752)).toBe(3)
+    expect(getHomeGridColumnCount(2000)).toBe(4)
 })
 
-test('derives responsive widget dimensions from the current grid', () => {
-    assert.deepEqual(getHomeWidgetDimensions('2x2', 4, 1008), {
+it('derives responsive widget dimensions from the current grid', () => {
+    expect(getHomeWidgetDimensions('2x2', 4, 1008)).toEqual({
         width: 496,
         height: 336,
     })
-    assert.deepEqual(getHomeWidgetDimensions('2x1', 1, 320), {
+    expect(getHomeWidgetDimensions('2x1', 1, 320)).toEqual({
         width: 320,
         height: 160,
     })
-    assert.deepEqual(getHomeWidgetDimensions('3x2', 4, 1008), {
+    expect(getHomeWidgetDimensions('3x2', 4, 1008)).toEqual({
         width: 752,
         height: 336,
     })
 })
 
-test('temporarily clamps wide widgets without changing their preferred size', () => {
+it('temporarily clamps wide widgets without changing their preferred size', () => {
     const config = createDefaultHomeDashboard()
     const preferredSize = config.widgets[0].size
-    assert.deepEqual(getHomeWidgetSpan('2x2', 1), { columns: 1, rows: 2 })
-    assert.deepEqual(getHomeWidgetSpan('2x2', 2), { columns: 2, rows: 2 })
+    expect(getHomeWidgetSpan('2x2', 1)).toEqual({ columns: 1, rows: 2 })
+    expect(getHomeWidgetSpan('2x2', 2)).toEqual({ columns: 2, rows: 2 })
     packHomeWidgets(config.widgets, 1)
     packHomeWidgets(config.widgets, 4)
-    assert.equal(config.widgets[0].size, preferredSize)
+    expect(config.widgets[0].size).toBe(preferredSize)
 })
 
-test('adds, reorders, resizes, and removes independent placements', () => {
+it('adds, reorders, resizes, and removes independent placements', () => {
     const original = createDefaultHomeDashboard()
     const pinnedInstances = original.widgets.find((widget) => widget.kind === 'pinned-instances')!
     const duplicate = { ...pinnedInstances, id: 'duplicate-pinned-instances' }
     const added = addHomeWidget(original, duplicate)
-    assert.equal(added.widgets.length, original.widgets.length + 1)
-    assert.equal(added.widgets.filter((widget) => widget.kind === 'pinned-instances').length, 2)
+    expect(added.widgets.length).toBe(original.widgets.length + 1)
+    expect(added.widgets.filter((widget) => widget.kind === 'pinned-instances').length).toBe(2)
 
     const moved = moveHomeWidget(added, added.widgets.length - 1, -1)
-    assert.equal(moved.widgets.at(-2)?.id, duplicate.id)
+    expect(moved.widgets.at(-2)?.id).toBe(duplicate.id)
     const resized = resizeHomeWidget(moved, duplicate.id, '1x1')
-    assert.equal(resized.widgets.find((widget) => widget.id === duplicate.id)?.size, '1x1')
+    expect(resized.widgets.find((widget) => widget.id === duplicate.id)?.size).toBe('1x1')
     const removed = removeHomeWidget(resized, duplicate.id)
-    assert.deepEqual(removed.widgets, original.widgets)
+    expect(removed.widgets).toEqual(original.widgets)
 })
 
-test('accepts draggable order and restores the complete default layout', () => {
+it('accepts draggable order and restores the complete default layout', () => {
     const original = createDefaultHomeDashboard()
     const reversed = replaceHomeDashboardWidgets(original, [...original.widgets].reverse())
-    assert.deepEqual(
-        reversed.widgets.map((widget) => widget.id),
+    expect(reversed.widgets.map((widget) => widget.id)).toEqual(
         original.widgets.map((widget) => widget.id).reverse(),
     )
-    assert.deepEqual(
-        createDefaultHomeDashboard().widgets.map(({ kind, size }) => ({ kind, size })),
-        [
-            { kind: 'greeting', size: '2x1' },
-            { kind: 'calendar', size: '1x2' },
-            { kind: 'recent', size: '2x2' },
-            { kind: 'pinned-worlds', size: '1x2' },
-            { kind: 'pinned-servers', size: '2x2' },
-            { kind: 'pinned-instances', size: '2x1' },
-        ],
-    )
+    expect(createDefaultHomeDashboard().widgets.map(({ kind, size }) => ({ kind, size }))).toEqual([
+        { kind: 'greeting', size: '2x1' },
+        { kind: 'calendar', size: '1x2' },
+        { kind: 'recent', size: '2x2' },
+        { kind: 'pinned-worlds', size: '1x2' },
+        { kind: 'pinned-servers', size: '2x2' },
+        { kind: 'pinned-instances', size: '2x1' },
+    ])
 })
 
-test('enables free layout from packed positions and preserves manual coordinates', () => {
+it('enables free layout from packed positions and preserves manual coordinates', () => {
     const original = createDefaultHomeDashboard()
     const positioned = setHomeWidgetPosition(original, original.widgets[0].id, {
         column: 1,
@@ -111,27 +106,24 @@ test('enables free layout from packed positions and preserves manual coordinates
     })
     const free = enableFreeHomeDashboard(positioned, 4)
 
-    assert.equal(free.layout, 'free')
-    assert.deepEqual(free.widgets[0].position, { column: 1, row: 3 })
-    assert.deepEqual(free.widgets[1].position, { column: 2, row: 0 })
-    assert.equal(setHomeDashboardLayout(free, 'grid').layout, 'grid')
+    expect(free.layout).toBe('free')
+    expect(free.widgets[0].position).toEqual({ column: 1, row: 3 })
+    expect(free.widgets[1].position).toEqual({ column: 2, row: 0 })
+    expect(setHomeDashboardLayout(free, 'grid').layout).toBe('grid')
 })
 
-test('snaps manual placement to the nearest open cell without moving other widgets', () => {
+it('snaps manual placement to the nearest open cell without moving other widgets', () => {
     const free = enableFreeHomeDashboard(createDefaultHomeDashboard(), 4)
     const before = free.widgets.map((widget) => widget.position)
     const moving = free.widgets.at(-1)!
     const occupied = free.widgets[0].position!
     const resolved = findNearestFreeHomeWidgetPosition(free.widgets, moving, occupied, 4)
 
-    assert.notDeepEqual(resolved, occupied)
-    assert.deepEqual(
-        free.widgets.map((widget) => widget.position),
-        before,
-    )
+    expect(resolved).not.toEqual(occupied)
+    expect(free.widgets.map((widget) => widget.position)).toEqual(before)
 })
 
-test('rolls back the latest failed save and reports the error', async () => {
+it('rolls back the latest failed save and reports the error', async () => {
     const original = createDefaultHomeDashboard()
     const changed = removeHomeWidget(original, original.widgets[0].id)
     let current = changed
@@ -148,17 +140,17 @@ test('rolls back the latest failed save and reports the error', async () => {
 
     await queue.enqueue(changed, original)
     await queue.flush()
-    assert.deepEqual(current, original)
-    assert.equal(errors.length, 1)
+    expect(current).toEqual(original)
+    expect(errors.length).toBe(1)
 })
 
-test('normalizes a saved layout when entering Home again', () => {
+it('normalizes a saved layout when entering Home again', () => {
     const saved = createDefaultHomeDashboard()
     const restored = normalizeHomeDashboard(JSON.parse(JSON.stringify(saved)))
-    assert.deepEqual(restored, saved)
+    expect(restored).toEqual(saved)
 })
 
-test('normalizes legacy layouts and persisted free positions', () => {
+it('normalizes legacy layouts and persisted free positions', () => {
     const legacy = normalizeHomeDashboard({
         version: 1,
         widgets: [{ id: 'legacy', kind: 'calendar', size: '1x2' }],
@@ -172,34 +164,33 @@ test('normalizes legacy layouts and persisted free positions', () => {
         ],
     })
 
-    assert.equal(legacy?.layout, 'grid')
-    assert.equal(free?.layout, 'free')
-    assert.deepEqual(free?.widgets[0].position, { column: 2, row: 4 })
-    assert.equal(free?.widgets[1].position, undefined)
+    expect(legacy?.layout).toBe('grid')
+    expect(free?.layout).toBe('free')
+    expect(free?.widgets[0].position).toEqual({ column: 2, row: 4 })
+    expect(free?.widgets[1].position).toBe(undefined)
 })
 
-test('packs widgets into the earliest available cells', () => {
+it('packs widgets into the earliest available cells', () => {
     const config = createDefaultHomeDashboard()
     const packed = packHomeWidgets(config.widgets, 4)
-    assert.deepEqual(
+    expect(
         packed.map(({ column, row, effectiveColumns, effectiveRows }) => ({
             column,
             row,
             effectiveColumns,
             effectiveRows,
         })),
-        [
-            { column: 1, row: 1, effectiveColumns: 2, effectiveRows: 1 },
-            { column: 3, row: 1, effectiveColumns: 1, effectiveRows: 2 },
-            { column: 1, row: 2, effectiveColumns: 2, effectiveRows: 2 },
-            { column: 4, row: 1, effectiveColumns: 1, effectiveRows: 2 },
-            { column: 3, row: 3, effectiveColumns: 2, effectiveRows: 2 },
-            { column: 1, row: 4, effectiveColumns: 2, effectiveRows: 1 },
-        ],
-    )
+    ).toEqual([
+        { column: 1, row: 1, effectiveColumns: 2, effectiveRows: 1 },
+        { column: 3, row: 1, effectiveColumns: 1, effectiveRows: 2 },
+        { column: 1, row: 2, effectiveColumns: 2, effectiveRows: 2 },
+        { column: 4, row: 1, effectiveColumns: 1, effectiveRows: 2 },
+        { column: 3, row: 3, effectiveColumns: 2, effectiveRows: 2 },
+        { column: 1, row: 4, effectiveColumns: 2, effectiveRows: 1 },
+    ])
 })
 
-test('normalizes malformed sizes while retaining duplicate widgets', () => {
+it('normalizes malformed sizes while retaining duplicate widgets', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         widgets: [
@@ -209,16 +200,13 @@ test('normalizes malformed sizes while retaining duplicate widgets', () => {
         ],
     })
 
-    assert.deepEqual(
-        normalized?.widgets.map(({ kind, size }) => ({ kind, size })),
-        [
-            { kind: 'calendar', size: '1x2' },
-            { kind: 'calendar', size: '1x2' },
-        ],
-    )
+    expect(normalized?.widgets.map(({ kind, size }) => ({ kind, size }))).toEqual([
+        { kind: 'calendar', size: '1x2' },
+        { kind: 'calendar', size: '1x2' },
+    ])
 })
 
-test('normalizes every persisted calendar placement to the fixed 1x2 size', () => {
+it('normalizes every persisted calendar placement to the fixed 1x2 size', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         widgets: [
@@ -227,13 +215,10 @@ test('normalizes every persisted calendar placement to the fixed 1x2 size', () =
         ],
     })
 
-    assert.deepEqual(
-        normalized?.widgets.map((widget) => widget.size),
-        ['1x2', '1x2'],
-    )
+    expect(normalized?.widgets.map((widget) => widget.size)).toEqual(['1x2', '1x2'])
 })
 
-test('normalizes every persisted greeting placement to the fixed 2x1 size', () => {
+it('normalizes every persisted greeting placement to the fixed 2x1 size', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         widgets: [
@@ -247,39 +232,31 @@ test('normalizes every persisted greeting placement to the fixed 2x1 size', () =
         ],
     })
 
-    assert.deepEqual(
-        normalized?.widgets.map((widget) => widget.size),
-        ['2x1', '2x1'],
-    )
-    assert.deepEqual(
-        normalized?.widgets.map((widget) => widget.options),
-        [
-            { greetingMode: 'greeting', greetingFont: 'sans', greetingFontSize: 22 },
-            {
-                greetingMode: 'text',
-                greetingText: 'Ready to play',
-                greetingFont: 'sans',
-                greetingFontSize: 22,
-            },
-        ],
-    )
-    assert.deepEqual(
+    expect(normalized?.widgets.map((widget) => widget.size)).toEqual(['2x1', '2x1'])
+    expect(normalized?.widgets.map((widget) => widget.options)).toEqual([
+        { greetingMode: 'greeting', greetingFont: 'sans', greetingFontSize: 22 },
+        {
+            greetingMode: 'text',
+            greetingText: 'Ready to play',
+            greetingFont: 'sans',
+            greetingFontSize: 22,
+        },
+    ])
+    expect(
         resizeHomeWidget(normalized!, 'small', '1x1').widgets.map((widget) => widget.size),
-        ['2x1', '2x1'],
-    )
-    assert.deepEqual(
+    ).toEqual(['2x1', '2x1'])
+    expect(
         setHomeGreetingOptions(normalized!, 'small', 'text-and-greeting', '  Hi  ', 'minecraft', 29)
             .widgets[0].options,
-        {
-            greetingMode: 'text-and-greeting',
-            greetingText: 'Hi',
-            greetingFont: 'minecraft',
-            greetingFontSize: 29,
-        },
-    )
+    ).toEqual({
+        greetingMode: 'text-and-greeting',
+        greetingText: 'Hi',
+        greetingFont: 'minecraft',
+        greetingFontSize: 29,
+    })
 })
 
-test('normalizes greeting font settings and clamps font size', () => {
+it('normalizes greeting font settings and clamps font size', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         widgets: [
@@ -298,19 +275,18 @@ test('normalizes greeting font settings and clamps font size', () => {
         ],
     })!
 
-    assert.deepEqual(
+    expect(
         normalized.widgets.map((widget) => ({
             font: widget.options?.greetingFont,
             fontSize: widget.options?.greetingFontSize,
         })),
-        [
-            { font: 'serif', fontSize: 32 },
-            { font: 'sans', fontSize: 22 },
-        ],
-    )
+    ).toEqual([
+        { font: 'serif', fontSize: 32 },
+        { font: 'sans', fontSize: 22 },
+    ])
 })
 
-test('normalizes and updates recently played item limits', () => {
+it('normalizes and updates recently played item limits', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         widgets: [
@@ -320,14 +296,11 @@ test('normalizes and updates recently played item limits', () => {
         ],
     })!
 
-    assert.deepEqual(
-        normalized.widgets.map((widget) => widget.options?.recentLimit),
-        [4, 8, 4],
-    )
-    assert.equal(setHomeRecentLimit(normalized, 'legacy', 6).widgets[0].options?.recentLimit, 6)
+    expect(normalized.widgets.map((widget) => widget.options?.recentLimit)).toEqual([4, 8, 4])
+    expect(setHomeRecentLimit(normalized, 'legacy', 6).widgets[0].options?.recentLimit).toBe(6)
 })
 
-test('accepts and resizes the recent widget to 3-column layouts', () => {
+it('accepts and resizes the recent widget to 3-column layouts', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         widgets: [{ id: 'recent', kind: 'recent', size: '3x2' }],
@@ -335,19 +308,18 @@ test('accepts and resizes the recent widget to 3-column layouts', () => {
     const config = createDefaultHomeDashboard()
     const recent = config.widgets.find((widget) => widget.kind === 'recent')!
 
-    assert.equal(normalized.widgets[0].size, '3x2')
-    assert.equal(
+    expect(normalized.widgets[0].size).toBe('3x2')
+    expect(
         resizeHomeWidget(config, recent.id, '3x1').widgets.find((widget) => widget.id === recent.id)
             ?.size,
-        '3x1',
-    )
+    ).toBe('3x1')
 })
 
-test('keeps greeting text per account and falls back when none is saved', () => {
+it('keeps greeting text per account and falls back when none is saved', () => {
     const config = createDefaultHomeDashboard()
     const { widget, options } = greetingOptionsOf(config)
 
-    assert.equal(getHomeGreetingOverride(options, 'account-a'), null)
+    expect(getHomeGreetingOverride(options, 'account-a')).toBe(null)
 
     const saved = setHomeGreetingOverride(config, widget.id, 'account-a', {
         nickname: '  Alex  ',
@@ -355,13 +327,13 @@ test('keeps greeting text per account and falls back when none is saved', () => 
     })
     const savedOptions = greetingOptionsOf(saved).options
 
-    assert.deepEqual(getHomeGreetingOverride(savedOptions, 'account-a'), { nickname: 'Alex' })
-    assert.equal(getHomeGreetingOverride(savedOptions, 'account-b'), null)
+    expect(getHomeGreetingOverride(savedOptions, 'account-a')).toEqual({ nickname: 'Alex' })
+    expect(getHomeGreetingOverride(savedOptions, 'account-b')).toBe(null)
     // The nickname is one tab and the title another, so one must not invent the other.
-    assert.equal(getHomeGreetingOverride(savedOptions, 'account-a')?.title, undefined)
+    expect(getHomeGreetingOverride(savedOptions, 'account-a')?.title).toBe(undefined)
 })
 
-test('clears an override when both fields are empty', () => {
+it('clears an override when both fields are empty', () => {
     const config = createDefaultHomeDashboard()
     const { widget } = greetingOptionsOf(config)
 
@@ -374,11 +346,11 @@ test('clears an override when both fields are empty', () => {
         title: '   ',
     })
 
-    assert.equal(getHomeGreetingOverride(greetingOptionsOf(cleared).options, 'account-a'), null)
-    assert.equal(greetingOptionsOf(cleared).options?.greetingOverrides, undefined)
+    expect(getHomeGreetingOverride(greetingOptionsOf(cleared).options, 'account-a')).toBe(null)
+    expect(greetingOptionsOf(cleared).options?.greetingOverrides).toBe(undefined)
 })
 
-test('clamps saved greeting text to the field limits', () => {
+it('clamps saved greeting text to the field limits', () => {
     const config = createDefaultHomeDashboard()
     const { widget } = greetingOptionsOf(config)
 
@@ -388,11 +360,11 @@ test('clamps saved greeting text to the field limits', () => {
     })
     const override = getHomeGreetingOverride(greetingOptionsOf(saved).options, 'account-a')
 
-    assert.equal(override?.nickname?.length, HOME_GREETING_NICKNAME_MAX)
-    assert.equal(override?.title?.length, HOME_GREETING_TITLE_MAX)
+    expect(override?.nickname?.length).toBe(HOME_GREETING_NICKNAME_MAX)
+    expect(override?.title?.length).toBe(HOME_GREETING_TITLE_MAX)
 })
 
-test('prunes overrides for accounts that no longer exist', () => {
+it('prunes overrides for accounts that no longer exist', () => {
     const config = createDefaultHomeDashboard()
     const { widget } = greetingOptionsOf(config)
 
@@ -406,17 +378,17 @@ test('prunes overrides for accounts that no longer exist', () => {
     const pruned = pruneHomeGreetingOverrides(saved, ['account-a'])
     const options = greetingOptionsOf(pruned).options
 
-    assert.deepEqual(getHomeGreetingOverride(options, 'account-a'), { nickname: 'Alex' })
-    assert.equal(getHomeGreetingOverride(options, 'account-b'), null)
+    expect(getHomeGreetingOverride(options, 'account-a')).toEqual({ nickname: 'Alex' })
+    expect(getHomeGreetingOverride(options, 'account-b')).toBe(null)
     // The unbound title was not written by an account, so it stays.
-    assert.deepEqual(getHomeGreetingOverride(options, HOME_GREETING_GLOBAL_KEY), {
+    expect(getHomeGreetingOverride(options, HOME_GREETING_GLOBAL_KEY)).toEqual({
         title: 'Global title',
     })
     // An unchanged dashboard is returned as it is, so the caller can skip a write.
-    assert.equal(pruneHomeGreetingOverrides(pruned, ['account-a']), pruned)
+    expect(pruneHomeGreetingOverrides(pruned, ['account-a'])).toBe(pruned)
 })
 
-test('normalizes stored overrides and drops unusable entries', () => {
+it('normalizes stored overrides and drops unusable entries', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         layout: 'grid',
@@ -438,7 +410,7 @@ test('normalizes stored overrides and drops unusable entries', () => {
         ],
     })!
 
-    assert.deepEqual(greetingOptionsOf(normalized).options?.greetingOverrides, {
+    expect(greetingOptionsOf(normalized).options?.greetingOverrides).toEqual({
         'account-a': { nickname: 'Alex' },
         'account-e': { nickname: 'Bea', title: 'Hello there' },
     })

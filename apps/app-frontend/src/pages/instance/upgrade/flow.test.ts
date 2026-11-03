@@ -1,6 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
+import { expect, it } from 'vitest'
 import { ref } from 'vue'
 
 import type { InstallJobSnapshot } from '@/helpers/install'
@@ -19,17 +17,16 @@ function selectionFlow(plan: InstanceUpgradePlan | null): InstanceUpgradeFlow {
     return { plan: ref(plan) } as InstanceUpgradeFlow
 }
 
-test('selection route requires an unblocked plan with a selected solution', () => {
+it('selection route requires an unblocked plan with a selected solution', () => {
     const selectedSolution = { kind: 'newest', selections: [], dependencyChanges: [], warnings: [] }
-    assert.equal(isUpgradeRouteAvailable('selection', selectionFlow(null)), false)
-    assert.equal(
+    expect(isUpgradeRouteAvailable('selection', selectionFlow(null))).toBe(false)
+    expect(
         isUpgradeRouteAvailable(
             'selection',
             selectionFlow({ blockingIssues: [], selectedSolution: null } as InstanceUpgradePlan),
         ),
-        false,
-    )
-    assert.equal(
+    ).toBe(false)
+    expect(
         isUpgradeRouteAvailable(
             'selection',
             selectionFlow({
@@ -37,33 +34,31 @@ test('selection route requires an unblocked plan with a selected solution', () =
                 selectedSolution,
             } as InstanceUpgradePlan),
         ),
-        false,
-    )
-    assert.equal(
+    ).toBe(false)
+    expect(
         isUpgradeRouteAvailable(
             'selection',
             selectionFlow({ blockingIssues: [], selectedSolution } as InstanceUpgradePlan),
         ),
-        true,
-    )
+    ).toBe(true)
 })
 
-test('upgrade execution and Progress recovery target focused Downloads', () => {
-    assert.deepEqual(upgradeDownloadsLocation('job/a'), {
+it('upgrade execution and Progress recovery target focused Downloads', () => {
+    expect(upgradeDownloadsLocation('job/a')).toEqual({
         path: '/downloads',
         query: { job: 'job/a' },
     })
-    assert.equal(upgradeProgressDestination('loading', null, 'instance/a'), null)
-    assert.deepEqual(upgradeProgressDestination('ready', 'job/a', 'instance/a'), {
+    expect(upgradeProgressDestination('loading', null, 'instance/a')).toBe(null)
+    expect(upgradeProgressDestination('ready', 'job/a', 'instance/a')).toEqual({
         path: '/downloads',
         query: { job: 'job/a' },
     })
-    assert.deepEqual(upgradeProgressDestination('ready', null, 'instance/a'), {
+    expect(upgradeProgressDestination('ready', null, 'instance/a')).toEqual({
         path: '/instance/instance%2Fa/upgrade',
     })
 })
 
-test('accepted upgrade job sets ownership, preserves backend result, and returns Downloads target', () => {
+it('accepted upgrade job sets ownership, preserves backend result, and returns Downloads target', () => {
     let jobId: string | null = null
     let result: unknown = null
     const location = attachUpgradeJobToFlow(
@@ -77,21 +72,21 @@ test('accepted upgrade job sets ownership, preserves backend result, and returns
             upgrade_result: { planId: 'plan-a' } as InstanceUpgradeResult,
         } as InstallJobSnapshot,
     )
-    assert.equal(jobId, 'job-a')
-    assert.deepEqual(result, { planId: 'plan-a' })
-    assert.deepEqual(location, { path: '/downloads', query: { job: 'job-a' } })
+    expect(jobId).toBe('job-a')
+    expect(result).toEqual({ planId: 'plan-a' })
+    expect(location).toEqual({ path: '/downloads', query: { job: 'job-a' } })
 })
 
-test('job route waits only while persisted job recovery is loading', () => {
+it('job route waits only while persisted job recovery is loading', () => {
     const loading = {
         jobRecoveryState: ref('loading'),
         activeJobId: ref(null),
     } as InstanceUpgradeFlow
-    assert.equal(isUpgradeRouteRecoveryPending('job', loading), true)
-    assert.equal(isUpgradeRouteRecoveryPending('result', loading), true)
+    expect(isUpgradeRouteRecoveryPending('job', loading)).toBe(true)
+    expect(isUpgradeRouteRecoveryPending('result', loading)).toBe(true)
     loading.jobRecoveryState.value = 'ready'
-    assert.equal(isUpgradeRouteRecoveryPending('job', loading), false)
-    assert.equal(isUpgradeRouteAvailable('job', loading), false)
+    expect(isUpgradeRouteRecoveryPending('job', loading)).toBe(false)
+    expect(isUpgradeRouteAvailable('job', loading)).toBe(false)
     loading.activeJobId.value = 'job-a'
-    assert.equal(isUpgradeRouteAvailable('job', loading), true)
+    expect(isUpgradeRouteAvailable('job', loading)).toBe(true)
 })

@@ -1,3 +1,11 @@
+//! Backups, integrity checks and corruption recovery of the app database.
+//!
+//! The scope is the one database path the caller hands in: that file, the
+//! sidecars beside it, and the backup directory next to its settings directory.
+//! Nothing here lists or copies the caches directory, so the rebuildable
+//! database that lives there never joins an app database backup and is never
+//! restored in its place.
+
 use sqlx::sqlite::{SqliteConnectOptions, SqliteConnection};
 use sqlx::{ConnectOptions, Connection};
 use std::ffi::OsString;

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     compactSearchText,
@@ -11,88 +10,88 @@ import {
     splitCamelCaseSearchText,
 } from './search-query.ts'
 
-test('normalizes whitespace, diacritics and case', () => {
-    assert.equal(normalizeSearchText('  Example   Mod  '), 'example mod')
-    assert.equal(normalizeSearchText('Bélicraft'), 'belicraft')
-    assert.equal(normalizeSearchText('Sodium Extra'), 'sodium extra')
+it('normalizes whitespace, diacritics and case', () => {
+    expect(normalizeSearchText('  Example   Mod  ')).toBe('example mod')
+    expect(normalizeSearchText('Bélicraft')).toBe('belicraft')
+    expect(normalizeSearchText('Sodium Extra')).toBe('sodium extra')
 })
 
-test('compacts queries to alphanumerics only', () => {
-    assert.equal(compactSearchText('Example Mod!'), 'examplemod')
-    assert.equal(compactSearchText('sodium_extra'), 'sodiumextra')
-    assert.equal(compactSearchText('铁 锭'), '铁锭')
+it('compacts queries to alphanumerics only', () => {
+    expect(compactSearchText('Example Mod!')).toBe('examplemod')
+    expect(compactSearchText('sodium_extra')).toBe('sodiumextra')
+    expect(compactSearchText('铁 锭')).toBe('铁锭')
 })
 
-test('slugifies queries for CurseForge', () => {
-    assert.equal(slugifySearchText('Example Mod!'), 'example-mod')
-    assert.equal(slugifySearchText('Sodium Extra'), 'sodium-extra')
-    assert.equal(slugifySearchText('--sodium--'), 'sodium')
+it('slugifies queries for CurseForge', () => {
+    expect(slugifySearchText('Example Mod!')).toBe('example-mod')
+    expect(slugifySearchText('Sodium Extra')).toBe('sodium-extra')
+    expect(slugifySearchText('--sodium--')).toBe('sodium')
 })
 
-test('splits camelCase and PascalCase words', () => {
-    assert.equal(splitCamelCaseSearchText('SodiumExtra'), 'Sodium Extra')
-    assert.equal(splitCamelCaseSearchText('AE2Stuff'), 'AE2 Stuff')
-    assert.equal(splitCamelCaseSearchText('sodiumextra'), 'sodiumextra')
+it('splits camelCase and PascalCase words', () => {
+    expect(splitCamelCaseSearchText('SodiumExtra')).toBe('Sodium Extra')
+    expect(splitCamelCaseSearchText('AE2Stuff')).toBe('AE2 Stuff')
+    expect(splitCamelCaseSearchText('sodiumextra')).toBe('sodiumextra')
 })
 
-test('modrinth variants preserve the typed form first', () => {
-    assert.deepEqual(modrinthQueryVariants('example mod'), ['example mod', 'examplemod'])
-    assert.deepEqual(modrinthQueryVariants('sodium-extra'), [
+it('modrinth variants preserve the typed form first', () => {
+    expect(modrinthQueryVariants('example mod')).toEqual(['example mod', 'examplemod'])
+    expect(modrinthQueryVariants('sodium-extra')).toEqual([
         'sodium-extra',
         'sodium extra',
         'sodiumextra',
     ])
-    assert.deepEqual(modrinthQueryVariants('SodiumExtra'), ['sodiumextra', 'sodium extra'])
-    assert.deepEqual(modrinthQueryVariants(''), [])
+    expect(modrinthQueryVariants('SodiumExtra')).toEqual(['sodiumextra', 'sodium extra'])
+    expect(modrinthQueryVariants('')).toEqual([])
 })
 
-test('curseforge variants put the slug form first', () => {
-    assert.deepEqual(curseForgeQueryVariants('example mod'), [
+it('curseforge variants put the slug form first', () => {
+    expect(curseForgeQueryVariants('example mod')).toEqual([
         'example-mod',
         'example mod',
         'examplemod',
     ])
-    assert.deepEqual(curseForgeQueryVariants('sodium-extra'), ['sodium-extra', 'sodiumextra'])
-    assert.deepEqual(curseForgeQueryVariants('SodiumExtra'), ['sodiumextra', 'sodium-extra'])
-    assert.deepEqual(curseForgeQueryVariants('sodium extra'), [
+    expect(curseForgeQueryVariants('sodium-extra')).toEqual(['sodium-extra', 'sodiumextra'])
+    expect(curseForgeQueryVariants('SodiumExtra')).toEqual(['sodiumextra', 'sodium-extra'])
+    expect(curseForgeQueryVariants('sodium extra')).toEqual([
         'sodium-extra',
         'sodium extra',
         'sodiumextra',
     ])
-    assert.deepEqual(curseForgeQueryVariants(''), [])
+    expect(curseForgeQueryVariants('')).toEqual([])
 })
 
-test('expandSearchQuery returns null for empty and whitespace-only queries', () => {
-    assert.equal(expandSearchQuery(''), null)
-    assert.equal(expandSearchQuery('   '), null)
+it('expandSearchQuery returns null for empty and whitespace-only queries', () => {
+    expect(expandSearchQuery('')).toBe(null)
+    expect(expandSearchQuery('   ')).toBe(null)
 })
 
-test('expandSearchQuery flags compact queries', () => {
+it('expandSearchQuery flags compact queries', () => {
     const expansion = expandSearchQuery('sodiumextra')
-    assert.ok(expansion)
-    assert.equal(expansion.compact, true)
-    assert.equal(expansion.normalized, 'sodiumextra')
-    assert.deepEqual(expansion.modrinthVariants, ['sodiumextra'])
-    assert.deepEqual(expansion.curseforgeVariants, ['sodiumextra'])
+    expect(expansion).toBeTruthy()
+    expect(expansion.compact).toBe(true)
+    expect(expansion.normalized).toBe('sodiumextra')
+    expect(expansion.modrinthVariants).toEqual(['sodiumextra'])
+    expect(expansion.curseforgeVariants).toEqual(['sodiumextra'])
 })
 
-test('expandSearchQuery never treats spaced queries as compact', () => {
+it('expandSearchQuery never treats spaced queries as compact', () => {
     const expansion = expandSearchQuery('sodium extra')
-    assert.ok(expansion)
-    assert.equal(expansion.compact, false)
+    expect(expansion).toBeTruthy()
+    expect(expansion.compact).toBe(false)
 })
 
-test('expansion of hyphenated queries covers both providers', () => {
+it('expansion of hyphenated queries covers both providers', () => {
     const expansion = expandSearchQuery('sodium-extra')
-    assert.ok(expansion)
-    assert.deepEqual(expansion.modrinthVariants, ['sodium-extra', 'sodium extra', 'sodiumextra'])
-    assert.deepEqual(expansion.curseforgeVariants, ['sodium-extra', 'sodiumextra'])
+    expect(expansion).toBeTruthy()
+    expect(expansion.modrinthVariants).toEqual(['sodium-extra', 'sodium extra', 'sodiumextra'])
+    expect(expansion.curseforgeVariants).toEqual(['sodium-extra', 'sodiumextra'])
 })
 
-test('expansion dedupes and caps variants', () => {
+it('expansion dedupes and caps variants', () => {
     const expansion = expandSearchQuery('a b c')
-    assert.ok(expansion)
-    assert.ok(expansion.modrinthVariants.length <= 3)
-    assert.ok(expansion.curseforgeVariants.length <= 3)
-    assert.equal(new Set(expansion.modrinthVariants).size, expansion.modrinthVariants.length)
+    expect(expansion).toBeTruthy()
+    expect(expansion.modrinthVariants.length <= 3).toBeTruthy()
+    expect(expansion.curseforgeVariants.length <= 3).toBeTruthy()
+    expect(new Set(expansion.modrinthVariants).size).toBe(expansion.modrinthVariants.length)
 })

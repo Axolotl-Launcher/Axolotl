@@ -1,6 +1,8 @@
 use super::*;
+use crate::state::store::resource_execution_journals::ResourceExecutionJournals;
+use crate::state::store::resource_history::ResourceHistory;
+use crate::state::store::resource_history_cleanup_plans::ResourceHistoryCleanupPlans;
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -76,7 +78,11 @@ async fn recover_pending(
     root: &Path,
     state: &crate::State,
 ) -> ResourceResult<()> {
-    let rows: Vec<String> = sqlx::query_scalar("SELECT payload FROM resource_history_cleanup_plans WHERE instance_id = ?").bind(instance_id).fetch_all(&state.pool).await.map_err(db)?;
+    let rows = ResourceHistoryCleanupPlans::payloads_for_instance(
+        &state.data,
+        instance_id,
+    )
+    .await?;
     for payload in rows {
         let mut draft: CleanupDraft = serde_json::from_str(&payload)?;
         if draft.moves.is_empty() {
@@ -85,7 +91,12 @@ async fn recover_pending(
         idle(instance_id, state).await?;
         recover(&draft, root).await?;
         draft.moves.clear();
-        sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ?, consumed = 1 WHERE id = ?").bind(serde_json::to_string(&draft)?).bind(draft.plan.id.as_str()).execute(&state.pool).await.map_err(db)?;
+        ResourceHistoryCleanupPlans::consume(
+            &state.data,
+            draft.plan.id.as_str(),
+            &serde_json::to_string(&draft)?,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -143,8 +154,9 @@ async fn idle(instance_id: &str, state: &crate::State) -> ResourceResult<()> {
             ));
         }
     }
-    let journal: i64 = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM resource_execution_journals journal JOIN resource_operation_plans plan ON plan.id = journal.plan_id WHERE plan.instance_id = ?)").bind(instance_id).fetch_one(&state.pool).await.map_err(db)?;
-    if journal != 0 {
+    if ResourceExecutionJournals::pending_for_instance(&state.data, instance_id)
+        .await?
+    {
         return Err(invalid(
             "resource recovery must complete before cleaning backups",
         ));
@@ -346,7 +358,14 @@ pub(crate) async fn prepare_with_state(
         issues: vec![],
     };
     validate(&plan, state).await?;
-    sqlx::query("INSERT INTO resource_history_cleanup_plans(id, instance_id, revision, payload) VALUES (?, ?, ?, ?)").bind(plan.id.as_str()).bind(instance_id).bind(plan.revision).bind(serde_json::to_string(&plan)?).execute(&state.pool).await.map_err(db)?;
+    ResourceHistoryCleanupPlans::insert(
+        &state.data,
+        plan.id.as_str(),
+        instance_id,
+        plan.revision,
+        &serde_json::to_string(&plan)?,
+    )
+    .await?;
     Ok(plan)
 }
 
@@ -363,18 +382,21 @@ async fn validate(
     let root = root(&plan.instance_id, state).await?;
     let selected: HashSet<_> =
         plan.entries.iter().map(|entry| &entry.id).collect();
-    let rows = sqlx::query("SELECT id, backup_relative_path FROM resource_history WHERE instance_id = ? AND backup_available = 1").bind(&plan.instance_id).fetch_all(&state.pool).await.map_err(db)?;
+    let rows =
+        ResourceHistory::backups_for_instance(&state.data, &plan.instance_id)
+            .await?;
     let mut retained_paths = HashSet::new();
-    for row in rows {
-        let id = HistoryId::new(row.get::<String, _>("id"))?;
+    for (id, path) in rows {
+        let id = HistoryId::new(id)?;
         if !selected.contains(&id)
-            && let Some(path) =
-                row.get::<Option<String>, _>("backup_relative_path")
+            && let Some(path) = path
         {
             retained_paths.insert(path_identity(&path));
         }
     }
-    let current_paths: Vec<String> = sqlx::query_scalar("SELECT file.relative_path FROM instance_files file JOIN instance_content_entries entry ON entry.file_id = file.id WHERE file.instance_id = ? UNION ALL SELECT relative_path FROM store_instance_files WHERE instance_id = ?").bind(&plan.instance_id).bind(&plan.instance_id).fetch_all(&state.pool).await.map_err(db)?;
+    let current_paths = crate::state::instances::adapters::sqlite::content_store_files::get_current_paths(&plan.instance_id, &state.pool)
+        .await
+        .map_err(|error| ResourceError::Database(error.to_string()))?;
     let current_paths: HashSet<_> = current_paths
         .into_iter()
         .map(|path| path_identity(&path))
@@ -416,20 +438,21 @@ pub(crate) async fn execute_with_state(
     state: &crate::State,
 ) -> ResourceResult<ResourceHistoryCleanupResult> {
     let _writer = state.acquire_install_db_permit().await?;
-    let payload: String = sqlx::query_scalar("SELECT payload FROM resource_history_cleanup_plans WHERE id = ? AND revision = ? AND consumed = 0").bind(id.as_str()).bind(revision).fetch_optional(&state.pool).await.map_err(db)?.ok_or_else(|| invalid("cleanup plan expired or already executed"))?;
+    let payload = ResourceHistoryCleanupPlans::open_payload(
+        &state.data,
+        id.as_str(),
+        revision,
+    )
+    .await?
+    .ok_or_else(|| invalid("cleanup plan expired or already executed"))?;
     let mut draft: CleanupDraft = serde_json::from_str(&payload)?;
     let plan = draft.plan.clone();
     let _lock = state
         .lock_instance_content_exclusive(&plan.instance_id)
         .await;
-    let consumed: i64 = sqlx::query_scalar(
-        "SELECT consumed FROM resource_history_cleanup_plans WHERE id = ?",
-    )
-    .bind(id.as_str())
-    .fetch_one(&state.pool)
-    .await
-    .map_err(db)?;
-    if consumed != 0 {
+    let consumed =
+        ResourceHistoryCleanupPlans::consumed(&state.data, id.as_str()).await?;
+    if consumed {
         return Err(invalid("cleanup plan already executed"));
     }
     let root = root(&plan.instance_id, state).await?;
@@ -455,29 +478,62 @@ pub(crate) async fn execute_with_state(
         }
         draft.moves.push(temporary);
     }
-    sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ? WHERE id = ? AND consumed = 0").bind(serde_json::to_string(&draft)?).bind(id.as_str()).execute(&state.pool).await.map_err(db)?;
+    ResourceHistoryCleanupPlans::save_progress(
+        &state.data,
+        id.as_str(),
+        &serde_json::to_string(&draft)?,
+    )
+    .await?;
     let commit = async {
         for (file, temporary) in plan.files.iter().zip(&draft.moves) {
-            let path = super::execution::checked_path(&root, &file.relative_path)?;
-            if !super::execution::matches_file(&path, &file.integrity).await? { return Err(invalid("backup changed while cleaning")); }
-            tokio::fs::rename(path, super::execution::checked_path(&root, temporary)?).await.map_err(|error| invalid(error.to_string()))?;
+            let path =
+                super::execution::checked_path(&root, &file.relative_path)?;
+            if !super::execution::matches_file(&path, &file.integrity).await? {
+                return Err(invalid("backup changed while cleaning"));
+            }
+            tokio::fs::rename(
+                path,
+                super::execution::checked_path(&root, temporary)?,
+            )
+            .await
+            .map_err(|error| invalid(error.to_string()))?;
         }
         let mut tx = state.pool.begin().await.map_err(db)?;
         for entry in &plan.entries {
             let history_id = &entry.id;
-                sqlx::query("UPDATE resource_history SET backup_available = 0 WHERE id = ? AND instance_id = ?").bind(history_id.as_str()).bind(&plan.instance_id).execute(&mut *tx).await.map_err(db)?;
-                sqlx::query("DELETE FROM store_retained_refs WHERE reason = ?").bind(format!("resource-history:{}", history_id.as_str())).execute(&mut *tx).await.map_err(db)?;
+            ResourceHistory::retire_backup_in(
+                &mut tx,
+                history_id.as_str(),
+                &plan.instance_id,
+            )
+            .await?;
+            crate::state::store::store_retained_refs::release(
+                &mut *tx,
+                &format!("resource-history:{}", history_id.as_str()),
+            )
+            .await?;
         }
         draft.committed = true;
-        sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ?, consumed = 1 WHERE id = ?").bind(serde_json::to_string(&draft)?).bind(id.as_str()).execute(&mut *tx).await.map_err(db)?;
+        ResourceHistoryCleanupPlans::consume_in(
+            &mut tx,
+            id.as_str(),
+            &serde_json::to_string(&draft)?,
+        )
+        .await?;
         tx.commit().await.map_err(db)?;
         Ok::<_, ResourceError>(())
-    }.await;
+    }
+    .await;
     if let Err(error) = commit {
         draft.committed = false;
         recover(&draft, &root).await?;
         draft.moves.clear();
-        sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ?, consumed = 1 WHERE id = ?").bind(serde_json::to_string(&draft)?).bind(id.as_str()).execute(&state.pool).await.map_err(db)?;
+        ResourceHistoryCleanupPlans::consume(
+            &state.data,
+            id.as_str(),
+            &serde_json::to_string(&draft)?,
+        )
+        .await?;
         return Err(error);
     }
     let mut result = ResourceHistoryCleanupResult {
@@ -515,7 +571,12 @@ pub(crate) async fn execute_with_state(
     }
     if result.failures.is_empty() {
         draft.moves.clear();
-        sqlx::query("UPDATE resource_history_cleanup_plans SET payload = ? WHERE id = ?").bind(serde_json::to_string(&draft)?).bind(id.as_str()).execute(&state.pool).await.map_err(db)?;
+        ResourceHistoryCleanupPlans::save_payload(
+            &state.data,
+            id.as_str(),
+            &serde_json::to_string(&draft)?,
+        )
+        .await?;
     }
     Ok(result)
 }

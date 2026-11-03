@@ -1010,7 +1010,7 @@ fn local_mod_version_ranges_use_fabric_and_forge_semantics() {
         (">=1.0 || ~0.9", "0.9.2", true),
         ("1.2", "1.3.0", false),
         ("1.0.0-beta.2", "1.0.0-beta.2", true),
-        ("unknown", "1.0.0", false),
+        ("unknown", "1.0.0", true),
     ] {
         assert_eq!(
             plans::requirements::mod_version_matches(range, version),
@@ -1085,6 +1085,343 @@ async fn updating_a_parent_can_review_and_replace_an_outdated_installed_dependen
 }
 
 struct FixtureMetadataReader(HashMap<SourceArtifactRef, String>);
+
+#[tokio::test]
+async fn final_plan_distinguishes_unknown_candidate_metadata_from_known_identity_and_version_conflicts()
+ {
+    struct Reader(
+        ResourceResult<Option<crate::mod_metadata::LocalModMetadata>>,
+    );
+    #[async_trait]
+    impl plans::artifact_metadata::ArtifactMetadataReader for Reader {
+        async fn read(
+            &self,
+            _: &ResourceArtifact,
+            _: &CancellationToken,
+        ) -> ResourceResult<Option<crate::mod_metadata::LocalModMetadata>>
+        {
+            self.0.clone()
+        }
+    }
+    for acquisition in 0..3 {
+        for (metadata, blocked, canceled) in [
+        (Ok(None), false, false),
+        (
+            Err(ResourceError::Network { status: Some(503) }),
+            false,
+            false,
+        ),
+        (Err(ResourceError::Unavailable), false, false),
+        (
+            Ok(Some(
+                serde_json::from_value(
+                    serde_json::json!({"mod_id":"child", "version":"opaque"}),
+                )
+                .unwrap(),
+            )),
+            false,
+            false,
+        ),
+        (
+            Ok(Some(
+                serde_json::from_value(
+                    serde_json::json!({"mod_id":"child", "version":"1"}),
+                )
+                .unwrap(),
+            )),
+            true,
+            false,
+        ),
+        (
+            Ok(Some(
+                serde_json::from_value(
+                    serde_json::json!({"mod_id":"wrong_mod", "version":"2"}),
+                )
+                .unwrap(),
+            )),
+            true,
+            false,
+        ),
+        (
+            Err(ResourceError::from(crate::Error::from(crate::ErrorKind::HashError(
+                "expected".into(), "actual".into(),
+            )))),
+            true,
+            false,
+        ),
+        (
+            Err(ResourceError::Database("database unavailable".into())),
+            true,
+            false,
+        ),
+        (Err(ResourceError::Canceled), true, true),
+    ] {
+        let parent = release("parent00", "1", 'a');
+        let old = release("depend00", "1", 'b');
+        let mut candidate = release("depend00", "2", 'c');
+        if acquisition == 1 {
+            candidate.artifacts[0].acquisition = ArtifactAcquisition::ManualDownload {
+                page_url: "https://example.com/manual".into(),
+            };
+        } else if acquisition == 2 {
+            candidate.artifacts[0].acquisition = ArtifactAcquisition::Unavailable;
+        }
+        let (_temp, mut service) =
+            service(vec![old.clone(), candidate.clone()]).await;
+        Arc::get_mut(&mut service).unwrap().artifact_metadata_reader =
+            Arc::new(Reader(metadata));
+        let mut local_parent = installed(&parent, "parent", "mods/parent.jar");
+        local_parent.artifact = None;
+        local_parent.known_artifacts.clear();
+        let child = installed(&old, "child", "mods/child.jar");
+        let mut request = draft(
+            vec![selection("child", &candidate, Some("child"))],
+            ResourceOperationIntent::SwitchVersion,
+        );
+        for (id, mod_id, dependencies) in [
+            (
+                "parent",
+                "parent",
+                serde_json::json!([{"mod_id":"child", "version_range":"[2,)"}]),
+            ),
+            ("child", "child", serde_json::json!([])),
+        ] {
+            request.local_metadata.insert(InstalledEntryId::new(id).unwrap(), serde_json::from_value(serde_json::json!({"mod_id":mod_id,"version":"1","dependencies":dependencies})).unwrap());
+        }
+        let result = service
+            .build_operation(
+                request,
+                &target(),
+                &[local_parent, child],
+                &CancellationToken::new(),
+            )
+            .await;
+        if canceled {
+            assert!(matches!(result, Err(ResourceError::Canceled)));
+        } else if let Ok(built) = result {
+            assert_eq!(
+                built.plan.issues.iter().any(|issue| issue.blocking),
+                blocked || acquisition != 0,
+                "{:?}",
+                built.plan.issues
+            );
+            if !blocked {
+                assert_eq!(built.plan.actions.len(), 1);
+                assert!(built.plan.issues.iter().any(|issue| issue.code
+                    == ResourceIssueCode::DependencyAnalysisFailed));
+                assert!(
+                    !built.plan.issues.iter().any(|issue| issue.code
+                        == ResourceIssueCode::VersionConflict)
+                );
+                if acquisition != 0 {
+                    assert!(built.plan.issues.iter().any(|issue| issue.blocking && issue.code == ResourceIssueCode::ManualDownloadRequired));
+                }
+            }
+        } else {
+            assert!(blocked);
+        }
+        service.cache().close().await;
+    }
+    }
+}
+
+#[tokio::test]
+async fn unknown_incompatible_ranges_do_not_block_but_known_matches_do() {
+    for (constraint, blocked) in [
+        ("opaque constraint", false),
+        ("[2,)", true),
+        ("[3,)", false),
+    ] {
+        let mut parent = release("parent00", "1", 'a');
+        let old = release("depend00", "1", 'b');
+        let new = release("depend00", "2", 'c');
+        parent.artifacts[0].dependencies.push(ArtifactDependency {
+            target: DependencyTarget::Resource {
+                reference: ResourceRef::Source {
+                    project: new.reference.project.clone(),
+                },
+            },
+            kind: ResourceDependencyKind::Incompatible,
+            version_constraint: Some(constraint.into()),
+        });
+        let (_temp, service) =
+            service(vec![parent.clone(), old.clone(), new.clone()]).await;
+        for retained_parent in [false, true] {
+            let (selections, intent, entries) = if retained_parent {
+                (
+                    vec![selection("child", &new, Some("child"))],
+                    ResourceOperationIntent::Update,
+                    vec![
+                        installed(&parent, "parent", "mods/parent.jar"),
+                        installed(&old, "child", "mods/child.jar"),
+                    ],
+                )
+            } else {
+                (
+                    vec![
+                        selection("parent", &parent, None),
+                        selection("child", &new, None),
+                    ],
+                    ResourceOperationIntent::Install,
+                    vec![],
+                )
+            };
+            let plan = service
+                .build_operation(
+                    draft(selections, intent),
+                    &target(),
+                    &entries,
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap()
+                .plan;
+            assert_eq!(
+                plan.issues.iter().any(|issue| issue.blocking),
+                blocked,
+                "{constraint}, retained={retained_parent}: {:?}",
+                plan.issues
+            );
+        }
+        service.cache().close().await;
+    }
+}
+
+#[tokio::test]
+async fn local_file_version_unknown_is_allowed_but_known_mismatch_is_blocked() {
+    let mut parent = release("parent00", "1", 'a');
+    let dependency = release("depend00", "1", 'b');
+    parent.artifacts[0].dependencies.push(ArtifactDependency {
+        target: DependencyTarget::FileName {
+            name: "local.jar".into(),
+        },
+        kind: ResourceDependencyKind::Required,
+        version_constraint: Some("[2,)".into()),
+    });
+    let (_temp, service) = service(vec![parent.clone()]).await;
+    let mut local = installed(&dependency, "local", "mods/local.jar");
+    local.artifact = None;
+    local.known_artifacts.clear();
+    for (version, blocked) in [
+        (None, false),
+        (Some("opaque version"), false),
+        (Some("1"), true),
+        (Some("2+mc1.21.1"), false),
+    ] {
+        let mut request = draft(
+            vec![selection("parent", &parent, None)],
+            ResourceOperationIntent::SwitchVersion,
+        );
+        request.local_metadata.insert(local.entry_id.clone(), serde_json::from_value(serde_json::json!({"mod_id":"local", "version":version, "dependencies":[]})).unwrap());
+        let plan = service
+            .build_operation(
+                request,
+                &target(),
+                &[local.clone()],
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap()
+            .plan;
+        assert_eq!(
+            plan.issues.iter().any(|issue| issue.blocking),
+            blocked,
+            "{version:?}: {:?}",
+            plan.issues
+        );
+    }
+    service.cache().close().await;
+}
+
+#[tokio::test]
+async fn candidate_metadata_unknown_versions_and_source_failures_pass_without_hiding_identity_errors()
+ {
+    use plans::requirements::RetainedRequirement;
+    struct Metadata(Option<crate::mod_metadata::LocalModMetadata>);
+    #[async_trait]
+    impl plans::artifact_metadata::ArtifactMetadataReader for Metadata {
+        async fn read(
+            &self,
+            _: &ResourceArtifact,
+            _: &CancellationToken,
+        ) -> ResourceResult<Option<crate::mod_metadata::LocalModMetadata>>
+        {
+            Ok(self.0.clone())
+        }
+    }
+    struct FailedMetadata;
+    #[async_trait]
+    impl plans::artifact_metadata::ArtifactMetadataReader for FailedMetadata {
+        async fn read(
+            &self,
+            _: &ResourceArtifact,
+            _: &CancellationToken,
+        ) -> ResourceResult<Option<crate::mod_metadata::LocalModMetadata>>
+        {
+            Err(ResourceError::Unavailable)
+        }
+    }
+    let candidate = release("depend00", "2", 'b');
+    let requirement = RetainedRequirement {
+        parent: installed(
+            &release("parent00", "1", 'a'),
+            "parent",
+            "mods/parent.jar",
+        ),
+        resource: ResourceRef::Source {
+            project: candidate.reference.project.clone(),
+        },
+        scope: InstallScope::Instance,
+        version_constraint: Some("[2,)".into()),
+        exact: vec![],
+        incompatible: false,
+        local_mod_id: Some("child".into()),
+    };
+    for (mod_id, version, accepted) in [
+        (None, None, true),
+        (Some("child"), None, true),
+        (Some("child"), Some("opaque version"), true),
+        (Some("child"), Some("1"), false),
+        (Some("wrong_mod"), None, false),
+    ] {
+        let metadata = mod_id.map(|mod_id| {
+            serde_json::from_value(
+                serde_json::json!({"mod_id":mod_id, "version":version}),
+            )
+            .unwrap()
+        });
+        let (_temp, mut service) = service(vec![candidate.clone()]).await;
+        Arc::get_mut(&mut service).unwrap().artifact_metadata_reader =
+            Arc::new(Metadata(metadata));
+        assert_eq!(
+            service
+                .local_requirements_accept(
+                    &candidate,
+                    &[requirement.clone()],
+                    &CancellationToken::new()
+                )
+                .await
+                .unwrap(),
+            accepted,
+            "{mod_id:?}: {version:?}"
+        );
+        service.cache().close().await;
+    }
+    let (_temp, mut service) = service(vec![candidate.clone()]).await;
+    Arc::get_mut(&mut service).unwrap().artifact_metadata_reader =
+        Arc::new(FailedMetadata);
+    assert!(
+        service
+            .local_requirements_accept(
+                &candidate,
+                &[requirement],
+                &CancellationToken::new()
+            )
+            .await
+            .unwrap()
+    );
+    service.cache().close().await;
+}
 
 #[async_trait]
 impl plans::artifact_metadata::ArtifactMetadataReader

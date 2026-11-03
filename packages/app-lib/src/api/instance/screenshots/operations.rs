@@ -16,8 +16,8 @@ use crate::State;
 use crate::event::InstancePayloadType;
 use crate::event::emit::emit_instance;
 use crate::state::instances::adapters::sqlite::{
-    instance_rows::{self, InstanceScreenshotSource},
-    screenshot_rows,
+    instance_rows,
+    screenshot_rows::{self, InstanceScreenshotSource},
 };
 use crate::util::fetch::sha1_file_async;
 use crate::util::io::{self, IOError};
@@ -61,12 +61,14 @@ pub async fn list_screenshots(
     instance_id: &str,
 ) -> crate::Result<Vec<InstanceScreenshot>> {
     let state = State::get().await?;
-    let source =
-        instance_rows::get_instance_screenshot_source(instance_id, &state.pool)
-            .await?
-            .ok_or_else(|| {
-                crate::ErrorKind::InputError("Unknown instance".to_string())
-            })?;
+    let source = screenshot_rows::get_instance_screenshot_source(
+        instance_id,
+        &state.pool,
+    )
+    .await?
+    .ok_or_else(|| {
+        crate::ErrorKind::InputError("Unknown instance".to_string())
+    })?;
 
     list_source_screenshots(&state, source).await
 }
@@ -83,7 +85,7 @@ pub async fn list_all_screenshots() -> crate::Result<Vec<InstanceScreenshot>> {
 pub async fn list_all_screenshots_with_warnings()
 -> crate::Result<ScreenshotScanResult> {
     let state = State::get().await?;
-    let sources = instance_rows::list_screenshot_sources(&state.pool).await?;
+    let sources = screenshot_rows::list_screenshot_sources(&state.pool).await?;
     list_source_screenshot_sets(&state, sources).await
 }
 
@@ -188,7 +190,7 @@ pub async fn export_screenshots(
         let source = match sources.get(&key.instance_id) {
             Some(source) => source,
             None => {
-                let source = instance_rows::get_instance_screenshot_source(
+                let source = screenshot_rows::get_instance_screenshot_source(
                     &key.instance_id,
                     &state.pool,
                 )
@@ -257,7 +259,7 @@ pub async fn move_screenshots(
     instance_ids.sort_unstable();
     instance_ids.dedup();
     let _locks = lock_instance_screenshots(&state, instance_ids).await;
-    let target_source = instance_rows::get_instance_screenshot_source(
+    let target_source = screenshot_rows::get_instance_screenshot_source(
         target_instance_id,
         &state.pool,
     )
@@ -318,7 +320,7 @@ pub async fn get_screenshot_path(
     validate_file_name(&key.file_name)?;
 
     let state = State::get().await?;
-    let source = instance_rows::get_instance_screenshot_source(
+    let source = screenshot_rows::get_instance_screenshot_source(
         &key.instance_id,
         &state.pool,
     )
@@ -364,7 +366,7 @@ pub async fn save_edited_screenshot(
     validate_file_name(&key.file_name)?;
 
     let state = State::get().await?;
-    let source = instance_rows::get_instance_screenshot_source(
+    let source = screenshot_rows::get_instance_screenshot_source(
         &key.instance_id,
         &state.pool,
     )

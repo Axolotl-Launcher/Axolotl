@@ -49,9 +49,58 @@ const CHANNELS = ['release', 'beta']
 // gets an empty object; naming it keeps the downgrade from stopping on a
 // migration it can safely pass.
 //
+// `drops` names the tables a migration removed, so a downgrade that passes it
+// and the migration that created them knows the absence is intended rather than
+// a schema this script has wrong.
+//
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    20261103130000: { columns: [{ table: 'install_jobs', column: 'level' }] },
+    // settings.default_game_language
+    20261103120000: {
+        columns: [{ table: 'settings', column: 'default_game_language' }],
+    },
+    // Account secrets move into the system credential store. Each table gains a
+    // mark column saying which of its secret columns the store holds; dropping
+    // it leaves the rows as an older build writes them.
+    20261102120000: {
+        columns: [
+            { table: 'minecraft_users', column: 'secrets_externalized' },
+            { table: 'minecraft_device_tokens', column: 'secrets_externalized' },
+            { table: 'modrinth_users', column: 'secrets_externalized' },
+        ],
+    },
+    // Moves content_refresh_packs and content_refresh_scan_failures to
+    // derived.db: the rows are rebuildable, so the record is all a downgrade
+    // removes. The tables it drops are named in `drops` instead of `tables`,
+    // which keeps a downgrade past the migrations that created them from
+    // demanding tables this one already removed.
+    20261101120000: {
+        drops: ['content_refresh_packs', 'content_refresh_scan_failures'],
+    },
+    // Retires content_favorites, processes and telemetry_error_daily; a dropped
+    // table cannot be recreated, so the record is all a downgrade removes.
+    20261031120000: {},
+    // Derived records moved to derived.db: crash_analysis_mod_snapshots,
+    // discovered_javas, google_translate_ip_cache and translation_cache are
+    // dropped, so the record is all a downgrade removes. telemetry_outbox stays
+    // in app.db.
+    20261029120000: {},
+    20261028110000: { tables: ['content_refresh_packs'] },
+    20261028120000: { tables: ['content_refresh_scan_failures'] },
+    20261028100000: { tables: ['content_refresh_presentations'] },
+    20261027120000: {
+        tables: ['content_refresh_checks', 'content_file_fingerprints'],
+        objects: [
+            { type: 'index', name: 'instance_content_entries_instance_identity' },
+            { type: 'index', name: 'instance_files_instance_identity' },
+        ],
+    },
+    // settings.nametag_uses_app_font
+    20261026130000: {
+        columns: [{ table: 'settings', column: 'nametag_uses_app_font' }],
+    },
     20261026123000: { tables: ['content_update_jobs'] },
     20261026120000: { tables: ['content_file_operations'] },
     20261022120000: { columns: [{ table: 'settings', column: 'curseforge_api_key' }] },
@@ -611,11 +660,21 @@ function planDowngrade(db, target) {
     const applied = rows.filter((row) => row.success).map((row) => Number(row.version))
     const failed = rows.filter((row) => !row.success).map((row) => Number(row.version))
 
+    // A table a newer applied migration dropped is absent on purpose. The
+    // migration that created it records the table under `tables`, and a
+    // downgrade passing both must not demand back what the newer one removed.
+    // A table that is still there is dropped as the mapping says.
+    const dropped = new Set(
+        applied.flatMap((version) => REVERTIBLE_SCHEMA[version]?.drops ?? []),
+    )
+
     const plan = applied.map((version) => ({
         version,
         mapped: REVERTIBLE_SCHEMA[version] !== undefined,
         columns: columnsPresent(db, REVERTIBLE_SCHEMA[version]?.columns ?? []),
-        tables: tablesPresent(db, REVERTIBLE_SCHEMA[version]?.tables ?? []),
+        tables: tablesPresent(db, REVERTIBLE_SCHEMA[version]?.tables ?? []).filter(
+            ({ table, present }) => present || !dropped.has(table),
+        ),
         objects: objectsPresent(db, REVERTIBLE_SCHEMA[version]?.objects ?? []),
     }))
 
@@ -705,9 +764,8 @@ function main() {
     const state = planDowngrade(db, args.to)
     note(`database: ${db}`)
 
-    if (state.applied.length === 0) {
-        note(`nothing to do: no applied migration at or after ${args.to}`)
-        if (state.failed.length > 0) reportPlan(state)
+    if (state.applied.length === 0 && state.failed.length === 0) {
+        note(`nothing to do: no migration at or after ${args.to}`)
         return
     }
 
@@ -768,9 +826,15 @@ function main() {
                     if (present) writable.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
                 }
             }
-            writable
-                .prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${state.applied.join(', ')})`)
-                .run()
+            // Failed records block sqlx with `MigrateError::Dirty` before it
+            // even compares versions, so the warning that promises to remove
+            // them must actually remove them.
+            const versions = [...state.applied, ...state.failed]
+            if (versions.length > 0) {
+                writable
+                    .prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${versions.join(', ')})`)
+                    .run()
+            }
             writable.exec('COMMIT')
         } catch (error) {
             writable.exec('ROLLBACK')

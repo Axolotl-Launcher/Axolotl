@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     compareSeedMapVersions,
@@ -18,13 +17,13 @@ import {
     SEED_MAP_MIN_ZOOM,
 } from './workspace.ts'
 
-test('seed map starts near spawn with a lightweight layer set', () => {
+it('seed map starts near spawn with a lightweight layer set', () => {
     const workspace = createDefaultSeedMapWorkspace()
-    assert.equal(workspace.zoom, 1)
-    assert.equal(workspace.terrainEstimation, true)
-    assert.equal(workspace.gameVersion, SEED_MAP_DEFAULT_VERSION)
-    assert.equal(workspace.elevation, 128)
-    assert.deepEqual(workspace.visibleFeatures, [
+    expect(workspace.zoom).toBe(1)
+    expect(workspace.terrainEstimation).toBe(true)
+    expect(workspace.gameVersion).toBe(SEED_MAP_DEFAULT_VERSION)
+    expect(workspace.elevation).toBe(128)
+    expect(workspace.visibleFeatures).toEqual([
         'village',
         'ruined-portal',
         'stronghold',
@@ -32,11 +31,11 @@ test('seed map starts near spawn with a lightweight layer set', () => {
         'bastion',
         'end-city',
     ])
-    assert.equal(workspace.displayMode, 'structures')
-    assert.deepEqual(workspace.selectedOres, ['diamond'])
+    expect(workspace.displayMode).toBe('structures')
+    expect(workspace.selectedOres).toEqual(['diamond'])
 })
 
-test('game version choices sort newest releases first and beta releases last', () => {
+it('game version choices sort newest releases first and beta releases last', () => {
     const versions = [
         'b1.7',
         '1.9.4',
@@ -49,7 +48,7 @@ test('game version choices sort newest releases first and beta releases last', (
         '26.3',
         '26.2',
     ]
-    assert.deepEqual(versions.sort(compareSeedMapVersions), [
+    expect(versions.sort(compareSeedMapVersions)).toEqual([
         '26.3',
         '26.2',
         '26.1.2',
@@ -63,20 +62,20 @@ test('game version choices sort newest releases first and beta releases last', (
     ])
 })
 
-test('removed end-island layer is discarded from saved selections while other data survives', () => {
+it('removed end-island layer is discarded from saved selections while other data survives', () => {
     const state = sanitizeSeedMapWorkspace({
         ...createDefaultSeedMapWorkspace(),
         visibleFeatures: ['end-island', 'end-city', 'nether-fossil', 'abandoned-camp'],
         completedFeatures: ['end-island:1200:1300', 'end-city:1500:1600'],
         markers: [{ id: 'home', name: 'Home', x: 12, z: -34, color: '#22C55E' }],
     })
-    assert.deepEqual(state.visibleFeatures, ['end-city', 'nether-fossil', 'abandoned-camp'])
-    assert.equal(featureMask(['end-island'] as never[]), 0)
-    assert.equal(state.completedFeatures.length, 2)
-    assert.equal(state.markers[0].name, 'Home')
+    expect(state.visibleFeatures).toEqual(['end-city', 'nether-fossil', 'abandoned-camp'])
+    expect(featureMask(['end-island'] as never[])).toBe(0)
+    expect(state.completedFeatures.length).toBe(2)
+    expect(state.markers[0].name).toBe('Home')
 })
 
-test('seed map workspace recovers from invalid persisted values', () => {
+it('seed map workspace recovers from invalid persisted values', () => {
     const state = sanitizeSeedMapWorkspace({
         seed: '  mushroom island  ',
         edition: 'java',
@@ -84,70 +83,65 @@ test('seed map workspace recovers from invalid persisted values', () => {
         center: { x: Number.NaN, z: 72 },
         visibleFeatures: ['village', 'invalid'],
     })
-    assert.equal(state.seed, 'mushroom island')
-    assert.equal(state.zoom, 4)
-    assert.deepEqual(state.center, { x: 0, z: 72 })
-    assert.deepEqual(state.visibleFeatures, ['village'])
-    assert.equal(state.showSpawn, true)
-    assert.deepEqual(state.highlightedBiomes, [])
+    expect(state.seed).toBe('mushroom island')
+    expect(state.zoom).toBe(4)
+    expect(state.center).toEqual({ x: 0, z: 72 })
+    expect(state.visibleFeatures).toEqual(['village'])
+    expect(state.showSpawn).toBe(true)
+    expect(state.highlightedBiomes).toEqual([])
 })
 
-test('seed map uses fixed surface and underground elevation slices', () => {
-    assert.equal(sanitizeSeedMapWorkspace({ elevation: 62 }).elevation, 128)
-    assert.equal(sanitizeSeedMapWorkspace({ elevation: 128 }).elevation, 128)
-    assert.equal(sanitizeSeedMapWorkspace({ elevation: 16 }).elevation, 16)
-    assert.equal(sanitizeSeedMapWorkspace({ elevation: -32 }).elevation, -32)
+it('seed map uses fixed surface and underground elevation slices', () => {
+    expect(sanitizeSeedMapWorkspace({ elevation: 62 }).elevation).toBe(128)
+    expect(sanitizeSeedMapWorkspace({ elevation: 128 }).elevation).toBe(128)
+    expect(sanitizeSeedMapWorkspace({ elevation: 16 }).elevation).toBe(16)
+    expect(sanitizeSeedMapWorkspace({ elevation: -32 }).elevation).toBe(-32)
 })
 
-test('seed map keeps every offered ore kind and drops unknown ones', () => {
+it('seed map keeps every offered ore kind and drops unknown ones', () => {
     const state = sanitizeSeedMapWorkspace({
         ...createDefaultSeedMapWorkspace(),
         selectedOres: ['diamond', 'iron_vein', 'copper_vein', 'coal', 'bogus'],
     })
-    assert.deepEqual(state.selectedOres, ['diamond', 'iron_vein', 'copper_vein', 'coal'])
+    expect(state.selectedOres).toEqual(['diamond', 'iron_vein', 'copper_vein', 'coal'])
 })
 
-test('seed map supports a closer maximum zoom', () => {
+it('seed map supports a closer maximum zoom', () => {
     const close = sanitizeSeedMapWorkspace({ zoom: SEED_MAP_MIN_ZOOM })
     const tooClose = sanitizeSeedMapWorkspace({ zoom: SEED_MAP_MIN_ZOOM - 10 })
-    assert.equal(close.zoom, SEED_MAP_MIN_ZOOM)
-    assert.equal(tooClose.zoom, SEED_MAP_MIN_ZOOM)
+    expect(close.zoom).toBe(SEED_MAP_MIN_ZOOM)
+    expect(tooClose.zoom).toBe(SEED_MAP_MIN_ZOOM)
 })
 
-test('seed map exposes every categorized cubiomes biome exactly once', () => {
+it('seed map exposes every categorized cubiomes biome exactly once', () => {
     const groups = seedMapBiomeGroups()
-    assert.equal(SEED_MAP_BIOMES.length, Object.keys(SEED_MAP_BIOME_NAMES).length)
-    assert.equal(groups.length, 17)
-    assert.equal(groups.flatMap((group) => group.biomes).length, SEED_MAP_BIOMES.length)
-    assert.equal(new Set(SEED_MAP_BIOMES.map((biome) => biome.id)).size, SEED_MAP_BIOMES.length)
-    assert.deepEqual(
+    expect(SEED_MAP_BIOMES.length).toBe(Object.keys(SEED_MAP_BIOME_NAMES).length)
+    expect(groups.length).toBe(17)
+    expect(groups.flatMap((group) => group.biomes).length).toBe(SEED_MAP_BIOMES.length)
+    expect(new Set(SEED_MAP_BIOMES.map((biome) => biome.id)).size).toBe(SEED_MAP_BIOMES.length)
+    expect(
         groups.filter((group) => group.dimension === 'nether').map((group) => group.category),
-        ['nether'],
-    )
-    assert.deepEqual(
+    ).toEqual(['nether'])
+    expect(
         groups.filter((group) => group.dimension === 'end').map((group) => group.category),
-        ['end'],
-    )
-    assert.deepEqual(
-        SEED_MAP_BIOMES.filter((biome) => !SEED_MAP_BIOME_NAMES[biome.id]),
-        [],
-    )
+    ).toEqual(['end'])
+    expect(SEED_MAP_BIOMES.filter((biome) => !SEED_MAP_BIOME_NAMES[biome.id])).toEqual([])
 })
 
-test('seed map migrates legacy biome highlighting and terrain defaults', () => {
+it('seed map migrates legacy biome highlighting and terrain defaults', () => {
     const state = sanitizeSeedMapWorkspace({
         version: 1,
         highlightBiomeEnabled: true,
         highlightedBiome: 21,
         terrainEstimation: false,
     })
-    assert.deepEqual(state.highlightedBiomes, [21])
-    assert.equal(state.highlightBiomeEnabled, true)
-    assert.equal(state.terrainEstimation, true)
-    assert.equal(state.version, 4)
+    expect(state.highlightedBiomes).toEqual([21])
+    expect(state.highlightBiomeEnabled).toBe(true)
+    expect(state.terrainEstimation).toBe(true)
+    expect(state.version).toBe(4)
 })
 
-test('seed map share queries preserve useful map state', () => {
+it('seed map share queries preserve useful map state', () => {
     const workspace = createDefaultSeedMapWorkspace()
     const shared = applyShareQuery(
         {
@@ -165,63 +159,63 @@ test('seed map share queries preserve useful map state', () => {
         },
         workspace,
     )
-    assert.equal(shared.seed, '1234')
-    assert.equal(shared.edition, 'java-large-biomes')
-    assert.equal(shared.gameVersion, '1.21.1')
-    assert.equal(shared.dimension, 'nether')
-    assert.equal(shared.displayMode, 'ores')
-    assert.deepEqual(shared.selectedOres, ['netherite'])
-    assert.equal(shared.oreYMin, 12)
-    assert.equal(shared.oreYMax, 24)
-    assert.equal(shared.zoom, 1.25)
-    assert.deepEqual(shared.center, { x: -500, z: 312 })
+    expect(shared.seed).toBe('1234')
+    expect(shared.edition).toBe('java-large-biomes')
+    expect(shared.gameVersion).toBe('1.21.1')
+    expect(shared.dimension).toBe('nether')
+    expect(shared.displayMode).toBe('ores')
+    expect(shared.selectedOres).toEqual(['netherite'])
+    expect(shared.oreYMin).toBe(12)
+    expect(shared.oreYMax).toBe(24)
+    expect(shared.zoom).toBe(1.25)
+    expect(shared.center).toEqual({ x: -500, z: 312 })
 })
 
-test('fallback profiles gate dimensions, ores, and large biomes by version', () => {
+it('fallback profiles gate dimensions, ores, and large biomes by version', () => {
     const profiles = fallbackSeedMapProfiles()
     const modern = profiles.find(
         (profile) => profile.edition === 'java' && profile.version === '1.21.3',
     )
-    assert.equal(modern?.available, false)
-    assert.deepEqual(modern?.dimensions, ['overworld', 'nether', 'end'])
-    assert.equal(modern?.ores, true)
+    expect(modern?.available).toBe(false)
+    expect(modern?.dimensions).toEqual(['overworld', 'nether', 'end'])
+    expect(modern?.ores).toBe(true)
     const legacy = profiles.find(
         (profile) => profile.edition === 'java' && profile.version === '1.9',
     )
-    assert.deepEqual(legacy?.dimensions, ['overworld', 'end'])
-    assert.equal(legacy?.ores, false)
+    expect(legacy?.dimensions).toEqual(['overworld', 'end'])
+    expect(legacy?.ores).toBe(false)
     const oldest = profiles.find(
         (profile) => profile.edition === 'java' && profile.version === '1.8',
     )
-    assert.deepEqual(oldest?.dimensions, ['overworld'])
-    assert.ok(
+    expect(oldest?.dimensions).toEqual(['overworld'])
+    expect(
         !profiles.some(
             (profile) => profile.edition === 'java-large-biomes' && profile.version === '1.0',
         ),
-    )
+    ).toBeTruthy()
 })
 
-test('feature masks match the selected map layers', () => {
+it('feature masks match the selected map layers', () => {
     const mask = featureMask(['village', 'stronghold', 'slime-chunk'])
     const expected = SEED_MAP_FEATURES.filter((feature) =>
         ['village', 'stronghold', 'slime-chunk'].includes(feature.kind),
     ).reduce((value, feature) => value | feature.mask, 0)
-    assert.equal(mask, expected)
+    expect(mask).toBe(expected)
 })
 
-test('seed map ignores a response from an older tile request epoch', () => {
-    assert.equal(isCurrentSeedMapEpoch(8, 8), true)
-    assert.equal(isCurrentSeedMapEpoch(7, 8), false)
+it('seed map ignores a response from an older tile request epoch', () => {
+    expect(isCurrentSeedMapEpoch(8, 8)).toBe(true)
+    expect(isCurrentSeedMapEpoch(7, 8)).toBe(false)
 })
 
-test('seed map tile concurrency reserves capacity for the interface', () => {
-    assert.equal(seedMapTileConcurrency(4, 4), 2)
-    assert.equal(seedMapTileConcurrency(4, 8), 6)
-    assert.equal(seedMapTileConcurrency(4, 16), 8)
-    assert.equal(seedMapTileConcurrency(1, 16), 4)
+it('seed map tile concurrency reserves capacity for the interface', () => {
+    expect(seedMapTileConcurrency(4, 4)).toBe(2)
+    expect(seedMapTileConcurrency(4, 8)).toBe(6)
+    expect(seedMapTileConcurrency(4, 16)).toBe(8)
+    expect(seedMapTileConcurrency(1, 16)).toBe(4)
 })
 
-test('dense feature layers are omitted until the map is close enough', () => {
+it('dense feature layers are omitted until the map is close enough', () => {
     const close = visibleFeatureDefinitions(
         ['slime-chunk', 'village', 'stronghold'],
         'overworld',
@@ -237,29 +231,23 @@ test('dense feature layers are omitted until the map is close enough', () => {
         'overworld',
         256,
     )
-    assert.deepEqual(
-        close.map((feature) => feature.kind),
-        ['slime-chunk', 'village', 'stronghold'],
-    )
-    assert.deepEqual(
-        medium.map((feature) => feature.kind),
-        ['stronghold'],
-    )
-    assert.deepEqual(far, [])
+    expect(close.map((feature) => feature.kind)).toEqual(['slime-chunk', 'village', 'stronghold'])
+    expect(medium.map((feature) => feature.kind)).toEqual(['stronghold'])
+    expect(far).toEqual([])
 })
 
-test('slime chunks are the first layer in every dimension', () => {
+it('slime chunks are the first layer in every dimension', () => {
     for (const dimension of ['overworld', 'nether', 'end'] as const) {
         const visible = visibleFeatureDefinitions(
             ['village', 'fortress', 'end-city', 'slime-chunk'],
             dimension,
             4,
         )
-        assert.equal(visible[0]?.kind, 'slime-chunk')
+        expect(visible[0]?.kind).toBe('slime-chunk')
     }
 })
 
-test('v3 migration retains version, markers and completion records', () => {
+it('v3 migration retains version, markers and completion records', () => {
     const previous = {
         ...createDefaultSeedMapWorkspace(),
         version: 3,
@@ -269,17 +257,16 @@ test('v3 migration retains version, markers and completion records', () => {
         completedOres: ['diamond:3:-40:5'],
     }
     const migrated = sanitizeSeedMapWorkspace(previous)
-    assert.equal(migrated.version, 4)
-    assert.equal(migrated.gameVersion, '26.2')
-    assert.deepEqual(
-        migrated.markers,
+    expect(migrated.version).toBe(4)
+    expect(migrated.gameVersion).toBe('26.2')
+    expect(migrated.markers).toEqual(
         previous.markers.map((marker) => ({ ...marker, dimension: 'overworld' })),
     )
-    assert.deepEqual(migrated.completedFeatures, previous.completedFeatures)
-    assert.deepEqual(migrated.completedOres, previous.completedOres)
+    expect(migrated.completedFeatures).toEqual(previous.completedFeatures)
+    expect(migrated.completedOres).toEqual(previous.completedOres)
 })
 
-test('markers preserve dimension on reload and legacy or invalid dimensions default to overworld', () => {
+it('markers preserve dimension on reload and legacy or invalid dimensions default to overworld', () => {
     const marker = { id: 'camp', name: 'Camp', x: -20, z: 42, color: '#FF0000' }
     const workspace = sanitizeSeedMapWorkspace({
         ...createDefaultSeedMapWorkspace(),
@@ -291,17 +278,18 @@ test('markers preserve dimension on reload and legacy or invalid dimensions defa
             { ...marker, id: 'invalid', dimension: 'unknown' },
         ],
     })
-    assert.deepEqual(
-        workspace.markers.map((item) => item.dimension),
-        ['overworld', 'nether', 'end', 'overworld'],
-    )
-    assert.deepEqual(
-        sanitizeSeedMapWorkspace(JSON.parse(JSON.stringify(workspace))).markers,
+    expect(workspace.markers.map((item) => item.dimension)).toEqual([
+        'overworld',
+        'nether',
+        'end',
+        'overworld',
+    ])
+    expect(sanitizeSeedMapWorkspace(JSON.parse(JSON.stringify(workspace))).markers).toEqual(
         workspace.markers,
     )
 })
 
-test('sharing underground view preserves height and individual layers', () => {
+it('sharing underground view preserves height and individual layers', () => {
     const workspace = {
         ...createDefaultSeedMapWorkspace(),
         displayMode: 'underground' as const,
@@ -309,7 +297,7 @@ test('sharing underground view preserves height and individual layers', () => {
         undergroundLayers: 5,
     }
     const restored = applyShareQuery(createShareQuery(workspace))
-    assert.equal(restored.displayMode, 'underground')
-    assert.equal(restored.undergroundY, -32)
-    assert.equal(restored.undergroundLayers, 5)
+    expect(restored.displayMode).toBe('underground')
+    expect(restored.undergroundY).toBe(-32)
+    expect(restored.undergroundLayers).toBe(5)
 })

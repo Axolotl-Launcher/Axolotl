@@ -16,6 +16,7 @@ Read the applicable instruction files before editing, even when your session sta
 | Desktop runtime, persistence, migrations or downgrade tooling   | [packages/app-lib/AGENTS.md](packages/app-lib/AGENTS.md)       |
 | Any frontend implementation                                     | [Frontend development](standards/frontend/DEVELOPMENT.md)      |
 | Agent instructions, Skills or their validation                  | [.agents/AGENTS.md](.agents/AGENTS.md)                         |
+| Agent delivery: commits, pushes, PRs, reviews, archiving        | [REVIEW.md](REVIEW.md)                                         |
 
 ## Repository Map
 
@@ -30,6 +31,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup and application da
 
 ## Verification and Commits
 
+- **Read [REVIEW.md](REVIEW.md) before committing, pushing, opening a pull request or reviewing a change.** It is the single home for the delivery workflow: commit and trailer conventions, push preconditions, pull request content, review expectations and archiving. The rules in this section remain in force and refine it.
 - Every commit created by an Agent must use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): `<type>[optional scope][!]: <description>`. This applies to ordinary commits, amended messages, merge commits, squash commits and reverts; replace Git's default message when necessary. Do not rewrite existing history just to normalize messages.
 - Use a lowercase type matching the change: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `style` or `revert`. Use a concise scope when useful (for example `app`, `website`, `ui` or `agents`), and describe the actual change. Mark breaking changes with `!` or a `BREAKING CHANGE:` footer; explain their impact in the body.
 - When `[skip ci]` is required by the path rules below, append it to the description without replacing the conventional prefix, for example `docs(agents): clarify repository instructions [skip ci]`. Inspect the final message before creating the commit. These message rules do not authorize a commit or history rewrite by themselves.

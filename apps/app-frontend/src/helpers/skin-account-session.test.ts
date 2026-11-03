@@ -1,13 +1,12 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createSkinAccountSession } from './skin-account-session.ts'
 
-test('invalidates skin results from the previous account session', () => {
+it('invalidates skin results from the previous account session', () => {
     const sessions = createSkinAccountSession()
     const accountA = sessions.begin()
     const accountB = sessions.begin()
 
-    assert.equal(sessions.isCurrent(accountA), false)
-    assert.equal(sessions.isCurrent(accountB), true)
+    expect(sessions.isCurrent(accountA)).toBe(false)
+    expect(sessions.isCurrent(accountB)).toBe(true)
 })

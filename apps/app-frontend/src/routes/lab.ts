@@ -79,4 +79,13 @@ export const labRoutes: RouteRecordRaw[] = [
             discordActivity: 'Generating a command...',
         },
     },
+    {
+        path: '/lab/banner-designer',
+        name: 'BannerDesigner',
+        component: () => import('@/pages/LabBannerDesigner.vue'),
+        meta: {
+            breadcrumb: [{ name: 'Lab', link: '/lab' }, { name: 'Banner designer' }],
+            discordActivity: 'Designing a banner...',
+        },
+    },
 ]

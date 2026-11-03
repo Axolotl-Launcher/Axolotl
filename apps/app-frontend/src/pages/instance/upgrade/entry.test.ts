@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import type { InstallJobSnapshot } from '@/helpers/install'
 import type { GameInstance } from '@/helpers/types'
@@ -25,51 +24,47 @@ const instance = (link: GameInstance['link'] = null): GameInstance => ({
     hooks: {},
 })
 
-test('eligibility allows local/shared and excludes managed packs', () => {
-    assert.equal(isUnmanagedUpgradeEligible(instance()), true)
-    assert.equal(
+it('eligibility allows local/shared and excludes managed packs', () => {
+    expect(isUnmanagedUpgradeEligible(instance())).toBe(true)
+    expect(
         isUnmanagedUpgradeEligible(
             instance({ type: 'shared_instance', shared_instance_id: 'shared' }),
         ),
-        true,
-    )
-    assert.equal(
+    ).toBe(true)
+    expect(
         isUnmanagedUpgradeEligible({
             ...instance(),
             linked_dot_minecraft: String.raw`C:\Games\.minecraft`,
         }),
-        true,
-    )
-    assert.equal(
+    ).toBe(true)
+    expect(
         isUnmanagedUpgradeEligible(
             instance({ type: 'modrinth_modpack', project_id: 'p', version_id: 'v' }),
         ),
-        false,
-    )
-    assert.equal(
-        isUnmanagedUpgradeEligible({ ...instance(), install_stage: 'not_installed' }),
+    ).toBe(false)
+    expect(isUnmanagedUpgradeEligible({ ...instance(), install_stage: 'not_installed' })).toBe(
         false,
     )
 })
 
-test('active upgrade job ownership is exact', () => {
+it('active upgrade job ownership is exact', () => {
     const job = {
         kind: 'upgrade_unmanaged_instance',
         status: 'running',
         instance_id: 'instance',
     } as InstallJobSnapshot
-    assert.equal(isActiveUpgradeJobForInstance(job, 'instance'), true)
-    assert.equal(isActiveUpgradeJobForInstance(job, 'other'), false)
-    assert.equal(isActiveUpgradeJobForInstance({ ...job, status: 'succeeded' }, 'instance'), false)
+    expect(isActiveUpgradeJobForInstance(job, 'instance')).toBe(true)
+    expect(isActiveUpgradeJobForInstance(job, 'other')).toBe(false)
+    expect(isActiveUpgradeJobForInstance({ ...job, status: 'succeeded' }, 'instance')).toBe(false)
 })
 
-test('active copy upgrade belongs to original source instance', () => {
+it('active copy upgrade belongs to original source instance', () => {
     const job = {
         kind: 'upgrade_unmanaged_instance',
         status: 'running',
         instance_id: 'copy',
         source_instance_id: 'source',
     } as InstallJobSnapshot
-    assert.equal(isActiveUpgradeJobForInstance(job, 'source'), true)
-    assert.equal(isActiveUpgradeJobForInstance(job, 'copy'), false)
+    expect(isActiveUpgradeJobForInstance(job, 'source')).toBe(true)
+    expect(isActiveUpgradeJobForInstance(job, 'copy')).toBe(false)
 })

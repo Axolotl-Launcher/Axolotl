@@ -28,13 +28,13 @@ pub use model::{
     DownloadItemStatus, DownloadJobSummary, InstallContentBatchItem,
     InstallErrorContext, InstallErrorView, InstallJavaStep,
     InstallJobEventKind, InstallJobKind, InstallJobProvider,
-    InstallJobSnapshot, InstallJobStatus, InstallModpackPreview,
-    InstallPhaseDetails, InstallPhaseId, InstallPostInstallEdit,
-    InstallProgress, InstallProgressSecondary, InstallRequest,
-    InstanceUpgradeCompatibilityWarning, InstanceUpgradeDisplayNames,
-    InstanceUpgradeExecution, InstanceUpgradeExternalChange,
-    InstanceUpgradeExternalChangeKind, InstanceUpgradeResult,
-    InstanceUpgradeWatchBaseline, SharedUpgradeMode,
+    InstallJobSnapshot, InstallJobState, InstallJobStatus,
+    InstallModpackPreview, InstallPhaseDetails, InstallPhaseId,
+    InstallPostInstallEdit, InstallProgress, InstallProgressSecondary,
+    InstallRequest, InstanceUpgradeCompatibilityWarning,
+    InstanceUpgradeDisplayNames, InstanceUpgradeExecution,
+    InstanceUpgradeExternalChange, InstanceUpgradeExternalChangeKind,
+    InstanceUpgradeResult, InstanceUpgradeWatchBaseline, SharedUpgradeMode,
 };
 pub use runner::{
     cancel_job, clear_job_history, create_instance,
@@ -54,7 +54,7 @@ pub async fn censor_shared_text(
     text: String,
     state: &crate::State,
 ) -> crate::Result<String> {
-    diagnostics::censor_support_text(text, &state.pool).await
+    diagnostics::censor_support_text(text, &state.data).await
 }
 
 /// Replaces credentials while preserving IP addresses for network diagnostics.
@@ -62,7 +62,7 @@ pub async fn censor_shared_credentials(
     text: String,
     state: &crate::State,
 ) -> crate::Result<String> {
-    diagnostics::censor_credentials(text, &state.pool).await
+    diagnostics::censor_credentials(text, &state.data).await
 }
 
 /// Runs fallible work with bounded concurrency without dropping peer futures

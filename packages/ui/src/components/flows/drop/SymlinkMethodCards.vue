@@ -29,37 +29,6 @@
                 />
 
                 <div class="relative z-[1] flex min-w-0 flex-col gap-4">
-                    <div
-                        ref="methodSectionRef"
-                        class="flex flex-col gap-2"
-                        :class="{ 'method-shake': methodShake }"
-                    >
-                        <span class="text-sm font-semibold text-[var(--color-text-primary)]">{{
-                            formatMessage(messages.method)
-                        }}</span>
-                        <BigOptionButton
-                            :icon="CopyIcon"
-                            :title="formatMessage(messages.copyTitle)"
-                            :description="formatMessage(messages.copyDesc)"
-                            :selected="method === 'copy'"
-                            :no-icon-border="true"
-                            @click="selectMethod('copy')"
-                        />
-                        <BigOptionButton
-                            v-if="symlinkAllowed"
-                            :icon="LinkIcon"
-                            :title="formatMessage(messages.symlinkTitle)"
-                            :description="formatMessage(messages.symlinkDesc)"
-                            :note="symlinkNote"
-                            :selected="method === 'symlink'"
-                            :no-icon-border="true"
-                            @click="selectMethod('symlink')"
-                        />
-                        <span v-if="unsupported" class="text-xs text-danger">
-                            {{ formatMessage(messages.unsupportedWarning) }}
-                        </span>
-                    </div>
-
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-semibold text-[var(--color-text-primary)]">
@@ -305,27 +274,6 @@
                             </div>
                         </div>
 
-                        <div v-if="method === 'symlink'" class="flex flex-col gap-2">
-                            <span class="text-sm font-semibold text-[var(--color-text-primary)]">
-                                {{ formatMessage(messages.gameDirLabel) }}
-                            </span>
-                            <RadioButtons
-                                v-model="gameDirMode"
-                                :items="gameDirModeItems"
-                                @update:model-value="setGameDirMode"
-                            >
-                                <template #default="{ item }">
-                                    {{ formatMessage(gameDirModeLabel(item)) }}
-                                </template>
-                            </RadioButtons>
-                            <span
-                                v-if="gameDirOverride"
-                                class="text-sm text-[var(--color-text-tertiary)] break-all"
-                            >
-                                {{ gameDirOverride }}
-                            </span>
-                        </div>
-
                         <div v-if="planError" class="text-xs text-danger">{{ planError }}</div>
                     </div>
 
@@ -390,7 +338,10 @@
                         <CircleAlertIcon />
                         {{ formatMessage(messages.custom) }}
                     </TagItem>
-                    <Button class="flex items-center gap-2" @click="handleConfirm"
+                    <Button
+                        class="flex items-center gap-2"
+                        :disabled="!canConfirm"
+                        @click="handleConfirm"
                         >{{ confirmLabel }}
                     </Button>
                 </div>
@@ -400,16 +351,14 @@
 </template>
 
 <script setup lang="ts">
-import { CircleAlertIcon, CopyIcon, FolderOpenIcon, LinkIcon } from '@modrinth/assets'
+import { CircleAlertIcon, FolderOpenIcon } from '@modrinth/assets'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
-import BigOptionButton from '#ui/components/base/BigOptionButton.vue'
 import Button from '#ui/components/base/buttons/Button.vue'
 import Chips from '#ui/components/base/Chips.vue'
 import Combobox, { type ComboboxOption } from '#ui/components/base/Combobox.vue'
 import HorizontalRule from '#ui/components/base/HorizontalRule.vue'
 import ProgressBar from '#ui/components/base/ProgressBar.vue'
-import RadioButtons from '#ui/components/base/RadioButtons.vue'
 import StyledInput from '#ui/components/base/StyledInput.vue'
 import TagItem from '#ui/components/base/TagItem.vue'
 import NewModal from '#ui/components/modal/NewModal.vue'
@@ -437,28 +386,12 @@ const tags = injectTags()
 
 const messages = defineMessages({
     title: {
-        id: 'drop.symlink_method.title',
-        defaultMessage: 'Choose import method',
+        id: 'drop.instance-import.title',
+        defaultMessage: 'Import instances',
     },
     subtitle: {
         id: 'drop.symlink_method.subtitle',
         defaultMessage: 'Importing {n} instance(s)',
-    },
-    method: {
-        id: 'drop.symlink_method.method',
-        defaultMessage: 'Import method',
-    },
-    gameDirLabel: {
-        id: 'drop.symlink_method.game-dir.label',
-        defaultMessage: 'Game directory',
-    },
-    gameDirIsolated: {
-        id: 'drop.symlink_method.game-dir.isolated',
-        defaultMessage: 'Version isolated',
-    },
-    gameDirNotIsolated: {
-        id: 'drop.symlink_method.game-dir.not-isolated',
-        defaultMessage: 'Version shared (.minecraft/)',
     },
     instance: {
         id: 'drop.symlink_method.instance',
@@ -467,31 +400,6 @@ const messages = defineMessages({
     selectInstance: {
         id: 'drop.symlink_method.select_instance',
         defaultMessage: 'Select instance',
-    },
-    copyTitle: {
-        id: 'drop.symlink_method.copy_title',
-        defaultMessage: 'Copy files',
-    },
-    copyDesc: {
-        id: 'drop.symlink_method.copy_desc',
-        defaultMessage: 'Copy to Axolotl directory',
-    },
-    symlinkTitle: {
-        id: 'drop.symlink_method.symlink_title',
-        defaultMessage: 'Symbolic link',
-    },
-    symlinkDesc: {
-        id: 'drop.symlink_method.symlink_desc',
-        defaultMessage: 'Reference original location',
-    },
-    requiresAdmin: {
-        id: 'drop.symlink_method.requires_admin',
-        defaultMessage:
-            'Administrator authorization (UAC) will be requested once when creating the link',
-    },
-    unsupportedWarning: {
-        id: 'drop.symlink_method.unsupported_warning',
-        defaultMessage: 'Symbolic links are not supported on this system',
     },
     gameVersionLabel: {
         id: 'drop.symlink_method.game_version',
@@ -663,12 +571,7 @@ interface InstanceChoice {
 const modal = ref<InstanceType<typeof NewModal> | null>(null)
 const isOpen = ref(false)
 const instances = ref<SymlinkMethodInstance[]>([])
-const symlinkCapable = ref<'supported' | 'requires_admin' | 'unsupported'>('supported')
 const activeIndex = ref(0)
-const method = ref<'copy' | 'symlink' | null>(null)
-const gameDirMode = ref<'isolated' | 'not-isolated'>('isolated')
-const methodSectionRef = ref<HTMLElement | null>(null)
-const methodShake = ref(false)
 const gameVersion = ref('')
 const loader = ref('vanilla')
 const loaderVersion = ref('latest')
@@ -692,36 +595,15 @@ const instanceNavTrackRef = ref<HTMLElement | null>(null)
 const instanceChoices = ref<Record<number, InstanceChoice>>({})
 let unlisten: (() => void) | null = null
 let listeningPromise: Promise<void> | null = null
-let rescanTimer: number | null = null
+let listenerGeneration = 0
+let viewGeneration = 0
+const rescanTimers = new Map<number, number>()
 
 const activeInstance = computed(() => instances.value[activeIndex.value])
 const activeSnapshot = computed(() => snapshots.value[activeIndex.value] ?? null)
-// The `.minecraft` root for the active instance: computed so the game-dir
-// override can be derived (isolated -> <root>/versions/<name>, shared -> <root>).
-const activeGameRoot = computed(
-    () =>
-        activeSnapshot.value?.minecraftRoot ||
-        activeInstance.value?.basePath ||
-        activeInstance.value?.path ||
-        null,
-)
-const gameDirOverride = computed(() => {
-    const root = activeGameRoot.value
-    if (method.value !== 'symlink' || !root) return null
-    if (gameDirMode.value === 'isolated') {
-        return activeInstance.value?.versionPath ?? activeInstance.value?.path ?? null
-    }
-    return root
-})
 const statsLoading = computed(() => Object.values(scanning.value).some(Boolean))
 const planError = computed(() => planErrors.value[activeIndex.value] ?? null)
 const pageAnimationClass = computed(() => (pageAnim.value ? `page-${pageAnim.value}` : ''))
-const symlinkAllowed = computed(() => symlinkCapable.value !== 'unsupported')
-const requiresAdmin = computed(() => symlinkCapable.value === 'requires_admin')
-const unsupported = computed(() => symlinkCapable.value === 'unsupported')
-const symlinkNote = computed(() =>
-    requiresAdmin.value ? formatMessage(messages.requiresAdmin) : undefined,
-)
 const loaderItems = ['vanilla', 'fabric', 'forge', 'neoforge', 'quilt', 'cleanroom']
 const formatLoader = (item: string) => formatLoaderLabel(item, formatMessage)
 const loaderApiName = computed(() => (loader.value === 'neoforge' ? 'neo' : loader.value))
@@ -821,25 +703,6 @@ const instanceWarnings = computed(() => {
 const canReset = computed(
     () => touched.value.gameVersion || touched.value.loader || touched.value.loaderVersion,
 )
-
-function selectMethod(value: 'copy' | 'symlink') {
-    method.value = value
-}
-
-const gameDirModeItems = ['isolated', 'not-isolated'] as const
-
-function gameDirModeLabel(mode: (typeof gameDirModeItems)[number]) {
-    switch (mode) {
-        case 'isolated':
-            return messages.gameDirIsolated
-        default:
-            return messages.gameDirNotIsolated
-    }
-}
-
-function setGameDirMode(mode: (typeof gameDirModeItems)[number]) {
-    gameDirMode.value = mode
-}
 
 function resetChanges() {
     if (!canReset.value) return
@@ -950,6 +813,24 @@ const confirmLabel = computed(() =>
         : formatMessage(messages.confirm),
 )
 
+function planReady(index: number) {
+    const snapshot = snapshots.value[index]
+    return (
+        !!snapshot &&
+        snapshot.requestId === requestIds.value[index] &&
+        snapshot.stage === 'done' &&
+        !scanning.value[index] &&
+        !planErrors.value[index]
+    )
+}
+
+const canConfirm = computed(() => {
+    if (!isOpen.value || pageAnim.value || !instances.value.length) return false
+    return activeIndex.value < instances.value.length - 1
+        ? planReady(activeIndex.value)
+        : instances.value.every((_, index) => planReady(index))
+})
+
 function cancelPlan(index: number) {
     const requestId = requestIds.value[index]
     requestIds.value[index] = null
@@ -964,33 +845,54 @@ function cancelPlan(index: number) {
 
 function scheduleRescan(index = activeIndex.value) {
     if (!isOpen.value || internalUpdating.value) return
-    if (rescanTimer !== null) window.clearTimeout(rescanTimer)
-    rescanTimer = window.setTimeout(() => {
-        rescanTimer = null
-        if (!isOpen.value) return
-        if (index === activeIndex.value) saveCurrentChoices()
-        void startPlan(index)
-    }, 500)
+    if (index === activeIndex.value) saveCurrentChoices()
+    cancelPlan(index)
+    snapshots.value[index] = null
+    scanning.value[index] = true
+    planErrors.value[index] = null
+    const previous = rescanTimers.get(index)
+    if (previous !== undefined) window.clearTimeout(previous)
+    rescanTimers.set(
+        index,
+        window.setTimeout(() => {
+            rescanTimers.delete(index)
+            if (!isOpen.value) return
+            if (index === activeIndex.value) saveCurrentChoices()
+            void startPlan(index)
+        }, 500),
+    )
 }
 
 async function ensureListening() {
     if (unlisten) return
     if (listeningPromise) return listeningPromise
-    listeningPromise = (async () => {
+    const generation = listenerGeneration
+    const pending = (async () => {
         try {
-            unlisten = await instanceImport.listenImportPlan(handleSnapshot)
+            const release = await instanceImport.listenImportPlan((snapshot) => {
+                if (generation === listenerGeneration) handleSnapshot(snapshot)
+            })
+            if (generation !== listenerGeneration) {
+                release()
+                return
+            }
+            unlisten = release
             console.debug('[SymlinkMethodCards] import plan listener ready')
         } catch (error) {
+            if (generation !== listenerGeneration) return
             console.error('[SymlinkMethodCards] listenImportPlan failed', error)
             planErrors.value[activeIndex.value] = String(error)
+            throw error
         } finally {
-            listeningPromise = null
+            if (generation === listenerGeneration) listeningPromise = null
         }
     })()
-    return listeningPromise
+    listeningPromise = pending
+    return pending
 }
 
 function stopListening() {
+    listenerGeneration++
     unlisten?.()
     unlisten = null
     if (listeningPromise) {
@@ -1008,7 +910,6 @@ function saveCurrentChoices() {
 }
 
 function resetActiveFields() {
-    method.value = null
     gameVersion.value = ''
     loader.value = 'vanilla'
     loaderVersion.value = 'latest'
@@ -1039,6 +940,7 @@ async function startPlan(index = activeIndex.value) {
 
     try {
         await ensureListening()
+        if (!isOpen.value || requestIds.value[index] !== requestId) return
         const saved = instanceChoices.value[index]
         const request = {
             requestId,
@@ -1063,10 +965,11 @@ async function startPlan(index = activeIndex.value) {
 }
 
 async function startAllPlans() {
+    const generation = viewGeneration
     // TODO(B2): re-estimate cache/local/network incrementally when overrides
     // change, without rescanning the whole .minecraft folder.
     for (let index = 0; index < instances.value.length; index++) {
-        if (!isOpen.value) return
+        if (!isOpen.value || generation !== viewGeneration) return
         await startPlan(index)
     }
 }
@@ -1157,10 +1060,11 @@ async function goTo(index: number) {
         return
     }
     saveCurrentChoices()
+    const generation = viewGeneration
     const direction = index > activeIndex.value ? 'next' : 'prev'
     pageAnim.value = `out-${direction}`
     await wait(150)
-    if (!isOpen.value) return
+    if (!isOpen.value || generation !== viewGeneration) return
 
     internalUpdating.value = true
     activeIndex.value = index
@@ -1181,9 +1085,10 @@ async function goTo(index: number) {
     internalUpdating.value = false
 
     await nextTick()
-    if (!isOpen.value) return
+    if (!isOpen.value || generation !== viewGeneration) return
     pageAnim.value = `in-${direction}`
     await wait(160)
+    if (generation !== viewGeneration) return
     pageAnim.value = null
     scrollActiveNavIntoView()
 }
@@ -1228,37 +1133,32 @@ function handleLoaderVersionSearch(query: string) {
 }
 
 function handleConfirm() {
-    if (instances.value.length === 0) return
+    if (!canConfirm.value) return
     if (instances.value.length > 1 && activeIndex.value < instances.value.length - 1) {
         void goTo(activeIndex.value + 1)
-        return
-    }
-    if (!method.value) {
-        triggerMethodShake()
         return
     }
     saveCurrentChoices()
     const choices: SymlinkMethodChoice[] = instances.value.map((instance, index) => {
         const saved = instanceChoices.value[index]
         const snapshot = snapshots.value[index] ?? null
-        const root = snapshot?.minecraftRoot || instance.basePath || instance.path || null
         return {
             instanceName: instance.name,
             instancePath: instance.path,
-            symlink: method.value === 'symlink',
+            symlink: false,
             gameVersion:
-                saved?.gameVersion || importPlanDefaultGameVersion(snapshot?.gameVersion) || null,
-            loader: saved?.loader || importPlanDefaultLoader(snapshot?.loader) || null,
+                (saved?.touched.gameVersion
+                    ? saved.gameVersion
+                    : importPlanDefaultGameVersion(snapshot?.gameVersion)) || null,
+            loader:
+                (saved?.touched.loader
+                    ? saved.loader
+                    : importPlanDefaultLoader(snapshot?.loader)) || null,
             loaderVersion:
-                saved?.loaderVersion ||
-                importPlanDefaultLoaderVersion(snapshot?.loaderVersion) ||
-                null,
-            gameDirOverride:
-                method.value === 'symlink' && root
-                    ? gameDirMode.value === 'isolated'
-                        ? (instance.versionPath ?? instance.path ?? null)
-                        : root
-                    : null,
+                (saved?.touched.loaderVersion
+                    ? saved.loaderVersion
+                    : importPlanDefaultLoaderVersion(snapshot?.loaderVersion)) || null,
+            gameDirOverride: null,
         }
     })
 
@@ -1266,16 +1166,6 @@ function handleConfirm() {
     isOpen.value = false
     modal.value?.hide()
     emit('confirm', choices)
-}
-
-function triggerMethodShake() {
-    methodShake.value = false
-    requestAnimationFrame(() => {
-        methodShake.value = true
-        window.setTimeout(() => {
-            methodShake.value = false
-        }, 450)
-    })
 }
 
 function handleCancel() {
@@ -1292,19 +1182,14 @@ function onModalHide() {
     emit('cancel')
 }
 
-function show(options: {
-    instances: SymlinkMethodInstance[]
-    symlinkCapable: 'supported' | 'requires_admin' | 'unsupported'
-}) {
+function show(options: { instances: SymlinkMethodInstance[] }) {
     console.debug('[SymlinkMethodCards] show', options)
-    if (rescanTimer !== null) {
-        window.clearTimeout(rescanTimer)
-        rescanTimer = null
-    }
+    stopAllPlans()
+    for (const timer of rescanTimers.values()) window.clearTimeout(timer)
+    rescanTimers.clear()
     pendingSnapshots.clear()
     snapshotFlushPending = false
     instances.value = options.instances
-    symlinkCapable.value = options.symlinkCapable
     instanceChoices.value = {}
     snapshots.value = {}
     detectedByInstance.value = {}
@@ -1314,7 +1199,6 @@ function show(options: {
     pageAnim.value = null
     internalUpdating.value = true
     activeIndex.value = 0
-    gameDirMode.value = 'isolated'
     resetActiveFields()
     internalUpdating.value = false
     isOpen.value = true
@@ -1330,10 +1214,9 @@ function hide() {
 }
 
 function stopAllPlans() {
-    if (rescanTimer !== null) {
-        window.clearTimeout(rescanTimer)
-        rescanTimer = null
-    }
+    viewGeneration++
+    for (const timer of rescanTimers.values()) window.clearTimeout(timer)
+    rescanTimers.clear()
     for (let index = 0; index < instances.value.length; index++) {
         cancelPlan(index)
     }
@@ -1379,7 +1262,7 @@ watch([loader, gameVersion], () => {
 })
 
 onMounted(async () => {
-    await ensureListening()
+    await ensureListening().catch(() => {})
 })
 
 onUnmounted(() => {
@@ -1390,29 +1273,6 @@ defineExpose({ show, hide })
 </script>
 
 <style scoped>
-.method-shake {
-    animation: method-shake 0.45s ease-in-out;
-}
-
-@keyframes method-shake {
-    0%,
-    100% {
-        transform: translateX(0);
-    }
-    20% {
-        transform: translateX(-6px);
-    }
-    40% {
-        transform: translateX(6px);
-    }
-    60% {
-        transform: translateX(-4px);
-    }
-    80% {
-        transform: translateX(4px);
-    }
-}
-
 .page-out-next {
     animation: page-out-next 150ms cubic-bezier(0.4, 0, 1, 1) both;
 }

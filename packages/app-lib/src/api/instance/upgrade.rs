@@ -2,11 +2,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::{
     ContentSourceKind, InstanceLink, InstanceUpgradeAction,
     InstanceUpgradeFixedConstraint, InstanceUpgradePlan,
+    InstanceUpgradePlanningPhase, InstanceUpgradePlanningProgress,
     InstanceUpgradeResolution, InstanceUpgradeResolutionBatchResult,
     InstanceUpgradeResolutionResult, InstanceUpgradeSolutionChoice,
     InstanceUpgradeSolutionKind, State,
@@ -16,6 +17,8 @@ use crate::install::{
     InstallJobSnapshot, InstanceUpgradeExecution, InstanceUpgradeWatchBaseline,
     SharedUpgradeMode,
 };
+
+use crate::state::instances::adapters::sqlite::content_sets;
 
 struct StoredUpgradePlanState {
     plan: InstanceUpgradePlan,
@@ -51,11 +54,21 @@ fn start_plan_cleanup() {
     }
 }
 
-#[tracing::instrument]
+/// Creates an upgrade plan. `progress` follows the work while it runs and
+/// `cancel` stops it at the next checkpoint; a canceled plan is never stored.
+#[tracing::instrument(skip(cancel, progress))]
 pub async fn plan_instance_upgrade(
     instance_id: &str,
     target_environment: crate::state::InstanceUpgradeEnvironment,
+    cancel: CancellationToken,
+    progress: Option<
+        Arc<dyn Fn(InstanceUpgradePlanningProgress) + Send + Sync>,
+    >,
 ) -> crate::Result<InstanceUpgradePlan> {
+    let observer =
+        crate::state::instances::commands::UpgradePlanningObserver::new(
+            cancel, progress,
+        );
     let state = State::get().await?;
     let creation_watch =
         state.file_watcher.content_watch_snapshot(instance_id).await;
@@ -63,8 +76,10 @@ pub async fn plan_instance_upgrade(
         instance_id,
         target_environment,
         &state,
+        &observer,
     )
     .await?;
+    observer.phase(InstanceUpgradePlanningPhase::Validating, 0, 0);
     let mut validation =
         crate::state::instances::commands::UpgradePlanRuntimeValidation::new(
             source,
@@ -73,7 +88,10 @@ pub async fn plan_instance_upgrade(
             &state,
         )
         .await;
-    validation.validate(&plan, &state).await?;
+    validation
+        .validate_observed(&plan, &state, &observer)
+        .await?;
+    observer.check()?;
     start_plan_cleanup();
     INSTANCE_UPGRADE_PLANS.insert(
         plan.id.clone(),
@@ -420,7 +438,7 @@ pub async fn execute_instance_upgrade(
     }
     let _execution_guard =
         state.lock_instance_content(&stored.plan.instance_id).await;
-    let current_revision = content_rows::get_applied_content_set(
+    let current_revision = content_sets::get_applied_content_set(
         &stored.plan.instance_id,
         &state.pool,
     )
@@ -667,7 +685,7 @@ async fn ensure_current_revision(
     stored: &mut StoredUpgradePlanState,
     state: &State,
 ) -> crate::Result<crate::state::instances::commands::ReadOnlyUpgradeSource> {
-    let current_revision = content_rows::get_applied_content_set(
+    let current_revision = content_sets::get_applied_content_set(
         &stored.plan.instance_id,
         &state.pool,
     )
@@ -757,6 +775,8 @@ fn validate_fixed_constraints(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::state::instances::adapters::sqlite::content_sets;
 
     #[test]
     fn custom_fixed_constraint_preserves_content_id_through_serde() {

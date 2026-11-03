@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     createLatestRequestGuard,
@@ -28,36 +27,33 @@ const manifest = (gameVersion: string, versions: string[]) => ({
     ],
 })
 
-test('shares the complete client loader list with instance installation settings', () => {
-    assert.deepEqual(
-        [...clientInstallableLoaders],
-        [
-            'fabric',
-            'neoforge',
-            'forge',
-            'quilt',
-            'optifine',
-            'cleanroom',
-            'lite_loader',
-            'legacy_fabric',
-            'babric',
-        ],
-    )
-    assert.deepEqual([...instanceInstallablePlatforms], ['vanilla', ...clientInstallableLoaders])
+it('shares the complete client loader list with instance installation settings', () => {
+    expect([...clientInstallableLoaders]).toEqual([
+        'fabric',
+        'neoforge',
+        'forge',
+        'quilt',
+        'optifine',
+        'cleanroom',
+        'lite_loader',
+        'legacy_fabric',
+        'babric',
+    ])
+    expect([...instanceInstallablePlatforms]).toEqual(['vanilla', ...clientInstallableLoaders])
 })
 
-test('instance settings scopes Forge and Fabric queries by Minecraft version', () => {
+it('instance settings scopes Forge and Fabric queries by Minecraft version', () => {
     const forgeA = scopedLoaderMetadataQueryKey('instance-settings', 'forge', '1.20.1')
     const forgeB = scopedLoaderMetadataQueryKey('instance-settings', 'forge', '26.2')
     const forgeAReturn = scopedLoaderMetadataQueryKey('instance-settings', 'forge', '1.20.1')
     const fabricA = scopedLoaderMetadataQueryKey('instance-settings', 'fabric', '1.20.1')
     const fabricB = scopedLoaderMetadataQueryKey('instance-settings', 'fabric', '1.21.1')
 
-    assert.deepEqual(forgeA, ['instance-settings', 'loader-versions', 'forge', '1.20.1'])
-    assert.deepEqual(forgeB, ['instance-settings', 'loader-versions', 'forge', '26.2'])
-    assert.deepEqual(forgeAReturn, forgeA)
-    assert.notDeepEqual(forgeA, forgeB)
-    assert.notDeepEqual(fabricA, fabricB)
+    expect(forgeA).toEqual(['instance-settings', 'loader-versions', 'forge', '1.20.1'])
+    expect(forgeB).toEqual(['instance-settings', 'loader-versions', 'forge', '26.2'])
+    expect(forgeAReturn).toEqual(forgeA)
+    expect(forgeA).not.toEqual(forgeB)
+    expect(fabricA).not.toEqual(fabricB)
 
     const cache = new Map([
         [JSON.stringify(forgeA), manifest('1.20.1', ['47.4.22'])],
@@ -70,14 +66,14 @@ test('instance settings scopes Forge and Fabric queries by Minecraft version', (
             (version) => version.id,
         )
 
-    assert.deepEqual(ids(forgeA, '1.20.1'), ['47.4.22'])
-    assert.deepEqual(ids(forgeB, '26.2'), ['65.1.1', '65.1.0'])
-    assert.deepEqual(ids(forgeAReturn, '1.20.1'), ['47.4.22'])
-    assert.deepEqual(ids(fabricA, '1.20.1'), ['0.18.4'])
-    assert.deepEqual(ids(fabricB, '1.21.1'), ['0.18.4', '0.17.3'])
+    expect(ids(forgeA, '1.20.1')).toEqual(['47.4.22'])
+    expect(ids(forgeB, '26.2')).toEqual(['65.1.1', '65.1.0'])
+    expect(ids(forgeAReturn, '1.20.1')).toEqual(['47.4.22'])
+    expect(ids(fabricA, '1.20.1')).toEqual(['0.18.4'])
+    expect(ids(fabricB, '1.21.1')).toEqual(['0.18.4', '0.17.3'])
 })
 
-test('isolates loader metadata by loader and Minecraft version', () => {
+it('isolates loader metadata by loader and Minecraft version', () => {
     const forge262Key = loaderMetadataCacheKey('forge', '26.2')
     const forge1201Key = loaderMetadataCacheKey('forge', '1.20.1')
     const cache = {
@@ -85,70 +81,65 @@ test('isolates loader metadata by loader and Minecraft version', () => {
         [forge1201Key]: manifest('1.20.1', ['47.4.22', '47.4.21']),
     }
 
-    assert.notEqual(forge262Key, forge1201Key)
-    assert.deepEqual(loaderMetadataQueryKey('forge', '26.2'), [
+    expect(forge262Key).not.toBe(forge1201Key)
+    expect(loaderMetadataQueryKey('forge', '26.2')).toEqual([
         'creation-flow',
         'loader-versions',
         'forge',
         '26.2',
     ])
-    assert.deepEqual(loaderMetadataQueryKey('forge', '1.20.1'), [
+    expect(loaderMetadataQueryKey('forge', '1.20.1')).toEqual([
         'creation-flow',
         'loader-versions',
         'forge',
         '1.20.1',
     ])
 
-    assert.deepEqual(
+    expect(
         loaderVersionsForGameVersion(cache[forge262Key], '26.2').map((version) => version.id),
-        ['65.1.1', '65.1.0'],
-    )
-    assert.deepEqual(
+    ).toEqual(['65.1.1', '65.1.0'])
+    expect(
         loaderVersionsForGameVersion(cache[forge1201Key], '1.20.1').map((version) => version.id),
-        ['47.4.22', '47.4.21'],
-    )
-    assert.deepEqual(
+    ).toEqual(['47.4.22', '47.4.21'])
+    expect(
         loaderVersionsForGameVersion(cache[forge262Key], '26.2').map((version) => version.id),
-        ['65.1.1', '65.1.0'],
-    )
+    ).toEqual(['65.1.1', '65.1.0'])
 })
 
-test('rejects stale loader metadata requests after rapid selection changes', () => {
+it('rejects stale loader metadata requests after rapid selection changes', () => {
     const guard = createLatestRequestGuard()
     const minecraftARequest = guard.begin()
     const minecraftBRequest = guard.begin()
     const minecraftAReturnRequest = guard.begin()
 
-    assert.equal(guard.isCurrent(minecraftARequest), false)
-    assert.equal(guard.isCurrent(minecraftBRequest), false)
-    assert.equal(guard.isCurrent(minecraftAReturnRequest), true)
+    expect(guard.isCurrent(minecraftARequest)).toBe(false)
+    expect(guard.isCurrent(minecraftBRequest)).toBe(false)
+    expect(guard.isCurrent(minecraftAReturnRequest)).toBe(true)
 
     const fabricRequest = guard.begin()
     const forgeRequest = guard.begin()
     const neoForgeRequest = guard.begin()
-    assert.equal(guard.isCurrent(fabricRequest), false)
-    assert.equal(guard.isCurrent(forgeRequest), false)
-    assert.equal(guard.isCurrent(neoForgeRequest), true)
+    expect(guard.isCurrent(fabricRequest)).toBe(false)
+    expect(guard.isCurrent(forgeRequest)).toBe(false)
+    expect(guard.isCurrent(neoForgeRequest)).toBe(true)
 })
 
-test('does not treat missing, loading, or errored metadata as unsupported', () => {
-    assert.equal(loaderSupportState('unknown', undefined, '1.20.1'), 'unknown')
-    assert.equal(loaderSupportState('loading', undefined, '1.20.1'), 'loading')
-    assert.equal(loaderSupportState('error', undefined, '1.20.1'), 'error')
+it('does not treat missing, loading, or errored metadata as unsupported', () => {
+    expect(loaderSupportState('unknown', undefined, '1.20.1')).toBe('unknown')
+    expect(loaderSupportState('loading', undefined, '1.20.1')).toBe('loading')
+    expect(loaderSupportState('error', undefined, '1.20.1')).toBe('error')
 })
 
-test('marks only a successfully resolved empty loader set as unsupported', () => {
-    assert.equal(
-        loaderSupportState('success', manifest('1.20.1', ['47.4.22']), '1.20.1'),
+it('marks only a successfully resolved empty loader set as unsupported', () => {
+    expect(loaderSupportState('success', manifest('1.20.1', ['47.4.22']), '1.20.1')).toBe(
         'supported',
     )
-    assert.equal(
-        loaderSupportState('success', manifest('unsupported', []), 'unsupported'),
+    expect(loaderSupportState('success', manifest('unsupported', []), 'unsupported')).toBe(
         'unsupported',
     )
 })
 
-test('restores loader support state across Minecraft version changes', () => {
+it('restores loader support state across Minecraft version changes', () => {
     const cache = {
         [loaderMetadataCacheKey('forge', '1.20.1')]: manifest('1.20.1', ['47.4.22']),
         [loaderMetadataCacheKey('forge', 'unsupported')]: manifest('unsupported', []),
@@ -161,60 +152,59 @@ test('restores loader support state across Minecraft version changes', () => {
             gameVersion,
         )
 
-    assert.equal(support('1.20.1'), 'supported')
-    assert.equal(support('unsupported'), 'unsupported')
-    assert.equal(support('1.20.1'), 'supported')
+    expect(support('1.20.1')).toBe('supported')
+    expect(support('unsupported')).toBe('unsupported')
+    expect(support('1.20.1')).toBe('supported')
 })
 
-test('disables loader chips until compatibility is positively confirmed', () => {
-    assert.equal(isLoaderSupportStateDisabled('unknown'), true)
-    assert.equal(isLoaderSupportStateDisabled('loading'), true)
-    assert.equal(isLoaderSupportStateDisabled('unsupported'), true)
-    assert.equal(isLoaderSupportStateDisabled('supported'), false)
-    assert.equal(isLoaderSupportStateDisabled('error'), true)
+it('disables loader chips until compatibility is positively confirmed', () => {
+    expect(isLoaderSupportStateDisabled('unknown')).toBe(true)
+    expect(isLoaderSupportStateDisabled('loading')).toBe(true)
+    expect(isLoaderSupportStateDisabled('unsupported')).toBe(true)
+    expect(isLoaderSupportStateDisabled('supported')).toBe(false)
+    expect(isLoaderSupportStateDisabled('error')).toBe(true)
 })
 
-test('does not replace an explicit Minecraft version when loader options change', () => {
-    assert.equal(preserveOrSelectGameVersion('26.2', ['26.1.2', '1.21.11']), '26.2')
-    assert.equal(preserveOrSelectGameVersion(null, ['26.1.2', '1.21.11']), '26.1.2')
-    assert.equal(preserveOrSelectGameVersion(null, []), null)
+it('does not replace an explicit Minecraft version when loader options change', () => {
+    expect(preserveOrSelectGameVersion('26.2', ['26.1.2', '1.21.11'])).toBe('26.2')
+    expect(preserveOrSelectGameVersion(null, ['26.1.2', '1.21.11'])).toBe('26.1.2')
+    expect(preserveOrSelectGameVersion(null, [])).toBe(null)
 })
 
-test('tracks loader chips through pending, supported, and unsupported responses', () => {
+it('tracks loader chips through pending, supported, and unsupported responses', () => {
     const pendingB = loaderSupportState('loading', undefined, '26.2')
-    assert.equal(isLoaderSupportStateDisabled(pendingB), true)
+    expect(isLoaderSupportStateDisabled(pendingB)).toBe(true)
 
     const unsupportedB = loaderSupportState('success', manifest('unsupported', []), 'unsupported')
-    assert.equal(unsupportedB, 'unsupported')
-    assert.equal(isLoaderSupportStateDisabled(unsupportedB), true)
+    expect(unsupportedB).toBe('unsupported')
+    expect(isLoaderSupportStateDisabled(unsupportedB)).toBe(true)
 
     const pendingC = loaderSupportState('loading', undefined, '1.20.1')
-    assert.equal(isLoaderSupportStateDisabled(pendingC), true)
+    expect(isLoaderSupportStateDisabled(pendingC)).toBe(true)
 
     const supportedC = loaderSupportState('success', manifest('1.20.1', ['47.4.22']), '1.20.1')
-    assert.equal(supportedC, 'supported')
-    assert.equal(isLoaderSupportStateDisabled(supportedC), false)
+    expect(supportedC).toBe('supported')
+    expect(isLoaderSupportStateDisabled(supportedC)).toBe(false)
 })
 
-test('uses the loading label for both loader version selector placeholders while pending', () => {
-    assert.deepEqual(
+it('uses the loading label for both loader version selector placeholders while pending', () => {
+    expect(
         loaderVersionSelectorText(true, false, {
             loading: 'Loading',
             empty: 'No versions available',
             placeholder: 'Select loader version',
             searchPlaceholder: 'Search loader version...',
         }),
-        { placeholder: 'Loading', searchPlaceholder: 'Loading' },
-    )
+    ).toEqual({ placeholder: 'Loading', searchPlaceholder: 'Loading' })
 })
 
-test('hides an old loader version behind the loading summary until the new version resolves', () => {
-    assert.equal(loaderVersionSummaryState(true, '47.4.22'), 'loading')
-    assert.equal(loaderVersionSummaryState(false, '65.1.0'), 'selected')
-    assert.equal(loaderVersionSummaryState(false, null), 'empty')
+it('hides an old loader version behind the loading summary until the new version resolves', () => {
+    expect(loaderVersionSummaryState(true, '47.4.22')).toBe('loading')
+    expect(loaderVersionSummaryState(false, '65.1.0')).toBe('selected')
+    expect(loaderVersionSummaryState(false, null)).toBe('empty')
 })
 
-test('shows a loader-specific message after game version metadata resolves empty', () => {
+it('shows a loader-specific message after game version metadata resolves empty', () => {
     const labels = {
         loading: 'Loading',
         empty: 'No game versions support this loader',
@@ -223,15 +213,15 @@ test('shows a loader-specific message after game version metadata resolves empty
         searchPlaceholder: 'Search game version...',
     }
 
-    assert.deepEqual(gameVersionSelectorText('loading', labels), {
+    expect(gameVersionSelectorText('loading', labels)).toEqual({
         placeholder: 'Loading',
         searchPlaceholder: 'Loading',
     })
-    assert.deepEqual(gameVersionSelectorText('empty', labels), {
+    expect(gameVersionSelectorText('empty', labels)).toEqual({
         placeholder: 'No game versions support this loader',
         searchPlaceholder: 'No game versions support this loader',
     })
-    assert.deepEqual(gameVersionSelectorText('error', labels), {
+    expect(gameVersionSelectorText('error', labels)).toEqual({
         placeholder: 'Failed to load game versions',
         searchPlaceholder: 'Failed to load game versions',
     })

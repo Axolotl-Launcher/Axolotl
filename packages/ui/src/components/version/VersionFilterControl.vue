@@ -155,7 +155,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import type { GameVersionTag, Version } from '@modrinth/utils'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { LocationQueryValue } from 'vue-router'
 import { useRoute } from 'vue-router'
 
@@ -283,9 +283,19 @@ selectedChannels.value = route.query.c ? getArrayOrString(route.query.c) : []
 selectedGameVersions.value = route.query.g ? getArrayOrString(route.query.g) : []
 selectedPlatforms.value = route.query.l ? getArrayOrString(route.query.l) : []
 
-if (selectedGameVersions.value.some((version) => !isReleaseGameVersion(version))) {
-    showSnapshots.value = true
-}
+// The tags can arrive after the filter is created; a selected version is
+// only known to be a snapshot once they have.
+let snapshotsDecided = false
+watch(
+    gameVersionTags,
+    (tags) => {
+        if (snapshotsDecided || tags.size === 0) return
+        snapshotsDecided = true
+        if (selectedGameVersions.value.some((version) => !isReleaseGameVersion(version)))
+            showSnapshots.value = true
+    },
+    { immediate: true },
+)
 
 async function toggleFilters(type: FilterType, filters: Filter[]) {
     for (const filter of filters) {

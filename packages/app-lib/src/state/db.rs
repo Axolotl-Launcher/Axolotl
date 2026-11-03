@@ -1486,6 +1486,9 @@ async fn reconcile_existing_proxy_config_migration(
     Ok(())
 }
 
+/// Protects an old database that still holds the legacy favorites table but
+/// lost the record of the migration that created it; this can go once the
+/// lowest version a downgrade supports is above `20260820200000`.
 async fn reconcile_existing_content_favorites_migration(
     pool: &Pool<Sqlite>,
 ) -> crate::Result<()> {
@@ -3192,50 +3195,17 @@ mod tests {
         .unwrap();
         assert_eq!(stored_checksum, migration.checksum.as_ref());
 
+        // Without the record this run would create the table a second time
+        // under `20260820200000`; the retirement migration then drops it.
         MIGRATOR.run(&pool).await.unwrap();
-        let favorites: Vec<(String, String, String, i64)> = sqlx::query_as(
-            "SELECT provider, project_id, content_type, saved_at
-             FROM content_favorites
-             ORDER BY provider",
-        )
-        .fetch_all(&pool)
-        .await
-        .unwrap();
-        assert_eq!(
-            favorites,
-            [
-                (
-                    "curseforge".to_string(),
-                    "curseforge-project".to_string(),
-                    "resourcepack".to_string(),
-                    20,
-                ),
-                (
-                    "modrinth".to_string(),
-                    "modrinth-project".to_string(),
-                    "mod".to_string(),
-                    10,
-                ),
-            ]
-        );
-        sqlx::query(
-            "INSERT INTO content_favorites (
-                provider, project_id, content_type, saved_at
-             ) VALUES ('mcarchive', 'mcarchive-project', 'mod', 30)",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        let old_table_exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(
-                SELECT 1 FROM sqlite_master
-                WHERE type = 'table' AND name = 'content_favorites_old'
-             )",
+        let remaining: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'table' AND name = 'content_favorites'",
         )
         .fetch_one(&pool)
         .await
         .unwrap();
-        assert!(!old_table_exists);
+        assert_eq!(remaining, 0);
         let foreign_key_errors: Vec<(String, i64, String, i64)> =
             sqlx::query_as("PRAGMA foreign_key_check")
                 .fetch_all(&pool)
@@ -4615,13 +4585,6 @@ mod tests {
         .execute(&pool)
         .await
         .unwrap();
-        sqlx::query(
-            "INSERT INTO translation_cache (key, translation, created_at)
-             VALUES ('legacy-cache', 'cached translation', 123)",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
 
         MIGRATOR.run(&pool).await.unwrap();
 
@@ -4662,14 +4625,6 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(legacy_credential_cleanup, 1);
-        let cached: (String, i64) = sqlx::query_as(
-            "SELECT translation, created_at FROM translation_cache
-             WHERE key = 'legacy-cache'",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(cached, ("cached translation".to_string(), 123));
         let legacy_objects: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM sqlite_master
              WHERE (type = 'table' OR type = 'index')
@@ -4685,6 +4640,240 @@ mod tests {
                 .await
                 .unwrap();
         assert!(foreign_key_errors.is_empty());
+    }
+
+    #[tokio::test]
+    async fn moves_derived_records_out_of_the_app_database() {
+        const MOVE_DERIVED_RECORDS_VERSION: i64 = 20261029120000;
+
+        let upgrade = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let previous_migrator = Migrator {
+            migrations: std::borrow::Cow::Owned(
+                MIGRATOR
+                    .iter()
+                    .filter(|migration| {
+                        migration.version < MOVE_DERIVED_RECORDS_VERSION
+                    })
+                    .cloned()
+                    .collect(),
+            ),
+            ..Migrator::DEFAULT
+        };
+        previous_migrator.run(&upgrade).await.unwrap();
+        sqlx::raw_sql(
+            "INSERT INTO crash_analysis_mod_snapshots
+                (instance_id, filename, size, sha256)
+             VALUES ('instance', 'example.jar', 1, 'digest');
+             INSERT INTO discovered_javas
+                (path, major_version, full_version, architecture, file_size,
+                 file_mtime_ms)
+             VALUES ('/jre/21', 21, '21.0.1', 'x86_64', 1, 1);
+             INSERT INTO google_translate_ip_cache (ip, latency_ms, created_at)
+             VALUES ('1.1.1.1', 10, 1);
+             INSERT INTO telemetry_outbox
+                (event_id, event_type, payload, created_at, next_attempt_at,
+                 attempts, size_bytes, dedupe_key)
+             VALUES ('event', 'heartbeat', jsonb('{}'), 1, 1, 0, 2, 'key');
+             INSERT INTO translation_cache (key, translation, created_at)
+             VALUES ('key', 'text', 1);",
+        )
+        .execute(&upgrade)
+        .await
+        .unwrap();
+
+        MIGRATOR.run(&upgrade).await.unwrap();
+
+        let fresh = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        MIGRATOR.run(&fresh).await.unwrap();
+
+        for pool in [&upgrade, &fresh] {
+            let remaining: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM sqlite_master
+                 WHERE type = 'table'
+                   AND name IN (
+                       'crash_analysis_mod_snapshots',
+                       'discovered_javas',
+                       'google_translate_ip_cache',
+                       'translation_cache'
+                   )",
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            assert_eq!(remaining, 0);
+            let outbox: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM sqlite_master
+                 WHERE type = 'table' AND name = 'telemetry_outbox'",
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            assert_eq!(outbox, 1);
+        }
+        let queued: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM telemetry_outbox")
+                .fetch_one(&upgrade)
+                .await
+                .unwrap();
+        assert_eq!(queued, 1);
+    }
+
+    #[tokio::test]
+    async fn marks_whose_account_secrets_were_moved_from_a_fresh_and_an_upgraded_database()
+     {
+        const EXTERNALIZE_SECRETS_VERSION: i64 = 20261102120000;
+        const MARKED: [&str; 3] = [
+            "minecraft_users",
+            "minecraft_device_tokens",
+            "modrinth_users",
+        ];
+
+        let upgrade = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let previous_migrator = Migrator {
+            migrations: std::borrow::Cow::Owned(
+                MIGRATOR
+                    .iter()
+                    .filter(|migration| {
+                        migration.version < EXTERNALIZE_SECRETS_VERSION
+                    })
+                    .cloned()
+                    .collect(),
+            ),
+            ..Migrator::DEFAULT
+        };
+        previous_migrator.run(&upgrade).await.unwrap();
+        sqlx::raw_sql(
+            "INSERT INTO minecraft_users
+                (account_id, uuid, active, username, access_token,
+                 refresh_token, expires)
+             VALUES ('microsoft:example', 'uuid', 1, 'Player', 'access',
+                     'refresh', 20);
+             INSERT INTO modrinth_users (id, active, session_id, expires)
+             VALUES ('account', 1, 'session', 30);",
+        )
+        .execute(&upgrade)
+        .await
+        .unwrap();
+
+        MIGRATOR.run(&upgrade).await.unwrap();
+
+        let fresh = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        MIGRATOR.run(&fresh).await.unwrap();
+
+        for pool in [&upgrade, &fresh] {
+            for table in MARKED {
+                let sql = format!(
+                    "SELECT COUNT(*) FROM pragma_table_info('{table}')
+                     WHERE name = 'secrets_externalized'
+                       AND \"notnull\" = 1 AND dflt_value = '0'"
+                );
+                let marks: i64 =
+                    sqlx::query_scalar(&sql).fetch_one(pool).await.unwrap();
+                assert_eq!(marks, 1, "{table} has no mark column");
+            }
+        }
+
+        // A row written before the move keeps its tokens and says nothing was
+        // moved out of it.
+        let (access, refresh, marks): (String, String, i64) = sqlx::query_as(
+            "SELECT access_token, refresh_token, secrets_externalized
+             FROM minecraft_users WHERE account_id = 'microsoft:example'",
+        )
+        .fetch_one(&upgrade)
+        .await
+        .unwrap();
+        assert_eq!((access.as_str(), refresh.as_str()), ("access", "refresh"));
+        assert_eq!(marks, 0);
+    }
+
+    #[tokio::test]
+    async fn retires_the_legacy_tables_from_a_fresh_and_an_upgraded_database() {
+        const RETIRE_LEGACY_TABLES_VERSION: i64 = 20261031120000;
+
+        let upgrade = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let previous_migrator = Migrator {
+            migrations: std::borrow::Cow::Owned(
+                MIGRATOR
+                    .iter()
+                    .filter(|migration| {
+                        migration.version < RETIRE_LEGACY_TABLES_VERSION
+                    })
+                    .cloned()
+                    .collect(),
+            ),
+            ..Migrator::DEFAULT
+        };
+        previous_migrator.run(&upgrade).await.unwrap();
+        sqlx::raw_sql(
+            "INSERT INTO content_favorites
+                (provider, project_id, content_type, saved_at)
+             VALUES ('modrinth', '12345678', 'mod', 1);
+             INSERT INTO instances
+                (id, path, install_stage, launcher_feature_version, name,
+                 created, modified)
+             VALUES ('instance', '/instance', 'installed', '1', 'Example', 1, 2);
+             INSERT INTO processes
+                (pid, start_time, name, executable, instance_id)
+             VALUES (1, 1, 'java', '/jre/bin/java', 'instance');
+             INSERT INTO telemetry_error_daily (day, fingerprint)
+             VALUES ('2026-01-01', 'fingerprint');",
+        )
+        .execute(&upgrade)
+        .await
+        .unwrap();
+
+        MIGRATOR.run(&upgrade).await.unwrap();
+
+        let fresh = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        MIGRATOR.run(&fresh).await.unwrap();
+
+        for pool in [&upgrade, &fresh] {
+            let remaining: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM sqlite_master
+                 WHERE type = 'table'
+                   AND name IN (
+                       'content_favorites',
+                       'processes',
+                       'telemetry_error_daily'
+                   )",
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            assert_eq!(remaining, 0);
+            // Every content write looks its project up through this view.
+            let projects: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM resource_legacy_projects",
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            assert_eq!(projects, 0);
+        }
     }
 
     #[tokio::test]

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     getAutoRecipeName,
@@ -52,16 +51,16 @@ function recipe(overrides: Partial<RecipeState> = {}): RecipeState {
     }
 }
 
-test('sanitizes recipe file names', () => {
-    assert.equal(sanitizeRecipeName('  Iron Bars!  '), 'iron_bars')
-    assert.equal(sanitizeRecipeName('a__b---c'), 'a_b_c')
+it('sanitizes recipe file names', () => {
+    expect(sanitizeRecipeName('  Iron Bars!  ')).toBe('iron_bars')
+    expect(sanitizeRecipeName('a__b---c')).toBe('a_b_c')
 })
 
-test('generates automatic names for every recipe type', () => {
+it('generates automatic names for every recipe type', () => {
     const crafting = recipe({
         slots: { 'crafting.result': { kind: 'item', id: 'minecraft:iron_ingot' } },
     })
-    assert.equal(getAutoRecipeName(crafting, ctx), 'iron_ingot')
+    expect(getAutoRecipeName(crafting, ctx)).toBe('iron_ingot')
 
     const smelting = recipe({
         recipeType: 'smelting',
@@ -70,7 +69,7 @@ test('generates automatic names for every recipe type', () => {
             'cooking.result': { kind: 'item', id: 'minecraft:cooked_beef' },
         },
     })
-    assert.equal(getAutoRecipeName(smelting, ctx), 'cooked_beef_from_smelting')
+    expect(getAutoRecipeName(smelting, ctx)).toBe('cooked_beef_from_smelting')
 
     const stonecutter = recipe({
         recipeType: 'stonecutter',
@@ -79,10 +78,10 @@ test('generates automatic names for every recipe type', () => {
             'stonecutter.result': { kind: 'item', id: 'minecraft:stone_bricks' },
         },
     })
-    assert.equal(getAutoRecipeName(stonecutter, ctx), 'stone_bricks_from_stone_stonecutting')
+    expect(getAutoRecipeName(stonecutter, ctx)).toBe('stone_bricks_from_stone_stonecutting')
 })
 
-test('assigns unique names across duplicate auto names', () => {
+it('assigns unique names across duplicate auto names', () => {
     const first = recipe({
         slots: { 'crafting.result': { kind: 'item', id: 'minecraft:iron_ingot' } },
     })
@@ -90,11 +89,11 @@ test('assigns unique names across duplicate auto names', () => {
         slots: { 'crafting.result': { kind: 'item', id: 'minecraft:iron_ingot' } },
     })
     const names = resolveRecipeNames([first, second], ctx)
-    assert.equal(names.get(first.id)?.resolvedName, 'iron_ingot')
-    assert.equal(names.get(second.id)?.resolvedName, 'iron_ingot_2')
+    expect(names.get(first.id)?.resolvedName).toBe('iron_ingot')
+    expect(names.get(second.id)?.resolvedName).toBe('iron_ingot_2')
 })
 
-test('manual names are preserved and empty manual names fall back to auto', () => {
+it('manual names are preserved and empty manual names fall back to auto', () => {
     const first = recipe({
         nameMode: 'manual',
         name: 'my_recipe',
@@ -106,7 +105,7 @@ test('manual names are preserved and empty manual names fall back to auto', () =
         slots: { 'crafting.result': { kind: 'item', id: 'minecraft:iron_ingot' } },
     })
     const names = resolveRecipeNames([first, second], ctx)
-    assert.equal(names.get(first.id)?.resolvedName, 'my_recipe')
-    assert.equal(names.get(second.id)?.resolvedName, 'iron_ingot')
-    assert.equal(getCurrentRecipeName(second, [first, second], ctx).resolvedName, 'iron_ingot')
+    expect(names.get(first.id)?.resolvedName).toBe('my_recipe')
+    expect(names.get(second.id)?.resolvedName).toBe('iron_ingot')
+    expect(getCurrentRecipeName(second, [first, second], ctx).resolvedName).toBe('iron_ingot')
 })

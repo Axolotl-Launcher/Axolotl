@@ -86,7 +86,7 @@
     "qrcode.vue": "^3.10.0",
     "reka-ui": "^2.10.1",
     "three": "^0.185.1",
-    "vue-i18n": "^10.0.8",
+    "vue-i18n": "^11.4.14",
     "vue-typed-virtual-list": "^1.0.10",
     "vue3-ace-editor": "^2.2.4",
     "vue3-apexcharts": "^1.10.0",

@@ -215,7 +215,6 @@ pub(super) async fn prepare(
         None,
         None,
         &state.api_semaphore,
-        &state.pool,
     )
     .await?;
     let mut libraries = Vec::new();
@@ -398,7 +397,7 @@ fn write_launch_jar(
                 for index in 0..source.len() {
                     let mut entry =
                         source.by_index(index).map_err(archive_error)?;
-                    let name = entry.name().to_string();
+                    let name = entry.name().map_err(archive_error)?.to_string();
                     if entry.is_dir() {
                         continue;
                     }

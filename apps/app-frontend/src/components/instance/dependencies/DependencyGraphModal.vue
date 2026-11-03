@@ -16,6 +16,7 @@ import {
     Combobox,
     type ContentItem,
     defineMessages,
+    getProjectTypeCategoryMessage,
     MinecraftFormattedText,
     NewModal,
     StyledInput,
@@ -73,6 +74,7 @@ const messages = defineMessages({
         defaultMessage: '{count, number} isolated items are kept out of the relationship graph.',
     },
     allTypes: { id: 'app.instance.dependencies.all-types', defaultMessage: 'All types' },
+    unknownType: { id: 'app.instance.dependencies.unknown-type', defaultMessage: 'Unknown' },
     allSources: { id: 'app.instance.dependencies.all-sources', defaultMessage: 'All sources' },
     allStatuses: { id: 'app.instance.dependencies.all-statuses', defaultMessage: 'All statuses' },
     packManaged: { id: 'app.instance.dependencies.pack-managed', defaultMessage: 'Pack managed' },
@@ -189,7 +191,9 @@ const sourceOptions = ['all', 'pack', 'user', 'local'] as const
 const statusOptions = ['all', 'disabled', 'missing', 'orphaned', 'cycle', 'unresolved'] as const
 
 function typeFilterLabel(type: string) {
-    return type === 'all' ? formatMessage(messages.allTypes) : type
+    if (type === 'all') return formatMessage(messages.allTypes)
+    if (type === 'unknown') return formatMessage(messages.unknownType)
+    return formatMessage(getProjectTypeCategoryMessage(type))
 }
 
 function sourceFilterLabel(source: (typeof sourceOptions)[number]) {

@@ -3,6 +3,7 @@ import { XIcon } from '@modrinth/assets'
 import { Button, defineMessages, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
+import { createAnalysisTask } from '@/helpers/analysis-task'
 import {
     analyzeAreaOres,
     areaChunkCount,
@@ -85,6 +86,14 @@ const messages = defineMessages({
         id: 'app.lab.seed-map.area.canceled',
         defaultMessage: 'Canceled. Start again to analyze the selected area.',
     },
+    scanning: {
+        id: 'app.lab.seed-map.area.scanning',
+        defaultMessage: 'Results so far. The rest of the area is still being searched.',
+    },
+    incomplete: {
+        id: 'app.lab.seed-map.area.incomplete',
+        defaultMessage: 'These results cover only the part of the area searched before it stopped.',
+    },
     failed: {
         id: 'app.lab.seed-map.area.failed',
         defaultMessage: 'Analysis failed. Try again with this area.',
@@ -124,14 +133,58 @@ const tab = ref<'ores' | 'loot'>('ores')
 const minY = ref<string | number | undefined>(props.yRange[0])
 const maxY = ref<string | number | undefined>(props.yRange[1])
 const query = ref('')
-const committedQuery = ref('')
-const oreResult = ref<AreaOreResult>()
-const oreResultY = ref<[number, number]>()
-const lootResult = ref<AreaLootResult>()
-const busy = ref(false)
-const status = ref<'idle' | 'canceled' | 'failed'>('idle')
-const progress = ref<AreaProgress>({ done: 0, total: 0 })
-let active: AbortController | undefined
+const oreTask = createAnalysisTask<{ range: [number, number] }, AreaProgress, AreaOreResult>({
+    label: 'seed-map-area-ores',
+    run: ({ range }, { signal, progress, partial }) =>
+        analyzeAreaOres(
+            props.context,
+            props.area,
+            props.ores,
+            range[0],
+            range[1],
+            signal,
+            progress,
+            undefined,
+            partial,
+        ),
+})
+const lootTask = createAnalysisTask<{ query: string }, AreaProgress, AreaLootResult>({
+    label: 'seed-map-area-loot',
+    run: ({ query: text }, { signal, progress, partial }) => {
+        const search = text.toLocaleLowerCase()
+        return searchAreaLoot(
+            props.context,
+            props.area,
+            props.featureMask,
+            (id) =>
+                id.toLocaleLowerCase().includes(search) ||
+                labels.value.item(id).toLocaleLowerCase().includes(search),
+            signal,
+            progress,
+            undefined,
+            partial,
+        )
+    },
+})
+const activeTask = computed(() => (tab.value === 'ores' ? oreTask : lootTask))
+// Results found so far stay visible; only a finished search may report that nothing was found.
+const oreResult = computed(() => oreTask.partial.value)
+const oreResultY = computed(() => oreTask.input.value?.range)
+const lootResult = computed(() => lootTask.partial.value)
+const committedQuery = computed(() => lootTask.input.value?.query ?? '')
+const busy = computed(() => oreTask.running.value || lootTask.running.value)
+const progress = computed(
+    () => (oreTask.running.value ? oreTask : lootTask).progress.value ?? { done: 0, total: 0 },
+)
+const resultState = computed(() => {
+    const status = activeTask.value.status.value
+    if (status === 'ready') return 'complete'
+    return status === 'queued' || status === 'processing' ? 'partial' : 'incomplete'
+})
+const status = computed(() => {
+    const value = activeTask.value.status.value
+    return value === 'canceled' ? 'canceled' : value === 'error' ? 'failed' : 'idle'
+})
 const chunkCount = computed(() => areaChunkCount(props.area))
 const maxChunks = computed(() =>
     tab.value === 'ores' ? SEED_MAP_AREA_ORE_MAX_CHUNKS : SEED_MAP_AREA_LOOT_MAX_CHUNKS,
@@ -148,12 +201,9 @@ const validY = computed(
         Number(minY.value) <= Number(maxY.value),
 )
 function cancel() {
-    active?.abort()
-    active = undefined
-    busy.value = false
-    status.value = 'canceled'
+    void (oreTask.running.value ? oreTask : lootTask).cancel()
 }
-async function run() {
+function run() {
     if (
         busy.value ||
         tooLarge.value ||
@@ -161,67 +211,21 @@ async function run() {
         (tab.value === 'loot' && !query.value.trim())
     )
         return
-    const controller = new AbortController()
-    active = controller
-    busy.value = true
-    status.value = 'idle'
-    progress.value = { done: 0, total: 0 }
-    const update = (value: AreaProgress) => {
-        if (active === controller) progress.value = value
-    }
-    try {
-        if (tab.value === 'ores') {
-            const range: [number, number] = [Number(minY.value), Number(maxY.value)]
-            const result = await analyzeAreaOres(
-                props.context,
-                props.area,
-                props.ores,
-                range[0],
-                range[1],
-                controller.signal,
-                update,
-            )
-            if (active === controller) {
-                oreResult.value = result
-                oreResultY.value = range
-            }
-        } else {
-            const text = query.value.trim()
-            const search = text.toLocaleLowerCase()
-            const result = await searchAreaLoot(
-                props.context,
-                props.area,
-                props.featureMask,
-                (id) =>
-                    id.toLocaleLowerCase().includes(search) ||
-                    labels.value.item(id).toLocaleLowerCase().includes(search),
-                controller.signal,
-                update,
-            )
-            if (active === controller) {
-                lootResult.value = result
-                committedQuery.value = text
-            }
-        }
-    } catch {
-        if (active === controller) status.value = 'failed'
-    } finally {
-        if (active === controller) {
-            busy.value = false
-            active = undefined
-        }
-    }
+    if (tab.value === 'ores')
+        void oreTask.start({ range: [Number(minY.value), Number(maxY.value)] })
+    else void lootTask.start({ query: query.value.trim() })
 }
 watch(
     () => JSON.stringify([props.context, props.area]),
     () => {
-        cancel()
-        oreResult.value = undefined
-        lootResult.value = undefined
-        status.value = 'idle'
+        oreTask.reset()
+        lootTask.reset()
     },
 )
-onBeforeUnmount(cancel)
+onBeforeUnmount(() => {
+    oreTask.dispose()
+    lootTask.dispose()
+})
 </script>
 
 <template>
@@ -292,8 +296,15 @@ onBeforeUnmount(cancel)
             <Button :disabled="busy || tooLarge || !validY || !ores.length" @click="run">{{
                 formatMessage(messages.analyze)
             }}</Button>
-            <template v-if="oreResult && !busy">
+            <template v-if="oreResult">
                 <strong class="text-sm">Y {{ oreResultY?.[0] }}…{{ oreResultY?.[1] }}</strong>
+                <p v-if="resultState !== 'complete'" class="m-0 text-sm" role="status">
+                    {{
+                        formatMessage(
+                            resultState === 'partial' ? messages.scanning : messages.incomplete,
+                        )
+                    }}
+                </p>
                 <p v-if="oreResult.truncated" class="m-0 text-sm" role="alert">
                     {{ formatMessage(messages.partial) }}
                 </p>
@@ -313,7 +324,10 @@ onBeforeUnmount(cancel)
                         </tr>
                     </tbody>
                 </table>
-                <p v-if="!oreResult.counts.some((row) => row.count)" class="m-0 text-sm">
+                <p
+                    v-if="resultState === 'complete' && !oreResult.counts.some((row) => row.count)"
+                    class="m-0 text-sm"
+                >
                     {{ formatMessage(messages.noOres) }}
                 </p>
             </template>
@@ -329,10 +343,17 @@ onBeforeUnmount(cancel)
             <Button :disabled="busy || tooLarge || !query.trim()" @click="run">{{
                 formatMessage(messages.search)
             }}</Button>
-            <template v-if="lootResult && !busy">
+            <template v-if="lootResult">
                 <strong class="text-sm">{{
                     formatMessage(messages.snapshot, { query: committedQuery })
                 }}</strong>
+                <p v-if="resultState !== 'complete'" class="m-0 text-sm" role="status">
+                    {{
+                        formatMessage(
+                            resultState === 'partial' ? messages.scanning : messages.incomplete,
+                        )
+                    }}
+                </p>
                 <p class="m-0 text-xs">
                     {{
                         formatMessage(messages.checked, {
@@ -345,7 +366,10 @@ onBeforeUnmount(cancel)
                 <p v-if="lootResult.unresolved" class="m-0 text-xs">
                     {{ formatMessage(messages.missing) }}
                 </p>
-                <p v-if="!lootResult.matches.length" class="m-0 text-sm">
+                <p
+                    v-if="resultState === 'complete' && !lootResult.matches.length"
+                    class="m-0 text-sm"
+                >
                     {{ formatMessage(messages.noLoot) }}
                 </p>
                 <div

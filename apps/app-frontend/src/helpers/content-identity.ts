@@ -1,5 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
 
+/**
+ * Prefix the launcher uses for an id it synthesised because no online identity
+ * was resolved. It must stay identical to `LOCAL_ID_PREFIX` in the Rust crate
+ * (`packages/app-lib/src/state/instances/content.rs`), which is what writes it.
+ */
+const LOCAL_ID_PREFIX = 'local:'
+
 export type ContentIdentityProvider = 'modrinth' | 'curseforge'
 export type ContentIdentitySource = 'curated_mapping' | 'sha1' | 'heuristic'
 export type ContentIdentityConfidence = 'exact' | 'high' | 'possible'
@@ -257,4 +264,13 @@ export function contentIdentityFromInput(input: ContentIdentityInput): ContentId
         normalizedTitle: identityTitle(input),
         normalizedFileName: identityFileName(input),
     }
+}
+
+/** True when the id is the placeholder synthesised for unresolved metadata. */
+export function isUnresolvedProjectId(projectId: string | null | undefined): boolean {
+    return !!projectId?.startsWith(LOCAL_ID_PREFIX)
+}
+
+export function isUnresolvedContentProject(item: { project?: { id?: string } | null }): boolean {
+    return isUnresolvedProjectId(item.project?.id)
 }

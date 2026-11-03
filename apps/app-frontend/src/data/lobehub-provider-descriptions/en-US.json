@@ -16,6 +16,7 @@
   "chatgpt.description": "Use models included with your ChatGPT subscription through Codex, without an OpenAI Platform API key.",
   "cloudflare.description": "Run serverless GPU-powered ML models across Cloudflare’s global network.",
   "codeflow.description": "Stable, cost-effective access to top AI models.\nNative protocol forwarding · No overseas network needed · Instant Alipay recharge",
+  "fastai.description": "An AI API platform for developers, supporting OpenAI, Claude, Gemini, and Grok with an OpenAI-compatible API.\nCNY 1 = USD 1 in API credits · Self-service business invoices · Enterprise SLA · WeChat Pay and Alipay",
   "cohere.description": "Cohere delivers cutting-edge multilingual models, advanced retrieval, and AI workspaces for modern enterprises—all in one secure platform.",
   "cometapi.description": "CometAPI provides access to frontier models from OpenAI, Anthropic, Google, and more, letting users choose the best model and pricing for diverse use cases.",
   "comfyui.description": "A powerful open-source workflow engine for image, video, and audio generation, supporting models like SD, FLUX, Qwen, Hunyuan, and WAN with node-based editing and private deployment.",

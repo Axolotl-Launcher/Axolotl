@@ -186,74 +186,103 @@ pub async fn get_projects_with_cache_behaviour(
     .await
 }
 
-async fn get_files_page(
-    project_id: u32,
-    request: CurseForgeFilesRequest,
-) -> crate::Result<CurseForgeFilesResponse> {
-    let page_size = request.page_size.clamp(1, MAX_PAGE_SIZE);
-    let mut query = vec![
-        ("index".to_string(), request.index.to_string()),
-        ("pageSize".to_string(), page_size.to_string()),
-    ];
-    push_query(&mut query, "gameVersion", request.game_version);
-    push_query(&mut query, "modLoaderType", request.mod_loader_type);
-    push_query(
-        &mut query,
-        "gameVersionTypeId",
-        request.game_version_type_id,
-    );
-
-    let response: CurseForgeResponse<Vec<CurseForgeFile>> = request_json(
-        Method::GET,
-        &format!("/v1/mods/{project_id}/files"),
-        query,
-        None,
-        MirrorPolicy::MirrorFirst,
-    )
-    .await?;
-    let result_count = response.data.len() as u32;
-    let pagination = response.pagination.unwrap_or(CurseForgePagination {
-        index: request.index,
-        page_size,
-        result_count,
-        total_count: result_count,
-    });
-
-    Ok(CurseForgeFilesResponse {
-        files: response.data,
-        pagination,
-    })
-}
-
 /// Fetches every page of a CurseForge project's files and returns the complete
 /// file list, since the API caps each page at `MAX_PAGE_SIZE` entries.
 pub async fn get_files(
     project_id: u32,
     request: CurseForgeFilesRequest,
 ) -> crate::Result<CurseForgeFilesResponse> {
+    let state = State::get().await?;
+    get_files_with_service(
+        project_id,
+        request,
+        state.resources().await?,
+        &tokio_util::sync::CancellationToken::new(),
+    )
+    .await
+}
+
+pub(crate) async fn get_files_with_service(
+    project_id: u32,
+    request: CurseForgeFilesRequest,
+    service: &std::sync::Arc<crate::resources::ResourceService>,
+    cancel: &tokio_util::sync::CancellationToken,
+) -> crate::Result<CurseForgeFilesResponse> {
+    let result = get_files_round(
+        project_id,
+        request.clone(),
+        service,
+        cancel,
+        crate::resources::CachePolicy::UseFresh,
+    )
+    .await;
+    if matches!(&result, Err(error) if matches!(error.raw.as_ref(), ErrorKind::ResourceError(crate::resources::ResourceError::InvalidResponse(_))))
+    {
+        // Individually valid cached pages can belong to different catalogue
+        // revisions. Retry the aggregate once without reusing those pages.
+        return get_files_round(
+            project_id,
+            request,
+            service,
+            cancel,
+            crate::resources::CachePolicy::ForceRefresh,
+        )
+        .await;
+    }
+    result
+}
+
+async fn get_files_round(
+    project_id: u32,
+    request: CurseForgeFilesRequest,
+    service: &std::sync::Arc<crate::resources::ResourceService>,
+    cancel: &tokio_util::sync::CancellationToken,
+    policy: crate::resources::CachePolicy,
+) -> crate::Result<CurseForgeFilesResponse> {
     let page_size = request.page_size.clamp(1, MAX_PAGE_SIZE);
+    let namespace =
+        service.source_namespace(&crate::resources::SourceId::curseforge())?;
     let mut files = Vec::new();
     let mut index = request.index;
+    let mut expected_total = None;
+    let mut seen = HashSet::new();
 
     let total_count = loop {
-        let response = get_files_page(
+        let response = crate::resources::legacy_catalog::curseforge_files_page_with_policy(
             project_id,
             CurseForgeFilesRequest {
                 index,
                 page_size,
                 ..request.clone()
             },
+            service,
+            cancel,
+            policy,
         )
         .await?;
+        if service.source_namespace(&crate::resources::SourceId::curseforge())?
+            != namespace
+        {
+            return Err(crate::resources::ResourceError::Canceled.into());
+        }
         let pagination = response.pagination;
+        if expected_total.is_some_and(|total| total != pagination.total_count)
+            || response.files.iter().any(|file| !seen.insert(file.id))
+            || (pagination.result_count == 0 && index < pagination.total_count)
+        {
+            return Err(crate::resources::ResourceError::InvalidResponse("CurseForge file pagination changed or did not advance; retry the query".into()).into());
+        }
+        expected_total = Some(pagination.total_count);
         files.extend(response.files);
 
-        if files.len() as u32 >= pagination.total_count
-            || pagination.result_count == 0
-        {
+        let next =
+            index.checked_add(pagination.result_count).ok_or_else(|| {
+                ErrorKind::InputError("CurseForge pagination overflow".into())
+            })?;
+        if next >= pagination.total_count || pagination.result_count == 0 {
             break pagination.total_count;
         }
-        index += pagination.result_count;
+        index = next;
     };
 
     let result_count = files.len() as u32;
@@ -333,10 +362,8 @@ pub(crate) fn derived_curseforge_download_url(
     file_name: &str,
 ) -> crate::Result<String> {
     validate_file_name(file_name)?;
-    Ok(
-        crate::resources::providers::derived_download_url(file_id, file_name)
-            .map_err(crate::resources::protocol::error)?,
-    )
+    crate::resources::providers::derived_download_url(file_id, file_name)
+        .map_err(crate::resources::protocol::error)
 }
 
 pub async fn get_categories(
@@ -388,7 +415,15 @@ pub(crate) async fn resource_request(
     query: Vec<(String, String)>,
     body: Option<Value>,
 ) -> crate::Result<Value> {
-    request_json(method, path, query, body, MirrorPolicy::MirrorFirst).await
+    super::transport::request_json_with_origin(
+        method,
+        path,
+        query,
+        body,
+        MirrorPolicy::MirrorFirst,
+        super::transport::RequestOrigin::Resource,
+    )
+    .await
 }
 
 impl From<CurseForgeProject> for UnifiedSearchHit {

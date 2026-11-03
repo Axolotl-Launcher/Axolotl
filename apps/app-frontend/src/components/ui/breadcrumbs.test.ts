@@ -1,6 +1,6 @@
-import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import test from 'node:test'
+
+import { expect, it } from 'vitest'
 
 import { resolveBreadcrumbLabel } from '../../helpers/breadcrumb-label.ts'
 
@@ -20,7 +20,7 @@ const localeMessages = Object.fromEntries(
     ]),
 ) as Record<keyof typeof localeFiles, Record<string, { message: string }>>
 
-test('upgrade breadcrumb reuses localized Upgrade instance message at runtime', () => {
+it('upgrade breadcrumb reuses localized Upgrade instance message at runtime', () => {
     let locale: keyof typeof localeFiles = 'en-US'
     const labels = { Upgrade: 'app.instance.upgrade-instance' }
     const resolve = () =>
@@ -31,14 +31,14 @@ test('upgrade breadcrumb reuses localized Upgrade instance message at runtime', 
             (messageId) => localeMessages[locale][messageId].message,
         )
 
-    assert.equal(resolve(), 'Upgrade instance')
+    expect(resolve()).toBe('Upgrade instance')
     locale = 'zh-CN'
-    assert.equal(resolve(), '升级实例')
+    expect(resolve()).toBe('升级实例')
     locale = 'zh-TW'
-    assert.equal(resolve(), '升級實例')
+    expect(resolve()).toBe('升級實例')
 })
 
-test('screenshots breadcrumb resolves through the active locale', () => {
+it('screenshots breadcrumb resolves through the active locale', () => {
     let locale: 'en-US' | 'zh-CN' = 'en-US'
     const labels = { Screenshots: 'app.navigation.screenshots' }
     const resolve = () =>
@@ -49,15 +49,15 @@ test('screenshots breadcrumb resolves through the active locale', () => {
             (messageId) => localeMessages[locale][messageId].message,
         )
 
-    assert.equal(resolve(), 'Screenshots')
+    expect(resolve()).toBe('Screenshots')
     locale = 'zh-CN'
-    assert.equal(resolve(), '截图中心')
+    expect(resolve()).toBe('截图中心')
 })
 
-test('upgrade route paths, internal names, and breadcrumb depth stay unchanged', () => {
+it('upgrade route paths, internal names, and breadcrumb depth stay unchanged', () => {
     const routes = readFileSync(new URL('../../routes/instance.ts', import.meta.url), 'utf8')
-    assert.match(routes, /useRootContext: true,[\s\S]*?breadcrumb: \[\{ name: 'Upgrade' \}\]/)
-    assert.doesNotMatch(routes, /breadcrumb: \[\{ name: '\?Instance'[^\]]*\{ name: 'Upgrade' \}\]/)
+    expect(routes).toMatch(/useRootContext: true,[\s\S]*?breadcrumb: \[\{ name: 'Upgrade' \}\]/)
+    expect(routes).not.toMatch(/breadcrumb: \[\{ name: '\?Instance'[^\]]*\{ name: 'Upgrade' \}\]/)
     for (const [path, name] of [
         ['', 'InstanceUpgrade'],
         ['compatibility', 'InstanceUpgradeCompatibility'],
@@ -66,23 +66,25 @@ test('upgrade route paths, internal names, and breadcrumb depth stay unchanged',
         ['progress', 'InstanceUpgradeProgress'],
         ['result', 'InstanceUpgradeResult'],
     ] as const) {
-        assert.match(routes, new RegExp(`path: '${path}',\\s+name: '${name}'`))
+        expect(routes).toMatch(new RegExp(`path: '${path}',\\s+name: '${name}'`))
     }
 })
 
-test('breadcrumb component resolves Upgrade through formatMessage on each render', () => {
+it('breadcrumb component resolves Upgrade through formatMessage on each render', () => {
     const source = readFileSync(new URL('./Breadcrumbs.vue', import.meta.url), 'utf8')
-    assert.match(source, /Upgrade: messages\.upgradeInstance/)
-    assert.match(source, /Screenshots: messages\.screenshots/)
-    assert.match(source, /Upgrade: ArrowBigUpDashIcon/)
-    assert.match(source, /screenshots: \{ id: 'app\.navigation\.screenshots'/)
-    assert.match(source, /id: 'app\.instance\.upgrade-instance'/)
-    assert.match(source, /resolveBreadcrumbLabel\([\s\S]*?\(message\) => formatMessage\(message\)/)
+    expect(source).toMatch(/Upgrade: messages\.upgradeInstance/)
+    expect(source).toMatch(/Screenshots: messages\.screenshots/)
+    expect(source).toMatch(/Upgrade: ArrowBigUpDashIcon/)
+    expect(source).toMatch(/screenshots: \{ id: 'app\.navigation\.screenshots'/)
+    expect(source).toMatch(/id: 'app\.instance\.upgrade-instance'/)
+    expect(source).toMatch(
+        /resolveBreadcrumbLabel\([\s\S]*?\(message\) => formatMessage\(message\)/,
+    )
 })
 
-test('breadcrumb separators render only between visible breadcrumb items', () => {
+it('breadcrumb separators render only between visible breadcrumb items', () => {
     const source = readFileSync(new URL('./Breadcrumbs.vue', import.meta.url), 'utf8')
-    assert.match(source, /v-for="\(breadcrumb, index\) in breadcrumbs"/)
-    assert.match(source, /v-if="index < breadcrumbs\.length - 1"/)
-    assert.doesNotMatch(source, /ChevronRightIcon v-if="breadcrumb\.link"/)
+    expect(source).toMatch(/v-for="\(breadcrumb, index\) in breadcrumbs"/)
+    expect(source).toMatch(/v-if="index < breadcrumbs\.length - 1"/)
+    expect(source).not.toMatch(/ChevronRightIcon v-if="breadcrumb\.link"/)
 })

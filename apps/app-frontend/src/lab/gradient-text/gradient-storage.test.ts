@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     createDefaultGradientTextState,
@@ -22,15 +21,15 @@ function createStorage(initial: Record<string, string> = {}) {
     }
 }
 
-test('recovers from corrupt local storage', () => {
+it('recovers from corrupt local storage', () => {
     const state = loadGradientTextState(createStorage({ [GRADIENT_TEXT_STORAGE_KEY]: '{bad json' }))
-    assert.deepEqual(state.colors, ['#A855F7', '#22C55E'])
-    assert.equal(state.adapterId, 'vanilla')
-    assert.equal(state.vanillaCharacter, '§')
+    expect(state.colors).toEqual(['#A855F7', '#22C55E'])
+    expect(state.adapterId).toBe('vanilla')
+    expect(state.vanillaCharacter).toBe('§')
 })
 
-test('defaults vanilla output to the section sign without overwriting a saved ampersand', () => {
-    assert.equal(createDefaultGradientTextState().vanillaCharacter, '§')
+it('defaults vanilla output to the section sign without overwriting a saved ampersand', () => {
+    expect(createDefaultGradientTextState().vanillaCharacter).toBe('§')
 
     const storage = createStorage({
         [GRADIENT_TEXT_STORAGE_KEY]: JSON.stringify({
@@ -38,27 +37,27 @@ test('defaults vanilla output to the section sign without overwriting a saved am
             vanillaCharacter: '&',
         }),
     })
-    assert.equal(loadGradientTextState(storage).vanillaCharacter, '&')
+    expect(loadGradientTextState(storage).vanillaCharacter).toBe('&')
 })
 
-test('persists only valid normalized local state', () => {
+it('persists only valid normalized local state', () => {
     const storage = createStorage()
     const state = createDefaultGradientTextState()
     state.colors = ['#abc']
     state.adapterId = 'minimessage'
     saveGradientTextState(state, storage)
-    assert.deepEqual(loadGradientTextState(storage).colors, ['#AABBCC'])
-    assert.equal(loadGradientTextState(storage).adapterId, 'minimessage')
+    expect(loadGradientTextState(storage).colors).toEqual(['#AABBCC'])
+    expect(loadGradientTextState(storage).adapterId).toBe('minimessage')
 })
 
-test('rejects invalid imported presets and round-trips valid presets', () => {
+it('rejects invalid imported presets and round-trips valid presets', () => {
     const presets = parseGradientPresets([
         { name: 'Sunset', colors: ['#FF0000', '#00FF00'] },
         { name: 'Solid', colors: ['#112233'] },
         { name: 'Broken', colors: ['not-a-color'] },
     ])
-    assert.equal(presets.length, 2)
-    assert.deepEqual(JSON.parse(serializeGradientPresets(presets)), [
+    expect(presets.length).toBe(2)
+    expect(JSON.parse(serializeGradientPresets(presets))).toEqual([
         { name: 'Sunset', colors: ['#FF0000', '#00FF00'] },
         { name: 'Solid', colors: ['#112233'] },
     ])

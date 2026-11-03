@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createThumbnailQueue } from './thumbnail-queue.ts'
 
-test('cancels obsolete queued work without occupying slots needed by the current viewport', async () => {
+it('cancels obsolete queued work without occupying slots needed by the current viewport', async () => {
     const queue = createThumbnailQueue(1)
     let finish!: () => void
     const calls: string[] = []
@@ -17,26 +16,26 @@ test('cancels obsolete queued work without occupying slots needed by the current
     const old = queue.enqueue(async () => {
         calls.push('obsolete')
     })
-    const rejected = assert.rejects(old.promise, /released/)
+    const rejected = expect(old.promise).rejects.toThrow(/released/)
     const current = queue.enqueue(async () => {
         calls.push('current')
     })
-    assert.equal(old.cancel(), true)
+    expect(old.cancel()).toBe(true)
     await rejected
     await Promise.resolve()
-    assert.equal(first.cancel(), false)
+    expect(first.cancel()).toBe(false)
     finish()
     await first.promise
     await current.promise
-    assert.deepEqual(calls, ['first', 'current'])
+    expect(calls).toEqual(['first', 'current'])
 })
 
-test('failed tasks release capacity for the next thumbnail', async () => {
+it('failed tasks release capacity for the next thumbnail', async () => {
     const queue = createThumbnailQueue(1)
     const bad = queue.enqueue(async () => {
         throw new Error('decode')
     })
     const good = queue.enqueue(async () => 'image')
-    await assert.rejects(bad.promise, /decode/)
-    assert.equal(await good.promise, 'image')
+    await expect(bad.promise).rejects.toThrow(/decode/)
+    expect(await good.promise).toBe('image')
 })

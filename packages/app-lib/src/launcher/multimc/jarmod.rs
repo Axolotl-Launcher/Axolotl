@@ -187,7 +187,6 @@ impl Artifact {
                     request,
                     &destination,
                     &state.download_semaphore,
-                    &state.pool,
                     None,
                 )
                 .await;
@@ -195,13 +194,12 @@ impl Artifact {
                     let _ = tokio::fs::remove_file(&destination).await;
                 }
                 result?;
-                if self.always_stale {
-                    if let Err(error) =
+                if self.always_stale
+                    && let Err(error) =
                         io::atomically_replace_file(&destination, &path)
-                    {
-                        let _ = tokio::fs::remove_file(&destination).await;
-                        return Err(error.into());
-                    }
+                {
+                    let _ = tokio::fs::remove_file(&destination).await;
+                    return Err(error.into());
                 }
             }
         }
@@ -432,7 +430,9 @@ fn merge_input(
         let mut entry = archive.by_index(index).map_err(|error| {
             invalid(format!("Cannot read MultiMC JAR entry: {error}"))
         })?;
-        let name = entry_name(entry.name())?;
+        let name = entry_name(&entry.name().map_err(|error| {
+            invalid(format!("Cannot read MultiMC JAR entry name: {error}"))
+        })?)?;
         // Match MultiMC: filter META-INF from the base, retaining metadata
         // supplied by a mod (for example service provider registrations).
         if entry.is_dir() || (base && name.contains("META-INF")) {

@@ -105,7 +105,7 @@ async fn run_with_extra_launch_args_inner(
             MAX_LAUNCH_PREPARATION_TIMEOUT,
         );
     let default_account = if offline_mode {
-        Credentials::get_offline_credential(&state.pool)
+        Credentials::get_offline_credential(&state.data)
             .await?
             .ok_or_else(|| {
                 crate::ErrorKind::LauncherError(
@@ -115,7 +115,7 @@ async fn run_with_extra_launch_args_inner(
                 .as_error()
             })?
     } else {
-        Credentials::get_default_credential(&state.pool)
+        Credentials::get_default_credential(&state.data)
             .await?
             .ok_or_else(|| crate::ErrorKind::NoCredentialsError.as_error())?
     };
@@ -165,7 +165,7 @@ async fn run_credentials(
             "Failed to reconcile game options before launching {instance_id}: {error}"
         );
     }
-    let settings = Settings::get(&state.pool).await?;
+    let settings = Settings::get(&state.data).await?;
     let context =
         crate::state::instances::commands::get_instance_launch_context(
             instance_id,
@@ -327,7 +327,6 @@ async fn run_credentials(
                         "server_id": &server_id,
                     }),
                     &state.api_semaphore,
-                    &state.pool,
                 )
                 .await;
 
@@ -502,7 +501,6 @@ pub async fn try_update_playtime_by_instance_id(
             &playtime_url,
             serde_json::to_value(hashmap)?,
             &state.api_semaphore,
-            &state.pool,
         )
         .await
     } else {

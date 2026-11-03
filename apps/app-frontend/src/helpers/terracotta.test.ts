@@ -1,29 +1,23 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { parseTerracottaPublicNodes } from './terracotta.ts'
 
-test('parses Terracotta public nodes from lines and commas', () => {
-    assert.deepEqual(
+it('parses Terracotta public nodes from lines and commas', () => {
+    expect(
         parseTerracottaPublicNodes(
             'wss://center.node.1tmc.top\ntcp://example.com:11010, udp://example.net:11010',
         ),
-        {
-            nodes: [
-                'wss://center.node.1tmc.top',
-                'tcp://example.com:11010',
-                'udp://example.net:11010',
-            ],
-            invalidNode: null,
-        },
-    )
+    ).toEqual({
+        nodes: ['wss://center.node.1tmc.top', 'tcp://example.com:11010', 'udp://example.net:11010'],
+        invalidNode: null,
+    })
 })
 
-test('allows an empty Terracotta public node list', () => {
-    assert.deepEqual(parseTerracottaPublicNodes('  \n'), { nodes: [], invalidNode: null })
+it('allows an empty Terracotta public node list', () => {
+    expect(parseTerracottaPublicNodes('  \n')).toEqual({ nodes: [], invalidNode: null })
 })
 
-test('rejects unsupported or incomplete Terracotta public nodes', () => {
-    assert.equal(parseTerracottaPublicNodes('ftp://example.com').invalidNode, 'ftp://example.com')
-    assert.equal(parseTerracottaPublicNodes('wss://').invalidNode, 'wss://')
+it('rejects unsupported or incomplete Terracotta public nodes', () => {
+    expect(parseTerracottaPublicNodes('ftp://example.com').invalidNode).toBe('ftp://example.com')
+    expect(parseTerracottaPublicNodes('wss://').invalidNode).toBe('wss://')
 })

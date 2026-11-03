@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict'
-import { after, before, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { BlockDefinition, BlockModel, Cull, Identifier } from 'deepslate'
 import { createServer, type ViteDevServer } from 'vite'
+import { afterAll, beforeAll, expect, it } from 'vitest'
 
 import type { SchematicBlockState } from './backend.ts'
 import { getSchematicMeshOcclusionFaces, isSchematicOccluding } from './meshing.ts'
@@ -13,7 +12,7 @@ type BuiltinResourcesModule = typeof import('./builtin-resources.ts')
 let server: ViteDevServer
 let builtin: BuiltinResourcesModule
 
-before(async () => {
+beforeAll(async () => {
     const appRoot = fileURLToPath(new URL('../../../', import.meta.url))
     server = await createServer({
         root: appRoot,
@@ -28,11 +27,11 @@ before(async () => {
     )) as BuiltinResourcesModule
 })
 
-after(async () => {
+afterAll(async () => {
     await server.close()
 })
 
-test('built-in assets render stained glass and sugar cane across supported versions', () => {
+it('built-in assets render stained glass and sugar cane across supported versions', () => {
     const palette: SchematicBlockState[] = [
         { name: 'minecraft:air', properties: {} },
         { name: 'minecraft:white_stained_glass', properties: {} },
@@ -40,7 +39,7 @@ test('built-in assets render stained glass and sugar cane across supported versi
     ]
     for (const version of ['1.21', '26.2', '26.3']) {
         const resources = builtin.loadBuiltinBlockResources(version, palette)
-        assert.equal(resources.defaultBlockProperties['minecraft:sugar_cane']?.age, '0')
+        expect(resources.defaultBlockProperties['minecraft:sugar_cane']?.age).toBe('0')
         const models = Object.fromEntries(
             Object.entries(resources.blockModels).map(([id, model]) => [
                 id,
@@ -55,8 +54,8 @@ test('built-in assets render stained glass and sugar cane across supported versi
         const textureUvs = builtin.builtinTextureUvs()
         for (const blockName of ['white_stained_glass', 'sugar_cane']) {
             const state = palette.find((entry) => entry.name === `minecraft:${blockName}`)
-            assert.ok(state)
-            assert.ok(textureUvs[`minecraft:block/${blockName}`])
+            expect(state).toBeTruthy()
+            expect(textureUvs[`minecraft:block/${blockName}`]).toBeTruthy()
             const definition = BlockDefinition.fromJson(resources.blockDefinitions[state.name])
             const mesh = definition.getMesh(
                 Identifier.parse(state.name),
@@ -68,17 +67,20 @@ test('built-in assets render stained glass and sugar cane across supported versi
                 modelProvider,
                 Cull.none(),
             )
-            assert.ok(mesh.quads.length > 0, `${version} generated no mesh for ${state.name}`)
+            expect(
+                mesh.quads.length > 0,
+                `${version} generated no mesh for ${state.name}`,
+            ).toBeTruthy()
         }
     }
 })
 
-test('built-in assets expose the complete renderer resource set', () => {
+it('built-in assets expose the complete renderer resource set', () => {
     const textureUvs = builtin.builtinTextureUvs()
-    assert.ok(Object.keys(textureUvs).length >= 2600)
-    assert.ok(textureUvs['minecraft:block/white_stained_glass'])
-    assert.ok(textureUvs['minecraft:block/sugar_cane'])
-    assert.deepEqual(builtin.builtinTextureRegion('minecraft:block/white_stained_glass'), {
+    expect(Object.keys(textureUvs).length >= 2600).toBeTruthy()
+    expect(textureUvs['minecraft:block/white_stained_glass']).toBeTruthy()
+    expect(textureUvs['minecraft:block/sugar_cane']).toBeTruthy()
+    expect(builtin.builtinTextureRegion('minecraft:block/white_stained_glass')).toEqual({
         x: 1568,
         y: 1968,
         width: 16,
@@ -86,7 +88,7 @@ test('built-in assets expose the complete renderer resource set', () => {
     })
 })
 
-test('all built-in block resources remain compatible with Deepslate', () => {
+it('all built-in block resources remain compatible with Deepslate', () => {
     const palette = builtin.listBuiltinBlockStates()
     const resources = builtin.loadBuiltinBlockResources('26.3', palette)
     const definitions = Object.fromEntries(
@@ -126,7 +128,7 @@ test('all built-in block resources remain compatible with Deepslate', () => {
     }
 })
 
-test('partial redstone models do not hide every face of adjacent blocks', () => {
+it('partial redstone models do not hide every face of adjacent blocks', () => {
     const reportedNames = [
         'minecraft:observer',
         'minecraft:redstone_wire',
@@ -140,7 +142,7 @@ test('partial redstone models do not hide every face of adjacent blocks', () => 
         { name: 'minecraft:air', properties: {} },
         ...['minecraft:stone', ...reportedNames].map((name) => {
             const state = availableStates.find((entry) => entry.name === name)
-            assert.ok(state)
+            expect(state).toBeTruthy()
             return name === 'minecraft:piston'
                 ? { ...state, properties: { ...state.properties, extended: 'true' } }
                 : state
@@ -184,16 +186,16 @@ test('partial redstone models do not hide every face of adjacent blocks', () => 
         return getSchematicMeshOcclusionFaces(mesh)
     }
 
-    assert.equal(Object.keys(occlusionFaces(palette[1])).length, 6)
+    expect(Object.keys(occlusionFaces(palette[1])).length).toBe(6)
     for (const state of palette.slice(2)) {
-        assert.ok(
+        expect(
             Object.keys(occlusionFaces(state)).length < 6,
             `${state.name} was treated as a full occluding cube`,
-        )
+        ).toBeTruthy()
     }
 })
 
-test('external models inherit missing vanilla parents from built-in assets', () => {
+it('external models inherit missing vanilla parents from built-in assets', () => {
     const blockDefinitions: Record<string, unknown> = {
         'example:machine': { variants: { '': { model: 'example:block/machine' } } },
     }
@@ -204,10 +206,10 @@ test('external models inherit missing vanilla parents from built-in assets', () 
         },
     }
     builtin.completeBuiltinModelDependencies('26.2', blockDefinitions, blockModels)
-    assert.ok(blockModels['minecraft:block/cube_all'])
+    expect(blockModels['minecraft:block/cube_all']).toBeTruthy()
 })
 
-test('unqualified model parents use the vanilla namespace', () => {
+it('unqualified model parents use the vanilla namespace', () => {
     const blockDefinitions: Record<string, unknown> = {
         'example:machine': { variants: { '': { model: 'example:block/machine' } } },
     }
@@ -215,16 +217,16 @@ test('unqualified model parents use the vanilla namespace', () => {
         'example:block/machine': { parent: 'block/cube_all' },
     }
     builtin.completeBuiltinModelDependencies('26.2', blockDefinitions, blockModels)
-    assert.ok(blockModels['minecraft:block/cube_all'])
+    expect(blockModels['minecraft:block/cube_all']).toBeTruthy()
 })
 
-test('canceling an atlas decode releases the bitmap and rejects the old resource task', async () => {
+it('canceling an atlas decode releases the bitmap and rejects the old resource task', async () => {
     const controller = new AbortController()
     const originalFetch = globalThis.fetch
     const bitmapDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'createImageBitmap')
     let closed = false
     globalThis.fetch = async (_, options) => {
-        assert.equal(options?.signal, controller.signal)
+        expect(options?.signal).toBe(controller.signal)
         return new Response(new Blob())
     }
     Object.defineProperty(globalThis, 'createImageBitmap', {
@@ -239,8 +241,10 @@ test('canceling an atlas decode releases the bitmap and rejects the old resource
         },
     })
     try {
-        await assert.rejects(builtin.loadBuiltinAtlas(controller.signal), { name: 'AbortError' })
-        assert.equal(closed, true)
+        await expect(builtin.loadBuiltinAtlas(controller.signal)).rejects.toMatchObject({
+            name: 'AbortError',
+        })
+        expect(closed).toBe(true)
     } finally {
         globalThis.fetch = originalFetch
         if (bitmapDescriptor)

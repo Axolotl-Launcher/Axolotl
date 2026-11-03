@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import test from 'node:test'
+
+import { expect, it } from 'vitest'
 
 import { type StudioDocument, useStudioDocuments } from './useStudioDocuments.ts'
 
@@ -19,30 +19,30 @@ function deferred() {
 }
 
 for (const kind of ['text', 'nbt'] as const) {
-    test(`deleting a dirty ${kind} document cannot recreate its file`, async () => {
+    it(`deleting a dirty ${kind} document cannot recreate its file`, async () => {
         const directory = await mkdtemp(join(tmpdir(), 'axolotl-studio-'))
         const path = join(directory, 'document')
         try {
             await writeFile(path, 'saved')
             const studio = useStudioDocuments(async (_, content) => {
                 await writeFile(path, content)
-            }, assert.fail)
+            }, expect.fail)
             await studio.open(document('document', kind))
             studio.updateActiveContent('unsaved')
             const old = studio.activeDocument.value!
-            assert.equal(await studio.deletePath('document', () => rm(path)), true)
-            assert.equal(studio.documents.value.length, 0)
-            assert.equal(studio.activePath.value, '')
-            assert.equal(await studio.saveDocument(old), false)
+            expect(await studio.deletePath('document', () => rm(path))).toBe(true)
+            expect(studio.documents.value.length).toBe(0)
+            expect(studio.activePath.value).toBe('')
+            expect(await studio.saveDocument(old)).toBe(false)
             await studio.saveAll()
-            await assert.rejects(readFile(path), { code: 'ENOENT' })
+            await expect(readFile(path)).rejects.toMatchObject({ code: 'ENOENT' })
         } finally {
             await rm(directory, { recursive: true, force: true })
         }
     })
 }
 
-test('deletion waits for an in-flight write and blocks saves until it finishes', async () => {
+it('deletion waits for an in-flight write and blocks saves until it finishes', async () => {
     const write = deferred()
     const deletion = deferred()
     const events: string[] = []
@@ -50,7 +50,7 @@ test('deletion waits for an in-flight write and blocks saves until it finishes',
         events.push('write')
         await write.promise
         events.push('written')
-    }, assert.fail)
+    }, expect.fail)
     await studio.open(document('level.dat', 'nbt'))
     studio.updateActiveContent('edited')
     const saving = studio.saveActive()
@@ -58,69 +58,65 @@ test('deletion waits for an in-flight write and blocks saves until it finishes',
         events.push('delete')
         await deletion.promise
     })
-    assert.equal(await studio.saveActive(), false)
-    assert.deepEqual(events, ['write'])
+    expect(await studio.saveActive()).toBe(false)
+    expect(events).toEqual(['write'])
     write.resolve()
     await saving
     await Promise.resolve()
-    assert.deepEqual(events, ['write', 'written', 'delete'])
-    assert.equal(await studio.close('level.dat'), false)
+    expect(events).toEqual(['write', 'written', 'delete'])
+    expect(await studio.close('level.dat')).toBe(false)
     deletion.resolve()
     await deleting
-    assert.deepEqual(events, ['write', 'written', 'delete'])
-    assert.equal(studio.documents.value.length, 0)
+    expect(events).toEqual(['write', 'written', 'delete'])
+    expect(studio.documents.value.length).toBe(0)
 })
 
-test('directory deletion removes active and inactive descendants but keeps adjacent paths', async () => {
-    const studio = useStudioDocuments(async () => {}, assert.fail)
+it('directory deletion removes active and inactive descendants but keeps adjacent paths', async () => {
+    const studio = useStudioDocuments(async () => {}, expect.fail)
     for (const path of ['config/a', 'config/b', 'configuration/keep'])
         await studio.open(document(path))
     studio.documents.value[0].content = 'dirty inactive'
     studio.documents.value[1].content = 'dirty active'
     await studio.activate('config/b')
     await studio.deletePath('config', async () => {})
-    assert.deepEqual(
-        studio.documents.value.map((document) => document.path),
-        ['configuration/keep'],
-    )
-    assert.equal(studio.activePath.value, 'configuration/keep')
+    expect(studio.documents.value.map((document) => document.path)).toEqual(['configuration/keep'])
+    expect(studio.activePath.value).toBe('configuration/keep')
 })
 
-test('failed deletion retains dirty content and allows a later save', async () => {
+it('failed deletion retains dirty content and allows a later save', async () => {
     const writes: string[] = []
     const studio = useStudioDocuments(async (_, content) => {
         writes.push(content)
-    }, assert.fail)
+    }, expect.fail)
     await studio.open(document('settings.json'))
     studio.updateActiveContent('unsaved content')
-    await assert.rejects(
+    await expect(
         studio.deletePath('settings.json', async () => {
             throw new Error('delete failed')
         }),
-        /delete failed/,
-    )
-    assert.equal(studio.activeDocument.value?.content, 'unsaved content')
-    assert.equal(studio.hasUnsavedChanges.value, true)
-    assert.equal(await studio.saveActive(), true)
-    assert.deepEqual(writes, ['unsaved content'])
+    ).rejects.toThrow(/delete failed/)
+    expect(studio.activeDocument.value?.content).toBe('unsaved content')
+    expect(studio.hasUnsavedChanges.value).toBe(true)
+    expect(await studio.saveActive()).toBe(true)
+    expect(writes).toEqual(['unsaved content'])
 })
 
-test('a read started before deletion cannot reopen a deleted descendant', async () => {
-    const studio = useStudioDocuments(async () => {}, assert.fail)
+it('a read started before deletion cannot reopen a deleted descendant', async () => {
+    const studio = useStudioDocuments(async () => {}, expect.fail)
     const version = studio.pathVersion('config/new.json')
     await studio.deletePath('config', async () => {})
-    assert.equal(await studio.open(document('config/new.json'), version), false)
-    assert.equal(studio.documents.value.length, 0)
-    assert.equal(await studio.open(document('config/new.json')), true)
+    expect(await studio.open(document('config/new.json'), version)).toBe(false)
+    expect(studio.documents.value.length).toBe(0)
+    expect(await studio.open(document('config/new.json'))).toBe(true)
 })
 
-test('ordinary close saves edits and concurrent closes do not remove another tab', async () => {
+it('ordinary close saves edits and concurrent closes do not remove another tab', async () => {
     const pending = deferred()
     const writes: string[] = []
     const studio = useStudioDocuments(async (document, content) => {
         writes.push(`${document.path}:${content}`)
         await pending.promise
-    }, assert.fail)
+    }, expect.fail)
     await studio.open(document('a'))
     await studio.open(document('b'))
     studio.documents.value[0].content = 'edited'
@@ -128,17 +124,14 @@ test('ordinary close saves edits and concurrent closes do not remove another tab
     const second = studio.close('a')
     pending.resolve()
     await Promise.all([first, second])
-    assert.deepEqual(writes, ['a:edited'])
-    assert.deepEqual(
-        studio.documents.value.map((document) => document.path),
-        ['b'],
-    )
-    assert.equal(studio.activePath.value, 'b')
+    expect(writes).toEqual(['a:edited'])
+    expect(studio.documents.value.map((document) => document.path)).toEqual(['b'])
+    expect(studio.activePath.value).toBe('b')
 })
 
-test('a deletion finishing after a workspace reset does not close the new workspace document', async () => {
+it('a deletion finishing after a workspace reset does not close the new workspace document', async () => {
     const pending = deferred()
-    const studio = useStudioDocuments(async () => {}, assert.fail)
+    const studio = useStudioDocuments(async () => {}, expect.fail)
     await studio.open(document('same-path'))
     const version = studio.pathVersion('same-path')
     const deleting = studio.deletePath('same-path', () => pending.promise)
@@ -148,7 +141,7 @@ test('a deletion finishing after a workspace reset does not close the new worksp
     studio.updateActiveContent('new workspace edits')
     pending.resolve()
     await deleting
-    assert.equal(studio.activeDocument.value?.content, 'new workspace edits')
-    assert.equal(studio.canOpen('same-path', version), false)
-    assert.equal(studio.isDeleting('same-path'), false)
+    expect(studio.activeDocument.value?.content).toBe('new workspace edits')
+    expect(studio.canOpen('same-path', version)).toBe(false)
+    expect(studio.isDeleting('same-path')).toBe(false)
 })

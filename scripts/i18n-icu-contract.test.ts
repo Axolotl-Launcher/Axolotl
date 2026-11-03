@@ -1,12 +1,45 @@
 import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 
 import {
+    collectSourceMessageReferences,
     contractFromMessage,
     contractsEqual,
     sourceContractChanged,
     translationCompatibleWithSource,
 } from './i18n-icu-contract'
+
+test('retains messages referenced by JSON data without treating locale dictionaries as source', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'axolotl-i18n-references-'))
+    try {
+        await mkdir(join(root, 'data'))
+        await mkdir(join(root, 'locales', 'zh-CN'), { recursive: true })
+        await writeFile(
+            join(root, 'data', 'commands.json'),
+            JSON.stringify({
+                displayNameKey: 'app.lab.command-generator.arg.give.target.display',
+            }),
+        )
+        await writeFile(join(root, 'page.vue'), `<script>const id = 'app.page.title'</script>`)
+        await writeFile(
+            join(root, 'locales', 'zh-CN', 'index.json'),
+            JSON.stringify({
+                'app.deleted': { message: 'Removed' },
+            }),
+        )
+        await writeFile(join(root, 'notes.md'), '"app.documentation.only"')
+        const references = await collectSourceMessageReferences(root)
+        assert.ok(references.has('app.lab.command-generator.arg.give.target.display'))
+        assert.ok(references.has('app.page.title'))
+        assert.ok(!references.has('app.deleted'))
+        assert.ok(!references.has('app.documentation.only'))
+    } finally {
+        await rm(root, { recursive: true, force: true })
+    }
+})
 
 test('same plain text contract is equal', () => {
     assert.equal(

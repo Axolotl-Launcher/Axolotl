@@ -191,6 +191,12 @@ const messages = defineMessages({
     mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 
+    // 不滚动就不需要渐隐：此时 mask 不再裁切移动中的内容，只会淡化每行最左/最右的真实 chip
+    @media (prefers-reduced-motion: reduce) {
+        mask-image: none;
+        -webkit-mask-image: none;
+    }
+
     .row {
         --gap: var(--gap-md);
 

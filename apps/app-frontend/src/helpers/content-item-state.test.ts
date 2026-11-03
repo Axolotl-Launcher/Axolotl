@@ -1,7 +1,5 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
 import type { ContentItem } from '@modrinth/ui'
+import { expect, it } from 'vitest'
 
 import { applyContentItemUpdates } from './content-item-state.ts'
 
@@ -30,7 +28,7 @@ function contentItem(path: string): ContentItem {
     } as ContentItem
 }
 
-test('toggle updates survive recomputing an icon-bearing display clone', () => {
+it('toggle updates survive recomputing an icon-bearing display clone', () => {
     const source = contentItem('mods/content.jar')
     const rendered = {
         ...source,
@@ -43,32 +41,32 @@ test('toggle updates survive recomputing an icon-bearing display clone', () => {
         enabled: false,
     })
 
-    assert.equal(source.enabled, false)
-    assert.equal(source.file_name, 'content.jar.disabled')
-    assert.equal(source.file_path, 'mods/content.jar.disabled')
-    assert.equal(rendered.enabled, false)
-    assert.equal(rendered.file_path, 'mods/content.jar.disabled')
+    expect(source.enabled).toBe(false)
+    expect(source.file_name).toBe('content.jar.disabled')
+    expect(source.file_path).toBe('mods/content.jar.disabled')
+    expect(rendered.enabled).toBe(false)
+    expect(rendered.file_path).toBe('mods/content.jar.disabled')
 })
 
-test('operation completion clears busy state on backing rows and a replacement row with the same entry', () => {
+it('operation completion clears busy state on backing rows and a replacement row with the same entry', () => {
     const source = contentItem('mods/content.jar')
     source.instanceEntryId = 'entry'
     const rendered = { ...source }
     applyContentItemUpdates([source], rendered, source.file_name, source.file_path, {
         installing: true,
     })
-    assert.equal(source.installing, true)
+    expect(source.installing).toBe(true)
     const refreshed = { ...source, file_path: 'mods/restored.jar' }
     const other = { ...source, instanceEntryId: 'other' }
     applyContentItemUpdates([refreshed, other], rendered, source.file_name, source.file_path, {
         installing: false,
     })
-    assert.equal(refreshed.installing, false)
-    assert.equal(rendered.installing, false)
-    assert.equal(other.installing, true)
+    expect(refreshed.installing).toBe(false)
+    expect(rendered.installing).toBe(false)
+    expect(other.installing).toBe(true)
 })
 
-test('single-entry toggles never mutate another copy with the same project, version, hash or filename', () => {
+it('single-entry toggles never mutate another copy with the same project, version, hash or filename', () => {
     for (const stableIds of [false, true]) {
         const source = contentItem('mods/one/content.jar')
         const other = contentItem('mods/two/content.jar')
@@ -82,9 +80,9 @@ test('single-entry toggles never mutate another copy with the same project, vers
             file_name: 'content.jar.disabled',
             file_path: 'mods/one/content.jar.disabled',
         })
-        assert.equal(source.enabled, false)
-        assert.equal(other.enabled, true)
-        assert.equal(other.file_path, 'mods/two/content.jar')
-        assert.equal(other.file_name, 'content.jar')
+        expect(source.enabled).toBe(false)
+        expect(other.enabled).toBe(true)
+        expect(other.file_path).toBe('mods/two/content.jar')
+        expect(other.file_name).toBe('content.jar')
     }
 })

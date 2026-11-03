@@ -30,6 +30,701 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.11.0-beta.1',
+        version: '1.11.0-beta.1',
+        publishedAt: '2026-11-01',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.0-beta.1',
+            'zh-CN': 'Axolotl Launcher 1.11.0-beta.1',
+        },
+        changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added Banner Designer in Lab with layered patterns, dye replacement, undo, redo, and recently edited designs.',
+                    'zh-CN':
+                        '实验室新增旗帜设计器，支持图案分层、染料替换、撤销、重做和最近编辑记录。',
+                },
+                {
+                    'en-US':
+                        'Added banner import and export as design JSON, item data, and give commands, with syntax options for modern and older Minecraft versions.',
+                    'zh-CN':
+                        '新增旗帜设计 JSON、物品数据和给予命令的导入导出，支持现代及旧版 Minecraft 语法。',
+                },
+                {
+                    'en-US':
+                        'Added schematic discovery from Reden, BuildSchematics, and Shimu Space, with project details, previews, and installation into instances.',
+                    'zh-CN':
+                        '新增 Reden、BuildSchematics 和拾木空间投影资源浏览，支持查看详情、预览和安装到实例。',
+                },
+                {
+                    'en-US':
+                        'Added Shimu Space account connections with browser authorization, connection checks, reconnection, and disconnect controls.',
+                    'zh-CN': '新增拾木空间账号关联，支持浏览器授权、连接检查、重新连接和断开关联。',
+                },
+                {
+                    'en-US':
+                        'Added player skin lookup by Java player name or UUID, with PNG downloads and importing into saved skins.',
+                    'zh-CN':
+                        '新增按 Java 版玩家名或 UUID 查询皮肤，支持下载 PNG 和添加到已保存皮肤。',
+                },
+                {
+                    'en-US':
+                        'Added skin editor draft autosaving, recovery, configurable save intervals, and warnings before leaving with unsaved changes.',
+                    'zh-CN': '皮肤编辑器新增草稿自动保存、恢复、保存间隔设置和未保存修改离开提醒。',
+                },
+                {
+                    'en-US':
+                        'Added MCP tools for instance launches, resource installation, downloads, Java, backups, worlds, accounts, dedicated servers, and launcher maintenance.',
+                    'zh-CN':
+                        '新增实例启动、资源安装、下载、Java、备份、世界、账号、独立服务器和启动器维护等 MCP 工具。',
+                },
+                {
+                    'en-US':
+                        'Added MCP launcher interface observation, with screenshots, navigation, clicking, typing, and scrolling available in full access mode.',
+                    'zh-CN':
+                        '新增 MCP 启动器界面观察，完全访问模式下支持截图、导航、点击、输入和滚动。',
+                },
+                {
+                    'en-US':
+                        'Added settings file import, export, and cleanup, including exports containing only differences from default settings.',
+                    'zh-CN': '新增设置文件导入、导出和清理，支持仅导出与默认设置不同的配置。',
+                },
+                {
+                    'en-US':
+                        'Added deployment-provided settings documents, Home Manager configuration support, and indicators showing which settings come from deployment configuration.',
+                    'zh-CN':
+                        '新增部署配置文档和 Home Manager 配置支持，并显示由部署配置提供的设置项。',
+                },
+                {
+                    'en-US':
+                        'Added a default game language setting for first launches, including an option to follow the launcher language.',
+                    'zh-CN': '新增首次启动实例时使用的默认游戏语言设置，支持跟随启动器语言。',
+                },
+                {
+                    'en-US': 'Added instance grouping by game directory.',
+                    'zh-CN': '新增按游戏目录分组显示实例。',
+                },
+                {
+                    'en-US': 'Added advanced download diagnostics under developer options.',
+                    'zh-CN': '开发者选项新增高级下载诊断信息。',
+                },
+            ],
+            changed: [
+                {
+                    'en-US':
+                        'Localized content task titles and added resource names to downloads, the download menu, and notifications.',
+                    'zh-CN': '下载列表、下载菜单和通知中的内容任务标题支持中文，并显示资源名称。',
+                },
+                {
+                    'en-US':
+                        'Improved responsiveness when previewing large content batches and checking ongoing content changes.',
+                    'zh-CN': '优化批量内容预览和内容变更状态检查的响应速度。',
+                },
+                {
+                    'en-US':
+                        'Clarified that instance upgrades do not support downgrading Minecraft or Fabric versions.',
+                    'zh-CN': '实例升级页面明确提示不支持降低 Minecraft 或 Fabric 版本。',
+                },
+                {
+                    'en-US':
+                        'Clarified that forced installation in the content preview installs only selected resources without their dependencies.',
+                    'zh-CN': '内容安装预览明确提示：强制安装仅安装所选资源，不会安装其依赖。',
+                },
+                {
+                    'en-US': 'Improved launcher update downloads with parallel range requests.',
+                    'zh-CN': '优化启动器更新下载，使用并行分段请求。',
+                },
+                {
+                    'en-US':
+                        'Improved schematic and structure previews with sloped water and lava, waterlogged blocks, fluid transparency, and bubble columns.',
+                    'zh-CN':
+                        '优化投影与结构预览，支持水和岩浆的流动坡面、含水方块、流体透明度和气泡柱。',
+                },
+                {
+                    'en-US':
+                        'Improved content browsing with collapsible folders, streamlined filters, loading skeletons, and a bottom-right back-to-top button.',
+                    'zh-CN':
+                        '优化内容浏览，支持折叠文件夹，并调整筛选、骨架屏和右下角返回顶部按钮。',
+                },
+                {
+                    'en-US':
+                        "Updated CodeFlow's built-in model catalog using its public pricing API.",
+                    'zh-CN': '使用 CodeFlow 公开价格接口更新其内置模型列表。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed missing file details in download history after batch content installation.',
+                    'zh-CN': '修复批量安装内容后，下载历史缺少文件详情的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed completed content tasks still displaying an installation-in-progress message in download history.',
+                    'zh-CN': '修复下载历史中的已完成内容任务仍显示“正在完成安装”的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed modpack download tails repeatedly retrying remaining files and slow downloads when adding batches of small files.',
+                    'zh-CN':
+                        '修复整合包下载收尾阶段反复重试剩余文件，以及批量添加小文件时下载缓慢的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed large-file download tails and preserved HTTP/2 support when using proxy and custom TLS settings.',
+                    'zh-CN':
+                        '修复大文件下载收尾缓慢的问题，并保留代理和自定义 TLS 设置下的 HTTP/2 支持。',
+                },
+                {
+                    'en-US':
+                        'Fixed download progress appearing complete before the installation task actually finished.',
+                    'zh-CN': '修复安装任务尚未结束时，下载进度提前显示完成的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed content disappearing temporarily while the same instance was being modified or when reopening the Content tab.',
+                    'zh-CN': '修复实例内容变更期间或重新进入内容页时，模组列表短暂消失的问题。',
+                },
+                {
+                    'en-US': 'Fixed batch content installation previews sometimes failing to open.',
+                    'zh-CN': '修复批量安装内容时，预览窗口有时无法打开的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed instance upgrades retaining outdated official filenames while preserving custom names and disabled states.',
+                    'zh-CN':
+                        '修复实例升级后仍沿用旧版官方文件名的问题，并保留自定义名称和禁用状态。',
+                },
+                {
+                    'en-US': 'Fixed the file editor failing to load in development builds.',
+                    'zh-CN': '修复开发版文件编辑器无法加载的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed content reconciliation incorrectly removing plugin records and misclassifying files as nested content.',
+                    'zh-CN': '修复内容扫描清理时误删插件记录，以及将文件错误判断为嵌套内容的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed queued installations failing during temporary database read errors or resource waits, and improved recovery after interrupted cancellation cleanup.',
+                    'zh-CN':
+                        '修复排队安装因临时数据库读取错误或资源等待而失败的问题，并改善取消清理中断后的恢复。',
+                },
+                {
+                    'en-US':
+                        'Fixed game playtime being lost when process exit events arrived before pending updates.',
+                    'zh-CN': '修复进程退出事件先于待处理更新到达时，游戏时长记录丢失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed out-of-memory guidance recommending more game memory when the system itself lacked physical memory or swap space.',
+                    'zh-CN':
+                        '修复系统物理内存或交换空间不足时，崩溃诊断仍建议增加游戏内存分配的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed settings screens showing stale values after importing or rewriting settings files.',
+                    'zh-CN': '修复导入或重写设置文件后，设置页面仍显示旧值的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed schematic preview failures being silent and Reden cover images failing to load through browser requests.',
+                    'zh-CN':
+                        '修复投影预览失败时缺少提示，以及 Reden 封面通过浏览器请求无法加载的问题。',
+                },
+            ],
+            security: [
+                {
+                    'en-US':
+                        'Hardened archive imports against path traversal, Windows device names, alternate data streams, and ambiguous filenames.',
+                    'zh-CN':
+                        '加强压缩包导入路径校验，阻止目录穿越、Windows 设备名、备用数据流和歧义文件名。',
+                },
+                {
+                    'en-US':
+                        'Added before-and-after review of dangerous imported settings, with options to skip them or cancel the import.',
+                    'zh-CN': '新增危险设置导入前后值对照，支持跳过危险设置或取消导入。',
+                },
+                {
+                    'en-US':
+                        'Protected Shimu OAuth authorization with PKCE and strengthened callback validation.',
+                    'zh-CN': '为拾木 OAuth 授权加入 PKCE 保护，并加强回调校验。',
+                },
+                {
+                    'en-US':
+                        'Hardened schematic installation path checks and prevented unintended replacement of existing files.',
+                    'zh-CN': '加强投影安装路径检查，防止意外替换已有文件。',
+                },
+            ],
+        },
+    },
+    {
+        id: 'launcher-1.10.5',
+        version: '1.10.5',
+        publishedAt: '2026-10-31',
+        title: {
+            'en-US': 'Axolotl Launcher 1.10.5',
+            'zh-CN': 'Axolotl Launcher 1.10.5',
+        },
+        changes: {
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed log exports from Settings failing and creating empty ZIP files when an online account was saved in the launcher.',
+                    'zh-CN': '修复添加在线账号后，从设置导出日志会失败并生成空 ZIP 文件的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed failed or cancelled log exports leaving incomplete files or overwriting existing log archives.',
+                    'zh-CN': '修复日志导出失败或取消时留下不完整文件、覆盖已有日志包的问题。',
+                },
+            ],
+        },
+    },
+    {
+        id: 'launcher-1.10.4',
+        version: '1.10.4',
+        publishedAt: '2026-10-30',
+        title: {
+            'en-US': 'Axolotl Launcher 1.10.4',
+            'zh-CN': 'Axolotl Launcher 1.10.4',
+        },
+        changes: {
+            changed: [
+                {
+                    'en-US':
+                        'Improved retries after recoverable modpack download failures by retaining the original incomplete instance and reusing verified files.',
+                    'zh-CN':
+                        '优化整合包下载失败后的重试，遇到可恢复的网络错误时保留原有未完成实例，并复用已校验的文件。',
+                },
+                {
+                    'en-US':
+                        'Improved CurseForge version loading by sharing duplicate requests and isolating cached results by filters and source settings.',
+                    'zh-CN':
+                        '优化 CurseForge 版本加载，合并重复请求，并按筛选条件和内容源设置隔离缓存结果。',
+                },
+                {
+                    'en-US': 'Updated the built-in AI model catalog with MiniMax M3.1 Flash.',
+                    'zh-CN': '更新内置 AI 模型列表，加入 MiniMax M3.1 Flash。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed Minecraft installation failing immediately when asset batch downloads could not complete, with individual downloads used for unresolved files.',
+                    'zh-CN':
+                        '修复 Minecraft 资源批量下载未完成时直接导致安装失败的问题，未完成的文件会回退到单独下载。',
+                },
+                {
+                    'en-US':
+                        'Fixed asset fallback downloads reusing corrupted same-size files and counting download progress incorrectly.',
+                    'zh-CN':
+                        '修复资源回退下载误用大小相同但内容损坏的文件，以及下载进度重复或遗漏计数的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed installation tasks remaining active after workers stopped unexpectedly and old worker results interfering with retried tasks.',
+                    'zh-CN':
+                        '修复安装任务在执行过程意外停止后仍显示运行中，以及旧执行结果干扰重试任务的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed cancellation racing with failure cleanup and already-committed installations being incorrectly treated as failed.',
+                    'zh-CN':
+                        '修复取消操作与失败清理相互冲突，以及已完成提交的安装被错误标记为失败的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed modpack installation errors showing unrelated extraction details instead of the actual Minecraft download failure.',
+                    'zh-CN':
+                        '修复整合包安装失败时显示无关的解压信息，而非实际 Minecraft 下载错误的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed instance imports being submitted before scanning finished or using stale scan results after import options changed.',
+                    'zh-CN':
+                        '修复实例扫描完成前即可提交导入，以及修改导入选项后仍使用旧扫描结果的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed resource analysis waiting indefinitely for requests or session locks, with timeouts that release pending work and allow retrying.',
+                    'zh-CN':
+                        '修复资源分析无限等待请求或会话锁的问题，超时后会释放等待中的任务并允许重试。',
+                },
+                {
+                    'en-US':
+                        'Fixed unavailable optional source associations blocking mod analysis or replacing an explicitly recorded project identity.',
+                    'zh-CN':
+                        '修复可选内容源关联不可用时阻塞模组分析，或替换已明确记录的项目身份的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed incomplete candidate metadata being treated as a confirmed conflict while preserving known dependency requirements and verified conflicts.',
+                    'zh-CN':
+                        '修复将不完整的候选文件信息误判为确定冲突的问题，同时保留已知依赖要求和已确认的冲突。',
+                },
+                {
+                    'en-US':
+                        'Fixed repeated or non-advancing CurseForge version pages causing endless queries or inconsistent version lists.',
+                    'zh-CN':
+                        '修复 CurseForge 版本分页重复或未向后推进时，查询无法结束或版本列表不一致的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed removing a specific favorite also removing saved counterparts from other content sources.',
+                    'zh-CN': '修复取消某个项目的收藏时，同时移除其他内容源对应项目收藏的问题。',
+                },
+            ],
+            security: [
+                {
+                    'en-US':
+                        'Improved account credential protection by moving supported login secrets into the system credential store, with compatibility fallback when storage is unavailable.',
+                    'zh-CN':
+                        '加强账号凭据保护，将支持的登录凭据迁移到系统凭据库，并在无法存储时保留兼容路径。',
+                },
+                {
+                    'en-US':
+                        'Fixed an unreadable credential store being treated as empty, preventing diagnostic exports from proceeding without reliable account-secret redaction.',
+                    'zh-CN':
+                        '修复凭据库无法读取时被当作空库处理的问题，避免诊断导出在无法可靠隐藏账号凭据时继续执行。',
+                },
+                {
+                    'en-US':
+                        'Fixed known security vulnerabilities by updating zip and node-forge dependencies.',
+                    'zh-CN': '更新 zip 和 node-forge 依赖，修复已知安全漏洞。',
+                },
+            ],
+        },
+    },
+    {
+        id: 'launcher-1.10.3',
+        version: '1.10.3',
+        publishedAt: '2026-10-28',
+        title: {
+            'en-US': 'Axolotl Launcher 1.10.3',
+            'zh-CN': 'Axolotl Launcher 1.10.3',
+        },
+        changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added persistent content refresh results with progress counts and targeted retries for failed checks.',
+                    'zh-CN': '新增内容刷新结果持久保存、进度计数和失败项单独重试。',
+                },
+                {
+                    'en-US':
+                        'Added detailed instance upgrade analysis progress, including per-file compatibility results and a Stop analysis control.',
+                    'zh-CN': '实例升级分析新增详细进度、逐文件兼容性结果和停止分析按钮。',
+                },
+                {
+                    'en-US':
+                        'Added progressive ore and loot results to Seed Map area analysis, with incomplete results clearly marked after cancellation.',
+                    'zh-CN':
+                        '种子地图区域分析新增矿物与战利品结果逐步显示，并在取消后明确标注结果尚不完整。',
+                },
+                {
+                    'en-US':
+                        'Added a saved cards-per-page preference for Discover that persists across launcher restarts.',
+                    'zh-CN': '新增发现页面每页卡片数量记忆，重启启动器后仍保留所选设置。',
+                },
+            ],
+            changed: [
+                {
+                    'en-US':
+                        'Improved content refresh by displaying local files first, then progressively filling in project details and available updates.',
+                    'zh-CN': '优化内容刷新，优先显示本地文件，再逐步补充项目信息和可用更新。',
+                },
+                {
+                    'en-US':
+                        'Improved repeated content scans by persistently caching file fingerprints and reusing verified installation results.',
+                    'zh-CN': '优化重复内容扫描，持久缓存文件指纹，并复用已校验的安装结果。',
+                },
+                {
+                    'en-US':
+                        'Improved large mod list responsiveness by batching refresh requests, metadata lookups, and incremental display updates.',
+                    'zh-CN':
+                        '优化大型模组列表的响应，合并刷新请求、批量获取信息并分批更新显示结果。',
+                },
+                {
+                    'en-US':
+                        'Improved version pickers by showing each page as it arrives and retaining loaded versions when later pages need retrying.',
+                    'zh-CN':
+                        '优化版本选择器，逐页显示已加载版本，并在后续页面加载失败时保留已有结果供重试。',
+                },
+                {
+                    'en-US':
+                        'Improved Java selection, project version pages, and Worlds loading by displaying them before supplementary lookups finish.',
+                    'zh-CN':
+                        '优化 Java 选择器、项目版本页和世界页面加载，无需等待补充信息全部查询完成即可显示。',
+                },
+                {
+                    'en-US':
+                        'Improved launcher import detection by checking multiple launchers concurrently and displaying each result as it becomes available.',
+                    'zh-CN': '优化启动器导入检测，并行检查多个启动器，发现可导入实例后立即显示。',
+                },
+                {
+                    'en-US':
+                        'Improved dependency previews with stage-specific progress and removal of dependencies discarded during later analysis rounds.',
+                    'zh-CN': '优化依赖预览，显示当前分析阶段，并及时移除后续分析中不再需要的依赖。',
+                },
+                {
+                    'en-US':
+                        "Expanded CodeFlow's built-in model list to include all models listed in its Model Square.",
+                    'zh-CN': '扩充 CodeFlow 内置模型列表，收录其模型广场中列出的全部模型。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed mod lists reordering while scrolling and completed refresh results disappearing during unstable scans or online failures.',
+                    'zh-CN':
+                        '修复模组列表滚动时重新排序，以及扫描不稳定或在线查询失败时已完成的刷新结果丢失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed repeated direct updates conflicting with each other by queueing updates sequentially within the same instance.',
+                    'zh-CN': '修复重复直接更新相互冲突的问题，同一实例的更新现在按顺序执行。',
+                },
+                {
+                    'en-US':
+                        'Fixed choosing another version of installed content being treated as a new installation instead of replacing the existing entry.',
+                    'zh-CN':
+                        '修复为已安装内容选择其他版本时，被当作全新安装而非替换现有条目的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed false dependency conflicts caused by mod version ranges and compatibility constraints that could not be conclusively evaluated.',
+                    'zh-CN': '修复模组版本范围解析和无法确定的兼容性约束导致的依赖冲突误报。',
+                },
+                {
+                    'en-US':
+                        'Fixed Update all using stale candidates from failed checks and modpack downgrade decisions being made before the installed version was known.',
+                    'zh-CN':
+                        '修复全部更新使用检查失败条目的旧候选版本，以及尚未确认已安装版本就判断整合包降级的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed dependency preview cancellation leaving analysis running, including repeated analysis after selections or instance content changed.',
+                    'zh-CN':
+                        '修复取消依赖预览后分析仍继续运行的问题，包括更改选择或实例内容后的重新分析。',
+                },
+                {
+                    'en-US':
+                        'Fixed canceled mod analysis publishing stale results and Seed Map ore scans continuing inside native processing loops.',
+                    'zh-CN':
+                        '修复已取消的模组分析仍提交过期结果，以及种子地图矿物扫描取消后仍在原生计算循环中继续运行的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed download tasks remaining in stale states and cancellation appearing unresponsive while progress checkpoints or cleanup were pending.',
+                    'zh-CN':
+                        '修复下载任务状态长时间未更新，以及等待进度保存或清理时取消操作看似无响应的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed CurseForge metadata requests waiting indefinitely for request slots, response bodies, or retry delays.',
+                    'zh-CN':
+                        '修复 CurseForge 信息请求因等待请求名额、响应内容或重试延迟而长时间无法结束的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed file saves marking edits made during the write as saved and navigation discarding changes after a failed save.',
+                    'zh-CN':
+                        '修复文件保存期间的新输入被误标为已保存，以及保存失败后离开页面丢弃修改的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed older file reads overwriting the editor after switching files and overlapping saves failing to preserve the latest edits.',
+                    'zh-CN':
+                        '修复切换文件后旧读取结果覆盖当前编辑器，以及连续保存未正确保留最新修改的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed log list refreshes and log text requests interfering with each other, including sharing the previous log while another was loading.',
+                    'zh-CN':
+                        '修复日志列表刷新与日志正文请求相互干扰，以及加载另一份日志时误分享上一份日志的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed background Java discovery replacing a user-started lookup and losing its results or errors.',
+                    'zh-CN':
+                        '修复后台 Java 检测替换用户主动发起的查询，导致查询结果或错误丢失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed requested versions being selected incorrectly when version lists opened early, loaded slowly, or failed partway through.',
+                    'zh-CN':
+                        '修复版本列表提前打开、加载缓慢或中途失败时，未正确保留所请求版本选择的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed server status and Quick Play showing unavailable states before the Worlds page finished loading their required information.',
+                    'zh-CN':
+                        '修复世界页面尚未加载必要信息时，服务器状态和快速游玩被提前显示为不可用的问题。',
+                },
+            ],
+            security: [
+                {
+                    'en-US': 'Fixed a known security vulnerability in the qs dependency.',
+                    'zh-CN': '更新 qs 依赖，修复已知安全漏洞。',
+                },
+            ],
+        },
+    },
+    {
+        id: 'launcher-1.10.2',
+        version: '1.10.2',
+        publishedAt: '2026-10-27',
+        title: {
+            'en-US': 'Axolotl Launcher 1.10.2',
+            'zh-CN': 'Axolotl Launcher 1.10.2',
+        },
+        changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added local MCP connections with client setup, token authentication, session approval, and disconnection controls, currently limited to launcher information and session management.',
+                    'zh-CN':
+                        '新增本地 MCP 连接，支持客户端配置、令牌认证、会话审批与断开连接，当前仅提供启动器信息读取和会话管理。',
+                },
+                {
+                    'en-US':
+                        'Added FastAI to AI settings with a built-in provider configuration and model catalog.',
+                    'zh-CN': 'AI 设置新增 FastAI 服务商，提供内置连接配置和模型列表。',
+                },
+                {
+                    'en-US':
+                        'Added modpack exports from linked Minecraft instances, using their actual game and loader versions.',
+                    'zh-CN':
+                        '新增关联 Minecraft 实例的整合包导出支持，使用实例实际的游戏与加载器版本。',
+                },
+                {
+                    'en-US':
+                        'Added an appearance setting to use the interface font for role nametags on the Skins page.',
+                    'zh-CN': '外观设置新增皮肤页面角色名牌使用界面字体的选项。',
+                },
+                {
+                    'en-US': 'Added a 2×3 size option for the Recent Projects home widget.',
+                    'zh-CN': '首页“最近的项目”小组件新增 2×3 尺寸。',
+                },
+            ],
+            changed: [
+                {
+                    'en-US':
+                        'Improved Java detection by completing a deeper search of likely installation directories before prompting for a runtime download.',
+                    'zh-CN': '优化 Java 检测，在提示下载运行环境前，先进一步扫描可能的安装目录。',
+                },
+                {
+                    'en-US':
+                        'Improved content update checks by scanning the whole instance in the background and continuing past slow individual requests.',
+                    'zh-CN':
+                        '优化内容更新检查，在后台扫描整个实例，避免单个缓慢请求阻塞其他检查结果。',
+                },
+                {
+                    'en-US':
+                        'Improved dependency analysis by reusing cached hashes and fingerprints for unchanged local files.',
+                    'zh-CN':
+                        '优化依赖分析，复用未变更本地文件的哈希与指纹缓存，减少重复读取和计算。',
+                },
+                {
+                    'en-US':
+                        'Improved content installation feedback with specific conflict details, failure reasons, and recovery suggestions.',
+                    'zh-CN': '优化内容安装反馈，提供具体的冲突详情、失败原因和处理建议。',
+                },
+                {
+                    'en-US':
+                        'Improved download connection pooling and range scheduling to reduce slow completion of Minecraft downloads.',
+                    'zh-CN': '优化下载连接池和分段调度，改善 Minecraft 下载收尾阶段缓慢的问题。',
+                },
+                {
+                    'en-US':
+                        'Simplified native instance imports to copy files, while keeping Minecraft folder linking as a separate choice.',
+                    'zh-CN':
+                        '简化原生实例导入流程，统一通过复制文件导入，并将 Minecraft 文件夹关联作为独立选项。',
+                },
+                {
+                    'en-US':
+                        'Temporarily disabled automatic onboarding while retaining manual tour replay.',
+                    'zh-CN': '暂时关闭引导教程的自动弹出，保留手动重播入口。',
+                },
+                {
+                    'en-US': 'Temporarily hid the Mod Translation entry in Lab.',
+                    'zh-CN': '暂时隐藏实验室中的模组翻译入口。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        "Fixed isolated instance imports copying from the shared Minecraft directory instead of preserving the selected version's mods, configuration, and scripts.",
+                    'zh-CN':
+                        '修复版本隔离实例导入时错误复制共享 Minecraft 目录，导致所选版本的模组、配置和脚本未被正确保留的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed duplicate installation submissions creating repeated tasks and conflicting operations running against the same instance.',
+                    'zh-CN': '修复重复提交安装产生重复任务，以及同一实例的冲突操作并行执行的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed interrupted content enable, disable, and deletion operations leaving files inconsistent with launcher records, with recovery for unfinished operations.',
+                    'zh-CN':
+                        '修复内容启用、禁用和删除操作中断后，文件与启动器记录不一致的问题，并支持恢复未完成的操作。',
+                },
+                {
+                    'en-US':
+                        'Fixed stale content scans overwriting newer file-operation results and refresh events being missed after operations.',
+                    'zh-CN': '修复过期内容扫描覆盖较新文件操作结果，以及操作后遗漏刷新事件的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed content update checks being blocked by dependency installation planning before newer releases could be listed.',
+                    'zh-CN': '修复内容更新检查被依赖安装分析阻塞，导致无法正常列出新版本的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed content version queries getting stuck, with timeout recovery, retry support, and protection against repeated submissions.',
+                    'zh-CN': '修复内容版本查询卡住的问题，补充超时恢复、重试和防止重复提交的处理。',
+                },
+                {
+                    'en-US':
+                        'Fixed simultaneous world datapack changes overwriting each other and blocked writes while Minecraft holds the world open.',
+                    'zh-CN':
+                        '修复同时修改世界数据包时相互覆盖的问题，并在 Minecraft 占用世界期间阻止写入。',
+                },
+                {
+                    'en-US':
+                        'Fixed unreadable worlds disappearing from datapack lists and unreadable datapack states being treated as known values.',
+                    'zh-CN':
+                        '修复无法读取的世界从数据包列表中消失，以及读取失败的数据包状态被当作确定值处理的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed ZIP datapack enable states being confused with same-named folders.',
+                    'zh-CN': '修复 ZIP 数据包的启用状态与同名文件夹混淆的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed empty or invalid window dimensions being saved, restoring the stored value while keeping the edited field focused.',
+                    'zh-CN':
+                        '修复窗口宽高为空或无效时仍被保存的问题，恢复已保存的值并保留输入框焦点。',
+                },
+                {
+                    'en-US':
+                        'Fixed home widget editing controls shifting on hover or extending beyond their available space.',
+                    'zh-CN': '修复首页小组件编辑栏悬停时抖动或超出可用区域的问题。',
+                },
+            ],
+            security: [
+                {
+                    'en-US':
+                        'Fixed known security vulnerabilities in zod and basic-ftp dependencies.',
+                    'zh-CN': '更新 zod 和 basic-ftp 依赖，修复已知安全漏洞。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.10.1',
         version: '1.10.1',
         publishedAt: '2026-10-25',

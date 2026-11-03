@@ -2,7 +2,7 @@
 
 use sqlx::SqliteConnection;
 
-use super::{Collection, Handle};
+use super::Collection;
 
 /// The provider projects that have a resource of their own.
 pub(crate) struct ResourceSourceProjects;
@@ -142,120 +142,4 @@ async fn write_row(
     .await?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    async fn handle() -> Handle {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-        Handle::new(pool)
-    }
-
-    async fn resource(handle: &Handle, resource_id: &str) {
-        sqlx::query("INSERT INTO resources (id) VALUES (?)")
-            .bind(resource_id)
-            .execute(handle.pool())
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    async fn a_mapping_round_trips_and_removes() {
-        let handle = handle().await;
-        resource(&handle, "resource").await;
-        let project = ResourceSourceProjectKey {
-            source: "modrinth".to_string(),
-            project_id: "sodium".to_string(),
-        };
-        let record = ResourceSourceProjectRecord {
-            resource_id: "resource".to_string(),
-        };
-
-        ResourceSourceProjects::set(&handle, &project, Some(&record))
-            .await
-            .unwrap();
-        assert_eq!(
-            ResourceSourceProjects::get(&handle, &project)
-                .await
-                .unwrap(),
-            Some(record)
-        );
-
-        ResourceSourceProjects::set(&handle, &project, None)
-            .await
-            .unwrap();
-        assert_eq!(
-            ResourceSourceProjects::get(&handle, &project)
-                .await
-                .unwrap(),
-            None
-        );
-        assert!(
-            ResourceSourceProjects::get_all(&handle)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-    }
-}
-
-#[cfg(test)]
-mod composition_tests {
-    //! The favorites read resolves their resource through this collection, so
-    //! the two are exercised together here, where the fixtures may seed rows
-    //! the collections do not own yet.
-
-    use super::*;
-    use crate::state::content_favorites::{
-        ContentFavoriteInput, ContentFavoriteProvider, ContentFavoriteType,
-        add, list,
-    };
-
-    async fn handle() -> Handle {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-        sqlx::raw_sql(
-            "INSERT INTO resources (id) VALUES ('resource');
-             INSERT INTO resource_source_projects
-                (source, project_id, resource_id)
-             VALUES ('modrinth', 'sodium', 'resource');",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        Handle::new(pool)
-    }
-
-    #[tokio::test]
-    async fn a_favorite_carries_the_resource_its_project_maps_to() {
-        let handle = handle().await;
-
-        let favorite = add(
-            ContentFavoriteInput {
-                provider: ContentFavoriteProvider::Modrinth,
-                project_id: "sodium".to_string(),
-                content_type: ContentFavoriteType::Mod,
-            },
-            &handle,
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(favorite.resource_id.as_deref(), Some("resource"));
-        assert_eq!(
-            list(&handle).await.unwrap()[0].resource_id.as_deref(),
-            Some("resource")
-        );
-    }
 }

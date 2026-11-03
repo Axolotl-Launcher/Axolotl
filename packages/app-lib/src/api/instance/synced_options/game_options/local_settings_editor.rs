@@ -86,7 +86,7 @@ async fn load_instance_document(
     let metadata = crate::state::get_instance(instance_id, &state.pool)
         .await?
         .ok_or_else(|| input_error("Unknown instance"))?;
-    if crate::state::game_options_sync_is_enabled(&state.pool).await?
+    if crate::state::game_options_sync_is_enabled(&state.data).await?
         && metadata.synced_options.game_options
     {
         return Err(input_error(
@@ -107,7 +107,7 @@ async fn load_instance_document(
     let (document, input_bytes) = read_document(&path).await?;
     let mut controlled_keys = currently_launcher_owned_keys(&metadata);
     if metadata.launch_overrides.force_fullscreen.is_none()
-        && crate::state::Settings::get(&state.pool)
+        && crate::state::Settings::get(&state.data)
             .await?
             .force_fullscreen
     {

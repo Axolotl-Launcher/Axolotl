@@ -7,20 +7,30 @@ import { type DownloadSource, normalizeDownloadCatalog } from '../utils/download
 import type { DownloadStatus } from '../utils/launcher-downloads.ts'
 import { useLauncherDownloads } from './use-launcher-downloads.ts'
 
+const TEST_GITHUB_URL = 'https://example.test/repo'
+const TEST_ENDPOINTS = {
+    updateServerUrl: 'https://update.test',
+    updateArtifactUrl: 'https://dist.test',
+    gitlinkReleasesUrl: 'https://gitlink.test/mirror/releases/download',
+}
+
 function setup(t: TestContext) {
     const source = ref<DownloadSource>('auto')
     const channel = ref<'release' | 'beta'>('release')
     const data = ref(
-        normalizeDownloadCatalog({
-            version: '1.10.0',
-            release_tag: 'v1.10.0',
-            downloads: [
-                {
-                    filename: 'Axolotl_x64-setup.exe',
-                    relative_path: 'dist/1.10.0/Axolotl_x64-setup.exe',
-                },
-            ],
-        }),
+        normalizeDownloadCatalog(
+            {
+                version: '1.10.0',
+                release_tag: 'v1.10.0',
+                downloads: [
+                    {
+                        filename: 'Axolotl_x64-setup.exe',
+                        relative_path: 'dist/1.10.0/Axolotl_x64-setup.exe',
+                    },
+                ],
+            },
+            TEST_ENDPOINTS,
+        ),
     )
     const status = ref<DownloadStatus>('success')
     const refresh = t.mock.fn(async () => {})
@@ -32,6 +42,7 @@ function setup(t: TestContext) {
         computed,
         useState: () => source,
         onMounted: () => {},
+        useRuntimeConfig: () => ({ public: { githubUrl: TEST_GITHUB_URL, ...TEST_ENDPOINTS } }),
         useFetch: (
             url: Ref<string>,
             options: { server: boolean; timeout: number; retry: number },
@@ -59,11 +70,17 @@ test('source changes reuse one authoritative catalog and only change the file ho
     const f = setup(t)
     const release = f.result.release.value
     assert.equal(f.calls.length, 1)
-    assert.equal(new URL(f.result.links.value.windows!).hostname, 'dist.axlmc.org')
+    assert.equal(
+        new URL(f.result.links.value.windows!).hostname,
+        new URL(TEST_ENDPOINTS.updateArtifactUrl).hostname,
+    )
     f.source.value = 'gitlink'
-    assert.equal(new URL(f.result.links.value.windows!).hostname, 'www.gitlink.org.cn')
+    assert.equal(
+        new URL(f.result.links.value.windows!).hostname,
+        new URL(TEST_ENDPOINTS.gitlinkReleasesUrl).hostname,
+    )
     f.source.value = 'github'
-    assert.equal(new URL(f.result.links.value.windows!).hostname, 'github.com')
+    assert.equal(new URL(f.result.links.value.windows!).hostname, new URL(TEST_GITHUB_URL).hostname)
     assert.equal(f.result.release.value, release)
     assert.equal(f.result.release.value!.tag_name, 'v1.10.0')
     assert.equal(f.calls.length, 1)
@@ -87,10 +104,13 @@ test('channel changes and retries target only Update Server and remain browser-o
     const f = setup(t)
     assert.equal(
         f.calls[0].url.value,
-        'https://update.axlmc.org/api/downloads/latest?channel=release',
+        `${TEST_ENDPOINTS.updateServerUrl}/api/downloads/latest?channel=release`,
     )
     f.channel.value = 'beta'
-    assert.equal(f.calls[0].url.value, 'https://update.axlmc.org/api/downloads/latest?channel=beta')
+    assert.equal(
+        f.calls[0].url.value,
+        `${TEST_ENDPOINTS.updateServerUrl}/api/downloads/latest?channel=beta`,
+    )
     assert.equal(f.calls[0].options.server, false)
     assert.equal(f.calls[0].options.timeout, 10000)
     assert.equal(f.calls[0].options.retry, 1)
@@ -101,7 +121,10 @@ test('channel changes and retries target only Update Server and remain browser-o
 
 test('HTTP 204 and successful empty catalogs have no download links', (t) => {
     const f = setup(t)
-    for (const data of [null, normalizeDownloadCatalog({ version: '1.10.0', downloads: [] })]) {
+    for (const data of [
+        null,
+        normalizeDownloadCatalog({ version: '1.10.0', downloads: [] }, TEST_ENDPOINTS),
+    ]) {
         f.data.value = data
         assert(Object.values(f.result.links.value).every((url) => url === null))
         assert.equal(f.result.status.value, 'success')

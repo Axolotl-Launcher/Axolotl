@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -428,6 +429,7 @@ fn flatten_structured_text(
 
 pub fn find_standard_language_sources(
     directory: &Path,
+    cancel: &AtomicBool,
 ) -> Result<Vec<LanguageSource>> {
     let assets_root = directory.join("assets");
     if !assets_root.is_dir() {
@@ -438,6 +440,7 @@ pub fn find_standard_language_sources(
         TranslateError::io("unable to read assets directory", error)
     })?;
     for entry in entries.flatten() {
+        check_analysis_cancel(cancel)?;
         let namespace = entry.file_name().to_string_lossy().into_owned();
         let lang_dir = assets_root.join(&namespace).join("lang");
         if !lang_dir.is_dir() {
@@ -518,9 +521,11 @@ fn read_json_lang(content: &str) -> Result<BTreeMap<String, String>> {
 pub fn discover_structured_sources(
     directory: &Path,
     standard: &HashSet<String>,
+    cancel: &AtomicBool,
 ) -> Result<Vec<LanguageSource>> {
     let mut sources = Vec::new();
-    for relative in jar::collect_files(directory)? {
+    for relative in jar::collect_files_cancellable(directory, cancel)? {
+        check_analysis_cancel(cancel)?;
         let lower = relative.to_ascii_lowercase();
         if !lower.ends_with(".json") || standard.contains(&lower) {
             continue;
@@ -581,9 +586,11 @@ pub fn discover_structured_sources(
 pub fn discover_localized_text_sources(
     directory: &Path,
     known: &HashSet<String>,
+    cancel: &AtomicBool,
 ) -> Result<Vec<LanguageSource>> {
     let mut sources = Vec::new();
-    for relative in jar::collect_files(directory)? {
+    for relative in jar::collect_files_cancellable(directory, cancel)? {
+        check_analysis_cancel(cancel)?;
         let lower = relative.to_ascii_lowercase();
         if known.contains(&lower)
             || !(lower.ends_with(".txt") || lower.ends_with(".md"))
@@ -699,6 +706,7 @@ fn localized_existing_entries(
 pub fn build_resource_coverage(
     directory: &Path,
     sources: &[LanguageSource],
+    cancel: &AtomicBool,
 ) -> Result<Vec<ResourceCoverage>> {
     let source_by_path: HashMap<String, &LanguageSource> = sources
         .iter()
@@ -709,7 +717,8 @@ pub fn build_resource_coverage(
         .map(|source| source.target_path.to_ascii_lowercase())
         .collect();
     let mut coverage = Vec::new();
-    for relative in jar::collect_files(directory)? {
+    for relative in jar::collect_files_cancellable(directory, cancel)? {
+        check_analysis_cancel(cancel)?;
         let lower = relative.to_ascii_lowercase();
         if let Some(source) = source_by_path.get(&lower) {
             coverage.push(ResourceCoverage {
@@ -1174,10 +1183,12 @@ fn is_host_structural_class_candidate(candidate: &ClassCandidate) -> bool {
 
 pub fn discover_class_candidates(
     directory: &Path,
+    cancel: &AtomicBool,
 ) -> Result<Vec<ClassCandidate>> {
     let mut grouped: HashMap<String, (String, BTreeSet<String>)> =
         HashMap::new();
-    for relative in jar::collect_files(directory)? {
+    for relative in jar::collect_files_cancellable(directory, cancel)? {
+        check_analysis_cancel(cancel)?;
         if !relative.to_ascii_lowercase().ends_with(".class") {
             continue;
         }
@@ -1234,10 +1245,14 @@ fn is_camel_case_config_identifier(value: &str) -> bool {
             .any(|character| character.is_ascii_uppercase())
 }
 
-fn discover_external_ui_warnings(directory: &Path) -> Result<Vec<String>> {
+fn discover_external_ui_warnings(
+    directory: &Path,
+    cancel: &AtomicBool,
+) -> Result<Vec<String>> {
     let mut references_malilib = false;
     let mut config_identifiers = BTreeSet::new();
-    for relative in jar::collect_files(directory)? {
+    for relative in jar::collect_files_cancellable(directory, cancel)? {
+        check_analysis_cancel(cancel)?;
         if !relative.to_ascii_lowercase().ends_with(".class") {
             continue;
         }
@@ -1345,21 +1360,73 @@ pub fn replace_class_utf8(
 
 /// 计算输入 jar 的 sha256（断点匹配用）。
 pub fn input_file_hash(path: &Path) -> Result<String> {
+    input_file_hash_cancellable(path, &AtomicBool::new(false))
+}
+
+/// 同 [`input_file_hash`]，每读完一块数据检查一次 `cancel`。
+pub fn input_file_hash_cancellable(
+    path: &Path,
+    cancel: &AtomicBool,
+) -> Result<String> {
     let mut file = std::fs::File::open(path).map_err(|error| {
         TranslateError::io("unable to open input JAR for hashing", error)
     })?;
     let mut hasher = Sha256::new();
-    std::io::copy(&mut file, &mut hasher).map_err(|error| {
-        TranslateError::io("unable to hash input JAR", error)
-    })?;
+    let mut buffer = vec![0; 1 << 20];
+    loop {
+        check_analysis_cancel(cancel)?;
+        let read =
+            std::io::Read::read(&mut file, &mut buffer).map_err(|error| {
+                TranslateError::io("unable to hash input JAR", error)
+            })?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-/// 完整解包 + 分析，返回 (工作区目录, 分析结果)。
-pub fn extract_and_inspect(
+pub(crate) fn check_analysis_cancel(cancel: &AtomicBool) -> Result<()> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err(TranslateError::new(
+            TranslateErrorCode::Cancelled,
+            "analysis was canceled",
+        ));
+    }
+    Ok(())
+}
+
+/// 完整解包 + 分析，返回 (工作区目录, 分析结果)。解包时、各阶段逐个
+/// 文件检查 `cancel`；取消时删除已解包的工作区。
+pub fn extract_and_inspect_cancellable(
     input_path: &Path,
     workspace_root: &Path,
+    cancel: &AtomicBool,
 ) -> Result<(PathBuf, JarInspection)> {
+    let mut directory = None;
+    let result = extract_and_inspect_inner(
+        input_path,
+        workspace_root,
+        cancel,
+        &mut directory,
+    );
+    if result.is_err()
+        && cancel.load(Ordering::Relaxed)
+        && let Some(directory) = directory
+    {
+        let _ = std::fs::remove_dir_all(directory);
+    }
+    result
+}
+
+fn extract_and_inspect_inner(
+    input_path: &Path,
+    workspace_root: &Path,
+    cancel: &AtomicBool,
+    created: &mut Option<PathBuf>,
+) -> Result<(PathBuf, JarInspection)> {
+    check_analysis_cancel(cancel)?;
     let absolute_input = input_path.canonicalize().map_err(|error| {
         TranslateError::io("unable to resolve input JAR path", error)
     })?;
@@ -1373,34 +1440,42 @@ pub fn extract_and_inspect(
             TranslateError::io("unable to create job workspace", error)
         })?;
     let directory_path = directory.keep();
+    *created = Some(directory_path.clone());
 
     let extraction = jar::extract_archive(
         &absolute_input,
         &directory_path,
         &ExtractionLimits::default(),
+        cancel,
     )?;
+    check_analysis_cancel(cancel)?;
 
     let metadata = detect_metadata(&directory_path);
-    let standard = find_standard_language_sources(&directory_path)?;
+    let standard = find_standard_language_sources(&directory_path, cancel)?;
+    check_analysis_cancel(cancel)?;
     let standard_set: HashSet<String> = standard
         .iter()
         .map(|source| source.source_path.to_ascii_lowercase())
         .collect();
     let structured =
-        discover_structured_sources(&directory_path, &standard_set)?;
+        discover_structured_sources(&directory_path, &standard_set, cancel)?;
     let known_set: HashSet<String> = standard
         .iter()
         .chain(structured.iter())
         .map(|source| source.source_path.to_ascii_lowercase())
         .collect();
+    check_analysis_cancel(cancel)?;
     let localized =
-        discover_localized_text_sources(&directory_path, &known_set)?;
+        discover_localized_text_sources(&directory_path, &known_set, cancel)?;
+    check_analysis_cancel(cancel)?;
     let mut language_sources = standard;
     language_sources.extend(structured);
     language_sources.extend(localized);
     let resource_coverage =
-        build_resource_coverage(&directory_path, &language_sources)?;
-    let class_candidates = discover_class_candidates(&directory_path)?;
+        build_resource_coverage(&directory_path, &language_sources, cancel)?;
+    check_analysis_cancel(cancel)?;
+    let class_candidates = discover_class_candidates(&directory_path, cancel)?;
+    check_analysis_cancel(cancel)?;
     let inferred_mod_ids = language_sources
         .iter()
         .map(|source| source.namespace.clone())
@@ -1435,7 +1510,8 @@ pub fn extract_and_inspect(
         warnings
             .push("检测到 JAR 数字签名，当前版本不会修改该文件".to_string());
     }
-    warnings.extend(discover_external_ui_warnings(&directory_path)?);
+    warnings.extend(discover_external_ui_warnings(&directory_path, cancel)?);
+    check_analysis_cancel(cancel)?;
 
     let inspection = JarInspection {
         input_path: absolute_input,
@@ -1766,7 +1842,9 @@ mod tests {
         std::fs::create_dir_all(class_path.parent().unwrap()).unwrap();
         std::fs::write(&class_path, malilib_config_class_fixture()).unwrap();
 
-        let warnings = discover_external_ui_warnings(dir.path()).unwrap();
+        let warnings =
+            discover_external_ui_warnings(dir.path(), &AtomicBool::new(false))
+                .unwrap();
         assert!(warnings.iter().any(|warning| {
             warning.contains("areaSelectionsPerWorld")
                 && warning.contains("prettyName")
@@ -1811,6 +1889,35 @@ mod tests {
         assert!(
             before_tail.len() != after_tail.len() || before_tail == after_tail
         );
+    }
+
+    #[test]
+    fn analysis_canceled_while_unpacking_removes_its_workspace() {
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("mod.jar");
+        let mut writer =
+            zip::ZipWriter::new(std::fs::File::create(&input).unwrap());
+        let options = zip::write::SimpleFileOptions::default();
+        writer
+            .start_file("assets/x/lang/en_us.json", options)
+            .unwrap();
+        writer.write_all(b"{\"a\":\"A\"}").unwrap();
+        writer.start_file("data.bin", options).unwrap();
+        writer.write_all(&jar::tests::noise(3 << 20)).unwrap();
+        writer.finish().unwrap();
+        let workspace_root = dir.path().join("workspaces");
+
+        jar::CANCEL_AFTER_CHUNKS.with(|chunks| chunks.set(Some(2)));
+        let cancel = AtomicBool::new(false);
+        let result =
+            extract_and_inspect_cancellable(&input, &workspace_root, &cancel);
+        jar::CANCEL_AFTER_CHUNKS.with(|chunks| chunks.set(None));
+
+        let error = result.expect_err("the analysis must stop while unpacking");
+        assert_eq!(error.code, TranslateErrorCode::Cancelled);
+        assert_eq!(std::fs::read_dir(&workspace_root).unwrap().count(), 0);
     }
 
     /// 手工构造一个最小合法 class 文件（只有常量池 + 空类体）。

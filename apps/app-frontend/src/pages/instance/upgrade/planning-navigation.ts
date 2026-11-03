@@ -1,15 +1,12 @@
+/**
+ * Whether a finished plan may still navigate from the Select step. The run
+ * itself is already known to be current; this only checks the page.
+ */
 export function isCurrentUpgradeSelectPlanning(
     disposed: boolean,
-    generation: number,
-    currentGeneration: number,
     routeName: unknown,
     routeInstanceId: unknown,
     instanceId: string,
 ): boolean {
-    return (
-        !disposed &&
-        generation === currentGeneration &&
-        routeName === 'InstanceUpgrade' &&
-        routeInstanceId === instanceId
-    )
+    return !disposed && routeName === 'InstanceUpgrade' && routeInstanceId === instanceId
 }

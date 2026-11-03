@@ -1,5 +1,9 @@
 use super::*;
 use crate::resources::*;
+use crate::state::store::Collection as _;
+use crate::state::store::resource_source_projects::{
+    ResourceSourceProjectKey, ResourceSourceProjects,
+};
 use sqlx::{migrate::Migrator, sqlite::SqlitePoolOptions};
 use std::borrow::Cow;
 
@@ -60,13 +64,6 @@ async fn business_rows(pool: &SqlitePool) {
                    ('b', 'modrinth', '12345678', 'releaseB', 'artifact-b', 1),
                    ('ambiguous', 'modrinth', 'abcdefgh', NULL, NULL, 0),
                    ('ambiguous', 'curseforge', '76543210', NULL, NULL, 0);
-        INSERT INTO content_favorites(provider, project_id, content_type, saved_at)
-            VALUES ('modrinth', '12345678', 'mod', 123),
-                   ('curseforge', '12345678', 'mod', 456),
-                   ('modrinth', 'slug-is-not-an-id', 'mod', 789),
-                   ('curseforge', '000123', 'mod', 800),
-                   ('mcarchive', '12345678-1234-5678-1234-567812345678', 'mod', 801),
-                   ('mcarchive', 'not-a-uuid', 'mod', 802);
         INSERT INTO instance_pack_members(id, content_set_id, content_entry_id, member_key, project_type, expected_relative_path, provider, provider_project_id, provider_release_id, required, created_at, modified_at)
             VALUES ('member', 'world', 'b', 'key', 'datapack', 'saves/world/datapacks/custom-b.zip', 'curseforge', '87654321', '102', 1, 30, 40);
         INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
@@ -81,6 +78,19 @@ fn project(source: SourceId, id: &str) -> SourceProjectRef {
         source,
         project_id: SourceProjectId::new(id).unwrap(),
     }
+}
+
+/// The favorites a previous launcher kept in the table the upgrade retires.
+async fn legacy_favorites(pool: &SqlitePool) {
+    sqlx::raw_sql(r#"
+        INSERT INTO content_favorites(provider, project_id, content_type, saved_at)
+            VALUES ('modrinth', '12345678', 'mod', 123),
+                   ('curseforge', '12345678', 'mod', 456),
+                   ('modrinth', 'slug-is-not-an-id', 'mod', 789),
+                   ('curseforge', '000123', 'mod', 800),
+                   ('mcarchive', '12345678-1234-5678-1234-567812345678', 'mod', 801),
+                   ('mcarchive', 'not-a-uuid', 'mod', 802);
+    "#).execute(pool).await.unwrap();
 }
 
 #[tokio::test]
@@ -202,6 +212,7 @@ async fn fresh_identity_database_and_exact_previous_upgrade_preserve_business_fa
 
     let pool = previous_database().await;
     business_rows(&pool).await;
+    legacy_favorites(&pool).await;
     let state: String = sqlx::query_scalar(
         "SELECT state FROM install_jobs WHERE id = 'frozen'",
     )
@@ -229,25 +240,33 @@ async fn fresh_identity_database_and_exact_previous_upgrade_preserve_business_fa
         store.pack_resources("instance").await.unwrap()["member"],
         mr
     );
-    let rows = crate::state::content_favorites::list(&handle(&pool))
-        .await
+    let favorites = crate::resources::favorites::saved(&pool).await.unwrap();
+    let favorite = favorites
+        .iter()
+        .find(|favorite| {
+            favorite.project == project(SourceId::modrinth(), "12345678")
+        })
         .unwrap();
-    assert_eq!(
-        rows.iter()
-            .find(|row| row.project_id == "12345678"
-                && row.provider.as_str() == "modrinth")
+    assert_eq!(favorite.saved_at, 123);
+    assert_eq!(favorite.resource_id.as_ref(), Some(&mr));
+    for (source, project_id) in [
+        ("modrinth", "slug-is-not-an-id"),
+        ("curseforge", "000123"),
+        ("mcarchive", "not-a-uuid"),
+    ] {
+        assert!(
+            ResourceSourceProjects::get(
+                &handle(&pool),
+                &ResourceSourceProjectKey {
+                    source: source.to_string(),
+                    project_id: project_id.to_string(),
+                },
+            )
+            .await
             .unwrap()
-            .saved_at,
-        123
-    );
-    assert!(
-        rows.iter()
-            .filter(|row| matches!(
-                row.project_id.as_str(),
-                "slug-is-not-an-id" | "000123" | "not-a-uuid"
-            ))
-            .all(|row| row.resource_id.is_none())
-    );
+            .is_none()
+        );
+    }
     assert_eq!(
         sqlx::query_scalar::<_, String>(
             "SELECT state FROM install_jobs WHERE id = 'frozen'"
@@ -273,47 +292,12 @@ async fn fresh_identity_database_and_exact_previous_upgrade_preserve_business_fa
 }
 
 #[tokio::test]
-async fn legacy_writes_are_atomic_and_follow_origin_changes_and_deletion() {
+async fn identity_writes_follow_origin_changes_and_deletion() {
     let pool = previous_database().await;
     upgrade(&pool).await;
     business_rows(&pool).await;
     let store = ResourceStore::new(pool.clone());
-    for _ in 0..2 {
-        let favorite = crate::state::content_favorites::add(
-            crate::state::ContentFavoriteInput {
-                provider: crate::state::ContentFavoriteProvider::Modrinth,
-                project_id: "12345678".into(),
-                content_type: crate::state::ContentFavoriteType::Mod,
-            },
-            &handle(&pool),
-        )
-        .await
-        .unwrap();
-        assert_eq!(favorite.saved_at, 123);
-        assert!(favorite.resource_id.is_some());
-    }
     assert_eq!(store.entry_resources("instance").await.unwrap().len(), 2);
-    let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM resources")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let mut transaction = pool.begin().await.unwrap();
-    sqlx::query("INSERT INTO content_favorites VALUES ('modrinth', 'rollback', 'mod', 999)").execute(&mut *transaction).await.unwrap();
-    transaction.rollback().await.unwrap();
-    assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM resources")
-            .fetch_one(&pool)
-            .await
-            .unwrap(),
-        before
-    );
-    assert!(
-        store
-            .lookup(&project(SourceId::modrinth(), "rollback"))
-            .await
-            .unwrap()
-            .is_none()
-    );
 
     sqlx::query("UPDATE instance_content_provider_refs SET is_origin = 0 WHERE content_entry_id = 'a'").execute(&pool).await.unwrap();
     assert!(
@@ -400,10 +384,84 @@ async fn stable_catalog_survives_main_database_reopen_and_repeated_migration() {
 }
 
 #[tokio::test]
+async fn optional_project_confirmation_only_skips_insufficient_evidence() {
+    use crate::resources::identity::try_confirm_projects;
+    use tokio_util::sync::CancellationToken;
+
+    let pool = previous_database().await;
+    upgrade(&pool).await;
+    let store = ResourceStore::new(pool.clone());
+    let left = metadata(project(SourceId::modrinth(), "12345678"));
+    let right = metadata(project(SourceId::curseforge(), "123"));
+    let a = artifact(left.project.clone(), "a");
+    let b = artifact(right.project.clone(), "a");
+    let cancel = CancellationToken::new();
+    let mut incompatible = right.clone();
+    incompatible.types = vec![ResourceType::Shader];
+    let mut invalid_hash = b.clone();
+    invalid_hash.integrity.hashes[0].value = "bad hash".into();
+    let mut wrong_hash = b.clone();
+    wrong_hash.integrity.hashes[0].value = "b".repeat(64);
+    let mut weak = b.clone();
+    weak.integrity.hashes = vec![ContentHash {
+        algorithm: HashAlgorithm::Md5,
+        value: "a".repeat(32),
+    }];
+    let mut attachment = b.clone();
+    attachment.role = ArtifactRole::Attachment;
+    let mut wrong_project = right.clone();
+    wrong_project.project.project_id = SourceProjectId::new("456").unwrap();
+    for (metadata, artifact) in [
+        (&incompatible, &b),
+        (&right, &invalid_hash),
+        (&right, &wrong_hash),
+        (&right, &weak),
+        (&right, &attachment),
+        (&wrong_project, &b),
+    ] {
+        assert!(
+            try_confirm_projects(
+                &store, &left, metadata, &a, artifact, &cancel
+            )
+            .await
+            .unwrap()
+            .is_none()
+        );
+        assert!(
+            store
+                .confirm_projects(&left, metadata, &a, artifact)
+                .await
+                .is_err()
+        );
+        assert!(store.lookup(&left.project).await.unwrap().is_none());
+        assert!(store.lookup(&right.project).await.unwrap().is_none());
+    }
+    let canceled = CancellationToken::new();
+    canceled.cancel();
+    assert!(matches!(
+        try_confirm_projects(&store, &left, &incompatible, &a, &b, &canceled)
+            .await,
+        Err(ResourceError::Canceled)
+    ));
+    let id = try_confirm_projects(&store, &left, &right, &a, &b, &cancel)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(store.lookup(&left.project).await.unwrap(), Some(id.clone()));
+    assert_eq!(store.lookup(&right.project).await.unwrap(), Some(id));
+    pool.close().await;
+    assert!(matches!(
+        try_confirm_projects(&store, &left, &right, &a, &b, &cancel).await,
+        Err(ResourceError::Database(_))
+    ));
+}
+
+#[tokio::test]
 async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_independence()
  {
     let pool = previous_database().await;
     business_rows(&pool).await;
+    legacy_favorites(&pool).await;
     upgrade(&pool).await;
     let store = ResourceStore::new(pool.clone());
     let left = metadata(project(SourceId::modrinth(), "12345678"));
@@ -469,22 +527,29 @@ async fn confirmed_merges_keep_old_ids_alias_ambiguity_favorites_and_cache_indep
             .len(),
         2
     );
-    let favorites = crate::state::content_favorites::list(&handle(&pool))
-        .await
-        .unwrap();
+    let mut favorites =
+        crate::resources::favorites::saved(&pool).await.unwrap();
+    favorites.sort_by(|left, right| right.saved_at.cmp(&left.saved_at));
     assert_eq!(
         favorites
             .iter()
-            .filter(|row| row.project_id == "12345678")
-            .map(|row| row.resource_id.as_deref())
+            .filter(
+                |favorite| favorite.project.project_id.as_str() == "12345678"
+            )
+            .map(|favorite| favorite
+                .resource_id
+                .as_ref()
+                .map(ResourceId::as_str))
             .collect::<Vec<_>>(),
         vec![Some(winner.as_str()), Some(winner.as_str())]
     );
     assert_eq!(
         favorites
             .iter()
-            .filter(|row| row.project_id == "12345678")
-            .map(|row| row.saved_at)
+            .filter(
+                |favorite| favorite.project.project_id.as_str() == "12345678"
+            )
+            .map(|favorite| favorite.saved_at)
             .collect::<Vec<_>>(),
         vec![456, 123]
     );

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     ArtifactIntegrity, HistoryId, InstalledEntryId, PlanId, ResourceArtifact,
     ResourceDependencyKind, ResourceId, ResourceRef, ResourceType, SelectionId,
-    SourceArtifactRef, SourceReleaseRef,
+    SourceArtifactRef, SourceId, SourceReleaseRef,
 };
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -230,6 +230,16 @@ pub struct ResourcePlanIssue {
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conflict: Option<ResourceConflictDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<ResourceIssueContext>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceIssueContext {
+    pub dependency: bool,
+    pub subject: Option<String>,
+    pub source: Option<SourceId>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -370,6 +380,7 @@ mod tests {
         let mut issue: ResourcePlanIssue =
             serde_json::from_value(legacy.clone()).unwrap();
         assert!(issue.conflict.is_none());
+        assert!(issue.context.is_none());
         assert_eq!(serde_json::to_value(&issue).unwrap(), legacy);
         issue.conflict = Some(ResourceConflictDetails {
             reason: ResourceConflictReason::IncompatibleResource,
@@ -377,6 +388,11 @@ mod tests {
             related: Some("Sodium.jar".into()),
             required: Some("*".into()),
             actual: None,
+        });
+        issue.context = Some(ResourceIssueContext {
+            dependency: false,
+            subject: Some("Canvas".into()),
+            source: Some(SourceId::modrinth()),
         });
         let serialized = serde_json::to_value(&issue).unwrap();
         assert_eq!(serialized["conflict"]["reason"], "incompatibleResource");

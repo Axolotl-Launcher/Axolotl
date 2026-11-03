@@ -27,6 +27,8 @@ export interface ContentPipelineConfig {
     modpackItems?: Ref<ContentItem[] | undefined>
     duplicateItems?: Ref<ContentItem[] | undefined>
     sortItems: (items: ContentItem[]) => ContentItem[]
+    /** An explicit sort/locale change starts a new order; enrichment keeps row positions. */
+    sortKey?: Ref<string> | ComputedRef<string>
     getItemId: (item: ContentItem) => string
     showTypeFilters?: boolean
     showUpdateFilter?: boolean
@@ -140,23 +142,46 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         distance: 100,
     })
 
-    // ---- sorted items (computed because they only depend on items + sortMode) ----
+    function orderedItems(source: () => ContentItem[]) {
+        let previousKey: string | undefined
+        let order: string[] = []
+        return computed(() => {
+            const raw = source()
+            const key = config.sortKey?.value
+            if (key === undefined) return sortItems(raw)
+            const remaining = new Map(raw.map((item) => [getItemId(item), item]))
+            const next: ContentItem[] = []
+            if (key === previousKey) {
+                for (const id of order) {
+                    const item = remaining.get(id)
+                    if (!item) continue
+                    next.push(item)
+                    remaining.delete(id)
+                }
+            }
+            // Only new rows need sorting during enrichment. Always return the
+            // current row objects so updates and filters remain progressive.
+            if (remaining.size) next.push(...sortItems([...remaining.values()]))
+            previousKey = key
+            order = next.map(getItemId)
+            return next
+        })
+    }
 
-    const sortedItems = computed(() => sortItems(items.value))
+    const sortedItems = orderedItems(() => items.value)
 
-    const modpackItemsNoUpdate = computed(() => {
+    const modpackItemsNoUpdate = orderedItems(() => {
         const raw = modpackItems?.value ?? []
-        return sortItems(
-            raw.map((item) => ({
-                ...item,
-                update: null,
-            })),
-        )
+        return raw.map((item) => ({
+            ...item,
+            update: null,
+        }))
     })
 
     const filterValidationOptions = computed(() => {
         const type = new Set<string>()
         const status = new Set<string>()
+        if (showUpdateFilter) status.add('updates')
         const allItems = [...modpackItemsNoUpdate.value, ...sortedItems.value]
         const duplicateItemIds = new Set(
             (duplicateItems?.value ?? []).map((item) => getItemId(item)),
@@ -164,7 +189,6 @@ export function useContentPipeline(config: ContentPipelineConfig) {
 
         for (const item of allItems) {
             type.add(normalizeProjectType(item.project_type))
-            if (showUpdateFilter && hasContentUpdate(item)) status.add('updates')
             if (isEnabledContentItem(item)) status.add('enabled')
             if (isDisabledContentItem(item)) status.add('disabled')
         }
@@ -247,7 +271,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         const hasEnabled = typeFiltered.some(isEnabledContentItem)
         const hasDisabled = typeFiltered.some(isDisabledContentItem)
         const availableStatusFilters = new Set<string>()
-        if (showUpdateFilter && typeFiltered.some((item) => hasContentUpdate(item))) {
+        if (showUpdateFilter) {
             availableStatusFilters.add('updates')
         }
         if (hasEnabled) availableStatusFilters.add('enabled')
@@ -314,7 +338,10 @@ export function useContentPipeline(config: ContentPipelineConfig) {
 
         // Step 6: Build row2FilterOptions from typeFiltered (same as old code)
         const row2: ContentFilterOption[] = []
-        if (showUpdateFilter && typeFiltered.some((m) => hasContentUpdate(m))) {
+        if (
+            showUpdateFilter &&
+            (statusFilters.includes('updates') || typeFiltered.some((m) => hasContentUpdate(m)))
+        ) {
             row2.push({ id: 'updates', label: formatMessage(filterMessages.updates) })
         }
         if (hasEnabled && hasDisabled) {
@@ -365,26 +392,8 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         }
     }
 
-    // Trigger pipeline when any dependency changes (debounced)
-    watch(
-        [
-            sortedItems,
-            modpackItemsNoUpdate,
-            duplicateItems,
-            searchQuery,
-            selectedTypeFilter,
-            selectedStatusFilters,
-        ],
-        () => {
-            if (pipelineTimer) clearTimeout(pipelineTimer)
-            pipelineTimer = setTimeout(() => {
-                result.value = runPipeline()
-            }, 100)
-        },
-        { immediate: true },
-    )
-
-    // Update Fuse index asynchronously when items change (separate from pipeline)
+    let hasContentSnapshot = false
+    // Register before the pipeline so its first search sees the same snapshot as its counts.
     watch(
         () => [sortedItems.value, modpackItemsNoUpdate.value] as const,
         ([sorted, modpack]) => {
@@ -407,10 +416,38 @@ export function useContentPipeline(config: ContentPipelineConfig) {
                 }
             }
 
-            // Use setTimeout to avoid blocking the main thread
-            setTimeout(() => {
-                fuse.setCollection(collection)
-            }, 0)
+            if (!hasContentSnapshot) fuse.setCollection(collection)
+            else {
+                // Later enrichment remains asynchronous and bounded by the pipeline batch.
+                setTimeout(() => {
+                    fuse.setCollection(collection)
+                }, 0)
+            }
+        },
+        { immediate: true },
+    )
+
+    // Publish the first snapshot before rendering; batch only subsequent enrichment.
+    watch(
+        [
+            sortedItems,
+            modpackItemsNoUpdate,
+            () => duplicateItems?.value,
+            searchQuery,
+            selectedTypeFilter,
+            selectedStatusFilters,
+        ],
+        () => {
+            if (!hasContentSnapshot) {
+                result.value = runPipeline()
+                hasContentSnapshot = searchableItemCount.value > 0
+                return
+            }
+            if (pipelineTimer) return
+            pipelineTimer = setTimeout(() => {
+                pipelineTimer = null
+                result.value = runPipeline()
+            }, 100)
         },
         { immediate: true },
     )
@@ -510,6 +547,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
     )
 
     onBeforeUnmount(() => {
+        if (pipelineTimer) clearTimeout(pipelineTimer)
         if (pruneTimer) clearTimeout(pruneTimer)
     })
 
@@ -518,6 +556,11 @@ export function useContentPipeline(config: ContentPipelineConfig) {
             selectedTypeFilter.value = selectedTypeFilter.value.includes(filterId)
                 ? selectedTypeFilter.value.filter((id) => id !== filterId)
                 : [...selectedTypeFilter.value, filterId]
+            return
+        }
+
+        if (selectedTypeFilter.value.length === 1 && selectedTypeFilter.value[0] === filterId) {
+            selectedTypeFilter.value = []
             return
         }
 

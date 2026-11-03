@@ -182,11 +182,11 @@ async fn prepare_snapshot(
     let share_settings = get_log_share_settings().await?;
     let analysis = analyze_crash(instance_id).await?;
     let state = State::get().await?;
-    let credentials = Credentials::get_all(&state.pool)
+    let credentials = Credentials::get_all(&state.data)
         .await?
         .into_iter()
         .collect::<Vec<_>>();
-    let locale = crate::state::Settings::get(&state.pool).await?.locale;
+    let locale = crate::state::Settings::get(&state.data).await?.locale;
     let mut remaining = 16 * 1024 * 1024usize;
     let files = analysis
         .sources

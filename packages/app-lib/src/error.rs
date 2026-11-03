@@ -179,6 +179,9 @@ pub enum ErrorKind {
     #[error("Error stripping prefix: {0}")]
     StripPrefixError(#[from] std::path::StripPrefixError),
 
+    #[error("{0}")]
+    StateNotInitialized(String),
+
     #[error("Error: {0}")]
     OtherError(String),
 

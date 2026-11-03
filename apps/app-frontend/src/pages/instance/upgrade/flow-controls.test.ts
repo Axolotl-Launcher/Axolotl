@@ -1,6 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
-
+import { expect, it } from 'vitest'
 import { computed, ref } from 'vue'
 
 import {
@@ -12,41 +10,41 @@ import {
     upgradeProgressModel,
 } from './flow-controls.ts'
 
-test('registered upgrade control reads live ref values without re-registration', () => {
+it('registered upgrade control reads live ref values without re-registration', () => {
     const canPlan = ref(false)
     const control = computed(() => canPlan.value)
-    assert.equal(upgradeControlEnabled(control), false)
+    expect(upgradeControlEnabled(control)).toBe(false)
     canPlan.value = true
-    assert.equal(upgradeControlEnabled(control), true)
+    expect(upgradeControlEnabled(control)).toBe(true)
 })
 
-test('missing controls remain disabled', () => {
-    assert.equal(upgradeControlEnabled(undefined), false)
+it('missing controls remain disabled', () => {
+    expect(upgradeControlEnabled(undefined)).toBe(false)
 })
 
-test('upgrade progress maps five active routes and terminal result', () => {
-    assert.equal(UPGRADE_ACTIVE_STEPS.length, 5)
+it('upgrade progress maps five active routes and terminal result', () => {
+    expect(UPGRADE_ACTIVE_STEPS.length).toBe(5)
     for (const [index, route] of UPGRADE_ACTIVE_STEPS.entries()) {
-        assert.deepEqual(upgradeProgressModel(`/instance/example/upgrade/${route}`), {
+        expect(upgradeProgressModel(`/instance/example/upgrade/${route}`)).toEqual({
             currentIndex: index,
             complete: false,
             steps: UPGRADE_ACTIVE_STEPS,
         })
     }
-    assert.equal(upgradeProgressModel('/instance/example/upgrade/result').complete, true)
+    expect(upgradeProgressModel('/instance/example/upgrade/result').complete).toBe(true)
 })
 
-test('customize strategy prefers flow UI state over selected backend solution', () => {
-    assert.equal(initialCustomizeStrategy('custom', 'newest', 'custom'), 'custom')
-    assert.equal(initialCustomizeStrategy(null, 'minimal_change', 'custom'), 'minimal_change')
-    assert.equal(initialCustomizeStrategy(null, null, 'custom'), 'custom')
+it('customize strategy prefers flow UI state over selected backend solution', () => {
+    expect(initialCustomizeStrategy('custom', 'newest', 'custom')).toBe('custom')
+    expect(initialCustomizeStrategy(null, 'minimal_change', 'custom')).toBe('minimal_change')
+    expect(initialCustomizeStrategy(null, null, 'custom')).toBe('custom')
 })
 
-test('bulk resolution state and no-op filtering use authoritative actions', () => {
-    assert.equal(bulkResolutionAction(['keep', 'keep']), 'keep')
-    assert.equal(bulkResolutionAction(['disable', 'disable']), 'disable')
-    assert.equal(bulkResolutionAction(['keep', 'disable']), null)
-    assert.deepEqual(
+it('bulk resolution state and no-op filtering use authoritative actions', () => {
+    expect(bulkResolutionAction(['keep', 'keep'])).toBe('keep')
+    expect(bulkResolutionAction(['disable', 'disable'])).toBe('disable')
+    expect(bulkResolutionAction(['keep', 'disable'])).toBe(null)
+    expect(
         filterBulkResolutionIds(
             [
                 { contentId: 'a', action: 'keep' },
@@ -54,6 +52,5 @@ test('bulk resolution state and no-op filtering use authoritative actions', () =
             ],
             'keep',
         ),
-        ['b'],
-    )
+    ).toEqual(['b'])
 })

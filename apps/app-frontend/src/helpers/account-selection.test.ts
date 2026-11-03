@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { preferredOnlineAccountId } from './account-selection.ts'
 
@@ -8,11 +7,11 @@ const accounts = [
     { account_id: 'microsoft', account_type: 'microsoft' },
 ] as const
 
-test('switches from an offline account to the first online account', () => {
-    assert.equal(preferredOnlineAccountId('offline', accounts), 'microsoft')
+it('switches from an offline account to the first online account', () => {
+    expect(preferredOnlineAccountId('offline', accounts)).toBe('microsoft')
 })
 
-test('keeps an online selection and handles an unknown selection', () => {
-    assert.equal(preferredOnlineAccountId('microsoft', accounts), 'microsoft')
-    assert.equal(preferredOnlineAccountId('missing', accounts), 'missing')
+it('keeps an online selection and handles an unknown selection', () => {
+    expect(preferredOnlineAccountId('microsoft', accounts)).toBe('microsoft')
+    expect(preferredOnlineAccountId('missing', accounts)).toBe('missing')
 })

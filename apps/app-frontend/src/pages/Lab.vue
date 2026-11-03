@@ -13,6 +13,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
+import bannerDesignerToolCover from '@/assets/lab/banner-designer-tool-cover.png'
 import commandGeneratorToolCover from '@/assets/lab/command-generator-tool-cover.png'
 import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.png'
 import modTranslationCover from '@/assets/lab/mod-translation-cover.png'
@@ -38,6 +39,8 @@ const search = ref('')
 const category = ref<LabCategoryFilter>(getLabCategoryFilter())
 const favoriteFilter = ref<LabFavoriteFilter>(getLabFavoriteFilter())
 const favoriteToolIds = ref<string[]>(getLabFavoriteToolIds())
+// Temporarily hide the mod translation entry while retaining its route and implementation.
+const availableTools = labTools.filter((tool) => tool.id !== 'mod-translation')
 const toolCoverImages: Record<string, string> = {
     'gradient-text': gradientTextToolCover,
     'recipe-generator': recipeGeneratorToolCover,
@@ -46,6 +49,7 @@ const toolCoverImages: Record<string, string> = {
     'mod-translation': modTranslationCover,
     'skin-editor': skinEditorToolCover,
     'command-generator': commandGeneratorToolCover,
+    'banner-designer': bannerDesignerToolCover,
 }
 
 const messages = defineMessages({
@@ -125,6 +129,14 @@ const messages = defineMessages({
         id: 'app.lab.command-generator.description',
         defaultMessage: 'Generate Minecraft Java Edition commands with visual NBT editing.',
     },
+    bannerDesignerTitle: {
+        id: 'app.lab.banner-designer.title',
+        defaultMessage: 'Banner designer',
+    },
+    bannerDesignerDescription: {
+        id: 'app.lab.banner-designer.description',
+        defaultMessage: 'Design Minecraft banners with every Java Edition pattern and dye.',
+    },
 })
 
 const categoryOptions: LabCategoryFilter[] = ['all', 'creation', 'maintenance', 'world']
@@ -148,7 +160,7 @@ const visibleTools = computed(() => {
     const normalizedSearch = search.value.trim().toLocaleLowerCase()
     const favoriteSet = new Set(favoriteToolIds.value)
 
-    const filtered = labTools.filter((tool) => {
+    const filtered = availableTools.filter((tool) => {
         const matchingCategory = category.value === 'all' || tool.category === category.value
         const matchingFavorite =
             favoriteFilter.value === 'all' ||
@@ -184,6 +196,7 @@ function toolTitle(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewTitle)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationTitle)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorTitle)
+    if (toolId === 'banner-designer') return formatMessage(messages.bannerDesignerTitle)
     return fallback
 }
 
@@ -195,6 +208,7 @@ function toolDescription(toolId: string, fallback: string) {
     if (toolId === 'schematic-preview') return formatMessage(messages.schematicPreviewDescription)
     if (toolId === 'mod-translation') return formatMessage(messages.modTranslationDescription)
     if (toolId === 'command-generator') return formatMessage(messages.commandGeneratorDescription)
+    if (toolId === 'banner-designer') return formatMessage(messages.bannerDesignerDescription)
     return fallback
 }
 
@@ -231,9 +245,11 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                 <p class="m-0 mt-1 text-sm text-[var(--color-text-tertiary)]">
                     {{
                         formatMessage(
-                            labTools.length === 1 ? messages.toolCount : messages.toolCountPlural,
+                            availableTools.length === 1
+                                ? messages.toolCount
+                                : messages.toolCountPlural,
                             {
-                                count: labTools.length,
+                                count: availableTools.length,
                             },
                         )
                     }}

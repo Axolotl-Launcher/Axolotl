@@ -1,23 +1,18 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { normalizeModrinthCdnUrl } from './modrinth-cdn.ts'
 
-test('saved CDN links retain exact encoding and migrate to the current host', () => {
+it('saved CDN links retain exact encoding and migrate to the current host', () => {
     const suffix = '/data/%e9%87%91/file+name%2B.jar?token=a%2bb&x=1&x=2#fragment'
     for (const prefix of ['https://cdn-alt.modrinth.com', 'HTTPS://CDN-ALT.MODRINTH.COM:443']) {
-        assert.equal(
-            normalizeModrinthCdnUrl(prefix + suffix),
+        expect(normalizeModrinthCdnUrl(prefix + suffix)).toBe(
             prefix.split('://')[0] + '://cdn.modrinth.com' + suffix,
         )
     }
-    assert.equal(
-        normalizeModrinthCdnUrl('https://cdn-alt.modrinth.com'),
-        'https://cdn.modrinth.com',
-    )
+    expect(normalizeModrinthCdnUrl('https://cdn-alt.modrinth.com')).toBe('https://cdn.modrinth.com')
 })
 
-test('current links and other authorities are left unchanged', () => {
+it('current links and other authorities are left unchanged', () => {
     for (const input of [
         'https://cdn.modrinth.com/file.jar?x=%2b',
         'https://cdn-raw.modrinth.com/file.png',
@@ -29,5 +24,5 @@ test('current links and other authorities are left unchanged', () => {
         'https://evil.example/cdn-alt.modrinth.com',
         'invalid URL',
     ])
-        assert.equal(normalizeModrinthCdnUrl(input), input)
+        expect(normalizeModrinthCdnUrl(input)).toBe(input)
 })

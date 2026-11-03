@@ -8,13 +8,14 @@ members = [
   "packages/content-management",
   "packages/daedalus",
   "packages/launcher-mcp",
+  "packages/launcher-tools",
   "packages/path-util",
 ]
 
 [workspace.package]
 edition = "2024"
 rust-version = "1.90.0"
-repository = "https://github.com/Mystic-Stars/Axolotl"
+repository = "https://github.com/Axolotl-Launcher/Axolotl"
 
 [workspace.dependencies]
 ariadne = { path = "packages/ariadne" }
@@ -50,12 +51,14 @@ data-url = "0.3.2"
 derive_more = "2.1.1"
 dirs = "6.0.0"
 discord-rich-presence = "1.0.0"
+dom_query = "0.27.0"
 dotenvy = "0.15.7"
 dunce = "1.0.5"
 either = "1.15.0"
 encoding_rs = "0.8.35"
 enumset = "1.1.10"
 eyre = "0.6.12"
+fast-socks5 = "1.0.0"
 flate2 = "1.1.4"
 fontdb = "0.24.0"
 fs4 = { version = "0.13.1", default-features = false }
@@ -82,10 +85,12 @@ jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 junction = "1"
 keyring = "4.1.5"
 launcher-mcp = { path = "packages/launcher-mcp" }
+launcher-tools = { path = "packages/launcher-tools" }
 libc = "0.2.189"
 libloading = "0.7.4"
 local-ip-address = "0.6.7"
 md5 = "0.8.0"
+minisign-verify = "0.2.5"
 native-dialog = "0.9.2"
 notify = { version = "8.2.0", default-features = false }
 notify-debouncer-mini = { version = "0.7.0", default-features = false }
@@ -138,7 +143,7 @@ tauri-plugin-http = "2.5.7"
 tauri-plugin-opener = "2.5.0"
 tauri-plugin-os = "2.3.1"
 tauri-plugin-single-instance = "2.3.4"
-tauri-plugin-updater = { git = "https://github.com/modrinth/plugins-workspace", rev = "0d30f2aa28ec668ce187d527da1c475da3c01cbc", default-features = false, features = [
+tauri-plugin-updater = { git = "https://github.com/modrinth/plugins-workspace", rev = "31e5bcdfdf3acb71f5162156accb8473c45a6064", default-features = false, features = [
   "rustls-tls",
   "zip",
 ] }
@@ -153,6 +158,7 @@ tokio-rustls = { version = "0.26.4", default-features = false, features = [
 ] }
 tokio-util = "0.7.16"
 toml = "0.8.19"
+tower-service = "0.3.3"
 tracing = "0.1.41"
 tracing-error = "0.2.1"
 tracing-subscriber = "0.3.20"
@@ -174,7 +180,7 @@ zhconv = { version = "0.4.1", default-features = false, features = [
   "compress",
   "opencc"
 ] }
-zip = { version = "6.0.0", default-features = false, features = [
+zip = { version = "9.0.5", default-features = false, features = [
   "bzip2",
   "deflate",
   "deflate64",
@@ -225,6 +231,7 @@ tauri-plugin-window-state = { git = "https://github.com/Lintern/plugins-workspac
 [profile.dev]
 # Keep incremental on (Cargo default). Disabling it forces full crate rebuilds
 # of ~170k-line app-lib on every touch and made local app:dev unusably slow.
+debug = 1
 
 # Unoptimized hash compression makes export verification stall on large files.
 [profile.dev.package.sha2]

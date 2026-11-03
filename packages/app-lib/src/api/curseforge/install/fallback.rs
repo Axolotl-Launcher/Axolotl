@@ -119,7 +119,7 @@ pub(crate) async fn install_fixed_modrinth_content(
     let version = CachedEntry::get_version(
         version_id,
         Some(CacheBehaviour::MustRevalidate),
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?

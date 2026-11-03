@@ -33,8 +33,9 @@ import {
     installJobInstanceId,
     wait_for_install_job,
 } from '@/helpers/install'
-import { edit, get, get_install_candidates, list } from '@/helpers/instance'
+import { edit, get, get_content_snapshot, get_install_candidates, list } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
+import { resourceFailureFeedback } from '@/helpers/resource-operation-feedback'
 import { type ResourceType, sourceResource } from '@/helpers/resources'
 import { get_game_versions } from '@/helpers/tags'
 import type { GameInstance, InstanceLoader } from '@/helpers/types'
@@ -695,6 +696,62 @@ export function createContentInstall(opts: {
         )[project.project_type]
         if (!resourceType)
             throw new Error(formatMessage(contentInstallMessages.errorMessages.unsupportedType))
+        if (resourceType !== 'dataPack') {
+            const snapshot = await get_content_snapshot(instance.id, true)
+            const directories: Partial<Record<ResourceType, string>> = {
+                mod: 'mods',
+                plugin: 'plugins',
+                resourcePack: 'resourcepacks',
+                shader: 'shaderpacks',
+            }
+            const directory = directories[resourceType]
+            const projectType = resourceType === 'shader' ? 'shaderpack' : project.project_type
+            const matching = snapshot.items.filter((item) => {
+                if (
+                    item.projectType !== projectType ||
+                    item.expectedRelativePath.replace(/\\/g, '/').split('/')[0] !== directory
+                )
+                    return false
+                const artifactProject = item.artifactRef?.release.project
+                return (
+                    (artifactProject?.source === provider &&
+                        artifactProject.projectId === projectId) ||
+                    (item.provider === provider && item.providerProjectId === projectId) ||
+                    item.content?.provider_refs.some(
+                        (reference) =>
+                            reference.provider === provider &&
+                            String(reference.project_id) === projectId,
+                    )
+                )
+            })
+            if (matching.length > 1)
+                throw new Error(
+                    resourceFailureFeedback('identity is ambiguous', formatMessage).detail,
+                )
+            const existing = matching[0]
+            if (existing) {
+                if (
+                    !existing.entryId ||
+                    existing.materializationState !== 'present' ||
+                    !existing.capabilities.canChangeVersion
+                )
+                    throw new Error(
+                        resourceFailureFeedback('entry ownership is unconfirmed', formatMessage)
+                            .detail,
+                    )
+                const job = await resourcePreview.show({
+                    instanceId: instance.id,
+                    instanceName: instance.name,
+                    intent: 'switchVersion',
+                    entryIds: [existing.entryId],
+                    release: { project: { source: provider, projectId }, releaseId: version.id },
+                    installDependencies: themeStore.getFeatureFlag('auto_install_dependencies'),
+                })
+                return job
+                    ? { job, versionId: version.id, installedProjectIds: [project.id] }
+                    : null
+            }
+        }
         const result = await resourcePreview.showInstallSelection({
             instanceId: instance.id,
             instanceName: instance.name,

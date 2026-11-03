@@ -1,4 +1,19 @@
 {
+  "drop.instance-import.title": {
+    "defaultMessage": "导入实例"
+  },
+  "drop.confirm.minecraft-root.title": {
+    "defaultMessage": "添加 .minecraft 文件夹"
+  },
+  "drop.confirm.minecraft-root.prompt": {
+    "defaultMessage": "看起来这是一个 .minecraft 文件夹，是否直接将其添加至启动器？"
+  },
+  "drop.confirm.minecraft-root.add": {
+    "defaultMessage": "是，直接添加"
+  },
+  "drop.confirm.minecraft-root.import": {
+    "defaultMessage": "否，导入其中的实例"
+  },
   "content.page-layout.dependency-disable-failed": {
     "defaultMessage": "无法禁用依赖这些内容的项目。请重试以完成删除。"
   },
@@ -310,12 +325,6 @@
   },
   "console.command.server-not-running-placeholder": {
     "defaultMessage": "服务器未运行"
-  },
-  "console.command-completions.no-results": {
-    "defaultMessage": "没有匹配的补全项"
-  },
-  "console.command-completions.search": {
-    "defaultMessage": "搜索命令补全项"
   },
   "console.crash.export-context": {
     "defaultMessage": "导出崩溃上下文"
@@ -2023,6 +2032,9 @@
   },
   "instances.updater-modal.loading-changelog": {
     "defaultMessage": "正在加载更新日志..."
+  },
+  "instances.updater-modal.loading-more-versions": {
+    "message": "正在加载更多版本……"
   },
   "instances.updater-modal.loading-versions": {
     "defaultMessage": "版本加载中……"
@@ -4457,29 +4469,8 @@
   "drop.launcher_import.no_instances": {
     "message": "未找到实例"
   },
-  "drop.symlink_method.title": {
-    "message": "选择导入方式"
-  },
   "drop.symlink_method.subtitle": {
     "message": "正在导入 {n} 个实例"
-  },
-  "drop.symlink_method.copy_title": {
-    "message": "复制文件"
-  },
-  "drop.symlink_method.copy_desc": {
-    "message": "复制到 Axolotl 目录"
-  },
-  "drop.symlink_method.symlink_title": {
-    "message": "符号链接"
-  },
-  "drop.symlink_method.symlink_desc": {
-    "message": "引用原始位置"
-  },
-  "drop.symlink_method.requires_admin": {
-    "message": "创建链接时将请求一次管理员授权（UAC）"
-  },
-  "drop.symlink_method.unsupported_warning": {
-    "message": "此系统不支持符号链接"
   },
   "drop.symlink_method.cancel": {
     "message": "取消"
@@ -4498,15 +4489,6 @@
   },
   "drop.symlink_method.detecting": {
     "message": "检测中..."
-  },
-  "drop.symlink_method.game-dir.isolated": {
-    "message": "版本隔离"
-  },
-  "drop.symlink_method.game-dir.label": {
-    "message": "游戏目录"
-  },
-  "drop.symlink_method.game-dir.not-isolated": {
-    "message": "版本共享（.minecraft/）"
   },
   "drop.symlink_method.game_version": {
     "message": "游戏版本"
@@ -4534,9 +4516,6 @@
   },
   "drop.symlink_method.latest": {
     "message": "最新"
-  },
-  "drop.symlink_method.method": {
-    "message": "导入方式"
   },
   "drop.symlink_method.missing": {
     "message": "缺失"

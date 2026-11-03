@@ -57,20 +57,23 @@ async function loadStorage(force: boolean) {
     scanError.value = false
     scanProgress.value = null
     showingCache.value = false
+    // The preview cache size is shown as soon as it is known instead of
+    // waiting for the full storage scan.
+    void previewCacheUsage()
+        .catch(() => null)
+        .then((previews) => {
+            if (current === requestId) previewBytes.value = previews
+        })
     try {
-        const [snapshot, previews] = await Promise.all([
-            scanStorage(force, (event) => {
-                if (current !== requestId) return
-                if (event.kind === 'cached') {
-                    tree.value = event.tree
-                    showingCache.value = true
-                    lastUpdated.value = event.tree.scannedAt ? new Date(event.tree.scannedAt) : null
-                } else scanProgress.value = event
-            }),
-            previewCacheUsage().catch(() => null),
-        ])
+        const snapshot = await scanStorage(force, (event) => {
+            if (current !== requestId) return
+            if (event.kind === 'cached') {
+                tree.value = event.tree
+                showingCache.value = true
+                lastUpdated.value = event.tree.scannedAt ? new Date(event.tree.scannedAt) : null
+            } else scanProgress.value = event
+        })
         if (current !== requestId) return false
-        previewBytes.value = previews
         tree.value = snapshot
         showingCache.value = false
         lastUpdated.value = snapshot.scannedAt ? new Date(snapshot.scannedAt) : new Date()

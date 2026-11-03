@@ -1,8 +1,12 @@
 use super::sync_content_files::instance_content_root;
+use crate::resources::ArtifactIntegrity;
 use crate::resources::execution::{checked_path, matches_file};
-use crate::resources::{ArtifactIntegrity, ContentHash, HashAlgorithm};
 use crate::state::State;
-use crate::util::{fetch, io};
+use crate::state::store::{
+    content_file_fingerprints::ContentFileFingerprints,
+    content_file_operations as journals,
+};
+use crate::util::io;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -19,6 +23,8 @@ struct FileMove {
 
 #[derive(Serialize, Deserialize)]
 struct Journal {
+    #[serde(default)]
+    schematic: Option<super::install_schematic::Publication>,
     root: String,
     delete: bool,
     files: Vec<FileMove>,
@@ -35,6 +41,7 @@ pub(super) async fn prepare(
     root: &Path,
     paths: Vec<(String, String)>,
     delete: bool,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
     recover(state, instance_id, root).await?;
     let mut files = Vec::new();
@@ -42,33 +49,84 @@ pub(super) async fn prepare(
         if original == destination {
             continue;
         }
-        let source = checked_path(root, &original)?;
         let target = checked_path(root, &destination)?;
         if tokio::fs::try_exists(&target).await? {
             return Err(recovery_error(format!(
                 "Content destination already exists: {destination}"
             )));
         }
-        let (size, sha1) = fetch::sha1_file_async(&source).await?;
+        let previous = ContentFileFingerprints::get_current(
+            &state.data,
+            instance_id,
+            &original,
+        )
+        .await?;
+        let resolved = state
+            .file_fingerprints
+            .resolve_scan(
+                root,
+                &original,
+                previous.as_ref(),
+                false,
+                &tokio_util::sync::CancellationToken::new(),
+            )
+            .await
+            .map_err(crate::ErrorKind::ResourceError)?;
+        if let Some(record) = &resolved.record {
+            ContentFileFingerprints::set_current(
+                &state.data,
+                instance_id,
+                record,
+            )
+            .await?;
+        }
         files.push(FileMove {
             original,
             destination,
-            integrity: ArtifactIntegrity {
-                size: Some(size),
-                hashes: vec![ContentHash {
-                    algorithm: HashAlgorithm::Sha1,
-                    value: sha1,
-                }],
-            },
+            integrity: resolved.identity.integrity,
         });
     }
     let journal = Journal {
+        schematic: None,
         root: io::canonicalize(root)?.to_string_lossy().into_owned(),
         delete,
         files,
     };
-    sqlx::query("INSERT INTO content_file_operations(instance_id, payload) VALUES (?, ?)")
-        .bind(instance_id).bind(serde_json::to_string(&journal)?).execute(&state.pool).await?;
+    journals::set(&state.data, instance_id, &serde_json::to_string(&journal)?)
+        .await?;
+    Ok(())
+}
+
+/// Publishes no files until the full source identity has been durably recorded.
+pub(super) async fn prepare_schematic(
+    state: &State,
+    instance_id: &str,
+    root: &Path,
+    publication: &super::install_schematic::Publication,
+) -> crate::Result<()> {
+    let journal = Journal {
+        root: io::canonicalize(root)?.to_string_lossy().into_owned(),
+        delete: false,
+        files: Vec::new(),
+        schematic: Some(publication.clone()),
+    };
+    journals::set(&state.data, instance_id, &serde_json::to_string(&journal)?)
+        .await
+}
+
+/// Used only when noclobber publication failed, while the instance lock is held.
+pub(super) async fn discard_schematic(
+    state: &State,
+    instance_id: &str,
+) -> crate::Result<()> {
+    if let Some((payload, false)) =
+        journals::get(&state.data, instance_id).await?
+    {
+        let journal: Journal = serde_json::from_str(&payload)?;
+        if journal.schematic.is_some() {
+            journals::remove(&state.data, instance_id, &payload).await?;
+        }
+    }
     Ok(())
 }
 
@@ -76,19 +134,38 @@ pub(super) async fn publish(
     state: &State,
     instance_id: &str,
     root: &Path,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Result<()> {
-    let payload: String = sqlx::query_scalar(
-        "SELECT payload FROM content_file_operations WHERE instance_id = ?",
-    )
-    .bind(instance_id)
-    .fetch_one(&state.pool)
-    .await?;
+    let (payload, _) = journals::get(&state.data, instance_id)
+        .await?
+        .ok_or_else(|| {
+            recovery_error("Content operation journal disappeared")
+        })?;
     let journal: Journal = serde_json::from_str(&payload)?;
     for file in journal.files {
         let original = checked_path(root, &file.original)?;
         let destination = checked_path(root, &file.destination)?;
-        if !matches_file(&original, &file.integrity).await?
-            || tokio::fs::try_exists(&destination).await?
+        let previous = ContentFileFingerprints::get_current(
+            &state.data,
+            instance_id,
+            &file.original,
+        )
+        .await?;
+        let current = state
+            .file_fingerprints
+            .resolve_scan(
+                root,
+                &file.original,
+                previous.as_ref(),
+                false,
+                &tokio_util::sync::CancellationToken::new(),
+            )
+            .await
+            .map_err(crate::ErrorKind::ResourceError)?;
+        if !crate::resources::identity::exact_integrity(
+            &current.identity.integrity,
+            &file.integrity,
+        ) || tokio::fs::try_exists(&destination).await?
         {
             return Err(recovery_error(format!(
                 "Content changed before file operation: {}",
@@ -100,28 +177,16 @@ pub(super) async fn publish(
     Ok(())
 }
 
-pub(super) async fn mark_committed(
-    instance_id: &str,
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-) -> crate::Result<()> {
-    let result = sqlx::query("UPDATE content_file_operations SET committed = 1 WHERE instance_id = ?")
-        .bind(instance_id).execute(&mut **tx).await?;
-    if result.rows_affected() != 1 {
-        return Err(recovery_error(
-            "Content operation journal disappeared before commit",
-        ));
-    }
-    Ok(())
-}
+pub(super) use crate::state::store::content_file_operations::mark_committed;
 
-/// Roll back an uncommitted rename or finish cleanup after a committed delete.
+/// Roll back interrupted moves, finish committed cleanup, or restore a published
+/// schematic and its source metadata before any filesystem reconciliation.
 pub(super) async fn recover(
     state: &State,
     instance_id: &str,
     root: &Path,
 ) -> crate::Result<()> {
-    let row: Option<(String, bool)> = sqlx::query_as("SELECT payload, committed FROM content_file_operations WHERE instance_id = ?")
-        .bind(instance_id).fetch_optional(&state.pool).await?;
+    let row = journals::get(&state.data, instance_id).await?;
     let Some((payload, committed)) = row else {
         return Ok(());
     };
@@ -131,10 +196,50 @@ pub(super) async fn recover(
             "Instance directory changed before content recovery",
         ));
     }
+    if let Some(publication) = &journal.schematic {
+        let destination = checked_path(root, &publication.relative_path)?;
+        if !committed && tokio::fs::try_exists(&destination).await? {
+            if !matches_file(&destination, &publication.artifact.integrity)
+                .await?
+            {
+                return Err(recovery_error(
+                    "Published schematic changed before recovery",
+                ));
+            }
+            super::install_schematic::commit_publication(
+                state,
+                instance_id,
+                publication,
+            )
+            .await?;
+        }
+        let staging = checked_path(root, &publication.staging_path)?;
+        if tokio::fs::try_exists(&staging).await? {
+            if !matches_file(&staging, &publication.artifact.integrity).await? {
+                return Err(recovery_error(
+                    "Schematic staging file changed before recovery",
+                ));
+            }
+            io::remove_file(staging).await?;
+        }
+        journals::remove(&state.data, instance_id, &payload).await?;
+        return Ok(());
+    }
     for file in journal.files.iter().rev() {
         let original = checked_path(root, &file.original)?;
         let destination = checked_path(root, &file.destination)?;
         if committed {
+            if !journal.delete {
+                ContentFileFingerprints::transfer(
+                    &state.data,
+                    instance_id,
+                    &file.original,
+                    &file.destination,
+                    root,
+                    &file.integrity,
+                )
+                .await?;
+            }
             if journal.delete && tokio::fs::try_exists(&destination).await? {
                 if !matches_file(&destination, &file.integrity).await? {
                     return Err(recovery_error(format!(
@@ -161,8 +266,7 @@ pub(super) async fn recover(
             )));
         }
     }
-    sqlx::query("DELETE FROM content_file_operations WHERE instance_id = ? AND payload = ?")
-        .bind(instance_id).bind(payload).execute(&state.pool).await?;
+    journals::remove(&state.data, instance_id, &payload).await?;
     Ok(())
 }
 
@@ -171,6 +275,7 @@ pub(super) async fn rollback_error(
     instance_id: &str,
     root: &Path,
     error: crate::Error,
+    _access: crate::install::critical_section::WriteAccess<'_>,
 ) -> crate::Error {
     match recover(state, instance_id, root).await {
         Ok(()) => error,
@@ -189,10 +294,7 @@ pub(super) async fn finish(state: &State, instance_id: &str, root: &Path) {
 pub(crate) async fn recover_content_file_operations(
     state: &State,
 ) -> crate::Result<()> {
-    let instances: Vec<String> =
-        sqlx::query_scalar("SELECT instance_id FROM content_file_operations")
-            .fetch_all(&state.pool)
-            .await?;
+    let instances = journals::get_instance_ids(&state.data).await?;
     let mut errors = Vec::new();
     for instance_id in instances {
         let result = async {

@@ -161,7 +161,7 @@ pub(crate) async fn instance_content_revision(
         return Ok(None);
     }
     Ok(
-        crate::state::instances::adapters::sqlite::content_rows::get_applied_content_set(
+        crate::state::instances::adapters::sqlite::content_sets::get_applied_content_set(
             instance_id,
             &state.pool,
         )

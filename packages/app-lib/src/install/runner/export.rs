@@ -140,21 +140,13 @@ async fn validate(
     let current = crate::state::get_instance(&plan.instance_id, &state.pool)
         .await?
         .ok_or_else(|| invalid("instance no longer exists"))?;
-    if current.applied_content_set.game_version
-        != plan.requirements.game_version
-        || current.applied_content_set.loader_version
-            != plan.requirements.loader_version
-        || (current.applied_content_set.loader != ModLoader::Vanilla)
-            .then(|| current.applied_content_set.loader.as_str().to_string())
-            != plan.requirements.loader
+    if crate::resources::export::scan::game_requirements(
+        &current,
+        &state.directories,
+    )? != plan.requirements
     {
         return Err(invalid(
             "game requirements changed after export analysis; reopen the export window",
-        ));
-    }
-    if current.instance.is_direct_linked() {
-        return Err(invalid(
-            "directly associated instances cannot be exported",
         ));
     }
     Ok(())

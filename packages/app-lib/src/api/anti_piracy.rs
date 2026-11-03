@@ -7,10 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard};
 
 use crate::State;
-use crate::state::store::Collection as _;
-use crate::state::store::official_login_proof::{
-    Installation, OfficialLoginProof, OfficialLoginProofRecord,
-};
+use crate::state::documents;
 
 const MAINLAND_CHINA_TIMEZONES: &[&str] = &[
     "Asia/Shanghai",
@@ -138,9 +135,10 @@ async fn has_proof() -> bool {
             return false;
         }
     };
-    let record = OfficialLoginProof::get(&state.data, &Installation).await;
-    let Some(stored_mac) = (match record {
-        Ok(record) => record.map(|record| record.mac),
+    let stored =
+        documents::login_proof::read(&documents::Documents::new(&state)).await;
+    let Some(stored_mac) = (match stored {
+        Ok(mac) => mac,
         Err(error) => {
             tracing::warn!(%error, "Cannot read official login proof");
             return false;
@@ -241,12 +239,8 @@ pub async fn mark_official_login() -> crate::Result<()> {
         crate::ErrorKind::OtherError(error.to_string()).as_error()
     })?;
     let mac = proof_mac(&key);
-    OfficialLoginProof::set(
-        &state.data,
-        &Installation,
-        Some(&OfficialLoginProofRecord { mac }),
-    )
-    .await?;
+    documents::login_proof::mark(&documents::Documents::new(&state), mac)
+        .await?;
     let _session_guard = SESSION_GATE.write().await;
     SESSION_OFFICIAL_LOGIN.store(true, Ordering::Release);
     STATUS_REVISION.fetch_add(1, Ordering::AcqRel);
@@ -257,7 +251,7 @@ pub async fn clear_official_login() -> crate::Result<()> {
     let _guard = PROOF_WRITE.lock().await;
     let _session_guard = SESSION_GATE.write().await;
     let state = State::get().await?;
-    OfficialLoginProof::set(&state.data, &Installation, None).await?;
+    documents::login_proof::clear(&documents::Documents::new(&state)).await?;
     SESSION_OFFICIAL_LOGIN.store(false, Ordering::Release);
     STATUS_REVISION.fetch_add(1, Ordering::AcqRel);
     drop(_session_guard);

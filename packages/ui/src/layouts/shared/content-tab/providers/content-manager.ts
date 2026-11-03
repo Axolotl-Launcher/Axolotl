@@ -61,6 +61,7 @@ export interface ContentManagerContext {
     toggleEnabled: (item: ContentItem) => Promise<void>
     deleteItem: (item: ContentItem) => Promise<void>
     refresh: () => Promise<void>
+    refreshStatus?: Ref<string | null> | ComputedRef<string | null>
     browse: () => void
     uploadFiles: () => void
 

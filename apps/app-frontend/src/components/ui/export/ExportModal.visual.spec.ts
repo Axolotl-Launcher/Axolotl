@@ -205,6 +205,11 @@ it('starts verification when opened and keeps its progress in the fixed header a
 })
 
 it('shows cumulative verification progress across local and source checks', async () => {
+    // Verification progress is committed once per animation frame.
+    const committed = async () => {
+        await new Promise(requestAnimationFrame)
+        await flushPromises()
+    }
     vi.mocked(resourceExportScan).mockResolvedValue(snapshot())
     let update!: NonNullable<Parameters<typeof resourceExportRefresh>[4]>
     vi.mocked(resourceExportRefresh).mockImplementation(
@@ -228,7 +233,7 @@ it('shows cumulative verification progress across local and source checks', asyn
             overallTotal: 6,
             currentFileFraction: 0.5,
         })
-        await flushPromises()
+        await committed()
         const progress = document.querySelector<HTMLElement>(
             '[data-export-progress] [role="progressbar"]',
         )!
@@ -244,7 +249,7 @@ it('shows cumulative verification progress across local and source checks', asyn
             overallCompleted: 4,
             overallTotal: 6,
         })
-        await flushPromises()
+        await committed()
         expect(progress.getAttribute('aria-valuenow')).toBe('67')
         expect(document.querySelector('[data-export-progress]')?.textContent).toContain('Modrinth')
         update({
@@ -257,7 +262,7 @@ it('shows cumulative verification progress across local and source checks', asyn
             overallCompleted: 6,
             overallTotal: 6,
         })
-        await flushPromises()
+        await committed()
         expect(document.querySelector('[data-export-progress]')?.textContent).toContain(
             'Preparing verification results',
         )

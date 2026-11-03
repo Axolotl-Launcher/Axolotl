@@ -5,6 +5,7 @@ import { computed, type ComputedRef, type Ref, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { defineMessage, LOCALES, useVIntl } from '../composables/i18n'
+import { MAX_RESULTS_LIMIT } from './browse-max-results.ts'
 import type { FilterType, FilterValue, SortType, Tags } from './search'
 import { formatSearchFilterValue } from './search'
 import { formatCategory, formatCategoryHeader } from './tag-messages'
@@ -433,7 +434,13 @@ export function useServerSearch(opts: {
         }
 
         if (q.m) {
-            maxResults.value = Number(q.m)
+            // Same guard as the non-server `?m=` path in `search.ts`: a malformed
+            // value must not clobber state, and a huge one must not reach
+            // `limit=` — clamp it to the same ceiling as the stored preference.
+            const parsed = Number(q.m)
+            if (Number.isFinite(parsed) && parsed > 0) {
+                maxResults.value = Math.min(parsed, MAX_RESULTS_LIMIT)
+            }
         }
 
         if (q.page) {

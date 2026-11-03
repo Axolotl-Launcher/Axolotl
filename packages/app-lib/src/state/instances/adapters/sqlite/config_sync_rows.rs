@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use chrono::Utc;
 use sqlx::{Executor, Sqlite, SqlitePool};
 

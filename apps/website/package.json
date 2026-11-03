@@ -12,7 +12,8 @@
     "lint": "eslint . && prettier --check .",
     "fix": "eslint . --fix && prettier --write .",
     "prepr": "pnpm run lint && pnpm run build",
-    "test:e2e": "playwright test --config playwright.config.ts"
+    "test:e2e": "pnpm run build && playwright test --config playwright.config.ts",
+    "test:e2e:update": "pnpm run build && playwright test --config playwright.config.ts --update-snapshots"
   },
   "devDependencies": {
     "@modrinth/tooling-config": "workspace:*",
@@ -20,7 +21,7 @@
     "@types/node": "^24.13.3",
     "@vitest/browser-playwright": "4.1.12",
     "autoprefixer": "^10.5.5",
-    "nuxt": "^4.6.2",
+    "nuxt": "^4.6.3",
     "playwright": "1.63.0",
     "postcss": "^8.5.28",
     "prettier-plugin-tailwindcss": "^0.6.14",

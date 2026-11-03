@@ -4,23 +4,29 @@
   <p><strong>次世代 Minecraft 桌面客户端，全能、美观、全平台覆盖。</strong></p>
 
   <p>
-    <a href="https://github.com/Mystic-Stars/Axolotl/actions">
-      <img src="https://img.shields.io/github/actions/workflow/status/Mystic-Stars/Axolotl/axolotl-ci.yml?style=for-the-badge&logo=github" alt="Desktop CI" />
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/actions">
+      <img src="https://img.shields.io/github/actions/workflow/status/Axolotl-Launcher/Axolotl/axolotl-ci.yml?style=for-the-badge&logo=github" alt="Desktop CI" />
     </a>
-    <a href="https://github.com/Mystic-Stars/Axolotl/releases">
-      <img src="https://img.shields.io/github/downloads/Mystic-Stars/Axolotl/total?style=for-the-badge&logo=github" alt="Downloads" />
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/releases">
+      <img src="https://img.shields.io/github/downloads/Axolotl-Launcher/Axolotl/total?style=for-the-badge&logo=github" alt="Downloads" />
     </a>
-    <a href="https://github.com/Mystic-Stars/Axolotl/stargazers">
-      <img src="https://img.shields.io/github/stars/Mystic-Stars/Axolotl?style=for-the-badge&logo=github&color=ffb800" alt="Stars" />
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/stargazers">
+      <img src="https://img.shields.io/github/stars/Axolotl-Launcher/Axolotl?style=for-the-badge&logo=github&color=ffb800" alt="Stars" />
     </a>
     <a href="COPYING.md">
       <img src="https://img.shields.io/badge/License-GPL_3.0-blue.svg?style=for-the-badge" alt="License" />
+    </a>
+    <a href="https://www.gitlink.org.cn/xinvxueyuan/Axolotl">
+      <img src="https://img.shields.io/badge/GitLink-Mirror-2f81f7?style=for-the-badge&logo=git&logoColor=white" alt="GitLink Mirror" />
+    </a>
+    <a href="https://cnb.cool/axlmc/Axolotl">
+      <img src="https://img.shields.io/badge/CNB-Mirror-00c2ff?style=for-the-badge&logo=cloud&logoColor=white" alt="CNB Mirror" />
     </a>
   </p>
 
   <p>
     <a href="https://www.axlmc.org">官方网站</a> ｜
-    <a href="https://github.com/Mystic-Stars/Axolotl/releases/latest">下载最新版</a> ｜
+    <a href="https://github.com/Axolotl-Launcher/Axolotl/releases/latest">下载最新版</a> ｜
     <a href="CONTRIBUTING.md">参与贡献</a>
     ｜ <a href="CODE_OF_CONDUCT.md">行为准则</a>
   </p>
@@ -33,8 +39,13 @@
 
 <table>
   <tr>
+    <td width="105"><img src="./.github/assets/rainyun-logo.png" width="72" alt="Rainyun Logo" /></td>
+    <td><strong>雨云</strong><br>雨云是新一代国产云计算服务提供商，为广大服主提供简单易用、高性能、高性价比的游戏专用服务器。独家动态计费服务，自研高可用面板服，热门整合包一键快速安装。</td>
+    <td><a href="https://www.rainyun.com/mystic_">访问雨云</a></td>
+  </tr>
+  <tr>
     <td width="105"><img src="./.github/assets/codeflow-logo.png" width="72" alt="CodeFlow Logo" /></td>
-    <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型<br>原生协议转发 · 无需海外网络 · 支付宝即充即用</td>
+    <td><strong>CodeFlow</strong><br>更稳、更省地调用顶级 AI 模型。原生协议转发，体验与官方一致，Claude Code、Codex 等工具开箱即用；多线路互为备份，请求失败自动切换；¥1 可充 $5 额度，余额永不过期；无需海外网络，支付宝即充即用。</td>
     <td><a href="https://codeflow.sh/register?invite=4UHP2KYH">访问 CodeFlow</a></td>
   </tr>
   <tr>
@@ -65,9 +76,25 @@ _(注：本项目是调用 Modrinth 公开 API 的独立客户端，与 Rinth, I
 - **高度定制化**：无论是主题色调、背景图片，还是离线皮肤，核心功能与视觉展现均由你自由支配。
 - **All in one 全新体验**：启动器内置 “实验室” 功能，囊括种子地图、投影工坊等海量使用工具，带来全新原生轮椅体验。
 
+## 核心架构与技术栈
+
+Axolotl Launcher 采用现代化的混合架构（Hybrid Architecture），兼具原生应用的卓越性能与 Web 前端的灵活性：
+
+- **桌面运行时核心 (Rust / Tauri)**：
+  - **高效后端 (`packages/app-lib`)**：基于 Rust 构建，提供强类型实例管理、SQLite 状态持久化、迁移控制与多线程并发下载引擎。
+  - **安全容器 (`apps/app`)**：基于 Tauri 2 构建的轻量原生壳，实现高效的 IPC 调用与原生系统级集成。
+- **现代化前端界面 (Vue 3 / Nuxt 3 / Tailwind CSS)**：
+  - **桌面客户端 (`apps/app-frontend`)** 与 **官方网站 (`apps/website`)** 共享统一的设计系统 (`packages/ui`)，带来丝滑顺畅的交互体验。
+- **开放内容与生态集成 (`packages/content-management` & `packages/api-client`)**：
+  - 深度集成 Modrinth 与 CurseForge 公开 API，支持一键浏览、搜索、安装及自动更新模组、整合包、光影和资源包。
+- **账户与个性化 (`Minecraft Auth` & `Skins`)**：
+  - 支持正版微软登录（Microsoft Authentication）、Yggdrasil 第三方验证及离线皮肤管理。
+- **全能实验室工具箱 (`Launcher Tools`)**：
+  - 内置投影工坊、种子地图等实用辅助工具，打造一站式 Minecraft 游戏与创作体验。
+
 ## 下载与安装
 
-请前往 [GitHub Releases](https://github.com/Mystic-Stars/Axolotl/releases/latest) 下载适合你操作系统的最新安装包。
+请前往 [GitHub Releases](https://github.com/Axolotl-Launcher/Axolotl/releases/latest) 下载适合你操作系统的最新安装包。
 已安装的用户每次均可通过内置的 Tauri 签名校验机制，自动在后台完成更新，无需手动下载安装更新。
 
 | 系统平台                | 推荐下载文件                              |
@@ -103,16 +130,16 @@ sudo apt install axolotl-launcher
 > 由于 Axolotl Launcher 的主分支代码更新较快，可以在下面用到的网址后面加上`/?`和参数来锁定，以免过于频繁地更新。多个参数用`&`连接。
 >
 > - 使用`shallow=1`避免克隆历史代码 \
->   `git+https://github.com/Mystic-Stars/Axolotl/?shallow=1`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?shallow=1`
 > - 使用`ref=`指定分支（例如`experiment/linux-cef-runtime`分支）\
->   `git+https://github.com/Mystic-Stars/Axolotl/?ref=experiment/linux-cef-runtime`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?ref=experiment/linux-cef-runtime`
 > - 使用`ref=`指定版本标签（例如`v1.9.7-beta.2`）\
->   `git+https://github.com/Mystic-Stars/Axolotl/?ref=refs/tags/v1.9.7-beta.2`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?ref=refs/tags/v1.9.7-beta.2`
 > - 使用`rev=`指定提交（例如`10827ade74f49958cefaa6fda05961c7502741ef`）\
->   `git+https://github.com/Mystic-Stars/Axolotl/?rev=10827ade74f49958cefaa6fda05961c7502741ef`
+>   `git+https://github.com/Axolotl-Launcher/Axolotl/?rev=10827ade74f49958cefaa6fda05961c7502741ef`
 
 ```bash
-nix profile add 'git+https://github.com/Mystic-Stars/Axolotl'
+nix profile add 'git+https://github.com/Axolotl-Launcher/Axolotl'
 ```
 
 **使用 Home-Manager 的任意发行版**
@@ -136,7 +163,7 @@ nix profile add 'git+https://github.com/Mystic-Stars/Axolotl'
   inputs = {
     # nixpkgs home-manager 等其他输入...
     axolotl-launcher = {
-      url = "git+https://github.com/Mystic-Stars/Axolotl";
+      url = "git+https://github.com/Axolotl-Launcher/Axolotl";
     # inputs.nixpkgs.follows = "nixpkgs";
     # ↑ 通常不建议跟随本地nixpkgs，因为nixpkgs版本不一致会难以命中缓存、从下载缓存回退成本地编译。
     };
@@ -162,18 +189,56 @@ nix profile add 'git+https://github.com/Mystic-Stars/Axolotl'
 {
   programs.axolotl-launcher = {
     enable = true;
+    launchEnv = {
+      KEY = "VAL";
+    };
+    settings = {
+      appearance = {
+        locale = "zh-CN";
+        theme = "dark";
+      };
+      download.max_concurrent_downloads = 16;
+      java = {
+        runtimes = [
+          {
+            path = "${pkgs.jdk21}/bin/java";
+            major_version = 21;
+            full_version = pkgs.jdk21.version;
+            distribution = "Temurin";
+          }
+        ];
+        defaults = [
+          {
+            major_version = 21;
+            path = "${pkgs.jdk21}/bin/java";
+          }
+        ];
+      };
+      # ...
+    };
   };
 }
 ```
 
 可选属性
 
-| 键        | 类型    | 默认值  | 说明                                                                                                                                       |
-| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| enable    | `bool`  | `false` | 设置为`true`以启用 Axolotl Launcher。                                                                                                      |
-| launchEnv | `attrs` | `{ }`   | Axolotl Launcher 启动时额外的环境变量。例如`{ HELLO = 1; world = "two"; }`能为 Axolotl Launcher 设置额外的环境变量`HELLO=1`和`world=two`。 |
+| 键          | 类型    | 默认值  | 说明                             |
+|:----------- |:-------:|:-------:|:-------------------------------- |
+| `enable`    | `bool`  | `false` | 设置为`true`以启用美西螈启动器   |
+| `launchEnv` | `attrs` | `{ }`   | 运行美西螈启动器时额外的环境变量 |
+| `settings`  | `attrs` | `{ }`   | 提供美西螈启动器设置的默认值     |
 
 </details>
+
+## 贡献者
+
+感谢所有为 Axolotl Launcher 做出贡献的开发者与社区伙伴！
+
+<a href="https://github.com/Axolotl-Launcher/Axolotl/graphs/contributors">
+  <img src="https://contributors.hikarilink.org/image?repo=Axolotl-Launcher/Axolotl" alt="Contributors" />
+</a>
+
+---
 
 ## 参与项目开发
 

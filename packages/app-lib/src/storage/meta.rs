@@ -214,8 +214,7 @@ async fn channel_references(
     refs: &mut References,
     directories: &DirectoryInfo,
 ) -> crate::Result<()> {
-    let busy: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM install_jobs WHERE status IN ('queued', 'running', 'canceling', 'waiting_for_user') OR json_extract(state, '$.rollback') IS NOT NULL").fetch_one(pool).await?;
-    refs.busy |= busy > 0;
+    refs.busy |= crate::install::store::has_any_unfinished_job(pool).await?;
     let overrides: Vec<String> = sqlx::query_scalar(
         "SELECT json(overrides) FROM instance_launch_overrides",
     )

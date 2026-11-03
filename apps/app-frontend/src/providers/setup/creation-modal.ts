@@ -4,6 +4,7 @@ import type {
     CreationFlowContextValue,
     CreationFlowModal,
     SymlinkMethodChoice,
+    SymlinkMethodInstance,
 } from '@modrinth/ui'
 import { defineMessages, useVIntl } from '@modrinth/ui'
 import { join } from '@tauri-apps/api/path'
@@ -26,20 +27,9 @@ import {
     type InstallJobSnapshot,
     wait_for_install_job,
 } from '@/helpers/install'
-import { check_symlink_capability, list } from '@/helpers/instance'
+import { list } from '@/helpers/instance'
 import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata.js'
 import type { InstanceLoader } from '@/helpers/types'
-
-const symlinkMessages = defineMessages({
-    unsupportedTitle: {
-        id: 'app.symlink-capability.unsupported.title',
-        defaultMessage: 'Shared instances are unavailable',
-    },
-    unsupportedBody: {
-        id: 'app.symlink-capability.unsupported',
-        defaultMessage: 'This system does not support creating symbolic links.',
-    },
-})
 
 const modpackMessages = defineMessages({
     installing: {
@@ -180,25 +170,17 @@ export function setupCreationModal(
 
                 if (instanceEntries.length === 0) return
 
-                // Show SymlinkMethodCards for user to choose copy vs symlink
-                const capability = await check_symlink_capability()
-                if (capability === 'unsupported') {
-                    notificationManager.addNotification({
-                        type: 'error',
-                        title: formatMessage(symlinkMessages.unsupportedTitle),
-                        text: formatMessage(symlinkMessages.unsupportedBody),
-                    })
-                    return
-                }
-
                 const chooseImportMethod: (options: {
-                    instanceNames: string[]
-                    symlinkCapable: 'supported' | 'requires_admin' | 'unsupported'
+                    instances: SymlinkMethodInstance[]
                 }) => Promise<SymlinkMethodChoice[]> = inject('chooseImportMethod')!
 
                 const choices = await chooseImportMethod({
-                    instanceNames: instanceEntries.map((e) => e.instanceName),
-                    symlinkCapable: capability,
+                    instances: instanceEntries.map((entry) => ({
+                        name: entry.instanceName,
+                        path: entry.instancePath,
+                        launcherType: entry.launcherType,
+                        basePath: entry.path,
+                    })),
                 })
 
                 if (choices.length === 0) return
@@ -214,12 +196,12 @@ export function setupCreationModal(
                             entry.launcherType,
                             entry.path,
                             entry.instanceName,
-                            choice?.symlink ?? false,
+                            false,
                             entry.instancePath,
-                            undefined,
-                            undefined,
-                            undefined,
-                            choice?.gameDirOverride ?? null,
+                            choice?.gameVersion ?? undefined,
+                            choice?.loader ?? undefined,
+                            choice?.loaderVersion ?? undefined,
+                            null,
                         )
                         await wait_for_install_job(job.job_id)
                     } catch (error) {

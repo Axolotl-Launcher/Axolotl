@@ -235,10 +235,10 @@ function draftText(tag: CustomTag) {
                             <button
                                 v-for="item in visibleVanillaRows"
                                 :key="item"
+                                v-tooltip="formatMessage(messages.useTag)"
                                 type="button"
                                 :draggable="!isTauriRuntime"
                                 class="recipe-tag-row"
-                                :title="formatMessage(messages.useTag)"
                                 :aria-label="`${formatMessage(messages.useTag)}: ${item}`"
                                 :style="{ touchAction: isTauriRuntime ? 'none' : undefined }"
                                 @click="pickFromClick($event, { kind: 'vanilla_tag', id: item })"
@@ -303,19 +303,19 @@ function draftText(tag: CustomTag) {
                                 "
                             />
                             <button
+                                v-tooltip="formatMessage(messages.deleteTag)"
                                 type="button"
                                 class="recipe-delete-button"
-                                :title="formatMessage(messages.deleteTag)"
                                 :aria-label="formatMessage(messages.deleteTag)"
                                 @click="emit('deleteCustomTag', tag.uid)"
                             >
                                 <TrashIcon />
                             </button>
                             <button
+                                v-tooltip="formatMessage(messages.useTag)"
                                 type="button"
                                 class="recipe-add-button"
                                 :draggable="!isTauriRuntime"
-                                :title="formatMessage(messages.useTag)"
                                 :aria-label="formatMessage(messages.useTag)"
                                 :style="{ touchAction: isTauriRuntime ? 'none' : undefined }"
                                 @click="pickFromClick($event, { kind: 'custom_tag', uid: tag.uid })"

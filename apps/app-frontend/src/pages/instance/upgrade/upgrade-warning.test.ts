@@ -1,6 +1,6 @@
-import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import test from 'node:test'
+
+import { expect, it } from 'vitest'
 
 import type { InstanceUpgradeResult } from '@/helpers/instance-upgrade'
 
@@ -25,7 +25,7 @@ const base = {
     skippedDueToExternalConflict: [],
 } as InstanceUpgradeResult
 
-test('structured warning maps by stable code', () => {
+it('structured warning maps by stable code', () => {
     const rows = upgradeResultWarningRows({
         ...base,
         compatibilityWarnings: [],
@@ -40,19 +40,18 @@ test('structured warning maps by stable code', () => {
             },
         ],
     })
-    assert.equal(
-        upgradeWarningMessageId(rows[0].code!),
+    expect(upgradeWarningMessageId(rows[0].code!)).toBe(
         'instance.upgrade.warning.keep-incompatible',
     )
     const zhCn = JSON.parse(
         readFileSync(new URL('../../../locales/zh-CN/index.json', import.meta.url), 'utf8'),
     ) as Record<string, { message: string }>
     const localized = zhCn[upgradeWarningMessageId(rows[0].code!)]?.message
-    assert.equal(localized, '{path} 已原样保留，可能与升级后的实例不兼容。')
-    assert.doesNotMatch(localized, /will be preserved/i)
+    expect(localized).toBe('{path} 已原样保留，可能与升级后的实例不兼容。')
+    expect(localized).not.toMatch(/will be preserved/i)
 })
 
-test('legacy persisted warning falls back to raw message', () => {
+it('legacy persisted warning falls back to raw message', () => {
     const rows = upgradeResultWarningRows({
         ...base,
         compatibilityWarnings: [
@@ -67,10 +66,10 @@ test('legacy persisted warning falls back to raw message', () => {
             },
         ],
     })
-    assert.equal(rows[0].legacyMessage, 'Legacy backend text')
+    expect(rows[0].legacyMessage).toBe('Legacy backend text')
 })
 
-test('300 structured warnings stay summarized with path as secondary data', () => {
+it('300 structured warnings stay summarized with path as secondary data', () => {
     const rows = upgradeResultWarningRows({
         ...base,
         compatibilityWarnings: [],
@@ -88,67 +87,61 @@ test('300 structured warnings stay summarized with path as secondary data', () =
             conflictingProjectId: null,
         })),
     })
-    assert.deepEqual(summarizeUpgradeWarnings(rows), { local: 200, kept: 75, fallback: 25 })
-    assert.equal(upgradeWarningDisplayName(rows[0]), 'example-0.zip')
-    assert.equal(shouldExpandUpgradeWarningsByDefault(rows.length), false)
+    expect(summarizeUpgradeWarnings(rows)).toEqual({ local: 200, kept: 75, fallback: 25 })
+    expect(upgradeWarningDisplayName(rows[0])).toBe('example-0.zip')
+    expect(shouldExpandUpgradeWarningsByDefault(rows.length)).toBe(false)
     const zhCn = JSON.parse(
         readFileSync(new URL('../../../locales/zh-CN/index.json', import.meta.url), 'utf8'),
     ) as Record<string, { message: string }>
-    assert.equal(
-        zhCn['instance.upgrade.result.warning-unidentified-headline']?.message,
+    expect(zhCn['instance.upgrade.result.warning-unidentified-headline']?.message).toBe(
         '此内容在升级时被原样保留',
     )
 
     const page1 = paginateUpgradeWarnings(rows, 1)
     const page2 = paginateUpgradeWarnings(rows, 2)
     const lastPage = paginateUpgradeWarnings(rows, 30)
-    assert.equal(UPGRADE_WARNING_PAGE_SIZE, 10)
-    assert.equal(page1.items.length, 10)
-    assert.deepEqual(
-        page2.items.map((row) => row.contentId),
+    expect(UPGRADE_WARNING_PAGE_SIZE).toBe(10)
+    expect(page1.items.length).toBe(10)
+    expect(page2.items.map((row) => row.contentId)).toEqual(
         Array.from({ length: 10 }, (_, index) => `content-${index + 10}`),
     )
-    assert.deepEqual(
-        lastPage.items.map((row) => row.contentId),
+    expect(lastPage.items.map((row) => row.contentId)).toEqual(
         Array.from({ length: 10 }, (_, index) => `content-${index + 290}`),
     )
     const remainderPage = paginateUpgradeWarnings(rows.slice(0, 293), 30)
-    assert.deepEqual(
-        remainderPage.items.map((row) => row.contentId),
-        ['content-290', 'content-291', 'content-292'],
-    )
+    expect(remainderPage.items.map((row) => row.contentId)).toEqual([
+        'content-290',
+        'content-291',
+        'content-292',
+    ])
     const searched = filterUpgradeWarnings(rows, 'all', 'example-287')
-    assert.deepEqual(
-        searched.map((row) => row.contentId),
-        ['content-287'],
-    )
-    assert.equal(paginateUpgradeWarnings(searched, 1).items.length, 1)
-    assert.equal(filterUpgradeWarnings(rows, 'all', '').length, 300)
-    assert.equal(filterUpgradeWarnings(rows, 'local', '').length, 200)
-    assert.equal(filterUpgradeWarnings(rows, 'kept', '').length, 75)
-    assert.equal(filterUpgradeWarnings(rows, 'fallback', '').length, 25)
+    expect(searched.map((row) => row.contentId)).toEqual(['content-287'])
+    expect(paginateUpgradeWarnings(searched, 1).items.length).toBe(1)
+    expect(filterUpgradeWarnings(rows, 'all', '').length).toBe(300)
+    expect(filterUpgradeWarnings(rows, 'local', '').length).toBe(200)
+    expect(filterUpgradeWarnings(rows, 'kept', '').length).toBe(75)
+    expect(filterUpgradeWarnings(rows, 'fallback', '').length).toBe(25)
 
     const source = readFileSync(new URL('./UpgradeResultCollections.vue', import.meta.url), 'utf8')
-    assert.match(source, /v-if="warningsOpen"/)
-    assert.match(source, /v-for="warning in warningPage\.items"/)
-    assert.doesNotMatch(source, /v-for="warning in warnings"/)
-    assert.match(source, /technicalDetails/)
-    assert.match(source, /warningHeadline\(warning\)/)
-    assert.match(
-        source,
+    expect(source).toMatch(/v-if="warningsOpen"/)
+    expect(source).toMatch(/v-for="warning in warningPage\.items"/)
+    expect(source).not.toMatch(/v-for="warning in warnings"/)
+    expect(source).toMatch(/technicalDetails/)
+    expect(source).toMatch(/warningHeadline\(warning\)/)
+    expect(source).toMatch(
         /watch\(\[warningSearch, warningFilter\],[\s\S]*?warningPageNumber\.value = 1/,
     )
 
     const buttonSlotStart = source.indexOf('<template #button="{ open }">')
     const buttonSlotEnd = source.indexOf('</template>', buttonSlotStart)
     const summaryPosition = source.indexOf('warningSummary.local', buttonSlotStart)
-    assert.ok(
+    expect(
         buttonSlotStart >= 0 &&
             summaryPosition > buttonSlotStart &&
             summaryPosition < buttonSlotEnd,
-    )
-    assert.match(source, /class="block w-full"/)
-    assert.match(source, /button-class="[^"]*w-full[^"]*focus-visible:ring-4/)
+    ).toBeTruthy()
+    expect(source).toMatch(/class="block w-full"/)
+    expect(source).toMatch(/button-class="[^"]*w-full[^"]*focus-visible:ring-4/)
 
     const accordionSource = readFileSync(
         new URL('../../../../../../packages/ui/src/components/base/Accordion.vue', import.meta.url),
@@ -157,9 +150,9 @@ test('300 structured warnings stay summarized with path as secondary data', () =
     const accordionButtonSlot = accordionSource.lastIndexOf('<slot name="button"')
     const accordionButtonStart = accordionSource.lastIndexOf('<button', accordionButtonSlot)
     const accordionButtonEnd = accordionSource.indexOf('</button>', accordionButtonSlot)
-    assert.ok(
+    expect(
         accordionButtonStart >= 0 &&
             accordionButtonSlot > accordionButtonStart &&
             accordionButtonSlot < accordionButtonEnd,
-    )
+    ).toBeTruthy()
 })

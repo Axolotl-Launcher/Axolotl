@@ -436,7 +436,6 @@ async fn download_mojmaps_for_processor(
         None,
         None,
         &state.download_semaphore,
-        &state.pool,
     )
     .await?;
     if bytes.len() as u64 != u64::from(*download_size) {
@@ -897,7 +896,7 @@ pub async fn resolve_minecraft_manifest_with_cache(
         } else {
             Some(CacheBehaviour::MustRevalidate)
         },
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -1415,9 +1414,8 @@ async fn install_minecraft_with_local_source(
         get_java_version_from_launch_context(context, &version_info).await?
     {
         Some((std::path::PathBuf::from(java_version.path), false))
-    } else if let Some(discovered) = crate::api::jre::find_java_for_version(key)
-        .await
-        .unwrap_or_default()
+    } else if let Some(discovered) =
+        crate::api::jre::find_java_for_version(key).await?
     {
         tracing::info!(
             "Reusing discovered Java {} at {}",
@@ -1459,10 +1457,11 @@ async fn install_minecraft_with_local_source(
         validate_loader_java_version(&version_info, &java_version)?;
 
         if set_java {
+            let documents = crate::state::documents::Documents::new(&state);
             run_install_database_write(
                 &state.install_db_semaphore,
                 &database_cancellation,
-                java_version.upsert(&state.pool),
+                java_version.upsert(&documents),
             )
             .await?;
         }
@@ -2565,7 +2564,7 @@ pub async fn launch_minecraft(
         extra_game_args.extend(pcl.extra_game_args());
     }
 
-    let settings = crate::state::Settings::get(&state.pool).await?;
+    let settings = crate::state::Settings::get(&state.data).await?;
 
     #[cfg(target_os = "windows")]
     if settings.auto_set_java_high_performance_mode {
@@ -2972,7 +2971,8 @@ pub async fn launch_minecraft(
         && (!mc_set_options.is_empty()
             || offline_skin_pack.enabled_pack_id.is_some()
             || options_existed
-            || !settings.locale.is_empty())
+            || !settings.locale.is_empty()
+            || !settings.default_game_language.is_empty())
     {
         let (mut options_string, input_encoding) = if options_existed {
             io::read_any_encoding_to_string(&options_path).await?
@@ -2995,6 +2995,7 @@ pub async fn launch_minecraft(
         }
 
         let language_options = language::game_language_options(
+            &settings.default_game_language,
             &settings.locale,
             launch_release_time,
             &options_string,

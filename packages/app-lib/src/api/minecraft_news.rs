@@ -50,7 +50,6 @@ pub async fn get_minecraft_news(
         None,
         None,
         &state.api_semaphore,
-        &state.pool,
     )
     .await?;
 

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     filterSchematicAirGeometry,
@@ -17,17 +16,17 @@ import {
     selectSchematicMaterial,
 } from './editing.ts'
 
-test('air block detection tolerates noncanonical casing and whitespace', () => {
-    assert.equal(isSchematicAir(' Minecraft:Air '), true)
-    assert.equal(isSchematicAir('minecraft:CAVE_AIR'), true)
-    assert.equal(isSchematicAir('minecraft:void_air'), true)
-    assert.equal(isSchematicAir('minecraft:light'), true)
-    assert.equal(isSchematicAir('minecraft:barrier'), true)
-    assert.equal(isSchematicAir('minecraft:structure_void'), true)
-    assert.equal(isSchematicAir('minecraft:stone'), false)
+it('air block detection tolerates noncanonical casing and whitespace', () => {
+    expect(isSchematicAir(' Minecraft:Air ')).toBe(true)
+    expect(isSchematicAir('minecraft:CAVE_AIR')).toBe(true)
+    expect(isSchematicAir('minecraft:void_air')).toBe(true)
+    expect(isSchematicAir('minecraft:light')).toBe(true)
+    expect(isSchematicAir('minecraft:barrier')).toBe(true)
+    expect(isSchematicAir('minecraft:structure_void')).toBe(true)
+    expect(isSchematicAir('minecraft:stone')).toBe(false)
 })
 
-test('chunk normalization collapses every air palette entry to index zero', () => {
+it('chunk normalization collapses every air palette entry to index zero', () => {
     const blocks = new Uint32Array([1, 2, 3, 2])
     const normalized = normalizeSchematicAirBlocks(blocks, [
         { name: 'minecraft:air', properties: {} },
@@ -37,11 +36,11 @@ test('chunk normalization collapses every air palette entry to index zero', () =
         { name: 'minecraft:barrier', properties: {} },
     ])
 
-    assert.deepEqual([...normalized], [1, 0, 0, 0])
-    assert.deepEqual([...blocks], [1, 2, 3, 2])
+    expect([...normalized]).toEqual([1, 0, 0, 0])
+    expect([...blocks]).toEqual([1, 2, 3, 2])
 })
 
-test('mesh validation removes stale geometry whose cached block is air', () => {
+it('mesh validation removes stale geometry whose cached block is air', () => {
     const chunk: SchematicCachedChunk = {
         regionId: 'region-0',
         position: [0, 0, 0],
@@ -60,15 +59,15 @@ test('mesh validation removes stale geometry whose cached block is air', () => {
         { name: 'minecraft:stone', properties: {} },
     ])
 
-    assert.deepEqual([...filtered.blockPositions], [1, 0, 0])
-    assert.deepEqual([...filtered.positions], [1, 0, 0])
+    expect([...filtered.blockPositions]).toEqual([1, 0, 0])
+    expect([...filtered.positions]).toEqual([1, 0, 0])
 })
 
-test('point measurement reports signed offsets, inclusive size, and distance', () => {
+it('point measurement reports signed offsets, inclusive size, and distance', () => {
     const measurement = measureSchematicPoints([4, -2, 10], [-2, 1, 2])
-    assert.deepEqual(measurement.delta, [-6, 3, -8])
-    assert.deepEqual(measurement.size, [7, 4, 9])
-    assert.equal(measurement.distance, Math.sqrt(109))
+    expect(measurement.delta).toEqual([-6, 3, -8])
+    expect(measurement.size).toEqual([7, 4, 9])
+    expect(measurement.distance).toBe(Math.sqrt(109))
 })
 
 function fixture() {
@@ -81,61 +80,58 @@ function fixture() {
     return new Map([[schematicChunkKey(chunk.regionId, chunk.position), chunk]])
 }
 
-test('palette lookup handles negative chunk coordinates', () => {
-    assert.equal(
+it('palette lookup handles negative chunk coordinates', () => {
+    expect(
         schematicBlockPaletteIndex(fixture(), { regionId: 'region-0', position: [-16, 0, 0] }),
-        1,
-    )
+    ).toBe(1)
 })
 
-test('block state keys preserve properties for states sharing a block name', () => {
-    assert.notEqual(
+it('block state keys preserve properties for states sharing a block name', () => {
+    expect(
         schematicBlockStateKey({ name: 'minecraft:oak_slab', properties: { type: 'top' } }),
+    ).not.toBe(
         schematicBlockStateKey({ name: 'minecraft:oak_slab', properties: { type: 'bottom' } }),
     )
-    assert.equal(
+    expect(
         schematicBlockStateKey({
             name: 'minecraft:oak_slab',
             properties: { waterlogged: 'false', type: 'top' },
         }),
-        'minecraft:oak_slab[type=top,waterlogged=false]',
-    )
+    ).toBe('minecraft:oak_slab[type=top,waterlogged=false]')
 })
 
-test('cuboid selection skips air and keeps the selected region', () => {
+it('cuboid selection skips air and keeps the selected region', () => {
     const selected = selectSchematicCuboid(
         fixture(),
         { regionId: 'region-0', position: [-16, 0, 0] },
         { regionId: 'region-0', position: [-15, 1, 1] },
     )
-    assert.equal(selected.length, 4)
-    assert.ok(selected.every((location) => location.regionId === 'region-0'))
+    expect(selected.length).toBe(4)
+    expect(selected.every((location) => location.regionId === 'region-0')).toBeTruthy()
 })
 
-test('material, layer, and connected expansion use cached block data', () => {
+it('material, layer, and connected expansion use cached block data', () => {
     const chunks = fixture()
     const palette = [
         { name: 'minecraft:air', properties: {} },
         { name: 'minecraft:stone', properties: {} },
         { name: 'minecraft:dirt', properties: {} },
     ]
-    assert.equal(selectSchematicMaterial(chunks, palette, 'minecraft:dirt').length, 2)
+    expect(selectSchematicMaterial(chunks, palette, 'minecraft:dirt').length).toBe(2)
     const stateChunks = fixture()
     stateChunks.get(schematicChunkKey('region-0', [-1, 0, 0]))!.blocks[2] = 3
-    assert.equal(
+    expect(
         selectSchematicBlockState(
             stateChunks,
             [...palette, { name: 'minecraft:dirt', properties: { type: 'top' } }],
             { name: 'minecraft:dirt', properties: {} },
         ).length,
-        2,
-    )
-    assert.equal(selectSchematicLayer(chunks, 0).length, 3)
-    assert.equal(
+    ).toBe(2)
+    expect(selectSchematicLayer(chunks, 0).length).toBe(3)
+    expect(
         selectConnectedSchematicBlocks(chunks, {
             regionId: 'region-0',
             position: [-16, 0, 0],
         }).length,
-        4,
-    )
+    ).toBe(4)
 })

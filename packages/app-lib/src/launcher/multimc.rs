@@ -1066,17 +1066,21 @@ mod tests {
                 .unwrap();
         let manifest = archive
             .file_names()
+            .map(|name| name.unwrap())
             .find(|name| {
                 name.ends_with("/mmc-pack.json") || *name == "mmc-pack.json"
             })
             .unwrap()
-            .to_string();
+            .into_owned();
         let prefix = manifest.strip_suffix("mmc-pack.json").unwrap();
         let directory = tempfile::tempdir().unwrap();
         for index in 0..archive.len() {
             let mut entry = archive.by_index(index).unwrap();
-            let Some(relative) =
-                entry.name().strip_prefix(prefix).map(str::to_string)
+            let Some(relative) = entry
+                .name()
+                .unwrap()
+                .strip_prefix(prefix)
+                .map(str::to_string)
             else {
                 continue;
             };

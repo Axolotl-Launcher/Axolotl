@@ -1,29 +1,28 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import { createAntiPiracyStatus, isOfflineAccountRestrictedError } from './useAntiPiracyStatus.ts'
 
-test('a late region event cannot undo a cleared official login record', () => {
+it('a late region event cannot undo a cleared official login record', () => {
     const { status, setStatus } = createAntiPiracyStatus()
     setStatus({ region: 'non_cn', restricted: false, revision: 1 })
     setStatus({ region: 'non_cn', restricted: true, revision: 2 })
     setStatus({ region: 'non_cn', restricted: false, revision: 1 })
-    assert.equal(status.value.restricted, true)
-    assert.equal(status.value.revision, 2)
+    expect(status.value.restricted).toBe(true)
+    expect(status.value.revision).toBe(2)
 })
 
-test('a late eligibility read cannot undo a successful official login', () => {
+it('a late eligibility read cannot undo a successful official login', () => {
     const { status, setStatus } = createAntiPiracyStatus()
     setStatus({ region: 'non_cn', restricted: true, revision: 1 })
     setStatus({ region: 'non_cn', restricted: false, revision: 2 })
     setStatus({ region: 'non_cn', restricted: true, revision: 1 })
-    assert.equal(status.value.restricted, false)
+    expect(status.value.restricted).toBe(false)
 })
 
-test('restricted backend errors are recognized in Tauri and Error forms', () => {
-    assert.equal(isOfflineAccountRestrictedError('Input error: OFFLINE_ACCOUNT_RESTRICTED'), true)
-    assert.equal(isOfflineAccountRestrictedError(new Error('OFFLINE_ACCOUNT_RESTRICTED')), true)
-    assert.equal(isOfflineAccountRestrictedError({ message: 'OFFLINE_ACCOUNT_RESTRICTED' }), true)
-    assert.equal(isOfflineAccountRestrictedError(undefined), false)
-    assert.equal(isOfflineAccountRestrictedError(new Error('Other failure')), false)
+it('restricted backend errors are recognized in Tauri and Error forms', () => {
+    expect(isOfflineAccountRestrictedError('Input error: OFFLINE_ACCOUNT_RESTRICTED')).toBe(true)
+    expect(isOfflineAccountRestrictedError(new Error('OFFLINE_ACCOUNT_RESTRICTED'))).toBe(true)
+    expect(isOfflineAccountRestrictedError({ message: 'OFFLINE_ACCOUNT_RESTRICTED' })).toBe(true)
+    expect(isOfflineAccountRestrictedError(undefined)).toBe(false)
+    expect(isOfflineAccountRestrictedError(new Error('Other failure'))).toBe(false)
 })

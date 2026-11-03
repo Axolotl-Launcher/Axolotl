@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     createMojangAuthMonitor,
@@ -55,59 +54,56 @@ function fixture(source: MojangAuthConfiguration['source'] = 'auto') {
     }
 }
 
-test('requires core authentication services without depending on auxiliary hosts', () => {
-    assert.equal(officialMojangServicesReachable(healthy()), true)
-    assert.equal(
+it('requires core authentication services without depending on auxiliary hosts', () => {
+    expect(officialMojangServicesReachable(healthy())).toBe(true)
+    expect(
         officialMojangServicesReachable([...healthy(), { service: 'auth', reachable: false }]),
-        true,
-    )
-    assert.equal(
-        officialMojangServicesReachable(healthy().filter((s) => s.service !== 'session')),
+    ).toBe(true)
+    expect(officialMojangServicesReachable(healthy().filter((s) => s.service !== 'session'))).toBe(
         false,
     )
-    assert.equal(
+    expect(
         officialMojangServicesReachable(
             healthy().filter((s) => ['session', 'services'].includes(s.service)),
         ),
-        true,
-    )
-    assert.equal(officialMojangServicesReachable([]), false)
+    ).toBe(true)
+    expect(officialMojangServicesReachable([])).toBe(false)
 })
 
-test('startup and periodic callers share one slow background probe', async () => {
+it('startup and periodic callers share one slow background probe', async () => {
     const f = fixture()
     const response = deferred<ReturnType<typeof healthy>>()
     f.deps.probeOfficial = () => response.promise
     const first = f.monitor.run()
     await Promise.resolve()
-    assert.equal(f.monitor.run(), first)
-    assert.deepEqual(f.applied, [])
+    expect(f.monitor.run()).toBe(first)
+    expect(f.applied).toEqual([])
     response.resolve(healthy())
-    assert.equal(await first, true)
-    assert.deepEqual(f.applied, [['auto', false]])
-    assert.deepEqual(f.published, [true])
+    expect(await first).toBe(true)
+    expect(f.applied).toEqual([['auto', false]])
+    expect(f.published).toEqual([true])
 })
 
-test('falls back on one failed official round and returns to official on a later successful check', async () => {
+it('falls back on one failed official round and returns to official on a later successful check', async () => {
     const f = fixture('official_preferred')
     f.deps.probeOfficial = async () => healthy().map((status) => ({ ...status, reachable: false }))
     await f.monitor.run()
-    assert.deepEqual(f.applied, [['official_preferred', true]])
+    expect(f.applied).toEqual([['official_preferred', true]])
     f.deps.probeOfficial = async () => healthy()
     await f.monitor.run()
-    assert.deepEqual(f.applied.at(-1), ['official_preferred', false])
+    expect(f.applied.at(-1)).toEqual(['official_preferred', false])
 })
 
-test('explicit choices never probe official hosts or switch to another source', async () => {
+it('explicit choices never probe official hosts or switch to another source', async () => {
     for (const source of ['official_only', 'mirror_preferred'] as const) {
         const f = fixture(source)
         await f.monitor.run()
-        assert.equal(f.probes(), 0)
-        assert.deepEqual(f.applied, [[source, source === 'mirror_preferred']])
+        expect(f.probes()).toBe(0)
+        expect(f.applied).toEqual([[source, source === 'mirror_preferred']])
     }
 })
 
-test('a settings change during a slow probe discards its result and reconciles the latest choice', async () => {
+it('a settings change during a slow probe discards its result and reconciles the latest choice', async () => {
     const f = fixture()
     const response = deferred<ReturnType<typeof healthy>>()
     f.deps.probeOfficial = () => response.promise
@@ -117,11 +113,11 @@ test('a settings change during a slow probe discards its result and reconciles t
     f.configure({ source: 'official_only', key: 'new' })
     response.resolve([])
     await pending
-    assert.deepEqual(f.applied, [['official_only', false]])
-    assert.deepEqual(f.published, [true])
+    expect(f.applied).toEqual([['official_only', false]])
+    expect(f.published).toEqual([true])
 })
 
-test('failed stale probes still allow a queued configuration change to run', async () => {
+it('failed stale probes still allow a queued configuration change to run', async () => {
     const f = fixture()
     const response = deferred<ReturnType<typeof healthy>>()
     f.deps.probeOfficial = () => response.promise
@@ -132,10 +128,10 @@ test('failed stale probes still allow a queued configuration change to run', asy
     f.monitor.invalidate()
     response.reject(new Error('old request failed'))
     await pending
-    assert.deepEqual(f.applied, [['mirror_preferred', true]])
+    expect(f.applied).toEqual([['mirror_preferred', true]])
 })
 
-test('offline and disposal invalidate in-flight results and prevent new work', async () => {
+it('offline and disposal invalidate in-flight results and prevent new work', async () => {
     for (const dispose of [false, true]) {
         const f = fixture()
         const response = deferred<ReturnType<typeof healthy>>()
@@ -150,32 +146,32 @@ test('offline and disposal invalidate in-flight results and prevent new work', a
         }
         response.resolve(healthy())
         await pending
-        assert.deepEqual(f.applied, [])
-        assert.deepEqual(f.published, [])
-        assert.equal(await f.monitor.run(), null)
+        expect(f.applied).toEqual([])
+        expect(f.published).toEqual([])
+        expect(await f.monitor.run()).toBe(null)
     }
 })
 
-test('probe and backend failures recover and unchanged settings do not need a new round', async () => {
+it('probe and backend failures recover and unchanged settings do not need a new round', async () => {
     const f = fixture()
     f.deps.probeOfficial = async () => {
         throw new Error('IPC failed')
     }
-    await assert.rejects(f.monitor.run(), /IPC failed/)
-    assert.deepEqual(f.applied, [])
+    await expect(f.monitor.run()).rejects.toThrow(/IPC failed/)
+    expect(f.applied).toEqual([])
     f.deps.probeOfficial = async () => healthy()
     f.deps.probeSelected = async () => {
         throw new Error('unreachable')
     }
-    assert.equal(await f.monitor.run(), false)
+    expect(await f.monitor.run()).toBe(false)
     f.deps.probeSelected = async () => {}
-    assert.equal(await f.monitor.run(), true)
-    assert.equal(await f.monitor.configurationChanged(), false)
+    expect(await f.monitor.run()).toBe(true)
+    expect(await f.monitor.configurationChanged()).toBe(false)
     f.configure({ source: 'auto', key: 'new-proxy' })
-    assert.equal(await f.monitor.configurationChanged(), true)
+    expect(await f.monitor.configurationChanged()).toBe(true)
 })
 
-test('backend rejection of a stale source retries with the latest configuration', async () => {
+it('backend rejection of a stale source retries with the latest configuration', async () => {
     const f = fixture()
     let calls = 0
     f.deps.applySource = async (source, mirror) => {
@@ -187,10 +183,10 @@ test('backend rejection of a stale source retries with the latest configuration'
         return true
     }
     await f.monitor.run()
-    assert.deepEqual(f.applied, [['official_only', false]])
+    expect(f.applied).toEqual([['official_only', false]])
 })
 
-test('settings changes while applying a source suppress the old connectivity probe', async () => {
+it('settings changes while applying a source suppress the old connectivity probe', async () => {
     const f = fixture('official_only')
     const response = deferred<boolean>()
     const started = deferred<void>()
@@ -209,14 +205,14 @@ test('settings changes while applying a source suppress the old connectivity pro
     f.monitor.invalidate()
     response.resolve(true)
     await pending
-    assert.deepEqual(f.applied, [
+    expect(f.applied).toEqual([
         ['official_only', false],
         ['mirror_preferred', true],
     ])
-    assert.deepEqual(f.published, [true])
+    expect(f.published).toEqual([true])
 })
 
-test('offline during a selected-source probe suppresses its result and reconnect starts a fresh round', async () => {
+it('offline during a selected-source probe suppresses its result and reconnect starts a fresh round', async () => {
     const f = fixture('official_only')
     const response = deferred<void>()
     const started = deferred<void>()
@@ -230,41 +226,41 @@ test('offline during a selected-source probe suppresses its result and reconnect
     f.monitor.invalidate()
     response.reject(new Error('old failure'))
     await pending
-    assert.deepEqual(f.published, [])
+    expect(f.published).toEqual([])
     f.enable(true)
     f.monitor.invalidate()
     f.deps.probeSelected = async () => {}
     await f.monitor.run()
-    assert.deepEqual(f.published, [true])
+    expect(f.published).toEqual([true])
 })
 
-test('never selects an unreachable mirror and recovers to official later', async () => {
+it('never selects an unreachable mirror and recovers to official later', async () => {
     const f = fixture()
     f.deps.probeOfficial = async () => []
     f.deps.probeMirror = async () => []
     f.deps.probeSelected = async () => {
         throw new Error('unreachable')
     }
-    assert.equal(await f.monitor.run(), false)
-    assert.deepEqual(f.applied, [['auto', false]])
+    expect(await f.monitor.run()).toBe(false)
+    expect(f.applied).toEqual([['auto', false]])
     f.deps.probeOfficial = async () => healthy()
     f.deps.probeSelected = async () => {}
-    assert.equal(await f.monitor.run(), true)
-    assert.deepEqual(f.applied.at(-1), ['auto', false])
+    expect(await f.monitor.run()).toBe(true)
+    expect(f.applied.at(-1)).toEqual(['auto', false])
 })
 
-test('does not probe a mirror when core official services work', async () => {
+it('does not probe a mirror when core official services work', async () => {
     const f = fixture()
     f.deps.probeOfficial = async () =>
         healthy().filter((s) => ['session', 'services'].includes(s.service))
     f.deps.probeMirror = async () => {
         throw new Error('must not probe')
     }
-    assert.equal(await f.monitor.run(), true)
-    assert.deepEqual(f.applied, [['auto', false]])
+    expect(await f.monitor.run()).toBe(true)
+    expect(f.applied).toEqual([['auto', false]])
 })
 
-test('a network change during a mirror probe discards the old decision', async () => {
+it('a network change during a mirror probe discards the old decision', async () => {
     const f = fixture()
     const response = deferred<ReturnType<typeof healthy>>()
     const started = deferred<void>()
@@ -279,24 +275,24 @@ test('a network change during a mirror probe discards the old decision', async (
     f.monitor.invalidate()
     response.resolve(healthy())
     await pending
-    assert.deepEqual(f.applied, [['official_only', false]])
+    expect(f.applied).toEqual([['official_only', false]])
 })
 
-test('uses a healthy mirror when Minecraft Services fails despite a working session', async () => {
+it('uses a healthy mirror when Minecraft Services fails despite a working session', async () => {
     const f = fixture()
     f.deps.probeOfficial = async () =>
         healthy().map((s) => ({
             ...s,
             reachable: s.service !== 'services',
         }))
-    assert.equal(await f.monitor.run(), true)
-    assert.deepEqual(f.applied, [['auto', true]])
+    expect(await f.monitor.run()).toBe(true)
+    expect(f.applied).toEqual([['auto', true]])
 })
 
-test('a mirror with only a working session is not a usable authentication fallback', async () => {
+it('a mirror with only a working session is not a usable authentication fallback', async () => {
     const f = fixture()
     f.deps.probeOfficial = async () => []
     f.deps.probeMirror = async () => [{ service: 'session', reachable: true }]
     await f.monitor.run()
-    assert.deepEqual(f.applied, [['auto', false]])
+    expect(f.applied).toEqual([['auto', false]])
 })

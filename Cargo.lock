@@ -132,15 +132,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
-dependencies = [
- "derive_arbitrary",
-]
-
-[[package]]
 name = "ariadne"
 version = "0.1.0"
 dependencies = [
@@ -1055,8 +1046,8 @@ dependencies = [
  "deflate64",
  "flate2",
  "memchr",
- "zstd",
- "zstd-safe",
+ "zstd 0.13.3",
+ "zstd-safe 7.2.4",
 ]
 
 [[package]]
@@ -1128,6 +1119,7 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "semver",
  "serde",
  "serde_json",
  "thiserror 2.0.19",
@@ -1592,17 +1584,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
 dependencies = [
  "serde_core",
-]
-
-[[package]]
-name = "derive_arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e567bd82dcff979e4b03460c307b3cdc9e96fde3d73bed1496d2bc75d9dd62a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
 ]
 
 [[package]]
@@ -2074,6 +2055,21 @@ checksum = "7cd915d99f24784cdc19fd37ef22b97e3ff0ae756c7e492e9fbfe897d61e2aec"
 dependencies = [
  "indenter",
  "once_cell",
+]
+
+[[package]]
+name = "fast-socks5"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9545787d8304a71e1bf1b711705070a4c400cce9b332c4a11800627b7c9a2067"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "log",
+ "socket2 0.5.10",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -3027,7 +3023,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2",
+ "socket2 0.6.5",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -3313,7 +3309,7 @@ version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d40460c0ce33d6ce4b0630ad68ff63d6661961c48b6dba35e5a4d81cfb48222"
 dependencies = [
- "socket2",
+ "socket2 0.6.5",
  "widestring",
  "windows-registry 0.6.1",
  "windows-result 0.4.1",
@@ -3601,6 +3597,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "futures",
+ "launcher-tools",
  "reqwest 0.12.28",
  "rmcp",
  "serde",
@@ -3608,6 +3605,18 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "uuid 1.24.0",
+]
+
+[[package]]
+name = "launcher-tools"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
  "uuid 1.24.0",
 ]
 
@@ -4663,7 +4672,7 @@ dependencies = [
  "derive_more",
  "itertools",
  "serde",
- "typed-path",
+ "typed-path 0.12.3",
 ]
 
 [[package]]
@@ -5110,7 +5119,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2",
+ "socket2 0.6.5",
  "thiserror 2.0.19",
  "tokio",
  "tracing",
@@ -5148,7 +5157,7 @@ dependencies = [
  "cfg_aliases 0.2.2",
  "libc",
  "once_cell",
- "socket2",
+ "socket2 0.6.5",
  "tracing",
  "windows-sys 0.61.2",
 ]
@@ -6259,6 +6268,16 @@ dependencies = [
 
 [[package]]
 name = "socket2"
+version = "0.5.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
+dependencies = [
+ "libc",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "socket2"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
@@ -7092,7 +7111,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-updater"
 version = "2.10.1"
-source = "git+https://github.com/modrinth/plugins-workspace?rev=0d30f2aa28ec668ce187d527da1c475da3c01cbc#0d30f2aa28ec668ce187d527da1c475da3c01cbc"
+source = "git+https://github.com/modrinth/plugins-workspace?rev=31e5bcdfdf3acb71f5162156accb8473c45a6064#31e5bcdfdf3acb71f5162156accb8473c45a6064"
 dependencies = [
  "base64 0.22.1",
  "dirs",
@@ -7118,7 +7137,7 @@ dependencies = [
  "tokio",
  "url",
  "windows-sys 0.60.2",
- "zip 4.6.1",
+ "zip",
 ]
 
 [[package]]
@@ -7259,7 +7278,7 @@ dependencies = [
 
 [[package]]
 name = "theseus"
-version = "1.10.1"
+version = "1.11.0-beta.1"
 dependencies = [
  "ariadne",
  "async-minecraft-ping",
@@ -7286,12 +7305,14 @@ dependencies = [
  "derive_more",
  "dirs",
  "discord-rich-presence",
+ "dom_query",
  "dotenvy",
  "dunce",
  "either",
  "encoding_rs",
  "enumset",
  "eyre",
+ "fast-socks5",
  "flate2",
  "fs4",
  "futures",
@@ -7301,6 +7322,7 @@ dependencies = [
  "hickory-resolver",
  "hmac",
  "http",
+ "hyper-util",
  "iana-time-zone",
  "indicatif",
  "itertools",
@@ -7329,7 +7351,6 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-pki-types",
- "semver",
  "serde",
  "serde_cbor",
  "serde_ini",
@@ -7338,7 +7359,7 @@ dependencies = [
  "sha1_smol",
  "sha2",
  "shlex 1.3.0",
- "socket2",
+ "socket2 0.6.5",
  "sqlx",
  "symlink-rs",
  "sysinfo",
@@ -7350,6 +7371,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "toml 0.8.23",
+ "tower-service",
  "tracing",
  "tracing-error",
  "tracing-subscriber",
@@ -7365,17 +7387,20 @@ dependencies = [
  "xz2",
  "zbus",
  "zhconv",
- "zip 6.0.0",
+ "zip",
 ]
 
 [[package]]
 name = "theseus_gui"
-version = "1.10.1"
+version = "1.11.0-beta.1"
 dependencies = [
  "ashpd",
  "async_zip",
+ "base64 0.22.1",
  "block2",
  "bytes",
+ "cap-fs-ext",
+ "cap-std",
  "cc",
  "chrono",
  "daedalus",
@@ -7390,8 +7415,10 @@ dependencies = [
  "image",
  "keyring",
  "launcher-mcp",
+ "launcher-tools",
  "libc",
  "libloading",
+ "minisign-verify",
  "native-dialog",
  "notify",
  "objc2",
@@ -7428,7 +7455,7 @@ dependencies = [
  "uuid 1.24.0",
  "windows 0.61.3",
  "windows-version",
- "zip 6.0.0",
+ "zip",
 ]
 
 [[package]]
@@ -7557,7 +7584,7 @@ dependencies = [
  "mio",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2",
+ "socket2 0.6.5",
  "tokio-macros",
  "windows-sys 0.61.2",
 ]
@@ -7948,6 +7975,12 @@ name = "typed-path"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
+
+[[package]]
+name = "typed-path"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ce898823d8cd0f028662d2f349694b1af0a5cc9be83f1d213a00d3147445e1e"
 
 [[package]]
 name = "typeid"
@@ -9513,36 +9546,27 @@ dependencies = [
  "strum",
  "vergen",
  "wasm-bindgen",
- "zstd",
+ "zstd 0.13.3",
 ]
 
 [[package]]
 name = "zip"
-version = "4.6.1"
+version = "9.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1"
+checksum = "1156b39d142a34b999c2310a50455e0cb3760bf7efad0122f796d813bee26ccb"
 dependencies = [
- "arbitrary",
- "crc32fast",
- "indexmap 2.14.0",
- "memchr",
-]
-
-[[package]]
-name = "zip"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb2a05c7c36fde6c09b08576c9f7fb4cda705990f73b58fe011abf7dfb24168b"
-dependencies = [
- "arbitrary",
  "bzip2",
  "crc32fast",
  "deflate64",
  "flate2",
+ "getrandom 0.4.3",
  "indexmap 2.14.0",
  "memchr",
+ "nix 0.31.3",
+ "typed-path 0.13.0",
+ "windows-sys 0.61.2",
  "zopfli",
- "zstd",
+ "zstd 0.14.3",
 ]
 
 [[package]]
@@ -9575,7 +9599,16 @@ version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
 dependencies = [
- "zstd-safe",
+ "zstd-safe 7.2.4",
+]
+
+[[package]]
+name = "zstd"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db3ae9bf90af6e40197bef767eeefc46ad6397420fe873830bd85e5fbbfb3c70"
+dependencies = [
+ "zstd-safe 8.2.0",
 ]
 
 [[package]]
@@ -9588,10 +9621,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "zstd-sys"
-version = "2.0.16+zstd.1.5.7"
+name = "zstd-safe"
+version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e19ebc2adc8f83e43039e79776e3fda8ca919132d68a1fed6a5faca2683748"
+checksum = "ded520f16b29e1a9b771c722221b2b0a0398c2316d9bb3c42b458a5414d7434b"
+dependencies = [
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-sys"
+version = "2.1.2+zstd.1.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "481ada9c543b2323cbb7bbdbb5249177fbf0188ed959ed2c15e4b22421c84ed3"
 dependencies = [
  "cc",
  "pkg-config",

@@ -946,7 +946,6 @@ mod tests {
             request,
             root.path().join("file"),
             &crate::util::fetch::FetchSemaphore(tokio::sync::Semaphore::new(1)),
-            &pool,
             None,
         )
         .await

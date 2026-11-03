@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import type { ExportResolutionSession } from '@/helpers/resources'
 
@@ -41,21 +40,21 @@ const session = (): ExportResolutionSession => ({
         },
     ],
 })
-test('explicit fallback choices bind failed sources to the exact snapshot', () => {
+it('explicit fallback choices bind failed sources to the exact snapshot', () => {
     const result = session()
-    assert.deepEqual(pendingFailures(result, ['a.jar']), [
+    expect(pendingFailures(result, ['a.jar'])).toEqual([
         { snapshot: result.files[0].snapshot, source: 'curseforge' },
     ])
 })
 
-test('unchecked or unrelated files never receive implicit fallback choices', () => {
-    assert.deepEqual(pendingFailures(session(), []), [])
-    assert.deepEqual(pendingFailures(session(), ['other.jar']), [])
-    assert.deepEqual(pendingFailures(null, ['a.jar']), [])
+it('unchecked or unrelated files never receive implicit fallback choices', () => {
+    expect(pendingFailures(session(), [])).toEqual([])
+    expect(pendingFailures(session(), ['other.jar'])).toEqual([])
+    expect(pendingFailures(null, ['a.jar'])).toEqual([])
 })
 
-test('successful no-match results do not become failure fallback choices', () => {
+it('successful no-match results do not become failure fallback choices', () => {
     const result = session()
     result.files[0].resolutions[1] = { kind: 'noMatch', source: 'curseforge' }
-    assert.deepEqual(pendingFailures(result, ['a.jar']), [])
+    expect(pendingFailures(result, ['a.jar'])).toEqual([])
 })

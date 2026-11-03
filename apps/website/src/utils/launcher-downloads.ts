@@ -1,7 +1,7 @@
 import {
+    type DownloadSourceDefinition,
     type DownloadSourceId,
     getDownloadSource,
-    GITHUB_RELEASES_BASE_URL,
     type LauncherRelease,
     type ReleaseChannel,
 } from './download-sources.ts'
@@ -30,15 +30,19 @@ export function shouldDegradeDownload(state: HeroDownloadState, elapsedMs: numbe
     return state === 'loading' && elapsedMs >= limitMs
 }
 
-export function hasLauncherDownloads(release: LauncherRelease | null | undefined) {
-    return Object.values(resolveLauncherDownloads(release, 'update-server')).some(Boolean)
+export function hasLauncherDownloads(
+    release: LauncherRelease | null | undefined,
+    sources: readonly DownloadSourceDefinition[],
+) {
+    return Object.values(resolveLauncherDownloads(release, 'update-server', sources)).some(Boolean)
 }
 
 export function resolveLauncherDownloads(
     release: LauncherRelease | null | undefined,
     source: DownloadSourceId,
+    sources: readonly DownloadSourceDefinition[],
 ) {
-    const definition = getDownloadSource(source)
+    const definition = getDownloadSource(source, sources)
     function findAsset(patterns: RegExp[]) {
         if (!release) return null
         const asset = patterns
@@ -63,8 +67,11 @@ export function getDownloadAvailability(status: DownloadStatus, link: string | n
     return link ? 'ready' : 'unavailable'
 }
 
-export function getReleasePage(channel: ReleaseChannel, release?: LauncherRelease | null) {
-    const base = GITHUB_RELEASES_BASE_URL
-    if (release?.tag_name) return `${base}/tag/${encodeURIComponent(release.tag_name)}`
-    return channel === 'release' ? `${base}/latest` : base
+export function getReleasePage(
+    channel: ReleaseChannel,
+    release: LauncherRelease | null | undefined,
+    baseUrl: string,
+) {
+    if (release?.tag_name) return `${baseUrl}/tag/${encodeURIComponent(release.tag_name)}`
+    return channel === 'release' ? `${baseUrl}/latest` : baseUrl
 }

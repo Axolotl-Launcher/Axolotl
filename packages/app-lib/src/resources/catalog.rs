@@ -237,6 +237,22 @@ impl ResourceService {
         locator: Option<String>,
         cancel: &CancellationToken,
     ) -> ResourceResult<ProjectDocument> {
+        self.project_document_with_policy(
+            project,
+            locator,
+            cancel,
+            CachePolicy::UseFresh,
+        )
+        .await
+    }
+
+    pub(crate) async fn project_document_with_policy(
+        self: &Arc<Self>,
+        project: &SourceProjectRef,
+        locator: Option<String>,
+        cancel: &CancellationToken,
+        policy: CachePolicy,
+    ) -> ResourceResult<ProjectDocument> {
         let slug = if locator.is_some() {
             locator
         } else if let Some(store) = self.store() {
@@ -249,16 +265,19 @@ impl ResourceService {
             slug,
         };
         let result = match self
-            .query(
-                &project.source,
-                query.clone(),
-                CachePolicy::UseFresh,
-                cancel,
-            )
+            .query(&project.source, query.clone(), policy, cancel)
             .await
         {
             Err(ResourceError::Canceled) => {
                 return Err(ResourceError::Canceled);
+            }
+            Err(error)
+                if matches!(
+                    policy,
+                    CachePolicy::ForceRefresh | CachePolicy::RefreshSince(_)
+                ) =>
+            {
+                return Err(error);
             }
             Err(error) => self
                 .query(&project.source, query, CachePolicy::OnlyCached, cancel)
@@ -391,6 +410,22 @@ impl ResourceService {
         locator: Option<String>,
         cancel: &CancellationToken,
     ) -> ResourceResult<ResourceRelease> {
+        self.release_with_policy(
+            reference,
+            locator,
+            cancel,
+            CachePolicy::UseFresh,
+        )
+        .await
+    }
+
+    pub(crate) async fn release_with_policy(
+        self: &Arc<Self>,
+        reference: &SourceReleaseRef,
+        locator: Option<String>,
+        cancel: &CancellationToken,
+        policy: CachePolicy,
+    ) -> ResourceResult<ResourceRelease> {
         let slug = if locator.is_some() {
             locator
         } else if let Some(store) = self.store() {
@@ -406,7 +441,7 @@ impl ResourceService {
                     release_id: reference.release_id.clone(),
                     slug,
                 },
-                CachePolicy::UseFresh,
+                policy,
                 cancel,
             )
             .await?
@@ -417,6 +452,7 @@ impl ResourceService {
             {
                 Ok(document.release)
             }
+            ProviderValue::NotFound => Err(ResourceError::Unavailable),
             _ => Err(ResourceError::InvalidResponse(
                 "release does not belong to selected project".into(),
             )),

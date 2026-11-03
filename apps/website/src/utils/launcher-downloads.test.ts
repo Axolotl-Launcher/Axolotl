@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { downloadSources, normalizeDownloadCatalog } from './download-sources.ts'
+import { createDownloadSources, normalizeDownloadCatalog } from './download-sources.ts'
 import {
     getDownloadAvailability,
     getReleasePage,
@@ -10,22 +10,35 @@ import {
     shouldDegradeDownload,
 } from './launcher-downloads.ts'
 
+const TEST_GITHUB_URL = 'https://example.test/repo'
+const TEST_GITHUB_RELEASES_BASE = `${TEST_GITHUB_URL}/releases`
+const TEST_ENDPOINTS = {
+    updateServerUrl: 'https://update.test',
+    updateArtifactUrl: 'https://dist.test',
+    gitlinkReleasesUrl: 'https://gitlink.test/mirror/releases/download',
+}
+const downloadSources = createDownloadSources({ githubUrl: TEST_GITHUB_URL, ...TEST_ENDPOINTS })
+
 function release(tag: string, names: string[]) {
     const version = tag.replace(/^v/, '')
-    return normalizeDownloadCatalog({
-        version,
-        release_tag: tag,
-        downloads: names.map((filename) => ({
-            filename,
-            relative_path: 'dist/' + version + '/' + filename,
-        })),
-    })!
+    return normalizeDownloadCatalog(
+        {
+            version,
+            release_tag: tag,
+            downloads: names.map((filename) => ({
+                filename,
+                relative_path: 'dist/' + version + '/' + filename,
+            })),
+        },
+        TEST_ENDPOINTS,
+    )!
 }
 
 test('successful missing platform packages are unavailable rather than still loading', () => {
     const links = resolveLauncherDownloads(
         release('v1.0.0-beta.1', ['Axolotl_universal.dmg']),
         'update-server',
+        downloadSources,
     )
     assert.equal(getDownloadAvailability('success', links.windows), 'unavailable')
     assert.equal(getDownloadAvailability('success', links.mac), 'ready')
@@ -42,27 +55,27 @@ test('each source builds links from the exact same release and attachment names'
         'Axolotl_amd64.deb',
     ])
     assert.equal(
-        resolveLauncherDownloads(catalog, 'github').windows,
-        'https://github.com/Mystic-Stars/Axolotl/releases/download/v2.0.0-beta.1/Axolotl_x64-setup.exe',
+        resolveLauncherDownloads(catalog, 'github', downloadSources).windows,
+        `${TEST_GITHUB_URL}/releases/download/v2.0.0-beta.1/Axolotl_x64-setup.exe`,
     )
     assert.equal(
-        resolveLauncherDownloads(catalog, 'update-server').deb,
-        'https://dist.axlmc.org/dist/2.0.0-beta.1/Axolotl_amd64.deb',
+        resolveLauncherDownloads(catalog, 'update-server', downloadSources).deb,
+        `${TEST_ENDPOINTS.updateArtifactUrl}/dist/2.0.0-beta.1/Axolotl_amd64.deb`,
     )
     assert.equal(
-        resolveLauncherDownloads(catalog, 'gitlink').deb,
-        'https://www.gitlink.org.cn/xinvxueyuan/Axolotl/releases/download/v2.0.0-beta.1/Axolotl_amd64.deb',
+        resolveLauncherDownloads(catalog, 'gitlink', downloadSources).deb,
+        `${TEST_ENDPOINTS.gitlinkReleasesUrl}/v2.0.0-beta.1/Axolotl_amd64.deb`,
     )
     for (const source of downloadSources)
-        assert.equal(resolveLauncherDownloads(null, source.id).windows, null)
+        assert.equal(resolveLauncherDownloads(null, source.id, downloadSources).windows, null)
     assert.equal(
-        getReleasePage('beta', catalog),
-        'https://github.com/Mystic-Stars/Axolotl/releases/tag/v2.0.0-beta.1',
+        getReleasePage('beta', catalog, TEST_GITHUB_RELEASES_BASE),
+        `${TEST_GITHUB_RELEASES_BASE}/tag/v2.0.0-beta.1`,
     )
-    assert.equal(getReleasePage('beta'), 'https://github.com/Mystic-Stars/Axolotl/releases')
+    assert.equal(getReleasePage('beta', null, TEST_GITHUB_RELEASES_BASE), TEST_GITHUB_RELEASES_BASE)
     assert.equal(
-        getReleasePage('release'),
-        'https://github.com/Mystic-Stars/Axolotl/releases/latest',
+        getReleasePage('release', null, TEST_GITHUB_RELEASES_BASE),
+        `${TEST_GITHUB_RELEASES_BASE}/latest`,
     )
 })
 
@@ -71,16 +84,13 @@ test('GitLink URLs require no mirror-specific metadata or attachment request', (
         'Axolotl_2.0.0_x64_nsis-setup.exe',
         'Axolotl_2.0.0_amd64.deb',
     ])
-    const links = resolveLauncherDownloads(catalog, 'gitlink')
+    const links = resolveLauncherDownloads(catalog, 'gitlink', downloadSources)
     assert.equal(
         links.windows,
-        'https://www.gitlink.org.cn/xinvxueyuan/Axolotl/releases/download/v2.0.0/Axolotl_2.0.0_x64_nsis-setup.exe',
+        `${TEST_ENDPOINTS.gitlinkReleasesUrl}/v2.0.0/Axolotl_2.0.0_x64_nsis-setup.exe`,
     )
-    assert.equal(
-        links.deb,
-        'https://www.gitlink.org.cn/xinvxueyuan/Axolotl/releases/download/v2.0.0/Axolotl_2.0.0_amd64.deb',
-    )
-    assert(hasLauncherDownloads(catalog))
+    assert.equal(links.deb, `${TEST_ENDPOINTS.gitlinkReleasesUrl}/v2.0.0/Axolotl_2.0.0_amd64.deb`)
+    assert(hasLauncherDownloads(catalog, downloadSources))
 })
 
 test('availability and generated platform links agree, including installer naming variants', () => {
@@ -94,12 +104,16 @@ test('availability and generated platform links agree, including installer namin
         'Axolotl.x86_64.rpm',
     ]) {
         const catalog = release('v1.10.0', [filename])
-        assert(hasLauncherDownloads(catalog), filename)
+        assert(hasLauncherDownloads(catalog, downloadSources), filename)
         for (const source of downloadSources)
-            assert(Object.values(resolveLauncherDownloads(catalog, source.id)).some(Boolean))
+            assert(
+                Object.values(resolveLauncherDownloads(catalog, source.id, downloadSources)).some(
+                    Boolean,
+                ),
+            )
     }
     for (const names of [[], ['Axolotl_x64-setup.exe.sig'], ['latest.json']])
-        assert.equal(hasLauncherDownloads(release('v1.10.0', names)), false)
+        assert.equal(hasLauncherDownloads(release('v1.10.0', names), downloadSources), false)
 })
 
 test('a hanging version request degrades the hero call to action', () => {

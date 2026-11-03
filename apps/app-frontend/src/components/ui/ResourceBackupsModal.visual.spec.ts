@@ -191,7 +191,7 @@ it('a failed first scan does not claim the file collection or search is empty', 
     wrapper.vm.show('instance')
     await flushPromises()
     expect(wrapper.get('[role="alert"]').text()).toContain(
-        'Could not complete the content operation',
+        'Could not connect to the content source. Check your connection or proxy and retry.',
     )
     expect(wrapper.text()).not.toContain('No files match your search or filter.')
     expect(wrapper.text()).not.toContain('No old files or rollback backups found.')

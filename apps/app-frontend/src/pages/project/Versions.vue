@@ -153,10 +153,16 @@ function buildProjectHref(path) {
     return qs ? `${path}?${qs}` : path
 }
 
-const [loaders, gameVersions] = await Promise.all([
-    get_loaders().catch(handleError).then(ref),
-    get_game_versions().catch(handleError).then(ref),
-])
+// The tags only label versions and fill the filters, so the list shows
+// without waiting for them to revalidate over the network.
+const loaders = ref([])
+const gameVersions = ref([])
+void Promise.all([get_loaders().catch(handleError), get_game_versions().catch(handleError)]).then(
+    ([loaderTags, gameVersionTags]) => {
+        loaders.value = loaderTags ?? []
+        gameVersions.value = gameVersionTags ?? []
+    },
+)
 </script>
 
 <style scoped lang="scss">

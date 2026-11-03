@@ -16,7 +16,186 @@ use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
+
+// Metadata allows a bounded route fallback beyond the connect/read limits.
+// This budget also covers admission, response bodies and Retry-After waits.
+const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(90);
+const API_PERMIT_TIMEOUT: Duration = Duration::from_secs(20);
+static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
+
+pub(crate) fn metadata_cache_scope() -> String {
+    use sha2::{Digest, Sha256};
+    let state = State::get_if_initialized();
+    let settings = state
+        .as_ref()
+        .map(|state| (state.curseforge_source(), state.network_scope()));
+    // Only a digest leaves this function: credentials and proxy settings must
+    // never become cache keys or diagnostic strings in plain text.
+    let identity = serde_json::to_vec(&(
+        api_base_url(),
+        api_key_generation(),
+        api_key(),
+        settings,
+    ))
+    .expect("metadata cache identity is serializable");
+    format!("{:x}", Sha256::digest(identity))
+}
+
+struct RequestTrace {
+    id: u64,
+    started: Instant,
+    route: usize,
+    stage: &'static str,
+    outcome: &'static str,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(super) enum RequestOrigin {
+    Legacy,
+    Resource,
+}
+
+fn request_identity(
+    method: &Method,
+    path: &str,
+    query: &[(String, String)],
+    body: &Option<Value>,
+) -> String {
+    use sha2::{Digest, Sha256};
+    fn canonical(value: &Value) -> Value {
+        match value {
+            Value::Object(object) => {
+                let mut keys = object.keys().collect::<Vec<_>>();
+                keys.sort();
+                Value::Object(
+                    keys.into_iter()
+                        .map(|key| (key.clone(), canonical(&object[key])))
+                        .collect(),
+                )
+            }
+            Value::Array(values) => {
+                Value::Array(values.iter().map(canonical).collect())
+            }
+            value => value.clone(),
+        }
+    }
+    let mut sorted_query = query.to_vec();
+    sorted_query.sort();
+    let identity = serde_json::to_vec(&(
+        method.as_str(),
+        path,
+        sorted_query,
+        body.as_ref().map(canonical),
+    ))
+    .expect("JSON request identity is serializable");
+    format!("{:x}", Sha256::digest(identity))
+}
+
+impl RequestTrace {
+    fn new(
+        method: &Method,
+        path: &str,
+        query: &[(String, String)],
+        body: &Option<Value>,
+        origin: RequestOrigin,
+    ) -> Self {
+        let query_key = request_identity(method, path, query, body);
+        let fields = query
+            .iter()
+            .filter(|(key, _)| {
+                matches!(
+                    key.as_str(),
+                    "index" | "pageSize" | "gameVersion" | "modLoaderType"
+                )
+            })
+            .collect::<Vec<_>>();
+        let item_count = body
+            .as_ref()
+            .and_then(|body| {
+                ["fingerprints", "modIds", "fileIds", "hashes"]
+                    .iter()
+                    .find_map(|key| {
+                        body.get(key).and_then(Value::as_array).map(Vec::len)
+                    })
+            })
+            .unwrap_or(1);
+        let trace = Self {
+            id: NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed),
+            started: Instant::now(),
+            route: 0,
+            stage: "state",
+            outcome: "canceled_or_dropped",
+        };
+        tracing::info!(request_id = trace.id, method = %method, path, %query_key, ?fields, item_count, ?origin, "Started CurseForge metadata request");
+        trace
+    }
+
+    fn stage(&mut self, stage: &'static str) {
+        self.stage = stage;
+        tracing::debug!(
+            request_id = self.id,
+            route = self.route,
+            stage,
+            elapsed_ms = self.started.elapsed().as_millis() as u64,
+            "CurseForge metadata request stage"
+        );
+    }
+}
+
+impl Drop for RequestTrace {
+    fn drop(&mut self) {
+        if matches!(self.outcome, "success" | "canceled_or_dropped") {
+            tracing::info!(
+                request_id = self.id,
+                route = self.route,
+                stage = self.stage,
+                outcome = self.outcome,
+                elapsed_ms = self.started.elapsed().as_millis() as u64,
+                "Finished CurseForge metadata request"
+            );
+        } else {
+            tracing::warn!(
+                request_id = self.id,
+                route = self.route,
+                stage = self.stage,
+                outcome = self.outcome,
+                elapsed_ms = self.started.elapsed().as_millis() as u64,
+                "Finished CurseForge metadata request"
+            );
+        }
+    }
+}
+
+pub(crate) async fn metadata_deadline<T>(
+    deadline: tokio::time::Instant,
+    work: impl std::future::Future<Output = crate::Result<T>>,
+) -> crate::Result<T> {
+    let result =
+        tokio::time::timeout_at(deadline, work).await.map_err(|_| {
+            ErrorKind::DownloadResourceWaitTimeout(
+                "CurseForge metadata request timed out before completion"
+                    .into(),
+            )
+        })?;
+    // Synchronous decoding cannot be preempted; reject a result that finished
+    // after the deadline rather than reporting it as an in-budget success.
+    if tokio::time::Instant::now() >= deadline {
+        return Err(ErrorKind::DownloadResourceWaitTimeout(
+            "CurseForge metadata request timed out before completion".into(),
+        )
+        .into());
+    }
+    result
+}
+
+async fn api_permit(
+    semaphore: &tokio::sync::Semaphore,
+    budget: Duration,
+) -> crate::Result<tokio::sync::SemaphorePermit<'_>> {
+    tokio::time::timeout(budget, semaphore.acquire()).await.map_err(|_| ErrorKind::DownloadResourceWaitTimeout("CurseForge API request timed out waiting for an available request slot".into()))?.map_err(|_| ErrorKind::OtherError("CurseForge API request slots are closed".into()).into())
+}
 
 static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
@@ -28,6 +207,13 @@ static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         .build()
         .expect("CurseForge client configuration should be valid")
 });
+
+async fn response_body(
+    response: reqwest::Response,
+    deadline: tokio::time::Instant,
+) -> crate::Result<bytes::Bytes> {
+    metadata_deadline(deadline, async { Ok(response.bytes().await?) }).await
+}
 
 #[cfg(debug_assertions)]
 static LOCAL_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
@@ -174,6 +360,65 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
     body: Option<Value>,
     mirror_policy: MirrorPolicy,
 ) -> crate::Result<T> {
+    request_json_with_origin(
+        method,
+        path,
+        query,
+        body,
+        mirror_policy,
+        RequestOrigin::Legacy,
+    )
+    .await
+}
+
+pub(super) async fn request_json_with_origin<T: DeserializeOwned>(
+    method: Method,
+    path: &str,
+    query: Vec<(String, String)>,
+    body: Option<Value>,
+    mirror_policy: MirrorPolicy,
+    origin: RequestOrigin,
+) -> crate::Result<T> {
+    let mut trace = RequestTrace::new(&method, path, &query, &body, origin);
+    let deadline = tokio::time::Instant::now() + METADATA_REQUEST_TIMEOUT;
+    let result = metadata_deadline(
+        deadline,
+        request_json_inner(
+            method,
+            path,
+            query,
+            body,
+            mirror_policy,
+            deadline,
+            &mut trace,
+        ),
+    )
+    .await;
+    trace.outcome = match &result {
+        Ok(_) => "success",
+        Err(error)
+            if matches!(error.raw.as_ref(), ErrorKind::FetchError(error) if error.is_timeout())
+                || matches!(
+                    error.raw.as_ref(),
+                    ErrorKind::DownloadResourceWaitTimeout(_)
+                ) =>
+        {
+            "timeout"
+        }
+        Err(_) => "error",
+    };
+    result
+}
+
+async fn request_json_inner<T: DeserializeOwned>(
+    method: Method,
+    path: &str,
+    query: Vec<(String, String)>,
+    body: Option<Value>,
+    mirror_policy: MirrorPolicy,
+    deadline: tokio::time::Instant,
+    trace: &mut RequestTrace,
+) -> crate::Result<T> {
     let key = api_key();
     let key_generation = api_key_generation();
     let state = State::get().await?;
@@ -188,16 +433,20 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
     let mut last_error = None;
 
     for (route_index, route) in routes.iter().enumerate() {
+        trace.route = route_index + 1;
+        trace.stage("permit");
         let started = Instant::now();
         tracing::info!(
             source = ?route.source,
+            request_id = trace.id,
             method = %method,
-            url = %route.url,
+            url = %crate::util::fetch::sanitize_url_for_log(&route.url),
             route = route_index + 1,
             use_system_proxy = route.use_system_proxy,
             "Attempting CurseForge API request"
         );
-        let permit = state.api_semaphore.0.acquire().await?;
+        let permit =
+            api_permit(&state.api_semaphore.0, API_PERMIT_TIMEOUT).await?;
         let mut request =
             request_client(&state, &route.url, route.use_system_proxy)
                 .request(method.clone(), &route.url)
@@ -213,6 +462,7 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
                 .into();
                 if route_index + 1 < routes.len() {
                     last_error = Some(error);
+                    trace.stage("next_route");
                     continue;
                 }
                 return Err(error);
@@ -222,17 +472,20 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
         if let Some(body) = &body {
             request = request.json(body);
         }
+        trace.stage("headers");
         let response = match request.send().await {
             Ok(response) => response,
             Err(error) if route_index + 1 < routes.len() => {
                 drop(permit);
                 tracing::warn!(
-                    url = %route.url,
+                    request_id = trace.id,
+                    url = %crate::util::fetch::sanitize_url_for_log(&route.url),
                     route = route_index + 1,
-                    %error,
+                    timeout = error.is_timeout(),
                     "CurseForge request failed, retrying with another route"
                 );
                 last_error = Some(error.into());
+                trace.stage("next_route");
                 continue;
             }
             Err(error) => return Err(error.into()),
@@ -246,20 +499,23 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.parse::<u64>().ok())
             .map(|seconds| Duration::from_secs(seconds.min(30)));
-        let bytes = response.bytes().await?;
+        trace.stage("body");
+        let bytes = response_body(response, deadline).await?;
 
         tracing::info!(
             source = ?route.source,
+            request_id = trace.id,
             method = %method,
-            url = %route.url,
+            url = %crate::util::fetch::sanitize_url_for_log(&route.url),
             route = route_index + 1,
             status = status.as_u16(),
             response_bytes = bytes.len(),
             elapsed_ms = started.elapsed().as_millis(),
-            "Completed CurseForge API request"
+            "Received CurseForge API response body"
         );
 
         if status.is_success() {
+            trace.stage("decode");
             match serde_json::from_slice(&bytes) {
                 Ok(value) => {
                     record_key_response(key_generation, false);
@@ -270,12 +526,13 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
                         && route_index + 1 < routes.len() =>
                 {
                     tracing::warn!(
-                        url = %route.url,
+                        request_id = trace.id,
+                        url = %crate::util::fetch::sanitize_url_for_log(&route.url),
                         route = route_index + 1,
-                        %error,
                         "CurseForge mirror returned incompatible response data; falling back to official source"
                     );
                     last_error = Some(error.into());
+                    trace.stage("next_route");
                     continue;
                 }
                 Err(error) => return Err(error.into()),
@@ -295,16 +552,19 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
 
         if should_try_next_route(route, status, route_index + 1 < routes.len())
         {
+            trace.stage("retry_after");
             if let Some(delay) = retry_after {
                 tokio::time::sleep(delay).await;
             }
             tracing::warn!(
-                url = %route.url,
+                request_id = trace.id,
+                url = %crate::util::fetch::sanitize_url_for_log(&route.url),
                 route = route_index + 1,
                 status = status.as_u16(),
                 "CurseForge route rejected the request, trying another route"
             );
             last_error = Some(route_error.into());
+            trace.stage("next_route");
             continue;
         }
 
@@ -347,3 +607,7 @@ fn response_error_message(status: StatusCode, bytes: &[u8]) -> String {
                 .to_string()
         })
 }
+
+#[cfg(test)]
+#[path = "tests/transport_budget.rs"]
+mod budget_tests;

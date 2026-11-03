@@ -2,7 +2,7 @@
 
 use sqlx::SqliteConnection;
 
-use super::{Collection, Handle};
+use super::Collection;
 
 /// The pack bases, one per instance.
 pub(crate) struct GameOptionPackBases;
@@ -232,80 +232,4 @@ fn to_source(source: &str) -> Option<PackBaseSource> {
         );
         None
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    async fn handle(instance: &str) -> Handle {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-        sqlx::query(
-            "INSERT INTO instances
-                (id, path, install_stage, launcher_feature_version,
-                 name, created, modified)
-             VALUES (?, ?, 'installed', '1', ?, 1, 1)",
-        )
-        .bind(instance)
-        .bind(instance)
-        .bind(instance)
-        .execute(&pool)
-        .await
-        .unwrap();
-        Handle::new(pool)
-    }
-
-    fn key(instance_id: &str) -> PackBaseKey {
-        PackBaseKey {
-            instance_id: instance_id.to_string(),
-        }
-    }
-
-    #[tokio::test]
-    async fn a_pack_base_round_trips_and_clears() {
-        let handle = handle("instance").await;
-        let record = PackBaseRecord {
-            pack_version_id: Some("version".to_string()),
-            source: PackBaseSource::Overrides,
-            sha1: Some("abc".to_string()),
-            encoding: Some("utf-8".to_string()),
-            document: Some(b"options".to_vec()),
-        };
-
-        GameOptionPackBases::set(&handle, &key("instance"), Some(&record))
-            .await
-            .unwrap();
-        assert_eq!(
-            GameOptionPackBases::get(&handle, &key("instance"))
-                .await
-                .unwrap(),
-            Some(record)
-        );
-        assert_eq!(
-            GameOptionPackBases::get(&handle, &key("instance"))
-                .await
-                .unwrap()
-                .map(|record| record.source),
-            Some(PackBaseSource::Overrides)
-        );
-        assert_eq!(
-            GameOptionPackBases::get_all(&handle).await.unwrap().len(),
-            1
-        );
-
-        GameOptionPackBases::set(&handle, &key("instance"), None)
-            .await
-            .unwrap();
-        assert_eq!(
-            GameOptionPackBases::get(&handle, &key("instance"))
-                .await
-                .unwrap(),
-            None
-        );
-    }
 }

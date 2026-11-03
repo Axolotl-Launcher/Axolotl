@@ -4,6 +4,7 @@ use super::codec::{read_servers, servers_from_bytes};
 use super::operations::{compose_instance, effective};
 use super::storage::{load_local, write_local_rows};
 use super::types::{LocalServer, ServerSource};
+use crate::state::instances::adapters::sqlite::server_pack_state;
 use crate::state::{CachedEntry, InstanceLink, InstanceMetadata};
 use crate::util::fetch::{DownloadMeta, DownloadReason, fetch};
 use crate::{ErrorKind, State};
@@ -68,17 +69,11 @@ async fn replace_modpack_servers(
     let mut tx = state.pool.begin().await?;
     write_local_rows(&mut tx, &metadata.instance.id, &local).await?;
     let version_id = modpack_version_id(&metadata.link);
-    sqlx::query!(
-        "
-        INSERT INTO instance_server_pack_state (instance_id, version_id)
-        VALUES (?, ?)
-        ON CONFLICT(instance_id) DO UPDATE SET
-            version_id = excluded.version_id
-        ",
-        metadata.instance.id,
+    server_pack_state::set_pack_state_version(
+        &mut tx,
+        &metadata.instance.id,
         version_id,
     )
-    .execute(&mut *tx)
     .await?;
     tx.commit().await?;
     Ok(())
@@ -88,18 +83,13 @@ pub(super) async fn pack_state_matches_link(
     metadata: &InstanceMetadata,
     state: &State,
 ) -> crate::Result<bool> {
-    let row = sqlx::query!(
-        "
-        SELECT version_id
-        FROM instance_server_pack_state
-        WHERE instance_id = ?
-        ",
-        metadata.instance.id,
+    let stored = server_pack_state::get_pack_state_version(
+        &metadata.instance.id,
+        &state.pool,
     )
-    .fetch_optional(&state.pool)
     .await?;
-    Ok(row.is_some_and(|row| {
-        row.version_id.as_deref() == modpack_version_id(&metadata.link)
+    Ok(stored.is_some_and(|version_id| {
+        version_id.as_deref() == modpack_version_id(&metadata.link)
     }))
 }
 
@@ -107,16 +97,7 @@ pub(super) async fn pack_state_exists(
     instance_id: &str,
     state: &State,
 ) -> crate::Result<bool> {
-    Ok(sqlx::query_scalar!(
-        r#"
-        SELECT EXISTS(
-            SELECT 1 FROM instance_server_pack_state WHERE instance_id = ?
-        ) AS "exists!: bool"
-        "#,
-        instance_id,
-    )
-    .fetch_one(&state.pool)
-    .await?)
+    server_pack_state::pack_state_exists(instance_id, &state.pool).await
 }
 
 pub(super) async fn reconstruct_modpack_servers(
@@ -134,7 +115,7 @@ pub(super) async fn reconstruct_modpack_servers(
     let version = CachedEntry::get_version(
         &typed_version_id,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await?
@@ -165,7 +146,6 @@ pub(super) async fn reconstruct_modpack_servers(
         Some(&download_meta),
         None,
         &state.api_semaphore,
-        &state.pool,
     )
     .await?;
     let mut archive = ZipFileReader::with_tokio(Cursor::new(&mrpack)).await?;

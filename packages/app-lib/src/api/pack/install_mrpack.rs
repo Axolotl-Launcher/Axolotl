@@ -16,7 +16,6 @@ use crate::pack::install_from::{
     EnvType, PackFile, PackFileHash, set_instance_information,
 };
 use crate::state::instances::ContentSourceKind;
-use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::{
     CachedEntry, ContentProviderRef, ModrinthHashMatch, ModrinthProjectId,
     ModrinthVersionId, Settings, SideType,
@@ -63,6 +62,8 @@ use std::io::{Cursor, ErrorKind};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, Semaphore, mpsc};
+
+use crate::state::instances::adapters::sqlite::files;
 
 type ExtractProgressFn<'a> = dyn FnMut(u64) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + 'a>>
     + Send
@@ -508,7 +509,7 @@ async fn resolve_chinese_titles_by_sha1(
     let projects = match CachedEntry::get_project_many(
         &project_ids,
         None,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await
@@ -1081,7 +1082,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         Arc::new(Mutex::new(None::<HashMap<String, ModrinthHashMatch>>));
     let file_infos_loading = Arc::new(Mutex::new(()));
     let chinese_naming_enabled =
-        Settings::get(&state.pool).await?.locale == "zh-CN";
+        Settings::get(&state.data).await?.locale == "zh-CN";
     let chinese_titles_by_sha1 = Arc::new(if chinese_naming_enabled {
         // Chinese titles shape the on-disk file names, so they must be known
         // before any download starts. All other installs resolve them lazily
@@ -1090,7 +1091,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             &file_infos_by_hash,
             &file_infos_loading,
             &file_info_hashes,
-            &state.pool,
+            state.cache_pool(),
             &state.api_semaphore,
         )
         .await;
@@ -1106,12 +1107,12 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         &file_infos_by_hash,
         &file_infos_loading,
         &file_info_hashes,
-        &state.pool,
+        state.cache_pool(),
         &state.api_semaphore,
     )
     .await;
     let existing_paths_by_original = Arc::new(
-        content_rows::get_instance_files(&instance_id, &state.pool)
+        files::get_instance_files(&instance_id, &state.pool)
             .await?
             .into_iter()
             .map(|file| {
@@ -1700,7 +1701,6 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                         ),
                     &download_path,
                     &state.download_semaphore,
-                    &state.pool,
                     None,
                 )
                 .await
@@ -2208,7 +2208,6 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             version_id,
             cached_pack_hashes,
             cached_pack_project_ids,
-            &state.pool,
         )
         .await;
     } else {
@@ -2352,6 +2351,8 @@ mod tests {
     use async_zip::tokio::write::ZipFileWriter;
     use async_zip::{Compression, ZipEntryBuilder};
     use std::sync::Mutex as StdMutex;
+
+    use crate::state::instances::adapters::sqlite::files;
 
     #[test]
     fn override_paths_reject_portable_traversal_and_windows_aliases() {

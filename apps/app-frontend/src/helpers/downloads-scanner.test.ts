@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { expect, it } from 'vitest'
 
 import {
     createDownloadsScanLoop,
@@ -27,7 +26,7 @@ function deferred<T>() {
     return { promise, resolve }
 }
 
-test('close and reopen ignores stale scan results', async () => {
+it('close and reopen ignores stale scan results', async () => {
     const first = deferred<string>()
     const second = deferred<string>()
     const results: string[] = []
@@ -45,16 +44,16 @@ test('close and reopen ignores stale scan results', async () => {
     loop.start()
     first.resolve('stale')
     await staleRun
-    assert.deepEqual(results, [])
+    expect(results).toEqual([])
 
     const currentRun = loop.runNow()
     second.resolve('current')
     await currentRun
-    assert.deepEqual(results, ['current'])
+    expect(results).toEqual(['current'])
     loop.stop()
 })
 
-test('one scan stays in flight at a time', async () => {
+it('one scan stays in flight at a time', async () => {
     const pending = deferred<string>()
     let calls = 0
     const loop = createDownloadsScanLoop({
@@ -70,13 +69,13 @@ test('one scan stays in flight at a time', async () => {
     loop.start()
     const firstRun = loop.runNow()
     await loop.runNow()
-    assert.equal(calls, 1)
+    expect(calls).toBe(1)
     pending.resolve('done')
     await firstRun
     loop.stop()
 })
 
-test('empty scan activity keeps monitoring presentation stable', async () => {
+it('empty scan activity keeps monitoring presentation stable', async () => {
     let state = createDownloadsScannerPresentationState()
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -109,15 +108,15 @@ test('empty scan activity keeps monitoring presentation stable', async () => {
 
     loop.start()
     const running = loop.runNow()
-    assert.equal(state.phase, 'monitoring')
+    expect(state.phase).toBe('monitoring')
     scan.resolve('done')
     await running
-    assert.equal(state.phase, 'monitoring')
-    assert.ok(observedPhases.every((phase) => phase === 'monitoring'))
+    expect(state.phase).toBe('monitoring')
+    expect(observedPhases.every((phase) => phase === 'monitoring')).toBeTruthy()
     loop.stop()
 })
 
-test('empty interval scan keeps an unchanged same-name rejection visible', () => {
+it('empty interval scan keeps an unchanged same-name rejection visible', () => {
     let state = createDownloadsScannerPresentationState()
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -128,7 +127,7 @@ test('empty interval scan keeps an unchanged same-name rejection visible', () =>
         hasErrors: false,
         items: [],
     })
-    assert.equal(state.phase, 'rejected')
+    expect(state.phase).toBe('rejected')
 
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -139,11 +138,11 @@ test('empty interval scan keeps an unchanged same-name rejection visible', () =>
         hasErrors: false,
         items: [],
     })
-    assert.equal(state.phase, 'rejected')
-    assert.deepEqual(state.rejectedItemIds, ['mods/example.jar'])
+    expect(state.phase).toBe('rejected')
+    expect(state.rejectedItemIds).toEqual(['mods/example.jar'])
 })
 
-test('candidate progresses from stability wait through verification and import', () => {
+it('candidate progresses from stability wait through verification and import', () => {
     let state = createDownloadsScannerPresentationState()
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -154,20 +153,20 @@ test('candidate progresses from stability wait through verification and import',
         hasErrors: false,
         items: [],
     })
-    assert.equal(state.phase, 'waiting_for_stability')
-    assert.deepEqual(state.rejectedItemIds, [])
+    expect(state.phase).toBe('waiting_for_stability')
+    expect(state.rejectedItemIds).toEqual([])
 
     state = reduceDownloadsScannerPresentation(state, {
         type: 'items_updated',
         items: [{ id: 'mods/example.jar', status: 'verifying' }],
     })
-    assert.equal(state.phase, 'verifying')
-    assert.deepEqual(state.verifyingItemIds, ['mods/example.jar'])
+    expect(state.phase).toBe('verifying')
+    expect(state.verifyingItemIds).toEqual(['mods/example.jar'])
     state = reduceDownloadsScannerPresentation(state, {
         type: 'items_updated',
         items: [{ id: 'mods/example.jar', status: 'writing' }],
     })
-    assert.equal(state.phase, 'importing')
+    expect(state.phase).toBe('importing')
 
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -178,13 +177,13 @@ test('candidate progresses from stability wait through verification and import',
         hasErrors: false,
         items: [],
     })
-    assert.equal(state.phase, 'imported')
-    assert.deepEqual(state.rejectedItemIds, [])
-    assert.deepEqual(state.verifyingItemIds, [])
-    assert.equal(state.importedCount, 1)
+    expect(state.phase).toBe('imported')
+    expect(state.rejectedItemIds).toEqual([])
+    expect(state.verifyingItemIds).toEqual([])
+    expect(state.importedCount).toBe(1)
 })
 
-test('presentation keeps multiple concurrent candidate verifications visible', () => {
+it('presentation keeps multiple concurrent candidate verifications visible', () => {
     let state = createDownloadsScannerPresentationState()
     state = reduceDownloadsScannerPresentation(state, {
         type: 'items_updated',
@@ -194,11 +193,11 @@ test('presentation keeps multiple concurrent candidate verifications visible', (
         ],
     })
 
-    assert.equal(state.phase, 'verifying')
-    assert.deepEqual(state.verifyingItemIds, ['mods/one.jar', 'mods/two.jar'])
+    expect(state.phase).toBe('verifying')
+    expect(state.verifyingItemIds).toEqual(['mods/one.jar', 'mods/two.jar'])
 })
 
-test('rejected candidate disappearance returns presentation to monitoring', () => {
+it('rejected candidate disappearance returns presentation to monitoring', () => {
     let state = createDownloadsScannerPresentationState()
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -209,7 +208,7 @@ test('rejected candidate disappearance returns presentation to monitoring', () =
         hasErrors: false,
         items: [],
     })
-    assert.equal(state.phase, 'rejected')
+    expect(state.phase).toBe('rejected')
 
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -220,11 +219,11 @@ test('rejected candidate disappearance returns presentation to monitoring', () =
         hasErrors: false,
         items: [],
     })
-    assert.equal(state.phase, 'monitoring')
-    assert.deepEqual(state.rejectedItemIds, [])
+    expect(state.phase).toBe('monitoring')
+    expect(state.rejectedItemIds).toEqual([])
 })
 
-test('presentation reset drops previous modal session result', () => {
+it('presentation reset drops previous modal session result', () => {
     let state = createDownloadsScannerPresentationState()
     state = reduceDownloadsScannerPresentation(state, {
         type: 'scan_result',
@@ -237,28 +236,28 @@ test('presentation reset drops previous modal session result', () => {
     })
 
     state = reduceDownloadsScannerPresentation(state, { type: 'reset' })
-    assert.equal(state.phase, 'idle')
-    assert.equal(state.downloadDirectory, null)
-    assert.deepEqual(state.rejectedItemIds, [])
+    expect(state.phase).toBe('idle')
+    expect(state.downloadDirectory).toBe(null)
+    expect(state.rejectedItemIds).toEqual([])
 })
 
-test('missing-content scanner settings default enabled and persist a custom folder', () => {
+it('missing-content scanner settings default enabled and persist a custom folder', () => {
     const storage = memoryStorage()
-    assert.deepEqual(getMissingContentScannerSettings(storage), {
+    expect(getMissingContentScannerSettings(storage)).toEqual({
         enabled: true,
         directory: null,
     })
 
     setMissingContentScannerSettings({ enabled: false, directory: 'D:\\Modpack Imports' }, storage)
-    assert.deepEqual(getMissingContentScannerSettings(storage), {
+    expect(getMissingContentScannerSettings(storage)).toEqual({
         enabled: false,
         directory: 'D:\\Modpack Imports',
     })
 })
 
-test('invalid scanner settings fall back safely', () => {
+it('invalid scanner settings fall back safely', () => {
     const storage = memoryStorage('{not-json')
-    assert.deepEqual(getMissingContentScannerSettings(storage), {
+    expect(getMissingContentScannerSettings(storage)).toEqual({
         enabled: true,
         directory: null,
     })

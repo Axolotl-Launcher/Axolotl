@@ -1,8 +1,9 @@
-import { invoke } from '@tauri-apps/api/core'
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 
 import { get_project, get_project_versions, purgeLauncherCache } from './cache.js'
 import { resourceLocate } from './resources'
+
+const backend = vi.hoisted(() => ({ invoke: vi.fn() }))
 
 vi.mock('./resources', () => ({
     resourceCachePolicy: () => 'useFresh',
@@ -11,20 +12,22 @@ vi.mock('./resources', () => ({
     resourceReleaseDocuments: vi.fn(),
     resourceRequest: vi.fn(),
 }))
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
+vi.mock('@tauri-apps/api/core', () => ({ invoke: backend.invoke }))
+
+beforeEach(() => vi.resetAllMocks())
 
 it('clears disk and metadata caches through one storage operation', async () => {
     const result = { removed_bytes: 100, remaining_bytes: 20, failures: [] }
-    vi.mocked(invoke).mockClear().mockResolvedValueOnce(result)
+    backend.invoke.mockResolvedValueOnce(result)
     expect(await purgeLauncherCache()).toEqual(result)
-    expect(invoke).toHaveBeenCalledTimes(1)
-    expect(invoke).toHaveBeenCalledWith('plugin:storage|storage_cache_clear')
+    expect(backend.invoke).toHaveBeenCalledTimes(1)
+    expect(backend.invoke).toHaveBeenCalledWith('plugin:storage|storage_cache_clear')
 })
 
 it('requests a lightweight project version list without fetching each changelog', async () => {
-    vi.mocked(invoke).mockResolvedValue([{ id: 'release1' }])
+    backend.invoke.mockResolvedValueOnce([{ id: 'release1' }])
     expect(await get_project_versions('abcdefgh', 'must_revalidate')).toEqual([{ id: 'release1' }])
-    expect(invoke).toHaveBeenCalledWith('plugin:cache|get_project_versions', {
+    expect(backend.invoke).toHaveBeenCalledExactlyOnceWith('plugin:cache|get_project_versions', {
         projectId: 'abcdefgh',
         cacheBehaviour: 'must_revalidate',
     })

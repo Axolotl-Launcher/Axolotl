@@ -8,6 +8,7 @@
 - Paths in Markdown links are relative to their containing file. When naming code paths in prose, state that they are repository-relative. Use real files for examples; clearly label hypothetical paths in code examples.
 - Read only the skill references relevant to the current task. Do not load all frontend or design references by default.
 - A review request stays read-only. A skill does not authorize implementation, dependencies, commits, messages or remote actions beyond the user's request.
+- The delivery workflow — commits, pushes, pull requests, reviews and archiving — is owned by the root [REVIEW.md](../REVIEW.md). Read it before any of those actions; this file owns the agent resources themselves.
 
 ## Maintenance
 

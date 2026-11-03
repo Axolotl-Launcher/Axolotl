@@ -1,13 +1,40 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn third_party_account_commands_are_registered_and_limited_to_main_window() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/third_party_accounts.rs"));
+    assert_eq!(
+        runtime,
+        manifest_commands(include_str!("../build.rs"), "third-party-accounts")
+    );
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "third-party-accounts:default")
+    );
+    assert!(
+        include_str!("../src/main.rs")
+            .contains(".plugin(api::third_party_accounts::init())")
+    );
+}
+
+#[test]
 fn mcp_commands_are_registered_and_limited_to_the_main_window() {
     let runtime = runtime_commands(include_str!("../src/api/mcp/mod.rs"))
         .into_iter()
-        .map(|command| command.strip_prefix("commands::").unwrap_or(command))
+        .map(|command| command.rsplit("::").next().unwrap())
         .collect::<BTreeSet<_>>();
     let manifest = manifest_commands(include_str!("../build.rs"), "mcp");
     assert_eq!(runtime, manifest);
+    assert!(runtime.contains("mcp_ui_claim"));
+    assert!(runtime.contains("mcp_ui_respond"));
     let capability: serde_json::Value =
         serde_json::from_str(include_str!("../capabilities/plugins.json"))
             .unwrap();
@@ -50,6 +77,33 @@ fn runtime_commands(source: &str) -> BTreeSet<&str> {
         .collect()
 }
 
+#[test]
+fn player_skin_lookup_is_registered_and_allowed_for_main_window() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/minecraft_skins.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "minecraft-skins");
+    assert!(runtime.contains("lookup_player_skin"));
+    assert!(runtime.difference(&manifest).next().is_none());
+    let capabilities: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert!(
+        capabilities["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "main")
+    );
+    assert!(
+        capabilities["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "minecraft-skins:default")
+    );
+}
+
 fn manifest_commands<'a>(source: &'a str, plugin: &str) -> BTreeSet<&'a str> {
     let instance_plugin = source
         .match_indices(".plugin(")
@@ -77,6 +131,8 @@ fn resource_analysis_commands_are_registered_and_allowed_for_the_main_window() {
         "resource_analysis_update",
         "resource_analysis_close",
         "resource_prepare_operation",
+        "resource_start_content_refresh",
+        "resource_get_content_refresh_state",
     ] {
         assert!(runtime.contains(command));
         assert!(manifest.contains(command));
@@ -102,6 +158,44 @@ fn resource_analysis_commands_are_registered_and_allowed_for_the_main_window() {
 }
 
 #[test]
+fn content_refresh_commands_match_callers_and_events_are_limited_to_the_main_window()
+ {
+    let runtime = runtime_commands(include_str!("../src/api/resources.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "axolotl-resources");
+    let frontend =
+        include_str!("../../app-frontend/src/helpers/content-refresh.ts");
+    for command in [
+        "resource_start_content_refresh",
+        "resource_get_content_refresh_state",
+    ] {
+        assert!(runtime.contains(command));
+        assert!(manifest.contains(command));
+        assert!(
+            frontend.contains(&format!("plugin:axolotl-resources|{command}"))
+        );
+    }
+    let source = include_str!("../src/api/resources.rs");
+    assert!(source.contains("get_webview_window(\"main\")"));
+    assert!(source.contains("window.emit(\"resource_content_refresh\""));
+    assert!(
+        include_str!("../src/main.rs")
+            .contains("initialize_content_refresh_events(&app).await?")
+    );
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "axolotl-resources:default")
+    );
+}
+
+#[test]
 fn instance_runtime_handlers_are_registered_in_build_manifest() {
     let runtime = runtime_commands(include_str!("../src/api/instance.rs"));
     let manifest = manifest_commands(include_str!("../build.rs"), "instance");
@@ -114,6 +208,7 @@ fn instance_runtime_handlers_are_registered_in_build_manifest() {
     );
     for command in [
         "instance_apply_content_update_plan",
+        "instance_cancel_upgrade_planning",
         "instance_discard_upgrade_plan",
         "instance_get_post_upgrade_notice",
         "instance_dismiss_post_upgrade_notice",
@@ -215,5 +310,95 @@ fn curseforge_runtime_handlers_match_the_build_manifest() {
         runtime, manifest,
         "curseforge commands must be identical in the runtime handler and the \
          build-time manifest"
+    );
+}
+
+#[test]
+fn seed_map_runtime_handlers_match_the_build_manifest() {
+    let runtime = runtime_commands(include_str!("../src/api/seed_map.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "seed-map");
+    assert_eq!(
+        runtime, manifest,
+        "seed map commands must be identical in the runtime handler and the \
+         build-time manifest"
+    );
+    assert!(runtime.contains("seed_map_cancel_ore_scan"));
+}
+
+#[test]
+fn mod_translation_runtime_handlers_match_the_build_manifest() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/mod_translation.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "mod-translation");
+    assert_eq!(
+        runtime, manifest,
+        "mod translation commands must be identical in the runtime handler \
+         and the build-time manifest"
+    );
+    assert!(runtime.contains("mod_translation_cancel_analysis"));
+    let capabilities: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert!(
+        capabilities["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "mod-translation:default")
+    );
+}
+
+#[test]
+fn download_diagnostics_is_registered_and_limited_to_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/install.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "install");
+    assert_eq!(runtime, manifest);
+    assert!(runtime.contains("download_diagnostics"));
+    let frontend =
+        include_str!("../../app-frontend/src/helpers/download-diagnostics.ts");
+    assert!(frontend.contains("plugin:install|download_diagnostics"));
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "install:default")
+    );
+}
+
+#[test]
+fn settings_commands_are_registered_and_limited_to_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/settings.rs"));
+    let manifest = manifest_commands(include_str!("../build.rs"), "settings");
+    assert_eq!(
+        runtime, manifest,
+        "settings commands must be identical in the runtime handler and the \
+         build-time manifest"
+    );
+    for command in [
+        "settings_layers",
+        "settings_override_clear",
+        "settings_sanitise",
+        "settings_import_scan",
+        "settings_import",
+        "settings_export",
+    ] {
+        assert!(runtime.contains(command));
+    }
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "settings:default")
     );
 }

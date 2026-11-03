@@ -60,14 +60,8 @@ pub(crate) async fn download_curseforge_path(
             file.file_name.clone(),
         );
     }
-    download_to_path(
-        request,
-        destination,
-        &state.download_semaphore,
-        &state.pool,
-        progress,
-    )
-    .await
+    download_to_path(request, destination, &state.download_semaphore, progress)
+        .await
 }
 
 pub(crate) async fn download_curseforge_archive(
@@ -194,7 +188,7 @@ pub(crate) async fn download_installed_file(
                 instance_id,
                 format!("{folder}/{file_name}"),
                 localized_candidate,
-                &state.pool,
+                &state,
             )
             .await?
         }

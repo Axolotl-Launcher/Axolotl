@@ -97,7 +97,7 @@ where
     F: FnMut(uuid::Uuid) -> Fut,
     Fut: std::future::Future<Output = crate::Result<()>>,
 {
-    let pending = crate::state::instances::adapters::sqlite::content_rows::get_pending_manual_downloads(
+    let pending = crate::state::instances::adapters::sqlite::pack_members::get_pending_manual_downloads(
         instance_id,
         &state.pool,
     )
@@ -108,7 +108,7 @@ where
         (download.provider_project_id, download.provider_release_id)
     })
     .collect::<HashSet<_>>();
-    let materialized = crate::state::instances::adapters::sqlite::content_rows::get_materialized_curseforge_downloads(
+    let materialized = crate::state::instances::adapters::sqlite::pack_members::get_materialized_curseforge_downloads(
         instance_id,
         &state.pool,
     )

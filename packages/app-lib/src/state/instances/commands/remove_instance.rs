@@ -26,6 +26,7 @@ async fn remove_instance_with_policy(
     let _maintenance_guard =
         crate::api::instance::lock_instance_maintenance(instance_id).await;
     crate::api::instance::begin_instance_deletion(instance_id).await?;
+    state.content_refresh.invalidate(instance_id).await;
     let result = remove_instance_files_and_state(
         instance_id,
         state,
@@ -63,6 +64,7 @@ async fn remove_instance_files_and_state(
         // idempotent, so finish cleanup successfully instead of surfacing a
         // spurious "Unknown instance" error.
         tracing::debug!(instance_id, "Instance was already removed");
+        forget_derived_rows(instance_id, &state.derived).await;
         return Ok(());
     };
 
@@ -118,6 +120,7 @@ async fn remove_instance_files_and_state(
     let jobs = crate::install::store::mark_instance_deleted(instance_id, state)
         .await?;
     instance_rows::delete_instance_by_id(&instance.id, &state.pool).await?;
+    forget_derived_rows(&instance.id, &state.derived).await;
     config_sync::remove_config_file(&state.directories, &instance.path).await?;
     for job in jobs {
         if let Err(error) =
@@ -137,4 +140,183 @@ fn is_version_isolated_game_dir(path: &Path) -> bool {
         .and_then(Path::file_name)
         .and_then(|name| name.to_str())
         == Some("versions")
+}
+
+/// Drops the derived rows this instance owned. They moved to a database of
+/// their own, so the foreign keys that used to cascade with the instance no
+/// longer exist and this deletion is what removes them. Removing them again
+/// costs nothing, which is what makes the call safe on a retry, and a derived
+/// record is worth less than the deletion itself, so a failure is a warning.
+pub(crate) async fn forget_derived_rows(
+    instance_id: &str,
+    derived: &crate::state::store::derived_db::DerivedDb,
+) {
+    use crate::state::store::content_refresh_pack::ContentRefreshPacks;
+    use crate::state::store::content_refresh_scan_failures::ContentRefreshScanFailures;
+
+    if let Err(error) =
+        ContentRefreshPacks::forget_instance(derived, instance_id).await
+    {
+        tracing::warn!(
+            instance_id,
+            %error,
+            "Failed to drop the saved pack metadata of a deleted instance"
+        );
+    }
+    if let Err(error) =
+        ContentRefreshScanFailures::forget_instance(derived, instance_id).await
+    {
+        tracing::warn!(
+            instance_id,
+            %error,
+            "Failed to drop the scan failures of a deleted instance"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::store::content_refresh_pack::{
+        ContentRefreshPacks, PackKey, PackRecord,
+    };
+    use crate::state::store::content_refresh_scan_failures::{
+        ContentRefreshScanFailures, ScanFailureKey, ScanFailureRecord,
+    };
+    use std::sync::Arc;
+
+    async fn state_with_one_instance() -> (tempfile::TempDir, Arc<State>) {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = crate::state::DirectoryInfo {
+            settings_dir: temp.path().into(),
+            config_dir: temp.path().into(),
+            app_identifier: "remove-instance-test".into(),
+        };
+        std::fs::create_dir_all(directories.instances_dir().join("example"))
+            .unwrap();
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(temp.path().join("app.db"))
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        sqlx::raw_sql(
+            "INSERT INTO instances(id, path, name, install_stage, launcher_feature_version, created, modified)
+                VALUES ('instance', 'example', 'Example', 'installed', '1', 1, 1);
+             INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified)
+                VALUES ('set', 'instance', 'Main', 'local', 'available', '1.21', 'fabric', 1, 1);
+             UPDATE instances SET applied_content_set_id = 'set' WHERE id = 'instance';",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let state = crate::state::test_state(directories, pool).await.unwrap();
+        (temp, state)
+    }
+
+    /// The instance is what owns these rows now: the foreign keys that used to
+    /// remove them went with the tables, so the deletion has to.
+    #[tokio::test]
+    async fn deleting_an_instance_drops_its_derived_rows() {
+        let (_temp, state) = state_with_one_instance().await;
+        let pack = PackKey {
+            instance_id: "instance".into(),
+            content_set_id: "set".into(),
+        };
+        ContentRefreshPacks::upsert(
+            &state.derived,
+            &pack,
+            &PackRecord {
+                location_key: "root".into(),
+                link_key: "link".into(),
+                saved_at: 10,
+                pack: None,
+                attempted_at: 10,
+                last_error: None,
+            },
+        )
+        .await
+        .unwrap();
+        ContentRefreshScanFailures::upsert(
+            &state.derived,
+            &ScanFailureKey {
+                instance_id: "instance".into(),
+                location_key: "root".into(),
+                relative_path: "mods/bad.jar".into(),
+            },
+            &ScanFailureRecord {
+                attempted_at: 10,
+                error: "locked".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        remove_instance_files_and_state("instance", &state, false)
+            .await
+            .unwrap();
+
+        assert!(
+            instance_rows::get_instance_by_id("instance", &state.pool)
+                .await
+                .unwrap()
+                .is_none(),
+            "the deletion step removes the instance itself"
+        );
+        assert!(
+            ContentRefreshPacks::saved(&state.derived, &pack)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            ContentRefreshScanFailures::failed(&state.derived, "instance")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        state.pool.close().await;
+    }
+
+    /// A database a previous deletion never finished cleaning is left holding
+    /// rows for an instance that is gone. Running the same step again finds no
+    /// instance and still drops them, which is what makes it safe on a retry.
+    #[tokio::test]
+    async fn deleting_an_instance_that_is_gone_still_drops_its_derived_rows() {
+        let (_temp, state) = state_with_one_instance().await;
+        ContentRefreshScanFailures::upsert(
+            &state.derived,
+            &ScanFailureKey {
+                instance_id: "instance".into(),
+                location_key: "root".into(),
+                relative_path: "mods/bad.jar".into(),
+            },
+            &ScanFailureRecord {
+                attempted_at: 10,
+                error: "locked".into(),
+            },
+        )
+        .await
+        .unwrap();
+        instance_rows::delete_instance_by_id("instance", &state.pool)
+            .await
+            .unwrap();
+
+        remove_instance_files_and_state("instance", &state, false)
+            .await
+            .unwrap();
+
+        assert!(
+            ContentRefreshScanFailures::failed(&state.derived, "instance")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        state.pool.close().await;
+    }
 }

@@ -14,70 +14,42 @@ pub(crate) struct RetainedRequirement {
 
 impl RetainedRequirement {
     pub(super) fn accepts(&self, release: &ResourceRelease) -> bool {
-        let matches =
-            self.version_constraint.as_ref().is_none_or(|constraint| {
-                self.local_mod_id.is_some()
-                    || matches_release_constraint(constraint, &release.version)
-            }) && (self.exact.is_empty()
-                || release.artifacts.iter().any(|artifact| {
-                    artifact.role == ArtifactRole::Primary
-                        && self.exact.iter().any(|expected| {
-                            identity::exact_integrity(
-                                expected,
-                                &artifact.integrity,
-                            )
-                        })
-                }));
-        matches != self.incompatible
+        let exact_matches = self.exact.is_empty()
+            || release.artifacts.iter().any(|artifact| {
+                artifact.role == ArtifactRole::Primary
+                    && self.exact.iter().any(|expected| {
+                        identity::exact_integrity(expected, &artifact.integrity)
+                    })
+            });
+        if !exact_matches {
+            return self.incompatible;
+        }
+        let version = self.version_constraint.as_ref().map_or(
+            CompatibilityState::Compatible,
+            |constraint| {
+                if self.local_mod_id.is_some() {
+                    CompatibilityState::Compatible
+                } else {
+                    assess_release_constraint(constraint, &release.version)
+                }
+            },
+        );
+        version == CompatibilityState::Unknown
+            || (version == CompatibilityState::Compatible) != self.incompatible
     }
 }
 
 pub(crate) fn mod_version_matches(pattern: &str, version: &str) -> bool {
-    let pattern = pattern.trim();
-    if pattern == version
-        || matches!(pattern, "*" | "x" | "X") && !version.is_empty()
-    {
-        return true;
-    }
-    if pattern.contains("||") {
-        return pattern
-            .split("||")
-            .any(|part| mod_version_matches(part.trim(), version));
-    }
-    if matches_release_constraint(pattern, version) {
-        return true;
-    }
-    if !pattern.starts_with(['~', '^', '<', '>', '='])
-        && !pattern.contains(['*', 'x', 'X'])
-    {
-        return false;
-    }
-    let version = semver::Version::parse(version).or_else(|_| {
-        let mut parts: Vec<_> = version.split('.').collect();
-        if parts.len() > 3
-            || parts.iter().any(|part| {
-                part.is_empty()
-                    || !part.bytes().all(|byte| byte.is_ascii_digit())
-            })
-        {
-            return semver::Version::parse("");
-        }
-        parts.resize(3, "0");
-        semver::Version::parse(&parts.join("."))
-    });
-    let Ok(version) = version else { return false };
-    let normalized = pattern.split_whitespace().collect::<Vec<_>>().join(", ");
-    semver::VersionReq::parse(&normalized)
-        .is_ok_and(|range| range.matches(&version))
+    matches_release_constraint(pattern, version)
 }
 
 pub(crate) async fn local_metadata(
     pool: &SqlitePool,
     instance_id: &str,
 ) -> ResourceResult<HashMap<InstalledEntryId, LocalModMetadata>> {
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT entry.id, file.local_mod_data FROM instance_content_entries entry JOIN instance_files file ON file.id = entry.file_id WHERE entry.instance_id = ? AND file.missing = 0 AND file.local_mod_data IS NOT NULL"
-    ).bind(instance_id).fetch_all(pool).await.map_err(db)?;
+    let rows = crate::state::instances::adapters::sqlite::content_entries::get_local_mod_data_by_entry(instance_id, pool)
+        .await
+        .map_err(|error| ResourceError::Database(error.to_string()))?;
     rows.into_iter()
         .filter_map(|(id, value)| {
             serde_json::from_str(&value).ok().map(|metadata| {
@@ -109,6 +81,7 @@ impl ResourceService {
             .unwrap_or_else(|| reference.clone()))
     }
 
+    #[cfg(test)]
     pub(crate) async fn retained_requirements(
         self: &Arc<Self>,
         selections: &[ResourceSelection],
@@ -116,6 +89,22 @@ impl ResourceService {
         local: &HashMap<InstalledEntryId, LocalModMetadata>,
         cancel: &CancellationToken,
     ) -> ResourceResult<Vec<RetainedRequirement>> {
+        self.retained_requirements_with_failures(
+            selections, installed, local, cancel, false,
+        )
+        .await
+        .map(|(requirements, _)| requirements)
+    }
+
+    pub(crate) async fn retained_requirements_with_failures(
+        self: &Arc<Self>,
+        selections: &[ResourceSelection],
+        installed: &[InstalledResource],
+        local: &HashMap<InstalledEntryId, LocalModMetadata>,
+        cancel: &CancellationToken,
+        allow_source_failures: bool,
+    ) -> ResourceResult<(Vec<RetainedRequirement>, Vec<String>)> {
+        let mut failures = Vec::new();
         let changing: HashSet<_> = selections
             .iter()
             .filter_map(|selection| selection.entry_id.as_ref())
@@ -191,17 +180,18 @@ impl ResourceService {
                 .query_many(&source, queries, CachePolicy::UseFresh, cancel)
                 .await;
             for (reference, result) in references.into_iter().zip(results) {
-                let ProviderValue::Release(document) = result?.value else {
-                    return Err(invalid(
-                        "installed parent release is unavailable",
-                    ));
-                };
-                if document.release.reference != reference {
-                    return Err(invalid(
+                let release = result.and_then(|result| match result.value {
+                    ProviderValue::Release(document)
+                        if document.release.reference == reference =>
+                    {
+                        Ok(document.release)
+                    }
+                    ProviderValue::NotFound => Err(ResourceError::Unavailable),
+                    _ => Err(invalid(
                         "release does not belong to installed project",
-                    ));
-                }
-                releases.insert(reference, document.release);
+                    )),
+                });
+                releases.insert(reference, release);
             }
         }
         // Dependency metadata determines the install scope. Resolve repeated
@@ -218,146 +208,176 @@ impl ResourceService {
                 return Err(ResourceError::Canceled);
             }
             if let Some(reference) = &parent.artifact {
-                let artifact = saved_artifacts
-                    .get(parent.entry_id.as_str())
-                    .or_else(|| {
-                        releases.get(&reference.release).and_then(|release| {
-                            release.artifacts.iter().find(|artifact| {
-                                artifact.reference == *reference
-                                    && identity::exact_integrity(
-                                        &parent.integrity,
-                                        &artifact.integrity,
-                                    )
+                let remote = async {
+                    let mut requirements = Vec::new();
+                    let release = match releases.get(&reference.release) {
+                        Some(Ok(release)) => Some(release),
+                        Some(Err(error)) => return Err(error.clone()),
+                        None => None,
+                    };
+                    let artifact = saved_artifacts
+                        .get(parent.entry_id.as_str())
+                        .or_else(|| {
+                            release.and_then(|release| {
+                                release.artifacts.iter().find(|artifact| {
+                                    artifact.reference == *reference
+                                        && identity::exact_integrity(
+                                            &parent.integrity,
+                                            &artifact.integrity,
+                                        )
+                                })
                             })
                         })
-                    })
-                    .ok_or_else(|| {
-                        invalid(format!(
-                            "cannot verify dependency declarations for {}",
-                            parent.relative_path
-                        ))
-                    })?;
-                let parent_selection = ResourceSelection {
-                    id: SelectionId::new(parent.entry_id.as_str())?,
-                    resource: ResourceRef::Source {
-                        project: reference.release.project.clone(),
-                    },
-                    release: ReleaseSelection::Artifact {
-                        reference: reference.clone(),
-                    },
-                    resource_type: parent.resource_type,
-                    scope: parent.scope.clone(),
-                    entry_id: Some(parent.entry_id.clone()),
-                };
-                for dependency in
-                    artifact.dependencies.iter().filter(|dependency| {
-                        matches!(
-                            dependency.kind,
-                            ResourceDependencyKind::Required
-                                | ResourceDependencyKind::Incompatible
-                        )
-                    })
-                {
-                    let key = serde_json::to_string(&(
-                        &dependency.target,
-                        &parent.scope,
-                        parent.resource_type,
-                    ))?;
-                    let selection = if let Some(selection) =
-                        dependency_selections.get(&key)
-                    {
-                        selection.clone()
-                    } else {
-                        let selection = self
-                            .dependency_selection(
-                                dependency,
-                                &parent_selection,
-                                cancel,
+                        .ok_or_else(|| {
+                            invalid(format!(
+                                "cannot verify dependency declarations for {}",
+                                parent.relative_path
+                            ))
+                        })?;
+                    let parent_selection = ResourceSelection {
+                        id: SelectionId::new(parent.entry_id.as_str())?,
+                        resource: ResourceRef::Source {
+                            project: reference.release.project.clone(),
+                        },
+                        release: ReleaseSelection::Artifact {
+                            reference: reference.clone(),
+                        },
+                        resource_type: parent.resource_type,
+                        scope: parent.scope.clone(),
+                        entry_id: Some(parent.entry_id.clone()),
+                    };
+                    for dependency in
+                        artifact.dependencies.iter().filter(|dependency| {
+                            matches!(
+                                dependency.kind,
+                                ResourceDependencyKind::Required
+                                    | ResourceDependencyKind::Incompatible
                             )
-                            .await?;
-                        dependency_selections
-                            .insert(key.clone(), selection.clone());
-                        selection
-                    };
-                    let Some(selection) = selection else {
-                        continue;
-                    };
-                    let exact = if let Some(exact) =
-                        exact_dependencies.get(&key)
+                        })
                     {
-                        exact.clone()
-                    } else {
-                        let cached_exact: Vec<_> = saved_artifacts
-                            .values()
-                            .filter(|artifact| match &selection.release {
-                                ReleaseSelection::Automatic => false,
-                                ReleaseSelection::Release { reference } => {
-                                    artifact.role == ArtifactRole::Primary
-                                        && &artifact.reference.release
-                                            == reference
-                                }
-                                ReleaseSelection::Artifact { reference } => {
-                                    &artifact.reference == reference
-                                }
-                            })
-                            .map(|artifact| artifact.integrity.clone())
-                            .collect();
-                        let exact: Vec<ArtifactIntegrity> = if !cached_exact
-                            .is_empty()
-                        {
-                            cached_exact
-                        } else {
-                            match &selection.release {
-                                ReleaseSelection::Automatic => Vec::new(),
-                                ReleaseSelection::Release { reference } => self
-                                    .release(reference, None, cancel)
-                                    .await?
-                                    .artifacts
-                                    .into_iter()
-                                    .filter(|artifact| {
-                                        artifact.role == ArtifactRole::Primary
-                                    })
-                                    .map(|artifact| artifact.integrity)
-                                    .collect(),
-                                ReleaseSelection::Artifact { reference } => {
-                                    self.release(
-                                        &reference.release,
-                                        None,
+                        let resolved = async {
+                            let key = serde_json::to_string(&(
+                                &dependency.target,
+                                &parent.scope,
+                                parent.resource_type,
+                            ))?;
+                            let selection = if let Some(selection) =
+                                dependency_selections.get(&key)
+                            {
+                                selection.clone()
+                            } else {
+                                let selection = self
+                                    .dependency_selection(
+                                        dependency,
+                                        &parent_selection,
                                         cancel,
                                     )
-                                    .await?
-                                    .artifacts
-                                    .into_iter()
-                                    .filter(|artifact| {
-                                        artifact.reference == *reference
+                                    .await?;
+                                dependency_selections
+                                    .insert(key.clone(), selection.clone());
+                                selection
+                            };
+                            let Some(selection) = selection else {
+                                return Ok(None);
+                            };
+                            let exact = if let Some(exact) =
+                                exact_dependencies.get(&key)
+                            {
+                                exact.clone()
+                            } else {
+                                let cached_exact: Vec<_> = saved_artifacts
+                                    .values()
+                                    .filter(|artifact| match &selection.release {
+                                        ReleaseSelection::Automatic => false,
+                                        ReleaseSelection::Release { reference } => {
+                                            artifact.role == ArtifactRole::Primary
+                                                && &artifact.reference.release
+                                                    == reference
+                                        }
+                                        ReleaseSelection::Artifact { reference } => {
+                                            &artifact.reference == reference
+                                        }
                                     })
-                                    .map(|artifact| artifact.integrity)
-                                    .collect()
-                                }
+                                    .map(|artifact| artifact.integrity.clone())
+                                    .collect();
+                                let exact: Vec<ArtifactIntegrity> = if !cached_exact
+                                    .is_empty()
+                                {
+                                    cached_exact
+                                } else {
+                                    match &selection.release {
+                                        ReleaseSelection::Automatic => Vec::new(),
+                                        ReleaseSelection::Release { reference } => self
+                                            .release(reference, None, cancel)
+                                            .await?
+                                            .artifacts
+                                            .into_iter()
+                                            .filter(|artifact| {
+                                                artifact.role == ArtifactRole::Primary
+                                            })
+                                            .map(|artifact| artifact.integrity)
+                                            .collect(),
+                                        ReleaseSelection::Artifact { reference } => {
+                                            self.release(
+                                                &reference.release,
+                                                None,
+                                                cancel,
+                                            )
+                                            .await?
+                                            .artifacts
+                                            .into_iter()
+                                            .filter(|artifact| {
+                                                artifact.reference == *reference
+                                            })
+                                            .map(|artifact| artifact.integrity)
+                                            .collect()
+                                        }
+                                    }
+                                };
+                                exact_dependencies.insert(key, exact.clone());
+                                exact
+                            };
+                            if !matches!(selection.release, ReleaseSelection::Automatic)
+                                && exact.is_empty()
+                            {
+                                return Err(invalid(
+                                    "installed parent requires an unavailable artifact",
+                                ));
                             }
-                        };
-                        exact_dependencies.insert(key, exact.clone());
-                        exact
-                    };
-                    if !matches!(selection.release, ReleaseSelection::Automatic)
-                        && exact.is_empty()
-                    {
-                        return Err(invalid(
-                            "installed parent requires an unavailable artifact",
-                        ));
+                            Ok::<_, ResourceError>(Some(RetainedRequirement {
+                                parent: parent.clone(),
+                                resource: selection.resource,
+                                scope: selection.scope,
+                                version_constraint: dependency
+                                    .version_constraint
+                                    .clone(),
+                                exact,
+                                incompatible: dependency.kind
+                                    == ResourceDependencyKind::Incompatible,
+                                local_mod_id: None,
+                            }))
+                        }.await;
+                        match resolved {
+                            Ok(Some(requirement)) => requirements.push(requirement),
+                            Ok(None) => {}
+                            Err(error) if allow_source_failures && dependency_source_failed(&error) => {
+                                failures.push(format!("{}: {error}", parent.relative_path));
+                            }
+                            Err(error) => return Err(error),
+                        }
                     }
-                    requirements.push(RetainedRequirement {
-                        parent: parent.clone(),
-                        resource: selection.resource,
-                        scope: selection.scope,
-                        version_constraint: dependency
-                            .version_constraint
-                            .clone(),
-                        exact,
-                        incompatible: dependency.kind
-                            == ResourceDependencyKind::Incompatible,
-                        local_mod_id: None,
-                    });
+                    Ok::<_, ResourceError>(requirements)
+                }.await;
+                match remote {
+                    Ok(remote) => requirements.extend(remote),
+                    Err(error)
+                        if allow_source_failures
+                            && dependency_source_failed(&error) =>
+                    {
+                        failures
+                            .push(format!("{}: {error}", parent.relative_path));
+                    }
+                    Err(error) => return Err(error),
                 }
             }
             if let Some(metadata) = local.get(&parent.entry_id) {
@@ -398,7 +418,7 @@ impl ResourceService {
                 }
             }
         }
-        Ok(requirements)
+        Ok((requirements, failures))
     }
 
     pub(crate) async fn requirements_for(
@@ -458,7 +478,21 @@ pub(super) fn local_file_dependency(
         .copied()
         .collect();
     if dependency.kind == ResourceDependencyKind::Incompatible {
-        if !enabled.is_empty() {
+        if enabled.iter().any(|entry| {
+            dependency
+                .version_constraint
+                .as_ref()
+                .is_none_or(|constraint| {
+                    draft
+                        .local_metadata
+                        .get(&entry.entry_id)
+                        .and_then(|metadata| metadata.version.as_deref())
+                        .is_some_and(|version| {
+                            assess_release_constraint(constraint, version)
+                                == CompatibilityState::Compatible
+                        })
+                })
+        }) {
             conflict_issue(
                 &mut draft.plan,
                 &selection.id,
@@ -496,7 +530,7 @@ pub(super) fn local_file_dependency(
             .local_metadata
             .get(&entry.entry_id)
             .and_then(|meta| meta.version.as_deref())
-            .is_some_and(|version| mod_version_matches(constraint, version))
+            .is_none_or(|version| mod_version_matches(constraint, version))
     {
         conflict_issue(
             &mut draft.plan,

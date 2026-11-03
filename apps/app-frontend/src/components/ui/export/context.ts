@@ -9,9 +9,11 @@ import { save } from '@tauri-apps/plugin-dialog'
 import { computed, nextTick, onBeforeUnmount, ref, type ShallowRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
+import { createAnalysisTask } from '@/helpers/analysis-task'
 import { resourceOperationError } from '@/helpers/resource-operation-logic'
 import {
     type ExportCategory,
+    type ExportFileSnapshot,
     type ExportRefreshProgress,
     type ExportResolutionSession,
     resourceExportClose,
@@ -34,6 +36,15 @@ import {
     selectedFiles,
 } from './selection'
 
+type RefreshInput = {
+    instanceId: string
+    sessionId: string
+    files: ExportFileSnapshot[]
+    revision: number
+    /** Only the sources that failed last time, when the selection did not change. */
+    failed: Parameters<typeof resourceExportRefreshRetry>[1] | null
+}
+
 export function createExportContext(
     modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>,
     instance: () => { id: string; name: string },
@@ -42,17 +53,64 @@ export function createExportContext(
     const { handleError } = injectNotificationManager()
     const notifications = injectPopupNotificationManager()
     const snapshot = ref<ResourceExportScan | null>(null)
-    const scanning = ref(false)
-    const error = ref('')
+    const scanTask = createAnalysisTask<string, never, ResourceExportScan>({
+        label: 'export-scan',
+        run: (instanceId, { signal }) => resourceExportScan(instanceId, signal),
+        // A scan that finishes after the modal moved on still opened a session.
+        discard: (late) => void resourceExportClose(late.sessionId).catch(() => {}),
+    })
+    const refreshTask = createAnalysisTask<
+        RefreshInput,
+        ExportRefreshProgress,
+        ExportResolutionSession
+    >({
+        label: 'export-refresh',
+        run(input, { signal, progress }) {
+            const onProgress = (value: ExportRefreshProgress) => {
+                if (
+                    value.sessionId === input.sessionId &&
+                    value.selectionRevision === input.revision
+                )
+                    progress(value)
+            }
+            return input.failed
+                ? resourceExportRefreshRetry(
+                      input.sessionId,
+                      input.failed,
+                      input.revision,
+                      onProgress,
+                      signal,
+                  )
+                : resourceExportRefresh(
+                      input.instanceId,
+                      input.sessionId,
+                      input.files,
+                      input.revision,
+                      onProgress,
+                      signal,
+                  )
+        },
+    })
+    const scanning = computed(() => scanTask.running.value)
+    const error = computed(() =>
+        scanTask.status.value === 'error'
+            ? resourceOperationError(scanTask.error.value, formatMessage)
+            : '',
+    )
     const exporting = ref(false)
-    const refreshing = ref(false)
+    const refreshing = computed(() => refreshTask.running.value)
+    /** Kept across verification runs, so sizes and blockers stay while a new one runs. */
     const resolution = ref<ExportResolutionSession | null>(null)
-    const refreshProgress = ref<ExportRefreshProgress | null>(null)
-    const refreshError = ref('')
+    const refreshProgress = computed(() => refreshTask.progress.value)
+    const refreshError = computed(() =>
+        refreshTask.status.value === 'error'
+            ? resourceOperationError(refreshTask.error.value, formatMessage)
+            : '',
+    )
     const embedded = ref<string[]>([])
-    let refreshController: AbortController | undefined
-    let refreshGeneration = 0
     let revision = 0
+    /** Changes whenever the modal is closed or reopened, so a pending export can tell. */
+    let session = 0
     const draft = ref<ExportSelectionDraft>({ categories: [], included: [], excluded: [] })
     const currentPath = ref('')
     const search = ref('')
@@ -60,8 +118,6 @@ export function createExportContext(
     const packageInfo = ref({ name: '', version: '1.0.0', description: '', author: '' })
     const format = ref<ResourceExportFormat>('modrinth')
     const exportError = ref('')
-    let controller: AbortController | undefined
-    let generation = 0
     const files = computed(() => snapshot.value?.files ?? [])
     const selection = computed({
         get: () => selectedFiles(files.value, draft.value),
@@ -104,72 +160,38 @@ export function createExportContext(
                     (file.localError || file.resolutions.some((r) => r.kind === 'failed')),
             ) ?? [],
     )
-    function cancelRefresh() {
-        refreshGeneration++
-        refreshController?.abort()
-        refreshing.value = false
-    }
     async function refresh(retry = false) {
         if (!snapshot.value || exporting.value) return
-        cancelRefresh()
-        refreshController = new AbortController()
-        const active = refreshController
-        const generation = refreshGeneration
         const candidates = files.value
         const paths = new Set(candidates.map((file) => file.relativePath))
-        const session = snapshot.value.sessionId
+        // Every run gets a new revision, so a retry is a new start, not task.retry().
         const currentRevision = ++revision
-        refreshing.value = true
-        refreshError.value = ''
-        refreshProgress.value = null
         embedded.value = []
-        try {
-            const onProgress = (progress: ExportRefreshProgress) => {
-                if (
-                    generation === refreshGeneration &&
-                    progress.sessionId === session &&
-                    progress.selectionRevision === currentRevision
-                )
-                    refreshProgress.value = progress
-            }
-            const failed =
-                resolution.value?.files.flatMap((file) =>
-                    file.resolutions
-                        .filter((r) => r.kind === 'failed')
-                        .map((r) => ({ snapshot: file.snapshot, source: r.source })),
-                ) ?? []
-            const sameVerificationScope =
-                resolution.value?.selectionRevision === currentRevision - 1 &&
-                resolution.value.files.length === candidates.length &&
-                resolution.value.files.every((file) => paths.has(file.snapshot.relativePath))
-            const result =
+        const failed =
+            resolution.value?.files.flatMap((file) =>
+                file.resolutions
+                    .filter((r) => r.kind === 'failed')
+                    .map((r) => ({ snapshot: file.snapshot, source: r.source })),
+            ) ?? []
+        const sameVerificationScope =
+            resolution.value?.selectionRevision === currentRevision - 1 &&
+            resolution.value.files.length === candidates.length &&
+            resolution.value.files.every((file) => paths.has(file.snapshot.relativePath))
+        const input: RefreshInput = {
+            instanceId: snapshot.value.instanceId,
+            sessionId: snapshot.value.sessionId,
+            files: candidates,
+            revision: currentRevision,
+            failed:
                 retry &&
                 sameVerificationScope &&
                 failed.length &&
                 !resolution.value?.files.some((file) => file.localError)
-                    ? await resourceExportRefreshRetry(
-                          session,
-                          failed,
-                          currentRevision,
-                          onProgress,
-                          active.signal,
-                      )
-                    : await resourceExportRefresh(
-                          snapshot.value.instanceId,
-                          session,
-                          candidates,
-                          currentRevision,
-                          onProgress,
-                          active.signal,
-                      )
-            if (generation !== refreshGeneration) return
-            resolution.value = result
-        } catch (failure) {
-            if (generation === refreshGeneration && !active.signal.aborted)
-                refreshError.value = resourceOperationError(failure, formatMessage)
-        } finally {
-            if (generation === refreshGeneration) refreshing.value = false
+                    ? failed
+                    : null,
         }
+        const result = await refreshTask.start(input)
+        if (result && refreshTask.input.value === input) resolution.value = result
     }
     function embed(path: string, accepted: boolean) {
         embedded.value = accepted
@@ -177,8 +199,9 @@ export function createExportContext(
             : embedded.value.filter((value) => value !== path)
     }
     function close() {
-        cancelScan()
-        cancelRefresh()
+        session++
+        scanTask.reset()
+        refreshTask.reset()
         if (snapshot.value) void resourceExportClose(snapshot.value.sessionId).catch(() => {})
         snapshot.value = null
         resolution.value = null
@@ -227,37 +250,21 @@ export function createExportContext(
     function restore() {
         draft.value = { ...draft.value, included: [], excluded: [] }
     }
-    function cancelScan() {
-        generation++
-        controller?.abort()
-        scanning.value = false
-    }
     async function scan() {
-        cancelScan()
-        controller = new AbortController()
-        const activeController = controller
-        const request = generation
-        scanning.value = true
-        error.value = ''
-        try {
-            const result = await resourceExportScan(instance().id, activeController.signal)
-            if (generation !== request) {
-                await resourceExportClose(result.sessionId).catch(() => {})
-                return
-            }
-            snapshot.value = result
-            draft.value = {
-                categories: defaultCategories(result.categories),
-                included: [],
-                excluded: [],
-            }
-            void refresh()
-        } catch (failure) {
-            if (generation === request && !activeController.signal.aborted)
-                error.value = resourceOperationError(failure, formatMessage)
-        } finally {
-            if (generation === request) scanning.value = false
+        const result = await scanTask.start(instance().id)
+        if (!result) return
+        // The modal closed between the scan finishing and this continuation.
+        if (scanTask.result.value !== result) {
+            void resourceExportClose(result.sessionId).catch(() => {})
+            return
         }
+        snapshot.value = result
+        draft.value = {
+            categories: defaultCategories(result.categories),
+            included: [],
+            excluded: [],
+        }
+        void refresh()
     }
     function show() {
         if (exporting.value) return
@@ -271,9 +278,7 @@ export function createExportContext(
         format.value = 'modrinth'
         embedded.value = []
         revision = 0
-        refreshError.value = ''
         exportError.value = ''
-        refreshProgress.value = null
         modal.value?.setStage('categories')
         modal.value?.show()
         void scan()
@@ -283,7 +288,7 @@ export function createExportContext(
         exporting.value = true
         exportError.value = ''
         let queued = false
-        const activeGeneration = generation
+        const activeSession = session
         try {
             const extension = format.value === 'modrinth' ? 'mrpack' : 'zip'
             const output = await save({
@@ -292,8 +297,8 @@ export function createExportContext(
                     { name: formatMessage(exportMessages[format.value]), extensions: [extension] },
                 ],
             })
-            if (!output || generation !== activeGeneration || !snapshot.value) return
-            cancelRefresh()
+            if (!output || session !== activeSession || !snapshot.value) return
+            void refreshTask.cancel()
             const selected = new Set(selection.value)
             await resourceExportQueue(
                 snapshot.value.sessionId,
@@ -319,7 +324,7 @@ export function createExportContext(
                 output,
             )
             queued = true
-            if (generation !== activeGeneration) return
+            if (session !== activeSession) return
             notifications.addPopupNotification({
                 title: formatMessage(exportMessages.queued),
                 text: formatMessage(exportMessages.queuedDescription, {
@@ -331,7 +336,7 @@ export function createExportContext(
             await nextTick()
             modal.value?.hide()
         } catch (failure) {
-            if (generation !== activeGeneration) return
+            if (session !== activeSession) return
             exportError.value = resourceOperationError(failure, formatMessage)
             handleError(failure)
         } finally {
@@ -339,7 +344,11 @@ export function createExportContext(
             if (!queued && snapshot.value && !refreshing.value && !resolution.value) void refresh()
         }
     }
-    onBeforeUnmount(close)
+    onBeforeUnmount(() => {
+        close()
+        scanTask.dispose()
+        refreshTask.dispose()
+    })
     return {
         modal,
         snapshot,
@@ -364,7 +373,6 @@ export function createExportContext(
         setCategory,
         restore,
         scan,
-        cancelScan,
         show,
         exportPack,
         formatMessage,
@@ -376,7 +384,6 @@ export function createExportContext(
         canExport,
         failedFiles,
         refresh,
-        cancelRefresh,
         embed,
         close,
     }

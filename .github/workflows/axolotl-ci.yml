@@ -398,9 +398,10 @@ jobs:
   # Reports Rust line coverage for the whole workspace. A single OS keeps the
   # cost near the existing matrix while still measuring every crate, which the
   # filtered `cargo test` steps in the desktop job never do.
-  # This job is deliberately outside `desktop-ci-result` until a stable baseline
-  # exists: the 75% target is enforced by a later change that adds
-  # `--fail-under-lines` and joins the aggregation gate.
+  #
+  # The floor is a ratchet, not the 75% goal: the first measured baseline was
+  # 59.97%, so the gate holds just under it and rises as tests are added. Raise
+  # it; never lower it to make a change pass.
   coverage:
     name: Measure Rust coverage
     needs: [changes, guardrails, resources]
@@ -410,6 +411,7 @@ jobs:
       SQLX_OFFLINE: true
       # Instrumented tests reach the same deep async chains as the desktop job.
       RUST_MIN_STACK: 67108864
+      COVERAGE_MIN_LINES: '59'
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -427,13 +429,17 @@ jobs:
       - name: Install LLVM coverage tools
         run: rustup component add llvm-tools-preview
       - name: Measure coverage
-        run: node scripts/axolotl/rust-coverage.mjs
+        run: node scripts/axolotl/rust-coverage.mjs --fail-under "$COVERAGE_MIN_LINES"
+      # The gate fails after the reports are written, so the artifacts below
+      # still publish the evidence for a red run.
       - name: Publish coverage summary
+        if: ${{ !cancelled() && hashFiles('target/coverage/total.txt') != '' }}
         run: |
           summary="$(cat target/coverage/total.txt)"
           echo "$summary"
           echo "$summary" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage report
+        if: ${{ !cancelled() && hashFiles('target/coverage/total.txt') != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-coverage
@@ -445,7 +451,8 @@ jobs:
     name: Desktop CI result
     # Report failed checks, but skip the gate when a newer run cancels this workflow.
     if: ${{ !cancelled() }}
-    needs: [changes, guardrails, frontend, resources, desktop, website]
+    needs:
+      [changes, guardrails, frontend, resources, desktop, coverage, website]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

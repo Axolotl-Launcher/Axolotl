@@ -28,6 +28,4 @@ export const authHandlers: Handlers = {
         ['session', 'services', 'textures'].map((service) => ({ service, reachable: true })),
     'plugin:auth|network_scope': () => 'global',
     'plugin:auth|check_reachable': () => null,
-    'plugin:minecraft-skins|get_available_skins': () => [],
-    'plugin:minecraft-skins|get_available_capes': () => [],
 }

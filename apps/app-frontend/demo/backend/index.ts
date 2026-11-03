@@ -8,6 +8,7 @@ import { homeHandlers } from './home'
 import { instanceHandlers } from './instances'
 import { runtimeHandlers } from './runtime'
 import { settingsHandlers } from './settings'
+import { skinHandlers } from './skins'
 import { tagHandlers } from './tags'
 import type { Handlers } from './types'
 
@@ -20,6 +21,7 @@ const handlers: Handlers = {
     ...instanceHandlers,
     ...runtimeHandlers,
     ...settingsHandlers,
+    ...skinHandlers,
     ...tagHandlers,
 }
 

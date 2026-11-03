@@ -55,5 +55,13 @@
       "https://api.modrinth.com/v2/projects?ids=[...]"
     ],
     "note": "one row per installed file; custom-fabric is the plain Fabric 26.3 instance; the icons of these projects are bundled in assets/projects"
+  },
+  "default-skins.json": {
+    "fetchedAt": "2026-10-23T12:21:16+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "packages/app-lib/src/api/minecraft_skins/assets/default/default_skins.rs (DEFAULT_SKINS, in order)"
+    ],
+    "note": "textures decoded from the data URLs into assets/skins, numbered in that order; the saved Herobrine skin is the app's own src/assets/skins/herobrine.png"
   }
 }

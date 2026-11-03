@@ -19,16 +19,17 @@ const routes: Route[] = [
 ]
 
 /**
- * The demo reaches no service: recorded endpoints answer locally, same-origin
- * requests (the demo's own files) pass through, and anything else fails the way
- * an offline request does.
+ * The demo reaches no service: recorded endpoints answer locally, the demo's own
+ * files and in-page `data:`/`blob:` URLs pass through, and anything else fails
+ * the way an offline request does.
  */
 export function installDemoNetwork() {
     const pageFetch = window.fetch.bind(window)
     window.fetch = async (input, init) => {
         const href = input instanceof Request ? input.url : String(input)
         const url = new URL(href, window.location.href)
-        if (url.origin === window.location.origin) return pageFetch(input, init)
+        if (url.origin === window.location.origin || /^(data|blob):$/.test(url.protocol))
+            return pageFetch(input, init)
         const route = routes.find((entry) => entry.matches(url))
         if (route) return route.respond(url)
         throw new TypeError('Failed to fetch')

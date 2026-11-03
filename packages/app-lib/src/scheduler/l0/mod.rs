@@ -101,7 +101,14 @@ fn token_for(executor: Option<&L0Executor>) -> QuiesceToken {
 
 /// The L0 executor's control table, for the main runtime's shutdown path.
 pub fn control() -> Option<&'static Arc<ControlTable>> {
-    EXECUTOR.get()?.as_ref().map(L0Executor::control)
+    table_of(EXECUTOR.get())
+}
+
+/// The table `control` reports, with the installed cell passed in.
+fn table_of(
+    installed: Option<&Option<L0Executor>>,
+) -> Option<&Arc<ControlTable>> {
+    installed.and_then(Option::as_ref).map(L0Executor::control)
 }
 
 #[cfg(test)]
@@ -136,6 +143,62 @@ mod heartbeat_tests {
         // already quiesced by a dead executor's flags.
         let detached = token_for(None);
         assert!(!detached.is_requested());
+    }
+
+    #[tokio::test]
+    async fn an_exited_executor_falls_back_to_the_current_runtime() {
+        // `shutdown` consumes the executor, and the branch under test needs a
+        // reference to a stopped one: leak this one and quiesce it in place.
+        let control = Arc::new(ControlTable::new());
+        let stopped: &'static L0Executor =
+            Box::leak(Box::new(L0Executor::start(control.clone()).unwrap()));
+        let receiver = stopped.spawn(async { 1_u32 });
+        assert_eq!(
+            receiver.await.unwrap(),
+            1,
+            "the live executor runs the work"
+        );
+
+        control.request_quiesce();
+        let deadline = std::time::Instant::now() + executor::EXIT_WINDOW;
+        while stopped.is_running() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the driver did not leave within its exit window"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        // Binding work into the closed runtime would cancel it, so it runs on
+        // this runtime instead of being dropped.
+        let received = dispatch(Some(stopped), async { 11_u32 });
+        assert_eq!(received.await.unwrap(), 11);
+        // And the token must not come from the stopped executor's quiesced
+        // table: the work it guards now runs here, under this shutdown.
+        assert!(!token_for(Some(stopped)).is_requested());
+    }
+
+    #[test]
+    fn the_control_table_is_the_executors_own_and_absent_without_one() {
+        // The cell is passed in, so both states of the process-wide lookup are
+        // covered without starting the real executor: `control` only reads
+        // this cell.
+        assert!(table_of(None).is_none(), "a missing cell has no table");
+        assert!(
+            table_of(Some(&None)).is_none(),
+            "a cell whose driver could not start has no table"
+        );
+
+        let control = Arc::new(ControlTable::new());
+        let l0 = L0Executor::start(control.clone()).unwrap();
+        let installed = Some(l0);
+        let table =
+            table_of(Some(&installed)).expect("a live executor has a table");
+        assert!(
+            Arc::ptr_eq(table, &control),
+            "the reported table is the executor's own"
+        );
+        assert!(installed.unwrap().shutdown());
     }
 
     #[test]

@@ -150,7 +150,6 @@ uuid = { workspace = true, features = ["serde", "v4"] }
 webpki-roots = { workspace = true }
 whoami = { workspace = true }
 xz2 = { workspace = true }
-zbus = { workspace = true }
 zhconv = { workspace = true }
 zip = { workspace = true }
 
@@ -162,6 +161,9 @@ rcgen = { version = "0.14.7", default-features = false, features = ["ring"] }
 dotenvy = { workspace = true }
 dunce = { workspace = true }
 sha2 = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cidre = { workspace = true, features = ["blocks", "nw"] }

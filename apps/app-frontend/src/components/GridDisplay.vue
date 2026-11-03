@@ -45,6 +45,12 @@ import { UNGROUPED_GROUP_KEY, useGridGrouping } from '@/composables/useGridGroup
 import { FAVORITES_GROUP_ID, useInstanceGroups } from '@/composables/useInstanceGroups'
 import { trackEvent } from '@/helpers/analytics'
 import { process_listener } from '@/helpers/events'
+import {
+    type GameDirectoryInfo,
+    hasMultipleGameDirectories,
+    resolveGameDirectory,
+} from '@/helpers/game-directory'
+import { gameDirectoryMessages } from '@/helpers/game-directory-messages'
 import { install_duplicate_instance } from '@/helpers/install'
 import { kill, remove, run, set_pinned } from '@/helpers/instance'
 import { create_group as createGroup } from '@/helpers/instance-groups'
@@ -90,6 +96,7 @@ const messages = defineMessages({
     gameVersion: { id: 'app.instances.group.game-version', defaultMessage: 'Game version' },
     group: { id: 'app.instances.group.group', defaultMessage: 'Custom group' },
     loader: { id: 'app.instances.group.loader', defaultMessage: 'Loader' },
+    gameDirectory: gameDirectoryMessages.groupBy,
     none: { id: 'app.instances.group.none', defaultMessage: 'No grouping' },
     ungrouped: { id: 'app.instances.group.ungrouped', defaultMessage: 'No group' },
     editGroups: { id: 'app.instances.edit-groups', defaultMessage: 'Edit groups' },
@@ -163,6 +170,7 @@ const optionMessages = {
     'Date created': messages.dateCreated,
     'Date modified': messages.dateModified,
     'Game version': messages.gameVersion,
+    'Game directory': messages.gameDirectory,
     Group: messages.group,
     Loader: messages.loader,
     None: messages.none,
@@ -384,6 +392,7 @@ const {
     toggleSortDirection,
 } = useGridGrouping(props.label, filteredInstances, {
     formatLoader: (loader) => formatLoader(formatMessage, loader),
+    getGameDirectory: resolveGameDirectory,
 })
 
 const {
@@ -407,6 +416,28 @@ const groupNameMap = computed(() => {
     }
     return map
 })
+
+const gameDirectoryMap = computed(() => {
+    const map = new Map<string, GameDirectoryInfo>()
+    for (const instance of props.instances) {
+        const directory = resolveGameDirectory(instance)
+        if (!map.has(directory.key)) map.set(directory.key, directory)
+    }
+    return map
+})
+
+const showGameDirectory = computed(() => hasMultipleGameDirectories(props.instances))
+
+function formatSectionName(sectionKey: string): string {
+    if (state.value.group === 'Game directory') {
+        const directory = gameDirectoryMap.value.get(sectionKey)
+        if (directory?.kind === 'managed') {
+            return formatMessage(gameDirectoryMessages.managed)
+        }
+        if (directory?.path) return directory.path
+    }
+    return groupNameMap.value.get(sectionKey) || sectionKey
+}
 
 function generateGroupStableId(): string {
     return `gid_${++groupStableIdCounter}`
@@ -468,7 +499,7 @@ const displaySections = computed(() => {
         const remaining = Array.from(resultMap.entries())
         if (state.value.group === 'Game version') {
             remaining.sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-        } else {
+        } else if (state.value.group !== 'Game directory') {
             remaining.sort((a, b) => a[0].localeCompare(b[0]))
         }
 
@@ -992,7 +1023,7 @@ async function handleInstanceDragEnd(event: {
                 v-tooltip="{ content: formatMessage(messages.groupBy), triggers: ['hover'] }"
                 width="content"
                 :options="
-                    ['Group', 'Loader', 'Game version', 'None'].map((value) => ({
+                    ['Group', 'Loader', 'Game version', 'Game directory', 'None'].map((value) => ({
                         value,
                         label: formatOption(value),
                     }))
@@ -1034,7 +1065,7 @@ async function handleInstanceDragEnd(event: {
                 v-if="pinnedSection"
                 :key="pinnedSection.id"
                 :section-key="pinnedSection.key"
-                :group-name="groupNameMap.get(pinnedSection.key) || pinnedSection.key"
+                :group-name="formatSectionName(pinnedSection.key)"
                 :instances="pinnedSection.instances"
                 :running-instance-ids="runningInstanceIds"
                 :grouping="grouping"
@@ -1042,6 +1073,7 @@ async function handleInstanceDragEnd(event: {
                 :display-mode="displayMode"
                 :select-mode="selectMode"
                 :selected-instance-ids="selectedInstanceIds"
+                :show-game-directory="showGameDirectory"
                 :is-sort-ascending="isSortAscending"
                 @toggle-collapse="
                     (key: string) => setSectionCollapsed(key, !isSectionCollapsed(key))
@@ -1088,9 +1120,7 @@ async function handleInstanceDragEnd(event: {
                     <div :key="instanceSection.id" class="min-w-0 w-full">
                         <InstanceGroup
                             :section-key="instanceSection.key"
-                            :group-name="
-                                groupNameMap.get(instanceSection.key) || instanceSection.key
-                            "
+                            :group-name="formatSectionName(instanceSection.key)"
                             :instances="instanceSection.instances"
                             :running-instance-ids="runningInstanceIds"
                             :grouping="grouping"
@@ -1098,6 +1128,7 @@ async function handleInstanceDragEnd(event: {
                             :display-mode="displayMode"
                             :select-mode="selectMode"
                             :selected-instance-ids="selectedInstanceIds"
+                            :show-game-directory="showGameDirectory"
                             :hide-header="
                                 (hideUngroupedHeader &&
                                     instanceSection.key === UNGROUPED_GROUP_KEY) ||

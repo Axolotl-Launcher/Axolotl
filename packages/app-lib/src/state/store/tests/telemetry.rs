@@ -275,7 +275,7 @@ async fn a_row_another_part_of_the_queue_owns_is_refused() {
              event_id, event_type, payload, created_at, next_attempt_at,
              attempts, size_bytes, dedupe_key
          ) VALUES
-             ('taken', 'error', jsonb('{\"type\":\"error\"}'), 1, 1, 0, 17,
+             ('taken', 'error', jsonb('{\"type\":\"error\"}'), 1, 100, 0, 17,
               'shared'),
              ('legacy', 'legacy', jsonb('{\"type\":\"legacy\"}'), 1, 100, 0,
               19, 'legacy')",
@@ -333,21 +333,33 @@ async fn a_due_replacement_keeps_the_events_that_are_not_due_yet() {
         .await
         .unwrap();
 
+    // A record that says something else than the one the key holds: a
+    // replacement that kept the row instead of writing this would leave the old
+    // value behind, which is what the assertions below look for.
+    let replaced = event(30);
+    assert_ne!(
+        replaced,
+        event(10),
+        "the record written differs from the one it replaces"
+    );
     TelemetryOutbox::set_scoped(
         &handle,
         &TelemetryOutboxScope::Due {
             kind: TelemetryEventType::Heartbeat,
             at: 50,
         },
-        &[(key("due"), event(10))],
+        &[(key("due"), replaced.clone())],
     )
     .await
     .unwrap();
 
+    // The row the write named carries the value it was given, and the one
+    // scheduled after the moment the scope names was outside it, so the
+    // replacement left it alone. The rows are read by when they were created,
+    // and the two here are not, so they are put in the order of their keys.
     let mut later = event(20);
     later.next_attempt_at = 100;
-    assert_eq!(
-        TelemetryOutbox::get_all(&handle).await.unwrap(),
-        vec![(key("later"), later)]
-    );
+    let mut stored = TelemetryOutbox::get_all(&handle).await.unwrap();
+    stored.sort_by(|(left, _), (right, _)| left.cmp(right));
+    assert_eq!(stored, vec![(key("due"), replaced), (key("later"), later)]);
 }

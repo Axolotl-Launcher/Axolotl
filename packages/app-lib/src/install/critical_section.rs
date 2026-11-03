@@ -39,9 +39,11 @@ impl Drop for CriticalSectionGuard {
 }
 
 /// Handed to the unprotected branch: no cancelable install scope exists, so
-/// nothing would cut the work short.
+/// nothing would cut the work short. A whitelisted token borrows the instance
+/// content lock that protects the write, so it cannot be minted without it.
 #[derive(Clone, Copy)]
-pub(crate) struct Unscoped {
+pub(crate) struct Unscoped<'a> {
+    _lock: std::marker::PhantomData<&'a crate::state::InstanceLockGuard>,
     _priv: (),
 }
 
@@ -57,7 +59,7 @@ pub(crate) enum WriteAccess<'a> {
     // Never read: borrowing the guard is the proof, and it ties the access to
     // the section's lifetime.
     Guarded(#[allow(dead_code)] &'a CriticalSectionGuard),
-    Unscoped(Unscoped),
+    Unscoped(Unscoped<'a>),
 }
 
 impl<'a> From<&'a CriticalSectionGuard> for WriteAccess<'a> {
@@ -66,8 +68,8 @@ impl<'a> From<&'a CriticalSectionGuard> for WriteAccess<'a> {
     }
 }
 
-impl From<Unscoped> for WriteAccess<'_> {
-    fn from(token: Unscoped) -> Self {
+impl<'a> From<Unscoped<'a>> for WriteAccess<'a> {
+    fn from(token: Unscoped<'a>) -> Self {
         Self::Unscoped(token)
     }
 }
@@ -86,9 +88,26 @@ pub(crate) enum WhitelistSite {
     Tests,
 }
 
-/// Write access for a whitelisted call site outside any critical section.
-pub(crate) fn whitelisted(_site: WhitelistSite) -> Unscoped {
-    Unscoped { _priv: () }
+/// Write access for a whitelisted call site outside any critical section. The
+/// lock guard is the proof: the token borrows it, so the write cannot outlive
+/// the lock the whitelist entry names as its protector.
+pub(crate) fn whitelisted<'a>(
+    _site: WhitelistSite,
+    _lock: &'a crate::state::InstanceLockGuard,
+) -> Unscoped<'a> {
+    Unscoped {
+        _lock: std::marker::PhantomData,
+        _priv: (),
+    }
+}
+
+/// Test-only token for fixtures that write without a launcher lock.
+#[cfg(test)]
+pub(crate) fn whitelisted_for_test(_site: WhitelistSite) -> Unscoped<'static> {
+    Unscoped {
+        _lock: std::marker::PhantomData,
+        _priv: (),
+    }
 }
 
 /// The error a closing branch returns: the job was canceled before the
@@ -110,7 +129,11 @@ pub(crate) async fn with_critical_section<R>(
     closing: impl AsyncFnOnce(ClosingToken) -> R,
 ) -> R {
     let Ok(sections) = SECTIONS.try_with(Arc::clone) else {
-        return unprotected(Unscoped { _priv: () }).await;
+        return unprotected(Unscoped {
+            _lock: std::marker::PhantomData,
+            _priv: (),
+        })
+        .await;
     };
     // Count the section first, then look for closing; cancellation stores
     // closing first, then reads the count. With both sequentially consistent,
@@ -119,6 +142,9 @@ pub(crate) async fn with_critical_section<R>(
     let guard = CriticalSectionGuard { sections };
     if guard.sections.closing.load(Ordering::SeqCst) {
         drop(guard);
+        // The guard is gone before this branch runs, so the canceller may
+        // drop it at its first await. A closing branch must not write; it
+        // exists to return the cancellation error.
         return closing(ClosingToken { _priv: () }).await;
     }
     protected(&guard).await

@@ -1,7 +1,7 @@
 use crate::api::Result;
-use futures::StreamExt;
+use base64::Engine;
+use minisign_verify::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::sync::{Arc, Mutex};
 use tauri::http::HeaderValue;
 use tauri::http::header::ACCEPT;
@@ -9,6 +9,10 @@ use tauri::{Manager, ResourceId, Runtime, Webview};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_http::reqwest::ClientBuilder;
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
+use theseus::fetch::{
+    DownloadRequest, FetchProgressFn, Integrity, ResourceClass,
+    download_to_path,
+};
 use theseus::{
     LoadingBarType, emit_loading, init_loading, launcher_user_agent,
 };
@@ -19,8 +23,7 @@ const UPDATE_SERVER_LATEST_URL: &str = "https://update.axlmc.org/latest";
 const UPDATE_SERVER_API: &str = "https://update.axlmc.org/api/versions";
 const UPDATE_ARTIFACT_BASE: &str = "https://dist.axlmc.org/";
 
-// The updater plugin builds `Update` with no request timeout, so a stalled
-// connection would hang the download forever. Bound the whole download.
+// Bound the whole transfer, including retries and range requests.
 const UPDATE_DOWNLOAD_TIMEOUT: std::time::Duration =
     std::time::Duration::from_secs(15 * 60);
 
@@ -69,10 +72,8 @@ struct ArtifactEntry {
     size: u64,
 }
 
-/// The .deb asset for an apt-managed Linux update, from the Update Server
-/// catalog (`/api/versions`). The deb has no minisign signature, so its
-/// integrity is verified with the catalog's sha256 and size instead.
-struct AptDebAsset {
+/// Catalog integrity also allows the shared downloader to recover ranges.
+struct UpdateArtifact {
     url: Url,
     sha256: String,
     size: u64,
@@ -89,7 +90,10 @@ fn apt_deb_arch() -> Result<&'static str> {
     }
 }
 
-async fn fetch_apt_deb_asset(version: &str) -> Result<AptDebAsset> {
+async fn fetch_update_artifact(
+    version: &str,
+    download_url: Option<&Url>,
+) -> Result<UpdateArtifact> {
     let response = ClientBuilder::new()
         .user_agent(launcher_user_agent())
         .timeout(UPDATE_DOWNLOAD_TIMEOUT)
@@ -117,11 +121,23 @@ async fn fetch_apt_deb_asset(version: &str) -> Result<AptDebAsset> {
             )))
         })?;
 
+    select_update_artifact(release, download_url)
+}
+
+fn select_update_artifact(
+    release: &VersionEntry,
+    download_url: Option<&Url>,
+) -> Result<UpdateArtifact> {
+    let version = &release.version;
     let arch = std::env::consts::ARCH;
     let artifact = release
         .artifacts
         .iter()
         .find(|entry| {
+            if let Some(download_url) = download_url {
+                return update_artifact_url(&entry.relative_path)
+                    .is_ok_and(|url| url == *download_url);
+            }
             entry.kind == "installer"
                 && entry.variant.as_deref() == Some("deb")
                 && entry.platform == "linux"
@@ -129,19 +145,19 @@ async fn fetch_apt_deb_asset(version: &str) -> Result<AptDebAsset> {
         })
         .ok_or_else(|| {
             theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-                "Update catalog has no deb artifact for {version} on {arch}"
+                "Update catalog has no matching artifact for {version} on {arch}"
             )))
         })?;
 
     let sha256 = artifact.sha256.clone().ok_or_else(|| {
         theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-            "Update catalog has no sha256 for the deb artifact of {version}"
+            "Update catalog has no sha256 for the artifact of {version}"
         )))
     })?;
 
     let url = update_artifact_url(&artifact.relative_path)?;
 
-    Ok(AptDebAsset {
+    Ok(UpdateArtifact {
         url,
         sha256,
         size: artifact.size,
@@ -270,7 +286,8 @@ async fn check_with_updater<R: Runtime>(
     // Update Server catalog instead of the AppImage artifact. Its integrity
     // is verified with the catalog's sha256/size during the download.
     if is_apt_linux() {
-        update.download_url = fetch_apt_deb_asset(&update.version).await?.url;
+        update.download_url =
+            fetch_update_artifact(&update.version, None).await?.url;
     } else {
         update.download_url = update_artifact_url(update.download_url.path())?;
     }
@@ -357,6 +374,62 @@ pub async fn get_update_size<R: Runtime>(
     Ok(content_length)
 }
 
+async fn download_update_artifact(
+    asset: &UpdateArtifact,
+    progress: &mut FetchProgressFn<'_>,
+) -> Result<Vec<u8>> {
+    let state = theseus::State::get().await?;
+    let directory = tempfile::tempdir().map_err(Error::Io)?;
+    let destination = directory.path().join("update");
+    let request =
+        DownloadRequest::new(asset.url.as_str(), ResourceClass::Other)
+            .with_integrity(Integrity {
+                size: Some(asset.size),
+                sha256: Some(asset.sha256.clone()),
+                ..Integrity::default()
+            })
+            .with_large_file_download_policy();
+    tokio::time::timeout(
+        UPDATE_DOWNLOAD_TIMEOUT,
+        download_to_path(
+            request,
+            &destination,
+            &state.download_semaphore,
+            Some(progress),
+        ),
+    )
+    .await
+    .map_err(|_| Error::Network("Update download timed out".into()))??;
+    let bytes = tokio::fs::read(&destination).await.map_err(Error::Io)?;
+    // Catalog size is an exact update artifact constraint, even when a hash
+    // matches (the shared downloader permits stale sizes for other resources).
+    if bytes.len() as u64 != asset.size {
+        return Err(Error::Network(format!(
+            "Downloaded update size mismatch: expected {}, got {}",
+            asset.size,
+            bytes.len()
+        ))
+        .into());
+    }
+    Ok(bytes)
+}
+
+fn verify_update_signature(
+    data: &[u8],
+    signature: &str,
+    public_key: &str,
+) -> std::result::Result<(), Error> {
+    let decode = |value: &str| -> std::result::Result<String, Error> {
+        let bytes = base64::engine::general_purpose::STANDARD.decode(value)?;
+        String::from_utf8(bytes)
+            .map_err(|_| Error::SignatureUtf8(value.to_owned()))
+    };
+    let public_key = PublicKey::decode(&decode(public_key)?)?;
+    let signature = Signature::decode(&decode(signature)?)?;
+    public_key.verify(data, &signature, true)?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn enqueue_update_for_installation<R: Runtime>(
     webview: Webview<R>,
@@ -377,106 +450,53 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
     .await?;
 
     let download_start = Instant::now();
-    let update_data = if is_apt_linux() {
-        // The .deb carries no minisign signature, so the plugin's signed
-        // download cannot be used. Fetch the catalog entry and verify the
-        // downloaded bytes against its sha256 and size instead.
-        let asset = fetch_apt_deb_asset(&update.version).await?;
-
-        let mut headers = update.headers.clone();
-        if !headers.contains_key(ACCEPT) {
-            headers.insert(
-                ACCEPT,
-                HeaderValue::from_static("application/octet-stream"),
-            );
-        }
-
-        let mut request =
-            ClientBuilder::new().user_agent(launcher_user_agent());
-        if let Some(timeout) = update.timeout {
-            request = request.timeout(timeout);
-        }
-        if let Some(ref proxy) = update.proxy {
-            let proxy = reqwest::Proxy::all(proxy.as_str())?;
-            request = request.proxy(proxy);
-        }
-        let response = request
-            .build()?
-            .get(update.download_url.clone())
-            .headers(headers)
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(Error::Network(format!(
-                "Download request failed with status: {}",
-                response.status()
-            ))
-            .into());
-        }
-
-        let total_size = response.content_length().unwrap_or(asset.size);
-        let mut buffer = Vec::new();
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk?;
-            buffer.extend_from_slice(&chunk);
-            if total_size > 0
-                && let Err(e) = emit_loading(
-                    &progress,
-                    buffer.len() as f64 / total_size as f64,
-                    None,
-                )
-            {
-                tracing::error!("Failed to update download progress bar: {e}");
+    let apt = is_apt_linux();
+    let asset = fetch_update_artifact(
+        &update.version,
+        if apt {
+            None
+        } else {
+            Some(&update.download_url)
+        },
+    )
+    .await?;
+    let mut reported_fraction = 0.0_f64;
+    let mut download_progress: Box<FetchProgressFn<'_>> =
+        Box::new(|bytes, total| {
+            // The downloader reports cumulative bytes, including after retries.
+            // Keep the bar monotonic and reserve completion for verification.
+            let fraction = if total > 0 {
+                (bytes as f64 / total as f64).clamp(0.0, 1.0) * 0.95
+            } else {
+                reported_fraction
+            };
+            let increment = (fraction - reported_fraction).max(0.0);
+            reported_fraction += increment;
+            if let Err(error) = emit_loading(&progress, increment, None) {
+                tracing::error!(
+                    "Failed to update download progress bar: {error}"
+                );
             }
-        }
+            Box::pin(async { Ok(()) })
+        });
+    let update_data =
+        download_update_artifact(&asset, &mut download_progress).await?;
+    drop(download_progress);
 
-        if buffer.len() as u64 != asset.size {
-            return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-                format!(
-                    "Downloaded deb size mismatch: expected {}, got {}",
-                    asset.size,
-                    buffer.len()
-                ),
-            ))
-            .into());
-        }
-
-        let digest = Sha256::digest(&buffer);
-        let digest_hex = digest
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
-        if digest_hex != asset.sha256 {
-            return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-                "Downloaded deb sha256 mismatch".to_string(),
-            ))
-            .into());
-        }
-
-        buffer
-    } else {
-        update
-            .download(
-                |chunk_size, total_size| {
-                    let Some(total_size) = total_size else {
-                        return;
-                    };
-                    if let Err(e) = emit_loading(
-                        &progress,
-                        chunk_size as f64 / total_size as f64,
-                        None,
-                    ) {
-                        tracing::error!(
-                            "Failed to update download progress bar: {e}"
-                        );
-                    }
-                },
-                || {},
-            )
-            .await?
-    };
+    if !apt {
+        let public_key = webview
+            .app_handle()
+            .config()
+            .plugins
+            .0
+            .get("updater")
+            .and_then(|config| config.get("pubkey"))
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                Error::Network("Missing updater public key".into())
+            })?;
+        verify_update_signature(&update_data, &update.signature, public_key)?;
+    }
     let download_duration = download_start.elapsed();
     tracing::info!("Downloaded update in {download_duration:?}");
 
@@ -594,7 +614,53 @@ impl Drop for TempDebFile {
 
 #[cfg(test)]
 mod tests {
-    use super::{UPDATE_SERVER_API, update_artifact_url, update_endpoint};
+    use super::{
+        UPDATE_SERVER_API, VersionEntry, select_update_artifact,
+        update_artifact_url, update_endpoint, verify_update_signature,
+    };
+    use base64::{Engine, engine::general_purpose::STANDARD};
+
+    #[test]
+    fn signed_update_still_requires_a_valid_minisign_signature() {
+        // Public test vector from minisign-verify.
+        let key = STANDARD.encode(
+            "untrusted comment: minisign public key\nRWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
+        );
+        let signature = STANDARD.encode(
+            "untrusted comment: signature from minisign secret key\n\
+             RUQf6LRCGA9i559r3g7V1qNyJDApGip8MfqcadIgT9CuhV3EMhHoN1mGTkUidF/z7SrlQgXdy8ofjb7bNJJylDOocrCo8KLzZwo=\n\
+             trusted comment: timestamp:1633700835\tfile:test\tprehashed\n\
+             wLMDjy9FLAuxZ3q4NlEvkgtyhrr0gtTu6KC4KBJdITbbOeAi1zBIYo0v4iTgt8jJpIidRJnp94ABQkJAgAooBQ==",
+        );
+        verify_update_signature(b"test", &signature, &key).unwrap();
+        assert!(
+            verify_update_signature(b"tampered", &signature, &key).is_err()
+        );
+        assert!(verify_update_signature(b"test", "invalid", &key).is_err());
+        assert!(
+            verify_update_signature(b"test", &signature, "invalid").is_err()
+        );
+    }
+
+    #[test]
+    fn update_integrity_is_selected_by_the_exact_distribution_url() {
+        let release: VersionEntry = serde_json::from_value(serde_json::json!({
+            "version": "1.10.0",
+            "artifacts": [
+                {"kind": "installer", "platform": "windows", "architecture": "x86_64",
+                 "relative_path": "dist/1.10.0/setup.exe", "sha256": "a".repeat(64), "size": 10},
+                {"kind": "updater", "platform": "windows", "architecture": "x86_64",
+                 "relative_path": "dist/1.10.0/setup.nsis.zip", "sha256": "b".repeat(64), "size": 20}
+            ]
+        })).unwrap();
+        let url = update_artifact_url("dist/1.10.0/setup.nsis.zip").unwrap();
+        let selected = select_update_artifact(&release, Some(&url)).unwrap();
+        assert_eq!(selected.url, url);
+        assert_eq!(selected.size, 20);
+        assert_eq!(selected.sha256, "b".repeat(64));
+        let missing = update_artifact_url("dist/1.10.0/missing.zip").unwrap();
+        assert!(select_update_artifact(&release, Some(&missing)).is_err());
+    }
 
     #[test]
     fn metadata_endpoints_stay_on_update_server() {

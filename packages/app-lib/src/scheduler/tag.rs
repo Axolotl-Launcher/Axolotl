@@ -7,7 +7,7 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 /// The five scheduling levels; a lower level is more privileged.
 #[derive(
@@ -34,6 +34,10 @@ pub enum Level {
 /// Tags one user operation may mint before it is reported as too fine
 /// grained (`mint_count_per_user_operation`).
 pub const MAX_MINTS_PER_OPERATION: usize = 10;
+
+/// Spec N3: the registry's entry bound. At the bound a mint is refused and
+/// reported; it never panics or aborts.
+pub const MAX_ENTRIES: usize = 1024;
 
 /// A live scheduling tag. Not `Clone`: whoever holds it holds the level.
 #[derive(Debug)]
@@ -83,6 +87,8 @@ pub struct TagRecord {
 pub enum TagError {
     /// The tag was minted by another registry or an earlier generation.
     Stale { tag: u64, generation: u64 },
+    /// The registry is at [`MAX_ENTRIES`]; the mint was refused.
+    Full,
 }
 
 /// Distinguishes registries within one process, so a tag minted by one is
@@ -94,6 +100,8 @@ pub struct TagRegistry {
     id: u64,
     generation: u64,
     next: AtomicU64,
+    /// Reserved entries, so concurrent mints cannot overflow [`MAX_ENTRIES`].
+    entries: AtomicUsize,
     live: DashMap<u64, TagRecord>,
     mints: DashMap<String, usize>,
 }
@@ -104,6 +112,7 @@ impl TagRegistry {
             id: NEXT_REGISTRY.fetch_add(1, Ordering::Relaxed),
             generation,
             next: AtomicU64::new(1),
+            entries: AtomicUsize::new(0),
             live: DashMap::new(),
             mints: DashMap::new(),
         }
@@ -114,8 +123,31 @@ impl TagRegistry {
     }
 
     /// The only way to obtain a [`Tag`]; scheduler code reaches it through
-    /// `Supervisor::mint`.
-    pub(super) fn mint(&self, level: Level, origin: &str) -> Tag {
+    /// `Supervisor::mint`. Returns `None` at [`MAX_ENTRIES`] instead of
+    /// growing without bound or aborting.
+    pub(super) fn mint(&self, level: Level, origin: &str) -> Option<Tag> {
+        // Reserve the entry atomically: a `len()` check followed by an insert
+        // lets concurrent mints all pass the check and exceed the bound.
+        let mut reserved = self.entries.load(Ordering::Acquire);
+        loop {
+            if reserved >= MAX_ENTRIES {
+                tracing::warn!(
+                    origin,
+                    limit = MAX_ENTRIES,
+                    "The scheduling tag registry is full; refusing to mint"
+                );
+                return None;
+            }
+            match self.entries.compare_exchange_weak(
+                reserved,
+                reserved + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(actual) => reserved = actual,
+            }
+        }
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let tag = Tag {
             registry: self.id,
@@ -135,7 +167,7 @@ impl TagRegistry {
                 "One operation minted more scheduling tags than the granularity rule allows"
             );
         }
-        tag
+        Some(tag)
     }
 
     /// A child tag for work spawned by `parent`. Derivation never raises the
@@ -147,13 +179,14 @@ impl TagRegistry {
                 generation: parent.generation,
             });
         }
-        Ok(self.mint(level.max(parent.level), &parent.origin))
+        self.mint(level.max(parent.level), &parent.origin)
+            .ok_or(TagError::Full)
     }
 
     /// Ends a tag's life; its record leaves the registry.
     pub fn release(&self, tag: Tag) {
-        if self.owns(&tag) {
-            self.live.remove(&tag.id);
+        if self.owns(&tag) && self.live.remove(&tag.id).is_some() {
+            self.entries.fetch_sub(1, Ordering::AcqRel);
         }
     }
 
@@ -198,9 +231,9 @@ impl TagRegistry {
     ) -> HashMap<u64, Tag> {
         records
             .into_iter()
-            .map(|record| {
-                let tag = self.mint(level_of(&record), &record.origin);
-                (record.id, tag)
+            .filter_map(|record| {
+                let tag = self.mint(level_of(&record), &record.origin)?;
+                Some((record.id, tag))
             })
             .collect()
     }
@@ -219,6 +252,7 @@ mod tests {
         const TRY_FROM_RECORD: bool = false;
         const FROM_ID: bool = false;
         const CLONE: bool = false;
+        const DEFAULT: bool = false;
     }
     impl<T> Fallback for Probe<T> {}
     impl<T: serde::de::DeserializeOwned> Probe<T> {
@@ -236,6 +270,9 @@ mod tests {
     impl<T: Clone> Probe<T> {
         const CLONE: bool = true;
     }
+    impl<T: Default> Probe<T> {
+        const DEFAULT: bool = true;
+    }
 
     #[test]
     fn a_tag_cannot_be_read_back_converted_or_copied() {
@@ -244,6 +281,7 @@ mod tests {
         assert!(!Probe::<Tag>::TRY_FROM_RECORD);
         assert!(!Probe::<Tag>::FROM_ID);
         assert!(!Probe::<Tag>::CLONE);
+        assert!(!Probe::<Tag>::DEFAULT);
         // The probe itself works on types that do implement each trait.
         assert!(Probe::<TagRecord>::DESERIALIZE);
         assert!(Probe::<TagRecord>::FROM_RECORD);
@@ -255,7 +293,9 @@ mod tests {
     #[test]
     fn minted_tags_are_registered_and_released() {
         let registry = TagRegistry::new(1);
-        let tag = registry.mint(Level::L3, "install:job-1");
+        let tag = registry
+            .mint(Level::L3, "install:job-1")
+            .expect("minted below the cap");
         assert_eq!(tag.level(), Level::L3);
         assert!(registry.is_live(&tag));
         let id = tag.id();
@@ -266,7 +306,9 @@ mod tests {
     #[test]
     fn derivation_never_raises_the_level() {
         let registry = TagRegistry::new(1);
-        let parent = registry.mint(Level::L3, "install:job-1");
+        let parent = registry
+            .mint(Level::L3, "install:job-1")
+            .expect("minted below the cap");
         assert_eq!(
             registry.derive(&parent, Level::L0).unwrap().level(),
             Level::L3
@@ -281,7 +323,9 @@ mod tests {
     fn tags_of_an_earlier_generation_cannot_derive() {
         let before = TagRegistry::new(1);
         let after = TagRegistry::new(2);
-        let tag = before.mint(Level::L2, "refresh");
+        let tag = before
+            .mint(Level::L2, "refresh")
+            .expect("minted below the cap");
         assert_eq!(
             after.derive(&tag, Level::L2).unwrap_err(),
             TagError::Stale {
@@ -296,8 +340,8 @@ mod tests {
     fn a_tag_from_another_registry_is_never_accepted() {
         let first = TagRegistry::new(1);
         let second = TagRegistry::new(1);
-        let foreign = first.mint(Level::L0, "a");
-        let own = second.mint(Level::L3, "b");
+        let foreign = first.mint(Level::L0, "a").expect("minted below the cap");
+        let own = second.mint(Level::L3, "b").expect("minted below the cap");
         assert_eq!(foreign.id(), own.id(), "same generation and id");
         assert!(!second.is_live(&foreign));
         assert!(second.derive(&foreign, Level::L0).is_err());
@@ -309,13 +353,35 @@ mod tests {
     fn mint_count_per_user_operation_is_tracked() {
         let registry = TagRegistry::new(1);
         for _ in 0..=MAX_MINTS_PER_OPERATION {
-            registry.mint(Level::L2, "search:1");
+            registry
+                .mint(Level::L2, "search:1")
+                .expect("minted below the cap");
         }
         assert_eq!(
             registry.mint_count("search:1"),
             MAX_MINTS_PER_OPERATION + 1
         );
         assert_eq!(registry.mint_count("search:2"), 0);
+    }
+
+    #[test]
+    fn the_registry_refuses_to_mint_past_its_cap() {
+        let registry = TagRegistry::new(1);
+        let first = registry
+            .mint(Level::L3, "op:0")
+            .expect("the first mint is below the cap");
+        for index in 1..MAX_ENTRIES {
+            assert!(registry.mint(Level::L3, &format!("op:{index}")).is_some());
+        }
+        assert!(
+            registry.mint(Level::L3, "op:over").is_none(),
+            "the cap refuses a mint instead of growing without bound"
+        );
+        registry.release(first);
+        assert!(
+            registry.mint(Level::L3, "op:released").is_some(),
+            "a released tag frees a slot"
+        );
     }
 }
 
@@ -326,7 +392,10 @@ mod reconcile_tests {
     #[test]
     fn persisted_level_is_not_trusted() {
         let before = TagRegistry::new(1);
-        let record = before.mint(Level::L3, "install:job-7").record();
+        let record = before
+            .mint(Level::L3, "install:job-7")
+            .expect("minted below the cap")
+            .record();
         let mut forged = record.clone();
         forged.level = Level::L0;
 
@@ -343,7 +412,10 @@ mod reconcile_tests {
         let before = TagRegistry::new(1);
         let records: Vec<_> = (0..3)
             .map(|index| {
-                before.mint(Level::L2, &format!("op:{index}")).record()
+                before
+                    .mint(Level::L2, &format!("op:{index}"))
+                    .expect("minted below the cap")
+                    .record()
             })
             .collect();
         let after = TagRegistry::new(2);

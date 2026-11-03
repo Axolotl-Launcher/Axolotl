@@ -78,7 +78,7 @@ const messages = defineMessages({
     networkConnectionsHint: {
         id: 'app.settings.logs.export.modal.network-connections-hint',
         defaultMessage:
-            'Run fresh tests for all services using launcher network settings when exporting, including a short download sample.',
+            'Run fresh service tests using launcher network settings, including a short download sample. Also include captured file timings, request speeds and remote addresses when advanced download information is enabled.',
     },
     exporting: {
         id: 'app.settings.logs.export.modal.exporting',

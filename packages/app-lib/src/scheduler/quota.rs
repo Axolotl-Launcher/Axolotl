@@ -46,9 +46,27 @@ pub const LEVEL_QUOTAS: [Quota; 4] = [
 pub const GLOBAL_MAX: usize = MAX_CONCURRENT_INSTALL_JOBS;
 
 /// `sum(min) <= global.max`, and no class reserves more than it may use.
+///
+/// A class `max` above `global_max` is not an error: the global semaphore
+/// already caps every class, so the local maximum only documents an intent
+/// the global slot cannot satisfy. [`classes_capped_by_global`] reports it.
 pub fn quotas_fit(quotas: &[Quota], global_max: usize) -> bool {
     quotas.iter().all(|quota| quota.min <= quota.max)
         && quotas.iter().map(|quota| quota.min).sum::<usize>() <= global_max
+}
+
+/// Classes whose own maximum exceeds what the global semaphore can hand out.
+/// Not a failure — the global cap wins — but worth a startup warning, because
+/// the class will never see its stated maximum.
+pub fn classes_capped_by_global(
+    quotas: &[Quota],
+    global_max: usize,
+) -> Vec<&'static str> {
+    quotas
+        .iter()
+        .filter(|quota| quota.max > global_max)
+        .map(|quota| quota.class)
+        .collect()
 }
 
 /// The startup assertions of this module and the queue bound (spec §11.6
@@ -65,6 +83,21 @@ pub fn check_at_startup() -> bool {
     if !queue {
         tracing::error!("Scheduler queue wait bound exceeds the stall timeout");
     }
+    let capped = classes_capped_by_global(&LEVEL_QUOTAS, GLOBAL_MAX);
+    if !capped.is_empty() {
+        tracing::warn!(
+            classes = ?capped,
+            global_max = GLOBAL_MAX,
+            "Scheduler class maxima exceed the global install concurrency; the global cap applies"
+        );
+    }
+    // Reported, not enforced: the spec says a misconfiguration degrades
+    // admission rather than stopping the launcher, so the startup path logs
+    // and continues. The `debug_assert!` makes a developer build fail loudly.
+    debug_assert!(
+        quotas && queue,
+        "scheduler startup checks must hold: quotas={quotas} queue={queue}"
+    );
     quotas && queue
 }
 

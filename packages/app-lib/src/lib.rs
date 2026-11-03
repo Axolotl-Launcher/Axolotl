@@ -42,6 +42,12 @@ pub use state::db::{
 };
 pub use state::{DirectoryInfo, State};
 pub use storage::*;
+pub use util::download::telemetry::{
+    DownloadDiagnosticsExport, DownloadDiagnosticsSnapshot,
+    export_snapshot as export_download_diagnostics,
+    snapshot as download_diagnostics_snapshot,
+};
+pub use util::fetch;
 pub use util::fetch::{DownloadReason, build_proxied_client};
 pub use util::file_lock::{LockingProcess, get_locking_processes};
 pub use util::network_diagnostics::{

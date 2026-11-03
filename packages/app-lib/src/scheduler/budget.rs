@@ -56,6 +56,17 @@ fn measure(
     [before, loaded, after]
 }
 
+/// The measured resident-memory gain of the one unconditional L1 object, so
+/// the gate reports a value rather than a logical capacity.
+fn log_ring_buffer_gain(system: &mut System) -> u64 {
+    let [_, loaded, after] = measure(
+        system,
+        "LogRingBuffer at capacity",
+        crate::state::filled_log_ring_buffer,
+    );
+    loaded.saturating_sub(after)
+}
+
 #[test]
 fn measured_values_are_within_bounds() {
     let mut system = System::new();
@@ -69,16 +80,17 @@ fn measured_values_are_within_bounds() {
         }
         Box::new(object)
     });
-    // The one object that meets every swap-out criterion unconditionally.
+    // The one object that meets every swap-out criterion unconditionally:
+    // report its *measured* gain, not its logical capacity.
     let log = measure(
         &mut system,
         "LogRingBuffer at capacity",
         crate::state::filled_log_ring_buffer,
     );
-    let capacity = crate::state::LOG_RING_BUFFER_BYTE_CAPACITY as u64;
+    let log_gain = log_ring_buffer_gain(&mut system);
     println!(
-        "LogRingBuffer logical size at capacity: {capacity} bytes ({} L1_MIN_RETAINED)",
-        verdict(capacity)
+        "LogRingBuffer measured gain: {log_gain} bytes ({} L1_MIN_RETAINED)",
+        verdict(log_gain)
     );
     // The three conditional candidates keep small, bounded state; they were
     // not measured in isolation, so their bounds are stated, not claimed.

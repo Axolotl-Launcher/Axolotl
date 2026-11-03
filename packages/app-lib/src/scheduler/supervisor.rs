@@ -1,5 +1,7 @@
-//! Skeleton of the L0 supervisor. L0 tasks run in one `JoinSet`; a panic ends
-//! only the task that panicked, is logged, and is not restarted here.
+//! The L0 supervisor. L0 tasks run in one `JoinSet`; a panic ends only the
+//! task that panicked, is logged, and is not restarted here. The supervisor
+//! owns the abort authority: callers may ask it to abort all pending tasks,
+//! but only this JoinSet performs the abort.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -43,9 +45,10 @@ impl Supervisor {
         }
     }
 
-    /// The only public way to obtain a [`Tag`]. Release it with
-    /// [`Supervisor::release`] when its work ends, or it stays live.
-    pub fn mint(&self, level: Level, origin: &str) -> Tag {
+    /// The only public way to obtain a [`Tag`]. Returns `None` when the
+    /// registry is full (spec N3); release tags with [`Supervisor::release`]
+    /// when their work ends, or they stay live.
+    pub fn mint(&self, level: Level, origin: &str) -> Option<Tag> {
         self.tags.mint(level, origin)
     }
 
@@ -78,6 +81,12 @@ impl Supervisor {
 
     pub fn is_empty(&self) -> bool {
         self.tasks.is_empty()
+    }
+
+    /// Aborts every pending task in this supervisor. Callers ask for a cancel
+    /// through the control table; the abort itself stays here.
+    pub fn abort_all(&mut self) {
+        self.tasks.abort_all();
     }
 
     /// Waits for the next task to end and reports how; `None` once empty.
@@ -118,8 +127,8 @@ mod tests {
     #[test]
     fn a_released_tag_leaves_the_registry() {
         let supervisor = Supervisor::new();
-        let done = supervisor.mint(Level::L4, "operation");
-        let running = supervisor.mint(Level::L4, "operation");
+        let done = supervisor.mint(Level::L4, "operation").unwrap();
+        let running = supervisor.mint(Level::L4, "operation").unwrap();
         assert_eq!(supervisor.live_tags(), 2);
         supervisor.release(done);
         assert_eq!(supervisor.live_tags(), 1);
@@ -130,9 +139,9 @@ mod tests {
     fn a_tag_from_another_supervisor_is_not_released() {
         let ours = Supervisor::new();
         let theirs = Supervisor::new();
-        let kept = ours.mint(Level::L4, "operation");
-        theirs.release(theirs.mint(Level::L4, "operation"));
-        let foreign = theirs.mint(Level::L4, "operation");
+        let kept = ours.mint(Level::L4, "operation").unwrap();
+        theirs.release(theirs.mint(Level::L4, "operation").unwrap());
+        let foreign = theirs.mint(Level::L4, "operation").unwrap();
         ours.release(foreign);
         assert!(ours.is_live(&kept));
         assert_eq!(
@@ -140,5 +149,24 @@ mod tests {
             1,
             "a foreign release leaves theirs alone"
         );
+    }
+
+    #[tokio::test]
+    async fn abort_all_cancels_every_pending_task() {
+        let mut supervisor = Supervisor::new();
+        for _ in 0..3 {
+            supervisor.spawn("task", async {
+                std::future::pending::<()>().await;
+            });
+        }
+        assert_eq!(supervisor.len(), 3);
+        supervisor.abort_all();
+        while let Some(exit) = supervisor.join_next().await {
+            assert!(
+                matches!(exit, Exit::Cancelled(_)),
+                "abort_all must cancel the task: {exit:?}"
+            );
+        }
+        assert!(supervisor.is_empty());
     }
 }

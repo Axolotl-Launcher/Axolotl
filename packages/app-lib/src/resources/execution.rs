@@ -318,6 +318,77 @@ pub(crate) async fn execute(
     reporter: Option<crate::install::InstallProgressReporter>,
     state: &crate::State,
 ) -> crate::Result<()> {
+    let result =
+        execute_inner(instance_id, plan, reporter.clone(), state).await;
+    if let Err(error) = &result
+        && let Some(reporter) = &reporter
+        && !reporter.cancellation_token().is_cancelled()
+    {
+        let reported = async {
+            let current = reporter.current_state().await?;
+            let files: HashMap<_, _> = current
+                .download_items()
+                .into_iter()
+                .map(|file| (file.id, file.status))
+                .collect();
+            // The batch commits atomically; unsettled files were not installed.
+            let failed = plan
+                .actions
+                .iter()
+                .filter(|action| {
+                    files.get(&action.target_relative_path).is_some_and(
+                        |status| {
+                            !matches!(status,
+                            crate::install::DownloadItemStatus::Completed
+                            | crate::install::DownloadItemStatus::Skipped)
+                        },
+                    )
+                })
+                .map(|action| {
+                    crate::install::InstallJobEventKind::ContentFileFailed {
+                        path: action.target_relative_path.clone(),
+                        reason: error.to_string(),
+                        project_id: Some(
+                            action
+                                .target
+                                .reference
+                                .release
+                                .project
+                                .project_id
+                                .as_str()
+                                .into(),
+                        ),
+                        version_id: Some(
+                            action
+                                .target
+                                .reference
+                                .release
+                                .release_id
+                                .as_str()
+                                .into(),
+                        ),
+                    }
+                })
+                .collect::<Vec<_>>();
+            if !failed.is_empty() {
+                reporter.record_events(failed).await?;
+            }
+            Ok::<_, crate::Error>(())
+        }
+        .await;
+        if let Err(report_error) = reported {
+            tracing::warn!(%report_error, "Could not record failed resource files");
+        }
+    }
+    result
+}
+
+async fn execute_inner(
+    instance_id: &str,
+    plan: &ResourceOperationPlan,
+    reporter: Option<crate::install::InstallProgressReporter>,
+    state: &crate::State,
+) -> crate::Result<()> {
     let _cache_usage = crate::storage::usage::lease().await?;
     if plan.instance_id != instance_id
         || plan.issues.iter().any(|issue| issue.blocking)
@@ -345,6 +416,18 @@ pub(crate) async fn execute(
     let draft: plans::OperationDraft = serde_json::from_str(&payload)?;
     if draft.plan != *plan {
         return Err(input("task does not match the reviewed resource plan"));
+    }
+    if let Some(reporter) = &reporter {
+        let events = plan
+            .actions
+            .iter()
+            .map(|action| crate::install::InstallJobEventKind::ContentFileQueued {
+                path: action.target_relative_path.clone(),
+                bytes_total: action.target.integrity.size,
+                max_attempts: crate::util::download::constants::INSTALL_FILE_REPORTED_ATTEMPTS,
+            })
+            .collect();
+        reporter.record_events(events).await?;
     }
     let cancel = reporter
         .as_ref()
@@ -511,6 +594,14 @@ pub(crate) async fn execute(
     staged.sort_by_key(|(index, _)| *index);
     let mut downloads: Vec<_> =
         staged.into_iter().map(|(_, file)| file).collect();
+    if let Some(reporter) = &reporter {
+        let events = plan.actions.iter().map(|action| {
+            crate::install::InstallJobEventKind::ContentFileVerificationStarted {
+                path: action.target_relative_path.clone(),
+            }
+        }).collect();
+        reporter.record_events(events).await?;
+    }
     for (action, (path, _, size, _, digest)) in
         plan.actions.iter().zip(&mut downloads)
     {
@@ -931,8 +1022,19 @@ pub(crate) async fn execute(
         "Resource execution committed files and database"
     );
     if let Some(reporter) = reporter {
+        let completed = plan
+            .actions
+            .iter()
+            .zip(&downloads)
+            .map(|(action, (_, _, size, _, _))| {
+                crate::install::InstallJobEventKind::ContentFileCompleted {
+                    path: action.target_relative_path.clone(),
+                    bytes: *size,
+                }
+            })
+            .collect();
         reporter
-            .update(
+            .update_with_events(
                 crate::install::InstallPhaseId::DownloadingContent,
                 Some(crate::install::InstallProgress {
                     current: downloads.len() as u64,
@@ -940,6 +1042,7 @@ pub(crate) async fn execute(
                     secondary: None,
                 }),
                 crate::install::InstallPhaseDetails::Empty,
+                completed,
             )
             .await?;
     }

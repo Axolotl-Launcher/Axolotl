@@ -72,12 +72,6 @@
                 <div class="flex flex-wrap items-center gap-1.5">
                     <FilterIcon class="size-5 text-[var(--color-text-tertiary)]" />
                     <button
-                        :class="filterPillClass(selectedFilters.length === 0)"
-                        @click="selectedFilters = []"
-                    >
-                        {{ formatMessage(commonMessages.allProjectType) }}
-                    </button>
-                    <button
                         v-for="option in filterOptions"
                         :key="option.id"
                         :class="filterPillClass(selectedFilters.includes(option.id))"

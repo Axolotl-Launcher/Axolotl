@@ -172,6 +172,9 @@ pub enum ExportFileAction {
     Download {
         snapshot: ExportFileSnapshot,
         artifact: ResourceArtifact,
+        /// Always unknown: an export never tells installers to skip a file.
+        /// Kept because stored export jobs must stay readable by older
+        /// launchers, which require the field.
         environment: ArtifactEnvironment,
     },
     CurseForgeReference {

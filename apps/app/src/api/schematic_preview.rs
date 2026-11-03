@@ -1768,6 +1768,7 @@ impl PreviewSession {
                 let mut next = preserved.as_ref().clone();
                 transform_entry_list(&mut next.entities, size, transform);
                 transform_entry_list(&mut next.block_entities, size, transform);
+                transform_sponge_biomes(&mut next.root, size, transform);
                 Some(PreservedSchematic::Sponge(Arc::new(next)))
             }
             None => None,
@@ -2150,6 +2151,85 @@ fn transform_yaw(compound: &mut NbtCompound, transform: PreviewTransform) {
     if let Some(slot) = rotation.inner_mut().first_mut() {
         *slot = NbtTag::Float(rotated.rem_euclid(360.0));
     }
+}
+
+/// Biome indices use the same `x + z * width + y * width * length` space as
+/// the block array, so a transform permutes them exactly like the blocks.
+/// A container whose entry count does not match the region is dropped instead
+/// of re-emitted: a stale array would assign every biome to the wrong cell,
+/// while dropping it only leaves the target's own biomes in place.
+fn transform_sponge_biomes(
+    root: &mut NbtCompound,
+    size: [u32; 3],
+    transform: PreviewTransform,
+) {
+    let Ok(schematic) = root.get_mut::<_, &mut NbtCompound>("Schematic") else {
+        return;
+    };
+    // The borrow has to end before `insert`, hence the separate binding.
+    let biomes = schematic.inner_mut().remove("Biomes");
+    match biomes {
+        Some(NbtTag::Compound(biomes)) => {
+            if let Some(biomes) =
+                transform_biome_container(biomes, size, transform)
+            {
+                schematic.insert("Biomes", biomes);
+            }
+        }
+        Some(other) => schematic.insert("Biomes", other),
+        None => {}
+    }
+}
+
+fn transform_biome_container(
+    mut biomes: NbtCompound,
+    size: [u32; 3],
+    transform: PreviewTransform,
+) -> Option<NbtCompound> {
+    let data = match biomes.inner_mut().remove("Data")? {
+        NbtTag::ByteArray(values) => values,
+        _ => return None,
+    };
+    let total = usize::try_from(volume(size)).ok()?;
+    let mut bytes = data.iter().map(|value| *value as u8).collect::<Vec<_>>();
+    let mut reader = bytes.as_slice();
+    let mut entries = Vec::with_capacity(total);
+    while !reader.is_empty() {
+        entries.push(read_varint(&mut reader).ok()?);
+    }
+    if entries.len() != total {
+        return None;
+    }
+    let transformed_size = match transform {
+        PreviewTransform::RotateClockwise
+        | PreviewTransform::RotateCounterClockwise => {
+            [size[2], size[1], size[0]]
+        }
+        PreviewTransform::MirrorX | PreviewTransform::MirrorZ => size,
+    };
+    let width = size[0] as usize;
+    let depth = size[2] as usize;
+    let transformed_width = transformed_size[0] as usize;
+    let transformed_depth = transformed_size[2] as usize;
+    let mut output = vec![0u32; total];
+    for (index, entry) in entries.into_iter().enumerate() {
+        let cell = [
+            (index % width) as i32,
+            (index / (width * depth)) as i32,
+            ((index / width) % depth) as i32,
+        ];
+        let moved = transform_local_position(cell, size, transform);
+        let target = moved[0] as usize
+            + moved[2] as usize * transformed_width
+            + moved[1] as usize * transformed_width * transformed_depth;
+        *output.get_mut(target)? = entry;
+    }
+    let mut encoded = Vec::with_capacity(total);
+    for value in output {
+        write_varint(value, &mut encoded);
+    }
+    biomes.insert("Data", NbtTag::ByteArray(encoded));
+    Some(biomes)
 }
 
 fn transform_preserved_region(
@@ -3455,6 +3535,57 @@ mod tests {
         assert_eq!(item.get::<_, i32>("count").unwrap(), 64);
     }
 
+    /// A 2x1x2 version 3 schematic with one distinct biome index per cell and a
+    /// chest in the first cell, so the exported arrays show whether the biomes
+    /// followed the blocks.
+    fn sponge_biome_fixture() -> NbtCompound {
+        let mut palette = NbtCompound::new();
+        palette.insert("minecraft:air", 0i32);
+        palette.insert("minecraft:chest", 1i32);
+        let mut blocks = NbtCompound::new();
+        blocks.insert("Palette", palette);
+        blocks.insert("BlockData", NbtTag::ByteArray(vec![1, 0, 0, 0]));
+        let mut biome_palette = NbtCompound::new();
+        for (index, biome) in
+            ["minecraft:plains", "minecraft:desert", "minecraft:ocean"]
+                .into_iter()
+                .enumerate()
+        {
+            biome_palette.insert(biome, index as i32);
+        }
+        let mut biomes = NbtCompound::new();
+        biomes.insert("Palette", biome_palette);
+        biomes.insert("Data", NbtTag::ByteArray(vec![0, 1, 2, 0]));
+        let mut schematic = NbtCompound::new();
+        schematic.insert("Version", 3i32);
+        schematic.insert("DataVersion", 3700i32);
+        schematic.insert("Width", 2i16);
+        schematic.insert("Height", 1i16);
+        schematic.insert("Length", 2i16);
+        schematic.insert("Offset", NbtTag::IntArray(vec![0, 0, 0]));
+        schematic.insert("Blocks", blocks);
+        schematic.insert("Biomes", biomes);
+        let mut root = NbtCompound::new();
+        root.insert("Schematic", schematic);
+        root
+    }
+
+    fn varint_indices(compound: &NbtCompound, key: &str) -> Vec<u32> {
+        let data = compound.get::<_, &Vec<i8>>(key).unwrap();
+        let mut bytes =
+            data.iter().map(|value| *value as u8).collect::<Vec<_>>();
+        let mut reader = bytes.as_slice();
+        let mut output = Vec::new();
+        while !reader.is_empty() {
+            output.push(read_varint(&mut reader).unwrap());
+        }
+        output
+    }
+
+    fn biome_indices(biomes: &NbtCompound) -> Vec<u32> {
+        varint_indices(biomes, "Data")
+    }
+
     #[test]
     fn sponge_v2_and_v3_fixtures_parse_offsets_and_varints() {
         for version in [2, 3] {
@@ -4217,6 +4348,66 @@ mod tests {
             };
             assert_eq!(yaw, expected, "{transform:?}");
         }
+    }
+
+    #[test]
+    fn transforms_permute_sponge_biomes_with_the_blocks() {
+        for (transform, expected) in [
+            (PreviewTransform::RotateClockwise, vec![1, 0, 0, 2]),
+            (PreviewTransform::RotateCounterClockwise, vec![2, 0, 0, 1]),
+            (PreviewTransform::MirrorX, vec![1, 0, 0, 2]),
+            (PreviewTransform::MirrorZ, vec![2, 0, 0, 1]),
+        ] {
+            let mut session = parse_sponge(
+                sponge_biome_fixture(),
+                "fixture.schem".into(),
+                "fixture.schem".into(),
+                None,
+                None,
+            )
+            .unwrap();
+            session.apply_transform(transform).unwrap();
+            let exported =
+                read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+            let schematic =
+                exported.get::<_, &NbtCompound>("Schematic").unwrap();
+            let biomes = schematic.get::<_, &NbtCompound>("Biomes").unwrap();
+            let indices = biome_indices(biomes);
+            assert_eq!(indices, expected, "{transform:?}");
+            // The chest starts in cell 0 with biome 0; both have to end up in
+            // the same cell, or the biomes were permuted independently of the
+            // blocks.
+            let blocks = schematic.get::<_, &NbtCompound>("Blocks").unwrap();
+            let block_indices = varint_indices(blocks, "BlockData");
+            let chest =
+                block_indices.iter().position(|index| *index == 1).unwrap();
+            assert_eq!(indices[chest], 0, "{transform:?}");
+        }
+    }
+
+    #[test]
+    fn transforms_drop_biomes_that_do_not_match_the_region() {
+        let mut root = sponge_biome_fixture();
+        let schematic =
+            root.get_mut::<_, &mut NbtCompound>("Schematic").unwrap();
+        let biomes =
+            schematic.get_mut::<_, &mut NbtCompound>("Biomes").unwrap();
+        biomes.insert("Data", NbtTag::ByteArray(vec![0, 1, 2]));
+        let mut session = parse_sponge(
+            root,
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        session
+            .apply_transform(PreviewTransform::RotateClockwise)
+            .unwrap();
+        let exported = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        let schematic = exported.get::<_, &NbtCompound>("Schematic").unwrap();
+        // A stale array cannot be permuted, so it must not be re-emitted.
+        assert!(schematic.get::<_, &NbtCompound>("Biomes").is_err());
     }
 
     #[test]

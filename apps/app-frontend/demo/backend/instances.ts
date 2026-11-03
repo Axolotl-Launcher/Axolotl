@@ -1,6 +1,7 @@
 import type { GameInstance, InstanceLoader } from '@/helpers/types'
 
 import modpacks from '../data/modpacks.json'
+import { projectIcon } from './modrinth'
 import type { Handlers } from './types'
 
 const MINUTE = 60 * 1000
@@ -9,16 +10,6 @@ const DAY = 24 * HOUR
 
 /** Where app-lib keeps instances on macOS (packages/app-lib/src/state/dirs.rs). */
 const PROFILES_DIR = '/Users/steve/Library/Application Support/red.ghs.axolotl/profiles'
-
-const icons = import.meta.glob<string>('../assets/projects/*.webp', {
-    eager: true,
-    query: '?url',
-    import: 'default',
-})
-
-function projectIcon(projectId: string) {
-    return icons[`../assets/projects/${projectId}.webp`]
-}
 
 function ago(offsetMs: number) {
     return new Date(Date.now() - offsetMs)

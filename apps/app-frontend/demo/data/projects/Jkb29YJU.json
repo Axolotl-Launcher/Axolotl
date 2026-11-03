@@ -1,0 +1,239 @@
+{
+  "id": "Jkb29YJU",
+  "slug": "cobbleverse",
+  "title": "COBBLEVERSE - Pokemon Adventure [Cobblemon]",
+  "description": "Start a true Pokémon adventure in Minecraft: Cobblemon 1.7.3 | ALL 1025 Pokémon! | Mega Evolutions | Gyms & Badges | Starter Kit | Unique Structures | Custom Music | Shaders | Optimized | So much more! [1.21.1]",
+  "author": "LUMYVERSE",
+  "categories": [
+    "adventure",
+    "challenging",
+    "fabric",
+    "lightweight",
+    "multiplayer",
+    "optimization"
+  ],
+  "display_categories": ["adventure", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 7237032,
+  "followers": 2081,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.21.1"],
+  "latest_version": "4SKGla61",
+  "date_created": "2025-01-15T23:07:29.137981Z",
+  "date_modified": "2026-07-21T20:33:30.155458Z",
+  "color": 7962277,
+  "published": "2025-01-15T23:07:29.137981Z",
+  "additional_categories": ["challenging", "lightweight"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": "https://www.lumyverse.com/cobbleverse",
+  "discord_url": "https://discord.lumy.fun",
+  "donation_urls": [],
+  "versions_total": 41,
+  "body": "![COBBLEVERSE Banner](https://cdn.modrinth.com/data/cached_images/81b7513672b6477a30d76c3bb3c7cd375e1f909e.png)\nWelcome to the official **COBBLEVERSE** modpack page on Modrinth!\nAre you a fan of both **Pokémon** and **Minecraft**? Then you're in the right place! \n\n**COBBLEVERSE** allows you to experience a unique adventure where you can catch, train and battle with all **1025 Pokémon** while exploring a world full of life, stunning landscapes and exciting challenges, like challenging iconic Gym Leaders and Trainers from multiple regions!! \n\n[![COBBLEVERSE SERVER Apex Hosting Minecraft](https://cdn.modrinth.com/data/cached_images/666aaeb3086b1bbef81003dd533ef497c91cc24b_0.webp)](https://apexhost.gg/LUMYVERSE)\n## 🌍 Explore, Train, and Battle\n\n*   🧭 Embark on a journey across **Kanto, Johto, Hoenn and Sinnoh**, featuring **custom Gyms**, animated Gym Leaders, and fully functional **Pokémon Centers and Poké Marts**\n*   🐉 Encounter **all Mythical and Legendary Pokémon** in the wild or in dedicated special structures and face the ultimate challenge: ~~defeating the Ender Dragon~~ catching **Shiny Rayquaza** waiting for you in the End dimension!\n*   💎 Earn experience for capturing wild Pokémon and build your ultimate team from across all **9 Generations**!\n\n***\n\n## 💰 Build, Collect, and Grow\n\n*   💼 Spend your **PokéDollars** at the **Department Stores**, where you’ll find helpful items and rare mob drops not found anywhere else\n*   🧱 Decorate your home with **Pokémon-inspired furniture blocks** and collect dozens of adorable **Pokémon dolls**\n*   🐣 Breed Pokémon with improved shiny odds, and store them all with up to **1800 PC slots**, enough to complete your **Living Dex**!\n*   📊 **Smart Battle HUD:** View real-time **catch percentages**, type advantages, weather effects, and detailed move tooltips. You can also compare Poké Ball effectiveness instantly!\n\n***\n\n## 🛡️ A True Pokémon Experience\n\n*   🚫 No Creepers! **Mobs and hunger are disabled** by default, so you can focus on your Pokémon adventure, as in the original Pokémon games. _(Prefer the classic survival challenge? Re-enable them with just a few clicks.)_\n*   🎵 Enjoy an immersive **custom soundtrack** with reactive music for wild battles, trainer fights, and menu screens. Select your favorite songs easily in the Jukebox menu and try to find all the custom music discs!\n*   🧭 Use **Regional Cartography Tables** and **Poké Radars** to track Legendaries and locate Gyms across every dimension\n*   🎣 Catch specific Pokémon with tools like **FishingNav** and **PokeNav**\n*   🧭 Use your **Starter Map** and consult **Map Guides** to help with your exploration\n\n***\n\n## ⚔️ Advanced Mechanics & Multiplayer Ready\n\n*   ⚡ Master **Mega Evolution**, **Z-Moves**, **Terastallization** and **Dynamax** in strategic battles\n*   🏛️ **Challenge Gym Leaders**, **earn Badges**, and face the **Elite Four & Champions** to become the next World Champion!\n*   🐎 Ride over **200 Pokémon** through the world, from Kanto classics to Paldea favorites\n*   🔧 Optimized for performance and immersion, with **QoL enhancements** for smoother gameplay\n*   ⚔️ Team up with friends or go solo to face **1 to 7-star Raids**. Battle Terastallized, Dynamaxed, or Paradox Pokémon in custom arenas for guaranteed catches and rare loot!\n*   🌐 Ready for multiplayer: now available with **1-click server installation** via [Apex Hosting](https://apexhost.gg/LUMYVERSE) and [Nitrado](https://nitra.do/COBBLEVERSE-Modrinth)\n\n***\n\n## 🧭 Made for Minecraft 1.21.1\n\nThis modpack includes numerous **custom exclusive enhancements** to improve gameplay, visuals, balance, and overall immersion.\n\nWhether you're building the perfect home, completing the Pokédex, or setting off on a multiplayer journey with friends, **COBBLEVERSE** gives you the tools and freedom to create your own unforgettable Pokémon story!\n\n**Choose your starter, build your ultimate team, and get ready to become the greatest Pokémon trainer in the world of Minecraft: dive into COBBLEVERSE and start your unforgettable adventure today!**\n\n![Features Banner](https://cdn.modrinth.com/data/cached_images/0b7de3c11998e66cec5992fc6454b7c49e966492_0.webp)\n\n*   **✅ Based on Cobblemon 1.7.3** (latest version)\n*   🎮 **ALL 1025 Pokémon** available _(no fakemons!)_\n*   🐉 **All Legendaries, Mythicals & Ultra Beasts**, many featuring custom summoning mechanics\n*   💥 **All 93 Mega Evolutions**, including those from _Pokémon Legends: Z-A_ and the _Mega Dimension DLC_\n*   🗺️ **Kanto, Johto, Hoenn & Sinnoh regions** with all **Gym Leaders**, **Elite Four** & **Champions**\n*   🏛️ **Exclusive custom Gyms** and animated Gym Leaders with unique dialogues\n*   🗼 **Lots of Exclusive Structures** filled with rare loot\n*   ✨ **Legendary & Mythical Altars** with custom summoning mechanics\n*   🧭 **Map Guides** & **Starter Maps** to guide your adventure\n*   🌟 **Improved Shiny rate** (1:2048) + **breeding support** for shiny eggs\n*   💎 **Earn XP** by capturing wild Pokémon\n*   🥇 **Earn custom [Badges and Trophies](https://modrinth.com/mod/cobbleverse-badges)** from official Gym Leader battles\n*   🏘️ **Custom villages** with fully functional Pokémon Centers and Poké Marts\n*   🔥 **Wild Pokémon** can attack your team\n*   🐲 **200+ Rideable Pokémon** across all 9 Generations\n*   🧱 **Pokémon-inspired furniture blocks** (statues, floors, tables, etc.)\n*   🍛 **Pokémon-themed food**: boost friendship, catch rate & shiny odds\n*   🎣 **3D Poké Rods**, **backpacks**, and **upgradable storage**\n*   📖 **In-game Book** to tweak settings anytime\n*   🧰 **Living Dex ready**: 1800 PC slots available!\n*   ⚔️ **1-7 Star Raids**: team up with friends and prepare for mighty Pokémon encounters\n*   🌌 **3 New Dimensions**: Distortion World, Nightmare and Origin Dimension\n*   📊 Real-time **Catch Rate Interface** and **Ball Comparison UI**\n*   💤 **Use sleeping bags** day or night without resetting spawnpoints\n*   ⚡ **Battle mechanics**: **Mega Evolution**, **Dynamax**, **Gigantamax**, **Terastallization**, **Z-Moves**\n*   🔎 Use **FishingNav** and **PokeNav** to see what you can catch in each area\n*   💻 **Access your PC from anywhere**\n*   📸 **Minimap & Waystones**, customizable zoom\n*   🧸 **Tons of Pokémon dolls** to collect\n*   🚫 **No Minecraft mobs** _(you can re-enable them)_, only villagers for trading\n*   🎵 **Dynamic soundtrack**: custom music for menus & battle types\n*   💽 **Custom soundtrack** by [**Pokestir**](https://www.youtube.com/@Pokestir) & **[Zame](https://www.youtube.com/@The_Zame)** (with permission)\n*   🪧 Integrated **REI Support** for **Campfire Pot** and **Brewing Stand** recipes\n*   🔧 **Many performance optimizations** & quality-of-life enhancements\n*   🌟 And much more, with regular updates & new content on the way!\n\n[COBBLEVERSE Server Apex Hosting](https://apexhost.gg/LUMYVERSE)\n\n## 🛜 Server Hosting & Multiplayer Experience\n\nSince April 2025, we have personally started to use an **[Apex Hosting EX Series (16GB RAM)](https://apexhost.gg/LUMYVERSE)** powered by a **Ryzen 9 7950x (5.7GHz)** to work on the modpack and build all the **exclusive COBBLEVERSE structures**. Based on our hands-on experience, it is incredibly user-friendly, fast, and offers great overall performance _(we especially love the incredible speed of server restarts and shutdowns!)_\n\n* **1-Click Installation:** Jump into the world of **COBBLEVERSE** in no time! Simply select **COBBLEVERSE Pokemon Adventure [Modrinth]** directly from your Minecraft Java server control panel and begin your adventure right away!\n* **Performance & Reliability:** Their hardware has proven to ensure a smooth, lag-free experience even with quite large modpacks like ours\n* **Instant Setup & Support:** Get your server online immediately after purchase and enjoy Day One updates with fast, reliable support\n\n💻 **[GET YOUR MINECRAFT COBBLEVERSE SERVER HERE](https://apexhost.gg/LUMYVERSE)**\n\n⚠️ **Important:** For the best experience with the **COBBLEVERSE** modpack in multiplayer, we highly recommend choosing a plan with **6GB RAM or more**. This ensures stability as you explore and encounter more Pokémon with your friends! Of course, the recommended amount of RAM depends on how many friends you plan to invite to your server for your adventure!\n\n---\n\n### 🌐 Other Hosting Options\nWe have also relied on **[Nitrado](https://nitra.do/COBBLEVERSE-Modrinth)** to power our multiplayer experiences since 2020. It remains a very versatile service, especially for players who enjoy quickly switching between Minecraft and many other game titles\n\nWhile **Nitrado** is a solid and flexible veteran in the hosting world, for the most optimized, \"ready-to-go\" **COBBLEVERSE** adventure, **we strongly suggest choosing [Apex Hosting](https://apexhost.gg/LUMYVERSE)** for Day One update availability and faster technical support\n\nHelp Banner\n\nThis modpack requires at least **4GB of RAM** to be able to play smoothly in single player (**6GB+ recommended**).\n\n<details>\n<summary>Instructions</summary>\n\nOpen **Modrinth App settings** (cog-like button on the bottom left), then go to **Default instance options** and set **Memory allocated** to **4096 MB** or more.\n\n</details>\n\nYou can always disable shaders if you prefer or if your PC has issues / lag.\n\n<details>\n<summary>How?</summary>\n\nJust press \"**K**\" to enable/disable shaders or go to **Options** > **Video Settings** > **Iris**. \nYou can also customize your shaders by clicking on **Shader Pack Settings** at the bottom of the Shader Packs menu, while a preset (for example, **STANDARD**) is selected.\nPlease, enable **HIGH QUALITY** shaders only if you think your PC can handle heavy graphics.\n\n</details>\n\nHere's a list of **useful default controls**. You can always customize them to your liking.\n\n<details>\n<summary>Default controls</summary>\n\n- Access your PC remotely: **P**\n- View your Team (Cobblemon Summary): **C**\n- Engage battle / Trade / Battle players: **R**\n- Dismount Pokémon: **V**\n- Open Jukebox/Music menu: **J**\n- Open your equipped Backpack: **B**\n- Enlarge Minimap: **X**\n- Open World Map: **M**\n- Access your Waypoints screen: **N**\n- Zoom: **Z**\n- Enable/Disable Shaders: **K**\n- Compare Poké Ball Catch Rates: **<** (with any Ball in hand)\n\n</details>\n\nUse the **in-game book** to adjust a few settings and gameplay mechanics, read helpful tips and find useful links.\n\n<details>\n<summary>How do I get it?</summary>\n\nPlayers receive the book when they choose their Starter Pokémon, along with other items to help them on their adventure.\nYou can always get a new one by using this command in chat: **/function help:get_book**\n\n</details>\n\nWe now have a **detailed wiki** that answers _almost_ every question you might have: **[COBBLEVERSE WIKI](https://www.lumyverse.com/cobbleverse)**\n\n<details>\n<summary>Wiki Information</summary>\nIt already has plenty of information you can refer to whenever you need it, including how to install the modpack, what custom structures are available, useful details about trainers and gyms, how to find specific Pokémon, and much more!\n\n</details>\n\nHave you spotted a Pokémon you really like and want to learn more about it? For example, where it spawns, under what conditions, or even who created its stunning model or beautiful animations?\n\n<details>\n<summary>What kind of info can I find there?</summary>\n  \nYou can find **detailed information about every Pokémon included in COBBLEVERSE** on this page:  \n🔗 **[All Pokémon in COBBLEVERSE](https://www.lumyverse.com/cobbleverse/all-pokemon-in-cobbleverse/)**\n\nOn that page, you'll find:\n\n- The Pokémon's **National Dex number** and **name**\n- Its **source** (which mod or resource pack the model comes from)\n- The **biomes** it spawns in\n- Its **rarity**\n- Any **special conditions** for spawning (like time, weather, or structure)\n- Details on **alternate forms** (such as Galarian or Alolan variants)\n\nThe list is **constantly being updated** to reflect the latest changes in the modpack.  \nIf you spot an error or missing info, please let us know by:\n\n- Reaching out on our **[official Discord server](https://discord.lumy.fun/)**\n- Or using the feedback form directly on the site (just click **\"Still stuck? How can we help?\"** at the bottom of the page)\n\nWe appreciate your help in keeping the info accurate and up to date!\n</details>\n\nCOBBLEVERSE Credits Banner\n\nThis modpack includes several datapacks and resource packs created by **third-party authors**.  \nSome of these have been slightly modified solely to **ensure technical compatibility** and stable integration with the rest of the modpack.\n\nThese modifications may include:\n- removing or adjusting files that conflict with other content in the modpack;\n- balancing certain behaviors;\n- fixing errors that caused crashes or major incompatibilities.\n\n**We do not claim ownership of any of the modified content.**  \nAll rights remain with the original creators, whom we sincerely thank for their amazing contributions that make **COBBLEVERSE** possible.\n\nDue to the nature of how additional Pokémon models are implemented in Minecraft, they need to be placed in both the _resourcepacks_ and _datapacks_ folders simultaneously in order to function correctly in-game.\nTo ensure seamless functionality and avoid requiring users to manually duplicate files or folders, we automate this integration process as part of the modpack's structure. However, the **original, unmodified content is always included as a required dependency**, and is downloaded directly and exclusively from Modrinth, ensuring that the **original creators receive full attribution and download credit**.\n\n<details>\n<summary>AllTheMons x Mega Showdown</summary>\n\nThis modpack integrates the **AllTheMons x Mega Showdown** resource/datapack to enhance the gameplay experience with high-quality models and compatibility features.\n\n* **Asset Source:** [AllTheMons x Mega Showdown](https://modrinth.com/datapack/allthemons-x-mega-showdown-legacy)\n* **Acknowledgment:** We would like to express our deepest gratitude to the original creators and the community behind this project. Their hard work in maintaining and expanding these assets is essential for the Cobblemon ecosystem.\n\n**Licensing Note:**\nAll rights for the included assets belong to their respective creators. These files are used in compliance with their original distribution terms. If you enjoy the custom models and features provided by this integration, we highly encourage you to visit their official page and support the original developers.\n\n</details>\n\n\n\nThis modpack, along with all its integrated content, is **only distributed via the official Modrinth website and app**, and nowhere else.\n> An **alternative version** of this modpack is also available on CurseForge. That version does **not** include any modified files containing additional Pokémon models.\n\nThe complete list of the included datapacks and resource packs, along with the names of the original authors and, where available, a link to the official project page, is available [on our official website](https://www.lumyverse.com/cobbleverse/credits/) for easier reference and attribution tracking.\n\nA heartfelt thank you to: \n\n*   The [**Cobblemon Team**](https://cobblemon.com/), without you, none of this would exist. Your work is truly brilliant.\n*   The incredible **modders**, **datapack creators**, and **resource pack artists** who have poured love into this game.\n*   **Every single one of you** who joined our [Discord](https://discord.lumy.fun/), gave feedback, watched our [TikTok](https://tiktok.lumy.fun/) videos, or just had fun with the modpack.\n*   And of course… **The Pokémon Company**, **Game Freak** and **Nintendo** for shaping the childhood of millions, including ours.\n\n_If you notice any mistakes, or if you are the creator of one of the included mods, datapacks, or resources and would prefer that your content not be part of the **COBBLEVERSE modpack**, or have any questions about its use, please feel free to open a Ticket on our Discord or reach out via our website. We’re happy to collaborate and respect the preferences of every creator._\n\nLUMYVERSE Banner\n\nThis modpack is still in progress so feel free to suggest how we can improve it on our **[Discord](https://discord.lumy.fun/)**.\n\n## Terms and Conditions\n\n**COBBLEVERSE** is published under an **All Rights Reserved (ARR)** license. By downloading, using, or hosting this modpack, you agree to comply with the terms and conditions outlined below.\n\n<details>\n<summary>📜 Terms of Use, Licensing & Server Guidelines</summary>\n\n## 1. Usage and Distribution\n* **Official Distribution:** This modpack and all associated custom content (datapacks, resource packs, configurations, and custom assets) are intended to be installed **exclusively through the official Modrinth App or website**.\n* **Prohibition of Re-uploads:** Re-uploading, mirroring, or redistributing this modpack or any of its individual custom components to other platforms, launcher networks, or file-hosting services is strictly prohibited.\n* **No Clones or Derivative Works:** Creating modified versions, \"re-branded\" variants, or clones of COBBLEVERSE for public distribution without prior explicit written permission from the COBBLEVERSE team is a violation of our license.\n\n---\n\n## 2. Public Servers, Commercial Use & Monetization\nWe love supporting communities and server owners, but strict rules apply regarding public and commercial usage:\n* **Private vs. Public Servers:**\n  * **Private / Casual Servers:** You are completely free to host private servers for friends, family, or small private communities using COBBLEVERSE.\n  * **Public Servers:** Running a public server using COBBLEVERSE requires strict compliance with all third-party mod licenses and our own custom asset restrictions.\n* **Prohibition of Custom Assets in Commercial Servers:**\n  * All custom assets created specifically for COBBLEVERSE, including **custom structures, custom trainers, questlines, custom datapacks, and proprietary configurations**, are protected under strict **All Rights Reserved (ARR)** terms.\n  * You **MAY NOT** use COBBLEVERSE’s custom structures, trainers, or datapacks on any public server that features a commercial shop (ranks, perks, virtual items, or monetary transactions).\n* **Third-Party Rights & Compliance:**\n  * COBBLEVERSE includes mods and assets from independent third-party creators under non-transferable or non-commercial licenses. Simply running our modpack on a server **does not automatically grant you commercial rights** over those third-party mods. Server owners are individually responsible for obtaining necessary permissions from independent creators whose work does not permit commercial use.\n\n---\n\n## 3. Server Branding & Identity\n* **Naming Restrictions:** You **MAY NOT** name or advertise your server as a *\"COBBLEVERSE Server\"* or use the name **COBBLEVERSE** as the primary identity of your project.\n* **Allowed Compatibility Claims:** You may state that your server is *\"COBBLEVERSE Compatible\"* or *\"Optimized for COBBLEVERSE\"* to inform players that they can join using the modpack, provided it is clear that your server is an independent entity.\n\n---\n\n## 4. Licensing Compliance & Content Source Transparency\nWe have taken every possible step to comply with all applicable licenses by declaring each included piece of content as a **dependency within our modpack**. This ensures that downloads and proper attribution are directed to the original authors.\n\n* A full list of all included content is publicly available in our **[COBBLEVERSE Collection](https://modrinth.com/collection/vgKtV1Ao)**, allowing anyone to review it without needing to download the modpack.\n* In addition, our official website features a **[comprehensive list](https://www.lumyverse.com/cobbleverse/all-pokemon-in-cobbleverse/)** of all models used, along with the datapacks and resource packs from which they originate.\n* In the few cases where modifications were necessary, they have been made **solely to ensure proper functionality and technical stability** within the context of the modpack.\n\n---\n\n## 5. Creator Rights & Contact\nIf at any time:\n- An error or oversight is identified,\n- A defect is found in attribution or implementation, or\n- A content creator featured in **COBBLEVERSE** wishes to request the **modification or removal** of their work,\n\nwe encourage and welcome direct communication.\n\nYou are free to contact us through any preferred channel (e.g., Discord, email, or our website), and we will make every reasonable effort to **resolve the issue promptly and respectfully**.\n\n---\n\n## 6. Intellectual Property & Disclaimer\n* **Non-Affiliation Notice:** COBBLEVERSE is an unofficial, community-driven, non-commercial fan project. It is not affiliated with, endorsed, or sponsored by Nintendo, Game Freak, The Pokémon Company, Mojang AB, or Microsoft. All Pokémon trademarks and assets belong to their respective owners.\n* **Limitation of Liability:** The COBBLEVERSE team is not responsible for the operation, administration, or monetization of independent third-party servers. Any server operating in violation of Nintendo's, Mojang's, or Cobblemon's Fair Use policies does so independently and at its own risk.\n\n</details>\n\n***\n\n_All mods, datapacks, shaders, and resource packs included in **COBBLEVERSE** were carefully selected and are the property of their respective creators.\n**Full credit is given to the original authors.**_  \n_Minecraft is a trademark of [Mojang Synergies AB](https://www.minecraft.net/)._  \n_Pokémon is a trademark of [Nintendo](https://www.nintendo.com/), [Creatures Inc.](https://www.creatures.co.jp/), and [GAME FREAK inc.](https://www.gamefreak.co.jp/)._  \n_The [Cobblemon mod](https://www.curseforge.com/minecraft/mc-mods/cobblemon) is developed and maintained by Cobbled Studios._  \n_**COBBLEVERSE** is not affiliated with, endorsed by, or sponsored by Mojang, Nintendo, Creatures Inc., GAME FREAK inc., or Cobbled Studios._ _**Made in Italy.**_",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/Jkb29YJU/images/ce5388f2e850f2d203fc18c0981bfd3cb5a48025_350.webp",
+      "featured": false,
+      "title": "All 1025 Implemented Pokémon",
+      "description": "You can complete your National Pokédex!",
+      "created": "2025-07-05T15:37:01.851819Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Jkb29YJU/images/bde5ccaa64f4007a1524f76f07da0f0309b313e6_350.webp",
+      "featured": false,
+      "title": "Collectible Badges",
+      "description": "Collect every Gym Badge from Kanto, Johto, and Hoenn",
+      "created": "2025-07-05T14:40:02.616899Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Jkb29YJU/images/7e880e99bc371273f315740528838251407f8344_350.webp",
+      "featured": false,
+      "title": "Leagues",
+      "description": "Discover the leagues and become the champion of every region!",
+      "created": "2025-07-05T14:47:43.344858Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Jkb29YJU/images/51dc416feed6be470e39d10416a68d26256cc4d6_350.webp",
+      "featured": false,
+      "title": "32 Gyms Available",
+      "description": "Face all the Gyms from Kanto, Johto, Hoenn and Sinnoh, in a challenge worthy of a true Champion",
+      "created": "2025-07-05T14:32:40.388583Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "LUMYVERSE",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/Q0uMkzhk/544c70f5a6d01bcea7efdfa2e18d9b3d2c2ee197.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "4SKGla61",
+      "name": "COBBLEVERSE 1.7.42",
+      "version_number": "1.7.42",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-21T20:33:30.155458Z",
+      "downloads": 1811447,
+      "changelog": "![COBBLEVERSE 1.7.42 Update](https://cdn.modrinth.com/data/cached_images/62db693564c4863cb3c0656e6144bfed0e4768dc_0.webp)\n## COBBLEVERSE 1.7.42\n### 🛠️ Fixes & Tweaks\n\n#### Recipes & Crafting\n* **Vanilla Chest:** Restored the ability to craft standard vanilla chests\n* **Custom Wooden Chests:** Crafting non-vanilla wooden chest variants now requires 1 vanilla button (any wood type) in the center surrounded by 8 planks\n* **Hoppers:** Hoppers can now be crafted using any type of chest, not just standard Minecraft ones\n\n#### Pokémon, Models & Riding\n* **Rayquaza:** Now has recovered its full speed!\n* **Ferrothorn:** Fixed its model issues\n* **Mega Blaziken:** Fixed both model and riding position\n* **Zekrom & Reshiram:** Recalibrated riding statistics\n* **Terapagos:** Tweaked and rebalanced spawn rates and catch rate parameters\n* **Hisuian Bergmite:** Added its spawn in the world\n* **Zygarde:** Fixed a bug where changing forms would reset its moveset and wipe applied PP Up / PP Max boosts\n* **Greninja:** Fixed model and riding position for Mega Greninja\n* **Okidogi:** Applied the correct texture for its Shiny form\n* **Victini:** Fixed missing particle textures for V-Create\n* **Aegislash:** Fixed battle animation\n* **Rabsca:** Fixed texture bugs\n* **Arctovish:** Fixed riding position\n\n#### Gameplay, Spawning & UI\n* **General Spawning:** Adjusted spawn mechanics to prevent 2 identical Pokémon from spawning simultaneously on the exact same spot (especially in water)\n* **World Stability:** Added a safety system that catches ticking entity errors to prevent world-corrupting crashes\n* **Battle UI:** Added dynamic stat change indicators during battles\n* **Waystones:** Fixed a game crash that occurred when deleting a Waystone\n\n---\n\n### 🔄 Updated Mods\n* Carved Wood\n* Fabric API\n* Fabric Language Kotlin\n* FancyMenu\n* Waystones\n* Xaero’s Minimap\n* Xaero’s World Map\n\n### ➕ Added Mods\n* Neruina\n* Particular Reforged\n\n### ➖ Removed Mods\n* Particular\n\n---\n\n> A massive **thank you to e\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.42.mrpack",
+          "size": 238975006,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "T9GJwPoJ",
+      "name": "COBBLEVERSE 1.7.41b",
+      "version_number": "1.7.41b",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-15T22:04:37.465668Z",
+      "downloads": 204416,
+      "changelog": "🚨 DO NOT INSTALL version 1.7.40. Please skip it and update directly to this version.\n\n## COBBLEVERSE 1.7.41\n\n### 🛠️ Fixes and Improvements\n\n* ⚡ **Severe Lag & Performance:** Resolved the major lag spikes and framerate drops introduced in the last version. We have downgraded **Rechiseled** and **Fusion** to their previous versions, as they were the main cause of the performance issues\n* 💻 **4GB RAM Compatibility:** Optimized memory usage so players allocating 4GB of RAM can now load worlds quickly and play smoothly again (we still recommend **6GB+** for optimal performance, but 4GB should now be fully playable)\n* 🐉 **Multi-Passenger Mounts:** Rayquaza can now carry up to **4 players** simultaneously!\n* ✨ **Visual Improvements:** Updated customized shaders to their latest versions for better visual performance\n\n### 🔄 Updated\n\nThe following mods have been updated to their latest stable versions:\n* Balm\n* Carved Wood\n* FancyMenu\n\n## COBBLEVERSE 1.7.41b\n\n* **Xaero's Minimap & World Map Downgrade:** We have rolled back both mods to their previous versions to prevent startup crashes in server environments\n\n---\n\n> 💬 **A note from LUMYVERSE:**\n> We deeply apologize for the performance issues and lag many of you experienced with our last update. Every PC configuration is unique, and during our pre-release testing on our own machines, we didn't encounter any of these lag spikes. \n> \n> We sincerely hope this patch fully resolves the situation. We highly recommend everyone download this version as soon as possible and let us know on our **[Discord Server](https://discord.lumy.fun)** if performance has improved for you! Your feedback is incredibly important to us ❤️💙",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.41b.mrpack",
+          "size": 238928589,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "xTx3oAp2",
+      "name": "COBBLEVERSE 1.7.40",
+      "version_number": "1.7.40",
+      "version_type": "beta",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-11T23:22:02.935764Z",
+      "downloads": 137809,
+      "changelog": "![COBBLEVERSE 1.7.40 Update](https://cdn.modrinth.com/data/cached_images/126336f15656259dfe3c1b291c3bf332a1ee9215_0.webp)\n\n## COBBLEVERSE 1.7.40\n\n### 🧭 Exploration & Navigation\n* **Trainer Card Update:** The trainer card now offers an option to view the series progress graph in-game (click the rotating arrows button to the left of the region name). This allows you to view the full list of trainers and Gym Leaders left to defeat all the way up to the Champion, along with the specific Level Cap for each of them\n* **Better Pokédex Scanner:**\n    * Scanning with your Pokédex now provides detailed environmental data (biomes, weather, time) and party-based threat level coloring\n    * You can now scan Restoration Tanks to view the restoration progress, check the exact Pokémon inside, and register unseen Pokémon in your Pokédex directly through the tank\n* **Waystone Interface Overhaul:**\n    * Added a scrollable waystone list, completely replacing the old pagination system\n    * Added personal aliases for waystones via a new \"Personal Settings\" button, allowing you to assign a custom name (perfect for multiplayer servers with generic names)\n    * Added a \"Favorites\" checkbox in the Personal Settings to pin frequently visited locations\n    * Added a \"Sort\" button to cycle the list between Manual, Alphabetic, and Distance\n    * Added a dedicated \"Manage Waystones\" screen, enabling drag-and-drop rearranging and safer deletion controls\n* **Waystone Filters & Groups:** Added group filters to the selection screen, featuring built-in categories (\"Global Waystones\", \"Favorites\", and per-dimension tabs). You can also create personal, custom groups with unique text colors and icons\n* **New Waystone Variants:** Added Red Nether Bricks, Purpur, Prismarine, and Mud Bricks Waystones\n* **New Exploration Items:**\n    * **Epitaph:** Keeping this item in your inventory upon death will consume it and spawn a Fleeting Memorial at your death site. You can then use a waystone to teleport direct\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.40.mrpack",
+          "size": 237850467,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "DN77rBht",
+      "name": "COBBLEVERSE 1.7.31",
+      "version_number": "1.7.31",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-04T00:50:52.054230Z",
+      "downloads": 1447712,
+      "changelog": "![COBBLEVERSE 1.7.31 Update](https://cdn.modrinth.com/data/cached_images/fb42254b9f7ec948430afd4eb6f462a5b1ed414d.png)\n\n## COBBLEVERSE 1.7.31\n\n### ⚔️ Raids & Battles\n* **Raid Visuals:** Raid crystals now emit sparkling particles when active\n* **Dynamic Beams:** New raid crystal beam visuals with **dynamic scaling** based on Raid Tier\n* **Raid Fixes:** Solved issues where players would get stuck in raids after leaving\n* **Enhanced Battle Log:**\n    * Added bracketed move links with tooltips\n    * Added damage percentage display to damaging moves\n    * Added clickable color themes and a new **Pink Theme** option\n* **Dynamic Battle Overlay:**\n    * **Live Info:** Pokémon now feature a real-time HUD above their heads during battles\n    * **Dynamic Display:** Instantly view **Pokémon Names, Level, Health Bar, Types**, and any active **Status Conditions** without needing to target them directly\n* **Battle Info Panel:**\n    * Now displaying full weakness charts (just hover over any Pokémon's info panel)\n    * **Resistance** rows added to the **weakness tooltip** for a complete defensive overview\n    * Added **Priority** to move tooltips\n    * Added **Speed** to switch-screen tooltips\n* **Strategic Switching:** Added effectiveness info on switch-screen party slots with per-opponent breakdowns\n* **Damage Previews:** Judge each move's potential before swapping in with switch-screen damage previews\n* **Expanded Stat Panels:** Revealed info for moves, abilities, and held items, plus full type breakdowns\n* **Battle AI:** Adjustments to switch evaluation, making trainers less likely to switch unnecessarily\n* **Battle Stability:** Reduced/resolved crashes/disconnects when **Zygarde** shifts to Complete Form or during Mega Evolution\n\n***\n\n### 🧭 PokéNav & Exploration\n* **Details Tab:** PokéNav Location/Fishing screens now feature a \"Details Tab\". Click any entry to see spawn results, rarity, and specific conditions\n* **Automatic Cataloging:** PokéNav now records nearby Pokémon inst\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.31.mrpack",
+          "size": 213077334,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "jImAfjVc",
+      "name": "COBBLEVERSE 1.7.30th Anniversary",
+      "version_number": "1.7.30",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-02-27T23:44:27.776315Z",
+      "downloads": 788032,
+      "changelog": "![COBBLEVERSE Modrinth Update 30th Anniversary](https://cdn.modrinth.com/data/cached_images/b4be3b74305aff8339072cb9beabc7373d974322_0.webp)\n\n## **COBBLEVERSE 1.7.30** – Celebrating Pokémon's 30th Anniversary!\n\n### 🚀 **NEW FEATURE: Cobblemon Raid Dens**\n\nMysterious **Raid Crystals** have appeared! These portals teleport you to a dedicated dimension to engage in cooperative or solo boss battles.\n\n* **Strategic Challenges**: Difficulty tiers from 1 to 7 Stars. Face off against **Terastallized**, **Dynamaxed**, or **Gigantamaxed** Pokémon. You might even encounter **Paradox** Pokémon, **Ultra Beasts**, or, rarely, **Legendary and Mythical** Pokémon\n* **Raid HUD & Visuals:** A custom overlay displays the Boss icon (with Mega support), Tier, Type, and a server-synced reset timer\n* **Raid Cheer System:** Upon entry, you are automatically granted **9 Cheers** (3x Heal, 3x Attack, 3x Defense). Use up to 3 per battle to turn the tide for you and your friends (**up to 4 players**)!\n* **Guaranteed Capture:** Defeating a Raid Boss guarantees a successful catch. Tier 5-7 raids may also drop **Max Mushrooms**\n* **Custom Arena:** Battles take place in a massive, exclusive arena to accommodate even the largest Gigantamax foes\n* **Community Feedback:** We have added raids for nearly 1000 Pokémon. We need your feedback to fine-tune the balance of these encounters!\n\n***\n\n### ⚙️ **Balance and QoL**\n\n* **Ball Comparison Panel:** The \"<\" key now works out of combat while looking at a wild Pokémon with a ball in hand\n* **Poké Snack Blacklist:** You can now block all or specific Legendaries, Mythicals, Ultra Beasts, and Paradox Pokémon from Poké Snacks via **[lumymon.json](https://modrinth.com/mod/lumymon/version/0.6.1)**\n* **Battle Forfeit:** You can now flee from wild battles without physically moving away 20 blocks\n* **Captured Pokémon:** Captured Pokémon now display a Poké Ball icon next to their name to easily identify them\n* **Rarity Overhaul:** Adjusted global spawn rates:\n    * _C\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.30.mrpack",
+          "size": 206509291,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Cg3gXABt",
+      "name": "COBBLEVERSE 1.7.3",
+      "version_number": "1.7.3",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-02-18T01:58:26.436090Z",
+      "downloads": 345389,
+      "changelog": "![COBBLEVERSE 1.7.3 Update](https://cdn.modrinth.com/data/cached_images/882c59ac5972b5100763f9b896cd69f06a4afbd5_0.webp)\n## 🌌 COBBLEVERSE 1.7.3\n### The Sinnoh Saga & The Fate of the Universe\n\nThe struggle for the fate of the world begins now. **Team Galactic** has established multiple bases across the world, and only you can stop their plan to recreate the universe. Powered by our custom **LumyMon** mod, this update introduces unique, immersive systems specifically designed for **COBBLEVERSE**. Over **20 new structures**, **3 new dimensions**, and lots of new custom mechanics await you.\n\n---\n\n## 🌌 Team Galactic & The Red Chain\nConfront the Commanders in exclusive custom structures to uncover the path to the \"Pokémon of Myth\"\n\n**Custom Galactic Structures:**\n- **Wind Plant:** A multi-level energy facility. Infiltrate the floors to find **Commander Mars**. Defeating her yields the **Verity Proof**, the only item capable of revealing the location of **Mesprit**.\n- **Eterna Building:** A 5-story vertical high-tech facility filled with scientists and server rooms; **Commander Jupiter** guards the summit. Defeat her to obtain the **Acuity Proof**, required to locate **Uxie**'s lake.\n- **Team Galactic HQ:** An immense fortress featuring four towers, dormitories, offices, museums, gyms and hidden secrets. Find **Commander Saturn** here to receive the **Valor Proof** and use it to locate **Azelf**\n\n- **The Final Confrontation:** Locate and battle **Leader Cyrus**. Only by defeating him can you seize the **Red Chain** before he uses it to subjugate the **Pokémon of Myth**\n\n- **Spear Pillar:** Craft the **Space-Time Radar** to locate this ancient temple. Among the ancient ruins, two massive statues of **Dialga and Palkia** await the call of the **Red Chain**. By placing the **Adamant Orb** or **Lustrous Orb** into the **Altar of Space-Time**, the Red Chain will bind the energy of the statues, bringing them to life for an epic encounter\n* **Galactic Trainers:** Now feature fu\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.3.mrpack",
+          "size": 201667209,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ERxm2is0",
+      "name": "COBBLEVERSE 1.7.2",
+      "version_number": "1.7.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-12-23T13:33:26.435785Z",
+      "downloads": 1120649,
+      "changelog": "## **COBBLEVERSE 1.7.2**\n\n### 🛠️ **Bug Fixes & Improvements**\n\n*   **Store Card Localization:** now correctly localizes the nearest **Department Store** within a custom Cartography Table\n*   **Ash's House Fix:** Resolved a critical crash issue occurring during the world generation of **Ash's House**\n\n### 🎖️ **Pokémon & Advancements**\n\n*   **Cobblemon Fast Mounts:** Rebalanced the movement speed for several mounts\n*   **Mewtwo Advancement:** Fixed the advancement trigger for Mewtwo when obtained via the **Resurrection Machine**\n    *   **⚠️ Important - Shiny Mewtwo Note:** To properly trigger the advancement for **Shiny Mewtwo** from the Resurrection Machine, **do not** right-click the Restoration Tank with a Poké Ball. Instead, you must **break the Tank** and catch the Pokémon normally. This is a temporary workaround due to current Cobblemon triggers\n\n### 🎮 **Gameplay & Mechanics**\n\n*   **Cooking Recipes:** Fixed the recipes for **Bean Medley Curry** and **Bitter Herb Medley Curry**\n*   **Fight or Flight Config:** Fixed aggressive behavior settings. Wild aggressive Pokémon will now attack players again. Some Pokémon may also become aggressive if provoked (e.g., after a failed catch attempt)\n    *   _Note: You cannot catch a Pokémon while it is in an aggressive state outside of battle_\n\n### ⚙️ **Updates**\n\n*   Cobblemon Fast Mounts\n*   **[LumyMon](https://modrinth.com/mod/lumymon)**\n\n***\n\n_We are currently working on fixing other reported bugs, but they will require some extra time to be fully resolved. Thank you for your patience!_\n\n**Found a new bug?** Please report it on our [Discord](https://discord.lumy.fun) so we can fix it as soon as possible! **Happy Holidays!** 🎄",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.2.mrpack",
+          "size": 149104436,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "eKnDcfvF",
+      "name": "COBBLEVERSE 1.7.1",
+      "version_number": "1.7.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-12-21T18:39:53.047325Z",
+      "downloads": 59858,
+      "changelog": "![COBBLEVERSE 1.7.1 Update](https://cdn.modrinth.com/data/cached_images/5570e621669e6fa183d0db8ccb470df91b053cdb_0.webp)\n## COBBLEVERSE 1.7.1\n\n### 📘 EXPLORE ALL NEW FEATURES ON OUR WIKI!\n> We have updated our official Wiki with detailed guides for every aspect of this update. \n> **[Click here to visit wiki.lumy.fun](https://wiki.lumy.fun)** to discover all the new **spawn methods**, complete guides on the **new Mega Evolutions**, and much more!\n\n### 🌟 New Content & Features\n\n#### World Generation\n* **New Poké Towns:** Added **Dark** and **Fighting** Villages, unique variants now found in the world, featuring new structures and themed layouts.\n\n#### Quality of Life & Decoration\n* **CobbleFurnies Integration:** CobbleFurnies Stoves are now compatible with the built-in Cobblemon Cooking mechanism.\n* **New Furniture:** Expanded decorative options with the addition of:\n  * Curtains 🪟\n  * Armchairs 🪑\n  * Upper Cabinets 🗄️\n  * Lamps 🛋️\n  * Night Stands 🛌\n* **Disabled Default Roll:** The camera roll effect during Pokémon riding is now disabled by default to prevent motion sickness. This can be re-enabled easily in-game ([Guide](https://www.lumyverse.com/cobbleverse/how-to-enable-camera-roll/)).\n* **Pokémon Paintings:** Added 50+ new Pokémon-themed paintings.\n\n#### PC & IV Display Enhancements\n* **Average IV Line:** Added an average IV line displayed below the normal Individual Values (IVs).\n* **IV Percentage View:** Holding the **Shift** key will now display the IVs as a percentage (IV %).\n* **Egg Display:** Egg Lore Display now shows the appropriate **Poké Ball** used.\n* **Visual Clarity:** The symbol for **Perfect IVs (31)** is now colored Aqua to prevent it from being mistaken for the Shiny Pokémon symbol (Yellow).\n* **All Zero IV Indicator:** Added an **Egg Indicator (Red Hazard Triangle)** for Pokémon with all 0 IVs.\n\n#### New Pokémon and Models\n* **Eternal Floette:** Added spawn logic and Mega Evolution support for Eternal Floette.\n* **New Animated Models:** Ad\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "COBBLEVERSE 1.7.1.mrpack",
+          "size": 149106338,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

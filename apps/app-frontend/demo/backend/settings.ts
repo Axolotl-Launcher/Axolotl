@@ -1,4 +1,5 @@
 import type { AppSettings } from '@/helpers/settings'
+import type { TranslationSettings } from '@/helpers/translation'
 import { DEFAULT_FEATURE_FLAGS } from '@/store/theme'
 
 import type { Handlers } from './types'
@@ -104,4 +105,17 @@ export const settingsHandlers: Handlers = {
         return structuredClone(settings)
     },
     'plugin:auth|set_mojang_auth_use_mirror': () => true,
+    // Translating needs a provider the demo cannot reach, so it never starts on its own.
+    'plugin:translation|translation_get_settings': (): TranslationSettings => ({
+        provider: 'google',
+        target_language: 'zh-CN',
+        mode: 'bilingual',
+        auto_translate: false,
+        style: 'default',
+        ai_provider_id: '',
+        ai_model_id: '',
+        ai_system_prompt: '',
+        deepl_api_endpoint: '',
+        deepl_api_key: null,
+    }),
 }

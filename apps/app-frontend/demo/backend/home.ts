@@ -58,5 +58,4 @@ export const homeHandlers: Handlers = {
     'plugin:servers|servers_list': () => [],
     'plugin:worlds|get_favorite_worlds': () => [],
     'plugin:worlds|get_recent_worlds': () => [],
-    'plugin:axolotl-resources|resource_project_documents': () => [],
 }

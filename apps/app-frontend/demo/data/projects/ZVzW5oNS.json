@@ -1,0 +1,276 @@
+{
+  "id": "ZVzW5oNS",
+  "slug": "incendium",
+  "title": "Incendium Legacy",
+  "description": "A nether biome overhaul combined with challenging structures to conquer, unique weapons to obtain, and tricky mobs to defeat.",
+  "author": "Starmute",
+  "categories": ["adventure", "datapack", "fabric", "forge", "neoforge", "quilt", "worldgen"],
+  "display_categories": [
+    "adventure",
+    "datapack",
+    "fabric",
+    "forge",
+    "neoforge",
+    "quilt",
+    "worldgen"
+  ],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 10608993,
+  "followers": 3121,
+  "license": {
+    "id": "LicenseRef-Stardust-Labs-License",
+    "name": ""
+  },
+  "loaders": ["datapack", "fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "1phtTdhj",
+  "date_created": "2022-11-23T00:20:14.180965Z",
+  "date_modified": "2026-10-12T15:47:39.625143Z",
+  "color": 3542799,
+  "published": "2022-11-23T00:20:14.180965Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/Stardust-Labs-MC/Incendium/issues",
+  "source_url": "https://github.com/Stardust-Labs-MC/Incendium",
+  "wiki_url": "https://stardustlabs.miraheze.org/wiki/Incendium",
+  "discord_url": "https://discord.gg/stardustlabs",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/stardustlabs"
+    },
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/stardustlabs"
+    }
+  ],
+  "versions_total": 47,
+  "body": "\n# Incendium\n\n[Latest Version](https://github.com/Stardust-Labs-MC/Incendium/releases) [Discord Badge](https://discord.gg/stardustlabs) [Modrinth Badge](https://modrinth.com/mod/incendium) [License Badge](https://github.com/Stardust-Labs-MC/license) [Wiki Badge](https://stardustlabs.miraheze.org/) [Issues Badge](https://github.com/Stardust-Labs-MC/Incendium/issues) [Weblate Badge](https://weblate.catter.dev/projects/stardust-labs)\n\nIncendium is a datapack that completely revamps the nether, way more than what Minecraft did in the 1.16 Nether Update.\n\n![Incendium Banner](https://user-images.githubusercontent.com/63272345/224804955-2c8a39b1-d015-462b-a28c-dde27f747c90.png)\n\n## Notes\n- Incendium has an optional resourcepack called [Sparkles](https://modrinth.com/resourcepack/sparkles)! This is __not__ required, but it allows all items to have their own beautiful textures.\n- Incendium is **not** compatible with Amplified Nether\n- Do not add this to an existing nether - reset yours first, or use a new world\n- View the structures and biomes per seed using [jacobsjo](https://github.com/jacobsjo)'s [Minecraft Datapack Map](https://map.jacobsjo.eu/)\n\n## Description\n### Biomes\nIncendium adds 8 unique biomes to the nether. Do you bravely venture through the perilous **Quartz Flats**, wander the mysterious **Withered Forest**, or battle your way through the steep **Infernal Dunes**? Each biome has a unique personality and story to tell. With unique block themes in each biomes, opportunities for new farms for technical players, 3D biomes, and stunning terrain, there is truly something for everyone.\n\n### Structures\nTo complement the lovely biomes, there are 9+ structures for you to explore and conquer. In the Ash Barrens, the **Forbidden Castle** stands forebodingly, with courageous Piglins defending its treasured loot - one of the largest and complex random structures in Minecraft! Alternatively, you can conquer the ominous **Sanctum** with its illagers defending dark secrets and strong weapons. The skeleton chef Torte defends his **Quartz Kitchen**, and the Withered Director his **Nether Reactor**. What will you conquer first?\n\n### Items\nEvery mob you defeat and structure you conquer has its reward - Incendium pays you handsomely with rich loot and custom weapons! Defeating the Hovering Inferno could earn you the **Trailblazer** - a flame-spewing bow. A high damage, but taxing **Greatsword of Sacrifice** hides within the Forbidden Castle's walls, along with the helpful **Hefty Pickaxe**. Or maybe you prefer to find the **Hazmat Suit** to protect you from all types of poisonous attacks. There are over 25 items to forge your own playstyle with!\n\n### Mobs\nNo datapack would be complete without its own mobs to fight you. The Toxic Heap is home of the agile **Toxic Slimes**, and the Withered Forest is haunted by the **Restless Spirits**. On the other hand, you could go on a rescue mission to save the **Ghastling** from the Abandoned Tower - in return, it will defend you from Ghasts. If none of this is challenging, you can summon the all-powerful **Hovering Inferno** boss for a difficult and dirty battle.\n__ __\n\n[![Patron Ad](https://user-images.githubusercontent.com/63272345/224786738-7baefaf8-267f-41b6-8ac5-53cc4bd5707e.png)](https://www.patreon.com/stardustlabs)\n\n[![Bisect Hosting Ad](https://user-images.githubusercontent.com/63272345/224786219-f87f21d2-fb51-4d78-82df-a16e83fe25c9.png)](https://www.bisecthosting.com/stardust)\n    ",
+  "gallery": [],
+  "team": [
+    {
+      "username": "catter1",
+      "role": "Project Lead",
+      "avatar": "https://avatars.githubusercontent.com/u/63272345?v=4"
+    },
+    {
+      "username": "limesplatus",
+      "role": "Bossfight Dev",
+      "avatar": "https://cdn.modrinth.com/user/6gUWVwiH/3fe0c6b15dce11cc51850252a3791b01a892c25a.png"
+    },
+    {
+      "username": "ReiTheGoat01",
+      "role": "Head Dev",
+      "avatar": "https://cdn.modrinth.com/user/xv7ADkpT/f5d92d25b5f771b05a04d75b3b0c3682d4b12334.jpg"
+    },
+    {
+      "username": "destroyer077",
+      "role": "Worldgen Dev",
+      "avatar": "https://cdn.modrinth.com/user/7Jhk14uO/8ed8310140f9fcf3b87fa1763d5702ec5df3cf11.webp"
+    },
+    {
+      "username": "Rennen_Rig",
+      "role": "Worldgen Dev",
+      "avatar": "https://cdn.modrinth.com/user/ZKKyFftE/b95f8a87f482ba9919e0c54b548b4afbb7aab0fc.webp"
+    },
+    {
+      "username": "Starmute",
+      "role": "Creator",
+      "avatar": "https://cdn.modrinth.com/user/oRXQvVNJ/97f7c767b3b6c78eafb51a2e17f04b36da5d294d.jpeg"
+    }
+  ],
+  "versions": [
+    {
+      "id": "1phtTdhj",
+      "name": "v5.5.4+26.3 ~ Datapack",
+      "version_number": "5.5.4+26.3",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-10-12T15:47:39.625143Z",
+      "downloads": 3525,
+      "changelog": "# Incendium Legacy v5.5.4+26.3\n- Fix a possible crash when loading Forbidden Castle (attempt 2)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_Legacy_v5.5.4+26.3.zip",
+          "size": 4084119,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "D4vWUd23",
+      "name": "v5.5.4+26.3 ~ Mod",
+      "version_number": "5.5.4+26.3",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": true,
+      "date_published": "2026-10-12T15:46:41.517820Z",
+      "downloads": 12998,
+      "changelog": "# Incendium Legacy v5.5.4+26.3\n- Fix a possible crash when loading Forbidden Castle (attempt 2)\n- Fix loading issue on Forge",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_26.3_v5.5.4+26.3.jar",
+          "size": 4087185,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vV8n8tu0",
+      "name": "v5.5.3+26.3 ~ Datapack",
+      "version_number": "5.5.3+26.3",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-09-28T11:07:27.038782Z",
+      "downloads": 4905,
+      "changelog": "# Incendium Legacy v5.5.3+26.3\n- Fixed a crash that could sometimes occur when generating the Forbidden Castle",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_Legacy_v5.5.3+26.3.zip",
+          "size": 4149008,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vMABj7fb",
+      "name": "v5.5.3+26.3 ~ Mod",
+      "version_number": "5.5.3+26.3",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": true,
+      "date_published": "2026-09-28T11:06:09.801838Z",
+      "downloads": 20477,
+      "changelog": "# Incendium Legacy v5.5.3+26.3\n- Fixed a crash that could sometimes occur when generating the Forbidden Castle",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_26.3_v5.5.3+26.3.jar",
+          "size": 4152072,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2QitfRYN",
+      "name": "v5.5.2+26.3 ~ Datapack",
+      "version_number": "5.5.2+26.3",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-09-24T20:53:27.098580Z",
+      "downloads": 829,
+      "changelog": "# Incendium Legacy v5.5.2+26.3\n- Updated to support 26.3\n- Toxic Heap now generates with Sulfur\n\nAs always, thank you to Rei for making this update",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_Legacy_v5.5.2+26.3.zip",
+          "size": 4151208,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "b6MWHwUW",
+      "name": "v5.5.2+26.3 ~ Mod",
+      "version_number": "5.5.2+26.3",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": true,
+      "date_published": "2026-09-24T20:52:06.070002Z",
+      "downloads": 2812,
+      "changelog": "# Incendium Legacy v5.5.2+26.3\n- Updated to support 26.3\n- Toxic Heap now generates with Sulfur\n\nAs always, thank you to Rei for making this update",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_26.3_v5.5.2+26.3.jar",
+          "size": 4154271,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fCO5u5MF",
+      "name": "[DP] v5.5.1",
+      "version_number": "5.5.1",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-09-01T21:37:31.716662Z",
+      "downloads": 9969,
+      "changelog": "# Incendium Legacy: v5.5.1\n- Fixed loading issues on Neoforge\n- Fixed Trailblazer and Ragnarok to work properly\n- Fixed Poison Protection enchantment\n- Fixed Torch of Lunacy\n- Fixed Holy Wrath not working properly with Multishot\n- Corrected Voltaic Trident attack speed\n- Buffed Multiplex\n- Adjusted entity system to be more accurate",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_26.2_v5.5.1.zip",
+          "size": 4172491,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vPwuqZ5y",
+      "name": "[Mod] v5.5.1",
+      "version_number": "5.5.1",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": true,
+      "date_published": "2026-09-01T21:35:37.718722Z",
+      "downloads": 31940,
+      "changelog": "# Incendium Legacy: v5.5.1\n- Fixed loading issues on Neoforge\n- Fixed Trailblazer and Ragnarok to work properly\n- Fixed Poison Protection enchantment\n- Fixed Torch of Lunacy\n- Fixed Holy Wrath not working properly with Multishot\n- Corrected Voltaic Trident attack speed\n- Buffed Multiplex\n- Adjusted entity system to be more accurate",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Incendium_26.2_v5.5.1.jar",
+          "size": 4175523,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

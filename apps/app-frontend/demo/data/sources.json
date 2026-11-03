@@ -22,5 +22,28 @@
       "https://net-secondary.web.minecraft-services.net/api/v1.0/en-us/search?pageSize=24&sortType=Recent&category=News&newsOnly=true&geography=USA (app-lib api/minecraft_news.rs)"
     ],
     "note": "images localized under assets/news"
+  },
+  "discover/*.json": {
+    "fetchedAt": "2026-10-23T11:12:12+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "https://api.modrinth.com/v2/search?limit=20&index=relevance&offset={0,20}&facets=[[\"project_type:{type}\"]]"
+    ],
+    "note": "the first 40 mods and modpacks and the first 20 of the other types; the icons in assets/projects come from each hit's icon_url, converted to WebP"
+  },
+  "projects/*.json": {
+    "fetchedAt": "2026-10-23T11:12:12+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "https://api.modrinth.com/v2/project/{id}",
+      "https://api.modrinth.com/v2/project/{id}/version",
+      "https://api.modrinth.com/v2/project/{id}/members"
+    ],
+    "note": "keeps the newest 8 versions, cuts changelogs at 2000 characters and drops embedded dependencies; description images, gallery images and member avatars keep their original URLs and are not bundled"
+  },
+  "content-names.json": {
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": ["packages/app-lib/src/api/content_search/WikiEntries.txt (v1.10.0)"],
+    "note": "MC 百科 entries for the recorded slugs: [wiki ID, Chinese name]"
   }
 }

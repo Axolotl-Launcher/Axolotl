@@ -2,6 +2,7 @@ import { mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 
 import { appHandlers } from './app'
 import { authHandlers } from './auth'
+import { discoverHandlers } from './discover'
 import { homeHandlers } from './home'
 import { instanceHandlers } from './instances'
 import { runtimeHandlers } from './runtime'
@@ -12,6 +13,7 @@ import type { Handlers } from './types'
 const handlers: Handlers = {
     ...appHandlers,
     ...authHandlers,
+    ...discoverHandlers,
     ...homeHandlers,
     ...instanceHandlers,
     ...runtimeHandlers,

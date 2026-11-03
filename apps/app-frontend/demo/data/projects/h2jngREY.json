@@ -1,0 +1,402 @@
+{
+  "id": "h2jngREY",
+  "slug": "trek",
+  "title": "Trek",
+  "description": "Bored of vanilla structure generation? This pack is for you!",
+  "author": "hotsuop",
+  "categories": ["adventure", "datapack", "fabric", "forge", "neoforge", "quilt", "worldgen"],
+  "display_categories": [
+    "adventure",
+    "datapack",
+    "fabric",
+    "forge",
+    "neoforge",
+    "quilt",
+    "worldgen"
+  ],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 12678953,
+  "followers": 1471,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["datapack", "fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2"
+  ],
+  "latest_version": "c92jt3Xd",
+  "date_created": "2025-03-24T00:00:37.881943Z",
+  "date_modified": "2026-06-16T18:44:50.653522Z",
+  "color": 7226402,
+  "published": "2025-03-24T00:00:37.881943Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/hotsu0p/Trek/issues",
+  "source_url": null,
+  "wiki_url": "https://trek-2.gitbook.io/trek",
+  "discord_url": "https://discord.gg/tkyANZeXRN",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/hotsuop"
+    }
+  ],
+  "versions_total": 37,
+  "body": "# Trek\n**Version:** Beta 0.6.2\n\n![Villager island](https://cdn.modrinth.com/data/cached_images/232dbab4329a15ac90dbd0fc27ec2d541c4177ce.jpeg)\n\nTrek is a datapack that turns your Minecraft world into a treasure trove of discovery. Designed for explorers and builders, it adds over 150 custom structures across biomes, blending seamlessly into their environments, all while preserving vanilla gameplay.\n\n### What Does Trek Add?\n- Large structures, such as flying or water islands, pyramids, fortresses, mansions;\n- Different houses, camps, ships, towers, ancient buildings;\n- Or very small ones, like a pork, cooking on a campfire, or ruins remained as a sign, that structure has been there;\n- Trek also overhauls **some** vanilla structures, ensuring that finding them will feel more exiting. We have plans of overhauling all vanilla structures in future.\n\n### Features\n- **Biome-Specific**: Jungle treehouses in rainforests, snowmans in taigas;\n- **Weighted Spawning**: Rare finds like sunken cities feel special;\n- **Vanilla-Friendly**: No mods, just a datapack;\n- **Higly compatible**: List of compatibilities can be found on our [wiki](https://trek-2.gitbook.io/trek/compatibilities).\n\n![Village at sunset](https://cdn.modrinth.com/data/cached_images/ead97d38ff61a99fe5a93245edcfd9c682494798.jpeg)\n\n\n### Why Download Trek?\nPerfect for survivalists seeking challenges, nomads hunting ruins, or builders wanting inspiration. Sail to ocean islands, uncover frozen trees, or trade in lush savannas — all in vanilla Minecraft!\n\n[![Ko-fi Button](https://cdn.modrinth.com/data/cached_images/276e6f0c5acd4735f82da0219ef160a48e4cd843.gif 'Ko-fi Support Button')](https://ko-fi.com/hotsuop)\n\n<small> *Donations help us to keep the mod up to date and develop new features! </small>\n\n### Check out our [wiki](https://trek-2.gitbook.io/trek) for more information.\n\nEnjoy your Trek adventure!",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/h2jngREY/images/ead97d38ff61a99fe5a93245edcfd9c682494798_350.webp",
+      "featured": true,
+      "title": "Village at sunrise",
+      "description": " ",
+      "created": "2025-03-30T13:05:35.496515Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/h2jngREY/images/4059f5ea1b580e70945393c202c2a2662dc740c8_350.webp",
+      "featured": false,
+      "title": "Jungle treehouse",
+      "description": " ",
+      "created": "2025-03-24T21:38:38.921904Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/h2jngREY/images/52958c6fbb09441ff523d4408701126da20374b7_350.webp",
+      "featured": false,
+      "title": "Island",
+      "description": " ",
+      "created": "2025-03-26T14:36:24.426400Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/h2jngREY/images/fb424c24c9e302572f537eb1a47521be71b1bb31_350.webp",
+      "featured": false,
+      "title": "Villager island",
+      "description": " ",
+      "created": "2025-03-30T13:16:01.038341Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "hotsuop",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/130086894?v=4"
+    },
+    {
+      "username": "Hugger",
+      "role": "Developer",
+      "avatar": "https://cdn.modrinth.com/data/kdG3bpj5/0ab0d192342a1f9eac1b10bd046c891bf0c16b96.gif"
+    },
+    {
+      "username": "ALDgamer",
+      "role": "Designer",
+      "avatar": "https://cdn.modrinth.com/user/pCRbyBb7/9cd342b7e030e90812165b4bec64e00d45a20d05.jpg"
+    }
+  ],
+  "versions": [
+    {
+      "id": "OYbFzi8L",
+      "name": "Beta 0.6.2",
+      "version_number": "B0.6.2+mod",
+      "version_type": "beta",
+      "game_versions": [
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2"
+      ],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2026-06-16T18:44:50.653522Z",
+      "downloads": 557973,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "trek-B0.6.2.jar",
+          "size": 12461621,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "1GsZGXOm",
+      "name": "Beta 0.6.2",
+      "version_number": "B0.6.2+mod",
+      "version_type": "beta",
+      "game_versions": [
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6"
+      ],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2026-06-14T10:55:12.708571Z",
+      "downloads": 297866,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "trek-B0.6.2.jar",
+          "size": 12463832,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "c92jt3Xd",
+      "name": "Beta 0.6.2",
+      "version_number": "B0.6.2",
+      "version_type": "beta",
+      "game_versions": [
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2"
+      ],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-06-14T10:54:30.248533Z",
+      "downloads": 56599,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Trek 1.21-26.2 B0.6.2.zip",
+          "size": 5962209,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ZoqThLO3",
+      "name": "Beta 0.6.2",
+      "version_number": "B0.6.2",
+      "version_type": "beta",
+      "game_versions": [
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6"
+      ],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-06-14T10:52:50.110380Z",
+      "downloads": 10120,
+      "changelog": "# Vanilla structures update. Part 3: Monster rooms\n## New content\n- Huge overhaul of monster rooms. Added variations of monster rooms, depending on biome they spawn in and spawn height. They have simular spawn chances to vanilla monster rooms, but being different, they can not be located using chunkbase.\n## Technical part\n- Added compatibility with Minecraft version 26.2;\n- Fixed crash on 1.19;\n- `tower_island` renamed to `cottage_island`;\n- `island_village_1` renamed to `tower_island`;\n- Added bottom part to `tower_island`(new), added processor;\n- Fixed terrain adaptation for `abandoned_castle_pillager` (other rare structures are planned next updates);\n- Partially rebuilt/fixed `castle` (more fixing planned in future);\n- Fixed flowing water in `farm_island` now it flows down from island upon generating;\n- Added underwater columns to `offshore_pillager_platform`;\n- Added tunnel leading to mining site under `claw_pillager`;\n- Removed infested stone bricks, added processor in `graveyard`;\n- Removed buttons from `stelzen`;\n- Added air to `camp_1` and `camp_3`;\n- `strange_house` divided into 2 parts, added terrain adaptation, removed excess spawners, added processor;\n- Replaced campfires, added processor in `fort`;\n- Changed `salt`.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Trek 1.19-1.20.6 B0.6.2.zip",
+          "size": 5964492,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "O1utQuJh",
+      "name": "Beta 0.6.1.1",
+      "version_number": "B0.6.1.1+mod",
+      "version_type": "beta",
+      "game_versions": [
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2026-04-09T12:11:38.427814Z",
+      "downloads": 1602347,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "trek-B0.6.1.1.jar",
+          "size": 12256491,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Pft1slmq",
+      "name": "Beta 0.6.1.1",
+      "version_number": "B0.6.1.1+mod",
+      "version_type": "beta",
+      "game_versions": [
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6"
+      ],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2026-04-09T12:10:50.655756Z",
+      "downloads": 2838200,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "trek-B0.6.1.1.jar",
+          "size": 12258699,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "JnzRBH1v",
+      "name": "Beta 0.6.1.1",
+      "version_number": "B0.6.1.1",
+      "version_type": "beta",
+      "game_versions": [
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-04-09T12:10:16.556391Z",
+      "downloads": 18534,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Trek 1.21-26.1.2 B0.6.1.1.zip",
+          "size": 5885813,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hs6sYNZy",
+      "name": "Beta 0.6.1.1",
+      "version_number": "B0.6.1.1",
+      "version_type": "beta",
+      "game_versions": [
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6"
+      ],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-04-09T12:08:56.235214Z",
+      "downloads": 2110,
+      "changelog": "# Minor mc version compatibility update\n## Technical part\n- Datapack divided back into 2 separate packs for 1.19-1.20.6 and 1.21-26.1.2, Which results in:\n- Error `Couldn't load file/Trek.zip pack metadata: Multi-version packs cannot support minimum version of less than 15, since this will leave versions in range unable to load pack.` should not appear anymore\n- Fixed incompatibility with newer neoforge versions ([Issue #26](https://github.com/hotsu0p/Trek-Issues/issues/26))\n- Overall datapack size is halved",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Trek 1.19-1.20.6 B0.6.1.1.zip",
+          "size": 5888058,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

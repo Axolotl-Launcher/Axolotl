@@ -40,6 +40,9 @@ export default defineConfig((env: ConfigEnv) => {
             outDir: resolve(projectRoot, 'demo/dist'),
             emptyOutDir: true,
             target: 'es2022',
+            // Keep recorded images as files: inlined, every icon would ride in the startup chunk.
+            assetsInlineLimit: (file: string) =>
+                file.includes('/demo/assets/') ? false : undefined,
             rolldownOptions: {
                 input: resolve(projectRoot, 'demo/index.html'),
                 // @modrinth/ui declares no `sideEffects`, so its barrel pulls in every

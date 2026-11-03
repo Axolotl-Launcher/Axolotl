@@ -1,0 +1,231 @@
+{
+  "id": "KmiWHzQ4",
+  "slug": "skyblocker-modpack",
+  "title": "Skyblocker Modpack - Hypixel Skyblock",
+  "description": "A Hypixel Skyblock Modpack with common client-side utilities, along with the Skyblocker mod.",
+  "author": "Wohlhabend",
+  "categories": ["fabric", "lightweight", "multiplayer"],
+  "display_categories": ["lightweight", "multiplayer"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 1137878,
+  "followers": 221,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.18.1",
+    "1.18.2",
+    "1.19.2",
+    "1.19.4",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.4",
+    "1.21.5",
+    "1.21.8",
+    "1.21.10",
+    "1.21.11",
+    "26.1.2",
+    "26.2"
+  ],
+  "latest_version": "tfqGeqD5",
+  "date_created": "2022-02-27T22:29:45.898911Z",
+  "date_modified": "2026-10-19T21:49:47.042892Z",
+  "color": 6182743,
+  "published": "2022-02-27T22:29:45.898911Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/SkyblockerMod/Skyblocker-modpack/issues",
+  "source_url": "https://github.com/SkyblockerMod/Skyblocker-modpack",
+  "wiki_url": null,
+  "discord_url": "https://discord.com/invite/aNNJHQykck",
+  "donation_urls": [],
+  "versions_total": 118,
+  "body": "<img height=\"150\" src=\"https://hysky.de/skyblocker.png\" />\n\nThis modpack includes useful client-side **utility** and **performance** mods alongside the [Skyblocker](https://modrinth.com/mod/skyblocker-liap) mod. \\\n\\\nThis modpack is intended for the Skyblock game mode on hypixel.net.\n\n![skyblocker modpack](https://cdn.modrinth.com/data/cached_images/a8a4c330bbdca709daf28afdf491b272afca6e74.png)\n\n## 🔧 Mods\n\n<details open>\n<summary> Installed mods (29 mods)</summary>\n\n### Hypixel Quality Of Life Mods:\n- [Skyblocker](https://modrinth.com/mod/skyblocker-liap)\n- [Aaron’s Mod](https://modrinth.com/mod/aaron-mod)\n\n### Performance Mods:\n- [Async Logger](https://modrinth.com/mod/asynclogger)\n- [Entity Culling](https://modrinth.com/mod/entityculling)\n- [FerriteCore](https://modrinth.com/mod/ferrite-core)\n- [ImmediatelyFast](https://modrinth.com/mod/immediatelyfast)\n- [Ixeris](https://modrinth.com/mod/ixeris)\n- [Lithium](https://modrinth.com/mod/lithium)\n- [Particle Core](https://modrinth.com/mod/particle-core)\n- [Sodium](https://modrinth.com/mod/sodium)\n\n### Quality Of Life Mods:\n- [Tooltip Scroll](https://modrinth.com/mod/tooltip-scroll)\n- [Chat Patches](https://modrinth.com/mod/chatpatches)\n- [Gamma Utils (Full-bright)](https://modrinth.com/mod/gamma-utils)\n- [Reese's Sodium Options](https://modrinth.com/mod/reeses-sodium-options)\n- [Roughly Enough Items (REI)](https://modrinth.com/mod/rei)\n- [Sodium Extra](https://modrinth.com/mod/sodium-extra)\n\n### Miscellaneous:\n- [Iris Shaders](https://modrinth.com/mod/iris)\n- [Mod Menu](https://modrinth.com/mod/modmenu)\n- [YOSBR](https://modrinth.com/mod/yosbr)\n- [Zoomify](https://modrinth.com/mod/zoomify)\n- [ResourcePackCached](https://modrinth.com/mod/resourcepackcached)\n\n### Libraries:\n- [Architectury API](https://modrinth.com/mod/architectury-api)\n- [Cloth Config API](https://modrinth.com/mod/cloth-config)\n- [Fabric API](https://modrinth.com/mod/fabric-api)\n- [Fabric Language Kotlin](https://modrinth.com/mod/fabric-language-kotlin)\n- [Fzzy Config](https://modrinth.com/mod/fzzy-config)\n- [YetAnotherConfigLib](https://modrinth.com/mod/yacl)\n- [Text Placeholder API](https://modrinth.com/mod/placeholder-api)\n- [Simple Modpack Update Checker](https://modrinth.com/mod/smuc)\n\n</details>\n\n## 🎨 Recommended Resource Packs\n\n<details>\n<summary> Resource Packs </summary>\n\n- [Hypixel Plus](https://modrinth.com/resourcepack/hypixel-plus)\n  - Requires [Catharsis](https://modrinth.com/mod/catharsis)!\n- [FurSky Reborn](https://modrinth.com/resourcepack/furfsky-reborn)\n  - Requires [Catharsis](https://modrinth.com/mod/catharsis)!\n- [Skyblock Dark UI](https://modrinth.com/resourcepack/skyblock-dark-ui)\n\n</details>",
+  "gallery": [],
+  "team": [
+    {
+      "username": "Wohlhabend",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/19829407?v=4"
+    },
+    {
+      "username": "Kevinthegreat",
+      "role": "Member",
+      "avatar": "https://avatars.githubusercontent.com/u/92656833?v=4"
+    },
+    {
+      "username": "Alex33856",
+      "role": "Member",
+      "avatar": null
+    }
+  ],
+  "versions": [
+    {
+      "id": "tfqGeqD5",
+      "name": "3.5.35",
+      "version_number": "3.5.35",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-19T21:49:47.042892Z",
+      "downloads": 6696,
+      "changelog": "Updated:\n* Skyblocker\n* Architectury API\n* Async Logger\n* Chat Patches\n* Entity Culling\n* Fabric API\n* Fabric Language Kotlin\n* Gamma Utils (Fullbright)\n* ImmediatelyFast\n* Ixeris\n* Mod Menu\n* Particle Core\n* Reese's Sodium Options\n* ResourcePackCached\n* Sodium Extra\n* YetAnotherConfigLib (YACL)\n* Zoomify",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.35.mrpack",
+          "size": 52566,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "N9zSL6fY",
+      "name": "3.5.34",
+      "version_number": "3.5.34",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T19:55:15.626779Z",
+      "downloads": 39117,
+      "changelog": "Updated:\n* Skyblocker",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.34.mrpack",
+          "size": 52542,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "oBMIGXSJ",
+      "name": "3.5.33",
+      "version_number": "3.5.33",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T13:06:23.117687Z",
+      "downloads": 1074,
+      "changelog": "Updated:\n* Skyblocker\n* Architectury API\n* Fabric API\n* Fabric Language Kotlin\n* Fzzy Config\n* Iris Shaders\n* Mod Menu\n* Simple Modpack Update Checker\n* Sodium",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.33.mrpack",
+          "size": 52545,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hrsgKAWF",
+      "name": "3.5.32",
+      "version_number": "3.5.32",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-02T23:27:15.805928Z",
+      "downloads": 14347,
+      "changelog": "Updated:\n* Skyblocker\n* Fabric API",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.32.mrpack",
+          "size": 52550,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "qrVfgV4t",
+      "name": "3.5.31",
+      "version_number": "3.5.31",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-31T01:24:27.256122Z",
+      "downloads": 4485,
+      "changelog": "Added:\n* Async Logger\n* Fzzy Config\n* Ixeris\n* Particle Core\n\nUpdated:\n* Skyblocker\n* Fabric API\n* ImmediatelyFast",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.31.mrpack",
+          "size": 52288,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "uGLggveW",
+      "name": "3.5.30",
+      "version_number": "3.5.30",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-12T18:05:42.495897Z",
+      "downloads": 26237,
+      "changelog": "Updated:\n* Skyblocker\n* Fabric API",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.30.mrpack",
+          "size": 51697,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "cJux87XY",
+      "name": "3.5.29 (26.2)",
+      "version_number": "3.5.29+26.2",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-04T20:54:27.135903Z",
+      "downloads": 12471,
+      "changelog": "Note on 26.2:\n* This is a beta for 26.2, for 26.1.2 see [3.5.29](https://modrinth.com/modpack/skyblocker-modpack/version/3.5.29).\n* `3.5.30` will be 26.2 only.  \n  \nUpdated:\n* Skyblocker\n* Architectury API",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.29+26.2.mrpack",
+          "size": 51700,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GyoNREcl",
+      "name": "3.5.29",
+      "version_number": "3.5.29",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-04T20:54:07.179631Z",
+      "downloads": 9737,
+      "changelog": "Note on 26.2:\n* There is a beta for 26.2, see [3.5.29+26.2](https://modrinth.com/modpack/skyblocker-modpack/version/3.5.29+26.2).\n* `3.5.30` will be 26.2 only.\n\nUpdated:\n* Skyblocker\n* Iris Shaders",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Skyblocker Modpack-3.5.29.mrpack",
+          "size": 51726,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

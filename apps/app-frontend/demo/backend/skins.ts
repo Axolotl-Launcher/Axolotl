@@ -1,4 +1,3 @@
-import herobrine from '@/assets/skins/herobrine.png'
 import type { Cape, Skin, SkinModel } from '@/helpers/skins'
 
 import defaultSkins from '../data/default-skins.json'
@@ -10,18 +9,10 @@ const textures = import.meta.glob<string>('../assets/skins/*.png', {
     import: 'default',
 })
 
-/** The account named Steve wears the default Steve skin and has saved the app's Herobrine. */
+/** The account named Steve wears the default Steve skin and has no saved skins yet. */
 const STEVE_CLASSIC = '31f477eb1a7beee631c2ca64d06f8f68fa93a3386d04452ab27f43acdf1b60cb'
 
 let skins: Skin[] = [
-    {
-        texture_key: 'local-herobrine',
-        name: 'Herobrine',
-        variant: 'CLASSIC',
-        texture: herobrine,
-        source: 'custom',
-        is_equipped: false,
-    },
     ...defaultSkins.map((skin): Skin => ({
         texture_key: skin.texture_key,
         name: skin.name,

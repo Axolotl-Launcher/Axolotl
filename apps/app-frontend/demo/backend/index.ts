@@ -6,7 +6,9 @@ import { contentHandlers } from './content'
 import { discoverHandlers } from './discover'
 import { homeHandlers } from './home'
 import { instanceHandlers } from './instances'
+import { roomHandlers } from './rooms'
 import { runtimeHandlers } from './runtime'
+import { serverHandlers } from './servers'
 import { settingsHandlers } from './settings'
 import { skinHandlers } from './skins'
 import { tagHandlers } from './tags'
@@ -19,7 +21,9 @@ const handlers: Handlers = {
     ...discoverHandlers,
     ...homeHandlers,
     ...instanceHandlers,
+    ...roomHandlers,
     ...runtimeHandlers,
+    ...serverHandlers,
     ...settingsHandlers,
     ...skinHandlers,
     ...tagHandlers,

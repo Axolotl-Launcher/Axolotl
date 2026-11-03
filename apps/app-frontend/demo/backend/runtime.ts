@@ -34,4 +34,15 @@ export const runtimeHandlers: Handlers = {
     'plugin:window|set_effects': ignore,
     'plugin:window|is_maximized': () => false,
     'plugin:window|is_fullscreen': () => false,
+    // The demo plays a Mac: paths join with `/`.
+    'plugin:path|join': ({ paths }) => (paths as string[]).join('/').replace(/\/{2,}/g, '/'),
+    // The Java the demo's servers name (servers.ts): Temurin 25 on Apple silicon.
+    'plugin:jre|jre_get_jre': ({ path }) => ({
+        parsed_version: 25,
+        version: '25.0.1',
+        architecture: 'aarch64',
+        path: String(path),
+        distribution: 'Temurin',
+    }),
+    'plugin:jre|jre_test_jre': () => true,
 }

@@ -95,6 +95,15 @@ const settings: AppSettings = {
     version: 1,
 }
 
+/** What an action that needs the visitor's computer reports, in the app's language. */
+export function desktopOnly() {
+    return new Error(
+        settings.locale.startsWith('zh')
+            ? '网页演示无法完成这项操作，请下载桌面版启动器体验。'
+            : 'The web demo cannot do this. Download the launcher to try it.',
+    )
+}
+
 export const settingsHandlers: Handlers = {
     'plugin:settings|settings_get': () => structuredClone(settings),
     'plugin:settings|settings_set': ({ settings: next }) => {

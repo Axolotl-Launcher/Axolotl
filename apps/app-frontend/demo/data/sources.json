@@ -63,5 +63,10 @@
       "packages/app-lib/src/api/minecraft_skins/assets/default/default_skins.rs (DEFAULT_SKINS, in order)"
     ],
     "note": "textures decoded from the data URLs into assets/skins, numbered in that order; the saved Herobrine skin is the app's own src/assets/skins/herobrine.png"
+  },
+  "servers/*.json": {
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": ["each file's source: the server jar, Java and command it ran, and when"],
+    "note": "console output of a first start, the listed commands and a stop, with the folder the run left behind; lines replay with their original timing"
   }
 }

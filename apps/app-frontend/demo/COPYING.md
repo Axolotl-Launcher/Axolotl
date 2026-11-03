@@ -10,6 +10,7 @@ The recorded data and images in `data/` and `assets/` are not covered by that li
 - `data/discover/`, `data/projects/`, `data/modpacks.json`, `data/instance-content.json` and `assets/projects/`: search results, project pages (descriptions, versions and team members), modpack file lists, version data and icons of projects published on Modrinth. Each project belongs to its authors under the license shown on its Modrinth page.
 - `data/content-names.json`: Chinese names and MC 百科 (mcmod.cn) entry IDs, taken from the dictionary the launcher bundles.
 - `data/tags.json`: game version, loader, category and license tags, including their icons, recorded from the Modrinth API.
+- `data/servers/`: console output and configuration files recorded from Minecraft's dedicated server and Fabric's server launcher, which belong to Mojang Studios / Microsoft and the Fabric project.
 - `data/default-skins.json` and `assets/skins/`: the skins the launcher bundles. Minecraft's default and skin pack skins are Copyright Mojang Studios / Microsoft; the Mr. Pack pride skins belong to Rinth, Inc.
 
 Images in project descriptions, gallery images and member avatars are not stored here: the demo shows them from their original addresses, as the launcher does.

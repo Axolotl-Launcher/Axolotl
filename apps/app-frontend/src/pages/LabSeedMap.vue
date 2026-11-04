@@ -31,6 +31,7 @@ import {
     Admonition,
     Button,
     Checkbox,
+    ColorPicker,
     Combobox,
     defineMessages,
     injectNotificationManager,
@@ -3572,11 +3573,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                         v-model="markerName"
                                         :placeholder="formatMessage(messages.markerName)"
                                     />
-                                    <input
+                                    <ColorPicker
                                         v-model="markerColor"
-                                        type="color"
-                                        class="marker-color-input"
-                                        :aria-label="formatMessage(messages.markerColor)"
+                                        :label="formatMessage(messages.markerColor)"
                                     />
                                 </div>
                                 <div class="mt-3 flex flex-wrap gap-2">
@@ -3793,11 +3792,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                     v-model="markerName"
                                     :placeholder="formatMessage(messages.markerName)"
                                 />
-                                <input
+                                <ColorPicker
                                     v-model="markerColor"
-                                    type="color"
-                                    class="size-9 rounded border border-surface-4 bg-surface-3"
-                                    :aria-label="formatMessage(messages.markerColor)"
+                                    :label="formatMessage(messages.markerColor)"
                                 />
                             </div>
                             <div class="flex flex-wrap items-center gap-2">
@@ -4579,15 +4576,6 @@ function selectDimension(dimension: SeedMapDimension) {
     height: 2.5rem;
     justify-content: center;
     white-space: nowrap;
-}
-
-.marker-color-input {
-    width: 2.25rem;
-    height: 2.25rem;
-    border: 1px solid var(--surface-5);
-    border-radius: var(--radius-sm);
-    background: var(--surface-4);
-    padding: 0.2rem;
 }
 
 @media (max-width: 1200px) {

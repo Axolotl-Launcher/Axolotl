@@ -38,10 +38,44 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - name: Setup desktop build
-        uses: ./.github/actions/setup-desktop-build
+      # `setup-desktop-build` downloads the `desktop-resources` artifact, which
+      # only the main CI workflow produces. This workflow runs on its own, so it
+      # installs the toolchain and native dependencies directly instead.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          profile: ci
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          toolchain="$(node -e 'const fs=require("node:fs");const s=fs.readFileSync("rust-toolchain.toml","utf8");process.stdout.write(s.match(/^channel\s*=\s*"([^"]+)"/m)[1])')"
+          rustup toolchain install "$toolchain" --profile minimal --component rustfmt
+          rustup default "$toolchain"
+      - name: Install Linux linker
+        uses: ./.github/actions/setup-mold
+      - name: Restore dependency cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: temp-probe-stress
+          cache-on-failure: true
+          cache-bin: false
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get -o Acquire::ForceIPv4=true update
+          sudo apt-get -o Acquire::ForceIPv4=true install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      # The Java jars live in a build output, so `theseus`' build script builds
+      # them with the runner's JDK when no prepared resource bundle is given.
+      - name: Verify the runner JDK
+        shell: bash
+        run: |
+          java -version
+          test -n "${JAVA_HOME:-}" || echo 'JAVA_HOME is unset; gradlew resolves java from PATH'
       - name: Install coverage tools
         uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
         with:
@@ -52,12 +86,15 @@ jobs:
       # point is to repeat the tests, not to repeat a 30-minute build.
       # `cargo llvm-cov --no-run` is deprecated and conflicts with --no-report,
       # so the instrumentation environment is injected directly.
+      #
+      # Only `theseus` is built: the shell's build script needs the Blockbench
+      # submodule's compiled bundle, which this workflow has no use for.
       - name: Build instrumented tests
         shell: bash
         run: |
           set -euo pipefail
           eval "$(cargo llvm-cov show-env --sh)"
-          cargo test --no-run --locked --workspace --exclude theseus_gui
+          cargo test -p theseus --lib --no-run --locked
       - name: Locate the test binary
         id: binary
         shell: bash

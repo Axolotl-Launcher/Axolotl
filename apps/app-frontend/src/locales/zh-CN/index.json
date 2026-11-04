@@ -4781,6 +4781,12 @@
   "app.instance.mods.update-added-content.description": {
     "message": "仅更新整合包安装后添加的内容，不会更改整合包自带文件。"
   },
+  "app.instance.mods.update-nothing-to-apply.body": {
+    "message": "所选内容没有找到更新的兼容版本，因此没有更改任何文件。"
+  },
+  "app.instance.mods.update-nothing-to-apply.title": {
+    "message": "没有可应用的更新"
+  },
   "app.instance.never-played": {
     "message": "从未游玩"
   },

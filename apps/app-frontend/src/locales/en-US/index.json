@@ -3890,6 +3890,12 @@
   "app.instance.mods.update-added-content.description": {
     "message": "Updates only content added after the modpack was installed. Modpack files are not changed."
   },
+  "app.instance.mods.update-nothing-to-apply.body": {
+    "message": "No newer compatible version was found for the selected content, so no files were changed."
+  },
+  "app.instance.mods.update-nothing-to-apply.title": {
+    "message": "Nothing to update"
+  },
   "app.instance.never-played": {
     "message": "Never played"
   },

@@ -14,11 +14,18 @@ export { confirmedContentGroupKey } from '@modrinth/ui'
 const instanceUpdates = new Map<string, Promise<boolean>>()
 const pendingEntries = new Map<string, Map<string, Promise<boolean>>>()
 
+/**
+ * Queues direct updates for installed entries. `onNothingToApply` runs once
+ * for each prepared plan that has no file to change, so the caller can say so
+ * instead of finishing silently. A request whose entries are already pending
+ * shares that task and its single notice.
+ */
 export async function queueResourceEntryUpdates(
     instanceId: string,
     entryIds: string[],
     track: (job: InstallJobSnapshot) => void,
     formatMessage: ReturnType<typeof useVIntl>['formatMessage'],
+    onNothingToApply?: () => void,
 ): Promise<boolean> {
     const selected = [...new Set(entryIds)]
     if (!selected.length) return false
@@ -29,7 +36,15 @@ export async function queueResourceEntryUpdates(
         const previous = instanceUpdates.get(instanceId) ?? Promise.resolve(false)
         const task = previous
             .catch(() => false)
-            .then(() => runResourceEntryUpdate(instanceId, remaining, track, formatMessage))
+            .then(() =>
+                runResourceEntryUpdate(
+                    instanceId,
+                    remaining,
+                    track,
+                    formatMessage,
+                    onNothingToApply,
+                ),
+            )
         instanceUpdates.set(instanceId, task)
         pendingEntries.set(instanceId, entries)
         for (const entry of remaining) entries.set(entry, task)
@@ -49,6 +64,7 @@ async function runResourceEntryUpdate(
     entryIds: string[],
     track: (job: InstallJobSnapshot) => void,
     formatMessage: ReturnType<typeof useVIntl>['formatMessage'],
+    onNothingToApply?: () => void,
 ) {
     const prepare = (onProgress: (progress: ResourceOperationProgress) => void) =>
         resourcePrepareEntryOperation(
@@ -79,7 +95,10 @@ async function runResourceEntryUpdate(
                         )
                         .join('\n'),
                 )
-            if (!plan.actions.length) return false
+            if (!plan.actions.length) {
+                onNothingToApply?.()
+                return false
+            }
             queuedJob = await resourceQueuePlan(
                 plan.id,
                 plan.revision,

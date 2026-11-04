@@ -84,42 +84,51 @@ jobs:
         run: rustup component add llvm-tools-preview
       # Build the instrumented test binary once, then run it in a loop: the
       # point is to repeat the tests, not to repeat a 30-minute build.
-      # `cargo llvm-cov --no-run` is deprecated and conflicts with --no-report,
-      # so the instrumentation environment is injected directly.
       #
-      # Only `theseus` is built: the shell's build script needs the Blockbench
-      # submodule's compiled bundle, which this workflow has no use for.
-      #
-      # The coverage build directory is pinned explicitly rather than read from
-      # `show-env`: an `eval` of its shell output does not survive on every
-      # platform's shell, and a silently-unset variable makes `find` fall back
-      # to the ordinary `target/debug` binary, which is not instrumented.
-      - name: Build instrumented tests
+      # `cargo llvm-cov` owns the target directory and ignores an outer
+      # `CARGO_LLVM_COV_TARGET_DIR` in `--no-report` mode, so the build is
+      # driven through the tool itself: the first iteration runs under
+      # `cargo llvm-cov test`, which produces the instrumented binary in the
+      # directory the tool actually chose.
+      - name: First instrumented run
         shell: bash
-        env:
-          COVERAGE_TARGET_DIR: target/llvm-cov-target
         run: |
           set -euo pipefail
-          export CARGO_LLVM_COV_TARGET_DIR="$COVERAGE_TARGET_DIR"
-          export CARGO_LLVM_COV_BUILD_DIR="$COVERAGE_TARGET_DIR"
-          eval "$(cargo llvm-cov show-env --sh)"
-          echo "RUSTC_WRAPPER=${RUSTC_WRAPPER:-<unset>}"
-          test -n "${RUSTC_WRAPPER:-}" || { echo 'instrumentation wrapper missing' >&2; exit 1; }
-          cargo test -p theseus --lib --no-run --locked
+          cargo llvm-cov test -p theseus --lib --no-report --locked --no-fail-fast \
+            util::download::endpoint_selection::probe::tests::native_h2_
       - name: Locate the test binary
         id: binary
         shell: bash
-        env:
-          COVERAGE_TARGET_DIR: target/llvm-cov-target
         run: |
           set -euo pipefail
-          deps="$COVERAGE_TARGET_DIR/debug/deps"
-          test -d "$deps" || { echo "no coverage build directory at $deps" >&2; exit 1; }
-          binary="$(find "$deps" -maxdepth 1 -type f -name "theseus-*" \
-            ! -name '*.d' ! -name '*.rlib' ! -name '*.rmeta' ! -name '*.pdb' \
-            -exec test -x {} \; -print | head -n 1)"
+          # Ask the tool where it built, rather than assuming a layout. The
+          # value is quoted with single quotes by `show-env`; fall back to the
+          # documented default if the format ever changes.
+          target_dir="$(cargo llvm-cov show-env --sh \
+            | sed -n "s/^export CARGO_LLVM_COV_TARGET_DIR='\(.*\)'$/\1/p" | head -n 1)"
+          if [ -z "$target_dir" ]; then
+            target_dir="$PWD/target/llvm-cov-target"
+            echo "show-env gave no target directory; using $target_dir"
+          fi
+          deps="$target_dir/debug/deps"
+          test -d "$deps" || { echo "no coverage deps directory at $deps" >&2; exit 1; }
+          # Pick the newest matching binary so a stale build cannot be used.
+          binary=""
+          newest=0
+          for candidate in "$deps"/theseus-*; do
+            case "$candidate" in
+              *.d|*.rlib|*.rmeta|*.pdb) continue ;;
+            esac
+            [ -f "$candidate" ] && [ -x "$candidate" ] || continue
+            stamp="$(stat -c %Y "$candidate" 2>/dev/null || stat -f %m "$candidate" 2>/dev/null || echo 0)"
+            if [ "$stamp" -ge "$newest" ]; then
+              newest="$stamp"
+              binary="$candidate"
+            fi
+          done
           if [ -z "$binary" ]; then
             echo "No instrumented theseus test binary under $deps" >&2
+            ls -la "$deps" | head -20 >&2
             exit 1
           fi
           echo "path=$binary" >> "$GITHUB_OUTPUT"

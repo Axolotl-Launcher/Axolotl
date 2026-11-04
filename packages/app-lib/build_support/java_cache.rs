@@ -2,6 +2,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{self, Read};
 use std::path::Path;
+use std::time::SystemTime;
 
 pub const INPUTS: &[&str] = &[
     "java/src",
@@ -94,5 +95,16 @@ pub fn invalidate(out_dir: &Path) -> io::Result<()> {
 }
 
 pub fn record_success(out_dir: &Path, inputs: &str) -> io::Result<()> {
-    fs::write(out_dir.join(MANIFEST), manifest(out_dir, inputs)?)
+    let contents = manifest(out_dir, inputs)?;
+    // Cargo compares watched files with the build-script invocation time, not
+    // its completion time. Keep watching these outputs for external damage,
+    // but don't let our own successful generation dirty the next invocation.
+    // Only build-owned outputs get a stable timestamp; freshness uses hashes.
+    for jar in JARS {
+        fs::File::options()
+            .write(true)
+            .open(out_dir.join(jar))?
+            .set_modified(SystemTime::UNIX_EPOCH)?;
+    }
+    fs::write(out_dir.join(MANIFEST), contents)
 }

@@ -78,7 +78,7 @@ async fn channel_references_keep_installed_retained_and_incomplete_store_objects
         .await
         .unwrap();
     assert!(retained_in_channel(&pool).await.is_err());
-    sqlx::query("UPDATE install_jobs SET status = 'failed', state = '{\"rollback\":{}}'").execute(&pool).await.unwrap();
+    sqlx::query("UPDATE install_jobs SET status = 'failed', state = '{\"rollback\":{\"content\":{\"staging_id\":\"s\"}}}'").execute(&pool).await.unwrap();
     assert!(retained_in_channel(&pool).await.is_err());
     pool.close().await;
 }

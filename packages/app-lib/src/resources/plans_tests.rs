@@ -3120,3 +3120,33 @@ async fn whole_instance_update_checks_run_concurrently_with_source_limits() {
     assert_eq!(provider.maximum.load(Ordering::SeqCst), 3);
     cache.close().await;
 }
+
+#[tokio::test]
+async fn reinstalling_a_missing_file_preserves_its_entry_id() {
+    let current = release("root0000", "1", 'a');
+    let (_temp, service) = service(vec![current.clone()]).await;
+    let mut entry = installed(
+        &current,
+        "existing-entry",
+        &format!("mods/{}", current.artifacts[0].file_name.as_ref().unwrap()),
+    );
+    entry.missing = true;
+    let built = service
+        .build_operation(
+            draft(
+                vec![selection("root", &current, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[entry.clone()],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert!(!built.plan.issues.iter().any(|issue| issue.blocking));
+    assert_eq!(built.plan.actions.len(), 1);
+    assert_eq!(built.plan.actions[0].entry_id, entry.entry_id);
+    assert_eq!(built.plan.actions[0].kind, ResourceActionKind::Replace);
+    assert!(built.plan.actions[0].current.as_ref().unwrap().missing);
+    service.cache().close().await;
+}

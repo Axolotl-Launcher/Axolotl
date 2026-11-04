@@ -331,11 +331,14 @@ async fn the_guards_see_the_jobs_that_still_occupy_an_instance() {
 }
 
 #[tokio::test]
-async fn a_finished_job_that_holds_a_rollback_still_occupies_the_runtime() {
+async fn a_finished_job_that_holds_rollback_content_still_occupies_the_runtime()
+{
     let handle = support::handle().await;
     let mut connection = handle.pool().acquire().await.unwrap();
     let mut with_rollback = job("succeeded");
-    with_rollback.state = "{\"rollback\":{\"after\":true}}".to_string();
+    with_rollback.state =
+        "{\"rollback\":{\"after\":true,\"content\":{\"staging_id\":\"s\"}}}"
+            .to_string();
 
     InstallJobs::insert_in(
         &mut *connection,
@@ -354,6 +357,49 @@ async fn a_finished_job_that_holds_a_rollback_still_occupies_the_runtime() {
         !InstallJobs::unfinished_in(&mut *connection, "instance", &["queued"])
             .await
             .unwrap()
+    );
+}
+
+#[tokio::test]
+async fn a_completed_rollback_no_longer_occupies_the_runtime() {
+    let handle = support::handle().await;
+    let mut connection = handle.pool().acquire().await.unwrap();
+    // A failed or interrupted job whose rollback finished discards the
+    // content snapshot but keeps the restored instance metadata.
+    for (key, status) in [("failed", "failed"), ("interrupted", "interrupted")]
+    {
+        let mut rolled_back = job(status);
+        rolled_back.state = "{\"rollback\":{\"install_stage\":\"installed\"},\"rollback_error\":null}".to_string();
+        InstallJobs::insert_in(
+            &mut *connection,
+            &key.to_string(),
+            &rolled_back,
+        )
+        .await
+        .unwrap();
+    }
+
+    assert!(
+        !InstallJobs::unfinished_or_rollback(&mut *connection, &["queued"])
+            .await
+            .unwrap(),
+        "a rollback that has already been restored pins nothing"
+    );
+
+    let mut restore_failed = job("failed");
+    restore_failed.state = "{\"rollback\":{\"install_stage\":\"installed\"},\"rollback_error\":{\"code\":\"rollback_error\"}}".to_string();
+    InstallJobs::insert_in(
+        &mut *connection,
+        &"restore_failed".to_string(),
+        &restore_failed,
+    )
+    .await
+    .unwrap();
+    assert!(
+        InstallJobs::unfinished_or_rollback(&mut *connection, &["queued"])
+            .await
+            .unwrap(),
+        "a rollback whose restore failed is still pending recovery"
     );
 }
 

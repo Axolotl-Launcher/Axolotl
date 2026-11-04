@@ -56,7 +56,7 @@ use serde::de::DeserializeOwned;
 use std::collections::VecDeque;
 #[cfg(test)]
 use std::error::Error;
-use std::time::{self, Instant};
+use std::time::{self, Duration, Instant};
 
 async fn fetch_validated_metadata_route(
     route: &DownloadRoute,
@@ -155,6 +155,33 @@ pub(crate) async fn fetch_hedged_metadata(
     client: &reqwest::Client,
     response_validator: &(dyn Fn(&Bytes) -> crate::Result<()> + Send + Sync),
 ) -> Result<Bytes, Vec<(usize, crate::Error)>> {
+    fetch_hedged_metadata_with_hedge_delay(
+        routes,
+        resource,
+        sha1,
+        header,
+        semaphore,
+        client,
+        response_validator,
+        METADATA_HEDGE_DELAY,
+    )
+    .await
+}
+
+/// The hedge delay is a parameter so a test can hold the second route back
+/// without racing the primary against a fixed interval: the interval and the
+/// request's own latency share one wall clock, and an instrumented build can
+/// lose that race while behaving correctly.
+pub(crate) async fn fetch_hedged_metadata_with_hedge_delay(
+    routes: &[DownloadRoute],
+    resource: ResourceClass,
+    sha1: Option<&str>,
+    header: Option<(&str, &str)>,
+    semaphore: &FetchSemaphore,
+    client: &reqwest::Client,
+    response_validator: &(dyn Fn(&Bytes) -> crate::Result<()> + Send + Sync),
+    hedge_delay: Duration,
+) -> Result<Bytes, Vec<(usize, crate::Error)>> {
     let primary = async {
         fetch_validated_metadata_route(
             &routes[0],
@@ -169,7 +196,7 @@ pub(crate) async fn fetch_hedged_metadata(
         .map_err(|error| (0, error))
     };
     tokio::pin!(primary);
-    let delay = tokio::time::sleep(METADATA_HEDGE_DELAY);
+    let delay = tokio::time::sleep(hedge_delay);
     tokio::pin!(delay);
 
     let first_error = tokio::select! {

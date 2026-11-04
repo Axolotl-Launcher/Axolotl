@@ -687,7 +687,7 @@ fn main() {
     }
 
     /*
-        tracing is set basd on the environment variable RUST_LOG=xxx, depending on the amount of logs to show
+        tracing is set based on the environment variable RUST_LOG=xxx, depending on the amount of logs to show
             ERROR > WARN > INFO > DEBUG > TRACE
         eg. RUST_LOG=info will show info, warn, and error logs
             RUST_LOG="theseus=trace" will show *all* messages but from theseus only (and not dependencies using similar crates)
@@ -721,6 +721,9 @@ fn main() {
     std::mem::forget(rt);
     tauri::async_runtime::set(handle);
 
+    #[cfg(dev)]
+    let tauri_context = tauri::generate_context!();
+    #[cfg(not(dev))]
     let tauri_context = tauri::tauri_build_context!();
 
     let _log_guard = theseus::start_logger(&tauri_context.config().identifier);

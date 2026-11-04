@@ -52,6 +52,10 @@ mod installer_settings;
 
 mod process;
 pub use self::process::*;
+#[cfg(test)]
+pub(crate) use self::process::{
+    LOG_RING_BUFFER_BYTE_CAPACITY, filled_log_ring_buffer,
+};
 
 pub(crate) async fn instance_has_running_process(
     instance_id: &str,
@@ -715,6 +719,7 @@ impl State {
             );
         }
         crate::scheduler::reconcile::at_startup(state).await;
+        crate::scheduler::quota::check_at_startup();
 
         state.spawn_background({
             let state = Arc::clone(state);

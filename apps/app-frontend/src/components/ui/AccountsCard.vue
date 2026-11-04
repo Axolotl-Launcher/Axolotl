@@ -454,6 +454,7 @@ import {
     getPlayerHeadUrl,
     retainPlayerHeadTextures,
 } from '@/helpers/rendering/batch-skin-renderer.ts'
+import { createSkinHeadDataUrl } from '@/helpers/rendering/skin-head'
 import type { Skin } from '@/helpers/skins'
 import { get_available_skins } from '@/helpers/skins'
 import { handleSevereError, useError } from '@/store/error.js'
@@ -575,17 +576,6 @@ const yggdrasilFormValid = computed(
         yggdrasilLogin.value.trim().length > 0 &&
         yggdrasilPassword.value.length > 0,
 )
-
-function createSkinHeadDataUrl(textureUrl: string) {
-    const escapedTextureUrl = textureUrl
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 8 8" shape-rendering="crispEdges"><image href="${escapedTextureUrl}" x="-8" y="-8" width="64" height="64" style="image-rendering:pixelated"/><image href="${escapedTextureUrl}" x="-40" y="-8" width="64" height="64" style="image-rendering:pixelated"/></svg>`
-
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-}
 
 const defaultSteveHeadUrl = createSkinHeadDataUrl(steveSkinTexture)
 

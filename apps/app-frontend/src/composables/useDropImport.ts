@@ -39,13 +39,13 @@ import {
 } from '@/helpers/install'
 import {
     add_project_from_path,
-    type ExternalMinecraftRoot,
     get as getInstance,
     import_world_save,
     install_datapack_to_world,
     list as listInstances,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
+import { readMinecraftRoots, writeMinecraftRoots } from '@/helpers/minecraft-roots'
 import { assessLocalModCompatibility } from '@/helpers/version-compatibility'
 import type { AppNotificationManager } from '@/providers/app-notifications'
 import type { AppPopupNotificationManager } from '@/providers/app-popup-notifications'
@@ -750,26 +750,7 @@ export function useDropImport(options: DropImportOptions) {
             scanningInstances.value = true
             try {
                 const path = (classification?.base_path ?? filePath).trim()
-                const raw = localStorage.getItem('axolotl-minecraft-directories')
-                const stored: unknown = raw ? JSON.parse(raw) : []
-                const roots: ExternalMinecraftRoot[] = (
-                    Array.isArray(stored) ? stored : []
-                ).flatMap((value) => {
-                    if (typeof value === 'string')
-                        return [{ path: value, mode: 'automatic' as const }]
-                    if (!value || typeof value.path !== 'string') return []
-                    return [
-                        {
-                            path: value.path,
-                            mode:
-                                value.mode === 'shared'
-                                    ? ('shared' as const)
-                                    : value.mode === 'automatic'
-                                      ? ('automatic' as const)
-                                      : ('isolated' as const),
-                        },
-                    ]
-                })
+                const roots = readMinecraftRoots()
                 const existing = roots.find((root) => root.path === path)
                 if (!existing) roots.push({ path, mode: 'automatic' })
                 const report = await syncConfiguredDirectLinks(roots)
@@ -778,7 +759,7 @@ export function useDropImport(options: DropImportOptions) {
                         report.errors.join('\n') || formatMessage(messages.dropNoInstances),
                     )
                 }
-                localStorage.setItem('axolotl-minecraft-directories', JSON.stringify(roots))
+                writeMinecraftRoots(roots)
                 addNotification({
                     title: formatMessage(messages.dropMinecraftAdded),
                     type: 'success',

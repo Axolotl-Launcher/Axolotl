@@ -3,8 +3,6 @@ import type {
     AbstractWebNotificationManager,
     CreationFlowContextValue,
     CreationFlowModal,
-    SymlinkMethodChoice,
-    SymlinkMethodInstance,
 } from '@modrinth/ui'
 import { defineMessages, useVIntl } from '@modrinth/ui'
 import { join } from '@tauri-apps/api/path'
@@ -18,16 +16,15 @@ import { trackEvent } from '@/helpers/analytics'
 import { get_project_versions, get_search_results } from '@/helpers/cache.js'
 import { getCurseForgeFiles, hasCompatibleCurseForgeFile } from '@/helpers/curseforge'
 import { install_job_listener } from '@/helpers/events.js'
-import { import_instance } from '@/helpers/import.js'
 import {
     type CreatePackLocation,
     install_create_instance,
     install_create_modpack_instance,
     install_get_modpack_preview,
     type InstallJobSnapshot,
-    wait_for_install_job,
 } from '@/helpers/install'
 import { list } from '@/helpers/instance'
+import { type ChooseImportMethod, startLauncherImport } from '@/helpers/launcher-import'
 import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata.js'
 import type { InstanceLoader } from '@/helpers/types'
 
@@ -170,44 +167,14 @@ export function setupCreationModal(
 
                 if (instanceEntries.length === 0) return
 
-                const chooseImportMethod: (options: {
-                    instances: SymlinkMethodInstance[]
-                }) => Promise<SymlinkMethodChoice[]> = inject('chooseImportMethod')!
-
-                const choices = await chooseImportMethod({
-                    instances: instanceEntries.map((entry) => ({
-                        name: entry.instanceName,
-                        path: entry.instancePath,
-                        launcherType: entry.launcherType,
-                        basePath: entry.path,
-                    })),
-                })
-
-                if (choices.length === 0) return
-
-                const choiceByInstanceName = new Map(
-                    choices.map((choice) => [choice.instanceName, choice]),
+                const chooseImportMethod: ChooseImportMethod = inject('chooseImportMethod')!
+                const { confirmed, finished } = await startLauncherImport(
+                    instanceEntries,
+                    chooseImportMethod,
+                    handleError,
                 )
-
-                for (const entry of instanceEntries) {
-                    const choice = choiceByInstanceName.get(entry.instanceName)
-                    try {
-                        const job = await import_instance(
-                            entry.launcherType,
-                            entry.path,
-                            entry.instanceName,
-                            false,
-                            entry.instancePath,
-                            choice?.gameVersion ?? undefined,
-                            choice?.loader ?? undefined,
-                            choice?.loaderVersion ?? undefined,
-                            null,
-                        )
-                        await wait_for_install_job(job.job_id)
-                    } catch (error) {
-                        handleError(error)
-                    }
-                }
+                if (confirmed === 0) return
+                await finished
                 trackEvent('InstanceCreate', { source: 'CreationModalImport' })
                 return
             }

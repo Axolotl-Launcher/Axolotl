@@ -525,12 +525,37 @@ const PROCESSOR_OUTPUT_ENCODING_ARGS: [&str; 4] = [
 /// Lines kept from each end of a failed processor's output stream.
 const PROCESSOR_OUTPUT_EDGE_LINES: usize = 20;
 
+/// Characters kept from each line of a failed processor's output.
+const PROCESSOR_OUTPUT_LINE_CHARS: usize = 500;
+
+/// Bytes kept from each end of a failed processor's stream in the log.
+const PROCESSOR_OUTPUT_LOG_EDGE_BYTES: usize = 32 * 1024;
+
 /// javaw.exe shows JVM startup errors in a modal dialog instead of writing
 /// them to stderr, so processors run on the runtime's console executable.
-/// A runtime without one keeps the selected executable.
+/// A runtime without one, or a bare command that may not have a console
+/// sibling on `PATH`, keeps the selected executable.
 fn processor_java_executable(java: &str) -> PathBuf {
-    java_environment::console_java_executable(java)
-        .unwrap_or_else(|_| PathBuf::from(java))
+    match java_environment::console_java_executable(java) {
+        Ok(console) if console.is_file() => console,
+        _ => PathBuf::from(java),
+    }
+}
+
+/// One failed processor stream for the launcher log, without its middle
+/// when it is too large to keep whole.
+fn processor_output_for_log(bytes: &[u8]) -> String {
+    if bytes.len() <= PROCESSOR_OUTPUT_LOG_EDGE_BYTES * 2 {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    let omitted = bytes.len() - PROCESSOR_OUTPUT_LOG_EDGE_BYTES * 2;
+    format!(
+        "{}\n... {omitted} bytes omitted\n{}",
+        String::from_utf8_lossy(&bytes[..PROCESSOR_OUTPUT_LOG_EDGE_BYTES]),
+        String::from_utf8_lossy(
+            &bytes[bytes.len() - PROCESSOR_OUTPUT_LOG_EDGE_BYTES..]
+        ),
+    )
 }
 
 /// Processors print their own errors to stderr, but a JVM that dies while
@@ -574,7 +599,15 @@ fn processor_failure_message(
                 }
                 continue;
             }
-            let _ = write!(message, "\n{}", line.trim_end());
+            let line = line.trim_end();
+            match line.char_indices().nth(PROCESSOR_OUTPUT_LINE_CHARS) {
+                Some((end, _)) => {
+                    let _ = write!(message, "\n{}...", &line[..end]);
+                }
+                None => {
+                    let _ = write!(message, "\n{line}");
+                }
+            }
         }
     }
     if !printed {
@@ -1922,8 +1955,8 @@ async fn install_minecraft_with_local_source(
                         processor = %processor.jar,
                         index,
                         status = %child.status,
-                        stdout = %String::from_utf8_lossy(&child.stdout),
-                        stderr = %String::from_utf8_lossy(&child.stderr),
+                        stdout = %processor_output_for_log(&child.stdout),
+                        stderr = %processor_output_for_log(&child.stderr),
                         "Forge processor failed"
                     );
                     return Err(crate::ErrorKind::LauncherError(
@@ -1965,6 +1998,11 @@ async fn install_minecraft_with_local_source(
                         )
                         .await?;
                 }
+            }
+            // Later steps set no context of their own and must not be
+            // reported as the last processor or download.
+            if let Some(reporter) = &reporter {
+                reporter.clear_context().await?;
             }
         }
     }
@@ -3292,10 +3330,48 @@ mod processor_failure_tests {
     }
 
     #[test]
+    fn long_lines_are_cut_at_a_character_boundary() {
+        let line = "错".repeat(PROCESSOR_OUTPUT_LINE_CHARS + 1);
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"",
+            line.as_bytes(),
+        );
+        let kept = message.lines().nth(2).unwrap();
+        assert_eq!(
+            kept,
+            format!("{}...", "错".repeat(PROCESSOR_OUTPUT_LINE_CHARS))
+        );
+    }
+
+    #[test]
+    fn logged_output_drops_the_middle_of_large_streams() {
+        assert_eq!(processor_output_for_log(b"small\n"), "small\n");
+        let mut output = vec![b'a'; PROCESSOR_OUTPUT_LOG_EDGE_BYTES];
+        output.extend(vec![b'b'; 10]);
+        output.extend(vec![b'c'; PROCESSOR_OUTPUT_LOG_EDGE_BYTES]);
+        let logged = processor_output_for_log(&output);
+        assert_eq!(
+            logged,
+            format!(
+                "{}\n... 10 bytes omitted\n{}",
+                "a".repeat(PROCESSOR_OUTPUT_LOG_EDGE_BYTES),
+                "c".repeat(PROCESSOR_OUTPUT_LOG_EDGE_BYTES)
+            )
+        );
+    }
+
+    #[test]
     fn processors_run_on_the_console_java_executable() {
         assert_eq!(processor_java_executable("java"), PathBuf::from("java"));
         #[cfg(windows)]
         {
+            assert_eq!(
+                processor_java_executable("javaw.exe"),
+                PathBuf::from("javaw.exe"),
+                "a bare command may have no console sibling on PATH"
+            );
             let dir = tempfile::tempdir().unwrap();
             let windowed = dir.path().join("javaw.exe");
             assert_eq!(

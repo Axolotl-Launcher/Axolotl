@@ -1,22 +1,19 @@
 <script setup lang="ts">
-/** Blocky 8×8 face, light to dark, so the avatar reads as a player head without any skin art. */
+/**
+ * Blocky 8×8 face in neutral skin and hair tones, so the avatar reads as a
+ * player head whatever the accent is, and without any real skin art.
+ */
 const face = [
+    '00000000',
+    '01111110',
+    '12222221',
+    '22222222',
+    '24522542',
+    '22233222',
+    '23666632',
     '33333333',
-    '32222223',
-    '21111112',
-    '10411401',
-    '11111111',
-    '11000011',
-    '11100111',
-    '11111111',
 ]
-const shades = [
-    'color-mix(in srgb, var(--color-brand) 30%, black)',
-    'color-mix(in srgb, var(--color-brand) 75%, white)',
-    'var(--color-brand)',
-    'color-mix(in srgb, var(--color-brand) 55%, black)',
-    'white',
-]
+const shades = ['#3b2a20', '#5a3e2b', '#c99a74', '#b5835e', '#ffffff', '#3a4f8f', '#7a4a36']
 const pixels = face.flatMap((row, y) =>
     [...row].map((value, x) => ({ x, y, fill: shades[Number(value)] })),
 )

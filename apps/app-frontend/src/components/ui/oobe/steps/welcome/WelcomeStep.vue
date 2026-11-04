@@ -17,7 +17,7 @@ const action = ref<HTMLElement | null>(null)
 const messages = defineMessages({
     ready: {
         id: 'app.oobe.welcome.ready',
-        defaultMessage: 'Everything is set. Click anywhere to start playing.',
+        defaultMessage: 'Everything is set. Click anywhere to open the launcher.',
     },
     start: { id: 'app.oobe.welcome.start', defaultMessage: 'Get started' },
 })

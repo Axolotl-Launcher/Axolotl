@@ -189,15 +189,21 @@ onMounted(focusHeading)
                                 {{ formatMessage(messages.skip) }}
                             </Button>
                             <Button
+                                v-if="state.ready"
                                 type="colored"
                                 color="brand"
                                 size="lg"
-                                :disabled="state.busy || !state.ready"
+                                :disabled="state.busy"
                                 @click="advance"
                             >
                                 <SpinnerIcon v-if="state.busy" class="animate-spin" />
                                 {{ formatMessage(isLast ? messages.finish : messages.next) }}
                                 <RightArrowIcon v-if="!state.busy" />
+                            </Button>
+                            <!-- A step that needs input first shows Next as plainly unavailable, not as a dimmed accent. -->
+                            <Button v-else size="lg" disabled>
+                                {{ formatMessage(isLast ? messages.finish : messages.next) }}
+                                <RightArrowIcon />
                             </Button>
                         </footer>
                     </div>

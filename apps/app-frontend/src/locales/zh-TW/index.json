@@ -5592,7 +5592,7 @@
     "message": "跟隨此裝置"
   },
   "app.oobe.language.system-detail": {
-    "message": "目前為 {language}"
+    "message": "目前為{language}"
   },
   "app.oobe.language.title": {
     "message": "選擇啟動器語言。"
@@ -5655,7 +5655,7 @@
     "message": "歡迎"
   },
   "app.oobe.welcome.ready": {
-    "message": "一切就緒。點擊任意位置開始遊戲。"
+    "message": "一切就緒。點擊任意位置進入啟動器。"
   },
   "app.oobe.welcome.start": {
     "message": "開始使用"

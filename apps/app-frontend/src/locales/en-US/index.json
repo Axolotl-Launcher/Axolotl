@@ -9412,7 +9412,7 @@
     "message": "Welcome"
   },
   "app.oobe.welcome.ready": {
-    "message": "Everything is set. Click anywhere to start playing."
+    "message": "Everything is set. Click anywhere to open the launcher."
   },
   "app.oobe.welcome.start": {
     "message": "Get started"

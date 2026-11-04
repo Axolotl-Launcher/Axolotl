@@ -442,7 +442,7 @@ async function chooseProfile(profile: YggdrasilProfile) {
                 </OobeChoice>
                 <div
                     v-if="open === 'yggdrasil'"
-                    class="oobe-reveal flex flex-col gap-3 px-1 pb-1 pt-3"
+                    class="oobe-reveal mt-1.5 flex flex-col gap-3 rounded-[var(--radius-lg)] border border-solid border-surface-4 bg-surface-2.5 p-4"
                 >
                     <template v-if="pendingProfiles.length > 0">
                         <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
@@ -556,7 +556,7 @@ async function chooseProfile(profile: YggdrasilProfile) {
                 </OobeChoice>
                 <div
                     v-if="open === 'offline'"
-                    class="oobe-reveal flex flex-col gap-2 px-1 pb-1 pt-3"
+                    class="oobe-reveal mt-1.5 flex flex-col gap-2 rounded-[var(--radius-lg)] border border-solid border-surface-4 bg-surface-2.5 p-4"
                 >
                     <label class="flex flex-col gap-1.5 text-sm font-semibold">
                         {{ formatMessage(messages.usernameLabel) }}

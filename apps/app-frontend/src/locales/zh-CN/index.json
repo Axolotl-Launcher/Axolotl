@@ -8770,7 +8770,7 @@
     "message": "跟随此设备"
   },
   "app.oobe.language.system-detail": {
-    "message": "当前为 {language}"
+    "message": "当前为{language}"
   },
   "app.oobe.language.title": {
     "message": "选择启动器语言。"
@@ -8833,7 +8833,7 @@
     "message": "欢迎"
   },
   "app.oobe.welcome.ready": {
-    "message": "一切就绪。点击任意位置开始游戏。"
+    "message": "一切就绪。点击任意位置进入启动器。"
   },
   "app.oobe.welcome.start": {
     "message": "开始使用"

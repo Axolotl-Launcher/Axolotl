@@ -83,8 +83,8 @@ function chooseTheme(value: ColorTheme) {
 </script>
 
 <template>
-    <div class="flex flex-col gap-6 [--oobe-accent:var(--color-brand)]">
-        <section class="flex flex-col gap-3">
+    <div class="flex flex-col gap-4 [--oobe-accent:var(--color-brand)]">
+        <section class="flex flex-col gap-2">
             <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                 {{ formatMessage(messages.homeTitle) }}
             </h2>
@@ -99,7 +99,7 @@ function chooseTheme(value: ColorTheme) {
                     type="button"
                     role="radio"
                     :aria-checked="themeStore.homeLayout === layout.value"
-                    class="oobe-tile relative flex cursor-pointer flex-col gap-3 rounded-[var(--radius-lg)] border-2 border-solid p-3 text-left transition-[border-color,background-color] duration-150"
+                    class="oobe-tile relative flex cursor-pointer flex-col gap-2 rounded-[var(--radius-lg)] border-2 border-solid p-2.5 text-left transition-[border-color,background-color] duration-150"
                     :class="
                         themeStore.homeLayout === layout.value
                             ? 'border-brand bg-brand-highlight'
@@ -110,7 +110,7 @@ function chooseTheme(value: ColorTheme) {
                     <span class="overflow-hidden rounded-[var(--radius-md)] shadow-md">
                         <LauncherSketch :layout="layout.value" />
                     </span>
-                    <span class="flex flex-col gap-0.5 px-1 pb-1">
+                    <span class="flex flex-col gap-0.5 px-1 pb-0.5">
                         <span class="font-semibold text-[var(--color-text-primary)]">
                             {{ formatMessage(layout.label) }}
                         </span>
@@ -126,7 +126,7 @@ function chooseTheme(value: ColorTheme) {
             </div>
         </section>
 
-        <section class="flex flex-col gap-3">
+        <section class="flex flex-col gap-2">
             <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                 {{ formatMessage(messages.themeTitle) }}
             </h2>

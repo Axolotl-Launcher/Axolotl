@@ -193,9 +193,16 @@ pub struct Settings {
     #[serde(skip, default)]
     pub personalized_ads: bool,
 
+    /// Progress of the guided tour the OOBE replaced. Nothing reads these any
+    /// more; they stay because the row and the state document carry them.
     pub onboarded: bool,
     pub onboarding_version: usize,
     pub onboarding_instance_tour_completed: bool,
+    /// The first-run (OOBE) screens this install has been through, by their
+    /// stable ids such as `language_v1`. A release that adds a screen gives it
+    /// a new id, so the next start shows that screen alone.
+    #[serde(default)]
+    pub oobe_completed_steps: Vec<String>,
 
     pub extra_launch_args: Vec<String>,
     pub custom_env_vars: Vec<(String, String)>,
@@ -392,6 +399,7 @@ impl Default for Settings {
             // The column is added defaulting to on and a later migration copies
             // `onboarded` into it, so a fresh row reads as off.
             onboarding_instance_tour_completed: false,
+            oobe_completed_steps: Vec::new(),
             extra_launch_args: Vec::new(),
             custom_env_vars: Vec::new(),
             memory: MemorySettings {
@@ -506,6 +514,10 @@ impl Settings {
         // Home and Library must stay reachable from the nav rail.
         self.hidden_nav_items
             .retain(|id| id != "home" && id != "library");
+        let mut seen_steps = std::collections::HashSet::new();
+        self.oobe_completed_steps.retain(|id| {
+            !id.trim().is_empty() && seen_steps.insert(id.clone())
+        });
         self.default_window_title =
             self.default_window_title.trim().to_string();
         self.default_game_language =
@@ -602,6 +614,10 @@ impl Settings {
             onboarding_version: record.onboarding_version.max(0) as usize,
             onboarding_instance_tour_completed: record
                 .onboarding_instance_tour_completed,
+            oobe_completed_steps: serde_json::from_str(
+                &record.oobe_completed_steps,
+            )
+            .unwrap_or_default(),
             extra_launch_args: serde_json::from_str(&record.extra_launch_args)
                 .ok()
                 .unwrap_or_default(),
@@ -793,6 +809,9 @@ impl Settings {
                 as i64,
             hidden_nav_items: serde_json::to_string(
                 &settings.hidden_nav_items,
+            )?,
+            oobe_completed_steps: serde_json::to_string(
+                &settings.oobe_completed_steps,
             )?,
             custom_window_title_enabled: settings.custom_window_title_enabled,
             default_window_title: settings.default_window_title.clone(),

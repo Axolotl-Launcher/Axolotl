@@ -278,6 +278,7 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
             "onboarded",
             "onboarding_instance_tour_completed",
             "onboarding_version",
+            "oobe_completed_steps",
             "pending_update_toast_for_version",
             "skipped_update",
         ],

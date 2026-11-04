@@ -9,8 +9,11 @@ name: TEMP coverage stress
 # many times against one instrumented build and reports the pass rate.
 
 on:
-  pull_request:
-    branches: [main]
+  # Scoped to the branch that still needs the evidence. A `pull_request`
+  # trigger without a branch filter would pay for 60 instrumented runs on every
+  # unrelated PR, which is why this stays a temporary, self-owned workflow.
+  push:
+    branches: [ci/coverage-3-platform-ratchet]
   workflow_dispatch:
     inputs:
       runs:
@@ -143,6 +146,20 @@ jobs:
           fi
           echo "path=$binary" >> "$GITHUB_OUTPUT"
           echo "Using $binary"
+      - name: Validate RUNS
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `seq` over an empty or malformed value yields no iterations, which
+          # would let both stress steps report success without running anything.
+          case "$RUNS" in
+            ''|*[!0-9]*) echo "RUNS must be a positive integer, got '$RUNS'" >&2; exit 1 ;;
+          esac
+          if [ "$RUNS" -lt 1 ]; then
+            echo "RUNS must be at least 1, got $RUNS" >&2
+            exit 1
+          fi
+          echo "Will run each test $RUNS times"
       - name: Stress single-stream recovery
         if: ${{ !cancelled() }}
         shell: bash
@@ -158,6 +175,7 @@ jobs:
           done
           echo "native_h2_single_stream: $pass passed, $fail failed of $RUNS" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "single-stream pass=$pass fail=$fail"
+          [ "$pass" -gt 0 ]
           [ "$fail" -eq 0 ]
       - name: Stress ranged recovery
         if: ${{ !cancelled() }}
@@ -174,6 +192,7 @@ jobs:
           done
           echo "native_h2_ranges: $pass passed, $fail failed of $RUNS" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "ranges pass=$pass fail=$fail"
+          [ "$pass" -gt 0 ]
           [ "$fail" -eq 0 ]
       - name: Upload failures
         if: failure()

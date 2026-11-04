@@ -48,7 +48,7 @@ cargo check --package theseus_gui --features updater
 
 ### Rust 覆盖率
 
-CI 的 `coverage` 作业用 [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) 在 Linux 上测量 workspace 的行覆盖率，`scripts/axolotl/rust-coverage.mjs` 是本地与 CI 共用的唯一入口。产物在 `target/coverage/` 下（`lcov.info`、`total.txt`、`summary.txt`、`html/`），CI 把它整个作为 `rust-coverage` 工件上传，保留 7 天。
+CI 的 `coverage` 作业在三个桌面平台（`ubuntu-24.04`、`windows-2025`、`macos-26`）上分别测量 workspace 的行覆盖率，`scripts/axolotl/rust-coverage.mjs` 是本地与 CI 共用的唯一入口。产物在 `target/coverage/` 下（`lcov.info`、`total.txt`、`summary.txt`、`html/`），每个平台上传自己的 `rust-coverage-<runner>` 工件（如 `rust-coverage-ubuntu-24.04`），保留 7 天。
 
 本地先准备工具与构建前置条件（子模块缺失时 `apps/app` 的构建脚本会失败；跳过 Blockbench 皮肤编辑器可以省下一次前端构建）：
 

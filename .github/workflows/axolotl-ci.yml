@@ -442,6 +442,7 @@ jobs:
       - name: Install LLVM coverage tools
         run: rustup component add llvm-tools-preview
       - name: Measure coverage
+        shell: bash
         run: |
           node scripts/axolotl/rust-coverage.mjs \
             --keep-report-on-test-fail --fail-under "$COVERAGE_MIN_LINES"
@@ -449,6 +450,7 @@ jobs:
       # still publish the evidence for a red run.
       - name: Publish coverage summary
         if: ${{ !cancelled() && hashFiles('target/coverage/total.txt') != '' }}
+        shell: bash
         run: |
           summary="$(cat target/coverage/total.txt)"
           echo "$summary"

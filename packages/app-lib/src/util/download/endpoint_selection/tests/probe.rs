@@ -125,6 +125,15 @@ impl TlsFixture {
                 tokio::select! {
                     incoming = listener.accept() => {
                         let Ok((socket, _)) = incoming else { break };
+                        // Real CDN endpoints disable Nagle, and so do the other
+                        // paced h2 fixtures. Linux loopback has a ~64 KiB MSS,
+                        // so each 16 KiB DATA frame is a short segment that
+                        // Nagle can hold until the client's delayed ACK, about
+                        // 40 ms. A probe timing a whole 1 MiB tail in ~30 ms
+                        // then measures one sample at half the other's rate,
+                        // `rank_candidates` rejects the peer as uncertain, and
+                        // the trial ends in `NoGain`.
+                        socket.set_nodelay(true).ok();
                         let acceptor = acceptor.clone();
                         let counted = counted.clone();
                         let expected_host = expected_host.clone();

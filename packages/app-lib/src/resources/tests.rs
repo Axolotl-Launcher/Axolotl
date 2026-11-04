@@ -2967,7 +2967,10 @@ async fn real_http_batches_and_reopened_sqlite_cache_obey_force_refresh() {
     });
     let transport = Arc::new(HttpTransport {
         base: format!("http://{address}"),
-        client: reqwest::Client::builder().no_proxy().build().unwrap(),
+        client: crate::util::http::client_builder()
+            .no_proxy()
+            .build()
+            .unwrap(),
     });
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(

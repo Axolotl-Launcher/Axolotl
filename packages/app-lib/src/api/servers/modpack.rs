@@ -573,7 +573,7 @@ async fn download_icon(dir: &Path, icon_url: &str) -> Result<PathBuf> {
         .unwrap_or_else(|| "png".to_string());
     let destination = safe_relative_join(dir, &format!("icon.{extension}"))?;
 
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(crate::launcher_user_agent())
         .build()

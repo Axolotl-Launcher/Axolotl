@@ -1,5 +1,5 @@
 import bubbleParticleUrl from './assets/vanilla/particle-bubble.png?url'
-import blocksAtlasUrl from './assets/vanilla/texture-atlas.png?url'
+import blocksAtlasUrl from './assets/vanilla/texture-atlas.webp?url'
 import atlasUvData from './assets/vanilla/texture-layout.json'
 
 type RawTextureRegion = [number, number, number, number]

@@ -15,12 +15,12 @@ import { RouterLink, useRouter } from 'vue-router'
 
 import bannerDesignerToolCover from '@/assets/lab/banner-designer-tool-cover.png'
 import commandGeneratorToolCover from '@/assets/lab/command-generator-tool-cover.png'
-import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.png'
-import modTranslationCover from '@/assets/lab/mod-translation-cover.png'
-import recipeGeneratorToolCover from '@/assets/lab/recipe-generator-tool-cover.png'
-import schematicPreviewToolCover from '@/assets/lab/schematic-preview-cover.png'
-import seedMapToolCover from '@/assets/lab/seed-map-tool-cover.png'
-import skinEditorToolCover from '@/assets/lab/skin-editor-tool-cover.png'
+import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.avif'
+import modTranslationCover from '@/assets/lab/mod-translation-cover.avif'
+import recipeGeneratorToolCover from '@/assets/lab/recipe-generator-tool-cover.avif'
+import schematicPreviewToolCover from '@/assets/lab/schematic-preview-cover.avif'
+import seedMapToolCover from '@/assets/lab/seed-map-tool-cover.avif'
+import skinEditorToolCover from '@/assets/lab/skin-editor-tool-cover.webp'
 import {
     getLabCategoryFilter,
     getLabFavoriteFilter,
@@ -348,6 +348,8 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                             v-if="toolCoverImages[tool.id]"
                             :src="toolCoverImages[tool.id]"
                             alt=""
+                            loading="lazy"
+                            decoding="async"
                             class="absolute inset-0 h-full w-full object-cover"
                         />
                         <div

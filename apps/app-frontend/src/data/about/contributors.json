@@ -3,7 +3,7 @@
     "name": "CodeZhangBorui",
     "avatarUrl": "https://avatars.githubusercontent.com/u/61909157?v=4&s=96",
     "url": "https://github.com/CodeZhangBorui",
-    "contributions": 1318
+    "contributions": 1334
   },
   {
     "name": "Geometrically",
@@ -27,7 +27,7 @@
     "name": "xinvxueyuan",
     "avatarUrl": "https://avatars.githubusercontent.com/u/149921651?v=4&s=96",
     "url": "https://github.com/xinvxueyuan",
-    "contributions": 458
+    "contributions": 498
   },
   {
     "name": "IMB11",
@@ -66,6 +66,18 @@
     "contributions": 178
   },
   {
+    "name": "leipishu",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/177109629?v=4&s=96",
+    "url": "https://github.com/leipishu",
+    "contributions": 172
+  },
+  {
+    "name": "khiqwq",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/177992504?v=4&s=96",
+    "url": "https://github.com/khiqwq",
+    "contributions": 169
+  },
+  {
     "name": "venashial",
     "avatarUrl": "https://avatars.githubusercontent.com/u/44736536?v=4&s=96",
     "url": "https://github.com/venashial",
@@ -76,18 +88,6 @@
     "avatarUrl": "https://avatars.githubusercontent.com/u/106889354?v=4&s=96",
     "url": "https://github.com/tdgao",
     "contributions": 127
-  },
-  {
-    "name": "khiqwq",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/177992504?v=4&s=96",
-    "url": "https://github.com/khiqwq",
-    "contributions": 126
-  },
-  {
-    "name": "leipishu",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/177109629?v=4&s=96",
-    "url": "https://github.com/leipishu",
-    "contributions": 117
   },
   {
     "name": "thesuzerain",
@@ -105,7 +105,7 @@
     "name": "github-actions[bot]",
     "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4&s=96",
     "url": "https://github.com/apps/github-actions",
-    "contributions": 105
+    "contributions": 108
   },
   {
     "name": "Lintern",
@@ -180,6 +180,12 @@
     "contributions": 39
   },
   {
+    "name": "wang13zhe",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/291670853?v=4&s=96",
+    "url": "https://github.com/wang13zhe",
+    "contributions": 36
+  },
+  {
     "name": "HappyDIY",
     "avatarUrl": "https://avatars.githubusercontent.com/u/87058180?v=4&s=96",
     "url": "https://github.com/HappyDIY",
@@ -208,12 +214,6 @@
     "avatarUrl": "https://avatars.githubusercontent.com/u/24188356?v=4&s=96",
     "url": "https://github.com/Redblueflame",
     "contributions": 30
-  },
-  {
-    "name": "wang13zhe",
-    "avatarUrl": "https://avatars.githubusercontent.com/u/291670853?v=4&s=96",
-    "url": "https://github.com/wang13zhe",
-    "contributions": 28
   },
   {
     "name": "ferothefox",
@@ -351,7 +351,7 @@
     "name": "dependabot[bot]",
     "avatarUrl": "https://avatars.githubusercontent.com/in/29110?v=4&s=96",
     "url": "https://github.com/apps/dependabot",
-    "contributions": 8
+    "contributions": 9
   },
   {
     "name": "falseresync",

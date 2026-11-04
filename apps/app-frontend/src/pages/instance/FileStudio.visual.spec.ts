@@ -49,6 +49,9 @@ vi.mock('@/components/instance/studio/StudioEditor.vue', () => ({
     default: { render: () => null },
 }))
 vi.mock('@/components/instance/studio/NbtEditor.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/instance/studio/StudioImageEditor.vue', () => ({
+    default: { render: () => null },
+}))
 vi.mock('@/components/instance/studio/StudioEditorTabs.vue', () => ({
     default: { render: () => null },
 }))
@@ -94,6 +97,7 @@ vi.mock('@modrinth/ui', async () => {
             deleteLabel: { id: 'common.delete', defaultMessage: 'Delete' },
         },
         defineMessages: (messages: unknown) => messages,
+        getEditorLanguage: () => 'plaintext',
         injectNotificationManager: () => ({ addNotification: vi.fn() }),
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,

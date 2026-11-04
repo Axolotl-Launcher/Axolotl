@@ -1,0 +1,52 @@
+[package]
+name = "tauri-plugin-http"
+version = "2.5.9"
+edition = "2021"
+rust-version = "1.90"
+description = "Tauri HTTP plugin with a reqwest 0.13 compatibility backport"
+repository = "https://github.com/tauri-apps/plugins-workspace"
+license = "Apache-2.0 OR MIT"
+links = "tauri-plugin-http"
+publish = false
+
+[package.metadata.axolotl-upstream]
+version = "2.5.9"
+revision = "5c7668b6bb7c9a509f394d584568b3a922161e50"
+path = "plugins/http"
+
+[dependencies]
+bytes = { version = "1.9", optional = true }
+cookie_store = { version = "0.22", features = ["serde"], optional = true }
+data-url = "0.3"
+http = "1"
+regex = "1"
+reqwest = { workspace = true }
+rustls = { workspace = true, optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2.10", default-features = false }
+tauri-plugin-fs = "2.5.1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "sync"] }
+tracing = { version = "0.1", optional = true }
+url = "2"
+urlpattern = "0.3"
+
+[build-dependencies]
+regex = "1"
+schemars = "0.8"
+serde = { version = "1", features = ["derive"] }
+tauri-plugin = { version = "2.5", features = ["build"] }
+url = "2"
+urlpattern = "0.3"
+
+[features]
+default = ["charset", "cookies", "http2", "rustls-tls", "system-proxy"]
+charset = ["reqwest/charset"]
+cookies = ["dep:bytes", "dep:cookie_store", "reqwest/cookies"]
+dangerous-settings = []
+http2 = ["reqwest/http2"]
+rustls-tls = ["dep:rustls", "reqwest/rustls-no-provider"]
+system-proxy = ["reqwest/system-proxy"]
+tracing = ["dep:tracing"]
+unsafe-headers = []

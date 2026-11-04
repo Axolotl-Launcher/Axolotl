@@ -1,9 +1,13 @@
 use super::*;
+use crate::util::download::constants::{
+    TEST_SLOW_MIN_FLOW as SLOW_MIN_FLOW, TEST_SLOW_WINDOW as SLOW_WINDOW,
+};
 use crate::util::download::endpoint_selection::model::CandidateSource;
 use crate::util::fetch::{DownloadRouteSource, ProxyPolicy};
 use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use std::net::{Ipv4Addr, SocketAddr};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Clone, Copy)]
@@ -522,8 +526,8 @@ async fn automatic_trial_measures_candidates_with_only_one_recovery_slot_and_res
             );
         }
         native_slow::with_test_timing(
-            Duration::from_millis(75),
-            Duration::from_millis(150),
+            SLOW_WINDOW,
+            SLOW_MIN_FLOW,
             crate::util::fetch::download_endpoint_fixture(
                 request.clone(),
                 &destination,
@@ -813,8 +817,8 @@ async fn same_url_http1_download_resumes_on_new_ip_and_verifies_final_hash() {
             );
         }
         native_slow::with_test_timing(
-            Duration::from_millis(75),
-            Duration::from_millis(150),
+            SLOW_WINDOW,
+            SLOW_MIN_FLOW,
             crate::util::fetch::download_endpoint_fixture(
                 request.clone(),
                 &destination,
@@ -927,8 +931,8 @@ async fn automatic_native_h2_recovery(range_count: Option<usize>) {
                 .unwrap();
             assert_eq!(initial.remote_addr, Some(slow.address));
             let result = native_slow::with_test_timing(
-                Duration::from_millis(75),
-                Duration::from_millis(150),
+                SLOW_WINDOW,
+                SLOW_MIN_FLOW,
                 crate::util::fetch::download_endpoint_fixture(
                     request.clone(),
                     &destination,

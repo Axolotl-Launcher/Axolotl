@@ -945,8 +945,8 @@ mod tests {
         let result = tokio::time::timeout(
             Duration::from_secs(3),
             super::super::native_slow::with_test_timing(
-                Duration::from_millis(75),
-                Duration::from_millis(150),
+                crate::util::download::constants::TEST_SLOW_WINDOW,
+                crate::util::download::constants::TEST_SLOW_MIN_FLOW,
                 run_download(
                     &transport,
                     &request,

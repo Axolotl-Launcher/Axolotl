@@ -389,6 +389,10 @@ const { offline } = useNetworkStatus()
 const OobeHost = defineAsyncComponent(() => import('@/components/ui/oobe/OobeHost.vue'))
 const oobe = createOobeController()
 const oobeVisible = oobe.visible
+watch(oobeVisible, (visible) => {
+    if (visible) notificationManager.holdNotifications()
+    else notificationManager.releaseNotifications()
+})
 const nativeDecorations = ref(false)
 
 const os = ref('')
@@ -1522,6 +1526,8 @@ async function setupApp() {
     pendingUpdateAnnouncementVersion.value = pending_update_toast_for_version
     privacyConsentPending.value = telemetry_consent_version < 1
     const oobePending = oobe.prepare(oobe_completed_steps)
+    // Held from here, before the OOBE renders, so startup errors cannot land on top of it.
+    if (oobePending) notificationManager.holdNotifications()
 
     nativeDecorations.value = native_decorations
     if (os.value !== 'MacOS') await getCurrentWindow().setDecorations(native_decorations)

@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { CheckIcon, LeftArrowIcon, RightArrowIcon, SpinnerIcon } from '@modrinth/assets'
-import { Button, defineMessages, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    defineMessages,
+    injectNotificationManager,
+    provideNotificationManager,
+    useVIntl,
+} from '@modrinth/ui'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import AxolotlLogo from '@/components/ui/AxolotlLogo.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
+import { AppNotificationManager } from '@/providers/app-notifications'
 
 import OobeStepScope from './OobeStepScope.vue'
 import type { OobeStepDefinition } from './steps'
@@ -20,6 +27,11 @@ const emit = defineEmits<{
 }>()
 
 const { formatMessage } = useVIntl()
+
+// The app holds its own notifications while the OOBE is open; what a step raises must show now.
+const notifications = injectNotificationManager()
+if (notifications instanceof AppNotificationManager)
+    provideNotificationManager(notifications.immediate())
 
 const messages = defineMessages({
     next: { id: 'app.oobe.action.next', defaultMessage: 'Next' },

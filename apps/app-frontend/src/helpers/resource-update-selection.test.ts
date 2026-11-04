@@ -327,6 +327,22 @@ it('reports a prepared update with nothing to apply instead of finishing silentl
     expect(nothing).toHaveBeenCalledOnce()
 })
 
+it('shows one nothing-to-apply notice for overlapping requests that share a pending task', async () => {
+    readyUpdates()
+    const pending = deferred<unknown>()
+    vi.mocked(resourcePrepareEntryOperation).mockReturnValueOnce(pending.promise as never)
+    const first = vi.fn()
+    const second = vi.fn()
+    const requests = [
+        queueResourceEntryUpdates('shared-quiet', ['entry'], vi.fn(), vi.fn(), first),
+        queueResourceEntryUpdates('shared-quiet', ['entry'], vi.fn(), vi.fn(), second),
+    ]
+    pending.resolve({ id: 'plan', revision: 1, actions: [], issues: [] })
+    expect(await Promise.all(requests)).toEqual([false, false])
+    expect(resourcePrepareEntryOperation).toHaveBeenCalledOnce()
+    expect(first.mock.calls.length + second.mock.calls.length).toBe(1)
+})
+
 function item(entry: string, overrides: Partial<ContentItem> = {}): ContentItem {
     return {
         id: entry,

@@ -1,4 +1,5 @@
 export * from './base'
+export * from './code-editor'
 export * from './flows'
 export { imageViewerEditorMessages } from './image-viewer-editor/image-viewer-editor-messages'
 export type {

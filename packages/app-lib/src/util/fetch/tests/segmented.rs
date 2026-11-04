@@ -109,7 +109,7 @@ async fn segmented_download_uses_parallel_validated_ranges() {
         .with_integrity(Integrity::sha1(hash).with_size(size as u64));
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("fixture.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -205,7 +205,7 @@ async fn mirror_ranges_start_concurrently_and_retries_reuse_redirect() {
         .with_integrity(Integrity::sha1(hash).with_size(size as u64));
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("redirect.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -268,7 +268,7 @@ async fn temporary_range_failure_resumes_without_disabling_segments() {
         .with_integrity(Integrity::sha1(hash).with_size(size as u64));
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("retry.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -324,7 +324,7 @@ async fn invalid_content_range_disables_range_splitting_after_repeats() {
     };
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("fixture.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()

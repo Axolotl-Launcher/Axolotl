@@ -478,7 +478,7 @@ mod tests {
             stream.write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await.unwrap();
             headers
         });
-        let client = reqwest::Client::builder()
+        let client = crate::util::http::client_builder()
             .proxy(reqwest::Proxy::all(format!("http://{address}")).unwrap())
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(3))
@@ -536,7 +536,7 @@ mod tests {
                 stream.write_all(response.as_bytes()).await.unwrap();
             }
         });
-        let client = reqwest::Client::builder()
+        let client = crate::util::http::client_builder()
             .proxy(reqwest::Proxy::all(format!("http://{address}")).unwrap())
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(3))
@@ -603,7 +603,7 @@ mod tests {
                     stream.write_all(format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
                 }
             });
-            let client = reqwest::Client::builder()
+            let client = crate::util::http::client_builder()
                 .proxy(
                     reqwest::Proxy::all(format!("http://{address}")).unwrap(),
                 )
@@ -760,7 +760,7 @@ mod tests {
             assert!(headers.contains("range: bytes=0-3"));
             stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\ndata").await.unwrap();
         });
-        let client = reqwest::Client::builder()
+        let client = crate::util::http::client_builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(3))
@@ -875,7 +875,7 @@ mod tests {
         ] {
             let listener =
                 tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let client = reqwest::Client::builder()
+            let client = crate::util::http::client_builder()
                 .proxy(
                     reqwest::Proxy::all(format!(
                         "http://{}",

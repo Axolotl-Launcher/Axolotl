@@ -38,7 +38,7 @@ import {
 } from 'vue'
 
 import minecraftPreviewFont from '@/assets/lab/Minecraft_AE.ttf'
-import minecraftPreviewBackground from '@/assets/lab/minecraft-preview.png'
+import minecraftPreviewBackground from '@/assets/lab/minecraft-preview.webp'
 import {
     type GradientPreset,
     loadGradientTextState,

@@ -583,6 +583,29 @@ fn on_path(path: &Path) -> OnPath {
     }
 }
 
+async fn read_document_contents(path: &Path) -> Result<Option<Vec<u8>>, ()> {
+    match on_path(path) {
+        OnPath::Unreadable => return Err(()),
+        OnPath::Missing => return Ok(None),
+        OnPath::Readable => {}
+    }
+    let contents = match tokio::fs::read(path).await {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        Err(error) => {
+            tracing::warn!(
+                path = %path.display(),
+                %error,
+                "Could not read a settings document"
+            );
+            return Err(());
+        }
+    };
+    Ok(Some(contents))
+}
+
 async fn read_document<T>(
     path: &Path,
     name: &str,
@@ -591,24 +614,10 @@ async fn read_document<T>(
 where
     T: DeserializeOwned + Default,
 {
-    match on_path(path) {
-        OnPath::Unreadable => return Stored::Unreadable,
-        OnPath::Missing => return Stored::Missing,
-        OnPath::Readable => {}
-    }
-    let contents = match tokio::fs::read(path).await {
-        Ok(contents) => contents,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Stored::Missing;
-        }
-        Err(error) => {
-            tracing::warn!(
-                path = %path.display(),
-                %error,
-                "Could not read a settings document"
-            );
-            return Stored::Unreadable;
-        }
+    let contents = match read_document_contents(path).await {
+        Ok(Some(contents)) => contents,
+        Ok(None) => return Stored::Missing,
+        Err(()) => return Stored::Unreadable,
     };
     let Ok(stored) = serde_json::from_slice::<StoredDocument<T>>(&contents)
     else {

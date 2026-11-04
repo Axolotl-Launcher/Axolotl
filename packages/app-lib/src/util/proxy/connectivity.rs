@@ -34,7 +34,7 @@ pub async fn test_proxy_connection(
     )?;
     let client = config
         .apply(
-            reqwest::Client::builder()
+            crate::util::http::client_builder()
                 .dns_resolver(clients.system_dns)
                 .danger_accept_invalid_certs(clients.ignore_ssl_errors)
                 .redirect(reqwest::redirect::Policy::none())
@@ -132,7 +132,7 @@ mod tests {
         for status in [204, 302, 403, 503] {
             let (first, first_server) = server(200).await;
             let (second, second_server) = server(status).await;
-            let client = reqwest::Client::builder()
+            let client = crate::util::http::client_builder()
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(2))

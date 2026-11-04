@@ -16,6 +16,7 @@ import {
     Button,
     commonMessages,
     defineMessages,
+    getEditorLanguage,
     injectNotificationManager,
     NewModal,
     type OverflowMenuOption,
@@ -278,8 +279,7 @@ const deleteLabel = computed(() =>
 const editorLanguage = computed(() => {
     const extension = selectedName.value.split('.').pop()?.toLowerCase()
     if (extension === 'dat' || extension === 'nbt') return 'json'
-    if (extension === 'yml') return 'yaml'
-    return extension ?? 'plaintext'
+    return getEditorLanguage(extension ?? '')
 })
 const breadcrumbSegments = computed(() => selectedFilePath.value.split('/').filter(Boolean))
 const visibleBreadcrumbSegments = ref<string[]>([])

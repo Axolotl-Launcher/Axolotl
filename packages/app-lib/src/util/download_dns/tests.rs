@@ -344,7 +344,12 @@ fn fixture_resolver(fixtures: &[&DohFixture]) -> DownloadDnsResolver {
         doh_clients: Arc::new(
             fixtures
                 .iter()
-                .map(|_| reqwest::Client::builder().no_proxy().build().unwrap())
+                .map(|_| {
+                    crate::util::http::client_builder()
+                        .no_proxy()
+                        .build()
+                        .unwrap()
+                })
                 .collect(),
         ),
         ..Default::default()

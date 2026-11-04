@@ -1,0 +1,115 @@
+name: TEMP coverage stress
+
+# TEMPORARY: verifies that the endpoint-selection probe tests are stable under
+# instrumentation on Linux before this branch is merged. Delete this file once
+# the result is recorded; it is not meant to live on main.
+#
+# Why it exists: the probe tests pass on a single run even when they are flaky,
+# so one green coverage job proves nothing. This runs the two H2 recovery tests
+# many times against one instrumented build and reports the pass rate.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Iterations per test
+        required: false
+        default: '30'
+
+permissions:
+  contents: read
+
+jobs:
+  stress:
+    name: Stress probe tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    env:
+      SQLX_OFFLINE: true
+      RUST_MIN_STACK: 67108864
+      RUNS: ${{ github.event.inputs.runs || '30' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
+        with:
+          profile: ci
+      - name: Install coverage tools
+        uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        with:
+          tool: cargo-llvm-cov@0.9.1,cargo-nextest@0.9.150
+      - name: Install LLVM coverage tools
+        run: rustup component add llvm-tools-preview
+      # Build the instrumented test binary once, then run it in a loop: the
+      # point is to repeat the tests, not to repeat a 30-minute build.
+      # `cargo llvm-cov --no-run` is deprecated and conflicts with --no-report,
+      # so the instrumentation environment is injected directly.
+      - name: Build instrumented tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(cargo llvm-cov show-env --sh)"
+          cargo test --no-run --locked --workspace --exclude theseus_gui
+      - name: Locate the test binary
+        id: binary
+        shell: bash
+        run: |
+          eval "$(cargo llvm-cov show-env --sh)"
+          binary="$(find "$CARGO_LLVM_COV_TARGET_DIR/debug/deps" -maxdepth 1 \
+            -type f -name "theseus-*" ! -name '*.d' ! -name '*.rlib' \
+            ! -name '*.rmeta' ! -name '*.pdb' \
+            -exec test -x {} \; -print | head -n 1)"
+          if [ -z "$binary" ]; then
+            echo 'No instrumented theseus test binary found' >&2
+            exit 1
+          fi
+          echo "path=$binary" >> "$GITHUB_OUTPUT"
+          echo "Using $binary"
+      - name: Stress single-stream recovery
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          binary="${{ steps.binary.outputs.path }}"
+          pass=0; fail=0
+          for i in $(seq 1 "$RUNS"); do
+            if "$binary" --exact \
+              util::download::endpoint_selection::probe::tests::native_h2_single_stream_measures_new_peer_and_resumes_verified_file \
+              --test-threads=1 > "stress-single-$i.log" 2>&1
+            then pass=$((pass + 1)); else fail=$((fail + 1)); fi
+          done
+          echo "native_h2_single_stream: $pass passed, $fail failed of $RUNS" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "single-stream pass=$pass fail=$fail"
+          [ "$fail" -eq 0 ]
+      - name: Stress ranged recovery
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          binary="${{ steps.binary.outputs.path }}"
+          pass=0; fail=0
+          for i in $(seq 1 "$RUNS"); do
+            if "$binary" --exact \
+              util::download::endpoint_selection::probe::tests::native_h2_ranges_measure_new_peer_and_resume_verified_file \
+              --test-threads=1 > "stress-ranges-$i.log" 2>&1
+            then pass=$((pass + 1)); else fail=$((fail + 1)); fi
+          done
+          echo "native_h2_ranges: $pass passed, $fail failed of $RUNS" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "ranges pass=$pass fail=$fail"
+          [ "$fail" -eq 0 ]
+      - name: Upload failures
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stress-logs-${{ matrix.os }}
+          path: stress-*.log
+          retention-days: 3
+          if-no-files-found: ignore

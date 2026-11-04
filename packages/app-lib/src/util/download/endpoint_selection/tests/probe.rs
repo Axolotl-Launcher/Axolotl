@@ -98,9 +98,14 @@ impl TlsFixture {
                 PrivatePkcs8KeyDer::from(leaf_key.serialize_der()).into(),
             )
             .unwrap();
-        if protocol == Protocol::H2 {
-            config.alpn_protocols = vec![b"h2".to_vec()];
-        }
+        // An h2 endpoint still answers the HTTP/1.1 that a probe dials before
+        // the selection settles: offering only `h2` makes rustls abort that
+        // probe with `NoApplicationProtocol`, which is a TLS failure the test
+        // mistakes for a download failure. Real CDN endpoints negotiate either.
+        config.alpn_protocols = match protocol {
+            Protocol::H2 => vec![b"h2".to_vec(), b"http/1.1".to_vec()],
+            Protocol::Http1 => vec![b"http/1.1".to_vec()],
+        };
         let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(config));
         let listener = tokio::net::TcpListener::bind((bind_ip, port))
             .await
@@ -122,11 +127,19 @@ impl TlsFixture {
                         handlers.spawn(async move {
                             let Ok(mut stream) = acceptor.accept(socket).await else { return };
                             assert_eq!(stream.get_ref().1.server_name(), Some(expected_host.as_str()));
-                            if protocol == Protocol::H2 {
-                                let mut connection = h2::server::handshake(stream).await.unwrap();
+                            let negotiated_h2 = stream.get_ref().1.alpn_protocol() == Some(b"h2");
+                            if protocol == Protocol::H2 && negotiated_h2 {
+                                // A probe may dial this peer over HTTP/1 before
+                                // the selection settles, and the connection then
+                                // falls through to the HTTP/1 arm below rather
+                                // than failing the handshake.
+                                let Ok(mut connection) = h2::server::handshake(stream).await else { return };
                                 let mut transfers = tokio::task::JoinSet::new();
                                 while let Some(request) = connection.accept().await {
-                                    let (request, mut respond) = request.unwrap();
+                                    // A client that gives up on this peer closes
+                                    // the connection; that is a result the tests
+                                    // provoke, not a fixture failure.
+                                    let Ok((request, mut respond)) = request else { break };
                                     counted.fetch_add(1, Ordering::SeqCst);
                                     assert_eq!(request.uri().host(), Some("cdn.modrinth.com"));
                                     assert!(request.headers().get(header::AUTHORIZATION).is_none());
@@ -850,6 +863,15 @@ async fn automatic_native_h2_recovery(range_count: Option<usize>) {
         Ipv4Addr::new(127, 0, 0, 2),
     )
     .await;
+    // Register before the clients are built: a fallback request from the
+    // pinned path to a general client must trust the same loopback CAs, or it
+    // fails with `UnknownIssuer` instead of exercising the recovery this test
+    // is about. The registry is read while `DownloadClients::build` runs, so
+    // it cannot be installed later from inside the transfer future.
+    crate::util::fetch::register_test_trust_roots(vec![
+        slow.root.clone(),
+        fast.root.clone(),
+    ]);
     let clients = production_clients(&slow);
     clients
         .endpoints

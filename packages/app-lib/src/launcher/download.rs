@@ -3818,13 +3818,25 @@ mod tests {
         writer.finish().unwrap();
     }
 
+    fn native_test_classifier() -> &'static str {
+        if cfg!(windows) {
+            "natives-windows"
+        } else if cfg!(target_os = "macos") {
+            "natives-osx"
+        } else {
+            "natives-linux"
+        }
+    }
+
     fn modern_native_library(sha1: &str) -> Library {
+        let classifier = native_test_classifier();
+        let os_key = classifier.trim_start_matches("natives-");
         serde_json::from_value(serde_json::json!({
             "name": "org.lwjgl:lwjgl-platform:3.2.1",
-            "natives": { "windows": "natives-windows" },
+            "natives": { (os_key): classifier },
             "downloads": {
                 "classifiers": {
-                    "natives-windows": {
+                    (classifier): {
                         "sha1": sha1,
                         "size": 64,
                         "url": "https://example.com/natives.jar"
@@ -4032,9 +4044,10 @@ mod tests {
         let natives_root = directory.path().join("natives");
         let libraries_dir = directory.path().join("libraries");
         let caches_dir = directory.path().join("caches");
-        let archive = libraries_dir.join(
-            "org/lwjgl/lwjgl-platform/3.2.1/lwjgl-platform-3.2.1-natives-windows.jar",
-        );
+        let archive = libraries_dir.join(format!(
+            "org/lwjgl/lwjgl-platform/3.2.1/lwjgl-platform-3.2.1-{}.jar",
+            native_test_classifier()
+        ));
         std::fs::create_dir_all(archive.parent().unwrap()).unwrap();
         write_native_archive(&archive, &[("lwjgl.dll", b"from-libraries")]);
 
@@ -4064,9 +4077,10 @@ mod tests {
         let natives_root = directory.path().join("natives");
         let libraries_dir = directory.path().join("libraries");
         let caches_dir = directory.path().join("caches");
-        let archive = libraries_dir.join(
-            "org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar",
-        );
+        let archive = libraries_dir.join(format!(
+            "org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-{}.jar",
+            native_test_classifier()
+        ));
         std::fs::create_dir_all(archive.parent().unwrap()).unwrap();
         write_native_archive(&archive, &[("lwjgl.dll", b"legacy-binary")]);
 

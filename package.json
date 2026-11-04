@@ -11,6 +11,8 @@
     "lint": "turbo run lint lint:ancillary --continue",
     "lint:ancillary": "prettier --check .github README.md AGENTS.md \"apps/**/AGENTS.md\" \"packages/**/AGENTS.md\" .agents/AGENTS.md \".agents/skills/*/SKILL.md\" standards/frontend/DEVELOPMENT.md standards/frontend/FIGMA_MCP_USAGE.md standards/frontend/ADDING_API_MODULES.md standards/frontend/INTERNATIONALIZATION.md Cargo.toml package.json pnpm-workspace.yaml turbo.jsonc crowdin.yml web-types.json _typos.toml tombi.toml clippy.toml rustfmt.toml",
     "test": "turbo run test --continue",
+    "coverage:rust": "node scripts/axolotl/rust-coverage.mjs --open",
+    "coverage:rust:lcov": "node scripts/axolotl/rust-coverage.mjs",
     "fix": "turbo run fix fix:ancillary --continue",
     "fix:ancillary": "prettier --write .github README.md AGENTS.md \"apps/**/AGENTS.md\" \"packages/**/AGENTS.md\" .agents/AGENTS.md \".agents/skills/*/SKILL.md\" standards/frontend/DEVELOPMENT.md standards/frontend/FIGMA_MCP_USAGE.md standards/frontend/ADDING_API_MODULES.md standards/frontend/INTERNATIONALIZATION.md Cargo.toml package.json pnpm-workspace.yaml turbo.jsonc crowdin.yml web-types.json _typos.toml tombi.toml clippy.toml rustfmt.toml",
     "ci": "turbo run lint test --continue",

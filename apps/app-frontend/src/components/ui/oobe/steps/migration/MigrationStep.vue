@@ -28,7 +28,7 @@ import { useOobeStep } from '../../context'
 type AddedFolder = { path: string; state: 'scanning' | 'added' | 'failed'; message?: string }
 
 const LAUNCHER_NAMES: Record<string, string> = {
-    ModrinthApp: 'Modrinth App',
+    ModrinthApp: 'Modrinth',
     MultiMC: 'MultiMC',
     PCL2: 'PCL2',
     PCL2CE: 'PCL2 CE',

@@ -3858,6 +3858,12 @@
   "app.instance.mods.update-added-content.description": {
     "message": "Updates only content added after the modpack was installed. Modpack files are not changed."
   },
+  "app.instance.mods.update-nothing-to-apply.body": {
+    "message": "No newer compatible version was found for the selected content, so no files were changed."
+  },
+  "app.instance.mods.update-nothing-to-apply.title": {
+    "message": "Nothing to update"
+  },
   "app.instance.never-played": {
     "message": "Never played"
   },
@@ -15663,6 +15669,24 @@
   "instance.files.studio.editor-loading": {
     "message": "Loading editor..."
   },
+  "instance.files.studio.edit-deleted": {
+    "message": "This file was removed before the edit could be saved."
+  },
+  "instance.files.studio.discard-image-confirm": {
+    "message": "Discard"
+  },
+  "instance.files.studio.discard-image-description": {
+    "message": "The image has changes that have not been saved. Opening another file discards them."
+  },
+  "instance.files.studio.discard-image-keep": {
+    "message": "Keep editing"
+  },
+  "instance.files.studio.discard-image-title": {
+    "message": "Discard the image edit?"
+  },
+  "instance.files.studio.edit-conflict": {
+    "message": "This file changed on disk after it was opened. The edit was not saved."
+  },
   "instance.files.studio.empty-description": {
     "message": "Open any text file from the explorer."
   },
@@ -15723,6 +15747,9 @@
   "instance.files.studio.not-text-file": {
     "message": "This file is not a text file and cannot be opened in Studio."
   },
+  "instance.files.studio.open-in-schematic-workshop": {
+    "message": "Open with schematic workshop"
+  },
   "instance.files.studio.open-in-system": {
     "message": "Open in system"
   },
@@ -15734,6 +15761,33 @@
   },
   "instance.files.studio.paste": {
     "message": "Paste"
+  },
+  "instance.files.studio.preview-actual-size": {
+    "message": "Actual size"
+  },
+  "instance.files.studio.preview-edit": {
+    "message": "Edit"
+  },
+  "instance.files.studio.preview-failed": {
+    "message": "This file could not be previewed."
+  },
+  "instance.files.studio.preview-fit": {
+    "message": "Fit to window"
+  },
+  "instance.files.studio.preview-loading": {
+    "message": "Loading preview..."
+  },
+  "instance.files.studio.preview-save": {
+    "message": "Save"
+  },
+  "instance.files.studio.preview-tools": {
+    "message": "Image editing tools"
+  },
+  "instance.files.studio.preview-zoom-in": {
+    "message": "Zoom in"
+  },
+  "instance.files.studio.preview-zoom-out": {
+    "message": "Zoom out"
   },
   "instance.files.studio.refresh": {
     "message": "Refresh files"

@@ -308,6 +308,78 @@
   "collections.label.private": {
     "defaultMessage": "私有"
   },
+  "color-picker.dialog-label": {
+    "defaultMessage": "取色器"
+  },
+  "color-picker.dye-presets": {
+    "defaultMessage": "染料颜色"
+  },
+  "color-picker.dye.black": {
+    "defaultMessage": "黑色"
+  },
+  "color-picker.dye.blue": {
+    "defaultMessage": "蓝色"
+  },
+  "color-picker.dye.brown": {
+    "defaultMessage": "棕色"
+  },
+  "color-picker.dye.cyan": {
+    "defaultMessage": "青色"
+  },
+  "color-picker.dye.gray": {
+    "defaultMessage": "灰色"
+  },
+  "color-picker.dye.green": {
+    "defaultMessage": "绿色"
+  },
+  "color-picker.dye.light-blue": {
+    "defaultMessage": "淡蓝色"
+  },
+  "color-picker.dye.light-gray": {
+    "defaultMessage": "淡灰色"
+  },
+  "color-picker.dye.lime": {
+    "defaultMessage": "黄绿色"
+  },
+  "color-picker.dye.magenta": {
+    "defaultMessage": "品红色"
+  },
+  "color-picker.dye.orange": {
+    "defaultMessage": "橙色"
+  },
+  "color-picker.dye.pink": {
+    "defaultMessage": "粉红色"
+  },
+  "color-picker.dye.purple": {
+    "defaultMessage": "紫色"
+  },
+  "color-picker.dye.red": {
+    "defaultMessage": "红色"
+  },
+  "color-picker.dye.white": {
+    "defaultMessage": "白色"
+  },
+  "color-picker.dye.yellow": {
+    "defaultMessage": "黄色"
+  },
+  "color-picker.hex": {
+    "defaultMessage": "十六进制颜色"
+  },
+  "color-picker.hue": {
+    "defaultMessage": "色相"
+  },
+  "color-picker.open": {
+    "defaultMessage": "选择颜色"
+  },
+  "color-picker.recent-colors": {
+    "defaultMessage": "最近使用"
+  },
+  "color-picker.saturation-brightness": {
+    "defaultMessage": "饱和度与亮度"
+  },
+  "color-picker.saturation-brightness.value": {
+    "defaultMessage": "饱和度 {saturation}%，亮度 {brightness}%"
+  },
   "console.action.collapse": {
     "defaultMessage": "收起"
   },

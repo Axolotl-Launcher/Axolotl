@@ -240,6 +240,7 @@ pub enum ErrorKind {
     #[error("Windows error: {0}")]
     WindowsError(#[from] windows_core::Error),
 
+    #[cfg(target_os = "linux")]
     #[error("zbus error: {0}")]
     ZbusError(#[from] zbus::Error),
 

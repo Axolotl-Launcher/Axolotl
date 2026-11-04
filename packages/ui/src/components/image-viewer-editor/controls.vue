@@ -13,6 +13,7 @@ import { computed } from 'vue'
 import Button from '#ui/components/base/buttons/Button.vue'
 import IconButton from '#ui/components/base/buttons/IconButton.vue'
 import Chips from '#ui/components/base/Chips.vue'
+import ColorPicker from '#ui/components/base/ColorPicker.vue'
 import { useVIntl } from '#ui/composables/i18n'
 import { commonMessages } from '#ui/utils/common-messages'
 
@@ -95,10 +96,6 @@ function handlePropertyInput(event: Event) {
     updatePropertyValue(Number((event.target as HTMLInputElement).value))
 }
 
-function handleColorInput(event: Event) {
-    updateColor((event.target as HTMLInputElement).value)
-}
-
 function formatEraserMode(value: ScreenshotEraserMode) {
     return formatMessage(value === 'element' ? messages.element : messages.area)
 }
@@ -132,16 +129,13 @@ function formatEraserMode(value: ScreenshotEraserMode) {
                 size="small"
                 hide-checkmark-icon
             />
-            <input
+            <ColorPicker
                 v-if="hasColorProperty"
-                type="color"
-                :value="color"
+                :model-value="color"
                 :label="formatMessage(messages.colour)"
-                :aria-label="formatMessage(messages.colour)"
-                class="size-9 shrink-0 cursor-pointer rounded-xl border border-solid border-surface-5 bg-surface-4 p-1"
-                @focus="beginPropertyEdit"
-                @pointerdown="beginPropertyEdit"
-                @input="handleColorInput"
+                class="shrink-0"
+                @open="beginPropertyEdit"
+                @update:model-value="updateColor"
                 @change="commitPropertyEdit"
             />
             <div

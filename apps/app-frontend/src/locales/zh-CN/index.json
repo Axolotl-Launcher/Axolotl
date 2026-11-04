@@ -4749,6 +4749,12 @@
   "app.instance.mods.update-added-content.description": {
     "message": "仅更新整合包安装后添加的内容，不会更改整合包自带文件。"
   },
+  "app.instance.mods.update-nothing-to-apply.body": {
+    "message": "所选内容没有找到更新的兼容版本，因此没有更改任何文件。"
+  },
+  "app.instance.mods.update-nothing-to-apply.title": {
+    "message": "没有可应用的更新"
+  },
   "app.instance.never-played": {
     "message": "从未游玩"
   },
@@ -13782,6 +13788,24 @@
   "instance.files.studio.editor-loading": {
     "message": "正在加载编辑器……"
   },
+  "instance.files.studio.edit-deleted": {
+    "message": "该文件在编辑保存前已被删除。"
+  },
+  "instance.files.studio.discard-image-confirm": {
+    "message": "放弃"
+  },
+  "instance.files.studio.discard-image-description": {
+    "message": "图片有尚未保存的修改，打开其他文件会丢弃这些修改。"
+  },
+  "instance.files.studio.discard-image-keep": {
+    "message": "继续编辑"
+  },
+  "instance.files.studio.discard-image-title": {
+    "message": "放弃图片编辑？"
+  },
+  "instance.files.studio.edit-conflict": {
+    "message": "该文件在打开后已被外部修改，编辑内容未保存。"
+  },
   "instance.files.studio.empty-description": {
     "message": "从资源管理器打开文件。"
   },
@@ -13842,6 +13866,9 @@
   "instance.files.studio.not-text-file": {
     "message": "此文件不是文本文件，无法在 Studio 中打开。"
   },
+  "instance.files.studio.open-in-schematic-workshop": {
+    "message": "使用“投影工坊”打开"
+  },
   "instance.files.studio.open-in-system": {
     "message": "从系统中打开"
   },
@@ -13853,6 +13880,33 @@
   },
   "instance.files.studio.paste": {
     "message": "粘贴"
+  },
+  "instance.files.studio.preview-actual-size": {
+    "message": "实际大小"
+  },
+  "instance.files.studio.preview-edit": {
+    "message": "编辑"
+  },
+  "instance.files.studio.preview-failed": {
+    "message": "无法预览此文件。"
+  },
+  "instance.files.studio.preview-fit": {
+    "message": "适应窗口"
+  },
+  "instance.files.studio.preview-loading": {
+    "message": "正在加载预览……"
+  },
+  "instance.files.studio.preview-save": {
+    "message": "保存"
+  },
+  "instance.files.studio.preview-tools": {
+    "message": "图片编辑工具"
+  },
+  "instance.files.studio.preview-zoom-in": {
+    "message": "放大"
+  },
+  "instance.files.studio.preview-zoom-out": {
+    "message": "缩小"
   },
   "instance.files.studio.refresh": {
     "message": "刷新文件"

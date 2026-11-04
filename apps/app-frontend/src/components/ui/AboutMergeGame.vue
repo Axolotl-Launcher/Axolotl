@@ -193,12 +193,12 @@
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { nextTick, onMounted, onScopeDispose, ref, watch } from 'vue'
 
-import blueBall from '@/assets/axolotl-balls/blueball.png'
-import cyanBall from '@/assets/axolotl-balls/cyanball.png'
-import pinkBall from '@/assets/axolotl-balls/pinkball.png'
-import redBall from '@/assets/axolotl-balls/redball.png'
-import superBall from '@/assets/axolotl-balls/superball.png'
-import yellowBall from '@/assets/axolotl-balls/yellowball.png'
+import blueBall from '@/assets/axolotl-balls/blueball.webp'
+import cyanBall from '@/assets/axolotl-balls/cyanball.webp'
+import pinkBall from '@/assets/axolotl-balls/pinkball.webp'
+import redBall from '@/assets/axolotl-balls/redball.webp'
+import superBall from '@/assets/axolotl-balls/superball.webp'
+import yellowBall from '@/assets/axolotl-balls/yellowball.webp'
 
 interface Piece {
     id: number

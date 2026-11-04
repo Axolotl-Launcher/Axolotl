@@ -33,7 +33,6 @@ it('browse project tabs keep favorites after servers and preserve the route cont
         'Favorites',
     ])
     expect(tabs.at(-1)?.href).toBe('/browse/favorites?i=instance-id')
-    expect(tabs.at(-1)?.onboardingId).toBe('browse-favorites-tab')
 })
 
 it('browse project tabs preserve content-context visibility while keeping favorites available', () => {

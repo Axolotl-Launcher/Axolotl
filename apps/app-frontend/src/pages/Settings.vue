@@ -488,7 +488,6 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                                 v-for="category in group.categories"
                                 :key="category.id"
                                 type="button"
-                                :data-onboarding-id="category.onboardingId"
                                 class="settings-category-button hover:bg-surface-3 hover:text-[var(--color-text-primary)]"
                                 :class="{ 'is-active': activeCategory?.id === category.id }"
                                 @click="selectCategory(category.id)"

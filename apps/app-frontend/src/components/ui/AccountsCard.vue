@@ -35,7 +35,6 @@
             {{ formatMessage(messages.addThirdPartyAccount) }}
         </Button>
         <Button
-            data-onboarding-id="offline-account-entry"
             :disabled="loginDisabled"
             :aria-disabled="antiPiracyStatus.restricted"
             :class="{ 'opacity-50': antiPiracyStatus.restricted }"
@@ -192,7 +191,6 @@
                 <Button
                     v-if="accounts.length > 0"
                     class="w-full"
-                    data-onboarding-id="offline-account-entry"
                     :disabled="loginDisabled"
                     :aria-disabled="antiPiracyStatus.restricted"
                     :class="{ 'opacity-50': antiPiracyStatus.restricted }"

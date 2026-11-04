@@ -124,7 +124,7 @@ provideConsoleManager({
 </script>
 
 <template>
-    <div data-onboarding-id="server-console" class="flex h-full min-h-0 min-w-0 flex-col pb-3">
+    <div class="flex h-full min-h-0 min-w-0 flex-col pb-3">
         <ServerTerminal :server="server" :view="view" @update:view="view = $event">
             <ConsolePageLayout ref="consoleLayout" />
         </ServerTerminal>

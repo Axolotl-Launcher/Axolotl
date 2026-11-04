@@ -605,7 +605,7 @@ defineExpose({ save, cancel, isDirty })
 </script>
 
 <template>
-    <section data-onboarding-id="server-properties" class="flex flex-col gap-4">
+    <section class="flex flex-col gap-4">
         <div class="flex items-center justify-between gap-3">
             <div class="flex min-w-0 items-center gap-2.5">
                 <div

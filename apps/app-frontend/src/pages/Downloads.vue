@@ -1,7 +1,7 @@
 <template>
     <div class="box-border flex min-h-full w-full flex-col gap-3 p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div data-onboarding-id="downloads-tabs">
+            <div data-testid="downloads-tabs">
                 <NavTabs
                     :active-index="tab === 'active' ? 0 : 1"
                     :links="downloadTabs"

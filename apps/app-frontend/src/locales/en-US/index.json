@@ -5700,9 +5700,6 @@
   "app.lab.recipe-generator.brewing.count": {
     "message": "Output count"
   },
-  "app.lab.recipe-generator.brewing.guide": {
-    "message": "Brewing guide"
-  },
   "app.lab.recipe-generator.brewing.hint": {
     "message": "Drop any supported item into the input, reagent and output slots. Potion choices override only the potion ID in the corresponding JSON object. Other conditions and components are preserved."
   },
@@ -6446,9 +6443,6 @@
   },
   "app.lab.seed-map.add-marker": {
     "message": "Add marker"
-  },
-  "app.lab.seed-map.advanced-tour": {
-    "message": "Map exploration guide"
   },
   "app.lab.seed-map.approximate": {
     "message": "Estimated"
@@ -8382,9 +8376,6 @@
   "app.logagent.settings.supported-models": {
     "message": "Choose a model that supports tool calling. Protocol support does not guarantee that every model accepts tools. Copilot Auto requires selecting an explicit model."
   },
-  "app.logagent.settings.tour": {
-    "message": "About analysis sources"
-  },
   "app.logagent.source-cloud": {
     "message": "Cloud LogShare"
   },
@@ -9240,347 +9231,194 @@
   "app.notification.warning": {
     "message": "Warning"
   },
-  "app.onboarding.account.description": {
-    "message": "When you are ready, sign in, switch accounts, or open your profile here. No deadline."
+  "app.oobe.account.add": {
+    "message": "Add"
   },
-  "app.onboarding.account.title": {
-    "message": "Accounts, on your schedule"
+  "app.oobe.account.add-another": {
+    "message": "Add another account"
   },
-  "app.onboarding.action.click-create": {
-    "message": "Click Create new instance to continue"
+  "app.oobe.account.add-title": {
+    "message": "Add an account"
   },
-  "app.onboarding.action.click-creation-method": {
-    "message": "Choose a route to continue"
+  "app.oobe.account.added": {
+    "message": "On this device"
   },
-  "app.onboarding.action.click-discover": {
-    "message": "Click Discover content to continue"
+  "app.oobe.account.description": {
+    "message": "Add the account you play Minecraft with."
   },
-  "app.onboarding.action.click-downloads": {
-    "message": "Click Downloads to continue"
+  "app.oobe.account.label": {
+    "message": "Account"
   },
-  "app.onboarding.action.click-favorites": {
-    "message": "Click Favorites to continue"
+  "app.oobe.account.microsoft": {
+    "message": "Microsoft account"
   },
-  "app.onboarding.action.click-lab": {
-    "message": "Click Lab to continue"
+  "app.oobe.account.microsoft-detail": {
+    "message": "Sign in with the account that owns Minecraft: Java Edition."
   },
-  "app.onboarding.action.click-library": {
-    "message": "Click Library to continue"
+  "app.oobe.account.offline": {
+    "message": "Offline account"
   },
-  "app.onboarding.action.click-settings": {
-    "message": "Click Settings to continue"
+  "app.oobe.account.offline-detail": {
+    "message": "Just a player name. Only works on servers that allow offline players."
   },
-  "app.onboarding.action.click-skins": {
-    "message": "Click Skin selector to continue"
+  "app.oobe.account.offline-restricted": {
+    "message": "Sign in with a Microsoft account on this device first."
   },
-  "app.onboarding.action.click-tab": {
-    "message": "Click this tab to continue"
+  "app.oobe.account.recommended": {
+    "message": "Recommended"
   },
-  "app.onboarding.action.continue-area": {
-    "message": "Click anywhere for the next bit"
+  "app.oobe.account.third-party": {
+    "message": "Third-party account"
   },
-  "app.onboarding.action.finish-area": {
-    "message": "Click anywhere and you are all set"
+  "app.oobe.account.third-party-detail": {
+    "message": "LittleSkin or another Yggdrasil authentication service."
   },
-  "app.onboarding.action.open-gradient-text": {
-    "message": "Open Gradient text generator to continue"
+  "app.oobe.account.title": {
+    "message": "Who is using the launcher?"
   },
-  "app.onboarding.action.open-recipe-generator": {
-    "message": "Open Recipe generator to continue"
+  "app.oobe.action.back": {
+    "message": "Back"
   },
-  "app.onboarding.action.open-schematic-workshop": {
-    "message": "Open Schematic workshop to continue"
+  "app.oobe.action.finish": {
+    "message": "Finish"
   },
-  "app.onboarding.action.open-seed-map": {
-    "message": "Open Seed map to continue"
+  "app.oobe.action.next": {
+    "message": "Next"
   },
-  "app.onboarding.action.return-lab": {
-    "message": "Click Lab to continue"
+  "app.oobe.action.skip": {
+    "message": "Skip"
   },
-  "app.onboarding.action.skip": {
-    "message": "Leave the tour"
+  "app.oobe.appearance.home.minimal": {
+    "message": "Minimal"
   },
-  "app.onboarding.action.start": {
-    "message": "Take the tour"
+  "app.oobe.appearance.home.minimal-detail": {
+    "message": "One instance and a Play button, nothing else."
   },
-  "app.onboarding.ai.description": {
-    "message": "Connect text-model providers once, choose the models you want available, or switch every AI feature off in one place."
+  "app.oobe.appearance.home.standard": {
+    "message": "Information"
   },
-  "app.onboarding.ai.title": {
-    "message": "Bring your own AI provider"
+  "app.oobe.appearance.home.standard-detail": {
+    "message": "A greeting and widgets for your instances, news and more."
   },
-  "app.onboarding.appearance.description": {
-    "message": "Theme, accent, custom launcher background, and window effects all live here. Make the launcher feel familiar."
+  "app.oobe.appearance.home.title": {
+    "message": "Home page"
   },
-  "app.onboarding.appearance.title": {
-    "message": "Set the vibe"
+  "app.oobe.appearance.label": {
+    "message": "Appearance"
   },
-  "app.onboarding.brewing.description": {
-    "message": "Choose an input, reagent and output. Potion conditions are optional, and output components can be edited as validated JSON. Brewing recipes require Minecraft 26.3."
+  "app.oobe.appearance.later": {
+    "message": "You can change these any time in Settings: the color theme under Appearance, the home page under Home & navigation."
   },
-  "app.onboarding.brewing.title": {
-    "message": "Create a brewing recipe"
+  "app.oobe.appearance.save-failed": {
+    "message": "This choice could not be saved. It still applies until you restart."
   },
-  "app.onboarding.browse.description": {
-    "message": "Search available sources together. Matching titles are candidates until their files are verified. Project pages keep versions, changelogs, galleries, and install options in one place. Installation previews expand required dependencies; use + to add an optional dependency and resolve its requirements. When automatic dependency installation is off, use + to explicitly add missing required dependencies."
+  "app.oobe.appearance.theme.dark": {
+    "message": "Dark"
   },
-  "app.onboarding.browse.title": {
-    "message": "Search with receipts"
+  "app.oobe.appearance.theme.light": {
+    "message": "Light"
   },
-  "app.onboarding.create.description": {
-    "message": "Start from scratch or bring in an existing instance or modpack. Your call."
+  "app.oobe.appearance.theme.oled": {
+    "message": "OLED"
   },
-  "app.onboarding.create.title": {
-    "message": "Make a fresh start"
+  "app.oobe.appearance.theme.system": {
+    "message": "Match system"
   },
-  "app.onboarding.creation-confirm.description": {
-    "message": "This creates the instance with your choices. I keep a strict hands-off policy."
+  "app.oobe.appearance.theme.title": {
+    "message": "Color theme"
   },
-  "app.onboarding.creation-confirm.title": {
-    "message": "One last look"
+  "app.oobe.appearance.title": {
+    "message": "Choose the style you like."
   },
-  "app.onboarding.creation-loader.description": {
-    "message": "Vanilla, Fabric, Forge, NeoForge, and friends. Pick what your content needs."
+  "app.oobe.dialog-label": {
+    "message": "Set up Axolotl Launcher"
   },
-  "app.onboarding.creation-loader.title": {
-    "message": "Choose the engine"
+  "app.oobe.language.description": {
+    "message": "The launcher switches as soon as you pick one."
   },
-  "app.onboarding.creation-name.description": {
-    "message": "Pick a name your future self will recognize at a glance."
-  },
-  "app.onboarding.creation-name.title": {
-    "message": "Give it a memorable name"
-  },
-  "app.onboarding.creation-version.description": {
-    "message": "Choose the Minecraft version for this instance. Compatibility likes specifics."
-  },
-  "app.onboarding.creation-version.title": {
-    "message": "Set the game version"
-  },
-  "app.onboarding.creation.description": {
-    "message": "Start fresh with a custom setup, or import an existing instance or modpack. Your call."
-  },
-  "app.onboarding.creation.title": {
-    "message": "Pick your route"
-  },
-  "app.onboarding.defaults.description": {
-    "message": "New instances inherit these choices, so you do not have to repeat the homework."
-  },
-  "app.onboarding.defaults.title": {
-    "message": "Start ahead"
-  },
-  "app.onboarding.discover.description": {
-    "message": "Modpacks, mods, plugins, resource packs, shaders: the good kind of rabbit hole."
-  },
-  "app.onboarding.discover.title": {
-    "message": "Find something new"
-  },
-  "app.onboarding.downloads-page.description": {
-    "message": "Active work, history, errors, retries, cancellations, and diagnostics all leave a paper trail here."
-  },
-  "app.onboarding.downloads-page.title": {
-    "message": "Nothing gets lost"
-  },
-  "app.onboarding.downloads.description": {
-    "message": "Installations and content downloads report in here, so nothing has to disappear mysteriously."
-  },
-  "app.onboarding.downloads.title": {
-    "message": "Download control room"
-  },
-  "app.onboarding.favorites.description": {
-    "message": "Open Favorites to revisit saved mods, resource packs, data packs, and shaders. The launcher refreshes their project details, then you can choose an instance and add mixed sources to the same install cart."
-  },
-  "app.onboarding.favorites.title": {
-    "message": "Keep a short list"
-  },
-  "app.onboarding.home-customize.description": {
-    "message": "Use the bottom-right edit control to add, resize, and configure widgets. While editing, switch between an automatically packed grid and a free grid that preserves empty cells."
-  },
-  "app.onboarding.home-customize.title": {
-    "message": "Arrange it your way"
-  },
-  "app.onboarding.home-layout.description": {
-    "message": "Use the bottom-right control to switch between Information Home and Minimal Home. Widget editing stays with Information Home."
-  },
-  "app.onboarding.home-layout.title": {
-    "message": "Change the amount of detail"
-  },
-  "app.onboarding.home-widgets.description": {
-    "message": "Information Home is built from widgets for recent activity, playtime, instances, worlds, and servers. The grid reflows as the window or account sidebar changes."
-  },
-  "app.onboarding.home-widgets.title": {
-    "message": "Your Home, your layout"
-  },
-  "app.onboarding.instance-actions.description": {
-    "message": "Launch, stop, repair, configure, export, or open the instance from its header. Export verifies all exportable files once in the background while you choose categories, adjust files, and fill in package information. Changing selections reuses that verification. You can queue the export before verification finishes and follow its progress in Downloads."
-  },
-  "app.onboarding.instance-actions.title": {
-    "message": "The main controls"
-  },
-  "app.onboarding.instance-tabs.description": {
-    "message": "Use these tabs for content, files, screenshots, worlds, and logs. Filter content by installation platform or ownership. Duplicate resources start collapsed; expand a group to inspect each file or update every updatable copy together. Installations, Mod updates, and version switches use a dependency preview. Review missing or conflicting dependencies before continuing; use + to add optional dependencies. Compatibility exceptions apply only to the selected release and dimension. Restore recorded updates from verified history backups, or open Old files and backups in the content toolbar to search, select, and review manual cleanup. Content download settings control Chinese filenames and preserved local prefixes and suffixes."
-  },
-  "app.onboarding.instance-tabs.title": {
-    "message": "The rest of the workshop"
-  },
-  "app.onboarding.java.description": {
-    "message": "The Java runtimes that start Minecraft live here. Technical, but well-behaved."
-  },
-  "app.onboarding.java.title": {
-    "message": "Java, under the hood"
-  },
-  "app.onboarding.lab-editor.description": {
-    "message": "Edit text, choose colors, preview the result, and copy the format your Minecraft setup expects."
-  },
-  "app.onboarding.lab-editor.title": {
-    "message": "Build and copy in one place"
-  },
-  "app.onboarding.lab-recipe-generator.description": {
-    "message": "Pick a Java version, fill the recipe slots, and copy or export the JSON locally."
-  },
-  "app.onboarding.lab-recipe-generator.title": {
-    "message": "Craft data pack recipes"
-  },
-  "app.onboarding.lab-schematic.description": {
-    "message": "Open a local schematic file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
-  },
-  "app.onboarding.lab-schematic.title": {
-    "message": "Inspect a build before placing it"
-  },
-  "app.onboarding.lab-seed-map.description": {
-    "message": "Enter a seed or load one from an instance, then inspect biomes, structures, and ore layers on the local map."
-  },
-  "app.onboarding.lab-seed-map.title": {
-    "message": "Find a world before you load it"
-  },
-  "app.onboarding.lab-tools.description": {
-    "message": "Create formatted text and recipe data packs, explore Java worlds, and inspect schematic builds without leaving the launcher."
-  },
-  "app.onboarding.lab-tools.title": {
-    "message": "Local tools for Minecraft"
-  },
-  "app.onboarding.lab.description": {
-    "message": "The Lab keeps local Minecraft tools inside the launcher, without another website or account."
-  },
-  "app.onboarding.lab.title": {
-    "message": "Useful tools, built in"
-  },
-  "app.onboarding.language.description": {
-    "message": "Switch the launcher UI language here, or keep System language. Content translation for project pages is configured on this page too."
-  },
-  "app.onboarding.language.title": {
-    "message": "Speak your language"
-  },
-  "app.onboarding.library-page.description": {
-    "message": "Filter by modpack, server, or custom setup, then open any instance to manage it."
-  },
-  "app.onboarding.library-page.title": {
-    "message": "Everything, in its place"
-  },
-  "app.onboarding.library.description": {
-    "message": "Instances keep versions, loaders, content, and saves separate. No accidental mod soup."
-  },
-  "app.onboarding.library.title": {
-    "message": "Your launch shelf"
-  },
-  "app.onboarding.logagent-cloud.description": {
-    "message": "Cloud options appear when Cloud LogShare is selected. Analyze without storing logs still sends content to LogShare and disables the automatic summary. Cancelling disconnects the launcher; a cloud task may continue on the server."
-  },
-  "app.onboarding.logagent-cloud.title": {
-    "message": "Control cloud storage"
-  },
-  "app.onboarding.logagent-sharing.description": {
-    "message": "Choosing local analysis does not upload logs to LogShare. You can still explicitly share a diagnostic link using your selected sharing service."
-  },
-  "app.onboarding.logagent-sharing.title": {
-    "message": "Sharing is a separate action"
-  },
-  "app.onboarding.logagent-source.description": {
-    "message": "Local LogAgent investigates logs in this launcher using your configured model. Relevant excerpts are sent to that model provider. Cloud LogShare analyzes logs on its server. The crash window shows live progress and keeps the completed steps in a collapsible history. This setting is a default; the crash window can override it for one analysis."
-  },
-  "app.onboarding.logagent-source.title": {
-    "message": "Choose where analysis runs"
-  },
-  "app.onboarding.mascot-alt": {
-    "message": "Axolotl guide"
-  },
-  "app.onboarding.offline-account.description": {
-    "message": "Open Playing as in the sidebar to add an offline Minecraft account. You may need to sign in with an official Minecraft account on this device first."
-  },
-  "app.onboarding.offline-account.title": {
-    "message": "Offline accounts"
-  },
-  "app.onboarding.privacy.description": {
-    "message": "Manage anonymous telemetry, Discord Rich Presence, and the Minecraft log analysis service whenever you need to."
-  },
-  "app.onboarding.privacy.title": {
-    "message": "Your data, your call"
-  },
-  "app.onboarding.resources.description": {
-    "message": "Choose how content downloads and installs, including your preferred resource source. Modrinth is the default; changing the description source only changes what you read."
-  },
-  "app.onboarding.resources.title": {
-    "message": "Do not cook the computer"
-  },
-  "app.onboarding.seed-map-area.description": {
-    "message": "Hold the right mouse button and drag on the 2D map to select an area. Count mineral candidate blocks at a chosen height range, or search supported container loot by item name or ID. Results include prediction limits and can be canceled. A right-click without dragging still adds a marker."
-  },
-  "app.onboarding.seed-map-area.title": {
-    "message": "Analyze a selected area"
-  },
-  "app.onboarding.seed-map-underground.description": {
-    "message": "Underground opens the 3D X-Ray view directly. Click to look around, move with WASD, use Space / Shift to rise or descend, and press Esc to release the mouse. Idle computation preloads full-height 16 × 16 chunks up to a horizontal radius of 12 chunks. Surface and bedrock layers can be switched independently. The upper-left overlay shows your position and the targeted block; the upper-right status shows the loaded chunk count and whether generation is running. Fluids and bedrock thickness are estimates; mineral positions are candidates."
-  },
-  "app.onboarding.seed-map-underground.title": {
-    "message": "Look below the surface"
-  },
-  "app.onboarding.seed-map.description": {
-    "message": "Zoom in to see supported 2D structure layouts directly on the map. Select a structure to open its capabilities and details beside the map; drag the divider to resize. In Layout, supported structures can switch between frames and original template blocks colored from their textures. Partial layouts, representative palettes and height limits are explained in the preview."
-  },
-  "app.onboarding.seed-map.title": {
-    "message": "Explore structure details"
-  },
-  "app.onboarding.settings.description": {
-    "message": "Appearance, language, AI providers, launch defaults, content downloads, and privacy all live here."
-  },
-  "app.onboarding.settings.title": {
-    "message": "Make it yours"
-  },
-  "app.onboarding.skins-page.description": {
-    "message": "Add, preview, sort, and apply skins here. No pressure to sign in just yet."
-  },
-  "app.onboarding.skins-page.title": {
-    "message": "Your skin drawer"
-  },
-  "app.onboarding.skins.description": {
-    "message": "Keep your Minecraft skins together. Signing in can wait until you feel like it."
-  },
-  "app.onboarding.skins.title": {
-    "message": "A new look, maybe"
-  },
-  "app.onboarding.translation.description": {
-    "message": "Translate Modrinth project titles, summaries, and descriptions while you browse. Keep the original, show both, or make the translation the main character."
-  },
-  "app.onboarding.translation.title": {
-    "message": "Translation, the Axolotl way"
-  },
-  "app.onboarding.updates.description": {
-    "message": "Choose when Axolotl checks for updates and whether it installs them for you."
-  },
-  "app.onboarding.updates.title": {
-    "message": "Stay in the loop"
-  },
-  "app.onboarding.welcome.description": {
-    "message": "Your instances, content, worlds, and downloads now have one home. Let us take a quick lap before you settle in."
-  },
-  "app.onboarding.welcome.footer": {
-    "message": "Your last next launcher."
-  },
-  "app.onboarding.welcome.language-label": {
+  "app.oobe.language.label": {
     "message": "Language"
   },
-  "app.onboarding.welcome.title": {
-    "message": "Everything is ready"
+  "app.oobe.language.list-label": {
+    "message": "Launcher language"
+  },
+  "app.oobe.language.save-failed": {
+    "message": "The language could not be saved. Try another choice or try again."
+  },
+  "app.oobe.language.system": {
+    "message": "Match this device"
+  },
+  "app.oobe.language.system-detail": {
+    "message": "Currently {language}"
+  },
+  "app.oobe.language.title": {
+    "message": "Choose the launcher language."
+  },
+  "app.oobe.migration.add-folder": {
+    "message": "Add .minecraft folder"
+  },
+  "app.oobe.migration.description": {
+    "message": "Bring your existing instances and .minecraft folders along."
+  },
+  "app.oobe.migration.detected.title": {
+    "message": "Found on this device"
+  },
+  "app.oobe.migration.folder-added": {
+    "message": "{count, plural, =0 {Added} one {Added, # version found} other {Added, # versions found}}"
+  },
+  "app.oobe.migration.folder-failed": {
+    "message": "No game versions were found in this folder."
+  },
+  "app.oobe.migration.folders.description": {
+    "message": "The launcher manages the versions in it directly, without copying anything."
+  },
+  "app.oobe.migration.folders.title": {
+    "message": "Use a .minecraft folder in place"
+  },
+  "app.oobe.migration.generic": {
+    "message": "Minecraft folder"
+  },
+  "app.oobe.migration.import-selected": {
+    "message": "{count, plural, =0 {Import} one {Import # instance} other {Import # instances}}"
+  },
+  "app.oobe.migration.import-started": {
+    "message": "{count, plural, one {# instance is} other {# instances are}} being imported. You can keep going while that runs."
+  },
+  "app.oobe.migration.instance-count": {
+    "message": "{count, plural, one {# instance} other {# instances}}"
+  },
+  "app.oobe.migration.label": {
+    "message": "Import"
+  },
+  "app.oobe.migration.more-options": {
+    "message": "More import options"
+  },
+  "app.oobe.migration.none-found": {
+    "message": "No other launchers were found. You can still add a folder below."
+  },
+  "app.oobe.migration.scanning": {
+    "message": "Looking for other launchers…"
+  },
+  "app.oobe.migration.select-folder": {
+    "message": "Select a .minecraft folder"
+  },
+  "app.oobe.migration.title": {
+    "message": "Import data from other launchers?"
+  },
+  "app.oobe.progress": {
+    "message": "Setup progress"
+  },
+  "app.oobe.welcome.label": {
+    "message": "Welcome"
+  },
+  "app.oobe.welcome.ready": {
+    "message": "Everything is set. Click anywhere to start playing."
+  },
+  "app.oobe.welcome.start": {
+    "message": "Get started"
+  },
+  "app.oobe.welcome.title": {
+    "message": "Welcome!"
   },
   "app.page-path.copied": {
     "message": "Copied"
@@ -11436,8 +11274,8 @@
   "app.settings.about.qq-group": {
     "message": "Player QQ group"
   },
-  "app.settings.about.replay-onboarding": {
-    "message": "Replay tour"
+  "app.settings.about.replay-oobe": {
+    "message": "Run first-time setup again"
   },
   "app.settings.about.report-issue": {
     "message": "Issues & feedback"

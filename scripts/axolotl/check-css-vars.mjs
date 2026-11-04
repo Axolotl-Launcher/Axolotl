@@ -125,10 +125,6 @@ allow('runtime-set', [
         'apps/app-frontend/src/pages/LabGradientText.vue :style `--minecraft-text-shadow-color`',
     ],
     [
-        'onboarding-dialogue-reserved-space',
-        'apps/app-frontend/src/components/ui/onboarding/useOnboardingTour.ts setProperty `--onboarding-dialogue-reserved-space`',
-    ],
-    [
         'property-progress',
         'packages/ui/src/components/image-viewer-editor/controls.vue :style `--property-progress`',
     ],

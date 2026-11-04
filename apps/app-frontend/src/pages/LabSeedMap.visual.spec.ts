@@ -568,7 +568,6 @@ it('can leave a close-zoom map with pending work and navigate back through the a
         global: {
             plugins: [router],
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     await vi.waitFor(() => expect(wrapper!.find('canvas').exists()).toBe(true))
@@ -868,7 +867,6 @@ async function openMap() {
         attachTo: document.body,
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     await flushPromises()
@@ -886,7 +884,6 @@ it('opens 3D directly from Underground and suspends 2D tile generation until ret
     const { canvas } = await openMap()
     await userEvent.click(page.getByRole('button', { name: 'Underground', exact: true }))
     await expect.poll(() => wrapper?.find('[data-testid=direct-underground]').exists()).toBe(true)
-    expect(wrapper!.find('[data-onboarding-id=seed-map-underground-layers]').exists()).toBe(false)
     expect(wrapper!.text()).not.toContain('Explore in 3D')
     const count = backend.tiles.length
     await new Promise((resolve) => setTimeout(resolve, 250))
@@ -923,7 +920,6 @@ it('restores a saved underground workspace directly into 3D after profiles load 
         attachTo: document.body,
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     await expect.poll(() => wrapper?.find('[data-testid=direct-underground]').exists()).toBe(true)

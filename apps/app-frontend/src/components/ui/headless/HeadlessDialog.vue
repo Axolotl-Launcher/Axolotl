@@ -7,7 +7,6 @@
             <DialogOverlay :class="headlessTokenClasses.dialogOverlay" />
             <DialogContent
                 :class="[headlessTokenClasses.dialogContent, $attrs.class as string | undefined]"
-                :data-onboarding-id="dataOnboardingId"
             >
                 <div class="flex items-start justify-between gap-3">
                     <DialogTitle v-if="$slots.title" :class="headlessTokenClasses.dialogTitle">
@@ -49,8 +48,6 @@ import { headlessTokenClasses } from './token-classes'
 
 defineProps<{
     open?: boolean
-    /** Onboarding target id on the dialog surface (see MODALS.md / onboarding). */
-    dataOnboardingId?: string
     closeLabel?: string
 }>()
 

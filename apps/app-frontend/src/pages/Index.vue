@@ -425,7 +425,6 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
                         dashboardEditing ? messages.doneEditing : messages.customizeWidgets,
                     )
                 "
-                data-onboarding-id="home-widget-customize"
                 type="button"
                 class="home-floating-action"
                 :class="{ 'is-active': dashboardEditing }"
@@ -471,7 +470,6 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             v-tooltip="
                 formatMessage(isMinimal ? messages.switchToInformation : messages.switchToMinimal)
             "
-            data-onboarding-id="home-layout-switch"
             type="button"
             role="switch"
             class="home-layout-switch"

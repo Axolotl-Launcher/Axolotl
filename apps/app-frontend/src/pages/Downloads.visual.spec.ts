@@ -327,7 +327,7 @@ it('returning from history without a valid tab query displays active downloads',
     }
     const wrapper = mount(Downloads, { global: { directives: { tooltip: () => {} } } })
     try {
-        const tabs = () => wrapper.get('[data-onboarding-id="downloads-tabs"] > div')
+        const tabs = () => wrapper.get('[data-testid="downloads-tabs"] > div')
         expect(tabs().attributes('active-index')).toBe('1')
         for (const value of [undefined, 'invalid', 'active']) {
             fixture.route.query.tab = value

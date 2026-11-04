@@ -349,7 +349,7 @@ const projectTabs = computed(() =>
 </script>
 
 <template>
-    <div data-onboarding-id="browse-schematics-content" class="flex flex-col gap-3 p-6">
+    <div class="flex flex-col gap-3 p-6">
         <BrowseToolbar
             v-model:query="search"
             :tabs="projectTabs"

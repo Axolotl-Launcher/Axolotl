@@ -919,7 +919,7 @@ it.each(['en-US', 'zh-CN'])(
         )
         expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
         expect(wrapper.find('[data-testid="seed-map-structure-capabilities"]').exists()).toBe(false)
-        expect(wrapper.find('[data-onboarding-id="seed-map-container-loot"]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="seed-map-container-loot"]').exists()).toBe(false)
         expect(wrapper.find('details').exists()).toBe(false)
         expect(wrapper.find('canvas').exists()).toBe(false)
         expect(wrapper.text()).not.toContain('0 containers')
@@ -966,9 +966,9 @@ it('clears a pending loot view when selecting an unsupported structure and resto
     await wrapper.setProps({ query: { ...query, x: 128 } })
     await flushPromises()
     expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
-    expect(
-        wrapper.get('[data-onboarding-id="seed-map-structure-details"]').attributes('aria-busy'),
-    ).toBe('false')
+    expect(wrapper.get('[data-testid="seed-map-structure-details"]').attributes('aria-busy')).toBe(
+        'false',
+    )
     resolveLoot({
         supported: true,
         items: [{ id: 'minecraft:diamond', count: 64, enchantments: [] }],

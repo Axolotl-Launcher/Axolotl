@@ -892,7 +892,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div data-onboarding-id="browse-favorites-content" class="flex flex-col gap-3 p-6">
+    <div class="flex flex-col gap-3 p-6">
         <div
             ref="stickyChromeRef"
             class="browse-toolbar-chrome sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 rounded-tl-[--radius-xl] rounded-tr-[--radius-xl] border-0 border-b border-solid border-surface-5 bg-[color-mix(in_srgb,var(--surface-1-opaque,var(--surface-1))_20%,transparent)] backdrop-blur-xl"

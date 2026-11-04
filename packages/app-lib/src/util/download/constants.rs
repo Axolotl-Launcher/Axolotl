@@ -769,6 +769,19 @@ pub(crate) const H2_POOL_TEST_INVALID_443: &str = "test.invalid:443";
 pub(crate) const JOB_PROBE_WINDOW: Duration = Duration::from_secs(10);
 #[cfg(test)]
 pub(crate) const METADATA_HEDGE_DELAY: Duration = Duration::from_millis(100);
+/// Slow-detection window used by the download fixtures.
+///
+/// `NATIVE_SLOW_REQUIRED_WINDOWS` windows must complete before the policy
+/// probes, so the matching `TEST_SLOW_MIN_FLOW` stays strictly below
+/// `TEST_SLOW_WINDOW * NATIVE_SLOW_REQUIRED_WINDOWS`. Driving both from these
+/// two constants keeps that relation in one place: a test that sets the
+/// minimum flow equal to two windows makes the decision depend on which clock
+/// is read first, and an instrumented run then reports `NoGain` for a
+/// transfer that is genuinely slow.
+#[cfg(test)]
+pub(crate) const TEST_SLOW_WINDOW: Duration = Duration::from_millis(75);
+#[cfg(test)]
+pub(crate) const TEST_SLOW_MIN_FLOW: Duration = Duration::from_millis(100);
 #[cfg(test)]
 pub(crate) const NATIVE_SLOW_IDLE_TIMEOUT: Duration =
     Duration::from_millis(500);

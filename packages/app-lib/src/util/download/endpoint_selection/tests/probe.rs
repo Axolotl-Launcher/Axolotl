@@ -1,4 +1,7 @@
 use super::*;
+use crate::util::download::constants::{
+    TEST_SLOW_MIN_FLOW as SLOW_MIN_FLOW, TEST_SLOW_WINDOW as SLOW_WINDOW,
+};
 use crate::util::download::endpoint_selection::model::CandidateSource;
 use crate::util::fetch::{DownloadRouteSource, ProxyPolicy};
 use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
@@ -6,15 +9,6 @@ use rustls_pki_types::PrivatePkcs8KeyDer;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-/// Slow-detection window for the fixtures below.
-///
-/// The policy only probes after two complete windows, so the minimum flow age
-/// must sit *below* `2 * SLOW_WINDOW` by a margin. Setting the two equal makes
-/// the decision depend on which of the two clocks is read first, and an
-/// instrumented run then reports `NoGain` even though the download is slow.
-const SLOW_WINDOW: Duration = Duration::from_millis(75);
-const SLOW_MIN_FLOW: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Copy)]
 enum ResponseKind {

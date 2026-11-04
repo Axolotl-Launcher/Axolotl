@@ -89,23 +89,37 @@ jobs:
       #
       # Only `theseus` is built: the shell's build script needs the Blockbench
       # submodule's compiled bundle, which this workflow has no use for.
+      #
+      # The coverage build directory is pinned explicitly rather than read from
+      # `show-env`: an `eval` of its shell output does not survive on every
+      # platform's shell, and a silently-unset variable makes `find` fall back
+      # to the ordinary `target/debug` binary, which is not instrumented.
       - name: Build instrumented tests
         shell: bash
+        env:
+          COVERAGE_TARGET_DIR: target/llvm-cov-target
         run: |
           set -euo pipefail
+          export CARGO_LLVM_COV_TARGET_DIR="$COVERAGE_TARGET_DIR"
+          export CARGO_LLVM_COV_BUILD_DIR="$COVERAGE_TARGET_DIR"
           eval "$(cargo llvm-cov show-env --sh)"
+          echo "RUSTC_WRAPPER=${RUSTC_WRAPPER:-<unset>}"
+          test -n "${RUSTC_WRAPPER:-}" || { echo 'instrumentation wrapper missing' >&2; exit 1; }
           cargo test -p theseus --lib --no-run --locked
       - name: Locate the test binary
         id: binary
         shell: bash
+        env:
+          COVERAGE_TARGET_DIR: target/llvm-cov-target
         run: |
-          eval "$(cargo llvm-cov show-env --sh)"
-          binary="$(find "$CARGO_LLVM_COV_TARGET_DIR/debug/deps" -maxdepth 1 \
-            -type f -name "theseus-*" ! -name '*.d' ! -name '*.rlib' \
-            ! -name '*.rmeta' ! -name '*.pdb' \
+          set -euo pipefail
+          deps="$COVERAGE_TARGET_DIR/debug/deps"
+          test -d "$deps" || { echo "no coverage build directory at $deps" >&2; exit 1; }
+          binary="$(find "$deps" -maxdepth 1 -type f -name "theseus-*" \
+            ! -name '*.d' ! -name '*.rlib' ! -name '*.rmeta' ! -name '*.pdb' \
             -exec test -x {} \; -print | head -n 1)"
           if [ -z "$binary" ]; then
-            echo 'No instrumented theseus test binary found' >&2
+            echo "No instrumented theseus test binary under $deps" >&2
             exit 1
           fi
           echo "path=$binary" >> "$GITHUB_OUTPUT"

@@ -1,9 +1,9 @@
 {
   "name": "@modrinth/app",
   "scripts": {
-    "tauri": "tauri",
-    "build": "tauri build --config tauri-release.conf.json",
-    "dev": "tauri dev",
+    "tauri": "node ../../scripts/axolotl/tauri.mjs",
+    "build": "node ../../scripts/axolotl/tauri.mjs build --config tauri-release.conf.json",
+    "dev": "node ../../scripts/axolotl/tauri.mjs dev",
     "test": "cargo nextest run --all-targets --no-fail-fast",
     "lint": "cargo fmt --check && cargo clippy --all-targets && cargo clippy --all-targets --features updater",
     "lint:ancillary": "prettier --check .",

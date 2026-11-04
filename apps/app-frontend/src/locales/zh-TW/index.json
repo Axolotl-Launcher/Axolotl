@@ -8363,6 +8363,24 @@
   "instance.files.studio.editor-loading": {
     "message": "正在載入編輯器……"
   },
+  "instance.files.studio.edit-deleted": {
+    "message": "此檔案在編輯儲存前已被刪除。"
+  },
+  "instance.files.studio.discard-image-confirm": {
+    "message": "捨棄"
+  },
+  "instance.files.studio.discard-image-description": {
+    "message": "圖片有尚未儲存的修改，開啟其他檔案會捨棄這些修改。"
+  },
+  "instance.files.studio.discard-image-keep": {
+    "message": "繼續編輯"
+  },
+  "instance.files.studio.discard-image-title": {
+    "message": "捨棄圖片編輯？"
+  },
+  "instance.files.studio.edit-conflict": {
+    "message": "此檔案在開啟後已被外部修改，編輯內容未儲存。"
+  },
   "instance.files.studio.empty-description": {
     "message": "從資源管理器開啟檔案。"
   },
@@ -8437,6 +8455,33 @@
   },
   "instance.files.studio.paste": {
     "message": "貼上"
+  },
+  "instance.files.studio.preview-actual-size": {
+    "message": "實際大小"
+  },
+  "instance.files.studio.preview-edit": {
+    "message": "編輯"
+  },
+  "instance.files.studio.preview-failed": {
+    "message": "無法預覽此檔案。"
+  },
+  "instance.files.studio.preview-fit": {
+    "message": "符合視窗"
+  },
+  "instance.files.studio.preview-loading": {
+    "message": "正在載入預覽……"
+  },
+  "instance.files.studio.preview-save": {
+    "message": "儲存"
+  },
+  "instance.files.studio.preview-tools": {
+    "message": "圖片編輯工具"
+  },
+  "instance.files.studio.preview-zoom-in": {
+    "message": "放大"
+  },
+  "instance.files.studio.preview-zoom-out": {
+    "message": "縮小"
   },
   "instance.files.studio.save-failed": {
     "message": "無法儲存檔案"

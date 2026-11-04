@@ -2481,16 +2481,18 @@ fn sponge_block_entities_to_litematic(
         let NbtTag::Compound(compound) = entry else {
             continue;
         };
-        let Some(PreservedPosition::ArrayBlock(position)) =
-            preserved_entry_position(compound)
-        else {
+        let Some(position) = preserved_entry_position(compound) else {
             continue;
         };
+        // Some writers store `Pos` as a list of numbers instead of an int
+        // array. Accepting either shape keeps the payload instead of dropping
+        // the whole block entity, which would lose its container contents.
+        let block = position_as_block(position);
         let mut data = sponge_entry_data(compound);
         for (axis, key) in ["x", "y", "z"].into_iter().enumerate() {
             data.insert(
                 key,
-                session.manifest.min[axis] + position[axis]
+                session.manifest.min[axis] + block[axis]
                     - region.manifest.min[axis],
             );
         }
@@ -2509,14 +2511,23 @@ fn sponge_entities_to_litematic(
         let NbtTag::Compound(compound) = entry else {
             continue;
         };
-        let Some(PreservedPosition::Point(position)) =
-            preserved_entry_position(compound)
-        else {
+        let Some(position) = preserved_entry_position(compound) else {
             continue;
+        };
+        // A block-space position is turned into the centre of its cell so the
+        // entity is not dropped just because its `Pos` was written as numbers.
+        let point = match position {
+            PreservedPosition::Point(values) => values,
+            PreservedPosition::FlatBlock(values)
+            | PreservedPosition::ArrayBlock(values) => [
+                f64::from(values[0]) + 0.5,
+                f64::from(values[1]),
+                f64::from(values[2]) + 0.5,
+            ],
         };
         let mut data = sponge_entry_data(compound);
         let mut list = NbtList::new();
-        for (axis, value) in position.into_iter().enumerate() {
+        for (axis, value) in point.into_iter().enumerate() {
             list.push(
                 f64::from(session.manifest.min[axis]) + value
                     - f64::from(region.manifest.min[axis]),
@@ -4757,6 +4768,44 @@ mod tests {
             .unwrap();
         assert_sign_payload(find_tile(tiles, "minecraft:oak_sign"));
         assert_chest_payload(find_tile(tiles, "minecraft:chest"));
+    }
+
+    #[test]
+    fn sponge_block_entities_with_a_float_position_keep_their_payload() {
+        let mut root = sign_sponge_v2_fixture();
+        let entities =
+            root.get_mut::<_, &mut NbtList>("BlockEntities").unwrap();
+        let Some(NbtTag::Compound(chest)) = entities.inner_mut().get_mut(1)
+        else {
+            panic!("fixture has no chest");
+        };
+        let mut position = NbtList::new();
+        for value in [1.0f64, 0.0, 0.0] {
+            position.push(value);
+        }
+        chest.insert("Pos", position);
+        let session = parse_sponge(
+            root,
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let litematic =
+            read_root(&export_litematic(&session).unwrap()).unwrap();
+        let tiles = litematic
+            .get::<_, &NbtCompound>("Regions")
+            .unwrap()
+            .get::<_, &NbtCompound>("Main")
+            .unwrap()
+            .get::<_, &NbtList>("TileEntities")
+            .unwrap();
+        let chest = find_tile(tiles, "minecraft:chest");
+        // The entry has to survive at all: a float `Pos` used to make the
+        // conversion skip it, taking the container contents with it.
+        assert_chest_payload(chest);
+        assert_eq!(compound_vec3(chest).unwrap(), [5, 6, 8]);
     }
 
     #[test]

@@ -3816,6 +3816,205 @@ mod tests {
         .unwrap()
     }
 
+    /// The parts of a sign block entity that the preview never models, using
+    /// both the modern `front_text`/`back_text` layout and the pre-1.20
+    /// `Text1`..`Text4` fields so a lossy conversion shows up either way.
+    fn sign_payload() -> NbtCompound {
+        let mut front = NbtCompound::new();
+        let mut front_messages = NbtList::new();
+        for line in
+            ["{\"text\":\"Line one\"}", "{\"text\":\"Line two\"}", "", ""]
+        {
+            front_messages.push(line);
+        }
+        front.insert("messages", front_messages);
+        front.insert("color", "red");
+        front.insert("has_glowing_text", 1i8);
+        let mut back = NbtCompound::new();
+        let mut back_messages = NbtList::new();
+        back_messages.push("{\"text\":\"Back\"}");
+        back.insert("messages", back_messages);
+        back.insert("color", "black");
+        back.insert("has_glowing_text", 0i8);
+        let mut payload = NbtCompound::new();
+        payload.insert("front_text", front);
+        payload.insert("back_text", back);
+        payload.insert("is_waxed", 1i8);
+        payload.insert("Text1", "{\"text\":\"legacy\"}");
+        payload.insert("Text2", "");
+        payload
+    }
+
+    /// A chest holding one shulker box whose item components hold another
+    /// item, so the assertions cover nesting several levels deep.
+    fn chest_payload() -> NbtCompound {
+        let mut inner_item = NbtCompound::new();
+        inner_item.insert("id", "minecraft:diamond");
+        inner_item.insert("count", 5i32);
+        let mut component = NbtCompound::new();
+        component.insert("slot", 0i32);
+        component.insert("item", inner_item);
+        let mut container = NbtList::new();
+        container.push(component);
+        let mut components = NbtCompound::new();
+        components.insert("minecraft:container", container);
+        let mut shulker = NbtCompound::new();
+        shulker.insert("Slot", 0i8);
+        shulker.insert("id", "minecraft:shulker_box");
+        shulker.insert("count", 1i32);
+        shulker.insert("components", components);
+        let mut items = NbtList::new();
+        items.push(shulker);
+        let mut payload = NbtCompound::new();
+        payload.insert("Items", items);
+        payload
+    }
+
+    /// A 2x1x1 Litematic region holding an oak sign and a chest.
+    fn sign_litematic_fixture() -> NbtCompound {
+        let mut palette = NbtList::new();
+        for name in ["minecraft:oak_sign", "minecraft:chest"] {
+            palette.push(palette_entry(name));
+        }
+        let mut sign = vec3(0, 0, 0);
+        sign.insert("id", "minecraft:oak_sign");
+        for (key, value) in sign_payload().into_inner() {
+            sign.insert(key, value);
+        }
+        let mut chest = vec3(1, 0, 0);
+        chest.insert("id", "minecraft:chest");
+        for (key, value) in chest_payload().into_inner() {
+            chest.insert(key, value);
+        }
+        let mut tiles = NbtList::new();
+        tiles.push(sign);
+        tiles.push(chest);
+        let mut region = NbtCompound::new();
+        region.insert("Position", vec3(4, 6, 8));
+        region.insert("Size", vec3(2, 1, 1));
+        region.insert("BlockStatePalette", palette);
+        region.insert(
+            "BlockStates",
+            NbtTag::LongArray(pack_litematic_values(&[0, 1], 2)),
+        );
+        region.insert("TileEntities", tiles);
+        region.insert("Entities", NbtList::new());
+        let mut regions = NbtCompound::new();
+        regions.insert("Signs", region);
+        let mut root = NbtCompound::new();
+        root.insert("Version", 7i32);
+        root.insert("SubVersion", 1i32);
+        root.insert("MinecraftDataVersion", 5005i32);
+        root.insert("Regions", regions);
+        root
+    }
+
+    /// A version 2 Sponge schematic with the same sign and chest, whose
+    /// entries keep the payload flat next to `Pos` and `Id`.
+    fn sign_sponge_v2_fixture() -> NbtCompound {
+        let mut palette = NbtCompound::new();
+        palette.insert("minecraft:oak_sign", 0i32);
+        palette.insert("minecraft:chest", 1i32);
+        let mut sign = NbtCompound::new();
+        sign.insert("Pos", NbtTag::IntArray(vec![0, 0, 0]));
+        sign.insert("Id", "minecraft:oak_sign");
+        for (key, value) in sign_payload().into_inner() {
+            sign.insert(key, value);
+        }
+        let mut chest = NbtCompound::new();
+        chest.insert("Pos", NbtTag::IntArray(vec![1, 0, 0]));
+        chest.insert("Id", "minecraft:chest");
+        for (key, value) in chest_payload().into_inner() {
+            chest.insert(key, value);
+        }
+        let mut block_entities = NbtList::new();
+        block_entities.push(sign);
+        block_entities.push(chest);
+        let mut root = NbtCompound::new();
+        root.insert("Version", 2i32);
+        root.insert("DataVersion", 3700i32);
+        root.insert("Width", 2i16);
+        root.insert("Height", 1i16);
+        root.insert("Length", 1i16);
+        root.insert("Offset", NbtTag::IntArray(vec![4, 6, 8]));
+        root.insert("Palette", palette);
+        root.insert("BlockData", NbtTag::ByteArray(vec![0, 1]));
+        root.insert("BlockEntities", block_entities);
+        root.insert("Entities", NbtList::new());
+        root
+    }
+
+    fn list_strings(list: &NbtList) -> Vec<String> {
+        list.into_iter()
+            .filter_map(|tag| match tag {
+                NbtTag::String(value) => Some(value.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Finds a block entity by id in either layout: Litematic keeps the id in
+    /// a lowercase `id` field, a Sponge entry uses a capitalised `Id`.
+    fn find_tile<'a>(list: &'a NbtList, id: &str) -> &'a NbtCompound {
+        list.into_iter()
+            .filter_map(|tag| match tag {
+                NbtTag::Compound(compound) => Some(compound),
+                _ => None,
+            })
+            .find(|compound| {
+                ["id", "Id"].iter().any(|key| {
+                    compound
+                        .get::<_, &str>(key)
+                        .map(|value| value == id)
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or_else(|| panic!("missing block entity {id}"))
+    }
+
+    fn assert_sign_payload(sign: &NbtCompound) {
+        let front = sign.get::<_, &NbtCompound>("front_text").unwrap();
+        assert_eq!(front.get::<_, &str>("color").unwrap(), "red");
+        assert_eq!(front.get::<_, i8>("has_glowing_text").unwrap(), 1);
+        assert_eq!(
+            list_strings(front.get::<_, &NbtList>("messages").unwrap()),
+            vec!["{\"text\":\"Line one\"}", "{\"text\":\"Line two\"}", "", ""]
+        );
+        let back = sign.get::<_, &NbtCompound>("back_text").unwrap();
+        assert_eq!(
+            list_strings(back.get::<_, &NbtList>("messages").unwrap()),
+            vec!["{\"text\":\"Back\"}"]
+        );
+        assert_eq!(sign.get::<_, i8>("is_waxed").unwrap(), 1);
+        assert_eq!(
+            sign.get::<_, &str>("Text1").unwrap(),
+            "{\"text\":\"legacy\"}"
+        );
+        assert_eq!(sign.get::<_, &str>("Text2").unwrap(), "");
+    }
+
+    fn assert_chest_payload(chest: &NbtCompound) {
+        let items = chest.get::<_, &NbtList>("Items").unwrap();
+        assert_eq!(items.len(), 1);
+        let shulker = list_compound(items, 0);
+        assert_eq!(
+            shulker.get::<_, &str>("id").unwrap(),
+            "minecraft:shulker_box"
+        );
+        assert_eq!(shulker.get::<_, i32>("count").unwrap(), 1);
+        let container = shulker
+            .get::<_, &NbtCompound>("components")
+            .unwrap()
+            .get::<_, &NbtList>("minecraft:container")
+            .unwrap();
+        assert_eq!(container.len(), 1);
+        let entry = list_compound(container, 0);
+        assert_eq!(entry.get::<_, i32>("slot").unwrap(), 0);
+        let inner = entry.get::<_, &NbtCompound>("item").unwrap();
+        assert_eq!(inner.get::<_, &str>("id").unwrap(), "minecraft:diamond");
+        assert_eq!(inner.get::<_, i32>("count").unwrap(), 5);
+    }
+
     fn assert_preserved_litematic(root: &NbtCompound) {
         let original = container_litematic_fixture();
         for key in [
@@ -4474,6 +4673,90 @@ mod tests {
             list_compound(region.get::<_, &NbtList>("Entities").unwrap(), 0);
         // Converting must not mistake the payload's `Data` for the payload.
         assert_eq!(converted.get::<_, &str>("CustomName").unwrap(), "Cart");
+    }
+
+    #[test]
+    fn sign_text_and_nested_item_data_survive_litematic_exports() {
+        let session = parse_litematic(
+            sign_litematic_fixture(),
+            "fixture.litematic".into(),
+            "fixture.litematic".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let exported = read_root(&export_litematic(&session).unwrap()).unwrap();
+        let tiles = exported
+            .get::<_, &NbtCompound>("Regions")
+            .unwrap()
+            .get::<_, &NbtCompound>("Signs")
+            .unwrap()
+            .get::<_, &NbtList>("TileEntities")
+            .unwrap();
+        assert_sign_payload(find_tile(tiles, "minecraft:oak_sign"));
+        assert_chest_payload(find_tile(tiles, "minecraft:chest"));
+
+        // The same session written as Sponge keeps the payload under `Data`.
+        let sponge = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        let entries = sponge
+            .get::<_, &NbtCompound>("Schematic")
+            .unwrap()
+            .get::<_, &NbtCompound>("Blocks")
+            .unwrap()
+            .get::<_, &NbtList>("BlockEntities")
+            .unwrap();
+        assert_sign_payload(
+            find_tile(entries, "minecraft:oak_sign")
+                .get::<_, &NbtCompound>("Data")
+                .unwrap(),
+        );
+        assert_chest_payload(
+            find_tile(entries, "minecraft:chest")
+                .get::<_, &NbtCompound>("Data")
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn sign_text_and_nested_item_data_survive_sponge_exports() {
+        let session = parse_sponge(
+            sign_sponge_v2_fixture(),
+            "fixture.schem".into(),
+            "fixture.schem".into(),
+            None,
+            None,
+        )
+        .unwrap();
+        let sponge = read_root(&export_sponge_v3(&session).unwrap()).unwrap();
+        let entries = sponge
+            .get::<_, &NbtCompound>("Schematic")
+            .unwrap()
+            .get::<_, &NbtCompound>("Blocks")
+            .unwrap()
+            .get::<_, &NbtList>("BlockEntities")
+            .unwrap();
+        assert_sign_payload(
+            find_tile(entries, "minecraft:oak_sign")
+                .get::<_, &NbtCompound>("Data")
+                .unwrap(),
+        );
+        assert_chest_payload(
+            find_tile(entries, "minecraft:chest")
+                .get::<_, &NbtCompound>("Data")
+                .unwrap(),
+        );
+
+        let litematic =
+            read_root(&export_litematic(&session).unwrap()).unwrap();
+        let tiles = litematic
+            .get::<_, &NbtCompound>("Regions")
+            .unwrap()
+            .get::<_, &NbtCompound>("Main")
+            .unwrap()
+            .get::<_, &NbtList>("TileEntities")
+            .unwrap();
+        assert_sign_payload(find_tile(tiles, "minecraft:oak_sign"));
+        assert_chest_payload(find_tile(tiles, "minecraft:chest"));
     }
 
     #[test]

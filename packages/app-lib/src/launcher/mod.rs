@@ -4,8 +4,8 @@ use crate::data::ModLoader;
 use crate::event::emit::{emit_instance, emit_loading, init_loading};
 use crate::event::{InstancePayloadType, LoadingBarType};
 use crate::install::{
-    InstallJavaStep, InstallPhaseDetails, InstallPhaseId, InstallProgress,
-    InstallProgressReporter,
+    InstallErrorContext, InstallJavaStep, InstallPhaseDetails, InstallPhaseId,
+    InstallProgress, InstallProgressReporter,
 };
 use crate::instance::QuickPlayType;
 pub use crate::launcher::direct_link::ExternalGameDirMode;
@@ -510,6 +510,77 @@ fn has_client_processors(processors: Option<&[d::modded::Processor]>) -> bool {
                 .is_none_or(|sides| sides.iter().any(|side| side == "client"))
         })
     })
+}
+
+/// Processor output is decoded as UTF-8. Java otherwise writes piped output
+/// in the system code page (GBK on Chinese Windows). Java 18+ reads the
+/// first pair of properties, older runtimes the `sun.` pair.
+const PROCESSOR_OUTPUT_ENCODING_ARGS: [&str; 4] = [
+    "-Dstdout.encoding=UTF-8",
+    "-Dstderr.encoding=UTF-8",
+    "-Dsun.stdout.encoding=UTF-8",
+    "-Dsun.stderr.encoding=UTF-8",
+];
+
+/// Lines kept from each end of a failed processor's output stream.
+const PROCESSOR_OUTPUT_EDGE_LINES: usize = 20;
+
+/// javaw.exe shows JVM startup errors in a modal dialog instead of writing
+/// them to stderr, so processors run on the runtime's console executable.
+/// A runtime without one keeps the selected executable.
+fn processor_java_executable(java: &str) -> PathBuf {
+    java_environment::console_java_executable(java)
+        .unwrap_or_else(|_| PathBuf::from(java))
+}
+
+/// Processors print their own errors to stderr, but a JVM that dies while
+/// starting (a fatal error report, or no memory for the heap) prints to
+/// stdout. The message keeps the exit status and both streams.
+fn processor_failure_message(
+    processor: &d::modded::Processor,
+    status: impl std::fmt::Display,
+    stdout: &[u8],
+    stderr: &[u8],
+) -> String {
+    let task = processor
+        .args
+        .windows(2)
+        .find(|args| args[0] == "--task")
+        .map(|args| format!(" {}", args[1]))
+        .unwrap_or_default();
+    let mut message = format!(
+        "Processor error: {}{task} exited with {status}",
+        processor.jar
+    );
+    let mut printed = false;
+    for (stream, bytes) in [("stderr", stderr), ("stdout", stdout)] {
+        let text = String::from_utf8_lossy(bytes);
+        let lines = text.trim().lines().collect::<Vec<_>>();
+        if lines.is_empty() {
+            continue;
+        }
+        printed = true;
+        let _ = write!(message, "\n{stream}:");
+        let omitted =
+            lines.len().saturating_sub(PROCESSOR_OUTPUT_EDGE_LINES * 2);
+        for (index, line) in lines.iter().enumerate() {
+            if omitted > 0
+                && (PROCESSOR_OUTPUT_EDGE_LINES
+                    ..PROCESSOR_OUTPUT_EDGE_LINES + omitted)
+                    .contains(&index)
+            {
+                if index == PROCESSOR_OUTPUT_EDGE_LINES {
+                    let _ = write!(message, "\n... {omitted} lines omitted");
+                }
+                continue;
+            }
+            let _ = write!(message, "\n{}", line.trim_end());
+        }
+    }
+    if !printed {
+        message.push_str(" without printing any output");
+    }
+    message
 }
 
 fn is_liteloader_library(name: &str) -> bool {
@@ -1627,6 +1698,7 @@ async fn install_minecraft_with_local_source(
     }
     if let Some(processors) = &version_info.processors {
         let libraries_dir = state.directories.libraries_dir();
+        let processor_java = processor_java_executable(&java_version.path);
         let client_mappings = version_info
             .downloads
             .get(&d::minecraft::DownloadType::ClientMappings)
@@ -1769,6 +1841,23 @@ async fn install_minecraft_with_local_source(
                     continue;
                 }
 
+                // Downloads leave their own context behind; a processor
+                // failure must not be reported as the last library download.
+                if let Some(reporter) = &reporter {
+                    reporter
+                        .set_transient_context(
+                            InstallErrorContext::new("run loader processor")
+                                .minecraft_version(
+                                    content_set.game_version.clone(),
+                                )
+                                .loader(content_set.loader.as_str())
+                                .file_path(processor.jar.clone())
+                                .java_version(java_version.parsed_version)
+                                .build(),
+                        )
+                        .await?;
+                }
+
                 let cp = {
                     let mut cp = processor.classpath.clone();
                     cp.push(processor.jar.clone());
@@ -1776,9 +1865,12 @@ async fn install_minecraft_with_local_source(
                 };
 
                 let mut command =
-                    java_environment::tokio_command(&java_version.path);
+                    java_environment::tokio_command(&processor_java);
+                #[cfg(windows)]
+                command.creation_flags(0x0800_0000);
                 command
                     .args(&java_proxy_args)
+                    .args(PROCESSOR_OUTPUT_ENCODING_ARGS)
                     .arg("-cp")
                     .arg(args::get_class_paths_jar(
                         &libraries_dir,
@@ -1826,10 +1918,22 @@ async fn install_minecraft_with_local_source(
                 })?;
 
                 if !child.status.success() {
-                    return Err(crate::ErrorKind::LauncherError(format!(
-                        "Processor error: {}",
-                        String::from_utf8_lossy(&child.stderr)
-                    ))
+                    tracing::warn!(
+                        processor = %processor.jar,
+                        index,
+                        status = %child.status,
+                        stdout = %String::from_utf8_lossy(&child.stdout),
+                        stderr = %String::from_utf8_lossy(&child.stderr),
+                        "Forge processor failed"
+                    );
+                    return Err(crate::ErrorKind::LauncherError(
+                        processor_failure_message(
+                            processor,
+                            child.status,
+                            &child.stdout,
+                            &child.stderr,
+                        ),
+                    )
                     .as_error());
                 }
                 tracing::info!(
@@ -3099,6 +3203,113 @@ pub async fn launch_minecraft(
             },
         )
         .await
+}
+
+#[cfg(test)]
+mod processor_failure_tests {
+    use super::*;
+
+    fn processor() -> d::modded::Processor {
+        d::modded::Processor {
+            jar: "net.neoforged.installertools:installertools:4.0.17:fatjar"
+                .to_string(),
+            classpath: Vec::new(),
+            args: [
+                "--task",
+                "PROCESS_MINECRAFT_JAR",
+                "--input",
+                "{MINECRAFT_JAR}",
+            ]
+            .map(String::from)
+            .to_vec(),
+            outputs: None,
+            sides: None,
+        }
+    }
+
+    #[test]
+    fn failure_names_the_processor_task_and_status() {
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"Task: PROCESS_MINECRAFT_JAR\r\n",
+            b"Can only pass one or two --input arguments.\r\n",
+        );
+        assert_eq!(
+            message,
+            "Processor error: net.neoforged.installertools:installertools:4.0.17:fatjar PROCESS_MINECRAFT_JAR exited with exit code: 1\n\
+             stderr:\n\
+             Can only pass one or two --input arguments.\n\
+             stdout:\n\
+             Task: PROCESS_MINECRAFT_JAR"
+        );
+    }
+
+    #[test]
+    fn jvm_errors_on_stdout_are_kept_when_stderr_is_empty() {
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"#\n# There is insufficient memory for the Java Runtime Environment to continue.\n",
+            b"",
+        );
+        assert!(!message.contains("stderr:"));
+        assert!(message.ends_with(
+            "stdout:\n#\n# There is insufficient memory for the Java Runtime Environment to continue."
+        ));
+    }
+
+    #[test]
+    fn silent_failure_says_nothing_was_printed() {
+        let message =
+            processor_failure_message(&processor(), "exit code: 1", b"", b"\n");
+        assert!(
+            message.ends_with(
+                "exited with exit code: 1 without printing any output"
+            )
+        );
+    }
+
+    #[test]
+    fn long_output_keeps_both_ends() {
+        let stderr = (0..50)
+            .map(|line| format!("line {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"",
+            stderr.as_bytes(),
+        );
+        let lines = message.lines().collect::<Vec<_>>();
+        assert_eq!(lines[2], "line 0");
+        assert_eq!(lines[21], "line 19");
+        assert_eq!(lines[22], "... 10 lines omitted");
+        assert_eq!(lines[23], "line 30");
+        assert_eq!(lines.last(), Some(&"line 49"));
+        assert_eq!(lines.len(), 2 + 20 + 1 + 20);
+    }
+
+    #[test]
+    fn processors_run_on_the_console_java_executable() {
+        assert_eq!(processor_java_executable("java"), PathBuf::from("java"));
+        #[cfg(windows)]
+        {
+            let dir = tempfile::tempdir().unwrap();
+            let windowed = dir.path().join("javaw.exe");
+            assert_eq!(
+                processor_java_executable(windowed.to_str().unwrap()),
+                windowed,
+                "a runtime without java.exe keeps the selected executable"
+            );
+            std::fs::write(dir.path().join("java.exe"), b"").unwrap();
+            assert_eq!(
+                processor_java_executable(windowed.to_str().unwrap()),
+                dir.path().join("java.exe")
+            );
+        }
+    }
 }
 
 #[cfg(test)]

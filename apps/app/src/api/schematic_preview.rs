@@ -3973,7 +3973,7 @@ mod tests {
                 _ => None,
             })
             .find(|compound| {
-                ["id", "Id"].iter().any(|key| {
+                ["id", "Id"].into_iter().any(|key| {
                     compound
                         .get::<_, &str>(key)
                         .map(|value| value == id)

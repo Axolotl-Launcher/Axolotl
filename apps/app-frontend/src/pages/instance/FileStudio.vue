@@ -42,6 +42,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, ref, wa
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 
 import NbtEditor from '@/components/instance/studio/NbtEditor.vue'
+import { schematicWorkshopTarget } from '@/components/instance/studio/schematic-workshop'
 import StudioEditor from '@/components/instance/studio/StudioEditor.vue'
 import StudioEditorTabs from '@/components/instance/studio/StudioEditorTabs.vue'
 import {
@@ -138,6 +139,10 @@ const messages = defineMessages({
     openInSystem: {
         id: 'instance.files.studio.open-in-system',
         defaultMessage: 'Open in system',
+    },
+    openInSchematicWorkshop: {
+        id: 'instance.files.studio.open-in-schematic-workshop',
+        defaultMessage: 'Open with schematic workshop',
     },
     openPath: {
         id: 'instance.files.studio.open-path',
@@ -688,6 +693,19 @@ async function openInSystem(path: string) {
     await openPath(await resolvePath(path))
 }
 
+const schematicTarget = computed(() =>
+    schematicWorkshopTarget(activeDocument.value, props.instance?.id),
+)
+
+async function openInSchematicWorkshop() {
+    const target = schematicTarget.value
+    if (!target) return
+    await router.push({
+        name: 'SchematicWorkshop',
+        query: { instance: target.instanceId, path: target.path },
+    })
+}
+
 async function revealInSystem(path: string) {
     await highlightInFolder(await resolvePath(path))
 }
@@ -946,9 +964,18 @@ onBeforeRouteLeave(() => {
                             <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
                                 {{ formatMessage(messages.nonTextFile) }}
                             </p>
-                            <Button type="outlined" @click="openInSystem(activeDocument.path)"
-                                >{{ formatMessage(messages.openInSystem) }}
-                            </Button>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <Button
+                                    v-if="schematicTarget"
+                                    type="colored"
+                                    color="brand"
+                                    @click="openInSchematicWorkshop"
+                                    >{{ formatMessage(messages.openInSchematicWorkshop) }}
+                                </Button>
+                                <Button type="outlined" @click="openInSystem(activeDocument.path)"
+                                    >{{ formatMessage(messages.openInSystem) }}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                     <StudioEditor

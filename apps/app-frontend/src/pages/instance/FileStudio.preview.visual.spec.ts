@@ -127,6 +127,7 @@ vi.mock('@modrinth/ui', async () => {
             deleteLabel: { id: 'common.delete', defaultMessage: 'Delete' },
         },
         defineMessages: (messages: unknown) => messages,
+        getEditorLanguage: () => 'plaintext',
         injectNotificationManager: () => ({ addNotification: studio.notify }),
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,

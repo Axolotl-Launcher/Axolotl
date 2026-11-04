@@ -4805,7 +4805,9 @@ mod tests {
         // The entry has to survive at all: a float `Pos` used to make the
         // conversion skip it, taking the container contents with it.
         assert_chest_payload(chest);
-        assert_eq!(compound_vec3(chest).unwrap(), [5, 6, 8]);
+        // Litematic tile positions are local to the region, so the Sponge
+        // `Offset` does not apply; the int-array chest lands on the same cell.
+        assert_eq!(compound_vec3(chest).unwrap(), [1, 0, 0]);
     }
 
     #[test]

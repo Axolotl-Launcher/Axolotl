@@ -305,6 +305,28 @@ it('does not queue empty or blocked updates and propagates prepare and queue fai
     expect(track).not.toHaveBeenCalled()
 })
 
+it('reports a prepared update with nothing to apply instead of finishing silently', async () => {
+    readyUpdates()
+    const nothing = vi.fn()
+    expect(await queueResourceEntryUpdates('quiet', [], vi.fn(), vi.fn(), nothing)).toBe(false)
+    expect(nothing).not.toHaveBeenCalled()
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValueOnce({
+        id: 'plan',
+        revision: 1,
+        actions: [],
+        issues: [],
+    } as never)
+    expect(await queueResourceEntryUpdates('quiet', ['entry'], vi.fn(), vi.fn(), nothing)).toBe(
+        false,
+    )
+    expect(nothing).toHaveBeenCalledOnce()
+    expect(resourceQueuePlan).not.toHaveBeenCalled()
+    expect(await queueResourceEntryUpdates('quiet', ['entry'], vi.fn(), vi.fn(), nothing)).toBe(
+        true,
+    )
+    expect(nothing).toHaveBeenCalledOnce()
+})
+
 function item(entry: string, overrides: Partial<ContentItem> = {}): ContentItem {
     return {
         id: entry,

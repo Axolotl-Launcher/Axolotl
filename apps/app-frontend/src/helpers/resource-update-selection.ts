@@ -14,11 +14,17 @@ export { confirmedContentGroupKey } from '@modrinth/ui'
 const instanceUpdates = new Map<string, Promise<boolean>>()
 const pendingEntries = new Map<string, Map<string, Promise<boolean>>>()
 
+/**
+ * Queues direct updates for installed entries. `onNothingToApply` runs when
+ * the selected entries were prepared but no plan had a file to change, so the
+ * caller can say so instead of finishing silently.
+ */
 export async function queueResourceEntryUpdates(
     instanceId: string,
     entryIds: string[],
     track: (job: InstallJobSnapshot) => void,
     formatMessage: ReturnType<typeof useVIntl>['formatMessage'],
+    onNothingToApply?: () => void,
 ): Promise<boolean> {
     const selected = [...new Set(entryIds)]
     if (!selected.length) return false
@@ -41,7 +47,9 @@ export async function queueResourceEntryUpdates(
         void task.then(cleanup, cleanup)
         existing.add(task)
     }
-    return (await Promise.all(existing)).some(Boolean)
+    const queued = (await Promise.all(existing)).some(Boolean)
+    if (!queued) onNothingToApply?.()
+    return queued
 }
 
 async function runResourceEntryUpdate(

@@ -107,19 +107,24 @@ jobs:
           target_dir="$(cargo llvm-cov show-env --sh \
             | sed -n "s/^export CARGO_LLVM_COV_TARGET_DIR='\(.*\)'$/\1/p" | head -n 1)"
           if [ -z "$target_dir" ]; then
-            target_dir="$PWD/target/llvm-cov-target"
+            target_dir="$PWD/target"
             echo "show-env gave no target directory; using $target_dir"
           fi
           deps="$target_dir/debug/deps"
           test -d "$deps" || { echo "no coverage deps directory at $deps" >&2; exit 1; }
-          # Pick the newest matching binary so a stale build cannot be used.
+          # The test binary is `theseus-<hash>` on Unix and `.exe` on Windows.
+          # Test executability only on Unix: under Git Bash the bit is not a
+          # reliable signal for a `.exe`, and `-x` then rejects every candidate.
           binary=""
           newest=0
           for candidate in "$deps"/theseus-*; do
             case "$candidate" in
-              *.d|*.rlib|*.rmeta|*.pdb) continue ;;
+              *.d|*.rlib|*.rmeta|*.pdb|*.dll) continue ;;
             esac
-            [ -f "$candidate" ] && [ -x "$candidate" ] || continue
+            [ -f "$candidate" ] || continue
+            if [ "$RUNNER_OS" != "Windows" ] && [ ! -x "$candidate" ]; then
+              continue
+            fi
             stamp="$(stat -c %Y "$candidate" 2>/dev/null || stat -f %m "$candidate" 2>/dev/null || echo 0)"
             if [ "$stamp" -ge "$newest" ]; then
               newest="$stamp"
@@ -128,7 +133,7 @@ jobs:
           done
           if [ -z "$binary" ]; then
             echo "No instrumented theseus test binary under $deps" >&2
-            ls -la "$deps" | head -20 >&2
+            ls -la "$deps" | grep -i theseus | head -20 >&2 || true
             exit 1
           fi
           echo "path=$binary" >> "$GITHUB_OUTPUT"

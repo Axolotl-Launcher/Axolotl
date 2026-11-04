@@ -1,6 +1,6 @@
 [build]
 # Shared by dev, CI and release builds. The Tauri entry point and CI setup
-# lower this to three jobs on macOS ARM64 hosts.
+# lower this to two jobs on macOS ARM64 hosts.
 jobs = 4
 
 [env]

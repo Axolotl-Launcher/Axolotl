@@ -16,7 +16,7 @@ runs:
     - name: Configure Cargo build jobs
       shell: bash
       env:
-        BUILD_JOBS: ${{ runner.os == 'macOS' && runner.arch == 'ARM64' && '3' || '4' }}
+        BUILD_JOBS: ${{ runner.os == 'macOS' && runner.arch == 'ARM64' && '2' || '4' }}
       run: echo "CARGO_BUILD_JOBS=$BUILD_JOBS" >> "$GITHUB_ENV"
 
     - name: Install pinned Rust toolchain

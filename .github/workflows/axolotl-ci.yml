@@ -395,23 +395,36 @@ jobs:
           NITRO_PRESET: ${{ matrix.nitro-preset }}
         run: pnpm --filter @axolotl/website build
 
-  # Reports Rust line coverage for the whole workspace. A single OS keeps the
-  # cost near the existing matrix while still measuring every crate, which the
-  # filtered `cargo test` steps in the desktop job never do.
+  # Reports Rust line coverage for the whole workspace.
   #
-  # The floor is a ratchet, not the 75% goal: the first measured baseline was
+  # Every desktop platform is measured: a single-OS number cannot see the
+  # platform-gated code the other systems compile (app-lib alone has ~150
+  # `cfg(windows)` sites and ~33 macOS ones). Each platform carries its own
+  # floor so a regression on one OS cannot be masked by a gain on another.
+  #
+  # The floors are ratchets, not the 75% goal: the measured Linux baseline was
   # 59.97%, so the gate holds just under it and rises as tests are added. Raise
-  # it; never lower it to make a change pass.
+  # them; never lower one to make a change pass.
   coverage:
-    name: Measure Rust coverage
+    name: Measure Rust coverage (${{ matrix.os }})
     needs: [changes, guardrails, resources]
     if: needs.changes.outputs.desktop == 'true'
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            floor: '59'
+          - os: windows-2025
+            floor: '59'
+          - os: macos-26
+            floor: '59'
+    runs-on: ${{ matrix.os }}
     env:
       SQLX_OFFLINE: true
       # Instrumented tests reach the same deep async chains as the desktop job.
       RUST_MIN_STACK: 67108864
-      COVERAGE_MIN_LINES: '59'
+      COVERAGE_MIN_LINES: ${{ matrix.floor }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -428,7 +441,11 @@ jobs:
       # cargo-llvm-cov shells out to llvm-cov and llvm-profdata from this component.
       - name: Install LLVM coverage tools
         run: rustup component add llvm-tools-preview
+      # `shell: bash` is required, not cosmetic: on Windows GitHub runs `run:`
+      # under PowerShell, where the `\` continuation and `$VAR` below are not
+      # valid, and the step fails before measuring anything.
       - name: Measure coverage
+        shell: bash
         run: |
           node scripts/axolotl/rust-coverage.mjs \
             --keep-report-on-test-fail --fail-under "$COVERAGE_MIN_LINES"
@@ -436,15 +453,16 @@ jobs:
       # still publish the evidence for a red run.
       - name: Publish coverage summary
         if: ${{ !cancelled() && hashFiles('target/coverage/total.txt') != '' }}
+        shell: bash
         run: |
           summary="$(cat target/coverage/total.txt)"
           echo "$summary"
-          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ${{ matrix.os }} — $summary" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage report
         if: ${{ !cancelled() && hashFiles('target/coverage/total.txt') != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: rust-coverage
+          name: rust-coverage-${{ matrix.os }}
           path: target/coverage/
           retention-days: 7
           if-no-files-found: error

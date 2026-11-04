@@ -48,7 +48,7 @@ cargo check --package theseus_gui --features updater
 
 ### Rust 覆盖率
 
-CI 的 `coverage` 作业用 [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) 在 Linux 上测量 workspace 的行覆盖率，`scripts/axolotl/rust-coverage.mjs` 是本地与 CI 共用的唯一入口。产物在 `target/coverage/` 下（`lcov.info`、`total.txt`、`summary.txt`、`html/`），CI 把它整个作为 `rust-coverage` 工件上传，保留 7 天。
+CI 的 `coverage` 作业在三个桌面平台（`ubuntu-24.04`、`windows-2025`、`macos-26`）上分别测量 workspace 的行覆盖率，`scripts/axolotl/rust-coverage.mjs` 是本地与 CI 共用的唯一入口。产物在 `target/coverage/` 下（`lcov.info`、`total.txt`、`summary.txt`、`html/`），每个平台上传自己的 `rust-coverage-<runner>` 工件（如 `rust-coverage-ubuntu-24.04`），保留 7 天。
 
 本地先准备工具与构建前置条件（子模块缺失时 `apps/app` 的构建脚本会失败；跳过 Blockbench 皮肤编辑器可以省下一次前端构建）：
 
@@ -76,7 +76,7 @@ cargo llvm-cov -p theseus --html --open
 
 口径说明：指标是 `cargo llvm-cov report` 的 TOTAL 行覆盖率，只统计当前操作系统上编译得到的代码，因此 Linux 的 CI 数字不包含 `cfg(windows)` / `cfg(target_os = "macos")` 分支。`cargo-llvm-cov` 默认把 `tests/`、`examples/`、`benches/` 目录与 `tests.rs`、`*_tests.rs`、`*-tests.rs` 这类测试专用文件排除在分母之外；写在源码里的内联 `#[cfg(test)] mod tests` 计入分母，测试执行时会被命中。按当前源码结构（内联测试约占可报告行的 35%），75% 的行覆盖率大约对应 61% 的生产代码覆盖率，改 Rust 代码时请以这个口径判断目标，不要用排除文件的方式把缺口藏起来。
 
-首次实测基线是 **59.97%（159990/266762 行）**，因此 CI 现在用棘轮门槛 `COVERAGE_MIN_LINES = 59`（`.github/workflows/axolotl-ci.yml` 的 `coverage` 作业）：它只防回退，不是目标值。目标是 75%，补测试推进后要同步调高这个数，**不允许为了让某个改动过关而下调**。门槛接入 `Desktop CI result` 汇总闸，不达标会阻断合并。覆盖率作业失败时，`rust-coverage` 工件仍会照常上传，先看 `total.txt` 和 HTML 报告定位缺口；常见热点见 `.agents/plans/` 下的基线记录。
+首次实测基线是 **59.97%（159990/266762 行，Linux）**，因此 CI 用棘轮门槛 `COVERAGE_MIN_LINES`（`.github/workflows/axolotl-ci.yml` 的 `coverage` 作业，逐平台取值）：它只防回退，不是目标值。目标是 75%，补测试推进后要同步调高这个数，**不允许为了让某个改动过关而下调**。门槛接入 `Desktop CI result` 汇总闸，任一平台不达标即阻断合并。覆盖率作业失败时，该平台的 `rust-coverage-<runner>` 工件仍会照常上传，先看 `total.txt` 和 HTML 报告定位缺口；常见热点见 `.agents/plans/` 下的基线记录。
 
 ### 构建缓存与磁盘空间
 

@@ -100,40 +100,45 @@ jobs:
         id: binary
         shell: bash
         run: |
-          set -euo pipefail
-          # Ask the tool where it built, rather than assuming a layout. The
-          # value is quoted with single quotes by `show-env`; fall back to the
-          # documented default if the format ever changes.
-          target_dir="$(cargo llvm-cov show-env --sh \
-            | sed -n "s/^export CARGO_LLVM_COV_TARGET_DIR='\(.*\)'$/\1/p" | head -n 1)"
-          if [ -z "$target_dir" ]; then
-            target_dir="$PWD/target"
-            echo "show-env gave no target directory; using $target_dir"
-          fi
-          deps="$target_dir/debug/deps"
-          test -d "$deps" || { echo "no coverage deps directory at $deps" >&2; exit 1; }
+          set -uo pipefail
+          # `cargo-llvm-cov` owns the build directory and the layout differs:
+          # Linux builds into `target/llvm-cov-target`, while on Windows the
+          # tool has been seen to build into `target`. Probe every known layout
+          # rather than parsing the tool's output: `show-env` also prints an
+          # `info:` line on stdout and the export format is not a stable API.
+          candidates_dirs="$PWD/target/llvm-cov-target/debug/deps $PWD/target/debug/deps"
+
           # The test binary is `theseus-<hash>` on Unix and `.exe` on Windows.
           # Test executability only on Unix: under Git Bash the bit is not a
           # reliable signal for a `.exe`, and `-x` then rejects every candidate.
           binary=""
           newest=0
-          for candidate in "$deps"/theseus-*; do
-            case "$candidate" in
-              *.d|*.rlib|*.rmeta|*.pdb|*.dll) continue ;;
-            esac
-            [ -f "$candidate" ] || continue
-            if [ "$RUNNER_OS" != "Windows" ] && [ ! -x "$candidate" ]; then
-              continue
-            fi
-            stamp="$(stat -c %Y "$candidate" 2>/dev/null || stat -f %m "$candidate" 2>/dev/null || echo 0)"
-            if [ "$stamp" -ge "$newest" ]; then
-              newest="$stamp"
-              binary="$candidate"
-            fi
+          searched=""
+          for deps in $candidates_dirs; do
+            [ -d "$deps" ] || continue
+            searched="$searched $deps"
+            for candidate in "$deps"/theseus-*; do
+              case "$candidate" in
+                *.d|*.rlib|*.rmeta|*.pdb|*.dll) continue ;;
+              esac
+              [ -f "$candidate" ] || continue
+              if [ "$RUNNER_OS" != "Windows" ] && [ ! -x "$candidate" ]; then
+                continue
+              fi
+              stamp="$(stat -c %Y "$candidate" 2>/dev/null || stat -f %m "$candidate" 2>/dev/null || echo 0)"
+              if [ "$stamp" -ge "$newest" ]; then
+                newest="$stamp"
+                binary="$candidate"
+              fi
+            done
           done
           if [ -z "$binary" ]; then
-            echo "No instrumented theseus test binary under $deps" >&2
-            ls -la "$deps" | grep -i theseus | head -20 >&2 || true
+            echo "No instrumented theseus test binary; searched:$searched" >&2
+            for deps in $candidates_dirs; do
+              [ -d "$deps" ] || continue
+              echo "--- $deps" >&2
+              ls -la "$deps" | grep -i theseus >&2 || true
+            done
             exit 1
           fi
           echo "path=$binary" >> "$GITHUB_OUTPUT"

@@ -134,7 +134,11 @@ pub async fn get_importable_instances(
                 .await
         }
         ImportLauncherType::PCL2 | ImportLauncherType::PCL2CE => {
-            get_pcl_instances(&base_path).await
+            let sources = pcl::get_pcl_instances()
+                .into_iter()
+                .chain(pcl::get_pclce_instances())
+                .collect();
+            get_pcl_instances(&base_path, sources).await
         }
         ImportLauncherType::HMCL => get_hmcl_instances(&base_path).await,
         ImportLauncherType::Generic => get_generic_instances(&base_path).await,
@@ -249,24 +253,14 @@ async fn get_modrinth_app_instances(
 }
 
 /// Collects PCL2 / PCL2CE instances from the registry and CE config,
-/// de-duplicating paths that appear in both sources.
+/// trusting their configured game directories without requiring a launcher
+/// executable in the base path, and de-duplicating paths in both sources.
 async fn get_pcl_instances(
     base_path: &Path,
+    sources: Vec<(String, String)>,
 ) -> crate::Result<Vec<ImportableInstance>> {
-    if !pe_info::folder_has_product(base_path, "Plain Craft Launcher") {
-        return Ok(Vec::new());
-    }
     let mut collector = InstanceCollector::new();
-    // Try both PCL2 registry and PCLCE config — the user may have instances
-    // registered in either or both sources.
-    if pcl::read_pcl_registry().is_some() {
-        collect_launcher_instances(&mut collector, pcl::get_pcl_instances())
-            .await;
-    }
-    if pcl::config_exists() {
-        collect_launcher_instances(&mut collector, pcl::get_pclce_instances())
-            .await;
-    }
+    collect_launcher_instances(&mut collector, sources).await;
     // Also check for a .minecraft folder next to the launcher executable.
     if let Some(entry) = pcl::get_local_dotminecraft(base_path) {
         collect_launcher_instances(&mut collector, vec![entry]).await;
@@ -1802,6 +1796,53 @@ mod import_game_root_tests {
         fs::create_dir_all(empty.join("mods")).unwrap();
         fs::write(empty.join("mods/mod.jar"), "mod").unwrap();
         assert!(!dir_has_game_body(&empty));
+    }
+}
+
+#[cfg(test)]
+mod pcl_instance_scan_tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn discovers_configured_pclce_instances_without_launcher_executable()
+    {
+        let root = tempdir().unwrap();
+        let data_dir = root.path().join("data");
+        let game_dir = root.path().join("games").join(".minecraft");
+        let version_dir = game_dir.join("versions").join("1.20.1");
+        fs::create_dir_all(&version_dir).unwrap();
+        fs::write(
+            version_dir.join("1.20.1.json"),
+            r#"{"id":"1.20.1","mainClass":"net.minecraft.client.main.Main"}"#,
+        )
+        .unwrap();
+        let config_dir = data_dir.join("PCLCE");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(
+            config_dir.join("config.v1.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "LaunchFolders": format!("Configured>{}|", game_dir.display())
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(!pe_info::folder_has_product(
+            &data_dir,
+            "Plain Craft Launcher"
+        ));
+
+        let sources = pcl::get_pclce_instances_from_config(
+            &config_dir.join("config.v1.json"),
+        );
+        let instances = get_pcl_instances(&data_dir, sources).await.unwrap();
+        assert_eq!(instances.len(), 1);
+        assert!(instances.iter().any(|instance| {
+            instance.name == "Configured:versions/1.20.1"
+                && Path::new(&instance.path) == version_dir
+        }));
     }
 }
 

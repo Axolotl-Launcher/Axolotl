@@ -25,8 +25,12 @@ struct PclCeConfig {
 
 fn read_pclce_config() -> Option<String> {
     let path = dirs::data_dir()?.join("PCLCE").join("config.v1.json");
+    read_pclce_config_at(&path)
+}
+
+fn read_pclce_config_at(path: &Path) -> Option<String> {
     tracing::debug!(path = %path.display(), "read_pclce_config: attempting to read config file");
-    let content = std::fs::read_to_string(&path).inspect_err(|e| {
+    let content = std::fs::read_to_string(path).inspect_err(|e| {
         tracing::debug!(path = %path.display(), error = %e, "read_pclce_config: failed to read file");
     }).ok()?;
     let config: PclCeConfig = serde_json::from_str(&content).inspect_err(|e| {
@@ -83,7 +87,18 @@ pub fn get_pcl_instances() -> Vec<(String, String)> {
 }
 
 pub fn get_pclce_instances() -> Vec<(String, String)> {
-    let raw = read_pclce_config().unwrap_or_default();
+    let Some(data_dir) = dirs::data_dir() else {
+        return Vec::new();
+    };
+    get_pclce_instances_from_config(
+        &data_dir.join("PCLCE").join("config.v1.json"),
+    )
+}
+
+pub(super) fn get_pclce_instances_from_config(
+    path: &Path,
+) -> Vec<(String, String)> {
+    let raw = read_pclce_config_at(path).unwrap_or_default();
     let instances = parse_pcl_folders(&raw);
     tracing::info!(count = instances.len(), "get_pclce_instances");
     instances

@@ -10,6 +10,7 @@ import {
 import {
     Button,
     Checkbox,
+    Chips,
     defineMessages,
     type ImportableLauncher,
     injectInstanceImport,
@@ -24,8 +25,18 @@ import { type ChooseImportMethod, startLauncherImport } from '@/helpers/launcher
 import { readMinecraftRoots, writeMinecraftRoots } from '@/helpers/minecraft-roots'
 
 import { useOobeStep } from '../../context'
+import { folderKey, folderName, type FoundGroup, type FoundInstance, groupFound } from './found'
 
-type AddedFolder = { path: string; state: 'scanning' | 'added' | 'failed'; message?: string }
+type AddedFolder = {
+    path: string
+    /** Picked with the folder dialog, or one of the folders found on this device. */
+    origin: 'picked' | 'found'
+    state: 'scanning' | 'added' | 'failed'
+    message?: string
+}
+type ImportMethod = 'direct' | 'import'
+
+const IMPORT_METHODS: ImportMethod[] = ['direct', 'import']
 
 const LAUNCHER_NAMES: Record<string, string> = {
     ModrinthApp: 'Modrinth',
@@ -56,7 +67,7 @@ const messages = defineMessages({
     scanning: { id: 'app.oobe.migration.scanning', defaultMessage: 'Looking for other launchers…' },
     noneFound: {
         id: 'app.oobe.migration.none-found',
-        defaultMessage: 'No other launchers were found. You can still add a folder below.',
+        defaultMessage: 'No other launchers were found on this device.',
     },
     genericLauncher: { id: 'app.oobe.migration.generic', defaultMessage: 'Minecraft folder' },
     instanceCount: {
@@ -73,6 +84,15 @@ const messages = defineMessages({
         defaultMessage:
             '{count, plural, one {# instance is} other {# instances are}} being imported. You can keep going while that runs.',
     },
+    method: { id: 'app.oobe.migration.method', defaultMessage: 'How to bring it over' },
+    methodDirect: { id: 'app.oobe.migration.method.direct', defaultMessage: 'Use in place' },
+    methodImport: { id: 'app.oobe.migration.method.import', defaultMessage: 'Import' },
+    directHint: {
+        id: 'app.oobe.migration.direct-hint',
+        defaultMessage:
+            'The launcher manages its {count, plural, one {# version} other {# versions}} directly, without copying anything.',
+    },
+    useFolder: { id: 'app.oobe.migration.use-folder', defaultMessage: 'Use this folder' },
     foldersTitle: {
         id: 'app.oobe.migration.folders.title',
         defaultMessage: 'Use a .minecraft folder in place',
@@ -100,13 +120,21 @@ const messages = defineMessages({
 
 const scanning = ref(true)
 const launchers = ref<ImportableLauncher[]>([])
+const groups = computed(() => groupFound(launchers.value))
+/** How each found `.minecraft` folder comes over; using it in place unless the user says otherwise. */
+const methods = reactive(new Map<string, ImportMethod>())
+/** The instances ticked for import, by group key and instance path. */
 const selected = reactive(new Map<string, Set<string>>())
 const importing = ref(false)
 const startedCount = ref(0)
 const folders = ref<AddedFolder[]>([])
+const pickedFolders = computed(() => folders.value.filter((folder) => folder.origin === 'picked'))
 
+const importable = computed(() => groups.value.some((group) => methodOf(group) === 'import'))
 const selectedCount = computed(() =>
-    [...selected.values()].reduce((total, names) => total + names.size, 0),
+    groups.value
+        .filter((group) => methodOf(group) === 'import')
+        .reduce((total, group) => total + selectionOf(group).size, 0),
 )
 
 watch(
@@ -135,36 +163,62 @@ function launcherName(launcher: ImportableLauncher) {
         : (LAUNCHER_NAMES[launcher.name] ?? launcher.name)
 }
 
-function selectionOf(launcher: ImportableLauncher) {
-    return selected.get(launcher.name) ?? new Set<string>()
+function methodOf(group: FoundGroup): ImportMethod {
+    return group.root ? (methods.get(group.key) ?? 'direct') : 'import'
 }
 
-function setInstance(launcher: ImportableLauncher, name: string, value: boolean) {
-    const names = new Set(selectionOf(launcher))
-    if (value) names.add(name)
-    else names.delete(name)
-    selected.set(launcher.name, names)
+function methodLabel(method: ImportMethod) {
+    return formatMessage(method === 'direct' ? messages.methodDirect : messages.methodImport)
 }
 
-function setLauncher(launcher: ImportableLauncher, value: boolean) {
-    selected.set(
-        launcher.name,
-        new Set(value ? launcher.instances.map((instance) => instance.name) : []),
-    )
+function folderAt(path: string) {
+    return folders.value.find((folder) => folderKey(folder.path) === folderKey(path))
+}
+
+/** A folder in use (or being set up) can no longer switch to being copied. */
+function methodLocked(group: FoundGroup) {
+    const folder = group.root ? folderAt(group.root) : undefined
+    return !!folder && folder.state !== 'failed'
+}
+
+function instanceId(instance: FoundInstance) {
+    return instance.path || instance.name
+}
+
+/** A version's own folder name, without the launcher's folder prefix. */
+function instanceLabel(group: FoundGroup, instance: FoundInstance) {
+    return group.root ? folderName(instance.path) : instance.name
+}
+
+function selectionOf(group: FoundGroup) {
+    return selected.get(group.key) ?? new Set<string>()
+}
+
+function setInstance(group: FoundGroup, instance: FoundInstance, value: boolean) {
+    const ids = new Set(selectionOf(group))
+    if (value) ids.add(instanceId(instance))
+    else ids.delete(instanceId(instance))
+    selected.set(group.key, ids)
+}
+
+function setGroup(group: FoundGroup, value: boolean) {
+    selected.set(group.key, new Set(value ? group.instances.map(instanceId) : []))
 }
 
 async function importSelected() {
     if (!chooseImportMethod || selectedCount.value === 0 || importing.value) return
-    const entries = launchers.value.flatMap((launcher) =>
-        launcher.instances
-            .filter((instance) => selectionOf(launcher).has(instance.name))
-            .map((instance) => ({
-                launcherType: launcher.launcherType ?? launcher.name,
-                path: launcher.path,
-                instanceName: instance.name,
-                instancePath: instance.path,
-            })),
-    )
+    const entries = groups.value
+        .filter((group) => methodOf(group) === 'import')
+        .flatMap((group) =>
+            group.instances
+                .filter((instance) => selectionOf(group).has(instanceId(instance)))
+                .map((instance) => ({
+                    launcherType: group.launcher.launcherType ?? group.launcher.name,
+                    path: group.launcher.path,
+                    instanceName: instance.name,
+                    instancePath: instance.path,
+                })),
+        )
     importing.value = true
     try {
         const { confirmed } = await startLauncherImport(entries, chooseImportMethod, handleError)
@@ -194,22 +248,30 @@ function concerns(message: string, root: string) {
     return false
 }
 
-async function addFolder() {
+async function pickFolder() {
     const choice = await open({
         multiple: false,
         directory: true,
         title: formatMessage(messages.selectFolder),
     })
-    if (typeof choice !== 'string') return
-    const path = choice.trim().replace(/[\\/]+$/, '')
-    if (!path || folders.value.some((folder) => folder.path === path)) return
+    if (typeof choice === 'string') await linkFolder(choice, 'picked')
+}
 
-    const folder = reactive<AddedFolder>({ path, state: 'scanning' })
-    folders.value = [...folders.value, folder]
+/** Adds `.minecraft` folder `choice` to the folders the launcher manages in place. */
+async function linkFolder(choice: string, origin: AddedFolder['origin']) {
+    const path = choice.trim().replace(/[\\/]+$/, '')
+    if (!path) return
+    const existing = folderAt(path)
+    if (existing && existing.state !== 'failed') return
+
+    const folder = reactive<AddedFolder>({ path, origin, state: 'scanning' })
+    folders.value = [...folders.value.filter((entry) => entry !== existing), folder]
     step.setBusy(true)
     try {
         const roots = readMinecraftRoots()
-        if (!roots.some((root) => root.path === path)) roots.push({ path, mode: 'automatic' })
+        if (!roots.some((root) => folderKey(root.path) === folderKey(path))) {
+            roots.push({ path, mode: 'automatic' })
+        }
         const report = await syncConfiguredDirectLinks(roots)
         const own = report.errors.filter((message) => concerns(message, path))
         if (own.length > 0) {
@@ -234,106 +296,6 @@ async function addFolder() {
 <template>
     <div class="flex flex-col gap-6">
         <section class="flex flex-col gap-3">
-            <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
-                {{ formatMessage(messages.detectedTitle) }}
-            </h2>
-
-            <div
-                v-if="scanning && launchers.length === 0"
-                class="flex flex-col gap-2"
-                aria-busy="true"
-            >
-                <div
-                    v-for="index in 2"
-                    :key="index"
-                    class="flex items-center gap-3 rounded-[var(--radius-lg)] bg-surface-3 px-4 py-3"
-                >
-                    <span class="oobe-skeleton size-9 rounded-[var(--radius-sm)]" />
-                    <span class="flex flex-1 flex-col gap-2">
-                        <span class="oobe-skeleton h-3 w-32 rounded-full" />
-                        <span class="oobe-skeleton h-2.5 w-52 rounded-full" />
-                    </span>
-                </div>
-                <p class="m-0 flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
-                    <SpinnerIcon class="size-4 animate-spin" />
-                    {{ formatMessage(messages.scanning) }}
-                </p>
-            </div>
-
-            <p
-                v-else-if="launchers.length === 0"
-                class="m-0 rounded-[var(--radius-lg)] bg-surface-3 px-4 py-3 text-sm text-[var(--color-text-tertiary)]"
-            >
-                {{ formatMessage(messages.noneFound) }}
-            </p>
-
-            <template v-else>
-                <div
-                    v-for="launcher in launchers"
-                    :key="launcher.name"
-                    class="flex flex-col rounded-[var(--radius-lg)] border border-solid border-surface-4 bg-surface-3"
-                >
-                    <div class="flex items-center gap-3 px-4 py-3">
-                        <Checkbox
-                            :model-value="selectionOf(launcher).size === launcher.instances.length"
-                            :indeterminate="
-                                selectionOf(launcher).size > 0 &&
-                                selectionOf(launcher).size < launcher.instances.length
-                            "
-                            :label="launcherName(launcher)"
-                            @update:model-value="(value: boolean) => setLauncher(launcher, value)"
-                        />
-                        <span
-                            class="min-w-0 truncate text-xs text-[var(--color-text-tertiary)]"
-                            :title="launcher.path"
-                            >{{ launcher.path }}</span
-                        >
-                        <span class="ml-auto shrink-0 text-sm text-[var(--color-text-tertiary)]">
-                            {{
-                                formatMessage(messages.instanceCount, {
-                                    count: launcher.instances.length,
-                                })
-                            }}
-                        </span>
-                    </div>
-                    <div
-                        class="flex flex-wrap gap-x-5 gap-y-2 border-0 border-t border-solid border-surface-4 px-4 py-3"
-                    >
-                        <Checkbox
-                            v-for="instance in launcher.instances"
-                            :key="instance.path || instance.name"
-                            :model-value="selectionOf(launcher).has(instance.name)"
-                            :label="instance.name"
-                            @update:model-value="
-                                (value: boolean) => setInstance(launcher, instance.name, value)
-                            "
-                        />
-                    </div>
-                </div>
-                <div class="flex flex-wrap items-center gap-3">
-                    <Button
-                        type="colored"
-                        color="brand"
-                        :disabled="selectedCount === 0 || importing || !chooseImportMethod"
-                        @click="importSelected"
-                    >
-                        <SpinnerIcon v-if="importing" class="animate-spin" />
-                        <ImportIcon v-else />
-                        {{ formatMessage(messages.importSelected, { count: selectedCount }) }}
-                    </Button>
-                    <span
-                        v-if="startedCount > 0"
-                        class="flex items-center gap-1.5 text-sm text-[var(--color-text-tertiary)]"
-                        role="status"
-                    >
-                        <CheckIcon class="size-4 text-brand" />
-                        {{ formatMessage(messages.importStarted, { count: startedCount }) }}
-                    </span>
-                </div>
-            </template>
-        </section>
-
-        <section class="flex flex-col gap-3">
             <div class="flex flex-col gap-1">
                 <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                     {{ formatMessage(messages.foldersTitle) }}
@@ -342,9 +304,9 @@ async function addFolder() {
                     {{ formatMessage(messages.foldersDescription) }}
                 </p>
             </div>
-            <div v-if="folders.length > 0" class="flex flex-col gap-2">
+            <div v-if="pickedFolders.length > 0" class="flex flex-col gap-2">
                 <div
-                    v-for="folder in folders"
+                    v-for="folder in pickedFolders"
                     :key="folder.path"
                     class="flex items-center gap-3 rounded-[var(--radius-lg)] bg-surface-3 px-4 py-3"
                 >
@@ -376,20 +338,187 @@ async function addFolder() {
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
-                <Button @click="addFolder">
+                <Button @click="pickFolder">
                     <PlusIcon />
                     {{ formatMessage(messages.addFolder) }}
                 </Button>
-                <Button
-                    v-if="showCreationModal"
-                    type="quiet"
-                    @click="showCreationModal({ skipSetupType: true, initialMode: 'import' })"
-                >
-                    <FolderSearchIcon />
-                    {{ formatMessage(messages.moreOptions) }}
-                </Button>
             </div>
         </section>
+
+        <section class="flex flex-col gap-3">
+            <h2 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
+                {{ formatMessage(messages.detectedTitle) }}
+            </h2>
+
+            <div
+                v-if="scanning && groups.length === 0"
+                class="flex flex-col gap-2"
+                aria-busy="true"
+            >
+                <div
+                    v-for="index in 2"
+                    :key="index"
+                    class="flex items-center gap-3 rounded-[var(--radius-lg)] bg-surface-3 px-4 py-3"
+                >
+                    <span class="oobe-skeleton size-9 rounded-[var(--radius-sm)]" />
+                    <span class="flex flex-1 flex-col gap-2">
+                        <span class="oobe-skeleton h-3 w-32 rounded-full" />
+                        <span class="oobe-skeleton h-2.5 w-52 rounded-full" />
+                    </span>
+                </div>
+                <p class="m-0 flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
+                    <SpinnerIcon class="size-4 animate-spin" />
+                    {{ formatMessage(messages.scanning) }}
+                </p>
+            </div>
+
+            <p
+                v-else-if="groups.length === 0"
+                class="m-0 rounded-[var(--radius-lg)] bg-surface-3 px-4 py-3 text-sm text-[var(--color-text-tertiary)]"
+            >
+                {{ formatMessage(messages.noneFound) }}
+            </p>
+
+            <template v-else>
+                <div
+                    v-for="group in groups"
+                    :key="group.key"
+                    class="flex flex-col rounded-[var(--radius-lg)] border border-solid border-surface-4 bg-surface-3"
+                >
+                    <div v-if="group.root" class="flex items-center gap-3 px-4 py-3">
+                        <FolderOpenIcon class="size-5 shrink-0 text-[var(--color-text-tertiary)]" />
+                        <span class="flex min-w-0 flex-1 flex-col">
+                            <span
+                                class="truncate text-sm font-medium text-[var(--color-text-primary)]"
+                            >
+                                {{ folderName(group.root) }}
+                            </span>
+                            <span
+                                class="truncate text-xs text-[var(--color-text-tertiary)]"
+                                :title="group.root"
+                                >{{ group.root }}</span
+                            >
+                        </span>
+                        <Chips
+                            class="shrink-0"
+                            :model-value="methodOf(group)"
+                            :items="IMPORT_METHODS"
+                            :format-label="methodLabel"
+                            :aria-label="formatMessage(messages.method)"
+                            :disabled-items="methodLocked(group) ? IMPORT_METHODS : []"
+                            :capitalize="false"
+                            size="small"
+                            hide-checkmark-icon
+                            @update:model-value="
+                                (method: ImportMethod | null | undefined) =>
+                                    method && methods.set(group.key, method)
+                            "
+                        />
+                    </div>
+                    <div v-else class="flex items-center gap-3 px-4 py-3">
+                        <Checkbox
+                            class="shrink-0"
+                            :model-value="selectionOf(group).size === group.instances.length"
+                            :indeterminate="
+                                selectionOf(group).size > 0 &&
+                                selectionOf(group).size < group.instances.length
+                            "
+                            :label="launcherName(group.launcher)"
+                            @update:model-value="(value: boolean) => setGroup(group, value)"
+                        />
+                        <span
+                            class="min-w-0 truncate text-xs text-[var(--color-text-tertiary)]"
+                            :title="group.launcher.path"
+                            >{{ group.launcher.path }}</span
+                        >
+                        <span class="ml-auto shrink-0 text-sm text-[var(--color-text-tertiary)]">
+                            {{
+                                formatMessage(messages.instanceCount, {
+                                    count: group.instances.length,
+                                })
+                            }}
+                        </span>
+                    </div>
+
+                    <div
+                        v-if="group.root && methodOf(group) === 'direct'"
+                        class="flex items-center gap-3 border-0 border-t border-solid border-surface-4 px-4 py-3"
+                    >
+                        <span
+                            class="min-w-0 flex-1 text-sm"
+                            :class="
+                                folderAt(group.root)?.state === 'failed'
+                                    ? 'text-[var(--color-red)]'
+                                    : 'text-[var(--color-text-tertiary)]'
+                            "
+                        >
+                            {{
+                                folderAt(group.root)?.message ??
+                                formatMessage(messages.directHint, {
+                                    count: group.instances.length,
+                                })
+                            }}
+                        </span>
+                        <SpinnerIcon
+                            v-if="folderAt(group.root)?.state === 'scanning'"
+                            class="size-4 shrink-0 animate-spin"
+                        />
+                        <CheckIcon
+                            v-else-if="folderAt(group.root)?.state === 'added'"
+                            class="size-5 shrink-0 text-brand"
+                        />
+                        <Button v-else class="shrink-0" @click="linkFolder(group.root, 'found')">
+                            <FolderOpenIcon />
+                            {{ formatMessage(messages.useFolder) }}
+                        </Button>
+                    </div>
+                    <div
+                        v-else
+                        class="flex flex-wrap gap-x-5 gap-y-2 border-0 border-t border-solid border-surface-4 px-4 py-3"
+                    >
+                        <Checkbox
+                            v-for="instance in group.instances"
+                            :key="instanceId(instance)"
+                            :model-value="selectionOf(group).has(instanceId(instance))"
+                            :label="instanceLabel(group, instance)"
+                            @update:model-value="
+                                (value: boolean) => setInstance(group, instance, value)
+                            "
+                        />
+                    </div>
+                </div>
+                <div v-if="importable" class="flex flex-wrap items-center gap-3">
+                    <Button
+                        type="colored"
+                        color="brand"
+                        :disabled="selectedCount === 0 || importing || !chooseImportMethod"
+                        @click="importSelected"
+                    >
+                        <SpinnerIcon v-if="importing" class="animate-spin" />
+                        <ImportIcon v-else />
+                        {{ formatMessage(messages.importSelected, { count: selectedCount }) }}
+                    </Button>
+                    <span
+                        v-if="startedCount > 0"
+                        class="flex items-center gap-1.5 text-sm text-[var(--color-text-tertiary)]"
+                        role="status"
+                    >
+                        <CheckIcon class="size-4 text-brand" />
+                        {{ formatMessage(messages.importStarted, { count: startedCount }) }}
+                    </span>
+                </div>
+            </template>
+        </section>
+
+        <div v-if="showCreationModal">
+            <Button
+                type="quiet"
+                @click="showCreationModal({ skipSetupType: true, initialMode: 'import' })"
+            >
+                <FolderSearchIcon />
+                {{ formatMessage(messages.moreOptions) }}
+            </Button>
+        </div>
     </div>
 </template>
 

@@ -9363,6 +9363,9 @@
   "app.oobe.migration.detected.title": {
     "message": "Found on this device"
   },
+  "app.oobe.migration.direct-hint": {
+    "message": "The launcher manages its {count, plural, one {# version} other {# versions}} directly, without copying anything."
+  },
   "app.oobe.migration.folder-added": {
     "message": "{count, plural, =0 {Added} one {Added, # version found} other {Added, # versions found}}"
   },
@@ -9387,11 +9390,20 @@
   "app.oobe.migration.label": {
     "message": "Import"
   },
+  "app.oobe.migration.method": {
+    "message": "How to bring it over"
+  },
+  "app.oobe.migration.method.direct": {
+    "message": "Use in place"
+  },
+  "app.oobe.migration.method.import": {
+    "message": "Import"
+  },
   "app.oobe.migration.more-options": {
     "message": "More import options"
   },
   "app.oobe.migration.none-found": {
-    "message": "No other launchers were found. You can still add a folder below."
+    "message": "No other launchers were found on this device."
   },
   "app.oobe.migration.scanning": {
     "message": "Looking for other launchers…"
@@ -9401,6 +9413,9 @@
   },
   "app.oobe.migration.title": {
     "message": "Import data from other launchers?"
+  },
+  "app.oobe.migration.use-folder": {
+    "message": "Use this folder"
   },
   "app.oobe.progress": {
     "message": "Setup progress"

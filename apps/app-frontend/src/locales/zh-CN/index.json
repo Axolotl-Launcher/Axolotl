@@ -8784,6 +8784,9 @@
   "app.oobe.migration.detected.title": {
     "message": "在此设备上找到"
   },
+  "app.oobe.migration.direct-hint": {
+    "message": "启动器会直接管理其中的 {count, plural, other {# 个版本}}，不复制任何文件。"
+  },
   "app.oobe.migration.folder-added": {
     "message": "{count, plural, =0 {已添加} other {已添加，找到 # 个版本}}"
   },
@@ -8808,11 +8811,20 @@
   "app.oobe.migration.label": {
     "message": "导入"
   },
+  "app.oobe.migration.method": {
+    "message": "导入方式"
+  },
+  "app.oobe.migration.method.direct": {
+    "message": "直接使用"
+  },
+  "app.oobe.migration.method.import": {
+    "message": "导入"
+  },
   "app.oobe.migration.more-options": {
     "message": "更多导入方式"
   },
   "app.oobe.migration.none-found": {
-    "message": "没有找到其他启动器。你仍可以在下方添加文件夹。"
+    "message": "没有在此设备上找到其他启动器。"
   },
   "app.oobe.migration.scanning": {
     "message": "正在查找其他启动器…"
@@ -8822,6 +8834,9 @@
   },
   "app.oobe.migration.title": {
     "message": "要从其他启动器内导入数据吗？"
+  },
+  "app.oobe.migration.use-folder": {
+    "message": "使用此文件夹"
   },
   "app.oobe.progress": {
     "message": "设置进度"

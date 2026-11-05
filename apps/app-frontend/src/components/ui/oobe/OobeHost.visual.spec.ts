@@ -6,6 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, provide, ref } from 'vue'
 
+import { MINECRAFT_ROOTS_STORAGE_KEY } from '@/helpers/minecraft-roots'
 import en from '@/locales/en-US/index.json'
 import zh from '@/locales/zh-CN/index.json'
 import { applyTheme, waitFor } from '@/test/visual-harness'
@@ -47,6 +48,8 @@ backend.invoke.mockImplementation(async (command: string, args?: Record<string, 
             return null
         case 'plugin:auth|get_anti_piracy_status':
             return { region: 'cn', restricted: backend.restricted, revision: 1 }
+        case 'plugin:instance|instance_sync_direct_links':
+            return { imported: 2, updated: 0, removed: 0, missing: 0, errors: [] }
         default:
             return null
     }
@@ -57,6 +60,7 @@ const mounted: ReturnType<typeof mount>[] = []
 
 afterEach(() => {
     mounted.splice(0).forEach((wrapper) => wrapper.unmount())
+    localStorage.removeItem(MINECRAFT_ROOTS_STORAGE_KEY)
     backend.patches.length = 0
     backend.invoke.mockClear()
 })
@@ -75,7 +79,7 @@ function i18n(locale: 'en-US' | 'zh-CN') {
     }
 }
 
-async function render(locale: 'en-US' | 'zh-CN' = 'en-US') {
+async function render(locale: 'en-US' | 'zh-CN' = 'en-US', steps = OOBE_STEPS) {
     await page.viewport(1100, 700)
     const events = { complete: [] as string[], finished: 0 }
     const Harness = defineComponent({
@@ -84,23 +88,41 @@ async function render(locale: 'en-US' | 'zh-CN' = 'en-US') {
                 getDetectedLaunchers: async (
                     onLauncher?: (launcher: ImportableLauncher) => void,
                 ) => {
-                    const launcher = {
-                        name: 'HMCL',
-                        path: 'D:/Games/.minecraft',
-                        instances: [
-                            { name: '1.21.4 Fabric', path: 'D:/Games/.minecraft/versions/a' },
-                            { name: '1.20.1 Forge', path: 'D:/Games/.minecraft/versions/b' },
-                        ],
-                    }
-                    onLauncher?.(launcher)
-                    return [launcher]
+                    const launchers = [
+                        {
+                            name: 'PCL2CE',
+                            path: 'C:/Users/Steve/AppData/Roaming',
+                            instances: [
+                                {
+                                    name: '.minecraft:1.21.4 Fabric',
+                                    path: 'D:/Games/.minecraft/versions/1.21.4 Fabric',
+                                },
+                                {
+                                    name: '.minecraft:1.20.1 Forge',
+                                    path: 'D:/Games/.minecraft/versions/1.20.1 Forge',
+                                },
+                            ],
+                        },
+                        {
+                            name: 'PrismLauncher',
+                            path: 'C:/Users/Steve/AppData/Roaming/PrismLauncher',
+                            instances: [
+                                {
+                                    name: 'Skyblock',
+                                    path: 'C:/Users/Steve/AppData/Roaming/PrismLauncher/instances/Skyblock',
+                                },
+                            ],
+                        },
+                    ]
+                    launchers.forEach((launcher) => onLauncher?.(launcher))
+                    return launchers
                 },
             } as never)
             provide('chooseImportMethod', async () => [])
             provide('showCreationModalWithOptions', () => {})
             return () =>
                 h(OobeHost, {
-                    steps: OOBE_STEPS,
+                    steps,
                     onComplete: (id: string) => events.complete.push(id),
                     onFinish: () => events.finished++,
                 })
@@ -149,7 +171,12 @@ function expectInsideCard() {
 }
 
 async function shot(name: string) {
-    if (evidence) await page.screenshot({ path: `${evidence}/${name}.png` })
+    if (!evidence) return
+    // Let the step's entrance finish first, so the evidence shows the layout people see.
+    await waitFor(() => !document.querySelector('.oobe-root [class*="-enter-active"]'), {
+        label: `${name} settled`,
+    })
+    await page.screenshot({ path: `${evidence}/${name}.png` })
 }
 
 it('lists every step once, in the order of the persisted ids', () => {
@@ -186,9 +213,10 @@ it('walks the whole flow and records each step as the user moves past it', async
     await waitFor(() => heading() === 'Import data from other launchers?', {
         label: 'migration step',
     })
-    await waitFor(() => document.body.textContent!.includes('2 instances'), {
-        label: 'detected launcher',
+    await waitFor(() => document.body.textContent!.includes('manages its 2 versions directly'), {
+        label: 'detected .minecraft folder',
     })
+    expect(document.body.textContent).toContain('1 instance')
     await shot('oobe-migration')
 
     button('Skip')!.click()
@@ -233,6 +261,57 @@ it('renders in Simplified Chinese without overflowing the card', async () => {
     expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth)
     expect(card.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
     await shot('oobe-language-zh')
+})
+
+const migrationOnly = OOBE_STEPS.filter((step) => ['migration_v1', 'welcome_v1'].includes(step.id))
+
+it('puts the .minecraft folders first and uses a found one in place by default', async () => {
+    await render('en-US', migrationOnly)
+    await waitFor(() => !!button('Use this folder'), { label: 'found .minecraft folder' })
+    expect(
+        Array.from(document.querySelectorAll('.oobe-root h2')).map((title) =>
+            title.textContent?.trim(),
+        ),
+    ).toEqual(['Use a .minecraft folder in place', 'Found on this device'])
+    expect(button('Next')!.disabled).toBe(true)
+
+    button('Use this folder')!.click()
+    await waitFor(() => document.body.textContent!.includes('Added, 2 versions found'), {
+        label: 'folder in use',
+    })
+    const roots = [{ path: 'D:/Games/.minecraft', mode: 'automatic' }]
+    expect(backend.invoke).toHaveBeenCalledWith('plugin:instance|instance_sync_direct_links', {
+        roots,
+    })
+    expect(JSON.parse(localStorage.getItem(MINECRAFT_ROOTS_STORAGE_KEY)!)).toEqual(roots)
+    // Nothing was copied, and the folder can no longer switch to being imported.
+    expect(backend.invoke.mock.calls.some(([command]) => String(command).includes('import'))).toBe(
+        false,
+    )
+    const methods = document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="radio"]')
+    expect(Array.from(methods).every((method) => method.disabled)).toBe(true)
+    await waitFor(() => !button('Next')!.disabled, { label: 'step ready' })
+    expectInsideCard()
+    await shot('oobe-migration-direct')
+})
+
+it('lists the versions of a found folder once the user switches it to import', async () => {
+    await render('en-US', migrationOnly)
+    await waitFor(() => !!button('Use this folder'), { label: 'found .minecraft folder' })
+    const importMethod = Array.from(
+        document.querySelectorAll<HTMLElement>('.oobe-root [role="radio"]'),
+    ).find((method) => method.textContent?.trim() === 'Import')!
+    importMethod.click()
+    await flushPromises()
+    expect(button('Use this folder')).toBeUndefined()
+    expect(document.body.textContent).toContain('1.21.4 Fabric')
+    expect(document.body.textContent).toContain('1.20.1 Forge')
+    expect(document.body.textContent).not.toContain('.minecraft:1.21.4 Fabric')
+    expect(backend.invoke).not.toHaveBeenCalledWith(
+        'plugin:instance|instance_sync_direct_links',
+        expect.anything(),
+    )
+    await shot('oobe-migration-import')
 })
 
 it('shows only the steps a release added, and writes the record in order', async () => {

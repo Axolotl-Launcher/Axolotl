@@ -7,7 +7,7 @@ import {
     Toggle,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import LogAgentSourcePicker from '@/components/ui/LogAgentSourcePicker.vue'
@@ -37,7 +37,6 @@ type LogShareSettings = {
 
 const { formatMessage } = useVIntl()
 const router = useRouter()
-const replayOnboarding = inject<(mode: 'logagent') => Promise<void>>('replayOnboarding')
 const { handleError } = injectNotificationManager()
 const settings = ref<LogShareSettings>({
     share_provider: 'logshare',
@@ -85,7 +84,6 @@ const messages = defineMessages({
         id: 'app.logagent.settings.manage-models',
         defaultMessage: 'Configure AI providers',
     },
-    tour: { id: 'app.logagent.settings.tour', defaultMessage: 'About analysis sources' },
     supportedModels: {
         id: 'app.logagent.settings.supported-models',
         defaultMessage:
@@ -263,17 +261,7 @@ onMounted(async () => {
                 )
             "
         >
-            <template #extra
-                ><Button v-if="!localSetup" type="quiet" @click="replayOnboarding?.('logagent')">{{
-                    formatMessage(messages.tour)
-                }}</Button></template
-            >
-            <div
-                v-if="!localSetup"
-                id="settings-target-log-share"
-                data-onboarding-id="logagent-settings-source"
-                class="p-4"
-            >
+            <div v-if="!localSetup" id="settings-target-log-share" class="p-4">
                 <LogAgentSourcePicker
                     :model-value="aiSettings.ai_source"
                     :disabled="saving"
@@ -338,7 +326,7 @@ onMounted(async () => {
                     }}</Button>
                 </div>
             </template>
-            <div v-else data-onboarding-id="logagent-settings-cloud">
+            <div v-else>
                 <SettingsRow inline-control>
                     <template #label>{{ formatMessage(messages.noStorage) }}</template>
                     <template #description>{{
@@ -369,7 +357,6 @@ onMounted(async () => {
         </SettingsSection>
         <SettingsSection
             v-if="!localSetup"
-            data-onboarding-id="logagent-settings-sharing"
             :title="formatMessage(messages.sharingTitle)"
             :description="formatMessage(messages.sharingDescription)"
         >

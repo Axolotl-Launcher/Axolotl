@@ -1,0 +1,245 @@
+{
+  "id": "1ocGzRHv",
+  "slug": "vanilla-perfected",
+  "title": "Vanilla Perfected",
+  "description": "A compilation of Vanilla Plus mods & packs to perfect the Minecraft experience without drifting too far from the feel of the base game!",
+  "author": "demonjoeTV",
+  "categories": ["adventure", "fabric", "lightweight", "optimization"],
+  "display_categories": ["adventure", "lightweight", "optimization"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 2681971,
+  "followers": 2560,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.20.1",
+    "1.21",
+    "1.21.1",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.8",
+    "1.21.10",
+    "1.21.11",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "IFYAmjXO",
+  "date_created": "2024-10-02T02:44:24.436219Z",
+  "date_modified": "2026-10-08T18:37:51.393752Z",
+  "color": 263172,
+  "published": "2024-10-02T02:44:24.436219Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 29,
+  "body": "# ![Vanilla Perfected!](https://cdn.modrinth.com/data/cached_images/86ac0e9fb6a33f234035e0a29ce7df3ebe593eaa.png)\n### Aiming to enhance Minecraft while retaining that Vanilla feel!\n\n**Key Features: Drastically increased FPS, updated HUD and UI elements, Mob Animations, New Minecraft Dungeons inspired structures, QOL Updates, and much much more! (see Gallery tab for more insight)**\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/lDPWSrttiec\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\n**Thank you to Vanilla Tweaks for allowing the usage of their Resource Pack in Vanilla Perfected!**\n\n**Credits:**\n**Vanilla Tweaks: https://vanillatweaks.net/**\n\n## Why the name Vanilla Perfected?\n\nVanilla Perfected was born after frequent comments from my subscribers on YouTube requesting that I make a modpack consisting of Minecraft mods that I use in my videos. This project is entirely driven by what I as a player like to use in Minecraft, and has never intended to be anything more than that. If you've ever wondered where the word \"Perfected\" comes from, it's in reference to this pack being the \"perfect\" version of Minecraft for me personally!",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/1ocGzRHv/images/60856cd3ea67a71b73b8ffa9b706c719836b861d_350.webp",
+      "featured": true,
+      "title": "Banner Image",
+      "description": null,
+      "created": "2026-10-08T18:48:16.054217Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1ocGzRHv/images/7a1631415efea55132c9c5e45b5debf70365214a_350.webp",
+      "featured": false,
+      "title": "Complementary Shaders",
+      "description": "Included with these shaders are my specific settings in order to replicate the exact look seen in my videos!",
+      "created": "2025-11-22T20:41:03.950819Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1ocGzRHv/images/61aca29a5debac3a9c757ec954bada251f174102_350.webp",
+      "featured": false,
+      "title": "Dungeons and Taverns!",
+      "description": "Adds endless new structures to all dimensions of Minecraft, many of which are directly inspired by Minecraft Dungeons!",
+      "created": "2025-11-28T00:35:08.979298Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1ocGzRHv/images/23a15dd1e7b72a270f59b86b3bbd484dddd5aecb_350.webp",
+      "featured": false,
+      "title": "I Like Vanilla Shaders",
+      "description": "An optional Shader Pack that you can select if Complementary isn't your style! (pictured, but not featured in VP, is the mod Punchy)",
+      "created": "2026-05-09T04:29:32.416077Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "demonjoeTV",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/XaM7AEQa/b9753f277b78aff91bb3f0c631a00ce7f5e4210d_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "IFYAmjXO",
+      "name": "Wilderness Bound Update 26.3",
+      "version_number": "1.0.0+26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-08T18:37:51.393752Z",
+      "downloads": 81512,
+      "changelog": "## Vanilla Perfected Wilderness Bound Changelog\n\n- Updated Vanilla Perfected to 26.3\n\n- Updated VP's Custom Panorama\n\n**New Additions:**\n\n- Screenshot Gallery was added as an in-game method to track all your screenshots\n\n- XP orbs now have particle trails thanks to the Elytra Contrails mod update\n\n- Vanilla Perfected now starts with no shaders enabled for those with less powerful PC's. Many people play VP without shaders anyways, so I also added the Dynamic Lights mod for those that want dynamic lighting without needing shaders enabled. To enable shaders in-game simply press \"i\" and select between Complementary or I Like Vanilla.\n\n- Vehicle Upgrade adds many QOL features to both Horses and Boats\n\n- VanillaTweaks now features offset Shrubs & Bushes, as well as Visual Infested Stone Items\n\n- The application is now titled \"Vanilla Perfected: Wilderness Bound\" instead of \"Minecraft\".. neato!\n\n**Replaced Mods:**\n\n- Armor Statues --> Armor Stand Poses\n \n- Paginated Advancements --> Better Advancements\n\n**Missing Packs:**\n\n- Fresh Animations in an attempt to further optimize FPS for those with less powerful computers (you can always add it back yourself if you'd like!)\n\n- Speed Happy Ghasts is not updated\n\n- Explosive Enhancement was removed\n\n**Known Issues:**\n\n- None (at the moment!)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected 1.0.0+26.3.mrpack",
+          "size": 27137701,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Bu8RKHri",
+      "name": "Chaos Cubed Hotfix 3.0",
+      "version_number": "1.0.3+26.2",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-24T22:01:42.845192Z",
+      "downloads": 335818,
+      "changelog": "## Vanilla Perfected Chaos Cubed Hotfix 3.0 Changelog\n\n- Added ModernFix to help with Resource Pack issues on computers with lower RAM, and also updated Recolourful Containers for a similar reason.\n\nNOTE: Any performance issues you may be having are not caused by Vanilla Perfected, but instead are a byproduct of 26.2 simply have worse performance compared to 26.1. More details here: https://mojira.dev/MC-308887?",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected 1.0.0+26.3.mrpack",
+          "size": 6337780,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OIcK4sww",
+      "name": "Chaos Cubed Hotfix 2.0",
+      "version_number": "1.0.2+26.2",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-24T05:36:42.092386Z",
+      "downloads": 7468,
+      "changelog": "## Vanilla Perfected Chaos Cubed Hotfix 2.0 Changelog\n\n- MASSIVELY improved the optimization of Vanilla Perfected. VP's Chaos Cubed update launched in an incredibly poor state, and that's 100% on me. Framerate should be MUCH better! (thanks to using **Fabulously Optimized** as a baseline, one of the best Modpacks ever made)\n\n- The visual bug I thought I \"fixed\" in the previous hotfix is now actually solved. Unfortunately the culprit was Falling Leaves Plus, and the mod has now been removed.\n\nThanks again to @James24268 on Twitter for bringing this to my attention!",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected 1.0.3+26.2.mrpack",
+          "size": 6335964,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5vNX8dDf",
+      "name": "Chaos Cubed Hotfix 1.0",
+      "version_number": "1.0.1+26.2",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-23T22:45:16.983873Z",
+      "downloads": 2281,
+      "changelog": "## Vanilla Perfected Chaos Cubed Hotfix 1.0 Changelog\n\n- Tweaked a config file with ImmediatelyFast to prevent glitches in the GUI and Pause Menus\n\nspecial thanks to @James24268 on Twitter for bringing this to my attention!",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected Chaos Cubed 1.0.1+26.2.mrpack",
+          "size": 6343166,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8mqtvGm7",
+      "name": "Chaos Cubed Update 26.2",
+      "version_number": "1.0.0+26.2",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-23T15:02:29.388250Z",
+      "downloads": 4044,
+      "changelog": "## Vanilla Perfected Chaos Cubed Changelog\n\n- Updated Vanilla Perfected to 26.2\n\n- Updated VP's Custom Panorama\n\n**New Mods:**\n\n- Reach Behind (allows clicking through signs, item frames, etc. to access utlity blocks like chests on the other side!)\n- Falling Leaves Plus (adds more immersive particle effects to trees)\n\n**Re-added Mods:**\n\n- Crops Love Rain (crops grow faster during rain)\n- Scribble (more customization when using Book & Quills)\n\n**Vanilla Tweaks Changes:**\n\n- Black Tooltips\n- Removed 3D GUI Items\n- Removed 3D Bushes due to rendering issues\n\n**Replaced Mods:**\n\n- World Play Time --> World Play Time Reborn\n- Armor Stand Arms --> Armor Statues (more Armor Stand customization)\n- Lighty --> Light Overlay\n\n**Missing Packs:**\n\n- Particle Rain\n- Skin Shuffle (due to rendering bug when shaders are in use)\n- Horseman\n- Almost Vanilla Potions\n\n**Bugs Fixed:**\n\n- Fixed Experimental settings being \"ON\" by default\n- Fixed transparent banners when using I Like Vanilla shaders\n\n**Known Issues:**\n\n- None (at the moment!)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected Chaos Cubed 1.0.0+26.2.mrpack",
+          "size": 6342089,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "zCNpmrT6",
+      "name": "Tiny Takeover Hotfix 3.0",
+      "version_number": "1.0.3+26.1.2",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-16T18:24:00.979747Z",
+      "downloads": 212247,
+      "changelog": "## VP Tiny Takeover Hotfix 3.0 Changelog\n\n**Known Issues:**\n\nExperimental settings are toggled on by default when creating a new world, make sure to manually turn these off in case you don't want to play with things like the Villager Trade Rebalance\n\n**Bugs Fixed:**\n\n- Updated Lithium to fix a bug which crashed the game when giving items to Allays\n\n**Updated Packs:**\n\n- Better Statistics Screen\n- Controlling\n- Elytra Contrails Mod\n- Elytra Trims\n- Entity Culling\n- Fabric API\n- Fabric Language Kotlin\n- Forge Config API Port\n- Freecam\n- Jamlib\n- Naturally Trimmed\n- Packed Packs\n- Pickup Notifications\n- Puzzles Lib, Searchables\n- Skin Shuffle\n- TCDCommons API\n- YetAnotherConfigLib\n\nThis should be the final update before the Chaos Cubed drop for Vanilla Perfected, enjoy everyone!",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected 1.0.3+26.1.2.mrpack",
+          "size": 9526703,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "jmYEuzNA",
+      "name": "Tiny Takeover Hotfix 2.0",
+      "version_number": "1.0.2+26.1.2",
+      "version_type": "beta",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-05-28T18:45:07.965876Z",
+      "downloads": 83682,
+      "changelog": "## VP Tiny Takeover Hotfix 2.0 Changelog\n\n**Bugs Fixed:**\n\n- Tridents and Shields no longer look strange due to Enchantment Outlines being updated!\n\n**Returning Mod:**\n\n- Easy Shulker Boxes is updated and has replaced Shulker Box Tooltips\n\n**Config Updates:**\n\n- Reduced Shadow Darkness of Complementary Shaders by tweaking the Shadow Light Multiplier from 100 to 200. Shadowed areas in the Overworld shouldn't look nearly as harsh now.\n\n- I Like Vanilla now features a better and updated End Portal\n\n**Updated Packs:**\n\n- Entity Model Features\n- AL's Enderman Revamped\n- Animatica Refabricated\n- Better Block Entities\n- Controllify\n- Freecam\n- Litematica\n- Lighty\n- Lithium\n- Not Enough Animations\n- Sodium\n- Various dependency mods were also updated",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected 1.0.2+26.1.2.mrpack",
+          "size": 9526690,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "1nywXwlh",
+      "name": "Tiny Takeover Hotfix",
+      "version_number": "1.0.1+26.1.2",
+      "version_type": "beta",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-05-09T18:39:12.748729Z",
+      "downloads": 75509,
+      "changelog": "## Vanilla Perfected Tiny Takeover Hotfix Changelog\n\n**KNOWN ISSUES: Weird shield model with Enchantment Outlines. Disable the pack to disable the issue, but I hope to have it fixed soon!**\n\n- Removed Fast Item Frames\n\nThis was done to prevent people from potentially losing their Item Frame items in the future. Fast Item Frames is a mod that isn't compatible with Vanilla, so playing on a world without the mod installed will cause your world's Item Frames and the items in them to disappear. Although I love this mod, I can totally see some people potentially losing their items due to not knowing this fact, and loading up an instance without this mod installed. **If you downloaded the first Tiny Takeover VP Update, make sure to double check all your Item Frames in any world you loaded up and remove them temporarily before updating to this version!** If you're like me and simply enjoy the mod, just re-install it after updating :)\n\n- Added Fresh Buckets to go alongside Ben's Bundles!",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Vanilla Perfected 1.0.1+26.1.2.mrpack",
+          "size": 9523840,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

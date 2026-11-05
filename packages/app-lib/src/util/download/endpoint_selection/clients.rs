@@ -43,10 +43,14 @@ impl PinnedClients {
             .pool_max_idle_per_host(0)
             .resolve(super::super::modrinth_cdn::HOST, lease.pool.endpoint);
         #[cfg(test)]
-        let builder =
-            self.roots.lock().iter().fold(builder, |builder, root| {
-                builder.add_root_certificate(root.clone())
-            });
+        let builder = {
+            let roots = self.roots.lock();
+            if roots.is_empty() {
+                builder
+            } else {
+                builder.tls_certs_only(roots.clone())
+            }
+        };
         let client = match lease.pool.protocol {
             Protocol::Http1 => builder.http1_only(),
             Protocol::H2 => builder.http2_prior_knowledge(),

@@ -134,7 +134,11 @@ pub async fn get_importable_instances(
                 .await
         }
         ImportLauncherType::PCL2 | ImportLauncherType::PCL2CE => {
-            get_pcl_instances(&base_path).await
+            let sources = pcl::get_pcl_instances()
+                .into_iter()
+                .chain(pcl::get_pclce_instances())
+                .collect();
+            get_pcl_instances(&base_path, sources).await
         }
         ImportLauncherType::HMCL => get_hmcl_instances(&base_path).await,
         ImportLauncherType::Generic => get_generic_instances(&base_path).await,
@@ -249,24 +253,14 @@ async fn get_modrinth_app_instances(
 }
 
 /// Collects PCL2 / PCL2CE instances from the registry and CE config,
-/// de-duplicating paths that appear in both sources.
+/// trusting their configured game directories without requiring a launcher
+/// executable in the base path, and de-duplicating paths in both sources.
 async fn get_pcl_instances(
     base_path: &Path,
+    sources: Vec<(String, String)>,
 ) -> crate::Result<Vec<ImportableInstance>> {
-    if !pe_info::folder_has_product(base_path, "Plain Craft Launcher") {
-        return Ok(Vec::new());
-    }
     let mut collector = InstanceCollector::new();
-    // Try both PCL2 registry and PCLCE config — the user may have instances
-    // registered in either or both sources.
-    if pcl::read_pcl_registry().is_some() {
-        collect_launcher_instances(&mut collector, pcl::get_pcl_instances())
-            .await;
-    }
-    if pcl::config_exists() {
-        collect_launcher_instances(&mut collector, pcl::get_pclce_instances())
-            .await;
-    }
+    collect_launcher_instances(&mut collector, sources).await;
     // Also check for a .minecraft folder next to the launcher executable.
     if let Some(entry) = pcl::get_local_dotminecraft(base_path) {
         collect_launcher_instances(&mut collector, vec![entry]).await;
@@ -925,11 +919,27 @@ pub fn get_default_launcher_path(
         }
         ImportLauncherType::Axolotl => None,
         ImportLauncherType::HMCL => None,
-        ImportLauncherType::Generic => None,
+        ImportLauncherType::Generic => {
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            let parent = dirs::data_dir()?;
+            #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+            let parent = dirs::home_dir()?;
+            return default_minecraft_path_in(&parent);
+        }
         ImportLauncherType::Unknown => None,
     };
     let path = path?;
     if path.exists() { Some(path) } else { None }
+}
+
+fn default_minecraft_path_in(parent: &Path) -> Option<PathBuf> {
+    let directory = if cfg!(target_os = "macos") {
+        "minecraft"
+    } else {
+        ".minecraft"
+    };
+    let path = parent.join(directory);
+    path.is_dir().then_some(path)
 }
 
 /// Searches common locations for a MultiMC installation.
@@ -1802,6 +1812,132 @@ mod import_game_root_tests {
         fs::create_dir_all(empty.join("mods")).unwrap();
         fs::write(empty.join("mods/mod.jar"), "mod").unwrap();
         assert!(!dir_has_game_body(&empty));
+    }
+}
+
+#[cfg(test)]
+mod pcl_instance_scan_tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn discovers_configured_pclce_instances_without_launcher_executable()
+    {
+        let root = tempdir().unwrap();
+        let data_dir = root.path().join("data");
+        let game_dir = root.path().join("games").join(".minecraft");
+        let version_dir = game_dir.join("versions").join("1.20.1");
+        fs::create_dir_all(&version_dir).unwrap();
+        fs::write(
+            version_dir.join("1.20.1.json"),
+            r#"{"id":"1.20.1","mainClass":"net.minecraft.client.main.Main"}"#,
+        )
+        .unwrap();
+        let config_dir = data_dir.join("PCLCE");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(
+            config_dir.join("config.v1.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "LaunchFolders": format!("Configured>{}|", game_dir.display())
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(!pe_info::folder_has_product(
+            &data_dir,
+            "Plain Craft Launcher"
+        ));
+
+        let sources = pcl::get_pclce_instances_from_config(
+            &config_dir.join("config.v1.json"),
+        );
+        let instances = get_pcl_instances(&data_dir, sources).await.unwrap();
+        assert_eq!(instances.len(), 1);
+        assert!(instances.iter().any(|instance| {
+            instance.name == "Configured:versions/1.20.1"
+                && Path::new(&instance.path) == version_dir
+        }));
+    }
+
+    #[tokio::test]
+    async fn keeps_shared_game_directory_versions_distinct() {
+        let root = tempdir().unwrap();
+        let game_dir = root.path().join(".minecraft");
+        fs::create_dir_all(game_dir.join("mods")).unwrap();
+        let versions = ["1.20.1", "1.21.1"];
+        for version in versions {
+            let version_dir = game_dir.join("versions").join(version);
+            fs::create_dir_all(&version_dir).unwrap();
+            fs::write(
+                version_dir.join(format!("{version}.json")),
+                serde_json::to_vec(&serde_json::json!({
+                    "id": version,
+                    "mainClass": "net.minecraft.client.main.Main"
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+        }
+
+        let sources = vec![
+            ("Configured".into(), game_dir.to_string_lossy().to_string()),
+            ("Duplicate".into(), game_dir.to_string_lossy().to_string()),
+        ];
+        let pcl_instances =
+            get_pcl_instances(root.path(), sources).await.unwrap();
+        let generic_instances = get_generic_instances(&game_dir).await.unwrap();
+
+        for instances in [pcl_instances, generic_instances] {
+            assert_eq!(instances.len(), versions.len());
+            for version in versions {
+                let instance = instances
+                    .iter()
+                    .find(|instance| instance.name == version)
+                    .unwrap();
+                let version_dir = game_dir.join("versions").join(version);
+                assert!(instance.compatible_mode);
+                assert_eq!(Path::new(&instance.path), game_dir);
+                assert_eq!(
+                    instance.version_path.as_deref().map(Path::new),
+                    Some(version_dir.as_path())
+                );
+                let resolved = direct_link::resolve_direct_link(
+                    ImportLauncherType::Generic,
+                    game_dir.clone(),
+                    instance.name.clone(),
+                    instance.version_path.clone(),
+                )
+                .await
+                .unwrap();
+                assert_eq!(resolved.version_id, version);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod default_minecraft_path_tests {
+    use super::default_minecraft_path_in;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn detects_an_empty_official_game_directory_but_not_a_file() {
+        let root = tempdir().unwrap();
+        let directory = if cfg!(target_os = "macos") {
+            "minecraft"
+        } else {
+            ".minecraft"
+        };
+        let path = root.path().join(directory);
+        assert_eq!(default_minecraft_path_in(root.path()), None);
+        fs::write(&path, "not a game directory").unwrap();
+        assert_eq!(default_minecraft_path_in(root.path()), None);
+        fs::remove_file(&path).unwrap();
+        fs::create_dir(&path).unwrap();
+        assert_eq!(default_minecraft_path_in(root.path()), Some(path));
     }
 }
 

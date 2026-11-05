@@ -332,6 +332,78 @@
   "collections.label.private": {
     "defaultMessage": "Private"
   },
+  "color-picker.dialog-label": {
+    "defaultMessage": "Colour picker"
+  },
+  "color-picker.dye-presets": {
+    "defaultMessage": "Dye colours"
+  },
+  "color-picker.dye.black": {
+    "defaultMessage": "Black"
+  },
+  "color-picker.dye.blue": {
+    "defaultMessage": "Blue"
+  },
+  "color-picker.dye.brown": {
+    "defaultMessage": "Brown"
+  },
+  "color-picker.dye.cyan": {
+    "defaultMessage": "Cyan"
+  },
+  "color-picker.dye.gray": {
+    "defaultMessage": "Gray"
+  },
+  "color-picker.dye.green": {
+    "defaultMessage": "Green"
+  },
+  "color-picker.dye.light-blue": {
+    "defaultMessage": "Light blue"
+  },
+  "color-picker.dye.light-gray": {
+    "defaultMessage": "Light gray"
+  },
+  "color-picker.dye.lime": {
+    "defaultMessage": "Lime"
+  },
+  "color-picker.dye.magenta": {
+    "defaultMessage": "Magenta"
+  },
+  "color-picker.dye.orange": {
+    "defaultMessage": "Orange"
+  },
+  "color-picker.dye.pink": {
+    "defaultMessage": "Pink"
+  },
+  "color-picker.dye.purple": {
+    "defaultMessage": "Purple"
+  },
+  "color-picker.dye.red": {
+    "defaultMessage": "Red"
+  },
+  "color-picker.dye.white": {
+    "defaultMessage": "White"
+  },
+  "color-picker.dye.yellow": {
+    "defaultMessage": "Yellow"
+  },
+  "color-picker.hex": {
+    "defaultMessage": "Hex colour"
+  },
+  "color-picker.hue": {
+    "defaultMessage": "Hue"
+  },
+  "color-picker.open": {
+    "defaultMessage": "Choose colour"
+  },
+  "color-picker.recent-colors": {
+    "defaultMessage": "Recently used"
+  },
+  "color-picker.saturation-brightness": {
+    "defaultMessage": "Saturation and brightness"
+  },
+  "color-picker.saturation-brightness.value": {
+    "defaultMessage": "Saturation {saturation}%, brightness {brightness}%"
+  },
   "console.action.collapse": {
     "defaultMessage": "Collapse"
   },

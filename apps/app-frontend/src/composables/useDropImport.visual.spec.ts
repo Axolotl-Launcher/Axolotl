@@ -222,6 +222,46 @@ it('imports a chosen instance candidate without falling through to content insta
     expect(showImportMethods).toHaveBeenCalledOnce()
 })
 
+it('imports only the chosen shared-root version using its metadata directory', async () => {
+    const { flow, showImportMethods } = setup()
+    const root = 'D:/Games/.minecraft'
+    const versionPath = `${root}/versions/1.20.1`
+    vi.mocked(import_instance).mockResolvedValue({ job_id: 'shared-copy' })
+    vi.mocked(wait_for_install_job).mockResolvedValue(undefined)
+
+    await flow.onImportSelected([
+        {
+            launcherType: 'PCL2CE',
+            launcherName: 'PCL CE',
+            instances: [{ name: '1.20.1', path: root, versionPath, compatibleMode: true }],
+        },
+    ])
+    expect(showImportMethods).toHaveBeenCalledWith({
+        instances: [
+            expect.objectContaining({
+                name: '1.20.1',
+                path: versionPath,
+                basePath: root,
+                versionPath,
+            }),
+        ],
+    })
+    await flow.onSymlinkMethodConfirmed([
+        { instanceName: '1.20.1', instancePath: versionPath, symlink: false },
+    ])
+    expect(import_instance).toHaveBeenCalledExactlyOnceWith(
+        'PCL2CE',
+        root,
+        '1.20.1',
+        false,
+        versionPath,
+        undefined,
+        undefined,
+        undefined,
+        null,
+    )
+})
+
 it('uses copy for new GUI imports even if an old method choice still carries link settings', async () => {
     const { flow } = setup()
     const path = 'D:\\Minecraft\\.minecraft\\versions\\1.21.1'

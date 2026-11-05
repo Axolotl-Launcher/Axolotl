@@ -1,0 +1,260 @@
+{
+  "id": "MBAkmtvl",
+  "slug": "balm",
+  "title": "Balm",
+  "description": "Abstraction Layer for Multi-Loader Mods",
+  "author": "BlayTheNinth",
+  "categories": ["fabric", "forge", "library", "neoforge"],
+  "display_categories": ["fabric", "forge", "library", "neoforge"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 64320450,
+  "followers": 3206,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric", "forge", "neoforge"],
+  "game_versions": [
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "QcBcRJZb",
+  "date_created": "2022-06-14T18:11:16.556742Z",
+  "date_modified": "2026-10-02T06:31:24.141685Z",
+  "color": 4481462,
+  "published": "2022-06-14T18:11:16.556742Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/TwelveIterations/Balm/issues",
+  "source_url": "https://github.com/TwelveIterations/Balm",
+  "wiki_url": "https://balm.twelveiterations.com/",
+  "discord_url": "https://discord.gg/36qHFMNgAh",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/BlayTheNinth"
+    }
+  ],
+  "versions_total": 730,
+  "body": "Balm is a library mod for mod developers that simplifies the process of creating multi-loader mods by providing common interfaces and events and removing the need for most mod-loader specific code.\n\nIt is **not** a magic solution for running Forge and Fabric mods together. As a user, you only need to install this mod if you use a mod that requires it.\n\nVersions for Minecraft 1.16 and below are not needed - mods will run without Balm on those versions!\n\n**Key Points**\n\n- No custom Gradle tooling, official mod loader plugins only\n- Uses Mojang Mappings, supports Jared's Multiloader-Template\n- All-inclusive from networking to configs, no third party dependencies\n- Battle-tested across Blay's 20+ mods ranging from content additions to quality of life utilities\n- Supports NeoForge and Fabric without duplicate code\n- Snapshot builds for pre-releases and release candidates\n- Unified support for Third Party Mods like Curios or Jade\n- Available on CurseForge and Modrinth (incl. Third Party Access)\n\n**How to make a mod with Balm (as a mod developer)**\n\n- Check out the [documentation](https://balm.twelveiterations.com/) for a Getting Started guide and a project generator.\n- You can also use [this template repository](https://github.com/TwelveIterations/balm-mod) as a starting point or reference.\n- Consider browsing Blay's existing mods' [source code](https://github.com/orgs/TwelveIterations/repositories) to learn how specific things are done.\n- Join Blay and other developers using Balm on the [Balm Developers Discord](https://discord.gg/36qHFMNgAh) server.\n",
+  "gallery": [],
+  "team": [
+    {
+      "username": "BlayTheNinth",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/WE4nCeiO/ed1377b9e31258dba0956d8e5cae2cc91d3e2658_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "QcBcRJZb",
+      "name": "26.3.0.3+neoforge-26.3",
+      "version_number": "26.3.0.3+neoforge-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-02T06:31:24.141685Z",
+      "downloads": 20613,
+      "changelog": "- Updated for several breaking changes in NeoForge\n- API: Added `BalmRegistrar#createReloadableDynamicRegistry`\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "balm-neoforge-26.3-26.3.0.3.jar",
+          "size": 1188379,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "MYj31XNG",
+      "name": "26.3.0.3+fabric-26.3",
+      "version_number": "26.3.0.3+fabric-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-02T06:31:07.831001Z",
+      "downloads": 355100,
+      "changelog": "- Updated for several breaking changes in NeoForge\n- API: Added `BalmRegistrar#createReloadableDynamicRegistry`\n",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "balm-fabric-26.3-26.3.0.3.jar",
+          "size": 1213047,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2D1wVI04",
+      "name": "26.1.2.15+forge-26.1.2",
+      "version_number": "26.1.2.15+forge-26.1.2",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-09-25T06:01:37.651823Z",
+      "downloads": 1454,
+      "changelog": "- Fixed memory leak in `BlockEntityOnLoadCallback`\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "balm-forge-26.1.2-26.1.2.15.jar",
+          "size": 1059817,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "FgDdQRa6",
+      "name": "26.1.2.15+neoforge-26.1.2",
+      "version_number": "26.1.2.15+neoforge-26.1.2",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-25T06:01:27.597485Z",
+      "downloads": 9598,
+      "changelog": "- Fixed memory leak in `BlockEntityOnLoadCallback`\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "balm-neoforge-26.1.2-26.1.2.15.jar",
+          "size": 1072715,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GsjBKPJs",
+      "name": "26.1.2.15+fabric-26.1.2",
+      "version_number": "26.1.2.15+fabric-26.1.2",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-25T06:01:26.605402Z",
+      "downloads": 35309,
+      "changelog": "- Fixed memory leak in `BlockEntityOnLoadCallback`\n",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "balm-fabric-26.1.2-26.1.2.15.jar",
+          "size": 1093082,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "CquiaiDj",
+      "name": "21.0.66+neoforge-1.21.1",
+      "version_number": "21.0.66+neoforge-1.21.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-25T05:58:07.044187Z",
+      "downloads": 258652,
+      "changelog": "- Fixed memory leak in `BlockEntityOnLoadCallback`\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "balm-neoforge-1.21.1-21.0.66.jar",
+          "size": 783793,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "EghJxg4h",
+      "name": "21.0.66+fabric-1.21.1",
+      "version_number": "21.0.66+fabric-1.21.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-25T05:57:55.797553Z",
+      "downloads": 351319,
+      "changelog": "- Fixed memory leak in `BlockEntityOnLoadCallback`\n",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "balm-fabric-1.21.1-21.0.66.jar",
+          "size": 805265,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "YoFLzfQh",
+      "name": "21.0.66+forge-1.21.1",
+      "version_number": "21.0.66+forge-1.21.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-09-25T05:57:49.323848Z",
+      "downloads": 7861,
+      "changelog": "- Fixed memory leak in `BlockEntityOnLoadCallback`\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "balm-forge-1.21.1-21.0.66-all.jar",
+          "size": 778981,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

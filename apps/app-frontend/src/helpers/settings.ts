@@ -187,9 +187,8 @@ export type AppSettings = DohSettings & {
     discord_rpc: boolean
     allow_external_scheme: boolean
     allow_privileged_scheme: boolean
-    onboarded: boolean
-    onboarding_version: number
-    onboarding_instance_tour_completed: boolean
+    /** OOBE step ids this install has moved past; see components/ui/oobe/AGENTS.md. */
+    oobe_completed_steps: string[]
 
     extra_launch_args: string[]
     custom_env_vars: [string, string][]
@@ -274,6 +273,7 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
     settings.mojang_auth_source ??= 'auto'
     settings.terracotta_public_nodes ??= ['wss://center.node.1tmc.top']
     settings.hidden_nav_items ??= []
+    settings.oobe_completed_steps ??= []
     settings.allow_external_scheme ??= true
     settings.allow_privileged_scheme ??= false
     settings.custom_window_title_enabled ??= false

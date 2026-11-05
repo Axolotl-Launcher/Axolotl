@@ -131,11 +131,8 @@ export default defineConfig(({ command }) => ({
         }),
     ],
     optimizeDeps: {
+        exclude: ['monaco-editor'],
         include: [
-            // The linked UI package lazy-loads the editor. Ace is CommonJS and
-            // vue3-ace-editor imports its default export, so both need dev interop.
-            '@modrinth/ui > ace-builds',
-            '@modrinth/ui > vue3-ace-editor',
             'deepagents/browser',
             'langchain',
             '@langchain/core/language_models/chat_models',

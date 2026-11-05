@@ -2026,8 +2026,8 @@ fn parse_installer(
     bytes: Vec<u8>,
     installer_url: &str,
 ) -> crate::Result<ParsedInstaller> {
-    let mut archive =
-        zip::ZipArchive::new(Cursor::new(bytes)).map_err(|error| {
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes.as_slice()))
+        .map_err(|error| {
             crate::ErrorKind::OtherError(format!(
                 "Failed to open loader installer: {error}"
             ))
@@ -2269,8 +2269,8 @@ fn extract_installer_artifacts(
     bytes: Vec<u8>,
     entries: &[(String, String)],
 ) -> crate::Result<Vec<InstallerArtifact>> {
-    let mut archive =
-        zip::ZipArchive::new(Cursor::new(bytes)).map_err(|error| {
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes.as_slice()))
+        .map_err(|error| {
             crate::ErrorKind::OtherError(format!(
                 "Failed to open cached loader installer: {error}"
             ))

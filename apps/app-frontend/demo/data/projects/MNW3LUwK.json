@@ -1,0 +1,256 @@
+{
+  "id": "MNW3LUwK",
+  "slug": "remarkably",
+  "title": "Remarkably Optimized",
+  "description": "1.16.5-26.3 | A performance mod pack to save your computer from doubling as a starchy spud with a remarkably optimized collection of mods!",
+  "author": "ThatDeeJay",
+  "categories": ["fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 1473015,
+  "followers": 659,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.16.5",
+    "1.17.1",
+    "1.18.2",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26w14a",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "kf2jHycm",
+  "date_created": "2023-06-13T01:50:39.179170Z",
+  "date_modified": "2026-10-16T20:07:48.687589Z",
+  "color": 7218467,
+  "published": "2023-06-13T01:50:39.179170Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/hYkp5vaWZG",
+  "donation_urls": [],
+  "versions_total": 360,
+  "body": "## Introducing Remarkably Optimized!\nExperience smooth gameplay, fast loading times, and a performance boost that'll leave your game feeling remarkable! This modpack not only enhances performance but also includes shader support, zoom, and connected textures!\n\n## Why Remarkably Optimized?\nThe goal of Remarkably Optimized is to create a super easy way for people to increase their performance while providing just the most essential OptiFine features. It cuts back on some of the clutter in other OptiFine replacement packs that I believe most players will not use.\n\n## Works Anywhere\nRemarkably Optimized doesn't add any additional content to the game, allowing for compatibility with most any world or server.\n\n## Installation\nI have full installation guides on my [Remarkably Optimized](https://www.youtube.com/@RemarkablyOptimized) YouTube channel. [This tutorial](https://youtu.be/MfQYEztwsmI) shows you how to install it for the Minecraft Launcher. You can also refer to [Modrinth documentation](https://support.modrinth.com/en/articles/8802250-modpacks-on-modrinth) on .mrpacks.\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/qstG0E2MXr0\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\n## Support or Issues?\nIf you encounter any issues or need assistance, join my helpful community on [Discord](https://discord.gg/hYkp5vaWZG). Create a post in the support channel, and either a moderator or myself will try to help you.\n\n## Other Notes\nIf you do want to use Remarkably Optimized as a base in your own mod pack, feel free to do so, just make sure to include credit (a link back to this page works).",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/MNW3LUwK/images/dc8ac9aeee26ec4194ba1bc2581fb36ae85d7515_350.webp",
+      "featured": true,
+      "title": "Cherry Blossom Sunrise",
+      "description": "Taken with Photon Shader",
+      "created": "2025-08-08T20:51:50.815378Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MNW3LUwK/images/d662e3d664abf5a142ac3593f25eb83b31c37cd0_350.webp",
+      "featured": false,
+      "title": "Remarkably Optimized Logo",
+      "description": null,
+      "created": "2023-11-18T03:31:34.760983Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MNW3LUwK/images/d26a38e57d71b9ceaa3bf6b13633a2d9ab3a0c0f_350.webp",
+      "featured": false,
+      "title": "Remarkably Optimized Banner",
+      "description": null,
+      "created": "2023-11-18T03:48:50.920437Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "ThatDeeJay",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/2G9wMMTh/34110f8395333a210e8bc64a5ab0ace49e4a996c_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "kf2jHycm",
+      "name": "(26.3) Remarkably Optimized 1.15.69",
+      "version_number": "1.15.69",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-16T20:07:48.687589Z",
+      "downloads": 11855,
+      "changelog": "- Updated mods\n  - Should fix visual issues present on Intel iGPUs",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(26.3) Remarkably Optimized 1.15.69.mrpack",
+          "size": 7315,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ilCyYbdp",
+      "name": "(26.3) Remarkably Optimized 1.15.68",
+      "version_number": "1.15.68",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-12T04:46:09.858406Z",
+      "downloads": 11175,
+      "changelog": "- Updated mods",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(26.3) Remarkably Optimized 1.15.68.mrpack",
+          "size": 7306,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "DPCkT701",
+      "name": "(26.3) Remarkably Optimized 1.15.67",
+      "version_number": "1.15.67",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-04T05:37:21.386764Z",
+      "downloads": 18696,
+      "changelog": "- Updated mods\n  - Should have fixed an issue where the game can get stuck generating a new world thanks to [ZenXArch](https://modrinth.com/user/ZenXArch)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(26.3) Remarkably Optimized 1.15.67.mrpack",
+          "size": 7301,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "rqRBAQlg",
+      "name": "(26.3) Remarkably Optimized 1.15.66",
+      "version_number": "1.15.66",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-30T17:15:25.658481Z",
+      "downloads": 6378,
+      "changelog": "- Updated mods\n- Added No Chat Reports",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(26.3) Remarkably Optimized 1.15.66.mrpack",
+          "size": 7308,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ntKIdV0R",
+      "name": "(1.21.11) Remarkably Optimized 1.15.66",
+      "version_number": "1.15.66",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-30T17:14:47.376262Z",
+      "downloads": 12618,
+      "changelog": "- Updated mods",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(1.21.11) Remarkably Optimized 1.15.66.mrpack",
+          "size": 6880,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "FodUvWDm",
+      "name": "(26.3) Remarkably Optimized 1.15.65",
+      "version_number": "1.15.65",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-26T06:17:34.552662Z",
+      "downloads": 7654,
+      "changelog": "- Updated mods\n- Set `mixin.perf.worldgen_allocation` in ModernFix back to true as it fixed compatibility issues related to the optimization",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(26.3) Remarkably Optimized 1.15.65.mrpack",
+          "size": 7156,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "CPJPdbyI",
+      "name": "(26.2) Remarkably Optimized 1.15.65",
+      "version_number": "1.15.65",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-26T06:17:04.496105Z",
+      "downloads": 10469,
+      "changelog": "- Updated mods\n- Set `mixin.perf.worldgen_allocation` in ModernFix back to true as it fixed compatibility issues related to the optimization",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(26.2) Remarkably Optimized 1.15.65.mrpack",
+          "size": 7306,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "XmAF4MLe",
+      "name": "Remarkably Optimized 1.15.64",
+      "version_number": "1.15.64",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-23T03:22:03.680789Z",
+      "downloads": 3887,
+      "changelog": "- Updated mods\n- Added Zoomify, YACL\n\n### Missing Mods\n- No Chat Reports",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "(26.3) Remarkably Optimized 1.15.64.mrpack",
+          "size": 7199,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -234,9 +234,7 @@ type AppSettings = {
     discord_rpc: boolean
     developer_mode: boolean
 
-    onboarded: boolean
-    onboarding_version: number
-    onboarding_instance_tour_completed: boolean
+    oobe_completed_steps: string[]
 
     extra_launch_args: string[]
     custom_env_vars: [string, string][]

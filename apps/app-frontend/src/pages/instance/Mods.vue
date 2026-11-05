@@ -513,6 +513,15 @@ const messages = defineMessages({
         id: 'app.instance.mods.content-type-project',
         defaultMessage: 'project',
     },
+    updateNothingToApplyTitle: {
+        id: 'app.instance.mods.update-nothing-to-apply.title',
+        defaultMessage: 'Nothing to update',
+    },
+    updateNothingToApplyBody: {
+        id: 'app.instance.mods.update-nothing-to-apply.body',
+        defaultMessage:
+            'No newer compatible version was found for the selected content, so no files were changed.',
+    },
     bulkUpdateResolvingVersions: {
         id: 'app.instance.mods.bulk-update.resolving-versions',
         defaultMessage: 'Resolving versions...',
@@ -2150,6 +2159,12 @@ async function reviewResourceChanges(entryIds: string[], release: SourceReleaseR
             entryIds,
             (job) => downloadManager.trackJob(job),
             formatMessage,
+            () =>
+                addNotification({
+                    type: 'info',
+                    title: formatMessage(messages.updateNothingToApplyTitle),
+                    text: formatMessage(messages.updateNothingToApplyBody),
+                }),
         )
     const preview = resourceOperationPreview.value
     if (!preview) return false

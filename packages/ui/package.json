@@ -47,11 +47,6 @@
     "vue-router": "^4.6.4"
   },
   "dependencies": {
-    "@codemirror/commands": "^6.11.0",
-    "@codemirror/lang-markdown": "^6.5.2",
-    "@codemirror/language": "^6.12.4",
-    "@codemirror/state": "^6.7.4",
-    "@codemirror/view": "^6.43.11",
     "@floating-ui/vue": "^1.1.11",
     "@modrinth/api-client": "workspace:*",
     "@modrinth/assets": "workspace:*",
@@ -67,7 +62,6 @@
     "@types/three": "^0.185.4",
     "@vintl/how-ago": "^3.0.1",
     "@vueuse/core": "^11.3.0",
-    "ace-builds": "^1.14.0",
     "apexcharts": "^4.7.0",
     "dayjs": "^1.11.23",
     "dompurify": "^3.4.17",
@@ -80,6 +74,7 @@
     "jszip": "^3.10.1",
     "lru-cache": "^11.5.2",
     "markdown-it": "^14.3.3",
+    "monaco-editor": "^0.56.0",
     "motion-v": "^2.4.2",
     "overlayscrollbars": "^2.16.0",
     "postprocessing": "^6.39.4",
@@ -88,7 +83,6 @@
     "three": "^0.185.1",
     "vue-i18n": "^11.4.14",
     "vue-typed-virtual-list": "^1.0.10",
-    "vue3-ace-editor": "^2.2.4",
     "vue3-apexcharts": "^1.10.0",
     "xss": "^1.0.15"
   },

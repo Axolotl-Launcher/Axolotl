@@ -92,7 +92,7 @@ async function render(width = 900, localSetup = false) {
     const wrapper = mount(LogShareSettings, {
         props: { localSetup },
         attachTo: document.body,
-        global: { plugins: [router], provide: { replayOnboarding: async () => {} } },
+        global: { plugins: [router] },
     })
     wrappers.push(wrapper)
     await vi.waitFor(() =>

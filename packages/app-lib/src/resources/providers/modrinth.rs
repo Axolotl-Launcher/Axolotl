@@ -432,8 +432,9 @@ impl ModrinthProvider {
                 request
                     .query
                     .push(("include_changelog".into(), "false".into()));
-                let releases: Vec<RemoteRelease> =
-                    serde_json::from_value(self.request(request).await?)?;
+                let releases = newest_first(serde_json::from_value(
+                    self.request(request).await?,
+                )?);
                 let mut protocols = Vec::with_capacity(releases.len());
                 for release in releases {
                     if release.project_id != project_id.as_str() {
@@ -551,8 +552,9 @@ impl ModrinthProvider {
                         serde_json::to_string(&target.loaders)?,
                     ));
                 }
-                let releases: Vec<RemoteRelease> =
-                    serde_json::from_value(self.request(request).await?)?;
+                let releases = newest_first(serde_json::from_value(
+                    self.request(request).await?,
+                )?);
                 let releases = releases
                     .into_iter()
                     .map(|release| {
@@ -1037,6 +1039,14 @@ impl RemoteProject {
             },
         })
     }
+}
+
+/// Modrinth lists a project's releases newest first. MCIM serves the same
+/// releases in another order, so the list is put back in Modrinth's order
+/// before anything pages through it or picks from it.
+fn newest_first(mut releases: Vec<RemoteRelease>) -> Vec<RemoteRelease> {
+    releases.sort_by_key(|release| std::cmp::Reverse(release.date_published));
+    releases
 }
 
 #[derive(Deserialize, Serialize)]

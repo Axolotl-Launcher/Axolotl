@@ -53,7 +53,6 @@ export const stageConfig: StageConfigInput<CreationFlowContextValue> = {
                 icon: PlusIcon,
                 iconPosition: 'before' as const,
                 color: 'brand' as const,
-                onboardingId: 'creation-confirm',
                 disabled: disabled || ctx.finishDisabled.value,
                 loading: ctx.loading.value,
                 tooltip: ctx.finishDisabled.value ? ctx.finishDisabledTooltip.value : undefined,

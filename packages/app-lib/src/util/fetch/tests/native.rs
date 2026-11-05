@@ -485,7 +485,10 @@ async fn range_metadata_correction_keeps_hash_and_range_validation() {
     let request = DownloadRequest::new(&url, ResourceClass::Other)
         .with_integrity(Integrity::sha1(hash).with_size(size - 2))
         .with_range_connection_floor(32);
-    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let client = crate::util::http::client_builder()
+        .no_proxy()
+        .build()
+        .unwrap();
     let part = directory.path().join("wrong-bounds.part");
     let outcome = try_segmented_download(
         SegmentedDownloadContext::new(
@@ -532,7 +535,10 @@ async fn ranges_past_actual_eof_report_metadata_size_without_accepting_bad_bound
     download_route.proxy = ProxyPolicy::Direct;
     let request = DownloadRequest::new(&url, ResourceClass::Other)
         .with_integrity(Integrity::sha1(hash).with_size(size + 2));
-    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let client = crate::util::http::client_builder()
+        .no_proxy()
+        .build()
+        .unwrap();
     let directory = tempfile::tempdir().unwrap();
     let semaphore = FetchSemaphore(Semaphore::new(8));
     for (index, start) in [size - 64, size + 1].into_iter().enumerate() {

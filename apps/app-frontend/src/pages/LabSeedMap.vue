@@ -12,7 +12,6 @@ import {
     HashIcon,
     HistoryIcon,
     ImportIcon,
-    InfoIcon,
     LandmarkIcon,
     LayersIcon,
     MinusIcon,
@@ -31,6 +30,7 @@ import {
     Admonition,
     Button,
     Checkbox,
+    ColorPicker,
     Combobox,
     defineMessages,
     injectNotificationManager,
@@ -45,7 +45,6 @@ import {
 import {
     computed,
     defineAsyncComponent,
-    inject,
     nextTick,
     onBeforeUnmount,
     onMounted,
@@ -401,7 +400,6 @@ const messages = defineMessages({
         defaultMessage: 'Result limit reached. Select fewer ore types to see more positions.',
     },
     undergroundMode: { id: 'app.lab.seed-map.underground-mode', defaultMessage: 'Underground' },
-    advancedTour: { id: 'app.lab.seed-map.advanced-tour', defaultMessage: 'Map exploration guide' },
     abandonedCamp: {
         id: 'app.lab.seed-map.feature.abandoned-camp',
         defaultMessage: 'Abandoned camp',
@@ -646,7 +644,6 @@ const layoutLayer = createSeedMapLayoutLayer(getSeedMapStructureDetails, () => {
     redraw()
 })
 let layoutRefreshTimer: ReturnType<typeof setTimeout> | undefined
-const replayOnboarding = inject<(mode: 'seed-map') => Promise<void>>('replayOnboarding')
 const structureQuery = computed<SeedMapStructureQuery | null>(() =>
     selection.value?.feature
         ? {
@@ -1755,10 +1752,6 @@ async function retryMap() {
         mapError.value = error instanceof Error ? error.message : String(error)
     }
 }
-async function startMapGuide() {
-    if (document.fullscreenElement) await document.exitFullscreen()
-    await replayOnboarding?.('seed-map')
-}
 
 function scheduleRefresh(delay = 80) {
     if (disposed || !viewport.width || !viewport.height) return
@@ -2727,7 +2720,7 @@ function selectDimension(dimension: SeedMapDimension) {
             </div>
         </header>
 
-        <section data-onboarding-id="seed-map-toolbar" class="seed-map-toolbar">
+        <section class="seed-map-toolbar">
             <div class="toolbar-primary">
                 <div class="control-group seed-map-edition">
                     <span class="control-label">{{ formatMessage(messages.edition) }}</span>
@@ -2972,7 +2965,6 @@ function selectDimension(dimension: SeedMapDimension) {
         <section
             ref="fullscreenContainer"
             class="seed-map-experience min-h-0 flex-1 bg-surface-1"
-            data-onboarding-id="seed-map-workspace"
             tabindex="0"
             @keydown="onMapKeydown"
         >
@@ -3020,18 +3012,9 @@ function selectDimension(dimension: SeedMapDimension) {
                             :type="workspace.displayMode === 'underground' ? 'colored' : 'quiet'"
                             :disabled="!undergroundSupported"
                             size="2xs"
-                            data-onboarding-id="seed-map-underground-mode"
                             @click="setDisplayMode('underground')"
                             ><LayersIcon />{{ formatMessage(messages.undergroundMode) }}</Button
                         >
-                        <Button
-                            type="quiet"
-                            icon-only
-                            :aria-label="formatMessage(messages.advancedTour)"
-                            data-onboarding-id="seed-map-advanced-guide"
-                            @click="startMapGuide"
-                            ><InfoIcon
-                        /></Button>
                     </div>
                     <div class="flex items-center gap-1">
                         <Button
@@ -3269,7 +3252,6 @@ function selectDimension(dimension: SeedMapDimension) {
                 <template #default="{ canvasSize, visibleSize }">
                     <div
                         class="seed-map-canvas-shell relative min-h-0 min-w-0 flex-1 overflow-hidden bg-surface-2"
-                        data-onboarding-id="seed-map-canvas"
                         @contextmenu.prevent
                     >
                         <canvas
@@ -3572,11 +3554,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                         v-model="markerName"
                                         :placeholder="formatMessage(messages.markerName)"
                                     />
-                                    <input
+                                    <ColorPicker
                                         v-model="markerColor"
-                                        type="color"
-                                        class="marker-color-input"
-                                        :aria-label="formatMessage(messages.markerColor)"
+                                        :label="formatMessage(messages.markerColor)"
                                     />
                                 </div>
                                 <div class="mt-3 flex flex-wrap gap-2">
@@ -3793,11 +3773,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                     v-model="markerName"
                                     :placeholder="formatMessage(messages.markerName)"
                                 />
-                                <input
+                                <ColorPicker
                                     v-model="markerColor"
-                                    type="color"
-                                    class="size-9 rounded border border-surface-4 bg-surface-3"
-                                    :aria-label="formatMessage(messages.markerColor)"
+                                    :label="formatMessage(messages.markerColor)"
                                 />
                             </div>
                             <div class="flex flex-wrap items-center gap-2">
@@ -4579,15 +4557,6 @@ function selectDimension(dimension: SeedMapDimension) {
     height: 2.5rem;
     justify-content: center;
     white-space: nowrap;
-}
-
-.marker-color-input {
-    width: 2.25rem;
-    height: 2.25rem;
-    border: 1px solid var(--surface-5);
-    border-radius: var(--radius-sm);
-    background: var(--surface-4);
-    padding: 0.2rem;
 }
 
 @media (max-width: 1200px) {

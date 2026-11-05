@@ -329,7 +329,7 @@ impl DetachedSchematic {
         target: Option<PreviewBlockState>,
     ) -> Result<(), String> {
         let mut next = self.0.clone();
-        apply_session_edits(&mut next, edits, target)?;
+        apply_session_edits(&mut next, edits, target, false)?;
         self.0 = next;
         Ok(())
     }
@@ -511,7 +511,12 @@ pub fn schematic_preview_apply_edits(
             "The schematic preview session has expired".to_string()
         })?;
     let mut session = (*active[session_index]).clone();
-    let result = apply_session_edits(&mut session, edits, target_state)?;
+    let result = apply_session_edits(
+        &mut session,
+        edits,
+        target_state,
+        override_source_properties.unwrap_or(false),
+    )?;
     active[session_index] = Arc::new(session);
     Ok(result)
 }
@@ -520,12 +525,12 @@ fn apply_session_edits(
     session: &mut PreviewSession,
     edits: Vec<PreviewBlockEdit>,
     target_state: Option<PreviewBlockState>,
+    override_source: bool,
 ) -> Result<PreviewEditResult, String> {
     let target_state = target_state.map(|mut state| {
         state.name = normalize_block_name(&state.name);
         state
     });
-    let override_source = override_source_properties.unwrap_or(false);
     let mut changed = BTreeSet::<(String, [i32; 3])>::new();
     let mut applied_palette_indices = Vec::with_capacity(edits.len());
     for edit in edits {

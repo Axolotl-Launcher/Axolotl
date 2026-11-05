@@ -599,9 +599,19 @@ async fn external_scheme_allowed() -> bool {
     match crate::State::get().await {
         Ok(state) => match Settings::get(&state.data).await {
             Ok(settings) => settings.allow_external_scheme,
-            Err(_) => true,
+            Err(err) => {
+                tracing::warn!(
+                    "Failed to read settings, denying external scheme commands: {err}"
+                );
+                false
+            }
         },
-        Err(_) => true,
+        Err(err) => {
+            tracing::warn!(
+                "Failed to get app state, denying external scheme commands: {err}"
+            );
+            false
+        }
     }
 }
 

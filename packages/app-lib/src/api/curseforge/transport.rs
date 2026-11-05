@@ -544,6 +544,24 @@ async fn request_json_inner(
         );
 
         if status.is_success() {
+            if route.source == RequestRouteSource::Mirror
+                && let Err(error) =
+                    crate::util::download::mcim::check_cache_dates(&bytes)
+            {
+                if route_index + 1 < routes.len() {
+                    tracing::warn!(
+                        request_id = trace.id,
+                        url = %crate::util::fetch::sanitize_url_for_log(&route.url),
+                        route = route_index + 1,
+                        %error,
+                        "CurseForge mirror cache is stale; trying the next source"
+                    );
+                    last_error = Some(error);
+                    trace.stage("next_route");
+                    continue;
+                }
+                return Err(error);
+            }
             trace.stage("decode");
             match decode(&bytes) {
                 Ok(()) => {

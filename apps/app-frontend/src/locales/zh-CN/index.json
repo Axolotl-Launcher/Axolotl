@@ -11704,7 +11704,7 @@
     "message": "CurseForge 服务"
   },
   "app.settings.resources.curseforge-mirror-description": {
-    "message": "CurseForge 公共 API 请求和文件下载。"
+    "message": "CurseForge 搜索、项目与文件查询和文件下载。CurseForge 失败或未设置 API Key 时改用 MCIM 镜像；文件始终先从官方 CDN 下载。"
   },
   "app.settings.resources.curseforge-restriction-bypass": {
     "message": "自动下载受限的 CurseForge 文件"
@@ -11797,7 +11797,7 @@
     "message": "Modrinth"
   },
   "app.settings.resources.modrinth-mirror-description": {
-    "message": "Modrinth 文件下载。"
+    "message": "Modrinth 搜索、项目与版本查询和文件下载。Modrinth 失败或响应缓慢时改用 MCIM 镜像；文件始终先从官方 CDN 下载。"
   },
   "app.settings.resources.mojang-auth-service": {
     "message": "Mojang 认证服务"
@@ -11879,6 +11879,9 @@
   },
   "app.settings.resources.source.automatic": {
     "message": "自动（推荐）"
+  },
+  "app.settings.resources.source.mcim": {
+    "message": "优先 MCIM"
   },
   "app.settings.resources.source.mojang-mirror-preferred": {
     "message": "优先 Fallen Proxy"

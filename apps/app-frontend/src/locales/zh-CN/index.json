@@ -8753,6 +8753,15 @@
   "app.minecraft-crash.exited-before-initialization": {
     "message": "Java 进程尚未连接到启动器便已退出。最可能的原因是所选 Java 版本与当前 Minecraft 或模组加载器不兼容。请选择该实例所需的 Java 版本，然后重试。"
   },
+  "app.minecraft-crash.export-diagnostic": {
+    "message": "Export diagnostic package"
+  },
+  "app.minecraft-crash.export-saved": {
+    "message": "Diagnostic package saved to {path}"
+  },
+  "app.minecraft-crash.exporting-diagnostic": {
+    "message": "Exporting diagnostic package..."
+  },
   "app.minecraft-crash.initialization-timed-out": {
     "message": "Java 进程已经启动，但在 15 秒内未能连接到启动器。请检查所选 Java 版本和包装器命令，然后重试。"
   },

@@ -8753,6 +8753,15 @@
   "app.minecraft-crash.exited-before-initialization": {
     "message": "The Java process exited before it could connect to the launcher. The selected Java version is probably incompatible with this Minecraft or Mod loader version. Select the Java version required by the instance, then try again."
   },
+  "app.minecraft-crash.export-diagnostic": {
+    "message": "Export diagnostic package"
+  },
+  "app.minecraft-crash.export-saved": {
+    "message": "Diagnostic package saved to {path}"
+  },
+  "app.minecraft-crash.exporting-diagnostic": {
+    "message": "Exporting diagnostic package..."
+  },
   "app.minecraft-crash.initialization-timed-out": {
     "message": "The Java process started but did not connect to the launcher within 15 seconds. Check the selected Java version and any wrapper command, then try again."
   },

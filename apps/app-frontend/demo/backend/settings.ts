@@ -1,6 +1,6 @@
 import type { AppSettings } from '@/helpers/settings'
 import type { TranslationSettings } from '@/helpers/translation'
-import { DEFAULT_FEATURE_FLAGS } from '@/store/theme'
+import { type ColorTheme, DEFAULT_FEATURE_FLAGS, THEME_OPTIONS } from '@/store/theme'
 
 import type { Handlers } from './types'
 
@@ -8,6 +8,11 @@ import type { Handlers } from './types'
  * A fresh install's settings (the defaults of app-lib's settings table), with
  * onboarding marked done so visitors land on the launcher itself.
  */
+/** A theme the launcher offers, or null for anything else. */
+export function demoTheme(value: unknown): ColorTheme | null {
+    return THEME_OPTIONS.find((theme) => theme === value) ?? null
+}
+
 const settings: AppSettings = {
     doh_enabled: false,
     max_concurrent_downloads: 10,
@@ -23,7 +28,8 @@ const settings: AppSettings = {
     ignore_ssl_errors: false,
     mojang_auth_source: 'auto',
 
-    theme: 'dark',
+    // The embedding page can ask for its own theme: `?theme=light`.
+    theme: demoTheme(new URLSearchParams(window.location.search).get('theme')) ?? 'dark',
     accent_color: 'pink',
     locale: 'zh-CN',
     default_game_language: '',
@@ -93,6 +99,11 @@ const settings: AppSettings = {
     auto_download_updates: null,
 
     version: 1,
+}
+
+/** Keeps a theme the embedding page switched to, as saving it in Settings would. */
+export function saveDemoTheme(theme: ColorTheme) {
+    settings.theme = theme
 }
 
 /** What an action that needs the visitor's computer reports, in the app's language. */

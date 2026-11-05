@@ -2,17 +2,27 @@
  * Entry of the web demo: the real launcher frontend, with the Tauri bridge replaced
  * by an in-browser backend before any app module loads.
  *
- * The demo posts `{ type: 'axolotl-demo:ready' }` to an embedding page once the
- * launcher's first screen shows.
+ * An embedding page can pick the starting theme with `?theme=dark|light|oled|system`
+ * and switch it later by posting `{ type: 'axolotl-demo:theme', theme }`. The demo
+ * posts `{ type: 'axolotl-demo:ready' }` to it once the launcher's first screen shows.
  */
+import type { Pinia } from 'pinia'
+
+import { useTheming } from '@/store/theme'
+
 import { installDemoBackend } from './backend'
 import { installDemoNetwork } from './backend/network'
+import { demoTheme, saveDemoTheme } from './backend/settings'
 
 installDemoNetwork()
 installDemoBackend()
 
 type MountedRoot = HTMLElement & {
-    __vue_app__?: { config: { globalProperties: { $router?: { isReady(): Promise<void> } } } }
+    __vue_app__?: {
+        config: {
+            globalProperties: { $router?: { isReady(): Promise<void> }; $pinia?: Pinia }
+        }
+    }
 }
 
 const mountedApp = () => (document.querySelector('#app') as MountedRoot | null)?.__vue_app__
@@ -37,6 +47,15 @@ function splashFinished() {
 }
 
 const splash = splashFinished()
+
+window.addEventListener('message', (event) => {
+    if (event.source !== window.parent || event.data?.type !== 'axolotl-demo:theme') return
+    const theme = demoTheme(event.data.theme)
+    if (!theme) return
+    saveDemoTheme(theme)
+    const pinia = mountedApp()?.config.globalProperties.$pinia
+    if (pinia) useTheming(pinia).setThemeState(theme)
+})
 
 void import('../src/main.js').then(async () => {
     await mountedApp()?.config.globalProperties.$router?.isReady()

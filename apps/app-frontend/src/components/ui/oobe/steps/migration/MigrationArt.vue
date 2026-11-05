@@ -108,7 +108,15 @@
 
             <g class="oobe-migration-parcel">
                 <rect x="-16" y="-12" width="32" height="24" rx="6" fill="var(--color-brand)" />
-                <rect x="-9" y="-4" width="18" height="4" rx="2" fill="white" opacity="0.8" />
+                <rect
+                    x="-9"
+                    y="-4"
+                    width="18"
+                    height="4"
+                    rx="2"
+                    fill="var(--color-accent-contrast)"
+                    opacity="0.8"
+                />
                 <animateMotion
                     dur="3.2s"
                     repeatCount="indefinite"

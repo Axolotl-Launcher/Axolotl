@@ -90,7 +90,7 @@ const pixels = face.flatMap((row, y) =>
                 <circle cx="290" cy="110" r="28" fill="var(--color-brand)" />
                 <path
                     d="M277 111 l9 9 l17 -19"
-                    stroke="white"
+                    stroke="var(--color-accent-contrast)"
                     stroke-width="5"
                     stroke-linecap="round"
                     stroke-linejoin="round"

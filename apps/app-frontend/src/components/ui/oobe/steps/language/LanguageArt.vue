@@ -62,8 +62,24 @@
             <g class="oobe-float oobe-float-b">
                 <rect x="232" y="38" width="146" height="70" rx="20" fill="var(--color-brand)" />
                 <path d="M340 106 l10 20 l-28 -20 z" fill="var(--color-brand)" />
-                <rect x="254" y="60" width="96" height="10" rx="5" fill="white" opacity="0.75" />
-                <rect x="254" y="78" width="60" height="10" rx="5" fill="white" opacity="0.5" />
+                <rect
+                    x="254"
+                    y="60"
+                    width="96"
+                    height="10"
+                    rx="5"
+                    fill="var(--color-accent-contrast)"
+                    opacity="0.75"
+                />
+                <rect
+                    x="254"
+                    y="78"
+                    width="60"
+                    height="10"
+                    rx="5"
+                    fill="var(--color-accent-contrast)"
+                    opacity="0.5"
+                />
             </g>
 
             <g class="oobe-float oobe-float-c">

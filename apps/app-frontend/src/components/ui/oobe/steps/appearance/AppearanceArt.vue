@@ -42,7 +42,7 @@ const themeStore = useTheming()
 
 <style scoped lang="scss">
 .oobe-appearance-window {
-    box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.55);
+    box-shadow: var(--shadow-floating);
     transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 

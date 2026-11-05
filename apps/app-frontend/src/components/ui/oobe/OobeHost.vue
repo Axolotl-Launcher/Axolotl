@@ -298,9 +298,7 @@ onMounted(focusHeading)
 }
 
 .oobe-card {
-    box-shadow:
-        0 1px 0 color-mix(in srgb, white 6%, transparent) inset,
-        0 32px 80px -32px rgb(0 0 0 / 0.45);
+    box-shadow: var(--shadow-inset-sm), var(--shadow-floating);
 }
 
 .oobe-art-panel {

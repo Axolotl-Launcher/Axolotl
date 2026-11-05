@@ -72,7 +72,7 @@ const navIcons = [26, 44, 62, 80, 98]
             <rect x="98" y="84" width="58" height="7" rx="3.5" fill="var(--surface-5)" />
             <rect x="98" y="96" width="38" height="5" rx="2.5" fill="var(--surface-4)" />
             <rect x="166" y="83" width="40" height="20" rx="6" fill="currentColor" />
-            <path d="M182 88 l8 5 l-8 5 z" fill="white" />
+            <path d="M182 88 l8 5 l-8 5 z" fill="var(--color-accent-contrast)" />
         </template>
     </svg>
 </template>

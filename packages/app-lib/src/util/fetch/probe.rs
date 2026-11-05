@@ -283,7 +283,10 @@ pub(crate) async fn probe_recovery_route(
     semaphore: &FetchSemaphore,
 ) -> Option<RouteProbeResult> {
     let http1 = async {
-        if !probe_http1 || !current.supports_range {
+        if !probe_http1
+            || !current.supports_range
+            || !route_may_be_probed(current)
+        {
             return None;
         }
         probe_route_throughput(

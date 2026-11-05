@@ -78,7 +78,9 @@ pub(crate) fn first_h2_route(
 ) -> Option<DownloadRoute> {
     routes
         .iter()
-        .find(|route| !crate::util::download::native_breaker::is_open(route))
+        .find(|route| {
+            crate::util::download::native_breaker::can_replace_open_route(route)
+        })
         .or_else(|| routes.first())
         .cloned()
 }

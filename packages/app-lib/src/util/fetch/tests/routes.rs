@@ -568,6 +568,35 @@ fn h2_route_selection_skips_an_open_breaker_when_possible() {
     crate::util::download::native_breaker::record_success(&blocked);
 }
 
+#[test]
+fn an_open_official_breaker_does_not_hand_the_download_to_mcim() {
+    let official = route(
+        "https://official-breaker.example/file".to_string(),
+        DownloadRouteSource::Official,
+        false,
+        true,
+    );
+    let mcim = route(
+        "https://mcim-breaker.example/file".to_string(),
+        DownloadRouteSource::Mcim,
+        true,
+        true,
+    );
+    for _ in 0..3 {
+        crate::util::download::native_breaker::record_failure(&official);
+    }
+    assert!(crate::util::download::native_breaker::is_open(&official));
+
+    assert_eq!(
+        first_h2_route(&[official.clone(), mcim.clone()]),
+        Some(official.clone())
+    );
+    assert!(
+        !crate::util::download::native_breaker::can_replace_open_route(&mcim)
+    );
+    crate::util::download::native_breaker::record_success(&official);
+}
+
 fn mcim_routes(
     url: &str,
     mode: crate::state::DownloadSourceMode,

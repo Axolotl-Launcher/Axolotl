@@ -1,957 +1,1794 @@
 {
+  "drop.instance-import.title": {
+    "defaultMessage": "导入实例"
+  },
+  "drop.confirm.minecraft-root.title": {
+    "defaultMessage": "添加 .minecraft 文件夹"
+  },
+  "drop.confirm.minecraft-root.prompt": {
+    "defaultMessage": "看起来这是一个 .minecraft 文件夹，是否直接将其添加至启动器？"
+  },
+  "drop.confirm.minecraft-root.add": {
+    "defaultMessage": "是，直接添加"
+  },
+  "drop.confirm.minecraft-root.import": {
+    "defaultMessage": "否，导入其中的实例"
+  },
+  "content.page-layout.dependency-disable-failed": {
+    "defaultMessage": "无法禁用依赖这些内容的项目。请重试以完成删除。"
+  },
   "action.no-permission": {
-    "defaultMessage": "Nemáš oprávnění."
+    "defaultMessage": "你没有权限。"
+  },
+  "app.symlink-warning.write.body": {
+    "defaultMessage": "此实例链接到“{path}”。更改也会影响原始文件。"
+  },
+  "app.symlink-warning.write.header": {
+    "defaultMessage": "共享实例"
   },
   "badge.alpha": {
-    "defaultMessage": "Alfa"
+    "defaultMessage": "早期预览版"
   },
   "badge.beta": {
-    "defaultMessage": "Beta"
+    "defaultMessage": "测试版"
   },
   "badge.beta-release": {
-    "defaultMessage": "Beta verze"
+    "defaultMessage": "Beta 发行版"
   },
   "badge.new": {
-    "defaultMessage": "Nové"
+    "defaultMessage": "新"
   },
   "badge.release": {
-    "defaultMessage": "Vydání"
+    "defaultMessage": "正式版"
   },
   "browse.filter-results": {
-    "defaultMessage": "Filtrovat výsledky..."
+    "defaultMessage": "筛选结果……"
+  },
+  "browse.clear-search": {
+    "defaultMessage": "清除搜索"
+  },
+  "browse.loading-results": {
+    "defaultMessage": "正在加载结果……"
   },
   "browse.no-results": {
-    "defaultMessage": "Pro váš dotaz nebyly nalezeny žádné výsledky!"
+    "defaultMessage": "没有找到您的查询结果！"
+  },
+  "browse.no-results.heading": {
+    "defaultMessage": "这里还是空的"
   },
   "browse.offline": {
-    "defaultMessage": "Právě nejste připojeni k internetu. Připojte se k internetu a prohlížejte si Modrinth!"
+    "defaultMessage": "你目前处于离线状态。连接互联网来浏览Modrinth！"
+  },
+  "browse.offline.heading": {
+    "defaultMessage": "网络未连接"
+  },
+  "browse.retry": {
+    "defaultMessage": "重试"
   },
   "browse.search.placeholder": {
-    "defaultMessage": "Najít {projectType}..."
+    "defaultMessage": "搜索{projectType}……"
   },
   "browse.selected-projects-floating-bar.aria-label": {
-    "defaultMessage": "Vybrané projekty"
+    "defaultMessage": "选定的项目"
+  },
+  "browse.selected-projects-floating-bar.hide-projects": {
+    "defaultMessage": "隐藏已选项目"
   },
   "browse.selected-projects-floating-bar.install": {
-    "defaultMessage": "Instalovat {count, plural, one {# projekt} few {# projekty} other {# projektů}}"
+    "defaultMessage": "安装{count, plural, other {#个项目}}"
   },
   "browse.selected-projects-floating-bar.selected-count": {
-    "defaultMessage": "{count, plural, one {# vybraný projekt} few {# vybrané projekty} other {# vybraných projektů}}"
+    "defaultMessage": "{count, plural, other {#个已选择的项目}}"
+  },
+  "browse.selected-projects-floating-bar.show-projects": {
+    "defaultMessage": "显示{count, plural, other {#个已选项目}}"
   },
   "browse.selected-projects-leave-modal.admonition-body": {
-    "defaultMessage": "Vybrali jste {count, plural, one {# projekt} few {# projekty} other {# projektů}} k instalaci. Můžete je nainstalovat hned, nebo se vrátit zpět bez instalace."
+    "defaultMessage": "你已经选择了{count, plural, other {#个}}要安装的项目。立即安装它们，或不安装并返回。"
   },
   "browse.selected-projects-leave-modal.admonition-header": {
-    "defaultMessage": "Vybrané projekty ještě nejsou nainstalované"
+    "defaultMessage": "选定的项目尚未安装"
   },
   "browse.selected-projects-leave-modal.discard": {
-    "defaultMessage": "Zahodit"
+    "defaultMessage": "丢弃"
   },
   "browse.selected-projects-leave-modal.header": {
-    "defaultMessage": "Vybrané projekty ještě nejsou nainstalované"
+    "defaultMessage": "选定的项目尚未安装"
+  },
+  "browse.sort.date-published": {
+    "defaultMessage": "发布日期"
+  },
+  "browse.sort.date-updated": {
+    "defaultMessage": "更新日期"
+  },
+  "browse.sort.downloads": {
+    "defaultMessage": "下载量"
+  },
+  "browse.sort.followers": {
+    "defaultMessage": "关注者"
+  },
+  "browse.sort.players": {
+    "defaultMessage": "玩家数"
+  },
+  "browse.sort.relevance": {
+    "defaultMessage": "相关性"
+  },
+  "browse.sort.verified-plays": {
+    "defaultMessage": "已验证游玩次数"
   },
   "browse.view-prefix": {
-    "defaultMessage": "Na stránku:"
+    "defaultMessage": "查看"
   },
   "button.accept": {
-    "defaultMessage": "Přijmout"
+    "defaultMessage": "接受"
   },
   "button.add-server-to-instance": {
-    "defaultMessage": "Přidat server k instanci"
+    "defaultMessage": "将服务器添加到实例"
   },
   "button.affiliate-links": {
-    "defaultMessage": "Affiliate odkazy"
+    "defaultMessage": "推广链接"
   },
   "button.analytics": {
-    "defaultMessage": "Analytika"
+    "defaultMessage": "分析"
   },
   "button.back": {
-    "defaultMessage": "Zpět"
+    "defaultMessage": "返回"
   },
   "button.cancel": {
-    "defaultMessage": "Zrušit"
+    "defaultMessage": "取消"
   },
   "button.change-version": {
-    "defaultMessage": "Změnit verzi"
+    "defaultMessage": "切换版本"
   },
   "button.clear": {
-    "defaultMessage": "Vymazať"
+    "defaultMessage": "清除"
   },
   "button.close": {
-    "defaultMessage": "Zavřít"
+    "defaultMessage": "关闭"
+  },
+  "button.confirm": {
+    "defaultMessage": "确认"
   },
   "button.continue": {
-    "defaultMessage": "Pokračovat"
+    "defaultMessage": "继续"
   },
   "button.copy-filename": {
-    "defaultMessage": "Kopírovat jméno souboru"
+    "defaultMessage": "复制文件名称"
   },
   "button.copy-full-path": {
-    "defaultMessage": "Kopírovat celou cestu"
+    "defaultMessage": "复制完整路径"
   },
   "button.copy-id": {
-    "defaultMessage": "Kopírovat ID"
+    "defaultMessage": "复制 ID"
   },
   "button.copy-link": {
-    "defaultMessage": "Kopírovat odkaz"
+    "defaultMessage": "复制链接"
   },
   "button.copy-permalink": {
-    "defaultMessage": "Kopírovat permanentní odkaz"
+    "defaultMessage": "复制永久链接"
   },
   "button.create-a-project": {
-    "defaultMessage": "Vytvořit projekt"
+    "defaultMessage": "创建项目"
   },
   "button.decline": {
-    "defaultMessage": "Odmítnout"
+    "defaultMessage": "拒绝"
   },
   "button.disable": {
-    "defaultMessage": "Vypnout"
+    "defaultMessage": "禁用"
   },
   "button.download": {
-    "defaultMessage": "Stáhnout"
+    "defaultMessage": "下载"
   },
   "button.downloading": {
-    "defaultMessage": "Stahování"
+    "defaultMessage": "下载中"
   },
   "button.edit": {
-    "defaultMessage": "Upravit"
+    "defaultMessage": "编辑"
   },
   "button.enable": {
-    "defaultMessage": "Zapnout"
+    "defaultMessage": "启用"
   },
   "button.extract": {
-    "defaultMessage": "Extrahovat"
+    "defaultMessage": "解压"
   },
   "button.follow": {
-    "defaultMessage": "Sledovat"
+    "defaultMessage": "关注"
   },
   "button.hide-snapshots": {
-    "defaultMessage": "Skrýt snapshoty"
+    "defaultMessage": "隐藏快照版本"
   },
   "button.install": {
-    "defaultMessage": "Nainstalovat"
+    "defaultMessage": "安装"
   },
   "button.max": {
-    "defaultMessage": "Max"
+    "defaultMessage": "最大"
   },
   "button.more-options": {
-    "defaultMessage": "Více možností"
+    "defaultMessage": "更多选项"
   },
   "button.move": {
-    "defaultMessage": "Přesunout"
+    "defaultMessage": "移动"
   },
   "button.next": {
-    "defaultMessage": "Další"
+    "defaultMessage": "下一步"
   },
   "button.open-folder": {
-    "defaultMessage": "Otevřit složku"
+    "defaultMessage": "打开文件夹"
+  },
+  "button.open-in-browser": {
+    "defaultMessage": "在浏览器中打开"
   },
   "button.open-in-folder": {
-    "defaultMessage": "Otevřít ve složce"
+    "defaultMessage": "在文件夹中打开"
   },
   "button.open-in-modrinth": {
-    "defaultMessage": "Otevřít v Modrinth"
+    "defaultMessage": "在 Modrinth 中打开"
   },
   "button.play": {
-    "defaultMessage": "Hrát"
+    "defaultMessage": "开始游戏"
   },
   "button.refresh": {
-    "defaultMessage": "Obnovit"
+    "defaultMessage": "刷新"
   },
   "button.reinstall-modpack": {
-    "defaultMessage": "Znovunainstalovat modpack"
+    "defaultMessage": "重新安装整合包"
   },
   "button.remove": {
-    "defaultMessage": "Smazat passkey"
+    "defaultMessage": "删除"
   },
   "button.remove-image": {
-    "defaultMessage": "Odstranit obrázek"
+    "defaultMessage": "移除图片"
   },
   "button.rename": {
-    "defaultMessage": "Přejmenovat"
+    "defaultMessage": "重命名"
   },
   "button.repair": {
-    "defaultMessage": "Opravit"
+    "defaultMessage": "修复"
   },
   "button.repairing": {
-    "defaultMessage": "Opravování..."
+    "defaultMessage": "正在修复……"
   },
   "button.report": {
-    "defaultMessage": "Nahlásit"
+    "defaultMessage": "举报"
   },
   "button.reset": {
-    "defaultMessage": "Obnovit"
+    "defaultMessage": "重置"
   },
   "button.reset-server": {
-    "defaultMessage": "Resetovat server"
+    "defaultMessage": "重置服务器"
   },
   "button.retry": {
-    "defaultMessage": "Znovu zkusit"
+    "defaultMessage": "重试"
   },
   "button.save": {
-    "defaultMessage": "Uložit"
+    "defaultMessage": "保存"
   },
   "button.save-changes": {
-    "defaultMessage": "Uložit změny"
+    "defaultMessage": "保存更改"
   },
   "button.saving": {
-    "defaultMessage": "Ukládání"
+    "defaultMessage": "正在保存"
   },
   "button.show-all-versions": {
-    "defaultMessage": "Zobrazit všechny verze"
+    "defaultMessage": "显示所有版本"
   },
   "button.show-file": {
-    "defaultMessage": "Zobrazit soubor"
+    "defaultMessage": "显示文件"
   },
   "button.sign-in": {
-    "defaultMessage": "Přihlásit se"
+    "defaultMessage": "登录"
   },
   "button.sign-out": {
-    "defaultMessage": "Odhlásit se"
+    "defaultMessage": "退出登录"
   },
   "button.sign-up": {
-    "defaultMessage": "Registrovat se"
+    "defaultMessage": "注册"
   },
   "button.stop": {
-    "defaultMessage": "Stop"
+    "defaultMessage": "停止"
+  },
+  "button.switch-to-version": {
+    "defaultMessage": "切换到此版本"
   },
   "button.switch-version": {
-    "defaultMessage": "Změnit verzi"
+    "defaultMessage": "切换版本"
   },
   "button.unfollow": {
-    "defaultMessage": "Přestat sledovat"
+    "defaultMessage": "取消关注"
   },
   "button.unlink-modpack": {
-    "defaultMessage": "Odpojit modpack"
+    "defaultMessage": "解除整合包关联"
   },
   "button.update": {
-    "defaultMessage": "Aktualizace"
+    "defaultMessage": "更新"
   },
   "button.upload-image": {
-    "defaultMessage": "Nahrát obrázek"
+    "defaultMessage": "上传图片"
   },
   "collections.label.private": {
-    "defaultMessage": "Soukromé"
+    "defaultMessage": "私有"
+  },
+  "color-picker.dialog-label": {
+    "defaultMessage": "取色器"
+  },
+  "color-picker.dye-presets": {
+    "defaultMessage": "染料颜色"
+  },
+  "color-picker.dye.black": {
+    "defaultMessage": "黑色"
+  },
+  "color-picker.dye.blue": {
+    "defaultMessage": "蓝色"
+  },
+  "color-picker.dye.brown": {
+    "defaultMessage": "棕色"
+  },
+  "color-picker.dye.cyan": {
+    "defaultMessage": "青色"
+  },
+  "color-picker.dye.gray": {
+    "defaultMessage": "灰色"
+  },
+  "color-picker.dye.green": {
+    "defaultMessage": "绿色"
+  },
+  "color-picker.dye.light-blue": {
+    "defaultMessage": "淡蓝色"
+  },
+  "color-picker.dye.light-gray": {
+    "defaultMessage": "淡灰色"
+  },
+  "color-picker.dye.lime": {
+    "defaultMessage": "黄绿色"
+  },
+  "color-picker.dye.magenta": {
+    "defaultMessage": "品红色"
+  },
+  "color-picker.dye.orange": {
+    "defaultMessage": "橙色"
+  },
+  "color-picker.dye.pink": {
+    "defaultMessage": "粉红色"
+  },
+  "color-picker.dye.purple": {
+    "defaultMessage": "紫色"
+  },
+  "color-picker.dye.red": {
+    "defaultMessage": "红色"
+  },
+  "color-picker.dye.white": {
+    "defaultMessage": "白色"
+  },
+  "color-picker.dye.yellow": {
+    "defaultMessage": "黄色"
+  },
+  "color-picker.hex": {
+    "defaultMessage": "十六进制颜色"
+  },
+  "color-picker.hue": {
+    "defaultMessage": "色相"
+  },
+  "color-picker.open": {
+    "defaultMessage": "选择颜色"
+  },
+  "color-picker.recent-colors": {
+    "defaultMessage": "最近使用"
+  },
+  "color-picker.saturation-brightness": {
+    "defaultMessage": "饱和度与亮度"
+  },
+  "color-picker.saturation-brightness.value": {
+    "defaultMessage": "饱和度 {saturation}%，亮度 {brightness}%"
+  },
+  "console.action.collapse": {
+    "defaultMessage": "收起"
+  },
+  "console.action.expand": {
+    "defaultMessage": "展开"
+  },
+  "console.action.share": {
+    "defaultMessage": "分享"
+  },
+  "console.command.disabled-placeholder": {
+    "defaultMessage": "命令输入已禁用"
+  },
+  "console.command.placeholder": {
+    "defaultMessage": "发送命令"
+  },
+  "console.command.server-not-running-placeholder": {
+    "defaultMessage": "服务器未运行"
+  },
+  "console.crash.export-context": {
+    "defaultMessage": "导出崩溃上下文"
+  },
+  "console.crash.finding.amd-driver.action": {
+    "defaultMessage": "全新安装最新版 AMD 显卡驱动，并关闭图形叠加层后重试。"
+  },
+  "console.crash.finding.amd-driver.title": {
+    "defaultMessage": "AMD 显卡驱动崩溃"
+  },
+  "console.crash.finding.connector-incompatible-fabric-mods.action": {
+    "defaultMessage": "移除或替换 Connector 错误中指出的 Fabric 模组，改用兼容 Forge 的替代版本。"
+  },
+  "console.crash.finding.connector-incompatible-fabric-mods.title": {
+    "defaultMessage": "Sinytra Connector 发现不兼容的 Fabric 模组"
+  },
+  "console.crash.finding.content-verification.action": {
+    "defaultMessage": "从可信来源重新安装证据中指出的文件。"
+  },
+  "console.crash.finding.content-verification.title": {
+    "defaultMessage": "jar 签名验证失败"
+  },
+  "console.crash.finding.definite-mod-fabric.action": {
+    "defaultMessage": "更新或暂时移除 Fabric 加载器证据中指出的模组。"
+  },
+  "console.crash.finding.definite-mod-fabric.title": {
+    "defaultMessage": "Fabric 发现特定模组故障"
+  },
+  "console.crash.finding.definite-mod.action": {
+    "defaultMessage": "更新、修复或暂时移除证据和匹配 jar 中指出的模组。"
+  },
+  "console.crash.finding.definite-mod.title": {
+    "defaultMessage": "特定模组导致了崩溃"
+  },
+  "console.crash.finding.disk-space.action": {
+    "defaultMessage": "请释放实例所在磁盘的空间，然后重试启动。"
+  },
+  "console.crash.finding.disk-space.title": {
+    "defaultMessage": "磁盘空间不足"
+  },
+  "console.crash.finding.duplicate-mod.action": {
+    "defaultMessage": "在 mods 文件夹中，每个模组只保留一个兼容版本。"
+  },
+  "console.crash.finding.duplicate-mod.title": {
+    "defaultMessage": "安装了重复模组"
+  },
+  "console.crash.finding.extracted-mod.action": {
+    "defaultMessage": "从 mods 文件夹移除解压后的目录，并安装原始 jar 文件。"
+  },
+  "console.crash.finding.extracted-mod.title": {
+    "defaultMessage": "发现已解压的模组"
+  },
+  "console.crash.finding.fabric-solution.action": {
+    "defaultMessage": "按证据中列出的依赖项更改处理后再启动。"
+  },
+  "console.crash.finding.fabric-solution.title": {
+    "defaultMessage": "Fabric 发现不兼容模组或缺失依赖项"
+  },
+  "console.crash.finding.fallback-action": {
+    "defaultMessage": "查看下方证据和本地实例中匹配到的模组。"
+  },
+  "console.crash.finding.fallback-title": {
+    "defaultMessage": "未知诊断：{finding}"
+  },
+  "console.crash.finding.file-in-use.action": {
+    "defaultMessage": "关闭证据中指出的程序，包括其他启动器、备份工具或杀毒扫描，然后重试。"
+  },
+  "console.crash.finding.file-in-use.title": {
+    "defaultMessage": "另一个进程正在使用必需文件"
+  },
+  "console.crash.finding.forge-error.action": {
+    "defaultMessage": "查看 Forge 故障证据，并在撤销近期更改后测试指出的模组。"
+  },
+  "console.crash.finding.forge-error.title": {
+    "defaultMessage": "Forge 报告了游戏错误"
+  },
+  "console.crash.finding.forge-incomplete.action": {
+    "defaultMessage": "修复或重新安装此实例的 Forge 加载器。"
+  },
+  "console.crash.finding.forge-incomplete.title": {
+    "defaultMessage": "Forge 安装不完整"
+  },
+  "console.crash.finding.forge-java-incompatible.action": {
+    "defaultMessage": "使用此 Forge 版本所需的 Java 版本，或更新 Forge。"
+  },
+  "console.crash.finding.forge-java-incompatible.title": {
+    "defaultMessage": "此 Forge 版本与所选 Java 运行时不兼容"
+  },
+  "console.crash.finding.incompatible-mods.action": {
+    "defaultMessage": "按证据中的兼容性详情更新、移除或替换冲突模组。"
+  },
+  "console.crash.finding.incompatible-mods.title": {
+    "defaultMessage": "已安装的模组互不兼容"
+  },
+  "console.crash.finding.intel-driver.action": {
+    "defaultMessage": "安装最新版 Intel 显卡驱动，或改用其他可用 GPU 运行 Minecraft。"
+  },
+  "console.crash.finding.intel-driver.title": {
+    "defaultMessage": "Intel 显卡驱动崩溃"
+  },
+  "console.crash.finding.java-11-required.action": {
+    "defaultMessage": "选择 Java 11，或安装与所选 Java 版本兼容的模组版本。"
+  },
+  "console.crash.finding.java-11-required.title": {
+    "defaultMessage": "模组需要 Java 11"
+  },
+  "console.crash.finding.java-32bit.action": {
+    "defaultMessage": "安装并选择 64 位 Java 运行时，然后重试启动。"
+  },
+  "console.crash.finding.java-32bit.title": {
+    "defaultMessage": "32 位 Java 运行时无法分配所需内存"
+  },
+  "console.crash.finding.java-incompatible.action": {
+    "defaultMessage": "使用兼容的 Java 运行时，或安装适用于此 Java 版本的模组版本。"
+  },
+  "console.crash.finding.java-incompatible.title": {
+    "defaultMessage": "模组需要其他 Java 版本"
+  },
+  "console.crash.finding.java-too-new.action": {
+    "defaultMessage": "选择此 Minecraft 和模组加载器版本所需的 Java 主版本。"
+  },
+  "console.crash.finding.java-too-new.title": {
+    "defaultMessage": "Java 运行时版本对此实例过新"
+  },
+  "console.crash.finding.jdk-runtime.action": {
+    "defaultMessage": "为此 Minecraft 版本选择标准 HotSpot Java 运行时。"
+  },
+  "console.crash.finding.jdk-runtime.title": {
+    "defaultMessage": "选择了 JDK 而不是 JRE"
+  },
+  "console.crash.finding.jvm-arguments.action": {
+    "defaultMessage": "移除报告中指出的自定义 JVM 参数，然后重新启动实例。"
+  },
+  "console.crash.finding.jvm-arguments.title": {
+    "defaultMessage": "JVM 参数无效"
+  },
+  "console.crash.finding.known-signature.action": {
+    "defaultMessage": "在修改实例前查看证据以及相关的 Minecraft、加载器、Java、图形或模组版本。"
+  },
+  "console.crash.finding.known-signature.title": {
+    "defaultMessage": "检测到已知崩溃特征"
+  },
+  "console.crash.finding.large-resource-pack.action": {
+    "defaultMessage": "禁用该资源包，或改用分辨率更低的版本。"
+  },
+  "console.crash.finding.large-resource-pack.title": {
+    "defaultMessage": "当前资源包对于图形配置而言过大"
+  },
+  "console.crash.finding.manual-debug-crash.action": {
+    "defaultMessage": "重新启动，并避免长按手动调试崩溃快捷键。"
+  },
+  "console.crash.finding.manual-debug-crash.title": {
+    "defaultMessage": "触发了调试崩溃快捷键"
+  },
+  "console.crash.finding.matched-mod": {
+    "defaultMessage": "匹配模组：{identity}{modId} - {fileName}"
+  },
+  "console.crash.finding.missing-dependency.action": {
+    "defaultMessage": "安装所需的依赖项版本，或使用与此 Minecraft 版本匹配的模组版本。"
+  },
+  "console.crash.finding.missing-dependency.title": {
+    "defaultMessage": "模组依赖项缺失或不受支持"
+  },
+  "console.crash.finding.missing-embeddium.action": {
+    "defaultMessage": "请安装 Oculus 针对此 Minecraft 和 Forge 版本所需的 Embeddium 版本。"
+  },
+  "console.crash.finding.missing-embeddium.title": {
+    "defaultMessage": "Oculus 需要 Embeddium"
+  },
+  "console.crash.finding.missing-indium.action": {
+    "defaultMessage": "请安装与已安装 Fabric Loader 和 Sodium 版本兼容的 Indium 版本。"
+  },
+  "console.crash.finding.missing-indium.title": {
+    "defaultMessage": "模组需要 Indium"
+  },
+  "console.crash.finding.mixin-bootstrap.action": {
+    "defaultMessage": "修复模组加载器安装，并确认所有模组均适用于已安装的加载器。"
+  },
+  "console.crash.finding.mixin-bootstrap.title": {
+    "defaultMessage": "缺少 Mixin 引导程序"
+  },
+  "console.crash.finding.mixin-failure.action": {
+    "defaultMessage": "更新或移除匹配的模组，并检查其 Minecraft 和加载器版本是否兼容。"
+  },
+  "console.crash.finding.mixin-failure.title": {
+    "defaultMessage": "模组 Mixin 应用失败"
+  },
+  "console.crash.finding.mod-config.action": {
+    "defaultMessage": "备份并移除指出的配置文件，让模组重新生成它。"
+  },
+  "console.crash.finding.mod-config.title": {
+    "defaultMessage": "无法读取模组配置文件"
+  },
+  "console.crash.finding.mod-filename.action": {
+    "defaultMessage": "使用简单的拉丁字母文件名重命名或重新安装模组 jar。"
+  },
+  "console.crash.finding.mod-filename.title": {
+    "defaultMessage": "模组文件名包含不支持的字符"
+  },
+  "console.crash.finding.mod-id-limit.action": {
+    "defaultMessage": "移除不用的模组，或将安装内容拆分为更小的兼容配置。"
+  },
+  "console.crash.finding.mod-id-limit.title": {
+    "defaultMessage": "模组过多，超出 ID 限制"
+  },
+  "console.crash.finding.mod-initialization.action": {
+    "defaultMessage": "更新指出的模组，并确认其所需依赖项均已安装。"
+  },
+  "console.crash.finding.mod-initialization.title": {
+    "defaultMessage": "模组初始化失败"
+  },
+  "console.crash.finding.mod-loader-error.action": {
+    "defaultMessage": "修复加载器安装，并确认列出的模组文件与此游戏版本匹配。"
+  },
+  "console.crash.finding.mod-loader-error.title": {
+    "defaultMessage": "模组加载器报告了故障"
+  },
+  "console.crash.finding.mod-loader-failure.action": {
+    "defaultMessage": "修复加载器安装，并按证据中显示的故障消息处理。"
+  },
+  "console.crash.finding.mod-loader-failure.title": {
+    "defaultMessage": "模组加载器在识别模组文件前失败"
+  },
+  "console.crash.finding.multiple-forge-versions.action": {
+    "defaultMessage": "修复实例，使其版本配置中只包含一个 Forge 安装。"
+  },
+  "console.crash.finding.multiple-forge-versions.title": {
+    "defaultMessage": "版本配置中包含多个 Forge 版本"
+  },
+  "console.crash.finding.nightconfig-bug.action": {
+    "defaultMessage": "备份 config 文件夹，移除损坏配置，让模组重新生成它。"
+  },
+  "console.crash.finding.nightconfig-bug.title": {
+    "defaultMessage": "NightConfig 无法读取配置文件"
+  },
+  "console.crash.finding.nvidia-driver.action": {
+    "defaultMessage": "全新安装最新版 NVIDIA 显卡驱动，并关闭图形叠加层后重试。"
+  },
+  "console.crash.finding.nvidia-driver.title": {
+    "defaultMessage": "NVIDIA 显卡驱动崩溃"
+  },
+  "console.crash.finding.opengl-unsupported.action": {
+    "defaultMessage": "安装 GPU 制造商提供的显卡驱动，并确认 Minecraft 使用预期的 GPU。"
+  },
+  "console.crash.finding.opengl-unsupported.title": {
+    "defaultMessage": "当前显卡驱动不支持 OpenGL"
+  },
+  "console.crash.finding.openj9.action": {
+    "defaultMessage": "选择基于 HotSpot 的 Java 运行时，例如 Eclipse Temurin 或内置 Minecraft 运行时。"
+  },
+  "console.crash.finding.openj9.title": {
+    "defaultMessage": "所选 OpenJ9 运行时不兼容"
+  },
+  "console.crash.finding.optifine-incompatible.action": {
+    "defaultMessage": "安装兼容的 OptiFine 版本，或移除 OptiFine 和冲突的光影模组。"
+  },
+  "console.crash.finding.optifine-incompatible.title": {
+    "defaultMessage": "OptiFine 与已安装的加载器或模组冲突"
+  },
+  "console.crash.finding.optifine-world.action": {
+    "defaultMessage": "移除 OptiFine，或安装与此 Minecraft 和 Forge 版本兼容的版本。"
+  },
+  "console.crash.finding.optifine-world.title": {
+    "defaultMessage": "OptiFine 阻止了世界加载"
+  },
+  "console.crash.finding.out-of-memory.action": {
+    "defaultMessage": "增加实例内存分配，或移除占用大量内存的模组和资源包。"
+  },
+  "console.crash.finding.out-of-memory.title": {
+    "defaultMessage": "Minecraft 内存不足"
+  },
+  "console.crash.finding.pixel-format.action": {
+    "defaultMessage": "更新或重新安装显卡驱动，禁用冲突的叠加层后重试。"
+  },
+  "console.crash.finding.pixel-format.title": {
+    "defaultMessage": "显卡驱动无法设置像素格式"
+  },
+  "console.crash.finding.resource-pack.action": {
+    "defaultMessage": "禁用当前光影和资源包，再逐一重新启用。"
+  },
+  "console.crash.finding.resource-pack.title": {
+    "defaultMessage": "光影或资源包触发了图形错误"
+  },
+  "console.crash.finding.shaders-optifine.action": {
+    "defaultMessage": "移除单独的光影模组，因为 OptiFine 已提供光影支持。"
+  },
+  "console.crash.finding.shaders-optifine.title": {
+    "defaultMessage": "同时安装了光影模组和 OptiFine"
+  },
+  "console.crash.finding.short-output.action": {
+    "defaultMessage": "重试一次，然后检查 Java、加载器安装和启动器输出中更早出现的错误。"
+  },
+  "console.crash.finding.short-output.title": {
+    "defaultMessage": "游戏在生成有效日志前停止"
+  },
+  "console.crash.finding.specific-block.action": {
+    "defaultMessage": "使用世界备份或世界编辑器，移除证据所示坐标处的方块。"
+  },
+  "console.crash.finding.specific-block.title": {
+    "defaultMessage": "特定方块导致了崩溃"
+  },
+  "console.crash.finding.specific-entity.action": {
+    "defaultMessage": "使用世界备份或世界编辑器，移除证据所示坐标处的实体。"
+  },
+  "console.crash.finding.specific-entity.title": {
+    "defaultMessage": "特定实体导致了崩溃"
+  },
+  "console.crash.finding.stack-analysis.action": {
+    "defaultMessage": "更新或暂时移除匹配的模组，然后重新测试实例。"
+  },
+  "console.crash.finding.stack-analysis.title": {
+    "defaultMessage": "堆栈跟踪指向已安装的模组"
+  },
+  "console.crash.finding.suspected-mod.action": {
+    "defaultMessage": "更新或暂时移除报告怀疑且本地匹配的模组，然后重试。"
+  },
+  "console.crash.finding.suspected-mod.title": {
+    "defaultMessage": "崩溃报告怀疑一个或多个模组"
+  },
+  "console.crash.local-header": {
+    "defaultMessage": "{findings, plural, one {# 项本地诊断结果} other {# 项本地诊断结果}}，来自 {sources, plural, one {# 个相关文件} other {# 个相关文件}}"
+  },
+  "console.crash.mod-change": {
+    "defaultMessage": "{kind}：{filename}"
+  },
+  "console.crash.mod-change.added": {
+    "defaultMessage": "新增"
+  },
+  "console.crash.mod-change.modified": {
+    "defaultMessage": "已修改"
+  },
+  "console.crash.mod-change.removed": {
+    "defaultMessage": "已移除"
+  },
+  "console.crash.mod-changes.summary": {
+    "defaultMessage": "新增 {added} 项，移除 {removed} 项，修改 {modified} 项"
+  },
+  "console.crash.mod-changes.title": {
+    "defaultMessage": "上次成功启动后模组文件发生了变化"
+  },
+  "console.crash.problems-detected": {
+    "defaultMessage": "检测到 {count, plural, one {# 个问题} other {# 个问题}}"
+  },
+  "console.crash.windows-events.title": {
+    "defaultMessage": "相关 Windows 应用程序事件"
+  },
+  "console.delete-modal.confirmation": {
+    "defaultMessage": "删除后无法恢复此日志文件。确定要继续吗？"
+  },
+  "console.delete-modal.irreversible-title": {
+    "defaultMessage": "此操作不可撤销"
+  },
+  "console.delete-modal.title": {
+    "defaultMessage": "删除日志文件"
+  },
+  "console.filter.error": {
+    "defaultMessage": "错误"
+  },
+  "console.filter.info": {
+    "defaultMessage": "信息"
+  },
+  "console.filter.warn": {
+    "defaultMessage": "警告"
+  },
+  "console.log-viewport.scroll-to-bottom": {
+    "defaultMessage": "滚动到底部"
+  },
+  "console.notification.delete-failed": {
+    "defaultMessage": "删除日志文件失败"
+  },
+  "console.notification.share-failed": {
+    "defaultMessage": "分享日志失败"
+  },
+  "console.notification.share-truncated": {
+    "defaultMessage": "日志过大，已自动截取最后 9MB 上传。"
+  },
+  "console.notification.unknown-error": {
+    "defaultMessage": "未知错误。"
+  },
+  "console.log.toggle-wrap": {
+    "defaultMessage": "切换换行"
+  },
+  "console.log.wrap-label": {
+    "defaultMessage": "换行"
+  },
+  "console.empty.instance-title": {
+    "defaultMessage": "暂无日志"
+  },
+  "console.empty.instance-description": {
+    "defaultMessage": "点击右上角「开始游戏」即可接收实时日志"
+  },
+  "console.empty.server-title": {
+    "defaultMessage": "欢迎使用 Axolotl 服务器！"
+  },
+  "console.empty.server-description": {
+    "defaultMessage": "点击启动按钮即可启动服务器！"
+  },
+  "console.search.placeholder": {
+    "defaultMessage": "搜索日志"
+  },
+  "console.share-modal.title": {
+    "defaultMessage": "分享日志"
   },
   "content-type.content.lowercase": {
-    "defaultMessage": "obsah"
+    "defaultMessage": "内容"
   },
   "content-type.item.lowercase": {
-    "defaultMessage": "{count, plural, one {předmět} few {předměty} other {předmětů}}"
+    "defaultMessage": "{count, plural, one {个项目} other {个项目}}"
+  },
+  "content.card.dependency-badge": {
+    "defaultMessage": "前置"
+  },
+  "content.card.duplicate-mod": {
+    "defaultMessage": "此模组已安装 {count, number} 次。"
+  },
+  "content.card.group.hardcore": {
+    "defaultMessage": "硬核模式"
+  },
+  "content.card.group.not-played-yet": {
+    "defaultMessage": "尚未游玩"
+  },
+  "content.card.orphaned-dependency-badge": {
+    "defaultMessage": "孤立前置"
+  },
+  "content.card.pending-manual-download": {
+    "defaultMessage": "需要手动下载"
+  },
+  "content.card.rollback-tooltip": {
+    "defaultMessage": "回滚到 {fileName}"
   },
   "content.card.select-project": {
-    "defaultMessage": "Vybrat {project}"
+    "defaultMessage": "选择 {project}"
   },
   "content.confirm-bulk-update.admonition-body": {
-    "defaultMessage": "Skutečně chceš aktualizovat {count, plural, one {# projekt} other {# projektů}} na jejich poslední kompatibilní verzi? Doporučujeme aktualizovat obsah jeden po jednom."
+    "defaultMessage": "是否确定要将 {count, plural,  other {# 个项目}}更新至最新的兼容版本？建议逐个更新内容。"
   },
   "content.confirm-bulk-update.admonition-header": {
-    "defaultMessage": "Upozornění na aktualizaci"
+    "defaultMessage": "更新警告"
   },
   "content.confirm-bulk-update.header": {
-    "defaultMessage": "Aktualizovat projekty"
+    "defaultMessage": "更新项目"
   },
   "content.confirm-bulk-update.update-button": {
-    "defaultMessage": "Aktualizovat {count, plural, one {# projekt} other {# projektů}}"
+    "defaultMessage": "更新 {count, plural, other {# 个项目}}"
   },
   "content.confirm-deletion.admonition-body": {
-    "defaultMessage": "Smazáním modu může poškodit tvůj svět, způsobit chybějící věci nebo neočekávatelné chyby."
+    "defaultMessage": "删除{contentType, select, mod {模组} resourcepack {资源包} shader {光影} datapack {数据包} other {内容}}可能会对你的游戏世界造成永久性影响，并可能导致再次加载时出现内容缺失或意外问题。"
   },
   "content.confirm-deletion.admonition-header": {
-    "defaultMessage": "Upozornění při smazání"
+    "defaultMessage": "删除警告"
   },
   "content.confirm-deletion.delete-button": {
-    "defaultMessage": "Smazat {count, number} {itemType}"
+    "defaultMessage": "删除{count, number}个{itemType}"
   },
   "content.confirm-deletion.header": {
-    "defaultMessage": "Smazat {itemType}"
+    "defaultMessage": "删除 {itemType}"
   },
   "content.confirm-modpack-update.admonition-body": {
-    "defaultMessage": "{action, select, downgrade {Downgrading} other {Updating}} může způsobit problémy s kompatibilitou. Mody nebo obsah, který jste přidali na modpack, zůstanou zachovány, ale nemusí být kompatibilní s novou verzí."
+    "defaultMessage": "{action, select, downgrade {降级} other {更新}}可能会导致兼容性问题。你在整合包基础上额外添加的模组或内容将被保留，但可能与新版本不兼容。"
   },
   "content.confirm-modpack-update.admonition-header": {
-    "defaultMessage": "Upozornění na {action, select, downgrade {zhoršení} other {vylepšení}}"
+    "defaultMessage": "{action, select, downgrade {降级} other {升级}}警告"
   },
   "content.confirm-modpack-update.confirm-button": {
-    "defaultMessage": "Upozornění na {action, select, downgrade {zhoršení} other {vylepšení}} modpacku"
+    "defaultMessage": "{action, select, downgrade {降级} other {升级}}整合包"
   },
   "content.confirm-modpack-update.header": {
-    "defaultMessage": "{action, select, downgrade {Zhoršit} other {Vylepšit}} modpack"
+    "defaultMessage": "{action, select, downgrade {降级} other {升级}}整合包"
   },
   "content.confirm-unlink.admonition-body": {
-    "defaultMessage": "Mody a obsah budou sloučeny s tím, co jste přidali k modpacku, modpack ale přestane dostávat aktualizace."
+    "defaultMessage": "模组和内容将与你在整合包之上添加的内容合并，并且它将停止接收更新。"
   },
   "content.confirm-unlink.admonition-header": {
-    "defaultMessage": "Odpojit modpack"
+    "defaultMessage": "解除整合包关联"
   },
   "content.confirm-unlink.header": {
-    "defaultMessage": "Odpojit modpack"
+    "defaultMessage": "解除整合包关联"
   },
   "content.confirm-unlink.unlink-button": {
-    "defaultMessage": "Odpojit"
+    "defaultMessage": "解除关联"
   },
   "content.dependency-warning.admonition-header": {
-    "defaultMessage": "Tento obsah je vyžadován jiným obsahem"
+    "defaultMessage": "其他内容需要此内容"
   },
   "content.dependency-warning.affected-dependents-label": {
-    "defaultMessage": "{count, plural, one {Dotčený projekt} other {Dotčené projekty}}"
+    "defaultMessage": "影响的{count, plural, other {项目}}"
   },
   "content.dependency-warning.bulk-admonition-body": {
-    "defaultMessage": "Některé vybrané projekty jsou nainstalovány jako závislosti. Jejich smazání může poškodit váš {context} nebo zabránit správnému načítání závislého obsahu."
+    "defaultMessage": "你选择的部分项目已作为依赖项安装。删除它们可能破坏你的 {context} 或者阻止依赖项内容正常加载。"
   },
   "content.dependency-warning.context.instance": {
-    "defaultMessage": "instance"
+    "defaultMessage": "实例"
   },
   "content.dependency-warning.context.server": {
-    "defaultMessage": "server"
+    "defaultMessage": "服务器"
   },
   "content.dependency-warning.delete-anyway-button": {
-    "defaultMessage": "Přesto smazat"
+    "defaultMessage": "仍然删除"
   },
   "content.dependency-warning.delete-many-anyway-button": {
-    "defaultMessage": "Přesto smazat {count, number} {itemType}"
+    "defaultMessage": "仍然删除这 {count, number} 个{itemType}"
   },
   "content.dependency-warning.deleting-label": {
-    "defaultMessage": "Probíhá mazání"
+    "defaultMessage": "即将删除"
   },
   "content.dependency-warning.disable-dependents-label": {
-    "defaultMessage": "Po smazání vypnout závislý obsah"
+    "defaultMessage": "删除后禁用依赖项"
   },
   "content.dependency-warning.effect-dependent-content": {
-    "defaultMessage": "Závislý obsah se nemusí načíst nebo se může sám vypnout"
+    "defaultMessage": "依赖项内容可能无法加载或者被自动禁用"
+  },
+  "content.dependency-warning.effect-instance": {
+    "defaultMessage": "你的 {context} 可能会崩溃、无法启动或无法正常工作"
   },
   "content.dependency-warning.header": {
-    "defaultMessage": "Upozornění na vyžadovaný obsah"
+    "defaultMessage": "依赖项警告"
+  },
+  "content.dependency-warning.single-admonition-body": {
+    "defaultMessage": "{project} 已作为依赖项安装。删除它可能破坏你的 {context} 或者阻止依赖项内容正常加载。"
   },
   "content.dependency-warning.what-happens-label": {
-    "defaultMessage": "Co se stane?"
+    "defaultMessage": "发生什么了？"
   },
   "content.diff-modal.added-count": {
-    "defaultMessage": "Přidáno {count}"
+    "defaultMessage": "添加了 {count} 项"
   },
   "content.diff-modal.diff-type.added": {
-    "defaultMessage": "Přidáno (závislost)"
+    "defaultMessage": "添加（依赖）"
   },
   "content.diff-modal.diff-type.removed": {
-    "defaultMessage": "Vypnutý"
+    "defaultMessage": "已禁用"
   },
   "content.diff-modal.diff-type.updated": {
-    "defaultMessage": "Aktualizováno"
+    "defaultMessage": "已更新"
   },
   "content.diff-modal.removed-count": {
-    "defaultMessage": "Odstraněno {count}"
+    "defaultMessage": "移除了 {count} 项"
   },
   "content.diff-modal.unknown-content-body": {
-    "defaultMessage": "Některý obsah na vašem serveru nebylo možné analyzovat a tato změna se ho může týkat."
+    "defaultMessage": "你服务器上的部分内容未能完成分析，可能受此变更影响。"
   },
   "content.diff-modal.updated-count": {
-    "defaultMessage": "Aktualizováno {count}"
+    "defaultMessage": "更新了 {count} 项"
   },
   "content.filter.disabled": {
-    "defaultMessage": "Vypnutý"
+    "defaultMessage": "已禁用"
+  },
+  "content.filter.duplicates": {
+    "defaultMessage": "重复"
   },
   "content.filter.enabled": {
-    "defaultMessage": "Zapnutý"
+    "defaultMessage": "已启用"
   },
   "content.filter.updates": {
-    "defaultMessage": "Aktualizace"
+    "defaultMessage": "可更新"
+  },
+  "content.metadata-filter.author": {
+    "defaultMessage": "作者"
+  },
+  "content.metadata-filter.clear": {
+    "defaultMessage": "清除"
+  },
+  "content.metadata-filter.environment": {
+    "defaultMessage": "环境"
+  },
+  "content.metadata-filter.environment.client": {
+    "defaultMessage": "客户端"
+  },
+  "content.metadata-filter.environment.client-and-server": {
+    "defaultMessage": "客户端和服务端"
+  },
+  "content.metadata-filter.environment.server": {
+    "defaultMessage": "服务端"
+  },
+  "content.metadata-filter.environment.singleplayer": {
+    "defaultMessage": "单人游戏"
+  },
+  "content.metadata-filter.external": {
+    "defaultMessage": "外部文件"
+  },
+  "content.metadata-filter.external.external": {
+    "defaultMessage": "外部文件"
+  },
+  "content.metadata-filter.external.linked": {
+    "defaultMessage": "在线项目"
+  },
+  "content.metadata-filter.loader": {
+    "defaultMessage": "加载器"
+  },
+  "content.metadata-filter.loader.fabric": {
+    "defaultMessage": "Fabric"
+  },
+  "content.metadata-filter.loader.forge": {
+    "defaultMessage": "Forge"
+  },
+  "content.metadata-filter.loader.neoforge": {
+    "defaultMessage": "NeoForge"
+  },
+  "content.metadata-filter.loader.other": {
+    "defaultMessage": "其他"
+  },
+  "content.metadata-filter.loader.quilt": {
+    "defaultMessage": "Quilt"
+  },
+  "content.metadata-filter.long-press-reset": {
+    "defaultMessage": "长按重置筛选"
+  },
+  "content.metadata-filter.open-source": {
+    "defaultMessage": "开源"
+  },
+  "content.metadata-filter.open-source.closed": {
+    "defaultMessage": "非开源"
+  },
+  "content.metadata-filter.open-source.open": {
+    "defaultMessage": "开源"
+  },
+  "content.metadata-filter.search": {
+    "defaultMessage": "搜索..."
+  },
+  "content.metadata-filter.select-all": {
+    "defaultMessage": "全选"
+  },
+  "content.metadata-filter.source.curseforge": {
+    "defaultMessage": "CurseForge"
+  },
+  "content.metadata-filter.toggle": {
+    "defaultMessage": "筛选"
+  },
+  "content.metadata-filter.toggle-active": {
+    "defaultMessage": "筛选（已启用 {count, number} 项）"
+  },
+  "content.metadata-filter.unknown": {
+    "defaultMessage": "未知"
   },
   "content.page-layout.browse-content": {
-    "defaultMessage": "Prozkoumat"
+    "defaultMessage": "浏览内容"
   },
   "content.page-layout.empty.hint": {
-    "defaultMessage": "Pro začátek prozkoumej nebo nahraj {contentType}"
+    "defaultMessage": "浏览或上传{contentType}以开始使用"
   },
   "content.page-layout.empty.no-content-installed": {
-    "defaultMessage": "Není nainstalován žádný obsah"
+    "defaultMessage": "没有安装内容"
   },
   "content.page-layout.failed-to-load": {
-    "defaultMessage": "Nepodařilo se načíst obsah"
+    "defaultMessage": "加载内容失败"
   },
   "content.page-layout.no-content-found": {
-    "defaultMessage": "Nebyl nalezen obsah."
+    "defaultMessage": "未找到内容。"
+  },
+  "content.page-layout.view-dependencies": {
+    "defaultMessage": "查看依赖关系"
   },
   "content.page-layout.search-placeholder": {
-    "defaultMessage": "Prohledat {count, number} {contentType}..."
+    "defaultMessage": "搜索到 {count, number}个{contentType}……"
   },
   "content.page-layout.share.file-names": {
-    "defaultMessage": "Názvy souboru"
+    "defaultMessage": "文件名"
   },
   "content.page-layout.share.label": {
-    "defaultMessage": "Sdílet"
+    "defaultMessage": "分享"
   },
   "content.page-layout.share.markdown-links": {
-    "defaultMessage": "Markdown odkazy"
+    "defaultMessage": "Markdown 链接"
   },
   "content.page-layout.share.project-links": {
-    "defaultMessage": "Odkazy projektu"
+    "defaultMessage": "项目链接"
   },
   "content.page-layout.share.project-names": {
-    "defaultMessage": "Názvy projektů"
+    "defaultMessage": "项目名称"
   },
   "content.page-layout.sort.alphabetical": {
-    "defaultMessage": "Abecedně"
+    "defaultMessage": "按字母顺序"
+  },
+  "content.page-layout.sort.file-name-ascending": {
+    "defaultMessage": "文件名 A-Z"
+  },
+  "content.page-layout.sort.file-name-descending": {
+    "defaultMessage": "文件名 Z-A"
   },
   "content.page-layout.sort.date-added-newest": {
-    "defaultMessage": "Od nejnovějších"
+    "defaultMessage": "按从新到旧顺序"
   },
   "content.page-layout.sort.date-added-oldest": {
-    "defaultMessage": "Od nejstarších"
+    "defaultMessage": "按从旧到新顺序"
   },
   "content.page-layout.sort.label": {
-    "defaultMessage": "Seřadit {mode}"
+    "defaultMessage": "按{mode}排序"
+  },
+  "content.page-layout.sort.project-name-ascending": {
+    "defaultMessage": "项目名称 A-Z"
+  },
+  "content.page-layout.sort.project-name-descending": {
+    "defaultMessage": "项目名称 Z-A"
+  },
+  "content.page-layout.pin-view": {
+    "defaultMessage": "固定当前视图"
+  },
+  "content.page-layout.reset-view": {
+    "defaultMessage": "重置视图"
+  },
+  "content.page-layout.unpin-view": {
+    "defaultMessage": "取消固定当前视图"
   },
   "content.page-layout.update-all": {
-    "defaultMessage": "Aktualizovat vše"
+    "defaultMessage": "更新所有"
+  },
+  "content.page-layout.view-options": {
+    "defaultMessage": "视图选项"
+  },
+  "content.selection-bar.all-already-disabled": {
+    "defaultMessage": "已禁用选择的所有内容"
+  },
+  "content.selection-bar.all-already-enabled": {
+    "defaultMessage": "已启用选择的所有内容"
+  },
+  "content.selection-bar.bulk.deleting": {
+    "defaultMessage": "正在删除 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.deleting-count": {
+    "defaultMessage": "正在删除 {count, number} {contentType}"
+  },
+  "content.selection-bar.bulk.deleting-waiting": {
+    "defaultMessage": "正在删除 {contentType}……"
   },
   "content.selection-bar.bulk.disabling": {
-    "defaultMessage": "Vypínání {progress}/{total} {contentType}..."
+    "defaultMessage": "正在禁用 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.disabling-count": {
+    "defaultMessage": "正在禁用 {count, number} {contentType}"
   },
   "content.selection-bar.bulk.disabling-waiting": {
-    "defaultMessage": "Vypínání {contentType}..."
+    "defaultMessage": "正在禁用 {contentType}……"
+  },
+  "content.selection-bar.bulk.enabling": {
+    "defaultMessage": "正在启用 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.enabling-count": {
+    "defaultMessage": "正在启用 {count, number} {contentType}"
+  },
+  "content.selection-bar.bulk.enabling-waiting": {
+    "defaultMessage": "正在启用 {contentType}……"
   },
   "content.selection-bar.bulk.updating": {
-    "defaultMessage": "Probíhá aktualizace {progress}/{total} {contentType}..."
+    "defaultMessage": "正在更新 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.updating-count": {
+    "defaultMessage": "正在更新 {count, number} {contentType}"
   },
   "content.selection-bar.bulk.updating-waiting": {
-    "defaultMessage": "Aktualizování {contentType}..."
+    "defaultMessage": "正在更新 {contentType}……"
   },
   "content.selection-bar.selected-count": {
-    "defaultMessage": "{count, number} {contentType} vybráno"
+    "defaultMessage": "已选中{count, number}个{contentType}"
   },
   "content.selection-bar.selected-count-simple": {
-    "defaultMessage": "{count, number} vybráno"
+    "defaultMessage": "已选择 {count, number} 个"
   },
   "creation-flow.button.create-instance": {
-    "defaultMessage": "Vytvořit instanci"
+    "defaultMessage": "创建实例"
   },
   "creation-flow.button.create-world": {
-    "defaultMessage": "Vytvořit svět"
+    "defaultMessage": "创建世界"
   },
   "creation-flow.button.finish": {
-    "defaultMessage": "Dokončit"
+    "defaultMessage": "完成"
   },
   "creation-flow.button.import": {
-    "defaultMessage": "Importovat"
+    "defaultMessage": "导入"
   },
   "creation-flow.button.import-instances": {
-    "defaultMessage": "Importovat {count, plural, one {# instanci} few {# instance} other {# instancí}}"
+    "defaultMessage": "导入 {count} 个实例"
   },
   "creation-flow.button.setup-server": {
-    "defaultMessage": "Nastavit server"
+    "defaultMessage": "初始化服务器"
+  },
+  "creation-flow.modal.custom-setup.adjunct.hint": {
+    "defaultMessage": "下载前会自动选择兼容版本。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.checking-compatibility": {
+    "defaultMessage": "正在检查兼容性……"
+  },
+  "creation-flow.modal.custom-setup.adjunct.compatibility-load-failed": {
+    "defaultMessage": "无法验证 {loader} 的兼容性。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.label": {
+    "defaultMessage": "附加加载器"
+  },
+  "creation-flow.modal.custom-setup.adjunct.optifabric-load-failed": {
+    "defaultMessage": "无法验证 OptiFabric 兼容性。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.optifabric-unsupported": {
+    "defaultMessage": "OptiFine 需要 OptiFabric，但当前游戏版本没有兼容版本。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.primary-unsupported": {
+    "defaultMessage": "所选主加载器不支持当前游戏版本。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.select-game-version": {
+    "defaultMessage": "请先选择游戏版本以检查兼容性。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.unsupported": {
+    "defaultMessage": "{loader} 没有支持当前游戏版本的兼容版本。"
   },
   "creation-flow.modal.custom-setup.build-number.label": {
-    "defaultMessage": "Číslo buildu"
+    "defaultMessage": "构建编号"
   },
   "creation-flow.modal.custom-setup.build-number.placeholder": {
-    "defaultMessage": "Vybrat číslo buildu"
+    "defaultMessage": "选择构建编号"
   },
   "creation-flow.modal.custom-setup.build-number.search-placeholder": {
-    "defaultMessage": "Hledat číslo buildu..."
+    "defaultMessage": "搜索构建编号……"
   },
   "creation-flow.modal.custom-setup.content-loader.label": {
-    "defaultMessage": "Loader obsahu"
+    "defaultMessage": "内容加载器"
+  },
+  "creation-flow.modal.custom-setup.game-dir.label": {
+    "defaultMessage": "游戏目录"
+  },
+  "creation-flow.modal.custom-setup.game-dir.managed": {
+    "defaultMessage": "Axolotl 目录"
+  },
+  "creation-flow.modal.custom-setup.game-version.load-failed": {
+    "defaultMessage": "游戏版本加载失败"
+  },
+  "creation-flow.modal.custom-setup.game-version.no-supported-versions": {
+    "defaultMessage": "没有游戏版本支持此加载器"
   },
   "creation-flow.modal.custom-setup.game-version.placeholder": {
-    "defaultMessage": "Vybrat verzi hry"
+    "defaultMessage": "选择游戏版本"
   },
   "creation-flow.modal.custom-setup.game-version.search-placeholder": {
-    "defaultMessage": "Hledat verzi hry..."
+    "defaultMessage": "搜索游戏版本……"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.alpha": {
+    "defaultMessage": "愚人节版"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.ancient": {
+    "defaultMessage": "远古版"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.release": {
+    "defaultMessage": "正式版"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.snapshot": {
+    "defaultMessage": "快照版"
   },
   "creation-flow.modal.custom-setup.icon.remove": {
-    "defaultMessage": "Odebrat ikonu"
+    "defaultMessage": "移除图标"
   },
   "creation-flow.modal.custom-setup.icon.select": {
-    "defaultMessage": "Vybrat ikonu"
+    "defaultMessage": "选择图标"
   },
   "creation-flow.modal.custom-setup.loader-version-type.latest": {
-    "defaultMessage": "Nejnovější"
+    "defaultMessage": "最新版"
   },
   "creation-flow.modal.custom-setup.loader-version-type.other": {
-    "defaultMessage": "Jiná"
+    "defaultMessage": "其他"
   },
   "creation-flow.modal.custom-setup.loader-version-type.stable": {
-    "defaultMessage": "Stabilní"
+    "defaultMessage": "稳定版"
   },
   "creation-flow.modal.custom-setup.loader-version.label": {
-    "defaultMessage": "Verze loaderu"
+    "defaultMessage": "加载器版本"
   },
   "creation-flow.modal.custom-setup.loader-version.placeholder": {
-    "defaultMessage": "Vyberte verzi loaderu"
+    "defaultMessage": "选择加载器版本"
   },
   "creation-flow.modal.custom-setup.loader-version.search-placeholder": {
-    "defaultMessage": "Hledat verzi loaderu..."
+    "defaultMessage": "搜索加载器版本……"
+  },
+  "creation-flow.modal.custom-setup.loader.compatibility-load-failed": {
+    "defaultMessage": "无法验证加载器兼容性"
   },
   "creation-flow.modal.custom-setup.loader.label": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "加载器"
+  },
+  "creation-flow.modal.custom-setup.loader.no-such-versions-available": {
+    "defaultMessage": "无此版本"
+  },
+  "creation-flow.modal.custom-setup.loader.unsupported-tooltip": {
+    "defaultMessage": "此加载器不支持所选游戏版本"
   },
   "creation-flow.modal.custom-setup.name.label": {
-    "defaultMessage": "Název"
+    "defaultMessage": "名称"
   },
   "creation-flow.modal.custom-setup.name.placeholder": {
-    "defaultMessage": "Zadej název instance"
+    "defaultMessage": "输入实例名称"
   },
   "creation-flow.modal.custom-setup.options.no-versions-available": {
-    "defaultMessage": "Žádné dostupné verze"
+    "defaultMessage": "没有可用版本"
+  },
+  "creation-flow.modal.custom-setup.will-install-loader-version": {
+    "defaultMessage": "将会安装：{loader} {version}"
+  },
+  "creation-flow.modal.import-instance.import-prompt": {
+    "defaultMessage": "拖拽启动器文件夹、整合包文件或 .minecraft 文件夹即可一键导入实例"
+  },
+  "creation-flow.modal.import-instance.select-file": {
+    "defaultMessage": "选择要导入的文件"
   },
   "creation-flow.modal.setup-type.instance.description": {
-    "defaultMessage": "Instance je nastavení Minecraftu s konkrétním loaderem, verzí a módy."
+    "defaultMessage": "实例是带有特定加载器、游戏版本和模组的一套 Minecraft 配置。"
   },
   "creation-flow.modal.setup-type.option.custom-setup.description": {
-    "defaultMessage": "Začněte od začátku výběrem loaderu a verze hry."
+    "defaultMessage": "从头开始，选择一个加载器和游戏版本。"
   },
   "creation-flow.modal.setup-type.option.custom-setup.title": {
-    "defaultMessage": "Vlastní nastavení"
+    "defaultMessage": "自定义设置"
   },
   "creation-flow.modal.setup-type.option.import-instance.description": {
-    "defaultMessage": "Importovat instanci z Prism, CurseForge nebo podobné platformy."
+    "defaultMessage": "从 Prism、CurseForge 或类似平台导入实例。"
   },
   "creation-flow.modal.setup-type.option.import-instance.title": {
-    "defaultMessage": "Importovat instanci"
+    "defaultMessage": "导入实例"
   },
   "creation-flow.modal.setup-type.option.modpack-base.description": {
-    "defaultMessage": "Procházejte modpacky na Modrinthu nebo ho importujte ze souboru."
+    "defaultMessage": "在 Modrinth 上浏览整合包或从文件中导入一个。"
   },
   "creation-flow.modal.setup-type.option.modpack-base.title": {
-    "defaultMessage": "Nainstalovat modpack"
+    "defaultMessage": "安装整合包"
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.description": {
-    "defaultMessage": "Klasický Minecraft bez módů nebo pluginů."
+    "defaultMessage": "不包含模组或插件的经典 Minecraft。"
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.title": {
-    "defaultMessage": "Vanilla Minecraft"
+    "defaultMessage": "原版 Minecraft"
   },
   "creation-flow.modal.setup-type.title.installation": {
-    "defaultMessage": "Vyber typ instalace"
+    "defaultMessage": "选择安装类型"
   },
   "creation-flow.modal.setup-type.title.instance": {
-    "defaultMessage": "Vyber typ instance"
+    "defaultMessage": "选择实例类型"
   },
   "creation-flow.modal.setup-type.title.world": {
-    "defaultMessage": "Vyber typ světa"
+    "defaultMessage": "选择世界类型"
   },
   "creation-flow.title.choose-modpack": {
-    "defaultMessage": "Výběr modpacku"
+    "defaultMessage": "选择整合包"
   },
   "creation-flow.title.create-instance": {
-    "defaultMessage": "Vytvoření instance"
+    "defaultMessage": "创建实例"
   },
   "creation-flow.title.create-world": {
-    "defaultMessage": "Vytvořit svět"
+    "defaultMessage": "创建世界"
   },
   "creation-flow.title.import-instance": {
-    "defaultMessage": "Importovat instanci"
+    "defaultMessage": "导入实例"
   },
   "creation-flow.title.reset-server": {
-    "defaultMessage": "Resetovat server"
+    "defaultMessage": "重置服务器"
   },
   "creation-flow.title.set-up-server": {
-    "defaultMessage": "Nastavit server"
+    "defaultMessage": "初始化服务器"
   },
   "external-project-license-status.no": {
-    "defaultMessage": "Ne"
+    "defaultMessage": "否"
   },
   "external-project-license-status.permanent-no": {
-    "defaultMessage": "Permanentně ne"
+    "defaultMessage": "永久拒绝"
   },
   "external-project-license-status.unidentified": {
-    "defaultMessage": "Neidentifikováno"
+    "defaultMessage": "未知"
   },
   "external-project-license-status.with-attribution": {
-    "defaultMessage": "S uvedením autora"
+    "defaultMessage": "已署名"
   },
   "external-project-license-status.with-attribution-and-source": {
-    "defaultMessage": "S uvedením autora a zdroje"
+    "defaultMessage": "已署名及来源"
   },
   "external-project-license-status.yes": {
-    "defaultMessage": "Ano"
+    "defaultMessage": "是"
   },
   "files.conflict-modal.header": {
-    "defaultMessage": "Shrnutí extrakce"
+    "defaultMessage": "解压概览"
   },
   "files.conflict-modal.overwrite-button": {
-    "defaultMessage": "Přepsat"
+    "defaultMessage": "覆盖"
   },
   "files.conflict-modal.overwrite-file-label": {
-    "defaultMessage": "Přepíše <file-path>{path}</file-path>"
+    "defaultMessage": "将覆盖<file-path>{path}</file-path>"
+  },
+  "files.conflict-modal.overwrite-many-warning": {
+    "defaultMessage": "如果继续解压，将有超过 100 个文件被覆盖。以下是其中一部分。"
+  },
+  "files.conflict-modal.overwrite-warning": {
+    "defaultMessage": "以下 {count} 个文件已存在于你的服务器中，若继续解压将被覆盖。"
   },
   "files.conflict-modal.overwritten-count": {
-    "defaultMessage": "{count} přepsáno"
+    "defaultMessage": "将覆盖 {count} 个文件"
   },
   "files.conflict-modal.warning-header": {
-    "defaultMessage": "Soubory budou přepsány"
+    "defaultMessage": "文件将被覆盖"
   },
   "files.create-modal.create-button": {
-    "defaultMessage": "Vytvořit {type}"
+    "defaultMessage": "创建 {type}"
   },
   "files.create-modal.header": {
-    "defaultMessage": "Vytvoření {type}"
+    "defaultMessage": "创建一个 {type}"
   },
   "files.create-modal.placeholder-directory": {
-    "defaultMessage": "např. moje-složka"
+    "defaultMessage": "如：my-folder"
   },
   "files.create-modal.placeholder-file": {
-    "defaultMessage": "např. config.yml"
+    "defaultMessage": "如：config.yml"
   },
   "files.delete-modal.deleting-name": {
-    "defaultMessage": "Smazání „{name}“"
+    "defaultMessage": "正在删除“{name}”"
+  },
+  "files.delete-modal.deleting-multiple": {
+    "defaultMessage": "正在删除 {count} 个项目"
+  },
+  "files.delete-modal.bulk-header": {
+    "defaultMessage": "删除多个项目"
+  },
+  "files.delete-modal.bulk-warning": {
+    "defaultMessage": "选中的项目将被永久删除。此操作无法被撤销。"
+  },
+  "files.delete-modal.symlink-warning-header": {
+    "defaultMessage": "共享实例"
+  },
+  "files.delete-modal.symlink-warning-body": {
+    "defaultMessage": "你正在修改链接到“{path}”的共享实例中的文件。更改将影响原始实例。"
   },
   "files.delete-modal.header": {
-    "defaultMessage": "Smazání souboru"
+    "defaultMessage": "删除文件"
   },
   "files.delete-modal.warning.file": {
-    "defaultMessage": "Soubor bude trvale smazán. Tuto akci nelze vrátit zpět."
+    "defaultMessage": "该文件将被永久删除。此操作无法被撤销。"
   },
   "files.delete-modal.warning.folder": {
-    "defaultMessage": "Složka a veškerý její obsah budou trvale smazány. Tuto akci nelze vrátit zpět."
+    "defaultMessage": "该文件夹以及文件夹以下的所有内容将被永久删除。此操作无法被撤销。"
+  },
+  "files.editor.editor-unavailable-placeholder": {
+    "defaultMessage": "代码编辑器不可用"
   },
   "files.editor.failed-to-open-text": {
-    "defaultMessage": "Obsah souboru se nepodařilo načíst."
+    "defaultMessage": "无法加载文件内容。"
   },
   "files.editor.failed-to-open-title": {
-    "defaultMessage": "Nepodařilo se otevřít soubor"
+    "defaultMessage": "打开文件失败"
   },
   "files.editor.failed-to-share-text": {
-    "defaultMessage": "Nahrání na mclo.gs se nepodařilo."
+    "defaultMessage": "无法分享日志文件。"
   },
   "files.editor.failed-to-share-title": {
-    "defaultMessage": "Nepodařilo se sdílet soubor"
+    "defaultMessage": "分享文件失败"
   },
   "files.editor.file-saved-text": {
-    "defaultMessage": "Tvůj soubor byl uložen."
+    "defaultMessage": "你的文件已保存。"
   },
   "files.editor.file-saved-title": {
-    "defaultMessage": "Soubor uložen"
+    "defaultMessage": "文件已保存"
   },
   "files.editor.find-close": {
-    "defaultMessage": "Zavřít"
+    "defaultMessage": "关闭"
   },
   "files.editor.find-in-file": {
-    "defaultMessage": "Najít"
+    "defaultMessage": "查找"
   },
   "files.editor.find-match-count": {
-    "defaultMessage": "{current} z {total}"
+    "defaultMessage": "第 {current} 项，共 {total} 项"
   },
   "files.editor.find-next-match": {
-    "defaultMessage": "Další shoda"
+    "defaultMessage": "下一个匹配项"
   },
   "files.editor.find-no-results": {
-    "defaultMessage": "Žádné výsledky"
+    "defaultMessage": "无结果"
   },
   "files.editor.find-previous-match": {
-    "defaultMessage": "Předchozí shoda"
+    "defaultMessage": "上一个匹配项"
+  },
+  "files.editor.find-toggle-replace": {
+    "defaultMessage": "切换替换"
   },
   "files.editor.log-url-copied-text": {
-    "defaultMessage": "URL adresa vašeho log souboru bylo zkopírované do vaší schránky."
+    "defaultMessage": "已将你的日志文件链接复制到剪切板。"
   },
   "files.editor.log-url-copied-title": {
-    "defaultMessage": "URL logu zkopírované"
+    "defaultMessage": "日志链接已复制"
   },
   "files.editor.replace": {
-    "defaultMessage": "Nahradit"
+    "defaultMessage": "替换"
   },
   "files.editor.replace-all": {
-    "defaultMessage": "Nahradit vše"
+    "defaultMessage": "替换所有"
   },
   "files.editor.replace-in-file": {
-    "defaultMessage": "Nahradit"
+    "defaultMessage": "替换"
   },
   "files.editor.save-failed-text": {
-    "defaultMessage": "Soubor se nepodařilo uložit."
+    "defaultMessage": "无法保存文件。"
   },
   "files.editor.save-failed-title": {
-    "defaultMessage": "Uložení selhalo"
+    "defaultMessage": "保存失败"
+  },
+  "files.editor.share-truncated-warning": {
+    "defaultMessage": "日志文件过大，已自动截取最后 9MB 上传。"
   },
   "files.error.go-to-home": {
-    "defaultMessage": "Jít do domovské složky"
+    "defaultMessage": "前往主文件夹"
   },
   "files.error.try-again": {
-    "defaultMessage": "Zkusit znovu"
+    "defaultMessage": "重试"
   },
   "files.image_viewer.image_too_large": {
-    "defaultMessage": "Obrázek je moc velký (max. {maxDimension}x{maxDimension} pixelů)"
+    "defaultMessage": "图片过大，无法查看（最大支持 {maxDimension}×{maxDimension} 像素）"
   },
   "files.image_viewer.invalid_image": {
-    "defaultMessage": "Nesprávný nebo prázdný obrázek."
+    "defaultMessage": "图片文件无效或为空。"
   },
   "files.image_viewer.load_failed": {
-    "defaultMessage": "Obrázek se nepodařilo načíst"
+    "defaultMessage": "加载图片失败"
   },
   "files.image_viewer.reset_zoom": {
-    "defaultMessage": "Obnovit přiblížení"
+    "defaultMessage": "重置缩放"
   },
   "files.image_viewer.viewed_image_alt": {
-    "defaultMessage": "Zobrazený obrázek"
+    "defaultMessage": "已查看图片"
   },
   "files.image_viewer.zoom_in": {
-    "defaultMessage": "Přiblížit"
+    "defaultMessage": "放大"
   },
   "files.image_viewer.zoom_out": {
-    "defaultMessage": "Oddálit"
+    "defaultMessage": "缩小"
   },
   "files.item-type.file": {
-    "defaultMessage": "soubor"
+    "defaultMessage": "文件"
   },
   "files.item-type.files": {
-    "defaultMessage": "soubory"
+    "defaultMessage": "文件"
   },
   "files.item-type.folder": {
-    "defaultMessage": "složka"
+    "defaultMessage": "文件夹"
   },
   "files.item-type.folders": {
-    "defaultMessage": "složky"
+    "defaultMessage": "文件夹"
   },
   "files.layout.dry-run-failed-text": {
-    "defaultMessage": "Chyby při testovacím spuštění"
+    "defaultMessage": "执行模拟运行时出错"
   },
   "files.layout.dry-run-failed-title": {
-    "defaultMessage": "Testovací spuštění selhalo"
+    "defaultMessage": "模拟运行失败"
   },
   "files.layout.empty-folder-description": {
-    "defaultMessage": "Nejsou tu žádné soubory nebo složky."
+    "defaultMessage": "这里没有任何文件或文件夹。"
   },
   "files.layout.empty-folder-title": {
-    "defaultMessage": "Tato složka je prázdná"
+    "defaultMessage": "此文件夹为空"
   },
   "files.layout.error-message": {
-    "defaultMessage": "Složka nemusí existovat."
+    "defaultMessage": "该文件夹可能不存在。"
   },
   "files.layout.error-title": {
-    "defaultMessage": "Soubory se nepodařilo načíst"
+    "defaultMessage": "无法加载文件"
   },
   "files.layout.extraction-started-title": {
-    "defaultMessage": "Extrakce zahájena"
+    "defaultMessage": "已开始解压"
   },
   "files.layout.selected-count": {
-    "defaultMessage": "{count} vybráno"
+    "defaultMessage": "已选择 {count} 项"
   },
   "files.layout.unsaved-changes": {
-    "defaultMessage": "Máte neuložené změny."
+    "defaultMessage": "你有未保存的更改。"
   },
   "files.move-modal.current-location": {
-    "defaultMessage": "Aktuální umístnění"
+    "defaultMessage": "当前位置"
   },
   "files.move-modal.destination-path": {
-    "defaultMessage": "Cesta destinace"
+    "defaultMessage": "目标路径"
   },
   "files.move-modal.destination-placeholder": {
-    "defaultMessage": "např. /moje-složka"
+    "defaultMessage": "如：/my-folder"
   },
   "files.move-modal.header": {
-    "defaultMessage": "Přesunout {type}"
+    "defaultMessage": "移动{type}"
   },
   "files.navbar.back-to-home": {
-    "defaultMessage": "Zpět domu"
+    "defaultMessage": "返回主目录"
   },
   "files.navbar.breadcrumb-navigation": {
-    "defaultMessage": "Drobečková navigace"
+    "defaultMessage": "面包屑导航"
   },
   "files.navbar.create-new": {
-    "defaultMessage": "Vytvořit novou..."
+    "defaultMessage": "新建……"
   },
   "files.navbar.file-navigation": {
-    "defaultMessage": "Navigace souborů"
+    "defaultMessage": "文件导航"
   },
   "files.navbar.find-in-file": {
-    "defaultMessage": "Hledat v souboru"
+    "defaultMessage": "在文件中查找"
   },
   "files.navbar.home": {
-    "defaultMessage": "Domů"
+    "defaultMessage": "主目录"
   },
   "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Instalovat CurseForge pack"
+    "defaultMessage": "安装 CurseForge 整合包"
   },
   "files.navbar.new-file": {
-    "defaultMessage": "Nový soubor"
+    "defaultMessage": "新建文件"
   },
   "files.navbar.new-folder": {
-    "defaultMessage": "Nová složka"
+    "defaultMessage": "新建文件夹"
   },
   "files.navbar.search-files": {
-    "defaultMessage": "Hledat soubory"
+    "defaultMessage": "搜索文件"
+  },
+  "files.navbar.share-log": {
+    "defaultMessage": "分享日志"
   },
   "files.navbar.upload-from-zip": {
-    "defaultMessage": "Nahrát ze souboru .zip"
+    "defaultMessage": "从 .zip 文件导入"
   },
   "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Nahrát ze souboru .zip URL"
+    "defaultMessage": "通过 .zip 链接导入"
   },
   "files.rename-modal.header": {
-    "defaultMessage": "Přejmenovat {name}"
+    "defaultMessage": "重命名 {name}"
   },
   "files.rename-modal.new-name-label": {
-    "defaultMessage": "Nový název"
+    "defaultMessage": "新名称"
   },
   "files.row.item-count": {
-    "defaultMessage": "{count, plural, one {# předmět} few {# předměty} other {# předmětů}}"
+    "defaultMessage": "{count} 项"
+  },
+  "files.row.parent-folder": {
+    "defaultMessage": "上级文件夹"
   },
   "files.table-header.created": {
-    "defaultMessage": "Vytvořeno"
+    "defaultMessage": "创建时间"
   },
   "files.table-header.modified": {
-    "defaultMessage": "Změněno"
+    "defaultMessage": "修改时间"
   },
   "files.table-header.name": {
-    "defaultMessage": "Název"
+    "defaultMessage": "名称"
   },
   "files.table-header.size": {
-    "defaultMessage": "Velikost"
+    "defaultMessage": "大小"
   },
   "files.unsaved-changes-modal.body": {
-    "defaultMessage": "Máte neuložené změny, o které přijdete, pokud odejdete. Chcete je před odchodem uložit?"
+    "defaultMessage": "你有未保存的更改，离开后将丢失。是否在离开前保存？"
   },
   "files.unsaved-changes-modal.discard": {
-    "defaultMessage": "Zahodit"
+    "defaultMessage": "丢弃"
   },
   "files.unsaved-changes-modal.header": {
-    "defaultMessage": "Neuložené změny"
+    "defaultMessage": "未保存的更改"
   },
   "files.validation.name-invalid-directory": {
-    "defaultMessage": "Název smí obsahovat pouze písmena, číslice, pomlčky, podtržítka nebo mezery."
+    "defaultMessage": "名称只能包含字母、数字、连字符、下划线或空格。"
   },
   "files.validation.name-invalid-file": {
-    "defaultMessage": "Název smí obsahovat pouze písmena, číslice, pomlčky, podtržítka, tečky nebo mezery."
+    "defaultMessage": "名称只能包含字母、数字、连字符、下划线或空格。"
   },
   "files.validation.name-label": {
-    "defaultMessage": "Název"
+    "defaultMessage": "名称"
   },
   "files.validation.name-required": {
-    "defaultMessage": "Název je povinný."
+    "defaultMessage": "名称为必填项。"
   },
   "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Instalace CurseForge modpacku"
+    "defaultMessage": "安装一个 CurseForge 整合包"
   },
   "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Nepodařilo se najít CurseForge modpack na tomto URL."
+    "defaultMessage": "无法通过该链接找到 CurseForge 整合包。"
   },
   "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge modpack nebyl nalezen"
+    "defaultMessage": "未找到 CurseForge 整合包"
   },
   "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Zadejte odkaz"
+    "defaultMessage": "输入链接"
   },
   "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL musí být odkazem na verzi modpacku na CurseForge."
+    "defaultMessage": "必须是 CurseForge 整合包的链接。"
   },
   "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL adresa musí být platná."
+    "defaultMessage": "链接必须是有效的。"
   },
   "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL adresa je povinná."
+    "defaultMessage": "链接是必填项。"
   },
   "files.zip-url-modal.install-button": {
-    "defaultMessage": "Nainstalovat"
+    "defaultMessage": "安装"
   },
   "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Instalace selhala"
+    "defaultMessage": "安装失败"
   },
   "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Zkopírujte URL adresu stránky verze a vložte ji níže."
+    "defaultMessage": "复制版本页面的链接并粘贴到下方。"
   },
   "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Zkopírujte URL"
+    "defaultMessage": "复制链接"
   },
   "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Procházejte CurseForge a najděte modpack, který chcete."
+    "defaultMessage": "浏览 CurseForge 并找到你想要的整合包。"
   },
   "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Najdi modpack"
+    "defaultMessage": "找到整合包"
   },
   "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Přejděte na kartu „Soubory“ a vyberte verzi, kterou chcete nainstalovat."
+    "defaultMessage": "进入“文件”标签页并选择要安装的版本。"
   },
   "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Vyber verzi"
+    "defaultMessage": "选择一个版本"
   },
   "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Došlo k neznámé chybě"
+    "defaultMessage": "发生未知错误"
   },
   "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Zkopírujte a vložte přímou URL adresu pro stažení souboru .zip."
+    "defaultMessage": "复制并粘贴 .zip 文件的直链下载链接。"
   },
   "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Nahrání obsahu souboru .zip z URL"
+    "defaultMessage": "正在用链接上传 .zip 内容"
   },
   "form.label.address-line": {
-    "defaultMessage": "Adresa"
+    "defaultMessage": "地址第 1 行"
   },
   "form.label.address-line-2": {
-    "defaultMessage": "Adresa 2 (dobrovolní)"
+    "defaultMessage": "地址第 2 行（选填）"
   },
   "form.label.amount": {
-    "defaultMessage": "Množství"
+    "defaultMessage": "金额"
   },
   "form.label.bank-name": {
-    "defaultMessage": "Název banky"
+    "defaultMessage": "银行名称"
   },
   "form.label.business-name": {
-    "defaultMessage": "Název firmy"
+    "defaultMessage": "公司名称"
   },
   "form.label.city": {
-    "defaultMessage": "Město"
+    "defaultMessage": "市"
   },
   "form.label.country": {
-    "defaultMessage": "Země"
+    "defaultMessage": "国家/地区"
   },
   "form.label.date-of-birth": {
-    "defaultMessage": "Datum narození"
+    "defaultMessage": "出生日期"
   },
   "form.label.email": {
-    "defaultMessage": "Email"
+    "defaultMessage": "电子邮箱"
   },
   "form.label.first-name": {
-    "defaultMessage": "Křestní jméno"
+    "defaultMessage": "名字"
   },
   "form.label.last-name": {
-    "defaultMessage": "Příjmení"
+    "defaultMessage": "姓氏"
   },
   "form.label.postal-code": {
-    "defaultMessage": "Poštovní směrovací číslo/PSČ"
+    "defaultMessage": "邮编"
   },
   "form.label.state-province": {
-    "defaultMessage": "Stát/provincie"
+    "defaultMessage": "省/州"
   },
   "form.placeholder.address": {
-    "defaultMessage": "Zadejte adresu"
+    "defaultMessage": "输入地址"
   },
   "form.placeholder.address-2": {
-    "defaultMessage": "Apartment, suite, atd."
+    "defaultMessage": "公寓、套房等"
   },
   "form.placeholder.amount": {
-    "defaultMessage": "Zadejte množstvo"
+    "defaultMessage": "输入金额"
   },
   "form.placeholder.bank-name": {
-    "defaultMessage": "Zadejte název banky"
+    "defaultMessage": "输入银行名称"
   },
   "form.placeholder.bank-name-dropdown": {
-    "defaultMessage": "Vyberte název banky"
+    "defaultMessage": "选择银行名称"
   },
   "form.placeholder.business-name": {
-    "defaultMessage": "Vložte firemní jméno"
+    "defaultMessage": "输入企业名称"
   },
   "form.placeholder.city": {
-    "defaultMessage": "Zadejte město"
+    "defaultMessage": "输入市"
   },
   "form.placeholder.country": {
-    "defaultMessage": "Vyberte zemi"
+    "defaultMessage": "选择国家/地区"
   },
   "form.placeholder.email": {
-    "defaultMessage": "Zadejte emailovú adresu"
+    "defaultMessage": "输入电子邮件地址"
   },
   "form.placeholder.first-name": {
-    "defaultMessage": "Zadejte křestní jméno"
+    "defaultMessage": "输入名字"
   },
   "form.placeholder.last-name": {
-    "defaultMessage": "Zadejte příjmení"
+    "defaultMessage": "输入姓氏"
   },
   "form.placeholder.postal-code": {
-    "defaultMessage": "Zadejte poštové směrovací číslo"
+    "defaultMessage": "输入邮编"
   },
   "form.placeholder.state": {
-    "defaultMessage": "Vložte stát/provincii"
+    "defaultMessage": "输入州/省"
   },
   "format.bytes.0": {
-    "defaultMessage": "{count, plural, one {# bajt} few {# bajty} other {# bajtů}}"
+    "defaultMessage": "{count, plural, other {# 字节}}"
   },
   "format.bytes.1": {
     "defaultMessage": "{count, number} KiB"
@@ -966,1231 +1803,1453 @@
     "defaultMessage": "{count, number} TiB"
   },
   "header.category.category": {
-    "defaultMessage": "Kategorie"
+    "defaultMessage": "类别"
+  },
+  "header.category.cf-extra": {
+    "defaultMessage": "更多 CurseForge 分类"
   },
   "header.category.feature": {
-    "defaultMessage": "Funkce"
+    "defaultMessage": "功能特点"
   },
   "header.category.minecraft-server-community": {
-    "defaultMessage": "Komunita"
+    "defaultMessage": "社区"
   },
   "header.category.minecraft-server-features": {
-    "defaultMessage": "Herní prvky"
+    "defaultMessage": "特色"
   },
   "header.category.minecraft-server-gameplay": {
-    "defaultMessage": "Hratelnost"
+    "defaultMessage": "游戏机制"
   },
   "header.category.minecraft-server-meta": {
-    "defaultMessage": "Meta"
+    "defaultMessage": "元素"
   },
   "header.category.performance-impact": {
-    "defaultMessage": "Dopad na výkon"
+    "defaultMessage": "性能要求"
   },
   "header.category.resolutions": {
-    "defaultMessage": "Rozlišení"
+    "defaultMessage": "分辨率"
   },
   "input.search-version.placeholder": {
-    "defaultMessage": "Hledat verzi..."
+    "defaultMessage": "查找版本……"
   },
   "input.search.placeholder": {
-    "defaultMessage": "Hledat..."
+    "defaultMessage": "搜索…"
   },
   "input.select-version.placeholder": {
-    "defaultMessage": "Vybrat verzi"
+    "defaultMessage": "选择版本"
   },
   "input.view.gallery": {
-    "defaultMessage": "Zobrazení v galerii"
+    "defaultMessage": "图库预览"
   },
   "input.view.grid": {
-    "defaultMessage": "Zobrazení v mřížce"
+    "defaultMessage": "网格视图"
   },
   "input.view.list": {
-    "defaultMessage": "Zobrazení v řádcích"
+    "defaultMessage": "列表视图"
   },
   "installation-settings.aria.select-game-version": {
-    "defaultMessage": "Vybrat verzi hry"
+    "defaultMessage": "选择游戏版本"
   },
   "installation-settings.aria.select-loader-version": {
-    "defaultMessage": "Vybrat {loader} verzi"
+    "defaultMessage": "选择 {loader} 版本"
   },
   "installation-settings.aria.select-platform": {
-    "defaultMessage": "Vybrat platformu"
+    "defaultMessage": "选择平台"
   },
   "installation-settings.confirm-version-change": {
-    "defaultMessage": "Potvrdit"
+    "defaultMessage": "确认"
+  },
+  "installation-settings.confirm-version-change-description": {
+    "defaultMessage": "切换到 {gameVersion} 将修改你服务器上的以下内容。"
+  },
+  "installation-settings.confirm-version-change-header": {
+    "defaultMessage": "审查内容更改"
   },
   "installation-settings.edit-installation.title": {
-    "defaultMessage": "Úprava instalace"
+    "defaultMessage": "编辑安装"
+  },
+  "installation-settings.edit.warning-instance": {
+    "defaultMessage": "我们不建议在安装内容后修改安装设置。如果你想修改，请谨慎操作，因为可能会出现问题。"
+  },
+  "installation-settings.edit.warning-server": {
+    "defaultMessage": "我们不建议在安装内容后修改安装设置。如果你想修改，请先重置你的服务器。"
   },
   "installation-settings.incompatible-content.auto-fix-button": {
-    "defaultMessage": "Auto-oprava"
+    "defaultMessage": "自动修复"
   },
   "installation-settings.incompatible-content.change-loader-button": {
-    "defaultMessage": "Změnit loader"
+    "defaultMessage": "更改加载器"
   },
   "installation-settings.incompatible-content.disable-conflicts-button": {
-    "defaultMessage": "Vypnout konflikty"
+    "defaultMessage": "禁用冲突项"
+  },
+  "installation-settings.incompatible-content.game-version-warning-body": {
+    "defaultMessage": "切换游戏版本时 我们既可以选择禁用那些不兼容的已安装内容 也可以尝试去解决这些兼容性问题"
   },
   "installation-settings.incompatible-content.game-version-warning-title": {
-    "defaultMessage": "Upozornění na nekompatibilitu"
+    "defaultMessage": "不兼容警告"
   },
   "installation-settings.incompatible-content.header": {
-    "defaultMessage": "Nekompatibilní obsah nainstalován"
+    "defaultMessage": "安装了不兼容的内容"
+  },
+  "installation-settings.incompatible-content.loader-change-body": {
+    "defaultMessage": "切换加载器时 所有已经安装的内容都会被强制禁用 我们建议你直接重置服务器"
   },
   "installation-settings.incompatible-content.loader-change-title": {
-    "defaultMessage": "Změna loaderů je destruktivní akce"
+    "defaultMessage": "更改加载器具有破坏性"
   },
   "installation-settings.linked-instance.title": {
-    "defaultMessage": "Propojený {projectType}"
+    "defaultMessage": "与{projectType}关联"
   },
   "installation-settings.linked.modpack": {
-    "defaultMessage": "modpack"
+    "defaultMessage": "整合包"
   },
   "installation-settings.linked.server-project": {
-    "defaultMessage": "serverový projekt"
+    "defaultMessage": "服务器项目"
   },
   "installation-settings.loader-version": {
-    "defaultMessage": "{loader} verze"
+    "defaultMessage": "{loader} 版本"
+  },
+  "installation-settings.loader-version.error": {
+    "defaultMessage": "加载加载器版本数据失败"
+  },
+  "installation-settings.loader-version.unsupported": {
+    "defaultMessage": "此加载器不支持所选游戏版本"
+  },
+  "installation-settings.platform-lock-tooltip": {
+    "defaultMessage": "你需要重置服务器以切换加载器。"
+  },
+  "installation-settings.reinstall-modpack.description": {
+    "defaultMessage": "重新安装整合包会将{type}内容重置到其初始状态，此操作将删除所有您自行添加的模组或内容。"
   },
   "installation-settings.reinstall-modpack.title": {
-    "defaultMessage": "Přeinstalace modpacku"
+    "defaultMessage": "重新安装整合包"
   },
   "installation-settings.reinstalling-modpack": {
-    "defaultMessage": "Přeinstalování modpacku"
+    "defaultMessage": "正在重新安装整合包"
   },
   "installation-settings.removed-incompatible": {
-    "defaultMessage": "Odebrán (nekompatibilní)"
+    "defaultMessage": "已移除（不兼容）"
+  },
+  "installation-settings.repair.instance-description": {
+    "defaultMessage": "重新安装 Minecraft 依赖项并检查是否有损坏。如果你的游戏因启动器相关错误而无法正常运行，执行此操作可能会解决问题。"
   },
   "installation-settings.repair.instance-title": {
-    "defaultMessage": "Oprava instance"
+    "defaultMessage": "修复实例"
+  },
+  "installation-settings.repair.server-description": {
+    "defaultMessage": "重新安装加载器和 Minecraft 依赖项，而不删除你的内容。如果你的服务器无法正常启动，执行此操作可能会解决问题。"
   },
   "installation-settings.repair.server-title": {
-    "defaultMessage": "Oprava serveru"
+    "defaultMessage": "修复服务器"
   },
   "installation-settings.saving": {
-    "defaultMessage": "Ukládání..."
+    "defaultMessage": "正在保存……"
   },
   "installation-settings.search-game-version": {
-    "defaultMessage": "Hledat verzi hry..."
+    "defaultMessage": "搜索游戏版本……"
   },
   "installation-settings.type.instance": {
-    "defaultMessage": "instance"
+    "defaultMessage": "实例"
   },
   "installation-settings.type.instance-possessive": {
-    "defaultMessage": "instance"
+    "defaultMessage": "实例"
   },
   "installation-settings.type.server": {
-    "defaultMessage": "server"
+    "defaultMessage": "服务器"
   },
   "installation-settings.type.server-possessive": {
-    "defaultMessage": "serverův"
+    "defaultMessage": "服务器"
   },
   "installation-settings.unlink": {
-    "defaultMessage": "Odpojit"
+    "defaultMessage": "取消链接"
+  },
+  "installation-settings.unlink.description": {
+    "defaultMessage": "解除关联将永久断开该 {type} 与 {projectType} 项目的关联，你可以自由更换加载器与Minecraft版本，但此后你将无法接收到整合包的后续更新。"
   },
   "installation-settings.verifying": {
-    "defaultMessage": "Ověřování..."
+    "defaultMessage": "正在验证……"
+  },
+  "instance.confirm-reinstall.admonition-body": {
+    "defaultMessage": "重新安装将会将所有已安装或修改的内容恢复到整合包所提供的状态，同时删除你在原始安装基础上添加的任何模组或内容。"
   },
   "instance.confirm-reinstall.admonition-header": {
-    "defaultMessage": "Varování o reinstalaci"
+    "defaultMessage": "重新安装警告"
   },
   "instance.confirm-reinstall.header": {
-    "defaultMessage": "Reinstalace modpacku"
+    "defaultMessage": "重新安装整合包"
   },
   "instance.confirm-reinstall.reinstall-button": {
-    "defaultMessage": "Přeinstalovat modpack"
+    "defaultMessage": "重新安装整合包"
+  },
+  "instance.confirm-repair.body.instance": {
+    "defaultMessage": "修复功能会重新安装启动器和Minecraft依赖项，但不会删除你的内容。如果游戏因启动器出错而无法启动，修复操作可能会解决这些问题。"
+  },
+  "instance.confirm-repair.body.server": {
+    "defaultMessage": "修复功能会重新安装启动器和Minecraft依赖项，但不会删除你的内容。如果你的服务器无法正确启动，这可能解决问题。"
   },
   "instance.confirm-repair.header": {
-    "defaultMessage": "Opravit {type}"
+    "defaultMessage": "修复 {type}"
   },
   "instance.confirm-repair.instance-label": {
-    "defaultMessage": "instanci"
+    "defaultMessage": "实例"
   },
   "instance.confirm-repair.repair-button": {
-    "defaultMessage": "Opravit"
+    "defaultMessage": "修复"
   },
   "instance.confirm-repair.server-label": {
-    "defaultMessage": "server"
+    "defaultMessage": "服务器"
   },
   "instance.worlds.game_mode.adventure": {
-    "defaultMessage": "Dobrodružná hra"
+    "defaultMessage": "冒险模式"
   },
   "instance.worlds.game_mode.creative": {
-    "defaultMessage": "Tvořivá hra"
+    "defaultMessage": "创造模式"
   },
   "instance.worlds.game_mode.spectator": {
-    "defaultMessage": "Pozorovací hra"
+    "defaultMessage": "旁观模式"
   },
   "instance.worlds.game_mode.survival": {
-    "defaultMessage": "Hra o přežití"
+    "defaultMessage": "生存模式"
   },
   "instance.worlds.game_mode.unknown": {
-    "defaultMessage": "Neznámý typ hry"
+    "defaultMessage": "未知游戏模式"
   },
   "instances.content-install.compatible-count": {
-    "defaultMessage": "{count} {count, plural, one {kompatibilní instance} few {kompatibilní instance} other {kompatibilních instancí}}"
+    "defaultMessage": "{count} 个兼容 {count, plural, one {实例} other {实例}}"
   },
   "instances.content-install.existing-tab": {
-    "defaultMessage": "Existující instance"
+    "defaultMessage": "已有实例"
   },
   "instances.content-install.game-version-placeholder": {
-    "defaultMessage": "Vybrat verzi hry"
+    "defaultMessage": "选择游戏版本"
   },
   "instances.content-install.header": {
-    "defaultMessage": "Instalace projektu"
+    "defaultMessage": "安装项目"
+  },
+  "instances.content-install.incompatible-tooltip": {
+    "defaultMessage": "该实例所使用的加载器或游戏版本，与此项目支持的配置不一致。"
   },
   "instances.content-install.install-button": {
-    "defaultMessage": "Nainstalovat"
+    "defaultMessage": "安装"
   },
   "instances.content-install.installed-badge": {
-    "defaultMessage": "Nainstalováno"
+    "defaultMessage": "已安装"
   },
   "instances.content-install.instance-type": {
-    "defaultMessage": "Typ instance"
+    "defaultMessage": "实例类型"
   },
   "instances.content-install.loader-label": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "加载器"
   },
   "instances.content-install.name-label": {
-    "defaultMessage": "Název"
+    "defaultMessage": "名称"
   },
   "instances.content-install.name-placeholder": {
-    "defaultMessage": "Zadej název instance"
+    "defaultMessage": "输入实例名称"
   },
   "instances.content-install.new-tab": {
-    "defaultMessage": "Nová instance"
+    "defaultMessage": "新实例"
   },
   "instances.content-install.no-instances": {
-    "defaultMessage": "Nebyly nalezeny žádné kompatibilní instance"
+    "defaultMessage": "未找到相关的实例"
   },
   "instances.content-install.remove-icon": {
-    "defaultMessage": "Odebrat ikonu"
+    "defaultMessage": "移除图标"
   },
   "instances.content-install.search-placeholder": {
-    "defaultMessage": "Hledat instance"
+    "defaultMessage": "搜索实例"
   },
   "instances.content-install.select-icon": {
-    "defaultMessage": "Vybrat ikonu"
+    "defaultMessage": "选择图标"
   },
   "instances.updater-modal.badge.current": {
-    "defaultMessage": "Mometálně"
+    "defaultMessage": "当前"
   },
   "instances.updater-modal.badge.incompatible": {
-    "defaultMessage": "Nekompatibilní"
+    "defaultMessage": "不兼容"
   },
   "instances.updater-modal.downgrade-to": {
-    "defaultMessage": "Downgradovat na {version}"
+    "defaultMessage": "降级到 {version}"
   },
   "instances.updater-modal.header": {
-    "defaultMessage": "Aktualizovat na verzi"
+    "defaultMessage": "更新版本"
   },
   "instances.updater-modal.header-modpack": {
-    "defaultMessage": "Změna verzi modpacku"
+    "defaultMessage": "切换整合包版本"
   },
   "instances.updater-modal.header-switch": {
-    "defaultMessage": "Změnit verzi"
+    "defaultMessage": "切换版本"
   },
   "instances.updater-modal.hide-incompatible": {
-    "defaultMessage": "Schovat nekompatibilný"
+    "defaultMessage": "隐藏不兼容项"
+  },
+  "instances.updater-modal.incompatibility-warning": {
+    "defaultMessage": "该版本未标记为与此实例兼容，依赖项将不会自动安装。"
   },
   "instances.updater-modal.incompatibility-warning-header": {
-    "defaultMessage": "Vybrat verzi"
+    "defaultMessage": "选择版本"
+  },
+  "instances.updater-modal.incompatible-update.description": {
+    "defaultMessage": "{version} 未被标记为与当前安装兼容。它可能无法启动或出现不可预期的行为。"
   },
   "instances.updater-modal.incompatible-update.header": {
-    "defaultMessage": "Aktualizovat na nekompatibilní verzi?"
+    "defaultMessage": "更新至不兼容版本？"
   },
   "instances.updater-modal.incompatible-update.proceed": {
-    "defaultMessage": "Přesto aktualizovat"
+    "defaultMessage": "仍然更新"
   },
   "instances.updater-modal.install-anyway": {
-    "defaultMessage": "Přesto nainstalovat"
+    "defaultMessage": "仍然安装"
   },
   "instances.updater-modal.loading-changelog": {
-    "defaultMessage": "Načítání changelogu..."
+    "defaultMessage": "正在加载更新日志..."
+  },
+  "instances.updater-modal.loading-more-versions": {
+    "message": "正在加载更多版本……"
   },
   "instances.updater-modal.loading-versions": {
-    "defaultMessage": "Načítání verzí..."
+    "defaultMessage": "版本加载中……"
   },
   "instances.updater-modal.no-changelog": {
-    "defaultMessage": "Žádný changelog nebyl vytvořen pro tuto verzi."
+    "defaultMessage": "此版本未提供更新日志。"
   },
   "instances.updater-modal.no-versions": {
-    "defaultMessage": "Žádný verze nebyly nalezeny"
+    "defaultMessage": "未找到版本"
   },
   "instances.updater-modal.search-placeholder": {
-    "defaultMessage": "Hledat verze..."
+    "defaultMessage": "查找版本…"
   },
   "instances.updater-modal.select-version": {
-    "defaultMessage": "Označte verzi abyste zobrazily její seznam změň"
+    "defaultMessage": "选择版本并查看更新日志"
   },
   "instances.updater-modal.show-incompatible": {
-    "defaultMessage": "Zobrazit nekompatibilní"
+    "defaultMessage": "显示不兼容项"
   },
   "instances.updater-modal.switch-to": {
-    "defaultMessage": "Přepnout na {version}"
+    "defaultMessage": "切换至 {version}"
   },
   "instances.updater-modal.update-to": {
-    "defaultMessage": "Aktualizovat na {version}"
+    "defaultMessage": "更新至 {version}"
+  },
+  "instances.updater-modal.warning-app": {
+    "defaultMessage": "更新可能会导致你的实例出现损坏。请先查看版本更新日志并进行备份。"
+  },
+  "instances.updater-modal.warning-web": {
+    "defaultMessage": "更新可能会导致你的世界出现损坏。请先查看版本更新日志并进行备份。"
   },
   "label.actions": {
-    "defaultMessage": "Akce"
+    "defaultMessage": "操作"
   },
   "label.available": {
-    "defaultMessage": "{amount} k dispozici."
+    "defaultMessage": "{amount} 可用。"
   },
   "label.changelog": {
-    "defaultMessage": "Seznam změn"
+    "defaultMessage": "更新日志"
   },
   "label.changes-saved": {
-    "defaultMessage": "Změny uloženy"
+    "defaultMessage": "更改已保存"
+  },
+  "label.client-depends-warning": {
+    "defaultMessage": "该模组依赖客户端模组，启动服务器时可能出现问题"
+  },
+  "label.client-only-warning": {
+    "defaultMessage": "这是一个客户端模组，启动服务器时可能会导致问题"
+  },
+  "label.client-retained-warning": {
+    "defaultMessage": "该模组是作为依赖安装的客户端模组，启动服务器时可能出现问题"
   },
   "label.collections": {
-    "defaultMessage": "Kolekce"
+    "defaultMessage": "收藏"
   },
   "label.confirm-password": {
-    "defaultMessage": "Potvrdit heslo"
+    "defaultMessage": "确认密码"
   },
   "label.content": {
-    "defaultMessage": "Kontent"
+    "defaultMessage": "内容"
   },
   "label.copied-filename": {
-    "defaultMessage": "Název souboru zkopírován"
+    "defaultMessage": "已复制文件名"
   },
   "label.copied-path": {
-    "defaultMessage": "Cesta zkopírována"
+    "defaultMessage": "已复制路径"
+  },
+  "label.create-failed": {
+    "defaultMessage": "创建失败"
   },
   "label.created-ago": {
-    "defaultMessage": "Vytvořeno {ago}"
+    "defaultMessage": "{ago}创建"
   },
   "label.dashboard": {
-    "defaultMessage": "Nástěnka"
+    "defaultMessage": "仪表盘"
   },
   "label.delete": {
-    "defaultMessage": "Smazat"
+    "defaultMessage": "删除"
   },
   "label.delete-failed": {
-    "defaultMessage": "Smazaní selhalo"
+    "defaultMessage": "删除失败"
   },
   "label.delete-immediately": {
-    "defaultMessage": "Okamžité smazání"
+    "defaultMessage": "立即删除"
   },
   "label.description": {
-    "defaultMessage": "Popisek"
+    "defaultMessage": "描述"
   },
   "label.details": {
-    "defaultMessage": "Detaily"
+    "defaultMessage": "信息"
   },
   "label.done": {
-    "defaultMessage": "Hotovo"
+    "defaultMessage": "完成"
   },
   "label.download-failed": {
-    "defaultMessage": "Stahování selhalo"
+    "defaultMessage": "下载失败"
   },
   "label.email": {
-    "defaultMessage": "Email"
+    "defaultMessage": "电子邮件"
   },
   "label.email-username": {
-    "defaultMessage": "Email nebo uživatelské jméno"
+    "defaultMessage": "电子邮件或用户名"
   },
   "label.error": {
-    "defaultMessage": "Chyba"
+    "defaultMessage": "错误"
   },
   "label.extract-failed": {
-    "defaultMessage": "Extrahování selhalo"
+    "defaultMessage": "解压失败"
   },
   "label.filter-by": {
-    "defaultMessage": "Filtrovat podle"
+    "defaultMessage": "筛选"
   },
   "label.filters": {
-    "defaultMessage": "Filtry"
+    "defaultMessage": "过滤器"
   },
   "label.followed-projects": {
-    "defaultMessage": "Sledované projekty"
+    "defaultMessage": "已关注的项目"
   },
   "label.game-version": {
-    "defaultMessage": "Verze hry"
+    "defaultMessage": "游戏版本"
   },
   "label.hide-installed-content": {
-    "defaultMessage": "Skrýt již nainstalovaný obsah"
+    "defaultMessage": "隐藏已安装内容"
   },
   "label.hide-selected-content": {
-    "defaultMessage": "Skrýt vybraný obsah"
+    "defaultMessage": "隐藏所选内容"
   },
   "label.installation-info": {
-    "defaultMessage": "Podrobnosti instalace"
+    "defaultMessage": "安装信息"
   },
   "label.installed": {
-    "defaultMessage": "Nainstalováno"
+    "defaultMessage": "已安装"
   },
   "label.installed-modpack": {
-    "defaultMessage": "Nainstalovaný modpack"
+    "defaultMessage": "已安装整合包"
   },
   "label.installing": {
-    "defaultMessage": "Instalování..."
+    "defaultMessage": "安装中……"
   },
   "label.installing-content": {
-    "defaultMessage": "Instalování obsahu"
+    "defaultMessage": "安装内容"
   },
   "label.loading": {
-    "defaultMessage": "Načítání..."
+    "defaultMessage": "加载中……"
   },
   "label.moderation": {
-    "defaultMessage": "Moderace"
+    "defaultMessage": "管理"
   },
   "label.modpack": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "整合包"
   },
   "label.move-failed": {
-    "defaultMessage": "Přesun selhal"
+    "defaultMessage": "移动失败"
   },
   "label.no": {
-    "defaultMessage": "Ne"
+    "defaultMessage": "否"
   },
   "label.no-items": {
-    "defaultMessage": "Žádný předměty"
+    "defaultMessage": "空"
+  },
+  "modal.confirm.confirmation-placeholder": {
+    "defaultMessage": "在此输入……"
+  },
+  "modal.confirm.confirmation-prompt": {
+    "defaultMessage": "要确认继续，请在下方输入 <confirmation-text>{confirmationText}</confirmation-text>："
+  },
+  "modal.confirm.no-title": {
+    "defaultMessage": "未定义标题"
+  },
+  "modal.confirm.proceed": {
+    "defaultMessage": "继续"
+  },
+  "modal.install-to-play.admonition-body": {
+    "defaultMessage": "此服务器需要模组内容才能游玩。接受后将安装来自 Modrinth 所需的文件。"
+  },
+  "modal.install-to-play.admonition-header": {
+    "defaultMessage": "共享服务器实例"
+  },
+  "modal.install-to-play.shared-by": {
+    "defaultMessage": "<name>{name}</name>今天与你共享了此实例。"
+  },
+  "modal.install-to-play.shared-instance-label": {
+    "defaultMessage": "共享实例"
+  },
+  "modal.install-to-play.title": {
+    "defaultMessage": "安装后游玩"
+  },
+  "notification.panel.copy": {
+    "defaultMessage": "复制到剪贴板"
+  },
+  "notification.panel.copy-support": {
+    "defaultMessage": "复制错误详情以便支持"
+  },
+  "notification.panel.dismiss": {
+    "defaultMessage": "忽略"
+  },
+  "notification.panel.export-error-logs": {
+    "defaultMessage": "导出错误日志"
   },
   "label.notifications": {
-    "defaultMessage": "Oznámení"
+    "defaultMessage": "消息提醒"
   },
   "label.or": {
-    "defaultMessage": "nebo"
+    "defaultMessage": "或"
   },
   "label.password": {
-    "defaultMessage": "Heslo"
+    "defaultMessage": "密码"
   },
   "label.plan-custom": {
-    "defaultMessage": "Vlastní"
+    "defaultMessage": "自定义"
   },
   "label.plan-large": {
-    "defaultMessage": "Velký"
+    "defaultMessage": "大型"
   },
   "label.plan-medium": {
-    "defaultMessage": "Střední"
+    "defaultMessage": "中型"
   },
   "label.plan-small": {
-    "defaultMessage": "Malý"
+    "defaultMessage": "小型"
   },
   "label.plan-unknown": {
-    "defaultMessage": "Neznámý"
+    "defaultMessage": "未知"
   },
   "label.platform": {
-    "defaultMessage": "Platforma"
+    "defaultMessage": "平台"
   },
   "label.played": {
-    "defaultMessage": "Hráno {ago}"
+    "defaultMessage": "上次游玩于{ago}"
   },
   "label.project": {
-    "defaultMessage": "Projekt"
+    "defaultMessage": "项目"
   },
   "label.public": {
-    "defaultMessage": "Veřejné"
+    "defaultMessage": "公开"
   },
   "label.rejected": {
-    "defaultMessage": "Zamítnuto"
+    "defaultMessage": "已退回"
   },
   "label.rename-failed": {
-    "defaultMessage": "Přejmenování selhalo"
+    "defaultMessage": "重命名失败"
   },
   "label.rewards-program-terms-agreement": {
-    "defaultMessage": "Sohlasím s <terms-link> podmínkami Odmněnovacího Programu</terms-link>"
+    "defaultMessage": "我同意 <terms-link>激励计划条款</terms-link>"
   },
   "label.saved": {
-    "defaultMessage": "Uloženo"
+    "defaultMessage": "已保存"
   },
   "label.scopes": {
-    "defaultMessage": "Pravomoce"
+    "defaultMessage": "作用域"
   },
   "label.search": {
-    "defaultMessage": "Hledat"
+    "defaultMessage": "搜索"
   },
   "label.select-all": {
-    "defaultMessage": "Vybrat vše"
+    "defaultMessage": "选择全部"
   },
   "label.selected": {
-    "defaultMessage": "Vybráno"
+    "defaultMessage": "已选"
   },
   "label.selection-actions": {
-    "defaultMessage": "Možnosti vybrání"
+    "defaultMessage": "选择操作"
   },
   "label.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "服务端"
+  },
+  "label.server-only": {
+    "defaultMessage": "仅服务端"
   },
   "label.servers": {
-    "defaultMessage": "Servery"
+    "defaultMessage": "服务器"
   },
   "label.settings": {
-    "defaultMessage": "Nastavení"
+    "defaultMessage": "设置"
   },
   "label.singleplayer": {
-    "defaultMessage": "Hra pro jednoho hráče"
+    "defaultMessage": "单人游戏"
   },
   "label.sort-by": {
-    "defaultMessage": "Třídit podle: "
+    "defaultMessage": "排序方式"
   },
   "label.success": {
-    "defaultMessage": "Úspěch"
+    "defaultMessage": "成功"
   },
   "label.title": {
-    "defaultMessage": "Název"
+    "defaultMessage": "标题"
   },
   "label.unknown": {
-    "defaultMessage": "Neznámá"
+    "defaultMessage": "未知"
   },
   "label.unlisted": {
-    "defaultMessage": "Nezařazeno"
+    "defaultMessage": "未列出"
   },
   "label.update-available": {
-    "defaultMessage": "Aktualizace k dispozici"
+    "defaultMessage": "有可用更新"
   },
   "label.updating": {
-    "defaultMessage": "Aktualizování..."
+    "defaultMessage": "更新中……"
   },
   "label.upload-failed": {
-    "defaultMessage": "Nahrávání selhalo"
+    "defaultMessage": "上传失败"
   },
   "label.username": {
-    "defaultMessage": "Uživatelské jméno"
+    "defaultMessage": "用户名"
   },
   "label.validating": {
-    "defaultMessage": "Ověřování"
+    "defaultMessage": "验证"
   },
   "label.version": {
-    "defaultMessage": "Verze"
+    "defaultMessage": "版本"
   },
   "label.view": {
-    "defaultMessage": "Na stránku"
+    "defaultMessage": "视图"
   },
   "label.visibility": {
-    "defaultMessage": "Viditelnost"
+    "defaultMessage": "可见性"
   },
   "label.visit-your-profile": {
-    "defaultMessage": "Navštívit váš profil"
+    "defaultMessage": "查看你的个人资料"
   },
   "label.yes": {
-    "defaultMessage": "Ano"
+    "defaultMessage": "是"
   },
   "locale.cs-CZ": {
-    "defaultMessage": "Čeština"
+    "defaultMessage": "捷克语"
   },
   "locale.da-DK": {
-    "defaultMessage": "Dánština"
+    "defaultMessage": "丹麦语"
   },
   "locale.de-CH": {
-    "defaultMessage": "Němčina (Švýcarsko)"
+    "defaultMessage": "德语（瑞士）"
   },
   "locale.de-DE": {
-    "defaultMessage": "Němčina (Německo)"
+    "defaultMessage": "德语（德国）"
   },
   "locale.en-US": {
-    "defaultMessage": "Angličtina (Spojené státy americké)"
+    "defaultMessage": "英语 （美国）"
   },
   "locale.es-419": {
-    "defaultMessage": "Španělština (Latinská Amerika)"
+    "defaultMessage": "西班牙语（拉丁美洲）"
   },
   "locale.es-ES": {
-    "defaultMessage": "Spanělština (Španělsko)"
+    "defaultMessage": "西班牙语（西班牙）"
   },
   "locale.fi-FI": {
-    "defaultMessage": "Finština"
+    "defaultMessage": "芬兰语"
   },
   "locale.fil-PH": {
-    "defaultMessage": "Filipínština"
+    "defaultMessage": "菲律宾语"
   },
   "locale.fr-FR": {
-    "defaultMessage": "Francouzština"
+    "defaultMessage": "法语"
   },
   "locale.he-IL": {
-    "defaultMessage": "Hebrejština"
+    "defaultMessage": "希伯来语"
   },
   "locale.hu-HU": {
-    "defaultMessage": "Maďarština"
+    "defaultMessage": "匈牙利语"
   },
   "locale.id-ID": {
-    "defaultMessage": "Indonéština"
+    "defaultMessage": "印度尼西亚语"
   },
   "locale.it-IT": {
-    "defaultMessage": "Italština (Itálie)"
+    "defaultMessage": "意大利语（意大利）"
   },
   "locale.ja-JP": {
-    "defaultMessage": "Japonština"
+    "defaultMessage": "日语"
   },
   "locale.ko-KR": {
-    "defaultMessage": "Korejština"
+    "defaultMessage": "韩语"
   },
   "locale.ms-MY": {
-    "defaultMessage": "Malajština"
+    "defaultMessage": "马来语"
   },
   "locale.nl-NL": {
-    "defaultMessage": "Dánština"
+    "defaultMessage": "荷兰语"
   },
   "locale.no-NO": {
-    "defaultMessage": "Norština (Bokmål)"
+    "defaultMessage": "书面挪威语"
   },
   "locale.pl-PL": {
-    "defaultMessage": "Polština"
+    "defaultMessage": "波兰语"
   },
   "locale.pt-BR": {
-    "defaultMessage": "Portugalština (Brazílie)"
+    "defaultMessage": "葡萄牙语（巴西）"
   },
   "locale.pt-PT": {
-    "defaultMessage": "Portugalština (Portugalsko)"
+    "defaultMessage": "葡萄牙语（葡萄牙）"
   },
   "locale.ro-RO": {
-    "defaultMessage": "Rumunština"
+    "defaultMessage": "罗马尼亚语"
   },
   "locale.ru-RU": {
-    "defaultMessage": "Ruština"
+    "defaultMessage": "俄语"
   },
   "locale.sr-CS": {
-    "defaultMessage": "Srbština (latinka)"
+    "defaultMessage": "塞尔维亚语（拉丁语）"
   },
   "locale.sv-SE": {
-    "defaultMessage": "Švédština"
+    "defaultMessage": "瑞典语"
   },
   "locale.th-TH": {
-    "defaultMessage": "Thajština"
+    "defaultMessage": "泰语"
   },
   "locale.tr-TR": {
-    "defaultMessage": "Turečtina"
+    "defaultMessage": "土耳其语"
   },
   "locale.uk-UA": {
-    "defaultMessage": "Ukrajinština"
+    "defaultMessage": "乌克兰语"
   },
   "locale.vi-VN": {
-    "defaultMessage": "Vietnamština"
+    "defaultMessage": "越南语"
   },
   "locale.zh-CN": {
-    "defaultMessage": "Čínština (zjednodušená)"
+    "defaultMessage": "中文（简体）"
   },
   "locale.zh-TW": {
-    "defaultMessage": "Čínština (tradiční)"
+    "defaultMessage": "中文（繁体）"
+  },
+  "modal.open-in-app.benefit.install": {
+    "defaultMessage": "自动安装所需要的内容"
+  },
+  "modal.open-in-app.benefit.launch": {
+    "defaultMessage": "直接将游戏启动到服务器"
+  },
+  "modal.open-in-app.benefit.update": {
+    "defaultMessage": "服务器更改时保持文件更新"
   },
   "modal.open-in-app.get-app": {
-    "defaultMessage": "Získat Modrinth App"
+    "defaultMessage": "获取 Modrinth App"
   },
   "modal.open-in-app.opening-automatically": {
-    "defaultMessage": "Modrinth App se otevře automaticky..."
+    "defaultMessage": "Modrinth App 将自动打开……"
   },
   "modal.open-in-app.title": {
-    "defaultMessage": "Otevírání Modrinth App"
+    "defaultMessage": "正在打开 Modrinth App"
   },
   "modal.open-in-app.why-use": {
-    "defaultMessage": "Proč používat Modrinth App"
+    "defaultMessage": "为何使用 Modrinth App"
+  },
+  "multiselect.selection-actions.label": {
+    "defaultMessage": "已选 {count, number} 项"
   },
   "notification.error.title": {
-    "defaultMessage": "Došlo k chybě"
+    "defaultMessage": "发生错误"
   },
   "omorphia.component.badge.label.accepted": {
-    "defaultMessage": "Přijato"
+    "defaultMessage": "已接受"
   },
   "omorphia.component.badge.label.approved": {
-    "defaultMessage": "Schváleno"
+    "defaultMessage": "已通过"
   },
   "omorphia.component.badge.label.archived": {
-    "defaultMessage": "Archivováno"
+    "defaultMessage": "已归档"
   },
   "omorphia.component.badge.label.closed": {
-    "defaultMessage": "Uzavřeno"
+    "defaultMessage": "已关闭"
   },
   "omorphia.component.badge.label.creator": {
-    "defaultMessage": "Autor"
+    "defaultMessage": "作者"
   },
   "omorphia.component.badge.label.draft": {
-    "defaultMessage": "Koncept"
+    "defaultMessage": "草案"
   },
   "omorphia.component.badge.label.failed": {
-    "defaultMessage": "Selhalo"
+    "defaultMessage": "失败"
   },
   "omorphia.component.badge.label.listed": {
-    "defaultMessage": "Veřejný"
+    "defaultMessage": "公开"
   },
   "omorphia.component.badge.label.moderator": {
-    "defaultMessage": "Moderátor"
+    "defaultMessage": "管理员"
   },
   "omorphia.component.badge.label.modrinth-team": {
-    "defaultMessage": "Modrinth tým"
+    "defaultMessage": "Modrinth 团队"
   },
   "omorphia.component.badge.label.pending": {
-    "defaultMessage": "Čekající"
+    "defaultMessage": "待确认"
   },
   "omorphia.component.badge.label.private": {
-    "defaultMessage": "Soukromé"
+    "defaultMessage": "私有"
   },
   "omorphia.component.badge.label.processed": {
-    "defaultMessage": "Zpracováno"
+    "defaultMessage": "已处理"
   },
   "omorphia.component.badge.label.rejected": {
-    "defaultMessage": "Zamítnuto"
+    "defaultMessage": "已退回"
   },
   "omorphia.component.badge.label.returned": {
-    "defaultMessage": "Vráceno"
+    "defaultMessage": "已退回"
   },
   "omorphia.component.badge.label.safe": {
-    "defaultMessage": "Přechod"
+    "defaultMessage": "通过"
   },
   "omorphia.component.badge.label.scheduled": {
-    "defaultMessage": "Naplánováno"
+    "defaultMessage": "定时"
   },
   "omorphia.component.badge.label.under-review": {
-    "defaultMessage": "Probíhá kontrola"
+    "defaultMessage": "审核中"
   },
   "omorphia.component.badge.label.unlisted": {
-    "defaultMessage": "Nezařazeno"
+    "defaultMessage": "未列出"
   },
   "omorphia.component.badge.label.unsafe": {
-    "defaultMessage": "Fail"
+    "defaultMessage": "失败"
   },
   "omorphia.component.badge.label.withheld": {
-    "defaultMessage": "Zneveřejněno moderátory"
+    "defaultMessage": "由管理员下架"
   },
   "omorphia.component.copy.action.copy": {
-    "defaultMessage": "Zkopírovat kód do schránky"
+    "defaultMessage": "将代码复制到剪贴板"
+  },
+  "omorphia.component.loading-indicator.label": {
+    "defaultMessage": "加载中"
+  },
+  "pagination.go-to-page": {
+    "defaultMessage": "跳转到页码"
+  },
+  "pagination.go-to-page.placeholder": {
+    "defaultMessage": "页码"
+  },
+  "pagination.loading-page": {
+    "defaultMessage": "正在加载页面……"
   },
   "payment-method.amazon_pay": {
-    "defaultMessage": "Amazon Pay"
+    "defaultMessage": "Amazon 支付"
   },
   "payment-method.amex": {
-    "defaultMessage": "American Express"
+    "defaultMessage": "美国运通"
   },
   "payment-method.card_display": {
-    "defaultMessage": "{card_brand} končí v {last_four}"
+    "defaultMessage": "{card_brand} 以 {last_four}结尾"
   },
   "payment-method.cashapp": {
     "defaultMessage": "Cash App"
   },
   "payment-method.charity": {
-    "defaultMessage": "Charita"
+    "defaultMessage": "慈善"
   },
   "payment-method.charity-plural": {
-    "defaultMessage": "Charity"
+    "defaultMessage": "慈善"
   },
   "payment-method.diners": {
-    "defaultMessage": "Diners Club"
+    "defaultMessage": "大来卡"
   },
   "payment-method.discover": {
-    "defaultMessage": "Prozkoumat"
+    "defaultMessage": "发现"
   },
   "payment-method.eftpos": {
     "defaultMessage": "EFTPOS"
   },
   "payment-method.gift-card": {
-    "defaultMessage": "Dárková karta"
+    "defaultMessage": "礼品卡"
   },
   "payment-method.gift-card-plural": {
-    "defaultMessage": "Dárkové karty"
+    "defaultMessage": "礼品卡"
   },
   "payment-method.jcb": {
     "defaultMessage": "JCB"
   },
   "payment-method.mastercard": {
-    "defaultMessage": "Mastercard"
+    "defaultMessage": "万事达卡"
   },
   "payment-method.paypal": {
     "defaultMessage": "PayPal"
   },
   "payment-method.paypal_international": {
-    "defaultMessage": "PayPal International"
+    "defaultMessage": "PayPal国际"
   },
   "payment-method.unionpay": {
-    "defaultMessage": "UnionPay"
+    "defaultMessage": "银联支付"
   },
   "payment-method.unknown": {
-    "defaultMessage": "Neznámá platební metoda"
+    "defaultMessage": "未知支付途径"
   },
   "payment-method.venmo": {
     "defaultMessage": "Venmo"
   },
   "payment-method.virtual-visa": {
-    "defaultMessage": "Virtual Visa"
+    "defaultMessage": "Visa 虚拟信用卡"
   },
   "payment-method.virtual-visa-plural": {
-    "defaultMessage": "Virtual Visas"
+    "defaultMessage": "Visa 虚拟信用卡"
   },
   "payment-method.visa": {
     "defaultMessage": "Visa"
   },
   "project-card.date.published.tooltip": {
-    "defaultMessage": "Zveřejněno {date}"
+    "defaultMessage": "发布于 {date}"
   },
   "project-card.date.updated.tooltip": {
-    "defaultMessage": "Aktualizováno {date}"
+    "defaultMessage": "更新于 {date}"
   },
   "project-card.environment.client": {
-    "defaultMessage": "Klient"
+    "defaultMessage": "客户端"
   },
   "project-card.environment.client-and-server": {
-    "defaultMessage": "Klient a server"
+    "defaultMessage": "客户端和服务端"
   },
   "project-card.environment.client-or-server": {
-    "defaultMessage": "Klient nebo server"
+    "defaultMessage": "客户端或服务端"
   },
   "project-card.environment.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "服务端"
   },
   "project-type.all": {
-    "defaultMessage": "Vše"
+    "defaultMessage": "全部"
   },
   "project-type.datapack.capital": {
-    "defaultMessage": "{count, plural, one {Data Pack} few {Data Packy} many {Data Packů} other {Data Packů}}"
+    "defaultMessage": "{count, plural, other {数据包}}"
   },
   "project-type.datapack.category": {
-    "defaultMessage": "Data Packy"
+    "defaultMessage": "数据包"
   },
   "project-type.datapack.lowercase": {
-    "defaultMessage": "{count, plural, one {data pack} few {data packy} many {data packů} other {data packů}}"
+    "defaultMessage": "{count, plural, other {数据包}}"
   },
   "project-type.mod.capital": {
-    "defaultMessage": "{count, plural, one {Mód} other {Módy}}"
+    "defaultMessage": "{count, plural, other {模组}}"
   },
   "project-type.mod.category": {
-    "defaultMessage": "Módy"
+    "defaultMessage": "模组"
   },
   "project-type.mod.lowercase": {
-    "defaultMessage": "{count, plural, one {mód} other {módy}}"
+    "defaultMessage": "{count, plural, other {模组}}"
   },
   "project-type.modpack.capital": {
-    "defaultMessage": "{count, plural, one {Modpack} other {Modpacky}}"
+    "defaultMessage": "{count, plural, other {整合包}}"
   },
   "project-type.modpack.category": {
-    "defaultMessage": "Modpacky"
+    "defaultMessage": "整合包"
   },
   "project-type.modpack.lowercase": {
-    "defaultMessage": "{count, plural, one {modpack} few {modpacky} other {modpacků}}"
+    "defaultMessage": "{count, plural, other {整合包}}"
   },
   "project-type.plugin.capital": {
-    "defaultMessage": "{count, plural, one {Plugin} other {Pluginy}}"
+    "defaultMessage": "{count, plural, other {插件}}"
   },
   "project-type.plugin.category": {
-    "defaultMessage": "Pluginy"
+    "defaultMessage": "插件"
   },
   "project-type.plugin.lowercase": {
-    "defaultMessage": "{count, plural, one {plugin} other {pluginy}}"
+    "defaultMessage": "{count, plural, one {插件} other {插件集}}"
   },
   "project-type.project.capital": {
-    "defaultMessage": "{count, plural, one {Projekt} other {Projekty}}"
+    "message": "{count, plural, one {项目} other {项目}}"
   },
   "project-type.project.category": {
-    "defaultMessage": "Projekty"
+    "defaultMessage": "项目"
   },
   "project-type.project.lowercase": {
-    "defaultMessage": "{count, plural, one {projekt} other {projekty}}"
+    "defaultMessage": "{count, plural, other {项目}}"
   },
   "project-type.resourcepack.capital": {
-    "defaultMessage": "{count, plural, one {Resource Pack} other {Resource Packy}}"
+    "defaultMessage": "{count, plural, other {资源包}}"
   },
   "project-type.resourcepack.category": {
-    "defaultMessage": "Resource Packy"
+    "defaultMessage": "资源包"
   },
   "project-type.resourcepack.lowercase": {
-    "defaultMessage": "{count, plural, one {resource pack} other {resource packs}}"
+    "defaultMessage": "{count, plural, other {资源包}}"
   },
   "project-type.server.capital": {
-    "defaultMessage": "{count, plural, one {Server} other {Servery}}"
+    "defaultMessage": "{count, plural, other {服务器}}"
   },
   "project-type.server.category": {
-    "defaultMessage": "Servery"
+    "defaultMessage": "服务器"
   },
   "project-type.server.lowercase": {
-    "defaultMessage": "{count, plural, one {server} other {servery}}"
+    "defaultMessage": "{count, plural, other {服务器}}"
   },
   "project-type.shader.capital": {
-    "defaultMessage": "{count, plural, one {Shader} other {Shadery}}"
+    "defaultMessage": "{count, plural, other {光影包}}"
   },
   "project-type.shader.category": {
-    "defaultMessage": "Shadery"
+    "defaultMessage": "光影包"
   },
   "project-type.shader.lowercase": {
-    "defaultMessage": "{count, plural, one {shader} other {shadery}}"
+    "defaultMessage": "{count, plural, other {光影包}}"
   },
   "project.about.compatibility.environments": {
-    "defaultMessage": "Podporovaná prostředí"
+    "defaultMessage": "支持的运行环境"
   },
   "project.about.compatibility.environments.client-and-server": {
-    "defaultMessage": "Klient i server"
+    "defaultMessage": "客户端和服务端"
   },
   "project.about.compatibility.environments.client-side": {
-    "defaultMessage": "Klient"
+    "defaultMessage": "客户端"
   },
   "project.about.compatibility.environments.dedicated-servers-only": {
-    "defaultMessage": "Pouze dedikované servery"
+    "defaultMessage": "仅限专用服务端"
   },
   "project.about.compatibility.environments.server-side": {
-    "defaultMessage": "Server-side"
+    "defaultMessage": "服务端"
   },
   "project.about.compatibility.environments.singleplayer": {
-    "defaultMessage": "Hra jednoho hráče"
+    "defaultMessage": "单人游戏"
   },
   "project.about.compatibility.environments.singleplayer-only": {
-    "defaultMessage": "Jedině hra jednoho hráče"
+    "defaultMessage": "仅限单人游戏"
   },
   "project.about.compatibility.game.minecraftJava": {
-    "defaultMessage": "Minecraft: Java Edice"
+    "defaultMessage": "Minecraft：Java版"
   },
   "project.about.compatibility.platforms": {
-    "defaultMessage": "Platformy"
+    "defaultMessage": "平台"
   },
   "project.about.compatibility.platforms-plural": {
-    "defaultMessage": "{count, plural, one {Platforma} other {Platformy}}"
+    "defaultMessage": "{count, plural, other {平台}}"
   },
   "project.about.compatibility.title": {
-    "defaultMessage": "Kompatibilita"
+    "defaultMessage": "兼容性"
   },
   "project.about.creators.organization": {
-    "defaultMessage": "Organizace"
+    "defaultMessage": "组织"
   },
   "project.about.creators.owner": {
-    "defaultMessage": "Majitel projektu"
+    "defaultMessage": "项目所有者"
   },
   "project.about.creators.title": {
-    "defaultMessage": "Autoři"
+    "defaultMessage": "作者"
   },
   "project.about.details.created": {
-    "defaultMessage": "Vytvořeno {date}"
+    "defaultMessage": "创建于 {date}"
   },
   "project.about.details.licensed": {
-    "defaultMessage": "License {license}"
+    "defaultMessage": "许可证：{license}"
   },
   "project.about.details.published": {
-    "defaultMessage": "Zveřejněno {date}"
+    "defaultMessage": "{date} 发布"
   },
   "project.about.details.submitted": {
-    "defaultMessage": "Odesláno {date}"
+    "defaultMessage": "{date} 提交"
   },
   "project.about.details.updated": {
-    "defaultMessage": "Aktualizováno {date}"
+    "defaultMessage": "{date} 更新"
   },
   "project.about.links.discord": {
-    "defaultMessage": "Připojit k Discord serveru"
+    "defaultMessage": "加入 Discord 服务器"
   },
   "project.about.links.donate.bmac": {
-    "defaultMessage": "Kup mi kávu"
+    "defaultMessage": "通过 Buy Me a Coffee 赞助"
   },
   "project.about.links.donate.generic": {
-    "defaultMessage": "Přispět"
+    "defaultMessage": "赞助"
   },
   "project.about.links.donate.github": {
-    "defaultMessage": "Sponsorujte na GitHubu"
+    "defaultMessage": "GitHub Sponsors 赞助"
   },
   "project.about.links.donate.kofi": {
-    "defaultMessage": "Přispějte na Ko-fi"
+    "defaultMessage": "Ko-fi 赞助"
   },
   "project.about.links.donate.patreon": {
-    "defaultMessage": "Přispějte na Patreonu"
+    "defaultMessage": "Patreon 赞助"
   },
   "project.about.links.donate.paypal": {
-    "defaultMessage": "Přispějte na PayPalu"
+    "defaultMessage": "PayPal 赞助"
   },
   "project.about.links.issues": {
-    "defaultMessage": "Nahlaste chyby"
+    "defaultMessage": "报告问题"
+  },
+  "project.about.links.mcmod": {
+    "defaultMessage": "MC Mod"
   },
   "project.about.links.site": {
-    "defaultMessage": "Navštívit stránku"
+    "defaultMessage": "访问网站"
   },
   "project.about.links.source": {
-    "defaultMessage": "Zobrazit zdroj"
+    "defaultMessage": "查看源代码"
   },
   "project.about.links.store": {
-    "defaultMessage": "Navštívit obchod"
+    "defaultMessage": "访问商店页面"
   },
   "project.about.links.title": {
-    "defaultMessage": "Odkazy"
+    "defaultMessage": "相关链接"
   },
   "project.about.links.wiki": {
-    "defaultMessage": "Navštivte wiki"
+    "defaultMessage": "前往 Wiki"
   },
   "project.about.server.address.tooltip": {
-    "defaultMessage": "Kopírovat adresu Java serveru"
+    "defaultMessage": "复制服务器地址"
   },
   "project.about.server.copied": {
-    "defaultMessage": "Zkopírováno!"
+    "defaultMessage": "已复制！"
   },
   "project.about.server.copiedText": {
-    "defaultMessage": "Adresa serveru zkopírována do schránky"
+    "defaultMessage": "服务器地址以复制到剪贴板"
   },
   "project.about.server.downloadModpack": {
-    "defaultMessage": "Stáhnout modpack"
+    "defaultMessage": "下载整合包"
   },
   "project.about.server.languages": {
-    "defaultMessage": "Jazyky"
+    "defaultMessage": "语言"
   },
   "project.about.server.recommendedVersion": {
-    "defaultMessage": "(Doporučeno)"
+    "defaultMessage": "（推荐的）"
   },
   "project.about.server.region": {
-    "defaultMessage": "Oblast"
+    "defaultMessage": "区域"
   },
   "project.about.server.requiredContent": {
-    "defaultMessage": "Povinný obsah"
+    "defaultMessage": "必须内容"
   },
   "project.about.server.title": {
-    "defaultMessage": "Podrobnosti serveru"
+    "defaultMessage": "服务器详情"
   },
   "project.about.tags.title": {
-    "defaultMessage": "Štítky"
+    "defaultMessage": "标签"
   },
   "project.download-count-tooltip": {
-    "defaultMessage": "{count, number} {count, plural, one {stažení} other {stažení}}"
+    "defaultMessage": "{count, number} {count, plural, other {次下载}}"
   },
   "project.follower-count-tooltip": {
-    "defaultMessage": "{count, number} {count, plural, one {sledující} few {sledující} other {sledujících}}"
+    "defaultMessage": "{count, number} {count, plural, other {人关注}}"
   },
   "project.online-player-count": {
-    "defaultMessage": "{count, number} online"
+    "defaultMessage": "{count, number} 在线"
   },
   "project.online-player-count.tooltip": {
-    "defaultMessage": "{count} {countPlural, plural, one {hráč} few {hráči} other {hráčů}} online"
+    "defaultMessage": "{count} {countPlural, plural, other {个玩家}} 在线"
+  },
+  "project.recent-plays": {
+    "defaultMessage": "{count} {countPlural, plural, other {人最近游玩}}"
+  },
+  "project.recent-plays.tooltip": {
+    "defaultMessage": "在过去两周内共有 {count} {countPlural, plural, other {人}}通过 Modrinth 游玩"
+  },
+  "project.environment.tag.not-applicable": {
+    "defaultMessage": "不适用"
+  },
+  "project.environment.tag.unknown": {
+    "defaultMessage": "未知"
   },
   "project.server.customModpackTooltip": {
-    "defaultMessage": "Tento projekt používá vlastní modpack"
+    "defaultMessage": "这个项目使用了自定义整合包"
+  },
+  "project.server.language.af": {
+    "defaultMessage": "南非荷兰语"
+  },
+  "project.server.language.am": {
+    "defaultMessage": "阿姆哈拉语"
   },
   "project.server.language.ar": {
-    "defaultMessage": "Arabština"
+    "defaultMessage": "阿拉伯语"
+  },
+  "project.server.language.az": {
+    "defaultMessage": "阿塞拜疆"
   },
   "project.server.language.be": {
-    "defaultMessage": "Běloruština"
+    "defaultMessage": "白俄罗斯语"
   },
   "project.server.language.bg": {
-    "defaultMessage": "Bulharština"
+    "defaultMessage": "保加利亚语"
+  },
+  "project.server.language.bn": {
+    "defaultMessage": "孟加拉语"
+  },
+  "project.server.language.bs": {
+    "defaultMessage": "波斯尼亚语"
   },
   "project.server.language.ca": {
-    "defaultMessage": "Katalánština"
+    "defaultMessage": "加泰罗尼亚语"
   },
   "project.server.language.cs": {
-    "defaultMessage": "Čeština"
+    "defaultMessage": "捷克语"
   },
   "project.server.language.da": {
-    "defaultMessage": "Dánština"
+    "defaultMessage": "丹麦语"
   },
   "project.server.language.de": {
-    "defaultMessage": "Němčina"
+    "defaultMessage": "德语"
   },
   "project.server.language.el": {
-    "defaultMessage": "Řečtina"
+    "defaultMessage": "希腊语"
   },
   "project.server.language.en": {
-    "defaultMessage": "Angličtina"
+    "defaultMessage": "英语"
   },
   "project.server.language.eo": {
-    "defaultMessage": "Esperanto"
+    "defaultMessage": "世界语"
   },
   "project.server.language.es": {
-    "defaultMessage": "Španělština"
+    "defaultMessage": "西班牙语"
   },
   "project.server.language.et": {
-    "defaultMessage": "Estonština"
+    "defaultMessage": "爱沙尼亚语"
+  },
+  "project.server.language.eu": {
+    "defaultMessage": "巴斯克语"
   },
   "project.server.language.fa": {
-    "defaultMessage": "Perština"
+    "defaultMessage": "波斯语"
   },
   "project.server.language.fi": {
-    "defaultMessage": "Finština"
+    "defaultMessage": "芬兰语"
   },
   "project.server.language.fr": {
-    "defaultMessage": "Francouzština"
+    "defaultMessage": "法语"
   },
   "project.server.language.ga": {
-    "defaultMessage": "Irština"
+    "defaultMessage": "爱尔兰语"
+  },
+  "project.server.language.gl": {
+    "defaultMessage": "加利西亚语"
   },
   "project.server.language.he": {
-    "defaultMessage": "Hebrejština"
+    "defaultMessage": "希伯来语"
   },
   "project.server.language.hi": {
-    "defaultMessage": "Hindština"
+    "defaultMessage": "印地语"
   },
   "project.server.language.hr": {
-    "defaultMessage": "Chorvatština"
+    "defaultMessage": "克罗地亚语"
   },
   "project.server.language.hu": {
-    "defaultMessage": "Maďarština"
+    "defaultMessage": "匈牙利语"
+  },
+  "project.server.language.hy": {
+    "defaultMessage": "亚美尼亚语"
   },
   "project.server.language.id": {
-    "defaultMessage": "Indonéština"
+    "defaultMessage": "印度尼西亚语"
+  },
+  "project.server.language.is": {
+    "defaultMessage": "冰岛语"
   },
   "project.server.language.it": {
-    "defaultMessage": "Italština"
+    "defaultMessage": "意大利语"
   },
   "project.server.language.ja": {
-    "defaultMessage": "Japonština"
+    "defaultMessage": "日语"
+  },
+  "project.server.language.ka": {
+    "defaultMessage": "格鲁吉亚语"
   },
   "project.server.language.kk": {
-    "defaultMessage": "Kazaština"
+    "defaultMessage": "哈萨克语"
+  },
+  "project.server.language.km": {
+    "defaultMessage": "高棉语"
+  },
+  "project.server.language.kn": {
+    "defaultMessage": "卡纳达语"
   },
   "project.server.language.ko": {
-    "defaultMessage": "Korejština"
+    "defaultMessage": "韩语"
+  },
+  "project.server.language.lo": {
+    "defaultMessage": "老挝语"
   },
   "project.server.language.lt": {
-    "defaultMessage": "Litevština"
+    "defaultMessage": "立陶宛语"
   },
   "project.server.language.lv": {
-    "defaultMessage": "Lotyština"
+    "defaultMessage": "拉脱维亚语"
+  },
+  "project.server.language.mk": {
+    "defaultMessage": "马其顿语"
+  },
+  "project.server.language.ml": {
+    "defaultMessage": "马拉雅拉姆语"
+  },
+  "project.server.language.mn": {
+    "defaultMessage": "蒙语"
+  },
+  "project.server.language.mr": {
+    "defaultMessage": "马拉地语"
   },
   "project.server.language.ms": {
-    "defaultMessage": "Malajština"
+    "defaultMessage": "马来语"
+  },
+  "project.server.language.my": {
+    "defaultMessage": "缅甸语"
+  },
+  "project.server.language.ne": {
+    "defaultMessage": "尼泊尔语"
   },
   "project.server.language.nl": {
-    "defaultMessage": "Dánština"
+    "defaultMessage": "荷兰语"
   },
   "project.server.language.no": {
-    "defaultMessage": "Norština"
+    "defaultMessage": "挪威语"
+  },
+  "project.server.language.pa": {
+    "defaultMessage": "旁遮普语"
   },
   "project.server.language.pl": {
-    "defaultMessage": "Polština"
+    "defaultMessage": "波兰语"
   },
   "project.server.language.pt": {
-    "defaultMessage": "Portugalština"
+    "defaultMessage": "葡萄牙语"
   },
   "project.server.language.ro": {
-    "defaultMessage": "Rumunština"
+    "defaultMessage": "罗马尼亚语"
   },
   "project.server.language.ru": {
-    "defaultMessage": "Ruština"
+    "defaultMessage": "俄语"
   },
   "project.server.language.si": {
-    "defaultMessage": "Sinhálština"
+    "defaultMessage": "僧伽罗语"
   },
   "project.server.language.sk": {
-    "defaultMessage": "Slovenština"
+    "defaultMessage": "斯洛伐克语"
   },
   "project.server.language.sl": {
-    "defaultMessage": "Slovinština"
+    "defaultMessage": "斯洛文尼亚语"
   },
   "project.server.language.sq": {
-    "defaultMessage": "Albánština"
+    "defaultMessage": "阿尔巴尼亚语"
   },
   "project.server.language.sr": {
-    "defaultMessage": "Srbština"
+    "defaultMessage": "塞尔维亚语"
   },
   "project.server.language.sv": {
-    "defaultMessage": "Švédština"
+    "defaultMessage": "瑞典语"
   },
   "project.server.language.sw": {
-    "defaultMessage": "Svahilština"
+    "defaultMessage": "斯瓦希里语"
   },
   "project.server.language.ta": {
-    "defaultMessage": "Tamilština"
+    "defaultMessage": "泰米尔语"
   },
   "project.server.language.te": {
-    "defaultMessage": "Telugština"
+    "defaultMessage": "泰卢固语"
   },
   "project.server.language.th": {
-    "defaultMessage": "Thajština"
+    "defaultMessage": "泰语"
   },
   "project.server.language.tl": {
-    "defaultMessage": "Filipínština"
+    "defaultMessage": "菲律宾语"
   },
   "project.server.language.tr": {
-    "defaultMessage": "Turečtina"
+    "defaultMessage": "土耳其语"
   },
   "project.server.language.uk": {
-    "defaultMessage": "Ukrajinština"
+    "defaultMessage": "乌克兰语"
   },
   "project.server.language.ur": {
-    "defaultMessage": "Urdština"
+    "defaultMessage": "乌尔都语"
   },
   "project.server.language.uz": {
-    "defaultMessage": "Uzbečtina"
+    "defaultMessage": "乌兹别克斯坦语"
   },
   "project.server.language.vi": {
-    "defaultMessage": "Vietnamština"
+    "defaultMessage": "越南语"
   },
   "project.server.language.yo": {
-    "defaultMessage": "Jorubština"
+    "defaultMessage": "约鲁巴语"
   },
   "project.server.language.zh": {
-    "defaultMessage": "Čínština"
+    "defaultMessage": "中文"
   },
   "project.server.language.zu": {
-    "defaultMessage": "Zuluština"
+    "defaultMessage": "祖鲁语"
   },
   "project.server.ping.ms": {
-    "defaultMessage": "{ping, number} ms"
+    "defaultMessage": "{ping, number} 毫秒"
   },
   "project.server.region.asia": {
-    "defaultMessage": "Asie"
+    "defaultMessage": "亚洲"
   },
   "project.server.region.australia": {
-    "defaultMessage": "Austrálie"
+    "defaultMessage": "澳大利亚"
   },
   "project.server.region.europe": {
-    "defaultMessage": "Evropa"
+    "defaultMessage": "欧洲"
   },
   "project.server.region.middle_east": {
-    "defaultMessage": "Blízký východ"
+    "defaultMessage": "中东"
   },
   "project.server.region.russia": {
-    "defaultMessage": "Rusko"
+    "defaultMessage": "俄罗斯"
   },
   "project.server.region.south_america": {
-    "defaultMessage": "Jižní Amerika"
+    "defaultMessage": "南美洲"
   },
   "project.server.region.tooltip": {
-    "defaultMessage": "Server je hostován v {regionName}"
+    "defaultMessage": "服务器托管于 {regionName}"
   },
   "project.server.region.us_east": {
-    "defaultMessage": "Východ USA"
+    "defaultMessage": "美国东部"
   },
   "project.server.region.us_west": {
-    "defaultMessage": "Západ USA"
+    "defaultMessage": "美国西部"
   },
   "project.server.status.offline": {
-    "defaultMessage": "Offline"
+    "defaultMessage": "离线"
   },
   "project.server.status.offline.tooltip": {
-    "defaultMessage": "Server je offline"
+    "defaultMessage": "服务器已离线"
   },
   "project.server.status.online": {
-    "defaultMessage": "Online"
+    "defaultMessage": "在线"
   },
   "project.settings.analytics.title": {
-    "defaultMessage": "Analytika"
+    "defaultMessage": "分析"
   },
   "project.settings.content.title": {
-    "defaultMessage": "Obsah"
+    "defaultMessage": "内容"
   },
   "project.settings.description.title": {
-    "defaultMessage": "Popis"
+    "defaultMessage": "描述"
   },
   "project.settings.environment.title": {
-    "defaultMessage": "Prostředí"
+    "defaultMessage": "运行环境"
   },
   "project.settings.gallery.title": {
-    "defaultMessage": "Galerie"
+    "defaultMessage": "图库"
   },
   "project.settings.general.title": {
-    "defaultMessage": "Obecné"
+    "defaultMessage": "通用"
   },
   "project.settings.license.title": {
-    "defaultMessage": "Licence"
+    "defaultMessage": "许可证"
   },
   "project.settings.links.title": {
-    "defaultMessage": "Odkazy"
+    "defaultMessage": "相关链接"
   },
   "project.settings.members.title": {
-    "defaultMessage": "Členové"
+    "defaultMessage": "成员"
   },
   "project.settings.notice.no-permission.description": {
-    "defaultMessage": "Nemáš práva na úpravu tohoto."
+    "defaultMessage": "你没有权限编辑它。"
   },
   "project.settings.notice.no-permission.title": {
-    "defaultMessage": "Žádná práva"
+    "defaultMessage": "没有权限"
   },
   "project.settings.server.title": {
-    "defaultMessage": "Server"
+    "defaultMessage": "服务器"
   },
   "project.settings.tags.title": {
-    "defaultMessage": "Štítky"
+    "defaultMessage": "标签"
   },
   "project.settings.upload.title": {
-    "defaultMessage": "Nahrát"
+    "defaultMessage": "上传"
   },
   "project.settings.versions.permissions": {
-    "defaultMessage": "Práva"
+    "defaultMessage": "权限"
   },
   "project.settings.versions.title": {
-    "defaultMessage": "Verze"
+    "defaultMessage": "版本"
   },
   "project.settings.view.title": {
-    "defaultMessage": "Pohled"
+    "defaultMessage": "视图"
   },
   "project.versions.channel.alpha.symbol": {
     "defaultMessage": "A"
@@ -2201,260 +3260,488 @@
   "project.versions.channel.release.symbol": {
     "defaultMessage": "R"
   },
+  "project.versions.filter.toggle-tooltip": {
+    "defaultMessage": "切换 {filter} 筛选条件"
+  },
+  "project.versions.platform.modloader.short": {
+    "defaultMessage": "模组加载器"
+  },
+  "project.versions.table.downloads": {
+    "defaultMessage": "下载量"
+  },
+  "project.versions.table.environment": {
+    "defaultMessage": "运行环境"
+  },
+  "project.versions.table.game-version": {
+    "defaultMessage": "游戏版本"
+  },
+  "project.versions.table.platform": {
+    "defaultMessage": "平台"
+  },
+  "project.versions.table.published": {
+    "defaultMessage": "发布时间"
+  },
+  "project.versions.table.version": {
+    "defaultMessage": "版本"
+  },
+  "project.versions.no-matching-versions": {
+    "defaultMessage": "没有符合所选筛选条件的版本。"
+  },
   "project.versions.version.withheld": {
-    "defaultMessage": "Zadrženo"
+    "defaultMessage": "保留"
   },
   "project.versions.version.withheld.tooltip": {
-    "defaultMessage": "Verze zadržena kvůli chybejícímu oprávnění"
+    "defaultMessage": "由于缺少权限，版本信息未予提供"
+  },
+  "project.versions.filter.projectChannels": {
+    "defaultMessage": "更新通道"
   },
   "project.versions.withheld-versions-warning.resolve-button": {
-    "defaultMessage": "Vyřešit"
+    "defaultMessage": "解决"
+  },
+  "project.versions.filter.gameVersions": {
+    "defaultMessage": "游戏版本"
   },
   "project.visibility.archived": {
-    "defaultMessage": "Archivováno"
+    "defaultMessage": "归档"
   },
   "project.visibility.draft": {
-    "defaultMessage": "Koncept"
+    "defaultMessage": "草案"
   },
   "project.visibility.private": {
-    "defaultMessage": "Soukromé"
+    "defaultMessage": "私有"
   },
   "project.visibility.public": {
-    "defaultMessage": "Veřejné"
+    "defaultMessage": "公开"
   },
   "project.visibility.rejected": {
-    "defaultMessage": "Zamítnuto"
+    "defaultMessage": "已退回"
   },
   "project.visibility.scheduled": {
-    "defaultMessage": "Naplánováno"
+    "defaultMessage": "定时"
   },
   "project.visibility.under-review": {
-    "defaultMessage": "Probíhá kontrola"
+    "defaultMessage": "审核中"
   },
   "project.visibility.unknown": {
-    "defaultMessage": "Neznámé"
+    "defaultMessage": "未知"
   },
   "project.visibility.unlisted": {
-    "defaultMessage": "Nezařazeno"
+    "defaultMessage": "未列出"
   },
   "project.visibility.unlisted-by-staff": {
-    "defaultMessage": "Odstraněno moderátory"
+    "defaultMessage": "由管理员下架"
   },
   "report.item-type.content": {
-    "defaultMessage": "obsah"
+    "defaultMessage": "内容"
   },
   "report.item-type.project": {
-    "defaultMessage": "projekt"
+    "defaultMessage": "项目"
   },
   "report.item-type.user": {
-    "defaultMessage": "uživatel"
+    "defaultMessage": "用户"
   },
   "report.item-type.version": {
-    "defaultMessage": "verze"
+    "defaultMessage": "版本"
+  },
+  "search.filter.dependency_type.embedded": {
+    "defaultMessage": "内置"
+  },
+  "search.filter.dependency_type.optional": {
+    "defaultMessage": "可选"
+  },
+  "search.filter.dependency_type.required": {
+    "defaultMessage": "必需"
+  },
+  "search.filter.dependent_project": {
+    "defaultMessage": "依赖于：{project}"
+  },
+  "search.filter.dependent_project.search_placeholder": {
+    "defaultMessage": "搜索项目……"
+  },
+  "search.filter.excluded_projects": {
+    "defaultMessage": "排除：{projects}"
+  },
+  "search.filter.included_content.remove_project.tooltip": {
+    "defaultMessage": "移除项目"
+  },
+  "search.filter.included_content.search_placeholder": {
+    "defaultMessage": "搜索内容……"
+  },
+  "search.filter.included_projects": {
+    "defaultMessage": "包含：{projects}"
   },
   "search.filter.locked.default": {
-    "defaultMessage": "Filtr uzamčen"
+    "defaultMessage": "筛选已锁定"
   },
   "search.filter.locked.default.description": {
-    "defaultMessage": "Odemknutí tohoto filtru vám může umožnit instalaci nekompatibilního obsahu."
+    "defaultMessage": "解锁这个筛选项可能导致安装不兼容的内容。"
   },
   "search.filter.locked.default.sync": {
-    "defaultMessage": "Synchronizovat filtr"
+    "defaultMessage": "同步筛选"
   },
   "search.filter.locked.default.title": {
-    "defaultMessage": "{type} je uzamčen"
+    "defaultMessage": "{type} 已锁定"
   },
   "search.filter.locked.default.unlock": {
-    "defaultMessage": "Odemknout filtr"
+    "defaultMessage": "解锁筛选"
   },
   "search.filter.option.exclusion.add.tooltip": {
-    "defaultMessage": "Vyloučit"
+    "defaultMessage": "排除"
   },
   "search.filter.option.search.clear.aria_label": {
-    "defaultMessage": "Vymazať vyhladávanie"
+    "defaultMessage": "清除搜索"
   },
   "search.filter.option.search.placeholder": {
-    "defaultMessage": "Vyhladávanie..."
+    "defaultMessage": "搜索…"
   },
   "search.filter.option.show_fewer": {
-    "defaultMessage": "Zobrazit méně"
+    "defaultMessage": "显示更少"
   },
   "search.filter.option.show_more": {
-    "defaultMessage": "Zobrazit více"
+    "defaultMessage": "显示更多"
+  },
+  "search.filter_type.advanced": {
+    "defaultMessage": "高级"
+  },
+  "search.filter_type.advanced.exclude_datapack": {
+    "defaultMessage": "排除数据包"
+  },
+  "search.filter_type.advanced.exclude_mod": {
+    "defaultMessage": "排除模组"
+  },
+  "search.filter_type.advanced.exclude_plugin": {
+    "defaultMessage": "排除插件"
+  },
+  "search.filter_type.compatible_dependency_project_ids": {
+    "defaultMessage": "依赖于"
+  },
+  "search.filter_type.included_content": {
+    "defaultMessage": "包含内容"
   },
   "search.filter_type.environment": {
-    "defaultMessage": "Prostředí"
+    "defaultMessage": "运行环境"
   },
   "search.filter_type.environment.client": {
-    "defaultMessage": "Klient"
+    "defaultMessage": "客户端"
   },
   "search.filter_type.environment.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "服务端"
   },
   "search.filter_type.game_version": {
-    "defaultMessage": "Verze hry"
+    "defaultMessage": "游戏版本"
   },
   "search.filter_type.game_version.all_versions": {
-    "defaultMessage": "Zobrazit všechny verze"
+    "defaultMessage": "列出所有版本"
   },
   "search.filter_type.license": {
-    "defaultMessage": "Licence"
+    "defaultMessage": "许可证"
   },
   "search.filter_type.license.open_source": {
-    "defaultMessage": "Zobrazit zdroj"
+    "defaultMessage": "开源"
   },
   "search.filter_type.mod_loader": {
-    "defaultMessage": "Načítač"
+    "defaultMessage": "加载器"
   },
   "search.filter_type.modpack_loader": {
-    "defaultMessage": "Načítač"
+    "defaultMessage": "加载器"
   },
   "search.filter_type.plugin_loader": {
-    "defaultMessage": "Načítač"
+    "defaultMessage": "加载器"
   },
   "search.filter_type.plugin_platform": {
-    "defaultMessage": "Platforma"
+    "defaultMessage": "平台"
   },
   "search.filter_type.project_id": {
-    "defaultMessage": "ID projektu"
+    "defaultMessage": "项目ID"
   },
   "search.filter_type.server_content_type": {
-    "defaultMessage": "Typ"
+    "defaultMessage": "类型"
   },
   "search.filter_type.server_language": {
-    "defaultMessage": "Jazyk"
+    "defaultMessage": "语言"
   },
   "search.filter_type.server_region": {
-    "defaultMessage": "Oblast"
+    "defaultMessage": "区域"
   },
   "search.filter_type.server_status": {
-    "defaultMessage": "Stav"
+    "defaultMessage": "状态"
   },
   "search.filter_type.shader_loader": {
-    "defaultMessage": "Načítač"
+    "defaultMessage": "加载器"
   },
   "search.server_content_type.modpack": {
-    "defaultMessage": "Modovaný"
+    "defaultMessage": "模组适配"
   },
   "search.server_content_type.vanilla": {
-    "defaultMessage": "Vanilla"
+    "defaultMessage": "原版"
   },
   "servers.notice.dismissable": {
-    "defaultMessage": "Zavíratelné"
+    "defaultMessage": "可隐藏"
   },
   "servers.notice.level.critical.name": {
-    "defaultMessage": "Kritické"
+    "defaultMessage": "关键重要信息"
   },
   "servers.notice.level.info.name": {
-    "defaultMessage": "Info"
+    "defaultMessage": "信息"
   },
   "servers.notice.level.survey.name": {
-    "defaultMessage": "Dotazník"
+    "defaultMessage": "调研"
   },
   "servers.notice.level.warn.name": {
-    "defaultMessage": "Varování"
+    "defaultMessage": "警告"
   },
   "servers.notice.undismissable": {
-    "defaultMessage": "Neuzavíratelné"
+    "defaultMessage": "不可隐藏"
   },
   "servers.region.australia": {
-    "defaultMessage": "Austrálie"
+    "defaultMessage": "澳大利亚"
   },
   "servers.region.central-europe": {
-    "defaultMessage": "Střední Evropa"
+    "defaultMessage": "中欧"
   },
   "servers.region.north-america-central": {
-    "defaultMessage": "Střední Severní Amerika"
+    "defaultMessage": "北美中部"
   },
   "servers.region.north-america-east": {
-    "defaultMessage": "Východní Severní Amrika"
+    "defaultMessage": "北美东部"
   },
   "servers.region.north-america-west": {
-    "defaultMessage": "Západní Severní Amerika"
+    "defaultMessage": "北美西部"
   },
   "servers.region.southeast-asia": {
-    "defaultMessage": "Jihovýchodní Asie"
+    "defaultMessage": "东南亚"
   },
   "servers.region.western-europe": {
-    "defaultMessage": "Západní Evropa"
+    "defaultMessage": "西欧"
+  },
+  "servers.setup.upload-warning": {
+    "defaultMessage": "在上传文件时请不要关闭此页面。"
   },
   "servers.setup.uploading-modpack.header": {
-    "defaultMessage": "Nahrávání modpacku"
+    "defaultMessage": "上传整合包"
   },
   "settings.account.title": {
-    "defaultMessage": "Účet a zabezpečení"
+    "defaultMessage": "账户与安全性"
   },
   "settings.appearance.title": {
-    "defaultMessage": "Vzhled"
+    "defaultMessage": "外观"
   },
   "settings.applications.title": {
-    "defaultMessage": "Vaše aplikace"
+    "defaultMessage": "你的应用程序"
   },
   "settings.authorized-apps.title": {
-    "defaultMessage": "Autorizované aplikace"
+    "defaultMessage": "已授权的应用"
   },
   "settings.display.theme.dark": {
-    "defaultMessage": "Tmavý"
+    "defaultMessage": "深色"
   },
   "settings.display.theme.description": {
-    "defaultMessage": "Vyberte si preferovaný barevný motiv pro Modrinth na tomto zařízení."
+    "defaultMessage": "为当前设备选择你偏好的色彩主题。"
   },
   "settings.display.theme.light": {
-    "defaultMessage": "Světlý"
+    "defaultMessage": "浅色"
   },
   "settings.display.theme.oled": {
     "defaultMessage": "OLED"
   },
   "settings.display.theme.preferred-dark-theme": {
-    "defaultMessage": "Preferovat tmavý motiv"
+    "defaultMessage": "首选深色主题"
   },
   "settings.display.theme.preferred-light-theme": {
-    "defaultMessage": "Preferovat světlý motiv"
+    "defaultMessage": "首选浅色主题"
   },
   "settings.display.theme.retro": {
-    "defaultMessage": "Retro"
+    "defaultMessage": "复古"
   },
   "settings.display.theme.system": {
-    "defaultMessage": "Synchronizovat se systémem"
+    "defaultMessage": "跟随系统"
   },
   "settings.display.theme.title": {
-    "defaultMessage": "Barevný motiv"
+    "defaultMessage": "色彩主题"
+  },
+  "settings.feature-flags.title": {
+    "defaultMessage": "功能开关"
   },
   "settings.language.categories.default": {
-    "defaultMessage": "Výchozí jazyky"
+    "defaultMessage": "标准语言"
   },
   "settings.language.categories.search-result": {
-    "defaultMessage": "Výsledky vyhledávání"
+    "defaultMessage": "搜索结果"
   },
   "settings.language.description": {
-    "defaultMessage": "Vyberte svůj preferovaný jazyk pro {platform}. Překlady jsou vytvářeny dobrovolníky na <crowdin-link>Crowdin</crowdin-link>."
+    "defaultMessage": "选择你偏好的{platform}语言。翻译工作由志愿者在 <crowdin-link>Crowdin</crowdin-link> 上完成。"
   },
   "settings.language.languages.search-field.placeholder": {
-    "defaultMessage": "Hledat jazyk..."
+    "defaultMessage": "搜索语言..."
   },
   "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Žádné jazyky neodpovídají} one {# jazyk odpovídá} few {# jazyky odpovídají} other {# jazyků odpovídá}} tvému vyhledávání."
+    "defaultMessage": "{matches, plural, =0 {没有符合搜索条件的语言} other {共有 # 个语言符合搜索条件}}。"
   },
   "settings.language.languages.search.no-results": {
-    "defaultMessage": "Žádné jazyky neodpovídají vašemu vyhladávání."
+    "defaultMessage": "没有符合搜索条件的语言。"
   },
   "settings.language.platform.app": {
-    "defaultMessage": "aplikace"
+    "defaultMessage": "应用"
   },
   "settings.language.platform.site": {
-    "defaultMessage": "stránka"
+    "defaultMessage": "网站"
   },
   "settings.language.title": {
-    "defaultMessage": "Jazyk"
+    "defaultMessage": "语言"
+  },
+  "settings.language.warning": {
+    "defaultMessage": "切换{platform}语言后，若一些内容译文暂缺，将以英文显示。本{platform}本地化工作尚在进行中，因此某些语言的部分内容可能仍显示为英文。"
   },
   "settings.pats.title": {
-    "defaultMessage": "Osobní přístupové tokeny"
+    "defaultMessage": "个人访问令牌"
   },
   "settings.profile.title": {
-    "defaultMessage": "Veřejný profil"
+    "defaultMessage": "公开信息"
   },
   "settings.sessions.title": {
-    "defaultMessage": "Relace"
+    "defaultMessage": "会话"
+  },
+  "skin.preview.armor.equip-material": {
+    "message": "为{slot}装备{material}"
+  },
+  "skin.preview.armor.material": {
+    "message": "盔甲材质"
+  },
+  "skin.preview.armor.material.chainmail": {
+    "message": "锁链"
+  },
+  "skin.preview.armor.material.copper": {
+    "message": "铜"
+  },
+  "skin.preview.armor.material.diamond": {
+    "message": "钻石"
+  },
+  "skin.preview.armor.material.gold": {
+    "message": "金"
+  },
+  "skin.preview.armor.material.iron": {
+    "message": "铁"
+  },
+  "skin.preview.armor.material.leather": {
+    "message": "皮革"
+  },
+  "skin.preview.armor.material.netherite": {
+    "message": "下界合金"
+  },
+  "skin.preview.armor.material.turtle": {
+    "message": "海龟壳"
+  },
+  "skin.preview.armor.open": {
+    "message": "盔甲与纹饰"
+  },
+  "skin.preview.armor.piece": {
+    "message": "盔甲部位"
+  },
+  "skin.preview.armor.remove-piece": {
+    "message": "脱下{slot}"
+  },
+  "skin.preview.armor.remove-trim": {
+    "message": "无盔甲纹饰"
+  },
+  "skin.preview.armor.slot-state": {
+    "message": "{slot}：{state}"
+  },
+  "skin.preview.armor.slot.boots": {
+    "message": "靴子"
+  },
+  "skin.preview.armor.slot.chestplate": {
+    "message": "胸甲"
+  },
+  "skin.preview.armor.slot.helmet": {
+    "message": "头盔"
+  },
+  "skin.preview.armor.slot.leggings": {
+    "message": "护腿"
+  },
+  "skin.preview.armor.trim-material": {
+    "message": "纹饰材料"
+  },
+  "skin.preview.armor.trim-material.amethyst": {
+    "message": "紫水晶"
+  },
+  "skin.preview.armor.trim-material.emerald": {
+    "message": "绿宝石"
+  },
+  "skin.preview.armor.trim-material.lapis": {
+    "message": "青金石"
+  },
+  "skin.preview.armor.trim-material.quartz": {
+    "message": "下界石英"
+  },
+  "skin.preview.armor.trim-material.redstone": {
+    "message": "红石"
+  },
+  "skin.preview.armor.trim-material.resin": {
+    "message": "树脂砖"
+  },
+  "skin.preview.armor.trim-pattern": {
+    "message": "纹饰图案"
+  },
+  "skin.preview.armor.trim.bolt": {
+    "message": "镶铆盔甲纹饰"
+  },
+  "skin.preview.armor.trim.coast": {
+    "message": "海岸盔甲纹饰"
+  },
+  "skin.preview.armor.trim.dune": {
+    "message": "沙丘盔甲纹饰"
+  },
+  "skin.preview.armor.trim.eye": {
+    "message": "眼眸盔甲纹饰"
+  },
+  "skin.preview.armor.trim.flow": {
+    "message": "涡流盔甲纹饰"
+  },
+  "skin.preview.armor.trim.host": {
+    "message": "雇主盔甲纹饰"
+  },
+  "skin.preview.armor.trim.raiser": {
+    "message": "牧民盔甲纹饰"
+  },
+  "skin.preview.armor.trim.rib": {
+    "message": "肋骨盔甲纹饰"
+  },
+  "skin.preview.armor.trim.sentry": {
+    "message": "哨兵盔甲纹饰"
+  },
+  "skin.preview.armor.trim.shaper": {
+    "message": "塑造盔甲纹饰"
+  },
+  "skin.preview.armor.trim.silence": {
+    "message": "幽静盔甲纹饰"
+  },
+  "skin.preview.armor.trim.snout": {
+    "message": "猪鼻盔甲纹饰"
+  },
+  "skin.preview.armor.trim.spire": {
+    "message": "尖塔盔甲纹饰"
+  },
+  "skin.preview.armor.trim.tide": {
+    "message": "潮汐盔甲纹饰"
+  },
+  "skin.preview.armor.trim.vex": {
+    "message": "恼鬼盔甲纹饰"
+  },
+  "skin.preview.armor.trim.ward": {
+    "message": "监守盔甲纹饰"
+  },
+  "skin.preview.armor.trim.wayfinder": {
+    "message": "向导盔甲纹饰"
+  },
+  "skin.preview.armor.trim.wild": {
+    "message": "荒野盔甲纹饰"
+  },
+  "skin.preview.armor.unequipped": {
+    "message": "未装备"
+  },
+  "skin.preview.drag-to-rotate": {
+    "defaultMessage": "拖动以旋转"
   },
   "tag.category.128x": {
     "defaultMessage": "128x"
@@ -2472,211 +3759,229 @@
     "defaultMessage": "48x"
   },
   "tag.category.512x+": {
-    "defaultMessage": "512x nebo vyšší"
+    "defaultMessage": "512x 或更高"
   },
   "tag.category.64x": {
     "defaultMessage": "64x"
   },
   "tag.category.8x-": {
-    "defaultMessage": "8x nebo nižší"
+    "defaultMessage": "8x 或更低"
   },
   "tag.category.adventure": {
-    "defaultMessage": "Dobrodružné"
+    "defaultMessage": "冒险"
+  },
+  "tag.category.adventure-mode": {
+    "defaultMessage": "冒险模式"
+  },
+  "tag.category.anarchy": {
+    "defaultMessage": "无政府"
+  },
+  "tag.category.atmosphere": {
+    "defaultMessage": "大气效果"
   },
   "tag.category.audio": {
-    "defaultMessage": "Audio"
+    "defaultMessage": "音频"
   },
   "tag.category.battle-royale": {
-    "defaultMessage": "Battle Royale"
+    "defaultMessage": "大逃杀"
   },
   "tag.category.bedwars": {
-    "defaultMessage": "Bed Wars"
+    "defaultMessage": "起床战争"
   },
   "tag.category.blocks": {
-    "defaultMessage": "Bloky"
+    "defaultMessage": "方块"
+  },
+  "tag.category.bloom": {
+    "defaultMessage": "泛光"
   },
   "tag.category.bosses": {
-    "defaultMessage": "Bosové"
+    "defaultMessage": "Boss 战"
   },
   "tag.category.cartoon": {
-    "defaultMessage": "Kreslený styl"
+    "defaultMessage": "卡通"
   },
   "tag.category.challenging": {
-    "defaultMessage": "Náročné"
+    "defaultMessage": "挑战"
   },
   "tag.category.classes": {
-    "defaultMessage": "Třídy"
+    "defaultMessage": "职业"
   },
   "tag.category.colored-lighting": {
-    "defaultMessage": "Barevné osvětlení"
+    "defaultMessage": "彩色光照"
   },
   "tag.category.combat": {
-    "defaultMessage": "Boj"
+    "defaultMessage": "战斗"
   },
   "tag.category.competitive": {
-    "defaultMessage": "Kompetetivní"
+    "defaultMessage": "竞技"
   },
   "tag.category.core-shaders": {
-    "defaultMessage": "Základní shadery"
+    "defaultMessage": "核心着色器"
   },
   "tag.category.creative-mode": {
-    "defaultMessage": "Tvořivá hra"
+    "defaultMessage": "创造模式"
   },
   "tag.category.creator-community": {
-    "defaultMessage": "Komunita tvůrců"
+    "defaultMessage": "创作者社区"
   },
   "tag.category.crossplay": {
-    "defaultMessage": "Crossplay"
+    "defaultMessage": "跨平台"
   },
   "tag.category.cursed": {
-    "defaultMessage": "Prokleté"
+    "defaultMessage": "邪门"
   },
   "tag.category.custom-content": {
-    "defaultMessage": "Vlastní obsah"
+    "defaultMessage": "自定义内容"
   },
   "tag.category.decoration": {
-    "defaultMessage": "Dekorační"
+    "defaultMessage": "装饰"
   },
   "tag.category.dungeons": {
-    "defaultMessage": "Dungeony"
+    "defaultMessage": "地牢"
   },
   "tag.category.economy": {
-    "defaultMessage": "Ekonomika"
+    "defaultMessage": "经济"
   },
   "tag.category.entities": {
-    "defaultMessage": "Entity"
+    "defaultMessage": "实体"
   },
   "tag.category.environment": {
-    "defaultMessage": "Prostředí"
+    "defaultMessage": "环境"
   },
   "tag.category.equipment": {
-    "defaultMessage": "Vybavení"
+    "defaultMessage": "装备"
   },
   "tag.category.factions": {
-    "defaultMessage": "Frakce"
+    "defaultMessage": "阵营"
   },
   "tag.category.fantasy": {
-    "defaultMessage": "Fantasy"
+    "defaultMessage": "奇幻"
   },
   "tag.category.foliage": {
-    "defaultMessage": "Vegetace"
+    "defaultMessage": "植被"
   },
   "tag.category.fonts": {
-    "defaultMessage": "Fonty"
+    "defaultMessage": "字体"
   },
   "tag.category.food": {
-    "defaultMessage": "Jídlo"
+    "defaultMessage": "食物"
   },
   "tag.category.game-mechanics": {
-    "defaultMessage": "Herní mechaniky"
+    "defaultMessage": "机制"
+  },
+  "tag.category.gens": {
+    "defaultMessage": "生成器"
   },
   "tag.category.gui": {
     "defaultMessage": "GUI"
   },
   "tag.category.hardcore-mode": {
-    "defaultMessage": "Hardcore režim"
+    "defaultMessage": "极限模式"
   },
   "tag.category.high": {
-    "defaultMessage": "Vysoké"
+    "defaultMessage": "高"
   },
   "tag.category.items": {
-    "defaultMessage": "Předměty"
+    "defaultMessage": "物品"
   },
   "tag.category.keep-inventory": {
-    "defaultMessage": "Zachování inventáře"
+    "defaultMessage": "保留物品栏"
   },
   "tag.category.kitchen-sink": {
-    "defaultMessage": "Všehochuť"
+    "defaultMessage": "水槽"
   },
   "tag.category.kitpvp": {
-    "defaultMessage": "Kit PvP"
+    "defaultMessage": "套装 PvP"
   },
   "tag.category.library": {
-    "defaultMessage": "Knihovna"
+    "defaultMessage": "库"
+  },
+  "tag.category.lifesteal": {
+    "defaultMessage": "生命窃取"
   },
   "tag.category.lightweight": {
-    "defaultMessage": "Nenáročné"
+    "defaultMessage": "轻量"
   },
   "tag.category.locale": {
-    "defaultMessage": "Lokalizace"
+    "defaultMessage": "本地化"
   },
   "tag.category.low": {
-    "defaultMessage": "Nízké"
+    "defaultMessage": "低"
   },
   "tag.category.magic": {
-    "defaultMessage": "Magie"
+    "defaultMessage": "魔法"
   },
   "tag.category.management": {
-    "defaultMessage": "Správa"
+    "defaultMessage": "管理"
   },
   "tag.category.media": {
-    "defaultMessage": "Média"
+    "defaultMessage": "媒体"
   },
   "tag.category.medium": {
-    "defaultMessage": "Střední"
+    "defaultMessage": "中"
   },
   "tag.category.microgames": {
-    "defaultMessage": "Mikrohry"
+    "defaultMessage": "微型游戏"
   },
   "tag.category.minigame": {
-    "defaultMessage": "Minihra"
+    "defaultMessage": "小游戏"
   },
   "tag.category.minigames": {
-    "defaultMessage": "Minihry"
+    "defaultMessage": "小游戏"
   },
   "tag.category.mmo": {
-    "defaultMessage": "MMO"
+    "defaultMessage": "大型多人在线游戏（MMO）"
   },
   "tag.category.mobs": {
-    "defaultMessage": "Mobové"
+    "defaultMessage": "生物"
   },
   "tag.category.modded": {
-    "defaultMessage": "Modovaný"
+    "defaultMessage": "模组适配"
   },
   "tag.category.models": {
-    "defaultMessage": "Modely"
+    "defaultMessage": "模型"
   },
   "tag.category.multiplayer": {
-    "defaultMessage": "Hra více hráčů"
+    "defaultMessage": "多人"
   },
   "tag.category.network": {
-    "defaultMessage": "Síť"
+    "defaultMessage": "网络"
   },
   "tag.category.offline-mode": {
-    "defaultMessage": "Offline režim"
+    "defaultMessage": "离线模式"
   },
   "tag.category.oneblock": {
-    "defaultMessage": "One Block"
+    "defaultMessage": "单方块"
   },
   "tag.category.op": {
     "defaultMessage": "OP"
   },
   "tag.category.optimization": {
-    "defaultMessage": "Optimalizace"
+    "defaultMessage": "优化"
   },
   "tag.category.parkour": {
-    "defaultMessage": "Parkour"
+    "defaultMessage": "跑酷"
   },
   "tag.category.path-tracing": {
-    "defaultMessage": "Path tracing"
+    "defaultMessage": "路径追踪"
   },
   "tag.category.pbr": {
     "defaultMessage": "PBR"
   },
   "tag.category.personal-worlds": {
-    "defaultMessage": "Osobní světy"
+    "defaultMessage": "个人世界"
   },
   "tag.category.plots": {
-    "defaultMessage": "Parcely"
+    "defaultMessage": "地皮"
   },
   "tag.category.pokemon": {
-    "defaultMessage": "Pokémon"
+    "defaultMessage": "宝可梦"
   },
   "tag.category.potato": {
-    "defaultMessage": "Brambora"
+    "defaultMessage": "土豆"
   },
   "tag.category.prison": {
-    "defaultMessage": "Vězení"
+    "defaultMessage": "监狱"
   },
   "tag.category.pve": {
     "defaultMessage": "PvE"
@@ -2685,97 +3990,142 @@
     "defaultMessage": "PvP"
   },
   "tag.category.questing": {
-    "defaultMessage": "Plnění úkolů"
+    "defaultMessage": "任务"
   },
   "tag.category.quests": {
-    "defaultMessage": "Úkoly"
+    "defaultMessage": "任务"
   },
   "tag.category.racing": {
-    "defaultMessage": "Závody"
+    "defaultMessage": "赛车"
   },
   "tag.category.realistic": {
-    "defaultMessage": "Realistický"
+    "defaultMessage": "写实风格"
   },
   "tag.category.recording-smp": {
-    "defaultMessage": "Nahrávání SMP"
+    "defaultMessage": "录制型SMP"
   },
   "tag.category.reflections": {
-    "defaultMessage": "Odrazy"
+    "defaultMessage": "反射"
   },
   "tag.category.roleplay": {
-    "defaultMessage": "Roleplay"
+    "defaultMessage": "角色扮演"
   },
   "tag.category.rpg": {
     "defaultMessage": "RPG"
   },
   "tag.category.screenshot": {
-    "defaultMessage": "Snímky obrazovky"
+    "defaultMessage": "仅供截图"
   },
   "tag.category.semi-realistic": {
-    "defaultMessage": "Polorealistické"
+    "defaultMessage": "半写实风格"
   },
   "tag.category.shadows": {
-    "defaultMessage": "Stíny"
+    "defaultMessage": "阴影"
   },
   "tag.category.simplistic": {
-    "defaultMessage": "Minimalistické"
+    "defaultMessage": "极简风格"
   },
   "tag.category.skyblock": {
-    "defaultMessage": "Skyblock"
+    "defaultMessage": "空岛生存"
   },
   "tag.category.smp": {
     "defaultMessage": "SMP"
   },
   "tag.category.social": {
-    "defaultMessage": "Sociální"
+    "defaultMessage": "社交"
   },
   "tag.category.storage": {
-    "defaultMessage": "Úložiště"
+    "defaultMessage": "存储"
   },
   "tag.category.survival-mode": {
-    "defaultMessage": "Hra o přežití"
+    "defaultMessage": "生存模式"
   },
   "tag.category.teams": {
-    "defaultMessage": "Týmy"
+    "defaultMessage": "团队"
   },
   "tag.category.technical": {
-    "defaultMessage": "Technické"
+    "defaultMessage": "技术性"
   },
   "tag.category.technology": {
-    "defaultMessage": "Technologie"
+    "defaultMessage": "科技"
   },
   "tag.category.themed": {
-    "defaultMessage": "Tematické"
+    "defaultMessage": "主题风格"
   },
   "tag.category.towns": {
-    "defaultMessage": "Města"
+    "defaultMessage": "城镇"
+  },
+  "tag.category.transportation": {
+    "defaultMessage": "交通"
+  },
+  "tag.category.tweaks": {
+    "defaultMessage": "微调"
   },
   "tag.category.utility": {
-    "defaultMessage": "Nástroje"
+    "defaultMessage": "实用"
+  },
+  "tag.category.vanilla-like": {
+    "defaultMessage": "原版风格"
+  },
+  "tag.category.whitelisted": {
+    "defaultMessage": "需要白名单"
+  },
+  "tag.category.world-resets": {
+    "defaultMessage": "世界重置"
   },
   "tag.category.worldgen": {
-    "defaultMessage": "Generace světa"
+    "defaultMessage": "地形"
+  },
+  "tag.loader.babric": {
+    "defaultMessage": "Babric"
+  },
+  "tag.loader.bta-babric": {
+    "defaultMessage": "BTA（Babric）"
+  },
+  "tag.loader.bukkit": {
+    "defaultMessage": "Bukkit"
+  },
+  "tag.loader.bungeecord": {
+    "defaultMessage": "BungeeCord"
+  },
+  "tag.loader.canvas": {
+    "defaultMessage": "Canvas"
   },
   "tag.loader.datapack": {
-    "defaultMessage": "Datapack"
+    "defaultMessage": "数据包"
   },
   "tag.loader.fabric": {
     "defaultMessage": "Fabric"
+  },
+  "tag.loader.folia": {
+    "defaultMessage": "Folia"
   },
   "tag.loader.forge": {
     "defaultMessage": "Forge"
   },
   "tag.loader.geyser": {
-    "defaultMessage": "Rozšíření pro Geyser"
+    "defaultMessage": "Geyser 扩展"
   },
   "tag.loader.iris": {
     "defaultMessage": "Iris"
+  },
+  "tag.loader.java-agent": {
+    "defaultMessage": "Java 代理"
+  },
+  "tag.loader.legacy-fabric": {
+    "defaultMessage": "Legacy Fabric"
   },
   "tag.loader.liteloader": {
     "defaultMessage": "LiteLoader"
   },
   "tag.loader.minecraft": {
-    "defaultMessage": "Resourcepack"
+    "defaultMessage": "资源包"
+  },
+  "tag.loader.modloader": {
+    "defaultMessage": "Risugami's ModLoader"
+  },
+  "tag.loader.mrpack": {
+    "defaultMessage": "整合包"
   },
   "tag.loader.neoforge": {
     "defaultMessage": "NeoForge"
@@ -2786,6 +4136,9 @@
   "tag.loader.optifine": {
     "defaultMessage": "OptiFine"
   },
+  "tag.loader.ornithe": {
+    "defaultMessage": "Ornithe"
+  },
   "tag.loader.paper": {
     "defaultMessage": "Paper"
   },
@@ -2795,11 +4148,17 @@
   "tag.loader.quilt": {
     "defaultMessage": "Quilt"
   },
+  "tag.loader.rift": {
+    "defaultMessage": "Rift"
+  },
   "tag.loader.spigot": {
     "defaultMessage": "Spigot"
   },
   "tag.loader.sponge": {
     "defaultMessage": "Sponge"
+  },
+  "tag.loader.vanilla": {
+    "defaultMessage": "原版着色器"
   },
   "tag.loader.velocity": {
     "defaultMessage": "Velocity"
@@ -2807,97 +4166,718 @@
   "tag.loader.waterfall": {
     "defaultMessage": "Waterfall"
   },
+  "ui.confirm-leave-modal.body": {
+    "defaultMessage": "你有未保存的更改，离开此页面将会丢失这些更改。"
+  },
   "ui.confirm-leave-modal.header": {
-    "defaultMessage": "Máte neuložené změny"
+    "defaultMessage": "你有未保存的更改"
+  },
+  "ui.confirm-leave-modal.leave": {
+    "defaultMessage": "离开页面"
+  },
+  "ui.confirm-leave-modal.stay": {
+    "defaultMessage": "留在当前页面"
+  },
+  "ui.confirm-leave-modal.title": {
+    "defaultMessage": "离开页面？"
+  },
+  "ui.keybinding-modal.alt": {
+    "defaultMessage": "Alt"
+  },
+  "ui.keybinding-modal.cancel": {
+    "defaultMessage": "取消"
+  },
+  "ui.keybinding-modal.capture-hint": {
+    "defaultMessage": "然后按下你想让这个快捷键使用的按键。"
+  },
+  "ui.keybinding-modal.capture-title": {
+    "defaultMessage": "点击此处开始录制"
+  },
+  "ui.keybinding-modal.current": {
+    "defaultMessage": "当前快捷键"
+  },
+  "ui.keybinding-modal.device-keyboard": {
+    "defaultMessage": "键盘"
+  },
+  "ui.keybinding-modal.device-mouse": {
+    "defaultMessage": "鼠标"
+  },
+  "ui.keybinding-modal.group-digits": {
+    "defaultMessage": "数字键"
+  },
+  "ui.keybinding-modal.group-function": {
+    "defaultMessage": "功能键"
+  },
+  "ui.keybinding-modal.group-letters": {
+    "defaultMessage": "字母键"
+  },
+  "ui.keybinding-modal.group-mouse-buttons": {
+    "defaultMessage": "鼠标键"
+  },
+  "ui.keybinding-modal.group-navigation": {
+    "defaultMessage": "导航键"
+  },
+  "ui.keybinding-modal.group-punctuation": {
+    "defaultMessage": "符号键"
+  },
+  "ui.keybinding-modal.group-wheel": {
+    "defaultMessage": "滚轮"
+  },
+  "ui.keybinding-modal.issue-conflict": {
+    "defaultMessage": "已被「{label}」占用。"
+  },
+  "ui.keybinding-modal.issue-needs-modifier": {
+    "defaultMessage": "请同时按住 Ctrl/Cmd、Alt 或 Shift，或改选功能键、导航键。"
+  },
+  "ui.keybinding-modal.issue-reserved": {
+    "defaultMessage": "「{label}」由启动器保留。"
+  },
+  "ui.keybinding-modal.listening-hint": {
+    "defaultMessage": "请按下你想使用的按键。"
+  },
+  "ui.keybinding-modal.listening-title": {
+    "defaultMessage": "正在监听…"
+  },
+  "ui.keybinding-modal.mismatch": {
+    "defaultMessage": "组合不一致，已重新开始录制。"
+  },
+  "ui.keybinding-modal.mod": {
+    "defaultMessage": "Ctrl/Cmd"
+  },
+  "ui.keybinding-modal.modifiers": {
+    "defaultMessage": "修饰键"
+  },
+  "ui.keybinding-modal.mouse-back": {
+    "defaultMessage": "后退键"
+  },
+  "ui.keybinding-modal.mouse-forward": {
+    "defaultMessage": "前进键"
+  },
+  "ui.keybinding-modal.mouse-left": {
+    "defaultMessage": "鼠标左键"
+  },
+  "ui.keybinding-modal.mouse-middle": {
+    "defaultMessage": "鼠标中键"
+  },
+  "ui.keybinding-modal.mouse-right": {
+    "defaultMessage": "鼠标右键"
+  },
+  "ui.keybinding-modal.nothing-captured": {
+    "defaultMessage": "没有录制到按键。"
+  },
+  "ui.keybinding-modal.restore-default": {
+    "defaultMessage": "恢复默认"
+  },
+  "ui.keybinding-modal.save": {
+    "defaultMessage": "保存"
+  },
+  "ui.keybinding-modal.shift": {
+    "defaultMessage": "Shift"
+  },
+  "ui.keybinding-modal.special-hint": {
+    "defaultMessage": "鼠标键、滚轮以及与它们组合的按键只能在这里选择。"
+  },
+  "ui.keybinding-modal.title": {
+    "defaultMessage": "设置快捷键"
+  },
+  "ui.keybinding-modal.title-for": {
+    "defaultMessage": "设置「{action}」的快捷键"
+  },
+  "ui.keybinding-modal.tree-label": {
+    "defaultMessage": "快捷键可用的输入"
+  },
+  "ui.keybinding-modal.unset": {
+    "defaultMessage": "未设置"
+  },
+  "ui.keybinding-modal.use-capture": {
+    "defaultMessage": "改用按键录制"
+  },
+  "ui.keybinding-modal.use-special": {
+    "defaultMessage": "改用特殊方式选择"
+  },
+  "ui.keybinding-modal.verified-hint": {
+    "defaultMessage": "已确认，保存后生效。"
+  },
+  "ui.keybinding-modal.verified-title": {
+    "defaultMessage": "已确认"
+  },
+  "ui.keybinding-modal.verifying-hint": {
+    "defaultMessage": "用于确认组合是否被正确录制。"
+  },
+  "ui.keybinding-modal.verifying-title": {
+    "defaultMessage": "请再按一次以确认"
+  },
+  "ui.keybinding-modal.wheel-down": {
+    "defaultMessage": "滚轮向下"
+  },
+  "ui.keybinding-modal.wheel-up": {
+    "defaultMessage": "滚轮向上"
+  },
+  "ui.scroll-to-top.tooltip": {
+    "defaultMessage": "返回顶部"
   },
   "version.content.name": {
-    "defaultMessage": "Název"
+    "defaultMessage": "名称"
   },
   "version.content.version": {
-    "defaultMessage": "Verze"
+    "defaultMessage": "版本"
   },
   "version.file-type.dev-jar": {
-    "defaultMessage": "Vývojářský jar"
+    "defaultMessage": "开发用 jar 文件"
   },
   "version.file-type.javadoc-jar": {
     "defaultMessage": "Javadoc jar"
   },
   "version.file-type.optional-resource-pack": {
-    "defaultMessage": "Nepovinný resource pack"
+    "defaultMessage": "可选资源包"
   },
   "version.file-type.primary": {
-    "defaultMessage": "Hlavní"
+    "defaultMessage": "主要的"
   },
   "version.file-type.required-resource-pack": {
-    "defaultMessage": "Povinný resource pack"
+    "defaultMessage": "必需的资源包"
   },
   "version.file-type.signature": {
-    "defaultMessage": "Soubor s podpisem"
+    "defaultMessage": "签名文件"
   },
   "version.file-type.sources-jar": {
-    "defaultMessage": "Zdrojový jar"
+    "defaultMessage": "源 jar 文件"
   },
   "version.file-type.unknown": {
-    "defaultMessage": "Jiný"
+    "defaultMessage": "其他"
   },
   "version.section.changes": {
-    "defaultMessage": "Změny"
+    "defaultMessage": "更新"
   },
   "version.section.compatibility": {
-    "defaultMessage": "Kompatibilita"
+    "defaultMessage": "兼容性"
   },
   "version.section.content": {
-    "defaultMessage": "Obsah"
+    "defaultMessage": "内容"
   },
   "version.section.content.search-placeholder": {
-    "defaultMessage": "Hledat obsah..."
+    "defaultMessage": "搜索内容……"
   },
   "version.section.dependencies.any-compatible-version": {
-    "defaultMessage": "Libovolná kompatibilní verze"
+    "defaultMessage": "任意兼容的版本"
   },
   "version.section.dependencies.any-version": {
-    "defaultMessage": "Libovolná verze"
+    "defaultMessage": "任意版本"
   },
   "version.section.dependencies.unavailable-version": {
-    "defaultMessage": "Nedostupná verze"
+    "defaultMessage": "不可用的版本"
   },
   "version.section.dependencies.unavailable-version.description": {
-    "defaultMessage": "Tato verze mohla být smazána nebo ji právě kontrolují moderátoři."
+    "defaultMessage": "此版本可能已被删除，或正在接受管理员审查。"
   },
   "version.section.dependencies.unavailable-version.description.required": {
-    "defaultMessage": "Požadovaná verze mohla být smazána nebo ji právě kontrolují moderátoři."
+    "defaultMessage": "此版本可能已被删除，或正在接受管理员审查。"
   },
   "version.section.files": {
-    "defaultMessage": "Soubory"
+    "defaultMessage": "文件"
   },
   "version.section.included-content": {
-    "defaultMessage": "Zahrnutý obsah"
+    "defaultMessage": "包含的内容"
   },
   "version.section.known-incompatibilities": {
-    "defaultMessage": "Známé problémy s kompatibilitou"
+    "defaultMessage": "已知不兼容"
   },
   "version.section.no-changes": {
-    "defaultMessage": "Nebyl uveden žádný changelog."
+    "defaultMessage": "未提供更新日志。"
   },
   "version.section.no-modpack-mod-loader": {
-    "defaultMessage": "Žádný loader módů"
+    "defaultMessage": "没有模组加载器"
   },
   "version.section.optional-dependencies": {
-    "defaultMessage": "Volitelný obsah"
+    "defaultMessage": "可选的依赖"
   },
   "version.section.required-content": {
-    "defaultMessage": "Povinný obsah"
+    "defaultMessage": "必选的内容"
   },
   "version.section.supplementary-resources": {
-    "defaultMessage": "Doplňkové zdroje"
+    "defaultMessage": "附加的资源"
+  },
+  "version.summary.view-version": {
+    "defaultMessage": "查看版本"
   },
   "version.supplementary-resources.file": {
-    "defaultMessage": "Soubor"
+    "defaultMessage": "文件"
   },
   "version.supplementary-resources.size": {
-    "defaultMessage": "Velikost"
+    "defaultMessage": "大小"
   },
   "version.supplementary-resources.type": {
-    "defaultMessage": "Typ"
+    "defaultMessage": "类型"
+  },
+  "drop.confirm.title": {
+    "message": "你想以什么类型导入？"
+  },
+  "drop.confirm.not-this": {
+    "message": "作为其他内容导入"
+  },
+  "drop.confirm.cancel": {
+    "message": "取消"
+  },
+  "drop.confirm.help": {
+    "message": "我可以拖入什么？"
+  },
+  "drop.confirm.as-mod": {
+    "message": "模组"
+  },
+  "drop.confirm.as-mod-desc": {
+    "message": "将模组 JAR 安装到 Minecraft 实例"
+  },
+  "drop.confirm.as-instance": {
+    "message": "实例"
+  },
+  "drop.confirm.as-instance-desc": {
+    "message": "从其他启动器导入 Minecraft 实例"
+  },
+  "drop.confirm.as-modpack": {
+    "message": "整合包"
+  },
+  "drop.confirm.as-modpack-desc": {
+    "message": "从整合包创建新实例"
+  },
+  "drop.confirm.as-resource-pack": {
+    "message": "资源包"
+  },
+  "drop.confirm.as-resource-pack-desc": {
+    "message": "将资源包安装到实例"
+  },
+  "drop.confirm.as-shader-pack": {
+    "message": "光影包"
+  },
+  "drop.confirm.as-shader-pack-desc": {
+    "message": "将光影包安装到实例"
+  },
+  "drop.confirm.as-world": {
+    "message": "存档"
+  },
+  "drop.confirm.as-world-desc": {
+    "message": "将存档导入到实例中"
+  },
+  "drop.confirm.as-schematic": {
+    "message": "投影"
+  },
+  "drop.confirm.as-schematic-desc": {
+    "message": "导入 Litematic 投影文件"
+  },
+  "drop.confirm.as-dot-minecraft": {
+    "message": ".minecraft"
+  },
+  "drop.confirm.as-dot-minecraft-desc": {
+    "message": "扫描 .minecraft 文件夹以创建实例"
+  },
+  "drop.confirm.as-launcher": {
+    "message": "启动器"
+  },
+  "drop.confirm.as-hmcl-launcher": {
+    "message": "HMCL 启动器"
+  },
+  "drop.generic_install.title": {
+    "message": "安装 {type}"
+  },
+  "drop.generic_install.search": {
+    "message": "搜索实例..."
+  },
+  "drop.generic_install.install": {
+    "message": "安装"
+  },
+  "drop.generic_install.cancel": {
+    "message": "取消"
+  },
+  "drop.generic_install.create_new": {
+    "message": "创建新实例..."
+  },
+  "drop.generic_install.no_instances": {
+    "message": "未找到实例"
+  },
+  "app.drop.batch.scan.title": {
+    "message": "正在识别 {count, plural, one {# 个文件} other {# 个文件}}…"
+  },
+  "app.drop.batch.scan.subtitle": {
+    "message": "已识别 {done} / {total}"
+  },
+  "app.drop.batch.scan.cancel": {
+    "message": "取消"
+  },
+  "app.drop.batch.scan.pending": {
+    "message": "等待"
+  },
+  "app.drop.batch.scan.scanning": {
+    "message": "扫描中"
+  },
+  "app.drop.batch.scan.done": {
+    "message": "已识别"
+  },
+  "app.drop.batch.scan.skipped": {
+    "message": "已跳过"
+  },
+  "app.drop.batch.scan.error": {
+    "message": "失败"
+  },
+  "drop.launcher_import.title": {
+    "message": "从 {launcherName} 导入实例"
+  },
+  "drop.launcher_import.subtitle": {
+    "message": "在 {basePath} 中扫描到 {count} 个实例"
+  },
+  "drop.launcher_import.select_all": {
+    "message": "全选"
+  },
+  "drop.launcher_import.deselect_all": {
+    "message": "取消全选"
+  },
+  "drop.launcher_import.selected": {
+    "message": "已选 {n} 个"
+  },
+  "drop.launcher_import.cancel": {
+    "message": "取消"
+  },
+  "drop.launcher_import.import": {
+    "message": "导入（{n}）"
+  },
+  "drop.launcher_import.no_instances": {
+    "message": "未找到实例"
+  },
+  "drop.symlink_method.subtitle": {
+    "message": "正在导入 {n} 个实例"
+  },
+  "drop.symlink_method.cancel": {
+    "message": "取消"
+  },
+  "drop.symlink_method.reset_changes": {
+    "message": "重置更改"
+  },
+  "drop.symlink_method.confirm": {
+    "message": "确认"
+  },
+  "drop.symlink_method.next": {
+    "message": "下一步"
+  },
+  "drop.symlink_method.instance_nav_label": {
+    "message": "切换到 {name}"
+  },
+  "drop.symlink_method.detecting": {
+    "message": "检测中..."
+  },
+  "drop.symlink_method.game_version": {
+    "message": "游戏版本"
+  },
+  "drop.symlink_method.import_path": {
+    "message": "版本路径"
+  },
+  "drop.symlink_method.import_path_tooltip": {
+    "message": "导入路径"
+  },
+  "drop.symlink_method.instance": {
+    "message": "实例"
+  },
+  "drop.symlink_method.loader": {
+    "message": "加载器"
+  },
+  "drop.symlink_method.loader_type_unknown_tooltip": {
+    "message": "此版本安装有Mod，但未识别到加载器。"
+  },
+  "drop.symlink_method.loader_version": {
+    "message": "加载器版本"
+  },
+  "drop.symlink_method.loader_version_unknown_tooltip": {
+    "message": "未检测到加载器版本，将使用自定义版本。"
+  },
+  "drop.symlink_method.latest": {
+    "message": "最新"
+  },
+  "drop.symlink_method.missing": {
+    "message": "缺失"
+  },
+  "drop.symlink_method.missing_path": {
+    "message": "没有可用的导入路径"
+  },
+  "drop.symlink_method.not_available": {
+    "message": "不可用"
+  },
+  "drop.symlink_method.plan_failed": {
+    "message": "未能估算进度"
+  },
+  "drop.symlink_method.unrecognized": {
+    "message": "未识别"
+  },
+  "drop.symlink_method.custom": {
+    "message": "自定义"
+  },
+  "drop.symlink_method.custom_tooltip": {
+    "message": "通常您不应该自定义它，除非您确认它识别错误。"
+  },
+  "drop.symlink_method.runtime_root": {
+    "message": "根目录"
+  },
+  "drop.symlink_method.runtime_root_tooltip": {
+    "message": "Runtime 根目录"
+  },
+  "drop.symlink_method.search_game_version": {
+    "message": "搜索游戏版本"
+  },
+  "drop.symlink_method.search_loader_version": {
+    "message": "搜索加载器版本"
+  },
+  "drop.symlink_method.select_game_version": {
+    "message": "选择游戏版本"
+  },
+  "drop.symlink_method.select_instance": {
+    "message": "选择实例"
+  },
+  "drop.symlink_method.select_loader_version": {
+    "message": "选择加载器版本"
+  },
+  "drop.symlink_method.stats": {
+    "message": "估计"
+  },
+  "drop.symlink_method.stats_cache": {
+    "message": "缓存"
+  },
+  "drop.symlink_method.stats_cache_tooltip": {
+    "message": "Axolotl 缓存"
+  },
+  "drop.symlink_method.stats_local": {
+    "message": "复用"
+  },
+  "drop.symlink_method.stats_local_tooltip": {
+    "message": "本地复用"
+  },
+  "drop.symlink_method.stats_migrate": {
+    "message": "迁移"
+  },
+  "drop.symlink_method.stats_migrate_tooltip": {
+    "message": "需要迁移"
+  },
+  "drop.symlink_method.stats_files": {
+    "message": "{files} 个文件"
+  },
+  "drop.symlink_method.stats_network": {
+    "message": "下载"
+  },
+  "drop.symlink_method.stats_network_tooltip": {
+    "message": "需要下载"
+  },
+  "instances.updater-modal.search-compat": {
+    "message": "查找兼容版本"
+  },
+  "project-type.schematic.category": {
+    "message": "投影"
+  },
+  "project-type.schematic.capital": {
+    "message": "{count, plural, one {投影} other {投影}}"
+  },
+  "project-type.schematic.lowercase": {
+    "message": "{count, plural, one {投影} other {投影}}"
+  },
+  "creation-flow.modal.import-instance.select-folder.description": {
+    "defaultMessage": "导入启动器文件夹或 .minecraft 文件夹"
+  },
+  "creation-flow.modal.import-instance.select-folder": {
+    "defaultMessage": "选择要导入的文件夹"
+  },
+  "creation-flow.modal.import-instance.select-file.description": {
+    "defaultMessage": "导入整合包文件或启动器(HMCL、PCL)"
+  },
+  "drop.confirm.as-data-pack": {
+    "defaultMessage": "数据包"
+  },
+  "drop.confirm.as-data-pack-desc": {
+    "defaultMessage": "将数据包安装到存档"
+  },
+  "image-viewer.close": {
+    "message": "关闭"
+  },
+  "image-viewer.edit": {
+    "message": "编辑"
+  },
+  "image-viewer.metadata": {
+    "message": "{size} · {width} × {height} 像素"
+  },
+  "image-viewer.editor.colour": {
+    "message": "颜色"
+  },
+  "image-viewer.editor.crop.dimensions": {
+    "message": "{width} × {height} 像素"
+  },
+  "image-viewer.editor.crop.reset": {
+    "message": "重置裁剪"
+  },
+  "image-viewer.editor.delete-selection": {
+    "message": "删除选中的标注"
+  },
+  "image-viewer.editor.eraser.area": {
+    "message": "区域"
+  },
+  "image-viewer.editor.eraser.element": {
+    "message": "元素"
+  },
+  "image-viewer.editor.eraser.mode": {
+    "message": "橡皮擦模式"
+  },
+  "image-viewer.editor.image-editing-tools": {
+    "message": "图片编辑工具"
+  },
+  "image-viewer.editor.more-save-options": {
+    "message": "更多保存选项"
+  },
+  "image-viewer.editor.overwrite": {
+    "message": "覆盖"
+  },
+  "image-viewer.editor.redo": {
+    "message": "重做"
+  },
+  "image-viewer.editor.save-as-new": {
+    "message": "保存副本"
+  },
+  "image-viewer.editor.save-image": {
+    "message": "保存图片"
+  },
+  "image-viewer.editor.size": {
+    "message": "大小"
+  },
+  "image-viewer.editor.tool.arrow": {
+    "message": "箭头"
+  },
+  "image-viewer.editor.tool.censor": {
+    "message": "遮挡"
+  },
+  "image-viewer.editor.tool.crop": {
+    "message": "裁剪"
+  },
+  "image-viewer.editor.tool.ellipse": {
+    "message": "椭圆"
+  },
+  "image-viewer.editor.tool.eraser": {
+    "message": "橡皮擦"
+  },
+  "image-viewer.editor.tool.highlight": {
+    "message": "高亮"
+  },
+  "image-viewer.editor.tool.pen": {
+    "message": "画笔"
+  },
+  "image-viewer.editor.tool.rectangle": {
+    "message": "矩形"
+  },
+  "image-viewer.editor.tool.select": {
+    "message": "选择"
+  },
+  "image-viewer.editor.tool.text": {
+    "message": "文本"
+  },
+  "image-viewer.editor.undo": {
+    "message": "撤销"
+  },
+  "image-viewer.editor.width": {
+    "message": "宽度"
+  },
+  "image-viewer.editor.zoom-fit": {
+    "message": "适应"
+  },
+  "image-viewer.editor.zoom-fit-workspace": {
+    "message": "适应工作区"
+  },
+  "image-viewer.editor.zoom-in": {
+    "message": "放大"
+  },
+  "image-viewer.editor.zoom-out": {
+    "message": "缩小"
+  },
+  "image-viewer.next": {
+    "message": "下一张图片"
+  },
+  "image-viewer.previous": {
+    "message": "上一张图片"
+  },
+  "files.layout.no-matches": {
+    "defaultMessage": "此视图中没有匹配的文件"
+  },
+  "files.select-view": {
+    "defaultMessage": "选择此视图中的全部文件"
+  },
+  "browse.sort.first-release": {
+    "defaultMessage": "首次发布时间"
+  },
+  "browse.sort.latest-release": {
+    "defaultMessage": "最近发布时间"
+  },
+  "browse.sort.project-created": {
+    "defaultMessage": "项目创建时间"
+  },
+  "browse.sort.project-modified": {
+    "defaultMessage": "项目修改时间"
+  },
+  "content.metadata-filter.installed-source": {
+    "defaultMessage": "安装来源平台"
+  },
+  "content.metadata-filter.ownership": {
+    "defaultMessage": "内容归属"
+  },
+  "content.metadata-filter.ownership.local-discovered": {
+    "defaultMessage": "本地发现"
+  },
+  "content.metadata-filter.ownership.pack-managed": {
+    "defaultMessage": "整合包管理"
+  },
+  "content.metadata-filter.ownership.user-added": {
+    "defaultMessage": "用户添加"
+  },
+  "content.metadata-filter.source.mcarchive": {
+    "defaultMessage": "MCArchive"
+  },
+  "content.metadata-filter.source.modrinth": {
+    "defaultMessage": "Modrinth"
+  },
+  "content.metadata-filter.source.planet-minecraft": {
+    "defaultMessage": "Planet Minecraft"
+  },
+  "project-card.date.created.tooltip": {
+    "defaultMessage": "项目创建于 {date}"
+  },
+  "project-card.date.project-modified.tooltip": {
+    "defaultMessage": "项目修改于 {date}"
+  },
+  "project-card.date.release-updated.tooltip": {
+    "defaultMessage": "最近发布于 {date}"
+  },
+  "browse.sort.project-published": {
+    "defaultMessage": "项目首次公开时间"
+  },
+  "project-card.date.project-published.tooltip": {
+    "defaultMessage": "项目首次公开于 {date}"
+  },
+  "project-card.date.first-release.tooltip": {
+    "defaultMessage": "首次发布于 {date}"
+  },
+  "content.page-layout.duplicate-status": {
+    "defaultMessage": "{visible} 项匹配 · 全部副本：{updates} 项可更新 · {disabled} 项已禁用 · {missing} 项缺失 · {installing} 项处理中"
+  },
+  "content.page-layout.update-duplicate-group": {
+    "defaultMessage": "预览全部 {count, number} 个副本的更新"
+  },
+  "browse.search.failed": {
+    "message": "无法完成搜索，请检查网络或筛选条件后重试。"
+  },
+  "content.actions.update-all": {
+    "message": "全部更新"
+  },
+  "content.confirm-deletion.failed": {
+    "message": "无法删除所选内容，请重试。"
+  },
+  "content.dependency-warning.delete-failed": {
+    "message": "无法删除所选内容及其依赖，请重试。"
+  },
+  "content.page-layout.scroll-to-top": {
+    "message": "回到顶部"
+  },
+  "modal.confirm-action.failed": {
+    "message": "无法完成此操作，请重试。"
+  },
+  "version.uploaded-by": {
+    "message": "上传者"
   }
 }

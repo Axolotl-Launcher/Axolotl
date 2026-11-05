@@ -5726,9 +5726,6 @@
   "app.lab.recipe-generator.brewing.count": {
     "message": "Output count"
   },
-  "app.lab.recipe-generator.brewing.guide": {
-    "message": "Brewing guide"
-  },
   "app.lab.recipe-generator.brewing.hint": {
     "message": "Drop any supported item into the input, reagent and output slots. Potion choices override only the potion ID in the corresponding JSON object. Other conditions and components are preserved."
   },
@@ -6472,9 +6469,6 @@
   },
   "app.lab.seed-map.add-marker": {
     "message": "添加標記"
-  },
-  "app.lab.seed-map.advanced-tour": {
-    "message": "Map exploration guide"
   },
   "app.lab.seed-map.approximate": {
     "message": "估算"
@@ -8408,9 +8402,6 @@
   "app.logagent.settings.supported-models": {
     "message": "Choose a model that supports tool calling. Protocol support does not guarantee that every model accepts tools. Copilot Auto requires selecting an explicit model."
   },
-  "app.logagent.settings.tour": {
-    "message": "About analysis sources"
-  },
   "app.logagent.source-cloud": {
     "message": "Cloud LogShare"
   },
@@ -9266,347 +9257,209 @@
   "app.notification.warning": {
     "message": "警告"
   },
-  "app.onboarding.account.description": {
-    "message": "想登錄、切換帳號或看看個人資料，隨時來這裡。沒人打卡。"
+  "app.oobe.account.add": {
+    "message": "Add"
   },
-  "app.onboarding.account.title": {
-    "message": "帳號，隨你安排"
+  "app.oobe.account.add-another": {
+    "message": "Add another account"
   },
-  "app.onboarding.action.click-create": {
-    "message": "點擊創建新實例，繼續"
+  "app.oobe.account.add-title": {
+    "message": "Add an account"
   },
-  "app.onboarding.action.click-creation-method": {
-    "message": "選一條路，繼續"
+  "app.oobe.account.added": {
+    "message": "On this device"
   },
-  "app.onboarding.action.click-discover": {
-    "message": "點擊發現內容，繼續"
+  "app.oobe.account.description": {
+    "message": "Add the account you play Minecraft with."
   },
-  "app.onboarding.action.click-downloads": {
-    "message": "點擊下載，繼續"
+  "app.oobe.account.label": {
+    "message": "Account"
   },
-  "app.onboarding.action.click-favorites": {
-    "message": "點選收藏夾，繼續"
+  "app.oobe.account.microsoft": {
+    "message": "Microsoft account"
   },
-  "app.onboarding.action.click-lab": {
-    "message": "點擊實驗室，繼續"
+  "app.oobe.account.microsoft-detail": {
+    "message": "Sign in with the account that owns Minecraft: Java Edition."
   },
-  "app.onboarding.action.click-library": {
-    "message": "點擊實例庫，繼續"
+  "app.oobe.account.offline": {
+    "message": "Offline account"
   },
-  "app.onboarding.action.click-settings": {
-    "message": "點擊設置，繼續"
+  "app.oobe.account.offline-detail": {
+    "message": "Just a player name. Only works on servers that allow offline players."
   },
-  "app.onboarding.action.click-skins": {
-    "message": "點擊皮膚選擇器，繼續"
+  "app.oobe.account.offline-restricted": {
+    "message": "Sign in with a Microsoft account on this device first."
   },
-  "app.onboarding.action.click-tab": {
-    "message": "點擊這個標籤，繼續"
+  "app.oobe.account.recommended": {
+    "message": "Recommended"
   },
-  "app.onboarding.action.continue-area": {
-    "message": "點擊任意位置，接著說"
+  "app.oobe.account.third-party": {
+    "message": "Third-party account"
   },
-  "app.onboarding.action.finish-area": {
-    "message": "點擊任意位置，收工"
+  "app.oobe.account.third-party-detail": {
+    "message": "LittleSkin or another Yggdrasil authentication service."
   },
-  "app.onboarding.action.open-gradient-text": {
-    "message": "打開漸變文字生成器，繼續"
+  "app.oobe.account.title": {
+    "message": "Who is using the launcher?"
   },
-  "app.onboarding.action.open-recipe-generator": {
-    "message": "開啟配方生成器，繼續"
+  "app.oobe.action.back": {
+    "message": "Back"
   },
-  "app.onboarding.action.open-schematic-workshop": {
-    "message": "開啟投影工坊，繼續"
+  "app.oobe.action.finish": {
+    "message": "Finish"
   },
-  "app.onboarding.action.open-seed-map": {
-    "message": "打開種子地圖，繼續"
+  "app.oobe.action.next": {
+    "message": "Next"
   },
-  "app.onboarding.action.return-lab": {
-    "message": "點擊實驗室，查看另一個項目"
+  "app.oobe.action.skip": {
+    "message": "Skip"
   },
-  "app.onboarding.action.skip": {
-    "message": "先不逛了"
+  "app.oobe.appearance.home.minimal": {
+    "message": "Minimal"
   },
-  "app.onboarding.action.start": {
-    "message": "帶我逛逛"
+  "app.oobe.appearance.home.minimal-detail": {
+    "message": "One instance and a Play button, nothing else."
   },
-  "app.onboarding.ai.description": {
-    "message": "統一連線文字模型供應商、選擇要使用的模型，也可在這裡一鍵關閉所有 AI 功能。"
+  "app.oobe.appearance.home.standard": {
+    "message": "Information"
   },
-  "app.onboarding.ai.title": {
-    "message": "連線你的 AI 供應商"
+  "app.oobe.appearance.home.standard-detail": {
+    "message": "A greeting and widgets for your instances, news and more."
   },
-  "app.onboarding.appearance.description": {
-    "message": "Theme, accent, background, and window behavior. Make this launcher look familiar."
+  "app.oobe.appearance.home.title": {
+    "message": "Home page"
   },
-  "app.onboarding.appearance.title": {
-    "message": "調成你的順眼樣子"
+  "app.oobe.appearance.label": {
+    "message": "Appearance"
   },
-  "app.onboarding.brewing.description": {
-    "message": "Choose an input, reagent and output. Potion conditions are optional, and output components can be edited as validated JSON. Brewing recipes require Minecraft 26.3."
+  "app.oobe.appearance.later": {
+    "message": "You can change these any time in Settings: the color theme under Appearance, the home page under Home & navigation."
   },
-  "app.onboarding.brewing.title": {
-    "message": "Create a brewing recipe"
+  "app.oobe.appearance.save-failed": {
+    "message": "This choice could not be saved. It still applies until you restart."
   },
-  "app.onboarding.browse.description": {
-    "message": "用類型、搜索和篩選快速收斂範圍，項目頁把版本、更新日誌、圖庫和安裝選擇都放在一個地方。"
+  "app.oobe.appearance.theme.dark": {
+    "message": "Dark"
   },
-  "app.onboarding.browse.title": {
-    "message": "搜索，不靠玄學"
+  "app.oobe.appearance.theme.light": {
+    "message": "Light"
   },
-  "app.onboarding.create.description": {
-    "message": "Start from scratch, grab a modpack, or bring in an existing instance. Your call."
+  "app.oobe.appearance.theme.oled": {
+    "message": "OLED"
   },
-  "app.onboarding.create.title": {
-    "message": "開個新檔"
+  "app.oobe.appearance.theme.system": {
+    "message": "Match system"
   },
-  "app.onboarding.creation-confirm.description": {
-    "message": "這裡會按你的選擇創建實例。我堅持不替你按確認。"
+  "app.oobe.appearance.theme.title": {
+    "message": "Color theme"
   },
-  "app.onboarding.creation-confirm.title": {
-    "message": "最後看一眼"
+  "app.oobe.appearance.title": {
+    "message": "Choose the style you like."
   },
-  "app.onboarding.creation-loader.description": {
-    "message": "Vanilla、Fabric、Forge、NeoForge 和它們的朋友們，按內容需要來選。"
+  "app.oobe.dialog-label": {
+    "message": "Set up Axolotl Launcher"
   },
-  "app.onboarding.creation-loader.title": {
-    "message": "選個引擎"
+  "app.oobe.language.description": {
+    "message": "The launcher switches as soon as you pick one."
   },
-  "app.onboarding.creation-name.description": {
-    "message": "給它取個讓未來的你一眼認出的名字。"
-  },
-  "app.onboarding.creation-name.title": {
-    "message": "取個好記的名字"
-  },
-  "app.onboarding.creation-version.description": {
-    "message": "選定這個實例的 Minecraft 版本。相容性喜歡具體答案。"
-  },
-  "app.onboarding.creation-version.title": {
-    "message": "定下遊戲版本"
-  },
-  "app.onboarding.creation.description": {
-    "message": "Custom setup, modpack, or import. The choices are yours; I am just here for the subtitles."
-  },
-  "app.onboarding.creation.title": {
-    "message": "選條路"
-  },
-  "app.onboarding.defaults.description": {
-    "message": "新實例會繼承這些選擇，省得你每次重做作業。"
-  },
-  "app.onboarding.defaults.title": {
-    "message": "少做點重複勞動"
-  },
-  "app.onboarding.discover.description": {
-    "message": "整合包、模組、插件、資源包、光影：這才是值得掉進去的坑。"
-  },
-  "app.onboarding.discover.title": {
-    "message": "找點新鮮的"
-  },
-  "app.onboarding.downloads-page.description": {
-    "message": "進行中的任務、歷史、報錯、重試、取消和診斷資訊都會在這留下記錄。"
-  },
-  "app.onboarding.downloads-page.title": {
-    "message": "沒有東西會失蹤"
-  },
-  "app.onboarding.downloads.description": {
-    "message": "安裝和內容下載都會在這裡報到，不會神秘消失。"
-  },
-  "app.onboarding.downloads.title": {
-    "message": "下載指揮室"
-  },
-  "app.onboarding.favorites.description": {
-    "message": "開啟收藏夾，回看儲存的模組、資源包、資料包和光影包。啟動器會重新整理專案詳情；隨後你可以選擇例項，並把不同來源的內容加入同一個安裝購物車。"
-  },
-  "app.onboarding.favorites.title": {
-    "message": "留個清單"
-  },
-  "app.onboarding.home-customize.description": {
-    "message": "使用右下角的編輯控制元件新增、調整和配置小元件。編輯時可在自動排滿的網格與保留空格的自由網格之間切換。"
-  },
-  "app.onboarding.home-customize.title": {
-    "message": "按你的方式排列"
-  },
-  "app.onboarding.home-layout.description": {
-    "message": "隨時使用這個懸浮按鈕，在資訊首頁和極簡首頁之間切換。"
-  },
-  "app.onboarding.home-layout.title": {
-    "message": "切換資訊密度"
-  },
-  "app.onboarding.home-widgets.description": {
-    "message": "資訊主頁由最近活動、遊玩時間、例項、世界和伺服器小元件組成。視窗或賬號側邊欄變化時，網格會自動重排。"
-  },
-  "app.onboarding.home-widgets.title": {
-    "message": "你的主頁，你的佈局"
-  },
-  "app.onboarding.instance-actions.description": {
-    "message": "從實例頁頭部啟動、停止、修復、配置、導出或打開這個實例。"
-  },
-  "app.onboarding.instance-actions.title": {
-    "message": "主操作台"
-  },
-  "app.onboarding.instance-tabs.description": {
-    "message": "內容、文件、截圖、世界和日誌都在這些標籤裡。亂中有序。"
-  },
-  "app.onboarding.instance-tabs.title": {
-    "message": "剩下的工作台"
-  },
-  "app.onboarding.java.description": {
-    "message": "啟動 Minecraft 的 Java 運行環境在這。技術活，但它很聽話。"
-  },
-  "app.onboarding.java.title": {
-    "message": "Java，在後台"
-  },
-  "app.onboarding.lab-editor.description": {
-    "message": "編輯文本、選擇顏色、即時預覽，並複製適用於 Minecraft 配置的格式。"
-  },
-  "app.onboarding.lab-editor.title": {
-    "message": "在同一處編輯和複製"
-  },
-  "app.onboarding.lab-recipe-generator.description": {
-    "message": "選擇 Java 版本、填充配方槽位，然後在本地複製或匯出 JSON。"
-  },
-  "app.onboarding.lab-recipe-generator.title": {
-    "message": "製作資料包配方"
-  },
-  "app.onboarding.lab-schematic.description": {
-    "message": "開啟本地 .litematic 或 .schem 檔案，也可以從已安裝例項中選擇。3D 工作區集中提供檢視、測量、圖層控制、材料統計和本地編輯。"
-  },
-  "app.onboarding.lab-schematic.title": {
-    "message": "放置前先檢查建築"
-  },
-  "app.onboarding.lab-seed-map.description": {
-    "message": "輸入種子或從實例載入，然後在本地地圖中查看群系、結構與礦物圖層。"
-  },
-  "app.onboarding.lab-seed-map.title": {
-    "message": "載入世界前先找到它"
-  },
-  "app.onboarding.lab-tools.description": {
-    "message": "生成帶格式的漸變文字，或用本地種子地圖探索 Java 世界。"
-  },
-  "app.onboarding.lab-tools.title": {
-    "message": "首批兩個項目"
-  },
-  "app.onboarding.lab.description": {
-    "message": "實驗室將本地 Minecraft 工具放進啟動器，無需打開其他網站或註冊額外帳號。"
-  },
-  "app.onboarding.lab.title": {
-    "message": "內建的實用工具"
-  },
-  "app.onboarding.language.description": {
-    "message": "在這裡選擇啟動器語言和管理翻譯。不需要翻譯腔。"
-  },
-  "app.onboarding.language.title": {
-    "message": "說你的語言"
-  },
-  "app.onboarding.library-page.description": {
-    "message": "按整合包、伺服器或自訂配置篩選，再打開任意實例管理。"
-  },
-  "app.onboarding.library-page.title": {
-    "message": "各就各位"
-  },
-  "app.onboarding.library.description": {
-    "message": "實例會把版本、載入器、內容和存檔分開。不會意外燉成一鍋模組湯。"
-  },
-  "app.onboarding.library.title": {
-    "message": "你的啟動書架"
-  },
-  "app.onboarding.logagent-cloud.description": {
-    "message": "Cloud options appear when Cloud LogShare is selected. Analyze without storing logs still sends content to LogShare and disables the automatic summary. Cancelling disconnects the launcher; a cloud task may continue on the server."
-  },
-  "app.onboarding.logagent-cloud.title": {
-    "message": "Control cloud storage"
-  },
-  "app.onboarding.logagent-sharing.description": {
-    "message": "Choosing local analysis does not upload logs to LogShare. You can still explicitly share a diagnostic link using your selected sharing service."
-  },
-  "app.onboarding.logagent-sharing.title": {
-    "message": "Sharing is a separate action"
-  },
-  "app.onboarding.logagent-source.description": {
-    "message": "Local LogAgent investigates logs in this launcher using your configured model. Relevant excerpts are sent to that model provider. Cloud LogShare analyzes logs on its server. The crash window shows live progress and keeps the completed steps in a collapsible history. This setting is a default; the crash window can override it for one analysis."
-  },
-  "app.onboarding.logagent-source.title": {
-    "message": "Choose where analysis runs"
-  },
-  "app.onboarding.mascot-alt": {
-    "message": "引導吉祥物"
-  },
-  "app.onboarding.offline-account.description": {
-    "message": "Open Playing as in the sidebar to add an offline Minecraft account. You may need to sign in with an official Minecraft account on this device first."
-  },
-  "app.onboarding.offline-account.title": {
-    "message": "Offline accounts"
-  },
-  "app.onboarding.privacy.description": {
-    "message": "匿名遙測、Discord 活動狀態與 Minecraft 日誌分析服務都可以在這裡調整。"
-  },
-  "app.onboarding.privacy.title": {
-    "message": "你的資料，由你決定"
-  },
-  "app.onboarding.resources.description": {
-    "message": "調節下載、儲存和啟動器資源。給風扇一點尊嚴。"
-  },
-  "app.onboarding.resources.title": {
-    "message": "別把電腦烤熟"
-  },
-  "app.onboarding.seed-map-area.description": {
-    "message": "Hold the right mouse button and drag on the 2D map to select an area. Count mineral candidate blocks at a chosen height range, or search supported container loot by item name or ID. Results include prediction limits and can be canceled. A right-click without dragging still adds a marker."
-  },
-  "app.onboarding.seed-map-area.title": {
-    "message": "Analyze a selected area"
-  },
-  "app.onboarding.seed-map-underground.description": {
-    "message": "Underground opens the 3D X-Ray view directly. Click to look around, move with WASD, use Space / Shift to rise or descend, and press Esc to release the mouse. Idle computation preloads full-height 16 × 16 chunks up to a horizontal radius of 12 chunks. Surface and bedrock layers can be switched independently. The upper-left overlay shows your position and the targeted block; the upper-right status shows the loaded chunk count and whether generation is running. Fluids and bedrock thickness are estimates; mineral positions are candidates."
-  },
-  "app.onboarding.seed-map-underground.title": {
-    "message": "Look below the surface"
-  },
-  "app.onboarding.seed-map.description": {
-    "message": "Zoom in to see supported 2D structure layouts directly on the map. Select a structure to open its capabilities and details beside the map; drag the divider to resize. In Layout, supported structures can switch between frames and original template blocks colored from their textures. Partial layouts, representative palettes and height limits are explained in the preview."
-  },
-  "app.onboarding.seed-map.title": {
-    "message": "Explore structure details"
-  },
-  "app.onboarding.settings.description": {
-    "message": "外觀、語言、翻譯、Java、儲存和更新這些有用開關，都在這裡。"
-  },
-  "app.onboarding.settings.title": {
-    "message": "按你的方式使用"
-  },
-  "app.onboarding.skins-page.description": {
-    "message": "在這裡添加、預覽、排序和應用皮膚。現在不登錄也完全沒關係。"
-  },
-  "app.onboarding.skins-page.title": {
-    "message": "你的皮膚抽屜"
-  },
-  "app.onboarding.skins.description": {
-    "message": "把 Minecraft 皮膚放在一起管理。想登錄的時候再登錄。"
-  },
-  "app.onboarding.skins.title": {
-    "message": "換個造型吧"
-  },
-  "app.onboarding.translation.description": {
-    "message": "瀏覽時直接翻譯 Modrinth 項目的標題、摘要和介紹。保留原文、雙語同屏，或者讓譯文站 C 位，都由你決定。"
-  },
-  "app.onboarding.translation.title": {
-    "message": "翻譯，是 Axolotl 的拿手活"
-  },
-  "app.onboarding.updates.description": {
-    "message": "決定 Axolotl 何時檢查更新，以及是否替你安裝。"
-  },
-  "app.onboarding.updates.title": {
-    "message": "保持在線"
-  },
-  "app.onboarding.welcome.description": {
-    "message": "實例、內容、世界和下載，現在都有了同一個家。正式開玩之前，先快速逛一圈。"
-  },
-  "app.onboarding.welcome.footer": {
-    "message": "你的最後一款啟動器"
-  },
-  "app.onboarding.welcome.language-label": {
+  "app.oobe.language.label": {
     "message": "Language"
   },
-  "app.onboarding.welcome.title": {
-    "message": "一切就緒"
+  "app.oobe.language.list-label": {
+    "message": "Launcher language"
+  },
+  "app.oobe.language.save-failed": {
+    "message": "The language could not be saved. Try another choice or try again."
+  },
+  "app.oobe.language.system": {
+    "message": "Match this device"
+  },
+  "app.oobe.language.system-detail": {
+    "message": "Currently {language}"
+  },
+  "app.oobe.language.title": {
+    "message": "Choose the launcher language."
+  },
+  "app.oobe.migration.add-folder": {
+    "message": "Add .minecraft folder"
+  },
+  "app.oobe.migration.description": {
+    "message": "Bring your existing instances and .minecraft folders along."
+  },
+  "app.oobe.migration.detected.title": {
+    "message": "Found on this device"
+  },
+  "app.oobe.migration.direct-hint": {
+    "message": "The launcher manages its {count, plural, one {# version} other {# versions}} directly, without copying anything."
+  },
+  "app.oobe.migration.folder-added": {
+    "message": "{count, plural, =0 {Added} one {Added, # version found} other {Added, # versions found}}"
+  },
+  "app.oobe.migration.folders.description": {
+    "message": "The launcher manages the versions in it directly, without copying anything."
+  },
+  "app.oobe.migration.folders.title": {
+    "message": "Use a .minecraft folder in place"
+  },
+  "app.oobe.migration.generic": {
+    "message": "Minecraft folder"
+  },
+  "app.oobe.migration.import-selected": {
+    "message": "{count, plural, =0 {Import} one {Import # instance} other {Import # instances}}"
+  },
+  "app.oobe.migration.import-started": {
+    "message": "{count, plural, one {# instance is} other {# instances are}} being imported. You can keep going while that runs."
+  },
+  "app.oobe.migration.instance-count": {
+    "message": "{count, plural, one {# instance} other {# instances}}"
+  },
+  "app.oobe.migration.label": {
+    "message": "Import"
+  },
+  "app.oobe.migration.method": {
+    "message": "How to bring it over"
+  },
+  "app.oobe.migration.method.direct": {
+    "message": "Use in place"
+  },
+  "app.oobe.migration.method.import": {
+    "message": "Import"
+  },
+  "app.oobe.migration.more-options": {
+    "message": "More import options"
+  },
+  "app.oobe.migration.none-found": {
+    "message": "No other launchers were found on this device."
+  },
+  "app.oobe.migration.official-launcher": {
+    "message": "Official launcher"
+  },
+  "app.oobe.migration.scanning": {
+    "message": "Looking for other launchers…"
+  },
+  "app.oobe.migration.select-folder": {
+    "message": "Select a .minecraft folder"
+  },
+  "app.oobe.migration.title": {
+    "message": "Import data from other launchers?"
+  },
+  "app.oobe.migration.use-folder": {
+    "message": "Use this folder"
+  },
+  "app.oobe.progress": {
+    "message": "Setup progress"
+  },
+  "app.oobe.welcome.label": {
+    "message": "Welcome"
+  },
+  "app.oobe.welcome.ready": {
+    "message": "Everything is set. Click anywhere to open the launcher."
+  },
+  "app.oobe.welcome.start": {
+    "message": "Get started"
+  },
+  "app.oobe.welcome.title": {
+    "message": "Welcome!"
   },
   "app.page-path.copied": {
     "message": "Copied"
@@ -11462,8 +11315,8 @@
   "app.settings.about.qq-group": {
     "message": "使用者 QQ 群組"
   },
-  "app.settings.about.replay-onboarding": {
-    "message": "重放導覽"
+  "app.settings.about.replay-oobe": {
+    "message": "Run first-time setup again"
   },
   "app.settings.about.report-issue": {
     "message": "問題與意見回饋"
@@ -13311,7 +13164,7 @@
     "message": "CurseForge 服務"
   },
   "app.settings.resources.curseforge-mirror-description": {
-    "message": "CurseForge 檔案下載。"
+    "message": "CurseForge searches, project and file lookups, and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first."
   },
   "app.settings.resources.curseforge-restriction-bypass": {
     "message": "自動下載受限的 CurseForge 檔案"
@@ -13404,7 +13257,7 @@
     "message": "Modrinth"
   },
   "app.settings.resources.modrinth-mirror-description": {
-    "message": "Modrinth 檔案下載。"
+    "message": "Modrinth searches, project and version lookups, and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first."
   },
   "app.settings.resources.mojang-auth-service": {
     "message": "Mojang 認證服務"
@@ -13504,6 +13357,9 @@
   },
   "app.settings.resources.source.automatic": {
     "message": "自動（推薦）"
+  },
+  "app.settings.resources.source.mcim": {
+    "message": "Prefer MCIM"
   },
   "app.settings.resources.source.mojang-mirror-preferred": {
     "message": "優先 Fallen Proxy"

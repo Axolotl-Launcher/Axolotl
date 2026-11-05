@@ -375,6 +375,10 @@ const messages = defineMessages({
         id: 'app.settings.resources.source.open-bmcl-api',
         defaultMessage: 'Prefer OpenBMCLAPI',
     },
+    mcimSource: {
+        id: 'app.settings.resources.source.mcim',
+        defaultMessage: 'Prefer MCIM',
+    },
     minecraftMetadataSource: {
         id: 'app.settings.resources.minecraft-metadata-source',
         defaultMessage: 'Minecraft metadata',
@@ -397,7 +401,8 @@ const messages = defineMessages({
     },
     modrinthMirrorDescription: {
         id: 'app.settings.resources.modrinth-mirror-description',
-        defaultMessage: 'Modrinth file downloads.',
+        defaultMessage:
+            'Modrinth API requests and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first.',
     },
     curseforgeMirror: {
         id: 'app.settings.resources.curseforge-mirror',
@@ -405,7 +410,8 @@ const messages = defineMessages({
     },
     curseforgeMirrorDescription: {
         id: 'app.settings.resources.curseforge-mirror-description',
-        defaultMessage: 'CurseForge file downloads.',
+        defaultMessage:
+            'CurseForge API requests and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first.',
     },
     curseforgeRestrictionBypass: {
         id: 'app.settings.resources.curseforge-restriction-bypass',
@@ -760,14 +766,20 @@ const minecraftDirectoryModeOptions = computed(() => [
     { value: 'isolated', label: formatMessage(messages.minecraftDirectoryModeIsolated) },
     { value: 'shared', label: formatMessage(messages.minecraftDirectoryModeShared) },
 ])
+const mcimSourceOption = computed(() => ({
+    value: 'mirror_preferred',
+    label: formatMessage(messages.mcimSource),
+}))
 const modrinthSourceOptions = computed(() => [
     automaticSourceOption.value,
     officialPreferredSourceOption.value,
+    mcimSourceOption.value,
     officialOnlySourceOption.value,
 ])
 const curseforgeSourceOptions = computed(() => [
     automaticSourceOption.value,
     officialPreferredSourceOption.value,
+    mcimSourceOption.value,
     officialOnlySourceOption.value,
 ])
 const mojangAuthSource = downloadSourceModel('mojang_auth_source')

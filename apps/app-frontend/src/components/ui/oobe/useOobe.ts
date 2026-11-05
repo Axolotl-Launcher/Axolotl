@@ -17,13 +17,17 @@ export function createOobeController(
 ) {
     const visible = ref(false)
     const steps = shallowRef<readonly OobeStepDefinition[]>([])
-    let completed: string[] = []
+    /** What the settings hold; a step joins it only once its own write succeeded. */
+    let persisted: string[] = []
+    /** Steps reported this run, so a double report writes once. */
+    const reported = new Set<string>()
     let writes: Promise<void> = Promise.resolve()
 
     /** Reads the record from the settings; returns whether any step is pending. */
     function prepare(record: readonly string[] | null | undefined): boolean {
-        completed = [...(record ?? [])]
-        steps.value = pendingOobeSteps(OOBE_STEPS, completed)
+        persisted = [...(record ?? [])]
+        reported.clear()
+        steps.value = pendingOobeSteps(OOBE_STEPS, persisted)
         return steps.value.length > 0
     }
 
@@ -38,14 +42,17 @@ export function createOobeController(
     }
 
     function complete(id: string): Promise<void> {
-        if (completed.includes(id)) return writes
-        completed = withCompletedOobeStep(completed, id)
-        const record = [...completed]
+        if (reported.has(id) || persisted.includes(id)) return writes
+        reported.add(id)
         writes = writes.then(async () => {
+            // Built when the write runs, from what earlier writes actually stored, so a step
+            // whose write failed is not carried into the next one and returns at the next start.
+            const record = withCompletedOobeStep(persisted, id)
             try {
                 await save(record)
+                persisted = record
             } catch (error) {
-                // The step comes back at the next start; that beats trapping the user here.
+                // The step returns at the next start; that beats trapping the user here.
                 console.warn('Failed to record the OOBE step', id, error)
             }
         })

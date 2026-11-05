@@ -30,6 +30,7 @@ import { compareMinecraftAccounts } from '@/helpers/accounts'
 import {
     add_offline_user,
     begin_yggdrasil_login,
+    delete_yggdrasil_password,
     finish_yggdrasil_login,
     get_default_user,
     login as loginToMinecraft,
@@ -276,10 +277,13 @@ async function addOffline() {
     }
 }
 
+/** Saves the login, or forgets one saved before, as the checkbox says; the account menu does the same. */
 async function rememberLogin() {
-    if (!remember.value) return
+    const root = apiRoot.value.trim()
+    const account = login.value.trim()
     try {
-        await set_yggdrasil_password(apiRoot.value.trim(), login.value.trim(), password.value)
+        if (remember.value) await set_yggdrasil_password(root, account, password.value)
+        else await delete_yggdrasil_password(root, account)
     } catch (error) {
         handleError(error as Error)
     }

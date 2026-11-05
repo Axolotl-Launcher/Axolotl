@@ -1526,8 +1526,12 @@ async function setupApp() {
     pendingUpdateAnnouncementVersion.value = pending_update_toast_for_version
     privacyConsentPending.value = telemetry_consent_version < 1
     const oobePending = oobe.prepare(oobe_completed_steps)
-    // Held from here, before the OOBE renders, so startup errors cannot land on top of it.
-    if (oobePending) notificationManager.holdNotifications()
+    if (oobePending) {
+        // Shown now, before the awaits below: every startup dialog and community announcement
+        // waits on it being visible, and notifications are held before it renders.
+        oobe.show()
+        notificationManager.holdNotifications()
+    }
 
     nativeDecorations.value = native_decorations
     if (os.value !== 'MacOS') await getCurrentWindow().setDecorations(native_decorations)
@@ -1584,9 +1588,7 @@ async function setupApp() {
     }
     if (appUnmounted) stopMcp()
     else stopMcpStateSync = stopMcp
-    if (oobePending) {
-        oobe.show()
-    } else if (privacyConsentPending.value) {
+    if (!oobePending && privacyConsentPending.value) {
         await showPrivacyConsent({
             telemetry,
             discord_rpc,

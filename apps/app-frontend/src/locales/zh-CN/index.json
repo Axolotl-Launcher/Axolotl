@@ -8787,9 +8787,6 @@
   "app.oobe.migration.folder-added": {
     "message": "{count, plural, =0 {已添加} other {已添加，找到 # 个版本}}"
   },
-  "app.oobe.migration.folder-failed": {
-    "message": "此文件夹中没有找到游戏版本。"
-  },
   "app.oobe.migration.folders.description": {
     "message": "启动器会直接管理其中的版本，不复制任何文件。"
   },

@@ -260,3 +260,18 @@ it('shows only the steps a release added, and writes the record in order', async
     ])
     expect(controller.prepare(saved[0])).toBe(false)
 })
+
+it('leaves a step whose write failed out of the next record, so it returns at the next start', async () => {
+    const saved: string[][] = []
+    const controller = createOobeController(async (record) => {
+        if (record[record.length - 1] === 'account_v1') throw new Error('database unavailable')
+        saved.push(record)
+    })
+    controller.prepare(['language_v1'])
+    void controller.complete('account_v1')
+    void controller.complete('migration_v1')
+    await controller.finish()
+    expect(saved).toEqual([['language_v1', 'migration_v1']])
+    expect(controller.prepare(saved[0])).toBe(true)
+    expect(controller.steps.value.map((step) => step.id)).toContain('account_v1')
+})

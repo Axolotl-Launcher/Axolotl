@@ -9366,9 +9366,6 @@
   "app.oobe.migration.folder-added": {
     "message": "{count, plural, =0 {Added} one {Added, # version found} other {Added, # versions found}}"
   },
-  "app.oobe.migration.folder-failed": {
-    "message": "No game versions were found in this folder."
-  },
   "app.oobe.migration.folders.description": {
     "message": "The launcher manages the versions in it directly, without copying anything."
   },

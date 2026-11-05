@@ -54,8 +54,12 @@ onMounted(async () => {
         ?.scrollIntoView({ block: 'center', behavior: 'instant' })
 })
 
+/** Moves with every pick, so a slower earlier pick cannot save or roll back over a later one. */
+let revision = 0
+
 async function choose(code: string) {
     if (code === choice.value) return
+    const mine = ++revision
     const previous = choice.value
     const previousLocale = i18n.global.locale.value
     const follow = code === SYSTEM
@@ -66,15 +70,17 @@ async function choose(code: string) {
     try {
         setFollowSystemLocale(follow)
         await setAppLocale(locale)
+        if (mine !== revision) return
         await update({ locale })
     } catch (error) {
+        if (mine !== revision) return
         console.warn('Failed to apply the launcher language', error)
         setFollowSystemLocale(previous === SYSTEM)
         await setAppLocale(previousLocale)
         choice.value = previous
         failed.value = true
     } finally {
-        step.setBusy(false)
+        if (mine === revision) step.setBusy(false)
     }
 }
 

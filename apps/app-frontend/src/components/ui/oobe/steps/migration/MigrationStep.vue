@@ -92,10 +92,6 @@ const messages = defineMessages({
         defaultMessage:
             '{count, plural, =0 {Added} one {Added, # version found} other {Added, # versions found}}',
     },
-    folderFailed: {
-        id: 'app.oobe.migration.folder-failed',
-        defaultMessage: 'No game versions were found in this folder.',
-    },
     moreOptions: {
         id: 'app.oobe.migration.more-options',
         defaultMessage: 'More import options',
@@ -183,6 +179,21 @@ async function importSelected() {
     }
 }
 
+/**
+ * Whether a sync error is about `root`. The report covers every configured root and each
+ * error names the path it concerns, so one stale folder must not fail a new, valid one.
+ */
+function concerns(message: string, root: string) {
+    const key = (value: string) => value.replaceAll('\\', '/').toLowerCase()
+    const text = key(message)
+    const path = key(root)
+    for (let at = text.indexOf(path); at !== -1; at = text.indexOf(path, at + 1)) {
+        const next = text.charAt(at + path.length)
+        if (next === '' || next === '/' || next === ':' || next === ' ') return true
+    }
+    return false
+}
+
 async function addFolder() {
     const choice = await open({
         multiple: false,
@@ -200,9 +211,10 @@ async function addFolder() {
         const roots = readMinecraftRoots()
         if (!roots.some((root) => root.path === path)) roots.push({ path, mode: 'automatic' })
         const report = await syncConfiguredDirectLinks(roots)
-        if (report.errors.length || report.missing) {
+        const own = report.errors.filter((message) => concerns(message, path))
+        if (own.length > 0) {
             folder.state = 'failed'
-            folder.message = report.errors.join('\n') || formatMessage(messages.folderFailed)
+            folder.message = own.join('\n')
             return
         }
         writeMinecraftRoots(roots)

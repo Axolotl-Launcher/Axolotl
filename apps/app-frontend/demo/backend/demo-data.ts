@@ -1,7 +1,7 @@
 import type { AppSettings } from '@/helpers/settings'
 import type { ColorTheme } from '@/store/theme'
 
-import { useAccountName } from './auth'
+import { type DemoAccount, useAccount } from './auth'
 import { showNews } from './home'
 import { showInstances } from './instances'
 import { showAnnouncements } from './network'
@@ -14,8 +14,8 @@ import { demoTheme, useDemoSettings } from './settings'
  * optional; a field that is missing or invalid, or a missing file, keeps the recording.
  */
 export interface DemoData {
-    /** The offline account the visitor plays as: 1–16 letters, digits or `_`. */
-    account?: { name: string }
+    /** A recorded Microsoft profile, or an offline name of 1–16 letters, digits or `_`. */
+    account?: DemoAccount
     /**
      * Recorded instances to show, in this order (ids from backend/instances.ts), each
      * with how many minutes ago it was last played.
@@ -25,7 +25,7 @@ export interface DemoData {
     news?: { title: string; url: string; date: string; image?: string | null }[]
     /** Launcher announcements, as `src/helpers/remote-announcements.ts` describes them. */
     announcements?: object[]
-    /** Ids of the managed servers pinned to Home (backend/servers.ts). */
+    /** Recorded remote addresses or managed server IDs pinned to Home. */
     pinnedServers?: string[]
     /** The page the launcher opens on. */
     defaultPage?: AppSettings['default_page']
@@ -45,8 +45,17 @@ const fields: { [K in keyof DemoData]-?: (value: unknown, base: URL) => boolean 
     account: (value) => {
         if (!record(value) || !text(value.name) || !/^[\p{L}\p{N}_]{1,16}$/u.test(value.name))
             return false
-        useAccountName(value.name)
-        return true
+        if (value.type !== undefined && value.type !== 'offline' && value.type !== 'microsoft')
+            return false
+        if (value.type === 'microsoft') {
+            if (
+                !text(value.uuid) ||
+                !/^(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/i.test(value.uuid)
+            )
+                return false
+            return useAccount({ name: value.name, type: value.type, uuid: value.uuid })
+        }
+        return useAccount({ name: value.name })
     },
     instances: (value) => {
         const valid = (entry: unknown) =>

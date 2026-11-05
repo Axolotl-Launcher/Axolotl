@@ -32,6 +32,14 @@
       "game_version": "1.20.1",
       "loader": "forge",
       "loader_version": "47.4.10"
+    },
+    "t1tOiUHZ": {
+      "project_id": "t1tOiUHZ",
+      "pack_name": "Create+",
+      "version_id": "OirSzesD",
+      "game_version": "1.19.2",
+      "loader": "forge",
+      "loader_version": "43.5.1"
     }
   }
 }

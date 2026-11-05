@@ -105,6 +105,7 @@ const recordedInstances: GameInstance[] = [
         63 * DAY,
     ),
     modpackInstance('cobblemon', '5FFgwNNP', 26 * HOUR, 27 * HOUR, 120 * DAY),
+    modpackInstance('create-plus', 't1tOiUHZ', 26 * HOUR, 27 * HOUR, 120 * DAY),
     instance(
         'fabric-26-3',
         'Fabric 26.3',
@@ -131,7 +132,9 @@ const recordedInstances: GameInstance[] = [
     ),
 ]
 
-let instances = recordedInstances
+let instances = recordedInstances.filter((entry) =>
+    ['fabulously-optimized', 'create-plus'].includes(entry.id),
+)
 
 /** Shows the recorded instances `entries` names, in that order, last played as they say. */
 export function showInstances(entries: { id: string; playedMinutesAgo?: number }[]) {

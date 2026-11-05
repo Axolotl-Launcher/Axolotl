@@ -34,6 +34,7 @@ type ContentRow = [
 /** Which recording each demo instance shows: its modpack's files, or a hand-picked set. */
 const recordings: Record<string, string> = {
     'fabulously-optimized': '1KVo5zza',
+    'create-plus': 't1tOiUHZ',
     cobblemon: '5FFgwNNP',
     'better-mc': 'shFhR8Vx',
     'zombie-invade': 'l9m9tuPN',
@@ -174,5 +175,4 @@ export const contentHandlers: Handlers = {
     'plugin:instance|instance_get_post_upgrade_notice': () => null,
     'plugin:process|process_get_by_instance_id': () => [],
     'plugin:datapacks|list_datapacks': () => [],
-    'plugin:worlds|get_instance_worlds': () => [],
 }

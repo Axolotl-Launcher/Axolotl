@@ -12,6 +12,7 @@ import fabricRun from '../data/servers/fabric-26.3.json'
 import vanillaRun from '../data/servers/vanilla-26.3.json'
 import { desktopOnly } from './settings'
 import type { Handlers } from './types'
+import { isRecordedRemoteServer, pinRemoteServers } from './worlds'
 
 /** Where app-lib keeps managed servers on macOS (packages/app-lib/src/state/dirs.rs). */
 const SERVERS_DIR = '/Users/steve/Library/Application Support/red.ghs.axolotl/servers'
@@ -77,7 +78,6 @@ const servers: DemoServer[] = [
             gameVersion: '26.3',
             javaPath: JAVA,
             memoryMb: 2048,
-            homePinnedAt: '2026-10-23T16:15:02Z',
             createdAt: '2026-10-23T16:10:51Z',
             lastStartedAt: '2026-10-23T16:11:38Z',
         },
@@ -105,8 +105,9 @@ const servers: DemoServer[] = [
 
 /** Pins to Home the servers demo-data.json names, and only those. */
 export function pinServers(ids: string[]) {
+    pinRemoteServers(ids)
     for (const id of ids) {
-        if (!servers.some((entry) => entry.manifest.id === id))
+        if (!isRecordedRemoteServer(id) && !servers.some((entry) => entry.manifest.id === id))
             console.warn(`[demo] demo-data.json: no recorded server ${id}`)
     }
     for (const entry of servers) {

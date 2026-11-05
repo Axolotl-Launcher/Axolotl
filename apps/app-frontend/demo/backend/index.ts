@@ -14,6 +14,7 @@ import { settingsHandlers } from './settings'
 import { skinHandlers } from './skins'
 import { tagHandlers } from './tags'
 import type { Handlers } from './types'
+import { worldHandlers } from './worlds'
 
 const handlers: Handlers = {
     ...appHandlers,
@@ -29,6 +30,7 @@ const handlers: Handlers = {
     ...settingsHandlers,
     ...skinHandlers,
     ...tagHandlers,
+    ...worldHandlers,
 }
 
 const reported = new Set<string>()

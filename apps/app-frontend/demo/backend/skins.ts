@@ -1,5 +1,6 @@
 import type { Cape, Skin, SkinModel } from '@/helpers/skins'
 
+import recorded from '../data/account.json'
 import defaultSkins from '../data/default-skins.json'
 import type { Handlers } from './types'
 
@@ -9,10 +10,27 @@ const textures = import.meta.glob<string>('../assets/skins/*.png', {
     import: 'default',
 })
 
-/** The account named Steve wears the default Steve skin and has no saved skins yet. */
 const STEVE_CLASSIC = '31f477eb1a7beee631c2ca64d06f8f68fa93a3386d04452ab27f43acdf1b60cb'
 
+export const recordedCape: Cape = {
+    id: recorded.cape.texture_key,
+    name: recorded.name,
+    texture: textures[`../assets/skins/${recorded.cape.file}`],
+    is_equipped: true,
+}
+
+export const recordedSkin: Skin = {
+    texture_key: recorded.skin.texture_key,
+    name: recorded.name,
+    variant: recorded.skin.variant as SkinModel,
+    texture: textures[`../assets/skins/${recorded.skin.file}`],
+    cape_id: recordedCape.id,
+    source: 'custom_external',
+    is_equipped: true,
+}
+
 let skins: Skin[] = [
+    recordedSkin,
     ...defaultSkins.map((skin): Skin => ({
         texture_key: skin.texture_key,
         name: skin.name,
@@ -20,14 +38,25 @@ let skins: Skin[] = [
         variant: skin.variant as SkinModel,
         texture: textures[`../assets/skins/${skin.file}`],
         source: 'default',
-        is_equipped: skin.texture_key === STEVE_CLASSIC,
+        is_equipped: false,
     })),
 ]
+
+let capes: Cape[] = [recordedCape]
+
+export function useAccountAppearance(skin?: Skin, cape?: Cape) {
+    skins = skins.filter((entry) => entry.source === 'default')
+    if (skin) skins.unshift({ ...skin })
+    capes = cape ? [{ ...cape }] : []
+    equip(skin?.texture_key ?? STEVE_CLASSIC)
+}
 
 let uploads = 0
 
 function equip(textureKey: string | null) {
     skins = skins.map((skin) => ({ ...skin, is_equipped: skin.texture_key === textureKey }))
+    const equipped = skins.find((skin) => skin.is_equipped)
+    capes = capes.map((cape) => ({ ...cape, is_equipped: cape.id === equipped?.cape_id }))
 }
 
 /** A skin the visitor chose: kept in this page only, as an object URL. */
@@ -55,7 +84,7 @@ async function textureBytes(texture: unknown) {
 
 export const skinHandlers: Handlers = {
     'plugin:minecraft-skins|get_available_skins': () => skins,
-    'plugin:minecraft-skins|get_available_capes': (): Cape[] => [],
+    'plugin:minecraft-skins|get_available_capes': () => capes,
     'plugin:minecraft-skins|equip_skin': ({ skin }) => equip((skin as Skin).texture_key),
     'plugin:minecraft-skins|unequip_skin': () => equip(STEVE_CLASSIC),
     'plugin:minecraft-skins|add_and_equip_custom_skin': ({ textureBlob, variant, cape }) => {

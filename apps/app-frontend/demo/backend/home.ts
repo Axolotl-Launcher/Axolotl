@@ -71,6 +71,4 @@ export const homeHandlers: Handlers = {
     },
     'plugin:instance|instance_get_daily_playtime_details': ({ date }) => entriesOn(String(date)),
     'plugin:instance|instance_list_groups': () => [],
-    'plugin:worlds|get_favorite_worlds': () => [],
-    'plugin:worlds|get_recent_worlds': () => [],
 }

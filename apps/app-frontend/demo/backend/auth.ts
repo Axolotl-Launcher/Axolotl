@@ -1,16 +1,18 @@
+import recorded from '../data/account.json'
 import { offlineUuid } from './offline-uuid'
+import { recordedCape, recordedSkin, useAccountAppearance } from './skins'
 import type { Handlers } from './types'
 
-/**
- * An offline account as the launcher derives it from the name alone, so no real
- * identity is shown. Microsoft and third-party sign-in need the desktop app.
- */
+export type DemoAccount =
+    { name: string; type?: 'offline' } | { name: string; type: 'microsoft'; uuid: string }
+
+/** An offline account as the launcher derives it from the name alone. */
 function offlineAccount(name: string) {
     const id = offlineUuid(name)
     const dashed = id.replace(/^(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-')
     return {
         account_id: `offline:${dashed}`,
-        account_type: 'offline',
+        account_type: 'offline' as const,
         profile: { id, name },
         access_token: '',
         refresh_token: '',
@@ -19,11 +21,45 @@ function offlineAccount(name: string) {
     }
 }
 
-/** The demo player, Steve unless demo-data.json names another. */
-let account = offlineAccount('Steve')
+/** Public profile data only; signing in and launching still require the desktop app. */
+function microsoftAccount() {
+    const dashed = recorded.id.replace(/^(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-')
+    return {
+        ...offlineAccount(recorded.name),
+        account_id: `microsoft:${dashed}`,
+        account_type: 'microsoft' as const,
+        profile: {
+            id: recorded.id,
+            name: recorded.name,
+            skins: [
+                {
+                    state: 'ACTIVE',
+                    url: recordedSkin.texture,
+                    variant: recordedSkin.variant,
+                    textureKey: recordedSkin.texture_key,
+                },
+            ],
+        },
+    }
+}
 
-export function useAccountName(name: string) {
-    account = offlineAccount(name)
+let account: ReturnType<typeof offlineAccount> | ReturnType<typeof microsoftAccount> =
+    microsoftAccount()
+
+export function useAccount(value: DemoAccount): boolean {
+    if (value.type === 'microsoft') {
+        if (
+            value.uuid.replaceAll('-', '').toLowerCase() !== recorded.id ||
+            value.name !== recorded.name
+        )
+            return false
+        account = microsoftAccount()
+        useAccountAppearance(recordedSkin, recordedCape)
+    } else {
+        account = offlineAccount(value.name)
+        useAccountAppearance()
+    }
+    return true
 }
 
 export const authHandlers: Handlers = {

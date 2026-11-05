@@ -4,7 +4,8 @@ use super::client::{
 };
 use super::file::parse_content_range;
 use super::model::{
-    DownloadMeta, DownloadRequest, DownloadRoute, ResourceClass,
+    DownloadMeta, DownloadRequest, DownloadRoute, DownloadRouteSource,
+    ResourceClass,
 };
 use super::policy::{
     range_splitting_allowed, record_route_health_failure, record_route_success,
@@ -194,6 +195,13 @@ async fn probe_route_throughput(
     })
 }
 
+/// MCIM is a fallback for official downloads that fail, not a faster
+/// alternative to measure: it asks launchers to try the official CDN first
+/// and not to load-test the mirror.
+fn route_may_be_probed(route: &DownloadRoute) -> bool {
+    route.source != DownloadRouteSource::Mcim
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn probe_faster_route(
     current_route: &DownloadRoute,
@@ -213,7 +221,10 @@ pub(crate) async fn probe_faster_route(
     let mut seen = HashSet::new();
     let mut probes = futures::stream::FuturesUnordered::new();
     for route in candidate_routes {
-        if !route.supports_range || !range_splitting_allowed(route) {
+        if !route.supports_range
+            || !range_splitting_allowed(route)
+            || !route_may_be_probed(route)
+        {
             continue;
         }
         let Some(authority) = effective_route_authority(route) else {
@@ -413,7 +424,11 @@ fn build_task_probe_plan(
     let mut candidate_keys = HashSet::new();
     let candidates = routes
         .iter()
-        .filter(|route| route.supports_range && range_splitting_allowed(route))
+        .filter(|route| {
+            route.supports_range
+                && range_splitting_allowed(route)
+                && route_may_be_probed(route)
+        })
         .filter(|route| {
             effective_route_authority(route).is_none_or(|authority| {
                 candidate_keys.insert((authority, route.proxy))

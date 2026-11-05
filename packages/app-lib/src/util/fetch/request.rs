@@ -10,7 +10,8 @@ use super::file;
 use super::file::response_validator;
 use super::file::{response_status_error, sha1_async};
 use super::model::{
-    DownloadMeta, DownloadRoute, FetchProgressFn, ProxyPolicy, ResourceClass,
+    DownloadMeta, DownloadRoute, DownloadRouteSource, FetchProgressFn,
+    ProxyPolicy, ResourceClass,
 };
 use super::policy::{
     fetch_retry_delay, header_requires_official_only, is_sensitive_header,
@@ -57,6 +58,26 @@ use std::collections::VecDeque;
 #[cfg(test)]
 use std::error::Error;
 use std::time::{self, Duration, Instant};
+
+/// Applies the caller's validator, then refuses an MCIM API response whose
+/// cache dates show that the mirror stopped refreshing it.
+fn validate_route_response(
+    route: &DownloadRoute,
+    bytes: &Bytes,
+    response_validator: Option<
+        &(dyn Fn(&Bytes) -> crate::Result<()> + Send + Sync),
+    >,
+) -> crate::Result<()> {
+    if let Some(validate_response) = response_validator {
+        validate_response(bytes)?;
+    }
+    if route.source == DownloadRouteSource::Mcim
+        && crate::util::download::mcim::is_api_url(&route.url)
+    {
+        crate::util::download::mcim::check_cache_dates(bytes)?;
+    }
+    Ok(())
+}
 
 async fn fetch_validated_metadata_route(
     route: &DownloadRoute,
@@ -122,7 +143,9 @@ async fn fetch_validated_metadata_route(
             );
         }
     }
-    if let Err(error) = response_validator(&bytes) {
+    if let Err(error) =
+        validate_route_response(route, &bytes, Some(response_validator))
+    {
         record_route_failure(route, resource, None);
         return Err(error);
     }
@@ -1140,9 +1163,11 @@ async fn fetch_advanced_inner(
                             }
                         }
 
-                        if let Some(validate_response) = response_validator
-                            && let Err(error) = validate_response(&bytes)
-                        {
+                        if let Err(error) = validate_route_response(
+                            route,
+                            &bytes,
+                            response_validator,
+                        ) {
                             record_route_failure(route, resource, None);
                             let decision = if has_next_route {
                                 FETCH_SWITCH_ROUTE

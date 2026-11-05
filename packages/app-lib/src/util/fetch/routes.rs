@@ -5,21 +5,24 @@ use super::persisted_route_health;
 use super::route_health_key;
 use crate::util::download::constants::{
     ALIYUN_MAVEN_BASE_URL, BMCLAPI_BASE_URL, CURSEFORGE_API_HOST,
-    CURSEFORGE_EDGE_HOST, FETCH_API, FETCH_AXOLOTL_RETRY,
-    FETCH_BMCLAPI2_BANGBANG93_COM, FETCH_CDN, FETCH_FILES_MINECRAFTFORGE_NET,
-    FETCH_JAVA_RUNTIME, FETCH_LAUNCHER_MOJANG_COM,
-    FETCH_LIBRARIES_MINECRAFT_NET, FETCH_MAVEN, FETCH_MAVEN_ALIYUN_COM,
-    FETCH_MAVEN2, FETCH_MEDIAFILEZ_FORGECDN_NET, FETCH_META_FABRICMC_NET,
-    FETCH_MOD_MCIMIRROR_TOP, FETCH_MRPACK, FETCH_PISTON_DATA_MOJANG_COM,
-    FETCH_RELEASES, FETCH_REPO_MAVEN_APACHE_ORG, FETCH_REPO1_MAVEN_ORG,
-    FETCH_RESOURCES_DOWNLOAD_MINECRAFT_NET, HTTPS_SCHEME, MCIM_BASE_URL,
-    MODRINTH_API_HOST, RETIRED_SOURCES_MEDIA_FORGECDN_NET,
-    ROUTE_POLICY_LAUNCHERMETA_MOJANG_COM, ROUTE_POLICY_MAVEN_FABRICMC_NET,
-    ROUTE_POLICY_MAVEN_MINECRAFTFORGE_NET, ROUTE_POLICY_MAVEN_NEOFORGED_NET,
-    ROUTE_POLICY_PISTON_META_MOJANG_COM,
+    CURSEFORGE_API_V1_PREFIX, CURSEFORGE_EDGE_HOST, FETCH_API,
+    FETCH_AXOLOTL_RETRY, FETCH_BMCLAPI2_BANGBANG93_COM, FETCH_CDN,
+    FETCH_FILES_MINECRAFTFORGE_NET, FETCH_JAVA_RUNTIME,
+    FETCH_LAUNCHER_MOJANG_COM, FETCH_LIBRARIES_MINECRAFT_NET, FETCH_MAVEN,
+    FETCH_MAVEN_ALIYUN_COM, FETCH_MAVEN2, FETCH_MEDIAFILEZ_FORGECDN_NET,
+    FETCH_META_FABRICMC_NET, FETCH_MOD_MCIMIRROR_TOP, FETCH_MRPACK,
+    FETCH_PISTON_DATA_MOJANG_COM, FETCH_RELEASES, FETCH_REPO_MAVEN_APACHE_ORG,
+    FETCH_REPO1_MAVEN_ORG, FETCH_RESOURCES_DOWNLOAD_MINECRAFT_NET,
+    HTTPS_SCHEME, MCIM_BASE_URL, MCIM_CURSEFORGE_PREFIX, MCIM_MODRINTH_PREFIX,
+    MODRINTH_API_HOST, MODRINTH_API_V2_PREFIX,
+    RETIRED_SOURCES_MEDIA_FORGECDN_NET, ROUTE_POLICY_LAUNCHERMETA_MOJANG_COM,
+    ROUTE_POLICY_MAVEN_FABRICMC_NET, ROUTE_POLICY_MAVEN_MINECRAFTFORGE_NET,
+    ROUTE_POLICY_MAVEN_NEOFORGED_NET, ROUTE_POLICY_PISTON_META_MOJANG_COM,
 };
 use crate::util::download::route_health::{ROUTE_HEALTH, RouteHealth};
-use crate::util::download::{modrinth_cdn, retired_sources, route_policy};
+use crate::util::download::{
+    mcim, modrinth_cdn, retired_sources, route_policy,
+};
 use std::collections::HashSet;
 #[cfg(test)]
 use std::sync::atomic::Ordering;
@@ -102,12 +105,6 @@ pub(crate) fn modrinth_request_kind(url: &str) -> Option<&'static str> {
     } else {
         None
     }
-}
-
-fn is_modrinth_api_url(url: &str) -> bool {
-    Url::parse(url).ok().is_some_and(|parsed| {
-        matches!(parsed.host_str(), Some(MODRINTH_API_HOST))
-    })
 }
 
 /// Appends a cache-busting query parameter so a retry bypasses a corrupt
@@ -249,10 +246,6 @@ pub(crate) fn explicit_mirror_routes(
                        base: &str,
                        path: String,
                        source: DownloadRouteSource| {
-        // Disabled MCIM.
-        if source == DownloadRouteSource::Mcim {
-            return;
-        }
         if let Some(url) = url_with_base(&parsed, base, &path) {
             routes.push(route(url, source, true, supports_range));
         }
@@ -342,10 +335,29 @@ pub(crate) fn explicit_mirror_routes(
             path.to_string(),
             DownloadRouteSource::Bmclapi,
         ),
-        CURSEFORGE_API_HOST => push_mirror(
+        // MCIM's replacement table: https://www.mcimirror.top/guide/. It
+        // mirrors no other host; mediafilez.forgecdn.net in particular must
+        // keep its own domain.
+        MODRINTH_API_HOST if path.starts_with(MODRINTH_API_V2_PREFIX) => {
+            push_mirror(
+                &mut routes,
+                MCIM_BASE_URL,
+                format!("{MCIM_MODRINTH_PREFIX}{path}"),
+                DownloadRouteSource::Mcim,
+            );
+        }
+        CURSEFORGE_API_HOST if path.starts_with(CURSEFORGE_API_V1_PREFIX) => {
+            push_mirror(
+                &mut routes,
+                MCIM_BASE_URL,
+                format!("{MCIM_CURSEFORGE_PREFIX}{path}"),
+                DownloadRouteSource::Mcim,
+            );
+        }
+        modrinth_cdn::HOST | CURSEFORGE_EDGE_HOST => push_mirror(
             &mut routes,
             MCIM_BASE_URL,
-            format!("/curseforge{path}"),
+            path.to_string(),
             DownloadRouteSource::Mcim,
         ),
         _ => {}
@@ -434,9 +446,14 @@ pub fn resolve_download_routes_for(
     let official = official_route(&url, resource);
     let mut routes = explicit_mirror_routes(&url, resource);
     routes.push(official);
-    // Modrinth API calls are authenticated and remain official-only.
-    let mode = if is_modrinth_api_url(&url) {
-        crate::state::DownloadSourceMode::OfficialOnly
+    // Mirror routes never receive credentials: authenticated Modrinth calls
+    // drop them, and the CurseForge key only goes to the official API. A
+    // preference for MCIM covers its APIs only, because MCIM asks for files
+    // to come from the official CDN first.
+    let mode = if mode == crate::state::DownloadSourceMode::MirrorPreferred
+        && mcim::mirrors_file_url(&url)
+    {
+        crate::state::DownloadSourceMode::OfficialPreferred
     } else {
         mode
     };

@@ -452,7 +452,7 @@ import {
     getPlayerHeadUrl,
     retainPlayerHeadTextures,
 } from '@/helpers/rendering/batch-skin-renderer.ts'
-import { createSkinHeadDataUrl } from '@/helpers/rendering/skin-head'
+import { createSkinHeadDataUrl, getAccountSkin } from '@/helpers/rendering/skin-head'
 import type { Skin } from '@/helpers/skins'
 import { get_available_skins } from '@/helpers/skins'
 import { handleSevereError, useError } from '@/store/error.js'
@@ -787,21 +787,6 @@ watch(
         })
     },
 )
-
-function getAccountSkin(account: MinecraftCredential | undefined): Skin | undefined {
-    if (!account || account.account_type === 'offline') return undefined
-    const skin =
-        account.profile.skins?.find((skin) => skin.state === 'ACTIVE') ?? account.profile.skins?.[0]
-    if (!skin?.url) return undefined
-
-    return {
-        texture_key: skin.textureKey ?? `${account.profile.id}:${skin.url}`,
-        variant: skin.variant ?? 'UNKNOWN',
-        texture: skin.url,
-        source: 'custom_external',
-        is_equipped: true,
-    }
-}
 
 function cacheAccountHead(accountId: string, skin: Skin, headUrl: string) {
     accountHeadUrlCache.value = new Map(accountHeadUrlCache.value).set(accountId, headUrl)

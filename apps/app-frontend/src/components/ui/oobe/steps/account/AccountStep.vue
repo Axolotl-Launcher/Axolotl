@@ -38,7 +38,11 @@ import {
     set_yggdrasil_password,
     users,
 } from '@/helpers/auth'
-import { createSkinHeadDataUrl } from '@/helpers/rendering/skin-head'
+import {
+    getPlayerHeadUrl,
+    retainPlayerHeadTextures,
+} from '@/helpers/rendering/batch-skin-renderer.ts'
+import { createSkinHeadDataUrl, getAccountSkin } from '@/helpers/rendering/skin-head'
 import { handleSevereError, useError } from '@/store/error.js'
 
 import { useOobeStep } from '../../context'
@@ -195,12 +199,29 @@ async function refresh() {
     }
 }
 
+/** Rendered heads by skin texture; an account shows Steve until its head is ready. */
+const heads = ref(new Map<string, string>())
+
+watch(
+    accounts,
+    (list, _, onCleanup) => {
+        const skins = list.flatMap((account) => getAccountSkin(account) ?? [])
+        onCleanup(retainPlayerHeadTextures(skins.map((skin) => skin.texture_key)))
+        for (const skin of skins) {
+            if (heads.value.has(skin.texture_key)) continue
+            getPlayerHeadUrl(skin)
+                .then((url) => {
+                    heads.value = new Map(heads.value).set(skin.texture_key, url)
+                })
+                .catch((error) => console.warn('Failed to render an account head', error))
+        }
+    },
+    { immediate: true },
+)
+
 function headOf(account: Account) {
-    if (account.account_type === 'offline') return steveHead
-    const skin =
-        account.profile.skins?.find((entry) => entry.state === 'ACTIVE') ??
-        account.profile.skins?.[0]
-    return skin?.url ? createSkinHeadDataUrl(skin.url) : steveHead
+    const skin = getAccountSkin(account)
+    return (skin && heads.value.get(skin.texture_key)) ?? steveHead
 }
 
 function badgeOf(account: Account) {

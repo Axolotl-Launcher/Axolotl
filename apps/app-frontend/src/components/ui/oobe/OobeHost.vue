@@ -110,12 +110,17 @@ onMounted(focusHeading)
             <span class="oobe-glow oobe-glow-b" />
         </div>
 
+        <!--
+            Tauri only drags from an element that carries the attribute itself, so every
+            part of the strip that is not a control carries it, and decoration lets clicks
+            through. Double-clicking it maximizes, as on the app's own title bar.
+        -->
         <header
             data-tauri-drag-region
-            class="relative z-[1] grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center pl-4"
+            class="relative z-[1] grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-stretch pl-4"
         >
-            <div data-tauri-drag-region class="flex h-6 items-center gap-2">
-                <AxolotlLogo icon-only />
+            <div data-tauri-drag-region class="flex items-center gap-2">
+                <span class="pointer-events-none flex h-6"><AxolotlLogo icon-only /></span>
                 <span
                     data-tauri-drag-region
                     class="text-sm font-semibold text-[var(--color-text-tertiary)]"
@@ -124,23 +129,28 @@ onMounted(focusHeading)
             </div>
             <ol
                 v-if="railSteps.length > 1 && step.layout === 'card'"
+                data-tauri-drag-region
                 class="m-0 flex list-none items-center gap-1 p-0"
                 :aria-label="formatMessage(messages.progress)"
             >
                 <li
                     v-for="entry in railSteps"
                     :key="entry.id"
+                    data-tauri-drag-region
                     class="oobe-rail-item flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
                     :data-state="railState(entry)"
                     :aria-current="railState(entry) === 'current' ? 'step' : undefined"
                 >
-                    <CheckIcon v-if="railState(entry) === 'done'" class="size-3.5" />
-                    <span v-else class="oobe-rail-dot size-1.5 rounded-full" />
+                    <CheckIcon
+                        v-if="railState(entry) === 'done'"
+                        class="pointer-events-none size-3.5"
+                    />
+                    <span v-else class="oobe-rail-dot pointer-events-none size-1.5 rounded-full" />
                     {{ formatMessage(entry.label) }}
                 </li>
             </ol>
-            <span v-else />
-            <div class="flex justify-end">
+            <span v-else data-tauri-drag-region />
+            <div data-tauri-drag-region class="flex items-center justify-end">
                 <WindowControls />
             </div>
         </header>

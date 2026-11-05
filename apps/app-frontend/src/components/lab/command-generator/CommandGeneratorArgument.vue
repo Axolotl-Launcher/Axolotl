@@ -13,6 +13,7 @@ import {
 import { computed, ref, useId, useTemplateRef, watch } from 'vue'
 
 import RecipeItemIcon from '@/components/lab/recipe-generator/RecipeItemIcon.vue'
+import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
 import { getCurrentVersion } from '@/lab/command-generator/commands/registry.ts'
 import type { ArgumentPreset, CommandArgument } from '@/lab/command-generator/commands/types.ts'
 import advancementsData from '@/lab/command-generator/data/advancements.json'
@@ -94,7 +95,7 @@ const messages = defineMessages({
 
 /** 数据文件里的动态 key（preset.labelKey、arg.displayNameKey、arg.descriptionKey）。 */
 function formatDynamic(id: string, fallback = ''): string {
-    return formatMessage({ id, defaultMessage: fallback || id })
+    return formatMessage(commandCatalogMessage(id, fallback))
 }
 
 const ENTITY_SELECTOR_DEFAULT_PRESETS: ArgumentPreset[] = [

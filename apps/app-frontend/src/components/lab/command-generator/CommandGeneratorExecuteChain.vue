@@ -3,6 +3,7 @@ import { ChevronDownIcon, ChevronUpIcon, PlusIcon, XIcon } from '@modrinth/asset
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
 
+import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
 import type {
     ExecuteChainCategory,
     ExecuteChainSubcommand,
@@ -95,7 +96,7 @@ const messages = defineMessages({
 })
 
 function formatDynamic(id: string, fallback = ''): string {
-    return formatMessage({ id, defaultMessage: fallback || id })
+    return formatMessage(commandCatalogMessage(id, fallback))
 }
 
 let nextId = 1

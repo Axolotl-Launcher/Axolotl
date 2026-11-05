@@ -8,6 +8,8 @@ files:
   - source: /apps/app-frontend/src/locales/en-US/*.json
     translation: /apps/app-frontend/src/locales/%locale%/%original_file_name%
     dest: /app/%original_file_name%
+    skip_untranslated_strings: true
   - source: /packages/ui/src/locales/en-US/*.json
     translation: /packages/ui/src/locales/%locale%/%original_file_name%
     dest: /ui/%original_file_name%
+    skip_untranslated_strings: true

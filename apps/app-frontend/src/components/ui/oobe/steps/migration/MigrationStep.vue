@@ -235,6 +235,7 @@ async function importSelected() {
     try {
         const { confirmed } = await startLauncherImport(entries, chooseImportMethod, handleError)
         if (confirmed > 0) {
+            step.markChanged()
             startedCount.value += confirmed
             selected.clear()
         }
@@ -281,7 +282,8 @@ async function linkFolder(choice: string, origin: AddedFolder['origin']) {
     step.setBusy(true)
     try {
         const roots = readMinecraftRoots()
-        if (!roots.some((root) => folderKey(root.path) === folderKey(path))) {
+        const addedRoot = !roots.some((root) => folderKey(root.path) === folderKey(path))
+        if (addedRoot) {
             roots.push({ path, mode: 'automatic' })
         }
         const report = await syncConfiguredDirectLinks(roots)
@@ -292,6 +294,7 @@ async function linkFolder(choice: string, origin: AddedFolder['origin']) {
             return
         }
         writeMinecraftRoots(roots)
+        if (addedRoot || report.imported + report.updated + report.removed > 0) step.markChanged()
         folder.state = 'added'
         folder.message = formatMessage(messages.folderAdded, {
             count: report.imported + report.updated,

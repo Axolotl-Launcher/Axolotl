@@ -44,21 +44,32 @@ const messages = defineMessages({
 
 const index = ref(0)
 const direction = ref<'forward' | 'back'>('forward')
-const stepState = reactive(new Map<string, { busy: boolean; ready: boolean }>())
+type StepState = { busy: boolean; ready: boolean; changed: boolean }
+const stepState = reactive(new Map<string, StepState>())
 const heading = ref<HTMLElement | null>(null)
 
 const step = computed(() => props.steps[Math.min(index.value, props.steps.length - 1)])
 const isLast = computed(() => index.value >= props.steps.length - 1)
 const railSteps = computed(() => props.steps.filter((entry) => entry.layout === 'card'))
-const state = computed(() => stepState.get(step.value.id) ?? { busy: false, ready: true })
+const state = computed(
+    () => stepState.get(step.value.id) ?? { busy: false, ready: true, changed: false },
+)
+const skipping = computed(() => step.value.skippable && !state.value.changed)
 
-function patchState(stepId: string, patch: Partial<{ busy: boolean; ready: boolean }>) {
-    stepState.set(stepId, { busy: false, ready: true, ...stepState.get(stepId), ...patch })
+function patchState(stepId: string, patch: Partial<StepState>) {
+    stepState.set(stepId, {
+        busy: false,
+        ready: true,
+        changed: false,
+        ...stepState.get(stepId),
+        ...patch,
+    })
 }
 
 const controls = {
     setBusy: (stepId: string, busy: boolean) => patchState(stepId, { busy }),
     setReady: (stepId: string, ready: boolean) => patchState(stepId, { ready }),
+    markChanged: (stepId: string) => patchState(stepId, { changed: true }),
     next: (stepId: string) => {
         if (stepId === step.value.id) advance()
     },
@@ -207,19 +218,24 @@ onMounted(focusHeading)
                                 {{ formatMessage(messages.back) }}
                             </Button>
                             <span class="flex-1" />
-                            <Button v-if="step.skippable" :disabled="state.busy" @click="advance">
-                                {{ formatMessage(messages.skip) }}
-                            </Button>
                             <Button
-                                v-if="state.ready"
-                                type="colored"
+                                v-if="step.skippable || state.ready"
+                                :type="skipping ? 'base' : 'colored'"
                                 color="brand"
                                 size="lg"
                                 :disabled="state.busy"
                                 @click="advance"
                             >
                                 <SpinnerIcon v-if="state.busy" class="animate-spin" />
-                                {{ formatMessage(isLast ? messages.finish : messages.next) }}
+                                {{
+                                    formatMessage(
+                                        skipping
+                                            ? messages.skip
+                                            : isLast
+                                              ? messages.finish
+                                              : messages.next,
+                                    )
+                                }}
                                 <RightArrowIcon v-if="!state.busy" />
                             </Button>
                             <!-- A step that needs input first shows Next as plainly unavailable, not as a dimmed accent. -->

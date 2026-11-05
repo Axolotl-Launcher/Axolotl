@@ -6,6 +6,8 @@ export interface OobeStepContext {
     setBusy(busy: boolean): void
     /** Enables Next. A step that needs input before Next means anything starts not ready. */
     setReady(ready: boolean): void
+    /** Records a successful account or import change during this OOBE session. */
+    markChanged(): void
     /** Moves on as the primary action would. */
     next(): void
 }

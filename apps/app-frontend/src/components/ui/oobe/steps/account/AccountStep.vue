@@ -236,8 +236,10 @@ async function makeDefault(account: Account) {
         errorStore.showAntiPiracyNotice()
         return
     }
+    const changed = defaultAccount.value !== account.account_id
     try {
         await set_default_user(account.account_id)
+        if (changed) step.markChanged()
         defaultAccount.value = account.account_id
     } catch (error) {
         if (isOfflineAccountRestrictedError(error)) errorStore.showAntiPiracyNotice()
@@ -246,6 +248,7 @@ async function makeDefault(account: Account) {
 }
 
 async function adopt(account: Account) {
+    step.markChanged()
     await makeDefault(account)
     await refresh()
     open.value = null

@@ -17,7 +17,7 @@ export type ChooseImportMethod = (options: {
 
 /**
  * Asks how each instance should come over, then queues an import job for each.
- * Resolves once every job is queued, with how many the user confirmed and a
+ * Resolves once every job is queued, with how many imports were started and a
  * promise for the jobs finishing, which can take minutes.
  */
 export async function startLauncherImport(
@@ -75,5 +75,5 @@ export async function startLauncherImport(
             }
         }
     })()
-    return { confirmed: choices.length, finished }
+    return { confirmed: jobs.length, finished }
 }

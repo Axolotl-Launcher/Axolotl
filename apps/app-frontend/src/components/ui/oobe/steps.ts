@@ -11,7 +11,7 @@ export interface OobeStepDefinition {
     description?: MessageDescriptor
     /** `card` puts the step beside its artwork; `hero` gives it the whole window. */
     layout: 'card' | 'hero'
-    /** Whether the footer offers Skip next to Next. */
+    /** Whether the footer shows Skip until the step makes a substantive change. */
     skippable: boolean
     component: Component
     art?: Component

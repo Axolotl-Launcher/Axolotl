@@ -1,4 +1,9 @@
-import { I18N_INJECTION_KEY, type ImportableLauncher, provideInstanceImport } from '@modrinth/ui'
+import {
+    I18N_INJECTION_KEY,
+    type ImportableLauncher,
+    provideInstanceImport,
+    type SymlinkMethodChoice,
+} from '@modrinth/ui'
 import { flushPromises, mount } from '@vue/test-utils'
 import IntlMessageFormat from 'intl-messageformat'
 import { createPinia } from 'pinia'
@@ -19,6 +24,17 @@ import { createOobeController } from './useOobe'
 const backend = vi.hoisted(() => ({
     patches: [] as Record<string, unknown>[],
     restricted: true,
+    accounts: [] as Array<{
+        account_id: string
+        account_type: 'yggdrasil'
+        profile: { id: string; name: string }
+    }>,
+    defaultAccount: null as string | null,
+    failDefault: false,
+    failSync: false,
+    syncPending: null as Promise<void> | null,
+    syncImported: 2,
+    failImport: false,
     invoke: vi.fn(),
 }))
 
@@ -43,13 +59,28 @@ backend.invoke.mockImplementation(async (command: string, args?: Record<string, 
             backend.patches.push(args?.patch as Record<string, unknown>)
             return { locale: 'en-US', feature_flags: {}, ...(args?.patch as object) }
         case 'plugin:auth|get_users':
-            return []
+            return backend.accounts
         case 'plugin:auth|get_default_user':
+            return backend.defaultAccount
+        case 'plugin:auth|set_default_user':
+            if (backend.failDefault) throw new Error('account update failed')
+            backend.defaultAccount = args?.user as string
             return null
         case 'plugin:auth|get_anti_piracy_status':
             return { region: 'cn', restricted: backend.restricted, revision: 1 }
         case 'plugin:instance|instance_sync_direct_links':
-            return { imported: 2, updated: 0, removed: 0, missing: 0, errors: [] }
+            await backend.syncPending
+            if (backend.failSync) throw new Error('sync failed')
+            return {
+                imported: backend.syncImported,
+                updated: 0,
+                removed: 0,
+                missing: 0,
+                errors: [],
+            }
+        case 'plugin:install|install_import_instance':
+            if (backend.failImport) throw new Error('import could not be queued')
+            return { job_id: 'oobe-import' }
         default:
             return null
     }
@@ -63,6 +94,13 @@ afterEach(() => {
     localStorage.removeItem(MINECRAFT_ROOTS_STORAGE_KEY)
     backend.patches.length = 0
     backend.invoke.mockClear()
+    backend.accounts = []
+    backend.defaultAccount = null
+    backend.failDefault = false
+    backend.failSync = false
+    backend.syncPending = null
+    backend.syncImported = 2
+    backend.failImport = false
 })
 
 function i18n(locale: 'en-US' | 'zh-CN') {
@@ -86,7 +124,7 @@ async function render(
 ) {
     await page.viewport(1100, 700)
     const events = { complete: [] as string[], finished: 0 }
-    const chooseImportMethod = vi.fn(async () => [])
+    const chooseImportMethod = vi.fn(async (): Promise<SymlinkMethodChoice[]> => [])
     const Harness = defineComponent({
         setup() {
             provideInstanceImport({
@@ -168,7 +206,9 @@ function button(label: string) {
 function expectInsideCard() {
     const card = document.querySelector<HTMLElement>('.oobe-card')!.getBoundingClientRect()
     const title = document.querySelector<HTMLElement>('.oobe-root h1')!.getBoundingClientRect()
-    const next = button('Next')!.getBoundingClientRect()
+    const next = document
+        .querySelector<HTMLElement>('.oobe-root footer button:last-child')!
+        .getBoundingClientRect()
     expect(document.querySelector<HTMLElement>('.oobe-root')!.scrollTop).toBe(0)
     expect(title.top).toBeGreaterThanOrEqual(card.top)
     expect(next.bottom).toBeLessThanOrEqual(card.bottom)
@@ -203,8 +243,9 @@ it('walks the whole flow and records each step as the user moves past it', async
         label: 'account options',
     })
     expect(events.complete).toEqual(['language_v1'])
-    // Nothing to continue with yet, and offline accounts stay locked by the anti-piracy policy.
-    expect(button('Next')!.disabled).toBe(true)
+    // No account changes yet; the single forward action skips the step.
+    expect(button('Next')).toBeUndefined()
+    expect(button('Skip')!.disabled).toBe(false)
     await waitFor(
         () =>
             document.body.textContent!.includes(
@@ -270,6 +311,112 @@ it('renders in Simplified Chinese without overflowing the card', async () => {
 
 const migrationOnly = OOBE_STEPS.filter((step) => ['migration_v1', 'welcome_v1'].includes(step.id))
 
+it('keeps Skip for existing accounts and failed edits, then keeps Next after a successful change and revisiting', async () => {
+    backend.accounts = ['Alex', 'Steve'].map((name) => ({
+        account_id: name,
+        account_type: 'yggdrasil',
+        profile: { id: name, name },
+    }))
+    const accountChoice = (name: string) =>
+        Array.from(document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="radio"]')).find(
+            (entry) => entry.textContent?.includes(name),
+        )
+    backend.defaultAccount = 'Alex'
+    await render(
+        'en-US',
+        OOBE_STEPS.filter((step) => ['account_v1', 'migration_v1'].includes(step.id)),
+    )
+    await waitFor(() => !!accountChoice('Steve'), { label: 'existing accounts loaded' })
+    expect(button('Next')).toBeUndefined()
+    expect(button('Skip')!.disabled).toBe(false)
+    accountChoice('Alex')!.click()
+    await flushPromises()
+    expect(button('Next')).toBeUndefined()
+
+    backend.failDefault = true
+    accountChoice('Steve')!.click()
+    await flushPromises()
+    expect(button('Next')).toBeUndefined()
+    backend.failDefault = false
+    accountChoice('Steve')!.click()
+    await waitFor(() => !!button('Next'), { label: 'default account changed' })
+    expect(button('Skip')).toBeUndefined()
+    expect(document.querySelectorAll('.oobe-root footer button')).toHaveLength(1)
+    button('Next')!.click()
+    await waitFor(() => heading() === 'Import data from other launchers?', { label: 'migration' })
+    button('Back')!.click()
+    await waitFor(() => heading() === 'Who is using the launcher?', { label: 'account revisited' })
+    await waitFor(() => !!accountChoice('Steve'), { label: 'revisited accounts loaded' })
+    expect(button('Skip')).toBeUndefined()
+    expect(button('Next')!.disabled).toBe(false)
+})
+
+it('keeps Skip after a folder sync fails and changes to Next only when retry succeeds', async () => {
+    await render('en-US', migrationOnly)
+    await waitFor(() => !!button('Use this folder'), { label: 'found folder' })
+    backend.failSync = true
+    button('Use this folder')!.click()
+    await waitFor(() => document.body.textContent!.includes('sync failed'), {
+        label: 'failed sync',
+    })
+    expect(button('Next')).toBeUndefined()
+    expect(button('Skip')!.disabled).toBe(false)
+    backend.failSync = false
+    button('Use this folder')!.click()
+    await waitFor(() => !!button('Next') && !button('Next')!.disabled, { label: 'sync retried' })
+    expect(button('Skip')).toBeUndefined()
+})
+
+it('disables the merged action during work and keeps Skip when an existing folder needs no changes', async () => {
+    localStorage.setItem(
+        MINECRAFT_ROOTS_STORAGE_KEY,
+        JSON.stringify([{ path: 'D:/Games/.minecraft', mode: 'automatic' }]),
+    )
+    let finish!: () => void
+    backend.syncPending = new Promise<void>((resolve) => {
+        finish = resolve
+    })
+    backend.syncImported = 0
+    await render('en-US', migrationOnly)
+    await waitFor(() => !!button('Use this folder'), { label: 'existing folder' })
+    button('Use this folder')!.click()
+    await flushPromises()
+    expect(button('Next')).toBeUndefined()
+    expect(button('Skip')!.disabled).toBe(true)
+    finish()
+    await waitFor(() => !button('Skip')!.disabled, { label: 'unchanged folder sync completed' })
+    expect(button('Next')).toBeUndefined()
+})
+
+it('keeps Skip when importing fails to start and shows Next once an import is queued', async () => {
+    const { chooseImportMethod } = await render('en-US', migrationOnly)
+    await waitFor(() => !!button('Use this folder'), { label: 'found folder' })
+    const importMethod = Array.from(
+        document.querySelectorAll<HTMLElement>('.oobe-root [role="radio"]'),
+    ).find((method) => method.textContent?.trim() === 'Import')!
+    importMethod.click()
+    await flushPromises()
+    document.querySelector<HTMLButtonElement>('.oobe-root [role="checkbox"]')!.click()
+    await flushPromises()
+    expect(button('Next')).toBeUndefined()
+    chooseImportMethod.mockResolvedValue([
+        {
+            instanceName: '.minecraft:1.21.4 Fabric',
+            instancePath: 'D:/Games/.minecraft/versions/1.21.4 Fabric',
+            symlink: false,
+        },
+    ])
+    backend.failImport = true
+    button('Import 1 instance')!.click()
+    await flushPromises()
+    expect(button('Next')).toBeUndefined()
+    expect(button('Skip')!.disabled).toBe(false)
+    backend.failImport = false
+    button('Import 1 instance')!.click()
+    await waitFor(() => !!button('Next'), { label: 'import queued' })
+    expect(button('Skip')).toBeUndefined()
+})
+
 it('puts the .minecraft folders first and uses a found one in place by default', async () => {
     await render('en-US', migrationOnly)
     await waitFor(() => !!button('Use this folder'), { label: 'found .minecraft folder' })
@@ -278,7 +425,8 @@ it('puts the .minecraft folders first and uses a found one in place by default',
             title.textContent?.trim(),
         ),
     ).toEqual(['Use a .minecraft folder in place', 'Found on this device'])
-    expect(button('Next')!.disabled).toBe(true)
+    expect(button('Next')).toBeUndefined()
+    expect(button('Skip')!.disabled).toBe(false)
 
     button('Use this folder')!.click()
     await waitFor(() => document.body.textContent!.includes('Added, 2 versions found'), {
@@ -295,7 +443,8 @@ it('puts the .minecraft folders first and uses a found one in place by default',
     )
     const methods = document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="radio"]')
     expect(Array.from(methods).every((method) => method.disabled)).toBe(true)
-    await waitFor(() => !button('Next')!.disabled, { label: 'step ready' })
+    await waitFor(() => !!button('Next') && !button('Next')!.disabled, { label: 'step ready' })
+    expect(button('Skip')).toBeUndefined()
     expectInsideCard()
     await shot('oobe-migration-direct')
 })
@@ -312,6 +461,8 @@ it('lists the versions of a found folder once the user switches it to import', a
     expect(document.body.textContent).toContain('1.21.4 Fabric')
     expect(document.body.textContent).toContain('1.20.1 Forge')
     expect(document.body.textContent).not.toContain('.minecraft:1.21.4 Fabric')
+    expect(button('Skip')!.disabled).toBe(false)
+    expect(button('Next')).toBeUndefined()
     expect(backend.invoke).not.toHaveBeenCalledWith(
         'plugin:instance|instance_sync_direct_links',
         expect.anything(),
@@ -391,7 +542,9 @@ it('uses the official shared game folder in place in the light theme', async () 
     await waitFor(() => !!button('Use this folder'), { label: 'official shared folder' })
     expect(document.body.textContent).toContain('Official launcher')
     button('Use this folder')!.click()
-    await waitFor(() => !button('Next')!.disabled, { label: 'shared folder in use' })
+    await waitFor(() => !!button('Next') && !button('Next')!.disabled, {
+        label: 'shared folder in use',
+    })
     expect(backend.invoke).toHaveBeenCalledWith('plugin:instance|instance_sync_direct_links', {
         roots: [{ path: root, mode: 'automatic' }],
     })

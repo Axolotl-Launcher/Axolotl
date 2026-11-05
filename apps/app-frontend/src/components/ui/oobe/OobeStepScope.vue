@@ -8,6 +8,7 @@ const props = defineProps<{
     controls: {
         setBusy: (stepId: string, busy: boolean) => void
         setReady: (stepId: string, ready: boolean) => void
+        markChanged: (stepId: string) => void
         next: (stepId: string) => void
     }
 }>()
@@ -16,6 +17,7 @@ const props = defineProps<{
 provide(oobeStepContextKey, {
     setBusy: (busy) => props.controls.setBusy(props.stepId, busy),
     setReady: (ready) => props.controls.setReady(props.stepId, ready),
+    markChanged: () => props.controls.markChanged(props.stepId),
     next: () => props.controls.next(props.stepId),
 })
 </script>

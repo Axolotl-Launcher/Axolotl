@@ -590,16 +590,32 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     }
     // The program ships as several jars (engine, runtime, CLI) and only the
     // runtime jar carries a main class, so it is launched through the classpath
-    // rather than `-jar`.
-    let mut jars: Vec<PathBuf> = std::fs::read_dir(&program)
-        .map_err(|error| format!("cannot read {}: {error}", program.display()))?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.extension().and_then(|value| value.to_str()) == Some("jar")
+    // rather than `-jar`. Listing the directory touches the disk, so it runs off
+    // the async runtime.
+    let program_for_jars = program.clone();
+    let mut jars: Vec<PathBuf> =
+        tauri::async_runtime::spawn_blocking(move || {
+            let mut jars: Vec<PathBuf> = std::fs::read_dir(&program_for_jars)
+                .map_err(|error| {
+                    format!(
+                        "cannot read {}: {error}",
+                        program_for_jars.display()
+                    )
+                })?
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    path.extension().and_then(|value| value.to_str())
+                        == Some("jar")
+                })
+                .collect();
+            jars.sort();
+            Ok::<_, String>(jars)
         })
-        .collect();
-    jars.sort();
+        .await
+        .map_err(|error| {
+            format!("the program jars could not be listed: {error}")
+        })??;
     if jars.is_empty() {
         return Err(format!("no jars found in {}", program.display()));
     }
@@ -646,19 +662,26 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     // The program names its CSV after the start time and leaves older runs in
     // place, so "the newest file" would report a previous search's coordinates
     // when this run writes nothing at all. Remember what already exists and only
-    // read a file this run created.
-    let existing_results: Vec<PathBuf> = std::fs::read_dir(&program)
-        .ok()
-        .into_iter()
-        .flatten()
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.file_name().is_some_and(|name| {
-                name.to_string_lossy().starts_with("results-trial-spawner-")
-            })
+    // read a file this run created; the directory walk runs off the async runtime.
+    let program_for_existing = program.clone();
+    let existing_results: Vec<PathBuf> =
+        tauri::async_runtime::spawn_blocking(move || {
+            std::fs::read_dir(&program_for_existing)
+                .ok()
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    path.file_name().is_some_and(|name| {
+                        name.to_string_lossy()
+                            .starts_with("results-trial-spawner-")
+                    })
+                })
+                .collect::<Vec<_>>()
         })
-        .collect();
+        .await
+        .unwrap_or_default();
     let output = java_command.output().await.map_err(|error| {
         write_scan_log(
             &app,
@@ -687,42 +710,60 @@ pub async fn trial_chamber_find<R: tauri::Runtime>(
     }
 
     // The program writes its CSV next to itself; read this run's file rather than
-    // parsing stdout, which also carries progress output.
-    let newest = std::fs::read_dir(&program)
-        .ok()
-        .into_iter()
-        .flatten()
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.file_name().is_some_and(|name| {
-                name.to_string_lossy().starts_with("results-trial-spawner-")
+    // parsing stdout, which also carries progress output. The directory walk and
+    // the read both touch the disk, so they run off the async runtime.
+    let program_for_read = program.clone();
+    let existing_for_read = existing_results.clone();
+    let (newest, contents) = tauri::async_runtime::spawn_blocking(move || {
+        let newest = std::fs::read_dir(&program_for_read)
+            .ok()
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.file_name().is_some_and(|name| {
+                    name.to_string_lossy().starts_with("results-trial-spawner-")
+                })
             })
-        })
-        .filter(|path| !existing_results.contains(path))
-        .filter_map(|path| {
-            let modified = std::fs::metadata(&path).ok()?.modified().ok()?;
-            Some((modified, path))
-        })
-        .max_by_key(|(modified, _)| *modified)
-        .map(|(_, path)| path);
+            .filter(|path| !existing_for_read.contains(path))
+            .filter_map(|path| {
+                let modified =
+                    std::fs::metadata(&path).ok()?.modified().ok()?;
+                Some((modified, path))
+            })
+            .max_by_key(|(modified, _)| *modified)
+            .map(|(_, path)| path);
+        let contents = newest
+            .as_ref()
+            .map(|path| std::fs::read_to_string(path))
+            .transpose();
+        (newest, contents)
+    })
+    .await
+    .map_err(|error| format!("the scan result could not be read: {error}"))?;
 
-    let hits = match newest {
-        Some(path) => {
-            let text = std::fs::read_to_string(&path).map_err(|error| {
-                format!("cannot read {}: {error}", path.display())
-            })?;
-            parse_trial_csv(&text)
+    let hits = match (newest, contents) {
+        (Some(path), Some(Ok(text))) => parse_trial_csv(&text),
+        (Some(path), Some(Err(error))) => {
+            return Err(format!("cannot read {}: {error}", path.display()));
         }
-        None => Vec::new(),
+        _ => Vec::new(),
     };
     let best_spawners = hits.iter().map(|hit| hit.spawner_count).max();
 
     // The program writes one file per run and never removes the earlier ones, so
     // the directory would grow with every scan and make each later lookup walk a
-    // longer list. The run has already been read, so the older copies are spent.
-    for path in &existing_results {
-        let _ = std::fs::remove_file(path);
+    // longer list. The run has already been read, so the older copies are spent;
+    // deleting them is more disk work, so it also stays off the async runtime.
+    if !existing_results.is_empty() {
+        let spent = existing_results.clone();
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            for path in &spent {
+                let _ = std::fs::remove_file(path);
+            }
+        })
+        .await;
     }
 
     Ok(TrialChamberScan {

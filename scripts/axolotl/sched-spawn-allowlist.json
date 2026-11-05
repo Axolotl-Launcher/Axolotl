@@ -71,6 +71,34 @@
       ]
     },
     {
+      "file": "apps/app/src/api/lab.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "structure finder I/O: the jar listing, result sweep and CSV read run off the async runtime so a slow disk cannot stall the IPC handler (spec §5.6, operation-scoped)",
+      "sites": [
+        "trial_chamber_find: let (newest, contents) = tauri::async_runtime::spawn_blocking(move || {",
+        "trial_chamber_find: let _ = tauri::async_runtime::spawn_blocking(move || {",
+        "trial_chamber_find: tauri::async_runtime::spawn_blocking(move || {",
+        "trial_chamber_find: tauri::async_runtime::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/lab.rs",
+      "form": "std::fs",
+      "count": 8,
+      "reason": "structure finder file I/O: scan log write on the error path plus the blocking-pool result reads; none is inside a critical section (D17)",
+      "sites": [
+        "trial_chamber_find: .map(|path| std::fs::read_to_string(path))",
+        "trial_chamber_find: let _ = std::fs::remove_file(path);",
+        "trial_chamber_find: let mut jars: Vec<PathBuf> = std::fs::read_dir(&program_for_jars)",
+        "trial_chamber_find: let newest = std::fs::read_dir(&program_for_read)",
+        "trial_chamber_find: std::fs::metadata(&path).ok()?.modified().ok()?;",
+        "trial_chamber_find: std::fs::read_dir(&program_for_existing)",
+        "write_scan_log: .and_then(|_| std::fs::write(&path, body.as_bytes()))",
+        "write_scan_log: std::fs::create_dir_all(path.parent().unwrap_or(path.as_path()))"
+      ]
+    },
+    {
       "file": "apps/app/src/api/mcp/config.rs",
       "form": "std::fs",
       "count": 1,
@@ -413,10 +441,20 @@
     },
     {
       "file": "apps/app/src/main.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "exit-time temporary data removal runs on the blocking pool so a large development database cannot stall the exit path (spec §5.6, operation-scoped)",
+      "sites": [
+        "main: let removal = tauri::async_runtime::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/main.rs",
       "form": "std::fs",
-      "count": 3,
+      "count": 4,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
+        "main: std::fs::remove_dir_all(&root).map_err(|error| {",
         "write_update_channel_state: std::fs::create_dir_all(&settings_dir)?;",
         "write_update_channel_state: std::fs::rename(temporary_path, path)?;",
         "write_update_channel_state: std::fs::write(&temporary_path, contents)?;"
@@ -434,13 +472,14 @@
     {
       "file": "apps/app/src/main.rs",
       "form": "tauri::async_runtime::spawn",
-      "count": 8,
+      "count": 9,
       "reason": "phase-0 baseline: existing Tauri runtime spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "initialize_state: tauri::async_runtime::spawn(async move {",
         "initialize_state: tauri::async_runtime::spawn(async {",
         "main: tauri::async_runtime::spawn(api::utils::handle_command(",
         "main: tauri::async_runtime::spawn(api::utils::handle_command(",
+        "main: tauri::async_runtime::spawn(async move {",
         "main: tauri::async_runtime::spawn(async move {",
         "main: tauri::async_runtime::spawn(async move {",
         "main: tauri::async_runtime::spawn(async move {",

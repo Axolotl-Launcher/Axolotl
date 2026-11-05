@@ -1034,11 +1034,23 @@ fn main() {
                                 .unwrap_or(true)
                         });
                         if !keep && let Some(root) = root {
-                            if let Err(error) = std::fs::remove_dir_all(&root) {
-                                tracing::warn!(
+                            // Removing the temporary data can take a while on a
+                            // large database, so it stays off the async runtime.
+                            let removal = tauri::async_runtime::spawn_blocking(move || {
+                                std::fs::remove_dir_all(&root).map_err(|error| {
+                                    (root, error)
+                                })
+                            })
+                            .await;
+                            match removal {
+                                Ok(Ok(())) => {}
+                                Ok(Err((root, error))) => tracing::warn!(
                                     "Failed to remove test data at {}: {error}",
                                     root.display()
-                                );
+                                ),
+                                Err(error) => tracing::warn!(
+                                    "Failed to remove test data: {error}"
+                                ),
                             }
                         }
                         handle.exit(0);

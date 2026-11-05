@@ -1,6 +1,36 @@
 {
   "action.no-permission": {
-    "defaultMessage": "Du hast keine Berechtigung."
+    "defaultMessage": "You do not have permission."
+  },
+  "app.drop.batch.scan.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "app.drop.batch.scan.done": {
+    "defaultMessage": "Recognized"
+  },
+  "app.drop.batch.scan.error": {
+    "defaultMessage": "Failed"
+  },
+  "app.drop.batch.scan.pending": {
+    "defaultMessage": "Waiting"
+  },
+  "app.drop.batch.scan.scanning": {
+    "defaultMessage": "Scanning"
+  },
+  "app.drop.batch.scan.skipped": {
+    "defaultMessage": "Skipped"
+  },
+  "app.drop.batch.scan.subtitle": {
+    "defaultMessage": "Recognized {done} of {total}"
+  },
+  "app.drop.batch.scan.title": {
+    "defaultMessage": "Scanning {count, plural, one {# file} other {# files}}…"
+  },
+  "app.symlink-warning.write.body": {
+    "defaultMessage": "This instance is linked to \"{path}\". Changes will also affect the original files."
+  },
+  "app.symlink-warning.write.header": {
+    "defaultMessage": "Shared instance"
   },
   "badge.alpha": {
     "defaultMessage": "Alpha"
@@ -9,994 +39,2089 @@
     "defaultMessage": "Beta"
   },
   "badge.beta-release": {
-    "defaultMessage": "Betaversion"
+    "defaultMessage": "Beta Release"
   },
   "badge.new": {
-    "defaultMessage": "Neu"
+    "defaultMessage": "New"
   },
   "badge.release": {
-    "defaultMessage": "Vollversion"
+    "defaultMessage": "Release"
+  },
+  "browse.clear-search": {
+    "defaultMessage": "Clear search"
   },
   "browse.filter-results": {
-    "defaultMessage": "Resultate filtern..."
+    "defaultMessage": "Filter results..."
+  },
+  "browse.loading-results": {
+    "defaultMessage": "Loading results…"
   },
   "browse.no-results": {
-    "defaultMessage": "Keine Resultate für deine Anfrage gefunden!"
+    "defaultMessage": "No results found for your query!"
+  },
+  "browse.no-results.heading": {
+    "defaultMessage": "Nothing here yet"
   },
   "browse.offline": {
-    "defaultMessage": "Du bist aktuell Offline. Verbinde dich mit dem Internet um Modrinth zu durchstöbern!"
+    "defaultMessage": "You are currently offline. Connect to the internet to browse Modrinth!"
+  },
+  "browse.offline.heading": {
+    "defaultMessage": "No connection"
+  },
+  "browse.retry": {
+    "defaultMessage": "Try again"
+  },
+  "browse.search.failed": {
+    "defaultMessage": "The search could not be completed. Check your connection or filters and try again."
   },
   "browse.search.placeholder": {
-    "defaultMessage": "{projectType} durchsuchen..."
+    "defaultMessage": "Search {projectType}..."
   },
   "browse.selected-projects-floating-bar.aria-label": {
-    "defaultMessage": "Ausgewählte Projekte"
+    "defaultMessage": "Selected projects"
+  },
+  "browse.selected-projects-floating-bar.hide-projects": {
+    "defaultMessage": "Hide selected projects"
   },
   "browse.selected-projects-floating-bar.install": {
-    "defaultMessage": "Installiere {count, plural, one {# Projekt} other {# Projekte}}"
+    "defaultMessage": "Install {count, plural, one {# project} other {# projects}}"
   },
   "browse.selected-projects-floating-bar.selected-count": {
-    "defaultMessage": "{count, plural, one {# Projekt} other {# Projekte}} ausgewählt"
+    "defaultMessage": "{count, plural, one {# project selected} other {# projects selected}}"
+  },
+  "browse.selected-projects-floating-bar.show-projects": {
+    "defaultMessage": "Show {count, plural, one {# selected project} other {# selected projects}}"
   },
   "browse.selected-projects-leave-modal.admonition-body": {
-    "defaultMessage": "Du hast {count, plural, one {# Projekt} other {# Projekte}} zum installieren. Installiere {count, plural, one {es} other {sie}} jetzt oder gehe ohne installation zurück."
+    "defaultMessage": "You have selected {count, plural, one {# project} other {# projects}} to install. Install them now or go back without installing them."
   },
   "browse.selected-projects-leave-modal.admonition-header": {
-    "defaultMessage": "Ausgewählte Projekte noch nicht installiert"
+    "defaultMessage": "Selected projects not installed yet"
   },
   "browse.selected-projects-leave-modal.discard": {
-    "defaultMessage": "Verwerfen"
+    "defaultMessage": "Discard"
   },
   "browse.selected-projects-leave-modal.header": {
-    "defaultMessage": "Ausgewählte Projekte noch nicht installiert"
+    "defaultMessage": "Selected projects not installed yet"
+  },
+  "browse.sort.date-published": {
+    "defaultMessage": "Date published"
+  },
+  "browse.sort.date-updated": {
+    "defaultMessage": "Date updated"
+  },
+  "browse.sort.downloads": {
+    "defaultMessage": "Downloads"
+  },
+  "browse.sort.first-release": {
+    "defaultMessage": "First release published"
+  },
+  "browse.sort.followers": {
+    "defaultMessage": "Followers"
+  },
+  "browse.sort.latest-release": {
+    "defaultMessage": "Latest release published"
+  },
+  "browse.sort.players": {
+    "defaultMessage": "Players"
+  },
+  "browse.sort.project-created": {
+    "defaultMessage": "Project created"
+  },
+  "browse.sort.project-modified": {
+    "defaultMessage": "Project modified"
+  },
+  "browse.sort.project-published": {
+    "defaultMessage": "Project first published"
+  },
+  "browse.sort.relevance": {
+    "defaultMessage": "Relevance"
+  },
+  "browse.sort.verified-plays": {
+    "defaultMessage": "Verified plays"
   },
   "browse.view-prefix": {
-    "defaultMessage": "Ansehen:"
+    "defaultMessage": "View:"
   },
   "button.accept": {
-    "defaultMessage": "Akzeptieren"
+    "defaultMessage": "Accept"
   },
   "button.add-server-to-instance": {
-    "defaultMessage": "Server zu Instanz hinzufügen"
+    "defaultMessage": "Add server to instance"
   },
   "button.affiliate-links": {
-    "defaultMessage": "Partnerlinks"
+    "defaultMessage": "Affiliate links"
   },
   "button.analytics": {
-    "defaultMessage": "Analytik"
+    "defaultMessage": "Analytics"
   },
   "button.back": {
-    "defaultMessage": "Zurück"
+    "defaultMessage": "Back"
   },
   "button.cancel": {
-    "defaultMessage": "Abbrechen"
+    "defaultMessage": "Cancel"
   },
   "button.change-version": {
-    "defaultMessage": "Version ändern"
+    "defaultMessage": "Change version"
   },
   "button.clear": {
-    "defaultMessage": "Löschen"
+    "defaultMessage": "Clear"
   },
   "button.close": {
-    "defaultMessage": "Schliessen"
+    "defaultMessage": "Close"
+  },
+  "button.confirm": {
+    "defaultMessage": "Confirm"
   },
   "button.continue": {
-    "defaultMessage": "Weiter"
+    "defaultMessage": "Continue"
   },
   "button.copy-filename": {
-    "defaultMessage": "Dateinamen kopieren"
+    "defaultMessage": "Copy filename"
   },
   "button.copy-full-path": {
-    "defaultMessage": "Vollständigen Pfad kopieren"
+    "defaultMessage": "Copy full path"
   },
   "button.copy-id": {
-    "defaultMessage": "ID kopieren"
+    "defaultMessage": "Copy ID"
   },
   "button.copy-link": {
-    "defaultMessage": "Link kopieren"
+    "defaultMessage": "Copy link"
   },
   "button.copy-permalink": {
-    "defaultMessage": "Permalink kopieren"
+    "defaultMessage": "Copy permanent link"
   },
   "button.create-a-project": {
-    "defaultMessage": "Projekt erstellen"
+    "defaultMessage": "Create a project"
   },
   "button.decline": {
-    "defaultMessage": "Ablehnen"
+    "defaultMessage": "Decline"
   },
   "button.disable": {
-    "defaultMessage": "Deaktivieren"
+    "defaultMessage": "Disable"
   },
   "button.download": {
-    "defaultMessage": "Herunterladen"
+    "defaultMessage": "Download"
   },
   "button.downloading": {
-    "defaultMessage": "Lade herunter"
+    "defaultMessage": "Downloading"
   },
   "button.edit": {
-    "defaultMessage": "Bearbeiten"
+    "defaultMessage": "Edit"
   },
   "button.enable": {
-    "defaultMessage": "Aktivieren"
+    "defaultMessage": "Enable"
   },
   "button.extract": {
-    "defaultMessage": "Extrahieren"
+    "defaultMessage": "Extract"
   },
   "button.follow": {
-    "defaultMessage": "Folgen"
+    "defaultMessage": "Follow"
   },
   "button.hide-snapshots": {
-    "defaultMessage": "Snapshots ausblenden"
+    "defaultMessage": "Hide snapshots"
   },
   "button.install": {
-    "defaultMessage": "Installieren"
+    "defaultMessage": "Install"
   },
   "button.max": {
     "defaultMessage": "Max"
   },
   "button.more-options": {
-    "defaultMessage": "Weitere Optionen"
+    "defaultMessage": "More options"
   },
   "button.move": {
-    "defaultMessage": "Verschieben"
+    "defaultMessage": "Move"
   },
   "button.next": {
-    "defaultMessage": "Nächstes"
+    "defaultMessage": "Next"
   },
   "button.open-folder": {
-    "defaultMessage": "Ordner öffnen"
+    "defaultMessage": "Open folder"
+  },
+  "button.open-in-browser": {
+    "defaultMessage": "Open in browser"
   },
   "button.open-in-folder": {
-    "defaultMessage": "In Ordner öffnen"
+    "defaultMessage": "Open in folder"
   },
   "button.open-in-modrinth": {
-    "defaultMessage": "In Modrinth öffnen"
+    "defaultMessage": "Open in Modrinth"
   },
   "button.play": {
-    "defaultMessage": "Spielen"
+    "defaultMessage": "Play"
   },
   "button.refresh": {
-    "defaultMessage": "Aktualisieren"
+    "defaultMessage": "Refresh"
   },
   "button.reinstall-modpack": {
-    "defaultMessage": "Modpack neu installieren"
+    "defaultMessage": "Re-install modpack"
   },
   "button.remove": {
-    "defaultMessage": "Passkey löschen"
+    "defaultMessage": "Remove"
   },
   "button.remove-image": {
-    "defaultMessage": "Bild entfernen"
+    "defaultMessage": "Remove image"
   },
   "button.rename": {
-    "defaultMessage": "Umbenennen"
+    "defaultMessage": "Rename"
   },
   "button.repair": {
-    "defaultMessage": "Reparieren"
+    "defaultMessage": "Repair"
   },
   "button.repairing": {
-    "defaultMessage": "Wird repariert..."
+    "defaultMessage": "Repairing..."
   },
   "button.report": {
-    "defaultMessage": "Melden"
+    "defaultMessage": "Report"
   },
   "button.reset": {
-    "defaultMessage": "Zurücksetzen"
+    "defaultMessage": "Reset"
   },
   "button.reset-server": {
-    "defaultMessage": "Server zurücksetzen"
+    "defaultMessage": "Reset server"
   },
   "button.retry": {
-    "defaultMessage": "Erneut versuchen"
+    "defaultMessage": "Retry"
   },
   "button.save": {
-    "defaultMessage": "Speichern"
+    "defaultMessage": "Save"
   },
   "button.save-changes": {
-    "defaultMessage": "Änderungen speichern"
+    "defaultMessage": "Save changes"
   },
   "button.saving": {
-    "defaultMessage": "Speichert"
+    "defaultMessage": "Saving"
   },
   "button.show-all-versions": {
-    "defaultMessage": "Alle Versionen anzeigen"
+    "defaultMessage": "Show all versions"
   },
   "button.show-file": {
-    "defaultMessage": "Datei anzeigen"
+    "defaultMessage": "Show file"
   },
   "button.sign-in": {
-    "defaultMessage": "Anmelden"
+    "defaultMessage": "Sign in"
   },
   "button.sign-out": {
-    "defaultMessage": "Abmelden"
+    "defaultMessage": "Sign out"
   },
   "button.sign-up": {
-    "defaultMessage": "Registrieren"
+    "defaultMessage": "Sign up"
   },
   "button.stop": {
     "defaultMessage": "Stop"
   },
+  "button.switch-to-version": {
+    "defaultMessage": "Switch to version"
+  },
   "button.switch-version": {
-    "defaultMessage": "Version ändern"
+    "defaultMessage": "Switch version"
   },
   "button.unfollow": {
-    "defaultMessage": "Entfolgen"
+    "defaultMessage": "Unfollow"
   },
   "button.unlink-modpack": {
-    "defaultMessage": "Modpaket entkoppeln"
+    "defaultMessage": "Unlink modpack"
   },
   "button.update": {
-    "defaultMessage": "Aktualisieren"
+    "defaultMessage": "Update"
   },
   "button.upload-image": {
-    "defaultMessage": "Bild hochladen"
+    "defaultMessage": "Upload image"
   },
   "collections.label.private": {
-    "defaultMessage": "Privat"
+    "defaultMessage": "Private"
+  },
+  "color-picker.dialog-label": {
+    "defaultMessage": "Colour picker"
+  },
+  "color-picker.dye-presets": {
+    "defaultMessage": "Dye colours"
+  },
+  "color-picker.dye.black": {
+    "defaultMessage": "Black"
+  },
+  "color-picker.dye.blue": {
+    "defaultMessage": "Blue"
+  },
+  "color-picker.dye.brown": {
+    "defaultMessage": "Brown"
+  },
+  "color-picker.dye.cyan": {
+    "defaultMessage": "Cyan"
+  },
+  "color-picker.dye.gray": {
+    "defaultMessage": "Gray"
+  },
+  "color-picker.dye.green": {
+    "defaultMessage": "Green"
+  },
+  "color-picker.dye.light-blue": {
+    "defaultMessage": "Light blue"
+  },
+  "color-picker.dye.light-gray": {
+    "defaultMessage": "Light gray"
+  },
+  "color-picker.dye.lime": {
+    "defaultMessage": "Lime"
+  },
+  "color-picker.dye.magenta": {
+    "defaultMessage": "Magenta"
+  },
+  "color-picker.dye.orange": {
+    "defaultMessage": "Orange"
+  },
+  "color-picker.dye.pink": {
+    "defaultMessage": "Pink"
+  },
+  "color-picker.dye.purple": {
+    "defaultMessage": "Purple"
+  },
+  "color-picker.dye.red": {
+    "defaultMessage": "Red"
+  },
+  "color-picker.dye.white": {
+    "defaultMessage": "White"
+  },
+  "color-picker.dye.yellow": {
+    "defaultMessage": "Yellow"
+  },
+  "color-picker.hex": {
+    "defaultMessage": "Hex colour"
+  },
+  "color-picker.hue": {
+    "defaultMessage": "Hue"
+  },
+  "color-picker.open": {
+    "defaultMessage": "Choose colour"
+  },
+  "color-picker.recent-colors": {
+    "defaultMessage": "Recently used"
+  },
+  "color-picker.saturation-brightness": {
+    "defaultMessage": "Saturation and brightness"
+  },
+  "color-picker.saturation-brightness.value": {
+    "defaultMessage": "Saturation {saturation}%, brightness {brightness}%"
+  },
+  "console.action.collapse": {
+    "defaultMessage": "Collapse"
+  },
+  "console.action.expand": {
+    "defaultMessage": "Expand"
+  },
+  "console.action.share": {
+    "defaultMessage": "Share"
+  },
+  "console.command.disabled-placeholder": {
+    "defaultMessage": "Command input disabled"
+  },
+  "console.command.placeholder": {
+    "defaultMessage": "Send a command"
+  },
+  "console.command.server-not-running-placeholder": {
+    "defaultMessage": "Server is not running"
+  },
+  "console.crash.export-context": {
+    "defaultMessage": "Export crash context"
+  },
+  "console.crash.finding.amd-driver.action": {
+    "defaultMessage": "Clean-install a current AMD graphics driver and retry without graphics overlays."
+  },
+  "console.crash.finding.amd-driver.title": {
+    "defaultMessage": "The AMD graphics driver crashed"
+  },
+  "console.crash.finding.connector-incompatible-fabric-mods.action": {
+    "defaultMessage": "Remove or replace the Fabric Mods named in the Connector error with Forge-compatible alternatives."
+  },
+  "console.crash.finding.connector-incompatible-fabric-mods.title": {
+    "defaultMessage": "Sinytra Connector found incompatible Fabric Mods"
+  },
+  "console.crash.finding.content-verification.action": {
+    "defaultMessage": "Remove and reinstall the file named in the evidence from a trusted source."
+  },
+  "console.crash.finding.content-verification.title": {
+    "defaultMessage": "A jar failed signature verification"
+  },
+  "console.crash.finding.definite-mod-fabric.action": {
+    "defaultMessage": "Update or temporarily remove the Mod identified by the Fabric loader evidence."
+  },
+  "console.crash.finding.definite-mod-fabric.title": {
+    "defaultMessage": "Fabric identified a specific Mod failure"
+  },
+  "console.crash.finding.definite-mod.action": {
+    "defaultMessage": "Update, repair, or temporarily remove the Mod identified by the evidence and matched jar."
+  },
+  "console.crash.finding.definite-mod.title": {
+    "defaultMessage": "A specific Mod caused the crash"
+  },
+  "console.crash.finding.disk-space.action": {
+    "defaultMessage": "Free space on the drive containing the instance, then retry the launch or installation."
+  },
+  "console.crash.finding.disk-space.title": {
+    "defaultMessage": "The disk ran out of free space"
+  },
+  "console.crash.finding.duplicate-mod.action": {
+    "defaultMessage": "Keep only one compatible version of each Mod in the mods folder."
+  },
+  "console.crash.finding.duplicate-mod.title": {
+    "defaultMessage": "Duplicate Mods are installed"
+  },
+  "console.crash.finding.extracted-mod.action": {
+    "defaultMessage": "Remove the extracted directory from the mods folder and install the original jar file."
+  },
+  "console.crash.finding.extracted-mod.title": {
+    "defaultMessage": "An extracted Mod was found"
+  },
+  "console.crash.finding.fabric-solution.action": {
+    "defaultMessage": "Apply the dependency changes listed in the evidence before launching again."
+  },
+  "console.crash.finding.fabric-solution.title": {
+    "defaultMessage": "Fabric found an incompatible Mod or missing dependency"
+  },
+  "console.crash.finding.fallback-action": {
+    "defaultMessage": "Review the evidence below and the Mods matched from the local instance."
+  },
+  "console.crash.finding.fallback-title": {
+    "defaultMessage": "Unknown diagnosis: {finding}"
+  },
+  "console.crash.finding.file-in-use.action": {
+    "defaultMessage": "Close the program named in the evidence, including other launchers, backup tools, or antivirus scans, then retry."
+  },
+  "console.crash.finding.file-in-use.title": {
+    "defaultMessage": "Another process is using a required file"
+  },
+  "console.crash.finding.forge-error.action": {
+    "defaultMessage": "Review the Forge failure evidence and test the named Mod without recent changes."
+  },
+  "console.crash.finding.forge-error.title": {
+    "defaultMessage": "Forge reported a game error"
+  },
+  "console.crash.finding.forge-incomplete.action": {
+    "defaultMessage": "Repair or reinstall the Forge loader for this instance."
+  },
+  "console.crash.finding.forge-incomplete.title": {
+    "defaultMessage": "The Forge installation is incomplete"
+  },
+  "console.crash.finding.forge-java-incompatible.action": {
+    "defaultMessage": "Use the Java version expected by this Forge release or update Forge."
+  },
+  "console.crash.finding.forge-java-incompatible.title": {
+    "defaultMessage": "This Forge version is incompatible with the selected Java runtime"
+  },
+  "console.crash.finding.incompatible-mods.action": {
+    "defaultMessage": "Follow the compatibility details in the evidence and update, remove, or replace the conflicting Mods."
+  },
+  "console.crash.finding.incompatible-mods.title": {
+    "defaultMessage": "The installed Mods are incompatible"
+  },
+  "console.crash.finding.intel-driver.action": {
+    "defaultMessage": "Install a current Intel graphics driver or run Minecraft on another available GPU."
+  },
+  "console.crash.finding.intel-driver.title": {
+    "defaultMessage": "The Intel graphics driver crashed"
+  },
+  "console.crash.finding.java-11-required.action": {
+    "defaultMessage": "Select Java 11 or install a Mod build compatible with the selected Java version."
+  },
+  "console.crash.finding.java-11-required.title": {
+    "defaultMessage": "A Mod requires Java 11"
+  },
+  "console.crash.finding.java-32bit.action": {
+    "defaultMessage": "Install and select a 64-bit Java runtime, then retry the launch."
+  },
+  "console.crash.finding.java-32bit.title": {
+    "defaultMessage": "A 32-bit Java runtime cannot allocate the requested memory"
+  },
+  "console.crash.finding.java-incompatible.action": {
+    "defaultMessage": "Use a compatible Java runtime or install a build of the reported mod for this Java version."
+  },
+  "console.crash.finding.java-incompatible.title": {
+    "defaultMessage": "A mod requires a different Java version"
+  },
+  "console.crash.finding.java-too-new.action": {
+    "defaultMessage": "Select the Java major version expected by this Minecraft and mod-loader version."
+  },
+  "console.crash.finding.java-too-new.title": {
+    "defaultMessage": "The Java runtime is too new for this instance"
+  },
+  "console.crash.finding.jdk-runtime.action": {
+    "defaultMessage": "Select a standard HotSpot Java runtime for this Minecraft version."
+  },
+  "console.crash.finding.jdk-runtime.title": {
+    "defaultMessage": "A JDK runtime was selected instead of a JRE"
+  },
+  "console.crash.finding.jvm-arguments.action": {
+    "defaultMessage": "Remove the reported custom JVM argument, then launch the instance again."
+  },
+  "console.crash.finding.jvm-arguments.title": {
+    "defaultMessage": "Invalid JVM arguments"
+  },
+  "console.crash.finding.known-signature.action": {
+    "defaultMessage": "Review the evidence and the related Minecraft, loader, Java, graphics, or Mod versions before changing the instance."
+  },
+  "console.crash.finding.known-signature.title": {
+    "defaultMessage": "A known crash signature was detected"
+  },
+  "console.crash.finding.large-resource-pack.action": {
+    "defaultMessage": "Disable the resource pack or use a lower-resolution version."
+  },
+  "console.crash.finding.large-resource-pack.title": {
+    "defaultMessage": "The active resource pack is too large for the graphics configuration"
+  },
+  "console.crash.finding.manual-debug-crash.action": {
+    "defaultMessage": "Launch again and avoid holding the manual debug-crash key combination."
+  },
+  "console.crash.finding.manual-debug-crash.title": {
+    "defaultMessage": "The debug crash shortcut was triggered"
+  },
+  "console.crash.finding.matched-mod": {
+    "defaultMessage": "Matched Mod: {identity}{modId} - {fileName}"
+  },
+  "console.crash.finding.missing-dependency.action": {
+    "defaultMessage": "Install the required dependency version or use a Mod build matching this Minecraft version."
+  },
+  "console.crash.finding.missing-dependency.title": {
+    "defaultMessage": "A Mod dependency is missing or unsupported"
+  },
+  "console.crash.finding.missing-embeddium.action": {
+    "defaultMessage": "Install the Embeddium version required by Oculus for this Minecraft and Forge version."
+  },
+  "console.crash.finding.missing-embeddium.title": {
+    "defaultMessage": "Oculus requires Embeddium"
+  },
+  "console.crash.finding.missing-indium.action": {
+    "defaultMessage": "Install the Indium version compatible with the installed Fabric Loader and Sodium version."
+  },
+  "console.crash.finding.missing-indium.title": {
+    "defaultMessage": "A Mod requires Indium"
+  },
+  "console.crash.finding.mixin-bootstrap.action": {
+    "defaultMessage": "Repair the mod loader installation and verify that every mod targets the installed loader."
+  },
+  "console.crash.finding.mixin-bootstrap.title": {
+    "defaultMessage": "Mixin bootstrap is missing"
+  },
+  "console.crash.finding.mixin-failure.action": {
+    "defaultMessage": "Update or remove the matched Mod and check that its Minecraft and loader versions are compatible."
+  },
+  "console.crash.finding.mixin-failure.title": {
+    "defaultMessage": "A Mod Mixin failed to apply"
+  },
+  "console.crash.finding.mod-config.action": {
+    "defaultMessage": "Back up and remove the named configuration file so the Mod can regenerate it."
+  },
+  "console.crash.finding.mod-config.title": {
+    "defaultMessage": "A Mod configuration file could not be read"
+  },
+  "console.crash.finding.mod-filename.action": {
+    "defaultMessage": "Rename or reinstall the Mod jar using a simple Latin-letter filename."
+  },
+  "console.crash.finding.mod-filename.title": {
+    "defaultMessage": "A Mod filename contains unsupported characters"
+  },
+  "console.crash.finding.mod-id-limit.action": {
+    "defaultMessage": "Remove unused Mods or split the installation into smaller compatible profiles."
+  },
+  "console.crash.finding.mod-id-limit.title": {
+    "defaultMessage": "Too many Mods exceeded the ID limit"
+  },
+  "console.crash.finding.mod-initialization.action": {
+    "defaultMessage": "Update the named Mod and verify that all of its required dependencies are installed."
+  },
+  "console.crash.finding.mod-initialization.title": {
+    "defaultMessage": "A Mod failed to initialize"
+  },
+  "console.crash.finding.mod-loader-error.action": {
+    "defaultMessage": "Repair the loader installation and verify that the listed Mod files match this game version."
+  },
+  "console.crash.finding.mod-loader-error.title": {
+    "defaultMessage": "The Mod loader reported a failure"
+  },
+  "console.crash.finding.mod-loader-failure.action": {
+    "defaultMessage": "Repair the loader installation and follow the failure message shown in the evidence."
+  },
+  "console.crash.finding.mod-loader-failure.title": {
+    "defaultMessage": "The Mod loader failed before identifying a Mod file"
+  },
+  "console.crash.finding.multiple-forge-versions.action": {
+    "defaultMessage": "Repair the instance so its version profile contains only one Forge installation."
+  },
+  "console.crash.finding.multiple-forge-versions.title": {
+    "defaultMessage": "The version profile contains multiple Forge versions"
+  },
+  "console.crash.finding.nightconfig-bug.action": {
+    "defaultMessage": "Back up the config folder, remove the damaged configuration, and let the Mod regenerate it."
+  },
+  "console.crash.finding.nightconfig-bug.title": {
+    "defaultMessage": "NightConfig could not read a configuration file"
+  },
+  "console.crash.finding.nvidia-driver.action": {
+    "defaultMessage": "Clean-install a current NVIDIA graphics driver and retry without graphics overlays."
+  },
+  "console.crash.finding.nvidia-driver.title": {
+    "defaultMessage": "The NVIDIA graphics driver crashed"
+  },
+  "console.crash.finding.opengl-unsupported.action": {
+    "defaultMessage": "Install the graphics driver from the GPU manufacturer and ensure Minecraft uses the intended GPU."
+  },
+  "console.crash.finding.opengl-unsupported.title": {
+    "defaultMessage": "OpenGL is not supported by the active graphics driver"
+  },
+  "console.crash.finding.openj9.action": {
+    "defaultMessage": "Select a HotSpot-based Java runtime such as Eclipse Temurin or the bundled Minecraft runtime."
+  },
+  "console.crash.finding.openj9.title": {
+    "defaultMessage": "The selected OpenJ9 runtime is incompatible"
+  },
+  "console.crash.finding.optifine-incompatible.action": {
+    "defaultMessage": "Install a compatible OptiFine build or remove OptiFine and the conflicting shader Mod."
+  },
+  "console.crash.finding.optifine-incompatible.title": {
+    "defaultMessage": "OptiFine conflicts with the installed loader or Mod"
+  },
+  "console.crash.finding.optifine-world.action": {
+    "defaultMessage": "Remove OptiFine or install a build compatible with this Minecraft and Forge version."
+  },
+  "console.crash.finding.optifine-world.title": {
+    "defaultMessage": "OptiFine prevented the world from loading"
+  },
+  "console.crash.finding.out-of-memory.action": {
+    "defaultMessage": "Increase the instance memory allocation or remove memory-heavy mods and resource packs."
+  },
+  "console.crash.finding.out-of-memory.title": {
+    "defaultMessage": "Minecraft ran out of memory"
+  },
+  "console.crash.finding.pixel-format.action": {
+    "defaultMessage": "Update or reinstall the graphics driver and disable conflicting overlays before retrying."
+  },
+  "console.crash.finding.pixel-format.title": {
+    "defaultMessage": "The graphics driver could not set a pixel format"
+  },
+  "console.crash.finding.resource-pack.action": {
+    "defaultMessage": "Disable the active shader and resource packs, then re-enable them one at a time."
+  },
+  "console.crash.finding.resource-pack.title": {
+    "defaultMessage": "A shader or resource pack triggered a graphics error"
+  },
+  "console.crash.finding.shaders-optifine.action": {
+    "defaultMessage": "Remove the separate Shaders Mod because OptiFine already provides shader support."
+  },
+  "console.crash.finding.shaders-optifine.title": {
+    "defaultMessage": "Shaders Mod and OptiFine are installed together"
+  },
+  "console.crash.finding.short-output.action": {
+    "defaultMessage": "Retry once, then verify Java, the loader installation, and the launcher output for an earlier error."
+  },
+  "console.crash.finding.short-output.title": {
+    "defaultMessage": "The game stopped before producing a useful log"
+  },
+  "console.crash.finding.specific-block.action": {
+    "defaultMessage": "Use a world backup or a world editor to remove the block at the coordinates in the evidence."
+  },
+  "console.crash.finding.specific-block.title": {
+    "defaultMessage": "A specific block caused the crash"
+  },
+  "console.crash.finding.specific-entity.action": {
+    "defaultMessage": "Use a world backup or a world editor to remove the entity at the coordinates in the evidence."
+  },
+  "console.crash.finding.specific-entity.title": {
+    "defaultMessage": "A specific entity caused the crash"
+  },
+  "console.crash.finding.stack-analysis.action": {
+    "defaultMessage": "Update or temporarily remove the matched Mod, then test the instance again."
+  },
+  "console.crash.finding.stack-analysis.title": {
+    "defaultMessage": "The stack trace points to an installed Mod"
+  },
+  "console.crash.finding.suspected-mod.action": {
+    "defaultMessage": "Update or temporarily remove the suspected and locally matched Mods, then retry."
+  },
+  "console.crash.finding.suspected-mod.title": {
+    "defaultMessage": "The crash report suspects one or more Mods"
+  },
+  "console.crash.local-header": {
+    "defaultMessage": "{findings, plural, one {# local diagnosis result} other {# local diagnosis results}} from {sources, plural, one {# related file} other {# related files}}"
+  },
+  "console.crash.mod-change": {
+    "defaultMessage": "{kind}: {filename}"
+  },
+  "console.crash.mod-change.added": {
+    "defaultMessage": "Added"
+  },
+  "console.crash.mod-change.modified": {
+    "defaultMessage": "Modified"
+  },
+  "console.crash.mod-change.removed": {
+    "defaultMessage": "Removed"
+  },
+  "console.crash.mod-changes.summary": {
+    "defaultMessage": "{added} added, {removed} removed, {modified} modified"
+  },
+  "console.crash.mod-changes.title": {
+    "defaultMessage": "Mod files changed since the last successful launch"
+  },
+  "console.crash.problems-detected": {
+    "defaultMessage": "{count, plural, one {# problem detected} other {# problems detected}}"
+  },
+  "console.crash.windows-events.title": {
+    "defaultMessage": "Related Windows application events"
+  },
+  "console.delete-modal.confirmation": {
+    "defaultMessage": "Deleting this log file cannot be undone. Are you sure you want to continue?"
+  },
+  "console.delete-modal.irreversible-title": {
+    "defaultMessage": "This is irreversible"
+  },
+  "console.delete-modal.title": {
+    "defaultMessage": "Delete log file"
+  },
+  "console.empty.instance-description": {
+    "defaultMessage": "Click the Play button to start receiving live logs."
+  },
+  "console.empty.instance-title": {
+    "defaultMessage": "No logs yet"
+  },
+  "console.empty.server-description": {
+    "defaultMessage": "Click the start button to start the server!"
+  },
+  "console.empty.server-title": {
+    "defaultMessage": "Welcome to your Modrinth server!"
+  },
+  "console.filter.error": {
+    "defaultMessage": "Error"
+  },
+  "console.filter.info": {
+    "defaultMessage": "Info"
+  },
+  "console.filter.warn": {
+    "defaultMessage": "Warn"
+  },
+  "console.log-viewport.scroll-to-bottom": {
+    "defaultMessage": "Scroll to bottom"
+  },
+  "console.log.toggle-wrap": {
+    "defaultMessage": "Toggle line wrapping"
+  },
+  "console.log.wrap-label": {
+    "defaultMessage": "Wrap"
+  },
+  "console.notification.delete-failed": {
+    "defaultMessage": "Failed to delete log file"
+  },
+  "console.notification.share-failed": {
+    "defaultMessage": "Failed to share logs"
+  },
+  "console.notification.share-truncated": {
+    "defaultMessage": "The log is too large, so only the last 9 MB was uploaded."
+  },
+  "console.notification.unknown-error": {
+    "defaultMessage": "Unknown error."
+  },
+  "console.search.placeholder": {
+    "defaultMessage": "Search logs"
+  },
+  "console.share-modal.title": {
+    "defaultMessage": "Share Logs"
   },
   "content-type.content.lowercase": {
-    "defaultMessage": "Inhalt"
+    "defaultMessage": "content"
   },
   "content-type.item.lowercase": {
-    "defaultMessage": "{count, plural, one {Element} other {Elemente}}"
+    "defaultMessage": "{count, plural, one {item} other {items}}"
+  },
+  "content.actions.update-all": {
+    "defaultMessage": "Update all"
+  },
+  "content.card.dependency-badge": {
+    "defaultMessage": "Dependency"
+  },
+  "content.card.duplicate-mod": {
+    "defaultMessage": "This mod is installed {count, number} times."
+  },
+  "content.card.group.hardcore": {
+    "defaultMessage": "Hardcore mode"
+  },
+  "content.card.group.not-played-yet": {
+    "defaultMessage": "Not played yet"
+  },
+  "content.card.orphaned-dependency-badge": {
+    "defaultMessage": "Orphaned dependency"
+  },
+  "content.card.pending-manual-download": {
+    "defaultMessage": "Manual download required"
+  },
+  "content.card.rollback-tooltip": {
+    "defaultMessage": "Roll back to {fileName}"
   },
   "content.card.select-project": {
-    "defaultMessage": "{project} auswählen"
+    "defaultMessage": "Select {project}"
   },
   "content.confirm-bulk-update.admonition-body": {
-    "defaultMessage": "Bist du sicher, dass du {count, plural, one {# Projekt} other {# Projekte}} auf die neuste kompatible version aktualisieren willst? Es wird empfohlen, Inhalte einzeln zu aktualisieren."
+    "defaultMessage": "Are you sure you want to update {count, plural, one {# project} other {# projects}} to their latest compatible version? It's recommended to update content one-by-one."
   },
   "content.confirm-bulk-update.admonition-header": {
-    "defaultMessage": "Update-Warnung"
+    "defaultMessage": "Update warning"
   },
   "content.confirm-bulk-update.header": {
-    "defaultMessage": "Projekte aktualisieren"
+    "defaultMessage": "Update projects"
   },
   "content.confirm-bulk-update.update-button": {
-    "defaultMessage": "Aktualisiere {count, plural, one {# Projekt} other {# Projekte}}"
+    "defaultMessage": "Update {count, plural, one {# project} other {# projects}}"
   },
   "content.confirm-deletion.admonition-body": {
-    "defaultMessage": "Das löschen einer Mod kann deine Welt permanent beeinflussen und das fehlen von Inhalten und unerwartete Probleme beim erneuten laden verursachen."
+    "defaultMessage": "Deleting {contentType, select, mod {a mod} resourcepack {a resource pack} shader {a shader} datapack {a data pack} other {content}} can permanently affect your world and may cause missing content or unexpected issues when it loads again."
   },
   "content.confirm-deletion.admonition-header": {
-    "defaultMessage": "Löschwarnung"
+    "defaultMessage": "Deletion warning"
   },
   "content.confirm-deletion.delete-button": {
-    "defaultMessage": "{count, number} {itemType} löschen"
+    "defaultMessage": "Delete {count, number} {itemType}"
+  },
+  "content.confirm-deletion.failed": {
+    "defaultMessage": "The selected content could not be deleted. Try again."
   },
   "content.confirm-deletion.header": {
-    "defaultMessage": "{itemType} löschen"
+    "defaultMessage": "Delete {itemType}"
   },
   "content.confirm-modpack-update.admonition-body": {
-    "defaultMessage": "{action, select, downgrade {Downgraden} other {Aktualiseren}} kann zu Kompatibilitätsproblemen führen. Mods oder Inhalte, die du zusätzlich zum Modpack hinzugefügt hast, bleiben erhalten, sind jedoch eventuell nicht mit der neuen Version kompatibel."
+    "defaultMessage": "{action, select, downgrade {Downgrading} other {Updating}} may cause compatibility issues. Mods or content you added on top of the modpack will be kept, but may not be compatible with the new version."
   },
   "content.confirm-modpack-update.admonition-header": {
-    "defaultMessage": "{action, select, downgrade {Downgrade} other {Aktualisierungs}}warnung"
+    "defaultMessage": "{action, select, downgrade {Downgrade} other {Update}} warning"
   },
   "content.confirm-modpack-update.confirm-button": {
-    "defaultMessage": "Modpack {action, select, downgrade {downgraden} other {aktualisieren}}"
+    "defaultMessage": "{action, select, downgrade {Downgrade} other {Update}} modpack"
   },
   "content.confirm-modpack-update.header": {
-    "defaultMessage": "Modpack {action, select, downgrade {downgraden} other {aktualisieren}}"
+    "defaultMessage": "{action, select, downgrade {Downgrade} other {Update}} modpack"
   },
   "content.confirm-unlink.admonition-body": {
-    "defaultMessage": "Mods und Inhalte werden mit dem zusammengefügt, was du zusätzlich zum Modpack hinzugefügt hast, und wird keine weiteren updates erhalten."
+    "defaultMessage": "Mods and content will be merged with what you added on top of the modpack, and it will stop receiving updates."
   },
   "content.confirm-unlink.admonition-header": {
-    "defaultMessage": "Modpaket entkoppeln"
+    "defaultMessage": "Unlinking modpack"
   },
   "content.confirm-unlink.header": {
-    "defaultMessage": "Modpaket entkoppeln"
+    "defaultMessage": "Unlink modpack"
   },
   "content.confirm-unlink.unlink-button": {
-    "defaultMessage": "Entkoppeln"
+    "defaultMessage": "Unlink"
   },
   "content.dependency-warning.admonition-header": {
-    "defaultMessage": "Dieser Inhalt wird von anderen Inhalten benötigt"
+    "defaultMessage": "This content is required by other content"
   },
   "content.dependency-warning.affected-dependents-label": {
-    "defaultMessage": "{count, plural, one {Betroffenes Projekt} other {Betroffene Projekte}}"
+    "defaultMessage": "Affected {count, plural, one {project} other {projects}}"
   },
   "content.dependency-warning.bulk-admonition-body": {
-    "defaultMessage": "Einige der ausgewählten Projekte sind als Abhängigkeiten installiert. Sie zu löschen kann dein {context} beschädigen oder dazu führen, dass abhängige Inhalte nicht mehr korrekt geladen werden."
+    "defaultMessage": "Some selected projects are installed as dependencies. Deleting them may break your {context} or stop dependent content from loading correctly."
   },
   "content.dependency-warning.context.instance": {
-    "defaultMessage": "Instanz"
+    "defaultMessage": "instance"
   },
   "content.dependency-warning.context.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "server"
   },
   "content.dependency-warning.delete-anyway-button": {
-    "defaultMessage": "Trotzdem löschen"
+    "defaultMessage": "Delete anyway"
+  },
+  "content.dependency-warning.delete-failed": {
+    "defaultMessage": "The selected content and dependencies could not be deleted. Try again."
   },
   "content.dependency-warning.delete-many-anyway-button": {
-    "defaultMessage": "{count, number} {itemType} trotzdem löschen"
+    "defaultMessage": "Delete {count, number} {itemType} anyway"
   },
   "content.dependency-warning.deleting-label": {
-    "defaultMessage": "Wird gelöscht"
+    "defaultMessage": "Deleting"
   },
   "content.dependency-warning.disable-dependents-label": {
-    "defaultMessage": "Abhängige Inhalte nach dem Löschen deaktivieren"
+    "defaultMessage": "Disable dependents after deleting"
   },
   "content.dependency-warning.effect-dependent-content": {
-    "defaultMessage": "Abhängige Inhalte werden möglicherweise nicht geladen oder deaktivieren sich selbst"
+    "defaultMessage": "Dependent content may fail to load or may disable itself"
   },
   "content.dependency-warning.effect-instance": {
-    "defaultMessage": "Dein {context} stürzt möglicherweise ab, startet nicht mehr oder verhält sich unerwartet"
+    "defaultMessage": "Your {context} may crash, refuse to start, or behave unexpectedly"
   },
   "content.dependency-warning.header": {
-    "defaultMessage": "Abhängigkeitswarnung"
+    "defaultMessage": "Dependency warning"
   },
   "content.dependency-warning.single-admonition-body": {
-    "defaultMessage": "{project} ist als Abhängigkeit installiert. Das Löschen kann deinen {context} beschädigen oder dazu führen, dass abhängige Inhalte nicht mehr korrekt geladen werden."
+    "defaultMessage": "{project} is installed as a dependency. Deleting it may break your {context} or stop dependent content from loading correctly."
   },
   "content.dependency-warning.what-happens-label": {
-    "defaultMessage": "Was passiert?"
+    "defaultMessage": "What happens?"
   },
   "content.diff-modal.added-count": {
-    "defaultMessage": "{count} hinzugefügt"
+    "defaultMessage": "{count} added"
   },
   "content.diff-modal.diff-type.added": {
-    "defaultMessage": "Hinzugefügt (Abhängigkeit)"
+    "defaultMessage": "Added (dependency)"
   },
   "content.diff-modal.diff-type.removed": {
-    "defaultMessage": "Deaktiviert"
+    "defaultMessage": "Disabled"
   },
   "content.diff-modal.diff-type.updated": {
-    "defaultMessage": "Aktualisiert"
+    "defaultMessage": "Updated"
   },
   "content.diff-modal.removed-count": {
-    "defaultMessage": "{count} entfernt"
+    "defaultMessage": "{count} removed"
   },
   "content.diff-modal.unknown-content-body": {
-    "defaultMessage": "Einige Inhalte auf deinem Server konnten nicht analysiert werden und könnten von diese Änderung beeinflusst werden."
+    "defaultMessage": "Some content on your server could not be analyzed and may be affected by this change."
   },
   "content.diff-modal.updated-count": {
-    "defaultMessage": "{count} aktualisiert"
+    "defaultMessage": "{count} updated"
   },
   "content.filter.disabled": {
-    "defaultMessage": "Deaktiviert"
+    "defaultMessage": "Disabled"
+  },
+  "content.filter.duplicates": {
+    "defaultMessage": "Duplicates"
   },
   "content.filter.enabled": {
-    "defaultMessage": "Aktiviert"
+    "defaultMessage": "Enabled"
   },
   "content.filter.updates": {
-    "defaultMessage": "Updates"
+    "defaultMessage": "Update available"
+  },
+  "content.metadata-filter.author": {
+    "defaultMessage": "Author"
+  },
+  "content.metadata-filter.clear": {
+    "defaultMessage": "Clear"
+  },
+  "content.metadata-filter.environment": {
+    "defaultMessage": "Environment"
+  },
+  "content.metadata-filter.environment.client": {
+    "defaultMessage": "Client"
+  },
+  "content.metadata-filter.environment.client-and-server": {
+    "defaultMessage": "Client & server"
+  },
+  "content.metadata-filter.environment.server": {
+    "defaultMessage": "Server"
+  },
+  "content.metadata-filter.environment.singleplayer": {
+    "defaultMessage": "Singleplayer"
+  },
+  "content.metadata-filter.external": {
+    "defaultMessage": "External files"
+  },
+  "content.metadata-filter.external.external": {
+    "defaultMessage": "External file"
+  },
+  "content.metadata-filter.external.linked": {
+    "defaultMessage": "Online project"
+  },
+  "content.metadata-filter.installed-source": {
+    "defaultMessage": "Installation source"
+  },
+  "content.metadata-filter.loader": {
+    "defaultMessage": "Loader"
+  },
+  "content.metadata-filter.loader.fabric": {
+    "defaultMessage": "Fabric"
+  },
+  "content.metadata-filter.loader.forge": {
+    "defaultMessage": "Forge"
+  },
+  "content.metadata-filter.loader.neoforge": {
+    "defaultMessage": "NeoForge"
+  },
+  "content.metadata-filter.loader.other": {
+    "defaultMessage": "Other"
+  },
+  "content.metadata-filter.loader.quilt": {
+    "defaultMessage": "Quilt"
+  },
+  "content.metadata-filter.long-press-reset": {
+    "defaultMessage": "Long-press to reset filters"
+  },
+  "content.metadata-filter.open-source": {
+    "defaultMessage": "Open source"
+  },
+  "content.metadata-filter.open-source.closed": {
+    "defaultMessage": "Closed source"
+  },
+  "content.metadata-filter.open-source.open": {
+    "defaultMessage": "Open source"
+  },
+  "content.metadata-filter.ownership": {
+    "defaultMessage": "Content ownership"
+  },
+  "content.metadata-filter.ownership.local-discovered": {
+    "defaultMessage": "Locally discovered"
+  },
+  "content.metadata-filter.ownership.pack-managed": {
+    "defaultMessage": "Pack managed"
+  },
+  "content.metadata-filter.ownership.user-added": {
+    "defaultMessage": "User added"
+  },
+  "content.metadata-filter.search": {
+    "defaultMessage": "Search..."
+  },
+  "content.metadata-filter.select-all": {
+    "defaultMessage": "Select all"
+  },
+  "content.metadata-filter.source.curseforge": {
+    "defaultMessage": "CurseForge"
+  },
+  "content.metadata-filter.source.mcarchive": {
+    "defaultMessage": "MCArchive"
+  },
+  "content.metadata-filter.source.modrinth": {
+    "defaultMessage": "Modrinth"
+  },
+  "content.metadata-filter.source.planet-minecraft": {
+    "defaultMessage": "Planet Minecraft"
+  },
+  "content.metadata-filter.toggle": {
+    "defaultMessage": "Filter"
+  },
+  "content.metadata-filter.toggle-active": {
+    "defaultMessage": "Filter ({count, number} active)"
+  },
+  "content.metadata-filter.unknown": {
+    "defaultMessage": "Unknown"
   },
   "content.page-layout.browse-content": {
-    "defaultMessage": "Inhalte durchsuchen"
+    "defaultMessage": "Browse content"
+  },
+  "content.page-layout.dependency-disable-failed": {
+    "defaultMessage": "Dependent content could not be disabled. Retry to finish the deletion."
+  },
+  "content.page-layout.duplicate-status": {
+    "defaultMessage": "{visible} matching · All copies: {updates} updates · {disabled} disabled · {missing} missing · {installing} in progress"
   },
   "content.page-layout.empty.hint": {
-    "defaultMessage": "Suche oder lade {contentType} hoch um anzufangen"
+    "defaultMessage": "Browse or upload {contentType} to get started"
   },
   "content.page-layout.empty.no-content-installed": {
-    "defaultMessage": "Keine Inhalte installiert"
+    "defaultMessage": "No content installed"
   },
   "content.page-layout.failed-to-load": {
-    "defaultMessage": "Laden von Inhalten fehlgeschlagen"
+    "defaultMessage": "Failed to load content"
   },
   "content.page-layout.no-content-found": {
-    "defaultMessage": "Keine Inhalte gefunden."
+    "defaultMessage": "No content found."
+  },
+  "content.page-layout.pin-view": {
+    "defaultMessage": "Pin current view"
+  },
+  "content.page-layout.reset-view": {
+    "defaultMessage": "Reset view"
+  },
+  "content.page-layout.scroll-to-top": {
+    "defaultMessage": "Scroll to top"
   },
   "content.page-layout.search-placeholder": {
-    "defaultMessage": "{count, number} {contentType} durchsuchen..."
+    "defaultMessage": "Search {count, number} {contentType}..."
   },
   "content.page-layout.share.file-names": {
-    "defaultMessage": "Dateinamen"
+    "defaultMessage": "File names"
   },
   "content.page-layout.share.label": {
-    "defaultMessage": "Teilen"
+    "defaultMessage": "Share"
   },
   "content.page-layout.share.markdown-links": {
-    "defaultMessage": "Markdown-Links"
+    "defaultMessage": "Markdown links"
   },
   "content.page-layout.share.project-links": {
-    "defaultMessage": "Projektlinks"
+    "defaultMessage": "Project links"
   },
   "content.page-layout.share.project-names": {
-    "defaultMessage": "Projektnamen"
+    "defaultMessage": "Project names"
   },
   "content.page-layout.sort.alphabetical": {
-    "defaultMessage": "Alphabetisch"
+    "defaultMessage": "Alphabetical"
   },
   "content.page-layout.sort.date-added-newest": {
-    "defaultMessage": "Neuste zuerst"
+    "defaultMessage": "Newest first"
   },
   "content.page-layout.sort.date-added-oldest": {
-    "defaultMessage": "Älteste zuerst"
+    "defaultMessage": "Oldest first"
+  },
+  "content.page-layout.sort.file-name-ascending": {
+    "defaultMessage": "File name A-Z"
+  },
+  "content.page-layout.sort.file-name-descending": {
+    "defaultMessage": "File name Z-A"
   },
   "content.page-layout.sort.label": {
-    "defaultMessage": "Sortieren nach {mode}"
+    "defaultMessage": "Sort by {mode}"
+  },
+  "content.page-layout.sort.project-name-ascending": {
+    "defaultMessage": "Project name A-Z"
+  },
+  "content.page-layout.sort.project-name-descending": {
+    "defaultMessage": "Project name Z-A"
+  },
+  "content.page-layout.unpin-view": {
+    "defaultMessage": "Unpin current view"
   },
   "content.page-layout.update-all": {
-    "defaultMessage": "Alle aktualisieren"
+    "defaultMessage": "Update all"
+  },
+  "content.page-layout.update-duplicate-group": {
+    "defaultMessage": "Review updates for all {count, number} copies"
+  },
+  "content.page-layout.view-dependencies": {
+    "defaultMessage": "View dependencies"
+  },
+  "content.page-layout.view-options": {
+    "defaultMessage": "View options"
   },
   "content.selection-bar.all-already-disabled": {
-    "defaultMessage": "Alle ausgewählten Inhalte sind bereits deaktiviert"
+    "defaultMessage": "All selected content is already disabled"
   },
   "content.selection-bar.all-already-enabled": {
-    "defaultMessage": "Alle ausgewählten Inhalte sind bereits aktiviert"
+    "defaultMessage": "All selected content is already enabled"
   },
   "content.selection-bar.bulk.deleting": {
-    "defaultMessage": "Lösche {progress}/{total} {contentType}..."
+    "defaultMessage": "Deleting {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.deleting-count": {
-    "defaultMessage": "{count, number} {contentType} werden gelöscht"
+    "defaultMessage": "Deleting {count, number} {contentType}"
   },
   "content.selection-bar.bulk.deleting-waiting": {
-    "defaultMessage": "Lösche {contentType}..."
+    "defaultMessage": "Deleting {contentType}..."
   },
   "content.selection-bar.bulk.disabling": {
-    "defaultMessage": "Deaktiviere {progress}/{total} {contentType}..."
+    "defaultMessage": "Disabling {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.disabling-count": {
-    "defaultMessage": "{count, number} {contentType} werden deaktiviert"
+    "defaultMessage": "Disabling {count, number} {contentType}"
   },
   "content.selection-bar.bulk.disabling-waiting": {
-    "defaultMessage": "Deaktiviere {contentType}..."
+    "defaultMessage": "Disabling {contentType}..."
   },
   "content.selection-bar.bulk.enabling": {
-    "defaultMessage": "Aktiviere {progress}/{total} {contentType}..."
+    "defaultMessage": "Enabling {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.enabling-count": {
-    "defaultMessage": "{count, number} {contentType} werden aktiviert"
+    "defaultMessage": "Enabling {count, number} {contentType}"
   },
   "content.selection-bar.bulk.enabling-waiting": {
-    "defaultMessage": "Aktiviere {contentType}..."
+    "defaultMessage": "Enabling {contentType}..."
   },
   "content.selection-bar.bulk.updating": {
-    "defaultMessage": "Aktualisiere {progress}/{total} {contentType}..."
+    "defaultMessage": "Updating {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.updating-count": {
-    "defaultMessage": "{count, number} {contentType} werden aktualisiert"
+    "defaultMessage": "Updating {count, number} {contentType}"
   },
   "content.selection-bar.bulk.updating-waiting": {
-    "defaultMessage": "Aktualisiere {contentType}..."
+    "defaultMessage": "Updating {contentType}..."
   },
   "content.selection-bar.selected-count": {
-    "defaultMessage": "{count, number} {contentType} ausgewählt"
+    "defaultMessage": "{count, number} {contentType} selected"
   },
   "content.selection-bar.selected-count-simple": {
-    "defaultMessage": "{count, number} ausgewählt"
+    "defaultMessage": "{count, number} selected"
   },
   "creation-flow.button.create-instance": {
-    "defaultMessage": "Instanz erstellen"
+    "defaultMessage": "Create instance"
   },
   "creation-flow.button.create-world": {
-    "defaultMessage": "Welt erstellen"
+    "defaultMessage": "Create world"
   },
   "creation-flow.button.finish": {
-    "defaultMessage": "Fertigstellen"
+    "defaultMessage": "Finish"
   },
   "creation-flow.button.import": {
-    "defaultMessage": "Importieren"
+    "defaultMessage": "Import"
   },
   "creation-flow.button.import-instances": {
-    "defaultMessage": "Importiere {count, plural, one {# Instanz} other {# Instanzen}}"
+    "defaultMessage": "Import {count, plural, one {# instance} other {# instances}}"
   },
   "creation-flow.button.setup-server": {
-    "defaultMessage": "Server einrichten"
+    "defaultMessage": "Setup server"
+  },
+  "creation-flow.modal.custom-setup.adjunct.checking-compatibility": {
+    "defaultMessage": "Checking compatibility..."
+  },
+  "creation-flow.modal.custom-setup.adjunct.compatibility-load-failed": {
+    "defaultMessage": "Failed to verify {loader} compatibility."
+  },
+  "creation-flow.modal.custom-setup.adjunct.hint": {
+    "defaultMessage": "A compatible version will be selected before downloading."
+  },
+  "creation-flow.modal.custom-setup.adjunct.label": {
+    "defaultMessage": "Additional loaders"
+  },
+  "creation-flow.modal.custom-setup.adjunct.optifabric-load-failed": {
+    "defaultMessage": "Failed to verify OptiFabric compatibility."
+  },
+  "creation-flow.modal.custom-setup.adjunct.optifabric-unsupported": {
+    "defaultMessage": "OptiFine requires OptiFabric, but no compatible version is available."
+  },
+  "creation-flow.modal.custom-setup.adjunct.primary-unsupported": {
+    "defaultMessage": "The selected mod loader does not support this game version."
+  },
+  "creation-flow.modal.custom-setup.adjunct.select-game-version": {
+    "defaultMessage": "Select a game version to check compatibility."
+  },
+  "creation-flow.modal.custom-setup.adjunct.unsupported": {
+    "defaultMessage": "No compatible {loader} version is available for this game version."
   },
   "creation-flow.modal.custom-setup.build-number.label": {
-    "defaultMessage": "Build-Nummer"
+    "defaultMessage": "Build number"
   },
   "creation-flow.modal.custom-setup.build-number.placeholder": {
-    "defaultMessage": "Build-Nummer auswählen"
+    "defaultMessage": "Select build number"
   },
   "creation-flow.modal.custom-setup.build-number.search-placeholder": {
-    "defaultMessage": "Build-Nummer suchen..."
+    "defaultMessage": "Search build number..."
   },
   "creation-flow.modal.custom-setup.content-loader.label": {
-    "defaultMessage": "Inhalts-Loader"
+    "defaultMessage": "Content loader"
+  },
+  "creation-flow.modal.custom-setup.game-dir.label": {
+    "defaultMessage": "Game directory"
+  },
+  "creation-flow.modal.custom-setup.game-dir.managed": {
+    "defaultMessage": "Axolotl directory"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.alpha": {
+    "defaultMessage": "April Fools"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.ancient": {
+    "defaultMessage": "Ancient"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.release": {
+    "defaultMessage": "Release"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.snapshot": {
+    "defaultMessage": "Snapshot"
+  },
+  "creation-flow.modal.custom-setup.game-version.load-failed": {
+    "defaultMessage": "Failed to load game versions"
+  },
+  "creation-flow.modal.custom-setup.game-version.no-supported-versions": {
+    "defaultMessage": "No game versions support this loader"
   },
   "creation-flow.modal.custom-setup.game-version.placeholder": {
-    "defaultMessage": "Spielversion auswählen"
+    "defaultMessage": "Select game version"
   },
   "creation-flow.modal.custom-setup.game-version.search-placeholder": {
-    "defaultMessage": "Spielversionen durchsuchen..."
+    "defaultMessage": "Search game version..."
   },
   "creation-flow.modal.custom-setup.icon.remove": {
-    "defaultMessage": "Icon entfernen"
+    "defaultMessage": "Remove icon"
   },
   "creation-flow.modal.custom-setup.icon.select": {
-    "defaultMessage": "Icon auswählen"
+    "defaultMessage": "Select icon"
   },
   "creation-flow.modal.custom-setup.loader-version-type.latest": {
-    "defaultMessage": "Neuste"
+    "defaultMessage": "Latest"
   },
   "creation-flow.modal.custom-setup.loader-version-type.other": {
-    "defaultMessage": "Andere"
+    "defaultMessage": "Custom"
   },
   "creation-flow.modal.custom-setup.loader-version-type.stable": {
-    "defaultMessage": "Stabil"
+    "defaultMessage": "Stable"
   },
   "creation-flow.modal.custom-setup.loader-version.label": {
-    "defaultMessage": "Loader-Version"
+    "defaultMessage": "Mod Loader version"
   },
   "creation-flow.modal.custom-setup.loader-version.placeholder": {
-    "defaultMessage": "Loader-Version auswählen"
+    "defaultMessage": "Select loader version"
   },
   "creation-flow.modal.custom-setup.loader-version.search-placeholder": {
-    "defaultMessage": "Loader-Version suchen..."
+    "defaultMessage": "Search loader version..."
+  },
+  "creation-flow.modal.custom-setup.loader.compatibility-load-failed": {
+    "defaultMessage": "Failed to verify loader compatibility"
   },
   "creation-flow.modal.custom-setup.loader.label": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "Mod Loader"
+  },
+  "creation-flow.modal.custom-setup.loader.no-such-versions-available": {
+    "defaultMessage": "No such versions available"
+  },
+  "creation-flow.modal.custom-setup.loader.unsupported-tooltip": {
+    "defaultMessage": "This loader does not support the selected game version"
   },
   "creation-flow.modal.custom-setup.name.label": {
     "defaultMessage": "Name"
   },
   "creation-flow.modal.custom-setup.name.placeholder": {
-    "defaultMessage": "Instanzname eingeben"
+    "defaultMessage": "Enter instance name"
   },
   "creation-flow.modal.custom-setup.options.no-versions-available": {
-    "defaultMessage": "Keine Versionen verfügbar"
+    "defaultMessage": "No versions available"
+  },
+  "creation-flow.modal.custom-setup.will-install-loader-version": {
+    "defaultMessage": "Will install: {loader} {version}"
+  },
+  "creation-flow.modal.import-instance.import-prompt": {
+    "defaultMessage": "Drag & drop launcher folders, modpack files, or .minecraft folders to import an instance in one click"
+  },
+  "creation-flow.modal.import-instance.select-file": {
+    "defaultMessage": "Select file to import"
+  },
+  "creation-flow.modal.import-instance.select-file.description": {
+    "defaultMessage": "Import a modpack file or launcher archive"
+  },
+  "creation-flow.modal.import-instance.select-folder": {
+    "defaultMessage": "Select folder to import"
+  },
+  "creation-flow.modal.import-instance.select-folder.description": {
+    "defaultMessage": "Import a launcher folder or .minecraft folder"
   },
   "creation-flow.modal.setup-type.instance.description": {
-    "defaultMessage": "Eine Instanz ist eine Einrichtung von Minecraft mit einem bestimmten Loader, einer bestimmten Version und Mods."
+    "defaultMessage": "An instance is a Minecraft setup with a specific loader, version, and mods."
   },
   "creation-flow.modal.setup-type.option.custom-setup.description": {
-    "defaultMessage": "Beginne von vorne, indem du einen Loader und eine Spielversion auswählst."
+    "defaultMessage": "Start from scratch by picking a loader and game version."
   },
   "creation-flow.modal.setup-type.option.custom-setup.title": {
-    "defaultMessage": "Individuelle Einrichtung"
+    "defaultMessage": "Custom setup"
   },
   "creation-flow.modal.setup-type.option.import-instance.description": {
-    "defaultMessage": "Importiere eine Instanz aus Prism, CurseForge oder ähnlichen."
+    "defaultMessage": "Import an instance from Prism, CurseForge, or similar."
   },
   "creation-flow.modal.setup-type.option.import-instance.title": {
-    "defaultMessage": "Instanz importieren"
+    "defaultMessage": "Import instance"
   },
   "creation-flow.modal.setup-type.option.modpack-base.description": {
-    "defaultMessage": "Durchsuche Modpacks auf Modrinth oder importiere eines aus einer Datei."
+    "defaultMessage": "Browse modpacks on Modrinth or import one from a file."
   },
   "creation-flow.modal.setup-type.option.modpack-base.title": {
-    "defaultMessage": "Modpack installieren"
+    "defaultMessage": "Install modpack"
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.description": {
-    "defaultMessage": "Klassisches Minecraft ohne Mods oder Plugins."
+    "defaultMessage": "Classic Minecraft with no mods or plugins."
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.title": {
     "defaultMessage": "Vanilla Minecraft"
   },
   "creation-flow.modal.setup-type.title.installation": {
-    "defaultMessage": "Installationstyp auswählen"
+    "defaultMessage": "Select installation type"
   },
   "creation-flow.modal.setup-type.title.instance": {
-    "defaultMessage": "Instanztyp auswählen"
+    "defaultMessage": "Choose instance type"
   },
   "creation-flow.modal.setup-type.title.world": {
-    "defaultMessage": "Welttyp auswählen"
+    "defaultMessage": "Select world type"
   },
   "creation-flow.title.choose-modpack": {
-    "defaultMessage": "Modpack auswählen"
+    "defaultMessage": "Choose modpack"
   },
   "creation-flow.title.create-instance": {
-    "defaultMessage": "Instanz erstellen"
+    "defaultMessage": "Create instance"
   },
   "creation-flow.title.create-world": {
-    "defaultMessage": "Welt erstellen"
+    "defaultMessage": "Create world"
   },
   "creation-flow.title.import-instance": {
-    "defaultMessage": "Instanz importieren"
+    "defaultMessage": "Import instance"
   },
   "creation-flow.title.reset-server": {
-    "defaultMessage": "Server zurücksetzen"
+    "defaultMessage": "Reset server"
   },
   "creation-flow.title.set-up-server": {
-    "defaultMessage": "Server einrichten"
+    "defaultMessage": "Set up server"
+  },
+  "drop.confirm.as-data-pack": {
+    "defaultMessage": "Data Pack"
+  },
+  "drop.confirm.as-data-pack-desc": {
+    "defaultMessage": "Install a data pack to an save"
+  },
+  "drop.confirm.as-dot-minecraft": {
+    "defaultMessage": ".minecraft"
+  },
+  "drop.confirm.as-dot-minecraft-desc": {
+    "defaultMessage": "Scan a .minecraft folder to create instances"
+  },
+  "drop.confirm.as-hmcl-launcher": {
+    "defaultMessage": "HMCL Launcher"
+  },
+  "drop.confirm.as-instance": {
+    "defaultMessage": "Instance"
+  },
+  "drop.confirm.as-instance-desc": {
+    "defaultMessage": "Import Minecraft instances from another launcher"
+  },
+  "drop.confirm.as-launcher": {
+    "defaultMessage": "Launcher"
+  },
+  "drop.confirm.as-mod": {
+    "defaultMessage": "Mod"
+  },
+  "drop.confirm.as-mod-desc": {
+    "defaultMessage": "Install a mod JAR to a Minecraft instance"
+  },
+  "drop.confirm.as-modpack": {
+    "defaultMessage": "Modpack"
+  },
+  "drop.confirm.as-modpack-desc": {
+    "defaultMessage": "Create a new instance from a modpack"
+  },
+  "drop.confirm.as-resource-pack": {
+    "defaultMessage": "Resource Pack"
+  },
+  "drop.confirm.as-resource-pack-desc": {
+    "defaultMessage": "Install a resource pack to an instance"
+  },
+  "drop.confirm.as-schematic": {
+    "defaultMessage": "Schematic"
+  },
+  "drop.confirm.as-schematic-desc": {
+    "defaultMessage": "Import a Litematic schematic"
+  },
+  "drop.confirm.as-shader-pack": {
+    "defaultMessage": "Shader Pack"
+  },
+  "drop.confirm.as-shader-pack-desc": {
+    "defaultMessage": "Install a shader pack to an instance"
+  },
+  "drop.confirm.as-world": {
+    "defaultMessage": "World Save"
+  },
+  "drop.confirm.as-world-desc": {
+    "defaultMessage": "Import a world save into an instance"
+  },
+  "drop.confirm.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "drop.confirm.help": {
+    "defaultMessage": "What can I drop?"
+  },
+  "drop.confirm.minecraft-root.add": {
+    "defaultMessage": "Yes, add folder"
+  },
+  "drop.confirm.minecraft-root.import": {
+    "defaultMessage": "No, import instances"
+  },
+  "drop.confirm.minecraft-root.prompt": {
+    "defaultMessage": "This looks like a .minecraft folder. Would you like to add it directly to the launcher?"
+  },
+  "drop.confirm.minecraft-root.title": {
+    "defaultMessage": "Add .minecraft folder"
+  },
+  "drop.confirm.not-this": {
+    "defaultMessage": "Import this as something else"
+  },
+  "drop.confirm.title": {
+    "defaultMessage": "What would you like to import this as?"
+  },
+  "drop.generic_install.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "drop.generic_install.create_new": {
+    "defaultMessage": "Create new instance..."
+  },
+  "drop.generic_install.install": {
+    "defaultMessage": "Install"
+  },
+  "drop.generic_install.no_instances": {
+    "defaultMessage": "No instances found"
+  },
+  "drop.generic_install.search": {
+    "defaultMessage": "Search instances..."
+  },
+  "drop.generic_install.title": {
+    "defaultMessage": "Install {type}"
+  },
+  "drop.instance-import.title": {
+    "defaultMessage": "Import instances"
+  },
+  "drop.launcher_import.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "drop.launcher_import.deselect_all": {
+    "defaultMessage": "Deselect All"
+  },
+  "drop.launcher_import.import": {
+    "defaultMessage": "Import ({n})"
+  },
+  "drop.launcher_import.no_instances": {
+    "defaultMessage": "No instances found"
+  },
+  "drop.launcher_import.select_all": {
+    "defaultMessage": "Select All"
+  },
+  "drop.launcher_import.selected": {
+    "defaultMessage": "{n} selected"
+  },
+  "drop.launcher_import.subtitle": {
+    "defaultMessage": "Scanned {count} instances in {basePath}"
+  },
+  "drop.launcher_import.title": {
+    "defaultMessage": "Import instances from {launcherName}"
+  },
+  "drop.symlink_method.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "drop.symlink_method.confirm": {
+    "defaultMessage": "Confirm"
+  },
+  "drop.symlink_method.custom": {
+    "defaultMessage": "Custom"
+  },
+  "drop.symlink_method.custom_tooltip": {
+    "defaultMessage": "Usually you should not customize it, unless you are sure it was detected incorrectly."
+  },
+  "drop.symlink_method.detecting": {
+    "defaultMessage": "Detecting..."
+  },
+  "drop.symlink_method.game_version": {
+    "defaultMessage": "Game version"
+  },
+  "drop.symlink_method.import_path": {
+    "defaultMessage": "Version path"
+  },
+  "drop.symlink_method.import_path_tooltip": {
+    "defaultMessage": "Import path"
+  },
+  "drop.symlink_method.instance": {
+    "defaultMessage": "Instance"
+  },
+  "drop.symlink_method.instance_nav_label": {
+    "defaultMessage": "Switch to {name}"
+  },
+  "drop.symlink_method.latest": {
+    "defaultMessage": "Latest"
+  },
+  "drop.symlink_method.loader": {
+    "defaultMessage": "Loader"
+  },
+  "drop.symlink_method.loader_type_unknown_tooltip": {
+    "defaultMessage": "Loader not recognized. Mods may not load correctly."
+  },
+  "drop.symlink_method.loader_version": {
+    "defaultMessage": "Loader version"
+  },
+  "drop.symlink_method.loader_version_unknown_tooltip": {
+    "defaultMessage": "Loader version not detected. A custom version will be used."
+  },
+  "drop.symlink_method.missing": {
+    "defaultMessage": "Missing"
+  },
+  "drop.symlink_method.missing_path": {
+    "defaultMessage": "No import path available"
+  },
+  "drop.symlink_method.next": {
+    "defaultMessage": "Next"
+  },
+  "drop.symlink_method.not_available": {
+    "defaultMessage": "Unavailable"
+  },
+  "drop.symlink_method.plan_failed": {
+    "defaultMessage": "Import estimate failed"
+  },
+  "drop.symlink_method.reset_changes": {
+    "defaultMessage": "Reset changes"
+  },
+  "drop.symlink_method.runtime_root": {
+    "defaultMessage": "Root"
+  },
+  "drop.symlink_method.runtime_root_tooltip": {
+    "defaultMessage": "Runtime root"
+  },
+  "drop.symlink_method.search_game_version": {
+    "defaultMessage": "Search game versions"
+  },
+  "drop.symlink_method.search_loader_version": {
+    "defaultMessage": "Search loader versions"
+  },
+  "drop.symlink_method.select_game_version": {
+    "defaultMessage": "Select game version"
+  },
+  "drop.symlink_method.select_instance": {
+    "defaultMessage": "Select instance"
+  },
+  "drop.symlink_method.select_loader_version": {
+    "defaultMessage": "Select loader version"
+  },
+  "drop.symlink_method.stats": {
+    "defaultMessage": "Estimate"
+  },
+  "drop.symlink_method.stats_cache": {
+    "defaultMessage": "Cache"
+  },
+  "drop.symlink_method.stats_cache_tooltip": {
+    "defaultMessage": "Axolotl cache"
+  },
+  "drop.symlink_method.stats_files": {
+    "defaultMessage": "{files} files"
+  },
+  "drop.symlink_method.stats_local": {
+    "defaultMessage": "Reuse"
+  },
+  "drop.symlink_method.stats_local_tooltip": {
+    "defaultMessage": "Local reuse"
+  },
+  "drop.symlink_method.stats_migrate": {
+    "defaultMessage": "Migrate"
+  },
+  "drop.symlink_method.stats_migrate_tooltip": {
+    "defaultMessage": "Needs migration"
+  },
+  "drop.symlink_method.stats_network": {
+    "defaultMessage": "Download"
+  },
+  "drop.symlink_method.stats_network_tooltip": {
+    "defaultMessage": "Needs download"
+  },
+  "drop.symlink_method.subtitle": {
+    "defaultMessage": "Importing {n} instance(s)"
+  },
+  "drop.symlink_method.unrecognized": {
+    "defaultMessage": "Unrecognized"
   },
   "external-project-license-status.no": {
-    "defaultMessage": "Nein"
+    "defaultMessage": "No"
   },
   "external-project-license-status.permanent-no": {
-    "defaultMessage": "Permanentes Nein"
+    "defaultMessage": "Permanent no"
   },
   "external-project-license-status.unidentified": {
-    "defaultMessage": "Unbekannt"
+    "defaultMessage": "Unidentified"
   },
   "external-project-license-status.with-attribution": {
-    "defaultMessage": "Mit Quellenangabe"
+    "defaultMessage": "With attribution"
   },
   "external-project-license-status.with-attribution-and-source": {
-    "defaultMessage": "Mit Quelle und Quellenangabe"
+    "defaultMessage": "With attribution and source"
   },
   "external-project-license-status.yes": {
-    "defaultMessage": "Ja"
+    "defaultMessage": "Yes"
   },
   "files.conflict-modal.header": {
-    "defaultMessage": "Zusammenfassung der Extrahierung"
+    "defaultMessage": "Extract summary"
   },
   "files.conflict-modal.overwrite-button": {
-    "defaultMessage": "Überschreiben"
+    "defaultMessage": "Overwrite"
   },
   "files.conflict-modal.overwrite-file-label": {
-    "defaultMessage": "Wird <file-path>{path}</file-path> überschreiben"
+    "defaultMessage": "Will overwrite <file-path>{path}</file-path>"
   },
   "files.conflict-modal.overwrite-many-warning": {
-    "defaultMessage": "Über 100 Dateien werden überschrieben, wenn du mit der Extrahierung fortfährst; hier sind einige davon."
+    "defaultMessage": "Over 100 files will be overwritten if you proceed with extraction; here are some of them."
   },
   "files.conflict-modal.overwrite-warning": {
-    "defaultMessage": "Die folgenden {count} Dateien sind bereits auf deinem Server vorhanden und werden überschrieben, wenn du mit der Extrahierung fortfährst."
+    "defaultMessage": "The following {count} files already exist on your server, and will be overwritten if you proceed with extraction."
   },
   "files.conflict-modal.overwritten-count": {
-    "defaultMessage": "{count} überschrieben"
+    "defaultMessage": "{count} overwritten"
   },
   "files.conflict-modal.warning-header": {
-    "defaultMessage": "Dateien werden überschrieben"
+    "defaultMessage": "Files will be overwritten"
   },
   "files.create-modal.create-button": {
-    "defaultMessage": "{type} erstellen"
+    "defaultMessage": "Create {type}"
   },
   "files.create-modal.header": {
-    "defaultMessage": "{type} erstellen"
+    "defaultMessage": "Create a {type}"
   },
   "files.create-modal.placeholder-directory": {
-    "defaultMessage": "z. B. mein-ordner"
+    "defaultMessage": "e.g. my-folder"
   },
   "files.create-modal.placeholder-file": {
-    "defaultMessage": "z. B. config.yml"
+    "defaultMessage": "e.g. config.yml"
+  },
+  "files.delete-modal.bulk-header": {
+    "defaultMessage": "Delete multiple items"
+  },
+  "files.delete-modal.bulk-warning": {
+    "defaultMessage": "The selected items will be permanently deleted. This action cannot be undone."
+  },
+  "files.delete-modal.deleting-multiple": {
+    "defaultMessage": "Deleting {count} items"
   },
   "files.delete-modal.deleting-name": {
-    "defaultMessage": "„{name}“ wird gelöscht"
+    "defaultMessage": "Deleting \"{name}\""
   },
   "files.delete-modal.header": {
-    "defaultMessage": "Datei löschen"
+    "defaultMessage": "Delete file"
+  },
+  "files.delete-modal.symlink-warning-body": {
+    "defaultMessage": "You are modifying files in a shared instance linked to \"{path}\". Changes will affect the original instance."
+  },
+  "files.delete-modal.symlink-warning-header": {
+    "defaultMessage": "Shared instance"
   },
   "files.delete-modal.warning.file": {
-    "defaultMessage": "Diese Datei wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
+    "defaultMessage": "This file will be permanently deleted. This action cannot be undone."
   },
   "files.delete-modal.warning.folder": {
-    "defaultMessage": "Dieser Ordner und der gesamte Inhalt werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
+    "defaultMessage": "This folder and all its contents will be permanently deleted. This action cannot be undone."
+  },
+  "files.editor.editor-unavailable-placeholder": {
+    "defaultMessage": "Code editor unavailable"
   },
   "files.editor.failed-to-open-text": {
-    "defaultMessage": "Inhalt der Datei konnte nicht geladen werden."
+    "defaultMessage": "Could not load file contents."
   },
   "files.editor.failed-to-open-title": {
-    "defaultMessage": "Datei konnte nicht geöffnet werden"
+    "defaultMessage": "Failed to open file"
   },
   "files.editor.failed-to-share-text": {
-    "defaultMessage": "Hochladen auf mclo.gs ist fehlgeschlagen."
+    "defaultMessage": "Could not share the log file."
   },
   "files.editor.failed-to-share-title": {
-    "defaultMessage": "Datei konnte nicht geteilt werden"
+    "defaultMessage": "Failed to share file"
   },
   "files.editor.file-saved-text": {
-    "defaultMessage": "Deine Datei wurde gespeichert."
+    "defaultMessage": "Your file has been saved."
   },
   "files.editor.file-saved-title": {
-    "defaultMessage": "Datei gespeichert"
+    "defaultMessage": "File saved"
   },
   "files.editor.find-close": {
-    "defaultMessage": "Schliessen"
+    "defaultMessage": "Close"
   },
   "files.editor.find-in-file": {
-    "defaultMessage": "Finden"
+    "defaultMessage": "Find"
   },
   "files.editor.find-match-count": {
-    "defaultMessage": "{current} von {total}"
+    "defaultMessage": "{current} of {total}"
   },
   "files.editor.find-next-match": {
-    "defaultMessage": "Nächster Ergebnis"
+    "defaultMessage": "Next match"
   },
   "files.editor.find-no-results": {
-    "defaultMessage": "Keine Ergebnisse"
+    "defaultMessage": "No results"
   },
   "files.editor.find-previous-match": {
-    "defaultMessage": "Vorheriges Ergebnis"
+    "defaultMessage": "Previous match"
   },
   "files.editor.find-toggle-replace": {
-    "defaultMessage": "Ersetzen umschalten"
+    "defaultMessage": "Toggle replace"
   },
   "files.editor.log-url-copied-text": {
-    "defaultMessage": "Deine Logdatei-URL wurde in die Zwischenablage kopiert."
+    "defaultMessage": "Your log file URL has been copied to your clipboard."
   },
   "files.editor.log-url-copied-title": {
-    "defaultMessage": "Log-URL kopiert"
+    "defaultMessage": "Log URL copied"
   },
   "files.editor.replace": {
-    "defaultMessage": "Ersetzen"
+    "defaultMessage": "Replace"
   },
   "files.editor.replace-all": {
-    "defaultMessage": "Alle ersetzen"
+    "defaultMessage": "Replace All"
   },
   "files.editor.replace-in-file": {
-    "defaultMessage": "Ersetzen"
+    "defaultMessage": "Replace"
   },
   "files.editor.save-failed-text": {
-    "defaultMessage": "Die Datei konnte nicht gespeichert werden."
+    "defaultMessage": "Could not save the file."
   },
   "files.editor.save-failed-title": {
-    "defaultMessage": "Speichern fehlgeschlagen"
+    "defaultMessage": "Save failed"
+  },
+  "files.editor.share-truncated-warning": {
+    "defaultMessage": "The log file is too large, so only the last 9 MB was uploaded."
   },
   "files.error.go-to-home": {
-    "defaultMessage": "Gehe zum Startordner"
+    "defaultMessage": "Go to home folder"
   },
   "files.error.try-again": {
-    "defaultMessage": "Erneut versuchen"
+    "defaultMessage": "Try again"
   },
   "files.image_viewer.image_too_large": {
-    "defaultMessage": "Das Bild ist zu gross, um es anzuzeigen (max {maxDimension} x {maxDimension} Pixel)"
+    "defaultMessage": "Image too large to view (max {maxDimension}x{maxDimension} pixels)"
   },
   "files.image_viewer.invalid_image": {
-    "defaultMessage": "Ungültige oder leere Bilddatei."
+    "defaultMessage": "Invalid or empty image file."
   },
   "files.image_viewer.load_failed": {
-    "defaultMessage": "Das Bild konnte nicht geladen werden"
+    "defaultMessage": "Failed to load image"
   },
   "files.image_viewer.reset_zoom": {
-    "defaultMessage": "Zoom zurücksetzen"
+    "defaultMessage": "Reset zoom"
   },
   "files.image_viewer.viewed_image_alt": {
-    "defaultMessage": "Angesehenes Bild"
+    "defaultMessage": "Viewed image"
   },
   "files.image_viewer.zoom_in": {
-    "defaultMessage": "Heranzoomen"
+    "defaultMessage": "Zoom in"
   },
   "files.image_viewer.zoom_out": {
-    "defaultMessage": "Herauszoomen"
+    "defaultMessage": "Zoom out"
   },
   "files.item-type.file": {
-    "defaultMessage": "Datei"
+    "defaultMessage": "file"
   },
   "files.item-type.files": {
-    "defaultMessage": "Dateien"
+    "defaultMessage": "files"
   },
   "files.item-type.folder": {
-    "defaultMessage": "Ordner"
+    "defaultMessage": "folder"
   },
   "files.item-type.folders": {
-    "defaultMessage": "Ordner"
+    "defaultMessage": "folders"
   },
   "files.layout.dry-run-failed-text": {
-    "defaultMessage": "Fehler beim Testlauf"
+    "defaultMessage": "Error running dry run"
   },
   "files.layout.dry-run-failed-title": {
-    "defaultMessage": "Testlauf fehlgeschlagen"
+    "defaultMessage": "Dry run failed"
   },
   "files.layout.empty-folder-description": {
-    "defaultMessage": "Es gibt keine Dateien oder Ordner."
+    "defaultMessage": "There are no files or folders."
   },
   "files.layout.empty-folder-title": {
-    "defaultMessage": "Dieser Ordner ist leer"
+    "defaultMessage": "This folder is empty"
   },
   "files.layout.error-message": {
-    "defaultMessage": "Der Ordner existiert eventuell nicht."
+    "defaultMessage": "The folder may not exist."
   },
   "files.layout.error-title": {
-    "defaultMessage": "Dateien können nicht geladen werden"
+    "defaultMessage": "Unable to load files"
   },
   "files.layout.extraction-started-title": {
-    "defaultMessage": "Extrahierung wurde gestartet"
+    "defaultMessage": "Extraction started"
+  },
+  "files.layout.no-matches": {
+    "defaultMessage": "No files match this view"
   },
   "files.layout.selected-count": {
-    "defaultMessage": "{count} ausgewählt"
+    "defaultMessage": "{count} selected"
   },
   "files.layout.unsaved-changes": {
-    "defaultMessage": "Du hast ungespeicherte Änderungen."
+    "defaultMessage": "You have unsaved changes."
   },
   "files.move-modal.current-location": {
-    "defaultMessage": "Aktueller Ort"
+    "defaultMessage": "Current location"
   },
   "files.move-modal.destination-path": {
-    "defaultMessage": "Zielpfad"
+    "defaultMessage": "Destination path"
   },
   "files.move-modal.destination-placeholder": {
-    "defaultMessage": "z. B. /mein-ordner"
+    "defaultMessage": "e.g. /my-folder"
   },
   "files.move-modal.header": {
-    "defaultMessage": "{type} verschieben"
+    "defaultMessage": "Move {type}"
   },
   "files.navbar.back-to-home": {
-    "defaultMessage": "Zurück zum Start"
+    "defaultMessage": "Back to home"
   },
   "files.navbar.breadcrumb-navigation": {
-    "defaultMessage": "Navigationspfad"
+    "defaultMessage": "Breadcrumb navigation"
   },
   "files.navbar.create-new": {
-    "defaultMessage": "Neu erstellen..."
+    "defaultMessage": "Create new..."
   },
   "files.navbar.file-navigation": {
-    "defaultMessage": "Dateinavigation"
+    "defaultMessage": "File navigation"
   },
   "files.navbar.find-in-file": {
-    "defaultMessage": "In Datei finden"
+    "defaultMessage": "Find in file"
   },
   "files.navbar.home": {
-    "defaultMessage": "Start"
+    "defaultMessage": "Home"
   },
   "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "CurseForge-Pack installieren"
+    "defaultMessage": "Install CurseForge pack"
   },
   "files.navbar.new-file": {
-    "defaultMessage": "Neue Datei"
+    "defaultMessage": "New file"
   },
   "files.navbar.new-folder": {
-    "defaultMessage": "Neuer Ordner"
+    "defaultMessage": "New folder"
   },
   "files.navbar.search-files": {
-    "defaultMessage": "Dateien durchsuchen"
+    "defaultMessage": "Search files"
+  },
+  "files.navbar.share-log": {
+    "defaultMessage": "Share log"
   },
   "files.navbar.upload-from-zip": {
-    "defaultMessage": "Aus .zip-Datei hochladen"
+    "defaultMessage": "Upload from .zip file"
   },
   "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Aus .zip-URL hochladen"
+    "defaultMessage": "Upload from .zip URL"
   },
   "files.rename-modal.header": {
-    "defaultMessage": "{name} umbenennen"
+    "defaultMessage": "Rename {name}"
   },
   "files.rename-modal.new-name-label": {
-    "defaultMessage": "Neuer Name"
+    "defaultMessage": "New name"
   },
   "files.row.item-count": {
-    "defaultMessage": "{count, plural, one {# Element} other {# Elemente}}"
+    "defaultMessage": "{count, plural, one {# item} other {# items}}"
+  },
+  "files.row.parent-folder": {
+    "defaultMessage": "Parent folder"
+  },
+  "files.select-view": {
+    "defaultMessage": "Select all files in this view"
   },
   "files.table-header.created": {
-    "defaultMessage": "Erstellt"
+    "defaultMessage": "Created"
   },
   "files.table-header.modified": {
-    "defaultMessage": "Geändert"
+    "defaultMessage": "Modified"
   },
   "files.table-header.name": {
     "defaultMessage": "Name"
   },
   "files.table-header.size": {
-    "defaultMessage": "Grösse"
+    "defaultMessage": "Size"
   },
   "files.unsaved-changes-modal.body": {
-    "defaultMessage": "Du hast ungespeicherte Änderungen, die verloren gehen, wenn du die Seite verlässt. Möchtest du vor dem Verlassen speichern?"
+    "defaultMessage": "You have unsaved changes that will be lost if you leave. Would you like to save before leaving?"
   },
   "files.unsaved-changes-modal.discard": {
-    "defaultMessage": "Verwerfen"
+    "defaultMessage": "Discard"
   },
   "files.unsaved-changes-modal.header": {
-    "defaultMessage": "Ungespeicherte Änderungen"
+    "defaultMessage": "Unsaved changes"
   },
   "files.validation.name-invalid-directory": {
-    "defaultMessage": "Name darf nur alphanumerische Zeichen, Bindestriche, Unterstriche oder Leerzeichen enthalten."
+    "defaultMessage": "Name must contain only alphanumeric characters, dashes, underscores, dots, or spaces."
   },
   "files.validation.name-invalid-file": {
-    "defaultMessage": "Name darf nur alphanumerische Zeichen, Bindestriche, Unterstriche, Punkte oder Leerzeichen enthalten."
+    "defaultMessage": "Name must contain only alphanumeric characters, dashes, underscores, dots, or spaces."
   },
   "files.validation.name-label": {
     "defaultMessage": "Name"
   },
   "files.validation.name-required": {
-    "defaultMessage": "Name ist erforderlich."
+    "defaultMessage": "Name is required."
   },
   "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Installiere ein CurseForge-Modpack"
+    "defaultMessage": "Install a CurseForge modpack"
   },
   "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Konnte kein CurseForge-Modpack unter dieser URL finden."
+    "defaultMessage": "Could not find CurseForge modpack at that URL."
   },
   "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge-Modpack nicht gefunden"
+    "defaultMessage": "CurseForge modpack not found"
   },
   "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Link eingeben"
+    "defaultMessage": "Enter link"
   },
   "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL muss die URL einer CurseForge-Modpack-Version sein."
+    "defaultMessage": "URL must be a CurseForge modpack version URL."
   },
   "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL muss gültig sein."
+    "defaultMessage": "URL must be valid."
   },
   "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL ist erforderlich."
+    "defaultMessage": "URL is required."
   },
   "files.zip-url-modal.install-button": {
-    "defaultMessage": "Installieren"
+    "defaultMessage": "Install"
   },
   "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Installation fehlgeschlagen"
+    "defaultMessage": "Installation failed"
   },
   "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Kopiere die URL der Versionsseite und füge sie unten ein."
+    "defaultMessage": "Copy the version page URL and paste it below."
   },
   "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "URL kopieren"
+    "defaultMessage": "Copy the URL"
   },
   "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Durchsuche CurseForge und finde das gewünschte Modpack."
+    "defaultMessage": "Browse CurseForge and locate the modpack you want."
   },
   "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Finde das Modpack"
+    "defaultMessage": "Find the modpack"
   },
   "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Wechsel zur Registerkarte „Dateien“ und wähle die zu installierende Version aus."
+    "defaultMessage": "Go to the \"Files\" tab and pick the version to install."
   },
   "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Wähle eine Version"
+    "defaultMessage": "Select a version"
   },
   "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Ein unbekannter Fehler ist aufgetreten"
+    "defaultMessage": "An unknown error occurred"
   },
   "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Kopiere die direkte Download-URL einer .zip-Datei und füge sie ein."
+    "defaultMessage": "Copy and paste the direct download URL of a .zip file."
   },
   "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Inhalte einer .zip-Datei von einer URL hochladen"
+    "defaultMessage": "Uploading .zip contents from URL"
   },
   "form.label.address-line": {
-    "defaultMessage": "Adresszeile"
+    "defaultMessage": "Address line"
   },
   "form.label.address-line-2": {
-    "defaultMessage": "Adresszeile 2 (Optional)"
+    "defaultMessage": "Address line 2 (optional)"
   },
   "form.label.amount": {
-    "defaultMessage": "Menge"
+    "defaultMessage": "Amount"
   },
   "form.label.bank-name": {
-    "defaultMessage": "Bankname"
+    "defaultMessage": "Bank name"
   },
   "form.label.business-name": {
-    "defaultMessage": "Firmenname"
+    "defaultMessage": "Business name"
   },
   "form.label.city": {
-    "defaultMessage": "Stadt"
+    "defaultMessage": "City"
   },
   "form.label.country": {
-    "defaultMessage": "Land"
+    "defaultMessage": "Country"
   },
   "form.label.date-of-birth": {
-    "defaultMessage": "Geburtsdatum"
+    "defaultMessage": "Date of birth"
   },
   "form.label.email": {
-    "defaultMessage": "E-Mail"
+    "defaultMessage": "Email"
   },
   "form.label.first-name": {
-    "defaultMessage": "Vorname"
+    "defaultMessage": "First name"
   },
   "form.label.last-name": {
-    "defaultMessage": "Nachname"
+    "defaultMessage": "Last name"
   },
   "form.label.postal-code": {
-    "defaultMessage": "Postleitzahl"
+    "defaultMessage": "Postal code/ZIP code"
   },
   "form.label.state-province": {
-    "defaultMessage": "Bundesland/Kanton/Provinz"
+    "defaultMessage": "State/province"
   },
   "form.placeholder.address": {
-    "defaultMessage": "Adresse eingeben"
+    "defaultMessage": "Enter address"
   },
   "form.placeholder.address-2": {
-    "defaultMessage": "Wohnung, Suite, etc."
+    "defaultMessage": "Apartment, suite, etc."
   },
   "form.placeholder.amount": {
-    "defaultMessage": "Menge eingeben"
+    "defaultMessage": "Enter amount"
   },
   "form.placeholder.bank-name": {
-    "defaultMessage": "Bankname eingeben"
+    "defaultMessage": "Enter bank name"
   },
   "form.placeholder.bank-name-dropdown": {
-    "defaultMessage": "Banknamen auswählen"
+    "defaultMessage": "Select bank name"
   },
   "form.placeholder.business-name": {
-    "defaultMessage": "Firmennamen eingeben"
+    "defaultMessage": "Enter business name"
   },
   "form.placeholder.city": {
-    "defaultMessage": "Stadt eingeben"
+    "defaultMessage": "Enter city"
   },
   "form.placeholder.country": {
-    "defaultMessage": "Land auswählen"
+    "defaultMessage": "Select country"
   },
   "form.placeholder.email": {
-    "defaultMessage": "E-Mail-Adresse eingeben"
+    "defaultMessage": "Enter email address"
   },
   "form.placeholder.first-name": {
-    "defaultMessage": "Vornamen eingeben"
+    "defaultMessage": "Enter first name"
   },
   "form.placeholder.last-name": {
-    "defaultMessage": "Nachnamen eingeben"
+    "defaultMessage": "Enter last name"
   },
   "form.placeholder.postal-code": {
-    "defaultMessage": "Postleitzahl eingeben"
+    "defaultMessage": "Enter postal code"
   },
   "form.placeholder.state": {
-    "defaultMessage": "Bundesland/Kanton/Provinz eingeben"
+    "defaultMessage": "Enter state/province"
   },
   "format.bytes.0": {
-    "defaultMessage": "{count, plural, one {# Byte} other {# Bytes}}"
+    "defaultMessage": "{count, plural, one {# byte} other {# bytes}}"
   },
   "format.bytes.1": {
     "defaultMessage": "{count, number} KiB"
@@ -1011,16 +2136,19 @@
     "defaultMessage": "{count, number} TiB"
   },
   "header.category.category": {
-    "defaultMessage": "Kategorie"
+    "defaultMessage": "Category"
+  },
+  "header.category.cf-extra": {
+    "defaultMessage": "More CurseForge categories"
   },
   "header.category.feature": {
-    "defaultMessage": "Funktion"
+    "defaultMessage": "Feature"
   },
   "header.category.minecraft-server-community": {
     "defaultMessage": "Community"
   },
   "header.category.minecraft-server-features": {
-    "defaultMessage": "Funktionen"
+    "defaultMessage": "Features"
   },
   "header.category.minecraft-server-gameplay": {
     "defaultMessage": "Gameplay"
@@ -1029,214 +2157,325 @@
     "defaultMessage": "Meta"
   },
   "header.category.performance-impact": {
-    "defaultMessage": "Leistungsauswirkung"
+    "defaultMessage": "Performance impact"
   },
   "header.category.resolutions": {
-    "defaultMessage": "Auflösung"
+    "defaultMessage": "Resolution"
+  },
+  "image-viewer.close": {
+    "defaultMessage": "Close"
+  },
+  "image-viewer.edit": {
+    "defaultMessage": "Edit"
+  },
+  "image-viewer.editor.colour": {
+    "defaultMessage": "Colour"
+  },
+  "image-viewer.editor.crop.dimensions": {
+    "defaultMessage": "{width} × {height} px"
+  },
+  "image-viewer.editor.crop.reset": {
+    "defaultMessage": "Reset crop"
+  },
+  "image-viewer.editor.delete-selection": {
+    "defaultMessage": "Delete selected annotation"
+  },
+  "image-viewer.editor.eraser.area": {
+    "defaultMessage": "Area"
+  },
+  "image-viewer.editor.eraser.element": {
+    "defaultMessage": "Element"
+  },
+  "image-viewer.editor.eraser.mode": {
+    "defaultMessage": "Eraser mode"
+  },
+  "image-viewer.editor.image-editing-tools": {
+    "defaultMessage": "Image editing tools"
+  },
+  "image-viewer.editor.more-save-options": {
+    "defaultMessage": "More save options"
+  },
+  "image-viewer.editor.overwrite": {
+    "defaultMessage": "Overwrite"
+  },
+  "image-viewer.editor.redo": {
+    "defaultMessage": "Redo"
+  },
+  "image-viewer.editor.save-as-new": {
+    "defaultMessage": "Save copy"
+  },
+  "image-viewer.editor.save-image": {
+    "defaultMessage": "Save image"
+  },
+  "image-viewer.editor.size": {
+    "defaultMessage": "Size"
+  },
+  "image-viewer.editor.tool.arrow": {
+    "defaultMessage": "Arrow"
+  },
+  "image-viewer.editor.tool.censor": {
+    "defaultMessage": "Censor"
+  },
+  "image-viewer.editor.tool.crop": {
+    "defaultMessage": "Crop"
+  },
+  "image-viewer.editor.tool.ellipse": {
+    "defaultMessage": "Ellipse"
+  },
+  "image-viewer.editor.tool.eraser": {
+    "defaultMessage": "Eraser"
+  },
+  "image-viewer.editor.tool.highlight": {
+    "defaultMessage": "Highlight"
+  },
+  "image-viewer.editor.tool.pen": {
+    "defaultMessage": "Pen"
+  },
+  "image-viewer.editor.tool.rectangle": {
+    "defaultMessage": "Rectangle"
+  },
+  "image-viewer.editor.tool.select": {
+    "defaultMessage": "Select"
+  },
+  "image-viewer.editor.tool.text": {
+    "defaultMessage": "Text"
+  },
+  "image-viewer.editor.undo": {
+    "defaultMessage": "Undo"
+  },
+  "image-viewer.editor.width": {
+    "defaultMessage": "Width"
+  },
+  "image-viewer.editor.zoom-fit": {
+    "defaultMessage": "Fit"
+  },
+  "image-viewer.editor.zoom-fit-workspace": {
+    "defaultMessage": "Fit to workspace"
+  },
+  "image-viewer.editor.zoom-in": {
+    "defaultMessage": "Zoom in"
+  },
+  "image-viewer.editor.zoom-out": {
+    "defaultMessage": "Zoom out"
+  },
+  "image-viewer.metadata": {
+    "defaultMessage": "{size} · {width} × {height} px"
+  },
+  "image-viewer.next": {
+    "defaultMessage": "Next image"
+  },
+  "image-viewer.previous": {
+    "defaultMessage": "Previous image"
   },
   "input.search-version.placeholder": {
-    "defaultMessage": "Version suchen..."
+    "defaultMessage": "Search version..."
   },
   "input.search.placeholder": {
-    "defaultMessage": "Suche..."
+    "defaultMessage": "Search..."
   },
   "input.select-version.placeholder": {
-    "defaultMessage": "Version auswählen"
+    "defaultMessage": "Select version"
   },
   "input.view.gallery": {
-    "defaultMessage": "Galerieansicht"
+    "defaultMessage": "Gallery view"
   },
   "input.view.grid": {
-    "defaultMessage": "Rasteransicht"
+    "defaultMessage": "Grid view"
   },
   "input.view.list": {
-    "defaultMessage": "Zeilenansicht"
+    "defaultMessage": "Rows view"
   },
   "installation-settings.aria.select-game-version": {
-    "defaultMessage": "Spielversion auswählen"
+    "defaultMessage": "Select game version"
   },
   "installation-settings.aria.select-loader-version": {
-    "defaultMessage": "{loader}version auswählen"
+    "defaultMessage": "Select {loader} version"
   },
   "installation-settings.aria.select-platform": {
-    "defaultMessage": "Platform wählen"
+    "defaultMessage": "Select platform"
   },
   "installation-settings.confirm-version-change": {
-    "defaultMessage": "Bestätigen"
+    "defaultMessage": "Confirm"
   },
   "installation-settings.confirm-version-change-description": {
-    "defaultMessage": "Das ändern zu {gameVersion} wird die folgenden Inhalte deines Servers modifizieren."
+    "defaultMessage": "Changing to {gameVersion} will modify the following content on your server."
   },
   "installation-settings.confirm-version-change-header": {
-    "defaultMessage": "Inhaltsänderungen ansehen"
+    "defaultMessage": "Review content changes"
   },
   "installation-settings.edit-installation.title": {
-    "defaultMessage": "Installation bearbeiten"
+    "defaultMessage": "Edit installation"
   },
   "installation-settings.edit.warning-instance": {
-    "defaultMessage": "Wir empfehlen nicht, die Installationseinstellungen nach der Installation zu ändern. Solltest du sie ändern wollen, sei vorsichtig, da dies Probleme verursachen kann."
+    "defaultMessage": "We don't recommend editing your installation settings after installing content. If you want to edit them, be cautious as it may cause issues."
   },
   "installation-settings.edit.warning-server": {
-    "defaultMessage": "Wir empfehlen nicht, die Installationseinstellungen nach der Installation zu ändern. Wenn du sie ändern willst, setze deinen Server zurück."
+    "defaultMessage": "We don't recommend editing your installation settings after installing content. If you want to edit them reset your server."
   },
   "installation-settings.incompatible-content.auto-fix-button": {
     "defaultMessage": "Auto-fix"
   },
   "installation-settings.incompatible-content.change-loader-button": {
-    "defaultMessage": "Loader ändern"
+    "defaultMessage": "Change loader"
   },
   "installation-settings.incompatible-content.disable-conflicts-button": {
-    "defaultMessage": "Konflikte deaktivieren"
+    "defaultMessage": "Disable conflicts"
   },
   "installation-settings.incompatible-content.game-version-warning-body": {
-    "defaultMessage": "Beim ändern der Spielversion können wir entweder installierte, inkompatible Inhalte deaktivieren, oder versuchen, diese inkompatibilitäten zu beheben."
+    "defaultMessage": "When changing the game version, we can either disable incompatible installed content or attempt to resolve the incompatibilities."
   },
   "installation-settings.incompatible-content.game-version-warning-title": {
-    "defaultMessage": "Inkompatibilitätswarnung"
+    "defaultMessage": "Incompatibility warning"
   },
   "installation-settings.incompatible-content.header": {
-    "defaultMessage": "Inkompatibler Inhalt installiert"
+    "defaultMessage": "Incompatible content installed"
   },
   "installation-settings.incompatible-content.loader-change-body": {
-    "defaultMessage": "Durch das ändern des Loaders werden alle installierten Inhalte deaktiviert. Wir empfehlen lieber das neu aufsetzen des Servers."
+    "defaultMessage": "When changing the loader, all installed content will be disabled. We recommend resetting your server instead."
   },
   "installation-settings.incompatible-content.loader-change-title": {
-    "defaultMessage": "Das ändern von Loadern ist zerstörerisch"
+    "defaultMessage": "Changing loaders is destructive"
   },
   "installation-settings.linked-instance.title": {
-    "defaultMessage": "Verknüpftes {projectType}"
+    "defaultMessage": "Linked {projectType}"
   },
   "installation-settings.linked.modpack": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "modpack"
   },
   "installation-settings.linked.server-project": {
-    "defaultMessage": "Server-Projekt"
+    "defaultMessage": "server project"
   },
   "installation-settings.loader-version": {
-    "defaultMessage": "{loader}version"
+    "defaultMessage": "{loader} version"
+  },
+  "installation-settings.loader-version.error": {
+    "defaultMessage": "Failed to load loader versions"
+  },
+  "installation-settings.loader-version.unsupported": {
+    "defaultMessage": "This loader does not support the selected game version"
   },
   "installation-settings.platform-lock-tooltip": {
-    "defaultMessage": "Du musst deinen Server zurücksetzen um den Loader zu wechseln."
+    "defaultMessage": "You will need to reset your server to switch loader."
   },
   "installation-settings.reinstall-modpack.description": {
-    "defaultMessage": "Die Neuinstallation des Modpacks setzt den Inhalt von {type} auf den Originalzustand zurück und entfernt alle von dir hinzugefügten Mods oder Inhalte."
+    "defaultMessage": "Re-installing the modpack resets the {type} content to its original state, removing any mods or content you have added."
   },
   "installation-settings.reinstall-modpack.title": {
-    "defaultMessage": "Modpack neu installieren"
+    "defaultMessage": "Re-install modpack"
   },
   "installation-settings.reinstalling-modpack": {
-    "defaultMessage": "Modpack wird neu installiert"
+    "defaultMessage": "Reinstalling modpack"
   },
   "installation-settings.removed-incompatible": {
-    "defaultMessage": "Entfernt (Inkompatibel)"
+    "defaultMessage": "Removed (incompatible)"
   },
   "installation-settings.repair.instance-description": {
-    "defaultMessage": "Installiert Abhängigkeiten von Minecraft neu und schaut nach beschädigungen. Dies kann Probleme lösen, sollte dein Spiel nicht starten, oder wegen launcher-bedingter Fehler."
+    "defaultMessage": "Reinstalls Minecraft dependencies and checks for corruption. This may resolve issues if your game is not launching due to launcher-related errors."
   },
   "installation-settings.repair.instance-title": {
-    "defaultMessage": "Instanz reparieren"
+    "defaultMessage": "Repair instance"
   },
   "installation-settings.repair.server-description": {
-    "defaultMessage": "Installiert den Loader und Abhängigkeiten von Minecraft neu, ohne deine Inhalte zu löschen. Dies kann Probleme lösen, sollte dein Server nicht korrekt starten."
+    "defaultMessage": "Reinstalls the loader and Minecraft dependencies without deleting your content. This may resolve issues if your server is not starting correctly."
   },
   "installation-settings.repair.server-title": {
-    "defaultMessage": "Server reparieren"
+    "defaultMessage": "Repair server"
   },
   "installation-settings.saving": {
-    "defaultMessage": "Wird gespeichert..."
+    "defaultMessage": "Saving..."
   },
   "installation-settings.search-game-version": {
-    "defaultMessage": "Spielversion suchen..."
+    "defaultMessage": "Search game version..."
   },
   "installation-settings.type.instance": {
-    "defaultMessage": "Instanz"
+    "defaultMessage": "instance"
   },
   "installation-settings.type.instance-possessive": {
-    "defaultMessage": "Instanz"
+    "defaultMessage": "instance's"
   },
   "installation-settings.type.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "server"
   },
   "installation-settings.type.server-possessive": {
-    "defaultMessage": "Server"
+    "defaultMessage": "server's"
   },
   "installation-settings.unlink": {
-    "defaultMessage": "Trennen"
+    "defaultMessage": "Unlink"
   },
   "installation-settings.unlink.description": {
-    "defaultMessage": "Durch das Aufheben der Verknüpfung wird {type} dauerhaft vom {projectType}-Projekt getrennt. Dies ermöglicht es dir, den Loader und die Minecraft-Version zu ändern, aber du wirst keine zukünftigen Updates mehr erhalten."
+    "defaultMessage": "Unlinking permanently disconnects this {type} from the {projectType} project, allowing you to change the loader and Minecraft version, but you won't receive future updates."
   },
   "installation-settings.verifying": {
-    "defaultMessage": "Wird überprüft..."
+    "defaultMessage": "Verifying..."
   },
   "instance.confirm-reinstall.admonition-body": {
-    "defaultMessage": "Das Neu installieren setzt alle installierten und veränderten Inhalte zurück auf was das Modpack bereitstellt, und entfernt sämtliche Mods und Inhalte welche du zusätzlich hinzugefügt hast."
+    "defaultMessage": "Reinstalling will reset all installed or modified content to what is provided by the modpack, removing any mods or content you have added on top of the original installation."
   },
   "instance.confirm-reinstall.admonition-header": {
-    "defaultMessage": "Neu Installations-Warnung"
+    "defaultMessage": "Reinstallation warning"
   },
   "instance.confirm-reinstall.header": {
-    "defaultMessage": "Modpack neu installieren"
+    "defaultMessage": "Reinstall modpack"
   },
   "instance.confirm-reinstall.reinstall-button": {
-    "defaultMessage": "Modpack neu installieren"
+    "defaultMessage": "Reinstall modpack"
   },
   "instance.confirm-repair.body.instance": {
-    "defaultMessage": "Die Reparatur installiert den Loader und die Minecraft-Abhängigkeiten neu, ohne deine Inhalte zu löschen. Dies kann Probleme lösen, wenn dein Spiel aufgrund von Launcher-Fehlern nicht startet."
+    "defaultMessage": "Repairing reinstalls the loader and Minecraft dependencies without deleting your content. This may resolve issues if your game is not launching due to launcher-related errors."
   },
   "instance.confirm-repair.body.server": {
-    "defaultMessage": "Die Reparatur installiert den Loader und die Minecraft-Abhängigkeiten neu, ohne deine Inhalte zu löschen. Dies kann Probleme lösen, wenn dein Server nicht korrekt startet."
+    "defaultMessage": "Repairing reinstalls the loader and Minecraft dependencies without deleting your content. This may resolve issues if your server is not starting correctly."
   },
   "instance.confirm-repair.header": {
-    "defaultMessage": "{type} reparieren"
+    "defaultMessage": "Repair {type}"
   },
   "instance.confirm-repair.instance-label": {
-    "defaultMessage": "Instanz"
+    "defaultMessage": "instance"
   },
   "instance.confirm-repair.repair-button": {
-    "defaultMessage": "Reparieren"
+    "defaultMessage": "Repair"
   },
   "instance.confirm-repair.server-label": {
-    "defaultMessage": "Server"
+    "defaultMessage": "server"
   },
   "instance.worlds.game_mode.adventure": {
-    "defaultMessage": "Abenteuermodus"
+    "defaultMessage": "Adventure mode"
   },
   "instance.worlds.game_mode.creative": {
-    "defaultMessage": "Kreativmodus"
+    "defaultMessage": "Creative mode"
   },
   "instance.worlds.game_mode.spectator": {
-    "defaultMessage": "Zuschauermodus"
+    "defaultMessage": "Spectator mode"
   },
   "instance.worlds.game_mode.survival": {
-    "defaultMessage": "Überlebensmodus"
+    "defaultMessage": "Survival mode"
   },
   "instance.worlds.game_mode.unknown": {
-    "defaultMessage": "Unbekannter Spielmodus"
+    "defaultMessage": "Unknown game mode"
   },
   "instances.content-install.compatible-count": {
-    "defaultMessage": "{count} kompatible {count, plural, one {Instanz} other {Instanzen}}"
+    "defaultMessage": "{count} compatible {count, plural, one {instance} other {instances}}"
   },
   "instances.content-install.existing-tab": {
-    "defaultMessage": "Existierende Instanz"
+    "defaultMessage": "Existing instance"
   },
   "instances.content-install.game-version-placeholder": {
-    "defaultMessage": "Spielversion auswählen"
+    "defaultMessage": "Select game version"
   },
   "instances.content-install.header": {
-    "defaultMessage": "Projekt installieren"
+    "defaultMessage": "Install project"
   },
   "instances.content-install.incompatible-tooltip": {
-    "defaultMessage": "Diese Instanz verwendet einen anderen Loader oder eine andere Spielversion, als dieses Projekt unterstützt."
+    "defaultMessage": "This instance uses a different loader or game version than this project supports."
   },
   "instances.content-install.install-button": {
-    "defaultMessage": "Installieren"
+    "defaultMessage": "Install"
   },
   "instances.content-install.installed-badge": {
-    "defaultMessage": "Installiert"
+    "defaultMessage": "Installed"
   },
   "instances.content-install.instance-type": {
-    "defaultMessage": "Instanztyp"
+    "defaultMessage": "Instance type"
   },
   "instances.content-install.loader-label": {
     "defaultMessage": "Loader"
@@ -1245,208 +2484,214 @@
     "defaultMessage": "Name"
   },
   "instances.content-install.name-placeholder": {
-    "defaultMessage": "Instanzname eingeben"
+    "defaultMessage": "Enter instance name"
   },
   "instances.content-install.new-tab": {
-    "defaultMessage": "Neue Instanz"
+    "defaultMessage": "New instance"
   },
   "instances.content-install.no-instances": {
-    "defaultMessage": "Keine kompatiblen Instanzen gefunden"
+    "defaultMessage": "No compatible instances found"
   },
   "instances.content-install.remove-icon": {
-    "defaultMessage": "Icon entfernen"
+    "defaultMessage": "Remove icon"
   },
   "instances.content-install.search-placeholder": {
-    "defaultMessage": "Instanz suchen"
+    "defaultMessage": "Search instance"
   },
   "instances.content-install.select-icon": {
-    "defaultMessage": "Icon auswählen"
+    "defaultMessage": "Select icon"
   },
   "instances.updater-modal.badge.current": {
-    "defaultMessage": "Aktuell"
+    "defaultMessage": "Current"
   },
   "instances.updater-modal.badge.incompatible": {
-    "defaultMessage": "Inkompatibel"
+    "defaultMessage": "Incompatible"
   },
   "instances.updater-modal.downgrade-to": {
-    "defaultMessage": "Auf {version} downgraden"
+    "defaultMessage": "Downgrade to {version}"
   },
   "instances.updater-modal.header": {
-    "defaultMessage": "Version aktualisieren"
+    "defaultMessage": "Update version"
   },
   "instances.updater-modal.header-modpack": {
-    "defaultMessage": "Modpack version ändern"
+    "defaultMessage": "Switch modpack version"
   },
   "instances.updater-modal.header-switch": {
-    "defaultMessage": "Version wechseln"
+    "defaultMessage": "Switch version"
   },
   "instances.updater-modal.hide-incompatible": {
-    "defaultMessage": "Inkompatible ausblenden"
+    "defaultMessage": "Hide incompatible"
   },
   "instances.updater-modal.incompatibility-warning": {
-    "defaultMessage": "Diese Version ist nicht als kompatibel mit dieser Instanz markiert. Abhängigkeiten werden nicht automatisch installiert."
+    "defaultMessage": "This version is not marked as compatible with this instance. Dependencies will not be installed automatically."
   },
   "instances.updater-modal.incompatibility-warning-header": {
-    "defaultMessage": "Version wählen"
+    "defaultMessage": "Choose version"
   },
   "instances.updater-modal.incompatible-update.description": {
-    "defaultMessage": "{version} ist nicht als kompatibel mit dieser Installation markiert. Der Start könnte fehlschlagen oder es könnte sich unerwartet verhalten."
+    "defaultMessage": "{version} is not marked as compatible with this installation. It may fail to launch or behave unexpectedly."
   },
   "instances.updater-modal.incompatible-update.header": {
-    "defaultMessage": "Auf inkompatible Version aktualisieren?"
+    "defaultMessage": "Update to incompatible version?"
   },
   "instances.updater-modal.incompatible-update.proceed": {
-    "defaultMessage": "Trotzdem aktualisieren"
+    "defaultMessage": "Update anyway"
   },
   "instances.updater-modal.install-anyway": {
-    "defaultMessage": "Trotzdem installieren"
+    "defaultMessage": "Install anyway"
   },
   "instances.updater-modal.loading-changelog": {
-    "defaultMessage": "Lade Änderungsprotokoll..."
+    "defaultMessage": "Loading changelog..."
+  },
+  "instances.updater-modal.loading-more-versions": {
+    "defaultMessage": "Loading more versions…"
   },
   "instances.updater-modal.loading-versions": {
-    "defaultMessage": "Lade Versionen..."
+    "defaultMessage": "Loading versions..."
   },
   "instances.updater-modal.no-changelog": {
-    "defaultMessage": "Kein Änderungsprotokoll für diese Version verfügbar."
+    "defaultMessage": "No changelog provided for this version."
   },
   "instances.updater-modal.no-versions": {
-    "defaultMessage": "Keine Versionen gefunden"
+    "defaultMessage": "No versions found"
+  },
+  "instances.updater-modal.search-compat": {
+    "defaultMessage": "Find compatible version"
   },
   "instances.updater-modal.search-placeholder": {
-    "defaultMessage": "Version suchen..."
+    "defaultMessage": "Search version..."
   },
   "instances.updater-modal.select-version": {
-    "defaultMessage": "Wähle eine Version, um deren Änderungsprotokoll anzuzeigen"
+    "defaultMessage": "Select a version to view its changelog"
   },
   "instances.updater-modal.show-incompatible": {
-    "defaultMessage": "Inkompatible anzeigen"
+    "defaultMessage": "Show incompatible"
   },
   "instances.updater-modal.switch-to": {
-    "defaultMessage": "Wechseln zu {version}"
+    "defaultMessage": "Switch to {version}"
   },
   "instances.updater-modal.update-to": {
-    "defaultMessage": "Auf {version} aktualisieren"
+    "defaultMessage": "Update to {version}"
   },
   "instances.updater-modal.warning-app": {
-    "defaultMessage": "Das aktualisieren kann deine Instanz beschädigen. Schau dir zuerst die Änderungsprotokolle an und mache eine Sicherung."
+    "defaultMessage": "Updating can break your instance. Review version changelogs and back up first."
   },
   "instances.updater-modal.warning-web": {
-    "defaultMessage": "Das aktualisieren kann deine Welt beschädigen. Schau dir zuerst die Änderungsprotokolle an und mache eine Sicherung."
+    "defaultMessage": "Updating can break your world. Review version changelogs and back up first."
   },
   "label.actions": {
-    "defaultMessage": "Aktionen"
+    "defaultMessage": "Actions"
   },
   "label.available": {
-    "defaultMessage": "{amount} verfügbar."
+    "defaultMessage": "{amount} available."
   },
   "label.changelog": {
-    "defaultMessage": "Änderungen"
+    "defaultMessage": "Changelog"
   },
   "label.changes-saved": {
-    "defaultMessage": "Änderungen gespeichert"
+    "defaultMessage": "Changes saved"
   },
   "label.client-depends-warning": {
-    "defaultMessage": "Diese Mod ist von einem clientseitigen Mod abhängig und kann beim Starten deines Servers zu Problemen führen"
+    "defaultMessage": "This mod depends on a client-side mod and may cause issues when starting your server"
   },
   "label.client-only-warning": {
-    "defaultMessage": "Dieser ist ein clientseitiger Mod und kann beim Starten deines Servers zu Problemen führen"
+    "defaultMessage": "This is a client-side mod and may cause issues when starting your server"
   },
   "label.client-retained-warning": {
-    "defaultMessage": "Dies ist eine clientseitige Mod, welche als Abhängigkeit installiert wurde und beim Starten deines Servers zu Problemen führen kann"
+    "defaultMessage": "This is a client-side mod that was installed as a dependency and may cause issues when starting your server"
   },
   "label.collections": {
-    "defaultMessage": "Kollektionen"
+    "defaultMessage": "Collections"
   },
   "label.confirm-password": {
-    "defaultMessage": "Passwort bestätigen"
+    "defaultMessage": "Confirm password"
   },
   "label.content": {
-    "defaultMessage": "Inhalt"
+    "defaultMessage": "Content"
   },
   "label.copied-filename": {
-    "defaultMessage": "Dateiname kopiert"
+    "defaultMessage": "Copied filename"
   },
   "label.copied-path": {
-    "defaultMessage": "Pfad kopiert"
+    "defaultMessage": "Copied path"
   },
   "label.create-failed": {
-    "defaultMessage": "Erstellen fehlgeschlagen"
+    "defaultMessage": "Create failed"
   },
   "label.created-ago": {
-    "defaultMessage": "Erstellt {ago}"
+    "defaultMessage": "Created {ago}"
   },
   "label.dashboard": {
     "defaultMessage": "Dashboard"
   },
   "label.delete": {
-    "defaultMessage": "Löschen"
+    "defaultMessage": "Delete"
   },
   "label.delete-failed": {
-    "defaultMessage": "Löschen fehlgeschlagen"
+    "defaultMessage": "Delete failed"
   },
   "label.delete-immediately": {
-    "defaultMessage": "Sofort löschen"
+    "defaultMessage": "Delete immediately"
   },
   "label.description": {
-    "defaultMessage": "Beschreibung"
+    "defaultMessage": "Description"
   },
   "label.details": {
     "defaultMessage": "Details"
   },
   "label.done": {
-    "defaultMessage": "Fertig"
+    "defaultMessage": "Done"
   },
   "label.download-failed": {
-    "defaultMessage": "Herunterladen fehlgeschlagen"
+    "defaultMessage": "Download failed"
   },
   "label.email": {
-    "defaultMessage": "E-Mail"
+    "defaultMessage": "Email"
   },
   "label.email-username": {
-    "defaultMessage": "E-Mail oder Benutzername"
+    "defaultMessage": "Email or username"
   },
   "label.error": {
-    "defaultMessage": "Fehler"
+    "defaultMessage": "Error"
   },
   "label.extract-failed": {
-    "defaultMessage": "Extrahieren fehlgeschlagen"
+    "defaultMessage": "Extract failed"
   },
   "label.filter-by": {
-    "defaultMessage": "Filtern nach"
+    "defaultMessage": "Filter by"
   },
   "label.filters": {
-    "defaultMessage": "Filter"
+    "defaultMessage": "Filters"
   },
   "label.followed-projects": {
-    "defaultMessage": "Gefolgte Projekte"
+    "defaultMessage": "Followed projects"
   },
   "label.game-version": {
-    "defaultMessage": "Spielversion"
+    "defaultMessage": "Game version"
   },
   "label.hide-installed-content": {
-    "defaultMessage": "Bereits installierte Inhalte ausblenden"
+    "defaultMessage": "Hide content already installed"
   },
   "label.hide-selected-content": {
-    "defaultMessage": "Ausgewählte Inhalte ausblenden"
+    "defaultMessage": "Hide selected content"
   },
   "label.installation-info": {
-    "defaultMessage": "Installationsinfo"
+    "defaultMessage": "Installation info"
   },
   "label.installed": {
-    "defaultMessage": "Installiert"
+    "defaultMessage": "Installed"
   },
   "label.installed-modpack": {
-    "defaultMessage": "Installiertes Modpack"
+    "defaultMessage": "Installed modpack"
   },
   "label.installing": {
-    "defaultMessage": "Wird installiert..."
+    "defaultMessage": "Installing..."
   },
   "label.installing-content": {
-    "defaultMessage": "Installiere Inhalt"
+    "defaultMessage": "Installing content"
   },
   "label.loading": {
-    "defaultMessage": "Lade..."
+    "defaultMessage": "Loading..."
   },
   "label.moderation": {
     "defaultMessage": "Moderation"
@@ -1455,277 +2700,325 @@
     "defaultMessage": "Modpack"
   },
   "label.move-failed": {
-    "defaultMessage": "Verschieben fehlgeschlagen"
+    "defaultMessage": "Move failed"
   },
   "label.no": {
-    "defaultMessage": "Nein"
+    "defaultMessage": "No"
   },
   "label.no-items": {
-    "defaultMessage": "Keine Items"
+    "defaultMessage": "No items"
   },
   "label.notifications": {
-    "defaultMessage": "Benachrichtigungen"
+    "defaultMessage": "Notifications"
   },
   "label.or": {
-    "defaultMessage": "oder"
+    "defaultMessage": "or"
   },
   "label.password": {
-    "defaultMessage": "Passwort"
+    "defaultMessage": "Password"
   },
   "label.plan-custom": {
-    "defaultMessage": "Benutzerdefiniert"
+    "defaultMessage": "Custom"
   },
   "label.plan-large": {
-    "defaultMessage": "Gross"
+    "defaultMessage": "Large"
   },
   "label.plan-medium": {
-    "defaultMessage": "Mittel"
+    "defaultMessage": "Medium"
   },
   "label.plan-small": {
-    "defaultMessage": "Klein"
+    "defaultMessage": "Small"
   },
   "label.plan-unknown": {
-    "defaultMessage": "Unbekannt"
+    "defaultMessage": "Unknown"
   },
   "label.platform": {
     "defaultMessage": "Platform"
   },
   "label.played": {
-    "defaultMessage": "{ago} gespielt"
+    "defaultMessage": "Played {ago}"
   },
   "label.project": {
-    "defaultMessage": "Projekt"
+    "defaultMessage": "Project"
   },
   "label.public": {
-    "defaultMessage": "Öffentlich"
+    "defaultMessage": "Public"
   },
   "label.rejected": {
-    "defaultMessage": "Abgelehnt"
+    "defaultMessage": "Rejected"
   },
   "label.rename-failed": {
-    "defaultMessage": "Umbenennen fehlgeschlagen"
+    "defaultMessage": "Rename failed"
   },
   "label.rewards-program-terms-agreement": {
-    "defaultMessage": "Ich stimme den <terms-link>Bedingungen des Rewards-Programm</terms-link> zu"
+    "defaultMessage": "I agree to the <terms-link>Rewards Program Terms</terms-link>"
   },
   "label.saved": {
-    "defaultMessage": "Gespeichert"
+    "defaultMessage": "Saved"
   },
   "label.scopes": {
-    "defaultMessage": "Berechtigungen"
+    "defaultMessage": "Scopes"
   },
   "label.search": {
-    "defaultMessage": "Suche"
+    "defaultMessage": "Search"
   },
   "label.select-all": {
-    "defaultMessage": "Alle auswählen"
+    "defaultMessage": "Select all"
   },
   "label.selected": {
-    "defaultMessage": "Ausgewählt"
+    "defaultMessage": "Selected"
   },
   "label.selection-actions": {
-    "defaultMessage": "Auswahlaktionen"
+    "defaultMessage": "Selection actions"
   },
   "label.server": {
     "defaultMessage": "Server"
   },
+  "label.server-only": {
+    "defaultMessage": "Server only"
+  },
   "label.servers": {
-    "defaultMessage": "Server"
+    "defaultMessage": "Servers"
   },
   "label.settings": {
-    "defaultMessage": "Einstellungen"
+    "defaultMessage": "Settings"
   },
   "label.singleplayer": {
-    "defaultMessage": "Einzelspieler"
+    "defaultMessage": "Singleplayer"
   },
   "label.sort-by": {
-    "defaultMessage": "Sortieren nach: "
+    "defaultMessage": "Sort by: "
   },
   "label.success": {
-    "defaultMessage": "Erfolg"
+    "defaultMessage": "Success"
   },
   "label.title": {
-    "defaultMessage": "Titel"
+    "defaultMessage": "Title"
   },
   "label.unknown": {
-    "defaultMessage": "Unbekannt"
+    "defaultMessage": "Unknown"
   },
   "label.unlisted": {
-    "defaultMessage": "Ungelistet"
+    "defaultMessage": "Unlisted"
   },
   "label.update-available": {
-    "defaultMessage": "Aktualisierung verfügbar"
+    "defaultMessage": "Update available"
   },
   "label.updating": {
-    "defaultMessage": "Wird aktualisiert..."
+    "defaultMessage": "Updating..."
   },
   "label.upload-failed": {
-    "defaultMessage": "Hochladen fehlgeschlagen"
+    "defaultMessage": "Upload failed"
   },
   "label.username": {
-    "defaultMessage": "Benutzername"
+    "defaultMessage": "Username"
   },
   "label.validating": {
-    "defaultMessage": "Bestätige"
+    "defaultMessage": "Validating"
   },
   "label.version": {
     "defaultMessage": "Version"
   },
   "label.view": {
-    "defaultMessage": "Ansehen"
+    "defaultMessage": "View"
   },
   "label.visibility": {
-    "defaultMessage": "Sichtbarkeit"
+    "defaultMessage": "Visibility"
   },
   "label.visit-your-profile": {
-    "defaultMessage": "Dein Profil anzeigen"
+    "defaultMessage": "Visit your profile"
   },
   "label.yes": {
-    "defaultMessage": "Ja"
+    "defaultMessage": "Yes"
   },
   "locale.cs-CZ": {
-    "defaultMessage": "Tschechisch"
+    "defaultMessage": "Czech"
   },
   "locale.da-DK": {
-    "defaultMessage": "Dänisch"
+    "defaultMessage": "Danish"
   },
   "locale.de-CH": {
-    "defaultMessage": "Deutsch (Schweiz)"
+    "defaultMessage": "German (Switzerland)"
   },
   "locale.de-DE": {
-    "defaultMessage": "Deutsch (Deutschland)"
+    "defaultMessage": "German (Germany)"
   },
   "locale.en-US": {
-    "defaultMessage": "Englisch (Vereinigte Staaten)"
+    "defaultMessage": "English (United States)"
   },
   "locale.es-419": {
-    "defaultMessage": "Spanisch (Lateinamerika)"
+    "defaultMessage": "Spanish (Latin America)"
   },
   "locale.es-ES": {
-    "defaultMessage": "Spanisch (Spanien)"
+    "defaultMessage": "Spanish (Spain)"
   },
   "locale.fi-FI": {
-    "defaultMessage": "Finnisch"
+    "defaultMessage": "Finnish"
   },
   "locale.fil-PH": {
-    "defaultMessage": "Filipinisch"
+    "defaultMessage": "Filipino"
   },
   "locale.fr-FR": {
-    "defaultMessage": "Französisch"
+    "defaultMessage": "French"
   },
   "locale.he-IL": {
-    "defaultMessage": "Hebräisch"
+    "defaultMessage": "Hebrew"
   },
   "locale.hu-HU": {
-    "defaultMessage": "Ungarisch"
+    "defaultMessage": "Hungarian"
   },
   "locale.id-ID": {
-    "defaultMessage": "Indonesisch"
+    "defaultMessage": "Indonesian"
   },
   "locale.it-IT": {
-    "defaultMessage": "Italienisch (Italien)"
+    "defaultMessage": "Italian (Italy)"
   },
   "locale.ja-JP": {
-    "defaultMessage": "Japanisch"
+    "defaultMessage": "Japanese"
   },
   "locale.ko-KR": {
-    "defaultMessage": "Koreanisch"
+    "defaultMessage": "Korean"
   },
   "locale.ms-MY": {
-    "defaultMessage": "Malaiisch"
+    "defaultMessage": "Malay"
   },
   "locale.nl-NL": {
-    "defaultMessage": "Niederländisch"
+    "defaultMessage": "Dutch"
   },
   "locale.no-NO": {
-    "defaultMessage": "Norwegisch, Buchsprache"
+    "defaultMessage": "Norwegian Bokmål"
   },
   "locale.pl-PL": {
-    "defaultMessage": "Polnisch"
+    "defaultMessage": "Polish"
   },
   "locale.pt-BR": {
-    "defaultMessage": "Portugiesisch (Brasilien)"
+    "defaultMessage": "Portuguese (Brazil)"
   },
   "locale.pt-PT": {
-    "defaultMessage": "Portugiesisch (Portugal)"
+    "defaultMessage": "Portuguese (Portugal)"
   },
   "locale.ro-RO": {
-    "defaultMessage": "Rumänisch"
+    "defaultMessage": "Romanian"
   },
   "locale.ru-RU": {
-    "defaultMessage": "Russisch"
+    "defaultMessage": "Russian"
   },
   "locale.sr-CS": {
-    "defaultMessage": "Serbisch (Latein)"
+    "defaultMessage": "Serbian (Latin)"
   },
   "locale.sv-SE": {
-    "defaultMessage": "Schwedisch"
+    "defaultMessage": "Swedish"
   },
   "locale.th-TH": {
-    "defaultMessage": "Thailändisch"
+    "defaultMessage": "Thai"
   },
   "locale.tr-TR": {
-    "defaultMessage": "Türkisch"
+    "defaultMessage": "Turkish"
   },
   "locale.uk-UA": {
-    "defaultMessage": "Ukrainisch"
+    "defaultMessage": "Ukrainian"
   },
   "locale.vi-VN": {
-    "defaultMessage": "Vietnamesisch"
+    "defaultMessage": "Vietnamese"
   },
   "locale.zh-CN": {
-    "defaultMessage": "Chinesisch (Vereinfacht)"
+    "defaultMessage": "Chinese (Simplified)"
   },
   "locale.zh-TW": {
-    "defaultMessage": "Chinesisch (Traditionell)"
+    "defaultMessage": "Chinese (Traditional)"
+  },
+  "modal.confirm-action.failed": {
+    "defaultMessage": "The action could not be completed. Try again."
+  },
+  "modal.confirm.confirmation-placeholder": {
+    "defaultMessage": "Type here..."
+  },
+  "modal.confirm.confirmation-prompt": {
+    "defaultMessage": "To confirm you want to proceed, type <confirmation-text>{confirmationText}</confirmation-text> below:"
+  },
+  "modal.confirm.no-title": {
+    "defaultMessage": "No title defined"
+  },
+  "modal.confirm.proceed": {
+    "defaultMessage": "Proceed"
+  },
+  "modal.install-to-play.admonition-body": {
+    "defaultMessage": "This server requires modded content to play. Accept to install the needed files from Modrinth."
+  },
+  "modal.install-to-play.admonition-header": {
+    "defaultMessage": "Shared server instance"
+  },
+  "modal.install-to-play.shared-by": {
+    "defaultMessage": "<name>{name}</name> shared this instance with you today."
+  },
+  "modal.install-to-play.shared-instance-label": {
+    "defaultMessage": "Shared instance"
+  },
+  "modal.install-to-play.title": {
+    "defaultMessage": "Install to play"
   },
   "modal.open-in-app.benefit.install": {
-    "defaultMessage": "Installiere automatisch benötigte Inhalte"
+    "defaultMessage": "Automatically install required content"
   },
   "modal.open-in-app.benefit.launch": {
-    "defaultMessage": "Server direct nach Start beitreten"
+    "defaultMessage": "Launch the game straight into the server"
   },
   "modal.open-in-app.benefit.update": {
-    "defaultMessage": "Aktualisiere Dateien wenn der Server sich ändert"
+    "defaultMessage": "Keep files updated when the server changes"
   },
   "modal.open-in-app.get-app": {
-    "defaultMessage": "Modrinth App herunterladen"
+    "defaultMessage": "Get Modrinth App"
   },
   "modal.open-in-app.opening-automatically": {
-    "defaultMessage": "Die Modrinth App wird sich automatisch öffnen..."
+    "defaultMessage": "The Modrinth App will open automatically..."
   },
   "modal.open-in-app.title": {
-    "defaultMessage": "Öffne Modrinth App"
+    "defaultMessage": "Opening Modrinth App"
   },
   "modal.open-in-app.why-use": {
-    "defaultMessage": "Warum die Modrinth App nutzen"
+    "defaultMessage": "Why use the Modrinth App"
+  },
+  "multiselect.selection-actions.label": {
+    "defaultMessage": "{count, number} selected"
   },
   "notification.error.title": {
-    "defaultMessage": "Ein Fehler ist aufgetreten"
+    "defaultMessage": "An error occurred"
+  },
+  "notification.panel.copy": {
+    "defaultMessage": "Copy to clipboard"
+  },
+  "notification.panel.copy-support": {
+    "defaultMessage": "Copy error details for support"
+  },
+  "notification.panel.dismiss": {
+    "defaultMessage": "Dismiss"
+  },
+  "notification.panel.export-error-logs": {
+    "defaultMessage": "Export error logs"
   },
   "omorphia.component.badge.label.accepted": {
-    "defaultMessage": "Akzeptiert"
+    "defaultMessage": "Accepted"
   },
   "omorphia.component.badge.label.approved": {
-    "defaultMessage": "Bestätigt"
+    "defaultMessage": "Approved"
   },
   "omorphia.component.badge.label.archived": {
-    "defaultMessage": "Archiviert"
+    "defaultMessage": "Archived"
   },
   "omorphia.component.badge.label.closed": {
-    "defaultMessage": "Geschlossen"
+    "defaultMessage": "Closed"
   },
   "omorphia.component.badge.label.creator": {
-    "defaultMessage": "Ersteller"
+    "defaultMessage": "Creator"
   },
   "omorphia.component.badge.label.draft": {
-    "defaultMessage": "Entwurf"
+    "defaultMessage": "Draft"
   },
   "omorphia.component.badge.label.failed": {
-    "defaultMessage": "Fehlgeschlagen"
+    "defaultMessage": "Failed"
   },
   "omorphia.component.badge.label.listed": {
-    "defaultMessage": "Öffentlich"
+    "defaultMessage": "Public"
   },
   "omorphia.component.badge.label.moderator": {
     "defaultMessage": "Moderator"
@@ -1734,40 +3027,52 @@
     "defaultMessage": "Modrinth Team"
   },
   "omorphia.component.badge.label.pending": {
-    "defaultMessage": "Ausstehend"
+    "defaultMessage": "Pending"
   },
   "omorphia.component.badge.label.private": {
-    "defaultMessage": "Privat"
+    "defaultMessage": "Private"
   },
   "omorphia.component.badge.label.processed": {
-    "defaultMessage": "Verarbeitet"
+    "defaultMessage": "Processed"
   },
   "omorphia.component.badge.label.rejected": {
-    "defaultMessage": "Abgelehnt"
+    "defaultMessage": "Rejected"
   },
   "omorphia.component.badge.label.returned": {
-    "defaultMessage": "Zurückgegeben"
+    "defaultMessage": "Returned"
   },
   "omorphia.component.badge.label.safe": {
-    "defaultMessage": "Bestanden"
+    "defaultMessage": "Pass"
   },
   "omorphia.component.badge.label.scheduled": {
-    "defaultMessage": "Geplant"
+    "defaultMessage": "Scheduled"
   },
   "omorphia.component.badge.label.under-review": {
-    "defaultMessage": "Wird überprüft"
+    "defaultMessage": "Under review"
   },
   "omorphia.component.badge.label.unlisted": {
-    "defaultMessage": "Nicht gelistet"
+    "defaultMessage": "Unlisted"
   },
   "omorphia.component.badge.label.unsafe": {
-    "defaultMessage": "Durchgefallen"
+    "defaultMessage": "Fail"
   },
   "omorphia.component.badge.label.withheld": {
-    "defaultMessage": "Von Mitarbeitern entlistet"
+    "defaultMessage": "Unlisted by staff"
   },
   "omorphia.component.copy.action.copy": {
-    "defaultMessage": "Code in Zwischenablage kopieren"
+    "defaultMessage": "Copy code to clipboard"
+  },
+  "omorphia.component.loading-indicator.label": {
+    "defaultMessage": "Loading"
+  },
+  "pagination.go-to-page": {
+    "defaultMessage": "Go to page"
+  },
+  "pagination.go-to-page.placeholder": {
+    "defaultMessage": "Page"
+  },
+  "pagination.loading-page": {
+    "defaultMessage": "Loading page…"
   },
   "payment-method.amazon_pay": {
     "defaultMessage": "Amazon Pay"
@@ -1776,16 +3081,16 @@
     "defaultMessage": "American Express"
   },
   "payment-method.card_display": {
-    "defaultMessage": "{card_brand} mit Endung {last_four}"
+    "defaultMessage": "{card_brand} ending in {last_four}"
   },
   "payment-method.cashapp": {
     "defaultMessage": "Cash App"
   },
   "payment-method.charity": {
-    "defaultMessage": "Wohltätigkeit"
+    "defaultMessage": "Charity"
   },
   "payment-method.charity-plural": {
-    "defaultMessage": "Wohltätigkeiten"
+    "defaultMessage": "Charities"
   },
   "payment-method.diners": {
     "defaultMessage": "Diners Club"
@@ -1797,10 +3102,10 @@
     "defaultMessage": "EFTPOS"
   },
   "payment-method.gift-card": {
-    "defaultMessage": "Geschenkkarte"
+    "defaultMessage": "Gift card"
   },
   "payment-method.gift-card-plural": {
-    "defaultMessage": "Geschenkkarten"
+    "defaultMessage": "Gift cards"
   },
   "payment-method.jcb": {
     "defaultMessage": "JCB"
@@ -1818,49 +3123,64 @@
     "defaultMessage": "UnionPay"
   },
   "payment-method.unknown": {
-    "defaultMessage": "Unbekannte Zahlungsmethode"
+    "defaultMessage": "Unknown payment method"
   },
   "payment-method.venmo": {
     "defaultMessage": "Venmo"
   },
   "payment-method.virtual-visa": {
-    "defaultMessage": "Virtuelles Visa"
+    "defaultMessage": "Virtual Visa"
   },
   "payment-method.virtual-visa-plural": {
-    "defaultMessage": "Virtuelle Visa"
+    "defaultMessage": "Virtual Visas"
   },
   "payment-method.visa": {
     "defaultMessage": "Visa"
   },
+  "project-card.date.created.tooltip": {
+    "defaultMessage": "Project created {date}"
+  },
+  "project-card.date.first-release.tooltip": {
+    "defaultMessage": "First release published {date}"
+  },
+  "project-card.date.project-modified.tooltip": {
+    "defaultMessage": "Project modified {date}"
+  },
+  "project-card.date.project-published.tooltip": {
+    "defaultMessage": "Project first published {date}"
+  },
   "project-card.date.published.tooltip": {
-    "defaultMessage": "Veröffentlicht {date}"
+    "defaultMessage": "Published {date}"
+  },
+  "project-card.date.release-updated.tooltip": {
+    "defaultMessage": "Latest release published {date}"
   },
   "project-card.date.updated.tooltip": {
-    "defaultMessage": "Aktualisiert {date}"
+    "defaultMessage": "Updated {date}"
   },
   "project-card.environment.client": {
     "defaultMessage": "Client"
   },
   "project-card.environment.client-and-server": {
-    "defaultMessage": "Client und Server"
+    "defaultMessage": "Client and server"
   },
   "project-card.environment.client-or-server": {
-    "defaultMessage": "Client oder Server"
+    "defaultMessage": "Client or server"
   },
   "project-card.environment.server": {
     "defaultMessage": "Server"
   },
   "project-type.all": {
-    "defaultMessage": "Alle"
+    "defaultMessage": "All"
   },
   "project-type.datapack.capital": {
-    "defaultMessage": "{count, plural, one {Datenpaket} other {Datenpakete}}"
+    "defaultMessage": "{count, plural, one {Data Pack} other {Data Packs}}"
   },
   "project-type.datapack.category": {
-    "defaultMessage": "Datenpakete"
+    "defaultMessage": "Data Packs"
   },
   "project-type.datapack.lowercase": {
-    "defaultMessage": "{count, plural, one {Datenpaket} other {Datenpakete}}"
+    "defaultMessage": "{count, plural, one {data pack} other {data packs}}"
   },
   "project-type.mod.capital": {
     "defaultMessage": "{count, plural, one {Mod} other {Mods}}"
@@ -1869,7 +3189,7 @@
     "defaultMessage": "Mods"
   },
   "project-type.mod.lowercase": {
-    "defaultMessage": "{count, plural, one {Mod} other {Mods}}"
+    "defaultMessage": "{count, plural, one {mod} other {mods}}"
   },
   "project-type.modpack.capital": {
     "defaultMessage": "{count, plural, one {Modpack} other {Modpacks}}"
@@ -1878,7 +3198,7 @@
     "defaultMessage": "Modpacks"
   },
   "project-type.modpack.lowercase": {
-    "defaultMessage": "{count, plural, one {Modpack} other {Modpacks}}"
+    "defaultMessage": "{count, plural, one {modpack} other {modpacks}}"
   },
   "project-type.plugin.capital": {
     "defaultMessage": "{count, plural, one {Plugin} other {Plugins}}"
@@ -1887,166 +3207,178 @@
     "defaultMessage": "Plugins"
   },
   "project-type.plugin.lowercase": {
-    "defaultMessage": "{count, plural, one {Plugin} other {Plugins}}"
+    "defaultMessage": "{count, plural, one {plugin} other {plugins}}"
   },
   "project-type.project.capital": {
-    "defaultMessage": "{count, plural, one {Projekt} other {Projekte}}"
+    "defaultMessage": "{count, plural, one {Project} other {Projects}}"
   },
   "project-type.project.category": {
-    "defaultMessage": "Projekte"
+    "defaultMessage": "Projects"
   },
   "project-type.project.lowercase": {
-    "defaultMessage": "{count, plural, one {Projekt} other {Projekte}}"
+    "defaultMessage": "{count, plural, one {project} other {projects}}"
   },
   "project-type.resourcepack.capital": {
-    "defaultMessage": "{count, plural, one {Ressourcenpaket} other {Ressourcenpakete}}"
+    "defaultMessage": "{count, plural, one {Resource Pack} other {Resource Packs}}"
   },
   "project-type.resourcepack.category": {
-    "defaultMessage": "Ressourcenpakete"
+    "defaultMessage": "Resource Packs"
   },
   "project-type.resourcepack.lowercase": {
-    "defaultMessage": "{count, plural, one {Ressourcenpaket} other {Ressourcenpakete}}"
+    "defaultMessage": "{count, plural, one {resource pack} other {resource packs}}"
+  },
+  "project-type.schematic.capital": {
+    "defaultMessage": "{count, plural, one {Schematic} other {Schematics}}"
+  },
+  "project-type.schematic.category": {
+    "defaultMessage": "Schematics"
+  },
+  "project-type.schematic.lowercase": {
+    "defaultMessage": "{count, plural, one {schematic} other {schematics}}"
   },
   "project-type.server.capital": {
     "defaultMessage": "{count, plural, one {Server} other {Servers}}"
   },
   "project-type.server.category": {
-    "defaultMessage": "Server"
+    "defaultMessage": "Servers"
   },
   "project-type.server.lowercase": {
-    "defaultMessage": "{count, plural, one {Server} other {Servers}}"
+    "defaultMessage": "{count, plural, one {server} other {servers}}"
   },
   "project-type.shader.capital": {
-    "defaultMessage": "{count, plural, one {Shader} other {Shader}}"
+    "defaultMessage": "{count, plural, one {Shader} other {Shaders}}"
   },
   "project-type.shader.category": {
-    "defaultMessage": "Shader"
+    "defaultMessage": "Shaders"
   },
   "project-type.shader.lowercase": {
-    "defaultMessage": "{count, plural, one {Shader} other {Shader}}"
+    "defaultMessage": "{count, plural, one {shader} other {shaders}}"
   },
   "project.about.compatibility.environments": {
-    "defaultMessage": "Unterstützte Umgebungen"
+    "defaultMessage": "Supported environments"
   },
   "project.about.compatibility.environments.client-and-server": {
-    "defaultMessage": "Client und Server"
+    "defaultMessage": "Client and server"
   },
   "project.about.compatibility.environments.client-side": {
-    "defaultMessage": "Clientseitig"
+    "defaultMessage": "Client-side"
   },
   "project.about.compatibility.environments.dedicated-servers-only": {
-    "defaultMessage": "Nur Dedizierte Server"
+    "defaultMessage": "Dedicated servers only"
   },
   "project.about.compatibility.environments.server-side": {
-    "defaultMessage": "Serverseitig"
+    "defaultMessage": "Server-side"
   },
   "project.about.compatibility.environments.singleplayer": {
-    "defaultMessage": "Einzelspieler"
+    "defaultMessage": "Singleplayer"
   },
   "project.about.compatibility.environments.singleplayer-only": {
-    "defaultMessage": "Nur Einzelspieler"
+    "defaultMessage": "Singleplayer only"
   },
   "project.about.compatibility.game.minecraftJava": {
     "defaultMessage": "Minecraft: Java Edition"
   },
   "project.about.compatibility.platforms": {
-    "defaultMessage": "Platformen"
+    "defaultMessage": "Platforms"
   },
   "project.about.compatibility.platforms-plural": {
-    "defaultMessage": "{count, plural, one {Plattform} other {Plattformen}}"
+    "defaultMessage": "{count, plural, one {Platform} other {Platforms}}"
   },
   "project.about.compatibility.title": {
-    "defaultMessage": "Kompatibilität"
+    "defaultMessage": "Compatibility"
   },
   "project.about.creators.organization": {
-    "defaultMessage": "Organisation"
+    "defaultMessage": "Organization"
   },
   "project.about.creators.owner": {
-    "defaultMessage": "Projektbesitzer"
+    "defaultMessage": "Project owner"
   },
   "project.about.creators.title": {
-    "defaultMessage": "Ersteller"
+    "defaultMessage": "Creators"
   },
   "project.about.details.created": {
-    "defaultMessage": "Erstellt {date}"
+    "defaultMessage": "Created {date}"
   },
   "project.about.details.licensed": {
-    "defaultMessage": "Lizenziert unter {license}"
+    "defaultMessage": "Licensed {license}"
   },
   "project.about.details.published": {
-    "defaultMessage": "Veröffentlicht {date}"
+    "defaultMessage": "Published {date}"
   },
   "project.about.details.submitted": {
-    "defaultMessage": "Eingereicht {date}"
+    "defaultMessage": "Submitted {date}"
   },
   "project.about.details.updated": {
-    "defaultMessage": "Aktualisiert {date}"
+    "defaultMessage": "Updated {date}"
   },
   "project.about.links.discord": {
-    "defaultMessage": "Discordserver beitreten"
+    "defaultMessage": "Join Discord server"
   },
   "project.about.links.donate.bmac": {
     "defaultMessage": "Buy Me a Coffee"
   },
   "project.about.links.donate.generic": {
-    "defaultMessage": "Spenden"
+    "defaultMessage": "Donate"
   },
   "project.about.links.donate.github": {
-    "defaultMessage": "Auf GitHub sponsorn"
+    "defaultMessage": "Sponsor on GitHub"
   },
   "project.about.links.donate.kofi": {
-    "defaultMessage": "Auf Ko-fi spenden"
+    "defaultMessage": "Donate on Ko-fi"
   },
   "project.about.links.donate.patreon": {
-    "defaultMessage": "Auf Patreon spenden"
+    "defaultMessage": "Donate on Patreon"
   },
   "project.about.links.donate.paypal": {
-    "defaultMessage": "Auf PayPal spenden"
+    "defaultMessage": "Donate on PayPal"
   },
   "project.about.links.issues": {
-    "defaultMessage": "Problem melden"
+    "defaultMessage": "Report issues"
+  },
+  "project.about.links.mcmod": {
+    "defaultMessage": "MC Mod"
   },
   "project.about.links.site": {
-    "defaultMessage": "Webseite besuchen"
+    "defaultMessage": "Visit website"
   },
   "project.about.links.source": {
-    "defaultMessage": "Quelle anzeigen"
+    "defaultMessage": "View source"
   },
   "project.about.links.store": {
-    "defaultMessage": "Shopseite besuchen"
+    "defaultMessage": "Visit store page"
   },
   "project.about.links.title": {
     "defaultMessage": "Links"
   },
   "project.about.links.wiki": {
-    "defaultMessage": "Wiki besuchen"
+    "defaultMessage": "Visit wiki"
   },
   "project.about.server.address.tooltip": {
-    "defaultMessage": "Java Serveradresse kopieren"
+    "defaultMessage": "Copy Java server address"
   },
   "project.about.server.copied": {
-    "defaultMessage": "Kopiert!"
+    "defaultMessage": "Copied!"
   },
   "project.about.server.copiedText": {
-    "defaultMessage": "Serveradresse in Zwischenablage kopiert"
+    "defaultMessage": "Server address copied to clipboard"
   },
   "project.about.server.downloadModpack": {
-    "defaultMessage": "Modpack herunterladen"
+    "defaultMessage": "Download modpack"
   },
   "project.about.server.languages": {
-    "defaultMessage": "Sprachen"
+    "defaultMessage": "Languages"
   },
   "project.about.server.recommendedVersion": {
-    "defaultMessage": "(Empfohlen)"
+    "defaultMessage": "(Recommended)"
   },
   "project.about.server.region": {
     "defaultMessage": "Region"
   },
   "project.about.server.requiredContent": {
-    "defaultMessage": "Benötigter Inhalt"
+    "defaultMessage": "Required content"
   },
   "project.about.server.title": {
-    "defaultMessage": "Serverdetails"
+    "defaultMessage": "Server details"
   },
   "project.about.tags.title": {
     "defaultMessage": "Tags"
@@ -2054,62 +3386,68 @@
   "project.download-count-tooltip": {
     "defaultMessage": "{count, number} {count, plural, one {download} other {downloads}}"
   },
+  "project.environment.tag.not-applicable": {
+    "defaultMessage": "N/A"
+  },
+  "project.environment.tag.unknown": {
+    "defaultMessage": "Unknown"
+  },
   "project.follower-count-tooltip": {
-    "defaultMessage": "{count, number} {count, plural, one {Follower} other {Follower}}"
+    "defaultMessage": "{count, number} {count, plural, one {follower} other {followers}}"
   },
   "project.online-player-count": {
     "defaultMessage": "{count, number} online"
   },
   "project.online-player-count.tooltip": {
-    "defaultMessage": "{count} {countPlural, plural, one {Spieler} other {Spieler}} online"
+    "defaultMessage": "{count} {countPlural, plural, one {player} other {players}} online"
   },
   "project.recent-plays": {
-    "defaultMessage": "{count} {countPlural, plural, one {kürzliches spiel} other {kürzliche spiele}}"
+    "defaultMessage": "{count} {countPlural, plural, one {recent play} other {recent plays}}"
   },
   "project.recent-plays.tooltip": {
-    "defaultMessage": "{count} {countPlural, plural, one {kürzliches spiel} other {kürzliche spiele}} von Modrinth in den letzten 2 Wochen"
+    "defaultMessage": "{count} {countPlural, plural, one {recent play} other {recent plays}} from Modrinth in the past 2 weeks"
   },
   "project.server.customModpackTooltip": {
-    "defaultMessage": "Diese Project verwendet ein benutzerdefiniertes Modpack"
+    "defaultMessage": "This project uses a custom modpack"
   },
   "project.server.language.af": {
     "defaultMessage": "Afrikaans"
   },
   "project.server.language.am": {
-    "defaultMessage": "Amharisch"
+    "defaultMessage": "Amharic"
   },
   "project.server.language.ar": {
-    "defaultMessage": "Arabisch"
+    "defaultMessage": "Arabic"
   },
   "project.server.language.az": {
-    "defaultMessage": "Aserbaidschanisch"
+    "defaultMessage": "Azerbaijani"
   },
   "project.server.language.be": {
-    "defaultMessage": "Belarussisch"
+    "defaultMessage": "Belarusian"
   },
   "project.server.language.bg": {
-    "defaultMessage": "Bulgarisch"
+    "defaultMessage": "Bulgarian"
   },
   "project.server.language.bn": {
-    "defaultMessage": "Bangalisch"
+    "defaultMessage": "Bengali"
   },
   "project.server.language.bs": {
-    "defaultMessage": "Bosnisch"
+    "defaultMessage": "Bosnian"
   },
   "project.server.language.ca": {
-    "defaultMessage": "Katalanisch"
+    "defaultMessage": "Catalan"
   },
   "project.server.language.cs": {
-    "defaultMessage": "Tschechisch"
+    "defaultMessage": "Czech"
   },
   "project.server.language.da": {
-    "defaultMessage": "Dänisch"
+    "defaultMessage": "Danish"
   },
   "project.server.language.de": {
-    "defaultMessage": "Deutsch"
+    "defaultMessage": "German"
   },
   "project.server.language.el": {
-    "defaultMessage": "Griechisch"
+    "defaultMessage": "Greek"
   },
   "project.server.language.en": {
     "defaultMessage": "English"
@@ -2118,175 +3456,175 @@
     "defaultMessage": "Esperanto"
   },
   "project.server.language.es": {
-    "defaultMessage": "Spanisch"
+    "defaultMessage": "Spanish"
   },
   "project.server.language.et": {
-    "defaultMessage": "Estnisch"
+    "defaultMessage": "Estonian"
   },
   "project.server.language.eu": {
-    "defaultMessage": "Baskisch"
+    "defaultMessage": "Basque"
   },
   "project.server.language.fa": {
-    "defaultMessage": "Persisch"
+    "defaultMessage": "Persian"
   },
   "project.server.language.fi": {
-    "defaultMessage": "Finnisch"
+    "defaultMessage": "Finnish"
   },
   "project.server.language.fr": {
-    "defaultMessage": "Französisch"
+    "defaultMessage": "French"
   },
   "project.server.language.ga": {
-    "defaultMessage": "Irisch"
+    "defaultMessage": "Irish"
   },
   "project.server.language.gl": {
-    "defaultMessage": "Galicisch"
+    "defaultMessage": "Galician"
   },
   "project.server.language.he": {
-    "defaultMessage": "Hebräisch"
+    "defaultMessage": "Hebrew"
   },
   "project.server.language.hi": {
     "defaultMessage": "Hindi"
   },
   "project.server.language.hr": {
-    "defaultMessage": "Kroatisch"
+    "defaultMessage": "Croatian"
   },
   "project.server.language.hu": {
-    "defaultMessage": "Ungarisch"
+    "defaultMessage": "Hungarian"
   },
   "project.server.language.hy": {
-    "defaultMessage": "Armenisch"
+    "defaultMessage": "Armenian"
   },
   "project.server.language.id": {
-    "defaultMessage": "Indonesisch"
+    "defaultMessage": "Indonesian"
   },
   "project.server.language.is": {
-    "defaultMessage": "Isländisch"
+    "defaultMessage": "Icelandic"
   },
   "project.server.language.it": {
-    "defaultMessage": "Italienisch"
+    "defaultMessage": "Italian"
   },
   "project.server.language.ja": {
-    "defaultMessage": "Japanisch"
+    "defaultMessage": "Japanese"
   },
   "project.server.language.ka": {
-    "defaultMessage": "Georgisch"
+    "defaultMessage": "Georgian"
   },
   "project.server.language.kk": {
-    "defaultMessage": "Kasachisch"
+    "defaultMessage": "Kazakh"
   },
   "project.server.language.km": {
     "defaultMessage": "Khmer"
   },
   "project.server.language.kn": {
-    "defaultMessage": "Kanaresisch"
+    "defaultMessage": "Kannada"
   },
   "project.server.language.ko": {
-    "defaultMessage": "Koreanisch"
+    "defaultMessage": "Korean"
   },
   "project.server.language.lo": {
-    "defaultMessage": "Laotisch"
+    "defaultMessage": "Lao"
   },
   "project.server.language.lt": {
-    "defaultMessage": "Litauisch"
+    "defaultMessage": "Lithuanian"
   },
   "project.server.language.lv": {
-    "defaultMessage": "Lettisch"
+    "defaultMessage": "Latvian"
   },
   "project.server.language.mk": {
-    "defaultMessage": "Mazedonisch"
+    "defaultMessage": "Macedonian"
   },
   "project.server.language.ml": {
     "defaultMessage": "Malayalam"
   },
   "project.server.language.mn": {
-    "defaultMessage": "Mongolisch"
+    "defaultMessage": "Mongolian"
   },
   "project.server.language.mr": {
-    "defaultMessage": "Marathisch"
+    "defaultMessage": "Marathi"
   },
   "project.server.language.ms": {
-    "defaultMessage": "Malaiisch"
+    "defaultMessage": "Malay"
   },
   "project.server.language.my": {
-    "defaultMessage": "Birmanisch"
+    "defaultMessage": "Burmese"
   },
   "project.server.language.ne": {
-    "defaultMessage": "Nepalisch"
+    "defaultMessage": "Nepali"
   },
   "project.server.language.nl": {
-    "defaultMessage": "Niederländisch"
+    "defaultMessage": "Dutch"
   },
   "project.server.language.no": {
-    "defaultMessage": "Norwegisch"
+    "defaultMessage": "Norwegian"
   },
   "project.server.language.pa": {
-    "defaultMessage": "Panjabi"
+    "defaultMessage": "Punjabi"
   },
   "project.server.language.pl": {
-    "defaultMessage": "Polnisch"
+    "defaultMessage": "Polish"
   },
   "project.server.language.pt": {
-    "defaultMessage": "Portugiesisch"
+    "defaultMessage": "Portuguese"
   },
   "project.server.language.ro": {
-    "defaultMessage": "Rumänisch"
+    "defaultMessage": "Romanian"
   },
   "project.server.language.ru": {
-    "defaultMessage": "Russisch"
+    "defaultMessage": "Russian"
   },
   "project.server.language.si": {
-    "defaultMessage": "Singhalesisch"
+    "defaultMessage": "Sinhala"
   },
   "project.server.language.sk": {
-    "defaultMessage": "Slowakisch"
+    "defaultMessage": "Slovak"
   },
   "project.server.language.sl": {
-    "defaultMessage": "Slowenisch"
+    "defaultMessage": "Slovenian"
   },
   "project.server.language.sq": {
-    "defaultMessage": "Albanisch"
+    "defaultMessage": "Albanian"
   },
   "project.server.language.sr": {
-    "defaultMessage": "Serbisch"
+    "defaultMessage": "Serbian"
   },
   "project.server.language.sv": {
-    "defaultMessage": "Schwedisch"
+    "defaultMessage": "Swedish"
   },
   "project.server.language.sw": {
-    "defaultMessage": "Suaheli"
+    "defaultMessage": "Swahili"
   },
   "project.server.language.ta": {
-    "defaultMessage": "Tamilisch"
+    "defaultMessage": "Tamil"
   },
   "project.server.language.te": {
     "defaultMessage": "Telugu"
   },
   "project.server.language.th": {
-    "defaultMessage": "Thailändisch"
+    "defaultMessage": "Thai"
   },
   "project.server.language.tl": {
-    "defaultMessage": "Filipinisch"
+    "defaultMessage": "Filipino"
   },
   "project.server.language.tr": {
-    "defaultMessage": "Türkisch"
+    "defaultMessage": "Turkish"
   },
   "project.server.language.uk": {
-    "defaultMessage": "Ukrainisch"
+    "defaultMessage": "Ukrainian"
   },
   "project.server.language.ur": {
     "defaultMessage": "Urdu"
   },
   "project.server.language.uz": {
-    "defaultMessage": "Usbekisch"
+    "defaultMessage": "Uzbek"
   },
   "project.server.language.vi": {
-    "defaultMessage": "Vietnamesisch"
+    "defaultMessage": "Vietnamese"
   },
   "project.server.language.yo": {
     "defaultMessage": "Yoruba"
   },
   "project.server.language.zh": {
-    "defaultMessage": "Chinesisch"
+    "defaultMessage": "Chinese"
   },
   "project.server.language.zu": {
     "defaultMessage": "Zulu"
@@ -2295,73 +3633,73 @@
     "defaultMessage": "{ping, number} ms"
   },
   "project.server.region.asia": {
-    "defaultMessage": "Asien"
+    "defaultMessage": "Asia"
   },
   "project.server.region.australia": {
-    "defaultMessage": "Australien"
+    "defaultMessage": "Australia"
   },
   "project.server.region.europe": {
-    "defaultMessage": "Europa"
+    "defaultMessage": "Europe"
   },
   "project.server.region.middle_east": {
-    "defaultMessage": "Naher Osten"
+    "defaultMessage": "Middle East"
   },
   "project.server.region.russia": {
-    "defaultMessage": "Russland"
+    "defaultMessage": "Russia"
   },
   "project.server.region.south_america": {
-    "defaultMessage": "Südamerika"
+    "defaultMessage": "South America"
   },
   "project.server.region.tooltip": {
-    "defaultMessage": "Server gehostet in {regionName}"
+    "defaultMessage": "Server hosted in {regionName}"
   },
   "project.server.region.us_east": {
-    "defaultMessage": "US-Ostküste"
+    "defaultMessage": "US East"
   },
   "project.server.region.us_west": {
-    "defaultMessage": "US-Westküste"
+    "defaultMessage": "US West"
   },
   "project.server.status.offline": {
     "defaultMessage": "Offline"
   },
   "project.server.status.offline.tooltip": {
-    "defaultMessage": "Server ist offline"
+    "defaultMessage": "Server is offline"
   },
   "project.server.status.online": {
     "defaultMessage": "Online"
   },
   "project.settings.analytics.title": {
-    "defaultMessage": "Analytiks"
+    "defaultMessage": "Analytics"
   },
   "project.settings.content.title": {
-    "defaultMessage": "Inhalt"
+    "defaultMessage": "Content"
   },
   "project.settings.description.title": {
-    "defaultMessage": "Beschreibung"
+    "defaultMessage": "Description"
   },
   "project.settings.environment.title": {
-    "defaultMessage": "Umgebung"
+    "defaultMessage": "Environment"
   },
   "project.settings.gallery.title": {
-    "defaultMessage": "Galerie"
+    "defaultMessage": "Gallery"
   },
   "project.settings.general.title": {
-    "defaultMessage": "Allgemein"
+    "defaultMessage": "General"
   },
   "project.settings.license.title": {
-    "defaultMessage": "Lizenz"
+    "defaultMessage": "License"
   },
   "project.settings.links.title": {
     "defaultMessage": "Links"
   },
   "project.settings.members.title": {
-    "defaultMessage": "Mitglieder"
+    "defaultMessage": "Members"
   },
   "project.settings.notice.no-permission.description": {
-    "defaultMessage": "Du hast keine Berechtigung um das zu bearbeiten."
+    "defaultMessage": "You don't have permission to edit this."
   },
   "project.settings.notice.no-permission.title": {
-    "defaultMessage": "Keine Berechtigung"
+    "defaultMessage": "No permission"
   },
   "project.settings.server.title": {
     "defaultMessage": "Server"
@@ -2370,16 +3708,16 @@
     "defaultMessage": "Tags"
   },
   "project.settings.upload.title": {
-    "defaultMessage": "Hochladen"
+    "defaultMessage": "Upload"
   },
   "project.settings.versions.permissions": {
-    "defaultMessage": "Berechtigungen"
+    "defaultMessage": "Permissions"
   },
   "project.settings.versions.title": {
-    "defaultMessage": "Versionen"
+    "defaultMessage": "Versions"
   },
   "project.settings.view.title": {
-    "defaultMessage": "Ansehen"
+    "defaultMessage": "View"
   },
   "project.versions.channel.alpha.symbol": {
     "defaultMessage": "A"
@@ -2390,89 +3728,164 @@
   "project.versions.channel.release.symbol": {
     "defaultMessage": "R"
   },
-  "project.versions.version.withheld": {
-    "defaultMessage": "Zurückgehalten"
+  "project.versions.filter.gameVersions": {
+    "defaultMessage": "Game versions"
   },
-  "project.versions.version.withheld.tooltip": {
-    "defaultMessage": "Version aufgrund fehlender Genehmigungen zurückgehalten"
+  "project.versions.filter.projectChannels": {
+    "defaultMessage": "Channels"
   },
-  "project.versions.withheld-versions-warning.resolve-button": {
-    "defaultMessage": "Beheben"
+  "project.versions.filter.toggle-tooltip": {
+    "defaultMessage": "Toggle filter for {filter}"
   },
-  "project.visibility.archived": {
-    "defaultMessage": "Archiviert"
+  "project.versions.no-matching-versions": {
+    "defaultMessage": "No versions match the selected filters."
   },
-  "project.visibility.draft": {
-    "defaultMessage": "Entwurf"
+  "project.versions.platform.modloader.short": {
+    "defaultMessage": "ModLoader"
   },
-  "project.visibility.private": {
-    "defaultMessage": "Privat"
+  "project.versions.table.downloads": {
+    "defaultMessage": "Downloads"
   },
-  "project.visibility.public": {
-    "defaultMessage": "Öffentlich"
+  "project.versions.table.environment": {
+    "defaultMessage": "Environment"
   },
-  "project.visibility.rejected": {
-    "defaultMessage": "Abgelehnt"
+  "project.versions.table.game-version": {
+    "defaultMessage": "Game version"
   },
-  "project.visibility.scheduled": {
-    "defaultMessage": "Geplant"
+  "project.versions.table.platform": {
+    "defaultMessage": "Platform"
   },
-  "project.visibility.under-review": {
-    "defaultMessage": "Wird überprüft"
+  "project.versions.table.published": {
+    "defaultMessage": "Published"
   },
-  "project.visibility.unknown": {
-    "defaultMessage": "Unbekannt"
-  },
-  "project.visibility.unlisted": {
-    "defaultMessage": "Nicht gelistet"
-  },
-  "project.visibility.unlisted-by-staff": {
-    "defaultMessage": "Von Mitarbeitern entlistet"
-  },
-  "report.item-type.content": {
-    "defaultMessage": "Inhalt"
-  },
-  "report.item-type.project": {
-    "defaultMessage": "Projekt"
-  },
-  "report.item-type.user": {
-    "defaultMessage": "Benutzer"
-  },
-  "report.item-type.version": {
+  "project.versions.table.version": {
     "defaultMessage": "Version"
   },
+  "project.versions.version.withheld": {
+    "defaultMessage": "Withheld"
+  },
+  "project.versions.version.withheld.tooltip": {
+    "defaultMessage": "Version withheld due to missing permissions"
+  },
+  "project.versions.withheld-versions-warning.resolve-button": {
+    "defaultMessage": "Resolve"
+  },
+  "project.visibility.archived": {
+    "defaultMessage": "Archived"
+  },
+  "project.visibility.draft": {
+    "defaultMessage": "Draft"
+  },
+  "project.visibility.private": {
+    "defaultMessage": "Private"
+  },
+  "project.visibility.public": {
+    "defaultMessage": "Public"
+  },
+  "project.visibility.rejected": {
+    "defaultMessage": "Rejected"
+  },
+  "project.visibility.scheduled": {
+    "defaultMessage": "Scheduled"
+  },
+  "project.visibility.under-review": {
+    "defaultMessage": "Under review"
+  },
+  "project.visibility.unknown": {
+    "defaultMessage": "Unknown"
+  },
+  "project.visibility.unlisted": {
+    "defaultMessage": "Unlisted"
+  },
+  "project.visibility.unlisted-by-staff": {
+    "defaultMessage": "Unlisted by staff"
+  },
+  "report.item-type.content": {
+    "defaultMessage": "content"
+  },
+  "report.item-type.project": {
+    "defaultMessage": "project"
+  },
+  "report.item-type.user": {
+    "defaultMessage": "user"
+  },
+  "report.item-type.version": {
+    "defaultMessage": "version"
+  },
+  "search.filter.dependency_type.embedded": {
+    "defaultMessage": "Embedded"
+  },
+  "search.filter.dependency_type.optional": {
+    "defaultMessage": "Optional"
+  },
+  "search.filter.dependency_type.required": {
+    "defaultMessage": "Required"
+  },
+  "search.filter.dependent_project": {
+    "defaultMessage": "Depends on: {project}"
+  },
+  "search.filter.dependent_project.search_placeholder": {
+    "defaultMessage": "Search for a project..."
+  },
+  "search.filter.excluded_projects": {
+    "defaultMessage": "Excludes: {projects}"
+  },
+  "search.filter.included_content.remove_project.tooltip": {
+    "defaultMessage": "Remove project"
+  },
+  "search.filter.included_content.search_placeholder": {
+    "defaultMessage": "Search content..."
+  },
+  "search.filter.included_projects": {
+    "defaultMessage": "Includes: {projects}"
+  },
   "search.filter.locked.default": {
-    "defaultMessage": "Filter gesperrt"
+    "defaultMessage": "Filter locked"
   },
   "search.filter.locked.default.description": {
-    "defaultMessage": "Entsperrung dieses Filters kann dir das installieren von inkompatiblen Inhalten ermöglichen."
+    "defaultMessage": "Unlocking this filter may allow you to install incompatible content."
   },
   "search.filter.locked.default.sync": {
-    "defaultMessage": "Filter synchronisieren"
+    "defaultMessage": "Sync filter"
   },
   "search.filter.locked.default.title": {
-    "defaultMessage": "{type} ist gesperrt"
+    "defaultMessage": "{type} is locked"
   },
   "search.filter.locked.default.unlock": {
-    "defaultMessage": "Filter entsperren"
+    "defaultMessage": "Unlock filter"
   },
   "search.filter.option.exclusion.add.tooltip": {
-    "defaultMessage": "Ausschliessen"
+    "defaultMessage": "Exclude"
   },
   "search.filter.option.search.clear.aria_label": {
-    "defaultMessage": "Suche löschen"
+    "defaultMessage": "Clear search"
   },
   "search.filter.option.search.placeholder": {
-    "defaultMessage": "Suchen..."
+    "defaultMessage": "Search..."
   },
   "search.filter.option.show_fewer": {
-    "defaultMessage": "Weniger Anzeigen"
+    "defaultMessage": "Show fewer"
   },
   "search.filter.option.show_more": {
-    "defaultMessage": "Mehr anzeigen"
+    "defaultMessage": "Show more"
+  },
+  "search.filter_type.advanced": {
+    "defaultMessage": "Advanced"
+  },
+  "search.filter_type.advanced.exclude_datapack": {
+    "defaultMessage": "Exclude data packs"
+  },
+  "search.filter_type.advanced.exclude_mod": {
+    "defaultMessage": "Exclude mods"
+  },
+  "search.filter_type.advanced.exclude_plugin": {
+    "defaultMessage": "Exclude plugins"
+  },
+  "search.filter_type.compatible_dependency_project_ids": {
+    "defaultMessage": "Depends on"
   },
   "search.filter_type.environment": {
-    "defaultMessage": "Umgebung"
+    "defaultMessage": "Environment"
   },
   "search.filter_type.environment.client": {
     "defaultMessage": "Client"
@@ -2481,16 +3894,19 @@
     "defaultMessage": "Server"
   },
   "search.filter_type.game_version": {
-    "defaultMessage": "Spielversion"
+    "defaultMessage": "Game version"
   },
   "search.filter_type.game_version.all_versions": {
-    "defaultMessage": "Zeige alle Versionen"
+    "defaultMessage": "Show all versions"
+  },
+  "search.filter_type.included_content": {
+    "defaultMessage": "Included content"
   },
   "search.filter_type.license": {
-    "defaultMessage": "Lizenz"
+    "defaultMessage": "License"
   },
   "search.filter_type.license.open_source": {
-    "defaultMessage": "Quelloffen"
+    "defaultMessage": "Open source"
   },
   "search.filter_type.mod_loader": {
     "defaultMessage": "Loader"
@@ -2505,13 +3921,13 @@
     "defaultMessage": "Platform"
   },
   "search.filter_type.project_id": {
-    "defaultMessage": "Projekt ID"
+    "defaultMessage": "Project ID"
   },
   "search.filter_type.server_content_type": {
-    "defaultMessage": "Art"
+    "defaultMessage": "Type"
   },
   "search.filter_type.server_language": {
-    "defaultMessage": "Sprache"
+    "defaultMessage": "Language"
   },
   "search.filter_type.server_region": {
     "defaultMessage": "Region"
@@ -2523,136 +3939,277 @@
     "defaultMessage": "Loader"
   },
   "search.server_content_type.modpack": {
-    "defaultMessage": "Modifiziert"
+    "defaultMessage": "Modded"
   },
   "search.server_content_type.vanilla": {
     "defaultMessage": "Vanilla"
   },
   "servers.notice.dismissable": {
-    "defaultMessage": "Entfernbar"
+    "defaultMessage": "Dismissable"
   },
   "servers.notice.level.critical.name": {
-    "defaultMessage": "Kritisch"
+    "defaultMessage": "Critical"
   },
   "servers.notice.level.info.name": {
     "defaultMessage": "Info"
   },
   "servers.notice.level.survey.name": {
-    "defaultMessage": "Umfrage"
+    "defaultMessage": "Survey"
   },
   "servers.notice.level.warn.name": {
-    "defaultMessage": "Warnung"
+    "defaultMessage": "Warning"
   },
   "servers.notice.undismissable": {
-    "defaultMessage": "Nicht entfernbar"
+    "defaultMessage": "Undismissable"
   },
   "servers.region.australia": {
-    "defaultMessage": "Australien"
+    "defaultMessage": "Australia"
   },
   "servers.region.central-europe": {
-    "defaultMessage": "Zentraleuropa"
+    "defaultMessage": "Central Europe"
   },
   "servers.region.north-america-central": {
-    "defaultMessage": "Zentrales Nordamerika"
+    "defaultMessage": "Central North America"
   },
   "servers.region.north-america-east": {
-    "defaultMessage": "Östliches Nordamerika"
+    "defaultMessage": "Eastern North America"
   },
   "servers.region.north-america-west": {
-    "defaultMessage": "Westliches Nordamerika"
+    "defaultMessage": "Western North America"
   },
   "servers.region.southeast-asia": {
-    "defaultMessage": "Südostasien"
+    "defaultMessage": "Southeast Asia"
   },
   "servers.region.western-europe": {
-    "defaultMessage": "Westeuropa"
+    "defaultMessage": "Western Europe"
   },
   "servers.setup.upload-warning": {
-    "defaultMessage": "Bitte schliesse dieses Fenster währen dem Upload nicht."
+    "defaultMessage": "Please don't close this page while uploading."
   },
   "servers.setup.uploading-modpack.header": {
-    "defaultMessage": "Modpack hochladen"
+    "defaultMessage": "Uploading modpack"
   },
   "settings.account.title": {
-    "defaultMessage": "Konto und Sicherheit"
+    "defaultMessage": "Account and security"
   },
   "settings.appearance.title": {
-    "defaultMessage": "Erscheinungsbild"
+    "defaultMessage": "Appearance"
   },
   "settings.applications.title": {
-    "defaultMessage": "Deine Anwendungen"
+    "defaultMessage": "Your applications"
   },
   "settings.authorized-apps.title": {
-    "defaultMessage": "Autorisierte Apps"
+    "defaultMessage": "Authorized apps"
   },
   "settings.display.theme.dark": {
-    "defaultMessage": "Dunkel"
+    "defaultMessage": "Dark"
   },
   "settings.display.theme.description": {
-    "defaultMessage": "Wähle dein bevorzugtes Farbschema für Modrinth auf diesem Gerät."
+    "defaultMessage": "Select your preferred color theme for Modrinth on this device."
   },
   "settings.display.theme.light": {
-    "defaultMessage": "Hell"
+    "defaultMessage": "Light"
   },
   "settings.display.theme.oled": {
     "defaultMessage": "OLED"
   },
   "settings.display.theme.preferred-dark-theme": {
-    "defaultMessage": "Bevorzugtes dunkles Design"
+    "defaultMessage": "Preferred dark theme"
   },
   "settings.display.theme.preferred-light-theme": {
-    "defaultMessage": "Bevorzugtes helles Design"
+    "defaultMessage": "Preferred light theme"
   },
   "settings.display.theme.retro": {
     "defaultMessage": "Retro"
   },
   "settings.display.theme.system": {
-    "defaultMessage": "Mit System synchronisieren"
+    "defaultMessage": "Sync with system"
   },
   "settings.display.theme.title": {
-    "defaultMessage": "Farbschema"
+    "defaultMessage": "Color theme"
   },
   "settings.feature-flags.title": {
-    "defaultMessage": "Funktionsflags"
+    "defaultMessage": "Feature flags"
   },
   "settings.language.categories.default": {
-    "defaultMessage": "Standardsprachen"
+    "defaultMessage": "Standard languages"
   },
   "settings.language.categories.search-result": {
-    "defaultMessage": "Suchergebnisse"
+    "defaultMessage": "Search results"
   },
   "settings.language.description": {
-    "defaultMessage": "Wähle deine bevorzugte Sprache für {platform}. Übersetzungen werden von Freiwilligen <crowdin-link>auf Crowdin</crowdin-link> beigetragen."
+    "defaultMessage": "Choose your preferred language for the {platform}. Translations are contributed by volunteers <crowdin-link>on Crowdin</crowdin-link>."
   },
   "settings.language.languages.search-field.placeholder": {
-    "defaultMessage": "Nach Sprache suchen..."
+    "defaultMessage": "Search for a language..."
   },
   "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Keine Sprache passt} one {# Sprache passt} other {# Sprachen passen}} zu deiner Suche."
+    "defaultMessage": "{matches, plural, =0 {No languages match} one {# language matches} other {# languages match}} your search."
   },
   "settings.language.languages.search.no-results": {
-    "defaultMessage": "Keine Sprache entspricht deiner Suche."
+    "defaultMessage": "No languages match your search."
   },
   "settings.language.platform.app": {
-    "defaultMessage": "App"
+    "defaultMessage": "app"
   },
   "settings.language.platform.site": {
-    "defaultMessage": "Seite"
+    "defaultMessage": "site"
   },
   "settings.language.title": {
-    "defaultMessage": "Sprache"
+    "defaultMessage": "Language"
   },
   "settings.language.warning": {
-    "defaultMessage": "Das Ändern der Sprache von {platform} kann dazu führen, dass einige Inhalte auf Englisch angezeigt werden, wenn keine Übersetzung verfügbar ist. {platform} ist noch nicht vollständig übersetzt, daher können für bestimmte Sprachen einige Inhalte weiterhin auf Englisch erscheinen."
+    "defaultMessage": "Changing the {platform} language may cause some content to appear in English if a translation is not available. The {platform} is not yet fully translated, so some content may remain in English for certain languages."
   },
   "settings.pats.title": {
-    "defaultMessage": "Persöhnlich Zugangstoken"
+    "defaultMessage": "Personal access tokens"
   },
   "settings.profile.title": {
-    "defaultMessage": "Öffentliches Profil"
+    "defaultMessage": "Public profile"
   },
   "settings.sessions.title": {
-    "defaultMessage": "Sitzungen"
+    "defaultMessage": "Sessions"
+  },
+  "skin.preview.armor.equip-material": {
+    "defaultMessage": "{material} {slot}"
+  },
+  "skin.preview.armor.material": {
+    "defaultMessage": "Armor material"
+  },
+  "skin.preview.armor.material.chainmail": {
+    "defaultMessage": "Chainmail"
+  },
+  "skin.preview.armor.material.copper": {
+    "defaultMessage": "Copper"
+  },
+  "skin.preview.armor.material.diamond": {
+    "defaultMessage": "Diamond"
+  },
+  "skin.preview.armor.material.gold": {
+    "defaultMessage": "Gold"
+  },
+  "skin.preview.armor.material.iron": {
+    "defaultMessage": "Iron"
+  },
+  "skin.preview.armor.material.leather": {
+    "defaultMessage": "Leather"
+  },
+  "skin.preview.armor.material.netherite": {
+    "defaultMessage": "Netherite"
+  },
+  "skin.preview.armor.material.turtle": {
+    "defaultMessage": "Turtle Shell"
+  },
+  "skin.preview.armor.open": {
+    "defaultMessage": "Armor and trims"
+  },
+  "skin.preview.armor.piece": {
+    "defaultMessage": "Armor piece"
+  },
+  "skin.preview.armor.remove-piece": {
+    "defaultMessage": "Remove {slot}"
+  },
+  "skin.preview.armor.remove-trim": {
+    "defaultMessage": "No armor trim"
+  },
+  "skin.preview.armor.slot-state": {
+    "defaultMessage": "{slot}: {state}"
+  },
+  "skin.preview.armor.slot.boots": {
+    "defaultMessage": "Boots"
+  },
+  "skin.preview.armor.slot.chestplate": {
+    "defaultMessage": "Chestplate"
+  },
+  "skin.preview.armor.slot.helmet": {
+    "defaultMessage": "Helmet"
+  },
+  "skin.preview.armor.slot.leggings": {
+    "defaultMessage": "Leggings"
+  },
+  "skin.preview.armor.trim-material": {
+    "defaultMessage": "Trim material"
+  },
+  "skin.preview.armor.trim-material.amethyst": {
+    "defaultMessage": "Amethyst"
+  },
+  "skin.preview.armor.trim-material.emerald": {
+    "defaultMessage": "Emerald"
+  },
+  "skin.preview.armor.trim-material.lapis": {
+    "defaultMessage": "Lapis Lazuli"
+  },
+  "skin.preview.armor.trim-material.quartz": {
+    "defaultMessage": "Quartz"
+  },
+  "skin.preview.armor.trim-material.redstone": {
+    "defaultMessage": "Redstone"
+  },
+  "skin.preview.armor.trim-material.resin": {
+    "defaultMessage": "Resin Brick"
+  },
+  "skin.preview.armor.trim-pattern": {
+    "defaultMessage": "Trim pattern"
+  },
+  "skin.preview.armor.trim.bolt": {
+    "defaultMessage": "Bolt Armor Trim"
+  },
+  "skin.preview.armor.trim.coast": {
+    "defaultMessage": "Coast Armor Trim"
+  },
+  "skin.preview.armor.trim.dune": {
+    "defaultMessage": "Dune Armor Trim"
+  },
+  "skin.preview.armor.trim.eye": {
+    "defaultMessage": "Eye Armor Trim"
+  },
+  "skin.preview.armor.trim.flow": {
+    "defaultMessage": "Flow Armor Trim"
+  },
+  "skin.preview.armor.trim.host": {
+    "defaultMessage": "Host Armor Trim"
+  },
+  "skin.preview.armor.trim.raiser": {
+    "defaultMessage": "Raiser Armor Trim"
+  },
+  "skin.preview.armor.trim.rib": {
+    "defaultMessage": "Rib Armor Trim"
+  },
+  "skin.preview.armor.trim.sentry": {
+    "defaultMessage": "Sentry Armor Trim"
+  },
+  "skin.preview.armor.trim.shaper": {
+    "defaultMessage": "Shaper Armor Trim"
+  },
+  "skin.preview.armor.trim.silence": {
+    "defaultMessage": "Silence Armor Trim"
+  },
+  "skin.preview.armor.trim.snout": {
+    "defaultMessage": "Snout Armor Trim"
+  },
+  "skin.preview.armor.trim.spire": {
+    "defaultMessage": "Spire Armor Trim"
+  },
+  "skin.preview.armor.trim.tide": {
+    "defaultMessage": "Tide Armor Trim"
+  },
+  "skin.preview.armor.trim.vex": {
+    "defaultMessage": "Vex Armor Trim"
+  },
+  "skin.preview.armor.trim.ward": {
+    "defaultMessage": "Ward Armor Trim"
+  },
+  "skin.preview.armor.trim.wayfinder": {
+    "defaultMessage": "Wayfinder Armor Trim"
+  },
+  "skin.preview.armor.trim.wild": {
+    "defaultMessage": "Wild Armor Trim"
+  },
+  "skin.preview.armor.unequipped": {
+    "defaultMessage": "Unequipped"
+  },
+  "skin.preview.drag-to-rotate": {
+    "defaultMessage": "Drag to rotate"
   },
   "tag.category.128x": {
     "defaultMessage": "128x"
@@ -2670,25 +4227,25 @@
     "defaultMessage": "48x"
   },
   "tag.category.512x+": {
-    "defaultMessage": "512x oder höher"
+    "defaultMessage": "512x or higher"
   },
   "tag.category.64x": {
     "defaultMessage": "64x"
   },
   "tag.category.8x-": {
-    "defaultMessage": "8x oder kleiner"
+    "defaultMessage": "8x or lower"
   },
   "tag.category.adventure": {
-    "defaultMessage": "Abenteuer"
+    "defaultMessage": "Adventure"
   },
   "tag.category.adventure-mode": {
-    "defaultMessage": "Abenteuermodus"
+    "defaultMessage": "Adventure Mode"
   },
   "tag.category.anarchy": {
-    "defaultMessage": "Anarchie"
+    "defaultMessage": "Anarchy"
   },
   "tag.category.atmosphere": {
-    "defaultMessage": "Atmosphäre"
+    "defaultMessage": "Atmosphere"
   },
   "tag.category.audio": {
     "defaultMessage": "Audio"
@@ -2700,37 +4257,37 @@
     "defaultMessage": "Bed Wars"
   },
   "tag.category.blocks": {
-    "defaultMessage": "Blöcke"
+    "defaultMessage": "Blocks"
   },
   "tag.category.bloom": {
     "defaultMessage": "Bloom"
   },
   "tag.category.bosses": {
-    "defaultMessage": "Bosse"
+    "defaultMessage": "Bosses"
   },
   "tag.category.cartoon": {
     "defaultMessage": "Cartoon"
   },
   "tag.category.challenging": {
-    "defaultMessage": "Herausfordernd"
+    "defaultMessage": "Challenging"
   },
   "tag.category.classes": {
-    "defaultMessage": "Klassen"
+    "defaultMessage": "Classes"
   },
   "tag.category.colored-lighting": {
-    "defaultMessage": "Farbige Beleuchtung"
+    "defaultMessage": "Colored Lighting"
   },
   "tag.category.combat": {
-    "defaultMessage": "Kampf"
+    "defaultMessage": "Combat"
   },
   "tag.category.competitive": {
-    "defaultMessage": "Kompetitiv"
+    "defaultMessage": "Competitive"
   },
   "tag.category.core-shaders": {
-    "defaultMessage": "Kern-Shader"
+    "defaultMessage": "Core Shaders"
   },
   "tag.category.creative-mode": {
-    "defaultMessage": "Kreativmodus"
+    "defaultMessage": "Creative Mode"
   },
   "tag.category.creator-community": {
     "defaultMessage": "Creator Community"
@@ -2739,46 +4296,46 @@
     "defaultMessage": "Crossplay"
   },
   "tag.category.cursed": {
-    "defaultMessage": "Komisch"
+    "defaultMessage": "Cursed"
   },
   "tag.category.custom-content": {
-    "defaultMessage": "Benutzerdefinierter Inhalt"
+    "defaultMessage": "Custom Content"
   },
   "tag.category.decoration": {
-    "defaultMessage": "Dekoration"
+    "defaultMessage": "Decoration"
   },
   "tag.category.dungeons": {
     "defaultMessage": "Dungeons"
   },
   "tag.category.economy": {
-    "defaultMessage": "Wirtschaft"
+    "defaultMessage": "Economy"
   },
   "tag.category.entities": {
     "defaultMessage": "Entities"
   },
   "tag.category.environment": {
-    "defaultMessage": "Umgebung"
+    "defaultMessage": "Environment"
   },
   "tag.category.equipment": {
-    "defaultMessage": "Ausrüstung"
+    "defaultMessage": "Equipment"
   },
   "tag.category.factions": {
-    "defaultMessage": "Fraktionen"
+    "defaultMessage": "Factions"
   },
   "tag.category.fantasy": {
     "defaultMessage": "Fantasy"
   },
   "tag.category.foliage": {
-    "defaultMessage": "Laub"
+    "defaultMessage": "Foliage"
   },
   "tag.category.fonts": {
-    "defaultMessage": "Schriftarten"
+    "defaultMessage": "Fonts"
   },
   "tag.category.food": {
-    "defaultMessage": "Essen"
+    "defaultMessage": "Food"
   },
   "tag.category.game-mechanics": {
-    "defaultMessage": "Spielemechaniken"
+    "defaultMessage": "Game Mechanics"
   },
   "tag.category.gens": {
     "defaultMessage": "Gens"
@@ -2787,58 +4344,58 @@
     "defaultMessage": "GUI"
   },
   "tag.category.hardcore-mode": {
-    "defaultMessage": "Hardcore-Modus"
+    "defaultMessage": "Hardcore Mode"
   },
   "tag.category.high": {
-    "defaultMessage": "Hoch"
+    "defaultMessage": "High"
   },
   "tag.category.items": {
     "defaultMessage": "Items"
   },
   "tag.category.keep-inventory": {
-    "defaultMessage": "Behalte Inventar"
+    "defaultMessage": "Keep Inventory"
   },
   "tag.category.kitchen-sink": {
-    "defaultMessage": "Von allem etwas"
+    "defaultMessage": "Kitchen Sink"
   },
   "tag.category.kitpvp": {
-    "defaultMessage": "Kit-PvP"
+    "defaultMessage": "Kit PvP"
   },
   "tag.category.library": {
-    "defaultMessage": "Bibliothek"
+    "defaultMessage": "Library"
   },
   "tag.category.lifesteal": {
     "defaultMessage": "Lifesteal"
   },
   "tag.category.lightweight": {
-    "defaultMessage": "Anspruchslos"
+    "defaultMessage": "Lightweight"
   },
   "tag.category.locale": {
-    "defaultMessage": "Sprache"
+    "defaultMessage": "Locale"
   },
   "tag.category.low": {
-    "defaultMessage": "Niedrig"
+    "defaultMessage": "Low"
   },
   "tag.category.magic": {
-    "defaultMessage": "Magie"
+    "defaultMessage": "Magic"
   },
   "tag.category.management": {
-    "defaultMessage": "Verwaltung"
+    "defaultMessage": "Management"
   },
   "tag.category.media": {
-    "defaultMessage": "Medien"
+    "defaultMessage": "Media"
   },
   "tag.category.medium": {
-    "defaultMessage": "Mittel"
+    "defaultMessage": "Medium"
   },
   "tag.category.microgames": {
-    "defaultMessage": "Microspiele"
+    "defaultMessage": "Microgames"
   },
   "tag.category.minigame": {
-    "defaultMessage": "Minispiel"
+    "defaultMessage": "Minigame"
   },
   "tag.category.minigames": {
-    "defaultMessage": "Minispiele"
+    "defaultMessage": "Minigames"
   },
   "tag.category.mmo": {
     "defaultMessage": "MMO"
@@ -2847,40 +4404,40 @@
     "defaultMessage": "Mobs"
   },
   "tag.category.modded": {
-    "defaultMessage": "Modifiziert"
+    "defaultMessage": "Modded"
   },
   "tag.category.models": {
-    "defaultMessage": "Modelle"
+    "defaultMessage": "Models"
   },
   "tag.category.multiplayer": {
-    "defaultMessage": "Mehrspieler"
+    "defaultMessage": "Multiplayer"
   },
   "tag.category.network": {
-    "defaultMessage": "Netzwerk"
+    "defaultMessage": "Network"
   },
   "tag.category.offline-mode": {
-    "defaultMessage": "Offline-Modus"
+    "defaultMessage": "Offline Mode"
   },
   "tag.category.oneblock": {
-    "defaultMessage": "Ein Block"
+    "defaultMessage": "One Block"
   },
   "tag.category.op": {
     "defaultMessage": "OP"
   },
   "tag.category.optimization": {
-    "defaultMessage": "Optimierung"
+    "defaultMessage": "Optimization"
   },
   "tag.category.parkour": {
     "defaultMessage": "Parkour"
   },
   "tag.category.path-tracing": {
-    "defaultMessage": "Pfadverfolgung"
+    "defaultMessage": "Path Tracing"
   },
   "tag.category.pbr": {
     "defaultMessage": "PBR"
   },
   "tag.category.personal-worlds": {
-    "defaultMessage": "Persöhnliche Welten"
+    "defaultMessage": "Personal Worlds"
   },
   "tag.category.plots": {
     "defaultMessage": "Plots"
@@ -2889,10 +4446,10 @@
     "defaultMessage": "Pokémon"
   },
   "tag.category.potato": {
-    "defaultMessage": "Kartoffel"
+    "defaultMessage": "Potato"
   },
   "tag.category.prison": {
-    "defaultMessage": "Gefängnis"
+    "defaultMessage": "Prison"
   },
   "tag.category.pve": {
     "defaultMessage": "PvE"
@@ -2901,91 +4458,91 @@
     "defaultMessage": "PvP"
   },
   "tag.category.questing": {
-    "defaultMessage": "Quests"
+    "defaultMessage": "Questing"
   },
   "tag.category.quests": {
-    "defaultMessage": "Aufgaben"
+    "defaultMessage": "Quests"
   },
   "tag.category.racing": {
-    "defaultMessage": "Rennen"
+    "defaultMessage": "Racing"
   },
   "tag.category.realistic": {
-    "defaultMessage": "Realistisch"
+    "defaultMessage": "Realistic"
   },
   "tag.category.recording-smp": {
-    "defaultMessage": "Aufgenommenes SMP"
+    "defaultMessage": "Recording SMP"
   },
   "tag.category.reflections": {
-    "defaultMessage": "Reflektionen"
+    "defaultMessage": "Reflections"
   },
   "tag.category.roleplay": {
-    "defaultMessage": "Rollenspiel"
+    "defaultMessage": "Roleplay"
   },
   "tag.category.rpg": {
     "defaultMessage": "RPG"
   },
   "tag.category.screenshot": {
-    "defaultMessage": "Screenshots"
+    "defaultMessage": "Screenshot"
   },
   "tag.category.semi-realistic": {
-    "defaultMessage": "Semi-realistisch"
+    "defaultMessage": "Semi Realistic"
   },
   "tag.category.shadows": {
-    "defaultMessage": "Schatten"
+    "defaultMessage": "Shadows"
   },
   "tag.category.simplistic": {
-    "defaultMessage": "Simpel"
+    "defaultMessage": "Simplistic"
   },
   "tag.category.skyblock": {
-    "defaultMessage": "SkyBlock"
+    "defaultMessage": "Skyblock"
   },
   "tag.category.smp": {
     "defaultMessage": "SMP"
   },
   "tag.category.social": {
-    "defaultMessage": "Soziales"
+    "defaultMessage": "Social"
   },
   "tag.category.storage": {
-    "defaultMessage": "Lagerung"
+    "defaultMessage": "Storage"
   },
   "tag.category.survival-mode": {
-    "defaultMessage": "Überlebensmodus"
+    "defaultMessage": "Survival Mode"
   },
   "tag.category.teams": {
     "defaultMessage": "Teams"
   },
   "tag.category.technical": {
-    "defaultMessage": "Technisch"
+    "defaultMessage": "Technical"
   },
   "tag.category.technology": {
-    "defaultMessage": "Technologie"
+    "defaultMessage": "Technology"
   },
   "tag.category.themed": {
-    "defaultMessage": "Thematisiert"
+    "defaultMessage": "Themed"
   },
   "tag.category.towns": {
-    "defaultMessage": "Städte"
+    "defaultMessage": "Towns"
   },
   "tag.category.transportation": {
     "defaultMessage": "Transportation"
   },
   "tag.category.tweaks": {
-    "defaultMessage": "Optimierungen"
+    "defaultMessage": "Tweaks"
   },
   "tag.category.utility": {
-    "defaultMessage": "Funktionalität"
+    "defaultMessage": "Utility"
   },
   "tag.category.vanilla-like": {
-    "defaultMessage": "Vanilla-ähnlich"
+    "defaultMessage": "Vanilla Like"
   },
   "tag.category.whitelisted": {
-    "defaultMessage": "Whitelist"
+    "defaultMessage": "Whitelisted"
   },
   "tag.category.world-resets": {
-    "defaultMessage": "Welt zurücksetzungen"
+    "defaultMessage": "World Resets"
   },
   "tag.category.worldgen": {
-    "defaultMessage": "Weltgenerierung"
+    "defaultMessage": "World Generation"
   },
   "tag.loader.babric": {
     "defaultMessage": "Babric"
@@ -3000,10 +4557,10 @@
     "defaultMessage": "BungeeCord"
   },
   "tag.loader.canvas": {
-    "defaultMessage": "Leinwand"
+    "defaultMessage": "Canvas"
   },
   "tag.loader.datapack": {
-    "defaultMessage": "Datenpaket"
+    "defaultMessage": "Data Pack"
   },
   "tag.loader.fabric": {
     "defaultMessage": "Fabric"
@@ -3015,7 +4572,7 @@
     "defaultMessage": "Forge"
   },
   "tag.loader.geyser": {
-    "defaultMessage": "Geyser Erweiterung"
+    "defaultMessage": "Geyser Extension"
   },
   "tag.loader.iris": {
     "defaultMessage": "Iris"
@@ -3024,19 +4581,19 @@
     "defaultMessage": "Java Agent"
   },
   "tag.loader.legacy-fabric": {
-    "defaultMessage": "Altes Fabric"
+    "defaultMessage": "Legacy Fabric"
   },
   "tag.loader.liteloader": {
     "defaultMessage": "LiteLoader"
   },
   "tag.loader.minecraft": {
-    "defaultMessage": "Ressourcenpaket"
+    "defaultMessage": "Resource Pack"
   },
   "tag.loader.modloader": {
     "defaultMessage": "Risugami's ModLoader"
   },
   "tag.loader.mrpack": {
-    "defaultMessage": "Modpaket"
+    "defaultMessage": "Modpack"
   },
   "tag.loader.neoforge": {
     "defaultMessage": "NeoForge"
@@ -3078,19 +4635,154 @@
     "defaultMessage": "Waterfall"
   },
   "ui.confirm-leave-modal.body": {
-    "defaultMessage": "Du hast ungespeicherte Änderungen, die verloren gehen, wenn du diese Seite verlässt."
+    "defaultMessage": "You have unsaved changes that will be lost if you leave this page."
   },
   "ui.confirm-leave-modal.header": {
-    "defaultMessage": "Du hast ungespeicherte Änderungen"
+    "defaultMessage": "You have unsaved changes"
   },
   "ui.confirm-leave-modal.leave": {
-    "defaultMessage": "Seite verlassen"
+    "defaultMessage": "Leave page"
   },
   "ui.confirm-leave-modal.stay": {
-    "defaultMessage": "Auf Seite bleiben"
+    "defaultMessage": "Stay on page"
   },
   "ui.confirm-leave-modal.title": {
-    "defaultMessage": "Seite verlassen?"
+    "defaultMessage": "Leave page?"
+  },
+  "ui.keybinding-modal.alt": {
+    "defaultMessage": "Alt"
+  },
+  "ui.keybinding-modal.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "ui.keybinding-modal.capture-hint": {
+    "defaultMessage": "Then press the keys you want this shortcut to use."
+  },
+  "ui.keybinding-modal.capture-title": {
+    "defaultMessage": "Click here to record"
+  },
+  "ui.keybinding-modal.current": {
+    "defaultMessage": "Current shortcut"
+  },
+  "ui.keybinding-modal.device-keyboard": {
+    "defaultMessage": "Keyboard"
+  },
+  "ui.keybinding-modal.device-mouse": {
+    "defaultMessage": "Mouse"
+  },
+  "ui.keybinding-modal.group-digits": {
+    "defaultMessage": "Digits"
+  },
+  "ui.keybinding-modal.group-function": {
+    "defaultMessage": "Function keys"
+  },
+  "ui.keybinding-modal.group-letters": {
+    "defaultMessage": "Letters"
+  },
+  "ui.keybinding-modal.group-mouse-buttons": {
+    "defaultMessage": "Buttons"
+  },
+  "ui.keybinding-modal.group-navigation": {
+    "defaultMessage": "Navigation keys"
+  },
+  "ui.keybinding-modal.group-punctuation": {
+    "defaultMessage": "Punctuation"
+  },
+  "ui.keybinding-modal.group-wheel": {
+    "defaultMessage": "Wheel"
+  },
+  "ui.keybinding-modal.issue-conflict": {
+    "defaultMessage": "Already used by {label}."
+  },
+  "ui.keybinding-modal.issue-needs-modifier": {
+    "defaultMessage": "Hold Ctrl/Cmd, Alt or Shift as well, or pick a function or navigation key."
+  },
+  "ui.keybinding-modal.issue-reserved": {
+    "defaultMessage": "{label} is reserved by the launcher."
+  },
+  "ui.keybinding-modal.listening-hint": {
+    "defaultMessage": "Press the keys you want to use."
+  },
+  "ui.keybinding-modal.listening-title": {
+    "defaultMessage": "Listening…"
+  },
+  "ui.keybinding-modal.mismatch": {
+    "defaultMessage": "That was a different combination, so recording started again."
+  },
+  "ui.keybinding-modal.mod": {
+    "defaultMessage": "Ctrl/Cmd"
+  },
+  "ui.keybinding-modal.modifiers": {
+    "defaultMessage": "Modifiers"
+  },
+  "ui.keybinding-modal.mouse-back": {
+    "defaultMessage": "Back button"
+  },
+  "ui.keybinding-modal.mouse-forward": {
+    "defaultMessage": "Forward button"
+  },
+  "ui.keybinding-modal.mouse-left": {
+    "defaultMessage": "Left click"
+  },
+  "ui.keybinding-modal.mouse-middle": {
+    "defaultMessage": "Middle click"
+  },
+  "ui.keybinding-modal.mouse-right": {
+    "defaultMessage": "Right click"
+  },
+  "ui.keybinding-modal.nothing-captured": {
+    "defaultMessage": "No key was recorded."
+  },
+  "ui.keybinding-modal.restore-default": {
+    "defaultMessage": "Restore default"
+  },
+  "ui.keybinding-modal.save": {
+    "defaultMessage": "Save"
+  },
+  "ui.keybinding-modal.shift": {
+    "defaultMessage": "Shift"
+  },
+  "ui.keybinding-modal.special-hint": {
+    "defaultMessage": "Mouse buttons, the wheel and combinations with them can only be picked here."
+  },
+  "ui.keybinding-modal.title": {
+    "defaultMessage": "Set a shortcut"
+  },
+  "ui.keybinding-modal.title-for": {
+    "defaultMessage": "Shortcut for {action}"
+  },
+  "ui.keybinding-modal.tree-label": {
+    "defaultMessage": "Inputs a shortcut can use"
+  },
+  "ui.keybinding-modal.unset": {
+    "defaultMessage": "Not set"
+  },
+  "ui.keybinding-modal.use-capture": {
+    "defaultMessage": "Record a combination instead"
+  },
+  "ui.keybinding-modal.use-special": {
+    "defaultMessage": "Pick an input another way"
+  },
+  "ui.keybinding-modal.verified-hint": {
+    "defaultMessage": "Confirmed. Save to use this shortcut."
+  },
+  "ui.keybinding-modal.verified-title": {
+    "defaultMessage": "Confirmed"
+  },
+  "ui.keybinding-modal.verifying-hint": {
+    "defaultMessage": "This checks the combination was recorded correctly."
+  },
+  "ui.keybinding-modal.verifying-title": {
+    "defaultMessage": "Press it again to confirm"
+  },
+  "ui.keybinding-modal.wheel-down": {
+    "defaultMessage": "Wheel down"
+  },
+  "ui.keybinding-modal.wheel-up": {
+    "defaultMessage": "Wheel up"
+  },
+  "ui.scroll-to-top.tooltip": {
+    "defaultMessage": "Scroll to top"
   },
   "version.content.name": {
     "defaultMessage": "Name"
@@ -3099,87 +4791,93 @@
     "defaultMessage": "Version"
   },
   "version.file-type.dev-jar": {
-    "defaultMessage": "Dev-JAR"
+    "defaultMessage": "Dev jar"
   },
   "version.file-type.javadoc-jar": {
-    "defaultMessage": "Javadoc-JAR"
+    "defaultMessage": "Javadoc jar"
   },
   "version.file-type.optional-resource-pack": {
-    "defaultMessage": "Optionales Ressourcenpaket"
+    "defaultMessage": "Optional resource pack"
   },
   "version.file-type.primary": {
-    "defaultMessage": "Primär"
+    "defaultMessage": "Primary"
   },
   "version.file-type.required-resource-pack": {
-    "defaultMessage": "Erforderliches Ressourcenpaket"
+    "defaultMessage": "Required resource pack"
   },
   "version.file-type.signature": {
-    "defaultMessage": "Signaturdatei"
+    "defaultMessage": "Signature file"
   },
   "version.file-type.sources-jar": {
-    "defaultMessage": "Quellen-JAR"
+    "defaultMessage": "Source jar"
   },
   "version.file-type.unknown": {
-    "defaultMessage": "Andere"
+    "defaultMessage": "Other"
   },
   "version.section.changes": {
-    "defaultMessage": "Änderungen"
+    "defaultMessage": "Changes"
   },
   "version.section.compatibility": {
-    "defaultMessage": "Kompatibilität"
+    "defaultMessage": "Compatibility"
   },
   "version.section.content": {
-    "defaultMessage": "Inhalt"
+    "defaultMessage": "Content"
   },
   "version.section.content.search-placeholder": {
-    "defaultMessage": "Inhalt durchsuchen..."
+    "defaultMessage": "Search content..."
   },
   "version.section.dependencies.any-compatible-version": {
-    "defaultMessage": "Beliebige kompatible Version"
+    "defaultMessage": "Any compatible version"
   },
   "version.section.dependencies.any-version": {
-    "defaultMessage": "Beliebige Version"
+    "defaultMessage": "Any version"
   },
   "version.section.dependencies.unavailable-version": {
-    "defaultMessage": "Nicht verfügbare Version"
+    "defaultMessage": "Unavailable version"
   },
   "version.section.dependencies.unavailable-version.description": {
-    "defaultMessage": "Diese Version wurde eventuell gelöscht oder wird derzeit von Moderatoren geprüft."
+    "defaultMessage": "This version may have been deleted or is being reviewed by moderators."
   },
   "version.section.dependencies.unavailable-version.description.required": {
-    "defaultMessage": "Diese erforderliche Version wurde eventuell gelöscht oder wird derzeit von Moderatoren geprüft."
+    "defaultMessage": "The required version may have been deleted or is being reviewed by moderators."
   },
   "version.section.files": {
-    "defaultMessage": "Dateien"
+    "defaultMessage": "Files"
   },
   "version.section.included-content": {
-    "defaultMessage": "Enthaltener Inhalte"
+    "defaultMessage": "Included content"
   },
   "version.section.known-incompatibilities": {
-    "defaultMessage": "Bekannte Inkompatibilitäten"
+    "defaultMessage": "Known incompatibilities"
   },
   "version.section.no-changes": {
-    "defaultMessage": "Es wurde kein Änderungsprotokoll bereitgestellt."
+    "defaultMessage": "No changelog was provided."
   },
   "version.section.no-modpack-mod-loader": {
-    "defaultMessage": "Kein Modloader"
+    "defaultMessage": "No mod loader"
   },
   "version.section.optional-dependencies": {
-    "defaultMessage": "Optionale Abhängigkeiten"
+    "defaultMessage": "Optional dependencies"
   },
   "version.section.required-content": {
-    "defaultMessage": "Benötigte Inhalte"
+    "defaultMessage": "Required content"
   },
   "version.section.supplementary-resources": {
-    "defaultMessage": "Ergänzende Ressourcen"
+    "defaultMessage": "Supplementary resources"
+  },
+  "version.summary.view-version": {
+    "defaultMessage": "View version"
   },
   "version.supplementary-resources.file": {
-    "defaultMessage": "Datei"
+    "defaultMessage": "File"
   },
   "version.supplementary-resources.size": {
-    "defaultMessage": "Größe"
+    "defaultMessage": "Size"
   },
   "version.supplementary-resources.type": {
-    "defaultMessage": "Typ"
+    "defaultMessage": "Type"
+  },
+  "version.uploaded-by": {
+    "defaultMessage": "Uploaded by"
   }
 }

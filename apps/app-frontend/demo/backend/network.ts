@@ -1,3 +1,5 @@
+import type { RemoteAnnouncement } from '@/helpers/remote-announcements'
+
 import announcements from '../data/announcements.json'
 
 type Route = { matches: (url: URL) => boolean; respond: (url: URL) => Response }
@@ -9,12 +11,19 @@ function json(body: unknown) {
     })
 }
 
+let shownAnnouncements: RemoteAnnouncement[] = announcements.announcements
+
+/** Announcements from demo-data.json in place of the recorded ones. */
+export function showAnnouncements(list: RemoteAnnouncement[]) {
+    shownAnnouncements = list
+}
+
 /** Web requests the launcher makes itself, answered from recordings (data/). */
 const routes: Route[] = [
     {
         matches: (url) =>
             url.host === 'admin.axlmc.org' && url.pathname === '/api/public/announcements',
-        respond: () => json({ announcements: announcements.announcements }),
+        respond: () => json({ announcements: shownAnnouncements }),
     },
 ]
 

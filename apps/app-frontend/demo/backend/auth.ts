@@ -1,19 +1,29 @@
+import { offlineUuid } from './offline-uuid'
 import type { Handlers } from './types'
 
 /**
- * The demo player: an offline account as the launcher derives it from the name
- * alone (`OfflinePlayer:Steve` → name-based UUID), so no real identity is shown.
- * Microsoft and third-party sign-in need the desktop app.
+ * An offline account as the launcher derives it from the name alone, so no real
+ * identity is shown. Microsoft and third-party sign-in need the desktop app.
  */
-const STEVE = '5627dd98e6be3c21b8a8e92344183641'
-const account = {
-    account_id: `offline:5627dd98-e6be-3c21-b8a8-e92344183641`,
-    account_type: 'offline',
-    profile: { id: STEVE, name: 'Steve' },
-    access_token: '',
-    refresh_token: '',
-    expires: '2099-01-01T00:00:00Z',
-    active: true,
+function offlineAccount(name: string) {
+    const id = offlineUuid(name)
+    const dashed = id.replace(/^(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-')
+    return {
+        account_id: `offline:${dashed}`,
+        account_type: 'offline',
+        profile: { id, name },
+        access_token: '',
+        refresh_token: '',
+        expires: '2099-01-01T00:00:00Z',
+        active: true,
+    }
+}
+
+/** The demo player, Steve unless demo-data.json names another. */
+let account = offlineAccount('Steve')
+
+export function useAccountName(name: string) {
+    account = offlineAccount(name)
 }
 
 export const authHandlers: Handlers = {

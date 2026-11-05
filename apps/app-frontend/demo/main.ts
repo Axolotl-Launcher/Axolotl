@@ -5,12 +5,14 @@
  * An embedding page can pick the starting theme with `?theme=dark|light|oled|system`
  * and switch it later by posting `{ type: 'axolotl-demo:theme', theme }`. The demo
  * posts `{ type: 'axolotl-demo:ready' }` to it once the launcher's first screen shows.
+ * What the demo shows comes from `demo-data.json` next to this page (backend/demo-data.ts).
  */
 import type { Pinia } from 'pinia'
 
 import { useTheming } from '@/store/theme'
 
 import { installDemoBackend } from './backend'
+import { loadDemoData } from './backend/demo-data'
 import { installDemoNetwork } from './backend/network'
 import { demoTheme, saveDemoTheme } from './backend/settings'
 
@@ -57,11 +59,15 @@ window.addEventListener('message', (event) => {
     if (pinia) useTheming(pinia).setThemeState(theme)
 })
 
-void import('../src/main.js').then(async () => {
-    await mountedApp()?.config.globalProperties.$router?.isReady()
-    // Uncovering the demo during the launcher's own splash would show a second loading screen.
-    await Promise.race([splash, new Promise((resolve) => setTimeout(resolve, 30_000))])
-    requestAnimationFrame(() =>
-        requestAnimationFrame(() => window.parent.postMessage({ type: 'axolotl-demo:ready' }, '*')),
-    )
-})
+void loadDemoData()
+    .then(() => import('../src/main.js'))
+    .then(async () => {
+        await mountedApp()?.config.globalProperties.$router?.isReady()
+        // Uncovering the demo during the launcher's own splash would show a second loading screen.
+        await Promise.race([splash, new Promise((resolve) => setTimeout(resolve, 30_000))])
+        requestAnimationFrame(() =>
+            requestAnimationFrame(() =>
+                window.parent.postMessage({ type: 'axolotl-demo:ready' }, '*'),
+            ),
+        )
+    })

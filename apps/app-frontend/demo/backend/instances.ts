@@ -96,7 +96,7 @@ function modpackInstance(
     )
 }
 
-const instances: GameInstance[] = [
+const recordedInstances: GameInstance[] = [
     modpackInstance(
         'fabulously-optimized',
         '1KVo5zza',
@@ -130,6 +130,24 @@ const instances: GameInstance[] = [
         150 * DAY,
     ),
 ]
+
+let instances = recordedInstances
+
+/** Shows the recorded instances `entries` names, in that order, last played as they say. */
+export function showInstances(entries: { id: string; playedMinutesAgo?: number }[]) {
+    const shown = new Set<string>()
+    instances = entries.flatMap(({ id, playedMinutesAgo }) => {
+        const recorded = recordedInstances.find((entry) => entry.id === id)
+        if (!recorded || shown.has(id)) {
+            console.warn(`[demo] demo-data.json: no recorded instance ${id}, or listed twice`)
+            return []
+        }
+        shown.add(id)
+        if (playedMinutesAgo === undefined) return [recorded]
+        const played = ago(playedMinutesAgo * MINUTE)
+        return [{ ...recorded, last_played: played, modified: played }]
+    })
+}
 
 /** The last session of each played instance, for the home dashboard's playtime. */
 export function instancePlaySessions() {

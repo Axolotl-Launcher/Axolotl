@@ -13,6 +13,9 @@ export function demoTheme(value: unknown): ColorTheme | null {
     return THEME_OPTIONS.find((theme) => theme === value) ?? null
 }
 
+/** The theme the embedding page asks for in the demo's URL: `?theme=light`. */
+const requestedTheme = demoTheme(new URLSearchParams(window.location.search).get('theme'))
+
 const settings: AppSettings = {
     doh_enabled: false,
     max_concurrent_downloads: 10,
@@ -28,8 +31,7 @@ const settings: AppSettings = {
     ignore_ssl_errors: false,
     mojang_auth_source: 'auto',
 
-    // The embedding page can ask for its own theme: `?theme=light`.
-    theme: demoTheme(new URLSearchParams(window.location.search).get('theme')) ?? 'dark',
+    theme: requestedTheme ?? 'dark',
     accent_color: 'pink',
     locale: 'zh-CN',
     default_game_language: '',
@@ -99,6 +101,17 @@ const settings: AppSettings = {
     auto_download_updates: null,
 
     version: 1,
+}
+
+/** The language, first page and theme demo-data.json sets; the URL's theme wins over its own. */
+export function useDemoSettings(values: {
+    locale?: string
+    defaultPage?: AppSettings['default_page']
+    theme?: ColorTheme
+}) {
+    if (values.locale) settings.locale = values.locale
+    if (values.defaultPage) settings.default_page = values.defaultPage
+    if (values.theme && !requestedTheme) settings.theme = values.theme
 }
 
 /** Keeps a theme the embedding page switched to, as saving it in Settings would. */

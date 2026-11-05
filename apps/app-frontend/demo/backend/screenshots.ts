@@ -28,25 +28,32 @@ function fileName(date: Date) {
 }
 
 /** Each recorded image, as a screenshot taken during its instance's last session. */
-let screenshots: InstanceScreenshot[] = recorded.flatMap((entry, index) => {
-    const instance = byId(entry.instance_id)
-    if (!instance?.last_played) return []
-    const taken = new Date(new Date(instance.last_played).getTime() - (index + 1) * 6 * 60 * 1000)
-    const name = fileName(taken)
-    return [
-        {
-            id: `${instance.id}/${name}`,
-            instance_id: instance.id,
-            instance_name: instance.name,
-            file_name: name,
-            created_at: taken.toISOString(),
-            modified_at: Math.floor(taken.getTime() / 1000),
-            group_id: null,
-            path: `${instance.path}/screenshots/${name}`,
-            url: images[`../assets/screenshots/${entry.image}`],
-        },
-    ]
-})
+const take = () =>
+    recorded.flatMap((entry, index): InstanceScreenshot[] => {
+        const instance = byId(entry.instance_id)
+        if (!instance?.last_played) return []
+        const taken = new Date(
+            new Date(instance.last_played).getTime() - (index + 1) * 6 * 60 * 1000,
+        )
+        const name = fileName(taken)
+        return [
+            {
+                id: `${instance.id}/${name}`,
+                instance_id: instance.id,
+                instance_name: instance.name,
+                file_name: name,
+                created_at: taken.toISOString(),
+                modified_at: Math.floor(taken.getTime() / 1000),
+                group_id: null,
+                path: `${instance.path}/screenshots/${name}`,
+                url: images[`../assets/screenshots/${entry.image}`],
+            },
+        ]
+    })
+
+// Taken on first use, after demo-data.json has chosen the instances and when they ran.
+let listed: InstanceScreenshot[] | null = null
+const screenshots = () => (listed ??= take())
 
 let groups: ScreenshotGroup[] = []
 
@@ -67,16 +74,16 @@ const needsDesktop = () => {
 
 export const screenshotHandlers: Handlers = {
     'plugin:instance|instance_list_screenshots': ({ instanceId }) =>
-        screenshots.filter((screenshot) => screenshot.instance_id === instanceId),
-    'plugin:instance|instance_list_all_screenshots': () => scan(screenshots),
+        screenshots().filter((screenshot) => screenshot.instance_id === instanceId),
+    'plugin:instance|instance_list_all_screenshots': () => scan(screenshots()),
     // app-lib answers the Screenshots page's synced list with every instance's screenshots.
-    'plugin:instance|instance_list_synced_screenshots': () => scan(screenshots),
+    'plugin:instance|instance_list_synced_screenshots': () => scan(screenshots()),
     'plugin:instance|instance_list_screenshot_groups': () => groups,
     'plugin:instance|instance_create_screenshot_group': ({ name, ids }) => {
         const group = { id: crypto.randomUUID(), name: String(name) }
         groups = [...groups, group]
         const members = new Set(ids as string[])
-        screenshots = screenshots.map((screenshot) =>
+        listed = screenshots().map((screenshot) =>
             members.has(screenshot.id) ? { ...screenshot, group_id: group.id } : screenshot,
         )
         return group
@@ -89,7 +96,7 @@ export const screenshotHandlers: Handlers = {
     },
     'plugin:instance|instance_delete_screenshot_group': ({ id }) => {
         groups = groups.filter((group) => group.id !== id)
-        screenshots = screenshots.map((screenshot) =>
+        listed = screenshots().map((screenshot) =>
             screenshot.group_id === id ? { ...screenshot, group_id: null } : screenshot,
         )
     },
@@ -100,18 +107,18 @@ export const screenshotHandlers: Handlers = {
                 update.group_id,
             ]),
         )
-        screenshots = screenshots.map((screenshot) =>
+        listed = screenshots().map((screenshot) =>
             next.has(screenshot.id)
                 ? { ...screenshot, group_id: next.get(screenshot.id)! }
                 : screenshot,
         )
     },
     'plugin:instance|instance_delete_screenshots': ({ keys }) => {
-        screenshots = screenshots.filter((screenshot) => !matches(keys)(screenshot))
+        listed = screenshots().filter((screenshot) => !matches(keys)(screenshot))
     },
     // The recorded images are already small, so a thumbnail is the image itself.
     'plugin:files|screenshot_thumbnail': async ({ instanceId, filePath }) => {
-        const screenshot = screenshots.find(
+        const screenshot = screenshots().find(
             (entry) =>
                 entry.instance_id === instanceId &&
                 `screenshots/${entry.file_name}` === String(filePath),

@@ -10,6 +10,26 @@ const newsImages = import.meta.glob<string>('../assets/news/*.webp', {
     import: 'default',
 })
 
+/** The recorded news, with their images as the bundled files. */
+let shownNews = news.map((item) => ({
+    ...item,
+    image_url: item.image_url ? newsImages[`../assets/news/${item.image_url}`] : null,
+}))
+
+/** News items from demo-data.json, newest first, in place of the recorded ones. */
+export function showNews(
+    items: { title: string; url: string; date: string; image: string | null }[],
+) {
+    shownNews = items.map((item) => ({
+        title: item.title,
+        category: null,
+        tag: null,
+        date: item.date,
+        image_url: item.image,
+        read_more_url: item.url,
+    }))
+}
+
 function localDate(date: Date) {
     const pad = (value: number) => String(value).padStart(2, '0')
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
@@ -28,11 +48,7 @@ function entriesOn(date: string): DailyPlaytimeEntry[] {
 }
 
 export const homeHandlers: Handlers = {
-    'plugin:utils|get_minecraft_news': ({ limit }) =>
-        news.slice(0, Number(limit ?? 12)).map((item) => ({
-            ...item,
-            image_url: item.image_url ? newsImages[`../assets/news/${item.image_url}`] : null,
-        })),
+    'plugin:utils|get_minecraft_news': ({ limit }) => shownNews.slice(0, Number(limit ?? 12)),
     'plugin:instance|instance_get_daily_playtime': ({ startDate, endDate }) => {
         const days = new Map<string, DailyPlaytime>()
         for (const session of instancePlaySessions()) {

@@ -1,0 +1,15 @@
+{
+  "account": { "name": "Steve" },
+  "instances": [
+    { "id": "fabulously-optimized", "playedMinutesAgo": 5 },
+    { "id": "cobblemon", "playedMinutesAgo": 1560 },
+    { "id": "fabric-26-3", "playedMinutesAgo": 2880 },
+    { "id": "better-mc", "playedMinutesAgo": 4320 },
+    { "id": "zombie-invade", "playedMinutesAgo": 12960 },
+    { "id": "vanilla", "playedMinutesAgo": 23040 }
+  ],
+  "pinnedServers": ["vanilla-26-3-4f1c-8e2a91d3"],
+  "defaultPage": "Home",
+  "locale": "zh-CN",
+  "theme": "dark"
+}

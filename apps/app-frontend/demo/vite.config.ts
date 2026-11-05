@@ -1,6 +1,7 @@
+import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
-import { type ConfigEnv, defineConfig, mergeConfig, type UserConfig } from 'vite'
+import { type ConfigEnv, defineConfig, mergeConfig, type Plugin, type UserConfig } from 'vite'
 
 import appPackage from '../package.json'
 import appConfig from '../vite.config'
@@ -8,6 +9,18 @@ import appConfig from '../vite.config'
 const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 // PostCSS finds the Tailwind config, and Tailwind its content globs, from the working directory.
 process.chdir(projectRoot)
+
+/** Ships demo-data.json next to the built index.html, where a site can replace it. */
+const demoData: Plugin = {
+    name: 'axolotl-demo-data',
+    generateBundle() {
+        this.emitFile({
+            type: 'asset',
+            fileName: 'demo/demo-data.json',
+            source: readFileSync(resolve(projectRoot, 'demo/demo-data.json'), 'utf8'),
+        })
+    },
+}
 
 /**
  * The launcher frontend built as a static web demo: same sources and plugins as
@@ -21,6 +34,7 @@ export default defineConfig((env: ConfigEnv) => {
     return mergeConfig(app, {
         root: projectRoot,
         base: './',
+        plugins: [demoData],
         resolve: {
             alias: [
                 {

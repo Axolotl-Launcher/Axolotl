@@ -103,6 +103,19 @@ const servers: DemoServer[] = [
     ),
 ]
 
+/** Pins to Home the servers demo-data.json names, and only those. */
+export function pinServers(ids: string[]) {
+    for (const id of ids) {
+        if (!servers.some((entry) => entry.manifest.id === id))
+            console.warn(`[demo] demo-data.json: no recorded server ${id}`)
+    }
+    for (const entry of servers) {
+        entry.manifest.homePinnedAt = ids.includes(entry.manifest.id)
+            ? (entry.manifest.homePinnedAt ?? new Date().toISOString())
+            : undefined
+    }
+}
+
 function find(serverId: unknown) {
     const entry = servers.find((candidate) => candidate.manifest.id === serverId)
     if (!entry) throw new Error(`Unknown server ${String(serverId)}`)

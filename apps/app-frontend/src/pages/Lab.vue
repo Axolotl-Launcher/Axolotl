@@ -212,12 +212,6 @@ function toolDescription(toolId: string, fallback: string) {
     return fallback
 }
 
-function toolOnboardingId(toolId: string) {
-    return ['gradient-text', 'recipe-generator', 'seed-map', 'schematic-preview'].includes(toolId)
-        ? `lab-${toolId}-card`
-        : undefined
-}
-
 function toolIconClasses(toolId: string) {
     if (toolId === 'seed-map') return 'bg-highlight-green text-brand'
     return 'bg-brand-highlight text-brand'
@@ -284,12 +278,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
             />
         </div>
 
-        <section
-            v-if="visibleTools.length"
-            aria-label="Lab tools"
-            data-onboarding-id="lab-tools"
-            class="flex flex-col gap-3"
-        >
+        <section v-if="visibleTools.length" aria-label="Lab tools" class="flex flex-col gap-3">
             <Card
                 v-for="tool in visibleTools"
                 :key="tool.id"
@@ -345,7 +334,6 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                 <div class="flex min-w-0 flex-1 flex-col">
                     <RouterLink
                         :to="tool.route"
-                        :data-onboarding-id="toolOnboardingId(tool.id)"
                         class="min-w-0 rounded-[var(--radius-lg)] text-inherit no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                         <h2

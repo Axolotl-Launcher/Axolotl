@@ -577,7 +577,6 @@ defineExpose({ openWidgetPicker, setLayout })
                 chosen-class="home-widget-chosen"
                 drag-class="home-widget-drag"
                 fallback-class="home-widget-fallback"
-                data-onboarding-id="home-widget-grid"
                 @start="startWidgetDrag"
                 @end="finishWidgetDrag"
             >

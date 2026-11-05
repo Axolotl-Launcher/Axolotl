@@ -1580,7 +1580,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <main ref="workspace" class="schematic-page" data-onboarding-id="schematic-preview-workspace">
+    <main ref="workspace" class="schematic-page">
         <div
             v-if="loadingStage"
             class="absolute inset-x-0 top-0 z-40 h-1 overflow-hidden bg-surface-5"

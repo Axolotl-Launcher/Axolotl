@@ -122,7 +122,6 @@
                     :color="
                         rightButtonConfig.color === 'standard' ? undefined : rightButtonConfig.color
                     "
-                    :data-onboarding-id="rightButtonConfig.onboardingId"
                     :class="rightButtonConfig.buttonClass"
                     :disabled="rightButtonConfig.disabled"
                     :loading="rightButtonConfig.loading"
@@ -178,7 +177,6 @@ export interface StageButtonConfig {
     tooltip?: string
     iconClass?: string | null
     buttonClass?: string | null
-    onboardingId?: string
     onClick?: () => void
 }
 

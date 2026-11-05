@@ -82,7 +82,6 @@ it('row clone and delete operate on that row while another recipe is selected', 
     const wrapper = mount(LabRecipeGenerator, {
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     try {
@@ -124,7 +123,6 @@ it('keeps resources and loading state owned by the latest selected version', asy
     const wrapper = mount(LabRecipeGenerator, {
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     try {
@@ -162,7 +160,6 @@ it('keeps brewing fields across incompatible versions and restores saved project
     const wrapper = mount(LabRecipeGenerator, {
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     const vm = wrapper.vm as unknown as {
@@ -186,7 +183,7 @@ it('keeps brewing fields across incompatible versions and restores saved project
     }
     vm.store.recipes[0].brewing.outputPotion = 'minecraft:awkward'
     await flushPromises()
-    expect(wrapper.find('[data-onboarding-id="recipe-brewing-editor"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="recipe-brewing-editor"]').exists()).toBe(true)
     expect(vm.generatedJson).toMatchObject({ type: 'minecraft:brewing', output: { count: 2 } })
     ;(vm.store.recipes[0].slots['brewing.result'] as { count: number }).count = 99
     await flushPromises()
@@ -201,7 +198,6 @@ it('keeps brewing fields across incompatible versions and restores saved project
     const restored = mount(LabRecipeGenerator, {
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     try {

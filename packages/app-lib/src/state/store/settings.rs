@@ -154,6 +154,7 @@ pub(crate) struct SettingsRecord {
     pub ignore_ssl_errors: bool,
     pub home_widget_background_opacity: i64,
     pub hidden_nav_items: String,
+    pub oobe_completed_steps: String,
     pub custom_window_title_enabled: bool,
     pub default_window_title: String,
     pub custom_background_component_opacity: i64,
@@ -346,7 +347,7 @@ impl Collection for Settings {
                 backup_repository_path, allow_external_scheme,
                 allow_privileged_scheme, doh_enabled,
                 resource_chinese_filenames, resource_preserve_filenames,
-                default_game_language
+                default_game_language, oobe_completed_steps
             FROM settings
             WHERE id = 0
             ",
@@ -527,6 +528,7 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         resource_preserve_filenames: row
             .try_get("resource_preserve_filenames")?,
         default_game_language: row.try_get("default_game_language")?,
+        oobe_completed_steps: row.try_get("oobe_completed_steps")?,
     })
 }
 async fn write_row(
@@ -568,7 +570,8 @@ async fn write_row(
             default_window_title, custom_background_component_opacity,
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
-            resource_preserve_filenames, default_game_language
+            resource_preserve_filenames, default_game_language,
+            oobe_completed_steps
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -578,7 +581,7 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?
+            ?, ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
@@ -682,7 +685,8 @@ async fn write_row(
             doh_enabled = excluded.doh_enabled,
             resource_chinese_filenames = excluded.resource_chinese_filenames,
             resource_preserve_filenames = excluded.resource_preserve_filenames,
-            default_game_language = excluded.default_game_language
+            default_game_language = excluded.default_game_language,
+            oobe_completed_steps = excluded.oobe_completed_steps
         ",
     )
     .bind(record.max_concurrent_downloads)
@@ -772,6 +776,7 @@ async fn write_row(
     .bind(record.resource_chinese_filenames)
     .bind(record.resource_preserve_filenames)
     .bind(&record.default_game_language)
+    .bind(&record.oobe_completed_steps)
     .execute(&mut *conn)
     .await?;
 

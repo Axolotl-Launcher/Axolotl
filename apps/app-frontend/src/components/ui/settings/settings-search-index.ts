@@ -900,10 +900,10 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         label: message('app.settings.tabs.about', 'About'),
     },
     {
-        id: 'about-replay-tour',
+        id: 'about-replay-oobe',
         categoryId: 'about',
-        targetId: 'settings-target-about-replay-tour',
-        label: message('app.settings.about.replay-onboarding', 'Replay tour'),
+        targetId: 'settings-target-about-replay-oobe',
+        label: message('app.settings.about.replay-oobe', 'Run first-time setup again'),
     },
     {
         id: 'feature-flags',

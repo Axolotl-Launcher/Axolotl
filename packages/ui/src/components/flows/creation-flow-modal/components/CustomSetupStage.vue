@@ -19,11 +19,7 @@
         </div>
 
         <!-- Instance-specific: Name field -->
-        <div
-            v-if="ctx.flowType === 'instance'"
-            data-onboarding-id="creation-name"
-            class="flex flex-col gap-2"
-        >
+        <div v-if="ctx.flowType === 'instance'" class="flex flex-col gap-2">
             <span class="font-semibold text-[var(--color-text-primary)]">{{
                 formatMessage(messages.nameLabel)
             }}</span>
@@ -36,11 +32,7 @@
         </div>
 
         <!-- Instance-specific: Game directory isolation -->
-        <div
-            v-if="ctx.flowType === 'instance'"
-            data-onboarding-id="creation-game-dir"
-            class="flex flex-col gap-2"
-        >
+        <div v-if="ctx.flowType === 'instance'" class="flex flex-col gap-2">
             <span class="font-semibold text-[var(--color-text-primary)]">{{
                 formatMessage(messages.gameDirLabel)
             }}</span>
@@ -52,7 +44,7 @@
         </div>
 
         <!-- Game version -->
-        <div data-onboarding-id="creation-game-version" class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2">
             <span class="font-semibold text-[var(--color-text-primary)]">{{
                 formatMessage(commonMessages.gameVersionLabel)
             }}</span>
@@ -80,11 +72,7 @@
         </div>
 
         <!-- Loader chips -->
-        <div
-            v-if="!hideLoaderChips"
-            data-onboarding-id="creation-loader"
-            class="flex flex-col gap-2"
-        >
+        <div v-if="!hideLoaderChips" class="flex flex-col gap-2">
             <span class="font-semibold text-[var(--color-text-primary)]">{{
                 ctx.flowType === 'instance'
                     ? formatMessage(messages.loaderLabel)

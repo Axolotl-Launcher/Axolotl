@@ -660,7 +660,7 @@ function formatAdapterName(adapterId: GradientFormatId): string {
             </div>
         </header>
 
-        <div class="lab-workbench" data-onboarding-id="lab-gradient-text-editor">
+        <div class="lab-workbench">
             <section class="lab-panel min-w-0">
                 <section class="lab-panel-section p-4">
                     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">

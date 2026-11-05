@@ -2687,7 +2687,7 @@ provideBrowseManager({
 </script>
 
 <template>
-    <div data-onboarding-id="browse-content" class="flex flex-col gap-3 p-6">
+    <div class="flex flex-col gap-3 p-6">
         <BrowsePageLayout
             v-if="!filtersReady || !isWorldMapBrowse || curseForgeCapability.configured"
         >

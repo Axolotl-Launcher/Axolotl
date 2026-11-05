@@ -128,7 +128,6 @@ const tabs = computed<TabbedModalTab[]>(() => [
         content: BackupSettings,
     },
     {
-        // Core component editing is instance-specific and advanced, so it is intentionally excluded from first-run onboarding.
         name: defineMessage({
             id: 'instance.settings.tabs.core-components',
             defaultMessage: 'Core components',

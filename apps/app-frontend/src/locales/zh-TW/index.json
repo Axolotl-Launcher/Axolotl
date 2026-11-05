@@ -5474,296 +5474,206 @@
   "app.notification.warning": {
     "message": "警告"
   },
-  "app.onboarding.account.description": {
-    "message": "想登錄、切換帳號或看看個人資料，隨時來這裡。沒人打卡。"
+  "app.oobe.account.add": {
+    "message": "新增"
   },
-  "app.onboarding.account.title": {
-    "message": "帳號，隨你安排"
+  "app.oobe.account.add-another": {
+    "message": "再新增一個帳號"
   },
-  "app.onboarding.action.click-create": {
-    "message": "點擊創建新實例，繼續"
+  "app.oobe.account.add-title": {
+    "message": "新增帳號"
   },
-  "app.onboarding.action.click-creation-method": {
-    "message": "選一條路，繼續"
+  "app.oobe.account.added": {
+    "message": "此裝置上的帳號"
   },
-  "app.onboarding.action.click-discover": {
-    "message": "點擊發現內容，繼續"
+  "app.oobe.account.description": {
+    "message": "新增你用來玩 Minecraft 的帳號。"
   },
-  "app.onboarding.action.click-downloads": {
-    "message": "點擊下載，繼續"
+  "app.oobe.account.label": {
+    "message": "帳號"
   },
-  "app.onboarding.action.click-favorites": {
-    "message": "點選收藏夾，繼續"
+  "app.oobe.account.microsoft": {
+    "message": "Microsoft 帳號"
   },
-  "app.onboarding.action.click-lab": {
-    "message": "點擊實驗室，繼續"
+  "app.oobe.account.microsoft-detail": {
+    "message": "使用擁有 Minecraft: Java 版的帳號登入。"
   },
-  "app.onboarding.action.click-library": {
-    "message": "點擊實例庫，繼續"
+  "app.oobe.account.offline": {
+    "message": "離線帳號"
   },
-  "app.onboarding.action.click-settings": {
-    "message": "點擊設置，繼續"
+  "app.oobe.account.offline-detail": {
+    "message": "只需一個玩家名稱，只能進入允許離線玩家的伺服器。"
   },
-  "app.onboarding.action.click-skins": {
-    "message": "點擊皮膚選擇器，繼續"
+  "app.oobe.account.offline-restricted": {
+    "message": "請先在此裝置上登入 Microsoft 帳號。"
   },
-  "app.onboarding.action.click-tab": {
-    "message": "點擊這個標籤，繼續"
+  "app.oobe.account.recommended": {
+    "message": "推薦"
   },
-  "app.onboarding.action.continue-area": {
-    "message": "點擊任意位置，接著說"
+  "app.oobe.account.third-party": {
+    "message": "第三方帳號"
   },
-  "app.onboarding.action.finish-area": {
-    "message": "點擊任意位置，收工"
+  "app.oobe.account.third-party-detail": {
+    "message": "LittleSkin 或其他 Yggdrasil 外掛登入服務。"
   },
-  "app.onboarding.action.open-gradient-text": {
-    "message": "打開漸變文字生成器，繼續"
+  "app.oobe.account.title": {
+    "message": "是誰正在使用啟動器？"
   },
-  "app.onboarding.action.open-recipe-generator": {
-    "message": "開啟配方生成器，繼續"
+  "app.oobe.action.back": {
+    "message": "上一步"
   },
-  "app.onboarding.action.open-schematic-workshop": {
-    "message": "開啟投影工坊，繼續"
+  "app.oobe.action.finish": {
+    "message": "完成"
   },
-  "app.onboarding.action.open-seed-map": {
-    "message": "打開種子地圖，繼續"
+  "app.oobe.action.next": {
+    "message": "下一步"
   },
-  "app.onboarding.action.return-lab": {
-    "message": "點擊實驗室，查看另一個項目"
+  "app.oobe.action.skip": {
+    "message": "略過"
   },
-  "app.onboarding.action.skip": {
-    "message": "先不逛了"
+  "app.oobe.appearance.home.minimal": {
+    "message": "極簡"
   },
-  "app.onboarding.action.start": {
-    "message": "帶我逛逛"
+  "app.oobe.appearance.home.minimal-detail": {
+    "message": "只有一個實例和「開始遊戲」按鈕。"
   },
-  "app.onboarding.ai.description": {
-    "message": "統一連線文字模型供應商、選擇要使用的模型，也可在這裡一鍵關閉所有 AI 功能。"
+  "app.oobe.appearance.home.standard": {
+    "message": "資訊"
   },
-  "app.onboarding.ai.title": {
-    "message": "連線你的 AI 供應商"
+  "app.oobe.appearance.home.standard-detail": {
+    "message": "問候語，以及顯示實例、新聞等內容的小工具。"
   },
-  "app.onboarding.appearance.description": {
-    "message": "Theme, accent, background, and window behavior. Make this launcher look familiar."
+  "app.oobe.appearance.home.title": {
+    "message": "首頁"
   },
-  "app.onboarding.appearance.title": {
-    "message": "調成你的順眼樣子"
+  "app.oobe.appearance.label": {
+    "message": "外觀"
   },
-  "app.onboarding.browse.description": {
-    "message": "用類型、搜索和篩選快速收斂範圍，項目頁把版本、更新日誌、圖庫和安裝選擇都放在一個地方。"
+  "app.oobe.appearance.later": {
+    "message": "之後可隨時在設定中變更：色彩主題位於「介面與外觀」，首頁位於「首頁與導航」。"
   },
-  "app.onboarding.browse.title": {
-    "message": "搜索，不靠玄學"
+  "app.oobe.appearance.save-failed": {
+    "message": "此選項未能儲存，在重新啟動前仍然有效。"
   },
-  "app.onboarding.create.description": {
-    "message": "Start from scratch, grab a modpack, or bring in an existing instance. Your call."
+  "app.oobe.appearance.theme.dark": {
+    "message": "深色"
   },
-  "app.onboarding.create.title": {
-    "message": "開個新檔"
+  "app.oobe.appearance.theme.light": {
+    "message": "淺色"
   },
-  "app.onboarding.creation-confirm.description": {
-    "message": "這裡會按你的選擇創建實例。我堅持不替你按確認。"
+  "app.oobe.appearance.theme.oled": {
+    "message": "OLED"
   },
-  "app.onboarding.creation-confirm.title": {
-    "message": "最後看一眼"
+  "app.oobe.appearance.theme.system": {
+    "message": "跟隨系統"
   },
-  "app.onboarding.creation-loader.description": {
-    "message": "Vanilla、Fabric、Forge、NeoForge 和它們的朋友們，按內容需要來選。"
+  "app.oobe.appearance.theme.title": {
+    "message": "色彩主題"
   },
-  "app.onboarding.creation-loader.title": {
-    "message": "選個引擎"
+  "app.oobe.appearance.title": {
+    "message": "選擇你喜歡的樣式。"
   },
-  "app.onboarding.creation-name.description": {
-    "message": "給它取個讓未來的你一眼認出的名字。"
+  "app.oobe.dialog-label": {
+    "message": "設定 Axolotl Launcher"
   },
-  "app.onboarding.creation-name.title": {
-    "message": "取個好記的名字"
+  "app.oobe.language.description": {
+    "message": "選擇後啟動器會立即切換。"
   },
-  "app.onboarding.creation-version.description": {
-    "message": "選定這個實例的 Minecraft 版本。相容性喜歡具體答案。"
+  "app.oobe.language.label": {
+    "message": "語言"
   },
-  "app.onboarding.creation-version.title": {
-    "message": "定下遊戲版本"
+  "app.oobe.language.list-label": {
+    "message": "啟動器語言"
   },
-  "app.onboarding.creation.description": {
-    "message": "Custom setup, modpack, or import. The choices are yours; I am just here for the subtitles."
+  "app.oobe.language.save-failed": {
+    "message": "語言未能儲存，請換一個選項或重試。"
   },
-  "app.onboarding.creation.title": {
-    "message": "選條路"
+  "app.oobe.language.system": {
+    "message": "跟隨此裝置"
   },
-  "app.onboarding.defaults.description": {
-    "message": "新實例會繼承這些選擇，省得你每次重做作業。"
+  "app.oobe.language.system-detail": {
+    "message": "目前為{language}"
   },
-  "app.onboarding.defaults.title": {
-    "message": "少做點重複勞動"
+  "app.oobe.language.title": {
+    "message": "選擇啟動器語言。"
   },
-  "app.onboarding.discover.description": {
-    "message": "整合包、模組、插件、資源包、光影：這才是值得掉進去的坑。"
+  "app.oobe.migration.add-folder": {
+    "message": "新增 .minecraft 資料夾"
   },
-  "app.onboarding.discover.title": {
-    "message": "找點新鮮的"
+  "app.oobe.migration.description": {
+    "message": "把現有的實例和 .minecraft 資料夾一併帶過來。"
   },
-  "app.onboarding.downloads-page.description": {
-    "message": "進行中的任務、歷史、報錯、重試、取消和診斷資訊都會在這留下記錄。"
+  "app.oobe.migration.detected.title": {
+    "message": "在此裝置上找到"
   },
-  "app.onboarding.downloads-page.title": {
-    "message": "沒有東西會失蹤"
+  "app.oobe.migration.direct-hint": {
+    "message": "啟動器會直接管理其中的 {count, plural, other {# 個版本}}，不複製任何檔案。"
   },
-  "app.onboarding.downloads.description": {
-    "message": "安裝和內容下載都會在這裡報到，不會神秘消失。"
+  "app.oobe.migration.folder-added": {
+    "message": "{count, plural, =0 {已新增} other {已新增，找到 # 個版本}}"
   },
-  "app.onboarding.downloads.title": {
-    "message": "下載指揮室"
+  "app.oobe.migration.folders.description": {
+    "message": "啟動器會直接管理其中的版本，不複製任何檔案。"
   },
-  "app.onboarding.favorites.description": {
-    "message": "開啟收藏夾，回看儲存的模組、資源包、資料包和光影包。啟動器會重新整理專案詳情；隨後你可以選擇例項，並把不同來源的內容加入同一個安裝購物車。"
+  "app.oobe.migration.folders.title": {
+    "message": "直接使用 .minecraft 資料夾"
   },
-  "app.onboarding.favorites.title": {
-    "message": "留個清單"
+  "app.oobe.migration.generic": {
+    "message": "Minecraft 資料夾"
   },
-  "app.onboarding.home-customize.description": {
-    "message": "使用右下角的編輯控制元件新增、調整和配置小元件。編輯時可在自動排滿的網格與保留空格的自由網格之間切換。"
+  "app.oobe.migration.import-selected": {
+    "message": "{count, plural, =0 {匯入} other {匯入 # 個實例}}"
   },
-  "app.onboarding.home-customize.title": {
-    "message": "按你的方式排列"
+  "app.oobe.migration.import-started": {
+    "message": "正在匯入 {count, plural, other {# 個實例}}，你可以繼續下一步。"
   },
-  "app.onboarding.home-layout.description": {
-    "message": "隨時使用這個懸浮按鈕，在資訊首頁和極簡首頁之間切換。"
+  "app.oobe.migration.instance-count": {
+    "message": "{count, plural, other {# 個實例}}"
   },
-  "app.onboarding.home-layout.title": {
-    "message": "切換資訊密度"
+  "app.oobe.migration.label": {
+    "message": "匯入"
   },
-  "app.onboarding.home-widgets.description": {
-    "message": "資訊主頁由最近活動、遊玩時間、例項、世界和伺服器小元件組成。視窗或賬號側邊欄變化時，網格會自動重排。"
+  "app.oobe.migration.method": {
+    "message": "匯入方式"
   },
-  "app.onboarding.home-widgets.title": {
-    "message": "你的主頁，你的佈局"
+  "app.oobe.migration.method.direct": {
+    "message": "直接使用"
   },
-  "app.onboarding.instance-actions.description": {
-    "message": "從實例頁頭部啟動、停止、修復、配置、導出或打開這個實例。"
+  "app.oobe.migration.method.import": {
+    "message": "匯入"
   },
-  "app.onboarding.instance-actions.title": {
-    "message": "主操作台"
+  "app.oobe.migration.more-options": {
+    "message": "更多匯入方式"
   },
-  "app.onboarding.instance-tabs.description": {
-    "message": "內容、文件、截圖、世界和日誌都在這些標籤裡。亂中有序。"
+  "app.oobe.migration.none-found": {
+    "message": "沒有在此裝置上找到其他啟動器。"
   },
-  "app.onboarding.instance-tabs.title": {
-    "message": "剩下的工作台"
+  "app.oobe.migration.scanning": {
+    "message": "正在尋找其他啟動器…"
   },
-  "app.onboarding.java.description": {
-    "message": "啟動 Minecraft 的 Java 運行環境在這。技術活，但它很聽話。"
+  "app.oobe.migration.select-folder": {
+    "message": "選擇 .minecraft 資料夾"
   },
-  "app.onboarding.java.title": {
-    "message": "Java，在後台"
+  "app.oobe.migration.title": {
+    "message": "要從其他啟動器內匯入資料嗎？"
   },
-  "app.onboarding.lab-editor.description": {
-    "message": "編輯文本、選擇顏色、即時預覽，並複製適用於 Minecraft 配置的格式。"
+  "app.oobe.migration.use-folder": {
+    "message": "使用此資料夾"
   },
-  "app.onboarding.lab-editor.title": {
-    "message": "在同一處編輯和複製"
+  "app.oobe.progress": {
+    "message": "設定進度"
   },
-  "app.onboarding.lab-recipe-generator.description": {
-    "message": "選擇 Java 版本、填充配方槽位，然後在本地複製或匯出 JSON。"
+  "app.oobe.welcome.label": {
+    "message": "歡迎"
   },
-  "app.onboarding.lab-recipe-generator.title": {
-    "message": "製作資料包配方"
+  "app.oobe.welcome.ready": {
+    "message": "一切就緒。點擊任意位置進入啟動器。"
   },
-  "app.onboarding.lab-schematic.description": {
-    "message": "開啟本地 .litematic 或 .schem 檔案，也可以從已安裝例項中選擇。3D 工作區集中提供檢視、測量、圖層控制、材料統計和本地編輯。"
+  "app.oobe.welcome.start": {
+    "message": "開始使用"
   },
-  "app.onboarding.lab-schematic.title": {
-    "message": "放置前先檢查建築"
-  },
-  "app.onboarding.lab-seed-map.description": {
-    "message": "輸入種子或從實例載入，然後在本地地圖中查看群系、結構與礦物圖層。"
-  },
-  "app.onboarding.lab-seed-map.title": {
-    "message": "載入世界前先找到它"
-  },
-  "app.onboarding.lab-tools.description": {
-    "message": "生成帶格式的漸變文字，或用本地種子地圖探索 Java 世界。"
-  },
-  "app.onboarding.lab-tools.title": {
-    "message": "首批兩個項目"
-  },
-  "app.onboarding.lab.description": {
-    "message": "實驗室將本地 Minecraft 工具放進啟動器，無需打開其他網站或註冊額外帳號。"
-  },
-  "app.onboarding.lab.title": {
-    "message": "內建的實用工具"
-  },
-  "app.onboarding.language.description": {
-    "message": "在這裡選擇啟動器語言和管理翻譯。不需要翻譯腔。"
-  },
-  "app.onboarding.language.title": {
-    "message": "說你的語言"
-  },
-  "app.onboarding.library-page.description": {
-    "message": "按整合包、伺服器或自訂配置篩選，再打開任意實例管理。"
-  },
-  "app.onboarding.library-page.title": {
-    "message": "各就各位"
-  },
-  "app.onboarding.library.description": {
-    "message": "實例會把版本、載入器、內容和存檔分開。不會意外燉成一鍋模組湯。"
-  },
-  "app.onboarding.library.title": {
-    "message": "你的啟動書架"
-  },
-  "app.onboarding.mascot-alt": {
-    "message": "引導吉祥物"
-  },
-  "app.onboarding.privacy.description": {
-    "message": "匿名遙測、Discord 活動狀態與 Minecraft 日誌分析服務都可以在這裡調整。"
-  },
-  "app.onboarding.privacy.title": {
-    "message": "你的資料，由你決定"
-  },
-  "app.onboarding.resources.description": {
-    "message": "調節下載、儲存和啟動器資源。給風扇一點尊嚴。"
-  },
-  "app.onboarding.resources.title": {
-    "message": "別把電腦烤熟"
-  },
-  "app.onboarding.settings.description": {
-    "message": "外觀、語言、翻譯、Java、儲存和更新這些有用開關，都在這裡。"
-  },
-  "app.onboarding.settings.title": {
-    "message": "按你的方式使用"
-  },
-  "app.onboarding.skins-page.description": {
-    "message": "在這裡添加、預覽、排序和應用皮膚。現在不登錄也完全沒關係。"
-  },
-  "app.onboarding.skins-page.title": {
-    "message": "你的皮膚抽屜"
-  },
-  "app.onboarding.skins.description": {
-    "message": "把 Minecraft 皮膚放在一起管理。想登錄的時候再登錄。"
-  },
-  "app.onboarding.skins.title": {
-    "message": "換個造型吧"
-  },
-  "app.onboarding.translation.description": {
-    "message": "瀏覽時直接翻譯 Modrinth 項目的標題、摘要和介紹。保留原文、雙語同屏，或者讓譯文站 C 位，都由你決定。"
-  },
-  "app.onboarding.translation.title": {
-    "message": "翻譯，是 Axolotl 的拿手活"
-  },
-  "app.onboarding.updates.description": {
-    "message": "決定 Axolotl 何時檢查更新，以及是否替你安裝。"
-  },
-  "app.onboarding.updates.title": {
-    "message": "保持在線"
-  },
-  "app.onboarding.welcome.description": {
-    "message": "實例、內容、世界和下載，現在都有了同一個家。正式開玩之前，先快速逛一圈。"
-  },
-  "app.onboarding.welcome.footer": {
-    "message": "你的最後一款啟動器"
-  },
-  "app.onboarding.welcome.title": {
-    "message": "一切就緒"
+  "app.oobe.welcome.title": {
+    "message": "歡迎使用！"
   },
   "app.privacy-consent.continue": {
     "message": "儲存並繼續"
@@ -6557,8 +6467,8 @@
   "app.settings.about.qq-group": {
     "message": "使用者 QQ 群組"
   },
-  "app.settings.about.replay-onboarding": {
-    "message": "重放導覽"
+  "app.settings.about.replay-oobe": {
+    "message": "重新進行初始設定"
   },
   "app.settings.about.report-issue": {
     "message": "問題與意見回饋"

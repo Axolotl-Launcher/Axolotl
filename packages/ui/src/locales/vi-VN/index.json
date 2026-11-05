@@ -1,984 +1,1794 @@
 {
+  "drop.instance-import.title": {
+    "defaultMessage": "导入实例"
+  },
+  "drop.confirm.minecraft-root.title": {
+    "defaultMessage": "添加 .minecraft 文件夹"
+  },
+  "drop.confirm.minecraft-root.prompt": {
+    "defaultMessage": "看起来这是一个 .minecraft 文件夹，是否直接将其添加至启动器？"
+  },
+  "drop.confirm.minecraft-root.add": {
+    "defaultMessage": "是，直接添加"
+  },
+  "drop.confirm.minecraft-root.import": {
+    "defaultMessage": "否，导入其中的实例"
+  },
+  "content.page-layout.dependency-disable-failed": {
+    "defaultMessage": "无法禁用依赖这些内容的项目。请重试以完成删除。"
+  },
   "action.no-permission": {
-    "defaultMessage": "Bạn không có quyền."
+    "defaultMessage": "你没有权限。"
+  },
+  "app.symlink-warning.write.body": {
+    "defaultMessage": "此实例链接到“{path}”。更改也会影响原始文件。"
+  },
+  "app.symlink-warning.write.header": {
+    "defaultMessage": "共享实例"
   },
   "badge.alpha": {
-    "defaultMessage": "Alpha"
+    "defaultMessage": "早期预览版"
   },
   "badge.beta": {
-    "defaultMessage": "Beta"
+    "defaultMessage": "测试版"
   },
   "badge.beta-release": {
-    "defaultMessage": "Bản beta"
+    "defaultMessage": "Beta 发行版"
   },
   "badge.new": {
-    "defaultMessage": "Mới"
+    "defaultMessage": "新"
+  },
+  "badge.release": {
+    "defaultMessage": "正式版"
   },
   "browse.filter-results": {
-    "defaultMessage": "Lọc kết quả..."
+    "defaultMessage": "筛选结果……"
+  },
+  "browse.clear-search": {
+    "defaultMessage": "清除搜索"
+  },
+  "browse.loading-results": {
+    "defaultMessage": "正在加载结果……"
   },
   "browse.no-results": {
-    "defaultMessage": "Không tìm được thứ bạn đang tìm kiếm!"
+    "defaultMessage": "没有找到您的查询结果！"
+  },
+  "browse.no-results.heading": {
+    "defaultMessage": "这里还是空的"
   },
   "browse.offline": {
-    "defaultMessage": "Bạn đã Mất kết nối. Hãy kết nối mạng để tìm kiếm Modrinth!"
+    "defaultMessage": "你目前处于离线状态。连接互联网来浏览Modrinth！"
+  },
+  "browse.offline.heading": {
+    "defaultMessage": "网络未连接"
+  },
+  "browse.retry": {
+    "defaultMessage": "重试"
   },
   "browse.search.placeholder": {
-    "defaultMessage": "Tìm kiếm {projectType}..."
+    "defaultMessage": "搜索{projectType}……"
   },
   "browse.selected-projects-floating-bar.aria-label": {
-    "defaultMessage": "Dự án được chọn"
+    "defaultMessage": "选定的项目"
+  },
+  "browse.selected-projects-floating-bar.hide-projects": {
+    "defaultMessage": "隐藏已选项目"
   },
   "browse.selected-projects-floating-bar.install": {
-    "defaultMessage": "Tải {count, plural, other {# dự án}}"
+    "defaultMessage": "安装{count, plural, other {#个项目}}"
   },
   "browse.selected-projects-floating-bar.selected-count": {
-    "defaultMessage": "{count, plural, other {# dự án được chọn}}"
+    "defaultMessage": "{count, plural, other {#个已选择的项目}}"
+  },
+  "browse.selected-projects-floating-bar.show-projects": {
+    "defaultMessage": "显示{count, plural, other {#个已选项目}}"
   },
   "browse.selected-projects-leave-modal.admonition-body": {
-    "defaultMessage": "Bạn đã chọn {count, plural, other {{count} dự án}}. Tải chúng hoặc quay lại mà kệ chúng."
+    "defaultMessage": "你已经选择了{count, plural, other {#个}}要安装的项目。立即安装它们，或不安装并返回。"
   },
   "browse.selected-projects-leave-modal.admonition-header": {
-    "defaultMessage": "Dự án được chọn chưa được cài"
+    "defaultMessage": "选定的项目尚未安装"
   },
   "browse.selected-projects-leave-modal.discard": {
-    "defaultMessage": "Loại bỏ"
+    "defaultMessage": "丢弃"
   },
   "browse.selected-projects-leave-modal.header": {
-    "defaultMessage": "Dự án được chọn chưa được cài"
+    "defaultMessage": "选定的项目尚未安装"
+  },
+  "browse.sort.date-published": {
+    "defaultMessage": "发布日期"
+  },
+  "browse.sort.date-updated": {
+    "defaultMessage": "更新日期"
+  },
+  "browse.sort.downloads": {
+    "defaultMessage": "下载量"
+  },
+  "browse.sort.followers": {
+    "defaultMessage": "关注者"
+  },
+  "browse.sort.players": {
+    "defaultMessage": "玩家数"
+  },
+  "browse.sort.relevance": {
+    "defaultMessage": "相关性"
+  },
+  "browse.sort.verified-plays": {
+    "defaultMessage": "已验证游玩次数"
   },
   "browse.view-prefix": {
-    "defaultMessage": "Chế độ xem:"
+    "defaultMessage": "查看"
   },
   "button.accept": {
-    "defaultMessage": "Chấp nhận"
+    "defaultMessage": "接受"
   },
   "button.add-server-to-instance": {
-    "defaultMessage": "Thếm máy chủ"
+    "defaultMessage": "将服务器添加到实例"
   },
   "button.affiliate-links": {
-    "defaultMessage": "Liên kết affiliate"
+    "defaultMessage": "推广链接"
   },
   "button.analytics": {
-    "defaultMessage": "Phân tích"
+    "defaultMessage": "分析"
   },
   "button.back": {
-    "defaultMessage": "Quay lại"
+    "defaultMessage": "返回"
   },
   "button.cancel": {
-    "defaultMessage": "Huỷ"
+    "defaultMessage": "取消"
   },
   "button.change-version": {
-    "defaultMessage": "Thay đổi phiên bản"
+    "defaultMessage": "切换版本"
   },
   "button.clear": {
-    "defaultMessage": "Xoá"
+    "defaultMessage": "清除"
   },
   "button.close": {
-    "defaultMessage": "Đóng"
+    "defaultMessage": "关闭"
+  },
+  "button.confirm": {
+    "defaultMessage": "确认"
   },
   "button.continue": {
-    "defaultMessage": "Tiếp tục"
+    "defaultMessage": "继续"
   },
   "button.copy-filename": {
-    "defaultMessage": "Sao chép tên tệp"
+    "defaultMessage": "复制文件名称"
   },
   "button.copy-full-path": {
-    "defaultMessage": "Sao chép đường dẫn"
+    "defaultMessage": "复制完整路径"
   },
   "button.copy-id": {
-    "defaultMessage": "Sao chép ID"
+    "defaultMessage": "复制 ID"
   },
   "button.copy-link": {
-    "defaultMessage": "Sao chép liên kết"
+    "defaultMessage": "复制链接"
   },
   "button.copy-permalink": {
-    "defaultMessage": "Sao chép liên kết cố định"
+    "defaultMessage": "复制永久链接"
   },
   "button.create-a-project": {
-    "defaultMessage": "Tạo dự án"
+    "defaultMessage": "创建项目"
   },
   "button.decline": {
-    "defaultMessage": "Huỷ bỏ"
+    "defaultMessage": "拒绝"
   },
   "button.disable": {
-    "defaultMessage": "Vô hiệu hoá"
+    "defaultMessage": "禁用"
   },
   "button.download": {
-    "defaultMessage": "Tải xuống"
+    "defaultMessage": "下载"
   },
   "button.downloading": {
-    "defaultMessage": "Đang tải xuống"
+    "defaultMessage": "下载中"
   },
   "button.edit": {
-    "defaultMessage": "Chỉnh sửa"
+    "defaultMessage": "编辑"
   },
   "button.enable": {
-    "defaultMessage": "Kích hoạt"
+    "defaultMessage": "启用"
   },
   "button.extract": {
-    "defaultMessage": "Giải nén"
+    "defaultMessage": "解压"
   },
   "button.follow": {
-    "defaultMessage": "Theo dõi"
+    "defaultMessage": "关注"
   },
   "button.hide-snapshots": {
-    "defaultMessage": "Ẩn các bản snapshot"
+    "defaultMessage": "隐藏快照版本"
   },
   "button.install": {
-    "defaultMessage": "Cài đặt"
+    "defaultMessage": "安装"
   },
   "button.max": {
-    "defaultMessage": "Tối đa"
+    "defaultMessage": "最大"
   },
   "button.more-options": {
-    "defaultMessage": "Tùy chọn"
+    "defaultMessage": "更多选项"
   },
   "button.move": {
-    "defaultMessage": "Di chuyển"
+    "defaultMessage": "移动"
   },
   "button.next": {
-    "defaultMessage": "Tiếp theo"
+    "defaultMessage": "下一步"
   },
   "button.open-folder": {
-    "defaultMessage": "Mở thư mục"
+    "defaultMessage": "打开文件夹"
+  },
+  "button.open-in-browser": {
+    "defaultMessage": "在浏览器中打开"
   },
   "button.open-in-folder": {
-    "defaultMessage": "Mở thư mục"
+    "defaultMessage": "在文件夹中打开"
   },
   "button.open-in-modrinth": {
-    "defaultMessage": "Mở trong trình duyệt"
+    "defaultMessage": "在 Modrinth 中打开"
   },
   "button.play": {
-    "defaultMessage": "Chơi"
+    "defaultMessage": "开始游戏"
   },
   "button.refresh": {
-    "defaultMessage": "Làm mới"
+    "defaultMessage": "刷新"
   },
   "button.reinstall-modpack": {
-    "defaultMessage": "Cài đặt lại modpack"
+    "defaultMessage": "重新安装整合包"
+  },
+  "button.remove": {
+    "defaultMessage": "删除"
   },
   "button.remove-image": {
-    "defaultMessage": "Xóa ảnh"
+    "defaultMessage": "移除图片"
   },
   "button.rename": {
-    "defaultMessage": "Đổi tên"
+    "defaultMessage": "重命名"
   },
   "button.repair": {
-    "defaultMessage": "Sửa chửa"
+    "defaultMessage": "修复"
   },
   "button.repairing": {
-    "defaultMessage": "Đang sửa chữa..."
+    "defaultMessage": "正在修复……"
   },
   "button.report": {
-    "defaultMessage": "Báo cáo"
+    "defaultMessage": "举报"
   },
   "button.reset": {
-    "defaultMessage": "Đặt lại"
+    "defaultMessage": "重置"
   },
   "button.reset-server": {
-    "defaultMessage": "Khởi động lại máy chủ"
+    "defaultMessage": "重置服务器"
   },
   "button.retry": {
-    "defaultMessage": "Thử lại"
+    "defaultMessage": "重试"
   },
   "button.save": {
-    "defaultMessage": "Lưu"
+    "defaultMessage": "保存"
   },
   "button.save-changes": {
-    "defaultMessage": "Lưu thay đổi"
+    "defaultMessage": "保存更改"
   },
   "button.saving": {
-    "defaultMessage": "Đang lưu"
+    "defaultMessage": "正在保存"
   },
   "button.show-all-versions": {
-    "defaultMessage": "Hiển thị tất cả các phiên bản"
+    "defaultMessage": "显示所有版本"
   },
   "button.show-file": {
-    "defaultMessage": "Hiện tệp"
+    "defaultMessage": "显示文件"
   },
   "button.sign-in": {
-    "defaultMessage": "Đăng nhập"
+    "defaultMessage": "登录"
   },
   "button.sign-out": {
-    "defaultMessage": "Đăng xuất"
+    "defaultMessage": "退出登录"
   },
   "button.sign-up": {
-    "defaultMessage": "Đăng ký"
+    "defaultMessage": "注册"
   },
   "button.stop": {
-    "defaultMessage": "Dừng"
+    "defaultMessage": "停止"
+  },
+  "button.switch-to-version": {
+    "defaultMessage": "切换到此版本"
   },
   "button.switch-version": {
-    "defaultMessage": "Đổi phiên bản"
+    "defaultMessage": "切换版本"
   },
   "button.unfollow": {
-    "defaultMessage": "Bỏ theo dõi"
+    "defaultMessage": "取消关注"
   },
   "button.unlink-modpack": {
-    "defaultMessage": "Huỷ liên kết modpack"
+    "defaultMessage": "解除整合包关联"
   },
   "button.update": {
-    "defaultMessage": "Cập nhật"
+    "defaultMessage": "更新"
   },
   "button.upload-image": {
-    "defaultMessage": "Tải ảnh lên"
+    "defaultMessage": "上传图片"
   },
   "collections.label.private": {
-    "defaultMessage": "Riêng tư"
+    "defaultMessage": "私有"
+  },
+  "color-picker.dialog-label": {
+    "defaultMessage": "取色器"
+  },
+  "color-picker.dye-presets": {
+    "defaultMessage": "染料颜色"
+  },
+  "color-picker.dye.black": {
+    "defaultMessage": "黑色"
+  },
+  "color-picker.dye.blue": {
+    "defaultMessage": "蓝色"
+  },
+  "color-picker.dye.brown": {
+    "defaultMessage": "棕色"
+  },
+  "color-picker.dye.cyan": {
+    "defaultMessage": "青色"
+  },
+  "color-picker.dye.gray": {
+    "defaultMessage": "灰色"
+  },
+  "color-picker.dye.green": {
+    "defaultMessage": "绿色"
+  },
+  "color-picker.dye.light-blue": {
+    "defaultMessage": "淡蓝色"
+  },
+  "color-picker.dye.light-gray": {
+    "defaultMessage": "淡灰色"
+  },
+  "color-picker.dye.lime": {
+    "defaultMessage": "黄绿色"
+  },
+  "color-picker.dye.magenta": {
+    "defaultMessage": "品红色"
+  },
+  "color-picker.dye.orange": {
+    "defaultMessage": "橙色"
+  },
+  "color-picker.dye.pink": {
+    "defaultMessage": "粉红色"
+  },
+  "color-picker.dye.purple": {
+    "defaultMessage": "紫色"
+  },
+  "color-picker.dye.red": {
+    "defaultMessage": "红色"
+  },
+  "color-picker.dye.white": {
+    "defaultMessage": "白色"
+  },
+  "color-picker.dye.yellow": {
+    "defaultMessage": "黄色"
+  },
+  "color-picker.hex": {
+    "defaultMessage": "十六进制颜色"
+  },
+  "color-picker.hue": {
+    "defaultMessage": "色相"
+  },
+  "color-picker.open": {
+    "defaultMessage": "选择颜色"
+  },
+  "color-picker.recent-colors": {
+    "defaultMessage": "最近使用"
+  },
+  "color-picker.saturation-brightness": {
+    "defaultMessage": "饱和度与亮度"
+  },
+  "color-picker.saturation-brightness.value": {
+    "defaultMessage": "饱和度 {saturation}%，亮度 {brightness}%"
+  },
+  "console.action.collapse": {
+    "defaultMessage": "收起"
+  },
+  "console.action.expand": {
+    "defaultMessage": "展开"
+  },
+  "console.action.share": {
+    "defaultMessage": "分享"
+  },
+  "console.command.disabled-placeholder": {
+    "defaultMessage": "命令输入已禁用"
+  },
+  "console.command.placeholder": {
+    "defaultMessage": "发送命令"
+  },
+  "console.command.server-not-running-placeholder": {
+    "defaultMessage": "服务器未运行"
+  },
+  "console.crash.export-context": {
+    "defaultMessage": "导出崩溃上下文"
+  },
+  "console.crash.finding.amd-driver.action": {
+    "defaultMessage": "全新安装最新版 AMD 显卡驱动，并关闭图形叠加层后重试。"
+  },
+  "console.crash.finding.amd-driver.title": {
+    "defaultMessage": "AMD 显卡驱动崩溃"
+  },
+  "console.crash.finding.connector-incompatible-fabric-mods.action": {
+    "defaultMessage": "移除或替换 Connector 错误中指出的 Fabric 模组，改用兼容 Forge 的替代版本。"
+  },
+  "console.crash.finding.connector-incompatible-fabric-mods.title": {
+    "defaultMessage": "Sinytra Connector 发现不兼容的 Fabric 模组"
+  },
+  "console.crash.finding.content-verification.action": {
+    "defaultMessage": "从可信来源重新安装证据中指出的文件。"
+  },
+  "console.crash.finding.content-verification.title": {
+    "defaultMessage": "jar 签名验证失败"
+  },
+  "console.crash.finding.definite-mod-fabric.action": {
+    "defaultMessage": "更新或暂时移除 Fabric 加载器证据中指出的模组。"
+  },
+  "console.crash.finding.definite-mod-fabric.title": {
+    "defaultMessage": "Fabric 发现特定模组故障"
+  },
+  "console.crash.finding.definite-mod.action": {
+    "defaultMessage": "更新、修复或暂时移除证据和匹配 jar 中指出的模组。"
+  },
+  "console.crash.finding.definite-mod.title": {
+    "defaultMessage": "特定模组导致了崩溃"
+  },
+  "console.crash.finding.disk-space.action": {
+    "defaultMessage": "请释放实例所在磁盘的空间，然后重试启动。"
+  },
+  "console.crash.finding.disk-space.title": {
+    "defaultMessage": "磁盘空间不足"
+  },
+  "console.crash.finding.duplicate-mod.action": {
+    "defaultMessage": "在 mods 文件夹中，每个模组只保留一个兼容版本。"
+  },
+  "console.crash.finding.duplicate-mod.title": {
+    "defaultMessage": "安装了重复模组"
+  },
+  "console.crash.finding.extracted-mod.action": {
+    "defaultMessage": "从 mods 文件夹移除解压后的目录，并安装原始 jar 文件。"
+  },
+  "console.crash.finding.extracted-mod.title": {
+    "defaultMessage": "发现已解压的模组"
+  },
+  "console.crash.finding.fabric-solution.action": {
+    "defaultMessage": "按证据中列出的依赖项更改处理后再启动。"
+  },
+  "console.crash.finding.fabric-solution.title": {
+    "defaultMessage": "Fabric 发现不兼容模组或缺失依赖项"
+  },
+  "console.crash.finding.fallback-action": {
+    "defaultMessage": "查看下方证据和本地实例中匹配到的模组。"
+  },
+  "console.crash.finding.fallback-title": {
+    "defaultMessage": "未知诊断：{finding}"
+  },
+  "console.crash.finding.file-in-use.action": {
+    "defaultMessage": "关闭证据中指出的程序，包括其他启动器、备份工具或杀毒扫描，然后重试。"
+  },
+  "console.crash.finding.file-in-use.title": {
+    "defaultMessage": "另一个进程正在使用必需文件"
+  },
+  "console.crash.finding.forge-error.action": {
+    "defaultMessage": "查看 Forge 故障证据，并在撤销近期更改后测试指出的模组。"
+  },
+  "console.crash.finding.forge-error.title": {
+    "defaultMessage": "Forge 报告了游戏错误"
+  },
+  "console.crash.finding.forge-incomplete.action": {
+    "defaultMessage": "修复或重新安装此实例的 Forge 加载器。"
+  },
+  "console.crash.finding.forge-incomplete.title": {
+    "defaultMessage": "Forge 安装不完整"
+  },
+  "console.crash.finding.forge-java-incompatible.action": {
+    "defaultMessage": "使用此 Forge 版本所需的 Java 版本，或更新 Forge。"
+  },
+  "console.crash.finding.forge-java-incompatible.title": {
+    "defaultMessage": "此 Forge 版本与所选 Java 运行时不兼容"
+  },
+  "console.crash.finding.incompatible-mods.action": {
+    "defaultMessage": "按证据中的兼容性详情更新、移除或替换冲突模组。"
+  },
+  "console.crash.finding.incompatible-mods.title": {
+    "defaultMessage": "已安装的模组互不兼容"
+  },
+  "console.crash.finding.intel-driver.action": {
+    "defaultMessage": "安装最新版 Intel 显卡驱动，或改用其他可用 GPU 运行 Minecraft。"
+  },
+  "console.crash.finding.intel-driver.title": {
+    "defaultMessage": "Intel 显卡驱动崩溃"
+  },
+  "console.crash.finding.java-11-required.action": {
+    "defaultMessage": "选择 Java 11，或安装与所选 Java 版本兼容的模组版本。"
+  },
+  "console.crash.finding.java-11-required.title": {
+    "defaultMessage": "模组需要 Java 11"
+  },
+  "console.crash.finding.java-32bit.action": {
+    "defaultMessage": "安装并选择 64 位 Java 运行时，然后重试启动。"
+  },
+  "console.crash.finding.java-32bit.title": {
+    "defaultMessage": "32 位 Java 运行时无法分配所需内存"
+  },
+  "console.crash.finding.java-incompatible.action": {
+    "defaultMessage": "使用兼容的 Java 运行时，或安装适用于此 Java 版本的模组版本。"
+  },
+  "console.crash.finding.java-incompatible.title": {
+    "defaultMessage": "模组需要其他 Java 版本"
+  },
+  "console.crash.finding.java-too-new.action": {
+    "defaultMessage": "选择此 Minecraft 和模组加载器版本所需的 Java 主版本。"
+  },
+  "console.crash.finding.java-too-new.title": {
+    "defaultMessage": "Java 运行时版本对此实例过新"
+  },
+  "console.crash.finding.jdk-runtime.action": {
+    "defaultMessage": "为此 Minecraft 版本选择标准 HotSpot Java 运行时。"
+  },
+  "console.crash.finding.jdk-runtime.title": {
+    "defaultMessage": "选择了 JDK 而不是 JRE"
+  },
+  "console.crash.finding.jvm-arguments.action": {
+    "defaultMessage": "移除报告中指出的自定义 JVM 参数，然后重新启动实例。"
+  },
+  "console.crash.finding.jvm-arguments.title": {
+    "defaultMessage": "JVM 参数无效"
+  },
+  "console.crash.finding.known-signature.action": {
+    "defaultMessage": "在修改实例前查看证据以及相关的 Minecraft、加载器、Java、图形或模组版本。"
+  },
+  "console.crash.finding.known-signature.title": {
+    "defaultMessage": "检测到已知崩溃特征"
+  },
+  "console.crash.finding.large-resource-pack.action": {
+    "defaultMessage": "禁用该资源包，或改用分辨率更低的版本。"
+  },
+  "console.crash.finding.large-resource-pack.title": {
+    "defaultMessage": "当前资源包对于图形配置而言过大"
+  },
+  "console.crash.finding.manual-debug-crash.action": {
+    "defaultMessage": "重新启动，并避免长按手动调试崩溃快捷键。"
+  },
+  "console.crash.finding.manual-debug-crash.title": {
+    "defaultMessage": "触发了调试崩溃快捷键"
+  },
+  "console.crash.finding.matched-mod": {
+    "defaultMessage": "匹配模组：{identity}{modId} - {fileName}"
+  },
+  "console.crash.finding.missing-dependency.action": {
+    "defaultMessage": "安装所需的依赖项版本，或使用与此 Minecraft 版本匹配的模组版本。"
+  },
+  "console.crash.finding.missing-dependency.title": {
+    "defaultMessage": "模组依赖项缺失或不受支持"
+  },
+  "console.crash.finding.missing-embeddium.action": {
+    "defaultMessage": "请安装 Oculus 针对此 Minecraft 和 Forge 版本所需的 Embeddium 版本。"
+  },
+  "console.crash.finding.missing-embeddium.title": {
+    "defaultMessage": "Oculus 需要 Embeddium"
+  },
+  "console.crash.finding.missing-indium.action": {
+    "defaultMessage": "请安装与已安装 Fabric Loader 和 Sodium 版本兼容的 Indium 版本。"
+  },
+  "console.crash.finding.missing-indium.title": {
+    "defaultMessage": "模组需要 Indium"
+  },
+  "console.crash.finding.mixin-bootstrap.action": {
+    "defaultMessage": "修复模组加载器安装，并确认所有模组均适用于已安装的加载器。"
+  },
+  "console.crash.finding.mixin-bootstrap.title": {
+    "defaultMessage": "缺少 Mixin 引导程序"
+  },
+  "console.crash.finding.mixin-failure.action": {
+    "defaultMessage": "更新或移除匹配的模组，并检查其 Minecraft 和加载器版本是否兼容。"
+  },
+  "console.crash.finding.mixin-failure.title": {
+    "defaultMessage": "模组 Mixin 应用失败"
+  },
+  "console.crash.finding.mod-config.action": {
+    "defaultMessage": "备份并移除指出的配置文件，让模组重新生成它。"
+  },
+  "console.crash.finding.mod-config.title": {
+    "defaultMessage": "无法读取模组配置文件"
+  },
+  "console.crash.finding.mod-filename.action": {
+    "defaultMessage": "使用简单的拉丁字母文件名重命名或重新安装模组 jar。"
+  },
+  "console.crash.finding.mod-filename.title": {
+    "defaultMessage": "模组文件名包含不支持的字符"
+  },
+  "console.crash.finding.mod-id-limit.action": {
+    "defaultMessage": "移除不用的模组，或将安装内容拆分为更小的兼容配置。"
+  },
+  "console.crash.finding.mod-id-limit.title": {
+    "defaultMessage": "模组过多，超出 ID 限制"
+  },
+  "console.crash.finding.mod-initialization.action": {
+    "defaultMessage": "更新指出的模组，并确认其所需依赖项均已安装。"
+  },
+  "console.crash.finding.mod-initialization.title": {
+    "defaultMessage": "模组初始化失败"
+  },
+  "console.crash.finding.mod-loader-error.action": {
+    "defaultMessage": "修复加载器安装，并确认列出的模组文件与此游戏版本匹配。"
+  },
+  "console.crash.finding.mod-loader-error.title": {
+    "defaultMessage": "模组加载器报告了故障"
+  },
+  "console.crash.finding.mod-loader-failure.action": {
+    "defaultMessage": "修复加载器安装，并按证据中显示的故障消息处理。"
+  },
+  "console.crash.finding.mod-loader-failure.title": {
+    "defaultMessage": "模组加载器在识别模组文件前失败"
+  },
+  "console.crash.finding.multiple-forge-versions.action": {
+    "defaultMessage": "修复实例，使其版本配置中只包含一个 Forge 安装。"
+  },
+  "console.crash.finding.multiple-forge-versions.title": {
+    "defaultMessage": "版本配置中包含多个 Forge 版本"
+  },
+  "console.crash.finding.nightconfig-bug.action": {
+    "defaultMessage": "备份 config 文件夹，移除损坏配置，让模组重新生成它。"
+  },
+  "console.crash.finding.nightconfig-bug.title": {
+    "defaultMessage": "NightConfig 无法读取配置文件"
+  },
+  "console.crash.finding.nvidia-driver.action": {
+    "defaultMessage": "全新安装最新版 NVIDIA 显卡驱动，并关闭图形叠加层后重试。"
+  },
+  "console.crash.finding.nvidia-driver.title": {
+    "defaultMessage": "NVIDIA 显卡驱动崩溃"
+  },
+  "console.crash.finding.opengl-unsupported.action": {
+    "defaultMessage": "安装 GPU 制造商提供的显卡驱动，并确认 Minecraft 使用预期的 GPU。"
+  },
+  "console.crash.finding.opengl-unsupported.title": {
+    "defaultMessage": "当前显卡驱动不支持 OpenGL"
+  },
+  "console.crash.finding.openj9.action": {
+    "defaultMessage": "选择基于 HotSpot 的 Java 运行时，例如 Eclipse Temurin 或内置 Minecraft 运行时。"
+  },
+  "console.crash.finding.openj9.title": {
+    "defaultMessage": "所选 OpenJ9 运行时不兼容"
+  },
+  "console.crash.finding.optifine-incompatible.action": {
+    "defaultMessage": "安装兼容的 OptiFine 版本，或移除 OptiFine 和冲突的光影模组。"
+  },
+  "console.crash.finding.optifine-incompatible.title": {
+    "defaultMessage": "OptiFine 与已安装的加载器或模组冲突"
+  },
+  "console.crash.finding.optifine-world.action": {
+    "defaultMessage": "移除 OptiFine，或安装与此 Minecraft 和 Forge 版本兼容的版本。"
+  },
+  "console.crash.finding.optifine-world.title": {
+    "defaultMessage": "OptiFine 阻止了世界加载"
+  },
+  "console.crash.finding.out-of-memory.action": {
+    "defaultMessage": "增加实例内存分配，或移除占用大量内存的模组和资源包。"
+  },
+  "console.crash.finding.out-of-memory.title": {
+    "defaultMessage": "Minecraft 内存不足"
+  },
+  "console.crash.finding.pixel-format.action": {
+    "defaultMessage": "更新或重新安装显卡驱动，禁用冲突的叠加层后重试。"
+  },
+  "console.crash.finding.pixel-format.title": {
+    "defaultMessage": "显卡驱动无法设置像素格式"
+  },
+  "console.crash.finding.resource-pack.action": {
+    "defaultMessage": "禁用当前光影和资源包，再逐一重新启用。"
+  },
+  "console.crash.finding.resource-pack.title": {
+    "defaultMessage": "光影或资源包触发了图形错误"
+  },
+  "console.crash.finding.shaders-optifine.action": {
+    "defaultMessage": "移除单独的光影模组，因为 OptiFine 已提供光影支持。"
+  },
+  "console.crash.finding.shaders-optifine.title": {
+    "defaultMessage": "同时安装了光影模组和 OptiFine"
+  },
+  "console.crash.finding.short-output.action": {
+    "defaultMessage": "重试一次，然后检查 Java、加载器安装和启动器输出中更早出现的错误。"
+  },
+  "console.crash.finding.short-output.title": {
+    "defaultMessage": "游戏在生成有效日志前停止"
+  },
+  "console.crash.finding.specific-block.action": {
+    "defaultMessage": "使用世界备份或世界编辑器，移除证据所示坐标处的方块。"
+  },
+  "console.crash.finding.specific-block.title": {
+    "defaultMessage": "特定方块导致了崩溃"
+  },
+  "console.crash.finding.specific-entity.action": {
+    "defaultMessage": "使用世界备份或世界编辑器，移除证据所示坐标处的实体。"
+  },
+  "console.crash.finding.specific-entity.title": {
+    "defaultMessage": "特定实体导致了崩溃"
+  },
+  "console.crash.finding.stack-analysis.action": {
+    "defaultMessage": "更新或暂时移除匹配的模组，然后重新测试实例。"
+  },
+  "console.crash.finding.stack-analysis.title": {
+    "defaultMessage": "堆栈跟踪指向已安装的模组"
+  },
+  "console.crash.finding.suspected-mod.action": {
+    "defaultMessage": "更新或暂时移除报告怀疑且本地匹配的模组，然后重试。"
+  },
+  "console.crash.finding.suspected-mod.title": {
+    "defaultMessage": "崩溃报告怀疑一个或多个模组"
+  },
+  "console.crash.local-header": {
+    "defaultMessage": "{findings, plural, one {# 项本地诊断结果} other {# 项本地诊断结果}}，来自 {sources, plural, one {# 个相关文件} other {# 个相关文件}}"
+  },
+  "console.crash.mod-change": {
+    "defaultMessage": "{kind}：{filename}"
+  },
+  "console.crash.mod-change.added": {
+    "defaultMessage": "新增"
+  },
+  "console.crash.mod-change.modified": {
+    "defaultMessage": "已修改"
+  },
+  "console.crash.mod-change.removed": {
+    "defaultMessage": "已移除"
+  },
+  "console.crash.mod-changes.summary": {
+    "defaultMessage": "新增 {added} 项，移除 {removed} 项，修改 {modified} 项"
+  },
+  "console.crash.mod-changes.title": {
+    "defaultMessage": "上次成功启动后模组文件发生了变化"
+  },
+  "console.crash.problems-detected": {
+    "defaultMessage": "检测到 {count, plural, one {# 个问题} other {# 个问题}}"
+  },
+  "console.crash.windows-events.title": {
+    "defaultMessage": "相关 Windows 应用程序事件"
+  },
+  "console.delete-modal.confirmation": {
+    "defaultMessage": "删除后无法恢复此日志文件。确定要继续吗？"
+  },
+  "console.delete-modal.irreversible-title": {
+    "defaultMessage": "此操作不可撤销"
+  },
+  "console.delete-modal.title": {
+    "defaultMessage": "删除日志文件"
+  },
+  "console.filter.error": {
+    "defaultMessage": "错误"
+  },
+  "console.filter.info": {
+    "defaultMessage": "信息"
+  },
+  "console.filter.warn": {
+    "defaultMessage": "警告"
+  },
+  "console.log-viewport.scroll-to-bottom": {
+    "defaultMessage": "滚动到底部"
+  },
+  "console.notification.delete-failed": {
+    "defaultMessage": "删除日志文件失败"
+  },
+  "console.notification.share-failed": {
+    "defaultMessage": "分享日志失败"
+  },
+  "console.notification.share-truncated": {
+    "defaultMessage": "日志过大，已自动截取最后 9MB 上传。"
+  },
+  "console.notification.unknown-error": {
+    "defaultMessage": "未知错误。"
+  },
+  "console.log.toggle-wrap": {
+    "defaultMessage": "切换换行"
+  },
+  "console.log.wrap-label": {
+    "defaultMessage": "换行"
+  },
+  "console.empty.instance-title": {
+    "defaultMessage": "暂无日志"
+  },
+  "console.empty.instance-description": {
+    "defaultMessage": "点击右上角「开始游戏」即可接收实时日志"
+  },
+  "console.empty.server-title": {
+    "defaultMessage": "欢迎使用 Axolotl 服务器！"
+  },
+  "console.empty.server-description": {
+    "defaultMessage": "点击启动按钮即可启动服务器！"
+  },
+  "console.search.placeholder": {
+    "defaultMessage": "搜索日志"
+  },
+  "console.share-modal.title": {
+    "defaultMessage": "分享日志"
   },
   "content-type.content.lowercase": {
-    "defaultMessage": "nội dung"
+    "defaultMessage": "内容"
   },
   "content-type.item.lowercase": {
-    "defaultMessage": "{count, plural, other {vật phẩm}}"
+    "defaultMessage": "{count, plural, one {个项目} other {个项目}}"
+  },
+  "content.card.dependency-badge": {
+    "defaultMessage": "前置"
+  },
+  "content.card.duplicate-mod": {
+    "defaultMessage": "此模组已安装 {count, number} 次。"
+  },
+  "content.card.group.hardcore": {
+    "defaultMessage": "硬核模式"
+  },
+  "content.card.group.not-played-yet": {
+    "defaultMessage": "尚未游玩"
+  },
+  "content.card.orphaned-dependency-badge": {
+    "defaultMessage": "孤立前置"
+  },
+  "content.card.pending-manual-download": {
+    "defaultMessage": "需要手动下载"
+  },
+  "content.card.rollback-tooltip": {
+    "defaultMessage": "回滚到 {fileName}"
   },
   "content.card.select-project": {
-    "defaultMessage": "Chọn {project}"
+    "defaultMessage": "选择 {project}"
   },
   "content.confirm-bulk-update.admonition-body": {
-    "defaultMessage": "Bạn có chắc chắn muốn cập nhật {count, plural, other {# dự án}} lên phiên bản tương thích mới nhất không? Đề xuất: Bạn nên cập nhật từng cái một."
+    "defaultMessage": "是否确定要将 {count, plural,  other {# 个项目}}更新至最新的兼容版本？建议逐个更新内容。"
   },
   "content.confirm-bulk-update.admonition-header": {
-    "defaultMessage": "Cảnh báo cập nhật"
+    "defaultMessage": "更新警告"
   },
   "content.confirm-bulk-update.header": {
-    "defaultMessage": "Cập nhật dự án"
+    "defaultMessage": "更新项目"
   },
   "content.confirm-bulk-update.update-button": {
-    "defaultMessage": "Cập nhật {count, plural, other {# dự án}}"
+    "defaultMessage": "更新 {count, plural, other {# 个项目}}"
   },
   "content.confirm-deletion.admonition-body": {
-    "defaultMessage": "Việc xóa một bản mod có thể ảnh hưởng vĩnh viễn đến thế giới của bạn, đồng thời có thể gây thiếu hụt nội dung hoặc phát sinh các lỗi không mong muốn khi tải lại thế giới đó."
+    "defaultMessage": "删除{contentType, select, mod {模组} resourcepack {资源包} shader {光影} datapack {数据包} other {内容}}可能会对你的游戏世界造成永久性影响，并可能导致再次加载时出现内容缺失或意外问题。"
   },
   "content.confirm-deletion.admonition-header": {
-    "defaultMessage": "Cảnh báo trước khi xoá"
+    "defaultMessage": "删除警告"
   },
   "content.confirm-deletion.delete-button": {
-    "defaultMessage": "Xóa {count, number} {itemType}"
+    "defaultMessage": "删除{count, number}个{itemType}"
   },
   "content.confirm-deletion.header": {
-    "defaultMessage": "Xóa {itemType}"
+    "defaultMessage": "删除 {itemType}"
   },
   "content.confirm-modpack-update.admonition-body": {
-    "defaultMessage": "{action, select, downgrade {Việc hạ phiên bản} other {Việc cập nhật}} có thể gây ra lỗi tương thích. Những mod mà bạn thêm vào modpack sẽ được giữ lại nhưng chúng có thể sẽ không tương thích với phiên bản mới của modpack."
+    "defaultMessage": "{action, select, downgrade {降级} other {更新}}可能会导致兼容性问题。你在整合包基础上额外添加的模组或内容将被保留，但可能与新版本不兼容。"
   },
   "content.confirm-modpack-update.admonition-header": {
-    "defaultMessage": "Cảnh báo {action, select, downgrade {hạ phiên bản} other {cập nhật}}"
+    "defaultMessage": "{action, select, downgrade {降级} other {升级}}警告"
   },
   "content.confirm-modpack-update.confirm-button": {
-    "defaultMessage": "{action, select, downgrade {Hạ phiên bản} other {Cập nhật}} modpack"
+    "defaultMessage": "{action, select, downgrade {降级} other {升级}}整合包"
   },
   "content.confirm-modpack-update.header": {
-    "defaultMessage": "{action, select, downgrade {Hạ phiên bản} other {Cập nhật}} modpack"
+    "defaultMessage": "{action, select, downgrade {降级} other {升级}}整合包"
   },
   "content.confirm-unlink.admonition-body": {
-    "defaultMessage": "Các bản mod và nội dung sẽ được hợp nhất với những gì bạn đã thêm vào modpack và modpack sẽ ngừng nhận các bản cập nhật."
+    "defaultMessage": "模组和内容将与你在整合包之上添加的内容合并，并且它将停止接收更新。"
   },
   "content.confirm-unlink.admonition-header": {
-    "defaultMessage": "Cảnh báo huỷ liên kết modpack"
+    "defaultMessage": "解除整合包关联"
   },
   "content.confirm-unlink.header": {
-    "defaultMessage": "Huỷ liên kết modpack"
+    "defaultMessage": "解除整合包关联"
   },
   "content.confirm-unlink.unlink-button": {
-    "defaultMessage": "Huỷ liên kết"
+    "defaultMessage": "解除关联"
   },
   "content.dependency-warning.admonition-header": {
-    "defaultMessage": "Nội dung này đang được sử dụng bởi thành phần khác"
+    "defaultMessage": "其他内容需要此内容"
   },
   "content.dependency-warning.affected-dependents-label": {
-    "defaultMessage": "{count, plural, one {project} other {projects}} bị ảnh hưởng"
+    "defaultMessage": "影响的{count, plural, other {项目}}"
   },
   "content.dependency-warning.bulk-admonition-body": {
-    "defaultMessage": "Một số mục bạn chọn là thành phần bắt buộc để chạy các nội dung khác. Nếu xóa chúng, {context} có thể bị lỗi hoặc các nội dung liên quan sẽ không thể hoạt động bình thường."
+    "defaultMessage": "你选择的部分项目已作为依赖项安装。删除它们可能破坏你的 {context} 或者阻止依赖项内容正常加载。"
   },
   "content.dependency-warning.context.instance": {
-    "defaultMessage": "cấu hình"
+    "defaultMessage": "实例"
   },
   "content.dependency-warning.context.server": {
-    "defaultMessage": "máy chủ"
+    "defaultMessage": "服务器"
   },
   "content.dependency-warning.delete-anyway-button": {
-    "defaultMessage": "Vẫn tiếp tục xoá"
+    "defaultMessage": "仍然删除"
   },
   "content.dependency-warning.delete-many-anyway-button": {
-    "defaultMessage": "Vẫn tiếp tục xoá {count, number} {itemType}"
+    "defaultMessage": "仍然删除这 {count, number} 个{itemType}"
   },
   "content.dependency-warning.deleting-label": {
-    "defaultMessage": "Đang xoá"
+    "defaultMessage": "即将删除"
   },
   "content.dependency-warning.disable-dependents-label": {
-    "defaultMessage": "Vô hiệu hoá nội dung phụ thuộc sau khi xoá"
+    "defaultMessage": "删除后禁用依赖项"
   },
   "content.dependency-warning.effect-dependent-content": {
-    "defaultMessage": "Nội dung phụ thuộc có thể không tải được hoặc tự vô hiệu hóa"
+    "defaultMessage": "依赖项内容可能无法加载或者被自动禁用"
   },
   "content.dependency-warning.effect-instance": {
-    "defaultMessage": "{context} của bạn có thể sập, từ chối khởi động hoặc hoạt động bất thường"
+    "defaultMessage": "你的 {context} 可能会崩溃、无法启动或无法正常工作"
   },
   "content.dependency-warning.header": {
-    "defaultMessage": "Cảnh báo phụ thuộc"
+    "defaultMessage": "依赖项警告"
   },
   "content.dependency-warning.single-admonition-body": {
-    "defaultMessage": "{project} đang được cài đặt dưới dạng nội dung phụ thuộc. Việc xoá nó có thể khiến {context} hỏng hoặc ngăn nội dung phụ thuộc nó tải đúng cách."
+    "defaultMessage": "{project} 已作为依赖项安装。删除它可能破坏你的 {context} 或者阻止依赖项内容正常加载。"
   },
   "content.dependency-warning.what-happens-label": {
-    "defaultMessage": "Chuyện gì sẽ xảy ra?"
+    "defaultMessage": "发生什么了？"
   },
   "content.diff-modal.added-count": {
-    "defaultMessage": "Đã thêm {count}"
+    "defaultMessage": "添加了 {count} 项"
   },
   "content.diff-modal.diff-type.added": {
-    "defaultMessage": "Đã thêm (phụ thuộc)"
+    "defaultMessage": "添加（依赖）"
   },
   "content.diff-modal.diff-type.removed": {
-    "defaultMessage": "Đã tắt"
+    "defaultMessage": "已禁用"
   },
   "content.diff-modal.diff-type.updated": {
-    "defaultMessage": "Đã cập nhật"
+    "defaultMessage": "已更新"
   },
   "content.diff-modal.removed-count": {
-    "defaultMessage": "Đã xoá {count}"
+    "defaultMessage": "移除了 {count} 项"
   },
   "content.diff-modal.unknown-content-body": {
-    "defaultMessage": "Một số nội dung trên máy chủ của bạn không thể phân tích được và có thể bị ảnh hưởng bởi thay đổi này."
+    "defaultMessage": "你服务器上的部分内容未能完成分析，可能受此变更影响。"
   },
   "content.diff-modal.updated-count": {
-    "defaultMessage": "{count} đã được cập nhật"
+    "defaultMessage": "更新了 {count} 项"
   },
   "content.filter.disabled": {
-    "defaultMessage": "Đang tắt"
+    "defaultMessage": "已禁用"
+  },
+  "content.filter.duplicates": {
+    "defaultMessage": "重复"
   },
   "content.filter.enabled": {
-    "defaultMessage": "Đang bật"
+    "defaultMessage": "已启用"
   },
   "content.filter.updates": {
-    "defaultMessage": "Cần cập nhật"
+    "defaultMessage": "可更新"
+  },
+  "content.metadata-filter.author": {
+    "defaultMessage": "作者"
+  },
+  "content.metadata-filter.clear": {
+    "defaultMessage": "清除"
+  },
+  "content.metadata-filter.environment": {
+    "defaultMessage": "环境"
+  },
+  "content.metadata-filter.environment.client": {
+    "defaultMessage": "客户端"
+  },
+  "content.metadata-filter.environment.client-and-server": {
+    "defaultMessage": "客户端和服务端"
+  },
+  "content.metadata-filter.environment.server": {
+    "defaultMessage": "服务端"
+  },
+  "content.metadata-filter.environment.singleplayer": {
+    "defaultMessage": "单人游戏"
+  },
+  "content.metadata-filter.external": {
+    "defaultMessage": "外部文件"
+  },
+  "content.metadata-filter.external.external": {
+    "defaultMessage": "外部文件"
+  },
+  "content.metadata-filter.external.linked": {
+    "defaultMessage": "在线项目"
+  },
+  "content.metadata-filter.loader": {
+    "defaultMessage": "加载器"
+  },
+  "content.metadata-filter.loader.fabric": {
+    "defaultMessage": "Fabric"
+  },
+  "content.metadata-filter.loader.forge": {
+    "defaultMessage": "Forge"
+  },
+  "content.metadata-filter.loader.neoforge": {
+    "defaultMessage": "NeoForge"
+  },
+  "content.metadata-filter.loader.other": {
+    "defaultMessage": "其他"
+  },
+  "content.metadata-filter.loader.quilt": {
+    "defaultMessage": "Quilt"
+  },
+  "content.metadata-filter.long-press-reset": {
+    "defaultMessage": "长按重置筛选"
+  },
+  "content.metadata-filter.open-source": {
+    "defaultMessage": "开源"
+  },
+  "content.metadata-filter.open-source.closed": {
+    "defaultMessage": "非开源"
+  },
+  "content.metadata-filter.open-source.open": {
+    "defaultMessage": "开源"
+  },
+  "content.metadata-filter.search": {
+    "defaultMessage": "搜索..."
+  },
+  "content.metadata-filter.select-all": {
+    "defaultMessage": "全选"
+  },
+  "content.metadata-filter.source.curseforge": {
+    "defaultMessage": "CurseForge"
+  },
+  "content.metadata-filter.toggle": {
+    "defaultMessage": "筛选"
+  },
+  "content.metadata-filter.toggle-active": {
+    "defaultMessage": "筛选（已启用 {count, number} 项）"
+  },
+  "content.metadata-filter.unknown": {
+    "defaultMessage": "未知"
   },
   "content.page-layout.browse-content": {
-    "defaultMessage": "Thêm mod"
+    "defaultMessage": "浏览内容"
   },
   "content.page-layout.empty.hint": {
-    "defaultMessage": "Thêm hoặc tải lên {contentType} để bắt đầu"
+    "defaultMessage": "浏览或上传{contentType}以开始使用"
   },
   "content.page-layout.empty.no-content-installed": {
-    "defaultMessage": "Chưa cài đặt nội dung nào"
+    "defaultMessage": "没有安装内容"
   },
   "content.page-layout.failed-to-load": {
-    "defaultMessage": "Không thể tải nội dung"
+    "defaultMessage": "加载内容失败"
   },
   "content.page-layout.no-content-found": {
-    "defaultMessage": "Không có nội dung nào được tìm thấy."
+    "defaultMessage": "未找到内容。"
+  },
+  "content.page-layout.view-dependencies": {
+    "defaultMessage": "查看依赖关系"
   },
   "content.page-layout.search-placeholder": {
-    "defaultMessage": "Tìm trong {count, number} {contentType}..."
+    "defaultMessage": "搜索到 {count, number}个{contentType}……"
   },
   "content.page-layout.share.file-names": {
-    "defaultMessage": "Tên tệp"
+    "defaultMessage": "文件名"
   },
   "content.page-layout.share.label": {
-    "defaultMessage": "Chia sẻ"
+    "defaultMessage": "分享"
   },
   "content.page-layout.share.markdown-links": {
-    "defaultMessage": "Đường dẫn Markdown"
+    "defaultMessage": "Markdown 链接"
   },
   "content.page-layout.share.project-links": {
-    "defaultMessage": "Đường dẫn dự án"
+    "defaultMessage": "项目链接"
   },
   "content.page-layout.share.project-names": {
-    "defaultMessage": "Tên dự án"
+    "defaultMessage": "项目名称"
   },
   "content.page-layout.sort.alphabetical": {
-    "defaultMessage": "Thứ tự bảng chữ cái"
+    "defaultMessage": "按字母顺序"
+  },
+  "content.page-layout.sort.file-name-ascending": {
+    "defaultMessage": "文件名 A-Z"
+  },
+  "content.page-layout.sort.file-name-descending": {
+    "defaultMessage": "文件名 Z-A"
   },
   "content.page-layout.sort.date-added-newest": {
-    "defaultMessage": "Mới nhất"
+    "defaultMessage": "按从新到旧顺序"
   },
   "content.page-layout.sort.date-added-oldest": {
-    "defaultMessage": "Cũ nhất"
+    "defaultMessage": "按从旧到新顺序"
   },
   "content.page-layout.sort.label": {
-    "defaultMessage": "Sắp xếp theo {mode}"
+    "defaultMessage": "按{mode}排序"
+  },
+  "content.page-layout.sort.project-name-ascending": {
+    "defaultMessage": "项目名称 A-Z"
+  },
+  "content.page-layout.sort.project-name-descending": {
+    "defaultMessage": "项目名称 Z-A"
+  },
+  "content.page-layout.pin-view": {
+    "defaultMessage": "固定当前视图"
+  },
+  "content.page-layout.reset-view": {
+    "defaultMessage": "重置视图"
+  },
+  "content.page-layout.unpin-view": {
+    "defaultMessage": "取消固定当前视图"
   },
   "content.page-layout.update-all": {
-    "defaultMessage": "Cập nhật tất cả"
+    "defaultMessage": "更新所有"
+  },
+  "content.page-layout.view-options": {
+    "defaultMessage": "视图选项"
   },
   "content.selection-bar.all-already-disabled": {
-    "defaultMessage": "Tất cả nội dung đã chọn đều đã được tắt"
+    "defaultMessage": "已禁用选择的所有内容"
   },
   "content.selection-bar.all-already-enabled": {
-    "defaultMessage": "Tất cả nội dung đã chọn đều đã được bật"
+    "defaultMessage": "已启用选择的所有内容"
   },
   "content.selection-bar.bulk.deleting": {
-    "defaultMessage": "Đang xóa {progress}/{total} {contentType}..."
+    "defaultMessage": "正在删除 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.deleting-count": {
+    "defaultMessage": "正在删除 {count, number} {contentType}"
   },
   "content.selection-bar.bulk.deleting-waiting": {
-    "defaultMessage": "Đang xóa {contentType}..."
+    "defaultMessage": "正在删除 {contentType}……"
   },
   "content.selection-bar.bulk.disabling": {
-    "defaultMessage": "Đang tắt {progress}/{total} {contentType}..."
+    "defaultMessage": "正在禁用 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.disabling-count": {
+    "defaultMessage": "正在禁用 {count, number} {contentType}"
   },
   "content.selection-bar.bulk.disabling-waiting": {
-    "defaultMessage": "Đang tắt {contentType}..."
+    "defaultMessage": "正在禁用 {contentType}……"
   },
   "content.selection-bar.bulk.enabling": {
-    "defaultMessage": "Đang bật {progress}/{total} {contentType}..."
+    "defaultMessage": "正在启用 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.enabling-count": {
+    "defaultMessage": "正在启用 {count, number} {contentType}"
   },
   "content.selection-bar.bulk.enabling-waiting": {
-    "defaultMessage": "Dang bật {contentType}..."
+    "defaultMessage": "正在启用 {contentType}……"
   },
   "content.selection-bar.bulk.updating": {
-    "defaultMessage": "Đang cập nhật {progress}/{total} {contentType}..."
+    "defaultMessage": "正在更新 {progress}/{total} {contentType}……"
+  },
+  "content.selection-bar.bulk.updating-count": {
+    "defaultMessage": "正在更新 {count, number} {contentType}"
   },
   "content.selection-bar.bulk.updating-waiting": {
-    "defaultMessage": "Đang cập nhật {contentType}..."
+    "defaultMessage": "正在更新 {contentType}……"
   },
   "content.selection-bar.selected-count": {
-    "defaultMessage": "{count, number} {contentType} hiện được chọn"
+    "defaultMessage": "已选中{count, number}个{contentType}"
   },
   "content.selection-bar.selected-count-simple": {
-    "defaultMessage": "{count, number} đã được chọn"
+    "defaultMessage": "已选择 {count, number} 个"
   },
   "creation-flow.button.create-instance": {
-    "defaultMessage": "Tạo cấu hình"
+    "defaultMessage": "创建实例"
   },
   "creation-flow.button.create-world": {
-    "defaultMessage": "Tạo thế giới"
+    "defaultMessage": "创建世界"
   },
   "creation-flow.button.finish": {
-    "defaultMessage": "Hoàn tất"
+    "defaultMessage": "完成"
   },
   "creation-flow.button.import": {
-    "defaultMessage": "Nhập"
+    "defaultMessage": "导入"
   },
   "creation-flow.button.import-instances": {
-    "defaultMessage": "Nhập {count, plural, other {# cấu hình}}"
+    "defaultMessage": "导入 {count} 个实例"
   },
   "creation-flow.button.setup-server": {
-    "defaultMessage": "Tạo máy chủ"
+    "defaultMessage": "初始化服务器"
+  },
+  "creation-flow.modal.custom-setup.adjunct.hint": {
+    "defaultMessage": "下载前会自动选择兼容版本。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.checking-compatibility": {
+    "defaultMessage": "正在检查兼容性……"
+  },
+  "creation-flow.modal.custom-setup.adjunct.compatibility-load-failed": {
+    "defaultMessage": "无法验证 {loader} 的兼容性。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.label": {
+    "defaultMessage": "附加加载器"
+  },
+  "creation-flow.modal.custom-setup.adjunct.optifabric-load-failed": {
+    "defaultMessage": "无法验证 OptiFabric 兼容性。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.optifabric-unsupported": {
+    "defaultMessage": "OptiFine 需要 OptiFabric，但当前游戏版本没有兼容版本。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.primary-unsupported": {
+    "defaultMessage": "所选主加载器不支持当前游戏版本。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.select-game-version": {
+    "defaultMessage": "请先选择游戏版本以检查兼容性。"
+  },
+  "creation-flow.modal.custom-setup.adjunct.unsupported": {
+    "defaultMessage": "{loader} 没有支持当前游戏版本的兼容版本。"
   },
   "creation-flow.modal.custom-setup.build-number.label": {
-    "defaultMessage": "Số bản dựng"
+    "defaultMessage": "构建编号"
   },
   "creation-flow.modal.custom-setup.build-number.placeholder": {
-    "defaultMessage": "Chọn số bản dựng"
+    "defaultMessage": "选择构建编号"
   },
   "creation-flow.modal.custom-setup.build-number.search-placeholder": {
-    "defaultMessage": "Tìm số bản dựng..."
+    "defaultMessage": "搜索构建编号……"
   },
   "creation-flow.modal.custom-setup.content-loader.label": {
-    "defaultMessage": "Mod loader"
+    "defaultMessage": "内容加载器"
+  },
+  "creation-flow.modal.custom-setup.game-dir.label": {
+    "defaultMessage": "游戏目录"
+  },
+  "creation-flow.modal.custom-setup.game-dir.managed": {
+    "defaultMessage": "Axolotl 目录"
+  },
+  "creation-flow.modal.custom-setup.game-version.load-failed": {
+    "defaultMessage": "游戏版本加载失败"
+  },
+  "creation-flow.modal.custom-setup.game-version.no-supported-versions": {
+    "defaultMessage": "没有游戏版本支持此加载器"
   },
   "creation-flow.modal.custom-setup.game-version.placeholder": {
-    "defaultMessage": "Chọn phiên bản game"
+    "defaultMessage": "选择游戏版本"
   },
   "creation-flow.modal.custom-setup.game-version.search-placeholder": {
-    "defaultMessage": "Tìm phiên bản Game..."
+    "defaultMessage": "搜索游戏版本……"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.alpha": {
+    "defaultMessage": "愚人节版"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.ancient": {
+    "defaultMessage": "远古版"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.release": {
+    "defaultMessage": "正式版"
+  },
+  "creation-flow.modal.custom-setup.game-version-type.snapshot": {
+    "defaultMessage": "快照版"
   },
   "creation-flow.modal.custom-setup.icon.remove": {
-    "defaultMessage": "Xóa biểu tượng"
+    "defaultMessage": "移除图标"
   },
   "creation-flow.modal.custom-setup.icon.select": {
-    "defaultMessage": "Chọn biểu tượng"
+    "defaultMessage": "选择图标"
   },
   "creation-flow.modal.custom-setup.loader-version-type.latest": {
-    "defaultMessage": "Mới nhất"
+    "defaultMessage": "最新版"
   },
   "creation-flow.modal.custom-setup.loader-version-type.other": {
-    "defaultMessage": "Khác"
+    "defaultMessage": "其他"
   },
   "creation-flow.modal.custom-setup.loader-version-type.stable": {
-    "defaultMessage": "Ổn định"
+    "defaultMessage": "稳定版"
   },
   "creation-flow.modal.custom-setup.loader-version.label": {
-    "defaultMessage": "Phiên bản modloader"
+    "defaultMessage": "加载器版本"
   },
   "creation-flow.modal.custom-setup.loader-version.placeholder": {
-    "defaultMessage": "Chọn phiên bản modloader"
+    "defaultMessage": "选择加载器版本"
   },
   "creation-flow.modal.custom-setup.loader-version.search-placeholder": {
-    "defaultMessage": "Tìm phiên bản modloader..."
+    "defaultMessage": "搜索加载器版本……"
+  },
+  "creation-flow.modal.custom-setup.loader.compatibility-load-failed": {
+    "defaultMessage": "无法验证加载器兼容性"
   },
   "creation-flow.modal.custom-setup.loader.label": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "加载器"
+  },
+  "creation-flow.modal.custom-setup.loader.no-such-versions-available": {
+    "defaultMessage": "无此版本"
+  },
+  "creation-flow.modal.custom-setup.loader.unsupported-tooltip": {
+    "defaultMessage": "此加载器不支持所选游戏版本"
   },
   "creation-flow.modal.custom-setup.name.label": {
-    "defaultMessage": "Tên"
+    "defaultMessage": "名称"
   },
   "creation-flow.modal.custom-setup.name.placeholder": {
-    "defaultMessage": "Nhập tên cấu hình"
+    "defaultMessage": "输入实例名称"
   },
   "creation-flow.modal.custom-setup.options.no-versions-available": {
-    "defaultMessage": "Không có phiên bản khả dụng"
+    "defaultMessage": "没有可用版本"
+  },
+  "creation-flow.modal.custom-setup.will-install-loader-version": {
+    "defaultMessage": "将会安装：{loader} {version}"
+  },
+  "creation-flow.modal.import-instance.import-prompt": {
+    "defaultMessage": "拖拽启动器文件夹、整合包文件或 .minecraft 文件夹即可一键导入实例"
+  },
+  "creation-flow.modal.import-instance.select-file": {
+    "defaultMessage": "选择要导入的文件"
   },
   "creation-flow.modal.setup-type.instance.description": {
-    "defaultMessage": "Cấu hình là một bản cài Minecraft với mod, phiên bản và loader của riêng nó."
+    "defaultMessage": "实例是带有特定加载器、游戏版本和模组的一套 Minecraft 配置。"
   },
   "creation-flow.modal.setup-type.option.custom-setup.description": {
-    "defaultMessage": "Cài từ đầu bằng cách lựa chọn mod loader và phiên bản game."
+    "defaultMessage": "从头开始，选择一个加载器和游戏版本。"
   },
   "creation-flow.modal.setup-type.option.custom-setup.title": {
-    "defaultMessage": "Cấu hình tùy chỉnh"
+    "defaultMessage": "自定义设置"
   },
   "creation-flow.modal.setup-type.option.import-instance.description": {
-    "defaultMessage": "Nhập từ Prism, Curseforge, Tlauncher hoặc tương tự."
+    "defaultMessage": "从 Prism、CurseForge 或类似平台导入实例。"
   },
   "creation-flow.modal.setup-type.option.import-instance.title": {
-    "defaultMessage": "Nhập cấu hình"
+    "defaultMessage": "导入实例"
   },
   "creation-flow.modal.setup-type.option.modpack-base.description": {
-    "defaultMessage": "Duyệt modpack trên Modrinth hoặc nhập từ tệp."
+    "defaultMessage": "在 Modrinth 上浏览整合包或从文件中导入一个。"
   },
   "creation-flow.modal.setup-type.option.modpack-base.title": {
-    "defaultMessage": "Cài modpack"
+    "defaultMessage": "安装整合包"
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.description": {
-    "defaultMessage": "Minecraft thường, không mod hay plugin khác."
+    "defaultMessage": "不包含模组或插件的经典 Minecraft。"
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.title": {
-    "defaultMessage": "Vanilla Minecraft"
+    "defaultMessage": "原版 Minecraft"
   },
   "creation-flow.modal.setup-type.title.installation": {
-    "defaultMessage": "Chọn loại bản cài"
+    "defaultMessage": "选择安装类型"
   },
   "creation-flow.modal.setup-type.title.instance": {
-    "defaultMessage": "Chọn loại cấu hình"
+    "defaultMessage": "选择实例类型"
   },
   "creation-flow.modal.setup-type.title.world": {
-    "defaultMessage": "Chọn loại thế giới"
+    "defaultMessage": "选择世界类型"
   },
   "creation-flow.title.choose-modpack": {
-    "defaultMessage": "Chọn modpack"
+    "defaultMessage": "选择整合包"
   },
   "creation-flow.title.create-instance": {
-    "defaultMessage": "Tạo cấu hình"
+    "defaultMessage": "创建实例"
   },
   "creation-flow.title.create-world": {
-    "defaultMessage": "Tạo thế giới"
+    "defaultMessage": "创建世界"
   },
   "creation-flow.title.import-instance": {
-    "defaultMessage": "Nhập cấu hình"
+    "defaultMessage": "导入实例"
   },
   "creation-flow.title.reset-server": {
-    "defaultMessage": "Cài lại máy chủ"
+    "defaultMessage": "重置服务器"
   },
   "creation-flow.title.set-up-server": {
-    "defaultMessage": "Tạo máy chủ"
+    "defaultMessage": "初始化服务器"
   },
   "external-project-license-status.no": {
-    "defaultMessage": "Không"
+    "defaultMessage": "否"
   },
   "external-project-license-status.permanent-no": {
-    "defaultMessage": "Không bao giờ"
+    "defaultMessage": "永久拒绝"
   },
   "external-project-license-status.unidentified": {
-    "defaultMessage": "Không thể xác định"
+    "defaultMessage": "未知"
   },
   "external-project-license-status.with-attribution": {
-    "defaultMessage": "Với quy kết"
+    "defaultMessage": "已署名"
   },
   "external-project-license-status.with-attribution-and-source": {
-    "defaultMessage": "Với quy kết và nguồn"
+    "defaultMessage": "已署名及来源"
   },
   "external-project-license-status.yes": {
-    "defaultMessage": "Có"
+    "defaultMessage": "是"
   },
   "files.conflict-modal.header": {
-    "defaultMessage": "Tóm tắt trích xuất"
+    "defaultMessage": "解压概览"
   },
   "files.conflict-modal.overwrite-button": {
-    "defaultMessage": "Ghi đè"
+    "defaultMessage": "覆盖"
   },
   "files.conflict-modal.overwrite-file-label": {
-    "defaultMessage": "<file-path>{path}</file-path> sẽ bị ghi đè"
+    "defaultMessage": "将覆盖<file-path>{path}</file-path>"
   },
   "files.conflict-modal.overwrite-many-warning": {
-    "defaultMessage": "Hơn 100 tệp sẽ bị ghi đè nếu bạn tiếp tục giải nén; dưới đây là một số tệp trong số đó."
+    "defaultMessage": "如果继续解压，将有超过 100 个文件被覆盖。以下是其中一部分。"
   },
   "files.conflict-modal.overwrite-warning": {
-    "defaultMessage": "{count} tệp sau đây đã tồn tại trên máy chủ và sẽ bị ghi đè nếu bạn tiếp tục giải nén."
+    "defaultMessage": "以下 {count} 个文件已存在于你的服务器中，若继续解压将被覆盖。"
   },
   "files.conflict-modal.overwritten-count": {
-    "defaultMessage": "{count} bị ghi đè"
+    "defaultMessage": "将覆盖 {count} 个文件"
   },
   "files.conflict-modal.warning-header": {
-    "defaultMessage": "Những tệp sẽ bị ghi đè"
+    "defaultMessage": "文件将被覆盖"
   },
   "files.create-modal.create-button": {
-    "defaultMessage": "Tạo {type}"
+    "defaultMessage": "创建 {type}"
   },
   "files.create-modal.header": {
-    "defaultMessage": "Tạo một {type}"
+    "defaultMessage": "创建一个 {type}"
   },
   "files.create-modal.placeholder-directory": {
-    "defaultMessage": "v.d. thu-muc-cua-toi"
+    "defaultMessage": "如：my-folder"
   },
   "files.create-modal.placeholder-file": {
-    "defaultMessage": "v.d. config.yml"
+    "defaultMessage": "如：config.yml"
   },
   "files.delete-modal.deleting-name": {
-    "defaultMessage": "Đang xoá \"{name}\""
+    "defaultMessage": "正在删除“{name}”"
+  },
+  "files.delete-modal.deleting-multiple": {
+    "defaultMessage": "正在删除 {count} 个项目"
+  },
+  "files.delete-modal.bulk-header": {
+    "defaultMessage": "删除多个项目"
+  },
+  "files.delete-modal.bulk-warning": {
+    "defaultMessage": "选中的项目将被永久删除。此操作无法被撤销。"
+  },
+  "files.delete-modal.symlink-warning-header": {
+    "defaultMessage": "共享实例"
+  },
+  "files.delete-modal.symlink-warning-body": {
+    "defaultMessage": "你正在修改链接到“{path}”的共享实例中的文件。更改将影响原始实例。"
   },
   "files.delete-modal.header": {
-    "defaultMessage": "Xoá tệp"
+    "defaultMessage": "删除文件"
   },
   "files.delete-modal.warning.file": {
-    "defaultMessage": "Tệp này sẽ bị xóa vĩnh viễn. Hành động này sẽ không thể bị hoàn tác."
+    "defaultMessage": "该文件将被永久删除。此操作无法被撤销。"
   },
   "files.delete-modal.warning.folder": {
-    "defaultMessage": "Thư mục này và mọi thứ trong nó đều sẽ bị xóa vĩnh viễn. Hành động này sẽ không thể bị hoàn tác."
+    "defaultMessage": "该文件夹以及文件夹以下的所有内容将被永久删除。此操作无法被撤销。"
+  },
+  "files.editor.editor-unavailable-placeholder": {
+    "defaultMessage": "代码编辑器不可用"
   },
   "files.editor.failed-to-open-text": {
-    "defaultMessage": "Không thể tải nội dung tệp."
+    "defaultMessage": "无法加载文件内容。"
   },
   "files.editor.failed-to-open-title": {
-    "defaultMessage": "Không mở tệp được"
+    "defaultMessage": "打开文件失败"
   },
   "files.editor.failed-to-share-text": {
-    "defaultMessage": "Không thể tải lên mclo.gs."
+    "defaultMessage": "无法分享日志文件。"
   },
   "files.editor.failed-to-share-title": {
-    "defaultMessage": "Không chia sẻ tệp được"
+    "defaultMessage": "分享文件失败"
   },
   "files.editor.file-saved-text": {
-    "defaultMessage": "Tệp của bạn đã được lưu lại."
+    "defaultMessage": "你的文件已保存。"
   },
   "files.editor.file-saved-title": {
-    "defaultMessage": "Tệp đã được lưu"
+    "defaultMessage": "文件已保存"
   },
   "files.editor.find-close": {
-    "defaultMessage": "Đóng"
+    "defaultMessage": "关闭"
   },
   "files.editor.find-in-file": {
-    "defaultMessage": "Tìm"
+    "defaultMessage": "查找"
   },
   "files.editor.find-match-count": {
-    "defaultMessage": "{current} trên {total}"
+    "defaultMessage": "第 {current} 项，共 {total} 项"
   },
   "files.editor.find-next-match": {
-    "defaultMessage": "Trận tiếp theo"
+    "defaultMessage": "下一个匹配项"
   },
   "files.editor.find-no-results": {
-    "defaultMessage": "Không có kết quả"
+    "defaultMessage": "无结果"
   },
   "files.editor.find-previous-match": {
-    "defaultMessage": "Những kết quả trước"
+    "defaultMessage": "上一个匹配项"
   },
   "files.editor.find-toggle-replace": {
-    "defaultMessage": "Chuyển đổi thay thế"
+    "defaultMessage": "切换替换"
   },
   "files.editor.log-url-copied-text": {
-    "defaultMessage": "URL tệp nhật kí của bạn đã được chép vào bảng tạm."
+    "defaultMessage": "已将你的日志文件链接复制到剪切板。"
   },
   "files.editor.log-url-copied-title": {
-    "defaultMessage": "Đã chép URL nhật kí"
+    "defaultMessage": "日志链接已复制"
   },
   "files.editor.replace": {
-    "defaultMessage": "Thay thế"
+    "defaultMessage": "替换"
   },
   "files.editor.replace-all": {
-    "defaultMessage": "Thay thế tất cả"
+    "defaultMessage": "替换所有"
   },
   "files.editor.replace-in-file": {
-    "defaultMessage": "Thay thế"
+    "defaultMessage": "替换"
   },
   "files.editor.save-failed-text": {
-    "defaultMessage": "Không lưu tệp này được."
+    "defaultMessage": "无法保存文件。"
   },
   "files.editor.save-failed-title": {
-    "defaultMessage": "Không lưu được"
+    "defaultMessage": "保存失败"
+  },
+  "files.editor.share-truncated-warning": {
+    "defaultMessage": "日志文件过大，已自动截取最后 9MB 上传。"
   },
   "files.error.go-to-home": {
-    "defaultMessage": "Quay về thư mục gốc"
+    "defaultMessage": "前往主文件夹"
   },
   "files.error.try-again": {
-    "defaultMessage": "Thử lại"
+    "defaultMessage": "重试"
   },
   "files.image_viewer.image_too_large": {
-    "defaultMessage": "Tệp ảnh quá lớn để xem (tối đa {maxDimension}x{maxDimension} pixels)"
+    "defaultMessage": "图片过大，无法查看（最大支持 {maxDimension}×{maxDimension} 像素）"
   },
   "files.image_viewer.invalid_image": {
-    "defaultMessage": "Tệp ảnh rỗng hoặc không hợp lệ."
+    "defaultMessage": "图片文件无效或为空。"
   },
   "files.image_viewer.load_failed": {
-    "defaultMessage": "Không thể tải ảnh"
+    "defaultMessage": "加载图片失败"
   },
   "files.image_viewer.reset_zoom": {
-    "defaultMessage": "Đặt lại thu phóng"
+    "defaultMessage": "重置缩放"
   },
   "files.image_viewer.viewed_image_alt": {
-    "defaultMessage": "Hình ảnh đã xem"
+    "defaultMessage": "已查看图片"
   },
   "files.image_viewer.zoom_in": {
-    "defaultMessage": "Phóng to"
+    "defaultMessage": "放大"
   },
   "files.image_viewer.zoom_out": {
-    "defaultMessage": "Thu nhỏ"
+    "defaultMessage": "缩小"
   },
   "files.item-type.file": {
-    "defaultMessage": "tệp"
+    "defaultMessage": "文件"
   },
   "files.item-type.files": {
-    "defaultMessage": "tệp"
+    "defaultMessage": "文件"
   },
   "files.item-type.folder": {
-    "defaultMessage": "thư mục"
+    "defaultMessage": "文件夹"
   },
   "files.item-type.folders": {
-    "defaultMessage": "thư mục"
+    "defaultMessage": "文件夹"
   },
   "files.layout.dry-run-failed-text": {
-    "defaultMessage": "Lỗi khi chạy thử nghiệm không tải"
+    "defaultMessage": "执行模拟运行时出错"
   },
   "files.layout.dry-run-failed-title": {
-    "defaultMessage": "Thử nghiệm không thành công"
+    "defaultMessage": "模拟运行失败"
   },
   "files.layout.empty-folder-description": {
-    "defaultMessage": "Không có tệp hoặc thư mục nào."
+    "defaultMessage": "这里没有任何文件或文件夹。"
   },
   "files.layout.empty-folder-title": {
-    "defaultMessage": "Thư mục trống không"
+    "defaultMessage": "此文件夹为空"
   },
   "files.layout.error-message": {
-    "defaultMessage": "Thư mục không tồn tại."
+    "defaultMessage": "该文件夹可能不存在。"
   },
   "files.layout.error-title": {
-    "defaultMessage": "Không thể tải tệp"
+    "defaultMessage": "无法加载文件"
   },
   "files.layout.extraction-started-title": {
-    "defaultMessage": "Quá trình giải nén bắt đầu"
+    "defaultMessage": "已开始解压"
   },
   "files.layout.selected-count": {
-    "defaultMessage": "đã chọn {count}"
+    "defaultMessage": "已选择 {count} 项"
   },
   "files.layout.unsaved-changes": {
-    "defaultMessage": "Bạn có thay đổi chưa được lưu."
+    "defaultMessage": "你有未保存的更改。"
   },
   "files.move-modal.current-location": {
-    "defaultMessage": "Vị trí hiện tại"
+    "defaultMessage": "当前位置"
   },
   "files.move-modal.destination-path": {
-    "defaultMessage": "Đường dẫn đích"
+    "defaultMessage": "目标路径"
   },
   "files.move-modal.destination-placeholder": {
-    "defaultMessage": "v.d. /thu-muc-cua-toi"
+    "defaultMessage": "如：/my-folder"
   },
   "files.move-modal.header": {
-    "defaultMessage": "Di chuyển {type}"
+    "defaultMessage": "移动{type}"
   },
   "files.navbar.back-to-home": {
-    "defaultMessage": "Quay về trang chủ"
+    "defaultMessage": "返回主目录"
   },
   "files.navbar.breadcrumb-navigation": {
-    "defaultMessage": "Điều hướng bằng đường dẫn"
+    "defaultMessage": "面包屑导航"
   },
   "files.navbar.create-new": {
-    "defaultMessage": "Tạo mới..."
+    "defaultMessage": "新建……"
   },
   "files.navbar.file-navigation": {
-    "defaultMessage": "Điều hướng tệp"
+    "defaultMessage": "文件导航"
   },
   "files.navbar.find-in-file": {
-    "defaultMessage": "Tìm trong tệp"
+    "defaultMessage": "在文件中查找"
   },
   "files.navbar.home": {
-    "defaultMessage": "Trang chủ"
+    "defaultMessage": "主目录"
   },
   "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Cài đặt modpack từ CurseForge"
+    "defaultMessage": "安装 CurseForge 整合包"
   },
   "files.navbar.new-file": {
-    "defaultMessage": "Tệp mới"
+    "defaultMessage": "新建文件"
   },
   "files.navbar.new-folder": {
-    "defaultMessage": "Thư mục mới"
+    "defaultMessage": "新建文件夹"
   },
   "files.navbar.search-files": {
-    "defaultMessage": "Tìm kiếm tệp tin"
+    "defaultMessage": "搜索文件"
+  },
+  "files.navbar.share-log": {
+    "defaultMessage": "分享日志"
   },
   "files.navbar.upload-from-zip": {
-    "defaultMessage": "Tải lên từ tệp .zip"
+    "defaultMessage": "从 .zip 文件导入"
   },
   "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Tải lên từ URL tệp .zip"
+    "defaultMessage": "通过 .zip 链接导入"
   },
   "files.rename-modal.header": {
-    "defaultMessage": "Đổi tên {name}"
+    "defaultMessage": "重命名 {name}"
   },
   "files.rename-modal.new-name-label": {
-    "defaultMessage": "Tên mới"
+    "defaultMessage": "新名称"
   },
   "files.row.item-count": {
-    "defaultMessage": "{count, plural, other {# mục}}"
+    "defaultMessage": "{count} 项"
+  },
+  "files.row.parent-folder": {
+    "defaultMessage": "上级文件夹"
   },
   "files.table-header.created": {
-    "defaultMessage": "Thời gian tạo"
+    "defaultMessage": "创建时间"
   },
   "files.table-header.modified": {
-    "defaultMessage": "Lần chỉnh sửa cuối cùng"
+    "defaultMessage": "修改时间"
   },
   "files.table-header.name": {
-    "defaultMessage": "Tên"
+    "defaultMessage": "名称"
   },
   "files.table-header.size": {
-    "defaultMessage": "Kích thước"
+    "defaultMessage": "大小"
   },
   "files.unsaved-changes-modal.body": {
-    "defaultMessage": "Bạn có các thay đổi chưa được lưu. Chúng sẽ bị mất nếu bạn rời khỏi trang này. Bạn có muốn lưu lại trước không?"
+    "defaultMessage": "你有未保存的更改，离开后将丢失。是否在离开前保存？"
   },
   "files.unsaved-changes-modal.discard": {
-    "defaultMessage": "Huỷ bỏ"
+    "defaultMessage": "丢弃"
   },
   "files.unsaved-changes-modal.header": {
-    "defaultMessage": "Thay đổi chưa lưu"
+    "defaultMessage": "未保存的更改"
   },
   "files.validation.name-invalid-directory": {
-    "defaultMessage": "Tên chỉ được bao gồm chữ số, gạch ngang, gạch dưới và dấu cách."
+    "defaultMessage": "名称只能包含字母、数字、连字符、下划线或空格。"
   },
   "files.validation.name-invalid-file": {
-    "defaultMessage": "Tên chỉ được bao gồm chữ số, gạch ngang, gạch dưới và dấu cách."
+    "defaultMessage": "名称只能包含字母、数字、连字符、下划线或空格。"
   },
   "files.validation.name-label": {
-    "defaultMessage": "Tên"
+    "defaultMessage": "名称"
   },
   "files.validation.name-required": {
-    "defaultMessage": "Bắt buộc phải có tên."
+    "defaultMessage": "名称为必填项。"
   },
   "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Cài đặt một modpack của CurseForge"
+    "defaultMessage": "安装一个 CurseForge 整合包"
   },
   "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Không thể tìm modpack của CurseForge từ đường dẫn đó."
+    "defaultMessage": "无法通过该链接找到 CurseForge 整合包。"
   },
   "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "Không thể tìm thấy modpack từ CurseForge"
+    "defaultMessage": "未找到 CurseForge 整合包"
   },
   "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Nhập đường dẫn"
+    "defaultMessage": "输入链接"
   },
   "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL phải là URL phiên bản của gói mod trên CurseForge."
+    "defaultMessage": "必须是 CurseForge 整合包的链接。"
   },
   "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "Đường dẫn phải khả dụng."
+    "defaultMessage": "链接必须是有效的。"
   },
   "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "Bắt buộc có đường dẫn."
+    "defaultMessage": "链接是必填项。"
   },
   "files.zip-url-modal.install-button": {
-    "defaultMessage": "Cài đặt"
+    "defaultMessage": "安装"
   },
   "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Cài đặt thất bại"
+    "defaultMessage": "安装失败"
   },
   "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Sao chép URL trong trang phiên bản và dán ở dưới."
+    "defaultMessage": "复制版本页面的链接并粘贴到下方。"
   },
   "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Sao chép đường dẫn"
+    "defaultMessage": "复制链接"
   },
   "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Tìm và xác định vị trí Modpack Curseforge mà bạn muốn."
+    "defaultMessage": "浏览 CurseForge 并找到你想要的整合包。"
   },
   "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Tìm modpack"
+    "defaultMessage": "找到整合包"
   },
   "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Vào mục \"Files\" và chọn phiên bản để cài."
+    "defaultMessage": "进入“文件”标签页并选择要安装的版本。"
   },
   "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Chọn phiên bản"
+    "defaultMessage": "选择一个版本"
   },
   "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Đã xảy ra lỗi không xác định"
+    "defaultMessage": "发生未知错误"
   },
   "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Sao chép và dán dường dẫn trực tiếp của tệp .zip."
+    "defaultMessage": "复制并粘贴 .zip 文件的直链下载链接。"
   },
   "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Đang tải lên nội dung .zip từ đường dẫn"
+    "defaultMessage": "正在用链接上传 .zip 内容"
   },
   "form.label.address-line": {
-    "defaultMessage": "Dòng địa chỉ"
+    "defaultMessage": "地址第 1 行"
   },
   "form.label.address-line-2": {
-    "defaultMessage": "Dòng địa chỉ 2 (không bắt buộc)"
+    "defaultMessage": "地址第 2 行（选填）"
   },
   "form.label.amount": {
-    "defaultMessage": "Số tiền"
+    "defaultMessage": "金额"
   },
   "form.label.bank-name": {
-    "defaultMessage": "Tên ngân hàng"
+    "defaultMessage": "银行名称"
   },
   "form.label.business-name": {
-    "defaultMessage": "Tên doanh nghiệp"
+    "defaultMessage": "公司名称"
   },
   "form.label.city": {
-    "defaultMessage": "Thành phố"
+    "defaultMessage": "市"
   },
   "form.label.country": {
-    "defaultMessage": "Quốc gia"
+    "defaultMessage": "国家/地区"
   },
   "form.label.date-of-birth": {
-    "defaultMessage": "Ngày sinh"
+    "defaultMessage": "出生日期"
   },
   "form.label.email": {
-    "defaultMessage": "Email"
+    "defaultMessage": "电子邮箱"
   },
   "form.label.first-name": {
-    "defaultMessage": "Tên"
+    "defaultMessage": "名字"
   },
   "form.label.last-name": {
-    "defaultMessage": "Họ"
+    "defaultMessage": "姓氏"
   },
   "form.label.postal-code": {
-    "defaultMessage": "Mã bưu chính/ZIP"
+    "defaultMessage": "邮编"
   },
   "form.label.state-province": {
-    "defaultMessage": "Bang/tỉnh"
+    "defaultMessage": "省/州"
   },
   "form.placeholder.address": {
-    "defaultMessage": "Nhập địa chỉ"
+    "defaultMessage": "输入地址"
   },
   "form.placeholder.address-2": {
-    "defaultMessage": "Căn hộ, phòng, v.v."
+    "defaultMessage": "公寓、套房等"
   },
   "form.placeholder.amount": {
-    "defaultMessage": "Nhập số tiền"
+    "defaultMessage": "输入金额"
   },
   "form.placeholder.bank-name": {
-    "defaultMessage": "Nhập tên ngân hàng"
+    "defaultMessage": "输入银行名称"
   },
   "form.placeholder.bank-name-dropdown": {
-    "defaultMessage": "Chọn tên ngân hàng"
+    "defaultMessage": "选择银行名称"
   },
   "form.placeholder.business-name": {
-    "defaultMessage": "Nhập tên doanh nghiệp"
+    "defaultMessage": "输入企业名称"
   },
   "form.placeholder.city": {
-    "defaultMessage": "Nhập thành phố"
+    "defaultMessage": "输入市"
   },
   "form.placeholder.country": {
-    "defaultMessage": "Chọn quốc gia"
+    "defaultMessage": "选择国家/地区"
   },
   "form.placeholder.email": {
-    "defaultMessage": "Nhập địa chỉ email"
+    "defaultMessage": "输入电子邮件地址"
   },
   "form.placeholder.first-name": {
-    "defaultMessage": "Nhập tên"
+    "defaultMessage": "输入名字"
   },
   "form.placeholder.last-name": {
-    "defaultMessage": "Nhập họ"
+    "defaultMessage": "输入姓氏"
   },
   "form.placeholder.postal-code": {
-    "defaultMessage": "Nhập mã bưu chính"
+    "defaultMessage": "输入邮编"
   },
   "form.placeholder.state": {
-    "defaultMessage": "Nhập bang/tỉnh"
+    "defaultMessage": "输入州/省"
   },
   "format.bytes.0": {
-    "defaultMessage": "{count, plural, other {byte}}"
+    "defaultMessage": "{count, plural, other {# 字节}}"
   },
   "format.bytes.1": {
     "defaultMessage": "{count, number} KiB"
@@ -993,1372 +1803,1453 @@
     "defaultMessage": "{count, number} TiB"
   },
   "header.category.category": {
-    "defaultMessage": "Loại"
+    "defaultMessage": "类别"
+  },
+  "header.category.cf-extra": {
+    "defaultMessage": "更多 CurseForge 分类"
   },
   "header.category.feature": {
-    "defaultMessage": "Tính năng"
+    "defaultMessage": "功能特点"
   },
   "header.category.minecraft-server-community": {
-    "defaultMessage": "Cộng đồng"
+    "defaultMessage": "社区"
   },
   "header.category.minecraft-server-features": {
-    "defaultMessage": "Nhiều tính năng"
+    "defaultMessage": "特色"
   },
   "header.category.minecraft-server-gameplay": {
-    "defaultMessage": "Lối chơi"
+    "defaultMessage": "游戏机制"
   },
   "header.category.minecraft-server-meta": {
-    "defaultMessage": "Xu hướng"
+    "defaultMessage": "元素"
   },
   "header.category.performance-impact": {
-    "defaultMessage": "Ảnh hưởng hiệu suất"
+    "defaultMessage": "性能要求"
   },
   "header.category.resolutions": {
-    "defaultMessage": "Độ phân giải"
+    "defaultMessage": "分辨率"
   },
   "input.search-version.placeholder": {
-    "defaultMessage": "Thay đổi phiên bản..."
+    "defaultMessage": "查找版本……"
   },
   "input.search.placeholder": {
-    "defaultMessage": "Tìm kiếm..."
+    "defaultMessage": "搜索…"
   },
   "input.select-version.placeholder": {
-    "defaultMessage": "Chọn phiên bản"
+    "defaultMessage": "选择版本"
   },
   "input.view.gallery": {
-    "defaultMessage": "Chế độ xem dạng thư viện"
+    "defaultMessage": "图库预览"
   },
   "input.view.grid": {
-    "defaultMessage": "Chế độ xem dạng lưới"
+    "defaultMessage": "网格视图"
   },
   "input.view.list": {
-    "defaultMessage": "Chế độ xem dạng danh sách"
+    "defaultMessage": "列表视图"
   },
   "installation-settings.aria.select-game-version": {
-    "defaultMessage": "Chọn phiên bản game"
+    "defaultMessage": "选择游戏版本"
   },
   "installation-settings.aria.select-loader-version": {
-    "defaultMessage": "Chọn phiên bản {loader}"
+    "defaultMessage": "选择 {loader} 版本"
   },
   "installation-settings.aria.select-platform": {
-    "defaultMessage": "Chọn mod loader"
+    "defaultMessage": "选择平台"
   },
   "installation-settings.confirm-version-change": {
-    "defaultMessage": "Xác nhận"
+    "defaultMessage": "确认"
   },
   "installation-settings.confirm-version-change-description": {
-    "defaultMessage": "Việc thay đổi sang phiên bản {gameVersion} sẽ sửa đổi các nội dung sau trên server của bạn."
+    "defaultMessage": "切换到 {gameVersion} 将修改你服务器上的以下内容。"
   },
   "installation-settings.confirm-version-change-header": {
-    "defaultMessage": "Xem lại thay đổi nội dung"
+    "defaultMessage": "审查内容更改"
   },
   "installation-settings.edit-installation.title": {
-    "defaultMessage": "Chỉnh sửa cài đặt"
+    "defaultMessage": "编辑安装"
   },
   "installation-settings.edit.warning-instance": {
-    "defaultMessage": "Chúng tôi không khuyến khích bạn chỉnh sửa cài đặt sau khi đã cài đặt nội dung. Nếu bạn muốn thay đổi chúng, hãy cẩn thận vì điều này có thể gây ra lỗi."
+    "defaultMessage": "我们不建议在安装内容后修改安装设置。如果你想修改，请谨慎操作，因为可能会出现问题。"
   },
   "installation-settings.edit.warning-server": {
-    "defaultMessage": "Chúng tôi không khuyến khích chỉnh sửa cài đặt sau khi đã cài đặt nội dung. Nếu bạn muốn thay đổi chúng, hãy khởi động lại máy chủ của mình."
+    "defaultMessage": "我们不建议在安装内容后修改安装设置。如果你想修改，请先重置你的服务器。"
   },
   "installation-settings.incompatible-content.auto-fix-button": {
-    "defaultMessage": "Tự động sửa"
+    "defaultMessage": "自动修复"
   },
   "installation-settings.incompatible-content.change-loader-button": {
-    "defaultMessage": "Đổi modloader"
+    "defaultMessage": "更改加载器"
   },
   "installation-settings.incompatible-content.disable-conflicts-button": {
-    "defaultMessage": "Vô hiệu quá xung đột"
+    "defaultMessage": "禁用冲突项"
   },
   "installation-settings.incompatible-content.game-version-warning-body": {
-    "defaultMessage": "Khi đổi phiên bản game, chúng tôi có thể tắt những nội dung không tương thích hoặc cố mà sửa những nội dung đó."
+    "defaultMessage": "切换游戏版本时 我们既可以选择禁用那些不兼容的已安装内容 也可以尝试去解决这些兼容性问题"
   },
   "installation-settings.incompatible-content.game-version-warning-title": {
-    "defaultMessage": "Cảnh báo không tương thích"
+    "defaultMessage": "不兼容警告"
   },
   "installation-settings.incompatible-content.header": {
-    "defaultMessage": "Phát hiện nội dung không tương tích"
+    "defaultMessage": "安装了不兼容的内容"
   },
   "installation-settings.incompatible-content.loader-change-body": {
-    "defaultMessage": "Khi đổi modloader, mọi nội dung được tải sẽ bị tắt. Chúng tôi khuyến khích bạn cài lại máy chủ của bạn hơn."
+    "defaultMessage": "切换加载器时 所有已经安装的内容都会被强制禁用 我们建议你直接重置服务器"
   },
   "installation-settings.incompatible-content.loader-change-title": {
-    "defaultMessage": "Đổi loader rất hủy hại"
+    "defaultMessage": "更改加载器具有破坏性"
   },
   "installation-settings.linked-instance.title": {
-    "defaultMessage": "Liên kết {projectType}"
+    "defaultMessage": "与{projectType}关联"
   },
   "installation-settings.linked.modpack": {
-    "defaultMessage": "modpack"
+    "defaultMessage": "整合包"
   },
   "installation-settings.linked.server-project": {
-    "defaultMessage": "dự án máy chủ"
+    "defaultMessage": "服务器项目"
   },
   "installation-settings.loader-version": {
-    "defaultMessage": "Phiên bản {loader}"
+    "defaultMessage": "{loader} 版本"
+  },
+  "installation-settings.loader-version.error": {
+    "defaultMessage": "加载加载器版本数据失败"
+  },
+  "installation-settings.loader-version.unsupported": {
+    "defaultMessage": "此加载器不支持所选游戏版本"
   },
   "installation-settings.platform-lock-tooltip": {
-    "defaultMessage": "Bạn sẽ cần khởi động lại máy chủ để đổi mod loader."
+    "defaultMessage": "你需要重置服务器以切换加载器。"
   },
   "installation-settings.reinstall-modpack.description": {
-    "defaultMessage": "Cài lại modpack sẽ cài lại {type} về trạng thái ban đầu và xóa bỏ tất cả các mod và nội dung bạn đã thêm vào."
+    "defaultMessage": "重新安装整合包会将{type}内容重置到其初始状态，此操作将删除所有您自行添加的模组或内容。"
   },
   "installation-settings.reinstall-modpack.title": {
-    "defaultMessage": "Cài đặt lại modpack"
+    "defaultMessage": "重新安装整合包"
   },
   "installation-settings.reinstalling-modpack": {
-    "defaultMessage": "Đang cài đặt lại modpack"
+    "defaultMessage": "正在重新安装整合包"
   },
   "installation-settings.removed-incompatible": {
-    "defaultMessage": "Đã xoá (không tương thích)"
+    "defaultMessage": "已移除（不兼容）"
   },
   "installation-settings.repair.instance-description": {
-    "defaultMessage": "Cài đặt lại các thành phần phụ thuộc của Minecraft và kiểm tra tệp tin lỗi. Việc này có thể khắc phục các sự cố nếu game không khởi chạy được do lỗi liên quan đến launcher."
+    "defaultMessage": "重新安装 Minecraft 依赖项并检查是否有损坏。如果你的游戏因启动器相关错误而无法正常运行，执行此操作可能会解决问题。"
   },
   "installation-settings.repair.instance-title": {
-    "defaultMessage": "Sửa chữa phiên chơi"
+    "defaultMessage": "修复实例"
   },
   "installation-settings.repair.server-description": {
-    "defaultMessage": "Cài đặt lại trình nạp và các thành phần phụ thuộc của Minecraft mà không xóa nội dung của bạn. Thao tác này có thể khắc phục các sự cố nếu server của bạn không khởi động đúng cách."
+    "defaultMessage": "重新安装加载器和 Minecraft 依赖项，而不删除你的内容。如果你的服务器无法正常启动，执行此操作可能会解决问题。"
   },
   "installation-settings.repair.server-title": {
-    "defaultMessage": "Sửa chữa máy chủ"
+    "defaultMessage": "修复服务器"
   },
   "installation-settings.saving": {
-    "defaultMessage": "Đang lưu..."
+    "defaultMessage": "正在保存……"
   },
   "installation-settings.search-game-version": {
-    "defaultMessage": "Tìm kiếm phiên bản trò chơi..."
+    "defaultMessage": "搜索游戏版本……"
   },
   "installation-settings.type.instance": {
-    "defaultMessage": "hồ sơ cấu hình"
+    "defaultMessage": "实例"
   },
   "installation-settings.type.instance-possessive": {
-    "defaultMessage": "của hồ sơ cấu hình"
+    "defaultMessage": "实例"
   },
   "installation-settings.type.server": {
-    "defaultMessage": "máy chủ"
+    "defaultMessage": "服务器"
   },
   "installation-settings.type.server-possessive": {
-    "defaultMessage": "của máy chủ"
+    "defaultMessage": "服务器"
   },
   "installation-settings.unlink": {
-    "defaultMessage": "Huỷ liên kết"
+    "defaultMessage": "取消链接"
   },
   "installation-settings.unlink.description": {
-    "defaultMessage": "Hủy liên kết sẽ ngắt kết nối {type} khỏi dự án {projectType}, bạn sẽ có thể đổi loader và phiên bản Minecraft sau đó, nhưng bạn sẽ không nhận được các bản cập nhật trong tương lai."
+    "defaultMessage": "解除关联将永久断开该 {type} 与 {projectType} 项目的关联，你可以自由更换加载器与Minecraft版本，但此后你将无法接收到整合包的后续更新。"
   },
   "installation-settings.verifying": {
-    "defaultMessage": "Đang xác minh..."
+    "defaultMessage": "正在验证……"
   },
   "instance.confirm-reinstall.admonition-body": {
-    "defaultMessage": "Việc cài đặt lại sẽ đặt lại toàn bộ nội dung đã cài đặt hoặc đã chỉnh sửa về trạng thái gốc của modpack, đồng thời xóa mọi mod hoặc nội dung bạn đã thêm vào bản cài đặt ban đầu."
+    "defaultMessage": "重新安装将会将所有已安装或修改的内容恢复到整合包所提供的状态，同时删除你在原始安装基础上添加的任何模组或内容。"
   },
   "instance.confirm-reinstall.admonition-header": {
-    "defaultMessage": "Cảnh báo khi cài đặt lại"
+    "defaultMessage": "重新安装警告"
   },
   "instance.confirm-reinstall.header": {
-    "defaultMessage": "Cài đặt lại modpack"
+    "defaultMessage": "重新安装整合包"
   },
   "instance.confirm-reinstall.reinstall-button": {
-    "defaultMessage": "Cài đặt lại modpack"
+    "defaultMessage": "重新安装整合包"
   },
   "instance.confirm-repair.body.instance": {
-    "defaultMessage": "Sửa chữa sẽ cài lại loader và phần phụ thuộc của Minecraft mà không xóa nội dung của bạn. Điều này có thể khắc phục vấn đề nếu như game không chạy do lỗi trình khởi chạy."
+    "defaultMessage": "修复功能会重新安装启动器和Minecraft依赖项，但不会删除你的内容。如果游戏因启动器出错而无法启动，修复操作可能会解决这些问题。"
   },
   "instance.confirm-repair.body.server": {
-    "defaultMessage": "Sửa chữa sẽ cài lại loader và phần phụ thuộc của Minecraft mà không xóa nội dung của bạn. Việc này có thể khắc phục các sự cố nếu máy chủ không khởi chạy không chạy do lỗi trình khởi chạy."
+    "defaultMessage": "修复功能会重新安装启动器和Minecraft依赖项，但不会删除你的内容。如果你的服务器无法正确启动，这可能解决问题。"
   },
   "instance.confirm-repair.header": {
-    "defaultMessage": "Sửa chữa {type}"
+    "defaultMessage": "修复 {type}"
   },
   "instance.confirm-repair.instance-label": {
-    "defaultMessage": "hồ sơ cấu hình"
+    "defaultMessage": "实例"
   },
   "instance.confirm-repair.repair-button": {
-    "defaultMessage": "Sửa"
+    "defaultMessage": "修复"
   },
   "instance.confirm-repair.server-label": {
-    "defaultMessage": "máy chủ"
+    "defaultMessage": "服务器"
   },
   "instance.worlds.game_mode.adventure": {
-    "defaultMessage": "Chế độ phiêu lưu"
+    "defaultMessage": "冒险模式"
   },
   "instance.worlds.game_mode.creative": {
-    "defaultMessage": "Chế độ sáng tạo"
+    "defaultMessage": "创造模式"
   },
   "instance.worlds.game_mode.spectator": {
-    "defaultMessage": "Chế độ khán giả"
+    "defaultMessage": "旁观模式"
   },
   "instance.worlds.game_mode.survival": {
-    "defaultMessage": "Chế độ sinh tồn"
+    "defaultMessage": "生存模式"
   },
   "instance.worlds.game_mode.unknown": {
-    "defaultMessage": "Chế độ chơi không xác định"
+    "defaultMessage": "未知游戏模式"
   },
   "instances.content-install.compatible-count": {
-    "defaultMessage": "Tương thích {count} cái với {count, plural, other {instance}}"
+    "defaultMessage": "{count} 个兼容 {count, plural, one {实例} other {实例}}"
   },
   "instances.content-install.existing-tab": {
-    "defaultMessage": "Phiên chơi có sẵn"
+    "defaultMessage": "已有实例"
   },
   "instances.content-install.game-version-placeholder": {
-    "defaultMessage": "Chọn phiên bản game"
+    "defaultMessage": "选择游戏版本"
   },
   "instances.content-install.header": {
-    "defaultMessage": "Cài đặt dự án"
+    "defaultMessage": "安装项目"
   },
   "instances.content-install.incompatible-tooltip": {
-    "defaultMessage": "Cấu hình này dùng trình tải hoặc phiên bản khác mà nội dung này hỗ trợ."
+    "defaultMessage": "该实例所使用的加载器或游戏版本，与此项目支持的配置不一致。"
   },
   "instances.content-install.install-button": {
-    "defaultMessage": "Cài đặt"
+    "defaultMessage": "安装"
   },
   "instances.content-install.installed-badge": {
-    "defaultMessage": "Đã cài đặt"
+    "defaultMessage": "已安装"
   },
   "instances.content-install.instance-type": {
-    "defaultMessage": "Loại phiên chơi"
+    "defaultMessage": "实例类型"
   },
   "instances.content-install.loader-label": {
-    "defaultMessage": "Trình nạp"
+    "defaultMessage": "加载器"
   },
   "instances.content-install.name-label": {
-    "defaultMessage": "Tên"
+    "defaultMessage": "名称"
   },
   "instances.content-install.name-placeholder": {
-    "defaultMessage": "Nhập tên phiên chơi"
+    "defaultMessage": "输入实例名称"
   },
   "instances.content-install.new-tab": {
-    "defaultMessage": "Phiên chơi mới"
+    "defaultMessage": "新实例"
   },
   "instances.content-install.no-instances": {
-    "defaultMessage": "Không tìm thấy phiên chơi tương thích"
+    "defaultMessage": "未找到相关的实例"
   },
   "instances.content-install.remove-icon": {
-    "defaultMessage": "Xoá biểu tượng"
+    "defaultMessage": "移除图标"
   },
   "instances.content-install.search-placeholder": {
-    "defaultMessage": "Tìm phiên chơi"
+    "defaultMessage": "搜索实例"
   },
   "instances.content-install.select-icon": {
-    "defaultMessage": "Chọn biểu tượng"
+    "defaultMessage": "选择图标"
   },
   "instances.updater-modal.badge.current": {
-    "defaultMessage": "Hiện tại"
+    "defaultMessage": "当前"
   },
   "instances.updater-modal.badge.incompatible": {
-    "defaultMessage": "Không tương thích"
+    "defaultMessage": "不兼容"
   },
   "instances.updater-modal.downgrade-to": {
-    "defaultMessage": "Hạ cấp xuống {version}"
+    "defaultMessage": "降级到 {version}"
   },
   "instances.updater-modal.header": {
-    "defaultMessage": "Cập nhật phiên bản"
+    "defaultMessage": "更新版本"
   },
   "instances.updater-modal.header-modpack": {
-    "defaultMessage": "Đổi phiên bản modpack"
+    "defaultMessage": "切换整合包版本"
   },
   "instances.updater-modal.header-switch": {
-    "defaultMessage": "Đổi phiên bản"
+    "defaultMessage": "切换版本"
   },
   "instances.updater-modal.hide-incompatible": {
-    "defaultMessage": "Ẩn không tương thích"
+    "defaultMessage": "隐藏不兼容项"
   },
   "instances.updater-modal.incompatibility-warning": {
-    "defaultMessage": "Phiên bản này được đánh dấu không tương thích với cấu hình này. Các nội dung phụ thuộc sẽ không được cài đặt ự động."
+    "defaultMessage": "该版本未标记为与此实例兼容，依赖项将不会自动安装。"
   },
   "instances.updater-modal.incompatibility-warning-header": {
-    "defaultMessage": "Chọn phiên bản"
+    "defaultMessage": "选择版本"
   },
   "instances.updater-modal.incompatible-update.description": {
-    "defaultMessage": "{version} không được đánh dấu là tương thích với bản cài này. Nó có thể không chạy được hoặc chạy không như mong đợi."
+    "defaultMessage": "{version} 未被标记为与当前安装兼容。它可能无法启动或出现不可预期的行为。"
   },
   "instances.updater-modal.incompatible-update.header": {
-    "defaultMessage": "Cập nhật đến phiên bản không tương thích?"
+    "defaultMessage": "更新至不兼容版本？"
   },
   "instances.updater-modal.incompatible-update.proceed": {
-    "defaultMessage": "Kệ và cập nhật"
+    "defaultMessage": "仍然更新"
   },
   "instances.updater-modal.install-anyway": {
-    "defaultMessage": "Vẫn cài đặt"
+    "defaultMessage": "仍然安装"
   },
   "instances.updater-modal.loading-changelog": {
-    "defaultMessage": "Đang tải nhật ký thay đổi..."
+    "defaultMessage": "正在加载更新日志..."
+  },
+  "instances.updater-modal.loading-more-versions": {
+    "message": "正在加载更多版本……"
   },
   "instances.updater-modal.loading-versions": {
-    "defaultMessage": "Đang tải các phiên bản..."
+    "defaultMessage": "版本加载中……"
   },
   "instances.updater-modal.no-changelog": {
-    "defaultMessage": "Không có nhật ký thay đổi cho phiên bản này."
+    "defaultMessage": "此版本未提供更新日志。"
   },
   "instances.updater-modal.no-versions": {
-    "defaultMessage": "Không tìm thấy phiên bản nào"
+    "defaultMessage": "未找到版本"
   },
   "instances.updater-modal.search-placeholder": {
-    "defaultMessage": "Tìm phiên bản..."
+    "defaultMessage": "查找版本…"
   },
   "instances.updater-modal.select-version": {
-    "defaultMessage": "Chọn một phiên bản để xem nhật ký thay đổi"
+    "defaultMessage": "选择版本并查看更新日志"
   },
   "instances.updater-modal.show-incompatible": {
-    "defaultMessage": "Hiển thị không tương thích"
+    "defaultMessage": "显示不兼容项"
   },
   "instances.updater-modal.switch-to": {
-    "defaultMessage": "Chuyển sang {version}"
+    "defaultMessage": "切换至 {version}"
   },
   "instances.updater-modal.update-to": {
-    "defaultMessage": "Cập nhật lên {version}"
+    "defaultMessage": "更新至 {version}"
   },
   "instances.updater-modal.warning-app": {
-    "defaultMessage": "Việc cập nhật có thể gây lỗi cho phiên chơi của bạn. Hãy kiểm tra nhật ký thay đổi và sao lưu dữ liệu trước khi thực hiện."
+    "defaultMessage": "更新可能会导致你的实例出现损坏。请先查看版本更新日志并进行备份。"
   },
   "instances.updater-modal.warning-web": {
-    "defaultMessage": "Việc cập nhật có thể gây lỗi cho thế giới của bạn. Hãy kiểm tra nhật ký thay đổi và sao lưu dữ liệu trước khi thực hiện."
+    "defaultMessage": "更新可能会导致你的世界出现损坏。请先查看版本更新日志并进行备份。"
   },
   "label.actions": {
-    "defaultMessage": "Hành động"
+    "defaultMessage": "操作"
   },
   "label.available": {
-    "defaultMessage": "{amount} khả dụng."
+    "defaultMessage": "{amount} 可用。"
   },
   "label.changelog": {
-    "defaultMessage": "Nhật ký thay đổi"
+    "defaultMessage": "更新日志"
   },
   "label.changes-saved": {
-    "defaultMessage": "Đã lưu thay đổi"
+    "defaultMessage": "更改已保存"
   },
   "label.client-depends-warning": {
-    "defaultMessage": "Mod này phụ thuộc vào bản mod cho phía người chơi và có thể gây ra vấn đề khi khơi chạy máy chủ"
+    "defaultMessage": "该模组依赖客户端模组，启动服务器时可能出现问题"
   },
   "label.client-only-warning": {
-    "defaultMessage": "Đây là mod dành cho phía người chơi và có thể gây ra vấn đề khi đang chạy máy chủ"
+    "defaultMessage": "这是一个客户端模组，启动服务器时可能会导致问题"
   },
   "label.client-retained-warning": {
-    "defaultMessage": "Đây là mod phía máy khách, được cài đặt làm phần phụ thuộc, và có thể gây ra vấn đề khi khởi động máy chủ của bạn"
+    "defaultMessage": "该模组是作为依赖安装的客户端模组，启动服务器时可能出现问题"
   },
   "label.collections": {
-    "defaultMessage": "Bộ sưu tập"
+    "defaultMessage": "收藏"
   },
   "label.confirm-password": {
-    "defaultMessage": "Xác nhận mật khẩu"
+    "defaultMessage": "确认密码"
   },
   "label.content": {
-    "defaultMessage": "Nội dung"
+    "defaultMessage": "内容"
   },
   "label.copied-filename": {
-    "defaultMessage": "Đã sao chép tên tệp"
+    "defaultMessage": "已复制文件名"
   },
   "label.copied-path": {
-    "defaultMessage": "Đã sao chép đường dẫn"
+    "defaultMessage": "已复制路径"
   },
   "label.create-failed": {
-    "defaultMessage": "Tạo file không thành công"
+    "defaultMessage": "创建失败"
   },
   "label.created-ago": {
-    "defaultMessage": "Đã tạo {ago}"
+    "defaultMessage": "{ago}创建"
   },
   "label.dashboard": {
-    "defaultMessage": "Bảng điều khiển"
+    "defaultMessage": "仪表盘"
   },
   "label.delete": {
-    "defaultMessage": "Xóa"
+    "defaultMessage": "删除"
   },
   "label.delete-failed": {
-    "defaultMessage": "Xóa không thành công"
+    "defaultMessage": "删除失败"
   },
   "label.delete-immediately": {
-    "defaultMessage": "Xoá ngay lập tức"
+    "defaultMessage": "立即删除"
   },
   "label.description": {
-    "defaultMessage": "Mô tả"
+    "defaultMessage": "描述"
   },
   "label.details": {
-    "defaultMessage": "Chi tiết"
+    "defaultMessage": "信息"
   },
   "label.done": {
-    "defaultMessage": "Đã xong"
+    "defaultMessage": "完成"
   },
   "label.download-failed": {
-    "defaultMessage": "Tải xuống không thành công"
+    "defaultMessage": "下载失败"
   },
   "label.email": {
-    "defaultMessage": "Email"
+    "defaultMessage": "电子邮件"
   },
   "label.email-username": {
-    "defaultMessage": "Địa chỉ email hoặc tên đăng nhập"
+    "defaultMessage": "电子邮件或用户名"
   },
   "label.error": {
-    "defaultMessage": "Lỗi"
+    "defaultMessage": "错误"
   },
   "label.extract-failed": {
-    "defaultMessage": "Giải nén không thành công"
+    "defaultMessage": "解压失败"
   },
   "label.filter-by": {
-    "defaultMessage": "Lọc theo"
+    "defaultMessage": "筛选"
   },
   "label.filters": {
-    "defaultMessage": "Bộ lọc"
+    "defaultMessage": "过滤器"
   },
   "label.followed-projects": {
-    "defaultMessage": "Dự án đã theo dõi"
+    "defaultMessage": "已关注的项目"
   },
   "label.game-version": {
-    "defaultMessage": "Phiên bản trò chơi"
+    "defaultMessage": "游戏版本"
   },
   "label.hide-installed-content": {
-    "defaultMessage": "Che nội dung đã tải"
+    "defaultMessage": "隐藏已安装内容"
   },
   "label.hide-selected-content": {
-    "defaultMessage": "Che nội dung được chọn"
+    "defaultMessage": "隐藏所选内容"
   },
   "label.installation-info": {
-    "defaultMessage": "Thông tin cài đặt"
+    "defaultMessage": "安装信息"
   },
   "label.installed": {
-    "defaultMessage": "Đã tải"
+    "defaultMessage": "已安装"
   },
   "label.installed-modpack": {
-    "defaultMessage": "Modpack đã cài đặt"
+    "defaultMessage": "已安装整合包"
   },
   "label.installing": {
-    "defaultMessage": "Đang cài đặt..."
+    "defaultMessage": "安装中……"
   },
   "label.installing-content": {
-    "defaultMessage": "Đang tải nội dung"
+    "defaultMessage": "安装内容"
   },
   "label.loading": {
-    "defaultMessage": "Đang tải..."
+    "defaultMessage": "加载中……"
   },
   "label.moderation": {
-    "defaultMessage": "Kiểm duyệt"
+    "defaultMessage": "管理"
   },
   "label.modpack": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "整合包"
   },
   "label.move-failed": {
-    "defaultMessage": "Chuyển không thành không"
+    "defaultMessage": "移动失败"
   },
   "label.no": {
-    "defaultMessage": "Không"
+    "defaultMessage": "否"
   },
   "label.no-items": {
-    "defaultMessage": "Không có mục nào"
+    "defaultMessage": "空"
+  },
+  "modal.confirm.confirmation-placeholder": {
+    "defaultMessage": "在此输入……"
+  },
+  "modal.confirm.confirmation-prompt": {
+    "defaultMessage": "要确认继续，请在下方输入 <confirmation-text>{confirmationText}</confirmation-text>："
+  },
+  "modal.confirm.no-title": {
+    "defaultMessage": "未定义标题"
+  },
+  "modal.confirm.proceed": {
+    "defaultMessage": "继续"
+  },
+  "modal.install-to-play.admonition-body": {
+    "defaultMessage": "此服务器需要模组内容才能游玩。接受后将安装来自 Modrinth 所需的文件。"
+  },
+  "modal.install-to-play.admonition-header": {
+    "defaultMessage": "共享服务器实例"
+  },
+  "modal.install-to-play.shared-by": {
+    "defaultMessage": "<name>{name}</name>今天与你共享了此实例。"
+  },
+  "modal.install-to-play.shared-instance-label": {
+    "defaultMessage": "共享实例"
+  },
+  "modal.install-to-play.title": {
+    "defaultMessage": "安装后游玩"
+  },
+  "notification.panel.copy": {
+    "defaultMessage": "复制到剪贴板"
+  },
+  "notification.panel.copy-support": {
+    "defaultMessage": "复制错误详情以便支持"
+  },
+  "notification.panel.dismiss": {
+    "defaultMessage": "忽略"
+  },
+  "notification.panel.export-error-logs": {
+    "defaultMessage": "导出错误日志"
   },
   "label.notifications": {
-    "defaultMessage": "Thông báo"
+    "defaultMessage": "消息提醒"
   },
   "label.or": {
-    "defaultMessage": "hoặc"
+    "defaultMessage": "或"
   },
   "label.password": {
-    "defaultMessage": "Mật khẩu"
+    "defaultMessage": "密码"
   },
   "label.plan-custom": {
-    "defaultMessage": "Tuỳ chỉnh"
+    "defaultMessage": "自定义"
   },
   "label.plan-large": {
-    "defaultMessage": "Lớn"
+    "defaultMessage": "大型"
   },
   "label.plan-medium": {
-    "defaultMessage": "Trung bình"
+    "defaultMessage": "中型"
   },
   "label.plan-small": {
-    "defaultMessage": "Nhỏ"
+    "defaultMessage": "小型"
   },
   "label.plan-unknown": {
-    "defaultMessage": "Không rõ"
+    "defaultMessage": "未知"
   },
   "label.platform": {
-    "defaultMessage": "Mod loader"
+    "defaultMessage": "平台"
   },
   "label.played": {
-    "defaultMessage": "Đã chơi {ago}"
+    "defaultMessage": "上次游玩于{ago}"
   },
   "label.project": {
-    "defaultMessage": "Dự án"
+    "defaultMessage": "项目"
   },
   "label.public": {
-    "defaultMessage": "Công khai"
+    "defaultMessage": "公开"
   },
   "label.rejected": {
-    "defaultMessage": "Bị từ chối"
+    "defaultMessage": "已退回"
   },
   "label.rename-failed": {
-    "defaultMessage": "Đổi tên không thành công"
+    "defaultMessage": "重命名失败"
   },
   "label.rewards-program-terms-agreement": {
-    "defaultMessage": "Tôi đồng ý với <terms-link>Điều Khoản Chương Trình Phần Thưởng</terms-link>"
+    "defaultMessage": "我同意 <terms-link>激励计划条款</terms-link>"
   },
   "label.saved": {
-    "defaultMessage": "Đã lưu"
+    "defaultMessage": "已保存"
   },
   "label.scopes": {
-    "defaultMessage": "Phạm vi"
+    "defaultMessage": "作用域"
   },
   "label.search": {
-    "defaultMessage": "Tìm kiếm"
+    "defaultMessage": "搜索"
   },
   "label.select-all": {
-    "defaultMessage": "Chọn tất cả"
+    "defaultMessage": "选择全部"
   },
   "label.selected": {
-    "defaultMessage": "Đã chọn"
+    "defaultMessage": "已选"
   },
   "label.selection-actions": {
-    "defaultMessage": "Hành động lựa chọn"
+    "defaultMessage": "选择操作"
   },
   "label.server": {
-    "defaultMessage": "Máy chủ"
+    "defaultMessage": "服务端"
+  },
+  "label.server-only": {
+    "defaultMessage": "仅服务端"
   },
   "label.servers": {
-    "defaultMessage": "Máy chủ"
+    "defaultMessage": "服务器"
   },
   "label.settings": {
-    "defaultMessage": "Cài đặt"
+    "defaultMessage": "设置"
   },
   "label.singleplayer": {
-    "defaultMessage": "Chơi đơn"
+    "defaultMessage": "单人游戏"
   },
   "label.sort-by": {
-    "defaultMessage": "Sắp xếp theo: "
+    "defaultMessage": "排序方式"
   },
   "label.success": {
-    "defaultMessage": "Thành công"
+    "defaultMessage": "成功"
   },
   "label.title": {
-    "defaultMessage": "Tiêu đề"
+    "defaultMessage": "标题"
   },
   "label.unknown": {
-    "defaultMessage": "Không rõ"
+    "defaultMessage": "未知"
   },
   "label.unlisted": {
-    "defaultMessage": "Không công khai"
+    "defaultMessage": "未列出"
   },
   "label.update-available": {
-    "defaultMessage": "Có cập nhật mới"
+    "defaultMessage": "有可用更新"
   },
   "label.updating": {
-    "defaultMessage": "Đang tải lên..."
+    "defaultMessage": "更新中……"
   },
   "label.upload-failed": {
-    "defaultMessage": "Tải lên thất bại"
+    "defaultMessage": "上传失败"
   },
   "label.username": {
-    "defaultMessage": "Tên đăng nhập"
+    "defaultMessage": "用户名"
   },
   "label.validating": {
-    "defaultMessage": "Đang xác thực"
+    "defaultMessage": "验证"
   },
   "label.version": {
-    "defaultMessage": "Phiên bản"
+    "defaultMessage": "版本"
   },
   "label.view": {
-    "defaultMessage": "Xem"
+    "defaultMessage": "视图"
   },
   "label.visibility": {
-    "defaultMessage": "Khả năng hiển thị"
+    "defaultMessage": "可见性"
   },
   "label.visit-your-profile": {
-    "defaultMessage": "Xem hồ sơ của bạn"
+    "defaultMessage": "查看你的个人资料"
   },
   "label.yes": {
-    "defaultMessage": "Có"
+    "defaultMessage": "是"
   },
   "locale.cs-CZ": {
-    "defaultMessage": "Tiếng Cộng hoà Séc"
+    "defaultMessage": "捷克语"
   },
   "locale.da-DK": {
-    "defaultMessage": "Tiếng Đan Mạch"
+    "defaultMessage": "丹麦语"
   },
   "locale.de-CH": {
-    "defaultMessage": "Tiếng Đức (Thụy Sĩ)"
+    "defaultMessage": "德语（瑞士）"
   },
   "locale.de-DE": {
-    "defaultMessage": "Tiếng Đức (Đức)"
+    "defaultMessage": "德语（德国）"
   },
   "locale.en-US": {
-    "defaultMessage": "Tiếng Anh (Hoa Kỳ)"
+    "defaultMessage": "英语 （美国）"
   },
   "locale.es-419": {
-    "defaultMessage": "Tiếng Tây Ban Nha (Mỹ Latinh)"
+    "defaultMessage": "西班牙语（拉丁美洲）"
   },
   "locale.es-ES": {
-    "defaultMessage": "Tiếng Tây Ban Nha (Tây Ban Nha)"
+    "defaultMessage": "西班牙语（西班牙）"
   },
   "locale.fi-FI": {
-    "defaultMessage": "Tiếng Phần Lan"
+    "defaultMessage": "芬兰语"
   },
   "locale.fil-PH": {
-    "defaultMessage": "Tiếng Philippines"
+    "defaultMessage": "菲律宾语"
   },
   "locale.fr-FR": {
-    "defaultMessage": "Tiếng Pháp"
+    "defaultMessage": "法语"
   },
   "locale.he-IL": {
-    "defaultMessage": "Tiếng Do Thái"
+    "defaultMessage": "希伯来语"
   },
   "locale.hu-HU": {
-    "defaultMessage": "Tiếng Hungary"
+    "defaultMessage": "匈牙利语"
   },
   "locale.id-ID": {
-    "defaultMessage": "Tiếng Indonesia"
+    "defaultMessage": "印度尼西亚语"
   },
   "locale.it-IT": {
-    "defaultMessage": "Tiếng Ý (Ý)"
+    "defaultMessage": "意大利语（意大利）"
   },
   "locale.ja-JP": {
-    "defaultMessage": "Tiếng Nhật"
+    "defaultMessage": "日语"
   },
   "locale.ko-KR": {
-    "defaultMessage": "Tiếng Hàn"
+    "defaultMessage": "韩语"
   },
   "locale.ms-MY": {
-    "defaultMessage": "Tiếng Malaysia"
+    "defaultMessage": "马来语"
   },
   "locale.nl-NL": {
-    "defaultMessage": "Tiếng Hà Lan"
+    "defaultMessage": "荷兰语"
   },
   "locale.no-NO": {
-    "defaultMessage": "Tiếng Na Uy Bokh-man"
+    "defaultMessage": "书面挪威语"
   },
   "locale.pl-PL": {
-    "defaultMessage": "Tiếng Ba Lan"
+    "defaultMessage": "波兰语"
   },
   "locale.pt-BR": {
-    "defaultMessage": "Tiếng Bồ Đào Nha (Brazil)"
+    "defaultMessage": "葡萄牙语（巴西）"
   },
   "locale.pt-PT": {
-    "defaultMessage": "Tiếng Bồ Đào Nha (Bồ Đào Nha)"
+    "defaultMessage": "葡萄牙语（葡萄牙）"
   },
   "locale.ro-RO": {
-    "defaultMessage": "Tiếng Romani"
+    "defaultMessage": "罗马尼亚语"
   },
   "locale.ru-RU": {
-    "defaultMessage": "Tiếng Nga"
+    "defaultMessage": "俄语"
   },
   "locale.sr-CS": {
-    "defaultMessage": "Tiếng Serbia (Latin)"
+    "defaultMessage": "塞尔维亚语（拉丁语）"
   },
   "locale.sv-SE": {
-    "defaultMessage": "Tiếng Thụy Điển"
+    "defaultMessage": "瑞典语"
   },
   "locale.th-TH": {
-    "defaultMessage": "Tiếng Thái"
+    "defaultMessage": "泰语"
   },
   "locale.tr-TR": {
-    "defaultMessage": "Tiếng Thổ Nhĩ Kỳ"
+    "defaultMessage": "土耳其语"
   },
   "locale.uk-UA": {
-    "defaultMessage": "Tiếng Ukraina"
+    "defaultMessage": "乌克兰语"
   },
   "locale.vi-VN": {
-    "defaultMessage": "Tiếng Việt"
+    "defaultMessage": "越南语"
   },
   "locale.zh-CN": {
-    "defaultMessage": "Tiếng Trung (Giản thể)"
+    "defaultMessage": "中文（简体）"
   },
   "locale.zh-TW": {
-    "defaultMessage": "Tiếng Trung (Phồn thể)"
+    "defaultMessage": "中文（繁体）"
   },
   "modal.open-in-app.benefit.install": {
-    "defaultMessage": "Tự động cài đặt các nội dung cần thiết"
+    "defaultMessage": "自动安装所需要的内容"
   },
   "modal.open-in-app.benefit.launch": {
-    "defaultMessage": "Đâm thẳng vào server khi khởi động game"
+    "defaultMessage": "直接将游戏启动到服务器"
   },
   "modal.open-in-app.benefit.update": {
-    "defaultMessage": "Luôn cập nhật các file khi server thay đổi"
+    "defaultMessage": "服务器更改时保持文件更新"
   },
   "modal.open-in-app.get-app": {
-    "defaultMessage": "Tải Modrinth App"
+    "defaultMessage": "获取 Modrinth App"
   },
   "modal.open-in-app.opening-automatically": {
-    "defaultMessage": "Modrinth App sẽ được tự động mở..."
+    "defaultMessage": "Modrinth App 将自动打开……"
   },
   "modal.open-in-app.title": {
-    "defaultMessage": "Mở Modrinth App"
+    "defaultMessage": "正在打开 Modrinth App"
   },
   "modal.open-in-app.why-use": {
-    "defaultMessage": "Tại sao nên sử dụng Modrinth App"
+    "defaultMessage": "为何使用 Modrinth App"
+  },
+  "multiselect.selection-actions.label": {
+    "defaultMessage": "已选 {count, number} 项"
   },
   "notification.error.title": {
-    "defaultMessage": "Đã xảy ra lỗi"
+    "defaultMessage": "发生错误"
   },
   "omorphia.component.badge.label.accepted": {
-    "defaultMessage": "Đã chấp nhận"
+    "defaultMessage": "已接受"
   },
   "omorphia.component.badge.label.approved": {
-    "defaultMessage": "Đã phê duyệt"
+    "defaultMessage": "已通过"
   },
   "omorphia.component.badge.label.archived": {
-    "defaultMessage": "Đã lưu trữ"
+    "defaultMessage": "已归档"
   },
   "omorphia.component.badge.label.closed": {
-    "defaultMessage": "Đã đóng"
+    "defaultMessage": "已关闭"
   },
   "omorphia.component.badge.label.creator": {
-    "defaultMessage": "Tác giả"
+    "defaultMessage": "作者"
   },
   "omorphia.component.badge.label.draft": {
-    "defaultMessage": "Nháp"
+    "defaultMessage": "草案"
   },
   "omorphia.component.badge.label.failed": {
-    "defaultMessage": "Thất bại"
+    "defaultMessage": "失败"
   },
   "omorphia.component.badge.label.listed": {
-    "defaultMessage": "Công khai"
+    "defaultMessage": "公开"
   },
   "omorphia.component.badge.label.moderator": {
-    "defaultMessage": "Kiểm duyệt viên"
+    "defaultMessage": "管理员"
   },
   "omorphia.component.badge.label.modrinth-team": {
-    "defaultMessage": "Đội Ngũ Modrinth"
+    "defaultMessage": "Modrinth 团队"
   },
   "omorphia.component.badge.label.pending": {
-    "defaultMessage": "Đang chờ"
+    "defaultMessage": "待确认"
   },
   "omorphia.component.badge.label.private": {
-    "defaultMessage": "Riêng tư"
+    "defaultMessage": "私有"
   },
   "omorphia.component.badge.label.processed": {
-    "defaultMessage": "Đã xử lý"
+    "defaultMessage": "已处理"
   },
   "omorphia.component.badge.label.rejected": {
-    "defaultMessage": "Bị từ chối"
+    "defaultMessage": "已退回"
   },
   "omorphia.component.badge.label.returned": {
-    "defaultMessage": "Đã trả lại"
+    "defaultMessage": "已退回"
   },
   "omorphia.component.badge.label.safe": {
-    "defaultMessage": "Đạt"
+    "defaultMessage": "通过"
   },
   "omorphia.component.badge.label.scheduled": {
-    "defaultMessage": "Đã lên lịch"
+    "defaultMessage": "定时"
   },
   "omorphia.component.badge.label.under-review": {
-    "defaultMessage": "Đang được kiểm duyệt"
+    "defaultMessage": "审核中"
   },
   "omorphia.component.badge.label.unlisted": {
-    "defaultMessage": "Không công khai"
+    "defaultMessage": "未列出"
   },
   "omorphia.component.badge.label.unsafe": {
-    "defaultMessage": "Không đạt"
+    "defaultMessage": "失败"
   },
   "omorphia.component.badge.label.withheld": {
-    "defaultMessage": "Không công khai bởi cộng tác viên"
+    "defaultMessage": "由管理员下架"
   },
   "omorphia.component.copy.action.copy": {
-    "defaultMessage": "Sao chép mã vào bảng nhớ tạm"
+    "defaultMessage": "将代码复制到剪贴板"
+  },
+  "omorphia.component.loading-indicator.label": {
+    "defaultMessage": "加载中"
+  },
+  "pagination.go-to-page": {
+    "defaultMessage": "跳转到页码"
+  },
+  "pagination.go-to-page.placeholder": {
+    "defaultMessage": "页码"
+  },
+  "pagination.loading-page": {
+    "defaultMessage": "正在加载页面……"
   },
   "payment-method.amazon_pay": {
-    "defaultMessage": "Amazon Pay"
+    "defaultMessage": "Amazon 支付"
   },
   "payment-method.amex": {
-    "defaultMessage": "American Express"
+    "defaultMessage": "美国运通"
   },
   "payment-method.card_display": {
-    "defaultMessage": "{card_brand} kết thúc trong {last_four}"
+    "defaultMessage": "{card_brand} 以 {last_four}结尾"
   },
   "payment-method.cashapp": {
     "defaultMessage": "Cash App"
   },
   "payment-method.charity": {
-    "defaultMessage": "Từ thiện"
+    "defaultMessage": "慈善"
   },
   "payment-method.charity-plural": {
-    "defaultMessage": "Từ thiện"
+    "defaultMessage": "慈善"
   },
   "payment-method.diners": {
-    "defaultMessage": "Diners Club"
+    "defaultMessage": "大来卡"
   },
   "payment-method.discover": {
-    "defaultMessage": "Discover"
+    "defaultMessage": "发现"
   },
   "payment-method.eftpos": {
     "defaultMessage": "EFTPOS"
   },
   "payment-method.gift-card": {
-    "defaultMessage": "Thẻ quà tặng"
+    "defaultMessage": "礼品卡"
   },
   "payment-method.gift-card-plural": {
-    "defaultMessage": "Thẻ quà tặng"
+    "defaultMessage": "礼品卡"
   },
   "payment-method.jcb": {
     "defaultMessage": "JCB"
   },
   "payment-method.mastercard": {
-    "defaultMessage": "Mastercard"
+    "defaultMessage": "万事达卡"
   },
   "payment-method.paypal": {
     "defaultMessage": "PayPal"
   },
   "payment-method.paypal_international": {
-    "defaultMessage": "PayPal Quốc Tế"
+    "defaultMessage": "PayPal国际"
   },
   "payment-method.unionpay": {
-    "defaultMessage": "UnionPay"
+    "defaultMessage": "银联支付"
   },
   "payment-method.unknown": {
-    "defaultMessage": "Phương thức thanh toán không xác định"
+    "defaultMessage": "未知支付途径"
   },
   "payment-method.venmo": {
     "defaultMessage": "Venmo"
   },
   "payment-method.virtual-visa": {
-    "defaultMessage": "Visa Ảo"
+    "defaultMessage": "Visa 虚拟信用卡"
   },
   "payment-method.virtual-visa-plural": {
-    "defaultMessage": "Visa Ảo"
+    "defaultMessage": "Visa 虚拟信用卡"
   },
   "payment-method.visa": {
     "defaultMessage": "Visa"
   },
   "project-card.date.published.tooltip": {
-    "defaultMessage": "Được đăng vào {date}"
+    "defaultMessage": "发布于 {date}"
   },
   "project-card.date.updated.tooltip": {
-    "defaultMessage": "Cập nhật vào {date}"
+    "defaultMessage": "更新于 {date}"
   },
   "project-card.environment.client": {
-    "defaultMessage": "Máy khách"
+    "defaultMessage": "客户端"
   },
   "project-card.environment.client-and-server": {
-    "defaultMessage": "Máy khách và máy chủ"
+    "defaultMessage": "客户端和服务端"
   },
   "project-card.environment.client-or-server": {
-    "defaultMessage": "Máy khách hoặc máy chủ"
+    "defaultMessage": "客户端或服务端"
   },
   "project-card.environment.server": {
-    "defaultMessage": "Máy chủ"
+    "defaultMessage": "服务端"
   },
   "project-type.all": {
-    "defaultMessage": "Tất cả"
+    "defaultMessage": "全部"
   },
   "project-type.datapack.capital": {
-    "defaultMessage": "{count, plural, other {Gói dữ liệu}}"
+    "defaultMessage": "{count, plural, other {数据包}}"
   },
   "project-type.datapack.category": {
-    "defaultMessage": "Gói dữ liệu"
+    "defaultMessage": "数据包"
   },
   "project-type.datapack.lowercase": {
-    "defaultMessage": "{count, plural, other {gói dữ liệu}}"
+    "defaultMessage": "{count, plural, other {数据包}}"
   },
   "project-type.mod.capital": {
-    "defaultMessage": "{count, plural, other {Mod}}"
+    "defaultMessage": "{count, plural, other {模组}}"
   },
   "project-type.mod.category": {
-    "defaultMessage": "Mod"
+    "defaultMessage": "模组"
   },
   "project-type.mod.lowercase": {
-    "defaultMessage": "{count, plural, other {mod}}"
+    "defaultMessage": "{count, plural, other {模组}}"
   },
   "project-type.modpack.capital": {
-    "defaultMessage": "{count, plural, other {Modpack}}"
+    "defaultMessage": "{count, plural, other {整合包}}"
   },
   "project-type.modpack.category": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "整合包"
   },
   "project-type.modpack.lowercase": {
-    "defaultMessage": "{count, plural, other {modpack}}"
+    "defaultMessage": "{count, plural, other {整合包}}"
   },
   "project-type.plugin.capital": {
-    "defaultMessage": "{count, plural, other {Plugin}}"
+    "defaultMessage": "{count, plural, other {插件}}"
   },
   "project-type.plugin.category": {
-    "defaultMessage": "Plugin"
+    "defaultMessage": "插件"
   },
   "project-type.plugin.lowercase": {
-    "defaultMessage": "{count, plural, other {plugin}}"
+    "defaultMessage": "{count, plural, one {插件} other {插件集}}"
   },
   "project-type.project.capital": {
-    "defaultMessage": "{count, plural, other {Dự án}}"
+    "message": "{count, plural, one {项目} other {项目}}"
   },
   "project-type.project.category": {
-    "defaultMessage": "Dự án"
+    "defaultMessage": "项目"
   },
   "project-type.project.lowercase": {
-    "defaultMessage": "{count, plural, other {dự án}}"
+    "defaultMessage": "{count, plural, other {项目}}"
   },
   "project-type.resourcepack.capital": {
-    "defaultMessage": "{count, plural, other {Gói tài nguyên}}"
+    "defaultMessage": "{count, plural, other {资源包}}"
   },
   "project-type.resourcepack.category": {
-    "defaultMessage": "Gói tài nguyên"
+    "defaultMessage": "资源包"
   },
   "project-type.resourcepack.lowercase": {
-    "defaultMessage": "{count, plural, other {gói tài nguyên}}"
+    "defaultMessage": "{count, plural, other {资源包}}"
   },
   "project-type.server.capital": {
-    "defaultMessage": "{count, plural, other {Máy chủ}}"
+    "defaultMessage": "{count, plural, other {服务器}}"
   },
   "project-type.server.category": {
-    "defaultMessage": "Máy chủ"
+    "defaultMessage": "服务器"
   },
   "project-type.server.lowercase": {
-    "defaultMessage": "{count, plural, other {máy chủ}}"
+    "defaultMessage": "{count, plural, other {服务器}}"
   },
   "project-type.shader.capital": {
-    "defaultMessage": "{count, plural, other {Shader}}"
+    "defaultMessage": "{count, plural, other {光影包}}"
   },
   "project-type.shader.category": {
-    "defaultMessage": "Shader"
+    "defaultMessage": "光影包"
   },
   "project-type.shader.lowercase": {
-    "defaultMessage": "{count, plural, other {shader}}"
+    "defaultMessage": "{count, plural, other {光影包}}"
   },
   "project.about.compatibility.environments": {
-    "defaultMessage": "Môi trường được hỗ trợ"
+    "defaultMessage": "支持的运行环境"
   },
   "project.about.compatibility.environments.client-and-server": {
-    "defaultMessage": "Máy khách và máy chủ"
+    "defaultMessage": "客户端和服务端"
   },
   "project.about.compatibility.environments.client-side": {
-    "defaultMessage": "Phía máy khách"
+    "defaultMessage": "客户端"
   },
   "project.about.compatibility.environments.dedicated-servers-only": {
-    "defaultMessage": "Chỉ máy chủ chuyên dụng"
+    "defaultMessage": "仅限专用服务端"
   },
   "project.about.compatibility.environments.server-side": {
-    "defaultMessage": "Phía máy chủ"
+    "defaultMessage": "服务端"
   },
   "project.about.compatibility.environments.singleplayer": {
-    "defaultMessage": "Chơi đơn"
+    "defaultMessage": "单人游戏"
   },
   "project.about.compatibility.environments.singleplayer-only": {
-    "defaultMessage": "Chỉ chơi đơn"
+    "defaultMessage": "仅限单人游戏"
   },
   "project.about.compatibility.game.minecraftJava": {
-    "defaultMessage": "Minecraft: Java Edition"
+    "defaultMessage": "Minecraft：Java版"
   },
   "project.about.compatibility.platforms": {
-    "defaultMessage": "Nền tảng"
+    "defaultMessage": "平台"
+  },
+  "project.about.compatibility.platforms-plural": {
+    "defaultMessage": "{count, plural, other {平台}}"
   },
   "project.about.compatibility.title": {
-    "defaultMessage": "Tương thích"
+    "defaultMessage": "兼容性"
   },
   "project.about.creators.organization": {
-    "defaultMessage": "Tổ chức"
+    "defaultMessage": "组织"
   },
   "project.about.creators.owner": {
-    "defaultMessage": "Chủ dự án"
+    "defaultMessage": "项目所有者"
   },
   "project.about.creators.title": {
-    "defaultMessage": "Người tạo"
+    "defaultMessage": "作者"
   },
   "project.about.details.created": {
-    "defaultMessage": "Tạo ngày {date}"
+    "defaultMessage": "创建于 {date}"
   },
   "project.about.details.licensed": {
-    "defaultMessage": "Giấy phép {license}"
+    "defaultMessage": "许可证：{license}"
   },
   "project.about.details.published": {
-    "defaultMessage": "Xuất bản ngày {date}"
+    "defaultMessage": "{date} 发布"
   },
   "project.about.details.submitted": {
-    "defaultMessage": "Gửi ngày {date}"
+    "defaultMessage": "{date} 提交"
   },
   "project.about.details.updated": {
-    "defaultMessage": "Cập nhật ngày {date}"
+    "defaultMessage": "{date} 更新"
   },
   "project.about.links.discord": {
-    "defaultMessage": "Tham gia máy chủ Discord"
+    "defaultMessage": "加入 Discord 服务器"
   },
   "project.about.links.donate.bmac": {
-    "defaultMessage": "Buy Me a Coffee"
+    "defaultMessage": "通过 Buy Me a Coffee 赞助"
   },
   "project.about.links.donate.generic": {
-    "defaultMessage": "Ủng hộ"
+    "defaultMessage": "赞助"
   },
   "project.about.links.donate.github": {
-    "defaultMessage": "Tài trợ trên GitHub"
+    "defaultMessage": "GitHub Sponsors 赞助"
   },
   "project.about.links.donate.kofi": {
-    "defaultMessage": "Ủng hộ trên Ko-fi"
+    "defaultMessage": "Ko-fi 赞助"
   },
   "project.about.links.donate.patreon": {
-    "defaultMessage": "Ủng hộ trên Patreon"
+    "defaultMessage": "Patreon 赞助"
   },
   "project.about.links.donate.paypal": {
-    "defaultMessage": "Ủng hộ trên PayPal"
+    "defaultMessage": "PayPal 赞助"
   },
   "project.about.links.issues": {
-    "defaultMessage": "Báo cáo lỗi"
+    "defaultMessage": "报告问题"
+  },
+  "project.about.links.mcmod": {
+    "defaultMessage": "MC Mod"
   },
   "project.about.links.site": {
-    "defaultMessage": "Truy cập trang web"
+    "defaultMessage": "访问网站"
   },
   "project.about.links.source": {
-    "defaultMessage": "Xem nguồn"
+    "defaultMessage": "查看源代码"
   },
   "project.about.links.store": {
-    "defaultMessage": "Truy cập trang cửa hàng"
+    "defaultMessage": "访问商店页面"
   },
   "project.about.links.title": {
-    "defaultMessage": "Liên kết"
+    "defaultMessage": "相关链接"
   },
   "project.about.links.wiki": {
-    "defaultMessage": "Xem wiki"
+    "defaultMessage": "前往 Wiki"
   },
   "project.about.server.address.tooltip": {
-    "defaultMessage": "Sao chép địa chỉ máy chủ Java"
+    "defaultMessage": "复制服务器地址"
   },
   "project.about.server.copied": {
-    "defaultMessage": "Đã sao chép!"
+    "defaultMessage": "已复制！"
   },
   "project.about.server.copiedText": {
-    "defaultMessage": "Đã sao chép địa chỉ máy chủ vào bộ nhớ tạm"
+    "defaultMessage": "服务器地址以复制到剪贴板"
   },
   "project.about.server.downloadModpack": {
-    "defaultMessage": "Tải modpack"
+    "defaultMessage": "下载整合包"
   },
   "project.about.server.languages": {
-    "defaultMessage": "Ngôn ngữ"
+    "defaultMessage": "语言"
   },
   "project.about.server.recommendedVersion": {
-    "defaultMessage": "(Đề xuất)"
+    "defaultMessage": "（推荐的）"
   },
   "project.about.server.region": {
-    "defaultMessage": "Khu vực"
+    "defaultMessage": "区域"
   },
   "project.about.server.requiredContent": {
-    "defaultMessage": "Nội dung bắt buộc"
+    "defaultMessage": "必须内容"
   },
   "project.about.server.title": {
-    "defaultMessage": "Chi tiết máy chủ"
+    "defaultMessage": "服务器详情"
   },
   "project.about.tags.title": {
-    "defaultMessage": "Thẻ"
+    "defaultMessage": "标签"
   },
   "project.download-count-tooltip": {
-    "defaultMessage": "{count, number} {count, plural, other {lượt tải xuống}}"
+    "defaultMessage": "{count, number} {count, plural, other {次下载}}"
   },
   "project.follower-count-tooltip": {
-    "defaultMessage": "{count, number} {count, plural, other {lượt theo dõi}}"
+    "defaultMessage": "{count, number} {count, plural, other {人关注}}"
   },
   "project.online-player-count": {
-    "defaultMessage": "{count, number} trực tuyến"
+    "defaultMessage": "{count, number} 在线"
   },
   "project.online-player-count.tooltip": {
-    "defaultMessage": "{count} {countPlural, plural, one {người chơi} other {người chơi}} trực tuyến"
+    "defaultMessage": "{count} {countPlural, plural, other {个玩家}} 在线"
   },
   "project.recent-plays": {
-    "defaultMessage": "{count} {countPlural, plural, one {lượt chơi gần đây} other {lượt chơi gần đây}}"
+    "defaultMessage": "{count} {countPlural, plural, other {人最近游玩}}"
   },
   "project.recent-plays.tooltip": {
-    "defaultMessage": "{count} {countPlural, plural, one {lượt chơi gần đây} other {lượt chơi gần đây}} từ Modrinth trong 2 tuần vừa qua"
+    "defaultMessage": "在过去两周内共有 {count} {countPlural, plural, other {人}}通过 Modrinth 游玩"
+  },
+  "project.environment.tag.not-applicable": {
+    "defaultMessage": "不适用"
+  },
+  "project.environment.tag.unknown": {
+    "defaultMessage": "未知"
   },
   "project.server.customModpackTooltip": {
-    "defaultMessage": "Dự án này có sử dụng modpack tuỳ chỉnh"
+    "defaultMessage": "这个项目使用了自定义整合包"
   },
   "project.server.language.af": {
-    "defaultMessage": "Tiếng Nam Phi"
+    "defaultMessage": "南非荷兰语"
   },
   "project.server.language.am": {
-    "defaultMessage": "Tiếng Amharic"
+    "defaultMessage": "阿姆哈拉语"
   },
   "project.server.language.ar": {
-    "defaultMessage": "Tiếng Ả Rập"
+    "defaultMessage": "阿拉伯语"
   },
   "project.server.language.az": {
-    "defaultMessage": "Tiếng Azeri"
+    "defaultMessage": "阿塞拜疆"
   },
   "project.server.language.be": {
-    "defaultMessage": "Tiếng Belarus"
+    "defaultMessage": "白俄罗斯语"
   },
   "project.server.language.bg": {
-    "defaultMessage": "Tiếng Bulgaria"
+    "defaultMessage": "保加利亚语"
   },
   "project.server.language.bn": {
-    "defaultMessage": "Tiếng Bengal"
+    "defaultMessage": "孟加拉语"
   },
   "project.server.language.bs": {
-    "defaultMessage": "Tiếng Bosnia"
+    "defaultMessage": "波斯尼亚语"
   },
   "project.server.language.ca": {
-    "defaultMessage": "Tiếng Catalan"
+    "defaultMessage": "加泰罗尼亚语"
   },
   "project.server.language.cs": {
-    "defaultMessage": "Tiếng Séc"
+    "defaultMessage": "捷克语"
   },
   "project.server.language.da": {
-    "defaultMessage": "Tiếng Đan Mạch"
+    "defaultMessage": "丹麦语"
   },
   "project.server.language.de": {
-    "defaultMessage": "Tiếng Đức"
+    "defaultMessage": "德语"
   },
   "project.server.language.el": {
-    "defaultMessage": "Tiếng Hy Lạp"
+    "defaultMessage": "希腊语"
   },
   "project.server.language.en": {
-    "defaultMessage": "Tiếng Anh"
+    "defaultMessage": "英语"
   },
   "project.server.language.eo": {
-    "defaultMessage": "Quốc tế ngữ"
+    "defaultMessage": "世界语"
   },
   "project.server.language.es": {
-    "defaultMessage": "Tiếng Tây Ban Nha"
+    "defaultMessage": "西班牙语"
   },
   "project.server.language.et": {
-    "defaultMessage": "Tiếng Et-tô-ni-a"
+    "defaultMessage": "爱沙尼亚语"
   },
   "project.server.language.eu": {
-    "defaultMessage": "Tiếng Basque"
+    "defaultMessage": "巴斯克语"
   },
   "project.server.language.fa": {
-    "defaultMessage": "Tiếng Ba Tư"
+    "defaultMessage": "波斯语"
   },
   "project.server.language.fi": {
-    "defaultMessage": "Tiếng Phần Lan"
+    "defaultMessage": "芬兰语"
   },
   "project.server.language.fr": {
-    "defaultMessage": "Tiếng Pháp"
+    "defaultMessage": "法语"
   },
   "project.server.language.ga": {
-    "defaultMessage": "Tiếng Ireland"
+    "defaultMessage": "爱尔兰语"
   },
   "project.server.language.gl": {
-    "defaultMessage": "Tiếng Galicia"
+    "defaultMessage": "加利西亚语"
   },
   "project.server.language.he": {
-    "defaultMessage": "Tiếng Do Thái"
+    "defaultMessage": "希伯来语"
   },
   "project.server.language.hi": {
-    "defaultMessage": "Tiếng Hin-đi"
+    "defaultMessage": "印地语"
   },
   "project.server.language.hr": {
-    "defaultMessage": "Tiếng Croatia"
+    "defaultMessage": "克罗地亚语"
   },
   "project.server.language.hu": {
-    "defaultMessage": "Tiếng Hungary"
+    "defaultMessage": "匈牙利语"
   },
   "project.server.language.hy": {
-    "defaultMessage": "Tiếng Armenia"
+    "defaultMessage": "亚美尼亚语"
   },
   "project.server.language.id": {
-    "defaultMessage": "Indonesian"
+    "defaultMessage": "印度尼西亚语"
   },
   "project.server.language.is": {
-    "defaultMessage": "Icelandic"
+    "defaultMessage": "冰岛语"
   },
   "project.server.language.it": {
-    "defaultMessage": "Italian"
+    "defaultMessage": "意大利语"
   },
   "project.server.language.ja": {
-    "defaultMessage": "日本語"
+    "defaultMessage": "日语"
   },
   "project.server.language.ka": {
-    "defaultMessage": "Georgian"
+    "defaultMessage": "格鲁吉亚语"
   },
   "project.server.language.kk": {
-    "defaultMessage": "Kazakh"
+    "defaultMessage": "哈萨克语"
   },
   "project.server.language.km": {
-    "defaultMessage": "Khmer"
+    "defaultMessage": "高棉语"
   },
   "project.server.language.kn": {
-    "defaultMessage": "Kannada"
+    "defaultMessage": "卡纳达语"
   },
   "project.server.language.ko": {
-    "defaultMessage": "Korean"
+    "defaultMessage": "韩语"
   },
   "project.server.language.lo": {
-    "defaultMessage": "Lao"
+    "defaultMessage": "老挝语"
   },
   "project.server.language.lt": {
-    "defaultMessage": "Lithuanian"
+    "defaultMessage": "立陶宛语"
   },
   "project.server.language.lv": {
-    "defaultMessage": "Latvian"
+    "defaultMessage": "拉脱维亚语"
   },
   "project.server.language.mk": {
-    "defaultMessage": "Macedonian"
+    "defaultMessage": "马其顿语"
   },
   "project.server.language.ml": {
-    "defaultMessage": "Malayalam"
+    "defaultMessage": "马拉雅拉姆语"
   },
   "project.server.language.mn": {
-    "defaultMessage": "Mongolian"
+    "defaultMessage": "蒙语"
   },
   "project.server.language.mr": {
-    "defaultMessage": "Marathi"
+    "defaultMessage": "马拉地语"
   },
   "project.server.language.ms": {
-    "defaultMessage": "Malay"
+    "defaultMessage": "马来语"
   },
   "project.server.language.my": {
-    "defaultMessage": "Burmese"
+    "defaultMessage": "缅甸语"
   },
   "project.server.language.ne": {
-    "defaultMessage": "Nepali"
+    "defaultMessage": "尼泊尔语"
   },
   "project.server.language.nl": {
-    "defaultMessage": "Dutch"
+    "defaultMessage": "荷兰语"
   },
   "project.server.language.no": {
-    "defaultMessage": "Norwegian"
+    "defaultMessage": "挪威语"
   },
   "project.server.language.pa": {
-    "defaultMessage": "Punjabi"
+    "defaultMessage": "旁遮普语"
   },
   "project.server.language.pl": {
-    "defaultMessage": "Tiếng Ba Lan"
+    "defaultMessage": "波兰语"
   },
   "project.server.language.pt": {
-    "defaultMessage": "Tiếng Bồ Đào Nha"
+    "defaultMessage": "葡萄牙语"
   },
   "project.server.language.ro": {
-    "defaultMessage": "Tiếng Romani"
+    "defaultMessage": "罗马尼亚语"
   },
   "project.server.language.ru": {
-    "defaultMessage": "Tiếng Nga"
+    "defaultMessage": "俄语"
   },
   "project.server.language.si": {
-    "defaultMessage": "Tiếng Sinhala"
+    "defaultMessage": "僧伽罗语"
   },
   "project.server.language.sk": {
-    "defaultMessage": "Tiếng Slovakia"
+    "defaultMessage": "斯洛伐克语"
   },
   "project.server.language.sl": {
-    "defaultMessage": "Tiếng Slovenia"
+    "defaultMessage": "斯洛文尼亚语"
   },
   "project.server.language.sq": {
-    "defaultMessage": "Tiếng Albania"
+    "defaultMessage": "阿尔巴尼亚语"
   },
   "project.server.language.sr": {
-    "defaultMessage": "Tiếng Serbia"
+    "defaultMessage": "塞尔维亚语"
   },
   "project.server.language.sv": {
-    "defaultMessage": "Tiếng Thụy Điển"
+    "defaultMessage": "瑞典语"
   },
   "project.server.language.sw": {
-    "defaultMessage": "Tiếng Swahili"
+    "defaultMessage": "斯瓦希里语"
   },
   "project.server.language.ta": {
-    "defaultMessage": "Tiếng Tamil"
+    "defaultMessage": "泰米尔语"
   },
   "project.server.language.te": {
-    "defaultMessage": "Tiếng Telugu"
+    "defaultMessage": "泰卢固语"
   },
   "project.server.language.th": {
-    "defaultMessage": "Tiếng Thái"
+    "defaultMessage": "泰语"
   },
   "project.server.language.tl": {
-    "defaultMessage": "Tiếng Philippines"
+    "defaultMessage": "菲律宾语"
   },
   "project.server.language.tr": {
-    "defaultMessage": "Tiếng Thổ Nhĩ Kỳ"
+    "defaultMessage": "土耳其语"
   },
   "project.server.language.uk": {
-    "defaultMessage": "Tiếng Ukraina"
+    "defaultMessage": "乌克兰语"
   },
   "project.server.language.ur": {
-    "defaultMessage": "Tiếng Urdu"
+    "defaultMessage": "乌尔都语"
   },
   "project.server.language.uz": {
-    "defaultMessage": "Tiếng Uzbek"
+    "defaultMessage": "乌兹别克斯坦语"
   },
   "project.server.language.vi": {
-    "defaultMessage": "Tiếng Việt"
+    "defaultMessage": "越南语"
   },
   "project.server.language.yo": {
-    "defaultMessage": "Tiếng Yoruba"
+    "defaultMessage": "约鲁巴语"
   },
   "project.server.language.zh": {
-    "defaultMessage": "Tiếng Trung"
+    "defaultMessage": "中文"
   },
   "project.server.language.zu": {
-    "defaultMessage": "Tiếng Zulu"
+    "defaultMessage": "祖鲁语"
   },
   "project.server.ping.ms": {
-    "defaultMessage": "{ping, number} ms"
+    "defaultMessage": "{ping, number} 毫秒"
   },
   "project.server.region.asia": {
-    "defaultMessage": "Châu Á"
+    "defaultMessage": "亚洲"
   },
   "project.server.region.australia": {
-    "defaultMessage": "Úc"
+    "defaultMessage": "澳大利亚"
   },
   "project.server.region.europe": {
-    "defaultMessage": "Châu Âu"
+    "defaultMessage": "欧洲"
   },
   "project.server.region.middle_east": {
-    "defaultMessage": "Trung Đông"
+    "defaultMessage": "中东"
   },
   "project.server.region.russia": {
-    "defaultMessage": "Nga"
+    "defaultMessage": "俄罗斯"
   },
   "project.server.region.south_america": {
-    "defaultMessage": "Nam Mỹ"
+    "defaultMessage": "南美洲"
   },
   "project.server.region.tooltip": {
-    "defaultMessage": "Máy chủ được đặt tại {regionName}"
+    "defaultMessage": "服务器托管于 {regionName}"
   },
   "project.server.region.us_east": {
-    "defaultMessage": "Phía Đông Hoa Kỳ"
+    "defaultMessage": "美国东部"
   },
   "project.server.region.us_west": {
-    "defaultMessage": "Phía Tây Hoa Kỳ"
+    "defaultMessage": "美国西部"
   },
   "project.server.status.offline": {
-    "defaultMessage": "Ngoại tuyến"
+    "defaultMessage": "离线"
   },
   "project.server.status.offline.tooltip": {
-    "defaultMessage": "Máy chủ đang ngoại tuyến"
+    "defaultMessage": "服务器已离线"
   },
   "project.server.status.online": {
-    "defaultMessage": "Trực tuyến"
+    "defaultMessage": "在线"
   },
   "project.settings.analytics.title": {
-    "defaultMessage": "Phân tích"
+    "defaultMessage": "分析"
   },
   "project.settings.content.title": {
-    "defaultMessage": "Nội dung"
+    "defaultMessage": "内容"
   },
   "project.settings.description.title": {
-    "defaultMessage": "Mô tả"
+    "defaultMessage": "描述"
   },
   "project.settings.environment.title": {
-    "defaultMessage": "Môi trường"
+    "defaultMessage": "运行环境"
   },
   "project.settings.gallery.title": {
-    "defaultMessage": "Thư viện"
+    "defaultMessage": "图库"
   },
   "project.settings.general.title": {
-    "defaultMessage": "Tổng quát"
+    "defaultMessage": "通用"
   },
   "project.settings.license.title": {
-    "defaultMessage": "Giấy phép"
+    "defaultMessage": "许可证"
   },
   "project.settings.links.title": {
-    "defaultMessage": "Liên kết"
+    "defaultMessage": "相关链接"
   },
   "project.settings.members.title": {
-    "defaultMessage": "Thành viên"
+    "defaultMessage": "成员"
   },
   "project.settings.notice.no-permission.description": {
-    "defaultMessage": "Bạn không có quyền chỉnh sửa mục này"
+    "defaultMessage": "你没有权限编辑它。"
   },
   "project.settings.notice.no-permission.title": {
-    "defaultMessage": "Không có quyền"
+    "defaultMessage": "没有权限"
   },
   "project.settings.server.title": {
-    "defaultMessage": "Máy chủ"
+    "defaultMessage": "服务器"
   },
   "project.settings.tags.title": {
-    "defaultMessage": "Thẻ"
+    "defaultMessage": "标签"
   },
   "project.settings.upload.title": {
-    "defaultMessage": "Tải lên"
+    "defaultMessage": "上传"
   },
   "project.settings.versions.permissions": {
-    "defaultMessage": "Quyền"
+    "defaultMessage": "权限"
   },
   "project.settings.versions.title": {
-    "defaultMessage": "Các phiên bản"
+    "defaultMessage": "版本"
   },
   "project.settings.view.title": {
-    "defaultMessage": "Xem"
+    "defaultMessage": "视图"
   },
   "project.versions.channel.alpha.symbol": {
     "defaultMessage": "A"
@@ -2369,260 +3260,488 @@
   "project.versions.channel.release.symbol": {
     "defaultMessage": "R"
   },
+  "project.versions.filter.toggle-tooltip": {
+    "defaultMessage": "切换 {filter} 筛选条件"
+  },
+  "project.versions.platform.modloader.short": {
+    "defaultMessage": "模组加载器"
+  },
+  "project.versions.table.downloads": {
+    "defaultMessage": "下载量"
+  },
+  "project.versions.table.environment": {
+    "defaultMessage": "运行环境"
+  },
+  "project.versions.table.game-version": {
+    "defaultMessage": "游戏版本"
+  },
+  "project.versions.table.platform": {
+    "defaultMessage": "平台"
+  },
+  "project.versions.table.published": {
+    "defaultMessage": "发布时间"
+  },
+  "project.versions.table.version": {
+    "defaultMessage": "版本"
+  },
+  "project.versions.no-matching-versions": {
+    "defaultMessage": "没有符合所选筛选条件的版本。"
+  },
+  "project.versions.version.withheld": {
+    "defaultMessage": "保留"
+  },
+  "project.versions.version.withheld.tooltip": {
+    "defaultMessage": "由于缺少权限，版本信息未予提供"
+  },
+  "project.versions.filter.projectChannels": {
+    "defaultMessage": "更新通道"
+  },
+  "project.versions.withheld-versions-warning.resolve-button": {
+    "defaultMessage": "解决"
+  },
+  "project.versions.filter.gameVersions": {
+    "defaultMessage": "游戏版本"
+  },
   "project.visibility.archived": {
-    "defaultMessage": "Đã lưu trữ"
+    "defaultMessage": "归档"
   },
   "project.visibility.draft": {
-    "defaultMessage": "Nháp"
+    "defaultMessage": "草案"
   },
   "project.visibility.private": {
-    "defaultMessage": "Riêng tư"
+    "defaultMessage": "私有"
   },
   "project.visibility.public": {
-    "defaultMessage": "Công khai"
+    "defaultMessage": "公开"
   },
   "project.visibility.rejected": {
-    "defaultMessage": "Bị từ chối"
+    "defaultMessage": "已退回"
   },
   "project.visibility.scheduled": {
-    "defaultMessage": "Đã lên lịch"
+    "defaultMessage": "定时"
   },
   "project.visibility.under-review": {
-    "defaultMessage": "Đang phê duyệt"
+    "defaultMessage": "审核中"
   },
   "project.visibility.unknown": {
-    "defaultMessage": "Không rõ"
+    "defaultMessage": "未知"
   },
   "project.visibility.unlisted": {
-    "defaultMessage": "Không công khai"
+    "defaultMessage": "未列出"
   },
   "project.visibility.unlisted-by-staff": {
-    "defaultMessage": "Đã bị ẩn bởi đội ngũ Modrinth"
+    "defaultMessage": "由管理员下架"
   },
   "report.item-type.content": {
-    "defaultMessage": "nội dung"
+    "defaultMessage": "内容"
   },
   "report.item-type.project": {
-    "defaultMessage": "dự án"
+    "defaultMessage": "项目"
   },
   "report.item-type.user": {
-    "defaultMessage": "người dùng"
+    "defaultMessage": "用户"
   },
   "report.item-type.version": {
-    "defaultMessage": "phiên bản"
+    "defaultMessage": "版本"
+  },
+  "search.filter.dependency_type.embedded": {
+    "defaultMessage": "内置"
+  },
+  "search.filter.dependency_type.optional": {
+    "defaultMessage": "可选"
+  },
+  "search.filter.dependency_type.required": {
+    "defaultMessage": "必需"
+  },
+  "search.filter.dependent_project": {
+    "defaultMessage": "依赖于：{project}"
+  },
+  "search.filter.dependent_project.search_placeholder": {
+    "defaultMessage": "搜索项目……"
+  },
+  "search.filter.excluded_projects": {
+    "defaultMessage": "排除：{projects}"
+  },
+  "search.filter.included_content.remove_project.tooltip": {
+    "defaultMessage": "移除项目"
+  },
+  "search.filter.included_content.search_placeholder": {
+    "defaultMessage": "搜索内容……"
+  },
+  "search.filter.included_projects": {
+    "defaultMessage": "包含：{projects}"
   },
   "search.filter.locked.default": {
-    "defaultMessage": "Içime cin girdi"
+    "defaultMessage": "筛选已锁定"
   },
   "search.filter.locked.default.description": {
-    "defaultMessage": "Việc mở khóa bộ lọc này có thể cho phép bạn cài đặt các nội dung không tương thích."
+    "defaultMessage": "解锁这个筛选项可能导致安装不兼容的内容。"
   },
   "search.filter.locked.default.sync": {
-    "defaultMessage": "Sao lưu thư mục"
+    "defaultMessage": "同步筛选"
   },
   "search.filter.locked.default.title": {
-    "defaultMessage": "{type} đã bị khóa"
+    "defaultMessage": "{type} 已锁定"
   },
   "search.filter.locked.default.unlock": {
-    "defaultMessage": "Mở khoá bộ lọc"
+    "defaultMessage": "解锁筛选"
   },
   "search.filter.option.exclusion.add.tooltip": {
-    "defaultMessage": "Trừ"
+    "defaultMessage": "排除"
   },
   "search.filter.option.search.clear.aria_label": {
-    "defaultMessage": "Xóa tìm kiếm"
+    "defaultMessage": "清除搜索"
   },
   "search.filter.option.search.placeholder": {
-    "defaultMessage": "Tìm..."
+    "defaultMessage": "搜索…"
   },
   "search.filter.option.show_fewer": {
-    "defaultMessage": "Hiển thị ít hơn"
+    "defaultMessage": "显示更少"
   },
   "search.filter.option.show_more": {
-    "defaultMessage": "Hiển thị nhiều hơn"
+    "defaultMessage": "显示更多"
+  },
+  "search.filter_type.advanced": {
+    "defaultMessage": "高级"
+  },
+  "search.filter_type.advanced.exclude_datapack": {
+    "defaultMessage": "排除数据包"
+  },
+  "search.filter_type.advanced.exclude_mod": {
+    "defaultMessage": "排除模组"
+  },
+  "search.filter_type.advanced.exclude_plugin": {
+    "defaultMessage": "排除插件"
+  },
+  "search.filter_type.compatible_dependency_project_ids": {
+    "defaultMessage": "依赖于"
+  },
+  "search.filter_type.included_content": {
+    "defaultMessage": "包含内容"
   },
   "search.filter_type.environment": {
-    "defaultMessage": "Môi trường"
+    "defaultMessage": "运行环境"
   },
   "search.filter_type.environment.client": {
-    "defaultMessage": "Máy khách"
+    "defaultMessage": "客户端"
   },
   "search.filter_type.environment.server": {
-    "defaultMessage": "Máy chủ"
+    "defaultMessage": "服务端"
   },
   "search.filter_type.game_version": {
-    "defaultMessage": "Phiên bản trò chơi"
+    "defaultMessage": "游戏版本"
   },
   "search.filter_type.game_version.all_versions": {
-    "defaultMessage": "Hiện tất cả phiên bản"
+    "defaultMessage": "列出所有版本"
   },
   "search.filter_type.license": {
-    "defaultMessage": "Giấy phép"
+    "defaultMessage": "许可证"
   },
   "search.filter_type.license.open_source": {
-    "defaultMessage": "Mã nguồn mở"
+    "defaultMessage": "开源"
   },
   "search.filter_type.mod_loader": {
-    "defaultMessage": "Trình nạp"
+    "defaultMessage": "加载器"
   },
   "search.filter_type.modpack_loader": {
-    "defaultMessage": "Trình nạp"
+    "defaultMessage": "加载器"
   },
   "search.filter_type.plugin_loader": {
-    "defaultMessage": "Trình nạp"
+    "defaultMessage": "加载器"
   },
   "search.filter_type.plugin_platform": {
-    "defaultMessage": "Nền tảng"
+    "defaultMessage": "平台"
   },
   "search.filter_type.project_id": {
-    "defaultMessage": "ID dự án"
+    "defaultMessage": "项目ID"
   },
   "search.filter_type.server_content_type": {
-    "defaultMessage": "Loại"
+    "defaultMessage": "类型"
   },
   "search.filter_type.server_language": {
-    "defaultMessage": "Ngôn ngữ"
+    "defaultMessage": "语言"
   },
   "search.filter_type.server_region": {
-    "defaultMessage": "Khu vực"
+    "defaultMessage": "区域"
   },
   "search.filter_type.server_status": {
-    "defaultMessage": "Trạng thái"
+    "defaultMessage": "状态"
   },
   "search.filter_type.shader_loader": {
-    "defaultMessage": "Trình nạp"
+    "defaultMessage": "加载器"
   },
   "search.server_content_type.modpack": {
-    "defaultMessage": "Modded"
+    "defaultMessage": "模组适配"
   },
   "search.server_content_type.vanilla": {
-    "defaultMessage": "Vanilla"
+    "defaultMessage": "原版"
   },
   "servers.notice.dismissable": {
-    "defaultMessage": "Có thể bỏ qua"
+    "defaultMessage": "可隐藏"
   },
   "servers.notice.level.critical.name": {
-    "defaultMessage": "Nghiêm trọng"
+    "defaultMessage": "关键重要信息"
   },
   "servers.notice.level.info.name": {
-    "defaultMessage": "Thông tin"
+    "defaultMessage": "信息"
   },
   "servers.notice.level.survey.name": {
-    "defaultMessage": "Khảo sát"
+    "defaultMessage": "调研"
   },
   "servers.notice.level.warn.name": {
-    "defaultMessage": "Cảnh báo"
+    "defaultMessage": "警告"
   },
   "servers.notice.undismissable": {
-    "defaultMessage": "Không thể bỏ qua"
+    "defaultMessage": "不可隐藏"
   },
   "servers.region.australia": {
-    "defaultMessage": "Châu Úc"
+    "defaultMessage": "澳大利亚"
   },
   "servers.region.central-europe": {
-    "defaultMessage": "Trung Âu"
+    "defaultMessage": "中欧"
   },
   "servers.region.north-america-central": {
-    "defaultMessage": "Trung Bắc Mỹ"
+    "defaultMessage": "北美中部"
   },
   "servers.region.north-america-east": {
-    "defaultMessage": "Đông Bắc Mỹ"
+    "defaultMessage": "北美东部"
   },
   "servers.region.north-america-west": {
-    "defaultMessage": "Tây Bắc Mỹ"
+    "defaultMessage": "北美西部"
   },
   "servers.region.southeast-asia": {
-    "defaultMessage": "Đông Nam Á"
+    "defaultMessage": "东南亚"
   },
   "servers.region.western-europe": {
-    "defaultMessage": "Tây Âu"
+    "defaultMessage": "西欧"
   },
   "servers.setup.upload-warning": {
-    "defaultMessage": "Vui lòng giữ trang này mở cho đến khi quá trình tải lên hoàn tất."
+    "defaultMessage": "在上传文件时请不要关闭此页面。"
   },
   "servers.setup.uploading-modpack.header": {
-    "defaultMessage": "Đang tải lên modpack"
+    "defaultMessage": "上传整合包"
   },
   "settings.account.title": {
-    "defaultMessage": "Tài khoản và bảo mật"
+    "defaultMessage": "账户与安全性"
   },
   "settings.appearance.title": {
-    "defaultMessage": "Giao diện"
+    "defaultMessage": "外观"
   },
   "settings.applications.title": {
-    "defaultMessage": "Ứng dụng của bạn"
+    "defaultMessage": "你的应用程序"
   },
   "settings.authorized-apps.title": {
-    "defaultMessage": "Ứng dụng được ủy quyền"
+    "defaultMessage": "已授权的应用"
   },
   "settings.display.theme.dark": {
-    "defaultMessage": "Tối"
+    "defaultMessage": "深色"
   },
   "settings.display.theme.description": {
-    "defaultMessage": "Chọn màu nền ưa thích của bạn cho Modrinth trên thiết bị này."
+    "defaultMessage": "为当前设备选择你偏好的色彩主题。"
   },
   "settings.display.theme.light": {
-    "defaultMessage": "Sáng"
+    "defaultMessage": "浅色"
   },
   "settings.display.theme.oled": {
     "defaultMessage": "OLED"
   },
   "settings.display.theme.preferred-dark-theme": {
-    "defaultMessage": "Chủ đề tối được ưa thích"
+    "defaultMessage": "首选深色主题"
   },
   "settings.display.theme.preferred-light-theme": {
-    "defaultMessage": "Chủ đề sáng được ưa thích"
+    "defaultMessage": "首选浅色主题"
   },
   "settings.display.theme.retro": {
-    "defaultMessage": "Retro"
+    "defaultMessage": "复古"
   },
   "settings.display.theme.system": {
-    "defaultMessage": "Đồng bộ với hệ thống"
+    "defaultMessage": "跟随系统"
   },
   "settings.display.theme.title": {
-    "defaultMessage": "Màu chủ đề"
+    "defaultMessage": "色彩主题"
   },
   "settings.feature-flags.title": {
-    "defaultMessage": "Tính năng phụ"
+    "defaultMessage": "功能开关"
   },
   "settings.language.categories.default": {
-    "defaultMessage": "Ngôn ngữ tiêu chuẩn"
+    "defaultMessage": "标准语言"
   },
   "settings.language.categories.search-result": {
-    "defaultMessage": "Kết quả tìm kiếm"
+    "defaultMessage": "搜索结果"
   },
   "settings.language.description": {
-    "defaultMessage": "Chọn ngôn ngữ ưa thích của bạn cho {platform}. Các bản dịch được đóng góp bởi những tình nguyện viên trên <crowdin-link>Crowdin</crowdin-link>."
+    "defaultMessage": "选择你偏好的{platform}语言。翻译工作由志愿者在 <crowdin-link>Crowdin</crowdin-link> 上完成。"
   },
   "settings.language.languages.search-field.placeholder": {
-    "defaultMessage": "Tìm kiếm một ngôn ngữ..."
+    "defaultMessage": "搜索语言..."
   },
   "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {Không có ngôn ngữ nào} other {Có # ngôn ngữ}} khớp với tìm kiếm của bạn."
+    "defaultMessage": "{matches, plural, =0 {没有符合搜索条件的语言} other {共有 # 个语言符合搜索条件}}。"
   },
   "settings.language.languages.search.no-results": {
-    "defaultMessage": "Không có ngôn ngữ phù hợp với tìm kiếm của bạn."
+    "defaultMessage": "没有符合搜索条件的语言。"
   },
   "settings.language.platform.app": {
-    "defaultMessage": "ứng dụng"
+    "defaultMessage": "应用"
   },
   "settings.language.platform.site": {
-    "defaultMessage": "trang web"
+    "defaultMessage": "网站"
   },
   "settings.language.title": {
-    "defaultMessage": "Ngôn ngữ"
+    "defaultMessage": "语言"
   },
   "settings.language.warning": {
-    "defaultMessage": "Thay đổi sang một số ngôn ngữ trên {platform} có thể sẽ khiến cho một số thứ được hiển thị bằng tiếng Anh do chưa được dịch đầy đủ."
+    "defaultMessage": "切换{platform}语言后，若一些内容译文暂缺，将以英文显示。本{platform}本地化工作尚在进行中，因此某些语言的部分内容可能仍显示为英文。"
   },
   "settings.pats.title": {
-    "defaultMessage": "Khóa truy cập cá nhân"
+    "defaultMessage": "个人访问令牌"
   },
   "settings.profile.title": {
-    "defaultMessage": "Hồ sơ công khai"
+    "defaultMessage": "公开信息"
   },
   "settings.sessions.title": {
-    "defaultMessage": "Phiên hoạt động"
+    "defaultMessage": "会话"
+  },
+  "skin.preview.armor.equip-material": {
+    "message": "为{slot}装备{material}"
+  },
+  "skin.preview.armor.material": {
+    "message": "盔甲材质"
+  },
+  "skin.preview.armor.material.chainmail": {
+    "message": "锁链"
+  },
+  "skin.preview.armor.material.copper": {
+    "message": "铜"
+  },
+  "skin.preview.armor.material.diamond": {
+    "message": "钻石"
+  },
+  "skin.preview.armor.material.gold": {
+    "message": "金"
+  },
+  "skin.preview.armor.material.iron": {
+    "message": "铁"
+  },
+  "skin.preview.armor.material.leather": {
+    "message": "皮革"
+  },
+  "skin.preview.armor.material.netherite": {
+    "message": "下界合金"
+  },
+  "skin.preview.armor.material.turtle": {
+    "message": "海龟壳"
+  },
+  "skin.preview.armor.open": {
+    "message": "盔甲与纹饰"
+  },
+  "skin.preview.armor.piece": {
+    "message": "盔甲部位"
+  },
+  "skin.preview.armor.remove-piece": {
+    "message": "脱下{slot}"
+  },
+  "skin.preview.armor.remove-trim": {
+    "message": "无盔甲纹饰"
+  },
+  "skin.preview.armor.slot-state": {
+    "message": "{slot}：{state}"
+  },
+  "skin.preview.armor.slot.boots": {
+    "message": "靴子"
+  },
+  "skin.preview.armor.slot.chestplate": {
+    "message": "胸甲"
+  },
+  "skin.preview.armor.slot.helmet": {
+    "message": "头盔"
+  },
+  "skin.preview.armor.slot.leggings": {
+    "message": "护腿"
+  },
+  "skin.preview.armor.trim-material": {
+    "message": "纹饰材料"
+  },
+  "skin.preview.armor.trim-material.amethyst": {
+    "message": "紫水晶"
+  },
+  "skin.preview.armor.trim-material.emerald": {
+    "message": "绿宝石"
+  },
+  "skin.preview.armor.trim-material.lapis": {
+    "message": "青金石"
+  },
+  "skin.preview.armor.trim-material.quartz": {
+    "message": "下界石英"
+  },
+  "skin.preview.armor.trim-material.redstone": {
+    "message": "红石"
+  },
+  "skin.preview.armor.trim-material.resin": {
+    "message": "树脂砖"
+  },
+  "skin.preview.armor.trim-pattern": {
+    "message": "纹饰图案"
+  },
+  "skin.preview.armor.trim.bolt": {
+    "message": "镶铆盔甲纹饰"
+  },
+  "skin.preview.armor.trim.coast": {
+    "message": "海岸盔甲纹饰"
+  },
+  "skin.preview.armor.trim.dune": {
+    "message": "沙丘盔甲纹饰"
+  },
+  "skin.preview.armor.trim.eye": {
+    "message": "眼眸盔甲纹饰"
+  },
+  "skin.preview.armor.trim.flow": {
+    "message": "涡流盔甲纹饰"
+  },
+  "skin.preview.armor.trim.host": {
+    "message": "雇主盔甲纹饰"
+  },
+  "skin.preview.armor.trim.raiser": {
+    "message": "牧民盔甲纹饰"
+  },
+  "skin.preview.armor.trim.rib": {
+    "message": "肋骨盔甲纹饰"
+  },
+  "skin.preview.armor.trim.sentry": {
+    "message": "哨兵盔甲纹饰"
+  },
+  "skin.preview.armor.trim.shaper": {
+    "message": "塑造盔甲纹饰"
+  },
+  "skin.preview.armor.trim.silence": {
+    "message": "幽静盔甲纹饰"
+  },
+  "skin.preview.armor.trim.snout": {
+    "message": "猪鼻盔甲纹饰"
+  },
+  "skin.preview.armor.trim.spire": {
+    "message": "尖塔盔甲纹饰"
+  },
+  "skin.preview.armor.trim.tide": {
+    "message": "潮汐盔甲纹饰"
+  },
+  "skin.preview.armor.trim.vex": {
+    "message": "恼鬼盔甲纹饰"
+  },
+  "skin.preview.armor.trim.ward": {
+    "message": "监守盔甲纹饰"
+  },
+  "skin.preview.armor.trim.wayfinder": {
+    "message": "向导盔甲纹饰"
+  },
+  "skin.preview.armor.trim.wild": {
+    "message": "荒野盔甲纹饰"
+  },
+  "skin.preview.armor.unequipped": {
+    "message": "未装备"
+  },
+  "skin.preview.drag-to-rotate": {
+    "defaultMessage": "拖动以旋转"
   },
   "tag.category.128x": {
     "defaultMessage": "128x"
@@ -2640,229 +3759,229 @@
     "defaultMessage": "48x"
   },
   "tag.category.512x+": {
-    "defaultMessage": "512x hoặc lớn hơn"
+    "defaultMessage": "512x 或更高"
   },
   "tag.category.64x": {
     "defaultMessage": "64x"
   },
   "tag.category.8x-": {
-    "defaultMessage": "8x hoặc thấp hơn"
+    "defaultMessage": "8x 或更低"
   },
   "tag.category.adventure": {
-    "defaultMessage": "Phiêu lưu"
+    "defaultMessage": "冒险"
   },
   "tag.category.adventure-mode": {
-    "defaultMessage": "Chế độ phiêu lưu"
+    "defaultMessage": "冒险模式"
   },
   "tag.category.anarchy": {
-    "defaultMessage": "Hỗn loạn"
+    "defaultMessage": "无政府"
   },
   "tag.category.atmosphere": {
-    "defaultMessage": "Môi trường"
+    "defaultMessage": "大气效果"
   },
   "tag.category.audio": {
-    "defaultMessage": "Âm thanh"
+    "defaultMessage": "音频"
   },
   "tag.category.battle-royale": {
-    "defaultMessage": "Battle Royale"
+    "defaultMessage": "大逃杀"
   },
   "tag.category.bedwars": {
-    "defaultMessage": "Bed Wars"
+    "defaultMessage": "起床战争"
   },
   "tag.category.blocks": {
-    "defaultMessage": "Blocks"
+    "defaultMessage": "方块"
   },
   "tag.category.bloom": {
-    "defaultMessage": "Bloom"
+    "defaultMessage": "泛光"
   },
   "tag.category.bosses": {
-    "defaultMessage": "Boss"
+    "defaultMessage": "Boss 战"
   },
   "tag.category.cartoon": {
-    "defaultMessage": "Hoạt hình"
+    "defaultMessage": "卡通"
   },
   "tag.category.challenging": {
-    "defaultMessage": "Thử thách"
+    "defaultMessage": "挑战"
   },
   "tag.category.classes": {
-    "defaultMessage": "Lớp nhân vật"
+    "defaultMessage": "职业"
   },
   "tag.category.colored-lighting": {
-    "defaultMessage": "Đa sắc"
+    "defaultMessage": "彩色光照"
   },
   "tag.category.combat": {
-    "defaultMessage": "Chiến đấu"
+    "defaultMessage": "战斗"
   },
   "tag.category.competitive": {
-    "defaultMessage": "Cạnh tranh"
+    "defaultMessage": "竞技"
   },
   "tag.category.core-shaders": {
-    "defaultMessage": "Core Shaders"
+    "defaultMessage": "核心着色器"
   },
   "tag.category.creative-mode": {
-    "defaultMessage": "Chế độ sáng tạo"
+    "defaultMessage": "创造模式"
   },
   "tag.category.creator-community": {
-    "defaultMessage": "Nhà sáng tạo cộng đồng"
+    "defaultMessage": "创作者社区"
   },
   "tag.category.crossplay": {
-    "defaultMessage": "Chơi chéo"
+    "defaultMessage": "跨平台"
   },
   "tag.category.cursed": {
-    "defaultMessage": "Nguyền rủa"
+    "defaultMessage": "邪门"
   },
   "tag.category.custom-content": {
-    "defaultMessage": "Nội dung tuỳ chỉnh"
+    "defaultMessage": "自定义内容"
   },
   "tag.category.decoration": {
-    "defaultMessage": "Trang trí"
+    "defaultMessage": "装饰"
   },
   "tag.category.dungeons": {
-    "defaultMessage": "Hầm ngục"
+    "defaultMessage": "地牢"
   },
   "tag.category.economy": {
-    "defaultMessage": "Kinh tế"
+    "defaultMessage": "经济"
   },
   "tag.category.entities": {
-    "defaultMessage": "Thực thể"
+    "defaultMessage": "实体"
   },
   "tag.category.environment": {
-    "defaultMessage": "Môi trường"
+    "defaultMessage": "环境"
   },
   "tag.category.equipment": {
-    "defaultMessage": "Trang bị"
+    "defaultMessage": "装备"
   },
   "tag.category.factions": {
-    "defaultMessage": "Phe phái"
+    "defaultMessage": "阵营"
   },
   "tag.category.fantasy": {
-    "defaultMessage": "Giả tưởng"
+    "defaultMessage": "奇幻"
   },
   "tag.category.foliage": {
-    "defaultMessage": "Cây cối"
+    "defaultMessage": "植被"
   },
   "tag.category.fonts": {
-    "defaultMessage": "Phông chữ"
+    "defaultMessage": "字体"
   },
   "tag.category.food": {
-    "defaultMessage": "Thức ăn"
+    "defaultMessage": "食物"
   },
   "tag.category.game-mechanics": {
-    "defaultMessage": "Cơ chế trò chơi"
+    "defaultMessage": "机制"
   },
   "tag.category.gens": {
-    "defaultMessage": "Khởi tạo"
+    "defaultMessage": "生成器"
   },
   "tag.category.gui": {
     "defaultMessage": "GUI"
   },
   "tag.category.hardcore-mode": {
-    "defaultMessage": "Chế độ siêu khó"
+    "defaultMessage": "极限模式"
   },
   "tag.category.high": {
-    "defaultMessage": "Cao"
+    "defaultMessage": "高"
   },
   "tag.category.items": {
-    "defaultMessage": "Vật phẩm"
+    "defaultMessage": "物品"
   },
   "tag.category.keep-inventory": {
-    "defaultMessage": "Chết không mất đồ"
+    "defaultMessage": "保留物品栏"
   },
   "tag.category.kitchen-sink": {
-    "defaultMessage": "Gì cũng được"
+    "defaultMessage": "水槽"
   },
   "tag.category.kitpvp": {
-    "defaultMessage": "Kit PvP"
+    "defaultMessage": "套装 PvP"
   },
   "tag.category.library": {
-    "defaultMessage": "Thư viện"
+    "defaultMessage": "库"
   },
   "tag.category.lifesteal": {
-    "defaultMessage": "Lifesteal"
+    "defaultMessage": "生命窃取"
   },
   "tag.category.lightweight": {
-    "defaultMessage": "Nhẹ"
+    "defaultMessage": "轻量"
   },
   "tag.category.locale": {
-    "defaultMessage": "Ngôn ngữ"
+    "defaultMessage": "本地化"
   },
   "tag.category.low": {
-    "defaultMessage": "Thấp"
+    "defaultMessage": "低"
   },
   "tag.category.magic": {
-    "defaultMessage": "Phép thuật"
+    "defaultMessage": "魔法"
   },
   "tag.category.management": {
-    "defaultMessage": "Quản lý"
+    "defaultMessage": "管理"
   },
   "tag.category.media": {
-    "defaultMessage": ""
+    "defaultMessage": "媒体"
   },
   "tag.category.medium": {
-    "defaultMessage": "Trung bình"
+    "defaultMessage": "中"
   },
   "tag.category.microgames": {
-    "defaultMessage": "Microgame"
+    "defaultMessage": "微型游戏"
   },
   "tag.category.minigame": {
-    "defaultMessage": "Minigame"
+    "defaultMessage": "小游戏"
   },
   "tag.category.minigames": {
-    "defaultMessage": "Minigame"
+    "defaultMessage": "小游戏"
   },
   "tag.category.mmo": {
-    "defaultMessage": "MMO"
+    "defaultMessage": "大型多人在线游戏（MMO）"
   },
   "tag.category.mobs": {
-    "defaultMessage": "Mob"
+    "defaultMessage": "生物"
   },
   "tag.category.modded": {
-    "defaultMessage": "Modded"
+    "defaultMessage": "模组适配"
   },
   "tag.category.models": {
-    "defaultMessage": "Model"
+    "defaultMessage": "模型"
   },
   "tag.category.multiplayer": {
-    "defaultMessage": "Nhiều người chơi"
+    "defaultMessage": "多人"
   },
   "tag.category.network": {
-    "defaultMessage": "Mạng"
+    "defaultMessage": "网络"
   },
   "tag.category.offline-mode": {
-    "defaultMessage": "Chế độ ngoại tuyến"
+    "defaultMessage": "离线模式"
   },
   "tag.category.oneblock": {
-    "defaultMessage": "Một Block"
+    "defaultMessage": "单方块"
   },
   "tag.category.op": {
     "defaultMessage": "OP"
   },
   "tag.category.optimization": {
-    "defaultMessage": "Tối ưu hóa"
+    "defaultMessage": "优化"
   },
   "tag.category.parkour": {
-    "defaultMessage": "Parkour"
+    "defaultMessage": "跑酷"
   },
   "tag.category.path-tracing": {
-    "defaultMessage": "Path Tracing"
+    "defaultMessage": "路径追踪"
   },
   "tag.category.pbr": {
     "defaultMessage": "PBR"
   },
   "tag.category.personal-worlds": {
-    "defaultMessage": "Thế giới riêng"
+    "defaultMessage": "个人世界"
   },
   "tag.category.plots": {
-    "defaultMessage": "Đất riêng"
+    "defaultMessage": "地皮"
   },
   "tag.category.pokemon": {
-    "defaultMessage": "Pokémon"
+    "defaultMessage": "宝可梦"
   },
   "tag.category.potato": {
-    "defaultMessage": "Siêu thấp"
+    "defaultMessage": "土豆"
   },
   "tag.category.prison": {
-    "defaultMessage": "Nhà tù"
+    "defaultMessage": "监狱"
   },
   "tag.category.pve": {
     "defaultMessage": "PvE"
@@ -2871,97 +3990,97 @@
     "defaultMessage": "PvP"
   },
   "tag.category.questing": {
-    "defaultMessage": "Hệ thống nhiệm vụ"
+    "defaultMessage": "任务"
   },
   "tag.category.quests": {
-    "defaultMessage": "Nhiệm vụ"
+    "defaultMessage": "任务"
   },
   "tag.category.racing": {
-    "defaultMessage": "Cuộc đua"
+    "defaultMessage": "赛车"
   },
   "tag.category.realistic": {
-    "defaultMessage": "Chân thực"
+    "defaultMessage": "写实风格"
   },
   "tag.category.recording-smp": {
-    "defaultMessage": "SMP được quay lại"
+    "defaultMessage": "录制型SMP"
   },
   "tag.category.reflections": {
-    "defaultMessage": "Phản chiếu"
+    "defaultMessage": "反射"
   },
   "tag.category.roleplay": {
-    "defaultMessage": "Nhập vai"
+    "defaultMessage": "角色扮演"
   },
   "tag.category.rpg": {
     "defaultMessage": "RPG"
   },
   "tag.category.screenshot": {
-    "defaultMessage": "Chụp hình"
+    "defaultMessage": "仅供截图"
   },
   "tag.category.semi-realistic": {
-    "defaultMessage": "Bán thực tế"
+    "defaultMessage": "半写实风格"
   },
   "tag.category.shadows": {
-    "defaultMessage": "Đổ bóng"
+    "defaultMessage": "阴影"
   },
   "tag.category.simplistic": {
-    "defaultMessage": "Đơn điệu"
+    "defaultMessage": "极简风格"
   },
   "tag.category.skyblock": {
-    "defaultMessage": "Skyblock"
+    "defaultMessage": "空岛生存"
   },
   "tag.category.smp": {
     "defaultMessage": "SMP"
   },
   "tag.category.social": {
-    "defaultMessage": "Giap tiếp"
+    "defaultMessage": "社交"
   },
   "tag.category.storage": {
-    "defaultMessage": "Lưu trữ"
+    "defaultMessage": "存储"
   },
   "tag.category.survival-mode": {
-    "defaultMessage": "Chế độ sinh tồn"
+    "defaultMessage": "生存模式"
   },
   "tag.category.teams": {
-    "defaultMessage": "Team"
+    "defaultMessage": "团队"
   },
   "tag.category.technical": {
-    "defaultMessage": "Kỹ thuật"
+    "defaultMessage": "技术性"
   },
   "tag.category.technology": {
-    "defaultMessage": "Công nghệ"
+    "defaultMessage": "科技"
   },
   "tag.category.themed": {
-    "defaultMessage": "Giao diện"
+    "defaultMessage": "主题风格"
   },
   "tag.category.towns": {
-    "defaultMessage": "Thị trấn"
+    "defaultMessage": "城镇"
   },
   "tag.category.transportation": {
-    "defaultMessage": "Vận chuyển"
+    "defaultMessage": "交通"
   },
   "tag.category.tweaks": {
-    "defaultMessage": "Sửa đổi"
+    "defaultMessage": "微调"
   },
   "tag.category.utility": {
-    "defaultMessage": "Tiện ích"
+    "defaultMessage": "实用"
   },
   "tag.category.vanilla-like": {
-    "defaultMessage": "Nguyên bản"
+    "defaultMessage": "原版风格"
   },
   "tag.category.whitelisted": {
-    "defaultMessage": "Yêu cầu xét duyệt"
+    "defaultMessage": "需要白名单"
   },
   "tag.category.world-resets": {
-    "defaultMessage": "Reset thế giới"
+    "defaultMessage": "世界重置"
   },
   "tag.category.worldgen": {
-    "defaultMessage": "Cấu tạo thế giới"
+    "defaultMessage": "地形"
   },
   "tag.loader.babric": {
     "defaultMessage": "Babric"
   },
   "tag.loader.bta-babric": {
-    "defaultMessage": "BTA (Babric)"
+    "defaultMessage": "BTA（Babric）"
   },
   "tag.loader.bukkit": {
     "defaultMessage": "Bukkit"
@@ -2973,7 +4092,7 @@
     "defaultMessage": "Canvas"
   },
   "tag.loader.datapack": {
-    "defaultMessage": "Gói dữ liệu"
+    "defaultMessage": "数据包"
   },
   "tag.loader.fabric": {
     "defaultMessage": "Fabric"
@@ -2985,13 +4104,13 @@
     "defaultMessage": "Forge"
   },
   "tag.loader.geyser": {
-    "defaultMessage": "Tiện ích mở rộng Geyser"
+    "defaultMessage": "Geyser 扩展"
   },
   "tag.loader.iris": {
     "defaultMessage": "Iris"
   },
   "tag.loader.java-agent": {
-    "defaultMessage": "Java Agent"
+    "defaultMessage": "Java 代理"
   },
   "tag.loader.legacy-fabric": {
     "defaultMessage": "Legacy Fabric"
@@ -3000,13 +4119,13 @@
     "defaultMessage": "LiteLoader"
   },
   "tag.loader.minecraft": {
-    "defaultMessage": "Gói tài nguyên"
+    "defaultMessage": "资源包"
   },
   "tag.loader.modloader": {
     "defaultMessage": "Risugami's ModLoader"
   },
   "tag.loader.mrpack": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "整合包"
   },
   "tag.loader.neoforge": {
     "defaultMessage": "NeoForge"
@@ -3039,7 +4158,7 @@
     "defaultMessage": "Sponge"
   },
   "tag.loader.vanilla": {
-    "defaultMessage": "Shader Vanilla"
+    "defaultMessage": "原版着色器"
   },
   "tag.loader.velocity": {
     "defaultMessage": "Velocity"
@@ -3048,18 +4167,717 @@
     "defaultMessage": "Waterfall"
   },
   "ui.confirm-leave-modal.body": {
-    "defaultMessage": "Bạn có một số thay đổi chưa được lưu, và những thay đổi này sẽ bị mất nếu bạn rời khỏi trang này."
+    "defaultMessage": "你有未保存的更改，离开此页面将会丢失这些更改。"
   },
   "ui.confirm-leave-modal.header": {
-    "defaultMessage": "Bạn có một vài thay đổi chưa được lưu"
+    "defaultMessage": "你有未保存的更改"
   },
   "ui.confirm-leave-modal.leave": {
-    "defaultMessage": "Rời khỏi trang"
+    "defaultMessage": "离开页面"
   },
   "ui.confirm-leave-modal.stay": {
-    "defaultMessage": "Ở lại trang này"
+    "defaultMessage": "留在当前页面"
   },
   "ui.confirm-leave-modal.title": {
-    "defaultMessage": "Rời khỏi trang nhé?"
+    "defaultMessage": "离开页面？"
+  },
+  "ui.keybinding-modal.alt": {
+    "defaultMessage": "Alt"
+  },
+  "ui.keybinding-modal.cancel": {
+    "defaultMessage": "取消"
+  },
+  "ui.keybinding-modal.capture-hint": {
+    "defaultMessage": "然后按下你想让这个快捷键使用的按键。"
+  },
+  "ui.keybinding-modal.capture-title": {
+    "defaultMessage": "点击此处开始录制"
+  },
+  "ui.keybinding-modal.current": {
+    "defaultMessage": "当前快捷键"
+  },
+  "ui.keybinding-modal.device-keyboard": {
+    "defaultMessage": "键盘"
+  },
+  "ui.keybinding-modal.device-mouse": {
+    "defaultMessage": "鼠标"
+  },
+  "ui.keybinding-modal.group-digits": {
+    "defaultMessage": "数字键"
+  },
+  "ui.keybinding-modal.group-function": {
+    "defaultMessage": "功能键"
+  },
+  "ui.keybinding-modal.group-letters": {
+    "defaultMessage": "字母键"
+  },
+  "ui.keybinding-modal.group-mouse-buttons": {
+    "defaultMessage": "鼠标键"
+  },
+  "ui.keybinding-modal.group-navigation": {
+    "defaultMessage": "导航键"
+  },
+  "ui.keybinding-modal.group-punctuation": {
+    "defaultMessage": "符号键"
+  },
+  "ui.keybinding-modal.group-wheel": {
+    "defaultMessage": "滚轮"
+  },
+  "ui.keybinding-modal.issue-conflict": {
+    "defaultMessage": "已被「{label}」占用。"
+  },
+  "ui.keybinding-modal.issue-needs-modifier": {
+    "defaultMessage": "请同时按住 Ctrl/Cmd、Alt 或 Shift，或改选功能键、导航键。"
+  },
+  "ui.keybinding-modal.issue-reserved": {
+    "defaultMessage": "「{label}」由启动器保留。"
+  },
+  "ui.keybinding-modal.listening-hint": {
+    "defaultMessage": "请按下你想使用的按键。"
+  },
+  "ui.keybinding-modal.listening-title": {
+    "defaultMessage": "正在监听…"
+  },
+  "ui.keybinding-modal.mismatch": {
+    "defaultMessage": "组合不一致，已重新开始录制。"
+  },
+  "ui.keybinding-modal.mod": {
+    "defaultMessage": "Ctrl/Cmd"
+  },
+  "ui.keybinding-modal.modifiers": {
+    "defaultMessage": "修饰键"
+  },
+  "ui.keybinding-modal.mouse-back": {
+    "defaultMessage": "后退键"
+  },
+  "ui.keybinding-modal.mouse-forward": {
+    "defaultMessage": "前进键"
+  },
+  "ui.keybinding-modal.mouse-left": {
+    "defaultMessage": "鼠标左键"
+  },
+  "ui.keybinding-modal.mouse-middle": {
+    "defaultMessage": "鼠标中键"
+  },
+  "ui.keybinding-modal.mouse-right": {
+    "defaultMessage": "鼠标右键"
+  },
+  "ui.keybinding-modal.nothing-captured": {
+    "defaultMessage": "没有录制到按键。"
+  },
+  "ui.keybinding-modal.restore-default": {
+    "defaultMessage": "恢复默认"
+  },
+  "ui.keybinding-modal.save": {
+    "defaultMessage": "保存"
+  },
+  "ui.keybinding-modal.shift": {
+    "defaultMessage": "Shift"
+  },
+  "ui.keybinding-modal.special-hint": {
+    "defaultMessage": "鼠标键、滚轮以及与它们组合的按键只能在这里选择。"
+  },
+  "ui.keybinding-modal.title": {
+    "defaultMessage": "设置快捷键"
+  },
+  "ui.keybinding-modal.title-for": {
+    "defaultMessage": "设置「{action}」的快捷键"
+  },
+  "ui.keybinding-modal.tree-label": {
+    "defaultMessage": "快捷键可用的输入"
+  },
+  "ui.keybinding-modal.unset": {
+    "defaultMessage": "未设置"
+  },
+  "ui.keybinding-modal.use-capture": {
+    "defaultMessage": "改用按键录制"
+  },
+  "ui.keybinding-modal.use-special": {
+    "defaultMessage": "改用特殊方式选择"
+  },
+  "ui.keybinding-modal.verified-hint": {
+    "defaultMessage": "已确认，保存后生效。"
+  },
+  "ui.keybinding-modal.verified-title": {
+    "defaultMessage": "已确认"
+  },
+  "ui.keybinding-modal.verifying-hint": {
+    "defaultMessage": "用于确认组合是否被正确录制。"
+  },
+  "ui.keybinding-modal.verifying-title": {
+    "defaultMessage": "请再按一次以确认"
+  },
+  "ui.keybinding-modal.wheel-down": {
+    "defaultMessage": "滚轮向下"
+  },
+  "ui.keybinding-modal.wheel-up": {
+    "defaultMessage": "滚轮向上"
+  },
+  "ui.scroll-to-top.tooltip": {
+    "defaultMessage": "返回顶部"
+  },
+  "version.content.name": {
+    "defaultMessage": "名称"
+  },
+  "version.content.version": {
+    "defaultMessage": "版本"
+  },
+  "version.file-type.dev-jar": {
+    "defaultMessage": "开发用 jar 文件"
+  },
+  "version.file-type.javadoc-jar": {
+    "defaultMessage": "Javadoc jar"
+  },
+  "version.file-type.optional-resource-pack": {
+    "defaultMessage": "可选资源包"
+  },
+  "version.file-type.primary": {
+    "defaultMessage": "主要的"
+  },
+  "version.file-type.required-resource-pack": {
+    "defaultMessage": "必需的资源包"
+  },
+  "version.file-type.signature": {
+    "defaultMessage": "签名文件"
+  },
+  "version.file-type.sources-jar": {
+    "defaultMessage": "源 jar 文件"
+  },
+  "version.file-type.unknown": {
+    "defaultMessage": "其他"
+  },
+  "version.section.changes": {
+    "defaultMessage": "更新"
+  },
+  "version.section.compatibility": {
+    "defaultMessage": "兼容性"
+  },
+  "version.section.content": {
+    "defaultMessage": "内容"
+  },
+  "version.section.content.search-placeholder": {
+    "defaultMessage": "搜索内容……"
+  },
+  "version.section.dependencies.any-compatible-version": {
+    "defaultMessage": "任意兼容的版本"
+  },
+  "version.section.dependencies.any-version": {
+    "defaultMessage": "任意版本"
+  },
+  "version.section.dependencies.unavailable-version": {
+    "defaultMessage": "不可用的版本"
+  },
+  "version.section.dependencies.unavailable-version.description": {
+    "defaultMessage": "此版本可能已被删除，或正在接受管理员审查。"
+  },
+  "version.section.dependencies.unavailable-version.description.required": {
+    "defaultMessage": "此版本可能已被删除，或正在接受管理员审查。"
+  },
+  "version.section.files": {
+    "defaultMessage": "文件"
+  },
+  "version.section.included-content": {
+    "defaultMessage": "包含的内容"
+  },
+  "version.section.known-incompatibilities": {
+    "defaultMessage": "已知不兼容"
+  },
+  "version.section.no-changes": {
+    "defaultMessage": "未提供更新日志。"
+  },
+  "version.section.no-modpack-mod-loader": {
+    "defaultMessage": "没有模组加载器"
+  },
+  "version.section.optional-dependencies": {
+    "defaultMessage": "可选的依赖"
+  },
+  "version.section.required-content": {
+    "defaultMessage": "必选的内容"
+  },
+  "version.section.supplementary-resources": {
+    "defaultMessage": "附加的资源"
+  },
+  "version.summary.view-version": {
+    "defaultMessage": "查看版本"
+  },
+  "version.supplementary-resources.file": {
+    "defaultMessage": "文件"
+  },
+  "version.supplementary-resources.size": {
+    "defaultMessage": "大小"
+  },
+  "version.supplementary-resources.type": {
+    "defaultMessage": "类型"
+  },
+  "drop.confirm.title": {
+    "message": "你想以什么类型导入？"
+  },
+  "drop.confirm.not-this": {
+    "message": "作为其他内容导入"
+  },
+  "drop.confirm.cancel": {
+    "message": "取消"
+  },
+  "drop.confirm.help": {
+    "message": "我可以拖入什么？"
+  },
+  "drop.confirm.as-mod": {
+    "message": "模组"
+  },
+  "drop.confirm.as-mod-desc": {
+    "message": "将模组 JAR 安装到 Minecraft 实例"
+  },
+  "drop.confirm.as-instance": {
+    "message": "实例"
+  },
+  "drop.confirm.as-instance-desc": {
+    "message": "从其他启动器导入 Minecraft 实例"
+  },
+  "drop.confirm.as-modpack": {
+    "message": "整合包"
+  },
+  "drop.confirm.as-modpack-desc": {
+    "message": "从整合包创建新实例"
+  },
+  "drop.confirm.as-resource-pack": {
+    "message": "资源包"
+  },
+  "drop.confirm.as-resource-pack-desc": {
+    "message": "将资源包安装到实例"
+  },
+  "drop.confirm.as-shader-pack": {
+    "message": "光影包"
+  },
+  "drop.confirm.as-shader-pack-desc": {
+    "message": "将光影包安装到实例"
+  },
+  "drop.confirm.as-world": {
+    "message": "存档"
+  },
+  "drop.confirm.as-world-desc": {
+    "message": "将存档导入到实例中"
+  },
+  "drop.confirm.as-schematic": {
+    "message": "投影"
+  },
+  "drop.confirm.as-schematic-desc": {
+    "message": "导入 Litematic 投影文件"
+  },
+  "drop.confirm.as-dot-minecraft": {
+    "message": ".minecraft"
+  },
+  "drop.confirm.as-dot-minecraft-desc": {
+    "message": "扫描 .minecraft 文件夹以创建实例"
+  },
+  "drop.confirm.as-launcher": {
+    "message": "启动器"
+  },
+  "drop.confirm.as-hmcl-launcher": {
+    "message": "HMCL 启动器"
+  },
+  "drop.generic_install.title": {
+    "message": "安装 {type}"
+  },
+  "drop.generic_install.search": {
+    "message": "搜索实例..."
+  },
+  "drop.generic_install.install": {
+    "message": "安装"
+  },
+  "drop.generic_install.cancel": {
+    "message": "取消"
+  },
+  "drop.generic_install.create_new": {
+    "message": "创建新实例..."
+  },
+  "drop.generic_install.no_instances": {
+    "message": "未找到实例"
+  },
+  "app.drop.batch.scan.title": {
+    "message": "正在识别 {count, plural, one {# 个文件} other {# 个文件}}…"
+  },
+  "app.drop.batch.scan.subtitle": {
+    "message": "已识别 {done} / {total}"
+  },
+  "app.drop.batch.scan.cancel": {
+    "message": "取消"
+  },
+  "app.drop.batch.scan.pending": {
+    "message": "等待"
+  },
+  "app.drop.batch.scan.scanning": {
+    "message": "扫描中"
+  },
+  "app.drop.batch.scan.done": {
+    "message": "已识别"
+  },
+  "app.drop.batch.scan.skipped": {
+    "message": "已跳过"
+  },
+  "app.drop.batch.scan.error": {
+    "message": "失败"
+  },
+  "drop.launcher_import.title": {
+    "message": "从 {launcherName} 导入实例"
+  },
+  "drop.launcher_import.subtitle": {
+    "message": "在 {basePath} 中扫描到 {count} 个实例"
+  },
+  "drop.launcher_import.select_all": {
+    "message": "全选"
+  },
+  "drop.launcher_import.deselect_all": {
+    "message": "取消全选"
+  },
+  "drop.launcher_import.selected": {
+    "message": "已选 {n} 个"
+  },
+  "drop.launcher_import.cancel": {
+    "message": "取消"
+  },
+  "drop.launcher_import.import": {
+    "message": "导入（{n}）"
+  },
+  "drop.launcher_import.no_instances": {
+    "message": "未找到实例"
+  },
+  "drop.symlink_method.subtitle": {
+    "message": "正在导入 {n} 个实例"
+  },
+  "drop.symlink_method.cancel": {
+    "message": "取消"
+  },
+  "drop.symlink_method.reset_changes": {
+    "message": "重置更改"
+  },
+  "drop.symlink_method.confirm": {
+    "message": "确认"
+  },
+  "drop.symlink_method.next": {
+    "message": "下一步"
+  },
+  "drop.symlink_method.instance_nav_label": {
+    "message": "切换到 {name}"
+  },
+  "drop.symlink_method.detecting": {
+    "message": "检测中..."
+  },
+  "drop.symlink_method.game_version": {
+    "message": "游戏版本"
+  },
+  "drop.symlink_method.import_path": {
+    "message": "版本路径"
+  },
+  "drop.symlink_method.import_path_tooltip": {
+    "message": "导入路径"
+  },
+  "drop.symlink_method.instance": {
+    "message": "实例"
+  },
+  "drop.symlink_method.loader": {
+    "message": "加载器"
+  },
+  "drop.symlink_method.loader_type_unknown_tooltip": {
+    "message": "此版本安装有Mod，但未识别到加载器。"
+  },
+  "drop.symlink_method.loader_version": {
+    "message": "加载器版本"
+  },
+  "drop.symlink_method.loader_version_unknown_tooltip": {
+    "message": "未检测到加载器版本，将使用自定义版本。"
+  },
+  "drop.symlink_method.latest": {
+    "message": "最新"
+  },
+  "drop.symlink_method.missing": {
+    "message": "缺失"
+  },
+  "drop.symlink_method.missing_path": {
+    "message": "没有可用的导入路径"
+  },
+  "drop.symlink_method.not_available": {
+    "message": "不可用"
+  },
+  "drop.symlink_method.plan_failed": {
+    "message": "未能估算进度"
+  },
+  "drop.symlink_method.unrecognized": {
+    "message": "未识别"
+  },
+  "drop.symlink_method.custom": {
+    "message": "自定义"
+  },
+  "drop.symlink_method.custom_tooltip": {
+    "message": "通常您不应该自定义它，除非您确认它识别错误。"
+  },
+  "drop.symlink_method.runtime_root": {
+    "message": "根目录"
+  },
+  "drop.symlink_method.runtime_root_tooltip": {
+    "message": "Runtime 根目录"
+  },
+  "drop.symlink_method.search_game_version": {
+    "message": "搜索游戏版本"
+  },
+  "drop.symlink_method.search_loader_version": {
+    "message": "搜索加载器版本"
+  },
+  "drop.symlink_method.select_game_version": {
+    "message": "选择游戏版本"
+  },
+  "drop.symlink_method.select_instance": {
+    "message": "选择实例"
+  },
+  "drop.symlink_method.select_loader_version": {
+    "message": "选择加载器版本"
+  },
+  "drop.symlink_method.stats": {
+    "message": "估计"
+  },
+  "drop.symlink_method.stats_cache": {
+    "message": "缓存"
+  },
+  "drop.symlink_method.stats_cache_tooltip": {
+    "message": "Axolotl 缓存"
+  },
+  "drop.symlink_method.stats_local": {
+    "message": "复用"
+  },
+  "drop.symlink_method.stats_local_tooltip": {
+    "message": "本地复用"
+  },
+  "drop.symlink_method.stats_migrate": {
+    "message": "迁移"
+  },
+  "drop.symlink_method.stats_migrate_tooltip": {
+    "message": "需要迁移"
+  },
+  "drop.symlink_method.stats_files": {
+    "message": "{files} 个文件"
+  },
+  "drop.symlink_method.stats_network": {
+    "message": "下载"
+  },
+  "drop.symlink_method.stats_network_tooltip": {
+    "message": "需要下载"
+  },
+  "instances.updater-modal.search-compat": {
+    "message": "查找兼容版本"
+  },
+  "project-type.schematic.category": {
+    "message": "投影"
+  },
+  "project-type.schematic.capital": {
+    "message": "{count, plural, one {投影} other {投影}}"
+  },
+  "project-type.schematic.lowercase": {
+    "message": "{count, plural, one {投影} other {投影}}"
+  },
+  "creation-flow.modal.import-instance.select-folder.description": {
+    "defaultMessage": "导入启动器文件夹或 .minecraft 文件夹"
+  },
+  "creation-flow.modal.import-instance.select-folder": {
+    "defaultMessage": "选择要导入的文件夹"
+  },
+  "creation-flow.modal.import-instance.select-file.description": {
+    "defaultMessage": "导入整合包文件或启动器(HMCL、PCL)"
+  },
+  "drop.confirm.as-data-pack": {
+    "defaultMessage": "数据包"
+  },
+  "drop.confirm.as-data-pack-desc": {
+    "defaultMessage": "将数据包安装到存档"
+  },
+  "image-viewer.close": {
+    "message": "关闭"
+  },
+  "image-viewer.edit": {
+    "message": "编辑"
+  },
+  "image-viewer.metadata": {
+    "message": "{size} · {width} × {height} 像素"
+  },
+  "image-viewer.editor.colour": {
+    "message": "颜色"
+  },
+  "image-viewer.editor.crop.dimensions": {
+    "message": "{width} × {height} 像素"
+  },
+  "image-viewer.editor.crop.reset": {
+    "message": "重置裁剪"
+  },
+  "image-viewer.editor.delete-selection": {
+    "message": "删除选中的标注"
+  },
+  "image-viewer.editor.eraser.area": {
+    "message": "区域"
+  },
+  "image-viewer.editor.eraser.element": {
+    "message": "元素"
+  },
+  "image-viewer.editor.eraser.mode": {
+    "message": "橡皮擦模式"
+  },
+  "image-viewer.editor.image-editing-tools": {
+    "message": "图片编辑工具"
+  },
+  "image-viewer.editor.more-save-options": {
+    "message": "更多保存选项"
+  },
+  "image-viewer.editor.overwrite": {
+    "message": "覆盖"
+  },
+  "image-viewer.editor.redo": {
+    "message": "重做"
+  },
+  "image-viewer.editor.save-as-new": {
+    "message": "保存副本"
+  },
+  "image-viewer.editor.save-image": {
+    "message": "保存图片"
+  },
+  "image-viewer.editor.size": {
+    "message": "大小"
+  },
+  "image-viewer.editor.tool.arrow": {
+    "message": "箭头"
+  },
+  "image-viewer.editor.tool.censor": {
+    "message": "遮挡"
+  },
+  "image-viewer.editor.tool.crop": {
+    "message": "裁剪"
+  },
+  "image-viewer.editor.tool.ellipse": {
+    "message": "椭圆"
+  },
+  "image-viewer.editor.tool.eraser": {
+    "message": "橡皮擦"
+  },
+  "image-viewer.editor.tool.highlight": {
+    "message": "高亮"
+  },
+  "image-viewer.editor.tool.pen": {
+    "message": "画笔"
+  },
+  "image-viewer.editor.tool.rectangle": {
+    "message": "矩形"
+  },
+  "image-viewer.editor.tool.select": {
+    "message": "选择"
+  },
+  "image-viewer.editor.tool.text": {
+    "message": "文本"
+  },
+  "image-viewer.editor.undo": {
+    "message": "撤销"
+  },
+  "image-viewer.editor.width": {
+    "message": "宽度"
+  },
+  "image-viewer.editor.zoom-fit": {
+    "message": "适应"
+  },
+  "image-viewer.editor.zoom-fit-workspace": {
+    "message": "适应工作区"
+  },
+  "image-viewer.editor.zoom-in": {
+    "message": "放大"
+  },
+  "image-viewer.editor.zoom-out": {
+    "message": "缩小"
+  },
+  "image-viewer.next": {
+    "message": "下一张图片"
+  },
+  "image-viewer.previous": {
+    "message": "上一张图片"
+  },
+  "files.layout.no-matches": {
+    "defaultMessage": "此视图中没有匹配的文件"
+  },
+  "files.select-view": {
+    "defaultMessage": "选择此视图中的全部文件"
+  },
+  "browse.sort.first-release": {
+    "defaultMessage": "首次发布时间"
+  },
+  "browse.sort.latest-release": {
+    "defaultMessage": "最近发布时间"
+  },
+  "browse.sort.project-created": {
+    "defaultMessage": "项目创建时间"
+  },
+  "browse.sort.project-modified": {
+    "defaultMessage": "项目修改时间"
+  },
+  "content.metadata-filter.installed-source": {
+    "defaultMessage": "安装来源平台"
+  },
+  "content.metadata-filter.ownership": {
+    "defaultMessage": "内容归属"
+  },
+  "content.metadata-filter.ownership.local-discovered": {
+    "defaultMessage": "本地发现"
+  },
+  "content.metadata-filter.ownership.pack-managed": {
+    "defaultMessage": "整合包管理"
+  },
+  "content.metadata-filter.ownership.user-added": {
+    "defaultMessage": "用户添加"
+  },
+  "content.metadata-filter.source.mcarchive": {
+    "defaultMessage": "MCArchive"
+  },
+  "content.metadata-filter.source.modrinth": {
+    "defaultMessage": "Modrinth"
+  },
+  "content.metadata-filter.source.planet-minecraft": {
+    "defaultMessage": "Planet Minecraft"
+  },
+  "project-card.date.created.tooltip": {
+    "defaultMessage": "项目创建于 {date}"
+  },
+  "project-card.date.project-modified.tooltip": {
+    "defaultMessage": "项目修改于 {date}"
+  },
+  "project-card.date.release-updated.tooltip": {
+    "defaultMessage": "最近发布于 {date}"
+  },
+  "browse.sort.project-published": {
+    "defaultMessage": "项目首次公开时间"
+  },
+  "project-card.date.project-published.tooltip": {
+    "defaultMessage": "项目首次公开于 {date}"
+  },
+  "project-card.date.first-release.tooltip": {
+    "defaultMessage": "首次发布于 {date}"
+  },
+  "content.page-layout.duplicate-status": {
+    "defaultMessage": "{visible} 项匹配 · 全部副本：{updates} 项可更新 · {disabled} 项已禁用 · {missing} 项缺失 · {installing} 项处理中"
+  },
+  "content.page-layout.update-duplicate-group": {
+    "defaultMessage": "预览全部 {count, number} 个副本的更新"
+  },
+  "browse.search.failed": {
+    "message": "无法完成搜索，请检查网络或筛选条件后重试。"
+  },
+  "content.actions.update-all": {
+    "message": "全部更新"
+  },
+  "content.confirm-deletion.failed": {
+    "message": "无法删除所选内容，请重试。"
+  },
+  "content.dependency-warning.delete-failed": {
+    "message": "无法删除所选内容及其依赖，请重试。"
+  },
+  "content.page-layout.scroll-to-top": {
+    "message": "回到顶部"
+  },
+  "modal.confirm-action.failed": {
+    "message": "无法完成此操作，请重试。"
+  },
+  "version.uploaded-by": {
+    "message": "上传者"
   }
 }

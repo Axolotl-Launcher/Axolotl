@@ -69,7 +69,11 @@ function patchState(stepId: string, patch: Partial<StepState>) {
 const controls = {
     setBusy: (stepId: string, busy: boolean) => patchState(stepId, { busy }),
     setReady: (stepId: string, ready: boolean) => patchState(stepId, { ready }),
-    markChanged: (stepId: string) => patchState(stepId, { changed: true }),
+    // A change is recorded at once, so quitting before Next never offers to repeat an import.
+    markChanged: (stepId: string) => {
+        patchState(stepId, { changed: true })
+        emit('complete', stepId)
+    },
     next: (stepId: string) => {
         if (stepId === step.value.id) advance()
     },

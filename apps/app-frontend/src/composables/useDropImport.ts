@@ -18,7 +18,6 @@ import { join } from '@tauri-apps/api/path'
 import { computed, type ComputedRef, nextTick, ref } from 'vue'
 import type { Router } from 'vue-router'
 
-import { syncConfiguredDirectLinks } from '@/helpers/direct-link-sync'
 import {
     classifyDroppedItem,
     classifyDroppedItemWithExtraction,
@@ -45,7 +44,7 @@ import {
     list as listInstances,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
-import { readMinecraftRoots, writeMinecraftRoots } from '@/helpers/minecraft-roots'
+import { addMinecraftRoot } from '@/helpers/minecraft-roots'
 import { assessLocalModCompatibility } from '@/helpers/version-compatibility'
 import type { AppNotificationManager } from '@/providers/app-notifications'
 import type { AppPopupNotificationManager } from '@/providers/app-popup-notifications'
@@ -751,16 +750,15 @@ export function useDropImport(options: DropImportOptions) {
             scanningInstances.value = true
             try {
                 const path = (classification?.base_path ?? filePath).trim()
-                const roots = readMinecraftRoots()
-                const existing = roots.find((root) => root.path === path)
-                if (!existing) roots.push({ path, mode: 'automatic' })
-                const report = await syncConfiguredDirectLinks(roots)
-                if (report.errors.length || report.missing) {
+                const { report, kept } = await addMinecraftRoot(
+                    path,
+                    (result) => !result.errors.length && !result.missing,
+                )
+                if (!kept) {
                     throw new Error(
                         report.errors.join('\n') || formatMessage(messages.dropNoInstances),
                     )
                 }
-                writeMinecraftRoots(roots)
                 addNotification({
                     title: formatMessage(messages.dropMinecraftAdded),
                     type: 'success',

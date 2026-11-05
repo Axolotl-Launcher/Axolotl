@@ -10,7 +10,7 @@ The OOBE is the full-window setup a new install sees before anything else. It is
 
 ## Step ids and records
 
-- `oobe_completed_steps` in the settings holds the ids of the steps an install has moved past (Next, Skip or finishing). At startup, `pendingOobeSteps` shows only the steps whose ids are missing. So a release that adds a step shows that step alone on the first start after the update.
+- `oobe_completed_steps` in the settings holds the ids of the steps an install has moved past (Next, Skip or finishing), or in which it made a change through `markChanged` (a sign-in, a queued import, a linked folder), so a restart never offers to repeat that change. At startup, `pendingOobeSteps` shows only the steps whose ids are missing. So a release that adds a step shows that step alone on the first start after the update.
 - An id is `<meaningful_name>_v<n>`, for example `appearance_v1`. Once a release has shipped an id, never rename it, reuse it for different content, or delete it from the record.
 - To show a revised step to installs that already saw it, replace its entry with a new id (`appearance_v2`) and drop the old id from `OOBE_STEP_IDS`. To revise copy or styling without showing it again, keep the id.
 - Unknown ids in a record are kept. They belong to a newer build the install ran before.

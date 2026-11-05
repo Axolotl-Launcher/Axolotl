@@ -1,4 +1,5 @@
-import type { ExternalMinecraftRoot } from './instance'
+import { syncConfiguredDirectLinks } from './direct-link-sync'
+import type { DirectLinkSyncReport, ExternalMinecraftRoot } from './instance'
 
 /** Where the external `.minecraft` folders the launcher manages in place are kept. */
 export const MINECRAFT_ROOTS_STORAGE_KEY = 'axolotl-minecraft-directories'
@@ -30,4 +31,30 @@ export function readMinecraftRoots(): ExternalMinecraftRoot[] {
 
 export function writeMinecraftRoots(roots: readonly ExternalMinecraftRoot[]) {
     localStorage.setItem(MINECRAFT_ROOTS_STORAGE_KEY, JSON.stringify(roots))
+}
+
+const rootKey = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase()
+
+let additions: Promise<unknown> = Promise.resolve()
+
+/**
+ * Adds `path` to the configured roots, reconciles them and stores the result when `keep`
+ * accepts the report. Additions run one at a time, each from the roots the last one stored,
+ * so two folders added together cannot drop each other.
+ */
+export function addMinecraftRoot(
+    path: string,
+    keep: (report: DirectLinkSyncReport) => boolean = () => true,
+): Promise<{ report: DirectLinkSyncReport; added: boolean; kept: boolean }> {
+    const run = additions.then(async () => {
+        const roots = readMinecraftRoots()
+        const added = !roots.some((root) => rootKey(root.path) === rootKey(path))
+        if (added) roots.push({ path, mode: 'automatic' })
+        const report = await syncConfiguredDirectLinks(roots)
+        const kept = keep(report)
+        if (kept) writeMinecraftRoots(roots)
+        return { report, added, kept }
+    })
+    additions = run.catch(() => {})
+    return run
 }

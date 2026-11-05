@@ -231,19 +231,32 @@ function badgeOf(account: Account) {
     return formatMessage(messages.officialBadge)
 }
 
+let defaultUserWrites: Promise<void> = Promise.resolve()
+/** Moves with every pick, so only the latest one sets the checkmark. */
+let selection = 0
+
 async function makeDefault(account: Account) {
     if (account.account_type === 'offline' && antiPiracy.value.restricted) {
         errorStore.showAntiPiracyNotice()
         return
     }
+    const mine = ++selection
     const changed = defaultAccount.value !== account.account_id
+    // Writes run one at a time, as in the accounts menu, so the backend ends on the last pick.
+    const write = defaultUserWrites.then(() => set_default_user(account.account_id))
+    defaultUserWrites = write.then(
+        () => {},
+        () => {},
+    )
     try {
-        await set_default_user(account.account_id)
+        await write
         if (changed) step.markChanged()
-        defaultAccount.value = account.account_id
+        if (mine === selection) defaultAccount.value = account.account_id
     } catch (error) {
         if (isOfflineAccountRestrictedError(error)) errorStore.showAntiPiracyNotice()
         else handleError(error as Error)
+        // An earlier pick may have been stored meanwhile; show what the backend now holds.
+        if (mine === selection) await refresh()
     }
 }
 

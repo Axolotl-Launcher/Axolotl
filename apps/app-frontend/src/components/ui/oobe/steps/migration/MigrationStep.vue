@@ -20,9 +20,9 @@ import {
 import { open } from '@tauri-apps/plugin-dialog'
 import { computed, inject, onMounted, reactive, ref, watch } from 'vue'
 
-import { syncConfiguredDirectLinks } from '@/helpers/direct-link-sync'
+import type { DirectLinkSyncReport } from '@/helpers/instance'
 import { type ChooseImportMethod, startLauncherImport } from '@/helpers/launcher-import'
-import { readMinecraftRoots, writeMinecraftRoots } from '@/helpers/minecraft-roots'
+import { addMinecraftRoot } from '@/helpers/minecraft-roots'
 
 import { useOobeStep } from '../../context'
 import {
@@ -281,20 +281,18 @@ async function linkFolder(choice: string, origin: AddedFolder['origin']) {
     folders.value = [...folders.value.filter((entry) => entry !== existing), folder]
     step.setBusy(true)
     try {
-        const roots = readMinecraftRoots()
-        const addedRoot = !roots.some((root) => folderKey(root.path) === folderKey(path))
-        if (addedRoot) {
-            roots.push({ path, mode: 'automatic' })
-        }
-        const report = await syncConfiguredDirectLinks(roots)
-        const own = report.errors.filter((message) => concerns(message, path))
-        if (own.length > 0) {
+        const ownErrors = (report: DirectLinkSyncReport) =>
+            report.errors.filter((message) => concerns(message, path))
+        const { report, added, kept } = await addMinecraftRoot(
+            path,
+            (result) => ownErrors(result).length === 0,
+        )
+        if (!kept) {
             folder.state = 'failed'
-            folder.message = own.join('\n')
+            folder.message = ownErrors(report).join('\n')
             return
         }
-        writeMinecraftRoots(roots)
-        if (addedRoot || report.imported + report.updated + report.removed > 0) step.markChanged()
+        if (added || report.imported + report.updated + report.removed > 0) step.markChanged()
         folder.state = 'added'
         folder.message = formatMessage(messages.folderAdded, {
             count: report.imported + report.updated,

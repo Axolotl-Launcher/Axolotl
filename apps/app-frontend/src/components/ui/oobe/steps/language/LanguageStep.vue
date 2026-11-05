@@ -41,10 +41,22 @@ const systemLocaleName = computed(
 )
 const options = computed(() => [SYSTEM, ...LOCALES.map((locale) => locale.code)])
 
+/** The language the launcher shows and has saved; a failed pick returns to it. */
+let applied = { choice: SYSTEM, locale: i18n.global.locale.value }
+/** Moves with every pick; a pick still waiting when a newer one arrives never runs. */
+let revision = 0
+let picks: Promise<void> = Promise.resolve()
+let pending = 0
+
 onMounted(async () => {
     try {
         const settings = await get()
-        choice.value = isFollowingSystemLocale(settings.locale) ? SYSTEM : settings.locale
+        const saved = isFollowingSystemLocale(settings.locale) ? SYSTEM : settings.locale
+        // A pick made while the settings were loading wins over what they held.
+        if (revision === 0) {
+            applied = { choice: saved, locale: i18n.global.locale.value }
+            choice.value = saved
+        }
     } catch (error) {
         console.warn('Failed to read the launcher language', error)
     }
@@ -54,34 +66,41 @@ onMounted(async () => {
         ?.scrollIntoView({ block: 'center', behavior: 'instant' })
 })
 
-/** Moves with every pick, so a slower earlier pick cannot save or roll back over a later one. */
-let revision = 0
-
-async function choose(code: string) {
+/**
+ * Picks apply and save one at a time, so locale loads and settings writes cannot finish
+ * out of order, and the launcher ends on the latest pick.
+ */
+function choose(code: string) {
     if (code === choice.value) return
     const mine = ++revision
-    const previous = choice.value
-    const previousLocale = i18n.global.locale.value
-    const follow = code === SYSTEM
-    const locale = follow ? systemLocale.value : code
     choice.value = code
     failed.value = false
+    pending += 1
     step.setBusy(true)
-    try {
-        setFollowSystemLocale(follow)
-        await setAppLocale(locale)
-        if (mine !== revision) return
-        await update({ locale })
-    } catch (error) {
-        if (mine !== revision) return
-        console.warn('Failed to apply the launcher language', error)
-        setFollowSystemLocale(previous === SYSTEM)
-        await setAppLocale(previousLocale)
-        choice.value = previous
-        failed.value = true
-    } finally {
-        if (mine === revision) step.setBusy(false)
-    }
+    picks = picks.then(async () => {
+        try {
+            if (mine !== revision) return
+            const follow = code === SYSTEM
+            const locale = follow ? systemLocale.value : code
+            try {
+                setFollowSystemLocale(follow)
+                await setAppLocale(locale)
+                await update({ locale })
+                applied = { choice: code, locale }
+            } catch (error) {
+                console.warn('Failed to apply the launcher language', error)
+                setFollowSystemLocale(applied.choice === SYSTEM)
+                await setAppLocale(applied.locale).catch(() => {})
+                if (mine === revision) {
+                    choice.value = applied.choice
+                    failed.value = true
+                }
+            }
+        } finally {
+            pending -= 1
+            if (pending === 0) step.setBusy(false)
+        }
+    })
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -95,7 +114,7 @@ function onKeydown(event: KeyboardEvent) {
     const target = list.value?.querySelectorAll<HTMLElement>('[role="radio"]')[next]
     target?.focus()
     target?.scrollIntoView({ block: 'nearest' })
-    void choose(options.value[next])
+    choose(options.value[next])
 }
 </script>
 

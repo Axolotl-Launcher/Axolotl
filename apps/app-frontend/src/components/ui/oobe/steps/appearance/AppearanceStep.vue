@@ -55,30 +55,37 @@ const themes: { value: ColorTheme; label: MessageDescriptor }[] = [
 ]
 
 const failed = ref(false)
+/** Saves run in the order they were made, and the step stays busy until the last one settles. */
+let saves: Promise<void> = Promise.resolve()
+let pending = 0
 
-async function save(patch: { home_layout?: HomeLayout; theme?: ColorTheme }) {
+function save(patch: { home_layout?: HomeLayout; theme?: ColorTheme }) {
     failed.value = false
+    pending += 1
     step.setBusy(true)
-    try {
-        await update(patch)
-    } catch (error) {
-        console.warn('Failed to save the OOBE appearance choice', error)
-        failed.value = true
-    } finally {
-        step.setBusy(false)
-    }
+    saves = saves.then(async () => {
+        try {
+            await update(patch)
+        } catch (error) {
+            console.warn('Failed to save the OOBE appearance choice', error)
+            failed.value = true
+        } finally {
+            pending -= 1
+            if (pending === 0) step.setBusy(false)
+        }
+    })
 }
 
 function chooseLayout(value: HomeLayout) {
     if (themeStore.homeLayout === value) return
     themeStore.homeLayout = value
-    void save({ home_layout: value })
+    save({ home_layout: value })
 }
 
 function chooseTheme(value: ColorTheme) {
     if (themeStore.selectedTheme === value) return
     themeStore.setThemeState(value)
-    void save({ theme: value })
+    save({ theme: value })
 }
 </script>
 

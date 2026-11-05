@@ -659,6 +659,50 @@ fn mcim_file_routes_stay_behind_the_official_cdn() {
             assert_eq!(routes[0].url, url);
             assert_eq!(routes[1].source, DownloadRouteSource::Mcim);
         }
+
+        // Failures on the official CDN do not let Auto mode start with
+        // MCIM: it asks for the official source to be tried first each time.
+        let resource = infer_resource_class(url);
+        let official = official_route(url, resource);
+        for _ in 0..3 {
+            record_route_failure(&official, resource, None);
+        }
+        let mut routes = resolve_download_routes_for(
+            url,
+            resource,
+            crate::state::DownloadSourceMode::Auto,
+        );
+        assert_eq!(routes[0].url, url);
+        order_auto_routes(&mut routes, resource);
+        assert_eq!(routes[0].url, url);
+    }
+
+    let request = DownloadRequest::new(
+        "https://cdn.modrinth.com/data/a/versions/b/one.jar",
+        ResourceClass::Modrinth,
+    )
+    .with_candidate_urls([
+        "https://cdn.modrinth.com/data/a/versions/b/two.jar",
+    ]);
+    for mode in [
+        crate::state::DownloadSourceMode::Auto,
+        crate::state::DownloadSourceMode::OfficialPreferred,
+        crate::state::DownloadSourceMode::MirrorPreferred,
+    ] {
+        let sources = build_download_routes(&request, mode)
+            .into_iter()
+            .map(|route| route.source)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            [
+                DownloadRouteSource::Official,
+                DownloadRouteSource::Alternate,
+                DownloadRouteSource::Mcim,
+                DownloadRouteSource::Mcim,
+            ],
+            "{mode:?}"
+        );
     }
 
     // A preference for MCIM moves its APIs ahead, with the official API

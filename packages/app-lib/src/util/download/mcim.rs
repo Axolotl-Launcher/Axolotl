@@ -50,57 +50,91 @@ pub(crate) fn is_api_url(url: &str) -> bool {
     })
 }
 
-/// Refuses an MCIM API response whose refresh has stalled.
+/// Refuses an MCIM API response unless every entry shows a recent refresh.
 ///
 /// MCIM serves a cache and leaves it to the launcher to decide whether a
 /// response is current enough to trust. An entry is as current as the later
-/// of its `sync_at` and `checked_at`, and a response as current as its oldest
-/// entry. A response without cache dates (search, which passes through to
-/// upstream) is accepted.
+/// of its `sync_at` and `checked_at`, and a response is trusted only when
+/// every entry is. Searches pass through to upstream and date no entry at
+/// all, so a response without any cache date is accepted; one that dates some
+/// entries but not others has an unknown freshness and is refused.
 pub(crate) fn check_cache_dates(body: &[u8]) -> crate::Result<()> {
     check_cache_dates_at(body, Utc::now())
 }
 
-fn check_cache_dates_at(body: &[u8], now: DateTime<Utc>) -> crate::Result<()> {
-    let Some(oldest) = oldest_cache_date(body) else {
-        return Ok(());
-    };
-    if now
-        .signed_duration_since(oldest)
-        .to_std()
-        .is_ok_and(|age| age > MCIM_STALE_AFTER)
-    {
-        return Err(crate::ErrorKind::OtherError(format!(
-            "MCIM last refreshed this response at {}, too long ago to trust",
-            oldest.to_rfc3339()
-        ))
-        .into());
-    }
-    Ok(())
+enum CacheDate {
+    Undated,
+    Invalid,
+    Dated(DateTime<Utc>),
 }
 
-fn oldest_cache_date(body: &[u8]) -> Option<DateTime<Utc>> {
-    let value = serde_json::from_slice::<Value>(body).ok()?;
+fn check_cache_dates_at(body: &[u8], now: DateTime<Utc>) -> crate::Result<()> {
+    // A body that is not JSON is left to the caller's own validation.
+    let Ok(value) = serde_json::from_slice::<Value>(body) else {
+        return Ok(());
+    };
     let entries = match value.get(CURSEFORGE_DATA) {
         Some(data @ (Value::Array(_) | Value::Object(_))) => data,
         _ => &value,
     };
-    match entries {
-        Value::Array(entries) => {
-            entries.iter().filter_map(entry_cache_date).min()
-        }
-        entry => entry_cache_date(entry),
+    let dates = match entries {
+        Value::Array(entries) => entries.iter().map(entry_cache_date).collect(),
+        entry => vec![entry_cache_date(entry)],
+    };
+    if dates.iter().all(|date| matches!(date, CacheDate::Undated)) {
+        return Ok(());
     }
+    let refuse = |reason: String| {
+        Err(crate::ErrorKind::OtherError(format!(
+            "MCIM response is not current enough to trust: {reason}"
+        ))
+        .into())
+    };
+    for date in dates {
+        let date = match date {
+            CacheDate::Dated(date) => date,
+            CacheDate::Undated | CacheDate::Invalid => {
+                return refuse("an entry has no valid cache date".into());
+            }
+        };
+        // A date further ahead than the staleness window is not one MCIM
+        // could have written for this clock, so it proves nothing either.
+        if now
+            .signed_duration_since(date)
+            .abs()
+            .to_std()
+            .is_ok_and(|distance| distance > MCIM_STALE_AFTER)
+        {
+            return refuse(format!(
+                "an entry was refreshed at {}",
+                date.to_rfc3339()
+            ));
+        }
+    }
+    Ok(())
 }
 
-fn entry_cache_date(entry: &Value) -> Option<DateTime<Utc>> {
-    [SYNC_AT, CHECKED_AT]
-        .into_iter()
-        .filter_map(|field| {
-            DateTime::parse_from_rfc3339(entry.get(field)?.as_str()?).ok()
-        })
-        .map(|date| date.with_timezone(&Utc))
-        .max()
+fn entry_cache_date(entry: &Value) -> CacheDate {
+    let mut latest = None;
+    for field in [SYNC_AT, CHECKED_AT] {
+        match entry.get(field) {
+            None | Some(Value::Null) => {}
+            Some(value) => {
+                let Some(date) = value
+                    .as_str()
+                    .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
+                else {
+                    return CacheDate::Invalid;
+                };
+                let date = date.with_timezone(&Utc);
+                latest =
+                    Some(latest.map_or(date, |latest: DateTime<Utc>| {
+                        latest.max(date)
+                    }));
+            }
+        }
+    }
+    latest.map_or(CacheDate::Undated, CacheDate::Dated)
 }
 
 #[cfg(test)]
@@ -160,6 +194,36 @@ mod tests {
                 "checked_at": null,
             }))
             .is_err()
+        );
+    }
+
+    #[test]
+    fn entries_of_unknown_freshness_are_refused() {
+        for body in [
+            // Undated beside dated: its freshness is unknown.
+            json!([
+                {"id": "a", "sync_at": "2026-11-05T07:00:00Z"},
+                {"id": "b"},
+            ]),
+            json!({"id": "a", "sync_at": "yesterday"}),
+            json!({"id": "a", "sync_at": 1_762_329_600}),
+            json!({
+                "id": "a",
+                "sync_at": "2026-11-05T07:00:00Z",
+                "checked_at": "not a date",
+            }),
+        ] {
+            assert!(check(body.clone()).is_err(), "{body}");
+        }
+    }
+
+    #[test]
+    fn dates_ahead_of_the_clock_are_trusted_only_within_the_window() {
+        // A few minutes of clock skew must not turn MCIM away.
+        check(json!({"id": "a", "sync_at": "2026-11-05T08:05:00Z"})).unwrap();
+        assert!(
+            check(json!({"id": "a", "sync_at": "2026-12-01T00:00:00Z"}))
+                .is_err()
         );
     }
 

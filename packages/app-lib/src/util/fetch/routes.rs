@@ -402,8 +402,11 @@ pub(crate) fn order_auto_routes(
             left_health.cooldown_until.is_some_and(|until| until > now);
         let right_cooling =
             right_health.cooldown_until.is_some_and(|until| until > now);
-        left_cooling
-            .cmp(&right_cooling)
+        // MCIM is a fallback whatever the health data says: it asks for
+        // official sources to be tried first on every request.
+        (left.source == DownloadRouteSource::Mcim)
+            .cmp(&(right.source == DownloadRouteSource::Mcim))
+            .then_with(|| left_cooling.cmp(&right_cooling))
             .then_with(|| {
                 left_health
                     .consecutive_failures
@@ -447,16 +450,7 @@ pub fn resolve_download_routes_for(
     let mut routes = explicit_mirror_routes(&url, resource);
     routes.push(official);
     // Mirror routes never receive credentials: authenticated Modrinth calls
-    // drop them, and the CurseForge key only goes to the official API. A
-    // preference for MCIM covers its APIs only, because MCIM asks for files
-    // to come from the official CDN first.
-    let mode = if mode == crate::state::DownloadSourceMode::MirrorPreferred
-        && mcim::mirrors_file_url(&url)
-    {
-        crate::state::DownloadSourceMode::OfficialPreferred
-    } else {
-        mode
-    };
+    // drop them, and the CurseForge key only goes to the official API.
     match mode {
         crate::state::DownloadSourceMode::Auto
             if is_official_version_manifest_url(&url) =>
@@ -475,6 +469,11 @@ pub fn resolve_download_routes_for(
         crate::state::DownloadSourceMode::MirrorPreferred => {
             routes.sort_by_key(|route| !route.is_mirror);
         }
+    }
+    // A preference for MCIM covers its APIs only: it asks for files to come
+    // from the official CDN first.
+    if mcim::mirrors_file_url(&url) {
+        routes.sort_by_key(|route| route.source == DownloadRouteSource::Mcim);
     }
     routes
 }

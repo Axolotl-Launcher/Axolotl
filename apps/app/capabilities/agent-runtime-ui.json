@@ -1,0 +1,17 @@
+{
+  "identifier": "agent-runtime-ui",
+  "description": "Agent task history, submissions and explicit user approval decisions",
+  "local": true,
+  "windows": ["agent-window"],
+  "permissions": [
+    "agent-runtime:allow-agent-runtime-load",
+    "agent-runtime:allow-agent-runtime-save",
+    "agent-runtime:allow-agent-runtime-import",
+    "agent-runtime:allow-agent-runtime-delete",
+    "agent-runtime:allow-agent-runtime-snapshot",
+    "agent-runtime:allow-agent-runtime-events",
+    "agent-runtime:allow-agent-runtime-submit",
+    "agent-runtime:allow-agent-runtime-cancel",
+    "agent-runtime:allow-agent-runtime-decide"
+  ]
+}

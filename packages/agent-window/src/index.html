@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light dark" />
+        <title>Axolotl Agent Window</title>
+        <link rel="icon" href="/axolotl.png" />
+        <link rel="stylesheet" href="/mascot.css" />
+        <link rel="stylesheet" href="/window.css" />
+        <script defer src="/window.js"></script>
+        <script type="module" src="/app.js"></script>
+        <!-- Fetch the whole module graph at once instead of import by import. -->
+        <link rel="modulepreload" href="/agent.js" />
+        <link rel="modulepreload" href="/dom.js" />
+        <link rel="modulepreload" href="/mascot.js" />
+        <link rel="modulepreload" href="/messages.js" />
+        <link rel="modulepreload" href="/motion.js" />
+        <link rel="modulepreload" href="/session.js" />
+        <link rel="modulepreload" href="/state.js" />
+        <link rel="modulepreload" href="/tools.js" />
+        <link rel="modulepreload" href="/view-composer.js" />
+        <link rel="modulepreload" href="/view-home.js" />
+        <link rel="modulepreload" href="/view-overlays.js" />
+        <link rel="modulepreload" href="/view-palette.js" />
+        <link rel="modulepreload" href="/view-panel.js" />
+        <link rel="modulepreload" href="/view-rail.js" />
+        <link rel="modulepreload" href="/view-sidebar.js" />
+        <link rel="modulepreload" href="/view-slash.js" />
+        <link rel="modulepreload" href="/view-transcript.js" />
+        <link rel="modulepreload" href="/demo-runtime.js" />
+        <link rel="modulepreload" href="/demo-flows.js" />
+        <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin />
+        <link rel="preload" href="/fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin />
+    </head>
+    <body>
+        <svg class="icon-definitions" aria-hidden="true">
+            <!-- Drawn for this window on a 24 px grid with 1.75 strokes and round
+                 joins. Paths with class "d" are the tinted second tone. The block,
+                 grass block and chest come from the launcher's Minecraft world. -->
+            <defs>
+                <symbol id="i-sidebar" viewBox="0 0 24 24">
+                    <path class="d" d="M6.5 4.5h3v15h-3a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3z" />
+                    <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+                    <path d="M9.5 4.5v15M6 8.5h1M6 11.5h1" />
+                </symbol>
+                <symbol id="i-panel" viewBox="0 0 24 24">
+                    <path class="d" d="M14.5 4.5h3a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-3z" />
+                    <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+                    <path d="M14.5 4.5v15" />
+                </symbol>
+                <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13" /></symbol>
+                <symbol id="i-search" viewBox="0 0 24 24">
+                    <circle class="d" cx="10.5" cy="10.5" r="6.25" />
+                    <circle cx="10.5" cy="10.5" r="6.25" />
+                    <path d="m15.2 15.2 4.3 4.3" />
+                </symbol>
+                <symbol id="i-settings" viewBox="0 0 24 24">
+                    <path d="M4 7.5h8M18 7.5h2M4 16.5h2M12 16.5h8" />
+                    <rect class="d" x="12" y="5" width="6" height="5" rx="1.5" />
+                    <rect x="12" y="5" width="6" height="5" rx="1.5" />
+                    <rect class="d" x="6" y="14" width="6" height="5" rx="1.5" />
+                    <rect x="6" y="14" width="6" height="5" rx="1.5" />
+                </symbol>
+                <symbol id="i-help" viewBox="0 0 24 24">
+                    <circle class="d" cx="12" cy="12" r="8.75" />
+                    <circle cx="12" cy="12" r="8.75" />
+                    <path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.25c-.75.36-1.2.95-1.2 1.75v.3" />
+                    <path class="dot" d="M12 16.6v.1" />
+                </symbol>
+                <symbol id="i-cube" viewBox="0 0 24 24">
+                    <path class="d" d="M12 3.5 19.5 7.75 12 12 4.5 7.75z" />
+                    <path d="M12 3.5 19.5 7.75v8.5L12 20.5l-7.5-4.25v-8.5z" />
+                    <path d="M4.5 7.75 12 12l7.5-4.25M12 12v8.5" />
+                </symbol>
+                <symbol id="i-globe" viewBox="0 0 24 24">
+                    <path class="d" d="M12 3.5 19.5 7.75v3L12 15l-7.5-4.25v-3z" />
+                    <path d="M12 3.5 19.5 7.75v8.5L12 20.5l-7.5-4.25v-8.5z" />
+                    <path d="M4.5 7.75 12 12l7.5-4.25M12 12v8.5M4.5 10.75 12 15l7.5-4.25" />
+                    <path d="M7 13.4v1.6M16.5 13.6v2" />
+                </symbol>
+                <symbol id="i-all" viewBox="0 0 24 24">
+                    <rect class="d" x="4" y="4" width="7" height="7" rx="2" />
+                    <rect x="4" y="4" width="7" height="7" rx="2" />
+                    <rect x="13" y="4" width="7" height="7" rx="2" />
+                    <rect x="4" y="13" width="7" height="7" rx="2" />
+                    <rect x="13" y="13" width="7" height="7" rx="2" />
+                </symbol>
+                <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></symbol>
+                <symbol id="i-right" viewBox="0 0 24 24"><path d="m10 7 5 5-5 5" /></symbol>
+                <symbol id="i-up" viewBox="0 0 24 24">
+                    <path d="M12 18.5v-13m-5.5 5.5L12 5.5l5.5 5.5" />
+                </symbol>
+                <symbol id="i-arrow-down" viewBox="0 0 24 24">
+                    <path d="M12 5.5v13m5.5-5.5L12 18.5 6.5 13" />
+                </symbol>
+                <symbol id="i-arrow-right" viewBox="0 0 24 24">
+                    <path d="M5.5 12h13M13 6.5l5.5 5.5-5.5 5.5" />
+                </symbol>
+                <symbol id="i-stop" viewBox="0 0 24 24">
+                    <rect
+                        x="7"
+                        y="7"
+                        width="10"
+                        height="10"
+                        rx="2.5"
+                        fill="currentColor"
+                        stroke="none"
+                    />
+                </symbol>
+                <symbol id="i-close" viewBox="0 0 24 24">
+                    <path d="m6.5 6.5 11 11m0-11-11 11" />
+                </symbol>
+                <symbol id="i-check" viewBox="0 0 24 24"><path d="m5.5 12.5 4 4 9-9.5" /></symbol>
+                <symbol id="i-check-circle" viewBox="0 0 24 24">
+                    <circle class="d" cx="12" cy="12" r="8.75" />
+                    <circle cx="12" cy="12" r="8.75" />
+                    <path d="m8.5 12.3 2.4 2.4 4.7-5" />
+                </symbol>
+                <symbol id="i-alert" viewBox="0 0 24 24">
+                    <circle class="d" cx="12" cy="12" r="8.75" />
+                    <circle cx="12" cy="12" r="8.75" />
+                    <path d="M12 7.5v5.25" />
+                    <path class="dot" d="M12 16.2v.1" />
+                </symbol>
+                <symbol id="i-warning" viewBox="0 0 24 24">
+                    <path
+                        class="d"
+                        d="M10.3 4.5 3 17.2a2 2 0 0 0 1.7 3h14.6a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0z"
+                    />
+                    <path
+                        d="M10.3 4.5 3 17.2a2 2 0 0 0 1.7 3h14.6a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0z"
+                    />
+                    <path d="M12 9.5v4" />
+                    <path class="dot" d="M12 16.9v.1" />
+                </symbol>
+                <symbol id="i-info" viewBox="0 0 24 24">
+                    <circle class="d" cx="12" cy="12" r="8.75" />
+                    <circle cx="12" cy="12" r="8.75" />
+                    <path d="M12 11v5" />
+                    <path class="dot" d="M12 7.9v.1" />
+                </symbol>
+                <symbol id="i-clock" viewBox="0 0 24 24">
+                    <circle class="d" cx="12" cy="12" r="8.75" />
+                    <circle cx="12" cy="12" r="8.75" />
+                    <path d="M12 7.5V12l3 2" />
+                </symbol>
+                <symbol id="i-more" viewBox="0 0 24 24">
+                    <path class="dot" d="M6 12h.01M12 12h.01M18 12h.01" />
+                </symbol>
+                <symbol id="i-edit" viewBox="0 0 24 24">
+                    <path class="d" d="m15.5 5.5 3 3L9 18l-4 1 1-4z" />
+                    <path d="M14 7l3 3M15.6 5.4a2.1 2.1 0 0 1 3 3L9 18l-4 1 1-4z" />
+                </symbol>
+                <symbol id="i-trash" viewBox="0 0 24 24">
+                    <path class="d" d="M6.5 7.5h11l-.9 11.1a2 2 0 0 1-2 1.9H9.4a2 2 0 0 1-2-1.9z" />
+                    <path
+                        d="M4.5 7.5h15M9.5 7.5V5.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3v1.7M6.5 7.5l.9 11.1a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.9-11.1M10.25 11v5.5M13.75 11v5.5"
+                    />
+                </symbol>
+                <symbol id="i-copy" viewBox="0 0 24 24">
+                    <rect class="d" x="9" y="9" width="11" height="11" rx="2.5" />
+                    <rect x="9" y="9" width="11" height="11" rx="2.5" />
+                    <path
+                        d="M15 6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15"
+                    />
+                </symbol>
+                <symbol id="i-download" viewBox="0 0 24 24">
+                    <path class="d" d="M4.5 15.5v1.5a3 3 0 0 0 3 3h9a3 3 0 0 0 3-3v-1.5z" />
+                    <path
+                        d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M4.5 15.5v1.5a3 3 0 0 0 3 3h9a3 3 0 0 0 3-3v-1.5"
+                    />
+                </symbol>
+                <symbol id="i-refresh" viewBox="0 0 24 24">
+                    <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4" />
+                </symbol>
+                <symbol id="i-file" viewBox="0 0 24 24">
+                    <path class="d" d="M14 3.5V8a1 1 0 0 0 1 1h4.5z" />
+                    <path d="M14 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 3.5V8a1 1 0 0 0 1 1h3.5M9 13h6M9 16.5h4" />
+                </symbol>
+                <symbol id="i-shield" viewBox="0 0 24 24">
+                    <path
+                        class="d"
+                        d="M12 3.5 5 6.3v5.2c0 4.2 2.8 7.7 7 9 4.2-1.3 7-4.8 7-9V6.3z"
+                    />
+                    <path d="M12 3.5 5 6.3v5.2c0 4.2 2.8 7.7 7 9 4.2-1.3 7-4.8 7-9V6.3z" />
+                    <path d="m9 12.2 2.2 2.2 4-4.4" />
+                </symbol>
+                <symbol id="i-sparkle" viewBox="0 0 24 24">
+                    <path class="d" d="M11 3.5h2v4h2v2h4v2h-4v2h-2v4h-2v-4H9v-2H5v-2h4v-2h2z" />
+                    <path d="M11 3.5h2v4h2v2h4v2h-4v2h-2v4h-2v-4H9v-2H5v-2h4v-2h2z" />
+                    <path d="M18 17h2v2h-2z" />
+                </symbol>
+                <symbol id="i-memory" viewBox="0 0 24 24">
+                    <rect class="d" x="4.5" y="7" width="15" height="10" rx="2" />
+                    <rect x="4.5" y="7" width="15" height="10" rx="2" />
+                    <path
+                        d="M8 7V4.5M12 7V4.5M16 7V4.5M8 19.5V17M12 19.5V17M16 19.5V17M9 10.5h6v3H9z"
+                    />
+                </symbol>
+                <symbol id="i-monitor" viewBox="0 0 24 24">
+                    <rect class="d" x="3.5" y="4.5" width="17" height="11.5" rx="2.5" />
+                    <rect x="3.5" y="4.5" width="17" height="11.5" rx="2.5" />
+                    <path d="M8.5 20h7M12 16v4" />
+                </symbol>
+                <symbol id="i-wrench" viewBox="0 0 24 24">
+                    <path
+                        class="d"
+                        d="M15 4.5a4.5 4.5 0 0 0-4.3 5.9l-5.8 5.8a2 2 0 0 0 2.9 2.9l5.8-5.8A4.5 4.5 0 0 0 19.5 9l-2.8 2.8-3-.5-.5-3L16 5.5a4.5 4.5 0 0 0-1-1z"
+                    />
+                    <path
+                        d="M15 4.5a4.5 4.5 0 0 0-4.3 5.9l-5.8 5.8a2 2 0 0 0 2.9 2.9l5.8-5.8A4.5 4.5 0 0 0 19.5 9l-2.8 2.8-3-.5-.5-3L16 5.5a4.5 4.5 0 0 0-1-1z"
+                    />
+                </symbol>
+                <symbol id="i-zap" viewBox="0 0 24 24">
+                    <path class="d" d="M13.5 3 5.5 13.5H12L10.5 21l8-10.5H12z" />
+                    <path d="M13.5 3 5.5 13.5H12L10.5 21l8-10.5H12z" />
+                </symbol>
+                <symbol id="i-layers" viewBox="0 0 24 24">
+                    <path class="d" d="M12 3.5 19.5 7.5 12 11.5 4.5 7.5z" />
+                    <path
+                        d="M12 3.5 19.5 7.5 12 11.5 4.5 7.5zM4.5 12l7.5 4 7.5-4M4.5 16.5l7.5 4 7.5-4"
+                    />
+                </symbol>
+                <symbol id="i-archive" viewBox="0 0 24 24">
+                    <path
+                        class="d"
+                        d="M6 5h12a2.5 2.5 0 0 1 2.5 2.5V11h-17V7.5A2.5 2.5 0 0 1 6 5z"
+                    />
+                    <rect x="3.5" y="5" width="17" height="14.5" rx="2.5" />
+                    <path d="M3.5 11h17" />
+                    <rect x="10.5" y="9" width="3" height="4.5" rx="1" />
+                </symbol>
+                <symbol id="i-message" viewBox="0 0 24 24">
+                    <path
+                        class="d"
+                        d="M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v7.5A2.5 2.5 0 0 1 18 17h-7.5L6 20.5V17a2.5 2.5 0 0 1-2.5-2.5V7A2.5 2.5 0 0 1 6 4.5z"
+                    />
+                    <path
+                        d="M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v7.5A2.5 2.5 0 0 1 18 17h-7.5L6 20.5V17a2.5 2.5 0 0 1-2.5-2.5V7A2.5 2.5 0 0 1 6 4.5z"
+                    />
+                    <path d="M8 9.5h8M8 12.5h5" />
+                </symbol>
+                <symbol id="i-list" viewBox="0 0 24 24">
+                    <rect class="d" x="3.5" y="4.5" width="5" height="5" rx="1.5" />
+                    <rect x="3.5" y="4.5" width="5" height="5" rx="1.5" />
+                    <rect x="3.5" y="14.5" width="5" height="5" rx="1.5" />
+                    <path d="M11.5 7h9M11.5 17h9" />
+                </symbol>
+                <symbol id="i-attach" viewBox="0 0 24 24">
+                    <path
+                        d="m19.5 11.5-7.6 7.6a4.6 4.6 0 0 1-6.5-6.5l7.9-7.9a3 3 0 0 1 4.3 4.3l-7.8 7.8a1.5 1.5 0 0 1-2.1-2.1l7-7"
+                    />
+                </symbol>
+                <symbol id="i-bookmark" viewBox="0 0 24 24">
+                    <path class="d" d="M7 4.5h10a1 1 0 0 1 1 1v14l-6-4-6 4v-14a1 1 0 0 1 1-1z" />
+                    <path d="M7 4.5h10a1 1 0 0 1 1 1v14l-6-4-6 4v-14a1 1 0 0 1 1-1z" />
+                    <rect class="dot" x="10.5" y="8" width="3" height="3" rx=".5" />
+                </symbol>
+                <symbol id="i-pin" viewBox="0 0 24 24">
+                    <path class="d" d="M9 4.5h6l-.8 5.2 3.3 3.3v1.5h-11V13l3.3-3.3z" />
+                    <path d="M9 4.5h6l-.8 5.2 3.3 3.3v1.5h-11V13l3.3-3.3zM12 14.5v5.5M7.5 4.5h9" />
+                </symbol>
+            </defs>
+        </svg>
+        <header class="titlebar">
+            <button
+                id="sidebar-toggle"
+                class="icon-button"
+                type="button"
+                data-action="toggle-sidebar"
+                data-label="toggleSidebar"
+                data-keys="Ctrl B"
+                aria-keyshortcuts="Control+B"
+                aria-controls="sidebar"
+            >
+                <svg aria-hidden="true"><use href="#i-sidebar" /></svg>
+            </button>
+            <div id="drag-region" class="drag-region">
+                <img class="title-mark" src="/axolotl.png" alt="" />
+                <span id="window-title">Axolotl Agent Window</span>
+                <button
+                    id="preview-badge"
+                    class="preview-badge"
+                    type="button"
+                    data-action="preview-info"
+                    data-text="previewBadge"
+                    aria-haspopup="dialog"
+                    aria-expanded="false"
+                    aria-controls="menu"
+                    hidden
+                ></button>
+            </div>
+            <button
+                id="help-button"
+                class="icon-button"
+                type="button"
+                data-action="help"
+                data-label="help"
+            >
+                <svg aria-hidden="true"><use href="#i-help" /></svg>
+            </button>
+            <button
+                id="settings-button"
+                class="icon-button"
+                type="button"
+                data-action="settings"
+                data-label="settings"
+                data-keys="Ctrl ,"
+                aria-keyshortcuts="Control+Comma"
+            >
+                <svg aria-hidden="true"><use href="#i-settings" /></svg>
+            </button>
+            <div class="window-controls">
+                <button id="minimize" type="button" aria-label="Minimize" title="Minimize">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8" /></svg>
+                </button>
+                <button id="maximize" type="button" aria-label="Maximize" title="Maximize">
+                    <svg id="maximize-icon" viewBox="0 0 16 16" aria-hidden="true">
+                        <rect x="4" y="4" width="8" height="8" rx="1" /></svg
+                    ><svg id="restore-icon" viewBox="0 0 16 16" aria-hidden="true" hidden>
+                        <path d="M6 5V3h7v7h-2" />
+                        <rect x="3" y="6" width="7" height="7" rx="1" />
+                    </svg>
+                </button>
+                <button id="close" type="button" aria-label="Close" title="Close">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8" /></svg>
+                </button>
+            </div>
+        </header>
+        <div id="window-error" role="alert" hidden></div>
+        <div id="workspace" class="workspace">
+            <aside id="sidebar" class="sidebar" data-label="paletteTasks">
+                <div class="sidebar-inner">
+                    <div class="sidebar-top">
+                        <button
+                            class="new-task"
+                            type="button"
+                            data-action="new-chat"
+                            data-testid="new-chat"
+                        >
+                            <svg aria-hidden="true"><use href="#i-plus" /></svg
+                            ><span data-text="newChat"></span><kbd>Ctrl N</kbd>
+                        </button>
+                        <label class="search-field"
+                            ><svg aria-hidden="true"><use href="#i-search" /></svg
+                            ><input
+                                id="conversation-search"
+                                type="search"
+                                data-placeholder="search"
+                                data-label="search"
+                                autocomplete="off"
+                        /></label>
+                    </div>
+                    <nav
+                        id="conversation-list"
+                        class="thread-list"
+                        data-testid="conversation-list"
+                        data-label="conversations"
+                    ></nav>
+                </div>
+            </aside>
+            <button
+                class="drawer-backdrop"
+                type="button"
+                data-action="close-drawers"
+                data-label="close"
+                tabindex="-1"
+            ></button>
+            <main id="conversation" class="conversation">
+                <header class="thread-header">
+                    <div class="thread-heading">
+                        <h1 id="conversation-title"></h1>
+                        <span id="thread-state" class="thread-state" hidden></span>
+                    </div>
+                    <div class="thread-actions">
+                        <button
+                            id="conversation-more"
+                            class="icon-button"
+                            type="button"
+                            data-action="thread-menu"
+                            data-label="more"
+                            aria-haspopup="menu"
+                            aria-expanded="false"
+                            aria-controls="menu"
+                        >
+                            <svg aria-hidden="true"><use href="#i-more" /></svg></button
+                        ><button
+                            id="task-toggle"
+                            class="panel-toggle"
+                            type="button"
+                            data-action="toggle-tasks"
+                            data-label="taskPanel"
+                            aria-expanded="false"
+                            aria-controls="task-panel"
+                        >
+                            <span
+                                id="progress-pips"
+                                class="progress-pips"
+                                aria-hidden="true"
+                            ></span>
+                            <svg class="panel-icon" aria-hidden="true">
+                                <use href="#i-panel" />
+                            </svg>
+                        </button>
+                    </div>
+                </header>
+                <div id="banners" class="banners"></div>
+                <div class="scroll-area">
+                    <nav id="turn-rail" class="turn-rail" data-label="railLabel" hidden></nav>
+                    <div id="message-scroll" class="message-scroll">
+                        <section id="empty-state" class="empty-state">
+                            <div class="hero">
+                                <div class="hero-stage" aria-hidden="true">
+                                    <span class="hero-glow"></span>
+                                    <span class="hero-ripple"></span>
+                                    <div id="hero-mark" class="hero-mark"></div>
+                                </div>
+                                <h2 data-text="welcome"></h2>
+                            </div>
+                            <div id="composer-home" class="composer-home"></div>
+                            <div id="suggestions" class="suggestions"></div>
+                            <div id="intro" class="intro" hidden></div>
+                        </section>
+                        <div
+                            id="messages"
+                            class="transcript"
+                            data-testid="messages"
+                            aria-live="polite"
+                            aria-relevant="additions"
+                        ></div>
+                    </div>
+                </div>
+                <div id="drop-overlay" class="drop-overlay" hidden>
+                    <div class="drop-card">
+                        <svg aria-hidden="true"><use href="#i-file" /></svg>
+                        <span data-text="dropFiles"></span>
+                    </div>
+                </div>
+                <div id="composer-dock" class="composer-dock">
+                    <button
+                        id="jump-latest"
+                        class="jump-latest"
+                        type="button"
+                        data-action="jump-latest"
+                        data-label="jumpLatest"
+                        hidden
+                    >
+                        <svg aria-hidden="true"><use href="#i-arrow-down" /></svg>
+                    </button>
+                    <div id="composer-wrap" class="composer-wrap">
+                        <div id="slash-menu" class="slash-menu" role="listbox" hidden></div>
+                        <div id="approval-bar" class="approval-bar" hidden></div>
+                        <button
+                            id="changes-pill"
+                            class="changes-pill"
+                            type="button"
+                            data-action="show-changes"
+                            aria-haspopup="dialog"
+                            aria-expanded="false"
+                            aria-controls="changes-peek"
+                            hidden
+                        >
+                            <svg aria-hidden="true"><use href="#i-layers" /></svg
+                            ><span data-text="changesPill"></span
+                            ><span class="changes-count"></span>
+                        </button>
+                        <div id="queue-list" class="queue-list" hidden></div>
+                        <form id="composer" class="composer" data-testid="composer">
+                            <div id="attachment-list" class="attachment-list" hidden></div>
+                            <textarea
+                                id="message-input"
+                                rows="1"
+                                maxlength="50000"
+                                data-label="messageLabel"
+                                aria-autocomplete="list"
+                            ></textarea>
+                            <div class="composer-toolbar">
+                                <div class="composer-context">
+                                    <button
+                                        id="attach-button"
+                                        class="icon-button attach-button"
+                                        type="button"
+                                        data-action="attach"
+                                        data-label="attach"
+                                    >
+                                        <svg aria-hidden="true"><use href="#i-plus" /></svg>
+                                    </button>
+                                    <button
+                                        id="instance-button"
+                                        class="chip-button"
+                                        type="button"
+                                        data-action="instance-picker"
+                                        data-label="instance"
+                                        aria-labelledby="instance-button instance-label"
+                                        aria-haspopup="dialog"
+                                        aria-expanded="false"
+                                        aria-controls="picker"
+                                    >
+                                        <svg aria-hidden="true"><use href="#i-cube" /></svg
+                                        ><span id="instance-label"></span
+                                        ><svg class="chevron" aria-hidden="true">
+                                            <use href="#i-down" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="composer-actions">
+                                    <label id="task-computer-use" class="chip-button" hidden>
+                                        <input id="task-computer-use-input" type="checkbox" />
+                                        <span data-text="taskComputerUse"></span>
+                                    </label>
+                                    <button
+                                        id="model-button"
+                                        class="chip-button model-button"
+                                        type="button"
+                                        data-action="model-picker"
+                                        data-label="model"
+                                        aria-labelledby="model-button model-label"
+                                        aria-haspopup="dialog"
+                                        aria-expanded="false"
+                                        aria-controls="picker"
+                                    >
+                                        <span id="model-dot" class="model-dot" hidden></span
+                                        ><span id="model-label"></span
+                                        ><svg class="chevron" aria-hidden="true">
+                                            <use href="#i-down" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        id="send-button"
+                                        class="send-button"
+                                        type="submit"
+                                        data-testid="send-message"
+                                    >
+                                        <svg class="send-icon" aria-hidden="true">
+                                            <use href="#i-up" /></svg
+                                        ><svg class="stop-icon" aria-hidden="true">
+                                            <use href="#i-stop" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        <p id="composer-note" class="composer-note" hidden></p>
+                    </div>
+                </div>
+            </main>
+            <aside
+                id="task-panel"
+                class="task-panel"
+                data-testid="task-panel"
+                aria-labelledby="task-panel-title"
+            >
+                <div class="panel-inner">
+                    <div class="panel-heading">
+                        <h2 id="task-panel-title" data-text="taskPanel"></h2>
+                        <button
+                            class="icon-button"
+                            type="button"
+                            data-action="toggle-tasks"
+                            data-label="closePanel"
+                        >
+                            <svg aria-hidden="true"><use href="#i-close" /></svg>
+                        </button>
+                    </div>
+                    <div id="task-content" class="task-content"></div>
+                </div>
+            </aside>
+        </div>
+        <div id="picker" class="popover picker" popover="auto" role="dialog">
+            <label class="search-field picker-search"
+                ><svg aria-hidden="true"><use href="#i-search" /></svg
+                ><input id="picker-search" type="search" autocomplete="off"
+            /></label>
+            <div id="picker-options" class="picker-options" role="listbox"></div>
+            <div id="picker-footer" class="picker-footer" hidden></div>
+        </div>
+        <div id="menu" class="popover menu" popover="auto" role="menu"></div>
+        <dialog id="palette" class="dialog palette" data-label="palette">
+            <label class="palette-search"
+                ><svg aria-hidden="true"><use href="#i-search" /></svg
+                ><input
+                    id="palette-input"
+                    type="text"
+                    role="combobox"
+                    aria-expanded="true"
+                    aria-controls="palette-list"
+                    aria-autocomplete="list"
+                    autocomplete="off"
+                    spellcheck="false"
+                    data-placeholder="paletteSearch"
+                    data-label="paletteSearch"
+                /><kbd aria-hidden="true">Esc</kbd></label
+            >
+            <div id="palette-list" class="palette-list" role="listbox" data-label="palette"></div>
+        </dialog>
+        <dialog id="help-dialog" class="dialog help-dialog" aria-labelledby="help-title">
+            <div class="dialog-heading">
+                <h2 id="help-title" data-text="helpTitle"></h2>
+                <button
+                    class="icon-button"
+                    type="button"
+                    data-action="close-dialog"
+                    data-label="close"
+                >
+                    <svg aria-hidden="true"><use href="#i-close" /></svg>
+                </button>
+            </div>
+            <div id="help-body" class="dialog-body"></div>
+        </dialog>
+        <dialog
+            id="settings-dialog"
+            class="dialog settings-dialog"
+            aria-labelledby="settings-title"
+        >
+            <div class="dialog-heading">
+                <h2 id="settings-title" data-text="settings"></h2>
+                <button
+                    class="icon-button"
+                    type="button"
+                    data-action="close-dialog"
+                    data-label="close"
+                >
+                    <svg aria-hidden="true"><use href="#i-close" /></svg>
+                </button>
+            </div>
+            <div class="dialog-body settings-body">
+                <section class="settings-section">
+                    <h3 data-text="permissionsTitle"></h3>
+                    <p class="settings-lead" data-text="permissionsLead"></p>
+                    <!-- Each control is named by its title and described by its hint
+                         and by the status line, so the name stays short. -->
+                    <label class="setting-row" for="permission-full-access">
+                        <span class="setting-copy"
+                            ><strong id="full-access-name" data-text="fullAccess"></strong
+                            ><span id="full-access-hint" data-text="fullAccessHint"></span
+                        ></span>
+                        <input
+                            id="permission-full-access"
+                            class="switch"
+                            type="checkbox"
+                            role="switch"
+                            aria-labelledby="full-access-name"
+                            aria-describedby="full-access-hint permission-status"
+                            disabled
+                        />
+                    </label>
+                    <label class="setting-row" for="permission-computer-use">
+                        <span class="setting-copy"
+                            ><strong id="computer-use-name" data-text="computerUse"></strong
+                            ><span id="computer-use-hint" data-text="computerUseHint"></span
+                        ></span>
+                        <input
+                            id="permission-computer-use"
+                            class="switch"
+                            type="checkbox"
+                            role="switch"
+                            aria-labelledby="computer-use-name"
+                            aria-describedby="computer-use-hint permission-status"
+                            disabled
+                        />
+                    </label>
+                    <p id="permission-status" class="settings-status" role="status"></p>
+                </section>
+                <section class="settings-section" hidden>
+                    <h3 data-text="conversationTitle"></h3>
+                    <div class="setting-row">
+                        <span class="setting-copy"
+                            ><strong id="detail-name" data-text="detailLabel"></strong
+                            ><span id="detail-hint" data-text="detailHint"></span
+                        ></span>
+                        <div
+                            id="detail-choice"
+                            class="segmented"
+                            role="radiogroup"
+                            aria-labelledby="detail-name"
+                            aria-describedby="detail-hint"
+                        >
+                            <button type="button" role="radio" data-detail="concise">
+                                <span data-text="detailConcise"></span>
+                            </button>
+                            <button type="button" role="radio" data-detail="balanced">
+                                <span data-text="detailBalanced"></span>
+                            </button>
+                            <button type="button" role="radio" data-detail="detailed">
+                                <span data-text="detailDetailed"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- A picture of the choice; the radio group carries it for
+                         screen readers. Built by renderSettings(). -->
+                    <div id="detail-preview" class="detail-preview" aria-hidden="true"></div>
+                    <label class="setting-field" for="instructions-input">
+                        <span class="setting-copy"
+                            ><strong id="instructions-name" data-text="instructionsLabel"></strong
+                            ><span id="instructions-hint" data-text="instructionsHint"></span
+                        ></span>
+                        <textarea
+                            id="instructions-input"
+                            rows="3"
+                            maxlength="2000"
+                            aria-labelledby="instructions-name"
+                            aria-describedby="instructions-hint"
+                            data-placeholder="instructionsPlaceholder"
+                        ></textarea>
+                    </label>
+                </section>
+                <section class="settings-section" hidden>
+                    <h3 data-text="historyTitle"></h3>
+                    <p class="settings-lead" data-text="localHistory"></p>
+                    <div class="settings-actions">
+                        <button class="secondary-button" type="button" data-action="export-history">
+                            <svg aria-hidden="true"><use href="#i-download" /></svg
+                            ><span data-text="exportHistory"></span>
+                        </button>
+                        <button
+                            class="secondary-button danger-text"
+                            type="button"
+                            data-action="clear-history"
+                        >
+                            <svg aria-hidden="true"><use href="#i-trash" /></svg
+                            ><span data-text="clearHistory"></span>
+                        </button>
+                    </div>
+                </section>
+                <section class="settings-section" hidden>
+                    <h3 data-text="aboutTitle"></h3>
+                    <p class="settings-lead" data-text="aboutModels"></p>
+                    <div class="settings-actions">
+                        <button class="secondary-button" type="button" data-action="show-intro">
+                            <svg aria-hidden="true"><use href="#i-help" /></svg
+                            ><span data-text="showIntro"></span>
+                        </button>
+                        <button class="secondary-button" type="button" data-action="replay-tour">
+                            <svg aria-hidden="true"><use href="#i-arrow-right" /></svg
+                            ><span data-text="replayTour"></span>
+                        </button>
+                    </div>
+                </section>
+                <p class="dialog-error" data-dialog-error role="alert" hidden></p>
+            </div>
+        </dialog>
+        <dialog
+            id="confirm-dialog"
+            class="dialog confirm-dialog"
+            aria-labelledby="confirm-title"
+            aria-describedby="confirm-text"
+        >
+            <form id="confirm-form" method="dialog">
+                <div class="confirm-body">
+                    <span id="confirm-icon" class="confirm-icon"></span>
+                    <h2 id="confirm-title"></h2>
+                    <p id="confirm-text"></p>
+                    <label id="rename-field" class="text-field" hidden
+                        ><span data-text="name"></span
+                        ><input id="rename-input" type="text" maxlength="120"
+                    /></label>
+                    <p class="dialog-error" data-dialog-error role="alert" hidden></p>
+                </div>
+                <div class="dialog-footer">
+                    <button
+                        id="confirm-cancel"
+                        class="secondary-button"
+                        type="button"
+                        data-action="close-dialog"
+                        data-text="cancel"
+                    ></button>
+                    <button id="confirm-accept" class="primary-button" type="submit"></button>
+                </div>
+            </form>
+        </dialog>
+        <input id="file-input" type="file" multiple hidden />
+        <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+        <!-- What the agent is doing, one line per change, for screen readers. -->
+        <div id="announcer" class="sr-only" role="status" aria-atomic="true"></div>
+        <div id="tip" class="tip" popover="manual" aria-hidden="true"></div>
+        <div
+            id="file-peek"
+            class="popover file-peek"
+            popover="auto"
+            role="dialog"
+            tabindex="-1"
+        ></div>
+        <div
+            id="changes-peek"
+            class="popover changes-peek"
+            popover="auto"
+            role="dialog"
+            tabindex="-1"
+            data-label="changesTitle"
+        ></div>
+    </body>
+</html>

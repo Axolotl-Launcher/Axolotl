@@ -867,6 +867,50 @@ fn main() {
                     ),
             )
             .plugin(
+                "agent-window",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "open_agent_window",
+                        "update_agent_window_appearance",
+                        "agent_window_action",
+                        "agent_window_is_maximized",
+                        "agent_window_get_appearance",
+                        "agent_window_get_context",
+                        "agent_window_get_permissions",
+                        "agent_window_set_permissions",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "agent-runtime",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "agent_runtime_load",
+                        "agent_runtime_save",
+                        "agent_runtime_import",
+                        "agent_runtime_delete",
+                        "agent_runtime_snapshot",
+                        "agent_runtime_events",
+                        "agent_runtime_submit",
+                        "agent_runtime_cancel",
+                        "agent_runtime_decide",
+                        "agent_worker_ready",
+                        "agent_worker_next",
+                        "agent_worker_catalog",
+                        "agent_worker_model",
+                        "agent_worker_tool",
+                        "agent_worker_approval",
+                        "agent_worker_event",
+                        "agent_worker_checkpoint",
+                        "agent_worker_complete",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "mcp",
                 InlinedPlugin::new()
                     .commands(&[

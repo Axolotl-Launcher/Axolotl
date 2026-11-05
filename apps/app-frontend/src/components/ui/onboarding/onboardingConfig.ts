@@ -27,6 +27,15 @@ export type OnboardingStep = {
 }
 
 export const onboardingMessages = defineMessages({
+    agentWindowTitle: {
+        id: 'app.onboarding.agent-window.title',
+        defaultMessage: 'Start an agent task',
+    },
+    agentWindowDescription: {
+        id: 'app.onboarding.agent-window.description',
+        defaultMessage:
+            'Open the Agent Window from the title bar. Its Agent guide explains how to choose a model and instance, track queued requests, and review permissions. You can reopen the guide whenever you need it.',
+    },
     mapAreaTitle: {
         id: 'app.onboarding.seed-map-area.title',
         defaultMessage: 'Analyze a selected area',
@@ -613,6 +622,12 @@ export const onboardingTours: Record<OnboardingMode, OnboardingStep[]> = {
             'home-layout-switch',
             onboardingMessages.homeLayoutTitle,
             onboardingMessages.homeLayoutDescription,
+        ),
+        inspect(
+            'agent-window',
+            'agent-window-open',
+            onboardingMessages.agentWindowTitle,
+            onboardingMessages.agentWindowDescription,
         ),
         step(
             'discover-navigation',

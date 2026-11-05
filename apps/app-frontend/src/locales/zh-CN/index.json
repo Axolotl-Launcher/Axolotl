@@ -1,13 +1,1117 @@
 {
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "暂时无法加载：{sources}" },
-  "app.schematics.sort.default": { "message": "来源默认顺序" },
-  "app.schematics.sort.name": { "message": "名称" },
+  "app.agent-window.chat.receipt-applied": {
+    "message": "已执行"
+  },
+  "app.agent-window.chat.receipt-failed": {
+    "message": "执行失败"
+  },
+  "app.agent-window.chat.receipt-skipped": {
+    "message": "未执行"
+  },
+  "app.agent-window.chat.receipt-unknown": {
+    "message": "尚未确认"
+  },
+  "app.agent-window.chat.native-unavailable": {
+    "message": "Agent 暂不可用，请重新打开窗口后重试。"
+  },
+  "app.agent-window.chat.task-computer-use": {
+    "message": "允许界面操作"
+  },
+  "app.agent-window.chat.attachment-unreadable": {
+    "message": "无法读取此文件，请添加文本文件或粘贴内容。"
+  },
+  "app.agent-window.chat.toggle-sidebar": {
+    "message": "显示或隐藏任务列表"
+  },
+  "app.agent-window.chat.help": {
+    "message": "使用说明"
+  },
+  "app.agent-window.chat.settings": {
+    "message": "设置"
+  },
+  "app.agent-window.chat.preview-badge": {
+    "message": "预览"
+  },
+  "app.agent-window.chat.preview-title": {
+    "message": "这是预览版"
+  },
+  "app.agent-window.chat.preview-body": {
+    "message": "Agent 尚未接入启动器。步骤和结果都是模拟的，用来展示任务如何进行。除了实例和模型列表，不会读取或修改启动器中的任何内容。"
+  },
+  "app.agent-window.chat.window-reveal-error": {
+    "message": "无法显示窗口，请从启动器重新打开。"
+  },
+  "app.agent-window.chat.window-action-error": {
+    "message": "窗口操作失败"
+  },
+  "app.agent-window.chat.new-chat": {
+    "message": "新建任务"
+  },
+  "app.agent-window.chat.search": {
+    "message": "搜索任务"
+  },
+  "app.agent-window.chat.conversations": {
+    "message": "任务历史"
+  },
+  "app.agent-window.chat.no-chats": {
+    "message": "任务会显示在这里"
+  },
+  "app.agent-window.chat.no-results": {
+    "message": "没有匹配的任务"
+  },
+  "app.agent-window.chat.today": {
+    "message": "今天"
+  },
+  "app.agent-window.chat.yesterday": {
+    "message": "昨天"
+  },
+  "app.agent-window.chat.earlier": {
+    "message": "更早"
+  },
+  "app.agent-window.chat.status-active": {
+    "message": "进行中"
+  },
+  "app.agent-window.chat.status-awaiting": {
+    "message": "等待你确认"
+  },
+  "app.agent-window.chat.status-attention": {
+    "message": "需要处理"
+  },
+  "app.agent-window.chat.status-unread": {
+    "message": "有新结果"
+  },
+  "app.agent-window.chat.more": {
+    "message": "更多操作"
+  },
+  "app.agent-window.chat.rename": {
+    "message": "重命名"
+  },
+  "app.agent-window.chat.delete-chat": {
+    "message": "删除"
+  },
+  "app.agent-window.chat.pin-chat": {
+    "message": "置顶"
+  },
+  "app.agent-window.chat.unpin-chat": {
+    "message": "取消置顶"
+  },
+  "app.agent-window.chat.copy-chat": {
+    "message": "复制整个对话"
+  },
+  "app.agent-window.chat.pinned": {
+    "message": "已置顶"
+  },
+  "app.agent-window.chat.untitled": {
+    "message": "新任务"
+  },
+  "app.agent-window.chat.task-panel": {
+    "message": "进度"
+  },
+  "app.agent-window.chat.close-panel": {
+    "message": "关闭进度面板"
+  },
+  "app.agent-window.chat.panel-empty": {
+    "message": "任务开始后，这里会显示进度。"
+  },
+  "app.agent-window.chat.panel-steps": {
+    "message": "步骤"
+  },
+  "app.agent-window.chat.panel-changes": {
+    "message": "改动"
+  },
+  "app.agent-window.chat.panel-log": {
+    "message": "执行记录"
+  },
+  "app.agent-window.chat.context": {
+    "message": "运行环境"
+  },
+  "app.agent-window.chat.instance-label": {
+    "message": "实例"
+  },
+  "app.agent-window.chat.model-label": {
+    "message": "模型"
+  },
+  "app.agent-window.chat.permission-label": {
+    "message": "权限"
+  },
+  "app.agent-window.chat.ask-first": {
+    "message": "改动前先询问"
+  },
+  "app.agent-window.chat.unselected": {
+    "message": "未选择"
+  },
+  "app.agent-window.chat.state-working": {
+    "message": "进行中"
+  },
+  "app.agent-window.chat.state-applying": {
+    "message": "正在应用"
+  },
+  "app.agent-window.chat.state-awaiting": {
+    "message": "等待确认"
+  },
+  "app.agent-window.chat.state-done": {
+    "message": "已完成"
+  },
+  "app.agent-window.chat.state-failed": {
+    "message": "失败"
+  },
+  "app.agent-window.chat.state-stopped": {
+    "message": "已停止"
+  },
+  "app.agent-window.chat.state-detached": {
+    "message": "结果未知"
+  },
+  "app.agent-window.chat.state-declined": {
+    "message": "已拒绝"
+  },
+  "app.agent-window.chat.state-superseded": {
+    "message": "已被替换"
+  },
+  "app.agent-window.chat.state-interrupted": {
+    "message": "已中断"
+  },
+  "app.agent-window.chat.welcome": {
+    "message": "想让 Agent 帮你做什么？"
+  },
+  "app.agent-window.chat.suggest-crash": {
+    "message": "排查崩溃"
+  },
+  "app.agent-window.chat.suggest-smooth": {
+    "message": "让游戏更流畅"
+  },
+  "app.agent-window.chat.suggest-backup": {
+    "message": "备份世界"
+  },
+  "app.agent-window.chat.suggest-pack": {
+    "message": "搭建整合包"
+  },
+  "app.agent-window.chat.suggest-crash-hint": {
+    "message": "读取崩溃报告，找出原因"
+  },
+  "app.agent-window.chat.suggest-smooth-hint": {
+    "message": "检查拖慢游戏的模组与设置"
+  },
+  "app.agent-window.chat.suggest-backup-hint": {
+    "message": "改动之前先存一份 ZIP"
+  },
+  "app.agent-window.chat.suggest-pack-hint": {
+    "message": "按你的内存挑选兼容模组"
+  },
+  "app.agent-window.chat.prompt-crash": {
+    "message": "我的游戏一启动就崩溃，帮我找出原因并给出修复方案。"
+  },
+  "app.agent-window.chat.prompt-smooth": {
+    "message": "游戏有点卡顿，帮我检查模组，看看怎样能更流畅。"
+  },
+  "app.agent-window.chat.prompt-backup": {
+    "message": "在改动之前，先帮我备份生存世界。"
+  },
+  "app.agent-window.chat.prompt-pack": {
+    "message": "帮我搭建一个适合 6 GB 内存的轻量生存整合包。"
+  },
+  "app.agent-window.chat.intro-title": {
+    "message": "使用说明"
+  },
+  "app.agent-window.chat.intro-dismiss": {
+    "message": "知道了"
+  },
+  "app.agent-window.chat.intro-describe-title": {
+    "message": "说出你的需求"
+  },
+  "app.agent-window.chat.intro-describe-body": {
+    "message": "用你自己的话描述想做的事。"
+  },
+  "app.agent-window.chat.intro-review-title": {
+    "message": "查看方案"
+  },
+  "app.agent-window.chat.intro-review-body": {
+    "message": "Agent 会先检查，再列出具体要改动的内容。"
+  },
+  "app.agent-window.chat.intro-approve-title": {
+    "message": "由你决定"
+  },
+  "app.agent-window.chat.intro-approve-body": {
+    "message": "你确认之前不会有任何改动，随时可以停止。"
+  },
+  "app.agent-window.chat.preview-note": {
+    "message": "预览：步骤和结果均为模拟，不会改动启动器。"
+  },
+  "app.agent-window.chat.message-label": {
+    "message": "消息"
+  },
+  "app.agent-window.chat.prompt": {
+    "message": "描述你想做的事，输入 / 调出快捷指令，@ 选择实例"
+  },
+  "app.agent-window.chat.slash-title": {
+    "message": "快捷指令"
+  },
+  "app.agent-window.chat.mention-title": {
+    "message": "选择要处理的实例"
+  },
+  "app.agent-window.chat.prompt-followup": {
+    "message": "继续提问…"
+  },
+  "app.agent-window.chat.prompt-queued": {
+    "message": "补充说明，会在 Agent 完成后发送"
+  },
+  "app.agent-window.chat.prompt-awaiting": {
+    "message": "对方案有疑问或想调整，可以直接说…"
+  },
+  "app.agent-window.chat.attach": {
+    "message": "添加附件"
+  },
+  "app.agent-window.chat.attachment-limit": {
+    "message": "最多添加 {count} 个附件"
+  },
+  "app.agent-window.chat.remove-attachment": {
+    "message": "移除 {name}"
+  },
+  "app.agent-window.chat.drop-files": {
+    "message": "松开即可添加为附件"
+  },
+  "app.agent-window.chat.instance": {
+    "message": "选择实例"
+  },
+  "app.agent-window.chat.all-launcher": {
+    "message": "整个启动器"
+  },
+  "app.agent-window.chat.all-launcher-hint": {
+    "message": "不限于单个实例"
+  },
+  "app.agent-window.chat.instances": {
+    "message": "实例"
+  },
+  "app.agent-window.chat.instance-search": {
+    "message": "搜索实例"
+  },
+  "app.agent-window.chat.no-instances": {
+    "message": "还没有实例"
+  },
+  "app.agent-window.chat.no-instance-matches": {
+    "message": "没有匹配的实例"
+  },
+  "app.agent-window.chat.context-removed": {
+    "message": "实例不可用"
+  },
+  "app.agent-window.chat.model": {
+    "message": "选择模型"
+  },
+  "app.agent-window.chat.no-model": {
+    "message": "选择模型"
+  },
+  "app.agent-window.chat.setup-model": {
+    "message": "设置模型"
+  },
+  "app.agent-window.chat.model-removed": {
+    "message": "模型不可用"
+  },
+  "app.agent-window.chat.model-search": {
+    "message": "搜索模型或供应商"
+  },
+  "app.agent-window.chat.no-models": {
+    "message": "没有启用的模型"
+  },
+  "app.agent-window.chat.ai-disabled": {
+    "message": "AI 功能已关闭"
+  },
+  "app.agent-window.chat.setup-model-hint": {
+    "message": "Agent 使用你自己的 AI 供应商。请在 Axolotl 中打开「设置 → AI 功能」，开启 AI 功能、添加供应商并启用模型，然后回来重新检查。"
+  },
+  "app.agent-window.chat.check-again": {
+    "message": "重新检查"
+  },
+  "app.agent-window.chat.no-model-matches": {
+    "message": "没有匹配的模型"
+  },
+  "app.agent-window.chat.byok": {
+    "message": "模型和密钥来自启动器的 AI 设置"
+  },
+  "app.agent-window.chat.send": {
+    "message": "发送"
+  },
+  "app.agent-window.chat.stop": {
+    "message": "停止"
+  },
+  "app.agent-window.chat.queue-message": {
+    "message": "Agent 完成后发送"
+  },
+  "app.agent-window.chat.queued-tag": {
+    "message": "排队中"
+  },
+  "app.agent-window.chat.send-now": {
+    "message": "立即发送"
+  },
+  "app.agent-window.chat.remove-queued": {
+    "message": "移出队列"
+  },
+  "app.agent-window.chat.jump-latest": {
+    "message": "跳到最新"
+  },
+  "app.agent-window.chat.copy": {
+    "message": "复制消息"
+  },
+  "app.agent-window.chat.copy-answer": {
+    "message": "复制回答"
+  },
+  "app.agent-window.chat.copy-text": {
+    "message": "复制文本"
+  },
+  "app.agent-window.chat.drop-to-pin": {
+    "message": "松手即置顶"
+  },
+  "app.agent-window.chat.drop-to-unpin": {
+    "message": "松手取消置顶"
+  },
+  "app.agent-window.chat.draft-short": {
+    "message": "草稿"
+  },
+  "app.agent-window.chat.draft-kept": {
+    "message": "未发送的草稿还在这里"
+  },
+  "app.agent-window.chat.feed-peek": {
+    "message": "拖到这里，喂给美西螈"
+  },
+  "app.agent-window.chat.feed-ready": {
+    "message": "松手，喂给美西螈"
+  },
+  "app.agent-window.chat.feed-ready-hint": {
+    "message": "这个任务会被删除"
+  },
+  "app.agent-window.chat.feed-ask": {
+    "message": "这个任务还留下了一些备份"
+  },
+  "app.agent-window.chat.feed-ask-body": {
+    "message": "要一起删掉吗？"
+  },
+  "app.agent-window.chat.keep-backups": {
+    "message": "留着"
+  },
+  "app.agent-window.chat.discard-backups": {
+    "message": "一起删掉"
+  },
+  "app.agent-window.chat.task-fed": {
+    "message": "任务已删除"
+  },
+  "app.agent-window.chat.undo": {
+    "message": "撤销"
+  },
+  "app.agent-window.chat.backups-discarded": {
+    "message": "已删除任务和 {count} 份备份。这是预览，没有真的动任何文件。"
+  },
+  "app.agent-window.chat.leftover-old": {
+    "message": "更新时留下的旧版本"
+  },
+  "app.agent-window.chat.leftover-replaced": {
+    "message": "回退时留下的版本"
+  },
+  "app.agent-window.chat.leftover-backup": {
+    "message": "这个任务创建的备份"
+  },
+  "app.agent-window.chat.detail-preview-java": {
+    "message": "检查 Java"
+  },
+  "app.agent-window.chat.detail-preview-memory": {
+    "message": "检查内存"
+  },
+  "app.agent-window.chat.detail-preview-pick": {
+    "message": "选择实例"
+  },
+  "app.agent-window.chat.detail-preview-read": {
+    "message": "读取实例"
+  },
+  "app.agent-window.chat.detail-preview-log": {
+    "message": "读取崩溃报告"
+  },
+  "app.agent-window.chat.detail-preview-now": {
+    "message": "正在读取崩溃报告…"
+  },
+  "app.agent-window.chat.detail-caption-concise": {
+    "message": "每组步骤收成一行，只显示当前这一步。"
+  },
+  "app.agent-window.chat.detail-caption-balanced": {
+    "message": "Agent 工作时展开步骤，完成后自动收起。"
+  },
+  "app.agent-window.chat.detail-caption-detailed": {
+    "message": "所有步骤保持展开，并显示用到的工具。"
+  },
+  "app.agent-window.chat.plan-lead": {
+    "message": "建议方案"
+  },
+  "app.agent-window.chat.tool-family-launcher": {
+    "message": "查看或管理启动器本身，比如它的版本和更新"
+  },
+  "app.agent-window.chat.tool-family-account": {
+    "message": "查看或管理你的 Minecraft 账号，比如用哪个账号游玩"
+  },
+  "app.agent-window.chat.tool-family-skin": {
+    "message": "查看或更换你的皮肤和披风"
+  },
+  "app.agent-window.chat.tool-family-java": {
+    "message": "查看、安装或选择启动 Minecraft 的 Java 运行环境"
+  },
+  "app.agent-window.chat.tool-family-core": {
+    "message": "查看或调整实例的核心组件，比如添加到 Minecraft.jar 的 JAR 模组"
+  },
+  "app.agent-window.chat.tool-family-modpack": {
+    "message": "检查并安装整合包，可以装成新实例，也可以装进已有实例"
+  },
+  "app.agent-window.chat.tool-family-download": {
+    "message": "查看或管理启动器的下载任务和下载历史"
+  },
+  "app.agent-window.chat.tool-family-file": {
+    "message": "读取或修改实例或服务器文件夹里的文件"
+  },
+  "app.agent-window.chat.tool-family-archive": {
+    "message": "在实例或服务器文件夹里创建或解压 ZIP 文件"
+  },
+  "app.agent-window.chat.tool-family-nbt": {
+    "message": "读取或修改 Minecraft 自己的数据文件，比如世界的 level.dat"
+  },
+  "app.agent-window.chat.tool-family-screenshot": {
+    "message": "查看或整理你的截图和截图分组"
+  },
+  "app.agent-window.chat.tool-family-schematic": {
+    "message": "打开投影文件，编辑或另存副本，原文件保持不变"
+  },
+  "app.agent-window.chat.tool-family-seed": {
+    "message": "根据世界种子推算会生成什么，比如群系、结构和矿石"
+  },
+  "app.agent-window.chat.tool-family-server-list": {
+    "message": "查看或修改实例的服务器列表，并检查服务器是否在线"
+  },
+  "app.agent-window.chat.tool-family-server": {
+    "message": "创建或运行你电脑上的本地服务器，比如启动或停止它"
+  },
+  "app.agent-window.chat.tool-family-multiplayer": {
+    "message": "查看或管理和好友的联机，比如创建或加入房间"
+  },
+  "app.agent-window.chat.tool-family-settings": {
+    "message": "查看或修改启动器的设置"
+  },
+  "app.agent-window.chat.tool-family-privacy": {
+    "message": "查看或修改你的隐私选项，比如匿名遥测和 Discord 活动状态"
+  },
+  "app.agent-window.chat.tool-family-network": {
+    "message": "检查或调整启动器的联网方式，比如代理"
+  },
+  "app.agent-window.chat.tool-family-storage": {
+    "message": "查看启动器占用了多少磁盘空间，并清理可以重建的缓存"
+  },
+  "app.agent-window.chat.tool-family-database": {
+    "message": "维护启动器自己的数据库，比如检查或备份它"
+  },
+  "app.agent-window.chat.tool-family-shortcut": {
+    "message": "在桌面创建一个可以直接启动实例的快捷方式"
+  },
+  "app.agent-window.chat.tool-family-news": {
+    "message": "读取最新的 Minecraft 新闻标题"
+  },
+  "app.agent-window.chat.tool-family-interface": {
+    "message": "查看或操作启动器的主窗口，比如替你点击按钮"
+  },
+  "app.agent-window.chat.tool-help-instance-list": {
+    "message": "查看你有哪些实例"
+  },
+  "app.agent-window.chat.tool-help-instance-get": {
+    "message": "读取实例的详细信息，比如 Minecraft 版本和加载器"
+  },
+  "app.agent-window.chat.tool-help-instance-create": {
+    "message": "新建一个实例并开始安装"
+  },
+  "app.agent-window.chat.tool-help-world-list": {
+    "message": "列出实例里的单人世界"
+  },
+  "app.agent-window.chat.tool-help-world-get": {
+    "message": "读取世界的详细信息，比如游戏模式和难度"
+  },
+  "app.agent-window.chat.tool-help-world-backup": {
+    "message": "把世界打包成 ZIP 备份，存进实例的备份文件夹"
+  },
+  "app.agent-window.chat.tool-help-resource-search": {
+    "message": "在 Modrinth 等网站上搜索模组、资源包或光影包"
+  },
+  "app.agent-window.chat.tool-help-resource-list-releases": {
+    "message": "列出某个模组或资源包适合该实例的版本"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-install": {
+    "message": "规划安装，检查还需要哪些前置，暂时不会安装"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-plan": {
+    "message": "按检查过的方案开始安装"
+  },
+  "app.agent-window.chat.tool-help-resource-check-updates": {
+    "message": "检查已安装的模组和资源包有没有合适的更新，但不会更新"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-update": {
+    "message": "规划更新并检查彼此是否兼容，暂时不会更新"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-changes": {
+    "message": "执行检查过的更新方案，替换旧文件"
+  },
+  "app.agent-window.chat.tool-help-resource-history-list": {
+    "message": "查看实例中模组最近的改动，以及哪些旧版本还能恢复"
+  },
+  "app.agent-window.chat.tool-help-resource-history-rollback": {
+    "message": "把模组换回你之前用过的版本"
+  },
+  "app.agent-window.chat.tool-help-content-list": {
+    "message": "列出实例里已安装的内容，以及各自是否启用"
+  },
+  "app.agent-window.chat.tool-help-logs-list": {
+    "message": "列出实例的日志和崩溃报告，但不打开"
+  },
+  "app.agent-window.chat.tool-help-logs-read": {
+    "message": "读取游戏日志，找出出错的地方"
+  },
+  "app.agent-window.chat.tool-help-backup-get-config": {
+    "message": "查看实例是否开启了快照，以及已有几个快照"
+  },
+  "app.agent-window.chat.tool-help-backup-create": {
+    "message": "给实例创建快照，以后可以用它恢复"
+  },
+  "app.agent-window.chat.tool-help-launch-set-memory": {
+    "message": "设置实例的游戏可以使用多少内存"
+  },
+  "app.agent-window.chat.tool-help-install-job-get": {
+    "message": "查看安装进度，以及是否安装成功"
+  },
+  "app.agent-window.chat.tool-help-operations-get": {
+    "message": "查看启动器在后台进行的操作是否已经完成"
+  },
+  "app.agent-window.chat.tool-help-process-list": {
+    "message": "检查启动器现在有没有正在运行的游戏"
+  },
+  "app.agent-window.chat.tool-help-system-get-memory": {
+    "message": "查看电脑共有多少内存，还剩多少可用"
+  },
+  "app.agent-window.chat.tool-help-metadata-list-loader-versions": {
+    "message": "查询某个 Minecraft 版本能用哪些版本的 Fabric 等加载器"
+  },
+  "app.agent-window.chat.tool-family-instance": {
+    "message": "查看或管理你的游戏实例"
+  },
+  "app.agent-window.chat.tool-family-world": {
+    "message": "查看或管理实例里的单人世界"
+  },
+  "app.agent-window.chat.tool-family-resource": {
+    "message": "查找和管理模组、资源包与光影包"
+  },
+  "app.agent-window.chat.tool-family-content": {
+    "message": "查看或调整实例里已安装的内容"
+  },
+  "app.agent-window.chat.tool-family-backup": {
+    "message": "查看或管理实例的快照，也就是可以用来恢复实例的备份"
+  },
+  "app.agent-window.chat.tool-family-logs": {
+    "message": "查看实例的日志和崩溃报告"
+  },
+  "app.agent-window.chat.tool-family-launch": {
+    "message": "查看或调整实例的启动设置，比如内存和 Java"
+  },
+  "app.agent-window.chat.tool-family-job": {
+    "message": "查看或管理启动器的后台操作，比如安装"
+  },
+  "app.agent-window.chat.tool-family-process": {
+    "message": "查看或结束从启动器打开的游戏"
+  },
+  "app.agent-window.chat.tool-family-system": {
+    "message": "调用电脑上的功能，比如查看内存或打开链接"
+  },
+  "app.agent-window.chat.tool-family-metadata": {
+    "message": "查询有哪些 Minecraft 版本和加载器版本"
+  },
+  "app.agent-window.chat.tool-generic": {
+    "message": "启动器工具"
+  },
+  "app.agent-window.chat.why": {
+    "message": "为什么？"
+  },
+  "app.agent-window.chat.ask-why": {
+    "message": "为什么要改 {name}？"
+  },
+  "app.agent-window.chat.tour-name": {
+    "message": "快速导览"
+  },
+  "app.agent-window.chat.tour-step": {
+    "message": "第 {current} 步，共 {total} 步"
+  },
+  "app.agent-window.chat.tour-compose-title": {
+    "message": "说出你想做的事"
+  },
+  "app.agent-window.chat.tour-compose-body": {
+    "message": "用自己的话写下来就行，就像问朋友一样，不用记任何命令。"
+  },
+  "app.agent-window.chat.tour-slash": {
+    "message": "常用操作的快捷指令"
+  },
+  "app.agent-window.chat.tour-mention": {
+    "message": "选择要处理的实例"
+  },
+  "app.agent-window.chat.tour-pickers-title": {
+    "message": "在哪儿做，用什么做"
+  },
+  "app.agent-window.chat.tour-instance": {
+    "message": "要处理的实例，或整个启动器"
+  },
+  "app.agent-window.chat.tour-model": {
+    "message": "它使用的 AI 模型，来自启动器设置"
+  },
+  "app.agent-window.chat.tour-safety-title": {
+    "message": "你点头，它才动手"
+  },
+  "app.agent-window.chat.tour-safety-body": {
+    "message": "发送后，Agent 会先检查，再给你看方案。你确认之后，它才会做改动。"
+  },
+  "app.agent-window.chat.tour-stop": {
+    "message": "随时可以停下"
+  },
+  "app.agent-window.chat.tour-skip": {
+    "message": "跳过"
+  },
+  "app.agent-window.chat.tour-back": {
+    "message": "上一步"
+  },
+  "app.agent-window.chat.tour-next": {
+    "message": "下一步"
+  },
+  "app.agent-window.chat.tour-finish": {
+    "message": "知道了"
+  },
+  "app.agent-window.chat.replay-tour": {
+    "message": "再看一遍导览"
+  },
+  "app.agent-window.chat.copied": {
+    "message": "已复制"
+  },
+  "app.agent-window.chat.copy-code": {
+    "message": "复制代码"
+  },
+  "app.agent-window.chat.link-copied": {
+    "message": "链接已复制"
+  },
+  "app.agent-window.chat.copy-error": {
+    "message": "复制失败"
+  },
+  "app.agent-window.chat.thinking": {
+    "message": "思考中…"
+  },
+  "app.agent-window.chat.working": {
+    "message": "正在处理…"
+  },
+  "app.agent-window.chat.applying": {
+    "message": "正在应用改动…"
+  },
+  "app.agent-window.chat.esc-to-stop": {
+    "message": "停止"
+  },
+  "app.agent-window.chat.steps-done": {
+    "message": "{count} 个步骤"
+  },
+  "app.agent-window.chat.steps-running": {
+    "message": "处理中 · 共 {count} 步"
+  },
+  "app.agent-window.chat.earlier-steps": {
+    "message": "显示前面 {count} 个步骤"
+  },
+  "app.agent-window.chat.steps-done-named": {
+    "message": "{title} · 共 {count} 步"
+  },
+  "app.agent-window.chat.answer-again": {
+    "message": "重新回答"
+  },
+  "app.agent-window.chat.mark-turn": {
+    "message": "在导航条中标记"
+  },
+  "app.agent-window.chat.unmark-turn": {
+    "message": "取消标记"
+  },
+  "app.agent-window.chat.marked": {
+    "message": "已标记"
+  },
+  "app.agent-window.chat.took-time": {
+    "message": "用时 {duration}"
+  },
+  "app.agent-window.chat.paste-name": {
+    "message": "粘贴的文本"
+  },
+  "app.agent-window.chat.paste-crash-name": {
+    "message": "崩溃报告"
+  },
+  "app.agent-window.chat.paste-log-name": {
+    "message": "游戏日志"
+  },
+  "app.agent-window.chat.line-count": {
+    "message": "{count} 行"
+  },
+  "app.agent-window.chat.changes-pill": {
+    "message": "本次改动"
+  },
+  "app.agent-window.chat.changes-title": {
+    "message": "这个任务改动了什么"
+  },
+  "app.agent-window.chat.changes-undo": {
+    "message": "让 Agent 撤销"
+  },
+  "app.agent-window.chat.undo-all-prompt": {
+    "message": "撤销这个任务里的所有改动"
+  },
+  "app.agent-window.chat.preview-file": {
+    "message": "预览 {name}"
+  },
+  "app.agent-window.chat.more-lines": {
+    "message": "还有 {count} 行"
+  },
+  "app.agent-window.chat.pasted-as-file": {
+    "message": "长文本已作为附件添加"
+  },
+  "app.agent-window.chat.paste-as-text": {
+    "message": "改为直接粘贴"
+  },
+  "app.agent-window.chat.manual-change": {
+    "message": "需手动"
+  },
+  "app.agent-window.chat.change-kind-update": {
+    "message": "更新"
+  },
+  "app.agent-window.chat.change-kind-rollback": {
+    "message": "回滚"
+  },
+  "app.agent-window.chat.change-kind-new": {
+    "message": "新建"
+  },
+  "app.agent-window.chat.change-kind-install": {
+    "message": "安装"
+  },
+  "app.agent-window.chat.change-kind-setting": {
+    "message": "设置"
+  },
+  "app.agent-window.chat.change-kind-backup": {
+    "message": "备份"
+  },
+  "app.agent-window.chat.change-kind-remove": {
+    "message": "移除"
+  },
+  "app.agent-window.chat.include-change": {
+    "message": "包含 {name}"
+  },
+  "app.agent-window.chat.excluded-count": {
+    "message": "将跳过 {count} 项：{names}"
+  },
+  "app.agent-window.chat.nothing-selected": {
+    "message": "至少保留一项改动"
+  },
+  "app.agent-window.chat.plan-applied-partial": {
+    "message": "已应用 {done} 项 · 跳过 {skipped} 项"
+  },
+  "app.agent-window.chat.rail-label": {
+    "message": "你的消息"
+  },
+  "app.agent-window.chat.jump-to": {
+    "message": "跳到“{text}”"
+  },
+  "app.agent-window.chat.approval-promise": {
+    "message": "确认之前不会改动任何内容"
+  },
+  "app.agent-window.chat.approval-waiting": {
+    "message": "等待你确认"
+  },
+  "app.agent-window.chat.approve": {
+    "message": "确认并应用"
+  },
+  "app.agent-window.chat.decline": {
+    "message": "拒绝"
+  },
+  "app.agent-window.chat.applying-progress": {
+    "message": "正在应用改动 · {done}/{total}"
+  },
+  "app.agent-window.chat.plan-applied": {
+    "message": "已应用"
+  },
+  "app.agent-window.chat.plan-declined": {
+    "message": "已拒绝，没有做任何改动。"
+  },
+  "app.agent-window.chat.plan-superseded": {
+    "message": "已被你的新消息替换"
+  },
+  "app.agent-window.chat.plan-stopped": {
+    "message": "未执行"
+  },
+  "app.agent-window.chat.plan-unknown": {
+    "message": "应用过程中被中断。可以核对状态，看看实际写入了哪些内容。"
+  },
+  "app.agent-window.chat.preview-result": {
+    "message": "预览中的模拟结果 · 实际没有改动"
+  },
+  "app.agent-window.chat.notice-stopped": {
+    "message": "已停止，没有做任何改动。"
+  },
+  "app.agent-window.chat.notice-interrupted": {
+    "message": "窗口关闭时任务被中断。"
+  },
+  "app.agent-window.chat.notice-detached": {
+    "message": "应用过程中已停止，部分改动可能已经写入。"
+  },
+  "app.agent-window.chat.retry": {
+    "message": "重试"
+  },
+  "app.agent-window.chat.check-status": {
+    "message": "核对状态"
+  },
+  "app.agent-window.chat.runtime-error": {
+    "message": "Agent 无法启动"
+  },
+  "app.agent-window.chat.toast-awaiting": {
+    "message": "「{title}」等待你确认"
+  },
+  "app.agent-window.chat.toast-done": {
+    "message": "「{title}」已完成"
+  },
+  "app.agent-window.chat.toast-failed": {
+    "message": "「{title}」遇到了问题"
+  },
+  "app.agent-window.chat.view": {
+    "message": "查看"
+  },
+  "app.agent-window.chat.permissions-title": {
+    "message": "权限设置"
+  },
+  "app.agent-window.chat.permissions-lead": {
+    "message": "默认情况下，Agent 每次改动前都会先征求你的确认。"
+  },
+  "app.agent-window.chat.full-access": {
+    "message": "完全访问"
+  },
+  "app.agent-window.chat.full-access-hint": {
+    "message": "允许删除内容等影响较大的操作。"
+  },
+  "app.agent-window.chat.computer-use": {
+    "message": "界面操作"
+  },
+  "app.agent-window.chat.computer-use-hint": {
+    "message": "仅在你明确要求时，允许 Agent 查看和操作启动器界面。"
+  },
+  "app.agent-window.chat.permission-pending": {
+    "message": "正在读取权限…"
+  },
+  "app.agent-window.chat.permission-future": {
+    "message": "重启启动器后，权限将恢复默认设置。"
+  },
+  "app.agent-window.chat.permission-unavailable": {
+    "message": "执行服务尚未连接，暂时无法修改权限。"
+  },
+  "app.agent-window.chat.permission-error": {
+    "message": "无法读取权限，请重新打开设置后重试。"
+  },
+  "app.agent-window.chat.permission-save-error": {
+    "message": "无法保存权限设置，已保留原设置。"
+  },
+  "app.agent-window.chat.full-access-warning-title": {
+    "message": "启用完全访问？"
+  },
+  "app.agent-window.chat.full-access-warning": {
+    "message": "执行服务接入后，Agent 将能删除内容、修改启动器数据，可能导致文件丢失。请只在你信任的任务中启用。"
+  },
+  "app.agent-window.chat.enable-full-access": {
+    "message": "启用完全访问"
+  },
+  "app.agent-window.chat.conversation-title": {
+    "message": "对话"
+  },
+  "app.agent-window.chat.detail-label": {
+    "message": "步骤显示"
+  },
+  "app.agent-window.chat.detail-hint": {
+    "message": "每次回答显示多少 Agent 的执行过程。"
+  },
+  "app.agent-window.chat.detail-concise": {
+    "message": "简洁"
+  },
+  "app.agent-window.chat.detail-balanced": {
+    "message": "适中"
+  },
+  "app.agent-window.chat.detail-detailed": {
+    "message": "详细"
+  },
+  "app.agent-window.chat.instructions-label": {
+    "message": "固定要求"
+  },
+  "app.agent-window.chat.instructions-hint": {
+    "message": "每次请求都会带上，比如回复用的语言、偏好的加载器。"
+  },
+  "app.agent-window.chat.instructions-placeholder": {
+    "message": "例如：用中文回答，优先 Fabric 模组，不要删除任何世界。"
+  },
+  "app.agent-window.chat.history-title": {
+    "message": "历史记录"
+  },
+  "app.agent-window.chat.local-history": {
+    "message": "任务只保存在这台设备上。"
+  },
+  "app.agent-window.chat.export-history": {
+    "message": "导出历史记录"
+  },
+  "app.agent-window.chat.clear-history": {
+    "message": "清除历史记录"
+  },
+  "app.agent-window.chat.clear-history-title": {
+    "message": "清除所有任务？"
+  },
+  "app.agent-window.chat.clear-history-body": {
+    "message": "这台设备上的所有任务都会被移除。如需留存，请先导出。当前草稿不受影响。"
+  },
+  "app.agent-window.chat.about-title": {
+    "message": "入门"
+  },
+  "app.agent-window.chat.about-models": {
+    "message": "Agent 使用你在启动器中设置的 AI 供应商和模型，API 密钥只保存在启动器中。"
+  },
+  "app.agent-window.chat.show-intro": {
+    "message": "重新显示入门说明"
+  },
+  "app.agent-window.chat.storage-saved": {
+    "message": "已保存"
+  },
+  "app.agent-window.chat.help-title": {
+    "message": "Agent 如何工作"
+  },
+  "app.agent-window.chat.help-lead": {
+    "message": "Agent 可以查看你的启动器并替你完成改动，每次改动前都会先请你确认方案。"
+  },
+  "app.agent-window.chat.help-facts-title": {
+    "message": "几点说明"
+  },
+  "app.agent-window.chat.help-fact-model": {
+    "message": "它使用你在启动器设置中配置的 AI 供应商，无需账号或订阅。"
+  },
+  "app.agent-window.chat.help-fact-scope": {
+    "message": "在输入框下方选择实例，可以让它专注于该实例的模组、日志和世界。"
+  },
+  "app.agent-window.chat.help-fact-screen": {
+    "message": "除非你开启「界面操作」并明确要求，否则它不会操作启动器界面。"
+  },
+  "app.agent-window.chat.shortcuts-title": {
+    "message": "快捷键"
+  },
+  "app.agent-window.chat.shortcut-send": {
+    "message": "发送"
+  },
+  "app.agent-window.chat.shortcut-newline": {
+    "message": "换行"
+  },
+  "app.agent-window.chat.shortcut-stop": {
+    "message": "停止正在进行的任务"
+  },
+  "app.agent-window.chat.shortcut-new": {
+    "message": "新建任务"
+  },
+  "app.agent-window.chat.shortcut-palette": {
+    "message": "打开命令菜单"
+  },
+  "app.agent-window.chat.shortcut-slash": {
+    "message": "在请求开头调出快捷指令"
+  },
+  "app.agent-window.chat.shortcut-mention": {
+    "message": "选择要处理的实例"
+  },
+  "app.agent-window.chat.shortcut-switch": {
+    "message": "上一个或下一个任务"
+  },
+  "app.agent-window.chat.palette": {
+    "message": "命令菜单"
+  },
+  "app.agent-window.chat.palette-search": {
+    "message": "输入命令，或搜索任务…"
+  },
+  "app.agent-window.chat.palette-actions": {
+    "message": "操作"
+  },
+  "app.agent-window.chat.palette-tasks": {
+    "message": "任务"
+  },
+  "app.agent-window.chat.toggle-panel": {
+    "message": "显示或隐藏进度面板"
+  },
+  "app.agent-window.chat.shortcut-sidebar": {
+    "message": "显示或隐藏任务列表"
+  },
+  "app.agent-window.chat.shortcut-settings": {
+    "message": "打开设置"
+  },
+  "app.agent-window.chat.edit-message": {
+    "message": "编辑后重新发送"
+  },
+  "app.agent-window.chat.delete-title": {
+    "message": "删除这个任务？"
+  },
+  "app.agent-window.chat.delete-body": {
+    "message": "该任务的记录将从这台设备上移除。"
+  },
+  "app.agent-window.chat.delete": {
+    "message": "删除"
+  },
+  "app.agent-window.chat.cancel": {
+    "message": "取消"
+  },
+  "app.agent-window.chat.save": {
+    "message": "保存"
+  },
+  "app.agent-window.chat.name": {
+    "message": "名称"
+  },
+  "app.agent-window.chat.close": {
+    "message": "关闭"
+  },
+  "app.agent-window.chat.context-error": {
+    "message": "无法读取启动器配置"
+  },
+  "app.agent-window.chat.storage-error": {
+    "message": "无法保存对话，请检查剩余存储空间。你输入的内容已保留。"
+  },
+  "app.agent-window.chat.storage-load-error": {
+    "message": "无法读取已保存的对话，新消息可能无法保存。"
+  },
+  "app.agent-window.chat.storage-recovery": {
+    "message": "无法读取已保存的历史记录。请先导出，再重置历史记录。"
+  },
+  "app.agent-window.chat.storage-export-error": {
+    "message": "无法导出历史记录，原始数据未受影响。"
+  },
+  "app.agent-window.chat.reset-history": {
+    "message": "重置历史记录"
+  },
+  "app.agent-window.chat.reset-history-warning": {
+    "message": "已保存的历史记录将被替换，建议先导出备份。当前草稿会保留。"
+  },
+  "app.agent-window.chat.export-draft": {
+    "message": "导出草稿"
+  },
+  "app.agent-window.open": {
+    "message": "打开智能体窗口"
+  },
+  "app.agent-window.title": {
+    "message": "Axolotl 智能体窗口"
+  },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "暂时无法加载：{sources}"
+  },
+  "app.schematics.sort.default": {
+    "message": "来源默认顺序"
+  },
+  "app.schematics.sort.name": {
+    "message": "名称"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count} 个来源需要<login-link>登录</login-link>"
   },
-  "app.schematics.open-source": { "message": "在来源网站查看" },
+  "app.schematics.open-source": {
+    "message": "在来源网站查看"
+  },
   "app.schematics.instances-error": {
     "message": "无法读取实例列表。"
   },
@@ -53,8 +1157,12 @@
   "app.schematics.search": {
     "message": "搜索投影"
   },
-  "app.schematics.sort.hot": { "message": "热门" },
-  "app.schematics.sort.featured": { "message": "精选" },
+  "app.schematics.sort.hot": {
+    "message": "热门"
+  },
+  "app.schematics.sort.featured": {
+    "message": "精选"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -67,11 +1175,21 @@
   "app.schematics.installing": {
     "message": "正在安装…"
   },
-  "app.schematics.preview": { "message": "预览" },
-  "app.schematics.files": { "message": "文件" },
-  "app.schematics.creator": { "message": "创作者" },
-  "app.schematics.source-heading": { "message": "来源" },
-  "app.schematics.preview-source": { "message": "拾木空间 · {fileName}" },
+  "app.schematics.preview": {
+    "message": "预览"
+  },
+  "app.schematics.files": {
+    "message": "文件"
+  },
+  "app.schematics.creator": {
+    "message": "创作者"
+  },
+  "app.schematics.source-heading": {
+    "message": "来源"
+  },
+  "app.schematics.preview-source": {
+    "message": "拾木空间 · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "已安装"
   },
@@ -8714,6 +9832,12 @@
   },
   "app.onboarding.action.start": {
     "message": "带我逛逛"
+  },
+  "app.onboarding.agent-window.description": {
+    "message": "从标题栏打开智能体窗口。窗口中的智能体使用指南会介绍如何选择模型和实例、查看等待队列，以及检查权限。需要时可以随时重新打开指南。"
+  },
+  "app.onboarding.agent-window.title": {
+    "message": "开始一个智能体任务"
   },
   "app.onboarding.ai.description": {
     "message": "统一连接文本模型供应商、选择要使用的模型，也可在这里一键关闭所有 AI 功能。"
@@ -20993,5 +22117,266 @@
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}} {dropped, plural, other {另有 # 个值因类型不合法被忽略。}}"
+  },
+  "app.agent-window.chat.native-connecting": {
+    "message": "正在连接…"
+  },
+  "app.agent-window.chat.approval-expired": {
+    "message": "方案已过期。点击重试，重新生成并确认方案。"
+  },
+  "app.agent-window.chat.review-launcher-changes": {
+    "message": "确认启动器改动"
+  },
+  "app.agent-window.chat.editing-message": {
+    "message": "正在修改消息 · 后续回复将重新生成，已执行的改动不会撤销。"
+  },
+  "app.agent-window.chat.save-and-resend": {
+    "message": "保存并重新发送"
+  },
+  "app.agent-window.chat.argument-unset": {
+    "message": "未设置"
+  },
+  "app.agent-window.chat.argument-empty": {
+    "message": "空"
+  },
+  "app.agent-window.chat.argument-yes": {
+    "message": "是"
+  },
+  "app.agent-window.chat.argument-no": {
+    "message": "否"
+  },
+  "app.agent-window.chat.argument-name": {
+    "message": "名称"
+  },
+  "app.agent-window.chat.argument-instance-id": {
+    "message": "实例"
+  },
+  "app.agent-window.chat.argument-game-version": {
+    "message": "Minecraft 版本"
+  },
+  "app.agent-window.chat.argument-loader": {
+    "message": "模组加载器"
+  },
+  "app.agent-window.chat.argument-loader-version": {
+    "message": "加载器版本"
+  },
+  "app.agent-window.chat.argument-version": {
+    "message": "版本"
+  },
+  "app.agent-window.chat.argument-source": {
+    "message": "来源"
+  },
+  "app.agent-window.chat.argument-project-id": {
+    "message": "项目"
+  },
+  "app.agent-window.chat.argument-release-id": {
+    "message": "发布版本"
+  },
+  "app.agent-window.chat.argument-resource-type": {
+    "message": "资源类型"
+  },
+  "app.agent-window.chat.argument-plan-id": {
+    "message": "方案"
+  },
+  "app.agent-window.chat.argument-revision": {
+    "message": "修订版本"
+  },
+  "app.agent-window.chat.argument-entry-id": {
+    "message": "内容条目"
+  },
+  "app.agent-window.chat.argument-enabled": {
+    "message": "启用"
+  },
+  "app.agent-window.chat.argument-path": {
+    "message": "路径"
+  },
+  "app.agent-window.chat.argument-directory": {
+    "message": "目录"
+  },
+  "app.agent-window.chat.argument-world-id": {
+    "message": "世界"
+  },
+  "app.agent-window.chat.argument-server-id": {
+    "message": "服务器"
+  },
+  "app.agent-window.chat.argument-job-id": {
+    "message": "任务"
+  },
+  "app.agent-window.chat.argument-operation-id": {
+    "message": "操作"
+  },
+  "app.agent-window.chat.argument-memory": {
+    "message": "内存"
+  },
+  "app.agent-window.chat.argument-min-mb": {
+    "message": "最小内存（MiB）"
+  },
+  "app.agent-window.chat.argument-max-mb": {
+    "message": "最大内存（MiB）"
+  },
+  "app.agent-window.chat.argument-java-id": {
+    "message": "Java 运行时"
+  },
+  "app.agent-window.chat.argument-account-id": {
+    "message": "账户"
+  },
+  "app.agent-window.chat.argument-content": {
+    "message": "内容"
+  },
+  "app.agent-window.chat.argument-text": {
+    "message": "文本"
+  },
+  "app.agent-window.chat.argument-command": {
+    "message": "命令"
+  },
+  "app.agent-window.chat.argument-value": {
+    "message": "值"
+  },
+  "app.agent-window.chat.argument-key": {
+    "message": "设置项"
+  },
+  "app.agent-window.chat.argument-overwrite": {
+    "message": "覆盖"
+  },
+  "app.agent-window.chat.argument-recursive": {
+    "message": "包含子目录"
+  },
+  "app.agent-window.chat.argument-destination": {
+    "message": "目标路径"
+  },
+  "app.agent-window.chat.argument-target": {
+    "message": "目标"
+  },
+  "app.agent-window.chat.argument-format": {
+    "message": "格式"
+  },
+  "app.agent-window.chat.argument-group": {
+    "message": "分组"
+  },
+  "app.agent-window.chat.argument-group-id": {
+    "message": "分组"
+  },
+  "app.agent-window.chat.argument-mod-loader": {
+    "message": "模组加载器"
+  },
+  "app.agent-window.chat.argument-mod-loader-version": {
+    "message": "加载器版本"
+  },
+  "app.agent-window.chat.argument-channel": {
+    "message": "通道"
+  },
+  "app.agent-window.chat.argument-snapshot-id": {
+    "message": "备份快照"
+  },
+  "app.agent-window.chat.argument-confirm": {
+    "message": "确认"
+  },
+  "app.agent-window.chat.argument-ignore-dependencies": {
+    "message": "跳过依赖"
+  },
+  "app.agent-window.chat.argument-accept-compatibility-nodes": {
+    "message": "接受兼容性冲突"
+  },
+  "app.agent-window.chat.install-resource-count": {
+    "message": "安装方案 · {count} 项"
+  },
+  "app.agent-window.chat.update-resource-count": {
+    "message": "更新方案 · {count} 项"
+  },
+  "app.agent-window.chat.install-modpack": {
+    "message": "安装 {name}"
+  },
+  "app.agent-window.chat.plan-game-versions": {
+    "message": "支持的 Minecraft 版本"
+  },
+  "app.agent-window.chat.pack-replacement-effect": {
+    "message": "将替换受管理的整合包内容，可能覆盖配置文件或移除文件。"
+  },
+  "app.agent-window.chat.pack-new-instance-effect": {
+    "message": "将创建新实例并安装所选整合包版本。"
+  },
+  "app.agent-window.chat.plan-replace": {
+    "message": "替换"
+  },
+  "app.agent-window.chat.plan-enable": {
+    "message": "启用"
+  },
+  "app.agent-window.chat.plan-keep": {
+    "message": "保留"
+  },
+  "app.agent-window.chat.plan-dependency": {
+    "message": "依赖"
+  },
+  "app.agent-window.chat.plan-dependencies-skipped": {
+    "message": "此方案将跳过依赖分析。"
+  },
+  "app.agent-window.chat.plan-dependency-install-skipped": {
+    "message": "此方案不会自动安装依赖。"
+  },
+  "app.agent-window.chat.plan-subject": {
+    "message": "相关资源"
+  },
+  "app.agent-window.chat.plan-required": {
+    "message": "要求"
+  },
+  "app.agent-window.chat.plan-actual": {
+    "message": "当前"
+  },
+  "app.agent-window.chat.plan-original-details": {
+    "message": "原始说明"
+  },
+  "app.agent-window.chat.plan-compatibility-accepted": {
+    "message": "{name}：已选择接受{dimensions}兼容性冲突。"
+  },
+  "app.agent-window.chat.plan-details-unavailable": {
+    "message": "此旧记录未保存安装方案明细。"
+  },
+  "app.agent-window.chat.technical-details": {
+    "message": "技术详情"
+  },
+  "app.agent-window.chat.plan-issue-source-unavailable": {
+    "message": "资源来源不可用"
+  },
+  "app.agent-window.chat.plan-issue-identity-unconfirmed": {
+    "message": "资源身份尚未确认"
+  },
+  "app.agent-window.chat.plan-issue-version-conflict": {
+    "message": "资源版本冲突"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-unknown": {
+    "message": "兼容性尚未确认"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-mismatch": {
+    "message": "游戏版本或加载器不兼容"
+  },
+  "app.agent-window.chat.plan-issue-artifact-mismatch": {
+    "message": "所选文件不匹配"
+  },
+  "app.agent-window.chat.plan-issue-invalid-path": {
+    "message": "安装路径无效"
+  },
+  "app.agent-window.chat.plan-issue-missing-dependency": {
+    "message": "缺少必要依赖"
+  },
+  "app.agent-window.chat.plan-issue-dependency-analysis-failed": {
+    "message": "依赖分析失败"
+  },
+  "app.agent-window.chat.plan-issue-stale-revision": {
+    "message": "方案已失效"
+  },
+  "app.agent-window.chat.plan-issue-manual-download-required": {
+    "message": "需要手动下载文件"
+  },
+  "app.agent-window.chat.plan-issue-file-not-writable": {
+    "message": "目标文件不可写"
+  },
+  "app.agent-window.chat.plan-issue-file-write-skipped": {
+    "message": "将跳过文件写入"
+  },
+  "app.agent-window.chat.plan-world-scope": {
+    "message": "世界：{path}"
+  },
+  "app.agent-window.chat.plan-issue-unknown": {
+    "message": "方案警告"
   }
 }

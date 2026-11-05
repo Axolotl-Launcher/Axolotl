@@ -1,0 +1,220 @@
+/*
+ * The agent's mark: the launcher's own 3D axolotl, rendered into sprite
+ * strips by dev/render-mascot.py and played here with steps().
+ *
+ * mascot.js builds <span class="axo" data-mood="...">. Size it with width and
+ * height (keep it square, whole pixels avoid sub-pixel wobble between
+ * frames). Add .axo-sm to marks drawn under ~48 px: those use strips rendered
+ * for 28 px instead of shrinking the 96 px ones.
+ *
+ * Each mood only has strips at the sizes that play it, and a mood without a
+ * strip at a size has no rule here, so it shows idle instead:
+ *   both sizes  idle, happy
+ *   large only  hello, look, attend
+ *   small only  think, work, sad, nod
+ *
+ * Every strip is one row of square frames, so background-size is the frame
+ * count times 100% and frame k sits at k / (frames - 1) * 100%. steps(n,
+ * jump-none) shows every frame, first and last included, for 1/n of the
+ * duration. Frame counts and durations must match dev/render-mascot.py.
+ *
+ * Each mood has its own keyframes name so changing data-mood always starts
+ * the new mood from its first frame. idle, think and work loop seamlessly;
+ * the others play once and hold their last frame, which is the rest pose for
+ * all but sad and attend. On a change, mascot.js freezes the frame it left on
+ * the ::after ghost, which fades out over the new mood.
+ */
+
+.axo {
+    --axo-frames: 72;
+    position: relative;
+    display: inline-block;
+    flex: none;
+    width: 96px;
+    height: 96px;
+    vertical-align: middle;
+    background-image: url('/mascot/idle.png');
+    background-repeat: no-repeat;
+    background-position: 0% 0%;
+    background-size: calc(var(--axo-frames) * 100%) 100%;
+    animation: axo-idle 2.4s steps(var(--axo-frames), jump-none) infinite;
+    pointer-events: none;
+    user-select: none;
+}
+
+.axo-sm {
+    width: 28px;
+    height: 28px;
+    background-image: url('/mascot/idle-sm.png');
+}
+
+.axo[data-mood='happy'] {
+    --axo-frames: 27;
+    background-image: url('/mascot/happy.png');
+    animation: axo-happy 0.9s steps(var(--axo-frames), jump-none) both;
+}
+
+.axo.axo-sm[data-mood='happy'] {
+    background-image: url('/mascot/happy-sm.png');
+}
+
+.axo:not(.axo-sm)[data-mood='hello'] {
+    --axo-frames: 45;
+    background-image: url('/mascot/hello.png');
+    animation: axo-hello 1.5s steps(var(--axo-frames), jump-none) both;
+}
+
+.axo:not(.axo-sm)[data-mood='look'] {
+    --axo-frames: 54;
+    background-image: url('/mascot/look.png');
+    animation: axo-look 1.8s steps(var(--axo-frames), jump-none) both;
+}
+
+/* Without animation (reduced motion, or a host that strips it) attend and sad
+   still show their held last frame; every other mood shows the rest pose. */
+.axo:not(.axo-sm)[data-mood='attend'] {
+    --axo-frames: 15;
+    background-image: url('/mascot/attend.png');
+    background-position: 100% 0%;
+    animation: axo-attend 0.5s steps(var(--axo-frames), jump-none) both;
+}
+
+.axo.axo-sm[data-mood='think'] {
+    --axo-frames: 36;
+    background-image: url('/mascot/think-sm.png');
+    animation: axo-think 1.2s steps(var(--axo-frames), jump-none) infinite;
+}
+
+.axo.axo-sm[data-mood='work'] {
+    --axo-frames: 27;
+    background-image: url('/mascot/work-sm.png');
+    animation: axo-work 0.9s steps(var(--axo-frames), jump-none) infinite;
+}
+
+.axo.axo-sm[data-mood='sad'] {
+    --axo-frames: 24;
+    background-image: url('/mascot/sad-sm.png');
+    background-position: 100% 0%;
+    animation: axo-sad 0.8s steps(var(--axo-frames), jump-none) both;
+}
+
+.axo.axo-sm[data-mood='nod'] {
+    --axo-frames: 21;
+    background-image: url('/mascot/nod-sm.png');
+    animation: axo-nod 0.7s steps(var(--axo-frames), jump-none) both;
+}
+
+/* The frame a mood change cut away from, set by mascot.js through inline
+   custom properties. It fades out over the new mood, so moods cross-dissolve
+   instead of cutting; GHOST_MS in mascot.js matches the duration. */
+.axo[data-ghost]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--axo-ghost-image);
+    background-repeat: no-repeat;
+    background-position: var(--axo-ghost-x) 0%;
+    background-size: calc(var(--axo-ghost-frames) * 100%) 100%;
+    animation: axo-ghost 180ms ease-out both;
+}
+
+@keyframes axo-idle {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-think {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-work {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-happy {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-sad {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-hello {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-look {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-attend {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-nod {
+    from {
+        background-position: 0% 0%;
+    }
+    to {
+        background-position: 100% 0%;
+    }
+}
+
+@keyframes axo-ghost {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+/* The mood rules are more specific than .axo, hence !important. */
+@media (prefers-reduced-motion: reduce) {
+    .axo {
+        animation: none !important;
+    }
+
+    .axo[data-ghost]::after {
+        display: none;
+    }
+}

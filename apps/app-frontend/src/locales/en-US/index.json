@@ -1,13 +1,1117 @@
 {
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
-  "app.schematics.sort.default": { "message": "Source order" },
-  "app.schematics.sort.name": { "message": "Name" },
+  "app.agent-window.chat.receipt-applied": {
+    "message": "Applied"
+  },
+  "app.agent-window.chat.receipt-failed": {
+    "message": "Failed"
+  },
+  "app.agent-window.chat.receipt-skipped": {
+    "message": "Not executed"
+  },
+  "app.agent-window.chat.receipt-unknown": {
+    "message": "Not confirmed"
+  },
+  "app.agent-window.chat.native-unavailable": {
+    "message": "Agent is unavailable. Reopen the window and retry."
+  },
+  "app.agent-window.chat.task-computer-use": {
+    "message": "Allow launcher UI"
+  },
+  "app.agent-window.chat.attachment-unreadable": {
+    "message": "Could not read this file. Attach a text file or paste its contents."
+  },
+  "app.agent-window.chat.toggle-sidebar": {
+    "message": "Show or hide the task list"
+  },
+  "app.agent-window.chat.help": {
+    "message": "How it works"
+  },
+  "app.agent-window.chat.settings": {
+    "message": "Settings"
+  },
+  "app.agent-window.chat.preview-badge": {
+    "message": "Preview"
+  },
+  "app.agent-window.chat.preview-title": {
+    "message": "This is a preview"
+  },
+  "app.agent-window.chat.preview-body": {
+    "message": "The agent isn’t connected to the launcher yet. Its steps and results are simulated to show how tasks work. Apart from your instance and model lists, nothing in the launcher is read or changed."
+  },
+  "app.agent-window.chat.window-reveal-error": {
+    "message": "Could not show the window. Reopen it from the launcher."
+  },
+  "app.agent-window.chat.window-action-error": {
+    "message": "Window action failed"
+  },
+  "app.agent-window.chat.new-chat": {
+    "message": "New task"
+  },
+  "app.agent-window.chat.search": {
+    "message": "Search tasks"
+  },
+  "app.agent-window.chat.conversations": {
+    "message": "Task history"
+  },
+  "app.agent-window.chat.no-chats": {
+    "message": "Your tasks will appear here"
+  },
+  "app.agent-window.chat.no-results": {
+    "message": "No matching tasks"
+  },
+  "app.agent-window.chat.today": {
+    "message": "Today"
+  },
+  "app.agent-window.chat.yesterday": {
+    "message": "Yesterday"
+  },
+  "app.agent-window.chat.earlier": {
+    "message": "Earlier"
+  },
+  "app.agent-window.chat.status-active": {
+    "message": "Working"
+  },
+  "app.agent-window.chat.status-awaiting": {
+    "message": "Waiting for your approval"
+  },
+  "app.agent-window.chat.status-attention": {
+    "message": "Needs attention"
+  },
+  "app.agent-window.chat.status-unread": {
+    "message": "New result"
+  },
+  "app.agent-window.chat.more": {
+    "message": "More actions"
+  },
+  "app.agent-window.chat.rename": {
+    "message": "Rename"
+  },
+  "app.agent-window.chat.delete-chat": {
+    "message": "Delete"
+  },
+  "app.agent-window.chat.pin-chat": {
+    "message": "Pin to top"
+  },
+  "app.agent-window.chat.unpin-chat": {
+    "message": "Unpin"
+  },
+  "app.agent-window.chat.copy-chat": {
+    "message": "Copy conversation"
+  },
+  "app.agent-window.chat.pinned": {
+    "message": "Pinned"
+  },
+  "app.agent-window.chat.untitled": {
+    "message": "New task"
+  },
+  "app.agent-window.chat.task-panel": {
+    "message": "Progress"
+  },
+  "app.agent-window.chat.close-panel": {
+    "message": "Close progress"
+  },
+  "app.agent-window.chat.panel-empty": {
+    "message": "Progress for this task appears here once it starts."
+  },
+  "app.agent-window.chat.panel-steps": {
+    "message": "Steps"
+  },
+  "app.agent-window.chat.panel-changes": {
+    "message": "Changes"
+  },
+  "app.agent-window.chat.panel-log": {
+    "message": "Activity"
+  },
+  "app.agent-window.chat.context": {
+    "message": "Runs with"
+  },
+  "app.agent-window.chat.instance-label": {
+    "message": "Instance"
+  },
+  "app.agent-window.chat.model-label": {
+    "message": "Model"
+  },
+  "app.agent-window.chat.permission-label": {
+    "message": "Permissions"
+  },
+  "app.agent-window.chat.ask-first": {
+    "message": "Ask before changes"
+  },
+  "app.agent-window.chat.unselected": {
+    "message": "Not selected"
+  },
+  "app.agent-window.chat.state-working": {
+    "message": "Working"
+  },
+  "app.agent-window.chat.state-applying": {
+    "message": "Applying changes"
+  },
+  "app.agent-window.chat.state-awaiting": {
+    "message": "Needs your approval"
+  },
+  "app.agent-window.chat.state-done": {
+    "message": "Done"
+  },
+  "app.agent-window.chat.state-failed": {
+    "message": "Failed"
+  },
+  "app.agent-window.chat.state-stopped": {
+    "message": "Stopped"
+  },
+  "app.agent-window.chat.state-detached": {
+    "message": "Result unknown"
+  },
+  "app.agent-window.chat.state-declined": {
+    "message": "Declined"
+  },
+  "app.agent-window.chat.state-superseded": {
+    "message": "Replaced"
+  },
+  "app.agent-window.chat.state-interrupted": {
+    "message": "Interrupted"
+  },
+  "app.agent-window.chat.welcome": {
+    "message": "What can I help you with?"
+  },
+  "app.agent-window.chat.suggest-crash": {
+    "message": "Fix a crash"
+  },
+  "app.agent-window.chat.suggest-smooth": {
+    "message": "Make the game smoother"
+  },
+  "app.agent-window.chat.suggest-backup": {
+    "message": "Back up a world"
+  },
+  "app.agent-window.chat.suggest-pack": {
+    "message": "Set up a modpack"
+  },
+  "app.agent-window.chat.suggest-crash-hint": {
+    "message": "Read the crash report and find the cause"
+  },
+  "app.agent-window.chat.suggest-smooth-hint": {
+    "message": "Check mods and settings that slow it down"
+  },
+  "app.agent-window.chat.suggest-backup-hint": {
+    "message": "Save a ZIP before you change anything"
+  },
+  "app.agent-window.chat.suggest-pack-hint": {
+    "message": "Pick compatible mods for your memory"
+  },
+  "app.agent-window.chat.prompt-crash": {
+    "message": "My game crashes on launch. Find out why and suggest a fix."
+  },
+  "app.agent-window.chat.prompt-smooth": {
+    "message": "My game stutters. Check my mods and suggest how to make it run smoother."
+  },
+  "app.agent-window.chat.prompt-backup": {
+    "message": "Back up my survival world before I change anything."
+  },
+  "app.agent-window.chat.prompt-pack": {
+    "message": "Set up a lightweight survival modpack that runs well with 6 GB of memory."
+  },
+  "app.agent-window.chat.intro-title": {
+    "message": "How it works"
+  },
+  "app.agent-window.chat.intro-dismiss": {
+    "message": "Got it"
+  },
+  "app.agent-window.chat.intro-describe-title": {
+    "message": "Describe it"
+  },
+  "app.agent-window.chat.intro-describe-body": {
+    "message": "Say what you want in your own words."
+  },
+  "app.agent-window.chat.intro-review-title": {
+    "message": "Review the plan"
+  },
+  "app.agent-window.chat.intro-review-body": {
+    "message": "The agent checks your setup and lists exactly what it would change."
+  },
+  "app.agent-window.chat.intro-approve-title": {
+    "message": "You decide"
+  },
+  "app.agent-window.chat.intro-approve-body": {
+    "message": "Nothing changes until you approve. You can stop it at any time."
+  },
+  "app.agent-window.chat.preview-note": {
+    "message": "Preview: steps and results are simulated. Nothing in your launcher changes."
+  },
+  "app.agent-window.chat.message-label": {
+    "message": "Message"
+  },
+  "app.agent-window.chat.prompt": {
+    "message": "Describe what you want. Type / for shortcuts, @ for an instance"
+  },
+  "app.agent-window.chat.slash-title": {
+    "message": "Shortcuts"
+  },
+  "app.agent-window.chat.mention-title": {
+    "message": "Work on an instance"
+  },
+  "app.agent-window.chat.prompt-followup": {
+    "message": "Ask a follow-up…"
+  },
+  "app.agent-window.chat.prompt-queued": {
+    "message": "Add a follow-up. It’s sent when the agent finishes."
+  },
+  "app.agent-window.chat.prompt-awaiting": {
+    "message": "Ask about the plan or request changes…"
+  },
+  "app.agent-window.chat.attach": {
+    "message": "Attach files"
+  },
+  "app.agent-window.chat.attachment-limit": {
+    "message": "You can attach up to {count} files"
+  },
+  "app.agent-window.chat.remove-attachment": {
+    "message": "Remove {name}"
+  },
+  "app.agent-window.chat.drop-files": {
+    "message": "Drop files to attach them"
+  },
+  "app.agent-window.chat.instance": {
+    "message": "Choose an instance"
+  },
+  "app.agent-window.chat.all-launcher": {
+    "message": "Entire launcher"
+  },
+  "app.agent-window.chat.all-launcher-hint": {
+    "message": "Not limited to one instance"
+  },
+  "app.agent-window.chat.instances": {
+    "message": "Instances"
+  },
+  "app.agent-window.chat.instance-search": {
+    "message": "Search instances"
+  },
+  "app.agent-window.chat.no-instances": {
+    "message": "No instances yet"
+  },
+  "app.agent-window.chat.no-instance-matches": {
+    "message": "No matching instances"
+  },
+  "app.agent-window.chat.context-removed": {
+    "message": "Instance unavailable"
+  },
+  "app.agent-window.chat.model": {
+    "message": "Choose a model"
+  },
+  "app.agent-window.chat.no-model": {
+    "message": "Choose a model"
+  },
+  "app.agent-window.chat.setup-model": {
+    "message": "Set up a model"
+  },
+  "app.agent-window.chat.model-removed": {
+    "message": "Model unavailable"
+  },
+  "app.agent-window.chat.model-search": {
+    "message": "Search models or providers"
+  },
+  "app.agent-window.chat.no-models": {
+    "message": "No models enabled"
+  },
+  "app.agent-window.chat.ai-disabled": {
+    "message": "AI is turned off"
+  },
+  "app.agent-window.chat.setup-model-hint": {
+    "message": "The agent uses your own AI provider. In Axolotl, open Settings → AI, turn AI on, add a provider and enable a model, then check again."
+  },
+  "app.agent-window.chat.check-again": {
+    "message": "Check again"
+  },
+  "app.agent-window.chat.no-model-matches": {
+    "message": "No matching models"
+  },
+  "app.agent-window.chat.byok": {
+    "message": "Models and keys come from the launcher’s AI settings"
+  },
+  "app.agent-window.chat.send": {
+    "message": "Send"
+  },
+  "app.agent-window.chat.stop": {
+    "message": "Stop"
+  },
+  "app.agent-window.chat.queue-message": {
+    "message": "Send when the agent finishes"
+  },
+  "app.agent-window.chat.queued-tag": {
+    "message": "Queued"
+  },
+  "app.agent-window.chat.send-now": {
+    "message": "Send now"
+  },
+  "app.agent-window.chat.remove-queued": {
+    "message": "Remove from queue"
+  },
+  "app.agent-window.chat.jump-latest": {
+    "message": "Jump to latest"
+  },
+  "app.agent-window.chat.copy": {
+    "message": "Copy message"
+  },
+  "app.agent-window.chat.copy-answer": {
+    "message": "Copy answer"
+  },
+  "app.agent-window.chat.copy-text": {
+    "message": "Copy text"
+  },
+  "app.agent-window.chat.drop-to-pin": {
+    "message": "Release to pin"
+  },
+  "app.agent-window.chat.drop-to-unpin": {
+    "message": "Release to unpin"
+  },
+  "app.agent-window.chat.draft-short": {
+    "message": "Draft"
+  },
+  "app.agent-window.chat.draft-kept": {
+    "message": "Your unsent draft is waiting here"
+  },
+  "app.agent-window.chat.feed-peek": {
+    "message": "Drag here to feed it to the axolotl"
+  },
+  "app.agent-window.chat.feed-ready": {
+    "message": "Let go to feed it to the axolotl"
+  },
+  "app.agent-window.chat.feed-ready-hint": {
+    "message": "This deletes the task"
+  },
+  "app.agent-window.chat.feed-ask": {
+    "message": "This task left some backups behind"
+  },
+  "app.agent-window.chat.feed-ask-body": {
+    "message": "Delete them as well?"
+  },
+  "app.agent-window.chat.keep-backups": {
+    "message": "Keep them"
+  },
+  "app.agent-window.chat.discard-backups": {
+    "message": "Delete them too"
+  },
+  "app.agent-window.chat.task-fed": {
+    "message": "Task deleted"
+  },
+  "app.agent-window.chat.undo": {
+    "message": "Undo"
+  },
+  "app.agent-window.chat.backups-discarded": {
+    "message": "Deleted the task and {count} backups. This is a preview: no files were actually touched."
+  },
+  "app.agent-window.chat.leftover-old": {
+    "message": "Old version kept when it was updated"
+  },
+  "app.agent-window.chat.leftover-replaced": {
+    "message": "Version kept when it was rolled back"
+  },
+  "app.agent-window.chat.leftover-backup": {
+    "message": "Backup this task made"
+  },
+  "app.agent-window.chat.detail-preview-java": {
+    "message": "Check Java"
+  },
+  "app.agent-window.chat.detail-preview-memory": {
+    "message": "Check memory"
+  },
+  "app.agent-window.chat.detail-preview-pick": {
+    "message": "Choose the instance"
+  },
+  "app.agent-window.chat.detail-preview-read": {
+    "message": "Read the instance"
+  },
+  "app.agent-window.chat.detail-preview-log": {
+    "message": "Read the crash report"
+  },
+  "app.agent-window.chat.detail-preview-now": {
+    "message": "Reading the crash report…"
+  },
+  "app.agent-window.chat.detail-caption-concise": {
+    "message": "Each group folds into one line that shows only the step at hand."
+  },
+  "app.agent-window.chat.detail-caption-balanced": {
+    "message": "Steps show while the agent works and fold away when it’s done."
+  },
+  "app.agent-window.chat.detail-caption-detailed": {
+    "message": "Every step stays open, with the tool it used."
+  },
+  "app.agent-window.chat.plan-lead": {
+    "message": "Proposed plan"
+  },
+  "app.agent-window.chat.tool-family-launcher": {
+    "message": "Looks at or manages the launcher itself, like its version and updates"
+  },
+  "app.agent-window.chat.tool-family-account": {
+    "message": "Looks at or manages your Minecraft accounts, like which one you play as"
+  },
+  "app.agent-window.chat.tool-family-skin": {
+    "message": "Looks at or changes your skins and capes"
+  },
+  "app.agent-window.chat.tool-family-java": {
+    "message": "Looks at, installs, or picks the Java runtimes that start Minecraft"
+  },
+  "app.agent-window.chat.tool-family-core": {
+    "message": "Looks at or changes an instance’s core components, like JAR mods added to Minecraft.jar"
+  },
+  "app.agent-window.chat.tool-family-modpack": {
+    "message": "Checks and installs modpacks, as a new instance or into one you already have"
+  },
+  "app.agent-window.chat.tool-family-download": {
+    "message": "Checks on or manages the launcher’s downloads and download history"
+  },
+  "app.agent-window.chat.tool-family-file": {
+    "message": "Reads or changes files in an instance’s or server’s folder"
+  },
+  "app.agent-window.chat.tool-family-archive": {
+    "message": "Makes or unpacks ZIP files in an instance’s or server’s folder"
+  },
+  "app.agent-window.chat.tool-family-nbt": {
+    "message": "Reads or edits Minecraft’s own data files, like a world’s level.dat"
+  },
+  "app.agent-window.chat.tool-family-screenshot": {
+    "message": "Looks at or organizes your screenshots and their groups"
+  },
+  "app.agent-window.chat.tool-family-schematic": {
+    "message": "Opens schematics and edits or saves copies, leaving the original files as they are"
+  },
+  "app.agent-window.chat.tool-family-seed": {
+    "message": "Works out what a world’s seed generates, like biomes, structures, and ores"
+  },
+  "app.agent-window.chat.tool-family-server-list": {
+    "message": "Reads or edits an instance’s server list, and checks whether a server is online"
+  },
+  "app.agent-window.chat.tool-family-server": {
+    "message": "Sets up or runs local servers on your computer, like starting or stopping one"
+  },
+  "app.agent-window.chat.tool-family-multiplayer": {
+    "message": "Looks at or manages online play with friends, like hosting or joining a room"
+  },
+  "app.agent-window.chat.tool-family-settings": {
+    "message": "Reads or changes the launcher’s settings"
+  },
+  "app.agent-window.chat.tool-family-privacy": {
+    "message": "Reads or changes your privacy choices, like anonymous telemetry and Discord Rich Presence"
+  },
+  "app.agent-window.chat.tool-family-network": {
+    "message": "Checks or changes how the launcher connects to the internet, like its proxy"
+  },
+  "app.agent-window.chat.tool-family-storage": {
+    "message": "Checks how much disk space the launcher uses, and clears caches it can rebuild"
+  },
+  "app.agent-window.chat.tool-family-database": {
+    "message": "Looks after the launcher’s own database, like checking or backing it up"
+  },
+  "app.agent-window.chat.tool-family-shortcut": {
+    "message": "Puts a shortcut on your desktop that starts an instance"
+  },
+  "app.agent-window.chat.tool-family-news": {
+    "message": "Reads the latest Minecraft news headlines"
+  },
+  "app.agent-window.chat.tool-family-interface": {
+    "message": "Looks at or uses the launcher’s main window, like clicking a button for you"
+  },
+  "app.agent-window.chat.tool-help-instance-list": {
+    "message": "Looks at the list of your instances"
+  },
+  "app.agent-window.chat.tool-help-instance-get": {
+    "message": "Reads an instance’s details, like its Minecraft version and mod loader"
+  },
+  "app.agent-window.chat.tool-help-instance-create": {
+    "message": "Sets up a new instance and starts installing it"
+  },
+  "app.agent-window.chat.tool-help-world-list": {
+    "message": "Lists the singleplayer worlds in an instance"
+  },
+  "app.agent-window.chat.tool-help-world-get": {
+    "message": "Reads a world’s details, like its game mode and difficulty"
+  },
+  "app.agent-window.chat.tool-help-world-backup": {
+    "message": "Saves a copy of a world as a ZIP file in the instance’s backups folder"
+  },
+  "app.agent-window.chat.tool-help-resource-search": {
+    "message": "Searches a site such as Modrinth for mods, resource packs, or shaders"
+  },
+  "app.agent-window.chat.tool-help-resource-list-releases": {
+    "message": "Lists the versions of a mod or pack that fit an instance"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-install": {
+    "message": "Plans an install and checks what else it needs, without installing anything yet"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-plan": {
+    "message": "Starts the install that a checked plan describes"
+  },
+  "app.agent-window.chat.tool-help-resource-check-updates": {
+    "message": "Checks installed mods and packs for updates that fit, without updating them"
+  },
+  "app.agent-window.chat.tool-help-resource-prepare-update": {
+    "message": "Plans updates and checks that they work together, without applying them yet"
+  },
+  "app.agent-window.chat.tool-help-resource-execute-changes": {
+    "message": "Carries out a checked update plan, replacing the old files"
+  },
+  "app.agent-window.chat.tool-help-resource-history-list": {
+    "message": "Shows recent changes to an instance’s mods, and which old versions can be restored"
+  },
+  "app.agent-window.chat.tool-help-resource-history-rollback": {
+    "message": "Puts a mod back to a version you had before"
+  },
+  "app.agent-window.chat.tool-help-content-list": {
+    "message": "Lists what’s installed in an instance and whether each item is turned on"
+  },
+  "app.agent-window.chat.tool-help-logs-list": {
+    "message": "Lists an instance’s logs and crash reports without opening them"
+  },
+  "app.agent-window.chat.tool-help-logs-read": {
+    "message": "Reads a game log to find what went wrong"
+  },
+  "app.agent-window.chat.tool-help-backup-get-config": {
+    "message": "Checks whether an instance has snapshots turned on, and how many it has"
+  },
+  "app.agent-window.chat.tool-help-backup-create": {
+    "message": "Takes a snapshot of an instance that you can restore later"
+  },
+  "app.agent-window.chat.tool-help-launch-set-memory": {
+    "message": "Sets how much memory an instance’s game can use"
+  },
+  "app.agent-window.chat.tool-help-install-job-get": {
+    "message": "Checks how an install is going and whether it worked"
+  },
+  "app.agent-window.chat.tool-help-operations-get": {
+    "message": "Checks whether something the launcher started in the background has finished"
+  },
+  "app.agent-window.chat.tool-help-process-list": {
+    "message": "Checks whether the launcher has a game running right now"
+  },
+  "app.agent-window.chat.tool-help-system-get-memory": {
+    "message": "Checks how much memory your computer has, and how much is free"
+  },
+  "app.agent-window.chat.tool-help-metadata-list-loader-versions": {
+    "message": "Looks up the versions of a mod loader, such as Fabric, for a Minecraft version"
+  },
+  "app.agent-window.chat.tool-family-instance": {
+    "message": "Looks at or manages your game instances"
+  },
+  "app.agent-window.chat.tool-family-world": {
+    "message": "Looks at or manages an instance’s singleplayer worlds"
+  },
+  "app.agent-window.chat.tool-family-resource": {
+    "message": "Finds and manages mods, resource packs, and shaders"
+  },
+  "app.agent-window.chat.tool-family-content": {
+    "message": "Looks at or changes what’s installed in an instance"
+  },
+  "app.agent-window.chat.tool-family-backup": {
+    "message": "Looks at or manages an instance’s snapshots, the backups it can be restored from"
+  },
+  "app.agent-window.chat.tool-family-logs": {
+    "message": "Looks through an instance’s logs and crash reports"
+  },
+  "app.agent-window.chat.tool-family-launch": {
+    "message": "Reads or changes how an instance starts, like its memory and Java"
+  },
+  "app.agent-window.chat.tool-family-job": {
+    "message": "Checks on or manages work the launcher does in the background, like installs"
+  },
+  "app.agent-window.chat.tool-family-process": {
+    "message": "Checks on or stops a game the launcher started"
+  },
+  "app.agent-window.chat.tool-family-system": {
+    "message": "Uses your computer, like checking its memory or opening a link"
+  },
+  "app.agent-window.chat.tool-family-metadata": {
+    "message": "Looks up which Minecraft and mod loader versions exist"
+  },
+  "app.agent-window.chat.tool-generic": {
+    "message": "A launcher tool"
+  },
+  "app.agent-window.chat.why": {
+    "message": "Why?"
+  },
+  "app.agent-window.chat.ask-why": {
+    "message": "Why change {name}?"
+  },
+  "app.agent-window.chat.tour-name": {
+    "message": "Quick tour"
+  },
+  "app.agent-window.chat.tour-step": {
+    "message": "Step {current} of {total}"
+  },
+  "app.agent-window.chat.tour-compose-title": {
+    "message": "Say what you want"
+  },
+  "app.agent-window.chat.tour-compose-body": {
+    "message": "Write it in your own words, the way you’d ask a friend. There are no commands to learn."
+  },
+  "app.agent-window.chat.tour-slash": {
+    "message": "Shortcuts for common jobs"
+  },
+  "app.agent-window.chat.tour-mention": {
+    "message": "Pick an instance to work on"
+  },
+  "app.agent-window.chat.tour-pickers-title": {
+    "message": "Where it works, and with what"
+  },
+  "app.agent-window.chat.tour-instance": {
+    "message": "The instance it works on, or the whole launcher"
+  },
+  "app.agent-window.chat.tour-model": {
+    "message": "The AI model it uses, from your launcher settings"
+  },
+  "app.agent-window.chat.tour-safety-title": {
+    "message": "Nothing changes without you"
+  },
+  "app.agent-window.chat.tour-safety-body": {
+    "message": "After you send, the agent looks first and shows you a plan. It only makes changes once you approve."
+  },
+  "app.agent-window.chat.tour-stop": {
+    "message": "Stop it at any time"
+  },
+  "app.agent-window.chat.tour-skip": {
+    "message": "Skip"
+  },
+  "app.agent-window.chat.tour-back": {
+    "message": "Back"
+  },
+  "app.agent-window.chat.tour-next": {
+    "message": "Next"
+  },
+  "app.agent-window.chat.tour-finish": {
+    "message": "Got it"
+  },
+  "app.agent-window.chat.replay-tour": {
+    "message": "Take the tour again"
+  },
+  "app.agent-window.chat.copied": {
+    "message": "Copied"
+  },
+  "app.agent-window.chat.copy-code": {
+    "message": "Copy code"
+  },
+  "app.agent-window.chat.link-copied": {
+    "message": "Link copied"
+  },
+  "app.agent-window.chat.copy-error": {
+    "message": "Couldn’t copy"
+  },
+  "app.agent-window.chat.thinking": {
+    "message": "Thinking…"
+  },
+  "app.agent-window.chat.working": {
+    "message": "Working…"
+  },
+  "app.agent-window.chat.applying": {
+    "message": "Applying changes…"
+  },
+  "app.agent-window.chat.esc-to-stop": {
+    "message": "to stop"
+  },
+  "app.agent-window.chat.steps-done": {
+    "message": "{count} steps"
+  },
+  "app.agent-window.chat.steps-running": {
+    "message": "Working · {count} steps"
+  },
+  "app.agent-window.chat.earlier-steps": {
+    "message": "Show {count} earlier steps"
+  },
+  "app.agent-window.chat.steps-done-named": {
+    "message": "{title} · {count} steps"
+  },
+  "app.agent-window.chat.answer-again": {
+    "message": "Answer again"
+  },
+  "app.agent-window.chat.mark-turn": {
+    "message": "Mark in the navigator"
+  },
+  "app.agent-window.chat.unmark-turn": {
+    "message": "Remove the mark"
+  },
+  "app.agent-window.chat.marked": {
+    "message": "Marked"
+  },
+  "app.agent-window.chat.took-time": {
+    "message": "Took {duration}"
+  },
+  "app.agent-window.chat.paste-name": {
+    "message": "Pasted text"
+  },
+  "app.agent-window.chat.paste-crash-name": {
+    "message": "Crash report"
+  },
+  "app.agent-window.chat.paste-log-name": {
+    "message": "Game log"
+  },
+  "app.agent-window.chat.line-count": {
+    "message": "{count} lines"
+  },
+  "app.agent-window.chat.changes-pill": {
+    "message": "Changes in this task"
+  },
+  "app.agent-window.chat.changes-title": {
+    "message": "What this task changed"
+  },
+  "app.agent-window.chat.changes-undo": {
+    "message": "Ask to undo them"
+  },
+  "app.agent-window.chat.undo-all-prompt": {
+    "message": "Undo all the changes in this task"
+  },
+  "app.agent-window.chat.preview-file": {
+    "message": "Preview {name}"
+  },
+  "app.agent-window.chat.more-lines": {
+    "message": "{count} more lines"
+  },
+  "app.agent-window.chat.pasted-as-file": {
+    "message": "Long text was attached as a file"
+  },
+  "app.agent-window.chat.paste-as-text": {
+    "message": "Paste as text"
+  },
+  "app.agent-window.chat.manual-change": {
+    "message": "Do it yourself"
+  },
+  "app.agent-window.chat.change-kind-update": {
+    "message": "Update"
+  },
+  "app.agent-window.chat.change-kind-rollback": {
+    "message": "Roll back"
+  },
+  "app.agent-window.chat.change-kind-new": {
+    "message": "New"
+  },
+  "app.agent-window.chat.change-kind-install": {
+    "message": "Install"
+  },
+  "app.agent-window.chat.change-kind-setting": {
+    "message": "Setting"
+  },
+  "app.agent-window.chat.change-kind-backup": {
+    "message": "Backup"
+  },
+  "app.agent-window.chat.change-kind-remove": {
+    "message": "Remove"
+  },
+  "app.agent-window.chat.include-change": {
+    "message": "Include {name}"
+  },
+  "app.agent-window.chat.excluded-count": {
+    "message": "Skipping {count}: {names}"
+  },
+  "app.agent-window.chat.nothing-selected": {
+    "message": "Keep at least one change"
+  },
+  "app.agent-window.chat.plan-applied-partial": {
+    "message": "Applied {done} · skipped {skipped}"
+  },
+  "app.agent-window.chat.rail-label": {
+    "message": "Your messages"
+  },
+  "app.agent-window.chat.jump-to": {
+    "message": "Jump to “{text}”"
+  },
+  "app.agent-window.chat.approval-promise": {
+    "message": "Nothing changes until you approve"
+  },
+  "app.agent-window.chat.approval-waiting": {
+    "message": "Waiting for your approval"
+  },
+  "app.agent-window.chat.approve": {
+    "message": "Approve and apply"
+  },
+  "app.agent-window.chat.decline": {
+    "message": "Decline"
+  },
+  "app.agent-window.chat.applying-progress": {
+    "message": "Applying changes · {done}/{total}"
+  },
+  "app.agent-window.chat.plan-applied": {
+    "message": "Applied"
+  },
+  "app.agent-window.chat.plan-declined": {
+    "message": "Declined. Nothing was changed."
+  },
+  "app.agent-window.chat.plan-superseded": {
+    "message": "Replaced by your newer message"
+  },
+  "app.agent-window.chat.plan-stopped": {
+    "message": "Not carried out"
+  },
+  "app.agent-window.chat.plan-unknown": {
+    "message": "Interrupted while applying. Check the status to see what was written."
+  },
+  "app.agent-window.chat.preview-result": {
+    "message": "Simulated in preview · nothing was changed"
+  },
+  "app.agent-window.chat.notice-stopped": {
+    "message": "Stopped. Nothing was changed."
+  },
+  "app.agent-window.chat.notice-interrupted": {
+    "message": "Interrupted when the window closed."
+  },
+  "app.agent-window.chat.notice-detached": {
+    "message": "Stopped while applying. Some changes may already be written."
+  },
+  "app.agent-window.chat.retry": {
+    "message": "Retry"
+  },
+  "app.agent-window.chat.check-status": {
+    "message": "Check status"
+  },
+  "app.agent-window.chat.runtime-error": {
+    "message": "The agent couldn’t start"
+  },
+  "app.agent-window.chat.toast-awaiting": {
+    "message": "“{title}” needs your approval"
+  },
+  "app.agent-window.chat.toast-done": {
+    "message": "“{title}” is done"
+  },
+  "app.agent-window.chat.toast-failed": {
+    "message": "“{title}” ran into a problem"
+  },
+  "app.agent-window.chat.view": {
+    "message": "View"
+  },
+  "app.agent-window.chat.permissions-title": {
+    "message": "Permissions"
+  },
+  "app.agent-window.chat.permissions-lead": {
+    "message": "By default the agent asks before every change."
+  },
+  "app.agent-window.chat.full-access": {
+    "message": "Full access"
+  },
+  "app.agent-window.chat.full-access-hint": {
+    "message": "Allow high-impact actions such as deleting content."
+  },
+  "app.agent-window.chat.computer-use": {
+    "message": "Interface control"
+  },
+  "app.agent-window.chat.computer-use-hint": {
+    "message": "Observe and operate the launcher only when you explicitly request it."
+  },
+  "app.agent-window.chat.permission-pending": {
+    "message": "Loading permissions…"
+  },
+  "app.agent-window.chat.permission-future": {
+    "message": "Permissions reset when you restart the launcher."
+  },
+  "app.agent-window.chat.permission-unavailable": {
+    "message": "The execution service is not connected. Permissions cannot be changed yet."
+  },
+  "app.agent-window.chat.permission-error": {
+    "message": "Could not load permissions. Reopen settings to retry."
+  },
+  "app.agent-window.chat.permission-save-error": {
+    "message": "Could not save permissions. Your previous settings are kept."
+  },
+  "app.agent-window.chat.full-access-warning-title": {
+    "message": "Enable full access?"
+  },
+  "app.agent-window.chat.full-access-warning": {
+    "message": "The agent will be able to delete content and modify launcher data when execution is available. Files may be lost. Enable this only for tasks you trust."
+  },
+  "app.agent-window.chat.enable-full-access": {
+    "message": "Enable full access"
+  },
+  "app.agent-window.chat.conversation-title": {
+    "message": "Conversation"
+  },
+  "app.agent-window.chat.detail-label": {
+    "message": "Steps shown"
+  },
+  "app.agent-window.chat.detail-hint": {
+    "message": "How much of the agent’s work each answer shows."
+  },
+  "app.agent-window.chat.detail-concise": {
+    "message": "Concise"
+  },
+  "app.agent-window.chat.detail-balanced": {
+    "message": "Balanced"
+  },
+  "app.agent-window.chat.detail-detailed": {
+    "message": "Detailed"
+  },
+  "app.agent-window.chat.instructions-label": {
+    "message": "Standing instructions"
+  },
+  "app.agent-window.chat.instructions-hint": {
+    "message": "Sent with every request, such as the language to answer in or the loader you prefer."
+  },
+  "app.agent-window.chat.instructions-placeholder": {
+    "message": "For example: answer in English, prefer Fabric mods, never delete a world."
+  },
+  "app.agent-window.chat.history-title": {
+    "message": "History"
+  },
+  "app.agent-window.chat.local-history": {
+    "message": "Tasks are saved on this device only."
+  },
+  "app.agent-window.chat.export-history": {
+    "message": "Export history"
+  },
+  "app.agent-window.chat.clear-history": {
+    "message": "Clear history"
+  },
+  "app.agent-window.chat.clear-history-title": {
+    "message": "Clear all tasks?"
+  },
+  "app.agent-window.chat.clear-history-body": {
+    "message": "Every task on this device will be removed. Export first if you want a copy. Your current draft is kept."
+  },
+  "app.agent-window.chat.about-title": {
+    "message": "Getting started"
+  },
+  "app.agent-window.chat.about-models": {
+    "message": "The agent uses the AI providers and models you set up in the launcher. Your API keys stay there."
+  },
+  "app.agent-window.chat.show-intro": {
+    "message": "Show the intro again"
+  },
+  "app.agent-window.chat.storage-saved": {
+    "message": "Saved"
+  },
+  "app.agent-window.chat.help-title": {
+    "message": "How the agent works"
+  },
+  "app.agent-window.chat.help-lead": {
+    "message": "The agent can look into your launcher and make changes for you, one approved plan at a time."
+  },
+  "app.agent-window.chat.help-facts-title": {
+    "message": "Good to know"
+  },
+  "app.agent-window.chat.help-fact-model": {
+    "message": "It uses your own AI provider from the launcher settings. There’s no account or subscription."
+  },
+  "app.agent-window.chat.help-fact-scope": {
+    "message": "Pick an instance below the message box to focus on its mods, logs and worlds."
+  },
+  "app.agent-window.chat.help-fact-screen": {
+    "message": "It never controls the launcher’s interface unless you turn on Interface control and ask it to."
+  },
+  "app.agent-window.chat.shortcuts-title": {
+    "message": "Keyboard shortcuts"
+  },
+  "app.agent-window.chat.shortcut-send": {
+    "message": "Send"
+  },
+  "app.agent-window.chat.shortcut-newline": {
+    "message": "New line"
+  },
+  "app.agent-window.chat.shortcut-stop": {
+    "message": "Stop the running task"
+  },
+  "app.agent-window.chat.shortcut-new": {
+    "message": "New task"
+  },
+  "app.agent-window.chat.shortcut-palette": {
+    "message": "Open the command menu"
+  },
+  "app.agent-window.chat.shortcut-slash": {
+    "message": "Shortcuts at the start of a request"
+  },
+  "app.agent-window.chat.shortcut-mention": {
+    "message": "Pick the instance to work on"
+  },
+  "app.agent-window.chat.shortcut-switch": {
+    "message": "Previous or next task"
+  },
+  "app.agent-window.chat.palette": {
+    "message": "Command menu"
+  },
+  "app.agent-window.chat.palette-search": {
+    "message": "Type a command or search tasks…"
+  },
+  "app.agent-window.chat.palette-actions": {
+    "message": "Actions"
+  },
+  "app.agent-window.chat.palette-tasks": {
+    "message": "Tasks"
+  },
+  "app.agent-window.chat.toggle-panel": {
+    "message": "Show or hide progress"
+  },
+  "app.agent-window.chat.shortcut-sidebar": {
+    "message": "Show or hide the task list"
+  },
+  "app.agent-window.chat.shortcut-settings": {
+    "message": "Open settings"
+  },
+  "app.agent-window.chat.edit-message": {
+    "message": "Edit and send again"
+  },
+  "app.agent-window.chat.delete-title": {
+    "message": "Delete this task?"
+  },
+  "app.agent-window.chat.delete-body": {
+    "message": "Its history will be removed from this device."
+  },
+  "app.agent-window.chat.delete": {
+    "message": "Delete"
+  },
+  "app.agent-window.chat.cancel": {
+    "message": "Cancel"
+  },
+  "app.agent-window.chat.save": {
+    "message": "Save"
+  },
+  "app.agent-window.chat.name": {
+    "message": "Name"
+  },
+  "app.agent-window.chat.close": {
+    "message": "Close"
+  },
+  "app.agent-window.chat.context-error": {
+    "message": "Could not load launcher configuration"
+  },
+  "app.agent-window.chat.storage-error": {
+    "message": "Could not save the conversation. Check available storage. Your input is kept."
+  },
+  "app.agent-window.chat.storage-load-error": {
+    "message": "Could not read saved conversations. New messages may not be saved."
+  },
+  "app.agent-window.chat.storage-recovery": {
+    "message": "Saved history could not be read. Export it before starting a new history."
+  },
+  "app.agent-window.chat.storage-export-error": {
+    "message": "Could not export saved history. Your original data has been kept."
+  },
+  "app.agent-window.chat.reset-history": {
+    "message": "Start new history"
+  },
+  "app.agent-window.chat.reset-history-warning": {
+    "message": "The saved history will be replaced. Export a backup first. Your current draft will be kept."
+  },
+  "app.agent-window.chat.export-draft": {
+    "message": "Export draft"
+  },
+  "app.agent-window.open": {
+    "message": "Open agent window"
+  },
+  "app.agent-window.title": {
+    "message": "Axolotl Agent Window"
+  },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "{sources} could not be loaded."
+  },
+  "app.schematics.sort.default": {
+    "message": "Source order"
+  },
+  "app.schematics.sort.name": {
+    "message": "Name"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
   },
-  "app.schematics.open-source": { "message": "View on source website" },
+  "app.schematics.open-source": {
+    "message": "View on source website"
+  },
   "app.schematics.instances-error": {
     "message": "Could not load your instances."
   },
@@ -53,8 +1157,12 @@
   "app.schematics.search": {
     "message": "Search schematics"
   },
-  "app.schematics.sort.hot": { "message": "Popular" },
-  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.sort.hot": {
+    "message": "Popular"
+  },
+  "app.schematics.sort.featured": {
+    "message": "Featured"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -67,11 +1175,21 @@
   "app.schematics.installing": {
     "message": "Installing…"
   },
-  "app.schematics.preview": { "message": "Preview" },
-  "app.schematics.files": { "message": "Files" },
-  "app.schematics.creator": { "message": "Creator" },
-  "app.schematics.source-heading": { "message": "Source" },
-  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.preview": {
+    "message": "Preview"
+  },
+  "app.schematics.files": {
+    "message": "Files"
+  },
+  "app.schematics.creator": {
+    "message": "Creator"
+  },
+  "app.schematics.source-heading": {
+    "message": "Source"
+  },
+  "app.schematics.preview-source": {
+    "message": "Shimu Space · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "Installed"
   },
@@ -9303,6 +10421,12 @@
   "app.onboarding.action.start": {
     "message": "Take the tour"
   },
+  "app.onboarding.agent-window.description": {
+    "message": "Open the Agent Window from the title bar. Its Agent guide explains how to choose a model and instance, track queued requests, and review permissions. You can reopen the guide whenever you need it."
+  },
+  "app.onboarding.agent-window.title": {
+    "message": "Start an agent task"
+  },
   "app.onboarding.ai.description": {
     "message": "Connect text-model providers once, choose the models you want available, or switch every AI feature off in one place."
   },
@@ -17774,5 +18898,266 @@
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"
+  },
+  "app.agent-window.chat.native-connecting": {
+    "message": "Connecting…"
+  },
+  "app.agent-window.chat.approval-expired": {
+    "message": "This plan expired. Retry to prepare a fresh plan for review."
+  },
+  "app.agent-window.chat.review-launcher-changes": {
+    "message": "Review launcher changes"
+  },
+  "app.agent-window.chat.editing-message": {
+    "message": "Editing message · later replies will be regenerated. Applied changes remain."
+  },
+  "app.agent-window.chat.save-and-resend": {
+    "message": "Save and resend"
+  },
+  "app.agent-window.chat.argument-unset": {
+    "message": "Not set"
+  },
+  "app.agent-window.chat.argument-empty": {
+    "message": "Empty"
+  },
+  "app.agent-window.chat.argument-yes": {
+    "message": "Yes"
+  },
+  "app.agent-window.chat.argument-no": {
+    "message": "No"
+  },
+  "app.agent-window.chat.argument-name": {
+    "message": "Name"
+  },
+  "app.agent-window.chat.argument-instance-id": {
+    "message": "Instance"
+  },
+  "app.agent-window.chat.argument-game-version": {
+    "message": "Minecraft version"
+  },
+  "app.agent-window.chat.argument-loader": {
+    "message": "Mod loader"
+  },
+  "app.agent-window.chat.argument-loader-version": {
+    "message": "Loader version"
+  },
+  "app.agent-window.chat.argument-version": {
+    "message": "Version"
+  },
+  "app.agent-window.chat.argument-source": {
+    "message": "Source"
+  },
+  "app.agent-window.chat.argument-project-id": {
+    "message": "Project"
+  },
+  "app.agent-window.chat.argument-release-id": {
+    "message": "Release"
+  },
+  "app.agent-window.chat.argument-resource-type": {
+    "message": "Resource type"
+  },
+  "app.agent-window.chat.argument-plan-id": {
+    "message": "Plan"
+  },
+  "app.agent-window.chat.argument-revision": {
+    "message": "Revision"
+  },
+  "app.agent-window.chat.argument-entry-id": {
+    "message": "Content entry"
+  },
+  "app.agent-window.chat.argument-enabled": {
+    "message": "Enabled"
+  },
+  "app.agent-window.chat.argument-path": {
+    "message": "Path"
+  },
+  "app.agent-window.chat.argument-directory": {
+    "message": "Directory"
+  },
+  "app.agent-window.chat.argument-world-id": {
+    "message": "World"
+  },
+  "app.agent-window.chat.argument-server-id": {
+    "message": "Server"
+  },
+  "app.agent-window.chat.argument-job-id": {
+    "message": "Task"
+  },
+  "app.agent-window.chat.argument-operation-id": {
+    "message": "Operation"
+  },
+  "app.agent-window.chat.argument-memory": {
+    "message": "Memory"
+  },
+  "app.agent-window.chat.argument-min-mb": {
+    "message": "Minimum memory (MiB)"
+  },
+  "app.agent-window.chat.argument-max-mb": {
+    "message": "Maximum memory (MiB)"
+  },
+  "app.agent-window.chat.argument-java-id": {
+    "message": "Java runtime"
+  },
+  "app.agent-window.chat.argument-account-id": {
+    "message": "Account"
+  },
+  "app.agent-window.chat.argument-content": {
+    "message": "Content"
+  },
+  "app.agent-window.chat.argument-text": {
+    "message": "Text"
+  },
+  "app.agent-window.chat.argument-command": {
+    "message": "Command"
+  },
+  "app.agent-window.chat.argument-value": {
+    "message": "Value"
+  },
+  "app.agent-window.chat.argument-key": {
+    "message": "Setting"
+  },
+  "app.agent-window.chat.argument-overwrite": {
+    "message": "Overwrite"
+  },
+  "app.agent-window.chat.argument-recursive": {
+    "message": "Include subdirectories"
+  },
+  "app.agent-window.chat.argument-destination": {
+    "message": "Destination"
+  },
+  "app.agent-window.chat.argument-target": {
+    "message": "Target"
+  },
+  "app.agent-window.chat.argument-format": {
+    "message": "Format"
+  },
+  "app.agent-window.chat.argument-group": {
+    "message": "Group"
+  },
+  "app.agent-window.chat.argument-group-id": {
+    "message": "Group"
+  },
+  "app.agent-window.chat.argument-mod-loader": {
+    "message": "Mod loader"
+  },
+  "app.agent-window.chat.argument-mod-loader-version": {
+    "message": "Loader version"
+  },
+  "app.agent-window.chat.argument-channel": {
+    "message": "Channel"
+  },
+  "app.agent-window.chat.argument-snapshot-id": {
+    "message": "Backup snapshot"
+  },
+  "app.agent-window.chat.argument-confirm": {
+    "message": "Confirm"
+  },
+  "app.agent-window.chat.argument-ignore-dependencies": {
+    "message": "Skip dependencies"
+  },
+  "app.agent-window.chat.argument-accept-compatibility-nodes": {
+    "message": "Accept compatibility conflicts"
+  },
+  "app.agent-window.chat.install-resource-count": {
+    "message": "Installation plan · {count} items"
+  },
+  "app.agent-window.chat.update-resource-count": {
+    "message": "Update plan · {count} items"
+  },
+  "app.agent-window.chat.install-modpack": {
+    "message": "Install {name}"
+  },
+  "app.agent-window.chat.plan-game-versions": {
+    "message": "Supported Minecraft versions"
+  },
+  "app.agent-window.chat.pack-replacement-effect": {
+    "message": "Replaces managed pack content and may overwrite overrides or remove files."
+  },
+  "app.agent-window.chat.pack-new-instance-effect": {
+    "message": "Creates a new instance and installs the selected pack release."
+  },
+  "app.agent-window.chat.plan-replace": {
+    "message": "Replace"
+  },
+  "app.agent-window.chat.plan-enable": {
+    "message": "Enable"
+  },
+  "app.agent-window.chat.plan-keep": {
+    "message": "Keep"
+  },
+  "app.agent-window.chat.plan-dependency": {
+    "message": "Dependency"
+  },
+  "app.agent-window.chat.plan-dependencies-skipped": {
+    "message": "Dependency analysis is disabled for this plan."
+  },
+  "app.agent-window.chat.plan-dependency-install-skipped": {
+    "message": "Dependencies will not be installed automatically."
+  },
+  "app.agent-window.chat.plan-subject": {
+    "message": "Affected resource"
+  },
+  "app.agent-window.chat.plan-required": {
+    "message": "Required"
+  },
+  "app.agent-window.chat.plan-actual": {
+    "message": "Current"
+  },
+  "app.agent-window.chat.plan-original-details": {
+    "message": "Original details"
+  },
+  "app.agent-window.chat.plan-compatibility-accepted": {
+    "message": "{name}: accepts conflicts for {dimensions}."
+  },
+  "app.agent-window.chat.plan-details-unavailable": {
+    "message": "This older record does not contain the installation details."
+  },
+  "app.agent-window.chat.technical-details": {
+    "message": "Technical details"
+  },
+  "app.agent-window.chat.plan-issue-source-unavailable": {
+    "message": "Source unavailable"
+  },
+  "app.agent-window.chat.plan-issue-identity-unconfirmed": {
+    "message": "Resource identity is unconfirmed"
+  },
+  "app.agent-window.chat.plan-issue-version-conflict": {
+    "message": "Conflicting resource versions"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-unknown": {
+    "message": "Compatibility has not been confirmed"
+  },
+  "app.agent-window.chat.plan-issue-compatibility-mismatch": {
+    "message": "Game or loader compatibility conflict"
+  },
+  "app.agent-window.chat.plan-issue-artifact-mismatch": {
+    "message": "Selected file does not match"
+  },
+  "app.agent-window.chat.plan-issue-invalid-path": {
+    "message": "Invalid installation path"
+  },
+  "app.agent-window.chat.plan-issue-missing-dependency": {
+    "message": "Required dependency is missing"
+  },
+  "app.agent-window.chat.plan-issue-dependency-analysis-failed": {
+    "message": "Dependency analysis failed"
+  },
+  "app.agent-window.chat.plan-issue-stale-revision": {
+    "message": "Plan is out of date"
+  },
+  "app.agent-window.chat.plan-issue-manual-download-required": {
+    "message": "A manual download is required"
+  },
+  "app.agent-window.chat.plan-issue-file-not-writable": {
+    "message": "Target file is not writable"
+  },
+  "app.agent-window.chat.plan-issue-file-write-skipped": {
+    "message": "A file will be skipped"
+  },
+  "app.agent-window.chat.plan-world-scope": {
+    "message": "World: {path}"
+  },
+  "app.agent-window.chat.plan-issue-unknown": {
+    "message": "Plan warning"
   }
 }

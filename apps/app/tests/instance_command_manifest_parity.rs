@@ -26,6 +26,155 @@ fn third_party_account_commands_are_registered_and_limited_to_main_window() {
 }
 
 #[test]
+fn launcher_invoke_handler_wraps_commands_with_agent_window_restriction() {
+    let main: String = include_str!("../src/main.rs")
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect();
+    assert_eq!(main.matches(".invoke_handler(").count(), 1);
+    assert!(main.contains(
+        ".invoke_handler(api::agent_window::restrict_launcher_commands(tauri::generate_handler!["
+    ), "the launcher handler must be wrapped in the Agent Window restriction");
+}
+
+#[test]
+fn agent_window_open_is_registered_and_only_available_to_main() {
+    let runtime = runtime_commands(include_str!("../src/api/agent_window.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "agent-window");
+    assert_eq!(
+        runtime,
+        BTreeSet::from([
+            "open_agent_window",
+            "update_agent_window_appearance",
+            "agent_window_action",
+            "agent_window_is_maximized",
+            "agent_window_get_appearance",
+            "agent_window_get_context",
+            "agent_window_get_permissions",
+            "agent_window_set_permissions",
+        ])
+    );
+    assert_eq!(runtime, manifest);
+    let config: serde_json::Value =
+        serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+    assert!(
+        config["app"]["security"]["capabilities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|capability| capability == "agent-window")
+    );
+    assert!(
+        include_str!(
+            "../../app-frontend/src/features/agent-window/AgentWindowButton.vue"
+        )
+        .contains("plugin:agent-window|open_agent_window")
+    );
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission
+                == "agent-window:allow-open-agent-window")
+    );
+    for source in [
+        include_str!("../capabilities/core.json"),
+        include_str!("../capabilities/plugins.json"),
+        include_str!("../capabilities/updater.json"),
+    ] {
+        let capability: serde_json::Value =
+            serde_json::from_str(source).unwrap();
+        assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    }
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/agent-window.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["agent-window"]));
+    assert_eq!(
+        capability["permissions"],
+        serde_json::json!([
+            "agent-window:allow-agent-window-action",
+            "agent-window:allow-agent-window-is-maximized",
+            "agent-window:allow-agent-window-get-appearance",
+            "agent-window:allow-agent-window-get-context",
+            "agent-window:allow-agent-window-get-permissions",
+            "agent-window:allow-agent-window-set-permissions",
+        ])
+    );
+}
+
+#[test]
+fn agent_runtime_commands_have_separate_ui_and_worker_authorities() {
+    let runtime =
+        runtime_commands(include_str!("../src/api/agent_runtime/mod.rs"));
+    let manifest =
+        manifest_commands(include_str!("../build.rs"), "agent-runtime");
+    assert_eq!(runtime, manifest);
+    assert_eq!(runtime.len(), 18);
+    let worker: serde_json::Value = serde_json::from_str(include_str!(
+        "../capabilities/agent-runtime.json"
+    ))
+    .unwrap();
+    let ui: serde_json::Value = serde_json::from_str(include_str!(
+        "../capabilities/agent-runtime-ui.json"
+    ))
+    .unwrap();
+    assert_eq!(worker["windows"], serde_json::json!(["agent-runtime"]));
+    assert_eq!(ui["windows"], serde_json::json!(["agent-window"]));
+    for (capability, prefix) in
+        [(&worker, "agent_worker_"), (&ui, "agent_runtime_")]
+    {
+        let expected: BTreeSet<String> = runtime
+            .iter()
+            .filter(|command| command.starts_with(prefix))
+            .map(|command| {
+                format!("agent-runtime:allow-{}", command.replace('_', "-"))
+            })
+            .collect();
+        let actual: BTreeSet<String> = capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|permission| permission.as_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(actual, expected);
+    }
+    let config: serde_json::Value =
+        serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+    for capability in ["agent-runtime", "agent-runtime-ui"] {
+        assert!(
+            config["app"]["security"]["capabilities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == capability)
+        );
+    }
+    let release: serde_json::Value =
+        serde_json::from_str(include_str!("../tauri-release.conf.json"))
+            .unwrap();
+    for capability in ["agent-window", "agent-runtime", "agent-runtime-ui"] {
+        assert!(
+            release["app"]["security"]["capabilities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == capability)
+        );
+    }
+    assert!(
+        include_str!("../src/main.rs")
+            .contains(".plugin(api::agent_runtime::init())")
+    );
+}
+
+#[test]
 fn mcp_commands_are_registered_and_limited_to_the_main_window() {
     let runtime = runtime_commands(include_str!("../src/api/mcp/mod.rs"))
         .into_iter()

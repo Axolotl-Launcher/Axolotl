@@ -5,7 +5,7 @@ import {
 } from '@modrinth/ui'
 import { createPinia } from 'pinia'
 import { afterEach, expect, it, vi } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { computed, defineComponent, h, nextTick, ref, Suspense } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -16,7 +16,21 @@ import AppActionBar from './AppActionBar.vue'
 import AppTitlebar from './AppTitlebar.vue'
 import Breadcrumbs from './Breadcrumbs.vue'
 
-const fixture = vi.hoisted(() => ({ instanceName: '我的整合包实例名称非常长'.repeat(20) }))
+const fixture = vi.hoisted(() => ({
+    instanceName: '我的整合包实例名称非常长'.repeat(20),
+    openAgentWindow: vi.fn(async () => {}),
+    updateAgentAppearance: vi.fn(async () => {}),
+    handleError: vi.fn(),
+}))
+vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@tauri-apps/api/core')>()),
+    invoke: (command: string, args: unknown) =>
+        command === 'plugin:agent-window|open_agent_window'
+            ? fixture.openAgentWindow(args)
+            : command === 'plugin:agent-window|update_agent_window_appearance'
+              ? fixture.updateAgentAppearance(args)
+              : Promise.resolve(),
+}))
 vi.mock('@/helpers/process', () => ({
     get_all: async () => [
         { uuid: 'process', instance_id: 'demo' },
@@ -128,6 +142,22 @@ it('keeps the connected AI control and download actions accessible together', as
     expect(preview.connectedClient.value).toBeNull()
 })
 
+it('uses the same resting icon color for agent, downloads and quiet titlebar actions', async () => {
+    const { wrapper } = await mountTitlebar(true)
+    await waitFor(() => wrapper.find('button[aria-label="Announcements"]').exists())
+    const announcement = wrapper.get('button[aria-label="Announcements"]').element
+    const quietColor = getComputedStyle(announcement).color
+    const agent = wrapper.get('[data-testid="agent-window-button"]').element
+    expect(agent.getBoundingClientRect().width).toBe(announcement.getBoundingClientRect().width)
+    expect(agent.getBoundingClientRect().height).toBe(announcement.getBoundingClientRect().height)
+    for (const selector of [
+        '[data-testid="agent-window-button"]',
+        'button[aria-label="Downloads"]',
+    ]) {
+        expect(getComputedStyle(wrapper.get(selector).element).color).toBe(quietColor)
+    }
+})
+
 async function mountTitlebar(withActionBar = false) {
     await page.viewport(1100, 720)
     const router = createRouter({
@@ -161,7 +191,7 @@ async function mountTitlebar(withActionBar = false) {
                 getNotifications: () => [
                     { id: 'notification', title: 'Notification', read: false },
                 ],
-                handleError: vi.fn(),
+                handleError: fixture.handleError,
             } as unknown as Parameters<typeof provideNotificationManager>[0])
             providePopupNotificationManager({
                 getNotifications: () => [],
@@ -240,6 +270,69 @@ it('returns from project details to the instance content search and restores it 
     await waitFor(() => router.currentRoute.value.fullPath === '/browse?i=demo')
     await wrapper.get('button[aria-label="Forward"]').trigger('click')
     await waitFor(() => router.currentRoute.value.fullPath === '/project/jei?i=demo')
+})
+
+it('reveals the agent action without moving other titlebar controls and handles native open failures', async () => {
+    const { wrapper } = await mountTitlebar()
+    const button = wrapper.get<HTMLButtonElement>('[data-testid="agent-window-button"]')
+    const label = button.get('.agent-window-label').element as HTMLElement
+    const actions = wrapper.get('[data-test="actions"]').element
+    const actionsLeft = actions.getBoundingClientRect().left
+    expect(getComputedStyle(label).visibility).toBe('hidden')
+    const idleColor = getComputedStyle(button.element).color
+    await userEvent.hover(page.elementLocator(button.element))
+    await waitFor(() => getComputedStyle(label).opacity === '1')
+    expect(getComputedStyle(button.element).color).not.toBe(idleColor)
+    expect(getComputedStyle(label).backgroundColor).not.toBe('rgba(0, 0, 0, 0)')
+    const backgroundRect = label.getBoundingClientRect()
+    const buttonRect = button.element.getBoundingClientRect()
+    expect(backgroundRect.right).toBe(buttonRect.right)
+    expect(backgroundRect.height).toBe(buttonRect.height)
+    const textRange = document.createRange()
+    textRange.selectNodeContents(label)
+    const icon = button.get('svg').element
+    const gap = icon.getBoundingClientRect().left - textRange.getBoundingClientRect().right
+    expect(gap).toBeGreaterThanOrEqual(0)
+    expect(gap).toBeLessThanOrEqual(6)
+    expect(actions.getBoundingClientRect().left).toBe(actionsLeft)
+
+    fixture.openAgentWindow.mockClear()
+    fixture.handleError.mockClear()
+    let finish: () => void = () => {}
+    fixture.openAgentWindow.mockImplementationOnce(
+        () => new Promise<void>((resolve) => (finish = resolve)),
+    )
+    await button.trigger('click')
+    expect(button.element.disabled).toBe(true)
+    await button.trigger('click')
+    expect(fixture.openAgentWindow).toHaveBeenCalledTimes(1)
+    expect(fixture.openAgentWindow).toHaveBeenCalledWith({
+        appearance: expect.objectContaining({
+            locale: 'en-US',
+            background: expect.any(String),
+            surface: expect.any(String),
+            text: expect.any(String),
+            accent: expect.any(String),
+            scrollbar: expect.any(String),
+            scrollbar_track: expect.any(String),
+            scrollbar_radius: expect.any(String),
+        }),
+    })
+    finish()
+    await waitFor(() => !button.element.disabled)
+    fixture.updateAgentAppearance.mockClear()
+    const initialAccent = document.documentElement.style.getPropertyValue('--color-brand')
+    cleanup.push(() => document.documentElement.style.setProperty('--color-brand', initialAccent))
+    document.documentElement.style.setProperty('--color-brand', '#123456')
+    await waitFor(() => fixture.updateAgentAppearance.mock.calls.length > 0)
+    expect(fixture.updateAgentAppearance).toHaveBeenLastCalledWith({
+        appearance: expect.objectContaining({ accent: 'rgb(18, 52, 86)' }),
+    })
+
+    fixture.openAgentWindow.mockRejectedValueOnce('Could not open agent window')
+    await button.trigger('click')
+    await waitFor(() => !button.element.disabled)
+    expect(fixture.handleError).toHaveBeenCalledWith('Could not open agent window')
 })
 
 it('keeps navigation and all active actions inside the window with long names', async () => {

@@ -3659,6 +3659,16 @@ async fn initialize_operation(
     Ok((draft, target, installed))
 }
 
+/// Read the exact dependency policy of an unqueued, revision-bound plan.
+pub async fn dependency_options(
+    id: &PlanId,
+    revision: u32,
+) -> ResourceResult<(bool, bool)> {
+    let state = crate::State::get().await?;
+    let draft = load(&state.data, id, revision).await?;
+    Ok((draft.resolve_dependencies, draft.install_dependencies))
+}
+
 pub(crate) async fn load(
     handle: &Handle,
     id: &PlanId,

@@ -13,6 +13,21 @@ pub(super) struct PackPlan {
     kind: PackKind,
     name: String,
     target: Option<(String, String)>,
+    review: Value,
+}
+
+pub(super) async fn describe(
+    backend: &LauncherBackend,
+    scope: &str,
+    id: uuid::Uuid,
+) -> Result<Value, ToolError> {
+    let plan = backend.modpacks.get(scope, id, 1)?;
+    let mut review = plan.review;
+    if let Some((id, _)) = plan.target {
+        let metadata = reviewed::instance(&id).await?;
+        review["instance"] = json!({"id":id,"name":metadata.instance.name,"game_version":metadata.applied_content_set.game_version,"loader":metadata.applied_content_set.loader});
+    }
+    Ok(review)
 }
 #[derive(Clone)]
 enum PackKind {
@@ -103,7 +118,7 @@ pub(super) async fn execute(
                 .release(&reference, None, &cancel)
                 .await
                 .map_err(resources::error)?;
-            let mut summary = json!({"source":reference.project.source,"project_id":project_id,"release_id":release_id,"declared_compatibility":release.compatibility});
+            let mut summary = json!({"source":reference.project.source,"project_id":project_id,"release_id":release_id,"title":metadata.projects.iter().find(|p| p.project == reference.project).map(|p| &p.title),"version":release.version,"declared_compatibility":release.compatibility});
             let kind = match source {
                 Source::Modrinth => {
                     if !release.artifacts.iter().any(|a| {
@@ -165,6 +180,7 @@ pub(super) async fn execute(
                 PackPlan {
                     kind,
                     name: name.trim().into(),
+                    review: json!({"mode":"modpack","name":name,"creates_instance":instance_id.is_none(),"replaces_pack_content":instance_id.is_some(),"pack":summary}),
                     target,
                 },
             )?;
@@ -195,13 +211,14 @@ pub(super) async fn execute(
                 ));
             }
             let instance_id = target.as_ref().map(|(id, _)| id.clone());
-            let summary = json!({"format":detected.format.as_str(),"game_version":preview.game_version,"loader":preview.modloader,"loader_version":preview.loader_version});
+            let summary = json!({"format":detected.format.as_str(),"file_name":path.file_name().map(|name| name.to_string_lossy()),"game_version":preview.game_version,"loader":preview.modloader,"loader_version":preview.loader_version});
             let handle = backend.modpacks.insert(
                 &context.session_id,
                 1,
                 PackPlan {
                     kind: PackKind::Local { path, hash },
                     name: name.trim().into(),
+                    review: json!({"mode":"modpack","name":name,"creates_instance":instance_id.is_none(),"replaces_pack_content":instance_id.is_some(),"pack":summary}),
                     target,
                 },
             )?;

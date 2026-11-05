@@ -8,6 +8,7 @@ homepage = "https://www.ghs.red"
 license = "GPL-3.0-only"
 
 [dependencies]
+agent-window = { workspace = true }
 async_zip = { workspace = true, features = ["deflate", "tokio-fs"] }
 base64 = { workspace = true }
 bytes = { workspace = true }

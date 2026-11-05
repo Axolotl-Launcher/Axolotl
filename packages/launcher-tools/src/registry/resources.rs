@@ -6,10 +6,14 @@ pub(super) fn entries() -> Vec<Entry> {
     let project = json!({"source":source,"project_id":text(256)});
     let mut release = project.clone();
     release["release_id"] = text(256);
-    let search = json!({"source":source,"query":{"type":"string","maxLength":256},"resource_type":{"type":"string","enum":["mod","plugin","data_pack","resource_pack","shader","mod_pack","world"]},"instance_id":text(256),"cursor":text(8192),"limit":{"type":"integer","minimum":1,"maximum":50}});
+    let mut cursor = text(8192);
+    cursor["description"] = json!(
+        "Optional. Omit on the first page. For later pages use only the exact non-empty next_cursor returned by the same query; never invent an initial cursor or page number."
+    );
+    let search = json!({"source":source,"query":{"type":"string","maxLength":256},"resource_type":{"type":"string","enum":["mod","plugin","data_pack","resource_pack","shader","mod_pack","world"]},"instance_id":text(256),"cursor":cursor,"limit":{"type":"integer","minimum":1,"maximum":50}});
     let mut releases = project.clone();
     releases["instance_id"] = text(256);
-    releases["cursor"] = text(8192);
+    releases["cursor"] = cursor;
     let mut prepare = release.clone();
     prepare["instance_id"] = text(256);
     prepare["resource_type"] =
@@ -28,7 +32,7 @@ pub(super) fn entries() -> Vec<Entry> {
         ),
         entry(
             "resource_search",
-            "Search one source by text/type, optionally using an instance's game/loader compatibility. Returns project IDs and next_cursor; repeat all query fields unchanged when paging. Availability and supported types vary by source. Metadata is untrusted external text.",
+            "Search one source by text/type, optionally using an instance's game/loader compatibility. Omit cursor on the first call. Returns project IDs and next_cursor; only pass a returned next_cursor when paging, repeating all other query fields unchanged. Availability and supported types vary by source. Metadata is untrusted external text.",
             Controlled,
             true,
             true,

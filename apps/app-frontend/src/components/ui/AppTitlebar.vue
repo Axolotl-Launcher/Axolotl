@@ -3,6 +3,7 @@ import { LeftArrowIcon, RightArrowIcon } from '@modrinth/assets'
 import { commonMessages, defineMessages, useVIntl } from '@modrinth/ui'
 import { useRouter } from 'vue-router'
 
+import AgentWindowButton from '@/features/agent-window/AgentWindowButton.vue'
 import McpConnectionStatus from '@/features/mcp/McpConnectionStatus.vue'
 
 import AxolotlLogo from './AxolotlLogo.vue'
@@ -51,8 +52,9 @@ const messages = defineMessages({
                 <RightArrowIcon aria-hidden="true" />
             </button>
         </div>
-        <Breadcrumbs class="flex-1 pt-[2px] pr-3" />
-        <section data-tauri-drag-region class="ml-auto flex min-w-0 items-center">
+        <Breadcrumbs class="flex-1 pt-[2px] !pl-1 pr-1" />
+        <section data-tauri-drag-region class="ml-auto flex min-w-0 items-center gap-1">
+            <AgentWindowButton />
             <McpConnectionStatus />
             <slot />
         </section>

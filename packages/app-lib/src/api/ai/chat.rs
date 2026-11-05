@@ -1,6 +1,9 @@
 //! Model turns for tool-driven diagnostics. Credentials never leave Rust.
 
 mod bedrock;
+mod content;
+
+use content::{anthropic_messages, openai_messages};
 mod google;
 mod stream;
 
@@ -14,6 +17,12 @@ pub struct ToolCall {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ModelImage {
+    pub mime_type: String,
+    pub data: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
     #[serde(default)]
@@ -21,6 +30,10 @@ pub struct ChatMessage {
     #[serde(default)]
     pub tool_calls: Vec<ToolCall>,
     pub tool_call_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<ModelImage>,
+    #[serde(default)]
+    pub tool_error: bool,
     #[serde(default)]
     pub opaque: Value,
 }
@@ -81,24 +94,43 @@ impl ChatModel {
         turn: ChatTurn,
         emit: &(impl Fn(&str, &str) + Sync),
     ) -> crate::Result<ChatMessage> {
-        if turn.messages.is_empty()
-            || turn.messages.len() > 160
-            || serde_json::to_vec(&turn)?.len() > 700_000
-        {
-            return Err(input_error(
-                "LogAgent context budget exceeded".to_string(),
-            ));
-        }
-        if turn.messages.iter().any(|message| {
-            !matches!(
-                message.role.as_str(),
-                "system" | "user" | "assistant" | "tool"
-            )
-        }) {
-            return Err(input_error(
-                "Invalid LogAgent message role".to_string(),
-            ));
-        }
+        content::validate(&turn, false)?;
+        self.execute_turn(turn, emit).await
+    }
+
+    pub fn validate_agent_turn(turn: &ChatTurn) -> crate::Result<()> {
+        content::validate(turn, true)
+    }
+
+    /// Agent Window has a separate bounded context; diagnostics keep their budget.
+    pub async fn turn_for_agent(
+        &self,
+        turn: ChatTurn,
+        emit: &(impl Fn(&str, &str) + Sync),
+    ) -> crate::Result<ChatMessage> {
+        Self::validate_agent_turn(&turn)?;
+        self.execute_turn(turn, emit).await
+    }
+
+    async fn execute_turn(
+        &self,
+        turn: ChatTurn,
+        emit: &(impl Fn(&str, &str) + Sync),
+    ) -> crate::Result<ChatMessage> {
+        let has_images = turn
+            .messages
+            .iter()
+            .any(|message| !message.images.is_empty());
+        self.request_turn(turn, emit)
+            .await
+            .map_err(|error| content::image_error(error, has_images))
+    }
+
+    async fn request_turn(
+        &self,
+        turn: ChatTurn,
+        emit: &(impl Fn(&str, &str) + Sync),
+    ) -> crate::Result<ChatMessage> {
         let state = State::get().await?;
         let proxy = state.proxy_config().await?;
         let client = proxy
@@ -266,21 +298,9 @@ impl ChatModel {
         turn: &ChatTurn,
         emit: &(impl Fn(&str, &str) + Sync),
     ) -> crate::Result<ChatMessage> {
-        let mut input = Vec::new();
-        let mut instructions = String::new();
-        for message in &turn.messages {
-            match message.role.as_str() {
-                "system" => { instructions.push_str(&message.content); instructions.push('\n'); }
-                "tool" => input.push(json!({ "type": "function_call_output", "call_id": message.tool_call_id, "output": message.content })),
-                "assistant" if message.opaque.is_array() => input.extend(message.opaque.as_array().unwrap().iter().cloned()),
-                "assistant" => {
-                    if !message.content.is_empty() { input.push(json!({ "role": "assistant", "content": message.content })); }
-                    for call in &message.tool_calls { input.push(json!({ "type": "function_call", "call_id": call.id, "name": call.name, "arguments": call.args.to_string() })); }
-                }
-                _ => input.push(json!({ "role": message.role, "content": message.content })),
-            }
-        }
-        let tools = turn.tools.iter().map(|tool| json!({ "type": "function", "name": tool["function"]["name"], "description": tool["function"]["description"], "parameters": tool["function"]["parameters"] })).collect::<Vec<_>>();
+        let (instructions, mut input) =
+            content::responses_messages(&turn.messages);
+        let tools = content::responses_tools(&turn.tools);
         let lite = self.definition.id == "chatgpt"
             && matches!(
                 self.model_id.as_str(),
@@ -388,6 +408,8 @@ fn assistant() -> ChatMessage {
         content: String::new(),
         tool_calls: Vec::new(),
         tool_call_id: None,
+        images: Vec::new(),
+        tool_error: false,
         opaque: Value::Null,
     }
 }
@@ -404,20 +426,6 @@ fn validate_output(message: ChatMessage) -> crate::Result<ChatMessage> {
         ));
     }
     Ok(message)
-}
-
-fn openai_messages(messages: &[ChatMessage], ollama: bool) -> Vec<Value> {
-    messages.iter().map(|message| {
-        let mut value = json!({ "role": message.role, "content": message.content });
-        if message.role == "tool" { value["tool_call_id"] = json!(message.tool_call_id); }
-        if !message.tool_calls.is_empty() {
-            value["tool_calls"] = json!(message.tool_calls.iter().map(|call| json!({ "id": call.id, "type": "function", "function": { "name": call.name, "arguments": if ollama { call.args.clone() } else { json!(call.args.to_string()) } } })).collect::<Vec<_>>());
-        }
-        if message.role == "assistant" {
-            for key in ["reasoning_content", "reasoning_details"] { if let Some(reasoning) = message.opaque.get(key).filter(|value| !value.is_null()) { value[key] = reasoning.clone(); } }
-        }
-        value
-    }).collect()
 }
 
 fn parse_openai(value: &Value) -> crate::Result<ChatMessage> {
@@ -445,48 +453,6 @@ fn parse_openai(value: &Value) -> crate::Result<ChatMessage> {
     }
     result.opaque = json!({ "reasoning_content": value["reasoning_content"], "reasoning_details": value["reasoning_details"] });
     validate_output(result)
-}
-
-fn anthropic_messages(messages: &[ChatMessage]) -> (String, Vec<Value>) {
-    let system = messages
-        .iter()
-        .filter(|message| message.role == "system")
-        .map(|message| message.content.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
-    let mut output: Vec<Value> = Vec::new();
-    for message in messages.iter().filter(|message| message.role != "system") {
-        let role = if message.role == "assistant" {
-            "assistant"
-        } else {
-            "user"
-        };
-        let content = if message.role == "tool" {
-            json!([{ "type": "tool_result", "tool_use_id": message.tool_call_id, "content": message.content }])
-        } else if message.role == "assistant" && message.opaque.is_array() {
-            message.opaque.clone()
-        } else {
-            let mut parts = Vec::new();
-            if !message.content.is_empty() {
-                parts.push(json!({ "type": "text", "text": message.content }));
-            }
-            for call in &message.tool_calls {
-                parts.push(json!({ "type": "tool_use", "id": call.id, "name": call.name, "input": call.args }));
-            }
-            json!(parts)
-        };
-        if let Some(last) =
-            output.last_mut().filter(|last| last["role"] == role)
-        {
-            last["content"]
-                .as_array_mut()
-                .unwrap()
-                .extend(content.as_array().unwrap().iter().cloned());
-        } else {
-            output.push(json!({ "role": role, "content": content }));
-        }
-    }
-    (system, output)
 }
 
 fn parse_anthropic(value: &Value) -> crate::Result<ChatMessage> {

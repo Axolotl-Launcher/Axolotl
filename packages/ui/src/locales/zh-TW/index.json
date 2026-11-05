@@ -1,69 +1,69 @@
 {
   "action.no-permission": {
-    "defaultMessage": "You do not have permission."
+    "defaultMessage": "你沒有權限。"
   },
   "app.drop.batch.scan.cancel": {
-    "defaultMessage": "Cancel"
+    "defaultMessage": "取消"
   },
   "app.drop.batch.scan.done": {
-    "defaultMessage": "Recognized"
+    "defaultMessage": "已识别"
   },
   "app.drop.batch.scan.error": {
-    "defaultMessage": "Failed"
+    "defaultMessage": "失败"
   },
   "app.drop.batch.scan.pending": {
-    "defaultMessage": "Waiting"
+    "defaultMessage": "等待"
   },
   "app.drop.batch.scan.scanning": {
-    "defaultMessage": "Scanning"
+    "defaultMessage": "扫描中"
   },
   "app.drop.batch.scan.skipped": {
-    "defaultMessage": "Skipped"
+    "defaultMessage": "已跳过"
   },
   "app.drop.batch.scan.subtitle": {
-    "defaultMessage": "Recognized {done} of {total}"
+    "defaultMessage": "已识别 {done} / {total}"
   },
   "app.drop.batch.scan.title": {
-    "defaultMessage": "Scanning {count, plural, one {# file} other {# files}}…"
+    "defaultMessage": "正在识别 {count, plural, one {# 个文件} other {# 个文件}}…"
   },
   "app.symlink-warning.write.body": {
-    "defaultMessage": "This instance is linked to \"{path}\". Changes will also affect the original files."
+    "defaultMessage": "This instance is linked to "
   },
   "app.symlink-warning.write.header": {
     "defaultMessage": "Shared instance"
   },
   "badge.alpha": {
-    "defaultMessage": "Alpha"
+    "defaultMessage": "Alpha 版"
   },
   "badge.beta": {
-    "defaultMessage": "Beta"
+    "defaultMessage": "Beta 版"
   },
   "badge.beta-release": {
-    "defaultMessage": "Beta Release"
+    "defaultMessage": "Beta 版發布"
   },
   "badge.new": {
-    "defaultMessage": "New"
+    "defaultMessage": "新功能"
   },
   "badge.release": {
-    "defaultMessage": "Release"
+    "defaultMessage": "正式版"
   },
   "browse.clear-search": {
     "defaultMessage": "Clear search"
   },
   "browse.filter-results": {
-    "defaultMessage": "Filter results..."
+    "defaultMessage": "篩選結果..."
   },
   "browse.loading-results": {
     "defaultMessage": "Loading results…"
   },
   "browse.no-results": {
-    "defaultMessage": "No results found for your query!"
+    "defaultMessage": "找不到符合你查詢的結果！"
   },
   "browse.no-results.heading": {
     "defaultMessage": "Nothing here yet"
   },
   "browse.offline": {
-    "defaultMessage": "You are currently offline. Connect to the internet to browse Modrinth!"
+    "defaultMessage": "你目前處於離線狀態，請連線至網路以瀏覽 Modrinth！"
   },
   "browse.offline.heading": {
     "defaultMessage": "No connection"
@@ -75,34 +75,34 @@
     "defaultMessage": "The search could not be completed. Check your connection or filters and try again."
   },
   "browse.search.placeholder": {
-    "defaultMessage": "Search {projectType}..."
+    "defaultMessage": "搜尋{projectType}..."
   },
   "browse.selected-projects-floating-bar.aria-label": {
-    "defaultMessage": "Selected projects"
+    "defaultMessage": "已選取專案"
   },
   "browse.selected-projects-floating-bar.hide-projects": {
-    "defaultMessage": "Hide selected projects"
+    "defaultMessage": "隱藏已選專案"
   },
   "browse.selected-projects-floating-bar.install": {
-    "defaultMessage": "Install {count, plural, one {# project} other {# projects}}"
+    "defaultMessage": "安裝 {count, plural, other {# 個專案}}"
   },
   "browse.selected-projects-floating-bar.selected-count": {
-    "defaultMessage": "{count, plural, one {# project selected} other {# projects selected}}"
+    "defaultMessage": "{count, plural, other {已選取 # 個專案}}"
   },
   "browse.selected-projects-floating-bar.show-projects": {
-    "defaultMessage": "Show {count, plural, one {# selected project} other {# selected projects}}"
+    "defaultMessage": "顯示{count, plural, other {#個已選專案}}"
   },
   "browse.selected-projects-leave-modal.admonition-body": {
-    "defaultMessage": "You have selected {count, plural, one {# project} other {# projects}} to install. Install them now or go back without installing them."
+    "defaultMessage": "你已選取 {count, plural, other {# 個專案}}來安裝。立即安裝專案，或返回而不安裝。"
   },
   "browse.selected-projects-leave-modal.admonition-header": {
-    "defaultMessage": "Selected projects not installed yet"
+    "defaultMessage": "你選取的專案尚未安裝"
   },
   "browse.selected-projects-leave-modal.discard": {
-    "defaultMessage": "Discard"
+    "defaultMessage": "捨棄"
   },
   "browse.selected-projects-leave-modal.header": {
-    "defaultMessage": "Selected projects not installed yet"
+    "defaultMessage": "你選取的專案尚未安裝"
   },
   "browse.sort.date-published": {
     "defaultMessage": "Date published"
@@ -141,196 +141,196 @@
     "defaultMessage": "Verified plays"
   },
   "browse.view-prefix": {
-    "defaultMessage": "View:"
+    "defaultMessage": "檢視模式"
   },
   "button.accept": {
-    "defaultMessage": "Accept"
+    "defaultMessage": "接受"
   },
   "button.add-server-to-instance": {
-    "defaultMessage": "Add server to instance"
+    "defaultMessage": "將伺服器新增至實例"
   },
   "button.affiliate-links": {
-    "defaultMessage": "Affiliate links"
+    "defaultMessage": "聯盟連結"
   },
   "button.analytics": {
-    "defaultMessage": "Analytics"
+    "defaultMessage": "數據分析"
   },
   "button.back": {
-    "defaultMessage": "Back"
+    "defaultMessage": "返回"
   },
   "button.cancel": {
-    "defaultMessage": "Cancel"
+    "defaultMessage": "取消"
   },
   "button.change-version": {
-    "defaultMessage": "Change version"
+    "defaultMessage": "變更版本"
   },
   "button.clear": {
-    "defaultMessage": "Clear"
+    "defaultMessage": "清除"
   },
   "button.close": {
-    "defaultMessage": "Close"
+    "defaultMessage": "關閉"
   },
   "button.confirm": {
     "defaultMessage": "Confirm"
   },
   "button.continue": {
-    "defaultMessage": "Continue"
+    "defaultMessage": "繼續"
   },
   "button.copy-filename": {
-    "defaultMessage": "Copy filename"
+    "defaultMessage": "複製檔案名稱"
   },
   "button.copy-full-path": {
-    "defaultMessage": "Copy full path"
+    "defaultMessage": "複製完整路徑"
   },
   "button.copy-id": {
-    "defaultMessage": "Copy ID"
+    "defaultMessage": "複製 ID"
   },
   "button.copy-link": {
-    "defaultMessage": "Copy link"
+    "defaultMessage": "複製連結"
   },
   "button.copy-permalink": {
-    "defaultMessage": "Copy permanent link"
+    "defaultMessage": "複製永久連結"
   },
   "button.create-a-project": {
-    "defaultMessage": "Create a project"
+    "defaultMessage": "建立專案"
   },
   "button.decline": {
-    "defaultMessage": "Decline"
+    "defaultMessage": "拒絕"
   },
   "button.disable": {
-    "defaultMessage": "Disable"
+    "defaultMessage": "停用"
   },
   "button.download": {
-    "defaultMessage": "Download"
+    "defaultMessage": "下載"
   },
   "button.downloading": {
-    "defaultMessage": "Downloading"
+    "defaultMessage": "下載中"
   },
   "button.edit": {
-    "defaultMessage": "Edit"
+    "defaultMessage": "編輯"
   },
   "button.enable": {
-    "defaultMessage": "Enable"
+    "defaultMessage": "啟用"
   },
   "button.extract": {
-    "defaultMessage": "Extract"
+    "defaultMessage": "解壓縮"
   },
   "button.follow": {
-    "defaultMessage": "Follow"
+    "defaultMessage": "追蹤"
   },
   "button.hide-snapshots": {
-    "defaultMessage": "Hide snapshots"
+    "defaultMessage": "隱藏快照版本"
   },
   "button.install": {
-    "defaultMessage": "Install"
+    "defaultMessage": "安裝"
   },
   "button.max": {
-    "defaultMessage": "Max"
+    "defaultMessage": "最大值"
   },
   "button.more-options": {
-    "defaultMessage": "More options"
+    "defaultMessage": "更多選項"
   },
   "button.move": {
-    "defaultMessage": "Move"
+    "defaultMessage": "移動"
   },
   "button.next": {
-    "defaultMessage": "Next"
+    "defaultMessage": "下一步"
   },
   "button.open-folder": {
-    "defaultMessage": "Open folder"
+    "defaultMessage": "開啟資料夾"
   },
   "button.open-in-browser": {
     "defaultMessage": "Open in browser"
   },
   "button.open-in-folder": {
-    "defaultMessage": "Open in folder"
+    "defaultMessage": "在資料夾中開啟"
   },
   "button.open-in-modrinth": {
-    "defaultMessage": "Open in Modrinth"
+    "defaultMessage": "在 Modrinth 中開啟"
   },
   "button.play": {
-    "defaultMessage": "Play"
+    "defaultMessage": "遊玩"
   },
   "button.refresh": {
-    "defaultMessage": "Refresh"
+    "defaultMessage": "重新整理"
   },
   "button.reinstall-modpack": {
-    "defaultMessage": "Re-install modpack"
+    "defaultMessage": "重新安裝模組包"
   },
   "button.remove": {
-    "defaultMessage": "Remove"
+    "defaultMessage": "刪除通行金鑰"
   },
   "button.remove-image": {
-    "defaultMessage": "Remove image"
+    "defaultMessage": "移除圖片"
   },
   "button.rename": {
-    "defaultMessage": "Rename"
+    "defaultMessage": "重新命名"
   },
   "button.repair": {
-    "defaultMessage": "Repair"
+    "defaultMessage": "修復"
   },
   "button.repairing": {
-    "defaultMessage": "Repairing..."
+    "defaultMessage": "修復中..."
   },
   "button.report": {
-    "defaultMessage": "Report"
+    "defaultMessage": "檢舉"
   },
   "button.reset": {
-    "defaultMessage": "Reset"
+    "defaultMessage": "重設"
   },
   "button.reset-server": {
-    "defaultMessage": "Reset server"
+    "defaultMessage": "重設伺服器"
   },
   "button.retry": {
-    "defaultMessage": "Retry"
+    "defaultMessage": "重試"
   },
   "button.save": {
-    "defaultMessage": "Save"
+    "defaultMessage": "儲存"
   },
   "button.save-changes": {
-    "defaultMessage": "Save changes"
+    "defaultMessage": "儲存變更"
   },
   "button.saving": {
-    "defaultMessage": "Saving"
+    "defaultMessage": "儲存中"
   },
   "button.show-all-versions": {
-    "defaultMessage": "Show all versions"
+    "defaultMessage": "顯示所有版本"
   },
   "button.show-file": {
-    "defaultMessage": "Show file"
+    "defaultMessage": "顯示檔案"
   },
   "button.sign-in": {
-    "defaultMessage": "Sign in"
+    "defaultMessage": "登入"
   },
   "button.sign-out": {
-    "defaultMessage": "Sign out"
+    "defaultMessage": "登出"
   },
   "button.sign-up": {
-    "defaultMessage": "Sign up"
+    "defaultMessage": "註冊"
   },
   "button.stop": {
-    "defaultMessage": "Stop"
+    "defaultMessage": "停止"
   },
   "button.switch-to-version": {
     "defaultMessage": "Switch to version"
   },
   "button.switch-version": {
-    "defaultMessage": "Switch version"
+    "defaultMessage": "切換版本"
   },
   "button.unfollow": {
-    "defaultMessage": "Unfollow"
+    "defaultMessage": "取消追蹤"
   },
   "button.unlink-modpack": {
-    "defaultMessage": "Unlink modpack"
+    "defaultMessage": "取消連結模組包"
   },
   "button.update": {
-    "defaultMessage": "Update"
+    "defaultMessage": "更新"
   },
   "button.upload-image": {
-    "defaultMessage": "Upload image"
+    "defaultMessage": "上傳圖片"
   },
   "collections.label.private": {
-    "defaultMessage": "Private"
+    "defaultMessage": "私人"
   },
   "color-picker.dialog-label": {
     "defaultMessage": "Colour picker"
@@ -405,31 +405,31 @@
     "defaultMessage": "Saturation {saturation}%, brightness {brightness}%"
   },
   "console.action.collapse": {
-    "defaultMessage": "Collapse"
+    "defaultMessage": "收合"
   },
   "console.action.expand": {
-    "defaultMessage": "Expand"
+    "defaultMessage": "展開"
   },
   "console.action.share": {
-    "defaultMessage": "Share"
+    "defaultMessage": "分享"
   },
   "console.command.disabled-placeholder": {
-    "defaultMessage": "Command input disabled"
+    "defaultMessage": "指令輸入已停用"
   },
   "console.command.placeholder": {
     "defaultMessage": "Send a command"
   },
   "console.command.server-not-running-placeholder": {
-    "defaultMessage": "Server is not running"
+    "defaultMessage": "伺服器未執行"
   },
   "console.crash.export-context": {
-    "defaultMessage": "Export crash context"
+    "defaultMessage": "匯出崩潰內容"
   },
   "console.crash.finding.amd-driver.action": {
-    "defaultMessage": "Clean-install a current AMD graphics driver and retry without graphics overlays."
+    "defaultMessage": "全新安裝最新版 AMD 顯示卡驅動程式，並關閉圖形覆蓋層後重試。"
   },
   "console.crash.finding.amd-driver.title": {
-    "defaultMessage": "The AMD graphics driver crashed"
+    "defaultMessage": "AMD 顯示卡驅動程式崩潰"
   },
   "console.crash.finding.connector-incompatible-fabric-mods.action": {
     "defaultMessage": "Remove or replace the Fabric Mods named in the Connector error with Forge-compatible alternatives."
@@ -438,22 +438,22 @@
     "defaultMessage": "Sinytra Connector found incompatible Fabric Mods"
   },
   "console.crash.finding.content-verification.action": {
-    "defaultMessage": "Remove and reinstall the file named in the evidence from a trusted source."
+    "defaultMessage": "從可信來源重新安裝證據中指出的檔案。"
   },
   "console.crash.finding.content-verification.title": {
-    "defaultMessage": "A jar failed signature verification"
+    "defaultMessage": "jar 簽章驗證失敗"
   },
   "console.crash.finding.definite-mod-fabric.action": {
-    "defaultMessage": "Update or temporarily remove the Mod identified by the Fabric loader evidence."
+    "defaultMessage": "更新或暫時移除 Fabric 載入器證據中指出的模組。"
   },
   "console.crash.finding.definite-mod-fabric.title": {
-    "defaultMessage": "Fabric identified a specific Mod failure"
+    "defaultMessage": "Fabric 發現特定模組故障"
   },
   "console.crash.finding.definite-mod.action": {
-    "defaultMessage": "Update, repair, or temporarily remove the Mod identified by the evidence and matched jar."
+    "defaultMessage": "更新、修復或暫時移除證據和相符 jar 中指出的模組。"
   },
   "console.crash.finding.definite-mod.title": {
-    "defaultMessage": "A specific Mod caused the crash"
+    "defaultMessage": "特定模組導致崩潰"
   },
   "console.crash.finding.disk-space.action": {
     "defaultMessage": "Free space on the drive containing the instance, then retry the launch or installation."
@@ -462,28 +462,28 @@
     "defaultMessage": "The disk ran out of free space"
   },
   "console.crash.finding.duplicate-mod.action": {
-    "defaultMessage": "Keep only one compatible version of each Mod in the mods folder."
+    "defaultMessage": "在 mods 資料夾中，每個模組只保留一個相容版本。"
   },
   "console.crash.finding.duplicate-mod.title": {
-    "defaultMessage": "Duplicate Mods are installed"
+    "defaultMessage": "安裝了重複模組"
   },
   "console.crash.finding.extracted-mod.action": {
-    "defaultMessage": "Remove the extracted directory from the mods folder and install the original jar file."
+    "defaultMessage": "從 mods 資料夾移除解壓縮後的目錄，並安裝原始 jar 檔案。"
   },
   "console.crash.finding.extracted-mod.title": {
-    "defaultMessage": "An extracted Mod was found"
+    "defaultMessage": "發現已解壓縮的模組"
   },
   "console.crash.finding.fabric-solution.action": {
-    "defaultMessage": "Apply the dependency changes listed in the evidence before launching again."
+    "defaultMessage": "依證據中列出的相依性變更處理後再啟動。"
   },
   "console.crash.finding.fabric-solution.title": {
-    "defaultMessage": "Fabric found an incompatible Mod or missing dependency"
+    "defaultMessage": "Fabric 發現不相容模組或缺少相依性"
   },
   "console.crash.finding.fallback-action": {
-    "defaultMessage": "Review the evidence below and the Mods matched from the local instance."
+    "defaultMessage": "檢視下方證據和本機實例中相符的模組。"
   },
   "console.crash.finding.fallback-title": {
-    "defaultMessage": "Unknown diagnosis: {finding}"
+    "defaultMessage": "未知診斷：{finding}"
   },
   "console.crash.finding.file-in-use.action": {
     "defaultMessage": "Close the program named in the evidence, including other launchers, backup tools, or antivirus scans, then retry."
@@ -492,70 +492,70 @@
     "defaultMessage": "Another process is using a required file"
   },
   "console.crash.finding.forge-error.action": {
-    "defaultMessage": "Review the Forge failure evidence and test the named Mod without recent changes."
+    "defaultMessage": "檢視 Forge 故障證據，並在撤銷近期變更後測試指出的模組。"
   },
   "console.crash.finding.forge-error.title": {
-    "defaultMessage": "Forge reported a game error"
+    "defaultMessage": "Forge 回報了遊戲錯誤"
   },
   "console.crash.finding.forge-incomplete.action": {
-    "defaultMessage": "Repair or reinstall the Forge loader for this instance."
+    "defaultMessage": "修復或重新安裝此實例的 Forge 載入器。"
   },
   "console.crash.finding.forge-incomplete.title": {
-    "defaultMessage": "The Forge installation is incomplete"
+    "defaultMessage": "Forge 安裝不完整"
   },
   "console.crash.finding.forge-java-incompatible.action": {
-    "defaultMessage": "Use the Java version expected by this Forge release or update Forge."
+    "defaultMessage": "使用此 Forge 版本所需的 Java 版本，或更新 Forge。"
   },
   "console.crash.finding.forge-java-incompatible.title": {
-    "defaultMessage": "This Forge version is incompatible with the selected Java runtime"
+    "defaultMessage": "此 Forge 版本與所選 Java 執行環境不相容"
   },
   "console.crash.finding.incompatible-mods.action": {
-    "defaultMessage": "Follow the compatibility details in the evidence and update, remove, or replace the conflicting Mods."
+    "defaultMessage": "依證據中的相容性詳情更新、移除或替換衝突模組。"
   },
   "console.crash.finding.incompatible-mods.title": {
-    "defaultMessage": "The installed Mods are incompatible"
+    "defaultMessage": "已安裝的模組互不相容"
   },
   "console.crash.finding.intel-driver.action": {
-    "defaultMessage": "Install a current Intel graphics driver or run Minecraft on another available GPU."
+    "defaultMessage": "安裝最新版 Intel 顯示卡驅動程式，或改用其他可用 GPU 執行 Minecraft。"
   },
   "console.crash.finding.intel-driver.title": {
-    "defaultMessage": "The Intel graphics driver crashed"
+    "defaultMessage": "Intel 顯示卡驅動程式崩潰"
   },
   "console.crash.finding.java-11-required.action": {
-    "defaultMessage": "Select Java 11 or install a Mod build compatible with the selected Java version."
+    "defaultMessage": "選擇 Java 11，或安裝與所選 Java 版本相容的模組版本。"
   },
   "console.crash.finding.java-11-required.title": {
-    "defaultMessage": "A Mod requires Java 11"
+    "defaultMessage": "模組需要 Java 11"
   },
   "console.crash.finding.java-32bit.action": {
-    "defaultMessage": "Install and select a 64-bit Java runtime, then retry the launch."
+    "defaultMessage": "安裝並選擇 64 位元 Java 執行環境，然後重試啟動。"
   },
   "console.crash.finding.java-32bit.title": {
-    "defaultMessage": "A 32-bit Java runtime cannot allocate the requested memory"
+    "defaultMessage": "32 位元 Java 執行環境無法配置所需記憶體"
   },
   "console.crash.finding.java-incompatible.action": {
-    "defaultMessage": "Use a compatible Java runtime or install a build of the reported mod for this Java version."
+    "defaultMessage": "使用相容的 Java 執行環境，或安裝適用於此 Java 版本的模組版本。"
   },
   "console.crash.finding.java-incompatible.title": {
-    "defaultMessage": "A mod requires a different Java version"
+    "defaultMessage": "模組需要其他 Java 版本"
   },
   "console.crash.finding.java-too-new.action": {
-    "defaultMessage": "Select the Java major version expected by this Minecraft and mod-loader version."
+    "defaultMessage": "選擇此 Minecraft 和模組載入器版本所需的 Java 主要版本。"
   },
   "console.crash.finding.java-too-new.title": {
-    "defaultMessage": "The Java runtime is too new for this instance"
+    "defaultMessage": "Java 執行環境版本對此實例過新"
   },
   "console.crash.finding.jdk-runtime.action": {
-    "defaultMessage": "Select a standard HotSpot Java runtime for this Minecraft version."
+    "defaultMessage": "為此 Minecraft 版本選擇標準 HotSpot Java 執行環境。"
   },
   "console.crash.finding.jdk-runtime.title": {
-    "defaultMessage": "A JDK runtime was selected instead of a JRE"
+    "defaultMessage": "選擇了 JDK 而不是 JRE"
   },
   "console.crash.finding.jvm-arguments.action": {
-    "defaultMessage": "Remove the reported custom JVM argument, then launch the instance again."
+    "defaultMessage": "移除報告中指出的自訂 JVM 參數，然後重新啟動實例。"
   },
   "console.crash.finding.jvm-arguments.title": {
-    "defaultMessage": "Invalid JVM arguments"
+    "defaultMessage": "JVM 參數無效"
   },
   "console.crash.finding.known-signature.action": {
     "defaultMessage": "Review the evidence and the related Minecraft, loader, Java, graphics, or Mod versions before changing the instance."
@@ -564,25 +564,25 @@
     "defaultMessage": "A known crash signature was detected"
   },
   "console.crash.finding.large-resource-pack.action": {
-    "defaultMessage": "Disable the resource pack or use a lower-resolution version."
+    "defaultMessage": "停用該資源包，或改用解析度較低的版本。"
   },
   "console.crash.finding.large-resource-pack.title": {
-    "defaultMessage": "The active resource pack is too large for the graphics configuration"
+    "defaultMessage": "目前資源包對圖形設定而言過大"
   },
   "console.crash.finding.manual-debug-crash.action": {
-    "defaultMessage": "Launch again and avoid holding the manual debug-crash key combination."
+    "defaultMessage": "重新啟動，並避免長按手動偵錯崩潰快速鍵。"
   },
   "console.crash.finding.manual-debug-crash.title": {
-    "defaultMessage": "The debug crash shortcut was triggered"
+    "defaultMessage": "觸發了偵錯崩潰快速鍵"
   },
   "console.crash.finding.matched-mod": {
-    "defaultMessage": "Matched Mod: {identity}{modId} - {fileName}"
+    "defaultMessage": "相符模組：{identity}{modId} - {fileName}"
   },
   "console.crash.finding.missing-dependency.action": {
-    "defaultMessage": "Install the required dependency version or use a Mod build matching this Minecraft version."
+    "defaultMessage": "安裝所需的相依性版本，或使用與此 Minecraft 版本相符的模組版本。"
   },
   "console.crash.finding.missing-dependency.title": {
-    "defaultMessage": "A Mod dependency is missing or unsupported"
+    "defaultMessage": "模組相依性缺少或不受支援"
   },
   "console.crash.finding.missing-embeddium.action": {
     "defaultMessage": "Install the Embeddium version required by Oculus for this Minecraft and Forge version."
@@ -597,151 +597,151 @@
     "defaultMessage": "A Mod requires Indium"
   },
   "console.crash.finding.mixin-bootstrap.action": {
-    "defaultMessage": "Repair the mod loader installation and verify that every mod targets the installed loader."
+    "defaultMessage": "修復模組載入器安裝，並確認所有模組均適用於已安裝的載入器。"
   },
   "console.crash.finding.mixin-bootstrap.title": {
-    "defaultMessage": "Mixin bootstrap is missing"
+    "defaultMessage": "缺少 Mixin 啟動程序"
   },
   "console.crash.finding.mixin-failure.action": {
-    "defaultMessage": "Update or remove the matched Mod and check that its Minecraft and loader versions are compatible."
+    "defaultMessage": "更新或移除相符的模組，並檢查其 Minecraft 和載入器版本是否相容。"
   },
   "console.crash.finding.mixin-failure.title": {
-    "defaultMessage": "A Mod Mixin failed to apply"
+    "defaultMessage": "模組 Mixin 套用失敗"
   },
   "console.crash.finding.mod-config.action": {
-    "defaultMessage": "Back up and remove the named configuration file so the Mod can regenerate it."
+    "defaultMessage": "備份並移除指出的設定檔，讓模組重新產生它。"
   },
   "console.crash.finding.mod-config.title": {
-    "defaultMessage": "A Mod configuration file could not be read"
+    "defaultMessage": "無法讀取模組設定檔"
   },
   "console.crash.finding.mod-filename.action": {
-    "defaultMessage": "Rename or reinstall the Mod jar using a simple Latin-letter filename."
+    "defaultMessage": "使用簡單的拉丁字母檔名重新命名或安裝模組 jar。"
   },
   "console.crash.finding.mod-filename.title": {
-    "defaultMessage": "A Mod filename contains unsupported characters"
+    "defaultMessage": "模組檔名包含不支援的字元"
   },
   "console.crash.finding.mod-id-limit.action": {
-    "defaultMessage": "Remove unused Mods or split the installation into smaller compatible profiles."
+    "defaultMessage": "移除未使用的模組，或將安裝內容拆分為較小的相容設定檔。"
   },
   "console.crash.finding.mod-id-limit.title": {
-    "defaultMessage": "Too many Mods exceeded the ID limit"
+    "defaultMessage": "模組過多，超出 ID 限制"
   },
   "console.crash.finding.mod-initialization.action": {
-    "defaultMessage": "Update the named Mod and verify that all of its required dependencies are installed."
+    "defaultMessage": "更新指出的模組，並確認其所需相依性均已安裝。"
   },
   "console.crash.finding.mod-initialization.title": {
-    "defaultMessage": "A Mod failed to initialize"
+    "defaultMessage": "模組初始化失敗"
   },
   "console.crash.finding.mod-loader-error.action": {
-    "defaultMessage": "Repair the loader installation and verify that the listed Mod files match this game version."
+    "defaultMessage": "修復載入器安裝，並確認列出的模組檔案與此遊戲版本相符。"
   },
   "console.crash.finding.mod-loader-error.title": {
-    "defaultMessage": "The Mod loader reported a failure"
+    "defaultMessage": "模組載入器回報了故障"
   },
   "console.crash.finding.mod-loader-failure.action": {
-    "defaultMessage": "Repair the loader installation and follow the failure message shown in the evidence."
+    "defaultMessage": "修復載入器安裝，並依證據中顯示的故障訊息處理。"
   },
   "console.crash.finding.mod-loader-failure.title": {
-    "defaultMessage": "The Mod loader failed before identifying a Mod file"
+    "defaultMessage": "模組載入器在識別模組檔案前失敗"
   },
   "console.crash.finding.multiple-forge-versions.action": {
-    "defaultMessage": "Repair the instance so its version profile contains only one Forge installation."
+    "defaultMessage": "修復實例，使其版本設定檔中只包含一個 Forge 安裝。"
   },
   "console.crash.finding.multiple-forge-versions.title": {
-    "defaultMessage": "The version profile contains multiple Forge versions"
+    "defaultMessage": "版本設定檔中包含多個 Forge 版本"
   },
   "console.crash.finding.nightconfig-bug.action": {
-    "defaultMessage": "Back up the config folder, remove the damaged configuration, and let the Mod regenerate it."
+    "defaultMessage": "備份 config 資料夾，移除損壞設定，讓模組重新產生它。"
   },
   "console.crash.finding.nightconfig-bug.title": {
-    "defaultMessage": "NightConfig could not read a configuration file"
+    "defaultMessage": "NightConfig 無法讀取設定檔"
   },
   "console.crash.finding.nvidia-driver.action": {
-    "defaultMessage": "Clean-install a current NVIDIA graphics driver and retry without graphics overlays."
+    "defaultMessage": "全新安裝最新版 NVIDIA 顯示卡驅動程式，並關閉圖形覆蓋層後重試。"
   },
   "console.crash.finding.nvidia-driver.title": {
-    "defaultMessage": "The NVIDIA graphics driver crashed"
+    "defaultMessage": "NVIDIA 顯示卡驅動程式崩潰"
   },
   "console.crash.finding.opengl-unsupported.action": {
-    "defaultMessage": "Install the graphics driver from the GPU manufacturer and ensure Minecraft uses the intended GPU."
+    "defaultMessage": "安裝 GPU 製造商提供的顯示卡驅動程式，並確認 Minecraft 使用預期的 GPU。"
   },
   "console.crash.finding.opengl-unsupported.title": {
-    "defaultMessage": "OpenGL is not supported by the active graphics driver"
+    "defaultMessage": "目前顯示卡驅動程式不支援 OpenGL"
   },
   "console.crash.finding.openj9.action": {
-    "defaultMessage": "Select a HotSpot-based Java runtime such as Eclipse Temurin or the bundled Minecraft runtime."
+    "defaultMessage": "選擇以 HotSpot 為基礎的 Java 執行環境，例如 Eclipse Temurin 或內建 Minecraft 執行環境。"
   },
   "console.crash.finding.openj9.title": {
-    "defaultMessage": "The selected OpenJ9 runtime is incompatible"
+    "defaultMessage": "所選 OpenJ9 執行環境不相容"
   },
   "console.crash.finding.optifine-incompatible.action": {
-    "defaultMessage": "Install a compatible OptiFine build or remove OptiFine and the conflicting shader Mod."
+    "defaultMessage": "安裝相容的 OptiFine 版本，或移除 OptiFine 和衝突的光影模組。"
   },
   "console.crash.finding.optifine-incompatible.title": {
-    "defaultMessage": "OptiFine conflicts with the installed loader or Mod"
+    "defaultMessage": "OptiFine 與已安裝的載入器或模組衝突"
   },
   "console.crash.finding.optifine-world.action": {
-    "defaultMessage": "Remove OptiFine or install a build compatible with this Minecraft and Forge version."
+    "defaultMessage": "移除 OptiFine，或安裝與此 Minecraft 和 Forge 版本相容的版本。"
   },
   "console.crash.finding.optifine-world.title": {
-    "defaultMessage": "OptiFine prevented the world from loading"
+    "defaultMessage": "OptiFine 阻止世界載入"
   },
   "console.crash.finding.out-of-memory.action": {
-    "defaultMessage": "Increase the instance memory allocation or remove memory-heavy mods and resource packs."
+    "defaultMessage": "增加實例記憶體配置，或移除占用大量記憶體的模組和資源包。"
   },
   "console.crash.finding.out-of-memory.title": {
-    "defaultMessage": "Minecraft ran out of memory"
+    "defaultMessage": "Minecraft 記憶體不足"
   },
   "console.crash.finding.pixel-format.action": {
-    "defaultMessage": "Update or reinstall the graphics driver and disable conflicting overlays before retrying."
+    "defaultMessage": "更新或重新安裝顯示卡驅動程式，停用衝突的覆蓋層後重試。"
   },
   "console.crash.finding.pixel-format.title": {
-    "defaultMessage": "The graphics driver could not set a pixel format"
+    "defaultMessage": "顯示卡驅動程式無法設定像素格式"
   },
   "console.crash.finding.resource-pack.action": {
-    "defaultMessage": "Disable the active shader and resource packs, then re-enable them one at a time."
+    "defaultMessage": "停用目前光影和資源包，再逐一重新啟用。"
   },
   "console.crash.finding.resource-pack.title": {
-    "defaultMessage": "A shader or resource pack triggered a graphics error"
+    "defaultMessage": "光影或資源包觸發圖形錯誤"
   },
   "console.crash.finding.shaders-optifine.action": {
-    "defaultMessage": "Remove the separate Shaders Mod because OptiFine already provides shader support."
+    "defaultMessage": "移除單獨的光影模組，因為 OptiFine 已提供光影支援。"
   },
   "console.crash.finding.shaders-optifine.title": {
-    "defaultMessage": "Shaders Mod and OptiFine are installed together"
+    "defaultMessage": "同時安裝了光影模組和 OptiFine"
   },
   "console.crash.finding.short-output.action": {
-    "defaultMessage": "Retry once, then verify Java, the loader installation, and the launcher output for an earlier error."
+    "defaultMessage": "重試一次，然後檢查 Java、載入器安裝和啟動器輸出中較早出現的錯誤。"
   },
   "console.crash.finding.short-output.title": {
-    "defaultMessage": "The game stopped before producing a useful log"
+    "defaultMessage": "遊戲在產生有效日誌前停止"
   },
   "console.crash.finding.specific-block.action": {
-    "defaultMessage": "Use a world backup or a world editor to remove the block at the coordinates in the evidence."
+    "defaultMessage": "使用世界備份或世界編輯器，移除證據所示座標處的方塊。"
   },
   "console.crash.finding.specific-block.title": {
-    "defaultMessage": "A specific block caused the crash"
+    "defaultMessage": "特定方塊導致崩潰"
   },
   "console.crash.finding.specific-entity.action": {
-    "defaultMessage": "Use a world backup or a world editor to remove the entity at the coordinates in the evidence."
+    "defaultMessage": "使用世界備份或世界編輯器，移除證據所示座標處的實體。"
   },
   "console.crash.finding.specific-entity.title": {
-    "defaultMessage": "A specific entity caused the crash"
+    "defaultMessage": "特定實體導致崩潰"
   },
   "console.crash.finding.stack-analysis.action": {
-    "defaultMessage": "Update or temporarily remove the matched Mod, then test the instance again."
+    "defaultMessage": "更新或暫時移除相符的模組，然後重新測試實例。"
   },
   "console.crash.finding.stack-analysis.title": {
-    "defaultMessage": "The stack trace points to an installed Mod"
+    "defaultMessage": "堆疊追蹤指向已安裝的模組"
   },
   "console.crash.finding.suspected-mod.action": {
-    "defaultMessage": "Update or temporarily remove the suspected and locally matched Mods, then retry."
+    "defaultMessage": "更新或暫時移除報告懷疑且本機相符的模組，然後重試。"
   },
   "console.crash.finding.suspected-mod.title": {
-    "defaultMessage": "The crash report suspects one or more Mods"
+    "defaultMessage": "崩潰報告懷疑一個或多個模組"
   },
   "console.crash.local-header": {
-    "defaultMessage": "{findings, plural, one {# local diagnosis result} other {# local diagnosis results}} from {sources, plural, one {# related file} other {# related files}}"
+    "defaultMessage": "{findings, plural, other {# 項本機診斷結果}}，來自 {sources, plural, other {# 個相關檔案}}"
   },
   "console.crash.mod-change": {
     "defaultMessage": "{kind}: {filename}"
@@ -762,265 +762,265 @@
     "defaultMessage": "Mod files changed since the last successful launch"
   },
   "console.crash.problems-detected": {
-    "defaultMessage": "{count, plural, one {# problem detected} other {# problems detected}}"
+    "defaultMessage": "偵測到 {count, plural, other {# 個問題}}"
   },
   "console.crash.windows-events.title": {
     "defaultMessage": "Related Windows application events"
   },
   "console.delete-modal.confirmation": {
-    "defaultMessage": "Deleting this log file cannot be undone. Are you sure you want to continue?"
+    "defaultMessage": "刪除後無法復原此日誌檔案。確定要繼續嗎？"
   },
   "console.delete-modal.irreversible-title": {
-    "defaultMessage": "This is irreversible"
+    "defaultMessage": "此操作無法復原"
   },
   "console.delete-modal.title": {
-    "defaultMessage": "Delete log file"
+    "defaultMessage": "刪除日誌檔案"
   },
   "console.empty.instance-description": {
-    "defaultMessage": "Click the Play button to start receiving live logs."
+    "defaultMessage": "點選右上角「開始遊戲」即可接收實時日誌"
   },
   "console.empty.instance-title": {
-    "defaultMessage": "No logs yet"
+    "defaultMessage": "暫無日誌"
   },
   "console.empty.server-description": {
-    "defaultMessage": "Click the start button to start the server!"
+    "defaultMessage": "點選啟動按鈕即可啟動伺服器！"
   },
   "console.empty.server-title": {
-    "defaultMessage": "Welcome to your Modrinth server!"
+    "defaultMessage": "歡迎使用 Modrinth 伺服器！"
   },
   "console.filter.error": {
-    "defaultMessage": "Error"
+    "defaultMessage": "錯誤"
   },
   "console.filter.info": {
-    "defaultMessage": "Info"
+    "defaultMessage": "資訊"
   },
   "console.filter.warn": {
-    "defaultMessage": "Warn"
+    "defaultMessage": "警告"
   },
   "console.log-viewport.scroll-to-bottom": {
     "defaultMessage": "Scroll to bottom"
   },
   "console.log.toggle-wrap": {
-    "defaultMessage": "Toggle line wrapping"
+    "defaultMessage": "切換換行"
   },
   "console.log.wrap-label": {
-    "defaultMessage": "Wrap"
+    "defaultMessage": "換行"
   },
   "console.notification.delete-failed": {
-    "defaultMessage": "Failed to delete log file"
+    "defaultMessage": "刪除日誌檔案失敗"
   },
   "console.notification.share-failed": {
-    "defaultMessage": "Failed to share logs"
+    "defaultMessage": "分享日誌失敗"
   },
   "console.notification.share-truncated": {
-    "defaultMessage": "The log is too large, so only the last 9 MB was uploaded."
+    "defaultMessage": "日誌過大，已自動擷取最後 9MB 上傳。"
   },
   "console.notification.unknown-error": {
-    "defaultMessage": "Unknown error."
+    "defaultMessage": "未知錯誤。"
   },
   "console.search.placeholder": {
-    "defaultMessage": "Search logs"
+    "defaultMessage": "搜尋日誌"
   },
   "console.share-modal.title": {
-    "defaultMessage": "Share Logs"
+    "defaultMessage": "分享日誌"
   },
   "content-type.content.lowercase": {
-    "defaultMessage": "content"
+    "defaultMessage": "內容"
   },
   "content-type.item.lowercase": {
-    "defaultMessage": "{count, plural, one {item} other {items}}"
+    "defaultMessage": "{count, plural, other {項目}}"
   },
   "content.actions.update-all": {
     "defaultMessage": "Update all"
   },
   "content.card.dependency-badge": {
-    "defaultMessage": "Dependency"
+    "defaultMessage": "前置"
   },
   "content.card.duplicate-mod": {
-    "defaultMessage": "This mod is installed {count, number} times."
+    "defaultMessage": "此模組已安裝 {count, number} 次。"
   },
   "content.card.group.hardcore": {
-    "defaultMessage": "Hardcore mode"
+    "defaultMessage": "硬核模式"
   },
   "content.card.group.not-played-yet": {
-    "defaultMessage": "Not played yet"
+    "defaultMessage": "尚未遊玩"
   },
   "content.card.orphaned-dependency-badge": {
-    "defaultMessage": "Orphaned dependency"
+    "defaultMessage": "孤立前置"
   },
   "content.card.pending-manual-download": {
     "defaultMessage": "Manual download required"
   },
   "content.card.rollback-tooltip": {
-    "defaultMessage": "Roll back to {fileName}"
+    "defaultMessage": "回滾到 {fileName}"
   },
   "content.card.select-project": {
-    "defaultMessage": "Select {project}"
+    "defaultMessage": "選取「{project}」"
   },
   "content.confirm-bulk-update.admonition-body": {
-    "defaultMessage": "Are you sure you want to update {count, plural, one {# project} other {# projects}} to their latest compatible version? It's recommended to update content one-by-one."
+    "defaultMessage": "確定要將這 {count, plural, other {# 個專案}}更新至最新的相容版本嗎？建議你逐一進行更新。"
   },
   "content.confirm-bulk-update.admonition-header": {
-    "defaultMessage": "Update warning"
+    "defaultMessage": "更新警告"
   },
   "content.confirm-bulk-update.header": {
-    "defaultMessage": "Update projects"
+    "defaultMessage": "更新專案"
   },
   "content.confirm-bulk-update.update-button": {
-    "defaultMessage": "Update {count, plural, one {# project} other {# projects}}"
+    "defaultMessage": "更新 {count, plural, other {# 個專案}}"
   },
   "content.confirm-deletion.admonition-body": {
     "defaultMessage": "Deleting {contentType, select, mod {a mod} resourcepack {a resource pack} shader {a shader} datapack {a data pack} other {content}} can permanently affect your world and may cause missing content or unexpected issues when it loads again."
   },
   "content.confirm-deletion.admonition-header": {
-    "defaultMessage": "Deletion warning"
+    "defaultMessage": "刪除警告"
   },
   "content.confirm-deletion.delete-button": {
-    "defaultMessage": "Delete {count, number} {itemType}"
+    "defaultMessage": "刪除 {count, number} 個{itemType}"
   },
   "content.confirm-deletion.failed": {
     "defaultMessage": "The selected content could not be deleted. Try again."
   },
   "content.confirm-deletion.header": {
-    "defaultMessage": "Delete {itemType}"
+    "defaultMessage": "刪除{itemType}"
   },
   "content.confirm-modpack-update.admonition-body": {
-    "defaultMessage": "{action, select, downgrade {Downgrading} other {Updating}} may cause compatibility issues. Mods or content you added on top of the modpack will be kept, but may not be compatible with the new version."
+    "defaultMessage": "{action, select, downgrade {降級} other {更新}}可能會導致相容性問題。你額外新增至模組包的模組或內容將保留，但可能與新版本不相容。"
   },
   "content.confirm-modpack-update.admonition-header": {
-    "defaultMessage": "{action, select, downgrade {Downgrade} other {Update}} warning"
+    "defaultMessage": "{action, select, downgrade {降級} other {更新}}警告"
   },
   "content.confirm-modpack-update.confirm-button": {
-    "defaultMessage": "{action, select, downgrade {Downgrade} other {Update}} modpack"
+    "defaultMessage": "{action, select, downgrade {降級} other {更新}}模組包"
   },
   "content.confirm-modpack-update.header": {
-    "defaultMessage": "{action, select, downgrade {Downgrade} other {Update}} modpack"
+    "defaultMessage": "{action, select, downgrade {降級} other {更新}}模組包"
   },
   "content.confirm-unlink.admonition-body": {
-    "defaultMessage": "Mods and content will be merged with what you added on top of the modpack, and it will stop receiving updates."
+    "defaultMessage": "模組與內容將與你額外新增至模組包的內容合併，且將不再接收更新。"
   },
   "content.confirm-unlink.admonition-header": {
-    "defaultMessage": "Unlinking modpack"
+    "defaultMessage": "取消連結模組包"
   },
   "content.confirm-unlink.header": {
-    "defaultMessage": "Unlink modpack"
+    "defaultMessage": "取消連結模組包"
   },
   "content.confirm-unlink.unlink-button": {
-    "defaultMessage": "Unlink"
+    "defaultMessage": "取消連結"
   },
   "content.dependency-warning.admonition-header": {
-    "defaultMessage": "This content is required by other content"
+    "defaultMessage": "其他內容需要此內容"
   },
   "content.dependency-warning.affected-dependents-label": {
-    "defaultMessage": "Affected {count, plural, one {project} other {projects}}"
+    "defaultMessage": "受影響{count, plural, other {專案}}"
   },
   "content.dependency-warning.bulk-admonition-body": {
-    "defaultMessage": "Some selected projects are installed as dependencies. Deleting them may break your {context} or stop dependent content from loading correctly."
+    "defaultMessage": "部分所選的專案已作為相依項安裝。刪除這些專案可能會導致你的{context}無法運作，或使依賴項的內容無法正確載入。"
   },
   "content.dependency-warning.context.instance": {
-    "defaultMessage": "instance"
+    "defaultMessage": "實例"
   },
   "content.dependency-warning.context.server": {
-    "defaultMessage": "server"
+    "defaultMessage": "伺服器"
   },
   "content.dependency-warning.delete-anyway-button": {
-    "defaultMessage": "Delete anyway"
+    "defaultMessage": "仍要刪除"
   },
   "content.dependency-warning.delete-failed": {
     "defaultMessage": "The selected content and dependencies could not be deleted. Try again."
   },
   "content.dependency-warning.delete-many-anyway-button": {
-    "defaultMessage": "Delete {count, number} {itemType} anyway"
+    "defaultMessage": "仍要刪除 {count, number} 個{itemType}"
   },
   "content.dependency-warning.deleting-label": {
-    "defaultMessage": "Deleting"
+    "defaultMessage": "刪除"
   },
   "content.dependency-warning.disable-dependents-label": {
-    "defaultMessage": "Disable dependents after deleting"
+    "defaultMessage": "刪除後停用依賴項"
   },
   "content.dependency-warning.effect-dependent-content": {
-    "defaultMessage": "Dependent content may fail to load or may disable itself"
+    "defaultMessage": "依賴項內容可能會無法載入，或自主停用"
   },
   "content.dependency-warning.effect-instance": {
-    "defaultMessage": "Your {context} may crash, refuse to start, or behave unexpectedly"
+    "defaultMessage": "你的{context}可能會崩潰、無法啟動，或出現異常行為"
   },
   "content.dependency-warning.header": {
-    "defaultMessage": "Dependency warning"
+    "defaultMessage": "相依項警告"
   },
   "content.dependency-warning.single-admonition-body": {
-    "defaultMessage": "{project} is installed as a dependency. Deleting it may break your {context} or stop dependent content from loading correctly."
+    "defaultMessage": "{project} 已作為相依項安裝。刪除這個專案可能會導致你的{context}無法運作，或使依賴項的內容無法正確載入。"
   },
   "content.dependency-warning.what-happens-label": {
-    "defaultMessage": "What happens?"
+    "defaultMessage": "會發生什麼事？"
   },
   "content.diff-modal.added-count": {
-    "defaultMessage": "{count} added"
+    "defaultMessage": "已新增 {count} 個"
   },
   "content.diff-modal.diff-type.added": {
-    "defaultMessage": "Added (dependency)"
+    "defaultMessage": "已新增（相依項）"
   },
   "content.diff-modal.diff-type.removed": {
-    "defaultMessage": "Disabled"
+    "defaultMessage": "已停用"
   },
   "content.diff-modal.diff-type.updated": {
-    "defaultMessage": "Updated"
+    "defaultMessage": "已更新"
   },
   "content.diff-modal.removed-count": {
-    "defaultMessage": "{count} removed"
+    "defaultMessage": "已移除 {count} 個"
   },
   "content.diff-modal.unknown-content-body": {
-    "defaultMessage": "Some content on your server could not be analyzed and may be affected by this change."
+    "defaultMessage": "你伺服器上的部分內容無法進行分析，且可能會受到這項變更的影響。"
   },
   "content.diff-modal.updated-count": {
-    "defaultMessage": "{count} updated"
+    "defaultMessage": "已更新 {count} 個"
   },
   "content.filter.disabled": {
-    "defaultMessage": "Disabled"
+    "defaultMessage": "停用"
   },
   "content.filter.duplicates": {
-    "defaultMessage": "Duplicates"
+    "defaultMessage": "重複"
   },
   "content.filter.enabled": {
-    "defaultMessage": "Enabled"
+    "defaultMessage": "啟用"
   },
   "content.filter.updates": {
-    "defaultMessage": "Update available"
+    "defaultMessage": "更新"
   },
   "content.metadata-filter.author": {
-    "defaultMessage": "Author"
+    "defaultMessage": "作者"
   },
   "content.metadata-filter.clear": {
-    "defaultMessage": "Clear"
+    "defaultMessage": "清除"
   },
   "content.metadata-filter.environment": {
-    "defaultMessage": "Environment"
+    "defaultMessage": "環境"
   },
   "content.metadata-filter.environment.client": {
-    "defaultMessage": "Client"
+    "defaultMessage": "客戶端"
   },
   "content.metadata-filter.environment.client-and-server": {
-    "defaultMessage": "Client & server"
+    "defaultMessage": "客戶端和服務端"
   },
   "content.metadata-filter.environment.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "服務端"
   },
   "content.metadata-filter.environment.singleplayer": {
-    "defaultMessage": "Singleplayer"
+    "defaultMessage": "單人遊戲"
   },
   "content.metadata-filter.external": {
-    "defaultMessage": "External files"
+    "defaultMessage": "外部檔案"
   },
   "content.metadata-filter.external.external": {
-    "defaultMessage": "External file"
+    "defaultMessage": "外部檔案"
   },
   "content.metadata-filter.external.linked": {
-    "defaultMessage": "Online project"
+    "defaultMessage": "線上專案"
   },
   "content.metadata-filter.installed-source": {
     "defaultMessage": "Installation source"
   },
   "content.metadata-filter.loader": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "載入器"
   },
   "content.metadata-filter.loader.fabric": {
     "defaultMessage": "Fabric"
@@ -1032,22 +1032,22 @@
     "defaultMessage": "NeoForge"
   },
   "content.metadata-filter.loader.other": {
-    "defaultMessage": "Other"
+    "defaultMessage": "其他"
   },
   "content.metadata-filter.loader.quilt": {
     "defaultMessage": "Quilt"
   },
   "content.metadata-filter.long-press-reset": {
-    "defaultMessage": "Long-press to reset filters"
+    "defaultMessage": "長按重置篩選"
   },
   "content.metadata-filter.open-source": {
-    "defaultMessage": "Open source"
+    "defaultMessage": "開源"
   },
   "content.metadata-filter.open-source.closed": {
-    "defaultMessage": "Closed source"
+    "defaultMessage": "非開源"
   },
   "content.metadata-filter.open-source.open": {
-    "defaultMessage": "Open source"
+    "defaultMessage": "開源"
   },
   "content.metadata-filter.ownership": {
     "defaultMessage": "Content ownership"
@@ -1062,10 +1062,10 @@
     "defaultMessage": "User added"
   },
   "content.metadata-filter.search": {
-    "defaultMessage": "Search..."
+    "defaultMessage": "搜尋..."
   },
   "content.metadata-filter.select-all": {
-    "defaultMessage": "Select all"
+    "defaultMessage": "全選"
   },
   "content.metadata-filter.source.curseforge": {
     "defaultMessage": "CurseForge"
@@ -1080,16 +1080,16 @@
     "defaultMessage": "Planet Minecraft"
   },
   "content.metadata-filter.toggle": {
-    "defaultMessage": "Filter"
+    "defaultMessage": "篩選"
   },
   "content.metadata-filter.toggle-active": {
-    "defaultMessage": "Filter ({count, number} active)"
+    "defaultMessage": "篩選（已啟用 {count, number} 項）"
   },
   "content.metadata-filter.unknown": {
-    "defaultMessage": "Unknown"
+    "defaultMessage": "未知"
   },
   "content.page-layout.browse-content": {
-    "defaultMessage": "Browse content"
+    "defaultMessage": "瀏覽內容"
   },
   "content.page-layout.dependency-disable-failed": {
     "defaultMessage": "Dependent content could not be disabled. Retry to finish the deletion."
@@ -1098,187 +1098,187 @@
     "defaultMessage": "{visible} matching · All copies: {updates} updates · {disabled} disabled · {missing} missing · {installing} in progress"
   },
   "content.page-layout.empty.hint": {
-    "defaultMessage": "Browse or upload {contentType} to get started"
+    "defaultMessage": "瀏覽或上傳{contentType}即可開始"
   },
   "content.page-layout.empty.no-content-installed": {
-    "defaultMessage": "No content installed"
+    "defaultMessage": "未安裝內容"
   },
   "content.page-layout.failed-to-load": {
-    "defaultMessage": "Failed to load content"
+    "defaultMessage": "無法載入內容"
   },
   "content.page-layout.no-content-found": {
-    "defaultMessage": "No content found."
+    "defaultMessage": "找不到內容。"
   },
   "content.page-layout.pin-view": {
-    "defaultMessage": "Pin current view"
+    "defaultMessage": "固定當前檢視"
   },
   "content.page-layout.reset-view": {
-    "defaultMessage": "Reset view"
+    "defaultMessage": "重置檢視"
   },
   "content.page-layout.scroll-to-top": {
     "defaultMessage": "Scroll to top"
   },
   "content.page-layout.search-placeholder": {
-    "defaultMessage": "Search {count, number} {contentType}..."
+    "defaultMessage": "搜尋 {count, number} 個{contentType}..."
   },
   "content.page-layout.share.file-names": {
-    "defaultMessage": "File names"
+    "defaultMessage": "檔案名稱"
   },
   "content.page-layout.share.label": {
-    "defaultMessage": "Share"
+    "defaultMessage": "分享"
   },
   "content.page-layout.share.markdown-links": {
-    "defaultMessage": "Markdown links"
+    "defaultMessage": "Markdown 連結"
   },
   "content.page-layout.share.project-links": {
-    "defaultMessage": "Project links"
+    "defaultMessage": "專案連結"
   },
   "content.page-layout.share.project-names": {
-    "defaultMessage": "Project names"
+    "defaultMessage": "專案名稱"
   },
   "content.page-layout.sort.alphabetical": {
-    "defaultMessage": "Alphabetical"
+    "defaultMessage": "字母順序"
   },
   "content.page-layout.sort.date-added-newest": {
-    "defaultMessage": "Newest first"
+    "defaultMessage": "最新在前"
   },
   "content.page-layout.sort.date-added-oldest": {
-    "defaultMessage": "Oldest first"
+    "defaultMessage": "最舊在前"
   },
   "content.page-layout.sort.file-name-ascending": {
-    "defaultMessage": "File name A-Z"
+    "defaultMessage": "檔名 A-Z"
   },
   "content.page-layout.sort.file-name-descending": {
-    "defaultMessage": "File name Z-A"
+    "defaultMessage": "檔名 Z-A"
   },
   "content.page-layout.sort.label": {
-    "defaultMessage": "Sort by {mode}"
+    "defaultMessage": "排序依據：{mode}"
   },
   "content.page-layout.sort.project-name-ascending": {
-    "defaultMessage": "Project name A-Z"
+    "defaultMessage": "專案名稱 A-Z"
   },
   "content.page-layout.sort.project-name-descending": {
-    "defaultMessage": "Project name Z-A"
+    "defaultMessage": "專案名稱 Z-A"
   },
   "content.page-layout.unpin-view": {
-    "defaultMessage": "Unpin current view"
+    "defaultMessage": "取消固定當前檢視"
   },
   "content.page-layout.update-all": {
-    "defaultMessage": "Update all"
+    "defaultMessage": "更新全部"
   },
   "content.page-layout.update-duplicate-group": {
     "defaultMessage": "Review updates for all {count, number} copies"
   },
   "content.page-layout.view-dependencies": {
-    "defaultMessage": "View dependencies"
+    "defaultMessage": "檢視依賴關係"
   },
   "content.page-layout.view-options": {
-    "defaultMessage": "View options"
+    "defaultMessage": "檢視選項"
   },
   "content.selection-bar.all-already-disabled": {
-    "defaultMessage": "All selected content is already disabled"
+    "defaultMessage": "所有已選擇的內容已經停用"
   },
   "content.selection-bar.all-already-enabled": {
-    "defaultMessage": "All selected content is already enabled"
+    "defaultMessage": "所有已選擇的內容已經啟用"
   },
   "content.selection-bar.bulk.deleting": {
-    "defaultMessage": "Deleting {progress}/{total} {contentType}..."
+    "defaultMessage": "正在刪除 {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.deleting-count": {
-    "defaultMessage": "Deleting {count, number} {contentType}"
+    "defaultMessage": "正在刪除 {count, number} 個{contentType}"
   },
   "content.selection-bar.bulk.deleting-waiting": {
-    "defaultMessage": "Deleting {contentType}..."
+    "defaultMessage": "正在刪除{contentType}..."
   },
   "content.selection-bar.bulk.disabling": {
-    "defaultMessage": "Disabling {progress}/{total} {contentType}..."
+    "defaultMessage": "正在停用 {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.disabling-count": {
-    "defaultMessage": "Disabling {count, number} {contentType}"
+    "defaultMessage": "正在停用 {count, number} 個{contentType}"
   },
   "content.selection-bar.bulk.disabling-waiting": {
-    "defaultMessage": "Disabling {contentType}..."
+    "defaultMessage": "正在停用{contentType}..."
   },
   "content.selection-bar.bulk.enabling": {
-    "defaultMessage": "Enabling {progress}/{total} {contentType}..."
+    "defaultMessage": "正在啟用 {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.enabling-count": {
-    "defaultMessage": "Enabling {count, number} {contentType}"
+    "defaultMessage": "正在啟用 {count, number} 個{contentType}"
   },
   "content.selection-bar.bulk.enabling-waiting": {
-    "defaultMessage": "Enabling {contentType}..."
+    "defaultMessage": "正在啟用{contentType}..."
   },
   "content.selection-bar.bulk.updating": {
-    "defaultMessage": "Updating {progress}/{total} {contentType}..."
+    "defaultMessage": "正在更新 {progress}/{total} {contentType}..."
   },
   "content.selection-bar.bulk.updating-count": {
-    "defaultMessage": "Updating {count, number} {contentType}"
+    "defaultMessage": "正在更新 {count, number} 個{contentType}"
   },
   "content.selection-bar.bulk.updating-waiting": {
-    "defaultMessage": "Updating {contentType}..."
+    "defaultMessage": "正在更新{contentType}..."
   },
   "content.selection-bar.selected-count": {
-    "defaultMessage": "{count, number} {contentType} selected"
+    "defaultMessage": "已選取 {count, number} 個{contentType}"
   },
   "content.selection-bar.selected-count-simple": {
-    "defaultMessage": "{count, number} selected"
+    "defaultMessage": "已選取 {count, number} 個項目"
   },
   "creation-flow.button.create-instance": {
-    "defaultMessage": "Create instance"
+    "defaultMessage": "建立實例"
   },
   "creation-flow.button.create-world": {
-    "defaultMessage": "Create world"
+    "defaultMessage": "建立世界"
   },
   "creation-flow.button.finish": {
-    "defaultMessage": "Finish"
+    "defaultMessage": "完成"
   },
   "creation-flow.button.import": {
-    "defaultMessage": "Import"
+    "defaultMessage": "匯入"
   },
   "creation-flow.button.import-instances": {
-    "defaultMessage": "Import {count, plural, one {# instance} other {# instances}}"
+    "defaultMessage": "匯入 {count, plural, other {# 個實例}}"
   },
   "creation-flow.button.setup-server": {
-    "defaultMessage": "Setup server"
+    "defaultMessage": "設定伺服器"
   },
   "creation-flow.modal.custom-setup.adjunct.checking-compatibility": {
-    "defaultMessage": "Checking compatibility..."
+    "defaultMessage": "正在檢查相容性……"
   },
   "creation-flow.modal.custom-setup.adjunct.compatibility-load-failed": {
-    "defaultMessage": "Failed to verify {loader} compatibility."
+    "defaultMessage": "無法驗證 {loader} 的相容性。"
   },
   "creation-flow.modal.custom-setup.adjunct.hint": {
-    "defaultMessage": "A compatible version will be selected before downloading."
+    "defaultMessage": "下載前會自動選擇相容版本。"
   },
   "creation-flow.modal.custom-setup.adjunct.label": {
-    "defaultMessage": "Additional loaders"
+    "defaultMessage": "附加載入器"
   },
   "creation-flow.modal.custom-setup.adjunct.optifabric-load-failed": {
-    "defaultMessage": "Failed to verify OptiFabric compatibility."
+    "defaultMessage": "無法驗證 OptiFabric 相容性。"
   },
   "creation-flow.modal.custom-setup.adjunct.optifabric-unsupported": {
-    "defaultMessage": "OptiFine requires OptiFabric, but no compatible version is available."
+    "defaultMessage": "OptiFine 需要 OptiFabric，但當前遊戲版本沒有相容版本。"
   },
   "creation-flow.modal.custom-setup.adjunct.primary-unsupported": {
-    "defaultMessage": "The selected mod loader does not support this game version."
+    "defaultMessage": "所選主載入器不支援當前遊戲版本。"
   },
   "creation-flow.modal.custom-setup.adjunct.select-game-version": {
-    "defaultMessage": "Select a game version to check compatibility."
+    "defaultMessage": "請先選擇遊戲版本以檢查相容性。"
   },
   "creation-flow.modal.custom-setup.adjunct.unsupported": {
-    "defaultMessage": "No compatible {loader} version is available for this game version."
+    "defaultMessage": "{loader} 沒有支援當前遊戲版本的相容版本。"
   },
   "creation-flow.modal.custom-setup.build-number.label": {
-    "defaultMessage": "Build number"
+    "defaultMessage": "組建編號"
   },
   "creation-flow.modal.custom-setup.build-number.placeholder": {
-    "defaultMessage": "Select build number"
+    "defaultMessage": "選擇組建編號"
   },
   "creation-flow.modal.custom-setup.build-number.search-placeholder": {
-    "defaultMessage": "Search build number..."
+    "defaultMessage": "搜尋組建編號..."
   },
   "creation-flow.modal.custom-setup.content-loader.label": {
-    "defaultMessage": "Content loader"
+    "defaultMessage": "內容載入器"
   },
   "creation-flow.modal.custom-setup.game-dir.label": {
     "defaultMessage": "Game directory"
@@ -1287,211 +1287,211 @@
     "defaultMessage": "Axolotl directory"
   },
   "creation-flow.modal.custom-setup.game-version-type.alpha": {
-    "defaultMessage": "April Fools"
+    "defaultMessage": "愚人節版"
   },
   "creation-flow.modal.custom-setup.game-version-type.ancient": {
-    "defaultMessage": "Ancient"
+    "defaultMessage": "遠古版"
   },
   "creation-flow.modal.custom-setup.game-version-type.release": {
-    "defaultMessage": "Release"
+    "defaultMessage": "正式版"
   },
   "creation-flow.modal.custom-setup.game-version-type.snapshot": {
-    "defaultMessage": "Snapshot"
+    "defaultMessage": "快照版"
   },
   "creation-flow.modal.custom-setup.game-version.load-failed": {
-    "defaultMessage": "Failed to load game versions"
+    "defaultMessage": "遊戲版本載入失敗"
   },
   "creation-flow.modal.custom-setup.game-version.no-supported-versions": {
-    "defaultMessage": "No game versions support this loader"
+    "defaultMessage": "沒有遊戲版本支援此載入器"
   },
   "creation-flow.modal.custom-setup.game-version.placeholder": {
-    "defaultMessage": "Select game version"
+    "defaultMessage": "選擇遊戲版本"
   },
   "creation-flow.modal.custom-setup.game-version.search-placeholder": {
-    "defaultMessage": "Search game version..."
+    "defaultMessage": "搜尋遊戲版本..."
   },
   "creation-flow.modal.custom-setup.icon.remove": {
-    "defaultMessage": "Remove icon"
+    "defaultMessage": "移除圖示"
   },
   "creation-flow.modal.custom-setup.icon.select": {
-    "defaultMessage": "Select icon"
+    "defaultMessage": "選擇圖示"
   },
   "creation-flow.modal.custom-setup.loader-version-type.latest": {
-    "defaultMessage": "Latest"
+    "defaultMessage": "最新版"
   },
   "creation-flow.modal.custom-setup.loader-version-type.other": {
-    "defaultMessage": "Custom"
+    "defaultMessage": "其他"
   },
   "creation-flow.modal.custom-setup.loader-version-type.stable": {
-    "defaultMessage": "Stable"
+    "defaultMessage": "穩定版"
   },
   "creation-flow.modal.custom-setup.loader-version.label": {
-    "defaultMessage": "Mod Loader version"
+    "defaultMessage": "載入器版本"
   },
   "creation-flow.modal.custom-setup.loader-version.placeholder": {
-    "defaultMessage": "Select loader version"
+    "defaultMessage": "選擇載入器版本"
   },
   "creation-flow.modal.custom-setup.loader-version.search-placeholder": {
-    "defaultMessage": "Search loader version..."
+    "defaultMessage": "搜尋載入器版本..."
   },
   "creation-flow.modal.custom-setup.loader.compatibility-load-failed": {
-    "defaultMessage": "Failed to verify loader compatibility"
+    "defaultMessage": "無法驗證載入器相容性"
   },
   "creation-flow.modal.custom-setup.loader.label": {
-    "defaultMessage": "Mod Loader"
+    "defaultMessage": "載入器"
   },
   "creation-flow.modal.custom-setup.loader.no-such-versions-available": {
-    "defaultMessage": "No such versions available"
+    "defaultMessage": "無此版本"
   },
   "creation-flow.modal.custom-setup.loader.unsupported-tooltip": {
-    "defaultMessage": "This loader does not support the selected game version"
+    "defaultMessage": "此載入器不支援所選遊戲版本"
   },
   "creation-flow.modal.custom-setup.name.label": {
-    "defaultMessage": "Name"
+    "defaultMessage": "名稱"
   },
   "creation-flow.modal.custom-setup.name.placeholder": {
-    "defaultMessage": "Enter instance name"
+    "defaultMessage": "輸入實例名稱"
   },
   "creation-flow.modal.custom-setup.options.no-versions-available": {
-    "defaultMessage": "No versions available"
+    "defaultMessage": "沒有可用的版本"
   },
   "creation-flow.modal.custom-setup.will-install-loader-version": {
-    "defaultMessage": "Will install: {loader} {version}"
+    "defaultMessage": "將會安裝：{loader} {version}"
   },
   "creation-flow.modal.import-instance.import-prompt": {
-    "defaultMessage": "Drag & drop launcher folders, modpack files, or .minecraft folders to import an instance in one click"
+    "defaultMessage": "拖拽啟動器資料夾、整合包檔案或 .minecraft 資料夾即可一鍵匯入例項"
   },
   "creation-flow.modal.import-instance.select-file": {
-    "defaultMessage": "Select file to import"
+    "defaultMessage": "選擇要匯入的檔案"
   },
   "creation-flow.modal.import-instance.select-file.description": {
-    "defaultMessage": "Import a modpack file or launcher archive"
+    "defaultMessage": "匯入整合包檔案或啟動器(HMCL、PCL)"
   },
   "creation-flow.modal.import-instance.select-folder": {
-    "defaultMessage": "Select folder to import"
+    "defaultMessage": "選擇要匯入的資料夾"
   },
   "creation-flow.modal.import-instance.select-folder.description": {
-    "defaultMessage": "Import a launcher folder or .minecraft folder"
+    "defaultMessage": "匯入啟動器資料夾或 .minecraft 資料夾"
   },
   "creation-flow.modal.setup-type.instance.description": {
-    "defaultMessage": "An instance is a Minecraft setup with a specific loader, version, and mods."
+    "defaultMessage": "實例是指具有特定載入器、版本及模組的 Minecraft 設定。"
   },
   "creation-flow.modal.setup-type.option.custom-setup.description": {
-    "defaultMessage": "Start from scratch by picking a loader and game version."
+    "defaultMessage": "從頭開始，先選擇載入器與遊戲版本。"
   },
   "creation-flow.modal.setup-type.option.custom-setup.title": {
-    "defaultMessage": "Custom setup"
+    "defaultMessage": "自訂設定"
   },
   "creation-flow.modal.setup-type.option.import-instance.description": {
-    "defaultMessage": "Import an instance from Prism, CurseForge, or similar."
+    "defaultMessage": "從 Prism、CurseForge 或類似啟動器匯入實例。"
   },
   "creation-flow.modal.setup-type.option.import-instance.title": {
-    "defaultMessage": "Import instance"
+    "defaultMessage": "匯入實例"
   },
   "creation-flow.modal.setup-type.option.modpack-base.description": {
-    "defaultMessage": "Browse modpacks on Modrinth or import one from a file."
+    "defaultMessage": "在 Modrinth 上瀏覽模組包，或從檔案匯入。"
   },
   "creation-flow.modal.setup-type.option.modpack-base.title": {
-    "defaultMessage": "Install modpack"
+    "defaultMessage": "安裝模組包"
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.description": {
-    "defaultMessage": "Classic Minecraft with no mods or plugins."
+    "defaultMessage": "不含任何模組或插件的經典 Minecraft。"
   },
   "creation-flow.modal.setup-type.option.vanilla-minecraft.title": {
-    "defaultMessage": "Vanilla Minecraft"
+    "defaultMessage": "原版 Minecraft"
   },
   "creation-flow.modal.setup-type.title.installation": {
-    "defaultMessage": "Select installation type"
+    "defaultMessage": "選擇安裝類型"
   },
   "creation-flow.modal.setup-type.title.instance": {
-    "defaultMessage": "Choose instance type"
+    "defaultMessage": "選擇實例類型"
   },
   "creation-flow.modal.setup-type.title.world": {
-    "defaultMessage": "Select world type"
+    "defaultMessage": "選擇世界類型"
   },
   "creation-flow.title.choose-modpack": {
-    "defaultMessage": "Choose modpack"
+    "defaultMessage": "選擇模組包"
   },
   "creation-flow.title.create-instance": {
-    "defaultMessage": "Create instance"
+    "defaultMessage": "建立實例"
   },
   "creation-flow.title.create-world": {
-    "defaultMessage": "Create world"
+    "defaultMessage": "建立世界"
   },
   "creation-flow.title.import-instance": {
-    "defaultMessage": "Import instance"
+    "defaultMessage": "匯入實例"
   },
   "creation-flow.title.reset-server": {
-    "defaultMessage": "Reset server"
+    "defaultMessage": "重設伺服器"
   },
   "creation-flow.title.set-up-server": {
-    "defaultMessage": "Set up server"
+    "defaultMessage": "設定伺服器"
   },
   "drop.confirm.as-data-pack": {
-    "defaultMessage": "Data Pack"
+    "defaultMessage": "資料包"
   },
   "drop.confirm.as-data-pack-desc": {
-    "defaultMessage": "Install a data pack to an save"
+    "defaultMessage": "將資料包安裝到存檔"
   },
   "drop.confirm.as-dot-minecraft": {
     "defaultMessage": ".minecraft"
   },
   "drop.confirm.as-dot-minecraft-desc": {
-    "defaultMessage": "Scan a .minecraft folder to create instances"
+    "defaultMessage": "掃描 .minecraft 資料夾以建立實例"
   },
   "drop.confirm.as-hmcl-launcher": {
-    "defaultMessage": "HMCL Launcher"
+    "defaultMessage": "HMCL 啟動器"
   },
   "drop.confirm.as-instance": {
-    "defaultMessage": "Instance"
+    "defaultMessage": "實例"
   },
   "drop.confirm.as-instance-desc": {
-    "defaultMessage": "Import Minecraft instances from another launcher"
+    "defaultMessage": "從其他啟動器匯入 Minecraft 實例"
   },
   "drop.confirm.as-launcher": {
-    "defaultMessage": "Launcher"
+    "defaultMessage": "啟動器"
   },
   "drop.confirm.as-mod": {
-    "defaultMessage": "Mod"
+    "defaultMessage": "模組"
   },
   "drop.confirm.as-mod-desc": {
-    "defaultMessage": "Install a mod JAR to a Minecraft instance"
+    "defaultMessage": "將模組 JAR 安裝到 Minecraft 實例"
   },
   "drop.confirm.as-modpack": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "整合包"
   },
   "drop.confirm.as-modpack-desc": {
-    "defaultMessage": "Create a new instance from a modpack"
+    "defaultMessage": "從整合包建立新實例"
   },
   "drop.confirm.as-resource-pack": {
-    "defaultMessage": "Resource Pack"
+    "defaultMessage": "資源包"
   },
   "drop.confirm.as-resource-pack-desc": {
-    "defaultMessage": "Install a resource pack to an instance"
+    "defaultMessage": "將資源包安裝到實例"
   },
   "drop.confirm.as-schematic": {
-    "defaultMessage": "Schematic"
+    "defaultMessage": "投影"
   },
   "drop.confirm.as-schematic-desc": {
-    "defaultMessage": "Import a Litematic schematic"
+    "defaultMessage": "匯入 Litematic 投影檔案"
   },
   "drop.confirm.as-shader-pack": {
-    "defaultMessage": "Shader Pack"
+    "defaultMessage": "光影包"
   },
   "drop.confirm.as-shader-pack-desc": {
-    "defaultMessage": "Install a shader pack to an instance"
+    "defaultMessage": "將光影包安裝到實例"
   },
   "drop.confirm.as-world": {
-    "defaultMessage": "World Save"
+    "defaultMessage": "存檔"
   },
   "drop.confirm.as-world-desc": {
-    "defaultMessage": "Import a world save into an instance"
+    "defaultMessage": "將存檔匯入到實例中"
   },
   "drop.confirm.cancel": {
-    "defaultMessage": "Cancel"
+    "defaultMessage": "取消"
   },
   "drop.confirm.help": {
-    "defaultMessage": "What can I drop?"
+    "defaultMessage": "我可以拖入什麼？"
   },
   "drop.confirm.minecraft-root.add": {
     "defaultMessage": "Yes, add folder"
@@ -1506,226 +1506,226 @@
     "defaultMessage": "Add .minecraft folder"
   },
   "drop.confirm.not-this": {
-    "defaultMessage": "Import this as something else"
+    "defaultMessage": "作为其他内容导入"
   },
   "drop.confirm.title": {
-    "defaultMessage": "What would you like to import this as?"
+    "defaultMessage": "你想以什麼類型匯入？"
   },
   "drop.generic_install.cancel": {
-    "defaultMessage": "Cancel"
+    "defaultMessage": "取消"
   },
   "drop.generic_install.create_new": {
-    "defaultMessage": "Create new instance..."
+    "defaultMessage": "建立新實例..."
   },
   "drop.generic_install.install": {
-    "defaultMessage": "Install"
+    "defaultMessage": "安裝"
   },
   "drop.generic_install.no_instances": {
-    "defaultMessage": "No instances found"
+    "defaultMessage": "找不到實例"
   },
   "drop.generic_install.search": {
-    "defaultMessage": "Search instances..."
+    "defaultMessage": "搜尋實例..."
   },
   "drop.generic_install.title": {
-    "defaultMessage": "Install {type}"
+    "defaultMessage": "安裝 {type}"
   },
   "drop.instance-import.title": {
     "defaultMessage": "Import instances"
   },
   "drop.launcher_import.cancel": {
-    "defaultMessage": "Cancel"
+    "defaultMessage": "取消"
   },
   "drop.launcher_import.deselect_all": {
-    "defaultMessage": "Deselect All"
+    "defaultMessage": "取消全選"
   },
   "drop.launcher_import.import": {
-    "defaultMessage": "Import ({n})"
+    "defaultMessage": "匯入（{n}）"
   },
   "drop.launcher_import.no_instances": {
-    "defaultMessage": "No instances found"
+    "defaultMessage": "找不到實例"
   },
   "drop.launcher_import.select_all": {
-    "defaultMessage": "Select All"
+    "defaultMessage": "全選"
   },
   "drop.launcher_import.selected": {
-    "defaultMessage": "{n} selected"
+    "defaultMessage": "已選 {n} 個"
   },
   "drop.launcher_import.subtitle": {
-    "defaultMessage": "Scanned {count} instances in {basePath}"
+    "defaultMessage": "在 {basePath} 中掃描到 {count} 個實例"
   },
   "drop.launcher_import.title": {
-    "defaultMessage": "Import instances from {launcherName}"
+    "defaultMessage": "從 {launcherName} 匯入實例"
   },
   "drop.symlink_method.cancel": {
-    "defaultMessage": "Cancel"
+    "defaultMessage": "取消"
   },
   "drop.symlink_method.confirm": {
-    "defaultMessage": "Confirm"
+    "defaultMessage": "確認"
   },
   "drop.symlink_method.custom": {
-    "defaultMessage": "Custom"
+    "defaultMessage": "自定义"
   },
   "drop.symlink_method.custom_tooltip": {
-    "defaultMessage": "Usually you should not customize it, unless you are sure it was detected incorrectly."
+    "defaultMessage": "通常您不应该自定义它，除非您确认它识别错误。"
   },
   "drop.symlink_method.detecting": {
-    "defaultMessage": "Detecting..."
+    "defaultMessage": "检测中..."
   },
   "drop.symlink_method.game_version": {
-    "defaultMessage": "Game version"
+    "defaultMessage": "游戏版本"
   },
   "drop.symlink_method.import_path": {
-    "defaultMessage": "Version path"
+    "defaultMessage": "版本路径"
   },
   "drop.symlink_method.import_path_tooltip": {
-    "defaultMessage": "Import path"
+    "defaultMessage": "导入路径"
   },
   "drop.symlink_method.instance": {
-    "defaultMessage": "Instance"
+    "defaultMessage": "实例"
   },
   "drop.symlink_method.instance_nav_label": {
-    "defaultMessage": "Switch to {name}"
+    "defaultMessage": "切换到 {name}"
   },
   "drop.symlink_method.latest": {
-    "defaultMessage": "Latest"
+    "defaultMessage": "最新"
   },
   "drop.symlink_method.loader": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "加载器"
   },
   "drop.symlink_method.loader_type_unknown_tooltip": {
-    "defaultMessage": "Loader not recognized. Mods may not load correctly."
+    "defaultMessage": "此版本安装有Mod，但未识别到加载器。"
   },
   "drop.symlink_method.loader_version": {
-    "defaultMessage": "Loader version"
+    "defaultMessage": "加载器版本"
   },
   "drop.symlink_method.loader_version_unknown_tooltip": {
-    "defaultMessage": "Loader version not detected. A custom version will be used."
+    "defaultMessage": "未检测到加载器版本，将使用自定义版本。"
   },
   "drop.symlink_method.missing": {
-    "defaultMessage": "Missing"
+    "defaultMessage": "缺失"
   },
   "drop.symlink_method.missing_path": {
-    "defaultMessage": "No import path available"
+    "defaultMessage": "没有可用的导入路径"
   },
   "drop.symlink_method.next": {
-    "defaultMessage": "Next"
+    "defaultMessage": "下一步"
   },
   "drop.symlink_method.not_available": {
-    "defaultMessage": "Unavailable"
+    "defaultMessage": "不可用"
   },
   "drop.symlink_method.plan_failed": {
-    "defaultMessage": "Import estimate failed"
+    "defaultMessage": "未能估算进度"
   },
   "drop.symlink_method.reset_changes": {
-    "defaultMessage": "Reset changes"
+    "defaultMessage": "重置更改"
   },
   "drop.symlink_method.runtime_root": {
-    "defaultMessage": "Root"
+    "defaultMessage": "根目录"
   },
   "drop.symlink_method.runtime_root_tooltip": {
-    "defaultMessage": "Runtime root"
+    "defaultMessage": "Runtime 根目录"
   },
   "drop.symlink_method.search_game_version": {
-    "defaultMessage": "Search game versions"
+    "defaultMessage": "搜索游戏版本"
   },
   "drop.symlink_method.search_loader_version": {
-    "defaultMessage": "Search loader versions"
+    "defaultMessage": "搜索加载器版本"
   },
   "drop.symlink_method.select_game_version": {
-    "defaultMessage": "Select game version"
+    "defaultMessage": "选择游戏版本"
   },
   "drop.symlink_method.select_instance": {
-    "defaultMessage": "Select instance"
+    "defaultMessage": "选择实例"
   },
   "drop.symlink_method.select_loader_version": {
-    "defaultMessage": "Select loader version"
+    "defaultMessage": "选择加载器版本"
   },
   "drop.symlink_method.stats": {
-    "defaultMessage": "Estimate"
+    "defaultMessage": "估计"
   },
   "drop.symlink_method.stats_cache": {
-    "defaultMessage": "Cache"
+    "defaultMessage": "缓存"
   },
   "drop.symlink_method.stats_cache_tooltip": {
-    "defaultMessage": "Axolotl cache"
+    "defaultMessage": "Axolotl 缓存"
   },
   "drop.symlink_method.stats_files": {
-    "defaultMessage": "{files} files"
+    "defaultMessage": "{files} 个文件"
   },
   "drop.symlink_method.stats_local": {
-    "defaultMessage": "Reuse"
+    "defaultMessage": "复用"
   },
   "drop.symlink_method.stats_local_tooltip": {
-    "defaultMessage": "Local reuse"
+    "defaultMessage": "本地复用"
   },
   "drop.symlink_method.stats_migrate": {
-    "defaultMessage": "Migrate"
+    "defaultMessage": "迁移"
   },
   "drop.symlink_method.stats_migrate_tooltip": {
-    "defaultMessage": "Needs migration"
+    "defaultMessage": "需要迁移"
   },
   "drop.symlink_method.stats_network": {
-    "defaultMessage": "Download"
+    "defaultMessage": "下载"
   },
   "drop.symlink_method.stats_network_tooltip": {
-    "defaultMessage": "Needs download"
+    "defaultMessage": "需要下载"
   },
   "drop.symlink_method.subtitle": {
-    "defaultMessage": "Importing {n} instance(s)"
+    "defaultMessage": "正在匯入 {n} 個實例"
   },
   "drop.symlink_method.unrecognized": {
-    "defaultMessage": "Unrecognized"
+    "defaultMessage": "未识别"
   },
   "external-project-license-status.no": {
-    "defaultMessage": "No"
+    "defaultMessage": "否"
   },
   "external-project-license-status.permanent-no": {
-    "defaultMessage": "Permanent no"
+    "defaultMessage": "永久禁止"
   },
   "external-project-license-status.unidentified": {
-    "defaultMessage": "Unidentified"
+    "defaultMessage": "未識別"
   },
   "external-project-license-status.with-attribution": {
-    "defaultMessage": "With attribution"
+    "defaultMessage": "附帶引用標註"
   },
   "external-project-license-status.with-attribution-and-source": {
-    "defaultMessage": "With attribution and source"
+    "defaultMessage": "附帶引用標註與來源"
   },
   "external-project-license-status.yes": {
-    "defaultMessage": "Yes"
+    "defaultMessage": "是"
   },
   "files.conflict-modal.header": {
-    "defaultMessage": "Extract summary"
+    "defaultMessage": "解壓縮摘要"
   },
   "files.conflict-modal.overwrite-button": {
-    "defaultMessage": "Overwrite"
+    "defaultMessage": "覆寫"
   },
   "files.conflict-modal.overwrite-file-label": {
-    "defaultMessage": "Will overwrite <file-path>{path}</file-path>"
+    "defaultMessage": "將覆寫 <file-path>{path}</file-path>"
   },
   "files.conflict-modal.overwrite-many-warning": {
-    "defaultMessage": "Over 100 files will be overwritten if you proceed with extraction; here are some of them."
+    "defaultMessage": "若你繼續執行解壓縮，將有超過 100 個檔案被覆寫；以下列出部分檔案。"
   },
   "files.conflict-modal.overwrite-warning": {
-    "defaultMessage": "The following {count} files already exist on your server, and will be overwritten if you proceed with extraction."
+    "defaultMessage": "下列 {count} 個檔案已存在於你的伺服器上，若你繼續執行解壓縮，這些檔案將被覆寫。"
   },
   "files.conflict-modal.overwritten-count": {
-    "defaultMessage": "{count} overwritten"
+    "defaultMessage": "將覆寫 {count} 個檔案"
   },
   "files.conflict-modal.warning-header": {
-    "defaultMessage": "Files will be overwritten"
+    "defaultMessage": "檔案將被覆寫"
   },
   "files.create-modal.create-button": {
-    "defaultMessage": "Create {type}"
+    "defaultMessage": "建立 {type}"
   },
   "files.create-modal.header": {
-    "defaultMessage": "Create a {type}"
+    "defaultMessage": "建立一個 {type}"
   },
   "files.create-modal.placeholder-directory": {
-    "defaultMessage": "e.g. my-folder"
+    "defaultMessage": "例如：my-folder"
   },
   "files.create-modal.placeholder-file": {
-    "defaultMessage": "e.g. config.yml"
+    "defaultMessage": "例如：config.yml"
   },
   "files.delete-modal.bulk-header": {
     "defaultMessage": "Delete multiple items"
@@ -1737,217 +1737,217 @@
     "defaultMessage": "Deleting {count} items"
   },
   "files.delete-modal.deleting-name": {
-    "defaultMessage": "Deleting \"{name}\""
+    "defaultMessage": "正在刪除「{name}」"
   },
   "files.delete-modal.header": {
-    "defaultMessage": "Delete file"
+    "defaultMessage": "刪除檔案"
   },
   "files.delete-modal.symlink-warning-body": {
-    "defaultMessage": "You are modifying files in a shared instance linked to \"{path}\". Changes will affect the original instance."
+    "defaultMessage": "You are modifying files in a shared instance linked to "
   },
   "files.delete-modal.symlink-warning-header": {
     "defaultMessage": "Shared instance"
   },
   "files.delete-modal.warning.file": {
-    "defaultMessage": "This file will be permanently deleted. This action cannot be undone."
+    "defaultMessage": "此檔案將永久刪除。此操作無法撤銷。"
   },
   "files.delete-modal.warning.folder": {
-    "defaultMessage": "This folder and all its contents will be permanently deleted. This action cannot be undone."
+    "defaultMessage": "此資料夾及其所有內容將永久刪除。此操作無法撤銷。"
   },
   "files.editor.editor-unavailable-placeholder": {
     "defaultMessage": "Code editor unavailable"
   },
   "files.editor.failed-to-open-text": {
-    "defaultMessage": "Could not load file contents."
+    "defaultMessage": "無法載入檔案內容。"
   },
   "files.editor.failed-to-open-title": {
-    "defaultMessage": "Failed to open file"
+    "defaultMessage": "無法開啟檔案"
   },
   "files.editor.failed-to-share-text": {
-    "defaultMessage": "Could not share the log file."
+    "defaultMessage": "無法上傳至 mclo.gs。"
   },
   "files.editor.failed-to-share-title": {
-    "defaultMessage": "Failed to share file"
+    "defaultMessage": "無法分享檔案"
   },
   "files.editor.file-saved-text": {
-    "defaultMessage": "Your file has been saved."
+    "defaultMessage": "你的檔案已儲存。"
   },
   "files.editor.file-saved-title": {
-    "defaultMessage": "File saved"
+    "defaultMessage": "已儲存檔案"
   },
   "files.editor.find-close": {
-    "defaultMessage": "Close"
+    "defaultMessage": "關閉"
   },
   "files.editor.find-in-file": {
-    "defaultMessage": "Find"
+    "defaultMessage": "尋找"
   },
   "files.editor.find-match-count": {
-    "defaultMessage": "{current} of {total}"
+    "defaultMessage": "{current}/{total}"
   },
   "files.editor.find-next-match": {
-    "defaultMessage": "Next match"
+    "defaultMessage": "下一個相符項"
   },
   "files.editor.find-no-results": {
-    "defaultMessage": "No results"
+    "defaultMessage": "沒有結果"
   },
   "files.editor.find-previous-match": {
-    "defaultMessage": "Previous match"
+    "defaultMessage": "上一個相符項"
   },
   "files.editor.find-toggle-replace": {
-    "defaultMessage": "Toggle replace"
+    "defaultMessage": "切換取代功能"
   },
   "files.editor.log-url-copied-text": {
-    "defaultMessage": "Your log file URL has been copied to your clipboard."
+    "defaultMessage": "你的記錄檔網址已複製到剪貼簿。"
   },
   "files.editor.log-url-copied-title": {
-    "defaultMessage": "Log URL copied"
+    "defaultMessage": "記錄檔網址已複製"
   },
   "files.editor.replace": {
-    "defaultMessage": "Replace"
+    "defaultMessage": "取代"
   },
   "files.editor.replace-all": {
-    "defaultMessage": "Replace All"
+    "defaultMessage": "取代全部"
   },
   "files.editor.replace-in-file": {
-    "defaultMessage": "Replace"
+    "defaultMessage": "取代"
   },
   "files.editor.save-failed-text": {
-    "defaultMessage": "Could not save the file."
+    "defaultMessage": "無法儲存檔案。"
   },
   "files.editor.save-failed-title": {
-    "defaultMessage": "Save failed"
+    "defaultMessage": "儲存失敗"
   },
   "files.editor.share-truncated-warning": {
-    "defaultMessage": "The log file is too large, so only the last 9 MB was uploaded."
+    "defaultMessage": "日誌檔案過大，已自動擷取最後 9MB 上傳。"
   },
   "files.error.go-to-home": {
-    "defaultMessage": "Go to home folder"
+    "defaultMessage": "前往家資料夾"
   },
   "files.error.try-again": {
-    "defaultMessage": "Try again"
+    "defaultMessage": "再試一次"
   },
   "files.image_viewer.image_too_large": {
-    "defaultMessage": "Image too large to view (max {maxDimension}x{maxDimension} pixels)"
+    "defaultMessage": "圖片過大無法預覽 (最大 {maxDimension}x{maxDimension} 像素)"
   },
   "files.image_viewer.invalid_image": {
-    "defaultMessage": "Invalid or empty image file."
+    "defaultMessage": "圖片檔案無效或內容為空。"
   },
   "files.image_viewer.load_failed": {
-    "defaultMessage": "Failed to load image"
+    "defaultMessage": "無法載入圖片"
   },
   "files.image_viewer.reset_zoom": {
-    "defaultMessage": "Reset zoom"
+    "defaultMessage": "重設縮放"
   },
   "files.image_viewer.viewed_image_alt": {
-    "defaultMessage": "Viewed image"
+    "defaultMessage": "已檢視圖片"
   },
   "files.image_viewer.zoom_in": {
-    "defaultMessage": "Zoom in"
+    "defaultMessage": "放大"
   },
   "files.image_viewer.zoom_out": {
-    "defaultMessage": "Zoom out"
+    "defaultMessage": "縮小"
   },
   "files.item-type.file": {
-    "defaultMessage": "file"
+    "defaultMessage": "檔案"
   },
   "files.item-type.files": {
-    "defaultMessage": "files"
+    "defaultMessage": "檔案"
   },
   "files.item-type.folder": {
-    "defaultMessage": "folder"
+    "defaultMessage": "資料夾"
   },
   "files.item-type.folders": {
-    "defaultMessage": "folders"
+    "defaultMessage": "資料夾"
   },
   "files.layout.dry-run-failed-text": {
-    "defaultMessage": "Error running dry run"
+    "defaultMessage": "執行模擬測試時發生錯誤"
   },
   "files.layout.dry-run-failed-title": {
-    "defaultMessage": "Dry run failed"
+    "defaultMessage": "模擬測試失敗"
   },
   "files.layout.empty-folder-description": {
-    "defaultMessage": "There are no files or folders."
+    "defaultMessage": "沒有任何檔案或資料夾"
   },
   "files.layout.empty-folder-title": {
-    "defaultMessage": "This folder is empty"
+    "defaultMessage": "此資料夾是空的"
   },
   "files.layout.error-message": {
-    "defaultMessage": "The folder may not exist."
+    "defaultMessage": "該資料夾可能不存在"
   },
   "files.layout.error-title": {
-    "defaultMessage": "Unable to load files"
+    "defaultMessage": "無法載入檔案"
   },
   "files.layout.extraction-started-title": {
-    "defaultMessage": "Extraction started"
+    "defaultMessage": "解壓縮已開始"
   },
   "files.layout.no-matches": {
     "defaultMessage": "No files match this view"
   },
   "files.layout.selected-count": {
-    "defaultMessage": "{count} selected"
+    "defaultMessage": "已選擇 {count} 個"
   },
   "files.layout.unsaved-changes": {
-    "defaultMessage": "You have unsaved changes."
+    "defaultMessage": "您有未儲存的變更"
   },
   "files.move-modal.current-location": {
-    "defaultMessage": "Current location"
+    "defaultMessage": "目前位置"
   },
   "files.move-modal.destination-path": {
-    "defaultMessage": "Destination path"
+    "defaultMessage": "目標路徑"
   },
   "files.move-modal.destination-placeholder": {
-    "defaultMessage": "e.g. /my-folder"
+    "defaultMessage": "例如：/my-folder"
   },
   "files.move-modal.header": {
-    "defaultMessage": "Move {type}"
+    "defaultMessage": "移動{type}"
   },
   "files.navbar.back-to-home": {
-    "defaultMessage": "Back to home"
+    "defaultMessage": "回到首頁"
   },
   "files.navbar.breadcrumb-navigation": {
-    "defaultMessage": "Breadcrumb navigation"
+    "defaultMessage": "麵包屑導覽"
   },
   "files.navbar.create-new": {
-    "defaultMessage": "Create new..."
+    "defaultMessage": "建立新的..."
   },
   "files.navbar.file-navigation": {
-    "defaultMessage": "File navigation"
+    "defaultMessage": "檔案導覽"
   },
   "files.navbar.find-in-file": {
-    "defaultMessage": "Find in file"
+    "defaultMessage": "在檔案中尋找"
   },
   "files.navbar.home": {
-    "defaultMessage": "Home"
+    "defaultMessage": "首頁"
   },
   "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Install CurseForge pack"
+    "defaultMessage": "安裝 CurseForge 整合包"
   },
   "files.navbar.new-file": {
-    "defaultMessage": "New file"
+    "defaultMessage": "新增檔案"
   },
   "files.navbar.new-folder": {
-    "defaultMessage": "New folder"
+    "defaultMessage": "新增資料夾"
   },
   "files.navbar.search-files": {
-    "defaultMessage": "Search files"
+    "defaultMessage": "搜尋檔案"
   },
   "files.navbar.share-log": {
-    "defaultMessage": "Share log"
+    "defaultMessage": "分享日誌"
   },
   "files.navbar.upload-from-zip": {
-    "defaultMessage": "Upload from .zip file"
+    "defaultMessage": "從 .zip 檔案上傳"
   },
   "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Upload from .zip URL"
+    "defaultMessage": "從 .zip 網址上傳"
   },
   "files.rename-modal.header": {
-    "defaultMessage": "Rename {name}"
+    "defaultMessage": "重新命名 {name}"
   },
   "files.rename-modal.new-name-label": {
-    "defaultMessage": "New name"
+    "defaultMessage": "新名稱"
   },
   "files.row.item-count": {
-    "defaultMessage": "{count, plural, one {# item} other {# items}}"
+    "defaultMessage": "{count, plural, other {# 個項目}}"
   },
   "files.row.parent-folder": {
     "defaultMessage": "Parent folder"
@@ -1956,172 +1956,172 @@
     "defaultMessage": "Select all files in this view"
   },
   "files.table-header.created": {
-    "defaultMessage": "Created"
+    "defaultMessage": "建立時間"
   },
   "files.table-header.modified": {
-    "defaultMessage": "Modified"
+    "defaultMessage": "修改時間"
   },
   "files.table-header.name": {
-    "defaultMessage": "Name"
+    "defaultMessage": "名稱"
   },
   "files.table-header.size": {
-    "defaultMessage": "Size"
+    "defaultMessage": "大小"
   },
   "files.unsaved-changes-modal.body": {
-    "defaultMessage": "You have unsaved changes that will be lost if you leave. Would you like to save before leaving?"
+    "defaultMessage": "您有未儲存的變更，如果離開將會遺失。離開前要儲存嗎？"
   },
   "files.unsaved-changes-modal.discard": {
-    "defaultMessage": "Discard"
+    "defaultMessage": "捨棄"
   },
   "files.unsaved-changes-modal.header": {
-    "defaultMessage": "Unsaved changes"
+    "defaultMessage": "未儲存的變更"
   },
   "files.validation.name-invalid-directory": {
-    "defaultMessage": "Name must contain only alphanumeric characters, dashes, underscores, dots, or spaces."
+    "defaultMessage": "名稱只能包含英數字、破折號、底線或空格"
   },
   "files.validation.name-invalid-file": {
-    "defaultMessage": "Name must contain only alphanumeric characters, dashes, underscores, dots, or spaces."
+    "defaultMessage": "名稱只能包含英數字、破折號、底線、點或空格"
   },
   "files.validation.name-label": {
-    "defaultMessage": "Name"
+    "defaultMessage": "名稱"
   },
   "files.validation.name-required": {
-    "defaultMessage": "Name is required."
+    "defaultMessage": "名稱為必填項目"
   },
   "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Install a CurseForge modpack"
+    "defaultMessage": "安裝 CurseForge 整合包"
   },
   "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Could not find CurseForge modpack at that URL."
+    "defaultMessage": "在該網址找不到 CurseForge 整合包"
   },
   "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge modpack not found"
+    "defaultMessage": "找不到 CurseForge 整合包"
   },
   "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Enter link"
+    "defaultMessage": "輸入連結"
   },
   "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL must be a CurseForge modpack version URL."
+    "defaultMessage": "網址必須是 CurseForge 整合包版本網址"
   },
   "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL must be valid."
+    "defaultMessage": "網址必須有效"
   },
   "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL is required."
+    "defaultMessage": "網址為必填項目"
   },
   "files.zip-url-modal.install-button": {
-    "defaultMessage": "Install"
+    "defaultMessage": "安裝"
   },
   "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Installation failed"
+    "defaultMessage": "安裝失敗"
   },
   "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Copy the version page URL and paste it below."
+    "defaultMessage": "複製版本頁面網址並貼到下方"
   },
   "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Copy the URL"
+    "defaultMessage": "複製網址"
   },
   "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Browse CurseForge and locate the modpack you want."
+    "defaultMessage": "瀏覽 CurseForge 並找到您想要的整合包"
   },
   "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Find the modpack"
+    "defaultMessage": "尋找整合包"
   },
   "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Go to the \"Files\" tab and pick the version to install."
+    "defaultMessage": "前往「檔案」分頁並選擇要安裝的版本"
   },
   "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Select a version"
+    "defaultMessage": "選擇版本"
   },
   "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "An unknown error occurred"
+    "defaultMessage": "發生未知錯誤"
   },
   "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Copy and paste the direct download URL of a .zip file."
+    "defaultMessage": "複製並貼上 .zip 檔案的直接下載網址"
   },
   "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Uploading .zip contents from URL"
+    "defaultMessage": "正在從網址上傳 .zip 內容"
   },
   "form.label.address-line": {
-    "defaultMessage": "Address line"
+    "defaultMessage": "地址行 1"
   },
   "form.label.address-line-2": {
-    "defaultMessage": "Address line 2 (optional)"
+    "defaultMessage": "地址行 2（可選）"
   },
   "form.label.amount": {
-    "defaultMessage": "Amount"
+    "defaultMessage": "金額"
   },
   "form.label.bank-name": {
-    "defaultMessage": "Bank name"
+    "defaultMessage": "銀行名稱"
   },
   "form.label.business-name": {
-    "defaultMessage": "Business name"
+    "defaultMessage": "企業名稱"
   },
   "form.label.city": {
-    "defaultMessage": "City"
+    "defaultMessage": "城市"
   },
   "form.label.country": {
-    "defaultMessage": "Country"
+    "defaultMessage": "國家或地區"
   },
   "form.label.date-of-birth": {
-    "defaultMessage": "Date of birth"
+    "defaultMessage": "出生日期"
   },
   "form.label.email": {
-    "defaultMessage": "Email"
+    "defaultMessage": "電子郵件"
   },
   "form.label.first-name": {
-    "defaultMessage": "First name"
+    "defaultMessage": "名字"
   },
   "form.label.last-name": {
-    "defaultMessage": "Last name"
+    "defaultMessage": "姓氏"
   },
   "form.label.postal-code": {
-    "defaultMessage": "Postal code/ZIP code"
+    "defaultMessage": "郵遞區號"
   },
   "form.label.state-province": {
-    "defaultMessage": "State/province"
+    "defaultMessage": "縣市／省／州"
   },
   "form.placeholder.address": {
-    "defaultMessage": "Enter address"
+    "defaultMessage": "輸入地址"
   },
   "form.placeholder.address-2": {
-    "defaultMessage": "Apartment, suite, etc."
+    "defaultMessage": "公寓、套房等"
   },
   "form.placeholder.amount": {
-    "defaultMessage": "Enter amount"
+    "defaultMessage": "輸入金額"
   },
   "form.placeholder.bank-name": {
-    "defaultMessage": "Enter bank name"
+    "defaultMessage": "輸入銀行名稱"
   },
   "form.placeholder.bank-name-dropdown": {
-    "defaultMessage": "Select bank name"
+    "defaultMessage": "選擇銀行名稱"
   },
   "form.placeholder.business-name": {
-    "defaultMessage": "Enter business name"
+    "defaultMessage": "輸入企業名稱"
   },
   "form.placeholder.city": {
-    "defaultMessage": "Enter city"
+    "defaultMessage": "輸入城市"
   },
   "form.placeholder.country": {
-    "defaultMessage": "Select country"
+    "defaultMessage": "選擇國家或地區"
   },
   "form.placeholder.email": {
-    "defaultMessage": "Enter email address"
+    "defaultMessage": "輸入電子郵件地址"
   },
   "form.placeholder.first-name": {
-    "defaultMessage": "Enter first name"
+    "defaultMessage": "輸入名字"
   },
   "form.placeholder.last-name": {
-    "defaultMessage": "Enter last name"
+    "defaultMessage": "輸入姓氏"
   },
   "form.placeholder.postal-code": {
-    "defaultMessage": "Enter postal code"
+    "defaultMessage": "輸入郵遞區號"
   },
   "form.placeholder.state": {
-    "defaultMessage": "Enter state/province"
+    "defaultMessage": "輸入縣市／省／州"
   },
   "format.bytes.0": {
-    "defaultMessage": "{count, plural, one {# byte} other {# bytes}}"
+    "defaultMessage": "{count, plural, other {# 位元組}}"
   },
   "format.bytes.1": {
     "defaultMessage": "{count, number} KiB"
@@ -2136,31 +2136,31 @@
     "defaultMessage": "{count, number} TiB"
   },
   "header.category.category": {
-    "defaultMessage": "Category"
+    "defaultMessage": "類別"
   },
   "header.category.cf-extra": {
     "defaultMessage": "More CurseForge categories"
   },
   "header.category.feature": {
-    "defaultMessage": "Feature"
+    "defaultMessage": "功能"
   },
   "header.category.minecraft-server-community": {
-    "defaultMessage": "Community"
+    "defaultMessage": "社群"
   },
   "header.category.minecraft-server-features": {
-    "defaultMessage": "Features"
+    "defaultMessage": "特色"
   },
   "header.category.minecraft-server-gameplay": {
-    "defaultMessage": "Gameplay"
+    "defaultMessage": "遊戲玩法"
   },
   "header.category.minecraft-server-meta": {
-    "defaultMessage": "Meta"
+    "defaultMessage": "設定與機制"
   },
   "header.category.performance-impact": {
-    "defaultMessage": "Performance impact"
+    "defaultMessage": "效能影響"
   },
   "header.category.resolutions": {
-    "defaultMessage": "Resolution"
+    "defaultMessage": "解析度"
   },
   "image-viewer.close": {
     "defaultMessage": "Close"
@@ -2268,664 +2268,664 @@
     "defaultMessage": "Previous image"
   },
   "input.search-version.placeholder": {
-    "defaultMessage": "Search version..."
+    "defaultMessage": "搜尋版本..."
   },
   "input.search.placeholder": {
-    "defaultMessage": "Search..."
+    "defaultMessage": "搜尋..."
   },
   "input.select-version.placeholder": {
-    "defaultMessage": "Select version"
+    "defaultMessage": "選擇版本"
   },
   "input.view.gallery": {
-    "defaultMessage": "Gallery view"
+    "defaultMessage": "圖庫檢視"
   },
   "input.view.grid": {
-    "defaultMessage": "Grid view"
+    "defaultMessage": "格狀檢視"
   },
   "input.view.list": {
-    "defaultMessage": "Rows view"
+    "defaultMessage": "清單檢視"
   },
   "installation-settings.aria.select-game-version": {
-    "defaultMessage": "Select game version"
+    "defaultMessage": "選擇遊戲版本"
   },
   "installation-settings.aria.select-loader-version": {
-    "defaultMessage": "Select {loader} version"
+    "defaultMessage": "選擇 {loader} 版本"
   },
   "installation-settings.aria.select-platform": {
-    "defaultMessage": "Select platform"
+    "defaultMessage": "選擇平臺"
   },
   "installation-settings.confirm-version-change": {
-    "defaultMessage": "Confirm"
+    "defaultMessage": "確定"
   },
   "installation-settings.confirm-version-change-description": {
-    "defaultMessage": "Changing to {gameVersion} will modify the following content on your server."
+    "defaultMessage": "變更為 {gameVersion} 將會修改你伺服器上的下列內容。"
   },
   "installation-settings.confirm-version-change-header": {
-    "defaultMessage": "Review content changes"
+    "defaultMessage": "檢視內容變更"
   },
   "installation-settings.edit-installation.title": {
-    "defaultMessage": "Edit installation"
+    "defaultMessage": "編輯安裝"
   },
   "installation-settings.edit.warning-instance": {
-    "defaultMessage": "We don't recommend editing your installation settings after installing content. If you want to edit them, be cautious as it may cause issues."
+    "defaultMessage": "我們不建議在安裝內容後修改安裝設定。若你仍想修改，請務必謹慎，因為這可能會導致問題。"
   },
   "installation-settings.edit.warning-server": {
-    "defaultMessage": "We don't recommend editing your installation settings after installing content. If you want to edit them reset your server."
+    "defaultMessage": "我們不建議在安裝內容後修改安裝設定。若你想進行變更，請重設你的伺服器。"
   },
   "installation-settings.incompatible-content.auto-fix-button": {
-    "defaultMessage": "Auto-fix"
+    "defaultMessage": "自動修復"
   },
   "installation-settings.incompatible-content.change-loader-button": {
-    "defaultMessage": "Change loader"
+    "defaultMessage": "變更載入器"
   },
   "installation-settings.incompatible-content.disable-conflicts-button": {
-    "defaultMessage": "Disable conflicts"
+    "defaultMessage": "停用衝突項目"
   },
   "installation-settings.incompatible-content.game-version-warning-body": {
-    "defaultMessage": "When changing the game version, we can either disable incompatible installed content or attempt to resolve the incompatibilities."
+    "defaultMessage": "變更遊戲版本時，我們可以停用不相容的已安裝內容，或是嘗試解決相容性問題。"
   },
   "installation-settings.incompatible-content.game-version-warning-title": {
-    "defaultMessage": "Incompatibility warning"
+    "defaultMessage": "不相容警告"
   },
   "installation-settings.incompatible-content.header": {
-    "defaultMessage": "Incompatible content installed"
+    "defaultMessage": "安裝了不相容的內容"
   },
   "installation-settings.incompatible-content.loader-change-body": {
-    "defaultMessage": "When changing the loader, all installed content will be disabled. We recommend resetting your server instead."
+    "defaultMessage": "變更載入器時，所有已安裝的內容都將被停用。我們建議改為重設你的伺服器。"
   },
   "installation-settings.incompatible-content.loader-change-title": {
-    "defaultMessage": "Changing loaders is destructive"
+    "defaultMessage": "變更載入器具有破壞性"
   },
   "installation-settings.linked-instance.title": {
-    "defaultMessage": "Linked {projectType}"
+    "defaultMessage": "已連接{projectType}"
   },
   "installation-settings.linked.modpack": {
-    "defaultMessage": "modpack"
+    "defaultMessage": "模組包"
   },
   "installation-settings.linked.server-project": {
-    "defaultMessage": "server project"
+    "defaultMessage": "伺服器專案"
   },
   "installation-settings.loader-version": {
-    "defaultMessage": "{loader} version"
+    "defaultMessage": "{loader} 版本"
   },
   "installation-settings.loader-version.error": {
-    "defaultMessage": "Failed to load loader versions"
+    "defaultMessage": "載入載入器版本資料失敗"
   },
   "installation-settings.loader-version.unsupported": {
-    "defaultMessage": "This loader does not support the selected game version"
+    "defaultMessage": "此載入器不支援所選遊戲版本"
   },
   "installation-settings.platform-lock-tooltip": {
-    "defaultMessage": "You will need to reset your server to switch loader."
+    "defaultMessage": "你需要重設伺服器才能切換載入器。"
   },
   "installation-settings.reinstall-modpack.description": {
-    "defaultMessage": "Re-installing the modpack resets the {type} content to its original state, removing any mods or content you have added."
+    "defaultMessage": "重新安裝模組包會將{type}內容重設為原始狀態，你新增的所有模組或內容都將被移除。"
   },
   "installation-settings.reinstall-modpack.title": {
-    "defaultMessage": "Re-install modpack"
+    "defaultMessage": "重新安裝模組包"
   },
   "installation-settings.reinstalling-modpack": {
-    "defaultMessage": "Reinstalling modpack"
+    "defaultMessage": "正在重新安裝模組包"
   },
   "installation-settings.removed-incompatible": {
-    "defaultMessage": "Removed (incompatible)"
+    "defaultMessage": "已移除（不相容）"
   },
   "installation-settings.repair.instance-description": {
-    "defaultMessage": "Reinstalls Minecraft dependencies and checks for corruption. This may resolve issues if your game is not launching due to launcher-related errors."
+    "defaultMessage": "重新安裝 Minecraft 的必要元件並檢查檔案是否損毀。這或許能修復你的遊戲因啟動器出錯而打不開的問題。"
   },
   "installation-settings.repair.instance-title": {
-    "defaultMessage": "Repair instance"
+    "defaultMessage": "修復實例"
   },
   "installation-settings.repair.server-description": {
-    "defaultMessage": "Reinstalls the loader and Minecraft dependencies without deleting your content. This may resolve issues if your server is not starting correctly."
+    "defaultMessage": "在保留遊戲內容的情況下，重新安裝載入器與 Minecraft 的必要元件。這或許能修復你伺服器無法正常啟動的問題。"
   },
   "installation-settings.repair.server-title": {
-    "defaultMessage": "Repair server"
+    "defaultMessage": "修復伺服器"
   },
   "installation-settings.saving": {
-    "defaultMessage": "Saving..."
+    "defaultMessage": "儲存中..."
   },
   "installation-settings.search-game-version": {
-    "defaultMessage": "Search game version..."
+    "defaultMessage": "搜尋遊戲版本..."
   },
   "installation-settings.type.instance": {
-    "defaultMessage": "instance"
+    "defaultMessage": "實例"
   },
   "installation-settings.type.instance-possessive": {
-    "defaultMessage": "instance's"
+    "defaultMessage": "實例"
   },
   "installation-settings.type.server": {
-    "defaultMessage": "server"
+    "defaultMessage": "伺服器"
   },
   "installation-settings.type.server-possessive": {
-    "defaultMessage": "server's"
+    "defaultMessage": "伺服器"
   },
   "installation-settings.unlink": {
-    "defaultMessage": "Unlink"
+    "defaultMessage": "取消連結"
   },
   "installation-settings.unlink.description": {
-    "defaultMessage": "Unlinking permanently disconnects this {type} from the {projectType} project, allowing you to change the loader and Minecraft version, but you won't receive future updates."
+    "defaultMessage": "取消連結將會永久中斷這個{type}與{projectType}的連結。這讓你可以變更載入器與 Minecraft 版本，但你將無法收到未來的更新。"
   },
   "installation-settings.verifying": {
-    "defaultMessage": "Verifying..."
+    "defaultMessage": "驗證中..."
   },
   "instance.confirm-reinstall.admonition-body": {
-    "defaultMessage": "Reinstalling will reset all installed or modified content to what is provided by the modpack, removing any mods or content you have added on top of the original installation."
+    "defaultMessage": "重新安裝將會把所有已安裝或修改過的內容，重設回模組包原始的狀態。這將會移除所有你在原始安裝上額外添加的模組或內容。"
   },
   "instance.confirm-reinstall.admonition-header": {
-    "defaultMessage": "Reinstallation warning"
+    "defaultMessage": "重新安裝警告"
   },
   "instance.confirm-reinstall.header": {
-    "defaultMessage": "Reinstall modpack"
+    "defaultMessage": "重新安裝模組包"
   },
   "instance.confirm-reinstall.reinstall-button": {
-    "defaultMessage": "Reinstall modpack"
+    "defaultMessage": "重新安裝模組包"
   },
   "instance.confirm-repair.body.instance": {
-    "defaultMessage": "Repairing reinstalls the loader and Minecraft dependencies without deleting your content. This may resolve issues if your game is not launching due to launcher-related errors."
+    "defaultMessage": "修復功能會在保留遊戲內容的情況下，重新安裝載入器與 Minecraft 的相依檔案。這或許能修復遊戲因啟動器出錯而無法啟動的問題。"
   },
   "instance.confirm-repair.body.server": {
-    "defaultMessage": "Repairing reinstalls the loader and Minecraft dependencies without deleting your content. This may resolve issues if your server is not starting correctly."
+    "defaultMessage": "修復功能會在保留遊戲內容的情況下，重新安裝載入器與 Minecraft 的相依檔案。這或許能修復伺服器無法正常啟動的問題。"
   },
   "instance.confirm-repair.header": {
-    "defaultMessage": "Repair {type}"
+    "defaultMessage": "修復{type}"
   },
   "instance.confirm-repair.instance-label": {
-    "defaultMessage": "instance"
+    "defaultMessage": "實例"
   },
   "instance.confirm-repair.repair-button": {
-    "defaultMessage": "Repair"
+    "defaultMessage": "修復"
   },
   "instance.confirm-repair.server-label": {
-    "defaultMessage": "server"
+    "defaultMessage": "伺服器"
   },
   "instance.worlds.game_mode.adventure": {
-    "defaultMessage": "Adventure mode"
+    "defaultMessage": "冒險模式"
   },
   "instance.worlds.game_mode.creative": {
-    "defaultMessage": "Creative mode"
+    "defaultMessage": "創造模式"
   },
   "instance.worlds.game_mode.spectator": {
-    "defaultMessage": "Spectator mode"
+    "defaultMessage": "旁觀者模式"
   },
   "instance.worlds.game_mode.survival": {
-    "defaultMessage": "Survival mode"
+    "defaultMessage": "生存模式"
   },
   "instance.worlds.game_mode.unknown": {
-    "defaultMessage": "Unknown game mode"
+    "defaultMessage": "未知的遊戲模式"
   },
   "instances.content-install.compatible-count": {
-    "defaultMessage": "{count} compatible {count, plural, one {instance} other {instances}}"
+    "defaultMessage": "{count} 個相容{count, plural, one {實例} other {實例}}"
   },
   "instances.content-install.existing-tab": {
-    "defaultMessage": "Existing instance"
+    "defaultMessage": "已有實例"
   },
   "instances.content-install.game-version-placeholder": {
-    "defaultMessage": "Select game version"
+    "defaultMessage": "選擇遊戲版本"
   },
   "instances.content-install.header": {
-    "defaultMessage": "Install project"
+    "defaultMessage": "安裝專案"
   },
   "instances.content-install.incompatible-tooltip": {
-    "defaultMessage": "This instance uses a different loader or game version than this project supports."
+    "defaultMessage": "這個專案支援的載入器或遊戲版本與這個實例所使用的不同。"
   },
   "instances.content-install.install-button": {
-    "defaultMessage": "Install"
+    "defaultMessage": "安裝"
   },
   "instances.content-install.installed-badge": {
-    "defaultMessage": "Installed"
+    "defaultMessage": "已安裝"
   },
   "instances.content-install.instance-type": {
-    "defaultMessage": "Instance type"
+    "defaultMessage": "實例類型"
   },
   "instances.content-install.loader-label": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "載入器"
   },
   "instances.content-install.name-label": {
-    "defaultMessage": "Name"
+    "defaultMessage": "名稱"
   },
   "instances.content-install.name-placeholder": {
-    "defaultMessage": "Enter instance name"
+    "defaultMessage": "輸入實例名稱"
   },
   "instances.content-install.new-tab": {
-    "defaultMessage": "New instance"
+    "defaultMessage": "新的實例"
   },
   "instances.content-install.no-instances": {
-    "defaultMessage": "No compatible instances found"
+    "defaultMessage": "找不到相容的實例"
   },
   "instances.content-install.remove-icon": {
-    "defaultMessage": "Remove icon"
+    "defaultMessage": "移除圖示"
   },
   "instances.content-install.search-placeholder": {
-    "defaultMessage": "Search instance"
+    "defaultMessage": "搜尋實例"
   },
   "instances.content-install.select-icon": {
-    "defaultMessage": "Select icon"
+    "defaultMessage": "選擇圖示"
   },
   "instances.updater-modal.badge.current": {
-    "defaultMessage": "Current"
+    "defaultMessage": "目前"
   },
   "instances.updater-modal.badge.incompatible": {
-    "defaultMessage": "Incompatible"
+    "defaultMessage": "不相容"
   },
   "instances.updater-modal.downgrade-to": {
-    "defaultMessage": "Downgrade to {version}"
+    "defaultMessage": "降級到 {version}"
   },
   "instances.updater-modal.header": {
-    "defaultMessage": "Update version"
+    "defaultMessage": "更新版本"
   },
   "instances.updater-modal.header-modpack": {
-    "defaultMessage": "Switch modpack version"
+    "defaultMessage": "切換模組包版本"
   },
   "instances.updater-modal.header-switch": {
-    "defaultMessage": "Switch version"
+    "defaultMessage": "切換版本"
   },
   "instances.updater-modal.hide-incompatible": {
-    "defaultMessage": "Hide incompatible"
+    "defaultMessage": "隱藏不相容項目"
   },
   "instances.updater-modal.incompatibility-warning": {
-    "defaultMessage": "This version is not marked as compatible with this instance. Dependencies will not be installed automatically."
+    "defaultMessage": "這個版本與這個實例不相容。相依項將不會自動安裝。"
   },
   "instances.updater-modal.incompatibility-warning-header": {
-    "defaultMessage": "Choose version"
+    "defaultMessage": "選擇版本"
   },
   "instances.updater-modal.incompatible-update.description": {
-    "defaultMessage": "{version} is not marked as compatible with this installation. It may fail to launch or behave unexpectedly."
+    "defaultMessage": "{version} 與此實例不相容。它可能無法啟動或運行異常。"
   },
   "instances.updater-modal.incompatible-update.header": {
-    "defaultMessage": "Update to incompatible version?"
+    "defaultMessage": "更新到不相容版本？"
   },
   "instances.updater-modal.incompatible-update.proceed": {
-    "defaultMessage": "Update anyway"
+    "defaultMessage": "仍要更新"
   },
   "instances.updater-modal.install-anyway": {
-    "defaultMessage": "Install anyway"
+    "defaultMessage": "仍要安裝"
   },
   "instances.updater-modal.loading-changelog": {
-    "defaultMessage": "Loading changelog..."
+    "defaultMessage": "正在載入更新日誌..."
   },
   "instances.updater-modal.loading-more-versions": {
     "defaultMessage": "Loading more versions…"
   },
   "instances.updater-modal.loading-versions": {
-    "defaultMessage": "Loading versions..."
+    "defaultMessage": "正在載入版本..."
   },
   "instances.updater-modal.no-changelog": {
-    "defaultMessage": "No changelog provided for this version."
+    "defaultMessage": "這個版本沒有提供更新日誌。"
   },
   "instances.updater-modal.no-versions": {
-    "defaultMessage": "No versions found"
+    "defaultMessage": "找不到版本"
   },
   "instances.updater-modal.search-compat": {
-    "defaultMessage": "Find compatible version"
+    "defaultMessage": "尋找相容版本"
   },
   "instances.updater-modal.search-placeholder": {
-    "defaultMessage": "Search version..."
+    "defaultMessage": "搜尋版本..."
   },
   "instances.updater-modal.select-version": {
-    "defaultMessage": "Select a version to view its changelog"
+    "defaultMessage": "選擇版本以查看更新日誌"
   },
   "instances.updater-modal.show-incompatible": {
-    "defaultMessage": "Show incompatible"
+    "defaultMessage": "顯示不相容項目"
   },
   "instances.updater-modal.switch-to": {
-    "defaultMessage": "Switch to {version}"
+    "defaultMessage": "切換到 {version}"
   },
   "instances.updater-modal.update-to": {
-    "defaultMessage": "Update to {version}"
+    "defaultMessage": "更新到 {version}"
   },
   "instances.updater-modal.warning-app": {
-    "defaultMessage": "Updating can break your instance. Review version changelogs and back up first."
+    "defaultMessage": "更新可能會導致實例損壞。請先查看版本更新日誌並備份。"
   },
   "instances.updater-modal.warning-web": {
-    "defaultMessage": "Updating can break your world. Review version changelogs and back up first."
+    "defaultMessage": "更新可能會導致世界損壞。請先查看版本更新日誌並備份。"
   },
   "label.actions": {
-    "defaultMessage": "Actions"
+    "defaultMessage": "動作"
   },
   "label.available": {
-    "defaultMessage": "{amount} available."
+    "defaultMessage": "可用餘額 {amount}。"
   },
   "label.changelog": {
-    "defaultMessage": "Changelog"
+    "defaultMessage": "更新日誌"
   },
   "label.changes-saved": {
-    "defaultMessage": "Changes saved"
+    "defaultMessage": "變更已儲存"
   },
   "label.client-depends-warning": {
-    "defaultMessage": "This mod depends on a client-side mod and may cause issues when starting your server"
+    "defaultMessage": "此模組依賴客戶端模組，啟動伺服器時可能會造成問題"
   },
   "label.client-only-warning": {
-    "defaultMessage": "This is a client-side mod and may cause issues when starting your server"
+    "defaultMessage": "此為用戶端模組，啟動伺服器時可能會導致問題"
   },
   "label.client-retained-warning": {
-    "defaultMessage": "This is a client-side mod that was installed as a dependency and may cause issues when starting your server"
+    "defaultMessage": "這是一個作為依賴項安裝的客戶端模組，啟動伺服器時可能會造成問題"
   },
   "label.collections": {
-    "defaultMessage": "Collections"
+    "defaultMessage": "收藏"
   },
   "label.confirm-password": {
-    "defaultMessage": "Confirm password"
+    "defaultMessage": "確認密碼"
   },
   "label.content": {
-    "defaultMessage": "Content"
+    "defaultMessage": "內容"
   },
   "label.copied-filename": {
-    "defaultMessage": "Copied filename"
+    "defaultMessage": "已複製檔案名稱"
   },
   "label.copied-path": {
-    "defaultMessage": "Copied path"
+    "defaultMessage": "已複製路徑"
   },
   "label.create-failed": {
-    "defaultMessage": "Create failed"
+    "defaultMessage": "建立失敗"
   },
   "label.created-ago": {
-    "defaultMessage": "Created {ago}"
+    "defaultMessage": "建立時間：{ago}"
   },
   "label.dashboard": {
-    "defaultMessage": "Dashboard"
+    "defaultMessage": "資訊主頁"
   },
   "label.delete": {
-    "defaultMessage": "Delete"
+    "defaultMessage": "刪除"
   },
   "label.delete-failed": {
-    "defaultMessage": "Delete failed"
+    "defaultMessage": "刪除失敗"
   },
   "label.delete-immediately": {
-    "defaultMessage": "Delete immediately"
+    "defaultMessage": "立即刪除"
   },
   "label.description": {
-    "defaultMessage": "Description"
+    "defaultMessage": "描述"
   },
   "label.details": {
-    "defaultMessage": "Details"
+    "defaultMessage": "詳細資訊"
   },
   "label.done": {
-    "defaultMessage": "Done"
+    "defaultMessage": "完成"
   },
   "label.download-failed": {
-    "defaultMessage": "Download failed"
+    "defaultMessage": "下載失敗"
   },
   "label.email": {
-    "defaultMessage": "Email"
+    "defaultMessage": "電子郵件地址"
   },
   "label.email-username": {
-    "defaultMessage": "Email or username"
+    "defaultMessage": "電子郵件地址或使用者名稱"
   },
   "label.error": {
-    "defaultMessage": "Error"
+    "defaultMessage": "錯誤"
   },
   "label.extract-failed": {
-    "defaultMessage": "Extract failed"
+    "defaultMessage": "解壓縮失敗"
   },
   "label.filter-by": {
-    "defaultMessage": "Filter by"
+    "defaultMessage": "篩選依據"
   },
   "label.filters": {
-    "defaultMessage": "Filters"
+    "defaultMessage": "篩選器"
   },
   "label.followed-projects": {
-    "defaultMessage": "Followed projects"
+    "defaultMessage": "追蹤的專案"
   },
   "label.game-version": {
-    "defaultMessage": "Game version"
+    "defaultMessage": "遊戲版本"
   },
   "label.hide-installed-content": {
-    "defaultMessage": "Hide content already installed"
+    "defaultMessage": "隱藏已安裝的內容"
   },
   "label.hide-selected-content": {
-    "defaultMessage": "Hide selected content"
+    "defaultMessage": "隱藏已選取的內容"
   },
   "label.installation-info": {
-    "defaultMessage": "Installation info"
+    "defaultMessage": "安裝資訊"
   },
   "label.installed": {
-    "defaultMessage": "Installed"
+    "defaultMessage": "已安裝"
   },
   "label.installed-modpack": {
-    "defaultMessage": "Installed modpack"
+    "defaultMessage": "已安裝模組包"
   },
   "label.installing": {
-    "defaultMessage": "Installing..."
+    "defaultMessage": "安裝中..."
   },
   "label.installing-content": {
-    "defaultMessage": "Installing content"
+    "defaultMessage": "正在安裝內容"
   },
   "label.loading": {
-    "defaultMessage": "Loading..."
+    "defaultMessage": "載入中..."
   },
   "label.moderation": {
-    "defaultMessage": "Moderation"
+    "defaultMessage": "管理"
   },
   "label.modpack": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "模組包"
   },
   "label.move-failed": {
-    "defaultMessage": "Move failed"
+    "defaultMessage": "移動失敗"
   },
   "label.no": {
-    "defaultMessage": "No"
+    "defaultMessage": "否"
   },
   "label.no-items": {
-    "defaultMessage": "No items"
+    "defaultMessage": "沒有項目"
   },
   "label.notifications": {
-    "defaultMessage": "Notifications"
+    "defaultMessage": "通知"
   },
   "label.or": {
-    "defaultMessage": "or"
+    "defaultMessage": "或"
   },
   "label.password": {
-    "defaultMessage": "Password"
+    "defaultMessage": "密碼"
   },
   "label.plan-custom": {
-    "defaultMessage": "Custom"
+    "defaultMessage": "自訂"
   },
   "label.plan-large": {
-    "defaultMessage": "Large"
+    "defaultMessage": "大型"
   },
   "label.plan-medium": {
-    "defaultMessage": "Medium"
+    "defaultMessage": "中型"
   },
   "label.plan-small": {
-    "defaultMessage": "Small"
+    "defaultMessage": "小型"
   },
   "label.plan-unknown": {
-    "defaultMessage": "Unknown"
+    "defaultMessage": "未知"
   },
   "label.platform": {
-    "defaultMessage": "Platform"
+    "defaultMessage": "平臺"
   },
   "label.played": {
-    "defaultMessage": "Played {ago}"
+    "defaultMessage": "上次遊玩時間：{ago}"
   },
   "label.project": {
-    "defaultMessage": "Project"
+    "defaultMessage": "專案"
   },
   "label.public": {
-    "defaultMessage": "Public"
+    "defaultMessage": "公開"
   },
   "label.rejected": {
-    "defaultMessage": "Rejected"
+    "defaultMessage": "已拒絕"
   },
   "label.rename-failed": {
-    "defaultMessage": "Rename failed"
+    "defaultMessage": "重新命名失敗"
   },
   "label.rewards-program-terms-agreement": {
-    "defaultMessage": "I agree to the <terms-link>Rewards Program Terms</terms-link>"
+    "defaultMessage": "我同意《<terms-link>獎勵計畫條款</terms-link>》"
   },
   "label.saved": {
-    "defaultMessage": "Saved"
+    "defaultMessage": "已儲存"
   },
   "label.scopes": {
-    "defaultMessage": "Scopes"
+    "defaultMessage": "權限範圍"
   },
   "label.search": {
-    "defaultMessage": "Search"
+    "defaultMessage": "搜尋"
   },
   "label.select-all": {
-    "defaultMessage": "Select all"
+    "defaultMessage": "選擇全部"
   },
   "label.selected": {
-    "defaultMessage": "Selected"
+    "defaultMessage": "已選取"
   },
   "label.selection-actions": {
-    "defaultMessage": "Selection actions"
+    "defaultMessage": "選擇動作"
   },
   "label.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "伺服器"
   },
   "label.server-only": {
     "defaultMessage": "Server only"
   },
   "label.servers": {
-    "defaultMessage": "Servers"
+    "defaultMessage": "伺服器"
   },
   "label.settings": {
-    "defaultMessage": "Settings"
+    "defaultMessage": "設定"
   },
   "label.singleplayer": {
-    "defaultMessage": "Singleplayer"
+    "defaultMessage": "單人遊戲"
   },
   "label.sort-by": {
-    "defaultMessage": "Sort by: "
+    "defaultMessage": "排序依據"
   },
   "label.success": {
-    "defaultMessage": "Success"
+    "defaultMessage": "成功"
   },
   "label.title": {
-    "defaultMessage": "Title"
+    "defaultMessage": "標題"
   },
   "label.unknown": {
-    "defaultMessage": "Unknown"
+    "defaultMessage": "未知"
   },
   "label.unlisted": {
-    "defaultMessage": "Unlisted"
+    "defaultMessage": "不公開"
   },
   "label.update-available": {
-    "defaultMessage": "Update available"
+    "defaultMessage": "有可用的更新"
   },
   "label.updating": {
-    "defaultMessage": "Updating..."
+    "defaultMessage": "更新中..."
   },
   "label.upload-failed": {
-    "defaultMessage": "Upload failed"
+    "defaultMessage": "上傳失敗"
   },
   "label.username": {
-    "defaultMessage": "Username"
+    "defaultMessage": "使用者名稱"
   },
   "label.validating": {
-    "defaultMessage": "Validating"
+    "defaultMessage": "驗證中"
   },
   "label.version": {
-    "defaultMessage": "Version"
+    "defaultMessage": "版本"
   },
   "label.view": {
-    "defaultMessage": "View"
+    "defaultMessage": "檢視方式"
   },
   "label.visibility": {
-    "defaultMessage": "Visibility"
+    "defaultMessage": "瀏覽權限"
   },
   "label.visit-your-profile": {
-    "defaultMessage": "Visit your profile"
+    "defaultMessage": "瀏覽個人檔案"
   },
   "label.yes": {
-    "defaultMessage": "Yes"
+    "defaultMessage": "是"
   },
   "locale.cs-CZ": {
-    "defaultMessage": "Czech"
+    "defaultMessage": "捷克文"
   },
   "locale.da-DK": {
-    "defaultMessage": "Danish"
+    "defaultMessage": "丹麥文"
   },
   "locale.de-CH": {
-    "defaultMessage": "German (Switzerland)"
+    "defaultMessage": "德文（瑞士）"
   },
   "locale.de-DE": {
-    "defaultMessage": "German (Germany)"
+    "defaultMessage": "德文（德國）"
   },
   "locale.en-US": {
-    "defaultMessage": "English (United States)"
+    "defaultMessage": "英文（美國）"
   },
   "locale.es-419": {
-    "defaultMessage": "Spanish (Latin America)"
+    "defaultMessage": "西班牙文（拉丁美洲）"
   },
   "locale.es-ES": {
-    "defaultMessage": "Spanish (Spain)"
+    "defaultMessage": "西班牙文（西班牙）"
   },
   "locale.fi-FI": {
-    "defaultMessage": "Finnish"
+    "defaultMessage": "芬蘭文"
   },
   "locale.fil-PH": {
-    "defaultMessage": "Filipino"
+    "defaultMessage": "菲律賓文"
   },
   "locale.fr-FR": {
-    "defaultMessage": "French"
+    "defaultMessage": "法文"
   },
   "locale.he-IL": {
-    "defaultMessage": "Hebrew"
+    "defaultMessage": "希伯來文"
   },
   "locale.hu-HU": {
-    "defaultMessage": "Hungarian"
+    "defaultMessage": "匈牙利文"
   },
   "locale.id-ID": {
-    "defaultMessage": "Indonesian"
+    "defaultMessage": "印尼文"
   },
   "locale.it-IT": {
-    "defaultMessage": "Italian (Italy)"
+    "defaultMessage": "義大利文（義大利）"
   },
   "locale.ja-JP": {
-    "defaultMessage": "Japanese"
+    "defaultMessage": "日文"
   },
   "locale.ko-KR": {
-    "defaultMessage": "Korean"
+    "defaultMessage": "韓文"
   },
   "locale.ms-MY": {
-    "defaultMessage": "Malay"
+    "defaultMessage": "馬來文"
   },
   "locale.nl-NL": {
-    "defaultMessage": "Dutch"
+    "defaultMessage": "荷蘭文"
   },
   "locale.no-NO": {
-    "defaultMessage": "Norwegian Bokmål"
+    "defaultMessage": "書面挪威文"
   },
   "locale.pl-PL": {
-    "defaultMessage": "Polish"
+    "defaultMessage": "波蘭文"
   },
   "locale.pt-BR": {
-    "defaultMessage": "Portuguese (Brazil)"
+    "defaultMessage": "葡萄牙文（巴西）"
   },
   "locale.pt-PT": {
-    "defaultMessage": "Portuguese (Portugal)"
+    "defaultMessage": "葡萄牙文（葡萄牙）"
   },
   "locale.ro-RO": {
-    "defaultMessage": "Romanian"
+    "defaultMessage": "羅馬尼亞文"
   },
   "locale.ru-RU": {
-    "defaultMessage": "Russian"
+    "defaultMessage": "俄文"
   },
   "locale.sr-CS": {
-    "defaultMessage": "Serbian (Latin)"
+    "defaultMessage": "塞爾維亞文（拉丁）"
   },
   "locale.sv-SE": {
-    "defaultMessage": "Swedish"
+    "defaultMessage": "瑞典文"
   },
   "locale.th-TH": {
-    "defaultMessage": "Thai"
+    "defaultMessage": "泰文"
   },
   "locale.tr-TR": {
-    "defaultMessage": "Turkish"
+    "defaultMessage": "土耳其文"
   },
   "locale.uk-UA": {
-    "defaultMessage": "Ukrainian"
+    "defaultMessage": "烏克蘭文"
   },
   "locale.vi-VN": {
-    "defaultMessage": "Vietnamese"
+    "defaultMessage": "越南文"
   },
   "locale.zh-CN": {
-    "defaultMessage": "Chinese (Simplified)"
+    "defaultMessage": "簡體中文"
   },
   "locale.zh-TW": {
-    "defaultMessage": "Chinese (Traditional)"
+    "defaultMessage": "正體中文"
   },
   "modal.confirm-action.failed": {
     "defaultMessage": "The action could not be completed. Try again."
@@ -2958,31 +2958,31 @@
     "defaultMessage": "Install to play"
   },
   "modal.open-in-app.benefit.install": {
-    "defaultMessage": "Automatically install required content"
+    "defaultMessage": "自動安裝所需內容"
   },
   "modal.open-in-app.benefit.launch": {
-    "defaultMessage": "Launch the game straight into the server"
+    "defaultMessage": "直接啟動遊戲並加入伺服器"
   },
   "modal.open-in-app.benefit.update": {
-    "defaultMessage": "Keep files updated when the server changes"
+    "defaultMessage": "當伺服器變動時，維持檔案為最新狀態"
   },
   "modal.open-in-app.get-app": {
-    "defaultMessage": "Get Modrinth App"
+    "defaultMessage": "取得 Modrinth App"
   },
   "modal.open-in-app.opening-automatically": {
-    "defaultMessage": "The Modrinth App will open automatically..."
+    "defaultMessage": "Modrinth App 將自動開啟..."
   },
   "modal.open-in-app.title": {
-    "defaultMessage": "Opening Modrinth App"
+    "defaultMessage": "正在開啟 Modrinth App"
   },
   "modal.open-in-app.why-use": {
-    "defaultMessage": "Why use the Modrinth App"
+    "defaultMessage": "為何使用 Modrinth App"
   },
   "multiselect.selection-actions.label": {
-    "defaultMessage": "{count, number} selected"
+    "defaultMessage": "已選 {count, number} 項"
   },
   "notification.error.title": {
-    "defaultMessage": "An error occurred"
+    "defaultMessage": "發生錯誤"
   },
   "notification.panel.copy": {
     "defaultMessage": "Copy to clipboard"
@@ -2997,70 +2997,70 @@
     "defaultMessage": "Export error logs"
   },
   "omorphia.component.badge.label.accepted": {
-    "defaultMessage": "Accepted"
+    "defaultMessage": "已接受"
   },
   "omorphia.component.badge.label.approved": {
-    "defaultMessage": "Approved"
+    "defaultMessage": "已核准"
   },
   "omorphia.component.badge.label.archived": {
-    "defaultMessage": "Archived"
+    "defaultMessage": "已封存"
   },
   "omorphia.component.badge.label.closed": {
-    "defaultMessage": "Closed"
+    "defaultMessage": "已關閉"
   },
   "omorphia.component.badge.label.creator": {
-    "defaultMessage": "Creator"
+    "defaultMessage": "創作者"
   },
   "omorphia.component.badge.label.draft": {
-    "defaultMessage": "Draft"
+    "defaultMessage": "草稿"
   },
   "omorphia.component.badge.label.failed": {
-    "defaultMessage": "Failed"
+    "defaultMessage": "失敗"
   },
   "omorphia.component.badge.label.listed": {
-    "defaultMessage": "Public"
+    "defaultMessage": "公開"
   },
   "omorphia.component.badge.label.moderator": {
-    "defaultMessage": "Moderator"
+    "defaultMessage": "管理員"
   },
   "omorphia.component.badge.label.modrinth-team": {
-    "defaultMessage": "Modrinth Team"
+    "defaultMessage": "Modrinth 團隊"
   },
   "omorphia.component.badge.label.pending": {
-    "defaultMessage": "Pending"
+    "defaultMessage": "待處理"
   },
   "omorphia.component.badge.label.private": {
-    "defaultMessage": "Private"
+    "defaultMessage": "私人"
   },
   "omorphia.component.badge.label.processed": {
-    "defaultMessage": "Processed"
+    "defaultMessage": "已處理"
   },
   "omorphia.component.badge.label.rejected": {
-    "defaultMessage": "Rejected"
+    "defaultMessage": "已拒絕"
   },
   "omorphia.component.badge.label.returned": {
-    "defaultMessage": "Returned"
+    "defaultMessage": "已退回"
   },
   "omorphia.component.badge.label.safe": {
-    "defaultMessage": "Pass"
+    "defaultMessage": "通過"
   },
   "omorphia.component.badge.label.scheduled": {
-    "defaultMessage": "Scheduled"
+    "defaultMessage": "已排定"
   },
   "omorphia.component.badge.label.under-review": {
-    "defaultMessage": "Under review"
+    "defaultMessage": "審查中"
   },
   "omorphia.component.badge.label.unlisted": {
-    "defaultMessage": "Unlisted"
+    "defaultMessage": "不公開"
   },
   "omorphia.component.badge.label.unsafe": {
-    "defaultMessage": "Fail"
+    "defaultMessage": "不通過"
   },
   "omorphia.component.badge.label.withheld": {
-    "defaultMessage": "Unlisted by staff"
+    "defaultMessage": "由工作人員設為不公開"
   },
   "omorphia.component.copy.action.copy": {
-    "defaultMessage": "Copy code to clipboard"
+    "defaultMessage": "將程式碼複製到剪貼簿"
   },
   "omorphia.component.loading-indicator.label": {
     "defaultMessage": "Loading"
@@ -3078,22 +3078,22 @@
     "defaultMessage": "Amazon Pay"
   },
   "payment-method.amex": {
-    "defaultMessage": "American Express"
+    "defaultMessage": "美國運通"
   },
   "payment-method.card_display": {
-    "defaultMessage": "{card_brand} ending in {last_four}"
+    "defaultMessage": "{card_brand}（末四碼 {last_four}）"
   },
   "payment-method.cashapp": {
     "defaultMessage": "Cash App"
   },
   "payment-method.charity": {
-    "defaultMessage": "Charity"
+    "defaultMessage": "慈善機構"
   },
   "payment-method.charity-plural": {
-    "defaultMessage": "Charities"
+    "defaultMessage": "慈善機構"
   },
   "payment-method.diners": {
-    "defaultMessage": "Diners Club"
+    "defaultMessage": "大來卡"
   },
   "payment-method.discover": {
     "defaultMessage": "Discover"
@@ -3102,37 +3102,37 @@
     "defaultMessage": "EFTPOS"
   },
   "payment-method.gift-card": {
-    "defaultMessage": "Gift card"
+    "defaultMessage": "禮品卡"
   },
   "payment-method.gift-card-plural": {
-    "defaultMessage": "Gift cards"
+    "defaultMessage": "禮品卡"
   },
   "payment-method.jcb": {
     "defaultMessage": "JCB"
   },
   "payment-method.mastercard": {
-    "defaultMessage": "Mastercard"
+    "defaultMessage": "萬事達卡"
   },
   "payment-method.paypal": {
     "defaultMessage": "PayPal"
   },
   "payment-method.paypal_international": {
-    "defaultMessage": "PayPal International"
+    "defaultMessage": "PayPal 國際"
   },
   "payment-method.unionpay": {
-    "defaultMessage": "UnionPay"
+    "defaultMessage": "銀聯"
   },
   "payment-method.unknown": {
-    "defaultMessage": "Unknown payment method"
+    "defaultMessage": "未知的付款方式"
   },
   "payment-method.venmo": {
     "defaultMessage": "Venmo"
   },
   "payment-method.virtual-visa": {
-    "defaultMessage": "Virtual Visa"
+    "defaultMessage": "虛擬 Visa 卡"
   },
   "payment-method.virtual-visa-plural": {
-    "defaultMessage": "Virtual Visas"
+    "defaultMessage": "虛擬 Visa 卡"
   },
   "payment-method.visa": {
     "defaultMessage": "Visa"
@@ -3150,574 +3150,574 @@
     "defaultMessage": "Project first published {date}"
   },
   "project-card.date.published.tooltip": {
-    "defaultMessage": "Published {date}"
+    "defaultMessage": "發布時間：{date}"
   },
   "project-card.date.release-updated.tooltip": {
     "defaultMessage": "Latest release published {date}"
   },
   "project-card.date.updated.tooltip": {
-    "defaultMessage": "Updated {date}"
+    "defaultMessage": "更新時間：{date}"
   },
   "project-card.environment.client": {
-    "defaultMessage": "Client"
+    "defaultMessage": "用戶端"
   },
   "project-card.environment.client-and-server": {
-    "defaultMessage": "Client and server"
+    "defaultMessage": "用戶端與伺服器端"
   },
   "project-card.environment.client-or-server": {
-    "defaultMessage": "Client or server"
+    "defaultMessage": "用戶端或伺服器端"
   },
   "project-card.environment.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "伺服器"
   },
   "project-type.all": {
-    "defaultMessage": "All"
+    "defaultMessage": "全部"
   },
   "project-type.datapack.capital": {
-    "defaultMessage": "{count, plural, one {Data Pack} other {Data Packs}}"
+    "defaultMessage": "{count, plural, other {資料包}}"
   },
   "project-type.datapack.category": {
-    "defaultMessage": "Data Packs"
+    "defaultMessage": "資料包"
   },
   "project-type.datapack.lowercase": {
-    "defaultMessage": "{count, plural, one {data pack} other {data packs}}"
+    "defaultMessage": "{count, plural, other {資料包}}"
   },
   "project-type.mod.capital": {
-    "defaultMessage": "{count, plural, one {Mod} other {Mods}}"
+    "defaultMessage": "{count, plural, other {模組}}"
   },
   "project-type.mod.category": {
-    "defaultMessage": "Mods"
+    "defaultMessage": "模組"
   },
   "project-type.mod.lowercase": {
-    "defaultMessage": "{count, plural, one {mod} other {mods}}"
+    "defaultMessage": "{count, plural, other {模組}}"
   },
   "project-type.modpack.capital": {
-    "defaultMessage": "{count, plural, one {Modpack} other {Modpacks}}"
+    "defaultMessage": "{count, plural, other {模組包}}"
   },
   "project-type.modpack.category": {
-    "defaultMessage": "Modpacks"
+    "defaultMessage": "模組包"
   },
   "project-type.modpack.lowercase": {
-    "defaultMessage": "{count, plural, one {modpack} other {modpacks}}"
+    "defaultMessage": "{count, plural, other {模組包}}"
   },
   "project-type.plugin.capital": {
-    "defaultMessage": "{count, plural, one {Plugin} other {Plugins}}"
+    "defaultMessage": "{count, plural, other {插件}}"
   },
   "project-type.plugin.category": {
-    "defaultMessage": "Plugins"
+    "defaultMessage": "插件"
   },
   "project-type.plugin.lowercase": {
-    "defaultMessage": "{count, plural, one {plugin} other {plugins}}"
+    "defaultMessage": "{count, plural, other {插件}}"
   },
   "project-type.project.capital": {
-    "defaultMessage": "{count, plural, one {Project} other {Projects}}"
+    "defaultMessage": "{count, plural, other {專案}}"
   },
   "project-type.project.category": {
-    "defaultMessage": "Projects"
+    "defaultMessage": "專案"
   },
   "project-type.project.lowercase": {
-    "defaultMessage": "{count, plural, one {project} other {projects}}"
+    "defaultMessage": "{count, plural, other {專案}}"
   },
   "project-type.resourcepack.capital": {
-    "defaultMessage": "{count, plural, one {Resource Pack} other {Resource Packs}}"
+    "defaultMessage": "{count, plural, other {資源包}}"
   },
   "project-type.resourcepack.category": {
-    "defaultMessage": "Resource Packs"
+    "defaultMessage": "資源包"
   },
   "project-type.resourcepack.lowercase": {
-    "defaultMessage": "{count, plural, one {resource pack} other {resource packs}}"
+    "defaultMessage": "{count, plural, other {資源包}}"
   },
   "project-type.schematic.capital": {
-    "defaultMessage": "{count, plural, one {Schematic} other {Schematics}}"
+    "defaultMessage": "{count, plural, one {投影} other {投影}}"
   },
   "project-type.schematic.category": {
-    "defaultMessage": "Schematics"
+    "defaultMessage": "投影"
   },
   "project-type.schematic.lowercase": {
-    "defaultMessage": "{count, plural, one {schematic} other {schematics}}"
+    "defaultMessage": "{count, plural, one {投影} other {投影}}"
   },
   "project-type.server.capital": {
-    "defaultMessage": "{count, plural, one {Server} other {Servers}}"
+    "defaultMessage": "{count, plural, one {伺服器} other {伺服器}}"
   },
   "project-type.server.category": {
-    "defaultMessage": "Servers"
+    "defaultMessage": "伺服器"
   },
   "project-type.server.lowercase": {
-    "defaultMessage": "{count, plural, one {server} other {servers}}"
+    "defaultMessage": "{count, plural, other {伺服器}}"
   },
   "project-type.shader.capital": {
-    "defaultMessage": "{count, plural, one {Shader} other {Shaders}}"
+    "defaultMessage": "{count, plural, other {光影包}}"
   },
   "project-type.shader.category": {
-    "defaultMessage": "Shaders"
+    "defaultMessage": "光影包"
   },
   "project-type.shader.lowercase": {
-    "defaultMessage": "{count, plural, one {shader} other {shaders}}"
+    "defaultMessage": "{count, plural, other {光影包}}"
   },
   "project.about.compatibility.environments": {
-    "defaultMessage": "Supported environments"
+    "defaultMessage": "支援環境"
   },
   "project.about.compatibility.environments.client-and-server": {
-    "defaultMessage": "Client and server"
+    "defaultMessage": "用戶端與伺服器端"
   },
   "project.about.compatibility.environments.client-side": {
-    "defaultMessage": "Client-side"
+    "defaultMessage": "用戶端"
   },
   "project.about.compatibility.environments.dedicated-servers-only": {
-    "defaultMessage": "Dedicated servers only"
+    "defaultMessage": "僅限專用伺服器"
   },
   "project.about.compatibility.environments.server-side": {
-    "defaultMessage": "Server-side"
+    "defaultMessage": "伺服器端"
   },
   "project.about.compatibility.environments.singleplayer": {
-    "defaultMessage": "Singleplayer"
+    "defaultMessage": "單人遊戲"
   },
   "project.about.compatibility.environments.singleplayer-only": {
-    "defaultMessage": "Singleplayer only"
+    "defaultMessage": "僅限單人遊戲"
   },
   "project.about.compatibility.game.minecraftJava": {
-    "defaultMessage": "Minecraft: Java Edition"
+    "defaultMessage": "Minecraft Java 版"
   },
   "project.about.compatibility.platforms": {
-    "defaultMessage": "Platforms"
+    "defaultMessage": "平臺"
   },
   "project.about.compatibility.platforms-plural": {
-    "defaultMessage": "{count, plural, one {Platform} other {Platforms}}"
+    "defaultMessage": "{count, plural, other {平臺}}"
   },
   "project.about.compatibility.title": {
-    "defaultMessage": "Compatibility"
+    "defaultMessage": "相容性"
   },
   "project.about.creators.organization": {
-    "defaultMessage": "Organization"
+    "defaultMessage": "組織"
   },
   "project.about.creators.owner": {
-    "defaultMessage": "Project owner"
+    "defaultMessage": "專案擁有者"
   },
   "project.about.creators.title": {
-    "defaultMessage": "Creators"
+    "defaultMessage": "創作者"
   },
   "project.about.details.created": {
-    "defaultMessage": "Created {date}"
+    "defaultMessage": "建立時間：{date}"
   },
   "project.about.details.licensed": {
-    "defaultMessage": "Licensed {license}"
+    "defaultMessage": "授權條款：{license}"
   },
   "project.about.details.published": {
-    "defaultMessage": "Published {date}"
+    "defaultMessage": "發布時間：{date}"
   },
   "project.about.details.submitted": {
-    "defaultMessage": "Submitted {date}"
+    "defaultMessage": "提交時間：{date}"
   },
   "project.about.details.updated": {
-    "defaultMessage": "Updated {date}"
+    "defaultMessage": "更新時間：{date}"
   },
   "project.about.links.discord": {
-    "defaultMessage": "Join Discord server"
+    "defaultMessage": "加入 Discord 伺服器"
   },
   "project.about.links.donate.bmac": {
     "defaultMessage": "Buy Me a Coffee"
   },
   "project.about.links.donate.generic": {
-    "defaultMessage": "Donate"
+    "defaultMessage": "贊助"
   },
   "project.about.links.donate.github": {
-    "defaultMessage": "Sponsor on GitHub"
+    "defaultMessage": "GitHub Sponsors 贊助"
   },
   "project.about.links.donate.kofi": {
-    "defaultMessage": "Donate on Ko-fi"
+    "defaultMessage": "Ko-fi 贊助"
   },
   "project.about.links.donate.patreon": {
-    "defaultMessage": "Donate on Patreon"
+    "defaultMessage": "Patreon 贊助"
   },
   "project.about.links.donate.paypal": {
-    "defaultMessage": "Donate on PayPal"
+    "defaultMessage": "PayPal 贊助"
   },
   "project.about.links.issues": {
-    "defaultMessage": "Report issues"
+    "defaultMessage": "回報問題"
   },
   "project.about.links.mcmod": {
     "defaultMessage": "MC Mod"
   },
   "project.about.links.site": {
-    "defaultMessage": "Visit website"
+    "defaultMessage": "前往網站"
   },
   "project.about.links.source": {
-    "defaultMessage": "View source"
+    "defaultMessage": "檢視原始碼"
   },
   "project.about.links.store": {
-    "defaultMessage": "Visit store page"
+    "defaultMessage": "前往商店頁面"
   },
   "project.about.links.title": {
-    "defaultMessage": "Links"
+    "defaultMessage": "相關連結"
   },
   "project.about.links.wiki": {
-    "defaultMessage": "Visit wiki"
+    "defaultMessage": "前往 wiki"
   },
   "project.about.server.address.tooltip": {
-    "defaultMessage": "Copy Java server address"
+    "defaultMessage": "複製 Java 伺服器位址"
   },
   "project.about.server.copied": {
-    "defaultMessage": "Copied!"
+    "defaultMessage": "已複製！"
   },
   "project.about.server.copiedText": {
-    "defaultMessage": "Server address copied to clipboard"
+    "defaultMessage": "已將伺服器位址複製到剪貼簿"
   },
   "project.about.server.downloadModpack": {
-    "defaultMessage": "Download modpack"
+    "defaultMessage": "下載模組包"
   },
   "project.about.server.languages": {
-    "defaultMessage": "Languages"
+    "defaultMessage": "語言"
   },
   "project.about.server.recommendedVersion": {
-    "defaultMessage": "(Recommended)"
+    "defaultMessage": "（推薦）"
   },
   "project.about.server.region": {
-    "defaultMessage": "Region"
+    "defaultMessage": "地區"
   },
   "project.about.server.requiredContent": {
-    "defaultMessage": "Required content"
+    "defaultMessage": "必需內容"
   },
   "project.about.server.title": {
-    "defaultMessage": "Server details"
+    "defaultMessage": "伺服器詳細資訊"
   },
   "project.about.tags.title": {
-    "defaultMessage": "Tags"
+    "defaultMessage": "標籤"
   },
   "project.download-count-tooltip": {
-    "defaultMessage": "{count, number} {count, plural, one {download} other {downloads}}"
+    "defaultMessage": "{count, number} 次{count, plural, other {下載}}"
   },
   "project.environment.tag.not-applicable": {
-    "defaultMessage": "N/A"
+    "defaultMessage": "不適用"
   },
   "project.environment.tag.unknown": {
-    "defaultMessage": "Unknown"
+    "defaultMessage": "未知"
   },
   "project.follower-count-tooltip": {
-    "defaultMessage": "{count, number} {count, plural, one {follower} other {followers}}"
+    "defaultMessage": "{count, number} 位{count, plural, other {追蹤者}}"
   },
   "project.online-player-count": {
-    "defaultMessage": "{count, number} online"
+    "defaultMessage": "{count, number} 人在線上"
   },
   "project.online-player-count.tooltip": {
-    "defaultMessage": "{count} {countPlural, plural, one {player} other {players}} online"
+    "defaultMessage": "{count} 位{countPlural, plural, other {玩家}}在線上"
   },
   "project.recent-plays": {
-    "defaultMessage": "{count} {countPlural, plural, one {recent play} other {recent plays}}"
+    "defaultMessage": "{count} 次{countPlural, plural, other {近期遊玩}}"
   },
   "project.recent-plays.tooltip": {
-    "defaultMessage": "{count} {countPlural, plural, one {recent play} other {recent plays}} from Modrinth in the past 2 weeks"
+    "defaultMessage": "過去 2 週內來自 Modrinth 的 {count} 次{countPlural, plural, other {最近遊玩次數}}"
   },
   "project.server.customModpackTooltip": {
-    "defaultMessage": "This project uses a custom modpack"
+    "defaultMessage": "這個專案使用了自訂模組包"
   },
   "project.server.language.af": {
-    "defaultMessage": "Afrikaans"
+    "defaultMessage": "南非文"
   },
   "project.server.language.am": {
-    "defaultMessage": "Amharic"
+    "defaultMessage": "阿姆哈拉文"
   },
   "project.server.language.ar": {
-    "defaultMessage": "Arabic"
+    "defaultMessage": "阿拉伯文"
   },
   "project.server.language.az": {
-    "defaultMessage": "Azerbaijani"
+    "defaultMessage": "亞塞拜然文"
   },
   "project.server.language.be": {
-    "defaultMessage": "Belarusian"
+    "defaultMessage": "白俄羅斯文"
   },
   "project.server.language.bg": {
-    "defaultMessage": "Bulgarian"
+    "defaultMessage": "保加利亞文"
   },
   "project.server.language.bn": {
-    "defaultMessage": "Bengali"
+    "defaultMessage": "孟加拉文"
   },
   "project.server.language.bs": {
-    "defaultMessage": "Bosnian"
+    "defaultMessage": "波士尼亞文"
   },
   "project.server.language.ca": {
-    "defaultMessage": "Catalan"
+    "defaultMessage": "加泰隆尼亞文"
   },
   "project.server.language.cs": {
-    "defaultMessage": "Czech"
+    "defaultMessage": "捷克文"
   },
   "project.server.language.da": {
-    "defaultMessage": "Danish"
+    "defaultMessage": "丹麥文"
   },
   "project.server.language.de": {
-    "defaultMessage": "German"
+    "defaultMessage": "德文"
   },
   "project.server.language.el": {
-    "defaultMessage": "Greek"
+    "defaultMessage": "希臘文"
   },
   "project.server.language.en": {
-    "defaultMessage": "English"
+    "defaultMessage": "英文"
   },
   "project.server.language.eo": {
-    "defaultMessage": "Esperanto"
+    "defaultMessage": "世界語"
   },
   "project.server.language.es": {
-    "defaultMessage": "Spanish"
+    "defaultMessage": "西班牙文"
   },
   "project.server.language.et": {
-    "defaultMessage": "Estonian"
+    "defaultMessage": "愛沙尼亞文"
   },
   "project.server.language.eu": {
-    "defaultMessage": "Basque"
+    "defaultMessage": "巴斯克文"
   },
   "project.server.language.fa": {
-    "defaultMessage": "Persian"
+    "defaultMessage": "波斯文"
   },
   "project.server.language.fi": {
-    "defaultMessage": "Finnish"
+    "defaultMessage": "芬蘭文"
   },
   "project.server.language.fr": {
-    "defaultMessage": "French"
+    "defaultMessage": "法文"
   },
   "project.server.language.ga": {
-    "defaultMessage": "Irish"
+    "defaultMessage": "愛爾蘭文"
   },
   "project.server.language.gl": {
-    "defaultMessage": "Galician"
+    "defaultMessage": "加利西亞文"
   },
   "project.server.language.he": {
-    "defaultMessage": "Hebrew"
+    "defaultMessage": "希伯來文"
   },
   "project.server.language.hi": {
-    "defaultMessage": "Hindi"
+    "defaultMessage": "印地文"
   },
   "project.server.language.hr": {
-    "defaultMessage": "Croatian"
+    "defaultMessage": "克羅埃西亞文"
   },
   "project.server.language.hu": {
-    "defaultMessage": "Hungarian"
+    "defaultMessage": "匈牙利文"
   },
   "project.server.language.hy": {
-    "defaultMessage": "Armenian"
+    "defaultMessage": "亞美尼亞文"
   },
   "project.server.language.id": {
-    "defaultMessage": "Indonesian"
+    "defaultMessage": "印尼文"
   },
   "project.server.language.is": {
-    "defaultMessage": "Icelandic"
+    "defaultMessage": "冰島文"
   },
   "project.server.language.it": {
-    "defaultMessage": "Italian"
+    "defaultMessage": "義大利文"
   },
   "project.server.language.ja": {
-    "defaultMessage": "Japanese"
+    "defaultMessage": "日文"
   },
   "project.server.language.ka": {
-    "defaultMessage": "Georgian"
+    "defaultMessage": "喬治亞文"
   },
   "project.server.language.kk": {
-    "defaultMessage": "Kazakh"
+    "defaultMessage": "哈薩克文"
   },
   "project.server.language.km": {
-    "defaultMessage": "Khmer"
+    "defaultMessage": "高棉文"
   },
   "project.server.language.kn": {
-    "defaultMessage": "Kannada"
+    "defaultMessage": "坎那達文"
   },
   "project.server.language.ko": {
-    "defaultMessage": "Korean"
+    "defaultMessage": "韓文"
   },
   "project.server.language.lo": {
-    "defaultMessage": "Lao"
+    "defaultMessage": "寮文"
   },
   "project.server.language.lt": {
-    "defaultMessage": "Lithuanian"
+    "defaultMessage": "立陶宛文"
   },
   "project.server.language.lv": {
-    "defaultMessage": "Latvian"
+    "defaultMessage": "拉脫維亞文"
   },
   "project.server.language.mk": {
-    "defaultMessage": "Macedonian"
+    "defaultMessage": "馬其頓文"
   },
   "project.server.language.ml": {
-    "defaultMessage": "Malayalam"
+    "defaultMessage": "馬來亞拉姆文"
   },
   "project.server.language.mn": {
-    "defaultMessage": "Mongolian"
+    "defaultMessage": "蒙古文"
   },
   "project.server.language.mr": {
-    "defaultMessage": "Marathi"
+    "defaultMessage": "馬拉提文"
   },
   "project.server.language.ms": {
-    "defaultMessage": "Malay"
+    "defaultMessage": "馬來文"
   },
   "project.server.language.my": {
-    "defaultMessage": "Burmese"
+    "defaultMessage": "緬甸文"
   },
   "project.server.language.ne": {
-    "defaultMessage": "Nepali"
+    "defaultMessage": "尼泊爾文"
   },
   "project.server.language.nl": {
-    "defaultMessage": "Dutch"
+    "defaultMessage": "荷蘭文"
   },
   "project.server.language.no": {
-    "defaultMessage": "Norwegian"
+    "defaultMessage": "挪威文"
   },
   "project.server.language.pa": {
-    "defaultMessage": "Punjabi"
+    "defaultMessage": "旁遮普文"
   },
   "project.server.language.pl": {
-    "defaultMessage": "Polish"
+    "defaultMessage": "波蘭文"
   },
   "project.server.language.pt": {
-    "defaultMessage": "Portuguese"
+    "defaultMessage": "葡萄牙文"
   },
   "project.server.language.ro": {
-    "defaultMessage": "Romanian"
+    "defaultMessage": "羅馬尼亞文"
   },
   "project.server.language.ru": {
-    "defaultMessage": "Russian"
+    "defaultMessage": "俄文"
   },
   "project.server.language.si": {
-    "defaultMessage": "Sinhala"
+    "defaultMessage": "僧伽羅文"
   },
   "project.server.language.sk": {
-    "defaultMessage": "Slovak"
+    "defaultMessage": "斯洛伐克文"
   },
   "project.server.language.sl": {
-    "defaultMessage": "Slovenian"
+    "defaultMessage": "斯洛維尼亞文"
   },
   "project.server.language.sq": {
-    "defaultMessage": "Albanian"
+    "defaultMessage": "阿爾巴尼亞文"
   },
   "project.server.language.sr": {
-    "defaultMessage": "Serbian"
+    "defaultMessage": "塞爾維亞文"
   },
   "project.server.language.sv": {
-    "defaultMessage": "Swedish"
+    "defaultMessage": "瑞典文"
   },
   "project.server.language.sw": {
-    "defaultMessage": "Swahili"
+    "defaultMessage": "斯瓦希里文"
   },
   "project.server.language.ta": {
-    "defaultMessage": "Tamil"
+    "defaultMessage": "泰米爾文"
   },
   "project.server.language.te": {
-    "defaultMessage": "Telugu"
+    "defaultMessage": "泰盧固文"
   },
   "project.server.language.th": {
-    "defaultMessage": "Thai"
+    "defaultMessage": "泰文"
   },
   "project.server.language.tl": {
-    "defaultMessage": "Filipino"
+    "defaultMessage": "菲律賓文"
   },
   "project.server.language.tr": {
-    "defaultMessage": "Turkish"
+    "defaultMessage": "土耳其文"
   },
   "project.server.language.uk": {
-    "defaultMessage": "Ukrainian"
+    "defaultMessage": "烏克蘭文"
   },
   "project.server.language.ur": {
-    "defaultMessage": "Urdu"
+    "defaultMessage": "烏爾都文"
   },
   "project.server.language.uz": {
-    "defaultMessage": "Uzbek"
+    "defaultMessage": "烏茲別克文"
   },
   "project.server.language.vi": {
-    "defaultMessage": "Vietnamese"
+    "defaultMessage": "越南文"
   },
   "project.server.language.yo": {
-    "defaultMessage": "Yoruba"
+    "defaultMessage": "約魯巴文"
   },
   "project.server.language.zh": {
-    "defaultMessage": "Chinese"
+    "defaultMessage": "中文"
   },
   "project.server.language.zu": {
-    "defaultMessage": "Zulu"
+    "defaultMessage": "祖魯文"
   },
   "project.server.ping.ms": {
-    "defaultMessage": "{ping, number} ms"
+    "defaultMessage": "{ping, number} 毫秒"
   },
   "project.server.region.asia": {
-    "defaultMessage": "Asia"
+    "defaultMessage": "亞洲"
   },
   "project.server.region.australia": {
-    "defaultMessage": "Australia"
+    "defaultMessage": "澳洲"
   },
   "project.server.region.europe": {
-    "defaultMessage": "Europe"
+    "defaultMessage": "歐洲"
   },
   "project.server.region.middle_east": {
-    "defaultMessage": "Middle East"
+    "defaultMessage": "中東"
   },
   "project.server.region.russia": {
-    "defaultMessage": "Russia"
+    "defaultMessage": "俄羅斯"
   },
   "project.server.region.south_america": {
-    "defaultMessage": "South America"
+    "defaultMessage": "南美洲"
   },
   "project.server.region.tooltip": {
-    "defaultMessage": "Server hosted in {regionName}"
+    "defaultMessage": "伺服器位於{regionName}"
   },
   "project.server.region.us_east": {
-    "defaultMessage": "US East"
+    "defaultMessage": "美國東部"
   },
   "project.server.region.us_west": {
-    "defaultMessage": "US West"
+    "defaultMessage": "美國西部"
   },
   "project.server.status.offline": {
-    "defaultMessage": "Offline"
+    "defaultMessage": "離線"
   },
   "project.server.status.offline.tooltip": {
-    "defaultMessage": "Server is offline"
+    "defaultMessage": "伺服器已離線"
   },
   "project.server.status.online": {
-    "defaultMessage": "Online"
+    "defaultMessage": "線上"
   },
   "project.settings.analytics.title": {
-    "defaultMessage": "Analytics"
+    "defaultMessage": "數據分析"
   },
   "project.settings.content.title": {
-    "defaultMessage": "Content"
+    "defaultMessage": "內容"
   },
   "project.settings.description.title": {
-    "defaultMessage": "Description"
+    "defaultMessage": "描述"
   },
   "project.settings.environment.title": {
-    "defaultMessage": "Environment"
+    "defaultMessage": "環境"
   },
   "project.settings.gallery.title": {
-    "defaultMessage": "Gallery"
+    "defaultMessage": "圖庫"
   },
   "project.settings.general.title": {
-    "defaultMessage": "General"
+    "defaultMessage": "一般"
   },
   "project.settings.license.title": {
-    "defaultMessage": "License"
+    "defaultMessage": "授權條款"
   },
   "project.settings.links.title": {
-    "defaultMessage": "Links"
+    "defaultMessage": "連結"
   },
   "project.settings.members.title": {
-    "defaultMessage": "Members"
+    "defaultMessage": "成員"
   },
   "project.settings.notice.no-permission.description": {
-    "defaultMessage": "You don't have permission to edit this."
+    "defaultMessage": "你沒有編輯這個設定的權限。"
   },
   "project.settings.notice.no-permission.title": {
-    "defaultMessage": "No permission"
+    "defaultMessage": "沒有權限"
   },
   "project.settings.server.title": {
-    "defaultMessage": "Server"
+    "defaultMessage": "伺服器"
   },
   "project.settings.tags.title": {
-    "defaultMessage": "Tags"
+    "defaultMessage": "標籤"
   },
   "project.settings.upload.title": {
-    "defaultMessage": "Upload"
+    "defaultMessage": "上傳"
   },
   "project.settings.versions.permissions": {
-    "defaultMessage": "Permissions"
+    "defaultMessage": "權限"
   },
   "project.settings.versions.title": {
-    "defaultMessage": "Versions"
+    "defaultMessage": "版本"
   },
   "project.settings.view.title": {
-    "defaultMessage": "View"
+    "defaultMessage": "檢視"
   },
   "project.versions.channel.alpha.symbol": {
     "defaultMessage": "A"
@@ -3729,10 +3729,10 @@
     "defaultMessage": "R"
   },
   "project.versions.filter.gameVersions": {
-    "defaultMessage": "Game versions"
+    "defaultMessage": "遊戲版本"
   },
   "project.versions.filter.projectChannels": {
-    "defaultMessage": "Channels"
+    "defaultMessage": "更新通道"
   },
   "project.versions.filter.toggle-tooltip": {
     "defaultMessage": "Toggle filter for {filter}"
@@ -3744,73 +3744,73 @@
     "defaultMessage": "ModLoader"
   },
   "project.versions.table.downloads": {
-    "defaultMessage": "Downloads"
+    "defaultMessage": "下載量"
   },
   "project.versions.table.environment": {
-    "defaultMessage": "Environment"
+    "defaultMessage": "執行環境"
   },
   "project.versions.table.game-version": {
-    "defaultMessage": "Game version"
+    "defaultMessage": "遊戲版本"
   },
   "project.versions.table.platform": {
-    "defaultMessage": "Platform"
+    "defaultMessage": "平臺"
   },
   "project.versions.table.published": {
-    "defaultMessage": "Published"
+    "defaultMessage": "釋出時間"
   },
   "project.versions.table.version": {
-    "defaultMessage": "Version"
+    "defaultMessage": "版本"
   },
   "project.versions.version.withheld": {
-    "defaultMessage": "Withheld"
+    "defaultMessage": "保留"
   },
   "project.versions.version.withheld.tooltip": {
-    "defaultMessage": "Version withheld due to missing permissions"
+    "defaultMessage": "版本由於缺少授權資訊而被保留"
   },
   "project.versions.withheld-versions-warning.resolve-button": {
-    "defaultMessage": "Resolve"
+    "defaultMessage": "解決"
   },
   "project.visibility.archived": {
-    "defaultMessage": "Archived"
+    "defaultMessage": "已封存"
   },
   "project.visibility.draft": {
-    "defaultMessage": "Draft"
+    "defaultMessage": "草稿"
   },
   "project.visibility.private": {
-    "defaultMessage": "Private"
+    "defaultMessage": "私人"
   },
   "project.visibility.public": {
-    "defaultMessage": "Public"
+    "defaultMessage": "公開"
   },
   "project.visibility.rejected": {
-    "defaultMessage": "Rejected"
+    "defaultMessage": "已拒絕"
   },
   "project.visibility.scheduled": {
-    "defaultMessage": "Scheduled"
+    "defaultMessage": "已排定"
   },
   "project.visibility.under-review": {
-    "defaultMessage": "Under review"
+    "defaultMessage": "審查中"
   },
   "project.visibility.unknown": {
-    "defaultMessage": "Unknown"
+    "defaultMessage": "未知"
   },
   "project.visibility.unlisted": {
-    "defaultMessage": "Unlisted"
+    "defaultMessage": "不公開"
   },
   "project.visibility.unlisted-by-staff": {
-    "defaultMessage": "Unlisted by staff"
+    "defaultMessage": "由工作人員設為不公開"
   },
   "report.item-type.content": {
-    "defaultMessage": "content"
+    "defaultMessage": "內容"
   },
   "report.item-type.project": {
-    "defaultMessage": "project"
+    "defaultMessage": "專案"
   },
   "report.item-type.user": {
-    "defaultMessage": "user"
+    "defaultMessage": "使用者"
   },
   "report.item-type.version": {
-    "defaultMessage": "version"
+    "defaultMessage": "版本"
   },
   "search.filter.dependency_type.embedded": {
     "defaultMessage": "Embedded"
@@ -3840,34 +3840,34 @@
     "defaultMessage": "Includes: {projects}"
   },
   "search.filter.locked.default": {
-    "defaultMessage": "Filter locked"
+    "defaultMessage": "篩選器已鎖定"
   },
   "search.filter.locked.default.description": {
-    "defaultMessage": "Unlocking this filter may allow you to install incompatible content."
+    "defaultMessage": "解鎖這個篩選器可能導致安裝不相容的內容。"
   },
   "search.filter.locked.default.sync": {
-    "defaultMessage": "Sync filter"
+    "defaultMessage": "同步篩選器"
   },
   "search.filter.locked.default.title": {
-    "defaultMessage": "{type} is locked"
+    "defaultMessage": "{type} 已鎖定"
   },
   "search.filter.locked.default.unlock": {
-    "defaultMessage": "Unlock filter"
+    "defaultMessage": "解鎖篩選器"
   },
   "search.filter.option.exclusion.add.tooltip": {
-    "defaultMessage": "Exclude"
+    "defaultMessage": "排除"
   },
   "search.filter.option.search.clear.aria_label": {
-    "defaultMessage": "Clear search"
+    "defaultMessage": "清除搜尋"
   },
   "search.filter.option.search.placeholder": {
-    "defaultMessage": "Search..."
+    "defaultMessage": "搜尋..."
   },
   "search.filter.option.show_fewer": {
-    "defaultMessage": "Show fewer"
+    "defaultMessage": "只顯示部分內容"
   },
   "search.filter.option.show_more": {
-    "defaultMessage": "Show more"
+    "defaultMessage": "顯示更多內容"
   },
   "search.filter_type.advanced": {
     "defaultMessage": "Advanced"
@@ -3885,328 +3885,328 @@
     "defaultMessage": "Depends on"
   },
   "search.filter_type.environment": {
-    "defaultMessage": "Environment"
+    "defaultMessage": "環境"
   },
   "search.filter_type.environment.client": {
-    "defaultMessage": "Client"
+    "defaultMessage": "用戶端"
   },
   "search.filter_type.environment.server": {
-    "defaultMessage": "Server"
+    "defaultMessage": "伺服器端"
   },
   "search.filter_type.game_version": {
-    "defaultMessage": "Game version"
+    "defaultMessage": "遊戲版本"
   },
   "search.filter_type.game_version.all_versions": {
-    "defaultMessage": "Show all versions"
+    "defaultMessage": "顯示所有版本"
   },
   "search.filter_type.included_content": {
     "defaultMessage": "Included content"
   },
   "search.filter_type.license": {
-    "defaultMessage": "License"
+    "defaultMessage": "授權條款"
   },
   "search.filter_type.license.open_source": {
-    "defaultMessage": "Open source"
+    "defaultMessage": "開放原始碼"
   },
   "search.filter_type.mod_loader": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "載入器"
   },
   "search.filter_type.modpack_loader": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "載入器"
   },
   "search.filter_type.plugin_loader": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "載入器"
   },
   "search.filter_type.plugin_platform": {
-    "defaultMessage": "Platform"
+    "defaultMessage": "平臺"
   },
   "search.filter_type.project_id": {
-    "defaultMessage": "Project ID"
+    "defaultMessage": "專案 ID"
   },
   "search.filter_type.server_content_type": {
-    "defaultMessage": "Type"
+    "defaultMessage": "類型"
   },
   "search.filter_type.server_language": {
-    "defaultMessage": "Language"
+    "defaultMessage": "語言"
   },
   "search.filter_type.server_region": {
-    "defaultMessage": "Region"
+    "defaultMessage": "地區"
   },
   "search.filter_type.server_status": {
-    "defaultMessage": "Status"
+    "defaultMessage": "狀態"
   },
   "search.filter_type.shader_loader": {
-    "defaultMessage": "Loader"
+    "defaultMessage": "載入器"
   },
   "search.server_content_type.modpack": {
-    "defaultMessage": "Modded"
+    "defaultMessage": "模組支援"
   },
   "search.server_content_type.vanilla": {
-    "defaultMessage": "Vanilla"
+    "defaultMessage": "原版"
   },
   "servers.notice.dismissable": {
-    "defaultMessage": "Dismissable"
+    "defaultMessage": "可撤銷"
   },
   "servers.notice.level.critical.name": {
-    "defaultMessage": "Critical"
+    "defaultMessage": "重要"
   },
   "servers.notice.level.info.name": {
-    "defaultMessage": "Info"
+    "defaultMessage": "資訊"
   },
   "servers.notice.level.survey.name": {
-    "defaultMessage": "Survey"
+    "defaultMessage": "問卷"
   },
   "servers.notice.level.warn.name": {
-    "defaultMessage": "Warning"
+    "defaultMessage": "警告"
   },
   "servers.notice.undismissable": {
-    "defaultMessage": "Undismissable"
+    "defaultMessage": "不可撤銷"
   },
   "servers.region.australia": {
-    "defaultMessage": "Australia"
+    "defaultMessage": "澳洲"
   },
   "servers.region.central-europe": {
-    "defaultMessage": "Central Europe"
+    "defaultMessage": "中歐"
   },
   "servers.region.north-america-central": {
-    "defaultMessage": "Central North America"
+    "defaultMessage": "北美中部"
   },
   "servers.region.north-america-east": {
-    "defaultMessage": "Eastern North America"
+    "defaultMessage": "北美東部"
   },
   "servers.region.north-america-west": {
-    "defaultMessage": "Western North America"
+    "defaultMessage": "北美西部"
   },
   "servers.region.southeast-asia": {
-    "defaultMessage": "Southeast Asia"
+    "defaultMessage": "東南亞"
   },
   "servers.region.western-europe": {
-    "defaultMessage": "Western Europe"
+    "defaultMessage": "西歐"
   },
   "servers.setup.upload-warning": {
-    "defaultMessage": "Please don't close this page while uploading."
+    "defaultMessage": "上傳時請勿關閉此頁面。"
   },
   "servers.setup.uploading-modpack.header": {
-    "defaultMessage": "Uploading modpack"
+    "defaultMessage": "正在上傳模組包"
   },
   "settings.account.title": {
-    "defaultMessage": "Account and security"
+    "defaultMessage": "帳號和安全性"
   },
   "settings.appearance.title": {
-    "defaultMessage": "Appearance"
+    "defaultMessage": "外觀"
   },
   "settings.applications.title": {
-    "defaultMessage": "Your applications"
+    "defaultMessage": "你的應用程式"
   },
   "settings.authorized-apps.title": {
-    "defaultMessage": "Authorized apps"
+    "defaultMessage": "已授權的應用程式"
   },
   "settings.display.theme.dark": {
-    "defaultMessage": "Dark"
+    "defaultMessage": "深色"
   },
   "settings.display.theme.description": {
-    "defaultMessage": "Select your preferred color theme for Modrinth on this device."
+    "defaultMessage": "依照偏好，設定這部裝置的 Modrinth 主題顏色。"
   },
   "settings.display.theme.light": {
-    "defaultMessage": "Light"
+    "defaultMessage": "淺色"
   },
   "settings.display.theme.oled": {
     "defaultMessage": "OLED"
   },
   "settings.display.theme.preferred-dark-theme": {
-    "defaultMessage": "Preferred dark theme"
+    "defaultMessage": "偏好深色主題"
   },
   "settings.display.theme.preferred-light-theme": {
-    "defaultMessage": "Preferred light theme"
+    "defaultMessage": "偏好淺色主題"
   },
   "settings.display.theme.retro": {
-    "defaultMessage": "Retro"
+    "defaultMessage": "復古"
   },
   "settings.display.theme.system": {
-    "defaultMessage": "Sync with system"
+    "defaultMessage": "與系統同步"
   },
   "settings.display.theme.title": {
-    "defaultMessage": "Color theme"
+    "defaultMessage": "色彩主題"
   },
   "settings.feature-flags.title": {
-    "defaultMessage": "Feature flags"
+    "defaultMessage": "功能旗標"
   },
   "settings.language.categories.default": {
-    "defaultMessage": "Standard languages"
+    "defaultMessage": "標準語言"
   },
   "settings.language.categories.search-result": {
-    "defaultMessage": "Search results"
+    "defaultMessage": "搜尋結果"
   },
   "settings.language.description": {
-    "defaultMessage": "Choose your preferred language for the {platform}. Translations are contributed by volunteers <crowdin-link>on Crowdin</crowdin-link>."
+    "defaultMessage": "選擇你偏好的{platform}語言。翻譯由 <crowdin-link>Crowdin</crowdin-link> 上的志願者所貢獻。"
   },
   "settings.language.languages.search-field.placeholder": {
-    "defaultMessage": "Search for a language..."
+    "defaultMessage": "搜尋語言..."
   },
   "settings.language.languages.search-results-announcement": {
-    "defaultMessage": "{matches, plural, =0 {No languages match} one {# language matches} other {# languages match}} your search."
+    "defaultMessage": "{matches, plural, =0 {未搜尋到相關語言} other {有 # 個語言符合搜尋字詞}}。"
   },
   "settings.language.languages.search.no-results": {
-    "defaultMessage": "No languages match your search."
+    "defaultMessage": "沒有語言符合你的搜尋字詞。"
   },
   "settings.language.platform.app": {
-    "defaultMessage": "app"
+    "defaultMessage": "應用程式"
   },
   "settings.language.platform.site": {
-    "defaultMessage": "site"
+    "defaultMessage": "網站"
   },
   "settings.language.title": {
-    "defaultMessage": "Language"
+    "defaultMessage": "語言"
   },
   "settings.language.warning": {
-    "defaultMessage": "Changing the {platform} language may cause some content to appear in English if a translation is not available. The {platform} is not yet fully translated, so some content may remain in English for certain languages."
+    "defaultMessage": "變更{platform}的語言後，若部分內容尚未提供翻譯，則會以英文顯示。{platform}目前尚未完全翻譯，因此，在某些語言下，部分內容仍可能以英文顯示。"
   },
   "settings.pats.title": {
-    "defaultMessage": "Personal access tokens"
+    "defaultMessage": "個人存取權杖"
   },
   "settings.profile.title": {
-    "defaultMessage": "Public profile"
+    "defaultMessage": "公開個人檔案"
   },
   "settings.sessions.title": {
-    "defaultMessage": "Sessions"
+    "defaultMessage": "工作階段"
   },
   "skin.preview.armor.equip-material": {
-    "defaultMessage": "{material} {slot}"
+    "defaultMessage": "為{slot}裝備{material}"
   },
   "skin.preview.armor.material": {
-    "defaultMessage": "Armor material"
+    "defaultMessage": "盔甲材質"
   },
   "skin.preview.armor.material.chainmail": {
-    "defaultMessage": "Chainmail"
+    "defaultMessage": "鎖鏈"
   },
   "skin.preview.armor.material.copper": {
-    "defaultMessage": "Copper"
+    "defaultMessage": "銅"
   },
   "skin.preview.armor.material.diamond": {
-    "defaultMessage": "Diamond"
+    "defaultMessage": "鑽石"
   },
   "skin.preview.armor.material.gold": {
-    "defaultMessage": "Gold"
+    "defaultMessage": "黃金"
   },
   "skin.preview.armor.material.iron": {
-    "defaultMessage": "Iron"
+    "defaultMessage": "鐵"
   },
   "skin.preview.armor.material.leather": {
-    "defaultMessage": "Leather"
+    "defaultMessage": "皮革"
   },
   "skin.preview.armor.material.netherite": {
-    "defaultMessage": "Netherite"
+    "defaultMessage": "獄髓"
   },
   "skin.preview.armor.material.turtle": {
-    "defaultMessage": "Turtle Shell"
+    "defaultMessage": "海龜殼"
   },
   "skin.preview.armor.open": {
-    "defaultMessage": "Armor and trims"
+    "defaultMessage": "盔甲與紋飾"
   },
   "skin.preview.armor.piece": {
-    "defaultMessage": "Armor piece"
+    "defaultMessage": "盔甲部位"
   },
   "skin.preview.armor.remove-piece": {
-    "defaultMessage": "Remove {slot}"
+    "defaultMessage": "卸下{slot}"
   },
   "skin.preview.armor.remove-trim": {
-    "defaultMessage": "No armor trim"
+    "defaultMessage": "無盔甲紋飾"
   },
   "skin.preview.armor.slot-state": {
-    "defaultMessage": "{slot}: {state}"
+    "defaultMessage": "{slot}：{state}"
   },
   "skin.preview.armor.slot.boots": {
-    "defaultMessage": "Boots"
+    "defaultMessage": "靴子"
   },
   "skin.preview.armor.slot.chestplate": {
-    "defaultMessage": "Chestplate"
+    "defaultMessage": "胸甲"
   },
   "skin.preview.armor.slot.helmet": {
-    "defaultMessage": "Helmet"
+    "defaultMessage": "頭盔"
   },
   "skin.preview.armor.slot.leggings": {
-    "defaultMessage": "Leggings"
+    "defaultMessage": "護腿"
   },
   "skin.preview.armor.trim-material": {
-    "defaultMessage": "Trim material"
+    "defaultMessage": "紋飾材料"
   },
   "skin.preview.armor.trim-material.amethyst": {
-    "defaultMessage": "Amethyst"
+    "defaultMessage": "紫水晶"
   },
   "skin.preview.armor.trim-material.emerald": {
-    "defaultMessage": "Emerald"
+    "defaultMessage": "綠寶石"
   },
   "skin.preview.armor.trim-material.lapis": {
-    "defaultMessage": "Lapis Lazuli"
+    "defaultMessage": "青金石"
   },
   "skin.preview.armor.trim-material.quartz": {
-    "defaultMessage": "Quartz"
+    "defaultMessage": "地獄石英"
   },
   "skin.preview.armor.trim-material.redstone": {
-    "defaultMessage": "Redstone"
+    "defaultMessage": "紅石"
   },
   "skin.preview.armor.trim-material.resin": {
-    "defaultMessage": "Resin Brick"
+    "defaultMessage": "樹脂磚"
   },
   "skin.preview.armor.trim-pattern": {
-    "defaultMessage": "Trim pattern"
+    "defaultMessage": "紋飾圖案"
   },
   "skin.preview.armor.trim.bolt": {
-    "defaultMessage": "Bolt Armor Trim"
+    "defaultMessage": "鑲鉚盔甲紋飾"
   },
   "skin.preview.armor.trim.coast": {
-    "defaultMessage": "Coast Armor Trim"
+    "defaultMessage": "海岸盔甲紋飾"
   },
   "skin.preview.armor.trim.dune": {
-    "defaultMessage": "Dune Armor Trim"
+    "defaultMessage": "沙丘盔甲紋飾"
   },
   "skin.preview.armor.trim.eye": {
-    "defaultMessage": "Eye Armor Trim"
+    "defaultMessage": "眼眸盔甲紋飾"
   },
   "skin.preview.armor.trim.flow": {
-    "defaultMessage": "Flow Armor Trim"
+    "defaultMessage": "渦流盔甲紋飾"
   },
   "skin.preview.armor.trim.host": {
-    "defaultMessage": "Host Armor Trim"
+    "defaultMessage": "雇主盔甲紋飾"
   },
   "skin.preview.armor.trim.raiser": {
-    "defaultMessage": "Raiser Armor Trim"
+    "defaultMessage": "牧民盔甲紋飾"
   },
   "skin.preview.armor.trim.rib": {
-    "defaultMessage": "Rib Armor Trim"
+    "defaultMessage": "肋骨盔甲紋飾"
   },
   "skin.preview.armor.trim.sentry": {
-    "defaultMessage": "Sentry Armor Trim"
+    "defaultMessage": "哨兵盔甲紋飾"
   },
   "skin.preview.armor.trim.shaper": {
-    "defaultMessage": "Shaper Armor Trim"
+    "defaultMessage": "塑造盔甲紋飾"
   },
   "skin.preview.armor.trim.silence": {
-    "defaultMessage": "Silence Armor Trim"
+    "defaultMessage": "幽靜盔甲紋飾"
   },
   "skin.preview.armor.trim.snout": {
-    "defaultMessage": "Snout Armor Trim"
+    "defaultMessage": "豬鼻盔甲紋飾"
   },
   "skin.preview.armor.trim.spire": {
-    "defaultMessage": "Spire Armor Trim"
+    "defaultMessage": "尖塔盔甲紋飾"
   },
   "skin.preview.armor.trim.tide": {
-    "defaultMessage": "Tide Armor Trim"
+    "defaultMessage": "潮汐盔甲紋飾"
   },
   "skin.preview.armor.trim.vex": {
-    "defaultMessage": "Vex Armor Trim"
+    "defaultMessage": "惱鬼盔甲紋飾"
   },
   "skin.preview.armor.trim.ward": {
-    "defaultMessage": "Ward Armor Trim"
+    "defaultMessage": "監守盔甲紋飾"
   },
   "skin.preview.armor.trim.wayfinder": {
-    "defaultMessage": "Wayfinder Armor Trim"
+    "defaultMessage": "嚮導盔甲紋飾"
   },
   "skin.preview.armor.trim.wild": {
-    "defaultMessage": "Wild Armor Trim"
+    "defaultMessage": "荒野盔甲紋飾"
   },
   "skin.preview.armor.unequipped": {
-    "defaultMessage": "Unequipped"
+    "defaultMessage": "未裝備"
   },
   "skin.preview.drag-to-rotate": {
     "defaultMessage": "Drag to rotate"
@@ -4227,229 +4227,229 @@
     "defaultMessage": "48x"
   },
   "tag.category.512x+": {
-    "defaultMessage": "512x or higher"
+    "defaultMessage": "512× 以上"
   },
   "tag.category.64x": {
     "defaultMessage": "64x"
   },
   "tag.category.8x-": {
-    "defaultMessage": "8x or lower"
+    "defaultMessage": "8× 以下"
   },
   "tag.category.adventure": {
-    "defaultMessage": "Adventure"
+    "defaultMessage": "冒險"
   },
   "tag.category.adventure-mode": {
-    "defaultMessage": "Adventure Mode"
+    "defaultMessage": "冒險模式"
   },
   "tag.category.anarchy": {
-    "defaultMessage": "Anarchy"
+    "defaultMessage": "無政府"
   },
   "tag.category.atmosphere": {
-    "defaultMessage": "Atmosphere"
+    "defaultMessage": "大氣效果"
   },
   "tag.category.audio": {
-    "defaultMessage": "Audio"
+    "defaultMessage": "音效"
   },
   "tag.category.battle-royale": {
-    "defaultMessage": "Battle Royale"
+    "defaultMessage": "大逃殺"
   },
   "tag.category.bedwars": {
-    "defaultMessage": "Bed Wars"
+    "defaultMessage": "床戰"
   },
   "tag.category.blocks": {
-    "defaultMessage": "Blocks"
+    "defaultMessage": "方塊"
   },
   "tag.category.bloom": {
-    "defaultMessage": "Bloom"
+    "defaultMessage": "泛光"
   },
   "tag.category.bosses": {
-    "defaultMessage": "Bosses"
+    "defaultMessage": "Boss"
   },
   "tag.category.cartoon": {
-    "defaultMessage": "Cartoon"
+    "defaultMessage": "卡通"
   },
   "tag.category.challenging": {
-    "defaultMessage": "Challenging"
+    "defaultMessage": "挑戰"
   },
   "tag.category.classes": {
-    "defaultMessage": "Classes"
+    "defaultMessage": "職業"
   },
   "tag.category.colored-lighting": {
-    "defaultMessage": "Colored Lighting"
+    "defaultMessage": "彩色光照"
   },
   "tag.category.combat": {
-    "defaultMessage": "Combat"
+    "defaultMessage": "戰鬥"
   },
   "tag.category.competitive": {
-    "defaultMessage": "Competitive"
+    "defaultMessage": "競技"
   },
   "tag.category.core-shaders": {
-    "defaultMessage": "Core Shaders"
+    "defaultMessage": "核心著色器"
   },
   "tag.category.creative-mode": {
-    "defaultMessage": "Creative Mode"
+    "defaultMessage": "創造模式"
   },
   "tag.category.creator-community": {
-    "defaultMessage": "Creator Community"
+    "defaultMessage": "創作者社群"
   },
   "tag.category.crossplay": {
-    "defaultMessage": "Crossplay"
+    "defaultMessage": "跨平臺"
   },
   "tag.category.cursed": {
-    "defaultMessage": "Cursed"
+    "defaultMessage": "邪門"
   },
   "tag.category.custom-content": {
-    "defaultMessage": "Custom Content"
+    "defaultMessage": "自訂內容"
   },
   "tag.category.decoration": {
-    "defaultMessage": "Decoration"
+    "defaultMessage": "裝飾"
   },
   "tag.category.dungeons": {
-    "defaultMessage": "Dungeons"
+    "defaultMessage": "副本"
   },
   "tag.category.economy": {
-    "defaultMessage": "Economy"
+    "defaultMessage": "經濟"
   },
   "tag.category.entities": {
-    "defaultMessage": "Entities"
+    "defaultMessage": "實體"
   },
   "tag.category.environment": {
-    "defaultMessage": "Environment"
+    "defaultMessage": "環境"
   },
   "tag.category.equipment": {
-    "defaultMessage": "Equipment"
+    "defaultMessage": "裝備"
   },
   "tag.category.factions": {
-    "defaultMessage": "Factions"
+    "defaultMessage": "派系"
   },
   "tag.category.fantasy": {
-    "defaultMessage": "Fantasy"
+    "defaultMessage": "奇幻"
   },
   "tag.category.foliage": {
-    "defaultMessage": "Foliage"
+    "defaultMessage": "植被"
   },
   "tag.category.fonts": {
-    "defaultMessage": "Fonts"
+    "defaultMessage": "字型"
   },
   "tag.category.food": {
-    "defaultMessage": "Food"
+    "defaultMessage": "食物"
   },
   "tag.category.game-mechanics": {
-    "defaultMessage": "Game Mechanics"
+    "defaultMessage": "遊戲機制"
   },
   "tag.category.gens": {
-    "defaultMessage": "Gens"
+    "defaultMessage": "生成器"
   },
   "tag.category.gui": {
     "defaultMessage": "GUI"
   },
   "tag.category.hardcore-mode": {
-    "defaultMessage": "Hardcore Mode"
+    "defaultMessage": "極限模式"
   },
   "tag.category.high": {
-    "defaultMessage": "High"
+    "defaultMessage": "高"
   },
   "tag.category.items": {
-    "defaultMessage": "Items"
+    "defaultMessage": "物品"
   },
   "tag.category.keep-inventory": {
-    "defaultMessage": "Keep Inventory"
+    "defaultMessage": "保留物品欄"
   },
   "tag.category.kitchen-sink": {
-    "defaultMessage": "Kitchen Sink"
+    "defaultMessage": "大雜燴"
   },
   "tag.category.kitpvp": {
     "defaultMessage": "Kit PvP"
   },
   "tag.category.library": {
-    "defaultMessage": "Library"
+    "defaultMessage": "程式庫"
   },
   "tag.category.lifesteal": {
-    "defaultMessage": "Lifesteal"
+    "defaultMessage": "生命竊取"
   },
   "tag.category.lightweight": {
-    "defaultMessage": "Lightweight"
+    "defaultMessage": "輕量"
   },
   "tag.category.locale": {
-    "defaultMessage": "Locale"
+    "defaultMessage": "在地化"
   },
   "tag.category.low": {
-    "defaultMessage": "Low"
+    "defaultMessage": "低"
   },
   "tag.category.magic": {
-    "defaultMessage": "Magic"
+    "defaultMessage": "魔法"
   },
   "tag.category.management": {
-    "defaultMessage": "Management"
+    "defaultMessage": "管理"
   },
   "tag.category.media": {
-    "defaultMessage": "Media"
+    "defaultMessage": "媒體"
   },
   "tag.category.medium": {
-    "defaultMessage": "Medium"
+    "defaultMessage": "中"
   },
   "tag.category.microgames": {
-    "defaultMessage": "Microgames"
+    "defaultMessage": "微型遊戲"
   },
   "tag.category.minigame": {
-    "defaultMessage": "Minigame"
+    "defaultMessage": "小遊戲"
   },
   "tag.category.minigames": {
-    "defaultMessage": "Minigames"
+    "defaultMessage": "小遊戲"
   },
   "tag.category.mmo": {
     "defaultMessage": "MMO"
   },
   "tag.category.mobs": {
-    "defaultMessage": "Mobs"
+    "defaultMessage": "生物"
   },
   "tag.category.modded": {
-    "defaultMessage": "Modded"
+    "defaultMessage": "模組支援"
   },
   "tag.category.models": {
-    "defaultMessage": "Models"
+    "defaultMessage": "模型"
   },
   "tag.category.multiplayer": {
-    "defaultMessage": "Multiplayer"
+    "defaultMessage": "多人遊戲"
   },
   "tag.category.network": {
-    "defaultMessage": "Network"
+    "defaultMessage": "群組伺服器"
   },
   "tag.category.offline-mode": {
-    "defaultMessage": "Offline Mode"
+    "defaultMessage": "離線模式"
   },
   "tag.category.oneblock": {
-    "defaultMessage": "One Block"
+    "defaultMessage": "一格方塊"
   },
   "tag.category.op": {
     "defaultMessage": "OP"
   },
   "tag.category.optimization": {
-    "defaultMessage": "Optimization"
+    "defaultMessage": "最佳化"
   },
   "tag.category.parkour": {
-    "defaultMessage": "Parkour"
+    "defaultMessage": "跑酷"
   },
   "tag.category.path-tracing": {
-    "defaultMessage": "Path Tracing"
+    "defaultMessage": "光線追蹤"
   },
   "tag.category.pbr": {
     "defaultMessage": "PBR"
   },
   "tag.category.personal-worlds": {
-    "defaultMessage": "Personal Worlds"
+    "defaultMessage": "個人世界"
   },
   "tag.category.plots": {
-    "defaultMessage": "Plots"
+    "defaultMessage": "地塊"
   },
   "tag.category.pokemon": {
-    "defaultMessage": "Pokémon"
+    "defaultMessage": "寶可夢"
   },
   "tag.category.potato": {
-    "defaultMessage": "Potato"
+    "defaultMessage": "馬鈴薯"
   },
   "tag.category.prison": {
-    "defaultMessage": "Prison"
+    "defaultMessage": "監獄"
   },
   "tag.category.pve": {
     "defaultMessage": "PvE"
@@ -4458,97 +4458,97 @@
     "defaultMessage": "PvP"
   },
   "tag.category.questing": {
-    "defaultMessage": "Questing"
+    "defaultMessage": "任務"
   },
   "tag.category.quests": {
-    "defaultMessage": "Quests"
+    "defaultMessage": "任務"
   },
   "tag.category.racing": {
-    "defaultMessage": "Racing"
+    "defaultMessage": "競速"
   },
   "tag.category.realistic": {
-    "defaultMessage": "Realistic"
+    "defaultMessage": "寫實"
   },
   "tag.category.recording-smp": {
-    "defaultMessage": "Recording SMP"
+    "defaultMessage": "錄影 SMP"
   },
   "tag.category.reflections": {
-    "defaultMessage": "Reflections"
+    "defaultMessage": "折射"
   },
   "tag.category.roleplay": {
-    "defaultMessage": "Roleplay"
+    "defaultMessage": "角色扮演"
   },
   "tag.category.rpg": {
     "defaultMessage": "RPG"
   },
   "tag.category.screenshot": {
-    "defaultMessage": "Screenshot"
+    "defaultMessage": "擷圖用"
   },
   "tag.category.semi-realistic": {
-    "defaultMessage": "Semi Realistic"
+    "defaultMessage": "半寫實"
   },
   "tag.category.shadows": {
-    "defaultMessage": "Shadows"
+    "defaultMessage": "陰影"
   },
   "tag.category.simplistic": {
-    "defaultMessage": "Simplistic"
+    "defaultMessage": "簡約"
   },
   "tag.category.skyblock": {
-    "defaultMessage": "Skyblock"
+    "defaultMessage": "空島生存"
   },
   "tag.category.smp": {
     "defaultMessage": "SMP"
   },
   "tag.category.social": {
-    "defaultMessage": "Social"
+    "defaultMessage": "社交"
   },
   "tag.category.storage": {
-    "defaultMessage": "Storage"
+    "defaultMessage": "儲物管理"
   },
   "tag.category.survival-mode": {
-    "defaultMessage": "Survival Mode"
+    "defaultMessage": "生存模式"
   },
   "tag.category.teams": {
-    "defaultMessage": "Teams"
+    "defaultMessage": "團隊"
   },
   "tag.category.technical": {
-    "defaultMessage": "Technical"
+    "defaultMessage": "技術性"
   },
   "tag.category.technology": {
-    "defaultMessage": "Technology"
+    "defaultMessage": "科技"
   },
   "tag.category.themed": {
-    "defaultMessage": "Themed"
+    "defaultMessage": "特定主題"
   },
   "tag.category.towns": {
-    "defaultMessage": "Towns"
+    "defaultMessage": "城鎮"
   },
   "tag.category.transportation": {
-    "defaultMessage": "Transportation"
+    "defaultMessage": "交通"
   },
   "tag.category.tweaks": {
-    "defaultMessage": "Tweaks"
+    "defaultMessage": "微調"
   },
   "tag.category.utility": {
-    "defaultMessage": "Utility"
+    "defaultMessage": "工具"
   },
   "tag.category.vanilla-like": {
-    "defaultMessage": "Vanilla Like"
+    "defaultMessage": "類原版"
   },
   "tag.category.whitelisted": {
-    "defaultMessage": "Whitelisted"
+    "defaultMessage": "白名單"
   },
   "tag.category.world-resets": {
-    "defaultMessage": "World Resets"
+    "defaultMessage": "世界重設"
   },
   "tag.category.worldgen": {
-    "defaultMessage": "World Generation"
+    "defaultMessage": "世界生成"
   },
   "tag.loader.babric": {
     "defaultMessage": "Babric"
   },
   "tag.loader.bta-babric": {
-    "defaultMessage": "BTA (Babric)"
+    "defaultMessage": "BTA（Babric）"
   },
   "tag.loader.bukkit": {
     "defaultMessage": "Bukkit"
@@ -4560,7 +4560,7 @@
     "defaultMessage": "Canvas"
   },
   "tag.loader.datapack": {
-    "defaultMessage": "Data Pack"
+    "defaultMessage": "資料包"
   },
   "tag.loader.fabric": {
     "defaultMessage": "Fabric"
@@ -4572,13 +4572,13 @@
     "defaultMessage": "Forge"
   },
   "tag.loader.geyser": {
-    "defaultMessage": "Geyser Extension"
+    "defaultMessage": "Geyser 擴充"
   },
   "tag.loader.iris": {
     "defaultMessage": "Iris"
   },
   "tag.loader.java-agent": {
-    "defaultMessage": "Java Agent"
+    "defaultMessage": "Java 代理"
   },
   "tag.loader.legacy-fabric": {
     "defaultMessage": "Legacy Fabric"
@@ -4587,13 +4587,13 @@
     "defaultMessage": "LiteLoader"
   },
   "tag.loader.minecraft": {
-    "defaultMessage": "Resource Pack"
+    "defaultMessage": "資源包"
   },
   "tag.loader.modloader": {
     "defaultMessage": "Risugami's ModLoader"
   },
   "tag.loader.mrpack": {
-    "defaultMessage": "Modpack"
+    "defaultMessage": "模組包"
   },
   "tag.loader.neoforge": {
     "defaultMessage": "NeoForge"
@@ -4626,7 +4626,7 @@
     "defaultMessage": "Sponge"
   },
   "tag.loader.vanilla": {
-    "defaultMessage": "Vanilla Shader"
+    "defaultMessage": "原版著色器"
   },
   "tag.loader.velocity": {
     "defaultMessage": "Velocity"
@@ -4635,19 +4635,19 @@
     "defaultMessage": "Waterfall"
   },
   "ui.confirm-leave-modal.body": {
-    "defaultMessage": "You have unsaved changes that will be lost if you leave this page."
+    "defaultMessage": "您有未儲存的變更，如果離開此頁面將會遺失"
   },
   "ui.confirm-leave-modal.header": {
-    "defaultMessage": "You have unsaved changes"
+    "defaultMessage": "您有未儲存的變更"
   },
   "ui.confirm-leave-modal.leave": {
-    "defaultMessage": "Leave page"
+    "defaultMessage": "離開頁面"
   },
   "ui.confirm-leave-modal.stay": {
-    "defaultMessage": "Stay on page"
+    "defaultMessage": "留在頁面"
   },
   "ui.confirm-leave-modal.title": {
-    "defaultMessage": "Leave page?"
+    "defaultMessage": "離開頁面？"
   },
   "ui.keybinding-modal.alt": {
     "defaultMessage": "Alt"
@@ -4785,97 +4785,97 @@
     "defaultMessage": "Scroll to top"
   },
   "version.content.name": {
-    "defaultMessage": "Name"
+    "defaultMessage": "名稱"
   },
   "version.content.version": {
-    "defaultMessage": "Version"
+    "defaultMessage": "版本"
   },
   "version.file-type.dev-jar": {
-    "defaultMessage": "Dev jar"
+    "defaultMessage": "開發用 jar"
   },
   "version.file-type.javadoc-jar": {
     "defaultMessage": "Javadoc jar"
   },
   "version.file-type.optional-resource-pack": {
-    "defaultMessage": "Optional resource pack"
+    "defaultMessage": "可選資源包"
   },
   "version.file-type.primary": {
-    "defaultMessage": "Primary"
+    "defaultMessage": "主要"
   },
   "version.file-type.required-resource-pack": {
-    "defaultMessage": "Required resource pack"
+    "defaultMessage": "所需資源包"
   },
   "version.file-type.signature": {
-    "defaultMessage": "Signature file"
+    "defaultMessage": "簽署文件"
   },
   "version.file-type.sources-jar": {
-    "defaultMessage": "Source jar"
+    "defaultMessage": "原始碼 jar"
   },
   "version.file-type.unknown": {
-    "defaultMessage": "Other"
+    "defaultMessage": "其他"
   },
   "version.section.changes": {
-    "defaultMessage": "Changes"
+    "defaultMessage": "變更"
   },
   "version.section.compatibility": {
-    "defaultMessage": "Compatibility"
+    "defaultMessage": "相容性"
   },
   "version.section.content": {
-    "defaultMessage": "Content"
+    "defaultMessage": "內容"
   },
   "version.section.content.search-placeholder": {
-    "defaultMessage": "Search content..."
+    "defaultMessage": "搜尋內容..."
   },
   "version.section.dependencies.any-compatible-version": {
-    "defaultMessage": "Any compatible version"
+    "defaultMessage": "任何相容的版本"
   },
   "version.section.dependencies.any-version": {
-    "defaultMessage": "Any version"
+    "defaultMessage": "任何版本"
   },
   "version.section.dependencies.unavailable-version": {
-    "defaultMessage": "Unavailable version"
+    "defaultMessage": "不可用版本"
   },
   "version.section.dependencies.unavailable-version.description": {
-    "defaultMessage": "This version may have been deleted or is being reviewed by moderators."
+    "defaultMessage": "這個版本可能已被刪除，或正在由管理員審查。"
   },
   "version.section.dependencies.unavailable-version.description.required": {
-    "defaultMessage": "The required version may have been deleted or is being reviewed by moderators."
+    "defaultMessage": "所需版本可能已被刪除，或正在由管理員審查。"
   },
   "version.section.files": {
-    "defaultMessage": "Files"
+    "defaultMessage": "檔案"
   },
   "version.section.included-content": {
-    "defaultMessage": "Included content"
+    "defaultMessage": "包含的內容"
   },
   "version.section.known-incompatibilities": {
-    "defaultMessage": "Known incompatibilities"
+    "defaultMessage": "已知不相容"
   },
   "version.section.no-changes": {
-    "defaultMessage": "No changelog was provided."
+    "defaultMessage": "未提供變更日誌。"
   },
   "version.section.no-modpack-mod-loader": {
-    "defaultMessage": "No mod loader"
+    "defaultMessage": "無模組載入器"
   },
   "version.section.optional-dependencies": {
-    "defaultMessage": "Optional dependencies"
+    "defaultMessage": "可選相依項"
   },
   "version.section.required-content": {
-    "defaultMessage": "Required content"
+    "defaultMessage": "所需內容"
   },
   "version.section.supplementary-resources": {
-    "defaultMessage": "Supplementary resources"
+    "defaultMessage": "補充資源"
   },
   "version.summary.view-version": {
     "defaultMessage": "View version"
   },
   "version.supplementary-resources.file": {
-    "defaultMessage": "File"
+    "defaultMessage": "檔案"
   },
   "version.supplementary-resources.size": {
-    "defaultMessage": "Size"
+    "defaultMessage": "檔案大小"
   },
   "version.supplementary-resources.type": {
-    "defaultMessage": "Type"
+    "defaultMessage": "類型"
   },
   "version.uploaded-by": {
     "defaultMessage": "Uploaded by"

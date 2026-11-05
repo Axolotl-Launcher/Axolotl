@@ -534,17 +534,34 @@ mod tests {
         // `JoinSet::abort_all` ends an async task at its next await point, so
         // the reachable slow case is a task that keeps working after the
         // abort (no await point inside its loop). The drain must still return
-        // within its window and never leave a rebuildable slot behind while
-        // the old work runs.
+        // within its window and must not leave a rebuildable slot behind
+        // while that work runs.
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let (started_sender, started_receiver) =
+            tokio::sync::oneshot::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let finished = Arc::new(AtomicBool::new(false));
         let mut tasks = JoinSet::new();
-        tasks.spawn(async {
-            let deadline = Instant::now() + Duration::from_secs(30);
-            while Instant::now() < deadline {
-                std::hint::spin_loop();
+        tasks.spawn({
+            let stop = Arc::clone(&stop);
+            let finished = Arc::clone(&finished);
+            async move {
+                let _ = started_sender.send(());
+                // No await point: an abort cannot interrupt this loop, which
+                // is exactly the descendant the drain deadline exists for.
+                while !stop.load(Ordering::Acquire) {
+                    std::hint::spin_loop();
+                }
+                finished.store(true, Ordering::Release);
             }
         });
-        // Let the task reach its first poll before eviction.
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        // A sleep only gives the runtime the chance to poll; it does not prove
+        // that it did, and an unpolled task is cancelled before it starts.
+        started_receiver
+            .await
+            .expect("the descendant must start before eviction");
+
         let registry = registry();
         let slot = registry.slot(1, eligible(), Built { service: 7, tasks });
         let started = Instant::now();
@@ -554,26 +571,36 @@ mod tests {
         )
         .await
         .expect("the drain must return within its window");
+        // The outer timeout is the boundedness check; a wall-clock upper bound
+        // here fails on a runner that deschedules the test around the
+        // deadline. The lower bound is what proves the drain waited at all.
         assert!(
-            started.elapsed() <= DRAIN_TIMEOUT + Duration::from_secs(1),
-            "the drain must be bounded, took {:?}",
+            started.elapsed() >= DRAIN_TIMEOUT,
+            "the drain must wait out its deadline, returned after {:?}",
             started.elapsed()
         );
-        // Either the task ended (clean) or it outlived the window (revoked);
-        // both are bounded, and a revoked slot never rebuilds.
-        if evicted {
-            assert_eq!(slot.state().await, SlotState::Evicted);
-        } else {
-            assert_eq!(slot.state().await, SlotState::Revoked);
-            assert_eq!(
-                slot.rebuild(Instant::now(), || async {
-                    Ok::<_, String>(built(2))
-                })
-                .await,
-                RebuildOutcome::Revoked
-            );
-        }
+        // The descendant outlived the window, so the slot must never start a
+        // second instance beside it.
+        assert!(!evicted, "a stranded descendant must revoke the slot");
+        assert_eq!(slot.state().await, SlotState::Revoked);
+        assert_eq!(
+            slot.rebuild(Instant::now(), || async {
+                Ok::<_, String>(built(2))
+            })
+            .await,
+            RebuildOutcome::Revoked
+        );
         assert_eq!(slot.with_service(|value| *value).await, None);
+
+        // Release the detached descendant so it cannot outlive the test.
+        stop.store(true, Ordering::Release);
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !finished.load(Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("the descendant must stop once released");
     }
 
     #[tokio::test]

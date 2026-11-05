@@ -66,6 +66,7 @@ const allowedUntranslatedMessages = new Set([
     '{value} MB',
     '> {command}',
     'Beta',
+    'OLED',
     'Release',
     'DNS over HTTPS',
     'https://doh.pub/dns-query',

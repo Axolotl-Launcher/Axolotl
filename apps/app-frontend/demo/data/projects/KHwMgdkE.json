@@ -1,0 +1,232 @@
+{
+  "id": "KHwMgdkE",
+  "slug": "backroomsff",
+  "title": "Backrooms: Found Footage",
+  "description": "The Best Backrooms Experience for Minecraft",
+  "author": "onr23",
+  "categories": ["adventure", "fabric", "multiplayer", "optimization"],
+  "display_categories": ["adventure", "multiplayer"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "modpack",
+  "downloads": 911936,
+  "followers": 315,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.20.1"],
+  "latest_version": "kN1eMa0o",
+  "date_created": "2025-04-20T20:45:03.387850Z",
+  "date_modified": "2026-09-11T08:27:20.010682Z",
+  "color": 3024927,
+  "published": "2025-04-20T20:45:03.387850Z",
+  "additional_categories": ["optimization"],
+  "issues_url": null,
+  "source_url": "https://github.com/SpacePotatoee/MinecraftFoundFootage",
+  "wiki_url": "https://github.com/SpacePotatoee/MinecraftFoundFootage/wiki",
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 12,
+  "body": "# Backrooms: Found Footage\n\n<table align=\"right\">\n  <tr>\n    <td colspan=\"2\" align=\"center\">\n      <strong>My Other Modpacks</strong>\n    </td>\n  </tr>\n  <tr>\n    <td align=\"center\">\n      <a href=\"https://modrinth.com/modpack/projectdreamshift\"><img src=\"https://cdn.modrinth.com/data/dtMQBIA6/57e375f1702b6b37c17de23c9d814375f4dc43a8.png\" width=\"72\" height=\"72\" alt=\"Project Dreamshift\"></a>\n    </td>\n    <td align=\"center\">\n      <a href=\"https://modrinth.com/modpack/adventurepluss\"><img src=\"https://cdn.modrinth.com/data/fApyk3le/3cc2bb64273aab66414119050e8e3f938d63d8dc.png\" width=\"72\" height=\"72\" alt=\"SMP\"></a>\n    </td>\n  </tr>\n</table>\n\n<p>\n  <sup>The Best Backrooms Experience for Minecraft</sup>\n  <br><br><br><br><br>\n</p>\n\n---\n\n## How To Play\nTo enter the Backroom world, once you create a world, you have to find a way to get buried, such as dropping blocks, sand, or gravel on yourself. Then you will be sent to the Backrooms\n* * * * *\n### Basic Controls\n- Shift - Run\n- Ctrl - Sneak\n- F - Flashlight\n- C - Zoom\n- B - Set Up Voice Chat\n- Middle Mouse - Ping\n* * * * *\n<img src=\"https://wsrv.nl/?url=https%3A%2F%2Fcdn.modrinth.com%2Fdata%2Fcached_images%2F98f90bf1991bba03fe26b74e4185f5eec745ec5d_0.webp&amp;cx=0&amp;cy=49&amp;cw=869&amp;ch=189&amp;precrop&amp;w=1600&amp;output=png\" alt=\"BisectHosting sponsor banner\" width=\"100%\" usemap=\"#backrooms-sponsor\">\n<map name=\"backrooms-sponsor\">\n  <area coords=\"0,0,10000,10000\" href=\"https://bisecthosting.com/backrooms\" title=\"BisectHosting\">\n</map>\n\n* * * * *\n## Description\nThis modpack is a more stable version of the \"<a href=\"https://modrinth.com/mod/minecraft-found-footage\">Minecraft Backrooms Found Footage</a>\" mod with some gameplay improvements.\n\n⚠️ **Minecraft Backrooms Found Footage Mod does not support performance mods like Sodium, Optifine or Vulkan, which can cause performance issues on low-end PCs.**\n\n\n**_A video by the creator of <a href=\"https://modrinth.com/mod/minecraft-found-footage\">The Backrooms Mod</a>_**\n\n⬇️\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/XnO1GAlR3qo\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/KHwMgdkE/images/c27e75924a3a170c000a931fed9fcb7dfe82cb60_350.webp",
+      "featured": false,
+      "title": "Level 0",
+      "description": null,
+      "created": "2025-04-23T00:04:00.821882Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/KHwMgdkE/images/7e9b10633c233ed84dc3f541fde69807c6ef8dd4_350.webp",
+      "featured": false,
+      "title": "Level 1",
+      "description": null,
+      "created": "2025-04-23T00:04:14.890195Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/KHwMgdkE/images/3b9358eea58575d1f43111185c16d3d545e60e68_350.webp",
+      "featured": false,
+      "title": "Level 2",
+      "description": "With The Warp Event",
+      "created": "2025-04-23T00:04:54.646782Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/KHwMgdkE/images/3be531ab205b2d5c35350986c4953af9d5d2d4ba_350.webp",
+      "featured": false,
+      "title": "Poolrooms",
+      "description": "With The Sunset Event",
+      "created": "2025-04-23T00:06:03.570938Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "onr23",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/czI5Mc4c/939a562404b926d6cd9771f92efaa5e865c894a0.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "kN1eMa0o",
+      "name": "Backrooms: Found Footage 1.1.8.1",
+      "version_number": "1.1.8.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-11T08:27:20.010682Z",
+      "downloads": 114862,
+      "changelog": "- ###  Mods Updated",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.0.8.1.mrpack",
+          "size": 13289519,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8LuWf0Zc",
+      "name": "Backrooms: Found Footage 1.1.8",
+      "version_number": "1.1.8",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-24T08:29:22.963701Z",
+      "downloads": 314614,
+      "changelog": "# Backrooms Mod Update 1.1.8 \n<a href=\"https://modrinth.com/mod/minecraft-found-footage\">Minecraft Backrooms Found Footage</a> has been updated.Check out the mod page to see the <a href=\"https://modrinth.com/mod/minecraft-found-footage/version/1.1.8\">chanelog </a>.\n\n<details>\n<summary>Spoiler</summary>\nMods Updated\n\nNew Beta Level Removed\n\n</details>",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.0.8.mrpack",
+          "size": 13289466,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "N9ewE91s",
+      "name": "Backrooms: Found Footage 1.2.0",
+      "version_number": "1.2.0",
+      "version_type": "beta",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-06T17:26:08.019642Z",
+      "downloads": 63248,
+      "changelog": "# Backrooms Mod Update 1.2.0 (New Beta Level)\n<a href=\"https://modrinth.com/mod/minecraft-found-footage\">Minecraft Backrooms Found Footage</a> has been updated.Check out the mod page to see the <a href=\"https://modrinth.com/mod/minecraft-found-footage/version/1.2.0\">chanelog </a>.\n\n<details>\n<summary>Spoiler</summary>\nMods Updated\n\n\n</details>",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.2.0.mrpack",
+          "size": 13289476,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "gjabTXmS",
+      "name": "Backrooms: Found Footage 1.1.7.1",
+      "version_number": "1.1.7.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-10T16:28:41.034438Z",
+      "downloads": 95867,
+      "changelog": "- ###  Mods Updated\n\n- ###  Unnecessary Mods Removed",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.0.7.1.mrpack",
+          "size": 13289494,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "W25i3CuA",
+      "name": "Backrooms: Found Footage 1.1.7",
+      "version_number": "1.1.7",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-10-11T10:17:35.576365Z",
+      "downloads": 184324,
+      "changelog": "# Backrooms Mod Update 1.1.7\n<a href=\"https://modrinth.com/mod/minecraft-found-footage\">Minecraft Backrooms Found Footage</a> has been updated.Check out the mod page to see the <a href=\"https://modrinth.com/mod/minecraft-found-footage/version/1.1.7\">chanelog </a>.\n\n<details>\n<summary>Spoiler</summary>\nMods Updated\n\n\n</details>",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.0.7.mrpack",
+          "size": 13290879,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WBlfaJms",
+      "name": "Backrooms: Found Footage 1.1.5",
+      "version_number": "1.1.5",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-07-06T17:36:26.512233Z",
+      "downloads": 61661,
+      "changelog": "# Backrooms Mod Update 1.1.5\n<a href=\"https://modrinth.com/mod/minecraft-found-footage\">Minecraft Backrooms Found Footage</a> has been updated.Check out the mod page to see the <a href=\"https://modrinth.com/mod/minecraft-found-footage/version/1.1.5\">chanelog </a>.\n\n<details>\n<summary>Spoiler</summary>\nMods Updated\n\n\n</details>",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.0.5.mrpack",
+          "size": 13295167,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "xCJcCBlw",
+      "name": "Backrooms: Found Footage 1.1.4",
+      "version_number": "1.1.4",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-06-08T10:28:19.288985Z",
+      "downloads": 19640,
+      "changelog": "# Backrooms Mod Update 1.1.4\n<a href=\"https://modrinth.com/mod/minecraft-found-footage\">Minecraft Backrooms Found Footage</a> has been updated.Check out the mod page to see the <a href=\"https://modrinth.com/mod/minecraft-found-footage/version/1.1.4\">chanelog </a>.\n\n<details>\n<summary>Spoiler</summary>\nMods that were causing issues have been removed\n\n\n</details>\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.0.4.mrpack",
+          "size": 13477178,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "N8KRM7cD",
+      "name": "Backrooms: Found Footage 1.1.3",
+      "version_number": "1.1.3",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-05-19T21:45:16.075220Z",
+      "downloads": 15418,
+      "changelog": "# Backrooms Mod Update 1.1.3\n<a href=\"https://modrinth.com/mod/minecraft-found-footage\">Minecraft Backrooms Found Footage</a> has been updated.Check out the mod page to see the <a href=\"https://modrinth.com/mod/minecraft-found-footage/version/1.1.3\">chanelog </a>.\n\n<details>\n<summary>Spoiler</summary>\nMods that were causing issues have been removed\n\n\n</details>\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Backrooms Found Footage 1.0.3.mrpack",
+          "size": 13492348,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

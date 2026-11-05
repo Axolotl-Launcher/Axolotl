@@ -20,6 +20,8 @@ export class AppNotificationManager extends AbstractWebNotificationManager {
     private readonly locationState: Ref<NotificationPanelLocation>
     private readonly dismissedKeys: Set<string>
     private dismissedBefore: number | null
+    /** Notifications raised while the first-run OOBE covers the app, shown once it closes. */
+    private held: Set<string | number> | null = null
 
     public constructor() {
         super()
@@ -92,8 +94,44 @@ export class AppNotificationManager extends AbstractWebNotificationManager {
         this.saveDismissedKeys()
     }
 
-    public override addNotification = (notification: Partial<WebNotification>): WebNotification => {
+    public override addNotification = (notification: Partial<WebNotification>): WebNotification =>
+        this.add(notification, this.held !== null)
+
+    /**
+     * Keeps notifications raised from now on out of the toast stack until
+     * `releaseNotifications`: background errors from the app behind the OOBE
+     * would otherwise cover the setup a new user is going through.
+     */
+    public holdNotifications(): void {
+        this.held ??= new Set()
+    }
+
+    /** Shows what was held as fresh toasts, each with its full display time. */
+    public releaseNotifications(): void {
+        const held = this.held
+        this.held = null
+        if (!held) return
+        for (const id of held) {
+            if (this.state.value.some((notification) => notification.id === id))
+                this.expandNotification(id)
+        }
+    }
+
+    /** This manager as the OOBE uses it: what the OOBE itself raises is never held. */
+    public immediate(): AppNotificationManager {
+        const view = Object.create(this) as AppNotificationManager
+        view.addNotification = (notification) => this.add(notification, false)
+        // The base class binds handleError to the instance, which would route it past the view.
+        view.handleError = AppNotificationManager.prototype.handleError.bind(view)
+        return view
+    }
+
+    private add(notification: Partial<WebNotification>, hold: boolean): WebNotification {
         const result = super.addNotification(notification)
+        if (hold) {
+            this.held?.add(result.id)
+            this.collapseNotification(result.id)
+        }
         this.saveActiveNotifications()
         return result
     }

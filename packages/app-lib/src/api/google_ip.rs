@@ -290,7 +290,7 @@ async fn refreshed_client() -> crate::Result<Client> {
 
 fn client_for(ip: IpAddr, proxy: &ProxyConfig) -> Client {
     tracing::info!(ip = %ip, "Pinning Google Translate requests to IP");
-    let builder = Client::builder()
+    let builder = crate::util::http::client_builder()
         .resolve(GOOGLE_TRANSLATE_HOST, SocketAddr::new(ip, 443))
         .timeout(Duration::from_secs(20))
         .user_agent(crate::launcher_user_agent());
@@ -485,7 +485,7 @@ async fn probe(ip: IpAddr) -> Option<u64> {
         Ok(state) => state.proxy_config().await.ok().unwrap_or_default(),
         Err(_) => ProxyConfig::default(),
     };
-    let builder = Client::builder()
+    let builder = crate::util::http::client_builder()
         .resolve(GOOGLE_TRANSLATE_HOST, SocketAddr::new(ip, 443))
         .connect_timeout(PROBE_CONNECT_TIMEOUT)
         .timeout(PROBE_TIMEOUT)
@@ -496,7 +496,7 @@ async fn probe(ip: IpAddr) -> Option<u64> {
             tracing::warn!(
                 "Failed to apply proxy config for probe, using direct"
             );
-            Client::builder()
+            crate::util::http::client_builder()
                 .resolve(GOOGLE_TRANSLATE_HOST, SocketAddr::new(ip, 443))
                 .connect_timeout(PROBE_CONNECT_TIMEOUT)
                 .timeout(PROBE_TIMEOUT)
@@ -524,14 +524,14 @@ async fn probe(ip: IpAddr) -> Option<u64> {
 async fn download_ip_list() -> crate::Result<Vec<IpAddr>> {
     let proxy = State::get().await?.proxy_config().await.unwrap_or_default();
     tracing::info!(url = IP_LIST_URL, "Downloading Google Translate IP list");
-    let builder = Client::builder()
+    let builder = crate::util::http::client_builder()
         .timeout(DOWNLOAD_TIMEOUT)
         .user_agent(crate::launcher_user_agent());
     let client = match proxy.apply(builder) {
         Ok(builder) => builder.build()?,
         Err(e) => {
             tracing::warn!(%e, "Failed to apply proxy config for IP list download, using direct");
-            Client::builder()
+            crate::util::http::client_builder()
                 .timeout(DOWNLOAD_TIMEOUT)
                 .user_agent(crate::launcher_user_agent())
                 .no_proxy()

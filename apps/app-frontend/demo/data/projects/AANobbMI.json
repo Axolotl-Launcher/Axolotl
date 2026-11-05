@@ -1,0 +1,289 @@
+{
+  "id": "AANobbMI",
+  "slug": "sodium",
+  "title": "Sodium",
+  "description": "A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter.",
+  "author": "jellysquid3",
+  "categories": ["fabric", "neoforge", "optimization", "quilt"],
+  "display_categories": ["fabric", "neoforge", "optimization", "quilt"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 250449434,
+  "followers": 41987,
+  "license": {
+    "id": "LicenseRef-Polyform-Shield-1.0.0",
+    "name": ""
+  },
+  "loaders": ["fabric", "neoforge", "quilt"],
+  "game_versions": [
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2-rc-1",
+    "26.2-rc-2",
+    "26.2",
+    "26.3-rc-1",
+    "26.3-rc-2",
+    "26.3"
+  ],
+  "latest_version": "g6ju16VJ",
+  "date_created": "2021-01-03T00:53:34.185936Z",
+  "date_modified": "2026-10-15T17:51:44.107526Z",
+  "color": 8703084,
+  "published": "2021-01-03T00:53:34.185936Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/CaffeineMC/sodium/issues",
+  "source_url": "https://github.com/CaffeineMC/sodium",
+  "wiki_url": "https://github.com/CaffeineMC/sodium/wiki",
+  "discord_url": "https://caffeinemc.net/discord",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://caffeinemc.net/donate"
+    }
+  ],
+  "versions_total": 264,
+  "body": "**This mod is the result of thousands of hours of development, and is made possible thanks to players like you.** If you would like to show a token of your appreciation for my work, and help support the development of Sodium in the process, then consider [buying me a coffee](https://caffeinemc.net/donate).\n\n[![Buy me a coffee](https://cdn.modrinth.com/data/cached_images/b888841adf2a7d4d76c5274d634c205ee88e9e20.png)](https://caffeinemc.net/donate)\n[![Join us on Discord](https://cdn.modrinth.com/data/cached_images/de7f2f606702569cd98fc1f6a0b29dbf817dd870.png)](https://caffeinemc.net/discord)\n\n---\n\n<center>\n Sodium 0.4 Comparison</img>\n <p>\n   <!-- This paragraph is load bearing, and ensures a margin is added before the following Markdown -->\n </p>\n</center>\n\nSodium is a powerful optimization mod for the Minecraft client, which greatly improves frame rates and micro-stutter, while fixing many graphical issues in Minecraft.\n\nUnlike other rendering-focused mods, it boasts wide compatibility with the wider modding ecosystem. And it does so without compromising on how the game looks, giving you that authentic block game feel.\n\n[![Available on Fabric](https://cdn.modrinth.com/data/cached_images/513035d1231a86dff137c74e04a5e64633593f10.png)](https://modrinth.com/mod/sodium/versions?l=fabric)\n[Available on Quilt](https://modrinth.com/mod/sodium/versions?l=quilt)\n[Available on NeoForge](https://modrinth.com/mod/sodium/versions?l=neoforge)\n\n<h1 id=\"installation\">📥 Installation Guide</h1>\n\nSodium is available for multiple mod loaders, but we recommend using [Fabric Loader](https://fabricmc.net/use) for the most simple and lightweight experience. If you are using a third-party launcher, it probably has built-in functionality to automatically install mod loaders. Once you have installed your mod loader, you can simply place Sodium into your _mods folder_ like anything else.\n\n**Not sure if you installed the mod correctly?** Check your _Video Settings_ screen in Minecraft, which should show our new and improved user interface for changing settings.\n\n**Not sure how to configure the mod?** Don't worry, you probably don't need to. By default, Sodium will enable all optimizations which are supported on your system, giving you the best experience possible. You should generally only change video settings related to performance and other advanced features if you are experiencing issues.\n\n**Need even more performance?** By design, Sodium only optimizes the rendering code of Minecraft. You should also install our other mods, such as [Lithium](https://modrinth.com/mod/lithium) (for MC 1.15+) and [Phosphor](https://modrinth.com/mod/phosphor) (for MC <1.19), to optimize the other parts of your game. This is done so that players can pick and choose which mods they want to use, but we generally recommend using [our entire collection](https://modrinth.com/user/jellysquid3).\n\n<h1 id=\"hardware-compatibility\">✅ Hardware Compatibility</h1>\n\n**Android devices (and some Windows-on-ARM devices) which use OpenGL translation layers (such as GL4ES, ANGLE, GLonD3D12 etc) are not supported and will have severe performance issues.**\n\nWe only provide official support for desktop graphics cards which have up-to-date drivers compatible with OpenGL 4.5 or newer. Most graphics cards released in the past 12 years will meet these requirements, including the following:\n\n- INTEL HD Graphics 500 Series (Skylake) or newer\n- NVIDIA GeForce 400 Series (Fermi) or newer\n- AMD Radeon HD 7000 Series (GCN 1) or newer\n\n**Nearly all desktop graphics cards that are already compatible with Minecraft (which requires OpenGL 3.3) should also work with Sodium.** But our team cannot ensure compatibility or provide support for older graphics cards, and they may not work with future versions of Sodium.\n\n**If you are running into problems, you should [make sure that your graphics drivers are up-to-date](https://github.com/CaffeineMC/sodium/wiki/Driver-Compatibility).** Out-of-date graphics drivers are often the reason for most crashes, rendering bugs, and performance issues.\n\n# 🐛 How to Report Issues\n\nPlease use the [issue tracker](https://github.com/CaffeineMC/sodium/issues) linked at the top of the page to report bugs, crashes, and other issues. Make sure you include information about the mods you are using, and attach any crash/log files you have.\n\n---\n\n_**Note:** The level of performance you see while using the Sodium mod will vary depending on exact hardware and software configuration. For all performance comparisons provided on this page, we used a computer with integrated graphics which we believe to be representative of the casual player._\n\n<sup>_**Hardware configuration:** Intel Core i7-1165G7 (4c/8t, up to 4.70 GHz) with Intel Xe Graphics (96 EUs, up to 1.30 GHz), 2x16 GB DDR4-3200._</sup>\n<sup>_**Software configuration:** Fedora 41, Linux 6.12.4, Mesa 24.3.4, Prism Launcher 9.1, OpenJDK 21.0.7 runtime (as packaged by distribution), Fabric Loader 0.16.10._</sup>\n\n---\n\n</img>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/AANobbMI/images/d84313e6f57dc9e7896961dbd2dfc2689d482758_350.webp",
+      "featured": false,
+      "title": "Underwater Lighting Improvements",
+      "description": "Sodium fixes many graphical issues with smooth lighting while underwater.",
+      "created": "2023-06-25T21:35:39.891789Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/AANobbMI/images/6b0e58705156ba67a6d97a74b9f9ac05da69f502_350.webp",
+      "featured": false,
+      "title": "Biome Blending Improvements",
+      "description": "Sodium improves biome blending to use gradients across each block, making the effect look much smoother.",
+      "created": "2023-06-25T21:32:36.805733Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/AANobbMI/images/b681a9e87daa53a0e85336a894db70427007149b_350.webp",
+      "featured": false,
+      "title": "Fluid Rendering Improvements",
+      "description": "Sodium implements smooth lighting for all fluids, fixing a long-standing issue in Minecraft.",
+      "created": "2023-06-25T21:34:46.764479Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/AANobbMI/images/56c4599efcb529a19aed0e118caad4178d7fd540.webp",
+      "featured": false,
+      "title": "Block Shading Improvements",
+      "description": "Sodium greatly improves the shading of blocks, fixing a number of bugs while making block shadows look more smooth and consistent.",
+      "created": "2023-06-25T21:36:48.985787Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "IMS",
+      "role": "Maintainer",
+      "avatar": "https://avatars3.githubusercontent.com/u/31803019?v=4"
+    },
+    {
+      "username": "jellysquid3",
+      "role": "Project Lead",
+      "avatar": "https://cdn.modrinth.com/user/TEZXhE2U/f4705a5f2388c65029ae2e59f1434b3e6e4de23a.png"
+    },
+    {
+      "username": "douira",
+      "role": "Maintainer",
+      "avatar": "https://avatars.githubusercontent.com/u/17120022?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "g6ju16VJ",
+      "name": "Sodium 0.9.3-beta.1 for Fabric 26.3",
+      "version_number": "mc26.3-0.9.3-beta.1-fabric",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-15T17:51:44.107526Z",
+      "downloads": 462267,
+      "changelog": "Sodium 0.9.3-beta.1 implements a number of bug fixes and minor improvements.\n\n- Show macOS fullscreen menu visibility option on the Sodium options screen\n- Fix Fluid Culling For Non-Full Blocks With Unusual Shapes ([#3916](https://github.com/CaffeineMC/sodium/pull/3916))\n- Use SDL message box instead of TFD ([#3923](https://github.com/CaffeineMC/sodium/pull/3923))\n- Optimization for shelf mushroom models ([#3927](https://github.com/CaffeineMC/sodium/pull/3927))\n- Fix compatibility with Neoforge 26.3.0.65-beta and remove platform-specific LevelExtractorMixin ([#3948](https://github.com/CaffeineMC/sodium/pull/3948))\n- Source vanilla option defaults and ranges directly from vanilla options ([#3947](https://github.com/CaffeineMC/sodium/pull/3947))\n- Allow rendering buffer debug outside F3 Debug Screen ([#3943](https://github.com/CaffeineMC/sodium/pull/3943))\n- Make VideoSettingsScreen trigger onClose in keyPressed to fix interaction with Iris, for example ([#3938](https://github.com/CaffeineMC/sodium/pull/3938))",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-fabric-0.9.3-beta.1+mc26.3.jar",
+          "size": 1912496,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "SS023RVV",
+      "name": "Sodium 0.9.3-beta.1 for NeoForge 26.3",
+      "version_number": "mc26.3-0.9.3-beta.1-neoforge",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-15T17:51:44.019537Z",
+      "downloads": 48967,
+      "changelog": "Sodium 0.9.3-beta.1 implements a number of bug fixes and minor improvements.\n\n- Show macOS fullscreen menu visibility option on the Sodium options screen\n- Fix Fluid Culling For Non-Full Blocks With Unusual Shapes ([#3916](https://github.com/CaffeineMC/sodium/pull/3916))\n- Use SDL message box instead of TFD ([#3923](https://github.com/CaffeineMC/sodium/pull/3923))\n- Optimization for shelf mushroom models ([#3927](https://github.com/CaffeineMC/sodium/pull/3927))\n- Fix compatibility with Neoforge 26.3.0.65-beta and remove platform-specific LevelExtractorMixin ([#3948](https://github.com/CaffeineMC/sodium/pull/3948))\n- Source vanilla option defaults and ranges directly from vanilla options ([#3947](https://github.com/CaffeineMC/sodium/pull/3947))\n- Allow rendering buffer debug outside F3 Debug Screen ([#3943](https://github.com/CaffeineMC/sodium/pull/3943))\n- Make VideoSettingsScreen trigger onClose in keyPressed to fix interaction with Iris, for example ([#3938](https://github.com/CaffeineMC/sodium/pull/3938))",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-neoforge-0.9.3-beta.1+mc26.3.jar",
+          "size": 1209577,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "NM9w06Kr",
+      "name": "Sodium 0.9.3-alpha.1 for NeoForge 26.3",
+      "version_number": "mc26.3-0.9.3-alpha.1-neoforge",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-20T21:27:09.277251Z",
+      "downloads": 188577,
+      "changelog": "Sodium 0.9.3-alpha.1 fixes graphical glitches on Intel iGPUs, fluid culling for unusual blocks, and adds the macOS fullscreen menu visibility option.\n\n- Fix graphical glitches on some Intel iGPUs\n- Show macOS fullscreen menu visibility option on the Video Settings screen\n- Fix Fluid Culling For Non-Full Blocks With Unusual Shapes ([#3916](https://github.com/CaffeineMC/sodium/pull/3916))",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-neoforge-0.9.3-alpha.1+mc26.3.jar",
+          "size": 1211416,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "v4PSXean",
+      "name": "Sodium 0.9.3-alpha.1 for Fabric 26.3",
+      "version_number": "mc26.3-0.9.3-alpha.1-fabric",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-20T21:27:07.494280Z",
+      "downloads": 1377079,
+      "changelog": "Sodium 0.9.3-alpha.1 fixes graphical glitches on Intel iGPUs, fluid culling for unusual blocks, and adds the macOS fullscreen menu visibility option.\n\n- Fix graphical glitches on some Intel iGPUs\n- Show macOS fullscreen menu visibility option on the Video Settings screen\n- Fix Fluid Culling For Non-Full Blocks With Unusual Shapes ([#3916](https://github.com/CaffeineMC/sodium/pull/3916))",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-fabric-0.9.3-alpha.1+mc26.3.jar",
+          "size": 1911459,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "sVLtC9EW",
+      "name": "Sodium 0.8.15-beta.1 for NeoForge 1.21.11",
+      "version_number": "mc1.21.11-0.8.15-beta.1-neoforge",
+      "version_type": "beta",
+      "game_versions": ["1.21.11"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-20T21:25:58.517468Z",
+      "downloads": 64084,
+      "changelog": "Sodium 0.8.15-beta.1 adds optimized pitcher plant models, and fixes two bugs.\n\n- Optimize pitcher plant models ([#3881](https://github.com/CaffeineMC/sodium/pull/3881))\n- Correctly handle vertexIndex state when discarding invalid translucent quads\n- Fix Fluid Culling For Non-Full Blocks With Unusual Shapes ([#3916](https://github.com/CaffeineMC/sodium/pull/3916))",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-neoforge-0.8.15-beta.1+mc1.21.11.jar",
+          "size": 1143429,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "RB7CDjTS",
+      "name": "Sodium 0.8.15-beta.1 for Fabric 1.21.11",
+      "version_number": "mc1.21.11-0.8.15-beta.1-fabric",
+      "version_type": "beta",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-20T21:25:58.390320Z",
+      "downloads": 856825,
+      "changelog": "Sodium 0.8.15-beta.1 adds optimized pitcher plant models, and fixes two bugs.\n\n- Optimize pitcher plant models ([#3881](https://github.com/CaffeineMC/sodium/pull/3881))\n- Correctly handle vertexIndex state when discarding invalid translucent quads\n- Fix Fluid Culling For Non-Full Blocks With Unusual Shapes ([#3916](https://github.com/CaffeineMC/sodium/pull/3916))",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-fabric-0.8.15-beta.1+mc1.21.11.jar",
+          "size": 1914874,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "VHtnT9Q4",
+      "name": "Sodium 0.9.2 for NeoForge 26.3",
+      "version_number": "mc26.3-0.9.2-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-15T16:04:10.867760Z",
+      "downloads": 155919,
+      "changelog": "Sodium 0.9.2 is a release for Minecraft 26.3. It's based on the recently released Sodium 0.9.2.\n\nIris is not yet compatible. If you want to use Iris, don't update Sodium until Iris receives an update.\n\n- Port to 26.3 ([#3902](https://github.com/CaffeineMC/sodium/pull/3902))\n- Re-enable \"Fullscreen Resolution\" control on Linux ([#3843](https://github.com/CaffeineMC/sodium/pull/3843))\n- Fix a memory leak caused by recreating resources in the F3 display\n- Fix issues with falling blocks",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-neoforge-0.9.2+mc26.3.jar",
+          "size": 1208169,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bAZQdGpg",
+      "name": "Sodium 0.9.2 for Fabric 26.3",
+      "version_number": "mc26.3-0.9.2-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T15:57:23.369305Z",
+      "downloads": 4626581,
+      "changelog": "Sodium 0.9.2 is a release for Minecraft 26.3. It's based on the recently released Sodium 0.9.2.\n\n- Port to 26.3 ([#3902](https://github.com/CaffeineMC/sodium/pull/3902))\n- Re-enable \"Fullscreen Resolution\" control on Linux ([#3843](https://github.com/CaffeineMC/sodium/pull/3843))\n- Fix a memory leak caused by recreating resources in the F3 display\n- Fix issues with falling blocks",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "sodium-fabric-0.9.2+mc26.3.jar",
+          "size": 1908068,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

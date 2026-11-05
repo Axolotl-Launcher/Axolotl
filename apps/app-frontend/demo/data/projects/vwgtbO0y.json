@@ -1,0 +1,216 @@
+{
+  "id": "vwgtbO0y",
+  "slug": "the-pixelmon-modpack",
+  "title": "The Pixelmon Modpack",
+  "description": "This Modpack includes everything you need as a pre-built Pixelmon exerience - The Pixelmon Mod, The Pixelmon OST, Journeymap, BYG, Natures/Explorers Compass.",
+  "author": "Pixelmon",
+  "categories": ["adventure", "forge", "neoforge", "quests"],
+  "display_categories": ["adventure", "quests"],
+  "client_side": "required",
+  "server_side": "optional",
+  "project_type": "modpack",
+  "downloads": 2383595,
+  "followers": 338,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["forge", "neoforge"],
+  "game_versions": ["1.16.5", "1.20.1", "1.20.2", "1.21.1"],
+  "latest_version": "3WCE8Wj3",
+  "date_created": "2023-02-14T18:00:37.030646Z",
+  "date_modified": "2026-09-17T08:39:08.637356Z",
+  "color": 2497818,
+  "published": "2023-02-14T18:00:37.030646Z",
+  "additional_categories": [],
+  "issues_url": "https://pixelmonmod.com/tracker.php",
+  "source_url": null,
+  "wiki_url": "https://pixelmonmod.com/",
+  "discord_url": "https://discord.gg/pixelmon",
+  "donation_urls": [
+    {
+      "platform": "Other",
+      "url": "https://pixelmonmod.com/donate.php"
+    }
+  ],
+  "versions_total": 39,
+  "body": "<p style=\"text-align: center;\"><a href=\"https://nodecraft.com/r/pixelmon\"><img src=\"https://pixelmonmod.com/images/curse/2.jpg\" width=\"1127\" height=\"428\" /></a></p>\n<p style=\"text-align: right;\">Click the banner for a discount with Nodecraft for your first Pixelmon server!</p>\n<p style=\"text-align: center;\">&nbsp;</p>\n<p style=\"text-align: center;\"><a href=\"https://discord.gg/pixelmon\"><img src=\"https://discordapp.com/api/guilds/128164783089254400/widget.png?style=banner2\" /></a> <a href=\"https://pixelmonmod.com/\"><img src=\"https://pixelmonmod.com/images/curse/website.png\" /></a> <a href=\"https://reforged.gg/\"></a> <a href=\"https://pixelmonmod.com/wiki/\"></a></p>\n<p>&nbsp;</p>\n<p style=\"text-align: center;\">This Modpack includes everything you need as a pre-built Pixelmon exerience:</p>\n<p style=\"text-align: center;\">&nbsp; &nbsp;</p>\n<p style=\"text-align: center;\"><a href=\"https://www.curseforge.com/minecraft/mc-mods/pixelmon\">The Pixelmon Mod</a> - The amazing mod for Minecraft that adds Pokemon exploration, capture, battling and more!</p>\n<p style=\"text-align: center;\">&nbsp;</p>\n<p style=\"text-align: center;\"><a href=\"https://www.curseforge.com/minecraft/texture-packs/the-pixelmon-ost-by-chris-geddes\">The Pixelmon OST, by Chris Geddes</a> - A professionally made, bespoke soundtrack that adds to the immersion for this mod.</p>\n<p style=\"text-align: center;\">&nbsp;</p>\n<p style=\"text-align: center;\"><a href=\"https://www.curseforge.com/minecraft/mc-mods/journeymap\">Journeymap</a> - With sprite integration on the map. Some servers may have this functionality disabled.</p>\n<p style=\"text-align: center;\">&nbsp;</p>\n<p style=\"text-align: center;\"><a href=\"https://www.curseforge.com/minecraft/mc-mods/oh-the-biomes-youll-go/\">Oh The Biomes You'll Go</a> - Oh The Biomes You'll Go is an exploration and adventure mod designed to take you on a road trip across Minecraft like no other! Explore over 80 magical, realistic, and breathtaking biomes.</p>\n<p style=\"text-align: center;\">Adding new biomes into your world gen, complete with Pixelmon integration.</p>\n<p style=\"text-align: center;\">&nbsp;</p>\n<p style=\"text-align: center;\"><a href=\"https://www.curseforge.com/minecraft/mc-mods/natures-compass\">Nature's Compass</a> - Nature's Compass allows you to locate biomes in your world, a must with extra biomes.</p>\n<p style=\"text-align: center;\">&nbsp;</p>\n<p style=\"text-align: center;\"><a href=\"https://www.curseforge.com/minecraft/mc-mods/explorers-compass\">Explorer's Compass</a> - Explorer's Compass allows you to locate structures in your world, very much needed with new structures coming for Pixelmon.</p>\n<p style=\"text-align: center;\">&nbsp;</p>\n<p style=\"text-align: center;\">We recommend installing <a href=\"https://optifine.net/downloads\">Optifine 1.16.5</a> with this pack, to add further optimization. (You will have to do this manually)</p>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/vwgtbO0y/images/967de4295c8436fce0531056f6f4dcffffc7b406_350.webp",
+      "featured": true,
+      "title": "Banner",
+      "description": null,
+      "created": "2023-02-14T18:08:41.639065Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Pixelmon",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/yDIJMMci/120105c19ab989157820575680d7ed58f6139ad1.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "IHtaie13",
+      "name": "The Pixelmon Modpack 9.4.1",
+      "version_number": "9.4.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-17T08:39:08.637356Z",
+      "downloads": 160704,
+      "changelog": "#### Additions\n\n- Added a crafting recipe for the Fruit Bunch curry ingredient, made from any three Pixelmon berries.\n\n\n#### Fixes\n\n- [23437](https://pixelmonmod.com/tracker.php?p=2&t=23437) Fixed a crash when a Pixelmon ore was broken by something carrying no tool, such as another mod's automated block breaker.\n- [23503](https://pixelmonmod.com/tracker.php?p=2&t=23503) Fixed the Fossil Revival research crashing on its \"Catch a Wild Fossil Pokémon\" objective, which relied on a `fossil` Pokémon specification that did not exist.\n- [23499](https://pixelmonmod.com/tracker.php?p=2&t=23499) Fixed the Psychic Tera Shard using the Poison Tera Shard's texture.\n- [23498](https://pixelmonmod.com/tracker.php?p=2&t=23498) Fixed the attack animation registry failing to sync when Sinytra Connector and the Forgified Fabric API are installed.\n- [23488](https://pixelmonmod.com/tracker.php?p=2&t=23488) Fixed research that triggers on picking an item up off the ground never registering, which stopped the Psychic Storm chain from starting when an Orb was picked up. The Relic Maniac trigger was broken in the same way and is fixed with it.\n- [23474](https://pixelmonmod.com/tracker.php?p=2&t=23474) Fixed a Pokémon's faint events firing more than once, which made using an Exp. Candy after whiting out in Ultra Space replay the last battle's UI and send the player back to their bed.\n- [23407](https://pixelmonmod.com/tracker.php?p=2&t=23407) Fixed cancelling a breeding attempt in the Day Care incrementing the Pixelmon Bred statistic.\n- [23318](https://pixelmonmod.com/tracker.php?p=2&t=23318) Fixed the Infuser's bottom slot accepting any item, which let a hopper overflow fuel into it. It now only takes items that are a valid ingredient for an infusing recipe.\n- Fixed NPCs given a Pokémon appearance standing completely still. They now play their configured animation, and walk while they are moving.\n- Fixed NPC AI providers being read from the removed `goals` NBT key instead of the `aiProvider` k\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.4.1.mrpack",
+          "size": 46071671,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "mMpXU4hc",
+      "name": "The Pixelmon Modpack 9.4.0",
+      "version_number": "9.4.0",
+      "version_type": "beta",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-08-17T16:04:26.513803Z",
+      "downloads": 59559,
+      "changelog": "#### Additions\n\n- Reworked the Charms interface. Charms now live in a dedicated inventory tab with an info button, where you can toggle each charm between its Available and Active states. Locked charms are tinted red and available-but-inactive ones grey. The old charm drawer beside the party has been removed.\n- Added a notification to the top-right of the main menu that appears when a new Pixelmon version is available.\n- Reworked the bikes so they are no longer horse-based, with their riding animation now playing correctly:\n  - All bikes are significantly slower than before.\n  - The Mach Bike is faster than the Acro Bike, can no longer jump, and steps up at most half a block.\n  - The Acro Bike jumps a consistent height regardless of the charge bar, and steps up at most a block and a half.\n- Updated the in-game type icons.\n- Reworked Gallade's model with updated textures and animations.\n- Reworked Gardevoir's model with updated textures and animations.\n- Added 14 wild trainer NPCs to battle: Battle Girl, Black Belt, Hex Maniac, Sailor, Psychic (male and female), Punk Girl, Punk Guy, Schoolboy, Schoolgirl, Lumberjack, Hiker, Cueball, and Knight.\n- Added 12 village tip NPCs offering guidance on EVs, IVs, Natures, types, breeding, evolution, Abilities, held items, the move tutor, biomes, Poké Centres, and catching.\n\n\n#### New Pokémon\n\n- Added Ogerpon, with its Teal, Wellspring, Hearthflame, and Cornerstone Mask Forms.\n- Added Terapagos, with its Normal and Terastal Forms.\n- Added Okidogi.\n- Added Munkidori.\n- Added Fezandipiti.\n- Added Pecharunt.\n- Added Poltchageist, with its Counterfeit and Artisan Forms.\n- Added Sinistcha, with its Counterfeit and Artisan Forms.\n- Added Archaludon.\n\n\n#### Terastallization\n\n- Added Terastallization. In battle, a Pokémon can Terastallize to take on its Tera Type, boosting moves of that type and shifting its defensive typing for the rest of the battle.\n- Added the Tera Orb, required to Terastallize and unlocked through research.\n- Added\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.4.0.mrpack",
+          "size": 46071672,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "qIbqsFsx",
+      "name": "The Pixelmon Modpack 9.3.16",
+      "version_number": "9.3.16",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-05-05T10:27:45.561523Z",
+      "downloads": 254966,
+      "changelog": "#### Changes\n\n- All advancements now display a toast notification on completion. Chat messages are reserved for special advancements.\n- Mega Starmie has been added to the spawning pool.\n- Mega Dragonite has been added to the spawning pool.\n- Added tooltips for the Hisuian Poké Balls.\n- Updated Korean translations.\n\n\n#### Fixes\n\n- [23378](https://pixelmonmod.com/tracker.php?p=2&t=23378) Fixed an issue where critical captures with Hisuian Poké Balls would loop the capture message and grant infinite experience in battle without catching the Pokémon.\n- Fixed Pokémon caught from inside a battle being unable to be sent out into the world or to evolve when reaching their level-up criteria.\n- [23346](https://pixelmonmod.com/tracker.php?p=2&t=23346) Fixed Hisuian Poké Balls flashing between their texture and the missing texture while shaking.\n- Fixed Mega Charizard X and Y appearing much smaller than intended.\n- Fixed Hoopa not changing size when switching forms.\n- Fixed some Pokémon's relative size not being maintained through evolution.\n- Fixed sprite items being incorrectly turned into Missingno sprites when stacks already had new format data, or when no old data was present.\n- Fixed a crash that occurred when throwing a Poké Ball into the void in The End.\n- Fixed Mega Darkrai's missing texture and emissive files; corrected animation track names.\n- Fixed Raikou's tail rendering with the wrong colours due to a UV unwrap error.\n- [23343](https://pixelmonmod.com/tracker.php?p=2&t=23343) Fixed Chandelure being unable to Mega Evolve.\n- Fixed cosmetic items not displaying the correct result when the same ID was used for multiple cosmetics.\n- [23346](https://pixelmonmod.com/tracker.php?p=2&t=23346) Fixed taking a fossil out of the cleaner before it finishes still counting toward the cleaned fossils statistic.\n\n\n#### Battle\n\n- Rewrote battle animations so switch-out and health bar animations play in proper order. Resolves chained health animations (Pin Missile and similar moves) \n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.3.16.mrpack",
+          "size": 46063785,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "46Zay05i",
+      "name": "The Pixelmon Modpack 9.3.15",
+      "version_number": "9.3.15",
+      "version_type": "beta",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-04-19T09:39:28.385152Z",
+      "downloads": 21524,
+      "changelog": "#### Additions\n\n- Added Mega Darkrai.\n- Added Mega Raichu X.\n- Added Mega Raichu Y.\n\n- Added Darkranite.\n- Added Raichunite X.\n- Added Raichunite Y.\n\n- Added custom Banner Patterns for use in the Loom, split into the following categories: Common, Logo, Poké Ball, Special, Types, and Villain Teams.\n- Added Banner Pattern items to apply the new patterns.\n\n- Added new Research.\n\n\n#### Changes\n\n- Mega Raichu X and Mega Raichu Y now spawn in Forests during the Afternoon on Land.\n- Mega Darkrai now spawns in Roofed Forests on Land during Night under a New Moon.\n- Mega Chandelure now spawns in Roofed Forests on Land during Night in Clear weather.\n- Badge case GUI elements have been cleaned up to remove semi-transparent pixels along the edges.\n- Lapras' swim speed has been increased to a more natural pace.\n- The Block Spawner now uses existing spawning Land, Air, and Water tags instead of a hardcoded block list.\n- Pixelmon armor can now receive all vanilla Minecraft enchantments.\n- Mudbray and Mudsdale now drop Packed Mud instead of Brown Terracotta.\n- Greavard now has a chance to drop a White Candle.\n- Carbink now has a chance to drop an Amethyst Shard.\n- Diancie now has a chance to drop Amethyst Shards.\n- Kantonian Sandshrew now has a chance to drop Armadillo Scutes.\n- Glimmet now has a chance to drop a Torchflower Seed, and Glimmora may drop multiple.\n- Klefki now has a chance to drop an Ominous Trial Key, and its Fairy Gem drop rate has been adjusted.\n- Silk Touch enchantment level has been corrected from 3 to 1.\n- The AG Monotype battle rule set now displays the correct title and description.\n- \"Uber doubles\" has been corrected to \"Uber Doubles\" to match formatting conventions.\n- Mega Chandelure's typing has been corrected.\n- Mega Darkrai's typing has been corrected.\n- Added the Pokédex item to the creative Utility tab.\n- Added warning messages when attempting to throw a Poké Ball at a Pokémon that is too strong, retaliates, or refuses capture.\n- Added language transla\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.3.15.mrpack",
+          "size": 46117000,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GWyc29FO",
+      "name": "The Pixelmon Modpack 9.3.14",
+      "version_number": "9.3.14",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-01-18T06:45:12.278432Z",
+      "downloads": 288352,
+      "changelog": "#### Additions\n\n- Added Mega Chandelure\n- Added Chandelurite\n- Added cosmetic Charizard Wings\n- Added the command node `pixelmon.command.wiki.other`\n\n#### Changes\n\n- Raid spawns have been added for Iron Crown and Iron Boulder.\n- Level 25-45 Arena NPCs will sometime spawn as double battle NPCs.\n- Multiple level ups from a single EXP gain are now summarized on one stat screen instead of spamming several in a row.\n- Battle messages on level up now only show the final level reached, instead of listing every single level along the way.\n- Removed the limitation of only being able to throw out one Pokemon at a time (one thrown pokeball at a time)\n   - Allows you to press R again to cancel throwing a PokeBall mid flight\n- The `/spectate` command has been renamed to `/pokebattle spectate` to avoid conflicts with Minecraft’s spectator command.\n- Pokemon will now watch your every move when holding a rare candy.\n- The `/pokebattle` command has been fully rewritten and now supports proper sub-commands.\n- `/pokebattle` now works again with NPC trainers.\n- Rotation, Double, and Triple battles are now supported through `/pokebattle battle`.\n- Removed the ability for `/pokebattle` to spawn a wild Pokémon directly by species name.\n- Battle logs will now includes more information about the Pokemon involved in the battle.\n- Added messages for when a player is cooking curry, and a Pokémon would have spawned, but the player either didn't have enough room in their party or the correct Poké Balls.\n- Base happiness values for all pokemon have been updated to match Generation 8\n- The temple pillar block shape will now update accordingly when a neighbouring block is placed/broken.\n\n#### Fixes\n\n- The Old Fisherman will again spawn as intended.\n- Fixed a typo in Iron boulder research.\n- The Reassembly unit sprite will now animate as intended.\n- Compatability with the Essential mod has been improved.\n- A fix has been introduced to improve compatability with older AMD drivers.\n- Fixed the animati\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.3.14.mrpack",
+          "size": 38516129,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5F7FrNnX",
+      "name": "The Pixelmon Modpack 9.3.13",
+      "version_number": "9.3.13",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2025-12-21T19:46:24.422193Z",
+      "downloads": 75018,
+      "changelog": "#### Additions\n\n- Added Bloodmoon Ursaluna\n- A new Research, \"The Crimson Moon\" has been added.\n\n\n#### Changes\n\n- The Pokeball animation has been sped up.\n- Slippery Ice, Healers, and PCs now drop using Silk Touch.\n\n\n#### Fixes\n\n- Fixed an issue where Pokémon could attempt to evolve into themselves after battle, creating ghost duplicates.\n- Cofagrigus’ transparent ghostly aura has been restored, with its outline and arms now rendering correctly.  \n- Dewpider and Araquanid now display fully transparent water bubbles as intended.  \n- Nihilego’s head now renders with proper transparency without affecting the rest of its body.  \n- Charcadet’s helmet has been fixed and no longer appears partially broken or see-through.  \n- Urshifu (Single Strike and Rapid Strike) models have been corrected.\n- Vanilla mobs can now safely pick up and use items without causing the game or server to crash.\n- Iron Boulder now correctly unlocks its own research instead of awarding Iron Crown research.\n\n\n#### Battle\n\n- Pokémon learning new moves mid-battle now correctly fill empty move slots.\n- Pokemon will now be removbed from the shoulder when entering battle.\n- Throwing out a Pokémon while aiming at one you already own no longer causes a crash.\n- Battles no longer crash when a frozen Pokémon attempts to Mega Evolve.\n\n\n#### Datapack\n\n- Added `pixelmon:world_time` data provider for getting the time of the world a given entity is in\n   - Takes `entity_key` for the context key of the entity to get the world of\n- Fixed a context key being `minecraft:attack` and is now `pixelmon:attack`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.3.13.mrpack",
+          "size": 45637640,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "gVQdjHGF",
+      "name": "The Pixelmon Modpack 9.3.12",
+      "version_number": "9.3.12",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2025-12-12T16:14:40.087479Z",
+      "downloads": 21073,
+      "changelog": "**\"1.21.1 (9.3.12)\"**\n\n<hr>\n\n- The Java requirement for 1.21.1 is Java 21. This will come shipped with most launchers. For manual installation, you may need to install a later JDK.\n- The minimum Neoforge version for this update is 21.1.200 and is required for a Pixelmon client to run.\n- Beta releases will move to the recommended downloads after a few days of public release.\n\n\n#### Additions\n\n- New Pokemon have been added:\n   - Iron Crown\n   - Iron Boulder\n- New Research has been added.\n   - Capture Cobalion to begin a new research.\n   - Capture Terrakion to begin a new research.\n- Added AG Rotation, AG Triples, Uber Rotation, and Uber Triples battle rules.\n- Added a new Monotype battle rule, now available in the \"AG Monotype\" PvP battle rule set.  \n   - Includes new configuration files: `monotype.json` and `ag_monotype.json` to enforce monotype team restrictions.\n- Added a new `Poké Ball Rendering Mode` setting under `Options → Video Settings`  \n  (Auto — default, Smooth, Blocky, Sprite; Auto follows your global rendering mode).\n- Added a new keybind to instantly open the summary screen of your currently selected Pokémon.  \n- The same keybind also opens the summary screen while hovering over a Pokémon in your inventory UI.\n\n\n\n#### Changes\n\n- [23130](https://pixelmonmod.com/tracker.php?p=2&t=23130) Shoulder-riding Pokémon now give a message when they fall off.\n- Overhauled the Poké Ball capture and send-out animation.\n\n\n#### Fixes\n\n- Amaura and Aurorus now display their manes correctly from both sides.  \n- Binacle’s model no longer appears see-through in certain areas.  \n- Cosmog’s body no longer shows unintended holes.  \n- Tinkaton’s hammer now renders properly without transparency issues.  \n- Vivillon’s wings are now visible from both sides.  \n- Petilil and Lilligant have had model holes fixed and now include proper animations.  \n- [23130](https://pixelmonmod.com/tracker.php?p=2&t=23130) Pokémon no longer become wild or duplicable when falling off a player’s should\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.3.12.mrpack",
+          "size": 45637640,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "DGhwc8bW",
+      "name": "The Pixelmon Modpack 9.3.11",
+      "version_number": "9.3.11",
+      "version_type": "beta",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2025-12-09T16:23:34.219323Z",
+      "downloads": 5791,
+      "changelog": "**\"1.21.1 (9.3.11)\"**\n\n* * *\n\n- The Java requirement for 1.21.1 is Java 21. This will come shipped with most launchers. For manual installation, you may need to install a later JDK.\n- The minimum Neoforge version for this update is 21.1.200 and is required for a Pixelmon client to run.\n- Beta releases will move to the recommended downloads after a few days of public release.\n\n\n#### Additions\n\n- New Research has been added.\n\n- Gouging Fire has been added.\n\n\n#### Changes\n\n- Pokémon can now perch on their trainer’s shoulders by shift-right-clicking.\n\n- Squirtle, Wortortle and Blastoise models have been updated.\n\n- Raging Bolt and Gouging Fire have been added to 5 star raids in The End.\n\n- Defeated Pokémon now drop experience orbs instead of granting player XP directly.\n\n- The `reloadattackanimations` command has been removed.\n\n\n#### Fixes\n\n- Camera-related FOV calculations no longer apply outside the camera UI, restoring normal field of view and proper hand rendering.\n\n- Fixed an issue with the right click context menu of the PC.\n\n- Mega Dragonite will now use the correct animation in flight.\n\n- Moon Ball now works properly on Pokémon that evolve through interactions, no longer causing crashes when an evolution item is missing.\n\n- Eggs carried in Ultra Space are no longer affected by environmental hazards such as poison or paralysis.  \n\n- World time now calculates correctly across multiple worlds.\n\n- Camera filters now shut down fully when closing the camera, preventing F3 + F4 gamemode changes from reactivating them.\n\n- Pokédex toasts now display the species name instead of a Pokémon’s nickname when registering new entries.\n\n\n#### Battle\n\n- [23083](https://pixelmonmod.com/tracker.php?p=2&t=23083) Battles no longer crash when a Gigantamax Pokémon defeats an opponent and another Pokémon is sent out in NPC or Horde encounters.\n\n- Spikes and other hazards no longer cause errors in the battle log after a fight ends.\n\n- Throwing a Poké Ball in battle no longer crashes if th\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "The Pixelmon Modpack 9.3.11.mrpack",
+          "size": 45637649,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

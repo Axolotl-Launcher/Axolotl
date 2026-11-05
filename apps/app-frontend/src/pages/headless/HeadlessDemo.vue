@@ -117,7 +117,6 @@ const messages = defineMessages({
                 <HeadlessDialog
                     v-model:open="dialogOpen"
                     :close-label="formatMessage(messages.dialogClose)"
-                    data-onboarding-id="headless-demo-dialog"
                 >
                     <HeadlessButton color="brand">
                         {{ formatMessage(messages.openDialog) }}

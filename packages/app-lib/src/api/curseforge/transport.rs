@@ -198,7 +198,7 @@ async fn api_permit(
 }
 
 static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .connect_timeout(Duration::from_secs(15))
         .read_timeout(Duration::from_secs(30))
         .redirect(reqwest::redirect::Policy::none())
@@ -217,7 +217,7 @@ async fn response_body(
 
 #[cfg(debug_assertions)]
 static LOCAL_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .connect_timeout(Duration::from_secs(15))
         .read_timeout(Duration::from_secs(30))
         .redirect(reqwest::redirect::Policy::none())
@@ -353,7 +353,7 @@ fn request_routes_with_mode(
     .collect()
 }
 
-pub(crate) async fn request_json<T: DeserializeOwned>(
+pub(crate) async fn request_json<T: DeserializeOwned + Send>(
     method: Method,
     path: &str,
     query: Vec<(String, String)>,
@@ -371,7 +371,7 @@ pub(crate) async fn request_json<T: DeserializeOwned>(
     .await
 }
 
-pub(super) async fn request_json_with_origin<T: DeserializeOwned>(
+pub(super) async fn request_json_with_origin<T: DeserializeOwned + Send>(
     method: Method,
     path: &str,
     query: Vec<(String, String)>,
@@ -379,6 +379,33 @@ pub(super) async fn request_json_with_origin<T: DeserializeOwned>(
     mirror_policy: MirrorPolicy,
     origin: RequestOrigin,
 ) -> crate::Result<T> {
+    let mut decoded = None;
+    let mut decode = |bytes: &[u8]| -> serde_json::Result<()> {
+        decoded = Some(serde_json::from_slice(bytes)?);
+        Ok(())
+    };
+    request_with_decoder(
+        method,
+        path,
+        query,
+        body,
+        mirror_policy,
+        origin,
+        &mut decode,
+    )
+    .await?;
+    Ok(decoded.expect("a successful request decoded its response"))
+}
+
+async fn request_with_decoder(
+    method: Method,
+    path: &str,
+    query: Vec<(String, String)>,
+    body: Option<Value>,
+    mirror_policy: MirrorPolicy,
+    origin: RequestOrigin,
+    decode: &mut (dyn FnMut(&[u8]) -> serde_json::Result<()> + Send),
+) -> crate::Result<()> {
     let mut trace = RequestTrace::new(&method, path, &query, &body, origin);
     let deadline = tokio::time::Instant::now() + METADATA_REQUEST_TIMEOUT;
     let result = metadata_deadline(
@@ -391,6 +418,7 @@ pub(super) async fn request_json_with_origin<T: DeserializeOwned>(
             mirror_policy,
             deadline,
             &mut trace,
+            decode,
         ),
     )
     .await;
@@ -410,7 +438,7 @@ pub(super) async fn request_json_with_origin<T: DeserializeOwned>(
     result
 }
 
-async fn request_json_inner<T: DeserializeOwned>(
+async fn request_json_inner(
     method: Method,
     path: &str,
     query: Vec<(String, String)>,
@@ -418,7 +446,8 @@ async fn request_json_inner<T: DeserializeOwned>(
     mirror_policy: MirrorPolicy,
     deadline: tokio::time::Instant,
     trace: &mut RequestTrace,
-) -> crate::Result<T> {
+    decode: &mut (dyn FnMut(&[u8]) -> serde_json::Result<()> + Send),
+) -> crate::Result<()> {
     let key = api_key();
     let key_generation = api_key_generation();
     let state = State::get().await?;
@@ -515,11 +544,29 @@ async fn request_json_inner<T: DeserializeOwned>(
         );
 
         if status.is_success() {
+            if route.source == RequestRouteSource::Mirror
+                && let Err(error) =
+                    crate::util::download::mcim::check_cache_dates(&bytes)
+            {
+                if route_index + 1 < routes.len() {
+                    tracing::warn!(
+                        request_id = trace.id,
+                        url = %crate::util::fetch::sanitize_url_for_log(&route.url),
+                        route = route_index + 1,
+                        %error,
+                        "CurseForge mirror cache is stale; trying the next source"
+                    );
+                    last_error = Some(error);
+                    trace.stage("next_route");
+                    continue;
+                }
+                return Err(error);
+            }
             trace.stage("decode");
-            match serde_json::from_slice(&bytes) {
-                Ok(value) => {
+            match decode(&bytes) {
+                Ok(()) => {
                     record_key_response(key_generation, false);
-                    return Ok(value);
+                    return Ok(());
                 }
                 Err(error)
                     if route.source == RequestRouteSource::Mirror

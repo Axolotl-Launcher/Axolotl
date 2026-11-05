@@ -278,12 +278,15 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
             "onboarded",
             "onboarding_instance_tour_completed",
             "onboarding_version",
+            "oobe_completed_steps",
             "pending_update_toast_for_version",
             "skipped_update",
         ],
         // `version` was dropped from the key set: a document that could answer
-        // it would let a file skip the settings migrations.
-        2,
+        // it would let a file skip the settings migrations. 3 added
+        // `oobe_completed_steps`, so an older build reads the document as newer
+        // and leaves the OOBE record in it alone.
+        3,
     ),
 ];
 

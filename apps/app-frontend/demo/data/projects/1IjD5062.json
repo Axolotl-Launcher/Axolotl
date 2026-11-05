@@ -1,0 +1,326 @@
+{
+  "id": "1IjD5062",
+  "slug": "continuity",
+  "title": "Continuity",
+  "description": "A Minecraft mod that allows for efficient connected textures",
+  "author": "Pepper_Bell",
+  "categories": ["decoration", "fabric", "forge", "neoforge", "quilt", "utility"],
+  "display_categories": ["decoration", "fabric", "forge", "neoforge", "quilt", "utility"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 79766943,
+  "followers": 16833,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "Jt2sCWTQ",
+  "date_created": "2021-09-25T20:27:10.714654Z",
+  "date_modified": "2026-09-16T03:20:55.014943Z",
+  "color": 8419446,
+  "published": "2021-09-25T20:27:10.714654Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/PepperCode1/Continuity/issues",
+  "source_url": "https://github.com/PepperCode1/Continuity",
+  "wiki_url": "https://github.com/PepperCode1/Continuity/wiki",
+  "discord_url": "https://discord.gg/7rnTYXu",
+  "donation_urls": [
+    {
+      "platform": "Bmac",
+      "url": "https://buymeacoffee.com/pepper_bell"
+    }
+  ],
+  "versions_total": 46,
+  "body": "# Continuity\n\nContinuity is a Minecraft mod that allows resource packs that use the OptiFine connected textures format, OptiFine emissive textures format (only for blocks and item models), or OptiFine custom block layers format to work without OptiFine.\n\nContinuity is client-side only and includes two built-in resource packs. The Default Connected Textures pack provides connected textures for glass, sandstone, and bookshelves, similar to the built-in connected textures provided by OptiFine. The Glass Pane Culling Fix pack culls faces between vertically stacked glass panes to make them look seamless with connected textures.\n\nFormally, Continuity implements the Continuity connected textures specification, Continuity emissive textures specification, and Continuity custom block layers specification. All of these are extensions of the corresponding OptiFine specification and were created to provide more features to resource pack authors. The documentation for the Continuity specifications can be found at the [Continuity wiki](https://github.com/PepperCode1/Continuity/wiki).\n\nContinuity is developed as a Fabric mod and is recommended to be used with Fabric. However, [Connector](https://github.com/Sinytra/Connector) and [Forgified Fabric API](https://github.com/Sinytra/ForgifiedFabricAPI) allow Continuity to work well on other mod loaders such as NeoForge and Forge. Releases are made on CurseForge and Modrinth that are marked as working with these mod loaders; these releases contain the same code as equivalent releases for Fabric, but with additional metadata to declare Connector and Forgified Fabric API as dependencies. An official NeoForge version of Continuity that does not require Forgified Fabric API is not planned at this time due to major technical differences between the Fabric and NeoForge APIs.\n\n### Links\n\n[CurseForge Page](https://www.curseforge.com/minecraft/mc-mods/continuity)",
+  "gallery": [],
+  "team": [
+    {
+      "username": "Pepper_Bell",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/CdcF3lqY/24a325b36c3ce10dbc1a86cc68c5eeb212784b63.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "Jt2sCWTQ",
+      "name": "3.0.1+26.3",
+      "version_number": "3.0.1+26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-16T03:20:55.014943Z",
+      "downloads": 2045376,
+      "changelog": "- Port to Minecraft 26.3",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1+26.3.jar",
+          "size": 1002033,
+          "primary": true
+        },
+        {
+          "filename": "continuity-3.0.1+26.3-sources.jar",
+          "size": 819688,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "mgUN5Xz2",
+      "name": "3.0.1+26.2",
+      "version_number": "3.0.1+26.2",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-06-16T20:37:54.326739Z",
+      "downloads": 5160888,
+      "changelog": "Port to Minecraft 26.2",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1+26.2.jar",
+          "size": 1040013,
+          "primary": true
+        },
+        {
+          "filename": "continuity-3.0.1+26.2-sources.jar",
+          "size": 817864,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "l1mM6Ov7",
+      "name": "3.0.1-beta.2+26.1",
+      "version_number": "3.0.1-beta.2+26.1",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-04-09T22:31:30.712274Z",
+      "downloads": 3850687,
+      "changelog": "Fix `connect=tile` and `connectTiles` not working correctly after changing enabled resource packs",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1-beta.2+26.1.jar",
+          "size": 1040001,
+          "primary": true
+        },
+        {
+          "filename": "continuity-3.0.1-beta.2+26.1-sources.jar",
+          "size": 817892,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "fiZzqnYz",
+      "name": "3.0.1-beta.1+26.1",
+      "version_number": "3.0.1-beta.1+26.1",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-04-06T16:55:03.697220Z",
+      "downloads": 149589,
+      "changelog": "Port to Minecraft 26.1",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1-beta.1+26.1.jar",
+          "size": 1039974,
+          "primary": true
+        },
+        {
+          "filename": "continuity-3.0.1-beta.1+26.1-sources.jar",
+          "size": 817874,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "mX1iknM1",
+      "name": "3.0.1-beta.1+1.21.11",
+      "version_number": "3.0.1-beta.1+1.21.11",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2025-12-23T02:54:26.750065Z",
+      "downloads": 8939110,
+      "changelog": "- Port to Minecraft 1.21.11\n- Add Continuity options to the Sodium video settings screen\n\n### Notes\n\n- The `cutout_mipped` render type was removed by vanilla and Continuity no longer recognizes it. This may partially break some resource packs that use overlays or custom block layers.\n- Emissive textures for item models are still not implemented.",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1-beta.1+1.21.11.jar",
+          "size": 997125,
+          "primary": true
+        },
+        {
+          "filename": "continuity-3.0.1-beta.1+1.21.11-sources.jar",
+          "size": 847221,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "7JbPpQnu",
+      "name": "3.0.1-beta.2+1.21.10",
+      "version_number": "3.0.1-beta.2+1.21.10",
+      "version_type": "release",
+      "game_versions": ["1.21.10"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2025-11-10T01:21:03.856351Z",
+      "downloads": 2389471,
+      "changelog": "- Port to 1.21.10",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1-beta.2+1.21.10.jar",
+          "size": 994514,
+          "primary": true
+        },
+        {
+          "filename": "continuity-3.0.1-beta.2+1.21.10-sources.jar",
+          "size": 988022,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "m0cvWhzT",
+      "name": "3.0.1-beta.1+1.21.6",
+      "version_number": "3.0.1-beta.1+1.21.6",
+      "version_type": "release",
+      "game_versions": ["1.21.6", "1.21.7", "1.21.8"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2025-07-07T17:04:19.260430Z",
+      "downloads": 3517271,
+      "changelog": "This beta is missing emissive textures for item models.",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1-beta.1+1.21.6.jar",
+          "size": 994756,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "kravz06U",
+      "name": "3.0.1-test.4+1.21.5",
+      "version_number": "3.0.1-test.4+1.21.5",
+      "version_type": "release",
+      "game_versions": ["1.21.5"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2025-05-03T00:25:41.514763Z",
+      "downloads": 2151321,
+      "changelog": "This beta is missing emissive textures for item models.",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "continuity-3.0.1-test.4+1.21.5.jar",
+          "size": 996045,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

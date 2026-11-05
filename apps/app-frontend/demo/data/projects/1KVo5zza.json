@@ -1,0 +1,326 @@
+{
+  "id": "1KVo5zza",
+  "slug": "fabulously-optimized",
+  "title": "Fabulously Optimized",
+  "description": "Beautiful graphics, speedy performance and familiar features in a simple package. Wilderness Bound beta!",
+  "author": "robotkoer",
+  "categories": ["fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 19056098,
+  "followers": 4983,
+  "license": {
+    "id": "BSD-3-Clause",
+    "name": "BSD 3-Clause \"New\" or \"Revised\" License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.16.5",
+    "1.17.1",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "Wo44jriL",
+  "date_created": "2022-02-10T06:28:19.045034Z",
+  "date_modified": "2026-10-11T12:00:36.367115Z",
+  "color": 13813933,
+  "published": "2022-02-10T06:28:19.045034Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/Fabulously-Optimized/fabulously-optimized/issues",
+  "source_url": "https://github.com/Fabulously-Optimized/fabulously-optimized/",
+  "wiki_url": "https://wiki.download.fo",
+  "discord_url": "https://discord.com/invite/fabulously-optimized-859124104644788234",
+  "donation_urls": [
+    {
+      "platform": "Other",
+      "url": "https://download.fo/contribute"
+    }
+  ],
+  "versions_total": 477,
+  "body": "[![How to install](https://i.ibb.co/r2rpnjc/howtomr.png)](https://download.fo/install)\n[![Get help on Discord](https://i.ibb.co/qJLSFXs/discord-mr.png)](https://download.fo/discord)\n[![Rate the modpack](https://i.ibb.co/8xXhMvz/rate-mr.png)](https://download.fo/rate)\n\nA simple Minecraft modpack focusing on performance and graphics enhancements.\n\n[Video review](https://www.youtube.com/watch?v=bb8G9X5Q_4I)\n\n*By using this modpack, [you agree to the following disclaimers][16].*\n\n### Performance\n\nFabulously Optimized is faster than competing game clients, thanks to [modern performance mods][1] like Sodium, Lithium, and others. The bundled mods have been carefully selected to be safe in your worlds and provide noticeable speed benefits on any device.\n\n### OptiFine parity\n\nFabulously Optimized [supports most OptiFine features][2], including shaders, connected textures, and zoom. If your resource pack states \"OptiFine required,\" it will probably function here as well. [You can even get your own free cape!][3]\n\n### Feels familiar\n\nFabulously Optimized includes features that allow you to experience Minecraft just as you remember it, no matter what version you've used before. This means you can [use game controllers, play local worlds with friends, view advancements in a large window, and much more][4].\n\n### Works everywhere\n\nFabulously Optimized does not include content mods, so you can play on any world or server. While you can use any game launcher to play the pack, [we recommend and provide support for specific ones that offer the best experience][5].\n\n### Up to date\n\nFabulously Optimized [receives fast updates][6] and stands as one of the first modpacks to upgrade to newer Minecraft versions. [Updating the modpack is easy][7] and will preserve your mod settings, where possible.\n\n### Built on Fabric\n\nFabulously Optimized uses the Fabric mod loader, which is lightweight, fast, and supports a lot of mods. [You can use the modpack as a base to add your favorite mods to.][8]\n\n### Open development\n\nFabulously Optimized [is open-source][9], and so are most of its mods. We welcome user suggestions and collaborate with mod developers to create a better user experience for everyone.\n\n### Helpful community\n\nWe have a growing community of friendly members who enjoy discussing the pack, [translating its content][10], and helping each other. [Join us today!][11]\n\n## FAQ\n\n> **Q**: How do I install, update, add mods, or do something else?\n> \n> **A**: [The answers are in our wiki.][12]\n\n\n> **Q**: Something broke or you should add something!\n> \n> **A**: [Post it to our GitHub.][9]\n\n\n> **Q**: What mods does it have?\n> \n> **A**: Click any version and scroll down [or see the comparison table][1].\n\n\n> **Q**: I like the modpack. How can I contribute?\n> \n> **A**: [Ways you can help are described here.][13] Thank you!\n\n\n> **Q**: Do I need the modpack on the server?\n> \n> **A**: No, the pack works on all servers that allow vanilla clients. [A detailed answer and server setup tips are here.][14]\n> \n> [Bisect Hosting If you need a host, click here - 25% off for the first month!][15]\n\n\n> **Q**: I have more questions!\n> \n> **A**: [Come and chat with us on Discord!][11]\n\n### More info can be found on our homepage [download.fo](https://download.fo).\n\n[1]: https://github.com/Fabulously-Optimized/fabulously-optimized/blob/main/INCLUDED-MODS.md#smooth\n[2]: https://wiki.download.fo/readme/give-up-optifine\n[3]: https://wiki.download.fo/readme/free-cape\n[4]: https://github.com/Fabulously-Optimized/fabulously-optimized/blob/main/INCLUDED-MODS.md#functional\n[5]: https://github.com/Fabulously-Optimized/fabulously-optimized#downloads\n[6]: https://download.fo/changelog\n[7]: https://wiki.download.fo/readme/update-instructions\n[8]: https://wiki.download.fo/readme/adding-more-mods\n[9]: https://download.fo/github\n[10]: https://download.fo/translate\n[11]: https://download.fo/discord\n[12]: https://wiki.download.fo\n[13]: https://download.fo/thanks\n[14]: https://wiki.download.fo/readme/server-setup\n[15]: https://download.fo/host\n[16]: https://download.fo/terms",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/1KVo5zza/images/38f70f307f1a0b17d8ed4526d1636317e8c12d1d_350.webp",
+      "featured": true,
+      "title": "Sunrise behind a hill",
+      "description": "Image by ThePumpkinPigs#0054, Complementary Reimagined shaders",
+      "created": "2023-04-07T13:34:18.201900Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1KVo5zza/images/ce41746dbf8f3d2a9661875c18b5667778233ccf_350.webp",
+      "featured": false,
+      "title": "Title screen",
+      "description": "Version shown in bottom right corner",
+      "created": "2023-04-07T13:33:23.167097Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1KVo5zza/images/044a5b9cb85394be95656a1ebcfe135466420da9.png",
+      "featured": false,
+      "title": "Mod menu",
+      "description": "Bundled resource pack describes each mod's features and options",
+      "created": "2023-04-07T13:33:38.535259Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1KVo5zza/images/9d5ddd3392ce89295caa1030ca930f71f5c6b49a_350.webp",
+      "featured": false,
+      "title": "FPS in high render distance",
+      "description": "Image by ThePumpkinPigs#0054, FPS indicator can be enabled in video settings",
+      "created": "2023-04-07T13:33:54.499337Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "robotkoer",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/user/2avTeeAE/icon.png"
+    },
+    {
+      "username": "Kichura",
+      "role": "Community Moderator",
+      "avatar": "https://avatars2.githubusercontent.com/u/68134602?v=4"
+    },
+    {
+      "username": "alexjs",
+      "role": "Community Moderator",
+      "avatar": "https://cdn.modrinth.com/user/xhhhQB4k/6c070d9c141a55d2ebe7b7e0edbb9c2145a8f81e.png"
+    },
+    {
+      "username": "nick9509",
+      "role": "Community Moderator",
+      "avatar": "https://cdn.modrinth.com/user/8OzAtUJO/28bcb0eb1c68be77c854015df11664afd757a574.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "D35n5vLL",
+      "name": "15.0.0-beta.1 for 26.3",
+      "version_number": "15.0.0-beta.1",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-10-11T12:00:36.367115Z",
+      "downloads": 350303,
+      "changelog": "- Readded Polytone\n- Updated Entity Model Features, Cape Provider, e4mc, Entity Culling, Fabric API, Fabric Language Kotlin, Zoomify\n- Updated \"Open to Internet\" references and pause menu hint to \"World Options...\"\n- Temporarily removed: Cubes Without Borders, Paginated Advancements",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v15.0.0-beta.1.mrpack",
+          "size": 173799,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7271,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "uQxD0ENB",
+      "name": "14.1.1 for 26.2",
+      "version_number": "14.1.1",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-10-11T10:32:15.321598Z",
+      "downloads": 97080,
+      "changelog": "- Updated Entity Model Features, Entity Texture Features, Cape Provider, Controlify, Crash Assistant, Debugify, e4mc, Entity Culling, Fabric API, Fabric Language Kotlin, ImmediatelyFast, Ixeris, Language Reload, Mod Menu, ModernFix-mVUS, Polytone, Reese's Sodium Options, Renice Shot, Skyboxify, Sodium Extra, YetAnotherConfigLib, Zoomify\n- Backported translation updates",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v14.1.1.mrpack",
+          "size": 192991,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7417,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "glnu8pns",
+      "name": "13.6.0 for 26.1.2",
+      "version_number": "13.6.0",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-10-11T10:04:52.135024Z",
+      "downloads": 15974,
+      "changelog": "Major Sodium update!\n\n- Updated Entity Model Features, Entity Texture Features, Controlify, Debugify, e4mc, Entity Culling, Fabric Language Kotlin, Iris Shaders, Ixeris, Language Reload, Mod Menu, Polytone, Reese's Sodium Options, Skyboxify, Sodium, Sodium Extra, YetAnotherConfigLib, Zoomify",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v13.6.0.mrpack",
+          "size": 167944,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7360,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "MKDr2HvF",
+      "name": "15.0.0-alpha.5 for 26.3",
+      "version_number": "15.0.0-alpha.5",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-10-04T16:04:36.458740Z",
+      "downloads": 233522,
+      "changelog": "- Readded Language Reload, No Chat Reports, Puzzle\n- Updated Entity Model Features, Entity Texture Features, Cloth Config API, e4mc, Iris Shaders, Lithium, MoreCulling, Renice Shot\n- Temporarily removed: Cubes Without Borders, Paginated Advancements, Polytone",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v15.0.0-alpha.5.mrpack",
+          "size": 172937,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7350,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "9toQ7Bv7",
+      "name": "15.0.0-alpha.4 for 26.3",
+      "version_number": "15.0.0-alpha.4",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-27T11:19:21.918043Z",
+      "downloads": 154372,
+      "changelog": "- Readded Controlify, Debugify, Skyboxify, YetAnotherConfigLib, Zoomify\n- Updated Crash Assistant, Cloth Config, Entity Culling, Forge Config API Port, Ixeris, Mod Menu, ModernFix-mVUS, Reese's Sodium Options\n  - Sodium update skipped as it is an alpha\n- Updated Ukrainian translation\n- Temporarily removed: Cubes Without Borders, Language Reload, No Chat Reports, Paginated Advancements, Polytone, Puzzle",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v15.0.0-alpha.4.mrpack",
+          "size": 176288,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7201,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "9TjRcKTW",
+      "name": "15.0.0-alpha.3 for 26.3",
+      "version_number": "15.0.0-alpha.3",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-20T17:29:45.465299Z",
+      "downloads": 121852,
+      "changelog": "- Readded Animatica Refabricated, Entity Culling, ImmediatelyFast, Ixeris, OptiGUI, Remove Reloading Screen, Sodium Shadowy Path Blocks\n  - Skipped Skyboxify due to lack of compatible YACL in CurseForge\n- Updated Cape Provider, Entity Model Features, Entity Texture Features, Fabric API\n- Removed Cape Provider's Mod Menu workaround\n- Updated Estonian, Hebrew, Malay (Latin, Jawi), Chinese Traditional translations\n- Temporarily removed: Controlify, Cubes Without Borders, Debugify, Language Reload, No Chat Reports, Paginated Advancements, Polytone, Puzzle, Skyboxify, YetAnotherConfigLib, Zoomify",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v15.0.0-alpha.3.mrpack",
+          "size": 183623,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7441,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "IpNvMMVS",
+      "name": "15.0.0-alpha.2 for 26.3",
+      "version_number": "15.0.0-alpha.2",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-16T20:34:35.629705Z",
+      "downloads": 84573,
+      "changelog": "- Removed Ixeris for now due to crashes\n- Temporary removed: Animatica Refabricated, Controlify, Cubes Without Borders, Debugify, Entity Culling, ImmediatelyFast, Ixeris, Language Reload, No Chat Reports, OptiGUI, Paginated Advancements, Polytone, Puzzle, Remove Reloading Screen, Sodium Shadowy Path Blocks, Skyboxify, YetAnotherConfigLib, Zoomify",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v15.0.0-alpha.2.mrpack",
+          "size": 165508,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7376,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "gbioSm0H",
+      "name": "15.0.0-alpha.1 for 26.3",
+      "version_number": "15.0.0-alpha.1",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-16T19:59:48.401927Z",
+      "downloads": 5045,
+      "changelog": "This is an early experimental version.\n\n- Make a new instance for testing\n- Expect and report bugs\n- Only add content that is marked as compatible with Minecraft 26.3.\n\nChanges\n\n- Updated Better Block Entities, BetterGrassify, Continuity, Crash Assistant, Cloth Config, Dynamic FPS, Entity Model Features, Entity Texture Features, Fabric API, Forge Config API Port, Iris Shaders, LambDynamicLights, Lithium, ModernFix-mVUS, Mod Menu, MoreCulling, Reese's Sodium Options, Renice Shot, Sodium, Sodium Extra\n- Hid Cape Provider's config GUI from Mod Menu as it crashes\n- Temporary removed: Animatica Refabricated, Controlify, Cubes Without Borders, Debugify, Entity Culling, ImmediatelyFast, Language Reload, No Chat Reports, OptiGUI, Paginated Advancements, Polytone, Puzzle, Remove Reloading Screen, Sodium Shadowy Path Blocks, Skyboxify, YetAnotherConfigLib, Zoomify",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fabulously.Optimized-v15.0.0-alpha.1.mrpack",
+          "size": 165661,
+          "primary": true
+        },
+        {
+          "filename": "cosign-bundle.zip",
+          "size": 7532,
+          "primary": false
+        }
+      ]
+    }
+  ]
+}

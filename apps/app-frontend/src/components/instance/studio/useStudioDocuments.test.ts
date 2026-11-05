@@ -129,6 +129,38 @@ it('ordinary close saves edits and concurrent closes do not remove another tab',
     expect(studio.activePath.value).toBe('b')
 })
 
+it('a deletion waits for a write it did not start', async () => {
+    const pending = deferred()
+    const studio = useStudioDocuments(async () => {}, expect.fail)
+    const removed: string[] = []
+    // An image edit is written by the page, not by a document, so the delete has
+    // no other way of knowing it is still running.
+    studio.trackWrite('screenshots/block.png', pending.promise)
+
+    const deleting = studio.deletePath('screenshots/block.png', async () => {
+        removed.push('block.png')
+    })
+    await Promise.resolve()
+    expect(removed).toEqual([])
+
+    pending.resolve()
+    await deleting
+    expect(removed).toEqual(['block.png'])
+})
+
+it('a failed write does not keep a deletion from finishing', async () => {
+    const studio = useStudioDocuments(async () => {}, expect.fail)
+    const removed: string[] = []
+    studio.trackWrite('screenshots/block.png', Promise.reject(new Error('disk full')))
+
+    expect(
+        await studio.deletePath('screenshots/block.png', async () => {
+            removed.push('block.png')
+        }),
+    ).toBe(true)
+    expect(removed).toEqual(['block.png'])
+})
+
 it('a deletion finishing after a workspace reset does not close the new workspace document', async () => {
     const pending = deferred()
     const studio = useStudioDocuments(async () => {}, expect.fail)

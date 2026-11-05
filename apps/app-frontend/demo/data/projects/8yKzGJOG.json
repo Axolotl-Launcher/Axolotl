@@ -1,0 +1,223 @@
+{
+  "id": "8yKzGJOG",
+  "slug": "slimes-adventure",
+  "title": "Slimes Adventure",
+  "description": "Tensura: that time i got reincarnated as a slime modpack with many features",
+  "author": "NotWindx",
+  "categories": ["adventure", "challenging", "combat", "fabric", "forge", "magic", "optimization"],
+  "display_categories": ["adventure", "combat", "magic"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 2089053,
+  "followers": 527,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["forge", "fabric"],
+  "game_versions": ["1.16.5", "1.19.2", "1.21.1"],
+  "latest_version": "ylSYr50H",
+  "date_created": "2023-07-23T16:02:30.469868Z",
+  "date_modified": "2026-09-11T07:27:36.965052Z",
+  "color": 3093566,
+  "published": "2023-07-23T16:02:30.469868Z",
+  "additional_categories": ["challenging", "optimization"],
+  "issues_url": "https://github.com/NotWindx/Slimes-Adventure/issues",
+  "source_url": null,
+  "wiki_url": "https://notwindx.net/#wiki",
+  "discord_url": "https://discord.gg/wzmthuGybN",
+  "donation_urls": [],
+  "versions_total": 60,
+  "body": "[Discord](https://discord.com/invite/sfkPr97DGm)\n\n**Slimes Adventure** is a meticulously crafted, progression-driven Minecraft modpack that redefines the RPG experience. Centered around a rich tapestry of magic, monster evolution, and expansive exploration, this pack offers a deeply immersive journey through a world where every encounter holds the potential for growth.\n\n### ⚔️ Core Gameplay & Progression\nAt the heart of the modpack lies a comprehensive, anime-inspired RPG framework, anchored by the **Tensura** mod. This core experience has been significantly expanded through seamless integration with **Mysticism**, **Beyond Adventure**, and the **KumoDesu** (*So I'm a Spider, So What?*) universe. \n\nTogether, these mods introduce a sophisticated progression system featuring deep skill trees, dynamic character evolutions, and a diverse ecosystem of new creatures. Players will master arcane abilities, acquire iconic weaponry and armor, and face formidable boss encounters that demand both strategic preparation and mechanical skill.\n\n### 🗺️ World Overhaul & Exploration\nExploration has been fundamentally reimagined. The vanilla world generation has been comprehensively overhauled using **YUNG's Better Structures**, **Moog's Structures**, and **Explorify**. This transforms standard cave systems and surface biomes into intricate, rewarding labyrinths and sprawling dungeons, ensuring that every expedition yields meaningful loot, unique challenges, and a constant sense of discovery.\n\n### 🏰 Base Building & Logistics\nTo support your growing arsenal and resources, the pack features a robust logistical and architectural foundation. The complete **Macaw's** collection provides unparalleled aesthetic and functional building options, while **Sophisticated Storage** ensures that managing vast quantities of loot remains streamlined and efficient. This synergy allows players to construct highly functional, visually striking bases without sacrificing gameplay momentum.\n\n### 🌟 Key Features\n* **Deep RPG Progression:** Evolve your character through complex skill systems inspired by the *Tensura* and *KumoDesu* universes.\n* **Expanded Mod Synergy:** Experience the combined depth of Tensura, Mysticism, and Beyond Adventure for a uniquely layered gameplay loop.\n* **Rewarding Exploration:** Discover hand-crafted structures and enhanced dungeons that make every journey worthwhile.\n* **Streamlined Logistics:** Build beautiful, highly organized bases with top-tier storage and decoration mods. \n\n### ⚙️ Technical & Performance\nThis modpack has been rigorously tested and optimized to ensure a stable, high-performance experience. Mod configurations have been fine-tuned to resolve conflicts, optimize chunk loading, and maintain smooth framerates. \n* **Recommended Allocation:** For optimal performance, please allocate a minimum of **6GB to 8GB of RAM** to your Minecraft instance.\n\n### 🤝 Credits & Acknowledgments\nThis modpack would not be possible without the incredible work of the Minecraft modding community. Special thanks to the developers of **Tensura**, **Mysticism**, **Beyond Adventure**, **KumoDesu**, and all the world-generation and utility mod authors for creating the foundational mechanics that make this experience possible.\n\n*If you encounter any bugs, crashes, or have suggestions for balancing, please report them via our official Discord Server. Your feedback is vital to the continued refinement of the pack.*\n\n[Partner](https://billing.kinetichosting.com/aff.php?aff=625)",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/8yKzGJOG/images/f381474bf3758d6eb8feeb0ad8fd7be21da70802_350.webp",
+      "featured": false,
+      "title": "Skills and Abilitys",
+      "description": "the main menu for the Ability's",
+      "created": "2023-07-23T21:40:17.819336Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/8yKzGJOG/images/a6279a69099f68760ec61b8d4f4396f73e9ecc54_350.webp",
+      "featured": false,
+      "title": "Portal",
+      "description": "this is the portal which connects the overworld to the Nether",
+      "created": "2024-10-04T23:43:45.820625Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "BaduBSL",
+      "role": "Admin",
+      "avatar": null
+    },
+    {
+      "username": "NotWindx",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/125153541?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "ylSYr50H",
+      "name": "Slimes Adventure: RE 1.13.4",
+      "version_number": "1.13.4",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-11T07:27:36.965052Z",
+      "downloads": 167325,
+      "changelog": "Slimes Adventure: RE 1.13.4\n--\nview Changelog here: https://slimes-adventure.com/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure - 1.13.4.mrpack",
+          "size": 17519018,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GFPO7i7S",
+      "name": "Slimes Adventure: RE 1.13.3.1",
+      "version_number": "1.13.3.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-04T13:37:26.682539Z",
+      "downloads": 32047,
+      "changelog": "Slimes Adventure: RE 1.13.3.1\n--\nview Changelog here: https://slimes-adventure.com/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure - 1.13.3.1.mrpack",
+          "size": 17169292,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8EJRpynP",
+      "name": "Slimes Adventure: RE 1.13.3",
+      "version_number": "1.13.3",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-04T09:49:48.963697Z",
+      "downloads": 1601,
+      "changelog": "Slimes Adventure: RE 1.13.3\n--\nview Changelog here: https://slimes-adventure.com/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure - 1.13.3.mrpack",
+          "size": 17169556,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fS5Y80UJ",
+      "name": "Slimes Adventure: RE 1.13.2",
+      "version_number": "1.13.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-01T10:04:08.865328Z",
+      "downloads": 15865,
+      "changelog": "Slimes Adventure: RE 1.13.2\n--\nview Changelog here: https://slimes-adventure.com/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure.mrpack",
+          "size": 48495847,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bMOhnusk",
+      "name": "Slimes Adventure: RE 1.13.1",
+      "version_number": "1.13.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-29T08:59:04.228185Z",
+      "downloads": 18416,
+      "changelog": "Slimes Adventure: RE 1.13.1\n--\nview Changelog here: https://slimes-adventure.com/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure 1.13.1.mrpack",
+          "size": 48431258,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "rnG7ByrT",
+      "name": "Slimes Adventure: RE 1.13.0",
+      "version_number": "1.13.0",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-28T09:30:35.647328Z",
+      "downloads": 6175,
+      "changelog": "Slimes Adventure: RE 1.13.0\n--\nview Changelog here: https://slimes-adventure.com/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure 1.13.0.mrpack",
+          "size": 48423099,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "PykeWXtT",
+      "name": "Slimes Adventure 1.12.10.1",
+      "version_number": "1.12.10.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-13T06:48:57.929615Z",
+      "downloads": 70662,
+      "changelog": "Slimes Adventure: RE 1.12.10.1\n--\nview Changelog here: https://notwindx.net/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure 1.12.10.1.mrpack",
+          "size": 3603233,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "PzZwt2tj",
+      "name": "Slimes Adventure: RE 1.12.10",
+      "version_number": "1.12.10",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-13T06:24:52.511170Z",
+      "downloads": 1600,
+      "changelog": "Slimes Adventure: RE 1.12.10\n--\nview Changelog here: https://notwindx.net/changelogs/",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Slimes Adventure 1.12.10.mrpack",
+          "size": 3610384,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

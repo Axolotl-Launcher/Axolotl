@@ -70,7 +70,16 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { type as getOsType } from '@tauri-apps/plugin-os'
 import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
-import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import {
+    computed,
+    defineAsyncComponent,
+    nextTick,
+    onMounted,
+    onUnmounted,
+    provide,
+    ref,
+    watch,
+} from 'vue'
 import { type RouteLocationNormalizedLoaded, RouterView, useRoute, useRouter } from 'vue-router'
 
 import { getAnnouncementByVersion } from '@/announcements/catalog'
@@ -95,7 +104,7 @@ import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
 import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
-import OnboardingOverlay from '@/components/ui/onboarding/OnboardingOverlay.vue'
+import { createOobeController } from '@/components/ui/oobe/useOobe'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import RemoteAnnouncements from '@/components/ui/RemoteAnnouncements.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
@@ -377,12 +386,13 @@ const {
 
 const { offline } = useNetworkStatus()
 
-// Temporarily pause automatic tours while keeping manual replay available.
-const autoStartOnboarding = false
-const showOnboarding = ref(false)
-const onboardingMode = ref('main')
-const onboardingSettings = ref(null)
-const onboardingReplay = ref(false)
+const OobeHost = defineAsyncComponent(() => import('@/components/ui/oobe/OobeHost.vue'))
+const oobe = createOobeController()
+const oobeVisible = oobe.visible
+watch(oobeVisible, (visible) => {
+    if (visible) notificationManager.holdNotifications()
+    else notificationManager.releaseNotifications()
+})
 const nativeDecorations = ref(false)
 
 const os = ref('')
@@ -1465,7 +1475,7 @@ async function setupApp() {
         hide_nametag_skins_page,
         nametag_uses_app_font,
         advanced_rendering,
-        onboarded,
+        oobe_completed_steps,
         default_page,
         toggle_sidebar,
         custom_background_path,
@@ -1514,10 +1524,14 @@ async function setupApp() {
     const dev = await isDev()
     isDevEnvironment.value = dev
     pendingUpdateAnnouncementVersion.value = pending_update_toast_for_version
-    if (autoStartOnboarding && !onboarded && route.path !== '/') await router.replace('/')
     privacyConsentPending.value = telemetry_consent_version < 1
-    showOnboarding.value = false
-    onboardingSettings.value = initialSettings
+    const oobePending = oobe.prepare(oobe_completed_steps)
+    if (oobePending) {
+        // Shown now, before the awaits below: every startup dialog and community announcement
+        // waits on it being visible, and notifications are held before it renders.
+        oobe.show()
+        notificationManager.holdNotifications()
+    }
 
     nativeDecorations.value = native_decorations
     if (os.value !== 'MacOS') await getCurrentWindow().setDecorations(native_decorations)
@@ -1574,15 +1588,12 @@ async function setupApp() {
     }
     if (appUnmounted) stopMcp()
     else stopMcpStateSync = stopMcp
-    if (privacyConsentPending.value) {
-        await nextTick()
-        privacyConsentModal.value?.show({
+    if (!oobePending && privacyConsentPending.value) {
+        await showPrivacyConsent({
             telemetry,
             discord_rpc,
             consent_version: telemetry_consent_version,
         })
-    } else {
-        showOnboarding.value = autoStartOnboarding && !onboarded
     }
 
     unlistenWindowResize = await getCurrentWindow().onResized(() => {
@@ -1668,48 +1679,23 @@ async function initializeSystemAccentColor() {
     }
 }
 
-function startOnboarding(mode = 'main') {
-    onboardingReplay.value = false
-    onboardingMode.value = mode
-    showOnboarding.value = true
+async function showPrivacyConsent(privacy: PrivacySettings) {
+    await nextTick()
+    privacyConsentModal.value?.show(privacy)
 }
 
-async function replayOnboarding(mode) {
-    onboardingReplay.value = true
-    onboardingMode.value = mode
-    if (mode === 'main') await router.replace('/')
-    if (mode === 'logagent') await router.replace('/settings#launch-defaults')
-    showOnboarding.value = true
-}
-
-async function finishOnboarding() {
-    const wasReplay = onboardingReplay.value
-    const settings = onboardingSettings.value ?? (await getSettings())
-    if (!onboardingReplay.value) {
-        if (onboardingMode.value === 'instance') {
-            settings.onboarding_instance_tour_completed = true
-        } else if (onboardingMode.value === 'main') {
-            settings.onboarded = true
-            settings.onboarding_version = 1
+/** The OOBE comes first; the privacy choice and the update notes wait until it closes. */
+async function finishOobe() {
+    await oobe.finish()
+    if (privacyConsentPending.value) {
+        try {
+            await showPrivacyConsent(await getPrivacySettings())
+        } catch (error) {
+            handleError(error)
         }
-        await updateSettings(
-            onboardingMode.value === 'instance'
-                ? { onboarding_instance_tour_completed: true }
-                : { onboarded: true, onboarding_version: 1 },
-        )
-        onboardingSettings.value = settings
+        return
     }
-    showOnboarding.value = false
-    onboardingReplay.value = false
-    if (!wasReplay) await scheduleStartupDialogs()
-}
-
-async function skipOnboarding() {
-    await finishOnboarding()
-}
-
-async function closeOnboardingSettings() {
-    if (route.path === '/settings') await router.replace('/')
+    await scheduleStartupDialogs()
 }
 
 async function handleUpdateAnnouncementClosed(version) {
@@ -1730,7 +1716,7 @@ async function scheduleStartupDialogs() {
     if (
         !stateInitialized.value ||
         privacyConsentPending.value ||
-        showOnboarding.value ||
+        oobeVisible.value ||
         updateAnnouncementShowing.value
     )
         return
@@ -1743,18 +1729,9 @@ async function scheduleStartupDialogs() {
     }
 }
 
-async function handlePrivacyConsentSaved(privacy: PrivacySettings) {
+async function handlePrivacyConsentSaved() {
     privacyConsentPending.value = false
-    if (onboardingSettings.value) {
-        onboardingSettings.value.telemetry = privacy.telemetry
-        onboardingSettings.value.discord_rpc = privacy.discord_rpc
-        onboardingSettings.value.telemetry_consent_version = privacy.consent_version
-    }
-    if (autoStartOnboarding && !onboardingSettings.value?.onboarded) {
-        startOnboarding('main')
-    } else {
-        await scheduleStartupDialogs()
-    }
+    await scheduleStartupDialogs()
 }
 
 async function previewPrivacyConsentModal() {
@@ -1766,19 +1743,13 @@ async function previewPrivacyConsentModal() {
             consent_version: 0,
         })
         privacyConsentPending.value = true
-        if (onboardingSettings.value) {
-            onboardingSettings.value.telemetry = privacy.telemetry
-            onboardingSettings.value.discord_rpc = privacy.discord_rpc
-            onboardingSettings.value.telemetry_consent_version = privacy.consent_version
-        }
-        await nextTick()
-        privacyConsentModal.value?.show(privacy)
+        await showPrivacyConsent(privacy)
     } catch (error) {
         handleError(error)
     }
 }
 
-provide('replayOnboarding', replayOnboarding)
+provide('replayOobe', oobe.replay)
 provide(minecraftLaunchErrorKey, async (launchError, payload) => {
     if (isOfflineAccountRestrictedError(launchError)) {
         useError().showAntiPiracyNotice()
@@ -2093,21 +2064,6 @@ watch(offline, (isOffline) => {
         void router.push('/library')
     }
 })
-
-watch(
-    () => route.path,
-    (path) => {
-        if (
-            autoStartOnboarding &&
-            path.startsWith('/instance/') &&
-            onboardingSettings.value?.onboarded &&
-            !onboardingSettings.value?.onboarding_instance_tour_completed &&
-            !showOnboarding.value
-        ) {
-            startOnboarding('instance')
-        }
-    },
-)
 
 const error = useError()
 error.setMinecraftLaunchErrorHandler((launchError, context) => {
@@ -2939,7 +2895,9 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     <div
         v-if="stateInitialized"
         class="app-grid-layout relative"
+        :inert="oobeVisible"
         :class="{
+            invisible: oobeVisible,
             'disable-advanced-rendering': !themeStore.advancedRendering,
             'has-custom-background':
                 themeStore.customBackgroundPath && !themeStore.transparentBackground,
@@ -3006,7 +2964,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('screenshots')"
                     v-tooltip.right="formatMessage(messages.screenshots)"
-                    data-onboarding-id="nav-screenshots"
                     to="/screenshots"
                     :is-primary="(r) => r.path.startsWith('/screenshots')"
                 >
@@ -3024,7 +2981,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('discover')"
                     v-tooltip.right="formatMessage(messages.discoverContent)"
-                    data-onboarding-id="nav-discover"
                     :to="discoverContentPath"
                     :disabled="offline"
                     :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
@@ -3035,7 +2991,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('skins')"
                     v-tooltip.right="formatMessage(messages.skinSelector)"
-                    data-onboarding-id="nav-skins"
                     to="/skins"
                 >
                     <ChangeSkinIcon />
@@ -3051,7 +3006,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('library')"
                     v-tooltip.right="formatMessage(messages.library)"
-                    data-onboarding-id="nav-library"
                     to="/library"
                     :is-primary="(r) => r.matched.some((record) => record.name === 'Library')"
                     :is-subpage="
@@ -3067,7 +3021,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('lab')"
                     v-tooltip.right="formatMessage(messages.lab)"
-                    data-onboarding-id="nav-lab"
                     to="/lab"
                     :is-primary="(r) => r.path.startsWith('/lab')"
                 >
@@ -3082,23 +3035,17 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
             <NavButton
                 v-tooltip.right="formatMessage(messages.createInstance)"
-                data-onboarding-id="create-instance"
                 to="/create"
                 :disabled="offline"
             >
                 <PlusIcon />
             </NavButton>
-            <NavButton
-                v-tooltip.right="formatMessage(commonMessages.settingsLabel)"
-                data-onboarding-id="nav-settings"
-                to="/settings"
-            >
+            <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
                 <SettingsIcon />
             </NavButton>
             <OverflowMenu
                 v-if="AxolotlBrandConfig.capabilities.privateModrinthServices && credentials?.user"
                 v-tooltip.right="formatMessage(messages.modrinthAccount)"
-                data-onboarding-id="account-entry"
                 class="w-12 h-12 text-[var(--color-text-default)] rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)] border-0 cursor-pointer"
                 :options="[
                     {
@@ -3140,7 +3087,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             <NavButton
                 v-else-if="AxolotlBrandConfig.capabilities.privateModrinthServices"
                 v-tooltip.right="formatMessage(messages.signInModrinth)"
-                data-onboarding-id="account-entry"
                 :to="() => signIn()"
             >
                 <LogInIcon class="text-brand" />
@@ -3162,7 +3108,9 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     <div
         v-if="stateInitialized"
         class="app-contents"
+        :inert="oobeVisible"
         :class="{
+            invisible: oobeVisible,
             'sidebar-enabled': sidebarVisible,
             'studio-mode':
                 route.name === 'FileStudio' || route.name === 'MultiplayerServerFileStudio',
@@ -3305,20 +3253,14 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     <PrivacyConsentModal ref="privacyConsentModal" @saved="handlePrivacyConsentSaved" />
     <RemoteAnnouncements
         :ready="
-            stateInitialized &&
-            !privacyConsentPending &&
-            !showOnboarding &&
-            !updateAnnouncementShowing
+            stateInitialized && !privacyConsentPending && !oobeVisible && !updateAnnouncementShowing
         "
     />
     <RemoteAnnouncements
         ref="remoteAnnouncementPreview"
         preview-only
         :ready="
-            stateInitialized &&
-            !privacyConsentPending &&
-            !showOnboarding &&
-            !updateAnnouncementShowing
+            stateInitialized && !privacyConsentPending && !oobeVisible && !updateAnnouncementShowing
         "
     />
     <UpdateAnnouncementModal
@@ -3581,12 +3523,11 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         @cancel="cancelBatchScan"
     />
 
-    <OnboardingOverlay
-        :visible="showOnboarding"
-        :mode="onboardingMode"
-        @complete="finishOnboarding"
-        @skip="skipOnboarding"
-        @request-close-settings="closeOnboardingSettings"
+    <OobeHost
+        v-if="stateInitialized && oobeVisible"
+        :steps="oobe.steps.value"
+        @complete="oobe.complete"
+        @finish="finishOobe"
     />
 </template>
 

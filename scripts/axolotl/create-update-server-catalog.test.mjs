@@ -38,6 +38,8 @@ const files = [
     'Axolotl_Launcher_1.9.5-beta.1_x64_nsis-setup.exe.sig',
     'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip',
 ]
+// Attached for the website, not installed by the Update Server.
+const webDemo = 'Axolotl_Launcher_1.9.5-beta.1_web_demo.zip'
 
 try {
     fs.writeFileSync(
@@ -46,7 +48,7 @@ try {
             tag_name: 'v1.9.5-beta.1',
             draft: false,
             published_at: '2026-10-22T00:00:00Z',
-            assets: files.map((name, index) => ({
+            assets: [webDemo, ...files].map((name, index) => ({
                 name,
                 size: index + 1,
                 digest: `sha256:${crypto.createHash('sha256').update(name).digest('hex')}`,
@@ -67,6 +69,7 @@ try {
     const catalog = JSON.parse(fs.readFileSync(output, 'utf8'))
     assert.equal(catalog.version, '1.9.5-beta.1')
     assert.equal(catalog.files.length, files.length)
+    assert.ok(!catalog.files.some((file) => file.filename === webDemo))
     assert.deepEqual(
         catalog.artifacts.find((artifact) => artifact.filename.endsWith('_amd64.AppImage.tar.gz'))
             .targetPlatforms,

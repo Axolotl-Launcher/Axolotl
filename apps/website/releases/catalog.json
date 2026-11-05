@@ -1,6 +1,133 @@
 {
-  "updated_at": "2026-11-01T14:11:03.399Z",
+  "updated_at": "2026-11-05T03:08:45.388Z",
   "announcements": [
+    {
+      "id": "launcher-1.11.0-beta.2",
+      "version": "1.11.0-beta.2",
+      "publishedAt": "2026-11-04",
+      "title": {
+        "en-US": "Axolotl Launcher 1.11.0-beta.2",
+        "zh-CN": "Axolotl Launcher 1.11.0-beta.2"
+      },
+      "changes": {
+        "added": [
+          {
+            "en-US": "Added image editing in Studio previews with cropping, drawing, highlighting, shapes, text, erasing, undo, and redo.",
+            "zh-CN": "Studio 图片预览新增编辑功能，支持裁剪、绘画、高亮、形状、文字、擦除、撤销和重做。"
+          },
+          {
+            "en-US": "Added image preview zoom controls, actual-size viewing, and fit-to-window mode in Studio.",
+            "zh-CN": "Studio 图片预览新增缩放、原始尺寸查看和适应窗口模式。"
+          },
+          {
+            "en-US": "Added opening instance .litematic and .schem files directly from Studio in Schematic Workshop.",
+            "zh-CN": "新增从 Studio 直接使用投影工坊打开实例中的 .litematic 和 .schem 文件。"
+          },
+          {
+            "en-US": "Added a themed colour picker with hue and saturation controls, hexadecimal input, Minecraft dye presets, and recent colours.",
+            "zh-CN": "新增适配主题的颜色选择器，支持色相与饱和度调整、十六进制输入、Minecraft 染料预设和最近使用的颜色。"
+          }
+        ],
+        "changed": [
+          {
+            "en-US": "Unified Studio and file text editors on a shared, lazily loaded Monaco editor.",
+            "zh-CN": "统一 Studio 和文件文本编辑器，使用共享且按需加载的 Monaco 编辑器。"
+          },
+          {
+            "en-US": "Updated the screenshot editor, gradient text tool, and Seed Map to use the new colour picker.",
+            "zh-CN": "截图编辑器、渐变文字工具和种子地图改用新的颜色选择器。"
+          },
+          {
+            "en-US": "Reduced bundled desktop resources by compressing embedded images and removing duplicated editor and runtime dependencies.",
+            "zh-CN": "通过压缩内置图片、移除重复编辑器和运行时依赖，减少桌面端打包资源体积。"
+          },
+          {
+            "en-US": "Updated the built-in AI model catalog.",
+            "zh-CN": "更新内置 AI 模型列表。"
+          }
+        ],
+        "fixed": [
+          {
+            "en-US": "Fixed Studio image and video previews failing for linked instances or custom game directories.",
+            "zh-CN": "修复关联实例或自定义游戏目录中的图片和视频无法在 Studio 预览的问题。"
+          },
+          {
+            "en-US": "Fixed image edits being saved to the wrong file after switching tabs or workspaces.",
+            "zh-CN": "修复切换标签页或工作目录后，图片编辑结果被保存到错误文件的问题。"
+          },
+          {
+            "en-US": "Fixed image saves overwriting externally modified files, recreating deleted files, or damaging originals when a write failed.",
+            "zh-CN": "修复图片保存覆盖外部修改、重新创建已删除文件，或在写入失败时损坏原文件的问题。"
+          },
+          {
+            "en-US": "Fixed losing unsaved image edits without confirmation and closing the editor after a failed save.",
+            "zh-CN": "修复未确认就丢弃图片修改，以及保存失败后仍关闭编辑器的问题。"
+          },
+          {
+            "en-US": "Fixed animated images being offered for editing, which could discard their animation.",
+            "zh-CN": "修复动画图片被允许编辑，可能导致动画丢失的问题。"
+          },
+          {
+            "en-US": "Fixed Studio preview sizing, macOS Command-key zoom, and editor shortcuts interfering with property inputs.",
+            "zh-CN": "修复 Studio 预览尺寸、macOS Command 键缩放，以及编辑快捷键干扰属性输入的问题。"
+          },
+          {
+            "en-US": "Fixed Litematic exports losing container contents, entities, scheduled ticks, and source metadata.",
+            "zh-CN": "修复 Litematic 导出丢失容器物品、实体、计划刻和源元数据的问题。"
+          },
+          {
+            "en-US": "Fixed Sponge schematic exports and format conversions losing block entities, entities, sign text, nested item data, and additional source fields.",
+            "zh-CN": "修复 Sponge 投影导出和格式转换丢失方块实体、实体、告示牌文字、嵌套物品数据及源文件附加字段的问题。"
+          },
+          {
+            "en-US": "Fixed schematic rotations and mirrors not consistently transforming entity positions, facing directions, and Sponge biome data alongside blocks.",
+            "zh-CN": "修复投影旋转和镜像时，实体位置、朝向和 Sponge 生物群系数据未与方块同步变换的问题。"
+          },
+          {
+            "en-US": "Fixed datapack updates selecting a project's mod JAR instead of a compatible datapack archive.",
+            "zh-CN": "修复数据包更新错误选择同一项目的模组 JAR，而非兼容数据包压缩包的问题。"
+          },
+          {
+            "en-US": "Fixed exported modpacks declaring client/server restrictions that could cause installers to skip required files.",
+            "zh-CN": "修复导出整合包附带客户端或服务端限制，导致安装器可能跳过所需文件的问题。"
+          },
+          {
+            "en-US": "Fixed reinstalling missing content losing the original installed entry's identity.",
+            "zh-CN": "修复重新安装缺失内容时，原有安装条目身份丢失的问题。"
+          },
+          {
+            "en-US": "Fixed empty content lists flickering during refresh and file reads triggering unnecessary content rescans.",
+            "zh-CN": "修复空内容列表刷新时闪烁，以及读取文件触发不必要内容重扫的问题。"
+          },
+          {
+            "en-US": "Fixed direct updates completing silently when no file changes were needed, with one notice per shared update operation.",
+            "zh-CN": "修复直接更新无需修改文件时没有反馈的问题，同一次共享更新操作仅显示一次提示。"
+          },
+          {
+            "en-US": "Fixed loader installation failures hiding processor exit details and output, including unreadable output on Chinese Windows systems.",
+            "zh-CN": "修复加载器安装失败时缺少处理器退出信息和输出详情，以及中文 Windows 系统下输出乱码的问题。"
+          },
+          {
+            "en-US": "Fixed successful rollback leaving stale error messages or continuing to block cache cleanup.",
+            "zh-CN": "修复回滚成功后仍保留旧错误提示，或继续阻止缓存清理的问题。"
+          },
+          {
+            "en-US": "Fixed cache cleanup failures displaying serialized objects instead of readable error messages.",
+            "zh-CN": "修复缓存清理失败时显示对象字符串，而非可读错误信息的问题。"
+          }
+        ],
+        "security": [
+          {
+            "en-US": "Fixed known dependency vulnerabilities affecting redirects, file matching, and ZIP extraction.",
+            "zh-CN": "更新相关依赖，修复重定向、文件匹配和 ZIP 解压中的已知安全漏洞。"
+          },
+          {
+            "en-US": "Bounded retained schematic metadata and loader processor output to prevent excessive memory use.",
+            "zh-CN": "限制投影会话保留的元数据和加载器处理器输出大小，防止过量占用内存。"
+          }
+        ]
+      }
+    },
     {
       "id": "launcher-1.11.0-beta.1",
       "version": "1.11.0-beta.1",

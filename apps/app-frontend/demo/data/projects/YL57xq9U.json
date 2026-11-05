@@ -1,0 +1,338 @@
+{
+  "id": "YL57xq9U",
+  "slug": "iris",
+  "title": "Iris Shaders",
+  "description": "A modern shader pack loader for Minecraft intended to be compatible with existing OptiFine shader packs",
+  "author": "coderbot",
+  "categories": ["decoration", "fabric", "neoforge", "optimization", "quilt"],
+  "display_categories": ["decoration", "fabric", "neoforge", "optimization", "quilt"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 194199743,
+  "followers": 30149,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "neoforge", "quilt"],
+  "game_versions": [
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "Ag5S66CF",
+  "date_created": "2021-05-27T05:11:15.690120Z",
+  "date_modified": "2026-09-30T02:58:24.095409Z",
+  "color": 263172,
+  "published": "2021-05-27T05:11:15.690120Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/IrisShaders/Iris/issues",
+  "source_url": "https://github.com/IrisShaders/Iris",
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/jQJnav2jPu",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/ims21"
+    },
+    {
+      "platform": "Other",
+      "url": "https://www.rainbowrailroad.org/"
+    }
+  ],
+  "versions_total": 243,
+  "body": "![Iris: An open-source shaders mod compatible with OptiFine shaderpacks](https://cdn.modrinth.com/data/cached_images/e63175a54ed1c0484e07f9e71bd426244220b51b.png)\n\n## Links\n\n* **Visit [our website](https://irisshaders.dev) for downloads and pretty screenshots!**\n* **Visit [the shaders section](https://modrinth.com/shaders) to find shader packs!**\n* Visit [our Discord server](https://discord.gg/jQJnav2jPu) to chat about the mod and get support! It's also a great place to get development updates right as they're happening.\n* Visit [the developer documentation](https://github.com/IrisShaders/Iris/tree/1.21/docs/development) for information on developing, building, and contributing to Iris!\n\n## Installation\n\nYou can find a guide to installation [here](https://github.com/IrisShaders/Iris/blob/multiloader-new/docs/guide.md).\n\n## FAQ\n\n- Find answers to frequently asked questions on our [FAQ page](https://github.com/IrisShaders/Iris/blob/multiloader-new/docs/faq.md).\n- Iris supports almost all shaderpacks, but a list of unsupported shaderpacks is available [here](https://github.com/IrisShaders/Iris/blob/1.21/docs/unsupportedshaders.md).\n- A list of unfixable limitations in Iris is available [here](https://github.com/IrisShaders/Iris/blob/1.21/docs/usage/limitations.md).\n\n## More Info\n\nMore info can be found on our [README](https://github.com/IrisShaders/Iris/blob/1.21/README.md).",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/YL57xq9U/images/f47cea26f135d74c2d69df0a1806751818d705d3_350.webp",
+      "featured": true,
+      "title": "Grand Teton National Park",
+      "description": "Taken by IMS, Continuum 2.0 Redux",
+      "created": "2026-02-07T19:48:53.449850Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/YL57xq9U/images/17f09a3d424d6e2005fcecc81838780a6847f8ce_350.webp",
+      "featured": false,
+      "title": "A nice sunset",
+      "description": "Complementary Shaders 4.4 dev5",
+      "created": "2022-02-28T02:26:00.883959Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/YL57xq9U/images/44245979cecbf237a3b26f375a0dc4f3a21dcf3d_350.webp",
+      "featured": false,
+      "title": "Wide Mountain",
+      "description": "woodiertexas - Complementary Shaders",
+      "created": "2022-02-28T02:34:59.422420Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/YL57xq9U/images/d69f13ea9889652c02f8cf91a3e55c8ef7cd6316_350.webp",
+      "featured": false,
+      "title": "Crying Obsidian Sky",
+      "description": "Complementary Shaders 4.4 dev3",
+      "created": "2022-02-28T02:35:42.372271Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "IMS",
+      "role": "Lead Developer",
+      "avatar": "https://avatars3.githubusercontent.com/u/31803019?v=4"
+    },
+    {
+      "username": "coderbot",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/22420959?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "Ag5S66CF",
+      "name": "Iris 1.11.7 for NeoForge 26.3",
+      "version_number": "1.11.7+26.3-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-30T02:58:24.095409Z",
+      "downloads": 187280,
+      "changelog": "Fixes a lot of 26.3 bugs",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "VHtnT9Q4",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-neoforge-1.11.7+mc26.3.jar",
+          "size": 2804761,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vTN4NRGW",
+      "name": "Iris 1.11.7 for Fabric 26.3",
+      "version_number": "1.11.7+26.3-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-30T02:57:43.801379Z",
+      "downloads": 3487285,
+      "changelog": "Fixes a lot of 26.3 bugs",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "bAZQdGpg",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-fabric-1.11.7+mc26.3.jar",
+          "size": 2850938,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6zJsI0eO",
+      "name": "Iris 1.10.8 for NeoForge 1.21.11",
+      "version_number": "1.10.8+1.21.11-neoforge",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-29T16:32:21.504362Z",
+      "downloads": 41805,
+      "changelog": "Fixes support for latest Sodium",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "sC6wj32u",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-neoforge-1.10.8+mc1.21.11.jar",
+          "size": 2750094,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ka9PDlsN",
+      "name": "Iris 1.10.8 for Fabric 1.21.11",
+      "version_number": "1.10.8+1.21.11-fabric",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-29T16:31:20.123897Z",
+      "downloads": 1401154,
+      "changelog": "Fixes support for latest Sodium",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "rkdTcxoT",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-fabric-1.10.8+mc1.21.11.jar",
+          "size": 2807718,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bAdKrpw8",
+      "name": "Iris 1.11.6 for Fabric 26.3",
+      "version_number": "1.11.6+26.3-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T18:18:28.462406Z",
+      "downloads": 1676229,
+      "changelog": "Fixes a bug stopping macOS from loading.",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "bAZQdGpg",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-fabric-1.11.6+mc26.3.jar",
+          "size": 2849091,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2nyTWtzT",
+      "name": "Iris 1.11.5 for Fabric 26.3",
+      "version_number": "1.11.5+26.3-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T16:20:05.133518Z",
+      "downloads": 23584,
+      "changelog": "Updated to Minecraft 26.3.",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "bAZQdGpg",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-fabric-1.11.5+mc26.3.jar",
+          "size": 2850919,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "k55HdONq",
+      "name": "Iris 1.11.4 for NeoForge 26.2",
+      "version_number": "1.11.4+26.2-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-13T00:03:35.369049Z",
+      "downloads": 111600,
+      "changelog": "Updates to Sodium 0.9.2 and fixes a lot of bugs.\n\nA new 'depth transformer' is used to avoid requiring switching to forward-Z during shader pack rendering, fixing a lot of bugs. However, this may cause some packs to behave unexpectedly.",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "DmnNKsfS",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-neoforge-1.11.4+mc26.2.jar",
+          "size": 2775477,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "gxZWWnKH",
+      "name": "Iris 1.11.4 for Fabric 26.2",
+      "version_number": "1.11.4+26.2-fabric",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-13T00:02:58.127328Z",
+      "downloads": 2456187,
+      "changelog": "Updates to Sodium 0.9.2 and fixes a lot of bugs.\n\nA new 'depth transformer' is used to avoid requiring switching to forward-Z during shader pack rendering, fixing a lot of bugs. However, this may cause some packs to behave unexpectedly.",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": "xJZxADzI",
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "iris-fabric-1.11.4+mc26.2.jar",
+          "size": 2821616,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -14,7 +14,6 @@ export interface BrowseProjectTab {
     label: string
     href: string
     shown?: boolean
-    onboardingId?: string
 }
 
 export interface BrowseProjectTabOptions {
@@ -93,7 +92,6 @@ export function createBrowseProjectTabs(
             label: labels.favorites,
             href: `/browse/favorites${suffix}`,
             shown: options.favorites ?? true,
-            onboardingId: 'browse-favorites-tab',
         },
     ]
 }

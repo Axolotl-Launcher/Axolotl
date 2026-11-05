@@ -1,7 +1,12 @@
 import fs from 'node:fs'
 
 import { updaterTargets as manifestTargets } from './create-update-manifest.mjs'
-import { releaseVersion, verifyAssetUrl, verifyRelease } from './release-utils.mjs'
+import {
+    releaseVersion,
+    verifyAssetUrl,
+    verifyRelease,
+    webDemoAssetName,
+} from './release-utils.mjs'
 
 const [releasePath, tag, outputPath] = process.argv.slice(2)
 
@@ -69,7 +74,8 @@ function digest(asset) {
 }
 
 const assets = release.assets
-    .filter((asset) => asset.name !== 'latest.json')
+    // The Update Server installs the launcher; the web demo is for the website.
+    .filter((asset) => asset.name !== 'latest.json' && asset.name !== webDemoAssetName(tag))
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map((asset) => {
         verifyAssetUrl(asset.browser_download_url, tag, asset.name)

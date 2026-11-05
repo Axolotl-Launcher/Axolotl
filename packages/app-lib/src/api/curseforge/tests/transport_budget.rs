@@ -51,7 +51,7 @@ async fn overall_budget_stops_a_body_that_keeps_the_read_timeout_alive() {
             tokio::time::sleep(Duration::from_millis(15)).await;
         }
     });
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .read_timeout(Duration::from_secs(1))
         .build()

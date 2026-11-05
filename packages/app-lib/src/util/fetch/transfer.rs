@@ -177,6 +177,9 @@ pub(crate) fn build_download_routes(
         routes.retain(|route| !route.is_mirror);
     }
     deduplicate_download_routes(&mut routes);
+    // Every official candidate URL comes before the MCIM fallbacks, which
+    // MCIM asks to be used only once the official sources have failed.
+    routes.sort_by_key(|route| route.source == DownloadRouteSource::Mcim);
     if routes.is_empty()
         && let Ok(url) = retired_sources::normalize(&request.url)
     {

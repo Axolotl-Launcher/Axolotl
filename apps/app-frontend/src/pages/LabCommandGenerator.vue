@@ -22,6 +22,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import CommandGeneratorArgument from '@/components/lab/command-generator/CommandGeneratorArgument.vue'
 import CommandGeneratorExecuteChain from '@/components/lab/command-generator/CommandGeneratorExecuteChain.vue'
+import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
 import { findGuide } from '@/lab/command-generator/command-guides.ts'
 import {
     CATEGORY_KEYS,
@@ -204,7 +205,7 @@ const messages = defineMessages({
 })
 
 function formatDynamic(id: string, fallback = ''): string {
-    return formatMessage({ id, defaultMessage: fallback || id })
+    return formatMessage(commandCatalogMessage(id, fallback))
 }
 
 type CommandComboboxOption = ComboboxOption<string> & {

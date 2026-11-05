@@ -51,7 +51,8 @@ pub(super) fn execute(
         } => {
             let bytes = read(root, &path, 16 * 1024 * 1024)?;
             check(&bytes, &expected_sha256)?;
-            let mut zip = ZipArchive::new(Cursor::new(bytes)).map_err(error)?;
+            let mut zip = ZipArchive::new(Cursor::new(bytes.as_slice()))
+                .map_err(error)?;
             if zip.len() > 1000 {
                 return Err(error("file count"));
             }

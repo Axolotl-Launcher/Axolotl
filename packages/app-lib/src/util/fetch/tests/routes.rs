@@ -107,11 +107,24 @@ fn retired_modrinth_candidates_are_deduplicated_in_every_source_mode() {
             "https://cdn-alt.modrinth.com/data/other.jar?x=%2b",
         ]);
         let routes = build_download_routes(&request, mode);
-        assert_eq!(routes.len(), 2);
-        assert_eq!(routes[0].url, "https://cdn.modrinth.com/data/pack.mrpack");
+        let official = routes
+            .iter()
+            .filter(|route| !route.is_mirror)
+            .collect::<Vec<_>>();
+        assert_eq!(official.len(), 2);
         assert_eq!(
-            routes[1].url,
+            official[0].url,
+            "https://cdn.modrinth.com/data/pack.mrpack"
+        );
+        assert_eq!(
+            official[1].url,
             "https://cdn.modrinth.com/data/other.jar?x=%2b"
+        );
+        assert!(
+            routes
+                .iter()
+                .filter(|route| route.is_mirror)
+                .all(|route| route.source == DownloadRouteSource::Mcim)
         );
         assert!(!routes.iter().any(|route| route.url.contains("cdn-alt")));
         assert_eq!(routes[0].source, DownloadRouteSource::Official);
@@ -233,9 +246,12 @@ fn tianpao_routes_restore_official_sources_in_all_modes_and_skip_unknown_candida
                     "https://mod.tianpao.top/unknown",
                 ]);
             let routes = build_download_routes(&request, mode);
-            assert_eq!(routes.len(), 1);
             assert_eq!(routes[0].url, official);
             assert_eq!(routes[0].source, DownloadRouteSource::Official);
+            assert!(routes[1..].iter().all(|route| {
+                route.source == DownloadRouteSource::Mcim
+                    && !route.url.contains("tianpao")
+            }));
         }
         assert!(
             resolve_download_routes_for(
@@ -550,4 +566,182 @@ fn h2_route_selection_skips_an_open_breaker_when_possible() {
         Some(blocked.clone())
     );
     crate::util::download::native_breaker::record_success(&blocked);
+}
+
+#[test]
+fn an_open_official_breaker_does_not_hand_the_download_to_mcim() {
+    let official = route(
+        "https://official-breaker.example/file".to_string(),
+        DownloadRouteSource::Official,
+        false,
+        true,
+    );
+    let mcim = route(
+        "https://mcim-breaker.example/file".to_string(),
+        DownloadRouteSource::Mcim,
+        true,
+        true,
+    );
+    for _ in 0..3 {
+        crate::util::download::native_breaker::record_failure(&official);
+    }
+    assert!(crate::util::download::native_breaker::is_open(&official));
+
+    assert_eq!(
+        first_h2_route(&[official.clone(), mcim.clone()]),
+        Some(official.clone())
+    );
+    assert!(
+        !crate::util::download::native_breaker::can_replace_open_route(&mcim)
+    );
+    crate::util::download::native_breaker::record_success(&official);
+}
+
+fn mcim_routes(
+    url: &str,
+    mode: crate::state::DownloadSourceMode,
+) -> Vec<DownloadRoute> {
+    resolve_download_routes_for(url, infer_resource_class(url), mode)
+        .into_iter()
+        .filter(|route| route.source == DownloadRouteSource::Mcim)
+        .collect()
+}
+
+#[test]
+fn mcim_follows_its_replacement_table() {
+    for (upstream, mirror) in [
+        (
+            "https://api.modrinth.com/v2/project/sodium",
+            "https://mod.mcimirror.top/modrinth/v2/project/sodium",
+        ),
+        (
+            "https://api.modrinth.com/v2/project/sodium/version?loaders=%5B%22fabric%22%5D",
+            "https://mod.mcimirror.top/modrinth/v2/project/sodium/version?loaders=%5B%22fabric%22%5D",
+        ),
+        (
+            "https://cdn.modrinth.com/data/AANobbMI/versions/RncWhTxD/sodium.jar",
+            "https://mod.mcimirror.top/data/AANobbMI/versions/RncWhTxD/sodium.jar",
+        ),
+        (
+            "https://api.curseforge.com/v1/mods/238222/files",
+            "https://mod.mcimirror.top/curseforge/v1/mods/238222/files",
+        ),
+        (
+            "https://edge.forgecdn.net/files/9407/746/jei.jar",
+            "https://mod.mcimirror.top/files/9407/746/jei.jar",
+        ),
+    ] {
+        let routes = mcim_routes(
+            upstream,
+            crate::state::DownloadSourceMode::OfficialPreferred,
+        );
+        assert_eq!(routes.len(), 1, "{upstream}");
+        assert_eq!(routes[0].url, mirror);
+        assert!(routes[0].is_mirror);
+        assert!(!routes[0].allow_sensitive_headers);
+        assert!(
+            mcim_routes(
+                upstream,
+                crate::state::DownloadSourceMode::OfficialOnly
+            )
+            .is_empty()
+        );
+    }
+}
+
+#[test]
+fn mcim_leaves_hosts_and_api_versions_outside_its_table_alone() {
+    for url in [
+        // MCIM must not stand in for mediafilez.
+        "https://mediafilez.forgecdn.net/files/9407/746/jei.jar",
+        "https://api.modrinth.com/v3/project/sodium",
+        "https://api.curseforge.com/v2/mods/238222",
+        "https://media.forgecdn.net/avatars/1/2/icon.png",
+    ] {
+        assert!(
+            mcim_routes(url, crate::state::DownloadSourceMode::MirrorPreferred)
+                .is_empty(),
+            "{url}"
+        );
+    }
+}
+
+#[test]
+fn mcim_file_routes_stay_behind_the_official_cdn() {
+    let _guard = fixtures::AUTO_SOURCE_TEST_LOCK.lock().unwrap();
+    let previous_health = std::mem::take(&mut *ROUTE_HEALTH.lock());
+    for url in [
+        "https://cdn.modrinth.com/data/AANobbMI/versions/RncWhTxD/sodium.jar",
+        "https://edge.forgecdn.net/files/9407/746/jei.jar",
+    ] {
+        for mode in [
+            crate::state::DownloadSourceMode::Auto,
+            crate::state::DownloadSourceMode::OfficialPreferred,
+            crate::state::DownloadSourceMode::MirrorPreferred,
+        ] {
+            let routes = resolve_download_routes_for(
+                url,
+                infer_resource_class(url),
+                mode,
+            );
+            assert_eq!(routes.len(), 2, "{url} {mode:?}");
+            assert_eq!(routes[0].url, url);
+            assert_eq!(routes[1].source, DownloadRouteSource::Mcim);
+        }
+
+        // Failures on the official CDN do not let Auto mode start with
+        // MCIM: it asks for the official source to be tried first each time.
+        let resource = infer_resource_class(url);
+        let official = official_route(url, resource);
+        for _ in 0..3 {
+            record_route_failure(&official, resource, None);
+        }
+        let mut routes = resolve_download_routes_for(
+            url,
+            resource,
+            crate::state::DownloadSourceMode::Auto,
+        );
+        assert_eq!(routes[0].url, url);
+        order_auto_routes(&mut routes, resource);
+        assert_eq!(routes[0].url, url);
+    }
+
+    let request = DownloadRequest::new(
+        "https://cdn.modrinth.com/data/a/versions/b/one.jar",
+        ResourceClass::Modrinth,
+    )
+    .with_candidate_urls([
+        "https://cdn.modrinth.com/data/a/versions/b/two.jar",
+    ]);
+    for mode in [
+        crate::state::DownloadSourceMode::Auto,
+        crate::state::DownloadSourceMode::OfficialPreferred,
+        crate::state::DownloadSourceMode::MirrorPreferred,
+    ] {
+        let sources = build_download_routes(&request, mode)
+            .into_iter()
+            .map(|route| route.source)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            [
+                DownloadRouteSource::Official,
+                DownloadRouteSource::Alternate,
+                DownloadRouteSource::Mcim,
+                DownloadRouteSource::Mcim,
+            ],
+            "{mode:?}"
+        );
+    }
+
+    // A preference for MCIM moves its APIs ahead, with the official API
+    // kept as the fallback.
+    let routes = resolve_download_routes_for(
+        "https://api.modrinth.com/v2/project/sodium",
+        ResourceClass::Modrinth,
+        crate::state::DownloadSourceMode::MirrorPreferred,
+    );
+    assert_eq!(routes[0].source, DownloadRouteSource::Mcim);
+    assert_eq!(routes[1].url, "https://api.modrinth.com/v2/project/sodium");
+    *ROUTE_HEALTH.lock() = previous_health;
 }

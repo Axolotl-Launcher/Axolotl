@@ -10,6 +10,7 @@ import {
 } from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
 
+import { commandCatalogMessage } from '@/lab/command-generator/catalog-messages'
 import {
     mergeItemNbt,
     type NbtTagNode,
@@ -306,7 +307,7 @@ const enchantById = computed(() => new Map(ENCHANTMENTS.map((e) => [e.id, e])))
 function enchantLabel(id: string): string {
     const def = enchantById.value.get(id)
     if (!def) return id
-    return formatMessage({ id: def.labelKey, defaultMessage: def.labelKey })
+    return formatMessage(commandCatalogMessage(def.labelKey))
 }
 
 const enchantOptions = computed<ComboboxOption<string>[]>(() =>

@@ -1,0 +1,416 @@
+{
+  "id": "A32gwfe8",
+  "slug": "glowing-glints",
+  "title": "Enchantment Outlines",
+  "description": "Adds an outline to all enchantable tools.",
+  "author": "tixul",
+  "categories": [
+    "16x",
+    "core-shaders",
+    "equipment",
+    "items",
+    "minecraft",
+    "simplistic",
+    "tweaks",
+    "vanilla-like"
+  ],
+  "display_categories": ["equipment", "minecraft", "tweaks", "vanilla-like"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "resourcepack",
+  "downloads": 7681962,
+  "followers": 2164,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["minecraft"],
+  "game_versions": [
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "2OjKyOYN",
+  "date_created": "2025-04-22T15:10:31.080940Z",
+  "date_modified": "2026-09-24T16:02:52.833019Z",
+  "color": 3023161,
+  "published": "2025-04-22T15:10:31.080940Z",
+  "additional_categories": ["16x", "core-shaders", "items", "simplistic"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/TWfQPwGmH3",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/tixork"
+    }
+  ],
+  "versions_total": 27,
+  "body": "<center>\n  <a href=\"https://www.curseforge.com/minecraft/texture-packs/enchantment-outlines\">\n    <img src=\"https://files.catbox.moe/4v5x7z.png\" width=\"150.775\">\n  </a>\n  <a href=\"https://modrinth.com/resourcepack/glowing-glints\">\n    <img src=\"https://files.catbox.moe/zlwsu7.png\" width=\"143.375\">\n  </a>\n  <a href=\"https://modrinth.com/mod/modefite-item-definition-backport\">\n    <img src=\"https://files.catbox.moe/bp9fnp.png\" width=\"299.396\">\n  </a>\n  <a href=\"https://modrinth.com/mod/sodium\">\n    \n  </a>\n</center>\n\n<p align=\"center\">\n  \n</p>\n\n<p align=\"center\">  </p>\n\n<center>\nFeel free to use this project in any modpacks published on Modrinth & CurseForge.\n</center>\n\n<p align=\"center\">  </p>\n\n<center>\n  <a href=\"https://billing.sparkedhost.com/aff.php?aff=3073\">\n    \n  </a>\n</center>\n\n<p align=\"center\">  </p>\n\n<p align=\"center\">\n  \n</p>\n\n<p align=\"center\">  </p>\n\n<p align=\"center\">\n  \n</p>\n\n<p align=\"center\">  </p>\n\n\n<p align=\"center\">\n  \n</p>\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/gEnrM4tDtmM\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\n\n<br><br>\n<p align=\"center\">\n  <a href=\"https://modrinth.com/resourcepack/maskyenchanteditems\" target=\"_blank\">\n    Masky Enchanted Items\n  </a>\n</p>\n\n<p align=\"center\">  </p>\n\n<p align=\"center\">\n  \n</p>\n\n\n<details>\n<summary>Accessibility</summary>\n\n\n[Curseforge](https://www.curseforge.com/minecraft/texture-packs/enchantment-outlines)\n\n\n[Cit resewn required under 1.21.4](https://modrinth.com/mod/cit-resewn)\n\n\n[Sodium Compatible](https://modrinth.com/mod/sodium)\n\nTixul's Enchantment Outlines.\n\n\n[25% off server hosting. Use code \"DANI\" for 25% off.\n](https://billing.sparkedhost.com/aff.php?aff=3073)\n\nABOUT: \nAdds a stylish, vibrant outline to every enchanted tool. Inspired by Actions & Stuff.\n\nFEATURES:\nRespackopts compatibility options. 3D bows and maces. Compatibility with most shader packs.\n\nOTHER:\nFeatured by DemonJoeTV\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/gEnrM4tDtmM\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\nWant colours other than pink? Try [MaskyEnchantedItems!](https://www.google.com/search?q=maskyenchanteditems)\n\nCREDITS:\nOreville Studios: The main inspiration behind this pack.\nRadiational: Helped with bow models.\nPatovskiz: Helped create backport. \nnot_thefirst: Helped with backport and shaders.\nCubert1: Took some gallery images.\n</details>\n\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/A32gwfe8/images/cd5031df34091dccbc8d411620e7d5d7d3d1934d_350.webp",
+      "featured": true,
+      "title": "Main tools",
+      "description": "The main tools used by players in gameplay showing off their new outlines!",
+      "created": "2025-06-19T17:09:22.233584Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/A32gwfe8/images/a7a73d8f191b8542383f76adff7d6331f43e8e6f_350.webp",
+      "featured": false,
+      "title": "Vindicator Fight",
+      "description": "Vindicator fight during a raid using an enchanted iron axe.",
+      "created": "2025-06-19T17:06:12.642224Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/A32gwfe8/images/dcb780b10194698beffbc45d118787349c207db2_350.webp",
+      "featured": false,
+      "title": "Axolotl",
+      "description": "Enchanted 3D mace being used against an axolotl.",
+      "created": "2025-09-12T18:47:07.784119Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/A32gwfe8/images/954b262fdd9ae8839e3e9c1c9495a26513a51ade_350.webp",
+      "featured": false,
+      "title": "Ancient Mining",
+      "description": "Mining for diamonds in the ancient city",
+      "created": "2025-06-19T17:07:48.988686Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "not_thefirst",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/user/97OSn9zn/932e5fa5b9c83c6923f7b1288eea647ccd812ac1.png"
+    },
+    {
+      "username": "tixul",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/5AtskEYa/8e8f7e5b0be3d0657c3bbb4cf83d23b5641cff2d.gif"
+    }
+  ],
+  "versions": [
+    {
+      "id": "2OjKyOYN",
+      "name": "1.10.9",
+      "version_number": "1.10.9",
+      "version_type": "release",
+      "game_versions": [
+        "1.20.1",
+        "1.21.1",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2",
+        "26.3"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-24T16:02:52.833019Z",
+      "downloads": 783135,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1220387,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "JtnHjGTs",
+      "name": "1.10.8",
+      "version_number": "1.10.8",
+      "version_type": "release",
+      "game_versions": [
+        "1.20.1",
+        "1.21.1",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-08-08T14:17:17.639348Z",
+      "downloads": 745208,
+      "changelog": "Pickaxe third person outline fix",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1108582,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "qX4zagvp",
+      "name": "1.10.7",
+      "version_number": "1.10.7",
+      "version_type": "release",
+      "game_versions": [
+        "1.20.1",
+        "1.21.1",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-07-24T18:27:05.221449Z",
+      "downloads": 272248,
+      "changelog": "Bug Fixes",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1105545,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GK6yhQy1",
+      "name": "1.10.6",
+      "version_number": "1.10.6",
+      "version_type": "release",
+      "game_versions": [
+        "1.20.1",
+        "1.21.1",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-06-16T09:45:17.935585Z",
+      "downloads": 834171,
+      "changelog": "- 26.2 support!\n- 1.21.1 support!\n- 1.20.1 support!\n\n\n**If you are on 1.21.1 or 1.20.1 please delete CIT Resewn and install Modefite!**\n\n\nFound a bug or have a suggestion? Tell me in the [Discord Server!](https://discord.gg/TWfQPwGmH3)",
+      "dependencies": [
+        {
+          "project_id": "qjlkcVfy",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1100950,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "3VHeGBV9",
+      "name": "1.10.5",
+      "version_number": "1.10.5",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-05-28T12:54:08.973223Z",
+      "downloads": 440151,
+      "changelog": "- Bug fixes\n\nFound a bug or have a suggestion? Tell me in the [Discord Server!](https://discord.gg/TWfQPwGmH3)",
+      "dependencies": [
+        {
+          "project_id": "TiF5QWZY",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1093465,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "BNPmzlk9",
+      "name": "1.10.4",
+      "version_number": "1.10.4",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-03-28T06:32:10.916296Z",
+      "downloads": 499357,
+      "changelog": "26.1 support",
+      "dependencies": [
+        {
+          "project_id": "TiF5QWZY",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1085134,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KVn1AN5G",
+      "name": "1.10.3",
+      "version_number": "1.10.3",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-01-07T10:34:09.248767Z",
+      "downloads": 820706,
+      "changelog": "- Bug fixes\n\nFound a bug or have a suggestion? Tell me in the [Discord Server!](https://discord.gg/TWfQPwGmH3)",
+      "dependencies": [
+        {
+          "project_id": "TiF5QWZY",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1480109,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "sDMc69Fs",
+      "name": "1.10.2",
+      "version_number": "1.10.2",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-12-16T20:31:23.273578Z",
+      "downloads": 239706,
+      "changelog": "- Bug fixes\n\nFound a bug or have a suggestion? Tell me in the [Discord Server!](https://discord.gg/TWfQPwGmH3)\n\n",
+      "dependencies": [
+        {
+          "project_id": "TiF5QWZY",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Enchantment Outlines.zip",
+          "size": 1485933,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -157,7 +157,7 @@ impl Default for DownloadDnsResolver {
             doh_enabled: false,
             doh_endpoints: Arc::new(vec![Arc::from(BUILTIN_DOH_SERVERS[0])]),
             doh_clients: Arc::new(vec![
-                reqwest::Client::builder()
+                crate::util::http::client_builder()
                     .no_proxy()
                     .timeout(DOH_REQUEST_TIMEOUT)
                     .connect_timeout(DOH_CONNECT_TIMEOUT)
@@ -202,8 +202,10 @@ impl DownloadDnsResolver {
         let mut doh_clients = Vec::with_capacity(endpoints.len());
         for _ in &endpoints {
             let builder = match proxy {
-                Some(proxy) => proxy.apply(reqwest::Client::builder())?,
-                None => reqwest::Client::builder().no_proxy(),
+                Some(proxy) => {
+                    proxy.apply(crate::util::http::client_builder())?
+                }
+                None => crate::util::http::client_builder().no_proxy(),
             };
             doh_clients.push(
                 builder
@@ -885,6 +887,22 @@ impl DownloadDnsResolver {
             .insert(host.to_string(), addresses);
     }
 
+    /// The port a test fixture listens on, when the test address set for
+    /// `host` names one. Loopback fixtures bind an ephemeral port while the
+    /// routed URL carries the scheme default, so a connect path that falls
+    /// back to the URL's port would reach 443 and never the fixture.
+    #[cfg(test)]
+    pub(crate) fn test_port(&self, host: &str) -> Option<u16> {
+        let host = normalize_host(host).ok()?;
+        let resolution_host = self.resolution_host(&host);
+        self.test_addresses
+            .lock()
+            .get(&resolution_host)
+            .and_then(|addresses| addresses.first())
+            .map(SocketAddr::port)
+            .filter(|port| *port != 0)
+    }
+
     #[cfg(test)]
     fn set_test_lookup_delay(&self, host: &str, delay: Duration) {
         self.test_lookup_delays
@@ -1147,11 +1165,19 @@ impl Resolve for DownloadDnsResolver {
         let host = name.as_str().to_string();
         let resolver = self.clone();
         Box::pin(async move {
+            // reqwest pairs each resolved address with the URL's port, so the
+            // port here is a placeholder for production. Tests point a host at
+            // a loopback fixture on an ephemeral port and cannot use 443, so
+            // hand back the port the test address was set with.
+            #[cfg(test)]
+            let test_port = resolver.test_port(&host);
+            #[cfg(not(test))]
+            let test_port = None;
             let addresses = resolver
                 .refresh(&host)
                 .await?
                 .into_iter()
-                .map(|address| SocketAddr::new(address, 0))
+                .map(|address| SocketAddr::new(address, test_port.unwrap_or(0)))
                 .collect::<Vec<_>>();
             Ok(Box::new(addresses.into_iter()) as Addrs)
         })
@@ -1193,7 +1219,10 @@ mod tests {
         resolver.doh_endpoints =
             Arc::new(vec![Arc::from(format!("http://{address}/dns-query"))]);
         resolver.doh_clients = Arc::new(vec![
-            reqwest::Client::builder().no_proxy().build().unwrap(),
+            crate::util::http::client_builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
         ]);
         let addresses = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
@@ -1217,10 +1246,13 @@ mod tests {
         resolver.doh_endpoints =
             Arc::new(vec![Arc::from(format!("http://{address}/dns-query"))]);
         resolver.doh_clients = Arc::new(vec![
-            reqwest::Client::builder().no_proxy().build().unwrap(),
+            crate::util::http::client_builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
         ]);
         let (port, server) = spawn_ipv4_server().await;
-        let response = reqwest::Client::builder()
+        let response = crate::util::http::client_builder()
             .no_proxy()
             .connect_timeout(DNS_LOOKUP_TIMEOUT)
             .dns_resolver(Arc::new(resolver))
@@ -1255,7 +1287,10 @@ mod tests {
             let mut resolver = DownloadDnsResolver::with_doh(true).unwrap();
             resolver.doh_endpoints = Arc::new(vec![endpoint.clone()]);
             resolver.doh_clients = Arc::new(vec![
-                reqwest::Client::builder().no_proxy().build().unwrap(),
+                crate::util::http::client_builder()
+                    .no_proxy()
+                    .build()
+                    .unwrap(),
             ]);
             resolver.remember_answer(
                 "localhost",
@@ -1311,7 +1346,10 @@ mod tests {
             listener.local_addr().unwrap()
         ))]);
         resolver.doh_clients = Arc::new(vec![
-            reqwest::Client::builder().no_proxy().build().unwrap(),
+            crate::util::http::client_builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
         ]);
         let addresses = tokio::time::timeout(
             DNS_LOOKUP_TIMEOUT,
@@ -1508,7 +1546,7 @@ mod tests {
         host: &str,
         port: u16,
     ) -> String {
-        reqwest::Client::builder()
+        crate::util::http::client_builder()
             .no_proxy()
             .connect_timeout(Duration::from_secs(2))
             .dns_resolver(Arc::new(resolver))
@@ -1708,7 +1746,7 @@ mod tests {
         let listener = tokio::net::TcpListener::bind(address).await.unwrap();
         let refused = listener.local_addr().unwrap();
         drop(listener);
-        let error = reqwest::Client::builder()
+        let error = crate::util::http::client_builder()
             .no_proxy()
             .resolve("redirect-target.test", refused)
             .timeout(Duration::from_secs(2))

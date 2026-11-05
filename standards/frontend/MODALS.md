@@ -359,12 +359,12 @@ Navigate to it with `modal.value?.setStage('edit-loaders')` — it won't affect 
 
 ## Reference Implementation
 
-The desktop onboarding flow is the current reference implementation:
+The instance creation flow is the current reference implementation:
 
-| File                                                          | Purpose                           |
-| ------------------------------------------------------------- | --------------------------------- |
-| `apps/app-frontend/src/components/ui/onboarding/onboardingConfig.ts` | Flow configuration + business logic |
-| `apps/app-frontend/src/components/ui/onboarding/OnboardingOverlay.vue` | Presentation layer |
-| `apps/app-frontend/src/components/ui/onboarding/useOnboardingTour.ts` | Runtime control |
+| File                                                                            | Purpose                       |
+| ------------------------------------------------------------------------------- | ----------------------------- |
+| `packages/ui/src/components/flows/creation-flow-modal/creation-flow-context.ts` | Flow context + business logic |
+| `packages/ui/src/components/flows/creation-flow-modal/index.vue`                | Presentation layer            |
+| `packages/ui/src/components/flows/creation-flow-modal/stages/`                  | Stage configurations          |
 
-The context includes computed properties for conditional UI, watchers for auto-fetching dependencies, loading states for granular button disabling, and both "create" and "edit" flows sharing the same stages with different button configs.
+The context includes computed properties for conditional UI, watchers for auto-fetching dependencies and loading states for granular button disabling.

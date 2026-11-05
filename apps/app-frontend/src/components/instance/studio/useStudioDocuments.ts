@@ -16,6 +16,10 @@ export function useStudioDocuments(
     const documents = ref<StudioDocument[]>([])
     const activeIndex = ref(-1)
     const savePromises = new Map<string, Promise<boolean>>()
+    // Writes that belong to no document - an image edit, for example. They still
+    // have to be waited for before the path they touch is removed, or the
+    // removal is followed by a write that brings the file back.
+    const pendingWrites = new Map<string, Promise<unknown>>()
     const deletingPaths = ref(new Set<string>())
     const pathVersions = new Map<string, number>()
     let generation = 0
@@ -54,6 +58,18 @@ export function useStudioDocuments(
     const hasAnyUnsavedChanges = computed(() =>
         documents.value.some((document) => document.content !== document.savedContent),
     )
+
+    /**
+     * Registers a write that does not belong to a document, so a delete of the
+     * same path waits for it instead of racing it.
+     */
+    function trackWrite(path: string, write: Promise<unknown>) {
+        pendingWrites.set(path, write)
+        const settle = () => {
+            if (pendingWrites.get(path) === write) pendingWrites.delete(path)
+        }
+        void write.then(settle, settle)
+    }
 
     function saveDocument(document: StudioDocument | null): Promise<boolean> {
         if (document && (isDeleting(document.path) || !documents.value.includes(document))) {
@@ -144,11 +160,16 @@ export function useStudioDocuments(
             return false
         deletingPaths.value.add(path)
         try {
-            await Promise.all(
-                [...savePromises]
+            await Promise.all([
+                ...[...savePromises]
                     .filter(([candidate]) => containsPath(path, candidate))
                     .map(([, promise]) => promise),
-            )
+                // A write that fails reports itself; the delete only has to wait
+                // for it to stop touching the path.
+                ...[...pendingWrites]
+                    .filter(([candidate]) => containsPath(path, candidate))
+                    .map(([, promise]) => promise.catch(() => undefined)),
+            ])
             await remove()
             if (session !== generation) return true
             pathVersions.set(path, (pathVersions.get(path) ?? 0) + 1)
@@ -198,6 +219,7 @@ export function useStudioDocuments(
         open,
         close,
         deletePath,
+        trackWrite,
         isDeleting,
         pathVersion,
         canOpen,

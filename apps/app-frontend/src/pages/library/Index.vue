@@ -58,7 +58,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div data-onboarding-id="library-content" class="p-6 flex flex-col gap-3">
+    <div class="p-6 flex flex-col gap-3">
         <h1 class="m-0 text-2xl hidden">{{ formatMessage(messages.library) }}</h1>
         <NavTabs
             :links="[
@@ -78,12 +78,7 @@ onUnmounted(() => {
                 <NewInstanceImage />
             </div>
             <h3>{{ formatMessage(messages.noInstances) }}</h3>
-            <Button
-                type="colored"
-                color="brand"
-                data-onboarding-id="create-instance"
-                :disabled="offline"
-                @click="router.push('/create')"
+            <Button type="colored" color="brand" :disabled="offline" @click="router.push('/create')"
                 ><PlusIcon />
                 {{ formatMessage(messages.createInstance) }}
             </Button>

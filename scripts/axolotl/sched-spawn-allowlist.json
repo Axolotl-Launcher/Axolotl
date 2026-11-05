@@ -1259,7 +1259,7 @@
       "count": 1,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
-        "read_pclce_config: let content = std::fs::read_to_string(&path).inspect_err(|e| {"
+        "read_pclce_config_at: let content = std::fs::read_to_string(path).inspect_err(|e| {"
       ]
     },
     {
@@ -2736,6 +2736,34 @@
       "reason": "launcher-tools runtime (upstream): background runtime task",
       "sites": [
         "execute: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "third-party/tauri-plugin-http/src/lib.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "Vendored HTTP plugin cookie initialization: imports File and creates the application cache directory synchronously during Tauri plugin setup, before handling requests; no cookie-store mutex is held.",
+      "sites": [
+        "init: std::fs::create_dir_all(&cache_dir)?;",
+        "init: use std::fs::File;"
+      ]
+    },
+    {
+      "file": "third-party/tauri-plugin-http/src/lib.rs",
+      "form": "std::fs import",
+      "count": 1,
+      "reason": "Vendored HTTP plugin cookie initialization: opens the single persistent cookie file synchronously during Tauri plugin setup; no cookie-store mutex is held.",
+      "sites": [
+        "init: let file = File::options()"
+      ]
+    },
+    {
+      "file": "third-party/tauri-plugin-http/src/reqwest_cookie_store.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "Vendored HTTP plugin cookie persistence: operation-scoped asynchronous write of an already serialized snapshot; the cookie-store mutex is released before spawning, and the previous save task is cancelled when replaced.",
+      "sites": [
+        "request_save: let task = tauri::async_runtime::spawn(async move {"
       ]
     }
   ]

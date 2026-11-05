@@ -18,6 +18,7 @@ export const FILE_CODE_EXTENSIONS = [
     'rb',
     'php',
     'html',
+    'xml',
     'css',
     'cpp',
     'c',
@@ -98,7 +99,7 @@ export function canOpenInFileEditor(filename: string): boolean {
 }
 
 /**
- * Get Ace editor language mode for a file extension
+ * Get Monaco editor language for a file extension
  */
 export function getEditorLanguage(ext: string): string {
     const lowered = ext.toLowerCase()
@@ -111,9 +112,9 @@ export function getEditorLanguage(ext: string): string {
         case 'toml':
             return 'toml'
         case 'sh':
-            return 'sh'
+            return 'shell'
         case 'bat':
-            return 'batchfile'
+            return 'bat'
         case 'ps1':
             return 'powershell'
         case 'yml':
@@ -131,20 +132,25 @@ export function getEditorLanguage(ext: string): string {
             return 'php'
         case 'html':
             return 'html'
+        case 'xml':
+            return 'xml'
+        case 'snbt':
+            return 'snbt'
         case 'css':
             return 'css'
         case 'java':
+            return 'java'
         case 'kt':
         case 'kts':
-            return 'java'
+            return 'kotlin'
         case 'cpp':
         case 'c':
         case 'h':
-            return 'c_cpp'
+            return 'cpp'
         case 'rs':
             return 'rust'
         case 'go':
-            return 'golang'
+            return 'go'
         // Text files
         case 'md':
             return 'markdown'
@@ -157,6 +163,6 @@ export function getEditorLanguage(ext: string): string {
         case 'log':
             return 'mclog'
         default:
-            return 'text'
+            return 'plaintext'
     }
 }

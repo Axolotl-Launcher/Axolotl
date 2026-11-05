@@ -26,6 +26,7 @@ base64 = { workspace = true }
 bon = { workspace = true }
 bytemuck = { workspace = true, features = ["extern_crate_alloc"] }
 bytes = { workspace = true, features = ["serde"] }
+cafebabe = { workspace = true }
 cap-fs-ext = { workspace = true }
 cap-std = { workspace = true }
 chardetng = { workspace = true }

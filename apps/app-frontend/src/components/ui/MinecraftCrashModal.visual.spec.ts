@@ -234,6 +234,43 @@ it('surfaces export failures and lets the user retry', async () => {
     expect(calls.exportCrash).toHaveBeenCalledTimes(2)
 })
 
+it('does not allow exporting from the crash window preview', async () => {
+    const wrapper = await mountCrashModal('preview-source')
+    wrapper.vm.showPreview()
+    await nextTick()
+
+    const button = actionButton(wrapper, 'Export diagnostic package')
+    expect(button.attributes('disabled')).toBeDefined()
+    await button.trigger('click')
+    expect(calls.exportCrash).not.toHaveBeenCalled()
+})
+
+it('ignores an export that finishes after another crash replaces the window', async () => {
+    let resolveExport!: (path: string) => void
+    calls.exportCrash.mockImplementationOnce(
+        () =>
+            new Promise<string>((resolve) => {
+                resolveExport = resolve
+            }),
+    )
+    const wrapper = await mountCrashModal('stale')
+
+    await actionButton(wrapper, 'Export diagnostic package').trigger('click')
+    await vi.waitFor(() => expect(calls.exportCrash).toHaveBeenCalledOnce())
+    await wrapper.vm.handleWarning({
+        kind: 'minecraft_crash',
+        instance_id: 'new-crash',
+        instance_name: 'New crash',
+    })
+    resolveExport('C:/exports/stale.zip')
+    await vi.waitFor(() =>
+        expect(
+            actionButton(wrapper, 'Export diagnostic package').attributes('aria-busy'),
+        ).toBeUndefined(),
+    )
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+})
+
 it('offers configuration instead of a missing analyze button and keeps source changes local to this run', async () => {
     calls.enabled = false
     calls.logs.mockResolvedValue([])

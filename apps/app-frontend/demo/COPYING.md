@@ -12,6 +12,8 @@ The recorded data and images in `data/` and `assets/` are not covered by that li
 - `data/tags.json`: game version, loader, category and license tags, including their icons, recorded from the Modrinth API.
 - `data/servers/`: console output and configuration files recorded from Minecraft's dedicated server and Fabric's server launcher, which belong to Mojang Studios / Microsoft and the Fabric project.
 - `data/default-skins.json` and `assets/skins/`: the skins the launcher bundles. Minecraft's default and skin pack skins are Copyright Mojang Studios / Microsoft; the Mr. Pack pride skins belong to Rinth, Inc.
+- `data/account.json` and `assets/skins/mystic-stars-*.png`: the public Minecraft profile, skin and cape of Mystic_Stars, retrieved from Mojang's profile and texture services. The skin belongs to its author; the cape is Copyright Mojang Studios / Microsoft.
+- `data/remote-servers.json` and `assets/servers/`: recorded server-list responses and icons of hjfunnyMC and Hypixel. Their names, icons and other content belong to their respective owners.
 
 Images in project descriptions, gallery images and member avatars are not stored here: the demo shows them from their original addresses, as the launcher does.
 

@@ -1,13 +1,25 @@
 {
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "暂时无法加载：{sources}" },
-  "app.schematics.sort.default": { "message": "来源默认顺序" },
-  "app.schematics.sort.name": { "message": "名称" },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "暂时无法加载：{sources}"
+  },
+  "app.schematics.sort.default": {
+    "message": "来源默认顺序"
+  },
+  "app.schematics.sort.name": {
+    "message": "名称"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count} 个来源需要<login-link>登录</login-link>"
   },
-  "app.schematics.open-source": { "message": "在来源网站查看" },
+  "app.schematics.open-source": {
+    "message": "在来源网站查看"
+  },
   "app.schematics.instances-error": {
     "message": "无法读取实例列表。"
   },
@@ -53,8 +65,12 @@
   "app.schematics.search": {
     "message": "搜索投影"
   },
-  "app.schematics.sort.hot": { "message": "热门" },
-  "app.schematics.sort.featured": { "message": "精选" },
+  "app.schematics.sort.hot": {
+    "message": "热门"
+  },
+  "app.schematics.sort.featured": {
+    "message": "精选"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -67,11 +83,21 @@
   "app.schematics.installing": {
     "message": "正在安装…"
   },
-  "app.schematics.preview": { "message": "预览" },
-  "app.schematics.files": { "message": "文件" },
-  "app.schematics.creator": { "message": "创作者" },
-  "app.schematics.source-heading": { "message": "来源" },
-  "app.schematics.preview-source": { "message": "拾木空间 · {fileName}" },
+  "app.schematics.preview": {
+    "message": "预览"
+  },
+  "app.schematics.files": {
+    "message": "文件"
+  },
+  "app.schematics.creator": {
+    "message": "创作者"
+  },
+  "app.schematics.source-heading": {
+    "message": "来源"
+  },
+  "app.schematics.preview-source": {
+    "message": "拾木空间 · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "已安装"
   },

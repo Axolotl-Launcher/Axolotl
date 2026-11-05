@@ -1,0 +1,117 @@
+{
+  "tags.json": {
+    "fetchedAt": "2026-10-23T11:12:12+00:00",
+    "sources": [
+      "https://api.modrinth.com/v2/tag/game_version",
+      "https://api.modrinth.com/v2/tag/loader",
+      "https://api.modrinth.com/v2/tag/category",
+      "https://api.modrinth.com/v2/tag/license"
+    ],
+    "note": "omits one license, whose SPDX identifier the repository typos check reads as a misspelling of Matrix"
+  },
+  "modpacks.json": {
+    "fetchedAt": "2026-10-23T11:35:41+00:00",
+    "sources": [
+      "https://api.modrinth.com/v2/project/{id}/version",
+      "modrinth.index.json of each pinned version"
+    ],
+    "additions": {
+      "t1tOiUHZ": {
+        "fetchedAt": "2026-11-05T13:54:21.115140+00:00",
+        "sources": [
+          "https://api.modrinth.com/v2/version/OirSzesD",
+          "modrinth.index.json of Create+ 5.2.1b"
+        ]
+      }
+    }
+  },
+  "news.json": {
+    "fetchedAt": "2026-11-05T13:54:21.115140+00:00",
+    "sources": [
+      "https://net-secondary.web.minecraft-services.net/api/v1.0/en-us/search?pageSize=24&sortType=Recent&category=News&newsOnly=true&geography=USA"
+    ],
+    "note": "latest 12 entries, normalized as app-lib api/minecraft_news.rs; images localized under assets/news"
+  },
+  "discover/*.json": {
+    "fetchedAt": "2026-10-23T11:12:12+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "https://api.modrinth.com/v2/search?limit=20&index=relevance&offset={0,20}&facets=[[\"project_type:{type}\"]]"
+    ],
+    "note": "the first 40 mods and modpacks and the first 20 of the other types; the icons in assets/projects come from each hit's icon_url, converted to WebP; omits four modpacks (COBBLEVERSE, BattleArmory TACZ, SkyBlock Enhanced, FPS Modpack) whose pages name the official Modrinth launcher, which the repository brand guard (scripts/axolotl/brand-guard.mjs) rejects"
+  },
+  "projects/*.json": {
+    "fetchedAt": "2026-10-23T11:12:12+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "https://api.modrinth.com/v2/project/{id}",
+      "https://api.modrinth.com/v2/project/{id}/version",
+      "https://api.modrinth.com/v2/project/{id}/members"
+    ],
+    "note": "keeps the newest 8 versions, cuts changelogs at 2000 characters and drops embedded dependencies; description images, gallery images and member avatars keep their original URLs and are not bundled"
+  },
+  "content-names.json": {
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": ["packages/app-lib/src/api/content_search/WikiEntries.txt (v1.10.0)"],
+    "note": "MC 百科 entries for the recorded slugs: [wiki ID, Chinese name]"
+  },
+  "instance-content.json": {
+    "fetchedAt": "2026-10-23T11:35:41+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "modrinth.index.json of each pinned modpack version (data/modpacks.json)",
+      "POST https://api.modrinth.com/v2/version_files (algorithm sha1)",
+      "https://api.modrinth.com/v2/projects?ids=[...]"
+    ],
+    "note": "one row per installed file; custom-fabric is the plain Fabric 26.3 instance; the icons of these projects are bundled in assets/projects",
+    "additions": {
+      "t1tOiUHZ": {
+        "fetchedAt": "2026-11-05T13:54:21.115140+00:00",
+        "sources": [
+          "Create+ 5.2.1b modrinth.index.json and client overrides",
+          "https://api.modrinth.com/v2/version_files",
+          "https://api.modrinth.com/v2/projects",
+          "icon_url of each referenced Modrinth project"
+        ],
+        "note": "client JAR and ZIP files only; project icons fetched from the Modrinth API and bundled under assets/projects"
+      }
+    }
+  },
+  "default-skins.json": {
+    "fetchedAt": "2026-10-23T12:21:16+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": [
+      "packages/app-lib/src/api/minecraft_skins/assets/default/default_skins.rs (DEFAULT_SKINS, in order)"
+    ],
+    "note": "textures decoded from the data URLs into assets/skins, numbered in that order"
+  },
+  "servers/*.json": {
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": ["each file's source: the server jar, Java and command it ran, and when"],
+    "note": "console output of a first start, the listed commands and a stop, with the folder the run left behind; lines replay with their original timing"
+  },
+  "screenshots.json": {
+    "fetchedAt": "2026-10-23T11:41:19+00:00",
+    "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
+    "sources": ["https://api.modrinth.com/v2/project/{id} gallery[].raw_url"],
+    "note": "gallery images of Fabulously Optimized, Cobblemon, Iris and Sodium, resized to WebP in assets/screenshots and shown as the instances' screenshots; each entry keeps its source_url"
+  },
+  "account.json": {
+    "fetchedAt": "2026-11-05T13:54:21.115140+00:00",
+    "sources": [
+      "https://api.mojang.com/users/profiles/minecraft/Mystic_Stars",
+      "https://sessionserver.mojang.com/session/minecraft/profile/93aeb143b3764adc9fbd525facdde3c8",
+      "https://textures.minecraft.net/texture/505728326b1cda785bfd0f1ebd9cc78582624f59c57c184b522c6cd39724e80f",
+      "https://textures.minecraft.net/texture/afd553b39358a24edfe3b8a9a939fa5fa4faa4d9a9c3d6af8eafb377fa05c2bb"
+    ],
+    "note": "public profile, skin and cape only; no sign-in credentials"
+  },
+  "remote-servers.json": {
+    "fetchedAt": "2026-11-05T13:54:21.115140+00:00",
+    "sources": [
+      "https://api.mcsrvstat.us/3/mc.hjfunny.site",
+      "Minecraft Java server-list ping: mc.hypixel.net:25565"
+    ],
+    "note": "MOTDs, player counts and icons recorded from each server; demo status is a snapshot"
+  }
+}

@@ -1,0 +1,289 @@
+{
+  "id": "tpehi7ww",
+  "slug": "dungeons-and-taverns",
+  "title": "Dungeons and Taverns",
+  "description": "A Structure Datapack adding dungeons, taverns and other structures to find while you explore the world.",
+  "author": "NovaWostra",
+  "categories": [
+    "adventure",
+    "datapack",
+    "equipment",
+    "fabric",
+    "forge",
+    "game-mechanics",
+    "mobs",
+    "neoforge",
+    "worldgen"
+  ],
+  "display_categories": ["adventure", "datapack", "fabric", "forge", "neoforge", "worldgen"],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 22205331,
+  "followers": 9010,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["datapack", "fabric", "forge", "neoforge"],
+  "game_versions": [
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "23w43b",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10-rc1",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "iqFWpMVO",
+  "date_created": "2023-01-18T09:32:19.251896Z",
+  "date_modified": "2026-10-01T08:41:12.228472Z",
+  "color": 1710102,
+  "published": "2023-01-18T09:32:19.251896Z",
+  "additional_categories": ["equipment", "game-mechanics", "mobs"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.com/invite/fPvvmcnKza",
+  "donation_urls": [],
+  "versions_total": 164,
+  "body": "This datapacks adds (hopefully) vanilla like structures that are supposed to blend in with the rest of the game and feel like they belong there. going from environmental additions like fire watch towers and taverns to dungeons like badland minder outpost and illager hideout\n\n### **WARNING: It has been discovered recently that someone(s) made a malicious website claiming to be the official website for Dungeons and Taverns, when in actuality it host malware!!!**\nThe **_ONLY_** official places for all things Dungeons and Taverns are the [Modrinth page of the creator](https://modrinth.com/user/NovaWostra), the [Curseforge page of the creator](https://www.curseforge.com/members/nova_wostra/projects), and the [Witches Cauldron Discord Server](https://discord.com/invite/fPvvmcnKza).\n\n**To unlock maps at a tavern, you need to trade with the cateographer inside a tavern and level them up to aprentice. after that you can \"move\" them to wherever you want and keep leveling them up to unlock new charts**\n\n**To remove Structures you dont like, go to \"Dnt/data/nova_structures/worldgen/structure_set/\" and delete the file of the structure you dont want.**\n\n**To see the custom key textures, while using the datapack version, Install DnT also as a resourcepack. It's a 2 in one file\nThe Mod version loads those resources automatically\n**\n\nVarious new enchantments can be found with this datapack, all being unique structure loot. This is the current information for 5.0+, as such it may not be accurate to prior versions of DnT.\n\nList of enchantments:\n\n<details>\n<summary>Spoiler</summary>\n\nAerial's Bane\n- Increased damage to targets that are up in the air; be that from knockback, jumping, or falling. Also works against Breezes, Vexes, and Withers.\n- Items: Swords, Axes, Tridents, Maces, Bows, Crossbows\n- Max level: 5\n- Incompatible with: Damage boosting enchants like Sharpness and Power\n- Found in: Lone Citadel, Sealing Halls, End Castle\n\nAntidote\n- Negates all damage from Poison and Wither effects and deals it to the chestplate.\n- Items: Chestplates\n- Max level: 1\n- Incompatible with: Protection enchantments\n- Found in: Toxic Lair\n\nBlowthrough\n- Is equal to the Piercing enchant, but works exclsuviely for Bows\n- Items: Bows\n- Max level: 4\n- Incompatible with: Infinity, Tri-shot\n- Found in: Toxic Lair\n\nCurse of Conductivity\n- Gives a chance to get struck by lightning during a thunderstorm when held or equipped\n- Items: Any \"metallic\" item :)\n- Max level: 1\n- Incompatible with: N/A\n- Found in: Witch Villa\n\nGhasted\n- Arrows transform into Ghast fireballs, while slowing crossbow charge time. Higher levels increase fireballs' explosions.\n- Items: Crossbow\n- Max level: 3\n- Incompatible with: Multishot, Piercing, Might, Aerial's Bane\n- Found in: Sealing Halls\n\nGravity\n- Shoot an arrow which pulls all mobs around it upon landing, destroying the arrow in the process\n- Items: Crossbow\n- Max level: \n- Incompatible with: N/A\n- Found in: End Castle\n\nHydro Veil\n- Increases Happy Ghast healing to match rain / cloud layer healing, except when in the Nether. Also takes less damage from fire and explosions per level.\n- Items: Harnesses\n- Max level: 4\n- Incompatible with: N/A\n- Found in: Nether Keep, Sealing Halls\n\nIllager's Bane\n- Increased damage against illagers, ravgers, vexes, and witches.\n- Items: Swords, Axes, Tridents, Maces\n- Max level: 5\n- Incompatible with: Damage enchants like Sharpness\n- Found in: Illager Manor, Illager Hideout\n\nOutreach\n- Increases block interaction range per level, allowing you to place or break blocks from farther.\n- Items: Chestplate\n- Max level: 4\n- Incompatible with: N/A\n- Found in: Desert Ruins\n\nPhotosynthesis\n- Restores the item's durability while the user is under sunlight from the sky or in block light that can grow crops.\n- Items: Any with durability\n- Max level: 1\n- Incompatible with: Mending\n- Found in: Jungle Ruins\n\nMight\n- Boosts the arrows damage equal to Power enchantment, but applicable to Crossbows.\n- Items: Crossbow\n- Max level: 5\n- Incompatible with: Gravity, Ghasted, Piercing, Multishot\n- Found in: Lone Citadel\n\nSpiteful\n- Users with 2.5 hearts or less are given a attack damage boost per enchant level. If hit by a mob at any health there's a small chance to receive Strength.\n- Items: Swords, Axes, Tridents, Maces\n- Max level: 3\n- Incompatible with: N/A\n- Found in: Pale Residence, certain Shrines...\n\nSwift Soar\n- Boosts the Happy Ghast's flying speed while the rider is considered sprinting.\n- Items: Harnesses\n- Max level: 3\n- Incompatible with: N/A\n- Found in: Nether Port, Nether Keep, Sealing Halls\n\nTraveler\n- Boosts movement speed and step height while sprinting. Slowly drains durability while doing so.\n- Items: Boots\n- Max level: 3\n- Incompatible with: Soul Speed\n- Found in: Shrines, random graves found in DnT structures\n\nTri-shot\n- Is equal to Multishot in effect, but applicable to Bows\n- Items: Bows\n- Max level: 1\n- Incompatible with: Infinity, Piercing, Multishot\n- Found in: Toxic Lair\n\nWax Wings\n- Negates elytra damage from slow gliding, but raises durability drain from firework boosting.\n- Items: Elytra\n- Max level: 1\n- Incompatible with: Unbreaking\n- Found in: End Castle\n\nWither Coated\n- Inflicts Wither effect to direct hit foes. Higher levels boost potency but lowers duration. In practice, this causes the same amount of Wither damage but faster with higher levels.\n- Each attack also reduces item durability by 1.\n- Items: Swords, Axes, Tridents, Maces\n- Max level: 3\n- Incompatible with: Fire Aspect\n- Found in: Nether Port, Sealing Halls\n\n\n\n</details>\n\n\nSecret Librarian Trades \n\n<details>\n<summary>Spoiler</summary>\n\nWith this datapack, certain DnT structures will award a librarian villager with an exclusive trade if they're leveled up from novice to apprentice while inside certain structures, thus allowing many enchantments to be renewable. Can only get one enchantment at a time. The potential structures are listed below.\n- Desert Ruins: Outreach\n- End Castle: Aerial's Bane, Gravity, Wax Wings\n- Illager Hideout: Illager's Bane\n- Illager Manor: Illager's Bane\n- Jungle Ruins: Photosynthesis\n- Nether Keep: Hydro Veil, Swift Soar, Wither Coated\n- Nether Port: Swift Soar\n- Pale Residence: Spiteful\n- Piglin Donjon: Soul Speed\n- Sealing Halls: Aerial's Bane, Ghasted, Hydro Veil, Swift Soar, Wither Coated\n- Lone Citadel: Wind Burst, Aerial's Bane, Might\n- Toxic Lair: Antidote, Blowthrough, Tri-shot\n- Shrines: Traveler\n- Shrine Tower: Traveler\n- Bunker: Traveler\n- Undead Crypt: Traveler\n- Witch Villa: Curse of Conductivity\n- Ancient City (requires the DnT Ancient City Overhaul): Swift Sneak\n\n</details>\n\n\n\nIf you dont Want those enchantments, use this datapack:\n[[https://modrinth.com/datapack/nofun-dnt](https://modrinth.com/datapack/nofun-dnt)](https://modrinth.com/datapack/dnt-enchant-disabler)\n\nthe current structure list is:\n[See Here](https://modrinth.com/datapack/dungeons-and-taverns/gallery)\n\nif you have trouble to find dungeons, type \"/locate structure nova_structures:[then a list of structure names should be prompted for autofill]\"",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/tpehi7ww/images/93dc2790ee15a172f5e7a9100790dedde9ea6b35_350.webp",
+      "featured": true,
+      "title": "Taverns",
+      "description": "Taverns are places where you find beds and a Trader selling maps to some of the dungeons or ruins of this datapack. you need to level the villager, while they are inside the tavern, up to aprentice, to make them a tavern cartographer.",
+      "created": "2023-01-18T10:02:02.133148Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/tpehi7ww/images/c55944ee3b90dafe32c7a2e09617620bc844e8e8_350.webp",
+      "featured": false,
+      "title": "Firewatch towers",
+      "description": "They are atmospheric builds to make the world feel more lived in. you can use them as a small base or just to find a nights rest ",
+      "created": "2023-01-18T10:03:02.455997Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/tpehi7ww/images/da8d00e00d485cddb7c6b169353d9909da528019_350.webp",
+      "featured": false,
+      "title": "Mangrove Swamp Hut",
+      "description": "the witches moved into the mangrove swamp with 3 different hut styles",
+      "created": "2023-01-18T10:06:24.344753Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/tpehi7ww/images/7d92bafda8ae0586a777a3fc4acc12e16c67f1ef_350.webp",
+      "featured": false,
+      "title": "Illager Hideout",
+      "description": "A rare underground Dungeon that is filled with Illagers. a challenge for late game player who seek a challenge",
+      "created": "2023-01-18T10:08:39.109550Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Konci",
+      "role": "Contributer",
+      "avatar": "https://cdn.modrinth.com/data/j3gBGhDI/3ffe01153e95cc2aeb9dcadfb4bd769a0792d175_96.webp"
+    },
+    {
+      "username": "Whity",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/Ow3Staus/667401b85ad22854657c08d61f1a30e3dcac754e_96.webp"
+    },
+    {
+      "username": "MiziraGamez",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/bRf7C90k/485954894cd16526918e9b0fc74fa6c5e5ec68b9.png"
+    },
+    {
+      "username": "NovaWostra",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/YYNvC0TP/52f4b0671cb622362dd8798c98c7e5551ba3d1dc.jpeg"
+    }
+  ],
+  "versions": [
+    {
+      "id": "2AjppPPt",
+      "name": "Dungeons and Taverns 6.0.2",
+      "version_number": "6.0.2+mod",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-01T08:41:12.228472Z",
+      "downloads": 8213,
+      "changelog": "## DnT 6.0.2 Changelog\n- Updated German translation by Reispfannenfresser\n- Updated Korean translation by Daik_soul\n- Added Chilean Spanish translation by cOkE_BRZ\n- Added Turkish translation by Ayhan Kaan T\n- Defeating a Barracks Captain now only does it's \"aftermath\" >:) if the player is in survival mode.\n- Fixed a bug where the Bundle Tent Remnant loot table wouldn't have 1 music disc.\n- Fixed a bug with a debug function causing some console errors to occur in some user setups",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "dungeons-and-taverns-6.0.2.jar",
+          "size": 42195464,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GgiqvM0c",
+      "name": "Dungeons and Taverns 6.0.2",
+      "version_number": "6.0.2+mod",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-01T08:39:25.284275Z",
+      "downloads": 4362,
+      "changelog": "## DnT 6.0.2 Changelog\n- Updated German translation by Reispfannenfresser\n- Updated Korean translation by Daik_soul\n- Added Chilean Spanish translation by cOkE_BRZ\n- Added Turkish translation by Ayhan Kaan T\n- Defeating a Barracks Captain now only does it's \"aftermath\" >:) if the player is in survival mode.\n- Fixed a bug where the Bundle Tent Remnant loot table wouldn't have 1 music disc.\n- Fixed a bug with a debug function causing some console errors to occur in some user setups",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "dungeons-and-taverns-6.0.2.jar",
+          "size": 42195436,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WilF7nqU",
+      "name": "Dungeons and Taverns 6.0.2",
+      "version_number": "6.0.2+mod",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-01T08:14:40.479289Z",
+      "downloads": 161095,
+      "changelog": "## DnT 6.0.2 Changelog\n- Updated German translation by Reispfannenfresser\n- Updated Korean translation by Daik_soul\n- Added Chilean Spanish translation by cOkE_BRZ\n- Added Turkish translation by Ayhan Kaan T\n- Defeating a Barracks Captain now only does it's \"aftermath\" >:) if the player is in survival mode.\n- Fixed a bug where the Bundle Tent Remnant loot table wouldn't have 1 music disc.\n- Fixed a bug with a debug function causing some console errors to occur in some user setups",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "dungeons-and-taverns-6.0.2.jar",
+          "size": 42195203,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "iqFWpMVO",
+      "name": "Dungeons and Taverns 6.0.2",
+      "version_number": "6.0.2",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-10-01T05:44:33.341839Z",
+      "downloads": 16546,
+      "changelog": "## DnT 6.0.2 Changelog\n- Updated German translation by Reispfannenfresser\n- Updated Korean translation by Daik_soul\n- Added Chilean Spanish translation by cOkE_BRZ\n- Added Turkish translation by Ayhan Kaan T\n- Defeating a Barracks Captain now only does it's \"aftermath\" >:) if the player is in survival mode.\n- Fixed a bug where the Bundle Tent Remnant loot table wouldn't have 1 music disc.\n- Fixed a bug with a debug function causing some console errors to occur in some user setups",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Dungeons and Taverns v6.0.2.zip",
+          "size": 21724471,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Xmpurv3X",
+      "name": "Dungeons and Taverns 6.0.1",
+      "version_number": "6.0.1+mod",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-19T23:41:16.319438Z",
+      "downloads": 2137,
+      "changelog": "# Dungeons and Taverns 6.0.1 Hotfix\n- Fixed ALL loot tables / predicates / villager trades having erroneous number formats, causing them to act inconsistently.\n- Fixed a ton of structure jigsaw formats; i.e. restoring some structure complexity variety that was erroneously missing.\n- Fixed the chests/barrels in the basement of the Dappled Townhall being erroneously empty.\n- Fixed tavern traders being unable to offer Charts to other taverns due to erroneous predicates.\n- Fixed some Tavern Charts having the wrong rarity for their villager level. \n- Fixed the Ghast miniboss being unable to spawn their ghast children.\n- Fixed the Ghast miniboss not dropping a Tears music disc in any context. (was added to be a 25% chance per Looting)\n- Removed a now unused tick command; this should help with frame rate for users with older setups.\n- Fixed A Major Trial of Strength advancement having it's icon changed erroneously.\n- Fixed a structure piece for the Mangrove Well being misspelled.\n- Removed a now unused template file that was accidentally being called upon still.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "dungeons-and-taverns-6.0.1.jar",
+          "size": 42048687,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "eIkHJrbz",
+      "name": "Dungeons and Taverns 6.0.1",
+      "version_number": "6.0.1+mod",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-09-19T23:40:59.150962Z",
+      "downloads": 1373,
+      "changelog": "# Dungeons and Taverns 6.0.1 Hotfix\n- Fixed ALL loot tables / predicates / villager trades having erroneous number formats, causing them to act inconsistently.\n- Fixed a ton of structure jigsaw formats; i.e. restoring some structure complexity variety that was erroneously missing.\n- Fixed the chests/barrels in the basement of the Dappled Townhall being erroneously empty.\n- Fixed tavern traders being unable to offer Charts to other taverns due to erroneous predicates.\n- Fixed some Tavern Charts having the wrong rarity for their villager level. \n- Fixed the Ghast miniboss being unable to spawn their ghast children.\n- Fixed the Ghast miniboss not dropping a Tears music disc in any context. (was added to be a 25% chance per Looting)\n- Removed a now unused tick command; this should help with frame rate for users with older setups.\n- Fixed A Major Trial of Strength advancement having it's icon changed erroneously.\n- Fixed a structure piece for the Mangrove Well being misspelled.\n- Removed a now unused template file that was accidentally being called upon still.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "dungeons-and-taverns-6.0.1.jar",
+          "size": 42048659,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "A6LcZGsV",
+      "name": "Dungeons and Taverns 6.0.1",
+      "version_number": "6.0.1+mod",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-19T23:40:42.922816Z",
+      "downloads": 22292,
+      "changelog": "# Dungeons and Taverns 6.0.1 Hotfix\n- Fixed ALL loot tables / predicates / villager trades having erroneous number formats, causing them to act inconsistently.\n- Fixed a ton of structure jigsaw formats; i.e. restoring some structure complexity variety that was erroneously missing.\n- Fixed the chests/barrels in the basement of the Dappled Townhall being erroneously empty.\n- Fixed tavern traders being unable to offer Charts to other taverns due to erroneous predicates.\n- Fixed some Tavern Charts having the wrong rarity for their villager level. \n- Fixed the Ghast miniboss being unable to spawn their ghast children.\n- Fixed the Ghast miniboss not dropping a Tears music disc in any context. (was added to be a 25% chance per Looting)\n- Removed a now unused tick command; this should help with frame rate for users with older setups.\n- Fixed A Major Trial of Strength advancement having it's icon changed erroneously.\n- Fixed a structure piece for the Mangrove Well being misspelled.\n- Removed a now unused template file that was accidentally being called upon still.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "dungeons-and-taverns-6.0.1.jar",
+          "size": 42048426,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bipfLkEE",
+      "name": "Dungeons and Taverns 6.0.1",
+      "version_number": "6.0.1",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-09-19T23:39:57.906205Z",
+      "downloads": 5754,
+      "changelog": "# Dungeons and Taverns 6.0.1 Hotfix\n- Fixed ALL loot tables / predicates / villager trades having erroneous number formats, causing them to act inconsistently.\n- Fixed a ton of structure jigsaw formats; i.e. restoring some structure complexity variety that was erroneously missing.\n- Fixed the chests/barrels in the basement of the Dappled Townhall being erroneously empty.\n- Fixed tavern traders being unable to offer Charts to other taverns due to erroneous predicates.\n- Fixed some Tavern Charts having the wrong rarity for their villager level. \n- Fixed the Ghast miniboss being unable to spawn their ghast children.\n- Fixed the Ghast miniboss not dropping a Tears music disc in any context. (was added to be a 25% chance per Looting)\n- Removed a now unused tick command; this should help with frame rate for users with older setups.\n- Fixed A Major Trial of Strength advancement having it's icon changed erroneously.\n- Fixed a structure piece for the Mangrove Well being misspelled.\n- Removed a now unused template file that was accidentally being called upon still.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Dungeons and Taverns v6.0.1.zip",
+          "size": 21700737,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

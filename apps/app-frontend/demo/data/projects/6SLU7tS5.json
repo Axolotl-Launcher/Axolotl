@@ -1,0 +1,361 @@
+{
+  "id": "6SLU7tS5",
+  "slug": "default-dark-mode",
+  "title": "Default Dark Mode",
+  "description": "🌙 The Dark Mode Resource Pack for Minecraft: Java Edition",
+  "author": "nebulr",
+  "categories": [
+    "16x",
+    "core-shaders",
+    "gui",
+    "minecraft",
+    "modded",
+    "simplistic",
+    "themed",
+    "tweaks",
+    "utility",
+    "vanilla-like"
+  ],
+  "display_categories": ["gui", "minecraft", "modded", "vanilla-like"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "resourcepack",
+  "downloads": 8226133,
+  "followers": 4083,
+  "license": {
+    "id": "CC-BY-NC-SA-4.0",
+    "name": "Creative Commons Attribution Non Commercial Share Alike 4.0 International"
+  },
+  "loaders": ["minecraft"],
+  "game_versions": [
+    "1.6",
+    "1.6.1",
+    "1.6.2",
+    "1.6.3",
+    "1.6.4",
+    "1.7",
+    "1.7.1",
+    "1.7.2",
+    "1.7.3",
+    "1.7.4",
+    "1.7.5",
+    "1.7.6",
+    "1.7.7",
+    "1.7.8",
+    "1.7.9",
+    "1.7.10",
+    "1.8",
+    "1.8.1",
+    "1.8.2",
+    "1.8.3",
+    "1.8.4",
+    "1.8.5",
+    "1.8.6",
+    "1.8.7",
+    "1.8.8",
+    "1.8.9",
+    "1.9",
+    "1.9.1",
+    "1.9.2",
+    "1.9.3",
+    "1.9.4",
+    "1.10",
+    "1.10.1",
+    "1.10.2",
+    "1.11",
+    "1.11.1",
+    "1.11.2",
+    "1.12",
+    "1.12.1",
+    "1.12.2",
+    "1.13",
+    "1.13.1",
+    "1.13.2",
+    "1.14",
+    "1.14.1",
+    "1.14.2",
+    "1.14.3",
+    "1.14.4",
+    "1.15",
+    "1.15.1",
+    "1.15.2",
+    "1.16",
+    "1.16.1",
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "22w45a",
+    "22w46a",
+    "1.19.3-pre1",
+    "1.19.3-pre2",
+    "1.19.3-pre3",
+    "1.19.3-rc1",
+    "1.19.3-rc2",
+    "1.19.3",
+    "23w03a",
+    "23w04a",
+    "23w05a",
+    "23w06a",
+    "23w07a",
+    "1.19.4-pre1",
+    "1.19.4-pre2",
+    "1.19.4-pre3",
+    "1.19.4-pre4",
+    "1.19.4-rc1",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "1x3lSLAL",
+  "date_created": "2022-08-16T19:07:49.372897Z",
+  "date_modified": "2026-09-19T15:06:28.578184Z",
+  "color": 2171169,
+  "published": "2022-08-16T19:07:49.372897Z",
+  "additional_categories": ["16x", "core-shaders", "simplistic", "themed", "tweaks", "utility"],
+  "issues_url": "https://github.com/nebuIr/Default-Dark-Mode/issues",
+  "source_url": "https://github.com/nebuIr/Default-Dark-Mode",
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [
+    {
+      "platform": "Github",
+      "url": "https://github.com/sponsors/nebuIr"
+    },
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/nebulr"
+    }
+  ],
+  "versions_total": 68,
+  "body": "![Banner](https://i.imgur.com/p9lNs6l.png)\n\n# The Dark Mode Resource Pack for Minecraft: Java Edition <br> [Release](https://github.com/nebuIr/Default-Dark-Mode/releases/latest) [License](https://creativecommons.org/licenses/by-nc-sa/4.0/) [CurseForge Downloads](https://www.curseforge.com/minecraft/texture-packs/default-dark-mode/files) [Darkomizer Downloads](https://darkomizer.com)\n\nDefault Dark Mode gives the Minecraft GUI a darker look while maintaining the vanilla textures.\n\n[![Darkomizer](https://i.imgur.com/R0tc2H8.png)](https://darkomizer.com)\n\n## Compatibility\n\nMinecraft: Java Edition **1.6** through **1.21** is supported.\n\n*Optional: [Optifine](https://optifine.net/) is required for the dark loading screen.*\n\n## Mod Support\n\nWant support for a specific mod? Create an issue and submit a mod support request [here](https://github.com/nebuIr/Default-Dark-Mode/issues/new/choose).\\\nBefore submitting a mod support request, please make sure that your mod has not already been requested in another issue.\n\nThe following mods are supported (versions for **Fabric** & **Forge** should both work):\n\n| Mod                                                                                                             | 1.20 | 1.19 | 1.18 | 1.17 | 1.16 | 1.15 | 1.12 |\n| :-------------------------------------------------------------------------------------------------------------- | :--: | :--: | :--: | :--: | :--: | :--: | :------------: |\n| [Adorn](https://www.curseforge.com/minecraft/mc-mods/adorn)                                                     |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2)                     |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [AE2 Things](https://www.curseforge.com/minecraft/mc-mods/ae2things)                                            |  ❌  |  ❌  |  ❌  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [AE2 Wireless Terminals](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2-wireless-terminals) |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Backpacked](https://www.curseforge.com/minecraft/mc-mods/backpacked)                                           |  ❌  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Bedrockify](https://www.curseforge.com/minecraft/mc-mods/bedrockify)                                           |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Better Advancements](https://www.curseforge.com/minecraft/mc-mods/better-advancements)                         |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [BetterEnd](https://www.curseforge.com/minecraft/mc-mods/betterend)                                             |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Biome Makeover](https://www.curseforge.com/minecraft/mc-mods/biome-makeover)                                   |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Brewin' And Chewin'](https://www.curseforge.com/minecraft/mc-mods/brewin-and-chewin)                           |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Capes](https://www.curseforge.com/minecraft/mc-mods/capes)                                                     |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Charm](https://www.curseforge.com/minecraft/mc-mods/charm)                                                     |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Cloth Config API](https://www.curseforge.com/minecraft/mc-mods/cloth-config)                                   |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |       ❌       |\n| [Compact Storage](https://www.curseforge.com/minecraft/mc-mods/compactstorage)                                  |  ❌  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Creative Library](https://www.curseforge.com/minecraft/mc-mods/creative-library)                               |  ❌  |  ❌  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Dank Storage](https://www.curseforge.com/minecraft/mc-mods/dank-storage)                                       |  ❌  |  ❌  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Easy Anvils](https://www.curseforge.com/minecraft/mc-mods/easy-anvils)                                         |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Easy Magic](https://www.curseforge.com/minecraft/mc-mods/easy-magic)                                           |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Easy Villagers](https://www.curseforge.com/minecraft/mc-mods/easy-villagers)                                   |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [EMI (Item and Recipe Viewer)](https://www.curseforge.com/minecraft/mc-mods/emi)                                |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Enchanting Infuser](https://www.curseforge.com/minecraft/mc-mods/enchanting-infuser-forge)                     |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Expanded Delight](https://www.curseforge.com/minecraft/mc-mods/expanded-delight)                               |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Expanded Storage](https://www.curseforge.com/minecraft/mc-mods/expanded-storage)                               |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Fabric](https://fabricmc.net/)                                                                                 |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |       ❌       |\n| [Farmer's Delight](https://www.curseforge.com/minecraft/mc-mods/farmers-delight)                                |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |       ❌       |\n| [Farmer's Respite](https://www.curseforge.com/minecraft/mc-mods/farmers-respite)                                |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Frame API](https://www.curseforge.com/minecraft/mc-mods/frame-api)                                             |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Galosphere](https://www.curseforge.com/minecraft/mc-mods/galosphere)                                           |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Inmis](https://www.curseforge.com/minecraft/mc-mods/inmis)                                                     |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [InmisAddon](https://www.curseforge.com/minecraft/mc-mods/inmisaddon)                                           |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Inventorio](https://www.curseforge.com/minecraft/mc-mods/inventorio)                                           |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Inventory HUD+](https://www.curseforge.com/minecraft/mc-mods/inventory-hud-forge)                              |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Inventory Profiles Next](https://www.curseforge.com/minecraft/mc-mods/inventory-profiles-next)                 |  ✅  |  ✅  |  ✅  |  ❌  |  ✅  |  ❌  |       ❌       |\n| [Inventory Sorting](https://www.curseforge.com/minecraft/mc-mods/inventory-sorting)                             |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Iron Chests](https://www.curseforge.com/minecraft/mc-mods/iron-chests)                                         |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |       ❌       |\n| [Item Filters](https://www.curseforge.com/minecraft/mc-mods/item-filters)                                       |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Just Enough Items (JEI)](https://www.curseforge.com/minecraft/mc-mods/jei)                                     |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |       ❌       |\n| [Just Enough Resources (JER)](https://www.curseforge.com/minecraft/mc-mods/just-enough-resources-jer)           |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Language Reload](https://www.curseforge.com/minecraft/mc-mods/language-reload)                                 |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Let's do Wine!](https://www.curseforge.com/minecraft/mc-mods/lets-do-wine)                                     |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [LibGui](https://github.com/CottonMC/LibGui)                                                                    |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Lovely Snails](https://www.curseforge.com/minecraft/mc-mods/lovely-snails)                                     |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Mod Menu](https://www.curseforge.com/minecraft/mc-mods/modmenu)                                                |  ✅  |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |       ❌       |\n| [Oh The Biomes You'll Go](https://www.curseforge.com/minecraft/mc-mods/oh-the-biomes-youll-go)                  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Origins](https://www.curseforge.com/minecraft/mc-mods/origins)                                                 |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [owo-lib](https://www.curseforge.com/minecraft/mc-mods/owo-lib)                                                 |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Paradise Lost](https://www.curseforge.com/minecraft/mc-mods/paradise-lost)                                     |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Piercing Paxels](https://www.curseforge.com/minecraft/mc-mods/piercing-paxels)                                 |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Polymorph](https://www.curseforge.com/minecraft/mc-mods/polymorph)                                             |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Roughly Enough Items (REI)](https://www.curseforge.com/minecraft/mc-mods/roughly-enough-items)                 |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Shulker Box Tooltip](https://www.curseforge.com/minecraft/mc-mods/shulkerboxtooltip)                           |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Shulker Preview](https://github.com/tryashtar/shulker-preview)                                                 |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Shulker Tooltip](https://www.curseforge.com/minecraft/mc-mods/shulker-tooltip)                                 |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Simple Voice Chat](https://www.curseforge.com/minecraft/mc-mods/simple-voice-chat)                             |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Sophisticated Backpacks](https://www.curseforge.com/minecraft/mc-mods/sophisticated-backpacks)                 |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Sophisticated Core](https://www.curseforge.com/minecraft/mc-mods/sophisticated-core)                           |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [The Bumblezone](https://www.curseforge.com/minecraft/mc-mods/the-bumblezone-fabric)                            |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [The Twilight Forest](https://www.curseforge.com/minecraft/mc-mods/the-twilight-forest)                         |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Tinkers' Construct](https://www.curseforge.com/minecraft/mc-mods/tinkers-construct)                            |  ❌  |  ❌  |  ❌  |  ❌  |  ✅  |  ❌  |       ❌       |\n| [Tom's Simple Storage](https://www.curseforge.com/minecraft/mc-mods/toms-storage)                               |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Transmog](https://www.curseforge.com/minecraft/mc-mods/transmog)                                               |  ✅  |  ❌  |  ❌  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [TrashSlot](https://www.curseforge.com/minecraft/mc-mods/trashslot)                                             |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Traveler's Backpack](https://www.curseforge.com/minecraft/mc-mods/travelers-backpack)                          |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Trinkets](https://www.curseforge.com/minecraft/mc-mods/trinkets)                                               |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n| [Ultimate Car Mod](https://www.curseforge.com/minecraft/mc-mods/ultimate-car-mod)                               |  ✅  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Upgraded Shulkers](https://www.curseforge.com/minecraft/mc-mods/upgraded-shulkers)                             |  ❌  |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |       ❌       |\n| [Useful Backpacks](https://www.curseforge.com/minecraft/mc-mods/useful-backpacks)                               |  ✅  |  ✅  |  ✅  |  ❌  |  ❌  |  ❌  |       ❌       |\n\n## Screenshots\n\n![Loading Screen (Optifine Required)](https://i.imgur.com/2GKuNUE.png)\n\nTitle Screen\n\nInventory (Creative)\n\nCrafting Table\n\nChest\n\nFurnace\n\nAnvil",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/6SLU7tS5/images/72dad114b1d88964780d933d83e31e382c37cc48_350.webp",
+      "featured": true,
+      "title": null,
+      "description": null,
+      "created": "2022-12-26T01:04:46.882132Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/6SLU7tS5/images/aaee235fb4b1bb64bf0393d46b444e7aaf0c2526_350.webp",
+      "featured": false,
+      "title": "Title Screen",
+      "description": null,
+      "created": "2023-07-09T18:32:52.927645Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/6SLU7tS5/images/94b76598aa76061ad707c0bf7a6b09c3cf99556d_350.webp",
+      "featured": false,
+      "title": "Loading Screen",
+      "description": "(Optifine Required)",
+      "created": "2023-07-09T18:33:05.208218Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/6SLU7tS5/images/1635c8737d5311da9e6c302d9d0583e727169ad1_350.webp",
+      "featured": false,
+      "title": "Inventory (Creative)",
+      "description": null,
+      "created": "2023-07-09T18:32:39.196385Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "nebulr",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/20028702?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "1x3lSLAL",
+      "name": "Default Dark Mode 26.3 (2026.9.0)",
+      "version_number": "2026.9.0-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-19T15:06:28.578184Z",
+      "downloads": 294156,
+      "changelog": "## What's Changed\n* feat: add support for 26.3 by @rodrigov9 in https://github.com/nebuIr/Default-Dark-Mode/pull/282\n* ci: modernize optimization workflow actions by @aricloverEXTRA in https://github.com/nebuIr/Default-Dark-Mode/pull/276\n\n## New Contributors\n* @rodrigov9 made their first contribution in https://github.com/nebuIr/Default-Dark-Mode/pull/282\n* @aricloverEXTRA made their first contribution in https://github.com/nebuIr/Default-Dark-Mode/pull/276\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2026.6.0...2026.9.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-26.3-2026.9.0.zip",
+          "size": 761869,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "tPC8gaIQ",
+      "name": "Default Dark Mode 26.2 (2026.6.0)",
+      "version_number": "2026.6.0-26.2",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-06-22T19:54:34.536909Z",
+      "downloads": 784967,
+      "changelog": "## What's Changed\n* Add support for 26.2\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2026.4.0...2026.6.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-26.2-2026.6.0.zip",
+          "size": 761306,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lsJJZUFO",
+      "name": "Default Dark Mode 26.1 (2026.4.0)",
+      "version_number": "2026.4.0-26.1",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-04-01T20:47:48.510193Z",
+      "downloads": 384904,
+      "changelog": "## What's Changed\n* Add support for 26.1\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2026.2.0...2026.4.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-26.1-2026.4.0.zip",
+          "size": 755695,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "sPDc9hXF",
+      "name": "Default Dark Mode 1.21.11 (2026.4.0)",
+      "version_number": "2026.4.0-1.21.11",
+      "version_type": "release",
+      "game_versions": ["1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-04-01T20:46:40.975875Z",
+      "downloads": 602383,
+      "changelog": "## What's Changed\n* Fix fabric creative page buttons. by @Meelee35 in https://github.com/nebuIr/Default-Dark-Mode/pull/260\n\n## New Contributors\n* @Meelee35 made their first contribution in https://github.com/nebuIr/Default-Dark-Mode/pull/260\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2026.2.0...2026.4.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-1.21.11-2026.4.0.zip",
+          "size": 753448,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "uNECowVT",
+      "name": "Default Dark Mode 1.21.11 (2026.2.0)",
+      "version_number": "2026.2.0-1.21.11",
+      "version_type": "release",
+      "game_versions": ["1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-02-04T22:58:20.663230Z",
+      "downloads": 321938,
+      "changelog": "## What's Changed\n* Add support for up to 1.21.11\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2025.6.0...2026.2.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-1.21.11-2026.2.0.zip",
+          "size": 753478,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "NQogl7Qf",
+      "name": "Default Dark Mode 1.21.6 (2025.6.0)",
+      "version_number": "2025.6.0-1.21.6",
+      "version_type": "release",
+      "game_versions": ["1.21.6"],
+      "loaders": ["minecraft"],
+      "featured": true,
+      "date_published": "2025-06-17T20:06:58.014103Z",
+      "downloads": 647601,
+      "changelog": "## What's Changed\n* 25w19a+ version support by @Vi-Tul in https://github.com/nebuIr/Default-Dark-Mode/pull/238\n* Add dialog warning button by @nebuIr in b5970ac\n* Update supported versions by @nebuIr in 995fb8b\n\n## New Contributors\n* @Vi-Tul made their first contribution in https://github.com/nebuIr/Default-Dark-Mode/pull/238\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2025.5.1...2025.6.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-1.21.6-2025.6.0.zip",
+          "size": 751733,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "1qwshjH8",
+      "name": "Default Dark Mode 1.21.4+ (2025.5.1)",
+      "version_number": "2025.5.1-1.21.4",
+      "version_type": "release",
+      "game_versions": ["1.21.4", "1.21.5"],
+      "loaders": ["minecraft"],
+      "featured": true,
+      "date_published": "2025-05-29T02:16:07.811996Z",
+      "downloads": 345076,
+      "changelog": "## What's Changed\n* Remove old item textures by @nebuIr in d8f7cc7\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2025.5.0...2025.5.1",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-1.21.4+-2025.5.1.zip",
+          "size": 750000,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ySzjP0H9",
+      "name": "Default Dark Mode 1.21.4+ (2025.5.0)",
+      "version_number": "2025.5.0-1.21.4",
+      "version_type": "release",
+      "game_versions": ["1.21.4", "1.21.5"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-05-25T22:18:58.818386Z",
+      "downloads": 11111,
+      "changelog": "## What's Changed\n* Set 1.21.4 and newer as supported versions by @nebuIr in 15457b1\n\n**Full Changelog**: https://github.com/nebuIr/Default-Dark-Mode/compare/2024.6.0...2025.5.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Default-Dark-Mode-1.21.4+-2025.5.0.zip",
+          "size": 757882,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

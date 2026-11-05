@@ -1,0 +1,245 @@
+{
+  "id": "aOOJ2mte",
+  "slug": "optimized-fps",
+  "title": "Optimized fps",
+  "description": "Modpack Featuring Performance Mods on (Neo)Forge",
+  "author": "thejurassicking1",
+  "categories": ["forge", "lightweight", "neoforge", "optimization"],
+  "display_categories": ["lightweight", "optimization"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 730980,
+  "followers": 141,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["forge", "neoforge"],
+  "game_versions": [
+    "1.7.10",
+    "1.8.9",
+    "1.12.2",
+    "1.16.5",
+    "1.18.2",
+    "1.19.2",
+    "1.19.4",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "UTCVjkus",
+  "date_created": "2023-12-02T17:50:17.330015Z",
+  "date_modified": "2026-10-05T14:46:02.277270Z",
+  "color": 16053492,
+  "published": "2023-12-02T17:50:17.330015Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/floi166"
+    }
+  ],
+  "versions_total": 147,
+  "body": "Neo/Forge Based Modpack featuring Performance mods to make Minecraft run faster 1.7.10 - 26.1.2\n\nthis modpack has been designed with improving performance of Minecraft as well as adding some QOL mods (Quality Of Life mods) to make life more easy. \n\nOptiFine alternative mods like custom mob models (Fresh Animations will work with this modpack older version might not like 1.16.5 or older), zoom, shader and etc. \n\n\n\n\n\n\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/aOOJ2mte/images/bfa6c6e801a1552c01300232d864f26dc79bd3d4_350.webp",
+      "featured": false,
+      "title": "1.20.1",
+      "description": null,
+      "created": "2023-12-02T20:14:37.484961Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "thejurassicking1",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/yVoOmj9v/bd4d6ac20999b05d599cc6f01545c7acf2929104.jpg"
+    }
+  ],
+  "versions": [
+    {
+      "id": "UTCVjkus",
+      "name": "Optimized fps 26.3 4.4.0 beta 1",
+      "version_number": "4.4.0",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-05T14:46:02.277270Z",
+      "downloads": 8475,
+      "changelog": "**Initial release for 26.3**",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized fps 26.3 4.4.0.mrpack",
+          "size": 19502,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "kdmJOWvh",
+      "name": "Optimized fps 26.2 4.3.0",
+      "version_number": "4.3.0",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-05T14:28:19.999989Z",
+      "downloads": 2128,
+      "changelog": "**updated**                 \nNeoforge 26.2.0.75 -> 26.2.0.88                          \n[EMF] Entity Model Features [Fabric & Forge]            \n[ETF] Entity Texture Features - [Fabric & Forge]             \ne4mc      \nImmediatelyFast             \nIris Shaders      \nModernFix-mVUS      \nReese's Sodium Options      \nSodium            \nSodium Extra      \n       \n        \n**added**       \nNo Chat Reports              ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized fps 26.2 4.3.0.mrpack",
+          "size": 21135,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "oFHwSLPU",
+      "name": "Optimized fps 26.2 4.3.0 Beta 1",
+      "version_number": "4.3.0",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-03T17:10:03.921639Z",
+      "downloads": 8837,
+      "changelog": "**updated**                    \nNeoforge 26.2.0.6 -> 26.2.0.75       \n[EMF] Entity Model Features [Fabric & Forge]                \n[ETF] Entity Texture Features - [Fabric & Forge]                              \ne4mc                              \nImmediatelyFast                 \nLambDynamicLights              \nLithium (Fabric/NeoForge)              \nMoreCulling            \nReese's Sodium Options                 \nRemove Reloading Screen                                   \nSodium                             \nSodium Extra                 \n        \n       \n**added**              \nIris Shaders         \nModernFix-mVUS        \nOk Zoomer - It's Zoom!                            \nYeetus Experimentus                \n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized NEOFORGE 26.2 4.3.0 Beta 1.mrpack",
+          "size": 19717,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "HWOqvUfs",
+      "name": "Optimized fps 26.2 4.3.0 Alpha 1",
+      "version_number": "4.3.0",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-06-21T10:03:37.676652Z",
+      "downloads": 26350,
+      "changelog": "**Initial release for 26.2**",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized NEOFORGE 26.2.mrpack",
+          "size": 15512,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bQ00Yjon",
+      "name": "Optimized fps 26.1.2 4.2.0",
+      "version_number": "4.2.0",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-06-08T10:08:55.149523Z",
+      "downloads": 9629,
+      "changelog": "**Updated**            \nNeoforge 26.1.2.59 -> 26.1.2.74             \nDynamic FPS             \nLithium (Fabric/NeoForge)             \nMoreCulling           \nOk Zoomer - It's Zoom!           \nSodium          \n            \n**added**                     \ne4mc    ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized fps 26.1.2 4.2.0.mrpack",
+          "size": 22174,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "C5POEjoZ",
+      "name": "Optimized fps 26.1.2 4.2.0 Beta 1",
+      "version_number": "4.2.0",
+      "version_type": "beta",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-05-16T19:55:07.946046Z",
+      "downloads": 6082,
+      "changelog": "**Updated**          \nNeoforge 26.1.2.36 -> 26.1.2.59                                \n[EMF] Entity Model Features [Fabric & Forge]                    \nModernFix            \nsodium                ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized fps 26.1.2 4.2.0 Beta 1.mrpack",
+          "size": 21391,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8xoAevJv",
+      "name": "Optimized fps 1.21.1 3.1.23",
+      "version_number": "3.1.23",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-05-16T19:45:14.727766Z",
+      "downloads": 25219,
+      "changelog": "**Updated**                       \nNeoforge 21.1.219 -? 21.1.230               \n[EMF] Entity Model Features [Fabric & Forge]             \n[ETF] Entity Texture Features - [Fabric & Forge]          \ne4mc          \nModernFix         \nMore Culling           \nPolytone               \n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized fps 1.21.1 3.1.23.mrpack",
+          "size": 211384,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "QWOxzWHj",
+      "name": "Optimized fps 26.1.2 4.2.0 Alpha 3",
+      "version_number": "4.2.0",
+      "version_type": "alpha",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-05-02T17:32:42.779903Z",
+      "downloads": 3528,
+      "changelog": "**Updated**   \n26.1.2.1 -> 26.1.2.36                     \n[EMF] Entity Model Features [Fabric & Forge]              \n[ETF] Entity Texture Features - [Fabric & Forge]               \nLambDynamicLights                 \nLithium (Fabric/NeoForge)                                                                    \nModernFix               \nMoreCulling            \nOk Zoomer - It's Zoom!            \nRemove Reloading Screen             \nSodium                             \n           ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optimized fps 26.1.2 4.2.0 Alpha 3.mrpack",
+          "size": 21371,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

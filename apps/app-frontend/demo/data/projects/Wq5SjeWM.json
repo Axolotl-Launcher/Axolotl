@@ -1,0 +1,402 @@
+{
+  "id": "Wq5SjeWM",
+  "slug": "fancymenu",
+  "title": "FancyMenu",
+  "description": "Customize Minecraft's menus with ease!",
+  "author": "Keksuccino",
+  "categories": ["fabric", "forge", "neoforge", "utility"],
+  "display_categories": ["fabric", "forge", "neoforge", "utility"],
+  "client_side": "required",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 70634512,
+  "followers": 2022,
+  "license": {
+    "id": "LicenseRef-DSMSLv3.1",
+    "name": ""
+  },
+  "loaders": ["fabric", "forge", "neoforge"],
+  "game_versions": [
+    "1.12",
+    "1.12.1",
+    "1.12.2",
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.10",
+    "1.21.11",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "WZJI2jni",
+  "date_created": "2022-11-23T22:38:44.903503Z",
+  "date_modified": "2026-09-28T19:54:13.704526Z",
+  "color": 12780765,
+  "published": "2022-11-23T22:38:44.903503Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/Keksuccino/FancyMenu/issues",
+  "source_url": "https://github.com/Keksuccino/FancyMenu",
+  "wiki_url": "https://docs.fancymenu.net",
+  "discord_url": "https://discord.gg/rhayah27GC",
+  "donation_urls": [
+    {
+      "platform": "Paypal",
+      "url": "https://www.paypal.com/paypalme/TimSchroeter"
+    },
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/keksuccino"
+    }
+  ],
+  "versions_total": 692,
+  "body": "<a href=\"https://discord.gg/rhayah27GC\"></a> <a href=\"https://paypal.me/TimSchroeter\"></a> <a href=\"https://www.patreon.com/keksuccino\"></a>\n\n<br>\n\n<img src=\"https://gist.github.com/assets/35544624/5ad657ab-fe19-485b-a753-737c232e4596\" /><br>\n\nFancyMenu allows you to personalize Minecraft's menus in a user-friendly way. Whether you're striving for a modern and simple style or looking to integrate advanced features such as animated or dynamic elements into your menus, FancyMenu equips you with the right tools to bring your vision to reality!\n\nTo explore FancyMenu's features and unlock its full potential, check out the official [documentation](https://docs.fancymenu.net). It walks you through everything, from the basics to advanced customization, making sure both new and experienced users can make the most of FancyMenu.\n\nFor support, tips, and to connect with other users, join the official [Discord server](https://discord.gg/rhayah27GC).\n\nFor **layout templates**, the best place to check is the [`#layout-templates`](https://discord.com/channels/704163135787106365/1234093433795383316) channel in the [Discord server](https://discord.gg/rhayah27GC). This channel contains full FancyMenu setups made by the community, with download links for all of them.\n\nIf you experience crashes or other issues, please check the [incompatibility list](https://docs.fancymenu.net/docs/incompatibility-list) for mod conflicts!\n\n# What it Offers\n\n- **Visual Customization**: FancyMenu empowers users to visually customize their Minecraft menus, allowing for unique and personalized in-game interfaces.\n- **Built-in Editor**: FancyMenu features a user-friendly editor, allowing both beginners and experienced users to easily tweak layouts and customize menus.\n- **Client-Side Mod**: FancyMenu can be used as pure client-side mod without the need to install it server-side.\n- **Server-Side Features**: FancyMenu can be installed as optional server-side mod, enabling admins to remotely open GUIs for users with FancyMenu installed client-side.\n- **Animated Images**: FancyMenu supports animated image formats like GIF and APNG that will breathe life into your menus.\n- **Dynamic Menu Designs**: Advanced users can utilize features like conditional statements (aka. loading requirements), variables, and placeholders for complex and dynamic menu designs.\n- **Continuous Updates**: FancyMenu is actively maintained, with regular updates introducing new features and improvements. FancyMenu is always available for the latest Minecraft versions, so you can always make use of Minecraft's newest features without sacrificing your beautiful menus.\n\n<br>\n\n<img src=\"https://i.postimg.cc/sgm80yxG/image.gif\" /><br>\n[See how this menu was made](https://youtu.be/hX0JEhFNLNY)\n\n# Addons and More\n\nFancyMenu has lots of addons, plugins and other things to make it even more powerful!\n\n## [Drippy Loading Screen](https://modrinth.com/mod/drippy-loading-screen)\n\nDrippy is an addon for FancyMenu that allows you to customize the Mojang game loading screen!\n\n## [SpiffyHUD](https://modrinth.com/mod/spiffyhud)\n\nSpiffy is an addon for FancyMenu that allows you to customize the in-game HUD like the hotbar!\n\n## [FancyMenu Spigot Plugin](https://www.spigotmc.org/resources/fancymenu-plugin.122464/)\n\nThe Spigot plugin makes it possible to use FancyMenu's commands even without FancyMenu installed on the server. This allows you to remotely open GUIs or edit variable values for other players with FancyMenu installed client-side.\n\n## [Minecraft Changelogs as FancyMenu-Compatible Markdown](https://github.com/ClaytonTDM/minecraft-changelogs-markdown)\n\nThere's a great [GitHub project](https://github.com/ClaytonTDM/minecraft-changelogs-markdown) that converts Minecraft's changelogs to FancyMenu-compatible Markdown, so you can show the latest MC changelog in your menus! It updates daily to fetch new changelogs.\n\nFor example, to show the latest Minecraft changelog in a Text element, set its **Source Mode** to **Resource** and set its resource source to **Web**. Then use this URL as source: `https://clay.is-a.dev/minecraft-changelogs-markdown/{\"placeholder\":\"mcversion\"}/fancymenu.md`\n\n## [Fancy Entity Renderer](https://modrinth.com/mod/fancy-entity-renderer)\n  \nThis mod is an optional dependency for FancyMenu that is needed to display player entities in menus.  \nIf you want fancy players chilling in your menus, make sure to install this great mod!\n\n# Copyright\n\nFancyMenu Copyright © 2020-2025 Keksuccino.<br>\nFancyMenu is licensed under DSMSLv3 (DON'T SNATCH MA STUFF LICENSE v3).<br>\nSee [LICENSE.md](https://github.com/Keksuccino/FancyMenu/blob/master/LICENSE.md) for more information about the license.\n\nJapng © Copyright A. Ellerton.<br>\nJapng is licensed under Apache-2.0.\n\n[Animated GIF library for Java](https://github.com/rtyley/animated-gif-lib-for-java) © Copyright Roberto Tyley, Kevin Weiner.<br>\nOriginal code by Kevin Weiner on [fmsware.com](http://www.fmsware.com/stuff/gif.html).<br>\nRe-packaged and improved by Roberto Tyley. Improvements licensed under the Apache-2.0 license.\n\n# Server Needed?\n\nLooking to play Minecraft with friends but setting up a server is just too time-consuming?<br>\nNo worries! Simply rent a pre-configured server and start playing _in a snap_.\n\nJust click the image below and use code **[keksuccino](https://bisecthosting.com/keksuccino)** to enjoy a **25% discount** on your first month! You can also click the code itself if your ad blocker hides the banner.\n\n<br>\n\n<a href=\"https://tinyurl.com/bisectkeks\"><img src=\"https://www.bisecthosting.com/partners/custom-banners/f5dd9194-01d8-4ce3-9b6a-a85327d975b1.png\" /></a>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/Wq5SjeWM/images/41b10be0a7d8055f48dd9c5223afc075f00ee6bb.png",
+      "featured": false,
+      "title": "\"BigChadGuys\" Title screen by jflec",
+      "description": null,
+      "created": "2024-03-18T05:36:59.302729Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Wq5SjeWM/images/94a02e33867562e162a4c9c843e00475c7f1e7a5_350.webp",
+      "featured": false,
+      "title": "Title Screen by starrgaze_r",
+      "description": null,
+      "created": "2025-05-20T16:29:33.267474Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Wq5SjeWM/images/8ab0de48a9670e985944ab546bdb456f90e3dcbe_350.webp",
+      "featured": false,
+      "title": "Title Screen by Akirawave",
+      "description": null,
+      "created": "2023-03-10T23:09:56.980430Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Wq5SjeWM/images/eb7e80eb6af927bb5751680e3ea627ae5b7b98ca_350.webp",
+      "featured": false,
+      "title": "Title Screen by Raouldukejnr",
+      "description": null,
+      "created": "2024-02-29T02:22:43.565307Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Keksuccino",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/35544624?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "WZJI2jni",
+      "name": "[NeoForge] v3.9.14 MC 26.3",
+      "version_number": "3.9.14-26.3-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-28T19:54:13.704526Z",
+      "downloads": 4032,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_neoforge_3.9.14_MC_26.3.jar",
+          "size": 26108183,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "CBLbyHzH",
+      "name": "[Fabric] v3.9.14 MC 26.3",
+      "version_number": "3.9.14-26.3-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-28T19:53:53.566833Z",
+      "downloads": 101493,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_fabric_3.9.14_MC_26.3.jar",
+          "size": 26787759,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "cpNN9NGM",
+      "name": "[NeoForge] v3.9.14 MC 26.2",
+      "version_number": "3.9.14-26.2-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-28T19:52:35.032436Z",
+      "downloads": 1600,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_neoforge_3.9.14_MC_26.2.jar",
+          "size": 26097534,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2BXE3l12",
+      "name": "[Fabric] v3.9.14 MC 26.2",
+      "version_number": "3.9.14-26.2-fabric",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-28T19:52:19.310374Z",
+      "downloads": 44454,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_fabric_3.9.14_MC_26.2.jar",
+          "size": 26301936,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "gkIEo6K2",
+      "name": "[NeoForge] v3.9.14 MC 26.1.2",
+      "version_number": "3.9.14-26.1.2-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-28T19:51:56.408504Z",
+      "downloads": 1712,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_neoforge_3.9.14_MC_26.1.2.jar",
+          "size": 26019235,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ezkGhzrK",
+      "name": "[Fabric] v3.9.14 MC 26.1.2",
+      "version_number": "3.9.14-26.1.2-fabric",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-28T19:51:40.522581Z",
+      "downloads": 7932,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_fabric_3.9.14_MC_26.1.2.jar",
+          "size": 26223675,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KtmQLRWE",
+      "name": "[NeoForge] v3.9.14 MC 1.21.11",
+      "version_number": "3.9.14-1.21.11-neoforge",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-28T19:50:13.466178Z",
+      "downloads": 1406,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_neoforge_3.9.14_MC_1.21.11.jar",
+          "size": 25972904,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Xvytpywc",
+      "name": "[Fabric] v3.9.14 MC 1.21.11",
+      "version_number": "3.9.14-1.21.11-fabric",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-28T19:50:01.280603Z",
+      "downloads": 37186,
+      "changelog": "CHANGELOG: https://github.com/Keksuccino/FancyMenu/blob/master/changelog.txt",
+      "dependencies": [
+        {
+          "project_id": "CVT4pFB2",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "J81TRJWm",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "fancymenu_fabric_3.9.14_MC_1.21.11.jar",
+          "size": 26234450,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,254 @@
+{
+  "id": "nmDcB62a",
+  "slug": "modernfix",
+  "title": "ModernFix",
+  "description": "All-in-one mod that improves performance, reduces memory usage, and fixes many bugs. Compatible with all your favorite performance mods!",
+  "author": "embeddedt",
+  "categories": ["fabric", "forge", "neoforge", "optimization", "utility"],
+  "display_categories": ["fabric", "forge", "neoforge", "optimization", "utility"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 83850945,
+  "followers": 7215,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "forge", "neoforge"],
+  "game_versions": [
+    "1.16.4",
+    "1.16.5",
+    "1.18.2",
+    "1.19.2",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "23w31a",
+    "23w32a",
+    "23w33a",
+    "1.20.2-pre3",
+    "1.20.2-pre4",
+    "1.20.2-rc1",
+    "1.20.2-rc2",
+    "1.20.2",
+    "23w42a",
+    "23w43a",
+    "23w45a",
+    "1.20.3",
+    "1.20.4",
+    "24w04a",
+    "24w09a",
+    "24w14a",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.4",
+    "26.1",
+    "26.1.2"
+  ],
+  "latest_version": "sgbtnCX5",
+  "date_created": "2023-04-16T20:56:18.092938Z",
+  "date_modified": "2026-10-19T02:04:28.229122Z",
+  "color": 263172,
+  "published": "2023-04-16T20:56:18.092938Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/embeddedt/ModernFix/issues",
+  "source_url": "https://github.com/embeddedt/ModernFix",
+  "wiki_url": "https://github.com/embeddedt/ModernFix/wiki",
+  "discord_url": "https://discord.gg/rN9Y7caguP",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/embeddedt"
+    }
+  ],
+  "versions_total": 689,
+  "body": "![Banner image](https://cdn.modrinth.com/data/nmDcB62a/images/3c7be090404ebfed497b04aec8b4cd7cc1aac7ca.png)\n\n[Donate](https://ko-fi.com/embeddedt)\n[Available for Fabric](https://modrinth.com/mod/modernfix/versions?l=fabric)\n[Available for Forge](https://modrinth.com/mod/modernfix/versions?l=forge)\n[Join the Discord](https://discord.gg/rN9Y7caguP)\n\nModernFix is an all-in-one mod that **improves performance, reduces memory usage, and fixes many bugs** in modern Minecraft versions (most versions including and above 1.16 are supported)\nwithout majorly compromising the game experience. Most Forge 1.16-1.19.2 modpacks will launch **roughly twice as fast** with ModernFix installed.\nIf some non-default options are enabled, it can even allow large modpacks like All The Mods 8 to run with **3GB or less of allocated memory**.\n\nModernFix is free, open-source software. All of the code is available on [the GitHub repository](https://github.com/embeddedt/ModernFix).\n\n## ⚙️ Technical summary\n\nWhat exactly does ModernFix do for your game? There are a lot of tweaks being made - too many to summarize here. However, here is a\nbrief summary of the general types of improvements being made:\n\n* Backports of bugfixes from newer versions of Minecraft and/or Forge, e.g. fixing\n[worlds breaking when you remove a dimension mod in 1.18](https://github.com/MinecraftForge/MinecraftForge/issues/8800).\n* Patches to mods that are no longer supported on a given Minecraft version, to improve the gameplay experience instead of requiring\nplayers to update.\n* Many optimizations & improvements to the game's launch process to significantly improve speed and reduce random concurrency crashes.\n* Additional debug tools to help modders and players determine the cause of some rare game crashes/freezes, instead of relying on a painful\nmod bisection process.\n* It's not enabled by default due to compatibility issues, but ModernFix includes functionality to [completely redesign the game's model loading system](https://github.com/embeddedt/ModernFix/wiki/Dynamic-Resources-FAQ), replacing it with a new,\ndynamic version that loads models on the fly. Model loading is one of the major performance regressions to modded Minecraft that\nhas been present since 1.8, and this new system alleviates nearly all of the downsides, bringing memory usage and loading times\nmore in line with how they were in 1.7.10.\n* Need to play the game with very little RAM allocated (e.g. 512MB or less)? [Now you can do that.](https://github.com/embeddedt/ModernFix/wiki/Ultra%E2%80%90Low-Memory-Footprint)\n\nIf you are technically savvy and looking for more details on each patch, I recommend reading the [Summary of Patches](https://github.com/embeddedt/ModernFix/wiki/Summary-of-Patches) wiki page.\n\n## 🐛 Where to go when something doesn't work\n\nPlease either report an issue on [GitHub](https://github.com/embeddedt/ModernFix), or join the [Discord](https://discord.gg/rN9Y7caguP) and ask in the `#modernfix-discussion` channel.\nBe sure to mention the Minecraft version, modloader, and ModernFix version you are using, as well as what other mods you have installed.\n\n## 🎁 How can I support this project?\n\nThere are two main ways you can help support the development of ModernFix:\n\n* Spread the word! Test ModernFix in modpacks and encourage them to include it.\n* If you feel generous, I do accept donations via [Ko-fi](https://ko-fi.com/embeddedt). Donating is not required (as ModernFix is free),\nbut every little bit helps. I work on ModernFix in my spare time, so any compensation I receive helps to sustain development.\n\n## ❓ What other mods should I use?\n\nThere are many performance mods available for Minecraft and I can't list them all here, but here are some essential mods, in my opinion:\n\n- On any version before 1.19.4 you should always have LazyDFU installed, as it eliminates the incredible lag caused by the DFU system.\n- On any version before 1.20 you should generally use Starlight unless it has a compatibility issue with your mods (which is quite rare).\nIt offers vastly improved lighting performance and can also fix FPS stutters when moving between chunks.\n- Always have FerriteCore installed, as Mojang's implementation of blockstates/models is laughably inefficient, and quickly\nconsumes RAM as soon as more content is added beyond what vanilla offers.\n- Install a mod like Shutup Experimental settings (before 1.19) or Yeetus Experimentus (1.19+). These mods will suppress the\npop-up screen about experimental game features, which otherwise causes the game to reload its resources twice.\n\nOn a related note: I do **not** recommend use of OptiFine in any modded scenario. It is closed-source, patches the game in a way that easily breaks\nForge and other mods, and significantly slows down game launching, often on the order of minutes. Please try Sodium (on Fabric) or Embeddium (on Forge) instead!\nUsing OptiFine with ModernFix is not officially supported, and may cause issues.\n\n## 🖥️ Need a Minecraft server? Consider CreeperHost!\n![Use code taumc-qk0 for 10% off](https://cdn.modrinth.com/data/cached_images/c537b7f7d52aee93c4c2f3990a0a305da38ce041.jpeg)",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/nmDcB62a/images/2decaf4ab22bd38aa4ca39424bc1ec007fb70366_350.webp",
+      "featured": true,
+      "title": null,
+      "description": null,
+      "created": "2023-07-14T02:11:55.058630Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/nmDcB62a/images/9d42b40a72ac5354649791dd9515e8fac6b1834e_350.webp",
+      "featured": false,
+      "title": "Lower memory usage",
+      "description": "Forge 1.16.5 running (just!) with only 200MB of RAM allocated",
+      "created": "2023-04-16T21:01:34.623057Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "embeddedt",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/42941056?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "sgbtnCX5",
+      "name": "modernfix-forge-5.27.89+mc1.20.1.jar",
+      "version_number": "5.27.89+mc1.20.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-19T02:04:28.229122Z",
+      "downloads": 69646,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-forge-5.27.89+mc1.20.1.jar",
+          "size": 1010226,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bDP3S7Vh",
+      "name": "modernfix-forge-5.27.88+mc1.20.1.jar",
+      "version_number": "5.27.88+mc1.20.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-11T00:10:25.698990Z",
+      "downloads": 184172,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-forge-5.27.88+mc1.20.1.jar",
+          "size": 1009661,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "mKbwUMKg",
+      "name": "modernfix-neoforge-5.27.24+mc26.1.2.jar",
+      "version_number": "5.27.24+mc26.1.2",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-08T20:39:12.713639Z",
+      "downloads": 11609,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-neoforge-5.27.24+mc26.1.2.jar",
+          "size": 511945,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "7Jy58lnT",
+      "name": "modernfix-neoforge-5.27.26+mc1.21.1.jar",
+      "version_number": "5.27.26+mc1.21.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-08T20:28:04.556303Z",
+      "downloads": 250540,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-neoforge-5.27.26+mc1.21.1.jar",
+          "size": 611043,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lbZjFq4Z",
+      "name": "modernfix-forge-5.27.87+mc1.20.1.jar",
+      "version_number": "5.27.87+mc1.20.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-08T20:22:47.962943Z",
+      "downloads": 63037,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-forge-5.27.87+mc1.20.1.jar",
+          "size": 1009643,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Y0rvGOWm",
+      "name": "modernfix-neoforge-5.27.25+mc1.21.1.jar",
+      "version_number": "5.27.25+mc1.21.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-08T20:02:43.047373Z",
+      "downloads": 922,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-neoforge-5.27.25+mc1.21.1.jar",
+          "size": 610782,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hb85G6lA",
+      "name": "modernfix-forge-5.27.86+mc1.20.1.jar",
+      "version_number": "5.27.86+mc1.20.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-08T19:59:42.061451Z",
+      "downloads": 507,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-forge-5.27.86+mc1.20.1.jar",
+          "size": 1009373,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hHwYTQwa",
+      "name": "modernfix-forge-5.27.85+mc1.20.1.jar",
+      "version_number": "5.27.85+mc1.20.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-02T00:10:49.903192Z",
+      "downloads": 140305,
+      "changelog": "Please check the [GitHub wiki](https://github.com/embeddedt/ModernFix/wiki/Changelog) for major changes.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "modernfix-forge-5.27.85+mc1.20.1.jar",
+          "size": 1003271,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

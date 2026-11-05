@@ -25,6 +25,11 @@ export function releaseVersion(tag) {
     return tag.slice(1)
 }
 
+/** The static web demo of the launcher (apps/app-frontend/demo) that a release attaches. */
+export function webDemoAssetName(tag) {
+    return `Axolotl_Launcher_${releaseVersion(tag)}_web_demo.zip`
+}
+
 export function githubRepository() {
     const repository = process.env.GITHUB_REPOSITORY || 'Axolotl-Launcher/Axolotl'
     if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) {

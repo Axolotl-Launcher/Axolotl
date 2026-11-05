@@ -1,0 +1,352 @@
+{
+  "id": "lWDHr9jE",
+  "slug": "tectonic",
+  "title": "Tectonic",
+  "description": "Terrain shaping brought to new heights, grander and more varied than ever before!",
+  "author": "Apollo",
+  "categories": ["adventure", "datapack", "fabric", "forge", "neoforge", "quilt", "worldgen"],
+  "display_categories": [
+    "adventure",
+    "datapack",
+    "fabric",
+    "forge",
+    "neoforge",
+    "quilt",
+    "worldgen"
+  ],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 17534854,
+  "followers": 7475,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["datapack", "fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "22w42a",
+    "1.19.3",
+    "23w03a",
+    "23w04a",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2-rc1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "pxgiJaJp",
+  "date_created": "2022-10-06T04:20:33.396078Z",
+  "date_modified": "2026-10-18T03:31:22.001323Z",
+  "color": 4538421,
+  "published": "2022-10-06T04:20:33.396078Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/Apollounknowndev/tectonic/issues",
+  "source_url": "https://github.com/Apollounknowndev/tectonic",
+  "wiki_url": "https://github.com/Apollounknowndev/tectonic/wiki/Config",
+  "discord_url": "https://discord.gg/pA9EqZRJzn",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/apollodev"
+    }
+  ],
+  "versions_total": 344,
+  "body": "![Tectonic logo](https://cdn.modrinth.com/data/lWDHr9jE/images/a9e7b74ceae662769f011826b17c5311cfd9905d.png)\n\nWelcome to **Tectonic**, a world generation project that aims to transform how terrain is shaped.\n\n## Important Notes\n\nTectonic's supported versions right now are **1.21.1** and **26.1**. Other versions will not have issues fixed on them.\n\n<details>\n<summary>Biome Mod Compatibility</summary>\n\n**Most Biome Mods (BOP, RU, NS, BWG)**\n\nTectonic is compatible with mods that rely on Terrablender or Biolith to add their biomes to worldgen. This includes Biomes O Plenty, Regions Unexplored, Nature's Spirit, and more.\n\n**Terralith**\n\nTectonic has a special version with Terralith compatibility. This version is shipped in the mod version of Tectonic, but it is available as a standalone datapack [here](https://modrinth.com/datapack/terratonic).\n\n**CliffTree**\n\nOn 1.20, Tectonic and Clifftree are **not** compatible.\n\nOn 1.21, Tectonic needs some small tweaks to work with CliffTree. These tweaks are shipped with the mod version of Tectonic, but they are available as a datapack [here](https://modrinth.com/datapack/clifftree-tectonic).\n\n\n</details>\n\n\n## Features\n\nThe mod version of Tectonic has a config for editing many of the following features. Tectonic v3 has a config screen, making it easier than ever to know what certain fields do and to configure them in-game.\n\n---\n\n### Continents and Islands\nIn Tectonic v3, terrain forms into continent-like landmasses. Continents will generate thousands to tens of thousands of blocks wide, tailored to account for the project's massive mountain ranges and new terrain types.\n\nIn the oceans between continents you'll find relatively smaller \"islands\", ranging up to around a thousand blocks across. These islands use vanilla's mountain terrain shaping, now making it possible to find traditional mountain rings. \n\nWith Terralith installed, these islands spawn Calderas and Volcanoes!\n\n![](https://cdn.modrinth.com/data/lWDHr9jE/images/822d0e20a35cedbc257742ae4a2f52b783992c2c.png)\n\n---\n\n### Deeper Oceans\n\nOceans are much deeper than they are in vanilla, with deep oceans even extending into the deepslate layer! Deep oceans in particular have more varied terrain, featuring overhangs and valleys.\n\nIf the mod version is installed, vanilla Ocean Monuments will generate deeper to compensate for the deeper oceans.\n\n---\n\n### Mountain Ranges\n\nThe biggest highlight of Tectonic's terrain is the massive mountain ranges. They can stretch for tens of thousands of blocks, going high enough to approach the build limit!\n\n![Mountain range](https://cdn.modrinth.com/data/lWDHr9jE/images/e312ff19967d89e3fd79f2d5b78270a44fb9f216.png)\n\n---\n\n### Underground Rivers\n\nIn mountainous terrain that is too towering to allow regular river generation, terrain gets carved for rivers to continue underground. These link right up to the regular rivers, so there's no interruption in exploring along rivers. These rivers vary vastly in size and shape.\n\nIf the mod version is installed, these will have increased glow lichen and rare areas with lanterns!\n\nUnderground river\n\n---\n\n### Lava Tunnels\n\n*Very* deep underground, you can find a deeper variant of underground rivers with different shaping and lava instead of water.\n\nLava tunnel\n\n---\n\n### Jungle Pillars\n\nSome jungles feature massive pillars that can extend upwards of a hundred blocks tall!\n\nJungle pillars\n\n---\n\n### Canyons\n\nSome badlands will generate *very* large canyons, making them a spectacle to find and travel through.\n\n\n\n---\n\n### Dunes\n\nMost deserts will generate smooth, rolling dunes.\n\n\n\n---\n\n### Plateaus\n\nIn some areas, towering 2-3 tiered plateaus will generate. These plateaus will sometimes have smoother \"ramps\" to make exploration in survival more accessible.\n\nBadlands also feature isolated plateaus, not directly bound to nearby rivers.\n\n\n\n---\n\n### Valleys\n\nWhile plateaus usually elevate plateau biomes, some Cherry Groves and Pale Gardens have the plateaus surround the biome, turning the biome into a valley.\n\n\n\n---\n\n### Wetlands\n\nSome forest, jungle and taiga biomes generate very close to sea level and generate frequent ponds and lakes.\n\n\n\n---\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/lWDHr9jE/images/f58d0d6af34191ac2fc45e13d080f64696ea11ba_350.webp",
+      "featured": true,
+      "title": "Thumbnail",
+      "description": "Large mountain range backdrop with Tectonic title text",
+      "created": "2025-05-29T15:35:24.879915Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/lWDHr9jE/images/e312ff19967d89e3fd79f2d5b78270a44fb9f216_350.webp",
+      "featured": false,
+      "title": "Mountain Range",
+      "description": null,
+      "created": "2025-05-29T15:35:04.279592Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/lWDHr9jE/images/822d0e20a35cedbc257742ae4a2f52b783992c2c_350.webp",
+      "featured": false,
+      "title": "Terralith Volcano",
+      "description": null,
+      "created": "2025-05-29T15:29:51.273157Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/lWDHr9jE/images/13a3c19f29d1593a4c75c4ad37976a3aa1cc0b01_350.webp",
+      "featured": false,
+      "title": "Wetlands",
+      "description": null,
+      "created": "2025-05-29T15:31:19.574283Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Apollo",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/102649729?v=4"
+    },
+    {
+      "username": "DawnKiro",
+      "role": "Member",
+      "avatar": "https://avatars.githubusercontent.com/u/89707570?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "A5oNq7Va",
+      "name": "v3.1.0+beta1 ~ Neoforge 26.3",
+      "version_number": "3.1.0+beta1-neoforge-26.3",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-10-18T03:31:22.001323Z",
+      "downloads": 816,
+      "changelog": "\n## Warnings\n- Blending is **not** enabled.\n- Terralith compatibility is temporarily disabled.\n\nPlease proceed with caution!\n\n## Changes\n- Introduced three new island types, replacing the old island generation:\n  1. Volcanoes: Basalt, blackstone and magma make up these towering islands. In warmer areas, they'll spawn surrounded by jungles.\n  2. Calderas: Oceans surrounded by steep plains and stony peaks.\n  3. Atolls: Chill lagoons surrounded by a thin jungle island.\n- Significantly improved the shaping of jungle pillar terrain.\n",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "tectonic-3.1.0+beta1-neoforge-26.3.jar",
+          "size": 437563,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "zVp3TgeF",
+      "name": "v3.1.0+beta1 ~ Fabric 26.3",
+      "version_number": "3.1.0+beta1-fabric-26.3",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-10-18T03:31:20.032596Z",
+      "downloads": 8810,
+      "changelog": "\n## Warnings\n- Blending is **not** enabled.\n- Terralith compatibility is temporarily disabled.\n\nPlease proceed with caution!\n\n## Changes\n- Introduced three new island types, replacing the old island generation:\n  1. Volcanoes: Basalt, blackstone and magma make up these towering islands. In warmer areas, they'll spawn surrounded by jungles.\n  2. Calderas: Oceans surrounded by steep plains and stony peaks.\n  3. Atolls: Chill lagoons surrounded by a thin jungle island.\n- Significantly improved the shaping of jungle pillar terrain.\n",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "tectonic-3.1.0+beta1-fabric-26.3.jar",
+          "size": 441504,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "yWpa8ww5",
+      "name": "v3.0.31 ~ Neoforge 26.3",
+      "version_number": "3.0.31-neoforge-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-27T23:58:36.038221Z",
+      "downloads": 5658,
+      "changelog": "\n- Fixed the settings related to the Temperature and Vegetation noises not applying.\n- Reintroduced compatibility with Terralith now that it has ported to 26.3.\n",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "tectonic-3.0.31-neoforge-26.3.jar",
+          "size": 387758,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "j2jmkU85",
+      "name": "v3.0.31 ~ Fabric 26.3",
+      "version_number": "3.0.31-fabric-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-27T23:58:32.893212Z",
+      "downloads": 78626,
+      "changelog": "\n- Fixed the settings related to the Temperature and Vegetation noises not applying.\n- Reintroduced compatibility with Terralith now that it has ported to 26.3.\n",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "tectonic-3.0.31-fabric-26.3.jar",
+          "size": 390019,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "sS6alco3",
+      "name": "v3.0.30 ~ Neoforge 26.3",
+      "version_number": "3.0.30-neoforge-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-26T09:03:12.287411Z",
+      "downloads": 364,
+      "changelog": "\n- Fixed Neoforge 26.3.0.20+ not loading, requires Lithostitched 2.0.3 or above\n",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "tectonic-3.0.30-neoforge-26.3.jar",
+          "size": 375249,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "pxgiJaJp",
+      "name": "v3.0.29 ~ Datapack",
+      "version_number": "3.0.29-datapack",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-09-22T06:53:45.694823Z",
+      "downloads": 11630,
+      "changelog": "Ported to 26.3. **Not** compatible with prior versions.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tectonic-datapack-3.0.29.zip",
+          "size": 102227,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "C3WJ9yBv",
+      "name": "v3.0.29 ~ Neoforge 26.3",
+      "version_number": "3.0.29-neoforge-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-21T02:19:05.027948Z",
+      "downloads": 518,
+      "changelog": "\n- Ported to 26.3.\n- Temporarily removed Terralith and Clifftree compatibility as they haven't updated to 26.3 yet.\n",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "tectonic-3.0.29-neoforge-26.3.jar",
+          "size": 375260,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "irrtYKCq",
+      "name": "v3.0.29 ~ Fabric 26.3",
+      "version_number": "3.0.29-fabric-26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-21T02:19:02.972014Z",
+      "downloads": 12204,
+      "changelog": "\n- Ported to 26.3.\n- Temporarily removed Terralith and Clifftree compatibility as they haven't updated to 26.3 yet.\n",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "tectonic-3.0.29-fabric-26.3.jar",
+          "size": 376998,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

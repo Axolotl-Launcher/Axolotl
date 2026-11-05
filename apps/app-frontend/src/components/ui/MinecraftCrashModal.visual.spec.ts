@@ -14,6 +14,9 @@ const calls = vi.hoisted(() => ({
     logs: vi.fn(),
     prepare: vi.fn(),
     cancel: vi.fn(),
+    exportCrash: vi.fn(),
+    highlight: vi.fn(),
+    handleError: vi.fn(),
     enabled: true,
     chinese: false,
     process: undefined as
@@ -28,7 +31,10 @@ const calls = vi.hoisted(() => ({
 
 vi.mock('@modrinth/ui', async () => ({
     defineMessages: (messages: unknown) => messages,
-    commonMessages: { closeButton: { defaultMessage: 'Close' } },
+    commonMessages: {
+        closeButton: { defaultMessage: 'Close' },
+        openInFolderButton: { defaultMessage: 'Open in folder' },
+    },
     useVIntl: () => ({
         formatMessage: (
             message: { id: string; defaultMessage: string },
@@ -41,7 +47,10 @@ vi.mock('@modrinth/ui', async () => ({
             ).replace(/\{(\w+)(?:, number)?\}/g, (_, key) => String(values[key] ?? key)),
     }),
     injectModrinthClient: () => ({}),
-    injectNotificationManager: () => ({ addNotification: vi.fn() }),
+    injectNotificationManager: () => ({
+        addNotification: vi.fn(),
+        handleError: calls.handleError,
+    }),
     Button: (await import('../../../../../packages/ui/src/components/base/buttons/Button.vue'))
         .default,
     Card: defineComponent({
@@ -119,6 +128,7 @@ vi.mock('@/composables/useCrashAnalysis', () => ({
     refreshCrashAnalysis: async () => null,
 }))
 vi.mock('@/helpers/logs', () => ({
+    export_crash_context: calls.exportCrash,
     get_crash_analysis_ai_settings: async () => ({
         enabled: calls.enabled,
         provider_id: 'codeflow',
@@ -136,6 +146,7 @@ vi.mock('@/helpers/logs', () => ({
     logshare_upload_crash: vi.fn(),
     record_shared_log: vi.fn(),
 }))
+vi.mock('@/helpers/utils', () => ({ highlightInFolder: calls.highlight }))
 vi.mock('@/logagent/backend.ts', () => ({
     prepareSession: calls.prepare,
     cancelSession: calls.cancel,
@@ -151,6 +162,76 @@ afterEach(() => {
     vi.clearAllMocks()
     calls.enabled = true
     calls.chinese = false
+})
+
+async function mountCrashModal(instanceId: string, instanceName = 'Test') {
+    calls.logs.mockResolvedValue([])
+    const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+            { path: '/', component: { render: () => null } },
+            { path: '/settings', component: { render: () => null } },
+        ],
+    })
+    await router.push('/')
+    const wrapper = mount(MinecraftCrashModal, {
+        global: { directives: { tooltip: () => {} }, plugins: [router] },
+    })
+    cleanup.push(() => wrapper.unmount())
+    await wrapper.vm.handleWarning({
+        kind: 'minecraft_crash',
+        instance_id: instanceId,
+        instance_name: instanceName,
+    })
+    return wrapper
+}
+
+function actionButton(wrapper: Awaited<ReturnType<typeof mountCrashModal>>, label: string) {
+    return wrapper.findAll('button').find((button) => button.text() === label)!
+}
+
+it('exports the crash diagnostic package and opens its folder', async () => {
+    calls.exportCrash.mockResolvedValue('C:/exports/crash.zip')
+    calls.highlight.mockResolvedValue(undefined)
+    const wrapper = await mountCrashModal('export', 'Export test')
+
+    await actionButton(wrapper, 'Export diagnostic package').trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Diagnostic package saved to'))
+    expect(calls.exportCrash).toHaveBeenCalledExactlyOnceWith('export', 'Export test')
+    expect(wrapper.get('[role="status"]').text()).toContain('C:/exports/crash.zip')
+
+    await wrapper.get('[aria-label="Open in folder"]').trigger('click')
+    await vi.waitFor(() =>
+        expect(calls.highlight).toHaveBeenCalledExactlyOnceWith('C:/exports/crash.zip'),
+    )
+})
+
+it('does not report an export when the save dialog is cancelled', async () => {
+    calls.exportCrash.mockResolvedValue(null)
+    const wrapper = await mountCrashModal('cancel')
+
+    const button = actionButton(wrapper, 'Export diagnostic package')
+    await button.trigger('click')
+    await vi.waitFor(() => expect(calls.exportCrash).toHaveBeenCalledOnce())
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(button.attributes('aria-busy')).toBeUndefined()
+    expect(button.attributes('disabled')).toBeUndefined()
+})
+
+it('surfaces export failures and lets the user retry', async () => {
+    calls.exportCrash.mockRejectedValueOnce(new Error('Archive failed'))
+    const wrapper = await mountCrashModal('failure')
+
+    await actionButton(wrapper, 'Export diagnostic package').trigger('click')
+    await vi.waitFor(() => expect(calls.handleError).toHaveBeenCalledOnce())
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    const button = actionButton(wrapper, 'Export diagnostic package')
+    expect(button.attributes('aria-busy')).toBeUndefined()
+
+    calls.exportCrash.mockResolvedValueOnce('C:/exports/retry.zip')
+    await button.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('C:/exports/retry.zip'))
+    expect(calls.exportCrash).toHaveBeenCalledTimes(2)
 })
 
 it('offers configuration instead of a missing analyze button and keeps source changes local to this run', async () => {

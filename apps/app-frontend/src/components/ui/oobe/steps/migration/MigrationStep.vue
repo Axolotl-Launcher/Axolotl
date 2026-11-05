@@ -25,7 +25,14 @@ import { type ChooseImportMethod, startLauncherImport } from '@/helpers/launcher
 import { readMinecraftRoots, writeMinecraftRoots } from '@/helpers/minecraft-roots'
 
 import { useOobeStep } from '../../context'
-import { folderKey, folderName, type FoundGroup, type FoundInstance, groupFound } from './found'
+import {
+    folderKey,
+    folderName,
+    type FoundGroup,
+    type FoundInstance,
+    groupFound,
+    instancePathOf,
+} from './found'
 
 type AddedFolder = {
     path: string
@@ -60,6 +67,10 @@ const showCreationModal = inject<
 const step = useOobeStep()
 
 const messages = defineMessages({
+    officialLauncher: {
+        id: 'app.oobe.migration.official-launcher',
+        defaultMessage: 'Official launcher',
+    },
     detectedTitle: {
         id: 'app.oobe.migration.detected.title',
         defaultMessage: 'Found on this device',
@@ -158,6 +169,7 @@ onMounted(async () => {
 })
 
 function launcherName(launcher: ImportableLauncher) {
+    if (launcher.name === 'MinecraftLauncher') return formatMessage(messages.officialLauncher)
     return launcher.name === 'Generic'
         ? formatMessage(messages.genericLauncher)
         : (LAUNCHER_NAMES[launcher.name] ?? launcher.name)
@@ -182,12 +194,12 @@ function methodLocked(group: FoundGroup) {
 }
 
 function instanceId(instance: FoundInstance) {
-    return instance.path || instance.name
+    return folderKey(instancePathOf(instance))
 }
 
 /** A version's own folder name, without the launcher's folder prefix. */
 function instanceLabel(group: FoundGroup, instance: FoundInstance) {
-    return group.root ? folderName(instance.path) : instance.name
+    return group.root ? folderName(instancePathOf(instance)) : instance.name
 }
 
 function selectionOf(group: FoundGroup) {
@@ -216,7 +228,7 @@ async function importSelected() {
                     launcherType: group.launcher.launcherType ?? group.launcher.name,
                     path: group.launcher.path,
                     instanceName: instance.name,
-                    instancePath: instance.path,
+                    instancePath: instancePathOf(instance),
                 })),
         )
     importing.value = true
@@ -391,7 +403,11 @@ async function linkFolder(choice: string, origin: AddedFolder['origin']) {
                             <span
                                 class="truncate text-sm font-medium text-[var(--color-text-primary)]"
                             >
-                                {{ folderName(group.root) }}
+                                {{
+                                    group.launcher.name === 'MinecraftLauncher'
+                                        ? launcherName(group.launcher)
+                                        : folderName(group.root)
+                                }}
                             </span>
                             <span
                                 class="truncate text-xs text-[var(--color-text-tertiary)]"

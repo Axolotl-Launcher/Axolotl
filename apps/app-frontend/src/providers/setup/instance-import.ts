@@ -42,9 +42,17 @@ export function setupInstanceImportProvider(notificationManager: AbstractWebNoti
                     try {
                         const path = await get_default_launcher_path(name)
                         if (!path) continue
-                        const instances = await get_importable_instances(name, path)
-                        if (instances?.length > 0) {
-                            const launcher = { name, path, instances }
+                        const instances = (await get_importable_instances(name, path)) ?? []
+                        if (instances.length > 0 || name === 'Generic') {
+                            const launcher =
+                                name === 'Generic'
+                                    ? {
+                                          name: 'MinecraftLauncher',
+                                          launcherType: 'Generic',
+                                          path,
+                                          instances,
+                                      }
+                                    : { name, path, instances }
                             found.set(name, launcher)
                             onLauncher?.(launcher)
                         }

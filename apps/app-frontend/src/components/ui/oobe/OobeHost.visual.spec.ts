@@ -79,16 +79,21 @@ function i18n(locale: 'en-US' | 'zh-CN') {
     }
 }
 
-async function render(locale: 'en-US' | 'zh-CN' = 'en-US', steps = OOBE_STEPS) {
+async function render(
+    locale: 'en-US' | 'zh-CN' = 'en-US',
+    steps = OOBE_STEPS,
+    detectedLaunchers?: ImportableLauncher[],
+) {
     await page.viewport(1100, 700)
     const events = { complete: [] as string[], finished: 0 }
+    const chooseImportMethod = vi.fn(async () => [])
     const Harness = defineComponent({
         setup() {
             provideInstanceImport({
                 getDetectedLaunchers: async (
                     onLauncher?: (launcher: ImportableLauncher) => void,
                 ) => {
-                    const launchers = [
+                    const launchers = detectedLaunchers ?? [
                         {
                             name: 'PCL2CE',
                             path: 'C:/Users/Steve/AppData/Roaming',
@@ -118,7 +123,7 @@ async function render(locale: 'en-US' | 'zh-CN' = 'en-US', steps = OOBE_STEPS) {
                     return launchers
                 },
             } as never)
-            provide('chooseImportMethod', async () => [])
+            provide('chooseImportMethod', chooseImportMethod)
             provide('showCreationModalWithOptions', () => {})
             return () =>
                 h(OobeHost, {
@@ -146,7 +151,7 @@ async function render(locale: 'en-US' | 'zh-CN' = 'en-US', steps = OOBE_STEPS) {
         },
     })
     mounted.push(wrapper)
-    return { wrapper, events }
+    return { wrapper, events, chooseImportMethod }
 }
 
 function heading() {
@@ -312,6 +317,86 @@ it('lists the versions of a found folder once the user switches it to import', a
         expect.anything(),
     )
     await shot('oobe-migration-import')
+})
+
+it('uses shared game folders directly and imports only the selected version with its metadata path', async () => {
+    const root = 'C:/Users/Steve/AppData/Roaming/.minecraft'
+    const instances = ['1.20.1', '1.21.1'].map((name) => ({
+        name,
+        path: root,
+        version_path: `${root}/versions/${name}`,
+        compatible_mode: true,
+    }))
+    const { chooseImportMethod } = await render('zh-CN', migrationOnly, [
+        { name: 'PCL2CE', path: 'C:/Users/Steve/AppData/Roaming', instances },
+        { name: 'MinecraftLauncher', launcherType: 'Generic', path: root, instances },
+    ])
+    await waitFor(() => !!button('使用此文件夹'), { label: 'shared folder direct action' })
+    expect(document.body.textContent).toContain('官方启动器')
+    expect(document.querySelectorAll('.oobe-root [role="radio"]')).toHaveLength(2)
+    const importMethod = Array.from(
+        document.querySelectorAll<HTMLElement>('.oobe-root [role="radio"]'),
+    ).find((method) => method.textContent?.trim() === '导入')!
+    importMethod.click()
+    await flushPromises()
+    const checkboxes = Array.from(
+        document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="checkbox"]'),
+    )
+    expect(checkboxes).toHaveLength(2)
+    checkboxes[0]!.click()
+    await flushPromises()
+    expect(checkboxes[0]!.getAttribute('aria-checked')).toBe('true')
+    expect(checkboxes[1]!.getAttribute('aria-checked')).toBe('false')
+    button('导入 1 个实例')!.click()
+    await vi.waitFor(() =>
+        expect(chooseImportMethod).toHaveBeenCalledWith({
+            instances: [
+                {
+                    name: '1.20.1',
+                    path: `${root}/versions/1.20.1`,
+                    launcherType: 'Generic',
+                    basePath: root,
+                },
+            ],
+        }),
+    )
+    checkboxes[1]!.click()
+    await flushPromises()
+    expect(checkboxes.every((checkbox) => checkbox.getAttribute('aria-checked') === 'true')).toBe(
+        true,
+    )
+    checkboxes[0]!.click()
+    await flushPromises()
+    expect(checkboxes[0]!.getAttribute('aria-checked')).toBe('false')
+    expect(checkboxes[1]!.getAttribute('aria-checked')).toBe('true')
+    await shot('oobe-migration-shared-zh')
+})
+
+it('uses the official shared game folder in place in the light theme', async () => {
+    const root = 'C:/Users/Steve/AppData/Roaming/.minecraft'
+    await render('en-US', migrationOnly, [
+        {
+            name: 'MinecraftLauncher',
+            launcherType: 'Generic',
+            path: root,
+            instances: ['1.20.1', '1.21.1'].map((name) => ({
+                name,
+                path: root,
+                version_path: `${root}/versions/${name}`,
+                compatible_mode: true,
+            })),
+        },
+    ])
+    applyTheme('light')
+    await waitFor(() => !!button('Use this folder'), { label: 'official shared folder' })
+    expect(document.body.textContent).toContain('Official launcher')
+    button('Use this folder')!.click()
+    await waitFor(() => !button('Next')!.disabled, { label: 'shared folder in use' })
+    expect(backend.invoke).toHaveBeenCalledWith('plugin:instance|instance_sync_direct_links', {
+        roots: [{ path: root, mode: 'automatic' }],
+    })
+    expectInsideCard()
+    await shot('oobe-migration-shared-light')
 })
 
 it('shows only the steps a release added, and writes the record in order', async () => {

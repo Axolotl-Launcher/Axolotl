@@ -8826,6 +8826,9 @@
   "app.oobe.migration.none-found": {
     "message": "没有在此设备上找到其他启动器。"
   },
+  "app.oobe.migration.official-launcher": {
+    "message": "官方启动器"
+  },
   "app.oobe.migration.scanning": {
     "message": "正在查找其他启动器…"
   },

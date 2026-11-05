@@ -636,7 +636,7 @@ export function useDropImport(options: DropImportOptions) {
                     launcherType,
                     basePath: gameDir,
                     name: versionName,
-                    path: gameDir,
+                    path: single.versionPath,
                     compatibleMode: true,
                     versionPath: single.versionPath,
                 },
@@ -645,7 +645,7 @@ export function useDropImport(options: DropImportOptions) {
                 instances: [
                     {
                         name: versionName,
-                        path: gameDir,
+                        path: single.versionPath,
                         launcherType,
                         basePath: gameDir,
                         compatibleMode: true,
@@ -655,19 +655,20 @@ export function useDropImport(options: DropImportOptions) {
             })
         } else if (choice === 'old-way') {
             const single = scanResults![0].instances[0]
+            const instancePath = single.versionPath ?? single.path
             selectedInstances.value = [
                 {
                     launcherType,
                     basePath: gameDir,
                     name: versionName,
-                    path: single.path,
+                    path: instancePath,
                 },
             ]
             symlinkCardsModal.value?.show({
                 instances: [
                     {
                         name: versionName,
-                        path: single.path,
+                        path: instancePath,
                         launcherType,
                         basePath: gameDir,
                     },
@@ -1453,12 +1454,8 @@ export function useDropImport(options: DropImportOptions) {
         cleanupLauncherZipTemp()
     }
 
-    function resolvedInstancePath(
-        inst: SelectedInstance,
-        _ctx: ImportContext | null,
-    ): string | undefined {
-        if (inst.compatibleMode) return inst.versionPath
-        return inst.path
+    function resolvedInstancePath(inst: SelectedInstance): string {
+        return inst.versionPath ?? inst.path
     }
 
     async function onSymlinkMethodConfirmed(choices: SymlinkMethodChoice[] | boolean) {

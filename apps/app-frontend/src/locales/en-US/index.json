@@ -9405,6 +9405,9 @@
   "app.oobe.migration.none-found": {
     "message": "No other launchers were found on this device."
   },
+  "app.oobe.migration.official-launcher": {
+    "message": "Official launcher"
+  },
   "app.oobe.migration.scanning": {
     "message": "Looking for other launchers…"
   },

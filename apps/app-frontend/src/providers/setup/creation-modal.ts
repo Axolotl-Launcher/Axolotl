@@ -160,7 +160,7 @@ export function setupCreationModal(
                             launcherName: launcher.name,
                             path: launcher.path,
                             instanceName: name,
-                            instancePath: instanceData?.path ?? '',
+                            instancePath: instanceData?.version_path ?? instanceData?.path ?? '',
                         })
                     }
                 }

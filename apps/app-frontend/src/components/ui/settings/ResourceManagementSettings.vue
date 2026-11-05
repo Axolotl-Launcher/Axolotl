@@ -402,7 +402,7 @@ const messages = defineMessages({
     modrinthMirrorDescription: {
         id: 'app.settings.resources.modrinth-mirror-description',
         defaultMessage:
-            'Modrinth API requests and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first.',
+            'Modrinth searches, project and version lookups, and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first.',
     },
     curseforgeMirror: {
         id: 'app.settings.resources.curseforge-mirror',
@@ -411,7 +411,7 @@ const messages = defineMessages({
     curseforgeMirrorDescription: {
         id: 'app.settings.resources.curseforge-mirror-description',
         defaultMessage:
-            'CurseForge API requests and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first.',
+            'CurseForge searches, project and file lookups, and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first.',
     },
     curseforgeRestrictionBypass: {
         id: 'app.settings.resources.curseforge-restriction-bypass',

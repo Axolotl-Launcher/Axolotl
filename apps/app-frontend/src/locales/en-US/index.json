@@ -13285,7 +13285,7 @@
     "message": "CurseForge"
   },
   "app.settings.resources.curseforge-mirror-description": {
-    "message": "CurseForge API requests and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first."
+    "message": "CurseForge searches, project and file lookups, and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first."
   },
   "app.settings.resources.curseforge-restriction-bypass": {
     "message": "Automatically download restricted CurseForge files"
@@ -13378,7 +13378,7 @@
     "message": "Modrinth"
   },
   "app.settings.resources.modrinth-mirror-description": {
-    "message": "Modrinth API requests and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first."
+    "message": "Modrinth searches, project and version lookups, and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first."
   },
   "app.settings.resources.mojang-auth-service": {
     "message": "Mojang authentication service"

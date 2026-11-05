@@ -467,10 +467,16 @@ async function fetchMirrorDescription(hit: TranslatableHit): Promise<string | nu
             ? `${MIRROR_API_BASE}/curseforge?modId=${encodeURIComponent(id)}`
             : `${MIRROR_API_BASE}/modrinth?project_id=${encodeURIComponent(id)}`
 
+    let userAgent: string
     try {
-        const response = await tauriFetch(url, {
-            headers: { 'User-Agent': await getMirrorUserAgent() },
-        })
+        userAgent = await getMirrorUserAgent()
+    } catch {
+        // Nothing reached MCIM, so nothing is cached and a later call retries.
+        return null
+    }
+
+    try {
+        const response = await tauriFetch(url, { headers: { 'User-Agent': userAgent } })
         if (!response.ok) return null
         const data = (await response.json()) as MirrorTranslationResponse
         const translated = data.translated?.trim() || null

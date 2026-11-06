@@ -7854,6 +7854,9 @@
   "app.library.view.cards": {
     "message": "实例库卡片"
   },
+  "app.library.view.list": {
+    "message": "详细列表"
+  },
   "app.library.view.standard": {
     "message": "标准网格"
   },

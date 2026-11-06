@@ -4868,6 +4868,9 @@
   "app.library.view.cards": {
     "message": "例項庫卡片"
   },
+  "app.library.view.list": {
+    "message": "詳細列表"
+  },
   "app.library.view.standard": {
     "message": "標準網格"
   },

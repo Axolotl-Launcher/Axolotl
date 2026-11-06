@@ -72,6 +72,7 @@ vi.mock('@/components/ui/library/InstanceGroup.vue', async () => {
                 'groupName',
                 'grouping',
                 'showGameDirectory',
+                'displayMode',
             ],
             setup:
                 (props, { emit }) =>
@@ -82,6 +83,7 @@ vi.mock('@/components/ui/library/InstanceGroup.vue', async () => {
                             'data-instance-section': '',
                             'data-group-name': props.groupName,
                             'data-grouping': props.grouping,
+                            'data-display-mode': props.displayMode,
                             'data-show-game-directory': String(props.showGameDirectory),
                             'data-count': String(props.instances.length),
                             'data-running-supplied': String(
@@ -142,7 +144,12 @@ vi.mock('@modrinth/ui', async () => {
                         slots.default?.(),
                     ),
         }),
-        PopoutMenu: control,
+        PopoutMenu: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('div', [slots.default?.(), slots.menu?.()]),
+        }),
         Admonition: control,
         FloatingActionBar: defineComponent({
             props: ['shown'],
@@ -472,4 +479,34 @@ it('shows an empty group after the backend reports a group change', async () => 
         'Empty',
     ])
     expect(sections[sections.length - 1]?.attributes('data-count')).toBe('0')
+})
+
+it('offers the detailed list view and passes it to every instance section', async () => {
+    backend.listGroups.mockResolvedValue([{ id: 'a', name: 'Group A' }])
+    const wrapper = mount(GridDisplay, {
+        props: {
+            label: 'list-view-test',
+            instances: [{ id: 'alpha', name: 'Alpha', groups: ['a'] }] as unknown as GameInstance[],
+        },
+        global: { directives: { tooltip: {} } },
+    })
+    mounted.push(wrapper)
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="View"]').trigger('click')
+    await vi.waitFor(() => {
+        const option = wrapper.findAll('button').find((button) => button.text() === 'Detailed list')
+        expect(option).toBeDefined()
+        return option
+    })
+    const option = wrapper.findAll('button').find((button) => button.text() === 'Detailed list')!
+    await option.trigger('click')
+    await flushPromises()
+
+    expect(
+        wrapper
+            .findAll('[data-instance-section]')
+            .every((section) => section.attributes('data-display-mode') === 'list'),
+    ).toBe(true)
+    expect(localStorage.getItem('axolotl-instance-library-display-mode')).toBe('list')
 })

@@ -8,6 +8,7 @@ import {
     FolderOpenIcon,
     GridIcon,
     LayersIcon,
+    ListIcon,
     MinusIcon,
     MoreVerticalIcon,
     PinIcon,
@@ -56,8 +57,8 @@ import { kill, remove, run, set_pinned } from '@/helpers/instance'
 import { create_group as createGroup } from '@/helpers/instance-groups'
 import { updateRunningInstanceIds } from '@/helpers/instance-running-state'
 import {
-    getLastLibraryDisplayMode,
-    setLastLibraryDisplayMode,
+    getLastInstanceLibraryDisplayMode,
+    setLastInstanceLibraryDisplayMode,
 } from '@/helpers/library-display-mode'
 import { get_all, get_by_instance_id } from '@/helpers/process'
 import type { GameInstance } from '@/helpers/types'
@@ -109,6 +110,7 @@ const messages = defineMessages({
     view: { id: 'app.library.view', defaultMessage: 'View' },
     standardView: { id: 'app.library.view.standard', defaultMessage: 'Standard grid' },
     cardsView: { id: 'app.library.view.cards', defaultMessage: 'Library cards' },
+    listView: { id: 'app.library.view.list', defaultMessage: 'Detailed list' },
     sortBy: { id: 'app.instances.sort-by', defaultMessage: 'Sort by' },
     ascAlphabetical: {
         id: 'app.instances.sort.direction.asc-alphabetical',
@@ -196,7 +198,7 @@ const currentDeleteInstance = ref(null)
 const currentContextSectionKey = ref('')
 const confirmModal = ref(null)
 const search = ref('')
-const displayMode = ref(getLastLibraryDisplayMode())
+const displayMode = ref(getLastInstanceLibraryDisplayMode())
 const runningInstanceIds = ref(new Set<string>())
 const startingInstanceIds = ref(new Set<string>())
 let unlistenProcesses: (() => void) | undefined
@@ -365,6 +367,7 @@ function openNewGroupModal() {
 const displayModeOptions = computed(() => [
     { id: 'standard', label: formatMessage(messages.standardView), icon: GridIcon },
     { id: 'cards', label: formatMessage(messages.cardsView), icon: CollectionIcon },
+    { id: 'list', label: formatMessage(messages.listView), icon: ListIcon },
 ])
 
 const currentDisplayMode = computed(() =>
@@ -373,7 +376,7 @@ const currentDisplayMode = computed(() =>
 
 function setDisplayMode(mode) {
     displayMode.value = mode
-    setLastLibraryDisplayMode(mode)
+    setLastInstanceLibraryDisplayMode(mode)
 }
 
 const filteredInstances = computed(() =>

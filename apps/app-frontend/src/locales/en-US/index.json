@@ -8133,6 +8133,9 @@
   "app.library.view.cards": {
     "message": "Library cards"
   },
+  "app.library.view.list": {
+    "message": "Detailed list"
+  },
   "app.library.view.standard": {
     "message": "Standard grid"
   },

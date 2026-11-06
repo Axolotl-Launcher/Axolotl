@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
 import { defineComponent, h, ref } from 'vue'
 
 import ArmorPreviewControls from '../components/skin/ArmorPreviewControls.vue'
@@ -18,19 +19,25 @@ afterEach(() => {
     vi.useRealTimers()
 })
 
-async function panel() {
+async function panel(ignorePhysicalPointer = false) {
     const config = ref(createDefaultArmorPreviewConfig())
     config.value.helmet = { material: 'diamond', trimPattern: 'bolt', trimMaterial: 'gold' }
     const Harness = defineComponent({
         setup: () => () =>
-            h('div', { style: 'width:360px;position:fixed;left:16px;top:16px' }, [
-                h(ArmorTrimPanel, {
-                    modelValue: config.value,
-                    'onUpdate:modelValue': (value: ArmorPreviewConfig) => {
-                        config.value = value
-                    },
-                }),
-            ]),
+            h(
+                'div',
+                {
+                    style: `width:360px;position:fixed;left:16px;top:16px;${ignorePhysicalPointer ? 'pointer-events:none' : ''}`,
+                },
+                [
+                    h(ArmorTrimPanel, {
+                        modelValue: config.value,
+                        'onUpdate:modelValue': (value: ArmorPreviewConfig) => {
+                            config.value = value
+                        },
+                    }),
+                ],
+            ),
     })
     const wrapper = await mountThemed(Harness, {}, 'dark')
     cleanup.push(() => wrapper.unmount())
@@ -77,8 +84,15 @@ it('keeps the popover compact while its parent owns scrolling and the panel fits
 })
 
 it('reuses the tooltip immediately between peer options and keeps their selections intact', async () => {
-    const { wrapper, config } = await panel()
-    // Exercise the hover delay and exit timers without competing with browser workers' frame budgets.
+    // Synthetic events own this test's hover state. Native pointer events from
+    // an earlier browser action must not activate a different option.
+    const { wrapper, config } = await panel(true)
+    await page
+        .elementLocator(wrapper.get('button[aria-label="Netherite Helmet"]').element)
+        .hover({ force: true })
+    expect(wrapper.get('button[aria-label="Netherite Helmet"]').element.matches(':hover')).toBe(
+        false,
+    )
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     for (const section of wrapper.findAll('[data-tooltip-group]')) {
         const [first, second] = section

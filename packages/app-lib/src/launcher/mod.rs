@@ -2634,11 +2634,14 @@ pub async fn launch_minecraft(
     }
 
     let settings = crate::state::Settings::get(&state.data).await?;
+    let minecraft_java = java_environment::minecraft_java_executable(
+        &java_version.path,
+        settings.minecraft_use_console_java,
+    )?;
 
     #[cfg(target_os = "windows")]
     if settings.auto_set_java_high_performance_mode {
-        if let Err(error) =
-            set_high_performance_gpu_preference(&java_version.path)
+        if let Err(error) = set_high_performance_gpu_preference(&minecraft_java)
         {
             tracing::warn!(%error, java = %java_version.path, "Failed to set Java high-performance GPU preference");
         }
@@ -2714,10 +2717,10 @@ pub async fn launch_minecraft(
                 ),
             )?);
             command.args(cmd);
-            command.arg(&java_version.path);
+            command.arg(&minecraft_java);
             command
         }
-        None => Command::new(&java_version.path),
+        None => Command::new(&minecraft_java),
     };
 
     let env_args = Vec::from(env_args);

@@ -672,6 +672,15 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         }),
     },
     {
+        id: 'java-use-console',
+        categoryId: 'java-performance',
+        targetId: 'settings-target-java-use-console',
+        label: message(
+            'app.settings.java.use-console-java',
+            'Use java instead of javaw when launching Minecraft',
+        ),
+    },
+    {
         id: 'java-memory',
         categoryId: 'java-performance',
         targetId: 'settings-target-java-memory',

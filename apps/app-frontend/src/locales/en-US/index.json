@@ -12669,6 +12669,9 @@
   "app.settings.groups.support": {
     "message": "App & support"
   },
+  "app.settings.java.use-console-java": {
+    "message": "Use java instead of javaw when launching Minecraft"
+  },
   "app.settings.java.auto-high-performance-mode": {
     "message": "Automatically use high-performance GPU for Java"
   },

@@ -65,6 +65,7 @@ fn record() -> SettingsRecord {
         mc_memory_auto: true,
         mc_memory_optimize: true,
         auto_set_java_high_performance_mode: false,
+        minecraft_use_console_java: true,
         transparent_background: true,
         transparent_background_opacity: 33,
         transparent_background_blur: true,

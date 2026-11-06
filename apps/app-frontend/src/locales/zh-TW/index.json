@@ -6611,6 +6611,9 @@
   "app.settings.groups.support": {
     "message": "應用與支援"
   },
+  "app.settings.java.use-console-java": {
+    "message": "啟動 Minecraft 時使用 java 而不是 javaw"
+  },
   "app.settings.java.auto-high-performance-mode": {
     "message": "自動為 Java 使用高性能顯示卡"
   },

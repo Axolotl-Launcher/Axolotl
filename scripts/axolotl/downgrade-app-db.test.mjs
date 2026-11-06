@@ -620,6 +620,43 @@ console.log('install jobs gain a scheduling level and lose it on downgrade')
     old.close()
 }
 
+{
+    const CONSOLE_JAVA = 20261106150000
+    const file = path.join(directory, 'console-java.db')
+    sampleDatabase(file, { withColumn: false, applied: [CONSOLE_JAVA] })
+    const sql = fs.readFileSync(
+        path.join(migrationsDir, '20261106150000_minecraft-console-java.sql'),
+        'utf8',
+    )
+    const database = new DatabaseSync(file)
+    database.exec(sql)
+    check(
+        'console Java defaults off for existing settings',
+        database.prepare('SELECT minecraft_use_console_java FROM settings').get()
+            .minecraft_use_console_java === 0,
+    )
+    database.exec('UPDATE settings SET minecraft_use_console_java = 1')
+    database.close()
+    const downgraded = run(['--db', file, '--to', String(CONSOLE_JAVA), '--apply'])
+    check(
+        'console Java downgrade removes its column',
+        downgraded.status === 0 && !columns(file, 'settings').includes('minecraft_use_console_java'),
+        downgraded.output,
+    )
+    const restored = new DatabaseSync(file)
+    check(
+        'console Java downgrade preserves other settings',
+        restored.prepare('SELECT max_memory FROM settings').get().max_memory === 4096,
+    )
+    restored.exec(sql)
+    check(
+        'console Java can be upgraded again',
+        restored.prepare('SELECT minecraft_use_console_java FROM settings').get()
+            .minecraft_use_console_java === 0,
+    )
+    restored.close()
+}
+
 if (process.platform !== 'win32') {
     console.log('skipping the running launcher checks outside Windows')
 } else {

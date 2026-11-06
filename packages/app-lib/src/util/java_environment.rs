@@ -66,7 +66,7 @@ pub(crate) fn console_java_executable(program: &str) -> crate::Result<PathBuf> {
             && !console.is_file()
         {
             return Err(crate::ErrorKind::InputError(format!(
-                "The selected Java runtime has no console executable: {}. Select its java.exe to use the server console.",
+                "The selected Java runtime has no console executable: {}. Select a complete Java installation.",
                 console.display(),
             )).as_error());
         }
@@ -75,11 +75,72 @@ pub(crate) fn console_java_executable(program: &str) -> crate::Result<PathBuf> {
     Ok(path.to_path_buf())
 }
 
+/// Chooses the Minecraft entry point without changing the stored runtime.
+pub(crate) fn minecraft_java_executable(
+    program: &str,
+    use_console: bool,
+) -> crate::Result<PathBuf> {
+    if use_console {
+        console_java_executable(program)
+    } else {
+        Ok(PathBuf::from(program))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use std::ffi::OsString;
+
+    #[test]
+    fn minecraft_keeps_the_selected_executable_by_default() {
+        for selected in
+            ["javaw.exe", "runtime/bin/javaw.exe", "java", "custom-java"]
+        {
+            assert_eq!(
+                minecraft_java_executable(selected, false).unwrap(),
+                PathBuf::from(selected)
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn minecraft_console_java_setting_uses_only_the_selected_runtime() {
+        let runtime = tempfile::tempdir().unwrap();
+        let windowed = runtime.path().join("javaw.exe");
+        let console = runtime.path().join("java.exe");
+        std::fs::write(&windowed, []).unwrap();
+        assert!(
+            minecraft_java_executable(windowed.to_str().unwrap(), true)
+                .is_err()
+        );
+        std::fs::write(&console, []).unwrap();
+        assert_eq!(
+            minecraft_java_executable(windowed.to_str().unwrap(), true)
+                .unwrap(),
+            console
+        );
+        assert_eq!(
+            minecraft_java_executable(windowed.to_str().unwrap(), false)
+                .unwrap(),
+            windowed
+        );
+        assert_eq!(
+            minecraft_java_executable(console.to_str().unwrap(), true).unwrap(),
+            console
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn minecraft_console_java_setting_leaves_other_platforms_unchanged() {
+        assert_eq!(
+            minecraft_java_executable("/runtime/bin/java", true).unwrap(),
+            PathBuf::from("/runtime/bin/java")
+        );
+    }
 
     #[test]
     fn console_java_preserves_explicit_console_and_custom_executables() {

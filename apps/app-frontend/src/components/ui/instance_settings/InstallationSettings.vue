@@ -579,12 +579,7 @@ provideInstallationSettings({
 
     updaterModalProps: computed(() => ({
         isApp: true,
-        currentVersionId:
-            modpackInfo.value?.update?.provider === 'modrinth'
-                ? modpackInfo.value.update.target_version_id
-                : modpackInfo.value?.update?.provider === 'curseforge'
-                  ? String(modpackInfo.value.update.target_file_id)
-                  : (instance.value.link?.version_id ?? ''),
+        currentVersionId: instance.value.link?.version_id ?? '',
         projectIconUrl: modpackInfo.value?.project?.icon_url,
         projectName: modpackInfo.value?.project?.title ?? 'Modpack',
         currentGameVersion: instance.value.game_version,

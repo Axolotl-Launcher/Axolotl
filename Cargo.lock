@@ -7356,6 +7356,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "paste",
+ "png 0.18.1",
  "quartz_nbt",
  "regex",
  "serde",

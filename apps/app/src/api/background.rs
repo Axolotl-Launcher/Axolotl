@@ -895,4 +895,64 @@ mod tests {
         assert_eq!(frames.len(), 3);
         assert_eq!(frames[0].buffer().dimensions(), (32, 16));
     }
+
+    #[test]
+    fn converts_apng_with_crop() {
+        let mut input = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut input, 32, 16);
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            encoder.set_animated(2, 0).unwrap();
+            let mut writer = encoder.write_header().unwrap();
+            writer.set_frame_delay(100, 1000).unwrap();
+            writer
+                .write_image_data(&[255, 0, 0, 255].repeat(32 * 16))
+                .unwrap();
+            writer.set_frame_delay(100, 1000).unwrap();
+            writer
+                .write_image_data(&[0, 0, 255, 255].repeat(32 * 16))
+                .unwrap();
+            writer.finish().unwrap();
+        }
+
+        assert_eq!(
+            detect_format(Path::new("launcher-background.png"), &input)
+                .unwrap(),
+            AnimatedFormat::Apng
+        );
+
+        let mut decoder =
+            PngDecoder::new(Cursor::new(input.as_slice())).unwrap();
+        decoder.set_limits(decode_limits()).unwrap();
+        let apng = decoder.apng().unwrap();
+        let output = encode_frames(
+            apng,
+            NormalizedCropRect {
+                left: 0.0,
+                top: 0.0,
+                width: 1.0,
+                height: 1.0,
+            },
+            16,
+            8,
+            75.0,
+            10,
+            5_000,
+            1_000_000,
+        )
+        .expect("APNG should convert");
+
+        assert_eq!(output.frame_count, 2);
+        assert_eq!((output.width, output.height), (16, 8));
+
+        let mut output_decoder =
+            WebPDecoder::new(Cursor::new(output.bytes.as_slice())).unwrap();
+        let frames = output_decoder
+            .into_frames()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(frames.len(), 2);
+        assert_eq!(frames[0].buffer().dimensions(), (16, 8));
+    }
 }

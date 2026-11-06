@@ -70,6 +70,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node --test scripts/axolotl/ci-changes.test.mjs
+          node --test scripts/axolotl/build-jobs.test.mjs
           node --test scripts/axolotl/rust-coverage.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
           node --test scripts/axolotl/aliyunoss-release.test.mjs

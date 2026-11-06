@@ -466,11 +466,13 @@ function clearPreviewTimers() {
     previewCloseTimer = undefined
 }
 
-const PREVIEW_HOVER_OPEN_DELAY_MS = 2_000
+const PREVIEW_HOVER_OPEN_DELAY_MS = 1_000
+const PREVIEW_HOVER_CLOSE_DELAY_MS = 280
 
 function schedulePreviewOpen() {
     if (!customBackgroundPreview.value || previewOverlayOpen.value || previewPinned.value) return
     clearTimeout(previewOpenTimer)
+    clearTimeout(previewCloseTimer)
     previewOpenTimer = setTimeout(() => openPreviewOverlay(false), PREVIEW_HOVER_OPEN_DELAY_MS)
 }
 
@@ -478,7 +480,7 @@ function schedulePreviewClose() {
     clearTimeout(previewOpenTimer)
     if (previewPinned.value) return
     clearTimeout(previewCloseTimer)
-    previewCloseTimer = setTimeout(() => closePreviewOverlay(false), 350)
+    previewCloseTimer = setTimeout(() => closePreviewOverlay(false), PREVIEW_HOVER_CLOSE_DELAY_MS)
 }
 
 function cancelPreviewClose() {

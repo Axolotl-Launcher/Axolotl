@@ -562,7 +562,7 @@ it('keeps the preview collapsed until expanded', async () => {
     expect(overlayPanel()).toBeNull()
 })
 
-it('auto-expands after hovering still for two seconds', async () => {
+it('auto-expands after hovering still for one second', async () => {
     mountSettings()
     const preview = wrapper!.get('[role="button"]').element as HTMLElement
     preview.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
@@ -571,13 +571,32 @@ it('auto-expands after hovering still for two seconds', async () => {
     expect(overlayPanel()).toBeNull()
 
     preview.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }))
-    await new Promise((resolve) => setTimeout(resolve, 1_000))
+    await new Promise((resolve) => setTimeout(resolve, 600))
     expect(overlayPanel()).toBeNull()
 
-    await vi.waitFor(() => expect(overlayPanel()).not.toBeNull(), { timeout: 2_500 })
+    await vi.waitFor(() => expect(overlayPanel()).not.toBeNull(), { timeout: 1_500 })
 
     document.querySelector<HTMLElement>('[data-testid="custom-background-overlay-close"]')!.click()
     await flushPromises()
+})
+
+it('collapses 280ms after leaving and cancels while hovering the overlay', async () => {
+    mountSettings()
+    const preview = wrapper!.get('[role="button"]').element as HTMLElement
+    preview.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
+    await vi.waitFor(() => expect(overlayPanel()).not.toBeNull(), { timeout: 1_500 })
+
+    const panel = overlayPanel()!
+    panel.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(overlayPanel()).not.toBeNull()
+
+    panel.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(overlayPanel()).not.toBeNull()
+
+    panel.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }))
+    await vi.waitFor(() => expect(overlayPanel()).toBeNull(), { timeout: 1_000 })
 })
 
 it('keeps the expanded preview open when pinned', async () => {

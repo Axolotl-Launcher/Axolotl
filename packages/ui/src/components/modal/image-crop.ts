@@ -34,8 +34,35 @@ export interface ImageCropResult {
     extension: 'png' | 'webp'
 }
 
+export interface NormalizedCropRect {
+    left: number
+    top: number
+    width: number
+    height: number
+}
+
+export interface CropSelection {
+    sourceWidth: number
+    sourceHeight: number
+    crop: { left: number; top: number; width: number; height: number }
+    normalizedCrop: NormalizedCropRect
+    aspectRatio: number
+    outputWidth: number
+    outputHeight: number
+}
+
+export interface ImageCropSelectionOptions extends ImageCropShowOptions {
+    /** Overrides the component's maxOutputDimension for this session. */
+    maxOutputDimension?: number
+    /** Show the source animation in the result preview instead of a still. */
+    animated?: boolean
+}
+
+export type ImageCropOutcome = ImageCropResult | CropSelection
+
 export interface ImageCropModalExposed {
     show(source: Blob, options?: ImageCropShowOptions): Promise<ImageCropResult | null>
+    showCrop(source: Blob, options?: ImageCropSelectionOptions): Promise<CropSelection | null>
     hide(): void
 }
 

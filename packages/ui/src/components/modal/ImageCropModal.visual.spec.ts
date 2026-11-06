@@ -419,3 +419,29 @@ it('locks closing while the crop is being encoded', async () => {
     expect(result).not.toBeNull()
     expect(originalToBlob).toBeDefined()
 })
+
+it('returns normalized crop metadata for animated backgrounds', async () => {
+    mountModal({ maxOutputDimension: 200 })
+    const promise = exposed().showCrop(await createTestImage(), {
+        aspectRatioOptions: [{ id: 'square', label: '1:1', ratio: 1 }],
+        defaultAspectRatioId: 'square',
+        maxOutputDimension: 200,
+        animated: true,
+    })
+
+    await waitForFrame()
+    expect(wrapper!.find('.image-crop-animated-preview').exists()).toBe(true)
+
+    await wrapper!.get('[data-image-crop-confirm]').trigger('click')
+    const selection = await promise
+
+    expect(selection).not.toBeNull()
+    expect(selection!.sourceWidth).toBe(400)
+    expect(selection!.sourceHeight).toBe(300)
+    expect(selection!.outputWidth).toBe(200)
+    expect(selection!.outputHeight).toBe(200)
+    expect(selection!.normalizedCrop.left).toBeCloseTo(0.125, 5)
+    expect(selection!.normalizedCrop.width).toBeCloseTo(0.75, 5)
+    expect(selection!.normalizedCrop.height).toBeCloseTo(1, 5)
+    expect('blob' in selection!).toBe(false)
+})

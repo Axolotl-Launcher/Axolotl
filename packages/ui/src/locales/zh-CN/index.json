@@ -1829,6 +1829,9 @@
   "header.category.resolutions": {
     "defaultMessage": "分辨率"
   },
+  "image-crop.animated-preview": {
+    "defaultMessage": "动画结果预览"
+  },
   "image-crop.apply": {
     "defaultMessage": "使用图片"
   },

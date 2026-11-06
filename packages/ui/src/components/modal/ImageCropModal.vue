@@ -90,9 +90,22 @@
                         {{ formatMessage(messages.preview) }}
                     </h3>
                     <div
-                        class="crop-checkerboard overflow-hidden rounded-lg border border-solid border-surface-4"
+                        class="crop-checkerboard relative overflow-hidden rounded-lg border border-solid border-surface-4"
+                        :style="
+                            animatedPreviewUrl && image
+                                ? { aspectRatio: String(selectedAspectRatio) }
+                                : undefined
+                        "
                     >
+                        <img
+                            v-if="animatedPreviewUrl && image"
+                            :src="animatedPreviewUrl"
+                            :alt="formatMessage(messages.animatedPreview)"
+                            class="image-crop-animated-preview pointer-events-none select-none"
+                            :style="animatedPreviewStyle"
+                        />
                         <canvas
+                            v-else
                             ref="previewCanvas"
                             class="block h-auto w-full"
                             style="display: block; width: 100%; height: auto"
@@ -208,6 +221,7 @@ import { CropIcon, RefreshCwIcon, SpinnerIcon } from '@modrinth/assets'
 import {
     type ComponentPublicInstance,
     computed,
+    type CSSProperties,
     nextTick,
     onBeforeUnmount,
     ref,
@@ -222,11 +236,14 @@ import Slider from '../base/Slider.vue'
 import {
     clampCropView,
     coverScale,
+    type CropSelection,
     DEFAULT_CROP_ASPECT_RATIO,
     fitCropFrame,
     type ImageCropAspectRatioOption,
     type ImageCropModalExposed,
+    type ImageCropOutcome,
     type ImageCropResult,
+    type ImageCropSelectionOptions,
     type ImageCropShowOptions,
     MAX_CROP_ZOOM,
     MIN_CROP_ZOOM,
@@ -262,6 +279,10 @@ const props = withDefaults(
 const messages = defineMessages({
     title: { id: 'image-crop.title', defaultMessage: 'Crop image' },
     preview: { id: 'image-crop.preview', defaultMessage: 'Result preview' },
+    animatedPreview: {
+        id: 'image-crop.animated-preview',
+        defaultMessage: 'Animated result preview',
+    },
     workspace: { id: 'image-crop.workspace', defaultMessage: 'Crop workspace' },
     dragHint: {
         id: 'image-crop.drag-hint',
@@ -318,6 +339,9 @@ const loadState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 const loadError = ref('')
 const exportError = ref('')
 const exporting = ref(false)
+const sessionMode = ref<'encode' | 'crop'>('encode')
+const sessionMaxOutputDimension = ref(props.maxOutputDimension)
+const animatedPreviewUrl = ref<string | null>(null)
 const aspectOptions = ref<ImageCropAspectRatioOption[]>([
     { id: 'default', label: '16:9', ratio: DEFAULT_CROP_ASPECT_RATIO },
 ])
@@ -383,7 +407,7 @@ const maskStyles = computed(() => {
 const currentSourceRect = computed(() => sourceRect(view.value, imageSize.value, frameRect.value))
 
 const outputSize = computed(() =>
-    outputSizeForSource(currentSourceRect.value, props.maxOutputDimension),
+    outputSizeForSource(currentSourceRect.value, sessionMaxOutputDimension.value),
 )
 
 const dimensionsText = computed(() =>
@@ -400,6 +424,18 @@ const previewAriaLabel = computed(() =>
     }),
 )
 
+const animatedPreviewStyle = computed<CSSProperties>(() => {
+    const rect = currentSourceRect.value
+    return {
+        position: 'absolute',
+        left: `${(-rect.left / rect.width) * 100}%`,
+        top: `${(-rect.top / rect.height) * 100}%`,
+        width: `${(imageSize.value.width / rect.width) * 100}%`,
+        height: `${(imageSize.value.height / rect.height) * 100}%`,
+        maxWidth: 'none',
+    }
+})
+
 const zoomStatus = computed(() =>
     formatMessage(messages.zoomStatus, {
         percent: zoomPercent.value,
@@ -413,8 +449,8 @@ const previewCanvas = ref<HTMLCanvasElement | null>(null)
 let resizeObserver: ResizeObserver | null = null
 let drawRequest: number | null = null
 let dragState: { pointerId: number; lastX: number; lastY: number } | null = null
-let pendingResolve: ((result: ImageCropResult | null) => void) | null = null
-let pendingResult: ImageCropResult | null = null
+let pendingResolve: ((result: ImageCropOutcome | null) => void) | null = null
+let pendingResult: ImageCropOutcome | null = null
 let sessionGeneration = 0
 
 function setWorkspaceElement(element: Element | ComponentPublicInstance | null) {
@@ -637,6 +673,10 @@ function resetViewTransform() {
 }
 
 function cleanSource() {
+    if (animatedPreviewUrl.value) {
+        URL.revokeObjectURL(animatedPreviewUrl.value)
+        animatedPreviewUrl.value = null
+    }
     image.value?.close()
     image.value = null
     imageSize.value = { width: 1, height: 1 }
@@ -661,13 +701,15 @@ function handleAfterHide() {
     resolve?.(result)
 }
 
-async function show(
+async function showInternal(
     source: Blob,
-    options: ImageCropShowOptions = {},
-): Promise<ImageCropResult | null> {
+    options: ImageCropShowOptions | ImageCropSelectionOptions,
+    mode: 'encode' | 'crop',
+): Promise<ImageCropOutcome | null> {
     if (pendingResolve) return null
     if (!modal.value) return null
 
+    const selectionOptions = options as ImageCropSelectionOptions
     const configuredOptions = (options.aspectRatioOptions ?? []).filter(
         (option) => option.id.length > 0 && Number.isFinite(option.ratio) && option.ratio > 0,
     )
@@ -682,6 +724,16 @@ async function show(
             : aspectOptions.value[0].id
 
     const session = ++sessionGeneration
+    sessionMode.value = mode
+    sessionMaxOutputDimension.value =
+        mode === 'crop' && selectionOptions.maxOutputDimension
+            ? selectionOptions.maxOutputDimension
+            : props.maxOutputDimension
+    if (animatedPreviewUrl.value) {
+        URL.revokeObjectURL(animatedPreviewUrl.value)
+    }
+    animatedPreviewUrl.value =
+        mode === 'crop' && selectionOptions.animated ? URL.createObjectURL(source) : null
     pendingResult = null
     loadError.value = ''
     exportError.value = ''
@@ -691,13 +743,24 @@ async function show(
     imageSize.value = { width: 1, height: 1 }
     view.value = { zoom: 1, centerX: 1, centerY: 1 }
 
-    const promise = new Promise<ImageCropResult | null>((resolve) => {
+    const promise = new Promise<ImageCropOutcome | null>((resolve) => {
         pendingResolve = resolve
     })
 
     modal.value.show()
     void loadSource(source, session)
     return promise
+}
+
+function show(source: Blob, options: ImageCropShowOptions = {}): Promise<ImageCropResult | null> {
+    return showInternal(source, options, 'encode') as Promise<ImageCropResult | null>
+}
+
+function showCrop(
+    source: Blob,
+    options: ImageCropSelectionOptions = {},
+): Promise<CropSelection | null> {
+    return showInternal(source, options, 'crop') as Promise<CropSelection | null>
 }
 
 async function loadSource(source: Blob, session: number) {
@@ -760,6 +823,32 @@ function canvasToBlob(
 async function confirm() {
     const bitmap = image.value
     if (!bitmap || exporting.value || !canConfirm.value) return
+
+    if (sessionMode.value === 'crop') {
+        const rect = currentSourceRect.value
+        pendingResult = {
+            sourceWidth: imageSize.value.width,
+            sourceHeight: imageSize.value.height,
+            crop: {
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height,
+            },
+            normalizedCrop: {
+                left: rect.left / imageSize.value.width,
+                top: rect.top / imageSize.value.height,
+                width: rect.width / imageSize.value.width,
+                height: rect.height / imageSize.value.height,
+            },
+            aspectRatio: selectedAspectRatio.value,
+            outputWidth: outputSize.value.width,
+            outputHeight: outputSize.value.height,
+        }
+        await nextTick()
+        await modal.value?.hide()
+        return
+    }
 
     exporting.value = true
     exportError.value = ''
@@ -832,6 +921,7 @@ function cancel() {
 
 const exposed: ImageCropModalExposed = {
     show,
+    showCrop,
     hide: cancel,
 }
 
@@ -844,6 +934,10 @@ onBeforeUnmount(() => {
     if (drawRequest !== null) {
         cancelAnimationFrame(drawRequest)
         drawRequest = null
+    }
+    if (animatedPreviewUrl.value) {
+        URL.revokeObjectURL(animatedPreviewUrl.value)
+        animatedPreviewUrl.value = null
     }
     image.value?.close()
     image.value = null

@@ -1,6 +1,8 @@
 //! Scheduling tags kept across a restart, as data. Reading one back grants
-//! nothing: startup re-mints a fresh tag for each owner that still exists and
-//! re-derives its level (`scheduler::tag::TagRegistry::reconcile`).
+//! nothing. Startup only deletes the rows whose owner is gone; re-minting a
+//! fresh tag for a surviving owner and re-deriving its level
+//! (`scheduler::tag::TagRegistry::reconcile`) arrive with the supervisor's
+//! restart path, and no production path writes a tag before then.
 
 use sqlx::SqliteConnection;
 
@@ -32,31 +34,39 @@ fn level_name(level: Level) -> &'static str {
     }
 }
 
-fn level_of(name: &str) -> crate::Result<Level> {
-    Ok(match name {
+fn level_of(name: &str) -> Option<Level> {
+    Some(match name {
         "l0" => Level::L0,
         "l1" => Level::L1,
         "l2" => Level::L2,
         "l3" => Level::L3,
         "l4" => Level::L4,
-        other => {
-            return Err(crate::ErrorKind::OtherError(format!(
-                "Unknown scheduling level in scheduler_tags: {other}"
-            ))
-            .into());
-        }
+        _ => return None,
     })
 }
 
 type Row = (i64, i64, String, String, String, i64);
 
-fn record_of(row: Row) -> crate::Result<(SchedulerTagKey, SchedulerTagRecord)> {
+/// The tag a row describes, or nothing when its level is not one this build
+/// knows. The schema's CHECK only guards new writes, so an older or edited
+/// database can still hold such a row; one of them must not stop the rest
+/// from being read.
+fn record_of(row: Row) -> Option<(SchedulerTagKey, SchedulerTagRecord)> {
     let (id, generation, level, origin, owner, created_at) = row;
-    Ok((
+    let Some(level) = level_of(&level) else {
+        tracing::warn!(
+            id,
+            %level,
+            %owner,
+            "Ignoring a scheduling tag whose level is unknown"
+        );
+        return None;
+    };
+    Some((
         id,
         SchedulerTagRecord {
             generation,
-            level: level_of(&level)?,
+            level,
             origin,
             owner,
             created_at,
@@ -84,9 +94,7 @@ impl Collection for SchedulerTags {
                 .bind(key)
                 .fetch_optional(&mut *conn)
                 .await?;
-        row.map(record_of)
-            .transpose()
-            .map(|row| row.map(|(_, record)| record))
+        Ok(row.and_then(record_of).map(|(_, record)| record))
     }
 
     async fn write(
@@ -110,7 +118,7 @@ impl Collection for SchedulerTags {
         let rows: Vec<Row> = sqlx::query_as(&format!("{SELECT} ORDER BY id"))
             .fetch_all(&mut *conn)
             .await?;
-        rows.into_iter().map(record_of).collect()
+        Ok(rows.into_iter().filter_map(record_of).collect())
     }
 
     async fn replace_all(

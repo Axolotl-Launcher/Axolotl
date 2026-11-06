@@ -10,6 +10,27 @@ use std::path::Path;
 use tracing::debug;
 
 pub const MRPACK_MANIFEST: &str = "modrinth.index.json";
+
+/// Use identical entry ordering for MRPack preview and installation.
+pub(crate) fn select_mrpack_manifest<'a>(
+    entries: impl IntoIterator<Item = (usize, &'a str)>,
+) -> Option<(usize, String)> {
+    let mut wrapped = None;
+    for (index, name) in entries {
+        if name == MRPACK_MANIFEST {
+            return Some((index, String::new()));
+        }
+        if wrapped.is_none()
+            && let Some((base, rest)) = name.split_once('/')
+            && !base.is_empty()
+            && rest == MRPACK_MANIFEST
+        {
+            wrapped = Some((index, format!("{base}/")));
+        }
+    }
+    wrapped
+}
+
 pub const CURSEFORGE_MANIFEST: &str = "manifest.json";
 pub const MCBBS_MANIFEST: &str = "mcbbs.packmeta";
 pub const HMCL_MANIFEST: &str = "modpack.json";

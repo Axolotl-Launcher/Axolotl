@@ -117,6 +117,68 @@ it('keeps waiting for the requested version after a later page fails', async () 
     expect(wrapper.emitted('versionSelect')?.at(-1)?.[0]).toMatchObject({ id: 'wanted' })
 })
 
+it.each(['9190157', 'installed83'])(
+    'uses installed release %s for the badge, action and downgrade baseline',
+    async (installedId) => {
+        const releases = [
+            {
+                ...version('latest85'),
+                name: 'Pack 8.5',
+                version_number: '8.5',
+                date_published: '2026-11-06T00:00:00Z',
+            },
+            {
+                ...version('middle84'),
+                name: 'Pack 8.4',
+                version_number: '8.4',
+                date_published: '2026-11-05T00:00:00Z',
+            },
+            {
+                ...version(installedId),
+                name: 'Pack 8.3',
+                version_number: '8.3',
+                date_published: '2026-11-04T00:00:00Z',
+            },
+            {
+                ...version('older82'),
+                name: 'Pack 8.2',
+                version_number: '8.2',
+                date_published: '2026-11-03T00:00:00Z',
+            },
+        ]
+        const wrapper = await modal({
+            versions: releases,
+            currentVersionId: installedId,
+            projectType: 'modpack',
+            hideOnUpdate: false,
+        })
+        ;(wrapper.vm as unknown as { show: (id: string) => void }).show(installedId)
+        await nextTick()
+        const options = () => [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+        const row = (release: string) =>
+            options().find((item) => item.textContent?.includes(release))!
+        expect(row('8.3').textContent).toContain('Current')
+        expect(row('8.5').textContent).not.toContain('Current')
+        expect(row('8.4').textContent).not.toContain('Current')
+        const action = () =>
+            [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+                /(?:Update|Downgrade) to/.test(button.textContent ?? ''),
+            )!
+        expect(action().disabled).toBe(true)
+        for (const release of ['8.5', '8.4', '8.2']) {
+            row(release).click()
+            await nextTick()
+            expect(action().disabled).toBe(false)
+            expect(action().textContent).toContain(release === '8.2' ? 'Downgrade to' : 'Update to')
+            action().click()
+            await nextTick()
+            expect(wrapper.emitted('update')?.at(-1)?.[0]).toMatchObject({
+                version_number: release,
+            })
+        }
+    },
+)
+
 it('opened while pages still arrive, waits for the requested version instead of the first listed', async () => {
     const wrapper = await modal({ versions: [version('first')], loading: true })
     const before = wrapper.emitted('versionSelect')?.length ?? 0

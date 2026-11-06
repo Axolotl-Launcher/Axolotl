@@ -12,7 +12,9 @@
 - **pnpm**：以根目录 [`package.json`](package.json) 的 `packageManager` 为准
 - **Rust**：以 [`rust-toolchain.toml`](rust-toolchain.toml) 为准
 - [Tauri v2 系统依赖](https://v2.tauri.app/start/prerequisites/)
-- **Linux 链接器**：[`.cargo/config.toml`](.cargo/config.toml) 让 Linux 构建使用 [mold](https://github.com/rui314/mold) 链接，需要 `ld.mold` 在 `PATH` 中，且 C 编译器为 GCC 12.1+ 或 Clang。用发行版的包管理器安装即可（Debian/Ubuntu：`sudo apt install mold`；Fedora：`sudo dnf install mold`；Arch：`sudo pacman -S mold`），`nix develop` 已自带。Windows 仍使用 rust-lld，macOS 仍使用系统链接器，无需额外安装。
+- **Linux 链接器**：[`.cargo/config.toml`](.cargo/config.toml) 让 Linux 构建使用 [mold](https://github.com/rui314/mold) 链接，需要 `ld.mold` 在 `PATH` 中，且 C 编译器为 GCC 12.1+ 或 Clang。用发行版的包管理器安装即可（Debian/Ubuntu：`sudo apt install mold`；Fedora：`sudo dnf install mold`；Arch：`sudo pacman -S mold`），`nix develop` 已自带。Windows 使用 Rust 工具链自带的 rust-lld，无需额外安装。
+- **macOS 链接器**：使用 LLD，通过 `brew install lld@21` 安装，并在启动开发或构建命令前运行 `export PATH="$(brew --prefix lld@21)/bin:$PATH"`，确保 `ld64.lld` 在 `PATH` 中。CI 和 release 工作流会自动安装并验证链接器。
+- **Rust 编译并行数**：dev、CI、release 和依赖缓存预热统一使用 4 个 Cargo 编译任务，macOS ARM64 使用 2 个。`pnpm app:dev`、`pnpm app:build` 和应用包的 `tauri`、`test`、`lint`、`fix` 脚本会自动选择；本地在 macOS ARM64 上直接运行 `cargo` 时需设置 `CARGO_BUILD_JOBS=2`。可通过 `CARGO_BUILD_JOBS` 显式覆盖默认值。
 
 ### 启动开发环境
 

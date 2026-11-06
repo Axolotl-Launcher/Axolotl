@@ -12,6 +12,59 @@ fn handle_of(pool: &sqlx::SqlitePool) -> Handle {
 }
 
 #[tokio::test]
+async fn console_java_defaults_off_and_round_trips() {
+    let pool = super::support::migrated_pool().await;
+    let handle = Handle::new(pool);
+    let mut settings = Settings::get(&handle).await.unwrap();
+    assert!(!settings.minecraft_use_console_java);
+    for enabled in [true, false] {
+        settings.minecraft_use_console_java = enabled;
+        settings.update(&handle).await.unwrap();
+        assert_eq!(
+            Settings::get(&handle)
+                .await
+                .unwrap()
+                .minecraft_use_console_java,
+            enabled
+        );
+    }
+}
+
+#[tokio::test]
+async fn console_java_migration_preserves_existing_settings() {
+    let migrations = sqlx::migrate!();
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let previous = sqlx::migrate::Migrator {
+        migrations: std::borrow::Cow::Owned(
+            migrations
+                .iter()
+                .filter(|migration| migration.version < 20261106150000)
+                .cloned()
+                .collect(),
+        ),
+        ..sqlx::migrate::Migrator::DEFAULT
+    };
+    previous.run(&pool).await.unwrap();
+    sqlx::query("UPDATE settings SET extra_launch_args = jsonb('[\"-Dkeep=true\"]') WHERE id = 0")
+        .execute(&pool).await.unwrap();
+    migrations.run(&pool).await.unwrap();
+    let settings = Settings::get(&Handle::new(pool.clone())).await.unwrap();
+    assert!(!settings.minecraft_use_console_java);
+    assert_eq!(settings.extra_launch_args, vec!["-Dkeep=true"]);
+    assert!(
+        sqlx::query("PRAGMA foreign_key_check")
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn official_preferred_sources_round_trip_in_a_fresh_database() {
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)

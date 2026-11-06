@@ -14,6 +14,7 @@
 
 use crate::State;
 use crate::state::store::Collection as _;
+use crate::state::store::install_jobs::InstallJobs;
 use crate::state::store::scheduler_tags::SchedulerTags;
 
 pub(crate) async fn at_startup(state: &State) {
@@ -35,19 +36,19 @@ pub(crate) async fn at_startup(state: &State) {
 }
 
 /// Deletes `scheduler_tags` rows whose owner, an install job, is gone or
-/// finished, and returns how many rows are left. A surviving row is only a
-/// reconciliation key: its tag is minted afresh, and its level re-derived,
-/// when the job runs again (spec §5, `TagRegistry::reconcile`).
+/// finished, and returns how many rows are left.
+///
+/// This is cleanup only. No production path writes a tag yet, and nothing
+/// hands a surviving row to the live registry: re-minting it and re-deriving
+/// its level (`TagRegistry::reconcile`, spec §5) arrive with the supervisor's
+/// restart path. Until then a surviving row is data that grants nothing.
 pub(crate) async fn clear_orphaned_tags(state: &State) -> crate::Result<u64> {
     let mut kept = 0;
     for (id, record) in SchedulerTags::get_all(&state.data).await? {
-        let live: Option<i64> = sqlx::query_scalar(
-            "SELECT 1 FROM install_jobs WHERE id = ? AND finished IS NULL",
-        )
-        .bind(&record.owner)
-        .fetch_optional(&state.pool)
-        .await?;
-        if live.is_some() {
+        let unfinished = InstallJobs::get(&state.data, &record.owner)
+            .await?
+            .is_some_and(|job| job.finished.is_none());
+        if unfinished {
             kept += 1;
         } else {
             SchedulerTags::set(&state.data, &id, None).await?;

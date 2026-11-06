@@ -27,6 +27,7 @@ import Instance from '@/components/ui/Instance.vue'
 import DraggableInstanceCard from '@/components/ui/library/DraggableInstanceCard.vue'
 import { UNGROUPED_GROUP_KEY } from '@/composables/useGridGrouping'
 import { FAVORITES_GROUP_ID } from '@/composables/useInstanceGroups'
+import type { InstanceLibraryDisplayMode } from '@/helpers/library-display-mode'
 import type { GameInstance } from '@/helpers/types'
 
 const MAX_GROUP_NAME_LENGTH = 256
@@ -97,7 +98,7 @@ const props = defineProps<{
     runningInstanceIds: Set<string>
     grouping: string
     isCollapsed: boolean
-    displayMode: string
+    displayMode: InstanceLibraryDisplayMode
     selectMode: boolean
     selectedInstanceIds: Set<string>
     showGameDirectory?: boolean
@@ -356,11 +357,15 @@ function onStartLongPress(instanceId: string) {
         </div>
         <div v-if="!effectiveCollapsed" class="mt-2.5">
             <section
-                class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] w-full gap-3 mr-auto scroll-smooth overflow-y-auto"
+                class="w-full mr-auto scroll-smooth overflow-y-auto"
                 :class="{
-                    'grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4':
+                    'flex flex-col gap-1': displayMode === 'list',
+                    'grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3':
+                        displayMode !== 'list' && displayMode !== 'cards',
+                    'grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4':
                         displayMode === 'cards',
                 }"
+                :data-layout="displayMode === 'list' ? 'list' : 'grid'"
             >
                 <template v-for="instance in instances" :key="instance.id">
                     <DraggableInstanceCard
@@ -379,7 +384,7 @@ function onStartLongPress(instanceId: string) {
                         <template #default="{ isDragging }">
                             <div
                                 :class="{
-                                    'pointer-events-none': selectMode,
+                                    'pointer-events-none': selectMode && displayMode !== 'list',
                                     'relative cursor-pointer select-none rounded-lg transition-all hover:brightness-90 active:scale-[0.98]': true,
                                 }"
                                 @click.capture="
@@ -395,16 +400,38 @@ function onStartLongPress(instanceId: string) {
                                     :instance="instance"
                                     :playing="runningInstanceIds.has(instance.id)"
                                     :disabled="selectMode || isDragging"
-                                    :variant="displayMode === 'cards' ? 'library' : 'standard'"
+                                    :variant="
+                                        displayMode === 'cards'
+                                            ? 'library'
+                                            : displayMode === 'list'
+                                              ? 'list'
+                                              : 'standard'
+                                    "
                                     :show-game-directory="showGameDirectory"
+                                    :show-more="displayMode === 'list'"
+                                    :select-mode="selectMode"
+                                    :selected="selectedInstanceIds.has(instance.id)"
                                     :class="{
                                         'opacity-50':
                                             selectMode && !selectedInstanceIds.has(instance.id),
                                     }"
+                                    @more="
+                                        (event: MouseEvent) =>
+                                            emit(
+                                                'handleContextMenu',
+                                                event,
+                                                instance.id,
+                                                props.sectionKey,
+                                            )
+                                    "
+                                    @toggle-select="
+                                        (event: MouseEvent) =>
+                                            emit('handleCheckboxClick', instance.id, event)
+                                    "
                                 />
                             </div>
                         </template>
-                        <template #overlay>
+                        <template v-if="displayMode !== 'list'" #overlay>
                             <div
                                 class="absolute right-2 bottom-2 z-10 transition-opacity"
                                 :class="
@@ -454,17 +481,43 @@ function onStartLongPress(instanceId: string) {
                             @touchend="emit('cancelLongPress')"
                             @touchcancel="emit('cancelLongPress')"
                         >
-                            <div :class="{ 'pointer-events-none': selectMode }">
+                            <div
+                                :class="{
+                                    'pointer-events-none': selectMode && displayMode !== 'list',
+                                }"
+                            >
                                 <Instance
                                     :instance="instance"
                                     :playing="runningInstanceIds.has(instance.id)"
                                     :disabled="selectMode"
-                                    :variant="displayMode === 'cards' ? 'library' : 'standard'"
+                                    :variant="
+                                        displayMode === 'cards'
+                                            ? 'library'
+                                            : displayMode === 'list'
+                                              ? 'list'
+                                              : 'standard'
+                                    "
                                     :show-game-directory="showGameDirectory"
+                                    :show-more="displayMode === 'list'"
+                                    :select-mode="selectMode"
+                                    :selected="selectedInstanceIds.has(instance.id)"
                                     :class="{
                                         'opacity-50':
                                             selectMode && !selectedInstanceIds.has(instance.id),
                                     }"
+                                    @more="
+                                        (event: MouseEvent) =>
+                                            emit(
+                                                'handleContextMenu',
+                                                event,
+                                                instance.id,
+                                                props.sectionKey,
+                                            )
+                                    "
+                                    @toggle-select="
+                                        (event: MouseEvent) =>
+                                            emit('handleCheckboxClick', instance.id, event)
+                                    "
                                     @contextmenu.prevent.stop="
                                         (event: MouseEvent) =>
                                             emit(
@@ -478,6 +531,7 @@ function onStartLongPress(instanceId: string) {
                             </div>
                         </div>
                         <div
+                            v-if="displayMode !== 'list'"
                             class="absolute right-2 bottom-2 z-10 transition-opacity"
                             :class="
                                 selectMode && selectedInstanceIds.has(instance.id)
@@ -489,7 +543,7 @@ function onStartLongPress(instanceId: string) {
                             <Checkbox :model-value="selectedInstanceIds.has(instance.id)" />
                         </div>
                         <div
-                            v-if="!selectMode"
+                            v-if="displayMode !== 'list' && !selectMode"
                             class="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
                             @click.stop="
                                 emit(

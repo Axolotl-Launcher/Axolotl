@@ -7,6 +7,10 @@ description = "Axolotl Launcher is a cross-platform Minecraft launcher"
 homepage = "https://www.ghs.red"
 license = "GPL-3.0-only"
 
+[package.metadata.cargo-machete]
+# Used in build.rs to compile cubiomes and generate Tauri code and permissions.
+ignored = ["cc", "tauri-build"]
+
 [dependencies]
 async_zip = { workspace = true, features = ["deflate", "tokio-fs"] }
 base64 = { workspace = true }

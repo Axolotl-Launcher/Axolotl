@@ -11,6 +11,8 @@ const backend = vi.hoisted(() => ({
     instances: [] as string[],
     processes: vi.fn(async () => []),
     processListener: vi.fn(async () => () => {}),
+    listGroups: vi.fn(),
+    groupListeners: new Set<() => void>(),
 }))
 vi.mock('@/helpers/instance', () => ({
     remove: backend.remove,
@@ -20,7 +22,10 @@ vi.mock('@/helpers/instance', () => ({
 }))
 vi.mock('@/helpers/instance-backup', () => ({ getBackupDeleteSummary: async () => null }))
 vi.mock('@/helpers/events', () => ({
-    instance_groups_listener: async () => () => {},
+    instance_groups_listener: async (callback: () => void) => {
+        backend.groupListeners.add(callback)
+        return () => backend.groupListeners.delete(callback)
+    },
     process_listener: backend.processListener,
 }))
 vi.mock('@/helpers/process', () => ({
@@ -28,7 +33,7 @@ vi.mock('@/helpers/process', () => ({
     get_by_instance_id: async () => [],
 }))
 vi.mock('@/helpers/instance-groups', () => ({
-    list_groups: async () => [{ id: 'a', name: 'Group A' }],
+    list_groups: () => backend.listGroups(),
     create_group: vi.fn(),
     delete_group: vi.fn(),
     rename_group: vi.fn(),
@@ -36,6 +41,7 @@ vi.mock('@/helpers/instance-groups', () => ({
     update_group_memberships: vi.fn(),
     MAX_INSTANCE_GROUP_NAME_LENGTH: 100,
 }))
+backend.listGroups.mockResolvedValue([{ id: 'a', name: 'Group A' }])
 vi.mock('@/helpers/install', () => ({ install_duplicate_instance: vi.fn() }))
 vi.mock('@/helpers/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/helpers/utils.js', () => ({ showInstanceInFolder: vi.fn() }))
@@ -66,6 +72,7 @@ vi.mock('@/components/ui/library/InstanceGroup.vue', async () => {
                 'groupName',
                 'grouping',
                 'showGameDirectory',
+                'displayMode',
             ],
             setup:
                 (props, { emit }) =>
@@ -76,6 +83,7 @@ vi.mock('@/components/ui/library/InstanceGroup.vue', async () => {
                             'data-instance-section': '',
                             'data-group-name': props.groupName,
                             'data-grouping': props.grouping,
+                            'data-display-mode': props.displayMode,
                             'data-show-game-directory': String(props.showGameDirectory),
                             'data-count': String(props.instances.length),
                             'data-running-supplied': String(
@@ -136,7 +144,12 @@ vi.mock('@modrinth/ui', async () => {
                         slots.default?.(),
                     ),
         }),
-        PopoutMenu: control,
+        PopoutMenu: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('div', [slots.default?.(), slots.menu?.()]),
+        }),
         Admonition: control,
         FloatingActionBar: defineComponent({
             props: ['shown'],
@@ -231,6 +244,8 @@ afterEach(() => {
     localStorage.clear()
     backend.processes.mockReset().mockResolvedValue([])
     backend.processListener.mockReset().mockResolvedValue(() => {})
+    backend.listGroups.mockReset().mockResolvedValue([{ id: 'a', name: 'Group A' }])
+    backend.groupListeners.clear()
 })
 
 it('does not register a process listener after unmount during the initial read', async () => {
@@ -433,4 +448,65 @@ it('groups by game directory, keeps the full-set badge threshold, and persists c
         JSON.parse(localStorage.getItem('directory-test-grid-display-state') ?? '{}')
             .collapsedGroups,
     ).toContain('Game directory:managed')
+})
+
+it('shows an empty group after the backend reports a group change', async () => {
+    backend.listGroups
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'empty', name: 'Empty' }])
+    const wrapper = mount(GridDisplay, {
+        props: {
+            label: 'empty-group-test',
+            instances: [{ id: 'alpha', name: 'Alpha', groups: [] }] as unknown as GameInstance[],
+        },
+        global: { directives: { tooltip: {} } },
+    })
+    mounted.push(wrapper)
+    await flushPromises()
+
+    expect(
+        wrapper
+            .findAll('[data-instance-section]')
+            .map((section) => section.attributes('data-group-name')),
+    ).toEqual(['__ungrouped__'])
+
+    backend.groupListeners.forEach((callback) => callback())
+    await flushPromises()
+
+    const sections = wrapper.findAll('[data-instance-section]')
+    expect(sections.map((section) => section.attributes('data-group-name'))).toEqual([
+        '__ungrouped__',
+        'Empty',
+    ])
+    expect(sections[sections.length - 1]?.attributes('data-count')).toBe('0')
+})
+
+it('offers the detailed list view and passes it to every instance section', async () => {
+    backend.listGroups.mockResolvedValue([{ id: 'a', name: 'Group A' }])
+    const wrapper = mount(GridDisplay, {
+        props: {
+            label: 'list-view-test',
+            instances: [{ id: 'alpha', name: 'Alpha', groups: ['a'] }] as unknown as GameInstance[],
+        },
+        global: { directives: { tooltip: {} } },
+    })
+    mounted.push(wrapper)
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="View"]').trigger('click')
+    await vi.waitFor(() => {
+        const option = wrapper.findAll('button').find((button) => button.text() === 'Detailed list')
+        expect(option).toBeDefined()
+        return option
+    })
+    const option = wrapper.findAll('button').find((button) => button.text() === 'Detailed list')!
+    await option.trigger('click')
+    await flushPromises()
+
+    expect(
+        wrapper
+            .findAll('[data-instance-section]')
+            .every((section) => section.attributes('data-display-mode') === 'list'),
+    ).toBe(true)
+    expect(localStorage.getItem('axolotl-instance-library-display-mode')).toBe('list')
 })

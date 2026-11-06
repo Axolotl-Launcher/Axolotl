@@ -13,6 +13,12 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Configure Cargo build jobs
+      shell: bash
+      env:
+        BUILD_JOBS: ${{ runner.os == 'macOS' && runner.arch == 'ARM64' && '2' || '4' }}
+      run: echo "CARGO_BUILD_JOBS=$BUILD_JOBS" >> "$GITHUB_ENV"
+
     - name: Install pinned Rust toolchain
       shell: bash
       env:
@@ -43,6 +49,24 @@ runs:
 
     - name: Install Linux linker
       uses: ./.github/actions/setup-mold
+
+    - name: Install and verify macOS linker
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        set -euo pipefail
+        brew install lld@21
+        linker_dir="$(brew --prefix lld@21)/bin"
+        echo "$linker_dir" >> "$GITHUB_PATH"
+        export PATH="$linker_dir:$PATH"
+        ld64.lld --version
+        link_output="$(printf 'int main(void) { return 0; }\n' | cc -x c - -fuse-ld=lld -Wl,-v -o "$RUNNER_TEMP/axolotl-lld-smoke" 2>&1)"
+        echo "$link_output"
+        if [[ "$link_output" != *LLD* ]]; then
+          echo 'macOS compiler did not select LLD' >&2
+          exit 1
+        fi
+        "$RUNNER_TEMP/axolotl-lld-smoke"
 
     - name: Restore desktop Rust dependencies
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2

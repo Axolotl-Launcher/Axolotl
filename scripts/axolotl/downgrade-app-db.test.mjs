@@ -590,7 +590,7 @@ console.log('the account secret marks: added forward, dropped by a downgrade')
 console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
 {
     const LEVEL = 20261103130000
-    const SCHEDULER_TAGS = 20261104130000
+    const SCHEDULER_TAGS = 20261106160000
     const file = path.join(directory, 'level', 'beta', 'app.db')
     const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
     const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
@@ -629,6 +629,43 @@ console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
     check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
     check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
     old.close()
+}
+
+{
+    const CONSOLE_JAVA = 20261106150000
+    const file = path.join(directory, 'console-java.db')
+    sampleDatabase(file, { withColumn: false, applied: [CONSOLE_JAVA] })
+    const sql = fs.readFileSync(
+        path.join(migrationsDir, '20261106150000_minecraft-console-java.sql'),
+        'utf8',
+    )
+    const database = new DatabaseSync(file)
+    database.exec(sql)
+    check(
+        'console Java defaults off for existing settings',
+        database.prepare('SELECT minecraft_use_console_java FROM settings').get()
+            .minecraft_use_console_java === 0,
+    )
+    database.exec('UPDATE settings SET minecraft_use_console_java = 1')
+    database.close()
+    const downgraded = run(['--db', file, '--to', String(CONSOLE_JAVA), '--apply'])
+    check(
+        'console Java downgrade removes its column',
+        downgraded.status === 0 && !columns(file, 'settings').includes('minecraft_use_console_java'),
+        downgraded.output,
+    )
+    const restored = new DatabaseSync(file)
+    check(
+        'console Java downgrade preserves other settings',
+        restored.prepare('SELECT max_memory FROM settings').get().max_memory === 4096,
+    )
+    restored.exec(sql)
+    check(
+        'console Java can be upgraded again',
+        restored.prepare('SELECT minecraft_use_console_java FROM settings').get()
+            .minecraft_use_console_java === 0,
+    )
+    restored.close()
 }
 
 if (process.platform !== 'win32') {

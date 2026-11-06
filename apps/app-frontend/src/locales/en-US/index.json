@@ -4284,26 +4284,14 @@
   "app.java-arguments.presets.use": {
     "message": "Use preset"
   },
-  "app.java-download-confirmation.body": {
-    "message": "No compatible Java {version} installation was found. You can download it now or postpone Java setup while the remaining game resources continue downloading."
+  "app.install.missing-java.body": {
+    "message": "This installation cannot continue because no usable Java {version} installation was found. You can install or configure Java {version} in Java settings, then try installing again."
   },
-  "app.java-download-confirmation.download": {
-    "message": "Download Java"
+  "app.install.missing-java.open-settings": {
+    "message": "Open Java settings"
   },
-  "app.java-download-confirmation.later-description": {
-    "message": "The instance will finish installing, but Java {version} must be configured before you can play."
-  },
-  "app.java-download-confirmation.postponed-body": {
-    "message": "The instance will finish installing. Configure Java {version} before launching it."
-  },
-  "app.java-download-confirmation.postponed-title": {
-    "message": "Java setup postponed"
-  },
-  "app.java-download-confirmation.set-up-later": {
-    "message": "Set up later"
-  },
-  "app.java-download-confirmation.title": {
-    "message": "Download Java {version}?"
+  "app.install.missing-java.title": {
+    "message": "Java {version} is needed to install this instance"
   },
   "app.java.already-installed": {
     "message": "Already installed"
@@ -8145,6 +8133,9 @@
   "app.library.view.cards": {
     "message": "Library cards"
   },
+  "app.library.view.list": {
+    "message": "Detailed list"
+  },
   "app.library.view.standard": {
     "message": "Standard grid"
   },
@@ -8726,6 +8717,15 @@
   },
   "app.minecraft-crash.exited-before-initialization": {
     "message": "The Java process exited before it could connect to the launcher. The selected Java version is probably incompatible with this Minecraft or Mod loader version. Select the Java version required by the instance, then try again."
+  },
+  "app.minecraft-crash.export-diagnostic": {
+    "message": "Export diagnostic package"
+  },
+  "app.minecraft-crash.export-saved": {
+    "message": "Diagnostic package saved to {path}"
+  },
+  "app.minecraft-crash.exporting-diagnostic": {
+    "message": "Exporting diagnostic package..."
   },
   "app.minecraft-crash.initialization-timed-out": {
     "message": "The Java process started but did not connect to the launcher within 15 seconds. Check the selected Java version and any wrapper command, then try again."
@@ -12668,6 +12668,9 @@
   },
   "app.settings.groups.support": {
     "message": "App & support"
+  },
+  "app.settings.java.use-console-java": {
+    "message": "Use java instead of javaw when launching Minecraft"
   },
   "app.settings.java.auto-high-performance-mode": {
     "message": "Automatically use high-performance GPU for Java"

@@ -101,3 +101,53 @@ it('keeps notification titles consistent and terminal notifications free of ongo
         notifications.dispose()
     }
 })
+
+it('shows loader installation as a percentage while preserving byte downloads and file counts', async () => {
+    vi.stubGlobal('window', { setTimeout, clearTimeout })
+    const initial = {
+        job_id: 'loader',
+        kind: 'create_instance',
+        status: 'running',
+        phase: 'running_loader_processors',
+        details: { type: 'empty' },
+        created: '2026-11-06T00:00:00Z',
+        progress: { current: 7, total: 10 },
+        summary: { files_completed: 0, bytes_downloaded: 0 },
+        items: [],
+    } as unknown as InstallJobSnapshot
+    const jobs = ref([initial])
+    const notifications = await useInstallJobNotifications({
+        manager: {
+            jobs,
+            refresh: vi.fn().mockResolvedValue(undefined),
+        } as unknown as DownloadManager,
+        router: { push: vi.fn() } as unknown as Router,
+        handleError: vi.fn(),
+        onChange: vi.fn(),
+    })
+    try {
+        const loader = notifications.progressItems.value[0]
+        expect(loader.progressType).toBe('percentage')
+        expect(loader.progress).toBe(0.7)
+        expect(loader.progressCurrent).toBe(7)
+        expect(loader.progressTotal).toBe(10)
+
+        for (const [phase, expectedType] of [
+            ['downloading_minecraft', 'bytes'],
+            ['downloading_pack_file', 'bytes'],
+            ['downloading_content', 'count'],
+        ] as const) {
+            jobs.value = [{ ...initial, phase }]
+            await nextTick()
+            expect(notifications.progressItems.value[0].progressType).toBe(expectedType)
+        }
+
+        jobs.value = [{ ...initial, progress: { current: 0, total: 0 } }]
+        await nextTick()
+        expect(notifications.progressItems.value[0].waiting).toBe(true)
+        expect(notifications.progressItems.value[0].progressType).toBeUndefined()
+    } finally {
+        notifications.dispose()
+        vi.unstubAllGlobals()
+    }
+})

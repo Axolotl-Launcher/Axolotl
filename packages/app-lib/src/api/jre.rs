@@ -128,16 +128,6 @@ pub async fn get_java_default_versions() -> crate::Result<Vec<JavaVersion>> {
     JavaVersion::get_all_defaults(&documents::Documents::new(&state)).await
 }
 
-#[cfg(feature = "tauri")]
-pub fn respond_to_java_download_confirmation(
-    request_id: uuid::Uuid,
-    approved: bool,
-) -> bool {
-    crate::event::emit::respond_to_java_download_confirmation(
-        request_id, approved,
-    )
-}
-
 /// Lists available Java major versions from the specified distribution API.
 pub async fn list_java_distribution_versions(
     distribution: String,
@@ -536,21 +526,7 @@ fn closest_compatible_java<'a>(
 pub async fn auto_install_java(
     java_version: u32,
 ) -> crate::Result<Option<PathBuf>> {
-    auto_install_java_inner(java_version, true, None, false).await
-}
-
-pub async fn auto_install_java_with_loading(
-    java_version: u32,
-    show_loading: bool,
-) -> crate::Result<Option<PathBuf>> {
-    auto_install_java_inner(java_version, show_loading, None, true).await
-}
-
-pub async fn auto_install_java_with_reporter(
-    java_version: u32,
-    reporter: InstallProgressReporter,
-) -> crate::Result<Option<PathBuf>> {
-    auto_install_java_inner(java_version, false, Some(reporter), true).await
+    auto_install_java_inner(java_version, true, None).await
 }
 
 const JAVA_INSTALL_STEPS: u64 = 4;
@@ -708,41 +684,14 @@ fn java_step_progress(current: u64) -> InstallProgress {
     }
 }
 
-async fn confirm_java_download(
-    java_version: u32,
-    reporter: Option<&InstallProgressReporter>,
-) -> crate::Result<bool> {
-    if let Some(reporter) = reporter
-        && reporter.is_java_download_postponed(java_version).await
-    {
-        return Ok(false);
-    }
-
-    let approved =
-        crate::event::emit::request_java_download_confirmation(java_version)
-            .await?;
-    if !approved && let Some(reporter) = reporter {
-        reporter.postpone_java_download(java_version).await;
-    }
-
-    Ok(approved)
-}
-
 async fn auto_install_java_inner(
     java_version: u32,
     show_loading: bool,
     reporter: Option<InstallProgressReporter>,
-    confirm_download: bool,
 ) -> crate::Result<Option<PathBuf>> {
     let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let _install_guard = JAVA_INSTALL_LOCK.lock().await;
-    if confirm_download
-        && !confirm_java_download(java_version, reporter.as_ref()).await?
-    {
-        return Ok(None);
-    }
-
     let loading_bar = if show_loading {
         Some(
             init_loading(

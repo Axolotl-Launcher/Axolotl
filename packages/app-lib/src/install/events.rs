@@ -70,7 +70,6 @@ struct InstallProgressReporterState {
     checkpoint_in_flight: bool,
     initialized_from_store: bool,
     parallel_is_foreground: bool,
-    postponed_java_versions: HashSet<u32>,
     /// Per-download event throttles. A global throttle makes one busy file
     /// suppress progress events for every other active download.
     last_live_emit_at: HashMap<String, Instant>,
@@ -128,6 +127,16 @@ impl InstallProgressReporter {
                     .map(|entry| entry.value().clone())
             })
             .unwrap_or_default()
+    }
+
+    /// Cancels the whole job, including peers running in child pipelines.
+    pub(crate) fn cancel_job(&self) {
+        if let Some(state) = crate::State::get_if_initialized()
+            && let Some(cancellation) =
+                state.install_job_cancellations.get(&self.job_id)
+        {
+            cancellation.value().cancel();
+        }
     }
 
     /// A failed worker stops its peers without marking the user's job canceled.
@@ -212,7 +221,6 @@ impl InstallProgressReporter {
                             checkpoint_in_flight: false,
                             initialized_from_store: false,
                             parallel_is_foreground: false,
-                            postponed_java_versions: HashSet::new(),
                             last_live_emit_at: HashMap::new(),
                             pending_stall_checks: HashSet::new(),
                         }));
@@ -232,7 +240,6 @@ impl InstallProgressReporter {
                         checkpoint_in_flight: false,
                         initialized_from_store: false,
                         parallel_is_foreground: false,
-                        postponed_java_versions: HashSet::new(),
                         last_live_emit_at: HashMap::new(),
                         pending_stall_checks: HashSet::new(),
                     }));
@@ -417,22 +424,6 @@ impl InstallProgressReporter {
 
     pub async fn clear_context(&self) -> crate::Result<()> {
         self.update_context(None, true).await
-    }
-
-    pub async fn is_java_download_postponed(&self, version: u32) -> bool {
-        self.state
-            .lock()
-            .await
-            .postponed_java_versions
-            .contains(&version)
-    }
-
-    pub async fn postpone_java_download(&self, version: u32) {
-        self.state
-            .lock()
-            .await
-            .postponed_java_versions
-            .insert(version);
     }
 
     async fn sync_latest(
@@ -1580,28 +1571,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn postponed_java_download_is_shared_by_job_reporters() {
-        let job_id = Uuid::new_v4();
-        let state = InstallJobState::new(InstallRequest::CreateInstance {
-            name: "Test".to_string(),
-            game_version: "1.21.1".to_string(),
-            loader: ModLoader::Vanilla,
-            loader_version: None,
-            adjuncts: Vec::new(),
-            icon_path: None,
-            link: InstanceLink::Unmanaged,
-            game_dir_override: None,
-        });
-        let first = InstallProgressReporter::new(job_id, state.clone());
-        let second = InstallProgressReporter::new(job_id, state);
-
-        first.postpone_java_download(21).await;
-
-        assert!(second.is_java_download_postponed(21).await);
-        assert!(!second.is_java_download_postponed(17).await);
-    }
-
-    #[tokio::test]
     async fn download_progress_never_waits_for_reporter_lock() {
         let job_id = Uuid::new_v4();
         let reporter = InstallProgressReporter::new(
@@ -1715,6 +1684,35 @@ mod tests {
         assert!(live.content_change.is_some());
         assert_eq!(live.progress.unwrap().current, 64);
         drop(state);
+        InstallProgressReporter::reset_job(job_id);
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn canceling_from_a_child_pipeline_stops_the_whole_job() {
+        let (app_state, job_id, reporter) =
+            stored_minecraft_progress_job(0, 1).await;
+        let cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(job_id, cancellation.clone());
+        let minecraft = reporter.clone().with_pipeline_cancellation();
+        let content = reporter.clone().with_pipeline_cancellation();
+        let unrelated_job = Uuid::new_v4();
+        let unrelated_cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(unrelated_job, unrelated_cancellation.clone());
+        let _guard = reporter.state.lock().await;
+
+        minecraft.cancel_job();
+
+        assert!(cancellation.is_cancelled());
+        assert!(minecraft.cancellation_token().is_cancelled());
+        assert!(content.cancellation_token().is_cancelled());
+        assert!(!unrelated_cancellation.is_cancelled());
+        app_state.install_job_cancellations.remove(&job_id);
+        app_state.install_job_cancellations.remove(&unrelated_job);
         InstallProgressReporter::reset_job(job_id);
     }
 

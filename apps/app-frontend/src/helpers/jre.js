@@ -71,13 +71,6 @@ export async function auto_install_java(javaVersion) {
     return await invoke('plugin:jre|jre_auto_install_java', { javaVersion })
 }
 
-export async function respond_to_java_download_confirmation(requestId, approved) {
-    return await invoke('plugin:jre|jre_respond_to_download_confirmation', {
-        requestId,
-        approved,
-    })
-}
-
 export async function list_java_distribution_versions(distribution) {
     return await invoke('plugin:jre|list_java_distribution_versions', { distribution })
 }

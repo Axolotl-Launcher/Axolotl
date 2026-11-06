@@ -388,6 +388,7 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
             return Err(error);
         }
     };
+    let job = store::get_required(job_id, &state).await?;
     let reporter = InstallProgressReporter::new(job_id, job.state.clone());
     // Kept here so recovery still sees a cancellation the worker was given
     // after the worker has unregistered it.
@@ -411,6 +412,13 @@ async fn run_owned_job(
 
     if job.status != InstallJobStatus::Queued {
         return Ok(());
+    }
+    if job.state.initialization_pending {
+        return Err(ErrorKind::InputError(
+            "Instance initialization was interrupted before it completed"
+                .into(),
+        )
+        .into());
     }
 
     let mut job_state = job.state.clone();

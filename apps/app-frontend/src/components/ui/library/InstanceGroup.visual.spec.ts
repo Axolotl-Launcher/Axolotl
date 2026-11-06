@@ -33,13 +33,42 @@ vi.mock('@/components/ui/Instance.vue', async () => {
     const { defineComponent, h } = await import('vue')
     return {
         default: defineComponent({
-            props: ['playing', 'instance', 'showGameDirectory'],
-            setup: (props) => () =>
-                h('div', {
-                    'data-playing': String(props.playing),
-                    'data-id': props.instance.id,
-                    'data-show-game-directory': String(props.showGameDirectory),
-                }),
+            props: [
+                'playing',
+                'instance',
+                'showGameDirectory',
+                'variant',
+                'showMore',
+                'selectMode',
+                'selected',
+            ],
+            emits: ['more', 'toggleSelect'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'div',
+                        {
+                            'data-playing': String(props.playing),
+                            'data-id': props.instance.id,
+                            'data-show-game-directory': String(props.showGameDirectory),
+                            'data-variant': props.variant,
+                            'data-show-more': String(props.showMore),
+                            'data-select-mode': String(props.selectMode),
+                            'data-selected': String(props.selected),
+                            onClick: (event: MouseEvent) => emit('more', event),
+                        },
+                        [
+                            h(
+                                'button',
+                                {
+                                    'data-instance-select': props.instance.id,
+                                    onClick: (event: MouseEvent) => emit('toggleSelect', event),
+                                },
+                                'Select',
+                            ),
+                        ],
+                    ),
         }),
     }
 })
@@ -96,6 +125,47 @@ it.each(['Group', 'None'])(
         }
     },
 )
+
+it('renders a vertical list with inline selection and more actions', () => {
+    const wrapper = mount(InstanceGroup, {
+        props: {
+            sectionKey: 'a',
+            groupName: 'A',
+            grouping: 'Group',
+            instances: [
+                { id: 'one', name: 'One' },
+                { id: 'two', name: 'Two' },
+            ] as GameInstance[],
+            runningInstanceIds: new Set(),
+            isCollapsed: false,
+            displayMode: 'list',
+            selectMode: true,
+            selectedInstanceIds: new Set(['one']),
+        },
+        global: { directives: { tooltip: () => {} } },
+    })
+    try {
+        expect(wrapper.get('[data-layout="list"]').classes()).toContain('flex-col')
+        expect(wrapper.findAll('[data-id]')).toHaveLength(2)
+        expect(wrapper.get('[data-id="one"]').attributes('data-variant')).toBe('list')
+        expect(wrapper.get('[data-id="one"]').attributes('data-show-more')).toBe('true')
+        expect(wrapper.get('[data-id="one"]').attributes('data-selected')).toBe('true')
+
+        // The card overlay must not duplicate the inline checkbox/more in list mode.
+        expect(wrapper.findAll('[data-instance-select]')).toHaveLength(2)
+        expect(wrapper.find('.absolute.right-2.bottom-2').exists()).toBe(false)
+        expect(wrapper.find('.absolute.right-2.top-2').exists()).toBe(false)
+
+        const row = wrapper.get('[data-id="one"]')
+        row.trigger('click')
+        expect(wrapper.emitted('handleContextMenu')).toHaveLength(1)
+
+        wrapper.get('[data-instance-select="one"]').trigger('click')
+        expect(wrapper.emitted('handleCheckboxClick')).toHaveLength(1)
+    } finally {
+        wrapper.unmount()
+    }
+})
 
 it('keeps game-directory sections automatic and non-draggable', () => {
     const wrapper = mount(InstanceGroup, {

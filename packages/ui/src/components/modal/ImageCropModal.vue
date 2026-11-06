@@ -78,6 +78,35 @@
                     >
                         {{ loadError }}
                     </div>
+                    <div
+                        v-else-if="loadState === 'oversized'"
+                        data-image-crop-oversized
+                        class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface-1/95 p-6 text-center"
+                    >
+                        <p class="m-0 font-semibold text-[var(--color-text-primary)]">
+                            {{ formatMessage(messages.oversizedTitle) }}
+                        </p>
+                        <p class="m-0 max-w-md text-sm text-[var(--color-text-tertiary)]">
+                            {{ oversizedDescription }}
+                        </p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <Button
+                                type="colored"
+                                color="brand"
+                                data-image-crop-auto-compress
+                                @click="autoCompressOversized"
+                            >
+                                {{ formatMessage(messages.autoCompress) }}
+                            </Button>
+                            <Button
+                                type="outlined"
+                                data-image-crop-keep-original
+                                @click="keepOriginalOversized"
+                            >
+                                {{ formatMessage(messages.keepOriginal) }}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
                 <p class="m-0 text-xs text-[var(--color-text-tertiary)]">
                     {{ formatMessage(messages.dragHint) }}
@@ -238,6 +267,7 @@ import {
     coverScale,
     type CropSelection,
     DEFAULT_CROP_ASPECT_RATIO,
+    extensionForMimeType,
     fitCropFrame,
     type ImageCropAspectRatioOption,
     type ImageCropModalExposed,
@@ -308,6 +338,28 @@ const messages = defineMessages({
         id: 'image-crop.too-large',
         defaultMessage: 'This image is too large to crop.',
     },
+    oversizedTitle: {
+        id: 'image-crop.oversized-title',
+        defaultMessage: 'This file is larger than the usual limit',
+    },
+    oversizedBytes: {
+        id: 'image-crop.oversized-bytes',
+        defaultMessage:
+            'The source is {size} MB; the usual limit is {limit} MB. Continuing may use a lot of memory.',
+    },
+    oversizedPixels: {
+        id: 'image-crop.oversized-pixels',
+        defaultMessage:
+            'The image is {width} × {height} pixels; the usual limit is {limit} megapixels. Continuing may use a lot of memory.',
+    },
+    autoCompress: {
+        id: 'image-crop.auto-compress',
+        defaultMessage: 'Auto-compress',
+    },
+    keepOriginal: {
+        id: 'image-crop.keep-original',
+        defaultMessage: 'Keep original',
+    },
     exportError: {
         id: 'image-crop.export-error',
         defaultMessage: 'The cropped image could not be created. Try again.',
@@ -335,8 +387,10 @@ const image = shallowRef<ImageBitmap | null>(null)
 const imageSize = ref({ width: 1, height: 1 })
 const workspaceSize = ref({ width: 1, height: 1 })
 const view = ref({ zoom: 1, centerX: 1, centerY: 1 })
-const loadState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+const loadState = ref<'idle' | 'loading' | 'ready' | 'error' | 'oversized'>('idle')
 const loadError = ref('')
+const oversizedReason = ref<'bytes' | 'pixels' | null>(null)
+const acceptedOversizedSource = ref(false)
 const exportError = ref('')
 const exporting = ref(false)
 const sessionMode = ref<'encode' | 'crop'>('encode')
@@ -436,6 +490,22 @@ const animatedPreviewStyle = computed<CSSProperties>(() => {
     }
 })
 
+const oversizedDescription = computed(() => {
+    if (oversizedReason.value === 'bytes') {
+        const size = ((pendingSource?.size ?? 0) / (1024 * 1024)).toFixed(1)
+        const limit = (props.maxSourceBytes / (1024 * 1024)).toFixed(0)
+        return formatMessage(messages.oversizedBytes, { size, limit })
+    }
+    if (oversizedReason.value === 'pixels') {
+        return formatMessage(messages.oversizedPixels, {
+            width: imageSize.value.width,
+            height: imageSize.value.height,
+            limit: Math.round(props.maxSourcePixels / 1_000_000),
+        })
+    }
+    return ''
+})
+
 const zoomStatus = computed(() =>
     formatMessage(messages.zoomStatus, {
         percent: zoomPercent.value,
@@ -451,6 +521,7 @@ let drawRequest: number | null = null
 let dragState: { pointerId: number; lastX: number; lastY: number } | null = null
 let pendingResolve: ((result: ImageCropOutcome | null) => void) | null = null
 let pendingResult: ImageCropOutcome | null = null
+let pendingSource: Blob | null = null
 let sessionGeneration = 0
 
 function setWorkspaceElement(element: Element | ComponentPublicInstance | null) {
@@ -684,6 +755,9 @@ function cleanSource() {
     loadState.value = 'idle'
     loadError.value = ''
     exportError.value = ''
+    oversizedReason.value = null
+    acceptedOversizedSource.value = false
+    pendingSource = null
     dragState = null
     if (drawRequest !== null) {
         cancelAnimationFrame(drawRequest)
@@ -735,6 +809,9 @@ async function showInternal(
     animatedPreviewUrl.value =
         mode === 'crop' && selectionOptions.animated ? URL.createObjectURL(source) : null
     pendingResult = null
+    pendingSource = source
+    oversizedReason.value = null
+    acceptedOversizedSource.value = false
     loadError.value = ''
     exportError.value = ''
     exporting.value = false
@@ -763,13 +840,12 @@ function showCrop(
     return showInternal(source, options, 'crop') as Promise<CropSelection | null>
 }
 
-async function loadSource(source: Blob, session: number) {
-    let errorKind: 'decode' | 'too-large' = 'decode'
-
+async function loadSource(source: Blob, session: number, ignoreLimits = false) {
     try {
-        if (source.size > props.maxSourceBytes) {
-            errorKind = 'too-large'
-            throw new Error('The image file is too large to crop')
+        if (!ignoreLimits && source.size > props.maxSourceBytes) {
+            oversizedReason.value = 'bytes'
+            loadState.value = 'oversized'
+            return
         }
 
         const bitmap = await decodeImage(source)
@@ -783,25 +859,75 @@ async function loadSource(source: Blob, session: number) {
             throw new Error('The image has no usable dimensions')
         }
 
-        if (bitmap.width * bitmap.height > props.maxSourcePixels) {
-            bitmap.close()
-            errorKind = 'too-large'
-            throw new Error('The image dimensions are too large to crop')
-        }
-
         image.value = bitmap
         imageSize.value = { width: bitmap.width, height: bitmap.height }
         view.value = resetView(imageSize.value)
+
+        if (!ignoreLimits && bitmap.width * bitmap.height > props.maxSourcePixels) {
+            oversizedReason.value = 'pixels'
+            loadState.value = 'oversized'
+            scheduleDraw()
+            return
+        }
+
         loadState.value = 'ready'
         scheduleDraw()
     } catch (error) {
         if (session !== sessionGeneration) return
         console.warn('Failed to decode an image for cropping', error)
         loadState.value = 'error'
-        loadError.value = formatMessage(
-            errorKind === 'too-large' ? messages.tooLarge : messages.decodeError,
-        )
+        loadError.value = formatMessage(messages.decodeError)
     }
+}
+
+function autoCompressOversized() {
+    if (!pendingSource || !oversizedReason.value) return
+
+    acceptedOversizedSource.value = true
+    if (oversizedReason.value === 'pixels') {
+        oversizedReason.value = null
+        loadState.value = 'ready'
+        scheduleDraw()
+        return
+    }
+
+    const session = sessionGeneration
+    oversizedReason.value = null
+    loadState.value = 'loading'
+    void loadSource(pendingSource, session, true)
+}
+
+async function keepOriginalOversized() {
+    const source = pendingSource
+    if (!source) return
+
+    if (sessionMode.value === 'crop') {
+        pendingResult = {
+            sourceWidth: imageSize.value.width,
+            sourceHeight: imageSize.value.height,
+            crop: { left: 0, top: 0, width: 1, height: 1 },
+            normalizedCrop: { left: 0, top: 0, width: 1, height: 1 },
+            aspectRatio: selectedAspectRatio.value,
+            outputWidth: 0,
+            outputHeight: 0,
+            oversizedSource: true,
+            keepOriginal: true,
+        }
+    } else {
+        const mimeType = source.type || 'application/octet-stream'
+        pendingResult = {
+            blob: source,
+            bytes: new Uint8Array(await source.arrayBuffer()),
+            width: imageSize.value.width,
+            height: imageSize.value.height,
+            mimeType,
+            extension: extensionForMimeType(mimeType) ?? '',
+            keepOriginal: true,
+        }
+    }
+
+    await nextTick()
+    await modal.value?.hide()
 }
 
 async function decodeImage(source: Blob): Promise<ImageBitmap> {
@@ -844,6 +970,8 @@ async function confirm() {
             aspectRatio: selectedAspectRatio.value,
             outputWidth: outputSize.value.width,
             outputHeight: outputSize.value.height,
+            oversizedSource: acceptedOversizedSource.value,
+            keepOriginal: false,
         }
         await nextTick()
         await modal.value?.hide()

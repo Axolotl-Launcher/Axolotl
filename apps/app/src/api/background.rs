@@ -81,6 +81,7 @@ pub struct AnimatedBackgroundOptions {
     pub max_frames: Option<u32>,
     pub max_duration_ms: Option<u64>,
     pub max_output_bytes: Option<u64>,
+    pub allow_oversized_source: Option<bool>,
     pub backend: Option<ConversionBackend>,
     pub ffmpeg_path: Option<String>,
 }
@@ -175,7 +176,9 @@ fn convert_background(
     let metadata = fs::metadata(input_path).map_err(|error| {
         io_error("The animated background could not be read", error)
     })?;
-    if metadata.len() > MAX_INPUT_BYTES {
+    if !options.allow_oversized_source.unwrap_or(false)
+        && metadata.len() > MAX_INPUT_BYTES
+    {
         return Err(BackgroundConversionError::new(
             "too_large",
             "The animated background source is too large",

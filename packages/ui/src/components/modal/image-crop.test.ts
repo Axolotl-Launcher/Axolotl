@@ -139,6 +139,10 @@ test('caps output dimensions without upscaling', () => {
 test('maps only supported crop output MIME types to extensions', () => {
     assert.equal(extensionForMimeType('image/png'), 'png')
     assert.equal(extensionForMimeType('IMAGE/WEBP'), 'webp')
-    assert.equal(extensionForMimeType('image/jpeg'), null)
+    assert.equal(extensionForMimeType('image/jpeg'), 'jpg')
+    assert.equal(extensionForMimeType('image/gif'), 'gif')
+    assert.equal(extensionForMimeType('image/apng'), 'apng')
+    assert.equal(extensionForMimeType('image/avif'), 'avif')
+    assert.equal(extensionForMimeType('video/mp4'), 'mp4')
     assert.equal(extensionForMimeType(''), null)
 })

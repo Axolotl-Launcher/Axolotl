@@ -373,12 +373,30 @@ it('rejects a source file above the byte limit', async () => {
     const promise = exposed().show(await createTestImage())
 
     await vi.waitFor(() => {
-        expect(wrapper!.find('[role="alert"]').exists()).toBe(true)
+        expect(wrapper!.find('[data-image-crop-oversized]').exists()).toBe(true)
     })
-    expect(wrapper!.get('[data-image-crop-confirm]').attributes('disabled')).toBeDefined()
+    expect(wrapper!.find('[data-image-crop-auto-compress]').exists()).toBe(true)
+    expect(wrapper!.find('[data-image-crop-keep-original]').exists()).toBe(true)
 
-    await wrapper!.get('[data-image-crop-cancel]').trigger('click')
-    expect(await promise).toBeNull()
+    await wrapper!.get('[data-image-crop-auto-compress]').trigger('click')
+    await waitForFrame()
+    await wrapper!.get('[data-image-crop-confirm]').trigger('click')
+    expect(await promise).not.toBeNull()
+})
+
+it('keeps the original file when the user chooses that option', async () => {
+    mountModal({ maxSourceBytes: 10 })
+    const blob = await createTestImage()
+    const promise = exposed().show(blob)
+
+    await vi.waitFor(() => {
+        expect(wrapper!.find('[data-image-crop-oversized]').exists()).toBe(true)
+    })
+    await wrapper!.get('[data-image-crop-keep-original]').trigger('click')
+    const result = await promise
+
+    expect(result!.keepOriginal).toBe(true)
+    expect(result!.bytes.byteLength).toBe(blob.size)
 })
 
 it('rejects a source above the decoded pixel limit', async () => {
@@ -386,11 +404,13 @@ it('rejects a source above the decoded pixel limit', async () => {
     const promise = exposed().show(await createTestImage(400, 300))
 
     await vi.waitFor(() => {
-        expect(wrapper!.find('[role="alert"]').exists()).toBe(true)
+        expect(wrapper!.find('[data-image-crop-oversized]').exists()).toBe(true)
     })
 
-    await wrapper!.get('[data-image-crop-cancel]').trigger('click')
-    expect(await promise).toBeNull()
+    await wrapper!.get('[data-image-crop-auto-compress]').trigger('click')
+    await waitForFrame()
+    await wrapper!.get('[data-image-crop-confirm]').trigger('click')
+    expect(await promise).not.toBeNull()
 })
 
 it('locks closing while the crop is being encoded', async () => {

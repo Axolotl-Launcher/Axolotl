@@ -2171,6 +2171,9 @@
   "image-crop.aspect-ratio": {
     "defaultMessage": "Aspect ratio"
   },
+  "image-crop.auto-compress": {
+    "defaultMessage": "Auto-compress"
+  },
   "image-crop.decode-error": {
     "defaultMessage": "This image could not be opened. Choose a different image."
   },
@@ -2186,8 +2189,20 @@
   "image-crop.help": {
     "defaultMessage": "Drag the image to reposition it. Scroll over the workspace or use the zoom control to zoom."
   },
+  "image-crop.keep-original": {
+    "defaultMessage": "Keep original"
+  },
   "image-crop.loading": {
     "defaultMessage": "Loading image…"
+  },
+  "image-crop.oversized-bytes": {
+    "defaultMessage": "The source is {size} MB; the usual limit is {limit} MB. Continuing may use a lot of memory."
+  },
+  "image-crop.oversized-pixels": {
+    "defaultMessage": "The image is {width} × {height} pixels; the usual limit is {limit} megapixels. Continuing may use a lot of memory."
+  },
+  "image-crop.oversized-title": {
+    "defaultMessage": "This file is larger than the usual limit"
   },
   "image-crop.preview": {
     "defaultMessage": "Result preview"

@@ -183,6 +183,7 @@ import {
     detectCustomBackgroundExtension,
     extensionFromPath,
     isCroppableCustomBackground,
+    isCustomBackgroundExtension,
     isCustomBackgroundWithinByteLimit,
     MAX_CUSTOM_BACKGROUND_BYTES,
 } from '@/helpers/custom-background'
@@ -322,7 +323,7 @@ function buildAspectRatioOptions(): ImageCropAspectRatioOption[] {
     ]
 }
 
-async function buildCustomBackgroundPath(extension: 'png' | 'webp') {
+async function buildCustomBackgroundPath(extension: CustomBackgroundExtension) {
     const backgroundDirectory = await join(await appDataDir(), 'backgrounds')
     const suffix =
         globalThis.crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 10)
@@ -343,8 +344,12 @@ async function adoptCustomBackgroundPath(storedPath: string) {
     }
 }
 
-async function storeCustomBackgroundBytes(bytes: Uint8Array, extension: 'png' | 'webp') {
-    if (!isCustomBackgroundWithinByteLimit(bytes.byteLength)) {
+async function storeCustomBackgroundBytes(
+    bytes: Uint8Array,
+    extension: CustomBackgroundExtension,
+    options: { bypassLimit?: boolean } = {},
+) {
+    if (!options.bypassLimit && !isCustomBackgroundWithinByteLimit(bytes.byteLength)) {
         addNotification({
             type: 'error',
             title: formatMessage(messages.customBackgroundTooLarge),
@@ -384,6 +389,11 @@ async function convertAnimatedCustomBackground(
     })
     if (!selection) return
 
+    if (selection.keepOriginal) {
+        await storeCustomBackgroundBytes(bytes, extension, { bypassLimit: true })
+        return
+    }
+
     const outputPath = await buildCustomBackgroundPath('webp')
     customBackgroundConverting.value = true
     try {
@@ -397,6 +407,7 @@ async function convertAnimatedCustomBackground(
             maxFrames: 240,
             maxDurationMs: 15_000,
             maxOutputBytes: MAX_CUSTOM_BACKGROUND_BYTES,
+            allowOversizedSource: selection.oversizedSource,
             backend: 'auto',
         })
         await adoptCustomBackgroundPath(result.path)
@@ -463,7 +474,20 @@ async function applyCustomBackground(
     })
     if (!result) return
 
-    await storeCustomBackgroundBytes(result.bytes, result.extension)
+    if (result.keepOriginal) {
+        const originalExtension = isCustomBackgroundExtension(result.extension)
+            ? result.extension
+            : extension
+        await storeCustomBackgroundBytes(result.bytes, originalExtension, {
+            bypassLimit: true,
+        })
+        return
+    }
+
+    await storeCustomBackgroundBytes(
+        result.bytes,
+        isCustomBackgroundExtension(result.extension) ? result.extension : 'webp',
+    )
 }
 
 function notifyUnsupportedBackground() {

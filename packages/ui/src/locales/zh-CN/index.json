@@ -1838,6 +1838,9 @@
   "image-crop.aspect-ratio": {
     "defaultMessage": "宽高比"
   },
+  "image-crop.auto-compress": {
+    "defaultMessage": "自动压缩"
+  },
   "image-crop.decode-error": {
     "defaultMessage": "无法打开这张图片，请选择其他图片。"
   },
@@ -1853,8 +1856,20 @@
   "image-crop.help": {
     "defaultMessage": "拖动图片调整位置。在工作区滚动或使用缩放控件进行缩放。"
   },
+  "image-crop.keep-original": {
+    "defaultMessage": "保留原图"
+  },
   "image-crop.loading": {
     "defaultMessage": "正在加载图片…"
+  },
+  "image-crop.oversized-bytes": {
+    "defaultMessage": "源文件为 {size} MB，常规上限为 {limit} MB。继续可能会占用大量内存。"
+  },
+  "image-crop.oversized-pixels": {
+    "defaultMessage": "图片尺寸为 {width} × {height} 像素，常规上限为 {limit} 百万像素。继续可能会占用大量内存。"
+  },
+  "image-crop.oversized-title": {
+    "defaultMessage": "文件超过常规上限"
   },
   "image-crop.preview": {
     "defaultMessage": "结果预览"

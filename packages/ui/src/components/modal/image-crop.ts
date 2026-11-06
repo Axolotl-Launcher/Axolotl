@@ -30,8 +30,10 @@ export interface ImageCropResult {
     bytes: Uint8Array
     width: number
     height: number
-    mimeType: 'image/png' | 'image/webp'
-    extension: 'png' | 'webp'
+    mimeType: string
+    extension: string
+    /** The user chose to keep the original file instead of encoding a crop. */
+    keepOriginal?: boolean
 }
 
 export interface NormalizedCropRect {
@@ -49,6 +51,10 @@ export interface CropSelection {
     aspectRatio: number
     outputWidth: number
     outputHeight: number
+    /** The user explicitly chose to proceed past the source size/pixel guard. */
+    oversizedSource: boolean
+    /** The user chose to keep the original file instead of cropping it. */
+    keepOriginal: boolean
 }
 
 export interface ImageCropSelectionOptions extends ImageCropShowOptions {
@@ -212,11 +218,19 @@ export function outputSizeForSource(source: CropSize, maxOutputDimension: number
     }
 }
 
-export function extensionForMimeType(mimeType: string): 'png' | 'webp' | null {
+export function extensionForMimeType(mimeType: string): string | null {
     const normalized = mimeType.trim().toLowerCase()
-    if (normalized === 'image/png') return 'png'
-    if (normalized === 'image/webp') return 'webp'
-    return null
+    const extensions: Record<string, string> = {
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/jpeg': 'jpg',
+        'image/gif': 'gif',
+        'image/apng': 'apng',
+        'image/avif': 'avif',
+        'image/bmp': 'bmp',
+        'video/mp4': 'mp4',
+    }
+    return extensions[normalized] ?? null
 }
 
 function clampCenter(value: number, sourceSize: number, imageSize: number): number {

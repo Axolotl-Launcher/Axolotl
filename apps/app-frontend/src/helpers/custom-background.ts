@@ -69,6 +69,10 @@ export function isCustomBackgroundImagePath(path: string): boolean {
     return extensionFromPath(path) !== null
 }
 
+export function isCustomBackgroundExtension(value: string): value is CustomBackgroundExtension {
+    return KNOWN_EXTENSIONS.has(value)
+}
+
 export function isCustomBackgroundWithinByteLimit(byteLength: number): boolean {
     return byteLength <= MAX_CUSTOM_BACKGROUND_BYTES
 }

@@ -1,13 +1,25 @@
 {
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "暂时无法加载：{sources}" },
-  "app.schematics.sort.default": { "message": "来源默认顺序" },
-  "app.schematics.sort.name": { "message": "名称" },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "暂时无法加载：{sources}"
+  },
+  "app.schematics.sort.default": {
+    "message": "来源默认顺序"
+  },
+  "app.schematics.sort.name": {
+    "message": "名称"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count} 个来源需要<login-link>登录</login-link>"
   },
-  "app.schematics.open-source": { "message": "在来源网站查看" },
+  "app.schematics.open-source": {
+    "message": "在来源网站查看"
+  },
   "app.schematics.instances-error": {
     "message": "无法读取实例列表。"
   },
@@ -53,8 +65,12 @@
   "app.schematics.search": {
     "message": "搜索投影"
   },
-  "app.schematics.sort.hot": { "message": "热门" },
-  "app.schematics.sort.featured": { "message": "精选" },
+  "app.schematics.sort.hot": {
+    "message": "热门"
+  },
+  "app.schematics.sort.featured": {
+    "message": "精选"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -67,11 +83,21 @@
   "app.schematics.installing": {
     "message": "正在安装…"
   },
-  "app.schematics.preview": { "message": "预览" },
-  "app.schematics.files": { "message": "文件" },
-  "app.schematics.creator": { "message": "创作者" },
-  "app.schematics.source-heading": { "message": "来源" },
-  "app.schematics.preview-source": { "message": "拾木空间 · {fileName}" },
+  "app.schematics.preview": {
+    "message": "预览"
+  },
+  "app.schematics.files": {
+    "message": "文件"
+  },
+  "app.schematics.creator": {
+    "message": "创作者"
+  },
+  "app.schematics.source-heading": {
+    "message": "来源"
+  },
+  "app.schematics.preview-source": {
+    "message": "拾木空间 · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "已安装"
   },
@@ -20737,7 +20763,7 @@
     "message": "高级下载信息"
   },
   "app.settings.feature-flags.advanced-download-info-description": {
-    "message": "在下载详情中显示文件用时、请求速度与远端地址。开启时采集观测数据，并在导出网络连接时包含这些数据。"
+    "message": "下载时，在下载详细信息页面提供详细信息。当你遇到问题时，可以打开这个选项并将信息提供给开发者，有助于排查问题。"
   },
   "app.downloads.diagnostics.elapsed-help": {
     "message": "处理此文件的总用时，包含资源等待、已有文件检查、传输、写入及校验用时。"

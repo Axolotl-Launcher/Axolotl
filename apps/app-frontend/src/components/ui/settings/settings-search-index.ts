@@ -921,7 +921,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
     },
     {
         id: 'advanced-download-info',
-        categoryId: 'feature-flags',
+        categoryId: 'logs',
         targetId: 'settings-target-advanced-download-info',
         label: message(
             'app.settings.feature-flags.advanced-download-info',

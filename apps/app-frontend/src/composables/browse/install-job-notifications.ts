@@ -418,9 +418,6 @@ export async function useInstallJobNotifications(opts: {
         ) {
             return 'bytes'
         }
-        if (job.phase === 'running_loader_processors') {
-            return 'count'
-        }
         return 'percentage'
     }
 

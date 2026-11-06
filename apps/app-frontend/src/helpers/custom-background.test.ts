@@ -5,6 +5,8 @@ import {
     extensionFromPath,
     isCroppableCustomBackground,
     isCustomBackgroundImagePath,
+    isCustomBackgroundWithinByteLimit,
+    MAX_CUSTOM_BACKGROUND_BYTES,
 } from './custom-background.ts'
 
 const stillPng = new Uint8Array([
@@ -64,4 +66,10 @@ it('accepts still PNG and WebP but rejects animated containers', () => {
 it('accepts JPEG and BMP without inspecting container frames', () => {
     expect(isCroppableCustomBackground('image/jpeg', new Uint8Array())).toBe(true)
     expect(isCroppableCustomBackground('image/bmp', new Uint8Array())).toBe(true)
+})
+
+it('rejects backgrounds above the stored byte limit', () => {
+    expect(isCustomBackgroundWithinByteLimit(MAX_CUSTOM_BACKGROUND_BYTES)).toBe(true)
+    expect(isCustomBackgroundWithinByteLimit(MAX_CUSTOM_BACKGROUND_BYTES - 1)).toBe(true)
+    expect(isCustomBackgroundWithinByteLimit(MAX_CUSTOM_BACKGROUND_BYTES + 1)).toBe(false)
 })

@@ -813,6 +813,9 @@
   "app.appearance-settings.custom-background.title": {
     "message": "Launcher background"
   },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "This image is too large to use as a launcher background."
+  },
   "app.appearance-settings.default-landing-page.description": {
     "message": "Change the page to which the launcher opens on."
   },

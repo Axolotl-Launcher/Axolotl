@@ -2063,6 +2063,9 @@
   "app.appearance-settings.custom-background.title": {
     "message": "启动器背景"
   },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "图片过大，无法用作启动器背景。"
+  },
   "app.appearance-settings.default-landing-page.description": {
     "message": "更改启动器打开的页面。"
   },

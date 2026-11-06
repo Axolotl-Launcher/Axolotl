@@ -353,6 +353,46 @@ it('shows an alert and disables confirmation when the image cannot be decoded', 
     expect(await promise).toBeNull()
 })
 
+it('exports WebP when the webview supports WebP encoding', async () => {
+    mountModal({ outputMimeType: 'image/webp', maxOutputDimension: 200 })
+    const promise = exposed().show(await createTestImage(), {
+        aspectRatioOptions: [{ id: 'square', label: '1:1', ratio: 1 }],
+        defaultAspectRatioId: 'square',
+    })
+
+    await waitForFrame()
+    await wrapper!.get('[data-image-crop-confirm]').trigger('click')
+    const result = await promise
+
+    expect(result!.mimeType).toBe('image/webp')
+    expect(result!.extension).toBe('webp')
+})
+
+it('rejects a source file above the byte limit', async () => {
+    mountModal({ maxSourceBytes: 10 })
+    const promise = exposed().show(await createTestImage())
+
+    await vi.waitFor(() => {
+        expect(wrapper!.find('[role="alert"]').exists()).toBe(true)
+    })
+    expect(wrapper!.get('[data-image-crop-confirm]').attributes('disabled')).toBeDefined()
+
+    await wrapper!.get('[data-image-crop-cancel]').trigger('click')
+    expect(await promise).toBeNull()
+})
+
+it('rejects a source above the decoded pixel limit', async () => {
+    mountModal({ maxSourcePixels: 100 })
+    const promise = exposed().show(await createTestImage(400, 300))
+
+    await vi.waitFor(() => {
+        expect(wrapper!.find('[role="alert"]').exists()).toBe(true)
+    })
+
+    await wrapper!.get('[data-image-crop-cancel]').trigger('click')
+    expect(await promise).toBeNull()
+})
+
 it('locks closing while the crop is being encoded', async () => {
     const blob = await createTestImage()
     let release: (() => void) | null = null

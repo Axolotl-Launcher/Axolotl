@@ -512,6 +512,9 @@
   "app.appearance-settings.custom-background.title": {
     "message": "啟動器背景"
   },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "圖片過大，無法用作啟動器背景。"
+  },
   "app.appearance-settings.default-landing-page.description": {
     "message": "變更啟動器開啟時的頁面。"
   },

@@ -56,6 +56,7 @@
                         <Button
                             type="base"
                             native-type="button"
+                            data-testid="custom-background-replace"
                             @click.stop="chooseCustomBackground"
                         >
                             <UploadIcon />
@@ -69,6 +70,7 @@
                         type="outlined"
                         color="red"
                         native-type="button"
+                        data-testid="custom-background-remove"
                         @click.stop="removeCustomBackground"
                     >
                         <TrashIcon />
@@ -168,6 +170,7 @@ import {
     extensionFromPath,
     isCroppableCustomBackground,
     isCustomBackgroundImagePath,
+    isCustomBackgroundWithinByteLimit,
 } from '@/helpers/custom-background'
 import type { AppSettings } from '@/helpers/settings.ts'
 
@@ -248,6 +251,10 @@ const messages = defineMessages({
         defaultMessage:
             "Animated images aren't supported as launcher backgrounds yet. Choose a static image.",
     },
+    customBackgroundTooLarge: {
+        id: 'app.appearance-settings.custom-background.too-large',
+        defaultMessage: 'This image is too large to use as a launcher background.',
+    },
 })
 
 const { formatMessage } = useVIntl()
@@ -281,11 +288,21 @@ function buildAspectRatioOptions(): ImageCropAspectRatioOption[] {
     ]
 }
 
-async function storeCustomBackgroundBytes(bytes: Uint8Array, extension: string) {
+async function storeCustomBackgroundBytes(bytes: Uint8Array, extension: 'png' | 'webp') {
+    if (!isCustomBackgroundWithinByteLimit(bytes.byteLength)) {
+        addNotification({
+            type: 'error',
+            title: formatMessage(messages.customBackgroundTooLarge),
+        })
+        return
+    }
+
     const backgroundDirectory = await join(await appDataDir(), 'backgrounds')
+    const suffix =
+        globalThis.crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 10)
     const storedPath = await join(
         backgroundDirectory,
-        `launcher-background-${Date.now()}.${extension}`,
+        `launcher-background-${Date.now()}-${suffix}.${extension}`,
     )
     const previousPath = settings.value.custom_background_path
 
@@ -382,13 +399,15 @@ async function removeCustomBackground() {
     if (customBackgroundBusy.value) return
 
     const backgroundPath = settings.value.custom_background_path
-    settings.value.custom_background_path = null
-
     if (!backgroundPath) return
 
     try {
         if (await exists(backgroundPath)) await remove(backgroundPath)
+        settings.value.custom_background_path = null
     } catch (error) {
+        // Keep the setting so the preview still points at the file that failed
+        // to delete; otherwise the launcher shows no background and the file
+        // becomes an orphan.
         handleError(error)
     }
 }

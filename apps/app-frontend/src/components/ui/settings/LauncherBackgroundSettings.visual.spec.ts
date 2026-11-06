@@ -2,6 +2,8 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { reactive } from 'vue'
 
+import { MAX_CUSTOM_BACKGROUND_BYTES } from '@/helpers/custom-background'
+
 import LauncherBackgroundSettings from './LauncherBackgroundSettings.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -153,7 +155,7 @@ it('crops a chosen image before writing it and replaces the previous file', asyn
 
     expect(mocks.writeFile).toHaveBeenCalledOnce()
     const writtenPath = mocks.writeFile.mock.calls[0][0] as string
-    expect(writtenPath.endsWith('.webp')).toBe(true)
+    expect(writtenPath).toMatch(/launcher-background-\d+-[a-z0-9]+\.webp$/)
     expect(settings.custom_background_path).toBe(writtenPath)
     expect(mocks.remove).toHaveBeenCalledWith('C:/data/backgrounds/old.png')
 })
@@ -257,4 +259,45 @@ it('does not open a second picker while a crop session is pending', async () => 
 
     resolveCrop(null)
     await flushPromises()
+})
+
+it('removes the current background only after its file is deleted', async () => {
+    const settings = mountSettings()
+    mocks.exists.mockResolvedValue(true)
+    mocks.remove.mockResolvedValue(undefined)
+
+    await wrapper!.get('[data-testid="custom-background-remove"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.remove).toHaveBeenCalledWith('C:/data/backgrounds/old.png')
+    expect(settings.custom_background_path).toBeNull()
+})
+
+it('keeps the background when deleting its file fails', async () => {
+    const settings = mountSettings()
+    mocks.exists.mockResolvedValue(true)
+    mocks.remove.mockRejectedValue(new Error('permission denied'))
+
+    await wrapper!.get('[data-testid="custom-background-remove"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.handleError).toHaveBeenCalledOnce()
+    expect(settings.custom_background_path).toBe('C:/data/backgrounds/old.png')
+})
+
+it('rejects an oversized encoded background before writing it', async () => {
+    const settings = mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/wall.png')
+    mocks.readFile.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    mocks.cropShow.mockResolvedValue({
+        ...webpResult,
+        bytes: { byteLength: MAX_CUSTOM_BACKGROUND_BYTES + 1 } as unknown as Uint8Array,
+    })
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
+    expect(settings.custom_background_path).toBe('C:/data/backgrounds/old.png')
 })

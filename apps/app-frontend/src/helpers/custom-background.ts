@@ -3,6 +3,9 @@ import { canEditImage } from '@/components/instance/studio/image-encoding'
 /** Static formats the launcher can turn into an encoded background. */
 export const CUSTOM_BACKGROUND_EXTENSIONS = ['png', 'jpeg', 'jpg', 'webp', 'bmp'] as const
 
+/** Stored backgrounds are loaded and decoded by the launcher on every start. */
+export const MAX_CUSTOM_BACKGROUND_BYTES = 64 * 1024 * 1024
+
 export type CustomBackgroundExtension = (typeof CUSTOM_BACKGROUND_EXTENSIONS)[number]
 
 const MIME_BY_EXTENSION: Record<CustomBackgroundExtension, string> = {
@@ -27,6 +30,10 @@ export function extensionFromPath(path: string): CustomBackgroundExtension | nul
 
 export function isCustomBackgroundImagePath(path: string): boolean {
     return extensionFromPath(path) !== null
+}
+
+export function isCustomBackgroundWithinByteLimit(byteLength: number): boolean {
+    return byteLength <= MAX_CUSTOM_BACKGROUND_BYTES
 }
 
 export function customBackgroundMimeType(extension: CustomBackgroundExtension): string {

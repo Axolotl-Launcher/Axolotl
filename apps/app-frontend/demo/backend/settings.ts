@@ -119,6 +119,11 @@ export function saveDemoTheme(theme: ColorTheme) {
     settings.theme = theme
 }
 
+/** `zh` while the app shows Chinese, `en` otherwise: the demo's own messages come in both. */
+export function demoText(zh: string, en: string) {
+    return settings.locale.startsWith('zh') ? zh : en
+}
+
 /** What an action that needs the visitor's computer reports, in the app's language. */
 export function desktopOnly() {
     return new Error(

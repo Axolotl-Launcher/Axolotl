@@ -1,0 +1,4 @@
+# Minecraft's textures and sounds and the baked world of the ancient city capture (see data/sources.json).
+# Spell checkers that honor .ignore files, such as typos, skip them.
+*
+!.ignore

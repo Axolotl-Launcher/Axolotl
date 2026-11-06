@@ -1226,6 +1226,68 @@ async fn global_state() -> std::sync::Arc<State> {
     State::get().await.unwrap()
 }
 
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn interrupted_initialization_recovers_the_bound_instance() {
+    crate::event::EventState::init().await.unwrap();
+    let state = global_state().await;
+    let id = Uuid::new_v4();
+    let request = InstallRequest::CreateInstance {
+        name: format!("Interrupted initialization {id}"),
+        game_version: "1.21.1".into(),
+        loader: ModLoader::Vanilla,
+        loader_version: None,
+        adjuncts: Vec::new(),
+        icon_path: None,
+        link: InstanceLink::Unmanaged,
+        game_dir_override: None,
+    };
+    let mut job = InstallJobState::new(request);
+    job.initialization_pending = true;
+    store::insert(id, &job, InstallJobStatus::Queued, &state)
+        .await
+        .unwrap();
+    let created = store::initializing_job(
+        id,
+        crate::state::create_instance(
+            crate::state::CreateInstance {
+                name: format!("Interrupted initialization {id}"),
+                path: None,
+                game_version: "1.21.1".into(),
+                loader: ModLoader::Vanilla,
+                loader_version: None,
+                icon_path: None,
+                link: InstanceLink::Unmanaged,
+                symlink_target: None,
+                game_dir_override: None,
+            },
+            &state,
+        ),
+    )
+    .await
+    .unwrap();
+    let failure = ErrorKind::OtherError("initializer stopped".into()).into();
+    lifecycle::recover_stopped_job(id, &state, None, &failure)
+        .await
+        .unwrap();
+    let recovered = store::get_required(id, &state).await.unwrap();
+    assert_eq!(recovered.status, InstallJobStatus::Failed);
+    assert!(
+        crate::state::get_instance(&created.id, &state.pool)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        !state
+            .directories
+            .instances_dir()
+            .join(created.path)
+            .exists()
+    );
+    assert!(recovered.state.rollback_error.is_none());
+}
+
 #[tokio::test]
 async fn direct_link_instances_cannot_be_duplicated() {
     let state = global_state().await;

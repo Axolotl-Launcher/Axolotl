@@ -2246,21 +2246,15 @@ fn pack_source_path(file: &CreatePackFile) -> String {
 fn locate_mrpack_manifest(
     zip_file: &async_zip::ZipFile,
 ) -> Option<(usize, String)> {
-    let entries = zip_file.entries();
-    entries
-        .iter()
-        .position(|f| {
-            matches!(f.filename().as_str(), Ok("modrinth.index.json"))
-        })
-        .map(|index| (index, String::new()))
-        .or_else(|| {
-            entries.iter().enumerate().find_map(|(index, f)| {
-                let name = f.filename().as_str().ok()?;
-                let (base, rest) = name.split_once('/')?;
-                (rest == "modrinth.index.json")
-                    .then(|| (index, format!("{base}/")))
-            })
-        })
+    super::detect::select_mrpack_manifest(
+        zip_file
+            .entries()
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| {
+                entry.filename().as_str().ok().map(|name| (index, name))
+            }),
+    )
 }
 
 fn override_relative_path(
@@ -2655,6 +2649,56 @@ mod tests {
         assert!(message.contains("10 required modpack files failed"));
         assert!(message.contains("(+7 more)"));
         assert!(message.len() < 600);
+    }
+
+    #[tokio::test]
+    async fn mrpack_preview_and_install_use_the_same_wrapped_manifest() {
+        use std::io::Write;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("multiple-wrappers.zip");
+        let manifest = |version: &str| {
+            serde_json::json!({
+                "game": "minecraft", "formatVersion": 1,
+                "versionId": "test", "name": "test", "files": [],
+                "dependencies": {"minecraft": version}
+            })
+            .to_string()
+        };
+        let mut archive =
+            zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+        for (name, contents) in [
+            ("b/icon.png", "unrelated file".to_string()),
+            ("a/modrinth.index.json", manifest("1.21.1")),
+            ("b/modrinth.index.json", manifest("1.19.4")),
+        ] {
+            archive
+                .start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            archive.write_all(contents.as_bytes()).unwrap();
+        }
+        archive.finish().unwrap();
+        let preview = crate::api::pack::install_from::get_instance_from_pack(
+            crate::api::pack::install_from::CreatePackLocation::FromFile {
+                path: path.clone(),
+            },
+        )
+        .await
+        .unwrap();
+        let mut reader = MrpackZipReader::new(&CreatePackFile::Path(path))
+            .await
+            .unwrap();
+        let (index, base) = locate_mrpack_manifest(reader.file()).unwrap();
+        assert_eq!(base, "a/");
+        let installed: PackFormat = serde_json::from_str(
+            &reader.read_entry_to_string(index).await.unwrap(),
+        )
+        .unwrap();
+        assert_eq!(preview.game_version, "1.21.1");
+        assert_eq!(
+            preview.game_version,
+            installed.dependencies
+                [&crate::api::pack::install_from::PackDependency::Minecraft]
+        );
     }
 
     #[tokio::test]

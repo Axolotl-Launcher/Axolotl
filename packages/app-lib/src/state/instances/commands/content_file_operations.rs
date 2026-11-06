@@ -270,6 +270,44 @@ pub(super) async fn recover(
     Ok(())
 }
 
+/// A committed journal has no changes to roll back after its owned profile
+/// was deleted. Uncommitted work and external roots still require recovery.
+pub(super) async fn recover_before_instance_removal(
+    state: &State,
+    instance_id: &str,
+    root: &Path,
+    missing_managed_profile: bool,
+) -> crate::Result<()> {
+    if !missing_managed_profile {
+        return recover(state, instance_id, root).await;
+    }
+    let Some((payload, committed)) =
+        journals::get(&state.data, instance_id).await?
+    else {
+        return Ok(());
+    };
+    if !committed {
+        return Err(recovery_error(
+            "The instance has unfinished file recovery. Restore its directory before deleting it.",
+        ));
+    }
+    let journal: Journal = serde_json::from_str(&payload)?;
+    let recorded = Path::new(&journal.root);
+    let same_root = match (root.parent(), recorded.parent()) {
+        (Some(parent), Some(recorded_parent)) => {
+            io::canonicalize(parent)? == io::canonicalize(recorded_parent)?
+                && root.file_name() == recorded.file_name()
+        }
+        _ => false,
+    };
+    if !same_root {
+        return Err(recovery_error(
+            "Instance directory changed before content recovery",
+        ));
+    }
+    journals::remove(&state.data, instance_id, &payload).await
+}
+
 pub(super) async fn rollback_error(
     state: &State,
     instance_id: &str,

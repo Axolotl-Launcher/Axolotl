@@ -77,6 +77,7 @@ pub(super) async fn prepare_initial_instance(
                 game_dir_override,
             )
             .await?;
+            set_instance_id(job_state, metadata.instance.id.clone());
             if !adjuncts.is_empty() {
                 let mut components = metadata.loader_components.clone();
                 for adjunct in &mut adjuncts {
@@ -243,19 +244,12 @@ pub(super) async fn prepare_initial_instance(
                     )
                     .await?;
                     set_instance_id(job_state, created.instance.id.clone());
-                    if let Err(error) =
-                        upgrade::clone_instance_loader_components(
-                            &metadata.loader_components,
-                            &created.instance.id,
-                            state,
-                        )
-                        .await
-                    {
-                        return Err(cleanup_failed_initial_install(
-                            job_state, state, error,
-                        )
-                        .await);
-                    }
+                    upgrade::clone_instance_loader_components(
+                        &metadata.loader_components,
+                        &created.instance.id,
+                        state,
+                    )
+                    .await?;
                 }
             }
         }

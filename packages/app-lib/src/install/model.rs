@@ -225,6 +225,9 @@ pub struct ContentChangeSnapshot {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InstallJobState {
     pub schema_version: u32,
+    /// A saved creation intent whose instance setup has not finished yet.
+    #[serde(default)]
+    pub initialization_pending: bool,
     pub request: InstallRequest,
     pub target: InstallTarget,
     pub cleanup: InstallCleanup,
@@ -276,6 +279,7 @@ impl Clone for InstallJobState {
     fn clone(&self) -> Self {
         Self {
             schema_version: self.schema_version,
+            initialization_pending: self.initialization_pending,
             request: self.request.clone(),
             target: self.target.clone(),
             cleanup: self.cleanup.clone(),
@@ -330,6 +334,7 @@ impl InstallJobState {
 
         Self {
             schema_version: 1,
+            initialization_pending: false,
             request,
             target,
             cleanup,

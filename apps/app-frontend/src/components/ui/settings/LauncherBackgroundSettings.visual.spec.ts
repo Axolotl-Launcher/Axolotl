@@ -2,7 +2,10 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { reactive } from 'vue'
 
-import { MAX_CUSTOM_BACKGROUND_BYTES } from '@/helpers/custom-background'
+import {
+    CUSTOM_BACKGROUND_EXTENSIONS,
+    MAX_CUSTOM_BACKGROUND_BYTES,
+} from '@/helpers/custom-background'
 
 import LauncherBackgroundSettings from './LauncherBackgroundSettings.vue'
 
@@ -175,6 +178,11 @@ it('crops a chosen image before writing it and replaces the previous file', asyn
     await flushPromises()
 
     expect(mocks.open).toHaveBeenCalledOnce()
+    const openOptions = mocks.open.mock.calls[0][0] as {
+        filters: Array<{ name: string; extensions: string[] }>
+    }
+    expect(openOptions.filters[0].extensions).toEqual([...CUSTOM_BACKGROUND_EXTENSIONS])
+    expect(openOptions.filters[1].extensions).toEqual(['*'])
     expect(mocks.cropShow).toHaveBeenCalledOnce()
     const [blob, options] = mocks.cropShow.mock.calls[0]
     expect(blob).toBeInstanceOf(Blob)
@@ -399,4 +407,32 @@ it('rejects an oversized encoded background before writing it', async () => {
     expect(mocks.writeFile).not.toHaveBeenCalled()
     expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
     expect(settings.custom_background_path).toBe('C:/data/backgrounds/old.png')
+})
+
+it('sniffs a supported image selected with an unknown extension', async () => {
+    mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/no-extension')
+    mocks.readFile.mockResolvedValue(
+        new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    )
+    mocks.cropShow.mockResolvedValue(webpResult)
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.cropShow).toHaveBeenCalledOnce()
+    expect((mocks.cropShow.mock.calls[0][0] as Blob).type).toBe('image/png')
+})
+
+it('rejects an unsupported file selected through the all-files filter', async () => {
+    mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/notes.txt')
+    mocks.readFile.mockResolvedValue(new TextEncoder().encode('not an image'))
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.cropShow).not.toHaveBeenCalled()
+    expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }))
 })

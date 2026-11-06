@@ -2063,6 +2063,12 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "调整背景图片透过界面显示的强度。"
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "所有文件"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "图片或视频"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "移除"
   },

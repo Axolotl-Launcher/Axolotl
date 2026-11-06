@@ -512,6 +512,12 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "調整背景圖片透過介面顯示的強度。"
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "所有檔案"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "圖片或影片"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "移除"
   },

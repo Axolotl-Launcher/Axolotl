@@ -180,9 +180,9 @@ import {
     CUSTOM_BACKGROUND_EXTENSIONS,
     type CustomBackgroundExtension,
     customBackgroundMimeType,
+    detectCustomBackgroundExtension,
     extensionFromPath,
     isCroppableCustomBackground,
-    isCustomBackgroundImagePath,
     isCustomBackgroundWithinByteLimit,
     MAX_CUSTOM_BACKGROUND_BYTES,
 } from '@/helpers/custom-background'
@@ -275,6 +275,14 @@ const messages = defineMessages({
     customBackgroundBackendUnavailable: {
         id: 'app.appearance-settings.custom-background.backend-unavailable',
         defaultMessage: 'AVIF and MP4 backgrounds need FFmpeg support, which is not available yet.',
+    },
+    customBackgroundPickerMedia: {
+        id: 'app.appearance-settings.custom-background.picker-media',
+        defaultMessage: 'Image or video',
+    },
+    customBackgroundPickerAllFiles: {
+        id: 'app.appearance-settings.custom-background.picker-all-files',
+        defaultMessage: 'All files',
     },
     customBackgroundTooLarge: {
         id: 'app.appearance-settings.custom-background.too-large',
@@ -436,19 +444,13 @@ async function applyCustomBackground(
     }
 
     if (kind !== 'static') {
-        addNotification({
-            type: 'warning',
-            title: formatMessage(messages.customBackgroundAnimatedUnsupported),
-        })
+        notifyUnsupportedBackground()
         return
     }
 
     const mimeType = customBackgroundMimeType(extension)
     if (!isCroppableCustomBackground(mimeType, bytes)) {
-        addNotification({
-            type: 'warning',
-            title: formatMessage(messages.customBackgroundAnimatedUnsupported),
-        })
+        notifyUnsupportedBackground()
         return
     }
 
@@ -464,6 +466,13 @@ async function applyCustomBackground(
     await storeCustomBackgroundBytes(result.bytes, result.extension)
 }
 
+function notifyUnsupportedBackground() {
+    addNotification({
+        type: 'warning',
+        title: formatMessage(messages.customBackgroundAnimatedUnsupported),
+    })
+}
+
 async function chooseCustomBackground() {
     if (customBackgroundBusy.value) return
 
@@ -473,18 +482,26 @@ async function chooseCustomBackground() {
             multiple: false,
             filters: [
                 {
-                    name: 'Image',
+                    name: formatMessage(messages.customBackgroundPickerMedia),
                     extensions: [...CUSTOM_BACKGROUND_EXTENSIONS],
+                },
+                {
+                    name: formatMessage(messages.customBackgroundPickerAllFiles),
+                    extensions: ['*'],
                 },
             ],
         })
 
         if (!selectedPath || Array.isArray(selectedPath)) return
 
-        const extension = extensionFromPath(selectedPath)
-        if (!extension) return
+        const bytes = await readFile(selectedPath)
+        const extension = detectCustomBackgroundExtension(bytes, extensionFromPath(selectedPath))
+        if (!extension) {
+            notifyUnsupportedBackground()
+            return
+        }
 
-        await applyCustomBackground(await readFile(selectedPath), extension, selectedPath)
+        await applyCustomBackground(bytes, extension, selectedPath)
     } catch (error) {
         handleError(error)
     } finally {
@@ -494,13 +511,17 @@ async function chooseCustomBackground() {
 
 async function storeCustomBackgroundFromDroppedPath(path: string) {
     if (customBackgroundBusy.value) return
-    const extension = extensionFromPath(path)
-    if (!extension) return
 
     customBackgroundBusy.value = true
     try {
         const data = await invoke<ArrayBuffer>('plugin:files|file_read_dragged_file', { path })
-        await applyCustomBackground(new Uint8Array(data), extension, path)
+        const bytes = new Uint8Array(data)
+        const extension = detectCustomBackgroundExtension(bytes, extensionFromPath(path))
+        if (!extension) {
+            notifyUnsupportedBackground()
+            return
+        }
+        await applyCustomBackground(bytes, extension, path)
     } catch (error) {
         handleError(error)
     } finally {
@@ -545,7 +566,7 @@ async function setupNativeBackgroundDrop() {
                 }
 
                 const paths = 'paths' in payload ? payload.paths : []
-                const path = paths.find((item) => isCustomBackgroundImagePath(item))
+                const path = paths[0]
                 const inside = pointInBackgroundPreview(payload.position)
 
                 if (payload.type === 'enter' || payload.type === 'over') {

@@ -813,6 +813,12 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "Control how strongly the image shows through the interface."
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "All files"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "Image or video"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "Remove"
   },

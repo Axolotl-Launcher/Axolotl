@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 
 import {
+    classifyCustomBackground,
     customBackgroundMimeType,
     extensionFromPath,
     isCroppableCustomBackground,
@@ -26,17 +27,18 @@ const animatedWebp = new Uint8Array([
     0,
 ])
 
-it('accepts only static launcher background extensions', () => {
+it('recognizes picker and future launcher background extensions', () => {
     expect(extensionFromPath(String.raw`C:\pictures\背景.PNG`)).toBe('png')
     expect(extensionFromPath('/pictures/photo.JPEG')).toBe('jpeg')
     expect(extensionFromPath('/pictures/photo.jpg')).toBe('jpg')
     expect(extensionFromPath('/pictures/wallpaper.webp')).toBe('webp')
     expect(extensionFromPath('/pictures/wallpaper.bmp')).toBe('bmp')
+    expect(extensionFromPath('/pictures/loop.gif')).toBe('gif')
+    expect(extensionFromPath('/pictures/photo.avif')).toBe('avif')
+    expect(extensionFromPath('/pictures/clip.mp4')).toBe('mp4')
 
-    expect(extensionFromPath('/pictures/loop.gif')).toBeNull()
-    expect(extensionFromPath('/pictures/photo.avif')).toBeNull()
     expect(extensionFromPath('/pictures/README')).toBeNull()
-    expect(isCustomBackgroundImagePath('/pictures/loop.gif')).toBe(false)
+    expect(isCustomBackgroundImagePath('/pictures/loop.gif')).toBe(true)
     expect(isCustomBackgroundImagePath('/pictures/wallpaper.png')).toBe(true)
 })
 
@@ -46,9 +48,24 @@ it('maps extensions to their MIME types', () => {
     expect(customBackgroundMimeType('jpg')).toBe('image/jpeg')
     expect(customBackgroundMimeType('webp')).toBe('image/webp')
     expect(customBackgroundMimeType('bmp')).toBe('image/bmp')
+    expect(customBackgroundMimeType('gif')).toBe('image/gif')
+    expect(customBackgroundMimeType('avif')).toBe('image/avif')
+    expect(customBackgroundMimeType('mp4')).toBe('video/mp4')
 })
 
-it('rejects GIF and AVIF sources before opening the cropper', () => {
+it('classifies still, animated, and future video backgrounds', () => {
+    expect(classifyCustomBackground('png', stillPng)).toBe('static')
+    expect(classifyCustomBackground('png', animatedPng)).toBe('animated-image')
+    expect(classifyCustomBackground('webp', stillWebp)).toBe('static')
+    expect(classifyCustomBackground('webp', animatedWebp)).toBe('animated-image')
+    expect(classifyCustomBackground('gif', stillPng)).toBe('animated-image')
+    expect(classifyCustomBackground('jpeg', stillPng)).toBe('static')
+    expect(classifyCustomBackground('bmp', stillPng)).toBe('static')
+    expect(classifyCustomBackground('avif', stillPng)).toBe('animated-avif')
+    expect(classifyCustomBackground('mp4', stillPng)).toBe('video')
+})
+
+it('keeps the static crop predicate separate from animation support', () => {
     expect(isCroppableCustomBackground('image/gif', stillPng)).toBe(false)
     expect(isCroppableCustomBackground('image/avif', stillPng)).toBe(false)
     expect(isCroppableCustomBackground('image/svg+xml', stillPng)).toBe(false)

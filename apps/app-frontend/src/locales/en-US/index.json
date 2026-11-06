@@ -760,7 +760,10 @@
     "message": "Color theme"
   },
   "app.appearance-settings.custom-background.animated-unsupported": {
-    "message": "Animated images aren't supported as launcher backgrounds yet. Choose a static image."
+    "message": "This image format isn't supported as a launcher background."
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF and MP4 backgrounds need FFmpeg support, which is not available yet."
   },
   "app.appearance-settings.custom-background.blur": {
     "message": "Background blur"
@@ -779,6 +782,12 @@
   },
   "app.appearance-settings.custom-background.component-opacity-description": {
     "message": "How opaque launcher components and chrome stay over a custom background. At 100% components are fully opaque; lower it to let the image show through."
+  },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "The animated background could not be converted."
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "Converting animated background…"
   },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "Current window"

@@ -80,6 +80,14 @@
             </div>
         </div>
 
+        <p
+            v-if="customBackgroundConverting"
+            role="status"
+            class="m-0 text-sm text-[var(--color-text-tertiary)]"
+        >
+            {{ formatMessage(messages.customBackgroundConverting) }}
+        </p>
+
         <div v-if="customBackgroundPreview" class="grid gap-5 lg:grid-cols-2">
             <div class="flex flex-col gap-2">
                 <h3 class="m-0 font-semibold text-[var(--color-text-primary)]">
@@ -164,6 +172,11 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import HeadlessTooltip from '@/components/ui/headless/HeadlessTooltip.vue'
 import {
+    convertAnimatedBackground,
+    isBackgroundConversionError,
+} from '@/helpers/background-conversion'
+import {
+    classifyCustomBackground,
     CUSTOM_BACKGROUND_EXTENSIONS,
     type CustomBackgroundExtension,
     customBackgroundMimeType,
@@ -171,6 +184,7 @@ import {
     isCroppableCustomBackground,
     isCustomBackgroundImagePath,
     isCustomBackgroundWithinByteLimit,
+    MAX_CUSTOM_BACKGROUND_BYTES,
 } from '@/helpers/custom-background'
 import type { AppSettings } from '@/helpers/settings.ts'
 
@@ -248,8 +262,19 @@ const messages = defineMessages({
     },
     customBackgroundAnimatedUnsupported: {
         id: 'app.appearance-settings.custom-background.animated-unsupported',
-        defaultMessage:
-            "Animated images aren't supported as launcher backgrounds yet. Choose a static image.",
+        defaultMessage: "This image format isn't supported as a launcher background.",
+    },
+    customBackgroundConverting: {
+        id: 'app.appearance-settings.custom-background.converting',
+        defaultMessage: 'Converting animated background…',
+    },
+    customBackgroundConversionFailed: {
+        id: 'app.appearance-settings.custom-background.conversion-failed',
+        defaultMessage: 'The animated background could not be converted.',
+    },
+    customBackgroundBackendUnavailable: {
+        id: 'app.appearance-settings.custom-background.backend-unavailable',
+        defaultMessage: 'AVIF and MP4 backgrounds need FFmpeg support, which is not available yet.',
     },
     customBackgroundTooLarge: {
         id: 'app.appearance-settings.custom-background.too-large',
@@ -262,6 +287,7 @@ const { addNotification, handleError } = injectNotificationManager()
 
 const customBackgroundCropModal = ref<ImageCropModalExposed>()
 const customBackgroundBusy = ref(false)
+const customBackgroundConverting = ref(false)
 const backgroundPreviewRef = ref<HTMLElement | null>(null)
 const isBackgroundDragActive = ref(false)
 let unlistenNativeBackgroundDrop: (() => void) | null = null
@@ -288,36 +314,16 @@ function buildAspectRatioOptions(): ImageCropAspectRatioOption[] {
     ]
 }
 
-async function storeCustomBackgroundBytes(bytes: Uint8Array, extension: 'png' | 'webp') {
-    if (!isCustomBackgroundWithinByteLimit(bytes.byteLength)) {
-        addNotification({
-            type: 'error',
-            title: formatMessage(messages.customBackgroundTooLarge),
-        })
-        return
-    }
-
+async function buildCustomBackgroundPath(extension: 'png' | 'webp') {
     const backgroundDirectory = await join(await appDataDir(), 'backgrounds')
     const suffix =
         globalThis.crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 10)
-    const storedPath = await join(
-        backgroundDirectory,
-        `launcher-background-${Date.now()}-${suffix}.${extension}`,
-    )
-    const previousPath = settings.value.custom_background_path
-
     await mkdir(backgroundDirectory, { recursive: true })
-    try {
-        await writeFile(storedPath, bytes)
-    } catch (error) {
-        try {
-            if (await exists(storedPath)) await remove(storedPath)
-        } catch {
-            // Best-effort cleanup of a partial write.
-        }
-        throw error
-    }
+    return join(backgroundDirectory, `launcher-background-${Date.now()}-${suffix}.${extension}`)
+}
 
+async function adoptCustomBackgroundPath(storedPath: string) {
+    const previousPath = settings.value.custom_background_path
     settings.value.custom_background_path = storedPath
 
     if (previousPath && previousPath !== storedPath && (await exists(previousPath))) {
@@ -329,7 +335,114 @@ async function storeCustomBackgroundBytes(bytes: Uint8Array, extension: 'png' | 
     }
 }
 
-async function applyCustomBackground(bytes: Uint8Array, extension: CustomBackgroundExtension) {
+async function storeCustomBackgroundBytes(bytes: Uint8Array, extension: 'png' | 'webp') {
+    if (!isCustomBackgroundWithinByteLimit(bytes.byteLength)) {
+        addNotification({
+            type: 'error',
+            title: formatMessage(messages.customBackgroundTooLarge),
+        })
+        return
+    }
+
+    const storedPath = await buildCustomBackgroundPath(extension)
+    try {
+        await writeFile(storedPath, bytes)
+    } catch (error) {
+        try {
+            if (await exists(storedPath)) await remove(storedPath)
+        } catch {
+            // Best-effort cleanup of a partial write.
+        }
+        throw error
+    }
+
+    await adoptCustomBackgroundPath(storedPath)
+}
+
+async function convertAnimatedCustomBackground(
+    bytes: Uint8Array,
+    extension: CustomBackgroundExtension,
+    sourcePath: string,
+) {
+    const modal = customBackgroundCropModal.value
+    if (!modal) return
+
+    const mimeType = customBackgroundMimeType(extension)
+    const selection = await modal.showCrop(new Blob([bytes as BlobPart], { type: mimeType }), {
+        aspectRatioOptions: buildAspectRatioOptions(),
+        defaultAspectRatioId: 'window',
+        maxOutputDimension: 1920,
+        animated: true,
+    })
+    if (!selection) return
+
+    const outputPath = await buildCustomBackgroundPath('webp')
+    customBackgroundConverting.value = true
+    try {
+        const result = await convertAnimatedBackground({
+            inputPath: sourcePath,
+            outputPath,
+            crop: selection.normalizedCrop,
+            outputWidth: selection.outputWidth,
+            outputHeight: selection.outputHeight,
+            quality: 75,
+            maxFrames: 240,
+            maxDurationMs: 15_000,
+            maxOutputBytes: MAX_CUSTOM_BACKGROUND_BYTES,
+            backend: 'auto',
+        })
+        await adoptCustomBackgroundPath(result.path)
+    } catch (error) {
+        try {
+            if (await exists(outputPath)) await remove(outputPath)
+        } catch {
+            // Best-effort cleanup of a failed conversion.
+        }
+
+        if (isBackgroundConversionError(error)) {
+            const title =
+                error.code === 'backend_unavailable'
+                    ? messages.customBackgroundBackendUnavailable
+                    : error.code === 'too_large' || error.code === 'output_too_large'
+                      ? messages.customBackgroundTooLarge
+                      : messages.customBackgroundConversionFailed
+            addNotification({ type: 'error', title: formatMessage(title) })
+        } else {
+            handleError(error)
+        }
+    } finally {
+        customBackgroundConverting.value = false
+    }
+}
+
+async function applyCustomBackground(
+    bytes: Uint8Array,
+    extension: CustomBackgroundExtension,
+    sourcePath: string,
+) {
+    const kind = classifyCustomBackground(extension, bytes)
+
+    if (kind === 'animated-image') {
+        await convertAnimatedCustomBackground(bytes, extension, sourcePath)
+        return
+    }
+
+    if (kind === 'animated-avif' || kind === 'video') {
+        addNotification({
+            type: 'warning',
+            title: formatMessage(messages.customBackgroundBackendUnavailable),
+        })
+        return
+    }
+
+    if (kind !== 'static') {
+        addNotification({
+            type: 'warning',
+            title: formatMessage(messages.customBackgroundAnimatedUnsupported),
+        })
+        return
+    }
+
     const mimeType = customBackgroundMimeType(extension)
     if (!isCroppableCustomBackground(mimeType, bytes)) {
         addNotification({
@@ -371,7 +484,7 @@ async function chooseCustomBackground() {
         const extension = extensionFromPath(selectedPath)
         if (!extension) return
 
-        await applyCustomBackground(await readFile(selectedPath), extension)
+        await applyCustomBackground(await readFile(selectedPath), extension, selectedPath)
     } catch (error) {
         handleError(error)
     } finally {
@@ -387,7 +500,7 @@ async function storeCustomBackgroundFromDroppedPath(path: string) {
     customBackgroundBusy.value = true
     try {
         const data = await invoke<ArrayBuffer>('plugin:files|file_read_dragged_file', { path })
-        await applyCustomBackground(new Uint8Array(data), extension)
+        await applyCustomBackground(new Uint8Array(data), extension, path)
     } catch (error) {
         handleError(error)
     } finally {

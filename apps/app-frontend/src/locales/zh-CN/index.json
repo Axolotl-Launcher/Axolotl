@@ -2010,7 +2010,10 @@
     "message": "色彩主题"
   },
   "app.appearance-settings.custom-background.animated-unsupported": {
-    "message": "暂不支持将动图用作启动器背景，请选择静态图片。"
+    "message": "此图片格式不支持用作启动器背景。"
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF 和 MP4 背景需要 FFmpeg 支持，目前尚未提供。"
   },
   "app.appearance-settings.custom-background.blur": {
     "message": "背景模糊"
@@ -2029,6 +2032,12 @@
   },
   "app.appearance-settings.custom-background.component-opacity-description": {
     "message": "自定义背景图启用时，界面组件与顶栏/侧栏保持多不透明。100% 时组件完全不透明；调低可让背景图透出界面。"
+  },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "动画背景转换失败。"
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "正在转换动画背景…"
   },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "当前窗口"

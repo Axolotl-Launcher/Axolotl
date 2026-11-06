@@ -471,7 +471,10 @@
     "message": "色彩主題"
   },
   "app.appearance-settings.custom-background.animated-unsupported": {
-    "message": "暫不支援將動圖用作啟動器背景，請選擇靜態圖片。"
+    "message": "此圖片格式不支援用作啟動器背景。"
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF 與 MP4 背景需要 FFmpeg 支援，目前尚未提供。"
   },
   "app.appearance-settings.custom-background.blur": {
     "message": "背景模糊"
@@ -481,6 +484,12 @@
   },
   "app.appearance-settings.custom-background.choose": {
     "message": "選擇圖片"
+  },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "動畫背景轉換失敗。"
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "正在轉換動畫背景…"
   },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "目前視窗"

@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
     addNotification: vi.fn(),
     handleError: vi.fn(),
     cropShow: vi.fn(),
+    cropShowSelection: vi.fn(),
+    convertAnimatedBackground: vi.fn(),
     dragHandler: null as ((event: { payload: unknown }) => void) | null,
 }))
 
@@ -37,7 +39,10 @@ vi.mock('@modrinth/ui', async () => {
         }),
         ImageCropModal: defineComponent({
             setup(_, { expose }) {
-                expose({ show: mocks.cropShow })
+                expose({
+                    show: mocks.cropShow,
+                    showCrop: mocks.cropShowSelection,
+                })
                 return () => h('div', { 'data-image-crop-modal': '' })
             },
         }),
@@ -87,6 +92,15 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     writeFile: mocks.writeFile,
 }))
 
+vi.mock('@/helpers/background-conversion', () => ({
+    convertAnimatedBackground: mocks.convertAnimatedBackground,
+    isBackgroundConversionError: (error: unknown) =>
+        typeof error === 'object' &&
+        error !== null &&
+        typeof (error as { code?: unknown }).code === 'string' &&
+        typeof (error as { message?: unknown }).message === 'string',
+}))
+
 vi.mock('@/components/ui/headless/HeadlessTooltip.vue', async () => {
     const { defineComponent, h } = await import('vue')
     return {
@@ -129,6 +143,25 @@ const webpResult = {
     height: 1080,
     mimeType: 'image/webp' as const,
     extension: 'webp' as const,
+}
+
+const cropSelection = {
+    sourceWidth: 64,
+    sourceHeight: 32,
+    crop: { left: 0, top: 0, width: 64, height: 32 },
+    normalizedCrop: { left: 0, top: 0, width: 1, height: 1 },
+    aspectRatio: 2,
+    outputWidth: 64,
+    outputHeight: 32,
+}
+
+const convertedBackground = {
+    path: 'C:/data/backgrounds/launcher-background-1-abcd.webp',
+    width: 64,
+    height: 32,
+    frameCount: 2,
+    durationMs: 100,
+    byteLength: 1234,
 }
 
 it('crops a chosen image before writing it and replaces the previous file', async () => {
@@ -221,8 +254,8 @@ it('opens the cropper for a dropped image instead of storing it directly', async
     expect(mocks.writeFile).toHaveBeenCalledOnce()
 })
 
-it('rejects animated PNGs with a warning instead of writing them', async () => {
-    mountSettings()
+it('converts an animated PNG through the native backend', async () => {
+    const settings = mountSettings()
     mocks.open.mockResolvedValue('C:/pictures/animated.png')
     mocks.readFile.mockResolvedValue(
         new Uint8Array([
@@ -230,12 +263,78 @@ it('rejects animated PNGs with a warning instead of writing them', async () => {
             0, 0, 0,
         ]),
     )
+    mocks.exists.mockResolvedValue(true)
+    mocks.cropShowSelection.mockResolvedValue(cropSelection)
+    mocks.convertAnimatedBackground.mockResolvedValue(convertedBackground)
 
     await wrapper!.get('[role="button"]').trigger('click')
     await flushPromises()
 
     expect(mocks.cropShow).not.toHaveBeenCalled()
-    expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.cropShowSelection).toHaveBeenCalledOnce()
+    const [blob, options] = mocks.cropShowSelection.mock.calls[0]
+    expect((blob as Blob).type).toBe('image/png')
+    expect(options.animated).toBe(true)
+    expect(options.maxOutputDimension).toBe(1920)
+
+    expect(mocks.convertAnimatedBackground).toHaveBeenCalledWith(
+        expect.objectContaining({
+            inputPath: 'C:/pictures/animated.png',
+            outputPath: expect.stringMatching(/launcher-background-\d+-[a-z0-9]+\.webp$/),
+            crop: cropSelection.normalizedCrop,
+            outputWidth: 64,
+            outputHeight: 32,
+            backend: 'auto',
+        }),
+    )
+    expect(settings.custom_background_path).toBe(convertedBackground.path)
+    expect(mocks.remove).toHaveBeenCalledWith('C:/data/backgrounds/old.png')
+})
+
+it('leaves the old background when an animated conversion is cancelled', async () => {
+    const settings = mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/loop.gif')
+    mocks.readFile.mockResolvedValue(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]))
+    mocks.cropShowSelection.mockResolvedValue(null)
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.cropShowSelection).toHaveBeenCalledOnce()
+    expect(mocks.convertAnimatedBackground).not.toHaveBeenCalled()
+    expect(settings.custom_background_path).toBe('C:/data/backgrounds/old.png')
+})
+
+it('keeps the old background when an animated conversion fails', async () => {
+    const settings = mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/loop.gif')
+    mocks.readFile.mockResolvedValue(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]))
+    mocks.exists.mockResolvedValue(true)
+    mocks.cropShowSelection.mockResolvedValue(cropSelection)
+    mocks.convertAnimatedBackground.mockRejectedValue({
+        code: 'decode_failed',
+        message: 'bad animation',
+    })
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
+    expect(settings.custom_background_path).toBe('C:/data/backgrounds/old.png')
+    expect(mocks.remove).not.toHaveBeenCalledWith('C:/data/backgrounds/old.png')
+})
+
+it('explains that AVIF and MP4 need the future FFmpeg backend', async () => {
+    mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/clip.mp4')
+    mocks.readFile.mockResolvedValue(new Uint8Array([0, 0, 0, 0x18]))
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.cropShow).not.toHaveBeenCalled()
+    expect(mocks.cropShowSelection).not.toHaveBeenCalled()
+    expect(mocks.convertAnimatedBackground).not.toHaveBeenCalled()
     expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }))
 })
 

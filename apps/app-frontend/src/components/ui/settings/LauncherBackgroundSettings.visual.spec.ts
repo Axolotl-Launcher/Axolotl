@@ -1,0 +1,260 @@
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
+
+import LauncherBackgroundSettings from './LauncherBackgroundSettings.vue'
+
+const mocks = vi.hoisted(() => ({
+    open: vi.fn(),
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+    mkdir: vi.fn(),
+    exists: vi.fn(),
+    remove: vi.fn(),
+    invoke: vi.fn(),
+    addNotification: vi.fn(),
+    handleError: vi.fn(),
+    cropShow: vi.fn(),
+    dragHandler: null as ((event: { payload: unknown }) => void) | null,
+}))
+
+vi.mock('@modrinth/ui', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        Button: defineComponent({
+            inheritAttrs: false,
+            setup:
+                (_, { attrs, slots }) =>
+                () =>
+                    h('button', { ...attrs, type: 'button' }, slots.default?.()),
+        }),
+        Slider: defineComponent({
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            setup: () => () => h('input', { type: 'range' }),
+        }),
+        ImageCropModal: defineComponent({
+            setup(_, { expose }) {
+                expose({ show: mocks.cropShow })
+                return () => h('div', { 'data-image-crop-modal': '' })
+            },
+        }),
+        defineMessages: (value: unknown) => value,
+        useVIntl: () => ({
+            formatMessage: (
+                message: { defaultMessage: string },
+                values?: Record<string, string | number>,
+            ) =>
+                message.defaultMessage.replace(/\{(\w+)\}/g, (_, key: string) =>
+                    values && key in values ? String(values[key]) : `{${key}}`,
+                ),
+        }),
+        injectNotificationManager: () => ({
+            addNotification: mocks.addNotification,
+            handleError: mocks.handleError,
+        }),
+    }
+})
+
+vi.mock('@tauri-apps/api/core', () => ({
+    convertFileSrc: (path: string) => path,
+    invoke: mocks.invoke,
+}))
+
+vi.mock('@tauri-apps/api/path', () => ({
+    appDataDir: async () => 'C:/data',
+    join: async (...parts: string[]) => parts.join('/'),
+}))
+
+vi.mock('@tauri-apps/api/webview', () => ({
+    getCurrentWebview: () => ({
+        onDragDropEvent: async (handler: (event: { payload: unknown }) => void) => {
+            mocks.dragHandler = handler
+            return () => {}
+        },
+    }),
+}))
+
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: mocks.open }))
+
+vi.mock('@tauri-apps/plugin-fs', () => ({
+    exists: mocks.exists,
+    mkdir: mocks.mkdir,
+    readFile: mocks.readFile,
+    remove: mocks.remove,
+    writeFile: mocks.writeFile,
+}))
+
+vi.mock('@/components/ui/headless/HeadlessTooltip.vue', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        default: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('div', slots.default?.()),
+        }),
+    }
+})
+
+let wrapper: VueWrapper | null = null
+
+afterEach(() => {
+    wrapper?.unmount()
+    wrapper = null
+    vi.clearAllMocks()
+    mocks.dragHandler = null
+})
+
+function mountSettings() {
+    const settings = reactive({
+        custom_background_path: 'C:/data/backgrounds/old.png',
+        custom_background_blur: 0,
+        custom_background_opacity: 100,
+        custom_background_component_opacity: 100,
+    })
+    wrapper = mount(LauncherBackgroundSettings, {
+        attachTo: document.body,
+        props: { settings },
+    })
+    return settings
+}
+
+const webpResult = {
+    blob: new Blob(['webp'], { type: 'image/webp' }),
+    bytes: new Uint8Array([9, 8, 7]),
+    width: 1920,
+    height: 1080,
+    mimeType: 'image/webp' as const,
+    extension: 'webp' as const,
+}
+
+it('crops a chosen image before writing it and replaces the previous file', async () => {
+    const settings = mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/wall.png')
+    mocks.readFile.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    mocks.exists.mockResolvedValue(true)
+    mocks.cropShow.mockResolvedValue(webpResult)
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.open).toHaveBeenCalledOnce()
+    expect(mocks.cropShow).toHaveBeenCalledOnce()
+    const [blob, options] = mocks.cropShow.mock.calls[0]
+    expect(blob).toBeInstanceOf(Blob)
+    expect((blob as Blob).type).toBe('image/png')
+    expect(options.defaultAspectRatioId).toBe('window')
+    expect(options.aspectRatioOptions.map((option: { id: string }) => option.id)).toEqual([
+        'window',
+        '16:9',
+        '16:10',
+    ])
+
+    expect(mocks.writeFile).toHaveBeenCalledOnce()
+    const writtenPath = mocks.writeFile.mock.calls[0][0] as string
+    expect(writtenPath.endsWith('.webp')).toBe(true)
+    expect(settings.custom_background_path).toBe(writtenPath)
+    expect(mocks.remove).toHaveBeenCalledWith('C:/data/backgrounds/old.png')
+})
+
+it('leaves the previous background untouched when cropping is cancelled', async () => {
+    const settings = mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/wall.png')
+    mocks.readFile.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    mocks.cropShow.mockResolvedValue(null)
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.cropShow).toHaveBeenCalledOnce()
+    expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.remove).not.toHaveBeenCalled()
+    expect(settings.custom_background_path).toBe('C:/data/backgrounds/old.png')
+})
+
+it('keeps the old background and reports an error when the write fails', async () => {
+    const settings = mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/wall.png')
+    mocks.readFile.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    mocks.exists.mockResolvedValue(true)
+    mocks.cropShow.mockResolvedValue(webpResult)
+    mocks.writeFile.mockRejectedValue(new Error('disk full'))
+    mocks.remove.mockResolvedValue(undefined)
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.handleError).toHaveBeenCalledOnce()
+    expect(settings.custom_background_path).toBe('C:/data/backgrounds/old.png')
+    expect(mocks.remove).not.toHaveBeenCalledWith('C:/data/backgrounds/old.png')
+})
+
+it('opens the cropper for a dropped image instead of storing it directly', async () => {
+    mountSettings()
+    await flushPromises()
+    expect(mocks.dragHandler).not.toBeNull()
+
+    const preview = wrapper!.get('[role="button"]').element as HTMLElement
+    preview.style.width = '400px'
+    preview.style.height = '200px'
+    const bounds = preview.getBoundingClientRect()
+
+    mocks.invoke.mockResolvedValue(new Uint8Array([4, 5, 6]).buffer)
+    mocks.cropShow.mockResolvedValue(webpResult)
+
+    mocks.dragHandler!({
+        payload: {
+            type: 'drop',
+            paths: ['C:/pictures/dropped.png'],
+            position: { x: bounds.left + 10, y: bounds.top + 10 },
+        },
+    })
+    await flushPromises()
+
+    expect(mocks.invoke).toHaveBeenCalledWith('plugin:files|file_read_dragged_file', {
+        path: 'C:/pictures/dropped.png',
+    })
+    expect(mocks.cropShow).toHaveBeenCalledOnce()
+    expect(mocks.writeFile).toHaveBeenCalledOnce()
+})
+
+it('rejects animated PNGs with a warning instead of writing them', async () => {
+    mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/animated.png')
+    mocks.readFile.mockResolvedValue(
+        new Uint8Array([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0x61, 0x63, 0x54, 0x4c, 0,
+            0, 0, 0,
+        ]),
+    )
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.cropShow).not.toHaveBeenCalled()
+    expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }))
+})
+
+it('does not open a second picker while a crop session is pending', async () => {
+    mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/wall.png')
+    mocks.readFile.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    let resolveCrop!: (result: typeof webpResult | null) => void
+    mocks.cropShow.mockReturnValue(
+        new Promise((resolve) => {
+            resolveCrop = resolve
+        }),
+    )
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.open).toHaveBeenCalledOnce()
+
+    resolveCrop(null)
+    await flushPromises()
+})

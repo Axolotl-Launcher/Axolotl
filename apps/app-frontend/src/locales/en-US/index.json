@@ -759,6 +759,9 @@
   "app.appearance-settings.color-theme.title": {
     "message": "Color theme"
   },
+  "app.appearance-settings.custom-background.animated-unsupported": {
+    "message": "Animated images aren't supported as launcher backgrounds yet. Choose a static image."
+  },
   "app.appearance-settings.custom-background.blur": {
     "message": "Background blur"
   },
@@ -776,6 +779,15 @@
   },
   "app.appearance-settings.custom-background.component-opacity-description": {
     "message": "How opaque launcher components and chrome stay over a custom background. At 100% components are fully opaque; lower it to let the image show through."
+  },
+  "app.appearance-settings.custom-background.crop-aspect-window": {
+    "message": "Current window"
+  },
+  "app.appearance-settings.custom-background.crop-confirm": {
+    "message": "Use as background"
+  },
+  "app.appearance-settings.custom-background.crop-title": {
+    "message": "Crop launcher background"
   },
   "app.appearance-settings.custom-background.description": {
     "message": "Choose or drop a custom image, then fine-tune how it blends with the launcher interface."

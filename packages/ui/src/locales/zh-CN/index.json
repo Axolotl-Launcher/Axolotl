@@ -1829,6 +1829,51 @@
   "header.category.resolutions": {
     "defaultMessage": "分辨率"
   },
+  "image-crop.apply": {
+    "defaultMessage": "使用图片"
+  },
+  "image-crop.aspect-ratio": {
+    "defaultMessage": "宽高比"
+  },
+  "image-crop.decode-error": {
+    "defaultMessage": "无法打开这张图片，请选择其他图片。"
+  },
+  "image-crop.dimensions": {
+    "defaultMessage": "{width} × {height} 像素"
+  },
+  "image-crop.drag-hint": {
+    "defaultMessage": "拖动图片调整位置。"
+  },
+  "image-crop.export-error": {
+    "defaultMessage": "无法生成裁剪后的图片，请重试。"
+  },
+  "image-crop.help": {
+    "defaultMessage": "拖动图片调整位置。在工作区滚动或使用缩放控件进行缩放。"
+  },
+  "image-crop.loading": {
+    "defaultMessage": "正在加载图片…"
+  },
+  "image-crop.preview": {
+    "defaultMessage": "结果预览"
+  },
+  "image-crop.preview-label": {
+    "defaultMessage": "裁剪结果预览：{width} × {height} 像素"
+  },
+  "image-crop.title": {
+    "defaultMessage": "裁剪图片"
+  },
+  "image-crop.too-large": {
+    "defaultMessage": "图片尺寸过大，无法裁剪。"
+  },
+  "image-crop.workspace": {
+    "defaultMessage": "裁剪工作区"
+  },
+  "image-crop.zoom": {
+    "defaultMessage": "缩放"
+  },
+  "image-crop.zoom-status": {
+    "defaultMessage": "缩放 {percent}%，{width} × {height} 像素"
+  },
   "input.search-version.placeholder": {
     "defaultMessage": "查找版本……"
   },

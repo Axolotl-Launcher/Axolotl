@@ -470,6 +470,9 @@
   "app.appearance-settings.color-theme.title": {
     "message": "色彩主題"
   },
+  "app.appearance-settings.custom-background.animated-unsupported": {
+    "message": "暫不支援將動圖用作啟動器背景，請選擇靜態圖片。"
+  },
   "app.appearance-settings.custom-background.blur": {
     "message": "背景模糊"
   },
@@ -478,6 +481,15 @@
   },
   "app.appearance-settings.custom-background.choose": {
     "message": "選擇圖片"
+  },
+  "app.appearance-settings.custom-background.crop-aspect-window": {
+    "message": "目前視窗"
+  },
+  "app.appearance-settings.custom-background.crop-confirm": {
+    "message": "用作背景"
+  },
+  "app.appearance-settings.custom-background.crop-title": {
+    "message": "裁剪啟動器背景"
   },
   "app.appearance-settings.custom-background.description": {
     "message": "選擇自訂圖片，並調整它與啟動器介面的融合效果。"

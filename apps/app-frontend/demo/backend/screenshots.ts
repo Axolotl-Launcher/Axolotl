@@ -126,6 +126,12 @@ export const screenshotHandlers: Handlers = {
         if (!screenshot) throw new Error(`No such screenshot: ${String(filePath)}`)
         return (await fetch(screenshot.url)).arrayBuffer()
     },
+    // The image viewer and Copy read a screenshot's own file; other files need the desktop app.
+    'plugin:fs|read_file': async ({ path }) => {
+        const screenshot = screenshots().find((entry) => entry.path === String(path))
+        if (!screenshot) throw desktopOnly()
+        return (await fetch(screenshot.url)).arrayBuffer()
+    },
     'plugin:instance|instance_open_screenshot': needsDesktop,
     'plugin:instance|instance_export_screenshots': needsDesktop,
 }

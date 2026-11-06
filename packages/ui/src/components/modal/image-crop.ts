@@ -30,10 +30,10 @@ export interface ImageCropResult {
     bytes: Uint8Array
     width: number
     height: number
-    mimeType: string
-    extension: string
-    /** The user chose to keep the original file instead of encoding a crop. */
-    keepOriginal?: boolean
+    mimeType: 'image/png' | 'image/webp'
+    extension: 'png' | 'webp'
+    /** The user kept the source resolution/quality instead of auto-compressing. */
+    preserveOriginalQuality?: boolean
 }
 
 export interface NormalizedCropRect {
@@ -53,8 +53,8 @@ export interface CropSelection {
     outputHeight: number
     /** The user explicitly chose to proceed past the source size/pixel guard. */
     oversizedSource: boolean
-    /** The user chose to keep the original file instead of cropping it. */
-    keepOriginal: boolean
+    /** Keep the source resolution/quality instead of auto-compressing. */
+    preserveOriginalQuality: boolean
 }
 
 export interface ImageCropSelectionOptions extends ImageCropShowOptions {
@@ -218,19 +218,11 @@ export function outputSizeForSource(source: CropSize, maxOutputDimension: number
     }
 }
 
-export function extensionForMimeType(mimeType: string): string | null {
+export function extensionForMimeType(mimeType: string): 'png' | 'webp' | null {
     const normalized = mimeType.trim().toLowerCase()
-    const extensions: Record<string, string> = {
-        'image/png': 'png',
-        'image/webp': 'webp',
-        'image/jpeg': 'jpg',
-        'image/gif': 'gif',
-        'image/apng': 'apng',
-        'image/avif': 'avif',
-        'image/bmp': 'bmp',
-        'video/mp4': 'mp4',
-    }
-    return extensions[normalized] ?? null
+    if (normalized === 'image/png') return 'png'
+    if (normalized === 'image/webp') return 'webp'
+    return null
 }
 
 function clampCenter(value: number, sourceSize: number, imageSize: number): number {

@@ -183,9 +183,9 @@ import {
     detectCustomBackgroundExtension,
     extensionFromPath,
     isCroppableCustomBackground,
-    isCustomBackgroundExtension,
     isCustomBackgroundWithinByteLimit,
     MAX_CUSTOM_BACKGROUND_BYTES,
+    MAX_PRESERVED_BACKGROUND_BYTES,
 } from '@/helpers/custom-background'
 import type { AppSettings } from '@/helpers/settings.ts'
 
@@ -389,11 +389,7 @@ async function convertAnimatedCustomBackground(
     })
     if (!selection) return
 
-    if (selection.keepOriginal) {
-        await storeCustomBackgroundBytes(bytes, extension, { bypassLimit: true })
-        return
-    }
-
+    const preserveOriginalQuality = selection.preserveOriginalQuality
     const outputPath = await buildCustomBackgroundPath('webp')
     customBackgroundConverting.value = true
     try {
@@ -403,11 +399,14 @@ async function convertAnimatedCustomBackground(
             crop: selection.normalizedCrop,
             outputWidth: selection.outputWidth,
             outputHeight: selection.outputHeight,
-            quality: 75,
-            maxFrames: 240,
-            maxDurationMs: 15_000,
-            maxOutputBytes: MAX_CUSTOM_BACKGROUND_BYTES,
+            quality: preserveOriginalQuality ? 90 : 75,
+            maxFrames: preserveOriginalQuality ? 1000 : 240,
+            maxDurationMs: preserveOriginalQuality ? 60_000 : 15_000,
+            maxOutputBytes: preserveOriginalQuality
+                ? MAX_PRESERVED_BACKGROUND_BYTES
+                : MAX_CUSTOM_BACKGROUND_BYTES,
             allowOversizedSource: selection.oversizedSource,
+            preserveOriginalQuality,
             backend: 'auto',
         })
         await adoptCustomBackgroundPath(result.path)
@@ -474,20 +473,9 @@ async function applyCustomBackground(
     })
     if (!result) return
 
-    if (result.keepOriginal) {
-        const originalExtension = isCustomBackgroundExtension(result.extension)
-            ? result.extension
-            : extension
-        await storeCustomBackgroundBytes(result.bytes, originalExtension, {
-            bypassLimit: true,
-        })
-        return
-    }
-
-    await storeCustomBackgroundBytes(
-        result.bytes,
-        isCustomBackgroundExtension(result.extension) ? result.extension : 'webp',
-    )
+    await storeCustomBackgroundBytes(result.bytes, result.extension, {
+        bypassLimit: result.preserveOriginalQuality === true,
+    })
 }
 
 function notifyUnsupportedBackground() {

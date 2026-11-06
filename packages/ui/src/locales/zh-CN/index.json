@@ -1871,6 +1871,9 @@
   "image-crop.oversized-title": {
     "defaultMessage": "文件超过常规上限"
   },
+  "image-crop.oversized-keep-original-hint": {
+    "defaultMessage": "保留原图会保留原始分辨率和帧率，动画可能占用更多内存和 CPU。"
+  },
   "image-crop.preview": {
     "defaultMessage": "结果预览"
   },

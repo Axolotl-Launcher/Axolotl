@@ -5,6 +5,7 @@ import { reactive } from 'vue'
 import {
     CUSTOM_BACKGROUND_EXTENSIONS,
     MAX_CUSTOM_BACKGROUND_BYTES,
+    MAX_PRESERVED_BACKGROUND_BYTES,
 } from '@/helpers/custom-background'
 
 import LauncherBackgroundSettings from './LauncherBackgroundSettings.vue'
@@ -157,7 +158,7 @@ const cropSelection = {
     outputWidth: 64,
     outputHeight: 32,
     oversizedSource: false,
-    keepOriginal: false,
+    preserveOriginalQuality: false,
 }
 
 const convertedBackground = {
@@ -353,49 +354,50 @@ it('passes the oversized auto-compress choice to the backend', async () => {
     )
 })
 
-it('stores the original file when the user keeps an oversized animation', async () => {
+it('keeps the source quality when the user keeps an oversized animation', async () => {
     const settings = mountSettings()
-    const originalBytes = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
     mocks.open.mockResolvedValue('C:/pictures/loop.gif')
-    mocks.readFile.mockResolvedValue(originalBytes)
+    mocks.readFile.mockResolvedValue(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]))
     mocks.exists.mockResolvedValue(true)
     mocks.cropShowSelection.mockResolvedValue({
         ...cropSelection,
         oversizedSource: true,
-        keepOriginal: true,
+        preserveOriginalQuality: true,
     })
+    mocks.convertAnimatedBackground.mockResolvedValue(convertedBackground)
 
     await wrapper!.get('[role="button"]').trigger('click')
     await flushPromises()
 
-    expect(mocks.convertAnimatedBackground).not.toHaveBeenCalled()
-    expect(mocks.writeFile).toHaveBeenCalledOnce()
-    const [writtenPath, writtenBytes] = mocks.writeFile.mock.calls[0]
-    expect(writtenPath).toMatch(/\.gif$/)
-    expect(writtenBytes).toEqual(originalBytes)
-    expect(settings.custom_background_path).toBe(writtenPath)
+    expect(mocks.convertAnimatedBackground).toHaveBeenCalledWith(
+        expect.objectContaining({
+            preserveOriginalQuality: true,
+            allowOversizedSource: true,
+            quality: 90,
+            maxFrames: 1000,
+            maxDurationMs: 60_000,
+            maxOutputBytes: MAX_PRESERVED_BACKGROUND_BYTES,
+        }),
+    )
+    expect(settings.custom_background_path).toBe(convertedBackground.path)
 })
 
-it('stores the original still image when the user keeps it', async () => {
+it('keeps the source quality for a still image', async () => {
     mountSettings()
-    const originalBytes = new Uint8Array([1, 2, 3])
     mocks.open.mockResolvedValue('C:/pictures/photo.jpg')
-    mocks.readFile.mockResolvedValue(originalBytes)
+    mocks.readFile.mockResolvedValue(new Uint8Array([1, 2, 3]))
     mocks.exists.mockResolvedValue(true)
     mocks.cropShow.mockResolvedValue({
         ...webpResult,
-        bytes: originalBytes,
-        extension: 'jpg',
-        keepOriginal: true,
+        preserveOriginalQuality: true,
     })
 
     await wrapper!.get('[role="button"]').trigger('click')
     await flushPromises()
 
     expect(mocks.writeFile).toHaveBeenCalledOnce()
-    const [writtenPath, writtenBytes] = mocks.writeFile.mock.calls[0]
-    expect(writtenPath).toMatch(/\.jpg$/)
-    expect(writtenBytes).toEqual(originalBytes)
+    const [writtenPath] = mocks.writeFile.mock.calls[0]
+    expect(writtenPath).toMatch(/\.webp$/)
 })
 
 it('explains that AVIF and MP4 need the future FFmpeg backend', async () => {

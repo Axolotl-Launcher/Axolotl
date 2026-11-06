@@ -106,6 +106,9 @@
                                 {{ formatMessage(messages.keepOriginal) }}
                             </Button>
                         </div>
+                        <p class="m-0 max-w-md text-xs text-[var(--color-text-tertiary)]">
+                            {{ formatMessage(messages.oversizedKeepOriginalHint) }}
+                        </p>
                     </div>
                 </div>
                 <p class="m-0 text-xs text-[var(--color-text-tertiary)]">
@@ -267,7 +270,6 @@ import {
     coverScale,
     type CropSelection,
     DEFAULT_CROP_ASPECT_RATIO,
-    extensionForMimeType,
     fitCropFrame,
     type ImageCropAspectRatioOption,
     type ImageCropModalExposed,
@@ -342,6 +344,11 @@ const messages = defineMessages({
         id: 'image-crop.oversized-title',
         defaultMessage: 'This file is larger than the usual limit',
     },
+    oversizedKeepOriginalHint: {
+        id: 'image-crop.oversized-keep-original-hint',
+        defaultMessage:
+            'Keep original keeps the source resolution and frame rate; the animation may use more memory and CPU.',
+    },
     oversizedBytes: {
         id: 'image-crop.oversized-bytes',
         defaultMessage:
@@ -395,6 +402,8 @@ const exportError = ref('')
 const exporting = ref(false)
 const sessionMode = ref<'encode' | 'crop'>('encode')
 const sessionMaxOutputDimension = ref(props.maxOutputDimension)
+const sessionBaseMaxOutputDimension = ref(props.maxOutputDimension)
+const preserveOriginalQuality = ref(false)
 const animatedPreviewUrl = ref<string | null>(null)
 const aspectOptions = ref<ImageCropAspectRatioOption[]>([
     { id: 'default', label: '16:9', ratio: DEFAULT_CROP_ASPECT_RATIO },
@@ -757,6 +766,7 @@ function cleanSource() {
     exportError.value = ''
     oversizedReason.value = null
     acceptedOversizedSource.value = false
+    preserveOriginalQuality.value = false
     pendingSource = null
     dragState = null
     if (drawRequest !== null) {
@@ -803,6 +813,8 @@ async function showInternal(
         mode === 'crop' && selectionOptions.maxOutputDimension
             ? selectionOptions.maxOutputDimension
             : props.maxOutputDimension
+    sessionBaseMaxOutputDimension.value = sessionMaxOutputDimension.value
+    preserveOriginalQuality.value = false
     if (animatedPreviewUrl.value) {
         URL.revokeObjectURL(animatedPreviewUrl.value)
     }
@@ -884,6 +896,8 @@ function autoCompressOversized() {
     if (!pendingSource || !oversizedReason.value) return
 
     acceptedOversizedSource.value = true
+    preserveOriginalQuality.value = false
+    sessionMaxOutputDimension.value = sessionBaseMaxOutputDimension.value
     if (oversizedReason.value === 'pixels') {
         oversizedReason.value = null
         loadState.value = 'ready'
@@ -897,37 +911,23 @@ function autoCompressOversized() {
     void loadSource(pendingSource, session, true)
 }
 
-async function keepOriginalOversized() {
-    const source = pendingSource
-    if (!source) return
+function keepOriginalOversized() {
+    if (!pendingSource || !oversizedReason.value) return
 
-    if (sessionMode.value === 'crop') {
-        pendingResult = {
-            sourceWidth: imageSize.value.width,
-            sourceHeight: imageSize.value.height,
-            crop: { left: 0, top: 0, width: 1, height: 1 },
-            normalizedCrop: { left: 0, top: 0, width: 1, height: 1 },
-            aspectRatio: selectedAspectRatio.value,
-            outputWidth: 0,
-            outputHeight: 0,
-            oversizedSource: true,
-            keepOriginal: true,
-        }
-    } else {
-        const mimeType = source.type || 'application/octet-stream'
-        pendingResult = {
-            blob: source,
-            bytes: new Uint8Array(await source.arrayBuffer()),
-            width: imageSize.value.width,
-            height: imageSize.value.height,
-            mimeType,
-            extension: extensionForMimeType(mimeType) ?? '',
-            keepOriginal: true,
-        }
+    acceptedOversizedSource.value = true
+    preserveOriginalQuality.value = true
+    sessionMaxOutputDimension.value = Number.MAX_SAFE_INTEGER
+    if (oversizedReason.value === 'pixels') {
+        oversizedReason.value = null
+        loadState.value = 'ready'
+        scheduleDraw()
+        return
     }
 
-    await nextTick()
-    await modal.value?.hide()
+    const session = sessionGeneration
+    oversizedReason.value = null
+    loadState.value = 'loading'
+    void loadSource(pendingSource, session, true)
 }
 
 async function decodeImage(source: Blob): Promise<ImageBitmap> {
@@ -971,7 +971,7 @@ async function confirm() {
             outputWidth: outputSize.value.width,
             outputHeight: outputSize.value.height,
             oversizedSource: acceptedOversizedSource.value,
-            keepOriginal: false,
+            preserveOriginalQuality: preserveOriginalQuality.value,
         }
         await nextTick()
         await modal.value?.hide()
@@ -1029,6 +1029,7 @@ async function confirm() {
             height: output.height,
             mimeType,
             extension: mimeType === 'image/webp' ? 'webp' : 'png',
+            preserveOriginalQuality: preserveOriginalQuality.value,
         }
 
         exporting.value = false

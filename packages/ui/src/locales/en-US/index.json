@@ -2204,6 +2204,9 @@
   "image-crop.oversized-title": {
     "defaultMessage": "This file is larger than the usual limit"
   },
+  "image-crop.oversized-keep-original-hint": {
+    "defaultMessage": "Keep original keeps the source resolution and frame rate; the animation may use more memory and CPU."
+  },
   "image-crop.preview": {
     "defaultMessage": "Result preview"
   },

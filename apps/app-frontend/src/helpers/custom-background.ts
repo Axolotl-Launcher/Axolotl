@@ -16,6 +16,9 @@ export const CUSTOM_BACKGROUND_EXTENSIONS = [
 /** Stored backgrounds are loaded and decoded by the launcher on every start. */
 export const MAX_CUSTOM_BACKGROUND_BYTES = 64 * 1024 * 1024
 
+/** Upper bound when the user explicitly keeps the source resolution. */
+export const MAX_PRESERVED_BACKGROUND_BYTES = 512 * 1024 * 1024
+
 export type CustomBackgroundExtension = (typeof CUSTOM_BACKGROUND_EXTENSIONS)[number]
 
 export type CustomBackgroundKind =
@@ -67,10 +70,6 @@ export function detectCustomBackgroundExtension(
 
 export function isCustomBackgroundImagePath(path: string): boolean {
     return extensionFromPath(path) !== null
-}
-
-export function isCustomBackgroundExtension(value: string): value is CustomBackgroundExtension {
-    return KNOWN_EXTENSIONS.has(value)
 }
 
 export function isCustomBackgroundWithinByteLimit(byteLength: number): boolean {

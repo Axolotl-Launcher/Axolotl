@@ -16,11 +16,16 @@ use webp_animation::{AnimParams, Encoder, EncoderOptions, EncodingConfig};
 
 const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_OUTPUT_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_PRESERVED_OUTPUT_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_FRAMES: u32 = 240;
 const MAX_DURATION_MS: u64 = 15_000;
 const MIN_FRAME_INTERVAL_MS: u64 = 50;
 const MAX_OUTPUT_DIMENSION: u32 = 1920;
+const MAX_PRESERVE_DIMENSION: u32 = 3840;
+const PRESERVE_MAX_FRAMES: u32 = 1_000;
+const PRESERVE_MAX_DURATION_MS: u64 = 60_000;
 const DEFAULT_QUALITY: f32 = 75.0;
+const PRESERVE_QUALITY: f32 = 90.0;
 
 static CONVERSION_PERMIT: OnceLock<tokio::sync::Semaphore> = OnceLock::new();
 
@@ -82,6 +87,7 @@ pub struct AnimatedBackgroundOptions {
     pub max_duration_ms: Option<u64>,
     pub max_output_bytes: Option<u64>,
     pub allow_oversized_source: Option<bool>,
+    pub preserve_original_quality: Option<bool>,
     pub backend: Option<ConversionBackend>,
     pub ffmpeg_path: Option<String>,
 }
@@ -193,21 +199,54 @@ fn convert_background(
     let backend = options.backend.unwrap_or(ConversionBackend::Auto);
     ensure_backend(backend, format, options.ffmpeg_path.is_some())?;
 
+    let preserve_original_quality =
+        options.preserve_original_quality.unwrap_or(false);
     let (output_width, output_height) = clamp_output_dimensions(
         options.output_width,
         options.output_height,
-        MAX_OUTPUT_DIMENSION,
+        if preserve_original_quality {
+            MAX_PRESERVE_DIMENSION
+        } else {
+            MAX_OUTPUT_DIMENSION
+        },
     );
-    let quality = options.quality.unwrap_or(DEFAULT_QUALITY).clamp(0.0, 100.0);
-    let max_frames = options.max_frames.unwrap_or(MAX_FRAMES).clamp(1, 1_000);
+    let quality = options
+        .quality
+        .unwrap_or(if preserve_original_quality {
+            PRESERVE_QUALITY
+        } else {
+            DEFAULT_QUALITY
+        })
+        .clamp(0.0, 100.0);
+    let max_frames = options
+        .max_frames
+        .unwrap_or(if preserve_original_quality {
+            PRESERVE_MAX_FRAMES
+        } else {
+            MAX_FRAMES
+        })
+        .clamp(1, PRESERVE_MAX_FRAMES);
     let max_duration_ms = options
         .max_duration_ms
-        .unwrap_or(MAX_DURATION_MS)
-        .clamp(1, 60_000);
+        .unwrap_or(if preserve_original_quality {
+            PRESERVE_MAX_DURATION_MS
+        } else {
+            MAX_DURATION_MS
+        })
+        .clamp(1, PRESERVE_MAX_DURATION_MS);
     let max_output_bytes = options
         .max_output_bytes
-        .unwrap_or(MAX_OUTPUT_BYTES)
-        .clamp(1, MAX_OUTPUT_BYTES);
+        .unwrap_or(if preserve_original_quality {
+            MAX_PRESERVED_OUTPUT_BYTES
+        } else {
+            MAX_OUTPUT_BYTES
+        })
+        .clamp(1, MAX_PRESERVED_OUTPUT_BYTES);
+    let min_frame_interval_ms = if preserve_original_quality {
+        1
+    } else {
+        MIN_FRAME_INTERVAL_MS
+    };
 
     let limits = decode_limits();
     match format {
@@ -228,6 +267,7 @@ fn convert_background(
                 max_frames,
                 max_duration_ms,
                 max_output_bytes,
+                min_frame_interval_ms,
             )
         }
         AnimatedFormat::Apng => {
@@ -250,6 +290,7 @@ fn convert_background(
                 max_frames,
                 max_duration_ms,
                 max_output_bytes,
+                min_frame_interval_ms,
             )
         }
         AnimatedFormat::AnimatedWebp => {
@@ -269,6 +310,7 @@ fn convert_background(
                 max_frames,
                 max_duration_ms,
                 max_output_bytes,
+                min_frame_interval_ms,
             )
         }
         AnimatedFormat::Avif | AnimatedFormat::Mp4 => {
@@ -290,6 +332,7 @@ fn encode_frames<'a, D>(
     max_frames: u32,
     max_duration_ms: u64,
     max_output_bytes: u64,
+    min_frame_interval_ms: u64,
 ) -> Result<ConversionOutput, BackgroundConversionError>
 where
     D: AnimationDecoder<'a>,
@@ -323,7 +366,7 @@ where
         let should_encode = match last_encoded_at {
             None => true,
             Some(last) => {
-                elapsed_ms.saturating_sub(last) >= MIN_FRAME_INTERVAL_MS
+                elapsed_ms.saturating_sub(last) >= min_frame_interval_ms
             }
         };
 
@@ -928,6 +971,7 @@ mod tests {
             10,
             5_000,
             1_000_000,
+            50,
         )
         .expect("animated WebP should convert");
 
@@ -985,6 +1029,7 @@ mod tests {
             10,
             5_000,
             1_000_000,
+            50,
         )
         .expect("APNG should convert");
 

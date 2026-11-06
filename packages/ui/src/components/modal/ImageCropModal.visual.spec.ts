@@ -384,19 +384,44 @@ it('rejects a source file above the byte limit', async () => {
     expect(await promise).not.toBeNull()
 })
 
-it('keeps the original file when the user chooses that option', async () => {
+it('keeps the original resolution when the user chooses that option', async () => {
     mountModal({ maxSourceBytes: 10 })
-    const blob = await createTestImage()
-    const promise = exposed().show(blob)
+    const promise = exposed().show(await createTestImage())
 
     await vi.waitFor(() => {
         expect(wrapper!.find('[data-image-crop-oversized]').exists()).toBe(true)
     })
     await wrapper!.get('[data-image-crop-keep-original]').trigger('click')
+    await waitForFrame()
+    await wrapper!.get('[data-image-crop-confirm]').trigger('click')
     const result = await promise
 
-    expect(result!.keepOriginal).toBe(true)
-    expect(result!.bytes.byteLength).toBe(blob.size)
+    expect(result!.preserveOriginalQuality).toBe(true)
+    expect(result!.width).toBe(400)
+    expect(result!.height).toBe(225)
+    expect(result!.blob.size).toBeGreaterThan(0)
+})
+
+it('keeps the full crop resolution for an oversized animated source', async () => {
+    mountModal({ maxSourceBytes: 10, maxOutputDimension: 200 })
+    const promise = exposed().showCrop(await createTestImage(), {
+        aspectRatioOptions: [{ id: 'square', label: '1:1', ratio: 1 }],
+        defaultAspectRatioId: 'square',
+        maxOutputDimension: 200,
+        animated: true,
+    })
+
+    await vi.waitFor(() => {
+        expect(wrapper!.find('[data-image-crop-oversized]').exists()).toBe(true)
+    })
+    await wrapper!.get('[data-image-crop-keep-original]').trigger('click')
+    await waitForFrame()
+    await wrapper!.get('[data-image-crop-confirm]').trigger('click')
+    const selection = await promise
+
+    expect(selection!.preserveOriginalQuality).toBe(true)
+    expect(selection!.outputWidth).toBe(300)
+    expect(selection!.outputHeight).toBe(300)
 })
 
 it('rejects a source above the decoded pixel limit', async () => {

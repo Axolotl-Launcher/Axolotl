@@ -15,6 +15,8 @@ export interface ConvertAnimatedBackgroundOptions {
     maxOutputBytes?: number
     /** The user explicitly chose auto-compression for an oversized source. */
     allowOversizedSource?: boolean
+    /** Keep the source resolution/quality instead of auto-compressing. */
+    preserveOriginalQuality?: boolean
     /**
      * `native` covers GIF, APNG and animated WebP. `auto` falls back to
      * `backend_unavailable` for AVIF/MP4 until the FFmpeg settings extension

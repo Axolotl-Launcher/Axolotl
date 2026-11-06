@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
-import { reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 
 import {
     CUSTOM_BACKGROUND_EXTENSIONS,
@@ -122,6 +122,9 @@ let wrapper: VueWrapper | null = null
 afterEach(() => {
     wrapper?.unmount()
     wrapper = null
+    document
+        .querySelectorAll('[data-testid="custom-background-overlay"]')
+        .forEach((element) => element.remove())
     vi.resetAllMocks()
     mocks.dragHandler = null
 })
@@ -176,6 +179,10 @@ function backgroundWriteCall() {
 
 function sourceWriteCall() {
     return mocks.writeFile.mock.calls.find(([path]) => String(path).endsWith('.source'))
+}
+
+function overlayPanel() {
+    return document.querySelector<HTMLElement>('[data-testid="custom-background-overlay-panel"]')
 }
 
 it('crops a chosen image before writing it and replaces the previous file', async () => {
@@ -535,12 +542,55 @@ it('re-crops the stored source when the preview is clicked', async () => {
     expect(mocks.cropShow).toHaveBeenCalledOnce()
 })
 
-it('sizes the preview with the launcher aspect ratio', () => {
+it('keeps the preview collapsed until expanded', async () => {
     mountSettings()
     const preview = wrapper!.get('[role="button"]').element as HTMLElement
-    expect(preview.className).toContain('w-full')
-    expect(Number.parseFloat(preview.style.aspectRatio)).toBeCloseTo(
+    expect(preview.className).toContain('h-32')
+    expect(overlayPanel()).toBeNull()
+
+    await wrapper!.get('[data-testid="custom-background-expand"]').trigger('click')
+    await vi.waitFor(() => expect(overlayPanel()).not.toBeNull())
+
+    const panel = overlayPanel()!
+    expect(Number.parseFloat(panel.style.aspectRatio)).toBeCloseTo(
         window.innerWidth / window.innerHeight,
         3,
     )
+
+    document.querySelector<HTMLElement>('[data-testid="custom-background-overlay-close"]')!.click()
+    await flushPromises()
+    expect(overlayPanel()).toBeNull()
+})
+
+it('auto-expands after hovering still for two seconds', async () => {
+    mountSettings()
+    const preview = wrapper!.get('[role="button"]').element as HTMLElement
+    preview.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
+
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(overlayPanel()).toBeNull()
+
+    preview.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+    expect(overlayPanel()).toBeNull()
+
+    await vi.waitFor(() => expect(overlayPanel()).not.toBeNull(), { timeout: 2_500 })
+
+    document.querySelector<HTMLElement>('[data-testid="custom-background-overlay-close"]')!.click()
+    await flushPromises()
+})
+
+it('keeps the expanded preview open when pinned', async () => {
+    mountSettings()
+    await wrapper!.get('[data-testid="custom-background-expand"]').trigger('click')
+    await vi.waitFor(() => expect(overlayPanel()).not.toBeNull())
+
+    overlayPanel()!.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 450))
+    await nextTick()
+    expect(overlayPanel()).not.toBeNull()
+
+    document.querySelector<HTMLElement>('[data-testid="custom-background-overlay-close"]')!.click()
+    await flushPromises()
+    expect(overlayPanel()).toBeNull()
 })

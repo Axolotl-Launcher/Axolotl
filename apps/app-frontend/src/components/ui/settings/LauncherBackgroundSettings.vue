@@ -2,8 +2,7 @@
     <div class="flex flex-col gap-4 p-4 appearance-panel--divided">
         <div
             ref="backgroundPreviewRef"
-            class="group relative w-full cursor-pointer overflow-hidden rounded-lg border border-solid transition-colors"
-            :style="{ aspectRatio: String(previewAspectRatio) }"
+            class="group relative h-32 w-full cursor-pointer overflow-hidden rounded-lg border border-solid transition-colors"
             :class="
                 isBackgroundDragActive
                     ? 'border-brand bg-surface-2'
@@ -18,6 +17,9 @@
                         : messages.customBackgroundChoose,
                 )
             "
+            @pointerenter="schedulePreviewOpen"
+            @pointermove="schedulePreviewOpen"
+            @pointerleave="schedulePreviewClose"
             @click="handleBackgroundPreviewClick"
             @keydown.enter.prevent="handleBackgroundPreviewClick"
             @keydown.space.prevent="handleBackgroundPreviewClick"
@@ -25,11 +27,7 @@
             <div
                 v-if="customBackgroundPreview"
                 class="absolute -inset-10 bg-cover bg-center"
-                :style="{
-                    backgroundImage: `url(&quot;${customBackgroundPreview}&quot;)`,
-                    filter: `blur(${settings.custom_background_blur}px)`,
-                    opacity: settings.custom_background_opacity / 100,
-                }"
+                :style="previewSurfaceStyle"
             />
             <div class="custom-bg-preview-dim absolute inset-0" />
             <div class="relative flex h-full items-center justify-center">
@@ -55,37 +53,130 @@
                         {{ formatMessage(messages.customBackgroundDropHint) }}
                     </span>
                 </div>
-                <div
-                    v-if="customBackgroundPreview && !isBackgroundDragActive"
-                    class="custom-bg-preview-actions absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 p-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            </div>
+            <Button
+                v-if="customBackgroundPreview && !isBackgroundDragActive"
+                type="base"
+                icon-only
+                circular
+                :label="formatMessage(messages.previewExpand)"
+                data-testid="custom-background-expand"
+                class="absolute right-2 top-2 z-10"
+                @click.stop="openPreviewOverlay(true)"
+            >
+                <MaximizeIcon />
+            </Button>
+        </div>
+
+        <div v-if="customBackgroundPreview" class="flex flex-wrap items-center justify-end gap-2">
+            <HeadlessTooltip side="top">
+                <Button
+                    type="base"
+                    native-type="button"
+                    data-testid="custom-background-replace"
+                    @click.stop="chooseCustomBackground"
                 >
-                    <HeadlessTooltip side="top">
+                    <UploadIcon />
+                    {{ formatMessage(messages.customBackgroundReplace) }}
+                </Button>
+                <template #content>
+                    {{ formatMessage(messages.customBackgroundChooseOrDrop) }}
+                </template>
+            </HeadlessTooltip>
+            <Button
+                type="outlined"
+                color="red"
+                native-type="button"
+                data-testid="custom-background-remove"
+                @click.stop="removeCustomBackground"
+            >
+                <TrashIcon />
+                {{ formatMessage(messages.customBackgroundRemove) }}
+            </Button>
+        </div>
+
+        <Teleport to="body">
+            <div
+                v-if="previewOverlayOpen"
+                class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-6"
+                data-testid="custom-background-overlay"
+                @click.self="closePreviewOverlay(true)"
+                @keydown.esc.stop.prevent="closePreviewOverlay(true)"
+            >
+                <div
+                    ref="overlayPanelRef"
+                    tabindex="-1"
+                    class="relative overflow-hidden rounded-2xl border border-surface-5 bg-surface-3 shadow-2xl outline-none"
+                    :style="overlayStyle"
+                    data-testid="custom-background-overlay-panel"
+                    @pointerenter="cancelPreviewClose"
+                    @pointerleave="schedulePreviewClose"
+                    @keydown.esc.stop.prevent="closePreviewOverlay(true)"
+                >
+                    <div
+                        v-if="customBackgroundPreview"
+                        class="absolute -inset-10 bg-cover bg-center"
+                        :style="previewSurfaceStyle"
+                    />
+                    <div class="custom-bg-preview-dim absolute inset-0" />
+                    <div
+                        class="absolute inset-0 cursor-pointer"
+                        role="button"
+                        tabindex="0"
+                        :aria-label="formatMessage(messages.customBackgroundAdjust)"
+                        @click="handleBackgroundPreviewClick"
+                        @keydown.enter.prevent="handleBackgroundPreviewClick"
+                        @keydown.space.prevent="handleBackgroundPreviewClick"
+                    />
+                    <div class="absolute right-3 top-3 z-10 flex items-center gap-2">
                         <Button
                             type="base"
-                            native-type="button"
-                            data-testid="custom-background-replace"
-                            @click.stop="chooseCustomBackground"
+                            size="sm"
+                            data-testid="custom-background-pin"
+                            @click.stop="togglePreviewPinned"
+                        >
+                            <PinIcon />
+                            {{
+                                formatMessage(
+                                    previewPinned ? messages.previewUnpin : messages.previewPin,
+                                )
+                            }}
+                        </Button>
+                        <Button
+                            type="base"
+                            icon-only
+                            circular
+                            :label="formatMessage(messages.previewClose)"
+                            data-testid="custom-background-overlay-close"
+                            @click.stop="closePreviewOverlay(true)"
+                        >
+                            <XIcon />
+                        </Button>
+                    </div>
+                    <div
+                        class="custom-bg-preview-actions absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-2 p-3"
+                    >
+                        <Button
+                            type="base"
+                            data-testid="custom-background-overlay-replace"
+                            @click.stop="replaceFromOverlay"
                         >
                             <UploadIcon />
                             {{ formatMessage(messages.customBackgroundReplace) }}
                         </Button>
-                        <template #content>
-                            {{ formatMessage(messages.customBackgroundChooseOrDrop) }}
-                        </template>
-                    </HeadlessTooltip>
-                    <Button
-                        type="outlined"
-                        color="red"
-                        native-type="button"
-                        data-testid="custom-background-remove"
-                        @click.stop="removeCustomBackground"
-                    >
-                        <TrashIcon />
-                        {{ formatMessage(messages.customBackgroundRemove) }}
-                    </Button>
+                        <Button
+                            type="outlined"
+                            color="red"
+                            data-testid="custom-background-overlay-remove"
+                            @click.stop="removeFromOverlay"
+                        >
+                            <TrashIcon />
+                            {{ formatMessage(messages.customBackgroundRemove) }}
+                        </Button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Teleport>
 
         <p
             v-if="customBackgroundConverting"
@@ -158,7 +249,7 @@
 </template>
 
 <script setup lang="ts">
-import { ImageIcon, TrashIcon, UploadIcon } from '@modrinth/assets'
+import { ImageIcon, MaximizeIcon, PinIcon, TrashIcon, UploadIcon, XIcon } from '@modrinth/assets'
 import {
     Button,
     defineMessages,
@@ -175,7 +266,7 @@ import type { DragDropEvent } from '@tauri-apps/api/webview'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open } from '@tauri-apps/plugin-dialog'
 import { exists, mkdir, readFile, remove, writeFile } from '@tauri-apps/plugin-fs'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 import HeadlessTooltip from '@/components/ui/headless/HeadlessTooltip.vue'
 import {
@@ -296,6 +387,22 @@ const messages = defineMessages({
         id: 'app.appearance-settings.custom-background.picker-all-files',
         defaultMessage: 'All files',
     },
+    previewExpand: {
+        id: 'app.appearance-settings.custom-background.preview-expand',
+        defaultMessage: 'Expand preview',
+    },
+    previewPin: {
+        id: 'app.appearance-settings.custom-background.preview-pin',
+        defaultMessage: 'Keep open',
+    },
+    previewUnpin: {
+        id: 'app.appearance-settings.custom-background.preview-unpin',
+        defaultMessage: 'Unpin',
+    },
+    previewClose: {
+        id: 'app.appearance-settings.custom-background.preview-close',
+        defaultMessage: 'Close preview',
+    },
     customBackgroundTooLarge: {
         id: 'app.appearance-settings.custom-background.too-large',
         defaultMessage: 'This image is too large to use as a launcher background.',
@@ -328,6 +435,116 @@ const previewAspectRatio = ref(currentWindowAspectRatio())
 
 function updatePreviewAspectRatio() {
     previewAspectRatio.value = currentWindowAspectRatio()
+}
+
+const previewSurfaceStyle = computed(() =>
+    customBackgroundPreview.value
+        ? {
+              backgroundImage: `url("${customBackgroundPreview.value}")`,
+              filter: `blur(${settings.value.custom_background_blur}px)`,
+              opacity: settings.value.custom_background_opacity / 100,
+          }
+        : {},
+)
+
+const overlayStyle = computed(() => ({
+    width: `min(90vw, ${(85 * previewAspectRatio.value).toFixed(3)}vh)`,
+    maxWidth: '90rem',
+    aspectRatio: String(previewAspectRatio.value),
+}))
+
+const previewOverlayOpen = ref(false)
+const previewPinned = ref(false)
+const overlayPanelRef = ref<HTMLElement | null>(null)
+let previewOpenTimer: ReturnType<typeof setTimeout> | undefined
+let previewCloseTimer: ReturnType<typeof setTimeout> | undefined
+
+function clearPreviewTimers() {
+    clearTimeout(previewOpenTimer)
+    clearTimeout(previewCloseTimer)
+    previewOpenTimer = undefined
+    previewCloseTimer = undefined
+}
+
+const PREVIEW_HOVER_OPEN_DELAY_MS = 2_000
+
+function schedulePreviewOpen() {
+    if (!customBackgroundPreview.value || previewOverlayOpen.value || previewPinned.value) return
+    clearTimeout(previewOpenTimer)
+    previewOpenTimer = setTimeout(() => openPreviewOverlay(false), PREVIEW_HOVER_OPEN_DELAY_MS)
+}
+
+function schedulePreviewClose() {
+    clearTimeout(previewOpenTimer)
+    if (previewPinned.value) return
+    clearTimeout(previewCloseTimer)
+    previewCloseTimer = setTimeout(() => closePreviewOverlay(false), 350)
+}
+
+function cancelPreviewClose() {
+    clearTimeout(previewCloseTimer)
+}
+
+function animatePreviewOverlayIn(panel: HTMLElement) {
+    const source = backgroundPreviewRef.value
+    if (!source) return
+
+    const from = source.getBoundingClientRect()
+    const to = panel.getBoundingClientRect()
+    if (to.width === 0 || to.height === 0) return
+
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2)
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2)
+    const scale = Math.min(1, from.width / to.width)
+
+    panel.style.transition = 'none'
+    panel.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`
+    panel.style.opacity = '0'
+    panel.getBoundingClientRect()
+
+    requestAnimationFrame(() => {
+        if (!previewOverlayOpen.value) return
+        panel.style.transition =
+            'transform 320ms cubic-bezier(0.16, 1.2, 0.3, 1), opacity 180ms ease'
+        panel.style.transform = 'translate(0, 0) scale(1)'
+        panel.style.opacity = '1'
+    })
+}
+
+function openPreviewOverlay(pin: boolean) {
+    if (!customBackgroundPreview.value) return
+    clearPreviewTimers()
+    if (pin) previewPinned.value = true
+    if (previewOverlayOpen.value) return
+
+    previewOverlayOpen.value = true
+    void nextTick(() => {
+        const panel = overlayPanelRef.value
+        if (!panel) return
+        panel.focus()
+        animatePreviewOverlayIn(panel)
+    })
+}
+
+function closePreviewOverlay(force = false) {
+    if (!force && previewPinned.value) return
+    clearPreviewTimers()
+    previewPinned.value = false
+    previewOverlayOpen.value = false
+}
+
+function togglePreviewPinned() {
+    previewPinned.value = !previewPinned.value
+}
+
+function replaceFromOverlay() {
+    closePreviewOverlay(true)
+    void chooseCustomBackground()
+}
+
+function removeFromOverlay() {
+    closePreviewOverlay(true)
+    void removeCustomBackground()
 }
 
 function buildAspectRatioOptions(): ImageCropAspectRatioOption[] {
@@ -550,6 +767,7 @@ function notifyUnsupportedBackground() {
 
 async function handleBackgroundPreviewClick() {
     if (customBackgroundBusy.value) return
+    closePreviewOverlay(true)
 
     const backgroundPath = settings.value.custom_background_path
     if (!backgroundPath) {
@@ -577,6 +795,7 @@ async function handleBackgroundPreviewClick() {
 
 async function chooseCustomBackground() {
     if (customBackgroundBusy.value) return
+    closePreviewOverlay(true)
 
     customBackgroundBusy.value = true
     try {
@@ -633,6 +852,7 @@ async function storeCustomBackgroundFromDroppedPath(path: string) {
 
 async function removeCustomBackground() {
     if (customBackgroundBusy.value) return
+    closePreviewOverlay(true)
 
     const backgroundPath = settings.value.custom_background_path
     if (!backgroundPath) return
@@ -695,6 +915,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+    clearPreviewTimers()
     window.removeEventListener('resize', updatePreviewAspectRatio)
     unlistenNativeBackgroundDrop?.()
 })

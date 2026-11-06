@@ -2072,6 +2072,18 @@
   "app.appearance-settings.custom-background.picker-media": {
     "message": "图片或视频"
   },
+  "app.appearance-settings.custom-background.preview-close": {
+    "message": "关闭预览"
+  },
+  "app.appearance-settings.custom-background.preview-expand": {
+    "message": "展开预览"
+  },
+  "app.appearance-settings.custom-background.preview-pin": {
+    "message": "固定展开"
+  },
+  "app.appearance-settings.custom-background.preview-unpin": {
+    "message": "取消固定"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "移除"
   },

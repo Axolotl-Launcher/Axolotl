@@ -822,6 +822,18 @@
   "app.appearance-settings.custom-background.picker-media": {
     "message": "Image or video"
   },
+  "app.appearance-settings.custom-background.preview-close": {
+    "message": "Close preview"
+  },
+  "app.appearance-settings.custom-background.preview-expand": {
+    "message": "Expand preview"
+  },
+  "app.appearance-settings.custom-background.preview-pin": {
+    "message": "Keep open"
+  },
+  "app.appearance-settings.custom-background.preview-unpin": {
+    "message": "Unpin"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "Remove"
   },

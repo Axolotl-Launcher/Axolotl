@@ -9,6 +9,10 @@ import EditorFindReplace from '../layouts/shared/files-tab/components/editor/Edi
 import FileEditor from '../layouts/shared/files-tab/components/editor/FileEditor.vue'
 import { mountThemed, waitFor } from './visual-harness'
 
+// Monaco setup plus two editors can exceed the default timeout when the whole
+// visual suite runs in parallel; it completes in a few seconds on its own.
+vi.setConfig({ testTimeout: 30_000 })
+
 const cleanup: (() => void)[] = []
 afterEach(() => cleanup.splice(0).forEach((dispose) => dispose()))
 

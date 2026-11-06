@@ -63,6 +63,32 @@ async fn an_unknown_level_is_refused_by_the_schema() {
 }
 
 #[tokio::test]
+async fn a_row_with_an_unknown_level_is_skipped_on_read() {
+    let pool = support::pool().await;
+    // An older or edited database can hold a row the CHECK refuses today.
+    sqlx::query("PRAGMA ignore_check_constraints = ON")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO scheduler_tags (id, generation, level, origin, owner, created_at)
+         VALUES (1, 1, 'l9', 'install', 'old', 0), (2, 1, 'l3', 'install', 'job', 0)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let handle = crate::state::store::Handle::new(pool);
+    assert_eq!(SchedulerTags::get(&handle, &1).await.unwrap(), None);
+    let stored: Vec<_> = SchedulerTags::get_all(&handle)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|(id, record)| (id, record.owner))
+        .collect();
+    assert_eq!(stored, vec![(2, "job".to_string())]);
+}
+
+#[tokio::test]
 async fn a_restart_budget_round_trips_and_resets() {
     let handle = support::handle().await;
     let failing = RestartBudgetRecord {

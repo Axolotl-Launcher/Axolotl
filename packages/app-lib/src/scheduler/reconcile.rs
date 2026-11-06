@@ -194,20 +194,35 @@ mod tests {
         use crate::scheduler::tag::Level;
         use crate::state::store::scheduler_tags::SchedulerTagRecord;
 
+        use crate::state::store::install_jobs::{
+            InstallJobRecord, InstallJobs,
+        };
+
         let temp = tempfile::tempdir().unwrap();
         let directories = crate::state::DirectoryInfo {
             settings_dir: temp.path().into(),
             config_dir: temp.path().into(),
             app_identifier: "reconcile-tags-test".into(),
         };
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(2)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        sqlx::migrate!().run(&pool).await.unwrap();
-        sqlx::query("INSERT INTO install_jobs(id, kind, status, state, created, modified, finished) VALUES ('running', 'pack', 'running', '{}', 1, 1, NULL), ('done', 'pack', 'succeeded', '{}', 1, 1, 2)").execute(&pool).await.unwrap();
+        let pool = crate::state::store::tests::support::migrated_pool().await;
         let state = crate::state::test_state(directories, pool).await.unwrap();
+        for (id, status, finished) in
+            [("running", "running", None), ("done", "succeeded", Some(2))]
+        {
+            let job = InstallJobRecord {
+                instance_id: None,
+                kind: "pack".into(),
+                status: status.into(),
+                state: "{}".into(),
+                created: 1,
+                modified: 1,
+                finished,
+                dismissed: false,
+            };
+            InstallJobs::set(&state.data, &id.to_string(), Some(&job))
+                .await
+                .unwrap();
+        }
         for (id, owner) in [(1, "running"), (2, "done"), (3, "missing")] {
             let record = SchedulerTagRecord {
                 generation: 1,

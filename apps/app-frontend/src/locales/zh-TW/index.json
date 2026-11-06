@@ -3149,26 +3149,14 @@
   "app.java-arguments.presets.use": {
     "message": "使用預設"
   },
-  "app.java-download-confirmation.body": {
-    "message": "未找到相容的 Java {version} 安裝。你可以立即下載，也可以稍後設置 Java；其他遊戲資源仍會繼續下載。"
+  "app.install.missing-java.body": {
+    "message": "因未找到可用的 Java {version}，本次安裝無法繼續。你可以前往 Java 設定安裝或配置 Java {version}，完成後再重新安裝。"
   },
-  "app.java-download-confirmation.download": {
-    "message": "下載 Java"
+  "app.install.missing-java.open-settings": {
+    "message": "前往 Java 設定"
   },
-  "app.java-download-confirmation.later-description": {
-    "message": "稍後配置 Java {version} 後，請修復實例以完成安裝。"
-  },
-  "app.java-download-confirmation.postponed-body": {
-    "message": "實例將繼續完成安裝。啟動前請先配置 Java {version}。"
-  },
-  "app.java-download-confirmation.postponed-title": {
-    "message": "Java 設置已推遲"
-  },
-  "app.java-download-confirmation.set-up-later": {
-    "message": "稍後設置"
-  },
-  "app.java-download-confirmation.title": {
-    "message": "下載 Java {version}？"
+  "app.install.missing-java.title": {
+    "message": "安裝此實例需要 Java {version}"
   },
   "app.java.already-installed": {
     "message": "已安裝"

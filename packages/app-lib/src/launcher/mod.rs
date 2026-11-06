@@ -1517,7 +1517,7 @@ async fn install_minecraft_with_local_source(
     let java_installation = if let Some(java_version) =
         get_java_version_from_launch_context(context, &version_info).await?
     {
-        Some((std::path::PathBuf::from(java_version.path), false))
+        (std::path::PathBuf::from(java_version.path), false)
     } else if let Some(discovered) =
         crate::api::jre::find_java_for_version(key).await?
     {
@@ -1526,21 +1526,27 @@ async fn install_minecraft_with_local_source(
             discovered.version,
             discovered.path
         );
-        Some((std::path::PathBuf::from(discovered.path), true))
+        (std::path::PathBuf::from(discovered.path), true)
     } else {
+        // Cancel the job itself so parallel modpack downloads stop as well.
+        let warning = crate::event::emit::emit_missing_java_warning(
+            &instance.id,
+            &instance.name,
+            key,
+        )
+        .await;
         if let Some(reporter) = &reporter {
-            crate::api::jre::auto_install_java_with_reporter(
-                key,
-                reporter.clone(),
-            )
-            .await?
-        } else {
-            crate::api::jre::auto_install_java_with_loading(key, true).await?
+            reporter.cancel_job();
         }
-        .map(|path| (path, true))
+        warning?;
+        return Err(crate::ErrorKind::LauncherError(format!(
+            "Installation canceled: Java {key} is required. Install or configure Java {key} and try again."
+        ))
+        .into());
     };
 
-    let java_version = if let Some((java_path, set_java)) = java_installation {
+    let (java_path, set_java) = java_installation;
+    let java_version = {
         if let Some(reporter) = &reporter {
             reporter
                 .update(
@@ -1570,9 +1576,7 @@ async fn install_minecraft_with_local_source(
             .await?;
         }
 
-        Some(java_version)
-    } else {
-        None
+        java_version
     };
 
     // Download minecraft (5-90)
@@ -1591,10 +1595,7 @@ async fn install_minecraft_with_local_source(
         &content_set.game_version,
         &version_info,
         loading_bar.as_ref(),
-        java_version
-            .as_ref()
-            .map(|java| java.architecture.as_str())
-            .unwrap_or(std::env::consts::ARCH),
+        &java_version.architecture,
         repairing,
         minecraft_updated,
         reporter.clone(),
@@ -1612,10 +1613,7 @@ async fn install_minecraft_with_local_source(
             .prepare_runtime(
                 &state,
                 &client_path,
-                java_version
-                    .as_ref()
-                    .map(|java| java.architecture.as_str())
-                    .unwrap_or(std::env::consts::ARCH),
+                &java_version.architecture,
                 minecraft_updated,
                 false,
             )
@@ -1623,77 +1621,6 @@ async fn install_minecraft_with_local_source(
             .assemble(&client_path, &instance_path)
             .await?;
     }
-
-    let Some(java_version) = java_version else {
-        if content_set.loader == ModLoader::OptiFine
-            || has_client_processors(version_info.processors.as_deref())
-        {
-            return Err(crate::ErrorKind::LauncherError(format!(
-                "Java {key} is required to finish installing {}",
-                content_set.loader.as_str()
-            ))
-            .into());
-        }
-        external_version::finalize_external_version(
-            instance,
-            &version_jar,
-            &content_set.game_version,
-            &version_info,
-            &state,
-            std::env::consts::ARCH,
-            minecraft_updated,
-            minecraft_progress.as_ref(),
-            &database_cancellation,
-        )
-        .await?;
-        if let Some(progress) = minecraft_progress {
-            progress.finish().await?;
-        }
-        let protocol_version =
-            read_protocol_version_from_jar(client_path).await?;
-        run_install_database_write(
-            &state.install_db_semaphore,
-            &database_cancellation,
-            crate::state::instances::commands::set_applied_content_set_protocol_version(
-                &instance.id,
-                protocol_version,
-                &state.pool,
-            ),
-        )
-        .await?;
-        run_install_database_write(
-            &state.install_db_semaphore,
-            &database_cancellation,
-            promote_external_instance_link(instance, &state),
-        )
-        .await?;
-        if completion_policy == InstanceCompletionPolicy::FinalizeHere {
-            run_install_database_write(
-                &state.install_db_semaphore,
-                &database_cancellation,
-                crate::state::instances::commands::set_instance_install_stage(
-                    &instance.id,
-                    InstanceInstallStage::Installed,
-                    &state.pool,
-                ),
-            )
-            .await?;
-            emit_instance(&instance.id, InstancePayloadType::Edited).await?;
-        }
-        if let Some(loading_bar) = &loading_bar {
-            emit_loading(
-                loading_bar,
-                1.0,
-                Some("Finished downloading Minecraft resources"),
-            )?;
-        }
-        tracing::info!(
-            java_version = key,
-            instance_id = instance.id,
-            "Postponed Java setup after downloading Minecraft resources"
-        );
-        return Ok(());
-    };
 
     // Loader processors are separate JVMs. Pass the launcher's configured
     // custom proxy explicitly because child Java processes do not inherit

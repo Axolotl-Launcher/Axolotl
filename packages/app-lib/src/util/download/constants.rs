@@ -59,6 +59,7 @@ pub(crate) const SEGMENT_EXPANSION_SAMPLE_COUNT: usize = 3;
 pub(crate) const SEGMENT_EXPANSION_GAIN_PERCENT: u128 = 115;
 pub(crate) const SEGMENT_EXPANSION_RETRY_SPEED_PERCENT: u128 = 50;
 pub(crate) const SEGMENT_RETRY_ATTEMPTS: usize = 3;
+pub(crate) const SEGMENT_RECOVERY_ROUNDS: usize = 2;
 #[cfg(not(test))]
 pub(crate) const TAIL_HEDGE_IDLE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(crate) const TAIL_HEDGE_MIN_REMAINING: u64 = 16 * 1024 * 1024;

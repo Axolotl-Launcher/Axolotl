@@ -133,13 +133,14 @@ export async function delete_shared_log(id, token) {
 }
 
 /// Export the censored files and local analysis from an instance's latest run.
+/// Returns the saved archive path, or null when the save dialog is cancelled.
 export async function export_crash_context(instanceId, instanceName) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const outputPath = await save({
         defaultPath: `${instanceName || 'Minecraft'} crash context ${timestamp}.zip`,
         filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
     })
-    if (!outputPath) return false
+    if (!outputPath) return null
     await invoke('plugin:logs|logs_export_crash_context', { instanceId, outputPath })
-    return true
+    return outputPath
 }

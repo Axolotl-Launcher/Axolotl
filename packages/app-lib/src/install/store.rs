@@ -12,6 +12,64 @@ use crate::state::{InstanceInstallStage, State};
 use chrono::{DateTime, TimeZone, Utc};
 use uuid::Uuid;
 
+tokio::task_local! {
+    static INITIALIZING_JOB: Uuid;
+}
+
+pub(crate) async fn initializing_job<F: std::future::Future>(
+    job_id: Uuid,
+    work: F,
+) -> F::Output {
+    INITIALIZING_JOB.scope(job_id, work).await
+}
+
+/// Publish the new target and its cleanup intent in the instance transaction.
+pub(crate) async fn attach_initial_instance(
+    instance: &crate::state::Instance,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<()> {
+    let Ok(job_id) = INITIALIZING_JOB.try_with(|id| *id) else {
+        return Ok(());
+    };
+    let key = job_id.to_string();
+    let mut row =
+        InstallJobs::read(&mut **tx, &key).await?.ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Install initialization job disappeared".into(),
+            )
+        })?;
+    if row.status != InstallJobStatus::Queued.as_str() {
+        return Err(crate::ErrorKind::InputError(
+            "Install initialization was canceled".into(),
+        )
+        .into());
+    }
+    let mut state: InstallJobState = serde_json::from_str(&row.state)?;
+    if !matches!(
+        state.cleanup,
+        super::model::InstallCleanup::DeleteNewInstance { instance_id: None }
+    ) {
+        return Err(crate::ErrorKind::InputError(
+            "Install initialization already has a target".into(),
+        )
+        .into());
+    }
+    state.target = super::model::InstallTarget::NewInstance {
+        instance_id: Some(instance.id.clone()),
+    };
+    state.cleanup = super::model::InstallCleanup::DeleteNewInstance {
+        instance_id: Some(instance.id.clone()),
+    };
+    state.display = Some(super::model::InstallJobDisplay {
+        title: instance.name.clone(),
+        icon: instance.icon_path.clone(),
+    });
+    row.instance_id = Some(instance.id.clone());
+    row.state = serde_json::to_string(&state)?;
+    row.modified = Utc::now().timestamp();
+    InstallJobs::write(&mut **tx, &key, Some(&row)).await
+}
+
 fn same_execution(
     stored: &str,
     incoming: &InstallJobState,
@@ -538,7 +596,7 @@ async fn compare_and_swap_status(
     key: &str,
     expected: InstallJobStatus,
     status: InstallJobStatus,
-    instance_id: Option<String>,
+    mut instance_id: Option<String>,
     state_json: &str,
     modified: i64,
     finished: Option<i64>,
@@ -550,9 +608,32 @@ async fn compare_and_swap_status(
     if row.status.as_str() != expected.as_str() {
         return Ok(false);
     }
+    let mut state_json = state_json.to_string();
+    if expected == InstallJobStatus::Queued {
+        let durable: InstallJobState = serde_json::from_str(&row.state)?;
+        let mut incoming: InstallJobState = serde_json::from_str(&state_json)?;
+        if matches!(
+            incoming.target,
+            super::model::InstallTarget::NewInstance { instance_id: None }
+        ) && matches!(
+            durable.cleanup,
+            super::model::InstallCleanup::DeleteNewInstance {
+                instance_id: Some(_)
+            }
+        ) && !durable.instance_deleted()
+        {
+            // A cancel checkpoint may have read the queue before creation
+            // committed. It must not erase the atomically bound cleanup target.
+            incoming.target = durable.target;
+            incoming.cleanup = durable.cleanup;
+            incoming.display = durable.display;
+            instance_id = row.instance_id.clone();
+            state_json = serde_json::to_string(&incoming)?;
+        }
+    }
     row.instance_id = instance_id;
     row.status = status.as_str().to_string();
-    row.state = state_json.to_string();
+    row.state = state_json;
     row.modified = modified;
     row.finished = finished;
     write_job(unit, key, row).await?;
@@ -649,6 +730,207 @@ mod tests {
         sqlx::query("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified) VALUES ('first', 'first', 'installed', '1', 'first', 1, 1)").execute(&pool).await.unwrap();
         let state = crate::state::test_state(directories, pool).await.unwrap();
         (temp, state)
+    }
+
+    fn creation_request() -> super::super::model::InstallRequest {
+        super::super::model::InstallRequest::CreateInstance {
+            name: "Recoverable creation".into(),
+            game_version: "1.21.1".into(),
+            loader: crate::data::ModLoader::Vanilla,
+            loader_version: None,
+            adjuncts: Vec::new(),
+            icon_path: None,
+            link: crate::state::InstanceLink::Unmanaged,
+            game_dir_override: None,
+        }
+    }
+
+    async fn create_initial_target(
+        state: &State,
+    ) -> crate::Result<crate::state::Instance> {
+        crate::state::create_instance(
+            crate::state::CreateInstance {
+                name: "Recoverable creation".into(),
+                path: None,
+                game_version: "1.21.1".into(),
+                loader: crate::data::ModLoader::Vanilla,
+                loader_version: None,
+                icon_path: None,
+                link: crate::state::InstanceLink::Unmanaged,
+                symlink_target: None,
+                game_dir_override: None,
+            },
+            state,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn initialization_atomically_records_the_new_instance_for_recovery() {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let mut job =
+            super::super::model::InstallJobState::new(creation_request());
+        job.initialization_pending = true;
+        insert(id, &job, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        let created = initializing_job(id, create_initial_target(&state))
+            .await
+            .unwrap();
+        let durable = get_required(id, &state).await.unwrap();
+        assert!(durable.state.initialization_pending);
+        assert_eq!(durable.instance_id.as_deref(), Some(created.id.as_str()));
+        assert!(matches!(durable.state.cleanup,
+            super::super::model::InstallCleanup::DeleteNewInstance { instance_id: Some(target) }
+                if target == created.id));
+        assert!(
+            list_interrupted_candidates(&state)
+                .await
+                .unwrap()
+                .iter()
+                .any(|job| job.id == id)
+        );
+        assert!(
+            state
+                .directories
+                .instances_dir()
+                .join(created.path)
+                .is_dir()
+        );
+    }
+
+    #[tokio::test]
+    async fn initialization_cannot_publish_an_instance_after_job_cancellation()
+    {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = super::super::model::InstallJobState::new(creation_request());
+        insert(id, &job, InstallJobStatus::Canceling, &state)
+            .await
+            .unwrap();
+        assert!(
+            initializing_job(id, create_initial_target(&state))
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            crate::state::instances::adapters::sqlite::instance_rows::list_instances(&state.pool)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            get_required(id, &state)
+                .await
+                .unwrap()
+                .instance_id
+                .is_none()
+        );
+        assert!(
+            !state
+                .directories
+                .instances_dir()
+                .join("Recoverable creation")
+                .exists()
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_queue_cancellation_preserves_the_initialization_target() {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let stale =
+            super::super::model::InstallJobState::new(creation_request());
+        insert(id, &stale, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        let created = initializing_job(id, create_initial_target(&state))
+            .await
+            .unwrap();
+        let canceled = update_status_if(
+            id,
+            InstallJobStatus::Queued,
+            InstallJobStatus::Canceling,
+            &stale,
+            &state,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(canceled.instance_id.as_deref(), Some(created.id.as_str()));
+        assert!(matches!(canceled.state.cleanup,
+            super::super::model::InstallCleanup::DeleteNewInstance { instance_id: Some(target) }
+                if target == created.id));
+    }
+
+    #[tokio::test]
+    async fn failed_initialization_binding_rolls_back_the_instance_transaction()
+    {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = super::super::model::InstallJobState::new(creation_request());
+        insert(id, &job, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        sqlx::raw_sql("CREATE TRIGGER reject_initial_target BEFORE UPDATE OF instance_id ON install_jobs WHEN NEW.instance_id IS NOT NULL BEGIN SELECT RAISE(ABORT, 'injected initialization binding failure'); END;")
+            .execute(&state.pool).await.unwrap();
+        assert!(
+            initializing_job(id, create_initial_target(&state))
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            crate::state::instances::adapters::sqlite::instance_rows::list_instances(&state.pool)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            get_required(id, &state)
+                .await
+                .unwrap()
+                .instance_id
+                .is_none()
+        );
+        assert!(
+            !state
+                .directories
+                .instances_dir()
+                .join("Recoverable creation")
+                .exists()
+        );
+    }
+
+    #[tokio::test]
+    async fn dropped_initialization_future_keeps_its_durable_cleanup_target() {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = super::super::model::InstallJobState::new(creation_request());
+        insert(id, &job, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        let (ready, received) = tokio::sync::oneshot::channel();
+        let worker_state = state.clone();
+        let worker = tokio::spawn(initializing_job(id, async move {
+            let created = create_initial_target(&worker_state).await.unwrap();
+            ready.send(created.id).unwrap();
+            std::future::pending::<()>().await;
+        }));
+        let instance_id = received.await.unwrap();
+        worker.abort();
+        assert!(worker.await.unwrap_err().is_cancelled());
+        let durable = get_required(id, &state).await.unwrap();
+        assert_eq!(durable.instance_id.as_deref(), Some(instance_id.as_str()));
+        assert!(
+            list_interrupted_candidates(&state)
+                .await
+                .unwrap()
+                .iter()
+                .any(|job| job.id == id)
+        );
     }
 
     #[tokio::test]

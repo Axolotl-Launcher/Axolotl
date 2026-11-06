@@ -97,7 +97,7 @@ import MinecraftCrashModal from '@/components/ui/MinecraftCrashModal.vue'
 import AuthGrantFlowWaitModal from '@/components/ui/modal/AuthGrantFlowWaitModal.vue'
 import CurseForgeManualDownloadsModal from '@/components/ui/modal/CurseForgeManualDownloadsModal.vue'
 import InstanceIconPickerModal from '@/components/ui/modal/InstanceIconPickerModal.vue'
-import JavaDownloadConfirmationModal from '@/components/ui/modal/JavaDownloadConfirmationModal.vue'
+import MissingJavaModal from '@/components/ui/modal/MissingJavaModal.vue'
 import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
 import ModpackInstallModal from '@/components/ui/modal/ModpackInstallModal.vue'
 import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
@@ -134,7 +134,6 @@ import { classifyDroppedItem } from '@/helpers/drop'
 import {
     command_listener,
     drop_classify_progress_listener,
-    java_download_confirmation_listener,
     warning_listener,
 } from '@/helpers/events.js'
 import { fileOperationError } from '@/helpers/file-operation-errors'
@@ -531,7 +530,7 @@ let maximizedStateTimer: ReturnType<typeof setTimeout> | undefined
 let unlistenWindowResize: (() => void) | undefined
 let stopNativeEditMenu: (() => void) | undefined
 const minecraftCrashModal = ref()
-const javaDownloadConfirmationModal = ref()
+const missingJavaModal = ref<InstanceType<typeof MissingJavaModal>>()
 const pendingUpdateAnnouncementVersion = ref(null)
 const updateAnnouncementShowing = ref(false)
 
@@ -1627,14 +1626,16 @@ async function setupApp() {
             return
         }
 
+        if (e.kind === 'missing_java') {
+            missingJavaModal.value?.show(e.java_version)
+            return
+        }
+
         addNotification({
             title: formatMessage(messages.warning),
             text: e.message,
             type: 'warning',
         })
-    })
-    await java_download_confirmation_listener((request) => {
-        javaDownloadConfirmationModal.value?.show(request)
     })
     await drop_classify_progress_listener((payload) => {
         if (dropProcessingNotificationId.value === null) return
@@ -3249,7 +3250,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         :error-action-label="formatMessage(messages.exportErrorLogs)"
     />
     <MinecraftCrashModal ref="minecraftCrashModal" />
-    <JavaDownloadConfirmationModal ref="javaDownloadConfirmationModal" />
+    <MissingJavaModal ref="missingJavaModal" />
     <PrivacyConsentModal ref="privacyConsentModal" @saved="handlePrivacyConsentSaved" />
     <RemoteAnnouncements
         :ready="

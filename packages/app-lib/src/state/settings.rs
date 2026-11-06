@@ -213,6 +213,8 @@ pub struct Settings {
     pub hide_on_process_start: bool,
     pub enter_lightweight_mode_on_game_launch: bool,
     pub auto_set_java_high_performance_mode: bool,
+    #[serde(default)]
+    pub minecraft_use_console_java: bool,
     pub hooks: Hooks,
 
     pub custom_dir: Option<String>,
@@ -415,6 +417,7 @@ impl Default for Settings {
             hide_on_process_start: false,
             enter_lightweight_mode_on_game_launch: false,
             auto_set_java_high_performance_mode: true,
+            minecraft_use_console_java: false,
             // The column is added defaulting to empty, which means the launcher
             // picks the language rather than the user naming one.
             default_game_language: String::new(),
@@ -640,6 +643,7 @@ impl Settings {
                 .enter_lightweight_mode_on_game_launch,
             auto_set_java_high_performance_mode: record
                 .auto_set_java_high_performance_mode,
+            minecraft_use_console_java: record.minecraft_use_console_java,
             hooks: Hooks {
                 pre_launch: record.hook_pre_launch,
                 wrapper: record.hook_wrapper,
@@ -770,6 +774,7 @@ impl Settings {
             mc_memory_optimize: settings.memory.optimize_before_launch,
             auto_set_java_high_performance_mode: settings
                 .auto_set_java_high_performance_mode,
+            minecraft_use_console_java: settings.minecraft_use_console_java,
             transparent_background: settings.transparent_background,
             transparent_background_opacity: settings
                 .transparent_background_opacity

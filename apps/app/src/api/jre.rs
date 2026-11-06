@@ -16,7 +16,6 @@ pub fn init<R: tauri::Runtime>() -> TauriPlugin<R> {
             jre_get_jre,
             jre_test_jre,
             jre_auto_install_java,
-            jre_respond_to_download_confirmation,
             jre_get_max_memory,
             jre_get_memory_status,
             jre_optimize_memory,
@@ -98,14 +97,6 @@ pub async fn jre_auto_install_java(
     java_version: u32,
 ) -> Result<Option<PathBuf>> {
     Ok(jre::auto_install_java(java_version).await?)
-}
-
-#[tauri::command]
-pub fn jre_respond_to_download_confirmation(
-    request_id: uuid::Uuid,
-    approved: bool,
-) -> bool {
-    jre::respond_to_java_download_confirmation(request_id, approved)
 }
 
 #[tauri::command]

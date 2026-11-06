@@ -57,6 +57,9 @@ const CHANNELS = ['release', 'beta']
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
     20261106160000: { tables: ['scheduler_restart_budget', 'scheduler_tags'] },
+    20261106150000: {
+        columns: [{ table: 'settings', column: 'minecraft_use_console_java' }],
+    },
     // settings.oobe_completed_steps
     20261104120000: {
         columns: [{ table: 'settings', column: 'oobe_completed_steps' }],

@@ -173,6 +173,7 @@ import type { InstallJobSnapshot, InstallPhaseId } from '@/helpers/install'
 import { installJobTitle } from '@/helpers/install-job-presentation'
 import {
     effectiveInstallProgress,
+    formatInstallProgressText,
     hasDeterminateInstallProgress,
     installProgressFraction,
     installProgressTextSource,
@@ -292,10 +293,8 @@ function progressPercent(job: InstallJobSnapshot) {
 
 function progressLabel(job: InstallJobSnapshot) {
     const source = installProgressTextSource(job)
-    if (source.type === 'bytes')
-        return `${formatBytes(source.current)} / ${formatBytes(source.total)}`
-    if (source.type === 'items')
-        return `${Math.min(source.current, source.total)} / ${source.total}`
+    const label = formatInstallProgressText(source, formatBytes)
+    if (label) return label
     if (source.type === 'required_files')
         return `${job.summary.files_completed} / ${job.summary.files_total ?? '—'}`
     const progress = effectiveInstallProgress(job)

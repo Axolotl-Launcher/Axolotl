@@ -199,6 +199,7 @@ export type AppSettings = DohSettings & {
     hide_on_process_start: boolean
     enter_lightweight_mode_on_game_launch: boolean
     auto_set_java_high_performance_mode: boolean
+    minecraft_use_console_java: boolean
     hooks: Hooks
 
     custom_dir?: string | null
@@ -250,6 +251,7 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
 
     settings.auto_concurrent_downloads ??= true
     settings.auto_set_java_high_performance_mode ??= true
+    settings.minecraft_use_console_java ??= false
     settings.minecraft_metadata_source ??=
         usesLegacyDefaults || !hasLegacySettings
             ? 'auto'

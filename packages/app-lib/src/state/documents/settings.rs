@@ -250,8 +250,9 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
             "hooks",
             "maximize_window",
             "memory",
+            "minecraft_use_console_java",
         ],
-        1,
+        2,
     ),
     ("backup", &["backup_repository_path"], 1),
     ("bootstrap", &["custom_dir", "prev_custom_dir"], 1),
@@ -1941,6 +1942,38 @@ mod tests {
             }
         }
         assert!(repeated.is_empty(), "keys two domains carry: {repeated:?}");
+    }
+
+    #[tokio::test]
+    async fn console_java_setting_persists_in_game_document() {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool.clone());
+        let local = tempfile::tempdir().unwrap();
+        let documents = Documents::at(local.path().to_path_buf(), &pool);
+        std::fs::write(
+            local.path().join("game.json"),
+            r#"{"schema_version":1,"data":{"extra_launch_args":["-Dkeep=true"]}}"#,
+        )
+        .unwrap();
+        let mut settings = read(&documents, &handle).await.unwrap();
+        assert!(!settings.minecraft_use_console_java);
+        settings.minecraft_use_console_java = true;
+        store(&documents, &settings).await.unwrap();
+        assert!(
+            read(&documents, &handle)
+                .await
+                .unwrap()
+                .minecraft_use_console_java
+        );
+        assert_eq!(
+            data(local.path(), "game")["minecraft_use_console_java"],
+            true
+        );
+        settings.minecraft_use_console_java = false;
+        store(&documents, &settings).await.unwrap();
+        let restored = read(&documents, &handle).await.unwrap();
+        assert!(!restored.minecraft_use_console_java);
+        assert_eq!(restored.extra_launch_args, vec!["-Dkeep=true"]);
     }
 
     #[tokio::test]

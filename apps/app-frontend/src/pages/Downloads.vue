@@ -595,10 +595,12 @@ import { isActiveInstallJobStatus } from '@/helpers/install-job-status'
 import {
     effectiveInstallProgress,
     effectiveParallelProgress,
+    formatInstallProgressText,
     hasDeterminateInstallProgress,
     installProgressFraction,
     installProgressTextSource,
     isInstallMainTrackComplete as isMainTrackComplete,
+    parallelInstallProgressTextSource,
 } from '@/helpers/install-progress'
 import type { LoadingBar } from '@/helpers/state'
 import { instanceKeys, instanceListQueryOptions } from '@/pages/instance/query-options'
@@ -1236,11 +1238,13 @@ function hasDeterminateParallelProgress(job: InstallJobSnapshot) {
 
 function parallelProgressText(job: InstallJobSnapshot) {
     if (isParallelTrackComplete(job)) return statusLabel('completed')
-    const progress = effectiveParallelProgress(job)
-    if (!hasDeterminateInstallProgress(progress)) {
-        return job.parallel ? phaseLabel(job.parallel.phase) : ''
-    }
-    return `${phaseLabel(job.parallel!.phase)}: ${formatBytes(progress.current)} / ${formatBytes(progress.total)}`
+    if (!job.parallel) return ''
+    const source = parallelInstallProgressTextSource(job)
+    const label = phaseLabel(job.parallel.phase)
+    // The progress bar already displays the percentage beside this label.
+    if (source.type === 'percentage') return label
+    const value = formatInstallProgressText(source, formatBytes)
+    return value ? `${label}: ${value}` : label
 }
 
 function progressText(job: InstallJobSnapshot) {
@@ -1259,10 +1263,8 @@ function progressText(job: InstallJobSnapshot) {
         }
         return formatMessage(messages.verifyingDownloadedFiles)
     }
-    if (textSource.type === 'bytes')
-        return `${formatBytes(textSource.current)} / ${formatBytes(textSource.total)}`
-    if (textSource.type === 'items') return `${textSource.current} / ${textSource.total}`
-    return phaseLabel(job.phase)
+    if (textSource.type === 'percentage') return phaseLabel(job.phase)
+    return formatInstallProgressText(textSource, formatBytes) || phaseLabel(job.phase)
 }
 
 function isResolvedRequiredFile(item: DownloadItem) {

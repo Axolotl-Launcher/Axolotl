@@ -201,20 +201,14 @@ pub struct WarningPayload {
     pub instance_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub java_version: Option<u32>,
 }
 
 #[derive(Serialize, Clone)]
 #[cfg(feature = "tauri")]
 pub struct JavaDiscoveryPayload {
     pub count: usize,
-}
-
-#[derive(Serialize, Clone)]
-#[cfg(feature = "tauri")]
-#[serde(rename_all = "camelCase")]
-pub struct JavaDownloadConfirmationPayload {
-    pub request_id: Uuid,
-    pub version: u32,
 }
 
 #[derive(Serialize, Clone)]

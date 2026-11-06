@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import {
     ClipboardCopyIcon,
+    DownloadIcon,
     ExternalIcon,
+    FolderOpenIcon,
     LinkIcon,
     ListOrderedIcon,
     ScanEyeIcon,
@@ -41,6 +43,7 @@ import { getAIState } from '@/helpers/ai'
 import { process_listener } from '@/helpers/events.js'
 import { get as getInstance } from '@/helpers/instance'
 import {
+    export_crash_context,
     get_crash_analysis_ai_settings,
     get_log_share_settings,
     get_logs,
@@ -50,6 +53,7 @@ import {
     record_shared_log,
 } from '@/helpers/logs'
 import { shouldShowMinecraftCrash } from '@/helpers/process.js'
+import { highlightInFolder } from '@/helpers/utils'
 import { visibleDraft } from '@/logagent/progress'
 import { parseLogAgentInsight } from '@/logagent/result'
 import type { AnalysisSource } from '@/logagent/types'
@@ -108,7 +112,7 @@ const route = useRoute()
 const localSetupModal = ref<InstanceType<typeof NewModal>>()
 const localSetupSaving = ref(false)
 let resumeAfterProviderSettings = false
-const { addNotification } = injectNotificationManager()
+const { addNotification, handleError } = injectNotificationManager()
 const modal = ref<InstanceType<typeof NewModal>>()
 const modChangesModal = ref<InstanceType<typeof CrashModChangesModal>>()
 const payload = ref<Partial<CrashModalPayload>>({})
@@ -167,6 +171,9 @@ const logShareSettings = ref<LogShareSettings>({
 const uploadTicket = ref<LogShareTicket | null>(null)
 const shareUrl = ref('')
 const sharing = ref(false)
+const previewMode = ref(false)
+const exportingDiagnostic = ref(false)
+const exportedDiagnosticPath = ref('')
 const logShareSummary = ref('')
 const logShareSummaryLoading = ref(false)
 const logShareSummaryState = ref<'idle' | 'loading' | 'ready' | 'empty' | 'unavailable' | 'error'>(
@@ -440,6 +447,18 @@ const messages = defineMessages({
     copyLink: {
         id: 'app.minecraft-crash.copy-link',
         defaultMessage: 'Copy link',
+    },
+    exportDiagnostic: {
+        id: 'app.minecraft-crash.export-diagnostic',
+        defaultMessage: 'Export diagnostic package',
+    },
+    exportingDiagnostic: {
+        id: 'app.minecraft-crash.exporting-diagnostic',
+        defaultMessage: 'Exporting diagnostic package...',
+    },
+    exportDiagnosticSaved: {
+        id: 'app.minecraft-crash.export-saved',
+        defaultMessage: 'Diagnostic package saved to {path}',
     },
     noLogContent: {
         id: 'app.minecraft-crash.no-log-content',
@@ -728,11 +747,13 @@ function show(modalPayload: CrashModalPayload, isPreview = false): boolean {
     choosingSource.value = false
     selectedSource.value = defaultSource.value
     payload.value = modalPayload
+    previewMode.value = isPreview
     lastAnalysis = null
     uploadTicket.value = null
     uploadTicketPromise = null
     shareUrl.value = ''
     sharing.value = false
+    exportedDiagnosticPath.value = ''
     logShareSummary.value = ''
     logShareSummaryLoading.value = false
     logShareSummaryState.value = 'idle'
@@ -945,6 +966,36 @@ function notifyNoLogContent(): void {
         title: formatMessage(messages.noLogContent),
         type: 'warning',
     })
+}
+
+async function exportDiagnostic(): Promise<void> {
+    if (exportingDiagnostic.value || previewMode.value) return
+    const instanceId = payload.value.instance_id
+    if (!instanceId) return
+
+    const version = analysisVersion
+    exportingDiagnostic.value = true
+    exportedDiagnosticPath.value = ''
+    try {
+        const path = await export_crash_context(
+            instanceId,
+            payload.value.instance_name || 'Minecraft',
+        )
+        if (version === analysisVersion && path) exportedDiagnosticPath.value = path
+    } catch (error) {
+        if (version === analysisVersion) handleError(error)
+    } finally {
+        exportingDiagnostic.value = false
+    }
+}
+
+async function openExportFolder(): Promise<void> {
+    if (!exportedDiagnosticPath.value) return
+    try {
+        await highlightInFolder(exportedDiagnosticPath.value)
+    } catch (error) {
+        handleError(error)
+    }
 }
 
 async function uploadTicketForInstance(instanceId: string): Promise<LogShareTicket | null> {
@@ -1466,9 +1517,51 @@ defineExpose({
                                 )
                             }}</Button
                         >
+                        <Button
+                            type="quiet"
+                            :disabled="previewMode || exportingDiagnostic"
+                            :loading="exportingDiagnostic"
+                            @click="exportDiagnostic"
+                            ><DownloadIcon aria-hidden="true" />{{
+                                formatMessage(
+                                    exportingDiagnostic
+                                        ? messages.exportingDiagnostic
+                                        : messages.exportDiagnostic,
+                                )
+                            }}</Button
+                        >
                         <Button v-if="modChangesAvailable" type="quiet" @click="openModChanges">{{
                             formatMessage(messages.viewModChanges)
                         }}</Button>
+                    </div>
+                    <div
+                        v-if="exportedDiagnosticPath"
+                        role="status"
+                        class="flex items-center gap-2 rounded-lg bg-surface-2 p-3"
+                    >
+                        <FolderOpenIcon
+                            class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
+                            aria-hidden="true"
+                        />
+                        <span
+                            class="min-w-0 flex-1 truncate text-sm text-[var(--color-text-default)]"
+                            :title="exportedDiagnosticPath"
+                        >
+                            {{
+                                formatMessage(messages.exportDiagnosticSaved, {
+                                    path: exportedDiagnosticPath,
+                                })
+                            }}
+                        </span>
+                        <Button
+                            v-tooltip="formatMessage(commonMessages.openInFolderButton)"
+                            type="outlined"
+                            circular
+                            icon-only
+                            :label="formatMessage(commonMessages.openInFolderButton)"
+                            @click="openExportFolder"
+                            ><FolderOpenIcon aria-hidden="true"
+                        /></Button>
                     </div>
                     <div
                         v-if="shareUrl"

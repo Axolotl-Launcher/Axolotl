@@ -2,7 +2,8 @@
     <div class="flex flex-col gap-4 p-4 appearance-panel--divided">
         <div
             ref="backgroundPreviewRef"
-            class="group relative h-44 cursor-pointer overflow-hidden rounded-lg border border-solid transition-colors"
+            class="group relative w-full cursor-pointer overflow-hidden rounded-lg border border-solid transition-colors"
+            :style="{ aspectRatio: String(previewAspectRatio) }"
             :class="
                 isBackgroundDragActive
                     ? 'border-brand bg-surface-2'
@@ -10,10 +11,16 @@
             "
             role="button"
             tabindex="0"
-            :aria-label="formatMessage(messages.customBackgroundChoose)"
-            @click="chooseCustomBackground"
-            @keydown.enter.prevent="chooseCustomBackground"
-            @keydown.space.prevent="chooseCustomBackground"
+            :aria-label="
+                formatMessage(
+                    customBackgroundPreview
+                        ? messages.customBackgroundAdjust
+                        : messages.customBackgroundChoose,
+                )
+            "
+            @click="handleBackgroundPreviewClick"
+            @keydown.enter.prevent="handleBackgroundPreviewClick"
+            @keydown.space.prevent="handleBackgroundPreviewClick"
         >
             <div
                 v-if="customBackgroundPreview"
@@ -208,6 +215,10 @@ const messages = defineMessages({
         id: 'app.appearance-settings.custom-background.choose',
         defaultMessage: 'Choose image',
     },
+    customBackgroundAdjust: {
+        id: 'app.appearance-settings.custom-background.adjust',
+        defaultMessage: 'Adjust background crop',
+    },
     customBackgroundChooseOrDrop: {
         id: 'app.appearance-settings.custom-background.choose-or-drop',
         defaultMessage: 'Click to choose, or drop an image here',
@@ -307,6 +318,18 @@ const customBackgroundPreview = computed(() =>
         : null,
 )
 
+function currentWindowAspectRatio() {
+    const width = window.innerWidth
+    const height = window.innerHeight
+    return width > 0 && height > 0 ? width / height : 16 / 9
+}
+
+const previewAspectRatio = ref(currentWindowAspectRatio())
+
+function updatePreviewAspectRatio() {
+    previewAspectRatio.value = currentWindowAspectRatio()
+}
+
 function buildAspectRatioOptions(): ImageCropAspectRatioOption[] {
     const width = window.innerWidth
     const height = window.innerHeight
@@ -331,8 +354,18 @@ async function buildCustomBackgroundPath(extension: CustomBackgroundExtension) {
     return join(backgroundDirectory, `launcher-background-${Date.now()}-${suffix}.${extension}`)
 }
 
+/**
+ * The pre-compression import lives next to its rendered background with a
+ * `.source` suffix. Deriving it from the background path keeps the settings
+ * schema unchanged while making "click to re-crop" use the original asset.
+ */
+function sourcePathForBackground(backgroundPath: string) {
+    return backgroundPath.replace(/\.[^./\\]+$/, '.source')
+}
+
 async function adoptCustomBackgroundPath(storedPath: string) {
     const previousPath = settings.value.custom_background_path
+    const previousSourcePath = previousPath ? sourcePathForBackground(previousPath) : null
     settings.value.custom_background_path = storedPath
 
     if (previousPath && previousPath !== storedPath && (await exists(previousPath))) {
@@ -342,12 +375,24 @@ async function adoptCustomBackgroundPath(storedPath: string) {
             console.warn('Failed to remove previous custom background', error)
         }
     }
+
+    if (
+        previousSourcePath &&
+        previousSourcePath !== sourcePathForBackground(storedPath) &&
+        (await exists(previousSourcePath))
+    ) {
+        try {
+            await remove(previousSourcePath)
+        } catch (error) {
+            console.warn('Failed to remove previous background source', error)
+        }
+    }
 }
 
 async function storeCustomBackgroundBytes(
     bytes: Uint8Array,
     extension: CustomBackgroundExtension,
-    options: { bypassLimit?: boolean } = {},
+    options: { bypassLimit?: boolean; sourceBytes?: Uint8Array } = {},
 ) {
     if (!options.bypassLimit && !isCustomBackgroundWithinByteLimit(bytes.byteLength)) {
         addNotification({
@@ -358,11 +403,25 @@ async function storeCustomBackgroundBytes(
     }
 
     const storedPath = await buildCustomBackgroundPath(extension)
+    const sourcePath = sourcePathForBackground(storedPath)
+    if (options.sourceBytes) {
+        try {
+            await writeFile(sourcePath, options.sourceBytes)
+        } catch (error) {
+            try {
+                if (await exists(sourcePath)) await remove(sourcePath)
+            } catch {
+                // Best-effort cleanup of a partial source write.
+            }
+            throw error
+        }
+    }
     try {
         await writeFile(storedPath, bytes)
     } catch (error) {
         try {
             if (await exists(storedPath)) await remove(storedPath)
+            if (options.sourceBytes && (await exists(sourcePath))) await remove(sourcePath)
         } catch {
             // Best-effort cleanup of a partial write.
         }
@@ -391,8 +450,10 @@ async function convertAnimatedCustomBackground(
 
     const preserveOriginalQuality = selection.preserveOriginalQuality
     const outputPath = await buildCustomBackgroundPath('webp')
+    const sourceCopyPath = sourcePathForBackground(outputPath)
     customBackgroundConverting.value = true
     try {
+        await writeFile(sourceCopyPath, bytes)
         const result = await convertAnimatedBackground({
             inputPath: sourcePath,
             outputPath,
@@ -413,6 +474,7 @@ async function convertAnimatedCustomBackground(
     } catch (error) {
         try {
             if (await exists(outputPath)) await remove(outputPath)
+            if (await exists(sourceCopyPath)) await remove(sourceCopyPath)
         } catch {
             // Best-effort cleanup of a failed conversion.
         }
@@ -475,6 +537,7 @@ async function applyCustomBackground(
 
     await storeCustomBackgroundBytes(result.bytes, result.extension, {
         bypassLimit: result.preserveOriginalQuality === true,
+        sourceBytes: bytes,
     })
 }
 
@@ -483,6 +546,33 @@ function notifyUnsupportedBackground() {
         type: 'warning',
         title: formatMessage(messages.customBackgroundAnimatedUnsupported),
     })
+}
+
+async function handleBackgroundPreviewClick() {
+    if (customBackgroundBusy.value) return
+
+    const backgroundPath = settings.value.custom_background_path
+    if (!backgroundPath) {
+        await chooseCustomBackground()
+        return
+    }
+
+    const sourcePath = sourcePathForBackground(backgroundPath)
+    customBackgroundBusy.value = true
+    try {
+        const readPath = (await exists(sourcePath)) ? sourcePath : backgroundPath
+        const bytes = await readFile(readPath)
+        const extension = detectCustomBackgroundExtension(bytes, extensionFromPath(readPath))
+        if (!extension) {
+            notifyUnsupportedBackground()
+            return
+        }
+        await applyCustomBackground(bytes, extension, readPath)
+    } catch (error) {
+        handleError(error)
+    } finally {
+        customBackgroundBusy.value = false
+    }
 }
 
 async function chooseCustomBackground() {
@@ -548,6 +638,8 @@ async function removeCustomBackground() {
     if (!backgroundPath) return
 
     try {
+        const sourcePath = sourcePathForBackground(backgroundPath)
+        if (await exists(sourcePath)) await remove(sourcePath)
         if (await exists(backgroundPath)) await remove(backgroundPath)
         settings.value.custom_background_path = null
     } catch (error) {
@@ -598,10 +690,12 @@ async function setupNativeBackgroundDrop() {
 }
 
 onMounted(() => {
+    window.addEventListener('resize', updatePreviewAspectRatio)
     void setupNativeBackgroundDrop()
 })
 
 onUnmounted(() => {
+    window.removeEventListener('resize', updatePreviewAspectRatio)
     unlistenNativeBackgroundDrop?.()
 })
 </script>

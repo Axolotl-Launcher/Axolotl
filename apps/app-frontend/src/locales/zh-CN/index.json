@@ -2009,6 +2009,9 @@
   "app.appearance-settings.color-theme.title": {
     "message": "色彩主题"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "调整背景裁切"
+  },
   "app.appearance-settings.custom-background.animated-unsupported": {
     "message": "此图片格式不支持用作启动器背景。"
   },

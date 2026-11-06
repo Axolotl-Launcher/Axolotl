@@ -759,6 +759,9 @@
   "app.appearance-settings.color-theme.title": {
     "message": "Color theme"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "Adjust background crop"
+  },
   "app.appearance-settings.custom-background.animated-unsupported": {
     "message": "This image format isn't supported as a launcher background."
   },

@@ -170,6 +170,14 @@ const convertedBackground = {
     byteLength: 1234,
 }
 
+function backgroundWriteCall() {
+    return mocks.writeFile.mock.calls.find(([path]) => !String(path).endsWith('.source'))
+}
+
+function sourceWriteCall() {
+    return mocks.writeFile.mock.calls.find(([path]) => String(path).endsWith('.source'))
+}
+
 it('crops a chosen image before writing it and replaces the previous file', async () => {
     const settings = mountSettings()
     mocks.open.mockResolvedValue('C:/pictures/wall.png')
@@ -177,7 +185,7 @@ it('crops a chosen image before writing it and replaces the previous file', asyn
     mocks.exists.mockResolvedValue(true)
     mocks.cropShow.mockResolvedValue(webpResult)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.open).toHaveBeenCalledOnce()
@@ -197,9 +205,13 @@ it('crops a chosen image before writing it and replaces the previous file', asyn
         '16:10',
     ])
 
-    expect(mocks.writeFile).toHaveBeenCalledOnce()
-    const writtenPath = mocks.writeFile.mock.calls[0][0] as string
+    expect(mocks.writeFile).toHaveBeenCalledTimes(2)
+    const backgroundWrite = backgroundWriteCall()
+    expect(backgroundWrite).toBeDefined()
+    const writtenPath = backgroundWrite![0] as string
     expect(writtenPath).toMatch(/launcher-background-\d+-[a-z0-9]+\.webp$/)
+    expect(sourceWriteCall()![0]).toBe(writtenPath.replace(/\.[^./\\]+$/, '.source'))
+    expect(sourceWriteCall()![1]).toEqual(new Uint8Array([1, 2, 3]))
     expect(settings.custom_background_path).toBe(writtenPath)
     expect(mocks.remove).toHaveBeenCalledWith('C:/data/backgrounds/old.png')
 })
@@ -210,7 +222,7 @@ it('leaves the previous background untouched when cropping is cancelled', async 
     mocks.readFile.mockResolvedValue(new Uint8Array([1, 2, 3]))
     mocks.cropShow.mockResolvedValue(null)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.cropShow).toHaveBeenCalledOnce()
@@ -228,7 +240,7 @@ it('keeps the old background and reports an error when the write fails', async (
     mocks.writeFile.mockRejectedValue(new Error('disk full'))
     mocks.remove.mockResolvedValue(undefined)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.handleError).toHaveBeenCalledOnce()
@@ -262,7 +274,7 @@ it('opens the cropper for a dropped image instead of storing it directly', async
         path: 'C:/pictures/dropped.png',
     })
     expect(mocks.cropShow).toHaveBeenCalledOnce()
-    expect(mocks.writeFile).toHaveBeenCalledOnce()
+    expect(mocks.writeFile).toHaveBeenCalledTimes(2)
 })
 
 it('converts an animated PNG through the native backend', async () => {
@@ -278,7 +290,7 @@ it('converts an animated PNG through the native backend', async () => {
     mocks.cropShowSelection.mockResolvedValue(cropSelection)
     mocks.convertAnimatedBackground.mockResolvedValue(convertedBackground)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.cropShow).not.toHaveBeenCalled()
@@ -308,7 +320,7 @@ it('leaves the old background when an animated conversion is cancelled', async (
     mocks.readFile.mockResolvedValue(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]))
     mocks.cropShowSelection.mockResolvedValue(null)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.cropShowSelection).toHaveBeenCalledOnce()
@@ -327,7 +339,7 @@ it('keeps the old background when an animated conversion fails', async () => {
         message: 'bad animation',
     })
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
@@ -346,7 +358,7 @@ it('passes the oversized auto-compress choice to the backend', async () => {
     })
     mocks.convertAnimatedBackground.mockResolvedValue(convertedBackground)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.convertAnimatedBackground).toHaveBeenCalledWith(
@@ -366,7 +378,7 @@ it('keeps the source quality when the user keeps an oversized animation', async 
     })
     mocks.convertAnimatedBackground.mockResolvedValue(convertedBackground)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.convertAnimatedBackground).toHaveBeenCalledWith(
@@ -392,11 +404,11 @@ it('keeps the source quality for a still image', async () => {
         preserveOriginalQuality: true,
     })
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
-    expect(mocks.writeFile).toHaveBeenCalledOnce()
-    const [writtenPath] = mocks.writeFile.mock.calls[0]
+    expect(mocks.writeFile).toHaveBeenCalledTimes(2)
+    const [writtenPath] = backgroundWriteCall()!
     expect(writtenPath).toMatch(/\.webp$/)
 })
 
@@ -405,7 +417,7 @@ it('explains that AVIF and MP4 need the future FFmpeg backend', async () => {
     mocks.open.mockResolvedValue('C:/pictures/clip.mp4')
     mocks.readFile.mockResolvedValue(new Uint8Array([0, 0, 0, 0x18]))
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.cropShow).not.toHaveBeenCalled()
@@ -425,9 +437,9 @@ it('does not open a second picker while a crop session is pending', async () => 
         }),
     )
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.open).toHaveBeenCalledOnce()
@@ -469,7 +481,7 @@ it('rejects an oversized encoded background before writing it', async () => {
         bytes: { byteLength: MAX_CUSTOM_BACKGROUND_BYTES + 1 } as unknown as Uint8Array,
     })
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.writeFile).not.toHaveBeenCalled()
@@ -485,7 +497,7 @@ it('sniffs a supported image selected with an unknown extension', async () => {
     )
     mocks.cropShow.mockResolvedValue(webpResult)
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.cropShow).toHaveBeenCalledOnce()
@@ -497,10 +509,38 @@ it('rejects an unsupported file selected through the all-files filter', async ()
     mocks.open.mockResolvedValue('C:/pictures/notes.txt')
     mocks.readFile.mockResolvedValue(new TextEncoder().encode('not an image'))
 
-    await wrapper!.get('[role="button"]').trigger('click')
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
     await flushPromises()
 
     expect(mocks.cropShow).not.toHaveBeenCalled()
     expect(mocks.writeFile).not.toHaveBeenCalled()
     expect(mocks.addNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }))
+})
+
+it('re-crops the stored source when the preview is clicked', async () => {
+    mountSettings()
+    mocks.exists.mockImplementation(
+        async (path: string) => path === 'C:/data/backgrounds/old.source',
+    )
+    mocks.readFile.mockResolvedValue(
+        new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    )
+    mocks.cropShow.mockResolvedValue(webpResult)
+
+    await wrapper!.get('[role="button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.open).not.toHaveBeenCalled()
+    expect(mocks.readFile).toHaveBeenCalledWith('C:/data/backgrounds/old.source')
+    expect(mocks.cropShow).toHaveBeenCalledOnce()
+})
+
+it('sizes the preview with the launcher aspect ratio', () => {
+    mountSettings()
+    const preview = wrapper!.get('[role="button"]').element as HTMLElement
+    expect(preview.className).toContain('w-full')
+    expect(Number.parseFloat(preview.style.aspectRatio)).toBeCloseTo(
+        window.innerWidth / window.innerHeight,
+        3,
+    )
 })

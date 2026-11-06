@@ -470,6 +470,9 @@
   "app.appearance-settings.color-theme.title": {
     "message": "色彩主題"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "調整背景裁切"
+  },
   "app.appearance-settings.custom-background.animated-unsupported": {
     "message": "此圖片格式不支援用作啟動器背景。"
   },

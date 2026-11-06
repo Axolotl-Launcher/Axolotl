@@ -1,6 +1,6 @@
 import { flushPromises } from '@vue/test-utils'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { ref } from 'vue'
 
@@ -80,6 +80,83 @@ it('formats JSON through its worker and emits save from the editor shortcut', as
     await userEvent.keyboard('{Control>}s{/Control}')
     expect(wrapper.emitted('save')).toHaveLength(1)
 }, 30000)
+
+it('waits for a formatter provider and releases the wait when its model is disposed', async () => {
+    const { runtime } = await openEditor()
+    const { prepareFormatting } = await import('../components/code-editor/monaco-runtime')
+    const { jsonDefaults } = await import('monaco-editor/language/json/monaco.contribution.js')
+    const { StandaloneServices } =
+        await import('monaco-editor/editor/standalone/browser/standaloneServices.js')
+    const { ILanguageService } = await import('monaco-editor/editor/common/languages/language.js')
+    const modeConfiguration = jsonDefaults.modeConfiguration
+    jsonDefaults.setModeConfiguration({
+        ...modeConfiguration,
+        documentFormattingEdits: false,
+        documentRangeFormattingEdits: false,
+    })
+    const model = runtime.editor.createModel('{}', 'json')
+    const disposedModel = runtime.editor.createModel('{}', 'json')
+    const changedModel = runtime.editor.createModel('{}', 'json')
+    const activation = vi.spyOn(
+        StandaloneServices.get(ILanguageService),
+        'requestRichLanguageFeatures',
+    )
+    let provider: Monaco.IDisposable | undefined
+    try {
+        let ready = false
+        const waiting = prepareFormatting(model).then(() => {
+            ready = true
+        })
+        await waitFor(() => activation.mock.calls.length === 1, {
+            label: 'formatting to request language providers',
+        })
+        expect(ready).toBe(false)
+        provider = runtime.languages.registerDocumentFormattingEditProvider('json', {
+            provideDocumentFormattingEdits: () => [],
+        })
+        await waiting
+        expect(ready).toBe(true)
+        provider.dispose()
+
+        let disposedWaitFinished = false
+        const disposedWait = prepareFormatting(disposedModel).then(() => {
+            disposedWaitFinished = true
+        })
+        await waitFor(() => activation.mock.calls.length === 2, {
+            label: 'the disposable model to wait for its formatter',
+        })
+        expect(disposedWaitFinished).toBe(false)
+        disposedModel.dispose()
+        await disposedWait
+        expect(disposedWaitFinished).toBe(true)
+
+        let changedWaitFinished = false
+        const changedWait = prepareFormatting(changedModel).then(() => {
+            changedWaitFinished = true
+        })
+        await waitFor(() => activation.mock.calls.length === 3, {
+            label: 'the changing model to wait for its formatter',
+        })
+        expect(changedWaitFinished).toBe(false)
+        runtime.editor.setModelLanguage(changedModel, 'toml')
+        await changedWait
+        expect(changedWaitFinished).toBe(true)
+
+        const unsupported = runtime.editor.createModel('name = "test"', 'toml')
+        try {
+            await prepareFormatting(unsupported)
+        } finally {
+            unsupported.dispose()
+        }
+    } finally {
+        provider?.dispose()
+        activation.mockRestore()
+        model.dispose()
+        disposedModel.dispose()
+        changedModel.dispose()
+        jsonDefaults.setModeConfiguration(modeConfiguration)
+    }
+})
 
 it('finds and replaces file text with undo and blocks replacement while busy', async () => {
     const busy = ref(false)

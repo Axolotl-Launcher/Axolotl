@@ -135,8 +135,10 @@ void main() {
     bool cutout = (vMat & 1) != 0;
     bool noMip = (vMat & 2) != 0;
     int anim = vMat >> 2;
-    vec2 dx = dFdx(vUv);
-    vec2 dy = dFdy(vUv);
+    // Cutout blocks are not mipmapped (Sodium's CUTOUT): zero gradients sample the full-size level.
+    float mipmapped = noMip ? 0.0 : 1.0;
+    vec2 dx = dFdx(vUv) * mipmapped;
+    vec2 dy = dFdy(vUv) * mipmapped;
     vec4 c;
     if (anim > 0) {
         // the sprite's current frames from the strip, blended as an interpolated animation
@@ -146,11 +148,11 @@ void main() {
         vec2 scale = atlasSize / stripSize;
         vec2 ua = vec2(local.x * r.z, r.w + (f.x + local.y) * r.z) / stripSize;
         vec2 ub = vec2(local.x * r.z, r.w + (f.y + local.y) * r.z) / stripSize;
-        vec4 a = noMip ? textureLod(strip, ua, 0.0) : textureGrad(strip, ua, dx * scale, dy * scale);
-        vec4 b = noMip ? textureLod(strip, ub, 0.0) : textureGrad(strip, ub, dx * scale, dy * scale);
+        vec4 a = textureGrad(strip, ua, dx * scale, dy * scale);
+        vec4 b = textureGrad(strip, ub, dx * scale, dy * scale);
         c = vec4(mix(a.rgb, b.rgb, f.z), a.a);
     } else {
-        c = noMip ? textureLod(atlas, vUv, 0.0) : textureGrad(atlas, vUv, dx, dy);
+        c = textureGrad(atlas, vUv, dx, dy);
     }
     c *= vColor;
     if (cutout && c.a < 0.1) discard;

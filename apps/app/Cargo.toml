@@ -28,6 +28,7 @@ futures = { workspace = true }
 hyper = { workspace = true, features = ["server"] }
 hyper-util = { workspace = true }
 image = { workspace = true }
+webp-animation = { workspace = true }
 keyring = { workspace = true }
 launcher-mcp = { workspace = true }
 launcher-tools = { workspace = true }

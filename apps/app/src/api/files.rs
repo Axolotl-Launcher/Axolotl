@@ -91,6 +91,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
             file_extract_zip,
             file_save_as,
             file_read_dragged_file,
+            crate::api::background::background_convert_animated,
             screenshot_thumbnail,
             instance_icon_thumbnail,
             studio_read_text,

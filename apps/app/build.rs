@@ -1001,6 +1001,7 @@ fn main() {
                         "file_extract_zip",
                         "file_save_as",
                         "file_read_dragged_file",
+                        "background_convert_animated",
                         "screenshot_thumbnail",
                         "studio_read_text",
                         "studio_read_binary",

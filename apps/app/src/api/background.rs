@@ -185,7 +185,7 @@ fn convert_background(
     let bytes = fs::read(input_path).map_err(|error| {
         io_error("The animated background could not be read", error)
     })?;
-    let format = detect_format(input_path, &bytes)?;
+    let format = detect_format(&bytes)?;
 
     let backend = options.backend.unwrap_or(ConversionBackend::Auto);
     ensure_backend(backend, format, options.ffmpeg_path.is_some())?;
@@ -430,32 +430,52 @@ fn frame_delay_ms(frame: &Frame) -> u64 {
 }
 
 fn detect_format(
-    path: &Path,
     bytes: &[u8],
 ) -> Result<AnimatedFormat, BackgroundConversionError> {
-    let extension = path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-
-    match extension.as_str() {
-        "gif" => Ok(AnimatedFormat::Gif),
-        "avif" => Ok(AnimatedFormat::Avif),
-        "mp4" | "m4v" => Ok(AnimatedFormat::Mp4),
-        "png" if png_declares_animation(bytes) => Ok(AnimatedFormat::Apng),
-        "webp" if webp_declares_animation(bytes) => {
-            Ok(AnimatedFormat::AnimatedWebp)
-        }
-        "png" | "webp" => Err(BackgroundConversionError::new(
-            "unsupported_format",
-            "Static images use the image crop flow",
-        )),
-        _ => Err(BackgroundConversionError::new(
-            "unsupported_format",
-            "The animated background format is not supported",
-        )),
+    if bytes.starts_with(&[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) {
+        return if png_declares_animation(bytes) {
+            Ok(AnimatedFormat::Apng)
+        } else {
+            Err(static_image_error())
+        };
     }
+
+    if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        return Ok(AnimatedFormat::Gif);
+    }
+
+    if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP"
+    {
+        return if webp_declares_animation(bytes) {
+            Ok(AnimatedFormat::AnimatedWebp)
+        } else {
+            Err(static_image_error())
+        };
+    }
+
+    if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" {
+        let header = &bytes[..bytes.len().min(64)];
+        let is_avif = header
+            .windows(4)
+            .any(|brand| brand == b"avif" || brand == b"avis");
+        return Ok(if is_avif {
+            AnimatedFormat::Avif
+        } else {
+            AnimatedFormat::Mp4
+        });
+    }
+
+    Err(BackgroundConversionError::new(
+        "unsupported_format",
+        "The animated background format is not supported",
+    ))
+}
+
+fn static_image_error() -> BackgroundConversionError {
+    BackgroundConversionError::new(
+        "unsupported_format",
+        "Static images use the image crop flow",
+    )
 }
 
 fn is_valid_crop(crop: &NormalizedCropRect) -> bool {
@@ -778,6 +798,33 @@ mod tests {
     }
 
     #[test]
+    fn detects_containers_by_magic_bytes() {
+        assert_eq!(detect_format(b"GIF89a....").unwrap(), AnimatedFormat::Gif);
+        assert_eq!(
+            detect_format(&[
+                0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0,
+                0x61, 0x63, 0x54, 0x4c,
+            ])
+            .unwrap(),
+            AnimatedFormat::Apng
+        );
+        assert_eq!(
+            detect_format(&[
+                0, 0, 0, 0x18, b'f', b't', b'y', b'p', b'a', b'v', b'i', b'f',
+            ])
+            .unwrap(),
+            AnimatedFormat::Avif
+        );
+        assert_eq!(
+            detect_format(&[
+                0, 0, 0, 0x18, b'f', b't', b'y', b'p', b'i', b's', b'o', b'm',
+            ])
+            .unwrap(),
+            AnimatedFormat::Mp4
+        );
+    }
+
+    #[test]
     fn maps_frame_delays_to_milliseconds() {
         let frame = Frame::from_parts(
             RgbaImage::new(1, 1),
@@ -859,8 +906,7 @@ mod tests {
         let input = encoder.finalize(300).unwrap().as_ref().to_vec();
 
         assert_eq!(
-            detect_format(Path::new("launcher-background.webp"), &input)
-                .unwrap(),
+            detect_format(&input).unwrap(),
             AnimatedFormat::AnimatedWebp
         );
 
@@ -916,11 +962,7 @@ mod tests {
             writer.finish().unwrap();
         }
 
-        assert_eq!(
-            detect_format(Path::new("launcher-background.png"), &input)
-                .unwrap(),
-            AnimatedFormat::Apng
-        );
+        assert_eq!(detect_format(&input).unwrap(), AnimatedFormat::Apng);
 
         let mut decoder =
             PngDecoder::new(Cursor::new(input.as_slice())).unwrap();

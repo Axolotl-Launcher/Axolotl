@@ -357,3 +357,28 @@ fn optimize_windows_memory() -> Result<(), String> {
     unsafe { CloseHandle(token) };
     result
 }
+
+/// The per-platform pressure source (spec §7.4): only Windows can trim the
+/// launcher's working set; macOS and Linux have no pressure driver, which is
+/// a declared capability boundary.
+#[cfg(test)]
+mod trim_launcher_working_set_tests {
+    use super::trim_launcher_working_set;
+
+    #[cfg(target_os = "windows")]
+    #[tokio::test]
+    async fn windows_reports_the_working_set_before_and_after() {
+        let (before, after) = trim_launcher_working_set()
+            .await
+            .expect("Windows trims the working set");
+        // Other tests run in this process too, so only measurability is
+        // asserted, not that the set shrank.
+        assert!(before > 0 && after > 0);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[tokio::test]
+    async fn other_platforms_have_no_pressure_driver() {
+        assert_eq!(trim_launcher_working_set().await, None);
+    }
+}

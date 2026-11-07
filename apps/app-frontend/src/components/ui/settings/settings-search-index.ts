@@ -811,6 +811,16 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         keywords: [message('app.settings.resources.proxy-settings', 'Proxy settings')],
     },
     {
+        id: 'resources-force-multiconnection',
+        categoryId: 'content-downloads',
+        targetId: 'settings-target-resources-force-multiconnection',
+        label: message(
+            'app.settings.resources.force-multiconnection',
+            'Force multi-connection downloads',
+        ),
+        keywords: [message('app.settings.resources.experimental', 'Experimental')],
+    },
+    {
         id: 'resources-download-concurrency',
         categoryId: 'content-downloads',
         targetId: 'settings-target-resources-maximum-downloads',

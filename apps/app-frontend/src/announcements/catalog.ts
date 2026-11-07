@@ -38,7 +38,20 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             'zh-CN': 'Axolotl Launcher 1.11.0-beta.3',
         },
         changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added an experimental force multi-connection download option (experimental) in resource management settings to help with slow downloads.',
+                    'zh-CN':
+                        '资源管理设置新增实验性强制多连接下载选项（实验性），可在下载缓慢时尝试开启。',
+                },
+            ],
             fixed: [
+                {
+                    'en-US':
+                        'Fixed modpack download progress undercounting downloaded bytes while large files were still downloading.',
+                    'zh-CN': '修复整合包大文件在下载时总进度显示明显偏低的问题。',
+                },
                 {
                     'en-US':
                         'Fixed CurseForge modpack updates being rejected as stale immediately after reviewing an update.',

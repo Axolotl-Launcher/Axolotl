@@ -1,4 +1,22 @@
 {
+  "app.downloads.slow-downloads.title": {
+    "message": "下载缓慢？"
+  },
+  "app.downloads.slow-downloads.description": {
+    "message": "可以前往 <settings-link>下载设置</settings-link> 开启强制多连接下载功能，可能会帮助提升你的下载速度。"
+  },
+  "app.downloads.slow-downloads.dismiss": {
+    "message": "不再提示"
+  },
+  "app.settings.resources.force-multiconnection": {
+    "message": "强制多连接下载"
+  },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "使用更激进的下载逻辑，可能会优化你的下载速度。当你遇到问题时，请考虑开启这个选项。"
+  },
+  "app.settings.resources.experimental": {
+    "message": "实验性"
+  },
   "app.schematics.source.reden": {
     "message": "Reden"
   },
@@ -11769,7 +11787,7 @@
     "message": "最大并发下载数"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "自动模式会根据设备在 16 到 64 之间选择并发下载数；手动更改会立即生效。"
+    "message": "自动模式会调整连接额度。强制多连接下载最多使用 72 个连接；手动设置更低额度时遵守该值。手动调整会立即生效。"
   },
   "app.settings.resources.maximum-writes": {
     "message": "最大并发写入数"

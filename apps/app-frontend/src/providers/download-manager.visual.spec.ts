@@ -7,6 +7,7 @@ import {
     download_job_retry,
     type InstallJobSnapshot,
 } from '@/helpers/install'
+import { installProgressFraction, installProgressTextSource } from '@/helpers/install-progress'
 
 import { createDownloadManager } from './download-manager'
 
@@ -387,14 +388,78 @@ it('modpack request updates exclude archive and parallel Minecraft bytes from co
             status: 'downloading',
             speed_bytes_per_second: 10,
             eta_seconds: 5,
+            content_bytes: { current: 50, total: 100 },
         })
         await vi.advanceTimersByTimeAsync(16)
         const updated = manager.jobs.value[0]
         expect(updated.items[3].status).toBe('downloading')
         expect(updated.items[3].bytes_downloaded).toBe(10)
-        expect(updated.progress).toEqual(content.progress)
-        expect(updated.summary.bytes_downloaded).toBe(40)
+        expect(updated.progress).toEqual({
+            ...content.progress,
+            secondary: { current: 50, total: 100 },
+        })
+        expect(updated.summary.bytes_downloaded).toBe(50)
         expect(updated.summary.bytes_total).toBe(100)
+        expect(installProgressFraction(updated)).toBe(0.5)
+        expect(installProgressTextSource(updated)).toEqual({
+            type: 'bytes',
+            current: 50,
+            total: 100,
+        })
+
+        // Replacing an earlier per-file sample must retain aggregate arrival order.
+        for (const [id, bytes, current] of [
+            ['mods/b.jar', 15, 55],
+            ['minecraft.jar', 30, 60],
+            ['mods/b.jar', 25, 65],
+        ] as const)
+            request({
+                type: 'progress',
+                job_id: 'one',
+                id,
+                bytes,
+                status: 'downloading',
+                content_bytes: { current, total: 100 },
+            })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].summary.bytes_downloaded).toBe(65)
+
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            name: 'mods/b.jar',
+            bytes_total: 60,
+            attempt: 2,
+            max_attempts: 3,
+        })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            bytes: 10,
+            status: 'downloading',
+            content_bytes: { current: 50, total: 100 },
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(installProgressFraction(manager.jobs.value[0])).toBe(0.5)
+
+        backend.jobs.mock.calls[0][0]({
+            ...manager.jobs.value[0],
+            phase: 'extracting_overrides',
+            progress: null,
+        })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            bytes: 20,
+            status: 'downloading',
+            content_bytes: { current: 60, total: 100 },
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toBeNull()
+        expect(installProgressFraction(manager.jobs.value[0])).toBeNull()
     } finally {
         manager.dispose()
         vi.useRealTimers()

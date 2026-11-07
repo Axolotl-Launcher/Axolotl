@@ -8,6 +8,7 @@ use crate::state::store::settings::{
 use crate::state::store::{Atom, Handle};
 use crate::util::download::constants::{
     AUTO_DOWNLOAD_CONCURRENCY_INITIAL, DOWNLOAD_CONCURRENCY_HARD_MAX,
+    FORCED_DOWNLOAD_CONCURRENCY_MAX,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -115,6 +116,8 @@ pub struct Settings {
     pub max_concurrent_writes: usize,
     #[serde(default)]
     pub auto_concurrent_downloads: bool,
+    #[serde(default)]
+    pub force_multiconnection_downloads: bool,
     #[serde(default)]
     pub minecraft_metadata_source: DownloadSourceMode,
     #[serde(default)]
@@ -346,6 +349,7 @@ impl Default for Settings {
             max_concurrent_downloads: 10,
             max_concurrent_writes: 10,
             auto_concurrent_downloads: true,
+            force_multiconnection_downloads: false,
             minecraft_metadata_source: DownloadSourceMode::Auto,
             minecraft_file_source: DownloadSourceMode::Auto,
             modrinth_source: DownloadSourceMode::Auto,
@@ -547,6 +551,8 @@ impl Settings {
                 as usize,
             max_concurrent_writes: record.max_concurrent_writes.max(1) as usize,
             auto_concurrent_downloads: record.auto_concurrent_downloads,
+            force_multiconnection_downloads: record
+                .force_multiconnection_downloads,
             minecraft_metadata_source: to_source_mode(
                 record.minecraft_metadata_source,
             ),
@@ -758,6 +764,8 @@ impl Settings {
                 .curseforge_source
                 .prefers_mirror(auto_prefers_mirror),
             auto_concurrent_downloads: settings.auto_concurrent_downloads,
+            force_multiconnection_downloads: settings
+                .force_multiconnection_downloads,
             minecraft_metadata_source: from_source_mode(
                 settings.minecraft_metadata_source,
             ),
@@ -858,7 +866,14 @@ impl Settings {
     }
 
     pub fn effective_max_concurrent_downloads(&self) -> usize {
-        if self.auto_concurrent_downloads {
+        if self.force_multiconnection_downloads {
+            if self.auto_concurrent_downloads {
+                FORCED_DOWNLOAD_CONCURRENCY_MAX
+            } else {
+                self.max_concurrent_downloads
+                    .clamp(1, FORCED_DOWNLOAD_CONCURRENCY_MAX)
+            }
+        } else if self.auto_concurrent_downloads {
             AUTO_DOWNLOAD_CONCURRENCY_INITIAL
         } else {
             self.max_concurrent_downloads
@@ -1229,6 +1244,35 @@ mod tests {
     use super::*;
     use crate::state::store::Collection as _;
     use crate::state::store::tests::support::migrated_pool;
+
+    #[test]
+    fn forced_download_mode_is_opt_in_and_preserves_manual_limits() {
+        let mut settings = Settings::default();
+        assert!(!settings.force_multiconnection_downloads);
+        let mut legacy = serde_json::to_value(&settings).unwrap();
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("force_multiconnection_downloads");
+        assert!(
+            !serde_json::from_value::<Settings>(legacy)
+                .unwrap()
+                .force_multiconnection_downloads
+        );
+        settings.force_multiconnection_downloads = true;
+        assert_eq!(
+            settings.effective_max_concurrent_downloads(),
+            FORCED_DOWNLOAD_CONCURRENCY_MAX
+        );
+        settings.auto_concurrent_downloads = false;
+        settings.max_concurrent_downloads = 80;
+        assert_eq!(settings.effective_max_concurrent_downloads(), 72);
+        settings.max_concurrent_downloads = 32;
+        assert_eq!(settings.effective_max_concurrent_downloads(), 32);
+        let restored = Settings::from_record(settings.to_record().unwrap());
+        assert!(restored.force_multiconnection_downloads);
+        assert_eq!(restored.max_concurrent_downloads, 32);
+    }
 
     #[test]
     fn download_diagnostics_requires_developer_mode_and_explicit_flag() {

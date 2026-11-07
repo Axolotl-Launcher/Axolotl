@@ -13,6 +13,7 @@ mod segmented;
 mod tail;
 mod throttle;
 mod transfer;
+mod weighted;
 
 #[cfg(test)]
 mod tests;

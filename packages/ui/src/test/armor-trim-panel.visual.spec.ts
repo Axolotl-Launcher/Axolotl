@@ -17,6 +17,15 @@ afterEach(() =>
         .forEach((fn) => fn()),
 )
 
+/**
+ * The tooltip layer delays showing by 200ms and closing by 80ms plus 140ms, and
+ * the panel below walks four option groups in sequence, so this file already
+ * spends about 1.7s inside those timers before any assertion runs. A full CI run
+ * shares one browser with fifty other spec files, which stretches every timer
+ * behind the closing chain; the harness default of 2s is too tight there.
+ */
+const TOOLTIP_TIMEOUT_MS = 6000
+
 async function panel() {
     const config = ref(createDefaultArmorPreviewConfig())
     config.value.helmet = { material: 'diamond', trimPattern: 'bolt', trimMaterial: 'gold' }
@@ -82,7 +91,9 @@ it('reuses the tooltip immediately between peer options and keeps their selectio
             .findAll('button')
             .map((button) => button.element as HTMLButtonElement)
         first.dispatchEvent(new MouseEvent('mouseenter'))
-        await waitFor(() => !!document.querySelector('[role="tooltip"]'))
+        await waitFor(() => !!document.querySelector('[role="tooltip"]'), {
+            timeoutMs: TOOLTIP_TIMEOUT_MS,
+        })
         const tooltip = document.querySelector('[role="tooltip"]')!
         first.dispatchEvent(new MouseEvent('mouseleave'))
         second.dispatchEvent(new MouseEvent('mouseenter'))
@@ -91,14 +102,18 @@ it('reuses the tooltip immediately between peer options and keeps their selectio
         expect(second.getAttribute('aria-describedby')).toBe(tooltip.id)
         expect(first.hasAttribute('aria-describedby')).toBe(false)
         second.dispatchEvent(new MouseEvent('mouseleave'))
-        await waitFor(() => !document.querySelector('[role="tooltip"]'))
+        await waitFor(() => !document.querySelector('[role="tooltip"]'), {
+            timeoutMs: TOOLTIP_TIMEOUT_MS,
+        })
     }
     await wrapper.get('button[aria-label="Diamond Helmet"]').trigger('click')
     await wrapper.get('button[aria-label="Coast Armor Trim"]').trigger('click')
     expect(config.value.helmet.material).toBe('diamond')
     expect(config.value.helmet.trimPattern).toBe('coast')
     wrapper.get<HTMLButtonElement>('button[aria-label="Coast Armor Trim"]').element.focus()
-    await waitFor(() => !!document.querySelector('[role="tooltip"]'))
+    await waitFor(() => !!document.querySelector('[role="tooltip"]'), {
+        timeoutMs: TOOLTIP_TIMEOUT_MS,
+    })
     wrapper.unmount()
     expect(document.querySelector('[role="tooltip"]')).toBeNull()
 })

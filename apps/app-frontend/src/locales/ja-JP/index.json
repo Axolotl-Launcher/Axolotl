@@ -785,6 +785,15 @@
   "app.appearance-settings.color-theme.title": {
     "message": "Color theme"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "Adjust background crop"
+  },
+  "app.appearance-settings.custom-background.animated-unsupported": {
+    "message": "This image format isn't supported as a launcher background."
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF and MP4 backgrounds need FFmpeg support, which is not available yet."
+  },
   "app.appearance-settings.custom-background.blur": {
     "message": "Background blur"
   },
@@ -803,6 +812,21 @@
   "app.appearance-settings.custom-background.component-opacity-description": {
     "message": "How opaque launcher components and chrome stay over a custom background. At 100% components are fully opaque; lower it to let the image show through."
   },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "The animated background could not be converted."
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "Converting animated background…"
+  },
+  "app.appearance-settings.custom-background.crop-aspect-window": {
+    "message": "Current window"
+  },
+  "app.appearance-settings.custom-background.crop-confirm": {
+    "message": "Use as background"
+  },
+  "app.appearance-settings.custom-background.crop-title": {
+    "message": "Crop launcher background"
+  },
   "app.appearance-settings.custom-background.description": {
     "message": "Choose or drop a custom image, then fine-tune how it blends with the launcher interface."
   },
@@ -818,6 +842,24 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "Control how strongly the image shows through the interface."
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "All files"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "Image or video"
+  },
+  "app.appearance-settings.custom-background.preview-close": {
+    "message": "Close preview"
+  },
+  "app.appearance-settings.custom-background.preview-expand": {
+    "message": "Expand preview"
+  },
+  "app.appearance-settings.custom-background.preview-pin": {
+    "message": "Keep open"
+  },
+  "app.appearance-settings.custom-background.preview-unpin": {
+    "message": "Unpin"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "Remove"
   },
@@ -826,6 +868,9 @@
   },
   "app.appearance-settings.custom-background.title": {
     "message": "Launcher background"
+  },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "This image is too large to use as a launcher background."
   },
   "app.appearance-settings.default-landing-page.description": {
     "message": "Change the page to which the launcher opens on."
@@ -4310,26 +4355,14 @@
   "app.java-arguments.presets.use": {
     "message": "Use preset"
   },
-  "app.java-download-confirmation.body": {
-    "message": "No compatible Java {version} installation was found. You can download it now or postpone Java setup while the remaining game resources continue downloading."
+  "app.install.missing-java.body": {
+    "message": "This installation cannot continue because no usable Java {version} installation was found. You can install or configure Java {version} in Java settings, then try installing again."
   },
-  "app.java-download-confirmation.download": {
-    "message": "Download Java"
+  "app.install.missing-java.open-settings": {
+    "message": "Open Java settings"
   },
-  "app.java-download-confirmation.later-description": {
-    "message": "The instance will finish installing, but Java {version} must be configured before you can play."
-  },
-  "app.java-download-confirmation.postponed-body": {
-    "message": "The instance will finish installing. Configure Java {version} before launching it."
-  },
-  "app.java-download-confirmation.postponed-title": {
-    "message": "Java setup postponed"
-  },
-  "app.java-download-confirmation.set-up-later": {
-    "message": "Set up later"
-  },
-  "app.java-download-confirmation.title": {
-    "message": "Download Java {version}?"
+  "app.install.missing-java.title": {
+    "message": "Java {version} is needed to install this instance"
   },
   "app.java.already-installed": {
     "message": "Already installed"
@@ -8170,6 +8203,9 @@
   },
   "app.library.view.cards": {
     "message": "Library cards"
+  },
+  "app.library.view.list": {
+    "message": "Detailed list"
   },
   "app.library.view.standard": {
     "message": "Standard grid"
@@ -12703,6 +12739,9 @@
   },
   "app.settings.groups.support": {
     "message": "App & support"
+  },
+  "app.settings.java.use-console-java": {
+    "message": "Use java instead of javaw when launching Minecraft"
   },
   "app.settings.java.auto-high-performance-mode": {
     "message": "Automatically use high-performance GPU for Java"

@@ -309,6 +309,7 @@
                             : undefined
                     "
                     :action-loading="contentUpdateSubmitting"
+                    :action-error="contentUpdateError"
                     :hide-on-update="false"
                     @retry="contentVersions.retry"
                     @update="handleModalUpdate"
@@ -429,6 +430,7 @@ import {
     normalizeInstanceContentSnapshot,
 } from '@/helpers/instance-content'
 import { postUpgradeWarningForContent } from '@/helpers/post-upgrade-notice'
+import { resourceOperationError } from '@/helpers/resource-operation-logic'
 import {
     confirmedContentGroupKey,
     duplicateGroupUpdateEntries,
@@ -1460,6 +1462,7 @@ const updaterReleaseRefs = computed(
         ),
 )
 const contentUpdateSubmitting = ref(false)
+const contentUpdateError = ref<string>()
 const updatingModpack = ref(false)
 const pendingModpackUpdateVersion = ref<Labrinth.Versions.v2.Version | null>(null)
 const isModpackUpdateDowngrade = ref(false)
@@ -2306,6 +2309,7 @@ async function handleUpdate(item: ContentItem) {
 }
 
 async function handleSwitchVersion(item: ContentItem) {
+    contentUpdateError.value = undefined
     const entry = contentSnapshot.value?.items.find(
         (entry) => entry.entryId === item.instanceEntryId,
     )
@@ -2339,6 +2343,7 @@ watch(
 )
 
 async function handleModpackUpdate() {
+    contentUpdateError.value = undefined
     const link = props.instance.link
     if (!link?.project_id) return
     const projectId =
@@ -2380,6 +2385,7 @@ function updaterChangelogRef(version: Labrinth.Versions.v2.Version): SourceRelea
 }
 
 function resetUpdateState() {
+    contentUpdateError.value = undefined
     contentVersions.reset()
     updatingModpack.value = false
     updatingProject.value = null
@@ -2439,7 +2445,7 @@ async function handleModpackUpdateConfirm() {
         await initProjects()
         succeeded = true
     } catch (error) {
-        handleError(error as Error)
+        contentUpdateError.value = resourceOperationError(error, formatMessage)
     } finally {
         isModpackUpdating.value = false
         contentUpdateSubmitting.value = false
@@ -2460,6 +2466,7 @@ async function handleModalUpdate(
     event?: MouseEvent,
 ) {
     if (contentUpdateSubmitting.value) return
+    contentUpdateError.value = undefined
     contentUpdateSubmitting.value = true
     let succeeded = false
     if (updatingModpack.value) {

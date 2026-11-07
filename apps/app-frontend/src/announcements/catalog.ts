@@ -30,6 +30,30 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.11.0-beta.3',
+        version: '1.11.0-beta.3',
+        publishedAt: '2026-11-07',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.0-beta.3',
+            'zh-CN': 'Axolotl Launcher 1.11.0-beta.3',
+        },
+        changes: {
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed CurseForge modpack updates being rejected as stale immediately after reviewing an update.',
+                    'zh-CN': '修复 CurseForge 整合包更新在确认后立即被判定为过期、无法开始的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed missing error messages in the modpack version picker after an update failed, keeping the selected version available for retry.',
+                    'zh-CN':
+                        '修复整合包更新失败时版本选择弹窗缺少错误提示的问题，并保留所选版本以便重试。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.11.0-beta.2',
         version: '1.11.0-beta.2',
         publishedAt: '2026-11-04',

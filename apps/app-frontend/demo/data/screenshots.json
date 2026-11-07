@@ -115,5 +115,13 @@
     "source_url": "https://cdn.modrinth.com/data/AANobbMI/images/b681a9e87daa53a0e85336a894db70427007149b.webp",
     "width": 854,
     "height": 960
+  },
+  {
+    "instance_id": "fabulously-optimized",
+    "image": "fabulously-optimized/ancient-city.webp",
+    "title": "Sculk shriekers in an ancient city",
+    "source": "captured in Minecraft 1.21.8 (Fabric, Sodium 0.7.3, vanilla textures) from a save of seed -8110129503177069595, at 89302.49 -36.4 -40553.02",
+    "width": 2560,
+    "height": 1566
   }
 ]

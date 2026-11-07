@@ -2881,6 +2881,8 @@ pub struct InstallContentRollbackSnapshot {
     pub staging_id: String,
     pub stage: InstallContentRollbackStage,
     #[serde(default)]
+    pub retain_original_files: bool,
+    #[serde(default)]
     pub scope: InstallContentRollbackScope,
     pub files: Vec<InstallRollbackFile>,
     pub entries: Vec<InstallRollbackContentEntry>,

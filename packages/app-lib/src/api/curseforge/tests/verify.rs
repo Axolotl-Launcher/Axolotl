@@ -261,6 +261,7 @@ async fn failed_curseforge_verification_never_replaces_existing_file() {
             cancellation: CancellationToken::new(),
         },
         database_tx,
+        None,
     )
     .await
     .unwrap_err();

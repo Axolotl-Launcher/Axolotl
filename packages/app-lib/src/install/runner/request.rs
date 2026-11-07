@@ -681,6 +681,10 @@ pub(super) async fn run_request(
             file_id,
         } => {
             prepare_existing_rollback(job_state, state, &instance_id).await?;
+            recovery::prepare_existing_pack_update_rollback(
+                job_id, job_state, state,
+            )
+            .await?;
             crate::state::instances::commands::set_instance_install_stage(
                 &instance_id,
                 InstanceInstallStage::PackInstalling,

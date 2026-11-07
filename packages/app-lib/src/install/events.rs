@@ -626,6 +626,61 @@ impl InstallProgressReporter {
         emit_install_job(&record.snapshot()).await
     }
 
+    pub(crate) async fn track_pack_update_file(
+        &self,
+        relative_path: &str,
+        sha1: &str,
+        size: u64,
+    ) -> crate::Result<()> {
+        let app_state = crate::State::get().await?;
+        let mut state = self.state.lock().await;
+        self.sync_latest(&mut state, &app_state).await?;
+        let Some(snapshot) = state
+            .job
+            .rollback
+            .as_mut()
+            .and_then(|rollback| rollback.content.as_mut())
+            .filter(|snapshot| snapshot.retain_original_files)
+        else {
+            return Ok(());
+        };
+        path_util::SafeRelativeUtf8UnixPathBuf::try_from(
+            relative_path.to_owned(),
+        )?;
+        if snapshot.protected_paths.iter().any(|path| {
+            crate::state::instances::commands::materialization_path_key(path)
+                == crate::state::instances::commands::materialization_path_key(
+                    relative_path,
+                )
+        }) {
+            return Err(crate::ErrorKind::InputError(format!(
+                "Pack update would replace user-owned content: {relative_path}"
+            ))
+            .into());
+        }
+        let file = super::model::InstallRollbackReplacementFile {
+            relative_path: relative_path.to_owned(),
+            sha1: sha1.to_owned(),
+            size,
+        };
+        // One target can be published by a download and then by an archive
+        // override; either identity is valid if recovery interrupts that sequence.
+        if !snapshot.replacement_files.iter().any(|file| {
+            crate::state::instances::commands::materialization_path_key(
+                &file.relative_path,
+            ) == crate::state::instances::commands::materialization_path_key(
+                relative_path,
+            ) && file.size == size
+                && file.sha1.eq_ignore_ascii_case(sha1)
+        }) {
+            snapshot.replacement_files.push(file);
+        }
+        let record =
+            store::update_state(self.job_id, &state.job, &app_state).await?;
+        state.mark_persisted(record.snapshot());
+        Ok(())
+    }
+
     pub async fn track_rollback_paths(
         &self,
         paths: Vec<String>,

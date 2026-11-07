@@ -45,6 +45,15 @@ const messages = defineMessages({
         id: 'app.oobe.migration.description',
         defaultMessage: 'Bring your existing instances and .minecraft folders along.',
     },
+    javaLabel: { id: 'app.oobe.java.label', defaultMessage: 'Java' },
+    javaTitle: {
+        id: 'app.oobe.java.title',
+        defaultMessage: 'Choose or download Java.',
+    },
+    javaDescription: {
+        id: 'app.oobe.java.description',
+        defaultMessage: 'Minecraft runs on Java. Use one you already have, or download one.',
+    },
     appearanceLabel: { id: 'app.oobe.appearance.label', defaultMessage: 'Appearance' },
     appearanceTitle: {
         id: 'app.oobe.appearance.title',
@@ -88,6 +97,16 @@ export const OOBE_STEPS: readonly OobeStepDefinition[] = [
         skippable: true,
         component: defineAsyncComponent(() => import('./steps/migration/MigrationStep.vue')),
         art: defineAsyncComponent(() => import('./steps/migration/MigrationArt.vue')),
+    },
+    {
+        id: 'java_v1',
+        label: messages.javaLabel,
+        title: messages.javaTitle,
+        description: messages.javaDescription,
+        layout: 'card',
+        skippable: true,
+        component: defineAsyncComponent(() => import('./steps/java/JavaStep.vue')),
+        art: defineAsyncComponent(() => import('./steps/java/JavaArt.vue')),
     },
     {
         id: 'appearance_v1',

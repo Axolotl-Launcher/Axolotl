@@ -35,6 +35,14 @@ const backend = vi.hoisted(() => ({
     syncPending: null as Promise<void> | null,
     syncImported: 2,
     failImport: false,
+    javas: [] as Array<{
+        parsed_version: number
+        version: string
+        architecture: string
+        path: string
+        distribution: string | null
+    }>,
+    javaDefaults: [] as Array<{ parsed_version: number; path: string }>,
     invoke: vi.fn(),
 }))
 
@@ -78,6 +86,23 @@ backend.invoke.mockImplementation(async (command: string, args?: Record<string, 
                 missing: 0,
                 errors: [],
             }
+        case 'plugin:jre|jre_find_filtered_jres':
+            return backend.javas
+        case 'plugin:jre|get_java_default_versions':
+            return backend.javaDefaults
+        case 'plugin:jre|set_java_default_version': {
+            const java = backend.javas.find((entry) => entry.path === args?.path)
+            if (!java) throw new Error('not a Java runtime')
+            backend.javaDefaults = [
+                ...backend.javaDefaults.filter(
+                    (entry) => entry.parsed_version !== java.parsed_version,
+                ),
+                java,
+            ]
+            return java
+        }
+        case 'plugin:jre|jre_get_jre':
+            return backend.javas.find((entry) => entry.path === args?.path) ?? null
         case 'plugin:install|install_import_instance':
             if (backend.failImport) throw new Error('import could not be queued')
             return { job_id: 'oobe-import' }
@@ -101,6 +126,8 @@ afterEach(() => {
     backend.syncPending = null
     backend.syncImported = 2
     backend.failImport = false
+    backend.javas = []
+    backend.javaDefaults = []
 })
 
 function i18n(locale: 'en-US' | 'zh-CN') {
@@ -266,6 +293,14 @@ it('walks the whole flow and records each step as the user moves past it', async
     await shot('oobe-migration')
 
     button('Skip')!.click()
+    await waitFor(() => heading() === 'Choose or download Java.', { label: 'java step' })
+    await waitFor(() => document.body.textContent!.includes('No Java installations were found'), {
+        label: 'java scan',
+    })
+    expectInsideCard()
+    await shot('oobe-java-empty')
+
+    button('Skip')!.click()
     await waitFor(() => heading() === 'Choose the style you like.', { label: 'appearance step' })
     await waitFor(() => document.body.textContent!.includes('Match system'), {
         label: 'appearance options',
@@ -291,6 +326,7 @@ it('walks the whole flow and records each step as the user moves past it', async
         'language_v1',
         'account_v1',
         'migration_v1',
+        'java_v1',
         'appearance_v1',
         'welcome_v1',
     ])
@@ -552,6 +588,74 @@ it('uses the official shared game folder in place in the light theme', async () 
     await shot('oobe-migration-shared-light')
 })
 
+const javaOnly = OOBE_STEPS.filter((step) => ['java_v1', 'welcome_v1'].includes(step.id))
+
+function javaRuntime(parsed: number, version: string, path: string) {
+    return {
+        parsed_version: parsed,
+        version,
+        architecture: 'x86_64',
+        path,
+        distribution: 'Temurin',
+    }
+}
+
+it('groups the Java found on this device and changes Skip to Next once one is chosen', async () => {
+    backend.javas = [
+        javaRuntime(17, '17.0.12', 'C:/Program Files/Eclipse Adoptium/jdk-17/bin/javaw.exe'),
+        javaRuntime(21, '21.0.5', 'C:/Program Files/Eclipse Adoptium/jdk-21/bin/javaw.exe'),
+        javaRuntime(21, '21.0.3', 'D:/Java/jdk-21/bin/javaw.exe'),
+    ]
+    backend.javaDefaults = [backend.javas[1]!]
+    const { events } = await render('en-US', javaOnly)
+    const choice = (path: string) =>
+        Array.from(document.querySelectorAll<HTMLElement>('.oobe-root [role="radio"]')).find(
+            (entry) => entry.textContent?.includes(path),
+        )
+    await waitFor(() => !!choice('D:/Java/jdk-21/bin/javaw.exe'), { label: 'found Java' })
+    expect(document.querySelectorAll('.oobe-root [role="radiogroup"]')).toHaveLength(2)
+    expect(
+        choice('C:/Program Files/Eclipse Adoptium/jdk-21/bin/javaw.exe')!.getAttribute(
+            'aria-checked',
+        ),
+    ).toBe('true')
+    expect(button('Skip')!.disabled).toBe(false)
+    expectInsideCard()
+    await shot('oobe-java-found')
+
+    choice('C:/Program Files/Eclipse Adoptium/jdk-21/bin/javaw.exe')!.click()
+    await flushPromises()
+    expect(button('Next')).toBeUndefined()
+
+    choice('D:/Java/jdk-21/bin/javaw.exe')!.click()
+    await waitFor(() => !!button('Next'), { label: 'Java chosen' })
+    expect(backend.invoke).toHaveBeenCalledWith('plugin:jre|set_java_default_version', {
+        majorVersion: 21,
+        path: 'D:/Java/jdk-21/bin/javaw.exe',
+    })
+    expect(choice('D:/Java/jdk-21/bin/javaw.exe')!.getAttribute('aria-checked')).toBe('true')
+    expect(events.complete).toEqual(['java_v1'])
+    applyTheme('light')
+    await shot('oobe-java-found-light')
+})
+
+it('keeps Skip when a typed Java path cannot be started', async () => {
+    await render('zh-CN', javaOnly)
+    await waitFor(() => heading() === '选择或下载 Java。', { label: 'zh java step' })
+    const input = document.querySelector<HTMLInputElement>('.oobe-root input')!
+    input.value = 'C:/nothing/java.exe'
+    input.dispatchEvent(new Event('input'))
+    await flushPromises()
+    button('添加')!.click()
+    await waitFor(() => document.body.textContent!.includes('无法从这个路径启动 Java。'), {
+        label: 'invalid Java path',
+    })
+    expect(button('跳过')!.disabled).toBe(false)
+    const card = document.querySelector<HTMLElement>('.oobe-card')!
+    expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth)
+    await shot('oobe-java-invalid-zh')
+})
+
 it('shows only the steps a release added, and writes the record in order', async () => {
     const saved: string[][] = []
     let release!: () => void
@@ -562,9 +666,9 @@ it('shows only the steps a release added, and writes the record in order', async
                 release = resolve
             }),
     )
-    expect(controller.prepare(['language_v1', 'account_v1', 'migration_v1', 'welcome_v1'])).toBe(
-        true,
-    )
+    expect(
+        controller.prepare(['language_v1', 'account_v1', 'migration_v1', 'java_v1', 'welcome_v1']),
+    ).toBe(true)
     expect(controller.steps.value.map((step) => step.id)).toEqual(['appearance_v1'])
 
     void controller.complete('appearance_v1')
@@ -573,7 +677,7 @@ it('shows only the steps a release added, and writes the record in order', async
     release()
     await controller.finish()
     expect(saved).toEqual([
-        ['language_v1', 'account_v1', 'migration_v1', 'welcome_v1', 'appearance_v1'],
+        ['language_v1', 'account_v1', 'migration_v1', 'java_v1', 'welcome_v1', 'appearance_v1'],
     ])
     expect(controller.prepare(saved[0])).toBe(false)
 })

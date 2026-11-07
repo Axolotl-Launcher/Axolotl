@@ -8,6 +8,7 @@ export const OOBE_STEP_IDS = [
     'language_v1',
     'account_v1',
     'migration_v1',
+    'java_v1',
     'appearance_v1',
     'welcome_v1',
 ] as const

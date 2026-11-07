@@ -5696,6 +5696,54 @@
   "app.oobe.migration.use-folder": {
     "message": "使用此資料夾"
   },
+  "app.oobe.java.add.action": {
+    "message": "新增"
+  },
+  "app.oobe.java.add.added": {
+    "message": "已新增 Java {version}，現在用作 Java {major}。"
+  },
+  "app.oobe.java.add.description": {
+    "message": "填入 java 執行檔的路徑，或瀏覽選擇。"
+  },
+  "app.oobe.java.add.invalid": {
+    "message": "無法從這個路徑啟動 Java。"
+  },
+  "app.oobe.java.add.placeholder": {
+    "message": "/path/to/java"
+  },
+  "app.oobe.java.add.title": {
+    "message": "填入已有的 Java"
+  },
+  "app.oobe.java.description": {
+    "message": "Minecraft 需要 Java 才能執行。可以使用已有的 Java，也可以下載一個。"
+  },
+  "app.oobe.java.download.description": {
+    "message": "選擇發行版和版本。下載期間可以繼續設定。"
+  },
+  "app.oobe.java.download.done": {
+    "message": "Java 已下載。"
+  },
+  "app.oobe.java.download.downloading": {
+    "message": "正在下載 Java…"
+  },
+  "app.oobe.java.download.title": {
+    "message": "下載 Java"
+  },
+  "app.oobe.java.found.description": {
+    "message": "為每個 Java 版本選擇要使用的那一個。"
+  },
+  "app.oobe.java.found.title": {
+    "message": "在此裝置上找到"
+  },
+  "app.oobe.java.label": {
+    "message": "Java"
+  },
+  "app.oobe.java.none-found": {
+    "message": "沒有在此裝置上找到 Java。"
+  },
+  "app.oobe.java.title": {
+    "message": "選擇或下載 Java。"
+  },
   "app.oobe.progress": {
     "message": "設定進度"
   },

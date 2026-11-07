@@ -66,7 +66,7 @@
 
                     <div
                         v-if="loadState === 'loading'"
-                        class="absolute inset-0 flex items-center justify-center gap-2 bg-surface-1/80 text-sm text-[var(--color-text-tertiary)]"
+                        class="crop-loading-scrim absolute inset-0 flex items-center justify-center gap-2 text-sm text-[var(--color-text-tertiary)]"
                     >
                         <SpinnerIcon class="size-5 animate-spin" />
                         {{ formatMessage(messages.loading) }}
@@ -74,14 +74,14 @@
                     <div
                         v-else-if="loadError"
                         role="alert"
-                        class="absolute inset-0 flex items-center justify-center bg-surface-1/90 p-6 text-center text-sm text-red"
+                        class="crop-error-scrim absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-red"
                     >
                         {{ loadError }}
                     </div>
                     <div
                         v-else-if="loadState === 'oversized'"
                         data-image-crop-oversized
-                        class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface-1/95 p-6 text-center"
+                        class="crop-oversized-scrim absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 p-6 text-center"
                     >
                         <p class="m-0 font-semibold text-[var(--color-text-primary)]">
                             {{ formatMessage(messages.oversizedTitle) }}
@@ -213,7 +213,7 @@
                 <p
                     v-if="exportError"
                     role="alert"
-                    class="m-0 rounded-lg border border-solid border-red bg-red/10 p-2 text-sm text-red"
+                    class="m-0 rounded-lg border border-solid border-red bg-bg-red p-2 text-sm text-red"
                 >
                     {{ exportError }}
                 </p>
@@ -1091,5 +1091,29 @@ onBeforeUnmount(() => {
         6px -6px,
         -6px 0;
     background-size: 12px 12px;
+}
+
+.crop-loading-scrim {
+    background-color: color-mix(
+        in srgb,
+        var(--surface-1) var(--opacity-ratio-keep-80),
+        transparent
+    );
+}
+
+.crop-error-scrim {
+    background-color: color-mix(
+        in srgb,
+        var(--surface-1) var(--opacity-ratio-keep-90),
+        transparent
+    );
+}
+
+.crop-oversized-scrim {
+    background-color: color-mix(
+        in srgb,
+        var(--surface-1) var(--opacity-ratio-keep-95),
+        transparent
+    );
 }
 </style>

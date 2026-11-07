@@ -273,10 +273,12 @@
       "id": "R1",
       "file": "packages/app-lib/src/state/instances/config_sync.rs",
       "business": "instance config sync loop",
-      "level": "L1",
-      "locks": [],
+      "level": "L3",
+      "locks": [
+        "theseus::state::InstanceLockManager.locks"
+      ],
       "backfilled": true,
-      "basis": "no mutex or single-writer permit held (writes go through store); rebuildable maintenance loop"
+      "basis": "holds the per-instance content lock across metadata reads and config writes to serialize with instance deletion"
     },
     {
       "id": "R2",

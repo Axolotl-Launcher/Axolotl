@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
+[package.metadata.cargo-machete]
+# Used in build.rs to embed the Windows installer icon.
+ignored = ["embed-resource"]
+
 [build-dependencies]
 embed-resource = "3.0.11"
 

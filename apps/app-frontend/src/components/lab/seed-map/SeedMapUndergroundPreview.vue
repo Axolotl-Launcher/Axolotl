@@ -478,7 +478,7 @@ onBeforeUnmount(() => {
             atlas.width = 1
             atlas.height = 1
         }
-        texture.image = undefined
+        ;(texture as { image?: HTMLCanvasElement }).image = undefined
     }
     texture = undefined
     scene?.dispose()
@@ -497,7 +497,6 @@ onBeforeUnmount(() => {
 <template>
     <div
         class="absolute inset-0 z-30 flex min-h-0 flex-col bg-surface-1"
-        data-onboarding-id="seed-map-underground-3d-view"
         @pointerdown.stop
         @wheel.stop
     >

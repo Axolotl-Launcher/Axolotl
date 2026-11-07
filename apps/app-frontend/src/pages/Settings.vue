@@ -69,8 +69,8 @@ const hasSearchQuery = computed(() => !!normalizeSettingsSearchText(searchQuery.
 const debouncedSearchQuery = ref('')
 const searchResultsPending = ref(false)
 const showContentSkeleton = ref(false)
-let searchDebounceTimer: ReturnType<typeof window.setTimeout> | undefined
-let searchHighlightTimer: ReturnType<typeof window.setTimeout> | undefined
+let searchDebounceTimer: number | undefined
+let searchHighlightTimer: number | undefined
 let categoryTransitionToken = 0
 
 const SEARCH_DEBOUNCE_MS = 120
@@ -488,7 +488,6 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                                 v-for="category in group.categories"
                                 :key="category.id"
                                 type="button"
-                                :data-onboarding-id="category.onboardingId"
                                 class="settings-category-button hover:bg-surface-3 hover:text-[var(--color-text-primary)]"
                                 :class="{ 'is-active': activeCategory?.id === category.id }"
                                 @click="selectCategory(category.id)"

@@ -17,6 +17,7 @@ export interface ProgressSnapshot {
         phase: string
         current: number
         total: number
+        details?: { type: string; step?: string } | null
     } | null
 }
 
@@ -33,7 +34,7 @@ export interface ProgressTextSnapshot extends ProgressSnapshot {
 
 export type InstallProgressTextSource =
     | { type: 'required_files' | 'phase' }
-    | { type: 'bytes' | 'items'; current: number; total: number }
+    | { type: 'bytes' | 'items' | 'percentage'; current: number; total: number }
 
 export function effectiveInstallProgress(
     snapshot: ProgressSnapshot,
@@ -124,13 +125,11 @@ export function installProgressFraction(snapshot: ProgressSnapshot): number | nu
 
 export function isInstallMainTrackComplete(snapshot: ProgressTextSnapshot): boolean {
     if (snapshot.status === 'succeeded') return true
+    if (snapshot.phase !== 'downloading_content' || snapshot.status !== 'running') return false
     // Byte totals can be reached before verification and finalization finish.
     // The primary content counter advances only when files are settled.
-    const progress =
-        snapshot.phase === 'downloading_content'
-            ? snapshot.progress
-            : effectiveInstallProgress(snapshot)
-    if (snapshot.phase === 'downloading_content' && progress?.total === 0) return true
+    const progress = snapshot.progress
+    if (progress?.total === 0) return true
     return hasDeterminateInstallProgress(progress) && progress.current >= progress.total
 }
 
@@ -143,6 +142,7 @@ export function installProgressTextSource(
     const isByteDownload =
         snapshot.phase === 'exporting' ||
         snapshot.phase === 'downloading_pack_file' ||
+        snapshot.phase === 'extracting_overrides' ||
         snapshot.phase === 'downloading_minecraft' ||
         (snapshot.phase === 'preparing_java' &&
             snapshot.details?.type === 'java' &&
@@ -163,11 +163,18 @@ export function installProgressTextSource(
         if (isByteDownload) {
             return { type: 'bytes', current: progress.current, total: progress.total }
         }
+        if (snapshot.phase === 'running_loader_processors') {
+            return { type: 'percentage', current: progress.current, total: progress.total }
+        }
     }
 
     if (snapshot.progress != null) return { type: 'phase' }
 
-    if ((isContentDownload || isByteDownload) && snapshot.summary.bytes_total) {
+    if (
+        (isContentDownload || isByteDownload) &&
+        snapshot.phase !== 'extracting_overrides' &&
+        snapshot.summary.bytes_total
+    ) {
         return {
             type: 'bytes',
             current: snapshot.summary.bytes_downloaded,
@@ -183,4 +190,32 @@ export function installProgressTextSource(
     }
 
     return { type: 'phase' }
+}
+
+export function parallelInstallProgressTextSource(
+    snapshot: ProgressSnapshot,
+): InstallProgressTextSource {
+    const parallel = snapshot.parallel
+    if (!parallel) return { type: 'phase' }
+
+    return installProgressTextSource({
+        status: 'running',
+        phase: parallel.phase,
+        progress: parallel,
+        details: parallel.details,
+        summary: { files_completed: 0, bytes_downloaded: 0 },
+    })
+}
+
+export function formatInstallProgressText(
+    source: InstallProgressTextSource,
+    formatBytes: (value: number) => string,
+): string {
+    if (source.type === 'bytes')
+        return `${formatBytes(source.current)} / ${formatBytes(source.total)}`
+    if (source.type === 'items')
+        return `${Math.min(source.current, source.total)} / ${source.total}`
+    if (source.type === 'percentage')
+        return `${Math.round(Math.max(0, Math.min(1, source.current / source.total)) * 100)}%`
+    return ''
 }

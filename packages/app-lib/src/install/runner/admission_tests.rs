@@ -50,6 +50,31 @@ fn request(instance: &str, content: &str) -> InstallRequest {
 }
 
 #[tokio::test]
+async fn invalid_pack_initialization_is_a_visible_failed_task_without_a_target()
+{
+    let (temp, state) = fixture().await;
+    let archive = temp.path().join("invalid.mrpack");
+    std::fs::write(&archive, b"not a ZIP").unwrap();
+    assert!(
+        enqueue(
+            InstallRequest::CreateModpackInstance {
+                location: CreatePackLocation::FromFile { path: archive },
+                post_install_edit: None,
+            },
+            &state
+        )
+        .await
+        .is_err()
+    );
+    let jobs = store::list(true, &state).await.unwrap();
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].status, InstallJobStatus::Failed);
+    assert!(jobs[0].state.error.is_some());
+    assert!(jobs[0].instance_id.is_none());
+    assert_eq!(crate::state::instances::adapters::sqlite::instance_rows::list_instances(&state.pool).await.unwrap().len(), 3);
+}
+
+#[tokio::test]
 async fn retry_checkpoint_reuses_only_the_original_incomplete_pack_instance() {
     let (temp, state) = fixture().await;
     let pack_path = temp.path().join("pack.mrpack");

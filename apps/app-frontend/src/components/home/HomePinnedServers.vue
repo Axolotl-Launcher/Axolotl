@@ -16,6 +16,7 @@ import {
     Button,
     defineMessages,
     injectNotificationManager,
+    type MenuAction,
     OverflowMenu,
     SmartClickable,
     useVIntl,
@@ -79,10 +80,6 @@ const messages = defineMessages({
     join: {
         id: 'app.home.servers.join',
         defaultMessage: 'Join server',
-    },
-    stop: {
-        id: 'app.home.servers.stop',
-        defaultMessage: 'Stop',
     },
     unpin: {
         id: 'app.home.servers.unpin',
@@ -180,7 +177,7 @@ function linkedServer(world: ServerWorld & WorldWithInstance) {
 }
 
 function serverMenuOptions(world: ServerWorld & WorldWithInstance) {
-    const options = [{ id: 'unpin', action: () => unpinServer(world) }]
+    const options: MenuAction[] = [{ id: 'unpin', action: () => unpinServer(world) }]
     if (!isLocalEntry(world)) return options
 
     const linked = linkedServer(world)

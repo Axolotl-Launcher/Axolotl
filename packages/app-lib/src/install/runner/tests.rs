@@ -1226,6 +1226,68 @@ async fn global_state() -> std::sync::Arc<State> {
     State::get().await.unwrap()
 }
 
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn interrupted_initialization_recovers_the_bound_instance() {
+    crate::event::EventState::init().await.unwrap();
+    let state = global_state().await;
+    let id = Uuid::new_v4();
+    let request = InstallRequest::CreateInstance {
+        name: format!("Interrupted initialization {id}"),
+        game_version: "1.21.1".into(),
+        loader: ModLoader::Vanilla,
+        loader_version: None,
+        adjuncts: Vec::new(),
+        icon_path: None,
+        link: InstanceLink::Unmanaged,
+        game_dir_override: None,
+    };
+    let mut job = InstallJobState::new(request);
+    job.initialization_pending = true;
+    store::insert(id, &job, InstallJobStatus::Queued, &state)
+        .await
+        .unwrap();
+    let created = store::initializing_job(
+        id,
+        crate::state::create_instance(
+            crate::state::CreateInstance {
+                name: format!("Interrupted initialization {id}"),
+                path: None,
+                game_version: "1.21.1".into(),
+                loader: ModLoader::Vanilla,
+                loader_version: None,
+                icon_path: None,
+                link: InstanceLink::Unmanaged,
+                symlink_target: None,
+                game_dir_override: None,
+            },
+            &state,
+        ),
+    )
+    .await
+    .unwrap();
+    let failure = ErrorKind::OtherError("initializer stopped".into()).into();
+    lifecycle::recover_stopped_job(id, &state, None, &failure)
+        .await
+        .unwrap();
+    let recovered = store::get_required(id, &state).await.unwrap();
+    assert_eq!(recovered.status, InstallJobStatus::Failed);
+    assert!(
+        crate::state::get_instance(&created.id, &state.pool)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        !state
+            .directories
+            .instances_dir()
+            .join(created.path)
+            .exists()
+    );
+    assert!(recovered.state.rollback_error.is_none());
+}
+
 #[tokio::test]
 async fn direct_link_instances_cannot_be_duplicated() {
     let state = global_state().await;
@@ -1320,6 +1382,22 @@ fn interrupted_upgrade_uses_terminal_phase_after_successful_recovery() {
     assert_eq!(status, InstallJobStatus::Interrupted);
     assert_eq!(job_state.progress.phase, InstallPhaseId::Finalizing);
     assert!(job_state.rollback_error.is_none());
+}
+
+#[test]
+fn successful_rollback_clears_an_earlier_rollback_error() {
+    let mut job_state = upgrade_job_state();
+    job_state.progress.phase = InstallPhaseId::RollingBack;
+    job_state.rollback_error = Some(InstallErrorView::from_message(
+        "rollback_error",
+        InstallPhaseId::RollingBack,
+        "rollback failed",
+    ));
+
+    recovery::finalize_rollback_state(&mut job_state, true);
+
+    assert!(job_state.rollback_error.is_none());
+    assert_eq!(job_state.progress.phase, InstallPhaseId::Finalizing);
 }
 
 #[test]

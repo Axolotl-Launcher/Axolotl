@@ -60,10 +60,10 @@ const activeMemberExperience = shallowRef<AboutMemberExperience>()
 // A finished experience may be replaced by another one; a running one may not.
 const activeExperienceSettled = ref(false)
 const pressingMemberName = ref<string>()
-let longPressTimer: ReturnType<typeof window.setTimeout> | undefined
+let longPressTimer: number | undefined
 let pressStart = { x: 0, y: 0 }
 let suppressNextMemberClick = false
-const replayOnboarding = inject<(mode: 'main' | 'instance') => Promise<void>>('replayOnboarding')
+const replayOobe = inject<() => void>('replayOobe')
 
 const licenseUrl = `${AxolotlBrandConfig.repositoryUrl}/blob/main/LICENSE`
 const copyingUrl = `${AxolotlBrandConfig.repositoryUrl}/blob/main/COPYING.md`
@@ -214,9 +214,9 @@ const messages = defineMessages({
         id: 'app.settings.about.version',
         defaultMessage: 'Version {version}',
     },
-    replayOnboarding: {
-        id: 'app.settings.about.replay-onboarding',
-        defaultMessage: 'Replay tour',
+    replayOobe: {
+        id: 'app.settings.about.replay-oobe',
+        defaultMessage: 'Run first-time setup again',
     },
     developmentTeam: {
         id: 'app.settings.about.development-team',
@@ -428,7 +428,7 @@ const projectLinks = [
             <div class="grid gap-3 p-4 sm:grid-cols-2">
                 <a
                     v-for="link in projectLinks"
-                    :key="link.label"
+                    :key="link.label.id"
                     :href="link.href"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -602,9 +602,9 @@ const projectLinks = [
             </div>
         </details>
 
-        <div id="settings-target-about-replay-tour" tabindex="-1" class="flex flex-wrap gap-2">
-            <Button type="base" @click="replayOnboarding?.('main')">
-                {{ formatMessage(messages.replayOnboarding) }}
+        <div id="settings-target-about-replay-oobe" tabindex="-1" class="flex flex-wrap gap-2">
+            <Button type="base" @click="replayOobe?.()">
+                {{ formatMessage(messages.replayOobe) }}
             </Button>
         </div>
     </div>

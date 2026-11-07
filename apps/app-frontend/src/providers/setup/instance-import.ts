@@ -42,9 +42,17 @@ export function setupInstanceImportProvider(notificationManager: AbstractWebNoti
                     try {
                         const path = await get_default_launcher_path(name)
                         if (!path) continue
-                        const instances = await get_importable_instances(name, path)
-                        if (instances?.length > 0) {
-                            const launcher = { name, path, instances }
+                        const instances = (await get_importable_instances(name, path)) ?? []
+                        if (instances.length > 0 || name === 'Generic') {
+                            const launcher =
+                                name === 'Generic'
+                                    ? {
+                                          name: 'MinecraftLauncher',
+                                          launcherType: 'Generic',
+                                          path,
+                                          instances,
+                                      }
+                                    : { name, path, instances }
                             found.set(name, launcher)
                             onLauncher?.(launcher)
                         }
@@ -61,8 +69,22 @@ export function setupInstanceImportProvider(notificationManager: AbstractWebNoti
         },
         async getLoaderVersions(loader: string, gameVersion: string) {
             const manifest = await get_loader_versions(loader, gameVersion)
-            const gameVersions = manifest?.gameVersions ?? manifest?.game_versions ?? []
-            const versionGroups = manifest?.versionGroups ?? manifest?.version_groups ?? []
+            type LoaderVersionEntry = {
+                id?: string
+                versionGroup?: string
+                loaders?: Array<string | { id?: string }>
+                loader_versions?: Array<string | { id?: string }>
+            }
+            type LoaderVersionGroup = {
+                id?: string
+                loaders?: Array<string | { id?: string }>
+            }
+            const gameVersions = (manifest?.gameVersions ??
+                manifest?.game_versions ??
+                []) as LoaderVersionEntry[]
+            const versionGroups = (manifest?.versionGroups ??
+                manifest?.version_groups ??
+                []) as LoaderVersionGroup[]
             const entry = gameVersions.find(
                 (version) =>
                     (version.id ?? '').replace('${modrinth.gameVersion}', gameVersion) ===
@@ -100,9 +122,9 @@ export function setupInstanceImportProvider(notificationManager: AbstractWebNoti
                             instanceName,
                             false,
                             instancePath,
-                            sel.gameVersion,
-                            sel.loader,
-                            sel.loaderVersion,
+                            sel.gameVersion ?? undefined,
+                            sel.loader ?? undefined,
+                            sel.loaderVersion ?? undefined,
                             null,
                         )
                         await wait_for_install_job(job.job_id)
@@ -119,8 +141,7 @@ export function setupInstanceImportProvider(notificationManager: AbstractWebNoti
         async selectDirectories() {
             const result = await open({ multiple: true, directory: true })
             if (!result) return null
-            if (Array.isArray(result)) return result.map((p) => p.toString())
-            return [result.toString()]
+            return (Array.isArray(result) ? result : [result]).map((p) => p.toString())
         },
     })
 }

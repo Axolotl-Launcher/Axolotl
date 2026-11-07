@@ -1405,6 +1405,7 @@ async function toggleContentSelection(
         instanceSelector.value?.show()
         return
     }
+    if (project.provider !== 'modrinth' && project.provider !== 'curseforge') return
     const providerProjectId =
         project.provider === 'curseforge'
             ? (project.provider_project_id ?? project.project_id.replace(/^curseforge:/, ''))
@@ -1511,6 +1512,12 @@ function isBrowseContentProvider(provider: unknown): provider is BrowseContentPr
     )
 }
 
+function hasBrowseContentProvider<T extends { provider?: unknown }>(
+    project: T,
+): project is T & { provider: BrowseContentProvider } {
+    return isBrowseContentProvider(project.provider)
+}
+
 function getPrimaryCardActions(
     result: Labrinth.Search.v2.ResultSearchProject | Labrinth.Search.v3.ResultSearchProject,
     currentProjectType: string,
@@ -1527,7 +1534,7 @@ function getPrimaryCardActions(
         provider?: unknown
         provider_project_id?: string
     }
-    if (!isBrowseContentProvider(projectResult.provider)) return []
+    if (!hasBrowseContentProvider(projectResult)) return []
     if (projectResult.provider === 'mcarchive' || projectResult.provider === 'planet_minecraft')
         return !isServerContext.value && isFavoriteContentType(currentProjectType)
             ? [
@@ -2025,6 +2032,10 @@ async function search(requestParams: string, signal: AbortSignal) {
                 provider_project_id: id,
                 provider,
                 project_type: projectType.value,
+                all_project_types: [projectType.value],
+                author_id: null,
+                organization: null,
+                organization_id: null,
                 slug: metadata.slug ?? id,
                 title: metadata.title,
                 description: metadata.summary,
@@ -2687,7 +2698,7 @@ provideBrowseManager({
 </script>
 
 <template>
-    <div data-onboarding-id="browse-content" class="flex flex-col gap-3 p-6">
+    <div class="flex flex-col gap-3 p-6">
         <BrowsePageLayout
             v-if="!filtersReady || !isWorldMapBrowse || curseForgeCapability.configured"
         >

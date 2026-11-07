@@ -1529,14 +1529,22 @@ mod tests {
             original_stamp.clone(),
         );
 
-        tokio::fs::remove_file(&path).await.unwrap();
-        crate::util::io::write(&path, b"correct!").await.unwrap();
+        // Replace through a second file instead of delete-then-create: tmpfs
+        // hands the released inode straight back, which would make the
+        // replacement byte-, time- and identity-identical to the original and
+        // turn this into a test of nothing. Both files exist together, so the
+        // new one is guaranteed to carry a different identity.
+        let replacement = directory.path().join("replacement.bin");
+        crate::util::io::write(&replacement, b"correct!")
+            .await
+            .unwrap();
         std::fs::File::options()
             .write(true)
-            .open(&path)
+            .open(&replacement)
             .unwrap()
             .set_modified(original_modified)
             .unwrap();
+        crate::util::io::atomically_replace_file(&replacement, &path).unwrap();
 
         let replacement = collect_download_candidates(
             job_id,

@@ -1167,7 +1167,7 @@ mod tests {
             std::future::pending::<()>().await;
         });
         let result = tokio::time::timeout(Duration::from_secs(2), async {
-            let client = reqwest::Client::builder()
+            let client = crate::util::http::client_builder()
                 .no_proxy()
                 .read_timeout(Duration::from_millis(100))
                 .build()

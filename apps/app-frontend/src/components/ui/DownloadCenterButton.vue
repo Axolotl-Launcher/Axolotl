@@ -168,12 +168,12 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { exportMessages } from '@/components/ui/export/messages'
+import { installPhaseMessage } from '@/composables/browse/install-job-messages'
 import { useDownloadTelemetry } from '@/composables/useDownloadTelemetry'
 import type { InstallJobSnapshot, InstallPhaseId } from '@/helpers/install'
 import { installJobTitle } from '@/helpers/install-job-presentation'
 import {
-    effectiveInstallProgress,
-    hasDeterminateInstallProgress,
+    formatInstallProgressText,
     installProgressFraction,
     installProgressTextSource,
 } from '@/helpers/install-progress'
@@ -277,7 +277,7 @@ const triggerStyle = computed(() => {
 })
 
 function phaseLabel(phase: InstallPhaseId) {
-    return formatMessage(phaseDescriptors[phase] ?? messages.unknownPhase)
+    return formatMessage(phaseDescriptors[phase] ?? installPhaseMessage(phase))
 }
 
 function jobTitle(job: InstallJobSnapshot) {
@@ -292,15 +292,10 @@ function progressPercent(job: InstallJobSnapshot) {
 
 function progressLabel(job: InstallJobSnapshot) {
     const source = installProgressTextSource(job)
-    if (source.type === 'bytes')
-        return `${formatBytes(source.current)} / ${formatBytes(source.total)}`
-    if (source.type === 'items')
-        return `${Math.min(source.current, source.total)} / ${source.total}`
+    const label = formatInstallProgressText(source, formatBytes)
+    if (label) return label
     if (source.type === 'required_files')
         return `${job.summary.files_completed} / ${job.summary.files_total ?? '—'}`
-    const progress = effectiveInstallProgress(job)
-    if (hasDeterminateInstallProgress(progress))
-        return `${Math.min(progress.current, progress.total)} / ${progress.total}`
     return ''
 }
 

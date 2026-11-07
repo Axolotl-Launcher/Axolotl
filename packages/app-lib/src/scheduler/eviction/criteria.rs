@@ -64,6 +64,23 @@ pub struct Assessment {
     pub condition: Option<&'static str>,
 }
 
+/// Proof that a service passed every swap-out criterion. Only
+/// [`Assessment::token`] produces one, and an assessment that is not
+/// swappable yields `None`, so a slot cannot be created for an ineligible
+/// service.
+#[derive(Clone, Copy, Debug)]
+pub struct Swappable {
+    _priv: (),
+}
+
+impl Assessment {
+    /// The eligibility token for this assessment, or `None` when it fails any
+    /// criterion (including the `spawn_blocking` veto).
+    pub fn token(&self) -> Option<Swappable> {
+        self.criteria.swappable().then_some(Swappable { _priv: () })
+    }
+}
+
 /// The one unconditional member of L1.
 pub const LOG_RING_BUFFER: Assessment = Assessment {
     name: "LogRingBuffer",
@@ -83,6 +100,9 @@ pub const CANDIDATES: [Assessment; 3] = [
         // `write_config_file` -> `io::write`, which is `spawn_blocking`
         // (util/io.rs). A blocking write cannot be aborted, so C1c vetoes.
         criteria: Criteria {
+            // The loop is started through `State::spawn_background`, not a
+            // per-tag slot, so C1b fails until it moves into the slot.
+            c1b_tasks_in_tag_joinset: false,
             c1c_no_spawn_blocking: false,
             c4_rebuild_entry: false,
             ..Criteria::ALL
@@ -238,6 +258,12 @@ mod tests {
             vetoed,
             ["config_sync", "endpoint selection coordinator"],
             "the blocking paths of both candidates are still in place"
+        );
+        // config_sync's loop is started by `State::spawn_background`, not the
+        // slot's JoinSet, so C1b must stay false too.
+        assert!(
+            !CANDIDATES[0].criteria.c1b_tasks_in_tag_joinset,
+            "config_sync's loop is outside the slot"
         );
         assert!(
             !CANDIDATES[2].criteria.c1a_no_external_handle,

@@ -1,0 +1,405 @@
+{
+  "id": "d1nRD7RG",
+  "slug": "programmer-art-fix",
+  "title": "Programmer Art Fix",
+  "description": "A patch for Programmer Art / classic texture",
+  "author": "THGABS",
+  "categories": ["16x", "blocks", "entities", "items", "minecraft", "vanilla-like"],
+  "display_categories": ["16x", "minecraft", "vanilla-like"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "resourcepack",
+  "downloads": 7690714,
+  "followers": 717,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["minecraft"],
+  "game_versions": [
+    "1.13",
+    "1.13.1",
+    "1.13.2",
+    "3D-Shareware-v1.34",
+    "1.14",
+    "1.14.1",
+    "1.14.2",
+    "1.14.3",
+    "1.14.4",
+    "1.15",
+    "1.15.1",
+    "1.15.2",
+    "20w14infinite",
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "22w13oneblockatatime",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.4",
+    "23w13a_or_b",
+    "1.20",
+    "1.20.1",
+    "23w31a",
+    "23w32a",
+    "23w33a",
+    "23w35a",
+    "1.20.2-pre1",
+    "1.20.2",
+    "23w40a",
+    "23w41a",
+    "23w42a",
+    "1.20.3",
+    "1.20.4",
+    "24w14potato",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "24w33a",
+    "24w34a",
+    "24w35a",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "25w14craftmine",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26w14a",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "b8PS3VmQ",
+  "date_created": "2023-06-10T09:51:03.022181Z",
+  "date_modified": "2026-09-15T12:00:56.205091Z",
+  "color": 6125877,
+  "published": "2023-06-10T09:51:03.022181Z",
+  "additional_categories": ["blocks", "entities", "items"],
+  "issues_url": "https://www.curseforge.com/minecraft/texture-packs/programmer-art-fix/issues",
+  "source_url": null,
+  "wiki_url": "https://www.curseforge.com/minecraft/texture-packs/programmer-art-fix",
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 66,
+  "body": "<!--**ℹ️Note:** The GREATEST update of this pack is [here](https://modrinth.com/resourcepack/programmer-art-fix/version/1.20.4.1)! Download it to taste more poisonous potatoes and experience _Minecraft_ gameplay date back to 2011, while previewing the latest graphic tech!\n**🥔Note:** This pack now supports the April Fools snapshot 24w14potato; download it [here](https://modrinth.com/resourcepack/programmer-art-fix/version/1.20.4.1) (along with extra April Fools features!)\n-->\n\n<a href=\"https://modrinth.com/resourcepack/programmer-art-panorama\" rel=\"nofollow\">Programmer Art Panoramas</a>\n<a href=\"https://mcpedl.com/classic-texture-fix/\" target=\"_blank\">Bedrock Port - Classic Texture Fix</a>\n<!-- <a href=\"https://www.felineguardians.org/\" target=\"_blank\">Save Cats in Danger</a>-->\n\nℹ️ While using this resource pack, make sure it's <u>_above_</u> Programmer Art, or it may not work correctly.\n\n---\n\nThe [Texture Update](https://minecraft.wiki/w/Texture_Update) has been officially released in [Java Edition 1.14](https://www.minecraft.net/article/village---pillage-out-java-), while some players still prefer the old textures. Then Mojang has announced that **Programmer Art**, a resource pack with classic look of Minecraft, is built in game. However, even after so many updates and game drops released, it still has a lot of issues – and that's why I'm making this pack.\n\nThis pack is also trying to fix issues found in Programmer Art, which can be found on [Mojira](https://bugs.mojang.com).\n\nLatest Additions\n\n<details><summary>Features of this pack</summary>\n\n## Textures\n\n### Blocks\n\n![Blocks featured](https://cdn.modrinth.com/data/d1nRD7RG/images/1a2a5d8f1c8dd1e90c684b5483e4562ae413674a.png)\n\n- Water\n- Dried Kelp Block\n- Blast Furnace\n- Smoker\n- Campfire logs\n- Cartography Table\n- Grindstone\n- Barrel\n- Composter\n- Stonecutter\n- Lectern\n- Loom\n- Wither Rose\n- Beehive\n- Smooth Quartz\n- Nether Wart Blocks (both, 1.16+)\n- Red Nether Bricks\n- Chiseled & Cracked Nether Bricks\n- All the Overworld wooden Trapdoors, except oak trapdoor\n- Crimson Nylium, Planks, Log tops, Sign and Door\n- Warped Nylium, Planks, Log tops, Sign and Door\n- Nether Gold & Quartz Ore (1.16+)\n- Crying Obsidian\n- Soul Soil\n- Soul Torch\n- Quartz Bricks\n- Respawn Anchor\n- Blackstone, Gilded Blackstone\n- Polished Blackstone, Chiseled Polished Blackstone\n- Polished Blackstone Bricks, Cracked Polished Blackstone Bricks\n- Copper Blocks\n- Cut Coppers\n- Copper Ore\n- Tinted Glass (with [connected textures](https://modrinth.com/mod/continuity) support)\n- Powder Snow\n- Glow Item Frame\n- Azalea\n- Azalea Leaves\n- Cave Vines\n- Moss Block/Carpet\n- Deepslate & Cobbled Deepslate\n- Deepslate Bricks (normal and cracked)\n- Deepslate Tiles (normal and cracked)\n- Chiseled Deepslate\n- Reinforced Deepslate\n- Coal, Iron, Gold and Redstone Ore (1.17+)\n- All the Deepslate Ores\n- Calcite & Tuff\n- Dripstone Block\n- Mangrove Log, Roots, Leaves, Planks, Sign, Door, and Trapdoor\n- Mud\n- Mud Bricks\n- Mangrove Roots\n- Cocoa stage 2 model & texture fix (1.19+)\n- Chiseled Bookshelf\n- Cherry Log, Leaves, Planks, Sign, Hanging Sign, Door, and Trapdoor\n- Suspicious Sand & Gravel\n- Bamboo Block, Stripped Bamboo Block\n- Bamboo Planks, Bamboo Mosaic\n- Crafter\n- Trial Spawners, normal &amp; ominous\n- Vault &amp; Ominous Vault\n- All Chiseled Coppers\n- All Copper Grates\n- All Copper Bulbs\n- All Copper Doors\n- Polished Tuff\n- Chiseled Tuff\n- Tuff Bricks\n- Chiseled Tuff Bricks\n- Pale Oak Log, Stripped Log, Leaves, Planks, Sign, Door, and Trapdoor\n- Creaking Heart\n- Pale Moss Block/Carpet\n- Bush\n- Firefly Bush\n- Short/Tall Dry Grass\n- Leaf Litter\n- Wildflowers\n- Cactus Flower\n- Dried Ghast\n- Copper Torch\n- Copper Chests\n- Copper Golem Statues\n- Golden Dandelion\n- Sulfur, Potent Sulfur, Polished Sulfur, Chiseled Sulfur & Sulfur Bricks\n- Cinnabar, Polished Cinnabar, Chiseled Cinnabar & Cinnabar Bricks\n\n### Items\n\n![Items featured](https://cdn.modrinth.com/data/d1nRD7RG/images/7a573994e6c38d47ed735dd0a9a0b492f953a07e.png)\n\n- All the fish & fish buckets\n- Kelp\n- Dried Kelp\n- Phantom Membrane\n- Nautilus Shell\n- Heart of the Sea\n- Turtle Shell\n- Turtle Scute\n- Campfires\n- Crossbow\n- Leather Horse Armor (from Bedrock Edition)\n- All the Banner Patterns\n- All the Signs\n- Bell\n- Suspicious Stew\n- Honey Bottle\n- Honeycomb\n- New Dyes: black, brown, blue, and white\n- All the Netherite armors\n- Netherite Ingot\n- All the Netherite tools & Sword\n- Warped Fungus on a Stick\n- Music Disc _5_, _Relic_, _Precipice_, _Creator_, & _Creator_ (Music Box)\n- Copper Ingot\n- Spyglass\n- Raw Metals\n- Amethyst Shard\n- Candle\n- Powder Snow Bucket\n- Bucket of Axolotl‌\n- Glow Ink Sac\n- Glow Item Frame\n- Goat Horn\n- Tadpole Bucket\n- Bamboo Raft\n- All Boats/Rafts with Chest\n- Mangrove, Bamboo, Cherry, and Pale Oak Boats/Doors/Signs/Hanging Signs\n- Disc Fragment (_5_)\n- Recovery Compass\n- Hanging Signs\n- Some of the item shapes and palettes of armor trims<!--Bundle <sup>_[2020 Bundle experiment only]_</sup>-->\n- Trial Keys, normal &amp; ominous\n- All Copper Doors\n- Resin Clump &amp; Resin Brick\n- Spawn Eggs for all the new mobs (25.1+)\n- Blue/Brown Eggs\n- All copper armors\n- All copper tools/weapons\n- Copper Nugget\n- Copper/Netherite Horse Armor\n- Classic Spawn Eggs for new mobs\n- All Spears\n- Sulfur Cube Bucket\n\n### Mobs\n\n![Mobs featured](https://cdn.modrinth.com/data/d1nRD7RG/images/fee1b9c32cd8d01af5c8d7054d3b3df77e1ed547.png)\n- Drowned\n- Villager\n- Zombie Villager\n- Pillager\n- Wandering Trader\n- Brown Mooshroom\n- Piglin\n- Zombified Piglin\n- Piglin Brute\n- Hoglin\n- Zoglin\n- Iron Golem (Deleted useless parts in its texture file to fix [MC-112679](https://bugs.mojang.com/browse/MC-112679))\n- Glow Squid\n- Vex (1.19.3+)\n- Bat (1.20.3+)\n- All Wolf variants: woods, ashen, black, chestnut, snowy, rusty, striped, and spotted\n- Bogged\n- Creaking\n- Happy Ghast\n- Ghastling\n- Copper Golem\n- Skeleton Horse\n- Zombie Horse\n- Parched\n- Rabbit (26.1+)\n- Baby mobs\n  - Piglet\n  - Calf\n  - Mooshroom Calf\n  - Chick\n  - Lamb\n  - Wolf Pup\n  - Kitten\n  - Baby Ocelot\n  - Foal\n  - Baby Donkey/Mule\n  - Undead Foal\n  - Bunny\n  - Baby Llama\n  - Baby Fox\n  - Baby Zombie\n  - Baby Husk\n  - Gurgle\n  - Baby Zombie Villager\n  - Baby Zombified Piglin\n  - Baby Villager\n  - Baby Strider\n  - Baby Hoglin/Zoglin\n- Sulfur Cube\n\n### Equipments\n\n- All Copper Armors\n- All Horse Armors\n- Saddles for Strider/Nautilus\n- Collar for Wolf (1.20.5+)\n- Harness for Happy Ghast\n- Armors for humanoid baby mobs\n  \n### Other entities\n\n- All Boats with Chest\n- Mangrove/Cherry/Pale Oak Boat\n- Bamboo Raft\n- Default Steve & Alex skins (wide & slim models, 1.19.3+)\n\n### Paintings\n- _Baroque_ (cake, pot and sunflower)\n- _Cotán_ (golden apple & melon slice)\n\n## GUI\n- Empty slots in inventory\n- Steve with beard on Spectator Teleport actions\n- Icons for Social Screen\n- Feedback icon in the new pause menu (26.2+)\n- Other widgets\n\n### Mob Effect Icons\n- Conduit Power\n- Dolphin's Grace\n- Slow Falling\n- Hero of the Village\n- Instant Health\n- Instant Damage\n- Saturation\n- Darkness\n- Bad Omen\n  - Raid Omen\n  - Trial Omen\n- Weaving\n- Oozing\n- Infested\n- Wind Charged\n- Breath of the Nautilus\n\n### Other\n- Particle of Crying Obsidian (purple → blue to match its texture)\n- Map icons for villages, swamp hut and jungle pyramid\n\n## Models\n- Cocoa Stage 2\n- Redstone Torch\n- Redstone Repeater\n- Redstone Comparator\n- Brewing Stand\n- Tripwire Hook\n- Dragon Egg\n</details>\n\nThis pack is also available on [CurseForge](https://www.curseforge.com/minecraft/texture-packs/programmer-art-fix).",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/d1nRD7RG/images/5f35fc64c6512f97eb4002a820095b497b77a72d_350.webp",
+      "featured": true,
+      "title": "Wilderness Bound",
+      "description": "Abandoned camp in dappled forest",
+      "created": "2026-09-15T11:57:15.257311Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/d1nRD7RG/images/f05ea76d651391c62884ab581f76dd96264526cf_350.webp",
+      "featured": false,
+      "title": "Pack Preview",
+      "description": "Preview image of this pack",
+      "created": "2025-09-28T15:09:54.384593Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/d1nRD7RG/images/21780fbb365150b459a7ff3155dd7b5364f61854_350.webp",
+      "featured": false,
+      "title": "Chaos Cubed",
+      "description": "Sulfur & Cinnabar",
+      "created": "2026-06-15T04:44:47.454144Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/d1nRD7RG/images/038890e4d49344fdba968d26dd48a0120c6ff4b4_350.webp",
+      "featured": false,
+      "title": "Tiny Takeover",
+      "description": "Baby mobs in overworld",
+      "created": "2026-03-20T02:19:45.108688Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "THGABS",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/59402640?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "b8PS3VmQ",
+      "name": "Programmer Art Fix 26.3",
+      "version_number": "26.3",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-15T12:00:56.205091Z",
+      "downloads": 69380,
+      "changelog": "# Update for Wilderness Bound\n\n![Banner of Wilderness Bound](https://cdn-alt.modrinth.com/data/d1nRD7RG/images/5f35fc64c6512f97eb4002a820095b497b77a72d.png)\n\n## Additions\n- Poplar Wood set\n  - Poplar Planks\n  - Poplar Log\n  - Stripped Poplar Log\n  - Poplar Leaves (all colors)\n  - Poplar Door (block/item)\n  - Poplar Trapdoor\n  - Poplar Sign (block/item)\n  - Poplar Hanging Sign (block/item)\n  - Poplar Shelf\n  - Poplar Boat (block/item)\n  - Poplar Boat with Chest (block/item)\n- Straw Bed\n- Cushion (as entity, all colors)\n- Red Shurb\n- Maps to:\n  - Buried Mineshaft\n  - Desert Pyramid\n  - Jungle Pyramid\n  - Swamp Hut\n  - Warm Ocean Ruins\n  - Abandoned Camp\n  - Buried Ancient City\n- Classic player pointer (on-map)\n  - Off-map and off-limits pointers stay the same as vanilla\n- Nautilus Armor items (all tiers)\n\n## Changes\n- Cartography Table\n- Cherry Trapdoor\n- Pale Oak Trapdoor\n- Pufferfish and Pufferfish Bucket items\n  - They now have classic eyes!\n- Updated the location of armor trim palettes for Minecraft 26.3",
+      "dependencies": [
+        {
+          "project_id": "SrVGHj6R",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "ProgrammerArtFix-26.3.zip",
+          "size": 934698,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "nMUU9xyH",
+      "name": "Programmer Art Fix 26.2",
+      "version_number": "26.2",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-06-15T13:51:59.458294Z",
+      "downloads": 110063,
+      "changelog": "# Update for [Chaos Cubed](https://www.minecraft.net/updates/chaos-cubed-drop)\n\n![Chaos Cubed](https://cdn.modrinth.com/data/d1nRD7RG/images/21780fbb365150b459a7ff3155dd7b5364f61854.png)\n\n## New in Chaos Cubed\n- Medium Sulfur Cube (128px → 64px to match Slime)\n- Small Sulfur Cube\n- Sulfur Cube Bucket\n- Sulfur Cube Spawn Egg\n- Sulfur block\n- Potent Sulfur\n- Polished Sulfur\n- Chiseled Sulfur\n- Sulfur Bricks\n- Cinnabar block\n- Polished Cinnabar\n- Chiseled Cinnabar\n- Cinnabar Bricks\n- Sulfur Cube Goo particle\n\n## New\n- Drowned & Gurgle (outer layer)\n- Piglin (adult & baby)\n- Piglin Brute\n- Honeycomb\n- Dripstone Block\n- Mud Bricks\n- Crimson Roots (updated color)\n- Feedback icon in the new pause menu\n\n## Changed\n- Updated all Signs & Hanging Signs for Minecraft 26.2\n- Copper Ore\n- Cherry Leaves' transparent sections are now darker when See-Through Leaves is OFF\n- Fixed an issue related to transparent sections of all Leaves textures",
+      "dependencies": [
+        {
+          "project_id": "SrVGHj6R",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "ProgrammerArtFix-26.2.zip",
+          "size": 865671,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "yDeICIYV",
+      "name": "Programmer Art Fix 6.1",
+      "version_number": "6.1",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-06-15T13:49:26.857007Z",
+      "downloads": 124627,
+      "changelog": "## New\n- Drowned (outer layer)\n- Piglin\n- Piglin Brute\n- Honeycomb\n- Dripstone Block\n- Mud Bricks\n- Crimson Roots (updated color)\n\n## Changed\n- Copper Ore\n- Cherry Leaves' transparent sections are now darker when See-Through Leaves is OFF\n- Fixed an issue related to transparent sections of all Leaves textures\n  - When using [Sodium](https://modrinth.com/mod/sodium) and See-Through Leaves is OFF, this may lead to completely black on leaves' transparent sections",
+      "dependencies": [
+        {
+          "project_id": "SrVGHj6R",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "ProgrammerArtFix-6.1.zip",
+          "size": 723703,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "7HjFPhb9",
+      "name": "Programmer Art Fix 26.4.1",
+      "version_number": "april-fools-2026",
+      "version_type": "alpha",
+      "game_versions": ["26w14a"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-04-01T18:04:23.315843Z",
+      "downloads": 19258,
+      "changelog": "As you may have expected, this version is just an April Fools' joke. So just enjoy!\n- New: Support for [_Herdcraft_ (26w14a)](https://www.minecraft.net/article/the-herdcraft-update)\n  - The classic _~~Mine~~Herdcraft_ logo\n  - The new _Herdcraft_ panorama in Programmer Art\n  - The on-ground interface for crafting\n  - Action icons: Punch, Follow Me, Move, Attack/Mine, Craft, Build, and Highlight\n- New: A brand new elegant pack icon\n- New: My another pack, [Programmer Art Panorama - Tiny Takeover](https://modrinth.com/resourcepack/programmer-art-panorama/version/26.1), is now merged to this pack\n- New: Add the classic panorama overlay\n- New: The classic _Minecraft: Java Edition_ logo\n- New: Baby piglin/zombie piglin's eye design from _Minecraft Legends_, as someone has asked\n- New: New zombie skin from [_Zombie Town_](https://minecraft.wiki/w/Zombie_Town)\n  - Including baby zombies\n- New: New drowned skin that matches the new zombie skin\n  - Including gurgles\n- New: Herobrine who spawns in deserts\n  - Including baby Herobrine\n- Changed: All Zombie Villagers now have their classic look prior to 1.8\n  - Unfortunately, this have made their biome type/profession invisible\n- Changed: Steve's skin is changed so that you won't confuse him with the new zombies:)\n- Changed: Water is now even more classic (directly extracted from 1.12.2)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ProgrammerArtFix-26.4.1.zip",
+          "size": 1815862,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ii4P15lP",
+      "name": "Programmer Art Fix 26.1",
+      "version_number": "26.1",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-03-20T03:04:16.095322Z",
+      "downloads": 53306,
+      "changelog": "Update for [Tiny Takeover](https://www.minecraft.net/en-us/updates/tiny-takeover-drop)!\n\n![Baby Mobs in Overworld](https://cdn.modrinth.com/data/d1nRD7RG/images/038890e4d49344fdba968d26dd48a0120c6ff4b4.png)\n\n## Additions for Tiny Takeover\n- Golden Dandelion\n- Rabbits in new model\n  - Including adults & babies in all variants\n- Piglet\n  - Including temperate, warm, and cold variants\n  - Now have the classic 2-pixel eyes\n  - Temperate piglets are lighter than adults\n- Calf\n  - Including temperate, warm, and cold variants\n  - Now have the classic 2-pixel eyes\n- Mooshroom Calf\n  - Including red and brown variants\n- Chick\n  - Including temperate, warm, and cold variants\n- Lamb\n  - Now have the classic 2-pixel eyes\n- Foal\n  - Including all of their variants\n  - Including all 4 markings for foals\n- Baby Zombie horse\n- Baby Skeleton horse\n- Baby Squid & Glow Squid\n- Wolf pup\n  - Wild/angry/tamed, in all variants\n- Baby Polar Bear\n  - Now they have eyebrows\n- Kitten\n  - Including the classic 3 variants: Tuxedo, Red Tabby, and Siamese\n  - Siamese cat is made lighter to reflect their baby look in real life\n  - Kittens added in Village & Pillage are not in Programmer Art style, but have the classic 2-pixel eyes\n- Baby Ocelot\n- Baby Llama\n  - Their eyes are now in a more reasonable position, and have eyebrows\n- Baby Fox\n  - They are not in Programmer Art style, but have the classic 2-pixel eyes\n- Armors for baby humanoid mobs\n  - Including leather, copper, iron, golden, and diamond\n- Baby Zombie\n- Baby Husk\n- Baby Zombie Villager\n  - Including their plains/desert/taiga/snowy plains skins\n- Baby Zombified Piglin\n  - Their eyes are now in a more reasonable position\n- Baby Villager\n  - Including their plains/desert/taiga/snowy plains skins\n- Baby Strider\n  - Their design is made more similar to adult striders\n- Baby Hoglin\n  - Their eyes are now in a more reasonable position\n- Baby Zoglin\n  - Their eyes are now in a more reasonable position\n\n## Other Additions/Changes\n\n### Update A\n\n…",
+      "dependencies": [
+        {
+          "project_id": "SrVGHj6R",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "ProgrammerArtFix-26.1.zip",
+          "size": 813720,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "L8n8Gl5P",
+      "name": "Programmer Art Fix 6.0",
+      "version_number": "6.0",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-03-20T03:02:11.751131Z",
+      "downloads": 79920,
+      "changelog": "Packs for Minecraft 1.20 - 1.21.11 have now been unified into a single file!\n\n## Additions/Changes\n\n### Update Aquatic (1.13)\n- New: Kelp item\n- New: Dried Kelp item (from Bedrock 1.4.0)\n- New: Dried Kelp Block\n- New: Nautilus Shell\n- New: Heart of the Sea\n- New: Turtle Shell item\n- New: Turtle Scute item\n- New: Conduit core\n- Changed: Conduit Power effect icon\n\n### Village & Pillage (1.14)\n- New: Villager skins in Taiga/Desert/Savanna/Snowy Plains/Swamp/Jungle\n- New: Zombie villager skins in Taiga/Desert/Savanna/Snowy Plains/Swamp\n- New: Composter\n- New: Loom\n- Changed: Lectern\n- New: Wandering Trader\n\n### Buzzy Bees (1.15)\n- New: Beehive block\n\n### Nether Update (1.16)\n- New: Blackstone, Gilded Blackstone\n- New: Polished Blackstone, Chiseled Polished Blackstone\n- New: Polished Blackstone Bricks, Cracked Polished Blackstone Bricks\n- Slightly changed: Zombified piglin\n\n### Caves & Cliffs (1.17)\n- Changed: Polished Deepslate\n\n### The Wild Update (1.19)\n- Changed: Mangrove Log\n\n### Trails & Tales (1.20)\n- New: Cherry blossom leaves\n- Changed: Cherry Log side\n- Changed: Chiseled Bookshelf\n- New: Bamboo Block, Stripped Bamboo Block\n- New: Bamboo Planks, Bamboo Mosaic\n- New: Bamboo Raft, Bamboo Raft with Chest\n\n### Armored Paws (1.20.5)\n- Slightly changed: Angry black/chestnut/striped wolves\n\n### Spring to Life (1.21.5)\n- New: Firefly Bush\n- Slightly changed: brown mooshroom, cold cow\n\n### Mounts of Mayhem (1.21.11)\n- New: Breath of the Nautilus effect icon\n- Slightly Changed: Zombie Horse & Skeleton Horse\n\n## Removal\n- Removed: Bundle prior to the Bundles of Bravery game drop",
+      "dependencies": [
+        {
+          "project_id": "SrVGHj6R",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "ProgrammerArtFix-26.0.zip",
+          "size": 708329,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bbTWqb8b",
+      "name": "[1.21.x] Programmer Art Fix - rv5.2",
+      "version_number": "1.21-rv5.2",
+      "version_type": "release",
+      "game_versions": [
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-11-23T07:15:54.590420Z",
+      "downloads": 107672,
+      "changelog": "Update for Mounts of Mayhem\n\n## Additions for Mounts of Mayhem\n- All Spears (in inventory/in hand)\n- Netherite Horse Armor (item/model)\n- Parched\n- Zombie Horse\n- Nautilus saddle\n- Spawn Eggs of Nautilus, Zombie Nautilus, Camel Husk, and Parched\n\n## Additions/Changes on horses\n- Skeleton Horse is changed, and Zombie Horse is added\n  - Both of their textures have been reevaluated, based on their textures/models before the 1.13 model change, as well as their original design in DrZharky's [*Mo' Creatures* mod](https://www.curseforge.com/minecraft/mc-mods/mo-creatures)\n  - For example, skeleton horse now has a short bony tail\n- Entity textures of all Horse Armors have been changed\n  - All their textures have been reevaluated based on their textures/models before the 1.13 model change, as well as their original design in DrZharky's *Mo' Creatures* mod\n  - For example, their leg armors have been removed, while a small piece of armor has been added to their tail, which reflects their original design\n- Zombie Horse now has an undamaged saddle when equipping it, just like other horses\n  - However, it's still darker than other horse saddles to reflect its original design in DrZharky's *Mo' Creatures* mod\n- Tint overlay for leather horse armor is back, as [MC-274828](https://bugs.mojang.com/browse/MC/issues/MC-274828) is finally officially fixed\n\n## Other Changes\n- All Netherite tools/weapons\n  - Their borders now get darker, which matches the style of Programmer Art\n  - Their patterns now get closer to their original textures from 20w06a\n- Netherite Chestplate\n  - Now consistent with which in the Bedrock pack, which is more Programmer-Art-styled\n- Modified several pixels of Bogged",
+      "dependencies": [
+        {
+          "project_id": "SrVGHj6R",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "[1.21.x]ProgrammerArtFix-rv5.2.zip",
+          "size": 680800,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "gvqLkaoI",
+      "name": "[1.21.x] Programmer Art Fix - rv5.1",
+      "version_number": "1.21-rv5.1",
+      "version_type": "release",
+      "game_versions": [
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-09-27T16:16:54.370396Z",
+      "downloads": 72719,
+      "changelog": "Update for The Copper Age\n\n## Additions for The Copper Age\n- Add support for the 1.21.9+ resource pack format\n  - Older 1.21.x versions are still supported\n- All Copper Chests\n- All copper armours, including items and models\n- All Copper Golems\n- All copper tools/weapons\n- Copper Nugget\n- Copper Horse Armour, including the item and the model\n- Copper Golem Spawn Egg\n- Copper Torch\n- Cherry Shelf\n- All Cut Coppers\n\n## Other Additions\n- Sign blocks of spruce, birch, jungle, acacia, and dark oak\n  - They are now more consistent with the Programmer Art texture of Oak Sign\n\n## Changes &amp; Fixes\n- Netherite Chestplate\n- Crimson & Warped Planks\n- Sign blocks of mangrove, cherry, pale oak, crimson, and warped",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "[1.21.x]ProgrammerArtFix-rv5.1.zip",
+          "size": 655060,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "account": {
+    "name": "Mystic_Stars",
+    "type": "microsoft",
+    "uuid": "93aeb143-b376-4adc-9fbd-525facdde3c8"
+  },
+  "instances": [
+    { "id": "fabulously-optimized", "playedMinutesAgo": 5 },
+    { "id": "create-plus", "playedMinutesAgo": 1560 }
+  ],
+  "announcements": [],
+  "pinnedServers": ["mc.hjfunny.site", "mc.hypixel.net"],
+  "defaultPage": "Home",
+  "locale": "zh-CN",
+  "theme": "dark"
+}

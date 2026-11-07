@@ -133,7 +133,7 @@
                     </div>
                 </template>
                 <template #actions>
-                    <div data-onboarding-id="instance-actions" class="flex gap-2">
+                    <div class="flex gap-2">
                         <Button
                             v-if="
                                 [
@@ -299,10 +299,7 @@
                 </template>
             </ContentPageHeader>
         </div>
-        <div
-            data-onboarding-id="instance-tabs"
-            :class="['px-6', { 'shrink-0': isFixedRender, hidden: isStudioMode }]"
-        >
+        <div :class="['px-6', { 'shrink-0': isFixedRender, hidden: isStudioMode }]">
             <SymlinkInstanceWarning
                 v-if="instance?.symlink_target && !symlinkWarning.isHidden.value"
                 :symlink-target="instance.symlink_target"
@@ -891,21 +888,23 @@ const handlePlayServer = async () => {
 }
 
 const repairInstance = async () => {
+    const currentInstance = instance.value
+    if (!currentInstance) return
     if (
-        instance.value.install_stage !== 'pack_installed' &&
-        (instance.value.link?.type === 'modrinth_modpack' ||
-            instance.value.link?.type === 'server_project_modpack')
+        currentInstance.install_stage !== 'pack_installed' &&
+        (currentInstance.link?.type === 'modrinth_modpack' ||
+            currentInstance.link?.type === 'server_project_modpack')
     ) {
-        await install_pack_to_existing_instance(instance.value.id, {
+        await install_pack_to_existing_instance(currentInstance.id, {
             type: 'fromVersionId',
             project_id:
-                instance.value.link.project_id ?? instance.value.link.server_project_id ?? '',
+                currentInstance.link.project_id ?? currentInstance.link.server_project_id ?? '',
             version_id:
-                instance.value.link.version_id ?? instance.value.link.content_version_id ?? '',
-            title: instance.value.name,
+                currentInstance.link.version_id ?? currentInstance.link.content_version_id ?? '',
+            title: currentInstance.name,
         }).catch(handleError)
     } else {
-        await install_existing_instance(instance.value.id, false).catch(handleError)
+        await install_existing_instance(currentInstance.id, false).catch(handleError)
     }
 }
 
@@ -942,12 +941,12 @@ const openUpgrade = async () => {
 
 const handleRightClick = (event: MouseEvent) => {
     const baseOptions = [
-        { name: 'add_content', section: 'manage', shown: !instance.value.link },
+        { name: 'add_content', section: 'manage', shown: !instance.value?.link },
         { type: 'divider' },
         { name: 'edit', section: 'manage' },
         { name: 'open_folder', section: 'navigate' },
         { name: 'copy_path', section: 'navigate' },
-    ]
+    ] as const
 
     options.value?.showMenu(
         event,
@@ -1058,7 +1057,7 @@ onUnmounted(() => {
     unlistenProcesses()
     unlistenInstances()
     const instanceId = displayedInstanceRoute.value.params.id
-    if (instanceId) {
+    if (typeof instanceId === 'string' && instanceId) {
         const { destroy } = useInstanceConsole(instanceId)
         destroy()
     }

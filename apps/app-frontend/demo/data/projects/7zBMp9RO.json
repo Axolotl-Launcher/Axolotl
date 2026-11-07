@@ -1,0 +1,232 @@
+{
+  "id": "7zBMp9RO",
+  "slug": "realisticcraft",
+  "title": "RealisticCraft",
+  "description": "Taking Minecraft realism to the next level.",
+  "author": "brynblack",
+  "categories": ["adventure", "challenging", "combat", "fabric"],
+  "display_categories": ["adventure", "challenging"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 987387,
+  "followers": 627,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.19", "1.21.10", "1.21.11"],
+  "latest_version": "c3EJla1u",
+  "date_created": "2022-07-20T06:11:01.835543Z",
+  "date_modified": "2026-04-04T01:17:06.894164Z",
+  "color": 7752242,
+  "published": "2022-07-20T06:11:01.835543Z",
+  "additional_categories": ["combat"],
+  "issues_url": "https://github.com/brynblack/RealisticCraft/issues",
+  "source_url": "https://github.com/brynblack/RealisticCraft",
+  "wiki_url": "https://github.com/brynblack/RealisticCraft/wiki",
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 9,
+  "body": "![RealisticCraft Logo](https://cdn.modrinth.com/data/cached_images/625fe9fda054d62af65f5c1406852422c3954bf5_0.webp)\n\nRealisticCraft is a Fabric modpack that brings realism to Minecraft, without drastically changing much of the underlying gameplay.\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/l8npI6jLoWc\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\nIt features:\n- Atmospheric sound design\n- Realistic game progression\n- Many visual improvements\n- A thirst and warmth system\n- Redesigned combat mechanics\n- Patches to unrealistic behaviour\n- Many, many performance mods\n\n![](https://cdn.modrinth.com/data/7zBMp9RO/images/01ac3296f671d57e7b009f1840524b908b656c1e.png)\n\n### Credits\nIf you enjoyed the modpack, you should go and check out these cool projects that helped make RealisticCraft possible.\n\n- [3d\\-Skin\\-Layers](https://modrinth.com/mod/zV5r3pPn) by tr7zw\n- [AmbientSounds](https://modrinth.com/mod/fM515JnW) by CreativeMD\n- [Better Combat](https://modrinth.com/mod/5sy6g3kz) by Daedelus\n- [Bliss Shaders](https://modrinth.com/shader/bliss-shader) by X0NK\n- [CameraOverhaul](https://modrinth.com/mod/m0oRwcZx) by Mirsario\n- [Cloth Config v20](https://modrinth.com/mod/9s6osm5g) by shedaniel\n- [Concurrent Chunk Management Engine](https://modrinth.com/mod/VSNURh3q) by RelativityMC, ishland\n- [CreativeCore](https://modrinth.com/mod/OsZiaDHq) by CreativeMD, AriaFreeze\n- [Distant Horizons](https://modrinth.com/mod/uCdwusMi)\n- [Dynamic Crosshair](https://modrinth.com/mod/ZcR9weSm) by Crendgrim\n- [EntityCulling](https://modrinth.com/mod/NNAgCjsB) by tr7zw\n- [Fabric API](https://modrinth.com/mod/P7dR8mSH) by FabricMC\n- [FallingTree](https://modrinth.com/mod/Fb4jn8m6) by Rakambda\n- [Fast Noise](https://modrinth.com/mod/OnlVIpq5) by ZenXArch\n- [FerriteCore](https://modrinth.com/mod/uXXizFIs) by malte0811\n- [FirstPerson](https://modrinth.com/mod/H5XMjpHi) by tr7zw\n- [Forge Config API Port](https://modrinth.com/mod/ohNO6lps) by Fuzs\n- [GlitchCore](https://modrinth.com/mod/s3dmwKy5) by Adubbz\n- [Ice Boat Nerf](https://modrinth.com/mod/Udjno5eL) by supersaiyansubtlety\n- [ImmediatelyFast](https://modrinth.com/mod/5ZwdcRci) by RK\\_01\n- [Iris](https://modrinth.com/mod/YL57xq9U) by coderbot, IMS212, Justsnoopy30, FoundationGames\n- [Lithium](https://modrinth.com/mod/gvQqBUqZ) by JellySquid, 2No2Name\n- [Lithostitched](https://modrinth.com/mod/XaDC71GB) by Apollo\n- [M\\.R\\.U](https://modrinth.com/mod/SNVQ2c0g) by IMB11 \\(mineblock11\\)\n- [Mod Menu](https://modrinth.com/mod/mOgUt4GM) by Prospector, haykam821, TerraformersMC\n- [More Culling](https://modrinth.com/mod/51shyZVL) by FX \\- PR0CESS, 1Foxy2\n- [No Chat Reports](https://modrinth.com/mod/qQyHxfxd) by Aizistral\n- [No Sneaking Over Magma\\!](https://modrinth.com/mod/cqDlVM1w) by supersaiyansubtlety\n- [NotEnoughAnimations](https://modrinth.com/mod/MPCX6s5C) by tr7zw\n- [Physics Mod](https://modrinth.com/mod/Xy8aRQKS) by Haubna\n- [Placeholder API](https://modrinth.com/mod/eXts2L7r) by Patbox\n- [Player Animation Library](https://modrinth.com/mod/ha1mEyJS) by Zigy, dima\\_dencep\n- [Presence Footsteps](https://modrinth.com/mod/rcTfTZr3) by Hurricaaane \\(Ha3\\), Sollace\n- [Raised](https://modrinth.com/mod/nCQRBEiR) by yurisuika\n- [SereneSeasons](https://modrinth.com/mod/e0bNACJD) by Adubbz, Forstride\n- [Shoulder Surfing Reloaded](https://modrinth.com/mod/kepjj2sy) by Exopandora\n- [Sodium](https://modrinth.com/mod/AANobbMI) by JellySquid \\(jellysquid3\\)\n- [Sound Physics Remastered](https://modrinth.com/mod/qyVF9oeo) by Sonic Ether, vlad2305m, Max Henkel, Saint\n- [Sounds](https://modrinth.com/mod/ZouiUX7t) by IMB11 \\(mineblock11\\)\n- [SurvivalistEssentials](https://modrinth.com/mod/hFW7KOhm) by wendall911\n- [Tectonic](https://modrinth.com/mod/lWDHr9jE) by Apollo\n- [Terralith](https://modrinth.com/mod/8oi3bsk5) by Starmute, catter1, Apollo, TheKingWhale\n- [ToughAsNails](https://modrinth.com/mod/ge1sOdFH) by Adubbz, Forstride\n- [Very Many Players](https://modrinth.com/mod/wnEe9KBa) by ishland\n- [Visuality](https://modrinth.com/mod/rI0hvYcd) by PinkGoosik\n- [Yeetus Experimentus](https://modrinth.com/mod/HaaH232J) by Sunekaer\n- [YetAnotherConfigLib](https://modrinth.com/mod/1eAoo2KR) by isXander",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/7zBMp9RO/images/c26af2e8ab47089bdd8fe8464f31a1f523e19e4c_350.webp",
+      "featured": true,
+      "title": "Revamped Lighting",
+      "description": "Shaders. Pretty.",
+      "created": "2022-07-21T12:21:55.470526Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/7zBMp9RO/images/85bec1ba51c46226ac9cf40a663a46b324697c94_350.webp",
+      "featured": false,
+      "title": "Frightening Ambience",
+      "description": "Go into a cave, and you will never come out again the same. Trust me.",
+      "created": "2023-11-11T23:38:34.282487Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/7zBMp9RO/images/e0576461e04607438c0d5f7e0d4c743b75b57380_350.webp",
+      "featured": false,
+      "title": "Thirsty Tendencies",
+      "description": "Have you ever wondered what would happen if thirst was a thing in Minecraft?",
+      "created": "2023-11-11T23:41:42.397327Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/7zBMp9RO/images/8a8959bf2b5dad505cd516b68e61d00c3baef35e_350.webp",
+      "featured": false,
+      "title": "Realistic Progression",
+      "description": "Instead of punching a tree, you have to... pick up sticks???",
+      "created": "2023-11-11T23:33:24.303436Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "brynblack",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/49110391?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "c3EJla1u",
+      "name": "1.2.0-alpha2",
+      "version_number": "1.2.0-alpha2",
+      "version_type": "alpha",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-04T01:17:06.894164Z",
+      "downloads": 187763,
+      "changelog": "- replaced NoisiumForked with Fast Noise [(suggested in this issue)](https://github.com/brynblack/RealisticCraft/issues/12)\n- replaced Primity with Survivalist Essentials\n- updated Minecraft version to 1.21.11\n- updated all mods\n- included default shader configuration and some mod options",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft.mrpack",
+          "size": 23576,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GY6gQLkA",
+      "name": "1.2.0-alpha1",
+      "version_number": "1.2.0-alpha1",
+      "version_type": "alpha",
+      "game_versions": ["1.21.10"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-03-28T10:43:31.891982Z",
+      "downloads": 17514,
+      "changelog": "Updated to Minecraft 1.21.10, changed out core mods. HEAVY WIP.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft.mrpack",
+          "size": 8101,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "mU4d2SPO",
+      "name": "1.1.1",
+      "version_number": "1.1.1",
+      "version_type": "release",
+      "game_versions": ["1.19"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-11-11T23:19:37.184043Z",
+      "downloads": 704220,
+      "changelog": "Hotfix for world taking much longer than normal to generate and fixed error spam in console.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft-1.1.1.mrpack",
+          "size": 53487082,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OhTw3Pyt",
+      "name": "1.1.0",
+      "version_number": "1.1.0",
+      "version_type": "release",
+      "game_versions": ["1.19"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2023-11-11T12:47:21.037677Z",
+      "downloads": 12780,
+      "changelog": "Updated most mods to their latest versions, added support for shaders and added Makeup as the default shader, added Nyf's Spiders as requested by EllieJaybee and removed redundant mods.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft-1.1.0.mrpack",
+          "size": 53487110,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "dyVFPivW",
+      "name": "1.0.4",
+      "version_number": "1.0.4",
+      "version_type": "release",
+      "game_versions": ["1.19"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2022-11-19T21:02:11.381273Z",
+      "downloads": 46285,
+      "changelog": "Fixed a bug where you cannot progress, due to being unable to swing through grass with a flint knife or sword.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft-1.0.4.mrpack",
+          "size": 53481812,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "HPYaqSdw",
+      "name": "1.0.3",
+      "version_number": "1.0.3",
+      "version_type": "release",
+      "game_versions": ["1.19"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2022-11-16T07:18:52.252282Z",
+      "downloads": 3403,
+      "changelog": "Updated all the mods, including the loader, and added a couple more. Namely, Better Combat and a few performance related mods.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft-1.0.3.mrpack",
+          "size": 53478383,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KpFVyHub",
+      "name": "1.0.2",
+      "version_number": "1.0.2",
+      "version_type": "release",
+      "game_versions": ["1.19"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2022-07-21T06:52:00.545502Z",
+      "downloads": 3291,
+      "changelog": "Fixed thirst bar not being aligned properly and added a mod to make trees have snowy leaves when it snows. Also disabled FOV effects out of the box as your FOV in real life does not change when you sprint.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft-1.0.2.mrpack",
+          "size": 55359095,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6TQi50hA",
+      "name": "1.0.1",
+      "version_number": "1.0.1",
+      "version_type": "release",
+      "game_versions": ["1.19"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2022-07-21T06:25:48.951701Z",
+      "downloads": 1582,
+      "changelog": "Added configurations for mods which had out-of-the-box defaults that caused issues or slight audio inconsistencies. Also configured default vanilla options to make experience better.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "RealisticCraft-1.0.1.mrpack",
+          "size": 55358193,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

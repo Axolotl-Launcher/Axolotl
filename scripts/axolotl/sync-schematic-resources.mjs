@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import sharp from 'sharp'
 
 const SUMMARY_REF = 'd96c75fec200c4580dd75e033a76341521165461'
 const ATLAS_REF = '41de69bb755237ac62cfc4a076fe17aafd41fb07'
@@ -153,7 +154,12 @@ await Promise.all([
         JSON.stringify(defaultProperties, null, 4),
     ),
     fs.writeFile(new URL('texture-layout.json', OUTPUT_ROOT), JSON.stringify(atlasLayout, null, 4)),
-    fs.writeFile(new URL('texture-atlas.png', OUTPUT_ROOT), downloaded.atlasImage),
+    fs.writeFile(
+        new URL('texture-atlas.webp', OUTPUT_ROOT),
+        await sharp(downloaded.atlasImage)
+            .webp({ lossless: true, exact: true, effort: 5 })
+            .toBuffer(),
+    ),
     fs.writeFile(new URL('particle-bubble.png', OUTPUT_ROOT), downloaded.bubbleParticle),
 ])
 

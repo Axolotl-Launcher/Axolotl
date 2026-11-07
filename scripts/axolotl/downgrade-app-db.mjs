@@ -56,6 +56,13 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    20261106150000: {
+        columns: [{ table: 'settings', column: 'minecraft_use_console_java' }],
+    },
+    // settings.oobe_completed_steps
+    20261104120000: {
+        columns: [{ table: 'settings', column: 'oobe_completed_steps' }],
+    },
     20261103130000: { columns: [{ table: 'install_jobs', column: 'level' }] },
     // settings.default_game_language
     20261103120000: {

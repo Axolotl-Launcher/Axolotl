@@ -17,7 +17,7 @@
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
     "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
   ],
-  "rankFingerprint": "2823811ca5da425e921b35f3b49169d2b0f1fe500ab688bcfdabb327bb34d46d",
+  "rankFingerprint": "653fda485bfe08d7490f6552342a3109703f96cee631a1cbe4e997c5777c4668",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",
@@ -273,10 +273,12 @@
       "id": "R1",
       "file": "packages/app-lib/src/state/instances/config_sync.rs",
       "business": "instance config sync loop",
-      "level": "L1",
-      "locks": [],
+      "level": "L3",
+      "locks": [
+        "theseus::state::InstanceLockManager.locks"
+      ],
       "backfilled": true,
-      "basis": "no mutex or single-writer permit held (writes go through store); rebuildable maintenance loop"
+      "basis": "holds the per-instance content lock across metadata reads and config writes to serialize with instance deletion"
     },
     {
       "id": "R2",

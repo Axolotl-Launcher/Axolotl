@@ -46,3 +46,22 @@ it('reports each launcher once found, without waiting for a slow or failing one'
     expect(seen).toEqual(['PCL2', 'ModrinthApp'])
     expect(launchers.map((launcher) => launcher.name)).toEqual(['ModrinthApp', 'PCL2'])
 })
+
+it('reports the default Minecraft folder as official even without any installed versions', async () => {
+    const path = 'C:/Users/me/AppData/Roaming/.minecraft'
+    vi.mocked(get_default_launcher_path).mockImplementation(async (name: string) =>
+        name === 'Generic' ? path : null,
+    )
+    vi.mocked(get_importable_instances).mockResolvedValue([])
+    setupInstanceImportProvider({ handleError: vi.fn() } as never)
+    const seen = vi.fn()
+    expect(await provided.value!.getDetectedLaunchers(seen)).toEqual([
+        { name: 'MinecraftLauncher', launcherType: 'Generic', path, instances: [] },
+    ])
+    expect(seen).toHaveBeenCalledWith({
+        name: 'MinecraftLauncher',
+        launcherType: 'Generic',
+        path,
+        instances: [],
+    })
+})

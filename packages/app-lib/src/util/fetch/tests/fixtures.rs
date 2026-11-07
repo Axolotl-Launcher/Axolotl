@@ -30,6 +30,7 @@ pub(super) struct RangeServerBehavior {
     pub(super) ignore_range: bool,
     pub(super) slow_body: bool,
     pub(super) fail_first_range: bool,
+    pub(super) fail_prefix_requests: usize,
     pub(super) stall_first_range: bool,
     pub(super) vary_mod_validators: bool,
     pub(super) vary_range_validators: bool,
@@ -51,6 +52,7 @@ pub(super) async fn spawn_range_server(
     let normal_requests = Arc::new(AtomicUsize::new(0));
     let normal_request_count = normal_requests.clone();
     let failed_range = Arc::new(AtomicBool::new(false));
+    let failed_prefix_requests = Arc::new(AtomicUsize::new(0));
     let stalled_range = Arc::new(AtomicBool::new(false));
     let handle = tokio::spawn(async move {
         loop {
@@ -61,6 +63,7 @@ pub(super) async fn spawn_range_server(
             let requests = request_count.clone();
             let normal_requests = normal_request_count.clone();
             let failed_range = Arc::clone(&failed_range);
+            let failed_prefix_requests = Arc::clone(&failed_prefix_requests);
             let stalled_range = Arc::clone(&stalled_range);
             tokio::spawn(async move {
                 requests.fetch_add(1, Ordering::Relaxed);
@@ -149,6 +152,19 @@ pub(super) async fn spawn_range_server(
                     );
                 }
                 if stream.write_all(headers.as_bytes()).await.is_err() {
+                    return;
+                }
+                if behavior.fail_prefix_requests > 0
+                    && requested_range
+                        .and_then(|range| range.split_once('-'))
+                        .and_then(|(_, end)| end.parse::<usize>().ok())
+                        == Some(data.len() / 2 - 1)
+                    && failed_prefix_requests.fetch_add(1, Ordering::Relaxed)
+                        < behavior.fail_prefix_requests
+                {
+                    let _ = stream
+                        .write_all(&body[..body.len().min(16 * 1024)])
+                        .await;
                     return;
                 }
                 if requested_range.is_some()

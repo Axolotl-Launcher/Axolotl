@@ -60,6 +60,19 @@ it('localizes stale plans and invalid search filters without exposing English di
     expect(isResourceOperationError(new Error('A user-provided project description'))).toBe(false)
 })
 
+it('localizes the update-plan consistency error returned by the instance command', () => {
+    const error = {
+        code: 'inputError',
+        message: 'Invalid input: Instance changed after update review',
+    }
+    expect(resourceOperationError(error, formatter('zh-CN'))).toBe(
+        '实例或所选文件已发生变化，请刷新预览后继续。',
+    )
+    expect(resourceOperationError(error, formatter('en-US'))).toBe(
+        'The instance or selected files changed. Refresh the preview before continuing.',
+    )
+})
+
 it('uses a localized recovery message for unknown failures and leaves the error object intact', () => {
     const error = new Error('opaque backend diagnostic')
     expect(resourceOperationError(error, formatter('zh-CN'))).toBe(

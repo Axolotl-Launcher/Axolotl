@@ -119,6 +119,8 @@ export async function command_listener(callback) {
 /*
     WarningPayload {
         message: message to display to the user
+        kind: warning category, such as missing_java
+        java_version: required Java major version for missing_java warnings
     }
 */
 export async function warning_listener(callback) {
@@ -137,17 +139,6 @@ export async function friend_listener(callback) {
 */
 export async function java_discovery_listener(callback) {
     return await listen('java_discovery_update', (event) => callback(event.payload))
-}
-
-/// Payload for the 'java_download_confirmation' event
-/*
-    JavaDownloadConfirmationPayload {
-        requestId: unique identifier for the confirmation request
-        version: required Java major version
-    }
-*/
-export async function java_download_confirmation_listener(callback) {
-    return await listen('java_download_confirmation', (event) => callback(event.payload))
 }
 
 export async function notification_listener(callback) {

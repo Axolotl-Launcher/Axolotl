@@ -11,6 +11,10 @@ afterEach(() => {
     vi.useRealTimers()
 })
 
+function failOnError(error: unknown): never {
+    throw error instanceof Error ? error : new Error(String(error))
+}
+
 const report = (changes: Partial<DirectLinkSyncReport> = {}): DirectLinkSyncReport => ({
     imported: 0,
     updated: 0,
@@ -147,7 +151,7 @@ it('scans on startup and settled focus, coalesces focus bursts, and cancels on b
         async () => {
             calls++
         },
-        expect.fail,
+        failOnError,
         target,
     )
     onTestFinished(stop)

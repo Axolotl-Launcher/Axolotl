@@ -270,7 +270,7 @@
                             .filter(Boolean)
                             .join(' ')
                     "
-                    :symlink-target="props.instance.symlink_target"
+                    :symlink-target="props.instance.symlink_target ?? undefined"
                     @confirm="handleModpackUpdateConfirm"
                     @cancel="handleModpackUpdateCancel"
                 />
@@ -309,6 +309,7 @@
                             : undefined
                     "
                     :action-loading="contentUpdateSubmitting"
+                    :action-error="contentUpdateError"
                     :hide-on-update="false"
                     @retry="contentVersions.retry"
                     @update="handleModalUpdate"
@@ -429,6 +430,7 @@ import {
     normalizeInstanceContentSnapshot,
 } from '@/helpers/instance-content'
 import { postUpgradeWarningForContent } from '@/helpers/post-upgrade-notice'
+import { resourceOperationError } from '@/helpers/resource-operation-logic'
 import {
     confirmedContentGroupKey,
     duplicateGroupUpdateEntries,
@@ -443,7 +445,12 @@ import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
 
-import { modsContentPending, modsContentScopeTransition } from './mods-content-state'
+import {
+    createContentRefreshSettlement,
+    modsContentLoading,
+    modsContentPending,
+    modsContentScopeTransition,
+} from './mods-content-state'
 
 const messages = defineMessages({
     instanceContentProcessing: {
@@ -507,6 +514,15 @@ const messages = defineMessages({
     contentTypeProject: {
         id: 'app.instance.mods.content-type-project',
         defaultMessage: 'project',
+    },
+    updateNothingToApplyTitle: {
+        id: 'app.instance.mods.update-nothing-to-apply.title',
+        defaultMessage: 'Nothing to update',
+    },
+    updateNothingToApplyBody: {
+        id: 'app.instance.mods.update-nothing-to-apply.body',
+        defaultMessage:
+            'No newer compatible version was found for the selected content, so no files were changed.',
     },
     bulkUpdateResolvingVersions: {
         id: 'app.instance.mods.bulk-update.resolving-versions',
@@ -1250,6 +1266,7 @@ const contentRefreshTask = ref<ContentRefreshTask | null>(null)
 let contentRefreshSubscription: ReturnType<typeof createContentRefreshSubscription> | undefined
 let contentRefreshConnection: Promise<void> | undefined
 let subscribedInstanceId: string | undefined
+const contentRefreshSettlement = createContentRefreshSettlement()
 
 async function connectContentRefresh() {
     const instanceId = props.instance.id
@@ -1257,6 +1274,7 @@ async function connectContentRefresh() {
         return contentRefreshConnection
     contentRefreshSubscription?.dispose()
     subscribedInstanceId = instanceId
+    contentRefreshSettlement.reset()
     const itemCache = new WeakMap<InstanceContentSnapshotItem, ContentItem>()
     let snapshot: InstanceContentData['snapshot'] | undefined
     const subscription = createContentRefreshSubscription(
@@ -1269,7 +1287,11 @@ async function connectContentRefresh() {
             )
                 return
             contentRefreshTask.value = state.task
-            loading.value = state.snapshot.items.length === 0 && (state.task?.running ?? true)
+            loading.value = modsContentLoading({
+                hasSnapshot: true,
+                hasItems: state.snapshot.items.length > 0,
+                settled: contentRefreshSettlement.observe(state.task),
+            })
             if (snapshot === state.snapshot) return
             snapshot = state.snapshot
             const data = normalizeInstanceContentSnapshot(instanceId, state.snapshot, itemCache)
@@ -1330,6 +1352,7 @@ function invalidateContentRequests(clearState = false) {
     contentRefreshSubscription = undefined
     contentRefreshConnection = undefined
     subscribedInstanceId = undefined
+    contentRefreshSettlement.reset()
     contentEnrichmentController?.abort()
     contentRequestGeneration += 1
     contentTitleEnrichment.clear()
@@ -1439,6 +1462,7 @@ const updaterReleaseRefs = computed(
         ),
 )
 const contentUpdateSubmitting = ref(false)
+const contentUpdateError = ref<string>()
 const updatingModpack = ref(false)
 const pendingModpackUpdateVersion = ref<Labrinth.Versions.v2.Version | null>(null)
 const isModpackUpdateDowngrade = ref(false)
@@ -1627,7 +1651,10 @@ async function handleUploadFiles() {
 }
 
 function dependencyRefMatchesContentItem(
-    reference: { provider: 'modrinth' | 'curseforge' | 'local'; projectId: string },
+    reference: {
+        provider: 'modrinth' | 'curseforge' | 'local' | 'mcarchive'
+        projectId: string
+    },
     item: ContentItem,
 ) {
     const itemProjectId = item.project?.id ?? ''
@@ -1857,7 +1884,7 @@ async function applyToggleDisableBatch(items: ContentItem[], enabled: boolean) {
             keys: getContentOperationKeys(item),
             originalFileName: item.file_name,
             originalFilePath: item.file_path,
-            originalEnabled: item.enabled,
+            originalEnabled: item.enabled ?? false,
             optimisticPath: enabled ? trimmedPath : `${trimmedPath}.disabled`,
         })
     }
@@ -1982,6 +2009,7 @@ async function removeMod(mod: ContentItem) {
         if (isWorldDatapackItem(mod)) {
             await deleteWorldDatapackItem(mod)
         } else {
+            if (!contentId) return
             const removedPath = mod.file_path
             await remove_content_entry(props.instance.id, contentId)
             projects.value = projects.value.filter((x) => removedPath !== x.file_path)
@@ -2138,6 +2166,12 @@ async function reviewResourceChanges(entryIds: string[], release: SourceReleaseR
             entryIds,
             (job) => downloadManager.trackJob(job),
             formatMessage,
+            () =>
+                addNotification({
+                    type: 'info',
+                    title: formatMessage(messages.updateNothingToApplyTitle),
+                    text: formatMessage(messages.updateNothingToApplyBody),
+                }),
         )
     const preview = resourceOperationPreview.value
     if (!preview) return false
@@ -2279,6 +2313,7 @@ async function handleUpdate(item: ContentItem) {
 }
 
 async function handleSwitchVersion(item: ContentItem) {
+    contentUpdateError.value = undefined
     const entry = contentSnapshot.value?.items.find(
         (entry) => entry.entryId === item.instanceEntryId,
     )
@@ -2312,6 +2347,7 @@ watch(
 )
 
 async function handleModpackUpdate() {
+    contentUpdateError.value = undefined
     const link = props.instance.link
     if (!link?.project_id) return
     const projectId =
@@ -2353,6 +2389,7 @@ function updaterChangelogRef(version: Labrinth.Versions.v2.Version): SourceRelea
 }
 
 function resetUpdateState() {
+    contentUpdateError.value = undefined
     contentVersions.reset()
     updatingModpack.value = false
     updatingProject.value = null
@@ -2412,7 +2449,7 @@ async function handleModpackUpdateConfirm() {
         await initProjects()
         succeeded = true
     } catch (error) {
-        handleError(error as Error)
+        contentUpdateError.value = resourceOperationError(error, formatMessage)
     } finally {
         isModpackUpdating.value = false
         contentUpdateSubmitting.value = false
@@ -2433,6 +2470,7 @@ async function handleModalUpdate(
     event?: MouseEvent,
 ) {
     if (contentUpdateSubmitting.value) return
+    contentUpdateError.value = undefined
     contentUpdateSubmitting.value = true
     let succeeded = false
     if (updatingModpack.value) {
@@ -2621,9 +2659,11 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
         suspendContentRequests()
         return
     }
-    loading.value =
-        !contentSnapshot.value ||
-        mergedProjects.value.length + displayedLinkedModpackContentItems.value.length === 0
+    loading.value = modsContentLoading({
+        hasSnapshot: contentSnapshot.value !== null,
+        hasItems: mergedProjects.value.length + displayedLinkedModpackContentItems.value.length > 0,
+        settled: contentRefreshSettlement.settled,
+    })
     const instanceId = props.instance.id
     const generation = ++contentRequestGeneration
     contentEnrichmentController?.abort()
@@ -2633,11 +2673,19 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
         await connectContentRefresh()
         if (!isCurrentContentRequest(instanceId, generation)) return
         if (alreadyConnected) await contentRefreshSubscription?.reload()
-        await contentRefreshSubscription?.start(
+        const task = await contentRefreshSubscription?.start(
             cacheBehaviour === 'bypass' || cacheBehaviour === 'must_revalidate'
                 ? 'force_remote'
                 : 'normal',
         )
+        if (task && isCurrentContentRequest(instanceId, generation))
+            loading.value = modsContentLoading({
+                hasSnapshot: contentSnapshot.value !== null,
+                hasItems:
+                    mergedProjects.value.length + displayedLinkedModpackContentItems.value.length >
+                    0,
+                settled: contentRefreshSettlement.started(task.id),
+            })
     } catch (error) {
         if (!isCurrentContentRequest(instanceId, generation)) return
         handleError(error as Error)
@@ -2981,7 +3029,7 @@ provideContentManager({
             effectiveProvider === 'curseforge'
                 ? item.provider_refs
                       ?.find(
-                          (ref): ref is { provider: 'curseforge'; project_id: number } =>
+                          (ref) =>
                               ref.provider === 'curseforge' && typeof ref.project_id === 'number',
                       )
                       ?.project_id.toString()

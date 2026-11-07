@@ -29,7 +29,11 @@ vi.mock('@modrinth/ui', () => ({
 
 it('rechecks an existing Java path when the recommended version arrives asynchronously', async () => {
     const wrapper = mount(JavaSelector, {
-        props: { modelValue: { path: 'custom/java.exe' }, version: null, selectAllVersions: true },
+        props: {
+            modelValue: { path: 'custom/java.exe' },
+            version: undefined,
+            selectAllVersions: true,
+        },
         global: { directives: { tooltip: {} } },
     })
     try {

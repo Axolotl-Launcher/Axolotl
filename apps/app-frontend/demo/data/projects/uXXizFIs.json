@@ -1,0 +1,237 @@
+{
+  "id": "uXXizFIs",
+  "slug": "ferrite-core",
+  "title": "FerriteCore",
+  "description": "Memory usage optimizations",
+  "author": "malte0811",
+  "categories": ["fabric", "forge", "neoforge", "optimization", "quilt", "utility"],
+  "display_categories": ["fabric", "forge", "neoforge", "optimization", "quilt", "utility"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 164795454,
+  "followers": 16689,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "d5ddUdiB",
+  "date_created": "2021-04-03T07:04:43.971189Z",
+  "date_modified": "2026-03-24T18:31:50.491773Z",
+  "color": 5129796,
+  "published": "2021-04-03T07:04:43.971189Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/malte0811/FerriteCore/issues",
+  "source_url": "https://github.com/malte0811/FerriteCore",
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 71,
+  "body": "This mod reduces the memory usage of Minecraft in a few different ways. A high-level technical description of the changes is available [here](https://github.com/malte0811/FerriteCore/blob/main/summary.md).\n\nThe amount of memory saved will depend on the pack. In version 2.5.9 of [All Of Fabric 3](https://www.curseforge.com/minecraft/modpacks/all-of-fabric-3) it reduces the RAM usage (heap size) from 1,792 MB to 984 MB. For comparison the same setup with Hydrogen instead of FerriteCore uses 1,335 MB.  \nThese values were measured after generating a world with a fixed seed and waiting for two minutes.\nThe project picture is a cropped version of [this](https://commons.wikimedia.org/wiki/File:Magnetic-core_memory,_at_angle.jpg) picture.\n\n### FAQ\n\n#### Should I install this on the server or just on the client?\n\nSome optimizations are client-side only, but there are some rather high-impact optimizations that are relevant on the server too. So you should install it on both sides.\n\n#### Is this compatible with [other mod]?\n\nMost likely yes. The only exception is Hydrogen, which is compatible with all recent FerriteCore versions *on Minecraft versions where Hydrogen is officially released*. This means that 1.18+ builds are not compatible with Hydrogen, since it has been officially archived and won't receive any releases on these versions.",
+  "gallery": [],
+  "team": [
+    {
+      "username": "malte0811",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/10406104?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "d5ddUdiB",
+      "name": "ferritecore-9.0.0-fabric",
+      "version_number": "9.0.0-fabric",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-03-24T18:31:50.491773Z",
+      "downloads": 15579714,
+      "changelog": "- Update to Minecraft 26.1\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-9.0.0-fabric.jar",
+          "size": 72677,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "LtVvw4uS",
+      "name": "ferritecore-9.0.0-neoforge",
+      "version_number": "9.0.0-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-03-24T18:31:50.324216Z",
+      "downloads": 354203,
+      "changelog": "- Update to Minecraft 26.1\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-9.0.0-neoforge.jar",
+          "size": 71947,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Ii0gP3D8",
+      "name": "ferritecore-8.2.0-fabric",
+      "version_number": "8.2.0-fabric",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-01-25T14:07:55.210010Z",
+      "downloads": 13372993,
+      "changelog": "- Port changes from build 7.0.3 to 1.21.11\n  - Reduce memory usage of data component patches\n  - Fix loading slowdown with ModernFix dynamic resources\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-8.2.0-fabric.jar",
+          "size": 80138,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "mLI5k2Gi",
+      "name": "ferritecore-8.2.0-neoforge",
+      "version_number": "8.2.0-neoforge",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-01-25T14:07:54.558304Z",
+      "downloads": 175782,
+      "changelog": "- Port changes from build 7.0.3 to 1.21.11\n  - Reduce memory usage of data component patches\n  - Fix loading slowdown with ModernFix dynamic resources\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-8.2.0-neoforge.jar",
+          "size": 79272,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bPLllEgi",
+      "name": "ferritecore-8.1.0-fabric",
+      "version_number": "8.1.0-fabric",
+      "version_type": "release",
+      "game_versions": ["1.21.9", "1.21.10"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-01-25T13:58:42.216663Z",
+      "downloads": 1179298,
+      "changelog": "- Port changes from build 7.0.3 to 1.21.9\n  - Reduce memory usage of data component patches\n  - Fix loading slowdown with ModernFix dynamic resources\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-8.1.0-fabric.jar",
+          "size": 82450,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "G34Jddxu",
+      "name": "ferritecore-8.1.0-neoforge",
+      "version_number": "8.1.0-neoforge",
+      "version_type": "release",
+      "game_versions": ["1.21.9", "1.21.10"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-01-25T13:58:41.987937Z",
+      "downloads": 21871,
+      "changelog": "- Port changes from build 7.0.3 to 1.21.9\n  - Reduce memory usage of data component patches\n  - Fix loading slowdown with ModernFix dynamic resources\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-8.1.0-neoforge.jar",
+          "size": 81571,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "LdlksamY",
+      "name": "ferritecore-8.0.4-fabric",
+      "version_number": "8.0.4-fabric",
+      "version_type": "release",
+      "game_versions": ["1.21.5", "1.21.6", "1.21.7", "1.21.8"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-01-25T13:47:24.412138Z",
+      "downloads": 1039552,
+      "changelog": "- Port changes from build 7.0.3 to 1.21.5\n  - Reduce memory usage of data component patches\n  - Fix loading slowdown with ModernFix dynamic resources\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-8.0.4-fabric.jar",
+          "size": 82475,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vqv9Um4Q",
+      "name": "ferritecore-8.0.4-neoforge",
+      "version_number": "8.0.4-neoforge",
+      "version_type": "release",
+      "game_versions": ["1.21.5", "1.21.6", "1.21.7", "1.21.8"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-01-25T13:47:23.909281Z",
+      "downloads": 36344,
+      "changelog": "- Port changes from build 7.0.3 to 1.21.5\n  - Reduce memory usage of data component patches\n  - Fix loading slowdown with ModernFix dynamic resources\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ferritecore-8.0.4-neoforge.jar",
+          "size": 81572,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

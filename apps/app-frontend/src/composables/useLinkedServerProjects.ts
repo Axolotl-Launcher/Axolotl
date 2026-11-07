@@ -16,7 +16,7 @@ export function useLinkedServerProjects(instances: Ref<GameInstance[]>) {
             ),
         ].sort(),
     )
-    const { data } = useQuery({
+    const { data } = useQuery<Array<{ id: string; minecraft_server?: unknown | null }>>({
         queryKey: computed(() => ['instance-server-projects', 'modrinth', projectIds.value]),
         queryFn: () => get_project_v3_many(projectIds.value, 'must_revalidate'),
         enabled: computed(() => projectIds.value.length > 0),

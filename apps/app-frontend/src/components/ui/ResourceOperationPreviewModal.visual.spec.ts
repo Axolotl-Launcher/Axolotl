@@ -8,6 +8,7 @@ import {
     resourceAnalysisClose,
     resourceAnalysisOpen,
     resourceAnalysisUpdate,
+    type ResourceDependencyNode,
     resourceGet,
     type ResourceOperationPlan,
     type ResourceOperationProgress,
@@ -23,7 +24,10 @@ import { createContentAnalysis } from '@/providers/content-analysis'
 import ResourceOperationPreviewModal from './ResourceOperationPreviewModal.vue'
 
 const closeTransition = vi.fn().mockResolvedValue(undefined)
-const testLocale: { language: string; messages: Record<string, { message: string }> | null } = {
+const testLocale: {
+    language: string
+    messages: Record<string, { message?: string; defaultMessage?: string }> | null
+} = {
     language: 'en',
     messages: null,
 }
@@ -115,12 +119,16 @@ const reference = {
     release: { project: { source: 'modrinth', projectId: 'root0000' }, releaseId: 'version2' },
     artifactId: 'root.jar',
 }
-const node = (id: string, state: string, artifact: unknown = null) => ({
+const node = (
+    id: string,
+    state: string,
+    artifact: unknown = null,
+): ResourceDependencyNode => ({
     id,
     resource: { kind: 'source', project: { source: 'modrinth', projectId: id } },
     scope: { kind: 'instance' },
     state,
-    artifact,
+    artifact: artifact as ResourceDependencyNode['artifact'],
     installedEntries: [],
     compatibility: { gameVersion: 'compatible', loader: 'compatible', reasons: [] },
 })
@@ -1033,6 +1041,7 @@ it('keeps submission and reopening locked through the closing animation', async 
     const wrapper = mount(ResourceOperationPreviewModal)
     const result = wrapper.vm.show({
         instanceId: 'instance',
+        instanceName: 'Instance',
         intent: 'update',
         entryIds: ['entry'],
         installDependencies: true,
@@ -1049,6 +1058,7 @@ it('keeps submission and reopening locked through the closing animation', async 
         expect(
             await wrapper.vm.show({
                 instanceId: 'other',
+                instanceName: 'Other',
                 intent: 'update',
                 entryIds: ['entry'],
                 installDependencies: true,
@@ -1076,6 +1086,7 @@ it('cancelling a context aborts parsing and ignores its late plan', async () => 
     const wrapper = mount(ResourceOperationPreviewModal)
     const result = wrapper.vm.show({
         instanceId: 'instance',
+        instanceName: 'Instance',
         intent: 'update',
         entryIds: ['entry'],
         installDependencies: true,
@@ -1115,7 +1126,6 @@ it('keeps compatibility exception controls and an enabled warning install button
             {
                 code: 'compatibilityMismatch',
                 selectionId: 'installed',
-                entryId: null,
                 blocking: true,
                 message: 'game version mismatch',
             },
@@ -1157,8 +1167,11 @@ it('shows each parsed item while retaining the skeleton and locking every button
     const emit = (value: ReturnType<typeof node>, title: string) =>
         progress({
             kind: 'node',
+            requestId: 'request',
+            sequence: 1,
             planId: 'plan',
             revision: 1,
+            round: 1,
             node: value,
             metadata: { title, iconUrl: null, summary: '' },
         } as ResourceOperationProgress)
@@ -1310,8 +1323,11 @@ it('discards partial revision items after failure and keeps the previously revie
             .trigger('click')
         progress({
             kind: 'node',
+            requestId: 'request',
+            sequence: 1,
             planId: 'plan',
             revision: 2,
+            round: 1,
             node: node('partial', 'install'),
             metadata: null,
         } as ResourceOperationProgress)
@@ -1674,8 +1690,11 @@ it('locks preparation controls except Cancel and cancels an obsolete session wit
         resolveOld({ ...plan(9), actions: [] })
         oldProgress?.({
             kind: 'node',
+            requestId: 'old-request',
+            sequence: 1,
             planId: 'old',
             revision: 9,
+            round: 1,
             node: node('obsolete-progress', 'install'),
             metadata: null,
         } as ResourceOperationProgress)
@@ -2019,8 +2038,14 @@ it('recovers a timed-out cart analysis in place and retries with a new native se
         expect(resourceAnalysisClose).toHaveBeenCalledWith('old-session')
         report({
             kind: 'node',
+            requestId: 'request',
+            sequence: 1,
             selectionRevision: 1,
+            planId: 'plan',
+            revision: 2,
+            round: 1,
             node: { ...root, id: 'late' },
+            metadata: null,
         } as ResourceOperationProgress)
         late({ ...plan(), id: 'late-plan' })
         await vi.advanceTimersByTimeAsync(0)
@@ -2066,7 +2091,16 @@ it('bounds an unresponsive direct preview and keeps retry available after late n
         expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(false)
         expect(wrapper.find('section').exists()).toBe(true)
         expect(wrapper.text()).toContain('The request timed out. Check your connection and retry.')
-        report({ kind: 'node', node: { ...root, id: 'late' } } as ResourceOperationProgress)
+        report({
+            kind: 'node',
+            requestId: 'request',
+            sequence: 1,
+            planId: 'plan',
+            revision: 2,
+            round: 1,
+            node: { ...root, id: 'late' },
+            metadata: null,
+        } as ResourceOperationProgress)
         late({ ...plan(), id: 'late-plan' })
         await vi.advanceTimersByTimeAsync(0)
         expect(wrapper.text()).not.toContain('late')

@@ -1,4 +1,4 @@
-import type { ContentItem } from '@modrinth/ui'
+import type { ContentItem, MessageDescriptor } from '@modrinth/ui'
 import { expect, it, vi } from 'vitest'
 
 import { type InstallJobSnapshot, wait_for_install_job } from './install.ts'
@@ -268,7 +268,7 @@ it('single, selected, all and duplicate updates queue exact entries without depe
 it('does not queue empty or blocked updates and propagates prepare and queue failures', async () => {
     vi.clearAllMocks()
     const track = vi.fn()
-    const format = vi.fn((message: { defaultMessage: string }) => message.defaultMessage)
+    const format = vi.fn((message: MessageDescriptor) => message.defaultMessage ?? '')
     expect(await queueResourceEntryUpdates('instance', [], track, format)).toBe(false)
     expect(resourcePrepareEntryOperation).not.toHaveBeenCalled()
     vi.mocked(resourcePrepareEntryOperation).mockResolvedValue({
@@ -303,6 +303,44 @@ it('does not queue empty or blocked updates and propagates prepare and queue fai
         'stale revision',
     )
     expect(track).not.toHaveBeenCalled()
+})
+
+it('reports a prepared update with nothing to apply instead of finishing silently', async () => {
+    readyUpdates()
+    const nothing = vi.fn()
+    expect(await queueResourceEntryUpdates('quiet', [], vi.fn(), vi.fn(), nothing)).toBe(false)
+    expect(nothing).not.toHaveBeenCalled()
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValueOnce({
+        id: 'plan',
+        revision: 1,
+        actions: [],
+        issues: [],
+    } as never)
+    expect(await queueResourceEntryUpdates('quiet', ['entry'], vi.fn(), vi.fn(), nothing)).toBe(
+        false,
+    )
+    expect(nothing).toHaveBeenCalledOnce()
+    expect(resourceQueuePlan).not.toHaveBeenCalled()
+    expect(await queueResourceEntryUpdates('quiet', ['entry'], vi.fn(), vi.fn(), nothing)).toBe(
+        true,
+    )
+    expect(nothing).toHaveBeenCalledOnce()
+})
+
+it('shows one nothing-to-apply notice for overlapping requests that share a pending task', async () => {
+    readyUpdates()
+    const pending = deferred<unknown>()
+    vi.mocked(resourcePrepareEntryOperation).mockReturnValueOnce(pending.promise as never)
+    const first = vi.fn()
+    const second = vi.fn()
+    const requests = [
+        queueResourceEntryUpdates('shared-quiet', ['entry'], vi.fn(), vi.fn(), first),
+        queueResourceEntryUpdates('shared-quiet', ['entry'], vi.fn(), vi.fn(), second),
+    ]
+    pending.resolve({ id: 'plan', revision: 1, actions: [], issues: [] })
+    expect(await Promise.all(requests)).toEqual([false, false])
+    expect(resourcePrepareEntryOperation).toHaveBeenCalledOnce()
+    expect(first.mock.calls.length + second.mock.calls.length).toBe(1)
 })
 
 function item(entry: string, overrides: Partial<ContentItem> = {}): ContentItem {

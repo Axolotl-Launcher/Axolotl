@@ -100,7 +100,7 @@ it.each(['terminal', 'removed'])(
                 },
             })
             vi.mocked(download_job_get).mockResolvedValue(
-                state === 'terminal' ? job('succeeded', running.modified) : null,
+                (state === 'terminal' ? job('succeeded', running.modified) : null) as never,
             )
             await expect(manager.cancel('one')).resolves.toBeUndefined()
             expect(manager.activeJobs.value).toHaveLength(0)
@@ -161,7 +161,7 @@ it('fairly polls more than eight stale jobs and continues after a timed-out stat
     try {
         await manager.start()
         vi.mocked(download_job_get).mockImplementation(
-            async (id) => jobs.find((candidate) => candidate.job_id === id) ?? null,
+            async (id) => (jobs.find((candidate) => candidate.job_id === id) ?? null) as never,
         )
         await vi.advanceTimersByTimeAsync(60_000)
         expect(vi.mocked(download_job_get).mock.calls.some(([id]) => id === '8')).toBe(true)
@@ -207,7 +207,7 @@ it('retries accepted cancellation cleanup while suppressing concurrent cancellat
     try {
         await manager.start()
         const accepted = deferred<InstallJobSnapshot>()
-        const read = deferred<InstallJobSnapshot | null>()
+        const read = deferred<InstallJobSnapshot>()
         vi.mocked(download_job_cancel).mockReturnValueOnce(accepted.promise)
         vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
         const cancellation = manager.cancel('one')
@@ -296,7 +296,7 @@ it('polls stale active jobs, preserves events received during reads and stops on
     const manager = createDownloadManager(vi.fn())
     try {
         await manager.start()
-        const read = deferred<InstallJobSnapshot | null>()
+        const read = deferred<InstallJobSnapshot>()
         vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
         await vi.advanceTimersByTimeAsync(30_000)
         expect(download_job_get).toHaveBeenCalledOnce()
@@ -490,6 +490,61 @@ it('subscribes concurrently, snapshots only after every subscription, then repla
     await start
     expect(manager.jobs.value[0].status).toBe('succeeded')
     manager.dispose()
+})
+
+it('downgrading a pack counts only its current archive even when the previous archive has the same size', async () => {
+    vi.useFakeTimers()
+    const current: InstallJobSnapshot = {
+        ...job('running', '2026-11-07T11:00:00Z'),
+        kind: 'install_pack_to_existing_instance',
+        phase: 'downloading_pack_file',
+        progress: { current: 0, total: 100 },
+        summary: { files_completed: 1, bytes_downloaded: 100, bytes_total: 200, fallback_count: 0 },
+        items: [
+            {
+                id: 'old.mrpack',
+                name: 'old.mrpack',
+                status: 'completed',
+                bytes_downloaded: 100,
+                bytes_total: 100,
+            },
+        ],
+    }
+    backend.list.mockResolvedValue({ jobs: [current] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const request = backend.requests.mock.calls[0][0]
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'new.mrpack',
+            name: 'new.mrpack',
+            url: 'https://example.invalid/new.mrpack',
+            source: 'official',
+            bytes_total: 100,
+            attempt: 1,
+            max_attempts: 5,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toEqual({ current: 0, total: 100 })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'new.mrpack',
+            bytes: 25,
+            status: 'downloading',
+            speed_bytes_per_second: 25,
+            eta_seconds: 3,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toEqual({ current: 25, total: 100 })
+        expect(manager.jobs.value[0].summary.bytes_downloaded).toBe(25)
+        expect(manager.jobs.value[0].items[0].bytes_downloaded).toBe(100)
+    } finally {
+        manager.dispose()
+        vi.useRealTimers()
+    }
 })
 
 it('releases subscriptions that resolve after disposal without dispatching snapshots', async () => {

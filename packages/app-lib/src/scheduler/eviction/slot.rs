@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
+use super::criteria::Swappable;
 use crate::scheduler::tag::Level;
 
 /// Waits before the next rebuild after the first, second and later failures.
@@ -80,10 +81,15 @@ pub struct EvictionSlot<S> {
 /// waiting forever would hold the rebuild lock and never return the memory.
 pub const DRAIN_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Longest a rebuild entry may run before it counts as a failed attempt. A
+/// dependency that never answers must not leave the slot `Rebuilding` forever.
+pub const REBUILD_ENTRY_TIMEOUT: Duration = Duration::from_secs(60);
+
 /// Marks a running rebuild entry. While it lives the entry is running; if it
-/// is dropped without `finish`, the entry was abandoned (panic or cancel) and
-/// the flag it leaves says so, so the next caller settles the attempt instead
-/// of leaving `Rebuilding` set forever.
+/// is dropped before `settle` — a panic, a cancelled future, a cancellation
+/// while waiting for the slot lock — the entry was abandoned, and the flag it
+/// leaves says so, so the next caller settles the attempt instead of leaving
+/// `Rebuilding` set forever.
 struct Unfinished<'a> {
     running: &'a AtomicBool,
     abandoned: &'a AtomicBool,
@@ -101,9 +107,9 @@ impl<'a> Unfinished<'a> {
         }
     }
 
-    /// The entry returned normally: it is no longer running, and this attempt
-    /// is not abandoned.
-    fn finish(mut self) {
+    /// The result is committed under the slot lock: this attempt is settled,
+    /// so a later cancellation cannot make it look abandoned.
+    fn settle(&mut self) {
         self.running.store(false, Ordering::Release);
         self.disarmed = true;
     }
@@ -120,15 +126,15 @@ impl Drop for Unfinished<'_> {
 }
 
 impl<S> EvictionSlot<S> {
-    /// A live slot for the tag `key`. The key is the service's scheduling
-    /// tag id: the slot itself cannot enforce "one slot per tag" (it only
-    /// owns its own lock and `JoinSet`), so the caller that keeps the map of
-    /// slots is the one that must key it by tag, and two slots for the same
-    /// key would both evict.
+    /// A live slot for the tag `key`, created through the registry so one tag
+    /// never gets two slots. The eligibility token comes from the service's
+    /// [`crate::scheduler::eviction::criteria::Assessment`]: an assessment
+    /// that fails any criterion yields `None` and no token, so an ineligible
+    /// service cannot be put into a slot at all.
     // Named rather than `Self`: the resource generator reads `-> Self {` as
     // a struct literal outside a function (a known false positive that keeps
     // fields registered; fixing it moves reviewed ranks, spec §11.8 R2).
-    pub fn live(key: u64, built: Built<S>) -> EvictionSlot<S> {
+    fn new(key: u64, _eligible: Swappable, built: Built<S>) -> EvictionSlot<S> {
         EvictionSlot {
             key,
             entry_entered: AtomicBool::new(false),
@@ -220,8 +226,9 @@ impl<S> EvictionSlot<S> {
                     return RebuildOutcome::Busy;
                 }
                 if !self.entry_abandoned.swap(false, Ordering::AcqRel) {
-                    // The winner has not reached its entry yet: it is about
-                    // to, so this caller is simply early.
+                    // The winner holds `Rebuilding` and is on its way into
+                    // the entry: this caller is simply early. Report busy so
+                    // it retries; the winner is alive.
                     return RebuildOutcome::Busy;
                 }
                 return match count_failure(
@@ -248,15 +255,45 @@ impl<S> EvictionSlot<S> {
             }
             inner.state = SlotState::Rebuilding;
         }
-        // A panicking or cancelled entry must not strand the slot in
-        // `Rebuilding`. The guard flips this flag unless the attempt reaches
-        // the normal completion path; the next caller settles it under the
-        // lock (a Drop cannot, since it cannot await the mutex).
-        let unfinished =
+        // A panicking, cancelled or timed-out entry must not strand the slot
+        // in `Rebuilding`. The guard is armed until the result is committed
+        // under the lock: until then the attempt is still "not settled", so a
+        // cancellation while waiting for the mutex is settled by the next
+        // caller exactly like a panic.
+        let mut unfinished =
             Unfinished::new(&self.entry_entered, &self.entry_abandoned);
-        let result = entry().await;
-        unfinished.finish();
+        let entry_started = Instant::now();
+        let result = match tokio::time::timeout(REBUILD_ENTRY_TIMEOUT, entry())
+            .await
+        {
+            Ok(result) => result,
+            Err(_) => {
+                tracing::warn!(
+                    timeout = ?REBUILD_ENTRY_TIMEOUT,
+                    "A rebuild entry did not return in time; counting it as a failed attempt"
+                );
+                let mut inner = self.inner.lock().await;
+                unfinished.settle();
+                let failed_at =
+                    now + entry_started.elapsed().min(REBUILD_ENTRY_TIMEOUT);
+                return match count_failure(
+                    &mut inner,
+                    failed_at,
+                    "the rebuild entry timed out",
+                ) {
+                    Some(wait) => RebuildOutcome::RetryAfter(wait),
+                    None => RebuildOutcome::Revoked,
+                };
+            }
+        };
         let mut inner = self.inner.lock().await;
+        unfinished.settle();
+        // `now` is the caller's clock and stays authoritative: a test injects
+        // it, and a production caller passes `Instant::now()` at the point it
+        // calls `rebuild`. The elapsed time of the entry is added when it is
+        // measurable, so a slow entry's failure is recorded when it failed
+        // rather than when it started.
+        let failed_at = now + entry_started.elapsed();
         match result {
             Ok(built) => {
                 inner.service = Some(built.service);
@@ -268,7 +305,12 @@ impl<S> EvictionSlot<S> {
                 RebuildOutcome::Live
             }
             Err(error) => {
-                match count_failure(&mut inner, now, &error.to_string()) {
+                tracing::warn!(
+                    failures = inner.failures + 1,
+                    error = %error,
+                    "A rebuild attempt failed"
+                );
+                match count_failure(&mut inner, failed_at, &error.to_string()) {
                     Some(wait) => RebuildOutcome::RetryAfter(wait),
                     None => RebuildOutcome::Revoked,
                 }
@@ -277,17 +319,83 @@ impl<S> EvictionSlot<S> {
     }
 }
 
+/// The one slot per tag. Creating a second slot for the same key returns the
+/// existing one, so two callers can never evict or rebuild the same tag
+/// independently.
+pub struct SlotRegistry<S> {
+    slots: std::sync::Mutex<
+        std::collections::HashMap<u64, std::sync::Arc<EvictionSlot<S>>>,
+    >,
+}
+
+impl<S> Default for SlotRegistry<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<S> SlotRegistry<S> {
+    pub fn new() -> Self {
+        Self {
+            slots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
+    /// The slot for `key`, creating it on first use. The first caller's
+    /// service is used; later callers get the same slot and their `built` is
+    /// dropped.
+    pub fn slot(
+        &self,
+        key: u64,
+        eligible: Swappable,
+        built: Built<S>,
+    ) -> std::sync::Arc<EvictionSlot<S>> {
+        let mut slots =
+            self.slots.lock().unwrap_or_else(|error| error.into_inner());
+        slots
+            .entry(key)
+            .or_insert_with(|| {
+                std::sync::Arc::new(EvictionSlot::new(key, eligible, built))
+            })
+            .clone()
+    }
+
+    /// The slot for `key` if one exists.
+    pub fn get(&self, key: u64) -> Option<std::sync::Arc<EvictionSlot<S>>> {
+        self.slots
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .get(&key)
+            .cloned()
+    }
+
+    pub fn len(&self) -> usize {
+        self.slots
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// Steps 3–6: aborts the slot's tasks, drains them to zero and drops the
 /// service. A panicked or aborted task has terminated as much as a finished
 /// one. Draining is safe to resume: cut short, it leaves the slot
 /// `Evicting` with the remaining tasks still in its `JoinSet`.
+///
+/// A descendant in `spawn_blocking` cannot be aborted. The drain is bounded,
+/// and a descendant that outlives the deadline revokes the slot: the module
+/// cannot observe when detached work really ends, so it must not start a
+/// replacement next to it. Revoked is the safe state — the work keeps its L2
+/// semantics and no second instance is built.
 async fn drain<S>(inner: &mut Inner<S>) {
     inner.state = SlotState::Evicting;
     inner.tasks.abort_all();
-    // A descendant in `spawn_blocking` cannot be aborted, so the drain is
-    // bounded: on timeout the remaining tasks are detached rather than
-    // waited for, and the service is still dropped so the memory comes back.
     let deadline = Instant::now() + DRAIN_TIMEOUT;
+    let mut stranded = false;
     while Instant::now() < deadline {
         match tokio::time::timeout_at(deadline.into(), inner.tasks.join_next())
             .await
@@ -295,9 +403,10 @@ async fn drain<S>(inner: &mut Inner<S>) {
             Ok(Some(_)) => {}
             Ok(None) => break,
             Err(_) => {
+                stranded = true;
                 tracing::warn!(
                     remaining = inner.tasks.len(),
-                    "Some evicted tasks did not end within the drain timeout; detaching them"
+                    "Some evicted tasks outlived the drain timeout; the slot will not rebuild a second instance"
                 );
                 break;
             }
@@ -305,6 +414,10 @@ async fn drain<S>(inner: &mut Inner<S>) {
     }
     inner.tasks.detach_all();
     inner.service = None;
+    if stranded {
+        revoke(inner, "evicted work outlived the drain window");
+        return;
+    }
     inner.state = SlotState::Evicted;
 }
 
@@ -351,13 +464,26 @@ mod tests {
         }
     }
 
+    /// The eligibility token every test slot needs; a real service gets one
+    /// from `Assessment::token` after passing every criterion.
+    fn eligible() -> Swappable {
+        super::super::criteria::LOG_RING_BUFFER
+            .token()
+            .expect("the log ring buffer is the unconditional L1 member")
+    }
+
+    fn registry() -> SlotRegistry<u32> {
+        SlotRegistry::new()
+    }
+
     async fn failing() -> Result<Built<u32>, String> {
         Err("rebuild failed".into())
     }
 
     #[tokio::test]
     async fn a_rebuild_entry_that_touches_the_slot_does_not_deadlock() {
-        let slot = std::sync::Arc::new(EvictionSlot::live(1, built(1)));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         let probe = std::sync::Arc::clone(&slot);
         let outcome = tokio::time::timeout(
@@ -375,13 +501,15 @@ mod tests {
 
     #[tokio::test]
     async fn the_slot_names_the_tag_it_serves() {
-        let slot = EvictionSlot::live(42, built(1));
+        let registry = registry();
+        let slot = registry.slot(42, eligible(), built(1));
         assert_eq!(slot.key(), 42);
     }
 
     #[tokio::test]
     async fn an_abandoned_rebuild_is_settled_and_retried() {
-        let slot = std::sync::Arc::new(EvictionSlot::live(1, built(1)));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         // Drop the entry future before it completes: this is the panic or
         // cancel path.
@@ -401,30 +529,84 @@ mod tests {
         assert_eq!(slot.state().await, SlotState::Evicted);
     }
 
-    #[tokio::test]
-    async fn a_drain_is_bounded_even_with_an_unabortable_descendant() {
-        // A descendant parked on a blocking-ish wait cannot be aborted, so
-        // the drain must still finish within its window and drop the service.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_drain_never_waits_past_its_deadline() {
+        // `JoinSet::abort_all` ends an async task at its next await point, so
+        // the reachable slow case is a task that keeps working after the
+        // abort (no await point inside its loop). The drain must still return
+        // within its window and must not leave a rebuildable slot behind
+        // while that work runs.
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let (started_sender, started_receiver) =
+            tokio::sync::oneshot::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let finished = Arc::new(AtomicBool::new(false));
         let mut tasks = JoinSet::new();
-        tasks.spawn(async {
-            let _ = tokio::task::spawn_blocking(|| {
-                std::thread::sleep(Duration::from_secs(30));
-            })
-            .await;
+        tasks.spawn({
+            let stop = Arc::clone(&stop);
+            let finished = Arc::clone(&finished);
+            async move {
+                let _ = started_sender.send(());
+                // No await point: an abort cannot interrupt this loop, which
+                // is exactly the descendant the drain deadline exists for.
+                while !stop.load(Ordering::Acquire) {
+                    std::hint::spin_loop();
+                }
+                finished.store(true, Ordering::Release);
+            }
         });
-        let slot = EvictionSlot::live(1, Built { service: 7, tasks });
+        // A sleep only gives the runtime the chance to poll; it does not prove
+        // that it did, and an unpolled task is cancelled before it starts.
+        started_receiver
+            .await
+            .expect("the descendant must start before eviction");
+
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), Built { service: 7, tasks });
         let started = Instant::now();
-        assert!(slot.evict().await);
+        let evicted = tokio::time::timeout(
+            DRAIN_TIMEOUT + Duration::from_secs(10),
+            slot.evict(),
+        )
+        .await
+        .expect("the drain must return within its window");
+        // The outer timeout is the boundedness check; a wall-clock upper bound
+        // here fails on a runner that deschedules the test around the
+        // deadline. The lower bound is what proves the drain waited at all.
         assert!(
-            started.elapsed() < DRAIN_TIMEOUT + Duration::from_secs(2),
-            "the drain must not wait on the descendant forever"
+            started.elapsed() >= DRAIN_TIMEOUT,
+            "the drain must wait out its deadline, returned after {:?}",
+            started.elapsed()
+        );
+        // The descendant outlived the window, so the slot must never start a
+        // second instance beside it.
+        assert!(!evicted, "a stranded descendant must revoke the slot");
+        assert_eq!(slot.state().await, SlotState::Revoked);
+        assert_eq!(
+            slot.rebuild(Instant::now(), || async {
+                Ok::<_, String>(built(2))
+            })
+            .await,
+            RebuildOutcome::Revoked
         );
         assert_eq!(slot.with_service(|value| *value).await, None);
+
+        // Release the detached descendant so it cannot outlive the test.
+        stop.store(true, Ordering::Release);
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !finished.load(Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("the descendant must stop once released");
     }
 
     #[tokio::test]
     async fn a_second_rebuild_while_one_runs_reports_busy() {
-        let slot = std::sync::Arc::new(EvictionSlot::live(1, built(1)));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         let (built_entered, entered) = tokio::sync::oneshot::channel::<()>();
         let (release, released) = tokio::sync::oneshot::channel::<()>();
@@ -457,7 +639,8 @@ mod tests {
         let mut tasks = JoinSet::new();
         tasks.spawn(std::future::pending::<()>());
         tasks.spawn(async { panic!("a panicked descendant still terminates") });
-        let slot = EvictionSlot::live(1, Built { service: 7, tasks });
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), Built { service: 7, tasks });
         assert!(slot.evict().await);
         assert_eq!(slot.state().await, SlotState::Evicted);
         assert_eq!(slot.with_service(|value| *value).await, None);
@@ -466,33 +649,53 @@ mod tests {
 
     #[tokio::test]
     async fn a_failed_rebuild_backs_off_one_four_then_sixteen_seconds() {
-        let slot = EvictionSlot::live(1, built(1));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         let mut now = Instant::now();
         for wait in [1, 4, 16, 16] {
             let wait = Duration::from_secs(wait);
-            assert_eq!(
-                slot.rebuild(now, failing).await,
-                RebuildOutcome::RetryAfter(wait)
+            // The failure is recorded at the entry's completion, which is a
+            // few microseconds after `now`: the returned backoff includes
+            // them, and the next attempt must advance by at least that much.
+            let outcome = slot.rebuild(now, failing).await;
+            let RebuildOutcome::RetryAfter(retry_in) = outcome else {
+                panic!("expected a retry, got {outcome:?}");
+            };
+            assert!(
+                retry_in >= wait
+                    && retry_in < wait + Duration::from_millis(200),
+                "backoff should be about {wait:?}, got {retry_in:?}"
             );
-            assert_eq!(
-                slot.rebuild(now, failing).await,
-                RebuildOutcome::NotYet(wait),
+            assert!(
+                matches!(
+                    slot.rebuild(now, failing).await,
+                    RebuildOutcome::NotYet(_)
+                ),
                 "no rebuild before the backoff ends"
             );
-            now += wait;
+            // Step just past the recorded failure time (a few microseconds
+            // after `now`) plus the backoff.
+            now += retry_in + Duration::from_millis(1);
         }
     }
 
     #[tokio::test]
     async fn eviction_gives_up_with_cumulative_failures() {
-        let slot = EvictionSlot::live(1, built(1));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         let mut now = Instant::now();
         let mut outcome = RebuildOutcome::Live;
         for _ in 0..REBUILD_ATTEMPTS_TOTAL {
             outcome = slot.rebuild(now, failing).await;
-            now += REBUILD_BACKOFF[2];
+            // Advance past the returned backoff; the recorded failure time is
+            // a few microseconds after `now`.
+            if let RebuildOutcome::RetryAfter(wait) = outcome {
+                now += wait + Duration::from_millis(1);
+            } else {
+                now += REBUILD_BACKOFF[2];
+            }
         }
         assert_eq!(outcome, RebuildOutcome::Revoked);
         assert_eq!(slot.state().await, SlotState::Revoked);
@@ -508,24 +711,30 @@ mod tests {
 
     #[tokio::test]
     async fn thirty_minutes_of_failures_revoke_before_nine_attempts() {
-        let slot = EvictionSlot::live(1, built(1));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         let first = Instant::now();
         slot.rebuild(first, failing).await;
         assert_eq!(
-            slot.rebuild(first + REBUILD_GIVE_UP_AFTER, failing).await,
+            slot.rebuild(
+                first + REBUILD_GIVE_UP_AFTER + Duration::from_secs(1),
+                failing
+            )
+            .await,
             RebuildOutcome::Revoked
         );
     }
 
     #[tokio::test]
     async fn only_a_successful_rebuild_resets_the_counters() {
-        let slot = EvictionSlot::live(1, built(1));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         let mut now = Instant::now();
         for _ in 0..5 {
             slot.rebuild(now, failing).await;
-            now += REBUILD_BACKOFF[2];
+            now += REBUILD_BACKOFF[2] + Duration::from_millis(1);
         }
         assert_eq!(
             slot.rebuild(now, || async { Ok::<_, String>(built(2)) })
@@ -534,25 +743,31 @@ mod tests {
         );
         assert_eq!(slot.with_service(|value| *value).await, Some(2));
         slot.evict().await;
-        assert_eq!(
-            slot.rebuild(now, failing).await,
-            RebuildOutcome::RetryAfter(REBUILD_BACKOFF[0]),
+        assert!(
+            matches!(
+                slot.rebuild(now, failing).await,
+                RebuildOutcome::RetryAfter(wait) if wait >= REBUILD_BACKOFF[0]
+            ),
             "the count starts over after success"
         );
     }
 
     #[tokio::test]
     async fn a_rebuild_after_the_deadline_is_revoked_even_if_it_would_work() {
-        let slot = EvictionSlot::live(1, built(1));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), built(1));
         slot.evict().await;
         let first = Instant::now();
         slot.rebuild(first, failing).await;
         let called = std::sync::atomic::AtomicBool::new(false);
         let outcome = slot
-            .rebuild(first + REBUILD_GIVE_UP_AFTER, || async {
-                called.store(true, std::sync::atomic::Ordering::SeqCst);
-                Ok::<_, String>(built(2))
-            })
+            .rebuild(
+                first + REBUILD_GIVE_UP_AFTER + Duration::from_secs(1),
+                || async {
+                    called.store(true, std::sync::atomic::Ordering::SeqCst);
+                    Ok::<_, String>(built(2))
+                },
+            )
             .await;
         assert_eq!(outcome, RebuildOutcome::Revoked);
         assert!(!called.load(std::sync::atomic::Ordering::SeqCst));
@@ -582,7 +797,8 @@ mod tests {
         // Abort reaches a blocking task only before it starts; wait until
         // it runs, so the drain really has to wait for it.
         started.recv().unwrap();
-        let slot = Arc::new(EvictionSlot::live(1, Built { service: 1, tasks }));
+        let registry = registry();
+        let slot = registry.slot(1, eligible(), Built { service: 1, tasks });
         assert!(
             tokio::time::timeout(Duration::from_millis(50), slot.evict())
                 .await

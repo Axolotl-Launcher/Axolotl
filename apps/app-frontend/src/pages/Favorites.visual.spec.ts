@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import type { ContentFavorite } from '@/helpers/content-favorites'
@@ -365,11 +365,15 @@ it.each([
     })
     const wrapper = render()
     await vi.waitFor(() => expect(wrapper.find('[data-favorite]').exists()).toBe(true))
-    const card = wrapper.findComponent('[data-favorite]')
-    expect(card.props('link')).toEqual({
-        path,
-        query: expect.objectContaining({ b: '/browse/favorites' }),
-        state: { projectPreview: { targetPath: path, title: 'Saved mod' } },
+    const card = wrapper.findComponent('[data-favorite]') as unknown as VueWrapper<
+        Record<string, unknown>
+    >
+    expect(card.props()).toMatchObject({
+        link: {
+            path,
+            query: expect.objectContaining({ b: '/browse/favorites' }),
+            state: { projectPreview: { targetPath: path, title: 'Saved mod' } },
+        },
     })
 })
 

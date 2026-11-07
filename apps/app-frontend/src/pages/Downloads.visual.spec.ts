@@ -52,7 +52,8 @@ vi.mock('vue-router', () => ({
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
     const { default: IntlMessageFormat } = await import('intl-messageformat')
-    const catalogs = {
+    const catalogs: Record<string, Record<string, { message?: string; defaultMessage?: string }>> =
+        {
         'en-US': (await import('@/locales/en-US/index.json')).default,
         'zh-CN': (await import('@/locales/zh-CN/index.json')).default,
     }
@@ -327,7 +328,7 @@ it('returning from history without a valid tab query displays active downloads',
     }
     const wrapper = mount(Downloads, { global: { directives: { tooltip: () => {} } } })
     try {
-        const tabs = () => wrapper.get('[data-onboarding-id="downloads-tabs"] > div')
+        const tabs = () => wrapper.get('[data-testid="downloads-tabs"] > div')
         expect(tabs().attributes('active-index')).toBe('1')
         for (const value of [undefined, 'invalid', 'active']) {
             fixture.route.query.tab = value
@@ -462,7 +463,7 @@ it('shows the target name in the task summary and keeps long errors and raw iden
         id: 'file-one',
         name: 'example.jar',
         manual_url: 'https://example.test/manual',
-        status: 'failed',
+        status: 'failed' as const,
         attempts: 2,
         error,
         source: 'official',

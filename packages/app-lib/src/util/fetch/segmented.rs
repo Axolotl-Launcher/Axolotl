@@ -61,8 +61,8 @@ use crate::util::download::constants::{
     FETCH_SEGMENTED_CONTENT_VALIDATION_FAILED, FETCH_SELECTED_ENDPOINT_CHANGED,
     FETCH_SERVER_IGNORED_RANGE_AND_RETURNED_200,
     FETCH_SERVER_RETURNED_HTTP_416_FOR_RANGE_REQUEST, MAX_TAIL_HEDGES_PER_FILE,
-    MIN_PARALLEL_RANGES, SEGMENT_EXPANSION_INTERVAL, SEGMENT_RETRY_ATTEMPTS,
-    TAIL_HEDGE_MIN_REMAINING,
+    MIN_PARALLEL_RANGES, SEGMENT_EXPANSION_INTERVAL, SEGMENT_RECOVERY_ROUNDS,
+    SEGMENT_RETRY_ATTEMPTS, TAIL_HEDGE_MIN_REMAINING,
 };
 use crate::util::download::integrity::{
     compute_file_integrity, validate_file_content, verify_computed_integrity,
@@ -115,6 +115,7 @@ pub(crate) enum SegmentDownloadError {
     Protocol(&'static str),
     MetadataSizeChanged(u64),
     Transport,
+    ExhaustedRange(usize),
     Fatal(crate::Error),
 }
 
@@ -199,7 +200,9 @@ pub(crate) async fn download_segment(
                 tokio::time::sleep(fetch_retry_delay(attempt)).await;
                 continue;
             }
-            Ok(Err(_)) | Err(_) => return Err(SegmentDownloadError::Transport),
+            Ok(Err(_)) | Err(_) => {
+                return Err(SegmentDownloadError::ExhaustedRange(range.index));
+            }
         };
         final_url = response_url;
         if let Some(telemetry) = &telemetry {
@@ -250,7 +253,7 @@ pub(crate) async fn download_segment(
                 tokio::time::sleep(fetch_retry_delay(attempt)).await;
                 continue;
             }
-            return Err(SegmentDownloadError::Transport);
+            return Err(SegmentDownloadError::ExhaustedRange(range.index));
         }
         let content_range_matches = parsed_content_range.is_some_and(|range| {
             range.start == requested_start
@@ -436,7 +439,10 @@ pub(crate) async fn download_segment(
                                 ) => {
                                     return Err(SegmentDownloadError::MetadataSizeChanged(size));
                                 }
-                                Err(SegmentDownloadError::Transport) => {}
+                                Err(SegmentDownloadError::Transport)
+                                | Err(SegmentDownloadError::ExhaustedRange(
+                                    _,
+                                )) => {}
                             }
                         } else {
                             hedge_active.store(false, Ordering::Release);
@@ -554,33 +560,30 @@ pub(crate) async fn download_segment(
             }
         }
         drop(stream);
+        // A replacement worker resumes from DownloadRange's confirmed offset.
+        // Flush even the final failed attempt before releasing this writer.
+        writer
+            .flush()
+            .await
+            .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
+        // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
+        counters.commit(
+            requested_start,
+            range.start + range.state.lock().downloaded,
+        );
+        if pending_progress > 0 {
+            let _ = progress.send(pending_progress);
+            pending_progress = 0;
+        }
         if range.remaining() == 0
             && let Some(telemetry) = &telemetry
         {
             telemetry.finish();
         }
         if range.remaining() == 0 {
-            writer
-                .flush()
-                .await
-                .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
-            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
-            counters.commit(
-                requested_start,
-                range.start + range.state.lock().downloaded,
-            );
             break;
         }
         if attempt < SEGMENT_RETRY_ATTEMPTS {
-            writer
-                .flush()
-                .await
-                .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
-            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
-            counters.commit(
-                requested_start,
-                range.start + range.state.lock().downloaded,
-            );
             let downloaded_after_attempt = {
                 // sched-order: theseus::util::fetch::segment::DownloadRange.state
                 let state = range.state.lock();
@@ -602,7 +605,7 @@ pub(crate) async fn download_segment(
             tokio::time::sleep(fetch_retry_delay(attempt)).await;
             continue;
         }
-        return Err(SegmentDownloadError::Transport);
+        return Err(SegmentDownloadError::ExhaustedRange(range.index));
     }
     if pending_progress > 0 {
         let _ = progress.send(pending_progress);
@@ -1001,6 +1004,7 @@ pub(crate) async fn try_segmented_download(
     };
     let mut pending_ranges = (permits.len().min(ranges.len())..ranges.len())
         .collect::<VecDeque<_>>();
+    let mut range_recoveries = vec![0; ranges.len()];
     for &index in &pending_ranges {
         ranges[index].state.lock().active = false;
     }
@@ -1092,7 +1096,9 @@ pub(crate) async fn try_segmented_download(
             }
             result = downloads.next(), if !downloads.is_empty() => {
                 if let Some(result) = result {
-                    completed_ranges += 1;
+                    if result.is_ok() {
+                        completed_ranges += 1;
+                    }
                     match result {
                         Ok(completion) if completion.is_first_range => {
                             final_url = Some(completion.final_url);
@@ -1101,6 +1107,19 @@ pub(crate) async fn try_segmented_download(
                             http_version = completion.http_version;
                         }
                         Ok(_) => {}
+                        Err(SegmentDownloadError::ExhaustedRange(index))
+                            if range_recoveries[index] < SEGMENT_RECOVERY_ROUNDS =>
+                        {
+                            range_recoveries[index] += 1;
+                            pending_ranges.push_back(index);
+                            tracing::warn!(
+                                original_url = %sanitize_url_for_log(&route.url),
+                                range_start = ranges[index].start,
+                                remaining_bytes = ranges[index].remaining(),
+                                recovery_round = range_recoveries[index],
+                                "Requeuing failed range without canceling sibling downloads"
+                            );
+                        }
                         Err(error) => {
                             segment_error = Some(error);
                             break;
@@ -1338,7 +1357,9 @@ pub(crate) async fn try_segmented_download(
                 for _ in active_ranges..target {
                     let Some(range) = ranges
                         .iter()
-                        .filter(|range| range.is_active())
+                        // Splitting a failed range would give its new tail a
+                        // fresh retry budget and multiply persistent failures.
+                        .filter(|range| range.is_active() && range_recoveries[range.index] == 0)
                         .max_by_key(|range| range.remaining())
                         .cloned() else { break; };
                     let Some(permit) = try_acquire_native_connection(route, semaphore) else { break; };
@@ -1388,6 +1409,7 @@ pub(crate) async fn try_segmented_download(
                         request,
                     ));
                     ranges.push(new_range);
+                    range_recoveries.push(0);
                 }
                 if downloads.len() > active_ranges {
                     retained_ranges = retained_ranges.max(downloads.len());
@@ -1446,7 +1468,8 @@ pub(crate) async fn try_segmented_download(
                     reason,
                 }
             }
-            SegmentDownloadError::Transport => {
+            SegmentDownloadError::Transport
+            | SegmentDownloadError::ExhaustedRange(_) => {
                 SegmentedDownloadOutcome::SourceFailed
             }
             SegmentDownloadError::MetadataSizeChanged(size) => {

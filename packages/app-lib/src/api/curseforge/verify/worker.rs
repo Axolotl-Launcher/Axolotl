@@ -90,6 +90,7 @@ pub(crate) fn spawn_curseforge_verification_worker(
                     let result = verify_and_record_curseforge_modpack_file(
                         task,
                         database_tx,
+                        reporter.as_ref(),
                     )
                     .await;
                     if let (Some(reporter), Err(error)) = (&reporter, &result) {

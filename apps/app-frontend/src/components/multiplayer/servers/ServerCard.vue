@@ -67,7 +67,6 @@ const action = computed(() => {
 
 <template>
     <article
-        data-onboarding-id="server-card"
         class="group relative flex min-w-0 flex-col rounded-xl border border-solid border-surface-4 bg-surface-2 transition-colors hover:border-surface-5"
     >
         <button
@@ -129,7 +128,7 @@ const action = computed(() => {
                     :color="action.color"
                     size="sm"
                     :disabled="action.disabled"
-                    @click="emit(action.event)"
+                    @click="action.event === 'resume' ? emit('resume') : emit('start-stop')"
                 >
                     <component :is="action.icon" />{{ formatMessage(action.label) }}
                 </Button>

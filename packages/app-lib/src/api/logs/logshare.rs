@@ -209,7 +209,7 @@ async fn prepare_upload(instance_id: &str) -> crate::Result<UploadBody> {
 async fn request_client() -> crate::Result<reqwest::Client> {
     let state = State::get().await?;
     let proxy = state.proxy_config().await?;
-    let builder = reqwest::Client::builder()
+    let builder = crate::util::http::client_builder()
         .connect_timeout(Duration::from_secs(30))
         .read_timeout(Duration::from_secs(LOGSHARE_AI_READ_TIMEOUT_SECS))
         .user_agent(crate::launcher_user_agent());

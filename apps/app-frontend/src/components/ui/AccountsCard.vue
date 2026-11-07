@@ -35,7 +35,6 @@
             {{ formatMessage(messages.addThirdPartyAccount) }}
         </Button>
         <Button
-            data-onboarding-id="offline-account-entry"
             :disabled="loginDisabled"
             :aria-disabled="antiPiracyStatus.restricted"
             :class="{ 'opacity-50': antiPiracyStatus.restricted }"
@@ -192,7 +191,6 @@
                 <Button
                     v-if="accounts.length > 0"
                     class="w-full"
-                    data-onboarding-id="offline-account-entry"
                     :disabled="loginDisabled"
                     :aria-disabled="antiPiracyStatus.restricted"
                     :class="{ 'opacity-50': antiPiracyStatus.restricted }"
@@ -216,7 +214,7 @@
                     :disabled="loginDisabled"
                     :placeholder="formatMessage(messages.usernamePlaceholder)"
                     autocomplete="off"
-                    maxlength="16"
+                    :maxlength="16"
                     @keyup.enter="addOfflineAccount()"
                 />
             </label>
@@ -249,8 +247,8 @@
                     :disabled="loginDisabled"
                     :placeholder="formatMessage(messages.customUuidPlaceholder)"
                     autocomplete="off"
-                    spellcheck="false"
-                    maxlength="36"
+                    :spellcheck="false"
+                    :maxlength="36"
                     @keyup.enter="addOfflineAccount()"
                 />
             </label>
@@ -448,12 +446,14 @@ import {
     set_yggdrasil_password,
     users,
 } from '@/helpers/auth'
+import type { MinecraftCredential } from '@/helpers/auth-types'
 import { process_listener } from '@/helpers/events'
 import { mojangAuthKeys } from '@/helpers/mojang-auth/monitor'
 import {
     getPlayerHeadUrl,
     retainPlayerHeadTextures,
 } from '@/helpers/rendering/batch-skin-renderer.ts'
+import { createSkinHeadDataUrl, getAccountSkin } from '@/helpers/rendering/skin-head'
 import type { Skin } from '@/helpers/skins'
 import { get_available_skins } from '@/helpers/skins'
 import { handleSevereError, useError } from '@/store/error.js'
@@ -491,26 +491,6 @@ async function refreshNetworkStatus() {
 const emit = defineEmits<{
     change: []
 }>()
-
-type MinecraftCredential = {
-    account_id: string
-    account_type: 'microsoft' | 'offline' | 'yggdrasil'
-    profile: {
-        id: string
-        name: string
-        skins?: Array<{
-            state: string
-            url: string
-            variant: Skin['variant']
-            textureKey?: string
-        }>
-    }
-    yggdrasil?: {
-        api_root: string
-        server_name: string
-        login: string
-    }
-}
 
 type YggdrasilProfile = {
     id: string
@@ -575,17 +555,6 @@ const yggdrasilFormValid = computed(
         yggdrasilLogin.value.trim().length > 0 &&
         yggdrasilPassword.value.length > 0,
 )
-
-function createSkinHeadDataUrl(textureUrl: string) {
-    const escapedTextureUrl = textureUrl
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 8 8" shape-rendering="crispEdges"><image href="${escapedTextureUrl}" x="-8" y="-8" width="64" height="64" style="image-rendering:pixelated"/><image href="${escapedTextureUrl}" x="-40" y="-8" width="64" height="64" style="image-rendering:pixelated"/></svg>`
-
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-}
 
 const defaultSteveHeadUrl = createSkinHeadDataUrl(steveSkinTexture)
 
@@ -654,7 +623,7 @@ async function refreshValues(
     if (preferOnlineAccount && selectedUser) {
         resolvedSelectedUser = preferredOnlineAccountId(selectedUser, accounts.value)
     }
-    defaultUser.value = resolvedSelectedUser
+    defaultUser.value = resolvedSelectedUser ?? undefined
     if (resolvedSelectedUser && resolvedSelectedUser !== selectedUser) {
         await persistDefaultUser(resolvedSelectedUser)
         if (generation !== refreshGeneration) return
@@ -799,21 +768,6 @@ watch(
         })
     },
 )
-
-function getAccountSkin(account: MinecraftCredential | undefined): Skin | undefined {
-    if (!account || account.account_type === 'offline') return undefined
-    const skin =
-        account.profile.skins?.find((skin) => skin.state === 'ACTIVE') ?? account.profile.skins?.[0]
-    if (!skin?.url) return undefined
-
-    return {
-        texture_key: skin.textureKey ?? `${account.profile.id}:${skin.url}`,
-        variant: skin.variant ?? 'UNKNOWN',
-        texture: skin.url,
-        source: 'custom_external',
-        is_equipped: true,
-    }
-}
 
 function cacheAccountHead(accountId: string, skin: Skin, headUrl: string) {
     accountHeadUrlCache.value = new Map(accountHeadUrlCache.value).set(accountId, headUrl)
@@ -1191,7 +1145,7 @@ async function copyAccountUuid(account: MinecraftCredential) {
     }
 }
 
-const unlisten = await process_listener(async (e) => {
+const unlisten = await process_listener(async (e: { event: string }) => {
     if (e.event === 'launched') {
         await refreshValues()
     }

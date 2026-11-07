@@ -260,20 +260,17 @@ function isDownloadNotification(item: PopupNotification) {
 }
 
 function downloadToastItems(item: PopupNotification): PopupNotificationProgressItem[] {
-    const items = item.progressItems?.length
-        ? item.progressItems
-        : [
-              {
-                  id: `${item.id}`,
-                  title: item.title,
-                  text: item.text,
-                  iconUrl: item.iconUrl,
-                  progress: item.progress ?? 0,
-                  waiting: item.waiting ?? false,
-                  showProgress: true,
-                  progressType: 'percentage',
-              },
-          ]
+    const fallbackItem: PopupNotificationProgressItem = {
+        id: `${item.id}`,
+        title: item.title,
+        text: item.text,
+        iconUrl: item.iconUrl,
+        progress: item.progress ?? 0,
+        waiting: item.waiting ?? false,
+        showProgress: true,
+        progressType: 'percentage',
+    }
+    const items = item.progressItems?.length ? item.progressItems : [fallbackItem]
 
     return items
 }

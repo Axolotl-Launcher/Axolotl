@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest'
 
 import type {
+    InstanceUpgradeIssue,
     InstanceUpgradePlan,
+    InstanceUpgradePlanItem,
     InstanceUpgradeTargetEnvironment,
 } from '@/helpers/instance-upgrade'
 
@@ -39,7 +41,12 @@ import {
     upgradeTargetsEqual,
 } from './analysis.ts'
 
-function issue(code: string, contentId: string | null, projectId: string | null, message = code) {
+function issue(
+    code: InstanceUpgradeIssue['code'],
+    contentId: string | null,
+    projectId: string | null,
+    message: string = code,
+): InstanceUpgradeIssue {
     return {
         code,
         message,
@@ -51,7 +58,10 @@ function issue(code: string, contentId: string | null, projectId: string | null,
     }
 }
 
-function planItem(contentId: string, projectId: string | null = contentId) {
+function planItem(
+    contentId: string,
+    projectId: string | null = contentId,
+): InstanceUpgradePlanItem {
     return {
         contentId,
         relativePath: `mods/${contentId}.jar`,
@@ -70,6 +80,12 @@ function planItem(contentId: string, projectId: string | null = contentId) {
         },
         candidateReleaseIds: [],
     }
+}
+
+// These helpers only read routing and summary fields, so the plan fixtures below
+// are intentionally partial plan objects.
+function partialPlan(plan: object): InstanceUpgradePlan {
+    return plan as unknown as InstanceUpgradePlan
 }
 
 it('newer stable versions follow metadata order without numeric parsing', () => {
@@ -288,7 +304,10 @@ it('shader runtime inference uses exact loader component and provider identity',
 
     expect(inferShaderRuntime(instance, snapshot)).toBe('iris')
     expect(
-        inferShaderRuntime({ ...instance, loader_components: [{ kind: 'optifine' }] }, undefined),
+        inferShaderRuntime(
+            { loader: 'fabric', loader_components: [{ kind: 'optifine' }] } as never,
+            undefined,
+        ),
     ).toBe('opti_fine')
     expect(inferShaderRuntime(instance, undefined)).toBe('unknown')
 })
@@ -513,29 +532,31 @@ it('editable roots exclude automatic dependencies', () => {
         candidateReleaseIds: ['one'],
     }
     const dependency = { ...root, contentId: 'dependency', autoDependency: true }
-    const plan = { items: [root, dependency], customConstraints: [] } as InstanceUpgradePlan
+    const plan = partialPlan({ items: [root, dependency], customConstraints: [] })
     expect(editableUpgradeRoots(plan).map((item) => item.contentId)).toEqual(['root'])
 })
 
 it('unavailable minimal solution is not selectable', () => {
     const newestSolution = { kind: 'newest', selections: [], dependencyChanges: [], warnings: [] }
     expect(
-        availablePredefinedStrategies({
-            newestSolution,
-            minimalChangeSolution: null,
-        } as InstanceUpgradePlan),
+        availablePredefinedStrategies(
+            partialPlan({
+                newestSolution,
+                minimalChangeSolution: null,
+            }),
+        ),
     ).toEqual(['newest'])
 })
 
 it('issue grouping gives blocking precedence and includes every content once', () => {
-    const plan = {
+    const plan = partialPlan({
         items: [planItem('blocked'), planItem('warned'), planItem('clear')],
         blockingIssues: [issue('dependency_conflict', 'blocked', 'blocked')],
         warnings: [
             issue('keep_incompatible', 'blocked', 'blocked'),
             issue('keep_incompatible', 'warned', 'warned'),
         ],
-    } as InstanceUpgradePlan
+    })
     const groups = groupUpgradeIssues(plan)
 
     expect(groups.blocking.map((group) => group.item.contentId)).toEqual(['blocked'])
@@ -551,17 +572,17 @@ it('issue grouping gives blocking precedence and includes every content once', (
 })
 
 it('initial blockers stay in blocking presentation without duplication after resolution', () => {
-    const initialPlan = {
+    const initialPlan = partialPlan({
         items: [planItem('voxy'), planItem('clear')],
         blockingIssues: [issue('prerelease_only', 'voxy', 'voxy')],
         warnings: [],
-    } as InstanceUpgradePlan
+    })
     const initial = captureInitialUpgradeBlockingIssues(initialPlan)
-    const resolvedPlan = {
+    const resolvedPlan = partialPlan({
         ...initialPlan,
         blockingIssues: [],
         warnings: [issue('keep_incompatible', 'voxy', 'voxy')],
-    } as InstanceUpgradePlan
+    })
     const groups = groupUpgradeIssues(resolvedPlan, initial)
 
     expect(groups.blocking.map((group) => group.item.contentId)).toEqual(['voxy'])
@@ -597,14 +618,14 @@ it('resolution presentation follows authoritative plan resolution rules', () => 
 })
 
 it('root and content forms of one issue coalesce on exact project identity', () => {
-    const plan = {
+    const plan = partialPlan({
         items: [planItem('content', 'project')],
         blockingIssues: [
             issue('no_compatible_release', null, 'project', 'root form'),
             issue('no_compatible_release', 'content', 'project', 'content form'),
         ],
         warnings: [],
-    } as InstanceUpgradePlan
+    })
     const groups = groupUpgradeIssues(plan)
 
     expect(groups.blocking[0].blockingIssues.length).toBe(1)
@@ -613,11 +634,11 @@ it('root and content forms of one issue coalesce on exact project identity', () 
 
 it('unmapped and ambiguous project issues remain global', () => {
     const duplicate = planItem('duplicate-b', 'duplicate')
-    const plan = {
+    const plan = partialPlan({
         items: [planItem('duplicate-a', 'duplicate'), duplicate],
         blockingIssues: [issue('dependency_conflict', null, 'missing')],
         warnings: [issue('keep_incompatible', null, 'duplicate')],
-    } as InstanceUpgradePlan
+    })
     const groups = groupUpgradeIssues(plan)
 
     expect(groups.globalBlockingIssues.length).toBe(1)
@@ -626,7 +647,7 @@ it('unmapped and ambiguous project issues remain global', () => {
 })
 
 it('actionable warning filtering excludes global and informational conflicts', () => {
-    const plan = {
+    const plan = partialPlan({
         items: [planItem('actionable'), planItem('conflict')],
         blockingIssues: [],
         warnings: [
@@ -634,13 +655,13 @@ it('actionable warning filtering excludes global and informational conflicts', (
             issue('dependency_conflict', 'conflict', 'conflict'),
             issue('keep_incompatible', null, null),
         ],
-    } as InstanceUpgradePlan
+    })
 
     expect(actionableWarningContentIds(groupUpgradeIssues(plan))).toEqual(['actionable'])
 })
 
 it('actionable warning count uses unique content rows', () => {
-    const plan = {
+    const plan = partialPlan({
         items: [planItem('one'), planItem('two')],
         blockingIssues: [],
         warnings: [
@@ -648,7 +669,7 @@ it('actionable warning count uses unique content rows', () => {
             issue('shader_runtime_unknown', 'one', 'one'),
             issue('unidentified', 'two', 'two'),
         ],
-    } as InstanceUpgradePlan
+    })
 
     expect(actionableWarningContentIds(groupUpgradeIssues(plan)).length).toBe(2)
 })

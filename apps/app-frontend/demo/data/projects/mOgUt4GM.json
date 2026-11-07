@@ -1,0 +1,528 @@
+{
+  "id": "mOgUt4GM",
+  "slug": "modmenu",
+  "title": "Mod Menu",
+  "description": "Adds a mod menu to view the list of mods you have installed.",
+  "author": "Prospector",
+  "categories": ["fabric", "quilt", "utility"],
+  "display_categories": ["fabric", "quilt", "utility"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 159232159,
+  "followers": 27761,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric", "quilt"],
+  "game_versions": [
+    "1.14.4",
+    "1.15.2",
+    "1.16.1",
+    "1.16.4",
+    "1.16.5",
+    "21w06a",
+    "21w14a",
+    "1.17-pre1",
+    "1.17",
+    "1.17.1",
+    "21w37a",
+    "21w38a",
+    "1.18",
+    "1.18.1-pre1",
+    "1.18.1-rc1",
+    "1.18.1-rc2",
+    "1.18.1-rc3",
+    "1.18.1",
+    "22w03a",
+    "22w05a",
+    "22w06a",
+    "22w07a",
+    "1.18.2-pre1",
+    "1.18.2-pre2",
+    "1.18.2-pre3",
+    "1.18.2-rc1",
+    "1.18.2",
+    "22w15a",
+    "22w16b",
+    "22w17a",
+    "22w18a",
+    "22w19a",
+    "1.19-pre1",
+    "1.19-pre2",
+    "1.19-pre3",
+    "1.19-pre4",
+    "1.19",
+    "22w24a",
+    "1.19.1-rc1",
+    "1.19.1-pre2",
+    "1.19.1",
+    "1.19.2",
+    "22w43a",
+    "1.19.3",
+    "23w03a",
+    "23w05a",
+    "23w07a",
+    "1.19.4-pre1",
+    "1.19.4-pre2",
+    "1.19.4-pre3",
+    "1.19.4-pre4",
+    "1.19.4-rc1",
+    "1.19.4-rc2",
+    "1.19.4-rc3",
+    "1.19.4",
+    "23w12a",
+    "23w13a",
+    "23w13a_or_b",
+    "23w14a",
+    "23w16a",
+    "23w17a",
+    "23w18a",
+    "1.20-pre1",
+    "1.20-pre2",
+    "1.20-pre3",
+    "1.20-pre4",
+    "1.20-pre5",
+    "1.20-pre6",
+    "1.20-pre7",
+    "1.20-rc1",
+    "1.20",
+    "1.20.1-rc1",
+    "1.20.1",
+    "23w31a",
+    "23w32a",
+    "23w33a",
+    "23w35a",
+    "1.20.2-pre1",
+    "1.20.2-pre2",
+    "1.20.2-pre3",
+    "1.20.2-pre4",
+    "1.20.2-rc1",
+    "1.20.2-rc2",
+    "1.20.2",
+    "23w40a",
+    "23w42a",
+    "23w44a",
+    "23w45a",
+    "23w46a",
+    "1.20.3-pre1",
+    "1.20.3-pre2",
+    "1.20.3-pre3",
+    "1.20.3-pre4",
+    "1.20.3-rc1",
+    "1.20.3",
+    "1.20.4-rc1",
+    "1.20.4",
+    "23w51a",
+    "23w51b",
+    "24w03a",
+    "24w03b",
+    "24w04a",
+    "24w05a",
+    "24w05b",
+    "24w06a",
+    "24w07a",
+    "24w09a",
+    "24w10a",
+    "24w11a",
+    "24w12a",
+    "24w13a",
+    "24w14potato",
+    "24w14a",
+    "1.20.5-pre1",
+    "1.20.5-rc3",
+    "1.20.5",
+    "1.20.6-rc1",
+    "1.20.6",
+    "24w18a",
+    "1.21-pre2",
+    "1.21-pre3",
+    "1.21-pre4",
+    "1.21-rc1",
+    "1.21",
+    "1.21.1-rc1",
+    "1.21.1",
+    "24w33a",
+    "24w34a",
+    "24w35a",
+    "1.21.2-pre1",
+    "1.21.2-pre2",
+    "1.21.2-pre3",
+    "1.21.2-pre4",
+    "1.21.2-pre5",
+    "1.21.2-rc1",
+    "1.21.2-rc2",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4-rc3",
+    "1.21.4",
+    "25w06a",
+    "25w09a",
+    "25w09b",
+    "25w10a",
+    "1.21.5-rc1",
+    "1.21.5-rc2",
+    "1.21.5",
+    "1.21.6-rc1",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10-rc1",
+    "1.21.10",
+    "25w46a",
+    "1.21.11-pre1",
+    "1.21.11-pre2",
+    "1.21.11-pre3",
+    "1.21.11-pre4",
+    "1.21.11-pre5",
+    "1.21.11-rc1",
+    "1.21.11-rc2",
+    "1.21.11-rc3",
+    "1.21.11",
+    "26.1-snapshot-1",
+    "26.1-snapshot-2",
+    "26.1-snapshot-4",
+    "26.1-snapshot-5",
+    "26.1-pre-2",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2-snapshot-6",
+    "26.2-pre-2",
+    "26.2-rc-2",
+    "26.2",
+    "26.3-snapshot-5",
+    "26.3-rc-1",
+    "26.3",
+    "26.4-snapshot-1",
+    "26.4-snapshot-3"
+  ],
+  "latest_version": "78N35pJi",
+  "date_created": "2020-11-06T05:11:04.725058Z",
+  "date_modified": "2026-10-12T23:02:57.071927Z",
+  "color": 1330428,
+  "published": "2020-11-06T05:11:04.725058Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/TerraformersMC/ModMenu/issues",
+  "source_url": "https://github.com/TerraformersMC/ModMenu",
+  "wiki_url": "https://github.com/TerraformersMC/ModMenu/wiki",
+  "discord_url": "https://discord.gg/jEGF5fb",
+  "donation_urls": [],
+  "versions_total": 203,
+  "body": "# Mod Menu\n![Screenshot of the Mods screen, showing a list of a few mods on the left side below a search bar and filters button, where Mod Menu is selected. On the right side of the screen, it shows more details about the mod, such as authors, a description, links, credits, and a button to configure the mod.](https://cdn.modrinth.com/data/mOgUt4GM/images/155dd2b006883b168b1279ec0ff21e753946518b.png)\n\nMod Menu lets you view the mods you have installed and, if supported by the mod, enables quick and easy access to the mod's config screens.\n\nMod Menu also supports some more advanced features, such as translatable mod names and descriptions, support for [QuickText formatting](https://placeholders.pb4.eu/user/quicktext/) in mod descriptions thanks to [Patbox](https://ko-fi.com/patbox)'s [Text Placeholder API](https://modrinth.com/mod/placeholder-api), filters library mods out from regular mods, a mod update checker for mods hosted on Modrinth or that provide their own update sources, and deep configuration for all the features we provide.\n\n### Supported Platforms\nMod Menu is currently available for Fabric or Quilt on Minecraft: Java Edition 1.14 or newer.\n\n## Developers\nMod Menu includes a number of APIs for developers to improve how their mod appears in Mod Menu. These come in the form of language keys, JSON metadata, and even a Java API.\n\n### Translation API\nYou can translate your mod's name, summary, and description all without touching any Java code. Simply add translation keys in the supported format to any language you'd like.\n\n<details>\n<summary>Translation API Documentation</summary>\n\nHere's an example of Mod Menu's translations into Pirate Speak. To create your own, simply replace `modmenu` at the end (***NOT*** the one in the beginning) of the translation key with your own mod ID, for example `modmenu.descriptionTranslation.traverse`.\n\n`en_pt.json`\n```json\n\"modmenu.nameTranslation.modmenu\": \"Menu o' mods!\",\n\"modmenu.descriptionTranslation.modmenu\": \"Menu o' mods ye installed matey!\",\n\"modmenu.summaryTranslation.modmenu\": \"Menu o' mods ye installed matey!\"\n```\n\n> The summary translation is redundant here and does not need to be included because it's the same as the description, but it was included to show that you may translate the summary (a short, one-sentence description of the mod) separately from the description, even in English!\n\n</details>\n\n\n\n### Fabric Metadata API\nThere's a number of things you can add just with metadata in your `fabric.mod.json`.\n\nAll of these are added to a custom block in your `fabric.mod.json` for Mod Menu's metadata. Here's an example usage of many of the features this API provides:\n\n`fabric.mod.json`\n```json5\n{\n  ...\n  \"custom\": {\n    \"modmenu\": {\n      \"links\": {\n        \"modmenu.discord\": \"https://discord.gg/jEGF5fb\"\n      },\n      \"badges\": [ \"library\", \"deprecated\" ],\n      \"parent\": {\n        \"id\": \"example-api\",\n        \"name\": \"Example API\",\n        \"description\": \"Modular example library\",\n        \"icon\": \"assets/example-api-module-v1/parent_icon.png\",\n        \"badges\": [ \"library\" ]\n      },\n      \"update_checker\": true\n    }\n  }\n}\n```\n\n<details>\n<summary>Fabric Metadata API Documentation</summary>\n\n#### Badges (`\"badges\": [ ]`)\nWhile the `Client` badge is added automatically to mods set as client-side only (set `\"environment\": \"client\"` in `fabric.mod.json` to do this.), other badges such as the `Library` and `Deprecated` badges require definition here.\n\nSupported values:\n- `library` - should be assigned to mods that are purely dependencies for other mods that should not be shown to the user by default unless they toggle them on.\n- `deprecated` - should be assigned to mods that exist purely for legacy reasons, such as an old API module or such.\n\nAny others will be ignored, and Mod Menu does not support adding your own badges. You may open an issue [here](https://github.com/TerraformersMC/ModMenu/issues) if you have a compelling use case for a new badge.\n\n#### Links (`\"links\": { }`)\nThe `links` object allows mod authors to add custom hyperlinks to the end of their description. If you specify a `sources` contact in the official `fabric.mod.json` metadata, it will also be included in the links section.\n\nAny key in the `links` object will be included in the links section, with the key being used as a translation key. For example, this:\n\n`fabric.mod.json`\n```json\n\"custom\": {\n    \"modmenu\": {\n        \"links\": {\n          \"modmenu.discord\": \"https://discord.gg/jEGF5fb\"\n        }\n    }\n}\n```\nwill show as a link with the text \"Discord\", since \"Discord\" is the English translation of \"modmenu.discord\" provided by Mod Menu.\n\nMod Menu provides several default translations that can be used for links. A full list can be seen in Mod Menu's language file [here](https://github.com/TerraformersMC/ModMenu/blob/-/src/main/resources/assets/modmenu/lang/en_us.json). All default link translation keys take the form `modmenu.<type>`.\n\nYou can also provide your own translations if you would like to add custom links. Make sure to use ***your own namespace*** (as opposed to `modmenu`) for any custom keys.\n\n#### Parents (`\"parent\": \"mod_id\" or { }`)\n<img align=\"right\" width=\"400\" src=\"https://i.imgur.com/ZutCprf.png\" alt=\"Image showing the Fabric API parent mod and some Fabric API child mods displayed hierarchically in ModMenu\">\n\nParents are used to display a mod as a child of another one. This is meant to be used for mods divided into different modules. The following element in a `fabric.mod.json` will define the mod as a child of the mod 'flamingo': \n\n`fabric.mod.json`\n```json\n\"custom\": {\n    \"modmenu\": {\n        \"parent\": \"flamingo\"\n    }\n}\n```\n\nHowever, if you want to group mods under a parent, but the parent isn't an actual mod, you can do that too. In the example below, a mod is defining metadata for a parent. Make sure that this metadata is included in all of the children that use the fake/dummy parent. This can also be used as a fallback for an optional parent, it will be replace by the mod's real metadata if present.\n\n\n`fabric.mod.json`\n```json\n\"custom\": {\n    \"modmenu\": {\n        \"parent\": {\n            \"id\": \"this-mod-isnt-real\",\n            \"name\": \"Fake Mod\",\n            \"description\": \"Do cool stuff with this fake mod\",\n            \"icon\": \"assets/real-mod/fake-mod-icon.png\",\n            \"badges\": [ \"library\" ]\n        }\n    }\n}\n```\n\nDummy parent mods only support the following metadata:\n- `id` (String)\n- `name` (String)\n- `description` (String)\n- `icon` (String)\n- `badges` (Array of Strings)\n\n\n#### Disable update checker (`\"update_checker\": false`)\nBy default, Mod Menu's update checker will use the hash of your mod's jar to lookup the latest version on Modrinth. If it finds a matching project, it will check for the latest version that supports your mod loader and Minecraft version, and if it has a different hash from your existing file, it will prompt the user that there is an update available.\n\nYou can disable the update checker by setting `update_checker` to false in your Mod Menu metadata like so:\n\n`fabric.mod.json`\n```json\n\"custom\": {\n    \"modmenu\": {\n        \"update_checker\": false\n    }\n}\n```\n\n</details>\n\n### Quilt Metadata API\nSince Mod Menu supports Quilt as well, the same APIs in the Fabric Metadata API section are also available for Quilt mods, but the format for custom metadata is slightly different. \n\nInstead of a `\"modmenu\"` block inside of a `\"custom\"` block, you put the `\"modmenu\"` block as an element in the root object. So it should look like:\n\n`quilt.mod.json`\n```json5\n{\n  ...\n  \"modmenu\": {\n    // Here's where your links, badges, etc. stuff goes\n  }\n}\n```\n\n### Java API\nTo use the Java API, you'll need to add Mod Menu as a compile-time dependency in your gradle project. This won't make your mod require Mod Menu, but it'll be present in your environment for you to test with.\n\n`build.gradle`\n```gradle\n// Add the Terraformers maven repo to your repositories block\nrepositories {\n  maven {\n    name = \"Terraformers\"\n    url = \"https://maven.terraformersmc.com/\"\n  }\n}\n\n// Add Mod Menu as a dependency in your environment\ndependencies {\n  // Prior to Minecraft 26.x, use \"modImplementation\" instead\n  implementation(\"com.terraformersmc:modmenu:${project.modmenu_version}\")\n}\n```\nThen, define the version of Mod Menu you're using in your `gradle.properties`. You can get the latest version number [here](https://modrinth.com/mod/modmenu/version/latest), but you may need a different version if you're not using the latest Minecraft version. See the [versions page](https://modrinth.com/mod/modmenu/versions) for a full list of versions.\n\n`gradle.properties`\n```properties\nmodmenu_version=VERSION_NUMBER_HERE\n```\n> If you don't want it in your environment for testing but still want to compile against Mod Menu for using the Java API, you can use `modCompileOnly` instead of `modImplementation` (this will work even if Mod Menu is not updated to the version of Minecraft you're running).\n\n<details>\n<summary>Java API Documentation</summary>\n\n### Getting Started\nTo use the API, implement the ModMenuApi interface on a class and add that as an entry point of type \"modmenu\" in your `fabric.mod.json` like this:\n\n`fabric.mod.json`\n```json\n\"entrypoints\": {\n  \"modmenu\": [ \"com.example.mod.ExampleModMenuApiImpl\" ]\n}\n```\n\n### Mod Config Screens\nMods can provide a Screen factory to provide a custom config screen to open with the config button. Implement the `getModConfigScreenFactory` method in your API implementation to do this.\n\nThe intended use case for this is for mods to provide their own config screens. The mod id of the config screen is automagically determined by the source mod container that the entrypoint originated from.\n\n### Provided Config Screens\nMods can provide Screen factories to provide a custom config screens to open with the config buttons for other mods as well. Implement the `getProvidedConfigScreenFactories` method in your API implementation for this.\n\nThe intended use case for this is for a mod like Cloth Config to provide config screens for mods that use its API.\n\n### Modpack Badges\nMods can give other mods the `Modpack` badge by implementing the `attachModpackBadges` method, such as through the following:\n\n```java\n@Override\npublic void attachModpackBadges(Consumer<String> consumer) {\n\tconsumer.accept(\"modmenu\"); // Indicates that 'modmenu' is part of the modpack\n}\n```\n\nNote that 'internal' mods such as Minecraft itself and the mod loader cannot be given the modpack badge, as they are not distributed within a typical modpack.\n\n### Static Helper Methods\n`ModMenuApi` also offers a few helper methods for mods that want to work with Mod Menu better, like making their own Mods buttons.\n\n#### Creating a Mods screen instance\nYou can call this method to get an instance of the Mods screen:\n```java\nScreen createModsScreen(Screen previous)\n```\n\n#### Creating a Mods button `Text`\nYou can call this method to get the Text that would be displayed on a Mod Menu Mods button:\n```java\nText createModsButtonText()\n```\n\n</details>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/mOgUt4GM/images/70fd54b0579f2de3ac45fa9650aca2ec8ff0882b_350.webp",
+      "featured": true,
+      "title": "Mod Menu Banner",
+      "description": "Fancy ModMenu banner",
+      "created": "2023-11-03T21:09:55.559800Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/mOgUt4GM/images/92397b510671ef89974665cfa6309c5da081b8f8_350.webp",
+      "featured": false,
+      "title": "Mod Menu v11 Screenshot",
+      "description": "Modern ModMenu screenshot from 2024",
+      "created": "2024-06-17T18:16:51.936311Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/mOgUt4GM/images/5726bbaf7d0ea53e55b6e666af5d3e1861758334.png",
+      "featured": false,
+      "title": "Mod Menu",
+      "description": "ModMenu screenshot from 2022, showing classic Minecraft dirt background",
+      "created": "2022-02-28T02:33:37.984225Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/mOgUt4GM/images/185911191819382e1e4b1f2c54ea8a510a92a064.jpeg",
+      "featured": false,
+      "title": "modmen ubanner",
+      "description": "Alternative ModMenu banner",
+      "created": "2025-01-03T19:47:07.316088Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "gniftygnome",
+      "role": "Maintainer",
+      "avatar": "https://avatars.githubusercontent.com/u/50962022?v=4"
+    },
+    {
+      "username": "Prospector",
+      "role": "Original creator",
+      "avatar": "https://cdn.modrinth.com/user/Dc7EYhxG/32e8b1f7d18288262d1ed92cbdf43272d21b4fcd.png"
+    },
+    {
+      "username": "modmuss50",
+      "role": "Contributor",
+      "avatar": "https://avatars2.githubusercontent.com/u/4324090?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "78N35pJi",
+      "name": "v22.0.0-alpha.2 for 26.4-snapshot-3",
+      "version_number": "22.0.0-alpha.2",
+      "version_type": "alpha",
+      "game_versions": ["26.4-snapshot-3"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-10-12T23:02:57.071927Z",
+      "downloads": 12138,
+      "changelog": "- Allow opening contributor homepages, thanks LostLuma\n- Update to Minecraft 26.4 snapshot 3, thanks Jab125\n",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-22.0.0-alpha.2.jar",
+          "size": 857307,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "B6sJIqHK",
+      "name": "v22.0.0-alpha.1 for 26.4-snapshot-1",
+      "version_number": "22.0.0-alpha.1",
+      "version_type": "alpha",
+      "game_versions": ["26.4-snapshot-1"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-24T20:44:06.256867Z",
+      "downloads": 13223,
+      "changelog": "- Rebuild for Minecraft 26.4-snapshot-1",
+      "dependencies": [
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-22.0.0-alpha.1.jar",
+          "size": 856814,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "iRo7AZXf",
+      "name": "v20.0.3 for 26.2",
+      "version_number": "20.0.3",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-24T19:34:19.274511Z",
+      "downloads": 1514287,
+      "changelog": "- Translation backports and fixes\n- Update Polish translations, thanks lumiscosity\n- Update Belarusian translation, thanks The518thGuy\n- Updated Spanish (Argentina) translations, thanks Texaliuz\n- Update Estonian translation, thanks Madis0\n- Use a better word for \"Credits\" in the Russian translation (resolves #1098)",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-20.0.3.jar",
+          "size": 616919,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ZJ6YTrMY",
+      "name": "v18.0.2 for 26.1",
+      "version_number": "18.0.2",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-24T19:22:26.571887Z",
+      "downloads": 491646,
+      "changelog": "- Translation backports and fixes\n- Update Polish translations, thanks lumiscosity\n- Update Belarusian translation, thanks The518thGuy\n- Updated Spanish (Argentina) translations, thanks Texaliuz\n- Use a better word for \"Credits\" in the Russian translation (resolves #1098)\n- Fix Chinese (zh_cn) translations (resolves #1100)",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-18.0.2.jar",
+          "size": 859999,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "cLkYaVuL",
+      "name": "v17.0.1 for 1.21.11",
+      "version_number": "17.0.1",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-24T19:10:38.528627Z",
+      "downloads": 1581450,
+      "changelog": "- Add uzbek localization, thanks itsbilolbek",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-17.0.1.jar",
+          "size": 960882,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6lgOkclV",
+      "name": "v11.0.5 for 1.21",
+      "version_number": "11.0.5",
+      "version_type": "release",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-24T19:00:03.395718Z",
+      "downloads": 671460,
+      "changelog": "- Update uk_ua.json, thanks StarmanMine142\n- Add uzbek localization, thanks itsbilolbek",
+      "dependencies": [
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-11.0.5.jar",
+          "size": 975846,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "kyy7dbrZ",
+      "name": "v21.0.0 for 26.3",
+      "version_number": "21.0.0",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-23T21:31:03.843943Z",
+      "downloads": 3339356,
+      "changelog": "- Update deps for 26.3 release (resolves #1092)\n- Update Estonian translation, thanks Madis0\n- Use a better word for \"Credits\" in the Russian translation (resolves #1098)",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-21.0.0.jar",
+          "size": 856779,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lcxkZSq6",
+      "name": "v21.0.0-beta.1 for 26.3-rc-1",
+      "version_number": "21.0.0-beta.1",
+      "version_type": "beta",
+      "game_versions": ["26.3-rc-1", "26.3"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-11T00:52:42.214641Z",
+      "downloads": 806578,
+      "changelog": "- Update Chinese translations, thanks Rain-Clear\n- Update Polish translations, thanks lumiscosity\n- Update Belarusian translation, thanks The518thGuy\n- Updated Spanish (Argentina) translations, thanks Texaliuz\n- Uzbek localization, thanks itsbilolbek\n- Update to 26.3-rc-1\n- Publish to Terraformers maven",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "eXts2L7r",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "modmenu-21.0.0-beta.1.jar",
+          "size": 856788,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

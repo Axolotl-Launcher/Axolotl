@@ -19,16 +19,7 @@ import {
     Toggle,
     useVIntl,
 } from '@modrinth/ui'
-import {
-    computed,
-    inject,
-    onBeforeUnmount,
-    reactive,
-    ref,
-    shallowRef,
-    useTemplateRef,
-    watch,
-} from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 
 import BrewingRecipeOptions from '@/components/lab/recipe-generator/BrewingRecipeOptions.vue'
 import InstanceExportModal from '@/components/lab/recipe-generator/InstanceExportModal.vue'
@@ -103,7 +94,6 @@ const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage, locale } = useVIntl()
 
 const store = reactive(loadRecipeProject())
-const replayOnboarding = inject<(mode: 'brewing') => Promise<void>>('replayOnboarding')
 let projectSaveTimer: ReturnType<typeof setTimeout> | undefined
 watch(
     store,
@@ -1305,7 +1295,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
 </script>
 
 <template>
-    <main class="recipe-generator-page" data-onboarding-id="recipe-generator-workspace">
+    <main class="recipe-generator-page">
         <header class="recipe-generator-header">
             <h1 class="recipe-generator-title">{{ formatMessage(messages.title) }}</h1>
             <div class="recipe-header-actions">
@@ -1451,7 +1441,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                             <Combobox
                                 v-model="currentRecipe.nameMode"
                                 :options="
-                                    ['auto', 'manual'].map((value) => ({
+                                    (['auto', 'manual'] as const).map((value) => ({
                                         value,
                                         label: nameModeLabel(value),
                                     }))
@@ -1580,7 +1570,6 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                     <BrewingRecipeOptions
                         v-if="currentRecipe.recipeType === 'brewing' && currentRecipe.brewing"
                         v-model="currentRecipe.brewing"
-                        @guide="replayOnboarding?.('brewing')"
                     />
                     <label v-if="showNotificationOption" class="recipe-toggle-row">
                         <span>{{ formatMessage(messages.showNotification) }}</span>

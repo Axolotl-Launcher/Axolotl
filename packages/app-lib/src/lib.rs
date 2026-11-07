@@ -50,6 +50,7 @@ pub use util::download::telemetry::{
 pub use util::fetch;
 pub use util::fetch::{DownloadReason, build_proxied_client};
 pub use util::file_lock::{LockingProcess, get_locking_processes};
+pub use util::http::client_builder as http_client_builder;
 pub use util::network_diagnostics::{
     NetworkTestMode, NetworkTestResult, NetworkTestTarget,
     test_network_connection,

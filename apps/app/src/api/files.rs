@@ -5,7 +5,7 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 use std::io::Cursor;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 use std::time::SystemTime;
 use tauri::{Emitter, Runtime};
@@ -91,6 +91,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
             file_extract_zip,
             file_save_as,
             file_read_dragged_file,
+            crate::api::background::background_convert_animated,
             screenshot_thumbnail,
             instance_icon_thumbnail,
             studio_read_text,
@@ -186,15 +187,50 @@ pub async fn studio_read_binary(
     ))
 }
 
+/// Replaces a file's contents without ever leaving it half-written.
+///
+/// `tokio::fs::write` truncates the destination before it writes, so a full
+/// disk, a stopped process or any other interrupted write leaves the original
+/// file empty or partial - and for a file that was opened in an editor, the
+/// only copy of it is gone. The bytes go to a sibling temporary file instead,
+/// and only a completed write is renamed over the destination.
+async fn replace_file_contents(path: &Path, bytes: &[u8]) -> Result<()> {
+    let directory = match path.parent() {
+        Some(directory) => directory,
+        None => {
+            return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
+                "The file has no parent directory".to_string(),
+            ))
+            .into());
+        }
+    };
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // Same directory, so the rename stays within one filesystem and cannot
+    // degrade into a copy that is itself interruptible.
+    let temporary =
+        directory.join(format!(".{name}.{}.tmp", uuid::Uuid::new_v4()));
+    if let Err(error) = tokio::fs::write(&temporary, bytes).await {
+        let _ = tokio::fs::remove_file(&temporary).await;
+        return Err(error.into());
+    }
+    if let Err(error) = tokio::fs::rename(&temporary, path).await {
+        let _ = tokio::fs::remove_file(&temporary).await;
+        return Err(error.into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn studio_write_binary(
     instance_id: &str,
     file_path: &str,
     bytes: Vec<u8>,
 ) -> Result<()> {
-    tokio::fs::write(studio_file_path(instance_id, file_path).await?, bytes)
-        .await?;
-    Ok(())
+    let path = studio_file_path(instance_id, file_path).await?;
+    replace_file_contents(&path, &bytes).await
 }
 
 #[tauri::command]

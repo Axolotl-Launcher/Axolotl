@@ -135,6 +135,11 @@ pub(crate) async fn create_instance(
             input.loader,
             content_set.loader_version.clone(),
         );
+        let content_root =
+            crate::state::instances::commands::instance_content_root(
+                &state.directories,
+                &instance,
+            )?;
 
         let mut tx = state.pool.begin().await?;
         instance_rows::insert_instance(&instance, &mut tx).await?;
@@ -160,15 +165,12 @@ pub(crate) async fn create_instance(
         .await?;
         config_sync_rows::upsert_config_updated_at(&instance_id, &mut *tx)
             .await?;
+        crate::install::store::attach_initial_instance(&instance, &mut tx)
+            .await?;
         tx.commit().await?;
 
         config_sync::mark_dirty(&instance_id);
 
-        let content_root =
-            crate::state::instances::commands::instance_content_root(
-                &state.directories,
-                &instance,
-            )?;
         crate::state::instances::watcher::watch_instance_folder(
             &instance.id,
             &instance.path,
@@ -327,7 +329,7 @@ fn is_direct_cdn_icon_url(url: &str) -> bool {
 
 static DIRECT_ICON_CLIENT: std::sync::LazyLock<reqwest::Client> =
     std::sync::LazyLock::new(|| {
-        reqwest::Client::builder()
+        crate::util::http::client_builder()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(std::time::Duration::from_secs(15))
             .read_timeout(std::time::Duration::from_secs(30))

@@ -1,0 +1,246 @@
+{
+  "id": "MdznSbKA",
+  "slug": "landscapes-reimagined-genesis",
+  "title": "Landscapes Reimagined Genesis",
+  "description": "Dive into adventure with our mod pack! Explore Terralith, marvel at YUNG's, MES, and MVS Structures; embrace the iconic Create mod and addons, pristine performance mods, embark on a captivating questline, and more!",
+  "author": "M0nkeyPr0grammer",
+  "categories": [
+    "adventure",
+    "challenging",
+    "combat",
+    "fabric",
+    "lightweight",
+    "multiplayer",
+    "optimization",
+    "quests"
+  ],
+  "display_categories": ["adventure", "optimization", "quests"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 1068681,
+  "followers": 613,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.19.2", "1.20.1"],
+  "latest_version": "pBrfi38A",
+  "date_created": "2023-04-17T00:58:47.611774Z",
+  "date_modified": "2024-08-02T22:13:40.861426Z",
+  "color": 3358014,
+  "published": "2023-04-17T00:58:47.611774Z",
+  "additional_categories": ["challenging", "combat", "lightweight", "multiplayer"],
+  "issues_url": "https://github.com/Landscapes-Reimagined/Issues-and-Suggestions",
+  "source_url": "https://github.com/M0nkeyPr0grammer/Landscapes-Reimagined",
+  "wiki_url": "https://landscapesreimagined.wiki.gg",
+  "discord_url": "https://discord.gg/quenZthXgy",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/landscapes_reimagined"
+    }
+  ],
+  "versions_total": 48,
+  "body": "# Landscapes Reimagined Genesis \n![Genesis Logo with CTOV Village in the background](https://github.com/M0nkeyPr0grammer/Landscapes-Reimagined-Genesis/blob/main/Genesis_Modrinth.png?raw=true)\n## Description\nExperience the origin of an epic journey with **Landscapes Reimagined Genesis**, the precursor to the acclaimed [**Landscapes Reimagined Forge Frontier**](https://www.curseforge.com/minecraft/modpacks/landscapes-reimagined-forge-frontier). This Create/Vanilla Plus style modpack, meticulously crafted, offers vast landscapes and detailed structures. Emphasizing advanced world generation, it enriches your Minecraft experience while staying true to the Vanilla essence. Genesis sets the stage for innovative gameplay and intuitive questing, seamlessly leading into the expanded universe of Forge Frontier.\n\nDownload **Landscapes Reimagined Genesis** today and dive into an elevated Minecraft adventure, striking a perfect balance between originality and innovation. The adventure awaits!\n#### **Interested in joining our Patreon. Check out our benefits [here](https://discord.com/servers/landscapes-reimagined-1097668922737696919), then join our [Discord](https://discord.gg/quenZthXgy)**\n\n### Want to setup a server using our official server host, click the banner below!\n[![BisectHosting Code](https://raw.githubusercontent.com/M0nkeyPr0grammer/Landscapes-Reimagined/main/BH_Landscape_Reimagined.png)](https://bisecthosting.com/M0nkeyPr0grammer?r=modrinth)\n\n# Included Content\n  <details>\n    <summary>Mods</summary>\n    <h3>Modrinth</h3>\n    <ul>\n      <li>\n        <a href=\"https://landscapesreimagined.wiki.gg\">Mod List provided our Wiki, under the Genesis mod section</a> - Check here for more information\n      </li>\n    </ul>\n    <h3>Curseforge</h3>\n    <ul>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/item-scroller\">Item Scroller</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/litematica\">Litematica</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/lootr-fabric\">Lootr</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/malilib\">MaLiLib</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/minihud\">Minihud</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/tweakeroo\">Tweakeroo</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/create-chunkloading\">Create Chunkloading</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/iris-flywheel-compat\">Iris Flywheel Compact</a></li>\n      <li><a href=\"https://www.curseforge.com/minecraft/mc-mods/dynamic-view-fabric\">Dynamic View[Fabric]</a></li>\n    </ul>\n  </details>\n\n<details>\n  <summary>Datapacks</summary>\n  <ul>\n    <li><a href=\"https://modrinth.com/datapack/remove-terralith-intro-message\">Remove Terralith Intro Message</a></li>\n    <li><a href=\"https://modrinth.com/datapack/create-structures\">Create Structures</a></li>\n    <li><a href=\"https://modrinth.com/datapack/create-renewable-ores\">Create Renewable Ores</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-better-desert-temples-compat\">Repurposed Structures (Better Desert Temples Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-better-strongholds-compat\">Repurposed Structures (Better Strongholds Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-better-ocean-monuments-compat\">Repurposed Structures (Better Ocean Monuments Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-better-dungeons-compat\">Repurposed Structures (Better Dungeons Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-better-witch-huts-compat\">Repurposed Structures (Better Witch Huts Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-friends-and-foes-compat\">Repurposed Structures (Friends and Foes Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-bountiful-compat\">Repurposed Structures (Bountiful Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-villagerplus-compat\">Repurposed Structures (VillagerPlus Compat)</a></li>\n        <li><a href=\"https://modrinth.com/datapack/repurposed-structures-farmers-delight-compat\">Repurposed Structures (Farmer's Delight Compat)</a></li>\n  </ul>\n</details>\n\n<details>\n  <summary>Resource Packs</summary>\n  <ul>\n    <li><a href=\"https://modrinth.com/resourcepack/reinforced-barrels-retextured\">Reinforced Barrels Retextured</a></li>\n    <li><a href=\"https://modrinth.com/resourcepack/reinforced-chests-retextured\">Reinforced Chests Retextured</a></li>\n    <li><a href=\"https://modrinth.com/resourcepack/incendium-optional-resourcepack\">Incendium Optional Resourcepack</a></li>\n        <li><a href=\"https://www.curseforge.com/minecraft/texture-packs/create-simple-storage\">Tom's Create Storage</a></li>\n        <li><a href=\"https://www.curseforge.com/minecraft/texture-packs/create-immersive-aircrafts-resource-pack\">Create Immersive Aircrafts</a></li>\n        <li><a href=\"https://www.curseforge.com/minecraft/texture-packs/lootrchestretexture-for-create\">LootrChestRetexture for Create!</a></li>\n  </ul>\n</details>\n\n<details>\n  <summary>Shaders</summary>\n  <ul>\n    <li><a href=\"https://modrinth.com/shader/complementary-reimagined\">Complementary Reimagined</a></li>\n    <li><a href=\"https://modrinth.com/shader/complementary-unbound\">Complementary Reimagined Unbound</a></li>\n  </ul>\n</details>\n\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/MdznSbKA/images/7000d14b070c232fc95272afe197d2f070ef109a_350.webp",
+      "featured": true,
+      "title": "A Plains Village",
+      "description": "The revitalized Plains Village by ChoiceTheorem showcases a harmonious blend of innovation and aesthetic refinement. Enhanced with meticulously crafted shaders, this rejuvenated locale exemplifies a seamless fusion of modernity and timeless elegance.",
+      "created": "2023-08-20T17:23:25.432270Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MdznSbKA/images/7810ccec3754ef7c65e515d7b400560b7f1f7220_350.webp",
+      "featured": false,
+      "title": "The Town of Beginnings",
+      "description": "CTOV Village, enhanced by complimentary shaders, exemplifies a harmonious blend of technological innovation and aesthetic refinement. This synergistic integration elevates the village's visual allure, showcasing a perfect marriage of cutting-edge design.",
+      "created": "2023-10-12T01:19:05.871870Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MdznSbKA/images/e75485f082c8f95a718b9908d7b6245d193b4b5f_350.webp",
+      "featured": false,
+      "title": "The Ancient Temple",
+      "description": "In the mystique of Deeper and Darker's Otherside, this sanctuary gifts extraordinary treasures, beckoning visitors on a journey into the extraordinary and the allure of hidden riches.",
+      "created": "2023-06-14T19:20:58.269763Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MdznSbKA/images/dd9dad0a894db876aef373b1d535f284758e32c3_350.webp",
+      "featured": false,
+      "title": "The Redstone Plateau",
+      "description": "Explore the uncharted realms of the Nether with the avant-garde Complementary Reimagined Shaders, unveiling unseen biomes. Embark on a journey through unexplored regions, where every pixel is adorned with the beauty of cutting-edge visual enhancements.",
+      "created": "2023-10-12T01:19:26.218042Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "M0nkeyPr0grammer",
+      "role": "Lead Dev",
+      "avatar": "https://avatars.githubusercontent.com/u/86218191?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "pBrfi38A",
+      "name": "Landscapes Reimagined Genesis 3.2 [Finale]",
+      "version_number": "3.2",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-08-02T22:13:40.861426Z",
+      "downloads": 785160,
+      "changelog": "# Modpack Patch Notes: Version 3.2 [Finale]\n**Release Date**: August 2nd, 2024\n\nThis update marks the final release, barring any significant errors or oversights on my part (Voidmaster01). It includes updates to mods, resource packs, data packs, and shader packs. Additionally, this update addresses an issue with the raw zinc block to molten zinc recipe, which previously resulted in a deficit of approximately 16 zinc ingots. We wish you a Happy Friday and hope you continue to enjoy this pack. Also, please check out M0nkyPr0gramer's new project [Forge Frontier](https://github.com/M0nkeyPr0grammer/Create-Forge-Frontier), which is currently under major development!\n\n\n## Fabric Loader\nFabric loader 0.15.11 > 0.16.0\n\n## Additions\n- [TCD Commons API 3.12.2](https://modrinth.com/mod/tcdcommons) - Required by Better Statistics Screen\n\n\n## Updates\n- Ambient Sounds 6.0.2 > 6.0.3\n- Balm 7.3.4 > 7.3.6\n- Better Advancements 0.3.2.162 > 0.4.2.10\n- Better Statistics Screen 3.9.7 > 3.12.4\n- Botany Pots 13.0.33 > 13.0.38\n- Botarium 2.3.3 > 2.3.4\n- Chat Heads 0.12.3 > 0.12.9\n- Chat Patches 201.5.5 > 201.5.6\n- Choice Theorem's Overhauled Villages 3.4.4 > 3.4.6\n- Collective 7.61 > 7.80\n- Comforts 6.3.5 > 6.4.0\n- Create Crafts and Additions 1.2.3 > 1.2.4\n- Create Ore Excavation 1.4.6 > 1.5.0\n- Create Slice & Dice 3.2.2 > 3.2.3\n- Create: CopyCats+ 1.3.4 > 2.1.1\n- Creative Core 2.11.30 > 2.11.33\n- Dynamic View Mod 3.2 > 4.0\n- Elytra Trims 3.2.0 > 3.4.3\n- EMI 3.2.0 > 3.4.3\n- Entity Model Features 2.0.2 > 2.1.3\n- Entity Texture Features 6.1.1 > 6.1.3\n- Extreme Sound Muffler 3.41 > 3.48\n- Farmer's Delight 2.1.1 > 2.1.2\n- Fish of Thieves 3.0.5 > 3.0.7\n- Friends and Foes 2.0.10 > 2.0.15\n- GeckoLib 4 4.4.6 > 4.4.7\n- Indium 1.0.31 > 1.0.34\n- Iris 1.7.0 > 1.7.2\n- Jade 11.9.2 > 11.10.0\n- Jade Addons 5.2.5 > 5.3.0\n- Just Enough Breeding 1.2.1 > 1.2.4\n- Just Enough Effects Descriptions 2.1.12 > 2.2.2\n- Just Enough Items 15.3.0.8 > 15.8.2.25\n- Just Mob Heads 7.8 > 8.3\n- Just Player Heads 4.0 > 4.1\n- K\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined Genesis 3.2.mrpack",
+          "size": 124287880,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "NlLH5Nt2",
+      "name": "3.1.4 [Spreading Out]",
+      "version_number": "3.1.4",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-06-20T00:03:28.667909Z",
+      "downloads": 47009,
+      "changelog": "# Modpack Patch Notes: Version 3.1.4 [Spreading Out]\n**Release Date**: June 19th, 2024\n\n\n\n## Fabric Loader\nFabric loader 0.15.11\n\n## Additions\n [Sparse Structures](https://modrinth.com/mod/sparsestructures)   [2.1.2](https://modrinth.com/mod/sparsestructures/version/2.1.2): This Mod gives the ability to spread structures farther apart (Will not affect current loaded chunks if world has already been started) \n\n## Updates\n- Advanced Netherite 2.1.0 > 2.1.3\n- Ambient Sounds 5.3.9 > 6.0.2\n- Archaeology Banners 5.1.4 > 5.1.6\n- ATFMD 0.5.6 > 0.5.7\n- Audio Player 1.9.2 > 1.10.2\n- Balm 7.2.2 > 7.3.4\n- Beautify 1.1.0 > 1.2.0\n- Better Archeology 1.1.8 > 1.1.9\n- Bookshelf 20.1.10 > 20.2.13\n- Botany Pots 13.0.29 > 13.0.33\n- Chat Heads 0.10.32 > 0.12.3\n- ChoiceTheorem's Overhauled Village 3.4.3 > 3.4.4\n- Collective 7.56 > 7.61\n- Continuity 3.0.0-beta.4 > 3.0.0-beta.5\n- Craftify 1.14.0 > 1.16.0\n- Create Ore Excavation 1.4.5 > 1.4.6\n- Create Power Loaders 1.4.3 > 1.5.3\n- Create Diesel Generators 1.2.3h > 2.1.4\n- Create Copycats+ 1.2.6 > 1.3.4\n- Creative Core 2.11.24 > 2.11.30\n- Create Slice & Dice 3.2.1 > 3.2.2\n- EMI 1.1.6 > 1.1.7\n- Elytra Trims 3.1.2 > 3.2.0\n- Enchantment Descriptions 17.0.14 > 17.0.16\n- Endertanks 1.2 > 1.3\n- Entity Culling 1.6.2 > 1.6.6\n- Entity Texture Features 6.0.1 > 6.1.1\n- Extra Mod Integrations 0.4.4 > 0.4.6\n- Fabric API 0.92.1 > 0.92.2\n- Fabric Language Kotlin 1.10.19+kotlin.1.9.23 > 1.11.0+kotlin.2.0.0\n- Fancymenu 3.1.7 > 3.2.3\n- GeckoLib 4.4.4 > 4.4.6\n- Heracles 1.1.12 > 1.1.13 \n- Immediately Fast 1.2.13 > 1.2.18\n- Immersive Aircraft 0.7.5 > 1.0.1\n- Incendium 1.0.30 > 1.0.32\n- Iris Flywheel Compat 0.2.4 > 0.2.5\n- JEI 15.3.0.4 > 15.3.0.8\n- Jade 11.9.0 > 11.9.2\n- Just Mob Heads 7.7 > 7.8\n- Lootr 0.7.30.77 > 0.7.33.81\n- LithoStitched 1.1.5 > 1.1.6\n- LootJS 2.11.0 > 2.12.0\n- ModernFix 5.17.0 > 5.18.1\n- Moonlight 2.11.14 > 2.11.41\n- More Chest Variants 1.5.2 > 1.5.5\n- More Crafting Tables 1.2.6 > 1.2.7\n- More Armor Trims 1.2.0 > 1.3.1\n- Nullscape 1.2.4 > 1.\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined Genesis 3.1.4.mrpack",
+          "size": 125718951,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "PuCdX6wc",
+      "name": "3.1.3  [Maps, Fixes, and Updates]",
+      "version_number": "3.1.3",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-05-03T23:50:20.604786Z",
+      "downloads": 46311,
+      "changelog": "# Modpack Patch Notes: Version 3.1.3 [Maps, Fixes, Updates]\n**Release Date**: April 5th, 2024\n\nThis update is to fix some issues with crashing, Change the Map mod to Xaero's Maps, and update the rest of the mods. \n\n## Updated Fabric Loader\nFabric loader 0.15.9 > 0.15.11\n\n## Additions\n-Xaero's Minimap 24.1.1\n-Xaero's World Map 1.38.4 \nBoth of these mods are replacing Jouney Maps after community feedback, these mods allow you to see any area of the world that you have been to as well as waypoints you set, or mobs around you.\n- Farmer's Delight Refabricated\n\n## Updates\n- 3D Skin Layers 1.6.2 > 1.6.4\n- Ambient Sounds 5.3.5 > 5.3.9\n- Animal Feeding Trough 1.0.3 > 1.1.0\n- Argonauts 1.0.9 > 1.0.10\n- Audio Player 1.9.0 > 1.9.2\n- Better Archeology 1.1.6 > 1.1.8\n- Better Trims 2.3.0 > 2.3.1\n- Botany Pots 13.0.26 > 13.0.29\n- Cadmus 1.0.7 > 1.0.8\n- Chipped 3.0.4 > 3.0.6\n- Clumps 12.0.0.3 > 12.0.0.4\n- Collective 7.40 > 7.56\n- Create Air Fabric 1.0-15 > 1.0-18\n- Create Deco 2.0.1 > 2.0.2\n- Create Slice and Dice 3.1.0 > 3.2.1\n- Create Steam n' Rails 1.6.0 > 1.6.3\n- Elytra Trims 2.1.1 > 3.1.2\n- EMI 1.1.4 > 1.1.6\n- EMI Loot 0.6.5 > 0.6.6\n- Entity Model Features 1.3 > 2.0.2\n- Entity Texture Features 5.2.3 > 6.0.1\n- Expanded Delight 0.3.0.3 > 0.3.1\n- Extra Mod Integrations 0.4.3 > 0.4.4\n- FancyMenu 3.1.4 > 3.1.7\n- Farmer's Knives 3.0.2 > 3.2\n- Fish Of Thieves 3.0.4 > 3.0.5\n- Immediately Fast 1.2.11 > 1.2.13\n- Iris 1.6.17 > 1.7.0\n- Jade 11.8.0 > 11.9.0\n- Jade Addons 5.2.3 > 5.2.5\n- JEI 15.2.0.23 > 15.3.0.4\n- Just Mob Heads 7.6 > 7.7\n- Just Player Heads 3.6 > 4.0\n- Kube JS 2001.6.4-build.138 > 2001.6.5-build.7\n- Legendary Tooltips 1.4.4 > 1.4.5\n- Modern Fix 5.15.0 > 5.17.0\n- Moog's End Structures 1.3 > 1.3.1\n- Moog's Voyager Structures 4.1.1 > 4.1.2\n- Moonlight 2.11.12 > 2.11.14\n- More Chest Variants 1.5.1 > 1.5.2\n- More Crafting Tables 1.2.4 > 1.2.6\n- More Culling 0.22.1 > 0.24.0\n- More Mob Variants 1.2.2 > 1.3.0.1\n- Not Enough Animations 1.7.1 > 1.7.3\n- PonderJS 1.3.0 > 1.3.1\n- ProbeJ\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined Genesis 3.1.3.mrpack",
+          "size": 125746713,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "yDmm9etW",
+      "name": "3.1.2 [Fixes and Furnishes]",
+      "version_number": "3.1.2",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-04-14T00:53:15.593009Z",
+      "downloads": 21413,
+      "changelog": "# Modpack Patch Notes: Version 3.1.2 [Fixes and Furnishes]\n**Release Date**: April 13th, 2024\n\nThis Update Fixes some of the issues from a previous update due to a certain few mods, and also updates a few mods since the last update. Hoping that this update brings all that you were wishing for and more we also added some more optional resource packs to enhance the quality of the little things in life. New animations from [FreshLx's](https://modrinth.com/user/FreshLX) [Fresh Animations](https://modrinth.com/resourcepack/fresh-animations), as well as some PBR textures from [MrUltra](https://modrinth.com/user/MrUltra). We hope you enjoy this update as much as we do.\n\n\n## Updated Fabric Loader\nFabric loader 0.15.7 > 0.15.9\n\n## Additions\n- [Create Diesel Generators](https://modrinth.com/mod/create-diesel-generators-fabric) Reinstated to the modpack with the fixed version\n- [Entity Model Features](https://modrinth.com/mod/entity-model-features) is a Fabric mod that adds support for OptiFine's Custom Entity Models\n\n\n## Updates\n- Create Diesel Generators 1.2h > 1.23h\n- Architechtury 9.1.12 > 9.2.14\n- Better Statistics Screen 3.9.5 > 3.9.7\n- Better Trims 2.2.3 > 2.3.0\n- Bookshelf 20.1.9 > 20.1.10\n- Choicetheorem's Overhauled Village 3.4.2 > 3.4.3\n- Create 0.5.1-f-build.1335 > 0.5.1-f-build.1417\n- Create Steam and Rails 1.5.3 > 1.6.0\n- Fabric API 0.92.0 > 0.92.1\n- Fancy Menu 3.1.2 > 3.1.4\n- Just Enough Items (JEI) 15.2.0.23 > 15.3.0.4\n- Moonlight 2.11.9 > 2.11.12\n- More Armor Trims 1.1.3 > 1.2.0\n- More Chest Variants 1.5.0 > 1.5.1\n- More Crafting Tables 1.2.3 > 1.2.4\n- ModernFix 5.15.0 > 5.16.0\n- Quad 1.1.4 > 1.1.6\n- Simple Voice Chat 2.5.11 > 2.5.12\n- Sodium \n- Traveler's Backpack 9.1.10 > 9.1.12\n- Ube's Delight 0.1.5b > 0.1.5.3 \n- Advanced Netherite 2.0.3 > 2.1.0\n\n\n\n## KubeJS Tweaks:\n- Reinstated Create Diesel Generators KubeJS Tweaks\n- Removed Huge Generator crafting recipe to replace with custom mechanical recipe\n\n## Quest Tweaks\n- Reinstated Create Diesel Generators Quest\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined Genesis 3.1.2.mrpack",
+          "size": 131388802,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Yv1KXuQ0",
+      "name": "3.1.1 [Bug Fixes]",
+      "version_number": "3.1.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-04-04T02:54:33.179257Z",
+      "downloads": 9983,
+      "changelog": "# Modpack Patch Notes: Version 3.1.1 [Bug Fixes]\n**Release Date**: April 3rd, 2024\n\nGood afternoon or morning,\n\nWe would like to extend our sincere apologies for the prevalence of bugs encountered in the previous update. It has become apparent that insufficient proofreading was conducted during the bug-fixing process. However, we are pleased to announce the release of the new 3.1.1 update, aimed at addressing the prominent issues within the modpack. Regrettably, certain mod updates are irreversible, contributing to the challenges encountered. Nonetheless, we trust that this update will significantly enhance your experience. We hope you will enjoy the improvements and allow them to reimagine your landscapes.\n\n## As a standard safety protocol, we advise creating a backup of your saved data prior to updating the modpack to ensure the preservation of your progress.\n\n## Additions\n- [Litho Stitched](https://modrinth.com/mod/lithostitched): Required by ChoiceTheorem's Overhauled Villages\n\n## Removals\n- Create Diesel Generators: Crashes the game, will add back once fixed\n- Wunderreich: Server Crashes, will add back once fixed\n- WTHIT: Does the same thing as jade\n\n## Updates\n- Botany Pots 13.0.25 > 13.0.26\n- Copycats+ 1.2.2 > 1.2.6\n- Hercales 1.1.11 > 1.1.12\n- ImmediatelyFast 1.2.10 > 1.2.11\n- More Crafting Tables 1.2.2 > 1.2.3\n- Quad 1.1.1 > 1.1.4\n- Argonauts 1.0.8 > 1.0.9\n- Better Stats 3.9.4 > 3.9.5\n- Create Ore Excavation 1.4.4 > 1.4.5\n- Create Utilities 0.2.0 > 0.3.0\n- Eating Animation 1.9.5 > 1.9.61\n- Elytra Trims 2.0.3 > 2.1.1\n- EMI 1.1.3 > 1.1.4\n- Journey Map 5.9.18p1 > 5.9.20\n- Just Enough Breeding 1.0.12 > 1.2.1\n- Modern Fix 5.14.0 > 5.15.0\n- Moonlight 2.11.4 > 2.11.9 \n- Polymorph 0.49.1 > 0.49.3\n- ProbeJS 6.0.0 > 6.0.1\n- Prometheus 1.2.4 > 1.2.5\n- Resourceful Lib 2.1.23 > 2.1.24\n- ServerCore 1.3.9 > 1.5.0\n- Status 1.0.5 > 1.0.6\n- Supplementaries 2.8.4 > 2.8.10\n- Tom's Simple Storage 1.6.5 > 1.6.6\n- Traveler's Backpack 9.1.9 > 9.1.10\n- Voice Chat 2.5.9 > 2.5.11\n- Y\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined Genesis 3.1.1.mrpack",
+          "size": 130961496,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "E8lR8f8i",
+      "name": "3.1.0 [The Revival]",
+      "version_number": "3.1.0",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-03-31T23:25:32.732639Z",
+      "downloads": 3181,
+      "changelog": "# Modpack Patch Notes: Version 3.1.0 [Pack Revival]\n**Release Date**: March 31st, 2024\n\nThis release signifies the initial foray of Voidmaster01 into the realm of modpack development, aiming to uphold and exceed the expectations set by our community. In this iteration, we've updated all mods to their latest iterations since our last update in December. We've also incorporated new quests and recipes to seamlessly integrate with the [Landscapes Reimagined Forge Frontier](https://modrinth.com/modpack/landscapes-reimagined-forge-frontier) by M0nkeyPr0grammer, enriching the pack with new mods that enhance the enjoyment and depth of the game.\n\n\n## Updated Fabric Loader\nFabric loader 0.14.24 > 0.15.7\n\n## Additions\n- [Create Powerloader](https://modrinth.com/mod/create-power-loader-fabric) A Create mod add-on adding immersive chunk loaders.\n- [Create Deco](https://modrinth.com/mod/create-deco) Industrial decoration themed around the aesthetics of the Create mod.\n- [Copycats+](https://modrinth.com/mod/copycats/version/1.1.1-mc1.20.1-fabric) All the copycats you've ever wanted, combined into a single mod!\n- [Create New Age](https://modrinth.com/mod/create-new-age) Create: New Age is an addon for the Create mod that adds integration with electricity.\n- [Journeymap](https://modrinth.com/mod/journeymap) Real-time mapping in game or in a web browser as you explore.\n- [amecs](https://modrinth.com/mod/amecs) Improves your keys & controls setup by providing modifier keys and making multi-functional keys a thing.\n\n## Removals\n- Create Sandpaper Overhaul: Has not updated, along with absense of creator\n- Create Chunkloading: Replaced by Create: Powerloaders\n- Xaero's Maps and Addons: Replaced by JourneyMaps\n- Endertanks: Most Features already covered by the Create Utilities Void Tanks\n- Enderchests: Most Features already covered by the Create Utilities Void Chest\n- Extended Gears: Not Updated and unofficial update removed\n- Carpet Fixes: Breaks Game\n\n## Updates\n- 3D_Skin_Layers 1.5.4 >\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined Genesis 3.1.0.mrpack",
+          "size": 128646936,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "VXcyZsra",
+      "name": "3.0.1 (Quest Hotfix)",
+      "version_number": "3.0.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-12-20T22:19:16.375853Z",
+      "downloads": 70586,
+      "changelog": "# Modpack Patch Notes: Version 3.0.1 (Quest Hotfix)\n**Release Date**: December 20th, 2023\n\nThis update just fixes two quests in the End Chapter\n### As a standard safety protocol, we advise creating a backup of your saved data prior to updating the modification package to ensure the preservation of your progress.\n\n## Quest Tweaks\n- Fixed Dependencies for Enter the End and Collect Dragons Breath quests\n### Note: If you encounter any issues, please request support on our [Discord](https://discord.gg/quenZthXgy). Enjoy the update!\n### Want to setup a server using our official server host, click the banner below!\n[![BisectHosting Code](https://raw.githubusercontent.com/M0nkeyPr0grammer/Landscapes-Reimagined/main/BH_Landscape_Reimagined.png)](https://bisecthosting.com/M0nkeyPr0grammer?r=modrinth+chanelog)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined Genesis.mrpack",
+          "size": 127745742,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "NyrnxuSx",
+      "name": "v3.0.0 (Project Genesis)",
+      "version_number": "3.0.0",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-11-30T19:35:37.151772Z",
+      "downloads": 8551,
+      "changelog": "# Modpack Patch Notes: Version 3.0.0 (Project Genesis)\n**Release Date**: November 30th, 2023\n\nThis update is focused on adding in the final content for the modpack for a while, remaining updates will just include general mod updates as the development for the sequel will be starting.\nThis update includes new mod additions, creation of remaining creative items and the addition of a special trophy item when completing the pack.\n### As a standard safety protocol, we advise creating a backup of your saved data prior to updating the modification package to ensure the preservation of your progress.\n## New Additions\n- [Create: Bells & Whistles](https://modrinth.com/mod/bellsandwhistles): Additions and adornments for the modern Create engineer. \n- [Create Enchantment Industry Fabric](https://modrinth.com/mod/create-enchantment-industry-fabric): Automatic Enchanting, with Create\n- [Fusion: Connected Textures](https://modrinth.com/mod/fusion-connected-textures): Fusion allows resource packs to use additional texture and model types such as connected textures!\n- [Rechiseled](https://modrinth.com/mod/rechiseled): Rechiseled allows you to chisel blocks into various decorative blocks with connected textures!\n- [Rechiseled: Create](https://modrinth.com/mod/rechiseled-create): Rechiseled: Create adds new decorative variants of blocks in Create!\n- [Simple Copper Pipes](https://modrinth.com/mod/simple-copper-pipes): Adds vanilla-friendly copper pipes to Minecraft!\n- [SuperMartijn642's Core Lib](https://modrinth.com/mod/supermartijn642s-core-lib): SuperMartijn642's Core Lib adds lots of basic implementations that allow for similar code between different Minecraft versions!\n- [SuperMartijn642's Config Lib](https://modrinth.com/mod/supermartijn642s-config-lib): Config Lib makes dealing with config files just a bit easier.\n## Updates\n- AudioPlayer: v1.8.3 > v1.8.5\n- AmbientSounds: v5.3.4 > v5.3.5\n- Beautify: v1.0.0 > v1.1.0\n- Collective: v7.7 > v7.9\n- Elytra Trims: v1.4.3 > v1.4.4\n- EMI \n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Landscapes Reimagined.mrpack",
+          "size": 127697894,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
+import dayjs from 'dayjs'
 import { expect, it, vi } from 'vitest'
 import { defineComponent, h, Suspense } from 'vue'
 
@@ -68,7 +69,7 @@ function render(value: GameInstance) {
                     h(InstanceItem, {
                         instance: props.instance,
                         playing: false,
-                        lastPlayed: undefined,
+                        lastPlayed: dayjs(0),
                     }),
             }),
     })

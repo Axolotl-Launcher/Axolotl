@@ -18,6 +18,35 @@ use std::sync::{Arc, LazyLock};
 #[cfg(test)]
 use std::time;
 
+/// Roots a test added to the clients it builds, so general clients trust the
+/// same loopback CA as the pinned ones.
+///
+/// This is a registry rather than a task-local scope: `DownloadClients::build`
+/// runs when a fixture constructs its clients, which happens before the test
+/// enters the future that issues requests. A scope bound around the requests
+/// would therefore arrive too late to affect the built clients.
+#[cfg(test)]
+static TEST_TRUST_ROOTS: LazyLock<
+    parking_lot::Mutex<Vec<reqwest::Certificate>>,
+> = LazyLock::new(Default::default);
+
+/// The test roots registered so far.
+#[cfg(test)]
+fn test_trust_roots() -> Vec<reqwest::Certificate> {
+    TEST_TRUST_ROOTS.lock().clone()
+}
+
+/// Registers `roots` for every client this test builds afterwards.
+///
+/// Roots are process-wide because the client that needs them is built by a
+/// fixture outside any scope. Each test gets its own process under nextest, and
+/// the loopback CAs are self-signed and unique per fixture, so one test's roots
+/// cannot make another test's traffic trusted.
+#[cfg(test)]
+pub(crate) fn register_test_trust_roots(roots: Vec<reqwest::Certificate>) {
+    TEST_TRUST_ROOTS.lock().extend(roots);
+}
+
 pub(crate) fn is_h2_protocol_failure(error: &reqwest::Error) -> bool {
     let mut chain = String::new();
     let mut source = error.source();
@@ -50,7 +79,7 @@ pub(crate) fn reqwest_client_builder() -> reqwest::ClientBuilder {
     };
     #[cfg(not(test))]
     let read_timeout = FILE_TRANSFER_READ_TIMEOUT;
-    reqwest::Client::builder()
+    crate::util::http::client_builder()
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if retired_sources::is_retired(attempt.url()) {
                 attempt.error(NATIVE_DOWNLOAD_SOURCE_HAS_BEEN_RETIRED)
@@ -162,6 +191,17 @@ impl DownloadClients {
             let builder = file_reqwest_client_builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .danger_accept_invalid_certs(ignore_ssl_errors);
+            // Loopback fixtures sign their own certificates. Pinned clients get
+            // the root from `trust_test_root`, but a request that falls back to
+            // one of these general clients would fail with `UnknownIssuer`, so
+            // the test root has to reach them too.
+            #[cfg(test)]
+            let builder = match test_trust_roots() {
+                roots if roots.is_empty() => builder,
+                roots => roots.iter().fold(builder, |builder, root| {
+                    builder.add_root_certificate(root.clone())
+                }),
+            };
             // Reqwest does not expose a socket-lifetime admission hook. In
             // automatic mode its idle sockets would outlive request permits
             // and accumulate alongside probes and new endpoint generations.

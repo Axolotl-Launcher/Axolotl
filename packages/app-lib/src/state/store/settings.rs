@@ -131,6 +131,7 @@ pub(crate) struct SettingsRecord {
     pub mc_memory_auto: bool,
     pub mc_memory_optimize: bool,
     pub auto_set_java_high_performance_mode: bool,
+    pub minecraft_use_console_java: bool,
     pub transparent_background: bool,
     pub transparent_background_opacity: i64,
     pub transparent_background_blur: bool,
@@ -154,6 +155,7 @@ pub(crate) struct SettingsRecord {
     pub ignore_ssl_errors: bool,
     pub home_widget_background_opacity: i64,
     pub hidden_nav_items: String,
+    pub oobe_completed_steps: String,
     pub custom_window_title_enabled: bool,
     pub default_window_title: String,
     pub custom_background_component_opacity: i64,
@@ -328,7 +330,8 @@ impl Collection for Settings {
                 modrinth_source, curseforge_source, onboarding_version,
                 onboarding_instance_tour_completed, sidebar_instance_count,
                 mc_memory_auto, mc_memory_optimize,
-                auto_set_java_high_performance_mode, transparent_background,
+                auto_set_java_high_performance_mode, minecraft_use_console_java,
+                transparent_background,
                 transparent_background_opacity, transparent_background_blur,
                 home_layout, minimal_home_instance_id, auto_hide_downloads_button,
                 json(home_widgets) AS home_widgets, mojang_auth_source,
@@ -346,7 +349,7 @@ impl Collection for Settings {
                 backup_repository_path, allow_external_scheme,
                 allow_privileged_scheme, doh_enabled,
                 resource_chinese_filenames, resource_preserve_filenames,
-                default_game_language
+                default_game_language, oobe_completed_steps
             FROM settings
             WHERE id = 0
             ",
@@ -477,6 +480,8 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         mc_memory_optimize: row.try_get("mc_memory_optimize")?,
         auto_set_java_high_performance_mode: row
             .try_get("auto_set_java_high_performance_mode")?,
+        minecraft_use_console_java: row
+            .try_get("minecraft_use_console_java")?,
         transparent_background: row.try_get("transparent_background")?,
         transparent_background_opacity: row
             .try_get("transparent_background_opacity")?,
@@ -527,6 +532,7 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         resource_preserve_filenames: row
             .try_get("resource_preserve_filenames")?,
         default_game_language: row.try_get("default_game_language")?,
+        oobe_completed_steps: row.try_get("oobe_completed_steps")?,
     })
 }
 async fn write_row(
@@ -568,7 +574,8 @@ async fn write_row(
             default_window_title, custom_background_component_opacity,
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
-            resource_preserve_filenames, default_game_language
+            resource_preserve_filenames, default_game_language,
+            oobe_completed_steps, minecraft_use_console_java
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -578,7 +585,7 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?
+            ?, ?, ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
@@ -636,6 +643,7 @@ async fn write_row(
             mc_memory_optimize = excluded.mc_memory_optimize,
             auto_set_java_high_performance_mode =
                 excluded.auto_set_java_high_performance_mode,
+            minecraft_use_console_java = excluded.minecraft_use_console_java,
             transparent_background = excluded.transparent_background,
             transparent_background_opacity =
                 excluded.transparent_background_opacity,
@@ -682,7 +690,8 @@ async fn write_row(
             doh_enabled = excluded.doh_enabled,
             resource_chinese_filenames = excluded.resource_chinese_filenames,
             resource_preserve_filenames = excluded.resource_preserve_filenames,
-            default_game_language = excluded.default_game_language
+            default_game_language = excluded.default_game_language,
+            oobe_completed_steps = excluded.oobe_completed_steps
         ",
     )
     .bind(record.max_concurrent_downloads)
@@ -772,6 +781,8 @@ async fn write_row(
     .bind(record.resource_chinese_filenames)
     .bind(record.resource_preserve_filenames)
     .bind(&record.default_game_language)
+    .bind(&record.oobe_completed_steps)
+    .bind(record.minecraft_use_console_java)
     .execute(&mut *conn)
     .await?;
 

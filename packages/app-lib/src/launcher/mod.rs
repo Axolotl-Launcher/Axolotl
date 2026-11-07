@@ -4,8 +4,8 @@ use crate::data::ModLoader;
 use crate::event::emit::{emit_instance, emit_loading, init_loading};
 use crate::event::{InstancePayloadType, LoadingBarType};
 use crate::install::{
-    InstallJavaStep, InstallPhaseDetails, InstallPhaseId, InstallProgress,
-    InstallProgressReporter,
+    InstallErrorContext, InstallJavaStep, InstallPhaseDetails, InstallPhaseId,
+    InstallProgress, InstallProgressReporter,
 };
 use crate::instance::QuickPlayType;
 pub use crate::launcher::direct_link::ExternalGameDirMode;
@@ -510,6 +510,110 @@ fn has_client_processors(processors: Option<&[d::modded::Processor]>) -> bool {
                 .is_none_or(|sides| sides.iter().any(|side| side == "client"))
         })
     })
+}
+
+/// Processor output is decoded as UTF-8. Java otherwise writes piped output
+/// in the system code page (GBK on Chinese Windows). Java 18+ reads the
+/// first pair of properties, older runtimes the `sun.` pair.
+const PROCESSOR_OUTPUT_ENCODING_ARGS: [&str; 4] = [
+    "-Dstdout.encoding=UTF-8",
+    "-Dstderr.encoding=UTF-8",
+    "-Dsun.stdout.encoding=UTF-8",
+    "-Dsun.stderr.encoding=UTF-8",
+];
+
+/// Lines kept from each end of a failed processor's output stream.
+const PROCESSOR_OUTPUT_EDGE_LINES: usize = 20;
+
+/// Characters kept from each line of a failed processor's output.
+const PROCESSOR_OUTPUT_LINE_CHARS: usize = 500;
+
+/// Bytes kept from each end of a failed processor's stream in the log.
+const PROCESSOR_OUTPUT_LOG_EDGE_BYTES: usize = 32 * 1024;
+
+/// javaw.exe shows JVM startup errors in a modal dialog instead of writing
+/// them to stderr, so processors run on the runtime's console executable.
+/// A runtime without one, or a bare command that may not have a console
+/// sibling on `PATH`, keeps the selected executable.
+fn processor_java_executable(java: &str) -> PathBuf {
+    match java_environment::console_java_executable(java) {
+        Ok(console) if console.is_file() => console,
+        _ => PathBuf::from(java),
+    }
+}
+
+/// One failed processor stream for the launcher log, without its middle
+/// when it is too large to keep whole.
+fn processor_output_for_log(bytes: &[u8]) -> String {
+    if bytes.len() <= PROCESSOR_OUTPUT_LOG_EDGE_BYTES * 2 {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    let omitted = bytes.len() - PROCESSOR_OUTPUT_LOG_EDGE_BYTES * 2;
+    format!(
+        "{}\n... {omitted} bytes omitted\n{}",
+        String::from_utf8_lossy(&bytes[..PROCESSOR_OUTPUT_LOG_EDGE_BYTES]),
+        String::from_utf8_lossy(
+            &bytes[bytes.len() - PROCESSOR_OUTPUT_LOG_EDGE_BYTES..]
+        ),
+    )
+}
+
+/// Processors print their own errors to stderr, but a JVM that dies while
+/// starting (a fatal error report, or no memory for the heap) prints to
+/// stdout. The message keeps the exit status and both streams.
+fn processor_failure_message(
+    processor: &d::modded::Processor,
+    status: impl std::fmt::Display,
+    stdout: &[u8],
+    stderr: &[u8],
+) -> String {
+    let task = processor
+        .args
+        .windows(2)
+        .find(|args| args[0] == "--task")
+        .map(|args| format!(" {}", args[1]))
+        .unwrap_or_default();
+    let mut message = format!(
+        "Processor error: {}{task} exited with {status}",
+        processor.jar
+    );
+    let mut printed = false;
+    for (stream, bytes) in [("stderr", stderr), ("stdout", stdout)] {
+        let text = String::from_utf8_lossy(bytes);
+        let lines = text.trim().lines().collect::<Vec<_>>();
+        if lines.is_empty() {
+            continue;
+        }
+        printed = true;
+        let _ = write!(message, "\n{stream}:");
+        let omitted =
+            lines.len().saturating_sub(PROCESSOR_OUTPUT_EDGE_LINES * 2);
+        for (index, line) in lines.iter().enumerate() {
+            if omitted > 0
+                && (PROCESSOR_OUTPUT_EDGE_LINES
+                    ..PROCESSOR_OUTPUT_EDGE_LINES + omitted)
+                    .contains(&index)
+            {
+                if index == PROCESSOR_OUTPUT_EDGE_LINES {
+                    let _ = write!(message, "\n... {omitted} lines omitted");
+                }
+                continue;
+            }
+            let line = line.trim_end();
+            match line.char_indices().nth(PROCESSOR_OUTPUT_LINE_CHARS) {
+                Some((end, _)) => {
+                    let _ = write!(message, "\n{}...", &line[..end]);
+                }
+                None => {
+                    let _ = write!(message, "\n{line}");
+                }
+            }
+        }
+    }
+    if !printed {
+        message.push_str(" without printing any output");
+    }
+    message
 }
 
 fn is_liteloader_library(name: &str) -> bool {
@@ -1413,7 +1517,7 @@ async fn install_minecraft_with_local_source(
     let java_installation = if let Some(java_version) =
         get_java_version_from_launch_context(context, &version_info).await?
     {
-        Some((std::path::PathBuf::from(java_version.path), false))
+        (std::path::PathBuf::from(java_version.path), false)
     } else if let Some(discovered) =
         crate::api::jre::find_java_for_version(key).await?
     {
@@ -1422,21 +1526,27 @@ async fn install_minecraft_with_local_source(
             discovered.version,
             discovered.path
         );
-        Some((std::path::PathBuf::from(discovered.path), true))
+        (std::path::PathBuf::from(discovered.path), true)
     } else {
+        // Cancel the job itself so parallel modpack downloads stop as well.
+        let warning = crate::event::emit::emit_missing_java_warning(
+            &instance.id,
+            &instance.name,
+            key,
+        )
+        .await;
         if let Some(reporter) = &reporter {
-            crate::api::jre::auto_install_java_with_reporter(
-                key,
-                reporter.clone(),
-            )
-            .await?
-        } else {
-            crate::api::jre::auto_install_java_with_loading(key, true).await?
+            reporter.cancel_job();
         }
-        .map(|path| (path, true))
+        warning?;
+        return Err(crate::ErrorKind::LauncherError(format!(
+            "Installation canceled: Java {key} is required. Install or configure Java {key} and try again."
+        ))
+        .into());
     };
 
-    let java_version = if let Some((java_path, set_java)) = java_installation {
+    let (java_path, set_java) = java_installation;
+    let java_version = {
         if let Some(reporter) = &reporter {
             reporter
                 .update(
@@ -1466,9 +1576,7 @@ async fn install_minecraft_with_local_source(
             .await?;
         }
 
-        Some(java_version)
-    } else {
-        None
+        java_version
     };
 
     // Download minecraft (5-90)
@@ -1487,10 +1595,7 @@ async fn install_minecraft_with_local_source(
         &content_set.game_version,
         &version_info,
         loading_bar.as_ref(),
-        java_version
-            .as_ref()
-            .map(|java| java.architecture.as_str())
-            .unwrap_or(std::env::consts::ARCH),
+        &java_version.architecture,
         repairing,
         minecraft_updated,
         reporter.clone(),
@@ -1508,10 +1613,7 @@ async fn install_minecraft_with_local_source(
             .prepare_runtime(
                 &state,
                 &client_path,
-                java_version
-                    .as_ref()
-                    .map(|java| java.architecture.as_str())
-                    .unwrap_or(std::env::consts::ARCH),
+                &java_version.architecture,
                 minecraft_updated,
                 false,
             )
@@ -1519,77 +1621,6 @@ async fn install_minecraft_with_local_source(
             .assemble(&client_path, &instance_path)
             .await?;
     }
-
-    let Some(java_version) = java_version else {
-        if content_set.loader == ModLoader::OptiFine
-            || has_client_processors(version_info.processors.as_deref())
-        {
-            return Err(crate::ErrorKind::LauncherError(format!(
-                "Java {key} is required to finish installing {}",
-                content_set.loader.as_str()
-            ))
-            .into());
-        }
-        external_version::finalize_external_version(
-            instance,
-            &version_jar,
-            &content_set.game_version,
-            &version_info,
-            &state,
-            std::env::consts::ARCH,
-            minecraft_updated,
-            minecraft_progress.as_ref(),
-            &database_cancellation,
-        )
-        .await?;
-        if let Some(progress) = minecraft_progress {
-            progress.finish().await?;
-        }
-        let protocol_version =
-            read_protocol_version_from_jar(client_path).await?;
-        run_install_database_write(
-            &state.install_db_semaphore,
-            &database_cancellation,
-            crate::state::instances::commands::set_applied_content_set_protocol_version(
-                &instance.id,
-                protocol_version,
-                &state.pool,
-            ),
-        )
-        .await?;
-        run_install_database_write(
-            &state.install_db_semaphore,
-            &database_cancellation,
-            promote_external_instance_link(instance, &state),
-        )
-        .await?;
-        if completion_policy == InstanceCompletionPolicy::FinalizeHere {
-            run_install_database_write(
-                &state.install_db_semaphore,
-                &database_cancellation,
-                crate::state::instances::commands::set_instance_install_stage(
-                    &instance.id,
-                    InstanceInstallStage::Installed,
-                    &state.pool,
-                ),
-            )
-            .await?;
-            emit_instance(&instance.id, InstancePayloadType::Edited).await?;
-        }
-        if let Some(loading_bar) = &loading_bar {
-            emit_loading(
-                loading_bar,
-                1.0,
-                Some("Finished downloading Minecraft resources"),
-            )?;
-        }
-        tracing::info!(
-            java_version = key,
-            instance_id = instance.id,
-            "Postponed Java setup after downloading Minecraft resources"
-        );
-        return Ok(());
-    };
 
     // Loader processors are separate JVMs. Pass the launcher's configured
     // custom proxy explicitly because child Java processes do not inherit
@@ -1627,6 +1658,7 @@ async fn install_minecraft_with_local_source(
     }
     if let Some(processors) = &version_info.processors {
         let libraries_dir = state.directories.libraries_dir();
+        let processor_java = processor_java_executable(&java_version.path);
         let client_mappings = version_info
             .downloads
             .get(&d::minecraft::DownloadType::ClientMappings)
@@ -1769,6 +1801,23 @@ async fn install_minecraft_with_local_source(
                     continue;
                 }
 
+                // Downloads leave their own context behind; a processor
+                // failure must not be reported as the last library download.
+                if let Some(reporter) = &reporter {
+                    reporter
+                        .set_transient_context(
+                            InstallErrorContext::new("run loader processor")
+                                .minecraft_version(
+                                    content_set.game_version.clone(),
+                                )
+                                .loader(content_set.loader.as_str())
+                                .file_path(processor.jar.clone())
+                                .java_version(java_version.parsed_version)
+                                .build(),
+                        )
+                        .await?;
+                }
+
                 let cp = {
                     let mut cp = processor.classpath.clone();
                     cp.push(processor.jar.clone());
@@ -1776,9 +1825,12 @@ async fn install_minecraft_with_local_source(
                 };
 
                 let mut command =
-                    java_environment::tokio_command(&java_version.path);
+                    java_environment::tokio_command(&processor_java);
+                #[cfg(windows)]
+                command.creation_flags(0x0800_0000);
                 command
                     .args(&java_proxy_args)
+                    .args(PROCESSOR_OUTPUT_ENCODING_ARGS)
                     .arg("-cp")
                     .arg(args::get_class_paths_jar(
                         &libraries_dir,
@@ -1826,10 +1878,22 @@ async fn install_minecraft_with_local_source(
                 })?;
 
                 if !child.status.success() {
-                    return Err(crate::ErrorKind::LauncherError(format!(
-                        "Processor error: {}",
-                        String::from_utf8_lossy(&child.stderr)
-                    ))
+                    tracing::warn!(
+                        processor = %processor.jar,
+                        index,
+                        status = %child.status,
+                        stdout = %processor_output_for_log(&child.stdout),
+                        stderr = %processor_output_for_log(&child.stderr),
+                        "Forge processor failed"
+                    );
+                    return Err(crate::ErrorKind::LauncherError(
+                        processor_failure_message(
+                            processor,
+                            child.status,
+                            &child.stdout,
+                            &child.stderr,
+                        ),
+                    )
                     .as_error());
                 }
                 tracing::info!(
@@ -1861,6 +1925,11 @@ async fn install_minecraft_with_local_source(
                         )
                         .await?;
                 }
+            }
+            // Later steps set no context of their own and must not be
+            // reported as the last processor or download.
+            if let Some(reporter) = &reporter {
+                reporter.clear_context().await?;
             }
         }
     }
@@ -2565,11 +2634,14 @@ pub async fn launch_minecraft(
     }
 
     let settings = crate::state::Settings::get(&state.data).await?;
+    let minecraft_java = java_environment::minecraft_java_executable(
+        &java_version.path,
+        settings.minecraft_use_console_java,
+    )?;
 
     #[cfg(target_os = "windows")]
     if settings.auto_set_java_high_performance_mode {
-        if let Err(error) =
-            set_high_performance_gpu_preference(&java_version.path)
+        if let Err(error) = set_high_performance_gpu_preference(&minecraft_java)
         {
             tracing::warn!(%error, java = %java_version.path, "Failed to set Java high-performance GPU preference");
         }
@@ -2645,10 +2717,10 @@ pub async fn launch_minecraft(
                 ),
             )?);
             command.args(cmd);
-            command.arg(&java_version.path);
+            command.arg(&minecraft_java);
             command
         }
-        None => Command::new(&java_version.path),
+        None => Command::new(&minecraft_java),
     };
 
     let env_args = Vec::from(env_args);
@@ -3099,6 +3171,151 @@ pub async fn launch_minecraft(
             },
         )
         .await
+}
+
+#[cfg(test)]
+mod processor_failure_tests {
+    use super::*;
+
+    fn processor() -> d::modded::Processor {
+        d::modded::Processor {
+            jar: "net.neoforged.installertools:installertools:4.0.17:fatjar"
+                .to_string(),
+            classpath: Vec::new(),
+            args: [
+                "--task",
+                "PROCESS_MINECRAFT_JAR",
+                "--input",
+                "{MINECRAFT_JAR}",
+            ]
+            .map(String::from)
+            .to_vec(),
+            outputs: None,
+            sides: None,
+        }
+    }
+
+    #[test]
+    fn failure_names_the_processor_task_and_status() {
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"Task: PROCESS_MINECRAFT_JAR\r\n",
+            b"Can only pass one or two --input arguments.\r\n",
+        );
+        assert_eq!(
+            message,
+            "Processor error: net.neoforged.installertools:installertools:4.0.17:fatjar PROCESS_MINECRAFT_JAR exited with exit code: 1\n\
+             stderr:\n\
+             Can only pass one or two --input arguments.\n\
+             stdout:\n\
+             Task: PROCESS_MINECRAFT_JAR"
+        );
+    }
+
+    #[test]
+    fn jvm_errors_on_stdout_are_kept_when_stderr_is_empty() {
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"#\n# There is insufficient memory for the Java Runtime Environment to continue.\n",
+            b"",
+        );
+        assert!(!message.contains("stderr:"));
+        assert!(message.ends_with(
+            "stdout:\n#\n# There is insufficient memory for the Java Runtime Environment to continue."
+        ));
+    }
+
+    #[test]
+    fn silent_failure_says_nothing_was_printed() {
+        let message =
+            processor_failure_message(&processor(), "exit code: 1", b"", b"\n");
+        assert!(
+            message.ends_with(
+                "exited with exit code: 1 without printing any output"
+            )
+        );
+    }
+
+    #[test]
+    fn long_output_keeps_both_ends() {
+        let stderr = (0..50)
+            .map(|line| format!("line {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"",
+            stderr.as_bytes(),
+        );
+        let lines = message.lines().collect::<Vec<_>>();
+        assert_eq!(lines[2], "line 0");
+        assert_eq!(lines[21], "line 19");
+        assert_eq!(lines[22], "... 10 lines omitted");
+        assert_eq!(lines[23], "line 30");
+        assert_eq!(lines.last(), Some(&"line 49"));
+        assert_eq!(lines.len(), 2 + 20 + 1 + 20);
+    }
+
+    #[test]
+    fn long_lines_are_cut_at_a_character_boundary() {
+        let line = "错".repeat(PROCESSOR_OUTPUT_LINE_CHARS + 1);
+        let message = processor_failure_message(
+            &processor(),
+            "exit code: 1",
+            b"",
+            line.as_bytes(),
+        );
+        let kept = message.lines().nth(2).unwrap();
+        assert_eq!(
+            kept,
+            format!("{}...", "错".repeat(PROCESSOR_OUTPUT_LINE_CHARS))
+        );
+    }
+
+    #[test]
+    fn logged_output_drops_the_middle_of_large_streams() {
+        assert_eq!(processor_output_for_log(b"small\n"), "small\n");
+        let mut output = vec![b'a'; PROCESSOR_OUTPUT_LOG_EDGE_BYTES];
+        output.extend(vec![b'b'; 10]);
+        output.extend(vec![b'c'; PROCESSOR_OUTPUT_LOG_EDGE_BYTES]);
+        let logged = processor_output_for_log(&output);
+        assert_eq!(
+            logged,
+            format!(
+                "{}\n... 10 bytes omitted\n{}",
+                "a".repeat(PROCESSOR_OUTPUT_LOG_EDGE_BYTES),
+                "c".repeat(PROCESSOR_OUTPUT_LOG_EDGE_BYTES)
+            )
+        );
+    }
+
+    #[test]
+    fn processors_run_on_the_console_java_executable() {
+        assert_eq!(processor_java_executable("java"), PathBuf::from("java"));
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                processor_java_executable("javaw.exe"),
+                PathBuf::from("javaw.exe"),
+                "a bare command may have no console sibling on PATH"
+            );
+            let dir = tempfile::tempdir().unwrap();
+            let windowed = dir.path().join("javaw.exe");
+            assert_eq!(
+                processor_java_executable(windowed.to_str().unwrap()),
+                windowed,
+                "a runtime without java.exe keeps the selected executable"
+            );
+            std::fs::write(dir.path().join("java.exe"), b"").unwrap();
+            assert_eq!(
+                processor_java_executable(windowed.to_str().unwrap()),
+                dir.path().join("java.exe")
+            );
+        }
+    }
 }
 
 #[cfg(test)]

@@ -176,7 +176,7 @@ function retrySave() {
                         </template>
                     </IntlFormatted>
                 </p>
-                <div data-onboarding-id="settings-language-select" class="flex flex-col gap-1.5">
+                <div class="flex flex-col gap-1.5">
                     <label class="text-sm font-semibold text-[var(--color-text-primary)]">
                         {{ formatMessage(commonSettingsMessages.language) }}
                     </label>

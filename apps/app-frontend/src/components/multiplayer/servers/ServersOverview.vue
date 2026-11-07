@@ -105,7 +105,7 @@ async function toggleRunning(server: ServerView) {
 </script>
 
 <template>
-    <div data-onboarding-id="servers-overview" class="flex min-h-0 w-full flex-1 flex-col gap-4">
+    <div class="flex min-h-0 w-full flex-1 flex-col gap-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="flex min-w-0 flex-col gap-1">
                 <h2 class="m-0 text-xl font-semibold text-[var(--color-text-primary)]">
@@ -148,11 +148,7 @@ async function toggleRunning(server: ServerView) {
                     ><RefreshCwIcon :class="{ 'animate-spin': isRefreshing }" />
                     {{ formatMessage(messages.refresh) }}
                 </Button>
-                <Button
-                    type="colored"
-                    color="brand"
-                    data-onboarding-id="create-server-button"
-                    @click="createModal?.show()"
+                <Button type="colored" color="brand" @click="createModal?.show()"
                     ><PlusIcon />
                     {{ formatMessage(messages.create) }}
                 </Button>

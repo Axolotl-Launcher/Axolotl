@@ -193,12 +193,12 @@
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { nextTick, onMounted, onScopeDispose, ref, watch } from 'vue'
 
-import blueBall from '@/assets/axolotl-balls/blueball.png'
-import cyanBall from '@/assets/axolotl-balls/cyanball.png'
-import pinkBall from '@/assets/axolotl-balls/pinkball.png'
-import redBall from '@/assets/axolotl-balls/redball.png'
-import superBall from '@/assets/axolotl-balls/superball.png'
-import yellowBall from '@/assets/axolotl-balls/yellowball.png'
+import blueBall from '@/assets/axolotl-balls/blueball.webp'
+import cyanBall from '@/assets/axolotl-balls/cyanball.webp'
+import pinkBall from '@/assets/axolotl-balls/pinkball.webp'
+import redBall from '@/assets/axolotl-balls/redball.webp'
+import superBall from '@/assets/axolotl-balls/superball.webp'
+import yellowBall from '@/assets/axolotl-balls/yellowball.webp'
 
 interface Piece {
     id: number
@@ -336,8 +336,8 @@ let tideHoldUntil = 0
 let waveStart = -1
 let resizeObserver: ResizeObserver | undefined
 let canDropAt = 0
-let victoryTimer: ReturnType<typeof window.setTimeout> | undefined
-let overtimeTimer: ReturnType<typeof window.setTimeout> | undefined
+let victoryTimer: number | undefined
+let overtimeTimer: number | undefined
 let playfieldColor = '#171719'
 let brandColor = '#22c55e'
 

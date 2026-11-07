@@ -1,0 +1,326 @@
+{
+  "id": "4sP0LXxp",
+  "slug": "veinminer-enchantment",
+  "title": "VeinMiner Enchantment",
+  "description": "Veinminer Addon - Adds vineminer enchantment to enchanting tables. Only tools with the enchantment can veinmine",
+  "author": "Miraculixx",
+  "categories": [
+    "datapack",
+    "equipment",
+    "fabric",
+    "folia",
+    "game-mechanics",
+    "neoforge",
+    "paper",
+    "purpur",
+    "quilt",
+    "utility"
+  ],
+  "display_categories": [
+    "datapack",
+    "equipment",
+    "fabric",
+    "folia",
+    "game-mechanics",
+    "neoforge",
+    "paper",
+    "purpur",
+    "quilt",
+    "utility"
+  ],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 18008515,
+  "followers": 1324,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["datapack", "fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+  "game_versions": [
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "isvS7Giv",
+  "date_created": "2024-09-14T13:26:24.954859Z",
+  "date_modified": "2026-10-20T13:14:03.941539Z",
+  "color": 4211517,
+  "published": "2024-09-14T13:26:24.954859Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": "https://github.com/MiraculixxT/Veinminer",
+  "wiki_url": null,
+  "discord_url": "https://dc.mutils.net",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/miraculixx"
+    }
+  ],
+  "versions_total": 26,
+  "body": "[dono-badge](https://ko-fi.com/miraculixx/donate)\n[![veinminer-badge](https://cdn.modrinth.com/data/cached_images/625146681182f85ef448f5c910e4cd28ec6cf604.png)](https://modrinth.com/mod/veinminer)\n[![client-badge](https://cdn.modrinth.com/data/cached_images/9badc43c5a3708f90d24088df4f37c03acc943b8.png)](https://modrinth.com/project/veinminer-client)\n\n## ⛏️ Veinminer Enchantment\n\nAddon for the popular [Veinminer](https://modrinth.com/project/veinminer) mod/plugin/data-pack that limits the use of veinmining to a new custom enchantment `Veinmine`! As long as this addon is installed, veinmining is only possible with the enchantment (still respecting block rules and settings).\n\n## ⚠ Important\n[**Veinminer**](https://modrinth.com/project/veinminer) needs to be installed too for this addon to work!\n\n![Veinmine Enchant on Pickaxe](https://cdn.modrinth.com/data/cached_images/1228e4a9540a344e54ac41e6b33a9bb1a63ea33b.png)\n\n## ⚙ Settings\n**Fabric/Quilt/NeoForge/Paper/Folia**: use `/veinminer enchant <setting> [<new-value>]` (permission `veinminer.settings`) or edit `config/Veinminer/enchantmentSettings.json` (`plugins/Veinminer/...` for plugins).\nChanges apply after a server restart or world rejoin.<br>\n**DataPack**: open the zip file and navigate to `data/veinminer-enchantment/enchantment/veinminer.json`\n\n|       Setting       |             Default             |                          Description                          |\n|:-------------------:|:-------------------------------:|:-------------------------------------------------------------:|\n|     `maxLevel`      |               `1`               |                 Max level of the enchantment                  |\n|      `weight`       |               `1`               |   How often the enchantment appears (higher -> more common)   |\n|      `minCost`      |              `15`               |        At which level the enchantment appears in table        |\n|  `minCostPerLevel`  |               `0`               |             Added `minCost` per level above first             |\n|      `maxCost`      |              `65`               |    At which level the enchantment stops appearing in table    |\n|  `maxCostPerLevel`  |               `0`               |             Added `maxCost` per level above first             |\n|     `anvilCost`     |               `7`               | How much level combining in anvil costs (stacked with others) |\n|  `supportedItems`   | `#minecraft:enchantable/mining` |         Item or item tag that can get the enchantment         |\n| `inEnchantingTable` |             `true`              |            Enchantment appears in enchanting table            |\n|     `tradeable`     |             `true`              |              Villagers can trade the enchantment              |\n|     `lootable`      |             `true`              |              Enchantment appears in random loot               |\n|     `treasure`      |             `false`             |          Treasure enchantment (doubled trade price)           |\n\nVeinminers `minEnchantLevel` setting (also as group/client override) defines the min enchantment level required to veinmine, e.g. ores only at level 2+.\n\nThe enchantment name is defined by a translatable key `enchantment.veinminer-enchantment.veinminer` and defaults to `Veinmine`.\n\n---\n\n> **Affordable** Servers? In this time?! Clicking below **supports me** and saves you **10%** + 2 Days **free** ♥️\n> [](https://voltra.gg/r/miraculixx) <br>\n> #AD - Your support helps to keep this project alive :)\n\n---",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/4sP0LXxp/images/911269ebdb51b9c306d63374d86355db23df5e01.webp",
+      "featured": true,
+      "title": "Banner",
+      "description": null,
+      "created": "2024-09-16T00:21:30.574995Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/4sP0LXxp/images/1ddd47c65ef609d7530267bc427eab9abb47caad_350.webp",
+      "featured": false,
+      "title": "Enchanting Table Support",
+      "description": null,
+      "created": "2024-09-15T13:21:29.011295Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/4sP0LXxp/images/c5b2ae1bfa4265459ac4a26802c96cbacfcd2258_350.webp",
+      "featured": false,
+      "title": "Villiger Support",
+      "description": null,
+      "created": "2024-09-15T13:23:20.519507Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Miraculixx",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/82050017?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "2Y8IKaDH",
+      "name": "Veinminer Enchantment - 2.13.0",
+      "version_number": "2.13.0",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"],
+      "loaders": ["fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+      "featured": false,
+      "date_published": "2026-10-20T13:14:03.941539Z",
+      "downloads": 7328,
+      "changelog": "- Add `/veinminer enchant ...` subcommand to edit the enchantment\n- Allow groups to be limited to a min required enchant level (see overrides)\n- Removed paper config",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchant-2.13.0.jar",
+          "size": 21580,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "isvS7Giv",
+      "name": "VeinMiner Enchantment 1.3.6",
+      "version_number": "1.3.6",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-09-26T19:32:10.932595Z",
+      "downloads": 7533,
+      "changelog": "- Support 26.3",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchantment-1.3.6.zip",
+          "size": 10481,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ybkUAVuf",
+      "name": "Veinminer Enchantment - 2.11.2",
+      "version_number": "2.11.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+      "featured": false,
+      "date_published": "2026-07-26T12:20:02.245875Z",
+      "downloads": 94058,
+      "changelog": "- Fix fabric loader version requirement",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchant-2.11.2+1.21.1.jar",
+          "size": 27451,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GZDd3hzy",
+      "name": "Veinminer Enchantment - 2.11.2",
+      "version_number": "2.11.2",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+      "featured": false,
+      "date_published": "2026-07-26T11:58:58.220479Z",
+      "downloads": 628552,
+      "changelog": "- Fix fabric loader version requirement",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchant-2.11.2+1.21.11.jar",
+          "size": 27449,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "9C8zH5YI",
+      "name": "Veinminer Enchantment - 2.11.2",
+      "version_number": "2.11.2",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"],
+      "loaders": ["fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+      "featured": false,
+      "date_published": "2026-07-26T11:39:07.074705Z",
+      "downloads": 1402394,
+      "changelog": "- Fix fabric loader version requirement",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchant-2.11.2.jar",
+          "size": 27450,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OPuY0dFy",
+      "name": "Veinminer Enchantment - 2.10.3",
+      "version_number": "2.10.3",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+      "featured": false,
+      "date_published": "2026-06-04T19:15:08.447474Z",
+      "downloads": 76354,
+      "changelog": "- Fix fabric loader version requirement",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchant-2.10.3+1.21.1.jar",
+          "size": 27452,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "cT44Msfn",
+      "name": "Veinminer Enchantment - 2.10.3",
+      "version_number": "2.10.3",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+      "featured": false,
+      "date_published": "2026-06-04T19:10:28.110501Z",
+      "downloads": 463494,
+      "changelog": "- Fix fabric loader version requirement",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchant-2.10.3+1.21.11.jar",
+          "size": 27450,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6zzsM770",
+      "name": "Veinminer Enchantment - 2.10.3",
+      "version_number": "2.10.3",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2", "26.2"],
+      "loaders": ["fabric", "folia", "neoforge", "paper", "purpur", "quilt"],
+      "featured": false,
+      "date_published": "2026-06-04T18:58:30.285388Z",
+      "downloads": 569060,
+      "changelog": "- Fix fabric loader version requirement",
+      "dependencies": [
+        {
+          "project_id": "OhduvhIc",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "veinminer-enchant-2.10.3.jar",
+          "size": 27451,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -219,7 +219,7 @@ watch(
             v-model="displayedJava"
             :disabled="!overrideJavaInstall"
             :placeholder="formatMessage(messages.javaPathPlaceholder)"
-            :version="requiredJavaVersion"
+            :version="requiredJavaVersion ?? undefined"
             select-all-versions
         />
 
@@ -274,7 +274,7 @@ watch(
             id="java-args"
             v-model="javaArgs"
             :disabled="!overrideJavaArgs"
-            :gc-context="gcContext"
+            :gc-context="gcContext ?? undefined"
             :show-auto-details="true"
             :placeholder="formatMessage(messages.enterJavaArguments)"
         />

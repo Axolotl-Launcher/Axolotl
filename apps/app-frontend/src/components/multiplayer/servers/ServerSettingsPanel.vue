@@ -270,7 +270,7 @@ async function confirmDelete() {
                 {{ formatMessage(messages.runningHint) }}
             </Admonition>
 
-            <Card data-onboarding-id="server-settings" class="!m-0">
+            <Card class="!m-0">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <h3
                         class="m-0 col-span-full text-base font-semibold text-[var(--color-text-primary)]"

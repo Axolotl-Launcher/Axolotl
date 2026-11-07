@@ -14,7 +14,6 @@
                 ref="tabLinkElements"
                 :replace="replace"
                 :to="query ? (link.href ? `?${query}=${link.href}` : '?') : link.href"
-                :data-onboarding-id="link.onboardingId"
                 class="button-animation z-[1] flex flex-row items-center gap-2 px-4 py-2 focus:rounded-full"
                 :class="getSSRFallbackClasses(index)"
                 @click="saveSliderSnapshot(true)"
@@ -92,7 +91,6 @@ interface Tab {
     icon?: Component
     subpages?: string[]
     onHover?: () => void
-    onboardingId?: string
 }
 
 interface SliderSnapshot {
@@ -380,7 +378,7 @@ const navigationGroupSnapshot = restoredNavigationGroupKey
 const restoredSliderSnapshot =
     !!navigationGroupSnapshot &&
     Date.now() - navigationGroupSnapshot.savedAt <= sliderSnapshotMaxAge
-if (restoredSliderSnapshot) {
+if (restoredSliderSnapshot && restoredNavigationGroupKey) {
     sliderLeft.value = navigationGroupSnapshot.left
     sliderTop.value = navigationGroupSnapshot.top
     sliderRight.value = navigationGroupSnapshot.right

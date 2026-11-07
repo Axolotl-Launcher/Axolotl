@@ -2,6 +2,7 @@
 import {
     DownloadIcon,
     GameIcon,
+    MoreVerticalIcon,
     PlayIcon,
     SpinnerIcon,
     StopCircleIcon,
@@ -10,8 +11,10 @@ import {
 import {
     Avatar,
     Button,
+    Checkbox,
     commonMessages,
     defineMessages,
+    formatLoaderLabel,
     injectNotificationManager,
     useRelativeTime,
     useVIntl,
@@ -85,7 +88,21 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    showMore: {
+        type: Boolean,
+        default: false,
+    },
+    selectMode: {
+        type: Boolean,
+        default: false,
+    },
+    selected: {
+        type: Boolean,
+        default: false,
+    },
 })
+
+const emit = defineEmits(['more', 'toggleSelect'])
 
 const internalPlaying = ref(false)
 const isPlaying = computed(() => props.playing ?? internalPlaying.value)
@@ -173,6 +190,13 @@ const repair = async (e) => {
 
 const openFolder = async () => {
     await showInstanceInFolder(props.instance.id)
+}
+
+// In list select mode the row leaves clicks to the group wrapper, which owns
+// long-press and range selection; otherwise the row opens the instance.
+function onListRowClick() {
+    if (props.selectMode) return
+    void seeInstance()
 }
 
 const addContent = async () => {
@@ -293,6 +317,138 @@ onUnmounted(() => unlisten())
             </div>
         </div>
     </template>
+    <div v-else-if="variant === 'list'">
+        <div
+            role="button"
+            tabindex="0"
+            class="group flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-surface-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            @click="onListRowClick"
+            @keydown.enter="onListRowClick"
+            @keydown.space.prevent="onListRowClick"
+            @mouseenter="checkProcess"
+        >
+            <Checkbox
+                v-if="selectMode"
+                :model-value="selected"
+                :aria-label="instance.name"
+                @click.stop="emit('toggleSelect', $event)"
+            />
+            <InstanceIcon
+                size="40px"
+                :icon-path="instance.icon_path"
+                :instance-id="instance.id"
+                :loader="instance.loader"
+                :alt="instance.name"
+            />
+            <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span
+                    class="truncate text-base font-semibold leading-5 text-[var(--color-text-primary)]"
+                >
+                    {{ instance.name }}
+                </span>
+                <GameDirectoryBadge
+                    v-if="showGameDirectory"
+                    :directory="gameDirectory"
+                    class="max-w-full"
+                />
+            </div>
+            <span
+                data-testid="instance-list-version"
+                class="w-44 shrink-0 truncate text-sm text-[var(--color-text-tertiary)] max-lg:w-32 max-sm:hidden"
+            >
+                {{ formatLoaderLabel(instance.loader, formatMessage) }}
+                {{ instance.game_version }}
+            </span>
+            <span
+                data-testid="instance-list-last-played"
+                class="flex w-44 shrink-0 items-center gap-1.5 text-sm text-[var(--color-text-tertiary)] max-lg:w-36 max-sm:hidden"
+            >
+                <TimerIcon class="size-4 shrink-0" aria-hidden="true" />
+                <span class="truncate">
+                    <template v-if="instance.last_played">
+                        {{
+                            formatMessage(messages.played, {
+                                time: formatRelativeTime(dayjs(instance.last_played).toISOString()),
+                            })
+                        }}
+                    </template>
+                    <template v-else>{{ formatMessage(messages.neverPlayed) }}</template>
+                </span>
+            </span>
+            <div
+                class="flex shrink-0 items-center gap-1"
+                :class="{ 'pointer-events-none': selectMode }"
+            >
+                <Button
+                    v-if="isPlaying"
+                    v-tooltip="formatMessage(commonMessages.stopButton)"
+                    type="colored"
+                    color="red"
+                    size="sm"
+                    circular
+                    icon-only
+                    @click.stop="(e) => stop(e, 'InstanceList')"
+                    @mousehover="checkProcess"
+                    ><StopCircleIcon aria-hidden="true"
+                /></Button>
+                <Button
+                    v-else-if="modLoading || installing"
+                    v-tooltip="
+                        modLoading
+                            ? formatMessage(messages.loading)
+                            : formatMessage(commonMessages.installingLabel)
+                    "
+                    size="sm"
+                    circular
+                    icon-only
+                    disabled
+                    ><SpinnerIcon class="animate-spin" aria-hidden="true"
+                /></Button>
+                <Button
+                    v-else-if="!installed"
+                    v-tooltip="
+                        offline
+                            ? formatMessage(messages.offlineInstalledOnly)
+                            : formatMessage(commonMessages.repairButton)
+                    "
+                    type="colored"
+                    color="brand"
+                    size="sm"
+                    circular
+                    icon-only
+                    :disabled="offline"
+                    @click.stop="(e) => repair(e)"
+                    ><DownloadIcon aria-hidden="true"
+                /></Button>
+                <Button
+                    v-else
+                    v-tooltip="formatMessage(commonMessages.playButton)"
+                    type="colored"
+                    color="brand"
+                    size="sm"
+                    circular
+                    icon-only
+                    :disabled="disabled"
+                    data-testid="instance-list-play"
+                    @click.stop="(e) => play(e, 'InstanceList')"
+                    @mousehover="checkProcess"
+                    ><PlayIcon aria-hidden="true"
+                /></Button>
+                <Button
+                    v-if="showMore && !selectMode"
+                    v-tooltip="formatMessage(commonMessages.moreOptionsButton)"
+                    type="quiet"
+                    size="sm"
+                    circular
+                    icon-only
+                    :label="formatMessage(commonMessages.moreOptionsButton)"
+                    data-testid="instance-list-more"
+                    @click.stop="emit('more', $event)"
+                    ><MoreVerticalIcon aria-hidden="true"
+                /></Button>
+            </div>
+        </div>
+    </div>
     <div v-else-if="variant === 'library'">
         <div
             class="group relative flex w-full cursor-pointer select-none flex-col items-start justify-end gap-3 overflow-clip rounded-[20px] border border-solid border-surface-4 bg-surface-3 p-3 text-left transition-[border-color,filter,transform] hover:border-surface-5 hover:brightness-110 active:scale-[0.98]"

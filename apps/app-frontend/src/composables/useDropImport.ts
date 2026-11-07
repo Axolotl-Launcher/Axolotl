@@ -10,6 +10,7 @@ import type {
     BatchDropItem,
     BatchDropPhase,
     ClassificationResult,
+    FileDropProvider,
     SymlinkMethodChoice,
     SymlinkMethodInstance,
 } from '@modrinth/ui'
@@ -18,7 +19,6 @@ import { join } from '@tauri-apps/api/path'
 import { computed, type ComputedRef, nextTick, ref } from 'vue'
 import type { Router } from 'vue-router'
 
-import { syncConfiguredDirectLinks } from '@/helpers/direct-link-sync'
 import {
     classifyDroppedItem,
     classifyDroppedItemWithExtraction,
@@ -39,13 +39,13 @@ import {
 } from '@/helpers/install'
 import {
     add_project_from_path,
-    type ExternalMinecraftRoot,
     get as getInstance,
     import_world_save,
     install_datapack_to_world,
     list as listInstances,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
+import { addMinecraftRoot } from '@/helpers/minecraft-roots'
 import { assessLocalModCompatibility } from '@/helpers/version-compatibility'
 import type { AppNotificationManager } from '@/providers/app-notifications'
 import type { AppPopupNotificationManager } from '@/providers/app-popup-notifications'
@@ -110,7 +110,7 @@ export interface DropImportOptions {
     /** Content install provider functions */
     contentInstall: ContentInstallContext
     /** File drop handler from providers */
-    fileDrop: (paths: string[]) => void
+    fileDrop: FileDropProvider
     /** Whether currently on skins page */
     onSkinsPage: ComputedRef<boolean>
     /** Whether currently on schematic workshop page */
@@ -195,6 +195,7 @@ export function useDropImport(options: DropImportOptions) {
                 launcherType?: string
                 basePath?: string
                 compatibleMode?: boolean
+                versionPath?: string
             }>
         }) => void
         hide: () => void
@@ -636,7 +637,7 @@ export function useDropImport(options: DropImportOptions) {
                     launcherType,
                     basePath: gameDir,
                     name: versionName,
-                    path: gameDir,
+                    path: single.versionPath,
                     compatibleMode: true,
                     versionPath: single.versionPath,
                 },
@@ -645,7 +646,7 @@ export function useDropImport(options: DropImportOptions) {
                 instances: [
                     {
                         name: versionName,
-                        path: gameDir,
+                        path: single.versionPath,
                         launcherType,
                         basePath: gameDir,
                         compatibleMode: true,
@@ -655,19 +656,20 @@ export function useDropImport(options: DropImportOptions) {
             })
         } else if (choice === 'old-way') {
             const single = scanResults![0].instances[0]
+            const instancePath = single.versionPath ?? single.path
             selectedInstances.value = [
                 {
                     launcherType,
                     basePath: gameDir,
                     name: versionName,
-                    path: single.path,
+                    path: instancePath,
                 },
             ]
             symlinkCardsModal.value?.show({
                 instances: [
                     {
                         name: versionName,
-                        path: single.path,
+                        path: instancePath,
                         launcherType,
                         basePath: gameDir,
                     },
@@ -750,35 +752,15 @@ export function useDropImport(options: DropImportOptions) {
             scanningInstances.value = true
             try {
                 const path = (classification?.base_path ?? filePath).trim()
-                const raw = localStorage.getItem('axolotl-minecraft-directories')
-                const stored: unknown = raw ? JSON.parse(raw) : []
-                const roots: ExternalMinecraftRoot[] = (
-                    Array.isArray(stored) ? stored : []
-                ).flatMap((value) => {
-                    if (typeof value === 'string')
-                        return [{ path: value, mode: 'automatic' as const }]
-                    if (!value || typeof value.path !== 'string') return []
-                    return [
-                        {
-                            path: value.path,
-                            mode:
-                                value.mode === 'shared'
-                                    ? ('shared' as const)
-                                    : value.mode === 'automatic'
-                                      ? ('automatic' as const)
-                                      : ('isolated' as const),
-                        },
-                    ]
-                })
-                const existing = roots.find((root) => root.path === path)
-                if (!existing) roots.push({ path, mode: 'automatic' })
-                const report = await syncConfiguredDirectLinks(roots)
-                if (report.errors.length || report.missing) {
+                const { report, kept } = await addMinecraftRoot(
+                    path,
+                    (result) => !result.errors.length && !result.missing,
+                )
+                if (!kept) {
                     throw new Error(
                         report.errors.join('\n') || formatMessage(messages.dropNoInstances),
                     )
                 }
-                localStorage.setItem('axolotl-minecraft-directories', JSON.stringify(roots))
                 addNotification({
                     title: formatMessage(messages.dropMinecraftAdded),
                     type: 'success',
@@ -1472,12 +1454,8 @@ export function useDropImport(options: DropImportOptions) {
         cleanupLauncherZipTemp()
     }
 
-    function resolvedInstancePath(
-        inst: SelectedInstance,
-        _ctx: ImportContext | null,
-    ): string | undefined {
-        if (inst.compatibleMode) return inst.versionPath
-        return inst.path
+    function resolvedInstancePath(inst: SelectedInstance): string {
+        return inst.versionPath ?? inst.path
     }
 
     async function onSymlinkMethodConfirmed(choices: SymlinkMethodChoice[] | boolean) {

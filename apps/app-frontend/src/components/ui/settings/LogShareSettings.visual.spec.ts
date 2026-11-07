@@ -33,8 +33,9 @@ vi.mock('@modrinth/ui', async () => ({
     useVIntl: () => ({
         formatMessage: (message: { id: string; defaultMessage: string }) =>
             calls.chinese
-                ? ((chinese as Record<string, { message: string }>)[message.id]?.message ??
-                  message.defaultMessage)
+                ? ((
+                      chinese as Record<string, { message?: string; defaultMessage?: string }>
+                  )[message.id]?.message ?? message.defaultMessage)
                 : message.defaultMessage,
     }),
     injectNotificationManager: () => ({ handleError: calls.handleError }),
@@ -92,7 +93,7 @@ async function render(width = 900, localSetup = false) {
     const wrapper = mount(LogShareSettings, {
         props: { localSetup },
         attachTo: document.body,
-        global: { plugins: [router], provide: { replayOnboarding: async () => {} } },
+        global: { plugins: [router] },
     })
     wrappers.push(wrapper)
     await vi.waitFor(() =>

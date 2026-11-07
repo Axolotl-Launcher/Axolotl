@@ -1,4 +1,5 @@
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
 import { defineComponent, h, ref } from 'vue'
 
 import ArmorPreviewControls from '../components/skin/ArmorPreviewControls.vue'
@@ -10,35 +11,33 @@ import {
 import { mountThemed, waitFor } from './visual-harness'
 
 const cleanup: (() => void)[] = []
-afterEach(() =>
+afterEach(() => {
     cleanup
         .splice(0)
         .reverse()
-        .forEach((fn) => fn()),
-)
+        .forEach((fn) => fn())
+    vi.useRealTimers()
+})
 
-/**
- * The tooltip layer delays showing by 200ms and closing by 80ms plus 140ms, and
- * the panel below walks four option groups in sequence, so this file already
- * spends about 1.7s inside those timers before any assertion runs. A full CI run
- * shares one browser with fifty other spec files, which stretches every timer
- * behind the closing chain; the harness default of 2s is too tight there.
- */
-const TOOLTIP_TIMEOUT_MS = 6000
-
-async function panel() {
+async function panel(ignorePhysicalPointer = false) {
     const config = ref(createDefaultArmorPreviewConfig())
     config.value.helmet = { material: 'diamond', trimPattern: 'bolt', trimMaterial: 'gold' }
     const Harness = defineComponent({
         setup: () => () =>
-            h('div', { style: 'width:360px;position:fixed;left:16px;top:16px' }, [
-                h(ArmorTrimPanel, {
-                    modelValue: config.value,
-                    'onUpdate:modelValue': (value: ArmorPreviewConfig) => {
-                        config.value = value
-                    },
-                }),
-            ]),
+            h(
+                'div',
+                {
+                    style: `width:360px;position:fixed;left:16px;top:16px;${ignorePhysicalPointer ? 'pointer-events:none' : ''}`,
+                },
+                [
+                    h(ArmorTrimPanel, {
+                        modelValue: config.value,
+                        'onUpdate:modelValue': (value: ArmorPreviewConfig) => {
+                            config.value = value
+                        },
+                    }),
+                ],
+            ),
     })
     const wrapper = await mountThemed(Harness, {}, 'dark')
     cleanup.push(() => wrapper.unmount())
@@ -85,16 +84,26 @@ it('keeps the popover compact while its parent owns scrolling and the panel fits
 })
 
 it('reuses the tooltip immediately between peer options and keeps their selections intact', async () => {
-    const { wrapper, config } = await panel()
+    // Synthetic events own this test's hover state. Native pointer events from
+    // an earlier browser action must not activate a different option.
+    const { wrapper, config } = await panel(true)
+    await page
+        .elementLocator(wrapper.get('button[aria-label="Netherite Helmet"]').element)
+        .hover({ force: true })
+    expect(wrapper.get('button[aria-label="Netherite Helmet"]').element.matches(':hover')).toBe(
+        false,
+    )
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     for (const section of wrapper.findAll('[data-tooltip-group]')) {
         const [first, second] = section
             .findAll('button')
             .map((button) => button.element as HTMLButtonElement)
         first.dispatchEvent(new MouseEvent('mouseenter'))
-        await waitFor(() => !!document.querySelector('[role="tooltip"]'), {
-            timeoutMs: TOOLTIP_TIMEOUT_MS,
-        })
+        await vi.advanceTimersByTimeAsync(199)
+        expect(document.querySelector('[role="tooltip"]')).toBeNull()
+        await vi.advanceTimersByTimeAsync(1)
         const tooltip = document.querySelector('[role="tooltip"]')!
+        expect(tooltip).not.toBeNull()
         first.dispatchEvent(new MouseEvent('mouseleave'))
         second.dispatchEvent(new MouseEvent('mouseenter'))
         expect(document.querySelector('[role="tooltip"]')).toBe(tooltip)
@@ -102,18 +111,16 @@ it('reuses the tooltip immediately between peer options and keeps their selectio
         expect(second.getAttribute('aria-describedby')).toBe(tooltip.id)
         expect(first.hasAttribute('aria-describedby')).toBe(false)
         second.dispatchEvent(new MouseEvent('mouseleave'))
-        await waitFor(() => !document.querySelector('[role="tooltip"]'), {
-            timeoutMs: TOOLTIP_TIMEOUT_MS,
-        })
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(document.querySelector('[role="tooltip"]')).toBeNull()
+        expect(second.hasAttribute('aria-describedby')).toBe(false)
     }
     await wrapper.get('button[aria-label="Diamond Helmet"]').trigger('click')
     await wrapper.get('button[aria-label="Coast Armor Trim"]').trigger('click')
     expect(config.value.helmet.material).toBe('diamond')
     expect(config.value.helmet.trimPattern).toBe('coast')
     wrapper.get<HTMLButtonElement>('button[aria-label="Coast Armor Trim"]').element.focus()
-    await waitFor(() => !!document.querySelector('[role="tooltip"]'), {
-        timeoutMs: TOOLTIP_TIMEOUT_MS,
-    })
+    expect(document.querySelector('[role="tooltip"]')).not.toBeNull()
     wrapper.unmount()
     expect(document.querySelector('[role="tooltip"]')).toBeNull()
 })

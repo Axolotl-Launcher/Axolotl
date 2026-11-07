@@ -86,15 +86,6 @@ const messages = defineMessages({
         id: 'app.settings.feature-flags.auto-install-dependencies',
         defaultMessage: 'Automatically install dependencies',
     },
-    advancedDownloadInfo: {
-        id: 'app.settings.feature-flags.advanced-download-info',
-        defaultMessage: 'Advanced download information',
-    },
-    advancedDownloadInfoDescription: {
-        id: 'app.settings.feature-flags.advanced-download-info-description',
-        defaultMessage:
-            'Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections.',
-    },
     announcementPreview: {
         id: 'app.settings.developer.announcement-preview',
         defaultMessage: 'Announcement preview',
@@ -169,8 +160,11 @@ const messages = defineMessages({
 
 const settings = ref(await getSettings())
 const saveDraft = createSettingsPatchSaver(settings.value, updateSettings)
-const options = ref<FeatureFlag[]>(Object.keys(DEFAULT_FEATURE_FLAGS))
-const featureFlagLabels: Record<FeatureFlag, keyof typeof messages> = {
+type DeveloperFeatureFlag = Exclude<FeatureFlag, 'advanced_download_info'>
+const options = (Object.keys(DEFAULT_FEATURE_FLAGS) as FeatureFlag[]).filter(
+    (option): option is DeveloperFeatureFlag => option !== 'advanced_download_info',
+)
+const featureFlagLabels: Record<DeveloperFeatureFlag, keyof typeof messages> = {
     project_background: 'projectBackground',
     page_path: 'pagePath',
     worlds_tab: 'worldsTab',
@@ -186,10 +180,9 @@ const featureFlagLabels: Record<FeatureFlag, keyof typeof messages> = {
     page_transitions: 'pageTransitions',
     advanced_filters_collapsed: 'advancedFiltersCollapsed',
     auto_install_dependencies: 'autoInstallDependencies',
-    advanced_download_info: 'advancedDownloadInfo',
 }
 
-function setFeatureFlag(key: string, value: boolean) {
+function setFeatureFlag(key: FeatureFlag, value: boolean) {
     themeStore.featureFlags[key] = value
     settings.value.feature_flags[key] = value
 }
@@ -237,11 +230,6 @@ watch(
     >
         <SettingsRow v-for="option in options" :key="option">
             <template #label>{{ formatMessage(messages[featureFlagLabels[option]]) }}</template>
-            <template v-if="option === 'advanced_download_info'" #description>
-                <span id="settings-target-advanced-download-info">
-                    {{ formatMessage(messages.advancedDownloadInfoDescription) }}
-                </span>
-            </template>
             <template #control>
                 <div class="flex items-center gap-2">
                     <Button

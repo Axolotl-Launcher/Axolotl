@@ -467,7 +467,7 @@ async fn http_client() -> crate::Result<reqwest::Client> {
     };
     proxy
         .apply(
-            reqwest::Client::builder()
+            crate::util::http::client_builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(30))
                 .user_agent(crate::launcher_user_agent()),

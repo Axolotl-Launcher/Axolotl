@@ -473,7 +473,7 @@ pub(crate) async fn run_native_download_attempts(
                 |(candidate_index, candidate)| {
                     candidate_index != route_index
                         && !session.terminal_routes.contains(&candidate.url)
-                        && !crate::util::download::native_breaker::is_open(
+                        && crate::util::download::native_breaker::can_replace_open_route(
                             candidate,
                         )
                 },

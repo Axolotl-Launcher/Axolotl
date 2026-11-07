@@ -1,7 +1,7 @@
 import '@modrinth/ui/directives/tooltip-styles.ts'
 import '@/test/visual-styles.scss'
 
-import { Combobox, provideI18n } from '@modrinth/ui'
+import { provideI18n } from '@modrinth/ui'
 import { tooltipDirective } from '@modrinth/ui/directives/tooltip.ts'
 import { flushPromises, mount } from '@vue/test-utils'
 import IntlMessageFormat from 'intl-messageformat'
@@ -29,7 +29,9 @@ it('keeps the command workspace readable across window widths and themes', async
                 locale: ref('zh-CN'),
                 setLocale: () => {},
                 t: (key, values) => {
-                    const message = (chinese as Record<string, { message: string }>)[key]?.message
+                    const message = (
+                        chinese as Record<string, { message?: string; defaultMessage?: string }>
+                    )[key]?.message
                     return message
                         ? String(new IntlMessageFormat(message, 'zh-CN').format(values))
                         : key
@@ -47,7 +49,7 @@ it('keeps the command workspace readable across window widths and themes', async
         applyTheme('dark')
         await page.viewport(1280, 1400)
         expect(wrapper.text()).toContain('选择一条命令开始')
-        wrapper.findAllComponents(Combobox)[3].vm.$emit('update:modelValue', 'give')
+        wrapper.findAllComponents({ name: 'Combobox' })[3].vm.$emit('update:modelValue', 'give')
         await flushPromises()
         const fields = wrapper.findAll('.argument-card input')
         await fields[0].setValue('@s')
@@ -75,7 +77,7 @@ it('keeps the command workspace readable across window widths and themes', async
                 })
         }
         await page.viewport(1280, 1400)
-        wrapper.findAllComponents(Combobox)[3].vm.$emit('update:modelValue', 'execute')
+        wrapper.findAllComponents({ name: 'Combobox' })[3].vm.$emit('update:modelValue', 'execute')
         await flushPromises()
         const picker = wrapper
             .findAll('details')
@@ -100,7 +102,7 @@ it('keeps the command workspace readable across window widths and themes', async
                 path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/command-execute.png`,
             })
         expect(wrapper.findAll('[title]')).toHaveLength(0)
-        wrapper.findAllComponents(Combobox)[3].vm.$emit('update:modelValue', 'give')
+        wrapper.findAllComponents({ name: 'Combobox' })[3].vm.$emit('update:modelValue', 'give')
         await flushPromises()
         await wrapper.get('.action-bar button').trigger('click')
         expect(wrapper.get('[role="alert"]').text()).toContain('请填写目标。')

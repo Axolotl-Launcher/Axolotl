@@ -1,9 +1,9 @@
 use super::model::{
     ActiveDownloadState, DownloadItemStatus, InstallContinuationState,
     InstallErrorContext, InstallJobEventKind, InstallJobSnapshot,
-    InstallJobState, InstallParallelProgress, InstallPauseReason,
-    InstallPhaseDetails, InstallPhaseId, InstallProgress, InstallRollbackState,
-    InstanceUpgradeResult, MissingModpackContentState,
+    InstallJobState, InstallJobStatus, InstallParallelProgress,
+    InstallPauseReason, InstallPhaseDetails, InstallPhaseId, InstallProgress,
+    InstallRollbackState, InstanceUpgradeResult, MissingModpackContentState,
 };
 use super::store;
 use crate::util::download::constants::CONTENT_CHECKPOINT_FILE_COUNT;
@@ -70,7 +70,6 @@ struct InstallProgressReporterState {
     checkpoint_in_flight: bool,
     initialized_from_store: bool,
     parallel_is_foreground: bool,
-    postponed_java_versions: HashSet<u32>,
     /// Per-download event throttles. A global throttle makes one busy file
     /// suppress progress events for every other active download.
     last_live_emit_at: HashMap<String, Instant>,
@@ -130,6 +129,16 @@ impl InstallProgressReporter {
             .unwrap_or_default()
     }
 
+    /// Cancels the whole job, including peers running in child pipelines.
+    pub(crate) fn cancel_job(&self) {
+        if let Some(state) = crate::State::get_if_initialized()
+            && let Some(cancellation) =
+                state.install_job_cancellations.get(&self.job_id)
+        {
+            cancellation.value().cancel();
+        }
+    }
+
     /// A failed worker stops its peers without marking the user's job canceled.
     pub(crate) fn with_pipeline_cancellation(mut self) -> Self {
         self.pipeline = Some(Arc::new(InstallPipelineState {
@@ -177,6 +186,12 @@ impl InstallProgressReporter {
         job_id: Uuid,
         mut snapshot: InstallJobSnapshot,
     ) -> Option<InstallJobSnapshot> {
+        if !matches!(
+            snapshot.status,
+            InstallJobStatus::Running | InstallJobStatus::Canceling
+        ) {
+            return Some(snapshot);
+        }
         let state = REPORTER_STATES.get(&job_id)?.upgrade()?;
         let state = state.lock().await;
         snapshot.phase = state.job.progress.phase;
@@ -212,7 +227,6 @@ impl InstallProgressReporter {
                             checkpoint_in_flight: false,
                             initialized_from_store: false,
                             parallel_is_foreground: false,
-                            postponed_java_versions: HashSet::new(),
                             last_live_emit_at: HashMap::new(),
                             pending_stall_checks: HashSet::new(),
                         }));
@@ -232,7 +246,6 @@ impl InstallProgressReporter {
                         checkpoint_in_flight: false,
                         initialized_from_store: false,
                         parallel_is_foreground: false,
-                        postponed_java_versions: HashSet::new(),
                         last_live_emit_at: HashMap::new(),
                         pending_stall_checks: HashSet::new(),
                     }));
@@ -417,22 +430,6 @@ impl InstallProgressReporter {
 
     pub async fn clear_context(&self) -> crate::Result<()> {
         self.update_context(None, true).await
-    }
-
-    pub async fn is_java_download_postponed(&self, version: u32) -> bool {
-        self.state
-            .lock()
-            .await
-            .postponed_java_versions
-            .contains(&version)
-    }
-
-    pub async fn postpone_java_download(&self, version: u32) {
-        self.state
-            .lock()
-            .await
-            .postponed_java_versions
-            .insert(version);
     }
 
     async fn sync_latest(
@@ -633,6 +630,61 @@ impl InstallProgressReporter {
             store::update_state(self.job_id, &state.job, &app_state).await?;
         state.mark_persisted(record.snapshot());
         emit_install_job(&record.snapshot()).await
+    }
+
+    pub(crate) async fn track_pack_update_file(
+        &self,
+        relative_path: &str,
+        sha1: &str,
+        size: u64,
+    ) -> crate::Result<()> {
+        let app_state = crate::State::get().await?;
+        let mut state = self.state.lock().await;
+        self.sync_latest(&mut state, &app_state).await?;
+        let Some(snapshot) = state
+            .job
+            .rollback
+            .as_mut()
+            .and_then(|rollback| rollback.content.as_mut())
+            .filter(|snapshot| snapshot.retain_original_files)
+        else {
+            return Ok(());
+        };
+        path_util::SafeRelativeUtf8UnixPathBuf::try_from(
+            relative_path.to_owned(),
+        )?;
+        if snapshot.protected_paths.iter().any(|path| {
+            crate::state::instances::commands::materialization_path_key(path)
+                == crate::state::instances::commands::materialization_path_key(
+                    relative_path,
+                )
+        }) {
+            return Err(crate::ErrorKind::InputError(format!(
+                "Pack update would replace user-owned content: {relative_path}"
+            ))
+            .into());
+        }
+        let file = super::model::InstallRollbackReplacementFile {
+            relative_path: relative_path.to_owned(),
+            sha1: sha1.to_owned(),
+            size,
+        };
+        // One target can be published by a download and then by an archive
+        // override; either identity is valid if recovery interrupts that sequence.
+        if !snapshot.replacement_files.iter().any(|file| {
+            crate::state::instances::commands::materialization_path_key(
+                &file.relative_path,
+            ) == crate::state::instances::commands::materialization_path_key(
+                relative_path,
+            ) && file.size == size
+                && file.sha1.eq_ignore_ascii_case(sha1)
+        }) {
+            snapshot.replacement_files.push(file);
+        }
+        let record =
+            store::update_state(self.job_id, &state.job, &app_state).await?;
+        state.mark_persisted(record.snapshot());
+        Ok(())
     }
 
     pub async fn track_rollback_paths(
@@ -1479,6 +1531,41 @@ mod tests {
 
     #[cfg(not(feature = "tauri"))]
     #[tokio::test]
+    async fn terminal_and_paused_snapshots_do_not_inherit_live_reporter_state()
+    {
+        let (app_state, job_id, reporter) =
+            stored_minecraft_progress_job(4, 12).await;
+        reporter.persist().await.unwrap();
+        let original = store::get_required(job_id, &app_state)
+            .await
+            .unwrap()
+            .snapshot();
+        for status in [
+            InstallJobStatus::Succeeded,
+            InstallJobStatus::Failed,
+            InstallJobStatus::Canceled,
+            InstallJobStatus::Interrupted,
+            InstallJobStatus::WaitingForUser,
+        ] {
+            let mut authoritative = original.clone();
+            authoritative.status = status;
+            authoritative.phase = InstallPhaseId::Finalizing;
+            authoritative.progress = None;
+            let overlaid = InstallProgressReporter::overlay_snapshot(
+                job_id,
+                authoritative.clone(),
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                serde_json::to_value(overlaid).unwrap(),
+                serde_json::to_value(authoritative).unwrap()
+            );
+        }
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
     async fn remaining_minecraft_work_before_first_parallel_update() {
         let (_, _, reporter) = stored_minecraft_progress_job(0, 100).await;
         reporter
@@ -1577,28 +1664,6 @@ mod tests {
         assert_eq!(state.job.progress.phase, InstallPhaseId::ResolvingLoader);
         assert!(state.job.progress.progress.is_none());
         assert!(state.job.progress.parallel.is_none());
-    }
-
-    #[tokio::test]
-    async fn postponed_java_download_is_shared_by_job_reporters() {
-        let job_id = Uuid::new_v4();
-        let state = InstallJobState::new(InstallRequest::CreateInstance {
-            name: "Test".to_string(),
-            game_version: "1.21.1".to_string(),
-            loader: ModLoader::Vanilla,
-            loader_version: None,
-            adjuncts: Vec::new(),
-            icon_path: None,
-            link: InstanceLink::Unmanaged,
-            game_dir_override: None,
-        });
-        let first = InstallProgressReporter::new(job_id, state.clone());
-        let second = InstallProgressReporter::new(job_id, state);
-
-        first.postpone_java_download(21).await;
-
-        assert!(second.is_java_download_postponed(21).await);
-        assert!(!second.is_java_download_postponed(17).await);
     }
 
     #[tokio::test]
@@ -1715,6 +1780,35 @@ mod tests {
         assert!(live.content_change.is_some());
         assert_eq!(live.progress.unwrap().current, 64);
         drop(state);
+        InstallProgressReporter::reset_job(job_id);
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn canceling_from_a_child_pipeline_stops_the_whole_job() {
+        let (app_state, job_id, reporter) =
+            stored_minecraft_progress_job(0, 1).await;
+        let cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(job_id, cancellation.clone());
+        let minecraft = reporter.clone().with_pipeline_cancellation();
+        let content = reporter.clone().with_pipeline_cancellation();
+        let unrelated_job = Uuid::new_v4();
+        let unrelated_cancellation = CancellationToken::new();
+        app_state
+            .install_job_cancellations
+            .insert(unrelated_job, unrelated_cancellation.clone());
+        let _guard = reporter.state.lock().await;
+
+        minecraft.cancel_job();
+
+        assert!(cancellation.is_cancelled());
+        assert!(minecraft.cancellation_token().is_cancelled());
+        assert!(content.cancellation_token().is_cancelled());
+        assert!(!unrelated_cancellation.is_cancelled());
+        app_state.install_job_cancellations.remove(&job_id);
+        app_state.install_job_cancellations.remove(&unrelated_job);
         InstallProgressReporter::reset_job(job_id);
     }
 

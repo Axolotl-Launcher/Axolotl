@@ -3,7 +3,13 @@ import { createContext } from './create-context.ts'
 export interface ImportableLauncher {
     name: string
     path: string
-    instances: { name: string; path: string }[]
+    instances: {
+        name: string
+        path: string
+        /** Shared game directories keep each version's metadata path separately. */
+        version_path?: string | null
+        compatible_mode?: boolean
+    }[]
     launcherType?: string
 }
 
@@ -159,7 +165,7 @@ export interface InstanceImportProvider {
     getImportableInstances: (
         launcherName: string,
         path: string,
-    ) => Promise<{ name: string; path: string }[]>
+    ) => Promise<ImportableLauncher['instances']>
     /** Resolve available loader version ids for a loader and game version */
     getLoaderVersions: (loader: string, gameVersion: string) => Promise<string[]>
     /** Open a filesystem path in the platform file manager */

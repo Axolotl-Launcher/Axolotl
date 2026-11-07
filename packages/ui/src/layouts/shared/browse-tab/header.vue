@@ -28,7 +28,7 @@ const selectedProjectsLeaveModal = ref<InstanceType<typeof SelectedProjectsLeave
 const serverId = computed(() => installContext.value?.serverId ?? '')
 const upstream = computed(() => installContext.value?.upstream ?? null)
 
-const { image: fetchedIcon } = useServerImage(serverId, upstream, {
+const { image: fetchedIcon } = useServerImage(serverId.value, upstream, {
     enabled: computed(() => !!installContext.value?.serverId),
 })
 

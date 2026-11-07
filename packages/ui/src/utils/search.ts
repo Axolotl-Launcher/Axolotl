@@ -267,20 +267,32 @@ export function useSearch(
 
     const filters = computed(() => {
         const categoryFilters: Record<string, FilterType> = {}
-        const categories = sortedCategories(tags.value, formatCategoryName, locale.value).sort(
-            (a, b) => {
-                if (
-                    a.header === b.header &&
-                    a.display_index !== undefined &&
-                    b.display_index !== undefined &&
-                    a.display_index !== b.display_index
-                ) {
-                    return a.display_index - b.display_index
+        const categories = (
+            sortedCategories(tags.value, formatCategoryName, locale.value) as Array<
+                Labrinth.Tags.v2.Category & {
+                    display_index?: number
+                    header_display_name?: string
+                    display_name?: string
+                    icon_url?: string
                 }
-                return 0
-            },
-        )
-        for (const category of categories) {
+            >
+        ).sort((a, b) => {
+            if (
+                a.header === b.header &&
+                a.display_index !== undefined &&
+                b.display_index !== undefined &&
+                a.display_index !== b.display_index
+            ) {
+                return a.display_index - b.display_index
+            }
+            return 0
+        })
+        for (const rawCategory of categories) {
+            const category = rawCategory as Labrinth.Tags.v2.Category & {
+                header_display_name?: string
+                display_name?: string
+                icon_url?: string
+            }
             const filterTypeId = `category_${category.project_type}_${category.header}`
             if (!categoryFilters[filterTypeId]) {
                 categoryFilters[filterTypeId] = {
@@ -613,6 +625,7 @@ export function useSearch(
                 supported_project_types: ['mod', 'plugin', 'datapack'],
                 display: 'toggle',
                 query_param: 'a',
+                supports_negative_filter: false,
                 searchable: false,
                 ordering: -1000,
                 options: excludeableProjectTypes.map((target) => ({

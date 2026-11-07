@@ -785,6 +785,15 @@
   "app.appearance-settings.color-theme.title": {
     "message": "色彩主题"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "Adjust background crop"
+  },
+  "app.appearance-settings.custom-background.animated-unsupported": {
+    "message": "This image format isn't supported as a launcher background."
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF and MP4 backgrounds need FFmpeg support, which is not available yet."
+  },
   "app.appearance-settings.custom-background.blur": {
     "message": "背景模糊"
   },
@@ -803,6 +812,21 @@
   "app.appearance-settings.custom-background.component-opacity-description": {
     "message": "自定义背景图启用时，界面组件与顶栏/侧栏保持多不透明。100% 时组件完全不透明；调低可让背景图透出界面。"
   },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "The animated background could not be converted."
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "Converting animated background…"
+  },
+  "app.appearance-settings.custom-background.crop-aspect-window": {
+    "message": "Current window"
+  },
+  "app.appearance-settings.custom-background.crop-confirm": {
+    "message": "Use as background"
+  },
+  "app.appearance-settings.custom-background.crop-title": {
+    "message": "Crop launcher background"
+  },
   "app.appearance-settings.custom-background.description": {
     "message": "选择或拖入自定义图片，并调整它与启动器界面的融合效果。"
   },
@@ -818,6 +842,24 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "调整背景图片透过界面显示的强度。"
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "All files"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "Image or video"
+  },
+  "app.appearance-settings.custom-background.preview-close": {
+    "message": "Close preview"
+  },
+  "app.appearance-settings.custom-background.preview-expand": {
+    "message": "Expand preview"
+  },
+  "app.appearance-settings.custom-background.preview-pin": {
+    "message": "Keep open"
+  },
+  "app.appearance-settings.custom-background.preview-unpin": {
+    "message": "Unpin"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "移除"
   },
@@ -826,6 +868,9 @@
   },
   "app.appearance-settings.custom-background.title": {
     "message": "启动器背景"
+  },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "This image is too large to use as a launcher background."
   },
   "app.appearance-settings.default-landing-page.description": {
     "message": "更改启动器打开的页面。"
@@ -4310,26 +4355,14 @@
   "app.java-arguments.presets.use": {
     "message": "使用预设"
   },
-  "app.java-download-confirmation.body": {
-    "message": "未找到兼容的 Java {version} 安装。你可以立即下载，也可以稍后设置 Java；其他游戏资源仍会继续下载。"
+  "app.install.missing-java.body": {
+    "message": "This installation cannot continue because no usable Java {version} installation was found. You can install or configure Java {version} in Java settings, then try installing again."
   },
-  "app.java-download-confirmation.download": {
-    "message": "下载 Java"
+  "app.install.missing-java.open-settings": {
+    "message": "Open Java settings"
   },
-  "app.java-download-confirmation.later-description": {
-    "message": "稍后配置 Java {version} 后，请修复实例以完成安装。"
-  },
-  "app.java-download-confirmation.postponed-body": {
-    "message": "实例将继续完成安装。启动前请先配置 Java {version}。"
-  },
-  "app.java-download-confirmation.postponed-title": {
-    "message": "Java 设置已推迟"
-  },
-  "app.java-download-confirmation.set-up-later": {
-    "message": "稍后设置"
-  },
-  "app.java-download-confirmation.title": {
-    "message": "下载 Java {version}？"
+  "app.install.missing-java.title": {
+    "message": "Java {version} is needed to install this instance"
   },
   "app.java.already-installed": {
     "message": "已安装"
@@ -8170,6 +8203,9 @@
   },
   "app.library.view.cards": {
     "message": "实例库卡片"
+  },
+  "app.library.view.list": {
+    "message": "Detailed list"
   },
   "app.library.view.standard": {
     "message": "标准网格"
@@ -12703,6 +12739,9 @@
   },
   "app.settings.groups.support": {
     "message": "应用与支持"
+  },
+  "app.settings.java.use-console-java": {
+    "message": "Use java instead of javaw when launching Minecraft"
   },
   "app.settings.java.auto-high-performance-mode": {
     "message": "自动为 Java 使用高性能显卡"

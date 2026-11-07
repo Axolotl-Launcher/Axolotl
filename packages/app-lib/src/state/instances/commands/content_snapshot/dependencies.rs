@@ -280,7 +280,9 @@ fn append_local_edges(
     let mut by_mod_id: HashMap<&str, Vec<&ContentEntry>> = HashMap::new();
     for entry in entries {
         if let Some(metadata) = local.get(&entry.id) {
-            by_mod_id.entry(&metadata.mod_id).or_default().push(entry);
+            for mod_id in metadata.mod_ids() {
+                by_mod_id.entry(mod_id).or_default().push(entry);
+            }
         }
     }
     for parent in entries {
@@ -293,18 +295,43 @@ fn append_local_edges(
         backfill
             .reconciled
             .insert((parent.id.clone(), ContentProvider::Local));
+        let mut checked_children = HashSet::new();
         for dependency in dependencies {
             for child in by_mod_id
                 .get(dependency.mod_id.as_str())
                 .into_iter()
                 .flatten()
             {
+                if !checked_children.insert(child.id.as_str()) {
+                    continue;
+                }
                 let child_metadata = &local[&child.id];
-                if !dependency.version_range.as_ref().is_none_or(|range| {
-                    child_metadata.version.as_ref().is_some_and(|version| crate::resources::plans::requirements::mod_version_matches(range, version))
-                }) {
-                    backfill.edges.retain(|edge| edge.parent_entry_id != parent.id || edge.child_entry_id != child.id);
-                    backfill.rejected.insert((parent.id.clone(), child.id.clone()));
+                // One JAR can satisfy multiple IDs or version declarations;
+                // each required constraint must hold for its own mod version.
+                let satisfies_all = dependencies
+                    .iter()
+                    .filter(|required| {
+                        child_metadata
+                            .mod_ids()
+                            .any(|id| id == required.mod_id)
+                    })
+                    .all(|required| {
+                        required.version_range.as_ref().is_none_or(|range| {
+                            child_metadata
+                                .version_for_mod(&required.mod_id)
+                                .is_some_and(|version| {
+                                    crate::resources::plans::requirements::mod_version_matches(range, version)
+                                })
+                        })
+                    });
+                if !satisfies_all {
+                    backfill.edges.retain(|edge| {
+                        edge.parent_entry_id != parent.id
+                            || edge.child_entry_id != child.id
+                    });
+                    backfill
+                        .rejected
+                        .insert((parent.id.clone(), child.id.clone()));
                     continue;
                 }
                 if backfill.edges.iter().any(|edge| {
@@ -664,6 +691,168 @@ mod tests {
                 .contains(&("parent".into(), "child".into()))
         );
     }
+    #[test]
+    fn bundled_ids_use_their_own_versions_and_retain_online_endpoints() {
+        let entries = vec![entry("parent"), entry("bundle")];
+        let refs = HashMap::from([(
+            "bundle".into(),
+            vec![mr("bundle00", "bundle01")],
+        )]);
+        let mut local: HashMap<String, LocalModMetadata> = HashMap::from([
+            (
+                "parent".into(),
+                serde_json::from_value(serde_json::json!({
+                    "mod_id": "parent",
+                    "dependencies": [
+                        {"mod_id": "bundled", "version_range": "[2,3)"}
+                    ]
+                }))
+                .unwrap(),
+            ),
+            (
+                "bundle".into(),
+                serde_json::from_value(serde_json::json!({
+                    "mod_id": "main",
+                    "version": "1.5",
+                    "additional_mods": [{"mod_id": "bundled", "version": "2.5"}],
+                    "dependencies": []
+                }))
+                .unwrap(),
+            ),
+        ]);
+        let mut first = DependencyBackfill::default();
+        append_local_edges(&mut first, &entries, &refs, &set(), &local);
+        assert_eq!(first.edges.len(), 1);
+        assert_eq!(first.edges[0].child_entry_id, "bundle");
+        assert_eq!(first.edges[0].child_provider, ContentProvider::Modrinth);
+        assert_eq!(first.edges[0].child_project_id, "bundle00");
+
+        for version in [Some("3.0"), None] {
+            local.get_mut("bundle").unwrap().additional_mods[0].version =
+                version.map(str::to_string);
+            let mut invalid = DependencyBackfill::default();
+            append_local_edges(&mut invalid, &entries, &refs, &set(), &local);
+            assert!(invalid.edges.is_empty());
+            assert!(
+                invalid
+                    .rejected
+                    .contains(&("parent".into(), "bundle".into()))
+            );
+        }
+    }
+
+    #[test]
+    fn multiple_bundled_ids_must_each_satisfy_their_own_version_constraints() {
+        let entries = vec![entry("parent"), entry("bundle")];
+        let local: HashMap<String, LocalModMetadata> = HashMap::from([
+            (
+                "parent".into(),
+                serde_json::from_value(serde_json::json!({
+                    "mod_id": "parent",
+                    "dependencies": [
+                        {"mod_id": "main", "version_range": "[1,2)"},
+                        {"mod_id": "first", "version_range": "[2,3)"},
+                        {"mod_id": "second", "version_range": "[3,4)"}
+                    ]
+                }))
+                .unwrap(),
+            ),
+            (
+                "bundle".into(),
+                serde_json::from_value(serde_json::json!({
+                    "mod_id": "main",
+                    "version": "1.5",
+                    "additional_mods": [
+                        {"mod_id": "first", "version": "2.5"},
+                        {"mod_id": "second", "version": "3.5"}
+                    ],
+                    "dependencies": []
+                }))
+                .unwrap(),
+            ),
+        ]);
+        let mut satisfied = DependencyBackfill::default();
+        append_local_edges(
+            &mut satisfied,
+            &entries,
+            &HashMap::new(),
+            &set(),
+            &local,
+        );
+        assert_eq!(satisfied.edges.len(), 1);
+
+        for (id, version) in
+            [("main", "2.0"), ("first", "3.0"), ("second", "4.0")]
+        {
+            let mut changed = local.clone();
+            let bundle = changed.get_mut("bundle").unwrap();
+            if id == "main" {
+                bundle.version = Some(version.into());
+            } else {
+                bundle
+                    .additional_mods
+                    .iter_mut()
+                    .find(|item| item.mod_id == id)
+                    .unwrap()
+                    .version = Some(version.into());
+            }
+            let mut rejected = DependencyBackfill::default();
+            append_local_edges(
+                &mut rejected,
+                &entries,
+                &HashMap::new(),
+                &set(),
+                &changed,
+            );
+            assert!(rejected.edges.is_empty(), "invalid version for {id}");
+            assert!(
+                rejected
+                    .rejected
+                    .contains(&("parent".into(), "bundle".into()))
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_required_ranges_must_all_match_regardless_of_order() {
+        let entries = vec![entry("parent"), entry("child")];
+        for ranges in [["[1,)", "[2,)"], ["[2,)", "[1,)"]] {
+            let local: HashMap<String, LocalModMetadata> = HashMap::from([
+                (
+                    "parent".into(),
+                    serde_json::from_value(serde_json::json!({
+                        "mod_id": "parent",
+                        "dependencies": ranges.map(|range| serde_json::json!({
+                            "mod_id": "child", "version_range": range
+                        }))
+                    }))
+                    .unwrap(),
+                ),
+                (
+                    "child".into(),
+                    serde_json::from_value(serde_json::json!({
+                        "mod_id": "child", "version": "1.5", "dependencies": []
+                    }))
+                    .unwrap(),
+                ),
+            ]);
+            let mut backfill = DependencyBackfill::default();
+            append_local_edges(
+                &mut backfill,
+                &entries,
+                &HashMap::new(),
+                &set(),
+                &local,
+            );
+            assert!(backfill.edges.is_empty());
+            assert!(
+                backfill
+                    .rejected
+                    .contains(&("parent".into(), "child".into()))
+            );
+        }
+    }
+
     #[test]
     fn failed_remote_metadata_reads_keep_existing_provider_edges() {
         let mut existing = DependencyBackfill::default();

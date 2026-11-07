@@ -389,6 +389,7 @@ import {
     contentItemStableId,
     indexContentChanges,
 } from '@/helpers/content-change-jobs'
+import { dependencyRefMatchesContentItem } from '@/helpers/content-dependencies'
 import { createContentEventRefresh } from '@/helpers/content-event-refresh'
 import { isUnresolvedProjectId } from '@/helpers/content-identity'
 import { applyContentItemUpdates, matchesContentItem } from '@/helpers/content-item-state'
@@ -1645,23 +1646,6 @@ async function handleUploadFiles() {
                     : formatMessage(messages.projectsWereAdded, { count: names.length }),
         })
     }
-}
-
-function dependencyRefMatchesContentItem(
-    reference: { provider: 'modrinth' | 'curseforge' | 'local'; projectId: string },
-    item: ContentItem,
-) {
-    const itemProjectId = item.project?.id ?? ''
-    if (reference.provider === 'curseforge') {
-        // CurseForge content items carry either a bare numeric id or a
-        // `curseforge:<id>` prefixed one depending on where they were built.
-        const normalized = itemProjectId.startsWith('curseforge:')
-            ? itemProjectId.slice('curseforge:'.length)
-            : itemProjectId
-        return normalized === reference.projectId
-    }
-    // Modrinth and local edges both reference the project id directly.
-    return itemProjectId === reference.projectId
 }
 
 const toggleDependenciesModal = ref<InstanceType<typeof ContentToggleDependenciesModal> | null>(

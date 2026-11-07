@@ -7,10 +7,11 @@
 //! - Quilt: `quilt.mod.json` (JSON, same shape wrapped under `quilt_loader`)
 //! - Forge: `META-INF/mods.toml` (TOML)
 //! - NeoForge: `META-INF/neoforge.mods.toml` (TOML)
-//! - Legacy Forge: `mcmod.info` (JSON array)
+//! - Legacy Forge/Cleanroom: `mcmod.info` (JSON) and `@Mod` class annotations
 
 mod fabric;
 pub mod icon;
+mod legacy_forge;
 pub mod manifest;
 mod mcmod_info;
 mod toml_mod;
@@ -18,7 +19,7 @@ mod toml_mod;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
-const LOCAL_METADATA_VERSION: u32 = 2;
+const LOCAL_METADATA_VERSION: u32 = 3;
 
 /// Unified local mod metadata extracted from inside a JAR.
 ///
@@ -29,6 +30,9 @@ pub struct LocalModMetadata {
     pub metadata_version: u32,
     /// Unique mod identifier (e.g. "sodium", "minecraft")
     pub mod_id: String,
+    /// Other mod identities provided by the same legacy Forge JAR.
+    #[serde(default)]
+    pub additional_mods: Vec<LocalProvidedMod>,
     /// Human-readable display name
     pub name: Option<String>,
     /// Mod version string
@@ -58,10 +62,34 @@ pub struct LocalModMetadata {
 }
 
 impl LocalModMetadata {
+    pub(crate) fn mod_ids(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.mod_id.as_str())
+            .chain(self.additional_mods.iter().map(|item| item.mod_id.as_str()))
+    }
+
+    pub(crate) fn version_for_mod(&self, mod_id: &str) -> Option<&str> {
+        if self.mod_id == mod_id {
+            self.version.as_deref()
+        } else {
+            self.additional_mods
+                .iter()
+                .find(|item| item.mod_id == mod_id)
+                .and_then(|item| item.version.as_deref())
+        }
+    }
+
     pub(crate) fn needs_refresh(&self) -> bool {
         self.metadata_version < LOCAL_METADATA_VERSION
             || self.dependencies.is_none()
     }
+}
+
+/// A bundled mod's identity and its own version, which may differ from the JAR's
+/// primary mod version.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalProvidedMod {
+    pub mod_id: String,
+    pub version: Option<String>,
 }
 
 /// One required dependency declared in embedded mod metadata.
@@ -76,7 +104,7 @@ pub struct LocalModDependency {
 /// that can be linked against installed files.
 pub(crate) fn is_env_dependency_id(id: &str) -> bool {
     matches!(
-        id,
+        id.to_ascii_lowercase().as_str(),
         "minecraft"
             | "java"
             | "fabricloader"
@@ -84,6 +112,8 @@ pub(crate) fn is_env_dependency_id(id: &str) -> bool {
             | "forge"
             | "neoforge"
             | "fml"
+            | "mcp"
+            | "cleanroom"
     )
 }
 
@@ -110,11 +140,7 @@ pub fn extract_mod_metadata(bytes: &Bytes) -> Option<LocalModMetadata> {
     if let Some(meta) = try_toml_path(&mut archive, "META-INF/mods.toml") {
         return Some(meta);
     }
-    if let Some(meta) = try_mcmod_info(&mut archive) {
-        return Some(meta);
-    }
-
-    None
+    legacy_forge::extract(&mut archive)
 }
 
 // ── format-specific parsers ────────────────────────────────────────────────
@@ -134,6 +160,7 @@ fn try_fabric(
     Some(LocalModMetadata {
         metadata_version: LOCAL_METADATA_VERSION,
         mod_id,
+        additional_mods: Vec::new(),
         name: parsed.name,
         version: parsed.version,
         authors,
@@ -167,6 +194,7 @@ fn try_quilt(
     Some(LocalModMetadata {
         metadata_version: LOCAL_METADATA_VERSION,
         mod_id,
+        additional_mods: Vec::new(),
         name: inner.name,
         version: inner.version,
         authors,
@@ -271,6 +299,7 @@ fn try_toml_path(
     Some(LocalModMetadata {
         metadata_version: LOCAL_METADATA_VERSION,
         mod_id,
+        additional_mods: Vec::new(),
         name: entry.display_name,
         version,
         authors,
@@ -281,32 +310,6 @@ fn try_toml_path(
         loader_version,
         loader,
         dependencies: Some(dependencies),
-    })
-}
-
-fn try_mcmod_info(
-    archive: &mut zip::ZipArchive<std::io::Cursor<&[u8]>>,
-) -> Option<LocalModMetadata> {
-    let mut file = archive.by_name("mcmod.info").ok()?;
-    let entries: Vec<mcmod_info::McmodInfoEntry> =
-        serde_json::from_reader(&mut file).ok()?;
-
-    let entry = entries.into_iter().next()?;
-    let mod_id = entry.modid.clone()?;
-
-    Some(LocalModMetadata {
-        metadata_version: LOCAL_METADATA_VERSION,
-        mod_id,
-        name: entry.name,
-        version: entry.version,
-        authors: entry.authors.unwrap_or_default(),
-        description: entry.description,
-        url: entry.url,
-        icon_path: entry.logo_file,
-        minecraft_version: entry.mcversion,
-        loader_version: None,
-        loader: Some("forge".into()),
-        dependencies: Some(Vec::new()),
     })
 }
 

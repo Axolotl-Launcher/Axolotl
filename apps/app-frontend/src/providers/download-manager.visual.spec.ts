@@ -492,6 +492,61 @@ it('subscribes concurrently, snapshots only after every subscription, then repla
     manager.dispose()
 })
 
+it('downgrading a pack counts only its current archive even when the previous archive has the same size', async () => {
+    vi.useFakeTimers()
+    const current: InstallJobSnapshot = {
+        ...job('running', '2026-11-07T11:00:00Z'),
+        kind: 'install_pack_to_existing_instance',
+        phase: 'downloading_pack_file',
+        progress: { current: 0, total: 100 },
+        summary: { files_completed: 1, bytes_downloaded: 100, bytes_total: 200, fallback_count: 0 },
+        items: [
+            {
+                id: 'old.mrpack',
+                name: 'old.mrpack',
+                status: 'completed',
+                bytes_downloaded: 100,
+                bytes_total: 100,
+            },
+        ],
+    }
+    backend.list.mockResolvedValue({ jobs: [current] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const request = backend.requests.mock.calls[0][0]
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'new.mrpack',
+            name: 'new.mrpack',
+            url: 'https://example.invalid/new.mrpack',
+            source: 'official',
+            bytes_total: 100,
+            attempt: 1,
+            max_attempts: 5,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toEqual({ current: 0, total: 100 })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'new.mrpack',
+            bytes: 25,
+            status: 'downloading',
+            speed_bytes_per_second: 25,
+            eta_seconds: 3,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toEqual({ current: 25, total: 100 })
+        expect(manager.jobs.value[0].summary.bytes_downloaded).toBe(25)
+        expect(manager.jobs.value[0].items[0].bytes_downloaded).toBe(100)
+    } finally {
+        manager.dispose()
+        vi.useRealTimers()
+    }
+})
+
 it('releases subscriptions that resolve after disposal without dispatching snapshots', async () => {
     const late = deferred<() => void>()
     const cleanup = [vi.fn(), vi.fn(), vi.fn()]

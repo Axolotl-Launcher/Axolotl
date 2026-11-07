@@ -50,6 +50,27 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                     'zh-CN':
                         '修复整合包更新失败时版本选择弹窗缺少错误提示的问题，并保留所选版本以便重试。',
                 },
+                {
+                    'en-US':
+                        'Fixed modpack downgrades showing completion before the selected version finished downloading.',
+                    'zh-CN': '修复整合包降级时目标版本尚未下载完毕就显示已完成的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed advanced download details disappearing from completed downloads after restarting the launcher or toggling the option.',
+                    'zh-CN':
+                        '修复重启启动器或重新开关高级下载信息后，已完成下载的详细记录丢失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed the download popover showing raw byte counts while extracting modpack overrides.',
+                    'zh-CN': '修复解压整合包覆盖文件时，顶部下载进度显示未格式化字节数的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed completed downloads waiting for instance refresh and temporary file cleanup before leaving the active download list.',
+                    'zh-CN': '修复下载完成后仍需等待实例刷新和临时文件清理才退出进行中列表的问题。',
+                },
             ],
         },
     },

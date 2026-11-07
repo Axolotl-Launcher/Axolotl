@@ -375,10 +375,15 @@ pub async fn download_diagnostics(
     job_id: String,
     file_id: Option<String>,
 ) -> Result<theseus::DownloadDiagnosticsSnapshot> {
-    Ok(theseus::download_diagnostics_snapshot(
-        Some(&job_id),
-        file_id.as_deref(),
-    ))
+    let job_id = Uuid::parse_str(&job_id).map_err(|_| {
+        theseus::Error::from(theseus::ErrorKind::InputError(
+            "Invalid download task id".into(),
+        ))
+    })?;
+    Ok(
+        theseus::install::job_download_diagnostics(job_id, file_id.as_deref())
+            .await?,
+    )
 }
 
 #[tauri::command]

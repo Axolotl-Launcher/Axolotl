@@ -1,9 +1,9 @@
 use super::model::{
     ActiveDownloadState, DownloadItemStatus, InstallContinuationState,
     InstallErrorContext, InstallJobEventKind, InstallJobSnapshot,
-    InstallJobState, InstallParallelProgress, InstallPauseReason,
-    InstallPhaseDetails, InstallPhaseId, InstallProgress, InstallRollbackState,
-    InstanceUpgradeResult, MissingModpackContentState,
+    InstallJobState, InstallJobStatus, InstallParallelProgress,
+    InstallPauseReason, InstallPhaseDetails, InstallPhaseId, InstallProgress,
+    InstallRollbackState, InstanceUpgradeResult, MissingModpackContentState,
 };
 use super::store;
 use crate::util::download::constants::CONTENT_CHECKPOINT_FILE_COUNT;
@@ -186,6 +186,12 @@ impl InstallProgressReporter {
         job_id: Uuid,
         mut snapshot: InstallJobSnapshot,
     ) -> Option<InstallJobSnapshot> {
+        if !matches!(
+            snapshot.status,
+            InstallJobStatus::Running | InstallJobStatus::Canceling
+        ) {
+            return Some(snapshot);
+        }
         let state = REPORTER_STATES.get(&job_id)?.upgrade()?;
         let state = state.lock().await;
         snapshot.phase = state.job.progress.phase;
@@ -1521,6 +1527,41 @@ mod tests {
         let second = InstallProgressReporter::new(job_id, state);
 
         assert!(Arc::ptr_eq(&first.state, &second.state));
+    }
+
+    #[cfg(not(feature = "tauri"))]
+    #[tokio::test]
+    async fn terminal_and_paused_snapshots_do_not_inherit_live_reporter_state()
+    {
+        let (app_state, job_id, reporter) =
+            stored_minecraft_progress_job(4, 12).await;
+        reporter.persist().await.unwrap();
+        let original = store::get_required(job_id, &app_state)
+            .await
+            .unwrap()
+            .snapshot();
+        for status in [
+            InstallJobStatus::Succeeded,
+            InstallJobStatus::Failed,
+            InstallJobStatus::Canceled,
+            InstallJobStatus::Interrupted,
+            InstallJobStatus::WaitingForUser,
+        ] {
+            let mut authoritative = original.clone();
+            authoritative.status = status;
+            authoritative.phase = InstallPhaseId::Finalizing;
+            authoritative.progress = None;
+            let overlaid = InstallProgressReporter::overlay_snapshot(
+                job_id,
+                authoritative.clone(),
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                serde_json::to_value(overlaid).unwrap(),
+                serde_json::to_value(authoritative).unwrap()
+            );
+        }
     }
 
     #[cfg(not(feature = "tauri"))]

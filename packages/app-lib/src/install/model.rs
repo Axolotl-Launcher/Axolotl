@@ -265,6 +265,9 @@ pub struct InstallJobState {
     pub skipped_missing_content_paths: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upgrade_result: Option<InstanceUpgradeResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download_diagnostics:
+        Option<crate::util::download::telemetry::DownloadDiagnosticsExport>,
     /// Incrementally maintained download items, mirroring the replay of
     /// `events`. Skipped during (de)serialization because it is derivable
     /// from `events`; rebuilt lazily on first access after a load.
@@ -302,6 +305,7 @@ impl Clone for InstallJobState {
                 .skipped_missing_content_paths
                 .clone(),
             upgrade_result: self.upgrade_result.clone(),
+            download_diagnostics: self.download_diagnostics.clone(),
             download_items_cache: std::sync::Mutex::new(None),
             summary_cache: std::sync::Mutex::new(None),
         }
@@ -363,6 +367,7 @@ impl InstallJobState {
             missing_content: None,
             skipped_missing_content_paths: Vec::new(),
             upgrade_result: None,
+            download_diagnostics: None,
             download_items_cache: std::sync::Mutex::new(None),
             summary_cache: std::sync::Mutex::new(None),
         }

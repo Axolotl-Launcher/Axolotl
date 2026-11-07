@@ -30,8 +30,9 @@ vi.mock('@modrinth/ui', async () => {
                     h('div', [slots.trigger?.(), slots.menu?.({ hide: vi.fn() })]),
         }),
         defineMessages: (messages: unknown) => messages,
+        defineMessage: (message: unknown) => message,
         injectNotificationManager: () => ({ handleError: fixture.handleError }),
-        useFormatBytes: () => (value: number) => String(value),
+        useFormatBytes: () => (value: number) => `${value} B`,
         useVIntl: () => ({
             formatMessage: (
                 message: { defaultMessage: string },
@@ -110,7 +111,7 @@ it('uses indeterminate progress without stale summary bytes and restores measure
         expect(bar().attributes('aria-valuenow')).toBe('25')
         expect(bar().find('.progress-bar--waiting').exists()).toBe(false)
         expect(trigger().element.style.backgroundImage).toContain('25%')
-        expect(wrapper.text()).toContain('25 / 100')
+        expect(wrapper.text()).toContain('25 B / 100 B')
 
         for (const phase of ['extracting_overrides', 'finalizing'] as const) {
             jobs.value[0] = { ...jobs.value[0], phase, progress: null }
@@ -124,7 +125,16 @@ it('uses indeterminate progress without stale summary bytes and restores measure
         jobs.value[0] = { ...jobs.value[0], progress: { current: 2, total: 5 } }
         await flushPromises()
         expect(bar().attributes('aria-valuenow')).toBe('40')
-        expect(wrapper.text()).toContain('2 / 5')
+        expect(wrapper.text()).not.toContain('2 / 5')
+
+        jobs.value[0] = {
+            ...jobs.value[0],
+            phase: 'extracting_overrides',
+            progress: { current: 111165031, total: 111165031 },
+        }
+        await flushPromises()
+        expect(wrapper.text()).toContain('Extracting overrides')
+        expect(wrapper.text()).not.toContain('111165031 / 111165031')
 
         jobs.value[0] = {
             ...jobs.value[0],

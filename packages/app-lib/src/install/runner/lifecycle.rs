@@ -586,6 +586,9 @@ async fn run_owned_job(
                 return Ok(());
             };
             tracing::info!(%job_id, status = record.status.as_str(), phase = ?completed_state.progress.phase, "Install job execution completed");
+            // Publish the committed result before instance observers and rollback
+            // cleanup can delay the download UI's terminal transition.
+            emit_job_best_effort(&record.snapshot()).await;
             if let Some(instance_id) = instance_id.as_ref()
                 && let Err(error) =
                     emit_instance(instance_id, InstancePayloadType::Edited)
@@ -613,13 +616,6 @@ async fn run_owned_job(
                     job_id = %job_id,
                     error = %error,
                     "Install job succeeded, but rollback staging could not be discarded"
-                );
-            }
-            if let Err(error) = emit_install_job(&record.snapshot()).await {
-                tracing::warn!(
-                    job_id = %job_id,
-                    error = %error,
-                    "Install job succeeded, but its final event could not be emitted"
                 );
             }
         }

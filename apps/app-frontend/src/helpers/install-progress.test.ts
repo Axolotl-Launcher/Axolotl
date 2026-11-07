@@ -266,6 +266,26 @@ it('pack download uses current progress instead of stale summary', () => {
     ).toEqual({ type: 'bytes', current: 0, total: 51 })
 })
 
+it('completed archive and extraction counters do not mark a running installation complete', () => {
+    for (const phase of ['downloading_pack_file', 'extracting_overrides', 'finalizing']) {
+        const job = progressJob({ phase, progress: { current: 100, total: 100 } })
+        expect(isInstallMainTrackComplete(job)).toBe(false)
+        expect(isInstallMainTrackComplete({ ...job, status: 'succeeded' })).toBe(true)
+    }
+})
+
+it('extraction formats its own byte counter and never reuses download summary bytes', () => {
+    const job = progressJob({
+        phase: 'extracting_overrides',
+        progress: { current: 50, total: 100 },
+        summary: { files_completed: 10, bytes_downloaded: 900, bytes_total: 1000 },
+    })
+    expect(formatInstallProgressText(installProgressTextSource(job), (value) => `${value} B`)).toBe(
+        '50 B / 100 B',
+    )
+    expect(installProgressTextSource({ ...job, progress: null })).toEqual({ type: 'phase' })
+})
+
 it('minecraft download uses current progress instead of content summary', () => {
     expect(
         installProgressTextSource(

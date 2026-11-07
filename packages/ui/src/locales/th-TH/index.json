@@ -2162,6 +2162,72 @@
   "header.category.resolutions": {
     "defaultMessage": "Resolution"
   },
+  "image-crop.animated-preview": {
+    "defaultMessage": "Animated result preview"
+  },
+  "image-crop.apply": {
+    "defaultMessage": "Use image"
+  },
+  "image-crop.aspect-ratio": {
+    "defaultMessage": "Aspect ratio"
+  },
+  "image-crop.auto-compress": {
+    "defaultMessage": "Auto-compress"
+  },
+  "image-crop.decode-error": {
+    "defaultMessage": "This image could not be opened. Choose a different image."
+  },
+  "image-crop.dimensions": {
+    "defaultMessage": "{width} × {height} px"
+  },
+  "image-crop.drag-hint": {
+    "defaultMessage": "Drag the image to reposition it."
+  },
+  "image-crop.export-error": {
+    "defaultMessage": "The cropped image could not be created. Try again."
+  },
+  "image-crop.help": {
+    "defaultMessage": "Drag the image to reposition it. Scroll over the workspace or use the zoom control to zoom."
+  },
+  "image-crop.keep-original": {
+    "defaultMessage": "Keep original"
+  },
+  "image-crop.loading": {
+    "defaultMessage": "Loading image…"
+  },
+  "image-crop.oversized-bytes": {
+    "defaultMessage": "The source is {size} MB; the usual limit is {limit} MB. Continuing may use a lot of memory."
+  },
+  "image-crop.oversized-pixels": {
+    "defaultMessage": "The image is {width} × {height} pixels; the usual limit is {limit} megapixels. Continuing may use a lot of memory."
+  },
+  "image-crop.oversized-title": {
+    "defaultMessage": "This file is larger than the usual limit"
+  },
+  "image-crop.oversized-keep-original-hint": {
+    "defaultMessage": "Keep original keeps the source resolution and frame rate; the animation may use more memory and CPU."
+  },
+  "image-crop.preview": {
+    "defaultMessage": "Result preview"
+  },
+  "image-crop.preview-label": {
+    "defaultMessage": "Cropped result preview, {width} by {height} pixels"
+  },
+  "image-crop.title": {
+    "defaultMessage": "Crop image"
+  },
+  "image-crop.too-large": {
+    "defaultMessage": "This image is too large to crop."
+  },
+  "image-crop.workspace": {
+    "defaultMessage": "Crop workspace"
+  },
+  "image-crop.zoom": {
+    "defaultMessage": "Zoom"
+  },
+  "image-crop.zoom-status": {
+    "defaultMessage": "Zoom {percent}%, {width} × {height} pixels"
+  },
   "image-viewer.close": {
     "defaultMessage": "Close"
   },

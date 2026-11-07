@@ -146,7 +146,10 @@ it.each([
             project: { id: projectId, slug: projectId, title: 'Recognized' },
         }
         value.items[0].artifactRef = {
-            release: { project: { source: source as 'modrinth' | 'curseforge', projectId }, releaseId },
+            release: {
+                project: { source: source as 'modrinth' | 'curseforge', projectId },
+                releaseId,
+            },
             artifactId: 'download',
         }
         const item = normalizeInstanceContentSnapshot('instance', value).contentItems[0]

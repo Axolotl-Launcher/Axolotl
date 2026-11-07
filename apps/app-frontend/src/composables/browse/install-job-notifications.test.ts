@@ -20,8 +20,7 @@ vi.mock('@modrinth/ui', () => ({
             const entry = descriptor.id
                 ? zhMessages[descriptor.id as keyof typeof zhMessages]
                 : undefined
-            const template =
-                entry && 'message' in entry ? entry.message : descriptor.defaultMessage
+            const template = entry && 'message' in entry ? entry.message : descriptor.defaultMessage
             return new IntlMessageFormat(template, 'zh-CN').format(values)
         },
     }),

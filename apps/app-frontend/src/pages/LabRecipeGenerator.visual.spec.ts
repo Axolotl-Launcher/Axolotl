@@ -128,9 +128,8 @@ it('keeps resources and loading state owned by the latest selected version', asy
     try {
         await flushPromises()
         expect(resourceLoads.pending.map(({ version }) => version)).toEqual(['26.3'])
-        ;(
-            wrapper.vm as unknown as { store: { selectedVersion: string } }
-        ).store.selectedVersion = '1.20'
+        ;(wrapper.vm as unknown as { store: { selectedVersion: string } }).store.selectedVersion =
+            '1.20'
         await flushPromises()
         expect(resourceLoads.pending.map(({ version }) => version)).toEqual(['26.3', '1.20'])
         const oldResult = {

@@ -447,14 +447,7 @@ function handleItemUpdate(id: string) {
                     index === items.length - 1 && !flat ? 'rounded-b-[20px]' : '',
                 ]"
                 @select="
-                    (val, event) =>
-                        handleItemSelection(
-                            item.id,
-                            val ?? false,
-                            index,
-                            event,
-                            item,
-                        )
+                    (val, event) => handleItemSelection(item.id, val ?? false, index, event, item)
                 "
                 @update:enabled="(val) => emit('update:enabled', item.id, val)"
                 @delete="(e: MouseEvent) => emit('delete', item.id, e)"

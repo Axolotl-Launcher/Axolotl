@@ -4,13 +4,13 @@
         :visible="
             Boolean(
                 project.issues_url ||
-                    project.source_url ||
-                    project.wiki_url ||
-                    mcmodUrl ||
-                    project.discord_url ||
-                    project.site_url ||
-                    projectV3?.link_urls.store?.url ||
-                    project.donation_urls.length > 0,
+                project.source_url ||
+                project.wiki_url ||
+                mcmodUrl ||
+                project.discord_url ||
+                project.site_url ||
+                projectV3?.link_urls.store?.url ||
+                project.donation_urls.length > 0,
             )
         "
     >

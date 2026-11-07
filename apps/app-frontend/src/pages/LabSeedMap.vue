@@ -2398,8 +2398,7 @@ function clearOres() {
 
 function resetOres() {
     const current = new Set(dimensionOres.value.map((ore) => ore.kind))
-    const defaultOre: SeedMapOreKind =
-        workspace.dimension === 'nether' ? 'netherite' : 'diamond'
+    const defaultOre: SeedMapOreKind = workspace.dimension === 'nether' ? 'netherite' : 'diamond'
     workspace.selectedOres = [
         ...workspace.selectedOres.filter((ore) => !current.has(ore)),
         ...(current.has(defaultOre) ? [defaultOre] : []),

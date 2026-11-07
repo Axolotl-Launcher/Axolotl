@@ -40,8 +40,7 @@ use super::segment::{
 use super::tail;
 use super::tail::race_tail_candidates;
 use super::throttle::{
-    FetchSemaphore, TAIL_HEDGE_SEMAPHORE, configured_semaphore_limit,
-    record_authority_h2_failure_for,
+    FetchSemaphore, TAIL_HEDGE_SEMAPHORE, record_authority_h2_failure_for,
 };
 #[cfg(test)]
 use super::transfer;
@@ -61,8 +60,8 @@ use crate::util::download::constants::{
     FETCH_SEGMENTED_CONTENT_VALIDATION_FAILED, FETCH_SELECTED_ENDPOINT_CHANGED,
     FETCH_SERVER_IGNORED_RANGE_AND_RETURNED_200,
     FETCH_SERVER_RETURNED_HTTP_416_FOR_RANGE_REQUEST, MAX_TAIL_HEDGES_PER_FILE,
-    MIN_PARALLEL_RANGES, SEGMENT_EXPANSION_INTERVAL, SEGMENT_RETRY_ATTEMPTS,
-    TAIL_HEDGE_MIN_REMAINING,
+    MIN_PARALLEL_RANGES, SEGMENT_EXPANSION_INTERVAL, SEGMENT_RECOVERY_ROUNDS,
+    SEGMENT_RETRY_ATTEMPTS, TAIL_HEDGE_MIN_REMAINING,
 };
 use crate::util::download::integrity::{
     compute_file_integrity, validate_file_content, verify_computed_integrity,
@@ -115,6 +114,8 @@ pub(crate) enum SegmentDownloadError {
     Protocol(&'static str),
     MetadataSizeChanged(u64),
     Transport,
+    ExhaustedRange(usize),
+    Yielded(usize),
     Fatal(crate::Error),
 }
 
@@ -141,6 +142,10 @@ pub(crate) async fn download_segment(
     request: &DownloadRequest,
 ) -> Result<SegmentDownloadCompletion, SegmentDownloadError> {
     let counters = &request.transfer_counters;
+    let mut allocation_connection = request
+        .forced_allocation
+        .as_ref()
+        .map(|allocation| allocation.connection());
     let _activity = crate::State::get_if_initialized()
         .map(|state| state.begin_download_connection());
     let _range_guard = DownloadRangeGuard(Arc::clone(&range.state));
@@ -154,6 +159,13 @@ pub(crate) async fn download_segment(
         crate::util::download::native_slow::NativeSlowPolicy::new(0, None);
     let mut last_slow_speed = None;
     for attempt in 1..=SEGMENT_RETRY_ATTEMPTS {
+        if allocation_connection.as_mut().is_some_and(|connection| {
+            connection.should_yield(super::segment::range_concurrency_limit(
+                request, semaphore,
+            ))
+        }) {
+            return Err(SegmentDownloadError::Yielded(range.index));
+        }
         let requested_start = range.start + {
             // sched-order: theseus::util::fetch::segment::DownloadRange.state
             let state = range.state.lock();
@@ -172,7 +184,9 @@ pub(crate) async fn download_segment(
             )
             .await
             .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
-        let response = tokio::time::timeout(
+        let clients =
+            DownloadClients::for_request(system_client, direct_client);
+        let response_wait = tokio::time::timeout(
             native_first_byte_timeout(route, false),
             send_path_request_with_clients(
                 route,
@@ -181,11 +195,21 @@ pub(crate) async fn download_segment(
                 download_meta,
                 Some(requested_start),
                 Some(requested_end),
-                &DownloadClients::for_request(system_client, direct_client),
+                &clients,
                 redirect_target,
             ),
-        )
-        .await;
+        );
+        tokio::pin!(response_wait);
+        let response = loop {
+            tokio::select! {
+                result = &mut response_wait => break result,
+                _ = tokio::time::sleep(DOWNLOAD_SCHEDULER_INTERVAL), if allocation_connection.is_some() => {
+                    if allocation_connection.as_mut().is_some_and(|connection| connection.should_yield(super::segment::range_concurrency_limit(request, semaphore))) {
+                        return Err(SegmentDownloadError::Yielded(range.index));
+                    }
+                }
+            }
+        };
         let (response, response_url) = match response {
             Ok(Ok(response)) => response,
             Ok(Err(_)) | Err(_) if attempt < SEGMENT_RETRY_ATTEMPTS => {
@@ -199,7 +223,9 @@ pub(crate) async fn download_segment(
                 tokio::time::sleep(fetch_retry_delay(attempt)).await;
                 continue;
             }
-            Ok(Err(_)) | Err(_) => return Err(SegmentDownloadError::Transport),
+            Ok(Err(_)) | Err(_) => {
+                return Err(SegmentDownloadError::ExhaustedRange(range.index));
+            }
         };
         final_url = response_url;
         if let Some(telemetry) = &telemetry {
@@ -250,7 +276,7 @@ pub(crate) async fn download_segment(
                 tokio::time::sleep(fetch_retry_delay(attempt)).await;
                 continue;
             }
-            return Err(SegmentDownloadError::Transport);
+            return Err(SegmentDownloadError::ExhaustedRange(range.index));
         }
         let content_range_matches = parsed_content_range.is_some_and(|range| {
             range.start == requested_start
@@ -297,24 +323,47 @@ pub(crate) async fn download_segment(
         let endpoint_feedback = response.extensions().get::<crate::util::download::endpoint_selection::metrics::EndpointTransferGuard>().cloned();
         let mut stream = Some(response.bytes_stream());
         let mut stream_end_reason = None;
+        let mut rebalanced = false;
+        let mut last_allocation_check = Instant::now();
         loop {
+            if last_allocation_check.elapsed() >= DOWNLOAD_SCHEDULER_INTERVAL
+                && allocation_connection.as_mut().is_some_and(|connection| {
+                    connection.should_yield(
+                        super::segment::range_concurrency_limit(
+                            request, semaphore,
+                        ),
+                    )
+                })
+            {
+                rebalanced = true;
+                break;
+            }
+            if last_allocation_check.elapsed() >= DOWNLOAD_SCHEDULER_INTERVAL {
+                last_allocation_check = Instant::now();
+            }
             let tail_threshold = TAIL_HEDGE_MIN_REMAINING.max(total_size / 10);
             let tail_eligible = range.remaining() <= tail_threshold;
             let chunk = match tokio::time::timeout(
                 range_idle_timeout(tail_eligible),
                 async {
-                    stream
-                        .as_mut()
-                        .expect(FETCH_ACTIVE_SEGMENT_BODY)
-                        .next()
-                        .await
+                    loop {
+                        tokio::select! {
+                            chunk = stream.as_mut().expect(FETCH_ACTIVE_SEGMENT_BODY).next() => break chunk,
+                            _ = tokio::time::sleep(DOWNLOAD_SCHEDULER_INTERVAL), if allocation_connection.is_some() => {
+                                if allocation_connection.as_mut().is_some_and(|connection| connection.should_yield(super::segment::range_concurrency_limit(request, semaphore))) {
+                                    rebalanced = true;
+                                    break None;
+                                }
+                            }
+                        }
+                    }
                 },
             )
             .await
             {
                 Ok(Some(chunk)) => chunk,
                 Ok(None) => break,
-                Err(_) if tail_eligible => {
+                Err(_) if tail_eligible && !request.force_multiconnection => {
                     // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
                     let hedge_start =
                         range.start + range.state.lock().downloaded;
@@ -436,7 +485,11 @@ pub(crate) async fn download_segment(
                                 ) => {
                                     return Err(SegmentDownloadError::MetadataSizeChanged(size));
                                 }
-                                Err(SegmentDownloadError::Transport) => {}
+                                Err(SegmentDownloadError::Transport)
+                                | Err(SegmentDownloadError::Yielded(_))
+                                | Err(SegmentDownloadError::ExhaustedRange(
+                                    _,
+                                )) => {}
                             }
                         } else {
                             hedge_active.store(false, Ordering::Release);
@@ -554,33 +607,33 @@ pub(crate) async fn download_segment(
             }
         }
         drop(stream);
+        // A replacement worker resumes from DownloadRange's confirmed offset.
+        // Flush even the final failed attempt before releasing this writer.
+        writer
+            .flush()
+            .await
+            .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
+        // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
+        counters.commit(
+            requested_start,
+            range.start + range.state.lock().downloaded,
+        );
+        if pending_progress > 0 {
+            let _ = progress.send(pending_progress);
+            pending_progress = 0;
+        }
         if range.remaining() == 0
             && let Some(telemetry) = &telemetry
         {
             telemetry.finish();
         }
         if range.remaining() == 0 {
-            writer
-                .flush()
-                .await
-                .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
-            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
-            counters.commit(
-                requested_start,
-                range.start + range.state.lock().downloaded,
-            );
             break;
         }
+        if rebalanced {
+            return Err(SegmentDownloadError::Yielded(range.index));
+        }
         if attempt < SEGMENT_RETRY_ATTEMPTS {
-            writer
-                .flush()
-                .await
-                .map_err(|error| SegmentDownloadError::Fatal(error.into()))?;
-            // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
-            counters.commit(
-                requested_start,
-                range.start + range.state.lock().downloaded,
-            );
             let downloaded_after_attempt = {
                 // sched-order: theseus::util::fetch::segment::DownloadRange.state
                 let state = range.state.lock();
@@ -602,7 +655,7 @@ pub(crate) async fn download_segment(
             tokio::time::sleep(fetch_retry_delay(attempt)).await;
             continue;
         }
-        return Err(SegmentDownloadError::Transport);
+        return Err(SegmentDownloadError::ExhaustedRange(range.index));
     }
     if pending_progress > 0 {
         let _ = progress.send(pending_progress);
@@ -639,6 +692,7 @@ pub(crate) struct SegmentedDownloadContext<'a> {
 pub(crate) fn restored_download_ranges(
     checkpoints: &[Checkpoint],
     desired: usize,
+    force_multiconnection: bool,
 ) -> Vec<DownloadRange> {
     let mut ranges = checkpoints
         .iter()
@@ -657,7 +711,15 @@ pub(crate) fn restored_download_ranges(
         else {
             break;
         };
-        let Some(tail) = range.split_tail(ranges.len()) else {
+        let tail = if force_multiconnection {
+            range.split_remaining_in_half(
+                ranges.len(),
+                crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE,
+            )
+        } else {
+            range.split_tail(ranges.len())
+        };
+        let Some(tail) = tail else {
             break;
         };
         ranges.push(tail);
@@ -871,12 +933,20 @@ pub(crate) async fn try_segmented_download(
         }
     };
     let remaining_size = size - resume_prefix;
-    let configured_limit = configured_semaphore_limit(semaphore);
-    let route_cap = route_segmented_concurrency_cap(
-        route,
-        configured_limit,
-        remaining_size,
-    );
+    if let Some(allocation) = &request.forced_allocation {
+        allocation.set_remaining(remaining_size);
+    }
+    let configured_limit =
+        super::segment::range_concurrency_limit(request, semaphore);
+    let route_cap = if request.force_multiconnection {
+        super::segment::forced_range_cap(
+            remaining_size,
+            configured_limit,
+            crate::util::download::native_budget::capacity(route),
+        )
+    } else {
+        route_segmented_concurrency_cap(route, configured_limit, remaining_size)
+    };
     let health =
         route_health_key(route, request.resource)
             .map(|key| {
@@ -894,14 +964,28 @@ pub(crate) async fn try_segmented_download(
     let range_recovery = (request.supports_range_recovery()
         && request.prefer_http1)
         || request.minimum_range_connections(size) > 1;
-    let mut concurrency_cap = adaptive_range_cap(
-        remaining_size,
-        route_cap,
-        disk_cap,
-        health.consecutive_failures,
-        range_recovery,
-    );
-    let requested_initial_count =
+    let mut concurrency_cap = if request.force_multiconnection {
+        route_cap
+    } else {
+        adaptive_range_cap(
+            remaining_size,
+            route_cap,
+            disk_cap,
+            health.consecutive_failures,
+            range_recovery,
+        )
+    };
+    let requested_initial_count = if request.force_multiconnection
+        && remaining_size > 0
+    {
+        match super::segment::wait_for_forced_quota(request, semaphore).await {
+            Ok(quota) => {
+                concurrency_cap = concurrency_cap.min(quota);
+                concurrency_cap
+            }
+            Err(error) => return SegmentedDownloadOutcome::Fatal(error),
+        }
+    } else {
         initial_segment_count(remaining_size, concurrency_cap).max(
             requested_range_floor(
                 request,
@@ -909,8 +993,12 @@ pub(crate) async fn try_segmented_download(
                 remaining_size,
                 concurrency_cap,
             ),
-        );
-    if requested_initial_count < MIN_PARALLEL_RANGES && journal.is_none() {
+        )
+    };
+    if !request.force_multiconnection
+        && requested_initial_count < MIN_PARALLEL_RANGES
+        && journal.is_none()
+    {
         tracing::debug!(
             original_url = %sanitize_url_for_log(&route.url),
             file_size = size,
@@ -995,12 +1083,17 @@ pub(crate) async fn try_segmented_download(
     let hedge_active = AtomicBool::new(false);
     let mut downloads = futures::stream::FuturesUnordered::new();
     let mut ranges = if journal.is_some() {
-        restored_download_ranges(&checkpoints, permits.len())
+        restored_download_ranges(
+            &checkpoints,
+            permits.len(),
+            request.force_multiconnection,
+        )
     } else {
         create_remaining_ranges(size, resume_prefix, permits.len())
     };
     let mut pending_ranges = (permits.len().min(ranges.len())..ranges.len())
         .collect::<VecDeque<_>>();
+    let mut range_recoveries = vec![0; ranges.len()];
     for &index in &pending_ranges {
         ranges[index].state.lock().active = false;
     }
@@ -1092,7 +1185,9 @@ pub(crate) async fn try_segmented_download(
             }
             result = downloads.next(), if !downloads.is_empty() => {
                 if let Some(result) = result {
-                    completed_ranges += 1;
+                    if result.is_ok() {
+                        completed_ranges += 1;
+                    }
                     match result {
                         Ok(completion) if completion.is_first_range => {
                             final_url = Some(completion.final_url);
@@ -1101,10 +1196,29 @@ pub(crate) async fn try_segmented_download(
                             http_version = completion.http_version;
                         }
                         Ok(_) => {}
+                        Err(SegmentDownloadError::Yielded(index)) => {
+                            pending_ranges.push_back(index);
+                        }
+                        Err(SegmentDownloadError::ExhaustedRange(index))
+                            if range_recoveries[index] < SEGMENT_RECOVERY_ROUNDS =>
+                        {
+                            range_recoveries[index] += 1;
+                            pending_ranges.push_back(index);
+                            tracing::warn!(
+                                original_url = %sanitize_url_for_log(&route.url),
+                                range_start = ranges[index].start,
+                                remaining_bytes = ranges[index].remaining(),
+                                recovery_round = range_recoveries[index],
+                                "Requeuing failed range without canceling sibling downloads"
+                            );
+                        }
                         Err(error) => {
                             segment_error = Some(error);
                             break;
                         }
+                    }
+                    if request.force_multiconnection {
+                        scheduler.reset_immediately();
                     }
                     if let Some(journal) = &journal
                         && checkpoint_write.is_none()
@@ -1152,12 +1266,16 @@ pub(crate) async fn try_segmented_download(
                 }
             }
             _ = scheduler.tick() => {
+                let remaining_bytes: u64 = ranges.iter().map(DownloadRange::remaining).sum();
+                if let Some(allocation) = &request.forced_allocation {
+                    allocation.set_remaining(remaining_bytes);
+                }
                 let slow_decision = slow_policy.observe_with_pressure(
                     downloaded,
                     size.saturating_sub(downloaded),
                     crate::util::download::local_resources::pressure(part_path),
                 );
-                if allow_low_throughput_abort
+                if allow_low_throughput_abort && !request.force_multiconnection
                     && !alternate_probe_finished
                     && alternate_probe.is_none()
                     && let crate::util::download::native_slow::SlowDecision::Probe {
@@ -1198,19 +1316,24 @@ pub(crate) async fn try_segmented_download(
                     continue;
                 }
                 let pressure = crate::util::download::local_resources::pressure(part_path);
-                if pressure.blocks_expansion() {
+                if !request.force_multiconnection && pressure.blocks_expansion() {
                     tracing::debug!(cpu_percent = pressure.cpu_percent, write_latency_ms = pressure.write_latency_ms, "Pausing range expansion under local resource pressure");
                     continue;
                 }
+                let configured_limit = super::segment::range_concurrency_limit(request, semaphore);
                 // A busy disk or CPU at admission must not fix the ceiling
                 // for the entire transfer after local pressure has cleared.
-                concurrency_cap = adaptive_range_cap(
+                concurrency_cap = if request.force_multiconnection {
+                    super::segment::forced_range_cap(remaining_bytes, configured_limit,
+                        crate::util::download::native_budget::capacity(route))
+                        .min(request.forced_allocation.as_ref().map_or(configured_limit, |allocation| allocation.quota(configured_limit)))
+                } else { adaptive_range_cap(
                     remaining_size,
                     route_cap,
                     crate::util::download::local_resources::http1_range_limit(part_path).await,
                     health.consecutive_failures,
                     range_recovery,
-                );
+                ) };
                 while downloads.len() < concurrency_cap {
                     let Some(&index) = pending_ranges.front() else { break; };
                     let Some(permit) = try_acquire_native_connection(route, semaphore) else { break; };
@@ -1236,14 +1359,19 @@ pub(crate) async fn try_segmented_download(
                     expansion_trial = None;
                 }
                 let active_ranges = downloads.len();
-                crate::util::download::telemetry::record_budget(request, configured_limit, concurrency_cap, retained_ranges, active_ranges);
+                let telemetry_target = if request.force_multiconnection {
+                    concurrency_cap
+                } else {
+                    retained_ranges
+                };
+                crate::util::download::telemetry::record_budget(request, configured_limit, concurrency_cap, telemetry_target, active_ranges);
                 let remaining_bytes = ranges
                     .iter()
                     // sched-order: theseus::util::fetch::segment::DownloadRange.state temporary
                     .filter(|range| !range.state.lock().completed)
                     .map(DownloadRange::remaining)
                     .sum();
-                if last_expansion.elapsed() >= SEGMENT_EXPANSION_INTERVAL
+                if !request.force_multiconnection && last_expansion.elapsed() >= SEGMENT_EXPANSION_INTERVAL
                     && let Some(baseline) = expansion_baseline.take()
                     && baseline.gained_throughput(snapshot.recent_average, completed_ranges) == Some(false)
                 {
@@ -1272,7 +1400,7 @@ pub(crate) async fn try_segmented_download(
                 let floor_target = range_connection_floor(size, remaining_bytes, concurrency_cap,
                     request.batch_download && request.prefer_http1)
                     .max(requested_range_floor(request, size, remaining_bytes, concurrency_cap));
-                let below_floor = active_ranges < floor_target;
+                let below_floor = request.force_multiconnection || active_ranges < floor_target;
                 if !below_floor && ((expansion_exhausted.is_some() && active_ranges >= retained_ranges)
                     || remaining_time <= crate::util::download::constants::NATIVE_SLOW_RECONNECT_OVERHEAD
                         + crate::util::download::constants::NATIVE_SLOW_MIN_SAVINGS
@@ -1285,7 +1413,7 @@ pub(crate) async fn try_segmented_download(
                 let recovering_ranges = below_floor || restoring_ranges || deadline_recovery;
                 if !recovering_ranges && expansion_trial.is_none()
                     && TRIALS.snapshot(Instant::now()).1.is_some() { continue; }
-                if let Some(reason) = expansion_block_reason(
+                if !request.force_multiconnection && let Some(reason) = expansion_block_reason(
                     snapshot,
                     active_ranges,
                     concurrency_cap,
@@ -1330,7 +1458,7 @@ pub(crate) async fn try_segmented_download(
                     remaining_bytes,
                     snapshot.recent_average,
                 );
-                let target = if below_floor {
+                let target = if request.force_multiconnection { concurrency_cap } else if below_floor {
                     floor_target.max(if restoring_ranges { retained_ranges } else { active_ranges }).min(concurrency_cap)
                 } else if restoring_ranges {
                     retained_ranges.max(if deadline_recovery { growth_target } else { active_ranges }).min(concurrency_cap)
@@ -1338,11 +1466,19 @@ pub(crate) async fn try_segmented_download(
                 for _ in active_ranges..target {
                     let Some(range) = ranges
                         .iter()
-                        .filter(|range| range.is_active())
+                        // Splitting a failed range would give its new tail a
+                        // fresh retry budget and multiply persistent failures.
+                        .filter(|range| range.is_active() && range_recoveries[range.index] == 0)
                         .max_by_key(|range| range.remaining())
                         .cloned() else { break; };
                     let Some(permit) = try_acquire_native_connection(route, semaphore) else { break; };
-                    let Some(new_range) = range.split_tail(next_range_index) else { break; };
+                    let new_range = if request.force_multiconnection {
+                        range.split_remaining_in_half(next_range_index,
+                            crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE)
+                    } else {
+                        range.split_tail(next_range_index)
+                    };
+                    let Some(new_range) = new_range else { break; };
                     tracing::debug!(
                         original_url = %sanitize_url_for_log(&route.url),
                         source = route.source.as_str(),
@@ -1388,6 +1524,7 @@ pub(crate) async fn try_segmented_download(
                         request,
                     ));
                     ranges.push(new_range);
+                    range_recoveries.push(0);
                 }
                 if downloads.len() > active_ranges {
                     retained_ranges = retained_ranges.max(downloads.len());
@@ -1415,7 +1552,11 @@ pub(crate) async fn try_segmented_download(
         request,
         configured_limit,
         concurrency_cap,
-        retained_ranges,
+        if request.force_multiconnection {
+            concurrency_cap
+        } else {
+            retained_ranges
+        },
         0,
     );
     if let Some(write) = checkpoint_write
@@ -1446,7 +1587,9 @@ pub(crate) async fn try_segmented_download(
                     reason,
                 }
             }
-            SegmentDownloadError::Transport => {
+            SegmentDownloadError::Transport
+            | SegmentDownloadError::Yielded(_)
+            | SegmentDownloadError::ExhaustedRange(_) => {
                 SegmentedDownloadOutcome::SourceFailed
             }
             SegmentDownloadError::MetadataSizeChanged(size) => {

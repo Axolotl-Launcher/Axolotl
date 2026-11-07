@@ -128,7 +128,9 @@ it('keeps resources and loading state owned by the latest selected version', asy
     try {
         await flushPromises()
         expect(resourceLoads.pending.map(({ version }) => version)).toEqual(['26.3'])
-        ;(wrapper.vm as { store: { selectedVersion: string } }).store.selectedVersion = '1.20'
+        ;(
+            wrapper.vm as unknown as { store: { selectedVersion: string } }
+        ).store.selectedVersion = '1.20'
         await flushPromises()
         expect(resourceLoads.pending.map(({ version }) => version)).toEqual(['26.3', '1.20'])
         const oldResult = {
@@ -149,7 +151,9 @@ it('keeps resources and loading state owned by the latest selected version', asy
         resourceLoads.pending[1].resolve(currentResult)
         await flushPromises()
         expect(wrapper.text()).not.toContain('Loading version data')
-        expect((wrapper.vm as { resources: { version: string } }).resources.version).toBe('1.20')
+        expect(
+            (wrapper.vm as unknown as { resources: { version: string } }).resources.version,
+        ).toBe('1.20')
     } finally {
         resourceLoads.deferred = false
         wrapper.unmount()

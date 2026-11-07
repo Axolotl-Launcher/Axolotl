@@ -81,16 +81,40 @@ impl DownloadRange {
     }
 
     pub(crate) fn split_tail(&self, index: usize) -> Option<Self> {
+        self.split_tail_at_size(index, DOWNLOAD_PROGRESS_MIN_BYTES, false)
+    }
+
+    pub(crate) fn split_remaining_in_half(
+        &self,
+        index: usize,
+        minimum_segment_size: u64,
+    ) -> Option<Self> {
+        self.split_tail_at_size(
+            index,
+            minimum_segment_size.max(1).checked_mul(2)?,
+            true,
+        )
+    }
+
+    fn split_tail_at_size(
+        &self,
+        index: usize,
+        minimum: u64,
+        split_in_half: bool,
+    ) -> Option<Self> {
         let mut state = self.state.lock();
         let remaining = state
             .end
             .saturating_add(1)
             .saturating_sub(self.start.saturating_add(state.downloaded));
-        if remaining < DOWNLOAD_PROGRESS_MIN_BYTES {
+        if remaining < minimum {
             return None;
         }
-        let split_size = remaining.saturating_mul(TAIL_SPLIT_PERCENT)
-            / DOWNLOAD_PERCENT_BASE;
+        let split_size = if split_in_half {
+            remaining / 2
+        } else {
+            remaining.saturating_mul(TAIL_SPLIT_PERCENT) / DOWNLOAD_PERCENT_BASE
+        };
         let split_start =
             state.end.saturating_add(1).saturating_sub(split_size);
         if split_start <= self.start.saturating_add(state.downloaded) {
@@ -286,6 +310,66 @@ pub(crate) fn try_acquire_native_connection<'a>(
         _global: global,
         _native: native,
     })
+}
+
+pub(crate) fn range_concurrency_limit(
+    request: &DownloadRequest,
+    semaphore: &FetchSemaphore,
+) -> usize {
+    if request.force_multiconnection {
+        crate::State::get_if_initialized().map_or(
+            crate::util::download::constants::FORCED_DOWNLOAD_CONCURRENCY_MAX,
+            |state| state.download_concurrency().min(crate::util::download::constants::FORCED_DOWNLOAD_CONCURRENCY_MAX),
+        )
+    } else {
+        super::throttle::configured_semaphore_limit(semaphore)
+    }
+}
+
+pub(crate) fn forced_range_cap(
+    remaining: u64,
+    configured: usize,
+    physical: usize,
+) -> usize {
+    let data_cap = usize::try_from(
+        remaining / crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE,
+    )
+    .unwrap_or(usize::MAX)
+    .max(1);
+    configured
+        .min(physical)
+        .min(data_cap)
+        .min(crate::util::download::constants::FORCED_DOWNLOAD_CONCURRENCY_MAX)
+}
+
+pub(crate) async fn wait_for_forced_quota(
+    request: &DownloadRequest,
+    semaphore: &FetchSemaphore,
+) -> crate::Result<usize> {
+    if request.integrity.size == Some(0) {
+        return Ok(1);
+    }
+    loop {
+        let limit = range_concurrency_limit(request, semaphore);
+        let quota = request
+            .forced_allocation
+            .as_ref()
+            .map_or(limit, |allocation| allocation.quota(limit));
+        if quota > 0 {
+            return Ok(quota);
+        }
+        if request
+            .cancellation
+            .as_ref()
+            .is_some_and(|token| token.is_cancelled())
+        {
+            return Err(crate::ErrorKind::OtherError("download canceled while waiting for its weighted connection share".into()).into());
+        }
+        tokio::time::sleep(
+            crate::util::download::constants::DOWNLOAD_SCHEDULER_INTERVAL,
+        )
+        .await;
+    }
 }
 
 pub(crate) fn initial_segment_count(

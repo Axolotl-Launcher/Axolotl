@@ -2,7 +2,7 @@ import { useTemplateRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
 import type OnlineModeWarningModal from '@/components/multiplayer/servers/OnlineModeWarningModal.vue'
-import { get_default_user } from '@/helpers/auth.js'
+import { get_default_user, users } from '@/helpers/auth.js'
 
 /**
  * Warns before launching with an offline account against a server that has
@@ -18,9 +18,13 @@ export function useOnlineModeWarning() {
     /** Name of the active account when it is an offline account, else null. */
     async function offlineAccountName(): Promise<string | null> {
         try {
-            const user = await get_default_user(false)
-            if (user?.account_type !== 'offline') return null
-            return user.profile?.name || 'offline'
+            const accountId = await get_default_user(false)
+            if (!accountId) return null
+            const account = (await users(false)).find(
+                (candidate: { account_id: string }) => candidate.account_id === accountId,
+            )
+            if (account?.account_type !== 'offline') return null
+            return account.profile?.name || 'offline'
         } catch {
             // No account selected yet; nothing to warn about.
             return null

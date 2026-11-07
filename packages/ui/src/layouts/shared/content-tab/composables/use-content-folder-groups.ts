@@ -107,9 +107,9 @@ export function useContentFolderGroups(options: UseContentFolderGroupsOptions) {
                     groupChildIds: row.childIds,
                     project: {
                         id: groupId,
-                        slug: null,
+                        slug: '',
                         title: row.name,
-                        icon_url: null,
+                        icon_url: undefined,
                     },
                     enabled: true,
                 })

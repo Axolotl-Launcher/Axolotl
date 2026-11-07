@@ -443,7 +443,7 @@ export function createServerInstallContent(opts: {
         }
 
         try {
-            const result = await flushStoredServerAddonInstallQueue({
+            const result = await flushStoredServerAddonInstallQueue<InstallableSearchResult>({
                 serverId,
                 worldId,
                 install: (plans) =>

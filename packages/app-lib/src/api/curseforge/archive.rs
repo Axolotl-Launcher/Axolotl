@@ -62,6 +62,61 @@ pub(crate) fn collect_modpack_override_tasks<R: Read + Seek>(
     Ok(tasks_by_target.into_values().collect())
 }
 
+pub(crate) fn read_modpack_override_identities<R: Read + Seek>(
+    archive: &mut zip::ZipArchive<R>,
+    manifest: &CurseForgeModpackManifest,
+) -> crate::Result<Vec<crate::install::model::InstallRollbackReplacementFile>> {
+    let tasks =
+        collect_modpack_override_tasks(archive, manifest, Path::new(""), None)?;
+    let mut identities = Vec::new();
+    for task in tasks {
+        let relative_path = task.target.to_string_lossy().replace('\\', "/");
+        if curseforge_override_content(&relative_path)?.is_none() {
+            continue;
+        }
+        let mut entry =
+            archive.by_index(task.index).map_err(modpack_zip_error)?;
+        let mut hash = sha1_smol::Sha1::new();
+        let mut size = 0_u64;
+        let mut buffer = [0_u8; 32768];
+        loop {
+            let read = entry.read(&mut buffer)?;
+            if read == 0 {
+                break;
+            }
+            hash.update(&buffer[..read]);
+            size += read as u64;
+        }
+        if size != task.size {
+            return Err(ErrorKind::InputError(
+                "CurseForge modpack override was truncated during extraction"
+                    .to_string(),
+            )
+            .into());
+        }
+        identities.push(
+            crate::install::model::InstallRollbackReplacementFile {
+                relative_path,
+                sha1: hash.hexdigest(),
+                size,
+            },
+        );
+    }
+    Ok(identities)
+}
+
+pub(crate) async fn track_modpack_override_identities(
+    reporter: &crate::install::InstallProgressReporter,
+    identities: &[crate::install::model::InstallRollbackReplacementFile],
+) -> crate::Result<()> {
+    for file in identities {
+        reporter
+            .track_pack_update_file(&file.relative_path, &file.sha1, file.size)
+            .await?;
+    }
+    Ok(())
+}
+
 pub(crate) fn materialize_modpack_overrides(
     archive_path: &Path,
     instance_path: &Path,

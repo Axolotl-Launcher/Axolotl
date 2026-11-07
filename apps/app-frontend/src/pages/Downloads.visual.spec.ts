@@ -2,7 +2,7 @@ import '@/test/visual-styles.scss'
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
-import { nextTick, reactive, ref } from 'vue'
+import { nextTick, reactive, ref, type VNode } from 'vue'
 
 import type { InstallJobSnapshot } from '@/helpers/install'
 import { preserveMonotonicProgress } from '@/helpers/install-progress'
@@ -14,6 +14,7 @@ const fixture = vi.hoisted(() => ({
     manager: {} as unknown,
     instances: [] as { id: string; name: string }[],
     clipboard: vi.fn(),
+    routerPush: vi.fn(),
     route: { query: {} as Record<string, unknown> },
 }))
 
@@ -47,12 +48,15 @@ vi.mock('@/components/ui/modal/MissingModpackContentModal.vue', () => ({
 }))
 vi.mock('vue-router', () => ({
     useRoute: () => fixture.route,
-    useRouter: () => ({ push: vi.fn() }),
+    useRouter: () => ({ push: fixture.routerPush }),
 }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
     const { default: IntlMessageFormat } = await import('intl-messageformat')
-    const catalogs = {
+    const catalogs: Record<
+        string,
+        Record<string, { message?: string; defaultMessage?: string }>
+    > = {
         'en-US': (await import('@/locales/en-US/index.json')).default,
         'zh-CN': (await import('@/locales/zh-CN/index.json')).default,
     }
@@ -95,6 +99,26 @@ vi.mock('@modrinth/ui', async () => {
                     }),
         }),
         ProgressBar,
+        IntlFormatted: defineComponent({
+            props: ['messageId'],
+            setup:
+                (props, { slots }) =>
+                () => {
+                    const message = props.messageId as { id: string; defaultMessage: string }
+                    const translated = catalogs[fixture.locale]?.[message.id]?.message
+                    const formatter = new IntlMessageFormat(
+                        translated ?? message.defaultMessage,
+                        fixture.locale,
+                    )
+                    const handlers = Object.fromEntries(
+                        Object.entries(slots).map(([name, slot]) => [
+                            name,
+                            (children: (string | VNode)[]) => slot?.({ children }) ?? [],
+                        ]),
+                    )
+                    return h('span', formatter.format<VNode>(handlers))
+                },
+        }),
         Button: (await import('../../../../packages/ui/src/components/base/buttons/Button.vue'))
             .default,
         Table: (await import('../../../../packages/ui/src/components/base/Table.vue')).default,
@@ -113,7 +137,10 @@ vi.mock('@modrinth/ui', async () => {
                         : null
             },
         }),
-        commonMessages: { retryButton: { defaultMessage: 'Retry' } },
+        commonMessages: {
+            retryButton: { defaultMessage: 'Retry' },
+            closeButton: { defaultMessage: 'Close' },
+        },
         defineMessages: (messages: unknown) => messages,
         defineMessage: (message: unknown) => message,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
@@ -160,6 +187,54 @@ function downloadingJob(provider: InstallJobSnapshot['provider']): InstallJobSna
         items: [],
     }
 }
+
+it('links the slow-download hint to settings and distinguishes temporary and persistent dismissal', async () => {
+    const storageKey = 'axolotl:downloads:hide-slow-downloads-hint'
+    const previousPreference = localStorage.getItem(storageKey)
+    localStorage.removeItem(storageKey)
+    fixture.locale = 'zh-CN'
+    fixture.route = { query: {} }
+    fixture.routerPush.mockClear()
+    const jobs = ref<InstallJobSnapshot[]>([])
+    fixture.manager = {
+        initializationState: ref('ready'),
+        jobs,
+        activeJobs: jobs,
+        historyJobs: ref([]),
+        legacyDownloads: ref([]),
+    }
+    const mountPage = () => mount(Downloads, { global: { directives: { tooltip: () => {} } } })
+    let wrapper = mountPage()
+    try {
+        const hint = wrapper.get('[data-testid="slow-downloads-hint"]')
+        expect(hint.text()).toContain('下载缓慢？')
+        expect(hint.text()).toContain('开启强制多线程下载功能')
+        const link = hint.get('a')
+        const href = '/settings?target=resources-force-multiconnection#content-downloads'
+        expect(link.text()).toBe('下载设置')
+        expect(link.attributes('href')).toBe(href)
+        await link.trigger('click')
+        expect(fixture.routerPush).toHaveBeenCalledWith(href)
+        await wrapper.get('[data-testid="close-slow-downloads-hint"]').trigger('click')
+        expect(wrapper.find('[data-testid="slow-downloads-hint"]').exists()).toBe(false)
+        expect(localStorage.getItem(storageKey)).toBeNull()
+        wrapper.unmount()
+        wrapper = mountPage()
+        expect(wrapper.find('[data-testid="slow-downloads-hint"]').exists()).toBe(true)
+        await wrapper.get('[data-testid="dismiss-slow-downloads-hint"]').trigger('click')
+        expect(wrapper.find('[data-testid="slow-downloads-hint"]').exists()).toBe(false)
+        expect(localStorage.getItem(storageKey)).toBe('true')
+        wrapper.unmount()
+        wrapper = mountPage()
+        expect(wrapper.find('[data-testid="slow-downloads-hint"]').exists()).toBe(false)
+    } finally {
+        wrapper.unmount()
+        if (previousPreference === null) localStorage.removeItem(storageKey)
+        else localStorage.setItem(storageKey, previousPreference)
+        fixture.locale = 'en-US'
+        fixture.route = { query: {} }
+    }
+})
 
 it('localizes batch titles, finds every resource, and shows terminal status instead of a stale phase', async () => {
     fixture.locale = 'zh-CN'
@@ -452,6 +527,47 @@ it.each(['curse_forge', 'local'] as const)(
     },
 )
 
+it('renders live content bytes in the main bar while keeping the parallel track independent', async () => {
+    const jobs = ref([
+        {
+            ...downloadingJob('modrinth'),
+            progress: { current: 1, total: 3, secondary: { current: 40, total: 300 } },
+            summary: {
+                files_completed: 1,
+                bytes_downloaded: 220,
+                bytes_total: 300,
+                fallback_count: 0,
+            },
+            parallel: { phase: 'downloading_minecraft', current: 1000, total: 1000 },
+        } as InstallJobSnapshot,
+    ])
+    fixture.manager = {
+        initializationState: ref('ready'),
+        jobs,
+        activeJobs: jobs,
+        historyJobs: ref([]),
+        legacyDownloads: ref([]),
+    }
+    const wrapper = mount(Downloads, { global: { directives: { tooltip: () => {} } } })
+    try {
+        const bars = wrapper.findAll('[role=progressbar]')
+        expect(bars[0].attributes('aria-label')).toBe('220 / 300')
+        expect(bars[0].attributes('aria-valuenow')).toBe('73')
+        expect(bars[1].attributes('aria-valuenow')).toBe('100')
+        jobs.value = [
+            {
+                ...jobs.value[0],
+                summary: { ...jobs.value[0].summary, bytes_downloaded: 250 },
+            },
+        ]
+        await nextTick()
+        expect(bars[0].attributes('aria-label')).toBe('250 / 300')
+        expect(bars[0].attributes('aria-valuenow')).toBe('83')
+    } finally {
+        wrapper.unmount()
+    }
+})
+
 it('shows the target name in the task summary and keeps long errors and raw identifiers in file details', async () => {
     fixture.instances = [{ id: 'internal-instance-id', name: 'My Minecraft world' }]
     const error =
@@ -462,7 +578,7 @@ it('shows the target name in the task summary and keeps long errors and raw iden
         id: 'file-one',
         name: 'example.jar',
         manual_url: 'https://example.test/manual',
-        status: 'failed',
+        status: 'failed' as const,
         attempts: 2,
         error,
         source: 'official',

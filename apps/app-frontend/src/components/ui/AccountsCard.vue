@@ -214,7 +214,7 @@
                     :disabled="loginDisabled"
                     :placeholder="formatMessage(messages.usernamePlaceholder)"
                     autocomplete="off"
-                    maxlength="16"
+                    :maxlength="16"
                     @keyup.enter="addOfflineAccount()"
                 />
             </label>
@@ -247,8 +247,8 @@
                     :disabled="loginDisabled"
                     :placeholder="formatMessage(messages.customUuidPlaceholder)"
                     autocomplete="off"
-                    spellcheck="false"
-                    maxlength="36"
+                    :spellcheck="false"
+                    :maxlength="36"
                     @keyup.enter="addOfflineAccount()"
                 />
             </label>
@@ -446,6 +446,7 @@ import {
     set_yggdrasil_password,
     users,
 } from '@/helpers/auth'
+import type { MinecraftCredential } from '@/helpers/auth-types'
 import { process_listener } from '@/helpers/events'
 import { mojangAuthKeys } from '@/helpers/mojang-auth/monitor'
 import {
@@ -490,26 +491,6 @@ async function refreshNetworkStatus() {
 const emit = defineEmits<{
     change: []
 }>()
-
-type MinecraftCredential = {
-    account_id: string
-    account_type: 'microsoft' | 'offline' | 'yggdrasil'
-    profile: {
-        id: string
-        name: string
-        skins?: Array<{
-            state: string
-            url: string
-            variant: Skin['variant']
-            textureKey?: string
-        }>
-    }
-    yggdrasil?: {
-        api_root: string
-        server_name: string
-        login: string
-    }
-}
 
 type YggdrasilProfile = {
     id: string
@@ -642,7 +623,7 @@ async function refreshValues(
     if (preferOnlineAccount && selectedUser) {
         resolvedSelectedUser = preferredOnlineAccountId(selectedUser, accounts.value)
     }
-    defaultUser.value = resolvedSelectedUser
+    defaultUser.value = resolvedSelectedUser ?? undefined
     if (resolvedSelectedUser && resolvedSelectedUser !== selectedUser) {
         await persistDefaultUser(resolvedSelectedUser)
         if (generation !== refreshGeneration) return
@@ -1164,7 +1145,7 @@ async function copyAccountUuid(account: MinecraftCredential) {
     }
 }
 
-const unlisten = await process_listener(async (e) => {
+const unlisten = await process_listener(async (e: { event: string }) => {
     if (e.event === 'launched') {
         await refreshValues()
     }

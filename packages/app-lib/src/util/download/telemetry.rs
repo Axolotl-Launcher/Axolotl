@@ -2,7 +2,7 @@
 
 use crate::util::fetch::{DownloadRequest, DownloadRoute, ProxyPolicy};
 use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::net::SocketAddr;
 use std::path::Path;
@@ -41,7 +41,7 @@ pub struct DownloadDiagnosticsSnapshot {
     pub dropped_transfers: u64,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DownloadDiagnosticsExport {
     pub schema_version: u32,
     pub enabled: bool,
@@ -51,13 +51,33 @@ pub struct DownloadDiagnosticsExport {
     pub dropped_transfers: u64,
 }
 
-#[derive(Clone, Debug, Serialize)]
+impl DownloadDiagnosticsExport {
+    pub(crate) fn snapshot(
+        &self,
+        file_id: Option<&str>,
+    ) -> DownloadDiagnosticsSnapshot {
+        DownloadDiagnosticsSnapshot {
+            enabled: enabled(),
+            pool_available: pool_available(),
+            files: self.files.iter().map(|file| file.summary.clone()).collect(),
+            selected_file: self
+                .files
+                .iter()
+                .find(|file| Some(file.summary.id.as_str()) == file_id)
+                .cloned(),
+            dropped_files: self.dropped_files,
+            dropped_transfers: self.dropped_transfers,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DownloadFileSummary {
     pub id: String,
     pub job_id: Option<String>,
     pub item_id: Option<String>,
     pub name: String,
-    pub status: &'static str,
+    pub status: String,
     pub elapsed_ms: u64,
     pub network_elapsed_ms: Option<u64>,
     pub received_bytes: u64,
@@ -72,29 +92,29 @@ pub struct DownloadFileSummary {
     pub effective_physical_connections: Option<usize>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DownloadFileDetails {
     pub summary: DownloadFileSummary,
     pub transfers: Vec<DownloadTransferSnapshot>,
     pub samples: Vec<DownloadFileSample>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DownloadTransferSnapshot {
     pub id: String,
-    pub identity_kind: &'static str,
+    pub identity_kind: String,
     pub physical_id: Option<u64>,
     pub protocol: String,
     /// The observed remote peer; it can be a proxy rather than the origin.
     pub remote_addr: Option<String>,
     pub proxied: bool,
-    pub state: &'static str,
+    pub state: String,
     pub received_bytes: u64,
     pub speed_bytes_per_second: Option<u64>,
     pub elapsed_ms: u64,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DownloadFileSample {
     pub elapsed_ms: u64,
     pub received_bytes: u64,
@@ -440,21 +460,23 @@ impl FileCapture {
                 }
                 DownloadTransferSnapshot {
                     id: t.id.to_string(),
-                    identity_kind: if metadata.physical_id.is_some() {
+                    identity_kind: (if metadata.physical_id.is_some() {
                         "physical_h2"
                     } else {
                         "http_request"
-                    },
+                    })
+                    .to_owned(),
                     physical_id: metadata.physical_id,
                     protocol: metadata.protocol.clone(),
                     remote_addr: metadata.remote_addr.map(|a| a.to_string()),
                     proxied: t.proxied,
-                    state: match transfer_state {
+                    state: (match transfer_state {
                         0 => "connecting",
                         1 => "active",
                         2 => "completed",
                         _ => "closed",
-                    },
+                    })
+                    .to_owned(),
                     received_bytes: bytes,
                     speed_bytes_per_second: rate.speed,
                     elapsed_ms: duration,
@@ -466,12 +488,13 @@ impl FileCapture {
             job_id: self.job_id.clone(),
             item_id: self.item_id.clone(),
             name: self.name.clone(),
-            status: match status {
+            status: (match status {
                 0 => "active",
                 1 => "completed",
                 2 => "failed",
                 _ => "canceled",
-            },
+            })
+            .to_owned(),
             elapsed_ms: elapsed,
             network_elapsed_ms: {
                 let start = self.network_started_ms.load(Ordering::Relaxed);

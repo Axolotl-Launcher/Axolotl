@@ -282,6 +282,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn config_sync_waits_for_deletion_and_does_not_recreate_files() {
+        for periodic in [false, true] {
+            let (_temp, state) = state_with_one_instance().await;
+            config_sync::sync_instance(&state, "instance")
+                .await
+                .unwrap();
+            let profile = state.directories.instances_dir().join("example");
+            assert!(profile.join(config_sync::CONFIG_FILE_NAME).is_file());
+
+            let deleting = state.lock_instance_content("instance").await;
+            std::fs::remove_file(profile.join(config_sync::CONFIG_FILE_NAME))
+                .unwrap();
+            let syncing_state = Arc::clone(&state);
+            let mut syncing = tokio::spawn(async move {
+                if periodic {
+                    config_sync::reconcile_all(&syncing_state).await
+                } else {
+                    config_sync::sync_instance(&syncing_state, "instance").await
+                }
+            });
+            assert!(
+                tokio::time::timeout(
+                    std::time::Duration::from_millis(100),
+                    &mut syncing,
+                )
+                .await
+                .is_err(),
+                "config sync must wait while deletion holds the content lock"
+            );
+            assert!(!profile.join(config_sync::CONFIG_FILE_NAME).exists());
+
+            remove_instance_files_and_state("instance", &state, false)
+                .await
+                .unwrap();
+            drop(deleting);
+            tokio::time::timeout(std::time::Duration::from_secs(5), syncing)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert!(!profile.exists());
+            assert!(
+                sqlx::query("PRAGMA foreign_key_check")
+                    .fetch_all(&state.pool)
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+            state.pool.close().await;
+        }
+    }
+
+    #[tokio::test]
     async fn deleting_a_missing_managed_profile_removes_its_record() {
         let (_temp, state) = state_with_one_instance().await;
         std::fs::remove_dir_all(

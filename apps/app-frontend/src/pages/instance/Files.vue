@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { CodeIcon, FileArchiveIcon } from '@modrinth/assets'
-import type { EditingFile, FileContextMenuOption, FileItem } from '@modrinth/ui'
+import type {
+    EditingFile,
+    ExtractDryRunResult,
+    FileContextMenuOption,
+    FileItem,
+} from '@modrinth/ui'
 import {
     Button,
     commonMessages,
@@ -260,12 +265,14 @@ async function handleDownloadFile(path: string, _fileName: string) {
 
 async function handleExtractFile(path: string, override: boolean, dry: boolean) {
     try {
-        return await invoke('plugin:files|file_extract_zip', {
-            instanceId: props.instance.id,
-            filePath: path,
-            overrideConflicts: override,
-            dryRun: dry,
-        })
+        return (
+            (await invoke<ExtractDryRunResult | null>('plugin:files|file_extract_zip', {
+                instanceId: props.instance.id,
+                filePath: path,
+                overrideConflicts: override,
+                dryRun: dry,
+            })) ?? undefined
+        )
     } catch (e) {
         addNotification({
             title: formatMessage(commonMessages.extractFailedLabel),

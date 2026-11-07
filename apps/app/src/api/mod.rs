@@ -4,6 +4,7 @@ use thiserror::Error;
 
 pub mod ai;
 pub mod auth;
+pub mod background;
 pub mod import;
 pub mod install;
 pub mod instance;

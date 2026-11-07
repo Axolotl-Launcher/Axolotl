@@ -6,11 +6,12 @@ export function createProjectDetailsQuery(
     query: LocationQuery,
     browsePath: string,
 ): LocationQueryRaw {
-    const details = { ...query, b: browsePath }
+    const details: LocationQueryRaw = { ...query }
     delete details.g
     delete details.l
     delete details.c
     delete details.page
+    details.b = browsePath
     return details
 }
 

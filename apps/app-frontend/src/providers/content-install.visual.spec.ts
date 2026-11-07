@@ -466,7 +466,7 @@ it('closes the install target after queueing without reporting failure or settli
         title: 'Example',
         project_type: 'mod',
         versions: ['release'],
-    })
+    } as unknown as Awaited<ReturnType<typeof get_project>>)
     vi.mocked(get_version_many).mockResolvedValue([
         {
             id: 'release',
@@ -474,7 +474,7 @@ it('closes the install target after queueing without reporting failure or settli
             game_versions: ['1.20.1'],
             loaders: ['fabric'],
         },
-    ])
+    ] as never)
     vi.mocked(get_install_candidates).mockResolvedValue([
         {
             id: 'instance',
@@ -527,7 +527,7 @@ it('direct instance installation settles the caller when resource review is canc
         title: 'Example',
         project_type: 'mod',
         versions: ['release'],
-    })
+    } as unknown as Awaited<ReturnType<typeof get_project>>)
     vi.mocked(get_version_many).mockResolvedValue([
         {
             id: 'release',
@@ -585,7 +585,7 @@ it('CF install target selection includes compatible files from the second source
             exhaustedSources: [],
             sourceFailures: [],
             requestId: 'test',
-        }) as Awaited<ReturnType<typeof resourceReleases>>
+        }) as unknown as Awaited<ReturnType<typeof resourceReleases>>
     vi.mocked(resourceReleases)
         .mockResolvedValueOnce(
             page(

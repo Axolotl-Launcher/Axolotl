@@ -40,7 +40,7 @@ export interface BrowseManagerContext {
     maxResults: Ref<number>
     currentPage: Ref<number>
     isServerType: ComputedRef<boolean>
-    effectiveLayout: ComputedRef<'list' | 'grid'>
+    effectiveLayout: ComputedRef<'list' | 'compact' | 'grid'>
     deprioritizedTags: ComputedRef<string[]>
     excludeLoaders: ComputedRef<boolean>
     refreshSearch: () => Promise<void>
@@ -48,7 +48,9 @@ export interface BrowseManagerContext {
     clearSearch: () => void
     onFilterChange: () => void
 
-    getProjectLink: (result: Labrinth.Search.v2.ResultSearchProject) => string | RouteLocationRaw
+    getProjectLink: (
+        result: BrowseSearchResponse['projectHits'][number],
+    ) => string | RouteLocationRaw
     getServerProjectLink: (
         result: Labrinth.Search.v3.ResultSearchProject,
     ) => string | RouteLocationRaw

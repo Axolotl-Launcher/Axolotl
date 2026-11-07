@@ -1,11 +1,20 @@
 <script setup lang="ts">
 import { FolderOpenIcon, UploadIcon } from '@modrinth/assets'
-import { Button, Combobox, defineMessages, injectNotificationManager, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    Combobox,
+    defineMessages,
+    injectNotificationManager,
+    Toggle,
+    useVIntl,
+} from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
 
 import { get, getUpdateChannel, update } from '@/helpers/settings.ts'
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
 import { showLauncherLogsFolder } from '@/helpers/utils'
+import { useTheming } from '@/store/state'
+import { DEFAULT_FEATURE_FLAGS } from '@/store/theme.ts'
 
 import LogExportModal from './LogExportModal.vue'
 import SettingsRow from './SettingsRow.vue'
@@ -13,6 +22,7 @@ import SettingsSection from './SettingsSection.vue'
 
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
+const themeStore = useTheming()
 
 const [initialSettings, updateChannel] = await Promise.all([get(), getUpdateChannel()])
 const settings = ref(initialSettings)
@@ -58,6 +68,19 @@ const messages = defineMessages({
     },
     exportButton: { id: 'app.settings.logs.export.button', defaultMessage: 'Export logs…' },
     openFolder: { id: 'app.settings.logs.open-folder', defaultMessage: 'Open logs folder' },
+    advancedDownloadInfo: {
+        id: 'app.settings.feature-flags.advanced-download-info',
+        defaultMessage: 'Advanced download information',
+    },
+    advancedDownloadInfoDescription: {
+        id: 'app.settings.feature-flags.advanced-download-info-description',
+        defaultMessage:
+            'Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections.',
+    },
+    resetToDefault: {
+        id: 'app.settings.feature-flags.reset-to-default',
+        defaultMessage: 'Reset to default',
+    },
 })
 
 const logLevelOptions = computed(() => {
@@ -93,6 +116,12 @@ async function openLogsFolder() {
     } catch (error) {
         handleError(error)
     }
+}
+
+function setAdvancedDownloadInfo(value: boolean | undefined) {
+    const enabled = value ?? false
+    themeStore.featureFlags.advanced_download_info = enabled
+    settings.value.feature_flags.advanced_download_info = enabled
 }
 </script>
 
@@ -152,6 +181,41 @@ async function openLogsFolder() {
                             ><FolderOpenIcon />
                             {{ formatMessage(messages.openFolder) }}
                         </Button>
+                    </div>
+                </template>
+            </SettingsRow>
+        </SettingsSection>
+
+        <SettingsSection
+            :title="formatMessage(messages.advancedDownloadInfo)"
+            title-id="settings-target-advanced-download-info"
+        >
+            <SettingsRow>
+                <template #label>{{ formatMessage(messages.advancedDownloadInfo) }}</template>
+                <template #description>
+                    {{ formatMessage(messages.advancedDownloadInfoDescription) }}
+                </template>
+                <template #control>
+                    <div class="flex items-center gap-2">
+                        <Button
+                            type="quiet"
+                            :disabled="
+                                themeStore.getFeatureFlag('advanced_download_info') ===
+                                DEFAULT_FEATURE_FLAGS.advanced_download_info
+                            "
+                            @click="
+                                setAdvancedDownloadInfo(
+                                    DEFAULT_FEATURE_FLAGS.advanced_download_info,
+                                )
+                            "
+                        >
+                            {{ formatMessage(messages.resetToDefault) }}
+                        </Button>
+                        <Toggle
+                            id="feature-flag-advanced_download_info"
+                            :model-value="themeStore.getFeatureFlag('advanced_download_info')"
+                            @update:model-value="setAdvancedDownloadInfo"
+                        />
                     </div>
                 </template>
             </SettingsRow>

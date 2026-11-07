@@ -81,7 +81,7 @@ const presets = ref<GradientPreset[]>(initialState.presets)
 const importValue = ref('')
 const importError = ref('')
 const presetName = ref('')
-let obfuscationTimer: ReturnType<typeof window.setInterval> | undefined
+let obfuscationTimer: number | undefined
 
 const OBFUSCATED_PREVIEW_GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
 

@@ -63,7 +63,7 @@ export function migrateRecipeProject(value: unknown): RecipeGeneratorStore {
                 typeof recipe === 'object' &&
                 ALL_RECIPE_TYPES.includes(recipe.recipeType),
         )
-        .map((recipe) => {
+        .map((recipe): RecipeState => {
             const defaults = createDefaultRecipeState(recipe.recipeType)
             return {
                 ...defaults,

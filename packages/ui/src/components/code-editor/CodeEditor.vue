@@ -164,9 +164,16 @@ async function formatDocument() {
     const currentEditor = editor
     const currentModel = model
     if (!currentEditor || !currentModel || props.readOnly) return
+    const language = currentModel.getLanguageId()
     const { prepareFormatting } = await import('./monaco-runtime')
-    await prepareFormatting(currentModel.getLanguageId())
-    if (disposed || model !== currentModel || props.readOnly) return
+    await prepareFormatting(currentModel)
+    if (
+        disposed ||
+        model !== currentModel ||
+        currentModel.getLanguageId() !== language ||
+        props.readOnly
+    )
+        return
     await currentEditor.getAction('editor.action.formatDocument')?.run()
 }
 

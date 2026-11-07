@@ -620,7 +620,16 @@ export async function get_dependencies_as_content_items(
     return items
 }
 
-export function adaptContentItems(items: ContentItem[]): ContentItem[] {
+type ContentItemWithEmbeddedMetadata = ContentItem & {
+    embedded_metadata?: {
+        icon_path?: string
+        icon_url?: string
+    } | null
+}
+
+export function adaptContentItems(
+    items: ContentItemWithEmbeddedMetadata[],
+): ContentItemWithEmbeddedMetadata[] {
     return items.map((item) => {
         const embeddedMetadata = item.embedded_metadata
         if (!embeddedMetadata?.icon_path) return item

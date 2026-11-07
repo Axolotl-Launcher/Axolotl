@@ -3,6 +3,8 @@ import { expect, it, vi } from 'vitest'
 
 import ConfirmDeleteInstanceModal from './ConfirmDeleteInstanceModal.vue'
 
+const { handleError } = vi.hoisted(() => ({ handleError: vi.fn() }))
+
 vi.mock('@/helpers/instance-backup', () => ({ getBackupDeleteSummary: async () => null }))
 vi.mock('@/components/ui/InstanceIcon.vue', async () => {
     const { defineComponent, h } = await import('vue')
@@ -16,6 +18,8 @@ vi.mock('@/components/ui/InstanceIcon.vue', async () => {
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
     const container = defineComponent({
+        name: 'ConfirmActionModal',
+        props: ['confirmAction'],
         setup: (_, { slots, expose }) => {
             expose({ show: () => {} })
             return () => h('div', slots.default?.())
@@ -25,10 +29,29 @@ vi.mock('@modrinth/ui', async () => {
         ConfirmActionModal: container,
         Admonition: container,
         defineMessages: (value: unknown) => value,
+        injectNotificationManager: () => ({ handleError }),
         useFormatBytes: () => String,
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),
+    }
+})
+
+it('reports a deletion failure once and preserves the rejection so the dialog can retry', async () => {
+    handleError.mockClear()
+    const failure = { field_name: 'Theseus', message: 'Directory not empty (os error 145)' }
+    const deleteAction = vi.fn().mockRejectedValueOnce(failure).mockResolvedValueOnce(undefined)
+    const wrapper = mount(ConfirmDeleteInstanceModal, { props: { deleteAction } })
+    try {
+        const confirm = wrapper.findComponent({ name: 'ConfirmActionModal' })
+        const action = confirm.props('confirmAction') as () => Promise<void>
+        await expect(action()).rejects.toBe(failure)
+        expect(handleError).toHaveBeenCalledExactlyOnceWith(failure)
+        await expect(action()).resolves.toBeUndefined()
+        expect(deleteAction).toHaveBeenCalledTimes(2)
+        expect(handleError).toHaveBeenCalledTimes(1)
+    } finally {
+        wrapper.unmount()
     }
 })
 

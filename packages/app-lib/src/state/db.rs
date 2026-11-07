@@ -581,7 +581,13 @@ fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
 
 async fn connect_app_db(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
     super::db_backup::prepare_app_db(db_path).await?;
-    super::db_backup::maybe_backup_existing_app_db(db_path).await?;
+    if let Err(err) =
+        super::db_backup::maybe_backup_existing_app_db(db_path).await
+    {
+        tracing::warn!(
+            "Continuing without a pre-migration app database backup: {err}"
+        );
+    }
     open_migrated_app_db(db_path).await
 }
 
@@ -1726,6 +1732,40 @@ mod tests {
     use std::collections::HashSet;
 
     #[tokio::test]
+    async fn backup_directory_failure_does_not_prevent_connection_or_hide_migration_errors()
+     {
+        let directory = tempfile::tempdir().unwrap();
+        let database = directory.path().join("release").join("app.db");
+        tokio::fs::create_dir_all(database.parent().unwrap())
+            .await
+            .unwrap();
+        let pool = connect_app_db(&database).await.unwrap();
+        sqlx::query("UPDATE app_metadata SET value = 'previous-software-version' WHERE key = 'app_version'")
+            .execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO app_metadata(key, value) VALUES ('backup-failure-marker', 'preserved')")
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+        tokio::fs::write(directory.path().join("Backups"), "not a directory")
+            .await
+            .unwrap();
+
+        let pool = connect_app_db(&database).await.unwrap();
+        let marker: String = sqlx::query_scalar(
+            "SELECT value FROM app_metadata WHERE key = 'backup-failure-marker'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(marker, "preserved");
+        sqlx::query("UPDATE app_metadata SET value = 'previous-software-version' WHERE key = 'app_version'")
+            .execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (99999999999999, 'unavailable-build', TRUE, X'00', 1)")
+            .execute(&pool).await.unwrap();
+        pool.close().await;
+        assert!(connect_app_db(&database).await.is_err());
+    }
+
+    #[tokio::test]
     async fn version_backup_precedes_migration_validation_and_survives_an_upgrade_failure()
      {
         let directory = tempfile::tempdir().unwrap();
@@ -1772,7 +1812,7 @@ mod tests {
         source.close().await;
     }
 
-    const SCHEDULER_TAGS_MIGRATION_VERSION: i64 = 20261106160000;
+    const SCHEDULER_TAGS_MIGRATION_VERSION: i64 = 20261107160000;
 
     /// An older build opening a database that has the scheduler collections
     /// must refuse it as a downgrade, with the message the frontend expects.
@@ -1810,7 +1850,7 @@ mod tests {
         ));
         let message = error.user_facing_message();
         assert!(message.contains("was created by a newer Axolotl build"));
-        assert!(message.contains("20261106160000"));
+        assert!(message.contains("20261107160000"));
         pool.close().await;
     }
 

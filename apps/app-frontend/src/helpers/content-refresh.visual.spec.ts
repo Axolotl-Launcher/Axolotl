@@ -48,6 +48,14 @@ function state(sequence = 0): ContentRefreshState {
                         size: 1,
                         enabled: true,
                         project_type: 'mod',
+                        update: null,
+                        origin_provider: null,
+                        provider_refs: [],
+                        project: {
+                            id: 'project',
+                            slug: 'project',
+                            title: 'Project',
+                        },
                     },
                 },
             ],
@@ -251,7 +259,7 @@ it('metadata preserves candidates while an explicit null clears them and stale f
         ...metadata,
         patch: {
             ...metadata.patch,
-            presentation: { ...metadata.patch.presentation!, owner: null },
+            presentation: { ...metadata.patch.presentation!, owner: undefined },
         },
     }
     expect(applyContentRefreshEvent(updated, partial).snapshot.items[0].content?.owner?.name).toBe(

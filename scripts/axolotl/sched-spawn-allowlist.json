@@ -10,6 +10,32 @@
       ]
     },
     {
+      "file": "apps/app/src/api/background.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed operation-scoped animated background decoding and encoding; the command awaits this blocking task while holding only its conversion permit, and the worker acquires no managed resource (D17)",
+      "sites": [
+        "background_convert_animated: let result = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/background.rs",
+      "form": "std::fs import",
+      "count": 9,
+      "reason": "reviewed background source reads in the awaited blocking conversion, path validation before admission, and temporary output publication/cleanup under the single conversion permit; command-scoped work outside L0 with no nested managed acquisition (D17)",
+      "sites": [
+        "convert_background: let bytes = fs::read(input_path).map_err(|error| {",
+        "convert_background: let metadata = fs::metadata(input_path).map_err(|error| {",
+        "validate_output_path: fs::canonicalize(&background_directory).map_err(|error| {",
+        "validate_output_path: fs::create_dir_all(&background_directory).map_err(|error| {",
+        "validate_output_path: fs::create_dir_all(parent).map_err(|error| {",
+        "validate_output_path: let canonical_parent = fs::canonicalize(parent).map_err(|error| {",
+        "write_atomically: fs::write(&temporary_path, bytes).map_err(|error| {",
+        "write_atomically: if let Err(error) = fs::rename(&temporary_path, output_path) {",
+        "write_atomically: let _ = fs::remove_file(&temporary_path);"
+      ]
+    },
+    {
       "file": "apps/app/src/api/cache.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 1,

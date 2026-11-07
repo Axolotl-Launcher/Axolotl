@@ -33,8 +33,9 @@ vi.mock('@modrinth/ui', async () => ({
     useVIntl: () => ({
         formatMessage: (message: { id: string; defaultMessage: string }) =>
             calls.chinese
-                ? ((chinese as Record<string, { message: string }>)[message.id]?.message ??
-                  message.defaultMessage)
+                ? ((
+                      chinese as Record<string, { message?: string; defaultMessage?: string }>
+                  )[message.id]?.message ?? message.defaultMessage)
                 : message.defaultMessage,
     }),
     injectNotificationManager: () => ({ handleError: calls.handleError }),

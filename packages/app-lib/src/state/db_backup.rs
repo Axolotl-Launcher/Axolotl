@@ -425,21 +425,65 @@ pub(crate) async fn maybe_backup_existing_app_db(
         backup_path.display()
     );
 
-    if let Err(err) =
-        create_verified_sqlite_snapshot(&mut conn, &backup_path).await
-    {
-        tracing::error!(
-            "Failed to create pre-migration app database backup at {}: {err}",
-            backup_path.display()
-        );
-        return Err(err);
-    }
+    let backup_path =
+        create_pre_migration_backup(conn, db_path, &backup_path).await?;
 
     tracing::info!(
         "Created pre-migration app database backup at {}",
         backup_path.display()
     );
 
+    Ok(())
+}
+
+async fn create_pre_migration_backup(
+    mut conn: SqliteConnection,
+    db_path: &Path,
+    backup_path: &Path,
+) -> crate::Result<PathBuf> {
+    if let Err(err) =
+        create_verified_sqlite_snapshot(&mut conn, backup_path).await
+    {
+        tracing::error!(
+            "Failed to create pre-migration app database backup at {}, falling back to copying the database files: {err}",
+            backup_path.display()
+        );
+        let _ = conn.close().await;
+        // A live file copy can be inconsistent. Keep it as recovery material
+        // outside the verified .db snapshot set used by automatic restoration.
+        let raw_path =
+            backup_path.with_extension(format!("{}.raw", uuid::Uuid::new_v4()));
+        if let Err(error) = copy_db_files(db_path, &raw_path).await {
+            tracing::error!(
+                "Failed to copy app database files to {}: {error}",
+                raw_path.display()
+            );
+            cleanup_staged_database(&raw_path).await;
+            return Err(error);
+        }
+        tracing::warn!(
+            database = %raw_path.display(),
+            "Saved an unverified database file copy for manual recovery; automatic restoration will not select it"
+        );
+        return Ok(raw_path);
+    }
+    Ok(backup_path.to_path_buf())
+}
+
+/// Preserves the database and its WAL when a verified snapshot cannot be made.
+async fn copy_db_files(
+    db_path: &Path,
+    backup_path: &Path,
+) -> crate::Result<()> {
+    crate::util::io::copy(db_path, backup_path).await?;
+    let wal_path = sqlite_sidecar_path(db_path, "-wal");
+    if wal_path.try_exists()? {
+        crate::util::io::copy(
+            &wal_path,
+            sqlite_sidecar_path(backup_path, "-wal"),
+        )
+        .await?;
+    }
     Ok(())
 }
 
@@ -841,6 +885,97 @@ mod tests {
         );
         source.close().await.unwrap();
         assert!(!target.exists());
+        assert_eq!(read_marker(&database).await, "unchanged");
+    }
+
+    #[tokio::test]
+    async fn snapshot_failure_preserves_raw_database_and_wal_without_publishing_a_verified_backup()
+     {
+        let temp = tempfile::tempdir().unwrap();
+        let database = temp.path().join("app.db");
+        create_test_app_db(&database, "before-wal").await;
+        let mut writer = SqliteConnectOptions::new()
+            .filename(&database)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            .pragma("wal_autocheckpoint", "0")
+            .connect()
+            .await
+            .unwrap();
+        sqlx::query("UPDATE recovery_marker SET value = 'committed-in-wal'")
+            .execute(&mut writer)
+            .await
+            .unwrap();
+        let backup_dir = temp.path().join("backups");
+        tokio::fs::create_dir_all(&backup_dir).await.unwrap();
+        let target = backup_dir.join("app-db-before-new-from-old.db");
+        let mut raw_paths = Vec::new();
+        for _ in 0..2 {
+            let mut source = open_read_only_db(&database).await.unwrap();
+            // VACUUM cannot run inside a transaction, even on a healthy source.
+            sqlx::query("BEGIN").execute(&mut source).await.unwrap();
+            let raw = create_pre_migration_backup(source, &database, &target)
+                .await
+                .unwrap();
+            assert_eq!(
+                raw.extension().and_then(|value| value.to_str()),
+                Some("raw")
+            );
+            assert_eq!(
+                tokio::fs::read(&raw).await.unwrap(),
+                tokio::fs::read(&database).await.unwrap()
+            );
+            assert_eq!(
+                tokio::fs::read(sqlite_sidecar_path(&raw, "-wal"))
+                    .await
+                    .unwrap(),
+                tokio::fs::read(sqlite_sidecar_path(&database, "-wal"))
+                    .await
+                    .unwrap()
+            );
+            raw_paths.push(raw);
+        }
+        assert_ne!(raw_paths[0], raw_paths[1]);
+        assert!(!target.exists());
+        assert!(
+            latest_healthy_app_db_backup(&backup_dir)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(read_marker(&raw_paths[0]).await, "committed-in-wal");
+        assert_eq!(read_marker(&database).await, "committed-in-wal");
+        writer.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn failed_raw_wal_copy_removes_partial_files_and_keeps_the_source() {
+        let temp = tempfile::tempdir().unwrap();
+        let database = temp.path().join("app.db");
+        create_test_app_db(&database, "unchanged").await;
+        let mut source = open_read_only_db(&database).await.unwrap();
+        sqlx::query("BEGIN").execute(&mut source).await.unwrap();
+        let wal = sqlite_sidecar_path(&database, "-wal");
+        tokio::fs::create_dir(&wal).await.unwrap();
+        let backup_dir = temp.path().join("backups");
+        tokio::fs::create_dir(&backup_dir).await.unwrap();
+        let target = backup_dir.join("app-db-before-new-from-old.db");
+        assert!(
+            create_pre_migration_backup(source, &database, &target)
+                .await
+                .is_err()
+        );
+        assert!(
+            tokio::fs::read_dir(&backup_dir)
+                .await
+                .unwrap()
+                .next_entry()
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(database.exists());
+        assert!(wal.is_dir());
+        tokio::fs::remove_dir(wal).await.unwrap();
         assert_eq!(read_marker(&database).await, "unchanged");
     }
 

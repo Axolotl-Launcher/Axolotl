@@ -44,7 +44,7 @@ import {
     FILE_TEXT_EXTENSIONS,
 } from './file-extensions'
 
-export const PROJECT_TYPE_ICONS: Record<ProjectType, Component> = {
+export const PROJECT_TYPE_ICONS: Record<ProjectType | 'minecraft_java_server', Component> = {
     mod: BoxIcon,
     modpack: PackageOpenIcon,
     resourcepack: PaintbrushIcon,

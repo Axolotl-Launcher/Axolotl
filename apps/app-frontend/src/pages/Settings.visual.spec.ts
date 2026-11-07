@@ -1,12 +1,13 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
-import { defineComponent, h, Suspense } from 'vue'
+import { type Component, defineComponent, h, Suspense } from 'vue'
 
 import Settings from './Settings.vue'
 
 const fixture = vi.hoisted(() => ({
     finish: {} as Record<string, () => void>,
     replace: vi.fn().mockResolvedValue(undefined),
+    route: { hash: '#interface', query: {} as Record<string, unknown> },
 }))
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: async () => '1.0' }))
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => 'windows', version: () => '11' }))
@@ -17,7 +18,7 @@ vi.mock('@/providers/download-progress', async () => {
     return { injectAppUpdateDownloadProgress: () => ({ progress: ref(null), version: ref(null) }) }
 })
 vi.mock('vue-router', () => ({
-    useRoute: () => ({ hash: '#interface', query: {} }),
+    useRoute: () => fixture.route,
     useRouter: () => ({ replace: fixture.replace }),
 }))
 vi.mock('@modrinth/ui', () => ({
@@ -30,7 +31,8 @@ vi.mock('@modrinth/ui', () => ({
     }),
 }))
 vi.mock('@/components/ui/settings/settings-search-index', () => ({
-    getSettingsSearchTargetId: (entry: { id: string }) => entry.id,
+    getSettingsSearchTargetId: (entry: { id: string; targetId?: string }) =>
+        entry.targetId ?? entry.id,
 }))
 vi.mock('@/components/ui/settings/settings-registry', async () => {
     const { defineAsyncComponent, h, markRaw } = await import('vue')
@@ -43,6 +45,21 @@ vi.mock('@/components/ui/settings/settings-registry', async () => {
             entries: [],
             content: markRaw({ render: () => h('p', 'Appearance content') }),
         },
+        {
+            id: 'content-downloads',
+            group: 'launcher',
+            name: message('Downloads'),
+            entries: [
+                {
+                    id: 'resources-force-multiconnection',
+                    targetId: 'settings-target-resources-force-multiconnection',
+                    label: message('Force multi-connection downloads'),
+                },
+            ],
+            content: markRaw({
+                render: () => h('input', { id: 'settings-target-resources-force-multiconnection' }),
+            }),
+        },
         ...['slow', 'latest'].map((id) => ({
             id,
             group: 'launcher',
@@ -51,7 +68,7 @@ vi.mock('@/components/ui/settings/settings-registry', async () => {
             entries: [{ id: `${id}-target`, label: message(`${id} setting`) }],
             content: defineAsyncComponent(
                 () =>
-                    new Promise((resolve) => {
+                    new Promise<Component>((resolve) => {
                         fixture.finish[id] = () =>
                             resolve({ render: () => h('input', { id: `${id}-target` }) })
                     }),
@@ -62,6 +79,28 @@ vi.mock('@/components/ui/settings/settings-registry', async () => {
         getVisibleSettingsCategories: () => categories,
         getVisibleSettingsGroups: () => [{ id: 'launcher', name: message('Launcher'), categories }],
         settingsPageTitle: message('Settings'),
+    }
+})
+
+it('locates a linked setting within the requested category', async () => {
+    fixture.route = {
+        hash: '#content-downloads',
+        query: { target: 'resources-force-multiconnection' },
+    }
+    const wrapper = mount(
+        defineComponent({ render: () => h(Suspense, null, { default: () => h(Settings) }) }),
+        { attachTo: document.body },
+    )
+    try {
+        await vi.waitFor(() =>
+            expect(
+                wrapper.get('#settings-target-resources-force-multiconnection').classes(),
+            ).toContain('settings-search-result-highlight'),
+        )
+        expect(wrapper.find('input[type="search"]').element).toHaveProperty('value', '')
+    } finally {
+        wrapper.unmount()
+        fixture.route = { hash: '#interface', query: {} }
     }
 })
 

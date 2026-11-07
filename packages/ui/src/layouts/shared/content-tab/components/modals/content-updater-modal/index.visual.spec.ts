@@ -83,6 +83,49 @@ const version = (id: string) => ({
     files: [],
 })
 
+it('shows a failed update beside the action and keeps the selected version available for retry', async () => {
+    const wrapper = await modal({
+        versions: [version('old'), version('new')],
+        projectType: 'modpack',
+        hideOnUpdate: false,
+    })
+    ;(wrapper.vm as unknown as { show: (id: string) => void }).show('new')
+    await nextTick()
+    const action = () =>
+        [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+            button.textContent?.includes('Update to'),
+        )!
+    action().click()
+    expect(wrapper.emitted('update')).toHaveLength(1)
+
+    await wrapper.setProps({ actionLoading: true })
+    const submitting = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+        button.textContent?.includes('Installing'),
+    )!
+    expect(submitting.disabled).toBe(true)
+    submitting.click()
+    document.querySelector<HTMLElement>('[role="option"][aria-selected="false"]')?.click()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextTick()
+    expect(wrapper.emitted('update')).toHaveLength(1)
+    expect(document.querySelector('[role="option"][aria-selected="true"]')?.textContent).toContain(
+        'new',
+    )
+    expect(document.querySelector('.modal-container.shown')).not.toBeNull()
+
+    const failure = 'The instance changed. Refresh the preview and try again.'
+    await wrapper.setProps({ actionLoading: false, actionError: failure })
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(failure)
+    expect(document.querySelector('.modal-container.shown')).not.toBeNull()
+    expect(action().disabled).toBe(false)
+    expect(action().textContent).toContain('new')
+    action().click()
+    expect(wrapper.emitted('update')).toHaveLength(2)
+    expect(wrapper.emitted('update')?.at(-1)?.[0]).toMatchObject({ id: 'new' })
+    await wrapper.setProps({ actionError: undefined, actionLoading: true })
+    expect(document.querySelector('[role="alert"]')).toBeNull()
+})
+
 it('keeps loaded versions listed while more load or after a later page fails', async () => {
     const wrapper = await modal({ versions: [version('first')], loading: true })
     const listed = () =>

@@ -1943,7 +1943,7 @@ pub(crate) async fn materialize_project_download_batch(
     .await
 }
 
-fn materialization_path_key(path: &str) -> String {
+pub(crate) fn materialization_path_key(path: &str) -> String {
     if cfg!(any(windows, target_os = "macos")) {
         path.replace('\\', "/").to_lowercase()
     } else {
@@ -3578,6 +3578,32 @@ pub(crate) async fn remove_project(
     project_path: &str,
     state: &State,
 ) -> crate::Result<()> {
+    remove_project_with_expected(instance_id, project_path, None, state).await
+}
+
+/// Pack replacement must not record an explicit user removal of its member.
+pub(crate) async fn remove_replaced_project_if_unchanged(
+    instance_id: &str,
+    project_path: &str,
+    sha1: &str,
+    size: u64,
+    state: &State,
+) -> crate::Result<()> {
+    remove_project_with_expected(
+        instance_id,
+        project_path,
+        Some((sha1, size)),
+        state,
+    )
+    .await
+}
+
+async fn remove_project_with_expected(
+    instance_id: &str,
+    project_path: &str,
+    expected: Option<(&str, u64)>,
+    state: &State,
+) -> crate::Result<()> {
     let _instance_lock = state
         .lock_instance_content_with_timeout(
             instance_id,
@@ -3596,6 +3622,17 @@ pub(crate) async fn remove_project(
     .await?;
 
     let full_path = join_content_path(&base, project_path);
+    if let Some((expected_sha1, expected_size)) = expected
+        && tokio::fs::try_exists(&full_path).await?
+    {
+        let (size, sha1) = fetch::sha1_file_async(&full_path).await?;
+        if size != expected_size || !sha1.eq_ignore_ascii_case(expected_sha1) {
+            return Err(crate::ErrorKind::InputError(format!(
+                "Content changed before pack update cleanup: {project_path}"
+            ))
+            .into());
+        }
+    }
     let staged_relative =
         format!("{project_path}.{}.removing", uuid::Uuid::new_v4());
     let paths = if tokio::fs::try_exists(&full_path).await? {
@@ -3636,13 +3673,15 @@ pub(crate) async fn remove_project(
                 let mut tx = begin_content_write(&state.pool).await?;
                 if let Some(file) = file {
                     let modified_at = chrono::Utc::now().timestamp();
-                    pack_members::detach_members_for_file_in_transaction(
-                        &scope.content_set_id,
-                        &file.id,
-                        modified_at,
-                        &mut tx,
-                    )
-                    .await?;
+                    if expected.is_none() {
+                        pack_members::detach_members_for_file_in_transaction(
+                            &scope.content_set_id,
+                            &file.id,
+                            modified_at,
+                            &mut tx,
+                        )
+                        .await?;
+                    }
                     content_entries::delete_entries_for_file_in_transaction(
                         &scope.content_set_id,
                         &file.id,

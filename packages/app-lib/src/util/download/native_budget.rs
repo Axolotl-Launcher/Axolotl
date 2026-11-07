@@ -12,11 +12,14 @@ use std::sync::{Arc, LazyLock};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 use super::constants::{
-    MAX_CONNECTIONS_PER_AUTHORITY, MAX_PHYSICAL_DOWNLOAD_CONNECTIONS,
+    FORCED_DOWNLOAD_CONCURRENCY_MAX, MAX_CONNECTIONS_PER_AUTHORITY,
+    MAX_PHYSICAL_DOWNLOAD_CONNECTIONS,
 };
 static PHYSICAL_CONNECTIONS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
     Arc::new(Semaphore::new(MAX_PHYSICAL_DOWNLOAD_CONNECTIONS))
 });
+static FORCED_CONNECTIONS: LazyLock<Arc<Semaphore>> =
+    LazyLock::new(|| Arc::new(Semaphore::new(FORCED_DOWNLOAD_CONCURRENCY_MAX)));
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct AuthorityKey {
@@ -36,7 +39,18 @@ pub(crate) struct NativeBudgetPermit {
     _global: OwnedSemaphorePermit,
 }
 
-fn regular_budget(route: &DownloadRoute) -> Option<Arc<Semaphore>> {
+fn forced_connections() -> bool {
+    crate::State::get_if_initialized()
+        .is_some_and(|state| state.force_multiconnection_downloads())
+}
+
+fn regular_budget(
+    route: &DownloadRoute,
+    forced: bool,
+) -> Option<Arc<Semaphore>> {
+    if forced {
+        return None;
+    }
     let clients = super::proxy_context::clients()?;
     if clients.endpoints.mode()
         != super::endpoint_selection::SelectionMode::Auto
@@ -68,7 +82,16 @@ fn regular_budget(route: &DownloadRoute) -> Option<Arc<Semaphore>> {
     )
 }
 
-fn budget(route: &DownloadRoute) -> Option<Arc<Semaphore>> {
+fn budget(
+    route: &DownloadRoute,
+    forced: bool,
+    forced_budget: &Arc<Semaphore>,
+) -> Option<Arc<Semaphore>> {
+    // Forced downloads share this pool across authorities and fetch semaphores.
+    // The existing physical pool also continues to bound all download traffic.
+    if forced {
+        return Some(Arc::clone(forced_budget));
+    }
     let authority = crate::util::fetch::url_authority(&route.url)?;
     let key = AuthorityKey {
         authority: super::proxy_context::authority_key(&authority, route.proxy),
@@ -88,6 +111,17 @@ fn budget(route: &DownloadRoute) -> Option<Arc<Semaphore>> {
     )
 }
 
+async fn evict_idle_for_budget(route: &DownloadRoute, forced: bool) {
+    let authority = if forced {
+        None
+    } else {
+        crate::util::fetch::url_authority(&route.url).map(|authority| {
+            super::proxy_context::authority_key(&authority, route.proxy)
+        })
+    };
+    super::h2_pool::evict_idle_connections(authority.as_deref()).await;
+}
+
 pub(crate) async fn acquire(
     route: &DownloadRoute,
 ) -> Result<NativeBudgetPermit, tokio::sync::AcquireError> {
@@ -98,31 +132,22 @@ async fn acquire_with_global(
     route: &DownloadRoute,
     global: &Arc<Semaphore>,
 ) -> Result<NativeBudgetPermit, tokio::sync::AcquireError> {
-    let regular = match regular_budget(route) {
+    let forced = forced_connections();
+    let regular_budget = regular_budget(route, forced);
+    let authority_budget = budget(route, forced, &FORCED_CONNECTIONS);
+    let regular = match regular_budget {
         Some(budget) => {
             if budget.available_permits() == 0 {
-                super::h2_pool::evict_idle_connections(Some(
-                    &super::proxy_context::authority_key(
-                        &crate::util::fetch::url_authority(&route.url).unwrap(),
-                        route.proxy,
-                    ),
-                ))
-                .await;
+                evict_idle_for_budget(route, false).await;
             }
             Some(budget.acquire_owned().await?)
         }
         None => None,
     };
-    let authority = match budget(route) {
+    let authority = match authority_budget {
         Some(budget) => {
             if budget.available_permits() == 0 {
-                super::h2_pool::evict_idle_connections(Some(
-                    &super::proxy_context::authority_key(
-                        &crate::util::fetch::url_authority(&route.url).unwrap(),
-                        route.proxy,
-                    ),
-                ))
-                .await;
+                evict_idle_for_budget(route, forced).await;
             }
             Some(budget.acquire_owned().await?)
         }
@@ -143,8 +168,28 @@ pub(crate) async fn acquire_many(
     route: &DownloadRoute,
     count: usize,
 ) -> Result<Vec<NativeBudgetPermit>, tokio::sync::AcquireError> {
-    let regular_budget = regular_budget(route);
-    let count = count.min(if regular_budget.is_some() {
+    acquire_many_with_mode(
+        route,
+        count,
+        forced_connections(),
+        &PHYSICAL_CONNECTIONS,
+        &FORCED_CONNECTIONS,
+    )
+    .await
+}
+
+async fn acquire_many_with_mode(
+    route: &DownloadRoute,
+    count: usize,
+    forced: bool,
+    global_budget: &Arc<Semaphore>,
+    forced_budget: &Arc<Semaphore>,
+) -> Result<Vec<NativeBudgetPermit>, tokio::sync::AcquireError> {
+    let regular_budget = regular_budget(route, forced);
+    let authority_budget = budget(route, forced, forced_budget);
+    let count = count.min(if forced {
+        FORCED_DOWNLOAD_CONCURRENCY_MAX
+    } else if regular_budget.is_some() {
         MAX_CONNECTIONS_PER_AUTHORITY - 1
     } else {
         MAX_CONNECTIONS_PER_AUTHORITY
@@ -152,47 +197,29 @@ pub(crate) async fn acquire_many(
     let mut regular = match regular_budget {
         Some(budget) => {
             if budget.available_permits() < count {
-                super::h2_pool::evict_idle_connections(Some(
-                    &super::proxy_context::authority_key(
-                        &crate::util::fetch::url_authority(&route.url).unwrap(),
-                        route.proxy,
-                    ),
-                ))
-                .await;
+                evict_idle_for_budget(route, false).await;
             }
             Some(budget.acquire_many_owned(count as u32).await?)
         }
         None => None,
     };
-    let mut authority = match budget(route) {
+    let mut authority = match authority_budget {
         Some(budget) => {
             if budget.available_permits() < count {
-                super::h2_pool::evict_idle_connections(Some(
-                    &super::proxy_context::authority_key(
-                        &crate::util::fetch::url_authority(&route.url).unwrap(),
-                        route.proxy,
-                    ),
-                ))
-                .await;
+                evict_idle_for_budget(route, forced).await;
             }
-            Some(
-                budget
-                    .acquire_many_owned(
-                        count.min(MAX_CONNECTIONS_PER_AUTHORITY) as u32,
-                    )
-                    .await?,
-            )
+            Some(budget.acquire_many_owned(count as u32).await?)
         }
         None => None,
     };
-    if PHYSICAL_CONNECTIONS.available_permits() < count {
+    if global_budget.available_permits() < count {
         super::h2_pool::evict_idle_connections(None).await;
     }
-    let mut global = PHYSICAL_CONNECTIONS
+    let mut global = global_budget
         .clone()
         .acquire_many_owned(count as u32)
         .await?;
-    Ok((0..count.min(MAX_CONNECTIONS_PER_AUTHORITY))
+    Ok((0..count)
         .map(|_| NativeBudgetPermit {
             _regular: regular.as_mut().map(|permit| {
                 permit
@@ -214,10 +241,11 @@ pub(crate) async fn acquire_many(
 pub(crate) fn try_acquire(
     route: &DownloadRoute,
 ) -> Result<NativeBudgetPermit, TryAcquireError> {
-    let regular = regular_budget(route)
+    let forced = forced_connections();
+    let regular = regular_budget(route, forced)
         .map(|budget| budget.try_acquire_owned())
         .transpose()?;
-    let mut permit = try_acquire_recovery(route)?;
+    let mut permit = try_acquire_recovery_with_mode(route, forced)?;
     permit._regular = regular;
     Ok(permit)
 }
@@ -225,10 +253,17 @@ pub(crate) fn try_acquire(
 pub(crate) fn try_acquire_recovery(
     route: &DownloadRoute,
 ) -> Result<NativeBudgetPermit, TryAcquireError> {
+    try_acquire_recovery_with_mode(route, forced_connections())
+}
+
+fn try_acquire_recovery_with_mode(
+    route: &DownloadRoute,
+    forced: bool,
+) -> Result<NativeBudgetPermit, TryAcquireError> {
     Ok(NativeBudgetPermit {
         _regular: None,
         _global: PHYSICAL_CONNECTIONS.clone().try_acquire_owned()?,
-        _authority: match budget(route) {
+        _authority: match budget(route, forced, &FORCED_CONNECTIONS) {
             Some(budget) => Some(budget.try_acquire_owned()?),
             None => None,
         },
@@ -236,28 +271,135 @@ pub(crate) fn try_acquire_recovery(
 }
 
 pub(crate) fn available(route: &DownloadRoute) -> usize {
-    budget(route)
+    let forced = forced_connections();
+    budget(route, forced, &FORCED_CONNECTIONS)
         .map(|budget| budget.available_permits())
-        .unwrap_or(MAX_CONNECTIONS_PER_AUTHORITY)
+        .unwrap_or_else(|| capacity_with_mode(route, forced))
         .min(PHYSICAL_CONNECTIONS.available_permits())
 }
 
 pub(crate) fn in_use(route: &DownloadRoute) -> usize {
-    budget(route).map_or(0, |budget| {
-        MAX_CONNECTIONS_PER_AUTHORITY.saturating_sub(budget.available_permits())
+    let forced = forced_connections();
+    budget(route, forced, &FORCED_CONNECTIONS).map_or(0, |budget| {
+        let capacity = if forced {
+            FORCED_DOWNLOAD_CONCURRENCY_MAX
+        } else {
+            MAX_CONNECTIONS_PER_AUTHORITY
+        };
+        capacity.saturating_sub(budget.available_permits())
     })
 }
 
 /// Admission changes with active transfers; it must not permanently reduce a
 /// file's growth ceiling when that file starts during a busy batch.
 pub(crate) fn capacity(route: &DownloadRoute) -> usize {
-    MAX_CONNECTIONS_PER_AUTHORITY - usize::from(regular_budget(route).is_some())
+    capacity_with_mode(route, forced_connections())
+}
+
+fn capacity_with_mode(route: &DownloadRoute, forced: bool) -> usize {
+    if forced {
+        FORCED_DOWNLOAD_CONCURRENCY_MAX
+    } else {
+        MAX_CONNECTIONS_PER_AUTHORITY
+            - usize::from(regular_budget(route, false).is_some())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::util::fetch::DownloadRouteSource;
+
+    #[tokio::test]
+    async fn forced_mode_can_fill_the_global_budget_beyond_one_authority_cap() {
+        let route = route();
+        let global =
+            Arc::new(Semaphore::new(MAX_PHYSICAL_DOWNLOAD_CONNECTIONS));
+        let forced = Arc::new(Semaphore::new(FORCED_DOWNLOAD_CONCURRENCY_MAX));
+        let permits = acquire_many_with_mode(
+            &route,
+            MAX_PHYSICAL_DOWNLOAD_CONNECTIONS,
+            true,
+            &global,
+            &forced,
+        )
+        .await
+        .unwrap();
+        assert_eq!(permits.len(), FORCED_DOWNLOAD_CONCURRENCY_MAX);
+        assert!(forced.clone().try_acquire_owned().is_err());
+        drop(permits);
+        assert_eq!(forced.available_permits(), FORCED_DOWNLOAD_CONCURRENCY_MAX);
+        assert_eq!(
+            global.available_permits(),
+            MAX_PHYSICAL_DOWNLOAD_CONNECTIONS
+        );
+    }
+
+    #[tokio::test]
+    async fn forced_mode_shares_its_total_budget_across_authorities() {
+        let global =
+            Arc::new(Semaphore::new(MAX_PHYSICAL_DOWNLOAD_CONNECTIONS));
+        let forced = Arc::new(Semaphore::new(FORCED_DOWNLOAD_CONCURRENCY_MAX));
+        let first = route();
+        let mut second = first.clone();
+        second.url = "https://forced-second.invalid/file".into();
+        let mut first_permits =
+            acquire_many_with_mode(&first, 40, true, &global, &forced)
+                .await
+                .unwrap();
+        let second_permits = acquire_many_with_mode(
+            &second,
+            FORCED_DOWNLOAD_CONCURRENCY_MAX - first_permits.len(),
+            true,
+            &global,
+            &forced,
+        )
+        .await
+        .unwrap();
+        assert_eq!(forced.available_permits(), 0);
+        let pending =
+            acquire_many_with_mode(&second, 1, true, &global, &forced);
+        tokio::pin!(pending);
+        assert!(futures::poll!(pending.as_mut()).is_pending());
+        drop(first_permits.pop());
+        let replacement = pending.await.unwrap();
+        assert_eq!(replacement.len(), 1);
+        drop((first_permits, second_permits, replacement));
+        assert_eq!(forced.available_permits(), FORCED_DOWNLOAD_CONCURRENCY_MAX);
+        assert_eq!(
+            global.available_permits(),
+            MAX_PHYSICAL_DOWNLOAD_CONNECTIONS
+        );
+    }
+
+    #[tokio::test]
+    async fn ordinary_batch_keeps_the_authority_cap_and_skips_forced_pool() {
+        let global =
+            Arc::new(Semaphore::new(MAX_PHYSICAL_DOWNLOAD_CONNECTIONS));
+        let forced = Arc::new(Semaphore::new(FORCED_DOWNLOAD_CONCURRENCY_MAX));
+        let mut route = route();
+        route.url = "https://ordinary-batch.invalid/file".into();
+        let permits = acquire_many_with_mode(
+            &route,
+            MAX_PHYSICAL_DOWNLOAD_CONNECTIONS,
+            false,
+            &global,
+            &forced,
+        )
+        .await
+        .unwrap();
+        assert_eq!(permits.len(), MAX_CONNECTIONS_PER_AUTHORITY);
+        assert_eq!(forced.available_permits(), FORCED_DOWNLOAD_CONCURRENCY_MAX);
+        assert_eq!(
+            budget(&route, false, &forced).unwrap().available_permits(),
+            0
+        );
+        drop(permits);
+        assert_eq!(
+            global.available_permits(),
+            MAX_PHYSICAL_DOWNLOAD_CONNECTIONS
+        );
+    }
 
     #[tokio::test]
     async fn global_physical_budget_bounds_multiple_authorities_and_releases_after_drop()

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 
 import type { InstallJobSnapshot, InstallJobStatus } from '@/helpers/install'
-import type { InstanceUpgradeResult } from '@/helpers/instance-upgrade'
+import type { InstanceUpgradeDisplayNames, InstanceUpgradeResult } from '@/helpers/instance-upgrade'
 
 import {
     isInstanceUpgradeJobWith,
@@ -134,7 +134,7 @@ function submissionDependencies(calls: unknown[][], jobs: InstallJobSnapshot[] =
     }
 }
 
-const displayNames = {
+const displayNames: InstanceUpgradeDisplayNames = {
     backup: 'Backup',
     copy: 'Copy',
     upgradedTarget: 'Target',

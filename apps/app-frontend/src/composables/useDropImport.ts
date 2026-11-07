@@ -10,6 +10,7 @@ import type {
     BatchDropItem,
     BatchDropPhase,
     ClassificationResult,
+    FileDropProvider,
     SymlinkMethodChoice,
     SymlinkMethodInstance,
 } from '@modrinth/ui'
@@ -109,7 +110,7 @@ export interface DropImportOptions {
     /** Content install provider functions */
     contentInstall: ContentInstallContext
     /** File drop handler from providers */
-    fileDrop: (paths: string[]) => void
+    fileDrop: FileDropProvider
     /** Whether currently on skins page */
     onSkinsPage: ComputedRef<boolean>
     /** Whether currently on schematic workshop page */
@@ -194,6 +195,7 @@ export function useDropImport(options: DropImportOptions) {
                 launcherType?: string
                 basePath?: string
                 compatibleMode?: boolean
+                versionPath?: string
             }>
         }) => void
         hide: () => void

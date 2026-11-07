@@ -12,14 +12,17 @@ import { edit } from '@/helpers/instance'
 import { get } from '@/helpers/settings.ts'
 import { injectInstanceSettings } from '@/providers/instance-settings'
 
-import type { AppSettings, Hooks } from '../../../helpers/types'
+import type { Hooks } from '../../../helpers/types'
 
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 
 const { instance } = injectInstanceSettings()
 
-const globalSettings = (await get().catch(handleError)) as AppSettings
+const globalSettings = await get().catch((error) => {
+    handleError(error)
+    throw error
+})
 
 const overrideHooks = ref(
     !!instance.value.hooks.pre_launch ||
@@ -155,9 +158,9 @@ function normalizeLaunchPreparationTimeout() {
             autocomplete="off"
             :disabled="!overrideLaunchPreparationTimeout"
             type="number"
-            min="30"
-            max="600"
-            step="1"
+            :min="30"
+            :max="600"
+            :step="1"
             wrapper-class="w-full my-2.5"
             @blur="normalizeLaunchPreparationTimeout"
         />
@@ -170,7 +173,8 @@ function normalizeLaunchPreparationTimeout() {
         </h2>
         <StyledInput
             id="pre-launch"
-            v-model="hooks.pre_launch"
+            :model-value="hooks.pre_launch ?? ''"
+            @update:model-value="(value) => (hooks.pre_launch = String(value ?? ''))"
             autocomplete="off"
             :disabled="!overrideHooks"
             :placeholder="formatMessage(messages.preLaunchEnter)"
@@ -185,7 +189,8 @@ function normalizeLaunchPreparationTimeout() {
         </h2>
         <StyledInput
             id="wrapper"
-            v-model="hooks.wrapper"
+            :model-value="hooks.wrapper ?? ''"
+            @update:model-value="(value) => (hooks.wrapper = String(value ?? ''))"
             autocomplete="off"
             :disabled="!overrideHooks"
             :placeholder="formatMessage(messages.wrapperEnter)"
@@ -200,7 +205,8 @@ function normalizeLaunchPreparationTimeout() {
         </h2>
         <StyledInput
             id="post-exit"
-            v-model="hooks.post_exit"
+            :model-value="hooks.post_exit ?? ''"
+            @update:model-value="(value) => (hooks.post_exit = String(value ?? ''))"
             autocomplete="off"
             :disabled="!overrideHooks"
             :placeholder="formatMessage(messages.postExitEnter)"

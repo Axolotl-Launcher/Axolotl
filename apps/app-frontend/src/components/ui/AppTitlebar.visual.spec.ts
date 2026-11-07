@@ -144,7 +144,11 @@ async function mountTitlebar(withActionBar = false) {
                 component: { render: () => null },
                 meta: {
                     breadcrumb: [
-                        { name: 'Discover content', link: '/browse', query: { i: 'demo' } },
+                        {
+                            name: 'Discover content',
+                            link: '/browse',
+                            query: { i: 'demo' },
+                        } as { name: string; link?: string; query?: Record<string, string> },
                         { name: 'Just Enough Items (JEI) / 一个很长的模组名称'.repeat(8) },
                     ],
                 },

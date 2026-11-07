@@ -265,6 +265,9 @@ pub struct InstallJobState {
     pub skipped_missing_content_paths: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upgrade_result: Option<InstanceUpgradeResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download_diagnostics:
+        Option<crate::util::download::telemetry::DownloadDiagnosticsExport>,
     /// Incrementally maintained download items, mirroring the replay of
     /// `events`. Skipped during (de)serialization because it is derivable
     /// from `events`; rebuilt lazily on first access after a load.
@@ -302,6 +305,7 @@ impl Clone for InstallJobState {
                 .skipped_missing_content_paths
                 .clone(),
             upgrade_result: self.upgrade_result.clone(),
+            download_diagnostics: self.download_diagnostics.clone(),
             download_items_cache: std::sync::Mutex::new(None),
             summary_cache: std::sync::Mutex::new(None),
         }
@@ -363,6 +367,7 @@ impl InstallJobState {
             missing_content: None,
             skipped_missing_content_paths: Vec::new(),
             upgrade_result: None,
+            download_diagnostics: None,
             download_items_cache: std::sync::Mutex::new(None),
             summary_cache: std::sync::Mutex::new(None),
         }
@@ -1173,7 +1178,7 @@ mod tests {
             );
         }
         let summary = job.download_summary();
-        assert_eq!(summary.bytes_downloaded, 1_000);
+        assert_eq!(summary.bytes_downloaded, 1_600);
         assert_eq!(summary.speed_bytes_per_second, Some(2_000));
         assert_eq!(summary.eta_seconds, Some(4));
 
@@ -1187,7 +1192,63 @@ mod tests {
             .as_mut()
             .unwrap()
             .current = 1_600;
-        assert_eq!(job.download_summary().eta_seconds, Some(4));
+        let summary = job.download_summary();
+        assert_eq!(summary.bytes_downloaded, 1_600);
+        assert_eq!(summary.eta_seconds, Some(4));
+    }
+
+    #[test]
+    fn content_bytes_include_stalled_and_verifying_requests_without_speed() {
+        for status in [
+            DownloadItemStatus::Downloading,
+            DownloadItemStatus::Verifying,
+            DownloadItemStatus::Writing,
+        ] {
+            let mut job = job_state();
+            start_eta_test_batch(&mut job, &["mods/a.jar"], 1_000, 0);
+            let mut active = eta_test_download("mods/a.jar", 600, 1_000, 0);
+            active.status = status;
+            active.last_progress_at = Utc::now() - TimeDelta::seconds(4);
+            active.speed_bytes_per_second = None;
+            job.active_downloads
+                .insert("mods/a.jar".to_string(), active);
+
+            let summary = job.download_summary();
+            assert_eq!(summary.bytes_downloaded, 600, "{status:?}");
+            assert_eq!(summary.speed_bytes_per_second, None);
+            assert_eq!(summary.eta_seconds, None);
+        }
+    }
+
+    #[test]
+    fn content_bytes_replace_retry_offsets_and_do_not_count_settlement_twice() {
+        let mut job = job_state();
+        start_eta_test_batch(
+            &mut job,
+            &["mods/done.jar", "mods/retry.jar"],
+            2_000,
+            1_000,
+        );
+        job.record_event(InstallJobEventKind::ContentFileCompleted {
+            path: "mods/done.jar".to_string(),
+            bytes: 1_000,
+        });
+        for (attempt, bytes) in [(1, 600), (2, 0), (2, 400), (3, 700)] {
+            let mut active =
+                eta_test_download("mods/retry.jar", bytes, 1_000, 100);
+            active.attempt = attempt;
+            job.active_downloads.insert("mods/retry.jar".into(), active);
+            assert_eq!(job.download_summary().bytes_downloaded, 1_000 + bytes);
+        }
+        job.record_event(InstallJobEventKind::ContentFileCompleted {
+            path: "mods/retry.jar".to_string(),
+            bytes: 1_000,
+        });
+        job.active_downloads.insert(
+            "mods/retry.jar".into(),
+            eta_test_download("mods/retry.jar", 1_000, 1_000, 100),
+        );
+        assert_eq!(job.download_summary().bytes_downloaded, 2_000);
     }
 
     #[test]
@@ -1203,6 +1264,7 @@ mod tests {
             eta_test_download("libraries/client.jar", 9_000, 10_000, 200),
         );
         let summary = job.download_summary();
+        assert_eq!(summary.bytes_downloaded, 600);
         assert_eq!(summary.speed_bytes_per_second, Some(200));
         assert_eq!(summary.eta_seconds, None);
 
@@ -1210,7 +1272,9 @@ mod tests {
             .get_mut("mods/a.jar")
             .unwrap()
             .last_progress_at = Utc::now();
-        assert_eq!(job.download_summary().eta_seconds, Some(4));
+        let first_summary = job.download_summary();
+        assert_eq!(first_summary.bytes_downloaded, 600);
+        assert_eq!(first_summary.eta_seconds, Some(4));
     }
 
     #[test]
@@ -1229,8 +1293,12 @@ mod tests {
             "mods/second.jar".to_string(),
             eta_test_download("mods/second.jar", 500, 2_000, 100),
         );
-        assert_eq!(job.download_summary().eta_seconds, Some(15));
-        assert_eq!(cloned.download_summary().eta_seconds, Some(4));
+        let summary = job.download_summary();
+        assert_eq!(summary.bytes_downloaded, 500);
+        assert_eq!(summary.eta_seconds, Some(15));
+        let cloned_summary = cloned.download_summary();
+        assert_eq!(cloned_summary.bytes_downloaded, 600);
+        assert_eq!(cloned_summary.eta_seconds, Some(4));
 
         job.record_event(InstallJobEventKind::ContentFileCompleted {
             path: "mods/second.jar".to_string(),
@@ -2535,6 +2603,14 @@ struct CachedDownloadSummary {
     content_bytes_downloaded: u64,
 }
 
+impl CachedDownloadSummary {
+    fn is_pending_content_download(&self, path: &str) -> bool {
+        self.content_files
+            .as_ref()
+            .is_some_and(|files| matches!(files.get(path), Some(None)))
+    }
+}
+
 impl InstallJobKind {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -2880,6 +2956,8 @@ pub enum InstallContentRollbackStage {
 pub struct InstallContentRollbackSnapshot {
     pub staging_id: String,
     pub stage: InstallContentRollbackStage,
+    #[serde(default)]
+    pub retain_original_files: bool,
     #[serde(default)]
     pub scope: InstallContentRollbackScope,
     pub files: Vec<InstallRollbackFile>,
@@ -3834,13 +3912,13 @@ impl InstallJobState {
         }
     }
 
-    pub fn download_summary(&self) -> DownloadJobSummary {
+    fn cached_download_summary(&self) -> std::sync::Arc<CachedDownloadSummary> {
         let cached = self
             .summary_cache
             .lock()
             .expect("download summary cache lock poisoned")
             .clone();
-        let cached = match cached {
+        match cached {
             Some(cached) => cached,
             None => {
                 let cached = std::sync::Arc::new(self.summary_from_events());
@@ -3851,7 +3929,18 @@ impl InstallJobState {
                     Some(std::sync::Arc::clone(&cached));
                 cached
             }
-        };
+        }
+    }
+
+    pub(crate) fn is_pending_content_download(&self, path: &str) -> bool {
+        self.progress.phase == InstallPhaseId::DownloadingContent
+            && self
+                .cached_download_summary()
+                .is_pending_content_download(path)
+    }
+
+    pub fn download_summary(&self) -> DownloadJobSummary {
+        let cached = self.cached_download_summary();
         let mut summary = cached.summary.clone();
         if let Some(progress) = &self.progress.progress {
             if self.progress.phase == InstallPhaseId::DownloadingContent {
@@ -3898,8 +3987,8 @@ impl InstallJobState {
         let mut content_speed = 0_u64;
         let mut content_in_flight = 0_u64;
         for (path, download) in &self.active_downloads {
-            let pending_content = content_files
-                .is_some_and(|files| matches!(files.get(path), Some(None)));
+            let pending_content = content_files.is_some()
+                && cached.is_pending_content_download(path);
             if pending_content {
                 content_in_flight =
                     content_in_flight.saturating_add(download.bytes_downloaded);
@@ -3917,28 +4006,27 @@ impl InstallJobState {
                 }
             }
         }
+        if content_files.is_some() {
+            // Some callbacks already include live bytes. Compare against the
+            // current batch's settled files plus pending request offsets so
+            // retries and parallel downloads cannot count those bytes twice.
+            summary.bytes_downloaded = summary.bytes_downloaded.max(
+                cached
+                    .content_bytes_downloaded
+                    .saturating_add(content_in_flight),
+            );
+        }
         if actively_downloading && active_speed > 0 {
             summary.speed_bytes_per_second = Some(active_speed);
-            // Content progress may contain only settled files, while request
-            // offsets include resumed and in-flight bytes. Restrict this ETA
-            // overlay to the current batch so parallel Minecraft downloads
-            // and already settled paths cannot inflate it.
-            let (eta_downloaded, eta_speed) = if content_files.is_some() {
-                (
-                    summary.bytes_downloaded.max(
-                        cached
-                            .content_bytes_downloaded
-                            .saturating_add(content_in_flight),
-                    ),
-                    content_speed,
-                )
+            let eta_speed = if content_files.is_some() {
+                content_speed
             } else {
-                (summary.bytes_downloaded, active_speed)
+                active_speed
             };
             if eta_speed > 0 {
                 summary.eta_seconds = summary.bytes_total.and_then(|total| {
                     total
-                        .saturating_sub(eta_downloaded)
+                        .saturating_sub(summary.bytes_downloaded)
                         .checked_add(eta_speed - 1)
                         .and_then(|remaining| remaining.checked_div(eta_speed))
                 });

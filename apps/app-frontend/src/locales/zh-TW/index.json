@@ -1,4 +1,14 @@
 {
+  "app.downloads.slow-downloads.title": { "message": "下載緩慢？" },
+  "app.downloads.slow-downloads.description": {
+    "message": "可以前往 <settings-link>下載設定</settings-link> 開啟強制多執行緒下載功能，可能會幫助提升你的下載速度。"
+  },
+  "app.downloads.slow-downloads.dismiss": { "message": "不再提示" },
+  "app.settings.resources.force-multiconnection": { "message": "強制多連線下載" },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "使用更積極的下載邏輯，可能會改善你的下載速度。當你遇到問題時，請考慮啟用這個選項。"
+  },
+  "app.settings.resources.experimental": { "message": "實驗性" },
   "app.resources.operation.dependency-analysis-failed": {
     "message": "依賴分析失敗，可能會導致實例運作不正常"
   },
@@ -470,6 +480,15 @@
   "app.appearance-settings.color-theme.title": {
     "message": "色彩主題"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "調整背景裁切"
+  },
+  "app.appearance-settings.custom-background.animated-unsupported": {
+    "message": "此圖片格式不支援用作啟動器背景。"
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF 與 MP4 背景需要 FFmpeg 支援，目前尚未提供。"
+  },
   "app.appearance-settings.custom-background.blur": {
     "message": "背景模糊"
   },
@@ -478,6 +497,21 @@
   },
   "app.appearance-settings.custom-background.choose": {
     "message": "選擇圖片"
+  },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "動畫背景轉換失敗。"
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "正在轉換動畫背景…"
+  },
+  "app.appearance-settings.custom-background.crop-aspect-window": {
+    "message": "目前視窗"
+  },
+  "app.appearance-settings.custom-background.crop-confirm": {
+    "message": "用作背景"
+  },
+  "app.appearance-settings.custom-background.crop-title": {
+    "message": "裁剪啟動器背景"
   },
   "app.appearance-settings.custom-background.description": {
     "message": "選擇自訂圖片，並調整它與啟動器介面的融合效果。"
@@ -491,6 +525,24 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "調整背景圖片透過介面顯示的強度。"
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "所有檔案"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "圖片或影片"
+  },
+  "app.appearance-settings.custom-background.preview-close": {
+    "message": "關閉預覽"
+  },
+  "app.appearance-settings.custom-background.preview-expand": {
+    "message": "展開預覽"
+  },
+  "app.appearance-settings.custom-background.preview-pin": {
+    "message": "固定展開"
+  },
+  "app.appearance-settings.custom-background.preview-unpin": {
+    "message": "取消固定"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "移除"
   },
@@ -499,6 +551,9 @@
   },
   "app.appearance-settings.custom-background.title": {
     "message": "啟動器背景"
+  },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "圖片過大，無法用作啟動器背景。"
   },
   "app.appearance-settings.default-landing-page.description": {
     "message": "變更啟動器開啟時的頁面。"
@@ -5650,6 +5705,54 @@
   },
   "app.oobe.migration.use-folder": {
     "message": "使用此資料夾"
+  },
+  "app.oobe.java.add.action": {
+    "message": "新增"
+  },
+  "app.oobe.java.add.added": {
+    "message": "已新增 Java {version}，現在用作 Java {major}。"
+  },
+  "app.oobe.java.add.description": {
+    "message": "填入 java 執行檔的路徑，或瀏覽選擇。"
+  },
+  "app.oobe.java.add.invalid": {
+    "message": "無法從這個路徑啟動 Java。"
+  },
+  "app.oobe.java.add.placeholder": {
+    "message": "/path/to/java"
+  },
+  "app.oobe.java.add.title": {
+    "message": "填入已有的 Java"
+  },
+  "app.oobe.java.description": {
+    "message": "Minecraft 需要 Java 才能執行。可以使用已有的 Java，也可以下載一個。"
+  },
+  "app.oobe.java.download.description": {
+    "message": "選擇發行版和版本。下載期間可以繼續設定。"
+  },
+  "app.oobe.java.download.done": {
+    "message": "Java 已下載。"
+  },
+  "app.oobe.java.download.downloading": {
+    "message": "正在下載 Java…"
+  },
+  "app.oobe.java.download.title": {
+    "message": "下載 Java"
+  },
+  "app.oobe.java.found.description": {
+    "message": "為每個 Java 版本選擇要使用的那一個。"
+  },
+  "app.oobe.java.found.title": {
+    "message": "在此裝置上找到"
+  },
+  "app.oobe.java.label": {
+    "message": "Java"
+  },
+  "app.oobe.java.none-found": {
+    "message": "沒有在此裝置上找到 Java。"
+  },
+  "app.oobe.java.title": {
+    "message": "選擇或下載 Java。"
   },
   "app.oobe.progress": {
     "message": "設定進度"

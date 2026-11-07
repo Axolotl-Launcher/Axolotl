@@ -270,7 +270,7 @@
                             .filter(Boolean)
                             .join(' ')
                     "
-                    :symlink-target="props.instance.symlink_target"
+                    :symlink-target="props.instance.symlink_target ?? undefined"
                     @confirm="handleModpackUpdateConfirm"
                     @cancel="handleModpackUpdateCancel"
                 />
@@ -309,6 +309,7 @@
                             : undefined
                     "
                     :action-loading="contentUpdateSubmitting"
+                    :action-error="contentUpdateError"
                     :hide-on-update="false"
                     @retry="contentVersions.retry"
                     @update="handleModalUpdate"
@@ -429,6 +430,7 @@ import {
     normalizeInstanceContentSnapshot,
 } from '@/helpers/instance-content'
 import { postUpgradeWarningForContent } from '@/helpers/post-upgrade-notice'
+import { resourceOperationError } from '@/helpers/resource-operation-logic'
 import {
     confirmedContentGroupKey,
     duplicateGroupUpdateEntries,
@@ -1460,6 +1462,7 @@ const updaterReleaseRefs = computed(
         ),
 )
 const contentUpdateSubmitting = ref(false)
+const contentUpdateError = ref<string>()
 const updatingModpack = ref(false)
 const pendingModpackUpdateVersion = ref<Labrinth.Versions.v2.Version | null>(null)
 const isModpackUpdateDowngrade = ref(false)
@@ -1648,7 +1651,10 @@ async function handleUploadFiles() {
 }
 
 function dependencyRefMatchesContentItem(
-    reference: { provider: 'modrinth' | 'curseforge' | 'local'; projectId: string },
+    reference: {
+        provider: 'modrinth' | 'curseforge' | 'local' | 'mcarchive'
+        projectId: string
+    },
     item: ContentItem,
 ) {
     const itemProjectId = item.project?.id ?? ''
@@ -1878,7 +1884,7 @@ async function applyToggleDisableBatch(items: ContentItem[], enabled: boolean) {
             keys: getContentOperationKeys(item),
             originalFileName: item.file_name,
             originalFilePath: item.file_path,
-            originalEnabled: item.enabled,
+            originalEnabled: item.enabled ?? false,
             optimisticPath: enabled ? trimmedPath : `${trimmedPath}.disabled`,
         })
     }
@@ -2003,6 +2009,7 @@ async function removeMod(mod: ContentItem) {
         if (isWorldDatapackItem(mod)) {
             await deleteWorldDatapackItem(mod)
         } else {
+            if (!contentId) return
             const removedPath = mod.file_path
             await remove_content_entry(props.instance.id, contentId)
             projects.value = projects.value.filter((x) => removedPath !== x.file_path)
@@ -2306,6 +2313,7 @@ async function handleUpdate(item: ContentItem) {
 }
 
 async function handleSwitchVersion(item: ContentItem) {
+    contentUpdateError.value = undefined
     const entry = contentSnapshot.value?.items.find(
         (entry) => entry.entryId === item.instanceEntryId,
     )
@@ -2339,6 +2347,7 @@ watch(
 )
 
 async function handleModpackUpdate() {
+    contentUpdateError.value = undefined
     const link = props.instance.link
     if (!link?.project_id) return
     const projectId =
@@ -2380,6 +2389,7 @@ function updaterChangelogRef(version: Labrinth.Versions.v2.Version): SourceRelea
 }
 
 function resetUpdateState() {
+    contentUpdateError.value = undefined
     contentVersions.reset()
     updatingModpack.value = false
     updatingProject.value = null
@@ -2439,7 +2449,7 @@ async function handleModpackUpdateConfirm() {
         await initProjects()
         succeeded = true
     } catch (error) {
-        handleError(error as Error)
+        contentUpdateError.value = resourceOperationError(error, formatMessage)
     } finally {
         isModpackUpdating.value = false
         contentUpdateSubmitting.value = false
@@ -2460,6 +2470,7 @@ async function handleModalUpdate(
     event?: MouseEvent,
 ) {
     if (contentUpdateSubmitting.value) return
+    contentUpdateError.value = undefined
     contentUpdateSubmitting.value = true
     let succeeded = false
     if (updatingModpack.value) {
@@ -3018,7 +3029,7 @@ provideContentManager({
             effectiveProvider === 'curseforge'
                 ? item.provider_refs
                       ?.find(
-                          (ref): ref is { provider: 'curseforge'; project_id: number } =>
+                          (ref) =>
                               ref.provider === 'curseforge' && typeof ref.project_id === 'number',
                       )
                       ?.project_id.toString()

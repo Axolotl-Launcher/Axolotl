@@ -317,6 +317,7 @@ export type DownloadRequestUpdate =
               | 'finalizing'
           speed_bytes_per_second?: number | null
           eta_seconds?: number | null
+          content_bytes?: { current: number; total: number } | null
       }
     | { type: 'finished'; job_id: string; id: string; bytes: number }
     | { type: 'failed'; job_id: string; id: string }

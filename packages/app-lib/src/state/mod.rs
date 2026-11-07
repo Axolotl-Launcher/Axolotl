@@ -178,6 +178,7 @@ pub struct State {
     fetch_concurrency_limit: AtomicUsize,
     api_concurrency_limit: AtomicUsize,
     auto_concurrent_downloads: AtomicBool,
+    force_multiconnection_downloads: AtomicBool,
     auto_concurrency_ceiling: AtomicUsize,
     download_active_connections: AtomicUsize,
     download_sample_bytes: AtomicU64,
@@ -977,6 +978,10 @@ impl State {
         self.configured_http_client.read().clone()
     }
 
+    pub(crate) fn force_multiconnection_downloads(&self) -> bool {
+        self.force_multiconnection_downloads.load(Ordering::Acquire)
+    }
+
     pub(crate) fn download_concurrency(&self) -> usize {
         self.download_concurrency_target.load(Ordering::Acquire)
     }
@@ -1037,13 +1042,20 @@ impl State {
         }
         self.auto_prefers_mirror
             .store(settings.auto_prefers_mirror(), Ordering::Relaxed);
+        let was_forced = self
+            .force_multiconnection_downloads
+            .swap(settings.force_multiconnection_downloads, Ordering::AcqRel);
         let was_auto = self
             .auto_concurrent_downloads
             .swap(settings.auto_concurrent_downloads, Ordering::AcqRel);
         self.auto_concurrency_ceiling
             .store(AUTO_DOWNLOAD_CONCURRENCY_MAX, Ordering::Release);
-        if settings.auto_concurrent_downloads {
-            if !was_auto {
+        if settings.force_multiconnection_downloads {
+            self.resize_download_concurrency(
+                settings.effective_max_concurrent_downloads(),
+            );
+        } else if settings.auto_concurrent_downloads {
+            if !was_auto || was_forced {
                 self.resize_download_concurrency(
                     AUTO_DOWNLOAD_CONCURRENCY_INITIAL,
                 );
@@ -1075,7 +1087,9 @@ impl State {
             crate::util::download::local_resources::sample_cpu().await;
             crate::util::download::h2_pool::observe_adaptive_connections()
                 .await;
-            if !self.auto_concurrent_downloads.load(Ordering::Acquire) {
+            if !self.auto_concurrent_downloads.load(Ordering::Acquire)
+                || self.force_multiconnection_downloads()
+            {
                 controller = AutoConcurrencyController::default();
                 trial_lease = None;
                 self.download_sample_bytes.swap(0, Ordering::AcqRel);
@@ -1434,6 +1448,9 @@ impl State {
             auto_concurrent_downloads: AtomicBool::new(
                 settings.auto_concurrent_downloads,
             ),
+            force_multiconnection_downloads: AtomicBool::new(
+                settings.force_multiconnection_downloads,
+            ),
             auto_concurrency_ceiling: AtomicUsize::new(
                 AUTO_DOWNLOAD_CONCURRENCY_MAX,
             ),
@@ -1648,6 +1665,7 @@ pub(crate) async fn test_state(
         fetch_concurrency_limit: AtomicUsize::new(8),
         api_concurrency_limit: AtomicUsize::new(8),
         auto_concurrent_downloads: AtomicBool::new(false),
+        force_multiconnection_downloads: AtomicBool::new(false),
         auto_concurrency_ceiling: AtomicUsize::new(8),
         download_active_connections: AtomicUsize::new(0),
         download_sample_bytes: AtomicU64::new(0),

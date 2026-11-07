@@ -28,7 +28,7 @@ import {
 } from './home-dashboard.ts'
 
 function greetingOptionsOf(config: ReturnType<typeof createDefaultHomeDashboard>) {
-    const widget = config.widgets.find((candidate) => candidate.kind === 'greeting')
+    const widget = config.widgets.find((candidate) => candidate.kind === 'greeting')!
     expect(widget, 'the default dashboard has a greeting widget').toBeTruthy()
     return { widget, options: widget.options }
 }

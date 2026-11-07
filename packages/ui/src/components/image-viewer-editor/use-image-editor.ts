@@ -224,9 +224,15 @@ export function useImageEditor() {
     }
 
     function bindCanvasEvents(editorCanvas: FabricCanvas) {
-        editorCanvas.on('mouse:down', handleMouseDown)
-        editorCanvas.on('mouse:move', handleMouseMove)
-        editorCanvas.on('mouse:up', handleMouseUp)
+        editorCanvas.on('mouse:down', (event) =>
+            handleMouseDown(event as unknown as FabricPointerEvent),
+        )
+        editorCanvas.on('mouse:move', (event) =>
+            handleMouseMove(event as unknown as FabricPointerEvent),
+        )
+        editorCanvas.on('mouse:up', (event) =>
+            handleMouseUp(event as unknown as FabricPointerEvent),
+        )
         editorCanvas.on('object:added', () => {
             if (!constructingObject && !restoringHistory && !editorCanvas.isDrawingMode) {
                 recordHistory()
@@ -235,7 +241,7 @@ export function useImageEditor() {
         })
         editorCanvas.on('path:created', ({ path }) => {
             if (tool.value === 'eraser' && eraserMode.value === 'area') {
-                void eraseAreaWithPath(path).catch((error) => {
+                void eraseAreaWithPath(path as FabricPath).catch((error) => {
                     debugEraser('area:error', error)
                 })
                 return
@@ -776,9 +782,12 @@ export function useImageEditor() {
                         undefined,
                         object.calcTransformMatrix(),
                     )
-                    const nextClipPath = object.clipPath
-                        ? fabricModule.util.mergeClipPaths(object.clipPath, clipPath)
-                        : clipPath
+                    const nextClipPath: FabricObject = object.clipPath
+                        ? fabricModule.util.mergeClipPaths(
+                              object.clipPath as FabricObject,
+                              clipPath as FabricObject,
+                          )
+                        : (clipPath as FabricObject)
                     object.set('clipPath', nextClipPath)
                 }),
             )

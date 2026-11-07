@@ -615,6 +615,16 @@ pub async fn retry_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
         .into());
     }
 
+    if job.state.rollback_error.is_some()
+        && job
+            .state
+            .rollback
+            .as_ref()
+            .and_then(|rollback| rollback.content.as_ref())
+            .is_some_and(|snapshot| snapshot.retain_original_files)
+    {
+        recovery::apply_cleanup(&mut job.state, &state).await?;
+    }
     let resume_checkpoint = prepare_pack_retry(&mut job.state, &state).await?;
     if !resume_checkpoint {
         job.state.target = job.state.request.target();
@@ -941,6 +951,18 @@ pub async fn retry_job_as_new(
                 .to_string(),
         )
         .into());
+    }
+    if job.state.rollback_error.is_some()
+        && job
+            .state
+            .rollback
+            .as_ref()
+            .and_then(|rollback| rollback.content.as_ref())
+            .is_some_and(|snapshot| snapshot.retain_original_files)
+    {
+        return Err(crate::ErrorKind::InputError(
+            "The previous pack update must finish rolling back before starting a new task".into(),
+        ).into());
     }
     let new_job = start(job.state.request).await?;
     // The spawned job may already have progressed (or finished) by the time

@@ -2073,6 +2073,10 @@ pub async fn download_assets(
 
     let mut batch_items = coalesce_batch_assets(batch_items);
 
+    if st.force_multiconnection_downloads() {
+        fallback_assets.extend(batch_items.drain(..).map(fallback_batch_asset));
+    }
+
     // Batch-download the object files over a single shared HTTP/2 connection:
     // hundreds of concurrent multiplexed streams, one connection per
     // authority — never one connection per file.
@@ -2203,7 +2207,11 @@ pub async fn download_assets(
             .map(Ok::<FallbackAsset, crate::Error>)
             .try_for_each_concurrent(st.download_concurrency().clamp(1, ASSET_BATCH_CONCURRENCY), |item| {
                 let progress = progress.clone();
-                let semaphore = &asset_download_semaphore;
+                let semaphore = if st.force_multiconnection_downloads() {
+                    &st.download_semaphore
+                } else {
+                    &asset_download_semaphore
+                };
                 async move {
                     let resource_path = &item.resource_path;
                     let hash = &item.hash;

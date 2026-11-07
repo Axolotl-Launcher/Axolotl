@@ -170,12 +170,14 @@ it.each([500, 1000])('reads %i IDs once per snapshot, not again for every conten
     expect(reads).toBe(size * 2)
     let membershipScans = 0
     const iterateIds = index.contentIds[Symbol.iterator].bind(index.contentIds)
-    index.contentIds[Symbol.iterator] = function* () {
-        for (const id of iterateIds()) {
-            membershipScans++
-            yield id
-        }
-    }
+    Object.defineProperty(index.contentIds, Symbol.iterator, {
+        value: function* () {
+            for (const id of iterateIds()) {
+                membershipScans++
+                yield id
+            }
+        },
+    })
     for (let i = 0; i < size; i++) {
         expect(
             contentChangeAffectsItem(index, { instanceEntryId: `entry-${i}` } as ContentItem),

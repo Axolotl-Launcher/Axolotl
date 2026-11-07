@@ -156,6 +156,9 @@ pub struct DownloadRequest {
     pub(crate) allow_http1_segmented_download: bool,
     pub(crate) batch_download: bool,
     pub(crate) prefer_http1: bool,
+    /// Explicit opt-in: retain independent connections across retry rounds.
+    pub(crate) force_multiconnection: bool,
+    pub(crate) forced_allocation: Option<Arc<super::weighted::ForcedDownload>>,
     /// Minimum independent Range connections, bounded by data and resource limits.
     pub(crate) range_connection_floor: Option<usize>,
     /// Requested H2 range streams when the file does not qualify for
@@ -192,6 +195,8 @@ impl DownloadRequest {
             allow_http1_segmented_download: true,
             batch_download: false,
             prefer_http1: false,
+            force_multiconnection: false,
+            forced_allocation: None,
             range_connection_floor: None,
             h2_range_concurrency: None,
             cancellation: None,

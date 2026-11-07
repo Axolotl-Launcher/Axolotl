@@ -17,7 +17,7 @@ export const SUPPORTED_LOADERS: Set<string> = new Set([
 ])
 export const VANILLA_COMPATIBLE_LOADERS: Set<string> = new Set(['minecraft', 'datapack'])
 
-const RESOLVABLE_PROJECT_TYPES = new Set<Labrinth.Content.v3.ContentType>([
+const RESOLVABLE_PROJECT_TYPES = new Set<string>([
     'mod',
     'plugin',
     'datapack',
@@ -26,19 +26,30 @@ const RESOLVABLE_PROJECT_TYPES = new Set<Labrinth.Content.v3.ContentType>([
     'modpack',
 ])
 
+function isResolvableContentType(value: string): value is Labrinth.Content.v3.ContentType {
+    return RESOLVABLE_PROJECT_TYPES.has(value)
+}
+
 export type InstallTargetInstance = Pick<
     GameInstance,
-    'id' | 'name' | 'icon_path' | 'game_version' | 'loader'
->
-
-export function resolveContentType(projectType?: Labrinth.Projects.v2.ProjectType) {
-    return projectType && RESOLVABLE_PROJECT_TYPES.has(projectType) ? projectType : 'mod'
+    'id' | 'name' | 'game_version' | 'loader'
+> & {
+    icon_path?: string | null
 }
+
+export function resolveContentType(
+    projectType?: Labrinth.Projects.v2.ProjectType,
+): Labrinth.Content.v3.ContentType {
+    return projectType && isResolvableContentType(projectType) ? projectType : 'mod'
+}
+
+/** Only the version/loader pair is needed to judge compatibility. */
+export type VersionTarget = Pick<GameInstance, 'game_version' | 'loader'>
 
 export function isVersionCompatible(
     version: Labrinth.Versions.v2.Version,
     project: Labrinth.Projects.v2.Project,
-    instance: GameInstance,
+    instance: VersionTarget,
 ) {
     if (project.project_type === 'resourcepack') return true
 
@@ -53,7 +64,7 @@ export function isVersionCompatible(
 export function findPreferredVersion(
     versions: Labrinth.Versions.v2.Version[],
     project: Labrinth.Projects.v2.Project,
-    instance: GameInstance,
+    instance: VersionTarget,
 ) {
     const projectType = project.project_type ?? 'mod'
     if (projectType === 'resourcepack') return versions[0]

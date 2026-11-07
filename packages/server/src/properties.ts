@@ -68,7 +68,7 @@ export function parseProperties(text: string): PropertiesEntry[] {
     } | null = null
 
     for (const rawLine of text.split(/\r?\n/)) {
-        const line = pendingContinuation ? rawLine : rawLine.trim()
+        const line: string = pendingContinuation ? rawLine : rawLine.trim()
         if (pendingContinuation) {
             const continued = line.replace(/\\\s*$/, '')
             pendingContinuation.value += continued
@@ -92,7 +92,7 @@ export function parseProperties(text: string): PropertiesEntry[] {
         }
         const key = unescapeKey(line.slice(0, separatorIndex).trimEnd())
         const separator = line[separatorIndex]
-        const value = line.slice(separatorIndex + 1).trim()
+        const value: string = line.slice(separatorIndex + 1).trim()
         if (/\\\s*$/.test(value)) {
             pendingContinuation = {
                 type: 'pair',

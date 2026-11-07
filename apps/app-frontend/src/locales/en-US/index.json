@@ -1,4 +1,14 @@
 {
+  "app.downloads.slow-downloads.title": { "message": "Slow downloads?" },
+  "app.downloads.slow-downloads.description": {
+    "message": "You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed."
+  },
+  "app.downloads.slow-downloads.dismiss": { "message": "Don't show again" },
+  "app.settings.resources.force-multiconnection": { "message": "Force multi-connection downloads" },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems."
+  },
+  "app.settings.resources.experimental": { "message": "Experimental" },
   "app.schematics.source.reden": { "message": "Reden" },
   "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
   "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
@@ -759,6 +769,15 @@
   "app.appearance-settings.color-theme.title": {
     "message": "Color theme"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "Adjust background crop"
+  },
+  "app.appearance-settings.custom-background.animated-unsupported": {
+    "message": "This image format isn't supported as a launcher background."
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF and MP4 backgrounds need FFmpeg support, which is not available yet."
+  },
   "app.appearance-settings.custom-background.blur": {
     "message": "Background blur"
   },
@@ -777,6 +796,21 @@
   "app.appearance-settings.custom-background.component-opacity-description": {
     "message": "How opaque launcher components and chrome stay over a custom background. At 100% components are fully opaque; lower it to let the image show through."
   },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "The animated background could not be converted."
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "Converting animated background…"
+  },
+  "app.appearance-settings.custom-background.crop-aspect-window": {
+    "message": "Current window"
+  },
+  "app.appearance-settings.custom-background.crop-confirm": {
+    "message": "Use as background"
+  },
+  "app.appearance-settings.custom-background.crop-title": {
+    "message": "Crop launcher background"
+  },
   "app.appearance-settings.custom-background.description": {
     "message": "Choose or drop a custom image, then fine-tune how it blends with the launcher interface."
   },
@@ -792,6 +826,24 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "Control how strongly the image shows through the interface."
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "All files"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "Image or video"
+  },
+  "app.appearance-settings.custom-background.preview-close": {
+    "message": "Close preview"
+  },
+  "app.appearance-settings.custom-background.preview-expand": {
+    "message": "Expand preview"
+  },
+  "app.appearance-settings.custom-background.preview-pin": {
+    "message": "Keep open"
+  },
+  "app.appearance-settings.custom-background.preview-unpin": {
+    "message": "Unpin"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "Remove"
   },
@@ -800,6 +852,9 @@
   },
   "app.appearance-settings.custom-background.title": {
     "message": "Launcher background"
+  },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "This image is too large to use as a launcher background."
   },
   "app.appearance-settings.default-landing-page.description": {
     "message": "Change the page to which the launcher opens on."
@@ -9420,6 +9475,54 @@
   "app.oobe.migration.use-folder": {
     "message": "Use this folder"
   },
+  "app.oobe.java.add.action": {
+    "message": "Add"
+  },
+  "app.oobe.java.add.added": {
+    "message": "Added Java {version}. It is now used for Java {major}."
+  },
+  "app.oobe.java.add.description": {
+    "message": "Enter the path to a java executable, or browse for it."
+  },
+  "app.oobe.java.add.invalid": {
+    "message": "No Java runtime could be started from this path."
+  },
+  "app.oobe.java.add.placeholder": {
+    "message": "/path/to/java"
+  },
+  "app.oobe.java.add.title": {
+    "message": "Add a Java you already have"
+  },
+  "app.oobe.java.description": {
+    "message": "Minecraft runs on Java. Use one you already have, or download one."
+  },
+  "app.oobe.java.download.description": {
+    "message": "Choose a distribution and a version. You can keep going while it downloads."
+  },
+  "app.oobe.java.download.done": {
+    "message": "Java downloaded."
+  },
+  "app.oobe.java.download.downloading": {
+    "message": "Downloading Java…"
+  },
+  "app.oobe.java.download.title": {
+    "message": "Download Java"
+  },
+  "app.oobe.java.found.description": {
+    "message": "Pick the one to use for each Java version."
+  },
+  "app.oobe.java.found.title": {
+    "message": "Found on this device"
+  },
+  "app.oobe.java.label": {
+    "message": "Java"
+  },
+  "app.oobe.java.none-found": {
+    "message": "No Java installations were found on this device."
+  },
+  "app.oobe.java.title": {
+    "message": "Choose or download Java."
+  },
   "app.oobe.progress": {
     "message": "Setup progress"
   },
@@ -13180,7 +13283,7 @@
     "message": "Maximum concurrent downloads"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "Automatic mode uses 64 concurrent downloads. Manual changes apply immediately."
+    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use up to 72 connections, or a lower manual limit. Manual changes apply immediately."
   },
   "app.settings.resources.maximum-writes": {
     "message": "Maximum concurrent writes"

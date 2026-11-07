@@ -93,8 +93,9 @@ const {
     bufferSize: 8,
 })
 
-function vanillaDisplay(tagId: string) {
-    return getSlotDisplay({ kind: 'vanilla_tag', id: tagId }, props.ctx)
+function vanillaDisplay(tagId: string): SlotDisplay {
+    // `getSlotDisplay` only returns null for undefined values; the tag value is always defined here.
+    return getSlotDisplay({ kind: 'vanilla_tag', id: tagId }, props.ctx)!
 }
 
 function pickTag(value: SlotValue) {
@@ -150,7 +151,8 @@ function startPointerDrag(
 }
 
 function customTagDisplay(tag: CustomTag): SlotDisplay {
-    return getSlotDisplay({ kind: 'custom_tag', uid: tag.uid }, props.ctx)
+    // `getSlotDisplay` only returns null for undefined values; the tag value is always defined here.
+    return getSlotDisplay({ kind: 'custom_tag', uid: tag.uid }, props.ctx)!
 }
 
 function addCustomTag() {

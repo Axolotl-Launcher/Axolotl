@@ -121,28 +121,53 @@ monaco.languages.setMonarchTokensProvider('mclog', {
     },
 })
 
-// Language activation registers providers after its mode module loads. Await the
-// same module before invoking formatting on a newly opened model.
-export async function prepareFormatting(language: string) {
-    switch (language) {
-        case 'json':
-            await import('monaco-editor/languages/features/json/jsonMode.js')
-            break
-        case 'css':
-        case 'less':
-        case 'scss':
-            await import('monaco-editor/languages/features/css/cssMode.js')
-            break
-        case 'html':
-        case 'handlebars':
-        case 'razor':
-            await import('monaco-editor/languages/features/html/htmlMode.js')
-            break
-        case 'javascript':
-        case 'typescript':
-            await import('monaco-editor/languages/features/typescript/tsMode.js')
-            break
-    }
+// The mode module can finish loading before its onLanguage callback registers
+// providers. Formatting must wait for the registry, or Monaco's action is a no-op.
+export async function prepareFormatting(model: monaco.editor.ITextModel) {
+    const language = model.getLanguageId()
+    if (
+        ![
+            'json',
+            'css',
+            'less',
+            'scss',
+            'html',
+            'handlebars',
+            'razor',
+            'javascript',
+            'typescript',
+        ].includes(language)
+    )
+        return
+
+    const [{ StandaloneServices }, { ILanguageFeaturesService }, { ILanguageService }] =
+        await Promise.all([
+            import('monaco-editor/editor/standalone/browser/standaloneServices.js'),
+            import('monaco-editor/editor/common/services/languageFeatures.js'),
+            import('monaco-editor/editor/common/languages/language.js'),
+        ])
+    const features = StandaloneServices.get(ILanguageFeaturesService)
+    const ready = () =>
+        features.documentFormattingEditProvider.has(model) ||
+        features.documentRangeFormattingEditProvider.has(model)
+    if (model.isDisposed() || model.getLanguageId() !== language || ready()) return
+
+    await new Promise<void>((resolve) => {
+        const listeners: monaco.IDisposable[] = []
+        const finish = () => {
+            listeners.forEach((listener) => listener.dispose())
+            resolve()
+        }
+        const check = () => {
+            if (model.isDisposed() || model.getLanguageId() !== language || ready()) finish()
+        }
+        listeners.push(features.documentFormattingEditProvider.onDidChange(check))
+        listeners.push(features.documentRangeFormattingEditProvider.onDidChange(check))
+        listeners.push(model.onWillDispose(finish))
+        listeners.push(model.onDidChangeLanguage(check))
+        StandaloneServices.get(ILanguageService).requestRichLanguageFeatures(language)
+        check()
+    })
 }
 
 export { monaco }

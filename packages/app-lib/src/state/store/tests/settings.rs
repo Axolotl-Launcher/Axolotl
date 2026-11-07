@@ -55,6 +55,7 @@ fn record() -> SettingsRecord {
         use_modrinth_mirror: false,
         use_curseforge_mirror: true,
         auto_concurrent_downloads: false,
+        force_multiconnection_downloads: true,
         minecraft_metadata_source: DownloadSource::OfficialOnly,
         minecraft_file_source: DownloadSource::MirrorPreferred,
         modrinth_source: DownloadSource::Auto,

@@ -66,10 +66,10 @@ it('rejects a version prepared for a different target before resolving its ident
 
 it('discarding pending additions after target changes or clearing the cart cannot repopulate another instance', async () => {
     for (const change of ['target', 'clear']) {
-        let finish!: (value: unknown[]) => void
+        let finish!: (value: Awaited<ReturnType<typeof get_version_many>>) => void
         vi.mocked(get_version_many).mockImplementationOnce(
             () =>
-                new Promise((resolve) => {
+                new Promise<Awaited<ReturnType<typeof get_version_many>>>((resolve) => {
                     finish = resolve
                 }),
         )

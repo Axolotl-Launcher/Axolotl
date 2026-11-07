@@ -53,6 +53,50 @@
             </Button>
         </div>
 
+        <Card
+            v-if="!hideSlowDownloadsHint && !slowDownloadsHintClosed"
+            class="!m-0"
+            data-testid="slow-downloads-hint"
+        >
+            <div class="flex items-center justify-between gap-3">
+                <h3 class="m-0 text-base font-semibold">
+                    {{ formatMessage(messages.slowDownloadsTitle) }}
+                </h3>
+                <Button
+                    type="quiet"
+                    size="sm"
+                    icon-only
+                    :label="formatMessage(commonMessages.closeButton)"
+                    class="shrink-0"
+                    data-testid="close-slow-downloads-hint"
+                    @click="slowDownloadsHintClosed = true"
+                >
+                    <XIcon />
+                </Button>
+            </div>
+            <p class="mb-2 mt-1">
+                <IntlFormatted :message-id="messages.slowDownloadsDescription">
+                    <template #settings-link="{ children }">
+                        <a
+                            class="text-link hover:underline"
+                            :href="downloadSettingsHref"
+                            @click.prevent="router.push(downloadSettingsHref)"
+                        >
+                            <component :is="() => children" />
+                        </a>
+                    </template>
+                </IntlFormatted>
+            </p>
+            <button
+                type="button"
+                class="cursor-pointer border-0 bg-transparent p-0 text-sm text-[var(--color-text-tertiary)] hover:underline"
+                data-testid="dismiss-slow-downloads-hint"
+                @click="hideSlowDownloadsHint = true"
+            >
+                {{ formatMessage(messages.dismissSlowDownloadsHint) }}
+            </button>
+        </Card>
+
         <div
             v-if="manager.initializationState.value === 'loading'"
             class="flex flex-col gap-3"
@@ -558,6 +602,7 @@ import {
     defineMessages,
     EmptyState,
     injectNotificationManager,
+    IntlFormatted,
     type MessageDescriptor,
     NavTabs,
     NewModal,
@@ -572,6 +617,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { useLocalStorage } from '@vueuse/core'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -683,6 +729,11 @@ const router = useRouter()
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const formatBytes = useFormatBytes()
+const downloadSettingsHref = '/settings?target=resources-force-multiconnection#content-downloads'
+const hideSlowDownloadsHint = useLocalStorage('axolotl:downloads:hide-slow-downloads-hint', false, {
+    writeDefaults: false,
+})
+const slowDownloadsHintClosed = ref(false)
 const tab = ref<'active' | 'history'>(route.query.tab === 'history' ? 'history' : 'active')
 const query = ref('')
 const provider = ref('all')
@@ -702,6 +753,19 @@ watch(
 )
 
 const messages = defineMessages({
+    slowDownloadsTitle: {
+        id: 'app.downloads.slow-downloads.title',
+        defaultMessage: 'Slow downloads?',
+    },
+    slowDownloadsDescription: {
+        id: 'app.downloads.slow-downloads.description',
+        defaultMessage:
+            'You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed.',
+    },
+    dismissSlowDownloadsHint: {
+        id: 'app.downloads.slow-downloads.dismiss',
+        defaultMessage: "Don't show again",
+    },
     fileDetails: { id: 'app.downloads.file-details', defaultMessage: 'File details' },
     openFileDetails: {
         id: 'app.downloads.open-file-details',

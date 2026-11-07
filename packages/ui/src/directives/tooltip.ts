@@ -231,7 +231,7 @@ function createTooltip(trigger: HTMLElement, modifier: Placement | null): Toolti
 
 const handles = new WeakMap<HTMLElement, TooltipHandle>()
 
-function placementModifierOf(modifiers: Record<string, boolean>): Placement | null {
+function placementModifierOf(modifiers: Partial<Record<string, boolean>>): Placement | null {
     return (PLACEMENTS.find((name) => modifiers[name]) as Placement | undefined) ?? null
 }
 

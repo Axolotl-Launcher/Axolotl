@@ -6,6 +6,40 @@ import type { GameInstance } from '@/helpers/types'
 
 import { UNGROUPED_GROUP_KEY, useGridGrouping } from './useGridGrouping.ts'
 
+function gameInstance(
+    id: string,
+    name: string,
+    overrides: Partial<GameInstance> = {},
+): GameInstance {
+    return {
+        id,
+        name,
+        path: id,
+        install_stage: 'installed',
+        launcher_feature_version: '1',
+        synced_options: {
+            game_options: false,
+            command_history: false,
+            multiplayer_servers: false,
+            creative_hotbars: false,
+            screenshots: false,
+            resource_packs: false,
+            data_packs: false,
+        },
+        game_version: '1.21',
+        loader: 'vanilla',
+        loader_components: [],
+        groups: [],
+        update_channel: 'release',
+        created: new Date(0),
+        modified: new Date(0),
+        submitted_time_played: 0,
+        recent_time_played: 0,
+        hooks: {},
+        ...overrides,
+    }
+}
+
 it('renders an instance in every assigned group including favorites', () => {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
     Object.defineProperty(globalThis, 'localStorage', {
@@ -59,24 +93,14 @@ it('groups by game directory and persists collapsed sections across instances', 
     try {
         scope.run(() => {
             const instances = ref<GameInstance[]>([
-                {
-                    id: 'external-b',
-                    name: 'External B',
-                    groups: [],
+                gameInstance('external-b', 'External B', {
                     game_dir_override: 'D:/Minecraft/.minecraft',
-                },
-                {
-                    id: 'managed',
-                    name: 'Managed',
-                    groups: [],
-                },
-                {
-                    id: 'external-a',
-                    name: 'External A',
-                    groups: [],
+                }),
+                gameInstance('managed', 'Managed'),
+                gameInstance('external-a', 'External A', {
                     game_dir_override: 'C:/Games/.minecraft/versions/1.21',
-                },
-            ] as GameInstance[])
+                }),
+            ])
             const { state, filteredResults, isSectionCollapsed, setSectionCollapsed } =
                 useGridGrouping('game-directory-test', instances, {
                     getGameDirectory: resolveGameDirectory,

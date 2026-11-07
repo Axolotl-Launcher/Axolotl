@@ -41,7 +41,7 @@ function instance(id: string, gameDirOverride?: string): GameInstance {
         name: id,
         pinned_at: '2026-01-01T00:00:00.000Z',
         game_dir_override: gameDirOverride,
-    } as GameInstance
+    } as unknown as GameInstance
 }
 
 it('uses the full pinned instance collection for the game-directory badge threshold', () => {

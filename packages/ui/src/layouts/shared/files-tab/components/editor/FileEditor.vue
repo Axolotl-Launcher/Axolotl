@@ -277,7 +277,7 @@ async function saveFileContent(exit: boolean = false): Promise<boolean> {
     if (pendingSave) {
         const saved = await pendingSave
         if (!saved) return false
-        if (pendingSave) return saveFileContent(exit)
+        if (pendingSave != null) return saveFileContent(exit)
         if (!hasUnsavedChanges.value) {
             if (exit) emit('close')
             return true

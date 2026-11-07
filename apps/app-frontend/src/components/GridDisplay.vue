@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DragDropProvider } from '@dnd-kit/vue'
+import { DragDropProvider, type DragEndEvent } from '@dnd-kit/vue'
 import {
     ArrowUpDownIcon,
     ClipboardCopyIcon,
@@ -58,6 +58,7 @@ import { create_group as createGroup } from '@/helpers/instance-groups'
 import { updateRunningInstanceIds } from '@/helpers/instance-running-state'
 import {
     getLastInstanceLibraryDisplayMode,
+    type InstanceLibraryDisplayMode,
     setLastInstanceLibraryDisplayMode,
 } from '@/helpers/library-display-mode'
 import { get_all, get_by_instance_id } from '@/helpers/process'
@@ -178,8 +179,10 @@ const optionMessages = {
     None: messages.none,
 }
 
-const formatOption = (option) =>
-    optionMessages[option] ? formatMessage(optionMessages[option]) : option
+const formatOption = (option: string) =>
+    option in optionMessages
+        ? formatMessage(optionMessages[option as keyof typeof optionMessages])
+        : option
 
 const props = withDefaults(
     defineProps<{
@@ -192,11 +195,11 @@ const props = withDefaults(
     },
 )
 
-const instanceOptions = ref(null)
-const backgroundContextMenu = ref(null)
-const currentDeleteInstance = ref(null)
+const instanceOptions = ref<InstanceType<typeof ContextMenu> | null>(null)
+const backgroundContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null)
+const currentDeleteInstance = ref<GameInstance | null>(null)
 const currentContextSectionKey = ref('')
-const confirmModal = ref(null)
+const confirmModal = ref<InstanceType<typeof ConfirmDeleteInstanceModal> | null>(null)
 const search = ref('')
 const displayMode = ref(getLastInstanceLibraryDisplayMode())
 const runningInstanceIds = ref(new Set<string>())
@@ -207,7 +210,9 @@ let disposed = false
 async function refreshRunningInstances() {
     const processes = await get_all().catch(handleError)
     if (processes && !disposed)
-        runningInstanceIds.value = new Set(processes.map((process) => process.instance_id))
+        runningInstanceIds.value = new Set(
+            (processes as { instance_id: string }[]).map((process) => process.instance_id),
+        )
 }
 
 function setInstanceRunning(instanceId: string, running: boolean) {
@@ -274,7 +279,7 @@ function handleMoveGroup(groupKey: string, direction: -1 | 1) {
     ).catch(handleError)
 }
 
-const addToExistingGroupModal = ref(null)
+const addToExistingGroupModal = ref<InstanceType<typeof InstanceGroupModal> | null>(null)
 const addToExistingGroupName = ref('')
 const addToExistingGroupId = ref('')
 
@@ -358,23 +363,26 @@ async function removeSelectedInstancesFromGroups() {
     }
 }
 
-const newGroupModal = ref(null)
+const newGroupModal = ref<InstanceType<typeof InstanceGroupModal> | null>(null)
 
 function openNewGroupModal() {
     newGroupModal.value?.show([...selectedInstanceIds.value])
 }
 
-const displayModeOptions = computed(() => [
-    { id: 'standard', label: formatMessage(messages.standardView), icon: GridIcon },
-    { id: 'cards', label: formatMessage(messages.cardsView), icon: CollectionIcon },
-    { id: 'list', label: formatMessage(messages.listView), icon: ListIcon },
-])
+const displayModeOptions = computed(
+    () =>
+        [
+            { id: 'standard', label: formatMessage(messages.standardView), icon: GridIcon },
+            { id: 'cards', label: formatMessage(messages.cardsView), icon: CollectionIcon },
+            { id: 'list', label: formatMessage(messages.listView), icon: ListIcon },
+        ] as const,
+)
 
 const currentDisplayMode = computed(() =>
     displayModeOptions.value.find((option) => option.id === displayMode.value),
 )
 
-function setDisplayMode(mode) {
+function setDisplayMode(mode: InstanceLibraryDisplayMode) {
     displayMode.value = mode
     setLastInstanceLibraryDisplayMode(mode)
 }
@@ -575,18 +583,18 @@ async function deleteInstance() {
     }
 }
 
-async function duplicateInstance(p) {
+async function duplicateInstance(p: string) {
     await install_duplicate_instance(p).catch(handleError)
 }
 
-function getInstanceProxy(instanceId) {
+function getInstanceProxy(instanceId: string) {
     const instanceData = props.instances.find((i) => i.id === instanceId)
     if (!instanceData) return null
     return {
         instance: instanceData,
         playing:
             runningInstanceIds.value.has(instanceId) || startingInstanceIds.value.has(instanceId),
-        play: async (_e, context) => {
+        play: async (_e: MouseEvent | null, context: string) => {
             if (
                 runningInstanceIds.value.has(instanceId) ||
                 startingInstanceIds.value.has(instanceId)
@@ -607,7 +615,7 @@ function getInstanceProxy(instanceId) {
                 })
             }
         },
-        stop: async (_e, context) => {
+        stop: async (_e: MouseEvent | null, context: string) => {
             if (!runningInstanceIds.value.has(instanceId)) return
             await kill(instanceId).finally(() => {
                 setInstanceRunning(instanceId, false)
@@ -628,7 +636,7 @@ function getInstanceProxy(instanceId) {
     }
 }
 
-const handleRightClick = (event, instanceId, sectionKey) => {
+const handleRightClick = (event: MouseEvent, instanceId: string, sectionKey: string) => {
     const item = getInstanceProxy(instanceId)
     if (!item) return
     currentContextSectionKey.value = sectionKey
@@ -636,7 +644,8 @@ const handleRightClick = (event, instanceId, sectionKey) => {
         grouping.value === 'Group' &&
         sectionKey !== UNGROUPED_GROUP_KEY &&
         sectionKey !== FAVORITES_GROUP_ID
-    const baseOptions = [
+    type GridContextOption = Parameters<InstanceType<typeof ContextMenu>['showMenu']>[2][number]
+    const baseOptions: GridContextOption[] = [
         {
             section: 'pin',
             name: item.instance.groups?.includes(FAVORITES_GROUP_ID)
@@ -660,7 +669,7 @@ const handleRightClick = (event, instanceId, sectionKey) => {
         },
     ]
 
-    instanceOptions.value.showMenu(
+    instanceOptions.value?.showMenu(
         event,
         item,
         item.playing
@@ -669,7 +678,7 @@ const handleRightClick = (event, instanceId, sectionKey) => {
                       name: 'stop',
                       section: 'primary',
                       color: 'danger',
-                  },
+                  } as GridContextOption,
                   ...baseOptions,
               ]
             : [
@@ -677,7 +686,7 @@ const handleRightClick = (event, instanceId, sectionKey) => {
                       name: 'play',
                       section: 'primary',
                       color: 'primary',
-                  },
+                  } as GridContextOption,
                   ...baseOptions,
               ],
     )
@@ -699,7 +708,11 @@ const handleBackgroundOption = ({ option }: { option: string }) => {
     }
 }
 
-const handleOptionsClick = async (args) => {
+const handleOptionsClick = async (args: {
+    option: string
+    item: ReturnType<typeof getInstanceProxy> | null
+}) => {
+    if (!args.item) return
     switch (args.option) {
         case 'play':
             if ((await get_by_instance_id(args.item.instance.id).catch(handleError))?.length) break
@@ -760,7 +773,7 @@ const handleOptionsClick = async (args) => {
             break
         case 'delete':
             currentDeleteInstance.value = args.item.instance
-            confirmModal.value.show()
+            confirmModal.value?.show()
             break
     }
 }
@@ -785,10 +798,10 @@ watch(flatVisibleInstanceIds, (ids) => {
     if (selectedInstanceIds.value.size === 0) selectMode.value = false
 })
 
-let longPressTimer = null
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let longPressTriggered = false
 
-function startLongPress(instanceId) {
+function startLongPress(instanceId: string) {
     longPressTriggered = false
     longPressTimer = setTimeout(() => {
         longPressTriggered = true
@@ -806,7 +819,7 @@ function cancelLongPress() {
     }
 }
 
-function handleCardClick(instanceId, event) {
+function handleCardClick(instanceId: string, event?: MouseEvent) {
     if (longPressTriggered) {
         longPressTriggered = false
         return
@@ -820,7 +833,7 @@ function handleCardClick(instanceId, event) {
     }
 }
 
-function handleToggleInstance(instanceId, shiftKey) {
+function handleToggleInstance(instanceId: string, shiftKey: boolean) {
     const flatIds = flatVisibleInstanceIds.value
     const anchor = anchorInstanceId.value
 
@@ -858,7 +871,7 @@ function handleToggleInstance(instanceId, shiftKey) {
     anchorInstanceId.value = selectedInstanceIds.value.has(instanceId) ? instanceId : null
 }
 
-function toggleInstanceSelection(instanceId) {
+function toggleInstanceSelection(instanceId: string) {
     const newSet = new Set(selectedInstanceIds.value)
     if (newSet.has(instanceId)) {
         newSet.delete(instanceId)
@@ -871,7 +884,7 @@ function toggleInstanceSelection(instanceId) {
     }
 }
 
-function handleCheckboxClick(instanceId, event) {
+function handleCheckboxClick(instanceId: string, event?: MouseEvent) {
     if (!selectMode.value) {
         selectMode.value = true
     }
@@ -879,7 +892,7 @@ function handleCheckboxClick(instanceId, event) {
     handleToggleInstance(instanceId, shiftKey)
 }
 
-const batchDeleteConfirmModal = ref(null)
+const batchDeleteConfirmModal = ref<InstanceType<typeof ConfirmDeleteInstanceModal> | null>(null)
 const batchDeleteTargets = ref<
     Pick<GameInstance, 'id' | 'name' | 'icon_path' | 'loader' | 'game_version' | 'path'>[]
 >([])
@@ -944,9 +957,7 @@ function onGroupReorder() {
 type InstanceDragData = { instanceId: string; fromGroup: string }
 type InstanceGroupDropData = { groupId: string }
 
-async function handleInstanceDragEnd(event: {
-    operation: { source?: { data?: unknown }; target?: { data?: unknown } }
-}) {
+async function handleInstanceDragEnd(event: DragEndEvent) {
     const sourceData = event.operation.source?.data as InstanceDragData | undefined
     const targetData = event.operation.target?.data as InstanceGroupDropData | undefined
     if (!sourceData || !targetData) return

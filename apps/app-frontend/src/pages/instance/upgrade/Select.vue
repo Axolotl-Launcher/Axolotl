@@ -448,7 +448,9 @@ function registerControls() {
             reusesPlan.value ? messages.reviewCompatibility : messages.checkCompatibility,
         ),
         onNext: startPlanning,
-        onBack: () => router.push(`/instance/${encodeURIComponent(flow.instanceId.value)}`),
+        onBack: async () => {
+            await router.push(`/instance/${encodeURIComponent(flow.instanceId.value)}`)
+        },
     })
 }
 onMounted(registerControls)

@@ -165,8 +165,11 @@ it('terminates an in-flight mesh worker when the preview is closed before its re
                 super(url, options)
                 workers.add(this)
             }
-            postMessage(message: unknown, transfer: Transferable[]) {
-                super.postMessage(message, transfer)
+            postMessage(
+                message: unknown,
+                transferOrOptions?: Transferable[] | StructuredSerializeOptions,
+            ) {
+                super.postMessage(message, transferOrOptions as Transferable[])
                 if ((message as { type?: string }).type === 'mesh') posted()
             }
             terminate() {

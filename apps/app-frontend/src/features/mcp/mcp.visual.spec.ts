@@ -87,7 +87,12 @@ async function render(locale = 'en-US', theme: 'light' | 'dark' = 'dark', width 
                 locale: ref(locale),
                 t: (key) =>
                     locale === 'zh-CN'
-                        ? ((chinese as Record<string, { message: string }>)[key]?.message ?? key)
+                        ? ((
+                              chinese as Record<
+                                  string,
+                                  { message?: string; defaultMessage?: string }
+                              >
+                          )[key]?.message ?? key)
                         : key,
                 setLocale: () => {},
             })

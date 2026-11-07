@@ -20,6 +20,9 @@ export * from './version-compatibility'
 export * from './vue-children'
 export type { SkinRendererConfig } from './webgl/skin-rendering'
 
+// Resolve the name exported by both the loader helpers and the tag messages.
+export { loaderMessages } from './tag-messages'
+
 /** Loads the WebGL implementation only when a skin renderer is needed. */
 export function loadSkinRendering() {
     return import('./webgl/skin-rendering')

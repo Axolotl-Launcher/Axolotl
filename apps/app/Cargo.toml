@@ -62,6 +62,7 @@ trash = { workspace = true }
 url = { workspace = true }
 urlencoding = { workspace = true }
 uuid = { workspace = true, features = ["serde", "v4"] }
+webp-animation = { workspace = true }
 zip = { workspace = true }
 
 [dependencies.tauri]
@@ -73,6 +74,9 @@ features = [
   "tray-icon",
   "unstable"
 ]
+
+[dev-dependencies]
+png = { workspace = true }
 
 [build-dependencies]
 cc = { workspace = true }

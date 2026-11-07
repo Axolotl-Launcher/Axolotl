@@ -153,7 +153,12 @@ export function filterInstalledCurseForgeManualDownloads(
         installedItems.flatMap((item) =>
             (item.provider_refs ?? [])
                 .filter(
-                    (reference) => reference.provider === 'curseforge' && reference.file_id != null,
+                    (
+                        reference,
+                    ): reference is Extract<
+                        NonNullable<InstalledCurseForgeContentItem['provider_refs']>[number],
+                        { provider: 'curseforge' }
+                    > => reference.provider === 'curseforge' && reference.file_id != null,
                 )
                 .map((reference) => `${reference.project_id}:${reference.file_id}`),
         ),

@@ -746,7 +746,8 @@ async function enrich(value: ResourceOperationPlan, signal: AbortSignal, current
             const cachedRef =
                 node.artifact?.reference.release.project ??
                 (node.resource.kind === 'source' ? node.resource.project : null)
-            if (cachedRef?.source === 'local') return
+            // `SourceId` does not model the legacy local source, but persisted plans may still carry it.
+            if ((cachedRef?.source as string | undefined) === 'local') return
             if (node.state === 'satisfied' && cachedRef) {
                 const [document] = await resourceProjectDocuments(
                     cachedRef.source,
@@ -801,7 +802,9 @@ async function run(
     clearProgress()
     error.value = null
     errorSummary.value = null
-    retryAction = () => run(action, ignoreDependencies)
+    retryAction = async () => {
+        await run(action, ignoreDependencies)
+    }
     let acceptingProgress = true
     try {
         const value = await resourceAnalysisRequest(request, (signal) =>
@@ -994,7 +997,7 @@ function withTargetWorld(value: OperationInput): OperationInput {
         ),
     }
 }
-function selectWorld(path: string) {
+function selectWorld(path: string | null) {
     if (!input.value || busy.value || queueing.value) return
     targetWorld.value = path
     plan.value = null

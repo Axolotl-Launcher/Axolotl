@@ -71,6 +71,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                         'Fixed completed downloads waiting for instance refresh and temporary file cleanup before leaving the active download list.',
                     'zh-CN': '修复下载完成后仍需等待实例刷新和临时文件清理才退出进行中列表的问题。',
                 },
+                {
+                    'en-US':
+                        'Fixed cached CurseForge modpack archives remaining queued in download details after validation.',
+                    'zh-CN':
+                        '修复 CurseForge 整合包压缩包命中缓存并校验完成后，下载详情仍显示排队中的问题。',
+                },
             ],
         },
     },

@@ -4,7 +4,7 @@ import atlasUvData from './assets/vanilla/texture-layout.json'
 
 type RawTextureRegion = [number, number, number, number]
 export type BuiltinTextureRegion = { x: number; y: number; width: number; height: number }
-const atlasUvs = atlasUvData as Record<string, RawTextureRegion>
+const atlasUvs = atlasUvData as unknown as Record<string, RawTextureRegion>
 
 function normalizeTextureId(value: string) {
     const normalized = value.trim().toLowerCase()

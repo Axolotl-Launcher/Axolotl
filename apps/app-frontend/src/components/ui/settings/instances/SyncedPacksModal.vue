@@ -4,10 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
 import {
+    isSyncedPackTypeAvailable,
+    list_synced_packs,
     remove_synced_pack,
     set_synced_pack_enabled,
     syncedPackKeys,
-    syncedPackQueryOptions,
     type SyncedPackType,
 } from '@/helpers/synced-packs'
 
@@ -26,8 +27,12 @@ const messages = defineMessages({
     remove: { id: 'app.settings.synced-packs.remove', defaultMessage: 'Remove' },
     empty: { id: 'app.settings.synced-packs.empty', defaultMessage: 'No synced packs' },
 })
-const query = useQuery(computed(() => syncedPackQueryOptions(type.value)))
-const packs = computed(() => query.value.data.value ?? [])
+const query = useQuery({
+    queryKey: computed(() => syncedPackKeys.list(type.value)),
+    queryFn: () => list_synced_packs(type.value),
+    enabled: computed(() => isSyncedPackTypeAvailable(type.value)),
+})
+const packs = computed(() => query.data.value ?? [])
 const mutation = useMutation({
     mutationFn: async (request: { id: string; enabled?: boolean; remove?: boolean }) => {
         if (request.remove) await remove_synced_pack(request.id)

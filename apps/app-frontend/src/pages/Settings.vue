@@ -69,8 +69,8 @@ const hasSearchQuery = computed(() => !!normalizeSettingsSearchText(searchQuery.
 const debouncedSearchQuery = ref('')
 const searchResultsPending = ref(false)
 const showContentSkeleton = ref(false)
-let searchDebounceTimer: ReturnType<typeof window.setTimeout> | undefined
-let searchHighlightTimer: ReturnType<typeof window.setTimeout> | undefined
+let searchDebounceTimer: number | undefined
+let searchHighlightTimer: number | undefined
 let categoryTransitionToken = 0
 
 const SEARCH_DEBOUNCE_MS = 120

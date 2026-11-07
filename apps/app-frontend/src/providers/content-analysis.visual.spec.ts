@@ -59,7 +59,7 @@ it('replays only the nodes still shown and the latest stage, and ignores an olde
     send({ kind: 'nodeRemoved', nodeId: 'removed' })
     send({ kind: 'phase', phase: 'prefetching' })
     send({ kind: 'node', selectionRevision: 0, node: { id: 'older' } })
-    const onProgress = vi.fn()
+    const onProgress = vi.fn<(progress: ResourceOperationProgress) => void>()
     const prepared = cart.review()!.prepare(new AbortController().signal, onProgress)
     await tick()
     expect(

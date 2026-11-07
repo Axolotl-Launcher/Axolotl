@@ -128,7 +128,7 @@ const action = computed(() => {
                     :color="action.color"
                     size="sm"
                     :disabled="action.disabled"
-                    @click="emit(action.event)"
+                    @click="action.event === 'resume' ? emit('resume') : emit('start-stop')"
                 >
                     <component :is="action.icon" />{{ formatMessage(action.label) }}
                 </Button>

@@ -15,7 +15,7 @@
     <ConfirmRemoveWorldModal
         ref="removeWorldModal"
         :world="worldToRemove"
-        :symlink-target="instance.symlink_target"
+        :symlink-target="instance.symlink_target ?? undefined"
         @confirm="proceedRemoveWorld"
     />
     <ReadyTransition :pending="worldsReadyPending">

@@ -199,7 +199,7 @@ onUnmounted(() => {
                 </div>
                 <div class="flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
                     <div
-                        v-tooltip="instance.lastPlayed ? formatDateTime(instance.lastPlayed) : null"
+                        v-tooltip="lastPlayed ? formatDateTime(lastPlayed.toDate()) : null"
                         class="w-fit shrink-0"
                         :class="{ 'cursor-help smart-clickable:allow-pointer-events': lastPlayed }"
                     >

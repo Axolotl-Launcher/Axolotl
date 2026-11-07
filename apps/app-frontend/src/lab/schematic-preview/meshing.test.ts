@@ -17,7 +17,7 @@ import {
     shouldCullSchematicFace,
 } from './meshing.ts'
 
-const palette = [
+const palette: SchematicBlockState[] = [
     { name: 'minecraft:air', properties: {} },
     { name: 'minecraft:white_stained_glass', properties: {} },
     { name: 'minecraft:black_stained_glass', properties: {} },
@@ -186,7 +186,7 @@ it('double chest halves meet across every facing direction', () => {
         { facing: 'south', axis: 'x', offset: [-1, 0, 0] as const },
         { facing: 'west', axis: 'z', offset: [0, 0, -1] as const },
         { facing: 'east', axis: 'z', offset: [0, 0, 1] as const },
-    ]
+    ] as const
     const coordinate = (mesh: ReturnType<typeof getSchematicSpecialBlockMesh>, axis: 'x' | 'z') =>
         mesh.quads.flatMap((quad) => quad.vertices().map((vertex) => vertex.pos[axis]))
 

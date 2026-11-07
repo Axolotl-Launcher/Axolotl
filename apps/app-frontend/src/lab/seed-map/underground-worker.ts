@@ -1,7 +1,11 @@
 import type { UndergroundMeshRequest } from './underground'
 import { buildUndergroundMesh } from './underground-mesh'
 
-const scope = self as DedicatedWorkerGlobalScope
+type WorkerScope = {
+    onmessage: ((event: MessageEvent<Message>) => void) | null
+    postMessage(message: unknown, transfer?: Transferable[]): void
+}
+const scope = self as unknown as WorkerScope
 let textureUvs: UndergroundMeshRequest['textureUvs'] = {}
 type Message =
     | { type: 'init'; textureUvs: UndergroundMeshRequest['textureUvs'] }

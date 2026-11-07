@@ -29,7 +29,7 @@ const { formatMessage } = useVIntl()
                 <Toggle
                     id="mcp-debug-full-access"
                     :model-value="fullAccess"
-                    @update:model-value="setFullAccess"
+                    @update:model-value="setFullAccess($event ?? false)"
                 />
                 <label for="mcp-debug-full-access">{{
                     formatMessage(messages.debugFullAccess)

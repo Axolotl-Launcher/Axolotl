@@ -9,7 +9,7 @@ export type TextureAtlas = {
 
 export const TEXTURE_ATLAS: TextureAtlas = {
     url: atlasUrl,
-    layout: atlasLayoutData as Record<string, [number, number, number, number]>,
+    layout: atlasLayoutData as unknown as Record<string, [number, number, number, number]>,
 }
 
 export const TEXTURE_ATLAS_SIZE = {

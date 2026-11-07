@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import '@/assets/stylesheets/window-frame.css'
 
-import { AuthFeature, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
+import {
+    type AuthConfig,
+    AuthFeature,
+    type Labrinth,
+    ModrinthApiError,
+    TauriModrinthClient,
+    VerboseLoggingFeature,
+} from '@modrinth/api-client'
 import {
     ChangeSkinIcon,
     CompassIcon,
@@ -123,7 +130,7 @@ import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
 import { get_user, get_version } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
-import { applySettingChanges } from '@/helpers/deep-link-settings.ts'
+import { applySettingChanges, type PrivilegedSettingChange } from '@/helpers/deep-link-settings.ts'
 import { resolveOpenRoute, resolveSettingsRoute } from '@/helpers/deep-links.ts'
 import {
     DIRECT_LINKS_SYNCED_EVENT,
@@ -137,10 +144,14 @@ import {
     warning_listener,
 } from '@/helpers/events.js'
 import { fileOperationError } from '@/helpers/file-operation-errors'
-import { install_create_modpack_instance, install_get_modpack_preview } from '@/helpers/install'
+import {
+    type CreatePackLocation,
+    install_create_modpack_instance,
+    install_get_modpack_preview,
+} from '@/helpers/install'
 import { type DirectLinkSyncReport, get as getInstance, run } from '@/helpers/instance'
 import { type BackupOperation, cancelBackup, listBackupOperations } from '@/helpers/instance-backup'
-import { cancelLogin, get as getCreds, login, logout } from '@/helpers/mr_auth.ts'
+import { cancelLogin, get as getCreds, login, logout, type ModrinthCredentials } from '@/helpers/mr_auth.ts'
 import { installNativeEditMenuBoundary } from '@/helpers/native-edit-menu'
 import { getNavShortcutEnabled } from '@/helpers/nav-shortcut-state'
 import { runWhenIdle } from '@/helpers/page-transition'
@@ -202,6 +213,7 @@ import {
     setAppUpdateActions,
 } from '@/providers/app-update.ts'
 import { createContentInstall, provideContentInstall } from '@/providers/content-install'
+import type { ModalRef } from '@/providers/content-install-types'
 import { createContentSelection, provideContentSelection } from '@/providers/content-selection'
 import { createDownloadManager, provideDownloadManager } from '@/providers/download-manager'
 import {
@@ -230,10 +242,46 @@ const onSettingsPage = computed(() => route.path.startsWith('/settings'))
 const isSchematicFile = (path: string) => /\.(litematic|schematic|schem)$/i.test(path)
 const APP_LEFT_NAV_WIDTH = '4rem'
 
+/** Payload of the Rust `warning` event consumed by the app shell. */
+interface WarningPayload {
+    message: string
+    kind: string
+    java_version?: number
+    instance_id?: string
+    instance_name?: string
+}
+
+/** Payload of the Rust `drop_classify_progress` event. */
+interface DropClassifyProgressPayload {
+    currentItem?: string
+}
+
+/** Payload of the Rust `command` event (opening commands and deep links). */
+interface AppCommand {
+    event: string
+    id?: string
+    path?: string
+    query?: string
+    tab?: string
+    entry?: string
+    server?: string
+    singleplayer_world?: string
+    changes?: PrivilegedSettingChange[]
+    instance_id?: string
+}
+
+/** Fields shared by history and popup notifications that end up in exported logs. */
+interface ExportableNotification {
+    title?: string
+    text?: string
+    errorCode?: string
+    supportData?: Record<string, unknown>
+}
+
 const discoverContentPath = computed(() => discoverContentTarget(route))
 
 const pagePathCopied = ref(false)
-let pagePathCopiedTimer: ReturnType<typeof window.setTimeout> | undefined
+let pagePathCopiedTimer: number | undefined
 
 async function copyPagePath() {
     try {
@@ -269,7 +317,8 @@ function getPageTransitionKey(route: RouteLocationNormalizedLoaded) {
     return `${transitionGroup}:`
 }
 const APP_SIDEBAR_WIDTH = 300
-const credentials = ref()
+type AppCredentials = ModrinthCredentials & { user?: Labrinth.Users.v2.User | null }
+const credentials = ref<AppCredentials | null>(null)
 const sidebarToggled = ref(getSidebarExpanded())
 
 function toggleSidebar() {
@@ -331,16 +380,15 @@ void appVersion
     .catch((error) => {
         console.warn('Failed to read the app version for the Beta label', error)
     })
+const authFeatureConfig: AuthConfig = {
+    token: async () => (await getCreds())?.session,
+}
 const tauriApiClient = new TauriModrinthClient({
     userAgent: async () => AxolotlBrandConfig.userAgent(await appVersion, await getOsType()),
     labrinthBaseUrl: config.labrinthBaseUrl,
     features: [
         ...(AxolotlBrandConfig.capabilities.privateModrinthServices
-            ? [
-                  new AuthFeature({
-                      token: async () => (await getCreds())?.session,
-                  }),
-              ]
+            ? [new AuthFeature(authFeatureConfig)]
             : []),
         new VerboseLoggingFeature(),
     ],
@@ -531,7 +579,7 @@ let unlistenWindowResize: (() => void) | undefined
 let stopNativeEditMenu: (() => void) | undefined
 const minecraftCrashModal = ref()
 const missingJavaModal = ref<InstanceType<typeof MissingJavaModal>>()
-const pendingUpdateAnnouncementVersion = ref(null)
+const pendingUpdateAnnouncementVersion = ref<string | null>(null)
 const updateAnnouncementShowing = ref(false)
 
 setupMojangAuthMonitor(stateInitialized)
@@ -542,7 +590,7 @@ const appUpdateDownload = {
     progress: appUpdateState.progress,
     version: ref(),
 }
-let unlistenUpdateDownload
+let unlistenUpdateDownload: (() => void) | null = null
 
 const {
     metered,
@@ -554,7 +602,7 @@ const {
     updatesEnabled,
     updatesPaused,
 } = appUpdateState
-let delayedUpdatePopupTimeout = null
+let delayedUpdatePopupTimeout: ReturnType<typeof setTimeout> | null = null
 
 async function checkUpdates() {
     if (!(await areUpdatesEnabled())) {
@@ -638,7 +686,7 @@ function nearestScrollContainer(target: EventTarget | null) {
  * host a full-height container inside it, so fall back to whatever fills the
  * middle of the viewport.
  */
-function resolvePageScroller() {
+function resolvePageScroller(): HTMLElement | null {
     const viewport = document.querySelector<HTMLElement>('.app-viewport')
     if (!viewport) return null
     if (isPageScroller(viewport)) return viewport
@@ -649,7 +697,7 @@ function resolvePageScroller() {
         bounds.top + bounds.height / 2,
     )
     while (element) {
-        if (isPageScroller(element)) return element
+        if (element instanceof HTMLElement && isPageScroller(element)) return element
         element = element.parentElement
     }
 
@@ -812,8 +860,8 @@ onMounted(async () => {
     // Not passive: a bound wheel direction has to keep the page from scrolling.
     window.addEventListener('wheel', handleShortcutWheel, { capture: true, passive: false })
     unlistenCloseRequested = await getCurrentWindow().onCloseRequested(handleCloseRequested)
-    document.querySelector('body').addEventListener('click', handleClick)
-    document.querySelector('body').addEventListener('auxclick', handleAuxClick)
+    document.body.addEventListener('click', handleClick)
+    document.body.addEventListener('auxclick', handleAuxClick)
     window.addEventListener(DIRECT_LINKS_SYNCED_EVENT, handleDirectLinkSyncReport)
     window.addEventListener('modrinth-console-fullscreen', handleConsoleFullscreen as EventListener)
 
@@ -902,12 +950,12 @@ onUnmounted(async () => {
     stopNativeTrafficLightAnchorTracking()
     window.removeEventListener('keydown', handleGlobalKeydown, true)
     window.removeEventListener('mousedown', handleShortcutMouse, true)
-    window.removeEventListener('wheel', handleShortcutWheel, { capture: true, passive: false })
+    window.removeEventListener('wheel', handleShortcutWheel, { capture: true })
     unlistenCloseRequested?.()
     unlistenLightweightModeError?.()
     unlistenSystemAccentColor?.()
-    document.querySelector('body').removeEventListener('click', handleClick)
-    document.querySelector('body').removeEventListener('auxclick', handleAuxClick)
+    document.body.removeEventListener('click', handleClick)
+    document.body.removeEventListener('auxclick', handleAuxClick)
     window.removeEventListener(DIRECT_LINKS_SYNCED_EVENT, handleDirectLinkSyncReport)
     window.removeEventListener(
         'modrinth-console-fullscreen',
@@ -1414,7 +1462,7 @@ notificationManager.errorTextFormatter = (error) =>
     fileOperationError(error, getOsType(), formatMessage) ??
     (isResourceOperationError(error) ? resourceOperationError(error, formatMessage) : null)
 
-function getErrorNotificationDetails(notification) {
+function getErrorNotificationDetails(notification: ExportableNotification) {
     const details = [notification.title, notification.text, notification.errorCode].filter(Boolean)
     if (notification.supportData) {
         details.push(JSON.stringify(notification.supportData, null, 2))
@@ -1422,7 +1470,7 @@ function getErrorNotificationDetails(notification) {
     return details.join('\n\n')
 }
 
-async function exportNotificationErrorLogs(notification) {
+async function exportNotificationErrorLogs(notification: ExportableNotification) {
     try {
         await exportErrorLogs(getErrorNotificationDetails(notification))
     } catch (error) {
@@ -1435,7 +1483,6 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
     themeStore.setThemeState(s.theme)
     await initializeSystemAccentColor()
     themeStore.setAccentColor(s.accent_color)
-    themeStore.collapsedNavigation = s.collapsed_navigation
     themeStore.advancedRendering = s.advanced_rendering
     themeStore.hideNametagSkinsPage = s.hide_nametag_skins_page
     themeStore.nametagUsesAppFont = s.nametag_uses_app_font
@@ -1470,7 +1517,7 @@ async function setupApp() {
         telemetry,
         telemetry_consent_version,
         discord_rpc,
-        collapsed_navigation,
+        collapsed_navigation: _collapsed_navigation,
         hide_nametag_skins_page,
         nametag_uses_app_font,
         advanced_rendering,
@@ -1538,7 +1585,6 @@ async function setupApp() {
     themeStore.setThemeState(theme)
     await initializeSystemAccentColor()
     themeStore.setAccentColor(accent_color)
-    themeStore.collapsedNavigation = collapsed_navigation
     themeStore.advancedRendering = advanced_rendering
     themeStore.hideNametagSkinsPage = hide_nametag_skins_page
     themeStore.nametagUsesAppFont = nametag_uses_app_font
@@ -1620,14 +1666,14 @@ async function setupApp() {
         document.getElementsByTagName('html')[0].classList.add('windows')
     }
 
-    await warning_listener(async (e) => {
+    await warning_listener(async (e: WarningPayload) => {
         if (e.kind === 'minecraft_crash') {
             await minecraftCrashModal.value?.handleWarning(e)
             return
         }
 
         if (e.kind === 'missing_java') {
-            missingJavaModal.value?.show(e.java_version)
+            if (e.java_version !== undefined) missingJavaModal.value?.show(e.java_version)
             return
         }
 
@@ -1637,7 +1683,7 @@ async function setupApp() {
             type: 'warning',
         })
     })
-    await drop_classify_progress_listener((payload) => {
+    await drop_classify_progress_listener((payload: DropClassifyProgressPayload) => {
         if (dropProcessingNotificationId.value === null) return
         const name = payload.currentItem?.split(/[/\\]/).pop() || 'file'
         notificationManager.removeNotification(dropProcessingNotificationId.value)
@@ -1699,7 +1745,7 @@ async function finishOobe() {
     await scheduleStartupDialogs()
 }
 
-async function handleUpdateAnnouncementClosed(version) {
+async function handleUpdateAnnouncementClosed(version: string | null) {
     if (pendingUpdateAnnouncementVersion.value !== version) return
 
     const settings = await getSettings()
@@ -1782,13 +1828,13 @@ stateInitialization
         setupApp().catch((err) => {
             stateFailed.value = true
             console.error(err)
-            error.showError(err, null, true, 'state_init')
+            showStateInitError(err)
         })
     })
     .catch((err) => {
         stateFailed.value = true
         console.error('Failed to initialize app', err)
-        error.showError(err, null, true, 'state_init')
+        showStateInitError(err)
     })
 
 /**
@@ -1965,10 +2011,10 @@ const handleClose = closeWindowImmediately
 
 const loading = setupLoadingStateProvider()
 loading.setEnabled(false)
-let initialLoadToken = loading.begin()
-let routerToken = null
-let suspenseToken = null
-let lastDiscordActivity = null
+let initialLoadToken: symbol | null = loading.begin()
+let routerToken: symbol | null = null
+let suspenseToken: symbol | null = null
+let lastDiscordActivity: string | null = null
 let discordActivityUpdate = Promise.resolve()
 
 let suspensePending = false
@@ -2067,15 +2113,33 @@ watch(offline, (isOffline) => {
 })
 
 const error = useError()
-error.setMinecraftLaunchErrorHandler((launchError, context) => {
-    if (!minecraftCrashModal.value?.isLaunchFailure(launchError) || !context?.instanceId)
-        return false
-    void minecraftCrashModal.value.handleLaunchError(launchError, {
-        instance_id: context.instanceId,
-        instance_name: 'Minecraft',
-    })
-    return true
-})
+
+/**
+ * The error store is plain JS, so its action infers the `source` parameter as
+ * `null` from its default. Widen it at this boundary to keep passing the
+ * `state_init` source the error modal branches on.
+ */
+function showStateInitError(err: unknown) {
+    const showError = error.showError as (
+        error: unknown,
+        context: unknown,
+        closable?: boolean,
+        source?: string | null,
+    ) => void
+    showError(err, null, true, 'state_init')
+}
+
+error.setMinecraftLaunchErrorHandler(
+    (launchError: unknown, context: { instanceId?: string } | null) => {
+        if (!minecraftCrashModal.value?.isLaunchFailure(launchError) || !context?.instanceId)
+            return false
+        void minecraftCrashModal.value.handleLaunchError(launchError, {
+            instance_id: context.instanceId,
+            instance_name: 'Minecraft',
+        })
+        return true
+    },
+)
 const errorModal = ref()
 const antiPiracyNoticeModal = ref<InstanceType<typeof OfflineAccountRestrictionModal>>()
 const minecraftAuthErrorModal = ref()
@@ -2151,7 +2215,7 @@ const dropImport = useDropImport({
     onSchematicWorkshopPage,
     onSettingsPage,
     isSchematicFile,
-    trackEvent,
+    trackEvent: trackEvent as (name: string, properties?: Record<string, unknown>) => void,
     router,
 })
 
@@ -2215,7 +2279,9 @@ watch(
     dropIncompatibilityWarningModal,
     (modal) => {
         if (modal) {
-            setContentIncompatibilityWarningModal(modal)
+            // The drop-flow ref only declares `show`, while the content-install
+            // provider expects the full modal ref (which also has `hide`).
+            setContentIncompatibilityWarningModal(modal as unknown as ModalRef)
         }
     },
     { flush: 'post' },
@@ -2233,7 +2299,7 @@ setupAuthProvider(credentials, async (_redirectPath) => {
     if (AxolotlBrandConfig.capabilities.privateModrinthServices) await signIn()
 })
 
-async function validateSession(sessionToken) {
+async function validateSession(sessionToken: string) {
     try {
         const response = await tauriFetch(`${getOfficialLabrinthBaseUrl()}/v2/user`, {
             method: 'GET',
@@ -2251,7 +2317,7 @@ async function fetchCredentials() {
         credentials.value = null
         return
     }
-    const creds = await getCreds().catch(handleError)
+    const creds: AppCredentials | null = (await getCreds().catch(handleError)) ?? null
     if (creds && creds.user_id) {
         if (creds.session && !(await validateSession(creds.session))) {
             await logout().catch(handleError)
@@ -2272,7 +2338,9 @@ async function signIn() {
     } catch (error) {
         if (
             typeof error === 'object' &&
-            typeof error['message'] === 'string' &&
+            error !== null &&
+            'message' in error &&
+            typeof error.message === 'string' &&
             error.message.includes('Login canceled')
         ) {
             // Not really an error due to being a result of user interaction, show nothing
@@ -2332,7 +2400,7 @@ provide('accountsCard', accounts)
 
 command_listener(handleCommand)
 
-async function handleCommand(e) {
+async function handleCommand(e: AppCommand | null) {
     if (!e) return
     if (e.event === 'OpenRoute') {
         const target = resolveOpenRoute(e.path ?? '', e.query ?? null)
@@ -2384,8 +2452,8 @@ async function handleCommand(e) {
     if (e.event === 'RunMRPack') {
         // RunMRPack should directly install a local modpack file given a path;
         // non-mrpack archives (CurseForge/MCBBS/HMCL/MultiMC zips) are format-sniffed by the backend
-        if (e.path.endsWith('.mrpack') || e.path.endsWith('.zip')) {
-            const location = { type: 'fromFile', path: e.path }
+        if (e.path && (e.path.endsWith('.mrpack') || e.path.endsWith('.zip'))) {
+            const location: CreatePackLocation = { type: 'fromFile', path: e.path }
             const preview = await install_get_modpack_preview(location).catch(handleError)
             if (preview?.unknownFile) {
                 const splitPath = e.path.split(/[\\/]/)
@@ -2402,8 +2470,9 @@ async function handleCommand(e) {
             })
         }
     } else if (e.event === 'LaunchInstance') {
+        if (!e.id) return
         const instance = await getInstance(e.id).catch(() => null)
-        const handleLaunchCommandError = async (launchError) => {
+        const handleLaunchCommandError = async (launchError: unknown) => {
             if (isOfflineAccountRestrictedError(launchError)) {
                 error.showAntiPiracyNotice()
                 return
@@ -2425,6 +2494,7 @@ async function handleCommand(e) {
             await run(e.id).catch(handleLaunchCommandError)
         }
     } else if (e.event === 'InstallVersion') {
+        if (!e.id) return
         const version = await get_version(e.id, 'must_revalidate').catch(handleError)
         if (version) {
             await contentInstall
@@ -2442,6 +2512,7 @@ async function handleCommand(e) {
                 .catch(handleError)
         }
     } else {
+        if (!e.id) return
         await contentInstall
             .install(e.id, null, null, 'URLConfirmModal', undefined, undefined, {
                 showProjectInfo: true,
@@ -2466,7 +2537,7 @@ const privilegedMessages = defineMessages({
 })
 
 // 启用开关时已强制阅读确认，执行不再逐次确认
-async function handlePrivilegedCommand(e) {
+async function handlePrivilegedCommand(e: AppCommand) {
     if (e.event === 'UpdateSettings') {
         const latest = await getSettings().catch(handleError)
         if (!latest) return
@@ -2482,7 +2553,7 @@ async function handlePrivilegedCommand(e) {
         })
         return
     }
-    const processes = await get_by_instance_id(e.instance_id).catch(() => [])
+    const processes = await get_by_instance_id(e.instance_id ?? '').catch(() => [])
     if (!processes.length) {
         addNotification({
             title: formatMessage(privilegedMessages.noProcesses),
@@ -2718,7 +2789,7 @@ async function downloadAvailableUpdate() {
     return downloadUpdate(availableUpdate.value)
 }
 
-async function downloadUpdate(versionToDownload) {
+async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {
     if (!versionToDownload) {
         handleError(`Failed to download update: no version available`)
         return
@@ -2737,9 +2808,8 @@ async function downloadUpdate(versionToDownload) {
             .then(() => {
                 downloading.value = false
                 finishedDownloading.value = true
-                unlistenUpdateDownload?.().then(() => {
-                    unlistenUpdateDownload = null
-                })
+                unlistenUpdateDownload?.()
+                unlistenUpdateDownload = null
                 console.log('Finished downloading!')
                 markAppUpdateActionable(versionToDownload.version, 'downloaded')
                 scheduleDelayedUpdatePopup()
@@ -2747,9 +2817,8 @@ async function downloadUpdate(versionToDownload) {
             .catch((error) => {
                 downloading.value = false
                 appUpdateDownload.progress.value = 0
-                unlistenUpdateDownload?.().then(() => {
-                    unlistenUpdateDownload = null
-                })
+                unlistenUpdateDownload?.()
+                unlistenUpdateDownload = null
                 handleError(error)
             })
         unlistenUpdateDownload = await subscribeToDownloadProgress(
@@ -2792,7 +2861,9 @@ setAppUpdateActions({
     },
 })
 
-async function openModrinthProjectLinkInApp(parsed) {
+async function openModrinthProjectLinkInApp(
+    parsed: NonNullable<ReturnType<typeof parseModrinthLink>>,
+) {
     const { slug, pathSuffix, url } = parsed
     const loadToken = loading.begin()
     try {
@@ -2814,20 +2885,21 @@ async function openModrinthProjectLinkInApp(parsed) {
     }
 }
 
-function handleClick(e) {
-    let target = e.target
+function handleClick(e: MouseEvent) {
+    let target = e.target as Element | null
     while (target != null) {
         if (target.matches('a')) {
+            const anchor = target as HTMLAnchorElement
             // RouterLinks and same-origin SPA paths must keep default handling /
             // vue-router click; only intercept true external protocol links.
-            const href = target.getAttribute('href') ?? ''
-            const externalUrl = getExternalLinkUrl(href, target.href)
+            const href = anchor.getAttribute('href') ?? ''
+            const externalUrl = getExternalLinkUrl(href, anchor.href)
             const isRouterLink =
-                target.classList.contains('router-link-active') ||
+                anchor.classList.contains('router-link-active') ||
                 (href.startsWith('/') && !externalUrl)
-            if (!isRouterLink && externalUrl && !target.classList.contains('router-link-active')) {
+            if (!isRouterLink && externalUrl && !anchor.classList.contains('router-link-active')) {
                 const parsed = parseModrinthLink(externalUrl)
-                if (target.target !== '_blank' && parsed) {
+                if (anchor.target !== '_blank' && parsed) {
                     void openModrinthProjectLinkInApp(parsed)
                 } else {
                     openUrl(externalUrl)
@@ -2840,7 +2912,7 @@ function handleClick(e) {
     }
 }
 
-function handleAuxClick(e) {
+function handleAuxClick(e: MouseEvent) {
     // A shortcut answers to this button, so the click is not a click at all.
     if (findShortcut(e, bindingMatchesMouseEvent)) return
 
@@ -2853,7 +2925,7 @@ function handleAuxClick(e) {
             bubbles: true,
             cancelable: true,
         })
-        e.target.dispatchEvent(event)
+        e.target?.dispatchEvent(event)
     }
 }
 
@@ -3014,7 +3086,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                             route.path.startsWith('/instance') ||
                             ((route.path.startsWith('/browse') ||
                                 route.path.startsWith('/project')) &&
-                                route.query.i)
+                                !!route.query.i)
                     "
                 >
                     <LibraryIcon />
@@ -3052,7 +3124,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     {
                         id: 'view-profile',
                         action: () =>
-                            openUrl('https://modrinth.com/user/' + credentials.user.username),
+                            openUrl('https://modrinth.com/user/' + credentials?.user?.username),
                     },
                     {
                         id: 'sign-out',
@@ -3354,7 +3426,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         :preferred-game-version="contentInstallPreferredGameVersion"
         :release-game-versions="contentInstallReleaseGameVersions"
         :project-info="contentInstallProjectInfo"
-        :symlink-target="contentInstallSymlinkTarget"
+        :symlink-target="contentInstallSymlinkTarget ?? undefined"
         @install="handleInstallToInstance"
         @create-and-install="handleCreateAndInstall"
         @navigate="handleContentInstallNavigate"
@@ -3369,7 +3441,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     />
     <AddServerToInstanceModal
         ref="addServerToInstanceModal"
-        :symlink-target="addServerSymlinkTarget"
+        :symlink-target="addServerSymlinkTarget ?? undefined"
     />
     <ContentUpdaterModal
         ref="incompatibilityWarningModal"

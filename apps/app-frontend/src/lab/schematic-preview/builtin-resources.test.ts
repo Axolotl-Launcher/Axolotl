@@ -53,7 +53,7 @@ it('built-in assets render stained glass and sugar cane across supported version
 
         const textureUvs = builtin.builtinTextureUvs()
         for (const blockName of ['white_stained_glass', 'sugar_cane']) {
-            const state = palette.find((entry) => entry.name === `minecraft:${blockName}`)
+            const state = palette.find((entry) => entry.name === `minecraft:${blockName}`)!
             expect(state).toBeTruthy()
             expect(textureUvs[`minecraft:block/${blockName}`]).toBeTruthy()
             const definition = BlockDefinition.fromJson(resources.blockDefinitions[state.name])
@@ -138,10 +138,10 @@ it('partial redstone models do not hide every face of adjacent blocks', () => {
         'minecraft:piston',
     ]
     const availableStates = builtin.listBuiltinBlockStates()
-    const palette = [
+    const palette: SchematicBlockState[] = [
         { name: 'minecraft:air', properties: {} },
         ...['minecraft:stone', ...reportedNames].map((name) => {
-            const state = availableStates.find((entry) => entry.name === name)
+            const state = availableStates.find((entry) => entry.name === name)!
             expect(state).toBeTruthy()
             return name === 'minecraft:piston'
                 ? { ...state, properties: { ...state.properties, extended: 'true' } }

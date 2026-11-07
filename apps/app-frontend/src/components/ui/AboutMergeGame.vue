@@ -336,8 +336,8 @@ let tideHoldUntil = 0
 let waveStart = -1
 let resizeObserver: ResizeObserver | undefined
 let canDropAt = 0
-let victoryTimer: ReturnType<typeof window.setTimeout> | undefined
-let overtimeTimer: ReturnType<typeof window.setTimeout> | undefined
+let victoryTimer: number | undefined
+let overtimeTimer: number | undefined
 let playfieldColor = '#171719'
 let brandColor = '#22c55e'
 

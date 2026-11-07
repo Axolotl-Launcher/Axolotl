@@ -93,8 +93,8 @@ it('uses indeterminate progress without stale summary bytes and restores measure
         legacyDownloads: ref([]),
     }
     const wrapper = mount(DownloadCenterButton, { global: { directives: { tooltip: () => {} } } })
-    const bar = () => wrapper.get('[role="progressbar"]')
-    const trigger = () => wrapper.get('[aria-label="Downloads"]')
+    const bar = () => wrapper.get<HTMLElement>('[role="progressbar"]')
+    const trigger = () => wrapper.get<HTMLElement>('[aria-label="Downloads"]')
     try {
         expect(bar().attributes('aria-valuenow')).toBeUndefined()
         expect(bar().find('.progress-bar--waiting').exists()).toBe(true)

@@ -478,7 +478,7 @@ onBeforeUnmount(() => {
             atlas.width = 1
             atlas.height = 1
         }
-        texture.image = undefined
+        ;(texture as { image?: HTMLCanvasElement }).image = undefined
     }
     texture = undefined
     scene?.dispose()

@@ -71,7 +71,9 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
             try {
                 const processes = await get_all()
                 if (!disposed)
-                    runningInstanceIds.value = processes.map((process) => process.instance_id)
+                    runningInstanceIds.value = processes.map(
+                        (process: { instance_id: string }) => process.instance_id,
+                    )
             } catch (error) {
                 handleError(error)
             }

@@ -81,7 +81,8 @@ export class SchematicPreviewScene {
     private readonly resizeObserver: ResizeObserver
     private readonly onSelect: SceneOptions['onSelect']
     private readonly onFocus: SceneOptions['onFocus']
-    private activeCamera: THREE.Camera = this.perspectiveCamera
+    private activeCamera: THREE.PerspectiveCamera | THREE.OrthographicCamera =
+        this.perspectiveCamera
     private projection: Projection = 'perspective'
     private atlasTexture?: THREE.CanvasTexture
     private materials: Record<SchematicMaterialKind, THREE.Material> = {
@@ -935,7 +936,7 @@ export class SchematicPreviewScene {
                 return false
             }
             const attribute = item.object.geometry.getAttribute('blockPosition')
-            const blockY = attribute.getY(item.faceIndex * 3)
+            const blockY = attribute.getY((item.faceIndex ?? 0) * 3)
             return (
                 !this.layerRange || (blockY >= this.layerRange[0] && blockY <= this.layerRange[1])
             )

@@ -233,10 +233,10 @@ it.each([
     async (_name, component, loader) => {
         let fail!: (error: Error) => void
         vi.mocked(loader).mockImplementationOnce(
-            () =>
+            (() =>
                 new Promise((_, reject) => {
                     fail = reject
-                }),
+                })) as never,
         )
         window.history.replaceState(
             { projectPreview: { targetPath: route.path, title: 'Known archive' } },

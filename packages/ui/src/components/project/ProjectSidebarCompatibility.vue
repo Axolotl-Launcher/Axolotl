@@ -139,6 +139,7 @@ const TYPES_WITH_ENVS = ['mod', 'modpack'] as const
 const props = defineProps<{
     project: {
         project_type: string
+        status: string
         loaders: string[]
         client_side: EnvironmentValue
         server_side: EnvironmentValue

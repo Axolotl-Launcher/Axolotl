@@ -182,7 +182,7 @@ const featureFlagLabels: Record<DeveloperFeatureFlag, keyof typeof messages> = {
     auto_install_dependencies: 'autoInstallDependencies',
 }
 
-function setFeatureFlag(key: string, value: boolean) {
+function setFeatureFlag(key: FeatureFlag, value: boolean) {
     themeStore.featureFlags[key] = value
     settings.value.feature_flags[key] = value
 }

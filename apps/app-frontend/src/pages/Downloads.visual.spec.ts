@@ -52,7 +52,8 @@ vi.mock('vue-router', () => ({
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
     const { default: IntlMessageFormat } = await import('intl-messageformat')
-    const catalogs = {
+    const catalogs: Record<string, Record<string, { message?: string; defaultMessage?: string }>> =
+        {
         'en-US': (await import('@/locales/en-US/index.json')).default,
         'zh-CN': (await import('@/locales/zh-CN/index.json')).default,
     }
@@ -462,7 +463,7 @@ it('shows the target name in the task summary and keeps long errors and raw iden
         id: 'file-one',
         name: 'example.jar',
         manual_url: 'https://example.test/manual',
-        status: 'failed',
+        status: 'failed' as const,
         attempts: 2,
         error,
         source: 'official',

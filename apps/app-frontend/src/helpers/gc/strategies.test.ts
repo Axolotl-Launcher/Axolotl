@@ -2,7 +2,9 @@ import { expect, it } from 'vitest'
 
 import { buildGcCandidateChain, detectGcStrategy, GC_STRATEGY_DEFINITIONS } from './strategies.ts'
 
-function createContext(overrides: Partial<Parameters<typeof buildGcCandidateChain>[0]> = {}) {
+function createContext(
+    overrides: Partial<Parameters<typeof buildGcCandidateChain>[0]> = {},
+): Parameters<typeof buildGcCandidateChain>[0] {
     return {
         javaMajorVersion: 21,
         allocatedMemoryMb: 16384,
@@ -140,7 +142,7 @@ it('buildGcCandidateChain for PCL only falls back to G1', () => {
 })
 
 it('buildGcCandidateChain never repeats the preferred strategy', () => {
-    for (const preferred of ['zgc', 'shenandoah', 'pcl', 'g1gc-mojang']) {
+    for (const preferred of ['zgc', 'shenandoah', 'pcl', 'g1gc-mojang'] as const) {
         const { ids } = buildGcCandidateChain(createContext(), preferred)
         expect(ids[0]).toBe(preferred)
         expect(new Set(ids).size).toBe(ids.length)

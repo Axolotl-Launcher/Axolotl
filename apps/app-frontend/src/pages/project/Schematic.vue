@@ -65,8 +65,9 @@ const project = projectQuery.data
 const displayProject = computed(() => ({
     title: project.value?.title ?? '',
     description: project.value?.summary ?? '',
-    icon_url: project.value?.cover,
+    icon_url: project.value?.cover ?? undefined,
     project_type: 'schematic',
+    status: 'approved' as const,
     categories: [],
     game_versions: project.value?.gameVersions ?? [],
     loaders: [],
@@ -263,7 +264,7 @@ function preview(fileName: string) {
                     :active="false"
                     :translations="{}"
                     mode="bilingual"
-                    style="weakened"
+                    :style="'weakened'"
                 />
                 <p v-else class="m-0 whitespace-pre-wrap">
                     {{ project.description || project.summary }}

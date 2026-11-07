@@ -676,7 +676,7 @@ function backupOperationTitle(operation: BackupOperation): string {
 
 function backupOperationProgress(operation: BackupOperation): string {
     if (!operation.total_bytes) {
-        const stageMessage =
+        const stageMessages: Partial<Record<BackupOperation['state'], typeof messages.stageQueued>> =
             {
                 queued: messages.stageQueued,
                 scanning: messages.stageScanning,
@@ -685,7 +685,8 @@ function backupOperationProgress(operation: BackupOperation): string {
                 validating: messages.stageValidating,
                 materializing: messages.stageMaterializing,
                 applying: messages.stageApplying,
-            }[operation.state] ?? messages.backupStage
+            }
+        const stageMessage = stageMessages[operation.state] ?? messages.backupStage
         return formatMessage(
             stageMessage,
             stageMessage === messages.backupStage ? { stage: operation.state } : undefined,
@@ -783,8 +784,10 @@ function applyBackupProgress(event: BackupProgressEvent) {
         void refreshBackupOperations()
         return
     }
-    const state: BackupOperation['state'] =
-        event.stage === 'copying' || event.stage === 'restoring' ? 'materializing' : event.stage
+    // Delete operations are filtered out above, so the `deleting` stage cannot reach this branch.
+    const state = (event.stage === 'copying' || event.stage === 'restoring'
+        ? 'materializing'
+        : event.stage) as BackupOperation['state']
     eventActiveBackupOperations.add(event.operationId)
     const existing = activeBackupOperations.value.find(
         (operation) => operation.id === event.operationId,
@@ -965,7 +968,7 @@ function removeNotification(markDismissed = true): void {
 function buildDownloadItems(): PopupNotificationProgressItem[] {
     return [
         ...installJobNotifications.progressItems.value,
-        ...currentLoadingBars.value.map((bar) => {
+        ...currentLoadingBars.value.map((bar): PopupNotificationProgressItem => {
             const isPackDownload = bar.bar_type?.type === 'pack_download'
             return {
                 id: getLoadingBarKey(bar),

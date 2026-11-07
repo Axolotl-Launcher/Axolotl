@@ -637,7 +637,7 @@ export function createContentInstall(opts: {
             instanceId: instance.id,
             installedCount: result.installed.length,
             manualCount: (result.manualDownloads ?? []).length,
-            failedCount: (result.failed ?? []).length,
+            failedCount: result.failedDownloads.length,
         })
 
         showManualCurseForgeDownloads(instance.id, result)

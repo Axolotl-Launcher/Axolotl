@@ -1441,7 +1441,7 @@ function slotEditorSlots(type: RecipeType): RecipeSlot[] {
                             <Combobox
                                 v-model="currentRecipe.nameMode"
                                 :options="
-                                    ['auto', 'manual'].map((value) => ({
+                                    (['auto', 'manual'] as const).map((value) => ({
                                         value,
                                         label: nameModeLabel(value),
                                     }))

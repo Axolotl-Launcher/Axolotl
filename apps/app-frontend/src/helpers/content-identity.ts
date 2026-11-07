@@ -7,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core'
  */
 const LOCAL_ID_PREFIX = 'local:'
 
-export type ContentIdentityProvider = 'modrinth' | 'curseforge'
+export type ContentIdentityProvider = 'modrinth' | 'curseforge' | 'mcarchive'
 export type ContentIdentitySource = 'curated_mapping' | 'sha1' | 'heuristic'
 export type ContentIdentityConfidence = 'exact' | 'high' | 'possible'
 

@@ -231,7 +231,7 @@ async function loadProject(id = route.params.id) {
         request.signal.throwIfAborted()
         project.value = result
         breadcrumbs.setName('Project', project.value.title)
-        breadcrumbs.setNameIcon('Project', project.value.icon_url ?? project.value.iconUrl ?? null)
+        breadcrumbs.setNameIcon('Project', null)
     } catch (error) {
         if (!request.signal.aborted) handleError(error)
     } finally {

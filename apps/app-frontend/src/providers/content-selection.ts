@@ -51,7 +51,7 @@ export {
 
 export const activeJobStatuses = new Set(['queued', 'running', 'canceling', 'waiting_for_user'])
 
-function selectedItemKey(provider: ContentSelectionProvider, projectId: string) {
+function selectedItemKey(provider: string, projectId: string) {
     return `${provider}:${projectId}`
 }
 
@@ -676,6 +676,6 @@ export function createContentSelection({
     }
 }
 
-export function makeContentSelectionKey(provider: ContentSelectionProvider, projectId: string) {
+export function makeContentSelectionKey(provider: string, projectId: string) {
     return selectedItemKey(provider, projectId)
 }

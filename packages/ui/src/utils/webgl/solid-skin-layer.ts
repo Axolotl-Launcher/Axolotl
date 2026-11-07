@@ -355,7 +355,7 @@ function addSurfaceBox(
     for (const [face, x, normal] of [
         ['east', min.x, [-1, 0, 0]],
         ['west', max.x, [1, 0, 0]],
-    ] as const) {
+    ] satisfies Array<[Face, number, Point]>) {
         const [u0, v0, u1, v1] = rect(face)
         const corners: Point[] =
             normal[0] < 0

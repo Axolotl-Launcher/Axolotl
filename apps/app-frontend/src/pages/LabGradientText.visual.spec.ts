@@ -23,7 +23,9 @@ it('announces the add-colour trigger as a dialog toggle', async () => {
                 locale: ref('zh-CN'),
                 setLocale: () => {},
                 t: (key, values) => {
-                    const message = (chinese as Record<string, { message: string }>)[key]?.message
+                    const message = (
+                        chinese as Record<string, { message?: string; defaultMessage?: string }>
+                    )[key]?.message
                     return message
                         ? String(new IntlMessageFormat(message, 'zh-CN').format(values))
                         : key

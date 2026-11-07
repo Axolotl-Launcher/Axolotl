@@ -150,7 +150,7 @@ it('every rule that declares a baseline also publishes the scale', () => {
 it('every keep-NN rung a stylesheet references is declared by opacity-scale', () => {
     expect(opacitySheet, 'opacity.scss must be part of the scan').toBeTruthy()
     const declared = new Set(
-        capture(stripComments(opacitySheet.text), /--opacity-ratio-keep-(\d+)\s*:/g),
+        capture(stripComments(opacitySheet!.text), /--opacity-ratio-keep-(\d+)\s*:/g),
     )
     expect(
         declared.size > 0,

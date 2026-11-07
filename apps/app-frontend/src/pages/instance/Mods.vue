@@ -270,7 +270,7 @@
                             .filter(Boolean)
                             .join(' ')
                     "
-                    :symlink-target="props.instance.symlink_target"
+                    :symlink-target="props.instance.symlink_target ?? undefined"
                     @confirm="handleModpackUpdateConfirm"
                     @cancel="handleModpackUpdateCancel"
                 />
@@ -1651,7 +1651,10 @@ async function handleUploadFiles() {
 }
 
 function dependencyRefMatchesContentItem(
-    reference: { provider: 'modrinth' | 'curseforge' | 'local'; projectId: string },
+    reference: {
+        provider: 'modrinth' | 'curseforge' | 'local' | 'mcarchive'
+        projectId: string
+    },
     item: ContentItem,
 ) {
     const itemProjectId = item.project?.id ?? ''
@@ -1881,7 +1884,7 @@ async function applyToggleDisableBatch(items: ContentItem[], enabled: boolean) {
             keys: getContentOperationKeys(item),
             originalFileName: item.file_name,
             originalFilePath: item.file_path,
-            originalEnabled: item.enabled,
+            originalEnabled: item.enabled ?? false,
             optimisticPath: enabled ? trimmedPath : `${trimmedPath}.disabled`,
         })
     }
@@ -2006,6 +2009,7 @@ async function removeMod(mod: ContentItem) {
         if (isWorldDatapackItem(mod)) {
             await deleteWorldDatapackItem(mod)
         } else {
+            if (!contentId) return
             const removedPath = mod.file_path
             await remove_content_entry(props.instance.id, contentId)
             projects.value = projects.value.filter((x) => removedPath !== x.file_path)
@@ -3025,7 +3029,7 @@ provideContentManager({
             effectiveProvider === 'curseforge'
                 ? item.provider_refs
                       ?.find(
-                          (ref): ref is { provider: 'curseforge'; project_id: number } =>
+                          (ref) =>
                               ref.provider === 'curseforge' && typeof ref.project_id === 'number',
                       )
                       ?.project_id.toString()

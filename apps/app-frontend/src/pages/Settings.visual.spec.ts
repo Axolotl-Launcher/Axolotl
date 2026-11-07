@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
-import { defineComponent, h, Suspense } from 'vue'
+import { type Component, defineComponent, h, Suspense } from 'vue'
 
 import Settings from './Settings.vue'
 
@@ -51,7 +51,7 @@ vi.mock('@/components/ui/settings/settings-registry', async () => {
             entries: [{ id: `${id}-target`, label: message(`${id} setting`) }],
             content: defineAsyncComponent(
                 () =>
-                    new Promise((resolve) => {
+                    new Promise<Component>((resolve) => {
                         fixture.finish[id] = () =>
                             resolve({ render: () => h('input', { id: `${id}-target` }) })
                     }),

@@ -11,7 +11,11 @@ import {
     structureChestBlocks,
 } from './structure-blocks'
 
-const scope = self as DedicatedWorkerGlobalScope
+type WorkerScope = {
+    onmessage: ((event: MessageEvent<StructureBlocksRequest>) => void) | null
+    postMessage(message: unknown, transfer?: Transferable[]): void
+}
+const scope = self as unknown as WorkerScope
 const packs = import.meta.glob('./assets/versions/*/structures.json.gz', {
     query: '?url',
     import: 'default',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { defineMessage, useVIntl } from '../../../composables'
+import { defineMessage, type MessageDescriptor, useVIntl } from '../../../composables'
 import { SERVER_REGIONS } from '../../../utils'
 import { TagItem } from '../../base'
 
@@ -17,7 +17,7 @@ const tooltip = defineMessage({
 })
 
 const regionName = computed(() => {
-    const name = SERVER_REGIONS[region]
+    const name = (SERVER_REGIONS as Record<string, MessageDescriptor | undefined>)[region]
     if (name) return formatMessage(name)
 
     return region

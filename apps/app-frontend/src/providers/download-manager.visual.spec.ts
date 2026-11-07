@@ -100,7 +100,7 @@ it.each(['terminal', 'removed'])(
                 },
             })
             vi.mocked(download_job_get).mockResolvedValue(
-                state === 'terminal' ? job('succeeded', running.modified) : null,
+                (state === 'terminal' ? job('succeeded', running.modified) : null) as never,
             )
             await expect(manager.cancel('one')).resolves.toBeUndefined()
             expect(manager.activeJobs.value).toHaveLength(0)
@@ -161,7 +161,7 @@ it('fairly polls more than eight stale jobs and continues after a timed-out stat
     try {
         await manager.start()
         vi.mocked(download_job_get).mockImplementation(
-            async (id) => jobs.find((candidate) => candidate.job_id === id) ?? null,
+            async (id) => (jobs.find((candidate) => candidate.job_id === id) ?? null) as never,
         )
         await vi.advanceTimersByTimeAsync(60_000)
         expect(vi.mocked(download_job_get).mock.calls.some(([id]) => id === '8')).toBe(true)
@@ -207,7 +207,7 @@ it('retries accepted cancellation cleanup while suppressing concurrent cancellat
     try {
         await manager.start()
         const accepted = deferred<InstallJobSnapshot>()
-        const read = deferred<InstallJobSnapshot | null>()
+        const read = deferred<InstallJobSnapshot>()
         vi.mocked(download_job_cancel).mockReturnValueOnce(accepted.promise)
         vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
         const cancellation = manager.cancel('one')
@@ -296,7 +296,7 @@ it('polls stale active jobs, preserves events received during reads and stops on
     const manager = createDownloadManager(vi.fn())
     try {
         await manager.start()
-        const read = deferred<InstallJobSnapshot | null>()
+        const read = deferred<InstallJobSnapshot>()
         vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
         await vi.advanceTimersByTimeAsync(30_000)
         expect(download_job_get).toHaveBeenCalledOnce()

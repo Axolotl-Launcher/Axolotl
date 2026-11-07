@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ScanEyeIcon, TriangleAlertIcon } from '@modrinth/assets'
-import { Button, Checkbox, defineMessages, NewModal, useVIntl } from '@modrinth/ui'
+import {
+    Button,
+    Checkbox,
+    defineMessages,
+    NewModal,
+    useFormatNumber,
+    useVIntl,
+} from '@modrinth/ui'
 import { useTemplateRef } from 'vue'
 
 import type { SchematicPreviewManifest, SchematicRegion } from '@/lab/schematic-preview/backend'
@@ -17,7 +24,8 @@ const emit = defineEmits<{
     focusRegion: [region: SchematicRegion]
 }>()
 
-const { formatMessage, formatNumber } = useVIntl()
+const { formatMessage } = useVIntl()
+const formatNumber = useFormatNumber()
 const modal = useTemplateRef<InstanceType<typeof NewModal>>('modal')
 
 const messages = defineMessages({

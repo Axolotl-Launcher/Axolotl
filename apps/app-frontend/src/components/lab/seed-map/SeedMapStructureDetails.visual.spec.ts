@@ -32,7 +32,7 @@ vi.mock('@modrinth/ui', async () => {
     >
     const zh = (await import('@/locales/zh-CN/index.json')).default as Record<
         string,
-        { message: string }
+        { message?: string; defaultMessage?: string }
     >
     return {
         Button: (
@@ -923,7 +923,7 @@ it.each(['en-US', 'zh-CN'])(
         expect(wrapper.find('details').exists()).toBe(false)
         expect(wrapper.find('canvas').exists()).toBe(false)
         expect(wrapper.text()).not.toContain('0 containers')
-        expect(wrapper.get('[data-testid="map-action"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="map-action"]').exists()).toBe(true)
         expect(wrapper.text()).toContain('26.3 · 0, 0')
         expect(calls.loot).not.toHaveBeenCalled()
         await wrapper.get('button[aria-label]').trigger('click')

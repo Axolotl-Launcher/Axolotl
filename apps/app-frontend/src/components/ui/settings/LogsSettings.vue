@@ -118,9 +118,10 @@ async function openLogsFolder() {
     }
 }
 
-function setAdvancedDownloadInfo(value: boolean) {
-    themeStore.featureFlags.advanced_download_info = value
-    settings.value.feature_flags.advanced_download_info = value
+function setAdvancedDownloadInfo(value: boolean | undefined) {
+    const enabled = value ?? false
+    themeStore.featureFlags.advanced_download_info = enabled
+    settings.value.feature_flags.advanced_download_info = enabled
 }
 </script>
 

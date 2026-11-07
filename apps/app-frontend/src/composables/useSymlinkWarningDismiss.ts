@@ -75,5 +75,5 @@ export function useSymlinkWarningDismiss(instanceId: MaybeRef<string | null | un
 }
 
 export function injectSymlinkWarningDismiss(): SymlinkWarningDismissState | null {
-    return inject<SymlinkWarningDismissState>(PROVIDE_KEY, null)
+    return inject<SymlinkWarningDismissState | null>(PROVIDE_KEY, null)
 }

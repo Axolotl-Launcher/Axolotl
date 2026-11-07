@@ -21,8 +21,12 @@ import { projectCardDates } from './composables/project-dates'
 import BrowseInstallHeader from './header.vue'
 import { injectBrowseManager } from './providers/browse-manager'
 import BrowseToolbar from './toolbar.vue'
+import type { BrowseDisplayMode } from './types'
 
 const ctx = injectBrowseManager()
+// The provider context narrows this to list/grid, but the composable can also
+// produce compact and gallery layouts through the same value.
+const effectiveLayout = computed<BrowseDisplayMode>(() => ctx.effectiveLayout.value)
 const { formatMessage } = useVIntl()
 const lockedMessages = computed(() => toValue(ctx.lockedFilterMessages))
 const showInstallHeader = computed(
@@ -130,7 +134,7 @@ const resultProjectType = computed(() => resultContext.value?.projectType ?? ctx
 const resultIsServer = computed(() => resultProjectType.value === 'server')
 
 const skeletonCount = computed(() => {
-    const layout = ctx.effectiveLayout.value
+    const layout = effectiveLayout.value
     if (layout === 'grid' || layout === 'gallery') return 6
     // Match the visible list density without stacking a full viewport of rows.
     return Math.min(ctx.maxResults?.value ?? 8, 8)
@@ -317,7 +321,7 @@ const skeletonCount = computed(() => {
                                                 ? 'colored'
                                                 : 'base'
                                     "
-                                    :size="ctx.effectiveLayout.value === 'compact' ? '2xs' : 'md'"
+                                    :size="effectiveLayout === 'compact' ? '2xs' : 'md'"
                                     :circular="action.circular"
                                     :icon-only="action.circular"
                                     :label="action.circular ? action.label : undefined"
@@ -326,7 +330,7 @@ const skeletonCount = computed(() => {
                                 >
                                     <component :is="action.icon" :class="action.iconClass" />
                                     <template v-if="!action.circular">{{
-                                        ctx.effectiveLayout.value === 'compact'
+                                        effectiveLayout === 'compact'
                                             ? (action.compactLabel ?? action.label)
                                             : action.label
                                     }}</template>
@@ -415,7 +419,7 @@ const skeletonCount = computed(() => {
                                                 ? 'colored'
                                                 : 'base'
                                     "
-                                    :size="ctx.effectiveLayout.value === 'compact' ? '2xs' : 'md'"
+                                    :size="effectiveLayout === 'compact' ? '2xs' : 'md'"
                                     :circular="action.circular"
                                     :icon-only="action.circular"
                                     :label="action.circular ? action.label : undefined"
@@ -424,7 +428,7 @@ const skeletonCount = computed(() => {
                                 >
                                     <component :is="action.icon" :class="action.iconClass" />
                                     <template v-if="!action.circular">{{
-                                        ctx.effectiveLayout.value === 'compact'
+                                        effectiveLayout === 'compact'
                                             ? (action.compactLabel ?? action.label)
                                             : action.label
                                     }}</template>

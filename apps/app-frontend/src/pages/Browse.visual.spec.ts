@@ -403,8 +403,12 @@ vi.mock('@modrinth/ui', async () => {
             ) =>
                 new IntlMessageFormat(
                     api.locale === 'zh-CN'
-                        ? ((zhMessages as Record<string, { message: string }>)[message.id ?? '']
-                              ?.message ?? message.defaultMessage)
+                        ? ((
+                              zhMessages as Record<
+                                  string,
+                                  { message?: string; defaultMessage?: string }
+                              >
+                          )[message.id ?? '']?.message ?? message.defaultMessage)
                         : message.defaultMessage,
                     api.locale,
                 ).format(values),

@@ -3,14 +3,14 @@ import { LogInIcon, SpinnerIcon } from '@modrinth/assets'
 import { commonMessages, defineMessages, NewModal, useVIntl } from '@modrinth/ui'
 import { ref } from 'vue'
 
-defineProps({
-    onFlowCancel: {
-        type: Function,
-        default() {
-            return async () => {}
-        },
+withDefaults(
+    defineProps<{
+        onFlowCancel?: () => void
+    }>(),
+    {
+        onFlowCancel: () => async () => {},
     },
-})
+)
 
 const modal = ref()
 const { formatMessage } = useVIntl()

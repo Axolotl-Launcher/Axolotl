@@ -79,7 +79,7 @@ const aiAvailable = computed(
     () => !!sharedAIState.value?.settings.enabled && configuredProviders.value.length > 0,
 )
 
-const providerOptions = computed<ComboboxOption[]>(() =>
+const providerOptions = computed<ComboboxOption<string>[]>(() =>
     configuredProviders.value.map((provider) => ({
         value: provider.provider_id,
         label:
@@ -89,7 +89,7 @@ const providerOptions = computed<ComboboxOption[]>(() =>
     })),
 )
 
-const modelOptions = computed<ComboboxOption[]>(() =>
+const modelOptions = computed<ComboboxOption<string>[]>(() =>
     (
         configuredProviders.value.find((provider) => provider.provider_id === props.providerId)
             ?.models ?? []
@@ -98,7 +98,7 @@ const modelOptions = computed<ComboboxOption[]>(() =>
         .map((model) => ({ value: model.id, label: model.name || model.id })),
 )
 
-const batchSizeOptions: ComboboxOption[] = [
+const batchSizeOptions: ComboboxOption<string>[] = [
     { value: '20', label: '20' },
     { value: '40', label: '40' },
     { value: '80', label: '80' },

@@ -94,7 +94,17 @@ let bubbleUv: SchematicBubbleUv = [0, 0, 1, 1]
 let seamlessGlass = true
 let paletteOcclusionFaces: SchematicOcclusionFaces[] = []
 
-const workerScope = self as DedicatedWorkerGlobalScope
+/**
+ * The minimal worker scope surface this module uses. The app's tsconfig loads
+ * the DOM library rather than the WebWorker one, so `DedicatedWorkerGlobalScope`
+ * is not declared; this mirrors the members used below.
+ */
+type MeshWorkerScope = {
+    postMessage(message: unknown, transfer?: Transferable[]): void
+    onmessage: ((event: MessageEvent<SchematicMeshWorkerRequest>) => void) | null
+}
+
+const workerScope = self as unknown as MeshWorkerScope
 
 const atlasProvider: deepslate.TextureAtlasProvider = {
     getTextureAtlas: () => ({}) as ImageData,
@@ -220,9 +230,9 @@ function appendFallbackCube(
         texture: [u, v] as [number, number],
         color,
     })
-    const faces: Array<[keyof typeof cull, ReturnType<typeof vertex>[]]> = [
+    const faces: Array<[deepslate.Direction, ReturnType<typeof vertex>[]]> = [
         [
-            'up',
+            deepslate.Direction.UP,
             [
                 vertex(x, y + 1, z + 1, u0, v1),
                 vertex(x + 1, y + 1, z + 1, u1, v1),
@@ -231,7 +241,7 @@ function appendFallbackCube(
             ],
         ],
         [
-            'down',
+            deepslate.Direction.DOWN,
             [
                 vertex(x, y, z, u0, v0),
                 vertex(x + 1, y, z, u1, v0),
@@ -240,7 +250,7 @@ function appendFallbackCube(
             ],
         ],
         [
-            'south',
+            deepslate.Direction.SOUTH,
             [
                 vertex(x, y, z + 1, u0, v1),
                 vertex(x + 1, y, z + 1, u1, v1),
@@ -249,7 +259,7 @@ function appendFallbackCube(
             ],
         ],
         [
-            'north',
+            deepslate.Direction.NORTH,
             [
                 vertex(x + 1, y, z, u0, v1),
                 vertex(x, y, z, u1, v1),
@@ -258,7 +268,7 @@ function appendFallbackCube(
             ],
         ],
         [
-            'east',
+            deepslate.Direction.EAST,
             [
                 vertex(x + 1, y, z + 1, u0, v1),
                 vertex(x + 1, y, z, u1, v1),
@@ -267,7 +277,7 @@ function appendFallbackCube(
             ],
         ],
         [
-            'west',
+            deepslate.Direction.WEST,
             [
                 vertex(x, y, z, u0, v1),
                 vertex(x, y, z + 1, u1, v1),

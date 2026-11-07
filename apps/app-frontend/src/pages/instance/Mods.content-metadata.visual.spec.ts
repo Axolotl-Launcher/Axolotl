@@ -12,6 +12,8 @@ const mkUnresolved = (path: string): ContentItem =>
         file_name: path.split('/').pop() ?? path,
         file_path: path,
         project_type: 'mod',
+        enabled: true,
+        update: null,
         origin_provider: null,
         provider_refs: [],
         project: { id: `local:${path}`, slug: path, title: path, icon_url: undefined },

@@ -19,7 +19,7 @@ export interface DownloadFileSummary {
     effective_physical_connections: number | null
 }
 
-export interface DownloadTransferSnapshot {
+export type DownloadTransferSnapshot = {
     id: string
     identity_kind: 'http_request' | 'physical_h2'
     physical_id: number | null

@@ -5,14 +5,7 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, onUnmounted, ref } from 'vue'
 
 import { begin_device_login, poll_device_login } from '@/helpers/auth'
-
-type MinecraftCredential = {
-    account_type: 'microsoft'
-    profile: {
-        id: string
-        name: string
-    }
-}
+import type { MinecraftCredential } from '@/helpers/auth-types'
 
 type DeviceLoginFlow = {
     device_code: string

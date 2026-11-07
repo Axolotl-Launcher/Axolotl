@@ -7,6 +7,7 @@ import { RouterLink } from 'vue-router'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 
 type Instance = {
+    id: string
     game_version: string
     loader: string
     path: string

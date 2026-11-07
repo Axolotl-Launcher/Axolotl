@@ -35,7 +35,7 @@ const statusMessage = {
         role="status"
     >
         <SpinnerIcon v-if="props.status === 'saving'" class="size-3.5 animate-spin" />
-        <span>{{ props.status === 'idle' ? '' : formatMessage(statusMessage[props.status]) }}</span>
+        <span>{{ formatMessage(statusMessage[props.status]) }}</span>
         <Button
             v-if="props.status === 'error' && props.retry"
             type="quiet"

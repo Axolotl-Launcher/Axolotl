@@ -353,9 +353,9 @@ watch(
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
-                        min="1"
-                        max="65535"
-                        step="1"
+                        :min="1"
+                        :max="65535"
+                        :step="1"
                         :placeholder="formatMessage(messages.widthPlaceholder)"
                         @update:model-value="(value: unknown) => setResolutionDimension(0, value)"
                     />
@@ -373,9 +373,9 @@ watch(
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
-                        min="1"
-                        max="65535"
-                        step="1"
+                        :min="1"
+                        :max="65535"
+                        :step="1"
                         :placeholder="formatMessage(messages.heightPlaceholder)"
                         @update:model-value="(value: unknown) => setResolutionDimension(1, value)"
                     />
@@ -450,7 +450,10 @@ watch(
                 <template #control>
                     <StyledInput
                         id="pre-launch"
-                        v-model="settings.hooks.pre_launch"
+                        :model-value="settings.hooks.pre_launch ?? ''"
+                        @update:model-value="
+                            (value) => (settings.hooks.pre_launch = String(value ?? ''))
+                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.preLaunchPlaceholder)"
@@ -464,7 +467,10 @@ watch(
                 <template #control>
                     <StyledInput
                         id="wrapper"
-                        v-model="settings.hooks.wrapper"
+                        :model-value="settings.hooks.wrapper ?? ''"
+                        @update:model-value="
+                            (value) => (settings.hooks.wrapper = String(value ?? ''))
+                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.wrapperPlaceholder)"
@@ -478,7 +484,10 @@ watch(
                 <template #control>
                     <StyledInput
                         id="post-exit"
-                        v-model="settings.hooks.post_exit"
+                        :model-value="settings.hooks.post_exit ?? ''"
+                        @update:model-value="
+                            (value) => (settings.hooks.post_exit = String(value ?? ''))
+                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.postExitPlaceholder)"

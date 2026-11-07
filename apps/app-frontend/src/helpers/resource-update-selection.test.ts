@@ -1,4 +1,4 @@
-import type { ContentItem } from '@modrinth/ui'
+import type { ContentItem, MessageDescriptor } from '@modrinth/ui'
 import { expect, it, vi } from 'vitest'
 
 import { type InstallJobSnapshot, wait_for_install_job } from './install.ts'
@@ -268,7 +268,7 @@ it('single, selected, all and duplicate updates queue exact entries without depe
 it('does not queue empty or blocked updates and propagates prepare and queue failures', async () => {
     vi.clearAllMocks()
     const track = vi.fn()
-    const format = vi.fn((message: { defaultMessage: string }) => message.defaultMessage)
+    const format = vi.fn((message: MessageDescriptor) => message.defaultMessage ?? '')
     expect(await queueResourceEntryUpdates('instance', [], track, format)).toBe(false)
     expect(resourcePrepareEntryOperation).not.toHaveBeenCalled()
     vi.mocked(resourcePrepareEntryOperation).mockResolvedValue({

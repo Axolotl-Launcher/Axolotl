@@ -28,7 +28,6 @@ futures = { workspace = true }
 hyper = { workspace = true, features = ["server"] }
 hyper-util = { workspace = true }
 image = { workspace = true }
-webp-animation = { workspace = true }
 keyring = { workspace = true }
 launcher-mcp = { workspace = true }
 launcher-tools = { workspace = true }
@@ -63,6 +62,7 @@ trash = { workspace = true }
 url = { workspace = true }
 urlencoding = { workspace = true }
 uuid = { workspace = true, features = ["serde", "v4"] }
+webp-animation = { workspace = true }
 zip = { workspace = true }
 
 [dependencies.tauri]
@@ -74,6 +74,9 @@ features = [
   "tray-icon",
   "unstable"
 ]
+
+[dev-dependencies]
+png = { workspace = true }
 
 [build-dependencies]
 cc = { workspace = true }
@@ -127,9 +130,6 @@ features = [
   "Win32_UI_Shell_PropertiesSystem",
   "Win32_UI_WindowsAndMessaging",
 ]
-
-[dev-dependencies]
-png = { workspace = true }
 
 [features]
 # by default Tauri runs in production mode

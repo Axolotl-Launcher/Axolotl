@@ -1117,7 +1117,7 @@ pub(crate) async fn try_segmented_download(
                                 range_start = ranges[index].start,
                                 remaining_bytes = ranges[index].remaining(),
                                 recovery_round = range_recoveries[index],
-                                "Requeueing failed range without canceling sibling downloads"
+                                "Requeuing failed range without canceling sibling downloads"
                             );
                         }
                         Err(error) => {

@@ -49,6 +49,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             fixed: [
                 {
                     'en-US':
+                        'Fixed modpack extraction progress appearing stalled when processing many small files and continuing to show extraction while applying files.',
+                    'zh-CN':
+                        '修复整合包覆盖文件较多时进度长时间不刷新，以及解压结束后仍停留在解压阶段的问题。',
+                },
+                {
+                    'en-US':
                         'Fixed newest and oldest sorting in the Content tab following filename order instead of file dates.',
                     'zh-CN': '修复内容页按最新或最旧排序时，仍按文件名排列的问题。',
                 },

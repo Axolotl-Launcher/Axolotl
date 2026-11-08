@@ -30,6 +30,7 @@ use crate::util::download::constants::FETCH_RETRY_JITTER_MAX;
 use crate::util::download::constants::FETCH_RETRY_JITTER_MIN;
 use crate::util::download::constants::FINALIZE_WAIT_TIMEOUT;
 use crate::util::download::constants::ITEM_FAILURE_REASON_CHAR_LIMIT;
+use crate::util::download::constants::LIVE_PROGRESS_MAX_WAIT;
 use crate::util::download::constants::NATIVE_CONTENT_FINALIZE_CONCURRENCY;
 use crate::util::download::constants::OVERRIDE_EXTRACTION_CONCURRENCY;
 use crate::util::fetch::{
@@ -54,6 +55,7 @@ use std::sync::{
 };
 #[cfg(test)]
 use std::time::Duration;
+use std::time::Instant;
 
 use super::install_from::{CreatePack, CreatePackFile, PackFormat};
 use super::parallel_minecraft_install::ParallelMinecraftInstall;
@@ -68,6 +70,39 @@ use crate::state::instances::adapters::sqlite::files;
 type ExtractProgressFn<'a> = dyn FnMut(u64) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + 'a>>
     + Send
     + 'a;
+
+#[derive(Default)]
+struct OverrideProgressThrottle {
+    last_reported_bytes: u64,
+    last_report_elapsed_ms: u64,
+}
+
+impl OverrideProgressThrottle {
+    fn should_report(
+        &mut self,
+        current: u64,
+        total: u64,
+        byte_delta: u64,
+        elapsed_ms: u64,
+    ) -> bool {
+        if current <= self.last_reported_bytes {
+            return false;
+        }
+        let crossed_bucket =
+            current / byte_delta > self.last_reported_bytes / byte_delta;
+        let maximum_wait_ms = LIVE_PROGRESS_MAX_WAIT.as_millis() as u64;
+        if current < total
+            && !crossed_bucket
+            && elapsed_ms.saturating_sub(self.last_report_elapsed_ms)
+                < maximum_wait_ms
+        {
+            return false;
+        }
+        self.last_reported_bytes = current;
+        self.last_report_elapsed_ms = elapsed_ms;
+        true
+    }
+}
 
 struct MrpackVerificationTask {
     project: PackFile,
@@ -899,6 +934,9 @@ where
     {
         progress(pending_progress).await?;
     }
+    file.flush()
+        .await
+        .map_err(|e| io::IOError::with_path(e, &temp_path))?;
     drop(file);
 
     if reader.compute_hash() != expected_crc32 {
@@ -1912,7 +1950,9 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         .await?;
 
     let extracted_override_bytes = Arc::new(AtomicU64::new(0));
-    let reported_override_bucket = Arc::new(AtomicU64::new(0));
+    let override_progress_throttle =
+        Arc::new(Mutex::new(OverrideProgressThrottle::default()));
+    let override_progress_started_at = Instant::now();
     let override_progress_delta = (override_total_bytes / 200).max(256 * 1024);
     let mut override_parents = override_specs
         .iter()
@@ -1941,8 +1981,8 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                 let modpack_details = modpack_details.clone();
                 let extracted_override_bytes =
                     Arc::clone(&extracted_override_bytes);
-                let reported_override_bucket =
-                    Arc::clone(&reported_override_bucket);
+                let override_progress_throttle =
+                    Arc::clone(&override_progress_throttle);
                 let override_groups = Arc::clone(&override_groups);
                 async move {
                     let mut extracted = Vec::new();
@@ -1973,29 +2013,42 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                                             + Send,
                                     >,
                                 > {
-                                    let current =
-                                        extracted_override_bytes.fetch_add(
-                                            bytes_read,
-                                            Ordering::Relaxed,
-                                        ) + bytes_read;
-                                    let bucket =
-                                        current / override_progress_delta;
-                                    let previous = reported_override_bucket
-                                        .fetch_max(bucket, Ordering::Relaxed);
-                                    if current < override_total_bytes
-                                        && bucket <= previous
-                                    {
-                                        return Box::pin(async { Ok(()) });
-                                    }
+                                    extracted_override_bytes.fetch_add(
+                                        bytes_read,
+                                        Ordering::Relaxed,
+                                    );
+                                    let extracted_override_bytes =
+                                        Arc::clone(&extracted_override_bytes);
+                                    let override_progress_throttle =
+                                        Arc::clone(&override_progress_throttle);
                                     let reporter = reporter.clone();
                                     let details = modpack_details.clone();
                                     Box::pin(async move {
+                                        // Keep admission and emission in the
+                                        // same order across extraction workers.
+                                        let mut throttle =
+                                            override_progress_throttle
+                                                .lock()
+                                                .await;
+                                        let current = extracted_override_bytes
+                                            .load(Ordering::Relaxed)
+                                            .min(override_total_bytes);
+                                        if !throttle.should_report(
+                                            current,
+                                            override_total_bytes,
+                                            override_progress_delta,
+                                            override_progress_started_at
+                                                .elapsed()
+                                                .as_millis()
+                                                as u64,
+                                        ) {
+                                            return Ok(());
+                                        }
                                         reporter
                                     .update(
                                         InstallPhaseId::ExtractingOverrides,
                                         Some(InstallProgress {
-                                            current: current
-                                                .min(override_total_bytes),
+                                            current,
                                             total: override_total_bytes,
                                             secondary: None,
                                         }),
@@ -2059,7 +2112,14 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             return Err(error);
         }
     };
-    let materialization_result =
+    let materialization_result = async {
+        reporter
+            .update(
+                InstallPhaseId::ApplyingContent,
+                None,
+                modpack_details.clone(),
+            )
+            .await?;
         crate::api::pack::archive_util::run_cancellable_blocking_instance_write(
         instance_id.clone(),
         reporter.cancellation_token(),
@@ -2073,6 +2133,8 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
             }
         },
     )
+        .await
+    }
     .await;
     let override_replacements = match materialization_result {
         Ok(replacements) => replacements,
@@ -2187,6 +2249,9 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
         }
     };
     replacement_result?;
+    reporter
+        .update(InstallPhaseId::Finalizing, None, modpack_details.clone())
+        .await?;
 
     if let Some(ref version_id) = version_id {
         let server_override_entries = zip_reader
@@ -2406,6 +2471,33 @@ mod tests {
         assert_eq!(groups.len(), 4);
         assert_eq!(groups[0][0].index, 0);
         assert_eq!(groups[0][1].index, 4);
+    }
+
+    #[test]
+    fn override_progress_throttle_reports_bytes_time_and_completion() {
+        let mut throttle = OverrideProgressThrottle::default();
+        assert!(throttle.should_report(256, 700, 256, 0));
+        assert!(throttle.should_report(512, 700, 256, 500));
+        assert!(!throttle.should_report(512, 700, 256, 1_000));
+        assert!(!throttle.should_report(600, 700, 256, 1_499));
+        assert!(throttle.should_report(640, 700, 256, 1_500));
+        assert!(throttle.should_report(700, 700, 256, 1_500));
+        assert!(!throttle.should_report(700, 700, 256, 2_000));
+    }
+
+    #[test]
+    fn override_progress_throttle_ignores_duplicate_and_stale_samples() {
+        let mut throttle = OverrideProgressThrottle::default();
+        let reports =
+            [(256, 0), (768, 100), (512, 200), (1024, 300), (1024, 400)]
+                .into_iter()
+                .filter_map(|(current, elapsed)| {
+                    throttle
+                        .should_report(current, 2048, 256, elapsed)
+                        .then_some(current)
+                })
+                .collect::<Vec<_>>();
+        assert_eq!(reports, [256, 768, 1024]);
     }
 
     #[tokio::test]
@@ -2736,6 +2828,117 @@ mod tests {
             reader.read_entry_to_string(index).await.unwrap(),
             r#"{"formatVersion":1,"game":"minecraft","versionId":"test","name":"test","files":[]}"#
         );
+    }
+
+    #[test]
+    fn override_extraction_waits_for_the_final_write_before_publishing() {
+        use crate::util::download::constants::PROGRESS_GRANULARITY;
+        use std::sync::atomic::AtomicBool;
+        use std::task::Poll;
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .max_blocking_threads(1)
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let directory = tempfile::tempdir().unwrap();
+            let target = directory.path().join("override.bin");
+            let contents = (0..PROGRESS_GRANULARITY as usize + 262144)
+                .map(|index| (index % 251) as u8)
+                .collect::<Vec<_>>();
+            let mut writer = async_zip::base::write::ZipFileWriter::new(
+                futures_lite::io::Cursor::new(Vec::new()),
+            );
+            writer
+                .write_entry_whole(
+                    ZipEntryBuilder::new(
+                        "overrides/override.bin".to_string().into(),
+                        Compression::Stored,
+                    ),
+                    &contents,
+                )
+                .await
+                .unwrap();
+            let source = CreatePackFile::Bytes(
+                writer.close().await.unwrap().into_inner().into(),
+            );
+            let mut reader = MrpackZipReader::new(&source).await.unwrap();
+            let semaphore =
+                crate::util::fetch::IoSemaphore(tokio::sync::Semaphore::new(1));
+            let final_progress_seen = AtomicBool::new(false);
+            let (release_sender, release_receiver) =
+                std::sync::mpsc::channel::<()>();
+            let mut release_receiver = Some(release_receiver);
+            let mut blocker = None;
+            let mut progress_deltas = Vec::new();
+            let (was_pending, published_before_write, result) = {
+                let mut progress = |delta| -> Pin<
+                    Box<dyn Future<Output = crate::Result<()>> + Send>,
+                > {
+                    progress_deltas.push(delta);
+                    if let Some(release_receiver) = release_receiver.take() {
+                        let (started_sender, started_receiver) =
+                            tokio::sync::oneshot::channel();
+                        // The sole blocking thread finishes the preceding
+                        // write before starting this queued blocker.
+                        blocker =
+                            Some(tokio::task::spawn_blocking(move || {
+                                let _ = started_sender.send(());
+                                // Dropping the sender also releases this task
+                                // if the test unwinds before normal cleanup.
+                                let _ = release_receiver.recv();
+                            }));
+                        Box::pin(async move {
+                            started_receiver.await.unwrap();
+                            Ok(())
+                        })
+                    } else {
+                        final_progress_seen.store(true, Ordering::Relaxed);
+                        Box::pin(async { Ok(()) })
+                    }
+                };
+                let mut extraction = Box::pin(reader.extract_entry(
+                    0,
+                    &target,
+                    &semaphore,
+                    Some(&mut progress),
+                ));
+                let first_poll = std::future::poll_fn(|cx| {
+                    match extraction.as_mut().poll(cx) {
+                        Poll::Ready(result) => Poll::Ready(Poll::Ready(result)),
+                        Poll::Pending
+                            if final_progress_seen.load(Ordering::Relaxed) =>
+                        {
+                            Poll::Ready(Poll::Pending)
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+                })
+                .await;
+                let published_before_write = target.exists();
+                let was_pending = first_poll.is_pending();
+                drop(release_sender);
+                let result = match first_poll {
+                    Poll::Ready(result) => result,
+                    Poll::Pending => extraction.as_mut().await,
+                };
+                (was_pending, published_before_write, result)
+            };
+            blocker.unwrap().await.unwrap();
+            let actual_contents = tokio::fs::read(&target).await;
+            let (size, hash) = result.unwrap();
+
+            assert!(was_pending, "extraction completed before its final write");
+            assert!(!published_before_write);
+            assert_eq!(progress_deltas, [PROGRESS_GRANULARITY, 262144]);
+            assert_eq!(size, contents.len() as u64);
+            assert_eq!(
+                hash,
+                sha1_smol::Sha1::from(&contents).digest().to_string()
+            );
+            assert_eq!(actual_contents.unwrap(), contents);
+        });
     }
 
     #[tokio::test]

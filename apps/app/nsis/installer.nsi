@@ -896,6 +896,42 @@ LangString axlFinishTitle ${LANG_SIMPCHINESE} "Axolotl Launcher 已安装"
 LangString axlFinishText ${LANG_SIMPCHINESE} "一切准备就绪。当前应用目录：$\r$\n$ResourceDir"
 LangString axlFinishButton ${LANG_SIMPCHINESE} "完成"
 
+Function RequireInstallerWebView2
+  Push $0
+  Push $1
+  ; Evergreen registers in the 32-bit view for both machine and user installs.
+  SetRegView 32
+  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
+  ${VersionCompare} "$0" "0.0.0.0" $1
+  ${If} $0 == ""
+  ${OrIf} $1 <> 1
+    ReadRegStr $0 HKCU "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
+    ${VersionCompare} "$0" "0.0.0.0" $1
+  ${EndIf}
+  SetRegView lastused
+  ${If} $0 != ""
+  ${AndIf} $1 = 1
+    Pop $1
+    Pop $0
+    Return
+  ${EndIf}
+  Pop $1
+  Pop $0
+  Call ShowMissingInstallerWebView2
+FunctionEnd
+
+Function ShowMissingInstallerWebView2
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\AxolotlInstallerUI.exe" "${AXL_INSTALLER_UI_PATH}"
+  StrCpy $0 2
+  ExecWait '"$PLUGINSDIR\AxolotlInstallerUI.exe" --webview2-required --language "$LANGUAGE"' $0
+  ${If} $0 = 10
+    ExecShell "open" "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+  ${EndIf}
+  SetErrorLevel 2
+  Quit
+FunctionEnd
+
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
@@ -987,6 +1023,7 @@ Function .onInit
 
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode <> 1
+    Call RequireInstallerWebView2
     InitPluginsDir
     SetOutPath "$PLUGINSDIR"
     File "/oname=$PLUGINSDIR\AxolotlInstallerUI.exe" "${AXL_INSTALLER_UI_PATH}"

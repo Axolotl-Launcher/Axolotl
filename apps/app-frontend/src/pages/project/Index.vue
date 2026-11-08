@@ -356,6 +356,7 @@
                     >
                 </div>
                 <NavTabs
+                    route-sync
                     :links="[
                         {
                             label: formatMessage(commonProjectSettingsMessages.description),

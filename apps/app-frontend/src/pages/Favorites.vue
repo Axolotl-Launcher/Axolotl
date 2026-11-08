@@ -904,7 +904,7 @@ onMounted(() => {
 
             <div class="flex flex-col gap-3 p-3">
                 <div class="flex min-w-0 items-center gap-2">
-                    <NavTabs :links="projectTabs" class="min-w-0" />
+                    <NavTabs :links="projectTabs" route-sync class="min-w-0" />
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">

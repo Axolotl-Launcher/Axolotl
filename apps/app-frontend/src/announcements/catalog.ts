@@ -59,6 +59,11 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                 },
                 {
                     'en-US':
+                        'Fixed downloads staying slow or timing out without falling back to system DNS when DoH is enabled.',
+                    'zh-CN': '修复开启 DoH 后，部分下载持续低速或超时且未能回退到系统 DNS 的问题。',
+                },
+                {
+                    'en-US':
                         'Fixed modpack download progress undercounting downloaded bytes while large files were still downloading.',
                     'zh-CN': '修复整合包大文件在下载时总进度显示明显偏低的问题。',
                 },

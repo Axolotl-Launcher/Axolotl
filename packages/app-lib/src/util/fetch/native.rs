@@ -1152,6 +1152,7 @@ async fn run_native_route_attempts(
                 expected_speed,
             )
         };
+        let mut dns_slow_recovery_requested = false;
         let mut throughput_timer =
             tokio::time::interval(DOWNLOAD_SCHEDULER_INTERVAL);
         throughput_timer.tick().await;
@@ -1243,6 +1244,10 @@ async fn run_native_route_attempts(
                     );
                     if let crate::util::download::native_slow::SlowDecision::Probe { bytes_per_second } = slow_decision {
                         last_endpoint_speed = bytes_per_second;
+                        if !dns_slow_recovery_requested {
+                            super::policy::request_dns_system_recovery(route, &final_url);
+                            dns_slow_recovery_requested = true;
+                        }
                     }
                     if !crate::util::download::local_resources::pressure(part_path).blocks_expansion()
                         && let Some(clients) = crate::util::download::proxy_context::clients() {
@@ -1448,6 +1453,7 @@ async fn run_native_route_attempts(
         }
 
         if let Some(error) = transfer_error {
+            super::policy::request_dns_system_recovery(route, &final_url);
             record_route_failure(route, request.resource, None);
             record_native_transfer_failure(route, None);
             preserve_or_remove_partial(

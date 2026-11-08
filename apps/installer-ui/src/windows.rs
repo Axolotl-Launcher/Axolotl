@@ -1,11 +1,13 @@
 use std::{
+    cell::Cell,
     env, fs,
-    io::Write,
+    io::{self, Write},
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::Command,
+    rc::Rc,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -16,7 +18,13 @@ use tao::{
     dpi::{LogicalPosition, LogicalSize},
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
+    platform::run_return::EventLoopExtRunReturn,
     window::{Theme, WindowBuilder},
+};
+use tempfile::TempDir;
+use webview2_com::{
+    BrowserProcessExitedEventHandler,
+    Microsoft::Web::WebView2::Win32::ICoreWebView2Environment5,
 };
 use windows::{
     Win32::{
@@ -27,15 +35,17 @@ use windows::{
         },
         UI::WindowsAndMessaging::SW_HIDE,
     },
-    core::PCWSTR,
+    core::{Interface, PCWSTR},
 };
 use wry::{
-    NewWindowResponse, WebContext, WebView, WebViewBuilder, http::Request,
+    NewWindowResponse, WebContext, WebView, WebViewBuilder, WebViewExtWindows,
+    http::Request,
 };
 
 const HTML: &str = include_str!("installer.html");
 const LOGO: &[u8] = include_bytes!("../../app/icons/128x128.png");
 const MAIN_BINARY_NAME: &str = "Axolotl Launcher.exe";
+const WEBVIEW_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -98,6 +108,7 @@ enum UiCommand {
 
 #[derive(Debug)]
 enum UserEvent {
+    BrowserProcessExited,
     Minimize,
     DragWindow,
     Close,
@@ -158,7 +169,8 @@ impl Drop for InstallerProcess {
 
 pub fn run() -> Result<(), String> {
     let arguments = parse_arguments()?;
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let mut event_loop =
+        EventLoopBuilder::<UserEvent>::with_user_event().build();
     let window = WindowBuilder::new()
         .with_title("Axolotl Launcher")
         .with_inner_size(LogicalSize::new(940.0, 620.0))
@@ -186,7 +198,8 @@ pub fn run() -> Result<(), String> {
             format!("serializing installer settings failed: {error}")
         })?;
     let webview_data_directory = webview_data_directory()?;
-    let mut webview_context = WebContext::new(Some(webview_data_directory));
+    let mut webview_context =
+        WebContext::new(Some(webview_data_directory.0.path().to_path_buf()));
     let proxy = event_loop.create_proxy();
     let ipc_proxy = proxy.clone();
     let handler = move |request: Request<String>| {
@@ -221,6 +234,31 @@ pub fn run() -> Result<(), String> {
             .map_err(|error| format!("starting WebView2 failed: {error}"))?,
     );
 
+    let environment = webview
+        .as_ref()
+        .expect("WebView2 was just created")
+        .environment()
+        .cast::<ICoreWebView2Environment5>()
+        .map_err(|error| {
+            format!("getting WebView2 environment failed: {error}")
+        })?;
+    let browser_exited = Rc::new(Cell::new(false));
+    let browser_exited_callback = browser_exited.clone();
+    let browser_exit_proxy = proxy.clone();
+    let mut browser_exit_token = 0;
+    unsafe {
+        environment.add_BrowserProcessExited(
+            &BrowserProcessExitedEventHandler::create(Box::new(move |_, _| {
+                browser_exited_callback.set(true);
+                let _ = browser_exit_proxy
+                    .send_event(UserEvent::BrowserProcessExited);
+                Ok(())
+            })),
+            &raw mut browser_exit_token,
+        )
+    }
+    .map_err(|error| format!("watching WebView2 shutdown failed: {error}"))?;
+
     window.set_visible(true);
     window.set_focus();
 
@@ -231,7 +269,8 @@ pub fn run() -> Result<(), String> {
     let mut install_dir = PathBuf::from(&arguments.bootstrap.install_dir);
     let mut launch_after_install = false;
 
-    event_loop.run(move |event, _, control_flow| {
+    // Tao's run() exits the process without running the profile guard's drop.
+    event_loop.run_return(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
         match event {
@@ -383,6 +422,26 @@ pub fn run() -> Result<(), String> {
             _ => {}
         }
     });
+
+    drop(webview_context);
+    // The first loop has dropped the window and WebView. Keep dispatching COM
+    // callbacks until the browser and its children release the profile files.
+    let deadline = Instant::now() + WEBVIEW_SHUTDOWN_TIMEOUT;
+    if !browser_exited.get() {
+        event_loop.run_return(|_, _, control_flow| {
+            *control_flow =
+                if browser_exited.get() || Instant::now() >= deadline {
+                    ControlFlow::Exit
+                } else {
+                    ControlFlow::WaitUntil(deadline)
+                };
+        });
+    }
+    let _ =
+        unsafe { environment.remove_BrowserProcessExited(browser_exit_token) };
+    drop(environment);
+
+    Ok(())
 }
 
 fn parse_arguments() -> Result<Arguments, String> {
@@ -453,23 +512,53 @@ fn parse_arguments() -> Result<Arguments, String> {
     })
 }
 
-fn webview_data_directory() -> Result<PathBuf, String> {
-    let root = env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(env::temp_dir);
-    let directory = root
-        .join("Axolotl")
-        .join("InstallerUI")
-        .join(format!("WebView2-{}", std::process::id()));
+struct WebViewDataDirectory(TempDir);
 
-    fs::create_dir_all(&directory).map_err(|error| {
-        format!(
-            "creating WebView2 data directory '{}' failed: {error}",
-            directory.display()
-        )
-    })?;
+impl Drop for WebViewDataDirectory {
+    fn drop(&mut self) {
+        if let Err(error) = remove_webview_data_directory(
+            self.0.path(),
+            WEBVIEW_SHUTDOWN_TIMEOUT,
+        ) {
+            eprintln!(
+                "removing temporary WebView2 data directory '{}' failed: {error}",
+                self.0.path().display()
+            );
+        }
+    }
+}
 
-    Ok(directory)
+fn webview_data_directory() -> Result<WebViewDataDirectory, String> {
+    tempfile::Builder::new()
+        .prefix("axolotl-installer-webview-")
+        .tempdir()
+        .map(WebViewDataDirectory)
+        .map_err(|error| {
+            format!(
+                "creating temporary WebView2 data directory failed: {error}"
+            )
+        })
+}
+
+fn remove_webview_data_directory(
+    directory: &Path,
+    timeout: Duration,
+) -> io::Result<()> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match fs::remove_dir_all(directory) {
+            Ok(()) => return Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                return Ok(());
+            }
+            Err(error) if Instant::now() >= deadline => return Err(error),
+            Err(_) => {
+                // Startup failures can leave a browser releasing files without
+                // an exit subscription. Retry briefly without killing it.
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
 }
 
 fn validate_request(
@@ -898,13 +987,15 @@ mod tests {
     use super::{
         MAIN_BINARY_NAME, UiCommand, UninstallRequest, dialog_initial_location,
         install_dir_requires_elevation, launch_main_process, nsis_value_option,
-        uninstall_result, uninstaller_arguments, webview_data_directory,
-        wide_null,
+        remove_webview_data_directory, uninstall_result, uninstaller_arguments,
+        webview_data_directory, wide_null,
     };
     use std::{
         fs,
+        os::windows::fs::OpenOptionsExt,
         path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
+        thread,
+        time::{Duration, SystemTime, UNIX_EPOCH},
     };
 
     #[test]
@@ -1101,14 +1192,57 @@ mod tests {
     }
 
     #[test]
-    fn webview_data_directory_is_created_outside_the_installer_temp_directory()
-    {
-        let directory = webview_data_directory()
+    fn webview_data_directory_is_unique_and_removed_with_its_contents() {
+        let first = webview_data_directory()
             .expect("WebView2 data directory should be created");
+        let second = webview_data_directory().unwrap();
+        let first_path = first.0.path().to_path_buf();
+        let second_path = second.0.path().to_path_buf();
+        assert_ne!(first_path, second_path);
+        assert_eq!(first_path.parent(), Some(std::env::temp_dir().as_path()));
+        let nested = first_path.join("EBWebView/Default");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(nested.join("Preferences"), b"temporary profile").unwrap();
 
-        assert!(directory.is_dir());
-        assert!(
-            directory.ends_with(format!("WebView2-{}", std::process::id()))
-        );
+        drop(first);
+        assert!(!first_path.exists());
+        assert!(second_path.is_dir());
+        drop(second);
+        assert!(!second_path.exists());
+    }
+
+    #[test]
+    fn webview_data_directory_cleanup_retries_until_files_are_released() {
+        let directory = webview_data_directory().unwrap();
+        let path = directory.0.path().to_path_buf();
+        let locked_file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .share_mode(0)
+            .open(path.join("locked-profile"))
+            .unwrap();
+        assert!(remove_webview_data_directory(&path, Duration::ZERO).is_err());
+
+        let release = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(100));
+            drop(locked_file);
+        });
+        drop(directory);
+        release.join().unwrap();
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn webview_data_directory_is_removed_after_startup_failure() {
+        let mut path = PathBuf::new();
+        let result: Result<(), &str> = (|| {
+            let directory = webview_data_directory().unwrap();
+            path = directory.0.path().to_path_buf();
+            fs::write(path.join("partial-profile"), b"startup data").unwrap();
+            Err("WebView2 startup failed")
+        })();
+
+        assert!(result.is_err());
+        assert!(!path.exists());
     }
 }

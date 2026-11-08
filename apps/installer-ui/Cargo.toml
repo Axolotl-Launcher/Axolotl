@@ -18,6 +18,8 @@ native-dialog.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tao = "0.35.3"
+tempfile.workspace = true
+webview2-com = "0.38.2"
 windows = { workspace = true, features = [
   "Win32_Foundation",
   "Win32_System_Threading",

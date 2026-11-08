@@ -164,7 +164,10 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
                     owner_type: crate::state::OwnerType::User,
                 }),
             update: None,
-            date_added: Some(file.modified_at.to_rfc3339()),
+            date_added: Some(super::file_modified_date(
+                &file,
+                fingerprints.get(&file.id),
+            )),
             provider_refs,
             origin_provider,
             rollback: None,

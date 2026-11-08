@@ -49,6 +49,11 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             fixed: [
                 {
                     'en-US':
+                        'Fixed newest and oldest sorting in the Content tab following filename order instead of file dates.',
+                    'zh-CN': '修复内容页按最新或最旧排序时，仍按文件名排列的问题。',
+                },
+                {
+                    'en-US':
                         'Fixed incorrect mod names, versions, and compatibility warnings in the Content tab for multi-loader JARs.',
                     'zh-CN':
                         '修复多加载器模组在内容页显示错误名称、版本，以及在实例中误报不兼容的问题。',

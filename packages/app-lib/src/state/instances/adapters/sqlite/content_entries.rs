@@ -194,7 +194,9 @@ pub(crate) async fn upsert_content_entry_from_parts(
     input: UpsertContentEntry<'_>,
     pool: &SqlitePool,
 ) -> crate::Result<ContentEntry> {
-    let mut tx = pool.begin().await?;
+    // Read-then-write; take the write lock up front to avoid a WAL snapshot
+    // upgrade failure when a concurrent writer commits in between.
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let entry =
         upsert_content_entry_from_parts_in_transaction(input, &mut tx).await?;
     tx.commit().await?;
@@ -318,7 +320,9 @@ pub(crate) async fn upsert_content_provider_ref(
     origin: bool,
     pool: &SqlitePool,
 ) -> crate::Result<()> {
-    let mut tx = pool.begin().await?;
+    // Read-then-write; take the write lock up front to avoid a WAL snapshot
+    // upgrade failure when a concurrent writer commits in between.
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     upsert_content_provider_ref_in_transaction(
         content_entry_id,
         provider_ref,

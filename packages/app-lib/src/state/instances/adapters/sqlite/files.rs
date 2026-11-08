@@ -240,7 +240,10 @@ pub(crate) async fn upsert_instance_file_from_parts(
     input: UpsertInstanceFile<'_>,
     pool: &SqlitePool,
 ) -> crate::Result<InstanceFile> {
-    let mut tx = pool.begin().await?;
+    // The helper reads the existing row before writing it. Under WAL a deferred
+    // transaction can fail with SQLITE_BUSY_SNAPSHOT when another writer commits
+    // between the read and the write, and busy_timeout does not cover that case.
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
     let file =
         upsert_instance_file_from_parts_in_transaction(input, &mut tx).await?;
     tx.commit().await?;
@@ -304,7 +307,9 @@ pub(crate) async fn rename_instance_file(
     enabled: bool,
     pool: &SqlitePool,
 ) -> crate::Result<Option<InstanceFile>> {
-    let mut tx = pool.begin().await?;
+    // Read-then-write: take the write lock up front so a concurrent commit
+    // cannot invalidate the snapshot (SQLITE_BUSY_SNAPSHOT under WAL).
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
 
     let file = rename_instance_file_in_transaction(
         instance_id,

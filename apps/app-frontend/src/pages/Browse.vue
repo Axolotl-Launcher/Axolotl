@@ -76,6 +76,8 @@ import {
     get_version_many,
 } from '@/helpers/cache.js'
 import { type FavoriteContentType, isFavoriteContentType } from '@/helpers/content-favorites'
+import { contentIdentityInputsFromSnapshot } from '@/helpers/content-identity'
+import { listenContentRefresh, resourceStartContentRefresh } from '@/helpers/content-refresh'
 import { translateSearchHitTitles } from '@/helpers/content-search'
 import {
     type CurseForgeCategory,
@@ -94,6 +96,7 @@ import {
 import { instance_listener } from '@/helpers/events.js'
 import {
     get as getInstance,
+    get_content_snapshot as getContentSnapshot,
     get_installed_project_ids as getInstalledProjectIds,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
@@ -554,7 +557,25 @@ async function refreshInstalledProjectIds() {
         return changed
     }
 
-    const ids = await getInstalledProjectIds(requestInstanceId).catch(handleError)
+    const [storedIds, snapshot] = await Promise.all([
+        getInstalledProjectIds(requestInstanceId).catch(handleError),
+        getContentSnapshot(requestInstanceId).catch(() => null),
+    ])
+    const ids =
+        storedIds && snapshot
+            ? [
+                  ...new Set([
+                      ...storedIds,
+                      ...contentIdentityInputsFromSnapshot(
+                          snapshot.items.filter((item) => item.materializationState === 'present'),
+                      ).map((item) =>
+                          item.provider === 'curseforge'
+                              ? `curseforge:${item.projectId}`
+                              : item.projectId,
+                      ),
+                  ]),
+              ]
+            : storedIds
     if (
         ids &&
         !isUnmounted &&
@@ -567,7 +588,7 @@ async function refreshInstalledProjectIds() {
             !sameProjectIds(installedProjectIds.value, ids)
         installedProjectIds.value = ids
         installedProjectIdsInstanceId.value = requestInstanceId
-        if (changed) await contentSelection.refreshInstalledIdentities()
+        await contentSelection.refreshInstalledIdentities()
         return changed
     }
     return false
@@ -2436,6 +2457,9 @@ type UnlistenFn = () => void
 
 let isUnmounted = false
 let unlistenInstances: UnlistenFn | null = null
+let unlistenContentRefresh: UnlistenFn | null = null
+let contentRefreshTimer: ReturnType<typeof setTimeout> | undefined
+let stopContentRefreshWatch: (() => void) | undefined
 let pendingBrowseReturnScroll = browseReturnSnapshot !== null
 
 async function restoreBrowseReturnScroll() {
@@ -2562,11 +2586,47 @@ onMounted(() => {
     }
     void initializeBrowse()
 
+    listenContentRefresh((event) => {
+        if ('instanceId' in event && event.instanceId !== activeInstance.value?.id) return
+        if ('patch' in event && event.patch.kind !== 'entry' && event.patch.kind !== 'content')
+            return
+        clearTimeout(contentRefreshTimer)
+        contentRefreshTimer = setTimeout(() => {
+            void refreshInstalledProjectIds()
+                .then(async (changed) => {
+                    if (!isUnmounted && changed) await searchState.refreshSearch()
+                })
+                .catch(handleError)
+        }, 100)
+    })
+        .then((unlisten) => {
+            if (isUnmounted) unlisten()
+            else {
+                unlistenContentRefresh = unlisten
+                stopContentRefreshWatch = watch(
+                    () => activeInstance.value?.id,
+                    (instanceId) => {
+                        if (instanceId && route.query.from !== 'worlds' && !isServerContext.value)
+                            void resourceStartContentRefresh(instanceId, 'normal').catch(
+                                handleError,
+                            )
+                    },
+                    { immediate: true },
+                )
+            }
+        })
+        .catch(handleError)
+
     instance_listener(async (event: { event: string; instance_id: string }) => {
         if (
             activeInstance.value &&
             event.instance_id === activeInstance.value.id &&
-            ['synced', 'content_install_finished', 'content_install_failed'].includes(event.event)
+            [
+                'synced',
+                'content_changed',
+                'content_install_finished',
+                'content_install_failed',
+            ].includes(event.event)
         ) {
             if (await refreshInstalledProjectIds()) {
                 await searchState.refreshSearch()
@@ -2587,6 +2647,9 @@ onMounted(() => {
 onUnmounted(() => {
     isUnmounted = true
     unlistenInstances?.()
+    unlistenContentRefresh?.()
+    stopContentRefreshWatch?.()
+    clearTimeout(contentRefreshTimer)
 })
 
 function getProjectBrowseQuery() {

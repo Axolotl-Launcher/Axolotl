@@ -49,6 +49,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             fixed: [
                 {
                     'en-US':
+                        'Fixed instance upgrades remaining blocked after allowing prereleases when required dependencies also needed prerelease confirmation.',
+                    'zh-CN':
+                        '修复实例升级允许使用预发布版后，仍因预发布依赖无法确认而卡住、无法继续的问题。',
+                },
+                {
+                    'en-US':
                         'Fixed instance online information remaining unavailable after the connection recovered.',
                     'zh-CN': '修复网络恢复后，实例在线信息仍长时间无法获取的问题。',
                 },

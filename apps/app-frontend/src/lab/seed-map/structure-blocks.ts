@@ -87,7 +87,7 @@ export function seedMapStructureResourceVersion(version: string): string {
 
 export function supportsStructureBlocks(version: string, kind: string) {
     return (
-        (catalog.versions as Record<string, { structures: string[] }>)[
+        (catalog.versions as unknown as Record<string, { structures: string[] }>)[
             seedMapStructureResourceVersion(version)
         ]?.structures.includes(kind) ?? false
     )
@@ -108,7 +108,7 @@ export function seedMapTemplatePieces(
     kind: string,
 ): SeedMapStructurePiece[] {
     if (!details?.supported || !supportsStructureBlocks(query.version, kind)) return []
-    const templates = (catalog.versions as TemplateCatalog)[
+    const templates = (catalog.versions as unknown as TemplateCatalog)[
         seedMapStructureResourceVersion(query.version)
     ].templates
     const variant = details.variant
@@ -286,8 +286,8 @@ export function assembleStructureBlocks(
     if (
         pack.schemaVersion !== 2 ||
         !supportsStructureBlocks(pack.version, 'end-city') ||
-        (catalog.versions as Record<string, { dataVersion: number }>)[pack.version].dataVersion !==
-            pack.dataVersion
+        (catalog.versions as unknown as Record<string, { dataVersion: number }>)[pack.version]
+            .dataVersion !== pack.dataVersion
     ) {
         throw new Error('Incompatible structure templates')
     }

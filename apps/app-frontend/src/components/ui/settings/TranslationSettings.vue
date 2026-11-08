@@ -308,6 +308,12 @@ const aiProviderOptions = computed(() =>
             provider.provider_id,
     })),
 )
+const deeplApiKey = computed({
+    get: () => settings.value.deepl_api_key ?? '',
+    set: (value: string) => {
+        settings.value.deepl_api_key = value
+    },
+})
 const selectedAIProvider = computed({
     get: () => settings.value.ai_provider_id,
     set: (providerId: string) => {
@@ -612,7 +618,7 @@ async function clearCache() {
                 <template #description>{{ formatMessage(messages.deeplApiKeyHint) }}</template>
                 <template #control>
                     <StyledInput
-                        v-model="settings.deepl_api_key"
+                        v-model="deeplApiKey"
                         type="password"
                         :placeholder="formatMessage(messages.deeplApiKeyPlaceholder)"
                         wrapper-class="w-full"

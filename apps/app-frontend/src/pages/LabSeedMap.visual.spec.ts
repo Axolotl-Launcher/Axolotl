@@ -67,7 +67,7 @@ vi.mock('@/components/lab/seed-map/SeedMapUndergroundPreview.vue', () => ({
         props: ['query'],
         emits: ['close'],
         setup:
-            (_, { emit }) =>
+            (_: unknown, { emit }: { emit: (event: 'close') => void }) =>
             () =>
                 h('div', { 'data-testid': 'direct-underground' }, [
                     h('button', { onClick: () => emit('close') }, 'Back to map'),
@@ -139,7 +139,7 @@ type MapVm = {
     scheduleRefresh: (delay?: number) => void
     drawMap: () => void
     features: SeedMapFeature[]
-    selection: { x: number; z: number; feature?: SeedMapFeature } | null
+    selection: { x: number; z: number; feature?: SeedMapFeature; markerId?: string } | null
     focusedPiece: SeedMapStructurePiece | null
     selectAt: (x: number, y: number) => void
     worldToScreen: (x: number, z: number) => { x: number; y: number }
@@ -367,7 +367,7 @@ it('enlarges POI images and their hit targets only when closer than four blocks 
             })
             const point = vm.worldToScreen(0, 0)
             vm.selectAt(point.x + 18, point.y)
-            expect(!!vm.selection?.feature).toBe(hit)
+            expect(!!(vm.selection as MapVm['selection'])?.feature).toBe(hit)
         }
     } finally {
         drawImage.mockRestore()
@@ -512,7 +512,7 @@ it.each([-2, 0, 0.5])(
         )
         const { vm } = await openMap()
         expect(vm.workspace.zoom).toBe(zoom)
-        expect(wrapper!.get('canvas').exists()).toBe(true)
+        expect(wrapper!.find('canvas').exists()).toBe(true)
     },
 )
 

@@ -42,6 +42,7 @@ import { useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { accountSelectionRevision } from '@/helpers/account-state'
 import { get_default_user, users } from '@/helpers/auth'
+import type { MinecraftCredential } from '@/helpers/auth-types'
 import { DEFAULT_UI_FONT_STACK, resolveFontFamily } from '@/helpers/font-family.ts'
 import type { RenderResult } from '@/helpers/rendering/batch-skin-renderer.ts'
 import { setActiveSkinPreviews, skinBlobUrlMap } from '@/helpers/rendering/batch-skin-renderer.ts'
@@ -315,7 +316,7 @@ const { offline } = useNetworkStatus()
 const mojangAuth = useMojangAuthStatus()
 
 const accountsCard = inject('accountsCard') as Ref<typeof AccountsCard>
-const currentUser = ref(undefined)
+const currentUser = ref<MinecraftCredential | undefined>(undefined)
 const currentUserId = ref<string | undefined>(undefined)
 watch(currentUserId, () => playerSkinModal.value?.hide())
 const currentAccountType = ref<'microsoft' | 'offline' | 'yggdrasil' | undefined>(undefined)
@@ -904,9 +905,11 @@ async function loadCurrentUser(generation = skinAccountGeneration) {
             users(offline.value, true),
         ])
         if (generation !== skinAccountGeneration) return false
-        const selectedAccount = allAccounts.find((acc) => acc.account_id === defaultId)
+        const selectedAccount = allAccounts.find(
+            (acc: MinecraftCredential) => acc.account_id === defaultId,
+        )
         currentAccountType.value = selectedAccount?.account_type
-        currentUserId.value = defaultId
+        currentUserId.value = defaultId ?? undefined
         currentUser.value = selectedAccount
         return true
     } catch (e) {

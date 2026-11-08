@@ -103,7 +103,7 @@ export function readStoredServerInstallQueue<
         if (!Array.isArray(parsed)) return new Map<string, BrowseInstallPlan<TProject>>()
 
         return new Map<string, BrowseInstallPlan<TProject>>(
-            parsed.filter(isStoredServerInstallQueueEntry),
+            parsed.filter(isStoredServerInstallQueueEntry<TProject>),
         )
     } catch {
         return new Map<string, BrowseInstallPlan<TProject>>()
@@ -882,9 +882,9 @@ function uniqueDefined(values: readonly (string | null | undefined)[] = []) {
     )
 }
 
-function isStoredServerInstallQueueEntry(
-    value: unknown,
-): value is [string, BrowseInstallPlan<BrowseInstallProject>] {
+function isStoredServerInstallQueueEntry<
+    TProject extends BrowseInstallProject = BrowseInstallProject,
+>(value: unknown): value is [string, BrowseInstallPlan<TProject>] {
     if (!Array.isArray(value) || value.length !== 2) return false
     const [key, plan] = value
     return typeof key === 'string' && isStoredBrowseInstallPlan(plan)

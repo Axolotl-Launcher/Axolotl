@@ -139,6 +139,7 @@ export type AppSettings = DohSettings & {
     max_concurrent_downloads: number
     max_concurrent_writes: number
     auto_concurrent_downloads: boolean
+    force_multiconnection_downloads: boolean
     minecraft_metadata_source: DownloadSourceMode
     minecraft_file_source: DownloadSourceMode
     modrinth_source: DownloadSourceMode
@@ -250,6 +251,7 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
         enabled ? 'mirror_preferred' : 'official_only'
 
     settings.auto_concurrent_downloads ??= true
+    settings.force_multiconnection_downloads ??= false
     settings.auto_set_java_high_performance_mode ??= true
     settings.minecraft_use_console_java ??= false
     settings.minecraft_metadata_source ??=

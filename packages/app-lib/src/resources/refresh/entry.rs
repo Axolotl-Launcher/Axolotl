@@ -113,7 +113,10 @@ pub(super) fn work<'a>(
                 due(previous.as_ref(), now, mode)
             };
             let presentation_due = mode == RefreshMode::ForceRemote
-                || (check_due && mode == RefreshMode::RetryFailed)
+                || (check_due
+                    && previous.as_ref().is_some_and(|check| {
+                        check.attempt == CheckAttempt::Failed
+                    }))
                 || records.presentations.get(&file.id).map_or_else(
                     || {
                         previous.as_ref().is_none_or(|check| {
@@ -247,6 +250,10 @@ fn due(
             check.last_success.as_ref().is_none_or(|success| {
                 now.saturating_sub(success.checked_at) >= REMOTE_CACHE_SECONDS
             })
+        }
+        Some(check) if check.attempt == CheckAttempt::Failed => {
+            now.saturating_sub(check.attempted_at)
+                >= REMOTE_FAILURE_RETRY_SECONDS
         }
         Some(check) => {
             now.saturating_sub(check.attempted_at) >= REMOTE_CACHE_SECONDS
@@ -726,10 +733,18 @@ mod tests {
             RefreshMode::Normal
         ));
         check.failed(200, "offline".into());
-        // A failed source response must not restart on each page visit or tick.
+        assert_eq!(REMOTE_FAILURE_RETRY_SECONDS, 300);
+        // A failed source response uses a short retry backoff instead of the
+        // successful-result cache lifetime.
         for seconds in [0, 1, 2, 30, 60] {
             assert!(!due(Some(&check), 200 + seconds, RefreshMode::Normal));
         }
+        assert!(due(Some(&check), 200 + 300, RefreshMode::Normal));
+        assert!(!due(Some(&check), 200 + 299, RefreshMode::Normal));
+        assert!(due(Some(&check), 200, RefreshMode::ForceRemote));
+        assert!(due(Some(&check), 200, RefreshMode::RetryFailed));
+        check.attempt = CheckAttempt::Unrecognized;
+        check.error = None;
         assert!(!due(
             Some(&check),
             200 + REMOTE_CACHE_SECONDS - 1,
@@ -740,7 +755,5 @@ mod tests {
             200 + REMOTE_CACHE_SECONDS,
             RefreshMode::Normal
         ));
-        assert!(due(Some(&check), 200, RefreshMode::ForceRemote));
-        assert!(due(Some(&check), 200, RefreshMode::RetryFailed));
     }
 }

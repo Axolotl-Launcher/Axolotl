@@ -1,4 +1,14 @@
 {
+  "app.downloads.slow-downloads.title": { "message": "下載緩慢？" },
+  "app.downloads.slow-downloads.description": {
+    "message": "可以前往 <settings-link>下載設定</settings-link> 開啟強制多執行緒下載功能，可能會幫助提升你的下載速度。"
+  },
+  "app.downloads.slow-downloads.dismiss": { "message": "不再提示" },
+  "app.settings.resources.force-multiconnection": { "message": "強制多連線下載" },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "使用更積極的下載邏輯，可能會改善你的下載速度。當你遇到問題時，請考慮啟用這個選項。"
+  },
+  "app.settings.resources.experimental": { "message": "實驗性" },
   "app.resources.operation.dependency-analysis-failed": {
     "message": "依賴分析失敗，可能會導致實例運作不正常"
   },

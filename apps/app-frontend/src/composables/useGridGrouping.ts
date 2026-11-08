@@ -33,7 +33,23 @@ export interface GridDisplayState {
     collapsedGroups: string[]
 }
 
-export function useGridGrouping<T extends Record<string, unknown>>(
+/**
+ * The fields grouping and sorting read off an instance. Everything is optional
+ * so callers can group lighter shapes (tests, previews) while `GameInstance`
+ * provides the real values.
+ */
+export interface GridGroupableInstance {
+    name?: string
+    loader?: string
+    game_version?: string
+    groups?: string[]
+    last_played?: string | number | Date | null
+    date_created?: string
+    date_modified?: string
+    [key: string]: unknown
+}
+
+export function useGridGrouping<T extends GridGroupableInstance>(
     label: string,
     instances: Ref<T[]>,
     options: {
@@ -42,7 +58,7 @@ export function useGridGrouping<T extends Record<string, unknown>>(
         getGameVersion?: (instance: T) => string
         getGameDirectory?: (instance: T) => GameDirectoryInfo
         getGroups?: (instance: T) => string[]
-        getLastPlayed?: (instance: T) => string | number | null
+        getLastPlayed?: (instance: T) => string | number | Date | null
         getDateCreated?: (instance: T) => string
         getDateModified?: (instance: T) => string
         formatLoader?: (loader: string) => string
@@ -123,7 +139,7 @@ export function useGridGrouping<T extends Record<string, unknown>>(
         const getGameVersion = options.getGameVersion ?? ((i: T) => i.game_version ?? '')
         const getGameDirectory =
             options.getGameDirectory ??
-            ((i: T) => resolveGameDirectory(i as Pick<GameInstance, keyof GameInstance>))
+            ((i: T) => resolveGameDirectory(i as unknown as Pick<GameInstance, keyof GameInstance>))
         const getGroups = options.getGroups ?? ((i: T) => i.groups ?? [])
         const formatLoader = options.formatLoader ?? ((l: string) => l)
 

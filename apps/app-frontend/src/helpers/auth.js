@@ -90,7 +90,7 @@ export async function delete_yggdrasil_password(apiRoot, login) {
  * Creates and selects a local Minecraft account.
  * @param {string} username
  * @param {string} [uuid] Custom UUID as 32 hexadecimal characters, with or without hyphens
- * @returns {Promise<Credential>}
+ * @returns {Promise<import('./auth-types').MinecraftCredential>}
  */
 export async function add_offline_user(username, uuid) {
     const result = await invoke('plugin:auth|add_offline_user', {
@@ -113,6 +113,7 @@ export async function clear_official_login_marker() {
  * Retrieves the default user
  * @return {Promise<UUID | undefined>}
  */
+/** @returns {Promise<string | null>} */
 export async function get_default_user(offlineMode = false) {
     return await invoke('plugin:auth|get_default_user', { offlineMode })
 }
@@ -139,7 +140,7 @@ export async function remove_user(user) {
 
 /**
  * Returns a list of users
- * @returns {Promise<Credential[]>}
+ * @returns {Promise<import('./auth-types').MinecraftCredential[]>}
  */
 export async function users(offlineMode = false, cachedOnly = false) {
     return await invoke('plugin:auth|get_users', { offlineMode, cachedOnly })

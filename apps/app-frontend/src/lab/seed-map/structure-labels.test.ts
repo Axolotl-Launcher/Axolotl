@@ -26,13 +26,19 @@ const variant = (values: Partial<Variant> = {}): Variant => ({
     ...values,
 })
 function labels(locale = 'en-US') {
-    const catalog: Record<string, { message: string }> = locale === 'zh-CN' ? zh : en
+    const catalog: Record<string, { message?: string; defaultMessage?: string }> =
+        locale === 'zh-CN' ? zh : en
     return createSeedMapLabels((message, values) => {
         expect(
             message.id && catalog[message.id],
             `Missing ${locale} message ${message.id}`,
         ).toBeTruthy()
-        return String(new IntlMessageFormat(catalog[message.id].message, locale).format(values))
+        return String(
+            new IntlMessageFormat(
+                catalog[message.id].message ?? catalog[message.id].defaultMessage ?? '',
+                locale,
+            ).format(values),
+        )
     }, locale)
 }
 function source(path: string) {

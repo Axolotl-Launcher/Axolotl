@@ -249,9 +249,9 @@ const activePointers = new Map<number, ActivePointer>()
 const pointer = reactive({ id: -1, startX: 0, startY: 0, centerX: 0, centerZ: 0, moved: false })
 const viewport = reactive({ width: 0, height: 0 })
 let requestEpoch = 0
-let refreshTimer: ReturnType<typeof window.setTimeout> | undefined
-let saveTimer: ReturnType<typeof window.setTimeout> | undefined
-let longPressTimer: ReturnType<typeof window.setTimeout> | undefined
+let refreshTimer: number | undefined
+let saveTimer: number | undefined
+let longPressTimer: number | undefined
 let redrawFrame: number | undefined
 let panFrame: number | undefined
 let pendingPanCenter: { x: number; z: number } | undefined
@@ -261,8 +261,8 @@ let pinchDistance = 0
 let wheelMode: 'trackpad' | 'wheel' | undefined
 let wheelGestureStartedAt = 0
 let wheelDelta = 0
-let wheelTimer: ReturnType<typeof window.setTimeout> | undefined
-let trackpadTimer: ReturnType<typeof window.setTimeout> | undefined
+let wheelTimer: number | undefined
+let trackpadTimer: number | undefined
 let wheelAnchor = { x: 0, y: 0 }
 let suppressPointerSelection = false
 let centerOnNextSpawn = false
@@ -271,8 +271,8 @@ let spawnRequest: { key: string; promise: Promise<SeedMapSpawnPoint> } | undefin
 let disposed = false
 let pendingHistorySource: SeedMapHistorySource | null = null
 let pendingHistoryLabels: { instanceName?: string; worldName?: string } = {}
-let historyTimer: ReturnType<typeof window.setTimeout> | undefined
-let progressTimer: ReturnType<typeof window.setTimeout> | undefined
+let historyTimer: number | undefined
+let progressTimer: number | undefined
 let applyingSharedState = false
 let biomeLookupToken = 0
 const dimensionViews = new Map<SeedMapDimension, DimensionView>()
@@ -621,7 +621,7 @@ const availableVersions = computed(() =>
         .map((profile) => profile.version)
         .sort(compareSeedMapVersions),
 )
-const dimensions = computed(
+const dimensions = computed<SeedMapDimension[]>(
     () => selectedProfile.value?.dimensions ?? ['overworld', 'nether', 'end'],
 )
 const scale = computed(() => 4 ** workspace.zoom)
@@ -2398,7 +2398,7 @@ function clearOres() {
 
 function resetOres() {
     const current = new Set(dimensionOres.value.map((ore) => ore.kind))
-    const defaultOre = workspace.dimension === 'nether' ? 'netherite' : 'diamond'
+    const defaultOre: SeedMapOreKind = workspace.dimension === 'nether' ? 'netherite' : 'diamond'
     workspace.selectedOres = [
         ...workspace.selectedOres.filter((ore) => !current.has(ore)),
         ...(current.has(defaultOre) ? [defaultOre] : []),
@@ -3692,7 +3692,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                 :highlighted-biomes="workspace.highlightedBiomes"
                                 :available-biome-ids="selectedProfile?.biomes"
                                 :available-dimensions="dimensions"
-                                :container="isFullscreen ? fullscreenContainer : undefined"
+                                :container="
+                                    isFullscreen ? (fullscreenContainer ?? undefined) : undefined
+                                "
                                 @update:dimension="selectDimension($event)"
                                 @update:enabled="workspace.highlightBiomeEnabled = $event"
                                 @update:highlighted-biomes="workspace.highlightedBiomes = $event"

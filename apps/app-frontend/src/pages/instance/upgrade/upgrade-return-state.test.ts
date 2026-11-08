@@ -9,6 +9,13 @@ import {
     restoreUpgradeFlow,
     upgradeProjectPath,
 } from '../../../helpers/upgrade-return-state.ts'
+import type { UpgradeFlowSnapshot } from './flow.ts'
+
+// The store only serializes routing identity; the plan and target fixtures below
+// are intentionally partial DTOs.
+function parkedSnapshot<T extends object>(snapshot: T): T & UpgradeFlowSnapshot {
+    return snapshot as unknown as T & UpgradeFlowSnapshot
+}
 
 it('upgrade return snapshot is one-shot and instance-scoped', () => {
     clearUpgradeFlow()
@@ -31,7 +38,7 @@ it('upgrade return snapshot is one-shot and instance-scoped', () => {
 for (const route of ['compatibility', 'customize', 'confirm']) {
     it(`${route} return hydrates the parked plan before consuming it`, () => {
         clearUpgradeFlow()
-        const snapshot = {
+        const snapshot = parkedSnapshot({
             instanceId: 'instance-a',
             returnFullPath: `/instance/instance-a/upgrade/${route}`,
             targetEnvironment: { gameVersion: '26.1.2' },
@@ -40,7 +47,7 @@ for (const route of ['compatibility', 'customize', 'confirm']) {
             sharedUpgradeMode: null,
             activeJobId: null,
             result: null,
-        } as never
+        })
         parkUpgradeFlow(snapshot)
         let hydratedPlanId: string | undefined
         const restored = restoreUpgradeFlow('instance-a', snapshot.returnFullPath, (value) => {
@@ -54,7 +61,7 @@ for (const route of ['compatibility', 'customize', 'confirm']) {
 
 it('confirm project return restores plan and confirm choices without replanning', () => {
     clearUpgradeFlow()
-    const snapshot = {
+    const snapshot = parkedSnapshot({
         instanceId: 'instance-a',
         returnFullPath: '/instance/instance-a/upgrade/confirm',
         targetEnvironment: { gameVersion: '26.1.2' },
@@ -68,19 +75,18 @@ it('confirm project return restores plan and confirm choices without replanning'
         sharedUpgradeMode: 'direct',
         activeJobId: null,
         result: null,
-    } as never
+    })
     parkUpgradeFlow(snapshot)
-    let restoredSnapshot: typeof snapshot | null = null
-    restoreUpgradeFlow('instance-a', snapshot.returnFullPath, (value) => {
-        restoredSnapshot = value as typeof snapshot
+    const restored = restoreUpgradeFlow('instance-a', snapshot.returnFullPath, (value) => {
+        expect(value.plan?.id).toBe('same-plan')
     })
 
-    expect(restoredSnapshot?.plan.id).toBe('same-plan')
-    expect(restoredSnapshot?.targetEnvironment).toEqual(snapshot.targetEnvironment)
-    expect(restoredSnapshot?.plan.selectedSolution).toEqual(snapshot.plan.selectedSolution)
-    expect(restoredSnapshot?.plan.customConstraints).toEqual(snapshot.plan.customConstraints)
-    expect(restoredSnapshot?.createFullBackup).toBe(false)
-    expect(restoredSnapshot?.sharedUpgradeMode).toBe('direct')
+    expect(restored?.plan?.id).toBe('same-plan')
+    expect(restored?.targetEnvironment).toEqual(snapshot.targetEnvironment)
+    expect(restored?.plan?.selectedSolution).toEqual(snapshot.plan.selectedSolution)
+    expect(restored?.plan?.customConstraints).toEqual(snapshot.plan.customConstraints)
+    expect(restored?.createFullBackup).toBe(false)
+    expect(restored?.sharedUpgradeMode).toBe('direct')
 })
 
 it('failed hydration leaves the parked snapshot available', () => {

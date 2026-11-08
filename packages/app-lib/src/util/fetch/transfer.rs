@@ -7,7 +7,7 @@ use super::file::{
 };
 use super::model::{
     DownloadRequest, DownloadResult, DownloadRoute, DownloadRouteSource,
-    FetchProgressFn, Integrity, attach_verified_integrity,
+    FetchProgressFn, Integrity, ResourceClass, attach_verified_integrity,
 };
 #[cfg(test)]
 use super::policy;
@@ -193,7 +193,8 @@ pub(crate) async fn select_h2_download_route(
     routes: &[DownloadRoute],
     part_path: &Path,
 ) -> Option<(DownloadRoute, crate::util::download::native::NativeH2Policy)> {
-    if !request.allow_segmented_download
+    if request.force_multiconnection
+        || !request.allow_segmented_download
         || part_resume_expected(part_path).await
         || request.url.starts_with(FETCH_HTTP)
     {
@@ -572,6 +573,31 @@ async fn download_to_path_tracked_inner(
     semaphore: &FetchSemaphore,
     mut progress: Option<&mut FetchProgressFn<'_>>,
 ) -> crate::Result<DownloadResult> {
+    request.force_multiconnection |= crate::State::get_if_initialized()
+        .is_some_and(|state| state.force_multiconnection_downloads());
+    if request.force_multiconnection
+        && request.resource != ResourceClass::Metadata
+    {
+        request.allow_segmented_download = true;
+        request.allow_http1_segmented_download = true;
+        request.prefer_http1 = true;
+    } else {
+        request.force_multiconnection = false;
+    }
+    if request.force_multiconnection {
+        let pool = crate::State::get_if_initialized()
+            .map_or(std::ptr::from_ref(semaphore) as usize, |_| 0);
+        request.forced_allocation =
+            Some(super::weighted::ForcedDownload::register(
+                pool,
+                request.integrity.size,
+            ));
+        request.forced_allocation.as_ref().unwrap().quota(
+            super::segment::range_concurrency_limit(&request, semaphore),
+        );
+        // Let other ready files join the shared budget before admitting ranges.
+        tokio::task::yield_now().await;
+    }
     let _endpoint_registration =
         crate::util::download::proxy_context::clients()
             .and_then(|clients| clients.endpoints.register_download(&request));
@@ -621,7 +647,9 @@ async fn download_to_path_tracked_inner(
         return Ok(result);
     }
     prepare_partial_download(&routes, &part_path, &request.integrity).await?;
-    prepare_native_download_routes(&request, &mut routes, semaphore).await;
+    if !request.force_multiconnection {
+        prepare_native_download_routes(&request, &mut routes, semaphore).await;
+    }
 
     // Small files can share H2. Large, hash-verified range downloads enter
     // the independent-connection scheduler even when an H2 socket is warm.

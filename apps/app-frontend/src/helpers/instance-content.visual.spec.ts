@@ -63,7 +63,7 @@ it('normalizes only changed entries during incremental refresh', () => {
             {
                 ...initial.items[0],
                 resourceUpdate: {
-                    project: { source: 'modrinth', projectId: 'project' },
+                    project: { source: 'modrinth' as const, projectId: 'project' },
                     releaseId: 'next',
                 },
             },
@@ -140,11 +140,16 @@ it.each([
             size: 3,
             enabled: true,
             project_type: 'mod',
+            update: null,
+            origin_provider: null,
             provider_refs: [],
             project: { id: projectId, slug: projectId, title: 'Recognized' },
         }
         value.items[0].artifactRef = {
-            release: { project: { source, projectId }, releaseId },
+            release: {
+                project: { source: source as 'modrinth' | 'curseforge', projectId },
+                releaseId,
+            },
             artifactId: 'download',
         }
         const item = normalizeInstanceContentSnapshot('instance', value).contentItems[0]

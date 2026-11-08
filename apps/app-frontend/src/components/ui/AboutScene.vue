@@ -379,7 +379,7 @@ function main() {
     }
 
     function updateSize() {
-        if (!isUpdating) return
+        if (!isUpdating || !sceneCanvas) return
         const w = sceneCanvas.clientWidth
         const h = sceneCanvas.clientHeight
         if (w > 0 && h > 0) {

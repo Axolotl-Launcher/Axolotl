@@ -146,13 +146,22 @@ async fn try_segmented_native_attempt(
                     size.saturating_sub(resumable_part_bytes),
                 )
             });
-        if (request.allow_http1_segmented_download || tail_recovery)
-            && !retry_with_single_thread
-            && !session.single_thread_routes.contains(&route.url)
-            && route.supports_range
-            && range_splitting_allowed(route)
+        let forced_ranges = request.force_multiconnection
             && request.integrity.size.is_some_and(|size| {
-                tail_recovery
+                size.saturating_sub(resumable_part_bytes)
+                    >= crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE
+                        * MIN_PARALLEL_RANGES as u64
+            })
+            && super::segment::range_concurrency_limit(request, semaphore) > 1;
+        if (request.allow_http1_segmented_download || tail_recovery)
+            && (forced_ranges
+                || (!retry_with_single_thread
+                    && !session.single_thread_routes.contains(&route.url)))
+            && (forced_ranges
+                || (route.supports_range && range_splitting_allowed(route)))
+            && request.integrity.size.is_some_and(|size| {
+                forced_ranges
+                    || tail_recovery
                     || explicitly_parallel
                     || should_use_segmented_download(size, resumable_part_bytes)
             })
@@ -259,6 +268,13 @@ async fn try_segmented_native_attempt(
                         None,
                         None,
                     );
+                    if forced_ranges {
+                        session.last_error = Some(ErrorKind::NetworkError(format!(
+                            "Forced multi-connection download rejected by {log_url}: {reason}"
+                        )).into());
+                        session.terminal_routes.insert(route.url.clone());
+                        return Ok(Some(NativeSegmentedAttempt::RetryRoute));
+                    }
                     tracing::debug!(
                         original_url = %log_url,
                         file_size = size,
@@ -284,6 +300,15 @@ async fn try_segmented_native_attempt(
                     if !request.integrity.has_hash()
                         || metadata_request.is_some()
                     {
+                        if forced_ranges {
+                            session.last_error = Some(ErrorKind::NetworkError(format!(
+                                "Forced multi-connection download has inconsistent size metadata from {log_url}"
+                            )).into());
+                            session.terminal_routes.insert(route.url.clone());
+                            return Ok(Some(
+                                NativeSegmentedAttempt::RetryRoute,
+                            ));
+                        }
                         session.single_thread_routes.insert(route.url.clone());
                         return Ok(None);
                     }
@@ -355,6 +380,9 @@ async fn try_segmented_native_attempt(
                             session.file_attempt_budget,
                         ));
                     }
+                    if forced_ranges {
+                        return Ok(Some(NativeSegmentedAttempt::RetryRoute));
+                    }
                     session.single_thread_routes.insert(route.url.clone());
                     session.terminal_routes.remove(&route.url);
                 }
@@ -383,6 +411,9 @@ async fn try_segmented_native_attempt(
             }
         }
 
+        if forced_ranges {
+            return Ok(Some(NativeSegmentedAttempt::RetryRoute));
+        }
         return Ok(None);
     }
 }
@@ -464,6 +495,8 @@ pub(crate) async fn run_native_download_attempts(
     for (round, retry_with_single_thread) in
         FILE_RETRY_SINGLE_STREAM_ROUNDS.into_iter().enumerate()
     {
+        let retry_with_single_thread =
+            retry_with_single_thread && !request.force_multiconnection;
         let mut attempted_routes = Vec::new();
         for (route_index, route) in routes.iter().enumerate() {
             if session.terminal_routes.contains(&route.url) {
@@ -663,6 +696,9 @@ async fn run_native_route_attempts(
             DownloadItemStatus::WaitingForResource,
         )
         .await;
+        if request.force_multiconnection {
+            super::segment::wait_for_forced_quota(request, semaphore).await?;
+        }
         let permit_wait = tokio::time::timeout(
             RESOURCE_WAIT_TIMEOUT,
             acquire_native_connection(route, semaphore),
@@ -926,6 +962,42 @@ async fn run_native_route_attempts(
             expected_size = Some(size);
         }
 
+        if request.force_multiconnection
+            && request.integrity.size.is_none()
+            && server_size.is_some_and(|size| {
+                size
+                    >= crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE
+                        * MIN_PARALLEL_RANGES as u64
+            })
+            && super::segment::range_concurrency_limit(request, semaphore) > 1
+        {
+            let mut sized_request = request.clone();
+            sized_request.integrity.size = server_size;
+            drop(response);
+            drop(permit);
+            drop(activity.take());
+            match try_segmented_native_attempt(
+                &sized_request,
+                destination,
+                semaphore,
+                progress,
+                routes,
+                route_index,
+                route,
+                part_path,
+                credentials,
+                session,
+                false,
+                allow_low_throughput_abort,
+            )
+            .await?
+            {
+                Some(NativeSegmentedAttempt::Completed(result)) => {
+                    return Ok(NativeRouteAttempt::Completed(result));
+                }
+                _ => break 'attempt,
+            }
+        }
         let mut hashers =
             IntegrityHashers::new_integrity_hashers(&request.integrity);
         if resume_offset > 0 {
@@ -1080,6 +1152,7 @@ async fn run_native_route_attempts(
                 expected_speed,
             )
         };
+        let mut dns_slow_recovery_requested = false;
         let mut throughput_timer =
             tokio::time::interval(DOWNLOAD_SCHEDULER_INTERVAL);
         throughput_timer.tick().await;
@@ -1171,6 +1244,10 @@ async fn run_native_route_attempts(
                     );
                     if let crate::util::download::native_slow::SlowDecision::Probe { bytes_per_second } = slow_decision {
                         last_endpoint_speed = bytes_per_second;
+                        if !dns_slow_recovery_requested {
+                            super::policy::request_dns_system_recovery(route, &final_url);
+                            dns_slow_recovery_requested = true;
+                        }
                     }
                     if !crate::util::download::local_resources::pressure(part_path).blocks_expansion()
                         && let Some(clients) = crate::util::download::proxy_context::clients() {
@@ -1215,6 +1292,7 @@ async fn run_native_route_attempts(
                     }
                     if (downgrade_slow_http2 || (allow_low_throughput_abort
                         && total_size >= SEGMENTED_DOWNLOAD_THRESHOLD))
+                        && !request.force_multiconnection
                         && !alternate_probe_finished
                         && alternate_probe.is_none()
                         && let crate::util::download::native_slow::SlowDecision::Probe {
@@ -1375,6 +1453,7 @@ async fn run_native_route_attempts(
         }
 
         if let Some(error) = transfer_error {
+            super::policy::request_dns_system_recovery(route, &final_url);
             record_route_failure(route, request.resource, None);
             record_native_transfer_failure(route, None);
             preserve_or_remove_partial(

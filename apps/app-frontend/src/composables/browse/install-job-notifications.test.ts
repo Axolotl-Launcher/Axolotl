@@ -16,12 +16,13 @@ vi.mock('@modrinth/ui', () => ({
         formatMessage: (
             descriptor: { id?: string; defaultMessage: string },
             values?: Record<string, string | number>,
-        ) =>
-            new IntlMessageFormat(
-                zhMessages[descriptor.id as keyof typeof zhMessages]?.message ??
-                    descriptor.defaultMessage,
-                'zh-CN',
-            ).format(values),
+        ) => {
+            const entry = descriptor.id
+                ? zhMessages[descriptor.id as keyof typeof zhMessages]
+                : undefined
+            const template = entry && 'message' in entry ? entry.message : descriptor.defaultMessage
+            return new IntlMessageFormat(template, 'zh-CN').format(values)
+        },
     }),
 }))
 vi.mock('@/helpers/install', () => ({

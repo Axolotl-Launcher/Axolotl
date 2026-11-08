@@ -11,7 +11,7 @@ import ModTranslationSettingsPanel from '@/components/lab/mod-translation/ModTra
 import { createAnalysisTask } from '@/helpers/analysis-task'
 import { analyzeMod } from '@/lab/mod-translation/backend'
 import { modTranslationMessages as messages } from '@/lab/mod-translation/i18n'
-import type { ModTranslationJob } from '@/lab/mod-translation/types.ts'
+import type { ModTranslationAnalysis, ModTranslationJob } from '@/lab/mod-translation/types.ts'
 import { useModTranslationStore } from '@/store/modTranslation'
 
 const { formatMessage } = useVIntl()
@@ -21,9 +21,9 @@ const store = useModTranslationStore()
 const { inputPath, analysis, providerId, modelId, options, jobs } = storeToRefs(store)
 // The file being analyzed is fixed when analysis starts. Picking another file
 // or leaving the page abandons that analysis, including its error.
-const modAnalysis = createAnalysisTask({
+const modAnalysis = createAnalysisTask<{ path: string }, unknown, ModTranslationAnalysis>({
     label: 'mod-translation-analysis',
-    run: ({ path }: { path: string }, { signal, stopping }) => analyzeMod(path, signal, stopping),
+    run: ({ path }, { signal, stopping }) => analyzeMod(path, signal, stopping),
 })
 const analyzing = modAnalysis.running
 const starting = ref(false)

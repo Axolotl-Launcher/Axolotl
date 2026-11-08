@@ -156,7 +156,9 @@ export function createServerInstall(opts: {
                     : []),
                 {
                     label: 'Instance',
-                    action: () => opts.router.push(`/instance/${encodeURIComponent(project.id)}`),
+                    action: async () => {
+                        await opts.router.push(`/instance/${encodeURIComponent(project.id)}`)
+                    },
                 },
             ],
             autoCloseMs: null,
@@ -192,7 +194,9 @@ export function createServerInstall(opts: {
                     : []),
                 {
                     label: 'Instance',
-                    action: () => opts.router.push(`/instance/${encodeURIComponent(instance.id)}`),
+                    action: async () => {
+                        await opts.router.push(`/instance/${encodeURIComponent(instance.id)}`)
+                    },
                 },
             ],
             autoCloseMs: null,

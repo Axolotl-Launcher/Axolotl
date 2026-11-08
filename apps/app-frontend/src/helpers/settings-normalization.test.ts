@@ -13,6 +13,7 @@ it('normalizes missing settings to empty defaults where the launcher expects the
     const settings = await get()
 
     expect(settings.default_game_language).toBe('')
+    expect(settings.force_multiconnection_downloads).toBe(false)
     expect(settings.feature_flags.advanced_download_info).toBe(false)
 })
 

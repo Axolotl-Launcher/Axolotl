@@ -407,7 +407,7 @@ it('groups by game directory, keeps the full-set badge threshold, and persists c
                     groups: [],
                     game_dir_override: String.raw`D:\Minecraft\.minecraft\versions\1.21`,
                 },
-            ] as GameInstance[],
+            ] as unknown as GameInstance[],
         },
         global: { directives: { tooltip: {} } },
     })

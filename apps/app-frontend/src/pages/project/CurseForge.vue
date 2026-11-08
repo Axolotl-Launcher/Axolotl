@@ -27,12 +27,13 @@
             />
             <ProjectSidebarCreators
                 :members="members"
-                :org-link="() => data.links.website_url"
-                :user-link="(username) => authorLinks[username] ?? data.links.website_url"
+                :org-link="() => websiteUrl"
+                :user-link="(username) => authorLinks[username] ?? websiteUrl"
                 link-target="_blank"
                 class="project-sidebar-section"
             />
             <ProjectSidebarDetails
+                v-if="data"
                 :project="data"
                 :resource-dates="{
                     createdAt: project?.dateCreated,
@@ -63,7 +64,7 @@
                 :translated-title="translationActive ? translations.title : undefined"
                 :translated-description="translationActive ? translations.description : undefined"
                 :translation-mode="translationMode"
-                :translation-style="translationStyle"
+                :translation-style="headerTranslationStyle"
             >
                 <template #actions>
                     <Button
@@ -288,6 +289,7 @@
 </template>
 
 <script setup lang="ts">
+import type { Labrinth } from '@modrinth/api-client'
 import {
     BookmarkFilledIcon,
     BookmarkIcon,
@@ -351,6 +353,7 @@ import {
     noteManualTranslateClick,
     prepareDescription,
     translateInBatches as translateContent,
+    type TranslationSegment,
     type TranslationStyle,
     validateTranslatedDescription,
 } from '@/helpers/translation'
@@ -497,6 +500,13 @@ const translationLoading = ref(false)
 const translations = ref<Record<string, string>>({})
 const translationMode = ref<'bilingual' | 'translation-only'>('bilingual')
 const translationStyle = ref<TranslationStyle>('weakened')
+/**
+ * ProjectHeader only accepts a subset of the app's translation styles. Pass the
+ * value through unchanged (as before); the narrower prop type is the gap.
+ */
+const headerTranslationStyle = computed(
+    () => translationStyle.value as 'default' | 'weakened' | 'brand' | 'border' | 'background',
+)
 let projectRequestVersion = 0
 let filesRequestVersion = 0
 let translationRequestVersion = 0
@@ -536,12 +546,14 @@ const favoritePending = computed(() =>
 )
 
 function toggleFavorite() {
-    if (!favoriteSupported.value || !favoriteProjectId.value || favoritePending.value) return
+    const contentType = projectType.value
+    if (!isFavoriteContentType(contentType) || !favoriteProjectId.value || favoritePending.value)
+        return
     void contentFavorites
         .toggle({
             provider: 'curseforge',
             project_id: favoriteProjectId.value,
-            content_type: projectType.value,
+            content_type: contentType,
             slug: project.value?.slug,
         })
         .catch(handleError)
@@ -652,21 +664,61 @@ const minecraftVersions = computed(() => {
     return [...versions]
 })
 
-const data = computed(() => {
+type CurseForgeGalleryImage = Labrinth.Projects.v2.GalleryImage & { raw_url?: string }
+type CurseForgeVersionView = Labrinth.Versions.v2.Version & { displayUrlEnding: string }
+type CurseForgeProjectView = Omit<
+    Labrinth.Projects.v2.Project,
+    | 'project_type'
+    | 'color'
+    | 'gallery'
+    | 'issues_url'
+    | 'source_url'
+    | 'wiki_url'
+    | 'discord_url'
+    | 'donation_urls'
+> & {
+    project_type: Labrinth.Projects.v2.ProjectType
+    color: number
+    gallery: CurseForgeGalleryImage[]
+    issues_url: string
+    source_url: string
+    wiki_url: string
+    discord_url: string
+    donation_urls: Labrinth.Projects.v2.DonationLink[]
+    site_url: string
+    links: { website_url: string }
+}
+
+const data = computed<CurseForgeProjectView | null>(() => {
     if (!project.value) return null
     const value = project.value
+    const gallery: CurseForgeGalleryImage[] = value.screenshots.map((screenshot, index) => ({
+        title: screenshot.title,
+        description: '',
+        created: value.dateModified,
+        url: getCurseForgeImageUrl(screenshot.thumbnailUrl, 960) ?? '',
+        raw_url: getCurseForgeImageUrl(screenshot.url, 1920),
+        featured: false,
+        ordering: index,
+    }))
     return {
         id: value.id.toString(),
         slug: value.slug,
         title: value.name,
         description: value.summary,
         body: description.value,
-        project_type: projectType.value,
+        // CurseForge class ids can map to "world", which is outside Modrinth's
+        // ProjectType union but is still rendered through the project shell.
+        project_type: projectType.value as Labrinth.Projects.v2.ProjectType,
         downloads: value.downloadCount,
         followers: 0,
         icon_url: getCurseForgeImageUrl(value.logo?.url ?? value.logo?.thumbnailUrl),
-        color: null,
+        color: 0,
         status: 'approved',
+        team: '',
+        organization: null,
+        thread_id: '',
+        monetization_status: 'demonetized',
         categories: value.categories.map((category) => category.slug),
         additional_categories: [],
         versions: files.value.map((file) => file.id.toString()),
@@ -677,8 +729,8 @@ const data = computed(() => {
         published: value.dateCreated,
         approved: value.dateReleased || value.dateCreated,
         updated: value.dateModified,
-        queued: null,
-        license: { id: 'LicenseRef-Unknown', name: 'Unknown', url: null },
+        queued: undefined,
+        license: { id: 'LicenseRef-Unknown', name: 'Unknown' },
         issues_url: value.links.issuesUrl ?? '',
         source_url: value.links.sourceUrl ?? '',
         wiki_url: value.links.wikiUrl ?? '',
@@ -688,16 +740,11 @@ const data = computed(() => {
         links: {
             website_url: value.links.websiteUrl ?? '',
         },
-        gallery: value.screenshots.map((screenshot) => ({
-            title: screenshot.title,
-            description: '',
-            created: value.dateModified,
-            url: getCurseForgeImageUrl(screenshot.thumbnailUrl, 960),
-            raw_url: getCurseForgeImageUrl(screenshot.url, 1920),
-            featured: false,
-        })),
+        gallery,
     }
 })
+
+const websiteUrl = computed(() => data.value?.links.website_url ?? '')
 
 function browseByProjectFilter(filter: ProjectBrowseFilter, value: string) {
     if (!data.value?.project_type) return
@@ -722,13 +769,14 @@ const authorLinks = computed(() =>
     Object.fromEntries((project.value?.authors ?? []).map((author) => [author.name, author.url])),
 )
 
-const versions = computed(() =>
+const versions = computed<CurseForgeVersionView[]>(() =>
     files.value.map((file) => {
         const loaders = getFilePlatforms(file)
         const gameVersions = file.gameVersions.filter((version) => /^\d+\.\d+/.test(version))
         return {
             id: file.id.toString(),
             project_id: project.value?.id.toString() ?? '',
+            author_id: '',
             name: file.displayName,
             version_number: file.displayName,
             version_type:
@@ -743,7 +791,7 @@ const versions = computed(() =>
                     size: file.fileLength,
                     url: file.downloadUrl ?? '',
                     primary: true,
-                    hashes: {},
+                    hashes: { sha1: '', sha512: '' },
                 },
             ],
             featured: false,
@@ -972,7 +1020,9 @@ async function installSelected(fileId: string | null) {
         const selectedKey = cartProjectKey.value
         const selectedType = projectType.value
         const requestVersion = projectRequestVersion
-        const expectedLoader = { forge: 1, fabric: 4, quilt: 5, neoforge: 6 }[target.loader]
+        const expectedLoader = (
+            { forge: 1, fabric: 4, quilt: 5, neoforge: 6 } as Record<string, number>
+        )[target.loader]
         let resolvedFileId: string | number | null = fileId
         if (!resolvedFileId && !usesTargetGameVersion(selectedType)) {
             resolvedFileId = files.value.find((file) => file.isAvailable)?.id ?? null
@@ -1100,7 +1150,7 @@ async function translateProject() {
                 description: data.value.description,
             },
         }
-        const allSegments = [
+        const allSegments: TranslationSegment[] = [
             { id: 'title', text: data.value.title, format: 'plain' },
             { id: 'description', text: data.value.description, format: 'plain' },
             ...projectGalleryTranslationSegments(data.value.gallery),

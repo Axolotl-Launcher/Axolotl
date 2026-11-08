@@ -12,6 +12,8 @@ function item(id: string, title = 'Original'): ContentItem {
         project_type: 'mod',
         enabled: true,
         origin_provider: 'modrinth',
+        update: null,
+        provider_refs: [],
         project: { id: 'project', slug: 'slug', title },
     }
 }

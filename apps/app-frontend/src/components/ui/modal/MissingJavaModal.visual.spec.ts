@@ -52,7 +52,8 @@ it.each([
                     [I18N_INJECTION_KEY as symbol]: {
                         locale: ref(locale),
                         t: (key: string, values: Record<string, string | number>) => {
-                            const message = messages[key as keyof typeof messages]?.message
+                            const message = (messages as Record<string, { message?: string }>)[key]
+                                ?.message
                             return message
                                 ? new IntlMessageFormat(message, locale).format(values)
                                 : key

@@ -1138,14 +1138,14 @@ const messages = defineMessages({
             <ConfirmRepairModal
                 ref="repairModal"
                 :server="ctx.isServer"
-                :symlink-target="ctx.symlinkTarget?.value"
+                :symlink-target="ctx.symlinkTarget?.value ?? undefined"
                 @repair="handleRepair"
             />
             <ConfirmReinstallModal
                 ref="reinstallModal"
                 :server="ctx.isServer"
                 :backup-tip="ctx.modpack.value?.title"
-                :symlink-target="ctx.symlinkTarget?.value"
+                :symlink-target="ctx.symlinkTarget?.value ?? undefined"
                 @reinstall="handleReinstall"
             />
             <ConfirmUnlinkModal

@@ -4,7 +4,7 @@
         :header="formatMessage(count > 1 ? messages.batchHeader : messages.header)"
         fade="danger"
         max-width="500px"
-        :confirm-action="deleteAction"
+        :confirm-action="confirmDelete"
         :confirm-icon="TrashIcon"
         confirm-color="red"
         :confirm-label="
@@ -86,6 +86,7 @@ import {
     Admonition,
     ConfirmActionModal,
     defineMessages,
+    injectNotificationManager,
     useFormatBytes,
     useVIntl,
 } from '@modrinth/ui'
@@ -96,6 +97,7 @@ import { type BackupDeleteSummary, getBackupDeleteSummary } from '@/helpers/inst
 import type { GameInstance } from '@/helpers/types'
 
 const { formatMessage } = useVIntl()
+const { handleError } = injectNotificationManager()
 const formatBytes = useFormatBytes()
 
 const props = withDefaults(
@@ -160,6 +162,15 @@ const messages = defineMessages({
 
 const modal = ref<InstanceType<typeof ConfirmActionModal>>()
 const backupSummary = ref<BackupDeleteSummary | null>(null)
+
+async function confirmDelete() {
+    try {
+        await props.deleteAction()
+    } catch (error) {
+        handleError(error)
+        throw error
+    }
+}
 
 async function show() {
     backupSummary.value = null

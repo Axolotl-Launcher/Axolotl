@@ -3,6 +3,7 @@ import type {
     AbstractWebNotificationManager,
     CreationFlowContextValue,
     CreationFlowModal,
+    WebNotification,
 } from '@modrinth/ui'
 import { defineMessages, useVIntl } from '@modrinth/ui'
 import { join } from '@tauri-apps/api/path'
@@ -253,7 +254,7 @@ export function setupCreationModal(
 
     async function doInstallModpackFile(
         location: CreatePackLocation,
-        options: { autoCloseMs?: number | null; existingNotify?: { id: number } } = {},
+        options: { autoCloseMs?: number | null; existingNotify?: WebNotification } = {},
     ) {
         const existingNotify = options.existingNotify
         const installingNotify =

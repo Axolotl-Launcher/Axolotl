@@ -79,7 +79,10 @@ function watcherServices() {
         listen: vi.fn(async (_handler: unknown) => vi.fn()),
         register: vi.fn(async (_id: string) => 'registration'),
         unregister: vi.fn(async (_id: string, _registration: string) => {}),
-        watch: vi.fn(async (_path: string, _handler: (paths: string[]) => void) => vi.fn()),
+        watch: vi.fn(
+            async (_path: string, _handler: (paths: string[]) => void): Promise<() => void> =>
+                vi.fn<() => void>(),
+        ),
     }
 }
 

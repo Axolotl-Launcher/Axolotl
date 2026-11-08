@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="T extends string">
 import { MoonIcon, RadioButtonCheckedIcon, RadioButtonIcon, SunIcon } from '@modrinth/assets'
 
-import { defineMessages, useVIntl } from '../../composables/i18n'
+import { defineMessages, type MessageDescriptor, useVIntl } from '../../composables/i18n'
 const { formatMessage } = useVIntl()
 
 const { updateColorTheme, currentTheme, themeOptions, systemThemeColor } = defineProps<{
@@ -50,8 +50,9 @@ const colorTheme = defineMessages({
     },
 })
 
-function asString(theme: T): string {
-    return theme
+function formatThemeOption(theme: T): string {
+    const message = (colorTheme as Record<string, MessageDescriptor | undefined>)[theme]
+    return message ? formatMessage(message) : theme
 }
 
 function getPreviewClass(option: T): string {
@@ -79,11 +80,7 @@ function getPreviewClass(option: T): string {
             <div class="label">
                 <RadioButtonCheckedIcon v-if="currentTheme === option" class="radio shrink-0" />
                 <RadioButtonIcon v-else class="radio shrink-0" />
-                {{
-                    colorTheme[asString(option)]
-                        ? formatMessage(colorTheme[asString(option)])
-                        : option
-                }}
+                {{ formatThemeOption(option) }}
                 <SunIcon
                     v-if="'light' === option"
                     v-tooltip="formatMessage(colorTheme.preferredLight)"

@@ -266,6 +266,26 @@ it('pack download uses current progress instead of stale summary', () => {
     ).toEqual({ type: 'bytes', current: 0, total: 51 })
 })
 
+it('completed archive and extraction counters do not mark a running installation complete', () => {
+    for (const phase of ['downloading_pack_file', 'extracting_overrides', 'finalizing']) {
+        const job = progressJob({ phase, progress: { current: 100, total: 100 } })
+        expect(isInstallMainTrackComplete(job)).toBe(false)
+        expect(isInstallMainTrackComplete({ ...job, status: 'succeeded' })).toBe(true)
+    }
+})
+
+it('extraction formats its own byte counter and never reuses download summary bytes', () => {
+    const job = progressJob({
+        phase: 'extracting_overrides',
+        progress: { current: 50, total: 100 },
+        summary: { files_completed: 10, bytes_downloaded: 900, bytes_total: 1000 },
+    })
+    expect(formatInstallProgressText(installProgressTextSource(job), (value) => `${value} B`)).toBe(
+        '50 B / 100 B',
+    )
+    expect(installProgressTextSource({ ...job, progress: null })).toEqual({ type: 'phase' })
+})
+
 it('minecraft download uses current progress instead of content summary', () => {
     expect(
         installProgressTextSource(
@@ -296,6 +316,28 @@ it('content download uses current secondary bytes', () => {
             }),
         ),
     ).toEqual({ type: 'bytes', current: 220, total: 300 })
+})
+
+it('modpack bars and byte labels include live native summary bytes', () => {
+    const downloading = progressJob({
+        provider: 'modrinth',
+        phase: 'downloading_content',
+        progress: { current: 1, total: 3, secondary: { current: 40, total: 300 } },
+        summary: { files_completed: 1, bytes_downloaded: 220, bytes_total: 300 },
+    })
+    expect(installProgressFraction(downloading)).toBe(220 / 300)
+    expect(installProgressTextSource(downloading)).toEqual({
+        type: 'bytes',
+        current: 220,
+        total: 300,
+    })
+    expect(isInstallMainTrackComplete(downloading)).toBe(false)
+    expect(
+        effectiveInstallProgress({
+            ...downloading,
+            summary: { bytes_downloaded: 900, bytes_total: 1000 },
+        }),
+    ).toEqual({ current: 40, total: 300 })
 })
 
 it('content download without secondary uses current file counter', () => {

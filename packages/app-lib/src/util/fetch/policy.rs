@@ -227,6 +227,19 @@ pub(crate) fn record_native_transfer_failure(
     );
 }
 
+pub(crate) fn request_dns_system_recovery(
+    route: &DownloadRoute,
+    final_url: &str,
+) {
+    if let Some(host) = Url::parse(final_url)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_owned))
+    {
+        crate::util::download::proxy_context::resolver(route.proxy)
+            .request_system_recovery(&host);
+    }
+}
+
 /// Records an HTTP status that asks the client to slow down. `429` and `503`
 /// cool down their own bucket, so their pause is not reset by unrelated
 /// connection failures on the same route.

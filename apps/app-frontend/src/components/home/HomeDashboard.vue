@@ -453,6 +453,10 @@ function moveWidget(index: number, direction: -1 | 1) {
     emit('change', moveHomeWidget(props.config, index, direction))
 }
 
+function widgetSizeOptions(widget: HomeWidgetPlacement) {
+    return HOME_WIDGET_SIZE_OPTIONS[widget.kind]
+}
+
 function widgetOptions(widget: HomeWidgetPlacement, index: number) {
     const sizeOptions = HOME_WIDGET_SIZE_OPTIONS[widget.kind]
     return [
@@ -621,7 +625,7 @@ defineExpose({ openWidgetPicker, setLayout })
                                         {{ formatMessage(messages.recentItems, { count: limit }) }}
                                     </template>
                                     <template
-                                        v-for="size in HOME_WIDGET_SIZE_OPTIONS[widget.kind]"
+                                        v-for="size in widgetSizeOptions(widget)"
                                         #[`size-${size}`]
                                         :key="size"
                                     >

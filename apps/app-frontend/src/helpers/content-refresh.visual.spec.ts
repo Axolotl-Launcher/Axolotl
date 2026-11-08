@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest'
 
+import { modsContentRetryMode } from '../pages/instance/mods-content-state'
 import {
     applyContentRefreshEvent,
     type ContentRefreshEvent,
@@ -48,6 +49,14 @@ function state(sequence = 0): ContentRefreshState {
                         size: 1,
                         enabled: true,
                         project_type: 'mod',
+                        update: null,
+                        origin_provider: null,
+                        provider_refs: [],
+                        project: {
+                            id: 'project',
+                            slug: 'project',
+                            title: 'Project',
+                        },
                     },
                 },
             ],
@@ -163,6 +172,34 @@ it('reconciles only the matching entry warning as checks fail and recover', () =
     expect(applyContentRefreshEvent(recovered, stale).snapshot).toBe(recovered.snapshot)
 })
 
+it('recovers a cached warning after reopening with a failure-free task', async () => {
+    const initial = state()
+    initial.task = { ...event(1).task, running: false, failed: 0 }
+    initial.snapshot.warnings = [
+        {
+            entryId: 'entry',
+            code: 'resource_update_unavailable',
+            message: 'offline',
+            provider: null,
+        },
+    ]
+    const test = fixture(initial)
+    await test.subscription.connect()
+    const loaded: ContentRefreshState = test.change.mock.lastCall![0]
+    const mode = modsContentRetryMode(loaded.snapshot.warnings, loaded.task?.failed ?? 0)
+    expect(mode).toBe('retry_failed')
+    await test.subscription.start(mode!)
+    expect(test.transport.start).toHaveBeenCalledWith('instance', 'retry_failed')
+    test.receive(event(1))
+    await test.flush()
+    const recovered: ContentRefreshState = test.change.mock.lastCall![0]
+    expect(recovered.snapshot.warnings).toEqual([])
+    expect(
+        modsContentRetryMode(recovered.snapshot.warnings, recovered.task?.failed ?? 0),
+    ).toBeNull()
+    test.subscription.dispose()
+})
+
 it('subscribes before reading and replays events arriving during the state request', async () => {
     const test = fixture()
     let resolve!: (state: ContentRefreshState) => void
@@ -251,7 +288,7 @@ it('metadata preserves candidates while an explicit null clears them and stale f
         ...metadata,
         patch: {
             ...metadata.patch,
-            presentation: { ...metadata.patch.presentation!, owner: null },
+            presentation: { ...metadata.patch.presentation!, owner: undefined },
         },
     }
     expect(applyContentRefreshEvent(updated, partial).snapshot.items[0].content?.owner?.name).toBe(

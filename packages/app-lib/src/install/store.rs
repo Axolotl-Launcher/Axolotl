@@ -321,6 +321,24 @@ pub async fn checkpoint_running_state(
     Ok(Some(get_required(id, app_state).await?))
 }
 
+fn serialize_status_state(
+    id: Uuid,
+    status: InstallJobStatus,
+    state: &InstallJobState,
+) -> crate::Result<String> {
+    if status.is_finished() || status == InstallJobStatus::WaitingForUser {
+        let diagnostics = crate::util::download::telemetry::export_snapshot(
+            Some(&id.to_string()),
+        );
+        if diagnostics.enabled && !diagnostics.files.is_empty() {
+            let mut saved = state.clone();
+            saved.download_diagnostics = Some(diagnostics);
+            return Ok(serde_json::to_string(&saved)?);
+        }
+    }
+    Ok(serde_json::to_string(state)?)
+}
+
 pub async fn update_status(
     id: Uuid,
     status: InstallJobStatus,
@@ -332,7 +350,7 @@ pub async fn update_status(
     let _db_permit = app_state.acquire_install_db_permit().await?;
     let now = Utc::now();
     let finished = status.is_finished().then_some(now.timestamp());
-    let json = serde_json::to_string(state)?;
+    let json = serialize_status_state(id, status, state)?;
     let key = id.to_string();
     let modified = now.timestamp();
 
@@ -362,7 +380,7 @@ pub async fn update_status_if(
     let _db_permit = app_state.acquire_install_db_permit().await?;
     let now = Utc::now();
     let finished = status.is_finished().then_some(now.timestamp());
-    let json = serde_json::to_string(state)?;
+    let json = serialize_status_state(id, status, state)?;
     let key = id.to_string();
     let modified = now.timestamp();
 
@@ -396,7 +414,7 @@ pub async fn complete_running_job(
 ) -> crate::Result<Option<InstallJobRecord>> {
     let now = Utc::now();
     let modified = now.timestamp();
-    let json = serde_json::to_string(state)?;
+    let json = serialize_status_state(id, InstallJobStatus::Succeeded, state)?;
     let id_value = id.to_string();
     let instance_id = instance_id(state);
     let completes_instance_install_stage =
@@ -743,6 +761,72 @@ mod tests {
             link: crate::state::InstanceLink::Unmanaged,
             game_dir_override: None,
         }
+    }
+
+    #[tokio::test]
+    async fn completed_diagnostics_survive_capture_reset_and_history_reload() {
+        use crate::util::download::telemetry;
+        use crate::util::fetch::{DownloadRequest, ResourceClass};
+        let _lock = telemetry::TEST_LOCK.lock().await;
+        telemetry::set_enabled(false);
+        telemetry::set_enabled(true);
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = InstallJobState::new(creation_request());
+        let reporter =
+            crate::install::InstallProgressReporter::new(id, job.clone());
+        let mut request = DownloadRequest::new(
+            "https://example.invalid/pack?token=secret",
+            ResourceClass::Modrinth,
+        )
+        .with_install_tracking(reporter, "pack.mrpack", "pack.mrpack");
+        let guard = telemetry::begin_file(
+            &mut request,
+            std::path::Path::new("pack.mrpack"),
+        )
+        .unwrap();
+        guard.finish(true);
+        insert(id, &job, InstallJobStatus::Running, &state)
+            .await
+            .unwrap();
+        update_status(id, InstallJobStatus::Succeeded, &job, &state)
+            .await
+            .unwrap();
+        let saved = get_required(id, &state).await.unwrap();
+        let captured = saved.state.download_diagnostics.as_ref().unwrap();
+        assert_eq!(captured.files.len(), 1);
+        let file_id = captured.files[0].summary.id.clone();
+        assert!(!serde_json::to_string(captured).unwrap().contains("secret"));
+        telemetry::set_enabled(false);
+        let hidden = crate::install::job_download_diagnostics_with_state(
+            id,
+            Some(&file_id),
+            &state,
+        )
+        .await
+        .unwrap();
+        assert!(!hidden.enabled);
+        assert!(hidden.files.is_empty());
+        telemetry::set_enabled(true);
+        assert!(
+            telemetry::snapshot(Some(&id.to_string()), None)
+                .files
+                .is_empty()
+        );
+        let restored = crate::install::job_download_diagnostics_with_state(
+            id,
+            Some(&file_id),
+            &state,
+        )
+        .await
+        .unwrap();
+        assert_eq!(restored.files.len(), 1);
+        assert_eq!(restored.selected_file.unwrap().summary.status, "completed");
+        telemetry::set_enabled(false);
+        let legacy: InstallJobState =
+            serde_json::from_str(&serde_json::to_string(&job).unwrap())
+                .unwrap();
+        assert!(legacy.download_diagnostics.is_none());
     }
 
     async fn create_initial_target(

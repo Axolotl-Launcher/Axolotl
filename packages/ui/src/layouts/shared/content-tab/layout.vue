@@ -1083,12 +1083,13 @@ async function confirmBulkUpdate() {
                 bulkStatusMessage.value = null
             })
         } else if (ctx.bulkUpdateItems) {
+            const bulkUpdateItems = ctx.bulkUpdateItems
             bulkItemCount.value = items.length
             await runBulkWithWaiting(
                 'update',
                 items.length,
                 async () => {
-                    return await ctx.bulkUpdateItems(items)
+                    return await bulkUpdateItems(items)
                 },
                 () => {
                     clearSelection()
@@ -1359,7 +1360,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             "
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
-            :symlink-target="ctx.symlinkTarget?.value"
+            :symlink-target="ctx.symlinkTarget?.value ?? undefined"
             :action="confirmDelete"
         />
         <ContentDependencyWarningModal
@@ -1373,7 +1374,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             "
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
-            :symlink-target="ctx.symlinkTarget?.value"
+            :symlink-target="ctx.symlinkTarget?.value ?? undefined"
             :action="confirmDependencyWarningDelete"
         />
         <ConfirmBulkUpdateModal
@@ -1392,7 +1393,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             :server="ctx.deletionContext === 'server'"
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
-            :symlink-target="ctx.symlinkTarget?.value"
+            :symlink-target="ctx.symlinkTarget?.value ?? undefined"
             @update="confirmBulkUpdate"
         />
         <ConfirmUnlinkModal

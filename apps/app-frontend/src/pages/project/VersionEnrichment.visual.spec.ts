@@ -1,3 +1,4 @@
+import type { Labrinth } from '@modrinth/api-client'
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive, Suspense } from 'vue'
@@ -49,15 +50,17 @@ vi.mock('@modrinth/ui', () => ({
 }))
 
 it('switching release routes preserves the new version’s dependency details when an older response arrives late', async () => {
-    let complete!: (value: unknown[]) => void
+    let complete!: (value: Labrinth.Projects.v2.Project[]) => void
     vi.mocked(get_project_many)
         .mockImplementationOnce(
             () =>
-                new Promise((resolve) => {
+                new Promise<Labrinth.Projects.v2.Project[]>((resolve) => {
                     complete = resolve
                 }),
         )
-        .mockResolvedValueOnce([{ id: 'new-dependency' }])
+        .mockResolvedValueOnce([
+            { id: 'new-dependency' } as unknown as Labrinth.Projects.v2.Project,
+        ])
     const versions = [
         { id: 'initial', name: 'Initial', dependencies: [] },
         { id: 'old', name: 'Old', dependencies: [{ project_id: 'old-dependency' }] },
@@ -69,7 +72,9 @@ it('switching release routes preserves the new version’s dependency details wh
                 h(Suspense, null, {
                     default: () =>
                         h(Version, {
-                            project: { id: 'project' },
+                            project: {
+                                id: 'project',
+                            } as unknown as Labrinth.Projects.v2.Project,
                             versions,
                             members: [],
                             install: () => {},
@@ -88,7 +93,7 @@ it('switching release routes preserves the new version’s dependency details wh
         route.params.version = 'new'
         await flushPromises()
         expect(wrapper.text()).toContain('new-dependency')
-        complete([{ id: 'old-dependency' }])
+        complete([{ id: 'old-dependency' } as unknown as Labrinth.Projects.v2.Project])
         await flushPromises()
         expect(wrapper.text()).toContain('new-dependency')
         expect(wrapper.text()).not.toContain('old-dependency')
@@ -100,10 +105,10 @@ it('switching release routes preserves the new version’s dependency details wh
 
 it('renders the version before its dependency details arrive', async () => {
     route.params.version = 'with-dependency'
-    let complete!: (value: unknown[]) => void
+    let complete!: (value: Labrinth.Projects.v2.Project[]) => void
     vi.mocked(get_project_many).mockImplementationOnce(
         () =>
-            new Promise((resolve) => {
+            new Promise<Labrinth.Projects.v2.Project[]>((resolve) => {
                 complete = resolve
             }),
     )
@@ -113,7 +118,9 @@ it('renders the version before its dependency details arrive', async () => {
                 h(Suspense, null, {
                     default: () =>
                         h(Version, {
-                            project: { id: 'project' },
+                            project: {
+                                id: 'project',
+                            } as unknown as Labrinth.Projects.v2.Project,
                             versions: [
                                 {
                                     id: 'with-dependency',
@@ -135,7 +142,7 @@ it('renders the version before its dependency details arrive', async () => {
         await flushPromises()
         expect(wrapper.text()).toContain('"version":"with-dependency"')
         expect(wrapper.text()).toContain('"loading":true')
-        complete([{ id: 'slow-dependency' }])
+        complete([{ id: 'slow-dependency' } as unknown as Labrinth.Projects.v2.Project])
         await flushPromises()
         expect(wrapper.text()).toContain('slow-dependency')
         expect(wrapper.text()).toContain('"loading":false')

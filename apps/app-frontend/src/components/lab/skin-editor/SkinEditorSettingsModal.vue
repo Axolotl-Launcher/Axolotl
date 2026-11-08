@@ -57,7 +57,8 @@ function show() {
     modal.value?.show()
 }
 
-function toggleAutoSave(enabled: boolean) {
+function toggleAutoSave(value: boolean | undefined) {
+    const enabled = value ?? false
     draft.autoSaveEnabled = enabled
     if (!enabled) draft.warnBeforeLeave = true
 }
@@ -135,7 +136,7 @@ defineExpose({ show })
                     :model-value="draft.warnBeforeLeave || !draft.autoSaveEnabled"
                     :disabled="!draft.autoSaveEnabled"
                     :aria-label="formatMessage(messages.warnBeforeLeave)"
-                    @update:model-value="draft.warnBeforeLeave = $event"
+                    @update:model-value="draft.warnBeforeLeave = $event ?? false"
                 />
             </div>
         </div>

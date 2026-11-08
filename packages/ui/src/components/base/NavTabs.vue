@@ -378,7 +378,7 @@ const navigationGroupSnapshot = restoredNavigationGroupKey
 const restoredSliderSnapshot =
     !!navigationGroupSnapshot &&
     Date.now() - navigationGroupSnapshot.savedAt <= sliderSnapshotMaxAge
-if (restoredSliderSnapshot) {
+if (restoredSliderSnapshot && restoredNavigationGroupKey) {
     sliderLeft.value = navigationGroupSnapshot.left
     sliderTop.value = navigationGroupSnapshot.top
     sliderRight.value = navigationGroupSnapshot.right

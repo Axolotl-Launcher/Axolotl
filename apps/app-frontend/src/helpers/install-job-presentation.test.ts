@@ -28,10 +28,11 @@ describe.each([
         values?: Record<string, string | number>,
     ) => {
         const translation = catalog[descriptor.id as keyof typeof catalog]
-        return new IntlMessageFormat(
-            translation?.message ?? descriptor.defaultMessage ?? '',
-            locale,
-        ).format(values) as string
+        const template =
+            translation && 'message' in translation
+                ? translation.message
+                : (descriptor.defaultMessage ?? '')
+        return new IntlMessageFormat(template, locale).format(values) as string
     }
     const title = (snapshot: InstallJobSnapshot) => installJobTitle(snapshot, format, 'Fallback')
 

@@ -211,12 +211,13 @@ const staticIcons: Record<string, Component> = {
 }
 
 const breadcrumbs = computed<Breadcrumb[]>(() => {
-    const additionalContext =
+    const additionalContext = (
         route.meta.useContext === true
             ? breadcrumbData.context
             : route.meta.useRootContext === true
               ? breadcrumbData.rootContext
               : null
+    ) as Breadcrumb | null
     const crumbs = (route.meta.breadcrumb ?? []) as Breadcrumb[]
     if (
         additionalContext?.name.startsWith('?') &&

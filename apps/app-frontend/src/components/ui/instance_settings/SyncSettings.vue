@@ -129,7 +129,7 @@ function enabled(option: SyncedOption) {
                     :disabled="section.disabled || mutation.isPending.value"
                     :aria-label="formatMessage(messages[item.label])"
                     @update:model-value="
-                        (value) => mutation.mutate({ option: item.key, enabled: value })
+                        (value) => mutation.mutate({ option: item.key, enabled: value ?? false })
                     "
                 />
             </div>

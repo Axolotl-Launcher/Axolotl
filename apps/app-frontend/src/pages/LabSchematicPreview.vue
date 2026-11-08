@@ -1413,13 +1413,15 @@ function openRecent(record: RecentSchematic) {
 }
 
 function formatSource(record: RecentSchematic) {
-    if (record.source.kind === 'remote')
-        return `${formatMessage(schematicSourceMessages[record.source.source])} · ${record.source.fileName}`
-    if (record.source.kind === 'shimu')
-        return formatMessage(schematicMessages.previewSource, { fileName: record.source.fileName })
-    if (record.source.kind === 'external') return record.source.path
-    const instance = instances.value.find((item) => item.id === record.source.instanceId)
-    return `${instance?.name ?? record.source.instanceId} · schematics/${record.source.relativePath}`
+    const source = record.source
+    if (source.kind === 'remote')
+        return `${formatMessage(schematicSourceMessages[source.source])} · ${source.fileName}`
+    if (source.kind === 'shimu')
+        return formatMessage(schematicMessages.previewSource, { fileName: source.fileName })
+    if (source.kind === 'external') return source.path
+    const instanceId = source.instanceId
+    const instance = instances.value.find((item) => item.id === instanceId)
+    return `${instance?.name ?? instanceId} · schematics/${source.relativePath}`
 }
 
 function formatNumber(value: number | bigint) {
@@ -1453,7 +1455,8 @@ async function setupNativeDrop() {
                 dragging.value = false
                 return
             }
-            const path = payload.paths?.find((item) => isSchematicFileName(item))
+            const paths = 'paths' in payload ? payload.paths : []
+            const path = paths.find((item) => isSchematicFileName(item))
             const inside = pointInWorkspace(payload.position)
             if (payload.type === 'enter' || payload.type === 'over')
                 dragging.value = Boolean(path && inside)

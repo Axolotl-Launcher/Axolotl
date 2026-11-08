@@ -31,7 +31,7 @@ const emit = defineEmits<{
 const { formatMessage } = useVIntl()
 const search = ref('')
 const debouncedSearch = ref('')
-let searchTimer: ReturnType<typeof window.setTimeout> | undefined
+let searchTimer: number | undefined
 let lastPickKey = ''
 let lastPickAt = 0
 const draggingKey = ref('')

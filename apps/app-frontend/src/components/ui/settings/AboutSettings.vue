@@ -60,7 +60,7 @@ const activeMemberExperience = shallowRef<AboutMemberExperience>()
 // A finished experience may be replaced by another one; a running one may not.
 const activeExperienceSettled = ref(false)
 const pressingMemberName = ref<string>()
-let longPressTimer: ReturnType<typeof window.setTimeout> | undefined
+let longPressTimer: number | undefined
 let pressStart = { x: 0, y: 0 }
 let suppressNextMemberClick = false
 const replayOobe = inject<() => void>('replayOobe')
@@ -428,7 +428,7 @@ const projectLinks = [
             <div class="grid gap-3 p-4 sm:grid-cols-2">
                 <a
                     v-for="link in projectLinks"
-                    :key="link.label"
+                    :key="link.label.id"
                     :href="link.href"
                     target="_blank"
                     rel="noopener noreferrer"

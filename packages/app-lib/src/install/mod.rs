@@ -48,6 +48,36 @@ pub use runner::{
     update_managed_curseforge_modpack, upgrade_unmanaged_instance,
 };
 
+/// Returns live observations, or the bounded capture saved with a historical job.
+pub async fn job_download_diagnostics(
+    job_id: uuid::Uuid,
+    file_id: Option<&str>,
+) -> crate::Result<crate::DownloadDiagnosticsSnapshot> {
+    let state = crate::State::get().await?;
+    job_download_diagnostics_with_state(job_id, file_id, &state).await
+}
+
+pub(crate) async fn job_download_diagnostics_with_state(
+    job_id: uuid::Uuid,
+    file_id: Option<&str>,
+    state: &crate::State,
+) -> crate::Result<crate::DownloadDiagnosticsSnapshot> {
+    let live = crate::util::download::telemetry::snapshot(
+        Some(&job_id.to_string()),
+        file_id,
+    );
+    if !live.enabled {
+        return Ok(live);
+    }
+    if let Some(job) = store::get(job_id, state).await?
+        && (job.status.is_finished() || live.files.is_empty())
+        && let Some(saved) = job.state.download_diagnostics
+    {
+        return Ok(saved.snapshot(file_id));
+    }
+    Ok(live)
+}
+
 /// Replaces credentials and IP addresses in text the user may share publicly
 /// (support reports, exported logs) with placeholders.
 pub async fn censor_shared_text(

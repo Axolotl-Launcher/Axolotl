@@ -270,7 +270,10 @@ where
         if let Ok(metadata) =
             serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(json)
         {
-            local_metadata_by_entry.insert(entry.id.clone(), metadata);
+            local_metadata_by_entry.insert(
+                entry.id.clone(),
+                metadata.for_loader(content_set.loader.as_str()).clone(),
+            );
         }
     }
     let mut represented_members = HashSet::new();
@@ -302,6 +305,9 @@ where
             serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(json)
                 .ok()
         });
+        let local_mod = local_mod
+            .as_ref()
+            .map(|metadata| metadata.for_loader(content_set.loader.as_str()));
         let title = local_mod
             .as_ref()
             .and_then(|metadata| metadata.name.clone())
@@ -1599,7 +1605,9 @@ pub(crate) async fn refresh_background_metadata(
                 serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(
                     file.local_mod_data.as_deref()?,
                 )
-                .ok()?,
+                .ok()?
+                .for_loader(records.content_set.loader.as_str())
+                .clone(),
             ))
         })
         .collect();

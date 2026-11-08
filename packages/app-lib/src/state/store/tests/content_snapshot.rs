@@ -260,6 +260,164 @@ async fn local_declarations_fill_remote_unknown_dimensions_without_overriding_mi
 }
 
 #[tokio::test]
+async fn multi_loader_projection_selects_instance_metadata_over_saved_local_fallback()
+ {
+    use crate::resources::CompatibilityState::{Compatible, Incompatible};
+    use crate::state::ModLoader;
+    use crate::state::store::content_refresh_presentations::PresentationRecord;
+
+    let pool = seeded().await;
+    let handle = Handle::new(pool.clone());
+    let metadata = serde_json::json!({
+        "metadata_version": 3,
+        "mod_id": "journeymap-wrongloader",
+        "name": "JourneyMap Fabric probe",
+        "version": "not a fabric mod",
+        "minecraft_version": "1.20.1",
+        "loader": "fabric",
+        "dependencies": [],
+        "variants": [{
+            "metadata_version": 3,
+            "mod_id": "journeymap",
+            "name": "JourneyMap",
+            "version": "1.21.1-6.0.9",
+            "minecraft_version": "[1.21.1]",
+            "loader": "neoforge",
+            "dependencies": []
+        }]
+    })
+    .to_string();
+    sqlx::query(
+        "UPDATE instance_files SET local_mod_data = ? WHERE id = 'file'",
+    )
+    .bind(&metadata)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let mut old_records = get(&handle, "instance").await.unwrap();
+    old_records.files[0].local_mod_data = Some(metadata.clone());
+    let location = location_key(&old_records.instance);
+    let stale_content =
+        local::project(old_records).items.remove(0).content.unwrap();
+    assert_eq!(
+        stale_content.project.as_ref().unwrap().id,
+        "local:journeymap-wrongloader"
+    );
+    assert_eq!(
+        stale_content.version.as_ref().unwrap().version_number,
+        "not a fabric mod"
+    );
+
+    for (
+        loader,
+        game_version,
+        expected_id,
+        expected_name,
+        expected_version,
+        expected_loader,
+        compatible,
+    ) in [
+        (
+            ModLoader::NeoForge,
+            "1.21.1",
+            "journeymap",
+            "JourneyMap",
+            "1.21.1-6.0.9",
+            "neoforge",
+            Compatible,
+        ),
+        (
+            ModLoader::Fabric,
+            "1.20.1",
+            "journeymap-wrongloader",
+            "JourneyMap Fabric probe",
+            "not a fabric mod",
+            "fabric",
+            Compatible,
+        ),
+        (
+            ModLoader::Forge,
+            "1.20.1",
+            "journeymap-wrongloader",
+            "JourneyMap Fabric probe",
+            "not a fabric mod",
+            "fabric",
+            Incompatible,
+        ),
+    ] {
+        let mut records = get(&handle, "instance").await.unwrap();
+        records.content_set.loader = loader;
+        records.content_set.game_version = game_version.into();
+        records.files[0].local_mod_data = Some(metadata.clone());
+        records.presentations.insert(
+            "file".into(),
+            PresentationRecord {
+                location_key: location.clone(),
+                saved_at: 123,
+                content: stale_content.clone(),
+            },
+        );
+        let mut snapshot = local::project(records);
+        let item = &snapshot.items[0];
+        let content = item.content.as_ref().unwrap();
+        let project = content.project.as_ref().unwrap();
+        assert_eq!(project.id, format!("local:{expected_id}"));
+        assert_eq!(project.slug.as_deref(), Some(expected_id));
+        assert_eq!(project.title, expected_name);
+        assert_eq!(
+            content.version.as_ref().unwrap().version_number,
+            expected_version
+        );
+        assert_eq!(content.loader.as_deref(), Some(expected_loader));
+        let compatibility = item.compatibility.as_ref().unwrap();
+        assert_eq!(compatibility.game_version, Compatible);
+        assert_eq!(compatibility.loader, compatible);
+        crate::resources::installed::attach_compatibility(
+            &pool,
+            "instance",
+            game_version,
+            loader.as_str(),
+            &mut snapshot.items,
+            None,
+        )
+        .await
+        .unwrap();
+        let compatibility = snapshot.items[0].compatibility.as_ref().unwrap();
+        assert_eq!(compatibility.game_version, Compatible);
+        assert_eq!(compatibility.loader, compatible);
+    }
+
+    let mut records = get(&handle, "instance").await.unwrap();
+    records.content_set.loader = ModLoader::NeoForge;
+    records.content_set.game_version = "1.21.1".into();
+    records.files[0].local_mod_data = Some(metadata);
+    let mut remote_content = stale_content;
+    let project = remote_content.project.as_mut().unwrap();
+    project.id = "remote-project".into();
+    project.title = "Provider title".into();
+    let version = remote_content.version.as_mut().unwrap();
+    version.id = "remote-release".into();
+    version.version_number = "Provider version".into();
+    records.presentations.insert(
+        "file".into(),
+        PresentationRecord {
+            location_key: location,
+            saved_at: 123,
+            content: remote_content,
+        },
+    );
+    let snapshot = local::project(records);
+    let content = snapshot.items[0].content.as_ref().unwrap();
+    assert_eq!(content.project.as_ref().unwrap().title, "Provider title");
+    assert_eq!(
+        content.version.as_ref().unwrap().version_number,
+        "Provider version"
+    );
+    assert_eq!(content.loader.as_deref(), Some("neoforge"));
+    pool.close().await;
+}
+
+#[tokio::test]
 async fn presentation_is_restored_only_for_matching_bytes_and_location() {
     use crate::state::store::content_refresh_presentations::*;
     let pool = seeded().await;

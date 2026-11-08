@@ -49,6 +49,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             fixed: [
                 {
                     'en-US':
+                        'Fixed incorrect mod names, versions, and compatibility warnings in the Content tab for multi-loader JARs.',
+                    'zh-CN':
+                        '修复多加载器模组在内容页显示错误名称、版本，以及在实例中误报不兼容的问题。',
+                },
+                {
+                    'en-US':
                         'Fixed switching the launcher data directory failing when the previous drive or directory was missing.',
                     'zh-CN': '修复原存储盘或目录丢失后，无法切换启动器数据目录的问题。',
                 },

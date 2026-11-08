@@ -49,6 +49,16 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             fixed: [
                 {
                     'en-US':
+                        'Fixed instance online information remaining unavailable after the connection recovered.',
+                    'zh-CN': '修复网络恢复后，实例在线信息仍长时间无法获取的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed the retry button disappearing when reopening an instance with cached online information failures.',
+                    'zh-CN': '修复重新打开仍有在线信息获取失败提示的实例时，重试按钮消失的问题。',
+                },
+                {
+                    'en-US':
                         'Fixed modpack download progress undercounting downloaded bytes while large files were still downloading.',
                     'zh-CN': '修复整合包大文件在下载时总进度显示明显偏低的问题。',
                 },

@@ -306,7 +306,7 @@
                 class="mb-3"
                 dismissible
             />
-            <NavTabs v-if="!hideInstanceTabs" :links="tabs" />
+            <NavTabs v-if="!hideInstanceTabs" :links="tabs" route-sync />
         </div>
         <div
             :class="['p-6 pt-4', { 'flex min-h-0 flex-1 flex-col overflow-hidden': isFixedRender }]"

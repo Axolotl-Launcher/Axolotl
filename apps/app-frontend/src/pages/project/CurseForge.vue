@@ -190,6 +190,7 @@
                 }}</Button>
             </div>
             <NavTabs
+                route-sync
                 :links="[
                     {
                         label: formatMessage(messages.description),

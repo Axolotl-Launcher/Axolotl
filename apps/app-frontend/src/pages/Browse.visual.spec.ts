@@ -10,6 +10,10 @@ import Browse from './Browse.vue'
 const api = vi.hoisted(() => ({
     instance: vi.fn().mockResolvedValue(null),
     installedIds: vi.fn().mockResolvedValue([]),
+    contentSnapshot: vi.fn().mockResolvedValue({ items: [] }),
+    startContentRefresh: vi.fn().mockResolvedValue({}),
+    contentRefreshListener: null as
+        null | ((event: { instanceId: string; patch: { kind: string } }) => void),
     handleError: vi.fn(),
     capability: vi.fn(),
     categories: vi.fn(),
@@ -109,12 +113,24 @@ vi.mock('@/helpers/tags', () => ({
     get_game_versions: api.gameVersions,
 }))
 vi.mock('@/helpers/events.js', () => ({ instance_listener: async () => () => {} }))
+vi.mock('@/helpers/content-refresh', () => ({
+    resourceStartContentRefresh: api.startContentRefresh,
+    listenContentRefresh: async (
+        listener: (event: { instanceId: string; patch: { kind: string } }) => void,
+    ) => {
+        api.contentRefreshListener = listener
+        return () => {
+            api.contentRefreshListener = null
+        }
+    },
+}))
 vi.mock('@/helpers/content-search', () => ({
     resolveMcmodUrl: async () => null,
     translateSearchHitTitles: async (hits: unknown[]) => hits,
 }))
 vi.mock('@/helpers/instance', () => ({
     get_installed_project_ids: api.installedIds,
+    get_content_snapshot: api.contentSnapshot,
     get: api.instance,
     get_projects: async () => [],
     list: async () => [],
@@ -668,5 +684,72 @@ it('keeps filters disabled until the implicit installed-content filter is initia
         wrapper.unmount()
         route.query = {}
         api.instance.mockResolvedValue(null)
+    }
+})
+
+it('updates installed content when a manual import is recognized in the background', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'mod'
+    route.query = { source: 'modrinth', i: 'target' }
+    api.instance.mockResolvedValue({
+        id: 'target',
+        name: 'Target',
+        install_stage: 'installed',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    })
+    api.installedIds.mockResolvedValue([])
+    api.contentSnapshot.mockResolvedValue({ items: [] })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as {
+            targetInstance: { value: unknown }
+            refreshInstalledIdentities: ReturnType<typeof vi.fn>
+        }
+        selection.targetInstance.value = {
+            id: 'target',
+            name: 'Target',
+            install_stage: 'installed',
+            game_version: '1.21.1',
+            loader: 'fabric',
+        }
+        const vm = wrapper.vm as unknown as {
+            refreshInstalledProjectIds: () => Promise<boolean>
+            allInstalledIds: Set<string>
+        }
+        await vm.refreshInstalledProjectIds()
+        expect(api.startContentRefresh).toHaveBeenCalledWith('target', 'normal')
+        expect(vm.allInstalledIds.has('abc')).toBe(false)
+        api.contentSnapshot.mockResolvedValue({
+            items: [
+                {
+                    projectType: 'mod',
+                    provider: null,
+                    providerProjectId: null,
+                    materializationState: 'present',
+                    expectedRelativePath: 'mods/example.jar',
+                    content: null,
+                    artifactRef: { release: { project: { source: 'modrinth', projectId: 'abc' } } },
+                },
+            ],
+        })
+        api.contentRefreshListener?.({ instanceId: 'other', patch: { kind: 'entry' } })
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        expect(vm.allInstalledIds.has('abc')).toBe(false)
+        api.contentRefreshListener?.({ instanceId: 'target', patch: { kind: 'entry' } })
+        await vi.waitFor(() => expect(vm.allInstalledIds.has('abc')).toBe(true))
+        expect(selection.refreshInstalledIdentities).toHaveBeenCalled()
+        api.contentSnapshot.mockResolvedValue({ items: [] })
+        api.contentRefreshListener?.({ instanceId: 'target', patch: { kind: 'content' } })
+        await vi.waitFor(() => expect(vm.allInstalledIds.has('abc')).toBe(false))
+    } finally {
+        wrapper.unmount()
+        route.query = {}
+        api.instance.mockResolvedValue(null)
+        api.contentSnapshot.mockResolvedValue({ items: [] })
     }
 })

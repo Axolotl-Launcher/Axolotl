@@ -72,9 +72,14 @@ export interface ContentRefreshTransport {
     schedule: (callback: () => void) => () => void
 }
 
+export function listenContentRefresh(callback: (event: ContentRefreshEvent) => void) {
+    return listen<ContentRefreshEvent>('resource_content_refresh', (event) =>
+        callback(event.payload),
+    )
+}
+
 const nativeTransport: ContentRefreshTransport = {
-    listen: (callback) =>
-        listen<ContentRefreshEvent>('resource_content_refresh', (event) => callback(event.payload)),
+    listen: listenContentRefresh,
     read: resourceGetContentRefreshState,
     start: resourceStartContentRefresh,
     schedule: (callback) => {

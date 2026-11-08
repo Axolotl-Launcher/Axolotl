@@ -1,10 +1,18 @@
 import { expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
-import { get_version_many } from '@/helpers/cache.js'
-import { compareContentIdentities } from '@/helpers/content-identity'
-import { getCurseForgeFiles } from '@/helpers/curseforge'
-import { list as listInstances, queue_content_batch } from '@/helpers/instance'
+import { get_project_many, get_version_many } from '@/helpers/cache.js'
+import {
+    compareContentIdentities,
+    contentIdentityInputsFromSnapshot,
+    resolveContentIdentities,
+} from '@/helpers/content-identity'
+import { getCurseForgeFiles, getCurseForgeProjects } from '@/helpers/curseforge'
+import {
+    get_content_snapshot,
+    list as listInstances,
+    queue_content_batch,
+} from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
 
 import { createContentSelection } from './content-selection'
@@ -471,4 +479,43 @@ it('ignores instance refreshes whose page context expired before the response', 
     await pending
     expect(selection.targetInstance.value?.id).toBe(instance.id)
     expect(selection.instances.value).toEqual([])
+})
+
+it('does not let an older snapshot overwrite a refreshed installed identity', async () => {
+    let finishOld!: (value: never) => void
+    vi.mocked(get_content_snapshot)
+        .mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    finishOld = resolve
+                }),
+        )
+        .mockResolvedValueOnce({ items: [{ tag: 'new' }] } as never)
+    vi.mocked(get_project_many).mockResolvedValue([] as never)
+    vi.mocked(getCurseForgeProjects).mockResolvedValue([] as never)
+    vi.mocked(contentIdentityInputsFromSnapshot).mockImplementation((items) => [
+        {
+            provider: 'modrinth',
+            projectId: (items[0] as unknown as { tag: string }).tag,
+            contentType: 'mod',
+        },
+    ])
+    vi.mocked(resolveContentIdentities).mockImplementation(async (inputs) => inputs)
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    const old = selection.refreshInstalledIdentities()
+    await selection.refreshInstalledIdentities()
+    expect(selection.isInstalledIdentity('modrinth', 'new')).toBe(true)
+    finishOld({ items: [{ tag: 'old' }] } as never)
+    await old
+    expect(selection.isInstalledIdentity('modrinth', 'new')).toBe(true)
+    expect(selection.isInstalledIdentity('modrinth', 'old')).toBe(false)
+    vi.mocked(contentIdentityInputsFromSnapshot).mockReset().mockReturnValue([])
+    vi.mocked(resolveContentIdentities)
+        .mockReset()
+        .mockReturnValue([] as never)
 })

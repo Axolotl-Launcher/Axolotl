@@ -243,8 +243,8 @@ export function createContentSelection({
             // A stale/offline instance snapshot must not turn an add operation into a
             // false authoritative conflict. Provider-qualified cart de-duplication
             // still applies while the failed lookup remains unknown.
-            installedIdentityCache.set(instance.id, [])
             if (canCommit()) {
+                installedIdentityCache.set(instance.id, [])
                 installedIdentityKeys.value = new Set()
                 installedIdentitySlugs.value = new Set()
             }
@@ -279,8 +279,8 @@ export function createContentSelection({
             ),
         })
         const identities = await resolveContentIdentities(inputs)
-        installedIdentityCache.set(instance.id, identities)
         if (!canCommit()) return identities
+        installedIdentityCache.set(instance.id, identities)
         const keys = new Set<string>()
         const slugs = new Set<string>()
         for (const identity of identities) {
@@ -307,7 +307,9 @@ export function createContentSelection({
             installedIdentitySlugs.value = new Set()
             return
         }
+        installedIdentityRequestId++
         installedIdentityCache.delete(targetInstance.value.id)
+        installedIdentityRequests.delete(targetInstance.value.id)
         await getInstalledIdentities(targetInstance.value)
     }
 

@@ -26,11 +26,13 @@ export interface ContentIdentitySnapshotItem {
     provider: ContentIdentityProvider | null
     providerProjectId: string | null
     expectedRelativePath: string
+    materializationState?: string
+    artifactRef?: { release: { project: { source: string; projectId: string } } } | null
     content: {
         id: string
         file_name: string
         project_type: string
-        project?: { slug?: string | null; title?: string | null } | null
+        project?: { id?: string; slug?: string | null; title?: string | null } | null
         provider_refs: Array<{
             provider: ContentIdentityProvider
             project_id: string | number
@@ -97,6 +99,18 @@ export function contentIdentityInputsFromSnapshot(
             string,
             { provider: ContentIdentityProvider; projectId: string }
         >()
+        const artifactProject = item.artifactRef?.release.project
+        if (
+            artifactProject &&
+            (!item.materializationState || item.materializationState === 'present') &&
+            ['modrinth', 'curseforge', 'mcarchive'].includes(artifactProject.source)
+        ) {
+            const reference = {
+                provider: artifactProject.source as ContentIdentityProvider,
+                projectId: artifactProject.projectId,
+            }
+            references.set(`${reference.provider}:${reference.projectId}`, reference)
+        }
         if (item.provider && item.providerProjectId) {
             const reference = { provider: item.provider, projectId: item.providerProjectId }
             references.set(`${reference.provider}:${reference.projectId}`, reference)
@@ -114,7 +128,11 @@ export function contentIdentityInputsFromSnapshot(
             inputs.push({
                 ...reference,
                 contentType: item.projectType || item.content?.project_type || 'mod',
-                slug: metadata?.slug ?? item.content?.project?.slug,
+                slug:
+                    metadata?.slug ??
+                    (item.content?.project?.id?.startsWith(LOCAL_ID_PREFIX)
+                        ? undefined
+                        : item.content?.project?.slug),
                 title: metadata?.title ?? item.content?.project?.title,
                 fileName:
                     item.content?.file_name ??

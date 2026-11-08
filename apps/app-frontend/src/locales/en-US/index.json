@@ -1,4 +1,14 @@
 {
+  "app.downloads.slow-downloads.title": { "message": "Slow downloads?" },
+  "app.downloads.slow-downloads.description": {
+    "message": "You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed."
+  },
+  "app.downloads.slow-downloads.dismiss": { "message": "Don't show again" },
+  "app.settings.resources.force-multiconnection": { "message": "Force multi-connection downloads" },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems."
+  },
+  "app.settings.resources.experimental": { "message": "Experimental" },
   "app.schematics.source.reden": { "message": "Reden" },
   "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
   "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
@@ -13528,7 +13538,7 @@
     "message": "Maximum concurrent downloads"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "Automatic mode uses 64 concurrent downloads. Manual changes apply immediately."
+    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use up to 72 connections, or a lower manual limit. Manual changes apply immediately."
   },
   "app.settings.resources.maximum-writes": {
     "message": "Maximum concurrent writes"

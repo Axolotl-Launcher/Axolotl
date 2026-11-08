@@ -38,7 +38,35 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             'zh-CN': 'Axolotl Launcher 1.11.0-beta.3',
         },
         changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added an experimental force multi-connection download option (experimental) in resource management settings to help with slow downloads.',
+                    'zh-CN':
+                        '资源管理设置新增实验性强制多连接下载选项（实验性），可在下载缓慢时尝试开启。',
+                },
+            ],
             fixed: [
+                {
+                    'en-US':
+                        'Fixed instance online information remaining unavailable after the connection recovered.',
+                    'zh-CN': '修复网络恢复后，实例在线信息仍长时间无法获取的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed the retry button disappearing when reopening an instance with cached online information failures.',
+                    'zh-CN': '修复重新打开仍有在线信息获取失败提示的实例时，重试按钮消失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed downloads staying slow or timing out without falling back to system DNS when DoH is enabled.',
+                    'zh-CN': '修复开启 DoH 后，部分下载持续低速或超时且未能回退到系统 DNS 的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed modpack download progress undercounting downloaded bytes while large files were still downloading.',
+                    'zh-CN': '修复整合包大文件在下载时总进度显示明显偏低的问题。',
+                },
                 {
                     'en-US':
                         'Fixed CurseForge modpack updates being rejected as stale immediately after reviewing an update.',

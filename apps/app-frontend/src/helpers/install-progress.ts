@@ -43,7 +43,16 @@ export function effectiveInstallProgress(
         return snapshot.progress
     }
     if (snapshot.phase === 'downloading_content' && snapshot.progress?.secondary) {
-        return snapshot.progress.secondary
+        const bytes = snapshot.progress.secondary
+        // Native summaries include current-batch request offsets; the phase
+        // callback can still contain only settled files.
+        return {
+            ...bytes,
+            current:
+                snapshot.summary?.bytes_total === bytes.total
+                    ? Math.max(bytes.current, snapshot.summary.bytes_downloaded)
+                    : bytes.current,
+        }
     }
     if (
         snapshot.phase === 'downloading_content' &&

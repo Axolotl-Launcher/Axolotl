@@ -1,6 +1,7 @@
 <script setup>
 import { BoxIcon, FolderOpenIcon, FolderSearchIcon, PlusIcon, TrashIcon } from '@modrinth/assets'
 import {
+    Badge,
     Combobox,
     defineMessages,
     IconButton,
@@ -509,6 +510,19 @@ const messages = defineMessages({
         id: 'app.settings.resources.source.mojang-official-only',
         defaultMessage: 'Official source only',
     },
+    forceMulticonnection: {
+        id: 'app.settings.resources.force-multiconnection',
+        defaultMessage: 'Force multi-connection downloads',
+    },
+    forceMulticonnectionDescription: {
+        id: 'app.settings.resources.force-multiconnection-description',
+        defaultMessage:
+            'Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems.',
+    },
+    experimental: {
+        id: 'app.settings.resources.experimental',
+        defaultMessage: 'Experimental',
+    },
     maximumDownloads: {
         id: 'app.settings.resources.maximum-downloads',
         defaultMessage: 'Maximum concurrent downloads',
@@ -525,7 +539,7 @@ const messages = defineMessages({
     maximumDownloadsDescription: {
         id: 'app.settings.resources.maximum-downloads-description',
         defaultMessage:
-            'Automatic mode uses 64 concurrent downloads. Manual changes apply immediately.',
+            'Automatic mode adjusts the connection limit. Forced multi-connection downloads use up to 72 connections, or a lower manual limit. Manual changes apply immediately.',
     },
     manualConcurrency: {
         id: 'app.settings.resources.concurrency.manual',
@@ -805,6 +819,16 @@ const downloadConcurrencyOptions = computed(() => [
         label: formatMessage(messages.manualConcurrency),
     },
 ])
+const manualDownloadConcurrency = computed({
+    get: () =>
+        Math.min(
+            settings.value.max_concurrent_downloads,
+            settings.value.force_multiconnection_downloads ? 72 : 256,
+        ),
+    set: (value) => {
+        settings.value.max_concurrent_downloads = value
+    },
+})
 const proxyModeOptions = computed(() => [
     {
         value: 'none',
@@ -1298,6 +1322,33 @@ function validateMinecraftDirectory(_value) {
                     <Toggle id="ignore-ssl-errors" v-model="settings.ignore_ssl_errors" />
                 </template>
             </SettingsRow>
+            <SettingsRow>
+                <template #label>
+                    <span
+                        id="settings-target-resources-force-multiconnection"
+                        tabindex="-1"
+                        class="flex flex-wrap items-center gap-2"
+                    >
+                        {{ formatMessage(messages.forceMulticonnection) }}
+                        <Badge color="orange" :type="formatMessage(messages.experimental)" />
+                    </span>
+                </template>
+                <template #description>{{
+                    formatMessage(messages.forceMulticonnectionDescription)
+                }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="force_multiconnection_downloads"
+                        @cleared="reloadSettings"
+                    />
+                </template>
+                <template #control>
+                    <Toggle
+                        id="force-multiconnection-downloads"
+                        v-model="settings.force_multiconnection_downloads"
+                    />
+                </template>
+            </SettingsRow>
             <SettingsRow stacked>
                 <template #label>
                     <span id="settings-target-resources-maximum-downloads" tabindex="-1">
@@ -1318,9 +1369,9 @@ function validateMinecraftDirectory(_value) {
                         <Slider
                             v-if="!settings.auto_concurrent_downloads"
                             id="max-downloads"
-                            v-model="settings.max_concurrent_downloads"
+                            v-model="manualDownloadConcurrency"
                             :min="1"
-                            :max="256"
+                            :max="settings.force_multiconnection_downloads ? 72 : 256"
                             :step="1"
                         />
                     </div>

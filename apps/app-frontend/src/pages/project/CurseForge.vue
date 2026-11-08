@@ -505,13 +505,7 @@ const translationStyle = ref<TranslationStyle>('weakened')
  * value through unchanged (as before); the narrower prop type is the gap.
  */
 const headerTranslationStyle = computed(
-    () =>
-        translationStyle.value as
-            | 'default'
-            | 'weakened'
-            | 'brand'
-            | 'border'
-            | 'background',
+    () => translationStyle.value as 'default' | 'weakened' | 'brand' | 'border' | 'background',
 )
 let projectRequestVersion = 0
 let filesRequestVersion = 0

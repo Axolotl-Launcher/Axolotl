@@ -178,7 +178,7 @@ import {
     WrapTextIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, isRef, nextTick, onBeforeUnmount, type Ref,ref } from 'vue'
+import { computed, isRef, nextTick, onBeforeUnmount, type Ref, ref } from 'vue'
 
 import Admonition from '#ui/components/base/Admonition.vue'
 import Button from '#ui/components/base/buttons/Button.vue'

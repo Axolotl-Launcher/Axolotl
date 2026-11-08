@@ -61,7 +61,10 @@ export type PlatformTag = {
     supported_project_types: DisplayProjectType[]
 }
 
-export function getVersionsToDisplay(project: ProjectStatusHolder & { game_versions?: string[] }, allGameVersions: GameVersionTag[]) {
+export function getVersionsToDisplay(
+    project: ProjectStatusHolder & { game_versions?: string[] },
+    allGameVersions: GameVersionTag[],
+) {
     const projectVersions = Array.isArray(project?.game_versions) ? project.game_versions : []
     const versionTags = Array.isArray(allGameVersions) ? allGameVersions : []
     return formatVersionsForDisplay(projectVersions, versionTags)

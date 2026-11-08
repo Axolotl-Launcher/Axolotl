@@ -5,11 +5,52 @@ import {
     createContentRefreshSettlement,
     modsContentLoading,
     modsContentPending,
+    modsContentRetryMode,
     modsContentScopeTransition,
 } from './mods-content-state'
 
 const ready = { id: 'test-instance', install_stage: 'installed' } as const
 const busy = { ...ready, install_stage: 'minecraft_installing' } as const
+
+it('offers recovery for cached failures even when the current task has none', () => {
+    const warning = {
+        entryId: 'entry',
+        code: 'resource_update_unavailable',
+        message: 'offline',
+        provider: null,
+    }
+    expect(modsContentRetryMode([warning], 0)).toBe('retry_failed')
+    expect(modsContentRetryMode([], 1)).toBe('retry_failed')
+    expect(modsContentRetryMode([], 0)).toBeNull()
+    expect(modsContentRetryMode([{ ...warning, code: 'unrelated_warning' }], 0)).toBeNull()
+    for (const code of [
+        'provider_metadata_unavailable',
+        'pack_metadata_unavailable',
+        'resource_history_unavailable',
+    ])
+        expect(modsContentRetryMode([{ ...warning, code }], 0)).toBe('force_remote')
+    expect(modsContentRetryMode([{ ...warning, entryId: undefined }], 0)).toBe('force_remote')
+    expect(modsSource).toContain('v-if="contentRetryMode"')
+    expect(modsSource).toContain('modsContentRetryMode(contentWarnings.value,')
+    expect(modsSource).toContain(':loading="!!contentRetryPending"')
+})
+
+it('guards retry submissions across connection waits and instance invalidation', () => {
+    const retry = modsSource.slice(
+        modsSource.indexOf('async function retryFailedContent()'),
+        modsSource.indexOf('function isCurrentContentRequest('),
+    )
+    const afterConnect = retry.slice(retry.indexOf('await connectContentRefresh()'))
+    expect(afterConnect).toContain('!isCurrentContentRequest(instanceId, generation)')
+    expect(afterConnect).toContain('contentRetryPending.value !== pending')
+    expect(afterConnect).toContain('contentRefreshTask.value?.running')
+    expect(afterConnect).toContain('contentRefreshSubscription?.start(mode)')
+    expect(afterConnect).toContain('loading.value = modsContentLoading(')
+    expect(afterConnect).toContain('settled: contentRefreshSettlement.started(task.id)')
+    expect(retry).toContain('if (contentRetryPending.value === pending)')
+    const invalidate = modsSource.slice(modsSource.indexOf('function invalidateContentRequests('))
+    expect(invalidate).toContain('contentRetryPending.value = null')
+})
 
 it('suspends requests without clearing the same instance content during an upgrade', () => {
     expect(modsContentScopeTransition(busy, ready)).toEqual({

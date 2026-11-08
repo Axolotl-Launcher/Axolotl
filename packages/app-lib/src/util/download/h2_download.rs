@@ -636,12 +636,22 @@ async fn single_stream(
     );
     let mut timer = tokio::time::interval(DOWNLOAD_SCHEDULER_INTERVAL);
     let mut last_endpoint_speed = 0;
+    let mut dns_slow_recovery_requested = false;
     let mut batch_tail =
         super::h2_receive::BatchTailWindow::new(transfer_started);
     timer.tick().await;
     loop {
         let chunk = tokio::select! {
-            chunk = super::h2_receive::receive_chunk(&mut stream, "file") => chunk?,
+            chunk = super::h2_receive::receive_chunk(&mut stream, "file") => {
+                if let Err(error) = &chunk {
+                    if matches!(classify_download_error(error), H2DownloadFailure::Slow | H2DownloadFailure::Connect)
+                        && super::h2_receive::endpoint_speed(0, connection.active_streams(),
+                            aggregate_window.observe(connection.bytes_transferred_for_scheduler(), Instant::now())).is_some() {
+                        fetch::request_dns_system_recovery(route, &uri.to_string());
+                    }
+                }
+                chunk?
+            },
             _ = async {
                 match &request.cancellation {
                     Some(token) => token.cancelled().await,
@@ -696,6 +706,12 @@ async fn single_stream(
                 }
                 if let super::native_slow::SlowDecision::Probe { bytes_per_second } = decision {
                     last_endpoint_speed = bytes_per_second;
+                }
+                if !dns_slow_recovery_requested && matches!(decision,
+                    super::native_slow::SlowDecision::Probe { .. } | super::native_slow::SlowDecision::Idle { .. })
+                    && super::h2_receive::endpoint_speed(last_endpoint_speed, connection.active_streams(), aggregate).is_some() {
+                    crate::util::fetch::request_dns_system_recovery(route, &uri.to_string());
+                    dns_slow_recovery_requested = true;
                 }
                 if !pressure.blocks_expansion()
                     && let Some(clients) = super::proxy_context::clients()

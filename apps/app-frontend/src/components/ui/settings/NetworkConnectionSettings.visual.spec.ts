@@ -24,9 +24,9 @@ vi.mock('@modrinth/ui', async () => ({
             values?: Record<string, string>,
         ) => {
             const text = calls.chinese
-                ? ((
-                      chinese as Record<string, { message?: string; defaultMessage?: string }>
-                  )[message.id]?.message ?? message.defaultMessage)
+                ? ((chinese as Record<string, { message?: string; defaultMessage?: string }>)[
+                      message.id
+                  ]?.message ?? message.defaultMessage)
                 : message.defaultMessage
             return text.replace('{name}', values?.name ?? '')
         },

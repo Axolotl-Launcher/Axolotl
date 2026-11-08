@@ -93,9 +93,7 @@ it('switching release routes preserves the new version’s dependency details wh
         route.params.version = 'new'
         await flushPromises()
         expect(wrapper.text()).toContain('new-dependency')
-        complete([
-            { id: 'old-dependency' } as unknown as Labrinth.Projects.v2.Project,
-        ])
+        complete([{ id: 'old-dependency' } as unknown as Labrinth.Projects.v2.Project])
         await flushPromises()
         expect(wrapper.text()).toContain('new-dependency')
         expect(wrapper.text()).not.toContain('old-dependency')
@@ -144,9 +142,7 @@ it('renders the version before its dependency details arrive', async () => {
         await flushPromises()
         expect(wrapper.text()).toContain('"version":"with-dependency"')
         expect(wrapper.text()).toContain('"loading":true')
-        complete([
-            { id: 'slow-dependency' } as unknown as Labrinth.Projects.v2.Project,
-        ])
+        complete([{ id: 'slow-dependency' } as unknown as Labrinth.Projects.v2.Project])
         await flushPromises()
         expect(wrapper.text()).toContain('slow-dependency')
         expect(wrapper.text()).toContain('"loading":false')

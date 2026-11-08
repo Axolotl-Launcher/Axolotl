@@ -318,6 +318,28 @@ it('content download uses current secondary bytes', () => {
     ).toEqual({ type: 'bytes', current: 220, total: 300 })
 })
 
+it('modpack bars and byte labels include live native summary bytes', () => {
+    const downloading = progressJob({
+        provider: 'modrinth',
+        phase: 'downloading_content',
+        progress: { current: 1, total: 3, secondary: { current: 40, total: 300 } },
+        summary: { files_completed: 1, bytes_downloaded: 220, bytes_total: 300 },
+    })
+    expect(installProgressFraction(downloading)).toBe(220 / 300)
+    expect(installProgressTextSource(downloading)).toEqual({
+        type: 'bytes',
+        current: 220,
+        total: 300,
+    })
+    expect(isInstallMainTrackComplete(downloading)).toBe(false)
+    expect(
+        effectiveInstallProgress({
+            ...downloading,
+            summary: { bytes_downloaded: 900, bytes_total: 1000 },
+        }),
+    ).toEqual({ current: 40, total: 300 })
+})
+
 it('content download without secondary uses current file counter', () => {
     expect(
         installProgressTextSource(

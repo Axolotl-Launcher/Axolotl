@@ -263,9 +263,13 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         if (update.type === 'progress') {
             const pendingIndex = pendingProgressUpdateIndexes.get(key)
             if (pendingIndex != null) {
-                pendingRequestUpdates[pendingIndex] = update
-                scheduleRequestFlush()
-                return
+                // Keep aggregate samples in arrival order when coalescing
+                // progress from several files within the same frame.
+                pendingRequestUpdates.splice(pendingIndex, 1)
+                for (const [pendingKey, index] of pendingProgressUpdateIndexes) {
+                    if (index > pendingIndex)
+                        pendingProgressUpdateIndexes.set(pendingKey, index - 1)
+                }
             }
             pendingProgressUpdateIndexes.set(key, pendingRequestUpdates.length)
         } else {
@@ -309,7 +313,18 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             if (item) updatedItems.set(job.job_id, item)
         }
         for (const job of mutableJobs.values())
-            syncLiveByteProgress(job, updatedItems.get(job.job_id))
+            if (!(
+                job.phase === 'downloading_content' &&
+                updates.some(
+                    (update) =>
+                        update.job_id === job.job_id &&
+                        update.type === 'progress' &&
+                        update.content_bytes != null &&
+                        (!job.progress?.secondary ||
+                            job.progress.secondary.total === update.content_bytes.total),
+                )
+            ))
+                syncLiveByteProgress(job, updatedItems.get(job.job_id))
         for (const job of mutableJobs.values()) bumpJobRevision(job.job_id)
         for (const job of mutableJobs.values()) lastJobActivity.set(job.job_id, Date.now())
         jobs.value = next
@@ -386,6 +401,21 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
                 }
                 break
             case 'progress':
+                if (job.phase === 'downloading_content' && update.content_bytes) {
+                    const bytes = update.content_bytes
+                    if (!job.progress?.secondary || job.progress.secondary.total === bytes.total) {
+                        job.summary = {
+                            ...job.summary,
+                            bytes_downloaded: bytes.current,
+                            bytes_total: bytes.total,
+                        }
+                        if (job.progress?.secondary)
+                            job.progress = {
+                                ...job.progress,
+                                secondary: { ...bytes },
+                            }
+                    }
+                }
                 if (!current) return
                 item = {
                     ...current,

@@ -22,6 +22,7 @@ pub(crate) const AUTO_DOWNLOAD_SAMPLE_INTERVAL: Duration =
 pub(crate) const AUTO_DOWNLOAD_TRIAL_WINDOWS: usize = 2;
 pub(crate) const AUTO_DOWNLOAD_UTILIZATION_WINDOWS: usize = 2;
 pub(crate) const DOWNLOAD_CONCURRENCY_HARD_MAX: usize = 256;
+pub(crate) const FORCED_DOWNLOAD_CONCURRENCY_MAX: usize = 72;
 
 /// Per-file Range splitting, retry and tail recovery.
 pub(crate) const ADAPTIVE_RANGE_BYTES: u64 = 4 * 1024 * 1024;
@@ -43,6 +44,8 @@ pub(crate) const MAX_SEGMENT_CONCURRENCY: usize = 64;
 pub(crate) const MAX_TAIL_HEDGES_PER_FILE: usize = 2;
 pub(crate) const MIN_PARALLEL_RANGES: usize = 2;
 pub(crate) const MIN_SEGMENT_SIZE: u64 = 256 * 1024;
+/// Explicit aggressive mode trades request overhead for more independent connections.
+pub(crate) const FORCED_MIN_SEGMENT_SIZE: u64 = 16 * 1024;
 pub(crate) const RANGE_CHECKPOINT_BYTES: u64 = 4 * 1024 * 1024;
 pub(crate) const RANGE_FULL_FAILURE_LIMIT: u32 = 1;
 #[cfg(not(test))]

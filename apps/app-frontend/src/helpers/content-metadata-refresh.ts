@@ -45,8 +45,7 @@ export async function drainContentMetadata(options: ContentMetadataDrainOptions)
             options
                 .originalsForChunk(chunk)
                 .filter(
-                    (item): item is ContentItem & { file_path: string } =>
-                        item.file_path != null,
+                    (item): item is ContentItem & { file_path: string } => item.file_path != null,
                 )
                 .map((item) => [item.file_path, item]),
         )

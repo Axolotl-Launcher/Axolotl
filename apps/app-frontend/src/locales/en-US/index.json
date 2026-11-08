@@ -1,23 +1,43 @@
 {
-  "app.downloads.slow-downloads.title": { "message": "Slow downloads?" },
+  "app.downloads.slow-downloads.title": {
+    "message": "Slow downloads?"
+  },
   "app.downloads.slow-downloads.description": {
     "message": "You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed."
   },
-  "app.downloads.slow-downloads.dismiss": { "message": "Don't show again" },
-  "app.settings.resources.force-multiconnection": { "message": "Force multi-connection downloads" },
+  "app.downloads.slow-downloads.dismiss": {
+    "message": "Don't show again"
+  },
+  "app.settings.resources.force-multiconnection": {
+    "message": "Force multi-connection downloads"
+  },
   "app.settings.resources.force-multiconnection-description": {
     "message": "Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems."
   },
-  "app.settings.resources.experimental": { "message": "Experimental" },
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
-  "app.schematics.sort.default": { "message": "Source order" },
-  "app.schematics.sort.name": { "message": "Name" },
+  "app.settings.resources.experimental": {
+    "message": "Experimental"
+  },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "{sources} could not be loaded."
+  },
+  "app.schematics.sort.default": {
+    "message": "Source order"
+  },
+  "app.schematics.sort.name": {
+    "message": "Name"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
   },
-  "app.schematics.open-source": { "message": "View on source website" },
+  "app.schematics.open-source": {
+    "message": "View on source website"
+  },
   "app.schematics.instances-error": {
     "message": "Could not load your instances."
   },
@@ -63,8 +83,12 @@
   "app.schematics.search": {
     "message": "Search schematics"
   },
-  "app.schematics.sort.hot": { "message": "Popular" },
-  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.sort.hot": {
+    "message": "Popular"
+  },
+  "app.schematics.sort.featured": {
+    "message": "Featured"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -77,11 +101,21 @@
   "app.schematics.installing": {
     "message": "Installing…"
   },
-  "app.schematics.preview": { "message": "Preview" },
-  "app.schematics.files": { "message": "Files" },
-  "app.schematics.creator": { "message": "Creator" },
-  "app.schematics.source-heading": { "message": "Source" },
-  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.preview": {
+    "message": "Preview"
+  },
+  "app.schematics.files": {
+    "message": "Files"
+  },
+  "app.schematics.creator": {
+    "message": "Creator"
+  },
+  "app.schematics.source-heading": {
+    "message": "Source"
+  },
+  "app.schematics.preview-source": {
+    "message": "Shimu Space · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "Installed"
   },
@@ -13279,11 +13313,20 @@
   "app.settings.resources.ignore-ssl-errors-description": {
     "message": "Allows downloads through proxies or network tools that replace HTTPS certificates. This disables certificate verification and can expose downloads to tampering. Enable it only when necessary."
   },
+  "app.settings.resources.forced-connection-limit": {
+    "message": "Experimental connection limit"
+  },
+  "app.settings.resources.forced-connection-limit-description": {
+    "message": "Connections are shared across files in proportion to their remaining size. Default: 72. A lower manual download limit still applies. Higher limits may increase network load and retries. In most cases, higher the cap is, faster the speed is. If you think your downloading speed isn't fast enough, you can increase the value with precision. If speed dropped, please decrase this value."
+  },
+  "app.settings.resources.forced-connection-limit-custom": {
+    "message": "Custom"
+  },
   "app.settings.resources.maximum-downloads": {
     "message": "Maximum concurrent downloads"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use up to 72 connections, or a lower manual limit. Manual changes apply immediately."
+    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use the experimental connection limit, or a lower manual limit. Manual changes apply immediately."
   },
   "app.settings.resources.maximum-writes": {
     "message": "Maximum concurrent writes"

@@ -818,7 +818,14 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
             'app.settings.resources.force-multiconnection',
             'Force multi-connection downloads',
         ),
-        keywords: [message('app.settings.resources.experimental', 'Experimental')],
+        keywords: [
+            message('app.settings.resources.experimental', 'Experimental'),
+            message(
+                'app.settings.resources.forced-connection-limit',
+                'Experimental connection limit',
+            ),
+            message('app.settings.resources.forced-connection-limit-custom', 'Custom'),
+        ],
     },
     {
         id: 'resources-download-concurrency',

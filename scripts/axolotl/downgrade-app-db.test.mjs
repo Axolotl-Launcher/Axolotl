@@ -695,6 +695,44 @@ console.log('install jobs gain a scheduling level and lose it on downgrade')
     restored.close()
 }
 
+{
+    const FORCED_CONNECTION_LIMIT = 20261108120000
+    const file = path.join(directory, 'forced-connection-limit.db')
+    sampleDatabase(file, { withColumn: false, applied: [FORCED_CONNECTION_LIMIT] })
+    const sql = fs.readFileSync(
+        path.join(migrationsDir, '20261108120000_forced-download-connection-limit.sql'),
+        'utf8',
+    )
+    const database = new DatabaseSync(file)
+    database.exec(sql)
+    check(
+        'forced connection limit defaults to 72 on upgrade',
+        database.prepare('SELECT forced_max_concurrent_downloads FROM settings').get()
+            .forced_max_concurrent_downloads === 72,
+    )
+    database.exec('UPDATE settings SET forced_max_concurrent_downloads = 128')
+    database.close()
+    const downgraded = run(['--db', file, '--to', String(FORCED_CONNECTION_LIMIT), '--apply'])
+    check(
+        'forced connection downgrade removes its column',
+        downgraded.status === 0 &&
+            !columns(file, 'settings').includes('forced_max_concurrent_downloads'),
+        downgraded.output,
+    )
+    const restored = new DatabaseSync(file)
+    check(
+        'forced connection downgrade preserves other settings',
+        restored.prepare('SELECT max_memory FROM settings').get().max_memory === 4096,
+    )
+    restored.exec(sql)
+    check(
+        'forced connections can upgrade again',
+        restored.prepare('SELECT forced_max_concurrent_downloads FROM settings').get()
+            .forced_max_concurrent_downloads === 72,
+    )
+    restored.close()
+}
+
 if (process.platform !== 'win32') {
     console.log('skipping the running launcher checks outside Windows')
 } else {

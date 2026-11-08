@@ -11783,11 +11783,20 @@
   "app.settings.resources.ignore-ssl-errors-description": {
     "message": "允许通过会替换 HTTPS 证书的代理或网络工具下载。启用后将关闭证书验证，下载内容可能遭到篡改；请仅在必要时启用。"
   },
+  "app.settings.resources.forced-connection-limit": {
+    "message": "实验性连接数上限"
+  },
+  "app.settings.resources.forced-connection-limit-description": {
+    "message": "按各文件剩余大小的比例分配连接，默认 72。手动下载额度更低时仍遵守该值。提高上限可能增加网络负载和重试。通常来说，上限越高下载速度越快。如果你认为下载速度不够快，请酌情提升该值。如果起到反作用，请降低该值。"
+  },
+  "app.settings.resources.forced-connection-limit-custom": {
+    "message": "自定义"
+  },
   "app.settings.resources.maximum-downloads": {
     "message": "最大并发下载数"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "自动模式会调整连接额度。强制多连接下载最多使用 72 个连接；手动设置更低额度时遵守该值。手动调整会立即生效。"
+    "message": "自动模式会调整连接额度。强制多连接下载使用实验性连接数上限；手动设置更低额度时遵守该值。手动调整会立即生效。"
   },
   "app.settings.resources.maximum-writes": {
     "message": "最大并发写入数"

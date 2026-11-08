@@ -122,6 +122,7 @@ pub(crate) struct SettingsRecord {
     pub use_curseforge_mirror: bool,
     pub auto_concurrent_downloads: bool,
     pub force_multiconnection_downloads: bool,
+    pub forced_max_concurrent_downloads: i64,
     pub minecraft_metadata_source: DownloadSource,
     pub minecraft_file_source: DownloadSource,
     pub modrinth_source: DownloadSource,
@@ -326,7 +327,7 @@ impl Collection for Settings {
                 version, locale, accent_color, custom_background_path,
                 custom_background_blur, custom_background_opacity,
                 use_minecraft_mirror, use_modrinth_mirror,
-                use_curseforge_mirror, auto_concurrent_downloads, force_multiconnection_downloads,
+                use_curseforge_mirror, auto_concurrent_downloads, force_multiconnection_downloads, forced_max_concurrent_downloads,
                 minecraft_metadata_source, minecraft_file_source,
                 modrinth_source, curseforge_source, onboarding_version,
                 onboarding_instance_tour_completed, sidebar_instance_count,
@@ -471,6 +472,8 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         auto_concurrent_downloads: row.try_get("auto_concurrent_downloads")?,
         force_multiconnection_downloads: row
             .try_get("force_multiconnection_downloads")?,
+        forced_max_concurrent_downloads: row
+            .try_get("forced_max_concurrent_downloads")?,
         minecraft_metadata_source: source("minecraft_metadata_source")?,
         minecraft_file_source: source("minecraft_file_source")?,
         modrinth_source: source("modrinth_source")?,
@@ -578,7 +581,7 @@ async fn write_row(
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
             resource_preserve_filenames, default_game_language,
-            oobe_completed_steps, minecraft_use_console_java, force_multiconnection_downloads
+            oobe_completed_steps, minecraft_use_console_java, force_multiconnection_downloads, forced_max_concurrent_downloads
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -588,7 +591,7 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
@@ -635,6 +638,7 @@ async fn write_row(
             use_curseforge_mirror = excluded.use_curseforge_mirror,
             auto_concurrent_downloads = excluded.auto_concurrent_downloads,
             force_multiconnection_downloads = excluded.force_multiconnection_downloads,
+            forced_max_concurrent_downloads = excluded.forced_max_concurrent_downloads,
             minecraft_metadata_source = excluded.minecraft_metadata_source,
             minecraft_file_source = excluded.minecraft_file_source,
             modrinth_source = excluded.modrinth_source,
@@ -788,6 +792,7 @@ async fn write_row(
     .bind(&record.oobe_completed_steps)
     .bind(record.minecraft_use_console_java)
     .bind(record.force_multiconnection_downloads)
+    .bind(record.forced_max_concurrent_downloads)
     .execute(&mut *conn)
     .await?;
 

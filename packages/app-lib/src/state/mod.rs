@@ -535,7 +535,7 @@ impl Drop for InstanceLockGuard {
     }
 }
 
-fn grow_semaphore(
+pub(crate) fn grow_semaphore(
     semaphore: &Semaphore,
     current_limit: &AtomicUsize,
     target: usize,
@@ -558,7 +558,7 @@ fn grow_semaphore(
     }
 }
 
-async fn shrink_semaphore(
+pub(crate) async fn shrink_semaphore(
     semaphore: &Semaphore,
     current_limit: &AtomicUsize,
     target: &AtomicUsize,
@@ -1179,6 +1179,10 @@ impl State {
         self.download_concurrency_target
             .store(target, Ordering::Release);
 
+        if self.force_multiconnection_downloads() {
+            crate::util::download::native_budget::set_forced_capacity(target);
+        }
+
         grow_semaphore(
             &self.fetch_semaphore.0,
             &self.fetch_concurrency_limit,
@@ -1207,7 +1211,9 @@ impl State {
             });
         }
 
-        if self.download_concurrency_limit.load(Ordering::Acquire) > target {
+        if self.download_concurrency_limit.load(Ordering::Acquire) > target
+            || crate::util::download::native_budget::forced_capacity_needs_shrink()
+        {
             let state = Arc::clone(self);
             tokio::spawn(async move {
                 shrink_semaphore(
@@ -1216,6 +1222,7 @@ impl State {
                     &state.download_concurrency_target,
                 )
                 .await;
+                crate::util::download::native_budget::shrink_forced_capacity().await;
             });
         }
 
@@ -1336,6 +1343,14 @@ impl State {
         );
         let download_concurrency =
             settings.effective_max_concurrent_downloads();
+        crate::util::download::native_budget::set_forced_capacity(
+            if settings.force_multiconnection_downloads {
+                download_concurrency
+            } else {
+                settings.forced_max_concurrent_downloads
+            },
+        );
+        crate::util::download::native_budget::shrink_forced_capacity().await;
         let fetch_semaphore =
             FetchSemaphore(Semaphore::new(download_concurrency));
         let download_semaphore =

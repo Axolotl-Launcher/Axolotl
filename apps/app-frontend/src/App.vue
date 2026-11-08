@@ -1041,7 +1041,7 @@ async function onImportFileReceived({
         // ── Unknown (no extraction) → error ──
         if (classification.item_type === 'unknown') {
             addNotification({
-                title: formatMessage(messages.dropUnknownTitle),
+                title: unknownTitleMessage(classification.reason),
                 text: unknownReasonMessage(classification.reason),
                 type: 'error',
             })
@@ -2276,6 +2276,7 @@ const {
     clearDropProcessingNotification,
     showNestedUnpackPrompt,
     showForceAnalysisPrompt,
+    unknownTitleMessage,
     unknownReasonMessage,
 } = dropImport
 

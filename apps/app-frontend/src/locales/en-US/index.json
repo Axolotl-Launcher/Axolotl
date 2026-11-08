@@ -2183,6 +2183,12 @@
   "app.drop.content-installed-title": {
     "message": "Content installed"
   },
+  "app.drop.error.invalid-folder-text": {
+    "message": "No valid game instance or supported content was found in this folder. Choose another folder."
+  },
+  "app.drop.error.invalid-folder-title": {
+    "message": "Cannot import folder"
+  },
   "app.drop.error.multiple-files-text": {
     "message": "Please drop one file at a time."
   },
@@ -2275,6 +2281,9 @@
   },
   "app.drop.no-instances": {
     "message": "No instances found"
+  },
+  "app.drop.no-instances-text": {
+    "message": "No valid game instance was found in this folder. Choose a launcher folder or a .minecraft folder containing a game version."
   },
   "app.drop.overlay-subtitle": {
     "message": "Release to analyze"

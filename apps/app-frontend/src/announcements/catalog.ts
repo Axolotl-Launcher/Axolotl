@@ -49,6 +49,12 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
             fixed: [
                 {
                     'en-US':
+                        'Fixed importing empty or incomplete folders showing unclear errors instead of explaining that no importable instances or content were found.',
+                    'zh-CN':
+                        '修复导入空文件夹或结构不完整的目录时提示不明确的问题，现在会说明未找到可导入的实例或内容。',
+                },
+                {
+                    'en-US':
                         'Fixed modpack extraction progress appearing stalled when processing many small files and continuing to show extraction while applying files.',
                     'zh-CN':
                         '修复整合包覆盖文件较多时进度长时间不刷新，以及解压结束后仍停留在解压阶段的问题。',

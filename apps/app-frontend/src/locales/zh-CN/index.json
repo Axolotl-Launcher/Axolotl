@@ -3314,6 +3314,12 @@
   "app.drop.content-installed-title": {
     "message": "内容已安装"
   },
+  "app.drop.error.invalid-folder-text": {
+    "message": "该文件夹中没有有效的游戏实例或支持的内容，请选择其他文件夹。"
+  },
+  "app.drop.error.invalid-folder-title": {
+    "message": "无法导入文件夹"
+  },
   "app.drop.error.multiple-files-text": {
     "message": "一次只能拖放一个文件或文件夹。"
   },
@@ -3403,6 +3409,9 @@
   },
   "app.drop.no-instances": {
     "message": "未找到实例"
+  },
+  "app.drop.no-instances-text": {
+    "message": "该文件夹中没有有效的游戏实例，请选择包含游戏版本的启动器文件夹或 .minecraft 文件夹。"
   },
   "app.drop.overlay-subtitle": {
     "message": "松开以分类并导入"

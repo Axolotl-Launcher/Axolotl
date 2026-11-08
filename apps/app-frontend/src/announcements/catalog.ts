@@ -32,7 +32,7 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
         id: 'launcher-1.11.0-beta.3',
         version: '1.11.0-beta.3',
-        publishedAt: '2026-11-07',
+        publishedAt: '2026-11-08',
         title: {
             'en-US': 'Axolotl Launcher 1.11.0-beta.3',
             'zh-CN': 'Axolotl Launcher 1.11.0-beta.3',
@@ -47,6 +47,17 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                 },
             ],
             fixed: [
+                {
+                    'en-US':
+                        'Fixed switching the launcher data directory failing when the previous drive or directory was missing.',
+                    'zh-CN': '修复原存储盘或目录丢失后，无法切换启动器数据目录的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed storage access errors omitting the affected path and guidance for restoring access or changing the data directory.',
+                    'zh-CN':
+                        '修复存储目录访问失败时，错误信息缺少具体路径及恢复访问、切换目录提示的问题。',
+                },
                 {
                     'en-US':
                         'Fixed instance upgrades remaining blocked after allowing prereleases when required dependencies also needed prerelease confirmation.',

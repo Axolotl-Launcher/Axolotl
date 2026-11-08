@@ -119,11 +119,7 @@ const reference = {
     release: { project: { source: 'modrinth', projectId: 'root0000' }, releaseId: 'version2' },
     artifactId: 'root.jar',
 }
-const node = (
-    id: string,
-    state: string,
-    artifact: unknown = null,
-): ResourceDependencyNode => ({
+const node = (id: string, state: string, artifact: unknown = null): ResourceDependencyNode => ({
     id,
     resource: { kind: 'source', project: { source: 'modrinth', projectId: id } },
     scope: { kind: 'instance' },

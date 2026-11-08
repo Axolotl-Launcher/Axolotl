@@ -11,10 +11,7 @@ import ModTranslationSettingsPanel from '@/components/lab/mod-translation/ModTra
 import { createAnalysisTask } from '@/helpers/analysis-task'
 import { analyzeMod } from '@/lab/mod-translation/backend'
 import { modTranslationMessages as messages } from '@/lab/mod-translation/i18n'
-import type {
-    ModTranslationAnalysis,
-    ModTranslationJob,
-} from '@/lab/mod-translation/types.ts'
+import type { ModTranslationAnalysis, ModTranslationJob } from '@/lab/mod-translation/types.ts'
 import { useModTranslationStore } from '@/store/modTranslation'
 
 const { formatMessage } = useVIntl()

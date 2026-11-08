@@ -45,6 +45,76 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                     'zh-CN':
                         '资源管理设置新增实验性强制多连接下载选项（实验性），可在下载缓慢时尝试开启。',
                 },
+                {
+                    'en-US':
+                        'Added a configurable connection limit for experimental forced multi-connection downloads.',
+                    'zh-CN': '新增实验性强制多连接下载的连接数上限设置。',
+                },
+                {
+                    'en-US':
+                        'Added a first-run setup flow for language, accounts, existing launcher data, Java, and appearance.',
+                    'zh-CN':
+                        '新增首次启动设置流程，支持配置语言、账号、已有启动器数据、Java 和外观。',
+                },
+                {
+                    'en-US':
+                        'Added the ability to use detected .minecraft folders in place during first-run setup.',
+                    'zh-CN': '首次启动设置新增使用已检测到的 .minecraft 文件夹原位置的选项。',
+                },
+                {
+                    'en-US': 'Added a detailed list view to the instance library.',
+                    'zh-CN': '实例库新增详细列表视图。',
+                },
+                {
+                    'en-US':
+                        'Added a Windows option to launch Minecraft using java instead of javaw.',
+                    'zh-CN': 'Windows 版新增使用 java 而非 javaw 启动 Minecraft 的选项。',
+                },
+                {
+                    'en-US': 'Added diagnostic package export to the Minecraft crash window.',
+                    'zh-CN': 'Minecraft 崩溃窗口新增导出诊断包功能。',
+                },
+                {
+                    'en-US':
+                        'Added a WebView2 installation prompt when the Windows installer cannot find the required runtime.',
+                    'zh-CN': 'Windows 安装程序未检测到所需的 WebView2 运行时组件时，新增安装指引。',
+                },
+                {
+                    'en-US': 'Added MCIM as a preferred mirror option for Modrinth and CurseForge.',
+                    'zh-CN': '新增将 MCIM 设为 Modrinth 和 CurseForge 首选镜像的选项。',
+                },
+            ],
+            changed: [
+                {
+                    'en-US':
+                        'Improved launcher background settings with cropping, recropping, and a collapsible preview.',
+                    'zh-CN': '优化启动器背景设置，支持裁剪、重新裁剪和折叠预览。',
+                },
+                {
+                    'en-US':
+                        'Added animated background conversion to WebP and options to compress oversized backgrounds or keep their original resolution.',
+                    'zh-CN':
+                        '新增动态背景转换为 WebP 的支持，并可选择压缩过大的背景或保留原始分辨率。',
+                },
+                {
+                    'en-US':
+                        'Moved advanced download information settings out of developer options.',
+                    'zh-CN': '高级下载信息设置不再需要开启开发者选项。',
+                },
+                {
+                    'en-US':
+                        'Improved segmented downloads on poor connections by retrying failed ranges without interrupting other ranges.',
+                    'zh-CN': '优化弱网环境下的分段下载，重试失败分段时不再中断其他分段。',
+                },
+                {
+                    'en-US':
+                        'Improved tab transitions so route changes do not wait for navigation animations to finish.',
+                    'zh-CN': '优化标签页切换，页面路由不再等待导航动画结束后才更新。',
+                },
+                {
+                    'en-US': 'Improved loader installation progress by displaying percentages.',
+                    'zh-CN': '加载器安装进度改为显示百分比。',
+                },
             ],
             fixed: [
                 {
@@ -144,6 +214,62 @@ export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
                         'Fixed cached CurseForge modpack archives remaining queued in download details after validation.',
                     'zh-CN':
                         '修复 CurseForge 整合包压缩包命中缓存并校验完成后，下载详情仍显示排队中的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed manually imported content not being recognized as installed on the Discover page.',
+                    'zh-CN': '修复手动导入的内容未在发现页面被识别为已安装的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed instance launch progress not being shared across pages, which could allow duplicate launch attempts.',
+                    'zh-CN': '修复实例启动进度未在各页面之间共享，可能导致重复尝试启动的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed replaced files remaining in an instance after a CurseForge modpack update.',
+                    'zh-CN': '修复 CurseForge 整合包更新后，被替换的旧文件仍留在实例中的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed the modpack update dialog showing the wrong currently installed version.',
+                    'zh-CN': '修复整合包更新弹窗显示错误的当前已安装版本的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed modpack instance initialization failures leaving installations without a recoverable task state.',
+                    'zh-CN': '修复整合包实例初始化失败后，安装任务状态无法恢复的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed required Java being unavailable while installation continued instead of stopping with an explanation.',
+                    'zh-CN': '修复所需 Java 不可用时安装仍继续进行，而不是停止并说明原因的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed PCL CE instances not being detected when their configured path existed without a launcher executable.',
+                    'zh-CN':
+                        '修复 PCL CE 已配置的实例路径存在但没有启动器可执行文件时，无法检测到实例的问题。',
+                },
+                {
+                    'en-US':
+                        "Fixed shared Minecraft imports losing the selected version's identity.",
+                    'zh-CN': '修复导入共用 Minecraft 目录时，所选版本身份丢失的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed instance deletion failing when synchronized files left directories temporarily non-empty.',
+                    'zh-CN': '修复同步文件使目录暂时非空时，删除实例失败的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed formatter actions running before Monaco formatting providers were ready.',
+                    'zh-CN': '修复 Monaco 格式化功能尚未就绪时，格式化操作提前执行的问题。',
+                },
+                {
+                    'en-US':
+                        'Fixed newly created empty instance groups not appearing in the library.',
+                    'zh-CN': '修复新建的空实例分组未在实例库中显示的问题。',
                 },
             ],
         },

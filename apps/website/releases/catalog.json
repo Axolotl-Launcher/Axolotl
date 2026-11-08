@@ -2,6 +2,199 @@
   "updated_at": "2026-11-05T03:08:45.388Z",
   "announcements": [
     {
+      "id": "launcher-1.11.0-beta.3",
+      "version": "1.11.0-beta.3",
+      "publishedAt": "2026-11-08",
+      "title": {
+        "en-US": "Axolotl Launcher 1.11.0-beta.3",
+        "zh-CN": "Axolotl Launcher 1.11.0-beta.3"
+      },
+      "changes": {
+        "added": [
+          {
+            "en-US": "Added an experimental force multi-connection download option (experimental) in resource management settings to help with slow downloads.",
+            "zh-CN": "资源管理设置新增实验性强制多连接下载选项（实验性），可在下载缓慢时尝试开启。"
+          },
+          {
+            "en-US": "Added a configurable connection limit for experimental forced multi-connection downloads.",
+            "zh-CN": "新增实验性强制多连接下载的连接数上限设置。"
+          },
+          {
+            "en-US": "Added a first-run setup flow for language, accounts, existing launcher data, Java, and appearance.",
+            "zh-CN": "新增首次启动设置流程，支持配置语言、账号、已有启动器数据、Java 和外观。"
+          },
+          {
+            "en-US": "Added the ability to use detected .minecraft folders in place during first-run setup.",
+            "zh-CN": "首次启动设置新增使用已检测到的 .minecraft 文件夹原位置的选项。"
+          },
+          {
+            "en-US": "Added a detailed list view to the instance library.",
+            "zh-CN": "实例库新增详细列表视图。"
+          },
+          {
+            "en-US": "Added a Windows option to launch Minecraft using java instead of javaw.",
+            "zh-CN": "Windows 版新增使用 java 而非 javaw 启动 Minecraft 的选项。"
+          },
+          {
+            "en-US": "Added diagnostic package export to the Minecraft crash window.",
+            "zh-CN": "Minecraft 崩溃窗口新增导出诊断包功能。"
+          },
+          {
+            "en-US": "Added a WebView2 installation prompt when the Windows installer cannot find the required runtime.",
+            "zh-CN": "Windows 安装程序未检测到所需的 WebView2 运行时组件时，新增安装指引。"
+          },
+          {
+            "en-US": "Added MCIM as a preferred mirror option for Modrinth and CurseForge.",
+            "zh-CN": "新增将 MCIM 设为 Modrinth 和 CurseForge 首选镜像的选项。"
+          }
+        ],
+        "changed": [
+          {
+            "en-US": "Improved launcher background settings with cropping, recropping, and a collapsible preview.",
+            "zh-CN": "优化启动器背景设置，支持裁剪、重新裁剪和折叠预览。"
+          },
+          {
+            "en-US": "Added animated background conversion to WebP and options to compress oversized backgrounds or keep their original resolution.",
+            "zh-CN": "新增动态背景转换为 WebP 的支持，并可选择压缩过大的背景或保留原始分辨率。"
+          },
+          {
+            "en-US": "Moved advanced download information settings out of developer options.",
+            "zh-CN": "高级下载信息设置不再需要开启开发者选项。"
+          },
+          {
+            "en-US": "Improved segmented downloads on poor connections by retrying failed ranges without interrupting other ranges.",
+            "zh-CN": "优化弱网环境下的分段下载，重试失败分段时不再中断其他分段。"
+          },
+          {
+            "en-US": "Improved tab transitions so route changes do not wait for navigation animations to finish.",
+            "zh-CN": "优化标签页切换，页面路由不再等待导航动画结束后才更新。"
+          },
+          {
+            "en-US": "Improved loader installation progress by displaying percentages.",
+            "zh-CN": "加载器安装进度改为显示百分比。"
+          }
+        ],
+        "fixed": [
+          {
+            "en-US": "Fixed importing empty or incomplete folders showing unclear errors instead of explaining that no importable instances or content were found.",
+            "zh-CN": "修复导入空文件夹或结构不完整的目录时提示不明确的问题，现在会说明未找到可导入的实例或内容。"
+          },
+          {
+            "en-US": "Fixed modpack extraction progress appearing stalled when processing many small files and continuing to show extraction while applying files.",
+            "zh-CN": "修复整合包覆盖文件较多时进度长时间不刷新，以及解压结束后仍停留在解压阶段的问题。"
+          },
+          {
+            "en-US": "Fixed newest and oldest sorting in the Content tab following filename order instead of file dates.",
+            "zh-CN": "修复内容页按最新或最旧排序时，仍按文件名排列的问题。"
+          },
+          {
+            "en-US": "Fixed incorrect mod names, versions, and compatibility warnings in the Content tab for multi-loader JARs.",
+            "zh-CN": "修复多加载器模组在内容页显示错误名称、版本，以及在实例中误报不兼容的问题。"
+          },
+          {
+            "en-US": "Fixed switching the launcher data directory failing when the previous drive or directory was missing.",
+            "zh-CN": "修复原存储盘或目录丢失后，无法切换启动器数据目录的问题。"
+          },
+          {
+            "en-US": "Fixed storage access errors omitting the affected path and guidance for restoring access or changing the data directory.",
+            "zh-CN": "修复存储目录访问失败时，错误信息缺少具体路径及恢复访问、切换目录提示的问题。"
+          },
+          {
+            "en-US": "Fixed instance upgrades remaining blocked after allowing prereleases when required dependencies also needed prerelease confirmation.",
+            "zh-CN": "修复实例升级允许使用预发布版后，仍因预发布依赖无法确认而卡住、无法继续的问题。"
+          },
+          {
+            "en-US": "Fixed instance online information remaining unavailable after the connection recovered.",
+            "zh-CN": "修复网络恢复后，实例在线信息仍长时间无法获取的问题。"
+          },
+          {
+            "en-US": "Fixed the retry button disappearing when reopening an instance with cached online information failures.",
+            "zh-CN": "修复重新打开仍有在线信息获取失败提示的实例时，重试按钮消失的问题。"
+          },
+          {
+            "en-US": "Fixed downloads staying slow or timing out without falling back to system DNS when DoH is enabled.",
+            "zh-CN": "修复开启 DoH 后，部分下载持续低速或超时且未能回退到系统 DNS 的问题。"
+          },
+          {
+            "en-US": "Fixed modpack download progress undercounting downloaded bytes while large files were still downloading.",
+            "zh-CN": "修复整合包大文件在下载时总进度显示明显偏低的问题。"
+          },
+          {
+            "en-US": "Fixed CurseForge modpack updates being rejected as stale immediately after reviewing an update.",
+            "zh-CN": "修复 CurseForge 整合包更新在确认后立即被判定为过期、无法开始的问题。"
+          },
+          {
+            "en-US": "Fixed missing error messages in the modpack version picker after an update failed, keeping the selected version available for retry.",
+            "zh-CN": "修复整合包更新失败时版本选择弹窗缺少错误提示的问题，并保留所选版本以便重试。"
+          },
+          {
+            "en-US": "Fixed modpack downgrades showing completion before the selected version finished downloading.",
+            "zh-CN": "修复整合包降级时目标版本尚未下载完毕就显示已完成的问题。"
+          },
+          {
+            "en-US": "Fixed advanced download details disappearing from completed downloads after restarting the launcher or toggling the option.",
+            "zh-CN": "修复重启启动器或重新开关高级下载信息后，已完成下载的详细记录丢失的问题。"
+          },
+          {
+            "en-US": "Fixed the download popover showing raw byte counts while extracting modpack overrides.",
+            "zh-CN": "修复解压整合包覆盖文件时，顶部下载进度显示未格式化字节数的问题。"
+          },
+          {
+            "en-US": "Fixed completed downloads waiting for instance refresh and temporary file cleanup before leaving the active download list.",
+            "zh-CN": "修复下载完成后仍需等待实例刷新和临时文件清理才退出进行中列表的问题。"
+          },
+          {
+            "en-US": "Fixed cached CurseForge modpack archives remaining queued in download details after validation.",
+            "zh-CN": "修复 CurseForge 整合包压缩包命中缓存并校验完成后，下载详情仍显示排队中的问题。"
+          },
+          {
+            "en-US": "Fixed manually imported content not being recognized as installed on the Discover page.",
+            "zh-CN": "修复手动导入的内容未在发现页面被识别为已安装的问题。"
+          },
+          {
+            "en-US": "Fixed instance launch progress not being shared across pages, which could allow duplicate launch attempts.",
+            "zh-CN": "修复实例启动进度未在各页面之间共享，可能导致重复尝试启动的问题。"
+          },
+          {
+            "en-US": "Fixed replaced files remaining in an instance after a CurseForge modpack update.",
+            "zh-CN": "修复 CurseForge 整合包更新后，被替换的旧文件仍留在实例中的问题。"
+          },
+          {
+            "en-US": "Fixed the modpack update dialog showing the wrong currently installed version.",
+            "zh-CN": "修复整合包更新弹窗显示错误的当前已安装版本的问题。"
+          },
+          {
+            "en-US": "Fixed modpack instance initialization failures leaving installations without a recoverable task state.",
+            "zh-CN": "修复整合包实例初始化失败后，安装任务状态无法恢复的问题。"
+          },
+          {
+            "en-US": "Fixed required Java being unavailable while installation continued instead of stopping with an explanation.",
+            "zh-CN": "修复所需 Java 不可用时安装仍继续进行，而不是停止并说明原因的问题。"
+          },
+          {
+            "en-US": "Fixed PCL CE instances not being detected when their configured path existed without a launcher executable.",
+            "zh-CN": "修复 PCL CE 已配置的实例路径存在但没有启动器可执行文件时，无法检测到实例的问题。"
+          },
+          {
+            "en-US": "Fixed shared Minecraft imports losing the selected version's identity.",
+            "zh-CN": "修复导入共用 Minecraft 目录时，所选版本身份丢失的问题。"
+          },
+          {
+            "en-US": "Fixed instance deletion failing when synchronized files left directories temporarily non-empty.",
+            "zh-CN": "修复同步文件使目录暂时非空时，删除实例失败的问题。"
+          },
+          {
+            "en-US": "Fixed formatter actions running before Monaco formatting providers were ready.",
+            "zh-CN": "修复 Monaco 格式化功能尚未就绪时，格式化操作提前执行的问题。"
+          },
+          {
+            "en-US": "Fixed newly created empty instance groups not appearing in the library.",
+            "zh-CN": "修复新建的空实例分组未在实例库中显示的问题。"
+          }
+        ]
+      }
+    },
+    {
       "id": "launcher-1.11.0-beta.2",
       "version": "1.11.0-beta.2",
       "publishedAt": "2026-11-04",

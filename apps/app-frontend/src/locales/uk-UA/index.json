@@ -1,4 +1,22 @@
 {
+  "app.downloads.slow-downloads.title": {
+    "message": "Slow downloads?"
+  },
+  "app.downloads.slow-downloads.description": {
+    "message": "You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed."
+  },
+  "app.downloads.slow-downloads.dismiss": {
+    "message": "Don't show again"
+  },
+  "app.settings.resources.force-multiconnection": {
+    "message": "Force multi-connection downloads"
+  },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems."
+  },
+  "app.settings.resources.experimental": {
+    "message": "Experimental"
+  },
   "app.schematics.source.reden": {
     "message": "Reden"
   },
@@ -9491,6 +9509,54 @@
   "app.oobe.migration.use-folder": {
     "message": "Use this folder"
   },
+  "app.oobe.java.add.action": {
+    "message": "Add"
+  },
+  "app.oobe.java.add.added": {
+    "message": "Added Java {version}. It is now used for Java {major}."
+  },
+  "app.oobe.java.add.description": {
+    "message": "Enter the path to a java executable, or browse for it."
+  },
+  "app.oobe.java.add.invalid": {
+    "message": "No Java runtime could be started from this path."
+  },
+  "app.oobe.java.add.placeholder": {
+    "message": "/path/to/java"
+  },
+  "app.oobe.java.add.title": {
+    "message": "Add a Java you already have"
+  },
+  "app.oobe.java.description": {
+    "message": "Minecraft runs on Java. Use one you already have, or download one."
+  },
+  "app.oobe.java.download.description": {
+    "message": "Choose a distribution and a version. You can keep going while it downloads."
+  },
+  "app.oobe.java.download.done": {
+    "message": "Java downloaded."
+  },
+  "app.oobe.java.download.downloading": {
+    "message": "Downloading Java…"
+  },
+  "app.oobe.java.download.title": {
+    "message": "Download Java"
+  },
+  "app.oobe.java.found.description": {
+    "message": "Pick the one to use for each Java version."
+  },
+  "app.oobe.java.found.title": {
+    "message": "Found on this device"
+  },
+  "app.oobe.java.label": {
+    "message": "Java"
+  },
+  "app.oobe.java.none-found": {
+    "message": "No Java installations were found on this device."
+  },
+  "app.oobe.java.title": {
+    "message": "Choose or download Java."
+  },
   "app.oobe.progress": {
     "message": "Setup progress"
   },
@@ -13251,7 +13317,7 @@
     "message": "Maximum concurrent downloads"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "Automatic mode uses 64 concurrent downloads. Manual changes apply immediately."
+    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use up to 72 connections, or a lower manual limit. Manual changes apply immediately."
   },
   "app.settings.resources.maximum-writes": {
     "message": "Maximum concurrent writes"

@@ -4,6 +4,7 @@ import {
     ChevronLeftIcon,
     ChevronRightIcon,
     PlayIcon,
+    SpinnerIcon,
     StopCircleIcon,
 } from '@modrinth/assets'
 import {
@@ -27,6 +28,7 @@ import {
     kill,
     run,
 } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { handleSevereError } from '@/store/error'
@@ -371,8 +373,13 @@ watch(instanceRevision, async () => {
                             circular
                             icon-only
                             class="!text-brand opacity-60 transition-opacity group-hover:opacity-100"
+                            :disabled="instanceLaunchStartedAt(row.instance.id) !== undefined"
                             @click="playInstance(row.instance)"
-                            ><PlayIcon />
+                            ><SpinnerIcon
+                                v-if="instanceLaunchStartedAt(row.instance.id) !== undefined"
+                                class="animate-spin"
+                            />
+                            <PlayIcon v-else />
                         </Button>
                     </div>
                 </li>

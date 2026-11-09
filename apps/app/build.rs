@@ -568,19 +568,6 @@ fn main() {
                     ),
             )
             .plugin(
-                "mr-auth",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "modrinth_login",
-                        "logout",
-                        "get",
-                        "cancel_modrinth_login",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
                 "install",
                 InlinedPlugin::new()
                     .commands(&[
@@ -1145,19 +1132,6 @@ fn main() {
                         "servers_get_log_delta",
                         "servers_get_console_delta",
                         "servers_clear_log",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
-                "friends",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "friends",
-                        "friend_statuses",
-                        "add_friend",
-                        "remove_friend",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

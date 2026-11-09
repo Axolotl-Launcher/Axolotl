@@ -6,7 +6,6 @@ pub mod content_favorites;
 pub mod content_search;
 pub mod curseforge;
 pub mod drop_classifier;
-pub mod friends;
 pub mod google_ip;
 pub mod handler;
 pub mod hongshi;
@@ -21,7 +20,6 @@ pub mod metadata;
 pub mod minecraft_auth;
 pub mod minecraft_news;
 pub mod minecraft_skins;
-pub mod mr_auth;
 pub mod multiplayer;
 pub mod pack;
 pub mod planet_minecraft;
@@ -68,14 +66,12 @@ pub mod data {
         InstanceUpgradeSolutionChoice, InstanceUpgradeSolutionKind,
         JavaVersion, LinkedModpackInfo, LoaderComponent, LoaderComponentKind,
         LoaderComponentRole, ManualDownloadOperationKind, ManualDownloadState,
-        MemorySettings, ModLoader, ModrinthCredentials, Organization,
-        OwnerType, PackMemberMaterializationState, PackMemberOverrideKind,
+        MemorySettings, ModLoader, Organization, OwnerType,
+        PackMemberMaterializationState, PackMemberOverrideKind,
         PendingManualDownload, PrivacySettings, ProcessMetadata, Project,
         ProjectType, ProjectV3, SearchResult, SearchResults, SearchResultsV3,
-        Settings, ShaderRuntime, TeamMember, Theme, User, UserFriend, Version,
-        WindowSize,
+        Settings, ShaderRuntime, TeamMember, Theme, User, Version, WindowSize,
     };
-    pub use ariadne::users::UserStatus;
     pub use content_management::{
         ContentType, ResolutionPreferences, ResolveContentPlan,
         ResolveContentRequest,
@@ -89,8 +85,8 @@ pub mod prelude {
         event::CommandPayload,
         install, instance,
         jre::{self, JdkVersionInfo},
-        metadata, minecraft_auth, mr_auth, pack, process, server_address,
-        servers, settings,
+        metadata, minecraft_auth, pack, process, server_address, servers,
+        settings,
         state::{ReleaseChannel, db_backup::app_db_backup_dir},
         translation,
         util::{

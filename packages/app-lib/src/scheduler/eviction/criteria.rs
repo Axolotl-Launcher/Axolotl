@@ -11,10 +11,9 @@
 //! - C4: it has a rebuild entry point.
 //!
 //! L1 is narrowed to data objects and handle-free services. Three services
-//! are candidates, each only under a stated condition; the process manager,
-//! the friends socket and Discord RPC are excluded because they hold external
-//! handles. The log ring buffer is the only object that meets every criterion
-//! unconditionally.
+//! are candidates, each only under a stated condition; the process manager
+//! and Discord RPC are excluded because they hold external handles. The log
+//! ring buffer is the only object that meets every criterion unconditionally.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Criteria {
@@ -150,7 +149,7 @@ pub const CANDIDATES: [Assessment; 3] = [
     },
 ];
 
-pub const EXCLUDED: [Assessment; 3] = [
+pub const EXCLUDED: [Assessment; 2] = [
     Assessment {
         name: "ProcessManager",
         path: "packages/app-lib/src/state/process.rs",
@@ -160,16 +159,6 @@ pub const EXCLUDED: [Assessment; 3] = [
             ..Criteria::ALL
         },
         condition: Some("owns the game child processes"),
-    },
-    Assessment {
-        name: "friends_socket",
-        path: "packages/app-lib/src/state/friends.rs",
-        criteria: Criteria {
-            c1a_no_external_handle: false,
-            c3_no_open_contract: false,
-            ..Criteria::ALL
-        },
-        condition: Some("owns a live websocket to the friends service"),
     },
     Assessment {
         name: "discord_rpc",
@@ -214,7 +203,7 @@ mod tests {
     #[test]
     fn handle_holders_are_excluded() {
         let names: Vec<_> = EXCLUDED.iter().map(|item| item.name).collect();
-        assert_eq!(names, ["ProcessManager", "friends_socket", "discord_rpc"]);
+        assert_eq!(names, ["ProcessManager", "discord_rpc"]);
         for item in EXCLUDED {
             assert!(!item.criteria.c1a_no_external_handle);
             assert!(!item.criteria.swappable(), "{}", item.name);

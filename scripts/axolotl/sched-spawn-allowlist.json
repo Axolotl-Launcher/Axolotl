@@ -147,15 +147,6 @@
       ]
     },
     {
-      "file": "apps/app/src/api/mr_auth.rs",
-      "form": "tokio::spawn",
-      "count": 1,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "modrinth_login: let auth_code = tokio::spawn(oauth_utils::auth_code_reply::listen("
-      ]
-    },
-    {
       "file": "apps/app/src/api/resources.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 1,
@@ -2159,17 +2150,6 @@
       ]
     },
     {
-      "file": "packages/app-lib/src/state/friends.rs",
-      "form": "tokio::spawn",
-      "count": 3,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "connect: tokio::spawn(async move {",
-        "socket_loop: tokio::task::spawn(async move {",
-        "socket_read_loop: tokio::spawn(async move {"
-      ]
-    },
-    {
       "file": "packages/app-lib/src/state/instance_groups.rs",
       "form": "std::fs import",
       "count": 2,
@@ -2385,14 +2365,13 @@
     {
       "file": "packages/app-lib/src/state/process.rs",
       "form": "tokio::spawn",
-      "count": 6,
+      "count": 5,
       "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: tokio::spawn(Process::react_to_process(",
         "parse_and_insert_server_join: tokio::spawn(async move {",
-        "react_to_process: tokio::spawn(async move {",
         "react_to_process: tokio::spawn(async move {"
       ]
     },
@@ -2403,16 +2382,6 @@
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "auto_prefers_mirror: std::fs::read_link(\"/etc/localtime\")"
-      ]
-    },
-    {
-      "file": "packages/app-lib/src/state/tunnel.rs",
-      "form": "tokio::spawn",
-      "count": 2,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "drop: tokio::spawn(close_sockets(self.write.clone(), sockets));",
-        "shutdown: tokio::spawn(close_sockets(self.write.clone(), sockets)).await?"
       ]
     },
     {

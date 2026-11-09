@@ -262,30 +262,6 @@ vi.mock('@/providers/server-install', async () => {
     const { ref } = await import('vue')
     return { injectServerInstall: () => ({ installingServerProjects: ref({}) }) }
 })
-vi.mock('@/providers/setup/server-install-content', async () => {
-    const { ref } = await import('vue')
-    return {
-        provideServerInstallContent: vi.fn(),
-        createServerInstallContent: () => ({
-            enforceSetupModpackRoute: vi.fn(),
-            serverContextServerData: ref(null),
-            isServerContext: ref(false),
-            isSetupServerContext: ref(false),
-            isFromWorlds: ref(false),
-            serverIdQuery: ref(''),
-            serverFlowFrom: ref(''),
-            effectiveServerWorldId: ref(''),
-            serverBrowseHeading: ref(''),
-            queuedServerInstallProjectIds: ref(new Set()),
-            serverContentProjectIds: ref(new Set()),
-            queuedServerInstallCount: ref(0),
-            selectedServerInstallProjects: ref([]),
-            isInstallingQueuedServerInstalls: ref(false),
-            watchServerContextChanges: vi.fn(),
-            initServerContext: async () => {},
-        }),
-    }
-})
 vi.mock('@/components/browse/BrowseInstanceSelector.vue', () => ({
     default: { render: () => null },
 }))
@@ -339,8 +315,6 @@ vi.mock('@modrinth/ui', async () => {
         getSelectedInstallPreferences: vi.fn(),
         isVersionTypeMatch: () => false,
         preferencesDiffer: () => false,
-        stripServerRuntimeInstallFilters: (value: unknown) => value,
-        stripServerRuntimeInstallOverrides: (value: unknown) => value,
         provideBrowseManager: (context: unknown) => {
             api.context = context
         },
@@ -373,6 +347,7 @@ vi.mock('@modrinth/ui', async () => {
             }
         },
         commonMessages: {
+            installingLabel: { defaultMessage: 'Installing' },
             installingContentLabel: { defaultMessage: 'Installing content' },
             retryButton: { defaultMessage: 'Retry' },
             backButton: { defaultMessage: 'Back' },
@@ -751,5 +726,99 @@ it('updates installed content when a manual import is recognized in the backgrou
         route.query = {}
         api.instance.mockResolvedValue(null)
         api.contentSnapshot.mockResolvedValue({ items: [] })
+    }
+})
+
+it('ignores retired hosting query parameters while keeping the local instance install target', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'mod'
+    route.query = {
+        source: 'modrinth',
+        i: 'target',
+        sid: 'old-host',
+        wid: 'old-world',
+        shi: 'true',
+    }
+    api.instance.mockResolvedValue({
+        id: 'target',
+        name: 'Local instance',
+        install_stage: 'installed',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    })
+    api.capability.mockResolvedValue({ configured: true })
+    api.refresh.mockClear()
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as {
+            targetInstance: { value: unknown }
+            refreshInstances: ReturnType<typeof vi.fn>
+        }
+        selection.targetInstance.value = {
+            id: 'target',
+            name: 'Local instance',
+            game_version: '1.21.1',
+            loader: 'fabric',
+        }
+        await flushPromises()
+        const context = api.context as {
+            installContext: { value: { name: string; gameVersion: string; backUrl: string } }
+            selectableProjectTypes: { value: { href: string }[] }
+        }
+        expect(selection.refreshInstances).toHaveBeenCalledWith('target', expect.any(Function))
+        expect(context.installContext.value).toMatchObject({
+            name: 'Local instance',
+            gameVersion: '1.21.1',
+            backUrl: '/instance/target',
+        })
+        expect(context.selectableProjectTypes.value.length).toBeGreaterThan(1)
+        expect(
+            context.selectableProjectTypes.value.every(({ href }) => !href.includes('sid=')),
+        ).toBe(true)
+        expect((api.extraQuery as () => Record<string, unknown>)()).not.toHaveProperty('wid')
+        expect(api.refresh).toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+        route.query = {}
+        api.instance.mockResolvedValue(null)
+        api.selection = null
+    }
+})
+
+it('keeps the installing action label for public modpack downloads', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'modpack'
+    route.query = { source: 'modrinth' }
+    api.capability.mockResolvedValue({ configured: true })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as { isInstalling: () => boolean }
+        selection.isInstalling = () => true
+        const context = api.context as {
+            getCardActions: (
+                project: unknown,
+                type: string,
+            ) => { key: string; label: string; disabled: boolean }[]
+        }
+        const action = context
+            .getCardActions(
+                { provider: 'modrinth', project_id: 'public-pack', title: 'Public pack' },
+                'modpack',
+            )
+            .find((entry) => entry.key === 'install')
+        expect(action).toMatchObject({ label: 'Installing', disabled: true })
+    } finally {
+        wrapper.unmount()
+        route.params.projectType = 'mod'
+        route.query = {}
+        api.selection = null
     }
 })

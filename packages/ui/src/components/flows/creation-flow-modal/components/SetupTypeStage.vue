@@ -128,9 +128,6 @@ const setupTypeTitle = computed(() => {
     if (ctx.flowType === 'instance') {
         return formatMessage(messages.instanceTypeTitle)
     }
-    if (ctx.flowType === 'server-onboarding' || ctx.flowType === 'reset-server') {
-        return formatMessage(messages.installationTypeTitle)
-    }
     return formatMessage(messages.worldTypeTitle)
 })
 

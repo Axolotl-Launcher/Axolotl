@@ -3,7 +3,15 @@ import path from 'node:path'
 
 const roots = ['apps/app', 'apps/app-frontend', 'packages/app-lib']
 const ignoredNames = new Set(['LICENSE', 'COPYING.md'])
-const ignoredDirectories = new Set(['dist', 'build', 'node_modules', 'target', '.gradle', '.sqlx', 'bin'])
+const ignoredDirectories = new Set([
+    'dist',
+    'build',
+    'node_modules',
+    'target',
+    '.gradle',
+    '.sqlx',
+    'bin',
+])
 const forbiddenPatterns = [
     ['official product name', /Modrinth App/g],
     ['official API identity', /modrinth\/theseus/gi],
@@ -56,17 +64,16 @@ const requiredInvariants = [
         'deep-link scheme',
         tauriConfig.plugins?.['deep-link']?.desktop?.schemes?.includes('axolotl') === true,
     ],
-    [
-        'User-Agent format',
-        frontendConfig.includes('Axolotl-Launcher/${version} (${os})'),
-    ],
+    ['User-Agent format', frontendConfig.includes('Axolotl-Launcher/${version} (${os})')],
     [
         'private Modrinth login removed',
         !shellMain.includes('api::mr_auth::init') &&
             !shellBuild.includes('"mr-auth"') &&
-            !pluginCapabilities.permissions.some((permission) =>
-                typeof permission === 'string' ? permission.startsWith('mr-auth:') : false,
-            ),
+            !pluginCapabilities.permissions.some((permission) => {
+                const identifier =
+                    typeof permission === 'string' ? permission : permission?.identifier
+                return typeof identifier === 'string' && identifier.startsWith('mr-auth:')
+            }),
     ],
     ['GHS telemetry disabled', frontendConfig.includes('ghsTelemetry: false')],
 ]

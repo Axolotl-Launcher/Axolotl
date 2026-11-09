@@ -2546,11 +2546,71 @@
   "app.content-favorites.empty-title": {
     "message": "暂无收藏"
   },
+  "app.content-favorites.filters.categories": {
+    "message": "类别"
+  },
+  "app.content-favorites.filters.no-categories": {
+    "message": "暂无可筛选的类别。"
+  },
+  "app.content-favorites.groups.all": {
+    "message": "全部收藏"
+  },
+  "app.content-favorites.groups.create-title": {
+    "message": "新建分组"
+  },
+  "app.content-favorites.groups.delete": {
+    "message": "删除分组"
+  },
+  "app.content-favorites.groups.delete-description": {
+    "message": "{name} 中的收藏不会被删除，它们会变为未分组。"
+  },
+  "app.content-favorites.groups.manage": {
+    "message": "分组"
+  },
+  "app.content-favorites.groups.name": {
+    "message": "分组名称"
+  },
+  "app.content-favorites.groups.name-empty": {
+    "message": "分组名称不能为空。"
+  },
+  "app.content-favorites.groups.name-placeholder": {
+    "message": "输入分组名称"
+  },
+  "app.content-favorites.groups.name-too-long": {
+    "message": "分组名称不能超过 {max} 个字符。"
+  },
+  "app.content-favorites.groups.new": {
+    "message": "新建分组"
+  },
+  "app.content-favorites.groups.none": {
+    "message": "暂无分组"
+  },
+  "app.content-favorites.groups.rename": {
+    "message": "重命名分组"
+  },
+  "app.content-favorites.groups.rename-title": {
+    "message": "重命名分组"
+  },
+  "app.content-favorites.groups.save": {
+    "message": "保存"
+  },
+  "app.content-favorites.groups.select-all": {
+    "message": "选择本组全部（{count}）"
+  },
+  "app.content-favorites.groups.selecting": {
+    "message": "正在选择 {completed}/{total}"
+  },
+  "app.content-favorites.groups.title": {
+    "message": "分组"
+  },
+  "app.content-favorites.groups.ungrouped": {
+    "message": "未分组"
+  },
   "app.content-favorites.loading": {
     "message": "正在更新收藏夹…"
   },
   "app.content-favorites.no-matches-description": {
-    "message": "换个搜索词或内容类型试试。"
+    "message": "换个搜索词、内容类型、分组或类别试试。"
   },
   "app.content-favorites.no-matches-title": {
     "message": "没有匹配的收藏"
@@ -13033,6 +13093,18 @@
   },
   "app.translation.error.rate-limited": {
     "message": "翻译服务暂时受到速率限制，请稍后重试。"
+  },
+  "app.unsaved-selection.description": {
+    "message": "你已选择 {count} 项内容但尚未安装，离开后将丢失这些选择。"
+  },
+  "app.unsaved-selection.discard": {
+    "message": "放弃并离开"
+  },
+  "app.unsaved-selection.stay": {
+    "message": "留在此页"
+  },
+  "app.unsaved-selection.title": {
+    "message": "未安装的选择"
   },
   "app.update-announcement.category.added": {
     "message": "新增"

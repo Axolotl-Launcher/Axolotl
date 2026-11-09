@@ -1343,6 +1343,66 @@
   "app.content-favorites.empty-title": {
     "message": "No favorites yet"
   },
+  "app.content-favorites.filters.categories": {
+    "message": "Categories"
+  },
+  "app.content-favorites.filters.no-categories": {
+    "message": "No categories to filter yet."
+  },
+  "app.content-favorites.groups.all": {
+    "message": "All favorites"
+  },
+  "app.content-favorites.groups.create-title": {
+    "message": "New group"
+  },
+  "app.content-favorites.groups.delete": {
+    "message": "Delete group"
+  },
+  "app.content-favorites.groups.delete-description": {
+    "message": "Favorites in {name} will not be deleted. They become ungrouped instead."
+  },
+  "app.content-favorites.groups.manage": {
+    "message": "Groups"
+  },
+  "app.content-favorites.groups.name": {
+    "message": "Group name"
+  },
+  "app.content-favorites.groups.name-empty": {
+    "message": "Group names cannot be empty."
+  },
+  "app.content-favorites.groups.name-placeholder": {
+    "message": "Enter a group name"
+  },
+  "app.content-favorites.groups.name-too-long": {
+    "message": "Group names cannot be longer than {max} characters."
+  },
+  "app.content-favorites.groups.new": {
+    "message": "New group"
+  },
+  "app.content-favorites.groups.none": {
+    "message": "No groups yet"
+  },
+  "app.content-favorites.groups.rename": {
+    "message": "Rename group"
+  },
+  "app.content-favorites.groups.rename-title": {
+    "message": "Rename group"
+  },
+  "app.content-favorites.groups.save": {
+    "message": "Save"
+  },
+  "app.content-favorites.groups.select-all": {
+    "message": "Select all in group ({count})"
+  },
+  "app.content-favorites.groups.selecting": {
+    "message": "Selecting {completed}/{total}"
+  },
+  "app.content-favorites.groups.title": {
+    "message": "Groups"
+  },
+  "app.content-favorites.groups.ungrouped": {
+    "message": "No group"
+  },
   "app.content-favorites.load-failed": {
     "message": "Failed to load favorites"
   },
@@ -1350,7 +1410,7 @@
     "message": "Updating favorites…"
   },
   "app.content-favorites.no-matches-description": {
-    "message": "Try a different search or content type."
+    "message": "Try a different search, content type, group, or category."
   },
   "app.content-favorites.no-matches-title": {
     "message": "No matching favorites"
@@ -14857,6 +14917,18 @@
   },
   "app.translation.error.rate-limited": {
     "message": "The translation service is temporarily rate limited. Please try again later."
+  },
+  "app.unsaved-selection.description": {
+    "message": "You have selected {count} item(s) that have not been installed. Leaving will discard them."
+  },
+  "app.unsaved-selection.discard": {
+    "message": "Discard and leave"
+  },
+  "app.unsaved-selection.stay": {
+    "message": "Stay on this page"
+  },
+  "app.unsaved-selection.title": {
+    "message": "Uninstalled selection"
   },
   "app.update-announcement.category.added": {
     "message": "Added"

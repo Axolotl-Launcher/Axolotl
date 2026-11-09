@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import { get_project, get_version_many } from '@/helpers/cache.js'
 import type { ContentFavorite } from '@/helpers/content-favorites'
 import type { SourceProjectMetadata } from '@/helpers/resources'
 
@@ -15,6 +16,12 @@ const fixture = vi.hoisted(() => ({
     prefetch: vi.fn(),
     resetStore: () => {},
     setFavorites: (_values: ContentFavorite[]) => {},
+    setGroups: (_values: { id: string; name: string }[]) => {},
+    setMemberships: (_values: Record<string, string[]>) => {},
+    updateFavoriteGroups: vi.fn(async () => {}),
+    setTarget: (_value: unknown) => {},
+    addToSelection: vi.fn(async () => true),
+    renderCardActions: false,
     refresh: null as null | (() => void),
 }))
 vi.mock('vue-router', async () => {
@@ -86,21 +93,58 @@ vi.mock('@/composables/useContentFavorites', async () => {
         },
     }
 })
+vi.mock('@/composables/useFavoriteGroups', async () => {
+    const { ref } = await import('vue')
+    const groups = ref<{ id: string; name: string }[]>([])
+    const memberships = ref(new Map<string, string[]>())
+    const loaded = ref(true)
+    fixture.setGroups = (values) => {
+        groups.value = values
+    }
+    fixture.setMemberships = (values) => {
+        memberships.value = new Map(Object.entries(values))
+    }
+    return {
+        useFavoriteGroups: () => ({
+            groups,
+            memberships,
+            loaded,
+            groupsFor: (key: string) => memberships.value.get(key) ?? [],
+            isInGroup: (key: string, id: string) => (memberships.value.get(key) ?? []).includes(id),
+            createGroup: vi.fn(async (name: string) => ({ id: `created:${name}`, name })),
+            renameGroup: vi.fn(async (id: string, name: string) => ({ id, name })),
+            deleteGroup: vi.fn(async () => {}),
+            updateFavoriteGroups: fixture.updateFavoriteGroups,
+            refresh: vi.fn(async () => {}),
+        }),
+    }
+})
 vi.mock('@/providers/content-selection', async () => {
     const { ref } = await import('vue')
+    const targetInstance = ref<unknown>(null)
+    const selected = new Set<string>()
+    fixture.setTarget = (value) => {
+        targetInstance.value = value
+    }
     return {
-        makeContentSelectionKey: () => '',
+        makeContentSelectionKey: (provider: string, projectId: string) =>
+            `${provider}:${projectId}`,
         injectContentSelection: () => ({
-            targetInstance: ref(null),
+            targetInstance,
             instances: ref([]),
             state: ref('idle'),
-            progress: ref(null),
+            progress: ref({ completed: 0, total: 0 }),
             selectedProjects: ref([]),
             selectedCount: ref(0),
             refreshInstances: vi.fn(async () => {}),
             refreshInstalledIdentities: vi.fn(),
             isInstalling: () => false,
-            isSelected: () => false,
+            isSelected: (key: string) => selected.has(key),
+            add: fixture.addToSelection,
+            remove: (key: string) => selected.delete(key),
+            clear: () => selected.clear(),
+            installSelected: vi.fn(async () => true),
+            setTarget: vi.fn(),
         }),
     }
 })
@@ -120,14 +164,58 @@ vi.mock('@modrinth/ui', async () => {
         ...Object.fromEntries(
             [
                 'BrowseInstallHeader',
+                'IconButton',
                 'NavTabs',
                 'Pagination',
-                'PopoutMenu',
                 'ProjectCardList',
+                'SearchSidebarFilter',
                 'SelectedProjectsFloatingBar',
                 'StyledInput',
+                'TagItem',
             ].map((name) => [name, container]),
         ),
+        PopoutMenu: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('div', [slots.default?.(), slots.menu?.({ hide: () => {} })]),
+        }),
+        Checkbox: defineComponent({
+            props: ['modelValue', 'label'],
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'button',
+                        {
+                            'data-checkbox': '',
+                            'aria-checked': String(!!props.modelValue),
+                            onClick: () => emit('update:modelValue', !props.modelValue),
+                        },
+                        props.label,
+                    ),
+        }),
+        ConfirmModal: defineComponent({
+            props: ['title', 'description', 'proceedLabel'],
+            setup: (props, { expose }) => {
+                expose({ show: () => {}, hide: () => {} })
+                return () =>
+                    h('div', { 'data-confirm-modal': '' }, [props.title, props.description])
+            },
+        }),
+        NewModal: defineComponent({
+            props: ['header'],
+            setup: (props, { slots, expose }) => {
+                expose({ show: () => {}, hide: () => {} })
+                return () =>
+                    h('div', { 'data-modal': '' }, [
+                        props.header,
+                        slots.default?.(),
+                        slots.actions?.(),
+                    ])
+            },
+        }),
         Pagination: defineComponent({
             props: ['page', 'count'],
             setup: (props) => () =>
@@ -158,17 +246,36 @@ vi.mock('@modrinth/ui', async () => {
         }),
         ProjectCard: defineComponent({
             props: ['title', 'link'],
-            setup: (props) => () => h('article', { 'data-favorite': '' }, props.title),
+            setup:
+                (props, { slots }) =>
+                () =>
+                    h('article', { 'data-favorite': '' }, [
+                        props.title,
+                        fixture.renderCardActions ? slots.actions?.() : undefined,
+                    ]),
         }),
-        getLatestMatchingInstallVersion: vi.fn(),
-        getTargetInstallPreferences: vi.fn(),
-        commonMessages: { retryButton: { defaultMessage: 'Retry' } },
+        getLatestMatchingInstallVersion: vi.fn(() => ({ id: 'version' })),
+        getTargetInstallPreferences: vi.fn(() => ({})),
+        commonMessages: {
+            retryButton: { defaultMessage: 'Retry' },
+            cancelButton: { defaultMessage: 'Cancel' },
+            installButton: { defaultMessage: 'Install' },
+            installingContentLabel: { defaultMessage: 'Installing content' },
+            validatingLabel: { defaultMessage: 'Validating' },
+        },
         defineMessage: (value: unknown) => value,
         defineMessages: (value: unknown) => value,
+        formatCategory: (_format: unknown, category: string) => category,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
         useStickyObserver: () => ({ isStuck: ref(false) }),
         useVIntl: () => ({
-            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+            formatMessage: (
+                message: { defaultMessage?: string },
+                values?: Record<string, unknown>,
+            ) =>
+                String(message.defaultMessage ?? '').replace(/\{(\w+)\}/g, (_match, key) =>
+                    String(values?.[key] ?? `{${key}}`),
+                ),
         }),
     }
 })
@@ -179,6 +286,12 @@ afterEach(() => {
     vi.clearAllMocks()
     fixture.query = {}
     fixture.resetStore()
+    fixture.setGroups([])
+    fixture.setMemberships({})
+    fixture.setTarget(null)
+    fixture.renderCardActions = false
+    fixture.addToSelection.mockReset().mockResolvedValue(true)
+    fixture.updateFavoriteGroups.mockReset().mockResolvedValue(undefined)
     fixture.prefetch.mockReset().mockResolvedValue(new Map())
 })
 function render() {
@@ -543,4 +656,93 @@ it('continues local search and type filtering after a collection refresh fails',
     query.kind = 'all'
     await flushPromises()
     expect(wrapper.text()).toContain('Saved archive')
+})
+
+it('filters favorites by a custom group and by ungrouped', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id === 'one' ? 'First' : 'Second'),
+    )
+    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
+    fixture.setMemberships({ 'modrinth:one': ['group-a'] })
+    fixture.query = { group: 'group-a' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))
+    expect(wrapper.find('[data-favorite]').text()).toBe('First')
+    expect(wrapper.text()).toContain('Group A')
+
+    const { useRoute } = await import('vue-router')
+    useRoute().query.group = 'none'
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))
+    expect(wrapper.find('[data-favorite]').text()).toBe('Second')
+})
+
+it('filters by categories with AND semantics', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) => ({
+        ...metadataFor(favorite, favorite.project_id === 'one' ? 'First' : 'Second'),
+        categories: favorite.project_id === 'one' ? ['adventure', 'technology'] : ['adventure'],
+    }))
+    fixture.query = { cat: 'adventure' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(2))
+
+    const { useRoute } = await import('vue-router')
+    useRoute().query.cat = 'adventure,technology'
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))
+    expect(wrapper.find('[data-favorite]').text()).toBe('First')
+})
+
+it('toggles group membership from the card group menu', async () => {
+    fixture.renderCardActions = true
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.find('[data-favorite]').exists()).toBe(true))
+    const checkbox = wrapper
+        .findAll('[data-checkbox]')
+        .find((node) => node.text().includes('Group A'))!
+    await checkbox.trigger('click')
+
+    expect(fixture.updateFavoriteGroups).toHaveBeenCalledWith('modrinth:one', ['group-a'], [])
+})
+
+it('selects every group member that is not already selected', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id === 'one' ? 'First' : 'Second'),
+    )
+    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
+    fixture.setMemberships({ 'modrinth:one': ['group-a'], 'modrinth:two': ['group-a'] })
+    fixture.setTarget({
+        id: 'instance-1',
+        name: 'Example',
+        loader: 'neoforge',
+        game_version: '1.21.1',
+        icon_path: null,
+    })
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+    fixture.query = { group: 'group-a' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all in group (2)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all in group'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(2))
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'modrinth', projectId: 'one' }),
+    )
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'modrinth', projectId: 'two' }),
+    )
 })

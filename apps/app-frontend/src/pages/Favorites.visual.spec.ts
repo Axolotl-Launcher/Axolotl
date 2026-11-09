@@ -8,6 +8,8 @@ import type { SourceProjectMetadata } from '@/helpers/resources'
 import Favorites from './Favorites.vue'
 
 const fixture = vi.hoisted(() => ({
+    locale: 'en-US',
+    translate: vi.fn(async (hits: { title: string }[], _locale: string) => hits),
     query: {} as Record<string, string>,
     push: vi.fn(),
     replace: vi.fn(),
@@ -55,6 +57,18 @@ vi.mock('@/helpers/page-transition', () => ({
         run()
     },
 }))
+vi.mock('@/i18n.config', () => ({
+    default: {
+        global: {
+            locale: {
+                get value() {
+                    return fixture.locale
+                },
+            },
+        },
+    },
+}))
+vi.mock('@/helpers/content-search', () => ({ translateSearchHitTitles: fixture.translate }))
 vi.mock('@/helpers/cache.js', () => ({ get_project: vi.fn(), get_version_many: vi.fn() }))
 vi.mock('@/helpers/curseforge', () => ({ getCurseForgeFiles: vi.fn() }))
 vi.mock('@/helpers/settings', () => ({
@@ -343,6 +357,8 @@ afterEach(() => {
     fixture.setTarget(null)
     fixture.renderCardActions = false
     fixture.installedKeys.clear()
+    fixture.locale = 'en-US'
+    fixture.translate.mockReset().mockImplementation(async (hits) => hits)
     fixture.resetSelection()
     fixture.addToSelection.mockReset().mockResolvedValue(true)
     fixture.installSelected.mockReset().mockResolvedValue(true)
@@ -945,6 +961,37 @@ it('shows progress and rejects a second select-all while one is running', async 
     await vi.waitFor(() => expect(wrapper.text()).not.toContain('Selecting'))
     expect(fixture.addToSelection).toHaveBeenCalledTimes(1)
     expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('shows and searches the Chinese name of a favorite', async () => {
+    fixture.locale = 'zh-CN'
+    fixture.translate.mockImplementation(async (hits) =>
+        hits.map((hit) => ({ ...hit, title: `钠 (${hit.title})` })),
+    )
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.query = { q: '钠' }
+
+    const wrapper = render()
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('钠 (Saved mod)'))
+    expect(fixture.translate.mock.calls[0][1]).toBe('zh-CN')
+})
+
+it('looks each favorite title up only once while projects are published', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('two'))
+
+    const looked = fixture.translate.mock.calls.flatMap(([hits]) =>
+        hits.map((hit) => (hit as unknown as { key: string }).key),
+    )
+    expect(looked.sort()).toEqual(['modrinth:one', 'modrinth:two'])
 })
 
 it('refreshes installed identities after restoring a target instance on mount', async () => {

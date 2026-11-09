@@ -59,6 +59,7 @@ import {
     prefetchContentFavorites,
     resolveContentFavorite,
 } from '@/helpers/content-favorites'
+import { translateSearchHitTitles } from '@/helpers/content-search'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { createProjectDetailsQuery } from '@/helpers/project-links'
@@ -69,6 +70,7 @@ import {
     setLastBrowseContentDisplayMode,
 } from '@/helpers/settings'
 import type { GameInstance } from '@/helpers/types'
+import i18n from '@/i18n.config'
 import { injectContentSelection, makeContentSelectionKey } from '@/providers/content-selection'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 import { isBrowseReturnSourcePath, useNavigationReturnStore } from '@/store/navigation-return'
@@ -141,6 +143,8 @@ const selectingFiltered = ref<{ completed: number; total: number } | null>(null)
 const stickyChromeRef = ref<HTMLElement | null>(null)
 const { isStuck: isChromeStuck } = useStickyObserver(stickyChromeRef, 'FavoritesToolbarChrome')
 const projects = shallowRef<FavoriteProject[]>([])
+const localizedTitles = shallowRef<ReadonlyMap<string, string>>(new Map())
+const requestedTitleLookups = new Set<string>()
 let projectsController: AbortController | null = null
 let disposed = false
 const loadingProjects = ref(false)
@@ -517,6 +521,40 @@ function toProject(favorite: ContentFavorite, metadata: SourceProjectMetadata): 
     }
 }
 
+function projectTitleKey(project: FavoriteProject) {
+    return `${project.provider}:${project.projectId}`
+}
+
+function displayTitle(project: FavoriteProject) {
+    return localizedTitles.value.get(projectTitleKey(project)) ?? project.title
+}
+
+// Projects are published one at a time, so only the new ones are looked up.
+watch(
+    projects,
+    (current) => {
+        const pending = current.flatMap((project) => {
+            const { provider } = project
+            const key = projectTitleKey(project)
+            if (
+                project.unavailable ||
+                requestedTitleLookups.has(key) ||
+                (provider !== 'modrinth' && provider !== 'curseforge')
+            )
+                return []
+            requestedTitleLookups.add(key)
+            return [{ key, provider, slug: project.slug, title: project.title }]
+        })
+        if (pending.length === 0) return
+        void translateSearchHitTitles(pending, i18n.global.locale.value).then((translated) => {
+            const next = new Map(localizedTitles.value)
+            for (const { key, title } of translated) next.set(key, title)
+            localizedTitles.value = next
+        })
+    },
+    { immediate: true },
+)
+
 function restoreCachedProjects() {
     if (!contentFavorites.loaded.value) return
     const cached = contentFavorites.favorites.value.flatMap((favorite) => {
@@ -781,7 +819,7 @@ function matchesFilter(
     const normalizedSearch = query.trim().toLocaleLowerCase()
     return (
         !normalizedSearch ||
-        [project.title, project.description, project.provider, project.projectId]
+        [displayTitle(project), project.description, project.provider, project.projectId]
             .join('\n')
             .toLocaleLowerCase()
             .includes(normalizedSearch)
@@ -798,6 +836,7 @@ watch(
         favoriteGroups.memberships,
         currentPage,
         loadingProjects,
+        localizedTitles,
     ],
     () => {
         const groupsReady = groupFilter.value === GROUP_ALL || favoriteGroups.loaded.value
@@ -972,7 +1011,7 @@ async function addProjectToSelection(project: FavoriteProject, target: GameInsta
         projectId: project.projectId,
         providerProjectId: project.projectId,
         contentType: project.favorite.content_type,
-        title: project.title,
+        title: displayTitle(project),
         iconUrl: project.iconUrl,
         slug: project.slug,
         preferences: getInstallPreferences(target, project.favorite.content_type),
@@ -1165,7 +1204,7 @@ function getProjectLink(project: FavoriteProject) {
     return {
         path,
         query: createProjectDetailsQuery(route.query, route.fullPath),
-        state: createProjectPreviewState(path, project.title),
+        state: createProjectPreviewState(path, displayTitle(project)),
     }
 }
 
@@ -1455,7 +1494,7 @@ onMounted(() => {
                             v-else
                             :layout="displayMode"
                             :link="getProjectLink(row.project)"
-                            :title="row.project.title"
+                            :title="displayTitle(row.project)"
                             :summary="row.project.description"
                             :icon-url="row.project.iconUrl"
                             :downloads="row.project.downloads"

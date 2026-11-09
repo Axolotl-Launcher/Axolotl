@@ -2365,14 +2365,13 @@
     {
       "file": "packages/app-lib/src/state/process.rs",
       "form": "tokio::spawn",
-      "count": 6,
+      "count": 5,
       "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: tokio::spawn(Process::react_to_process(",
         "parse_and_insert_server_join: tokio::spawn(async move {",
-        "react_to_process: tokio::spawn(async move {",
         "react_to_process: tokio::spawn(async move {"
       ]
     },

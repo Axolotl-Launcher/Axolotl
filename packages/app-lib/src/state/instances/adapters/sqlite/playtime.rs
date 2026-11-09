@@ -161,7 +161,7 @@ pub(crate) async fn upsert_daily_playtime(
     Ok(())
 }
 
-/// Adds playtime that has not been submitted yet; zero is a no-op.
+/// Adds locally recorded playtime while preserving the historical submitted total.
 pub(crate) async fn add_recent_playtime(
     instance_id: &str,
     seconds: u64,
@@ -192,48 +192,6 @@ pub(crate) async fn add_recent_playtime(
         max_playtime_before_increment,
         max_playtime,
         seconds,
-        modified,
-        instance_id,
-    )
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
-/// Moves the unsubmitted playtime into the submitted total; zero is a no-op.
-pub(crate) async fn mark_playtime_submitted(
-    instance_id: &str,
-    recent_time_played: u64,
-    pool: &SqlitePool,
-) -> crate::Result<()> {
-    if recent_time_played == 0 {
-        return Ok(());
-    }
-
-    let recent_time_played =
-        playtime_to_storage(recent_time_played, "recent_time_played")?;
-    let max_playtime = i64::MAX;
-    let max_playtime_before_increment = max_playtime - recent_time_played;
-    let modified = chrono::Utc::now().timestamp();
-
-    sqlx::query!(
-        "
-        UPDATE instances
-        SET
-            submitted_time_played = CASE
-                WHEN submitted_time_played < 0 THEN ?
-                WHEN submitted_time_played > ? THEN ?
-                ELSE submitted_time_played + ?
-            END,
-            recent_time_played = 0,
-            modified = ?
-        WHERE id = ?
-        ",
-        recent_time_played,
-        max_playtime_before_increment,
-        max_playtime,
-        recent_time_played,
         modified,
         instance_id,
     )

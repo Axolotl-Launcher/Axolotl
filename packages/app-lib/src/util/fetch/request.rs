@@ -1365,17 +1365,3 @@ async fn fetch_advanced_inner(
         attempt_budget,
     ))
 }
-
-#[tracing::instrument(skip_all)]
-pub async fn post_json(
-    url: &str,
-    json_body: serde_json::Value,
-    semaphore: &FetchSemaphore,
-) -> crate::Result<()> {
-    let _permit = semaphore.0.acquire().await?;
-
-    let req = INSECURE_REQWEST_CLIENT.post(url).json(&json_body);
-
-    req.send().await?.error_for_status()?;
-    Ok(())
-}

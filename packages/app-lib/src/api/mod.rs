@@ -6,7 +6,6 @@ pub mod content_favorites;
 pub mod content_search;
 pub mod curseforge;
 pub mod drop_classifier;
-pub mod friends;
 pub mod google_ip;
 pub mod handler;
 pub mod hongshi;
@@ -67,14 +66,12 @@ pub mod data {
         InstanceUpgradeSolutionChoice, InstanceUpgradeSolutionKind,
         JavaVersion, LinkedModpackInfo, LoaderComponent, LoaderComponentKind,
         LoaderComponentRole, ManualDownloadOperationKind, ManualDownloadState,
-        MemorySettings, ModLoader, ModrinthCredentials, Organization,
-        OwnerType, PackMemberMaterializationState, PackMemberOverrideKind,
+        MemorySettings, ModLoader, Organization, OwnerType,
+        PackMemberMaterializationState, PackMemberOverrideKind,
         PendingManualDownload, PrivacySettings, ProcessMetadata, Project,
         ProjectType, ProjectV3, SearchResult, SearchResults, SearchResultsV3,
-        Settings, ShaderRuntime, TeamMember, Theme, User, UserFriend, Version,
-        WindowSize,
+        Settings, ShaderRuntime, TeamMember, Theme, User, Version, WindowSize,
     };
-    pub use ariadne::users::UserStatus;
     pub use content_management::{
         ContentType, ResolutionPreferences, ResolveContentPlan,
         ResolveContentRequest,

@@ -1,15 +1,16 @@
-//! The Modrinth account the launcher is signed in with.
+//! Historical Modrinth sessions retained for migration and log redaction.
 //!
 //! The session id is kept in the system credential store, and the row's
 //! `secrets_externalized` says whether the store holds it; a session the store
-//! would not take stays in its column.
+//! would not take stays in its column. These records no longer authenticate
+//! launcher requests.
 
 use sqlx::SqliteConnection;
 
 use super::Collection;
 use super::secrets::{self, Stored, Undo};
 
-/// The Modrinth sessions, one per account.
+/// Historical Modrinth sessions, one per account.
 pub(crate) struct ModrinthUsers;
 
 /// The bit of `secrets_externalized` that says the store holds the session id.

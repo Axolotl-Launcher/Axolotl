@@ -1133,19 +1133,6 @@ fn main() {
                     ),
             )
             .plugin(
-                "friends",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "friends",
-                        "friend_statuses",
-                        "add_friend",
-                        "remove_friend",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
                 "telemetry",
                 InlinedPlugin::new()
                     .commands(&["notify_online"])

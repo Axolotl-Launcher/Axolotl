@@ -741,11 +741,11 @@ fn censor_ip_addresses(text: String) -> String {
 mod tests {
     use super::*;
     use crate::state::Credentials;
-    use crate::state::ModrinthCredentials;
     use crate::state::store::Collection as _;
     use crate::state::store::minecraft_users::{
         AccountType as StoredAccountType, MinecraftUserRecord, MinecraftUsers,
     };
+    use crate::state::store::modrinth_users::ModrinthUserRecord;
 
     async fn test_pool() -> sqlx::SqlitePool {
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
@@ -998,13 +998,15 @@ mod tests {
             "ygg-refresh",
         )
         .await;
-        ModrinthCredentials {
-            session: "modrinth-session".to_string(),
-            expires: chrono::Utc::now(),
-            user_id: "test-user".to_string(),
-            active: true,
-        }
-        .upsert(&handle)
+        ModrinthUsers::set(
+            &handle,
+            &"test-user".to_string(),
+            Some(&ModrinthUserRecord {
+                session_id: "modrinth-session".to_string(),
+                expires: chrono::Utc::now().timestamp(),
+                active: true,
+            }),
+        )
         .await
         .unwrap();
         let report = serde_json::json!({

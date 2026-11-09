@@ -24,7 +24,6 @@ import { LabrinthAttributionInternalModule } from './labrinth/attribution/intern
 import { LabrinthCollectionsModule } from './labrinth/collections'
 import { LabrinthContentV3Module } from './labrinth/content/v3'
 import { LabrinthExternalProjectsInternalModule } from './labrinth/external-projects/internal'
-import { LabrinthFriendsV3Module } from './labrinth/friends/v3'
 import { LabrinthGlobalsInternalModule } from './labrinth/globals/internal'
 import { LabrinthImagesV3Module } from './labrinth/images/v3'
 import { LabrinthLimitsV3Module } from './labrinth/limits/v3'
@@ -88,7 +87,6 @@ export const MODULE_REGISTRY = {
     labrinth_collections: LabrinthCollectionsModule,
     labrinth_content_v3: LabrinthContentV3Module,
     labrinth_external_projects_internal: LabrinthExternalProjectsInternalModule,
-    labrinth_friends_v3: LabrinthFriendsV3Module,
     labrinth_globals_internal: LabrinthGlobalsInternalModule,
     labrinth_images_v3: LabrinthImagesV3Module,
     labrinth_moderation_internal: LabrinthModerationInternalModule,

@@ -42,7 +42,6 @@ pub mod datapacks;
 pub mod drop;
 pub mod files;
 pub mod fonts;
-pub mod friends;
 pub mod resources;
 pub mod worlds;
 

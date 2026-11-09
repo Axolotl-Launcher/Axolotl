@@ -529,8 +529,16 @@ function toProject(favorite: ContentFavorite, metadata: SourceProjectMetadata): 
     }
 }
 
+// A translation depends on the language and on the source title and slug, so a
+// change to any of them is looked up again.
 function projectTitleKey(project: FavoriteProject) {
-    return `${project.provider}:${project.projectId}`
+    return [
+        i18n.global.locale.value,
+        project.provider,
+        project.projectId,
+        project.slug,
+        project.title,
+    ].join(':')
 }
 
 function displayTitle(project: FavoriteProject) {
@@ -539,8 +547,8 @@ function displayTitle(project: FavoriteProject) {
 
 // Projects are published one at a time, so only the new ones are looked up.
 watch(
-    projects,
-    (current) => {
+    [projects, () => i18n.global.locale.value] as const,
+    ([current, locale]) => {
         const pending = current.flatMap((project) => {
             const { provider } = project
             const key = projectTitleKey(project)
@@ -554,11 +562,15 @@ watch(
             return [{ key, provider, slug: project.slug, title: project.title }]
         })
         if (pending.length === 0) return
-        void translateSearchHitTitles(pending, i18n.global.locale.value).then((translated) => {
-            const next = new Map(localizedTitles.value)
-            for (const { key, title } of translated) next.set(key, title)
-            localizedTitles.value = next
-        })
+        translateSearchHitTitles(pending, locale, { rethrowLookupFailure: true })
+            .then((translated) => {
+                const next = new Map(localizedTitles.value)
+                for (const { key, title } of translated) next.set(key, title)
+                localizedTitles.value = next
+            })
+            .catch(() => {
+                for (const { key } of pending) requestedTitleLookups.delete(key)
+            })
     },
     { immediate: true },
 )

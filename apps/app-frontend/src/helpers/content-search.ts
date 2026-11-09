@@ -101,10 +101,12 @@ export function bilingualTitle(chineseName: string, originalTitle: string) {
  * resolving names from the bundled wiki dictionary by project slug. Hits are
  * returned unchanged unless the locale is zh-CN; hits already carrying a
  * bilingual title (e.g. from the Chinese search flow) are left untouched.
+ * A failed lookup also leaves them unchanged, unless the caller wants to retry
+ * and asks for the failure with `rethrowLookupFailure`.
  */
 export async function translateSearchHitTitles<
     T extends { slug?: string | null; title: string; provider: 'modrinth' | 'curseforge' },
->(hits: T[], locale: string): Promise<T[]> {
+>(hits: T[], locale: string, options: { rethrowLookupFailure?: boolean } = {}): Promise<T[]> {
     if (locale !== 'zh-CN' || hits.length === 0) return hits
 
     const modrinthSlugs: string[] = []
@@ -116,7 +118,12 @@ export async function translateSearchHitTitles<
     }
     if (modrinthSlugs.length === 0 && curseforgeSlugs.length === 0) return hits
 
-    const lookup = await lookupChineseContentNames(modrinthSlugs, curseforgeSlugs).catch(() => null)
+    const lookup = await lookupChineseContentNames(modrinthSlugs, curseforgeSlugs).catch(
+        (error: unknown) => {
+            if (options.rethrowLookupFailure) throw error
+            return null
+        },
+    )
     if (!lookup) return hits
 
     return hits.map((hit) => {

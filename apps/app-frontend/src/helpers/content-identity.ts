@@ -95,6 +95,7 @@ export function contentIdentityInputsFromSnapshot(
 ): ContentIdentityInput[] {
     const inputs: ContentIdentityInput[] = []
     for (const item of items) {
+        if (item.materializationState && item.materializationState !== 'present') continue
         const references = new Map<
             string,
             { provider: ContentIdentityProvider; projectId: string }
@@ -102,7 +103,6 @@ export function contentIdentityInputsFromSnapshot(
         const artifactProject = item.artifactRef?.release.project
         if (
             artifactProject &&
-            (!item.materializationState || item.materializationState === 'present') &&
             ['modrinth', 'curseforge', 'mcarchive'].includes(artifactProject.source)
         ) {
             const reference = {

@@ -1,8 +1,9 @@
 import { config, flushPromises, mount } from '@vue/test-utils'
 import { IntlMessageFormat } from 'intl-messageformat'
 import { expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, effectScope, h, nextTick, ref } from 'vue'
 
+import { get_content_snapshot } from '@/helpers/instance'
 import { RESOURCE_ANALYSIS_TIMEOUT_MS } from '@/helpers/resource-analysis-request'
 import {
     resourceAnalysisClose,
@@ -17,9 +18,11 @@ import {
     resourceQueuePlan,
     resourceRevisePlan,
 } from '@/helpers/resources'
+import type { GameInstance } from '@/helpers/types'
 import { get_instance_worlds } from '@/helpers/worlds'
 import zhMessages from '@/locales/zh-CN/index.json'
 import { createContentAnalysis } from '@/providers/content-analysis'
+import { createContentSelection } from '@/providers/content-selection'
 
 import ResourceOperationPreviewModal from './ResourceOperationPreviewModal.vue'
 
@@ -43,10 +46,34 @@ vi.mock('@/helpers/resources', () => ({
     resourceProjectDocuments: vi.fn().mockResolvedValue([]),
     resourceQueuePlan: vi.fn(),
     resourceRevisePlan: vi.fn(),
+    sourceResource: (source: string, projectId: string) => ({
+        kind: 'source',
+        project: { source, projectId },
+    }),
 }))
-vi.mock('@/helpers/instance', () => ({ refresh_content: vi.fn() }))
+vi.mock('@/helpers/instance', () => ({
+    refresh_content: vi.fn(),
+    get_content_snapshot: vi.fn(),
+    list: vi.fn(),
+    queue_content_batch: vi.fn(),
+}))
+vi.mock('@/helpers/cache.js', () => ({
+    get_project_many: vi.fn().mockResolvedValue([]),
+    get_version_many: vi.fn(),
+}))
+vi.mock('@/helpers/curseforge', () => ({
+    getCurseForgeProjects: vi.fn().mockResolvedValue([]),
+    getCurseForgeFile: vi.fn(),
+    getCurseForgeFiles: vi.fn(),
+}))
+vi.mock('@/helpers/settings', () => ({
+    setBrowseDefaultInstanceId: vi.fn(),
+    getBrowseDefaultInstanceId: vi.fn(),
+}))
+vi.mock('@/store/state', () => ({ useTheming: () => ({ getFeatureFlag: () => true }) }))
 vi.mock('@/helpers/worlds', () => ({ get_instance_worlds: vi.fn().mockResolvedValue([]) }))
 vi.mock('@modrinth/ui', () => ({
+    createContext: () => [vi.fn(), vi.fn()],
     Admonition: defineComponent({
         props: ['header', 'type'],
         setup:
@@ -474,6 +501,254 @@ it('uses the cart analysis and closes its preview when that cart snapshot is inv
         controller.abort()
         await expect(result).resolves.toBeNull()
         expect(resourceQueuePlan).not.toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('keeps the actual cart preview installable after first snapshot, background recognition and history cleanup', async () => {
+    ready()
+    vi.mocked(resourceAnalysisOpen).mockResolvedValue('cart-session')
+    vi.mocked(resourceAnalysisUpdate).mockResolvedValue(plan())
+    vi.mocked(resourcePrepareOperation).mockResolvedValue(plan())
+    const scope = effectScope()
+    const jobs = ref([{ job_id: 'old', status: 'succeeded', instance_id: 'instance' }])
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs } as never,
+        }),
+    )!
+    const wrapper = mount(ResourceOperationPreviewModal)
+    selection.setResourceInstallPreview(wrapper.vm)
+    selection.setTarget({
+        id: 'instance',
+        name: 'Instance',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    } as GameInstance)
+    await selection.add({
+        key: 'modrinth:root',
+        provider: 'modrinth',
+        projectId: 'root',
+        providerProjectId: 'root',
+        title: 'Root',
+        contentType: 'mod',
+    })
+    const pending = selection.installSelected()
+    const snapshot = {
+        revision: 1,
+        items: [
+            {
+                expectedRelativePath: 'mods/local.jar',
+                materializationState: 'present',
+                content: { id: 'sha1', file_name: 'local.jar', provider_refs: [] },
+            },
+        ],
+    }
+    try {
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(true)
+        vi.mocked(get_content_snapshot).mockResolvedValue(snapshot as never)
+        await selection.refreshInstalledIdentities()
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            ...snapshot,
+            revision: 2,
+            items: [{ ...snapshot.items[0], artifactRef: reference }],
+        } as never)
+        await selection.refreshInstalledIdentities()
+        jobs.value = []
+        await nextTick()
+        expect(wrapper.find('section').exists()).toBe(true)
+        const queue = wrapper.findAll('button').find((button) => button.text() === 'Queue changes')!
+        expect(queue.attributes('disabled')).toBeUndefined()
+        vi.mocked(resourceQueuePlan).mockResolvedValueOnce({ job_id: 'accepted' } as never)
+        await queue.trigger('click')
+        expect(await pending).toBe(true)
+        expect(resourceQueuePlan).toHaveBeenCalledOnce()
+        expect(selection.items.value.size).toBe(0)
+    } finally {
+        wrapper.unmount()
+        scope.stop()
+    }
+})
+
+it('does not lose an accepted queue result when a real cart content change arrives during commit', async () => {
+    ready()
+    vi.mocked(resourceAnalysisOpen).mockResolvedValue('cart-session')
+    vi.mocked(resourceAnalysisUpdate).mockResolvedValue(plan())
+    vi.mocked(resourcePrepareOperation).mockResolvedValue(plan())
+    const scope = effectScope()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    const wrapper = mount(ResourceOperationPreviewModal)
+    selection.setResourceInstallPreview(wrapper.vm)
+    selection.setTarget({
+        id: 'instance',
+        name: 'Instance',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    } as GameInstance)
+    vi.mocked(get_content_snapshot).mockResolvedValue({ items: [] } as never)
+    await selection.refreshInstalledIdentities()
+    await selection.add({
+        key: 'modrinth:root',
+        provider: 'modrinth',
+        projectId: 'root',
+        providerProjectId: 'root',
+        title: 'Root',
+        contentType: 'mod',
+    })
+    const pending = selection.installSelected()
+    let finish!: (value: never) => void
+    vi.mocked(resourceQueuePlan).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finish = resolve
+            }),
+    )
+    try {
+        await flushPromises()
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Queue changes')!
+            .trigger('click')
+        await flushPromises()
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            items: [
+                {
+                    expectedRelativePath: 'mods/new.jar',
+                    content: { id: 'new', file_name: 'new.jar', provider_refs: [] },
+                },
+            ],
+        } as never)
+        await selection.refreshInstalledIdentities()
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(true)
+        expect(
+            wrapper
+                .findAll('button')
+                .find((button) => button.text() === 'Cancel')!
+                .attributes('disabled'),
+        ).toBeDefined()
+        finish({ job_id: 'accepted' } as never)
+        expect(await pending).toBe(true)
+        expect(resourceQueuePlan).toHaveBeenCalledOnce()
+        expect(selection.items.value.size).toBe(0)
+    } finally {
+        wrapper.unmount()
+        scope.stop()
+    }
+})
+
+it('cancels pending preparation when the actual cart file snapshot changes and ignores its late plan', async () => {
+    ready()
+    vi.mocked(resourceAnalysisOpen).mockResolvedValue('cart-session')
+    let finishAnalysis!: (value: ResourceOperationPlan) => void
+    vi.mocked(resourceAnalysisUpdate).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finishAnalysis = resolve
+            }),
+    )
+    const scope = effectScope()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    const wrapper = mount(ResourceOperationPreviewModal)
+    selection.setResourceInstallPreview(wrapper.vm)
+    selection.setTarget({
+        id: 'instance',
+        name: 'Instance',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    } as GameInstance)
+    vi.mocked(get_content_snapshot).mockResolvedValue({ items: [] } as never)
+    await selection.refreshInstalledIdentities()
+    await selection.add({
+        key: 'modrinth:root',
+        provider: 'modrinth',
+        projectId: 'root',
+        providerProjectId: 'root',
+        title: 'Root',
+        contentType: 'mod',
+    })
+    const pending = selection.installSelected()
+    try {
+        await flushPromises()
+        expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(true)
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            items: [
+                {
+                    expectedRelativePath: 'mods/new.jar',
+                    content: { id: 'new', file_name: 'new.jar', provider_refs: [] },
+                },
+            ],
+        } as never)
+        await selection.refreshInstalledIdentities()
+        expect(await pending).toBe(false)
+        finishAnalysis(plan())
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(false)
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+        expect(selection.items.value.size).toBe(1)
+    } finally {
+        wrapper.unmount()
+        scope.stop()
+    }
+})
+
+it('retries a stale commit in place after cart invalidation and still allows cancellation on refresh failure', async () => {
+    ready()
+    const invalidation = new AbortController()
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.showInstallSelection({
+        instanceId: 'instance',
+        instanceName: 'Instance',
+        selections: [],
+        installDependencies: true,
+        analysis: {
+            signal: invalidation.signal,
+            prepare: vi.fn().mockResolvedValue(plan()),
+            cancel: vi.fn(),
+        },
+    })
+    let rejectQueue!: (value: unknown) => void
+    vi.mocked(resourceQueuePlan).mockImplementationOnce(
+        () =>
+            new Promise((_, reject) => {
+                rejectQueue = reject
+            }),
+    )
+    try {
+        await flushPromises()
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Queue changes')!
+            .trigger('click')
+        await flushPromises()
+        invalidation.abort()
+        vi.mocked(resourcePrepareOperation).mockRejectedValueOnce(new Error('refresh failed'))
+        rejectQueue(new Error('instance changed after review'))
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(true)
+        expect(wrapper.text()).toContain('The operation could not be completed.')
+        expect(resourcePrepareOperation).toHaveBeenCalledOnce()
+        const cancel = wrapper.findAll('button').find((button) => button.text() === 'Cancel')!
+        expect(cancel.attributes('disabled')).toBeUndefined()
+        await cancel.trigger('click')
+        expect(await result).toBeNull()
+        expect(resourceQueuePlan).toHaveBeenCalledOnce()
     } finally {
         wrapper.unmount()
     }

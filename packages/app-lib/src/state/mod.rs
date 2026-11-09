@@ -761,7 +761,6 @@ impl State {
                     state.discord_rpc.clear_to_default(true),
                     instances::refresh_all_instances(),
                     Settings::migrate(&state.data),
-                    ModrinthCredentials::refresh_all(),
                 );
 
                 if let Err(e) = res {

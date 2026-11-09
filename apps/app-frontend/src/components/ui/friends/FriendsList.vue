@@ -15,6 +15,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 
 import FriendsSection from '@/components/ui/friends/FriendsSection.vue'
 import { friend_listener } from '@/helpers/events'
+import type { ModrinthCredentials } from '@/helpers/friends'
 import {
     add_friend,
     friends,
@@ -22,7 +23,6 @@ import {
     remove_friend,
     transformFriends,
 } from '@/helpers/friends.ts'
-import type { ModrinthCredentials } from '@/helpers/mr_auth'
 
 const { formatMessage } = useVIntl()
 

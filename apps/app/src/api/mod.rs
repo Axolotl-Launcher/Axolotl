@@ -15,7 +15,6 @@ pub mod mcp;
 pub mod metadata;
 pub mod minecraft_skins;
 pub mod mod_translation;
-pub mod mr_auth;
 pub mod multiplayer;
 pub mod planet_minecraft;
 pub mod process;

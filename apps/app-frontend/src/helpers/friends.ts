@@ -4,7 +4,12 @@ import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 
 import { get_user_many } from '@/helpers/cache'
-import type { ModrinthCredentials } from '@/helpers/mr_auth'
+export type ModrinthCredentials = {
+    session: string
+    expires: string
+    user_id: string
+    active: boolean
+}
 
 export type UserStatus = {
     user_id: string

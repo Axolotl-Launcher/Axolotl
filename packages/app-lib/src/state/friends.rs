@@ -75,8 +75,7 @@ impl FriendsSocket {
         semaphore: &FetchSemaphore,
         process_manager: &ProcessManager,
     ) -> crate::Result<()> {
-        let credentials =
-            ModrinthCredentials::get_and_refresh(handle, semaphore).await?;
+        let credentials = ModrinthCredentials::get_active(handle).await?;
 
         if let Some(credentials) = credentials {
             let mut request = format!(

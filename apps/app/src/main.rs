@@ -883,7 +883,6 @@ fn main() {
         .plugin(api::third_party_accounts::init())
         .plugin(api::schematics::init())
         .plugin(api::auth::init())
-        .plugin(api::mr_auth::init())
         .plugin(api::import::init())
         .plugin(api::install::init())
         .plugin(api::instance::init())

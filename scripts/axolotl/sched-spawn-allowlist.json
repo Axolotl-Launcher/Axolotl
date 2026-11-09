@@ -147,15 +147,6 @@
       ]
     },
     {
-      "file": "apps/app/src/api/mr_auth.rs",
-      "form": "tokio::spawn",
-      "count": 1,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "modrinth_login: let auth_code = tokio::spawn(oauth_utils::auth_code_reply::listen("
-      ]
-    },
-    {
       "file": "apps/app/src/api/resources.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 1,

@@ -46,6 +46,9 @@ for (const root of roots) {
 
 const tauriConfig = JSON.parse(await readFile('apps/app/tauri.conf.json', 'utf8'))
 const frontendConfig = await readFile('apps/app-frontend/src/config.ts', 'utf8')
+const shellMain = await readFile('apps/app/src/main.rs', 'utf8')
+const shellBuild = await readFile('apps/app/build.rs', 'utf8')
+const pluginCapabilities = JSON.parse(await readFile('apps/app/capabilities/plugins.json', 'utf8'))
 const requiredInvariants = [
     ['product name', tauriConfig.productName === 'Axolotl Launcher'],
     ['bundle identifier', tauriConfig.identifier === 'red.ghs.axolotl'],
@@ -58,8 +61,12 @@ const requiredInvariants = [
         frontendConfig.includes('Axolotl-Launcher/${version} (${os})'),
     ],
     [
-        'private Modrinth services disabled',
-        frontendConfig.includes('privateModrinthServices: false'),
+        'private Modrinth login removed',
+        !shellMain.includes('api::mr_auth::init') &&
+            !shellBuild.includes('"mr-auth"') &&
+            !pluginCapabilities.permissions.some((permission) =>
+                typeof permission === 'string' ? permission.startsWith('mr-auth:') : false,
+            ),
     ],
     ['GHS telemetry disabled', frontendConfig.includes('ghsTelemetry: false')],
 ]

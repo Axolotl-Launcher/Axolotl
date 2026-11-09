@@ -21,7 +21,6 @@ pub mod metadata;
 pub mod minecraft_auth;
 pub mod minecraft_news;
 pub mod minecraft_skins;
-pub mod mr_auth;
 pub mod multiplayer;
 pub mod pack;
 pub mod planet_minecraft;
@@ -89,8 +88,8 @@ pub mod prelude {
         event::CommandPayload,
         install, instance,
         jre::{self, JdkVersionInfo},
-        metadata, minecraft_auth, mr_auth, pack, process, server_address,
-        servers, settings,
+        metadata, minecraft_auth, pack, process, server_address, servers,
+        settings,
         state::{ReleaseChannel, db_backup::app_db_backup_dir},
         translation,
         util::{

@@ -21,8 +21,6 @@ import { LabrinthVersionsV2Module, LabrinthVersionsV3Module } from './labrinth'
 import { LabrinthAffiliateInternalModule } from './labrinth/affiliate/internal'
 import { LabrinthAnalyticsV3Module } from './labrinth/analytics/v3'
 import { LabrinthAttributionInternalModule } from './labrinth/attribution/internal'
-import { LabrinthAuthInternalModule } from './labrinth/auth/internal'
-import { LabrinthAuthV2Module } from './labrinth/auth/v2'
 import { LabrinthCollectionsModule } from './labrinth/collections'
 import { LabrinthContentV3Module } from './labrinth/content/v3'
 import { LabrinthExternalProjectsInternalModule } from './labrinth/external-projects/internal'
@@ -32,7 +30,6 @@ import { LabrinthImagesV3Module } from './labrinth/images/v3'
 import { LabrinthLimitsV3Module } from './labrinth/limits/v3'
 import { LabrinthModerationInternalModule } from './labrinth/moderation/internal'
 import { LabrinthNotificationsV2Module } from './labrinth/notifications/v2'
-import { LabrinthOAuthInternalModule } from './labrinth/oauth/internal'
 import { LabrinthOrganizationsV3Module } from './labrinth/organizations/v3'
 import { LabrinthPatsV2Module } from './labrinth/pats/v2'
 import { LabrinthPayoutV3Module } from './labrinth/payout/v3'
@@ -41,7 +38,6 @@ import { LabrinthProjectsV2Module } from './labrinth/projects/v2'
 import { LabrinthProjectsV3Module } from './labrinth/projects/v3'
 import { LabrinthReportsV3Module } from './labrinth/reports/v3'
 import { LabrinthServerPingInternalModule } from './labrinth/server-ping/internal'
-import { LabrinthSessionsV2Module } from './labrinth/sessions/v2'
 import { LabrinthStateModule } from './labrinth/state'
 import { LabrinthTagsV2Module } from './labrinth/tags/v2'
 import { LabrinthTeamsV2Module } from './labrinth/teams/v2'
@@ -88,8 +84,6 @@ export const MODULE_REGISTRY = {
     kyros_upload_sessions_v1: KyrosUploadSessionsV1Module,
     labrinth_affiliate_internal: LabrinthAffiliateInternalModule,
     labrinth_analytics_v3: LabrinthAnalyticsV3Module,
-    labrinth_auth_internal: LabrinthAuthInternalModule,
-    labrinth_auth_v2: LabrinthAuthV2Module,
     labrinth_attribution_internal: LabrinthAttributionInternalModule,
     labrinth_collections: LabrinthCollectionsModule,
     labrinth_content_v3: LabrinthContentV3Module,
@@ -99,7 +93,6 @@ export const MODULE_REGISTRY = {
     labrinth_images_v3: LabrinthImagesV3Module,
     labrinth_moderation_internal: LabrinthModerationInternalModule,
     labrinth_notifications_v2: LabrinthNotificationsV2Module,
-    labrinth_oauth_internal: LabrinthOAuthInternalModule,
     labrinth_organizations_v3: LabrinthOrganizationsV3Module,
     labrinth_pats_v2: LabrinthPatsV2Module,
     labrinth_limits_v3: LabrinthLimitsV3Module,
@@ -109,7 +102,6 @@ export const MODULE_REGISTRY = {
     labrinth_projects_v3: LabrinthProjectsV3Module,
     labrinth_reports_v3: LabrinthReportsV3Module,
     labrinth_server_ping_internal: LabrinthServerPingInternalModule,
-    labrinth_sessions_v2: LabrinthSessionsV2Module,
     labrinth_state: LabrinthStateModule,
     labrinth_tags_v2: LabrinthTagsV2Module,
     labrinth_teams_v2: LabrinthTeamsV2Module,

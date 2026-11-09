@@ -112,7 +112,6 @@ async fn try_segmented_native_attempt(
     route_index: usize,
     route: &DownloadRoute,
     part_path: &Path,
-    credentials: Option<&crate::state::ModrinthCredentials>,
     session: &mut NativeDownloadSession,
     retry_with_single_thread: bool,
     allow_low_throughput_abort: bool,
@@ -175,7 +174,6 @@ async fn try_segmented_native_attempt(
                     size,
                     part_path,
                     semaphore,
-                    credentials,
                     &HTTP1_NO_REDIRECT_REQWEST_CLIENT,
                     &HTTP1_DIRECT_REQWEST_CLIENT,
                     session.attempts,
@@ -485,7 +483,6 @@ pub(crate) async fn run_native_download_attempts(
     part_path: PathBuf,
     h2_failed_nonofficial: Option<String>,
 ) -> crate::Result<DownloadResult> {
-    let credentials: Option<crate::state::ModrinthCredentials> = None;
     let (mut session, mut h2_failed_nonofficial) =
         NativeDownloadSession::new(routes.len(), h2_failed_nonofficial);
     if let Some(failed_route) = h2_failed_nonofficial.take() {
@@ -557,7 +554,6 @@ pub(crate) async fn run_native_download_attempts(
                 route_index,
                 route,
                 &part_path,
-                credentials.as_ref(),
                 &mut session,
                 retry_with_single_thread,
             )
@@ -606,7 +602,6 @@ async fn run_native_route_attempts(
     route_index: usize,
     route: &DownloadRoute,
     part_path: &Path,
-    credentials: Option<&crate::state::ModrinthCredentials>,
     session: &mut NativeDownloadSession,
     retry_with_single_thread: bool,
 ) -> crate::Result<NativeRouteAttempt> {
@@ -649,7 +644,6 @@ async fn run_native_route_attempts(
             route_index,
             route,
             part_path,
-            credentials,
             session,
             retry_with_single_thread,
             allow_low_throughput_abort,
@@ -756,7 +750,6 @@ async fn run_native_route_attempts(
                     send_path_request_with_clients(
                         &attempt_route,
                         request.header.as_ref(),
-                        credentials,
                         request.download_meta.as_ref(),
                         (resume_offset > 0).then_some(resume_offset),
                         None,
@@ -768,7 +761,6 @@ async fn run_native_route_attempts(
                     send_path_request(
                         &attempt_route,
                         request.header.as_ref(),
-                        credentials,
                         request.download_meta.as_ref(),
                         (resume_offset > 0).then_some(resume_offset),
                         None,
@@ -985,7 +977,6 @@ async fn run_native_route_attempts(
                 route_index,
                 route,
                 part_path,
-                credentials,
                 session,
                 false,
                 allow_low_throughput_abort,
@@ -1310,7 +1301,7 @@ async fn run_native_route_attempts(
                         alternate_probe = Some(Box::pin(probe_recovery_route(
                             request, route, &routes[route_index + 1..],
                             bytes_per_second, total_size, downloaded,
-                            downgrade_slow_http2, credentials, semaphore,
+                            downgrade_slow_http2, semaphore,
                         )));
                     }
                     if (allow_low_throughput_abort || downgrade_slow_http2)
@@ -1422,7 +1413,6 @@ async fn run_native_route_attempts(
                 route_index,
                 route,
                 part_path,
-                credentials,
                 session,
                 retry_with_single_thread,
                 allow_low_throughput_abort,

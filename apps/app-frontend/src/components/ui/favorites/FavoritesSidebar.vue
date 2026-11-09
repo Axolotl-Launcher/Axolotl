@@ -106,7 +106,7 @@ function confirmDelete() {
 <template>
     <aside class="favorites-sidebar">
         <section class="flex min-w-0 flex-col gap-2">
-            <h2 class="m-0 text-sm font-semibold text-[var(--color-text-secondary)]">
+            <h2 class="m-0 text-sm font-semibold text-[var(--color-text-tertiary)]">
                 {{ formatMessage(messages.groupsTitle) }}
             </h2>
 
@@ -189,13 +189,13 @@ function confirmDelete() {
                 @on-close="setCategoryFilterOpen(false)"
             >
                 <template #header>
-                    <h2 class="m-0 text-sm font-semibold text-[var(--color-text-secondary)]">
+                    <h2 class="m-0 text-sm font-semibold text-[var(--color-text-tertiary)]">
                         {{ formatMessage(messages.categoriesTitle) }}
                     </h2>
                 </template>
             </SearchSidebarFilter>
             <template v-else>
-                <h2 class="m-0 text-sm font-semibold text-[var(--color-text-secondary)]">
+                <h2 class="m-0 text-sm font-semibold text-[var(--color-text-tertiary)]">
                     {{ formatMessage(messages.categoriesTitle) }}
                 </h2>
                 <p class="m-0 px-1 text-sm text-[var(--color-text-tertiary)]">

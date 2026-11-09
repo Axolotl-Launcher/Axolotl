@@ -58,7 +58,7 @@ fn record_of(row: Row) -> Option<(SchedulerTagKey, SchedulerTagRecord)> {
             id,
             %level,
             %owner,
-            "Ignoring a scheduling tag whose level is unknown"
+            "A scheduling tag carries a level this build does not know"
         );
         return None;
     };
@@ -85,6 +85,11 @@ impl Collection for SchedulerTags {
         scope == key
     }
 
+    /// `Ok(None)` means the key holds no row. A row that exists but carries a
+    /// level this build does not know is an error instead, so a caller cannot
+    /// mistake it for an absent key and rebuild what it could not read.
+    /// `read_all` still logs and skips such a row: one of them must not stop
+    /// the rest of the collection from being read.
     async fn read(
         conn: &mut SqliteConnection,
         key: &Self::Key,
@@ -94,7 +99,16 @@ impl Collection for SchedulerTags {
                 .bind(key)
                 .fetch_optional(&mut *conn)
                 .await?;
-        Ok(row.and_then(record_of).map(|(_, record)| record))
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        match record_of(row) {
+            Some((_, record)) => Ok(Some(record)),
+            None => Err(crate::ErrorKind::InputError(format!(
+                "Scheduling tag {key} has a level this build does not know"
+            ))
+            .into()),
+        }
     }
 
     async fn write(

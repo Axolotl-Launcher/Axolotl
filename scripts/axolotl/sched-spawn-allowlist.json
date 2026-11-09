@@ -2180,6 +2180,16 @@
       ]
     },
     {
+      "file": "packages/app-lib/src/state/favorite_groups.rs",
+      "form": "std::fs import",
+      "count": 2,
+      "reason": "favorite group store mirrors the instance group JSON store: synchronous file I/O through an imported std::fs name; it is not held in L0 or inside a critical section",
+      "sites": [
+        "read_from_disk: match fs::read_to_string(&path)",
+        "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/state/instances/adapters/filesystem.rs",
       "form": "std::fs",
       "count": 4,

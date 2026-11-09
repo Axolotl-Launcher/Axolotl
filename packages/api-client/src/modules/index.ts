@@ -1,22 +1,6 @@
 import type { AbstractModrinthClient } from '../core/abstract-client'
 import type { AbstractModule } from '../core/abstract-module'
-import { ArchonActionsV1Module } from './archon/actions/v1'
-import { ArchonBackupsV1Module } from './archon/backups/v1'
-import { ArchonBackupsQueueV1Module } from './archon/backups-queue/v1'
-import { ArchonContentV1Module } from './archon/content/v1'
-import { ArchonNodesInternalModule } from './archon/nodes/internal'
-import { ArchonNoticesV0Module } from './archon/notices/v0'
-import { ArchonOptionsV1Module } from './archon/options/v1'
-import { ArchonPropertiesV1Module } from './archon/properties/v1'
-import { ArchonServerUsersV1Module } from './archon/server-users/v1'
-import { ArchonServersV0Module } from './archon/servers/v0'
-import { ArchonServersV1Module } from './archon/servers/v1'
-import { ArchonTransfersInternalModule } from './archon/transfers/internal'
 import { ISO3166Module } from './iso3166'
-import { KyrosContentV1Module } from './kyros/content/v1'
-import { KyrosFilesV0Module } from './kyros/files/v0'
-import { KyrosLogsV1Module } from './kyros/logs/v1'
-import { KyrosUploadSessionsV1Module } from './kyros/upload-sessions/v1'
 import { LabrinthVersionsV2Module, LabrinthVersionsV3Module } from './labrinth'
 import { LabrinthAffiliateInternalModule } from './labrinth/affiliate/internal'
 import { LabrinthAnalyticsV3Module } from './labrinth/analytics/v3'
@@ -62,25 +46,9 @@ type ModuleConstructor = new (client: AbstractModrinthClient) => AbstractModule
  * TODO: Better way? Probably not
  */
 export const MODULE_REGISTRY = {
-    archon_actions_v1: ArchonActionsV1Module,
-    archon_backups_queue_v1: ArchonBackupsQueueV1Module,
-    archon_backups_v1: ArchonBackupsV1Module,
-    archon_content_v1: ArchonContentV1Module,
-    archon_nodes_internal: ArchonNodesInternalModule,
-    archon_notices_v0: ArchonNoticesV0Module,
-    archon_options_v1: ArchonOptionsV1Module,
-    archon_properties_v1: ArchonPropertiesV1Module,
-    archon_server_users_v1: ArchonServerUsersV1Module,
-    archon_servers_v0: ArchonServersV0Module,
-    archon_servers_v1: ArchonServersV1Module,
-    archon_transfers_internal: ArchonTransfersInternalModule,
     iso3166_data: ISO3166Module,
     mclogs_logs_v1: MclogsLogsV1Module,
     launchermeta_manifest_v0: LauncherMetaManifestV0Module,
-    kyros_content_v1: KyrosContentV1Module,
-    kyros_files_v0: KyrosFilesV0Module,
-    kyros_logs_v1: KyrosLogsV1Module,
-    kyros_upload_sessions_v1: KyrosUploadSessionsV1Module,
     labrinth_affiliate_internal: LabrinthAffiliateInternalModule,
     labrinth_analytics_v3: LabrinthAnalyticsV3Module,
     labrinth_attribution_internal: LabrinthAttributionInternalModule,

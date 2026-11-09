@@ -49,7 +49,6 @@ export interface FileManagerContext {
     prefetchDirectory?: (path: string) => void
     prefetchFile?: (path: string) => void
 
-    showInstallFromUrl?: boolean
     basePath?: Ref<string> | ComputedRef<string>
     openInFolder?: (path: string) => void
     getAdditionalMenuOptions?: (

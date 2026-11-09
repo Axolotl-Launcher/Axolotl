@@ -460,9 +460,6 @@ const effectiveLoaders = computed(() => {
     if (ctx.flowType === 'instance') {
         return ['vanilla', ...ctx.availableLoaders.filter((l) => l !== 'vanilla')]
     }
-    if (ctx.flowType === 'server-onboarding' || ctx.flowType === 'reset-server') {
-        return ctx.availableLoaders.filter((l) => l !== 'vanilla')
-    }
     return ctx.availableLoaders
 })
 

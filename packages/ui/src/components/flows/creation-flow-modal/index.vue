@@ -32,7 +32,6 @@ const props = withDefaults(
         availableLoaders?: string[]
         showSnapshotToggle?: boolean
         disableClose?: boolean
-        isInitialSetup?: boolean
         initialLoader?: string
         initialGameVersion?: string
         fetchExistingInstanceNames?: () => Promise<string[]>
@@ -56,7 +55,6 @@ const props = withDefaults(
         availableLoaders: () => ['fabric', 'neoforge', 'forge', 'quilt'],
         showSnapshotToggle: false,
         disableClose: false,
-        isInitialSetup: false,
         initialLoader: undefined,
         initialGameVersion: undefined,
         fetchExistingInstanceNames: undefined,
@@ -82,7 +80,6 @@ const ctx = createCreationFlowContext(
         availableLoaders: props.availableLoaders,
         showSnapshotToggle: props.showSnapshotToggle,
         disableClose: props.disableClose,
-        isInitialSetup: props.isInitialSetup,
         initialLoader: props.initialLoader,
         initialGameVersion: props.initialGameVersion,
         fetchExistingInstanceNames: props.fetchExistingInstanceNames,

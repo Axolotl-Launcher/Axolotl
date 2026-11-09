@@ -75,6 +75,11 @@
       "reason": "order instrumentation bookkeeping: leaf primitive only, held for one map update in debug test runs with SCHED_ORDER_GUARD=1, takes no other lock"
     },
     {
+      "ident": "theseus::state::store::secrets::Remembering.known",
+      "rule": "D4",
+      "reason": "macOS keychain read cache: leaf primitive only, held for one map lookup, insert or removal and never across the keychain call, takes no other lock"
+    },
+    {
       "ident": "theseus::install::runner::CANCEL_CLEANUPS",
       "rule": "D4",
       "reason": "cancel-cleanup dedup map (upstream CancelCleanupRegistration, renamed from CLEANUPS): leaf primitive only, one shard lock per request, retry check or drop, takes no other lock"

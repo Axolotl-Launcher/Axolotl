@@ -411,8 +411,8 @@ impl Backend for System {
 /// read of each item until the user picks "Always Allow". Account refreshes read
 /// the same items again and again, which turns one prompt into a stream of them.
 ///
-/// The lock is held across the store's answer so that readers arriving during a
-/// prompt wait for it instead of raising their own. Only a value is remembered: a
+/// The lock only ever covers one map operation and is never held across the
+/// store, whose answer can wait on the user. Only a value is remembered: a
 /// missing entry costs no prompt, and a refusal has to be able to change.
 #[cfg(any(target_os = "macos", test))]
 struct Remembering<B> {
@@ -437,28 +437,27 @@ impl<B> Remembering<B> {
 #[cfg(any(target_os = "macos", test))]
 impl<B: Backend> Backend for Remembering<B> {
     fn set(&self, key: &str, value: &str) -> Result<(), Refused> {
-        let mut known = self.known();
         self.store.set(key, value)?;
-        known.insert(key.to_string(), value.to_string());
+        self.known().insert(key.to_string(), value.to_string());
         Ok(())
     }
 
     fn get(&self, key: &str) -> Result<Option<String>, Refused> {
-        let mut known = self.known();
-        if let Some(value) = known.get(key) {
+        if let Some(value) = self.known().get(key) {
             return Ok(Some(value.clone()));
         }
-        let value = self.store.get(key)?;
-        if let Some(value) = &value {
-            known.insert(key.to_string(), value.clone());
-        }
-        Ok(value)
+        let Some(value) = self.store.get(key)? else {
+            return Ok(None);
+        };
+        // A write that landed during the read is newer than what was read.
+        Ok(Some(
+            self.known().entry(key.to_string()).or_insert(value).clone(),
+        ))
     }
 
     fn delete(&self, key: &str) -> Result<(), Refused> {
-        let mut known = self.known();
         self.store.delete(key)?;
-        known.remove(key);
+        self.known().remove(key);
         Ok(())
     }
 }

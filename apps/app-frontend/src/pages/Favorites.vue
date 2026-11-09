@@ -859,6 +859,7 @@ watch(
         currentPage,
         loadingProjects,
         localizedTitles,
+        () => i18n.global.locale.value,
     ],
     () => {
         const groupsReady = groupFilter.value === GROUP_ALL || favoriteGroups.loaded.value

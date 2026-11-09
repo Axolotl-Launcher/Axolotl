@@ -856,11 +856,15 @@ function getAccountAvatarUrl(account: MinecraftCredential) {
     return defaultSteveHeadUrl
 }
 
+/**
+ * Runs one of the card's own account writes. `write` has to be a call from
+ * `helpers/auth` that signals exactly one selection change when it succeeds,
+ * because that signal is what is subtracted from the changes seen meanwhile.
+ */
 async function ownAccountWrite<T>(write: () => Promise<T>): Promise<T> {
     ownAccountWrites += 1
     try {
         const result = await write()
-        // Each successful write signals one selection change of its own.
         unclaimedSelectionChanges -= 1
         return result
     } finally {

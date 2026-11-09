@@ -1039,6 +1039,26 @@ it('looks favorite titles up again when the language changes', async () => {
     await vi.waitFor(() => expect(wrapper.text()).not.toContain('钠'))
 })
 
+it('drops a search match when the language changes back to a cached one', async () => {
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.translate.mockImplementation(async (hits, locale) =>
+        locale === 'zh-CN' ? hits.map((hit) => ({ ...hit, title: `钠 (${hit.title})` })) : hits,
+    )
+    fixture.query = { q: '钠' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(fixture.translate).toHaveBeenCalledTimes(1))
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Saved mod')
+
+    fixture.localeRef.value = 'zh-CN'
+    await vi.waitFor(() => expect(wrapper.text()).toContain('钠 (Saved mod)'))
+
+    fixture.localeRef.value = 'en-US'
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain('Saved mod'))
+})
+
 it('counts a favorite as installed through the project it was saved from', async () => {
     const saved = {
         ...savedFavorite,

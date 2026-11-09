@@ -1,7 +1,8 @@
+import type { BrowseManagerContext } from '@modrinth/ui'
 import { flushPromises, mount } from '@vue/test-utils'
 import { IntlMessageFormat } from 'intl-messageformat'
 import { expect, it, vi } from 'vitest'
-import { reactive } from 'vue'
+import { computed, defineComponent, h, reactive, ref } from 'vue'
 
 import zhMessages from '@/locales/zh-CN/index.json'
 
@@ -43,7 +44,8 @@ vi.mock('@tauri-apps/api/core', () => ({
     invoke: vi.fn().mockResolvedValue([]),
     convertFileSrc: (path: string) => path,
 }))
-vi.mock('vue-router', async () => {
+vi.mock('vue-router', async (original) => {
+    const router = await original<typeof import('vue-router')>()
     const { reactive } = await import('vue')
     const route = reactive({
         params: { projectType: 'mod' },
@@ -52,6 +54,7 @@ vi.mock('vue-router', async () => {
         fullPath: '/browse/mod',
     })
     return {
+        ...router,
         useRoute: () => route,
         useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
         onBeforeRouteLeave: vi.fn(),
@@ -272,7 +275,10 @@ vi.mock('@/components/ui/InstanceIndicator.vue', () => ({ default: { render: () 
 vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/components/ui/ContextMenu.vue', () => ({ default: { render: () => null } }))
 vi.mock('./UpgradeProjectReturnBar.vue', () => ({ default: { render: () => null } }))
-vi.mock('@tanstack/vue-query', () => ({ useQueryClient: () => ({}) }))
+vi.mock('@tanstack/vue-query', async (original) => ({
+    ...(await original<typeof import('@tanstack/vue-query')>()),
+    useQueryClient: () => ({}),
+}))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h, ref, computed } = await import('vue')
     return {
@@ -447,6 +453,62 @@ it('mounts the browse shell before capabilities resolve and preserves type-speci
         expect(api.refresh).toHaveBeenCalledTimes(2)
     } finally {
         wrapper.unmount()
+    }
+})
+
+it('renders the shared browse layout with the desktop page context before and after a route update', async () => {
+    const [{ default: BrowsePageLayout }, { provideBrowseManager }, { I18N_INJECTION_KEY }] =
+        await Promise.all([
+            import('@modrinth/ui/src/layouts/shared/browse-tab/layout.vue'),
+            import('@modrinth/ui/src/layouts/shared/browse-tab/providers/browse-manager'),
+            import('@modrinth/ui/src/providers/i18n'),
+        ])
+    api.capability.mockResolvedValue({ status: 'available', configured: true, key_source: 'user' })
+    api.categories.mockResolvedValue([])
+    const page = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    let layout: ReturnType<typeof mount> | undefined
+    try {
+        await flushPromises()
+        const context = api.context as BrowseManagerContext
+        const Harness = defineComponent({
+            setup() {
+                provideBrowseManager({
+                    ...context,
+                    effectiveLayout: computed(() => 'list'),
+                    maxResults: ref(20),
+                    pageCount: computed(() => 1),
+                })
+                return () => h(BrowsePageLayout)
+            },
+        })
+        layout = mount(Harness, {
+            global: {
+                provide: {
+                    [I18N_INJECTION_KEY as symbol]: {
+                        locale: ref('en-US'),
+                        t: (key: string) => key,
+                        setLocale: () => {},
+                    },
+                },
+                stubs: {
+                    BrowseToolbar: true,
+                    BrowseResultControls: true,
+                    ProjectCardList: true,
+                    ProjectCardSkeleton: true,
+                    Pagination: true,
+                },
+                directives: { tooltip: {} },
+            },
+        })
+        expect(layout.getComponent({ name: 'BrowseToolbar' }).props('showTabs')).toBe(true)
+        context.projectType.value = 'modpack'
+        await flushPromises()
+        expect(layout.getComponent({ name: 'BrowseToolbar' }).props('showTabs')).toBe(true)
+    } finally {
+        layout?.unmount()
+        page.unmount()
     }
 })
 

@@ -68,6 +68,8 @@ function* replayed(replay: ProgressReplay) {
 const selectionKey = (input: ContentAnalysisInput) =>
     JSON.stringify([input.instanceId, input.selections, input.installDependencies])
 
+export const CONTENT_ANALYSIS_DEBOUNCE_MS = 150
+
 /**
  * The cart owns background work; a review borrows its current request.
  * Canceling stops that work and closes its session. The same selection is not
@@ -93,6 +95,20 @@ export function createContentAnalysis() {
     let revision = 0
     let latest: ContentAnalysisInput | null = null
     let canceledSelection: string | null = null
+    let scheduled: ContentAnalysisInput | null = null
+    let startTimer: ReturnType<typeof setTimeout> | undefined
+
+    function clearScheduled() {
+        clearTimeout(startTimer)
+        startTimer = undefined
+        scheduled = null
+    }
+
+    function flushScheduled() {
+        const input = scheduled
+        clearScheduled()
+        if (input) start(input)
+    }
 
     function closeSession() {
         const previous = session
@@ -101,6 +117,7 @@ export function createContentAnalysis() {
     }
 
     function clear() {
+        clearScheduled()
         // Detach before aborting: abort listeners may call back into cancel(),
         // which must not mistake this replacement for a user cancel.
         const replaced = current
@@ -179,18 +196,23 @@ export function createContentAnalysis() {
         }
         if (canceledSelection === selectionKey(input)) return
         canceledSelection = null
-        if (current?.key === JSON.stringify(input)) return
+        const key = JSON.stringify(input)
+        if (current?.key === key || (scheduled && JSON.stringify(scheduled) === key)) return
+        clearScheduled()
         const replaced = current
         current = null
         replaced?.invalidation.abort()
         replaced?.controller.abort()
-        start(input)
+        if (session?.context !== JSON.stringify([input.instanceId, input.context])) closeSession()
+        scheduled = input
+        startTimer = setTimeout(flushScheduled, CONTENT_ANALYSIS_DEBOUNCE_MS)
     }
 
     /** Stops the running analysis and keeps the selection out of automatic restarts. */
     function cancel() {
-        if (!current) return
-        canceledSelection = selectionKey(current.input)
+        const input = scheduled ?? current?.input
+        if (!input) return
+        canceledSelection = selectionKey(input)
         clear()
     }
 
@@ -200,6 +222,7 @@ export function createContentAnalysis() {
             canceledSelection = null
             update(latest)
         }
+        flushScheduled()
         if (!current) return
         let analysis: Analysis = current
         const invalidation = analysis.invalidation.signal

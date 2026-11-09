@@ -114,7 +114,7 @@ function confirmDelete() {
                 <div
                     v-for="entry in entries"
                     :key="entry.id"
-                    class="group/favorite-group flex min-w-0 items-center rounded-md transition-colors"
+                    class="group/favorite-group relative flex min-w-0 items-center rounded-md transition-colors"
                     :class="
                         activeGroup === entry.id
                             ? 'bg-surface-4 text-[var(--color-text-primary)]'
@@ -136,13 +136,20 @@ function confirmDelete() {
                             "
                         />
                         <span class="min-w-0 truncate">{{ entry.name }}</span>
-                        <TagItem class="ml-auto shrink-0 border-surface-3 bg-surface-2">
+                        <TagItem
+                            class="ml-auto shrink-0 border-surface-3 bg-surface-2 transition-opacity"
+                            :class="{
+                                'group-hover/favorite-group:opacity-0 group-focus-within/favorite-group:opacity-0':
+                                    entry.custom,
+                            }"
+                        >
                             {{ entry.count }}
                         </TagItem>
                     </button>
                     <span
                         v-if="entry.custom"
-                        class="mr-1 flex shrink-0 items-center opacity-0 transition-opacity group-hover/favorite-group:opacity-100 focus-within:opacity-100"
+                        class="pointer-events-none absolute right-1 top-1/2 flex -translate-y-1/2 items-center rounded-md px-1 opacity-0 transition-opacity group-hover/favorite-group:pointer-events-auto group-hover/favorite-group:opacity-100 group-focus-within/favorite-group:pointer-events-auto group-focus-within/favorite-group:opacity-100"
+                        :class="activeGroup === entry.id ? 'bg-surface-4' : 'bg-surface-3'"
                     >
                         <IconButton
                             v-tooltip="formatMessage(messages.renameGroup)"

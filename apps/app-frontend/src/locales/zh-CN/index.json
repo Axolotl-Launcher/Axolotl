@@ -2594,12 +2594,6 @@
   "app.content-favorites.groups.save": {
     "message": "保存"
   },
-  "app.content-favorites.groups.select-all": {
-    "message": "选择本组全部（{count}）"
-  },
-  "app.content-favorites.groups.selecting": {
-    "message": "正在选择 {completed}/{total}"
-  },
   "app.content-favorites.groups.title": {
     "message": "分组"
   },

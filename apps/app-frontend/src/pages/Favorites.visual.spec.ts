@@ -20,7 +20,13 @@ const fixture = vi.hoisted(() => ({
     setMemberships: (_values: Record<string, string[]>) => {},
     updateFavoriteGroups: vi.fn(async () => {}),
     setTarget: (_value: unknown) => {},
-    addToSelection: vi.fn(async () => true),
+    addToSelection: vi.fn(async (_item: { key: string }) => true),
+    installSelected: vi.fn(async () => true),
+    refreshInstances: vi.fn(async () => null as unknown),
+    refreshInstalledIdentities: vi.fn(async () => {}),
+    showInstanceSelector: vi.fn(),
+    installedKeys: new Set<string>(),
+    resetSelection: () => {},
     renderCardActions: false,
     refresh: null as null | (() => void),
 }))
@@ -123,8 +129,14 @@ vi.mock('@/providers/content-selection', async () => {
     const { ref } = await import('vue')
     const targetInstance = ref<unknown>(null)
     const selected = new Set<string>()
+    const selectedCount = ref(0)
     fixture.setTarget = (value) => {
         targetInstance.value = value
+    }
+    fixture.refreshInstances.mockImplementation(async () => targetInstance.value)
+    fixture.resetSelection = () => {
+        selected.clear()
+        selectedCount.value = 0
     }
     return {
         makeContentSelectionKey: (provider: string, projectId: string) =>
@@ -135,22 +147,45 @@ vi.mock('@/providers/content-selection', async () => {
             state: ref('idle'),
             progress: ref({ completed: 0, total: 0 }),
             selectedProjects: ref([]),
-            selectedCount: ref(0),
-            refreshInstances: vi.fn(async () => {}),
-            refreshInstalledIdentities: vi.fn(),
+            selectedCount,
+            refreshInstances: fixture.refreshInstances,
+            refreshInstalledIdentities: fixture.refreshInstalledIdentities,
             isInstalling: () => false,
             isSelected: (key: string) => selected.has(key),
-            add: fixture.addToSelection,
-            remove: (key: string) => selected.delete(key),
-            clear: () => selected.clear(),
-            installSelected: vi.fn(async () => true),
+            isInstalledIdentity: (provider: string, projectId: string) =>
+                fixture.installedKeys.has(`${provider}:${projectId}`),
+            add: async (item: { key: string }) => {
+                const accepted = await fixture.addToSelection(item)
+                if (accepted) {
+                    selected.add(item.key)
+                    selectedCount.value = selected.size
+                }
+                return accepted
+            },
+            remove: (key: string) => {
+                selected.delete(key)
+                selectedCount.value = selected.size
+            },
+            clear: () => {
+                selected.clear()
+                selectedCount.value = 0
+            },
+            installSelected: fixture.installSelected,
             setTarget: vi.fn(),
         }),
     }
 })
-vi.mock('@/components/browse/BrowseInstanceSelector.vue', () => ({
-    default: { render: () => null },
-}))
+vi.mock('@/components/browse/BrowseInstanceSelector.vue', async () => {
+    const { defineComponent } = await import('vue')
+    return {
+        default: defineComponent({
+            setup: (_props, { expose }) => {
+                expose({ show: fixture.showInstanceSelector })
+                return () => null
+            },
+        }),
+    }
+})
 vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h, ref } = await import('vue')
@@ -230,6 +265,22 @@ vi.mock('@modrinth/ui', async () => {
                 () =>
                     h('button', slots.default?.()),
         }),
+        SelectAllButton: defineComponent({
+            props: ['count', 'progress', 'disabled'],
+            emits: ['select'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    props.count > 0 || props.progress
+                        ? h(
+                              'button',
+                              { onClick: () => emit('select') },
+                              props.progress
+                                  ? `Selecting ${props.progress.completed}/${props.progress.total}`
+                                  : `Select all (${props.count})`,
+                          )
+                        : null,
+        }),
         Admonition: defineComponent({
             props: ['header'],
             setup:
@@ -260,6 +311,7 @@ vi.mock('@modrinth/ui', async () => {
             retryButton: { defaultMessage: 'Retry' },
             cancelButton: { defaultMessage: 'Cancel' },
             installButton: { defaultMessage: 'Install' },
+            installedLabel: { defaultMessage: 'Installed' },
             installingContentLabel: { defaultMessage: 'Installing content' },
             validatingLabel: { defaultMessage: 'Validating' },
         },
@@ -290,7 +342,10 @@ afterEach(() => {
     fixture.setMemberships({})
     fixture.setTarget(null)
     fixture.renderCardActions = false
+    fixture.installedKeys.clear()
+    fixture.resetSelection()
     fixture.addToSelection.mockReset().mockResolvedValue(true)
+    fixture.installSelected.mockReset().mockResolvedValue(true)
     fixture.updateFavoriteGroups.mockReset().mockResolvedValue(undefined)
     fixture.prefetch.mockReset().mockResolvedValue(new Map())
 })
@@ -315,6 +370,13 @@ const savedMetadata = {
     categories: [],
     gallery: [],
 } as unknown as SourceProjectMetadata
+const bulkTarget = {
+    id: 'instance-1',
+    name: 'Example',
+    loader: 'neoforge',
+    game_version: '1.21.1',
+    icon_path: null,
+}
 
 it('shows a saved list immediately after remount while background refresh is pending or fails', async () => {
     fixture.load.mockResolvedValue([savedFavorite])
@@ -713,30 +775,70 @@ it('toggles group membership from the card group menu', async () => {
     expect(fixture.updateFavoriteGroups).toHaveBeenCalledWith('modrinth:one', ['group-a'], [])
 })
 
-it('selects every group member that is not already selected', async () => {
-    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
-    fixture.load.mockResolvedValue([savedFavorite, second])
+it('selects every favorite in the filtered result', async () => {
+    const favorites = Array.from({ length: 21 }, (_, index) => ({
+        ...savedFavorite,
+        project_id: `mod-${index}`,
+        saved_at: index + 1,
+    }))
+    fixture.load.mockResolvedValue(favorites)
     fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
-        metadataFor(favorite, favorite.project_id === 'one' ? 'First' : 'Second'),
+        metadataFor(favorite, `Mod ${favorite.project_id}`),
     )
-    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
-    fixture.setMemberships({ 'modrinth:one': ['group-a'], 'modrinth:two': ['group-a'] })
-    fixture.setTarget({
-        id: 'instance-1',
-        name: 'Example',
-        loader: 'neoforge',
-        game_version: '1.21.1',
-        icon_path: null,
-    })
+    fixture.setTarget(bulkTarget)
     vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
     vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
-    fixture.query = { group: 'group-a' }
+    fixture.query = { kind: 'mod' }
 
     const wrapper = render()
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all in group (2)'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (21)'))
     await wrapper
         .findAll('button')
-        .find((button) => button.text().includes('Select all in group'))!
+        .find((button) => button.text().includes('Select all (21)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(21))
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('scopes select all to the active group and content type', async () => {
+    const modOne = {
+        ...savedFavorite,
+        project_id: 'one',
+        content_type: 'mod' as const,
+        saved_at: 1,
+    }
+    const modTwo = {
+        ...savedFavorite,
+        project_id: 'two',
+        content_type: 'mod' as const,
+        saved_at: 2,
+    }
+    const pack = {
+        ...savedFavorite,
+        project_id: 'three',
+        content_type: 'resourcepack' as const,
+        saved_at: 3,
+    }
+    fixture.load.mockResolvedValue([modOne, modTwo, pack])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
+    fixture.setMemberships({
+        'modrinth:one': ['group-a'],
+        'modrinth:two': ['group-a'],
+        'modrinth:three': ['group-a'],
+    })
+    fixture.setTarget(bulkTarget)
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+    fixture.query = { group: 'group-a', kind: 'mod' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (2)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (2)'))!
         .trigger('click')
     await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(2))
     expect(fixture.addToSelection).toHaveBeenCalledWith(
@@ -745,4 +847,110 @@ it('selects every group member that is not already selected', async () => {
     expect(fixture.addToSelection).toHaveBeenCalledWith(
         expect.objectContaining({ provider: 'modrinth', projectId: 'two' }),
     )
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('scopes select all to the active category filter', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) => ({
+        ...metadataFor(favorite, favorite.project_id),
+        categories: favorite.project_id === 'one' ? ['adventure'] : ['technology'],
+    }))
+    fixture.setTarget(bulkTarget)
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+    fixture.query = { cat: 'adventure' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (1)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (1)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(1))
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 'one' }),
+    )
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('skips favorites already installed in the target instance', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+    fixture.setTarget(bulkTarget)
+    fixture.installedKeys.add('modrinth:one')
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (1)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (1)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(1))
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 'two' }),
+    )
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('opens the instance picker without adding anything when no target is selected', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (2)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (2)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.showInstanceSelector).toHaveBeenCalled())
+    expect(fixture.addToSelection).not.toHaveBeenCalled()
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('shows progress and rejects a second select-all while one is running', async () => {
+    let resolveAdd!: (value: boolean) => void
+    fixture.addToSelection.mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+            resolveAdd = resolve
+        }),
+    )
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.setTarget(bulkTarget)
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (1)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (1)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Selecting 0/1'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Selecting'))!
+        .trigger('click')
+    resolveAdd(true)
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain('Selecting'))
+    expect(fixture.addToSelection).toHaveBeenCalledTimes(1)
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('refreshes installed identities after restoring a target instance on mount', async () => {
+    fixture.load.mockResolvedValue([])
+    fixture.setTarget(bulkTarget)
+
+    render()
+    await vi.waitFor(() => expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(1))
 })

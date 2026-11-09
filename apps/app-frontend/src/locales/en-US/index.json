@@ -1391,12 +1391,6 @@
   "app.content-favorites.groups.save": {
     "message": "Save"
   },
-  "app.content-favorites.groups.select-all": {
-    "message": "Select all in group ({count})"
-  },
-  "app.content-favorites.groups.selecting": {
-    "message": "Selecting {completed}/{total}"
-  },
   "app.content-favorites.groups.title": {
     "message": "Groups"
   },

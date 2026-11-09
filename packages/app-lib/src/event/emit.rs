@@ -10,6 +10,8 @@ use crate::event::{
     LoadingPayload, ProcessPayload, ServerPayload, WarningPayload,
 };
 use futures::prelude::*;
+#[cfg(feature = "tauri")]
+use serde::Serialize;
 use serde_json::Value;
 #[cfg(feature = "tauri")]
 use tauri::{Emitter, Manager};
@@ -418,6 +420,32 @@ pub async fn emit_instance_groups_changed(
                 "instance_groups_changed",
                 InstanceGroupsChangedPayload {
                     instance_ids: instance_ids.to_vec(),
+                },
+            )
+            .map_err(EventError::from)?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "tauri")]
+#[derive(Serialize, Clone)]
+pub struct FavoriteGroupsChangedPayload {
+    pub favorite_keys: Vec<String>,
+}
+
+#[allow(unused_variables)]
+pub async fn emit_favorite_groups_changed(
+    favorite_keys: &[String],
+) -> crate::Result<()> {
+    #[cfg(feature = "tauri")]
+    {
+        let event_state = crate::EventState::get()?;
+        event_state
+            .app
+            .emit(
+                "favorite_groups_changed",
+                FavoriteGroupsChangedPayload {
+                    favorite_keys: favorite_keys.to_vec(),
                 },
             )
             .map_err(EventError::from)?;

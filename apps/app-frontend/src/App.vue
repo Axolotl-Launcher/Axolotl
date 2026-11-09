@@ -116,6 +116,7 @@ import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import RemoteAnnouncements from '@/components/ui/RemoteAnnouncements.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
+import UnsavedSelectionModal from '@/components/ui/UnsavedSelectionModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { isOfflineAccountRestrictedError } from '@/composables/useAntiPiracyStatus'
@@ -189,6 +190,7 @@ import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
 import { consumeThirdPartyAuthorizationReturn } from '@/helpers/third-party-accounts'
+import { shouldWarnAboutUnsavedSelection } from '@/helpers/unsaved-selection'
 import {
     areUpdatesEnabled,
     backupAppDbForUpdate,
@@ -2038,6 +2040,38 @@ router.beforeEach(() => {
     routerToken = loading.begin()
 })
 
+let promptUnsavedSelection: ((value: boolean) => void) | null = null
+let discardSelectionOnArrival = false
+
+function requestUnsavedSelectionDecision(): Promise<boolean> {
+    promptUnsavedSelection?.(false)
+    return new Promise<boolean>((resolve) => {
+        promptUnsavedSelection = resolve
+        unsavedSelectionModal.value?.show()
+    })
+}
+
+function settleUnsavedSelection(leave: boolean) {
+    const resolve = promptUnsavedSelection
+    promptUnsavedSelection = null
+    unsavedSelectionModal.value?.hide()
+    resolve?.(leave)
+}
+
+router.beforeEach(async (to, from) => {
+    const processing = ['validating', 'reviewing', 'queueing'].includes(
+        contentSelection.state.value,
+    )
+    if (
+        processing ||
+        !shouldWarnAboutUnsavedSelection(from.path, to.path, contentSelection.selectedCount.value)
+    )
+        return
+    const leave = await requestUnsavedSelectionDecision()
+    if (!leave) return false
+    discardSelectionOnArrival = true
+})
+
 function syncDiscordActivity(to: RouteLocationNormalizedLoaded) {
     const activity =
         typeof to.meta.discordActivity === 'string' ? to.meta.discordActivity : 'Idling...'
@@ -2053,6 +2087,8 @@ function syncDiscordActivity(to: RouteLocationNormalizedLoaded) {
 }
 
 router.afterEach((to, from, failure) => {
+    if (!failure && discardSelectionOnArrival) contentSelection.clear()
+    discardSelectionOnArrival = false
     if (!failure) void invoke('lightweight_mode_set_route', { route: to.fullPath })
     trackEvent('PageView', {
         path: to.path,
@@ -2149,6 +2185,7 @@ error.setMinecraftLaunchErrorHandler(
 const errorModal = ref()
 const antiPiracyNoticeModal = ref<InstanceType<typeof OfflineAccountRestrictionModal>>()
 const minecraftAuthErrorModal = ref()
+const unsavedSelectionModal = ref<InstanceType<typeof UnsavedSelectionModal>>()
 
 const contentInstall = createContentInstall({ router, handleError, addNotification })
 provideContentInstall(contentInstall)
@@ -3441,6 +3478,12 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     />
     <ContentInstallPreviewModal ref="contentInstallPreviewModal" />
     <ResourceOperationPreviewModal ref="resourceInstallPreview" />
+    <UnsavedSelectionModal
+        ref="unsavedSelectionModal"
+        :count="contentSelection.selectedCount.value"
+        @stay="settleUnsavedSelection(false)"
+        @discard="settleUnsavedSelection(true)"
+    />
     <ModpackAlreadyInstalledModal
         ref="modpackAlreadyInstalledModal"
         @create-anyway="handleModpackDuplicateCreateAnyway"

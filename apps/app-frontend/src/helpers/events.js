@@ -102,6 +102,10 @@ export async function instance_groups_listener(callback) {
     return await listen('instance_groups_changed', (event) => callback(event.payload))
 }
 
+export async function favorite_groups_listener(callback) {
+    return await listen('favorite_groups_changed', (event) => callback(event.payload))
+}
+
 /// Payload for the 'command' event
 /*
   CommandPayload {

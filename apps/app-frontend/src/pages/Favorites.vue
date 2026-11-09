@@ -5,6 +5,7 @@ import {
     BookmarkIcon,
     CheckIcon,
     ChevronDownIcon,
+    FolderIcon,
     GenericListIcon,
     GridIcon,
     ListIcon,
@@ -17,9 +18,13 @@ import {
     type BrowseInstallContext,
     BrowseInstallHeader,
     Button,
+    Checkbox,
     commonMessages,
     defineMessages,
     EmptyState,
+    type FilterType,
+    type FilterValue,
+    formatCategory,
     getLatestMatchingInstallVersion,
     getTargetInstallPreferences,
     injectNotificationManager,
@@ -38,8 +43,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import BrowseInstanceSelector from '@/components/browse/BrowseInstanceSelector.vue'
+import FavoriteGroupModal from '@/components/ui/favorites/FavoriteGroupModal.vue'
+import FavoritesSidebar, {
+    type FavoriteGroupEntry,
+} from '@/components/ui/favorites/FavoritesSidebar.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useContentFavorites } from '@/composables/useContentFavorites'
+import { useFavoriteGroups } from '@/composables/useFavoriteGroups'
 import { createBrowseProjectTabs, getBrowseProjectTabOptions } from '@/helpers/browse-project-tabs'
 import { get_project, get_version_many } from '@/helpers/cache.js'
 import {
@@ -67,6 +77,7 @@ import { isBrowseReturnSourcePath, useNavigationReturnStore } from '@/store/navi
 
 type FavoriteFilter = 'all' | FavoriteContentType
 type FavoriteDisplayMode = 'list' | 'compact' | 'grid'
+type FavoriteGroupFilter = 'all' | 'none' | string
 
 type FavoriteProject = {
     favorite: ContentFavorite
@@ -78,6 +89,7 @@ type FavoriteProject = {
     iconUrl?: string
     downloads?: number
     categories: string[]
+    tags: string[]
     dateCreated?: string
     dateModified?: string
     banner?: string
@@ -93,6 +105,8 @@ type FavoriteRow = { favorite: ContentFavorite; project?: FavoriteProject }
 type FavoritesView = {
     search: string
     filter: FavoriteFilter
+    group: FavoriteGroupFilter
+    categories: string[]
     page: number
     projects: FavoriteProject[]
 }
@@ -102,6 +116,14 @@ type FavoritesReturnState = {
 }
 
 const PAGE_SIZE = 20
+const GROUP_ALL: FavoriteGroupFilter = 'all'
+const GROUP_NONE: FavoriteGroupFilter = 'none'
+const FAVORITE_PROJECT_TYPES: FilterType['supported_project_types'] = [
+    'mod',
+    'resourcepack',
+    'datapack',
+    'shader',
+]
 const curseForgeLoaderTypes: Record<string, number> = {
     forge: 1,
     fabric: 4,
@@ -117,7 +139,13 @@ const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 const contentSelection = injectContentSelection()
 const contentFavorites = useContentFavorites()
+const favoriteGroups = useFavoriteGroups()
 const instanceSelector = ref<InstanceType<typeof BrowseInstanceSelector>>()
+const favoriteGroupModal = ref<InstanceType<typeof FavoriteGroupModal> | null>(null)
+const groupModalTarget = ref<
+    { type: 'create'; assignFavoriteKey?: string } | { type: 'rename'; id: string } | null
+>(null)
+const selectingGroup = ref<{ completed: number; total: number } | null>(null)
 const stickyChromeRef = ref<HTMLElement | null>(null)
 const { isStuck: isChromeStuck } = useStickyObserver(stickyChromeRef, 'FavoritesToolbarChrome')
 const projects = shallowRef<FavoriteProject[]>([])
@@ -218,6 +246,38 @@ const messages = defineMessages({
         id: 'app.content-favorites.remove',
         defaultMessage: 'Remove from favorites',
     },
+    allFavorites: {
+        id: 'app.content-favorites.groups.all',
+        defaultMessage: 'All favorites',
+    },
+    ungrouped: {
+        id: 'app.content-favorites.groups.ungrouped',
+        defaultMessage: 'No group',
+    },
+    manageGroups: {
+        id: 'app.content-favorites.groups.manage',
+        defaultMessage: 'Groups',
+    },
+    categories: {
+        id: 'app.content-favorites.filters.categories',
+        defaultMessage: 'Categories',
+    },
+    newGroup: {
+        id: 'app.content-favorites.groups.new',
+        defaultMessage: 'New group',
+    },
+    noGroups: {
+        id: 'app.content-favorites.groups.none',
+        defaultMessage: 'No groups yet',
+    },
+    selectAllGroup: {
+        id: 'app.content-favorites.groups.select-all',
+        defaultMessage: 'Select all in group ({count})',
+    },
+    selectingGroupProgress: {
+        id: 'app.content-favorites.groups.selecting',
+        defaultMessage: 'Selecting {completed}/{total}',
+    },
     view: {
         id: 'app.browse.display-mode.switch',
         defaultMessage: 'Switch view',
@@ -253,7 +313,7 @@ const messages = defineMessages({
     },
     noMatchesDescription: {
         id: 'app.content-favorites.no-matches-description',
-        defaultMessage: 'Try a different search or content type.',
+        defaultMessage: 'Try a different search, content type, group, or category.',
     },
     unavailableTitle: {
         id: 'app.content-favorites.unavailable-title',
@@ -280,6 +340,23 @@ function parsePage(value: unknown): number {
     return Number.isFinite(page) && page > 0 ? page : 1
 }
 
+function parseFavoriteGroup(value: unknown): FavoriteGroupFilter {
+    const group = queryValue(value)
+    return group || GROUP_ALL
+}
+
+function parseCategories(value: unknown): string[] {
+    const raw = Array.isArray(value) ? value.filter((entry) => typeof entry === 'string') : [value]
+    return [
+        ...new Set(
+            raw
+                .flatMap((entry) => queryValue(entry).split(','))
+                .map((entry) => entry.trim())
+                .filter(Boolean),
+        ),
+    ]
+}
+
 function updateQuery(values: Record<string, string | undefined>) {
     void router.replace({
         query: {
@@ -290,12 +367,18 @@ function updateQuery(values: Record<string, string | undefined>) {
 }
 
 function browseResources() {
-    const { q: _q, kind: _kind, page: _page, ...query } = route.query
+    const { q: _q, kind: _kind, group: _group, cat: _cat, page: _page, ...query } = route.query
     void router.push({ path: '/browse/mod', query })
 }
 
 function clearFilters() {
-    updateQuery({ q: undefined, kind: undefined, page: undefined })
+    updateQuery({
+        q: undefined,
+        kind: undefined,
+        group: undefined,
+        cat: undefined,
+        page: undefined,
+    })
 }
 
 const search = computed({
@@ -312,6 +395,34 @@ const currentPage = computed({
     get: () => parsePage(route.query.page),
     set: (page: number) => updateQuery({ page: page > 1 ? String(page) : undefined }),
 })
+
+const groupFilter = computed<FavoriteGroupFilter>({
+    get: () => parseFavoriteGroup(route.query.group),
+    set: (value) =>
+        updateQuery({ group: value === GROUP_ALL ? undefined : value, page: undefined }),
+})
+
+const categoryFilters = computed<FilterValue[]>({
+    get: () =>
+        parseCategories(route.query.cat).map((category) => ({
+            type: 'category',
+            option: category,
+            negative: false,
+        })),
+    set: (filters) =>
+        updateQuery({
+            cat:
+                filters
+                    .filter((entry) => !entry.negative)
+                    .map((entry) => entry.option)
+                    .join(',') || undefined,
+            page: undefined,
+        }),
+})
+
+const selectedCategories = computed(() =>
+    categoryFilters.value.filter((entry) => !entry.negative).map((entry) => entry.option),
+)
 
 const favoriteTypeOptions = computed(() => [
     { id: 'all' as const, label: formatMessage(messages.allContentTypes) },
@@ -338,7 +449,8 @@ const currentDisplayMode = computed(() =>
 const projectTabs = computed(() => {
     const query = new URLSearchParams()
     for (const [key, value] of Object.entries(route.query)) {
-        if (key === 'kind' || key === 'q' || key === 'page') continue
+        if (key === 'kind' || key === 'q' || key === 'group' || key === 'cat' || key === 'page')
+            continue
         if (Array.isArray(value)) {
             for (const entry of value) {
                 if (entry != null) query.append(key, entry)
@@ -401,6 +513,7 @@ function toUnavailable(favorite: ContentFavorite): FavoriteProject {
         }),
         description: formatMessage(messages.unavailableDescription),
         categories: [typeLabel(favorite.content_type)],
+        tags: [],
         unavailable: true,
     }
 }
@@ -416,6 +529,7 @@ function toProject(favorite: ContentFavorite, metadata: SourceProjectMetadata): 
         iconUrl: metadata.iconUrl ?? undefined,
         downloads: metadata.downloads ?? undefined,
         categories: [typeLabel(favorite.content_type), ...metadata.categories],
+        tags: metadata.categories,
         dateCreated: metadata.createdAt ?? undefined,
         dateModified: metadata.updatedAt ?? undefined,
         banner: metadata.gallery[0],
@@ -571,9 +685,14 @@ async function refreshProjects() {
     }
 }
 
+const chromeHeight = ref(0)
+let chromeObserver: ResizeObserver | null = null
+
 onBeforeUnmount(() => {
     disposed = true
     projectsController?.abort()
+    chromeObserver?.disconnect()
+    chromeObserver = null
 })
 
 const activeFavoriteIdentities = computed(
@@ -586,8 +705,99 @@ const availableProjects = computed(() =>
         .sort((left, right) => right.favorite.saved_at - left.favorite.saved_at),
 )
 
-function matchesFilter(project: FavoriteProject, query: string, kind: FavoriteFilter) {
+const favoriteGroupEntries = computed<FavoriteGroupEntry[]>(() => {
+    const favoriteKeys = contentFavorites.favorites.value.map((favorite) =>
+        contentFavoriteKey(favorite.provider, favorite.project_id),
+    )
+    const counts = new Map<string, number>()
+    let ungrouped = 0
+    for (const key of favoriteKeys) {
+        const groups = favoriteGroups.groupsFor(key)
+        if (groups.length === 0) ungrouped++
+        for (const groupId of groups) {
+            counts.set(groupId, (counts.get(groupId) ?? 0) + 1)
+        }
+    }
+    const entries: FavoriteGroupEntry[] = [
+        {
+            id: GROUP_ALL,
+            name: formatMessage(messages.allFavorites),
+            count: favoriteKeys.length,
+            custom: false,
+        },
+    ]
+    if (favoriteGroups.groups.value.length > 0) {
+        entries.push({
+            id: GROUP_NONE,
+            name: formatMessage(messages.ungrouped),
+            count: ungrouped,
+            custom: false,
+        })
+    }
+    for (const group of favoriteGroups.groups.value) {
+        entries.push({
+            id: group.id,
+            name: group.name,
+            count: counts.get(group.id) ?? 0,
+            custom: true,
+        })
+    }
+    return entries
+})
+
+const categoryOptions = computed(() => {
+    const counts = new Map<string, number>()
+    for (const project of availableProjects.value) {
+        for (const tag of project.tags) {
+            counts.set(tag, (counts.get(tag) ?? 0) + 1)
+        }
+    }
+    return [...counts.entries()]
+        .map(([tag, count]) => ({ tag, label: formatCategory(formatMessage, tag), count }))
+        .sort((left, right) => left.label.localeCompare(right.label))
+})
+
+const categoryFilterType = computed<FilterType>(() => ({
+    id: 'category',
+    formatted_name: formatMessage(messages.categories),
+    options: categoryOptions.value.map(({ tag, label }) => ({
+        id: tag,
+        formatted_name: label,
+        method: 'and',
+        value: `categories:${tag}`,
+    })),
+    supported_project_types: FAVORITE_PROJECT_TYPES,
+    query_param: 'cat',
+    supports_negative_filter: false,
+    searchable: true,
+    display: 'all',
+}))
+
+function favoriteKeyOf(project: FavoriteProject) {
+    // Groups follow the favorite the user saved, not the resource's default
+    // project: a favorite can resolve to a different counterpart project.
+    return contentFavoriteKey(project.favorite.provider, project.favorite.project_id)
+}
+
+function matchesGroup(project: FavoriteProject, group: FavoriteGroupFilter) {
+    if (group === GROUP_ALL) return true
+    const groups = favoriteGroups.groupsFor(favoriteKeyOf(project))
+    if (group === GROUP_NONE) return groups.length === 0
+    return groups.includes(group)
+}
+
+function matchesFilter(
+    project: FavoriteProject,
+    query: string,
+    kind: FavoriteFilter,
+    group: FavoriteGroupFilter,
+    categories: string[],
+) {
     if (kind !== 'all' && project.favorite.content_type !== kind) return false
+    if (!matchesGroup(project, group)) return false
+    if (categories.length && !categories.every((category) => project.tags.includes(category))) {
+        return false
+    }
     const normalizedSearch = query.trim().toLocaleLowerCase()
     return (
         !normalizedSearch ||
@@ -599,15 +809,33 @@ function matchesFilter(project: FavoriteProject, query: string, kind: FavoriteFi
 }
 
 watch(
-    [search, filter, currentPage, loadingProjects],
+    [
+        search,
+        filter,
+        groupFilter,
+        categoryFilters,
+        favoriteGroups.loaded,
+        favoriteGroups.memberships,
+        currentPage,
+        loadingProjects,
+    ],
     () => {
-        if (!loadingProjects.value && metadataComplete.value) {
+        const groupsReady = groupFilter.value === GROUP_ALL || favoriteGroups.loaded.value
+        if (!loadingProjects.value && metadataComplete.value && groupsReady) {
             const matching = availableProjects.value.filter((project) =>
-                matchesFilter(project, search.value, filter.value),
+                matchesFilter(
+                    project,
+                    search.value,
+                    filter.value,
+                    groupFilter.value,
+                    selectedCategories.value,
+                ),
             )
             committedView.value = {
                 search: search.value,
                 filter: filter.value,
+                group: groupFilter.value,
+                categories: selectedCategories.value,
                 page: Math.min(
                     currentPage.value,
                     Math.max(1, Math.ceil(matching.length / PAGE_SIZE)),
@@ -617,12 +845,19 @@ watch(
         } else if (
             !search.value.trim() &&
             filter.value === 'all' &&
+            groupFilter.value === GROUP_ALL &&
+            selectedCategories.value.length === 0 &&
             (!committedView.value ||
-                (!committedView.value.search.trim() && committedView.value.filter === 'all'))
+                (!committedView.value.search.trim() &&
+                    committedView.value.filter === 'all' &&
+                    committedView.value.group === GROUP_ALL &&
+                    committedView.value.categories.length === 0))
         ) {
             committedView.value = {
                 search: '',
                 filter: 'all',
+                group: GROUP_ALL,
+                categories: [],
                 page: currentPage.value,
                 projects: [],
             }
@@ -634,7 +869,12 @@ watch(
 const displayRows = computed<FavoriteRow[]>(() => {
     const view = committedView.value
     if (!view) return []
-    if (view.search.trim() || view.filter !== 'all')
+    if (
+        view.search.trim() ||
+        view.filter !== 'all' ||
+        view.group !== GROUP_ALL ||
+        view.categories.length
+    )
         return view.projects
             .filter((project) =>
                 activeFavoriteIdentities.value.has(JSON.stringify(project.favorite)),
@@ -659,6 +899,18 @@ const pagedRows = computed(() => {
 
 watch([pageCount, loadingProjects], ([count, loading]) => {
     if (!loading && metadataComplete.value && currentPage.value > count) currentPage.value = count
+})
+
+watch([() => favoriteGroups.groups.value.map((group) => group.id).join(','), groupFilter], () => {
+    const group = groupFilter.value
+    if (
+        favoriteGroups.loaded.value &&
+        group !== GROUP_ALL &&
+        group !== GROUP_NONE &&
+        !favoriteGroups.groups.value.some((candidate) => candidate.id === group)
+    ) {
+        groupFilter.value = GROUP_ALL
+    }
 })
 
 const installContext = computed<BrowseInstallContext | null>(() => {
@@ -733,6 +985,51 @@ async function getModrinthVersions(projectId: string) {
     )) as Labrinth.Versions.v2.Version[]
 }
 
+async function resolveProjectVersion(project: FavoriteProject, target: GameInstance) {
+    const preferences = getInstallPreferences(target, project.favorite.content_type)
+    const versionId =
+        project.provider === 'modrinth'
+            ? getLatestMatchingInstallVersion(
+                  await getModrinthVersions(project.projectId),
+                  preferences,
+              )?.id
+            : (
+                  await getCurseForgeFiles(Number(project.projectId), {
+                      gameVersion: target.game_version,
+                      modLoaderType:
+                          project.favorite.content_type === 'mod'
+                              ? curseForgeLoaderTypes[target.loader]
+                              : undefined,
+                  })
+              ).files
+                  .find((file) => file.isAvailable)
+                  ?.id.toString()
+    return { preferences, versionId }
+}
+
+async function addProjectToSelection(project: FavoriteProject, target: GameInstance) {
+    if (project.provider !== 'modrinth' && project.provider !== 'curseforge') return false
+    const key = makeContentSelectionKey(project.provider, project.projectId)
+    const { preferences, versionId } = await resolveProjectVersion(project, target)
+    if (contentSelection.targetInstance.value?.id !== target.id) return false
+    if (!versionId) throw new Error(formatMessage(messages.noCompatibleVersion))
+
+    await contentSelection.add({
+        key,
+        provider: project.provider,
+        projectId: project.projectId,
+        providerProjectId: project.projectId,
+        versionId,
+        contentType: project.favorite.content_type,
+        title: project.title,
+        iconUrl: project.iconUrl,
+        slug: project.slug,
+        preferences,
+        targetInstanceId: target.id,
+    })
+    return true
+}
+
 async function toggleProjectSelection(project: FavoriteProject) {
     if (project.unavailable) return
     if (project.provider === 'mcarchive' || project.provider === 'planet_minecraft') {
@@ -754,45 +1051,112 @@ async function toggleProjectSelection(project: FavoriteProject) {
 
     setInstalling(key, true)
     try {
-        const preferences = getInstallPreferences(target, project.favorite.content_type)
-        const versionId =
-            project.provider === 'modrinth'
-                ? getLatestMatchingInstallVersion(
-                      await getModrinthVersions(project.projectId),
-                      preferences,
-                  )?.id
-                : (
-                      await getCurseForgeFiles(Number(project.projectId), {
-                          gameVersion: target.game_version,
-                          modLoaderType:
-                              project.favorite.content_type === 'mod'
-                                  ? curseForgeLoaderTypes[target.loader]
-                                  : undefined,
-                      })
-                  ).files
-                      .find((file) => file.isAvailable)
-                      ?.id.toString()
-        if (contentSelection.targetInstance.value?.id !== target.id) return
-        if (!versionId) throw new Error(formatMessage(messages.noCompatibleVersion))
-
-        await contentSelection.add({
-            key,
-            provider: project.provider,
-            projectId: project.projectId,
-            providerProjectId: project.projectId,
-            versionId,
-            contentType: project.favorite.content_type,
-            title: project.title,
-            iconUrl: project.iconUrl,
-            slug: project.slug,
-            preferences,
-            targetInstanceId: target.id,
-        })
+        await addProjectToSelection(project, target)
     } catch (error) {
         if (contentSelection.targetInstance.value?.id === target.id) handleError(error)
     } finally {
         setInstalling(key, false)
     }
+}
+
+const groupSelectionCandidates = computed(() => {
+    if (groupFilter.value === GROUP_ALL) return []
+    return availableProjects.value.filter(
+        (project) =>
+            matchesGroup(project, groupFilter.value) &&
+            !project.unavailable &&
+            (project.provider === 'modrinth' || project.provider === 'curseforge') &&
+            !contentSelection.isSelected(
+                makeContentSelectionKey(project.provider, project.projectId),
+            ),
+    )
+})
+
+async function selectAllInGroup() {
+    if (selectingGroup.value) return
+    const target = contentSelection.targetInstance.value
+    if (!target) {
+        await contentSelection.refreshInstances(queryValue(route.query.i) || undefined)
+        instanceSelector.value?.show()
+        return
+    }
+    const candidates = [...groupSelectionCandidates.value]
+    if (candidates.length === 0) return
+
+    selectingGroup.value = { completed: 0, total: candidates.length }
+    try {
+        for (const project of candidates) {
+            if (contentSelection.targetInstance.value?.id !== target.id) break
+            const key = makeContentSelectionKey(project.provider, project.projectId)
+            setInstalling(key, true)
+            try {
+                await addProjectToSelection(project, target)
+            } catch (error) {
+                handleError(error)
+            } finally {
+                setInstalling(key, false)
+            }
+            if (selectingGroup.value) {
+                selectingGroup.value = {
+                    completed: selectingGroup.value.completed + 1,
+                    total: candidates.length,
+                }
+            }
+        }
+    } finally {
+        selectingGroup.value = null
+    }
+}
+
+function openCreateGroup(assignFavoriteKey?: string) {
+    groupModalTarget.value = { type: 'create', assignFavoriteKey }
+    favoriteGroupModal.value?.show({ mode: 'create' })
+}
+
+function createGroupFromMenu(project: FavoriteProject, hide: () => void) {
+    hide()
+    openCreateGroup(favoriteKeyOf(project))
+}
+
+function openRenameGroup(groupId: string) {
+    const group = favoriteGroups.groups.value.find((candidate) => candidate.id === groupId)
+    if (!group) return
+    groupModalTarget.value = { type: 'rename', id: groupId }
+    favoriteGroupModal.value?.show({ mode: 'rename', name: group.name })
+}
+
+async function submitGroup(name: string) {
+    const target = groupModalTarget.value
+    groupModalTarget.value = null
+    favoriteGroupModal.value?.hide()
+    if (!target) return
+    try {
+        if (target.type === 'rename') {
+            await favoriteGroups.renameGroup(target.id, name)
+            return
+        }
+        const group = await favoriteGroups.createGroup(name)
+        if (target.assignFavoriteKey) {
+            await favoriteGroups.updateFavoriteGroups(target.assignFavoriteKey, [group.id], [])
+        }
+    } catch (error) {
+        handleError(error)
+    }
+}
+
+async function deleteGroup(groupId: string) {
+    try {
+        await favoriteGroups.deleteGroup(groupId)
+        if (groupFilter.value === groupId) groupFilter.value = GROUP_ALL
+    } catch (error) {
+        handleError(error)
+    }
+}
+
+function toggleFavoriteGroup(project: FavoriteProject, groupId: string) {
+    const key = favoriteKeyOf(project)
+    const remove = favoriteGroups.isInGroup(key, groupId)
+    void favoriteGroups.updateFavoriteGroups(key, remove ? [] : [groupId], remove ? [groupId] : [])
 }
 
 async function removeFavorite(project: FavoriteProject) {
@@ -867,6 +1231,13 @@ watch(
 
 onMounted(() => {
     breadcrumbs.setName('FavoritesTitle', formatMessage(messages.title))
+    if (stickyChromeRef.value && typeof ResizeObserver !== 'undefined') {
+        chromeHeight.value = stickyChromeRef.value.offsetHeight
+        chromeObserver = new ResizeObserver(() => {
+            chromeHeight.value = stickyChromeRef.value?.offsetHeight ?? 0
+        })
+        chromeObserver.observe(stickyChromeRef.value)
+    }
     void contentSelection
         .refreshInstances(queryValue(route.query.i) || undefined)
         .catch(handleError)
@@ -1003,139 +1374,248 @@ onMounted(() => {
             </div>
         </div>
 
-        <Admonition
-            v-if="projectsLoadFailed && hasProjectsSnapshot"
-            type="warning"
-            :header="formatMessage(messages.loadFailed)"
+        <div
+            class="favorites-layout"
+            :style="{ '--favorites-sidebar-top': `${chromeHeight + 12}px` }"
         >
-            <Button type="outlined" :loading="loadingProjects" @click="refreshProjects">{{
-                formatMessage(commonMessages.retryButton)
-            }}</Button>
-        </Admonition>
-        <EmptyState
-            v-if="projectsLoadFailed && !hasProjectsSnapshot"
-            type="error"
-            :heading="formatMessage(messages.loadFailed)"
-        >
-            <template #actions>
-                <Button type="outlined" :loading="loadingProjects" @click="refreshProjects">{{
-                    formatMessage(commonMessages.retryButton)
-                }}</Button>
-            </template>
-        </EmptyState>
-        <section
-            v-else-if="!committedView || (!contentFavorites.loaded.value && !hasProjectsSnapshot)"
-            aria-busy="true"
-        >
-            <ProjectCardList :layout="displayMode">
-                <ProjectCardSkeleton v-for="index in 6" :key="index" :layout="displayMode" />
-            </ProjectCardList>
-        </section>
-        <EmptyState
-            v-else-if="
-                contentFavorites.loaded.value && contentFavorites.favorites.value.length === 0
-            "
-            type="empty-inbox"
-            :heading="formatMessage(messages.emptyTitle)"
-            :description="formatMessage(messages.emptyDescription)"
-        >
-            <template #actions>
-                <Button type="colored" color="brand" @click="browseResources">{{
-                    formatMessage(messages.browseResources)
-                }}</Button>
-            </template>
-        </EmptyState>
-        <EmptyState
-            v-else-if="displayRows.length === 0"
-            type="no-search-result"
-            :heading="formatMessage(messages.noMatchesTitle)"
-            :description="formatMessage(messages.noMatchesDescription)"
-        >
-            <template #actions>
-                <Button type="outlined" @click="clearFilters">{{
-                    formatMessage(messages.clearFilters)
-                }}</Button>
-            </template>
-        </EmptyState>
-        <ProjectCardList v-else :layout="displayMode" :aria-busy="loadingProjects">
-            <template
-                v-for="row in pagedRows"
-                :key="contentFavoriteKey(row.favorite.provider, row.favorite.project_id)"
+            <FavoritesSidebar
+                v-if="contentFavorites.favorites.value.length > 0"
+                :entries="favoriteGroupEntries"
+                :active-group="groupFilter"
+                :category-filter-type="categoryFilterType"
+                :category-filters="categoryFilters"
+                @select-group="groupFilter = $event"
+                @create-group="openCreateGroup()"
+                @rename-group="openRenameGroup"
+                @delete-group="deleteGroup"
+                @update:category-filters="categoryFilters = $event"
+            />
+
+            <div
+                class="flex min-w-0 flex-col gap-3"
+                :class="{
+                    'col-span-full': contentFavorites.favorites.value.length === 0,
+                }"
             >
-                <ProjectCardSkeleton v-if="!row.project" :layout="displayMode" />
-                <ProjectCard
-                    v-else
-                    :layout="displayMode"
-                    :link="getProjectLink(row.project)"
-                    :title="row.project.title"
-                    :summary="row.project.description"
-                    :icon-url="row.project.iconUrl"
-                    :downloads="row.project.downloads"
-                    :tags="row.project.categories"
-                    :date-published="row.project.dateCreated"
-                    :date-updated="row.project.dateModified"
-                    :banner="row.project.banner"
-                    :color="row.project.color"
-                    :environment="row.project.environment"
-                    :provider="row.project.provider"
+                <div
+                    v-if="groupFilter !== GROUP_ALL && groupSelectionCandidates.length > 0"
+                    class="flex justify-end"
+                >
+                    <Button
+                        type="outlined"
+                        size="sm"
+                        :disabled="!!selectingGroup"
+                        @click="selectAllInGroup"
+                    >
+                        <SpinnerIcon v-if="selectingGroup" class="animate-spin" />
+                        <CheckIcon v-else />
+                        {{
+                            selectingGroup
+                                ? formatMessage(messages.selectingGroupProgress, {
+                                      completed: selectingGroup.completed,
+                                      total: selectingGroup.total,
+                                  })
+                                : formatMessage(messages.selectAllGroup, {
+                                      count: groupSelectionCandidates.length,
+                                  })
+                        }}
+                    </Button>
+                </div>
+
+                <Admonition
+                    v-if="projectsLoadFailed && hasProjectsSnapshot"
+                    type="warning"
+                    :header="formatMessage(messages.loadFailed)"
+                >
+                    <Button type="outlined" :loading="loadingProjects" @click="refreshProjects">{{
+                        formatMessage(commonMessages.retryButton)
+                    }}</Button>
+                </Admonition>
+                <EmptyState
+                    v-if="projectsLoadFailed && !hasProjectsSnapshot"
+                    type="error"
+                    :heading="formatMessage(messages.loadFailed)"
                 >
                     <template #actions>
-                        <div class="flex gap-2">
-                            <Button
-                                v-if="!row.project.unavailable"
-                                color="brand"
-                                type="outlined"
-                                :size="displayMode === 'compact' ? '2xs' : 'md'"
-                                :disabled="isInstalling(row.project)"
-                                @click.stop="toggleProjectSelection(row.project)"
-                            >
-                                <SpinnerIcon
-                                    v-if="isInstalling(row.project)"
-                                    class="animate-spin"
-                                />
-                                <CheckIcon v-else-if="isSelected(row.project)" />
-                                <PlusIcon v-else />
-                                {{ installLabel(row.project) }}
-                            </Button>
-                            <Button
-                                v-tooltip="formatMessage(messages.remove)"
-                                circular
-                                icon-only
-                                color="brand"
-                                type="quiet"
-                                :size="displayMode === 'compact' ? '2xs' : 'md'"
-                                :disabled="
-                                    contentFavorites.isPending(
-                                        row.project.provider,
-                                        row.project.projectId,
-                                    )
-                                "
-                                :label="formatMessage(messages.remove)"
-                                @click.stop="removeFavorite(row.project)"
-                            >
-                                <SpinnerIcon
-                                    v-if="
-                                        contentFavorites.isPending(
-                                            row.project.provider,
-                                            row.project.projectId,
-                                        )
-                                    "
-                                    class="animate-spin"
-                                />
-                                <BookmarkFilledIcon v-else />
-                            </Button>
-                        </div>
+                        <Button
+                            type="outlined"
+                            :loading="loadingProjects"
+                            @click="refreshProjects"
+                            >{{ formatMessage(commonMessages.retryButton) }}</Button
+                        >
                     </template>
-                </ProjectCard>
-            </template>
-        </ProjectCardList>
+                </EmptyState>
+                <section
+                    v-else-if="
+                        !committedView || (!contentFavorites.loaded.value && !hasProjectsSnapshot)
+                    "
+                    aria-busy="true"
+                >
+                    <ProjectCardList :layout="displayMode">
+                        <ProjectCardSkeleton
+                            v-for="index in 6"
+                            :key="index"
+                            :layout="displayMode"
+                        />
+                    </ProjectCardList>
+                </section>
+                <EmptyState
+                    v-else-if="
+                        contentFavorites.loaded.value &&
+                        contentFavorites.favorites.value.length === 0
+                    "
+                    type="empty-inbox"
+                    :heading="formatMessage(messages.emptyTitle)"
+                    :description="formatMessage(messages.emptyDescription)"
+                >
+                    <template #actions>
+                        <Button type="colored" color="brand" @click="browseResources">{{
+                            formatMessage(messages.browseResources)
+                        }}</Button>
+                    </template>
+                </EmptyState>
+                <EmptyState
+                    v-else-if="displayRows.length === 0"
+                    type="no-search-result"
+                    :heading="formatMessage(messages.noMatchesTitle)"
+                    :description="formatMessage(messages.noMatchesDescription)"
+                >
+                    <template #actions>
+                        <Button type="outlined" @click="clearFilters">{{
+                            formatMessage(messages.clearFilters)
+                        }}</Button>
+                    </template>
+                </EmptyState>
+                <ProjectCardList v-else :layout="displayMode" :aria-busy="loadingProjects">
+                    <template
+                        v-for="row in pagedRows"
+                        :key="contentFavoriteKey(row.favorite.provider, row.favorite.project_id)"
+                    >
+                        <ProjectCardSkeleton v-if="!row.project" :layout="displayMode" />
+                        <ProjectCard
+                            v-else
+                            :layout="displayMode"
+                            :link="getProjectLink(row.project)"
+                            :title="row.project.title"
+                            :summary="row.project.description"
+                            :icon-url="row.project.iconUrl"
+                            :downloads="row.project.downloads"
+                            :tags="row.project.categories"
+                            :date-published="row.project.dateCreated"
+                            :date-updated="row.project.dateModified"
+                            :banner="row.project.banner"
+                            :color="row.project.color"
+                            :environment="row.project.environment"
+                            :provider="row.project.provider"
+                        >
+                            <template #actions>
+                                <div class="flex gap-2">
+                                    <Button
+                                        v-if="!row.project.unavailable"
+                                        color="brand"
+                                        type="outlined"
+                                        :size="displayMode === 'compact' ? '2xs' : 'md'"
+                                        :disabled="isInstalling(row.project)"
+                                        @click.stop="toggleProjectSelection(row.project)"
+                                    >
+                                        <SpinnerIcon
+                                            v-if="isInstalling(row.project)"
+                                            class="animate-spin"
+                                        />
+                                        <CheckIcon v-else-if="isSelected(row.project)" />
+                                        <PlusIcon v-else />
+                                        {{ installLabel(row.project) }}
+                                    </Button>
+                                    <PopoutMenu placement="bottom-end">
+                                        <Button
+                                            v-tooltip="formatMessage(messages.manageGroups)"
+                                            circular
+                                            icon-only
+                                            type="quiet"
+                                            :size="displayMode === 'compact' ? '2xs' : 'md'"
+                                            :aria-label="formatMessage(messages.manageGroups)"
+                                        >
+                                            <FolderIcon />
+                                        </Button>
+                                        <template #menu="{ hide }">
+                                            <div class="flex w-48 flex-col gap-1 p-1">
+                                                <p
+                                                    v-if="favoriteGroups.groups.value.length === 0"
+                                                    class="m-0 px-2 py-1 text-sm text-[var(--color-text-tertiary)]"
+                                                >
+                                                    {{ formatMessage(messages.noGroups) }}
+                                                </p>
+                                                <Checkbox
+                                                    v-for="group in favoriteGroups.groups.value"
+                                                    :key="group.id"
+                                                    :model-value="
+                                                        favoriteGroups.isInGroup(
+                                                            favoriteKeyOf(row.project),
+                                                            group.id,
+                                                        )
+                                                    "
+                                                    :label="group.name"
+                                                    class="w-full px-2 py-1"
+                                                    @update:model-value="
+                                                        toggleFavoriteGroup(row.project, group.id)
+                                                    "
+                                                    @click.stop
+                                                />
+                                                <div class="my-1 h-px bg-surface-4" />
+                                                <Button
+                                                    type="quiet"
+                                                    class="w-full !justify-start"
+                                                    @click.stop="
+                                                        createGroupFromMenu(row.project, hide)
+                                                    "
+                                                >
+                                                    <PlusIcon />
+                                                    {{ formatMessage(messages.newGroup) }}
+                                                </Button>
+                                            </div>
+                                        </template>
+                                    </PopoutMenu>
+                                    <Button
+                                        v-tooltip="formatMessage(messages.remove)"
+                                        circular
+                                        icon-only
+                                        color="brand"
+                                        type="quiet"
+                                        :size="displayMode === 'compact' ? '2xs' : 'md'"
+                                        :disabled="
+                                            contentFavorites.isPending(
+                                                row.project.provider,
+                                                row.project.projectId,
+                                            )
+                                        "
+                                        :label="formatMessage(messages.remove)"
+                                        @click.stop="removeFavorite(row.project)"
+                                    >
+                                        <SpinnerIcon
+                                            v-if="
+                                                contentFavorites.isPending(
+                                                    row.project.provider,
+                                                    row.project.projectId,
+                                                )
+                                            "
+                                            class="animate-spin"
+                                        />
+                                        <BookmarkFilledIcon v-else />
+                                    </Button>
+                                </div>
+                            </template>
+                        </ProjectCard>
+                    </template>
+                </ProjectCardList>
 
-        <div class="flex justify-end">
-            <Pagination
-                :page="displayedPage"
-                :count="pageCount"
-                @switch-page="currentPage = $event"
-            />
+                <div class="flex justify-end">
+                    <Pagination
+                        :page="displayedPage"
+                        :count="pageCount"
+                        @switch-page="currentPage = $event"
+                    />
+                </div>
+            </div>
         </div>
 
         <SelectedProjectsFloatingBar :install-context="installContext" />
@@ -1148,5 +1628,22 @@ onMounted(() => {
             :clear-current="contentSelection.clear"
             @select="selectTargetInstance"
         />
+        <FavoriteGroupModal ref="favoriteGroupModal" @submit="submitGroup" />
     </div>
 </template>
+
+<style scoped>
+.favorites-layout {
+    display: grid;
+    grid-template-columns: minmax(14rem, 16rem) minmax(0, 1fr);
+    gap: var(--gap-md);
+    align-items: start;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .favorites-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+</style>

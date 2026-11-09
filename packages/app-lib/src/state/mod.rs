@@ -328,12 +328,12 @@ impl State {
         &self,
         instance_id: &str,
     ) -> tokio::sync::OwnedMutexGuard<()> {
-        self.screenshot_locks
+        let lock = self
+            .screenshot_locks
             .entry(instance_id.to_string())
             .or_insert_with(|| Arc::new(AsyncMutex::new(())))
-            .clone()
-            .lock_owned()
-            .await
+            .clone();
+        lock.lock_owned().await
     }
 
     pub(crate) async fn lock_synced_options(
@@ -2089,6 +2089,52 @@ mod uninitialized_state_tests {
 mod shutdown_tests {
     use super::*;
     use std::future::Future;
+
+    #[tokio::test]
+    async fn screenshot_lock_wait_does_not_hold_registry_shard() {
+        let (_temp, state) = fixture().await;
+        let held = state.lock_instance_screenshots("waiter").await;
+        let mut waiting =
+            std::pin::pin!(state.lock_instance_screenshots("waiter"));
+        let mut context =
+            std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(waiting.as_mut().poll(&mut context).is_pending());
+        assert!(state.screenshot_locks.try_entry("waiter".into()).is_some());
+        drop(held);
+        waiting.await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn screenshot_lock_burst_keeps_runtime_responsive() {
+        let (_temp, state) = fixture().await;
+        let held = state.lock_instance_screenshots("burst").await;
+        {
+            // Fail safely before spawning blocked workers if the shard regression returns.
+            let mut waiting =
+                std::pin::pin!(state.lock_instance_screenshots("burst"));
+            let mut context =
+                std::task::Context::from_waker(std::task::Waker::noop());
+            assert!(waiting.as_mut().poll(&mut context).is_pending());
+            assert!(state.screenshot_locks.try_entry("burst".into()).is_some());
+        }
+        let mut tasks = tokio::task::JoinSet::new();
+        for _ in 0..64 {
+            let state = state.clone();
+            tasks.spawn(async move {
+                let _guard = state.lock_instance_screenshots("burst").await;
+                tokio::task::yield_now().await;
+            });
+        }
+        tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            drop(held);
+            while let Some(result) = tasks.join_next().await {
+                result.unwrap();
+            }
+        })
+        .await
+        .expect("screenshot waiters must not starve the runtime");
+    }
 
     async fn fixture() -> (tempfile::TempDir, Arc<State>) {
         let temp = tempfile::tempdir().unwrap();

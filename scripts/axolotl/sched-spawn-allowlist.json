@@ -2309,12 +2309,11 @@
     {
       "file": "packages/app-lib/src/state/instances/watcher.rs",
       "form": "tokio::spawn",
-      "count": 9,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "count": 8,
+      "reason": "reviewed watcher-scoped tasks: screenshot reconciliation is now owned and coalesced by the watcher pump rather than spawned per filesystem event; remaining event delivery, configuration/manual-download reconciliation and crash notification tasks retain their existing operation scopes",
       "sites": [
         "configure_manual_import_directory: tokio::spawn(async move {",
         "crash_task: tokio::task::spawn(async move {",
-        "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",

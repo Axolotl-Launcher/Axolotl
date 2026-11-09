@@ -143,18 +143,6 @@ vi.mock('@/providers/server-install', async () => {
     const { ref } = await import('vue')
     return { injectServerInstall: () => ({ installingServerProjects: ref([]) }) }
 })
-vi.mock('@/providers/setup/server-install-content', () => ({
-    createServerInstallContent: () => ({
-        serverContextServerData: { value: null },
-        isServerContext: { value: false },
-        queuedServerInstallProjectIds: { value: new Set() },
-        serverContentProjectIds: { value: new Set() },
-        isInstallingQueuedServerInstalls: { value: false },
-        watchServerContextChanges: vi.fn(),
-        initServerContext: async () => {},
-        getProjectInstallContext: () => null,
-    }),
-}))
 vi.mock('@/components/browse/BrowseInstanceSelector.vue', () => ({
     default: { render: () => null },
 }))
@@ -602,5 +590,47 @@ it('shows the navigation title before the main project request completes', async
     } finally {
         wrapper.unmount()
         window.history.replaceState({}, '')
+    }
+})
+
+it('keeps the local project target when an old hosting deep link includes sid and wid', async () => {
+    const originalQuery = api.query
+    api.query = { ...originalQuery, sid: 'old-host', wid: 'old-world' } as typeof api.query
+    api.project.mockResolvedValue({
+        id: 'one',
+        slug: 'one',
+        title: 'Public project',
+        project_type: 'mod',
+        versions: [],
+        team: 'team',
+        categories: [],
+        game_versions: [],
+        loaders: [],
+        gallery: [],
+    })
+    api.refreshInstances.mockReset().mockResolvedValue(undefined)
+    api.instance.mockResolvedValue({
+        id: 'target-instance',
+        name: 'Local instance',
+        loader: 'fabric',
+        game_version: '1.21.8',
+    })
+    const wrapper = mount(Project, {
+        global: { stubs: { Teleport: true, RouterView: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await vi.waitFor(() => expect(wrapper.text()).toContain('Public project'))
+        expect(api.refreshInstances).toHaveBeenCalledWith('target-instance', expect.any(Function))
+        const page = wrapper.vm as unknown as {
+            projectInstallContext: { name: string }
+            versionsHref: string
+        }
+        expect(page.projectInstallContext.name).toBe('Local instance')
+        expect(page.versionsHref).toContain('i=target-instance')
+        expect(page.versionsHref).not.toContain('sid=')
+        expect(page.versionsHref).not.toContain('wid=')
+    } finally {
+        wrapper.unmount()
+        api.query = originalQuery
     }
 })

@@ -268,7 +268,6 @@ impl RangeTransport for NativeRangeTransport<'_> {
             super::native_request::send_path_request_with_clients(
                 self.route,
                 self.request.header.as_ref(),
-                None,
                 self.request.download_meta.as_ref(),
                 Some(start),
                 Some(end),

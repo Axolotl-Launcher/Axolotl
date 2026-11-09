@@ -1,7 +1,3 @@
-import type { Archon } from '@modrinth/api-client'
-
-export type ServerLoader = Archon.Servers.v0.Loader | 'Bukkit'
-
 export const clientInstallableLoaders = [
     'fabric',
     'neoforge',

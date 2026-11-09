@@ -60,6 +60,7 @@ import {
     resolveContentFavorite,
 } from '@/helpers/content-favorites'
 import { translateSearchHitTitles } from '@/helpers/content-search'
+import { instance_listener } from '@/helpers/events.js'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { createProjectDetailsQuery } from '@/helpers/project-links'
@@ -118,6 +119,12 @@ type FavoritesReturnState = {
 const PAGE_SIZE = 20
 const GROUP_ALL: FavoriteGroupFilter = 'all'
 const GROUP_NONE: FavoriteGroupFilter = 'none'
+const INSTALLED_CONTENT_EVENTS = [
+    'synced',
+    'content_changed',
+    'content_install_finished',
+    'content_install_failed',
+]
 const FAVORITE_PROJECT_TYPES: FilterType['supported_project_types'] = [
     'mod',
     'resourcepack',
@@ -146,6 +153,7 @@ const projects = shallowRef<FavoriteProject[]>([])
 const localizedTitles = shallowRef<ReadonlyMap<string, string>>(new Map())
 const requestedTitleLookups = new Set<string>()
 let projectsController: AbortController | null = null
+let unlistenInstances: (() => void) | null = null
 let disposed = false
 const loadingProjects = ref(false)
 const installingKeys = ref(new Set<string>())
@@ -708,6 +716,8 @@ let chromeObserver: ResizeObserver | null = null
 
 onBeforeUnmount(() => {
     disposed = true
+    unlistenInstances?.()
+    unlistenInstances = null
     projectsController?.abort()
     chromeObserver?.disconnect()
     chromeObserver = null
@@ -974,8 +984,21 @@ function isSelected(project: FavoriteProject) {
 }
 
 function isInstalled(project: FavoriteProject) {
-    if (project.provider !== 'modrinth' && project.provider !== 'curseforge') return false
-    return contentSelection.isInstalledIdentity(project.provider, project.projectId, project.slug)
+    // A favorite can present another source's project than the one installed,
+    // so every project it is known by has to be checked.
+    const known: { provider: FavoriteProvider; projectId: string; slug?: string }[] = [
+        { provider: project.provider, projectId: project.projectId, slug: project.slug },
+        { provider: project.favorite.provider, projectId: project.favorite.project_id },
+        ...(project.favorite.projects ?? []).map(({ source, projectId }) => ({
+            provider: source,
+            projectId,
+        })),
+    ]
+    return known.some(
+        ({ provider, projectId, slug }) =>
+            (provider === 'modrinth' || provider === 'curseforge') &&
+            contentSelection.isInstalledIdentity(provider, projectId, slug),
+    )
 }
 
 function installLabel(project: FavoriteProject) {
@@ -1065,11 +1088,7 @@ const filteredSelectionCandidates = computed(() => {
             !contentSelection.isSelected(
                 makeContentSelectionKey(project.provider, project.projectId),
             ) &&
-            !contentSelection.isInstalledIdentity(
-                project.provider,
-                project.projectId,
-                project.slug,
-            ),
+            !isInstalled(project),
     )
 })
 
@@ -1260,6 +1279,20 @@ onMounted(() => {
             handleError(error)
         }
     })()
+    // Match Browse: content installed from here has to change the card in place.
+    instance_listener(async (event: { event: string; instance_id: string }) => {
+        if (
+            event.instance_id === contentSelection.targetInstance.value?.id &&
+            INSTALLED_CONTENT_EVENTS.includes(event.event)
+        ) {
+            await contentSelection.refreshInstalledIdentities().catch(handleError)
+        }
+    })
+        .then((unlisten) => {
+            if (disposed) unlisten()
+            else unlistenInstances = unlisten
+        })
+        .catch(handleError)
     if (browseReturnSnapshot) {
         void nextTick().then(
             () =>

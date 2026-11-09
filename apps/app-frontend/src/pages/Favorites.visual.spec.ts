@@ -8,6 +8,8 @@ import type { SourceProjectMetadata } from '@/helpers/resources'
 import Favorites from './Favorites.vue'
 
 const fixture = vi.hoisted(() => ({
+    instanceEvent: null as
+        null | ((event: { event: string; instance_id: string }) => Promise<void>),
     locale: 'en-US',
     translate: vi.fn(async (hits: { title: string }[], _locale: string) => hits),
     query: {} as Record<string, string>,
@@ -69,6 +71,14 @@ vi.mock('@/i18n.config', () => ({
     },
 }))
 vi.mock('@/helpers/content-search', () => ({ translateSearchHitTitles: fixture.translate }))
+vi.mock('@/helpers/events.js', () => ({
+    instance_listener: async (
+        listener: (event: { event: string; instance_id: string }) => Promise<void>,
+    ) => {
+        fixture.instanceEvent = listener
+        return () => {}
+    },
+}))
 vi.mock('@/helpers/cache.js', () => ({ get_project: vi.fn(), get_version_many: vi.fn() }))
 vi.mock('@/helpers/curseforge', () => ({ getCurseForgeFiles: vi.fn() }))
 vi.mock('@/helpers/settings', () => ({
@@ -992,6 +1002,45 @@ it('looks each favorite title up only once while projects are published', async 
         hits.map((hit) => (hit as unknown as { key: string }).key),
     )
     expect(looked.sort()).toEqual(['modrinth:one', 'modrinth:two'])
+})
+
+it('counts a favorite as installed through the project it was saved from', async () => {
+    const saved = {
+        ...savedFavorite,
+        project_id: 'saved-on-modrinth',
+        projects: [{ source: 'curseforge' as const, projectId: '42' }],
+    }
+    fixture.load.mockResolvedValue([saved])
+    fixture.metadata.mockResolvedValue({
+        ...savedMetadata,
+        project: { source: 'curseforge', projectId: 'presented-project' },
+    })
+    fixture.setTarget(bulkTarget)
+    fixture.installedKeys.add('modrinth:saved-on-modrinth')
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Saved mod'))
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Select all')
+})
+
+it('refreshes the installed state when content in the target instance changes', async () => {
+    fixture.load.mockResolvedValue([])
+    fixture.setTarget(bulkTarget)
+    render()
+    await vi.waitFor(() => expect(fixture.instanceEvent).not.toBeNull())
+    await vi.waitFor(() => expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(1))
+
+    await fixture.instanceEvent!({ event: 'content_changed', instance_id: 'other-instance' })
+    await fixture.instanceEvent!({ event: 'edited', instance_id: 'instance-1' })
+    expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(1)
+
+    await fixture.instanceEvent!({
+        event: 'content_install_finished',
+        instance_id: 'instance-1',
+    })
+    expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(2)
 })
 
 it('refreshes installed identities after restoring a target instance on mount', async () => {

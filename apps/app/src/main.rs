@@ -20,6 +20,8 @@ use tauri_plugin_fs::FsExt;
 use theseus::prelude::*;
 
 mod api;
+#[cfg(any(target_os = "linux", test))]
+mod appimage;
 mod error;
 mod lightweight_mode;
 mod mod_translation;
@@ -671,6 +673,9 @@ fn main() {
             ));
         }
     }
+
+    #[cfg(target_os = "linux")]
+    appimage::prefer_host_tools();
 
     // Workaround: NVIDIA's proprietary EGL driver crashes WebKitGTK's DMA-BUF renderer
     #[cfg(target_os = "linux")]

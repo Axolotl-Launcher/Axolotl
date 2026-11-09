@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, Suspense } from 'vue'
 
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
+import { notifyAccountSelectionChanged } from '@/helpers/account-state'
 
 import AccountsCard from './AccountsCard.vue'
 
@@ -130,6 +131,22 @@ function mountCard() {
     cleanup.push(() => wrapper.unmount())
     return wrapper
 }
+
+it('shows an account selected outside the card without a restart', async () => {
+    backend.defaultUser.mockResolvedValue(null)
+    backend.users.mockResolvedValue([])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const wrapper = mountCard()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('SignedInElsewhere')
+
+    backend.defaultUser.mockResolvedValue('microsoft:saved-id')
+    backend.users.mockResolvedValue([account('SignedInElsewhere')])
+    notifyAccountSelectionChanged()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('SignedInElsewhere')
+})
 
 it('shows saved accounts while online profiles and head rendering are still pending', async () => {
     const online = deferred<ReturnType<typeof account>[]>()

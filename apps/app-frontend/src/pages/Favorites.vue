@@ -59,6 +59,8 @@ import {
     prefetchContentFavorites,
     resolveContentFavorite,
 } from '@/helpers/content-favorites'
+import { translateSearchHitTitles } from '@/helpers/content-search'
+import { instance_listener } from '@/helpers/events.js'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { createProjectDetailsQuery } from '@/helpers/project-links'
@@ -69,6 +71,7 @@ import {
     setLastBrowseContentDisplayMode,
 } from '@/helpers/settings'
 import type { GameInstance } from '@/helpers/types'
+import i18n from '@/i18n.config'
 import { injectContentSelection, makeContentSelectionKey } from '@/providers/content-selection'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 import { isBrowseReturnSourcePath, useNavigationReturnStore } from '@/store/navigation-return'
@@ -116,6 +119,12 @@ type FavoritesReturnState = {
 const PAGE_SIZE = 20
 const GROUP_ALL: FavoriteGroupFilter = 'all'
 const GROUP_NONE: FavoriteGroupFilter = 'none'
+const INSTALLED_CONTENT_EVENTS = [
+    'synced',
+    'content_changed',
+    'content_install_finished',
+    'content_install_failed',
+]
 const FAVORITE_PROJECT_TYPES: FilterType['supported_project_types'] = [
     'mod',
     'resourcepack',
@@ -141,7 +150,10 @@ const selectingFiltered = ref<{ completed: number; total: number } | null>(null)
 const stickyChromeRef = ref<HTMLElement | null>(null)
 const { isStuck: isChromeStuck } = useStickyObserver(stickyChromeRef, 'FavoritesToolbarChrome')
 const projects = shallowRef<FavoriteProject[]>([])
+const localizedTitles = shallowRef<ReadonlyMap<string, string>>(new Map())
+const requestedTitleLookups = new Set<string>()
 let projectsController: AbortController | null = null
+let unlistenInstances: (() => void) | null = null
 let disposed = false
 const loadingProjects = ref(false)
 const installingKeys = ref(new Set<string>())
@@ -517,6 +529,40 @@ function toProject(favorite: ContentFavorite, metadata: SourceProjectMetadata): 
     }
 }
 
+function projectTitleKey(project: FavoriteProject) {
+    return `${project.provider}:${project.projectId}`
+}
+
+function displayTitle(project: FavoriteProject) {
+    return localizedTitles.value.get(projectTitleKey(project)) ?? project.title
+}
+
+// Projects are published one at a time, so only the new ones are looked up.
+watch(
+    projects,
+    (current) => {
+        const pending = current.flatMap((project) => {
+            const { provider } = project
+            const key = projectTitleKey(project)
+            if (
+                project.unavailable ||
+                requestedTitleLookups.has(key) ||
+                (provider !== 'modrinth' && provider !== 'curseforge')
+            )
+                return []
+            requestedTitleLookups.add(key)
+            return [{ key, provider, slug: project.slug, title: project.title }]
+        })
+        if (pending.length === 0) return
+        void translateSearchHitTitles(pending, i18n.global.locale.value).then((translated) => {
+            const next = new Map(localizedTitles.value)
+            for (const { key, title } of translated) next.set(key, title)
+            localizedTitles.value = next
+        })
+    },
+    { immediate: true },
+)
+
 function restoreCachedProjects() {
     if (!contentFavorites.loaded.value) return
     const cached = contentFavorites.favorites.value.flatMap((favorite) => {
@@ -670,6 +716,8 @@ let chromeObserver: ResizeObserver | null = null
 
 onBeforeUnmount(() => {
     disposed = true
+    unlistenInstances?.()
+    unlistenInstances = null
     projectsController?.abort()
     chromeObserver?.disconnect()
     chromeObserver = null
@@ -781,7 +829,7 @@ function matchesFilter(
     const normalizedSearch = query.trim().toLocaleLowerCase()
     return (
         !normalizedSearch ||
-        [project.title, project.description, project.provider, project.projectId]
+        [displayTitle(project), project.description, project.provider, project.projectId]
             .join('\n')
             .toLocaleLowerCase()
             .includes(normalizedSearch)
@@ -798,6 +846,7 @@ watch(
         favoriteGroups.memberships,
         currentPage,
         loadingProjects,
+        localizedTitles,
     ],
     () => {
         const groupsReady = groupFilter.value === GROUP_ALL || favoriteGroups.loaded.value
@@ -935,8 +984,21 @@ function isSelected(project: FavoriteProject) {
 }
 
 function isInstalled(project: FavoriteProject) {
-    if (project.provider !== 'modrinth' && project.provider !== 'curseforge') return false
-    return contentSelection.isInstalledIdentity(project.provider, project.projectId, project.slug)
+    // A favorite can present another source's project than the one installed,
+    // so every project it is known by has to be checked.
+    const known: { provider: FavoriteProvider; projectId: string; slug?: string }[] = [
+        { provider: project.provider, projectId: project.projectId, slug: project.slug },
+        { provider: project.favorite.provider, projectId: project.favorite.project_id },
+        ...(project.favorite.projects ?? []).map(({ source, projectId }) => ({
+            provider: source,
+            projectId,
+        })),
+    ]
+    return known.some(
+        ({ provider, projectId, slug }) =>
+            (provider === 'modrinth' || provider === 'curseforge') &&
+            contentSelection.isInstalledIdentity(provider, projectId, slug),
+    )
 }
 
 function installLabel(project: FavoriteProject) {
@@ -972,7 +1034,7 @@ async function addProjectToSelection(project: FavoriteProject, target: GameInsta
         projectId: project.projectId,
         providerProjectId: project.projectId,
         contentType: project.favorite.content_type,
-        title: project.title,
+        title: displayTitle(project),
         iconUrl: project.iconUrl,
         slug: project.slug,
         preferences: getInstallPreferences(target, project.favorite.content_type),
@@ -1026,11 +1088,7 @@ const filteredSelectionCandidates = computed(() => {
             !contentSelection.isSelected(
                 makeContentSelectionKey(project.provider, project.projectId),
             ) &&
-            !contentSelection.isInstalledIdentity(
-                project.provider,
-                project.projectId,
-                project.slug,
-            ),
+            !isInstalled(project),
     )
 })
 
@@ -1165,7 +1223,7 @@ function getProjectLink(project: FavoriteProject) {
     return {
         path,
         query: createProjectDetailsQuery(route.query, route.fullPath),
-        state: createProjectPreviewState(path, project.title),
+        state: createProjectPreviewState(path, displayTitle(project)),
     }
 }
 
@@ -1221,6 +1279,20 @@ onMounted(() => {
             handleError(error)
         }
     })()
+    // Match Browse: content installed from here has to change the card in place.
+    instance_listener(async (event: { event: string; instance_id: string }) => {
+        if (
+            event.instance_id === contentSelection.targetInstance.value?.id &&
+            INSTALLED_CONTENT_EVENTS.includes(event.event)
+        ) {
+            await contentSelection.refreshInstalledIdentities().catch(handleError)
+        }
+    })
+        .then((unlisten) => {
+            if (disposed) unlisten()
+            else unlistenInstances = unlisten
+        })
+        .catch(handleError)
     if (browseReturnSnapshot) {
         void nextTick().then(
             () =>
@@ -1455,7 +1527,7 @@ onMounted(() => {
                             v-else
                             :layout="displayMode"
                             :link="getProjectLink(row.project)"
-                            :title="row.project.title"
+                            :title="displayTitle(row.project)"
                             :summary="row.project.description"
                             :icon-url="row.project.iconUrl"
                             :downloads="row.project.downloads"

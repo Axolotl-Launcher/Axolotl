@@ -404,8 +404,37 @@ fn extract_version_from_libraries(content: &str) -> Option<String> {
     None
 }
 
+/// Where the Mojang pre-release qualifier after `separator` ends, if there is
+/// one: the `-snapshot-7` of "26.4-snapshot-7", the `-pre1` of "1.21-pre1" or the
+/// ` Pre-Release 5` of "1.14 Pre-Release 5". These are part of the game version.
+/// A qualifier needs its number, so a name like "1.20.1-rc-pack" is not one.
+fn prerelease_qualifier_end(id: &str, separator: usize) -> Option<usize> {
+    let rest = &id[separator + 1..];
+    let lower = rest.to_ascii_lowercase();
+    let label = ["snapshot", "pre-release", "pre", "rc"]
+        .into_iter()
+        .find(|label| lower.starts_with(label))?;
+    let after_label = &rest[label.len()..];
+    let number = after_label.strip_prefix(['-', ' ']).unwrap_or(after_label);
+    let digits = number.len()
+        - number
+            .trim_start_matches(|c: char| c.is_ascii_digit())
+            .len();
+    if digits == 0 {
+        return None;
+    }
+    let end = id.len() - number.len() + digits;
+    id[end..]
+        .chars()
+        .next()
+        .is_none_or(|next| matches!(next, '-' | '_' | ' '))
+        .then_some(end)
+}
+
 /// Extracts leading version number from the instance id.
 /// e.g. "1.8.9-forge-11.15.1.1722" → "1.8.9"
+/// Keeps the pre-release qualifier of an official id, since the version manifest
+/// lists "26.4-snapshot-7" and has no "26.4".
 /// Skips hash-like ids (≥32 chars, no separators).
 fn extract_version_from_id(id: &str) -> Option<String> {
     let ver = id.trim();
@@ -420,7 +449,8 @@ fn extract_version_from_id(id: &str) -> Option<String> {
         return None;
     }
     if let Some(first_sep) = ver.find(['-', '_', ' ']) {
-        let candidate = &ver[..first_sep];
+        let end = prerelease_qualifier_end(ver, first_sep).unwrap_or(first_sep);
+        let candidate = &ver[..end];
         if candidate.starts_with("1.") || candidate.starts_with('2') {
             return Some(candidate.to_string());
         }
@@ -925,6 +955,67 @@ mod tests {
     #[test]
     fn test_no_loader() {
         assert!(detect_from_json(r#"{"id": "1.20.4"}"#).is_none());
+    }
+
+    #[test]
+    fn version_ids_keep_official_prerelease_qualifiers() {
+        for (id, expected) in [
+            ("26.4-snapshot-7", "26.4-snapshot-7"),
+            ("26.1-pre-1", "26.1-pre-1"),
+            ("26.1-rc-2", "26.1-rc-2"),
+            ("1.21-pre1", "1.21-pre1"),
+            ("1.21-rc1", "1.21-rc1"),
+            ("1.14 Pre-Release 5", "1.14 Pre-Release 5"),
+            ("1.RV-Pre1", "1.RV-Pre1"),
+            ("26.4-snapshot-7-Survival", "26.4-snapshot-7"),
+            ("1.21-pre1_unobfuscated", "1.21-pre1"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(id).as_deref(),
+                Some(expected),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn version_ids_still_drop_loader_and_custom_suffixes() {
+        for (id, expected) in [
+            ("1.8.9-forge-11.15.1.1722", "1.8.9"),
+            ("1.20.1-fabric-0.15.11", "1.20.1"),
+            ("1.20.1-rc-pack", "1.20.1"),
+            ("1.20.1-preview", "1.20.1"),
+            ("1.20.1-pre1.5", "1.20.1"),
+            ("26.4-Survival", "26.4"),
+            ("1.21.11_unobfuscated", "1.21.11"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(id).as_deref(),
+                Some(expected),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn official_snapshot_instance_keeps_its_full_version() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let version_dir = dir.path().join("26.4-snapshot-7");
+        std::fs::create_dir(&version_dir).expect("create version dir");
+        std::fs::write(
+            version_dir.join("26.4-snapshot-7.json"),
+            r#"{
+                "id": "26.4-snapshot-7",
+                "type": "snapshot",
+                "mainClass": "net.minecraft.client.main.Main",
+                "libraries": [{ "name": "com.mojang:brigadier:1.3.10" }]
+            }"#,
+        )
+        .expect("write version json");
+
+        let info = detect(&version_dir).expect("detect should succeed");
+        assert_eq!(info.vanilla_name, "26.4-snapshot-7");
+        assert_eq!(info.loader, None);
     }
 
     #[test]

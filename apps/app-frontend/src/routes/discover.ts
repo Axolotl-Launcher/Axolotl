@@ -46,11 +46,7 @@ export const discoverRoutes: RouteRecordRaw[] = [
         path: '/:projectType(mod|plugin|datapack|resourcepack|shader|modpack)/:id/:rest(.*)*',
         redirect: (to) => {
             const restParam = to.params.rest
-            const restSegments = Array.isArray(restParam)
-                ? restParam
-                : restParam
-                  ? [restParam]
-                  : []
+            const restSegments = Array.isArray(restParam) ? restParam : restParam ? [restParam] : []
             const rest = restSegments.length ? `/${restSegments.join('/')}` : ''
             return `/project/${to.params.id}${rest}${to.hash}`
         },

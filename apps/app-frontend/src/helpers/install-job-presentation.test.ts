@@ -31,7 +31,7 @@ describe.each([
         const template =
             translation && 'message' in translation
                 ? translation.message
-                : descriptor.defaultMessage ?? ''
+                : (descriptor.defaultMessage ?? '')
         return new IntlMessageFormat(template, locale).format(values) as string
     }
     const title = (snapshot: InstallJobSnapshot) => installJobTitle(snapshot, format, 'Fallback')

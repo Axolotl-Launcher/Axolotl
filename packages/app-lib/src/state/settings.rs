@@ -8,10 +8,14 @@ use crate::state::store::settings::{
 use crate::state::store::{Atom, Handle};
 use crate::util::download::constants::{
     AUTO_DOWNLOAD_CONCURRENCY_INITIAL, DOWNLOAD_CONCURRENCY_HARD_MAX,
-    FORCED_DOWNLOAD_CONCURRENCY_MAX,
+    FORCED_DOWNLOAD_CONCURRENCY_DEFAULT, FORCED_DOWNLOAD_CONCURRENCY_MAX,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+fn default_forced_max_concurrent_downloads() -> usize {
+    FORCED_DOWNLOAD_CONCURRENCY_DEFAULT
+}
 
 // Types
 #[derive(
@@ -118,6 +122,8 @@ pub struct Settings {
     pub auto_concurrent_downloads: bool,
     #[serde(default)]
     pub force_multiconnection_downloads: bool,
+    #[serde(default = "default_forced_max_concurrent_downloads")]
+    pub forced_max_concurrent_downloads: usize,
     #[serde(default)]
     pub minecraft_metadata_source: DownloadSourceMode,
     #[serde(default)]
@@ -350,6 +356,8 @@ impl Default for Settings {
             max_concurrent_writes: 10,
             auto_concurrent_downloads: true,
             force_multiconnection_downloads: false,
+            forced_max_concurrent_downloads:
+                FORCED_DOWNLOAD_CONCURRENCY_DEFAULT,
             minecraft_metadata_source: DownloadSourceMode::Auto,
             minecraft_file_source: DownloadSourceMode::Auto,
             modrinth_source: DownloadSourceMode::Auto,
@@ -505,8 +513,11 @@ impl Settings {
         self.max_concurrent_downloads = self
             .max_concurrent_downloads
             .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX);
-        // The upper bound above is the download engine's; how many writes run
-        // at once never had one, so a value past it keeps what the user set.
+        self.forced_max_concurrent_downloads = self
+            .forced_max_concurrent_downloads
+            .clamp(1, FORCED_DOWNLOAD_CONCURRENCY_MAX);
+        // The upper bounds above are the download engine's; how many writes run
+        // at once never had one, so a value past them keeps what the user set.
         self.max_concurrent_writes = self.max_concurrent_writes.max(1);
         self.custom_background_blur = self.custom_background_blur.min(40);
         self.custom_background_opacity =
@@ -553,6 +564,10 @@ impl Settings {
             auto_concurrent_downloads: record.auto_concurrent_downloads,
             force_multiconnection_downloads: record
                 .force_multiconnection_downloads,
+            forced_max_concurrent_downloads: usize::try_from(
+                record.forced_max_concurrent_downloads,
+            )
+            .unwrap_or(1),
             minecraft_metadata_source: to_source_mode(
                 record.minecraft_metadata_source,
             ),
@@ -766,6 +781,9 @@ impl Settings {
             auto_concurrent_downloads: settings.auto_concurrent_downloads,
             force_multiconnection_downloads: settings
                 .force_multiconnection_downloads,
+            forced_max_concurrent_downloads: settings
+                .forced_max_concurrent_downloads
+                as i64,
             minecraft_metadata_source: from_source_mode(
                 settings.minecraft_metadata_source,
             ),
@@ -867,11 +885,13 @@ impl Settings {
 
     pub fn effective_max_concurrent_downloads(&self) -> usize {
         if self.force_multiconnection_downloads {
+            let forced = self
+                .forced_max_concurrent_downloads
+                .clamp(1, FORCED_DOWNLOAD_CONCURRENCY_MAX);
             if self.auto_concurrent_downloads {
-                FORCED_DOWNLOAD_CONCURRENCY_MAX
+                forced
             } else {
-                self.max_concurrent_downloads
-                    .clamp(1, FORCED_DOWNLOAD_CONCURRENCY_MAX)
+                self.max_concurrent_downloads.clamp(1, forced)
             }
         } else if self.auto_concurrent_downloads {
             AUTO_DOWNLOAD_CONCURRENCY_INITIAL
@@ -1254,24 +1274,57 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("force_multiconnection_downloads");
-        assert!(
-            !serde_json::from_value::<Settings>(legacy)
-                .unwrap()
-                .force_multiconnection_downloads
-        );
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("forced_max_concurrent_downloads");
+        let legacy = serde_json::from_value::<Settings>(legacy).unwrap();
+        assert!(!legacy.force_multiconnection_downloads);
+        assert_eq!(legacy.forced_max_concurrent_downloads, 72);
         settings.force_multiconnection_downloads = true;
         assert_eq!(
             settings.effective_max_concurrent_downloads(),
-            FORCED_DOWNLOAD_CONCURRENCY_MAX
+            FORCED_DOWNLOAD_CONCURRENCY_DEFAULT
         );
+        for limit in [72, 100, 128, 256] {
+            settings.forced_max_concurrent_downloads = limit;
+            assert_eq!(settings.effective_max_concurrent_downloads(), limit);
+        }
+        settings.forced_max_concurrent_downloads = 72;
         settings.auto_concurrent_downloads = false;
         settings.max_concurrent_downloads = 80;
         assert_eq!(settings.effective_max_concurrent_downloads(), 72);
         settings.max_concurrent_downloads = 32;
         assert_eq!(settings.effective_max_concurrent_downloads(), 32);
+        settings.forced_max_concurrent_downloads = 128;
         let restored = Settings::from_record(settings.to_record().unwrap());
+        assert_eq!(restored.forced_max_concurrent_downloads, 128);
         assert!(restored.force_multiconnection_downloads);
         assert_eq!(restored.max_concurrent_downloads, 32);
+    }
+
+    #[test]
+    fn forced_connection_limit_normalizes_invalid_stored_values() {
+        for (value, expected) in [(0, 1), (999, 256)] {
+            let settings = Settings {
+                forced_max_concurrent_downloads: value,
+                ..Settings::default()
+            }
+            .normalize();
+            assert_eq!(settings.forced_max_concurrent_downloads, expected);
+            let mut record = Settings::default().to_record().unwrap();
+            record.forced_max_concurrent_downloads = value as i64;
+            assert_eq!(
+                Settings::from_record(record).forced_max_concurrent_downloads,
+                expected
+            );
+        }
+        let mut record = Settings::default().to_record().unwrap();
+        record.forced_max_concurrent_downloads = -1;
+        assert_eq!(
+            Settings::from_record(record).forced_max_concurrent_downloads,
+            1
+        );
     }
 
     #[test]

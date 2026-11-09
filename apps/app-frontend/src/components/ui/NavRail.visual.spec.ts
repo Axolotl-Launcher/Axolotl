@@ -1,5 +1,6 @@
+import { flushPromises } from '@vue/test-utils'
 import { afterEach, expect, it } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -108,4 +109,148 @@ it('honors an explicit primary predicate instead of the router default when both
     expect(wrapper.element.tagName).toBe('BUTTON')
     expect(wrapper.classes()).not.toContain('router-link-active')
     expect(wrapper.classes()).toContain('subpage-active')
+})
+
+function basicRouter() {
+    return createRouter({
+        history: createMemoryHistory(),
+        routes: [
+            { path: '/library', component: { render: () => null } },
+            { path: '/lab', component: { render: () => null } },
+        ],
+    })
+}
+
+async function mountBasicRail(router: ReturnType<typeof basicRouter>) {
+    const Harness = defineComponent({
+        setup: () => () =>
+            h(
+                NavRail,
+                {},
+                {
+                    default: () => [
+                        h(NavButton, { to: '/library' }, () => 'Library'),
+                        h(NavButton, { to: '/lab' }, () => 'Lab'),
+                    ],
+                },
+            ),
+    })
+    const wrapper = await mountThemed(Harness, {}, 'dark', { global: { plugins: [router] } })
+    cleanup.push(() => wrapper.unmount())
+    await waitFor(() => wrapper.get<HTMLElement>('.nav-rail-slider').element.style.opacity === '1')
+    return wrapper
+}
+
+function pointerDown(el: Element) {
+    el.dispatchEvent(
+        new PointerEvent('pointerdown', {
+            bubbles: true,
+            button: 0,
+            pointerType: 'mouse',
+            isPrimary: true,
+        }),
+    )
+}
+
+it('moves the slider on pointerdown before the router commits', async () => {
+    let release!: () => void
+    let hold = false
+    const router = basicRouter()
+    router.beforeEach((to) => {
+        if (hold && to.path === '/lab') {
+            return new Promise<void>((resolve) => {
+                release = resolve
+            })
+        }
+    })
+    await router.push('/library')
+    const wrapper = await mountBasicRail(router)
+    const library = wrapper.get('a[href="/library"]')
+    const lab = wrapper.get('a[href="/lab"]')
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+
+    hold = true
+    pointerDown(lab.element)
+    await nextTick()
+
+    expect(router.currentRoute.value.path).toBe('/library')
+    await waitFor(() => slider.element.style.top === `${(lab.element as HTMLElement).offsetTop}px`)
+
+    await lab.trigger('click', { button: 0 })
+    await flushPromises()
+    release()
+    await flushPromises()
+    await waitFor(() => router.currentRoute.value.path === '/lab')
+    await nextTick()
+
+    expect(slider.element.style.top).toBe(`${(lab.element as HTMLElement).offsetTop}px`)
+    expect(library.classes()).not.toContain('router-link-active')
+})
+
+it('rolls the slider back when navigation is aborted', async () => {
+    const router = basicRouter()
+    router.beforeEach((to) => (to.path === '/lab' ? false : undefined))
+    await router.push('/library')
+    const wrapper = await mountBasicRail(router)
+    const library = wrapper.get('a[href="/library"]')
+    const lab = wrapper.get('a[href="/lab"]')
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+
+    pointerDown(lab.element)
+    await nextTick()
+    await waitFor(() => slider.element.style.top === `${(lab.element as HTMLElement).offsetTop}px`)
+
+    await lab.trigger('click', { button: 0 })
+    await flushPromises()
+
+    await waitFor(
+        () => slider.element.style.top === `${(library.element as HTMLElement).offsetTop}px`,
+    )
+    expect(router.currentRoute.value.path).toBe('/library')
+    expect(library.classes()).toContain('router-link-active')
+})
+
+it('rolls back a pointerdown that is released outside the target', async () => {
+    const router = basicRouter()
+    await router.push('/library')
+    const wrapper = await mountBasicRail(router)
+    const library = wrapper.get('a[href="/library"]')
+    const lab = wrapper.get('a[href="/lab"]')
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+
+    pointerDown(lab.element)
+    await nextTick()
+    await waitFor(() => slider.element.style.top === `${(lab.element as HTMLElement).offsetTop}px`)
+
+    document.body.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))
+    await flushPromises()
+
+    await waitFor(
+        () => slider.element.style.top === `${(library.element as HTMLElement).offsetTop}px`,
+    )
+    expect(router.currentRoute.value.path).toBe('/library')
+})
+
+it('ignores modifier pointerdowns', async () => {
+    const router = basicRouter()
+    await router.push('/library')
+    const wrapper = await mountBasicRail(router)
+    const library = wrapper.get('a[href="/library"]')
+    const lab = wrapper.get('a[href="/lab"]')
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+    const before = slider.element.style.top
+
+    lab.element.dispatchEvent(
+        new PointerEvent('pointerdown', {
+            bubbles: true,
+            button: 0,
+            pointerType: 'mouse',
+            isPrimary: true,
+            ctrlKey: true,
+        }),
+    )
+    await nextTick()
+
+    expect(slider.element.style.top).toBe(before)
+    expect(library.classes()).toContain('router-link-active')
 })

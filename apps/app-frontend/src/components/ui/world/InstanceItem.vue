@@ -30,6 +30,7 @@ import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { process_listener } from '@/helpers/events'
 import { kill, run } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { instanceContentProject } from '@/helpers/instance-project'
 import { get_by_instance_id } from '@/helpers/process'
 import { resourceProjectDocuments } from '@/helpers/resources'
@@ -104,6 +105,7 @@ const loader = computed(() => {
 })
 
 const loading = ref(false)
+const launchPending = computed(() => instanceLaunchStartedAt(props.instance.id) !== undefined)
 const internalPlaying = ref(false)
 const isPlaying = computed(() => props.playing ?? internalPlaying.value)
 
@@ -244,7 +246,7 @@ onUnmounted(() => {
             </div>
             <div class="flex gap-1 justify-end smart-clickable:allow-pointer-events">
                 <Button
-                    v-if="isPlaying && !loading"
+                    v-if="isPlaying && !loading && !launchPending"
                     color="red"
                     :circular="dashboardDensity === 'compact'"
                 >
@@ -258,10 +260,10 @@ onUnmounted(() => {
                 <Button v-else :circular="dashboardDensity === 'compact'">
                     <button
                         v-tooltip="isPlaying ? formatMessage(messages.alreadyOpen) : null"
-                        :disabled="isPlaying || loading"
+                        :disabled="isPlaying || loading || launchPending"
                         @click="play"
                     >
-                        <SpinnerIcon v-if="loading" class="animate-spin" />
+                        <SpinnerIcon v-if="loading || launchPending" class="animate-spin" />
                         <PlayIcon v-else aria-hidden="true" />
                         <span v-if="dashboardDensity !== 'compact'">
                             {{ formatMessage(commonMessages.playButton) }}

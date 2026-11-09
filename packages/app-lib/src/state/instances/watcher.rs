@@ -6,6 +6,9 @@ use crate::state::{
     DirectoryInfo, InstanceInstallStage, ProjectType, attached_world_data,
 };
 use crate::worlds::WorldType;
+use futures::{
+    FutureExt, StreamExt, future::BoxFuture, stream::FuturesUnordered,
+};
 use notify::event::{AccessKind, AccessMode};
 use notify::{
     EventHandler, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
@@ -28,6 +31,65 @@ use super::adapters::sqlite::instance_rows;
 use super::config_sync::{CONFIG_FILE_NAME, CONFIG_FILE_TEMP_NAME};
 
 struct ContentChangeWatcher(RecommendedWatcher);
+
+#[derive(Default)]
+struct ScreenshotReconciliations {
+    active: HashSet<String>,
+    dirty: HashSet<String>,
+    jobs: FuturesUnordered<BoxFuture<'static, String>>,
+}
+
+impl ScreenshotReconciliations {
+    fn enqueue(&mut self, instance_id: String) {
+        self.enqueue_with(instance_id, |instance_id| async move {
+            crate::api::instance::reconcile_screenshots(&instance_id).await
+        });
+    }
+
+    fn enqueue_with<F, Fut>(&mut self, instance_id: String, run: F)
+    where
+        F: FnOnce(String) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = crate::Result<()>> + Send + 'static,
+    {
+        if !self.active.insert(instance_id.clone()) {
+            self.dirty.insert(instance_id);
+            return;
+        }
+        self.jobs.push(Box::pin(async move {
+            let result = std::panic::AssertUnwindSafe(async {
+                run(instance_id.clone()).await
+            })
+            .catch_unwind()
+            .await;
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => tracing::debug!(%error, %instance_id, "Screenshot index reconciliation failed"),
+                Err(_) => tracing::warn!(%instance_id, "Screenshot index reconciliation panicked"),
+            }
+            instance_id
+        }));
+    }
+
+    async fn next(&mut self) {
+        self.next_with(|instance_id| async move {
+            crate::api::instance::reconcile_screenshots(&instance_id).await
+        })
+        .await;
+    }
+
+    async fn next_with<F, Fut>(&mut self, run: F)
+    where
+        F: FnOnce(String) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = crate::Result<()>> + Send + 'static,
+    {
+        if let Some(instance_id) = self.jobs.next().await {
+            self.active.remove(&instance_id);
+            if self.dirty.remove(&instance_id) {
+                self.enqueue_with(instance_id, run);
+            }
+        }
+    }
+}
 
 fn content_change_handler(mut handler: impl EventHandler) -> impl EventHandler {
     move |result: notify::Result<notify::Event>| {
@@ -128,7 +190,15 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
     tokio::task::spawn(async move {
         let span = tracing::span!(tracing::Level::INFO, "init_watcher");
         tracing::info!(parent: &span, "Initing watcher");
-        while let Some(res) = rx.recv().await {
+        let mut screenshots = ScreenshotReconciliations::default();
+        loop {
+            let res = tokio::select! {
+                res = rx.recv() => match res {
+                    Some(res) => res,
+                    None => break,
+                },
+                () = screenshots.next(), if !screenshots.jobs.is_empty() => continue,
+            };
             let _span = span.enter();
 
             match res {
@@ -145,6 +215,7 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                     let manual_import_directory =
                         event_manual_import_directory.read().await.clone();
                     let mut visited_instances = Vec::new();
+                    let mut screenshot_instances = HashSet::new();
                     let mut synced_option_files =
                         HashMap::<String, HashSet<String>>::new();
                     let mut scan_manual_downloads = false;
@@ -241,13 +312,8 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                     .as_ref()
                                     .is_some_and(|x| *x == "screenshots")
                                 {
-                                    let screenshot_instance_id =
-                                        instance_id.clone();
-                                    tokio::spawn(async move {
-                                        if let Err(error) = crate::api::instance::reconcile_screenshots(&screenshot_instance_id).await {
-                                        tracing::debug!(%error, "Screenshot index reconciliation failed");
-                                    }
-                                    });
+                                    screenshot_instances
+                                        .insert(instance_id.clone());
                                 }
                                 if !relative_path.is_empty() {
                                     record_upgrade_content_change(
@@ -369,6 +435,9 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                         ) {
                             scan_manual_downloads = true;
                         }
+                    }
+                    for instance_id in screenshot_instances {
+                        screenshots.enqueue(instance_id);
                     }
                     for (instance_id, file_names) in synced_option_files {
                         tokio::spawn(async move {
@@ -847,6 +916,106 @@ fn crash_task(instance_id: String) {
 fn is_config_sync_file_name(name: &std::ffi::OsStr) -> bool {
     let name = name.to_string_lossy();
     name == CONFIG_FILE_NAME || name == CONFIG_FILE_TEMP_NAME
+}
+
+#[cfg(test)]
+mod screenshot_reconciliation_tests {
+    use super::*;
+    use std::future::Future;
+    use std::sync::atomic::AtomicUsize;
+
+    fn poll_jobs(queue: &mut ScreenshotReconciliations) {
+        let mut next = std::pin::pin!(queue.next());
+        let mut context =
+            std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(next.as_mut().poll(&mut context).is_pending());
+    }
+
+    #[tokio::test]
+    async fn screenshot_events_merge_across_batches_without_losing_dirty_rerun()
+    {
+        let mut queue = ScreenshotReconciliations::default();
+        let first = Arc::new(tokio::sync::Notify::new());
+        let runs = Arc::new(AtomicUsize::new(0));
+        let signal = first.clone();
+        let counter = runs.clone();
+        queue.enqueue_with("one".into(), move |_| async move {
+            counter.fetch_add(1, Ordering::SeqCst);
+            signal.notified().await;
+            Ok(())
+        });
+        poll_jobs(&mut queue);
+        for _ in 0..200 {
+            queue.enqueue_with("one".into(), |_| async {
+                panic!("duplicate scan started")
+            });
+        }
+        queue.enqueue_with("two".into(), |_| async { Ok(()) });
+        assert_eq!(queue.jobs.len(), 2);
+        assert_eq!(queue.dirty.len(), 1);
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert!(queue.active.contains("one"));
+        first.notify_one();
+        let counter = runs.clone();
+        queue
+            .next_with(move |instance_id| async move {
+                assert_eq!(instance_id, "one");
+                counter.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            })
+            .await;
+        assert_eq!(
+            queue.jobs.len(),
+            1,
+            "dirty events schedule a follow-up scan"
+        );
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert_eq!(runs.load(Ordering::SeqCst), 2);
+        assert!(queue.jobs.is_empty());
+        assert!(queue.active.is_empty());
+        assert!(queue.dirty.is_empty());
+    }
+
+    #[tokio::test]
+    async fn screenshot_reconciliation_failure_and_panic_release_the_instance()
+    {
+        let mut queue = ScreenshotReconciliations::default();
+        queue.enqueue_with("failure".into(), |_| async {
+            Err(crate::ErrorKind::OtherError("fixture failure".into()).into())
+        });
+        queue.enqueue_with("panic".into(), |_| async {
+            panic!("fixture panic")
+        });
+        queue.next_with(|_| async { Ok(()) }).await;
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert!(queue.active.is_empty());
+        queue.enqueue_with("failure".into(), |_| async { Ok(()) });
+        queue.enqueue_with("panic".into(), |_| async { Ok(()) });
+        queue.next_with(|_| async { Ok(()) }).await;
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert!(queue.active.is_empty());
+    }
+
+    #[tokio::test]
+    async fn dropping_screenshot_queue_cancels_owned_reconciliation() {
+        struct Dropped(Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for Dropped {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let guard = Dropped(dropped.clone());
+        let mut queue = ScreenshotReconciliations::default();
+        queue.enqueue_with("one".into(), move |_| async move {
+            let _guard = guard;
+            std::future::pending::<()>().await;
+            Ok(())
+        });
+        poll_jobs(&mut queue);
+        drop(queue);
+        assert!(dropped.load(Ordering::SeqCst));
+    }
 }
 
 #[cfg(test)]

@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { ScanEyeIcon, TriangleAlertIcon } from '@modrinth/assets'
-import {
-    Button,
-    Checkbox,
-    defineMessages,
-    NewModal,
-    useFormatNumber,
-    useVIntl,
-} from '@modrinth/ui'
+import { Button, Checkbox, defineMessages, NewModal, useFormatNumber, useVIntl } from '@modrinth/ui'
 import { useTemplateRef } from 'vue'
 
 import type { SchematicPreviewManifest, SchematicRegion } from '@/lab/schematic-preview/backend'

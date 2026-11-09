@@ -18,9 +18,7 @@ function formatter(locale: 'en-US' | 'zh-CN') {
     return (descriptor: { id: string; defaultMessage?: string }) =>
         String(
             new IntlMessageFormat(
-                catalog[descriptor.id].message ??
-                    descriptor.defaultMessage ??
-                    descriptor.id,
+                catalog[descriptor.id].message ?? descriptor.defaultMessage ?? descriptor.id,
                 locale,
             ).format(),
         )

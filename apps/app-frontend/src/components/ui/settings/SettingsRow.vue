@@ -69,6 +69,11 @@ withDefaults(
     gap: var(--gap-md);
 }
 
+.settings-row-control {
+    align-items: center;
+    gap: var(--gap-md);
+}
+
 .settings-row-stacked .settings-row-control {
     justify-content: flex-start;
     width: 100%;

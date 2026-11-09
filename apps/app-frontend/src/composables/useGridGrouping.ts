@@ -139,8 +139,7 @@ export function useGridGrouping<T extends GridGroupableInstance>(
         const getGameVersion = options.getGameVersion ?? ((i: T) => i.game_version ?? '')
         const getGameDirectory =
             options.getGameDirectory ??
-            ((i: T) =>
-                resolveGameDirectory(i as unknown as Pick<GameInstance, keyof GameInstance>))
+            ((i: T) => resolveGameDirectory(i as unknown as Pick<GameInstance, keyof GameInstance>))
         const getGroups = options.getGroups ?? ((i: T) => i.groups ?? [])
         const formatLoader = options.formatLoader ?? ((l: string) => l)
 

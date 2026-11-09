@@ -31,6 +31,7 @@ import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { trackEvent } from '@/helpers/analytics'
 import { install_duplicate_instance } from '@/helpers/install'
 import { kill, remove, run } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { get_by_instance_id } from '@/helpers/process.js'
 import { showInstanceInFolder } from '@/helpers/utils.js'
 import { injectContentInstall } from '@/providers/content-install'
@@ -115,27 +116,29 @@ const handleInstanceRightClick = async (event, passedInstance) => {
     const runningProcesses = await get_by_instance_id(passedInstance.id).catch(handleError)
 
     const options =
-        runningProcesses.length > 0
-            ? [
-                  {
-                      name: 'stop',
-                      section: 'primary',
-                      color: 'danger',
-                  },
-                  ...baseOptions,
-              ]
-            : [
-                  ...(offline.value && passedInstance.install_stage !== 'installed'
-                      ? []
-                      : [
-                            {
-                                name: 'play',
-                                section: 'primary',
-                                color: 'primary',
-                            },
-                        ]),
-                  ...baseOptions,
-              ]
+        instanceLaunchStartedAt(passedInstance.id) !== undefined
+            ? baseOptions
+            : runningProcesses.length > 0
+              ? [
+                    {
+                        name: 'stop',
+                        section: 'primary',
+                        color: 'danger',
+                    },
+                    ...baseOptions,
+                ]
+              : [
+                    ...(offline.value && passedInstance.install_stage !== 'installed'
+                        ? []
+                        : [
+                              {
+                                  name: 'play',
+                                  section: 'primary',
+                                  color: 'primary',
+                              },
+                          ]),
+                    ...baseOptions,
+                ]
 
     instanceOptions.value.showMenu(event, passedInstance, options)
 }

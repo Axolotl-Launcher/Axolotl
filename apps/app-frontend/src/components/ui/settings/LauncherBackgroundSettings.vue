@@ -10,6 +10,7 @@
             "
             role="button"
             tabindex="0"
+            :aria-busy="customBackgroundConverting"
             :aria-label="
                 formatMessage(
                     customBackgroundPreview
@@ -30,6 +31,20 @@
                 :style="previewSurfaceStyle"
             />
             <div class="custom-bg-preview-dim absolute inset-0" />
+            <div
+                v-if="customBackgroundConverting"
+                data-testid="custom-background-converting"
+                aria-hidden="true"
+                class="custom-bg-preview-converting absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 px-4 text-center"
+            >
+                <SpinnerIcon class="mb-1 size-6 animate-spin text-brand" />
+                <span class="text-sm font-semibold text-[var(--color-text-primary)]">
+                    {{ formatMessage(messages.customBackgroundConverting) }}
+                </span>
+                <span class="text-xs text-[var(--color-text-tertiary)]">
+                    {{ formatMessage(messages.customBackgroundConvertingHint) }}
+                </span>
+            </div>
             <div class="relative flex h-full items-center justify-center">
                 <div
                     v-if="!customBackgroundPreview"
@@ -55,7 +70,11 @@
                 </div>
             </div>
             <Button
-                v-if="customBackgroundPreview && !isBackgroundDragActive"
+                v-if="
+                    customBackgroundPreview &&
+                    !isBackgroundDragActive &&
+                    !customBackgroundConverting
+                "
                 type="base"
                 icon-only
                 circular
@@ -74,6 +93,7 @@
                     type="base"
                     native-type="button"
                     data-testid="custom-background-replace"
+                    :disabled="customBackgroundConverting"
                     @click.stop="chooseCustomBackground"
                 >
                     <UploadIcon />
@@ -88,6 +108,7 @@
                 color="red"
                 native-type="button"
                 data-testid="custom-background-remove"
+                :disabled="customBackgroundConverting"
                 @click.stop="removeCustomBackground"
             >
                 <TrashIcon />
@@ -178,12 +199,10 @@
             </div>
         </Teleport>
 
-        <p
-            v-if="customBackgroundConverting"
-            role="status"
-            class="m-0 text-sm text-[var(--color-text-tertiary)]"
-        >
-            {{ formatMessage(messages.customBackgroundConverting) }}
+        <p class="sr-only" role="status" aria-live="polite">
+            {{
+                customBackgroundConverting ? formatMessage(messages.customBackgroundConverting) : ''
+            }}
         </p>
 
         <div v-if="customBackgroundPreview" class="grid gap-5 lg:grid-cols-2">
@@ -249,7 +268,15 @@
 </template>
 
 <script setup lang="ts">
-import { ImageIcon, MaximizeIcon, PinIcon, TrashIcon, UploadIcon, XIcon } from '@modrinth/assets'
+import {
+    ImageIcon,
+    MaximizeIcon,
+    PinIcon,
+    SpinnerIcon,
+    TrashIcon,
+    UploadIcon,
+    XIcon,
+} from '@modrinth/assets'
 import {
     Button,
     defineMessages,
@@ -371,6 +398,10 @@ const messages = defineMessages({
         id: 'app.appearance-settings.custom-background.converting',
         defaultMessage: 'Converting animated background…',
     },
+    customBackgroundConvertingHint: {
+        id: 'app.appearance-settings.custom-background.converting-hint',
+        defaultMessage: 'This can take a few seconds for longer animations.',
+    },
     customBackgroundConversionFailed: {
         id: 'app.appearance-settings.custom-background.conversion-failed',
         defaultMessage: 'The animated background could not be converted.',
@@ -470,7 +501,13 @@ const PREVIEW_HOVER_OPEN_DELAY_MS = 1_000
 const PREVIEW_HOVER_CLOSE_DELAY_MS = 280
 
 function schedulePreviewOpen() {
-    if (!customBackgroundPreview.value || previewOverlayOpen.value || previewPinned.value) return
+    if (
+        !customBackgroundPreview.value ||
+        customBackgroundConverting.value ||
+        previewOverlayOpen.value ||
+        previewPinned.value
+    )
+        return
     clearTimeout(previewOpenTimer)
     clearTimeout(previewCloseTimer)
     previewOpenTimer = setTimeout(() => openPreviewOverlay(false), PREVIEW_HOVER_OPEN_DELAY_MS)
@@ -670,6 +707,7 @@ async function convertAnimatedCustomBackground(
     const preserveOriginalQuality = selection.preserveOriginalQuality
     const outputPath = await buildCustomBackgroundPath('webp')
     const sourceCopyPath = sourcePathForBackground(outputPath)
+    closePreviewOverlay(true)
     customBackgroundConverting.value = true
     try {
         await writeFile(sourceCopyPath, bytes)
@@ -934,6 +972,15 @@ onUnmounted(() => {
         var(--surface-1) var(--opacity-ratio-keep-35),
         transparent
     );
+}
+
+.custom-bg-preview-converting {
+    background-color: color-mix(
+        in srgb,
+        var(--surface-1) var(--opacity-ratio-keep-90),
+        transparent
+    );
+    backdrop-filter: blur(2px);
 }
 
 .custom-bg-preview-drag {

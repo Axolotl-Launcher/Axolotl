@@ -1145,7 +1145,7 @@ fn classify_zip_with_extraction_inner(
     if is_cancelled(cancellation) {
         return cancelled_result();
     }
-    if child_folders.len() == 1 && root_files.is_empty() {
+    let result = if child_folders.len() == 1 && root_files.is_empty() {
         classify_dropped_item_inner(
             &temp_dir.path().join(&child_folders[0]),
             0,
@@ -1165,6 +1165,21 @@ fn classify_zip_with_extraction_inner(
             true,
             cancellation,
         )
+    };
+    match result {
+        DroppedItemType::Unknown { reason }
+            if reason == "folder_has_no_importable_content" =>
+        {
+            DroppedItemType::Unknown {
+                reason: format!(
+                    "Unrecognised content: {}",
+                    path.file_name()
+                        .map(|name| name.to_string_lossy())
+                        .unwrap_or_else(|| path.to_string_lossy())
+                ),
+            }
+        }
+        result => result,
     }
     // temp_dir is dropped here, cleaning up the extracted files automatically.
 }
@@ -1759,12 +1774,7 @@ fn classify_folder_content_inner(
     }
 
     DroppedItemType::Unknown {
-        reason: format!(
-            "Unrecognised content: {}",
-            path.file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| path.to_string_lossy().to_string())
-        ),
+        reason: "folder_has_no_importable_content".to_string(),
     }
 }
 
@@ -2537,6 +2547,66 @@ mod tests {
             matches!(result, DroppedItemType::Unknown { .. }),
             "nonexistent path should be Unknown"
         );
+    }
+
+    #[test]
+    fn empty_folder_reports_no_importable_content() {
+        let dir = tempdir().expect("temp dir");
+
+        let result = classify_dropped_item_with_candidates(dir.path(), false);
+
+        assert!(matches!(
+            result,
+            DroppedItemType::Unknown { reason }
+                if reason == "folder_has_no_importable_content"
+        ));
+    }
+
+    #[test]
+    fn incomplete_instance_folder_reports_no_importable_content() {
+        let dir = tempdir().expect("temp dir");
+        let version_dir = dir.path().join("versions").join("1.20.1");
+        std::fs::create_dir_all(&version_dir).expect("create version dir");
+        std::fs::create_dir(dir.path().join("mods")).expect("create mods dir");
+        std::fs::write(dir.path().join("options.txt"), "lang:en_us")
+            .expect("write options");
+        std::fs::write(version_dir.join("notes.txt"), "unfinished download")
+            .expect("write partial version files");
+
+        let result = classify_dropped_item_with_candidates(dir.path(), false);
+
+        assert!(matches!(
+            result,
+            DroppedItemType::Unknown { reason }
+                if reason == "folder_has_no_importable_content"
+        ));
+    }
+
+    #[test]
+    fn extracted_unknown_archives_do_not_report_a_folder_error() {
+        for entries in [
+            vec!["unfinished/notes.txt"],
+            vec!["notes.txt", "options.txt"],
+        ] {
+            let dir = tempdir().expect("temp dir");
+            let zip_path = dir.path().join("unknown.zip");
+            let file = std::fs::File::create(&zip_path).expect("create zip");
+            let mut zip = zip::ZipWriter::new(file);
+            for entry in entries {
+                zip.start_file(entry, zip::write::FileOptions::<()>::default())
+                    .expect("start entry");
+                zip.write_all(b"unfinished content").expect("write entry");
+            }
+            zip.finish().expect("finish zip");
+
+            let result = classify_zip_with_extraction(&zip_path);
+
+            assert!(matches!(
+                result,
+                DroppedItemType::Unknown { reason }
+                    if reason == "Unrecognised content: unknown.zip"
+            ));
+        }
     }
 
     #[test]

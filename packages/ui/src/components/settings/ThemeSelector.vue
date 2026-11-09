@@ -80,9 +80,7 @@ function getPreviewClass(option: T): string {
             <div class="label">
                 <RadioButtonCheckedIcon v-if="currentTheme === option" class="radio shrink-0" />
                 <RadioButtonIcon v-else class="radio shrink-0" />
-                {{
-                    formatThemeOption(option)
-                }}
+                {{ formatThemeOption(option) }}
                 <SunIcon
                     v-if="'light' === option"
                     v-tooltip="formatMessage(colorTheme.preferredLight)"

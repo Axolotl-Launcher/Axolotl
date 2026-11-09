@@ -30,8 +30,7 @@ it.each([
                     [I18N_INJECTION_KEY as symbol]: {
                         locale: ref(locale),
                         t: (key: string) =>
-                            (messages as Record<string, { message?: string }>)[key]?.message ??
-                            key,
+                            (messages as Record<string, { message?: string }>)[key]?.message ?? key,
                         setLocale: () => {},
                     },
                 },

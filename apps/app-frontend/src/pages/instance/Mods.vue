@@ -203,17 +203,18 @@
             </div>
         </CollapsibleAdmonition>
         <div
-            v-if="contentRefreshTask?.failed"
+            v-if="contentRetryMode"
             class="mb-3 flex flex-wrap items-center gap-3 text-sm text-[var(--color-text-tertiary)]"
             role="status"
         >
-            <span v-if="contentRefreshTask.failed">{{
+            <span v-if="contentRefreshTask?.failed">{{
                 formatMessage(messages.contentCheckFailures, { count: contentRefreshTask.failed })
             }}</span>
             <Button
-                v-if="contentRefreshTask.failed && !contentRefreshTask.running"
                 size="2xs"
                 type="outlined"
+                :disabled="isInstanceBusy || contentRefreshTask?.running || !!contentRetryPending"
+                :loading="!!contentRetryPending"
                 @click="retryFailedContent"
                 >{{ formatMessage(commonMessages.retryButton) }}</Button
             >
@@ -449,6 +450,7 @@ import {
     createContentRefreshSettlement,
     modsContentLoading,
     modsContentPending,
+    modsContentRetryMode,
     modsContentScopeTransition,
 } from './mods-content-state'
 
@@ -1263,6 +1265,10 @@ const appliedContentSources = new WeakMap<ContentItem, { source: ContentItem; lo
 let contentRequestGeneration = 0
 let activeBypassRefresh: Promise<void> | null = null
 const contentRefreshTask = ref<ContentRefreshTask | null>(null)
+const contentRetryMode = computed(() =>
+    modsContentRetryMode(contentWarnings.value, contentRefreshTask.value?.failed ?? 0),
+)
+const contentRetryPending = ref<symbol | null>(null)
 let contentRefreshSubscription: ReturnType<typeof createContentRefreshSubscription> | undefined
 let contentRefreshConnection: Promise<void> | undefined
 let subscribedInstanceId: string | undefined
@@ -1319,10 +1325,41 @@ async function connectContentRefresh() {
 }
 
 async function retryFailedContent() {
+    if (
+        !contentRetryMode.value ||
+        isInstanceBusy.value ||
+        contentRefreshTask.value?.running ||
+        contentRetryPending.value
+    )
+        return
+    const instanceId = props.instance.id
+    const generation = contentRequestGeneration
+    const pending = Symbol()
+    contentRetryPending.value = pending
     try {
-        await contentRefreshSubscription?.start('retry_failed')
+        await connectContentRefresh()
+        if (
+            !isCurrentContentRequest(instanceId, generation) ||
+            contentRetryPending.value !== pending ||
+            isInstanceBusy.value ||
+            contentRefreshTask.value?.running
+        )
+            return
+        const mode = contentRetryMode.value
+        if (!mode) return
+        const task = await contentRefreshSubscription?.start(mode)
+        if (task && isCurrentContentRequest(instanceId, generation))
+            loading.value = modsContentLoading({
+                hasSnapshot: contentSnapshot.value !== null,
+                hasItems:
+                    mergedProjects.value.length + displayedLinkedModpackContentItems.value.length >
+                    0,
+                settled: contentRefreshSettlement.started(task.id),
+            })
     } catch (error) {
-        handleError(error as Error)
+        if (isCurrentContentRequest(instanceId, generation)) handleError(error as Error)
+    } finally {
+        if (contentRetryPending.value === pending) contentRetryPending.value = null
     }
 }
 
@@ -1347,6 +1384,7 @@ watch(
 )
 
 function invalidateContentRequests(clearState = false) {
+    contentRetryPending.value = null
     contentEventRefresh.clear()
     contentRefreshSubscription?.dispose()
     contentRefreshSubscription = undefined

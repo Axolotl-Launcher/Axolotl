@@ -8,7 +8,7 @@ import {
     NewModal,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, triggerRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, shallowRef, triggerRef } from 'vue'
 
 import type { InstallJobSnapshot } from '@/helpers/install'
 import { refresh_content } from '@/helpers/instance'
@@ -370,7 +370,14 @@ const queueFailed = ref(false)
 const dependenciesIgnored = ref(false)
 const error = ref<string | null>(null)
 const errorSummary = ref<string | null>(null)
-const names = ref<Record<string, { title: string; iconUrl: string | null; summary?: string }>>({})
+type PreviewName = { title: string; iconUrl: string | null; summary?: string }
+const names = reactive<Record<string, PreviewName>>({})
+function setNames(values: Record<string, PreviewName>) {
+    for (const [id, value] of Object.entries(values)) {
+        if (names[id]) Object.assign(names[id], value)
+        else names[id] = value
+    }
+}
 let controller: AbortController | null = null
 let disposed = false
 let generation = 0
@@ -393,7 +400,7 @@ function isSelectedIssue(issue: PlanIssue, context: ResourceOperationPlan | null
 function issueSubject(issue: PlanIssue, context: ResourceOperationPlan | null) {
     const node = context?.nodes.find((node) => node.id === issue.selectionId)
     return (
-        (issue.selectionId ? names.value[issue.selectionId]?.title : undefined) ||
+        (issue.selectionId ? names[issue.selectionId]?.title : undefined) ||
         issue.context?.subject ||
         node?.artifact?.fileName ||
         formatMessage(
@@ -427,7 +434,7 @@ function conflictNotice(issue: PlanIssue, context: ResourceOperationPlan | null)
         ? context?.nodes.find((candidate) => candidate.artifact?.fileName === detail.related)
         : undefined
     const subjectName =
-        (issue.selectionId ? names.value[issue.selectionId]?.title : undefined) ||
+        (issue.selectionId ? names[issue.selectionId]?.title : undefined) ||
         detail.subject ||
         (node ? name(node) : undefined) ||
         formatMessage(messages.conflictSelectedContent)
@@ -681,7 +688,7 @@ const hasSkippedWrites = computed(
 )
 function name(node: ResourceDependencyNode) {
     return (
-        names.value[node.id]?.title ??
+        names[node.id]?.title ??
         node.artifact?.fileName ??
         (node.resource.kind === 'source' ? node.resource.project.projectId : node.resource.id)
     )
@@ -698,92 +705,143 @@ function requiredBy(id: string, kind = 'required') {
     return previewIndex.value.requiredBy.get(id)?.get(kind) ?? ''
 }
 async function enrich(value: ResourceOperationPlan, signal: AbortSignal, current: number) {
-    const unresolved = value.selections.filter(
-        (selection) =>
-            !value.nodes.some((node) => node.id === selection.id) && !names.value[selection.id],
+    type Target = {
+        id: string
+        resource: ResourceSelection['resource']
+        fallbackResource: ResourceSelection['resource']
+        cachedOnly: boolean
+    }
+    const targets: Target[] = [
+        ...value.selections
+            .filter(
+                (selection) =>
+                    !value.nodes.some((node) => node.id === selection.id) && !names[selection.id],
+            )
+            .map((selection) => ({
+                id: selection.id,
+                resource: selection.resource,
+                fallbackResource: selection.resource,
+                cachedOnly: false,
+            })),
+        ...value.nodes
+            .filter((node) => !names[node.id])
+            .map((node) => ({
+                id: node.id,
+                resource: node.artifact
+                    ? { kind: 'source' as const, project: node.artifact.reference.release.project }
+                    : node.resource,
+                fallbackResource: node.resource,
+                cachedOnly: node.state === 'satisfied',
+            })),
+    ].filter(
+        (target) =>
+            target.resource.kind !== 'source' ||
+            (target.resource.project.source as string) !== 'local',
     )
-    void Promise.allSettled(
-        unresolved.map(async (selection) => {
-            const resource = await resourceGet(selection.resource, undefined, undefined, signal)
-            if (current !== generation || signal.aborted) return
-            const project = resource.projects[0]
-            if (project)
-                names.value = {
-                    ...names.value,
-                    [selection.id]: { title: project.title, iconUrl: project.iconUrl },
+    const groups = new Map<string, Target[]>()
+    for (const target of targets) {
+        if (target.resource.kind !== 'source') continue
+        const key = `${target.resource.project.source}:${target.cachedOnly}`
+        const group = groups.get(key) ?? []
+        group.push(target)
+        groups.set(key, group)
+    }
+    const resolved = new Map<string, PreviewName>()
+    await Promise.allSettled(
+        [...groups.values()].map(async (group) => {
+            const first = group[0].resource
+            if (first.kind !== 'source') return
+            const ids = [
+                ...new Set(
+                    group.flatMap((target) =>
+                        target.resource.kind === 'source'
+                            ? [target.resource.project.projectId]
+                            : [],
+                    ),
+                ),
+            ]
+            const policy = group[0].cachedOnly ? 'onlyCached' : 'useFresh'
+            const documents = await resourceProjectDocuments(
+                first.project.source,
+                ids,
+                signal,
+                policy,
+            ).catch(async (failure) => {
+                if (!group[0].cachedOnly || signal.aborted || current !== generation) throw failure
+                // A missing cached project can reject an otherwise useful batch.
+                const results = await Promise.allSettled(
+                    ids.map((id) =>
+                        resourceProjectDocuments(first.project.source, [id], signal, 'onlyCached'),
+                    ),
+                )
+                return results.flatMap((result) =>
+                    result.status === 'fulfilled' ? result.value : [],
+                )
+            })
+            const byProject = new Map(
+                documents.map((document) => [
+                    `${document.metadata.project.source}:${document.metadata.project.projectId}`,
+                    document.metadata,
+                ]),
+            )
+            const completed: Record<string, PreviewName> = {}
+            for (const target of group) {
+                if (target.resource.kind !== 'source') continue
+                const metadata = byProject.get(
+                    `${target.resource.project.source}:${target.resource.project.projectId}`,
+                )
+                if (metadata) {
+                    const name = {
+                        title: metadata.title,
+                        iconUrl: metadata.iconUrl,
+                        summary: metadata.summary,
+                    }
+                    resolved.set(target.id, name)
+                    completed[target.id] = name
                 }
+            }
+            if (current === generation && !signal.aborted) setNames(completed)
         }),
     )
-    const refs = value.nodes
-        .filter((node) => node.state !== 'satisfied' && !names.value[node.id])
-        .flatMap((node) => {
-            const project =
-                node.artifact?.reference.release.project ??
-                (node.resource.kind === 'source' ? node.resource.project : null)
-            return project ? [project] : []
-        })
-    await Promise.allSettled(
-        [...new Set(refs.map((project) => project.source))]
-            .filter((source) => source === 'modrinth' || source === 'curseforge')
-            .map((source) =>
-                resourceProjectDocuments(
-                    source,
-                    [
-                        ...new Set(
-                            refs
-                                .filter((project) => project.source === source)
-                                .map((project) => project.projectId),
-                        ),
-                    ],
-                    signal,
-                ),
-            ),
-    )
     if (current !== generation || signal.aborted) return
+    const fallback = new Map<string, Target[]>()
+    for (const target of targets) {
+        if (resolved.has(target.id) || names[target.id] || target.cachedOnly) continue
+        const key = JSON.stringify([target.fallbackResource, target.resource])
+        const group = fallback.get(key) ?? []
+        group.push(target)
+        fallback.set(key, group)
+    }
+    const completed: Record<string, PreviewName> = {}
     await Promise.allSettled(
-        value.nodes.map(async (node) => {
-            if (names.value[node.id]) return
-            const cachedRef =
-                node.artifact?.reference.release.project ??
-                (node.resource.kind === 'source' ? node.resource.project : null)
-            // `SourceId` does not model the legacy local source, but persisted plans may still carry it.
-            if ((cachedRef?.source as string | undefined) === 'local') return
-            if (node.state === 'satisfied' && cachedRef) {
-                const [document] = await resourceProjectDocuments(
-                    cachedRef.source,
-                    [cachedRef.projectId],
-                    signal,
-                    'onlyCached',
-                )
-                if (document && current === generation && !signal.aborted)
-                    names.value = {
-                        ...names.value,
-                        [node.id]: {
-                            title: document.metadata.title,
-                            iconUrl: document.metadata.iconUrl,
-                            summary: document.metadata.summary,
-                        },
-                    }
-                return
-            }
-            const resource = await resourceGet(node.resource, undefined, undefined, signal)
-            if (current !== generation || signal.aborted) return
-            const project =
-                resource.projects.find(
-                    (project) =>
-                        project.project.source === node.artifact?.reference.release.project.source,
-                ) ?? resource.projects[0]
+        [...fallback.values()].map(async (group) => {
+            const target = group[0]
+            const resource = await resourceGet(
+                target.fallbackResource,
+                undefined,
+                undefined,
+                signal,
+            )
+            const expected = target.resource.kind === 'source' ? target.resource.project : null
+            const project = expected
+                ? (resource.projects.find(
+                      (project) =>
+                          project.project.source === expected.source &&
+                          project.project.projectId === expected.projectId,
+                  ) ??
+                  resource.projects.find((project) => project.project.source === expected.source))
+                : resource.projects[0]
             if (project)
-                names.value = {
-                    ...names.value,
-                    [node.id]: {
+                for (const item of group)
+                    completed[item.id] = {
                         title: project.title,
                         iconUrl: project.iconUrl,
                         summary: project.summary,
-                    },
-                }
+                    }
         }),
     )
+    if (current !== generation || signal.aborted) return
+    setNames(completed)
 }
 async function run(
     action: (
@@ -814,6 +872,7 @@ async function run(
             }),
         )
         if (!isCurrent() || signal.aborted) return
+        flushProgress()
         plan.value = value
         dependenciesIgnored.value = ignoreDependencies
         void enrich(value, signal, current)
@@ -829,41 +888,83 @@ async function run(
         }
     }
 }
+let progressFrame: number | null = null
+let pendingMetadata: Record<string, PreviewName> = {}
+const pendingProgress = new Map<
+    string,
+    Extract<ResourceOperationProgress, { kind: 'node' | 'nodeRemoved' }>
+>()
+let pendingPhase: ResourceOperationPhase | null | undefined
+let pendingRound: number | undefined
+
 function clearProgress() {
+    if (progressFrame !== null) cancelAnimationFrame(progressFrame)
+    progressFrame = null
+    pendingProgress.clear()
+    pendingMetadata = {}
+    pendingPhase = undefined
+    pendingRound = undefined
     progressNodes.value = new Map()
     removedNodes.value = new Set()
     progressPhase.value = null
     progressRound.value = 0
 }
+function flushProgress() {
+    if (progressFrame !== null) cancelAnimationFrame(progressFrame)
+    progressFrame = null
+    if (pendingRound !== undefined) progressRound.value = pendingRound
+    if (pendingPhase !== undefined) progressPhase.value = pendingPhase
+    let changedNodes = false
+    let changedRemoved = false
+    const metadata = pendingMetadata
+    for (const progress of pendingProgress.values()) {
+        if (progress.kind === 'nodeRemoved') {
+            changedNodes = progressNodes.value.delete(progress.nodeId) || changedNodes
+            if (!removedNodes.value.has(progress.nodeId)) {
+                removedNodes.value.add(progress.nodeId)
+                changedRemoved = true
+            }
+        } else {
+            const { node } = progress
+            changedRemoved = removedNodes.value.delete(node.id) || changedRemoved
+            progressNodes.value.set(node.id, node)
+            changedNodes = true
+        }
+    }
+    if (changedNodes) triggerRef(progressNodes)
+    if (changedRemoved) triggerRef(removedNodes)
+    setNames(metadata)
+    pendingProgress.clear()
+    pendingMetadata = {}
+    pendingPhase = undefined
+    pendingRound = undefined
+}
 function applyProgress(progress: ResourceOperationProgress) {
     switch (progress.kind) {
         case 'phase':
-            progressPhase.value = progress.phase
-            return
+            pendingPhase = progress.phase
+            break
         case 'roundStarted':
-            progressPhase.value = null
-            progressRound.value = progress.round
-            return
+            pendingRound = progress.round
+            pendingPhase = null
+            break
         case 'nodeRemoved':
-            progressNodes.value.delete(progress.nodeId)
-            triggerRef(progressNodes)
-            removedNodes.value.add(progress.nodeId)
-            triggerRef(removedNodes)
-            return
+            pendingProgress.set(progress.nodeId, progress)
+            break
         case 'node': {
-            const { node, metadata } = progress
-            progressPhase.value = null
-            if (removedNodes.value.delete(node.id)) triggerRef(removedNodes)
-            progressNodes.value.set(node.id, node)
-            triggerRef(progressNodes)
-            if (metadata)
-                names.value[node.id] = {
-                    title: metadata.title,
-                    iconUrl: metadata.iconUrl,
-                    summary: node.state === 'satisfied' ? undefined : metadata.summary,
+            pendingProgress.set(progress.node.id, progress)
+            if (progress.metadata)
+                pendingMetadata[progress.node.id] = {
+                    title: progress.metadata.title,
+                    iconUrl: progress.metadata.iconUrl,
+                    summary:
+                        progress.node.state === 'satisfied' ? undefined : progress.metadata.summary,
                 }
+            pendingPhase = null
+            break
         }
     }
+    progressFrame ??= requestAnimationFrame(flushProgress)
 }
 async function revise(decision: ResourcePlanDecision) {
     const value = plan.value
@@ -875,6 +976,7 @@ async function revise(decision: ResourcePlanDecision) {
     )
 }
 function release() {
+    clearProgress()
     generation++
     input.value?.analysis?.signal.removeEventListener('abort', invalidateAnalysis)
     controller?.abort()
@@ -901,7 +1003,7 @@ function show(value: OperationInput): Promise<InstallJobSnapshot | null> {
     plan.value = null
     clearProgress()
     submittedRoots.value = []
-    names.value = {}
+    for (const id of Object.keys(names)) Reflect.deleteProperty(names, id)
     error.value = null
     errorSummary.value = null
     queueFailed.value = false
@@ -1105,7 +1207,7 @@ async function submit(retryStale: boolean) {
         try {
             const resourceNames = Object.fromEntries(
                 reviewed.nodes.flatMap((node) => {
-                    const title = names.value[node.id]?.title
+                    const title = names[node.id]?.title
                     return title?.trim() ? [[node.id, title]] : []
                 }),
             )

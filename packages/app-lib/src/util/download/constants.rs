@@ -22,7 +22,8 @@ pub(crate) const AUTO_DOWNLOAD_SAMPLE_INTERVAL: Duration =
 pub(crate) const AUTO_DOWNLOAD_TRIAL_WINDOWS: usize = 2;
 pub(crate) const AUTO_DOWNLOAD_UTILIZATION_WINDOWS: usize = 2;
 pub(crate) const DOWNLOAD_CONCURRENCY_HARD_MAX: usize = 256;
-pub(crate) const FORCED_DOWNLOAD_CONCURRENCY_MAX: usize = 72;
+pub(crate) const FORCED_DOWNLOAD_CONCURRENCY_DEFAULT: usize = 72;
+pub(crate) const FORCED_DOWNLOAD_CONCURRENCY_MAX: usize = 256;
 
 /// Per-file Range splitting, retry and tail recovery.
 pub(crate) const ADAPTIVE_RANGE_BYTES: u64 = 4 * 1024 * 1024;

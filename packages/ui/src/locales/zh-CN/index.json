@@ -68,6 +68,12 @@
   "browse.search.placeholder": {
     "defaultMessage": "搜索{projectType}……"
   },
+  "browse.select-all-button.label": {
+    "defaultMessage": "全选（{count}）"
+  },
+  "browse.select-all-button.selecting": {
+    "defaultMessage": "正在选择 {completed}/{total}"
+  },
   "browse.selected-projects-floating-bar.aria-label": {
     "defaultMessage": "选定的项目"
   },

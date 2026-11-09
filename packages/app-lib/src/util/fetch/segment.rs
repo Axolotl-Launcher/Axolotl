@@ -17,7 +17,6 @@ use crate::util::download::constants::{
     DOWNLOAD_PROGRESS_MIN_BYTES, DOWNLOAD_RANGE_CONNECTION_FLOOR,
     DOWNLOAD_RANGE_TARGET_TIME, FETCH_EFFECTIVE_CONCURRENCY_CAP_REACHED,
     FETCH_EXPANSION_COOLDOWN_ACTIVE,
-    FETCH_FETCH_PERMIT_BATCH_HAS_ENOUGH_PERMITS,
     FETCH_INSUFFICIENT_AGGREGATE_SPEED_SAMPLES,
     FETCH_NO_GLOBAL_PERMIT_AVAILABLE, FETCH_TOO_LITTLE_DATA_REMAINS,
     FILE_TRANSFER_FIRST_BYTE_TIMEOUT, INITIAL_BULK_SEGMENT_CONCURRENCY,
@@ -263,12 +262,16 @@ pub(crate) async fn acquire_initial_segment_permits<'a>(
     let native_permits =
         crate::util::download::native_budget::acquire_many(route, count)
             .await?;
-    let mut global = semaphore.0.acquire_many(count as u32).await?;
-    let mut permits = Vec::with_capacity(count);
+    let mut permits = Vec::with_capacity(native_permits.len());
     for native in native_permits {
-        let global = global
-            .split(1)
-            .expect(FETCH_FETCH_PERMIT_BATCH_HAS_ENOUGH_PERMITS);
+        let global = if permits.is_empty() {
+            semaphore.0.acquire().await?
+        } else {
+            let Ok(global) = semaphore.0.try_acquire() else {
+                break;
+            };
+            global
+        };
         permits.push(NativeConnectionPermit {
             _global: global,
             _native: native,
@@ -318,7 +321,7 @@ pub(crate) fn range_concurrency_limit(
 ) -> usize {
     if request.force_multiconnection {
         crate::State::get_if_initialized().map_or(
-            crate::util::download::constants::FORCED_DOWNLOAD_CONCURRENCY_MAX,
+            crate::util::download::constants::FORCED_DOWNLOAD_CONCURRENCY_DEFAULT,
             |state| state.download_concurrency().min(crate::util::download::constants::FORCED_DOWNLOAD_CONCURRENCY_MAX),
         )
     } else {

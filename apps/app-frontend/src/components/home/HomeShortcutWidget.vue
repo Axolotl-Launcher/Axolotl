@@ -30,6 +30,7 @@ import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { kill, run } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import type { GameInstance } from '@/helpers/types'
 import {
     getWorldIdentifier,
@@ -390,9 +391,19 @@ watch(
                         size="2xs"
                         circular
                         icon-only
-                        :disabled="starting || !supportsQuickPlay"
+                        :disabled="
+                            starting ||
+                            (instance && instanceLaunchStartedAt(instance.id) !== undefined) ||
+                            !supportsQuickPlay
+                        "
                         @click="playShortcut"
-                        ><SpinnerIcon v-if="starting" class="animate-spin" />
+                        ><SpinnerIcon
+                            v-if="
+                                starting ||
+                                (instance && instanceLaunchStartedAt(instance.id) !== undefined)
+                            "
+                            class="animate-spin"
+                        />
                         <PlayIcon v-else />
                     </Button>
                 </div>

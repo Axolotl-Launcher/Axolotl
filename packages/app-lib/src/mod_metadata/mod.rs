@@ -18,7 +18,7 @@ mod toml_mod;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
-const LOCAL_METADATA_VERSION: u32 = 2;
+const LOCAL_METADATA_VERSION: u32 = 3;
 
 /// Unified local mod metadata extracted from inside a JAR.
 ///
@@ -55,9 +55,49 @@ pub struct LocalModMetadata {
     /// triggers a one-time re-extraction of the file.
     #[serde(default)]
     pub dependencies: Option<Vec<LocalModDependency>>,
+    /// Other valid loader descriptors in the same JAR. Each entry keeps its
+    /// own identity, version constraints and dependencies.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<LocalModMetadata>,
 }
 
 impl LocalModMetadata {
+    /// Prefer the descriptor for the instance's loader without mixing fields
+    /// from another descriptor. Quilt can also load Fabric mods.
+    pub fn for_loader(&self, loader: &str) -> &Self {
+        let find = |loader: &str| {
+            std::iter::once(self)
+                .chain(self.variants.iter())
+                .find(|meta| {
+                    meta.loader.as_deref().is_some_and(|declared| {
+                        declared.eq_ignore_ascii_case(loader)
+                    })
+                })
+        };
+        find(loader)
+            .or_else(|| {
+                loader
+                    .eq_ignore_ascii_case("quilt")
+                    .then(|| find("fabric"))
+                    .flatten()
+            })
+            .unwrap_or(self)
+    }
+
+    /// Loader declarations from every successfully parsed descriptor.
+    pub fn supported_loaders(&self) -> Vec<String> {
+        let mut loaders: Vec<String> = Vec::new();
+        for loader in std::iter::once(self)
+            .chain(self.variants.iter())
+            .filter_map(|metadata| metadata.loader.as_ref())
+        {
+            if !loaders.iter().any(|seen| seen.eq_ignore_ascii_case(loader)) {
+                loaders.push(loader.clone());
+            }
+        }
+        loaders
+    }
+
     pub(crate) fn needs_refresh(&self) -> bool {
         self.metadata_version < LOCAL_METADATA_VERSION
             || self.dependencies.is_none()
@@ -95,26 +135,20 @@ pub fn extract_mod_metadata(bytes: &Bytes) -> Option<LocalModMetadata> {
     let cursor = std::io::Cursor::new(&**bytes);
     let mut archive = zip::ZipArchive::new(cursor).ok()?;
 
-    // Try each known metadata path in priority order.
-    if let Some(meta) = try_fabric(&mut archive) {
-        return Some(meta);
-    }
-    if let Some(meta) = try_quilt(&mut archive) {
-        return Some(meta);
-    }
-    if let Some(meta) =
-        try_toml_path(&mut archive, "META-INF/neoforge.mods.toml")
-    {
-        return Some(meta);
-    }
-    if let Some(meta) = try_toml_path(&mut archive, "META-INF/mods.toml") {
-        return Some(meta);
-    }
-    if let Some(meta) = try_mcmod_info(&mut archive) {
-        return Some(meta);
-    }
-
-    None
+    // Preserve the historical default order for callers without a target,
+    // while retaining every descriptor for instance-specific selection.
+    let mut metadata = [
+        try_fabric(&mut archive),
+        try_quilt(&mut archive),
+        try_toml_path(&mut archive, "META-INF/neoforge.mods.toml"),
+        try_toml_path(&mut archive, "META-INF/mods.toml"),
+        try_mcmod_info(&mut archive),
+    ]
+    .into_iter()
+    .flatten();
+    let mut primary = metadata.next()?;
+    primary.variants = metadata.collect();
+    Some(primary)
 }
 
 // ── format-specific parsers ────────────────────────────────────────────────
@@ -150,6 +184,7 @@ fn try_fabric(
         ),
         loader: Some("fabric".into()),
         dependencies: Some(fabric::fabric_dependencies(&parsed.depends)),
+        variants: Vec::new(),
     })
 }
 
@@ -177,6 +212,7 @@ fn try_quilt(
         loader_version: fabric::quilt_dep_value(&inner.depends, "quilt_loader"),
         loader: Some("quilt".into()),
         dependencies: Some(fabric::quilt_dependencies(&inner.depends)),
+        variants: Vec::new(),
     })
 }
 
@@ -281,6 +317,7 @@ fn try_toml_path(
         loader_version,
         loader,
         dependencies: Some(dependencies),
+        variants: Vec::new(),
     })
 }
 
@@ -307,6 +344,7 @@ fn try_mcmod_info(
         loader_version: None,
         loader: Some("forge".into()),
         dependencies: Some(Vec::new()),
+        variants: Vec::new(),
     })
 }
 
@@ -381,6 +419,132 @@ mod tests {
             archive.finish().expect("finish zip");
         }
         bytes::Bytes::from(buffer.into_inner())
+    }
+
+    #[test]
+    fn universal_jar_retains_loader_specific_identity_and_declarations() {
+        let jar = build_jar(&[
+            (
+                "fabric.mod.json",
+                r#"{"id":"example_fabric","name":"Fabric Example","version":"1.0","depends":{"minecraft":"1.20.1","fabric_api":"*"}}"#,
+            ),
+            (
+                "quilt.mod.json",
+                r#"{"quilt_loader":{"id":"example_quilt","name":"Quilt Example","version":"2.0","depends":[{"id":"minecraft","versions":"1.20.2"}]}}"#,
+            ),
+            (
+                "META-INF/neoforge.mods.toml",
+                "modLoader = 'lowcodefml'\n[[mods]]\nmodId = 'example_neo'\ndisplayName = 'NeoForge Example'\nversion = '3.0'\n[[dependencies.example_neo]]\nmodId = 'minecraft'\ntype = 'required'\nversionRange = '[1.21.1]'\n[[dependencies.example_neo]]\nmodId = 'neo_library'\ntype = 'required'\nversionRange = '[2,)'",
+            ),
+            (
+                "META-INF/mods.toml",
+                "[[mods]]\nmodId = 'example_forge'\ndisplayName = 'Forge Example'\nversion = '4.0'",
+            ),
+            (
+                "mcmod.info",
+                r#"[{"modid":"example_legacy","version":"0.1"}]"#,
+            ),
+        ]);
+        let metadata = super::extract_mod_metadata(&jar).unwrap();
+        assert_eq!(
+            metadata.supported_loaders(),
+            ["fabric", "quilt", "neoforge", "forge"]
+        );
+        assert_eq!(metadata.variants.len(), 4);
+        assert!(
+            metadata
+                .variants
+                .iter()
+                .all(|variant| variant.variants.is_empty())
+        );
+        for (loader, id, name, version) in [
+            ("fabric", "example_fabric", "Fabric Example", "1.0"),
+            ("quilt", "example_quilt", "Quilt Example", "2.0"),
+            ("NEOFORGE", "example_neo", "NeoForge Example", "3.0"),
+            ("forge", "example_forge", "Forge Example", "4.0"),
+        ] {
+            let selected = metadata.for_loader(loader);
+            assert_eq!(selected.mod_id, id);
+            assert_eq!(selected.name.as_deref(), Some(name));
+            assert_eq!(selected.version.as_deref(), Some(version));
+        }
+        let selected = metadata.for_loader("neoforge");
+        assert_eq!(selected.minecraft_version.as_deref(), Some("[1.21.1]"));
+        let dependencies = selected.dependencies.as_ref().unwrap();
+        assert_eq!(dependencies.len(), 1);
+        assert_eq!(dependencies[0].mod_id, "neo_library");
+        assert_eq!(dependencies[0].version_range.as_deref(), Some("[2,)"));
+        assert_eq!(
+            metadata.for_loader("fabric").minecraft_version.as_deref(),
+            Some("1.20.1")
+        );
+        assert_eq!(
+            metadata.for_loader("quilt").minecraft_version.as_deref(),
+            Some("1.20.2")
+        );
+        let cached = serde_json::to_string(&metadata).unwrap();
+        let restored: super::LocalModMetadata =
+            serde_json::from_str(&cached).unwrap();
+        assert_eq!(restored.supported_loaders(), metadata.supported_loaders());
+        assert_eq!(restored.for_loader("neoforge").mod_id, "example_neo");
+        assert!(!restored.needs_refresh());
+    }
+
+    #[test]
+    fn neoforge_identity_does_not_use_journeymap_fabric_probe() {
+        let jar = build_jar(&[
+            (
+                "fabric.mod.json",
+                r#"{"id":"journeymap-wrongloader","name":"Journeymap-NeoForge","version":"not a fabric mod","entrypoints":{"preLaunch":["FabricError"]}}"#,
+            ),
+            (
+                "META-INF/neoforge.mods.toml",
+                "modLoader = 'javafml'\n[[mods]]\nmodId = 'journeymap'\ndisplayName = 'JourneyMap'\nversion = '1.21.1-6.0.9'",
+            ),
+        ]);
+        let metadata = super::extract_mod_metadata(&jar).unwrap();
+        let selected = metadata.for_loader("neoforge");
+        assert_eq!(selected.mod_id, "journeymap");
+        assert_eq!(selected.name.as_deref(), Some("JourneyMap"));
+        assert_eq!(selected.version.as_deref(), Some("1.21.1-6.0.9"));
+        assert_eq!(selected.loader.as_deref(), Some("neoforge"));
+    }
+
+    #[test]
+    fn malformed_descriptor_does_not_hide_valid_loader_descriptors() {
+        let jar = build_jar(&[
+            ("fabric.mod.json", "{invalid json"),
+            ("quilt.mod.json", r#"{"quilt_loader":{}}"#),
+            ("META-INF/neoforge.mods.toml", "[[mods]]\nmodId = 'valid'"),
+            ("META-INF/mods.toml", "not valid toml"),
+        ]);
+        let metadata = super::extract_mod_metadata(&jar).unwrap();
+        assert_eq!(metadata.mod_id, "valid");
+        assert_eq!(metadata.supported_loaders(), ["neoforge"]);
+        assert!(metadata.variants.is_empty());
+        assert_eq!(metadata.for_loader("forge").mod_id, "valid");
+    }
+
+    #[test]
+    fn single_loader_metadata_and_legacy_cache_remain_readable() {
+        let jar = build_jar(&[(
+            "fabric.mod.json",
+            r#"{"id":"example","version":"1"}"#,
+        )]);
+        let metadata = super::extract_mod_metadata(&jar).unwrap();
+        assert_eq!(metadata.supported_loaders(), ["fabric"]);
+        assert_eq!(
+            metadata.for_loader("quilt").loader.as_deref(),
+            Some("fabric")
+        );
+        let mut legacy = serde_json::to_value(&metadata).unwrap();
+        legacy["metadata_version"] = 2.into();
+        legacy.as_object_mut().unwrap().remove("variants");
+        let restored: super::LocalModMetadata =
+            serde_json::from_value(legacy).unwrap();
+        assert!(restored.needs_refresh());
+        assert_eq!(restored.mod_id, "example");
+        assert_eq!(restored.supported_loaders(), ["fabric"]);
     }
 
     #[test]

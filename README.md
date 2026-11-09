@@ -247,3 +247,13 @@ Axolotl Launcher 的进步离不开社区的反馈与贡献。
 参与社区和贡献代码前，也请先阅读[行为准则 (CODE_OF_CONDUCT.md)](CODE_OF_CONDUCT.md)。
 
 ---
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=Axolotl-Launcher%2FAxolotl">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Axolotl-Launcher/Axolotl&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Axolotl-Launcher/Axolotl&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Axolotl-Launcher/Axolotl&type=date&legend=top-left" />
+ </picture>
+</a>

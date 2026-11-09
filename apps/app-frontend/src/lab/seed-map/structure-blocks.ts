@@ -286,8 +286,8 @@ export function assembleStructureBlocks(
     if (
         pack.schemaVersion !== 2 ||
         !supportsStructureBlocks(pack.version, 'end-city') ||
-        (catalog.versions as unknown as Record<string, { dataVersion: number }>)[pack.version].dataVersion !==
-            pack.dataVersion
+        (catalog.versions as unknown as Record<string, { dataVersion: number }>)[pack.version]
+            .dataVersion !== pack.dataVersion
     ) {
         throw new Error('Incompatible structure templates')
     }

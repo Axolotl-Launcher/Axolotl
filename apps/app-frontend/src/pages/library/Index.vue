@@ -61,6 +61,7 @@ onUnmounted(() => {
     <div class="p-6 flex flex-col gap-3">
         <h1 class="m-0 text-2xl hidden">{{ formatMessage(messages.library) }}</h1>
         <NavTabs
+            route-sync
             :links="[
                 { label: formatMessage(messages.allInstances), href: `/library` },
                 { label: formatMessage(messages.modpacks), href: `/library/modpacks` },

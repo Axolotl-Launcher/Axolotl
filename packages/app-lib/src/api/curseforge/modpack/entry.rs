@@ -605,8 +605,6 @@ pub async fn install_modpack_with_reporter(
             crate::api::instance::edit(
             &request.instance_id,
             EditInstance {
-                name: (!request.allow_target_change)
-                    .then_some(project.name.clone()),
                 icon_path: (!request.allow_target_change).then(|| {
                     cached_icon_path
                         .as_ref()

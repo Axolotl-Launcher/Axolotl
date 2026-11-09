@@ -233,9 +233,13 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
     vi.mocked(openStoragePaths).mockResolvedValue({ opened: [], failed: [] })
     referenceRow.element.click()
-    const instanceRow = wrapper.findAll<HTMLElement>('.tree-row').find((row) => row.text().includes('红石生存'))!
+    const instanceRow = wrapper
+        .findAll<HTMLElement>('.tree-row')
+        .find((row) => row.text().includes('红石生存'))!
     await waitFor(() => instanceRow.element.getBoundingClientRect().height > 0)
-    const openInstance = instanceRow.get<HTMLElement>('button[aria-label="在文件管理器中打开文件夹"]')
+    const openInstance = instanceRow.get<HTMLElement>(
+        'button[aria-label="在文件管理器中打开文件夹"]',
+    )
     const disclosure = instanceRow.element.closest('details')!
     openInstance.element.click()
     await flushPromises()
@@ -256,7 +260,9 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
     expect(openStoragePaths).toHaveBeenLastCalledWith([
         { path: 'D:/Minecraft/Axolotl/mods', kind: 'directory' },
     ])
-    const fileRow = wrapper.findAll<HTMLElement>('.tree-row').find((row) => row.text().includes('mod.jar'))!
+    const fileRow = wrapper
+        .findAll<HTMLElement>('.tree-row')
+        .find((row) => row.text().includes('mod.jar'))!
     expect(fileRow.find('button[aria-label="在文件管理器中打开文件夹"]').exists()).toBe(false)
     expect(cacheRow.find('button[aria-label="在文件管理器中打开文件夹"]').exists()).toBe(false)
     if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE)
@@ -374,8 +380,8 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
             path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/deleting-${width}.png`,
         })
     vi.mocked(scanStorage).mockReturnValueOnce(new Promise(() => {}))
-    const nextAnalysis: Awaited<ReturnType<typeof analyzeMeta>> = await vi.mocked(analyzeMeta).mock
-        .results[0].value
+    const nextAnalysis: Awaited<ReturnType<typeof analyzeMeta>> =
+        await vi.mocked(analyzeMeta).mock.results[0].value
     vi.mocked(analyzeMeta).mockResolvedValue({
         ...nextAnalysis,
         id: 'next-plan',

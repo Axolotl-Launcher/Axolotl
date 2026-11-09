@@ -287,7 +287,10 @@ it('the complete agent loop accepts a final response normalized into content blo
         LogAgentModel.prototype as unknown as { _generate: typeof generate },
         '_generate',
     )
-    spy.mockImplementation(async function (this: LogAgentModel, ...args: Parameters<typeof generate>) {
+    spy.mockImplementation(async function (
+        this: LogAgentModel,
+        ...args: Parameters<typeof generate>
+    ) {
         const result = await generate.apply(this, args)
         for (const generation of result.generations) {
             generation.message = new AIMessage({

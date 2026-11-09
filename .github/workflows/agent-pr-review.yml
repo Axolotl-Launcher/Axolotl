@@ -45,7 +45,7 @@ jobs:
             core.setOutput('head_sha', pr.head.sha);
 
       - name: Run review agent
-        uses: alibaba/open-code-review@v1.13.3
+        uses: alibaba/open-code-review@v1.13.6
         with:
           ocr_version: '1.12.11'
           llm_url: https://codeflow.sh/v1/chat/completions

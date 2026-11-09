@@ -33,10 +33,10 @@ use crate::event::LoadingBarId;
 use crate::event::emit::emit_loading;
 use crate::util::download::constants::DOWNLOAD_META_HEADER;
 use crate::util::download::constants::{
-    AUTHORIZATION_HEADER, DOWNLOAD_PROGRESS_LOG_INTERVAL, FETCH_CDN,
-    FETCH_CLEAN_RETRY, FETCH_COOLDOWN_THEN_RETRY, FETCH_EO_CACHE_STATUS,
-    FETCH_HEDGE_FAILED, FETCH_MIRROR, FETCH_MISSING, FETCH_OFFICIAL,
-    FETCH_RETRY_SAME_ROUTE, FETCH_STOP, FETCH_SWITCH_ROUTE,
+    DOWNLOAD_PROGRESS_LOG_INTERVAL, FETCH_CDN, FETCH_CLEAN_RETRY,
+    FETCH_COOLDOWN_THEN_RETRY, FETCH_EO_CACHE_STATUS, FETCH_HEDGE_FAILED,
+    FETCH_MIRROR, FETCH_MISSING, FETCH_OFFICIAL, FETCH_RETRY_SAME_ROUTE,
+    FETCH_STOP, FETCH_SWITCH_ROUTE,
     FETCH_TIMED_OUT_WAITING_FOR_CDN_CONNECTION_RESOURCES, FETCH_UNKNOWN,
     METADATA_ATTEMPT_BUDGET, METADATA_HEDGE_DELAY, METADATA_REQUEST_TIMEOUT,
     MODRINTH_CDN_ATTEMPT_TIMEOUT, MODRINTH_CDN_ATTEMPTS, RESOURCE_WAIT_TIMEOUT,
@@ -591,16 +591,6 @@ async fn fetch_advanced_inner(
         || url.starts_with(env!("MODRINTH_API_URL_V3"));
     let requires_auth =
         is_api_url && requires_modrinth_auth(&method, header, uri_path);
-    let creds = if requires_auth
-        && header.as_ref().is_none_or(|x| !is_sensitive_header(x.0))
-    {
-        // The session is a stored record, so it is read through the store and
-        // not through the connection the caller handed on.
-        let state = crate::State::get().await?;
-        crate::state::ModrinthCredentials::get_active(&state.data).await?
-    } else {
-        None
-    };
     if method != Method::GET
         || header
             .as_ref()
@@ -620,7 +610,6 @@ async fn fetch_advanced_inner(
         && json_body.is_none()
         && download_meta.is_none()
         && progress.is_none()
-        && creds.is_none()
         && header.is_none_or(|(name, _)| !is_sensitive_header(name))
         && response_validator.is_some();
     if hedge_is_safe
@@ -706,8 +695,7 @@ async fn fetch_advanced_inner(
                 "Starting metadata or API request attempt"
             );
 
-            let protected_headers = creds.is_some()
-                || download_meta_header.is_some()
+            let protected_headers = download_meta_header.is_some()
                 || header.is_some_and(|header| is_sensitive_header(header.0));
             let download_clients = DownloadClients::for_request(
                 &NO_REDIRECT_REQWEST_CLIENT,
@@ -751,12 +739,6 @@ async fn fetch_advanced_inner(
                     || !is_sensitive_header(header.0))
             {
                 req = req.header(header.0, header.1);
-            }
-
-            if route.allow_sensitive_headers
-                && let Some(ref creds) = creds
-            {
-                req = req.header(AUTHORIZATION_HEADER, &creds.session);
             }
 
             if let Some((name, value)) = &download_meta_header {
@@ -1382,25 +1364,4 @@ async fn fetch_advanced_inner(
         total_attempts,
         attempt_budget,
     ))
-}
-
-#[tracing::instrument(skip_all)]
-pub async fn post_json(
-    url: &str,
-    json_body: serde_json::Value,
-    semaphore: &FetchSemaphore,
-) -> crate::Result<()> {
-    let _permit = semaphore.0.acquire().await?;
-
-    let mut req = INSECURE_REQWEST_CLIENT.post(url).json(&json_body);
-
-    let state = crate::State::get().await?;
-    if let Some(creds) =
-        crate::state::ModrinthCredentials::get_active(&state.data).await?
-    {
-        req = req.header(AUTHORIZATION_HEADER, &creds.session);
-    }
-
-    req.send().await?.error_for_status()?;
-    Ok(())
 }

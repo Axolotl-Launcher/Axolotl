@@ -14,7 +14,6 @@ export const AxolotlBrandConfig = Object.freeze({
     userAgent: (version: string, os: string) => `Axolotl-Launcher/${version} (${os})`,
     capabilities: Object.freeze({
         publicModrinthApi: true,
-        privateModrinthServices: false,
         ghsTelemetry: false,
     }),
 })

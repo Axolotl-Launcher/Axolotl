@@ -133,6 +133,11 @@ const memory = ref({
 const effectiveMemory = computed(() =>
     overrideMemorySettings.value ? memory.value : { ...defaultMemory, ...globalSettings?.memory },
 )
+// Choosing a custom allocation means choosing a number, so it must not stay
+// under the automatic allocation inherited from the global settings.
+watch(overrideMemorySettings, (enabled) => {
+    if (enabled) memory.value.automatic = false
+})
 const memData = useMemorySlider()
 const maxMemory = memData.maxMemory
 const snapPoints = memData.snapPoints

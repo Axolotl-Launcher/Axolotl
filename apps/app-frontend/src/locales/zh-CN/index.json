@@ -2060,6 +2060,9 @@
   "app.appearance-settings.custom-background.converting": {
     "message": "正在转换动画背景…"
   },
+  "app.appearance-settings.custom-background.converting-hint": {
+    "message": "较长的动画可能需要几秒钟，请稍候。"
+  },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "当前窗口"
   },

@@ -836,6 +836,9 @@
   "app.appearance-settings.custom-background.converting": {
     "message": "Converting animated background…"
   },
+  "app.appearance-settings.custom-background.converting-hint": {
+    "message": "This can take a few seconds for longer animations."
+  },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "Current window"
   },

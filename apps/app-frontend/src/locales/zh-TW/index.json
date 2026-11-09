@@ -512,6 +512,9 @@
   "app.appearance-settings.custom-background.converting": {
     "message": "正在轉換動畫背景…"
   },
+  "app.appearance-settings.custom-background.converting-hint": {
+    "message": "較長的動畫可能需要幾秒鐘，請稍候。"
+  },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "目前視窗"
   },

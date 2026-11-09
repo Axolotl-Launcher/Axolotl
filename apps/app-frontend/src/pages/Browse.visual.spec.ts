@@ -822,3 +822,17 @@ it('keeps the installing action label for public modpack downloads', async () =>
         api.selection = null
     }
 })
+
+it('provides the project type tab visibility required by the shared browse layout', async () => {
+    api.capability.mockResolvedValue({ configured: true })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const context = api.context as { showProjectTypeTabs?: { value: boolean } }
+        expect(context.showProjectTypeTabs?.value).toBe(true)
+    } finally {
+        wrapper.unmount()
+    }
+})

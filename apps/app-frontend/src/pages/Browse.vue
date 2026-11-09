@@ -2398,6 +2398,7 @@ provideBrowseManager({
         }
     },
     selectableProjectTypes,
+    showProjectTypeTabs: computed(() => true),
     variant: 'app',
     getCardActions,
     installContext,

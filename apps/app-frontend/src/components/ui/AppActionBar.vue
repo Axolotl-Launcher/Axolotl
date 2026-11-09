@@ -432,6 +432,7 @@ async function runNotificationAction(item: NotificationHistoryItem) {
 }
 
 function clearNotificationHistory() {
+    installJobNotifications.clearFinishedJobs()
     const progressItems = buildDownloadItems()
     // Clearing the history has to drop the remembered dismissal as well, even
     // when there is currently nothing on the list.

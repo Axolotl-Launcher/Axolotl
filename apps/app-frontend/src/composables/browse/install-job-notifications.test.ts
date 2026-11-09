@@ -103,6 +103,89 @@ it('keeps notification titles consistent and terminal notifications free of ongo
     }
 })
 
+function installJob(job_id: string, status: InstallJobSnapshot['status']) {
+    return {
+        job_id,
+        kind: 'change_content',
+        status,
+        phase: 'finalizing',
+        display: { title: job_id },
+        details: { type: 'empty' },
+        created: '2026-11-09T00:00:00Z',
+        progress: null,
+        summary: { files_completed: 0, bytes_downloaded: 0 },
+        items: [],
+    } as unknown as InstallJobSnapshot
+}
+
+async function trackJobs(initial: InstallJobSnapshot[]) {
+    const jobs = ref(initial)
+    const onChange = vi.fn()
+    const notifications = await useInstallJobNotifications({
+        manager: {
+            jobs,
+            refresh: vi.fn().mockResolvedValue(undefined),
+        } as unknown as DownloadManager,
+        router: { push: vi.fn() } as unknown as Router,
+        handleError: vi.fn(),
+        onChange,
+    })
+    const shownIds = () => notifications.progressItems.value.map((item) => item.id)
+    return { jobs, onChange, notifications, shownIds }
+}
+
+it('removes finished jobs from the popup shortly after they end, but keeps failures', async () => {
+    vi.useFakeTimers()
+    const { jobs, onChange, notifications, shownIds } = await trackJobs([
+        installJob('done', 'running'),
+        installJob('broken', 'running'),
+    ])
+    try {
+        jobs.value = [installJob('done', 'succeeded'), installJob('broken', 'failed')]
+        await nextTick()
+        expect(shownIds().sort()).toEqual(['broken', 'done'])
+
+        onChange.mockClear()
+        await vi.advanceTimersByTimeAsync(10_000)
+
+        expect(shownIds()).toEqual(['broken'])
+        expect(onChange).toHaveBeenCalled()
+    } finally {
+        notifications.dispose()
+        vi.useRealTimers()
+    }
+})
+
+it('keeps cleared jobs away when a later job starts', async () => {
+    vi.useFakeTimers()
+    const { jobs, notifications, shownIds } = await trackJobs([
+        installJob('done', 'running'),
+        installJob('broken', 'failed'),
+    ])
+    try {
+        jobs.value = [installJob('done', 'succeeded'), installJob('broken', 'failed')]
+        await nextTick()
+
+        notifications.clearFinishedJobs()
+        expect(shownIds()).toEqual([])
+
+        jobs.value = [
+            installJob('done', 'succeeded'),
+            installJob('broken', 'failed'),
+            installJob('next', 'running'),
+        ]
+        await nextTick()
+        expect(shownIds()).toEqual(['next'])
+
+        jobs.value = [installJob('broken', 'running'), installJob('next', 'running')]
+        await nextTick()
+        expect(shownIds().sort()).toEqual(['broken', 'next'])
+    } finally {
+        notifications.dispose()
+        vi.useRealTimers()
+    }
+})
+
 it('shows loader installation as a percentage while preserving byte downloads and file counts', async () => {
     vi.stubGlobal('window', { setTimeout, clearTimeout })
     const initial = {

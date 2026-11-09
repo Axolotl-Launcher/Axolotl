@@ -904,6 +904,7 @@ fn partial_pack_download() -> InstallJobState {
             path: "pack.mrpack".into(),
         },
         post_install_edit: None,
+        game_dir_override: None,
     });
     job.target = InstallTarget::NewInstance {
         instance_id: Some("partial".into()),

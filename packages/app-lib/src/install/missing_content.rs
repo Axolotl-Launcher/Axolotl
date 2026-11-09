@@ -1584,6 +1584,7 @@ mod tests {
                     path: PathBuf::from("test.mrpack"),
                 },
                 post_install_edit: None,
+                game_dir_override: None,
             });
         job_state.record_event(InstallJobEventKind::ContentFileQueued {
             path: "mods/resolved.bin".to_string(),

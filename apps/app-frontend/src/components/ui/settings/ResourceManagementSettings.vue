@@ -6,6 +6,8 @@ import {
     defineMessages,
     IconButton,
     injectNotificationManager,
+    loadMinecraftDirectories,
+    MINECRAFT_DIRECTORIES_STORAGE_KEY,
     Slider,
     StyledInput,
     Toggle,
@@ -697,41 +699,7 @@ const messages = defineMessages({
     },
 })
 
-const MINECRAFT_DIRECTORIES_STORAGE_KEY = 'axolotl-minecraft-directories'
-
 /** @typedef {import('@/helpers/instance').ExternalMinecraftRoot} ExternalMinecraftRoot */
-
-/** @returns {ExternalMinecraftRoot[]} */
-function loadMinecraftDirectories() {
-    try {
-        const raw = localStorage.getItem(MINECRAFT_DIRECTORIES_STORAGE_KEY)
-        if (!raw) return []
-        const parsed = JSON.parse(raw)
-        if (!Array.isArray(parsed)) return []
-        const directories = parsed.flatMap((value) => {
-            if (typeof value === 'string') return [{ path: value, mode: 'automatic' }]
-            if (value && typeof value === 'object' && typeof value.path === 'string') {
-                return [
-                    {
-                        path: value.path,
-                        mode:
-                            value.mode === 'shared'
-                                ? 'shared'
-                                : value.mode === 'automatic'
-                                  ? 'automatic'
-                                  : 'isolated',
-                    },
-                ]
-            }
-            return []
-        })
-        return [
-            ...new Map(directories.map((directory) => [directory.path.trim(), directory])).values(),
-        ]
-    } catch {
-        return []
-    }
-}
 
 /** @param {ExternalMinecraftRoot[]} values */
 function persistMinecraftDirectories(values) {

@@ -248,6 +248,8 @@ export async function useInstallJobNotifications(opts: {
     manager: DownloadManager
     handleError: (err: unknown) => void
     onChange: (resummon?: boolean) => void
+    /** A finished job left the popup on its own, which is not news to the user. */
+    onFinishedJobExpired: () => void
 }) {
     const { formatMessage } = useVIntl()
     const jobs = ref<InstallJobSnapshot[]>([])
@@ -697,7 +699,7 @@ export async function useInstallJobNotifications(opts: {
                 setTimeout(() => {
                     finishedJobExpiry.delete(jobId)
                     jobs.value = jobs.value.filter((job) => job.job_id !== jobId)
-                    opts.onChange()
+                    opts.onFinishedJobExpired()
                 }, finishedJobRetentionMs),
             )
         }

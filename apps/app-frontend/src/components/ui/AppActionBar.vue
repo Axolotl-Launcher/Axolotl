@@ -1214,6 +1214,14 @@ const installJobNotifications = await useInstallJobNotifications({
     manager: downloadManager,
     handleError,
     onChange: updateNotification,
+    onFinishedJobExpired: () => {
+        // The signature changes, but a popup the user closed should stay closed.
+        if (dismissed.value) {
+            dismissedDownloadSignature.value = buildDownloadSignature(buildDownloadItems())
+            persistDismissedDownloadSignature(dismissedDownloadSignature.value)
+        }
+        updateNotification()
+    },
 })
 
 await refreshLoadingBars()

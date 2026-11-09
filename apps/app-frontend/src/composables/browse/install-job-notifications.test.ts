@@ -58,6 +58,7 @@ it('keeps notification titles consistent and terminal notifications free of ongo
         router: { push: vi.fn() } as unknown as Router,
         handleError,
         onChange: vi.fn(),
+        onFinishedJobExpired: vi.fn(),
     })
     try {
         expect(notifications.progressItems.value[0].title).toBe('安装内容：Sodium 等 2 项')
@@ -120,7 +121,7 @@ function installJob(job_id: string, status: InstallJobSnapshot['status']) {
 
 async function trackJobs(initial: InstallJobSnapshot[]) {
     const jobs = ref(initial)
-    const onChange = vi.fn()
+    const onFinishedJobExpired = vi.fn()
     const notifications = await useInstallJobNotifications({
         manager: {
             jobs,
@@ -128,15 +129,16 @@ async function trackJobs(initial: InstallJobSnapshot[]) {
         } as unknown as DownloadManager,
         router: { push: vi.fn() } as unknown as Router,
         handleError: vi.fn(),
-        onChange,
+        onChange: vi.fn(),
+        onFinishedJobExpired,
     })
     const shownIds = () => notifications.progressItems.value.map((item) => item.id)
-    return { jobs, onChange, notifications, shownIds }
+    return { jobs, onFinishedJobExpired, notifications, shownIds }
 }
 
 it('removes finished jobs from the popup shortly after they end, but keeps failures', async () => {
     vi.useFakeTimers()
-    const { jobs, onChange, notifications, shownIds } = await trackJobs([
+    const { jobs, onFinishedJobExpired, notifications, shownIds } = await trackJobs([
         installJob('done', 'running'),
         installJob('broken', 'running'),
     ])
@@ -145,11 +147,10 @@ it('removes finished jobs from the popup shortly after they end, but keeps failu
         await nextTick()
         expect(shownIds().sort()).toEqual(['broken', 'done'])
 
-        onChange.mockClear()
         await vi.advanceTimersByTimeAsync(10_000)
 
         expect(shownIds()).toEqual(['broken'])
-        expect(onChange).toHaveBeenCalled()
+        expect(onFinishedJobExpired).toHaveBeenCalledOnce()
     } finally {
         notifications.dispose()
         vi.useRealTimers()
@@ -208,6 +209,7 @@ it('shows loader installation as a percentage while preserving byte downloads an
         router: { push: vi.fn() } as unknown as Router,
         handleError: vi.fn(),
         onChange: vi.fn(),
+        onFinishedJobExpired: vi.fn(),
     })
     try {
         const loader = notifications.progressItems.value[0]

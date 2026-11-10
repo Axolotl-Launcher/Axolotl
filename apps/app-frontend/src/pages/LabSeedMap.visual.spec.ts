@@ -749,6 +749,34 @@ it('paints unselected Ancient city piece projections on the map canvas', async (
     })
 })
 
+it.each([900, 600, 400])(
+    'keeps the map controls reachable in a %ipx desktop window',
+    async (height) => {
+        await page.viewport(1280, height)
+        const { canvas } = await openMap()
+        const root = wrapper!.element as HTMLElement
+        root.style.cssText = `width: 1200px; height: ${height - 48}px`
+        canvas.style.width = ''
+        canvas.style.height = ''
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        const toolbar = wrapper!.get('.seed-map-toolbar').element as HTMLElement
+        expect(toolbar.scrollHeight).toBeLessThanOrEqual(toolbar.clientHeight + 1)
+        const pane = wrapper!.get('.seed-map-workspace-panes').element
+        root.scrollTop = root.scrollHeight
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        expect(pane.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+            root.getBoundingClientRect().bottom,
+        )
+        for (const button of wrapper!.findAll('.map-control-stack button')) {
+            const bounds = button.element.getBoundingClientRect()
+            expect(bounds.top).toBeGreaterThanOrEqual(root.getBoundingClientRect().top)
+            expect(bounds.bottom).toBeLessThanOrEqual(root.getBoundingClientRect().bottom)
+        }
+        if (height === 900) expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight + 1)
+        await page.viewport(1280, 1100)
+    },
+)
+
 it('keeps screen coordinates and painted canvas intact when opening, dragging and closing details', async () => {
     await page.viewport(1280, 1100)
     const { vm, canvas } = await openMap()

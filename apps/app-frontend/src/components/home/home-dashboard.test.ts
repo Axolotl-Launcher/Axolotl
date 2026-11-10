@@ -13,10 +13,12 @@ import {
     HOME_GREETING_GLOBAL_KEY,
     HOME_GREETING_NICKNAME_MAX,
     HOME_GREETING_TITLE_MAX,
+    type HomeWidgetPlacement,
     moveHomeWidget,
     normalizeHomeDashboard,
     packHomeWidgets,
     pruneHomeGreetingOverrides,
+    reflowFreeHomeWidgets,
     removeHomeWidget,
     replaceHomeDashboardWidgets,
     resizeHomeWidget,
@@ -413,5 +415,28 @@ it('normalizes stored overrides and drops unusable entries', () => {
     expect(greetingOptionsOf(normalized).options?.greetingOverrides).toEqual({
         'account-a': { nickname: 'Alex' },
         'account-e': { nickname: 'Bea', title: 'Hello there' },
+    })
+})
+
+it('keeps free positions while they fit and flows them in reading order once they do not', () => {
+    const widgets = [
+        { id: 'greeting', kind: 'greeting', size: '2x1', position: { column: 0, row: 0 } },
+        { id: 'later', kind: 'pinned-worlds', size: '1x2', position: { column: 3, row: 0 } },
+        { id: 'calendar', kind: 'calendar', size: '1x2', position: { column: 2, row: 0 } },
+        { id: 'recent', kind: 'recent', size: '2x2', position: { column: 0, row: 1 } },
+    ] as HomeWidgetPlacement[]
+
+    expect(reflowFreeHomeWidgets(widgets, 4)).toBeNull()
+    expect(reflowFreeHomeWidgets(widgets, 2)).toEqual({
+        greeting: { column: 0, row: 0 },
+        calendar: { column: 0, row: 1 },
+        later: { column: 1, row: 1 },
+        recent: { column: 0, row: 3 },
+    })
+    expect(reflowFreeHomeWidgets(widgets, 1)).toEqual({
+        greeting: { column: 0, row: 0 },
+        calendar: { column: 0, row: 1 },
+        later: { column: 0, row: 3 },
+        recent: { column: 0, row: 5 },
     })
 })

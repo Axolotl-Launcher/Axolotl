@@ -663,6 +663,43 @@ export function findNearestFreeHomeWidgetPosition(
     return closest ?? desired
 }
 
+/**
+ * Free positions are saved for the width they were arranged at. Once fewer
+ * columns fit, clamping each position on its own moved cards past one another,
+ * so the cards flow in reading order instead, the way the grid layout does.
+ * Returns null while every saved position still fits.
+ */
+export function reflowFreeHomeWidgets(
+    widgets: readonly HomeWidgetPlacement[],
+    columnCount: number,
+): Record<string, HomeWidgetPosition> | null {
+    const columns = Math.max(1, columnCount)
+    const fits = widgets.every(
+        (widget) =>
+            !widget.position ||
+            widget.position.column +
+                getHomeWidgetSpan(widget.size, Number.POSITIVE_INFINITY).columns <=
+                columns,
+    )
+    if (fits) return null
+
+    const readingOrder = widgets
+        .map((widget, index) => ({ widget, index }))
+        .sort((left, right) => {
+            const a = left.widget.position ?? { row: Number.POSITIVE_INFINITY, column: 0 }
+            const b = right.widget.position ?? { row: Number.POSITIVE_INFINITY, column: 0 }
+            return a.row - b.row || a.column - b.column || left.index - right.index
+        })
+        .map(({ widget }) => widget)
+
+    return Object.fromEntries(
+        packHomeWidgets(readingOrder, columns).map((widget) => [
+            widget.id,
+            { column: widget.column - 1, row: widget.row - 1 },
+        ]),
+    )
+}
+
 export function packHomeWidgets(
     widgets: readonly HomeWidgetPlacement[],
     columnCount: number,

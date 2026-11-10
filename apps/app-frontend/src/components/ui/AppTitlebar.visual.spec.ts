@@ -84,6 +84,7 @@ vi.mock(import('@/composables/browse/install-job-notifications'), () => ({
         stateSignature: computed(() => ''),
         buttons: computed(() => undefined),
         refresh: vi.fn(async () => {}),
+        clearFinishedJobs: vi.fn(),
         dispose: vi.fn(),
     }),
 }))

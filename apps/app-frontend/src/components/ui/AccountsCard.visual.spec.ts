@@ -4,6 +4,7 @@ import { defineComponent, h, Suspense } from 'vue'
 
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { notifyAccountSelectionChanged } from '@/helpers/account-state'
+import { set_default_user } from '@/helpers/auth'
 
 import AccountsCard from './AccountsCard.vue'
 
@@ -146,6 +147,29 @@ it('shows an account selected outside the card without a restart', async () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('SignedInElsewhere')
+})
+
+it('picks up an outside selection that lands during its own failed write', async () => {
+    backend.users.mockResolvedValue([account('BeforeOutsideChange')])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const write = deferred<void>()
+    vi.mocked(set_default_user).mockReturnValue(write.promise)
+    const wrapper = mountCard()
+    await flushPromises()
+
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('BeforeOutsideChange'))!
+        .trigger('click')
+    await flushPromises()
+    expect(set_default_user).toHaveBeenCalledOnce()
+
+    backend.users.mockResolvedValue([account('AfterOutsideChange')])
+    notifyAccountSelectionChanged()
+    write.reject(new Error('write failed'))
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('AfterOutsideChange')
 })
 
 it('shows saved accounts while online profiles and head rendering are still pending', async () => {

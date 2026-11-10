@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { highlightLine, type LogHighlightMode, markSearchMatches } from './log-highlight.ts'
+import {
+    highlightLine,
+    type LogHighlightMode,
+    markSearchMatches,
+    visibleLogText,
+} from './log-highlight.ts'
 
 test('ANSI SGR supports basic, indexed, RGB, resets and safe literal HTML', () => {
     const html = highlightLine(
@@ -105,4 +110,17 @@ test('changing search terms cannot contaminate the syntax cache', () => {
     const second = markSearchMatches(highlightLine(pythonFrame), '12')
     assert.doesNotMatch(second, /<mark>File<\/mark>/)
     assert.equal(highlightLine(pythonFrame), syntax)
+})
+
+test('visible ANSI text matches rendering, decodes entities once, and respects raw and hard-limit fallbacks', () => {
+    const visible = `<&"' &lt; literal>`
+    const ansi = `\x1b[1;31m${visible}\x1b[0m`
+    for (const mode of ['full', 'lite', 'line-only'] as LogHighlightMode[])
+        assert.equal(visibleLogText(ansi, mode), visible)
+    assert.equal(visibleLogText(ansi, 'raw'), ansi)
+    assert.equal(visibleLogText(visible), visible)
+    assert.equal(visibleLogText('\x1b[31m\x1b]8;;https://example.com\x07link\x1b]8;;\x07'), '')
+    const tooLong = ansi + 'x'.repeat(65536)
+    assert.equal(visibleLogText(tooLong), tooLong)
+    assert.equal(visibleLogText('\x1b[31mred\x1b[0m uncolored'), 'red uncolored')
 })

@@ -643,14 +643,15 @@ export function highlightLine(text: string, mode: LogHighlightMode = 'full'): st
     return formatLine(text, mode)
 }
 
-/** Marks visible text in highlightLine's output without changing its tags or entities. */
-export function markSearchMatches(html: string, searchQuery: string): string {
-    const terms = [...new Set(searchQuery.trim().split(/\s+/).filter(Boolean))]
-    if (terms.length === 0) return html
-    const pattern = terms
-        .sort((a, b) => b.length - a.length)
-        .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .join('|')
+/** Uses the renderer's text semantics, including its raw/long-line fallback. */
+export function visibleLogText(text: string, mode: LogHighlightMode = 'full'): string {
+    if (!text.includes('\x1b[') || mode === 'raw' || text.length > LONG_LINE_HARD_LIMIT) return text
+    return highlightedTextTokens(highlightLine(text, mode))
+        .map((token) => token.text)
+        .join('')
+}
+
+function highlightedTextTokens(html: string) {
     const entities: Record<string, string> = {
         '&amp;': '&',
         '&lt;': '<',
@@ -659,12 +660,23 @@ export function markSearchMatches(html: string, searchQuery: string): string {
         '&#039;': "'",
         '&#x27;': "'",
     }
-    const tokens = [...html.matchAll(/<[^>]*>|[^<]+/g)].map(([value]) => ({
+    return [...html.matchAll(/<[^>]*>|[^<]+/g)].map(([value]) => ({
         html: value,
         text: value.startsWith('<')
             ? ''
             : value.replace(/&(?:amp|lt|gt|quot|#039|#x27);/g, (entity) => entities[entity]!),
     }))
+}
+
+/** Marks visible text in highlightLine's output without changing its tags or entities. */
+export function markSearchMatches(html: string, searchQuery: string): string {
+    const terms = [...new Set(searchQuery.trim().split(/\s+/).filter(Boolean))]
+    if (terms.length === 0) return html
+    const pattern = terms
+        .sort((a, b) => b.length - a.length)
+        .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|')
+    const tokens = highlightedTextTokens(html)
     const text = tokens.map((token) => token.text).join('')
     const matches = [...text.matchAll(new RegExp(pattern, 'gi'))].map((match) => ({
         start: match.index,

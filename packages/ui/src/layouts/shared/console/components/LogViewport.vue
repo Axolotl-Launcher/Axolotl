@@ -76,7 +76,7 @@ import Button from '#ui/components/base/buttons/Button.vue'
 import EmptyState from '#ui/components/base/EmptyState.vue'
 import { useVIntl } from '#ui/composables/i18n'
 
-import { highlightLine, markSearchMatches } from '../composables/log-highlight'
+import { highlightLine, markSearchMatches, visibleLogText } from '../composables/log-highlight'
 import { consoleMessages } from '../messages'
 import type { LogLine } from '../types'
 
@@ -124,7 +124,7 @@ const charsPerLine = computed(() => {
 
 function estimateHeight(item: ViewportLine): number {
     if (!props.wrap) return lineHeightPx.value
-    const lines = Math.max(1, Math.ceil(item.line.text.length / charsPerLine.value))
+    const lines = Math.max(1, Math.ceil(visibleLogText(item.line.text).length / charsPerLine.value))
     return lines * lineHeightPx.value
 }
 

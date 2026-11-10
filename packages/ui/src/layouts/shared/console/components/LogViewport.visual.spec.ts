@@ -152,3 +152,49 @@ it('rebuilds wrapped offsets when filtering replaces interior rows with the same
         host.remove()
     }
 })
+
+it('measures ANSI-heavy wrapped rows like their visible plain-text equivalents', async () => {
+    const host = document.createElement('div')
+    host.style.cssText = 'height:300px;width:400px;position:relative'
+    document.body.append(host)
+    const visible = `<&"'abc>`.repeat(10)
+    const ansi = [...visible].map((character) => `\x1b[38;2;1;2;3m${character}\x1b[0m`).join('')
+    const makeLine = (text: string, originalIndex: number) => ({
+        line: { text, level: 'info' as const },
+        originalIndex,
+    })
+    const wrapper = await mountThemed(
+        LogViewport,
+        { lines: [makeLine(visible, 0), makeLine(ansi, 1)], wrap: true },
+        'dark',
+        { attachTo: host },
+    )
+    const heights = () =>
+        wrapper.findAll('.log-line').map((row) => row.element.getBoundingClientRect().height)
+    try {
+        await expect.poll(() => heights()[0]).toBeGreaterThan(17)
+        expect(wrapper.findAll('.log-line-content').map((row) => row.element.textContent)).toEqual([
+            visible,
+            visible,
+        ])
+        expect(heights()[1]).toBe(heights()[0])
+        expect(
+            Number.parseFloat(
+                (wrapper.get('.log-viewport-spacer').element as HTMLElement).style.height,
+            ),
+        ).toBe(heights()[0] * 2)
+        const wideHeight = heights()[0]
+        host.style.width = '200px'
+        await expect.poll(() => heights()[0]).toBeGreaterThan(wideHeight)
+        expect(heights()[1]).toBe(heights()[0])
+        await wrapper.setProps({
+            lines: [makeLine(visible, 0), makeLine(ansi, 1), makeLine(ansi, 2)],
+        })
+        expect(heights()).toEqual([heights()[0], heights()[0], heights()[0]])
+        await wrapper.setProps({ wrap: false })
+        expect(heights()).toEqual([17, 17, 17])
+    } finally {
+        wrapper.unmount()
+        host.remove()
+    }
+})

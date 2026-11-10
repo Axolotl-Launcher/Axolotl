@@ -13142,6 +13142,9 @@
   "app.update-popup.body.download-complete": {
     "message": "Axolotl Launcher v{version} 更新已下载完成！立即重启更新，或退出时自动安装。"
   },
+  "app.update-popup.body.manual": {
+    "message": "Axolotl Launcher v{version} 现已发布。当前这份启动器无法自行更新，请从官网下载新版本，或通过包管理器更新。"
+  },
   "app.update-popup.body.metered": {
     "message": "Axolotl Launcher v{version} 现已发布！由于你正在使用按流量计费的网络，该更新未自动下载。"
   },
@@ -13153,6 +13156,9 @@
   },
   "app.update-popup.download-complete": {
     "message": "下载完成"
+  },
+  "app.update-popup.download-page": {
+    "message": "前往下载页"
   },
   "app.update-popup.reload": {
     "message": "重新加载以更新"

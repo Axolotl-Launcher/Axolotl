@@ -2519,6 +2519,14 @@ const updatePopupMessages = defineMessages({
         id: 'app.update-popup.body.metered',
         defaultMessage: `Axolotl Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it.`,
     },
+    manualBody: {
+        id: 'app.update-popup.body.manual',
+        defaultMessage: `Axolotl Launcher v{version} is available. This copy can't update itself, so download the new version from the website or update it with your package manager.`,
+    },
+    downloadPage: {
+        id: 'app.update-popup.download-page',
+        defaultMessage: 'Download page',
+    },
     downloadedBody: {
         id: 'app.update-popup.body.download-complete',
         defaultMessage: `Axolotl Launcher v{version} has finished downloading. Reload to update now, or automatically when you close Axolotl Launcher.`,
@@ -2587,7 +2595,26 @@ function showDelayedUpdatePopup() {
         return
     }
 
-    if (metered.value && !finishedDownloading.value) {
+    if (update.installMethod === 'manual') {
+        addPopupNotification({
+            title: formatMessage(updatePopupMessages.updateAvailable),
+            text: formatMessage(updatePopupMessages.manualBody, { version: update.version }),
+            type: 'info',
+            autoCloseMs: null,
+            buttons: [
+                {
+                    label: formatMessage(updatePopupMessages.downloadPage),
+                    action: () => downloadAvailableAppUpdate(),
+                    color: 'brand',
+                },
+                {
+                    label: formatMessage(updatePopupMessages.changelog),
+                    action: () => openAppUpdateChangelog(),
+                    keepOpen: true,
+                },
+            ],
+        })
+    } else if (metered.value && !finishedDownloading.value) {
         addPopupNotification({
             title: formatMessage(updatePopupMessages.updateAvailable),
             text: formatMessage(updatePopupMessages.meteredBody, { version: update.version }),
@@ -2638,6 +2665,9 @@ function showDelayedUpdatePopup() {
 }
 
 let lastUpdateChannel = 'release'
+
+/** Download section of the website, for installs that cannot update themselves. */
+const MANUAL_UPDATE_DOWNLOAD_URL = `${AxolotlBrandConfig.website}#download`
 
 async function performUpdateCheck() {
     const channel = await getUpdateChannel()
@@ -2690,6 +2720,14 @@ async function performUpdateCheck() {
 
     console.log(`Update ${update.version} is available.`)
 
+    if (update.installMethod === 'manual') {
+        // This copy cannot replace itself; offer the download page instead
+        // of downloading a package that would fail to install on exit.
+        markAppUpdateActionable(update.version)
+        scheduleDelayedUpdatePopup()
+        return 'available'
+    }
+
     metered.value = await isNetworkMetered()
 
     if (!metered.value) {
@@ -2724,6 +2762,10 @@ async function manualUpdateCheck() {
 }
 
 async function downloadAvailableUpdate() {
+    if (availableUpdate.value?.installMethod === 'manual') {
+        await openUrl(MANUAL_UPDATE_DOWNLOAD_URL)
+        return
+    }
     return downloadUpdate(availableUpdate.value)
 }
 

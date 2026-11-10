@@ -4,12 +4,20 @@ export const APP_UPDATE_POPUP_DELAY_MS = 24 * 60 * 60 * 1000
 
 const UPDATE_PROMPT_STORAGE_KEY = 'modrinth-app-update-prompt-state'
 
+/**
+ * How this install applies an update: the updater replaces the app, apt or rpm
+ * reinstalls its package, and a manual install (a copy the launcher cannot
+ * replace, such as a source build or a converted package) only reports it.
+ */
+export type AppUpdateInstallMethod = 'updater' | 'apt' | 'rpm' | 'manual'
+
 export interface AppUpdate {
     rid: number
     version: string
     currentVersion?: string
     publishedAt?: string
     forceUpdate?: boolean
+    installMethod?: AppUpdateInstallMethod
 }
 
 interface UpdatePromptState {
@@ -58,6 +66,7 @@ export const appUpdateState = {
     updatesPaused,
     downloadProgress: computed(() => progress.value),
     downloadPercent: computed(() => Math.trunc(progress.value * 100)),
+    manualInstall: computed(() => availableUpdate.value?.installMethod === 'manual'),
     isVisible: computed(
         () =>
             !!availableUpdate.value &&

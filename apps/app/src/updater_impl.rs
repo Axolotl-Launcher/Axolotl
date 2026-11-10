@@ -39,6 +39,7 @@ pub struct UpdateMetadata {
     published_at: Option<String>,
     force_update: bool,
     raw_json: serde_json::Value,
+    install_method: UpdateMethod,
 }
 
 #[derive(Default)]
@@ -342,18 +343,19 @@ async fn check_with_updater<R: Runtime>(
         return Ok(None);
     };
     update.timeout = Some(UPDATE_DOWNLOAD_TIMEOUT);
+    let install_method = *webview.state::<UpdateMethod>();
 
     // The manifest only offers the AppImage archive on Linux. A .deb or .rpm
     // install is updated by its package manager instead, so point the
     // download at that package from the Update Server catalog and take its
     // own signature, which the download is verified against like any other.
-    if let Some(installer) = webview.state::<UpdateMethod>().package_installer()
-    {
+    // A manual install only reports the new version.
+    if let Some(installer) = install_method.package_installer() {
         let package =
             fetch_package_update(&update.version, installer.variant).await?;
         update.download_url = package.url;
         update.signature = package.signature;
-    } else {
+    } else if install_method != UpdateMethod::Manual {
         update.download_url = update_artifact_url(update.download_url.path())?;
     }
 
@@ -376,6 +378,7 @@ async fn check_with_updater<R: Runtime>(
         published_at,
         force_update,
         raw_json: update.raw_json,
+        install_method,
     };
 
     Ok(Some(metadata))
@@ -503,6 +506,15 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
 ) -> Result<()> {
     let pending_data = webview.state::<PendingUpdateData>().inner();
 
+    if *webview.state::<UpdateMethod>() == UpdateMethod::Manual {
+        return Err(catalog_error(
+            "This copy of Axolotl Launcher cannot update itself. Download the \
+             new version from the website or update it with your package \
+             manager."
+                .to_owned(),
+        ));
+    }
+
     let update = webview.resources_table().get::<Update>(rid)?;
 
     let progress = init_loading(
@@ -576,7 +588,8 @@ pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
 /// It follows the bundle the running binary was installed from, not the
 /// distribution it runs on: an AppImage on Ubuntu replaces itself like on any
 /// other distribution, and only a .deb that dpkg tracks goes through apt.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum UpdateMethod {
     /// The updater plugin applies the update (Windows, macOS, AppImage).
     Updater,
@@ -584,6 +597,11 @@ pub enum UpdateMethod {
     Apt,
     /// rpm upgrades the package that owns this binary.
     Rpm,
+    /// This copy cannot update itself: a package without the tools to
+    /// reinstall it (no pkexec, or a .deb converted for pacman), an unpacked
+    /// AppImage, or a build that is not an official bundle (source builds,
+    /// Flatpak, distribution packages). The launcher only reports updates.
+    Manual,
 }
 
 /// Package name of the launcher in both the .deb and the .rpm: the Tauri
@@ -614,7 +632,7 @@ impl UpdateMethod {
     /// plugin does.
     pub fn package_installer(self) -> Option<PackageInstaller> {
         match self {
-            Self::Updater => None,
+            Self::Updater | Self::Manual => None,
             Self::Apt => Some(PackageInstaller {
                 variant: "deb",
                 program: "apt",
@@ -634,9 +652,12 @@ impl UpdateMethod {
         #[cfg(target_os = "linux")]
         {
             let bundle = tauri::utils::platform::bundle_type();
-            let method = linux_update_method(bundle.as_ref(), || {
-                probe_linux_host(bundle.as_ref())
-            });
+            let in_appimage = std::env::var_os("APPIMAGE")
+                .is_some_and(|path| !path.is_empty());
+            let method =
+                linux_update_method(bundle.as_ref(), in_appimage, || {
+                    probe_linux_host(bundle.as_ref())
+                });
             tracing::info!(
                 ?bundle,
                 ?method,
@@ -652,20 +673,23 @@ impl UpdateMethod {
 }
 
 /// Picks the update method for the Linux bundle this binary was installed
-/// from. The host is only probed for package installs.
+/// from. `in_appimage` is whether the AppImage runtime named the file to
+/// replace (`$APPIMAGE`). The host is only probed for package installs.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn linux_update_method(
     bundle: Option<&tauri::utils::config::BundleType>,
+    in_appimage: bool,
     host: impl FnOnce() -> LinuxHost,
 ) -> UpdateMethod {
     use tauri::utils::config::BundleType;
     match bundle {
+        Some(BundleType::AppImage) if in_appimage => UpdateMethod::Updater,
         Some(BundleType::Deb) => {
             let host = host();
             if host.dpkg_owns_exe && host.apt && host.pkexec {
                 UpdateMethod::Apt
             } else {
-                UpdateMethod::Updater
+                UpdateMethod::Manual
             }
         }
         Some(BundleType::Rpm) => {
@@ -673,10 +697,10 @@ fn linux_update_method(
             if host.rpm_owns_exe && host.pkexec {
                 UpdateMethod::Rpm
             } else {
-                UpdateMethod::Updater
+                UpdateMethod::Manual
             }
         }
-        _ => UpdateMethod::Updater,
+        _ => UpdateMethod::Manual,
     }
 }
 
@@ -828,7 +852,7 @@ mod tests {
     fn only_a_dpkg_tracked_deb_updates_through_apt() {
         let deb = Some(&BundleType::Deb);
         assert_eq!(
-            linux_update_method(deb, host(true, false, true, true)),
+            linux_update_method(deb, false, host(true, false, true, true)),
             UpdateMethod::Apt
         );
         // A .deb repackaged for another package manager (debtap, alien), or
@@ -838,7 +862,10 @@ mod tests {
             host(true, false, false, true),
             host(true, false, true, false),
         ] {
-            assert_eq!(linux_update_method(deb, probe), UpdateMethod::Updater);
+            assert_eq!(
+                linux_update_method(deb, false, probe),
+                UpdateMethod::Manual
+            );
         }
     }
 
@@ -846,26 +873,60 @@ mod tests {
     fn an_rpm_tracked_install_updates_through_rpm() {
         let rpm = Some(&BundleType::Rpm);
         assert_eq!(
-            linux_update_method(rpm, host(false, true, false, true)),
+            linux_update_method(rpm, false, host(false, true, false, true)),
             UpdateMethod::Rpm
         );
         for probe in [
             host(true, false, true, true),
             host(false, true, true, false),
         ] {
-            assert_eq!(linux_update_method(rpm, probe), UpdateMethod::Updater);
+            assert_eq!(
+                linux_update_method(rpm, false, probe),
+                UpdateMethod::Manual
+            );
         }
     }
 
     #[test]
-    fn appimages_never_update_through_a_package_manager() {
-        for bundle in [Some(&BundleType::AppImage), None] {
-            let method = linux_update_method(bundle, || -> LinuxHost {
-                panic!("probed the host for {bundle:?}")
-            });
-            assert_eq!(method, UpdateMethod::Updater);
+    fn appimages_replace_themselves_on_any_distribution() {
+        let method = linux_update_method(
+            Some(&BundleType::AppImage),
+            true,
+            || -> LinuxHost { panic!("probed the host for an AppImage") },
+        );
+        assert_eq!(method, UpdateMethod::Updater);
+        assert!(method.package_installer().is_none());
+    }
+
+    #[test]
+    fn unknown_or_unpacked_installs_only_report_updates() {
+        // An AppImage run from its extracted squashfs-root has no file to
+        // replace; a binary without a bundle type was built from source or
+        // repackaged (Flatpak, distribution packages).
+        for (bundle, in_appimage) in [
+            (Some(&BundleType::AppImage), false),
+            (None, false),
+            (None, true),
+        ] {
+            let method =
+                linux_update_method(bundle, in_appimage, || -> LinuxHost {
+                    panic!("probed the host for {bundle:?}")
+                });
+            assert_eq!(method, UpdateMethod::Manual);
             assert!(method.package_installer().is_none());
         }
+    }
+
+    #[test]
+    fn install_methods_serialize_for_the_frontend() {
+        assert_eq!(
+            serde_json::to_value(UpdateMethod::Manual).unwrap(),
+            serde_json::json!("manual")
+        );
+        assert_eq!(
+            serde_json::to_value(UpdateMethod::Updater).unwrap(),
+            serde_json::json!("updater")
+        );
     }
 
     #[test]

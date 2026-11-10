@@ -1,29 +1,34 @@
-//! The exit barrier (spec §8.6). Every `ExitRequested` re-arms the deadline,
-//! so an exit interrupted earlier never leaves a stale one behind. Steps 1–5
-//! run in `ExitRequested`, steps 6–7 in `Exit`:
+//! The exit barrier (spec §8.6). Every `ExitRequested` starts a pass, so an
+//! exit interrupted earlier never leaves a stale one behind. Steps 1–5 run in
+//! `ExitRequested`, steps 6–7 in `Exit`:
 //!
-//! 1. re-arm `EXIT_DEADLINE_MS` (now + the hard cap) and reset `POOL_CLOSED`;
+//! 1. arm `EXIT_DEADLINE_MS` with the cap this exit deserves and reset
+//!    `POOL_CLOSED`;
 //! 2. flush the pending skin change;
 //! 3. stop multiplayer and MCP services within the soft window (5 s);
 //! 4. stop dedicated servers (their own 5 s budget);
 //! 5. cancel and abort what is left below and above L3 — never L3 itself —
 //!    and record the losses;
-//! 6. close the database pool (3 s); from here nothing is aborted any more,
-//!    only recorded;
+//! 6. mark the pool closed, then close the database pool (3 s); from here
+//!    nothing is aborted any more, only recorded;
 //! 7. exit, or restart once the pool is closed: an installed update asks
 //!    through `request_restart` here, and the frontend's `restart_app` has
 //!    asked before step 1, so Tauri relaunches only after `Exit` returns.
 //!
-//! Budget: 5 s + 5 s + 3 s = 13 s, under the 15 s hard cap. At the hard cap
-//! the barrier stops waiting, records the losses and exits the process; L3
-//! work is never killed by the barrier, it ends with the process and is
-//! settled as interrupted on the next start. Installing an update waits on
-//! the user by design, so the cap is lifted while it runs.
+//! Budget: the bounded steps total 5 + 5 + 3 = 13 s, under the 15 s hard cap.
+//! A user-requested restart gets [`RESTART_CAP`] for steps 1–5 and the ordinary
+//! cap again for steps 6–7. A pending update disarms the cap for the install,
+//! which waits on the user by design, and [`rearm`] bounds the steps after it
+//! returns. At the cap the barrier records the losses and exits the process;
+//! L3 work is never killed by the barrier, it ends with the process and is
+//! settled as interrupted on the next start.
 //!
 //! Exit paths: the frontend's `exit_app`, the tray's quit, the frontend's
-//! `restart_app` and the updater's restart all go through the barrier. The
-//! NSIS installer's own `exit(0)` and an OS shutdown or forced kill cannot be
-//! intercepted.
+//! `restart_app` and the updater's restart go through the barrier. macOS
+//! Cmd+Q/Dock Quit reaches `Exit` directly; the exit handler runs the missing
+//! steps once there. The Windows updater closes the database through the
+//! plugin's `on_before_exit` hook. The NSIS installer's own `exit(0)` and an OS
+//! shutdown or forced kill cannot be intercepted.
 
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -31,14 +36,34 @@ use std::time::{Duration, Instant};
 
 use theseus::scheduler::tag::Level;
 
-pub const SOFT_WINDOW: Duration = Duration::from_secs(5);
-pub const HARD_CAP: Duration = Duration::from_secs(15);
 /// Steps 3, 4 and 6.
 pub const STEP_BUDGETS: [Duration; 3] = [
     Duration::from_secs(5),
     Duration::from_secs(5),
     Duration::from_secs(3),
 ];
+pub const SOFT_WINDOW: Duration = STEP_BUDGETS[0];
+pub const HARD_CAP: Duration = Duration::from_secs(15);
+/// A user-requested restart gets one extended pass for steps 1–5 before the
+/// ordinary hard cap applies to steps 6–7. A pending update disarms the cap
+/// instead, because the installer waits on the user by design.
+pub const RESTART_CAP: Duration = Duration::from_secs(30);
+
+/// What the current exit request is for; it selects the cap for steps 1–5.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExitIntent {
+    Exit,
+    Restart,
+    Update,
+}
+
+pub fn cap_for(intent: ExitIntent) -> Option<Duration> {
+    match intent {
+        ExitIntent::Exit => Some(HARD_CAP),
+        ExitIntent::Restart => Some(RESTART_CAP),
+        ExitIntent::Update => None,
+    }
+}
 
 /// Milliseconds on the exit clock (`now_millis`); 0 while unarmed. Re-armed
 /// on every `ExitRequested`, so it must never be a write-once cell.
@@ -51,6 +76,10 @@ static POOL_CLOSED: AtomicBool = AtomicBool::new(false);
 /// The re-entrancy guard: set while one barrier runs.
 static EXIT_RUNNING: AtomicBool = AtomicBool::new(false);
 static WATCHDOG_STARTED: AtomicBool = AtomicBool::new(false);
+/// Whether any barrier pass has run for this process. A macOS Quit reaches
+/// `RunEvent::Exit` without `ExitRequested`; the exit handler uses this to run
+/// the missing steps once.
+static PASS_RAN: AtomicBool = AtomicBool::new(false);
 
 /// Milliseconds on the monotonic exit clock, counted from its first read. An
 /// armed deadline is at least the hard cap, so it never reads as unarmed.
@@ -70,20 +99,43 @@ impl Drop for ExitPass {
     }
 }
 
-/// Step 1. `None` while another barrier runs, which a nested
-/// `ExitRequested` must not start again.
+/// Step 1 with the ordinary hard cap. `None` while another barrier runs, which
+/// a nested `ExitRequested` must not start again.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn begin(now_ms: u64) -> Option<ExitPass> {
+    begin_with(now_ms, Some(HARD_CAP))
+}
+
+/// Step 1 with an explicit cap. `None` disarms the watchdog for this pass: the
+/// updater's elevation prompt is a wait by design and has no upper bound.
+pub fn begin_with(now_ms: u64, cap: Option<Duration>) -> Option<ExitPass> {
     if EXIT_RUNNING.swap(true, Ordering::AcqRel) {
         return None;
     }
-    EXIT_DEADLINE_MS
-        .store(now_ms + HARD_CAP.as_millis() as u64, Ordering::Release);
+    match cap {
+        Some(cap) => EXIT_DEADLINE_MS
+            .store(now_ms + cap.as_millis() as u64, Ordering::Release),
+        None => disarm(),
+    }
     POOL_CLOSED.store(false, Ordering::Release);
+    PASS_RAN.store(true, Ordering::Release);
     Some(ExitPass(()))
+}
+
+/// Whether a barrier pass has run in this process.
+pub fn pass_ran() -> bool {
+    PASS_RAN.load(Ordering::Acquire)
 }
 
 pub fn deadline_ms() -> u64 {
     EXIT_DEADLINE_MS.load(Ordering::Acquire)
+}
+
+/// Re-arms the ordinary hard cap after a bounded step, so steps 6–7 still get
+/// a full budget even when the pre-install pass used an extended one.
+pub fn rearm(now_ms: u64) {
+    EXIT_DEADLINE_MS
+        .store(now_ms + HARD_CAP.as_millis() as u64, Ordering::Release);
 }
 
 /// Lifts the hard cap, for waits that are by design (an update install).
@@ -135,8 +187,7 @@ pub fn watch_hard_cap(losses: fn() -> Vec<Loss>) {
                 CapCheck::Wait(wait) => tokio::time::sleep(wait).await,
                 CapCheck::Reached => {
                     tracing::error!(
-                        "Exit did not finish within the {}s hard cap; exiting without waiting further",
-                        HARD_CAP.as_secs()
+                        "Exit did not finish within its hard cap; exiting without waiting further"
                     );
                     record(&losses());
                     std::process::exit(0);
@@ -222,8 +273,10 @@ pub fn finish_exit(
     restart: bool,
     restarter: &impl Restarter,
 ) {
-    finish_database();
+    // Mark before closing: a hard cap that fires while the pool is closing
+    // must not run the abort arm of the action table.
     mark_pool_closed();
+    finish_database();
     if restart {
         restarter.request_restart();
     }
@@ -293,16 +346,53 @@ mod tests {
 
     #[test]
     fn the_hard_cap_runs_on_the_monotonic_exit_clock() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
         let _serial = serial();
         let first = now_millis();
         std::thread::sleep(Duration::from_millis(5));
         assert!(now_millis() >= first + 5, "the exit clock moves forward");
+        let epoch_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        assert!(
+            now_millis() < epoch_ms,
+            "the exit clock must be monotonic, not wall-clock milliseconds"
+        );
 
         let pass = begin(now_millis()).unwrap();
         assert!(deadline_ms() >= HARD_CAP.as_millis() as u64);
         assert!(
             matches!(check_cap(now_millis()), CapCheck::Wait(_)),
             "a deadline armed now is not reached on the same clock"
+        );
+        drop(pass);
+    }
+
+    #[test]
+    fn the_exit_intent_selects_the_cap() {
+        assert_eq!(cap_for(ExitIntent::Exit), Some(HARD_CAP));
+        assert_eq!(cap_for(ExitIntent::Restart), Some(RESTART_CAP));
+        assert_eq!(cap_for(ExitIntent::Update), None);
+        assert!(RESTART_CAP > HARD_CAP);
+    }
+
+    #[test]
+    fn a_disarmed_pass_keeps_the_watchdog_off_until_rearmed() {
+        let _serial = serial();
+        let pass = begin_with(1_000, None).unwrap();
+        assert!(pass_ran());
+        assert_eq!(check_cap(u64::MAX), CapCheck::Disarmed);
+        rearm(2_000);
+        assert_eq!(
+            deadline_ms(),
+            2_000 + HARD_CAP.as_millis() as u64,
+            "rearm restores the ordinary cap"
+        );
+        assert_eq!(
+            check_cap(2_000 + HARD_CAP.as_millis() as u64),
+            CapCheck::Reached
         );
         drop(pass);
     }
@@ -384,7 +474,13 @@ mod tests {
         let _serial = serial();
         let app = FakeApp(RefCell::default());
         finish_exit(
-            || app.0.borrow_mut().push("finish_database_session"),
+            || {
+                assert!(
+                    pool_closed(),
+                    "the pool is marked before the database starts closing"
+                );
+                app.0.borrow_mut().push("finish_database_session");
+            },
             true,
             &app,
         );

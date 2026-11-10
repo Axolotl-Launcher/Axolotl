@@ -267,6 +267,8 @@ jobs:
         run: node scripts/axolotl/check-dead-utilities.mjs
       - name: Test version metadata writes
         run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail writing_version_info_creates_missing_parent_directory
+      - name: Test launcher memory behavior
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail api::memory
       # Runs the CurseForge content pipeline suites (recognition, dependency
       # selection, install, verification, manual downloads, reconciliation).
       # Linux only: the code is platform independent and this keeps the matrix

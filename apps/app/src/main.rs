@@ -575,6 +575,12 @@ impl exit_barrier::Restarter for tauri::AppHandle {
 /// Whether one is mid-publish is not known in memory; its operation journal
 /// holds the publish point for startup reconciliation. An L0 driver that has
 /// not left after its quiesce is listed with its last safety point.
+///
+/// Today only install jobs (L3) and the L0 driver are enumerable here. The
+/// scheduler's L1/L2 work is stopped through the background-services shutdown,
+/// and no production writer exists for the other levels; the non-L3
+/// `settle_leftovers` arms and their loss variants stay for the writers that
+/// land with the supervisor path.
 fn exit_losses() -> Vec<exit_barrier::Loss> {
     let jobs = State::get_if_initialized()
         .map(|state| state.running_install_jobs())
@@ -592,14 +598,79 @@ fn exit_losses() -> Vec<exit_barrier::Loss> {
     if let Some(safety_point) =
         theseus::scheduler::l0::wait_exit(std::time::Instant::now())
     {
+        let label = if safety_point == 0 {
+            "L0 driver, no safety point recorded".to_string()
+        } else {
+            format!(
+                "L0 driver, last safety point at {safety_point} ms since the epoch"
+            )
+        };
         losses.push(exit_barrier::Loss::Abandoned {
             level: theseus::scheduler::tag::Level::L0,
-            label: format!(
-                "L0 driver, last safety point at {safety_point} ms since the epoch"
-            ),
+            label,
         });
     }
     losses
+}
+
+#[cfg(feature = "updater")]
+fn update_is_pending(app: &tauri::AppHandle) -> bool {
+    app.state::<PendingUpdateData>()
+        .inner()
+        .0
+        .lock()
+        .unwrap()
+        .is_some()
+}
+
+#[cfg(not(feature = "updater"))]
+fn update_is_pending(_app: &tauri::AppHandle) -> bool {
+    false
+}
+
+/// Steps 2–5 of the exit barrier. `ExitRequested` normally runs this; a macOS
+/// Quit reaches `RunEvent::Exit` without that event, so the exit handler runs
+/// it once when no pass has happened.
+fn run_exit_steps(app: &tauri::AppHandle) {
+    if let Err(error) = tauri::async_runtime::block_on(
+        theseus::minecraft_skins::flush_pending_skin_change(),
+    ) {
+        tracing::warn!(
+            "Failed to flush pending Minecraft skin change before exit: {error}"
+        );
+    }
+    // L0 quiesces while the services and servers stop, so its exit window
+    // overlaps steps 3 and 4.
+    theseus::scheduler::l0::request_exit();
+    let l0_exit_by = std::time::Instant::now()
+        + theseus::scheduler::l0::executor::EXIT_WINDOW;
+    tauri::async_runtime::block_on(async {
+        let services = async {
+            if let Err(error) = theseus::multiplayer::shutdown().await {
+                tracing::warn!(
+                    "Failed to stop multiplayer services before exit: {error}"
+                );
+            }
+            api::mcp::shutdown(app).await;
+        };
+        if tokio::time::timeout(exit_barrier::SOFT_WINDOW, services)
+            .await
+            .is_err()
+        {
+            tracing::warn!("Services did not stop within the exit soft window");
+        }
+        let killed = theseus::servers::shutdown_all().await;
+        if killed > 0 {
+            tracing::info!(
+                "Killed {killed} dedicated server process(es) after the shutdown budget"
+            );
+        }
+        if let Some(state) = State::get_if_initialized() {
+            state.shutdown().await;
+        }
+    });
+    theseus::scheduler::l0::wait_exit(l0_exit_by);
+    exit_barrier::record(&exit_losses());
 }
 
 #[tauri::command]
@@ -1020,57 +1091,57 @@ fn main() {
 
                 // Steps 1–5 of the exit barrier (`exit_barrier`). Every
                 // ExitRequested re-arms EXIT_DEADLINE_MS and resets POOL_CLOSED.
-                if matches!(&event, tauri::RunEvent::ExitRequested { .. })
-                    && let Some(_pass) =
-                        exit_barrier::begin(exit_barrier::now_millis())
-                {
-                    exit_barrier::watch_hard_cap(exit_losses);
-                    if let Err(error) = tauri::async_runtime::block_on(
-                        theseus::minecraft_skins::flush_pending_skin_change(),
-                    ) {
-                        tracing::warn!(
-                            "Failed to flush pending Minecraft skin change before exit: {error}"
-                        );
+                if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
+                    let restart_requested = matches!(
+                        &event,
+                        tauri::RunEvent::ExitRequested {
+                            code: Some(code),
+                            ..
+                        } if *code == tauri::RESTART_EXIT_CODE
+                    );
+                    // The updater's elevation prompt is a wait by design; an
+                    // update must not be lost because steps 1–5 used the cap.
+                    let pending_update = update_is_pending(app);
+                    let intent = if pending_update {
+                        exit_barrier::ExitIntent::Update
+                    } else if restart_requested {
+                        exit_barrier::ExitIntent::Restart
+                    } else {
+                        exit_barrier::ExitIntent::Exit
+                    };
+                    let pass = exit_barrier::begin_with(
+                        exit_barrier::now_millis(),
+                        exit_barrier::cap_for(intent),
+                    );
+                    if let Some(_pass) = pass {
+                        exit_barrier::watch_hard_cap(exit_losses);
+                        run_exit_steps(app);
+                        // Steps 6–7 still get the ordinary cap after a
+                        // restart's extended pass. An update is disarmed until
+                        // its install returns, then rearmed.
+                        if intent == exit_barrier::ExitIntent::Restart {
+                            exit_barrier::rearm(exit_barrier::now_millis());
+                        }
                     }
-                    // L0 quiesces while the services and servers stop, so
-                    // its exit window overlaps steps 3 and 4.
-                    theseus::scheduler::l0::request_exit();
-                    let l0_exit_by = std::time::Instant::now()
-                        + theseus::scheduler::l0::executor::EXIT_WINDOW;
-                    tauri::async_runtime::block_on(async {
-                        let services = async {
-                            if let Err(error) =
-                                theseus::multiplayer::shutdown().await
-                            {
-                                tracing::warn!(
-                                    "Failed to stop multiplayer services before exit: {error}"
-                                );
-                            }
-                            api::mcp::shutdown(app).await;
-                        };
-                        if tokio::time::timeout(
-                            exit_barrier::SOFT_WINDOW,
-                            services,
-                        )
-                        .await
-                        .is_err()
-                        {
-                            tracing::warn!(
-                                "Services did not stop within the exit soft window"
-                            );
-                        }
-                        let killed = theseus::servers::shutdown_all().await;
-                        if killed > 0 {
-                            tracing::info!(
-                                "Killed {killed} dedicated server process(es) after the shutdown budget"
-                            );
-                        }
-                        if let Some(state) = State::get_if_initialized() {
-                            state.shutdown().await;
-                        }
-                    });
-                    theseus::scheduler::l0::wait_exit(l0_exit_by);
-                    exit_barrier::record(&exit_losses());
+                }
+                // macOS Cmd+Q/Dock Quit reaches Exit without ExitRequested.
+                // Run the missing steps once; a normal exit already ran them.
+                if matches!(&event, tauri::RunEvent::Exit)
+                    && !exit_barrier::pass_ran()
+                {
+                    let intent = if update_is_pending(app) {
+                        exit_barrier::ExitIntent::Update
+                    } else {
+                        exit_barrier::ExitIntent::Exit
+                    };
+                    let pass = exit_barrier::begin_with(
+                        exit_barrier::now_millis(),
+                        exit_barrier::cap_for(intent),
+                    );
+                    if let Some(_pass) = pass {
+                        exit_barrier::watch_hard_cap(exit_losses);
+                        run_exit_steps(app);
+                    }
                 }
 
                 #[cfg(feature = "updater")]
@@ -1116,12 +1187,21 @@ fn main() {
                             // the updater plugin launches the NSIS installer and
                             // exits the process via `std::process::exit(0)`
                             // without returning, so the success path below never
-                            // runs there.
+                            // runs there. Bound this settings write, then lift
+                            // the cap again for the designed install wait.
                             #[cfg(target_os = "windows")]
-                            set_changelog_toast(Some(update.version.clone()));
+                            {
+                                exit_barrier::rearm(exit_barrier::now_millis());
+                                set_changelog_toast(Some(update.version.clone()));
+                                exit_barrier::disarm();
+                            }
 
                             update.install(data).map_err(|error| error.to_string())
                         };
+
+                        // The install is the designed wait; the remaining
+                        // toast and database close are bounded again.
+                        exit_barrier::rearm(exit_barrier::now_millis());
 
                         match install_result {
                             Ok(()) => {

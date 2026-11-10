@@ -432,6 +432,7 @@ async function runNotificationAction(item: NotificationHistoryItem) {
 }
 
 function clearNotificationHistory() {
+    installJobNotifications.clearFinishedJobs()
     const progressItems = buildDownloadItems()
     // Clearing the history has to drop the remembered dismissal as well, even
     // when there is currently nothing on the list.
@@ -1213,6 +1214,14 @@ const installJobNotifications = await useInstallJobNotifications({
     manager: downloadManager,
     handleError,
     onChange: updateNotification,
+    onFinishedJobExpired: () => {
+        // The signature changes, but a popup the user closed should stay closed.
+        if (dismissed.value) {
+            dismissedDownloadSignature.value = buildDownloadSignature(buildDownloadItems())
+            persistDismissedDownloadSignature(dismissedDownloadSignature.value)
+        }
+        updateNotification()
+    },
 })
 
 await refreshLoadingBars()

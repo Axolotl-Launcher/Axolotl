@@ -916,3 +916,43 @@ it('keeps the last requested version when two lookups for the same project finis
     expect(await first).toBe(false)
     expect(selection.items.value.get(item.key)?.versionId).toBe('latest-release')
 })
+
+it.each([false, true])(
+    'removing a project cancels only that project lookup (remove pending: %s)',
+    async (removePending) => {
+        const selection = createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        })
+        selection.setTarget(instance)
+        const item = (id: string) => ({
+            key: `modrinth:${id}`,
+            provider: 'modrinth' as const,
+            providerProjectId: id,
+            projectId: id,
+            contentType: 'mod' as const,
+            title: id,
+            identity: { title: id } as never,
+        })
+        const selected = item('selected')
+        expect(await selection.add(selected)).toBe(true)
+        const pendingItem = item('pending')
+        let finish!: (id: string) => void
+        let current!: () => boolean
+        const pending = selection.add(pendingItem, (isCurrent) => {
+            current = isCurrent
+            return new Promise((resolve) => {
+                finish = resolve
+            })
+        })
+        selection.remove(removePending ? pendingItem.key : selected.key)
+        expect(current()).toBe(!removePending)
+        finish('filtered-release')
+        expect(await pending).toBe(!removePending)
+        expect(selection.items.value.has(pendingItem.key)).toBe(!removePending)
+        expect(selection.items.value.has(selected.key)).toBe(removePending)
+        if (!removePending)
+            expect(selection.items.value.get(pendingItem.key)?.versionId).toBe('filtered-release')
+    },
+)

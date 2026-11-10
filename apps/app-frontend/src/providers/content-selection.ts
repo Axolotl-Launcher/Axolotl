@@ -488,8 +488,7 @@ export function createContentSelection({
     }
 
     function remove(key: string) {
-        selectionGeneration++
-        selectionRequests.clear()
+        selectionRequests.delete(key)
         const next = new Map(items.value)
         next.delete(key)
         items.value = next

@@ -1243,13 +1243,14 @@
     {
       "file": "packages/app-lib/src/api/pack/import/instance_json.rs",
       "form": "std::fs",
-      "count": 4,
+      "count": 5,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "find_json: if let Ok(dir) = std::fs::read_dir(path) {",
         "find_json: let Ok(content) = std::fs::read_to_string(jf) else {",
         "find_json: let content = std::fs::read_to_string(&json_files[0]).ok()?;",
-        "find_json: let content = std::fs::read_to_string(&primary).ok()?;"
+        "find_json: let content = std::fs::read_to_string(&primary).ok()?;",
+        "version_from_client_jar: let file = std::fs::File::open(jar).ok()?;"
       ]
     },
     {

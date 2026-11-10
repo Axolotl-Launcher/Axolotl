@@ -119,12 +119,30 @@ export function createContentFavoritesStore(api: ContentFavoritesApi) {
             ),
     )
 
+    /** The saved row behind a project, which may only be one of its linked projects. */
+    function savedFavorite(provider: FavoriteProvider, projectId: string) {
+        return (
+            favorites.value.find(
+                (favorite) => favorite.provider === provider && favorite.project_id === projectId,
+            ) ??
+            favorites.value.find((favorite) =>
+                favorite.projects?.some(
+                    (project) => project.source === provider && project.projectId === projectId,
+                ),
+            )
+        )
+    }
+
     function isFavorite(provider: FavoriteProvider, projectId: string) {
         return favoriteKeys.value.has(contentFavoriteKey(provider, projectId))
     }
 
     function isPending(provider: FavoriteProvider, projectId: string) {
-        return pendingKeys.value.has(contentFavoriteKey(provider, projectId))
+        const saved = savedFavorite(provider, projectId)
+        return (
+            pendingKeys.value.has(contentFavoriteKey(provider, projectId)) ||
+            (!!saved && pendingKeys.value.has(contentFavoriteKey(saved.provider, saved.project_id)))
+        )
     }
 
     async function add(input: ContentFavoriteInput) {
@@ -147,7 +165,11 @@ export function createContentFavoritesStore(api: ContentFavoritesApi) {
         }
     }
 
-    async function remove(provider: FavoriteProvider, projectId: string) {
+    async function remove(requestedProvider: FavoriteProvider, requestedProjectId: string) {
+        // The backend deletes the exact saved pair, not a linked project of it.
+        const saved = savedFavorite(requestedProvider, requestedProjectId)
+        const provider = saved?.provider ?? requestedProvider
+        const projectId = saved?.project_id ?? requestedProjectId
         const key = contentFavoriteKey(provider, projectId)
         if (pendingKeys.value.has(key)) return
         setPending(key, true)

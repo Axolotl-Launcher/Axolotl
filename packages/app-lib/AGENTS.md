@@ -25,7 +25,7 @@ Which storage answers a collection, and how it is asked, stays inside the store 
 - `sqlx` may only appear inside the persistence layer: `src/state/store/` and `src/state/instances/adapters/sqlite/`. `Handle::pool` is visible to the store half alone; a caller reaches the instance half by passing `State::pool` or a transaction it opened into a step.
 - The instance half answers step by step. A step that writes takes the `&mut Transaction` its caller opened and never commits it; a step that only reads takes a generic `Executor`, so it can also join an open unit. A guard belongs to the step that acts on it, so no caller can skip the check by writing its own statement.
 - Signatures return the crate's own `Result`; a storage's error type must not appear in them, so a replacement storage can report the same failures.
-- A record that cannot be interpreted (for example a stored port outside its type) is logged inside the store and skipped, while a collection that cannot be read at all returns `Err` for the caller to decide whether to degrade.
+- A record that cannot be interpreted (for example a stored port outside its type) is logged inside the store and skipped by bulk reads, while a single-key read may return `Err` so the caller does not mistake an unreadable record for an absent key. A collection that cannot be read at all returns `Err` for the caller to decide whether to degrade.
 - Call sites that have not moved yet keep working while the collections are migrated one at a time. When you touch one, move that call onto the half that owns the table instead of adding a query beside it; new code never adds a query outside the persistence layer.
 
 ## Database Migration Safety

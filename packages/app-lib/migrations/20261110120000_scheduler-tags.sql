@@ -1,9 +1,9 @@
 -- Scheduling tags that outlive a restart, and the restart budget of the work
 -- they label. A row is data, never authority: the planned supervisor restart
--- path will re-mint a fresh tag for every owner that still exists, use the
+-- path will re-mint a fresh tag for every owner that still has work, use the
 -- stored id only as the reconciliation key, and derive the level again instead
--- of reading `level`. Until that path lands, startup only clears tags whose
--- owner is gone.
+-- of reading `level`. Until that path lands, startup clears tags whose owner is
+-- gone or finished.
 CREATE TABLE scheduler_tags (
     id INTEGER PRIMARY KEY,
     generation INTEGER NOT NULL,

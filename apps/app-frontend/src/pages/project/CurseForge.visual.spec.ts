@@ -8,6 +8,7 @@ import CurseForge from './CurseForge.vue'
 const api = vi.hoisted(() => ({
     selection: null as unknown,
     handleError: vi.fn(),
+    remove: vi.fn(),
     release: vi.fn().mockResolvedValue('chosen-file'),
     add: vi.fn(
         async (
@@ -73,11 +74,12 @@ vi.mock('@/providers/content-install', () => ({
     injectContentInstall: () => ({ installCurseForge: vi.fn(), installCurseForgeWorld: vi.fn() }),
 }))
 vi.mock('@/providers/content-selection', () => ({
-    makeContentSelectionKey: () => '',
+    makeContentSelectionKey: () => 'project-key',
     injectContentSelection: () =>
         (api.selection = {
             items: ref(new Map()),
             add: api.add,
+            remove: api.remove,
             targetInstance: ref(null),
             instances: ref([]),
             selectedCount: ref(0),
@@ -85,7 +87,8 @@ vi.mock('@/providers/content-selection', () => ({
             state: ref('idle'),
             progress: ref(null),
             refreshInstances: vi.fn(),
-            isSelected: () => false,
+            isSelected: (key: string) =>
+                (api.selection as { items: { value: Map<string, unknown> } }).items.value.has(key),
             isInstalling: () => false,
         }),
 }))
@@ -322,8 +325,13 @@ it('uses filtered file IDs and replaces an already selected project with an expl
             expect.objectContaining({ versionId: 'chosen-file' }),
             expect.any(Function),
         )
-        selection.isSelected = () => true
-        selection.items.value.set('', { versionId: 'chosen-file' })
+        selection.items.value.set('project-key', {})
+        api.remove.mockClear()
+        api.release.mockClear()
+        await vm.installSelected(null)
+        expect(api.remove).toHaveBeenCalledOnce()
+        expect(api.release).not.toHaveBeenCalled()
+        selection.items.value.set('project-key', { versionId: 'chosen-file' })
         await vm.installSelected('explicit-file')
         expect(api.add).toHaveBeenLastCalledWith(
             expect.objectContaining({ versionId: 'explicit-file' }),

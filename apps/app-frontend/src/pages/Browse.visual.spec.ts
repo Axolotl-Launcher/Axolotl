@@ -971,3 +971,25 @@ it('freezes the unlocked browse version when adding a NeoForge mod to a Fabric i
         vi.mocked(ui.getTargetInstallPreferences).mockReset()
     }
 })
+
+it('leaves absent browse axes inheritable and serializes only explicitly cleared provided axes', async () => {
+    const ui = await import('@modrinth/ui')
+    vi.mocked(ui.getSelectedInstallPreferences).mockReturnValue({})
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const vm = wrapper.vm as unknown as { getProjectBrowseQuery: () => Record<string, unknown> }
+        const query = vm.getProjectBrowseQuery()
+        expect(query).not.toHaveProperty('g')
+        expect(query).not.toHaveProperty('l')
+        const context = api.context as { overriddenProvidedFilterTypes: { value: string[] } }
+        context.overriddenProvidedFilterTypes.value = ['mod_loader']
+        expect(vm.getProjectBrowseQuery()).toMatchObject({ l: '' })
+        expect(vm.getProjectBrowseQuery()).not.toHaveProperty('g')
+    } finally {
+        wrapper.unmount()
+        vi.mocked(ui.getSelectedInstallPreferences).mockReset()
+    }
+})

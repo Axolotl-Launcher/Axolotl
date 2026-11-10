@@ -84,7 +84,25 @@ it('translates effective browse preferences rather than reusing conflicting quer
     expect(createProjectDetailsQuery(query, '/browse/mod', {})).toEqual({
         i: 'fabric-instance',
         b: '/browse/mod',
+    })
+    expect(
+        createProjectDetailsQuery(query, '/browse/mod', {}, ['gameVersions', 'loaders']),
+    ).toEqual({
+        i: 'fabric-instance',
+        b: '/browse/mod',
         g: '',
+        l: '',
+    })
+})
+
+it('inherits a later target for absent browse axes without treating no filters as an unlock', () => {
+    expect(createProjectDetailsQuery({}, '/browse/mod', {})).toEqual({ b: '/browse/mod' })
+    expect(createProjectDetailsQuery({}, '/browse/mod', { gameVersions: ['1.21.1'] })).toEqual({
+        b: '/browse/mod',
+        g: ['1.21.1'],
+    })
+    expect(createProjectDetailsQuery({}, '/browse/mod', {}, ['loaders'])).toEqual({
+        b: '/browse/mod',
         l: '',
     })
 })

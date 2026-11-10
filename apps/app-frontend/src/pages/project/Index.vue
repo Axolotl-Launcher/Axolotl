@@ -1467,6 +1467,12 @@ async function install(version) {
         return
     }
     if (cartEligible.value && data.value && cartTarget.value) {
+        const requestedVersion =
+            version ?? (typeof route.params.version === 'string' ? route.params.version : null)
+        if (cartProjectSelected.value && !requestedVersion) {
+            contentSelection.remove(cartProjectKey.value)
+            return
+        }
         installing.value = true
         try {
             const preferences = projectInstallPreferences(

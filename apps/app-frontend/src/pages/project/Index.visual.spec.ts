@@ -8,6 +8,7 @@ import Project from './Index.vue'
 const api = vi.hoisted(() => ({
     selection: null as unknown,
     add: vi.fn().mockResolvedValue(true),
+    remove: vi.fn(),
     project: vi.fn(),
     projectV3: vi.fn().mockResolvedValue(null),
     background: false,
@@ -123,11 +124,12 @@ vi.mock('@/providers/content-install', () => ({
 vi.mock('@/providers/content-selection', async () => {
     const { ref } = await import('vue')
     return {
-        makeContentSelectionKey: () => '',
+        makeContentSelectionKey: () => 'project-key',
         injectContentSelection: () =>
             (api.selection = {
                 items: ref(new Map()),
                 add: api.add,
+                remove: api.remove,
                 targetInstance: ref(null),
                 instances: ref([]),
                 selectedProjects: ref([]),
@@ -138,7 +140,10 @@ vi.mock('@/providers/content-selection', async () => {
                 refreshInstalledIdentities: vi.fn(),
                 setTarget: vi.fn(),
                 isInstalling: () => false,
-                isSelected: () => false,
+                isSelected: (key: string) =>
+                    (api.selection as { items: { value: Map<string, unknown> } }).items.value.has(
+                        key,
+                    ),
                 isInstalledIdentity: () => false,
             }),
     }
@@ -688,8 +693,13 @@ it('keeps top-level filtered and explicit version installation aligned with the 
         expect(api.add).toHaveBeenLastCalledWith(
             expect.objectContaining({ versionId: 'filtered-release' }),
         )
-        selection.isSelected = () => true
-        selection.items.value.set('', { versionId: 'filtered-release' })
+        selection.items.value.set('project-key', {})
+        api.remove.mockClear()
+        vi.mocked(ui.getLatestMatchingInstallVersion).mockClear()
+        await vm.install(null)
+        expect(api.remove).toHaveBeenCalledOnce()
+        expect(ui.getLatestMatchingInstallVersion).not.toHaveBeenCalled()
+        selection.items.value.set('project-key', { versionId: 'filtered-release' })
         await vm.install('explicit-release')
         expect(api.add).toHaveBeenLastCalledWith(
             expect.objectContaining({ versionId: 'explicit-release' }),

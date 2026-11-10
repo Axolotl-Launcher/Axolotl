@@ -1017,6 +1017,10 @@ async function installSelected(fileId: string | null) {
         return
     }
     if (cartEligible.value && contentSelection.targetInstance.value) {
+        if (cartProjectSelected.value && !fileId) {
+            contentSelection.remove(cartProjectKey.value)
+            return
+        }
         const target = contentSelection.targetInstance.value
         const selectedProject = project.value
         const selectedKey = cartProjectKey.value

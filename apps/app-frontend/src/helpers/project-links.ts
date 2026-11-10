@@ -7,6 +7,7 @@ export function createProjectDetailsQuery(
     query: LocationQuery,
     browsePath: string,
     preferences?: BrowseInstallPreferences,
+    clearedAxes: readonly ('gameVersions' | 'loaders')[] = [],
 ): LocationQueryRaw {
     const details: LocationQueryRaw = { ...query }
     delete details.g
@@ -14,8 +15,10 @@ export function createProjectDetailsQuery(
     delete details.c
     delete details.page
     if (preferences) {
-        details.g = preferences.gameVersions?.length ? preferences.gameVersions : ''
-        details.l = preferences.loaders?.length ? preferences.loaders : ''
+        if (preferences.gameVersions?.length) details.g = preferences.gameVersions
+        else if (clearedAxes.includes('gameVersions')) details.g = ''
+        if (preferences.loaders?.length) details.l = preferences.loaders
+        else if (clearedAxes.includes('loaders')) details.l = ''
     }
     details.b = browsePath
     return details

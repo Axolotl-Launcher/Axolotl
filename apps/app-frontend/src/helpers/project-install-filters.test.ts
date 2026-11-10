@@ -167,3 +167,37 @@ it('prefers a stable Modrinth release on a later page over the newest beta', asy
         }),
     ).toBe('stable')
 })
+
+it('distinguishes an exhausted release window from a completed search with no matches', async () => {
+    vi.mocked(resourceReleases).mockResolvedValueOnce({
+        entries: [],
+        hasMore: false,
+        cursor: null,
+        exhaustedSources: ['curseforge'],
+    } as never)
+    await expect(filteredProjectRelease('curseforge', '123', target)).rejects.toThrow(
+        'Source release window is incomplete',
+    )
+    vi.mocked(resourceReleases).mockResolvedValueOnce({
+        entries: [],
+        hasMore: false,
+        cursor: null,
+        exhaustedSources: [],
+    } as never)
+    expect(await filteredProjectRelease('curseforge', '123', target)).toBeNull()
+})
+it('retains a valid file already found at the provider window boundary', async () => {
+    vi.mocked(resourceReleases).mockResolvedValueOnce({
+        entries: [
+            {
+                reference: { releaseId: 'valid' },
+                compatibility: target,
+                channel: 'release',
+                artifacts: [{ role: 'primary', available: true }],
+            },
+        ],
+        hasMore: false,
+        exhaustedSources: ['curseforge'],
+    } as never)
+    expect(await filteredProjectRelease('curseforge', '123', target)).toBe('valid')
+})

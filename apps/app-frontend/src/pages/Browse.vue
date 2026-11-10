@@ -2386,6 +2386,23 @@ function getProjectBrowseQuery() {
         route.query,
         route.fullPath,
         getCurrentSelectedInstallPreferences(projectType.value),
+        [
+            ...(searchState.overriddenProvidedFilterTypes.value.includes('game_version')
+                ? ['gameVersions' as const]
+                : []),
+            ...(searchState.overriddenProvidedFilterTypes.value.some((type) =>
+                [
+                    'mod_loader',
+                    'plugin_loader',
+                    'plugin_platform',
+                    'modpack_loader',
+                    'shader_loader',
+                    'datapack_loader',
+                ].includes(type),
+            )
+                ? ['loaders' as const]
+                : []),
+        ],
     )
 }
 

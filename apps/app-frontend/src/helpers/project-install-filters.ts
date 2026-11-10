@@ -89,6 +89,11 @@ export async function filteredProjectRelease(
                     (artifact) => artifact.role === 'primary' && artifact.available !== false,
                 ),
         )
+        if (!matches.length && !preferred && page.exhaustedSources?.length) {
+            throw new Error(
+                'Source release window is incomplete; choose a specific game version or file',
+            )
+        }
         if (source !== 'modrinth' && matches[0]) return matches[0].reference.releaseId
         for (const release of matches) {
             if (

@@ -97,3 +97,58 @@ it('generates balanced HTML when matches cross syntax spans or escaped entities'
         expect(template.content.querySelectorAll('mark').length).toBeGreaterThan(0)
     }
 })
+
+it('recalculates wrapped row heights when its real container width changes', async () => {
+    const host = document.createElement('div')
+    host.style.cssText = 'height:300px;width:800px;position:relative'
+    document.body.append(host)
+    const wrapper = await mountThemed(
+        LogViewport,
+        {
+            lines: [{ line: { text: 'x'.repeat(500), level: 'info' }, originalIndex: 0 }],
+            wrap: true,
+        },
+        'dark',
+        { attachTo: host },
+    )
+    try {
+        await expect
+            .poll(() => wrapper.get('.log-line').element.getBoundingClientRect().height)
+            .toBeGreaterThan(17)
+        const wide = wrapper.get('.log-line').element.getBoundingClientRect().height
+        host.style.width = '300px'
+        await expect
+            .poll(() => wrapper.get('.log-line').element.getBoundingClientRect().height)
+            .toBeGreaterThan(wide)
+    } finally {
+        wrapper.unmount()
+        host.remove()
+    }
+})
+
+it('rebuilds wrapped offsets when filtering replaces interior rows with the same endpoints', async () => {
+    const host = document.createElement('div')
+    host.style.cssText = 'height:300px;width:400px;position:relative'
+    document.body.append(host)
+    const first = { line: { text: 'first', level: 'info' as const }, originalIndex: 0 }
+    const last = { line: { text: 'last', level: 'info' as const }, originalIndex: 3 }
+    const long = { line: { text: 'x'.repeat(1000), level: 'warn' as const }, originalIndex: 1 }
+    const short = { line: { text: 'short', level: 'error' as const }, originalIndex: 2 }
+    const wrapper = await mountThemed(
+        LogViewport,
+        { lines: [first, long, last], wrap: true },
+        'dark',
+        { attachTo: host },
+    )
+    const total = () => (wrapper.get('.log-viewport-spacer').element as HTMLElement).style.height
+    try {
+        await expect.poll(() => Number.parseFloat(total())).toBeGreaterThan(100)
+        await wrapper.setProps({ lines: [first, short, last] })
+        await expect.poll(total).toBe('51px')
+        await wrapper.setProps({ lines: [first, long, last] })
+        await expect.poll(() => Number.parseFloat(total())).toBeGreaterThan(100)
+    } finally {
+        wrapper.unmount()
+        host.remove()
+    }
+})

@@ -3,7 +3,33 @@ import test from 'node:test'
 
 import { highlightLine, type LogHighlightMode, markSearchMatches } from './log-highlight.ts'
 
+test('ANSI SGR supports basic, indexed, RGB, resets and safe literal HTML', () => {
+    const html = highlightLine(
+        '\x1b[31m<script>red</script>\x1b[0m plain \x1b[38;5;196mindexed\x1b[0m \x1b[38;2;1;2;3mrgb\x1b[0m',
+    )
+    assert.match(html, /color:rgb\(187,0,0\)/)
+    assert.match(html, /color:rgb\(255,0,0\)/)
+    assert.match(html, /color:rgb\(1,2,3\)/)
+    assert.ok(!html.includes('\x1b'))
+    assert.doesNotMatch(html, /<script>/)
+    assert.match(html, /&lt;script&gt;red&lt;\/script&gt;<\/span> plain/)
+    assert.equal(highlightLine('\x1b[31mred', 'raw'), '\x1b[31mred')
+    assert.equal(highlightLine('uncolored'), 'uncolored')
+    assert.doesNotMatch(
+        highlightLine('\x1b[31m\x1b]8;;https://example.com\x07link\x1b]8;;\x07'),
+        /<a/,
+    )
+    assert.match(markSearchMatches(html, 'indexed'), /<mark>indexed<\/mark>/)
+})
+
 const pythonFrame = '  File "/srv/app/main.py", line 12, in <module>'
+
+test('search marks apostrophes escaped by the ANSI renderer as visible characters', () => {
+    const html = highlightLine("\x1b[31mcan't stop\x1b[0m")
+    assert.match(html, /can&#x27;t/)
+    assert.match(markSearchMatches(html, "can't"), /<mark>can&#039;t<\/mark>/)
+    assert.equal(markSearchMatches(html, 'x27'), html)
+})
 const withoutMarks = (html: string) => html.replace(/<\/?mark>/g, '')
 
 test('Python frames highlight escaped quotes, paths, and line numbers', () => {

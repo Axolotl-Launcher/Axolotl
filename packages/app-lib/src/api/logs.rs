@@ -25,7 +25,7 @@ pub use analysis_settings::{
 
 mod document;
 pub mod logagent;
-pub use document::{LogDocument, read_log_document};
+pub use document::{LogDocument, export_log_file, read_log_document};
 
 mod crash_analysis;
 pub use crash_analysis::{

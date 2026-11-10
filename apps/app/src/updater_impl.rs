@@ -280,11 +280,11 @@ async fn check_with_updater<R: Runtime>(
     };
     update.timeout = Some(UPDATE_DOWNLOAD_TIMEOUT);
 
-    // On Debian and derivatives the plugin's minisign signature check cannot
-    // validate the unsigned .deb, so point the download at the deb from the
-    // Update Server catalog instead of the AppImage artifact. Its integrity
-    // is verified with the catalog's sha256/size during the download.
-    if is_apt_linux() {
+    // A .deb install is updated with apt, so point the download at the deb
+    // from the Update Server catalog instead of the AppImage artifact. Its
+    // integrity is verified with the catalog's sha256/size during the
+    // download.
+    if *webview.state::<UpdateMethod>() == UpdateMethod::Apt {
         update.download_url =
             fetch_update_artifact(&update.version, None).await?.url;
     } else {
@@ -450,7 +450,7 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
     .await?;
 
     let download_start = Instant::now();
-    let apt = is_apt_linux();
+    let apt = *webview.state::<UpdateMethod>() == UpdateMethod::Apt;
     let asset = fetch_update_artifact(
         &update.version,
         if apt {
@@ -515,40 +515,116 @@ pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
     pending_data.0.lock().unwrap().take();
 }
 
-// ── Debian / derivatives apt update ─────────────────────────────
+// ── Install source ──────────────────────────────────────────────
 
-/// Whether this Linux system updates Axolotl through apt (Debian and its
-/// derivatives) and has `pkexec` available for a single privileged prompt.
-#[tauri::command]
-pub fn is_apt_linux() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        let debian_like = std::path::Path::new("/etc/debian_version").exists()
-            || std::path::Path::new("/etc/apt").is_dir()
-            || std::path::Path::new("/usr/bin/apt-get").exists();
-        let has_pkexec = ["/usr/bin/pkexec", "/bin/pkexec"]
-            .iter()
-            .any(|path| std::path::Path::new(path).exists());
-        debian_like && has_pkexec
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
+/// How this install applies a launcher update.
+///
+/// It follows the bundle the running binary was installed from, not the
+/// distribution it runs on: an AppImage on Ubuntu replaces itself like on any
+/// other distribution, and only a .deb that dpkg tracks goes through apt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdateMethod {
+    /// The updater plugin applies the update (Windows, macOS, AppImage).
+    Updater,
+    /// apt installs the new .deb over the package that owns this binary.
+    Apt,
+}
+
+/// Debian package name of the launcher: the Tauri bundler kebab-cases the
+/// product name ("Axolotl Launcher").
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+const DEB_PACKAGE: &str = "axolotl-launcher";
+
+/// What the Linux host offers for updating a packaged install.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+struct LinuxHost {
+    /// dpkg lists this executable as a file of [`DEB_PACKAGE`].
+    dpkg_owns_exe: bool,
+    apt: bool,
+    pkexec: bool,
+}
+
+impl UpdateMethod {
+    /// Detects the update method once at startup; the install source does
+    /// not change while the launcher runs.
+    pub fn detect() -> Self {
+        #[cfg(target_os = "linux")]
+        {
+            let bundle = tauri::utils::platform::bundle_type();
+            let method = linux_update_method(bundle.as_ref(), probe_linux_host);
+            tracing::info!(
+                ?bundle,
+                ?method,
+                "Selected the launcher update method"
+            );
+            method
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Self::Updater
+        }
     }
 }
 
-/// Install the downloaded .deb on Debian and its derivatives, prompting for
+/// Picks the update method for the Linux bundle this binary was installed
+/// from. The host is only probed for package installs.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn linux_update_method(
+    bundle: Option<&tauri::utils::config::BundleType>,
+    host: impl FnOnce() -> LinuxHost,
+) -> UpdateMethod {
+    use tauri::utils::config::BundleType;
+    match bundle {
+        Some(BundleType::Deb) => {
+            let host = host();
+            if host.dpkg_owns_exe && host.apt && host.pkexec {
+                UpdateMethod::Apt
+            } else {
+                UpdateMethod::Updater
+            }
+        }
+        _ => UpdateMethod::Updater,
+    }
+}
+
+/// Whether a dpkg file list (`/var/lib/dpkg/info/<package>.list`) names the
+/// executable.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn dpkg_list_contains(list: &str, exe: &std::path::Path) -> bool {
+    list.lines().any(|line| std::path::Path::new(line) == exe)
+}
+
+#[cfg(target_os = "linux")]
+fn probe_linux_host() -> LinuxHost {
+    let host_has = |binary: &str| {
+        ["/usr/bin", "/bin"]
+            .iter()
+            .any(|dir| std::path::Path::new(dir).join(binary).exists())
+    };
+    let dpkg_owns_exe = std::env::current_exe().is_ok_and(|exe| {
+        std::fs::read_to_string(format!(
+            "/var/lib/dpkg/info/{DEB_PACKAGE}.list"
+        ))
+        .is_ok_and(|list| dpkg_list_contains(&list, &exe))
+    });
+    LinuxHost {
+        dpkg_owns_exe,
+        apt: host_has("apt"),
+        pkexec: host_has("pkexec"),
+    }
+}
+
+/// Whether this install updates through apt. Kept for the frontend command
+/// surface; the decision itself is [`UpdateMethod::detect`].
+#[tauri::command]
+pub fn is_apt_linux(method: tauri::State<'_, UpdateMethod>) -> bool {
+    *method == UpdateMethod::Apt
+}
+
+/// Install the downloaded .deb over the dpkg-tracked install, prompting for
 /// root once via `pkexec`. The package is installed from the absolute path
 /// of a temporary file, which is removed afterwards.
 pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
-    if !is_apt_linux() {
-        return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-            "apt updates are only supported on Debian-based Linux systems with pkexec"
-                .to_string(),
-        ))
-        .into());
-    }
-
     let arch = apt_deb_arch()?;
     let deb_path = std::env::temp_dir()
         .join(format!("Axolotl.Launcher_{version}_{arch}.deb"));
@@ -615,10 +691,73 @@ impl Drop for TempDebFile {
 #[cfg(test)]
 mod tests {
     use super::{
-        UPDATE_SERVER_API, VersionEntry, select_update_artifact,
+        LinuxHost, UPDATE_SERVER_API, UpdateMethod, VersionEntry,
+        dpkg_list_contains, linux_update_method, select_update_artifact,
         update_artifact_url, update_endpoint, verify_update_signature,
     };
     use base64::{Engine, engine::general_purpose::STANDARD};
+    use tauri::utils::config::BundleType;
+
+    fn host(
+        dpkg_owns_exe: bool,
+        apt: bool,
+        pkexec: bool,
+    ) -> impl FnOnce() -> LinuxHost {
+        move || LinuxHost {
+            dpkg_owns_exe,
+            apt,
+            pkexec,
+        }
+    }
+
+    #[test]
+    fn only_a_dpkg_tracked_deb_updates_through_apt() {
+        let deb = Some(&BundleType::Deb);
+        assert_eq!(
+            linux_update_method(deb, host(true, true, true)),
+            UpdateMethod::Apt
+        );
+        // A .deb repackaged for another package manager (debtap, alien), or
+        // a host without apt or pkexec, never runs apt.
+        for probe in [
+            host(false, true, true),
+            host(true, false, true),
+            host(true, true, false),
+        ] {
+            assert_eq!(linux_update_method(deb, probe), UpdateMethod::Updater);
+        }
+    }
+
+    #[test]
+    fn appimages_never_update_through_apt_whatever_the_distribution() {
+        for bundle in
+            [Some(&BundleType::AppImage), Some(&BundleType::Rpm), None]
+        {
+            let method = linux_update_method(bundle, || -> LinuxHost {
+                panic!("probed the host for {bundle:?}")
+            });
+            assert_eq!(method, UpdateMethod::Updater);
+        }
+    }
+
+    #[test]
+    fn dpkg_ownership_needs_the_executable_in_the_file_list() {
+        let list = "/.
+/usr
+/usr/bin
+/usr/bin/Axolotl Launcher
+                    /usr/share/applications/Axolotl Launcher.desktop
+";
+        assert!(dpkg_list_contains(
+            list,
+            std::path::Path::new("/usr/bin/Axolotl Launcher")
+        ));
+        assert!(!dpkg_list_contains(
+            list,
+            std::path::Path::new("/home/me/Applications/Axolotl Launcher")
+        ));
+        assert!(!dpkg_list_contains("", std::path::Path::new("/usr/bin/x")));
+    }
 
     #[test]
     fn signed_update_still_requires_a_valid_minisign_signature() {

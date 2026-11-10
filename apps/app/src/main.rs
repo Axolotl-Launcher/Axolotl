@@ -925,6 +925,7 @@ fn main() {
         .manage(api::files::StudioWatchers::default())
         .plugin(api::servers::init())
         .manage(PendingUpdateData::default())
+        .manage(UpdateMethod::detect())
         .invoke_handler(tauri::generate_handler![
             initialize_state,
             get_update_channel,
@@ -1028,7 +1029,9 @@ fn main() {
                         }
 
                         let version = update.version.clone();
-                        let install_result = if is_apt_linux() {
+                        let install_result = if *app.state::<UpdateMethod>()
+                            == UpdateMethod::Apt
+                        {
                             tauri::async_runtime::block_on(
                                 install_apt_package(&version, data),
                             )

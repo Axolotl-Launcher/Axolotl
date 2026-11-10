@@ -623,11 +623,12 @@
     {
       "file": "apps/app/src/updater_impl.rs",
       "form": "std::fs",
-      "count": 2,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "count": 3,
+      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17). probe_linux_host reads one small dpkg file list once at startup, before any scheduler work.",
       "sites": [
         "drop: if let Err(error) = std::fs::remove_file(&self.0)",
-        "install_apt_package: std::fs::write(&deb_path, data).map_err(|io| {"
+        "install_apt_package: std::fs::write(&deb_path, data).map_err(|io| {",
+        "probe_linux_host: std::fs::read_to_string(format!("
       ]
     },
     {

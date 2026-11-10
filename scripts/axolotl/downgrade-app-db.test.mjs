@@ -606,6 +606,8 @@ console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
     check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
     const schedulerTables = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('scheduler_tags', 'scheduler_restart_budget')"
     check('an upgraded database gains the scheduler collections', database.prepare(schedulerTables).get().count === 2)
+    const schedulerIndex = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name = 'scheduler_tags_owner'"
+    check('an upgraded database gains the scheduler owner index', database.prepare(schedulerIndex).get().count === 1)
     database.exec(`
         INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (1, 1, 'l3', 'install', 'frozen', 10);
         INSERT INTO scheduler_restart_budget(scope, failures, first_failure_at, revoked, updated_at) VALUES ('l1:config_sync', 2, 5, 0, 6);
@@ -628,6 +630,7 @@ console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
     old.exec('COMMIT')
     check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
     check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
+    check('re-upgrade recreates the scheduler owner index', old.prepare(schedulerIndex).get().count === 1)
     old.close()
 }
 

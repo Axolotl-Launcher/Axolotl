@@ -1,5 +1,6 @@
 //! Scheduling tags kept across a restart, as data. Reading one back grants
-//! nothing. Startup only deletes the rows whose owner is gone; re-minting a
+//! nothing. Startup only deletes the rows whose owner is gone or finished;
+//! re-minting a
 //! fresh tag for a surviving owner and re-deriving its level
 //! (`scheduler::tag::TagRegistry::reconcile`) arrive with the supervisor's
 //! restart path, and no production path writes a tag before then.

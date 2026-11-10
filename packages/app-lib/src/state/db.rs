@@ -1830,8 +1830,20 @@ mod tests {
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
         for entry in std::fs::read_dir(migrations).unwrap() {
             let path = entry.unwrap().path();
+            if path.extension().and_then(|extension| extension.to_str())
+                != Some("sql")
+            {
+                continue;
+            }
             let name = path.file_name().unwrap().to_string_lossy().to_string();
-            let version: i64 = name[..14].parse().unwrap();
+            let Some(version) = name
+                .split_once('_')
+                .and_then(|(version, _)| version.parse::<i64>().ok())
+            else {
+                panic!(
+                    "migration {name} does not start with a numeric version"
+                );
+            };
             if version < SCHEDULER_TAGS_MIGRATION_VERSION {
                 std::fs::copy(&path, older.path().join(&name)).unwrap();
             }

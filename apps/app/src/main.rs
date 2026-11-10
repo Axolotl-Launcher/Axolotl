@@ -1029,11 +1029,11 @@ fn main() {
                         }
 
                         let version = update.version.clone();
-                        let install_result = if *app.state::<UpdateMethod>()
-                            == UpdateMethod::Apt
+                        let install_result = if let Some(installer) =
+                            app.state::<UpdateMethod>().package_installer()
                         {
                             tauri::async_runtime::block_on(
-                                install_apt_package(&version, data),
+                                install_linux_package(installer, &version, data),
                             )
                             .map_err(|error| error.to_string())
                         } else {

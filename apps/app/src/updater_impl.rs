@@ -78,21 +78,18 @@ struct UpdateArtifact {
     size: u64,
 }
 
-fn apt_deb_arch() -> Result<&'static str> {
-    match std::env::consts::ARCH {
-        "x86_64" => Ok("amd64"),
-        "aarch64" => Ok("arm64"),
-        arch => Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-            format!("Unsupported architecture for apt updates: {arch}"),
-        ))
-        .into()),
-    }
+/// A distribution package that updates an apt or rpm install.
+struct PackageUpdate {
+    url: Url,
+    /// Base64 minisign signature, encoded like the manifest's.
+    signature: String,
 }
 
-async fn fetch_update_artifact(
-    version: &str,
-    download_url: Option<&Url>,
-) -> Result<UpdateArtifact> {
+fn catalog_error(message: String) -> crate::api::TheseusSerializableError {
+    theseus::Error::from(theseus::ErrorKind::OtherError(message)).into()
+}
+
+async fn fetch_update_release(version: &str) -> Result<VersionEntry> {
     let response = theseus::http_client_builder()
         .user_agent(launcher_user_agent())
         .timeout(UPDATE_DOWNLOAD_TIMEOUT)
@@ -110,48 +107,46 @@ async fn fetch_update_artifact(
     }
 
     let catalog: VersionsResponse = response.json().await?;
-    let release = catalog
+    catalog
         .versions
-        .iter()
+        .into_iter()
         .find(|entry| entry.version == version)
         .ok_or_else(|| {
-            theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+            catalog_error(format!(
                 "Update catalog has no entry for version {version}"
-            )))
-        })?;
+            ))
+        })
+}
 
-    select_update_artifact(release, download_url)
+async fn fetch_update_artifact(
+    version: &str,
+    download_url: &Url,
+) -> Result<UpdateArtifact> {
+    select_update_artifact(&fetch_update_release(version).await?, download_url)
 }
 
 fn select_update_artifact(
     release: &VersionEntry,
-    download_url: Option<&Url>,
+    download_url: &Url,
 ) -> Result<UpdateArtifact> {
     let version = &release.version;
-    let arch = std::env::consts::ARCH;
     let artifact = release
         .artifacts
         .iter()
         .find(|entry| {
-            if let Some(download_url) = download_url {
-                return update_artifact_url(&entry.relative_path)
-                    .is_ok_and(|url| url == *download_url);
-            }
-            entry.kind == "installer"
-                && entry.variant.as_deref() == Some("deb")
-                && entry.platform == "linux"
-                && entry.architecture == arch
+            update_artifact_url(&entry.relative_path)
+                .is_ok_and(|url| url == *download_url)
         })
         .ok_or_else(|| {
-            theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-                "Update catalog has no matching artifact for {version} on {arch}"
-            )))
+            catalog_error(format!(
+                "Update catalog has no artifact of {version} at {download_url}"
+            ))
         })?;
 
     let sha256 = artifact.sha256.clone().ok_or_else(|| {
-        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+        catalog_error(format!(
             "Update catalog has no sha256 for the artifact of {version}"
-        )))
+        ))
     })?;
 
     let url = update_artifact_url(&artifact.relative_path)?;
@@ -161,6 +156,74 @@ fn select_update_artifact(
         sha256,
         size: artifact.size,
     })
+}
+
+/// Finds the Linux installer package of `variant` (`deb` or `rpm`) for
+/// `arch` in a catalog release, with the path of its detached signature.
+fn select_package_artifact<'a>(
+    release: &'a VersionEntry,
+    variant: &str,
+    arch: &str,
+) -> Result<(&'a str, &'a str)> {
+    let version = &release.version;
+    let package = release
+        .artifacts
+        .iter()
+        .find(|entry| {
+            entry.kind == "installer"
+                && entry.variant.as_deref() == Some(variant)
+                && entry.platform == "linux"
+                && entry.architecture == arch
+        })
+        .ok_or_else(|| {
+            catalog_error(format!(
+                "Update catalog has no {variant} package of {version} for {arch}"
+            ))
+        })?;
+    let signature_path = format!("{}.sig", package.relative_path);
+    let signature = release
+        .artifacts
+        .iter()
+        .find(|entry| {
+            entry.kind == "signature" && entry.relative_path == signature_path
+        })
+        .ok_or_else(|| {
+            catalog_error(format!(
+                "Update catalog has no signature for {}",
+                package.relative_path
+            ))
+        })?;
+    Ok((&package.relative_path, &signature.relative_path))
+}
+
+/// Looks up the package that updates an apt or rpm install, and fetches its
+/// minisign signature so the download is verified like every other update.
+async fn fetch_package_update(
+    version: &str,
+    variant: &str,
+) -> Result<PackageUpdate> {
+    let release = fetch_update_release(version).await?;
+    let (package_path, signature_path) =
+        select_package_artifact(&release, variant, std::env::consts::ARCH)?;
+    let url = update_artifact_url(package_path)?;
+
+    let response = theseus::http_client_builder()
+        .user_agent(launcher_user_agent())
+        .timeout(UPDATE_DOWNLOAD_TIMEOUT)
+        .build()?
+        .get(update_artifact_url(signature_path)?)
+        .send()
+        .await?;
+    if !response.status().is_success() {
+        return Err(Error::Network(format!(
+            "Failed to fetch update signature: {}",
+            response.status()
+        ))
+        .into());
+    }
+    let signature = response.text().await?.trim().to_owned();
+
+    Ok(PackageUpdate { url, signature })
 }
 
 // ── Updater plugin helpers ───────────────────────────────────────
@@ -280,13 +343,16 @@ async fn check_with_updater<R: Runtime>(
     };
     update.timeout = Some(UPDATE_DOWNLOAD_TIMEOUT);
 
-    // A .deb install is updated with apt, so point the download at the deb
-    // from the Update Server catalog instead of the AppImage artifact. Its
-    // integrity is verified with the catalog's sha256/size during the
-    // download.
-    if *webview.state::<UpdateMethod>() == UpdateMethod::Apt {
-        update.download_url =
-            fetch_update_artifact(&update.version, None).await?.url;
+    // The manifest only offers the AppImage archive on Linux. A .deb or .rpm
+    // install is updated by its package manager instead, so point the
+    // download at that package from the Update Server catalog and take its
+    // own signature, which the download is verified against like any other.
+    if let Some(installer) = webview.state::<UpdateMethod>().package_installer()
+    {
+        let package =
+            fetch_package_update(&update.version, installer.variant).await?;
+        update.download_url = package.url;
+        update.signature = package.signature;
     } else {
         update.download_url = update_artifact_url(update.download_url.path())?;
     }
@@ -450,16 +516,8 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
     .await?;
 
     let download_start = Instant::now();
-    let apt = *webview.state::<UpdateMethod>() == UpdateMethod::Apt;
-    let asset = fetch_update_artifact(
-        &update.version,
-        if apt {
-            None
-        } else {
-            Some(&update.download_url)
-        },
-    )
-    .await?;
+    let asset =
+        fetch_update_artifact(&update.version, &update.download_url).await?;
     let mut reported_fraction = 0.0_f64;
     let mut download_progress: Box<FetchProgressFn<'_>> =
         Box::new(|bytes, total| {
@@ -483,20 +541,16 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
         download_update_artifact(&asset, &mut download_progress).await?;
     drop(download_progress);
 
-    if !apt {
-        let public_key = webview
-            .app_handle()
-            .config()
-            .plugins
-            .0
-            .get("updater")
-            .and_then(|config| config.get("pubkey"))
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| {
-                Error::Network("Missing updater public key".into())
-            })?;
-        verify_update_signature(&update_data, &update.signature, public_key)?;
-    }
+    let public_key = webview
+        .app_handle()
+        .config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|config| config.get("pubkey"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| Error::Network("Missing updater public key".into()))?;
+    verify_update_signature(&update_data, &update.signature, public_key)?;
     let download_duration = download_start.elapsed();
     tracing::info!("Downloaded update in {download_duration:?}");
 
@@ -528,30 +582,61 @@ pub enum UpdateMethod {
     Updater,
     /// apt installs the new .deb over the package that owns this binary.
     Apt,
+    /// rpm upgrades the package that owns this binary.
+    Rpm,
 }
 
-/// Debian package name of the launcher: the Tauri bundler kebab-cases the
-/// product name ("Axolotl Launcher").
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-const DEB_PACKAGE: &str = "axolotl-launcher";
+/// Package name of the launcher in both the .deb and the .rpm: the Tauri
+/// bundler kebab-cases the product name ("Axolotl Launcher").
+const PACKAGE_NAME: &str = "axolotl-launcher";
+
+/// The package manager command that installs an update package.
+pub struct PackageInstaller {
+    /// Catalog installer variant, which is also the file extension.
+    variant: &'static str,
+    program: &'static str,
+    args: &'static [&'static str],
+}
 
 /// What the Linux host offers for updating a packaged install.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 struct LinuxHost {
-    /// dpkg lists this executable as a file of [`DEB_PACKAGE`].
+    /// dpkg lists this executable as a file of [`PACKAGE_NAME`].
     dpkg_owns_exe: bool,
+    /// The rpm database lists this executable as a file of a package.
+    rpm_owns_exe: bool,
     apt: bool,
     pkexec: bool,
 }
 
 impl UpdateMethod {
+    /// How a package install applies an update; `None` when the updater
+    /// plugin does.
+    pub fn package_installer(self) -> Option<PackageInstaller> {
+        match self {
+            Self::Updater => None,
+            Self::Apt => Some(PackageInstaller {
+                variant: "deb",
+                program: "apt",
+                args: &["install", "-y"],
+            }),
+            Self::Rpm => Some(PackageInstaller {
+                variant: "rpm",
+                program: "rpm",
+                args: &["--upgrade"],
+            }),
+        }
+    }
+
     /// Detects the update method once at startup; the install source does
     /// not change while the launcher runs.
     pub fn detect() -> Self {
         #[cfg(target_os = "linux")]
         {
             let bundle = tauri::utils::platform::bundle_type();
-            let method = linux_update_method(bundle.as_ref(), probe_linux_host);
+            let method = linux_update_method(bundle.as_ref(), || {
+                probe_linux_host(bundle.as_ref())
+            });
             tracing::info!(
                 ?bundle,
                 ?method,
@@ -583,6 +668,14 @@ fn linux_update_method(
                 UpdateMethod::Updater
             }
         }
+        Some(BundleType::Rpm) => {
+            let host = host();
+            if host.rpm_owns_exe && host.pkexec {
+                UpdateMethod::Rpm
+            } else {
+                UpdateMethod::Updater
+            }
+        }
         _ => UpdateMethod::Updater,
     }
 }
@@ -595,20 +688,37 @@ fn dpkg_list_contains(list: &str, exe: &std::path::Path) -> bool {
 }
 
 #[cfg(target_os = "linux")]
-fn probe_linux_host() -> LinuxHost {
+fn probe_linux_host(
+    bundle: Option<&tauri::utils::config::BundleType>,
+) -> LinuxHost {
+    use tauri::utils::config::BundleType;
     let host_has = |binary: &str| {
         ["/usr/bin", "/bin"]
             .iter()
             .any(|dir| std::path::Path::new(dir).join(binary).exists())
     };
-    let dpkg_owns_exe = std::env::current_exe().is_ok_and(|exe| {
-        std::fs::read_to_string(format!(
-            "/var/lib/dpkg/info/{DEB_PACKAGE}.list"
-        ))
-        .is_ok_and(|list| dpkg_list_contains(&list, &exe))
-    });
+    let exe = std::env::current_exe().ok();
+    let dpkg_owns_exe = matches!(bundle, Some(BundleType::Deb))
+        && exe.as_deref().is_some_and(|exe| {
+            std::fs::read_to_string(format!(
+                "/var/lib/dpkg/info/{PACKAGE_NAME}.list"
+            ))
+            .is_ok_and(|list| dpkg_list_contains(&list, exe))
+        });
+    let rpm_owns_exe = matches!(bundle, Some(BundleType::Rpm))
+        && exe.as_deref().is_some_and(|exe| {
+            std::process::Command::new("rpm")
+                .args(["--query", "--quiet", "--file"])
+                .arg(exe)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .is_ok_and(|status| status.success())
+        });
     LinuxHost {
         dpkg_owns_exe,
+        rpm_owns_exe,
         apt: host_has("apt"),
         pkexec: host_has("pkexec"),
     }
@@ -621,60 +731,60 @@ pub fn is_apt_linux(method: tauri::State<'_, UpdateMethod>) -> bool {
     *method == UpdateMethod::Apt
 }
 
-/// Install the downloaded .deb over the dpkg-tracked install, prompting for
-/// root once via `pkexec`. The package is installed from the absolute path
-/// of a temporary file, which is removed afterwards.
-pub async fn install_apt_package(version: &str, data: &[u8]) -> Result<()> {
-    let arch = apt_deb_arch()?;
-    let deb_path = std::env::temp_dir()
-        .join(format!("Axolotl.Launcher_{version}_{arch}.deb"));
-    std::fs::write(&deb_path, data).map_err(|io| {
-        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-            "Failed to write the downloaded deb: {io}"
-        )))
+/// Installs the downloaded package over the install its package manager
+/// tracks, prompting for root once via `pkexec`. The package is installed
+/// from the absolute path of a temporary file, which is removed afterwards.
+pub async fn install_linux_package(
+    installer: PackageInstaller,
+    version: &str,
+    data: &[u8],
+) -> Result<()> {
+    let PackageInstaller {
+        variant,
+        program,
+        args,
+    } = installer;
+    let package_path = std::env::temp_dir()
+        .join(format!("{PACKAGE_NAME}_{version}.{variant}"));
+    std::fs::write(&package_path, data).map_err(|io| {
+        catalog_error(format!("Failed to write the downloaded {variant}: {io}"))
     })?;
-    let _deb_cleanup = TempDebFile(deb_path.clone());
+    let _package_cleanup = TempPackageFile(package_path.clone());
 
-    let install_path = deb_path.clone();
+    let install_path = package_path.clone();
     let output = tokio::task::spawn_blocking(move || {
         std::process::Command::new("pkexec")
-            .arg("apt")
-            .arg("install")
-            .arg("-y")
+            .arg(program)
+            .args(args)
             .arg(&install_path)
             .output()
     })
     .await
     .map_err(|join| {
-        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-            "Failed to run the apt updater: {join}"
-        )))
+        catalog_error(format!("Failed to run the {program} updater: {join}"))
     })?
-    .map_err(|io| {
-        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
-            "Failed to start pkexec: {io}"
-        )))
-    })?;
+    .map_err(|io| catalog_error(format!("Failed to start pkexec: {io}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(theseus::Error::from(theseus::ErrorKind::OtherError(
-            format!("apt install failed: {}", stderr.trim()),
-        ))
-        .into());
+        return Err(catalog_error(format!(
+            "{program} {} failed: {}",
+            args.join(" "),
+            stderr.trim()
+        )));
     }
 
     Ok(())
 }
 
-/// Removes a temporary Debian package when installation finishes or fails.
+/// Removes a temporary update package when installation finishes or fails.
 ///
 /// The installer awaits a blocking task and has several fallible operations
 /// after creating the file. Keeping cleanup in `Drop` makes every return path
 /// (including task and process-launch errors) remove the package.
-struct TempDebFile(std::path::PathBuf);
+struct TempPackageFile(std::path::PathBuf);
 
-impl Drop for TempDebFile {
+impl Drop for TempPackageFile {
     fn drop(&mut self) {
         if let Err(error) = std::fs::remove_file(&self.0)
             && error.kind() != std::io::ErrorKind::NotFound
@@ -682,7 +792,7 @@ impl Drop for TempDebFile {
             tracing::warn!(
                 path = %self.0.display(),
                 error = %error,
-                "Failed to remove temporary deb file"
+                "Failed to remove temporary update package"
             );
         }
     }
@@ -692,19 +802,23 @@ impl Drop for TempDebFile {
 mod tests {
     use super::{
         LinuxHost, UPDATE_SERVER_API, UpdateMethod, VersionEntry,
-        dpkg_list_contains, linux_update_method, select_update_artifact,
-        update_artifact_url, update_endpoint, verify_update_signature,
+        dpkg_list_contains, linux_update_method, select_package_artifact,
+        select_update_artifact, update_artifact_url, update_endpoint,
+        verify_update_signature,
     };
     use base64::{Engine, engine::general_purpose::STANDARD};
     use tauri::utils::config::BundleType;
 
+    /// A host whose package databases own the executable as given.
     fn host(
         dpkg_owns_exe: bool,
+        rpm_owns_exe: bool,
         apt: bool,
         pkexec: bool,
     ) -> impl FnOnce() -> LinuxHost {
         move || LinuxHost {
             dpkg_owns_exe,
+            rpm_owns_exe,
             apt,
             pkexec,
         }
@@ -714,30 +828,103 @@ mod tests {
     fn only_a_dpkg_tracked_deb_updates_through_apt() {
         let deb = Some(&BundleType::Deb);
         assert_eq!(
-            linux_update_method(deb, host(true, true, true)),
+            linux_update_method(deb, host(true, false, true, true)),
             UpdateMethod::Apt
         );
         // A .deb repackaged for another package manager (debtap, alien), or
         // a host without apt or pkexec, never runs apt.
         for probe in [
-            host(false, true, true),
-            host(true, false, true),
-            host(true, true, false),
+            host(false, true, true, true),
+            host(true, false, false, true),
+            host(true, false, true, false),
         ] {
             assert_eq!(linux_update_method(deb, probe), UpdateMethod::Updater);
         }
     }
 
     #[test]
-    fn appimages_never_update_through_apt_whatever_the_distribution() {
-        for bundle in
-            [Some(&BundleType::AppImage), Some(&BundleType::Rpm), None]
-        {
+    fn an_rpm_tracked_install_updates_through_rpm() {
+        let rpm = Some(&BundleType::Rpm);
+        assert_eq!(
+            linux_update_method(rpm, host(false, true, false, true)),
+            UpdateMethod::Rpm
+        );
+        for probe in [
+            host(true, false, true, true),
+            host(false, true, true, false),
+        ] {
+            assert_eq!(linux_update_method(rpm, probe), UpdateMethod::Updater);
+        }
+    }
+
+    #[test]
+    fn appimages_never_update_through_a_package_manager() {
+        for bundle in [Some(&BundleType::AppImage), None] {
             let method = linux_update_method(bundle, || -> LinuxHost {
                 panic!("probed the host for {bundle:?}")
             });
             assert_eq!(method, UpdateMethod::Updater);
+            assert!(method.package_installer().is_none());
         }
+    }
+
+    #[test]
+    fn package_methods_install_their_own_package_format() {
+        let apt = UpdateMethod::Apt.package_installer().unwrap();
+        assert_eq!((apt.variant, apt.program), ("deb", "apt"));
+        let rpm = UpdateMethod::Rpm.package_installer().unwrap();
+        assert_eq!((rpm.variant, rpm.program), ("rpm", "rpm"));
+    }
+
+    /// The Linux part of the 1.10.5 catalog entry, as the Update Server
+    /// returns it.
+    fn linux_release() -> VersionEntry {
+        let artifact =
+            |kind: &str, variant: Option<&str>, arch: &str, path: &str| {
+                serde_json::json!({
+                    "kind": kind, "variant": variant,
+                    "platform": if kind == "signature" { "" } else { "linux" },
+                    "architecture": if kind == "signature" { "" } else { arch },
+                    "relative_path": format!("dist/1.10.5/{path}"),
+                    "sha256": "c".repeat(64), "size": 1,
+                })
+            };
+        serde_json::from_value(serde_json::json!({
+            "version": "1.10.5",
+            "artifacts": [
+                artifact("installer", Some("rpm"), "x86_64", "Axolotl.Launcher-1.10.5-1.x86_64.rpm"),
+                artifact("installer", Some("appimage"), "x86_64", "Axolotl.Launcher_1.10.5_amd64.AppImage"),
+                artifact("updater", Some("tauri"), "x86_64", "Axolotl.Launcher_1.10.5_amd64.AppImage.tar.gz"),
+                artifact("installer", Some("deb"), "x86_64", "Axolotl.Launcher_1.10.5_amd64.deb"),
+                artifact("installer", Some("deb"), "aarch64", "Axolotl.Launcher_1.10.5_arm64.deb"),
+                artifact("signature", None, "", "Axolotl.Launcher-1.10.5-1.x86_64.rpm.sig"),
+                artifact("signature", None, "", "Axolotl.Launcher_1.10.5_amd64.AppImage.tar.gz.sig"),
+                artifact("signature", None, "", "Axolotl.Launcher_1.10.5_amd64.deb.sig"),
+            ]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn packages_are_selected_with_their_signature() {
+        let release = linux_release();
+        assert_eq!(
+            select_package_artifact(&release, "deb", "x86_64").unwrap(),
+            (
+                "dist/1.10.5/Axolotl.Launcher_1.10.5_amd64.deb",
+                "dist/1.10.5/Axolotl.Launcher_1.10.5_amd64.deb.sig"
+            )
+        );
+        assert_eq!(
+            select_package_artifact(&release, "rpm", "x86_64").unwrap(),
+            (
+                "dist/1.10.5/Axolotl.Launcher-1.10.5-1.x86_64.rpm",
+                "dist/1.10.5/Axolotl.Launcher-1.10.5-1.x86_64.rpm.sig"
+            )
+        );
+        // No rpm for this architecture, and an arm64 deb without a signature.
+        assert!(select_package_artifact(&release, "rpm", "aarch64").is_err());
+        assert!(select_package_artifact(&release, "deb", "aarch64").is_err());
     }
 
     #[test]
@@ -793,12 +980,12 @@ mod tests {
             ]
         })).unwrap();
         let url = update_artifact_url("dist/1.10.0/setup.nsis.zip").unwrap();
-        let selected = select_update_artifact(&release, Some(&url)).unwrap();
+        let selected = select_update_artifact(&release, &url).unwrap();
         assert_eq!(selected.url, url);
         assert_eq!(selected.size, 20);
         assert_eq!(selected.sha256, "b".repeat(64));
         let missing = update_artifact_url("dist/1.10.0/missing.zip").unwrap();
-        assert!(select_update_artifact(&release, Some(&missing)).is_err());
+        assert!(select_update_artifact(&release, &missing).is_err());
     }
 
     #[test]

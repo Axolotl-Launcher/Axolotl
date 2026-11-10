@@ -3,19 +3,15 @@ import { AnsiUp } from 'ansi_up'
 import type { LogLevel } from '../types'
 
 /**
- * 日志高亮引擎 — 移植自 LogShare-Web-UI (src/lib/logParser.worker.ts)
- *
- * 逐行正则 + Trie 预筛 + LRU 缓存，输出 HTML（span + class），
- * 样式类与 LogShare 的 LogsAnalysis.css 对应（由 LogViewport 提供样式）。
- * LogShare-Web-UI 为 MIT License, Copyright (c) 2024 LogShare.CN Team，详见 packages/ui/COPYING.md。
- * 可在 Node 中独立运行（用于 benchmark）。
+ * Log highlight engine (Ported from LogShare-Web-UI, MIT License, Copyright (c) 2024 LogShare.CN Team).
+ * See packages/ui/COPYING.md.
  */
 
 export type LogHighlightMode = 'full' | 'lite' | 'line-only' | 'raw'
 
 /**
- * 单行长度保险：超过阈值跳过行内 token 高亮，只做级别检测；
- * 超过硬上限完全不解析。防止超长行（Base64、巨型堆栈）拖垮渲染链路。
+ * Line length guard: skip inline token highlighting for long lines, falling back to level detection;
+ * skip parsing entirely for lines exceeding hard limit.
  */
 const LONG_LINE_LIMIT = 4096
 const LONG_LINE_HARD_LIMIT = 65536

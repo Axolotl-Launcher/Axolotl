@@ -519,6 +519,7 @@ const accountHeadUrlCache = ref(new Map<string, string>())
 const accountHeadTextureKeyCache = ref(new Map<string, string>())
 let refreshGeneration = 0
 let ownAccountWrites = 0
+let unclaimedSelectionChanges = 0
 let headRefreshTimer: ReturnType<typeof setTimeout> | undefined
 let defaultUserUpdateQueue = Promise.resolve()
 const minecraftLoginModal = ref<InstanceType<typeof MinecraftLoginModal> | null>(null)
@@ -740,15 +741,22 @@ watch(
 watch(
     accountSelectionRevision,
     () => {
-        if (ownAccountWrites > 0) return
-        void refreshValues()
-            .then(notifyAccountChange)
-            .catch((error) => {
-                console.warn('Failed to refresh accounts after a selection change:', error)
-            })
+        if (ownAccountWrites > 0) {
+            unclaimedSelectionChanges += 1
+            return
+        }
+        refreshAfterOutsideSelection()
     },
     { flush: 'sync' },
 )
+
+function refreshAfterOutsideSelection() {
+    void refreshValues()
+        .then(notifyAccountChange)
+        .catch((error) => {
+            console.warn('Failed to refresh accounts after a selection change:', error)
+        })
+}
 
 onMounted(() => {
     void refreshValues().catch(console.warn)
@@ -848,12 +856,25 @@ function getAccountAvatarUrl(account: MinecraftCredential) {
     return defaultSteveHeadUrl
 }
 
+/**
+ * Runs one of the card's own account writes. `write` has to be a call from
+ * `helpers/auth` that signals exactly one selection change when it succeeds,
+ * because that signal is what is subtracted from the changes seen meanwhile.
+ */
 async function ownAccountWrite<T>(write: () => Promise<T>): Promise<T> {
     ownAccountWrites += 1
     try {
-        return await write()
+        const result = await write()
+        unclaimedSelectionChanges -= 1
+        return result
     } finally {
         ownAccountWrites -= 1
+        if (ownAccountWrites === 0) {
+            // Another component changed the selection during the write, and a
+            // failed write has no refresh of its own to pick that up.
+            if (unclaimedSelectionChanges > 0) refreshAfterOutsideSelection()
+            unclaimedSelectionChanges = 0
+        }
     }
 }
 

@@ -1090,7 +1090,8 @@ fn main() {
                 let mut restart_after_update = false;
 
                 // Steps 1–5 of the exit barrier (`exit_barrier`). Every
-                // ExitRequested re-arms EXIT_DEADLINE_MS and resets POOL_CLOSED.
+                // ExitRequested starts a pass; its intent selects the cap that
+                // pass and steps 6–7 get.
                 if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
                     let restart_requested = matches!(
                         &event,

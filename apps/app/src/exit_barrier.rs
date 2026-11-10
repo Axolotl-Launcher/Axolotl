@@ -16,9 +16,9 @@
 //!    asked before step 1, so Tauri relaunches only after `Exit` returns.
 //!
 //! Budget: the bounded steps total 5 + 5 + 3 = 13 s, under the 15 s hard cap.
-//! A user-requested restart gets [`RESTART_CAP`] for steps 1–5 and the ordinary
-//! cap again for steps 6–7. A pending update disarms the cap for the install,
-//! which waits on the user by design, and [`rearm`] bounds the steps after it
+//! A user-requested restart or a pending update gets [`RESTART_CAP`] for steps
+//! 1–5; a restart then gets the ordinary cap again for steps 6–7, while an
+//! update disarms it for the install and [`rearm`] bounds the steps after it
 //! returns. At the cap the barrier records the losses and exits the process;
 //! L3 work is never killed by the barrier, it ends with the process and is
 //! settled as interrupted on the next start.
@@ -44,9 +44,9 @@ pub const STEP_BUDGETS: [Duration; 3] = [
 ];
 pub const SOFT_WINDOW: Duration = STEP_BUDGETS[0];
 pub const HARD_CAP: Duration = Duration::from_secs(15);
-/// A user-requested restart gets one extended pass for steps 1–5 before the
-/// ordinary hard cap applies to steps 6–7. A pending update disarms the cap
-/// instead, because the installer waits on the user by design.
+/// A user-requested restart or a pending update gets one extended pass for
+/// steps 1–5. The update then disarms the cap for the install, which waits on
+/// the user by design, and [`rearm`] bounds the steps after it returns.
 pub const RESTART_CAP: Duration = Duration::from_secs(30);
 
 /// What the current exit request is for; it selects the cap for steps 1–5.
@@ -60,8 +60,7 @@ pub enum ExitIntent {
 pub fn cap_for(intent: ExitIntent) -> Option<Duration> {
     match intent {
         ExitIntent::Exit => Some(HARD_CAP),
-        ExitIntent::Restart => Some(RESTART_CAP),
-        ExitIntent::Update => None,
+        ExitIntent::Restart | ExitIntent::Update => Some(RESTART_CAP),
     }
 }
 
@@ -374,7 +373,11 @@ mod tests {
     fn the_exit_intent_selects_the_cap() {
         assert_eq!(cap_for(ExitIntent::Exit), Some(HARD_CAP));
         assert_eq!(cap_for(ExitIntent::Restart), Some(RESTART_CAP));
-        assert_eq!(cap_for(ExitIntent::Update), None);
+        assert_eq!(
+            cap_for(ExitIntent::Update),
+            Some(RESTART_CAP),
+            "the pre-install pass is bounded; the install itself is disarmed"
+        );
         assert!(RESTART_CAP > HARD_CAP);
     }
 

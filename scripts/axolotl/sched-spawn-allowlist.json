@@ -1092,17 +1092,18 @@
     {
       "file": "packages/app-lib/src/api/logs/document.rs",
       "form": "spawn_blocking",
-      "count": 1,
-      "reason": "Validated bounded inspection and complete export share one blocking-pool file reader; no resource locks are held during canonical-path checks, decompression or reading",
+      "count": 2,
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
-        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {"
+        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {",
+        "export_log_file: tokio::task::spawn_blocking(move || {"
       ]
     },
     {
       "file": "packages/app-lib/src/api/logs/document.rs",
       "form": "std::fs",
       "count": 1,
-      "reason": "Validated bounded inspection and complete export share one blocking-pool file reader; no resource locks are held during canonical-path checks, decompression or reading",
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
         "read_file: let file = std::fs::File::open(resolved)?;"
       ]

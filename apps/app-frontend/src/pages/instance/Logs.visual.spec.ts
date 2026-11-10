@@ -10,7 +10,7 @@ type Manager = {
     loading: ComputedRef<boolean>
     shareDisabled: ComputedRef<boolean>
     activeLogSourceIndex: Ref<number>
-    onExportLog: () => Promise<void>
+    onExportLog: ComputedRef<(() => Promise<void>) | undefined>
 }
 const mocks = vi.hoisted(() => ({
     manager: null as Manager | null,
@@ -103,11 +103,11 @@ it('exports the selected source instead of the retained display buffer', async (
     vi.mocked(export_log_file).mockResolvedValue(undefined)
     const wrapper = await mountLogs()
     try {
-        await mocks.manager!.onExportLog()
-        expect(export_log_file).toHaveBeenLastCalledWith('instance', 'InfoLog', 'latest.log')
+        expect(mocks.manager!.onExportLog.value).toBeUndefined()
+        expect(export_log_file).not.toHaveBeenCalled()
         mocks.manager!.activeLogSourceIndex.value = 1
         await flushPromises()
-        await mocks.manager!.onExportLog()
+        await mocks.manager!.onExportLog.value!()
         expect(export_log_file).toHaveBeenLastCalledWith('instance', 'InfoLog', 'old.log.gz')
     } finally {
         wrapper.unmount()

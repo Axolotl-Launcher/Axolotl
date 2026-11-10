@@ -99,7 +99,7 @@
                         @delete="handleDelete"
                     />
                     <Button
-                        v-if="ctx.onExportLog"
+                        v-if="resolvedExportLog"
                         type="quiet"
                         :disabled="exportingLog || resolvedLoading"
                         @click="handleExportLog"
@@ -614,11 +614,13 @@ const deleteModal = ref<InstanceType<typeof NewModal> | null>(null)
 const isDeleting = ref(false)
 const exportingCrashContext = ref(false)
 const exportingLog = ref(false)
+const resolvedExportLog = computed(() => unwrapMaybeRef(ctx.onExportLog))
 async function handleExportLog() {
-    if (!ctx.onExportLog || exportingLog.value) return
+    const exportLog = resolvedExportLog.value
+    if (!exportLog || exportingLog.value) return
     exportingLog.value = true
     try {
-        await ctx.onExportLog()
+        await exportLog()
     } finally {
         exportingLog.value = false
     }

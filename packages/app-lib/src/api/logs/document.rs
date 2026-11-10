@@ -5,6 +5,8 @@ use super::{
 use crate::{State, prelude::Credentials};
 use std::{io::Read, path::Path};
 
+mod export;
+
 const MAX_SOURCE_BYTES: usize = 2 * 1024 * 1024;
 
 pub struct LogDocument {
@@ -82,14 +84,8 @@ pub async fn read_log_document(
     log_type: LogType,
     filename: &str,
 ) -> crate::Result<LogDocument> {
-    load_log_document(
-        instance_id,
-        log_type,
-        filename,
-        MAX_SOURCE_BYTES as u64,
-        None,
-    )
-    .await
+    load_log_document(instance_id, log_type, filename, MAX_SOURCE_BYTES as u64)
+        .await
 }
 
 async fn load_log_document(
@@ -97,7 +93,6 @@ async fn load_log_document(
     log_type: LogType,
     filename: &str,
     maximum_bytes: u64,
-    destination: Option<std::path::PathBuf>,
 ) -> crate::Result<LogDocument> {
     if !valid_name(filename) || !super::is_log_file_for_type(log_type, filename)
     {
@@ -116,10 +111,6 @@ async fn load_log_document(
     let filename = filename.to_owned();
     let (text, source_truncated) = tokio::task::spawn_blocking(move || {
         for directory in directories {
-            if let Some(output) = &destination {
-                let source = directory.join(&filename);
-                validate_export_destination(&source, output)?;
-            }
             if let Some(document) =
                 read_file(&directory, &filename, maximum_bytes)?
             {
@@ -143,38 +134,38 @@ async fn load_log_document(
     })
 }
 
-fn validate_export_destination(
-    source: &Path,
-    output: &Path,
-) -> std::io::Result<()> {
-    if source.exists()
-        && output.exists()
-        && source.canonicalize()? == output.canonicalize()?
-    {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Cannot overwrite the original log",
-        ));
-    }
-    Ok(())
-}
-
-/// Save a complete, noncompacted and censored log without sending it over IPC.
+/// Save the selected source log through a bounded-memory, atomic export.
 pub async fn export_log_file(
     instance_id: &str,
     log_type: LogType,
     filename: &str,
     output_path: std::path::PathBuf,
 ) -> crate::Result<()> {
-    let document = load_log_document(
-        instance_id,
-        log_type,
-        filename,
-        u64::MAX,
-        Some(output_path.clone()),
-    )
-    .await?;
-    tokio::fs::write(output_path, document.output.as_str()).await?;
+    if !valid_name(filename) || !super::is_log_file_for_type(log_type, filename)
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Invalid log filename".into(),
+        )
+        .into());
+    }
+    let state = State::get().await?;
+    let (instance_path, override_dir) =
+        resolve_instance_path(instance_id, &state).await?;
+    let game_dir = state
+        .directories
+        .resolve_game_dir(&instance_path, override_dir.as_deref());
+    let directories = log_directories_for_type(&state, &game_dir, log_type);
+    let credentials = Credentials::get_all(&state.data)
+        .await?
+        .into_iter()
+        .collect::<Vec<_>>();
+    let rules = CensoredString::replacements(&credentials);
+    let filename = filename.to_owned();
+    tokio::task::spawn_blocking(move || {
+        export::export_file(&directories, &filename, &output_path, &rules)
+    })
+    .await
+    .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))??;
     Ok(())
 }
 
@@ -218,35 +209,6 @@ mod tests {
         assert!(!truncated);
         assert_eq!(complete, content);
     }
-    #[test]
-    fn export_keeps_long_lines_and_repetitions_and_rejects_source_destination()
-    {
-        let root = tempfile::tempdir().unwrap();
-        let path = root.path().join("latest.log");
-        let text = format!(
-            "{}\n{}",
-            "x".repeat(300_000),
-            "repeated\n".repeat(300_000)
-        );
-        std::fs::write(&path, &text).unwrap();
-        let (complete, truncated) =
-            read_file(root.path(), "latest.log", u64::MAX)
-                .unwrap()
-                .unwrap();
-        assert!(!truncated);
-        assert_eq!(complete, text);
-        assert!(validate_export_destination(&path, &path).is_err());
-        assert!(
-            validate_export_destination(&path, &root.path().join("saved.log"))
-                .is_ok()
-        );
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
-        let username = whoami::username();
-        let censored =
-            CensoredString::censor(format!("prefix/{username}/suffix"), &[]);
-        assert_eq!(censored.as_str(), "prefix/{COMPUTER_USERNAME}/suffix");
-    }
-
     #[test]
     fn names_reject_paths_and_alternate_streams() {
         for name in [

@@ -202,15 +202,13 @@ provideConsoleManager({
         void clearLive()
     },
     onDelete: deleteSelectedLog,
-    onExportLog: async () => {
+    onExportLog: computed(() => {
         const log = selectedLog.value
-        if (!log) return
-        await export_log_file(
-            props.instance.id,
-            log.live ? 'InfoLog' : log.log_type,
-            log.live ? 'latest.log' : log.filename,
-        ).catch(handleError)
-    },
+        if (!log || log.live) return undefined
+        return async () => {
+            await export_log_file(props.instance.id, log.log_type, log.filename).catch(handleError)
+        }
+    }),
     deleteDisabled,
     deleteDisabledTooltip: computed(() => formatMessage(messages.cannotDeleteLatest)),
     // The previous log stays on screen while the next one loads; sharing it

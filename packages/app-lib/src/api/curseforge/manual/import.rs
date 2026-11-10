@@ -359,6 +359,7 @@ pub(super) async fn install_manual_download(
         instance_id,
         format!("{target_folder}/{file_name}"),
         localized_candidate,
+        None,
         &state,
     )
     .await?;

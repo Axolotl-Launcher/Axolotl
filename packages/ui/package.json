@@ -60,6 +60,7 @@
     "@types/three": "^0.185.4",
     "@vintl/how-ago": "^3.0.1",
     "@vueuse/core": "^11.3.0",
+    "ansi_up": "^6.0.6",
     "apexcharts": "^4.7.0",
     "dayjs": "^1.11.23",
     "dompurify": "^3.4.17",

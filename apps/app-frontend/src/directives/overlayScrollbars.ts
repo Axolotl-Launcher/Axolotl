@@ -7,6 +7,17 @@ const defaultOverlayScrollbarsOptions = Object.freeze<PartialOptions>({
         autoHide: 'leave',
         autoHideSuspend: true,
     },
+    update: {
+        // Coalesce bursts of mutations and resizes into one update per
+        // animation frame, but never delay an update by more than 100 ms.
+        // Event and environment debounces keep the library defaults.
+        debounce: {
+            mutation: [0, 100],
+            resize: [0, 100],
+            event: [33, 99],
+            env: [222, 666, true],
+        },
+    },
 })
 
 const mergeOptions = (options: PartialOptions = {}): PartialOptions => ({

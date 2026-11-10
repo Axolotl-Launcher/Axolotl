@@ -957,6 +957,10 @@ impl Settings {
     }
 
     pub async fn migrate(handle: &Handle) -> crate::Result<()> {
+        // Migration states the whole settings row. Serialize with the
+        // field-level writers (including the startup log-level patch) so its
+        // snapshot cannot overwrite a patch that landed after it was read.
+        let _guard = crate::api::settings::SETTINGS_WRITE.lock().await;
         let mut settings = Self::get(handle).await?;
 
         if settings.version < Settings::CURRENT_VERSION {

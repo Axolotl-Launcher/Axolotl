@@ -50,11 +50,25 @@ const bottomDelay = ref('0ms')
 
 const STAGGER_DELAY = '120ms'
 
+interface ItemGeometry {
+    top: number
+    height: number
+    left: number
+    width: number
+}
+
 let optimisticElement: HTMLAnchorElement | null = null
 let activationToken = 0
 let pointerCleanup: (() => void) | null = null
 let clickSafetyTimer: number | null = null
 let disposed = false
+
+let geometryCache = new WeakMap<HTMLElement, ItemGeometry>()
+let railHeight = 0
+let railSize = ''
+let pendingPosition: { animate: boolean; target: HTMLElement | null } | null = null
+let resizeObserver: ResizeObserver | null = null
+let itemObserver: MutationObserver | null = null
 
 const sliderStyle = computed(() => ({
     top: `${top.value}px`,
@@ -64,15 +78,43 @@ const sliderStyle = computed(() => ({
     opacity: sliderReady.value && hasActive.value ? 1 : 0,
 }))
 
-function measure(el: HTMLElement) {
-    const container = rail.value
-    if (!container || !el.offsetParent || container.offsetHeight === 0) return null
+function prepareGeometry(container: HTMLElement) {
+    railHeight = container.offsetHeight
+    railSize = railHeight === 0 ? '' : `${container.offsetWidth}x${railHeight}`
+    geometryCache = new WeakMap()
+
+    for (const child of container.children) {
+        if (!(child instanceof HTMLElement) || child.classList.contains('nav-rail-slider')) continue
+        geometryCache.set(child, {
+            top: child.offsetTop,
+            height: child.offsetHeight,
+            left: child.offsetLeft,
+            width: child.offsetWidth,
+        })
+    }
+}
+
+function measure(el: HTMLElement, container: HTMLElement) {
+    if (!railSize) prepareGeometry(container)
+    if (!railSize) return null
+
+    let geometry = geometryCache.get(el)
+    if (!geometry) {
+        if (!el.offsetParent) return null
+        geometry = {
+            top: el.offsetTop,
+            height: el.offsetHeight,
+            left: el.offsetLeft,
+            width: el.offsetWidth,
+        }
+        geometryCache.set(el, geometry)
+    }
 
     return {
-        top: el.offsetTop,
-        bottom: container.offsetHeight - el.offsetTop - el.offsetHeight,
-        left: el.offsetLeft,
-        width: el.offsetWidth,
+        top: geometry.top,
+        bottom: railHeight - geometry.top - geometry.height,
+        left: geometry.left,
+        width: geometry.width,
         subpage: el.classList.contains('subpage-active'),
     }
 }
@@ -121,7 +163,7 @@ function positionSlider(animate: boolean, target?: HTMLElement | null) {
         return
     }
 
-    const position = measure(el)
+    const position = measure(el, container)
     if (!position) {
         hasActive.value = false
         return
@@ -130,9 +172,27 @@ function positionSlider(animate: boolean, target?: HTMLElement | null) {
     applyPosition(position, animate, target != null || optimisticElement != null)
 }
 
-async function updateSlider() {
-    await nextTick()
-    positionSlider(true)
+function flushPosition() {
+    const pending = pendingPosition
+    pendingPosition = null
+    if (!pending || disposed) return
+    positionSlider(pending.animate, pending.target)
+}
+
+function requestPosition(animate: boolean, target: HTMLElement | null = null) {
+    if (pendingPosition) {
+        pendingPosition.animate ||= animate
+        // A no-target refresh must not discard an optimistic target queued by
+        // pointerdown/click before this tick flushes.
+        if (target) pendingPosition.target = target
+        return
+    }
+    pendingPosition = { animate, target }
+    void nextTick(flushPosition)
+}
+
+function updateSlider() {
+    requestPosition(true)
 }
 
 function isPlainLeftMouse(event: MouseEvent) {
@@ -242,7 +302,7 @@ function onRailPointerDown(event: PointerEvent) {
     clearPointerListeners()
     optimisticHref.value = router.resolve(href).path
     optimisticElement = anchor
-    positionSlider(true, anchor)
+    requestPosition(true, anchor)
     armPointerRelease(token, anchor)
 }
 
@@ -262,7 +322,7 @@ async function onRailClickCapture(event: MouseEvent) {
         activationToken += 1
         optimisticHref.value = router.resolve(href).path
         optimisticElement = anchor
-        positionSlider(true, anchor)
+        requestPosition(true, anchor)
     }
 
     const token = activationToken
@@ -278,12 +338,41 @@ function cancelPendingActivation() {
     rollbackActivation(activationToken)
 }
 
+function invalidateGeometry() {
+    railSize = ''
+    void updateSlider()
+}
+
+function onRailResize() {
+    const container = rail.value
+    if (!container) return
+
+    const size = `${container.offsetWidth}x${container.offsetHeight}`
+    if (size === railSize) return
+
+    invalidateGeometry()
+}
+
 onMounted(() => {
+    if (rail.value) {
+        prepareGeometry(rail.value)
+        resizeObserver = new ResizeObserver(onRailResize)
+        resizeObserver.observe(rail.value)
+        // A child-list change that keeps the rail's box size unchanged would
+        // not fire the resize observer, but it still moves item offsets.
+        itemObserver = new MutationObserver(invalidateGeometry)
+        itemObserver.observe(rail.value, { childList: true })
+    }
     void updateSlider()
 })
 
 onBeforeUnmount(() => {
     disposed = true
+    pendingPosition = null
+    resizeObserver?.disconnect()
+    resizeObserver = null
+    itemObserver?.disconnect()
+    itemObserver = null
     clearPointerListeners()
     clearOptimistic()
 })

@@ -98,6 +98,7 @@ import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { instanceServerProjectId, isServerProjectLink } from '@/helpers/instance-project'
 import { getMcArchiveGameVersions, type McArchiveGameVersion } from '@/helpers/mcarchive'
 import { planetMinecraftConnectorAvailable } from '@/helpers/planet-minecraft'
+import { filteredProjectRelease, installPreferencesEqual } from '@/helpers/project-install-filters'
 import { createProjectDetailsQuery } from '@/helpers/project-links'
 import { createProjectPreviewState } from '@/helpers/project-preview'
 import {
@@ -704,6 +705,10 @@ const {
 const { offline } = useNetworkStatus()
 
 const messages = defineMessages({
+    noCompatibleVersion: {
+        id: 'app.browse.install.no-matching-version',
+        defaultMessage: 'No version matches the selected filters.',
+    },
     schematicsProjectType: {
         id: 'app.browse.schematics-project-type',
         defaultMessage: 'Schematics',
@@ -1265,18 +1270,44 @@ async function toggleContentSelection(
         return
     }
 
-    const preferences = getInstanceInstallTargetPreferences(contentType)
-    const added = await contentSelection.add({
-        key,
-        provider: project.provider,
-        projectId: project.provider === 'modrinth' ? project.project_id : providerProjectId,
-        providerProjectId,
-        contentType: contentType as 'mod' | 'resourcepack' | 'datapack' | 'shader' | 'world',
-        title: project.title,
-        iconUrl: project.icon_url,
-        slug: project.slug,
-        preferences,
-    })
+    const preferences = getCurrentSelectedInstallPreferences(contentType)
+    const targetId = target.id
+    const snapshot = JSON.stringify(preferences)
+    const added = await contentSelection.add(
+        {
+            key,
+            provider: project.provider,
+            projectId: project.provider === 'modrinth' ? project.project_id : providerProjectId,
+            providerProjectId,
+            contentType: contentType as 'mod' | 'resourcepack' | 'datapack' | 'shader' | 'world',
+            title: project.title,
+            iconUrl: project.icon_url,
+            slug: project.slug,
+            preferences,
+        },
+        async (isCurrent) => {
+            const versionId = !installPreferencesEqual(
+                preferences,
+                getInstanceInstallTargetPreferences(contentType),
+            )
+                ? await filteredProjectRelease(
+                      project.provider,
+                      providerProjectId,
+                      preferences,
+                      [],
+                      contentType,
+                  )
+                : undefined
+            if (
+                !isCurrent() ||
+                activeInstance.value?.id !== targetId ||
+                snapshot !== JSON.stringify(getCurrentSelectedInstallPreferences(contentType))
+            )
+                return null
+            if (versionId === null) throw new Error(formatMessage(messages.noCompatibleVersion))
+            return versionId
+        },
+    )
 
     if (!added) return
 }
@@ -1427,15 +1458,20 @@ function getPrimaryCardActions(
                     !isInstalled && !isSelected && !activeInstance.value
                         ? formatMessage(messages.add)
                         : undefined,
-                icon: isSelected || isInstalled ? CheckIcon : PlusIcon,
-                disabled: isInstalled,
+                icon: isInstalling ? SpinnerIcon : isSelected || isInstalled ? CheckIcon : PlusIcon,
+                iconClass: isInstalling ? 'animate-spin' : undefined,
+                disabled: isInstalled || isInstalling,
                 color: isSelected ? 'green' : 'brand',
                 type: 'outlined',
                 onClick: async () => {
+                    const installInstanceId = activeInstance.value?.id ?? null
+                    setProjectInstalling(projectResult.project_id, true, installInstanceId)
                     try {
                         await toggleContentSelection(projectResult, currentProjectType)
                     } catch (error) {
                         handleError(error)
+                    } finally {
+                        setProjectInstalling(projectResult.project_id, false, installInstanceId)
                     }
                 },
             },
@@ -2346,7 +2382,28 @@ onUnmounted(() => {
 })
 
 function getProjectBrowseQuery() {
-    return createProjectDetailsQuery(route.query, route.fullPath)
+    return createProjectDetailsQuery(
+        route.query,
+        route.fullPath,
+        getCurrentSelectedInstallPreferences(projectType.value),
+        [
+            ...(searchState.overriddenProvidedFilterTypes.value.includes('game_version')
+                ? ['gameVersions' as const]
+                : []),
+            ...(searchState.overriddenProvidedFilterTypes.value.some((type) =>
+                [
+                    'mod_loader',
+                    'plugin_loader',
+                    'plugin_platform',
+                    'modpack_loader',
+                    'shader_loader',
+                    'datapack_loader',
+                ].includes(type),
+            )
+                ? ['loaders' as const]
+                : []),
+        ],
+    )
 }
 
 const advancedFiltersCollapsed = computed({

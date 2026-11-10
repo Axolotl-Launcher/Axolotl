@@ -1,3 +1,5 @@
+import { AnsiUp } from 'ansi_up'
+
 import type { LogLevel } from '../types'
 
 /**
@@ -6,7 +8,7 @@ import type { LogLevel } from '../types'
  * 逐行正则 + Trie 预筛 + LRU 缓存，输出 HTML（span + class），
  * 样式类与 LogShare 的 LogsAnalysis.css 对应（由 LogViewport 提供样式）。
  * LogShare-Web-UI 为 MIT License, Copyright (c) 2024 LogShare.CN Team，详见 packages/ui/COPYING.md。
- * 零外部依赖，可在 Node 中独立运行（用于 benchmark）。
+ * 可在 Node 中独立运行（用于 benchmark）。
  */
 
 export type LogHighlightMode = 'full' | 'lite' | 'line-only' | 'raw'
@@ -625,10 +627,45 @@ export function colorizeByLevel(level: LogLevel | null, text: string): string {
 export function highlightLine(text: string, mode: LogHighlightMode = 'full'): string {
     if (mode === 'raw') return escapeHtml(text)
     if (text.length > LONG_LINE_HARD_LIMIT) return escapeHtml(text)
+    if (text.includes('\x1b[')) {
+        const key = 'ansi:' + text
+        const cached = formatCache.get(key)
+        if (cached !== undefined) return cached
+        const ansi = new AnsiUp()
+        ansi.url_allowlist = {}
+        const html = ansi.ansi_to_html(text)
+        formatCache.set(key, html)
+        return html
+    }
     if (mode === 'line-only' || text.length > LONG_LINE_LIMIT) {
         return colorizeByLevel(mapLevel(getLevel(text)), text)
     }
     return formatLine(text, mode)
+}
+
+/** Uses the renderer's text semantics, including its raw/long-line fallback. */
+export function visibleLogText(text: string, mode: LogHighlightMode = 'full'): string {
+    if (!text.includes('\x1b[') || mode === 'raw' || text.length > LONG_LINE_HARD_LIMIT) return text
+    return highlightedTextTokens(highlightLine(text, mode))
+        .map((token) => token.text)
+        .join('')
+}
+
+function highlightedTextTokens(html: string) {
+    const entities: Record<string, string> = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#039;': "'",
+        '&#x27;': "'",
+    }
+    return [...html.matchAll(/<[^>]*>|[^<]+/g)].map(([value]) => ({
+        html: value,
+        text: value.startsWith('<')
+            ? ''
+            : value.replace(/&(?:amp|lt|gt|quot|#039|#x27);/g, (entity) => entities[entity]!),
+    }))
 }
 
 /** Marks visible text in highlightLine's output without changing its tags or entities. */
@@ -639,19 +676,7 @@ export function markSearchMatches(html: string, searchQuery: string): string {
         .sort((a, b) => b.length - a.length)
         .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
         .join('|')
-    const entities: Record<string, string> = {
-        '&amp;': '&',
-        '&lt;': '<',
-        '&gt;': '>',
-        '&quot;': '"',
-        '&#039;': "'",
-    }
-    const tokens = [...html.matchAll(/<[^>]*>|[^<]+/g)].map(([value]) => ({
-        html: value,
-        text: value.startsWith('<')
-            ? ''
-            : value.replace(/&(?:amp|lt|gt|quot|#039);/g, (entity) => entities[entity]!),
-    }))
+    const tokens = highlightedTextTokens(html)
     const text = tokens.map((token) => token.text).join('')
     const matches = [...text.matchAll(new RegExp(pattern, 'gi'))].map((match) => ({
         start: match.index,

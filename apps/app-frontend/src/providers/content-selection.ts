@@ -114,6 +114,8 @@ export function createContentSelection({
     const installedContentKeys = new Map<string, string>()
     let installedIdentityRequestId = 0
     let selectionGeneration = 0
+    let selectionRequestId = 0
+    const selectionRequests = new Map<string, number>()
     let resourcePreview: InstanceType<typeof ResourceOperationPreviewModal> | null = null
     let previewModal: InstanceType<typeof ContentInstallPreviewModal> | null = null
     const analysis = createContentAnalysis()
@@ -174,6 +176,7 @@ export function createContentSelection({
                 : (available.find((instance) => instance.id === requestedId) ?? null)
         if (selected?.id !== targetInstance.value?.id) {
             selectionGeneration++
+            selectionRequests.clear()
             installedIdentityRequestId += 1
             installedIdentityCache.clear()
             installedIdentityRequests.clear()
@@ -190,6 +193,7 @@ export function createContentSelection({
     function setTarget(instance: GameInstance | null) {
         if (instance?.id !== targetInstance.value?.id) {
             selectionGeneration++
+            selectionRequests.clear()
             installedIdentityRequestId += 1
             installedIdentityCache.clear()
             installedIdentityRequests.clear()
@@ -369,13 +373,31 @@ export function createContentSelection({
         })
     }
 
-    async function add(item: ContentSelectionItem) {
+    async function add(
+        item: ContentSelectionItem,
+        resolveVersion?: (isCurrent: () => boolean) => Promise<string | null | undefined>,
+    ) {
         const instance = targetInstance.value
         if (!instance) throw new Error(formatMessage(messages.noTarget))
         if (item.targetInstanceId && item.targetInstanceId !== instance.id) return false
         const generation = selectionGeneration
+        const requestId = ++selectionRequestId
+        selectionRequests.set(item.key, requestId)
         const isCurrent = () =>
-            generation === selectionGeneration && targetInstance.value?.id === instance.id
+            generation === selectionGeneration &&
+            targetInstance.value?.id === instance.id &&
+            selectionRequests.get(item.key) === requestId
+        if (resolveVersion) {
+            let versionId: string | null | undefined
+            try {
+                versionId = await resolveVersion(isCurrent)
+            } catch (error) {
+                if (!isCurrent()) return false
+                throw error
+            }
+            if (!isCurrent() || versionId === null) return false
+            item = { ...item, versionId }
+        }
         const versionPending = !item.versionId
         const identity =
             item.identity ??
@@ -466,7 +488,7 @@ export function createContentSelection({
     }
 
     function remove(key: string) {
-        selectionGeneration++
+        selectionRequests.delete(key)
         const next = new Map(items.value)
         next.delete(key)
         items.value = next
@@ -477,6 +499,7 @@ export function createContentSelection({
 
     function clear() {
         selectionGeneration++
+        selectionRequests.clear()
         items.value = new Map()
         errorKeys.value = new Set()
         installedIdentityRequestId += 1

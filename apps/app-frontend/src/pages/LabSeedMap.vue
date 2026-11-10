@@ -2692,9 +2692,9 @@ function selectDimension(dimension: SeedMapDimension) {
 
 <template>
     <main
-        class="seed-map-page mx-auto flex h-full min-h-0 w-full max-w-[110rem] flex-col gap-3 p-4"
+        class="seed-map-page mx-auto flex h-full min-h-0 w-full max-w-[110rem] flex-col gap-3 overflow-y-auto p-4"
     >
-        <header class="flex min-h-9 items-center justify-between gap-3">
+        <header class="flex min-h-9 shrink-0 items-center justify-between gap-3">
             <div class="min-w-0">
                 <h1 class="m-0 truncate text-xl font-bold text-[var(--color-text-primary)]">
                     {{ formatMessage(messages.title) }}
@@ -2720,7 +2720,7 @@ function selectDimension(dimension: SeedMapDimension) {
             </div>
         </header>
 
-        <section class="seed-map-toolbar">
+        <section class="seed-map-toolbar shrink-0">
             <div class="toolbar-primary">
                 <div class="control-group seed-map-edition">
                     <span class="control-label">{{ formatMessage(messages.edition) }}</span>
@@ -2962,13 +2962,14 @@ function selectDimension(dimension: SeedMapDimension) {
             ></Admonition
         >
 
+        <!-- Preserve room for the map's overlaid controls; shorter windows scroll this page. -->
         <section
             ref="fullscreenContainer"
-            class="seed-map-experience min-h-0 flex-1 bg-surface-1"
+            class="seed-map-experience min-h-[20rem] flex-1 bg-surface-1"
             tabindex="0"
             @keydown="onMapKeydown"
         >
-            <div class="layer-strip border border-surface-5 bg-surface-2">
+            <div class="layer-strip shrink-0 border border-surface-5 bg-surface-2">
                 <div class="layer-strip-heading">
                     <span>{{
                         formatMessage(
@@ -3247,7 +3248,7 @@ function selectDimension(dimension: SeedMapDimension) {
 
             <SeedMapSplitView
                 :open="!!structureQuery || !!selectedArea"
-                class="seed-map-workspace-panes min-h-[32rem] rounded-b-[var(--radius-md)] border-x border-b border-surface-5"
+                class="seed-map-workspace-panes min-h-0 rounded-b-[var(--radius-md)] border-x border-b border-surface-5"
             >
                 <template #default="{ canvasSize, visibleSize }">
                     <div
@@ -4117,8 +4118,6 @@ function selectDimension(dimension: SeedMapDimension) {
 }
 
 .seed-map-experience:fullscreen .seed-map-workspace-panes {
-    /* The normal map has a 32rem minimum for usability; fullscreen must be able
-        * to shrink so the toolbar and canvas do not push the surface past the viewport. */
     min-height: 0;
 }
 
@@ -4593,6 +4592,10 @@ function selectDimension(dimension: SeedMapDimension) {
 }
 
 @media (max-width: 900px) {
+    .seed-map-workspace-panes {
+        min-height: 32rem;
+    }
+
     .seed-map-page {
         height: auto;
         min-height: 100%;

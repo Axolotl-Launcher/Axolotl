@@ -577,9 +577,11 @@ async function unpinLocalServer(serverId: string) {
     transition: background-color 120ms ease;
 }
 
+/* Two columns only while each keeps room for the player count: a 2-wide card
+   on a narrow dashboard otherwise cut "18179/200000" down to "18179/20000…". */
 .home-pinned-servers[data-size='2x1'] .home-server-list,
 .home-pinned-servers[data-size='2x2'] .home-server-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
     column-gap: 0.5rem;
 }
 

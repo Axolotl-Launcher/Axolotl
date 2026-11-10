@@ -43,6 +43,7 @@ import {
     type HomeWidgetSize,
     moveHomeWidget,
     packHomeWidgets,
+    reflowFreeHomeWidgets,
     removeHomeWidget,
     replaceHomeDashboardWidgets,
     resizeHomeWidget,
@@ -113,6 +114,12 @@ const freeGridColumnPitch = computed(
 )
 const freeGridRowPitch = HOME_WIDGET_GRID_ROW_HEIGHT + HOME_WIDGET_GRID_GAP
 const resolvedFreePositions = computed(() => {
+    // Editing keeps the saved positions, so a drop lands where it was dropped.
+    const reflowed = editing.value
+        ? null
+        : reflowFreeHomeWidgets(props.config.widgets, columnCount.value)
+    if (reflowed) return reflowed
+
     const positions: Record<string, HomeWidgetPosition> = {}
     const positioned: HomeWidgetPlacement[] = []
     const activeId = freeDrag.value?.id

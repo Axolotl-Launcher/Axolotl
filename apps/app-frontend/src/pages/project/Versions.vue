@@ -145,7 +145,7 @@ function buildProjectHref(path) {
     for (const [key, val] of Object.entries(route.query)) {
         if (Array.isArray(val)) {
             for (const v of val) params.append(key, v)
-        } else if (val) {
+        } else if (val || (['g', 'l'].includes(key) && val === '')) {
             params.append(key, String(val))
         }
     }

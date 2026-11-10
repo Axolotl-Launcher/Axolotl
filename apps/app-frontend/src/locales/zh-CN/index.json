@@ -15491,6 +15491,9 @@
   "minecraft-account.copy-uuid": {
     "message": "复制 UUID"
   },
+  "minecraft-account.drag-to-reorder": {
+    "message": "拖动以调整顺序，或按住 Alt 使用方向键移动"
+  },
   "minecraft-account.label": {
     "message": "Minecraft 账户"
   },

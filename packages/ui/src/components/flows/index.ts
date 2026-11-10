@@ -1,3 +1,4 @@
+export { default as GameDirectoryPicker } from './creation-flow-modal/components/GameDirectoryPicker.vue'
 export type {
     CreationFlowContextValue,
     CreationFlowOptions,

@@ -466,9 +466,6 @@ importers:
 
   packages/api-client:
     dependencies:
-      mitt:
-        specifier: ^3.0.1
-        version: 3.0.1
       ofetch:
         specifier: ^1.5.1
         version: 1.5.1
@@ -695,9 +692,6 @@ importers:
       '@modrinth/tooling-config':
         specifier: workspace:*
         version: link:../tooling-config
-      '@stripe/stripe-js':
-        specifier: ^7.9.0
-        version: 7.9.0
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.2.4(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.104.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.8.4))
@@ -713,9 +707,6 @@ importers:
       playwright:
         specifier: ^1.56.0
         version: 1.63.0
-      stripe:
-        specifier: ^18.5.0
-        version: 18.5.0(@types/node@24.13.3)
       tailwindcss:
         specifier: ^3.4.19
         version: 3.4.19(tsx@4.23.15)(yaml@2.8.4)
@@ -3109,10 +3100,6 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
-
-  '@stripe/stripe-js@7.9.0':
-    resolution: {integrity: sha512-ggs5k+/0FUJcIgNY08aZTqpBTtbExkJMYMLSMwyucrhtWexVOEY1KJmhBsxf+E/Q15f5rbwBpj+t0t2AW2oCsQ==}
-    engines: {node: '>=12.16'}
 
   '@stylistic/eslint-plugin@2.13.0':
     resolution: {integrity: sha512-RnO1SaiCFHn666wNz2QfZEFxvmiNRqhzaMXHXxXXKt+MEP7aajlPxUSMIQpKAaJfverpovEYqjBOXDq6dDcaOQ==}
@@ -8104,15 +8091,6 @@ packages:
   strip-literal@4.0.0:
     resolution: {integrity: sha512-PaqAvfUZKBwc/SLmNZtHmzK+v19Z4O4eS3cKPeGvbIv/U3pnyEq4Tuw3/4v/FwfM8VQaEawsyCcOQ0P+kpwWWw==}
 
-  stripe@18.5.0:
-    resolution: {integrity: sha512-Hp+wFiEQtCB0LlNgcFh5uVyKznpDjzyUZ+CNVEf+I3fhlYvh7rZruIg+jOwzJRCpy0ZTPMjlzm7J2/M2N6d+DA==}
-    engines: {node: '>=12.*'}
-    peerDependencies:
-      '@types/node': '>=12.x.x'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
   strtok3@10.6.2:
     resolution: {integrity: sha512-BkdixFFUt7r7LsX6aGNPVyYMLjW+M1USLlKPNbZsrZEmLFh5tGqhdfckKo6xgsZIJqdDD0CZGkeCJJwNWQIKQA==}
     engines: {node: '>=18'}
@@ -11623,8 +11601,6 @@ snapshots:
   '@speed-highlight/core@1.2.24': {}
 
   '@standard-schema/spec@1.1.0': {}
-
-  '@stripe/stripe-js@7.9.0': {}
 
   '@stylistic/eslint-plugin@2.13.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)':
     dependencies:
@@ -17591,12 +17567,6 @@ snapshots:
   strip-literal@4.0.0:
     dependencies:
       js-tokens: 10.0.0
-
-  stripe@18.5.0(@types/node@24.13.3):
-    dependencies:
-      qs: 6.16.1
-    optionalDependencies:
-      '@types/node': 24.13.3
 
   strtok3@10.6.2:
     dependencies:

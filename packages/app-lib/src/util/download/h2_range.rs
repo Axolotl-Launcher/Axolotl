@@ -116,6 +116,7 @@ struct NativeRangeTransport<'a> {
     fallback_budget: fetch::FetchSemaphore,
     used_http1: std::sync::atomic::AtomicBool,
     protocol_failed: std::sync::atomic::AtomicBool,
+    dns_recovery_requested: std::sync::atomic::AtomicBool,
 }
 
 #[async_trait]
@@ -267,7 +268,6 @@ impl RangeTransport for NativeRangeTransport<'_> {
             super::native_request::send_path_request_with_clients(
                 self.route,
                 self.request.header.as_ref(),
-                None,
                 self.request.download_meta.as_ref(),
                 Some(start),
                 Some(end),
@@ -384,6 +384,12 @@ impl RangeTransport for NativeRangeTransport<'_> {
         ) else {
             return false;
         };
+        if !self.dns_recovery_requested.swap(true, Ordering::Relaxed) {
+            fetch::request_dns_system_recovery(
+                self.route,
+                &self.uri.to_string(),
+            );
+        }
         clients.endpoints.on_slow_region(
             self.request,
             self.route,
@@ -428,6 +434,7 @@ pub(crate) async fn download(
         fallback_budget: fetch::FetchSemaphore(tokio::sync::Semaphore::new(8)),
         used_http1: Default::default(),
         protocol_failed: Default::default(),
+        dns_recovery_requested: Default::default(),
     };
     let started = std::time::Instant::now();
     let outcome = run_download(
@@ -723,7 +730,10 @@ async fn recover_range(
                         super::native_slow::SlowDecision::Probe { bytes_per_second } => {
                             last_slow_speed = Some(bytes_per_second);
                         }
-                        super::native_slow::SlowDecision::Idle { .. } => { failure = Some(H2DownloadFailure::Slow); break; }
+                        super::native_slow::SlowDecision::Idle { .. } => {
+                            transport.on_slow(&identity, 0, range.end - offset, offset..range.end, pressure);
+                            failure = Some(H2DownloadFailure::Slow); break;
+                        }
                         _ => {}
                     }
                     if let Some(speed) = last_slow_speed
@@ -738,6 +748,18 @@ async fn recover_range(
             let chunk = match chunk {
                 Ok(chunk) => chunk,
                 Err(error) => {
+                    if matches!(
+                        error,
+                        H2DownloadFailure::Slow | H2DownloadFailure::Connect
+                    ) {
+                        transport.on_slow(
+                            &identity,
+                            0,
+                            range.end - offset,
+                            offset..range.end,
+                            super::local_resources::pressure(part),
+                        );
+                    }
                     failure = Some(error);
                     break;
                 }

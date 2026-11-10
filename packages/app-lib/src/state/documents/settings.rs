@@ -226,6 +226,7 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
             "curseforge_source",
             "doh_enabled",
             "force_multiconnection_downloads",
+            "forced_max_concurrent_downloads",
             "max_concurrent_downloads",
             "max_concurrent_writes",
             "minecraft_file_source",
@@ -235,7 +236,7 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
             "resource_chinese_filenames",
             "resource_preserve_filenames",
         ],
-        2,
+        3,
     ),
     (
         "game",

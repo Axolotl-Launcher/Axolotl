@@ -63,7 +63,7 @@ async fn an_unknown_level_is_refused_by_the_schema() {
 }
 
 #[tokio::test]
-async fn a_row_with_an_unknown_level_is_skipped_on_read() {
+async fn an_unknown_level_errors_for_one_key_and_is_skipped_in_bulk() {
     let pool = support::pool().await;
     // An older or edited database can hold a row the CHECK refuses today.
     sqlx::query("PRAGMA ignore_check_constraints = ON")
@@ -78,7 +78,18 @@ async fn a_row_with_an_unknown_level_is_skipped_on_read() {
     .await
     .unwrap();
     let handle = crate::state::store::Handle::new(pool);
-    assert_eq!(SchedulerTags::get(&handle, &1).await.unwrap(), None);
+    let error = SchedulerTags::get(&handle, &1).await.unwrap_err();
+    assert!(
+        error.to_string().contains("level this build does not know"),
+        "an existing row must not read as an absent key: {error}"
+    );
+    assert_eq!(
+        SchedulerTags::get(&handle, &2)
+            .await
+            .unwrap()
+            .map(|record| record.owner),
+        Some("job".to_string())
+    );
     let stored: Vec<_> = SchedulerTags::get_all(&handle)
         .await
         .unwrap()

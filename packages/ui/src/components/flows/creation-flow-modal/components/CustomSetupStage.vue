@@ -31,17 +31,11 @@
             />
         </div>
 
-        <!-- Instance-specific: Game directory isolation -->
-        <div v-if="ctx.flowType === 'instance'" class="flex flex-col gap-2">
-            <span class="font-semibold text-[var(--color-text-primary)]">{{
-                formatMessage(messages.gameDirLabel)
-            }}</span>
-            <RadioButtons v-model="gameDirSelection" :items="gameDirOptions" force-selection>
-                <template #default="{ item }">
-                    {{ item === BUILTIN_GAME_DIR ? formatMessage(messages.gameDirManaged) : item }}
-                </template>
-            </RadioButtons>
-        </div>
+        <GameDirectoryPicker
+            v-if="ctx.flowType === 'instance'"
+            v-model="gameDirSelection"
+            :directories="configuredMinecraftDirectories"
+        />
 
         <!-- Game version -->
         <div class="flex flex-col gap-2">
@@ -219,10 +213,11 @@
 <script setup lang="ts">
 import type { Paper } from '@modrinth/api-client'
 import { UploadIcon, XIcon } from '@modrinth/assets'
-import { commonMessages, defineMessages, RadioButtons, useVIntl } from '@modrinth/ui'
+import { commonMessages, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { useDebugLogger } from '#ui/composables/debug-logger'
+import { BUILTIN_GAME_DIRECTORY, loadMinecraftDirectories } from '#ui/utils/minecraft-directories'
 
 import { injectFilePicker, injectModrinthClient, injectTags } from '../../../../providers'
 import Avatar from '../../../base/Avatar.vue'
@@ -250,6 +245,7 @@ import {
     preserveOrSelectGameVersion,
 } from '../loader-metadata'
 import { formatLoaderLabel, type GameVersionType, isVersionTypeMatch } from '../shared'
+import GameDirectoryPicker from './GameDirectoryPicker.vue'
 
 const localizedFormatLoaderLabel = (item: string) => formatLoaderLabel(item, formatMessage)
 
@@ -274,14 +270,6 @@ const messages = defineMessages({
     removeIcon: {
         id: 'creation-flow.modal.custom-setup.icon.remove',
         defaultMessage: 'Remove icon',
-    },
-    gameDirLabel: {
-        id: 'creation-flow.modal.custom-setup.game-dir.label',
-        defaultMessage: 'Game directory',
-    },
-    gameDirManaged: {
-        id: 'creation-flow.modal.custom-setup.game-dir.managed',
-        defaultMessage: 'Axolotl directory',
     },
     nameLabel: {
         id: 'creation-flow.modal.custom-setup.name.label',
@@ -459,9 +447,6 @@ function formatVersionTypeLabel(type: GameVersionType): string {
 const effectiveLoaders = computed(() => {
     if (ctx.flowType === 'instance') {
         return ['vanilla', ...ctx.availableLoaders.filter((l) => l !== 'vanilla')]
-    }
-    if (ctx.flowType === 'server-onboarding' || ctx.flowType === 'reset-server') {
-        return ctx.availableLoaders.filter((l) => l !== 'vanilla')
     }
     return ctx.availableLoaders
 })
@@ -744,73 +729,18 @@ function removeIcon() {
     ctx.instanceIconPath.value = null
 }
 
-const BUILTIN_GAME_DIR = 'builtin'
-const MINECRAFT_DIRECTORIES_STORAGE_KEY = 'axolotl-minecraft-directories'
-
-type ConfiguredMinecraftDirectory = {
-    path: string
-    mode: 'isolated' | 'shared'
-}
-
-function loadMinecraftDirectories(): ConfiguredMinecraftDirectory[] {
-    try {
-        const parsed = JSON.parse(localStorage.getItem(MINECRAFT_DIRECTORIES_STORAGE_KEY) ?? '[]')
-        if (!Array.isArray(parsed)) return []
-        return [
-            ...new Map(
-                parsed
-                    .flatMap((value): ConfiguredMinecraftDirectory[] => {
-                        if (typeof value === 'string' && value.trim()) {
-                            return [{ path: value, mode: 'isolated' }]
-                        }
-                        if (
-                            value &&
-                            typeof value === 'object' &&
-                            typeof value.path === 'string' &&
-                            value.path.trim()
-                        ) {
-                            return [
-                                {
-                                    path: value.path,
-                                    mode: value.mode === 'shared' ? 'shared' : 'isolated',
-                                },
-                            ]
-                        }
-                        return []
-                    })
-                    .map((directory) => [directory.path, directory]),
-            ).values(),
-        ]
-    } catch {
-        return []
-    }
-}
-
 const configuredMinecraftDirectories = loadMinecraftDirectories()
-const gameDirOptions = [
-    BUILTIN_GAME_DIR,
-    ...configuredMinecraftDirectories.map((entry) => entry.path),
-]
 const configuredMinecraftDirectoryModes = new Map(
     configuredMinecraftDirectories.map((entry) => [entry.path, entry.mode]),
 )
-if (
-    ctx.gameDirOverrideMode.value !== 'builtin' &&
-    ctx.gameDirOverride.value &&
-    !gameDirOptions.includes(ctx.gameDirOverride.value)
-) {
-    // Keep an older/custom selection visible when reopening a flow so existing
-    // configuration remains usable even if its root is no longer in Settings.
-    gameDirOptions.push(ctx.gameDirOverride.value)
-}
 
 const gameDirSelection = computed<string>({
     get: () =>
         ctx.gameDirOverrideMode.value === 'builtin'
-            ? BUILTIN_GAME_DIR
-            : (ctx.gameDirOverride.value ?? BUILTIN_GAME_DIR),
+            ? BUILTIN_GAME_DIRECTORY
+            : (ctx.gameDirOverride.value ?? BUILTIN_GAME_DIRECTORY),
     set: (selection) => {
-        if (selection === BUILTIN_GAME_DIR) {
+        if (selection === BUILTIN_GAME_DIRECTORY) {
             ctx.gameDirOverrideMode.value = 'builtin'
             ctx.gameDirOverride.value = null
             return

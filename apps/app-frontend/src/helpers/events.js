@@ -102,6 +102,10 @@ export async function instance_groups_listener(callback) {
     return await listen('instance_groups_changed', (event) => callback(event.payload))
 }
 
+export async function favorite_groups_listener(callback) {
+    return await listen('favorite_groups_changed', (event) => callback(event.payload))
+}
+
 /// Payload for the 'command' event
 /*
   CommandPayload {
@@ -127,10 +131,6 @@ export async function warning_listener(callback) {
     return await listen('warning', (event) => callback(event.payload))
 }
 
-export async function friend_listener(callback) {
-    return await listen('friend', (event) => callback(event.payload))
-}
-
 /// Payload for the 'java_discovery_update' event
 /*
     JavaDiscoveryPayload {
@@ -139,10 +139,6 @@ export async function friend_listener(callback) {
 */
 export async function java_discovery_listener(callback) {
     return await listen('java_discovery_update', (event) => callback(event.payload))
-}
-
-export async function notification_listener(callback) {
-    return await listen('notification', (event) => callback(event.payload))
 }
 
 /// Payload for the 'log' event

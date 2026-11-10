@@ -430,6 +430,7 @@ import {
 } from '@/composables/useAntiPiracyStatus'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { preferredOnlineAccountId } from '@/helpers/account-selection'
+import { accountSelectionRevision } from '@/helpers/account-state'
 import { compareMinecraftAccounts } from '@/helpers/accounts'
 import { trackEvent } from '@/helpers/analytics'
 import {
@@ -517,6 +518,7 @@ const headUrlCache = ref(new Map<string, string>())
 const accountHeadUrlCache = ref(new Map<string, string>())
 const accountHeadTextureKeyCache = ref(new Map<string, string>())
 let refreshGeneration = 0
+let ownAccountWrites = 0
 let headRefreshTimer: ReturnType<typeof setTimeout> | undefined
 let defaultUserUpdateQueue = Promise.resolve()
 const minecraftLoginModal = ref<InstanceType<typeof MinecraftLoginModal> | null>(null)
@@ -731,6 +733,23 @@ watch(
     { immediate: true, flush: 'sync' },
 )
 
+// The card stays mounted behind first-run setup, so an account chosen elsewhere
+// has to reach it here. Its own writes refresh in the order they need, and a
+// second refresh would supersede theirs. The revision moves synchronously with
+// the write, which is why this watcher must be sync to see the counter.
+watch(
+    accountSelectionRevision,
+    () => {
+        if (ownAccountWrites > 0) return
+        void refreshValues()
+            .then(notifyAccountChange)
+            .catch((error) => {
+                console.warn('Failed to refresh accounts after a selection change:', error)
+            })
+    },
+    { flush: 'sync' },
+)
+
 onMounted(() => {
     void refreshValues().catch(console.warn)
 })
@@ -829,9 +848,18 @@ function getAccountAvatarUrl(account: MinecraftCredential) {
     return defaultSteveHeadUrl
 }
 
+async function ownAccountWrite<T>(write: () => Promise<T>): Promise<T> {
+    ownAccountWrites += 1
+    try {
+        return await write()
+    } finally {
+        ownAccountWrites -= 1
+    }
+}
+
 function persistDefaultUser(userId: string) {
     const update = defaultUserUpdateQueue.then(async () => {
-        await set_default_user(userId)
+        await ownAccountWrite(() => set_default_user(userId))
     })
     defaultUserUpdateQueue = update.catch(() => {})
     return update
@@ -1100,9 +1128,11 @@ async function addOfflineAccount() {
     loginDisabled.value = true
     offlineUuidDuplicate.value = false
     try {
-        const account = await add_offline_user(
-            offlineUsername.value.trim(),
-            offlineCustomUuid.value ? offlineUuid.value.replaceAll('-', '') : undefined,
+        const account = await ownAccountWrite(() =>
+            add_offline_user(
+                offlineUsername.value.trim(),
+                offlineCustomUuid.value ? offlineUuid.value.replaceAll('-', '') : undefined,
+            ),
         )
         offlineAccountModal.value?.hide()
         await setAccount(account)
@@ -1127,7 +1157,7 @@ function isDuplicateUuidError(error: unknown) {
 }
 
 async function logout(account: MinecraftCredential) {
-    await remove_user(getAccountId(account)).catch(handleError)
+    await ownAccountWrite(() => remove_user(getAccountId(account))).catch(handleError)
     await refreshValues()
     if (!selectedAccount.value && accounts.value.length > 0) {
         await setAccount(accounts.value[0])

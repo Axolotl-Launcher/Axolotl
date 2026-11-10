@@ -20,6 +20,8 @@ use tauri_plugin_fs::FsExt;
 use theseus::prelude::*;
 
 mod api;
+#[cfg(any(target_os = "linux", test))]
+mod appimage;
 mod error;
 mod exit_barrier;
 mod lightweight_mode;
@@ -711,6 +713,9 @@ fn main() {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    appimage::prefer_host_tools();
+
     // Workaround: NVIDIA's proprietary EGL driver crashes WebKitGTK's DMA-BUF renderer
     #[cfg(target_os = "linux")]
     if env::var_os("__NV_DISABLE_EXPLICIT_SYNC").is_none()
@@ -922,7 +927,6 @@ fn main() {
         .plugin(api::third_party_accounts::init())
         .plugin(api::schematics::init())
         .plugin(api::auth::init())
-        .plugin(api::mr_auth::init())
         .plugin(api::import::init())
         .plugin(api::install::init())
         .plugin(api::instance::init())
@@ -954,7 +958,6 @@ fn main() {
         .plugin(api::drop::init())
         .plugin(api::files::init())
         .plugin(api::fonts::init())
-        .plugin(api::friends::init())
         .plugin(api::worlds::init())
         .plugin(api::terracotta::init())
         .plugin(api::multiplayer::init())

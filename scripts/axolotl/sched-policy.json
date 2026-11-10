@@ -17,7 +17,7 @@
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
     "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
   ],
-  "rankFingerprint": "0f549340bc5cab1e7513d65b09363c018e2b18ef5b02109299e023394c896094",
+  "rankFingerprint": "930365d4a314e9285f3c77601098d6f7182e5a7f35ce21de5de7056e7569aaab",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",
@@ -75,6 +75,11 @@
       "reason": "order instrumentation bookkeeping: leaf primitive only, held for one map update in debug test runs with SCHED_ORDER_GUARD=1, takes no other lock"
     },
     {
+      "ident": "theseus::state::store::secrets::Remembering.known",
+      "rule": "D4",
+      "reason": "macOS keychain read cache: leaf primitive only, held for one map lookup, insert or removal and never across the keychain call, takes no other lock"
+    },
+    {
       "ident": "theseus::install::runner::CANCEL_CLEANUPS",
       "rule": "D4",
       "reason": "cancel-cleanup dedup map (upstream CancelCleanupRegistration, renamed from CLEANUPS): leaf primitive only, one shard lock per request, retry check or drop, takes no other lock"
@@ -125,10 +130,6 @@
     "packages/app-lib::pool": {
       "reason": "other",
       "detail": "sqlx SqlitePool::acquire: a bounded connection quota outside the spec §6.3.1 primitive predicate"
-    },
-    "packages/app-lib::stream": {
-      "reason": "other",
-      "detail": "Mutex field of an enum struct variant (state/tunnel.rs); the generator reads struct bodies only"
     }
   },
   "orderViolations": [],
@@ -494,15 +495,6 @@
       "basis": "operation-level loop whose interruption semantics are not established; stricter L3 kept"
     },
     {
-      "id": "R25",
-      "file": "packages/app-lib/src/state/tunnel.rs",
-      "business": "tunnel server",
-      "level": "L2",
-      "locks": [],
-      "backfilled": true,
-      "basis": "no registered lock; shutdown future exits it"
-    },
-    {
       "id": "R26",
       "file": "packages/app-lib/src/util/proxy/windows.rs",
       "business": "Windows system proxy watcher",
@@ -556,6 +548,7 @@
   ],
   "governanceRemoved": {
     "R7": "friends socket loop deleted (no callers)",
+    "R25": "upstream friends tunnel server removed with its protocol and callers",
     "R29": "test-only thread item of the t12 list",
     "R30": "test-only thread item of the t12 list"
   },

@@ -1,4 +1,4 @@
-import type { Archon, LauncherMeta } from '@modrinth/api-client'
+import type { LauncherMeta } from '@modrinth/api-client'
 import { useQueryClient } from '@tanstack/vue-query'
 import { computed, type ComputedRef, type Ref, ref, type ShallowRef, watch } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
@@ -24,7 +24,7 @@ import {
 } from './loader-metadata'
 import { stageConfigs } from './stages'
 
-export type FlowType = 'world' | 'server-onboarding' | 'reset-server' | 'instance'
+export type FlowType = 'world' | 'instance'
 export type SetupType = 'modpack' | 'custom' | 'vanilla'
 export type Gamemode = 'survival' | 'creative' | 'hardcore'
 export type Difficulty = 'peaceful' | 'easy' | 'normal' | 'hard'
@@ -59,14 +59,6 @@ export const creationFlowMessages = defineMessages({
         id: 'creation-flow.title.create-world',
         defaultMessage: 'Create world',
     },
-    setUpServerTitle: {
-        id: 'creation-flow.title.set-up-server',
-        defaultMessage: 'Set up server',
-    },
-    resetServerTitle: {
-        id: 'creation-flow.title.reset-server',
-        defaultMessage: 'Reset server',
-    },
     createInstanceTitle: {
         id: 'creation-flow.title.create-instance',
         defaultMessage: 'Create instance',
@@ -78,10 +70,6 @@ export const creationFlowMessages = defineMessages({
     createInstanceButton: {
         id: 'creation-flow.button.create-instance',
         defaultMessage: 'Create instance',
-    },
-    setupServerButton: {
-        id: 'creation-flow.button.setup-server',
-        defaultMessage: 'Setup server',
     },
     finishButton: {
         id: 'creation-flow.button.finish',
@@ -107,8 +95,6 @@ export const creationFlowMessages = defineMessages({
 
 export const flowTypeHeadingMessages: Record<FlowType, MessageDescriptor> = {
     world: creationFlowMessages.createWorldTitle,
-    'server-onboarding': creationFlowMessages.setUpServerTitle,
-    'reset-server': creationFlowMessages.resetServerTitle,
     instance: creationFlowMessages.createInstanceTitle,
 }
 
@@ -146,7 +132,6 @@ export interface CreationFlowContextValue {
     availableLoaders: string[]
     showSnapshotToggle: boolean
     disableClose: boolean
-    isInitialSetup: boolean
 
     // Initial values
     initialLoader: string | null
@@ -205,9 +190,6 @@ export interface CreationFlowContextValue {
     importSearchQuery: Ref<string>
     importAsSymlink: Ref<boolean>
 
-    // Confirm stage
-    hardReset: Ref<boolean>
-
     // Loading state (set when finish() is called, cleared on reset)
     loading: Ref<boolean>
     finishDisabled: ComputedRef<boolean>
@@ -236,7 +218,6 @@ export interface CreationFlowContextValue {
     setImportMode: () => void
     browseModpacks: () => void
     finish: () => void
-    buildProperties: () => Archon.Content.v1.PropertiesFields
     fetchLoaderMetadata: (loader?: string | null, gameVersion?: string) => Promise<void>
     prefetchLoaderMetadata: (gameVersion?: string) => Promise<void>
 
@@ -257,7 +238,6 @@ export interface CreationFlowOptions {
     availableLoaders?: string[]
     showSnapshotToggle?: boolean
     disableClose?: boolean
-    isInitialSetup?: boolean
     initialLoader?: string
     initialGameVersion?: string
     fetchExistingInstanceNames?: () => Promise<string[]>
@@ -293,7 +273,6 @@ export function createCreationFlowContext(
     const availableLoaders = options.availableLoaders ?? ['fabric', 'neoforge', 'forge', 'quilt']
     const showSnapshotToggle = options.showSnapshotToggle ?? false
     const disableClose = options.disableClose ?? false
-    const isInitialSetup = options.isInitialSetup ?? false
     const initialLoader = options.initialLoader ?? null
     const initialGameVersion = options.initialGameVersion ?? null
     const onBack = options.onBack ?? null
@@ -388,7 +367,6 @@ export function createCreationFlowContext(
     const importSearchQuery = ref('')
     const importAsSymlink = ref(false)
 
-    const hardReset = ref(isInitialSetup)
     const skipSetupType = ref(false)
     const loading = ref(false)
 
@@ -540,7 +518,6 @@ export function createCreationFlowContext(
         importSearchQuery.value = ''
         importAsSymlink.value = false
 
-        hardReset.value = isInitialSetup
         loading.value = false
     }
 
@@ -594,26 +571,6 @@ export function createCreationFlowContext(
         emit.create(contextValue)
     }
 
-    function buildProperties(): Archon.Content.v1.PropertiesFields {
-        const isHardcore = gamemode.value === 'hardcore'
-        const known: Archon.Content.v1.KnownPropertiesFields = {
-            gamemode: isHardcore ? 'survival' : gamemode.value,
-            hardcore: isHardcore ? 'true' : 'false',
-            difficulty: difficulty.value,
-            level_seed: worldSeed.value || null,
-            level_type: worldTypeOption.value,
-            generate_structures: String(generateStructures.value),
-        }
-
-        if (generatorSettingsMode.value === 'flat') {
-            known.generator_settings = ''
-        } else if (generatorSettingsMode.value === 'custom' && generatorSettingsCustom.value) {
-            known.generator_settings = generatorSettingsCustom.value
-        }
-
-        return { known }
-    }
-
     const resolvedStageConfigs = disableClose
         ? stageConfigs.map((stage) => ({ ...stage, disableClose: true }))
         : stageConfigs
@@ -624,7 +581,6 @@ export function createCreationFlowContext(
         availableLoaders,
         showSnapshotToggle,
         disableClose,
-        isInitialSetup,
         initialLoader,
         initialGameVersion,
         setupType,
@@ -668,7 +624,6 @@ export function createCreationFlowContext(
         importSelectedInstances,
         importSearchQuery,
         importAsSymlink,
-        hardReset,
         skipSetupType,
         loading,
         finishDisabled,
@@ -682,7 +637,6 @@ export function createCreationFlowContext(
         setImportMode,
         browseModpacks,
         finish,
-        buildProperties,
         fetchLoaderMetadata,
         prefetchLoaderMetadata,
         searchModpacks,

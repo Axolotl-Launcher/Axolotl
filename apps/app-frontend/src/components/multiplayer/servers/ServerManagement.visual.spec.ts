@@ -183,10 +183,7 @@ async function render(
                     setLocale: () => {},
                     t: (key: string, values?: Record<string, unknown>) => {
                         const text = (
-                            chinese as Record<
-                                string,
-                                { message?: string; defaultMessage?: string }
-                            >
+                            chinese as Record<string, { message?: string; defaultMessage?: string }>
                         )[key]?.message
                         return text
                             ? String(new IntlMessageFormat(text, 'zh-CN').format(values))

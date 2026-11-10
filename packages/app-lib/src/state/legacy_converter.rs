@@ -5,12 +5,15 @@ use crate::state;
 use crate::state::instances::adapters::sqlite::legacy_import::{
     self, LegacyLink, LegacyProfile,
 };
+use crate::state::store::Collection as _;
+use crate::state::store::Handle;
+use crate::state::store::modrinth_users::{ModrinthUserRecord, ModrinthUsers};
 use crate::state::{
     CacheValue, CachedEntry, CachedFileHash, CachedFileUpdate, Credentials,
     DefaultPage, DependencyType, DeviceToken, DeviceTokenKey, DeviceTokenPair,
     FileType, Hooks, InstanceInstallStage, JavaVersion, MemorySettings,
-    MinecraftAccountType, ModrinthCredentials, ModrinthHashMatch,
-    ReleaseChannel, TeamMember, Theme, VersionFile, WindowSize,
+    MinecraftAccountType, ModrinthHashMatch, ReleaseChannel, TeamMember, Theme,
+    VersionFile, WindowSize,
 };
 use crate::util::fetch::{IoSemaphore, read_json};
 use chrono::{DateTime, Utc};
@@ -23,7 +26,6 @@ use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 use super::MinecraftProfile;
-use crate::state::store::Handle;
 
 /// What the previous launcher left behind and this one has taken over.
 ///
@@ -130,13 +132,15 @@ where
         )
         .await
         {
-            ModrinthCredentials {
-                session: creds.session,
-                expires: creds.expires_at,
-                user_id: creds.user.id,
-                active: true,
-            }
-            .upsert(handle)
+            ModrinthUsers::set(
+                handle,
+                &creds.user.id,
+                Some(&ModrinthUserRecord {
+                    session_id: creds.session,
+                    expires: creds.expires_at.timestamp(),
+                    active: true,
+                }),
+            )
             .await?;
         }
 

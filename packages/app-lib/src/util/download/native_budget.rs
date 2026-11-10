@@ -1,25 +1,47 @@
 //! Per-authority physical connection admission; transfer weights use the shared download semaphore.
 
-use crate::util::download::constants::{
-    NATIVE_BUDGET_AUTHORITY_BATCH_CONTAINS_ENOUGH_PERMITS,
-    NATIVE_BUDGET_GLOBAL_BATCH_CONTAINS_ENOUGH_PERMITS,
-    NATIVE_BUDGET_REGULAR_BATCH_CONTAINS_ENOUGH_PERMITS,
-};
 use crate::util::fetch::{DownloadRoute, ProxyPolicy};
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 use super::constants::{
-    FORCED_DOWNLOAD_CONCURRENCY_MAX, MAX_CONNECTIONS_PER_AUTHORITY,
-    MAX_PHYSICAL_DOWNLOAD_CONNECTIONS,
+    FORCED_DOWNLOAD_CONCURRENCY_DEFAULT, FORCED_DOWNLOAD_CONCURRENCY_MAX,
+    MAX_CONNECTIONS_PER_AUTHORITY, MAX_PHYSICAL_DOWNLOAD_CONNECTIONS,
 };
 static PHYSICAL_CONNECTIONS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
     Arc::new(Semaphore::new(MAX_PHYSICAL_DOWNLOAD_CONNECTIONS))
 });
-static FORCED_CONNECTIONS: LazyLock<Arc<Semaphore>> =
-    LazyLock::new(|| Arc::new(Semaphore::new(FORCED_DOWNLOAD_CONCURRENCY_MAX)));
+static FORCED_CONNECTIONS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
+    Arc::new(Semaphore::new(FORCED_DOWNLOAD_CONCURRENCY_DEFAULT))
+});
+static FORCED_CAPACITY: AtomicUsize =
+    AtomicUsize::new(FORCED_DOWNLOAD_CONCURRENCY_DEFAULT);
+static FORCED_TARGET: AtomicUsize =
+    AtomicUsize::new(FORCED_DOWNLOAD_CONCURRENCY_DEFAULT);
+
+pub(crate) fn set_forced_capacity(target: usize) {
+    let target = target.clamp(1, FORCED_DOWNLOAD_CONCURRENCY_MAX);
+    FORCED_TARGET.store(target, Ordering::Release);
+    crate::state::grow_semaphore(&FORCED_CONNECTIONS, &FORCED_CAPACITY, target);
+}
+
+pub(crate) fn forced_capacity_needs_shrink() -> bool {
+    FORCED_CAPACITY.load(Ordering::Acquire)
+        > FORCED_TARGET.load(Ordering::Acquire)
+}
+
+pub(crate) async fn shrink_forced_capacity() {
+    super::h2_pool::evict_idle_connections(None).await;
+    crate::state::shrink_semaphore(
+        &FORCED_CONNECTIONS,
+        &FORCED_CAPACITY,
+        &FORCED_TARGET,
+    )
+    .await;
+}
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct AuthorityKey {
@@ -194,48 +216,66 @@ async fn acquire_many_with_mode(
     } else {
         MAX_CONNECTIONS_PER_AUTHORITY
     });
-    let mut regular = match regular_budget {
-        Some(budget) => {
-            if budget.available_permits() < count {
-                evict_idle_for_budget(route, false).await;
-            }
-            Some(budget.acquire_many_owned(count as u32).await?)
-        }
-        None => None,
-    };
-    let mut authority = match authority_budget {
-        Some(budget) => {
-            if budget.available_permits() < count {
-                evict_idle_for_budget(route, forced).await;
-            }
-            Some(budget.acquire_many_owned(count as u32).await?)
-        }
-        None => None,
-    };
-    if global_budget.available_permits() < count {
+    if count == 0 {
+        return Ok(Vec::new());
+    }
+    if regular_budget
+        .as_ref()
+        .is_some_and(|pool| pool.available_permits() == 0)
+    {
+        evict_idle_for_budget(route, false).await;
+    }
+    if authority_budget
+        .as_ref()
+        .is_some_and(|pool| pool.available_permits() == 0)
+    {
+        evict_idle_for_budget(route, forced).await;
+    }
+    if global_budget.available_permits() == 0 {
         super::h2_pool::evict_idle_connections(None).await;
     }
-    let mut global = global_budget
-        .clone()
-        .acquire_many_owned(count as u32)
-        .await?;
-    Ok((0..count)
-        .map(|_| NativeBudgetPermit {
-            _regular: regular.as_mut().map(|permit| {
-                permit
-                    .split(1)
-                    .expect(NATIVE_BUDGET_REGULAR_BATCH_CONTAINS_ENOUGH_PERMITS)
-            }),
-            _global: global
-                .split(1)
-                .expect(NATIVE_BUDGET_GLOBAL_BATCH_CONTAINS_ENOUGH_PERMITS),
-            _authority: authority.as_mut().map(|permit| {
-                permit.split(1).expect(
-                    NATIVE_BUDGET_AUTHORITY_BATCH_CONTAINS_ENOUGH_PERMITS,
-                )
-            }),
-        })
-        .collect())
+    // Await one connection only so queued requests survive live limit changes.
+    let regular = match &regular_budget {
+        Some(pool) => Some(pool.clone().acquire_owned().await?),
+        None => None,
+    };
+    let authority = match &authority_budget {
+        Some(pool) => Some(pool.clone().acquire_owned().await?),
+        None => None,
+    };
+    let global = global_budget.clone().acquire_owned().await?;
+    let mut permits = vec![NativeBudgetPermit {
+        _regular: regular,
+        _authority: authority,
+        _global: global,
+    }];
+    for _ in 1..count {
+        let regular = match regular_budget
+            .as_ref()
+            .map(|pool| pool.clone().try_acquire_owned())
+            .transpose()
+        {
+            Ok(permit) => permit,
+            Err(_) => break,
+        };
+        let authority = match authority_budget
+            .as_ref()
+            .map(|pool| pool.clone().try_acquire_owned())
+            .transpose()
+        {
+            Ok(permit) => permit,
+            Err(_) => break,
+        };
+        let Ok(global) = global_budget.clone().try_acquire_owned() else {
+            break;
+        };
+        permits.push(NativeBudgetPermit {
+            _regular: regular,
+            _authority: authority,
+            _global: global,
+        });
+    }
+    Ok(permits)
 }
 
 pub(crate) fn try_acquire(
@@ -282,7 +322,7 @@ pub(crate) fn in_use(route: &DownloadRoute) -> usize {
     let forced = forced_connections();
     budget(route, forced, &FORCED_CONNECTIONS).map_or(0, |budget| {
         let capacity = if forced {
-            FORCED_DOWNLOAD_CONCURRENCY_MAX
+            FORCED_CAPACITY.load(Ordering::Acquire)
         } else {
             MAX_CONNECTIONS_PER_AUTHORITY
         };
@@ -298,7 +338,7 @@ pub(crate) fn capacity(route: &DownloadRoute) -> usize {
 
 fn capacity_with_mode(route: &DownloadRoute, forced: bool) -> usize {
     if forced {
-        FORCED_DOWNLOAD_CONCURRENCY_MAX
+        FORCED_TARGET.load(Ordering::Acquire)
     } else {
         MAX_CONNECTIONS_PER_AUTHORITY
             - usize::from(regular_budget(route, false).is_some())
@@ -370,6 +410,47 @@ mod tests {
             global.available_permits(),
             MAX_PHYSICAL_DOWNLOAD_CONNECTIONS
         );
+    }
+
+    #[tokio::test]
+    async fn live_resize_keeps_active_permits_and_queued_batches_satisfiable() {
+        let global = Arc::new(Semaphore::new(256));
+        let forced = Arc::new(Semaphore::new(256));
+        let current = AtomicUsize::new(256);
+        let target = AtomicUsize::new(72);
+        let route = route();
+        let active =
+            acquire_many_with_mode(&route, 256, true, &global, &forced)
+                .await
+                .unwrap();
+        let pending =
+            acquire_many_with_mode(&route, 256, true, &global, &forced);
+        tokio::pin!(pending);
+        assert!(futures::poll!(pending.as_mut()).is_pending());
+        let shrink = crate::state::shrink_semaphore(&forced, &current, &target);
+        tokio::pin!(shrink);
+        assert!(futures::poll!(shrink.as_mut()).is_pending());
+        drop(active);
+        let replacement =
+            tokio::time::timeout(std::time::Duration::from_secs(1), pending)
+                .await
+                .unwrap()
+                .unwrap();
+        assert!(!replacement.is_empty());
+        drop(replacement);
+        tokio::time::timeout(std::time::Duration::from_secs(1), shrink)
+            .await
+            .unwrap();
+        assert_eq!(current.load(Ordering::Acquire), 72);
+        assert_eq!(forced.available_permits(), 72);
+        crate::state::grow_semaphore(&forced, &current, 256);
+        let expanded =
+            acquire_many_with_mode(&route, 256, true, &global, &forced)
+                .await
+                .unwrap();
+        assert_eq!(expanded.len(), 256);
+        drop(expanded);
+        assert_eq!(forced.available_permits(), 256);
     }
 
     #[tokio::test]

@@ -676,16 +676,17 @@ function backupOperationTitle(operation: BackupOperation): string {
 
 function backupOperationProgress(operation: BackupOperation): string {
     if (!operation.total_bytes) {
-        const stageMessages: Partial<Record<BackupOperation['state'], typeof messages.stageQueued>> =
-            {
-                queued: messages.stageQueued,
-                scanning: messages.stageScanning,
-                hashing: messages.stageHashing,
-                saving: messages.stageSaving,
-                validating: messages.stageValidating,
-                materializing: messages.stageMaterializing,
-                applying: messages.stageApplying,
-            }
+        const stageMessages: Partial<
+            Record<BackupOperation['state'], typeof messages.stageQueued>
+        > = {
+            queued: messages.stageQueued,
+            scanning: messages.stageScanning,
+            hashing: messages.stageHashing,
+            saving: messages.stageSaving,
+            validating: messages.stageValidating,
+            materializing: messages.stageMaterializing,
+            applying: messages.stageApplying,
+        }
         const stageMessage = stageMessages[operation.state] ?? messages.backupStage
         return formatMessage(
             stageMessage,
@@ -785,9 +786,9 @@ function applyBackupProgress(event: BackupProgressEvent) {
         return
     }
     // Delete operations are filtered out above, so the `deleting` stage cannot reach this branch.
-    const state = (event.stage === 'copying' || event.stage === 'restoring'
-        ? 'materializing'
-        : event.stage) as BackupOperation['state']
+    const state = (
+        event.stage === 'copying' || event.stage === 'restoring' ? 'materializing' : event.stage
+    ) as BackupOperation['state']
     eventActiveBackupOperations.add(event.operationId)
     const existing = activeBackupOperations.value.find(
         (operation) => operation.id === event.operationId,

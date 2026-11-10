@@ -42,6 +42,10 @@ pub(crate) async fn at_startup(state: &State) {
 /// hands a surviving row to the live registry: re-minting it and re-deriving
 /// its level (`TagRegistry::reconcile`, spec §5) arrive with the supervisor's
 /// restart path. Until then a surviving row is data that grants nothing.
+///
+/// A row the collection cannot interpret, such as one with an unknown level,
+/// is not returned by `get_all` and stays in the database. It grants nothing
+/// either, and the store reports it with a warning each time it is read.
 pub(crate) async fn clear_orphaned_tags(state: &State) -> crate::Result<u64> {
     let mut kept = 0;
     for (id, record) in SchedulerTags::get_all(&state.data).await? {

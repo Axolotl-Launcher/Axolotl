@@ -80,10 +80,8 @@ function watcherServices() {
         register: vi.fn(async (_id: string) => 'registration'),
         unregister: vi.fn(async (_id: string, _registration: string) => {}),
         watch: vi.fn(
-            async (
-                _path: string,
-                _handler: (paths: string[]) => void,
-            ): Promise<() => void> => vi.fn<() => void>(),
+            async (_path: string, _handler: (paths: string[]) => void): Promise<() => void> =>
+                vi.fn<() => void>(),
         ),
     }
 }

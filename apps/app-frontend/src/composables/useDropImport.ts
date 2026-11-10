@@ -313,6 +313,15 @@ export function useDropImport(options: DropImportOptions) {
             id: 'app.drop.error.unknown-text',
             defaultMessage: 'Could not determine what kind of file this is.',
         },
+        dropInvalidFolderText: {
+            id: 'app.drop.error.invalid-folder-text',
+            defaultMessage:
+                'No valid game instance or supported content was found in this folder. Choose another folder.',
+        },
+        dropInvalidFolderTitle: {
+            id: 'app.drop.error.invalid-folder-title',
+            defaultMessage: 'Cannot import folder',
+        },
         dropUnknownDepthText: {
             id: 'app.drop.error.unknown-depth-text',
             defaultMessage:
@@ -378,6 +387,11 @@ export function useDropImport(options: DropImportOptions) {
         dropNoInstances: {
             id: 'app.drop.no-instances',
             defaultMessage: 'No instances found',
+        },
+        dropNoInstancesText: {
+            id: 'app.drop.no-instances-text',
+            defaultMessage:
+                'No valid game instance was found in this folder. Choose a launcher folder or a .minecraft folder containing a game version.',
         },
         dropMinecraftAdded: {
             id: 'app.drop.minecraft-root-added',
@@ -530,8 +544,19 @@ export function useDropImport(options: DropImportOptions) {
         return /\.zip$/i.test(path)
     }
 
+    function unknownTitleMessage(reason: string | undefined): string {
+        return formatMessage(
+            reason === 'folder_has_no_importable_content'
+                ? messages.dropInvalidFolderTitle
+                : messages.dropUnknownTitle,
+        )
+    }
+
     function unknownReasonMessage(reason: string | undefined): string {
         const normalized = reason?.toLowerCase() ?? ''
+        if (normalized === 'folder_has_no_importable_content') {
+            return formatMessage(messages.dropInvalidFolderText)
+        }
         if (normalized.includes('too deep') || normalized.includes('nesting')) {
             return formatMessage(messages.dropUnknownDepthText)
         }
@@ -846,7 +871,11 @@ export function useDropImport(options: DropImportOptions) {
             if (totalInstances === 0) {
                 currentImportContext.value = null
                 dropDebug('handleDropConfirm: no instances found')
-                addNotification({ title: formatMessage(messages.dropNoInstances), type: 'warning' })
+                addNotification({
+                    title: formatMessage(messages.dropNoInstances),
+                    text: formatMessage(messages.dropNoInstancesText),
+                    type: 'warning',
+                })
                 cleanupLauncherZipTemp()
                 return
             }
@@ -1215,7 +1244,7 @@ export function useDropImport(options: DropImportOptions) {
     ) {
         if (result.item_type === 'unknown') {
             addNotification({
-                title: formatMessage(messages.dropUnknownTitle),
+                title: unknownTitleMessage(result.reason),
                 text: unknownReasonMessage(result.reason),
                 type: 'error',
             })
@@ -1707,7 +1736,10 @@ export function useDropImport(options: DropImportOptions) {
         )
         if (resolved.item_type === 'unknown') {
             item.scanState = 'skipped'
-            item.reason = resolved.reason ?? 'unknown'
+            item.reason =
+                resolved.reason === 'folder_has_no_importable_content'
+                    ? unknownReasonMessage(resolved.reason)
+                    : (resolved.reason ?? 'unknown')
             return
         }
 
@@ -1795,7 +1827,7 @@ export function useDropImport(options: DropImportOptions) {
             )
             if (instances.length === 0) {
                 item.scanState = 'skipped'
-                item.reason = 'No importable instances found'
+                item.reason = formatMessage(messages.dropNoInstancesText)
                 return
             }
             item.scanState = 'done'
@@ -2493,7 +2525,7 @@ export function useDropImport(options: DropImportOptions) {
                         })
                     } else {
                         addNotification({
-                            title: formatMessage(messages.dropUnknownTitle),
+                            title: unknownTitleMessage(classification?.reason),
                             text: unknownReasonMessage(classification?.reason),
                             type: 'error',
                         })
@@ -2616,6 +2648,7 @@ export function useDropImport(options: DropImportOptions) {
         clearDropProcessingNotification,
         showNestedUnpackPrompt,
         showForceAnalysisPrompt,
+        unknownTitleMessage,
         unknownReasonMessage,
     }
 }

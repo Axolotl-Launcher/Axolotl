@@ -1,11 +1,21 @@
 import { expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { effectScope, nextTick, ref } from 'vue'
 
-import { get_version_many } from '@/helpers/cache.js'
-import { compareContentIdentities } from '@/helpers/content-identity'
-import { getCurseForgeFiles } from '@/helpers/curseforge'
-import { list as listInstances, queue_content_batch } from '@/helpers/instance'
+import { get_project_many, get_version_many } from '@/helpers/cache.js'
+import {
+    compareContentIdentities,
+    contentIdentityInputsFromSnapshot,
+    resolveContentIdentities,
+} from '@/helpers/content-identity'
+import { getCurseForgeFiles, getCurseForgeProjects } from '@/helpers/curseforge'
+import {
+    get_content_snapshot,
+    type InstanceContentSnapshot,
+    list as listInstances,
+    queue_content_batch,
+} from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
+import type { ContentAnalysisReview } from '@/providers/content-analysis'
 
 import { createContentSelection } from './content-selection'
 import type { ContentSelectionItem } from './content-selection-types'
@@ -471,4 +481,310 @@ it('ignores instance refreshes whose page context expired before the response', 
     await pending
     expect(selection.targetInstance.value?.id).toBe(instance.id)
     expect(selection.instances.value).toEqual([])
+})
+
+it('does not let an older snapshot overwrite a refreshed installed identity', async () => {
+    let finishOld!: (value: never) => void
+    vi.mocked(get_content_snapshot)
+        .mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    finishOld = resolve
+                }),
+        )
+        .mockResolvedValueOnce({ items: [{ tag: 'new' }] } as never)
+    vi.mocked(get_project_many).mockResolvedValue([] as never)
+    vi.mocked(getCurseForgeProjects).mockResolvedValue([] as never)
+    vi.mocked(contentIdentityInputsFromSnapshot).mockImplementation((items) => [
+        {
+            provider: 'modrinth',
+            projectId: (items[0] as unknown as { tag: string }).tag,
+            contentType: 'mod',
+        },
+    ])
+    vi.mocked(resolveContentIdentities).mockImplementation(async (inputs) => inputs)
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    const old = selection.refreshInstalledIdentities()
+    await selection.refreshInstalledIdentities()
+    expect(selection.isInstalledIdentity('modrinth', 'new')).toBe(true)
+    finishOld({ items: [{ tag: 'old' }] } as never)
+    await old
+    expect(selection.isInstalledIdentity('modrinth', 'new')).toBe(true)
+    expect(selection.isInstalledIdentity('modrinth', 'old')).toBe(false)
+    vi.mocked(contentIdentityInputsFromSnapshot).mockReset().mockReturnValue([])
+    vi.mocked(resolveContentIdentities)
+        .mockReset()
+        .mockReturnValue([] as never)
+})
+
+function selectedMod(versionId?: string): ContentSelectionItem {
+    return {
+        key: 'modrinth:test',
+        provider: 'modrinth',
+        projectId: 'test',
+        providerProjectId: 'test',
+        contentType: 'mod',
+        title: 'Test',
+        versionId,
+        identity: { provider: 'modrinth', projectId: 'test', contentType: 'mod', sha1: 'same' },
+    }
+}
+
+function identitySnapshot(projectId = 'installed', hash = 'same'): InstanceContentSnapshot {
+    return {
+        instanceId: instance.id,
+        revision: 1,
+        pack: null,
+        pendingManualDownloads: [],
+        warnings: [],
+        items: [
+            {
+                provider: 'curseforge',
+                providerProjectId: projectId,
+                projectType: 'mod',
+                expectedRelativePath: 'mods/test.jar',
+                materializationState: 'present',
+                content: { id: hash, file_name: 'test.jar', size: 100, provider_refs: [] },
+            },
+        ],
+    } as unknown as InstanceContentSnapshot
+}
+
+it('keeps first and unchanged snapshots, recognition and history changes out of an open review', async () => {
+    const scope = effectScope()
+    const jobs = ref([{ job_id: 'history', status: 'succeeded', instance_id: instance.id }])
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs } as never,
+        }),
+    )!
+    let review!: ContentAnalysisReview
+    let finish!: (value: null) => void
+    selection.setResourceInstallPreview({
+        showInstallSelection: (input: { analysis: ContentAnalysisReview }) => {
+            review = input.analysis
+            return new Promise((resolve) => {
+                finish = resolve
+            })
+        },
+    } as never)
+    selection.setTarget(instance)
+    await selection.add(selectedMod())
+    const pending = selection.installSelected()
+    vi.mocked(get_project_many).mockResolvedValue([] as never)
+    vi.mocked(getCurseForgeProjects).mockResolvedValue([] as never)
+    const snapshot = identitySnapshot()
+    try {
+        vi.mocked(get_content_snapshot).mockResolvedValue(snapshot)
+        await selection.refreshInstalledIdentities()
+        expect(review.signal.aborted).toBe(false)
+        snapshot.revision++
+        snapshot.items[0].artifactRef = {
+            release: { project: { source: 'curseforge', projectId: 'installed' }, releaseId: 'v1' },
+            artifactId: 'artifact',
+        }
+        snapshot.items[0].overrideKind = 'version'
+        await selection.refreshInstalledIdentities()
+        jobs.value = []
+        await nextTick()
+        expect(review.signal.aborted).toBe(false)
+        jobs.value = [{ job_id: 'new-job', status: 'running', instance_id: instance.id }]
+        await nextTick()
+        const reads = vi.mocked(get_content_snapshot).mock.calls.length
+        jobs.value = [{ ...jobs.value[0], status: 'succeeded' }]
+        await vi.waitFor(() => expect(get_content_snapshot).toHaveBeenCalledTimes(reads + 1))
+        expect(review.signal.aborted).toBe(false)
+        selection.setTarget({ ...instance, game_version: '1.21.2' })
+        expect(review.signal.aborted).toBe(true)
+    } finally {
+        finish(null)
+        await pending
+        scope.stop()
+        vi.mocked(get_content_snapshot).mockResolvedValue(null as never)
+    }
+})
+
+it('invalidates an open review for changed bytes, paths, removals and completed installs', async () => {
+    for (const change of ['hash', 'path', 'remove', 'completed-job']) {
+        const scope = effectScope()
+        const jobs = ref([{ job_id: 'active', status: 'running', instance_id: instance.id }])
+        const selection = scope.run(() =>
+            createContentSelection({
+                addNotification: vi.fn(),
+                handleError: vi.fn(),
+                downloadManager: { jobs } as never,
+            }),
+        )!
+        let review!: ContentAnalysisReview
+        let finish!: (value: null) => void
+        selection.setResourceInstallPreview({
+            showInstallSelection: (input: { analysis: ContentAnalysisReview }) => {
+                review = input.analysis
+                return new Promise((resolve) => {
+                    finish = resolve
+                })
+            },
+        } as never)
+        selection.setTarget(instance)
+        const snapshot = identitySnapshot()
+        vi.mocked(get_content_snapshot).mockResolvedValue(snapshot)
+        await selection.refreshInstalledIdentities()
+        await selection.add(selectedMod())
+        const pending = selection.installSelected()
+        try {
+            if (change === 'path') snapshot.items[0].expectedRelativePath += '.disabled'
+            else if (change === 'remove') snapshot.items = []
+            else snapshot.items[0].content!.id = 'changed'
+            if (change === 'completed-job') {
+                jobs.value = [{ ...jobs.value[0], status: 'succeeded' }]
+                await vi.waitFor(() => expect(review.signal.aborted).toBe(true))
+            } else {
+                await selection.refreshInstalledIdentities()
+                expect(review.signal.aborted).toBe(true)
+            }
+        } finally {
+            finish(null)
+            await pending
+            scope.stop()
+        }
+    }
+    vi.mocked(get_content_snapshot).mockResolvedValue(null as never)
+})
+
+it('rechecks an addition against a newer identity snapshot instead of accepting an old empty result', async () => {
+    const scope = effectScope()
+    const addNotification = vi.fn()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification,
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    let finishOld!: (value: InstanceContentSnapshot) => void
+    vi.mocked(get_content_snapshot).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finishOld = resolve
+            }),
+    )
+    vi.mocked(get_content_snapshot).mockResolvedValue(identitySnapshot())
+    vi.mocked(contentIdentityInputsFromSnapshot).mockImplementation((items) =>
+        items.map((item) => ({
+            provider: item.provider!,
+            projectId: item.providerProjectId!,
+            contentType: 'mod',
+            sha1: item.content!.id,
+        })),
+    )
+    vi.mocked(resolveContentIdentities).mockImplementation(async (inputs) => inputs as never)
+    vi.mocked(compareContentIdentities).mockImplementation((candidate, existing) =>
+        candidate.sha1 === existing.sha1
+            ? { source: 'sha1', confidence: 'exact', identity: existing }
+            : null,
+    )
+    selection.setTarget(instance)
+    try {
+        const adding = selection.add(selectedMod('version'))
+        await vi.waitFor(() => expect(finishOld).toBeDefined())
+        await selection.refreshInstalledIdentities()
+        finishOld({ ...identitySnapshot(), items: [] })
+        expect(await adding).toBe(false)
+        expect(addNotification).toHaveBeenCalledOnce()
+        expect(selection.items.value.size).toBe(0)
+    } finally {
+        scope.stop()
+        vi.mocked(get_content_snapshot).mockResolvedValue(null as never)
+        vi.mocked(contentIdentityInputsFromSnapshot).mockReturnValue([])
+        vi.mocked(resolveContentIdentities).mockReturnValue([] as never)
+        vi.mocked(compareContentIdentities).mockReturnValue(null)
+    }
+})
+
+it('preserves successful identities on a failed refresh and retries on the next addition', async () => {
+    const scope = effectScope()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    vi.mocked(get_content_snapshot).mockResolvedValue(identitySnapshot())
+    vi.mocked(contentIdentityInputsFromSnapshot).mockImplementation((items) =>
+        items.map((item) => ({
+            provider: item.provider!,
+            projectId: item.providerProjectId!,
+            contentType: 'mod',
+        })),
+    )
+    vi.mocked(resolveContentIdentities).mockImplementation(async (inputs) => inputs as never)
+    selection.setTarget(instance)
+    try {
+        await selection.refreshInstalledIdentities()
+        expect(selection.isInstalledIdentity('curseforge', 'installed')).toBe(true)
+        vi.mocked(get_content_snapshot).mockRejectedValueOnce(new Error('temporary failure'))
+        await selection.refreshInstalledIdentities()
+        expect(selection.isInstalledIdentity('curseforge', 'installed')).toBe(true)
+        const reads = vi.mocked(get_content_snapshot).mock.calls.length
+        await selection.add(selectedMod('version'))
+        expect(get_content_snapshot).toHaveBeenCalledTimes(reads + 1)
+        expect(selection.isInstalledIdentity('curseforge', 'installed')).toBe(true)
+    } finally {
+        scope.stop()
+        vi.mocked(get_content_snapshot).mockResolvedValue(null as never)
+        vi.mocked(contentIdentityInputsFromSnapshot).mockReturnValue([])
+        vi.mocked(resolveContentIdentities).mockReturnValue([] as never)
+    }
+})
+
+it('does not reuse a retired identity request after switching away and back to the same instance', async () => {
+    const scope = effectScope()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    let finishOld!: (value: InstanceContentSnapshot) => void
+    vi.mocked(get_content_snapshot).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finishOld = resolve
+            }),
+    )
+    vi.mocked(get_content_snapshot).mockResolvedValue(identitySnapshot('new'))
+    vi.mocked(contentIdentityInputsFromSnapshot).mockImplementation((items) =>
+        items.map((item) => ({
+            provider: item.provider!,
+            projectId: item.providerProjectId!,
+            contentType: 'mod',
+        })),
+    )
+    vi.mocked(resolveContentIdentities).mockImplementation(async (inputs) => inputs as never)
+    selection.setTarget(instance)
+    const old = selection.refreshInstalledIdentities()
+    try {
+        selection.setTarget({ ...instance, id: 'other' })
+        selection.setTarget(instance)
+        await selection.add(selectedMod('version'))
+        expect(selection.isInstalledIdentity('curseforge', 'new')).toBe(true)
+        finishOld(identitySnapshot('old'))
+        await old
+        expect(selection.isInstalledIdentity('curseforge', 'new')).toBe(true)
+        expect(selection.isInstalledIdentity('curseforge', 'old')).toBe(false)
+    } finally {
+        scope.stop()
+        vi.mocked(get_content_snapshot).mockResolvedValue(null as never)
+        vi.mocked(contentIdentityInputsFromSnapshot).mockReturnValue([])
+        vi.mocked(resolveContentIdentities).mockReturnValue([] as never)
+    }
 })

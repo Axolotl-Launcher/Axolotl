@@ -110,6 +110,7 @@ struct CachedAddresses {
     resolved_at: Instant,
     ttl: Duration,
     consecutive_connection_failures: u8,
+    prefer_system: bool,
 }
 
 impl CachedAddresses {
@@ -143,6 +144,9 @@ pub struct DownloadDnsResolver {
     test_lookup_errors: Arc<Mutex<HashMap<String, std::io::ErrorKind>>>,
     #[cfg(test)]
     test_lookup_counts: Arc<Mutex<HashMap<String, usize>>>,
+    #[cfg(test)]
+    test_system_answers:
+        Arc<Mutex<HashMap<String, (Duration, Vec<SocketAddr>)>>>,
 }
 
 impl Default for DownloadDnsResolver {
@@ -178,6 +182,8 @@ impl Default for DownloadDnsResolver {
             test_lookup_errors: Arc::default(),
             #[cfg(test)]
             test_lookup_counts: Arc::default(),
+            #[cfg(test)]
+            test_system_answers: Arc::default(),
         }
     }
 }
@@ -336,7 +342,20 @@ impl DownloadDnsResolver {
             return false;
         }
         entry.resolved_at = Instant::now() - CACHE_TTL;
+        entry.prefer_system = self.doh_enabled;
         true
+    }
+
+    pub(crate) fn request_system_recovery(&self, host: &str) {
+        if !self.doh_enabled {
+            return;
+        }
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_resolved
+        let mut cached = self.last_resolved.lock();
+        if let Some(entry) = cached.get_mut(host) {
+            entry.resolved_at = Instant::now() - CACHE_TTL;
+            entry.prefer_system = true;
+        }
     }
 
     fn doh_cache_ttl(&self, host: &str, addresses: &[SocketAddr]) -> Duration {
@@ -372,6 +391,7 @@ impl DownloadDnsResolver {
                 resolved_at: Instant::now(),
                 ttl,
                 consecutive_connection_failures: 0,
+                prefer_system: false,
             },
         );
     }
@@ -387,6 +407,7 @@ impl DownloadDnsResolver {
     async fn lookup_addresses(
         &self,
         resolution_host: &str,
+        prefer_system: bool,
     ) -> std::io::Result<(Vec<SocketAddr>, Duration)> {
         #[cfg(test)]
         {
@@ -419,22 +440,107 @@ impl DownloadDnsResolver {
                 return Ok((addresses, ttl));
             }
         }
-        if self.doh_enabled {
-            match self.lookup_doh(resolution_host).await {
-                Ok(addresses) => {
-                    let ttl = self.doh_cache_ttl(resolution_host, &addresses);
-                    return Ok((addresses, ttl));
-                }
-                Err(error) => tracing::warn!(
-                    host = resolution_host,
-                    error = ?error,
-                    "DoH lookup failed; falling back to system DNS"
-                ),
+        if !self.doh_enabled {
+            return self.lookup_system(resolution_host).await;
+        }
+        let system = self.lookup_system(resolution_host);
+        let doh = async {
+            let addresses = self.lookup_doh(resolution_host).await?;
+            let ttl = self.doh_cache_ttl(resolution_host, &addresses);
+            Ok((addresses, ttl))
+        };
+        tokio::pin!(system, doh);
+        if prefer_system {
+            // A valid DoH answer can still point at an unusable CDN edge.
+            // Give the independent system route a bounded recovery attempt.
+            let deadline = tokio::time::Instant::now() + DOH_FALLBACK_TIMEOUT;
+            tokio::select! {
+                answer = &mut system => return match answer {
+                    Ok(answer) => Ok(answer),
+                    Err(_) => doh.await,
+                },
+                answer = &mut doh => {
+                    return match answer {
+                        Ok(doh_answer) => match tokio::time::timeout_at(deadline, &mut system).await {
+                            Ok(Ok(system_answer)) => Ok(system_answer),
+                            _ => Ok(doh_answer),
+                        },
+                        Err(_) => system.await,
+                    };
+                },
+                _ = tokio::time::sleep_until(deadline) => {},
             }
         }
-        tokio::net::lookup_host((resolution_host, 0))
-            .await
-            .map(|addresses| (addresses.collect(), CACHE_TTL))
+        tokio::select! {
+            answer = &mut system => match answer {
+                Ok(answer) => Ok(answer),
+                Err(_) => doh.await,
+            },
+            answer = &mut doh => match answer {
+                Ok(answer) => Ok(answer),
+                Err(error) => {
+                    tracing::warn!(host = resolution_host, error = ?error,
+                        "DoH lookup failed; waiting for system DNS");
+                    system.await
+                },
+            },
+        }
+    }
+
+    async fn lookup_system(
+        &self,
+        host: &str,
+    ) -> std::io::Result<(Vec<SocketAddr>, Duration)> {
+        #[cfg(test)]
+        {
+            let fixture = self.test_system_answers.lock().get(host).cloned();
+            if let Some((delay, addresses)) = fixture {
+                tokio::time::sleep(delay).await;
+                return if addresses.is_empty() {
+                    Err(std::io::Error::other(
+                        DOWNLOAD_DNS_DNS_RESPONSE_CONTAINED_NO_ADDRESSES,
+                    ))
+                } else {
+                    Ok((addresses, CACHE_TTL))
+                };
+            }
+            if let Some(addresses) =
+                self.test_addresses.lock().get(host).cloned()
+            {
+                return Ok((addresses, CACHE_TTL));
+            }
+        }
+        let addresses: Vec<_> =
+            tokio::net::lookup_host((host, 0)).await?.collect();
+        if addresses.is_empty() {
+            return Err(std::io::Error::other(
+                DOWNLOAD_DNS_DNS_RESPONSE_CONTAINED_NO_ADDRESSES,
+            ));
+        }
+        Ok((addresses, CACHE_TTL))
+    }
+
+    pub(crate) async fn resolve_system_host(
+        &self,
+        host: &str,
+    ) -> std::io::Result<Vec<IpAddr>> {
+        let host = normalize_host(host).map_err(std::io::Error::other)?;
+        let resolution_host = self.resolution_host(&host);
+        let (addresses, ttl) = tokio::time::timeout(
+            DOH_REQUEST_TIMEOUT + DNS_TIMEOUT_GRACE,
+            self.lookup_system(&resolution_host),
+        )
+        .await
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                format!("System DNS lookup for {host} timed out"),
+            )
+        })??;
+        let addresses = self.order_addresses(&host, addresses);
+        let resolved = addresses.iter().map(|address| address.ip()).collect();
+        self.cache_addresses(host, addresses, ttl);
+        Ok(resolved)
     }
 
     async fn lookup_doh(&self, host: &str) -> std::io::Result<Vec<SocketAddr>> {
@@ -570,13 +676,17 @@ impl DownloadDnsResolver {
         answers.retain(|old| {
             old.addresses.iter().any(|address| address.expires_at > now)
                 && !(old.source == answer.source
-                    && old.addresses.first().map(|a| a.ip.is_ipv4())
-                        == answer.addresses.first().map(|a| a.ip.is_ipv4()))
+                    && (answer.source == DnsSource::System
+                        || old.addresses.first().map(|a| a.ip.is_ipv4())
+                            == answer
+                                .addresses
+                                .first()
+                                .map(|a| a.ip.is_ipv4())))
         });
         // Retain the just-fetched TTL-zero answer for ordinary cache expiry;
         // candidate readers filter expired addresses before using metadata.
         answers.push(answer);
-        if answers.len() > BUILTIN_DOH_SERVERS.len() * 2 {
+        if answers.len() > BUILTIN_DOH_SERVERS.len() * 2 + 1 {
             answers.remove(0);
         }
     }
@@ -709,7 +819,27 @@ impl DownloadDnsResolver {
                 answer.addresses.retain(|address| address.expires_at > now);
             }
             answers.retain(|answer| !answer.addresses.is_empty());
-            let mut requests = FuturesUnordered::new();
+            let mut requests = FuturesUnordered::<
+                futures::future::BoxFuture<'_, std::io::Result<DnsAnswer>>,
+            >::new();
+            let system_host = resolution_host.clone();
+            requests.push(Box::pin(async move {
+                let (addresses, ttl) = self.lookup_system(&system_host).await?;
+                let now = Instant::now();
+                Ok(DnsAnswer {
+                    queried_host: system_host,
+                    cname_chain: Vec::new(),
+                    addresses: addresses
+                        .into_iter()
+                        .map(|address| DnsAddress {
+                            ip: address.ip(),
+                            expires_at: now + ttl,
+                        })
+                        .collect(),
+                    fetched_at: now,
+                    source: DnsSource::System,
+                })
+            }));
             for (endpoint, client) in self
                 .doh_provider_candidates()
                 .into_iter()
@@ -719,10 +849,10 @@ impl DownloadDnsResolver {
                     let query = doh_query(&resolution_host, record_type)?;
                     let endpoint = endpoint.clone();
                     let client = client.clone();
-                    requests.push(async move {
+                    requests.push(Box::pin(async move {
                         Self::lookup_doh_provider(&client, &endpoint, &query)
                             .await
-                    });
+                    }));
                 }
             }
             let mut last_error = None;
@@ -736,14 +866,15 @@ impl DownloadDnsResolver {
                         self.remember_answer(&resolution_host, answer.clone());
                         answers.retain(|old| {
                             !(old.source == answer.source
-                                && old
-                                    .addresses
-                                    .first()
-                                    .map(|a| a.ip.is_ipv4())
-                                    == answer
+                                && (answer.source == DnsSource::System
+                                    || old
                                         .addresses
                                         .first()
-                                        .map(|a| a.ip.is_ipv4()))
+                                        .map(|a| a.ip.is_ipv4())
+                                        == answer
+                                            .addresses
+                                            .first()
+                                            .map(|a| a.ip.is_ipv4())))
                         });
                         answers.push(answer);
                     }
@@ -822,9 +953,15 @@ impl DownloadDnsResolver {
             return Err(error);
         }
         let resolution_host = self.resolution_host(&host);
+        // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_resolved temporary
+        let prefer_system = self
+            .last_resolved
+            .lock()
+            .get(&host)
+            .is_some_and(|entry| entry.prefer_system);
         let lookup = tokio::time::timeout(
             DOH_REQUEST_TIMEOUT + DNS_TIMEOUT_GRACE,
-            self.lookup_addresses(&resolution_host),
+            self.lookup_addresses(&resolution_host, prefer_system),
         )
         .await
         .unwrap_or_else(|_| {
@@ -845,6 +982,7 @@ impl DownloadDnsResolver {
         let (mut addresses, ttl) = match lookup {
             Ok(addresses) => addresses,
             Err(error) => {
+                // sched-order: theseus::util::download_dns::DownloadDnsResolver.last_failed temporary
                 self.last_failed.lock().insert(
                     host,
                     CachedFailure {
@@ -885,6 +1023,29 @@ impl DownloadDnsResolver {
         self.test_addresses
             .lock()
             .insert(host.to_string(), addresses);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_system_answer(
+        &self,
+        host: &str,
+        delay: Duration,
+        addresses: Vec<SocketAddr>,
+    ) {
+        self.test_system_answers
+            .lock()
+            .insert(host.to_string(), (delay, addresses));
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_lookup_error(
+        &self,
+        host: &str,
+        kind: std::io::ErrorKind,
+    ) {
+        self.test_lookup_errors
+            .lock()
+            .insert(host.to_string(), kind);
     }
 
     /// The port a test fixture listens on, when the test address set for
@@ -1186,7 +1347,7 @@ impl Resolve for DownloadDnsResolver {
 
 #[cfg(test)]
 #[path = "download_dns/tests.rs"]
-mod metadata_tests;
+pub(crate) mod metadata_tests;
 
 #[cfg(test)]
 mod tests {

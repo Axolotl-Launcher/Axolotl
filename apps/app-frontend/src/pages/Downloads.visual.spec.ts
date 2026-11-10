@@ -208,7 +208,7 @@ it('links the slow-download hint to settings and distinguishes temporary and per
     try {
         const hint = wrapper.get('[data-testid="slow-downloads-hint"]')
         expect(hint.text()).toContain('下载缓慢？')
-        expect(hint.text()).toContain('开启强制多线程下载功能')
+        expect(hint.text()).toContain('开启强制多连接下载功能')
         const link = hint.get('a')
         const href = '/settings?target=resources-force-multiconnection#content-downloads'
         expect(link.text()).toBe('下载设置')

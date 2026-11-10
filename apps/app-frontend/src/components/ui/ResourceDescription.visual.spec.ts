@@ -1,5 +1,5 @@
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
-import { flushPromises, type GlobalMountOptions,mount } from '@vue/test-utils'
+import { flushPromises, type GlobalMountOptions, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 

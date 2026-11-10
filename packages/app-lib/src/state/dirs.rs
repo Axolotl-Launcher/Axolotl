@@ -29,6 +29,32 @@ pub struct DirectoryInfo {
     pub app_identifier: String,
 }
 
+async fn prepare_directory_move(
+    source: &Path,
+    destination: &Path,
+) -> crate::Result<bool> {
+    crate::util::io::create_dir_all(destination).await?;
+    match crate::util::io::metadata(source).await {
+        Ok(metadata) if metadata.is_dir() => Ok(true),
+        Ok(_) => Err(crate::ErrorKind::DirectoryMoveError(format!(
+            "The old launcher storage path is not a directory: {}",
+            source.display()
+        ))
+        .into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            // A disconnected drive must not prevent switching to a new root.
+            // There is nothing to migrate, and creating the old path would
+            // either fail again or recreate directories on the wrong drive.
+            tracing::warn!(
+                path = %source.display(),
+                "Old launcher storage directory is missing; switching without migrating its files"
+            );
+            Ok(false)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
 impl DirectoryInfo {
     pub(crate) fn synced_options_dir(&self) -> std::path::PathBuf {
         self.config_dir.join("synced-options")
@@ -433,12 +459,8 @@ impl DirectoryInfo {
                     paths: &mut Vec<MovePath>,
                     total_size: &mut u64,
                 ) -> crate::Result<()> {
-                    if !source.exists() {
-                        crate::util::io::create_dir_all(source).await?;
-                    }
-
-                    if !destination.exists() {
-                        crate::util::io::create_dir_all(destination).await?;
+                    if !prepare_directory_move(source, destination).await? {
+                        return Ok(());
                     }
 
                     for entry_path in
@@ -738,6 +760,64 @@ impl DirectoryInfo {
         settings.update(handle).await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod directory_move_tests {
+    use super::prepare_directory_move;
+
+    #[tokio::test]
+    async fn missing_old_storage_does_not_block_switching_directories() {
+        let temp = tempfile::tempdir().unwrap();
+        let missing_root = temp.path().join("disconnected-drive");
+        let new_root = temp.path().join("new-storage");
+
+        for folder in ["caches", "profiles", "meta"] {
+            let destination = new_root.join(folder);
+            assert!(
+                !prepare_directory_move(
+                    &missing_root.join(folder),
+                    &destination
+                )
+                .await
+                .unwrap()
+            );
+            assert!(destination.is_dir());
+        }
+        assert!(!missing_root.exists(), "never recreate the old storage");
+    }
+
+    #[tokio::test]
+    async fn existing_old_storage_is_still_migrated() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("old/profiles");
+        let destination = temp.path().join("new/profiles");
+        tokio::fs::create_dir_all(&source).await.unwrap();
+        tokio::fs::write(source.join("instance.json"), b"instance")
+            .await
+            .unwrap();
+
+        assert!(prepare_directory_move(&source, &destination).await.unwrap());
+        assert!(destination.is_dir());
+        assert_eq!(
+            tokio::fs::read(source.join("instance.json")).await.unwrap(),
+            b"instance"
+        );
+    }
+
+    #[tokio::test]
+    async fn malformed_old_storage_is_not_treated_as_missing() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("profiles");
+        tokio::fs::write(&source, b"not a directory").await.unwrap();
+
+        let error = prepare_directory_move(&source, &temp.path().join("new"))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(source.to_string_lossy().as_ref()), "{error}");
+        assert!(error.contains("not a directory"), "{error}");
     }
 }
 

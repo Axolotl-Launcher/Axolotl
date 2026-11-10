@@ -139,7 +139,6 @@
     "logs:default",
     "metadata:default",
     "minecraft-skins:default",
-    "mr-auth:default",
     "mod-translation:default",
     "instance:default",
     "install:default",
@@ -171,7 +170,6 @@
     "terracotta:default",
     "multiplayer:default",
     "servers:default",
-    "friends:default",
     "telemetry:default",
     "planet-minecraft:default"
   ]

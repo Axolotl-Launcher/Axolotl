@@ -4,14 +4,20 @@ import { CheckIcon, DownloadIcon, XIcon } from '@modrinth/assets'
 import {
     Avatar,
     Badge,
+    BUILTIN_GAME_DIRECTORY,
     Button,
     Combobox,
     commonMessages,
+    type ConfiguredMinecraftDirectory,
     defineMessages,
+    GameDirectoryPicker,
+    injectNotificationManager,
+    loadMinecraftDirectories,
     NewModal,
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
+import { join } from '@tauri-apps/api/path'
 import { computed, ref } from 'vue'
 
 import { releaseColor } from '@/helpers/utils'
@@ -30,15 +36,19 @@ export interface ModpackInstallModalData {
 }
 
 const emit = defineEmits<{
-    install: [versionId: string, name: string]
+    install: [versionId: string, name: string, gameDirOverride: string | null]
     cancel: []
 }>()
 
 const { formatMessage } = useVIntl()
+const { handleError } = injectNotificationManager()
+let generation = 0
 const modal = ref<InstanceType<typeof NewModal>>()
 const data = ref<ModpackInstallModalData | null>(null)
 const selectedVersionId = ref('')
 const instanceName = ref('')
+const configuredDirectories = ref<ConfiguredMinecraftDirectory[]>([])
+const selectedGameDirectory = ref(BUILTIN_GAME_DIRECTORY)
 const submitting = ref(false)
 const submitted = ref(false)
 
@@ -103,7 +113,8 @@ const existingInstances = computed(
 )
 
 const folderName = computed(() => {
-    const baseName = instanceName.value.trim().replace(/[\\/?*:'"|<>!]/g, '_')
+    const sanitized = instanceName.value.trim().replace(/[\\/?*:'"|<>!]/g, '_')
+    const baseName = sanitized === '.' || sanitized === '..' ? '_' : sanitized
     let candidate = baseName
     let index = 1
     while (candidate && data.value?.instancePaths.includes(candidate)) {
@@ -115,7 +126,12 @@ const folderName = computed(() => {
 const hasFolderNameConflict = computed(() => folderName.value !== instanceName.value.trim())
 
 const canInstall = computed(
-    () => !!selectedVersion.value && instanceName.value.trim().length > 0 && !submitting.value,
+    () =>
+        !!selectedVersion.value &&
+        instanceName.value.trim().length > 0 &&
+        !['.', '..'].includes(instanceName.value.trim()) &&
+        !submitting.value &&
+        !submitted.value,
 )
 
 function versionLabel(version: Labrinth.Versions.v2.Version) {
@@ -125,6 +141,9 @@ function versionLabel(version: Labrinth.Versions.v2.Version) {
 }
 
 function show(nextData: ModpackInstallModalData) {
+    generation += 1
+    configuredDirectories.value = loadMinecraftDirectories()
+    selectedGameDirectory.value = BUILTIN_GAME_DIRECTORY
     data.value = nextData
     selectedVersionId.value =
         nextData.versions.find((version) => version.id === nextData.initialVersionId)?.id ??
@@ -137,18 +156,39 @@ function show(nextData: ModpackInstallModalData) {
 }
 
 function hide() {
+    generation += 1
     modal.value?.hide()
 }
 
-function submit() {
+async function submit() {
     if (!canInstall.value) return
+    const submissionGeneration = generation
+    const versionId = selectedVersionId.value
+    const name = instanceName.value.trim()
+    const folder = folderName.value
+    const directory = configuredDirectories.value.find(
+        (entry) => entry.path === selectedGameDirectory.value,
+    )
     submitting.value = true
-    submitted.value = true
-    emit('install', selectedVersionId.value, instanceName.value.trim())
-    modal.value?.hide()
+    try {
+        const gameDirOverride = directory
+            ? directory.mode === 'shared'
+                ? directory.path
+                : await join(directory.path, 'versions', folder)
+            : null
+        if (submissionGeneration !== generation) return
+        submitted.value = true
+        emit('install', versionId, name, gameDirOverride)
+        modal.value?.hide()
+    } catch (error) {
+        if (submissionGeneration !== generation) return
+        submitting.value = false
+        handleError(error)
+    }
 }
 
 function handleHide() {
+    generation += 1
     if (!submitted.value) emit('cancel')
 }
 
@@ -232,6 +272,12 @@ defineExpose({ show, hide })
                     )
                 }}
             </p>
+
+            <GameDirectoryPicker
+                v-if="configuredDirectories.length"
+                v-model="selectedGameDirectory"
+                :directories="configuredDirectories"
+            />
 
             <div
                 v-if="existingInstances.length"

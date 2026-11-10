@@ -1,6 +1,29 @@
+import type { ContentRefreshMode } from '@/helpers/content-refresh'
+import type { InstanceContentSnapshot } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
 
 type ContentScope = Pick<GameInstance, 'id' | 'install_stage'>
+
+/** Cached warnings survive a page visit even when the new task has no failures. */
+export function modsContentRetryMode(
+    warnings: InstanceContentSnapshot['warnings'],
+    failed: number,
+): ContentRefreshMode | null {
+    let retryEntries = failed > 0
+    for (const warning of warnings) {
+        if (
+            warning.code === 'provider_metadata_unavailable' ||
+            warning.code === 'pack_metadata_unavailable' ||
+            warning.code === 'resource_history_unavailable'
+        )
+            return 'force_remote'
+        if (warning.code === 'resource_update_unavailable') {
+            if (!warning.entryId) return 'force_remote'
+            retryEntries = true
+        }
+    }
+    return retryEntries ? 'retry_failed' : null
+}
 
 export function modsContentScopeTransition(current: ContentScope, previous: ContentScope) {
     const changedInstance = current.id !== previous.id

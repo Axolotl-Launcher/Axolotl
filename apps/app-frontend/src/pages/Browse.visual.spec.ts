@@ -1,7 +1,8 @@
+import type { BrowseManagerContext } from '@modrinth/ui'
 import { flushPromises, mount } from '@vue/test-utils'
 import { IntlMessageFormat } from 'intl-messageformat'
 import { expect, it, vi } from 'vitest'
-import { reactive } from 'vue'
+import { computed, defineComponent, h, reactive, ref } from 'vue'
 
 import zhMessages from '@/locales/zh-CN/index.json'
 
@@ -10,6 +11,10 @@ import Browse from './Browse.vue'
 const api = vi.hoisted(() => ({
     instance: vi.fn().mockResolvedValue(null),
     installedIds: vi.fn().mockResolvedValue([]),
+    contentSnapshot: vi.fn().mockResolvedValue({ items: [] }),
+    startContentRefresh: vi.fn().mockResolvedValue({}),
+    contentRefreshListener: null as
+        null | ((event: { instanceId: string; patch: { kind: string } }) => void),
     handleError: vi.fn(),
     capability: vi.fn(),
     categories: vi.fn(),
@@ -39,7 +44,8 @@ vi.mock('@tauri-apps/api/core', () => ({
     invoke: vi.fn().mockResolvedValue([]),
     convertFileSrc: (path: string) => path,
 }))
-vi.mock('vue-router', async () => {
+vi.mock('vue-router', async (original) => {
+    const router = await original<typeof import('vue-router')>()
     const { reactive } = await import('vue')
     const route = reactive({
         params: { projectType: 'mod' },
@@ -48,6 +54,7 @@ vi.mock('vue-router', async () => {
         fullPath: '/browse/mod',
     })
     return {
+        ...router,
         useRoute: () => route,
         useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
         onBeforeRouteLeave: vi.fn(),
@@ -109,12 +116,24 @@ vi.mock('@/helpers/tags', () => ({
     get_game_versions: api.gameVersions,
 }))
 vi.mock('@/helpers/events.js', () => ({ instance_listener: async () => () => {} }))
+vi.mock('@/helpers/content-refresh', () => ({
+    resourceStartContentRefresh: api.startContentRefresh,
+    listenContentRefresh: async (
+        listener: (event: { instanceId: string; patch: { kind: string } }) => void,
+    ) => {
+        api.contentRefreshListener = listener
+        return () => {
+            api.contentRefreshListener = null
+        }
+    },
+}))
 vi.mock('@/helpers/content-search', () => ({
     resolveMcmodUrl: async () => null,
     translateSearchHitTitles: async (hits: unknown[]) => hits,
 }))
 vi.mock('@/helpers/instance', () => ({
     get_installed_project_ids: api.installedIds,
+    get_content_snapshot: api.contentSnapshot,
     get: api.instance,
     get_projects: async () => [],
     list: async () => [],
@@ -246,30 +265,6 @@ vi.mock('@/providers/server-install', async () => {
     const { ref } = await import('vue')
     return { injectServerInstall: () => ({ installingServerProjects: ref({}) }) }
 })
-vi.mock('@/providers/setup/server-install-content', async () => {
-    const { ref } = await import('vue')
-    return {
-        provideServerInstallContent: vi.fn(),
-        createServerInstallContent: () => ({
-            enforceSetupModpackRoute: vi.fn(),
-            serverContextServerData: ref(null),
-            isServerContext: ref(false),
-            isSetupServerContext: ref(false),
-            isFromWorlds: ref(false),
-            serverIdQuery: ref(''),
-            serverFlowFrom: ref(''),
-            effectiveServerWorldId: ref(''),
-            serverBrowseHeading: ref(''),
-            queuedServerInstallProjectIds: ref(new Set()),
-            serverContentProjectIds: ref(new Set()),
-            queuedServerInstallCount: ref(0),
-            selectedServerInstallProjects: ref([]),
-            isInstallingQueuedServerInstalls: ref(false),
-            watchServerContextChanges: vi.fn(),
-            initServerContext: async () => {},
-        }),
-    }
-})
 vi.mock('@/components/browse/BrowseInstanceSelector.vue', () => ({
     default: { render: () => null },
 }))
@@ -280,7 +275,10 @@ vi.mock('@/components/ui/InstanceIndicator.vue', () => ({ default: { render: () 
 vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/components/ui/ContextMenu.vue', () => ({ default: { render: () => null } }))
 vi.mock('./UpgradeProjectReturnBar.vue', () => ({ default: { render: () => null } }))
-vi.mock('@tanstack/vue-query', () => ({ useQueryClient: () => ({}) }))
+vi.mock('@tanstack/vue-query', async (original) => ({
+    ...(await original<typeof import('@tanstack/vue-query')>()),
+    useQueryClient: () => ({}),
+}))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h, ref, computed } = await import('vue')
     return {
@@ -323,8 +321,6 @@ vi.mock('@modrinth/ui', async () => {
         getSelectedInstallPreferences: vi.fn(),
         isVersionTypeMatch: () => false,
         preferencesDiffer: () => false,
-        stripServerRuntimeInstallFilters: (value: unknown) => value,
-        stripServerRuntimeInstallOverrides: (value: unknown) => value,
         provideBrowseManager: (context: unknown) => {
             api.context = context
         },
@@ -357,6 +353,7 @@ vi.mock('@modrinth/ui', async () => {
             }
         },
         commonMessages: {
+            installingLabel: { defaultMessage: 'Installing' },
             installingContentLabel: { defaultMessage: 'Installing content' },
             retryButton: { defaultMessage: 'Retry' },
             backButton: { defaultMessage: 'Back' },
@@ -456,6 +453,62 @@ it('mounts the browse shell before capabilities resolve and preserves type-speci
         expect(api.refresh).toHaveBeenCalledTimes(2)
     } finally {
         wrapper.unmount()
+    }
+})
+
+it('renders the shared browse layout with the desktop page context before and after a route update', async () => {
+    const [{ default: BrowsePageLayout }, { provideBrowseManager }, { I18N_INJECTION_KEY }] =
+        await Promise.all([
+            import('@modrinth/ui/src/layouts/shared/browse-tab/layout.vue'),
+            import('@modrinth/ui/src/layouts/shared/browse-tab/providers/browse-manager'),
+            import('@modrinth/ui/src/providers/i18n'),
+        ])
+    api.capability.mockResolvedValue({ status: 'available', configured: true, key_source: 'user' })
+    api.categories.mockResolvedValue([])
+    const page = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    let layout: ReturnType<typeof mount> | undefined
+    try {
+        await flushPromises()
+        const context = api.context as BrowseManagerContext
+        const Harness = defineComponent({
+            setup() {
+                provideBrowseManager({
+                    ...context,
+                    effectiveLayout: computed(() => 'list'),
+                    maxResults: ref(20),
+                    pageCount: computed(() => 1),
+                })
+                return () => h(BrowsePageLayout)
+            },
+        })
+        layout = mount(Harness, {
+            global: {
+                provide: {
+                    [I18N_INJECTION_KEY as symbol]: {
+                        locale: ref('en-US'),
+                        t: (key: string) => key,
+                        setLocale: () => {},
+                    },
+                },
+                stubs: {
+                    BrowseToolbar: true,
+                    BrowseResultControls: true,
+                    ProjectCardList: true,
+                    ProjectCardSkeleton: true,
+                    Pagination: true,
+                },
+                directives: { tooltip: {} },
+            },
+        })
+        expect(layout.getComponent({ name: 'BrowseToolbar' }).props('showTabs')).toBe(true)
+        context.projectType.value = 'modpack'
+        await flushPromises()
+        expect(layout.getComponent({ name: 'BrowseToolbar' }).props('showTabs')).toBe(true)
+    } finally {
+        layout?.unmount()
+        page.unmount()
     }
 })
 
@@ -668,5 +721,180 @@ it('keeps filters disabled until the implicit installed-content filter is initia
         wrapper.unmount()
         route.query = {}
         api.instance.mockResolvedValue(null)
+    }
+})
+
+it('updates installed content when a manual import is recognized in the background', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'mod'
+    route.query = { source: 'modrinth', i: 'target' }
+    api.instance.mockResolvedValue({
+        id: 'target',
+        name: 'Target',
+        install_stage: 'installed',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    })
+    api.installedIds.mockResolvedValue([])
+    api.contentSnapshot.mockResolvedValue({ items: [] })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as {
+            targetInstance: { value: unknown }
+            refreshInstalledIdentities: ReturnType<typeof vi.fn>
+        }
+        selection.targetInstance.value = {
+            id: 'target',
+            name: 'Target',
+            install_stage: 'installed',
+            game_version: '1.21.1',
+            loader: 'fabric',
+        }
+        const vm = wrapper.vm as unknown as {
+            refreshInstalledProjectIds: () => Promise<boolean>
+            allInstalledIds: Set<string>
+        }
+        await vm.refreshInstalledProjectIds()
+        expect(api.startContentRefresh).toHaveBeenCalledWith('target', 'normal')
+        expect(vm.allInstalledIds.has('abc')).toBe(false)
+        api.contentSnapshot.mockResolvedValue({
+            items: [
+                {
+                    projectType: 'mod',
+                    provider: null,
+                    providerProjectId: null,
+                    materializationState: 'present',
+                    expectedRelativePath: 'mods/example.jar',
+                    content: null,
+                    artifactRef: { release: { project: { source: 'modrinth', projectId: 'abc' } } },
+                },
+            ],
+        })
+        api.contentRefreshListener?.({ instanceId: 'other', patch: { kind: 'entry' } })
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        expect(vm.allInstalledIds.has('abc')).toBe(false)
+        api.contentRefreshListener?.({ instanceId: 'target', patch: { kind: 'entry' } })
+        await vi.waitFor(() => expect(vm.allInstalledIds.has('abc')).toBe(true))
+        expect(selection.refreshInstalledIdentities).toHaveBeenCalled()
+        api.contentSnapshot.mockResolvedValue({ items: [] })
+        api.contentRefreshListener?.({ instanceId: 'target', patch: { kind: 'content' } })
+        await vi.waitFor(() => expect(vm.allInstalledIds.has('abc')).toBe(false))
+    } finally {
+        wrapper.unmount()
+        route.query = {}
+        api.instance.mockResolvedValue(null)
+        api.contentSnapshot.mockResolvedValue({ items: [] })
+    }
+})
+
+it('ignores retired hosting query parameters while keeping the local instance install target', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'mod'
+    route.query = {
+        source: 'modrinth',
+        i: 'target',
+        sid: 'old-host',
+        wid: 'old-world',
+        shi: 'true',
+    }
+    api.instance.mockResolvedValue({
+        id: 'target',
+        name: 'Local instance',
+        install_stage: 'installed',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    })
+    api.capability.mockResolvedValue({ configured: true })
+    api.refresh.mockClear()
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as {
+            targetInstance: { value: unknown }
+            refreshInstances: ReturnType<typeof vi.fn>
+        }
+        selection.targetInstance.value = {
+            id: 'target',
+            name: 'Local instance',
+            game_version: '1.21.1',
+            loader: 'fabric',
+        }
+        await flushPromises()
+        const context = api.context as {
+            installContext: { value: { name: string; gameVersion: string; backUrl: string } }
+            selectableProjectTypes: { value: { href: string }[] }
+        }
+        expect(selection.refreshInstances).toHaveBeenCalledWith('target', expect.any(Function))
+        expect(context.installContext.value).toMatchObject({
+            name: 'Local instance',
+            gameVersion: '1.21.1',
+            backUrl: '/instance/target',
+        })
+        expect(context.selectableProjectTypes.value.length).toBeGreaterThan(1)
+        expect(
+            context.selectableProjectTypes.value.every(({ href }) => !href.includes('sid=')),
+        ).toBe(true)
+        expect((api.extraQuery as () => Record<string, unknown>)()).not.toHaveProperty('wid')
+        expect(api.refresh).toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+        route.query = {}
+        api.instance.mockResolvedValue(null)
+        api.selection = null
+    }
+})
+
+it('keeps the installing action label for public modpack downloads', async () => {
+    const { useRoute } = await import('vue-router')
+    const route = useRoute()
+    route.params.projectType = 'modpack'
+    route.query = { source: 'modrinth' }
+    api.capability.mockResolvedValue({ configured: true })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as { isInstalling: () => boolean }
+        selection.isInstalling = () => true
+        const context = api.context as {
+            getCardActions: (
+                project: unknown,
+                type: string,
+            ) => { key: string; label: string; disabled: boolean }[]
+        }
+        const action = context
+            .getCardActions(
+                { provider: 'modrinth', project_id: 'public-pack', title: 'Public pack' },
+                'modpack',
+            )
+            .find((entry) => entry.key === 'install')
+        expect(action).toMatchObject({ label: 'Installing', disabled: true })
+    } finally {
+        wrapper.unmount()
+        route.params.projectType = 'mod'
+        route.query = {}
+        api.selection = null
+    }
+})
+
+it('provides the project type tab visibility required by the shared browse layout', async () => {
+    api.capability.mockResolvedValue({ configured: true })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const context = api.context as { showProjectTypeTabs?: { value: boolean } }
+        expect(context.showProjectTypeTabs?.value).toBe(true)
+    } finally {
+        wrapper.unmount()
     }
 })

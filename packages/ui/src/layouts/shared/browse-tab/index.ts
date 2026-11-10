@@ -1,5 +1,6 @@
 export { default as BrowseResultControls } from './components/BrowseResultControls.vue'
 export { default as BrowseSourceSelector } from './components/BrowseSourceSelector.vue'
+export { default as SelectAllButton } from './components/SelectAllButton.vue'
 export { default as SelectedProjectsFloatingBar } from './components/SelectedProjectsFloatingBar.vue'
 export * from './composables'
 export { default as BrowseInstallHeader } from './header.vue'

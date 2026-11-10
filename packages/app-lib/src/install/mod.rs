@@ -38,14 +38,15 @@ pub use model::{
 };
 pub use runner::{
     cancel_job, clear_job_history, create_instance,
-    create_instance_with_adjuncts, create_modpack_instance, dismiss_job,
-    download_java, duplicate_instance, get_job, import_instance,
-    import_instance_with_path, import_instance_with_plan,
-    install_content_batch, install_curseforge_world, install_existing_instance,
-    install_pack_to_existing_instance, job_support_details, list_jobs,
-    queue_content_change, repair_cache_and_retry_job, resume_job, retry_job,
-    retry_job_as_new, skip_missing_content_and_resume_job,
-    update_managed_curseforge_modpack, upgrade_unmanaged_instance,
+    create_instance_with_adjuncts, create_modpack_instance,
+    create_modpack_instance_with_game_dir, dismiss_job, download_java,
+    duplicate_instance, get_job, import_instance, import_instance_with_path,
+    import_instance_with_plan, install_content_batch, install_curseforge_world,
+    install_existing_instance, install_pack_to_existing_instance,
+    job_support_details, list_jobs, queue_content_change,
+    repair_cache_and_retry_job, resume_job, retry_job, retry_job_as_new,
+    skip_missing_content_and_resume_job, update_managed_curseforge_modpack,
+    upgrade_unmanaged_instance,
 };
 
 /// Returns live observations, or the bounded capture saved with a historical job.

@@ -166,9 +166,19 @@ pub async fn create_modpack_instance(
     location: CreatePackLocation,
     post_install_edit: Option<InstallPostInstallEdit>,
 ) -> crate::Result<InstallJobSnapshot> {
+    create_modpack_instance_with_game_dir(location, post_install_edit, None)
+        .await
+}
+
+pub async fn create_modpack_instance_with_game_dir(
+    location: CreatePackLocation,
+    post_install_edit: Option<InstallPostInstallEdit>,
+    game_dir_override: Option<String>,
+) -> crate::Result<InstallJobSnapshot> {
     start(InstallRequest::CreateModpackInstance {
         location,
         post_install_edit,
+        game_dir_override,
     })
     .await
 }

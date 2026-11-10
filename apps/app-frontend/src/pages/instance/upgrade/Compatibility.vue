@@ -1000,7 +1000,10 @@ function twoOptionPresentation(item: InstanceUpgradePlanItem) {
 }
 
 function prereleasePresentation(item: InstanceUpgradePlanItem) {
-    return upgradeResolutionPresentation('single-prerelease', item.resolution)
+    const presentation = upgradeResolutionPresentation('single-prerelease', item.resolution)
+    return hasBlockingIssue(item, 'prerelease_only')
+        ? { ...presentation, selectedAction: null }
+        : presentation
 }
 
 function dependencyVersionChange(change: InstanceUpgradeDependencyChange): string {
@@ -1166,7 +1169,8 @@ async function resetAction(item: InstanceUpgradePlanItem) {
 }
 
 async function allowPrerelease(item: InstanceUpgradePlanItem) {
-    if (item.resolution.allowPrerelease) return
+    if (itemControlsDisabled(item)) return
+    if (item.resolution.allowPrerelease && !hasBlockingIssue(item, 'prerelease_only')) return
     pendingAction[item.contentId] = 'upgrade'
     await queueResolution(item, (current) => {
         const confirmations = plan.value.blockingIssues

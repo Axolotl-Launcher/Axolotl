@@ -92,7 +92,7 @@ async function mountExport() {
 
 /**
  * `MultiStageModal` is a generic SFC, which @vue/test-utils' overloads
- * mis-detect as a functional component and type as a DOM wrapper. The test
+ * mistake for a functional component and type as a DOM wrapper. The test
  * only needs the methods the component exposes, so narrow the wrapper locally.
  */
 interface MultiStageModalVm {

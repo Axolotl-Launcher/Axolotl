@@ -4,7 +4,8 @@ import { invoke } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 
 import { isOfflineMode } from '@/composables/useNetworkStatus'
-import { get_full_path, resolveGcLaunchIntent } from '@/helpers/instance'
+import { get_full_path, type InstanceRunResult, resolveGcLaunchIntent } from '@/helpers/instance'
+import { trackInstanceLaunch } from '@/helpers/instance-launch-state'
 import { openPath } from '@/helpers/utils'
 
 type BaseWorld = {
@@ -247,24 +248,28 @@ export async function start_join_singleplayer_world(
     instanceId: string,
     world: string,
 ): Promise<unknown> {
-    const { args, gcIntent } = await resolveGcLaunchIntent(instanceId)
-    return await invoke('plugin:worlds|start_join_singleplayer_world', {
-        instanceId,
-        world,
-        offlineMode: isOfflineMode(),
-        extraLaunchArgs: args,
-        gcIntent,
+    return trackInstanceLaunch(instanceId, async () => {
+        const { args, gcIntent } = await resolveGcLaunchIntent(instanceId)
+        return await invoke<InstanceRunResult>('plugin:worlds|start_join_singleplayer_world', {
+            instanceId,
+            world,
+            offlineMode: isOfflineMode(),
+            extraLaunchArgs: args,
+            gcIntent,
+        })
     })
 }
 
 export async function start_join_server(instanceId: string, address: string): Promise<unknown> {
-    const { args, gcIntent } = await resolveGcLaunchIntent(instanceId)
-    return await invoke('plugin:worlds|start_join_server', {
-        instanceId,
-        address,
-        offlineMode: isOfflineMode(),
-        extraLaunchArgs: args,
-        gcIntent,
+    return trackInstanceLaunch(instanceId, async () => {
+        const { args, gcIntent } = await resolveGcLaunchIntent(instanceId)
+        return await invoke<InstanceRunResult>('plugin:worlds|start_join_server', {
+            instanceId,
+            address,
+            offlineMode: isOfflineMode(),
+            extraLaunchArgs: args,
+            gcIntent,
+        })
     })
 }
 

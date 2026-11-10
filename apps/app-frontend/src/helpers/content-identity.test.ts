@@ -89,3 +89,97 @@ it('pack-managed snapshot members participate in cross-platform conflicts', () =
     expect(result?.source).toBe('curated_mapping')
     expect(result?.confidence).toBe('exact')
 })
+
+it('recognizes the verified artifact for a manually imported file', () => {
+    const item = {
+        projectType: 'mod',
+        provider: null,
+        providerProjectId: null,
+        materializationState: 'present',
+        expectedRelativePath: 'mods/example.jar',
+        artifactRef: { release: { project: { source: 'curseforge', projectId: '123' } } },
+        content: { id: 'sha1', file_name: 'example.jar', project_type: 'mod', provider_refs: [] },
+    }
+    expect(contentIdentityInputsFromSnapshot([item])).toMatchObject([
+        { provider: 'curseforge', projectId: '123', sha1: 'sha1' },
+    ])
+    expect(contentIdentityInputsFromSnapshot([{ ...item, artifactRef: null }])).toEqual([])
+    expect(
+        contentIdentityInputsFromSnapshot([{ ...item, materializationState: 'missing' }]),
+    ).toEqual([])
+})
+
+it('deduplicates an artifact and existing provider reference', () => {
+    expect(
+        contentIdentityInputsFromSnapshot([
+            {
+                projectType: 'mod',
+                provider: 'modrinth',
+                providerProjectId: 'abc',
+                expectedRelativePath: 'mods/example.jar',
+                artifactRef: { release: { project: { source: 'modrinth', projectId: 'abc' } } },
+                content: {
+                    id: 'sha1',
+                    file_name: 'example.jar',
+                    project_type: 'mod',
+                    provider_refs: [{ provider: 'modrinth', project_id: 'abc' }],
+                },
+            },
+        ]),
+    ).toHaveLength(1)
+})
+
+it('does not treat missing, removed or pending pack members as installed identities', () => {
+    for (const materializationState of ['missing', 'removed', 'pending_manual']) {
+        expect(
+            contentIdentityInputsFromSnapshot([
+                {
+                    projectType: 'mod',
+                    provider: 'modrinth',
+                    providerProjectId: 'abc',
+                    expectedRelativePath: 'mods/example.jar',
+                    materializationState,
+                    artifactRef: { release: { project: { source: 'modrinth', projectId: 'abc' } } },
+                    content: null,
+                },
+            ]),
+        ).toEqual([])
+        expect(
+            contentIdentityInputsFromSnapshot([
+                {
+                    projectType: 'mod',
+                    provider: 'modrinth',
+                    providerProjectId: 'abc',
+                    expectedRelativePath: 'mods/example.jar',
+                    materializationState,
+                    content: {
+                        id: 'sha1',
+                        file_name: 'example.jar',
+                        project_type: 'mod',
+                        provider_refs: [{ provider: 'curseforge', project_id: '123' }],
+                    },
+                },
+            ]),
+        ).toEqual([])
+    }
+})
+
+it('does not treat a local mod id as an online project slug', () => {
+    const [input] = contentIdentityInputsFromSnapshot([
+        {
+            projectType: 'mod',
+            provider: null,
+            providerProjectId: null,
+            expectedRelativePath: 'mods/example.jar',
+            artifactRef: { release: { project: { source: 'modrinth', projectId: 'abc' } } },
+            content: {
+                id: 'sha1',
+                file_name: 'example.jar',
+                project_type: 'mod',
+                provider_refs: [],
+                project: { id: 'local:example', slug: 'example', title: 'Example' },
+            },
+        },
+    ])
+    expect(input.slug).toBeUndefined()
+})

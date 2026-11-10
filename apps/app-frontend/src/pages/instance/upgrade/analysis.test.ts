@@ -592,6 +592,49 @@ it('initial blockers stay in blocking presentation without duplication after res
     expect(groups.noIssues.map((group) => group.item.contentId)).toEqual(['clear'])
 })
 
+it('prerelease dependency blockers belong to every requesting root, including confirmed roots', () => {
+    const first = planItem('first')
+    first.resolution.allowPrerelease = true
+    const dependencyIssue: InstanceUpgradeIssue = {
+        ...issue('prerelease_only', null, 'dependency'),
+        dependencyRequirements: ['first', 'second', 'first'].map((rootContentId) => ({
+            rootContentId,
+            rootProvider: 'modrinth',
+            rootProjectId: rootContentId,
+            parentProvider: 'modrinth',
+            parentProjectId: rootContentId,
+            parentReleaseId: 'new',
+            dependencyProvider: 'modrinth',
+            dependencyProjectId: 'dependency',
+            requiredReleaseId: null,
+            candidateReleaseId: 'beta',
+        })),
+    }
+    const groups = groupUpgradeIssues(
+        partialPlan({
+            items: [first, planItem('second'), { ...planItem('dependency'), autoDependency: true }],
+            blockingIssues: [dependencyIssue],
+            warnings: [],
+        }),
+    )
+
+    expect(groups.globalBlockingIssues).toEqual([])
+    expect(groups.blocking.map((group) => group.item.contentId)).toEqual(['first', 'second'])
+    for (const group of groups.blocking) {
+        expect(group.currentlyBlocking).toBe(true)
+        expect(group.blockingIssues).toEqual([dependencyIssue])
+    }
+})
+
+it('prerelease blockers with no known requesting root remain global', () => {
+    const globalIssue = issue('prerelease_only', null, 'missing')
+    const groups = groupUpgradeIssues(
+        partialPlan({ items: [planItem('root')], blockingIssues: [globalIssue], warnings: [] }),
+    )
+    expect(groups.globalBlockingIssues).toEqual([globalIssue])
+    expect(groups.blocking).toEqual([])
+})
+
 it('resolution presentation follows authoritative plan resolution rules', () => {
     const resolution = planItem('item').resolution
     expect(upgradeResolutionPresentation('two-option', resolution)).toEqual({

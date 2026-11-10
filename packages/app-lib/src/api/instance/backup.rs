@@ -282,12 +282,11 @@ struct RestoreJournalRoot {
 pub(crate) async fn lock_instance_maintenance(
     instance_id: &str,
 ) -> tokio::sync::OwnedMutexGuard<()> {
-    INSTANCE_MAINTENANCE_LOCKS
+    let lock = INSTANCE_MAINTENANCE_LOCKS
         .entry(instance_id.to_string())
         .or_insert_with(|| Arc::new(Mutex::new(())))
-        .clone()
-        .lock_owned()
-        .await
+        .clone();
+    lock.lock_owned().await
 }
 
 fn default_repository_path(state: &State) -> PathBuf {
@@ -4101,6 +4100,28 @@ async fn validate_repository_at(root: &Path) -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn maintenance_lock_wait_does_not_hold_registry_shard() {
+        use std::future::Future;
+        let instance = format!("lock-test-{}", Uuid::new_v4());
+        let held = lock_instance_maintenance(&instance).await;
+        {
+            let mut waiting =
+                std::pin::pin!(lock_instance_maintenance(&instance));
+            let mut context =
+                std::task::Context::from_waker(std::task::Waker::noop());
+            assert!(waiting.as_mut().poll(&mut context).is_pending());
+            assert!(
+                INSTANCE_MAINTENANCE_LOCKS
+                    .try_entry(instance.clone())
+                    .is_some()
+            );
+            drop(held);
+            waiting.await;
+        }
+        INSTANCE_MAINTENANCE_LOCKS.remove(&instance);
+    }
 
     #[tokio::test]
     async fn committed_restore_housekeeping_leaves_unfinished_restores_and_instances_untouched()

@@ -264,14 +264,48 @@ const isOverflowing = ref(false)
 const isAnimating = ref(false)
 const overflowAmount = ref(0)
 
+const breadcrumbSignature = computed(() =>
+    breadcrumbs.value
+        .map((breadcrumb) =>
+            [
+                breadcrumb.name,
+                breadcrumb.link ?? '',
+                breadcrumb.query ? JSON.stringify(breadcrumb.query) : '',
+                breadcrumb.iconUrl ?? '',
+            ].join('\u0000'),
+        )
+        .join('\u0001'),
+)
+
 let hovered = false
 let stopping = false
+let lastMeasuredSignature: string | null = null
+let sizeChanged = false
+let overflowFrame: number | null = null
 
 function checkOverflow() {
     if (!outerRef.value || !innerRef.value) return
+    const signature = breadcrumbSignature.value
+    if (!sizeChanged && signature === lastMeasuredSignature) return
+
     const overflow = innerRef.value.scrollWidth - outerRef.value.clientWidth
-    isOverflowing.value = overflow > 0
-    overflowAmount.value = overflow + 12
+    const overflowing = overflow > 0
+    if (isOverflowing.value !== overflowing) isOverflowing.value = overflowing
+    if (overflowing) {
+        const amount = overflow + 12
+        if (overflowAmount.value !== amount) overflowAmount.value = amount
+    }
+
+    lastMeasuredSignature = signature
+    sizeChanged = false
+}
+
+function scheduleOverflowCheck() {
+    if (overflowFrame !== null) return
+    overflowFrame = requestAnimationFrame(() => {
+        overflowFrame = null
+        checkOverflow()
+    })
 }
 
 function onMouseEnter() {
@@ -300,23 +334,33 @@ let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
     checkOverflow()
-    resizeObserver = new ResizeObserver(checkOverflow)
+    resizeObserver = new ResizeObserver(() => {
+        sizeChanged = true
+        scheduleOverflowCheck()
+    })
     if (outerRef.value) resizeObserver.observe(outerRef.value)
     if (innerRef.value) resizeObserver.observe(innerRef.value)
 })
 
 onBeforeUnmount(() => {
     resizeObserver?.disconnect()
+    if (overflowFrame !== null) {
+        cancelAnimationFrame(overflowFrame)
+        overflowFrame = null
+    }
 })
 
 watch(
     breadcrumbs,
-    () => {
-        breadcrumbData.resetToNames(breadcrumbs.value)
-        requestAnimationFrame(checkOverflow)
+    (value) => {
+        breadcrumbData.resetToNames(value)
     },
     { immediate: true },
 )
+
+watch(breadcrumbSignature, () => {
+    scheduleOverflowCheck()
+})
 </script>
 
 <style scoped>

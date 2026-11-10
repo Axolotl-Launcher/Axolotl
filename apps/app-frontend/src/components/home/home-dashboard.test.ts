@@ -440,3 +440,23 @@ it('keeps free positions while they fit and flows them in reading order once the
         recent: { column: 0, row: 5 },
     })
 })
+
+it('never lets a later free widget fill an earlier gap while reflowing', () => {
+    const widgets = [
+        { id: 'tall', kind: 'calendar', size: '1x2', position: { column: 0, row: 0 } },
+        { id: 'wide', kind: 'recent', size: '2x1', position: { column: 1, row: 0 } },
+        { id: 'small', kind: 'instance', size: '1x1', position: { column: 3, row: 0 } },
+    ] as HomeWidgetPlacement[]
+
+    // The grid layout packs densely: the small widget fills the gap first.
+    expect(packHomeWidgets(widgets, 2).map(({ id, column, row }) => [id, column, row])).toEqual([
+        ['tall', 1, 1],
+        ['wide', 1, 3],
+        ['small', 2, 1],
+    ])
+    expect(reflowFreeHomeWidgets(widgets, 2)).toEqual({
+        tall: { column: 0, row: 0 },
+        wide: { column: 0, row: 2 },
+        small: { column: 0, row: 3 },
+    })
+})

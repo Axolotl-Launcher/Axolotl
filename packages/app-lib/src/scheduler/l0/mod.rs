@@ -9,6 +9,7 @@ pub mod queue;
 pub mod quiesce;
 
 use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use control::ControlTable;
@@ -16,6 +17,9 @@ use executor::L0Executor;
 use quiesce::QuiesceToken;
 
 static EXECUTOR: OnceLock<Option<L0Executor>> = OnceLock::new();
+/// Set before the quiesce request so an executor initialized concurrently
+/// still starts quiesced instead of racing past the exit request.
+static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 /// The launcher's L0 executor, started once on first use. `None` if its
 /// driver thread could not start; callers then run the task on the current
@@ -23,11 +27,16 @@ static EXECUTOR: OnceLock<Option<L0Executor>> = OnceLock::new();
 fn executor() -> Option<&'static L0Executor> {
     EXECUTOR
         .get_or_init(|| {
-            L0Executor::start(Arc::new(ControlTable::new()))
+            let started = L0Executor::start(Arc::new(ControlTable::new()))
                 .inspect_err(|error| {
                     tracing::error!(%error, "Could not start the L0 executor");
-                })
-                .ok()
+                });
+            if EXIT_REQUESTED.load(Ordering::Acquire)
+                && let Ok(executor) = &started
+            {
+                executor.control().request_quiesce();
+            }
+            started.ok()
         })
         .as_ref()
 }
@@ -58,7 +67,7 @@ where
             // A finished driver binds later tasks into a closed runtime and
             // cancels them. Running the work on the current runtime is worse
             // for isolation than the L0 executor, but it is not silently
-            // dropped; phase 7's exit barrier re-creates the executor.
+            // dropped; the executor itself is never re-created.
             tracing::warn!(
                 "The L0 executor has exited; running L0 work on the current runtime"
             );
@@ -109,6 +118,27 @@ fn table_of(
     installed: Option<&Option<L0Executor>>,
 ) -> Option<&Arc<ControlTable>> {
     installed.and_then(Option::as_ref).map(L0Executor::control)
+}
+
+/// Exit: asks L0 to quiesce; its driver leaves at the next safety point.
+/// The executor stays in place (it is static), so this never joins it.
+pub fn request_exit() {
+    EXIT_REQUESTED.store(true, Ordering::Release);
+    if let Some(control) = control() {
+        control.request_quiesce();
+    }
+}
+
+/// Waits until `deadline` for the L0 driver to leave after
+/// [`request_exit`]. `None` when it left or never started; otherwise the
+/// time of L0's last safety point, for the exit loss list.
+pub fn wait_exit(deadline: std::time::Instant) -> Option<u64> {
+    let executor = EXECUTOR.get()?.as_ref()?;
+    if executor.wait_for_exit(deadline) {
+        None
+    } else {
+        Some(executor.control().safety_point_at())
+    }
 }
 
 #[cfg(test)]

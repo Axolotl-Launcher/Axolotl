@@ -411,6 +411,15 @@
       ]
     },
     {
+      "file": "apps/app/src/exit_barrier.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "exit hard-cap watchdog: started once by the first exit pass, follows the re-armable deadline (15 s normal, 30 s restart, disarmed for a pending update) and exits the process at the cap (spec §8.6)",
+      "sites": [
+        "watch_hard_cap: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
       "file": "apps/app/src/lightweight_mode.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 10,
@@ -2059,7 +2068,7 @@
       "count": 1,
       "reason": "bounded poll for the L0 driver thread to exit within its 5 s window",
       "sites": [
-        "shutdown: std::thread::sleep(Duration::from_millis(10));"
+        "wait_for_exit: std::thread::sleep(Duration::from_millis(10));"
       ]
     },
     {

@@ -788,3 +788,131 @@ it('does not reuse a retired identity request after switching away and back to t
         vi.mocked(resolveContentIdentities).mockReturnValue([] as never)
     }
 })
+
+it('clearing the cart cancels an in-flight version lookup before it can insert a release', async () => {
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    let finish!: (id: string) => void
+    const pending = selection.add(
+        {
+            key: 'modrinth:late-filter',
+            provider: 'modrinth',
+            providerProjectId: 'late-filter',
+            projectId: 'late-filter',
+            contentType: 'mod',
+            title: 'Late',
+            identity: { title: 'Late' } as never,
+        },
+        () =>
+            new Promise((resolve) => {
+                finish = resolve
+            }),
+    )
+    selection.clear()
+    finish('filtered-release')
+    expect(await pending).toBe(false)
+    expect(selection.items.value.size).toBe(0)
+})
+it('independent concurrent version lookups both commit without canceling one another', async () => {
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    const finish: Array<(id: string) => void> = []
+    const pending = ['one', 'two'].map((id) =>
+        selection.add(
+            {
+                key: `modrinth:${id}`,
+                provider: 'modrinth',
+                providerProjectId: id,
+                projectId: id,
+                contentType: 'mod',
+                title: id,
+                identity: { title: id } as never,
+            },
+            () =>
+                new Promise((resolve) => {
+                    finish.push(resolve)
+                }),
+        ),
+    )
+    finish[1]('two-release')
+    finish[0]('one-release')
+    expect(await Promise.all(pending)).toEqual([true, true])
+    expect([...selection.items.value.values()].map((item) => item.versionId).sort()).toEqual([
+        'one-release',
+        'two-release',
+    ])
+})
+
+it('does not surface a late version lookup failure after its selection was cleared', async () => {
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    let fail!: (error: Error) => void
+    const pending = selection.add(
+        {
+            key: 'modrinth:failed-filter',
+            provider: 'modrinth',
+            providerProjectId: 'failed-filter',
+            projectId: 'failed-filter',
+            contentType: 'mod',
+            title: 'Late failure',
+        },
+        () =>
+            new Promise((_resolve, reject) => {
+                fail = reject
+            }),
+    )
+    selection.clear()
+    fail(new Error('offline'))
+    expect(await pending).toBe(false)
+    expect(selection.items.value.size).toBe(0)
+})
+
+it('keeps the last requested version when two lookups for the same project finish in reverse order', async () => {
+    const selection = createContentSelection({
+        addNotification: vi.fn(),
+        handleError: vi.fn(),
+        downloadManager: { jobs: ref([]) } as never,
+    })
+    selection.setTarget(instance)
+    const finish: Array<(id: string) => void> = []
+    const item = {
+        key: 'modrinth:same',
+        provider: 'modrinth' as const,
+        providerProjectId: 'same',
+        projectId: 'same',
+        contentType: 'mod' as const,
+        title: 'Same',
+        identity: { title: 'Same' } as never,
+    }
+    const first = selection.add(
+        item,
+        () =>
+            new Promise((resolve) => {
+                finish.push(resolve)
+            }),
+    )
+    const latest = selection.add(
+        item,
+        () =>
+            new Promise((resolve) => {
+                finish.push(resolve)
+            }),
+    )
+    finish[1]('latest-release')
+    expect(await latest).toBe(true)
+    finish[0]('older-release')
+    expect(await first).toBe(false)
+    expect(selection.items.value.get(item.key)?.versionId).toBe('latest-release')
+})

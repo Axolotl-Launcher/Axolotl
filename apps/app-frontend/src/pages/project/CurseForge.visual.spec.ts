@@ -6,6 +6,22 @@ import { defineComponent, h, reactive, ref } from 'vue'
 import CurseForge from './CurseForge.vue'
 
 const api = vi.hoisted(() => ({
+    selection: null as unknown,
+    handleError: vi.fn(),
+    release: vi.fn().mockResolvedValue('chosen-file'),
+    add: vi.fn(
+        async (
+            item: { versionId?: string },
+            resolve?: (isCurrent: () => boolean) => Promise<string | null | undefined>,
+        ) => {
+            if (resolve) {
+                const id = await resolve(() => true)
+                if (id === null) return false
+                item.versionId = id
+            }
+            return true
+        },
+    ),
     project: vi.fn(),
     description: vi.fn(),
     files: vi.fn(),
@@ -15,6 +31,10 @@ const api = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({
     useRoute: () => reactive(api.route),
     useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}))
+vi.mock('@/helpers/project-install-filters', async (original) => ({
+    ...(await original<typeof import('@/helpers/project-install-filters')>()),
+    filteredProjectRelease: api.release,
 }))
 vi.mock('@/helpers/curseforge', () => ({
     getCurseForgeProject: api.project,
@@ -54,17 +74,20 @@ vi.mock('@/providers/content-install', () => ({
 }))
 vi.mock('@/providers/content-selection', () => ({
     makeContentSelectionKey: () => '',
-    injectContentSelection: () => ({
-        targetInstance: ref(null),
-        instances: ref([]),
-        selectedCount: ref(0),
-        selectedProjects: ref([]),
-        state: ref('idle'),
-        progress: ref(null),
-        refreshInstances: vi.fn(),
-        isSelected: () => false,
-        isInstalling: () => false,
-    }),
+    injectContentSelection: () =>
+        (api.selection = {
+            items: ref(new Map()),
+            add: api.add,
+            targetInstance: ref(null),
+            instances: ref([]),
+            selectedCount: ref(0),
+            selectedProjects: ref([]),
+            state: ref('idle'),
+            progress: ref(null),
+            refreshInstances: vi.fn(),
+            isSelected: () => false,
+            isInstalling: () => false,
+        }),
 }))
 vi.mock('@/components/browse/BrowseInstanceSelector.vue', () => ({
     default: { render: () => null },
@@ -121,7 +144,7 @@ vi.mock('@modrinth/ui', () => ({
     defineMessages: (value: unknown) => value,
     commonMessages: { retryButton: { defaultMessage: 'Retry' } },
     usesTargetGameVersion: () => true,
-    injectNotificationManager: () => ({ handleError: vi.fn(), addNotification: vi.fn() }),
+    injectNotificationManager: () => ({ handleError: api.handleError, addNotification: vi.fn() }),
     useVIntl: () => ({
         formatMessage: (message: { defaultMessage: string }) => message?.defaultMessage ?? '',
     }),
@@ -268,6 +291,76 @@ it('finishes the initial file page before requesting the complete versions list'
         resolve({ files: [], pagination: { totalCount: 100 } })
         await flushPromises()
         expect(api.allFiles).toHaveBeenCalledTimes(1)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('uses filtered file IDs and replaces an already selected project with an explicit different file', async () => {
+    Object.assign(reactive(api.route), { query: { b: '/browse/mod', g: '1.21.1', l: 'neoforge' } })
+    const wrapper = render()
+    try {
+        await flushPromises()
+        const selection = api.selection as {
+            targetInstance: { value: unknown }
+            isSelected: () => boolean
+            items: { value: Map<string, object> }
+        }
+        selection.targetInstance.value = { id: 'fabric', game_version: '26.3', loader: 'fabric' }
+        const vm = wrapper.vm as unknown as {
+            installSelected: (id: string | null) => Promise<void>
+        }
+        await vm.installSelected(null)
+        expect(api.release).toHaveBeenLastCalledWith(
+            'curseforge',
+            '42',
+            { gameVersions: ['1.21.1'], loaders: ['neoforge'] },
+            [],
+            'mod',
+        )
+        expect(api.add).toHaveBeenLastCalledWith(
+            expect.objectContaining({ versionId: 'chosen-file' }),
+            expect.any(Function),
+        )
+        selection.isSelected = () => true
+        selection.items.value.set('', { versionId: 'chosen-file' })
+        await vm.installSelected('explicit-file')
+        expect(api.add).toHaveBeenLastCalledWith(
+            expect.objectContaining({ versionId: 'explicit-file' }),
+            expect.any(Function),
+        )
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('keeps a filtered install busy and reports a failed lookup without an unhandled rejection', async () => {
+    Object.assign(reactive(api.route), { query: { b: '/browse/mod', g: '1.21.1', l: 'neoforge' } })
+    const wrapper = render()
+    try {
+        await flushPromises()
+        const selection = api.selection as { targetInstance: { value: unknown } }
+        selection.targetInstance.value = { id: 'fabric', game_version: '26.3', loader: 'fabric' }
+        let fail!: (error: Error) => void
+        api.release.mockImplementationOnce(
+            () =>
+                new Promise((_resolve, reject) => {
+                    fail = reject
+                }),
+        )
+        const vm = wrapper.vm as unknown as {
+            installSelected: (id: string | null) => Promise<void>
+            installing: boolean
+        }
+        const pending = vm.installSelected(null)
+        expect(vm.installing).toBe(true)
+        await vm.installSelected(null)
+        expect(api.release).toHaveBeenCalledTimes(1)
+        const error = new Error('lookup offline')
+        fail(error)
+        await pending
+        expect(vm.installing).toBe(false)
+        expect(api.handleError).toHaveBeenCalledWith(error)
     } finally {
         wrapper.unmount()
     }

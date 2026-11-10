@@ -72,3 +72,19 @@ it('launcher-relative and local links stay in the web view', () => {
     ).toBe(null)
     expect(getExternalLinkUrl('http://localhost:8000', 'http://localhost:8000')).toBe(null)
 })
+
+it('translates effective browse preferences rather than reusing conflicting query keys', () => {
+    const query = { g: 'categories:neoforge', l: '100', i: 'fabric-instance' }
+    expect(
+        createProjectDetailsQuery(query, '/browse/mod', {
+            gameVersions: ['1.21.1'],
+            loaders: ['neoforge'],
+        }),
+    ).toEqual({ i: 'fabric-instance', b: '/browse/mod', g: ['1.21.1'], l: ['neoforge'] })
+    expect(createProjectDetailsQuery(query, '/browse/mod', {})).toEqual({
+        i: 'fabric-instance',
+        b: '/browse/mod',
+        g: '',
+        l: '',
+    })
+})

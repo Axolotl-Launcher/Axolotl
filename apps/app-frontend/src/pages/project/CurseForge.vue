@@ -344,6 +344,11 @@ import {
 } from '@/helpers/curseforge'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { projectGalleryTranslationSegments } from '@/helpers/project-gallery'
+import {
+    filteredProjectRelease,
+    projectFilterValues,
+    projectInstallPreferences,
+} from '@/helpers/project-install-filters'
 import { createProjectBrowseLocation, type ProjectBrowseFilter } from '@/helpers/project-links'
 import { readProjectPreviewTitle } from '@/helpers/project-preview'
 import { get_game_versions, get_loaders } from '@/helpers/tags'
@@ -816,7 +821,7 @@ function buildProjectHref(path: string) {
     for (const [key, value] of Object.entries(route.query)) {
         if (Array.isArray(value)) {
             for (const item of value) if (item) params.append(key, String(item))
-        } else if (value) {
+        } else if (value || (['g', 'l'].includes(key) && value === '')) {
             params.append(key, String(value))
         }
     }
@@ -1005,17 +1010,13 @@ watch(
 )
 
 async function installSelected(fileId: string | null) {
-    if (!project.value || !filesReady.value) return
+    if (!project.value || !filesReady.value || installing.value) return
     if (cartEligible.value && !contentSelection.targetInstance.value) {
         await contentSelection.refreshInstances()
         browseInstanceSelector.value?.show()
         return
     }
     if (cartEligible.value && contentSelection.targetInstance.value) {
-        if (cartProjectSelected.value) {
-            contentSelection.remove(cartProjectKey.value)
-            return
-        }
         const target = contentSelection.targetInstance.value
         const selectedProject = project.value
         const selectedKey = cartProjectKey.value
@@ -1024,62 +1025,110 @@ async function installSelected(fileId: string | null) {
         const expectedLoader = (
             { forge: 1, fabric: 4, quilt: 5, neoforge: 6 } as Record<string, number>
         )[target.loader]
-        let resolvedFileId: string | number | null = fileId
-        if (!resolvedFileId && !usesTargetGameVersion(selectedType)) {
-            resolvedFileId = files.value.find((file) => file.isAvailable)?.id ?? null
-        } else if (!resolvedFileId) {
-            resolvedFileId =
-                selectedProject.latestFilesIndexes.find(
-                    (index) =>
-                        index.gameVersion === target.game_version &&
-                        (selectedType !== 'mod' ||
-                            !expectedLoader ||
-                            index.modLoader === expectedLoader),
-                )?.fileId ??
-                files.value.find(
-                    (file) =>
-                        file.gameVersions.includes(target.game_version) &&
-                        (selectedType !== 'mod' || getFilePlatforms(file).includes(target.loader)),
-                )?.id ??
-                null
-            if (!resolvedFileId) {
-                const compatibleFiles = await getCurseForgeFilesPage(selectedProject.id, {
-                    gameVersion: target.game_version,
-                    modLoaderType:
-                        selectedType === 'mod' ? curseForgeLoaderType(target.loader) : undefined,
-                    index: 0,
-                    pageSize: 50,
-                })
-                resolvedFileId = compatibleFiles.files.find((file) => file.isAvailable)?.id ?? null
-            }
-        }
-        if (
-            requestVersion !== projectRequestVersion ||
-            project.value?.id !== selectedProject.id ||
-            contentSelection.targetInstance.value?.id !== target.id
-        )
-            return
-        if (!resolvedFileId) {
-            handleError(new Error(formatMessage(messages.noCompatibleVersion)))
-            return
-        }
-        await contentSelection.add({
-            key: selectedKey,
-            provider: 'curseforge',
-            projectId: selectedProject.id.toString(),
-            providerProjectId: selectedProject.id.toString(),
-            versionId: resolvedFileId.toString(),
-            contentType: selectedType as 'mod' | 'resourcepack' | 'datapack' | 'shader' | 'world',
-            title: selectedProject.name,
-            iconUrl: getCurseForgeImageUrl(
-                selectedProject.logo?.url ?? selectedProject.logo?.thumbnailUrl,
-            ),
-            slug: selectedProject.slug,
-            preferences: {
-                gameVersions: usesTargetGameVersion(selectedType) ? [target.game_version] : [],
-                loaders: selectedType === 'mod' ? [target.loader] : [],
-            },
+        const filterSnapshot = JSON.stringify(route.query)
+        const preferences = projectInstallPreferences(route.query, {
+            gameVersions: usesTargetGameVersion(selectedType) ? [target.game_version] : [],
+            loaders: selectedType === 'mod' ? [target.loader] : [],
         })
+        installing.value = true
+        try {
+            await contentSelection.add(
+                {
+                    key: selectedKey,
+                    provider: 'curseforge',
+                    projectId: selectedProject.id.toString(),
+                    providerProjectId: selectedProject.id.toString(),
+                    versionId: fileId ?? undefined,
+                    contentType: selectedType as
+                        'mod' | 'resourcepack' | 'datapack' | 'shader' | 'world',
+                    title: selectedProject.name,
+                    iconUrl: getCurseForgeImageUrl(
+                        selectedProject.logo?.url ?? selectedProject.logo?.thumbnailUrl,
+                    ),
+                    slug: selectedProject.slug,
+                    preferences,
+                },
+                async (isCurrent) => {
+                    let resolvedFileId: string | number | null = fileId
+                    const explicitFilters = ['g', 'l', 'c'].some((key) =>
+                        Object.hasOwn(route.query, key),
+                    )
+                    if (!resolvedFileId && explicitFilters) {
+                        resolvedFileId = await filteredProjectRelease(
+                            'curseforge',
+                            selectedProject.id.toString(),
+                            preferences,
+                            projectFilterValues(route.query.c),
+                            selectedType,
+                        )
+                    }
+                    if (
+                        !resolvedFileId &&
+                        !explicitFilters &&
+                        !usesTargetGameVersion(selectedType)
+                    ) {
+                        resolvedFileId = files.value.find((file) => file.isAvailable)?.id ?? null
+                    } else if (!resolvedFileId && !explicitFilters) {
+                        resolvedFileId =
+                            selectedProject.latestFilesIndexes.find(
+                                (index) =>
+                                    index.gameVersion === target.game_version &&
+                                    (selectedType !== 'mod' ||
+                                        !expectedLoader ||
+                                        index.modLoader === expectedLoader),
+                            )?.fileId ??
+                            files.value.find(
+                                (file) =>
+                                    file.gameVersions.includes(target.game_version) &&
+                                    (selectedType !== 'mod' ||
+                                        getFilePlatforms(file).includes(target.loader)),
+                            )?.id ??
+                            null
+                        if (!resolvedFileId) {
+                            const compatibleFiles = await getCurseForgeFilesPage(
+                                selectedProject.id,
+                                {
+                                    gameVersion: target.game_version,
+                                    modLoaderType:
+                                        selectedType === 'mod'
+                                            ? curseForgeLoaderType(target.loader)
+                                            : undefined,
+                                    index: 0,
+                                    pageSize: 50,
+                                },
+                            )
+                            resolvedFileId =
+                                compatibleFiles.files.find((file) => file.isAvailable)?.id ?? null
+                        }
+                    }
+                    if (
+                        !isCurrent() ||
+                        requestVersion !== projectRequestVersion ||
+                        filterSnapshot !== JSON.stringify(route.query) ||
+                        project.value?.id !== selectedProject.id ||
+                        contentSelection.targetInstance.value?.id !== target.id
+                    )
+                        return null
+                    if (!resolvedFileId) {
+                        handleError(new Error(formatMessage(messages.noCompatibleVersion)))
+                        return null
+                    }
+                    if (
+                        cartProjectSelected.value &&
+                        contentSelection.items.value.get(cartProjectKey.value)?.versionId ===
+                            resolvedFileId.toString()
+                    ) {
+                        contentSelection.remove(cartProjectKey.value)
+                        return null
+                    }
+                    return resolvedFileId.toString()
+                },
+            )
+        } catch (error) {
+            handleError(error)
+        } finally {
+            installing.value = false
+        }
         return
     }
     if (isWorldMap.value) {

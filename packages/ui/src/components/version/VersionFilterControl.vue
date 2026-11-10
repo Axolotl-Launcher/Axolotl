@@ -279,9 +279,15 @@ const selectedChannels = ref<string[]>([])
 const selectedGameVersions = ref<string[]>([])
 const selectedPlatforms = ref<string[]>([])
 
-selectedChannels.value = route.query.c ? getArrayOrString(route.query.c) : []
-selectedGameVersions.value = route.query.g ? getArrayOrString(route.query.g) : []
-selectedPlatforms.value = route.query.l ? getArrayOrString(route.query.l) : []
+watch(
+    () => [route.query.c, route.query.g, route.query.l],
+    () => {
+        selectedChannels.value = route.query.c ? getArrayOrString(route.query.c) : []
+        selectedGameVersions.value = route.query.g ? getArrayOrString(route.query.g) : []
+        selectedPlatforms.value = route.query.l ? getArrayOrString(route.query.l) : []
+    },
+    { immediate: true },
+)
 
 // The tags can arrive after the filter is created; a selected version is
 // only known to be a snapshot once they have.
@@ -367,8 +373,8 @@ async function clearFilters() {
 function updateFilters() {
     emit('update:query', {
         c: selectedChannels.value,
-        g: selectedGameVersions.value,
-        l: selectedPlatforms.value,
+        g: selectedGameVersions.value.length ? selectedGameVersions.value : '',
+        l: selectedPlatforms.value.length ? selectedPlatforms.value : '',
         page: undefined,
     })
 }

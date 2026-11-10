@@ -9,6 +9,20 @@ import zhMessages from '@/locales/zh-CN/index.json'
 import Browse from './Browse.vue'
 
 const api = vi.hoisted(() => ({
+    release: vi.fn().mockResolvedValue('selected-release'),
+    add: vi.fn(
+        async (
+            item: { versionId?: string },
+            resolve?: (isCurrent: () => boolean) => Promise<string | null | undefined>,
+        ) => {
+            if (resolve) {
+                const id = await resolve(() => true)
+                if (id === null) return false
+                item.versionId = id
+            }
+            return true
+        },
+    ),
     instance: vi.fn().mockResolvedValue(null),
     installedIds: vi.fn().mockResolvedValue([]),
     contentSnapshot: vi.fn().mockResolvedValue({ items: [] }),
@@ -60,7 +74,12 @@ vi.mock('vue-router', async (original) => {
         onBeforeRouteLeave: vi.fn(),
     }
 })
+vi.mock('@/helpers/project-install-filters', async (original) => ({
+    ...(await original<typeof import('@/helpers/project-install-filters')>()),
+    filteredProjectRelease: api.release,
+}))
 vi.mock('@/helpers/curseforge', () => ({
+    getCurseForgeFiles: vi.fn(),
     getCurseForgeCapability: api.capability,
     getCurseForgeCategories: api.categories,
     getCurseForgeImageUrl: (url: string) => url,
@@ -184,6 +203,7 @@ vi.mock('@/providers/content-selection', async () => {
         makeContentSelectionKey: () => '',
         injectContentSelection: () =>
             (api.selection = {
+                add: api.add,
                 targetInstance: ref(null),
                 instances: ref([]),
                 selectedProjects: ref([]),
@@ -896,5 +916,58 @@ it('provides the project type tab visibility required by the shared browse layou
         expect(context.showProjectTypeTabs?.value).toBe(true)
     } finally {
         wrapper.unmount()
+    }
+})
+
+it('freezes the unlocked browse version when adding a NeoForge mod to a Fabric instance', async () => {
+    const ui = await import('@modrinth/ui')
+    vi.mocked(ui.getSelectedInstallPreferences).mockReturnValue({
+        gameVersions: ['1.21.1'],
+        loaders: ['neoforge'],
+    })
+    vi.mocked(ui.getTargetInstallPreferences).mockReturnValue({
+        gameVersions: ['26.3'],
+        loaders: ['fabric'],
+    })
+    api.capability.mockResolvedValue({ configured: true })
+    const wrapper = mount(Browse, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as { targetInstance: { value: unknown } }
+        selection.targetInstance.value = {
+            id: 'fabric',
+            game_version: '26.3',
+            loader: 'fabric',
+            name: 'Fabric',
+        }
+        await flushPromises()
+        const vm = wrapper.vm as unknown as {
+            toggleContentSelection: (project: object, type: string) => Promise<void>
+        }
+        await vm.toggleContentSelection(
+            { provider: 'modrinth', project_id: 'chosen', title: 'Chosen' },
+            'mod',
+        )
+        expect(api.release).toHaveBeenLastCalledWith(
+            'modrinth',
+            'chosen',
+            { gameVersions: ['1.21.1'], loaders: ['neoforge'] },
+            [],
+            'mod',
+        )
+        expect(api.add).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                provider: 'modrinth',
+                providerProjectId: 'chosen',
+                versionId: 'selected-release',
+            }),
+            expect.any(Function),
+        )
+    } finally {
+        wrapper.unmount()
+        vi.mocked(ui.getSelectedInstallPreferences).mockReset()
+        vi.mocked(ui.getTargetInstallPreferences).mockReset()
     }
 })

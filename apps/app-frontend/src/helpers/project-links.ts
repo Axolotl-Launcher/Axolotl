@@ -1,3 +1,4 @@
+import type { BrowseInstallPreferences } from '@modrinth/ui'
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 
 export type ProjectBrowseFilter = 'category' | 'loader'
@@ -5,12 +6,17 @@ export type ProjectBrowseFilter = 'category' | 'loader'
 export function createProjectDetailsQuery(
     query: LocationQuery,
     browsePath: string,
+    preferences?: BrowseInstallPreferences,
 ): LocationQueryRaw {
     const details: LocationQueryRaw = { ...query }
     delete details.g
     delete details.l
     delete details.c
     delete details.page
+    if (preferences) {
+        details.g = preferences.gameVersions?.length ? preferences.gameVersions : ''
+        details.l = preferences.loaders?.length ? preferences.loaders : ''
+    }
     details.b = browsePath
     return details
 }

@@ -521,6 +521,7 @@ import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { get_by_instance_id } from '@/helpers/process'
 import { projectGalleryTranslationSegments } from '@/helpers/project-gallery'
+import { projectFilterValues, projectInstallPreferences } from '@/helpers/project-install-filters'
 import { createProjectBrowseLocation } from '@/helpers/project-links'
 import { readProjectPreviewTitle } from '@/helpers/project-preview'
 import { get_game_versions, get_loaders } from '@/helpers/tags'
@@ -810,7 +811,7 @@ function buildProjectHref(path, extraQuery = {}) {
         if (['sid', 'wid', 'shi'].includes(key)) continue
         if (Array.isArray(val)) {
             for (const v of val) params.append(key, v)
-        } else if (val) {
+        } else if (val || (['g', 'l'].includes(key) && val === '')) {
             params.append(key, String(val))
         }
     }
@@ -824,7 +825,7 @@ function buildBrowseHref(path) {
         if (['b', 'sid', 'wid', 'shi'].includes(key)) continue
         if (Array.isArray(val)) {
             for (const v of val) params.append(key, v)
-        } else if (val) {
+        } else if (val || (['g', 'l'].includes(key) && val === '')) {
             params.append(key, String(val))
         }
     }
@@ -834,7 +835,12 @@ function buildBrowseHref(path) {
 
 const projectDescriptionHref = computed(() => buildProjectHref(`/project/${route.params.id}`))
 const versionsHref = computed(() =>
-    buildProjectHref(`/project/${route.params.id}/versions`, instanceFilters.value),
+    buildProjectHref(`/project/${route.params.id}/versions`, {
+        ...instanceFilters.value,
+        ...Object.fromEntries(
+            Object.entries(route.query).filter(([key]) => ['g', 'l', 'c'].includes(key)),
+        ),
+    }),
 )
 const projectChangelogHref = computed(() =>
     buildProjectHref(`/project/${route.params.id}/changelog`),
@@ -1461,19 +1467,35 @@ async function install(version) {
         return
     }
     if (cartEligible.value && data.value && cartTarget.value) {
-        if (cartProjectSelected.value) {
-            contentSelection.remove(cartProjectKey.value)
-            return
-        }
         installing.value = true
         try {
-            const preferences = getTargetInstallPreferences(
-                { gameVersion: cartTarget.value.game_version, loader: cartTarget.value.loader },
-                data.value.project_type,
+            const preferences = projectInstallPreferences(
+                route.query,
+                getTargetInstallPreferences(
+                    { gameVersion: cartTarget.value.game_version, loader: cartTarget.value.loader },
+                    data.value.project_type,
+                ),
             )
             const selectedVersion =
-                version ?? getLatestMatchingInstallVersion(versions.value, preferences)?.id
+                version ??
+                (typeof route.params.version === 'string' ? route.params.version : null) ??
+                getLatestMatchingInstallVersion(
+                    versions.value.filter(
+                        (candidate) =>
+                            !projectFilterValues(route.query.c).length ||
+                            projectFilterValues(route.query.c).includes(candidate.version_type),
+                    ),
+                    preferences,
+                )?.id
             if (!selectedVersion) throw new Error(formatMessage(messages.noCompatibleVersion))
+            if (
+                cartProjectSelected.value &&
+                contentSelection.items.value.get(cartProjectKey.value)?.versionId ===
+                    selectedVersion
+            ) {
+                contentSelection.remove(cartProjectKey.value)
+                return
+            }
             await contentSelection.add({
                 key: cartProjectKey.value,
                 provider: 'modrinth',

@@ -22,8 +22,7 @@ function reloadSettings() {
     <div class="flex flex-col gap-6">
         <ResourceManagementSettings ref="resourceSettings" scope="storage-backups" />
         <BackupRepositorySettings />
-        <SettingsSection>
-            <template #header>{{ formatMessage(storageMessages.analysisTitle) }}</template>
+        <SettingsSection :title="formatMessage(storageMessages.analysisTitle)">
             <div class="p-4"><StorageSettings /></div>
         </SettingsSection>
         <SettingsExportSection @changed="reloadSettings" />

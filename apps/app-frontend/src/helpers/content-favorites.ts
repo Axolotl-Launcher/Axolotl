@@ -1,3 +1,4 @@
+import type { ContentItem } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 
 import {
@@ -143,6 +144,26 @@ export const FAVORITE_CONTENT_TYPES: FavoriteContentType[] = [
     'datapack',
     'shader',
 ]
+
+/**
+ * What to save for an installed content row, or `null` when the row is not an
+ * online project of a type favorites can hold (a local file, a modpack, ...).
+ */
+export function contentItemFavoriteInput(
+    item: Pick<ContentItem, 'project_type' | 'provider_refs' | 'origin_provider' | 'project'>,
+): ContentFavoriteInput | null {
+    if (!isFavoriteContentType(item.project_type)) return null
+    const reference =
+        item.provider_refs?.find((ref) => ref.provider === item.origin_provider) ??
+        item.provider_refs?.[0]
+    if (!reference) return null
+    return {
+        provider: reference.provider,
+        project_id: String(reference.project_id),
+        content_type: item.project_type,
+        slug: item.project?.slug,
+    }
+}
 
 export function isFavoriteContentType(value: string): value is FavoriteContentType {
     return FAVORITE_CONTENT_TYPES.includes(value as FavoriteContentType)

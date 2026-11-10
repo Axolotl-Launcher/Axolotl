@@ -331,6 +331,8 @@
 <script setup lang="ts">
 import type { Labrinth } from '@modrinth/api-client'
 import {
+    BookmarkFilledIcon,
+    BookmarkIcon,
     BookOpenIcon,
     ClipboardCopyIcon,
     ExternalIcon,
@@ -380,6 +382,7 @@ import ResourceBackupsModal from '@/components/ui/ResourceBackupsModal.vue'
 import ResourceHistoryModal from '@/components/ui/ResourceHistoryModal.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import ResourceReleaseChangelog from '@/components/ui/ResourceReleaseChangelog.vue'
+import { useContentFavorites } from '@/composables/useContentFavorites'
 import { contentVersionContext, useContentVersions } from '@/composables/useContentVersions'
 import { postUpgradeNoticeQueryKey, usePostUpgradeNotice } from '@/composables/usePostUpgradeNotice'
 import { useWorldDatapacks } from '@/composables/useWorldDatapacks'
@@ -392,6 +395,7 @@ import {
     indexContentChanges,
 } from '@/helpers/content-change-jobs'
 import { createContentEventRefresh } from '@/helpers/content-event-refresh'
+import { contentItemFavoriteInput } from '@/helpers/content-favorites'
 import { isUnresolvedProjectId } from '@/helpers/content-identity'
 import { applyContentItemUpdates, matchesContentItem } from '@/helpers/content-item-state'
 import { contentProjectUrl } from '@/helpers/content-project-links'
@@ -668,11 +672,21 @@ const messages = defineMessages({
         id: 'app.project.open-in-mcmod',
         defaultMessage: 'Open in MC Mod',
     },
+    addToFavorites: {
+        id: 'app.content-favorites.add',
+        defaultMessage: 'Add to favorites',
+    },
+    removeFromFavorites: {
+        id: 'app.content-favorites.remove',
+        defaultMessage: 'Remove from favorites',
+    },
 })
 
 const { formatMessage } = useVIntl()
 const debugState = useDebugLogger('Mods:state')
 const { handleError, addNotification } = injectNotificationManager()
+const contentFavorites = useContentFavorites()
+void contentFavorites.load().catch(handleError)
 const downloadManager = injectDownloadManager()
 const {
     installingItems,
@@ -2663,6 +2677,17 @@ function getOverflowOptions(item: ContentItem): OverflowMenuOption[] {
             id: formatMessage(messages.openInMcmod),
             icon: BookOpenIcon,
             action: () => void openUrl(mcmodUrl),
+        })
+    }
+
+    const favorite = contentItemFavoriteInput(item)
+    if (favorite) {
+        const saved = contentFavorites.isFavorite(favorite.provider, favorite.project_id)
+        options.push({
+            id: formatMessage(saved ? messages.removeFromFavorites : messages.addToFavorites),
+            icon: saved ? BookmarkFilledIcon : BookmarkIcon,
+            disabled: contentFavorites.isPending(favorite.provider, favorite.project_id),
+            action: () => void contentFavorites.toggle(favorite).catch(handleError),
         })
     }
 

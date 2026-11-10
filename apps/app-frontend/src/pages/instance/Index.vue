@@ -830,7 +830,12 @@ function updateBreadcrumbs() {
 updateBreadcrumbs()
 
 watch(
-    () => instance.value?.id,
+    () => [
+        instance.value?.id,
+        instance.value?.name,
+        instance.value?.icon_path,
+        instance.value?.loader,
+    ],
     () => {
         updateBreadcrumbs()
     },

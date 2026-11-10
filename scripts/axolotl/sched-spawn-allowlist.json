@@ -1101,17 +1101,18 @@
     {
       "file": "packages/app-lib/src/api/logs/document.rs",
       "form": "spawn_blocking",
-      "count": 1,
-      "reason": "log document read (upstream): the file read runs on the blocking pool; the synchronous open is inside that closure",
+      "count": 2,
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
-        "read_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {"
+        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {",
+        "export_log_file: tokio::task::spawn_blocking(move || {"
       ]
     },
     {
       "file": "packages/app-lib/src/api/logs/document.rs",
       "form": "std::fs",
       "count": 1,
-      "reason": "log document read (upstream): the file read runs on the blocking pool; the synchronous open is inside that closure",
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
         "read_file: let file = std::fs::File::open(resolved)?;"
       ]

@@ -76,7 +76,7 @@ import Button from '#ui/components/base/buttons/Button.vue'
 import EmptyState from '#ui/components/base/EmptyState.vue'
 import { useVIntl } from '#ui/composables/i18n'
 
-import { highlightLine, markSearchMatches } from '../composables/log-highlight'
+import { highlightLine, markSearchMatches, visibleLogText } from '../composables/log-highlight'
 import { consoleMessages } from '../messages'
 import type { LogLine } from '../types'
 
@@ -106,6 +106,7 @@ const props = withDefaults(
 const viewportRef = ref<HTMLElement | null>(null)
 const scrollTop = ref(0)
 const viewportHeight = ref(0)
+const viewportWidth = ref(0)
 const stickToBottom = ref(true)
 
 interface ViewportState {
@@ -117,14 +118,13 @@ interface ViewportState {
 const lineHeightPx = computed(() => Math.round(props.fontSize * 1.4))
 // wrap 折行估算：0.6em 为等宽字符平均宽，乘 0.9 留保守余量（行高宁高勿矮，避免内容溢出重叠）
 const charsPerLine = computed(() => {
-    const vp = viewportRef.value
-    if (!vp) return 120
-    return Math.max(20, Math.floor((vp.clientWidth / (props.fontSize * 0.6)) * 0.9))
+    if (!viewportWidth.value) return 120
+    return Math.max(20, Math.floor((viewportWidth.value / (props.fontSize * 0.6)) * 0.9))
 })
 
 function estimateHeight(item: ViewportLine): number {
     if (!props.wrap) return lineHeightPx.value
-    const lines = Math.max(1, Math.ceil(item.line.text.length / charsPerLine.value))
+    const lines = Math.max(1, Math.ceil(visibleLogText(item.line.text).length / charsPerLine.value))
     return lines * lineHeightPx.value
 }
 
@@ -133,6 +133,11 @@ function estimateHeight(item: ViewportLine): number {
 // 清空控制台后模板不再读取它，重启后 spacer 会以旧高度渲染（底部空白）。
 let heightPrefix: number[] | null = null
 const heightTotal = ref(0)
+let measuredLines: LogLine[] = []
+let measuredColumns = 0
+let measuredLineHeight = 0
+let rowHeights = new WeakMap<LogLine, number>()
+const heightRevision = ref(0)
 
 function rebuildHeights() {
     const n = props.lines.length
@@ -141,14 +146,36 @@ function rebuildHeights() {
         heightTotal.value = n * lineHeightPx.value
         return
     }
-    const prefix = new Array<number>(n)
-    let acc = 0
-    for (let i = 0; i < n; i++) {
+    const sameGeometry =
+        measuredColumns === charsPerLine.value && measuredLineHeight === lineHeightPx.value
+    // Filters can replace interior rows while retaining both endpoints. Only a
+    // complete immutable prefix proves that the old offsets can be reused.
+    const append =
+        heightPrefix &&
+        sameGeometry &&
+        n >= measuredLines.length &&
+        measuredLines.every((line, index) => props.lines[index]?.line === line)
+    if (!sameGeometry) rowHeights = new WeakMap()
+    const prefix = append ? heightPrefix! : []
+    let acc = append ? heightTotal.value : 0
+    const start = append ? measuredLines.length : 0
+    if (!append) measuredLines = []
+    for (let i = start; i < n; i++) {
+        const item = props.lines[i]!
         prefix[i] = acc
-        acc += estimateHeight(props.lines[i]!)
+        let height = rowHeights.get(item.line)
+        if (height === undefined) {
+            height = estimateHeight(item)
+            rowHeights.set(item.line, height)
+        }
+        acc += height
+        measuredLines.push(item.line)
     }
     heightPrefix = prefix
     heightTotal.value = acc
+    measuredColumns = charsPerLine.value
+    measuredLineHeight = lineHeightPx.value
+    heightRevision.value++
 }
 
 watch(
@@ -179,6 +206,8 @@ const totalHeight = computed(() => heightTotal.value)
 const WINDOW_BUFFER = 15
 
 function computeWindow(): { items: ViewportLine[]; startIndex: number } {
+    // Prefix offsets also change on width-only resizes, without a lines change.
+    void heightRevision.value
     const n = props.lines.length
     if (n === 0) return { items: [], startIndex: 0 }
 
@@ -233,6 +262,7 @@ function handleScroll() {
     if (!vp) return
     scrollTop.value = vp.scrollTop
     viewportHeight.value = vp.clientHeight
+    viewportWidth.value = vp.clientWidth
     stickToBottom.value = vp.scrollTop + vp.clientHeight >= vp.scrollHeight - lineHeightPx.value * 2
 }
 
@@ -248,6 +278,7 @@ function syncViewportSize() {
     const vp = viewportRef.value
     if (!vp) return
     viewportHeight.value = vp.clientHeight
+    viewportWidth.value = vp.clientWidth
     // 窗口宽度影响 wrap 折行估算，resize 时重建高度缓存
     if (props.wrap) rebuildHeights()
 }

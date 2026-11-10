@@ -1,3 +1,33 @@
+/*
+ * The content pane's rounded top-left corner leaves a concave quarter-circle
+ * notch over the launcher background. A transparent circle with a spread
+ * shadow fills the area outside its edge; clipping to the top-left quadrant
+ * leaves exactly the notch, and the browser antialiases the shadow's arc.
+ *
+ * Keep this on `::before`: the window-frame contour below owns `::after`, and
+ * its class-heavy selector wins over every `::after` rule declared elsewhere.
+ * While the fill lived on `::after`, the contour replaced it outright and the
+ * desktop showed through the corner in transparent windows.
+ */
+.app-grid-layout::before {
+    content: '';
+    position: absolute;
+    left: var(--left-bar-width);
+    top: var(--top-bar-height);
+    z-index: 2;
+    width: calc(var(--radius-xl) * 2);
+    height: calc(var(--radius-xl) * 2);
+    border-radius: 50%;
+    box-shadow: 0 0 0 var(--radius-xl) var(--surface-3);
+    clip-path: inset(0 50% 50% 0);
+    pointer-events: none;
+}
+
+.app-grid-layout.has-transparent-background::before {
+    box-shadow: 0 0 0 var(--radius-xl)
+        color-mix(in srgb, var(--surface-3-opaque) var(--opacity-ratio-chrome), transparent);
+}
+
 .app-grid-layout.has-css-window-border:not(.is-maximized):not(.has-native-decorations)::after {
     content: '';
     position: fixed;

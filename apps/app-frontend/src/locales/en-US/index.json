@@ -17327,6 +17327,9 @@
   "minecraft-account.copy-uuid": {
     "message": "Copy UUID"
   },
+  "minecraft-account.drag-to-reorder": {
+    "message": "Drag to reorder, or press Alt with the arrow keys"
+  },
   "minecraft-account.label": {
     "message": "Minecraft account"
   },

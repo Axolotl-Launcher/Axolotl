@@ -56,6 +56,7 @@ export interface ConsoleManagerContext {
     clearDisabled?: Ref<boolean>
     clearDisabledTooltip?: string | Ref<string | undefined>
     onDelete?: () => Promise<void>
+    onExportLog?: (() => Promise<void>) | Ref<(() => Promise<void>) | undefined>
     deleteDisabled?: Ref<boolean>
     deleteDisabledTooltip?: string | Ref<string | undefined>
 

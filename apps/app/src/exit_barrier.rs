@@ -25,8 +25,9 @@
 //! NSIS installer's own `exit(0)` and an OS shutdown or forced kill cannot be
 //! intercepted.
 
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use theseus::scheduler::tag::Level;
 
@@ -39,18 +40,22 @@ pub const STEP_BUDGETS: [Duration; 3] = [
     Duration::from_secs(3),
 ];
 
-/// Milliseconds since the Unix epoch; 0 while unarmed. Re-armed on every
-/// `ExitRequested`, so it must never be a write-once cell.
+/// Milliseconds on the exit clock (`now_millis`); 0 while unarmed. Re-armed
+/// on every `ExitRequested`, so it must never be a write-once cell.
 static EXIT_DEADLINE_MS: AtomicU64 = AtomicU64::new(0);
+/// Where the exit clock starts. The hard cap is an elapsed-time limit, so it
+/// is measured on a monotonic clock: a wall-clock step during shutdown must
+/// neither end the barrier early nor keep it waiting past the cap.
+static CLOCK_ORIGIN: LazyLock<Instant> = LazyLock::new(Instant::now);
 static POOL_CLOSED: AtomicBool = AtomicBool::new(false);
 /// The re-entrancy guard: set while one barrier runs.
 static EXIT_RUNNING: AtomicBool = AtomicBool::new(false);
 static WATCHDOG_STARTED: AtomicBool = AtomicBool::new(false);
 
+/// Milliseconds on the monotonic exit clock, counted from its first read. An
+/// armed deadline is at least the hard cap, so it never reads as unarmed.
 pub fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_millis() as u64)
+    CLOCK_ORIGIN.elapsed().as_millis() as u64
 }
 
 /// One run of steps 1–5. Dropping it, finished or interrupted, releases the
@@ -284,6 +289,22 @@ mod tests {
             "the hard cap follows the new deadline"
         );
         drop(second);
+    }
+
+    #[test]
+    fn the_hard_cap_runs_on_the_monotonic_exit_clock() {
+        let _serial = serial();
+        let first = now_millis();
+        std::thread::sleep(Duration::from_millis(5));
+        assert!(now_millis() >= first + 5, "the exit clock moves forward");
+
+        let pass = begin(now_millis()).unwrap();
+        assert!(deadline_ms() >= HARD_CAP.as_millis() as u64);
+        assert!(
+            matches!(check_cap(now_millis()), CapCheck::Wait(_)),
+            "a deadline armed now is not reached on the same clock"
+        );
+        drop(pass);
     }
 
     #[test]

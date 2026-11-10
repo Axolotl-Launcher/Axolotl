@@ -12,6 +12,7 @@ export const appHandlers: Handlers = {
     'plugin:app|name': () => tauriConf.productName,
     initialize_state: ignore,
     show_window: ignore,
+    frontend_ready: ignore,
     is_elevated: () => false,
     lightweight_mode_frontend_ready: () => ({ pending_crashes: [], pending_commands: [] }),
     lightweight_mode_set_route: ignore,

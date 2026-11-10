@@ -1591,6 +1591,13 @@ async function setupApp() {
     themeStore.shortcutBindings = resolveAllBindings()
     await localePreparation
     stateInitialized.value = true
+    void nextTick(() => {
+        requestAnimationFrame(() => {
+            invoke('frontend_ready').catch((error) => {
+                console.warn('Failed to report frontend readiness', error)
+            })
+        })
+    })
     const stopMcpSync = await startMcpStateSync()
     const stopMcpUi = await startMcpUiBridge(router)
     const stopMcp = () => {

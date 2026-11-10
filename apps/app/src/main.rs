@@ -488,6 +488,15 @@ fn show_window(app: tauri::AppHandle) {
     }
 }
 
+/// Records that the launcher shell has rendered its first initialized frame.
+/// Startup work that is not needed for first paint waits for this signal, so
+/// it must not be sent while only the splash screen is mounted.
+#[tracing::instrument(skip_all)]
+#[tauri::command]
+fn frontend_ready() {
+    State::mark_frontend_ready();
+}
+
 #[tauri::command]
 async fn set_transparent_window_frame(
     enabled: bool,
@@ -1063,6 +1072,7 @@ fn main() {
             toggle_decorations,
             set_transparent_window_frame,
             show_window,
+            frontend_ready,
             restart_app,
             exit_app,
             check_symlink_capability,

@@ -533,7 +533,11 @@ async fn restart_app(app: tauri::AppHandle) -> api::Result<()> {
         ))
         .into());
     }
-    app.restart()
+    // `AppHandle::restart` skips `ExitRequested` and `Exit` on the main thread
+    // and parks the calling thread otherwise. Requesting the restart always
+    // runs the exit barrier, which closes the database before relaunching.
+    exit_barrier::Restarter::request_restart(&app);
+    Ok(())
 }
 
 #[tauri::command]

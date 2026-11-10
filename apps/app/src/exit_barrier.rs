@@ -10,7 +10,9 @@
 //!    and record the losses;
 //! 6. close the database pool (3 s); from here nothing is aborted any more,
 //!    only recorded;
-//! 7. exit, or restart through `request_restart` once the pool is closed.
+//! 7. exit, or restart once the pool is closed: an installed update asks
+//!    through `request_restart` here, and the frontend's `restart_app` has
+//!    asked before step 1, so Tauri relaunches only after `Exit` returns.
 //!
 //! Budget: 5 s + 5 s + 3 s = 13 s, under the 15 s hard cap. At the hard cap
 //! the barrier stops waiting, records the losses and exits the process; L3

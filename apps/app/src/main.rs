@@ -47,6 +47,13 @@ mod updater_impl_noop;
 
 const BLOCKBENCH_SKIN_RESOURCE_DIR: &str = "resources/blockbench-skin";
 
+/// A toast trigger writes settings through the pool, whose SQLite
+/// `busy_timeout` is 30 s — longer than the exit hard cap. Bound the write so
+/// a contended database cannot preempt the install or the database close.
+#[cfg(feature = "updater")]
+const CHANGELOG_TOAST_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(10);
+
 fn blockbench_skin_response(
     path: &str,
     resource_dir: &Path,
@@ -632,12 +639,23 @@ fn update_is_pending(_app: &tauri::AppHandle) -> bool {
 /// Quit reaches `RunEvent::Exit` without that event, so the exit handler runs
 /// it once when no pass has happened.
 fn run_exit_steps(app: &tauri::AppHandle) {
-    if let Err(error) = tauri::async_runtime::block_on(
+    // Stop the debounced retry before the bounded exit flush: otherwise it
+    // could wake during database shutdown or the installer and start an
+    // untimed Mojang request.
+    theseus::minecraft_skins::begin_shutdown_flush();
+    let flush = tauri::async_runtime::block_on(tokio::time::timeout(
+        exit_barrier::SKIN_FLUSH_TIMEOUT,
         theseus::minecraft_skins::flush_pending_skin_change(),
-    ) {
-        tracing::warn!(
+    ));
+    match flush {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => tracing::warn!(
             "Failed to flush pending Minecraft skin change before exit: {error}"
-        );
+        ),
+        Err(_) => tracing::warn!(
+            "Pending Minecraft skin change did not flush within {} s",
+            exit_barrier::SKIN_FLUSH_TIMEOUT.as_secs()
+        ),
     }
     // L0 quiesces while the services and servers stop, so its exit window
     // overlaps steps 3 and 4.
@@ -1160,14 +1178,22 @@ fn main() {
                         exit_barrier::disarm();
 
                         fn set_changelog_toast(version: Option<String>) {
-                            let toast_result: theseus::Result<()> = tauri::async_runtime::block_on(async move {
-                                settings::patch(serde_json::json!({ "pending_update_toast_for_version": version })).await?;
-                                Ok(())
-                            });
-                            if let Err(e) = toast_result {
-                                tracing::warn!(
+                            let toast_result =
+                                tauri::async_runtime::block_on(tokio::time::timeout(
+                                    CHANGELOG_TOAST_TIMEOUT,
+                                    settings::patch(serde_json::json!({
+                                        "pending_update_toast_for_version": version
+                                    })),
+                                ));
+                            match toast_result {
+                                Ok(Ok(_)) => {}
+                                Ok(Err(e)) => tracing::warn!(
                                     "Failed to set pending_update_toast: {e}"
-                                )
+                                ),
+                                Err(_) => tracing::warn!(
+                                    "Timed out setting pending_update_toast after {} s",
+                                    CHANGELOG_TOAST_TIMEOUT.as_secs()
+                                ),
                             }
                         }
 
@@ -1188,8 +1214,9 @@ fn main() {
                             // the updater plugin launches the NSIS installer and
                             // exits the process via `std::process::exit(0)`
                             // without returning, so the success path below never
-                            // runs there. Bound this settings write, then lift
-                            // the cap again for the designed install wait.
+                            // runs there. The write has its own budget, so this
+                            // re-armed cap cannot preempt the installer; lift it
+                            // again for the designed install wait.
                             #[cfg(target_os = "windows")]
                             {
                                 exit_barrier::rearm(exit_barrier::now_millis());

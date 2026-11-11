@@ -3785,12 +3785,13 @@ mod tests {
         predicate: &str,
         value: &str,
     ) -> String {
-        let columns = sqlx::query_scalar::<_, String>(&format!(
-            "SELECT name FROM pragma_table_info('{table}') ORDER BY cid"
-        ))
-        .fetch_all(pool)
-        .await
-        .unwrap();
+        let columns =
+            sqlx::query_scalar::<_, String>(sqlx::AssertSqlSafe(format!(
+                "SELECT name FROM pragma_table_info('{table}') ORDER BY cid"
+            )))
+            .fetch_all(pool)
+            .await
+            .unwrap();
         let json_columns = columns
             .iter()
             .map(|column| format!("\"{}\"", column.replace('"', "\"\"")))
@@ -3799,7 +3800,7 @@ mod tests {
         let query = format!(
             "SELECT COALESCE(json_group_array(json_array({json_columns})), '[]') FROM (SELECT * FROM \"{table}\" WHERE {predicate} ORDER BY rowid)"
         );
-        sqlx::query_scalar::<_, String>(&query)
+        sqlx::query_scalar::<_, String>(sqlx::AssertSqlSafe(query))
             .bind(value)
             .fetch_one(pool)
             .await

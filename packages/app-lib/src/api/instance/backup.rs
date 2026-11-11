@@ -583,7 +583,7 @@ pub async fn list_operations(
         query.push_str(" AND state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')");
     }
     query.push_str(" ORDER BY created_at DESC");
-    let mut request = sqlx::query(&query);
+    let mut request = sqlx::query(sqlx::AssertSqlSafe(query));
     if let Some(instance_id) = instance_id {
         request = request.bind(instance_id);
     }

@@ -30,6 +30,8 @@ export const REQUIRED_TEST_SELECTORS = [
     'writing_version_info_creates_missing_parent_directory',
     'curseforge',
     'derived_db',
+    'state::db::',
+    'state::db_backup::',
     'state::documents',
     'state::store::tests',
     'scheduler::',
@@ -253,11 +255,17 @@ function extractRustFunction(source, name) {
 
 export function analyzeDbPool(source, file = 'packages/app-lib/src/state/db.rs') {
     const issues = []
-    const fn = extractRustFunction(source, 'open_app_db_pool')
+    let fn = extractRustFunction(source, 'open_app_db_pool')
     if (!fn) {
         return [
             issue(file, 1, 'open_app_db_pool was not found; the pool invariant check is vacuous.'),
         ]
+    }
+    if (/^\{\s*open_app_db_pool_with_ownership\(db_path, None\)\.await\s*\}$/.test(fn.body)) {
+        fn = extractRustFunction(source, 'open_app_db_pool_with_ownership')
+        if (!fn) {
+            return [issue(file, 1, 'The delegated app database pool builder was not found.')]
+        }
     }
 
     const timeoutSecs = /busy_timeout\(\s*Duration::from_secs\((\d+)\)\s*\)/.exec(fn.body)

@@ -6,9 +6,12 @@ use sqlx::migrate::{Migration, Migrator};
 use sqlx::sqlite::{
     SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions,
 };
-use sqlx::{Pool, Sqlite};
+use sqlx::{Connection, Pool, Sqlite};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
+
+mod files;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
@@ -135,17 +138,7 @@ pub async fn copy_release_database_to_beta(
         .into());
     }
 
-    let release_pool = open_app_db_pool(&release_path).await?;
-    let escaped_path = beta_path.to_string_lossy().replace('\'', "''");
-    sqlx::query(&format!("VACUUM INTO '{escaped_path}'"))
-        .execute(&release_pool)
-        .await?;
-    release_pool.close().await;
-
-    if let Err(error) = open_app_db_pool(&beta_path).await {
-        let _ = tokio::fs::remove_file(&beta_path).await;
-        return Err(error);
-    }
+    copy_channel_database(&release_path, &beta_path, false).await?;
 
     tracing::info!(
         source = %release_path.display(),
@@ -215,23 +208,57 @@ pub async fn copy_database_between_channels(
         .into());
     }
 
-    crate::util::io::create_dir_all(&target_dir).await?;
-    let temporary_path = target_dir.join(format!("{LEGACY_APP_DB_FILE}.tmp"));
-    let source_pool = open_app_db_pool(&source_path).await?;
-    let escaped_path = temporary_path.to_string_lossy().replace('\'', "''");
-    let result = sqlx::query(&format!("VACUUM INTO '{escaped_path}'"))
-        .execute(&source_pool)
-        .await;
-    source_pool.close().await;
-    result?;
-
-    tokio::fs::rename(&temporary_path, &target_path).await?;
+    copy_channel_database(&source_path, &target_path, true).await?;
     tracing::info!(
         source = %source_path.display(),
         destination = %target_path.display(),
         "Overwrote the inactive update channel database"
     );
     Ok(())
+}
+
+async fn copy_channel_database(
+    source: &Path,
+    target: &Path,
+    overwrite: bool,
+) -> crate::Result<()> {
+    let _ownership = files::Ownership::acquire(target).await?;
+    files::recover(target).await?;
+    if !overwrite && target.try_exists()? {
+        return Err(crate::ErrorKind::InputError(
+            "The target database already exists".into(),
+        )
+        .into());
+    }
+    let staged = files::sidecar(
+        target,
+        &format!(".snapshot-{}.tmp", uuid::Uuid::new_v4()),
+    );
+    let result = async {
+        let mut connection =
+            super::db_backup::open_read_only_db(source).await?;
+        let snapshot = super::db_backup::create_verified_sqlite_snapshot(
+            &mut connection,
+            &staged,
+        )
+        .await;
+        connection.close().await?;
+        snapshot?;
+        files::replace(target, &staged).await?;
+        Ok::<(), crate::Error>(())
+    }
+    .await;
+    if result.is_err() {
+        let _ = tokio::fs::remove_file(staged).await;
+    }
+    result
+}
+
+pub(super) async fn replace_database_files(
+    database: &Path,
+    staged: &Path,
+) -> crate::Result<PathBuf> {
+    files::replace(database, staged).await
 }
 
 pub async fn backup_current_app_db_for_update(
@@ -415,6 +442,10 @@ async fn reconcile_default_channel_database(
     let target = target_dir.join(LEGACY_APP_DB_FILE);
     let marker = target_dir.join(CHANNEL_RECONCILE_MARKER_FILE);
 
+    if files::sidecar(&target, ".replacement.json").try_exists()? {
+        let _ownership = files::Ownership::acquire(&target).await?;
+        files::recover(&target).await?;
+    }
     if target.try_exists()? {
         // A migration that completed but crashed before removing its marker
         // leaves both the marker and an empty source directory behind.
@@ -432,6 +463,8 @@ async fn reconcile_default_channel_database(
         return Ok(());
     }
 
+    let _source_ownership = files::Ownership::acquire(&source).await?;
+    let _target_ownership = files::Ownership::acquire(&target).await?;
     crate::util::io::create_dir_all(&target_dir).await?;
 
     match marker_matches(&marker, other_channel).await {
@@ -543,28 +576,55 @@ async fn migrate_legacy_release_database(
     settings_dir: &Path,
 ) -> crate::Result<()> {
     let legacy_path = settings_dir.join(LEGACY_APP_DB_FILE);
-    if !legacy_path.try_exists()? {
-        return Ok(());
-    }
-
     let release_dir = settings_dir.join("release");
     let release_path = release_dir.join(LEGACY_APP_DB_FILE);
+    let marker = release_dir.join(".legacy-release-migration");
+    if !legacy_path.try_exists()? && !marker.try_exists()? {
+        return Ok(());
+    }
+    let _source = files::Ownership::acquire(&legacy_path).await?;
+    let _target = files::Ownership::acquire(&release_path).await?;
+    files::recover(&release_path).await?;
     if release_path.try_exists()? {
+        if marker.try_exists()? && !legacy_path.try_exists()? {
+            tokio::fs::remove_file(marker).await?;
+        }
         return Ok(());
     }
 
     crate::util::io::create_dir_all(&release_dir).await?;
-    tokio::fs::rename(&legacy_path, &release_path).await?;
+    if !marker.try_exists()? {
+        for suffix in ["-wal", "-shm"] {
+            if sidecar_path(&release_path, suffix).try_exists()? {
+                return Err(crate::ErrorKind::FSError(format!(
+                    "Cannot migrate the legacy database next to unowned SQLite sidecar {}",
+                    sidecar_path(&release_path, suffix).display()
+                )).into());
+            }
+        }
+        let file = tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&marker)
+            .await?;
+        file.sync_all().await?;
+    }
     for suffix in ["-wal", "-shm"] {
         let legacy_sidecar = sidecar_path(&legacy_path, suffix);
         if legacy_sidecar.try_exists()? {
-            tokio::fs::rename(
-                &legacy_sidecar,
-                sidecar_path(&release_path, suffix),
-            )
-            .await?;
+            let destination = sidecar_path(&release_path, suffix);
+            if destination.try_exists()? {
+                return Err(crate::ErrorKind::FSError(format!(
+                    "Cannot resume legacy database migration: both locations contain {suffix}"
+                )).into());
+            }
+            tokio::fs::rename(&legacy_sidecar, destination).await?;
         }
     }
+    // The main-file rename is the commit point; a marker lets the next
+    // startup finish sidecar moves instead of opening a detached main file.
+    tokio::fs::rename(&legacy_path, &release_path).await?;
+    tokio::fs::remove_file(marker).await?;
 
     tracing::info!(
         database = %release_path.display(),
@@ -580,6 +640,8 @@ fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
 }
 
 async fn connect_app_db(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
+    let ownership = Arc::new(files::Ownership::acquire(db_path).await?);
+    files::recover(db_path).await?;
     super::db_backup::prepare_app_db(db_path).await?;
     if let Err(err) =
         super::db_backup::maybe_backup_existing_app_db(db_path).await
@@ -588,11 +650,15 @@ async fn connect_app_db(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
             "Continuing without a pre-migration app database backup: {err}"
         );
     }
-    open_migrated_app_db(db_path).await
+    open_migrated_app_db(db_path, ownership).await
 }
 
-async fn open_migrated_app_db(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
-    let pool = open_app_db_pool(db_path).await?;
+async fn open_migrated_app_db(
+    db_path: &Path,
+    ownership: Arc<files::Ownership>,
+) -> crate::Result<Pool<Sqlite>> {
+    let pool =
+        open_app_db_pool_with_ownership(db_path, Some(ownership)).await?;
 
     if let Err(err) = stale_data_cleanup(&pool).await {
         tracing::warn!(
@@ -1638,7 +1704,11 @@ fn is_compatible_migration_checksum(
     applied_checksum: &[u8],
     migration: &Migration,
 ) -> bool {
-    let normalized_lf = migration.sql.replace("\r\n", "\n").replace('\r', "\n");
+    let normalized_lf = migration
+        .sql
+        .as_str()
+        .replace("\r\n", "\n")
+        .replace('\r', "\n");
     let normalized_crlf = normalized_lf.replace('\n', "\r\n");
 
     if checksum_matches(applied_checksum, normalized_lf.as_bytes())
@@ -1670,6 +1740,13 @@ fn checksum_as_hex(checksum: &[u8]) -> String {
 }
 
 async fn open_app_db_pool(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
+    open_app_db_pool_with_ownership(db_path, None).await
+}
+
+async fn open_app_db_pool_with_ownership(
+    db_path: &Path,
+    ownership: Option<Arc<files::Ownership>>,
+) -> crate::Result<Pool<Sqlite>> {
     let conn_options = SqliteConnectOptions::new()
         .filename(db_path)
         .busy_timeout(Duration::from_secs(30))
@@ -1679,6 +1756,15 @@ async fn open_app_db_pool(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
 
     Ok(SqlitePoolOptions::new()
         .max_connections(100)
+        // The callback is retained by the pool and its clones, so closing a
+        // window cannot release ownership while another database user lives.
+        .after_connect(move |_, _| {
+            let ownership = ownership.clone();
+            Box::pin(async move {
+                let _ownership = ownership;
+                Ok(())
+            })
+        })
         .connect_with(conn_options)
         .await?)
 }
@@ -1732,6 +1818,163 @@ mod tests {
     use std::collections::HashSet;
 
     #[tokio::test]
+    async fn bundled_sqlite_contains_the_wal_reset_fix() {
+        let pool = SqlitePoolOptions::new()
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let version: String = sqlx::query_scalar("SELECT sqlite_version()")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let parts: Vec<u32> = version
+            .split('.')
+            .map(|part| part.parse().unwrap())
+            .collect();
+        assert!(
+            parts.as_slice() >= [3, 51, 3].as_slice(),
+            "SQLite {version} lacks the required WAL-reset fix"
+        );
+        pool.close().await;
+    }
+
+    #[tokio::test]
+    async fn database_pool_retains_exclusive_file_ownership_until_dropped() {
+        let directory = tempfile::tempdir().unwrap();
+        let database = directory.path().join("release/app.db");
+        let pool = connect_app_db(&database).await.unwrap();
+        let clone = pool.clone();
+        assert!(files::Ownership::acquire(&database).await.is_err());
+        pool.close().await;
+        drop(pool);
+        assert!(files::Ownership::acquire(&database).await.is_err());
+        drop(clone);
+        assert!(files::Ownership::acquire(&database).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn channel_copy_does_not_replay_the_previous_database_wal() {
+        use sqlx::ConnectOptions;
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source.db");
+        let target = directory.path().join("target.db");
+        let old = directory.path().join("old.db");
+        let mut connection = SqliteConnectOptions::new()
+            .filename(&source)
+            .create_if_missing(true)
+            .connect()
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE new_source(value TEXT)")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        connection.close().await.unwrap();
+        let mut connection = SqliteConnectOptions::new()
+            .filename(&old)
+            .create_if_missing(true)
+            .journal_mode(SqliteJournalMode::Wal)
+            .pragma("wal_autocheckpoint", "0")
+            .connect()
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE old_target(value TEXT)")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        tokio::fs::copy(&old, &target).await.unwrap();
+        let wal = tokio::fs::read(sidecar_path(&old, "-wal")).await.unwrap();
+        tokio::fs::write(sidecar_path(&target, "-wal"), &wal)
+            .await
+            .unwrap();
+        connection.close().await.unwrap();
+
+        copy_channel_database(&source, &target, true).await.unwrap();
+        let pool = open_app_db_pool(&target).await.unwrap();
+        let tables: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type = 'table'",
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(tables, vec!["new_source"]);
+        pool.close().await;
+        let mut entries = tokio::fs::read_dir(directory.path()).await.unwrap();
+        let mut preserved_wal = false;
+        while let Some(entry) = entries.next_entry().await.unwrap() {
+            if entry
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".previous-wal")
+            {
+                assert_eq!(tokio::fs::read(entry.path()).await.unwrap(), wal);
+                preserved_wal = true;
+            }
+        }
+        assert!(preserved_wal);
+    }
+
+    #[tokio::test]
+    async fn channel_copy_refuses_an_owned_target_without_mutating_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source.db");
+        let target = directory.path().join("target.db");
+        tokio::fs::write(&target, b"original").await.unwrap();
+        let _owner = files::Ownership::acquire(&target).await.unwrap();
+        assert!(copy_channel_database(&source, &target, true).await.is_err());
+        assert_eq!(tokio::fs::read(target).await.unwrap(), b"original");
+    }
+
+    #[tokio::test]
+    async fn legacy_migration_resumes_after_each_sidecar_and_main_commit() {
+        for moved in 0..=3 {
+            let directory = tempfile::tempdir().unwrap();
+            let original = directory.path().join("app.db");
+            let destination = directory.path().join("release/app.db");
+            tokio::fs::create_dir_all(destination.parent().unwrap())
+                .await
+                .unwrap();
+            tokio::fs::write(
+                destination
+                    .parent()
+                    .unwrap()
+                    .join(".legacy-release-migration"),
+                "",
+            )
+            .await
+            .unwrap();
+            for (index, suffix) in ["-wal", "-shm", ""].iter().enumerate() {
+                let target = if index < moved {
+                    &destination
+                } else {
+                    &original
+                };
+                tokio::fs::write(
+                    sidecar_path(target, suffix),
+                    format!("original{suffix}"),
+                )
+                .await
+                .unwrap();
+            }
+            migrate_legacy_release_database(directory.path())
+                .await
+                .unwrap();
+            migrate_legacy_release_database(directory.path())
+                .await
+                .unwrap();
+            for suffix in ["-wal", "-shm", ""] {
+                assert_eq!(
+                    tokio::fs::read(sidecar_path(&destination, suffix))
+                        .await
+                        .unwrap(),
+                    format!("original{suffix}").as_bytes()
+                );
+                assert!(!sidecar_path(&original, suffix).exists());
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn backup_directory_failure_does_not_prevent_connection_or_hide_migration_errors()
      {
         let directory = tempfile::tempdir().unwrap();
@@ -1745,6 +1988,7 @@ mod tests {
         sqlx::query("INSERT INTO app_metadata(key, value) VALUES ('backup-failure-marker', 'preserved')")
             .execute(&pool).await.unwrap();
         pool.close().await;
+        drop(pool);
         tokio::fs::write(directory.path().join("Backups"), "not a directory")
             .await
             .unwrap();
@@ -1762,6 +2006,7 @@ mod tests {
         sqlx::query("INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (99999999999999, 'unavailable-build', TRUE, X'00', 1)")
             .execute(&pool).await.unwrap();
         pool.close().await;
+        drop(pool);
         assert!(connect_app_db(&database).await.is_err());
     }
 
@@ -1780,6 +2025,7 @@ mod tests {
         sqlx::query("INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (99999999999999, 'unavailable-build', TRUE, X'00', 1)")
             .execute(&pool).await.unwrap();
         pool.close().await;
+        drop(pool);
         assert!(connect_app_db(&database).await.is_err());
         let backup_dir = directory
             .path()
@@ -2245,12 +2491,13 @@ mod tests {
         let mut snapshot = Vec::with_capacity(columns.len());
         for column in columns {
             let escaped = column.replace('"', "\"\"");
-            let value: String = sqlx::query_scalar(&format!(
-                "SELECT quote(\"{escaped}\") FROM settings WHERE id = 0"
-            ))
-            .fetch_one(pool)
-            .await
-            .unwrap();
+            let value: String =
+                sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+                    "SELECT quote(\"{escaped}\") FROM settings WHERE id = 0"
+                )))
+                .fetch_one(pool)
+                .await
+                .unwrap();
             snapshot.push((column, value));
         }
         snapshot
@@ -2826,7 +3073,11 @@ mod tests {
     #[test]
     fn accepts_lf_and_crlf_variants_of_the_same_migration() {
         let migration = initial_migration();
-        let lf = migration.sql.replace("\r\n", "\n").replace('\r', "\n");
+        let lf = migration
+            .sql
+            .as_str()
+            .replace("\r\n", "\n")
+            .replace('\r', "\n");
         let crlf = lf.replace('\n', "\r\n");
 
         assert!(is_compatible_migration_checksum(
@@ -2862,7 +3113,7 @@ mod tests {
     fn rejects_an_unknown_content_change() {
         let migration = initial_migration();
         let changed_checksum = checksum(
-            format!("{}\n-- unknown change", migration.sql).as_bytes(),
+            format!("{}\n-- unknown change", migration.sql.as_str()).as_bytes(),
         );
 
         assert!(!is_compatible_migration_checksum(
@@ -2908,13 +3159,16 @@ mod tests {
         .unwrap();
 
         let migration = official_preferred_download_source_migration();
-        let legacy_sql = format!("{}\n", migration.sql);
+        let legacy_sql = format!("{}\n", migration.sql.as_str());
         let legacy_checksum = checksum(legacy_sql.as_bytes());
         assert_eq!(
             checksum_as_hex(&legacy_checksum),
             LEGACY_OFFICIAL_PREFERRED_DOWNLOAD_SOURCE_MIGRATION_CHECKSUMS[0]
         );
-        sqlx::raw_sql(&legacy_sql).execute(&pool).await.unwrap();
+        sqlx::raw_sql(sqlx::AssertSqlSafe(legacy_sql))
+            .execute(&pool)
+            .await
+            .unwrap();
         sqlx::query(
             "INSERT INTO _sqlx_migrations (
                 version, description, success, checksum, execution_time
@@ -3136,7 +3390,7 @@ mod tests {
                 migration.version == PROXY_CONFIG_MIGRATION_VERSION
             })
             .unwrap();
-        sqlx::raw_sql(migration.sql.as_ref())
+        sqlx::raw_sql(migration.sql.clone())
             .execute(&pool)
             .await
             .unwrap();
@@ -3262,7 +3516,7 @@ mod tests {
                 migration.version == CONTENT_FAVORITES_MIGRATION_VERSION
             })
             .unwrap();
-        sqlx::raw_sql(migration.sql.as_ref())
+        sqlx::raw_sql(migration.sql.clone())
             .execute(&pool)
             .await
             .unwrap();
@@ -3648,7 +3902,7 @@ mod tests {
                 ("imported-duplicate-entry".to_string(), "local".to_string(),),
             ]
         );
-        sqlx::raw_sql(instance_content_ownership_migration().sql.as_ref())
+        sqlx::raw_sql(instance_content_ownership_migration().sql.clone())
             .execute(&pool)
             .await
             .unwrap();
@@ -3811,7 +4065,7 @@ mod tests {
         .await
         .unwrap();
 
-        sqlx::raw_sql(java_default_versions_migration().sql.as_ref())
+        sqlx::raw_sql(java_default_versions_migration().sql.clone())
             .execute(&pool)
             .await
             .unwrap();
@@ -3994,7 +4248,7 @@ mod tests {
         .await
         .unwrap();
 
-        sqlx::raw_sql(provider_qualified_content_migration().sql.as_ref())
+        sqlx::raw_sql(provider_qualified_content_migration().sql.clone())
             .execute(&pool)
             .await
             .unwrap();
@@ -4877,8 +5131,10 @@ mod tests {
                      WHERE name = 'secrets_externalized'
                        AND \"notnull\" = 1 AND dflt_value = '0'"
                 );
-                let marks: i64 =
-                    sqlx::query_scalar(&sql).fetch_one(pool).await.unwrap();
+                let marks: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(sql))
+                    .fetch_one(pool)
+                    .await
+                    .unwrap();
                 assert_eq!(marks, 1, "{table} has no mark column");
             }
         }
@@ -5372,13 +5628,13 @@ mod tests {
         MIGRATOR.run(&pool).await.unwrap();
         insert_dependency_edge_fixture(&pool).await;
 
-        sqlx::raw_sql(&dependency_edge_row(
+        sqlx::raw_sql(sqlx::AssertSqlSafe(dependency_edge_row(
             "local",
             "local",
             "local",
             "child-entry-local",
             "local:child-local",
-        ))
+        )))
         .execute(&pool)
         .await
         .unwrap();
@@ -5426,11 +5682,11 @@ mod tests {
         };
         previous_migrator.run(&pool).await.unwrap();
         insert_dependency_edge_fixture(&pool).await;
-        sqlx::raw_sql(&dependency_edge_row_legacy(
+        sqlx::raw_sql(sqlx::AssertSqlSafe(dependency_edge_row_legacy(
             "modrinth",
             "child-entry",
             "local:child",
-        ))
+        )))
         .execute(&pool)
         .await
         .unwrap();
@@ -5442,7 +5698,9 @@ mod tests {
         )
         .replace("edge-local", "edge-local-before");
         let local_before: Result<sqlx::sqlite::SqliteQueryResult, _> =
-            sqlx::raw_sql(&local_row).execute(&pool).await;
+            sqlx::raw_sql(sqlx::AssertSqlSafe(local_row))
+                .execute(&pool)
+                .await;
         assert!(local_before.is_err());
 
         MIGRATOR.run(&pool).await.unwrap();
@@ -5456,13 +5714,13 @@ mod tests {
         .unwrap();
         assert_eq!(providers, ["modrinth"]);
 
-        sqlx::raw_sql(&dependency_edge_row(
+        sqlx::raw_sql(sqlx::AssertSqlSafe(dependency_edge_row(
             "local",
             "local",
             "local",
             "child-entry-local",
             "local:child-local",
-        ))
+        )))
         .execute(&pool)
         .await
         .unwrap();
@@ -5499,13 +5757,13 @@ mod tests {
         MIGRATOR.run(&pool).await.unwrap();
         insert_dependency_edge_fixture(&pool).await;
 
-        sqlx::raw_sql(&dependency_edge_row(
+        sqlx::raw_sql(sqlx::AssertSqlSafe(dependency_edge_row(
             "modrinth",
             "curseforge",
             "modrinth",
             "child-entry",
             "mr-child",
-        ))
+        )))
         .execute(&pool)
         .await
         .unwrap();
@@ -5556,11 +5814,11 @@ mod tests {
         };
         previous_migrator.run(&pool).await.unwrap();
         insert_dependency_edge_fixture(&pool).await;
-        sqlx::raw_sql(&dependency_edge_row_legacy(
+        sqlx::raw_sql(sqlx::AssertSqlSafe(dependency_edge_row_legacy(
             "curseforge",
             "child-entry",
             "cf-child",
-        ))
+        )))
         .execute(&pool)
         .await
         .unwrap();
@@ -5583,13 +5841,13 @@ mod tests {
             )
         );
 
-        sqlx::raw_sql(&dependency_edge_row(
+        sqlx::raw_sql(sqlx::AssertSqlSafe(dependency_edge_row(
             "modrinth",
             "curseforge",
             "modrinth",
             "child-entry-local",
             "mr-child",
-        ))
+        )))
         .execute(&pool)
         .await
         .unwrap();

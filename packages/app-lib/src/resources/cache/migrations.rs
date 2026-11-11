@@ -5,11 +5,13 @@ pub const CACHE_SCHEMA_VERSION: u32 = 2;
 
 pub fn migrator() -> Migrator {
     Migrator {
-        migrations: Cow::Owned(vec![Migration::new(
-            20261011090000,
-            "independent resource cache".into(),
-            MigrationType::Simple,
-            r#"
+        migrations: Cow::Owned(vec![
+            Migration::new(
+                20261011090000,
+                "independent resource cache".into(),
+                MigrationType::Simple,
+                sqlx::SqlStr::from_static(
+                    r#"
             CREATE TABLE resource_cache_state (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 generation INTEGER NOT NULL
@@ -32,22 +34,27 @@ pub fn migrator() -> Migrator {
                 payload TEXT NOT NULL,
                 verified_at INTEGER NOT NULL
             );
-            "#.into(),
-            false,
-        ), Migration::new(
-            20261011121000,
-            "legacy resource import checkpoint".into(),
-            MigrationType::Simple,
-            r#"
+            "#,
+                ),
+                false,
+            ),
+            Migration::new(
+                20261011121000,
+                "legacy resource import checkpoint".into(),
+                MigrationType::Simple,
+                sqlx::SqlStr::from_static(
+                    r#"
             CREATE TABLE resource_legacy_import (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 last_rowid INTEGER NOT NULL DEFAULT 0,
                 completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1))
             );
             INSERT INTO resource_legacy_import(id) VALUES (1);
-            "#.into(),
-            false,
-        )]),
+            "#,
+                ),
+                false,
+            ),
+        ]),
         ..Migrator::DEFAULT
     }
 }

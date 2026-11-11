@@ -2917,7 +2917,7 @@ impl CachedEntry {
 
     pub(crate) async fn upsert_many(
         items: &[Self],
-        exec: impl sqlx::Executor<'_, Database = sqlx::Sqlite>,
+        pool: &SqlitePool,
     ) -> crate::Result<()> {
         if items.is_empty() {
             return Ok(());
@@ -2969,24 +2969,8 @@ impl CachedEntry {
             .collect::<crate::Result<Vec<_>>>()?;
         let items = serde_json::to_string(&items)?;
 
-        sqlx::query(
-            "
-            INSERT OR REPLACE INTO cache (id, data_type, alias, data, expires)
-                SELECT
-                    json_extract(value, '$.id') AS id,
-                    json_extract(value, '$.data_type') AS data_type,
-                    json_extract(value, '$.alias') AS alias,
-                    json_extract(value, '$.data') AS data,
-                    json_extract(value, '$.expires') AS expires
-                FROM
-                    json_each($1)
-            ",
-        )
-        .bind(items)
-        .execute(exec)
-        .await?;
-
-        Ok(())
+        let mut conn = pool.acquire().await?;
+        crate::state::store::cache::write_many(&mut conn, &items).await
     }
 
     pub async fn purge_cache_types(

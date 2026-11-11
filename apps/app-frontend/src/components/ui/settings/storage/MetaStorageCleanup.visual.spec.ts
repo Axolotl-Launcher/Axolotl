@@ -174,6 +174,24 @@ it('shows the message of a serialized Tauri rejection in the cleanup error', asy
     expect(wrapper.text()).not.toContain('[object Object]')
 })
 
+it('retains structured file failure details without a message', async () => {
+    const { wrapper } = await analyzed()
+    await wrapper.get('[role="checkbox"]').trigger('click')
+    await button(wrapper, 'Clean selected files').trigger('click')
+    vi.mocked(cleanMeta).mockRejectedValue({
+        path: 'libraries/example.jar',
+        reason: 'file is busy',
+    })
+    await wrapper
+        .findAll('button')
+        .filter((element) => element.text() === 'Clean selected files')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('libraries/example.jar')
+    expect(wrapper.get('[role="alert"]').text()).toContain('file is busy')
+    expect(wrapper.text()).not.toContain('[object Object]')
+})
+
 it('closes after deletion while a slow totals refresh continues separately', async () => {
     const { wrapper, refreshStorage } = await analyzed()
     await wrapper.get('[role="checkbox"]').trigger('click')

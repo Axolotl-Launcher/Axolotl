@@ -26,8 +26,8 @@ export function errorMessage(error: unknown): string | null {
 /**
  * The human-readable text for whatever a rejected `invoke` threw.
  *
- * `String()` on a serialized error object yields `[object Object]`, which is what
- * the user would otherwise read in a failure dialog.
+ * Objects without a string message retain their structured details as JSON.
+ * Missing values and objects that cannot be serialized use the caller's fallback.
  *
  * Pass a localized `unknownError` when the text reaches the user: this module has
  * no i18n context, and the English default is only meant for callers that just
@@ -36,10 +36,15 @@ export function errorMessage(error: unknown): string | null {
 export function errorText(error: unknown, unknownError = 'Unknown error'): string {
     const message = errorMessage(error)
     if (message !== null) return message
+    if (error === null || error === undefined) return unknownError
     try {
+        if (typeof error === 'object') {
+            const details = JSON.stringify(error)
+            return typeof details === 'string' ? details : unknownError
+        }
         return String(error)
     } catch {
-        // Only reachable for values whose own conversion throws.
+        // Circular references, throwing getters and custom conversions can fail.
         return unknownError
     }
 }

@@ -130,7 +130,7 @@
     },
     "test:e2e": {
       "cache": false,
-      "env": ["CI", "PLAYWRIGHT_BASE_URL", "FORCE_COLOR"]
+      "env": ["CI", "PLAYWRIGHT_BASE_URL", "FORCE_COLOR", "E2E_ARTIFACT_DIR"]
     },
     "fix": {},
     "fix:ancillary": {

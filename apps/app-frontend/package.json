@@ -13,7 +13,7 @@
     "intl:extract": "formatjs extract \"src/**/*.{vue,ts,tsx,js,jsx,mts,cts,mjs,cjs}\" --ignore \"**/*.d.ts\" --ignore node_modules --out-file src/locales/en-US/index.json --format crowdin --preserve-whitespace",
     "intl:prune-local": "pnpm -w scripts i18n-icu-contract prune-local --scope apps/app-frontend",
     "test": "vue-tsc --noEmit && vitest run --config vitest.config.ts",
-    "test:visual": "vitest run --config vitest.config.ts",
+    "test:visual": "vitest run --config vitest.config.ts --project visual",
     "test:e2e": "wdio run wdio.browser.conf.ts"
   },
   "dependencies": {

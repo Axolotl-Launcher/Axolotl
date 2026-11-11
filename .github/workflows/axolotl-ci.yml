@@ -188,8 +188,47 @@ jobs:
         run: pnpm --filter @modrinth/ui test
       - name: Test desktop frontend
         run: pnpm --filter @modrinth/app-frontend test
-      - name: Test desktop frontend overlays
-        run: pnpm --filter @modrinth/app-frontend test:visual
+
+  frontend-e2e:
+    name: Test desktop frontend user flows
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install browser system dependencies
+        run: pnpm --filter @modrinth/app-frontend exec playwright install-deps chromium
+      - name: Test desktop navigation and persisted appearance
+        run: |
+          set -o pipefail
+          mkdir -p .agents/plans/desktop-e2e
+          pnpm --filter @modrinth/app-frontend test:e2e 2>&1 | tee .agents/plans/desktop-e2e/run.log
+      - name: Upload desktop E2E failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-frontend-e2e-failure
+          path: |
+            .agents/plans/desktop-e2e/*.log
+            .agents/plans/desktop-e2e/*.json
+            .agents/plans/desktop-e2e/*.png
+            .agents/plans/desktop-e2e/webdriver/*.log
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
 
   resources:
     name: Prepare build resources

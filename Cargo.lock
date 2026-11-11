@@ -438,6 +438,7 @@ dependencies = [
  "native-dialog",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tao",
  "tempfile",
  "webview2-com",

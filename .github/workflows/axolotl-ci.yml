@@ -408,6 +408,12 @@ jobs:
         run: |
           node scripts/axolotl/build-desktop.mjs --profile ci
           node scripts/axolotl/build-desktop.mjs --profile ci --installer-only
+      - name: Test transactional Windows executable updates
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          AXOLOTL_INSTALLER_UI_PATH: ${{ github.workspace }}/target/ci/axolotl-installer-ui.exe
+        run: node --test apps/installer-ui/tests/executable-install.test.cjs
       - name: Package and verify both Windows installers from one binary
         if: runner.os == 'Windows'
         run: node scripts/axolotl/package-windows.mjs --profile ci --output target/ci-installers
@@ -417,7 +423,7 @@ jobs:
         run: |
           npm install --prefix target/uninstall-verification --no-save --no-audit --no-fund handlebars@4.7.8
           if ($LASTEXITCODE -ne 0) { throw "Failed to prepare NSIS fixture dependencies" }
-          node apps/installer-ui/tests/compile-fixture.cjs --tauri-nsis target/ci-bundle/release/nsis/x64
+          node apps/installer-ui/tests/compile-fixture.cjs --tauri-nsis target/ci-bundle/release/nsis/x64 --installer-helper target/ci/axolotl-installer-ui.exe
           if ($LASTEXITCODE -ne 0) { throw "Failed to compile NSIS uninstall fixture" }
           & apps/installer-ui/tests/uninstall-smoke.ps1
   website:

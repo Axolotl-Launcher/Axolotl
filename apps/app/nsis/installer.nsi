@@ -51,6 +51,7 @@ ${StrLoc}
 !define UNINSTALLERHEADERIMAGE "{{uninstaller_header_image}}"
 !define MAINBINARYNAME "{{main_binary_name}}"
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
+!insertmacro AxlExecutableMetadata "${MAINBINARYSRCPATH}"
 !define BUNDLEID "{{bundle_id}}"
 !define COPYRIGHT "{{copyright}}"
 !define OUTFILE "{{out_file}}"
@@ -1021,6 +1022,7 @@ Function .onInit
   Push 4
   Call ReportInstallerProgress
 
+  !ifndef AXL_NATIVE_INSTALLER
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode <> 1
     Call RequireInstallerWebView2
@@ -1034,6 +1036,7 @@ Function .onInit
       Quit
     ${EndIf}
   ${EndIf}
+  !endif
 FunctionEnd
 
 
@@ -1159,14 +1162,15 @@ Section Install
   Call ReportInstallerProgress
   SetOutPath $INSTDIR
 
+  !insertmacro AxlPrepareUpdatePrivileges
+  !insertmacro AxlAcquireInstallOwnership
+  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+
   !ifmacrodef NSIS_HOOK_PREINSTALL
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
-
-  ; Copy main executable
-  File "${MAINBINARYSRCPATH}"
+  !insertmacro AxlInstallExecutable "${MAINBINARYSRCPATH}" "$INSTDIR\${MAINBINARYNAME}.exe"
 
   ; Copy resources
   {{#each resources_dirs}}
@@ -1305,6 +1309,14 @@ Function .onInstSuccess
   ${EndIf}
 FunctionEnd
 
+Function .onInstFailed
+  ${If} $AxlExecutableStage != ""
+    Delete "$AxlExecutableStage"
+  ${EndIf}
+  Push "Installation failed; the previous executable backup was retained."
+  Call AxlLogExecutableInstall
+FunctionEnd
+
 Function un.onInit
   !insertmacro SetContext
 
@@ -1342,6 +1354,7 @@ Function un.onInit
     StrCpy $UpdateMode 1
   ${EndIf}
 
+  !ifndef AXL_NATIVE_INSTALLER
   ${If} $UninstallUiChild <> 1
   ${AndIf} $PassiveMode <> 1
   ${AndIf} $UpdateMode <> 1
@@ -1353,6 +1366,7 @@ Function un.onInit
     SetErrorLevel $0
     Quit
   ${EndIf}
+  !endif
 FunctionEnd
 
 Function un.ReportInstallerProgress

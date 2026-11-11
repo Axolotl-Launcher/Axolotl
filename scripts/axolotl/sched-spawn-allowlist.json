@@ -1,6 +1,24 @@
 {
   "entries": [
     {
+      "file": "apps/installer-ui/src/executable_install.rs",
+      "form": "std::fs import",
+      "count": 10,
+      "reason": "reviewed synchronous installer helper: headless metadata inspection, duplicated installation-ownership handle verification, same-volume staged executable verification and atomic publication before any GUI or async runtime; holds no launcher managed resources and retains NSIS directory ownership even after parent death (D17)",
+      "sites": [
+        "dispatch: fs::write(",
+        "inherit_ownership: let expected = fs::canonicalize(parent)",
+        "inherit_ownership: let ownership = unsafe { File::from_raw_handle(duplicate.0) };",
+        "inspect: let metadata = fs::symlink_metadata(path)",
+        "inspect: let mut file = File::open(path).map_err(|error| error.to_string())?;",
+        "install: OpenOptions::new()",
+        "install: let metadata = fs::symlink_metadata(target)",
+        "install: let parent = fs::canonicalize(parent).map_err(|error| error.to_string())?;",
+        "install: let stage_parent = fs::canonicalize(",
+        "record: if let Ok(mut file) = OpenOptions::new()"
+      ]
+    },
+    {
       "file": "apps/app/src/api/auth.rs",
       "form": "tokio::spawn",
       "count": 1,

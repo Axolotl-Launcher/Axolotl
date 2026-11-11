@@ -394,7 +394,6 @@ async fn pinned_redirect_uses_other_hosts_normal_client_and_removes_authorizatio
             &fixture_route(),
             Some(&("Authorization".into(), "secret-token".into())),
             None,
-            None,
             Some(0),
             Some(65535),
             &clients,
@@ -598,7 +597,7 @@ async fn production_reqwest_requests_and_retries_follow_new_selection_without_dn
             .endpoints
             .install_test_selection(expected, Protocol::Http1);
         let (response, _) = crate::util::download::native_request::send_path_request_with_clients(
-            &route, None, None, None, Some(0), Some(65535), &clients, None).await.unwrap();
+            &route, None, None, Some(0), Some(65535), &clients, None).await.unwrap();
         assert_eq!(response.remote_addr(), Some(expected));
         assert_eq!(response.bytes().await.unwrap().len(), 65536);
     }

@@ -33,6 +33,7 @@ import { resolveGameDirectory } from '@/helpers/game-directory'
 import { install_existing_instance, install_pack_to_existing_instance } from '@/helpers/install'
 import { kill, run } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { get_by_instance_id } from '@/helpers/process'
 import { showInstanceInFolder } from '@/helpers/utils.js'
 import { handleSevereError } from '@/store/error.js'
@@ -114,6 +115,7 @@ const loading = ref(false)
 const modLoading = computed(
     () =>
         loading.value ||
+        instanceLaunchStartedAt(props.instance.id) !== undefined ||
         currentEvent.value === 'installing' ||
         (currentEvent.value === 'launched' && !isPlaying.value),
 )
@@ -264,7 +266,7 @@ onUnmounted(() => unlisten())
             </div>
             <div class="flex items-center">
                 <Button
-                    v-if="isPlaying"
+                    v-if="isPlaying && instanceLaunchStartedAt(instance.id) === undefined"
                     v-tooltip="formatMessage(commonMessages.stopButton)"
                     type="colored"
                     color="red"
@@ -380,7 +382,7 @@ onUnmounted(() => unlisten())
                 :class="{ 'pointer-events-none': selectMode }"
             >
                 <Button
-                    v-if="isPlaying"
+                    v-if="isPlaying && instanceLaunchStartedAt(instance.id) === undefined"
                     v-tooltip="formatMessage(commonMessages.stopButton)"
                     type="colored"
                     color="red"
@@ -484,7 +486,7 @@ onUnmounted(() => unlisten())
                 </div>
                 <div class="absolute bottom-1.5 right-1.5 flex size-12 items-center justify-center">
                     <Button
-                        v-if="isPlaying"
+                        v-if="isPlaying && instanceLaunchStartedAt(instance.id) === undefined"
                         v-tooltip="formatMessage(commonMessages.stopButton)"
                         type="colored"
                         color="red"
@@ -576,7 +578,7 @@ onUnmounted(() => unlisten())
                 />
                 <div class="absolute inset-0 flex items-center justify-center">
                     <Button
-                        v-if="isPlaying"
+                        v-if="isPlaying && instanceLaunchStartedAt(instance.id) === undefined"
                         v-tooltip="formatMessage(commonMessages.stopButton)"
                         type="colored"
                         color="red"

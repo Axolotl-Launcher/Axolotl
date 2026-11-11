@@ -60,6 +60,7 @@ async fn invalid_pack_initialization_is_a_visible_failed_task_without_a_target()
             InstallRequest::CreateModpackInstance {
                 location: CreatePackLocation::FromFile { path: archive },
                 post_install_edit: None,
+                game_dir_override: None,
             },
             &state
         )
@@ -102,6 +103,7 @@ async fn retry_checkpoint_reuses_only_the_original_incomplete_pack_instance() {
             path: pack_path.clone(),
         },
         post_install_edit: None,
+        game_dir_override: None,
     });
     job.target = InstallTarget::NewInstance {
         instance_id: Some("first".into()),
@@ -1231,4 +1233,83 @@ async fn delayed_old_worker_checkpoints_cannot_overwrite_a_retried_generation()
             .retry_from_checkpoint
     );
     state.pool.close().await;
+}
+
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn modpack_game_directory_is_used_during_initialization_and_shared_roots_survive_cleanup()
+ {
+    if !State::initialized() {
+        let root = tempfile::tempdir().unwrap().keep();
+        State::init_for_test(root.to_string_lossy().into_owned())
+            .await
+            .unwrap();
+    }
+    let state = State::get().await.unwrap();
+    let external = tempfile::tempdir().unwrap();
+    let private = external.path().join(".minecraft/versions/Pack");
+    std::fs::create_dir_all(&private).unwrap();
+    std::fs::write(private.join("existing.txt"), b"keep").unwrap();
+    for target in [private.clone(), external.path().join("shared/.minecraft")] {
+        std::fs::create_dir_all(&target).unwrap();
+        std::fs::write(target.join("existing.txt"), b"keep").unwrap();
+        std::fs::create_dir_all(target.join("versions/Pack")).unwrap();
+        std::fs::write(target.join("versions/Pack/Pack.json"), b"old version")
+            .unwrap();
+        let mut job =
+            InstallJobState::new(InstallRequest::CreateModpackInstance {
+                location: CreatePackLocation::FromVersionId {
+                    project_id: "abcdefgh".into(),
+                    version_id: "12345678".into(),
+                    title: "Pack".into(),
+                    icon_url: None,
+                },
+                post_install_edit: Some(InstallPostInstallEdit {
+                    name: Some("Pack".into()),
+                    icon_path: None,
+                    link: None,
+                }),
+                game_dir_override: Some(target.to_string_lossy().into_owned()),
+            });
+        init::prepare_initial_instance(&mut job, &state)
+            .await
+            .unwrap();
+        let id = current_instance_id(&job).unwrap();
+        let metadata = crate::state::get_instance(&id, &state.pool)
+            .await
+            .unwrap()
+            .unwrap();
+        let actual =
+            PathBuf::from(metadata.instance.game_dir_override.clone().unwrap());
+        if target == private {
+            assert_ne!(actual, target);
+            assert!(actual.starts_with(private.parent().unwrap()));
+            assert!(actual.join("mods").is_dir());
+        } else {
+            assert_eq!(actual, target);
+            assert_ne!(metadata.instance.name, "Pack");
+            assert!(
+                target
+                    .join("versions")
+                    .join(&metadata.instance.name)
+                    .is_dir()
+            );
+            assert!(
+                matches!(&job.request, InstallRequest::CreateModpackInstance { post_install_edit: Some(edit), .. } if edit.name.as_deref() == Some(metadata.instance.name.as_str()))
+            );
+        }
+        assert!(
+            matches!(&job.request, InstallRequest::CreateModpackInstance { location: CreatePackLocation::FromVersionId { title, .. }, .. } if title == &metadata.instance.name)
+        );
+        let full_path = crate::api::instance::get_full_path(&id).await.unwrap();
+        assert_eq!(full_path, crate::util::io::canonicalize(&actual).unwrap());
+        crate::state::remove_instance(&id, &state).await.unwrap();
+        assert_eq!(
+            std::fs::read(target.join("existing.txt")).unwrap(),
+            b"keep"
+        );
+        if target == private {
+            assert!(!actual.exists());
+        }
+    }
 }

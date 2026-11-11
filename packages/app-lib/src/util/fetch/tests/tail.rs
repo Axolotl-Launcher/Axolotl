@@ -59,7 +59,6 @@ async fn stalled_tail_range_is_hedged_and_temp_files_are_cleaned() {
             size as u64,
             &part_path,
             &semaphore,
-            None,
             &client,
             &client,
             1,

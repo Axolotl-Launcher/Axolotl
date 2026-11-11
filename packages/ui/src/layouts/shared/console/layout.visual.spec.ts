@@ -109,3 +109,37 @@ for (const height of [440, 640]) {
         }
     })
 }
+
+it('only offers complete-file export while the selected source provides that capability', async () => {
+    const save = vi.fn(async () => {})
+    const capability = ref<(() => Promise<void>) | undefined>(undefined)
+    const wrapper = await mountThemed(ConsolePageLayout, {}, 'dark', {
+        global: {
+            provide: {
+                [Symbol.for('modrinth:consoleManagerContext')]: {
+                    logLines: ref([]),
+                    onExportLog: capability,
+                },
+                [Symbol.for('modrinth:modrinthClient')]: {},
+                [Symbol.for('modrinth:modalBehavior')]: { noblur: ref(false) },
+                [Symbol.for('modrinth:notificationManager')]: { addNotification: vi.fn() },
+            },
+            stubs: { NewModal: true, ShareModal: true },
+        },
+    })
+    const button = () =>
+        wrapper.findAll('button').find((button) => button.text().includes('Save complete log'))
+    try {
+        expect(button()).toBeUndefined()
+        capability.value = save
+        await wrapper.vm.$nextTick()
+        expect(button()).toBeDefined()
+        await button()!.trigger('click')
+        expect(save).toHaveBeenCalledOnce()
+        capability.value = undefined
+        await wrapper.vm.$nextTick()
+        expect(button()).toBeUndefined()
+    } finally {
+        wrapper.unmount()
+    }
+})

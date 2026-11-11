@@ -147,15 +147,6 @@
       ]
     },
     {
-      "file": "apps/app/src/api/mr_auth.rs",
-      "form": "tokio::spawn",
-      "count": 1,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "modrinth_login: let auth_code = tokio::spawn(oauth_utils::auth_code_reply::listen("
-      ]
-    },
-    {
       "file": "apps/app/src/api/resources.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 1,
@@ -420,6 +411,15 @@
       ]
     },
     {
+      "file": "apps/app/src/exit_barrier.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "exit hard-cap watchdog: started once by the first exit pass, follows the re-armable deadline (15 s normal, 30 s restart, disarmed for a pending update) and exits the process at the cap (spec §8.6)",
+      "sites": [
+        "watch_hard_cap: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
       "file": "apps/app/src/lightweight_mode.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 10,
@@ -643,27 +643,28 @@
       "file": "apps/installer-ui/src/windows.rs",
       "form": "std::fs import",
       "count": 11,
-      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "reason": "Installer-only synchronous I/O outside L0 and critical sections (D17). Profile removal touches only an owned tempfile directory after WebView2 shutdown, with bounded retries; other sites retain the phase-0 baseline review.",
       "sites": [
         "install_dir_requires_elevation: let can_write = fs::OpenOptions::new()",
         "install_dir_requires_elevation: let removed = fs::remove_file(&write_test).is_ok();",
         "read_installer_status: let bytes = fs::read(status_path)?;",
+        "remove_webview_data_directory: match fs::remove_dir_all(directory) {",
         "start_install: let _ = fs::remove_file(&status_path);",
         "start_install: let _ = fs::remove_file(status_path);",
         "start_uninstall: let _ = fs::remove_file(&status_path);",
         "start_uninstall: let _ = fs::remove_file(status_path);",
         "validate_request: if fs::create_dir_all(&resource_dir).is_err() {",
         "validate_request: if fs::write(&write_test, b\"Axolotl Launcher\").is_err() {",
-        "validate_request: let _ = fs::remove_file(write_test);",
-        "webview_data_directory: fs::create_dir_all(&directory).map_err(|error| {"
+        "validate_request: let _ = fs::remove_file(write_test);"
       ]
     },
     {
       "file": "apps/installer-ui/src/windows.rs",
       "form": "std::thread::sleep",
-      "count": 1,
-      "reason": "phase-0 baseline: blocking sleep outside async code",
+      "count": 2,
+      "reason": "Installer-only blocking waits outside async code. Profile cleanup retries every 50 ms for at most five seconds after WebView shutdown or failed startup; installer child polling retains its phase-0 baseline review.",
       "sites": [
+        "remove_webview_data_directory: thread::sleep(Duration::from_millis(50));",
         "wait_for_installer: Ok(None) => thread::sleep(Duration::from_millis(120)),"
       ]
     },
@@ -1100,17 +1101,18 @@
     {
       "file": "packages/app-lib/src/api/logs/document.rs",
       "form": "spawn_blocking",
-      "count": 1,
-      "reason": "log document read (upstream): the file read runs on the blocking pool; the synchronous open is inside that closure",
+      "count": 2,
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
-        "read_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {"
+        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {",
+        "export_log_file: tokio::task::spawn_blocking(move || {"
       ]
     },
     {
       "file": "packages/app-lib/src/api/logs/document.rs",
       "form": "std::fs",
       "count": 1,
-      "reason": "log document read (upstream): the file read runs on the blocking pool; the synchronous open is inside that closure",
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
       "sites": [
         "read_file: let file = std::fs::File::open(resolved)?;"
       ]
@@ -1242,13 +1244,14 @@
     {
       "file": "packages/app-lib/src/api/pack/import/instance_json.rs",
       "form": "std::fs",
-      "count": 4,
+      "count": 5,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "find_json: if let Ok(dir) = std::fs::read_dir(path) {",
         "find_json: let Ok(content) = std::fs::read_to_string(jf) else {",
         "find_json: let content = std::fs::read_to_string(&json_files[0]).ok()?;",
-        "find_json: let content = std::fs::read_to_string(&primary).ok()?;"
+        "find_json: let content = std::fs::read_to_string(&primary).ok()?;",
+        "version_from_client_jar: let file = std::fs::File::open(jar).ok()?;"
       ]
     },
     {
@@ -2065,7 +2068,7 @@
       "count": 1,
       "reason": "bounded poll for the L0 driver thread to exit within its 5 s window",
       "sites": [
-        "shutdown: std::thread::sleep(Duration::from_millis(10));"
+        "wait_for_exit: std::thread::sleep(Duration::from_millis(10));"
       ]
     },
     {
@@ -2158,21 +2161,20 @@
       ]
     },
     {
-      "file": "packages/app-lib/src/state/friends.rs",
-      "form": "tokio::spawn",
-      "count": 3,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "connect: tokio::spawn(async move {",
-        "socket_loop: tokio::task::spawn(async move {",
-        "socket_read_loop: tokio::spawn(async move {"
-      ]
-    },
-    {
       "file": "packages/app-lib/src/state/instance_groups.rs",
       "form": "std::fs import",
       "count": 2,
       "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_from_disk: match fs::read_to_string(&path)",
+        "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/favorite_groups.rs",
+      "form": "std::fs import",
+      "count": 2,
+      "reason": "favorite group store mirrors the instance group JSON store: synchronous file I/O through an imported std::fs name; it is not held in L0 or inside a critical section",
       "sites": [
         "read_from_disk: match fs::read_to_string(&path)",
         "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
@@ -2318,12 +2320,11 @@
     {
       "file": "packages/app-lib/src/state/instances/watcher.rs",
       "form": "tokio::spawn",
-      "count": 9,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "count": 8,
+      "reason": "reviewed watcher-scoped tasks: screenshot reconciliation is now owned and coalesced by the watcher pump rather than spawned per filesystem event; remaining event delivery, configuration/manual-download reconciliation and crash notification tasks retain their existing operation scopes",
       "sites": [
         "configure_manual_import_directory: tokio::spawn(async move {",
         "crash_task: tokio::task::spawn(async move {",
-        "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
@@ -2374,14 +2375,13 @@
     {
       "file": "packages/app-lib/src/state/process.rs",
       "form": "tokio::spawn",
-      "count": 6,
+      "count": 5,
       "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: tokio::spawn(Process::react_to_process(",
         "parse_and_insert_server_join: tokio::spawn(async move {",
-        "react_to_process: tokio::spawn(async move {",
         "react_to_process: tokio::spawn(async move {"
       ]
     },
@@ -2392,16 +2392,6 @@
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "auto_prefers_mirror: std::fs::read_link(\"/etc/localtime\")"
-      ]
-    },
-    {
-      "file": "packages/app-lib/src/state/tunnel.rs",
-      "form": "tokio::spawn",
-      "count": 2,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "drop: tokio::spawn(close_sockets(self.write.clone(), sockets));",
-        "shutdown: tokio::spawn(close_sockets(self.write.clone(), sockets)).await?"
       ]
     },
     {

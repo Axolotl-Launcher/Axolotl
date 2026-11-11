@@ -234,11 +234,7 @@
                                 class="animate-spin"
                             />
                             <DownloadIcon
-                                v-else-if="
-                                    !installButtonInstalled &&
-                                    !serverProjectSelected &&
-                                    !cartProjectSelected
-                                "
+                                v-else-if="!installButtonInstalled && !cartProjectSelected"
                             />
                             <CheckIcon v-else />
                             {{ installButtonLabel }}
@@ -356,6 +352,7 @@
                     >
                 </div>
                 <NavTabs
+                    route-sync
                     :links="[
                         {
                             label: formatMessage(commonProjectSettingsMessages.description),
@@ -429,32 +426,6 @@
                 <ClipboardCopyIcon /> {{ formatMessage(commonMessages.copyLinkButton) }}
             </template>
         </ContextMenu>
-        <CreationFlowModal
-            v-if="serverInstallContent.isServerContext.value && data?.project_type === 'modpack'"
-            ref="serverSetupModalRef"
-            :type="
-                serverInstallContent.serverFlowFrom.value === 'reset-server'
-                    ? 'reset-server'
-                    : 'server-onboarding'
-            "
-            :available-loaders="[
-                'vanilla',
-                'fabric',
-                'neoforge',
-                'forge',
-                'quilt',
-                'paper',
-                'purpur',
-            ]"
-            :show-snapshot-toggle="true"
-            :on-back="serverInstallContent.onServerFlowBack"
-            :search-modpacks="serverInstallContent.searchServerModpacks"
-            :get-project-versions="serverInstallContent.getServerProjectVersions"
-            :get-loader-manifest="getLoaderManifest"
-            @hide="() => {}"
-            @browse-modpacks="() => {}"
-            @create="serverInstallContent.handleServerModpackFlowCreate"
-        />
         <CreateModpackServerModal ref="modpackServerModal" @created="handleModpackServerCreated" />
     </div>
 </template>
@@ -487,7 +458,6 @@ import {
     Button,
     commonMessages,
     commonProjectSettingsMessages,
-    CreationFlowModal,
     defineMessages,
     EmptyState,
     formatDependencyProjectFilterOption,
@@ -507,7 +477,6 @@ import {
     ProjectSidebarLinks,
     ProjectSidebarServerInfo,
     ProjectSidebarTags,
-    requestInstall,
     SelectedProjectsFloatingBar,
     usesTargetGameVersion,
     useVIntl,
@@ -549,10 +518,10 @@ import {
     list as listInstances,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
-import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata'
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import { get_by_instance_id } from '@/helpers/process'
 import { projectGalleryTranslationSegments } from '@/helpers/project-gallery'
+import { projectFilterValues, projectInstallPreferences } from '@/helpers/project-install-filters'
 import { createProjectBrowseLocation } from '@/helpers/project-links'
 import { readProjectPreviewTitle } from '@/helpers/project-preview'
 import { get_game_versions, get_loaders } from '@/helpers/tags'
@@ -570,7 +539,6 @@ import i18n from '@/i18n.config'
 import { injectContentInstall } from '@/providers/content-install'
 import { injectContentSelection, makeContentSelectionKey } from '@/providers/content-selection'
 import { injectServerInstall } from '@/providers/server-install'
-import { createServerInstallContent } from '@/providers/setup/server-install-content'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 import { useTheming } from '@/store/state.js'
 
@@ -809,17 +777,12 @@ const serverPing = ref(undefined)
 const serverStatusOnline = ref(false)
 const serverInstancePath = ref(null)
 const serverPlaying = ref(false)
-const serverSetupModalRef = ref(null)
-const serverInstallContent = createServerInstallContent({ serverSetupModalRef })
 const translationActive = ref(false)
 const translationLoading = ref(false)
 const translations = ref({})
 const translationMode = ref('bilingual')
 const translationStyle = ref('weakened')
 let translationRequestVersion = 0
-
-serverInstallContent.watchServerContextChanges()
-void serverInstallContent.initServerContext().catch(handleError)
 
 const instanceFilters = computed(() => {
     if (!instance.value) {
@@ -845,9 +808,10 @@ const instanceFilters = computed(() => {
 function buildProjectHref(path, extraQuery = {}) {
     const params = new URLSearchParams()
     for (const [key, val] of Object.entries({ ...route.query, ...extraQuery })) {
+        if (['sid', 'wid', 'shi'].includes(key)) continue
         if (Array.isArray(val)) {
             for (const v of val) params.append(key, v)
-        } else if (val) {
+        } else if (val || (['g', 'l'].includes(key) && val === '')) {
             params.append(key, String(val))
         }
     }
@@ -858,10 +822,10 @@ function buildProjectHref(path, extraQuery = {}) {
 function buildBrowseHref(path) {
     const params = new URLSearchParams()
     for (const [key, val] of Object.entries(route.query)) {
-        if (key === 'b') continue
+        if (['b', 'sid', 'wid', 'shi'].includes(key)) continue
         if (Array.isArray(val)) {
             for (const v of val) params.append(key, v)
-        } else if (val) {
+        } else if (val || (['g', 'l'].includes(key) && val === '')) {
             params.append(key, String(val))
         }
     }
@@ -871,7 +835,12 @@ function buildBrowseHref(path) {
 
 const projectDescriptionHref = computed(() => buildProjectHref(`/project/${route.params.id}`))
 const versionsHref = computed(() =>
-    buildProjectHref(`/project/${route.params.id}/versions`, instanceFilters.value),
+    buildProjectHref(`/project/${route.params.id}/versions`, {
+        ...instanceFilters.value,
+        ...Object.fromEntries(
+            Object.entries(route.query).filter(([key]) => ['g', 'l', 'c'].includes(key)),
+        ),
+    }),
 )
 const projectChangelogHref = computed(() =>
     buildProjectHref(`/project/${route.params.id}/changelog`),
@@ -919,30 +888,6 @@ async function syncContentSelectionTarget(isCurrent = () => true) {
 }
 
 const projectInstallContext = computed(() => {
-    const serverData = serverInstallContent.serverContextServerData.value
-    if (serverData) {
-        return {
-            name: serverData.name,
-            loader: serverData.loader ?? '',
-            gameVersion: serverData.mc_version ?? '',
-            serverId: serverInstallContent.serverIdQuery.value,
-            upstream: serverData.upstream,
-            iconSrc: null,
-            isMedal: serverData.is_medal,
-            backUrl: projectBrowseBackUrl.value,
-            backLabel: projectBackLabel.value,
-            heading: serverInstallContent.serverBrowseHeading.value,
-            queuedCount: serverInstallContent.queuedServerInstallCount.value,
-            selectedProjects: serverInstallContent.selectedServerInstallProjects.value,
-            isInstallingSelected: serverInstallContent.isInstallingQueuedServerInstalls.value,
-            installProgress: serverInstallContent.queuedInstallProgress.value,
-            clearQueued: serverInstallContent.clearQueuedServerInstalls,
-            clearSelected: serverInstallContent.clearQueuedServerInstalls,
-            discardSelectedAndBack: serverInstallContent.discardQueuedServerInstallsAndBack,
-            installSelected: serverInstallContent.installQueuedServerInstallsAndBack,
-        }
-    }
-
     if (cartEligible.value && cartTarget.value) {
         const target = cartTarget.value
         const displayIcon = getDisplayInstanceIcon(target.icon_path, target.loader)
@@ -982,44 +927,19 @@ const projectInstallContext = computed(() => {
     return null
 })
 
-const serverProjectInstallContext = computed(
-    () =>
-        !!serverInstallContent.serverContextServerData.value &&
-        ['modpack', 'mod', 'plugin', 'datapack'].includes(data.value?.project_type),
-)
-const serverProjectSelected = computed(
-    () =>
-        !!data.value && serverInstallContent.queuedServerInstallProjectIds.value.has(data.value.id),
-)
-const serverProjectInstalled = computed(
-    () =>
-        !!data.value &&
-        (serverInstallContent.serverContentProjectIds.value.has(data.value.id) ||
-            serverInstallContent.serverContextServerData.value?.upstream?.project_id ===
-                data.value.id),
-)
 const installButtonLoading = computed(
     () =>
         installing.value ||
         versionsLoading.value ||
         instanceContextLoading.value ||
-        serverInstallContent.isInstallingQueuedServerInstalls.value ||
         (cartProjectKey.value ? contentSelection.isInstalling(cartProjectKey.value) : false),
 )
-const installButtonValidating = computed(
+const installButtonInstalled = computed(
     () =>
-        serverProjectInstallContext.value &&
-        installing.value &&
-        data.value?.project_type !== 'modpack' &&
-        !serverInstallContent.isInstallingQueuedServerInstalls.value,
-)
-const installButtonInstalled = computed(() =>
-    serverProjectInstallContext.value
-        ? serverProjectInstalled.value
-        : installed.value ||
-          (!!data.value &&
-              (!route.query.i || cartTarget.value?.id === route.query.i) &&
-              contentSelection.isInstalledIdentity('modrinth', data.value.id, data.value.slug)),
+        installed.value ||
+        (!!data.value &&
+            (!route.query.i || cartTarget.value?.id === route.query.i) &&
+            contentSelection.isInstalledIdentity('modrinth', data.value.id, data.value.slug)),
 )
 const installButtonDisabled = computed(
     () =>
@@ -1031,9 +951,7 @@ const installButtonDisabled = computed(
 )
 const installButtonLabel = computed(() => {
     if (installButtonInstalled.value) return formatMessage(commonMessages.installedLabel)
-    if (installButtonValidating.value) return formatMessage(commonMessages.validatingLabel)
     if (installButtonLoading.value) return formatMessage(commonMessages.installingLabel)
-    if (serverProjectSelected.value) return formatMessage(commonMessages.selectedLabel)
     if (cartProjectSelected.value) return formatMessage(commonMessages.selectedLabel)
     return formatMessage(commonMessages.installButton)
 })
@@ -1543,73 +1461,47 @@ watch([() => route.params.id, () => route.query.i], () => {
 
 async function install(version) {
     if (!projectClassificationReady.value || !versionsReady.value || !instanceReady.value) return
-    if (serverProjectInstallContext.value && data.value) {
-        if (serverProjectSelected.value) {
-            serverInstallContent.removeQueuedServerInstall(data.value.id)
-            return
-        }
-        if (installButtonDisabled.value) return
-
-        installing.value = true
-        try {
-            const contentType = data.value.project_type
-            await requestInstall({
-                project: {
-                    ...data.value,
-                    project_id: data.value.id,
-                    icon_url: data.value.icon_url,
-                },
-                contentType,
-                mode: contentType === 'modpack' ? 'immediate' : 'queue',
-                selectedFilters: [],
-                providedFilters: [],
-                overriddenProvidedFilterTypes: [],
-                targetPreferences: getTargetInstallPreferences(
-                    {
-                        gameVersion: serverInstallContent.serverContextServerData.value?.mc_version,
-                        loader: serverInstallContent.serverContextServerData.value?.loader,
-                    },
-                    contentType,
-                ),
-                getProjectVersions: async () => versions.value,
-                queue: {
-                    get: serverInstallContent.getQueuedServerInstallPlans,
-                    set: serverInstallContent.setQueuedServerInstallPlans,
-                },
-                install: (plan) =>
-                    serverInstallContent.openServerModpackInstallFlow({
-                        projectId: plan.projectId,
-                        versionId: plan.versionId,
-                        name: plan.project.title ?? plan.project.name ?? data.value.title,
-                        iconUrl: plan.project.icon_url ?? undefined,
-                    }),
-            })
-        } catch (err) {
-            handleError(err)
-        } finally {
-            installing.value = false
-        }
-        return
-    }
     if (cartEligible.value && !cartTarget.value) {
         await contentSelection.refreshInstances()
         browseInstanceSelector.value?.show()
         return
     }
     if (cartEligible.value && data.value && cartTarget.value) {
-        if (cartProjectSelected.value) {
+        const requestedVersion =
+            version ?? (typeof route.params.version === 'string' ? route.params.version : null)
+        if (cartProjectSelected.value && !requestedVersion) {
             contentSelection.remove(cartProjectKey.value)
             return
         }
         installing.value = true
         try {
-            const preferences = getTargetInstallPreferences(
-                { gameVersion: cartTarget.value.game_version, loader: cartTarget.value.loader },
-                data.value.project_type,
+            const preferences = projectInstallPreferences(
+                route.query,
+                getTargetInstallPreferences(
+                    { gameVersion: cartTarget.value.game_version, loader: cartTarget.value.loader },
+                    data.value.project_type,
+                ),
             )
             const selectedVersion =
-                version ?? getLatestMatchingInstallVersion(versions.value, preferences)?.id
+                version ??
+                (typeof route.params.version === 'string' ? route.params.version : null) ??
+                getLatestMatchingInstallVersion(
+                    versions.value.filter(
+                        (candidate) =>
+                            !projectFilterValues(route.query.c).length ||
+                            projectFilterValues(route.query.c).includes(candidate.version_type),
+                    ),
+                    preferences,
+                )?.id
             if (!selectedVersion) throw new Error(formatMessage(messages.noCompatibleVersion))
+            if (
+                cartProjectSelected.value &&
+                contentSelection.items.value.get(cartProjectKey.value)?.versionId ===
+                    selectedVersion
+            ) {
+                contentSelection.remove(cartProjectKey.value)
+                return
+            }
             await contentSelection.add({
                 key: cartProjectKey.value,
                 provider: 'modrinth',

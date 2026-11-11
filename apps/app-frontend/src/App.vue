@@ -1,39 +1,27 @@
 <script setup lang="ts">
 import '@/assets/stylesheets/window-frame.css'
 
-import {
-    type AuthConfig,
-    AuthFeature,
-    type Labrinth,
-    ModrinthApiError,
-    TauriModrinthClient,
-    VerboseLoggingFeature,
-} from '@modrinth/api-client'
+import { ModrinthApiError, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
 import {
     ChangeSkinIcon,
     CompassIcon,
-    ExternalIcon,
     FlaskConicalIcon,
     FolderOpenIcon,
     HomeIcon,
     ImagesIcon,
     LibraryIcon,
-    LogInIcon,
-    LogOutIcon,
     PlusIcon,
     RefreshCwIcon,
     RightArrowIcon,
     RotateCounterClockwiseIcon,
     SettingsIcon,
     SpinnerIcon,
-    UserIcon,
     UsersIcon,
     WorldIcon,
     XIcon,
 } from '@modrinth/assets'
 import {
     Admonition,
-    Avatar,
     BatchScanOverlay,
     BigOptionButton,
     bindingMatchesKeyboardEvent,
@@ -55,7 +43,6 @@ import {
     LoadingBar,
     NewModal,
     NotificationPanel,
-    OverflowMenu,
     PopupNotificationPanel,
     provideModalBehavior,
     provideModrinthClient,
@@ -73,7 +60,6 @@ import { getVersion } from '@tauri-apps/api/app'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Effect, getCurrentWindow } from '@tauri-apps/api/window'
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { type as getOsType } from '@tauri-apps/plugin-os'
 import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
@@ -101,7 +87,6 @@ import AddServerToInstanceModal from '@/components/ui/install_flow/AddServerToIn
 import UnknownPackWarningModal from '@/components/ui/install_flow/UnknownPackWarningModal.vue'
 import MinecraftAuthErrorModal from '@/components/ui/minecraft-auth-error-modal/MinecraftAuthErrorModal.vue'
 import MinecraftCrashModal from '@/components/ui/MinecraftCrashModal.vue'
-import AuthGrantFlowWaitModal from '@/components/ui/modal/AuthGrantFlowWaitModal.vue'
 import CurseForgeManualDownloadsModal from '@/components/ui/modal/CurseForgeManualDownloadsModal.vue'
 import InstanceIconPickerModal from '@/components/ui/modal/InstanceIconPickerModal.vue'
 import MissingJavaModal from '@/components/ui/modal/MissingJavaModal.vue'
@@ -116,6 +101,7 @@ import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import RemoteAnnouncements from '@/components/ui/RemoteAnnouncements.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
+import UnsavedSelectionModal from '@/components/ui/UnsavedSelectionModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { isOfflineAccountRestrictedError } from '@/composables/useAntiPiracyStatus'
@@ -123,12 +109,12 @@ import { useDropImport } from '@/composables/useDropImport'
 import { minecraftLaunchErrorKey } from '@/composables/useMinecraftLaunchError'
 import { setupMojangAuthMonitor, useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
-import { AxolotlBrandConfig, config, getOfficialLabrinthBaseUrl } from '@/config'
+import { AxolotlBrandConfig, config } from '@/config'
 import { startMcpUiBridge } from '@/features/mcp/interface'
 import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
 import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
-import { get_user, get_version } from '@/helpers/cache.js'
+import { get_version } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
 import { applySettingChanges, type PrivilegedSettingChange } from '@/helpers/deep-link-settings.ts'
 import { resolveOpenRoute, resolveSettingsRoute } from '@/helpers/deep-links.ts'
@@ -151,13 +137,6 @@ import {
 } from '@/helpers/install'
 import { type DirectLinkSyncReport, get as getInstance, run } from '@/helpers/instance'
 import { type BackupOperation, cancelBackup, listBackupOperations } from '@/helpers/instance-backup'
-import {
-    cancelLogin,
-    get as getCreds,
-    login,
-    logout,
-    type ModrinthCredentials,
-} from '@/helpers/mr_auth.ts'
 import { installNativeEditMenuBoundary } from '@/helpers/native-edit-menu'
 import { getNavShortcutEnabled } from '@/helpers/nav-shortcut-state'
 import { runWhenIdle } from '@/helpers/page-transition'
@@ -189,6 +168,7 @@ import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
 import { consumeThirdPartyAuthorizationReturn } from '@/helpers/third-party-accounts'
+import { shouldWarnAboutUnsavedSelection } from '@/helpers/unsaved-selection'
 import {
     areUpdatesEnabled,
     backupAppDbForUpdate,
@@ -228,7 +208,6 @@ import {
 } from '@/providers/download-progress.ts'
 import { createServerInstall, provideServerInstall } from '@/providers/server-install'
 import { setupProviders } from '@/providers/setup'
-import { setupAuthProvider } from '@/providers/setup/auth'
 import { setupContentInstallPreviews } from '@/providers/setup/content-install-previews'
 import { setupLoadingStateProvider } from '@/providers/setup/loading-state'
 import { useError } from '@/store/error.js'
@@ -323,8 +302,6 @@ function getPageTransitionKey(route: RouteLocationNormalizedLoaded) {
     return `${transitionGroup}:`
 }
 const APP_SIDEBAR_WIDTH = 300
-type AppCredentials = ModrinthCredentials & { user?: Labrinth.Users.v2.User | null }
-const credentials = ref<AppCredentials | null>(null)
 const sidebarToggled = ref(getSidebarExpanded())
 
 function toggleSidebar() {
@@ -386,18 +363,10 @@ void appVersion
     .catch((error) => {
         console.warn('Failed to read the app version for the Beta label', error)
     })
-const authFeatureConfig: AuthConfig = {
-    token: async () => (await getCreds())?.session,
-}
 const tauriApiClient = new TauriModrinthClient({
     userAgent: async () => AxolotlBrandConfig.userAgent(await appVersion, await getOsType()),
     labrinthBaseUrl: config.labrinthBaseUrl,
-    features: [
-        ...(AxolotlBrandConfig.capabilities.privateModrinthServices
-            ? [new AuthFeature(authFeatureConfig)]
-            : []),
-        new VerboseLoggingFeature(),
-    ],
+    features: [new VerboseLoggingFeature()],
 })
 provideModrinthClient(tauriApiClient)
 providePageContext({
@@ -1041,7 +1010,7 @@ async function onImportFileReceived({
         // ── Unknown (no extraction) → error ──
         if (classification.item_type === 'unknown') {
             addNotification({
-                title: formatMessage(messages.dropUnknownTitle),
+                title: unknownTitleMessage(classification.reason),
                 text: unknownReasonMessage(classification.reason),
                 type: 'error',
             })
@@ -1061,11 +1030,6 @@ async function onImportFileReceived({
 }
 
 const messages = defineMessages({
-    modrinthAccount: { id: 'app.account.modrinth-account', defaultMessage: 'Modrinth account' },
-    signInModrinth: {
-        id: 'app.account.sign-in-modrinth',
-        defaultMessage: 'Sign in to a Modrinth account',
-    },
     updateInstalledToastTitle: {
         id: 'app.update.complete-toast.title',
         defaultMessage: 'Version {version} was successfully installed!',
@@ -1180,10 +1144,6 @@ const messages = defineMessages({
     createInstance: {
         id: 'app.navigation.create-instance',
         defaultMessage: 'Create new instance',
-    },
-    signedInAs: {
-        id: 'app.account.signed-in-as',
-        defaultMessage: 'Signed in as',
     },
     playingAs: {
         id: 'app.minecraft.playing-as',
@@ -1701,7 +1661,6 @@ async function setupApp() {
     })
 
     get_opening_command().then(handleCommand)
-    fetchCredentials()
 }
 
 type SystemAccentColorPayload = {
@@ -2038,6 +1997,38 @@ router.beforeEach(() => {
     routerToken = loading.begin()
 })
 
+let promptUnsavedSelection: ((value: boolean) => void) | null = null
+let discardSelectionOnArrival = false
+
+function requestUnsavedSelectionDecision(): Promise<boolean> {
+    promptUnsavedSelection?.(false)
+    return new Promise<boolean>((resolve) => {
+        promptUnsavedSelection = resolve
+        unsavedSelectionModal.value?.show()
+    })
+}
+
+function settleUnsavedSelection(leave: boolean) {
+    const resolve = promptUnsavedSelection
+    promptUnsavedSelection = null
+    unsavedSelectionModal.value?.hide()
+    resolve?.(leave)
+}
+
+router.beforeEach(async (to, from) => {
+    const processing = ['validating', 'reviewing', 'queueing'].includes(
+        contentSelection.state.value,
+    )
+    if (
+        processing ||
+        !shouldWarnAboutUnsavedSelection(from.path, to.path, contentSelection.selectedCount.value)
+    )
+        return
+    const leave = await requestUnsavedSelectionDecision()
+    if (!leave) return false
+    discardSelectionOnArrival = true
+})
+
 function syncDiscordActivity(to: RouteLocationNormalizedLoaded) {
     const activity =
         typeof to.meta.discordActivity === 'string' ? to.meta.discordActivity : 'Idling...'
@@ -2053,6 +2044,8 @@ function syncDiscordActivity(to: RouteLocationNormalizedLoaded) {
 }
 
 router.afterEach((to, from, failure) => {
+    if (!failure && discardSelectionOnArrival) contentSelection.clear()
+    discardSelectionOnArrival = false
     if (!failure) void invoke('lightweight_mode_set_route', { route: to.fullPath })
     trackEvent('PageView', {
         path: to.path,
@@ -2149,6 +2142,7 @@ error.setMinecraftLaunchErrorHandler(
 const errorModal = ref()
 const antiPiracyNoticeModal = ref<InstanceType<typeof OfflineAccountRestrictionModal>>()
 const minecraftAuthErrorModal = ref()
+const unsavedSelectionModal = ref<InstanceType<typeof UnsavedSelectionModal>>()
 
 const contentInstall = createContentInstall({ router, handleError, addNotification })
 provideContentInstall(contentInstall)
@@ -2208,7 +2202,6 @@ const handleContentInstallModpackDuplicateGoToInstance = (instanceId: string) =>
 const contentInstallCurseForgeManualDownloadsModal = ref()
 const addServerToInstanceModal = ref()
 const incompatibilityWarningModal = ref()
-const modrinthLoginFlowWaitModal = ref()
 
 // ── Drop import system ──────────────────────────────────────────────────
 const dropImport = useDropImport({
@@ -2276,6 +2269,7 @@ const {
     clearDropProcessingNotification,
     showNestedUnpackPrompt,
     showForceAnalysisPrompt,
+    unknownTitleMessage,
     unknownReasonMessage,
 } = dropImport
 
@@ -2300,68 +2294,6 @@ watch(
     },
     { flush: 'post' },
 )
-
-setupAuthProvider(credentials, async (_redirectPath) => {
-    if (AxolotlBrandConfig.capabilities.privateModrinthServices) await signIn()
-})
-
-async function validateSession(sessionToken: string) {
-    try {
-        const response = await tauriFetch(`${getOfficialLabrinthBaseUrl()}/v2/user`, {
-            method: 'GET',
-            headers: { Authorization: sessionToken },
-        })
-        if (response.status === 401) return false
-        return true
-    } catch {
-        return true
-    }
-}
-
-async function fetchCredentials() {
-    if (!AxolotlBrandConfig.capabilities.privateModrinthServices) {
-        credentials.value = null
-        return
-    }
-    const creds: AppCredentials | null = (await getCreds().catch(handleError)) ?? null
-    if (creds && creds.user_id) {
-        if (creds.session && !(await validateSession(creds.session))) {
-            await logout().catch(handleError)
-            credentials.value = null
-            return
-        }
-        creds.user = await get_user(creds.user_id, 'bypass').catch(handleError)
-    }
-    credentials.value = creds ?? null
-}
-
-async function signIn() {
-    modrinthLoginFlowWaitModal.value.show()
-
-    try {
-        await login()
-        await fetchCredentials()
-    } catch (error) {
-        if (
-            typeof error === 'object' &&
-            error !== null &&
-            'message' in error &&
-            typeof error.message === 'string' &&
-            error.message.includes('Login canceled')
-        ) {
-            // Not really an error due to being a result of user interaction, show nothing
-        } else {
-            handleError(error)
-        }
-    } finally {
-        modrinthLoginFlowWaitModal.value.hide()
-    }
-}
-
-async function logOut() {
-    await logout().catch(handleError)
-    await fetchCredentials()
-}
 
 onMounted(() => {
     invoke('show_window')
@@ -3010,9 +2942,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 </span>
             </div>
         </Transition>
-        <Suspense>
-            <AuthGrantFlowWaitModal ref="modrinthLoginFlowWaitModal" @flow-cancel="cancelLogin" />
-        </Suspense>
         <InstanceIconPickerModal ref="instanceIconPickerModal" />
         <CreationFlowModal
             ref="installationModal"
@@ -3121,54 +3050,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </NavButton>
             <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
                 <SettingsIcon />
-            </NavButton>
-            <OverflowMenu
-                v-if="AxolotlBrandConfig.capabilities.privateModrinthServices && credentials?.user"
-                v-tooltip.right="formatMessage(messages.modrinthAccount)"
-                class="w-12 h-12 text-[var(--color-text-default)] rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)] border-0 cursor-pointer"
-                :options="[
-                    {
-                        id: 'view-profile',
-                        action: () =>
-                            openUrl('https://modrinth.com/user/' + credentials?.user?.username),
-                    },
-                    {
-                        id: 'sign-out',
-                        action: () => logOut(),
-                        color: 'danger',
-                    },
-                ]"
-                placement="right-end"
-            >
-                <Avatar :src="credentials?.user?.avatar_url" alt="" size="32px" circle />
-                <template #view-profile>
-                    <UserIcon />
-                    <span class="inline-flex items-center gap-1">
-                        {{ formatMessage(messages.signedInAs) }}
-                        <span
-                            class="inline-flex items-center gap-1 text-[var(--color-text-primary)] font-semibold"
-                        >
-                            <Avatar
-                                :src="credentials?.user?.avatar_url"
-                                alt=""
-                                size="20px"
-                                circle
-                            />
-                            {{ credentials?.user?.username }}
-                        </span>
-                    </span>
-                    <ExternalIcon />
-                </template>
-                <template #sign-out>
-                    <LogOutIcon /> {{ formatMessage(commonMessages.signOutButton) }}
-                </template>
-            </OverflowMenu>
-            <NavButton
-                v-else-if="AxolotlBrandConfig.capabilities.privateModrinthServices"
-                v-tooltip.right="formatMessage(messages.signInModrinth)"
-                :to="() => signIn()"
-            >
-                <LogInIcon class="text-brand" />
             </NavButton>
         </div>
         <AppTitlebar
@@ -3440,6 +3321,12 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     />
     <ContentInstallPreviewModal ref="contentInstallPreviewModal" />
     <ResourceOperationPreviewModal ref="resourceInstallPreview" />
+    <UnsavedSelectionModal
+        ref="unsavedSelectionModal"
+        :count="contentSelection.selectedCount.value"
+        @stay="settleUnsavedSelection(false)"
+        @discard="settleUnsavedSelection(true)"
+    />
     <ModpackAlreadyInstalledModal
         ref="modpackAlreadyInstalledModal"
         @create-anyway="handleModpackDuplicateCreateAnyway"
@@ -3762,35 +3649,14 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     &.has-custom-background,
     &.has-transparent-background {
         // Keep the rounded top-left corner over the image as well: a square
-        // corner against the nav rail and titlebar reads as a hard seam.
+        // corner against the nav rail and titlebar reads as a hard seam. The
+        // notch outside that corner is filled by `window-frame.css`, which also
+        // owns the CSS window contour and must keep it on `::after`.
         &::before {
             border: none;
             box-shadow: none;
         }
     }
-}
-
-// The rounded content corner leaves a concave quarter-circle notch over the
-// launcher background. A transparent circle with a spread shadow fills the
-// area outside its edge; clipping to the top-left quadrant leaves exactly the
-// notch, and the browser antialiases the shadow's arc.
-.app-grid-layout::after {
-    content: '';
-    position: absolute;
-    left: var(--left-bar-width);
-    top: var(--top-bar-height);
-    z-index: 2;
-    width: calc(var(--radius-xl) * 2);
-    height: calc(var(--radius-xl) * 2);
-    border-radius: 50%;
-    box-shadow: 0 0 0 var(--radius-xl) var(--surface-3);
-    clip-path: inset(0 50% 50% 0);
-    pointer-events: none;
-}
-
-.app-grid-layout.has-transparent-background::after {
-    box-shadow: 0 0 0 var(--radius-xl)
-        color-mix(in srgb, var(--surface-3-opaque) var(--opacity-ratio-chrome), transparent);
 }
 
 @media (prefers-reduced-motion: no-preference) {

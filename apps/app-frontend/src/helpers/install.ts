@@ -369,10 +369,12 @@ export async function install_create_instance(request: InstallCreateInstanceRequ
 export async function install_create_modpack_instance(
     location: CreatePackLocation,
     postInstallEdit?: InstallPostInstallEdit | null,
+    gameDirOverride?: string | null,
 ) {
     return await invoke<InstallJobSnapshot>('plugin:install|install_create_modpack_instance', {
         location,
         postInstallEdit,
+        gameDirOverride,
     })
 }
 

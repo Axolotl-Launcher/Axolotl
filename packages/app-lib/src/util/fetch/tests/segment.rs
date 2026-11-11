@@ -516,7 +516,9 @@ fn create_initial_ranges(size: u64, count: usize) -> Vec<DownloadRange> {
 fn forced_range_budget_uses_small_blocks_and_respects_connection_limits() {
     use super::super::segment::forced_range_cap;
     assert_eq!(forced_range_cap(1024 * 1024, 256, 256), 64);
-    assert_eq!(forced_range_cap(4 * 1024 * 1024, 256, 256), 72);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 72, 256), 72);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 128, 256), 128);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 256, 256), 256);
     assert_eq!(forced_range_cap(4 * 1024 * 1024, 16, 256), 16);
     assert_eq!(forced_range_cap(4 * 1024 * 1024, 256, 64), 64);
     assert_eq!(forced_range_cap(16 * 1024, 256, 256), 1);

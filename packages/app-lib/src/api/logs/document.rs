@@ -5,6 +5,8 @@ use super::{
 use crate::{State, prelude::Credentials};
 use std::{io::Read, path::Path};
 
+mod export;
+
 const MAX_SOURCE_BYTES: usize = 2 * 1024 * 1024;
 
 pub struct LogDocument {
@@ -32,6 +34,7 @@ fn valid_name(name: &str) -> bool {
 fn read_file(
     directory: &Path,
     filename: &str,
+    maximum_bytes: u64,
 ) -> std::io::Result<Option<(String, bool)>> {
     let path = directory.join(filename);
     if !path.exists() {
@@ -53,10 +56,12 @@ fn read_file(
     };
     let mut bytes = Vec::new();
     reader
-        .take((MAX_SOURCE_BYTES + 1) as u64)
+        .take(maximum_bytes.saturating_add(1))
         .read_to_end(&mut bytes)?;
-    let truncated = bytes.len() > MAX_SOURCE_BYTES;
-    bytes.truncate(MAX_SOURCE_BYTES);
+    let truncated = bytes.len() as u64 > maximum_bytes;
+    if truncated {
+        bytes.truncate(maximum_bytes as usize);
+    }
     // A byte limit may split an access token before the censor sees it. Drop
     // the incomplete final line rather than returning an unredacted prefix.
     if truncated && !bytes.ends_with(b"\n") {
@@ -79,6 +84,16 @@ pub async fn read_log_document(
     log_type: LogType,
     filename: &str,
 ) -> crate::Result<LogDocument> {
+    load_log_document(instance_id, log_type, filename, MAX_SOURCE_BYTES as u64)
+        .await
+}
+
+async fn load_log_document(
+    instance_id: &str,
+    log_type: LogType,
+    filename: &str,
+    maximum_bytes: u64,
+) -> crate::Result<LogDocument> {
     if !valid_name(filename) || !super::is_log_file_for_type(log_type, filename)
     {
         return Err(crate::ErrorKind::InputError(
@@ -96,7 +111,9 @@ pub async fn read_log_document(
     let filename = filename.to_owned();
     let (text, source_truncated) = tokio::task::spawn_blocking(move || {
         for directory in directories {
-            if let Some(document) = read_file(&directory, &filename)? {
+            if let Some(document) =
+                read_file(&directory, &filename, maximum_bytes)?
+            {
                 return Ok(document);
             }
         }
@@ -117,6 +134,41 @@ pub async fn read_log_document(
     })
 }
 
+/// Save the selected source log through a bounded-memory, atomic export.
+pub async fn export_log_file(
+    instance_id: &str,
+    log_type: LogType,
+    filename: &str,
+    output_path: std::path::PathBuf,
+) -> crate::Result<()> {
+    if !valid_name(filename) || !super::is_log_file_for_type(log_type, filename)
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Invalid log filename".into(),
+        )
+        .into());
+    }
+    let state = State::get().await?;
+    let (instance_path, override_dir) =
+        resolve_instance_path(instance_id, &state).await?;
+    let game_dir = state
+        .directories
+        .resolve_game_dir(&instance_path, override_dir.as_deref());
+    let directories = log_directories_for_type(&state, &game_dir, log_type);
+    let credentials = Credentials::get_all(&state.data)
+        .await?
+        .into_iter()
+        .collect::<Vec<_>>();
+    let rules = CensoredString::replacements(&credentials);
+    let filename = filename.to_owned();
+    tokio::task::spawn_blocking(move || {
+        export::export_file(&directories, &filename, &output_path, &rules)
+    })
+    .await
+    .map_err(|error| crate::ErrorKind::OtherError(error.to_string()))??;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -127,7 +179,9 @@ mod tests {
         let content = "a\n".repeat(MAX_SOURCE_BYTES / 2 + 100);
         std::fs::write(root.path().join("latest.log"), &content).unwrap();
         let (text, truncated) =
-            read_file(root.path(), "latest.log").unwrap().unwrap();
+            read_file(root.path(), "latest.log", MAX_SOURCE_BYTES as u64)
+                .unwrap()
+                .unwrap();
         assert_eq!(text.len(), MAX_SOURCE_BYTES);
         assert!(truncated);
         let mut gzip = flate2::write::GzEncoder::new(
@@ -138,10 +192,22 @@ mod tests {
         std::fs::write(root.path().join("old.log.gz"), gzip.finish().unwrap())
             .unwrap();
         let (text, truncated) =
-            read_file(root.path(), "old.log.gz").unwrap().unwrap();
+            read_file(root.path(), "old.log.gz", MAX_SOURCE_BYTES as u64)
+                .unwrap()
+                .unwrap();
         assert_eq!(text.len(), MAX_SOURCE_BYTES);
         assert!(truncated);
-        assert!(read_file(root.path(), "absent.log").unwrap().is_none());
+        assert!(
+            read_file(root.path(), "absent.log", MAX_SOURCE_BYTES as u64)
+                .unwrap()
+                .is_none()
+        );
+        let (complete, truncated) =
+            read_file(root.path(), "old.log.gz", u64::MAX)
+                .unwrap()
+                .unwrap();
+        assert!(!truncated);
+        assert_eq!(complete, content);
     }
     #[test]
     fn names_reject_paths_and_alternate_streams() {
@@ -164,7 +230,9 @@ mod tests {
         std::fs::create_dir(&logs).unwrap();
         std::fs::write(root.path().join("outside.log"), "secret").unwrap();
         assert_eq!(
-            read_file(&logs, "../outside.log").unwrap_err().kind(),
+            read_file(&logs, "../outside.log", MAX_SOURCE_BYTES as u64)
+                .unwrap_err()
+                .kind(),
             std::io::ErrorKind::PermissionDenied
         );
     }
@@ -174,7 +242,9 @@ mod tests {
         let content = format!("safe line\n{}", "s".repeat(MAX_SOURCE_BYTES));
         std::fs::write(root.path().join("latest.log"), content).unwrap();
         let (text, truncated) =
-            read_file(root.path(), "latest.log").unwrap().unwrap();
+            read_file(root.path(), "latest.log", MAX_SOURCE_BYTES as u64)
+                .unwrap()
+                .unwrap();
         assert_eq!(text, "safe line\n");
         assert!(truncated);
     }

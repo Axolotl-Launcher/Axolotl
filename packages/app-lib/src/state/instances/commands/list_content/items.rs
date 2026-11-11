@@ -373,11 +373,12 @@ pub(super) async fn reconcile_hash_matched_entries(
 }
 
 pub(super) async fn content_files_to_content_items(
-    instance: &Instance,
+    resolved: &ResolvedContentScope,
     files: &[(String, ContentFile)],
     cache_behaviour: Option<CacheBehaviour>,
     state: &State,
 ) -> crate::Result<Vec<ContentItem>> {
+    let instance = &resolved.instance;
     let mut provider_refs_by_path =
         HashMap::<String, Vec<ContentProviderRef>>::new();
     let mut origin_provider_by_path = HashMap::<String, ContentProvider>::new();
@@ -568,6 +569,9 @@ pub(super) async fn content_files_to_content_items(
                     json,
                 )
                 .ok()
+            });
+            let local_mod = local_mod.as_ref().map(|metadata| {
+                metadata.for_loader(resolved.content_set.loader.as_str())
             });
             // Loader priority: locally parsed mod metadata (most reliable for
             // CurseForge-only files, whose CF game versions often omit the

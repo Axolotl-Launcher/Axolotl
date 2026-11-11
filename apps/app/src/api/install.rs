@@ -118,10 +118,12 @@ pub async fn install_create_instance(
 pub async fn install_create_modpack_instance(
     location: CreatePackLocation,
     post_install_edit: Option<InstallPostInstallEditRequest>,
+    game_dir_override: Option<String>,
 ) -> Result<InstallJobSnapshot> {
-    Ok(theseus::install::create_modpack_instance(
+    Ok(theseus::install::create_modpack_instance_with_game_dir(
         location,
         post_install_edit.map(|edit| edit.into_core()).transpose()?,
+        game_dir_override,
     )
     .await?)
 }

@@ -2439,6 +2439,7 @@ mod tests {
                 path: "test.mrpack".into(),
             },
             post_install_edit: None,
+            game_dir_override: None,
         };
         let stale = InstallProgressReporter::new(
             job_id,

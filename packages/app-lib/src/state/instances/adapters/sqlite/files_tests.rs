@@ -152,3 +152,122 @@ async fn the_metadata_recorded_for_a_file_reads_back() {
 
     assert_eq!(cached, ["{\"name\":\"recorded\"}"]);
 }
+
+/// A file-backed pool the concurrency tests can put more than one connection on.
+async fn concurrent_pool(path: &std::path::Path) -> sqlx::SqlitePool {
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(true)
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+        .busy_timeout(std::time::Duration::from_secs(2));
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(2)
+        .connect_with(options)
+        .await
+        .expect("file-backed pool");
+    sqlx::raw_sql(
+        "
+        CREATE TABLE instance_files (
+            id TEXT PRIMARY KEY,
+            instance_id TEXT NOT NULL,
+            relative_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            enabled INTEGER NOT NULL,
+            sha1 TEXT NOT NULL,
+            size INTEGER NOT NULL,
+            missing INTEGER NOT NULL DEFAULT 0,
+            added_at INTEGER NOT NULL,
+            modified_at INTEGER NOT NULL,
+            local_mod_data TEXT NULL,
+            icon_path TEXT NULL,
+            UNIQUE (instance_id, relative_path)
+        );
+        ",
+    )
+    .execute(&pool)
+    .await
+    .expect("file tables");
+    sqlx::query(
+        "INSERT INTO instance_files
+            (id, instance_id, relative_path, file_name, enabled, sha1, size,
+             missing, added_at, modified_at)
+         VALUES ('file', 'instance', 'mods/a.jar', 'a.jar', 1, 'sha1:a', 1, 0, 1, 1)",
+    )
+    .execute(&pool)
+    .await
+    .expect("seed file");
+    pool
+}
+
+#[tokio::test]
+async fn rename_instance_file_waits_for_a_concurrent_writer() {
+    let directory = tempfile::tempdir().unwrap();
+    let pool = concurrent_pool(&directory.path().join("app.db")).await;
+
+    // Hold the write lock before the helper starts. A deferred read-then-write
+    // would read this snapshot, then fail with SQLITE_BUSY_SNAPSHOT once the
+    // holder commits; BEGIN IMMEDIATE waits instead.
+    let holder = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+
+    let rename = tokio::spawn({
+        let pool = pool.clone();
+        async move {
+            rename_instance_file(
+                "instance",
+                "mods/a.jar",
+                "mods/a.jar.disabled",
+                "a.jar",
+                false,
+                &pool,
+            )
+            .await
+        }
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    holder.commit().await.unwrap();
+
+    let renamed = rename
+        .await
+        .unwrap()
+        .expect("rename succeeds")
+        .expect("file renamed");
+    assert_eq!(renamed.relative_path, "mods/a.jar.disabled");
+    assert!(!renamed.enabled);
+}
+
+#[tokio::test]
+async fn upsert_instance_file_waits_for_a_concurrent_writer() {
+    let directory = tempfile::tempdir().unwrap();
+    let pool = concurrent_pool(&directory.path().join("app.db")).await;
+
+    let holder = pool.begin_with("BEGIN IMMEDIATE").await.unwrap();
+
+    let upsert = tokio::spawn({
+        let pool = pool.clone();
+        async move {
+            upsert_instance_file_from_parts(
+                UpsertInstanceFile {
+                    instance_id: "instance",
+                    relative_path: "mods/a.jar",
+                    file_name: "a.jar",
+                    enabled: false,
+                    sha1: "sha1:b",
+                    size: 2,
+                    missing: false,
+                    local_mod_data: None,
+                    icon_path: None,
+                },
+                &pool,
+            )
+            .await
+        }
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    holder.commit().await.unwrap();
+
+    let updated = upsert.await.unwrap().expect("upsert succeeds");
+    assert_eq!(updated.sha1, "sha1:b");
+    assert!(!updated.enabled);
+}

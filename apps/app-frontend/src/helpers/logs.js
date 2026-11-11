@@ -35,6 +35,15 @@ export async function get_output_by_filename(instanceId, logType, filename) {
     })
 }
 
+export async function export_log_file(instanceId, logType, filename) {
+    const outputPath = await save({
+        defaultPath: filename.replace(/\.gz$/, ''),
+        filters: [{ name: 'Log', extensions: ['log', 'txt'] }],
+    })
+    if (!outputPath) return
+    await invoke('plugin:logs|logs_export_log_file', { instanceId, logType, filename, outputPath })
+}
+
 /// Delete an instance's log by filename
 export async function delete_logs_by_filename(instanceId, logType, filename) {
     return await invoke('plugin:logs|logs_delete_logs_by_filename', {

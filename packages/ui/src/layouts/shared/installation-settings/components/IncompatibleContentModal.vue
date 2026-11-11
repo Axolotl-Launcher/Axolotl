@@ -17,16 +17,6 @@
                                 : formatMessage(messages.gameVersionWarningBody)
                         }}
                     </span>
-                    <div v-if="variant === 'loader-change'">
-                        <Button
-                            type="colored"
-                            color="red"
-                            :disabled="loading"
-                            @click="handleResetServer"
-                            ><TrashIcon class="size-5" />
-                            {{ formatMessage(commonMessages.resetServerButton) }}
-                        </Button>
-                    </div>
                 </div>
             </Admonition>
         </div>
@@ -72,14 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-    CircleAlertIcon,
-    HammerIcon,
-    PowerOffIcon,
-    SpinnerIcon,
-    TrashIcon,
-    XIcon,
-} from '@modrinth/assets'
+import { CircleAlertIcon, HammerIcon, PowerOffIcon, SpinnerIcon, XIcon } from '@modrinth/assets'
 import { ref } from 'vue'
 
 import Admonition from '#ui/components/base/Admonition.vue'
@@ -101,7 +84,6 @@ const emit = defineEmits<{
     'confirm-loader-change': []
     'auto-fix': []
     'disable-conflicts': []
-    'reset-server': []
     cancel: []
 }>()
 
@@ -131,11 +113,6 @@ function handleAutoFix() {
 function handleDisableConflicts() {
     loadingAction.value = 'disable-conflicts'
     emit('disable-conflicts')
-}
-
-function handleResetServer() {
-    hide()
-    emit('reset-server')
 }
 
 const messages = defineMessages({

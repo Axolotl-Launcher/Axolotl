@@ -1,14 +1,22 @@
 {
-  "app.downloads.slow-downloads.title": { "message": "下載緩慢？" },
+  "app.downloads.slow-downloads.title": {
+    "message": "下載緩慢？"
+  },
   "app.downloads.slow-downloads.description": {
     "message": "可以前往 <settings-link>下載設定</settings-link> 開啟強制多執行緒下載功能，可能會幫助提升你的下載速度。"
   },
-  "app.downloads.slow-downloads.dismiss": { "message": "不再提示" },
-  "app.settings.resources.force-multiconnection": { "message": "強制多連線下載" },
+  "app.downloads.slow-downloads.dismiss": {
+    "message": "不再提示"
+  },
+  "app.settings.resources.force-multiconnection": {
+    "message": "強制多連線下載"
+  },
   "app.settings.resources.force-multiconnection-description": {
     "message": "使用更積極的下載邏輯，可能會改善你的下載速度。當你遇到問題時，請考慮啟用這個選項。"
   },
-  "app.settings.resources.experimental": { "message": "實驗性" },
+  "app.settings.resources.experimental": {
+    "message": "實驗性"
+  },
   "app.resources.operation.dependency-analysis-failed": {
     "message": "依賴分析失敗，可能會導致實例運作不正常"
   },
@@ -503,6 +511,9 @@
   },
   "app.appearance-settings.custom-background.converting": {
     "message": "正在轉換動畫背景…"
+  },
+  "app.appearance-settings.custom-background.converting-hint": {
+    "message": "較長的動畫可能需要幾秒鐘，請稍候。"
   },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "目前視窗"
@@ -6891,11 +6902,20 @@
   "app.settings.resources.download-mirrors-description": {
     "message": "為每項服務選擇下載來源。當鏡像來源請求失敗時，將自動退回至官方來源。"
   },
+  "app.settings.resources.forced-connection-limit": {
+    "message": "實驗性連線數上限"
+  },
+  "app.settings.resources.forced-connection-limit-description": {
+    "message": "依各檔案剩餘大小的比例分配連線，預設 72。手動下載額度較低時仍遵守該值。提高上限可能增加網路負載與重試。通常來說，上限越高下載速度越快。如果你認為下載速度不夠快，請酌情提升該值。如果起到反作用，請降低該值。"
+  },
+  "app.settings.resources.forced-connection-limit-custom": {
+    "message": "自訂"
+  },
   "app.settings.resources.maximum-downloads": {
     "message": "最大同時下載數"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "啟動器同時下載檔案的最大數量。網路連線較差時請降低此值；變更需要重新啟動應用程式後生效。"
+    "message": "自動模式會調整連線額度。強制多連線下載使用實驗性連線數上限；手動設定較低額度時遵守該值。手動調整會立即生效。"
   },
   "app.settings.resources.maximum-writes": {
     "message": "最大同時寫入數"
@@ -9854,6 +9874,9 @@
   },
   "minecraft-account.copy-uuid": {
     "message": "複製 UUID"
+  },
+  "minecraft-account.drag-to-reorder": {
+    "message": "拖曳以調整順序，或按住 Alt 使用方向鍵移動"
   },
   "minecraft-account.label": {
     "message": "Minecraft 帳號"

@@ -98,6 +98,14 @@
                         @toggle-fullscreen="toggleFullscreen"
                         @delete="handleDelete"
                     />
+                    <Button
+                        v-if="resolvedExportLog"
+                        type="quiet"
+                        :disabled="exportingLog || resolvedLoading"
+                        @click="handleExportLog"
+                    >
+                        <DownloadIcon />{{ formatMessage(consoleMessages.exportLog) }}
+                    </Button>
                 </div>
             </div>
 
@@ -203,6 +211,7 @@ import ConsoleActionButtons from './components/ConsoleActionButtons.vue'
 import ConsoleFilterPills from './components/ConsoleFilterPills.vue'
 import LogViewport from './components/LogViewport.vue'
 import { useConsoleFilters } from './composables'
+import { createConsoleLineFilter } from './composables/console-filtering'
 import { consoleMessages, localFindingMessages } from './messages'
 import { injectConsoleManager } from './providers'
 import type { LogLevel, LogLine } from './types'
@@ -604,6 +613,18 @@ const shareModal = ref<InstanceType<typeof ShareModal> | null>(null)
 const deleteModal = ref<InstanceType<typeof NewModal> | null>(null)
 const isDeleting = ref(false)
 const exportingCrashContext = ref(false)
+const exportingLog = ref(false)
+const resolvedExportLog = computed(() => unwrapMaybeRef(ctx.onExportLog))
+async function handleExportLog() {
+    const exportLog = resolvedExportLog.value
+    if (!exportLog || exportingLog.value) return
+    exportingLog.value = true
+    try {
+        await exportLog()
+    } finally {
+        exportingLog.value = false
+    }
+}
 const searchQuery = ref('')
 const wrapLines = ref(false)
 const logFontSize = ref(12)
@@ -655,17 +676,15 @@ function buildCombinedPredicate(): ((line: LogLine) => boolean) | null {
     }
 }
 
+const filterLines = createConsoleLineFilter()
 const filteredLines = computed(() => {
     const predicate = buildCombinedPredicate()
     const src = ctx.logLines.value
-    if (!predicate) {
-        return src.map((line, i) => ({ line, originalIndex: i }))
-    }
-    const out: Array<{ line: LogLine; originalIndex: number }> = []
-    for (let i = 0; i < src.length; i++) {
-        if (predicate(src[i]!)) out.push({ line: src[i]!, originalIndex: i })
-    }
-    return out
+    return filterLines(
+        src,
+        JSON.stringify([[...activeFilters.value].sort(), searchQuery.value]),
+        predicate,
+    )
 })
 
 onBeforeUnmount(() => {

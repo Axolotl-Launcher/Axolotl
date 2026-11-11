@@ -1,4 +1,4 @@
-import type { Archon, Labrinth } from '@modrinth/api-client'
+import type { Labrinth } from '@modrinth/api-client'
 import type { Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
@@ -46,11 +46,8 @@ export interface BrowseInstallContext {
     name: string
     loader: string
     gameVersion: string
-    serverId?: string | null
-    upstream?: Archon.Servers.v0.Server['upstream']
     iconSrc?: string | null
     iconFrameless?: boolean
-    isMedal?: boolean
     backUrl: string | RouteLocationRaw
     backLabel: string
     heading: string

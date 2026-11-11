@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::path::Path;
 
 use serde_json::Value;
@@ -103,7 +104,8 @@ fn find_json(path: &Path) -> Option<(String, String)> {
             );
             continue;
         };
-        let version = extract_version(&json, &content, None);
+        let version =
+            extract_version(&json, &content, &jf.with_extension("jar"), None);
         if !version.is_empty() {
             let fname = jf
                 .file_stem()
@@ -135,7 +137,9 @@ pub fn detect(path: &Path) -> Option<InstanceInfo> {
             return None;
         }
     };
-    let mut vanilla_name = extract_version(&json, &content, Some(&name));
+    let client_jar = path.join(format!("{name}.jar"));
+    let mut vanilla_name =
+        extract_version(&json, &content, &client_jar, Some(&name));
     debug!(
         "instance_json: path={} extract_version returned {:?}",
         path.display(),
@@ -255,6 +259,7 @@ pub(crate) fn normalize_imported_loader_version(
 fn extract_version(
     json: &Value,
     json_str: &str,
+    client_jar: &Path,
     folder_name: Option<&str>,
 ) -> String {
     // ① PCL download record clientVersion
@@ -316,27 +321,37 @@ fn extract_version(
         return v;
     }
 
-    // ⑥ JSON id field → extract leading version
-    if let Some(id) = json.get("id").and_then(|v| v.as_str())
-        && let Some(v) = extract_version_from_id(id)
-    {
-        debug!("extract_version: method=⑥ id id={} value={}", id, v);
+    // ⑥ version.json inside the client jar (18w47b and later). Official
+    // version JSONs have none of the records above, and this also holds for a
+    // copy renamed by a launcher.
+    if let Some(v) = version_from_client_jar(client_jar) {
+        debug!("extract_version: method=⑥ client jar value={}", v);
         return v;
     }
 
-    // ⑦ jar field (legacy versions store the base game in `jar`)
+    // Everything below infers the version from a name, so it only runs when
+    // the JSON and the jar record none.
+    // ⑦ JSON id field → extract leading version
+    if let Some(id) = json.get("id").and_then(|v| v.as_str())
+        && let Some(v) = extract_version_from_id(id)
+    {
+        debug!("extract_version: method=⑦ id id={} value={}", id, v);
+        return v;
+    }
+
+    // ⑧ jar field (legacy versions store the base game in `jar`)
     if let Some(v) = json.get("jar").and_then(|v| v.as_str())
         && !v.is_empty()
     {
-        debug!("extract_version: method=⑦ jar value={}", v);
+        debug!("extract_version: method=⑧ jar value={}", v);
         return v.to_string();
     }
 
-    // ⑧ folder name fallback (renamed / non-standard instances)
+    // ⑨ folder name fallback (renamed / non-standard instances)
     if let Some(name) = folder_name
         && let Some(v) = extract_version_from_id(name)
     {
-        debug!("extract_version: method=⑧ folder_name value={}", v);
+        debug!("extract_version: method=⑨ folder_name value={}", v);
         return v;
     }
 
@@ -401,11 +416,64 @@ fn extract_version_from_libraries(content: &str) -> Option<String> {
             }
         }
     }
+    // Fabric-like: net.fabricmc:intermediary:1.20.1 → "1.20.1"
+    for needle in [
+        "net.fabricmc:intermediary:",
+        "net.legacyfabric:intermediary:",
+        "org.quiltmc:hashed:",
+    ] {
+        if let Some(version) =
+            try_extract_version_from_needle(content, needle, None)
+        {
+            return Some(version);
+        }
+    }
     None
+}
+
+/// Reads the game version the client jar records about itself. The id of some
+/// versions carries a build hash: "1.14 Pre-Release 5 / c20937bb...".
+fn version_from_client_jar(jar: &Path) -> Option<String> {
+    let file = std::fs::File::open(jar).ok()?;
+    let mut archive = zip::ZipArchive::new(file).ok()?;
+    let entry = archive.by_name("version.json").ok()?;
+    let metadata: Value = serde_json::from_reader(entry.take(65_536)).ok()?;
+    let id = metadata.get("id")?.as_str()?;
+    let id = id.split(" / ").next().unwrap_or(id).trim();
+    (!id.is_empty()).then(|| id.to_string())
+}
+
+/// Where the Mojang pre-release qualifier after `separator` ends, if there is
+/// one: the `-snapshot-7` of "26.4-snapshot-7", the `-pre1` of "1.21-pre1" or the
+/// ` Pre-Release 5` of "1.14 Pre-Release 5". These are part of the game version.
+/// A qualifier needs its number, so a name like "1.20.1-rc-pack" is not one.
+fn prerelease_qualifier_end(id: &str, separator: usize) -> Option<usize> {
+    let rest = &id[separator + 1..];
+    let lower = rest.to_ascii_lowercase();
+    let label = ["snapshot", "pre-release", "pre", "rc"]
+        .into_iter()
+        .find(|label| lower.starts_with(label))?;
+    let after_label = &rest[label.len()..];
+    let number = after_label.strip_prefix(['-', ' ']).unwrap_or(after_label);
+    let digits = number.len()
+        - number
+            .trim_start_matches(|c: char| c.is_ascii_digit())
+            .len();
+    if digits == 0 {
+        return None;
+    }
+    let end = id.len() - number.len() + digits;
+    id[end..]
+        .chars()
+        .next()
+        .is_none_or(|next| matches!(next, '-' | '_' | ' '))
+        .then_some(end)
 }
 
 /// Extracts leading version number from the instance id.
 /// e.g. "1.8.9-forge-11.15.1.1722" → "1.8.9"
+/// Keeps the pre-release qualifier of an official id, since the version manifest
+/// lists "26.4-snapshot-7" and has no "26.4".
 /// Skips hash-like ids (≥32 chars, no separators).
 fn extract_version_from_id(id: &str) -> Option<String> {
     let ver = id.trim();
@@ -420,7 +488,8 @@ fn extract_version_from_id(id: &str) -> Option<String> {
         return None;
     }
     if let Some(first_sep) = ver.find(['-', '_', ' ']) {
-        let candidate = &ver[..first_sep];
+        let end = prerelease_qualifier_end(ver, first_sep).unwrap_or(first_sep);
+        let candidate = &ver[..end];
         if candidate.starts_with("1.") || candidate.starts_with('2') {
             return Some(candidate.to_string());
         }
@@ -925,6 +994,167 @@ mod tests {
     #[test]
     fn test_no_loader() {
         assert!(detect_from_json(r#"{"id": "1.20.4"}"#).is_none());
+    }
+
+    #[test]
+    fn version_ids_keep_official_prerelease_qualifiers() {
+        for (id, expected) in [
+            ("26.4-snapshot-7", "26.4-snapshot-7"),
+            ("26.1-pre-1", "26.1-pre-1"),
+            ("26.1-rc-2", "26.1-rc-2"),
+            ("1.21-pre1", "1.21-pre1"),
+            ("1.21-rc1", "1.21-rc1"),
+            ("1.14 Pre-Release 5", "1.14 Pre-Release 5"),
+            ("1.RV-Pre1", "1.RV-Pre1"),
+            ("26.4-snapshot-7-Survival", "26.4-snapshot-7"),
+            ("1.21-pre1_unobfuscated", "1.21-pre1"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(id).as_deref(),
+                Some(expected),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn version_ids_still_drop_loader_and_custom_suffixes() {
+        for (id, expected) in [
+            ("1.8.9-forge-11.15.1.1722", "1.8.9"),
+            ("1.20.1-fabric-0.15.11", "1.20.1"),
+            ("1.20.1-rc-pack", "1.20.1"),
+            ("1.20.1-preview", "1.20.1"),
+            ("1.20.1-pre1.5", "1.20.1"),
+            ("26.4-Survival", "26.4"),
+            ("1.21.11_unobfuscated", "1.21.11"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(id).as_deref(),
+                Some(expected),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn official_snapshot_instance_keeps_its_full_version() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let version_dir = dir.path().join("26.4-snapshot-7");
+        std::fs::create_dir(&version_dir).expect("create version dir");
+        std::fs::write(
+            version_dir.join("26.4-snapshot-7.json"),
+            r#"{
+                "id": "26.4-snapshot-7",
+                "type": "snapshot",
+                "mainClass": "net.minecraft.client.main.Main",
+                "libraries": [{ "name": "com.mojang:brigadier:1.3.10" }]
+            }"#,
+        )
+        .expect("write version json");
+
+        let info = detect(&version_dir).expect("detect should succeed");
+        assert_eq!(info.vanilla_name, "26.4-snapshot-7");
+        assert_eq!(info.loader, None);
+    }
+
+    fn write_version_dir(
+        root: &Path,
+        name: &str,
+        json: &str,
+    ) -> std::path::PathBuf {
+        let version_dir = root.join(name);
+        std::fs::create_dir(&version_dir).expect("create version dir");
+        std::fs::write(version_dir.join(format!("{name}.json")), json)
+            .expect("write version json");
+        version_dir
+    }
+
+    fn write_client_jar(version_dir: &Path, name: &str, version_json: &str) {
+        use std::io::Write;
+        let jar =
+            std::fs::File::create(version_dir.join(format!("{name}.jar")))
+                .expect("create jar");
+        let mut zip = zip::ZipWriter::new(jar);
+        zip.start_file(
+            "version.json",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .expect("start entry");
+        zip.write_all(version_json.as_bytes()).expect("write entry");
+        zip.finish().expect("finish jar");
+    }
+
+    #[test]
+    fn client_jar_outranks_a_version_inferred_from_a_name() {
+        for (recorded, expected) in [
+            ("26.4-snapshot-7", "26.4-snapshot-7"),
+            (
+                "1.14 Pre-Release 5 / c20937bb9cb248468de8a554f50f7f51",
+                "1.14 Pre-Release 5",
+            ),
+        ] {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let version_dir = write_version_dir(
+                dir.path(),
+                "1.20.1-Survival",
+                r#"{ "id": "1.20.1-Survival", "type": "release" }"#,
+            );
+            write_client_jar(
+                &version_dir,
+                "1.20.1-Survival",
+                &serde_json::json!({ "id": recorded }).to_string(),
+            );
+
+            let info = detect(&version_dir).expect("detect should succeed");
+            assert_eq!(info.vanilla_name, expected);
+        }
+    }
+
+    #[test]
+    fn client_version_outranks_the_client_jar_and_every_name() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let version_dir = write_version_dir(
+            dir.path(),
+            "1.19.4-pack",
+            r#"{ "id": "1.18.2-pack", "clientVersion": "1.21.1" }"#,
+        );
+        write_client_jar(&version_dir, "1.19.4-pack", r#"{ "id": "1.20.1" }"#);
+
+        let info = detect(&version_dir).expect("detect should succeed");
+        assert_eq!(info.vanilla_name, "1.21.1");
+    }
+
+    #[test]
+    fn names_are_used_only_without_any_version_record() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        for (folder, json, expected) in [
+            ("renamed", r#"{ "id": "1.12.2-Survival" }"#, "1.12.2"),
+            ("1.16.5-Survival", r#"{ "id": "Survival" }"#, "1.16.5"),
+        ] {
+            let version_dir = write_version_dir(dir.path(), folder, json);
+            let info = detect(&version_dir).expect("detect should succeed");
+            assert_eq!(info.vanilla_name, expected, "{folder}");
+        }
+    }
+
+    #[test]
+    fn flattened_fabric_json_reads_the_intermediary_version() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let version_dir = write_version_dir(
+            dir.path(),
+            "Fabric Pack",
+            r#"{
+                "id": "Fabric Pack",
+                "libraries": [
+                    { "name": "net.fabricmc:fabric-loader:0.15.11" },
+                    { "name": "net.fabricmc:intermediary:24w14a" }
+                ]
+            }"#,
+        );
+
+        let info = detect(&version_dir).expect("detect should succeed");
+        assert_eq!(info.vanilla_name, "24w14a");
+        assert_eq!(info.loader.as_deref(), Some("fabric"));
     }
 
     #[test]

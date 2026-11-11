@@ -37,11 +37,23 @@ pub struct CreateInstance {
 }
 
 pub(crate) async fn create_instance(
-    input: CreateInstance,
+    mut input: CreateInstance,
     state: &State,
 ) -> crate::Result<Instance> {
     let _metadata_usage = crate::storage::usage::lease().await?;
     trace!("Creating new instance. {}", input.name);
+
+    if matches!(
+        input.link,
+        InstanceLink::ModrinthModpack { .. }
+            | InstanceLink::CurseForgeModpack { .. }
+    ) && input.name.trim().trim_end_matches(['.', ' ']).is_empty()
+    {
+        return Err(crate::ErrorKind::InputError(
+            "Invalid modpack instance name".into(),
+        )
+        .into());
+    }
 
     let (path, full_path) =
         resolve_instance_path(&input.name, input.path.as_deref(), state)
@@ -53,7 +65,54 @@ pub(crate) async fn create_instance(
         io::create_dir_all(&full_path).await?;
     }
 
+    let mut reserved_game_dir = None;
     let result = async {
+        if matches!(
+            input.link,
+            InstanceLink::ModrinthModpack { .. }
+                | InstanceLink::CurseForgeModpack { .. }
+        ) {
+            if let Some(game_dir) =
+                input.game_dir_override.as_deref().map(PathBuf::from)
+            {
+                let isolated = is_version_isolated_game_dir(&game_dir);
+                let shared = game_dir
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| {
+                        name.eq_ignore_ascii_case(".minecraft")
+                    });
+                if isolated || shared {
+                    let target = if isolated {
+                        game_dir
+                    } else {
+                        let name = sanitize_instance_name(&input.name);
+                        let name = name.trim_end_matches(['.', ' ']);
+                        if name.is_empty() || matches!(name, "." | "..") {
+                            return Err(crate::ErrorKind::InputError(
+                                "Invalid modpack instance name".into(),
+                            )
+                            .into());
+                        }
+                        game_dir.join("versions").join(name)
+                    };
+                    let path = reserve_modpack_game_dir(&target).await?;
+                    if isolated {
+                        input.game_dir_override =
+                            Some(path.to_string_lossy().into_owned());
+                    } else {
+                        // Shared roots derive their version metadata path from the
+                        // instance name; keep that identity on the reserved directory.
+                        input.name = path
+                            .file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .into_owned();
+                    }
+                    reserved_game_dir = Some(path);
+                }
+            }
+        }
         if let Some(game_dir_override) = input.game_dir_override.as_deref() {
             // External game directories are created before the launcher
             // resolves them with `canonicalize` during installation.
@@ -185,9 +244,40 @@ pub(crate) async fn create_instance(
 
     if result.is_err() {
         let _ = io::remove_dir_all(&full_path).await;
+        if let Some(path) = reserved_game_dir {
+            let _ = io::remove_dir_all(path).await;
+        }
     }
 
     result
+}
+
+/// Reserve a private pack directory without ever adopting another version's files.
+async fn reserve_modpack_game_dir(path: &Path) -> crate::Result<PathBuf> {
+    let parent = path.parent().ok_or_else(|| {
+        crate::ErrorKind::InputError("Invalid modpack game directory".into())
+    })?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Invalid modpack game directory".into(),
+            )
+        })?
+        .to_string_lossy();
+    io::create_dir_all(parent).await?;
+    let mut candidate = path.to_path_buf();
+    let mut index = 1;
+    loop {
+        match io::create_dir(&candidate).await {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                candidate = parent.join(format!("{name} ({index})"));
+                index += 1;
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
 }
 
 pub(crate) async fn resolve_instance_path(
@@ -364,4 +454,33 @@ fn sanitize_instance_name(input: &str) -> String {
         ['/', '\\', '?', '*', ':', '\'', '\"', '|', '<', '>', '!'],
         "_",
     )
+}
+
+#[cfg(test)]
+mod modpack_game_directory_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn modpack_game_directory_reservation_preserves_existing_files_and_is_atomic()
+     {
+        let temp = tempfile::tempdir().unwrap();
+        let original = temp.path().join(".minecraft/versions/Pack");
+        std::fs::create_dir_all(&original).unwrap();
+        std::fs::write(original.join("keep.txt"), b"existing").unwrap();
+        let (first, second) = tokio::join!(
+            reserve_modpack_game_dir(&original),
+            reserve_modpack_game_dir(&original)
+        );
+        let first = first.unwrap();
+        let second = second.unwrap();
+        assert_ne!(first, second);
+        assert_ne!(first, original);
+        assert_ne!(second, original);
+        assert!(first.is_dir());
+        assert!(second.is_dir());
+        assert_eq!(
+            std::fs::read(original.join("keep.txt")).unwrap(),
+            b"existing"
+        );
+    }
 }

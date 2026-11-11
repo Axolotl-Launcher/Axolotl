@@ -167,6 +167,21 @@ export const discoverHandlers: Handlers = {
     'plugin:curseforge|curseforge_capability': () => curseForge,
     'plugin:planet-minecraft|planet_minecraft_connector_available': () => false,
     'plugin:axolotl-resources|resource_favorites': () => [],
+    // Favorites are not recorded in the demo, so groups stay empty and writes are no-ops.
+    'plugin:axolotl-resources|resource_favorite_groups': () => ({
+        groups: [],
+        memberships: [],
+    }),
+    'plugin:axolotl-resources|resource_favorite_group_create': ({ name }) => ({
+        id: `demo-favorite-group-${String(name)}`,
+        name: String(name),
+    }),
+    'plugin:axolotl-resources|resource_favorite_group_rename': ({ id, newName }) => ({
+        id: String(id),
+        name: String(newName),
+    }),
+    'plugin:axolotl-resources|resource_favorite_group_delete': () => undefined,
+    'plugin:axolotl-resources|resource_favorite_group_update_memberships': () => undefined,
     // Schematic sites are not recorded: they answer like sources the launcher cannot reach.
     'plugin:schematics|schematics_list': ({ sources }): SchematicPage => ({
         items: [],

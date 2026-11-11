@@ -1,6 +1,27 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn complete_log_export_is_registered_for_the_main_window() {
+    let runtime = runtime_commands(include_str!("../src/api/logs.rs"));
+    assert_eq!(
+        runtime,
+        manifest_commands(include_str!("../build.rs"), "logs")
+    );
+    assert!(runtime.contains("logs_export_log_file"));
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "logs:default")
+    );
+}
+
+#[test]
 fn third_party_account_commands_are_registered_and_limited_to_main_window() {
     let runtime =
         runtime_commands(include_str!("../src/api/third_party_accounts.rs"));

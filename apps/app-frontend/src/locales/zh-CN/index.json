@@ -2315,6 +2315,9 @@
   "app.appearance-settings.custom-background.converting": {
     "message": "正在转换动画背景…"
   },
+  "app.appearance-settings.custom-background.converting-hint": {
+    "message": "较长的动画可能需要几秒钟，请稍候。"
+  },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "当前窗口"
   },
@@ -2801,11 +2804,65 @@
   "app.content-favorites.empty-title": {
     "message": "暂无收藏"
   },
+  "app.content-favorites.filters.categories": {
+    "message": "类别"
+  },
+  "app.content-favorites.filters.no-categories": {
+    "message": "暂无可筛选的类别。"
+  },
+  "app.content-favorites.groups.all": {
+    "message": "全部收藏"
+  },
+  "app.content-favorites.groups.create-title": {
+    "message": "新建分组"
+  },
+  "app.content-favorites.groups.delete": {
+    "message": "删除分组"
+  },
+  "app.content-favorites.groups.delete-description": {
+    "message": "{name} 中的收藏不会被删除，它们会变为未分组。"
+  },
+  "app.content-favorites.groups.manage": {
+    "message": "分组"
+  },
+  "app.content-favorites.groups.name": {
+    "message": "分组名称"
+  },
+  "app.content-favorites.groups.name-empty": {
+    "message": "分组名称不能为空。"
+  },
+  "app.content-favorites.groups.name-placeholder": {
+    "message": "输入分组名称"
+  },
+  "app.content-favorites.groups.name-too-long": {
+    "message": "分组名称不能超过 {max} 个字符。"
+  },
+  "app.content-favorites.groups.new": {
+    "message": "新建分组"
+  },
+  "app.content-favorites.groups.none": {
+    "message": "暂无分组"
+  },
+  "app.content-favorites.groups.rename": {
+    "message": "重命名分组"
+  },
+  "app.content-favorites.groups.rename-title": {
+    "message": "重命名分组"
+  },
+  "app.content-favorites.groups.save": {
+    "message": "保存"
+  },
+  "app.content-favorites.groups.title": {
+    "message": "分组"
+  },
+  "app.content-favorites.groups.ungrouped": {
+    "message": "未分组"
+  },
   "app.content-favorites.loading": {
     "message": "正在更新收藏夹…"
   },
   "app.content-favorites.no-matches-description": {
-    "message": "换个搜索词或内容类型试试。"
+    "message": "换个搜索词、内容类型、分组或类别试试。"
   },
   "app.content-favorites.no-matches-title": {
     "message": "没有匹配的收藏"
@@ -3569,6 +3626,12 @@
   "app.drop.content-installed-title": {
     "message": "内容已安装"
   },
+  "app.drop.error.invalid-folder-text": {
+    "message": "该文件夹中没有有效的游戏实例或支持的内容，请选择其他文件夹。"
+  },
+  "app.drop.error.invalid-folder-title": {
+    "message": "无法导入文件夹"
+  },
   "app.drop.error.multiple-files-text": {
     "message": "一次只能拖放一个文件或文件夹。"
   },
@@ -3658,6 +3721,9 @@
   },
   "app.drop.no-instances": {
     "message": "未找到实例"
+  },
+  "app.drop.no-instances-text": {
+    "message": "该文件夹中没有有效的游戏实例，请选择包含游戏版本的启动器文件夹或 .minecraft 文件夹。"
   },
   "app.drop.overlay-subtitle": {
     "message": "松开以分类并导入"
@@ -12038,11 +12104,20 @@
   "app.settings.resources.ignore-ssl-errors-description": {
     "message": "允许通过会替换 HTTPS 证书的代理或网络工具下载。启用后将关闭证书验证，下载内容可能遭到篡改；请仅在必要时启用。"
   },
+  "app.settings.resources.forced-connection-limit": {
+    "message": "实验性连接数上限"
+  },
+  "app.settings.resources.forced-connection-limit-description": {
+    "message": "按各文件剩余大小的比例分配连接，默认 72。手动下载额度更低时仍遵守该值。提高上限可能增加网络负载和重试。通常来说，上限越高下载速度越快。如果你认为下载速度不够快，请酌情提升该值。如果起到反作用，请降低该值。"
+  },
+  "app.settings.resources.forced-connection-limit-custom": {
+    "message": "自定义"
+  },
   "app.settings.resources.maximum-downloads": {
     "message": "最大并发下载数"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "自动模式会调整连接额度。强制多连接下载最多使用 72 个连接；手动设置更低额度时遵守该值。手动调整会立即生效。"
+    "message": "自动模式会调整连接额度。强制多连接下载使用实验性连接数上限；手动设置更低额度时遵守该值。手动调整会立即生效。"
   },
   "app.settings.resources.maximum-writes": {
     "message": "最大并发写入数"
@@ -13270,6 +13345,18 @@
   },
   "app.translation.error.rate-limited": {
     "message": "翻译服务暂时受到速率限制，请稍后重试。"
+  },
+  "app.unsaved-selection.description": {
+    "message": "你已选择 {count} 项内容但尚未安装，离开后将丢失这些选择。"
+  },
+  "app.unsaved-selection.discard": {
+    "message": "放弃并离开"
+  },
+  "app.unsaved-selection.stay": {
+    "message": "留在此页"
+  },
+  "app.unsaved-selection.title": {
+    "message": "未安装的选择"
   },
   "app.update-announcement.category.added": {
     "message": "新增"
@@ -15658,6 +15745,9 @@
   },
   "minecraft-account.copy-uuid": {
     "message": "复制 UUID"
+  },
+  "minecraft-account.drag-to-reorder": {
+    "message": "拖动以调整顺序，或按住 Alt 使用方向键移动"
   },
   "minecraft-account.label": {
     "message": "Minecraft 账户"

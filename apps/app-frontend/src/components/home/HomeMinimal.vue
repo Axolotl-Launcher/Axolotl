@@ -32,6 +32,7 @@ import { process_listener } from '@/helpers/events'
 import { hasMultipleGameDirectories, resolveGameDirectory } from '@/helpers/game-directory'
 import { install_existing_instance, install_pack_to_existing_instance } from '@/helpers/install'
 import { kill, run } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { get_by_instance_id } from '@/helpers/process'
 import type { GameInstance } from '@/helpers/types'
 import { handleSevereError } from '@/store/error'
@@ -111,6 +112,8 @@ const installing = computed(
 const busy = computed(
     () =>
         loading.value ||
+        (selectedInstance.value != null &&
+            instanceLaunchStartedAt(selectedInstance.value.id) !== undefined) ||
         installing.value ||
         processQuery.isFetching.value ||
         (currentEvent.value === 'launched' && !running.value),

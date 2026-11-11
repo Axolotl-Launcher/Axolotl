@@ -533,13 +533,24 @@ pub(crate) fn legacy_library_download_urls(
 
     let repository = repository.unwrap_or(LIBRARIES_MAVEN);
     let mut repository_url = Url::parse(repository).ok()?;
-    if repository_url.scheme() != "https"
-        || repository_url.host_str().is_none()
+    if repository_url.host_str().is_none()
         || !repository_url.username().is_empty()
         || repository_url.password().is_some()
         || repository_url.query().is_some()
         || repository_url.fragment().is_some()
     {
+        return None;
+    }
+    // Old Forge manifests use the retired HTTP Maven root. Upgrade only that
+    // exact public repository, after rejecting credentials and URL suffixes.
+    if matches!(repository_url.scheme(), "http" | "https")
+        && repository_url.host_str() == Some("files.minecraftforge.net")
+        && repository_url.port().is_none()
+        && matches!(repository_url.path(), "/maven" | "/maven/")
+    {
+        repository_url = Url::parse(FORGE_MAVEN).ok()?;
+    }
+    if repository_url.scheme() != "https" {
         return None;
     }
     let normalized_path =
@@ -3747,6 +3758,38 @@ mod tests {
                     format!("{LAUNCHER_META_MAVEN}/{artifact_path}"),
                     format!("{LIBRARIES_MAVEN}/{artifact_path}"),
                 ]),
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_forge_repository_is_upgraded_without_allowing_other_http_sources()
+    {
+        let artifact = "net/minecraftforge/forge/1.12.2-14.23.5.2847/forge-1.12.2-14.23.5.2847.jar";
+        for repository in [
+            "http://files.minecraftforge.net/maven",
+            "http://files.minecraftforge.net/maven/",
+            "https://files.minecraftforge.net/maven/",
+        ] {
+            let candidates =
+                legacy_library_download_urls(Some(repository), artifact)
+                    .unwrap();
+            assert_eq!(candidates[0], format!("{FORGE_MAVEN}/{artifact}"));
+            assert!(candidates.iter().all(|url| url.starts_with("https://")));
+        }
+        for repository in [
+            "http://files.minecraftforge.net.evil.invalid/maven/",
+            "http://files.minecraftforge.net/other/",
+            "http://files.minecraftforge.net:8080/maven/",
+            "http://user@files.minecraftforge.net/maven/",
+            "http://files.minecraftforge.net/maven/?token=secret",
+            "http://files.minecraftforge.net/maven/#fragment",
+            "ftp://files.minecraftforge.net/maven/",
+        ] {
+            assert!(
+                legacy_library_download_urls(Some(repository), artifact)
+                    .is_none(),
+                "{repository}"
             );
         }
     }

@@ -53,7 +53,6 @@ async fn route_probe_selects_a_faster_distinct_authority() {
         data.len() as u64,
         None,
         None,
-        None,
         &semaphore,
         &client,
         &client,
@@ -80,7 +79,6 @@ async fn route_probe_selects_a_faster_distinct_authority() {
             &candidates,
             1,
             data.len() as u64,
-            None,
             None,
             None,
             &semaphore,
@@ -118,7 +116,6 @@ async fn recovery_probe_prefers_measured_http1_without_recording_protocol_failur
         data.len() as u64,
         0,
         true,
-        None,
         &semaphore,
     )
     .await
@@ -185,7 +182,6 @@ async fn recovery_probe_compares_http1_and_alternate_cdn() {
             data.len() as u64,
             0,
             true,
-            None,
             &semaphore,
         )
         .await

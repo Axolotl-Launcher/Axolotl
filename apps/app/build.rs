@@ -374,6 +374,11 @@ fn main() {
                         "resource_favorites",
                         "resource_favorite_add",
                         "resource_favorite_remove",
+                        "resource_favorite_groups",
+                        "resource_favorite_group_create",
+                        "resource_favorite_group_rename",
+                        "resource_favorite_group_delete",
+                        "resource_favorite_group_update_memberships",
                         "resource_prepare_operation",
                         "resource_analysis_open",
                         "resource_analysis_update",
@@ -499,6 +504,7 @@ fn main() {
                         "logs_get_logs",
                         "logs_get_logs_by_filename",
                         "logs_get_output_by_filename",
+                        "logs_export_log_file",
                         "logs_delete_logs",
                         "logs_delete_logs_by_filename",
                         "logs_get_latest_log_cursor",
@@ -557,19 +563,6 @@ fn main() {
                         "flush_pending_skin_change_for_profile",
                         "normalize_skin_texture",
                         "get_dragged_skin_data",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
-                "mr-auth",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "modrinth_login",
-                        "logout",
-                        "get",
-                        "cancel_modrinth_login",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -1140,19 +1133,6 @@ fn main() {
                         "servers_get_log_delta",
                         "servers_get_console_delta",
                         "servers_clear_log",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
-                "friends",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "friends",
-                        "friend_statuses",
-                        "add_friend",
-                        "remove_friend",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

@@ -1,5 +1,8 @@
 use dashmap::DashMap;
 use std::sync::{Arc, LazyLock};
+use theseus::resources::favorite_groups::{
+    FavoriteGroup, FavoriteGroupMembershipChange, FavoriteGroupsSnapshot,
+};
 use theseus::resources::favorites::ResourceFavorite;
 use theseus::resources::plans::ResourceOperationProgress;
 use theseus::resources::providers::{
@@ -111,6 +114,11 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             resource_favorites,
             resource_favorite_add,
             resource_favorite_remove,
+            resource_favorite_groups,
+            resource_favorite_group_create,
+            resource_favorite_group_rename,
+            resource_favorite_group_delete,
+            resource_favorite_group_update_memberships,
             resource_prepare_operation,
             resource_analysis_open,
             resource_analysis_update,
@@ -646,6 +654,40 @@ pub async fn resource_favorite_add(
 #[tauri::command]
 pub async fn resource_favorite_remove(project: SourceProjectRef) -> Result<()> {
     theseus::resources::favorites::remove(&project).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn resource_favorite_groups() -> Result<FavoriteGroupsSnapshot> {
+    Ok(theseus::resources::favorite_groups::list())
+}
+
+#[tauri::command]
+pub async fn resource_favorite_group_create(
+    name: String,
+) -> Result<FavoriteGroup> {
+    Ok(theseus::resources::favorite_groups::create(name).await?)
+}
+
+#[tauri::command]
+pub async fn resource_favorite_group_rename(
+    id: String,
+    new_name: String,
+) -> Result<FavoriteGroup> {
+    Ok(theseus::resources::favorite_groups::rename(id, new_name).await?)
+}
+
+#[tauri::command]
+pub async fn resource_favorite_group_delete(id: String) -> Result<()> {
+    theseus::resources::favorite_groups::delete(id).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn resource_favorite_group_update_memberships(
+    updates: Vec<FavoriteGroupMembershipChange>,
+) -> Result<()> {
+    theseus::resources::favorite_groups::update_memberships(updates).await?;
     Ok(())
 }
 

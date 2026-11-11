@@ -5,15 +5,8 @@ import type { RequestContext, RequestOptions } from '../types/request'
 import type { UploadMetadata, UploadProgress, UploadRequestOptions } from '../types/upload'
 import type { AbstractFeature } from './abstract-feature'
 import type { AbstractModule } from './abstract-module'
-import type { AbstractSyncClient } from './abstract-sync'
 import { AbstractUploadClient } from './abstract-upload-client'
-import type { AbstractWebSocketClient } from './abstract-websocket'
 import { ModrinthApiError, ModrinthServerError } from './errors'
-
-type ArchonClientModules = Omit<InferredClientModules['archon'], 'backups_v1'> & {
-    /** @deprecated Use `backups_queue_v1` for the Backups Queue API. */
-    backups_v1: InferredClientModules['archon']['backups_v1']
-}
 
 /**
  * Abstract base client for Modrinth APIs
@@ -33,11 +26,6 @@ export abstract class AbstractModrinthClient extends AbstractUploadClient {
     private _moduleNamespaces: Map<string, Record<string, AbstractModule>> = new Map()
 
     public readonly labrinth!: InferredClientModules['labrinth']
-    public readonly archon!: ArchonClientModules & {
-        sockets: AbstractWebSocketClient
-        sync: AbstractSyncClient
-    }
-    public readonly kyros!: InferredClientModules['kyros']
     public readonly iso3166!: InferredClientModules['iso3166']
     public readonly mclogs!: InferredClientModules['mclogs']
     public readonly launchermeta!: InferredClientModules['launchermeta']
@@ -49,7 +37,6 @@ export abstract class AbstractModrinthClient extends AbstractUploadClient {
         this.config = {
             timeout: 10000,
             labrinthBaseUrl: 'https://api.modrinth.com',
-            archonBaseUrl: 'https://archon.modrinth.com',
             ...config,
         }
         this.features = config.features ?? []
@@ -121,8 +108,6 @@ export abstract class AbstractModrinthClient extends AbstractUploadClient {
         let baseUrl: string
         if (options.api === 'labrinth') {
             baseUrl = this.resolveBaseUrl(this.config.labrinthBaseUrl!)
-        } else if (options.api === 'archon') {
-            baseUrl = this.resolveBaseUrl(this.config.archonBaseUrl!)
         } else {
             baseUrl = options.api
         }
@@ -141,7 +126,6 @@ export abstract class AbstractModrinthClient extends AbstractUploadClient {
                 ...options.headers,
             },
         }
-        this.attachArchonSentryCaptureHeader(mergedOptions)
 
         const headers = mergedOptions.headers
         if (headers && 'Content-Type' in headers && headers['Content-Type'] === '') {
@@ -168,8 +152,6 @@ export abstract class AbstractModrinthClient extends AbstractUploadClient {
         let baseUrl: string
         if (options.api === 'labrinth') {
             baseUrl = this.resolveBaseUrl(this.config.labrinthBaseUrl!)
-        } else if (options.api === 'archon') {
-            baseUrl = this.resolveBaseUrl(this.config.archonBaseUrl!)
         } else {
             baseUrl = options.api
         }
@@ -187,7 +169,6 @@ export abstract class AbstractModrinthClient extends AbstractUploadClient {
                 ...options.headers,
             },
         }
-        this.attachArchonSentryCaptureHeader(mergedOptions)
 
         const context = this.buildContext(url, path, mergedOptions)
 
@@ -380,21 +361,6 @@ export abstract class AbstractModrinthClient extends AbstractUploadClient {
     private async resolveUserAgent(): Promise<string | undefined> {
         const userAgent = this.config.userAgent
         return typeof userAgent === 'function' ? await userAgent() : userAgent
-    }
-
-    protected attachArchonSentryCaptureHeader(options: RequestOptions): void {
-        if (options.api !== 'archon' || !options.headers || !this.shouldCaptureArchonRequests()) {
-            return
-        }
-
-        options.headers['modrinth-sentry-capture'] = '1'
-    }
-
-    private shouldCaptureArchonRequests(): boolean {
-        const archonSentryCapture = this.config.archonSentryCapture
-        return typeof archonSentryCapture === 'function'
-            ? archonSentryCapture()
-            : archonSentryCapture === true
     }
 
     /**

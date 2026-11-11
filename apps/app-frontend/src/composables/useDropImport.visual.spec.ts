@@ -1,3 +1,4 @@
+import type { ClassificationResult } from '@modrinth/ui'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 
@@ -20,12 +21,18 @@ import { type DropImportOptions, useDropImport } from './useDropImport'
 
 const dropCallbacks = vi.hoisted(() => ({
     onBatchStart: undefined as ((paths: string[]) => void) | undefined,
+    onImportStart: undefined as
+        ((type: string, classification: ClassificationResult) => void) | undefined,
 }))
 
 vi.mock('@modrinth/ui', () => ({
     useDebugLogger: () => vi.fn(),
-    useGlobalDrop: (options: { onBatchStart: (paths: string[]) => void }) => {
+    useGlobalDrop: (options: {
+        onBatchStart: (paths: string[]) => void
+        onImportStart: (type: string, classification: ClassificationResult) => void
+    }) => {
         dropCallbacks.onBatchStart = options.onBatchStart
+        dropCallbacks.onImportStart = options.onImportStart
         return { isDragging: ref(false), isProcessing: ref(false), finishBatch: vi.fn() }
     },
     useInstanceContext: () => ({ isInInstance: ref(false), instanceId: ref(null) }),
@@ -94,6 +101,106 @@ function setup() {
     flow.symlinkCardsModal.value = { show: showImportMethods, hide: vi.fn() }
     return { flow, showImportMethods, addNotification }
 }
+
+it('provides localized folder guidance for file-picker imports without rewriting other reasons', () => {
+    const { flow } = setup()
+
+    expect(flow.unknownTitleMessage('folder_has_no_importable_content')).toBe(
+        'Cannot import folder',
+    )
+    expect(flow.unknownReasonMessage('folder_has_no_importable_content')).toBe(
+        'No valid game instance or supported content was found in this folder. Choose another folder.',
+    )
+    expect(flow.unknownTitleMessage('Unsupported file: notes.txt')).toBe('Unknown file type')
+    expect(flow.unknownReasonMessage('Unsupported file: notes.txt')).toBe(
+        'Unsupported file: notes.txt',
+    )
+    expect(flow.unknownReasonMessage('Permission denied')).toBe('Permission denied')
+    expect(flow.unknownReasonMessage('Archive nesting too deep')).toBe(
+        'The archive is nested too deeply to analyze. Unpack it to a folder and try again.',
+    )
+})
+
+it('reports an unrecognized dropped folder without opening an import confirmation', () => {
+    const { flow, addNotification } = setup()
+
+    dropCallbacks.onImportStart!('unknown', {
+        item_type: 'unknown',
+        file_path: 'C:/Downloads/empty-folder',
+        reason: 'folder_has_no_importable_content',
+    })
+
+    expect(addNotification).toHaveBeenCalledWith({
+        title: 'Cannot import folder',
+        text: 'No valid game instance or supported content was found in this folder. Choose another folder.',
+        type: 'error',
+    })
+    expect(flow.confirmDropModal.value?.show).not.toHaveBeenCalled()
+    expect(import_instance).not.toHaveBeenCalled()
+})
+
+it('explains how to recover when a launcher folder contains no valid instances', async () => {
+    const { flow, showImportMethods, addNotification } = setup()
+    flow.dropClassification.value = {
+        item_type: 'launcher',
+        launcher_type: 'Generic',
+        base_path: 'C:/Downloads/.minecraft',
+    }
+    vi.mocked(scanLauncherInstances).mockResolvedValue([])
+
+    await flow.handleDropConfirm('instance')
+
+    expect(addNotification).toHaveBeenCalledWith({
+        title: 'No instances found',
+        text: 'No valid game instance was found in this folder. Choose a launcher folder or a .minecraft folder containing a game version.',
+        type: 'warning',
+    })
+    expect(flow.scanningInstances.value).toBe(false)
+    expect(showImportMethods).not.toHaveBeenCalled()
+    expect(import_instance).not.toHaveBeenCalled()
+})
+
+it('keeps real launcher scan failures separate from empty folder guidance', async () => {
+    const { flow, addNotification } = setup()
+    flow.dropClassification.value = {
+        item_type: 'launcher',
+        launcher_type: 'Generic',
+        base_path: 'C:/Downloads/.minecraft',
+    }
+    vi.mocked(scanLauncherInstances).mockRejectedValue(new Error('Permission denied'))
+
+    await flow.handleDropConfirm('instance')
+
+    expect(addNotification).toHaveBeenCalledWith({
+        title: 'Failed to scan for instances',
+        text: 'Permission denied',
+        type: 'error',
+    })
+    expect(flow.scanningInstances.value).toBe(false)
+    expect(import_instance).not.toHaveBeenCalled()
+})
+
+it('gives the same folder guidance for unrecognized and empty launcher folders in a batch', async () => {
+    const { flow } = setup()
+    const paths = ['C:/Downloads/empty-folder', 'C:/Downloads/.minecraft']
+    vi.mocked(classifyDroppedItem).mockResolvedValue({
+        item_type: 'unknown',
+        file_path: paths[0],
+        reason: 'folder_has_no_importable_content',
+    })
+    vi.mocked(scanLauncherInstances).mockResolvedValue([])
+
+    dropCallbacks.onBatchStart!(paths)
+    const scannedItems = flow.batchItems.value
+    await vi.waitFor(() => expect(flow.batchPhase.value).toBe('idle'))
+
+    expect(scannedItems.map((item) => item.scanState)).toEqual(['skipped', 'skipped'])
+    expect(scannedItems.map((item) => item.reason)).toEqual([
+        'No valid game instance or supported content was found in this folder. Choose another folder.',
+        'No valid game instance was found in this folder. Choose a launcher folder or a .minecraft folder containing a game version.',
+    ])
+    expect(import_instance).not.toHaveBeenCalled()
+})
 
 it.each([null, { minecraft_version: 'unrecognized declaration', loader: 'fabric' }])(
     'imports a mod with unknown compatibility without a conflict prompt: %j',

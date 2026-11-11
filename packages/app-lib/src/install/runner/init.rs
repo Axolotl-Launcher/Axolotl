@@ -101,8 +101,9 @@ pub(super) async fn prepare_initial_instance(
             set_instance_id(job_state, metadata.instance.id);
         }
         InstallRequest::CreateModpackInstance {
-            location,
-            post_install_edit,
+            mut location,
+            mut post_install_edit,
+            game_dir_override,
         } => {
             job_state.local_pack_retry_identity = match &location {
                 CreatePackLocation::FromFile { path } => Some(
@@ -113,7 +114,7 @@ pub(super) async fn prepare_initial_instance(
                 ),
                 _ => None,
             };
-            let preview = get_instance_from_pack(location).await?;
+            let preview = get_instance_from_pack(location.clone()).await?;
             let name = post_install_edit
                 .as_ref()
                 .and_then(|edit| edit.name.clone())
@@ -142,9 +143,22 @@ pub(super) async fn prepare_initial_instance(
                 icon_path,
                 link,
                 None,
-                None,
+                game_dir_override,
             )
             .await?;
+            if let CreatePackLocation::FromVersionId { title, .. } =
+                &mut location
+            {
+                *title = metadata.instance.name.clone();
+            }
+            if let Some(edit) = &mut post_install_edit {
+                edit.name = Some(metadata.instance.name.clone());
+            }
+            job_state.request = InstallRequest::CreateModpackInstance {
+                location,
+                post_install_edit,
+                game_dir_override: metadata.instance.game_dir_override.clone(),
+            };
             set_display(
                 job_state,
                 metadata.instance.name,

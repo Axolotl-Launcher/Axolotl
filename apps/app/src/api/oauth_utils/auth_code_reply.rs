@@ -19,23 +19,10 @@ use std::{
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioIo, TokioTimer};
 use theseus::ErrorKind;
-use theseus::prelude::tcp_listen_any_loopback;
 use tokio::sync::{broadcast, oneshot};
 
 static SERVER_SHUTDOWN: LazyLock<broadcast::Sender<()>> =
     LazyLock::new(|| broadcast::channel(1024).0);
-
-/// Starts a temporary HTTP server to receive OAuth 2.0 authorization code grant flow redirects
-/// on a loopback interface with an ephemeral port. The caller can know the bound socket address
-/// by listening on the counterpart channel for `listen_socket_tx`.
-///
-/// If the server is stopped before receiving an authorization code, `Ok(None)` is returned.
-pub async fn listen(
-    listen_socket_tx: oneshot::Sender<Result<SocketAddr, theseus::Error>>,
-) -> Result<Option<AuthorizationCodeReply>, theseus::Error> {
-    let listener = tcp_listen_any_loopback().await;
-    listen_with_listener(listener, listen_socket_tx).await
-}
 
 /// Starts a temporary HTTP server on a registered loopback callback address.
 pub async fn listen_fixed(

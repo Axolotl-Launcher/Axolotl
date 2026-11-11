@@ -18,6 +18,7 @@ import { installJobInstanceId } from '@/helpers/install'
 import {
     get_content_snapshot,
     type InstallContentBatchItem,
+    type InstanceContentSnapshot,
     list as listInstances,
     queue_content_batch,
 } from '@/helpers/instance'
@@ -109,8 +110,12 @@ export function createContentSelection({
     const installedIdentityKeys = ref<Set<string>>(new Set())
     const installedIdentitySlugs = ref<Set<string>>(new Set())
     const installedIdentityRequests = new Map<string, Promise<ContentIdentity[]>>()
+    const staleInstalledIdentities = new Set<string>()
+    const installedContentKeys = new Map<string, string>()
     let installedIdentityRequestId = 0
     let selectionGeneration = 0
+    let selectionRequestId = 0
+    const selectionRequests = new Map<string, number>()
     let resourcePreview: InstanceType<typeof ResourceOperationPreviewModal> | null = null
     let previewModal: InstanceType<typeof ContentInstallPreviewModal> | null = null
     const analysis = createContentAnalysis()
@@ -130,9 +135,6 @@ export function createContentSelection({
                     instance.loader_version,
                     instance.update_channel,
                     snapshotGeneration.value,
-                    downloadManager.jobs.value
-                        .filter((job) => installJobInstanceId(job) === instance.id)
-                        .map(({ job_id, status }) => [job_id, status]),
                 ]),
                 selections: resourceSelections(selected),
                 installDependencies: themeStore.getFeatureFlag('auto_install_dependencies'),
@@ -174,8 +176,12 @@ export function createContentSelection({
                 : (available.find((instance) => instance.id === requestedId) ?? null)
         if (selected?.id !== targetInstance.value?.id) {
             selectionGeneration++
+            selectionRequests.clear()
             installedIdentityRequestId += 1
             installedIdentityCache.clear()
+            installedIdentityRequests.clear()
+            staleInstalledIdentities.clear()
+            installedContentKeys.clear()
             installedIdentityKeys.value = new Set()
             installedIdentitySlugs.value = new Set()
         }
@@ -187,8 +193,12 @@ export function createContentSelection({
     function setTarget(instance: GameInstance | null) {
         if (instance?.id !== targetInstance.value?.id) {
             selectionGeneration++
+            selectionRequests.clear()
             installedIdentityRequestId += 1
             installedIdentityCache.clear()
+            installedIdentityRequests.clear()
+            staleInstalledIdentities.clear()
+            installedContentKeys.clear()
             installedIdentityKeys.value = new Set()
             installedIdentitySlugs.value = new Set()
         }
@@ -222,10 +232,10 @@ export function createContentSelection({
     }
 
     async function getInstalledIdentities(instance: GameInstance) {
-        const cached = installedIdentityCache.get(instance.id)
-        if (cached) return cached
         const pending = installedIdentityRequests.get(instance.id)
         if (pending) return pending
+        const cached = installedIdentityCache.get(instance.id)
+        if (cached && !staleInstalledIdentities.has(instance.id)) return cached
         const request = fetchInstalledIdentities(instance).finally(() => {
             if (installedIdentityRequests.get(instance.id) === request)
                 installedIdentityRequests.delete(instance.id)
@@ -235,20 +245,14 @@ export function createContentSelection({
     }
 
     async function fetchInstalledIdentities(instance: GameInstance) {
-        const requestId = ++installedIdentityRequestId
+        const requestId = installedIdentityRequestId
         const canCommit = () =>
             requestId === installedIdentityRequestId && targetInstance.value?.id === instance.id
         const snapshot = await get_content_snapshot(instance.id).catch(() => null)
         if (!snapshot) {
-            // A stale/offline instance snapshot must not turn an add operation into a
-            // false authoritative conflict. Provider-qualified cart de-duplication
-            // still applies while the failed lookup remains unknown.
-            installedIdentityCache.set(instance.id, [])
-            if (canCommit()) {
-                installedIdentityKeys.value = new Set()
-                installedIdentitySlugs.value = new Set()
-            }
-            return []
+            if (!canCommit()) return latestInstalledIdentities(instance)
+            // Keep the last successful evidence and retry on the next lookup.
+            return installedIdentityCache.get(instance.id) ?? []
         }
         const unresolvedInputs = contentIdentityInputsFromSnapshot(snapshot.items)
         const modrinthIds = unresolvedInputs
@@ -279,8 +283,10 @@ export function createContentSelection({
             ),
         })
         const identities = await resolveContentIdentities(inputs)
+        if (!canCommit()) return latestInstalledIdentities(instance)
+        updateInstalledContent(instance.id, snapshot)
         installedIdentityCache.set(instance.id, identities)
-        if (!canCommit()) return identities
+        staleInstalledIdentities.delete(instance.id)
         const keys = new Set<string>()
         const slugs = new Set<string>()
         for (const identity of identities) {
@@ -300,14 +306,42 @@ export function createContentSelection({
         return identities
     }
 
+    function latestInstalledIdentities(instance: GameInstance): Promise<ContentIdentity[]> {
+        return targetInstance.value?.id === instance.id
+            ? getInstalledIdentities(instance)
+            : Promise.resolve([])
+    }
+
+    function updateInstalledContent(instanceId: string, snapshot: InstanceContentSnapshot) {
+        // Recognition and dependency backfill change revisions and metadata, not files.
+        const key = JSON.stringify(
+            snapshot.items
+                .filter((item) => item.content)
+                .map((item) =>
+                    JSON.stringify([
+                        item.expectedRelativePath,
+                        item.content?.id,
+                        item.content?.file_name,
+                        item.content?.size,
+                        item.materializationState,
+                    ]),
+                )
+                .sort(),
+        )
+        const previous = installedContentKeys.get(instanceId)
+        installedContentKeys.set(instanceId, key)
+        if (previous !== undefined && previous !== key) snapshotGeneration.value++
+    }
+
     async function refreshInstalledIdentities() {
-        snapshotGeneration.value++
         if (!targetInstance.value) {
             installedIdentityKeys.value = new Set()
             installedIdentitySlugs.value = new Set()
             return
         }
-        installedIdentityCache.delete(targetInstance.value.id)
+        installedIdentityRequestId++
+        staleInstalledIdentities.add(targetInstance.value.id)
+        installedIdentityRequests.delete(targetInstance.value.id)
         await getInstalledIdentities(targetInstance.value)
     }
 
@@ -339,13 +373,31 @@ export function createContentSelection({
         })
     }
 
-    async function add(item: ContentSelectionItem) {
+    async function add(
+        item: ContentSelectionItem,
+        resolveVersion?: (isCurrent: () => boolean) => Promise<string | null | undefined>,
+    ) {
         const instance = targetInstance.value
         if (!instance) throw new Error(formatMessage(messages.noTarget))
         if (item.targetInstanceId && item.targetInstanceId !== instance.id) return false
         const generation = selectionGeneration
+        const requestId = ++selectionRequestId
+        selectionRequests.set(item.key, requestId)
         const isCurrent = () =>
-            generation === selectionGeneration && targetInstance.value?.id === instance.id
+            generation === selectionGeneration &&
+            targetInstance.value?.id === instance.id &&
+            selectionRequests.get(item.key) === requestId
+        if (resolveVersion) {
+            let versionId: string | null | undefined
+            try {
+                versionId = await resolveVersion(isCurrent)
+            } catch (error) {
+                if (!isCurrent()) return false
+                throw error
+            }
+            if (!isCurrent() || versionId === null) return false
+            item = { ...item, versionId }
+        }
         const versionPending = !item.versionId
         const identity =
             item.identity ??
@@ -363,11 +415,13 @@ export function createContentSelection({
         const reviewedConflicts = new Set<string>()
         while (isCurrent()) {
             const currentItems = items.value
+            const identityRequestId = installedIdentityRequestId
             const conflicts = await findConflicts({ ...item, identity }, instance, {
                 skipInstalled: versionPending,
             })
             if (!isCurrent()) return false
-            if (currentItems !== items.value) continue
+            if (currentItems !== items.value || identityRequestId !== installedIdentityRequestId)
+                continue
             const hardConflict = conflicts.find((conflict) => conflict.match.source !== 'heuristic')
             if (hardConflict) {
                 addNotification({
@@ -414,7 +468,8 @@ export function createContentSelection({
                     reviewedConflicts.add(conflictKey)
                 }
             }
-            if (currentItems !== items.value) continue
+            if (currentItems !== items.value || identityRequestId !== installedIdentityRequestId)
+                continue
             const next = new Map(items.value)
             next.set(item.key, {
                 ...item,
@@ -433,7 +488,7 @@ export function createContentSelection({
     }
 
     function remove(key: string) {
-        selectionGeneration++
+        selectionRequests.delete(key)
         const next = new Map(items.value)
         next.delete(key)
         items.value = next
@@ -444,10 +499,14 @@ export function createContentSelection({
 
     function clear() {
         selectionGeneration++
+        selectionRequests.clear()
         items.value = new Map()
         errorKeys.value = new Set()
         installedIdentityRequestId += 1
         installedIdentityCache.clear()
+        installedIdentityRequests.clear()
+        staleInstalledIdentities.clear()
+        installedContentKeys.clear()
         installedIdentityKeys.value = new Set()
         installedIdentitySlugs.value = new Set()
     }
@@ -626,8 +685,25 @@ export function createContentSelection({
     }
 
     watch(
-        () => downloadManager.jobs.value.map(({ job_id, status }) => ({ job_id, status })),
-        (jobs) => {
+        () =>
+            downloadManager.jobs.value.map((job) => ({
+                job_id: job.job_id,
+                status: job.status,
+                instanceId: installJobInstanceId(job),
+            })),
+        (jobs, previousJobs) => {
+            if (
+                previousJobs?.some(
+                    (previous) =>
+                        previous.instanceId === targetInstance.value?.id &&
+                        activeJobStatuses.has(previous.status) &&
+                        !jobs.some(
+                            (job) =>
+                                job.job_id === previous.job_id && activeJobStatuses.has(job.status),
+                        ),
+                )
+            )
+                void refreshInstalledIdentities().catch(handleError)
             const terminalJobIds = new Set(
                 jobs.filter((job) => !activeJobStatuses.has(job.status)).map((job) => job.job_id),
             )

@@ -21,6 +21,7 @@ import { log_listener, process_listener } from '@/helpers/events.js'
 import {
     delete_logs_by_filename,
     export_crash_context,
+    export_log_file,
     get_output_by_filename,
 } from '@/helpers/logs.js'
 import { createRequestGeneration } from '@/helpers/request-generation'
@@ -201,6 +202,13 @@ provideConsoleManager({
         void clearLive()
     },
     onDelete: deleteSelectedLog,
+    onExportLog: computed(() => {
+        const log = selectedLog.value
+        if (!log || log.live) return undefined
+        return async () => {
+            await export_log_file(props.instance.id, log.log_type, log.filename).catch(handleError)
+        }
+    }),
     deleteDisabled,
     deleteDisabledTooltip: computed(() => formatMessage(messages.cannotDeleteLatest)),
     // The previous log stays on screen while the next one loads; sharing it

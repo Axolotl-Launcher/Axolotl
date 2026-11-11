@@ -4,6 +4,7 @@ import {
     ChevronLeftIcon,
     ChevronRightIcon,
     PlayIcon,
+    SpinnerIcon,
     StopCircleIcon,
 } from '@modrinth/assets'
 import {
@@ -27,6 +28,7 @@ import {
     kill,
     run,
 } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { handleSevereError } from '@/store/error'
@@ -230,8 +232,8 @@ watch(instanceRevision, async () => {
 </script>
 
 <template>
-    <section class="flex min-w-0 min-h-0 h-full flex-col gap-2.5 overflow-hidden p-2">
-        <header class="flex min-w-0 h-8 flex-none items-center gap-2">
+    <section class="home-calendar flex min-w-0 min-h-0 h-full flex-col gap-2.5 overflow-hidden p-2">
+        <header class="flex min-w-0 min-h-8 flex-none flex-wrap items-center gap-x-2 gap-y-1">
             <div class="home-calendar-title flex min-w-0 items-center gap-2">
                 <CalendarIcon class="size-5 shrink-0 text-brand" aria-hidden="true" />
                 <h2>{{ formatMessage(messages.calendar) }}</h2>
@@ -371,8 +373,13 @@ watch(instanceRevision, async () => {
                             circular
                             icon-only
                             class="!text-brand opacity-60 transition-opacity group-hover:opacity-100"
+                            :disabled="instanceLaunchStartedAt(row.instance.id) !== undefined"
                             @click="playInstance(row.instance)"
-                            ><PlayIcon />
+                            ><SpinnerIcon
+                                v-if="instanceLaunchStartedAt(row.instance.id) !== undefined"
+                                class="animate-spin"
+                            />
+                            <PlayIcon v-else />
                         </Button>
                     </div>
                 </li>
@@ -382,6 +389,18 @@ watch(instanceRevision, async () => {
 </template>
 
 <style scoped>
+.home-calendar {
+    container-type: inline-size;
+}
+
+/* A narrow column first gives up the icon, then wraps the month controls
+   below the title, so the title itself is never cut. */
+@container (max-width: 13rem) {
+    .home-calendar-title > svg {
+        display: none;
+    }
+}
+
 .home-calendar-title h2 {
     overflow: hidden;
     margin: 0;

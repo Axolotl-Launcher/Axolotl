@@ -255,7 +255,7 @@ function preview(fileName: string) {
                     formatMessage(messages.retry)
                 }}</Button>
             </div>
-            <NavTabs :links="projectTabs" />
+            <NavTabs :links="projectTabs" route-sync />
             <Card v-if="activeTab === 'description'" class="m-0">
                 <TranslatedProjectDescription
                     v-if="description.trim() && project.descriptionFormat !== 'plain'"

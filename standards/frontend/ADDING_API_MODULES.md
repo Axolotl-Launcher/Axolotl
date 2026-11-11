@@ -86,17 +86,16 @@ export class LabrinthThingsV3Module extends AbstractModule {
 
 #### Request options
 
-| Field         | Values                                            | Purpose                            |
-| ------------- | ------------------------------------------------- | ---------------------------------- |
-| `api`         | `'labrinth'`, `'archon'`, or a full URL           | Which base URL to use              |
-| `version`     | `2`, `3`, `'internal'`, `'modrinth/v0'`, etc.     | URL version segment                |
-| `method`      | `'GET'`, `'POST'`, `'PUT'`, `'PATCH'`, `'DELETE'` | HTTP method                        |
-| `body`        | object                                            | JSON request body                  |
-| `params`      | `Record<string, string>`                          | Query parameters                   |
-| `skipAuth`    | `boolean`                                         | Skip auth feature for this request |
-| `useNodeAuth` | `boolean`                                         | Use node-level auth (kyros)        |
-| `timeout`     | `number`                                          | Request timeout in ms              |
-| `retry`       | `boolean \| number`                               | Override retry behavior            |
+| Field      | Values                                            | Purpose                            |
+| ---------- | ------------------------------------------------- | ---------------------------------- |
+| `api`      | `'labrinth'` or a full URL                        | Which base URL to use              |
+| `version`  | `2`, `3`, `'internal'`, `'modrinth/v0'`, etc.     | URL version segment                |
+| `method`   | `'GET'`, `'POST'`, `'PUT'`, `'PATCH'`, `'DELETE'` | HTTP method                        |
+| `body`     | object                                            | JSON request body                  |
+| `params`   | `Record<string, string>`                          | Query parameters                   |
+| `skipAuth` | `boolean`                                         | Skip auth feature for this request |
+| `timeout`  | `number`                                          | Request timeout in ms              |
+| `retry`    | `boolean \| number`                               | Override retry behavior            |
 
 #### For uploads
 

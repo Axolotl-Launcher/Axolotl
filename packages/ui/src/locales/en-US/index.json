@@ -77,6 +77,12 @@
   "browse.search.placeholder": {
     "defaultMessage": "Search {projectType}..."
   },
+  "browse.select-all-button.label": {
+    "defaultMessage": "Select all ({count})"
+  },
+  "browse.select-all-button.selecting": {
+    "defaultMessage": "Selecting {completed}/{total}"
+  },
   "browse.selected-projects-floating-bar.aria-label": {
     "defaultMessage": "Selected projects"
   },

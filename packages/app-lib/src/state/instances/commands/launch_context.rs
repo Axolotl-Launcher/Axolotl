@@ -253,23 +253,16 @@ pub(crate) async fn add_instance_recent_playtime(
     playtime::add_recent_playtime(instance_id, seconds, pool).await
 }
 
-pub(crate) async fn mark_instance_playtime_submitted(
-    instance_id: &str,
-    recent_time_played: u64,
-    pool: &SqlitePool,
-) -> crate::Result<()> {
-    playtime::mark_playtime_submitted(instance_id, recent_time_played, pool)
-        .await
-}
-
 #[cfg(test)]
 mod tests {
-    use chrono::{TimeZone, Utc};
+    use chrono::{Duration, Local, TimeZone, Utc};
     use chrono_tz::America::New_York;
     use sqlx::sqlite::SqlitePoolOptions;
 
     use super::{
-        get_daily_playtime, set_instance_pinned, split_daily_playtime,
+        add_instance_recent_playtime, get_daily_playtime,
+        record_instance_daily_playtime, set_instance_pinned,
+        split_daily_playtime,
     };
     use crate::state::instances::adapters::sqlite::playtime;
 
@@ -330,7 +323,7 @@ mod tests {
             .await
             .expect("in-memory SQLite pool");
         sqlx::query(
-            "CREATE TABLE instances (id TEXT PRIMARY KEY, name TEXT NOT NULL, pinned_at INTEGER NULL, modified INTEGER NOT NULL)",
+            "CREATE TABLE instances (id TEXT PRIMARY KEY, name TEXT NOT NULL, pinned_at INTEGER NULL, modified INTEGER NOT NULL, submitted_time_played INTEGER NOT NULL DEFAULT 0, recent_time_played INTEGER NOT NULL DEFAULT 0)",
         )
         .execute(&pool)
         .await
@@ -391,6 +384,57 @@ mod tests {
             summary[0].top_instance_name.as_deref(),
             Some("First instance")
         );
+    }
+
+    #[tokio::test]
+    async fn local_playtime_accumulates_without_submitting_historical_totals() {
+        let pool = test_pool().await;
+        sqlx::query("INSERT INTO instances (id, name, modified, submitted_time_played, recent_time_played) VALUES ('instance', 'Instance', 0, 120, 30)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let mut started_at = Local
+            .with_ymd_and_hms(2026, 7, 25, 12, 0, 0)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc);
+        let played_on = started_at.with_timezone(&Local).date_naive();
+        playtime::upsert_daily_playtime(
+            "instance", "Instance", played_on, 30, 1, &pool,
+        )
+        .await
+        .unwrap();
+
+        for elapsed in [60, 17] {
+            let ended_at = started_at + Duration::seconds(elapsed);
+            add_instance_recent_playtime("instance", elapsed as u64, &pool)
+                .await
+                .unwrap();
+            record_instance_daily_playtime(
+                "instance", started_at, ended_at, &pool,
+            )
+            .await
+            .unwrap();
+            started_at = ended_at;
+        }
+        add_instance_recent_playtime("instance", 0, &pool)
+            .await
+            .unwrap();
+
+        let (submitted, recent): (i64, i64) = sqlx::query_as(
+            "SELECT submitted_time_played, recent_time_played FROM instances WHERE id = 'instance'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(submitted, 120, "historical totals stay intact");
+        assert_eq!(recent, 107, "every local tick remains recorded");
+        assert_eq!(submitted + recent, 227);
+        let daily = get_daily_playtime(played_on, played_on, &pool)
+            .await
+            .unwrap();
+        assert_eq!(daily[0].played_seconds, 107);
+        assert_eq!(daily[0].session_count, 1);
     }
 
     #[tokio::test]

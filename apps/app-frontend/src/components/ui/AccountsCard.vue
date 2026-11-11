@@ -77,100 +77,122 @@
             </div>
         </template>
         <div class="bg-surface-4 pt-1 pb-2 border-0 border-t border-solid border-surface-5">
-            <template v-if="accounts.length > 0">
-                <div
-                    v-for="account in accounts"
-                    :key="account.account_id"
-                    class="flex gap-1 items-center"
-                >
-                    <button
-                        class="flex items-center flex-shrink flex-grow overflow-clip gap-2 p-2 border-0 bg-transparent cursor-pointer button-base min-w-0"
-                        :aria-disabled="
-                            account.account_type === 'offline' && antiPiracyStatus.restricted
-                        "
-                        :class="{
-                            'opacity-50':
-                                account.account_type === 'offline' && antiPiracyStatus.restricted,
-                        }"
-                        @click="setAccount(account)"
-                    >
-                        <RadioButtonCheckedIcon
-                            v-if="
-                                selectedAccount && selectedAccount.account_id === account.account_id
+            <Draggable
+                v-if="accounts.length > 0"
+                :list="accounts"
+                item-key="account_id"
+                tag="div"
+                :animation="200"
+                easing="cubic-bezier(0.22, 1, 0.36, 1)"
+                filter=".account-row-actions"
+                :force-fallback="true"
+                :fallback-on-body="false"
+                fallback-class="account-row-fallback"
+                ghost-class="account-row-ghost"
+                chosen-class="account-row-chosen"
+                :scroll="true"
+                :scroll-sensitivity="48"
+                :scroll-speed="16"
+                :bubble-scroll="false"
+                @start="startAccountDrag"
+                @end="finishAccountDrag"
+            >
+                <template #item="{ element: account }">
+                    <div class="flex gap-1 items-center" @pointerdown="rememberAccountDragTap">
+                        <button
+                            :aria-description="formatMessage(messages.dragToReorder)"
+                            class="flex items-center flex-shrink flex-grow overflow-clip gap-2 p-2 border-0 bg-transparent cursor-pointer button-base min-w-0"
+                            :aria-disabled="
+                                account.account_type === 'offline' && antiPiracyStatus.restricted
                             "
-                            class="w-5 h-5 text-brand shrink-0"
-                        />
-                        <RadioButtonIcon
-                            v-else
-                            class="w-5 h-5 text-[var(--color-text-tertiary)] shrink-0"
-                        />
-                        <Avatar
-                            :src="getAccountAvatarUrl(account)"
-                            size="24px"
-                            pixelated
-                            :unframed-natural-width="72"
-                        />
-                        <div class="flex flex-1 min-w-0 flex-col text-left">
-                            <p
-                                class="m-0 truncate text-left"
-                                :class="
+                            :class="{
+                                'opacity-50':
+                                    account.account_type === 'offline' &&
+                                    antiPiracyStatus.restricted,
+                            }"
+                            @click="selectAccountRow(account)"
+                            @keydown.alt.up.prevent="moveAccount(account, -1)"
+                            @keydown.alt.down.prevent="moveAccount(account, 1)"
+                        >
+                            <RadioButtonCheckedIcon
+                                v-if="
                                     selectedAccount &&
                                     selectedAccount.account_id === account.account_id
-                                        ? 'text-[var(--color-text-primary)] font-semibold'
-                                        : 'text-[var(--color-text-default)]'
                                 "
+                                class="w-5 h-5 text-brand shrink-0"
+                            />
+                            <RadioButtonIcon
+                                v-else
+                                class="w-5 h-5 text-[var(--color-text-tertiary)] shrink-0"
+                            />
+                            <Avatar
+                                :src="getAccountAvatarUrl(account)"
+                                size="24px"
+                                pixelated
+                                :unframed-natural-width="72"
+                            />
+                            <div class="flex flex-1 min-w-0 flex-col text-left">
+                                <p
+                                    class="m-0 truncate text-left"
+                                    :class="
+                                        selectedAccount &&
+                                        selectedAccount.account_id === account.account_id
+                                            ? 'text-[var(--color-text-primary)] font-semibold'
+                                            : 'text-[var(--color-text-default)]'
+                                    "
+                                >
+                                    {{ account.profile.name }}
+                                </p>
+                                <p
+                                    v-if="duplicateAccountNames.has(account.profile.name)"
+                                    class="m-0 truncate text-left text-xs text-[var(--color-text-tertiary)]"
+                                >
+                                    {{ account.profile.id }}
+                                </p>
+                            </div>
+                            <span
+                                v-if="account.account_type === 'offline'"
+                                class="text-[var(--color-text-tertiary)] text-xs shrink-0"
                             >
-                                {{ account.profile.name }}
-                            </p>
-                            <p
-                                v-if="duplicateAccountNames.has(account.profile.name)"
-                                class="m-0 truncate text-left text-xs text-[var(--color-text-tertiary)]"
+                                {{ formatMessage(messages.offlineBadge) }}
+                            </span>
+                            <span
+                                v-else-if="account.account_type === 'microsoft'"
+                                class="text-[var(--color-text-tertiary)] text-xs shrink-0"
                             >
-                                {{ account.profile.id }}
-                            </p>
+                                {{ formatMessage(messages.officialBadge) }}
+                            </span>
+                            <span
+                                v-else-if="account.account_type === 'yggdrasil'"
+                                class="text-[var(--color-text-tertiary)] text-xs shrink-0"
+                            >
+                                {{
+                                    account.yggdrasil?.server_name ||
+                                    formatMessage(messages.thirdPartyBadge)
+                                }}
+                            </span>
+                        </button>
+                        <div class="account-row-actions flex shrink-0 items-center">
+                            <button
+                                v-tooltip="formatMessage(messages.copyUuid)"
+                                type="button"
+                                class="button-base border-0 bg-transparent p-1.5 cursor-pointer text-[var(--color-text-tertiary)] hover:text-brand"
+                                @click="copyAccountUuid(account)"
+                            >
+                                <CopyIcon />
+                            </button>
+                            <button
+                                v-tooltip="formatMessage(messages.removeAccount)"
+                                type="button"
+                                class="button-base border-0 bg-transparent p-1.5 cursor-pointer text-[var(--color-text-tertiary)] hover:text-red"
+                                @click="logout(account)"
+                            >
+                                <TrashIcon />
+                            </button>
                         </div>
-                        <span
-                            v-if="account.account_type === 'offline'"
-                            class="text-[var(--color-text-tertiary)] text-xs shrink-0"
-                        >
-                            {{ formatMessage(messages.offlineBadge) }}
-                        </span>
-                        <span
-                            v-else-if="account.account_type === 'microsoft'"
-                            class="text-[var(--color-text-tertiary)] text-xs shrink-0"
-                        >
-                            {{ formatMessage(messages.officialBadge) }}
-                        </span>
-                        <span
-                            v-else-if="account.account_type === 'yggdrasil'"
-                            class="text-[var(--color-text-tertiary)] text-xs shrink-0"
-                        >
-                            {{
-                                account.yggdrasil?.server_name ||
-                                formatMessage(messages.thirdPartyBadge)
-                            }}
-                        </span>
-                    </button>
-                    <div class="flex shrink-0 items-center">
-                        <button
-                            v-tooltip="formatMessage(messages.copyUuid)"
-                            type="button"
-                            class="button-base border-0 bg-transparent p-1.5 cursor-pointer text-[var(--color-text-tertiary)] hover:text-brand"
-                            @click="copyAccountUuid(account)"
-                        >
-                            <CopyIcon />
-                        </button>
-                        <button
-                            v-tooltip="formatMessage(messages.removeAccount)"
-                            type="button"
-                            class="button-base border-0 bg-transparent p-1.5 cursor-pointer text-[var(--color-text-tertiary)] hover:text-red"
-                            @click="logout(account)"
-                        >
-                            <TrashIcon />
-                        </button>
                     </div>
-                </div>
-            </template>
+                </template>
+            </Draggable>
             <div class="flex flex-col gap-2 px-2 pt-2">
                 <Button
                     v-if="accounts.length > 0 && !offline"
@@ -420,6 +442,7 @@ import { listen } from '@tauri-apps/api/event'
 import type { Ref } from 'vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import Draggable from 'vuedraggable'
 
 import axolotlLogo from '@/assets/axolotl.png'
 import steveSkinTexture from '@/assets/skins/steve.png?inline'
@@ -429,8 +452,14 @@ import {
     useAntiPiracyStatus,
 } from '@/composables/useAntiPiracyStatus'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
+import {
+    readAccountOrder,
+    sortMinecraftAccountsWithOrder,
+    writeAccountOrder,
+} from '@/helpers/account-order'
 import { preferredOnlineAccountId } from '@/helpers/account-selection'
-import { compareMinecraftAccounts } from '@/helpers/accounts'
+import { accountSelectionRevision } from '@/helpers/account-state'
+import { minecraftAccountId } from '@/helpers/accounts'
 import { trackEvent } from '@/helpers/analytics'
 import {
     add_offline_user,
@@ -509,6 +538,28 @@ type YggdrasilLoginResult =
 const LITTLE_SKIN_API_ROOT = 'https://littleskin.cn/api/yggdrasil'
 
 const accounts: Ref<MinecraftCredential[]> = ref([])
+const accountOrder = ref<string[]>(readAccountOrder())
+const draggingAccount = ref(false)
+// A drag ends on mouseup, and the click the browser still synthesizes for the
+// row follows it. Keep that click from changing the selected account.
+let suppressAccountClickUntil = 0
+// The order the drag started from, so a drag that lands where it began does not
+// pin the default ordering as if the user had chosen it.
+let orderAtDragStart: string[] = []
+// Sortable's fallback ghost follows the pointer on both axes. Accounts are a
+// vertical list, so its horizontal offset is clamped back to zero while the
+// drag is live.
+let ghostLockObserver: MutationObserver | null = null
+// The pointer position the drag started from, and where it is now: the ghost is
+// positioned from these rather than from Sortable's accumulated delta, so a
+// pointer that leaves the box and comes back meets the row again instead of
+// keeping the offset it picked up outside.
+let dragTapY: number | null = null
+let dragPointerY: number | null = null
+let dragBox: { top: number; bottom: number } | null = null
+let cancelledAccountDrag = false
+// How far past the list a drag may go before it is dropped instead of clamped.
+const ACCOUNT_DRAG_ESCAPE_MARGIN = 64
 const loginDisabled = ref(false)
 const defaultUser = ref<string | undefined>()
 const equippedSkin = ref<Skin | null>(null)
@@ -517,6 +568,8 @@ const headUrlCache = ref(new Map<string, string>())
 const accountHeadUrlCache = ref(new Map<string, string>())
 const accountHeadTextureKeyCache = ref(new Map<string, string>())
 let refreshGeneration = 0
+let ownAccountWrites = 0
+let unclaimedSelectionChanges = 0
 let headRefreshTimer: ReturnType<typeof setTimeout> | undefined
 let defaultUserUpdateQueue = Promise.resolve()
 const minecraftLoginModal = ref<InstanceType<typeof MinecraftLoginModal> | null>(null)
@@ -616,9 +669,11 @@ async function refreshValues(
     // carry this refinement. The double cast is deliberate — the shape is
     // correct and verified at runtime by the backend.
     if (Array.isArray(userList)) {
-        accounts.value = [...(userList as unknown as MinecraftCredential[])]
+        accounts.value = sortMinecraftAccountsWithOrder(
+            userList as unknown as MinecraftCredential[],
+            accountOrder.value,
+        )
     }
-    accounts.value.sort(compareMinecraftAccounts)
     let resolvedSelectedUser = selectedUser
     if (preferOnlineAccount && selectedUser) {
         resolvedSelectedUser = preferredOnlineAccountId(selectedUser, accounts.value)
@@ -638,8 +693,9 @@ async function refreshValues(
     const updatedUsers = await users(offline.value).catch(handleError)
     if (generation !== refreshGeneration) return
     if (Array.isArray(updatedUsers)) {
-        accounts.value = [...(updatedUsers as unknown as MinecraftCredential[])].sort(
-            compareMinecraftAccounts,
+        accounts.value = sortMinecraftAccountsWithOrder(
+            updatedUsers as unknown as MinecraftCredential[],
+            accountOrder.value,
         )
     }
     await Promise.all([localHeads, renderAccountHeads(accounts.value, generation)])
@@ -730,6 +786,30 @@ watch(
     },
     { immediate: true, flush: 'sync' },
 )
+
+// The card stays mounted behind first-run setup, so an account chosen elsewhere
+// has to reach it here. Its own writes refresh in the order they need, and a
+// second refresh would supersede theirs. The revision moves synchronously with
+// the write, which is why this watcher must be sync to see the counter.
+watch(
+    accountSelectionRevision,
+    () => {
+        if (ownAccountWrites > 0) {
+            unclaimedSelectionChanges += 1
+            return
+        }
+        refreshAfterOutsideSelection()
+    },
+    { flush: 'sync' },
+)
+
+function refreshAfterOutsideSelection() {
+    void refreshValues()
+        .then(notifyAccountChange)
+        .catch((error) => {
+            console.warn('Failed to refresh accounts after a selection change:', error)
+        })
+}
 
 onMounted(() => {
     void refreshValues().catch(console.warn)
@@ -829,22 +909,196 @@ function getAccountAvatarUrl(account: MinecraftCredential) {
     return defaultSteveHeadUrl
 }
 
+/**
+ * Runs one of the card's own account writes. `write` has to be a call from
+ * `helpers/auth` that signals exactly one selection change when it succeeds,
+ * because that signal is what is subtracted from the changes seen meanwhile.
+ */
+async function ownAccountWrite<T>(write: () => Promise<T>): Promise<T> {
+    ownAccountWrites += 1
+    try {
+        const result = await write()
+        unclaimedSelectionChanges -= 1
+        return result
+    } finally {
+        ownAccountWrites -= 1
+        if (ownAccountWrites === 0) {
+            // Another component changed the selection during the write, and a
+            // failed write has no refresh of its own to pick that up.
+            if (unclaimedSelectionChanges > 0) refreshAfterOutsideSelection()
+            unclaimedSelectionChanges = 0
+        }
+    }
+}
+
 function persistDefaultUser(userId: string) {
     const update = defaultUserUpdateQueue.then(async () => {
-        await set_default_user(userId)
+        await ownAccountWrite(() => set_default_user(userId))
     })
     defaultUserUpdateQueue = update.catch(() => {})
     return update
 }
 
-function getAccountId(account: MinecraftCredential): string {
-    if (account.account_id) return account.account_id
+function selectAccountRow(account: MinecraftCredential) {
+    if (draggingAccount.value || Date.now() < suppressAccountClickUntil) return
+    void setAccount(account)
+}
 
-    const profileId = account.profile.id
-    if (account.account_type === 'yggdrasil' && account.yggdrasil) {
-        return `${account.account_type}:${account.yggdrasil.api_root}:${profileId}`
+function pointerClientY(event: Event | undefined): number | null {
+    if (!event) return null
+
+    const touchEvent = event as TouchEvent
+    if (touchEvent.touches?.length) return touchEvent.touches[0]?.clientY ?? null
+
+    const mouseEvent = event as MouseEvent
+    return typeof mouseEvent.clientY === 'number' ? mouseEvent.clientY : null
+}
+
+function rememberAccountDragTap(event: PointerEvent) {
+    if (event.button !== 0) return
+    if ((event.target as HTMLElement | null)?.closest('.account-row-actions')) return
+    dragTapY = event.clientY
+}
+
+function startAccountDrag(event?: { originalEvent?: Event }) {
+    draggingAccount.value = true
+    suppressAccountClickUntil = Date.now() + 300
+    orderAtDragStart = accounts.value.map(minecraftAccountId)
+    cancelledAccountDrag = false
+    dragPointerY = pointerClientY(event?.originalEvent) ?? dragTapY
+    lockDraggedGhostToVertical()
+    document.addEventListener('pointermove', trackAccountDragPointer, true)
+    document.addEventListener('mousemove', trackAccountDragPointer, true)
+}
+
+function trackAccountDragPointer(event: Event) {
+    if (!draggingAccount.value || cancelledAccountDrag) return
+
+    const pointerY = pointerClientY(event)
+    if (pointerY === null) return
+    dragPointerY = pointerY
+
+    if (!dragBox) return
+    const outside =
+        pointerY < dragBox.top - ACCOUNT_DRAG_ESCAPE_MARGIN ||
+        pointerY > dragBox.bottom + ACCOUNT_DRAG_ESCAPE_MARGIN
+    if (!outside) return
+
+    // Past the allowed margin the drag is dropped rather than clamped. A
+    // synthetic release runs Sortable's own drop path, which removes the ghost
+    // and fires `end`; `finishAccountDrag` then restores the starting order.
+    cancelledAccountDrag = true
+    document.dispatchEvent(
+        new MouseEvent('mouseup', {
+            bubbles: true,
+            cancelable: true,
+            clientX: (event as MouseEvent).clientX ?? 0,
+            clientY: pointerY,
+            button: 0,
+        }),
+    )
+}
+
+function finishAccountDrag() {
+    draggingAccount.value = false
+    suppressAccountClickUntil = Date.now() + 250
+    ghostLockObserver?.disconnect()
+    ghostLockObserver = null
+    document.removeEventListener('pointermove', trackAccountDragPointer, true)
+    document.removeEventListener('mousemove', trackAccountDragPointer, true)
+    dragBox = null
+    dragTapY = null
+    dragPointerY = null
+
+    if (cancelledAccountDrag) {
+        cancelledAccountDrag = false
+        accounts.value = sortMinecraftAccountsWithOrder(accounts.value, orderAtDragStart)
+        return
     }
-    return `${account.account_type}:${profileId}`
+
+    const next = accounts.value.map(minecraftAccountId)
+    const unchanged =
+        next.length === orderAtDragStart.length &&
+        next.every((id, index) => id === orderAtDragStart[index])
+    if (!unchanged) persistAccountOrder(next)
+}
+
+/**
+ * Keeps the dragged row inside the list: the fallback clone sticks to the
+ * list's vertical axis, follows the pointer's own position, and is clamped to
+ * the list's box. A sideways or overshooting pointer therefore cannot throw the
+ * row out of the sidebar, and a pointer that leaves the box and returns finds
+ * the row at the cursor again instead of keeping the offset it picked up
+ * outside.
+ *
+ * Sortable positions its fallback clone with a `matrix(…)` transform whose
+ * fifth component is the horizontal delta and sixth the vertical one.
+ */
+function lockDraggedGhostToVertical() {
+    ghostLockObserver?.disconnect()
+    ghostLockObserver = null
+
+    const ghost = document.querySelector<HTMLElement>('.account-row-fallback')
+    const container = ghost?.parentElement
+    if (!ghost || !container) return
+
+    const ghostRect = ghost.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    const baseTop = ghostRect.top
+    const minOffset = containerRect.top - baseTop
+    const maxOffset = Math.max(minOffset, containerRect.bottom - ghostRect.height - baseTop)
+    dragBox = { top: containerRect.top, bottom: containerRect.bottom }
+
+    const constrain = () => {
+        const match = /matrix\(([^)]*)\)/.exec(ghost.style.transform)
+        if (!match) return
+
+        const values = match[1].split(',').map((value) => Number.parseFloat(value))
+        if (values.length !== 6 || !Number.isFinite(values[4]) || !Number.isFinite(values[5])) {
+            return
+        }
+
+        const offset =
+            dragTapY !== null && dragPointerY !== null ? dragPointerY - dragTapY : values[5]
+        values[4] = 0
+        values[5] = Math.min(Math.max(offset, minOffset), maxOffset)
+
+        ghost.style.transform = `matrix(${values.join(', ')})`
+    }
+
+    constrain()
+    ghostLockObserver = new MutationObserver(constrain)
+    ghostLockObserver.observe(ghost, { attributes: true, attributeFilter: ['style'] })
+}
+
+/**
+ * Saves the order the list is showing now. A failed write leaves the previous
+ * order in place rather than letting a restart disagree with what is on screen.
+ */
+function persistAccountOrder(next: string[] = accounts.value.map(minecraftAccountId)) {
+    const previous = accountOrder.value
+    try {
+        writeAccountOrder(next)
+        accountOrder.value = next
+    } catch (error) {
+        accountOrder.value = previous
+        accounts.value = sortMinecraftAccountsWithOrder(accounts.value, previous)
+        handleError(error as Error)
+    }
+}
+
+/** Keyboard equivalent of dragging: move one account up or down. */
+function moveAccount(account: MinecraftCredential, offset: number) {
+    const id = minecraftAccountId(account)
+    const index = accounts.value.findIndex((entry) => minecraftAccountId(entry) === id)
+    const target = index + offset
+    if (index < 0 || target < 0 || target >= accounts.value.length) return
+
+    const next = [...accounts.value]
+    const [moved] = next.splice(index, 1)
+    next.splice(target, 0, moved)
+    accounts.value = next
+    persistAccountOrder()
 }
 
 async function setAccount(account: MinecraftCredential) {
@@ -852,7 +1106,7 @@ async function setAccount(account: MinecraftCredential) {
         errorStore.showAntiPiracyNotice()
         return
     }
-    const userId = getAccountId(account)
+    const userId = minecraftAccountId(account)
     try {
         await persistDefaultUser(userId)
     } catch (error) {
@@ -1100,9 +1354,11 @@ async function addOfflineAccount() {
     loginDisabled.value = true
     offlineUuidDuplicate.value = false
     try {
-        const account = await add_offline_user(
-            offlineUsername.value.trim(),
-            offlineCustomUuid.value ? offlineUuid.value.replaceAll('-', '') : undefined,
+        const account = await ownAccountWrite(() =>
+            add_offline_user(
+                offlineUsername.value.trim(),
+                offlineCustomUuid.value ? offlineUuid.value.replaceAll('-', '') : undefined,
+            ),
         )
         offlineAccountModal.value?.hide()
         await setAccount(account)
@@ -1127,7 +1383,7 @@ function isDuplicateUuidError(error: unknown) {
 }
 
 async function logout(account: MinecraftCredential) {
-    await remove_user(getAccountId(account)).catch(handleError)
+    await ownAccountWrite(() => remove_user(minecraftAccountId(account))).catch(handleError)
     await refreshValues()
     if (!selectedAccount.value && accounts.value.length > 0) {
         await setAccount(accounts.value[0])
@@ -1157,6 +1413,7 @@ const unlistenDeviceLogin = await listen('minecraft-device-login-requested', () 
 onUnmounted(() => {
     refreshGeneration += 1
     clearHeadRefreshRetry()
+    ghostLockObserver?.disconnect()
     unlisten()
     unlistenDeviceLogin()
 })
@@ -1325,6 +1582,10 @@ const messages = defineMessages({
         id: 'minecraft-account.copy-uuid',
         defaultMessage: 'Copy UUID',
     },
+    dragToReorder: {
+        id: 'minecraft-account.drag-to-reorder',
+        defaultMessage: 'Drag to reorder, or press Alt with the arrow keys',
+    },
     removeAccount: {
         id: 'minecraft-account.remove-account',
         defaultMessage: 'Remove account',
@@ -1355,3 +1616,18 @@ const messages = defineMessages({
     },
 })
 </script>
+
+<style scoped>
+.account-row-ghost {
+    opacity: 0.4;
+}
+
+.account-row-chosen {
+    cursor: grabbing;
+}
+
+.account-row-fallback {
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+</style>

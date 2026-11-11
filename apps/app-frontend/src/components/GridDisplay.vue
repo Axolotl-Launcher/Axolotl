@@ -55,6 +55,7 @@ import { gameDirectoryMessages } from '@/helpers/game-directory-messages'
 import { install_duplicate_instance } from '@/helpers/install'
 import { kill, remove, run, set_pinned } from '@/helpers/instance'
 import { create_group as createGroup } from '@/helpers/instance-groups'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { updateRunningInstanceIds } from '@/helpers/instance-running-state'
 import {
     getLastInstanceLibraryDisplayMode,
@@ -203,7 +204,6 @@ const confirmModal = ref<InstanceType<typeof ConfirmDeleteInstanceModal> | null>
 const search = ref('')
 const displayMode = ref(getLastInstanceLibraryDisplayMode())
 const runningInstanceIds = ref(new Set<string>())
-const startingInstanceIds = ref(new Set<string>())
 let unlistenProcesses: (() => void) | undefined
 let disposed = false
 
@@ -593,21 +593,18 @@ function getInstanceProxy(instanceId: string) {
     return {
         instance: instanceData,
         playing:
-            runningInstanceIds.value.has(instanceId) || startingInstanceIds.value.has(instanceId),
+            runningInstanceIds.value.has(instanceId) ||
+            instanceLaunchStartedAt(instanceId) !== undefined,
         play: async (_e: MouseEvent | null, context: string) => {
             if (
                 runningInstanceIds.value.has(instanceId) ||
-                startingInstanceIds.value.has(instanceId)
+                instanceLaunchStartedAt(instanceId) !== undefined
             )
                 return
-            startingInstanceIds.value = new Set(startingInstanceIds.value).add(instanceId)
             try {
                 await run(instanceId)
                 setInstanceRunning(instanceId, true)
             } finally {
-                const next = new Set(startingInstanceIds.value)
-                next.delete(instanceId)
-                startingInstanceIds.value = next
                 trackEvent('InstanceStart', {
                     loader: instanceData.loader,
                     game_version: instanceData.game_version,
@@ -672,23 +669,25 @@ const handleRightClick = (event: MouseEvent, instanceId: string, sectionKey: str
     instanceOptions.value?.showMenu(
         event,
         item,
-        item.playing
-            ? [
-                  {
-                      name: 'stop',
-                      section: 'primary',
-                      color: 'danger',
-                  } as GridContextOption,
-                  ...baseOptions,
-              ]
-            : [
-                  {
-                      name: 'play',
-                      section: 'primary',
-                      color: 'primary',
-                  } as GridContextOption,
-                  ...baseOptions,
-              ],
+        instanceLaunchStartedAt(item.instance.id) !== undefined
+            ? baseOptions
+            : item.playing
+              ? [
+                    {
+                        name: 'stop',
+                        section: 'primary',
+                        color: 'danger',
+                    } as GridContextOption,
+                    ...baseOptions,
+                ]
+              : [
+                    {
+                        name: 'play',
+                        section: 'primary',
+                        color: 'primary',
+                    } as GridContextOption,
+                    ...baseOptions,
+                ],
     )
 }
 

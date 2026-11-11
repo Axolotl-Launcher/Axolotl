@@ -463,10 +463,6 @@ export const commonMessages = defineMessages({
         id: 'button.reinstall-modpack',
         defaultMessage: 'Re-install modpack',
     },
-    resetServerButton: {
-        id: 'button.reset-server',
-        defaultMessage: 'Reset server',
-    },
     clientOnlyWarning: {
         id: 'label.client-only-warning',
         defaultMessage: 'This is a client-side mod and may cause issues when starting your server',

@@ -1,12 +1,17 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import { get_project, get_version_many } from '@/helpers/cache.js'
 import type { ContentFavorite } from '@/helpers/content-favorites'
 import type { SourceProjectMetadata } from '@/helpers/resources'
 
 import Favorites from './Favorites.vue'
 
 const fixture = vi.hoisted(() => ({
+    instanceEvent: null as
+        null | ((event: { event: string; instance_id: string }) => Promise<void>),
+    localeRef: null as unknown as { value: string },
+    translate: vi.fn(async (hits: { title: string }[], _locale: string) => hits),
     query: {} as Record<string, string>,
     push: vi.fn(),
     replace: vi.fn(),
@@ -15,6 +20,18 @@ const fixture = vi.hoisted(() => ({
     prefetch: vi.fn(),
     resetStore: () => {},
     setFavorites: (_values: ContentFavorite[]) => {},
+    setGroups: (_values: { id: string; name: string }[]) => {},
+    setMemberships: (_values: Record<string, string[]>) => {},
+    updateFavoriteGroups: vi.fn(async () => {}),
+    setTarget: (_value: unknown) => {},
+    addToSelection: vi.fn(async (_item: { key: string }) => true),
+    installSelected: vi.fn(async () => true),
+    refreshInstances: vi.fn(async () => null as unknown),
+    refreshInstalledIdentities: vi.fn(async () => {}),
+    showInstanceSelector: vi.fn(),
+    installedKeys: new Set<string>(),
+    resetSelection: () => {},
+    renderCardActions: false,
     refresh: null as null | (() => void),
 }))
 vi.mock('vue-router', async () => {
@@ -40,6 +57,20 @@ vi.mock('@/helpers/page-transition', () => ({
     runAfterPageTransitionSettle: (run: () => void) => {
         fixture.refresh = run
         run()
+    },
+}))
+vi.mock('@/i18n.config', async () => {
+    const { ref } = await import('vue')
+    fixture.localeRef = ref('en-US')
+    return { default: { global: { locale: fixture.localeRef } } }
+})
+vi.mock('@/helpers/content-search', () => ({ translateSearchHitTitles: fixture.translate }))
+vi.mock('@/helpers/events.js', () => ({
+    instance_listener: async (
+        listener: (event: { event: string; instance_id: string }) => Promise<void>,
+    ) => {
+        fixture.instanceEvent = listener
+        return () => {}
     },
 }))
 vi.mock('@/helpers/cache.js', () => ({ get_project: vi.fn(), get_version_many: vi.fn() }))
@@ -86,27 +117,93 @@ vi.mock('@/composables/useContentFavorites', async () => {
         },
     }
 })
-vi.mock('@/providers/content-selection', async () => {
+vi.mock('@/composables/useFavoriteGroups', async () => {
     const { ref } = await import('vue')
+    const groups = ref<{ id: string; name: string }[]>([])
+    const memberships = ref(new Map<string, string[]>())
+    const loaded = ref(true)
+    fixture.setGroups = (values) => {
+        groups.value = values
+    }
+    fixture.setMemberships = (values) => {
+        memberships.value = new Map(Object.entries(values))
+    }
     return {
-        makeContentSelectionKey: () => '',
-        injectContentSelection: () => ({
-            targetInstance: ref(null),
-            instances: ref([]),
-            state: ref('idle'),
-            progress: ref(null),
-            selectedProjects: ref([]),
-            selectedCount: ref(0),
-            refreshInstances: vi.fn(async () => {}),
-            refreshInstalledIdentities: vi.fn(),
-            isInstalling: () => false,
-            isSelected: () => false,
+        useFavoriteGroups: () => ({
+            groups,
+            memberships,
+            loaded,
+            groupsFor: (key: string) => memberships.value.get(key) ?? [],
+            isInGroup: (key: string, id: string) => (memberships.value.get(key) ?? []).includes(id),
+            createGroup: vi.fn(async (name: string) => ({ id: `created:${name}`, name })),
+            renameGroup: vi.fn(async (id: string, name: string) => ({ id, name })),
+            deleteGroup: vi.fn(async () => {}),
+            updateFavoriteGroups: fixture.updateFavoriteGroups,
+            refresh: vi.fn(async () => {}),
         }),
     }
 })
-vi.mock('@/components/browse/BrowseInstanceSelector.vue', () => ({
-    default: { render: () => null },
-}))
+vi.mock('@/providers/content-selection', async () => {
+    const { ref } = await import('vue')
+    const targetInstance = ref<unknown>(null)
+    const selected = new Set<string>()
+    const selectedCount = ref(0)
+    fixture.setTarget = (value) => {
+        targetInstance.value = value
+    }
+    fixture.refreshInstances.mockImplementation(async () => targetInstance.value)
+    fixture.resetSelection = () => {
+        selected.clear()
+        selectedCount.value = 0
+    }
+    return {
+        makeContentSelectionKey: (provider: string, projectId: string) =>
+            `${provider}:${projectId}`,
+        injectContentSelection: () => ({
+            targetInstance,
+            instances: ref([]),
+            state: ref('idle'),
+            progress: ref({ completed: 0, total: 0 }),
+            selectedProjects: ref([]),
+            selectedCount,
+            refreshInstances: fixture.refreshInstances,
+            refreshInstalledIdentities: fixture.refreshInstalledIdentities,
+            isInstalling: () => false,
+            isSelected: (key: string) => selected.has(key),
+            isInstalledIdentity: (provider: string, projectId: string) =>
+                fixture.installedKeys.has(`${provider}:${projectId}`),
+            add: async (item: { key: string }) => {
+                const accepted = await fixture.addToSelection(item)
+                if (accepted) {
+                    selected.add(item.key)
+                    selectedCount.value = selected.size
+                }
+                return accepted
+            },
+            remove: (key: string) => {
+                selected.delete(key)
+                selectedCount.value = selected.size
+            },
+            clear: () => {
+                selected.clear()
+                selectedCount.value = 0
+            },
+            installSelected: fixture.installSelected,
+            setTarget: vi.fn(),
+        }),
+    }
+})
+vi.mock('@/components/browse/BrowseInstanceSelector.vue', async () => {
+    const { defineComponent } = await import('vue')
+    return {
+        default: defineComponent({
+            setup: (_props, { expose }) => {
+                expose({ show: fixture.showInstanceSelector })
+                return () => null
+            },
+        }),
+    }
+})
 vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h, ref } = await import('vue')
@@ -120,14 +217,58 @@ vi.mock('@modrinth/ui', async () => {
         ...Object.fromEntries(
             [
                 'BrowseInstallHeader',
+                'IconButton',
                 'NavTabs',
                 'Pagination',
-                'PopoutMenu',
                 'ProjectCardList',
+                'SearchSidebarFilter',
                 'SelectedProjectsFloatingBar',
                 'StyledInput',
+                'TagItem',
             ].map((name) => [name, container]),
         ),
+        PopoutMenu: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('div', [slots.default?.(), slots.menu?.({ hide: () => {} })]),
+        }),
+        Checkbox: defineComponent({
+            props: ['modelValue', 'label'],
+            emits: ['update:modelValue'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'button',
+                        {
+                            'data-checkbox': '',
+                            'aria-checked': String(!!props.modelValue),
+                            onClick: () => emit('update:modelValue', !props.modelValue),
+                        },
+                        props.label,
+                    ),
+        }),
+        ConfirmModal: defineComponent({
+            props: ['title', 'description', 'proceedLabel'],
+            setup: (props, { expose }) => {
+                expose({ show: () => {}, hide: () => {} })
+                return () =>
+                    h('div', { 'data-confirm-modal': '' }, [props.title, props.description])
+            },
+        }),
+        NewModal: defineComponent({
+            props: ['header'],
+            setup: (props, { slots, expose }) => {
+                expose({ show: () => {}, hide: () => {} })
+                return () =>
+                    h('div', { 'data-modal': '' }, [
+                        props.header,
+                        slots.default?.(),
+                        slots.actions?.(),
+                    ])
+            },
+        }),
         Pagination: defineComponent({
             props: ['page', 'count'],
             setup: (props) => () =>
@@ -141,6 +282,22 @@ vi.mock('@modrinth/ui', async () => {
                 (_, { slots }) =>
                 () =>
                     h('button', slots.default?.()),
+        }),
+        SelectAllButton: defineComponent({
+            props: ['count', 'progress', 'disabled'],
+            emits: ['select'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    props.count > 0 || props.progress
+                        ? h(
+                              'button',
+                              { onClick: () => emit('select') },
+                              props.progress
+                                  ? `Selecting ${props.progress.completed}/${props.progress.total}`
+                                  : `Select all (${props.count})`,
+                          )
+                        : null,
         }),
         Admonition: defineComponent({
             props: ['header'],
@@ -158,17 +315,37 @@ vi.mock('@modrinth/ui', async () => {
         }),
         ProjectCard: defineComponent({
             props: ['title', 'link'],
-            setup: (props) => () => h('article', { 'data-favorite': '' }, props.title),
+            setup:
+                (props, { slots }) =>
+                () =>
+                    h('article', { 'data-favorite': '' }, [
+                        props.title,
+                        fixture.renderCardActions ? slots.actions?.() : undefined,
+                    ]),
         }),
-        getLatestMatchingInstallVersion: vi.fn(),
-        getTargetInstallPreferences: vi.fn(),
-        commonMessages: { retryButton: { defaultMessage: 'Retry' } },
+        getLatestMatchingInstallVersion: vi.fn(() => ({ id: 'version' })),
+        getTargetInstallPreferences: vi.fn(() => ({})),
+        commonMessages: {
+            retryButton: { defaultMessage: 'Retry' },
+            cancelButton: { defaultMessage: 'Cancel' },
+            installButton: { defaultMessage: 'Install' },
+            installedLabel: { defaultMessage: 'Installed' },
+            installingContentLabel: { defaultMessage: 'Installing content' },
+            validatingLabel: { defaultMessage: 'Validating' },
+        },
         defineMessage: (value: unknown) => value,
         defineMessages: (value: unknown) => value,
+        formatCategory: (_format: unknown, category: string) => category,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
         useStickyObserver: () => ({ isStuck: ref(false) }),
         useVIntl: () => ({
-            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+            formatMessage: (
+                message: { defaultMessage?: string },
+                values?: Record<string, unknown>,
+            ) =>
+                String(message.defaultMessage ?? '').replace(/\{(\w+)\}/g, (_match, key) =>
+                    String(values?.[key] ?? `{${key}}`),
+                ),
         }),
     }
 })
@@ -179,6 +356,17 @@ afterEach(() => {
     vi.clearAllMocks()
     fixture.query = {}
     fixture.resetStore()
+    fixture.setGroups([])
+    fixture.setMemberships({})
+    fixture.setTarget(null)
+    fixture.renderCardActions = false
+    fixture.installedKeys.clear()
+    fixture.localeRef.value = 'en-US'
+    fixture.translate.mockReset().mockImplementation(async (hits) => hits)
+    fixture.resetSelection()
+    fixture.addToSelection.mockReset().mockResolvedValue(true)
+    fixture.installSelected.mockReset().mockResolvedValue(true)
+    fixture.updateFavoriteGroups.mockReset().mockResolvedValue(undefined)
     fixture.prefetch.mockReset().mockResolvedValue(new Map())
 })
 function render() {
@@ -202,6 +390,13 @@ const savedMetadata = {
     categories: [],
     gallery: [],
 } as unknown as SourceProjectMetadata
+const bulkTarget = {
+    id: 'instance-1',
+    name: 'Example',
+    loader: 'neoforge',
+    game_version: '1.21.1',
+    icon_path: null,
+}
 
 it('shows a saved list immediately after remount while background refresh is pending or fails', async () => {
     fixture.load.mockResolvedValue([savedFavorite])
@@ -543,4 +738,370 @@ it('continues local search and type filtering after a collection refresh fails',
     query.kind = 'all'
     await flushPromises()
     expect(wrapper.text()).toContain('Saved archive')
+})
+
+it('filters favorites by a custom group and by ungrouped', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id === 'one' ? 'First' : 'Second'),
+    )
+    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
+    fixture.setMemberships({ 'modrinth:one': ['group-a'] })
+    fixture.query = { group: 'group-a' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))
+    expect(wrapper.find('[data-favorite]').text()).toBe('First')
+    expect(wrapper.text()).toContain('Group A')
+
+    const { useRoute } = await import('vue-router')
+    useRoute().query.group = 'none'
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))
+    expect(wrapper.find('[data-favorite]').text()).toBe('Second')
+})
+
+it('filters by categories with AND semantics', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) => ({
+        ...metadataFor(favorite, favorite.project_id === 'one' ? 'First' : 'Second'),
+        categories: favorite.project_id === 'one' ? ['adventure', 'technology'] : ['adventure'],
+    }))
+    fixture.query = { cat: 'adventure' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(2))
+
+    const { useRoute } = await import('vue-router')
+    useRoute().query.cat = 'adventure,technology'
+    await vi.waitFor(() => expect(wrapper.findAll('[data-favorite]')).toHaveLength(1))
+    expect(wrapper.find('[data-favorite]').text()).toBe('First')
+})
+
+it('toggles group membership from the card group menu', async () => {
+    fixture.renderCardActions = true
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.find('[data-favorite]').exists()).toBe(true))
+    const checkbox = wrapper
+        .findAll('[data-checkbox]')
+        .find((node) => node.text().includes('Group A'))!
+    await checkbox.trigger('click')
+
+    expect(fixture.updateFavoriteGroups).toHaveBeenCalledWith('modrinth:one', ['group-a'], [])
+})
+
+it('selects every favorite in the filtered result', async () => {
+    const favorites = Array.from({ length: 21 }, (_, index) => ({
+        ...savedFavorite,
+        project_id: `mod-${index}`,
+        saved_at: index + 1,
+    }))
+    fixture.load.mockResolvedValue(favorites)
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, `Mod ${favorite.project_id}`),
+    )
+    fixture.setTarget(bulkTarget)
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+    fixture.query = { kind: 'mod' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (21)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (21)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(21))
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('scopes select all to the active group and content type', async () => {
+    const modOne = {
+        ...savedFavorite,
+        project_id: 'one',
+        content_type: 'mod' as const,
+        saved_at: 1,
+    }
+    const modTwo = {
+        ...savedFavorite,
+        project_id: 'two',
+        content_type: 'mod' as const,
+        saved_at: 2,
+    }
+    const pack = {
+        ...savedFavorite,
+        project_id: 'three',
+        content_type: 'resourcepack' as const,
+        saved_at: 3,
+    }
+    fixture.load.mockResolvedValue([modOne, modTwo, pack])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+    fixture.setGroups([{ id: 'group-a', name: 'Group A' }])
+    fixture.setMemberships({
+        'modrinth:one': ['group-a'],
+        'modrinth:two': ['group-a'],
+        'modrinth:three': ['group-a'],
+    })
+    fixture.setTarget(bulkTarget)
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+    fixture.query = { group: 'group-a', kind: 'mod' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (2)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (2)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(2))
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'modrinth', projectId: 'one' }),
+    )
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'modrinth', projectId: 'two' }),
+    )
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('scopes select all to the active category filter', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) => ({
+        ...metadataFor(favorite, favorite.project_id),
+        categories: favorite.project_id === 'one' ? ['adventure'] : ['technology'],
+    }))
+    fixture.setTarget(bulkTarget)
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+    fixture.query = { cat: 'adventure' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (1)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (1)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(1))
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 'one' }),
+    )
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('skips favorites already installed in the target instance', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+    fixture.setTarget(bulkTarget)
+    fixture.installedKeys.add('modrinth:one')
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (1)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (1)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.addToSelection).toHaveBeenCalledTimes(1))
+    expect(fixture.addToSelection).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 'two' }),
+    )
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('opens the instance picker without adding anything when no target is selected', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (2)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (2)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(fixture.showInstanceSelector).toHaveBeenCalled())
+    expect(fixture.addToSelection).not.toHaveBeenCalled()
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('shows progress and rejects a second select-all while one is running', async () => {
+    let resolveAdd!: (value: boolean) => void
+    fixture.addToSelection.mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+            resolveAdd = resolve
+        }),
+    )
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.setTarget(bulkTarget)
+    vi.mocked(get_project).mockResolvedValue({ versions: ['v1'] } as never)
+    vi.mocked(get_version_many).mockResolvedValue([{ id: 'v1' }] as never)
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Select all (1)'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Select all (1)'))!
+        .trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Selecting 0/1'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('Selecting'))!
+        .trigger('click')
+    resolveAdd(true)
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain('Selecting'))
+    expect(fixture.addToSelection).toHaveBeenCalledTimes(1)
+    expect(fixture.installSelected).not.toHaveBeenCalled()
+})
+
+it('shows and searches the Chinese name of a favorite', async () => {
+    fixture.localeRef.value = 'zh-CN'
+    fixture.translate.mockImplementation(async (hits) =>
+        hits.map((hit) => ({ ...hit, title: `钠 (${hit.title})` })),
+    )
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.query = { q: '钠' }
+
+    const wrapper = render()
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('钠 (Saved mod)'))
+    expect(fixture.translate.mock.calls[0][1]).toBe('zh-CN')
+})
+
+it('looks each favorite title up only once while projects are published', async () => {
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) =>
+        metadataFor(favorite, favorite.project_id),
+    )
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('two'))
+
+    const looked = fixture.translate.mock.calls.flatMap(([hits]) => hits.map((hit) => hit.title))
+    expect(looked.sort()).toEqual(['one', 'two'])
+})
+
+it('retries a favorite title whose lookup failed', async () => {
+    fixture.localeRef.value = 'zh-CN'
+    let publishSecond!: () => void
+    const secondPublished = new Promise<void>((resolve) => (publishSecond = resolve))
+    const second = { ...savedFavorite, project_id: 'two', saved_at: 2 }
+    fixture.load.mockResolvedValue([savedFavorite, second])
+    fixture.metadata.mockImplementation(async (favorite: ContentFavorite) => {
+        if (favorite.project_id === 'two') await secondPublished
+        return metadataFor(favorite, favorite.project_id)
+    })
+    fixture.translate
+        .mockRejectedValueOnce(new Error('dictionary unavailable'))
+        .mockImplementation(async (hits) =>
+            hits.map((hit) => ({ ...hit, title: `译 (${hit.title})` })),
+        )
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(fixture.translate).toHaveBeenCalledTimes(1))
+    await flushPromises()
+    publishSecond()
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('译 (one)'))
+    expect(wrapper.text()).toContain('译 (two)')
+})
+
+it('looks favorite titles up again when the language changes', async () => {
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.translate.mockImplementation(async (hits, locale) =>
+        locale === 'zh-CN' ? hits.map((hit) => ({ ...hit, title: `钠 (${hit.title})` })) : hits,
+    )
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Saved mod'))
+    expect(wrapper.text()).not.toContain('钠')
+
+    fixture.localeRef.value = 'zh-CN'
+    await vi.waitFor(() => expect(wrapper.text()).toContain('钠 (Saved mod)'))
+
+    fixture.localeRef.value = 'en-US'
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain('钠'))
+})
+
+it('drops a search match when the language changes back to a cached one', async () => {
+    fixture.load.mockResolvedValue([savedFavorite])
+    fixture.metadata.mockResolvedValue(metadataFor(savedFavorite, 'Saved mod'))
+    fixture.translate.mockImplementation(async (hits, locale) =>
+        locale === 'zh-CN' ? hits.map((hit) => ({ ...hit, title: `钠 (${hit.title})` })) : hits,
+    )
+    fixture.query = { q: '钠' }
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(fixture.translate).toHaveBeenCalledTimes(1))
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Saved mod')
+
+    fixture.localeRef.value = 'zh-CN'
+    await vi.waitFor(() => expect(wrapper.text()).toContain('钠 (Saved mod)'))
+
+    fixture.localeRef.value = 'en-US'
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain('Saved mod'))
+})
+
+it('counts a favorite as installed through the project it was saved from', async () => {
+    const saved = {
+        ...savedFavorite,
+        project_id: 'saved-on-modrinth',
+        projects: [{ source: 'curseforge' as const, projectId: '42' }],
+    }
+    fixture.load.mockResolvedValue([saved])
+    fixture.metadata.mockResolvedValue({
+        ...savedMetadata,
+        project: { source: 'curseforge', projectId: 'presented-project' },
+    })
+    fixture.setTarget(bulkTarget)
+    fixture.installedKeys.add('modrinth:saved-on-modrinth')
+
+    const wrapper = render()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Saved mod'))
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Select all')
+})
+
+it('refreshes the installed state when content in the target instance changes', async () => {
+    fixture.load.mockResolvedValue([])
+    fixture.setTarget(bulkTarget)
+    render()
+    await vi.waitFor(() => expect(fixture.instanceEvent).not.toBeNull())
+    await vi.waitFor(() => expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(1))
+
+    await fixture.instanceEvent!({ event: 'content_changed', instance_id: 'other-instance' })
+    await fixture.instanceEvent!({ event: 'edited', instance_id: 'instance-1' })
+    expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(1)
+
+    await fixture.instanceEvent!({
+        event: 'content_install_finished',
+        instance_id: 'instance-1',
+    })
+    expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(2)
+})
+
+it('refreshes installed identities after restoring a target instance on mount', async () => {
+    fixture.load.mockResolvedValue([])
+    fixture.setTarget(bulkTarget)
+
+    render()
+    await vi.waitFor(() => expect(fixture.refreshInstalledIdentities).toHaveBeenCalledTimes(1))
 })

@@ -471,6 +471,7 @@ fn valid_privileged_setting(key: &str, value: &str) -> bool {
         | "bypass_curseforge_download_restrictions"
         | "ignore_ssl_errors"
         | "auto_concurrent_downloads"
+        | "force_multiconnection_downloads"
         | "transparent_background"
         | "transparent_background_blur"
         | "custom_window_title_enabled"
@@ -501,9 +502,9 @@ fn valid_privileged_setting(key: &str, value: &str) -> bool {
         ),
         "accent_color" => valid_accent_color(value),
         "sidebar_instance_count" => in_range(value, 0, 50),
-        "max_concurrent_downloads" | "max_concurrent_writes" => {
-            in_range(value, 1, 256)
-        }
+        "max_concurrent_downloads"
+        | "max_concurrent_writes"
+        | "forced_max_concurrent_downloads" => in_range(value, 1, 256),
         "memory_max" => in_range(value, 1, 1_048_576),
         "game_resolution_x" | "game_resolution_y" => in_range(value, 1, 65535),
         "custom_background_blur" => in_range(value, 0, 40),

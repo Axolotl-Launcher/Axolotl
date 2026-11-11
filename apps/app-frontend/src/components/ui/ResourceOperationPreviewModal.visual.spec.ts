@@ -1,8 +1,9 @@
 import { config, flushPromises, mount } from '@vue/test-utils'
 import { IntlMessageFormat } from 'intl-messageformat'
 import { expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, effectScope, h, nextTick, ref } from 'vue'
 
+import { get_content_snapshot } from '@/helpers/instance'
 import { RESOURCE_ANALYSIS_TIMEOUT_MS } from '@/helpers/resource-analysis-request'
 import {
     resourceAnalysisClose,
@@ -14,14 +15,22 @@ import {
     type ResourceOperationProgress,
     resourcePrepareEntryOperation,
     resourcePrepareOperation,
+    resourceProjectDocuments,
     resourceQueuePlan,
     resourceRevisePlan,
 } from '@/helpers/resources'
+import type { GameInstance } from '@/helpers/types'
 import { get_instance_worlds } from '@/helpers/worlds'
 import zhMessages from '@/locales/zh-CN/index.json'
 import { createContentAnalysis } from '@/providers/content-analysis'
+import { createContentSelection } from '@/providers/content-selection'
 
 import ResourceOperationPreviewModal from './ResourceOperationPreviewModal.vue'
+
+const flushFrame = async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    await flushPromises()
+}
 
 const closeTransition = vi.fn().mockResolvedValue(undefined)
 const testLocale: {
@@ -43,10 +52,34 @@ vi.mock('@/helpers/resources', () => ({
     resourceProjectDocuments: vi.fn().mockResolvedValue([]),
     resourceQueuePlan: vi.fn(),
     resourceRevisePlan: vi.fn(),
+    sourceResource: (source: string, projectId: string) => ({
+        kind: 'source',
+        project: { source, projectId },
+    }),
 }))
-vi.mock('@/helpers/instance', () => ({ refresh_content: vi.fn() }))
+vi.mock('@/helpers/instance', () => ({
+    refresh_content: vi.fn(),
+    get_content_snapshot: vi.fn(),
+    list: vi.fn(),
+    queue_content_batch: vi.fn(),
+}))
+vi.mock('@/helpers/cache.js', () => ({
+    get_project_many: vi.fn().mockResolvedValue([]),
+    get_version_many: vi.fn(),
+}))
+vi.mock('@/helpers/curseforge', () => ({
+    getCurseForgeProjects: vi.fn().mockResolvedValue([]),
+    getCurseForgeFile: vi.fn(),
+    getCurseForgeFiles: vi.fn(),
+}))
+vi.mock('@/helpers/settings', () => ({
+    setBrowseDefaultInstanceId: vi.fn(),
+    getBrowseDefaultInstanceId: vi.fn(),
+}))
+vi.mock('@/store/state', () => ({ useTheming: () => ({ getFeatureFlag: () => true }) }))
 vi.mock('@/helpers/worlds', () => ({ get_instance_worlds: vi.fn().mockResolvedValue([]) }))
 vi.mock('@modrinth/ui', () => ({
+    createContext: () => [vi.fn(), vi.fn()],
     Admonition: defineComponent({
         props: ['header', 'type'],
         setup:
@@ -228,6 +261,7 @@ function ready() {
     testLocale.language = 'en'
     testLocale.messages = null
     closeTransition.mockReset().mockResolvedValue(undefined)
+    vi.mocked(resourceProjectDocuments).mockReset().mockResolvedValue([])
     vi.mocked(resourcePrepareEntryOperation).mockResolvedValue(plan())
     vi.mocked(resourceGet).mockImplementation(
         async (reference) =>
@@ -474,6 +508,254 @@ it('uses the cart analysis and closes its preview when that cart snapshot is inv
         controller.abort()
         await expect(result).resolves.toBeNull()
         expect(resourceQueuePlan).not.toHaveBeenCalled()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('keeps the actual cart preview installable after first snapshot, background recognition and history cleanup', async () => {
+    ready()
+    vi.mocked(resourceAnalysisOpen).mockResolvedValue('cart-session')
+    vi.mocked(resourceAnalysisUpdate).mockResolvedValue(plan())
+    vi.mocked(resourcePrepareOperation).mockResolvedValue(plan())
+    const scope = effectScope()
+    const jobs = ref([{ job_id: 'old', status: 'succeeded', instance_id: 'instance' }])
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs } as never,
+        }),
+    )!
+    const wrapper = mount(ResourceOperationPreviewModal)
+    selection.setResourceInstallPreview(wrapper.vm)
+    selection.setTarget({
+        id: 'instance',
+        name: 'Instance',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    } as GameInstance)
+    await selection.add({
+        key: 'modrinth:root',
+        provider: 'modrinth',
+        projectId: 'root',
+        providerProjectId: 'root',
+        title: 'Root',
+        contentType: 'mod',
+    })
+    const pending = selection.installSelected()
+    const snapshot = {
+        revision: 1,
+        items: [
+            {
+                expectedRelativePath: 'mods/local.jar',
+                materializationState: 'present',
+                content: { id: 'sha1', file_name: 'local.jar', provider_refs: [] },
+            },
+        ],
+    }
+    try {
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(true)
+        vi.mocked(get_content_snapshot).mockResolvedValue(snapshot as never)
+        await selection.refreshInstalledIdentities()
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            ...snapshot,
+            revision: 2,
+            items: [{ ...snapshot.items[0], artifactRef: reference }],
+        } as never)
+        await selection.refreshInstalledIdentities()
+        jobs.value = []
+        await nextTick()
+        expect(wrapper.find('section').exists()).toBe(true)
+        const queue = wrapper.findAll('button').find((button) => button.text() === 'Queue changes')!
+        expect(queue.attributes('disabled')).toBeUndefined()
+        vi.mocked(resourceQueuePlan).mockResolvedValueOnce({ job_id: 'accepted' } as never)
+        await queue.trigger('click')
+        expect(await pending).toBe(true)
+        expect(resourceQueuePlan).toHaveBeenCalledOnce()
+        expect(selection.items.value.size).toBe(0)
+    } finally {
+        wrapper.unmount()
+        scope.stop()
+    }
+})
+
+it('does not lose an accepted queue result when a real cart content change arrives during commit', async () => {
+    ready()
+    vi.mocked(resourceAnalysisOpen).mockResolvedValue('cart-session')
+    vi.mocked(resourceAnalysisUpdate).mockResolvedValue(plan())
+    vi.mocked(resourcePrepareOperation).mockResolvedValue(plan())
+    const scope = effectScope()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    const wrapper = mount(ResourceOperationPreviewModal)
+    selection.setResourceInstallPreview(wrapper.vm)
+    selection.setTarget({
+        id: 'instance',
+        name: 'Instance',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    } as GameInstance)
+    vi.mocked(get_content_snapshot).mockResolvedValue({ items: [] } as never)
+    await selection.refreshInstalledIdentities()
+    await selection.add({
+        key: 'modrinth:root',
+        provider: 'modrinth',
+        projectId: 'root',
+        providerProjectId: 'root',
+        title: 'Root',
+        contentType: 'mod',
+    })
+    const pending = selection.installSelected()
+    let finish!: (value: never) => void
+    vi.mocked(resourceQueuePlan).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finish = resolve
+            }),
+    )
+    try {
+        await flushPromises()
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Queue changes')!
+            .trigger('click')
+        await flushPromises()
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            items: [
+                {
+                    expectedRelativePath: 'mods/new.jar',
+                    content: { id: 'new', file_name: 'new.jar', provider_refs: [] },
+                },
+            ],
+        } as never)
+        await selection.refreshInstalledIdentities()
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(true)
+        expect(
+            wrapper
+                .findAll('button')
+                .find((button) => button.text() === 'Cancel')!
+                .attributes('disabled'),
+        ).toBeDefined()
+        finish({ job_id: 'accepted' } as never)
+        expect(await pending).toBe(true)
+        expect(resourceQueuePlan).toHaveBeenCalledOnce()
+        expect(selection.items.value.size).toBe(0)
+    } finally {
+        wrapper.unmount()
+        scope.stop()
+    }
+})
+
+it('cancels pending preparation when the actual cart file snapshot changes and ignores its late plan', async () => {
+    ready()
+    vi.mocked(resourceAnalysisOpen).mockResolvedValue('cart-session')
+    let finishAnalysis!: (value: ResourceOperationPlan) => void
+    vi.mocked(resourceAnalysisUpdate).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finishAnalysis = resolve
+            }),
+    )
+    const scope = effectScope()
+    const selection = scope.run(() =>
+        createContentSelection({
+            addNotification: vi.fn(),
+            handleError: vi.fn(),
+            downloadManager: { jobs: ref([]) } as never,
+        }),
+    )!
+    const wrapper = mount(ResourceOperationPreviewModal)
+    selection.setResourceInstallPreview(wrapper.vm)
+    selection.setTarget({
+        id: 'instance',
+        name: 'Instance',
+        game_version: '1.21.1',
+        loader: 'fabric',
+    } as GameInstance)
+    vi.mocked(get_content_snapshot).mockResolvedValue({ items: [] } as never)
+    await selection.refreshInstalledIdentities()
+    await selection.add({
+        key: 'modrinth:root',
+        provider: 'modrinth',
+        projectId: 'root',
+        providerProjectId: 'root',
+        title: 'Root',
+        contentType: 'mod',
+    })
+    const pending = selection.installSelected()
+    try {
+        await flushPromises()
+        expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(true)
+        vi.mocked(get_content_snapshot).mockResolvedValue({
+            items: [
+                {
+                    expectedRelativePath: 'mods/new.jar',
+                    content: { id: 'new', file_name: 'new.jar', provider_refs: [] },
+                },
+            ],
+        } as never)
+        await selection.refreshInstalledIdentities()
+        expect(await pending).toBe(false)
+        finishAnalysis(plan())
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(false)
+        expect(resourceQueuePlan).not.toHaveBeenCalled()
+        expect(selection.items.value.size).toBe(1)
+    } finally {
+        wrapper.unmount()
+        scope.stop()
+    }
+})
+
+it('retries a stale commit in place after cart invalidation and still allows cancellation on refresh failure', async () => {
+    ready()
+    const invalidation = new AbortController()
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.showInstallSelection({
+        instanceId: 'instance',
+        instanceName: 'Instance',
+        selections: [],
+        installDependencies: true,
+        analysis: {
+            signal: invalidation.signal,
+            prepare: vi.fn().mockResolvedValue(plan()),
+            cancel: vi.fn(),
+        },
+    })
+    let rejectQueue!: (value: unknown) => void
+    vi.mocked(resourceQueuePlan).mockImplementationOnce(
+        () =>
+            new Promise((_, reject) => {
+                rejectQueue = reject
+            }),
+    )
+    try {
+        await flushPromises()
+        await wrapper
+            .findAll('button')
+            .find((button) => button.text() === 'Queue changes')!
+            .trigger('click')
+        await flushPromises()
+        invalidation.abort()
+        vi.mocked(resourcePrepareOperation).mockRejectedValueOnce(new Error('refresh failed'))
+        rejectQueue(new Error('instance changed after review'))
+        await flushPromises()
+        expect(wrapper.find('section').exists()).toBe(true)
+        expect(wrapper.text()).toContain('The operation could not be completed.')
+        expect(resourcePrepareOperation).toHaveBeenCalledOnce()
+        const cancel = wrapper.findAll('button').find((button) => button.text() === 'Cancel')!
+        expect(cancel.attributes('disabled')).toBeUndefined()
+        await cancel.trigger('click')
+        expect(await result).toBeNull()
+        expect(resourceQueuePlan).toHaveBeenCalledOnce()
     } finally {
         wrapper.unmount()
     }
@@ -1172,16 +1454,16 @@ it('shows each parsed item while retaining the skeleton and locking every button
             metadata: { title, iconUrl: null, summary: '' },
         } as ResourceOperationProgress)
     try {
-        await flushPromises()
+        await flushFrame()
         expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(true)
         emit(root, 'Parsed root')
-        await flushPromises()
+        await flushFrame()
         expect(wrapper.text()).toContain('Parsed root')
         expect(wrapper.text()).not.toContain('Parsed dependency')
         const child = node('child', 'install', { reference, fileName: 'Child.jar' })
         emit(child, 'Parsed dependency')
         emit(child, 'Parsed dependency')
-        await flushPromises()
+        await flushFrame()
         expect(wrapper.text().match(/Parsed dependency/g)).toHaveLength(1)
         expect(wrapper.text()).toContain('Parsed root')
         expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(true)
@@ -1196,7 +1478,7 @@ it('shows each parsed item while retaining the skeleton and locking every button
         ).toBe(true)
         expect(resourceQueuePlan).not.toHaveBeenCalled()
         complete({ ...plan(), nodes: [root, child] } as ResourceOperationPlan)
-        await flushPromises()
+        await flushFrame()
         expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(false)
         expect(
             wrapper
@@ -1204,7 +1486,7 @@ it('shows each parsed item while retaining the skeleton and locking every button
                 .every((button) => button.attributes('disabled') === undefined),
         ).toBe(true)
         emit(node('late', 'install'), 'Late item')
-        await flushPromises()
+        await flushFrame()
         expect(wrapper.text()).not.toContain('Late item')
         await wrapper
             .findAll('button')
@@ -1240,30 +1522,30 @@ it('shows what the analysis is doing and drops nodes a later resolution round re
             metadata: { title, iconUrl: null, summary: '' },
         })
     try {
-        await flushPromises()
+        await flushFrame()
         expect(stage()).toBe('Resolving releases and dependencies…')
         update({ kind: 'phase', phase: 'collectingConstraints' })
-        await flushPromises()
+        await flushFrame()
         expect(stage()).toBe('Collecting the version requirements of installed content…')
 
         update({ kind: 'roundStarted', planId: 'plan', revision: 1, round: 0 })
-        await flushPromises()
+        await flushFrame()
         expect(stage()).toBe('Resolving releases and dependencies…')
         emit(root, 'Parsed root', 0)
         emit(node('stale', 'install', { reference, fileName: 'Stale.jar' }), 'Stale dependency', 0)
-        await flushPromises()
+        await flushFrame()
         expect(stage()).toBe('Resolving releases and dependencies…')
         expect(wrapper.text()).toContain('Stale dependency')
 
         update({ kind: 'roundStarted', planId: 'plan', revision: 1, round: 1 })
         update({ kind: 'nodeRemoved', planId: 'plan', revision: 1, round: 1, nodeId: 'stale' })
-        await flushPromises()
+        await flushFrame()
         expect(stage()).toBe('Resolving dependencies again to settle version conflicts…')
         expect(wrapper.text()).not.toContain('Stale dependency')
         expect(wrapper.text()).toContain('Parsed root')
 
         update({ kind: 'phase', phase: 'validating' })
-        await flushPromises()
+        await flushFrame()
         expect(stage()).toBe('Checking that the files can be written…')
         // Closing the window releases the run without going through cancel().
         await (wrapper.vm as unknown as { modal: { hide: () => Promise<void> } }).modal.hide()
@@ -1290,7 +1572,7 @@ it('shows what the analysis is doing and drops nodes a later resolution round re
                 },
             ],
         })
-        await flushPromises()
+        await flushFrame()
         expect(stage()).toBe('Resolving releases and dependencies…')
         await wrapper.vm.cancel()
         expect(await next).toBeNull()
@@ -1306,7 +1588,7 @@ it('discards partial revision items after failure and keeps the previously revie
     let reject!: (error: Error) => void
     let progress!: (value: ResourceOperationProgress) => void
     try {
-        await flushPromises()
+        await flushFrame()
         vi.mocked(resourceRevisePlan).mockImplementationOnce((...args) => {
             progress = args[4]!
             return new Promise((_, fail) => {
@@ -1327,11 +1609,11 @@ it('discards partial revision items after failure and keeps the previously revie
             node: node('partial', 'install'),
             metadata: null,
         } as ResourceOperationProgress)
-        await flushPromises()
+        await flushFrame()
         expect(wrapper.text()).toContain('partial')
         expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(true)
         reject(new Error('source unavailable'))
-        await flushPromises()
+        await flushFrame()
         expect(wrapper.text()).not.toContain('partial')
         expect(wrapper.find('[data-operation-skeleton]').exists()).toBe(false)
         expect(wrapper.text()).toContain('mods/custom.jar.disabled')
@@ -1342,7 +1624,7 @@ it('discards partial revision items after failure and keeps the previously revie
             .findAll('button')
             .find((button) => button.text() === 'Force install without dependencies')!
             .trigger('click')
-        await flushPromises()
+        await flushFrame()
         expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('plan', 1, expect.any(Object))
         expect(await result).toEqual({ job_id: 'original' })
     } finally {
@@ -2115,5 +2397,307 @@ it('bounds an unresponsive direct preview and keeps retry available after late n
     } finally {
         wrapper.unmount()
         vi.useRealTimers()
+    }
+})
+
+it.each([20, 60, 200])(
+    'publishes %i streamed nodes once per frame and preserves ordered removals and metadata',
+    async (count) => {
+        ready()
+        const frames = new Map<number, FrameRequestCallback>()
+        let nextFrame = 0
+        const requestFrame = vi
+            .spyOn(window, 'requestAnimationFrame')
+            .mockImplementation((callback) => {
+                frames.set(++nextFrame, callback)
+                return nextFrame
+            })
+        const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+            frames.delete(id)
+        })
+        let report!: (value: ResourceOperationProgress) => void
+        let finish!: (value: ResourceOperationPlan) => void
+        vi.mocked(resourcePrepareEntryOperation).mockImplementationOnce((...args) => {
+            report = args[6]!
+            return new Promise((resolve) => {
+                finish = resolve
+            })
+        })
+        const wrapper = mount(ResourceOperationPreviewModal)
+        const result = wrapper.vm.show(input)
+        const nodes = Array.from({ length: count }, (_, index) => node(`bulk-${index}`, 'install'))
+        const send = (value: object) => report(value as ResourceOperationProgress)
+        try {
+            await flushPromises()
+            for (const item of nodes) {
+                send({
+                    kind: 'node',
+                    node: item,
+                    metadata: { title: `Bulk item ${item.id}`, iconUrl: null, summary: '' },
+                })
+                await Promise.resolve()
+                send({ kind: 'node', node: { ...item }, metadata: null })
+            }
+            send({ kind: 'nodeRemoved', nodeId: nodes[0].id })
+            send({ kind: 'node', node: nodes[0], metadata: null })
+            send({
+                kind: 'node',
+                node: node('withdrawn', 'install'),
+                metadata: { title: 'Withdrawn item', iconUrl: null },
+            })
+            send({ kind: 'roundStarted', round: 1 })
+            send({ kind: 'nodeRemoved', nodeId: 'withdrawn' })
+            send({ kind: 'phase', phase: 'validating' })
+            await nextTick()
+            expect(wrapper.text()).not.toContain('Bulk item')
+            expect(requestFrame).toHaveBeenCalledOnce()
+            expect(frames.size).toBe(1)
+            const [id, callback] = [...frames][0]
+            frames.delete(id)
+            callback(0)
+            await flushPromises()
+            expect(wrapper.text().match(/Bulk item bulk-/g)).toHaveLength(count)
+            expect(wrapper.text()).not.toContain('Withdrawn item')
+            expect(wrapper.get('[data-operation-phase]').text()).toBe(
+                'Checking that the files can be written…',
+            )
+            send({
+                kind: 'node',
+                node: nodes[0],
+                metadata: { title: 'Final pending title', iconUrl: null },
+            })
+            finish({ ...plan(), nodes })
+            await flushPromises()
+            expect(frames.size).toBe(0)
+            expect(wrapper.text()).toContain('Final pending title')
+            expect(resourceGet).not.toHaveBeenCalled()
+            send({
+                kind: 'node',
+                node: node('late', 'install'),
+                metadata: { title: 'Late node', iconUrl: null },
+            })
+            expect(frames.size).toBe(0)
+            await wrapper.vm.cancel()
+            expect(await result).toBeNull()
+        } finally {
+            wrapper.unmount()
+            requestFrame.mockRestore()
+            cancelFrame.mockRestore()
+        }
+    },
+)
+
+it.each([20, 60, 200])(
+    'uses source-qualified batch metadata for %i nodes without per-item requests',
+    async (count) => {
+        ready()
+        const nodes = Array.from({ length: count }, (_, index) => {
+            const source = index % 2 ? 'curseforge' : 'modrinth'
+            const projectId = String(Math.floor(index / 2))
+            return node(`node-${index}`, 'install', {
+                reference: {
+                    release: { project: { source, projectId }, releaseId: 'v1' },
+                    artifactId: 'file',
+                },
+                fileName: `file-${index}.jar`,
+            })
+        })
+        vi.mocked(resourcePrepareEntryOperation).mockResolvedValueOnce({ ...plan(), nodes })
+        vi.mocked(resourceProjectDocuments).mockImplementation(
+            async (source, ids) =>
+                [...ids].reverse().map((projectId) => ({
+                    metadata: {
+                        project: { source, projectId },
+                        title: `${source} title ${projectId}`,
+                        iconUrl: null,
+                        summary: '',
+                    },
+                })) as never,
+        )
+        const wrapper = mount(ResourceOperationPreviewModal)
+        const result = wrapper.vm.show(input)
+        try {
+            await flushPromises()
+            expect(resourceProjectDocuments).toHaveBeenCalledTimes(2)
+            expect(resourceGet).not.toHaveBeenCalled()
+            for (const item of nodes) {
+                const project = item.artifact!.reference.release.project
+                expect(wrapper.text()).toContain(`${project.source} title ${project.projectId}`)
+            }
+            await wrapper.vm.cancel()
+            expect(await result).toBeNull()
+        } finally {
+            wrapper.unmount()
+        }
+    },
+)
+
+it('keeps satisfied metadata cache-only and falls back only for missing source-qualified batch entries', async () => {
+    ready()
+    const artifact = (source: string, projectId: string) => ({
+        reference: {
+            release: { project: { source, projectId }, releaseId: 'v1' },
+            artifactId: 'file',
+        },
+        fileName: `${projectId}.jar`,
+    })
+    const nodes = [
+        node('online', 'install', artifact('modrinth', 'same')),
+        node('cached', 'satisfied', artifact('curseforge', 'same')),
+        node('missing', 'install', artifact('modrinth', 'missing')),
+    ]
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValueOnce({ ...plan(), nodes })
+    vi.mocked(resourceProjectDocuments).mockImplementation(
+        async (source, _ids, _signal, policy) => {
+            if (source === 'curseforge') {
+                expect(policy).toBe('onlyCached')
+                return []
+            }
+            return [
+                {
+                    metadata: {
+                        project: { source, projectId: 'same' },
+                        title: 'Correct online title',
+                        iconUrl: null,
+                        summary: '',
+                    },
+                },
+            ] as never
+        },
+    )
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        expect(wrapper.text()).toContain('Correct online title')
+        expect(resourceGet).toHaveBeenCalledOnce()
+        expect(vi.mocked(resourceGet).mock.calls[0][0]).toEqual(nodes[2].resource)
+        await wrapper.vm.cancel()
+        expect(await result).toBeNull()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('cancels queued progress frames when closing and cannot leak them into a reopened review', async () => {
+    ready()
+    const frames = new Map<number, FrameRequestCallback>()
+    let nextFrame = 0
+    const requestFrame = vi
+        .spyOn(window, 'requestAnimationFrame')
+        .mockImplementation((callback) => {
+            frames.set(++nextFrame, callback)
+            return nextFrame
+        })
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+        frames.delete(id)
+    })
+    let report!: (value: ResourceOperationProgress) => void
+    vi.mocked(resourcePrepareEntryOperation).mockImplementationOnce((...args) => {
+        report = args[6]!
+        return new Promise(() => {})
+    })
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const old = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        report({
+            kind: 'node',
+            node: node('old', 'install'),
+            metadata: { title: 'Retired item', iconUrl: null },
+        } as ResourceOperationProgress)
+        expect(frames.size).toBe(1)
+        await wrapper.vm.cancel()
+        expect(await old).toBeNull()
+        expect(frames.size).toBe(0)
+        const current = wrapper.vm.show(input)
+        await flushPromises()
+        expect(wrapper.text()).not.toContain('Retired item')
+        report({ kind: 'phase', phase: 'validating' } as ResourceOperationProgress)
+        expect(frames.size).toBe(0)
+        await wrapper.vm.cancel()
+        expect(await current).toBeNull()
+    } finally {
+        wrapper.unmount()
+        requestFrame.mockRestore()
+        cancelFrame.mockRestore()
+    }
+})
+
+it('recovers cached names individually when one cache miss rejects a satisfied-project batch', async () => {
+    ready()
+    const satisfied = ['hit', 'miss'].map((id) =>
+        node(id, 'satisfied', {
+            reference: {
+                release: { project: { source: 'modrinth', projectId: id }, releaseId: 'v1' },
+                artifactId: 'file',
+            },
+            fileName: `${id}.jar`,
+        }),
+    )
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValueOnce({ ...plan(), nodes: satisfied })
+    vi.mocked(resourceProjectDocuments).mockImplementation(
+        async (_source, ids, _signal, policy) => {
+            expect(policy).toBe('onlyCached')
+            if (ids.includes('miss')) throw new Error('cache miss')
+            return [
+                {
+                    metadata: {
+                        project: { source: 'modrinth', projectId: 'hit' },
+                        title: 'Cached hit name',
+                        iconUrl: null,
+                        summary: '',
+                    },
+                },
+            ] as never
+        },
+    )
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const result = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        expect(wrapper.text()).toContain('Cached hit name')
+        expect(resourceProjectDocuments).toHaveBeenCalledTimes(3)
+        expect(resourceGet).not.toHaveBeenCalled()
+        await wrapper.vm.cancel()
+        expect(await result).toBeNull()
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('ignores a late metadata batch after cancellation and reopening', async () => {
+    ready()
+    let complete!: (value: never) => void
+    vi.mocked(resourceProjectDocuments).mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                complete = resolve
+            }),
+    )
+    const wrapper = mount(ResourceOperationPreviewModal)
+    const first = wrapper.vm.show(input)
+    try {
+        await flushPromises()
+        await wrapper.vm.cancel()
+        expect(await first).toBeNull()
+        const second = wrapper.vm.show(input)
+        await flushPromises()
+        complete([
+            {
+                metadata: {
+                    project: reference.release.project,
+                    title: 'Retired metadata name',
+                    iconUrl: null,
+                    summary: '',
+                },
+            },
+        ] as never)
+        await flushPromises()
+        expect(wrapper.text()).not.toContain('Retired metadata name')
+        await wrapper.vm.cancel()
+        expect(await second).toBeNull()
+    } finally {
+        wrapper.unmount()
     }
 })

@@ -487,6 +487,36 @@ mod tests {
     };
     use chrono::TimeDelta;
 
+    #[test]
+    fn modpack_game_directory_survives_request_persistence_and_old_jobs_default_to_managed()
+     {
+        let old = serde_json::json!({
+            "type": "create_modpack_instance",
+            "location": { "type": "fromFile", "path": "pack.mrpack" }
+        });
+        let old: InstallRequest = serde_json::from_value(old).unwrap();
+        assert!(matches!(
+            old,
+            InstallRequest::CreateModpackInstance {
+                game_dir_override: None,
+                ..
+            }
+        ));
+        let request = InstallRequest::CreateModpackInstance {
+            location: CreatePackLocation::FromFile {
+                path: "pack.mrpack".into(),
+            },
+            post_install_edit: None,
+            game_dir_override: Some("/games/.minecraft/versions/Pack".into()),
+        };
+        let restored: InstallRequest =
+            serde_json::from_str(&serde_json::to_string(&request).unwrap())
+                .unwrap();
+        assert!(
+            matches!(restored, InstallRequest::CreateModpackInstance { game_dir_override: Some(path), .. } if path == "/games/.minecraft/versions/Pack")
+        );
+    }
+
     fn job_state() -> InstallJobState {
         InstallJobState::new(InstallRequest::CreateInstance {
             name: "Test".to_string(),
@@ -792,6 +822,7 @@ mod tests {
                     path: PathBuf::from("test.mrpack"),
                 },
                 post_install_edit: None,
+                game_dir_override: None,
             });
         job.missing_content = Some(MissingModpackContentState::default());
         job.set_progress(
@@ -845,6 +876,7 @@ mod tests {
                     path: PathBuf::from("test.mrpack"),
                 },
                 post_install_edit: None,
+                game_dir_override: None,
             });
         let path = "mods/missing.jar".to_string();
         job.missing_content = Some(MissingModpackContentState::default());
@@ -2200,6 +2232,8 @@ pub enum InstallRequest {
         location: CreatePackLocation,
         #[serde(default)]
         post_install_edit: Option<InstallPostInstallEdit>,
+        #[serde(default)]
+        game_dir_override: Option<String>,
     },
     ImportInstance {
         launcher_type: ImportLauncherType,

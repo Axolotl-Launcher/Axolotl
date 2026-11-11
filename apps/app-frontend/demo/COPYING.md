@@ -8,6 +8,7 @@ The recorded data and images in `data/` and `assets/` are not covered by that li
 
 - `data/news.json` and `assets/news/`: Minecraft news articles and their images, recorded from Minecraft.net. They are Copyright Mojang Studios / Microsoft.
 - `data/discover/`, `data/projects/`, `data/modpacks.json`, `data/instance-content.json`, `data/screenshots.json`, `assets/projects/` and `assets/screenshots/`: search results, project pages (descriptions, versions and team members), modpack file lists, version data, icons and gallery images (shown as the instances' screenshots) of projects published on Modrinth. Each project belongs to its authors under the license shown on its Modrinth page.
+- `assets/screenshots/fabulously-optimized/ancient-city.webp` and `assets/warden/`: a screenshot of Minecraft taken for the demo, the world it shows (baked from the save it was taken in, with Minecraft's block textures) and the warden's, sculk's and particles' textures and sounds from Minecraft. They are Copyright Mojang Studios / Microsoft.
 - `data/content-names.json`: Chinese names and MC 百科 (mcmod.cn) entry IDs, taken from the dictionary the launcher bundles.
 - `data/tags.json`: game version, loader, category and license tags, including their icons, recorded from the Modrinth API.
 - `data/servers/`: console output and configuration files recorded from Minecraft's dedicated server and Fabric's server launcher, which belong to Mojang Studios / Microsoft and the Fabric project.

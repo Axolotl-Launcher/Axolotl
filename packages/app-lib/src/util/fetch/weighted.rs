@@ -272,7 +272,9 @@ mod tests {
     fn full_weight_hamilton_shares_and_total_ceiling() {
         let downloads = register(pool(), &[32 << 20, 16 << 20, 8 << 20]);
         assert_eq!(quotas(&downloads, 64), vec![37, 18, 9]);
-        assert_eq!(quotas(&downloads, usize::MAX), vec![41, 21, 10]);
+        assert_eq!(quotas(&downloads, 72), vec![41, 21, 10]);
+        assert_eq!(quotas(&downloads, 128), vec![73, 37, 18]);
+        assert_eq!(quotas(&downloads, usize::MAX), vec![146, 73, 37]);
     }
 
     #[test]

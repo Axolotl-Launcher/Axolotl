@@ -261,6 +261,7 @@ export function createContentInstall(opts: {
         source: string,
         callback: ContentInstallCallback,
         createInstanceCallback: (instanceId: string) => void,
+        gameDirOverride?: string | null,
     ) {
         const curseForgeLink = {
             type: 'curseforge_modpack' as const,
@@ -276,6 +277,7 @@ export function createContentInstall(opts: {
             loaderVersion: 'latest',
             iconPath: project.icon_url ?? null,
             link: curseForgeLink,
+            gameDirOverride,
         })
         const createdInstanceId = installJobInstanceId(job)
         debugState('createAndInstallCurseForgeModpack', {
@@ -1733,7 +1735,11 @@ export function createContentInstall(opts: {
             curseForgeManualDownloadsModalRef?.show({ items, instanceId })
         },
         handleCurseForgeManualDownloadsImported,
-        async handleModpackInstall(versionId: string, name: string) {
+        async handleModpackInstall(
+            versionId: string,
+            name: string,
+            gameDirOverride?: string | null,
+        ) {
             if (!pendingModpackInstall) return
             const { project, source, callback, createInstanceCallback, provider } =
                 pendingModpackInstall
@@ -1770,6 +1776,7 @@ export function createContentInstall(opts: {
                     source,
                     callback,
                     createInstanceCallback,
+                    gameDirOverride,
                 ).catch((error) => {
                     callback()
                     throw error
@@ -1785,6 +1792,7 @@ export function createContentInstall(opts: {
                     icon_url: project.icon_url,
                 },
                 { name },
+                gameDirOverride,
             ).catch((error) => {
                 callback()
                 throw error

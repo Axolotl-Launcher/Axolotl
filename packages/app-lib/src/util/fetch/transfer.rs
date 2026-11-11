@@ -423,7 +423,7 @@ async fn resume_checkpointed_download(
                 let mut progress = progress.lock().await;
                 let download = super::segmented::try_segmented_download(
                     super::segmented::SegmentedDownloadContext::new(
-                        request, &route, &[], size, part_path, semaphore, None,
+                        request, &route, &[], size, part_path, semaphore,
                         &super::client::HTTP1_NO_REDIRECT_REQWEST_CLIENT,
                         &super::client::HTTP1_DIRECT_REQWEST_CLIENT,
                         1, routes.len().max(1), false,

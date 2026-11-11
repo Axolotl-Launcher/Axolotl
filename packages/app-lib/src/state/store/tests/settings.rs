@@ -56,6 +56,7 @@ fn record() -> SettingsRecord {
         use_curseforge_mirror: true,
         auto_concurrent_downloads: false,
         force_multiconnection_downloads: true,
+        forced_max_concurrent_downloads: 128,
         minecraft_metadata_source: DownloadSource::OfficialOnly,
         minecraft_file_source: DownloadSource::MirrorPreferred,
         modrinth_source: DownloadSource::Auto,

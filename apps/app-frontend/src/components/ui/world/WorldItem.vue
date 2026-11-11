@@ -277,12 +277,14 @@ const messages = defineMessages({
             />
         </template>
         <div
-            class="grid grid-cols-[auto_minmax(0,3fr)_minmax(0,4fr)_auto] items-center gap-2 rounded-lg smart-clickable:highlight-on-hover"
+            class="grid items-center gap-2 rounded-lg smart-clickable:highlight-on-hover"
             :class="[
+                dashboardDensity === 'compact'
+                    ? 'grid-cols-[auto_minmax(0,1fr)_auto]'
+                    : 'grid-cols-[auto_minmax(0,3fr)_minmax(0,4fr)_auto]',
                 {
                     'world-item-highlighted': highlighted,
-                    'world-item-dashboard-compact grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 p-1.5':
-                        dashboardDensity === 'compact',
+                    'world-item-dashboard-compact p-1.5': dashboardDensity === 'compact',
                     'world-item-dashboard-comfortable p-2': dashboardDensity === 'comfortable',
                 },
                 flat ? 'px-2 py-2 hover:bg-surface-4' : 'card-shadow bg-surface-2 p-3',

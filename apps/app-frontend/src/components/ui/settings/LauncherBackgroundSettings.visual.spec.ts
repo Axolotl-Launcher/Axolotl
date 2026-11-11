@@ -321,6 +321,33 @@ it('converts an animated PNG through the native backend', async () => {
     expect(mocks.remove).toHaveBeenCalledWith('C:/data/backgrounds/old.png')
 })
 
+it('shows a prominent status while an animated background converts', async () => {
+    mountSettings()
+    mocks.open.mockResolvedValue('C:/pictures/loop.gif')
+    mocks.readFile.mockResolvedValue(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]))
+    mocks.exists.mockResolvedValue(true)
+    mocks.cropShowSelection.mockResolvedValue(cropSelection)
+    let resolveConversion!: (result: typeof convertedBackground) => void
+    mocks.convertAnimatedBackground.mockReturnValue(
+        new Promise((resolve) => {
+            resolveConversion = resolve
+        }),
+    )
+
+    await wrapper!.get('[data-testid="custom-background-replace"]').trigger('click')
+    await flushPromises()
+
+    const status = wrapper!.get('[data-testid="custom-background-converting"]')
+    expect(status.text()).toContain('Converting animated background')
+    expect(status.text()).toContain('This can take a few seconds')
+    expect(wrapper!.find('[role="button"][aria-busy="true"]').exists()).toBe(true)
+
+    resolveConversion(convertedBackground)
+    await flushPromises()
+
+    expect(wrapper!.find('[data-testid="custom-background-converting"]').exists()).toBe(false)
+})
+
 it('leaves the old background when an animated conversion is cancelled', async () => {
     const settings = mountSettings()
     mocks.open.mockResolvedValue('C:/pictures/loop.gif')

@@ -54,7 +54,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -72,6 +72,7 @@ jobs:
           node --test scripts/axolotl/ci-changes.test.mjs
           node --test scripts/axolotl/build-jobs.test.mjs
           node --test scripts/axolotl/rust-coverage.test.mjs
+          node --test scripts/axolotl/check-db-test-isolation.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
           node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
@@ -99,6 +100,8 @@ jobs:
         run: node scripts/axolotl/check-dead-colours.test.mjs
       - name: Check downgrade for app database
         run: node scripts/axolotl/downgrade-app-db.test.mjs
+      - name: Check database test isolation
+        run: node scripts/axolotl/check-db-test-isolation.mjs
       - name: Check release notes
         run: node --test scripts/axolotl/create-release-notes.test.mjs
       - name: Check Discord release notifications
@@ -161,7 +164,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -199,7 +202,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -245,6 +248,10 @@ jobs:
         with:
           profile: ci
           save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        with:
+          tool: cargo-nextest@0.9.150
       - name: Set frontend target for reusable build
         shell: bash
         run: |
@@ -259,33 +266,35 @@ jobs:
       - name: Check for dead alpha utilities
         run: node scripts/axolotl/check-dead-utilities.mjs
       - name: Test version metadata writes
-        run: cargo test --package theseus writing_version_info_creates_missing_parent_directory
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail writing_version_info_creates_missing_parent_directory
+      - name: Test launcher memory behavior
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail api::memory
       # Runs the CurseForge content pipeline suites (recognition, dependency
       # selection, install, verification, manual downloads, reconciliation).
       # Linux only: the code is platform independent and this keeps the matrix
       # cost to one extra test binary run.
       - name: Test CurseForge content pipeline
         if: runner.os == 'Linux'
-        run: cargo test --package theseus curseforge
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail curseforge
       # The rebuildable database: an unknown migration version and an
       # unreadable file both leave it disabled, keeping the file, without
       # failing startup. Hermetic (temp dirs + sqlite).
       - name: Test derived database
         if: runner.os == 'Linux'
-        run: cargo test --package theseus derived_db
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail derived_db
       # The settings documents: a document answers for its domain, and a key it
       # leaves out stays at its default instead of returning to the row.
       # Hermetic (in-memory sqlite + temp dirs).
       - name: Test settings documents
         if: runner.os == 'Linux'
-        run: cargo test --package theseus state::documents
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::documents
       # The store collections: every record the launcher keeps between runs, a
       # suite per collection. These suites were in no filter at all, so they
       # went three months with foreign-key and assertion failures nobody saw.
       # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
       - name: Test the store collections
         if: runner.os == 'Linux'
-        run: cargo test --package theseus state::store::tests
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::store::tests
       # The scheduler: tags and their cap, the L0 executor, queue, quiesce,
       # supervision, the critical-section API and telemetry reconciliation.
       # Hermetic (timers, temp dirs, in-memory sqlite); Linux only for matrix
@@ -294,36 +303,36 @@ jobs:
       - name: Test the scheduler
         if: runner.os == 'Linux'
         run: |
-          cargo test --package theseus scheduler::
-          cargo test --package theseus install::critical_section
-          cargo test --package theseus telemetry::reconcile
-          cargo test --package theseus state::process::playtime_clock
-          cargo test --package theseus state::process::l0_separation_tests
-          cargo test --package theseus state::process::stopped_detector_tests
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail scheduler::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail install::critical_section
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail telemetry::reconcile
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::process::playtime_clock
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::process::l0_separation_tests
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::process::stopped_detector_tests
       # The account secrets: a row keeps a secret the credential store will not
       # take, and moving the rows into the store keeps the rows it already moved.
       # Hermetic (in-memory sqlite, and a store substituted for the platform's).
       - name: Test account secrets
         if: runner.os == 'Linux'
         run: |
-          cargo test --package theseus store::tests::secrets
-          cargo test --package theseus marks_whose_account_secrets_were_moved
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail store::tests::secrets
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail marks_whose_account_secrets_were_moved
       # The refresh state lives in the derived database now, so deleting an
       # instance has to take its rows with it: the guard is the deletion step.
       - name: Test refresh state
         if: runner.os == 'Linux'
-        run: cargo test --package theseus content_refresh
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail content_refresh
       - name: Test instance deletion
         if: runner.os == 'Linux'
-        run: cargo test --package theseus remove_instance
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail remove_instance
       # Provider-neutral resource layer: catalog, plans, execution, providers.
       # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
       - name: Test provider-neutral resource layer
         if: runner.os == 'Linux'
-        run: cargo test --package theseus resources
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail resources
       - name: Test Java build fingerprints
         if: runner.os == 'Linux'
-        run: cargo test --package theseus --test java_build_cache
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail --test java_build_cache
       - run: cargo check --package theseus_gui --features updater
       # .cargo/config.toml links Linux builds with mold, and mold stamps its
       # version into .comment. This fails if another linker made the binaries.
@@ -381,7 +390,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -423,7 +432,7 @@ jobs:
         with:
           profile: ci
       - name: Install coverage tools
-        uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: cargo-llvm-cov@0.9.1,cargo-nextest@0.9.150
       # cargo-llvm-cov shells out to llvm-cov and llvm-profdata from this component.
@@ -454,8 +463,7 @@ jobs:
     name: Desktop CI result
     # Report failed checks, but skip the gate when a newer run cancels this workflow.
     if: ${{ !cancelled() }}
-    needs:
-      [changes, guardrails, frontend, resources, desktop, coverage, website]
+    needs: [changes, guardrails, frontend, resources, desktop, coverage, website]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

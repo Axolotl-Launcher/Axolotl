@@ -94,7 +94,16 @@
     "fetchedAt": "2026-10-23T11:41:19+00:00",
     "recorded": "from Axolotl-Launcher/Axolotl-Website src/components/launcher-preview/data at 03d6b368",
     "sources": ["https://api.modrinth.com/v2/project/{id} gallery[].raw_url"],
-    "note": "gallery images of Fabulously Optimized, Cobblemon, Iris and Sodium, resized to WebP in assets/screenshots and shown as the instances' screenshots; each entry keeps its source_url"
+    "note": "gallery images of Fabulously Optimized, Cobblemon, Iris and Sodium, resized to WebP in assets/screenshots and shown as the instances' screenshots; each entry keeps its source_url",
+    "additions": {
+      "fabulously-optimized/ancient-city.webp": {
+        "capturedAt": "2026-10-27T06:55:16+00:00",
+        "sources": [
+          "an F2 screenshot of Minecraft 1.21.8 (Fabric, Sodium 0.7.3, vanilla textures, Night Vision, brightness Bright) taken in a save of seed -8110129503177069595"
+        ],
+        "note": "the capture of the warden easter egg (warden/), not a Modrinth gallery image"
+      }
+    }
   },
   "account.json": {
     "fetchedAt": "2026-11-05T13:54:21.115140+00:00",
@@ -113,5 +122,104 @@
       "Minecraft Java server-list ping: mc.hypixel.net:25565"
     ],
     "note": "MOTDs, player counts and icons recorded from each server; demo status is a snapshot"
+  },
+  "assets/warden/**": {
+    "textures": {
+      "minecraft": "26.2",
+      "source": "https://piston-data.mojang.com/v1/objects/2dc72797acbc1b63fc16a11c4ac393605f453754/client.jar",
+      "files": {
+        "textures/warden.png": "assets/minecraft/textures/entity/warden/warden.png",
+        "textures/warden_bioluminescent_layer.png": "assets/minecraft/textures/entity/warden/warden_bioluminescent_layer.png",
+        "textures/warden_heart.png": "assets/minecraft/textures/entity/warden/warden_heart.png",
+        "textures/warden_pulsating_spots_1.png": "assets/minecraft/textures/entity/warden/warden_pulsating_spots_1.png",
+        "textures/warden_pulsating_spots_2.png": "assets/minecraft/textures/entity/warden/warden_pulsating_spots_2.png",
+        "textures/shriek.png": "assets/minecraft/textures/particle/shriek.png",
+        "textures/sculk.png": "assets/minecraft/textures/block/sculk.png",
+        "textures/shadow.png": "assets/minecraft/textures/misc/shadow.png",
+        "textures/vibration.png": "assets/minecraft/textures/particle/vibration.png"
+      },
+      "note": "textures/vibration.png was taken from the Minecraft 1.21.8 client jar; the others from the source above."
+    },
+    "sounds": {
+      "source": "https://piston-meta.mojang.com/v1/packages/17a181cd96aa0719b0f83c902128c22e835c7caf/32.json",
+      "files": {
+        "sounds/block.sculk_shrieker.shriek1.ogg": "556028a3bbc4dba60b0d05c85530ca588c9086e8",
+        "sounds/block.sculk_shrieker.shriek2.ogg": "74a120f19cc005c528a5561801369d528c26c13d",
+        "sounds/block.sculk_shrieker.shriek3.ogg": "0bd2d425ba3d8254999c9b9cb162b05427752447",
+        "sounds/block.sculk_shrieker.shriek4.ogg": "1591058de3128b8a44b8beab1a17ad63ba17301a",
+        "sounds/block.sculk_shrieker.shriek5.ogg": "ccf2f26922472624e30d8bbaf0a371d074c10270",
+        "sounds/damage.hit1.ogg": "c43077ac1f9ceda7e9e1c152f839baf207833aa8",
+        "sounds/damage.hit2.ogg": "65bf3f80ca720c55b99925ba3a515d2f932b15b1",
+        "sounds/damage.hit3.ogg": "b334c8ab1abc3ffa233bd612074bc8032c9b160f",
+        "sounds/mob.warden.agitated_1.ogg": "612124534b759f5db4832c9f96d371347579f595",
+        "sounds/mob.warden.agitated_2.ogg": "ddc5431b2332e9a027e733f09c123d1d7ea53d86",
+        "sounds/mob.warden.agitated_3.ogg": "628607524d7e165cebb597dca371dd117ccafcc7",
+        "sounds/mob.warden.agitated_4.ogg": "84ac333e5b28bfe2d75461071a97736a05a98ae1",
+        "sounds/mob.warden.agitated_5.ogg": "e8f490ef8c34a94fa5b663f2ca3d45a7005d809b",
+        "sounds/mob.warden.agitated_6.ogg": "d143707f07b3c5cae2bb499fd9e1e3f48ab1d2fc",
+        "sounds/mob.warden.angry_1.ogg": "da5bbadb46099260439283e7d170d1b1e2440756",
+        "sounds/mob.warden.angry_2.ogg": "8bba51d3ece2194b3d080df7b1d5c0d40895cf10",
+        "sounds/mob.warden.angry_3.ogg": "04ab8fe1e63614fb78fae031043abb111936cab7",
+        "sounds/mob.warden.angry_4.ogg": "72a578bf5d3cde7c972c3a9a3bd9f56f65bfd5e1",
+        "sounds/mob.warden.angry_5.ogg": "eb81b977ecf8575f4216ca9d50c4a1af7a1b5c9c",
+        "sounds/mob.warden.angry_6.ogg": "2276ad86ce09eb7c689658432735464957dcb48e",
+        "sounds/mob.warden.attack_impact_1.ogg": "93d5a2d83f36efd582d31630801cd96c70c60715",
+        "sounds/mob.warden.attack_impact_2.ogg": "ce9a43bef1d1e9e42b60aa4323d32e31add4b1c0",
+        "sounds/mob.warden.emerge.ogg": "1dc49c965c586bdfe2f8d990c141384a47dcda44",
+        "sounds/mob.warden.heartbeat_1.ogg": "f730e1ccb1f3d425232bd0e78697e69fd44b0ce5",
+        "sounds/mob.warden.heartbeat_2.ogg": "fd92259b2665792127b52ba95e69dc8e017868ec",
+        "sounds/mob.warden.heartbeat_3.ogg": "3f716fe047e7ed8d751d01f7f57f65238a55c992",
+        "sounds/mob.warden.heartbeat_4.ogg": "03ef08c7b003a62766495030acc60ac475327582",
+        "sounds/mob.warden.listening_1.ogg": "68b63b77ca9c7171609a39e2c292cf50fd663fb4",
+        "sounds/mob.warden.listening_2.ogg": "9620bd7894626119808276d90597dafcb4006c39",
+        "sounds/mob.warden.listening_3.ogg": "1a9fd62fe3699710ca3aa2c9188a44a4f1fecf90",
+        "sounds/mob.warden.listening_4.ogg": "53063778ac8449c79e42198a1f3b63c68f6c9069",
+        "sounds/mob.warden.listening_5.ogg": "6de302c5b1fdc9607485f64640b905e37642d86b",
+        "sounds/mob.warden.listening_angry_1.ogg": "97116f4bf1df22a78ed414fce32dfe56cadded19",
+        "sounds/mob.warden.listening_angry_2.ogg": "0d5d634a492ad420a3486128b4ea65e231312eaa",
+        "sounds/mob.warden.listening_angry_3.ogg": "3d14cf8f25bd73f558f4e016fedfe26d07067b33",
+        "sounds/mob.warden.listening_angry_4.ogg": "7dad3b60796c4e8c15c9c01c947f2cc7163ded23",
+        "sounds/mob.warden.listening_angry_5.ogg": "f8dda0060147884a14f6c871496559571dc0fa22",
+        "sounds/mob.warden.nearby_close_1.ogg": "882756c7761f4470cfb92b1b1f3597fb4bcf3e9f",
+        "sounds/mob.warden.nearby_close_2.ogg": "17ca16026e5556f1ff2e48d2ab1332c96c914641",
+        "sounds/mob.warden.nearby_close_3.ogg": "8bd88654359722dba0fc6b02f4d6b9216695ef70",
+        "sounds/mob.warden.nearby_close_4.ogg": "22f31c6708e3ea1e5b2de087684bb02eb446c8ac",
+        "sounds/mob.warden.nearby_closer_1.ogg": "20981456d652bbcdddaf7ed10fce0d42ad0f8379",
+        "sounds/mob.warden.nearby_closer_2.ogg": "40082fd467ff5e7cfb389c4ca862939a15db7e69",
+        "sounds/mob.warden.nearby_closer_3.ogg": "b0e38d02270299aea7d65853662456bb1640a5d5",
+        "sounds/mob.warden.roar_1.ogg": "6a1ae356c74c9fb89af87a9ac6d313ff4363fb2a",
+        "sounds/mob.warden.roar_2.ogg": "9ee7ddc0aa7a89321fe1f9c7a7eb3a4c9c11c8c9",
+        "sounds/mob.warden.roar_3.ogg": "54c95e9185616c2db606e8af71949fa56d6c6a9a",
+        "sounds/mob.warden.roar_4.ogg": "58766a0b926a32c728533ca4ba0d44c3a6221f4d",
+        "sounds/mob.warden.roar_5.ogg": "2d454a4d3cb18e736aecaa4c00298085ded913e3",
+        "sounds/mob.warden.step_1.ogg": "9d75dbce9be2bab1e8f77dc841bad52eb190549d",
+        "sounds/mob.warden.step_2.ogg": "dbe17da4c29e39b19e85bf85c8729a62824552f0",
+        "sounds/mob.warden.step_3.ogg": "85d457a67055477cb22538ee3ee0b3d537bef3f5",
+        "sounds/mob.warden.step_4.ogg": "d18015d2512466c2f81311914df0bf29d9bfcacb",
+        "sounds/mob.warden.tendril_clicks_1.ogg": "a892bf72bd55a468fb49901d3c2256b7d9f0d38e",
+        "sounds/mob.warden.tendril_clicks_2.ogg": "e1256df4732914224e42e64aafb2b51df33cca90",
+        "sounds/mob.warden.tendril_clicks_3.ogg": "7f1e51127887e125e4991b592d32f218eb674c11",
+        "sounds/mob.warden.tendril_clicks_4.ogg": "bdad81aa76a53149ac316e730b1d18977a952699",
+        "sounds/mob.warden.tendril_clicks_5.ogg": "46d9741e0c7f3334cdf74ba5eb72659f0e16fd1d",
+        "sounds/mob.warden.tendril_clicks_6.ogg": "848b1ae0e0895cf3e93aa81d1f6295ac933a01d9",
+        "sounds/block.sculk_sensor.sculk_clicking1.ogg": "a33ec641bf3173dda6d8c48d08516e4df9776a4e",
+        "sounds/block.sculk_sensor.sculk_clicking2.ogg": "dc0c30a5e32d773644d445f5a13f7c4fa079eb35",
+        "sounds/block.sculk_sensor.sculk_clicking3.ogg": "b9099a6d04dddc47ca2c01f6bcb751cb86b38d85",
+        "sounds/block.sculk_sensor.sculk_clicking4.ogg": "5ca580ea624bc79ea0d0dbf1befca09d639956f9",
+        "sounds/block.sculk_sensor.sculk_clicking5.ogg": "cf9a16acc0ff7e958ca7857a62104cf84b77696a",
+        "sounds/block.sculk_sensor.sculk_clicking6.ogg": "a923bb37ed00273cb70623f6ebb750d8aa701e52",
+        "sounds/block.sculk_sensor.sculk_clicking_stop1.ogg": "6ea96110357f29e6e77b3df20b938483cce28cc4",
+        "sounds/block.sculk_sensor.sculk_clicking_stop2.ogg": "639814aadec7da5d05e0af3a9dfb3e56a2751eeb",
+        "sounds/block.sculk_sensor.sculk_clicking_stop3.ogg": "68828b76f86100a43daf79f9d8e893457ba91000",
+        "sounds/block.sculk_sensor.sculk_clicking_stop4.ogg": "f87220f8a3d7e71a12457b0e64456c6b4bfbd1b6",
+        "sounds/block.sculk_sensor.sculk_clicking_stop5.ogg": "251c56cebe93887713e0a297b48bd0b154932a2d"
+      },
+      "note": "The sculk sensor sounds (block.sculk_sensor.*) were taken from the Minecraft 1.21.8 asset index (26) by these hashes; the others from the source above."
+    },
+    "scene": {
+      "note": "scene/: the world of the ancient city capture (assets/screenshots/fabulously-optimized/ancient-city.webp), baked from that save (blocks 89278..89314 x, -40580..-40538 z) as Minecraft 1.21.8 with Sodium 0.7.3 drew it, with vanilla textures only",
+      "textures": "assets/minecraft/textures/block/* and entity/chest/normal.png from the Minecraft 1.21.8 client jar"
+    },
+    "thumbnail": "thumbnail.webp: the ancient city capture resized to 960 px wide, for its card in the Screenshots grid"
   }
 }

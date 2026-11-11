@@ -85,17 +85,8 @@ pub mod content_favorites;
 pub mod resources;
 pub use self::content_favorites::*;
 
-mod friends;
-pub use self::friends::*;
-
-mod tunnel;
-pub use self::tunnel::*;
-
 pub mod db;
 pub(crate) mod db_backup;
-mod mr_auth;
-
-pub use self::mr_auth::*;
 
 mod legacy_converter;
 
@@ -103,6 +94,7 @@ pub mod attached_world_data;
 pub(crate) mod content_store;
 pub(crate) mod content_types;
 pub(crate) mod documents;
+pub mod favorite_groups;
 pub mod instance_groups;
 pub(crate) mod store;
 
@@ -215,8 +207,6 @@ pub struct State {
     //
     // /// App identifier string (like com.modrinth.AxolotlLauncher)
     // pub app_identifier: String,
-    /// Friends socket
-    pub friends_socket: FriendsSocket,
 
     pub restart_after_pending_update: AtomicBool,
 
@@ -338,12 +328,12 @@ impl State {
         &self,
         instance_id: &str,
     ) -> tokio::sync::OwnedMutexGuard<()> {
-        self.screenshot_locks
+        let lock = self
+            .screenshot_locks
             .entry(instance_id.to_string())
             .or_insert_with(|| Arc::new(AsyncMutex::new(())))
-            .clone()
-            .lock_owned()
-            .await
+            .clone();
+        lock.lock_owned().await
     }
 
     pub(crate) async fn lock_synced_options(
@@ -535,7 +525,7 @@ impl Drop for InstanceLockGuard {
     }
 }
 
-fn grow_semaphore(
+pub(crate) fn grow_semaphore(
     semaphore: &Semaphore,
     current_limit: &AtomicUsize,
     target: usize,
@@ -558,7 +548,7 @@ fn grow_semaphore(
     }
 }
 
-async fn shrink_semaphore(
+pub(crate) async fn shrink_semaphore(
     semaphore: &Semaphore,
     current_limit: &AtomicUsize,
     target: &AtomicUsize,
@@ -761,14 +751,11 @@ impl State {
                     state.discord_rpc.clear_to_default(true),
                     instances::refresh_all_instances(),
                     Settings::migrate(&state.data),
-                    ModrinthCredentials::refresh_all(),
                 );
 
                 if let Err(e) = res {
                     tracing::error!("Error running discord RPC: {e}");
                 }
-
-                // Axolotl does not connect to Modrinth's private friends socket.
             }
         });
 
@@ -1169,6 +1156,15 @@ impl State {
         }
     }
 
+    /// Install jobs whose runner is still alive, read from memory so the exit
+    /// barrier can list them even when the database no longer answers.
+    pub fn running_install_jobs(&self) -> Vec<Uuid> {
+        self.install_job_cancellations
+            .iter()
+            .map(|entry| *entry.key())
+            .collect()
+    }
+
     fn download_work_is_idle(&self) -> bool {
         self.download_active_connections.load(Ordering::Acquire) == 0
             && self.install_job_cancellations.is_empty()
@@ -1178,6 +1174,10 @@ impl State {
         let target = target.clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX);
         self.download_concurrency_target
             .store(target, Ordering::Release);
+
+        if self.force_multiconnection_downloads() {
+            crate::util::download::native_budget::set_forced_capacity(target);
+        }
 
         grow_semaphore(
             &self.fetch_semaphore.0,
@@ -1207,7 +1207,9 @@ impl State {
             });
         }
 
-        if self.download_concurrency_limit.load(Ordering::Acquire) > target {
+        if self.download_concurrency_limit.load(Ordering::Acquire) > target
+            || crate::util::download::native_budget::forced_capacity_needs_shrink()
+        {
             let state = Arc::clone(self);
             tokio::spawn(async move {
                 shrink_semaphore(
@@ -1216,6 +1218,7 @@ impl State {
                     &state.download_concurrency_target,
                 )
                 .await;
+                crate::util::download::native_budget::shrink_forced_capacity().await;
             });
         }
 
@@ -1336,6 +1339,14 @@ impl State {
         );
         let download_concurrency =
             settings.effective_max_concurrent_downloads();
+        crate::util::download::native_budget::set_forced_capacity(
+            if settings.force_multiconnection_downloads {
+                download_concurrency
+            } else {
+                settings.forced_max_concurrent_downloads
+            },
+        );
+        crate::util::download::native_budget::shrink_forced_capacity().await;
         let fetch_semaphore =
             FetchSemaphore(Semaphore::new(download_concurrency));
         let download_semaphore =
@@ -1413,8 +1424,6 @@ impl State {
 
         let process_manager = ProcessManager::new();
 
-        let friends_socket = FriendsSocket::new();
-
         Ok(Arc::new(Self {
             directories,
             fetch_semaphore,
@@ -1472,7 +1481,6 @@ impl State {
             maintenance_gate: MaintenanceGate::new(),
             background_tasks: Mutex::new(Vec::new()),
             background_tracker: tokio_util::task::TaskTracker::new(),
-            friends_socket,
             restart_after_pending_update: AtomicBool::new(false),
             instance_locks: Arc::new(InstanceLockManager::default()),
             data,
@@ -1685,7 +1693,6 @@ pub(crate) async fn test_state(
         maintenance_gate: MaintenanceGate::new(),
         background_tasks: Mutex::new(Vec::new()),
         background_tracker: tokio_util::task::TaskTracker::new(),
-        friends_socket: FriendsSocket::new(),
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
         data: store::Handle::new(pool.clone()),
@@ -2091,6 +2098,52 @@ mod uninitialized_state_tests {
 mod shutdown_tests {
     use super::*;
     use std::future::Future;
+
+    #[tokio::test]
+    async fn screenshot_lock_wait_does_not_hold_registry_shard() {
+        let (_temp, state) = fixture().await;
+        let held = state.lock_instance_screenshots("waiter").await;
+        let mut waiting =
+            std::pin::pin!(state.lock_instance_screenshots("waiter"));
+        let mut context =
+            std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(waiting.as_mut().poll(&mut context).is_pending());
+        assert!(state.screenshot_locks.try_entry("waiter".into()).is_some());
+        drop(held);
+        waiting.await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn screenshot_lock_burst_keeps_runtime_responsive() {
+        let (_temp, state) = fixture().await;
+        let held = state.lock_instance_screenshots("burst").await;
+        {
+            // Fail safely before spawning blocked workers if the shard regression returns.
+            let mut waiting =
+                std::pin::pin!(state.lock_instance_screenshots("burst"));
+            let mut context =
+                std::task::Context::from_waker(std::task::Waker::noop());
+            assert!(waiting.as_mut().poll(&mut context).is_pending());
+            assert!(state.screenshot_locks.try_entry("burst".into()).is_some());
+        }
+        let mut tasks = tokio::task::JoinSet::new();
+        for _ in 0..64 {
+            let state = state.clone();
+            tasks.spawn(async move {
+                let _guard = state.lock_instance_screenshots("burst").await;
+                tokio::task::yield_now().await;
+            });
+        }
+        tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            drop(held);
+            while let Some(result) = tasks.join_next().await {
+                result.unwrap();
+            }
+        })
+        .await
+        .expect("screenshot waiters must not starve the runtime");
+    }
 
     async fn fixture() -> (tempfile::TempDir, Arc<State>) {
         let temp = tempfile::tempdir().unwrap();

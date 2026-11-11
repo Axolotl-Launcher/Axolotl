@@ -34,13 +34,12 @@
   },
   "scripts": {
     "clean": "node --eval \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "build": "pnpm run clean && esbuild src/index.ts --bundle --format=esm --platform=neutral --target=es2020 --minify --legal-comments=none --outfile=dist/index.js --external:ofetch --external:mitt --external:@tauri-apps/plugin-http && tsc -p tsconfig.build.json",
+    "build": "pnpm run clean && esbuild src/index.ts --bundle --format=esm --platform=neutral --target=es2020 --minify --legal-comments=none --outfile=dist/index.js --external:ofetch --external:@tauri-apps/plugin-http && tsc -p tsconfig.build.json",
     "prepare": "pnpm run build",
     "lint": "eslint . && prettier --check .",
     "fix": "eslint . --fix && prettier --write ."
   },
   "dependencies": {
-    "mitt": "^3.0.1",
     "ofetch": "^1.5.1"
   },
   "devDependencies": {

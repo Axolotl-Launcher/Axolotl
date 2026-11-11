@@ -7,8 +7,16 @@ import type {
 } from '@/helpers/instance'
 
 import recorded from '../data/screenshots.json'
+import { liveCaptureSupported, vibrate } from '../warden/egg'
+import {
+    ANCIENT_CITY_THUMBNAIL_URL,
+    ANCIENT_CITY_URL,
+    deleteButton,
+    showInViewer,
+    watchViewer,
+} from '../warden/viewer'
 import { byId } from './instances'
-import { desktopOnly } from './settings'
+import { demoText, desktopOnly } from './settings'
 import type { Handlers } from './types'
 
 const images = import.meta.glob<string>('../assets/screenshots/*/*.webp', {
@@ -53,7 +61,14 @@ const take = () =>
 
 // Taken on first use, after demo-data.json has chosen the instances and when they ran.
 let listed: InstanceScreenshot[] | null = null
-const screenshots = () => (listed ??= take())
+const screenshots = () => {
+    if (!listed) {
+        listed = take()
+        // From then on, the ancient city capture comes alive in the image viewer.
+        watchViewer()
+    }
+    return listed
+}
 
 let groups: ScreenshotGroup[] = []
 
@@ -70,6 +85,21 @@ const matches = (keys: unknown) => (screenshot: InstanceScreenshot) =>
 
 const needsDesktop = () => {
     throw desktopOnly()
+}
+
+/**
+ * A delete of the ancient city capture is heard in its world first (warden/egg.ts),
+ * shown in the viewer: where it was asked from, or opened there from the grid.
+ * True: the warden came and takes it; false: it stays; null: an ordinary delete,
+ * as it is without the capture or without WebGL 2.
+ */
+async function hearDelete(keys: unknown) {
+    const capture = screenshots().find(
+        (screenshot) => screenshot.url === ANCIENT_CITY_URL && matches(keys)(screenshot),
+    )
+    if (!capture || !liveCaptureSupported()) return null
+    if (!(await showInViewer(capture.id, capture.file_name))) return false
+    return await vibrate(deleteButton)
 }
 
 export const screenshotHandlers: Handlers = {
@@ -113,10 +143,18 @@ export const screenshotHandlers: Handlers = {
                 : screenshot,
         )
     },
-    'plugin:instance|instance_delete_screenshots': ({ keys }) => {
+    'plugin:instance|instance_delete_screenshots': async ({ keys }) => {
+        if ((await hearDelete(keys)) === false)
+            throw new Error(
+                demoText(
+                    '没能删除：有什么东西听见了。',
+                    "Couldn't delete it: something heard you.",
+                ),
+            )
         listed = screenshots().filter((screenshot) => !matches(keys)(screenshot))
     },
-    // The recorded images are already small, so a thumbnail is the image itself.
+    // The recorded images are already small, so a thumbnail is the image itself
+    // (but for the ancient city capture, kept at full size).
     'plugin:files|screenshot_thumbnail': async ({ instanceId, filePath }) => {
         const screenshot = screenshots().find(
             (entry) =>
@@ -124,6 +162,14 @@ export const screenshotHandlers: Handlers = {
                 `screenshots/${entry.file_name}` === String(filePath),
         )
         if (!screenshot) throw new Error(`No such screenshot: ${String(filePath)}`)
+        const url =
+            screenshot.url === ANCIENT_CITY_URL ? ANCIENT_CITY_THUMBNAIL_URL : screenshot.url
+        return (await fetch(url)).arrayBuffer()
+    },
+    // The image viewer and Copy read a screenshot's own file; other files need the desktop app.
+    'plugin:fs|read_file': async ({ path }) => {
+        const screenshot = screenshots().find((entry) => entry.path === String(path))
+        if (!screenshot) throw desktopOnly()
         return (await fetch(screenshot.url)).arrayBuffer()
     },
     'plugin:instance|instance_open_screenshot': needsDesktop,

@@ -223,6 +223,21 @@ fn update_artifact_url(relative_path: &str) -> Result<Url> {
     Ok(url)
 }
 
+/// The Windows updater launches the NSIS installer and exits with
+/// `std::process::exit(0)` without returning to the `Exit` handler. The
+/// plugin's hook is the last point where the database can be closed cleanly.
+fn close_database_before_installer() {
+    if let Some(state) = theseus::State::get_if_initialized()
+        && let Err(error) =
+            tauri::async_runtime::block_on(state.finish_database_session())
+    {
+        tracing::warn!(
+            %error,
+            "Could not record a clean database shutdown before the Windows installer"
+        );
+    }
+}
+
 /// Build the platform-updater with the given endpoints and run a check.
 async fn check_with_endpoints<R: Runtime>(
     webview: &Webview<R>,
@@ -238,7 +253,8 @@ async fn check_with_endpoints<R: Runtime>(
         .header("Accept", "application/json")?
         .header("X-Axolotl-Channel", channel)?
         .header("X-Axolotl-Platform", platform)?
-        .header("X-Axolotl-Version", current_version)?;
+        .header("X-Axolotl-Version", current_version)?
+        .on_before_exit(close_database_before_installer);
 
     #[cfg(target_os = "windows")]
     {

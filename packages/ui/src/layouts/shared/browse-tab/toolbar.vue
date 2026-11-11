@@ -40,7 +40,7 @@ const { isStuck: isChromeStuck } = useStickyObserver(stickyChromeRef, 'BrowseToo
         </div>
         <div class="flex flex-col gap-3" :class="variant === 'web' ? '' : 'p-3'">
             <div class="flex min-w-0 flex-wrap items-center gap-2">
-                <NavTabs v-if="showTabs" :links="tabs" class="min-w-0 max-w-full" />
+                <NavTabs v-if="showTabs" :links="tabs" route-sync class="min-w-0 max-w-full" />
                 <div class="ml-auto shrink-0"><slot name="nav-tabs-actions" /></div>
             </div>
             <div class="flex min-w-0 flex-wrap items-center gap-2">

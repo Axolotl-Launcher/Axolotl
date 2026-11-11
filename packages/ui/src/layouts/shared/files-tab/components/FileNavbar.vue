@@ -143,18 +143,6 @@
                     :options="[
                         { id: 'file', action: () => $emit('create', 'file') },
                         { id: 'directory', action: () => $emit('create', 'directory') },
-                        { divider: true, shown: showInstallFromUrl ?? false },
-                        { id: 'upload-zip', shown: false, action: () => $emit('uploadZip') },
-                        {
-                            id: 'install-from-url',
-                            shown: showInstallFromUrl ?? false,
-                            action: () => $emit('unzipFromUrl', false),
-                        },
-                        {
-                            id: 'install-cf-pack',
-                            shown: showInstallFromUrl ?? false,
-                            action: () => $emit('unzipFromUrl', true),
-                        },
                     ]"
                 >
                     <PlusIcon aria-hidden="true" class="h-5 w-5" />
@@ -165,18 +153,6 @@
                     <template #directory>
                         <FolderOpenIcon aria-hidden="true" />
                         {{ formatMessage(messages.newFolder) }}
-                    </template>
-                    <template #upload-zip>
-                        <FileArchiveIcon aria-hidden="true" />
-                        {{ formatMessage(messages.uploadFromZip) }}
-                    </template>
-                    <template #install-from-url>
-                        <LinkIcon aria-hidden="true" />
-                        {{ formatMessage(messages.uploadFromZipUrl) }}
-                    </template>
-                    <template #install-cf-pack>
-                        <CurseForgeIcon aria-hidden="true" />
-                        {{ formatMessage(messages.installCurseForgePack) }}
                     </template>
                 </OverflowMenu>
             </div>
@@ -211,12 +187,9 @@
 import {
     BoxIcon,
     ChevronRightIcon,
-    CurseForgeIcon,
     DropdownIcon,
-    FileArchiveIcon,
     FolderOpenIcon,
     HomeIcon,
-    LinkIcon,
     PlusIcon,
     RefreshCwIcon,
     SearchIcon,
@@ -266,18 +239,6 @@ const messages = defineMessages({
         id: 'files.navbar.new-folder',
         defaultMessage: 'New folder',
     },
-    uploadFromZip: {
-        id: 'files.navbar.upload-from-zip',
-        defaultMessage: 'Upload from .zip file',
-    },
-    uploadFromZipUrl: {
-        id: 'files.navbar.upload-from-zip-url',
-        defaultMessage: 'Upload from .zip URL',
-    },
-    installCurseForgePack: {
-        id: 'files.navbar.install-curseforge-pack',
-        defaultMessage: 'Install CurseForge pack',
-    },
     shareLog: {
         id: 'files.navbar.share-log',
         defaultMessage: 'Share log',
@@ -297,7 +258,6 @@ const props = defineProps<{
     isEditorFindOpen?: boolean
     searchQuery: string
     showRefreshButton?: boolean
-    showInstallFromUrl?: boolean
     baseId: string
     disabled?: boolean
     disabledTooltip?: string
@@ -310,8 +270,6 @@ const emit = defineEmits<{
     'update:searchQuery': [value: string]
     create: [type: 'file' | 'directory']
     upload: []
-    uploadZip: []
-    unzipFromUrl: [cf: boolean]
     refresh: []
     share: []
     find: []

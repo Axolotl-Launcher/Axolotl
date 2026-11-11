@@ -6,8 +6,6 @@ import type { ClientConfig } from '../types/client'
 import type { RequestOptions } from '../types/request'
 import type { UploadHandle, UploadRequestOptions } from '../types/upload'
 import { appendRequestParams, parseResponseErrorData, toFetchBody } from '../utils/fetch'
-import { GenericSyncClient } from './sync-generic'
-import { GenericWebSocketClient } from './websocket-generic'
 import { XHRUploadClient } from './xhr-upload-client'
 
 /**
@@ -90,21 +88,10 @@ export class NuxtModrinthClient extends XHRUploadClient {
     private rateLimitKeyResolved: string | undefined
     private rateLimitKeyPromise: Promise<string | undefined> | undefined
 
+    // Keep the public constructor signature accepting Nuxt-only options such as rateLimitKey.
+    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
     constructor(config: NuxtClientConfig) {
         super(config)
-
-        Object.defineProperty(this.archon, 'sockets', {
-            value: new GenericWebSocketClient(this),
-            writable: false,
-            enumerable: true,
-            configurable: false,
-        })
-        Object.defineProperty(this.archon, 'sync', {
-            value: new GenericSyncClient(this),
-            writable: false,
-            enumerable: true,
-            configurable: false,
-        })
     }
 
     /**

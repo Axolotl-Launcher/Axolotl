@@ -29,6 +29,29 @@ use crate::state::{
     ContentRequirement, ContentSourceKind, local_id,
 };
 
+fn file_modified_date(
+    file: &crate::state::instances::InstanceFile,
+    fingerprint: Option<
+        &crate::state::store::content_file_fingerprints::FileFingerprintRecord,
+    >,
+) -> String {
+    // Database modified_at tracks scans and mutations, not the file's date.
+    fingerprint
+        .filter(|record| {
+            record.relative_path == file.relative_path
+                && record.size == file.size
+                && record.sha1().eq_ignore_ascii_case(&file.sha1)
+        })
+        .and_then(|record| {
+            chrono::DateTime::from_timestamp(
+                record.modified.seconds,
+                record.modified.nanos,
+            )
+        })
+        .unwrap_or(file.added_at)
+        .to_rfc3339()
+}
+
 pub(crate) async fn get_content_snapshot(
     instance_id: &str,
     refresh_remote: bool,
@@ -240,6 +263,7 @@ where
         pending: pending_manual_downloads,
         references: refs_by_entry,
         origins: origin_by_entry,
+        fingerprints,
         ..
     } = crate::state::store::content_snapshot::get(&state.data, instance_id)
         .await?;
@@ -270,7 +294,10 @@ where
         if let Ok(metadata) =
             serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(json)
         {
-            local_metadata_by_entry.insert(entry.id.clone(), metadata);
+            local_metadata_by_entry.insert(
+                entry.id.clone(),
+                metadata.for_loader(content_set.loader.as_str()).clone(),
+            );
         }
     }
     let mut represented_members = HashSet::new();
@@ -302,6 +329,9 @@ where
             serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(json)
                 .ok()
         });
+        let local_mod = local_mod
+            .as_ref()
+            .map(|metadata| metadata.for_loader(content_set.loader.as_str()));
         let title = local_mod
             .as_ref()
             .and_then(|metadata| metadata.name.clone())
@@ -344,7 +374,10 @@ where
             }),
             owner: None,
             update: None,
-            date_added: Some(file.modified_at.to_rfc3339()),
+            date_added: Some(file_modified_date(
+                &file,
+                fingerprints.get(&file.id),
+            )),
             provider_refs,
             origin_provider,
             rollback: None,
@@ -1599,7 +1632,9 @@ pub(crate) async fn refresh_background_metadata(
                 serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(
                     file.local_mod_data.as_deref()?,
                 )
-                .ok()?,
+                .ok()?
+                .for_loader(records.content_set.loader.as_str())
+                .clone(),
             ))
         })
         .collect();

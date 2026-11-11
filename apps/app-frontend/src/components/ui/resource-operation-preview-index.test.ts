@@ -67,13 +67,30 @@ it('reacts to late names and plan revisions, dropping withdrawn nodes and action
         edges: [edge('a', 'child')],
         actions: [action('child', 'install')],
     })
-    const names = reactive<Record<string, string>>({})
-    const index = computed(() =>
-        indexResourceOperationPreview(plan.value, (parent) => names[parent.id] ?? parent.id),
+    const names = reactive<
+        Record<string, { title: string; iconUrl: string | null; summary: string }>
+    >({})
+    let rebuilds = 0
+    const index = computed(
+        () => (
+            rebuilds++,
+            indexResourceOperationPreview(
+                plan.value,
+                (parent) => names[parent.id]?.title ?? parent.id,
+            )
+        ),
     )
     expect(index.value.requiredBy.get('child')?.get('required')).toBe('a')
-    names.a = 'Enriched title'
+    names.a = { title: 'Enriched title', iconUrl: null, summary: '' }
     expect(index.value.requiredBy.get('child')?.get('required')).toBe('Enriched title')
+    const before = rebuilds
+    names.a.iconUrl = 'icon'
+    names.a.summary = 'Updated summary'
+    expect(index.value.requiredBy.get('child')?.get('required')).toBe('Enriched title')
+    expect(rebuilds).toBe(before)
+    names.a.title = 'Renamed title'
+    expect(index.value.requiredBy.get('child')?.get('required')).toBe('Renamed title')
+    expect(rebuilds).toBe(before + 1)
     plan.value = { nodes: [node('child')], edges: [edge('a', 'child')], actions: [] }
     expect(index.value.requiredBy.has('child')).toBe(false)
     expect(index.value.actions.has('child')).toBe(false)

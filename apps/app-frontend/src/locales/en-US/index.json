@@ -1,23 +1,43 @@
 {
-  "app.downloads.slow-downloads.title": { "message": "Slow downloads?" },
+  "app.downloads.slow-downloads.title": {
+    "message": "Slow downloads?"
+  },
   "app.downloads.slow-downloads.description": {
     "message": "You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed."
   },
-  "app.downloads.slow-downloads.dismiss": { "message": "Don't show again" },
-  "app.settings.resources.force-multiconnection": { "message": "Force multi-connection downloads" },
+  "app.downloads.slow-downloads.dismiss": {
+    "message": "Don't show again"
+  },
+  "app.settings.resources.force-multiconnection": {
+    "message": "Force multi-connection downloads"
+  },
   "app.settings.resources.force-multiconnection-description": {
     "message": "Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems."
   },
-  "app.settings.resources.experimental": { "message": "Experimental" },
-  "app.schematics.source.reden": { "message": "Reden" },
-  "app.schematics.source.buildschematics": { "message": "BuildSchematics" },
-  "app.schematics.failed-sources": { "message": "{sources} could not be loaded." },
-  "app.schematics.sort.default": { "message": "Source order" },
-  "app.schematics.sort.name": { "message": "Name" },
+  "app.settings.resources.experimental": {
+    "message": "Experimental"
+  },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "{sources} could not be loaded."
+  },
+  "app.schematics.sort.default": {
+    "message": "Source order"
+  },
+  "app.schematics.sort.name": {
+    "message": "Name"
+  },
   "app.schematics.login-required-sources": {
     "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
   },
-  "app.schematics.open-source": { "message": "View on source website" },
+  "app.schematics.open-source": {
+    "message": "View on source website"
+  },
   "app.schematics.instances-error": {
     "message": "Could not load your instances."
   },
@@ -63,8 +83,12 @@
   "app.schematics.search": {
     "message": "Search schematics"
   },
-  "app.schematics.sort.hot": { "message": "Popular" },
-  "app.schematics.sort.featured": { "message": "Featured" },
+  "app.schematics.sort.hot": {
+    "message": "Popular"
+  },
+  "app.schematics.sort.featured": {
+    "message": "Featured"
+  },
   "app.schematics.author-summary": {
     "message": "{author} · {summary}"
   },
@@ -77,11 +101,21 @@
   "app.schematics.installing": {
     "message": "Installing…"
   },
-  "app.schematics.preview": { "message": "Preview" },
-  "app.schematics.files": { "message": "Files" },
-  "app.schematics.creator": { "message": "Creator" },
-  "app.schematics.source-heading": { "message": "Source" },
-  "app.schematics.preview-source": { "message": "Shimu Space · {fileName}" },
+  "app.schematics.preview": {
+    "message": "Preview"
+  },
+  "app.schematics.files": {
+    "message": "Files"
+  },
+  "app.schematics.creator": {
+    "message": "Creator"
+  },
+  "app.schematics.source-heading": {
+    "message": "Source"
+  },
+  "app.schematics.preview-source": {
+    "message": "Shimu Space · {fileName}"
+  },
   "app.schematics.installed": {
     "message": "Installed"
   },
@@ -802,6 +836,9 @@
   "app.appearance-settings.custom-background.converting": {
     "message": "Converting animated background…"
   },
+  "app.appearance-settings.custom-background.converting-hint": {
+    "message": "This can take a few seconds for longer animations."
+  },
   "app.appearance-settings.custom-background.crop-aspect-window": {
     "message": "Current window"
   },
@@ -1309,6 +1346,60 @@
   "app.content-favorites.empty-title": {
     "message": "No favorites yet"
   },
+  "app.content-favorites.filters.categories": {
+    "message": "Categories"
+  },
+  "app.content-favorites.filters.no-categories": {
+    "message": "No categories to filter yet."
+  },
+  "app.content-favorites.groups.all": {
+    "message": "All favorites"
+  },
+  "app.content-favorites.groups.create-title": {
+    "message": "New group"
+  },
+  "app.content-favorites.groups.delete": {
+    "message": "Delete group"
+  },
+  "app.content-favorites.groups.delete-description": {
+    "message": "Favorites in {name} will not be deleted. They become ungrouped instead."
+  },
+  "app.content-favorites.groups.manage": {
+    "message": "Groups"
+  },
+  "app.content-favorites.groups.name": {
+    "message": "Group name"
+  },
+  "app.content-favorites.groups.name-empty": {
+    "message": "Group names cannot be empty."
+  },
+  "app.content-favorites.groups.name-placeholder": {
+    "message": "Enter a group name"
+  },
+  "app.content-favorites.groups.name-too-long": {
+    "message": "Group names cannot be longer than {max} characters."
+  },
+  "app.content-favorites.groups.new": {
+    "message": "New group"
+  },
+  "app.content-favorites.groups.none": {
+    "message": "No groups yet"
+  },
+  "app.content-favorites.groups.rename": {
+    "message": "Rename group"
+  },
+  "app.content-favorites.groups.rename-title": {
+    "message": "Rename group"
+  },
+  "app.content-favorites.groups.save": {
+    "message": "Save"
+  },
+  "app.content-favorites.groups.title": {
+    "message": "Groups"
+  },
+  "app.content-favorites.groups.ungrouped": {
+    "message": "No group"
+  },
   "app.content-favorites.load-failed": {
     "message": "Failed to load favorites"
   },
@@ -1316,7 +1407,7 @@
     "message": "Updating favorites…"
   },
   "app.content-favorites.no-matches-description": {
-    "message": "Try a different search or content type."
+    "message": "Try a different search, content type, group, or category."
   },
   "app.content-favorites.no-matches-title": {
     "message": "No matching favorites"
@@ -2149,6 +2240,12 @@
   "app.drop.content-installed-title": {
     "message": "Content installed"
   },
+  "app.drop.error.invalid-folder-text": {
+    "message": "No valid game instance or supported content was found in this folder. Choose another folder."
+  },
+  "app.drop.error.invalid-folder-title": {
+    "message": "Cannot import folder"
+  },
   "app.drop.error.multiple-files-text": {
     "message": "Please drop one file at a time."
   },
@@ -2241,6 +2338,9 @@
   },
   "app.drop.no-instances": {
     "message": "No instances found"
+  },
+  "app.drop.no-instances-text": {
+    "message": "No valid game instance was found in this folder. Choose a launcher folder or a .minecraft folder containing a game version."
   },
   "app.drop.overlay-subtitle": {
     "message": "Release to analyze"
@@ -13534,11 +13634,20 @@
   "app.settings.resources.ignore-ssl-errors-description": {
     "message": "Allows downloads through proxies or network tools that replace HTTPS certificates. This disables certificate verification and can expose downloads to tampering. Enable it only when necessary."
   },
+  "app.settings.resources.forced-connection-limit": {
+    "message": "Experimental connection limit"
+  },
+  "app.settings.resources.forced-connection-limit-description": {
+    "message": "Connections are shared across files in proportion to their remaining size. Default: 72. A lower manual download limit still applies. Higher limits may increase network load and retries. In most cases, higher the cap is, faster the speed is. If you think your downloading speed isn't fast enough, you can increase the value with precision. If speed dropped, please decrase this value."
+  },
+  "app.settings.resources.forced-connection-limit-custom": {
+    "message": "Custom"
+  },
   "app.settings.resources.maximum-downloads": {
     "message": "Maximum concurrent downloads"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use up to 72 connections, or a lower manual limit. Manual changes apply immediately."
+    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use the experimental connection limit, or a lower manual limit. Manual changes apply immediately."
   },
   "app.settings.resources.maximum-writes": {
     "message": "Maximum concurrent writes"
@@ -15060,6 +15169,18 @@
   },
   "app.translation.error.rate-limited": {
     "message": "The translation service is temporarily rate limited. Please try again later."
+  },
+  "app.unsaved-selection.description": {
+    "message": "You have selected {count} item(s) that have not been installed. Leaving will discard them."
+  },
+  "app.unsaved-selection.discard": {
+    "message": "Discard and leave"
+  },
+  "app.unsaved-selection.stay": {
+    "message": "Stay on this page"
+  },
+  "app.unsaved-selection.title": {
+    "message": "Uninstalled selection"
   },
   "app.update-announcement.category.added": {
     "message": "Added"
@@ -17460,6 +17581,9 @@
   },
   "minecraft-account.copy-uuid": {
     "message": "Copy UUID"
+  },
+  "minecraft-account.drag-to-reorder": {
+    "message": "Drag to reorder, or press Alt with the arrow keys"
   },
   "minecraft-account.label": {
     "message": "Minecraft account"

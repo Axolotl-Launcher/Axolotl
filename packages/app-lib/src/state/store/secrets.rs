@@ -15,7 +15,11 @@
 
 #[cfg(test)]
 use std::cell::Cell;
+#[cfg(any(target_os = "macos", test))]
+use std::collections::HashMap;
 use std::path::Path;
+#[cfg(any(target_os = "macos", test))]
+use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -400,6 +404,64 @@ impl Backend for System {
     }
 }
 
+/// A store that is asked for each secret once per run.
+///
+/// Release builds carry no stable code signature, so the macOS keychain treats
+/// every update as a new application and asks for the login password on each
+/// read of each item until the user picks "Always Allow". Account refreshes read
+/// the same items again and again, which turns one prompt into a stream of them.
+///
+/// The lock only ever covers one map operation and is never held across the
+/// store, whose answer can wait on the user. Only a value is remembered: a
+/// missing entry costs no prompt, and a refusal has to be able to change.
+#[cfg(any(target_os = "macos", test))]
+struct Remembering<B> {
+    store: B,
+    known: Mutex<HashMap<String, String>>,
+}
+
+#[cfg(any(target_os = "macos", test))]
+impl<B> Remembering<B> {
+    fn new(store: B) -> Self {
+        Self {
+            store,
+            known: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn known(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
+        self.known.lock().unwrap_or_else(|error| error.into_inner())
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+impl<B: Backend> Backend for Remembering<B> {
+    fn set(&self, key: &str, value: &str) -> Result<(), Refused> {
+        self.store.set(key, value)?;
+        self.known().insert(key.to_string(), value.to_string());
+        Ok(())
+    }
+
+    fn get(&self, key: &str) -> Result<Option<String>, Refused> {
+        if let Some(value) = self.known().get(key) {
+            return Ok(Some(value.clone()));
+        }
+        let Some(value) = self.store.get(key)? else {
+            return Ok(None);
+        };
+        // A write that landed during the read is newer than what was read.
+        Ok(Some(
+            self.known().entry(key.to_string()).or_insert(value).clone(),
+        ))
+    }
+
+    fn delete(&self, key: &str) -> Result<(), Refused> {
+        self.store.delete(key)?;
+        self.known().remove(key);
+        Ok(())
+    }
+}
+
 #[cfg(not(test))]
 fn entry(key: &str) -> Result<keyring::Entry, Refused> {
     // The data directory the run keeps its rows in is part of the name, so two
@@ -444,7 +506,14 @@ fn backend() -> &'static dyn Backend {
     testing::backend()
 }
 
-#[cfg(not(test))]
+#[cfg(all(not(test), target_os = "macos"))]
+fn backend() -> &'static dyn Backend {
+    static KEYCHAIN: std::sync::LazyLock<Remembering<System>> =
+        std::sync::LazyLock::new(|| Remembering::new(System));
+    &*KEYCHAIN
+}
+
+#[cfg(all(not(test), not(target_os = "macos")))]
 fn backend() -> &'static dyn Backend {
     &System
 }
@@ -613,8 +682,123 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-    use super::{base_identifier, namespace_of};
+    use super::testing::Memory;
+    use super::{Backend, Refused, Remembering, base_identifier, namespace_of};
+
+    /// A store that counts how often it is really asked for a value.
+    #[derive(Default)]
+    struct Counting {
+        store: Memory,
+        reads: AtomicUsize,
+        refuses_reads: AtomicBool,
+    }
+
+    impl Backend for Counting {
+        fn set(&self, key: &str, value: &str) -> Result<(), Refused> {
+            self.store.set(key, value)
+        }
+
+        fn get(&self, key: &str) -> Result<Option<String>, Refused> {
+            self.reads.fetch_add(1, Ordering::Relaxed);
+            if self.refuses_reads.load(Ordering::Relaxed) {
+                return Err(Refused {
+                    reason: "the user cancelled the prompt".to_string(),
+                    permanent: false,
+                });
+            }
+            self.store.get(key)
+        }
+
+        fn delete(&self, key: &str) -> Result<(), Refused> {
+            self.store.delete(key)
+        }
+    }
+
+    fn remembering() -> Remembering<Counting> {
+        Remembering::new(Counting::default())
+    }
+
+    fn reads(remembering: &Remembering<Counting>) -> usize {
+        remembering.store.reads.load(Ordering::Relaxed)
+    }
+
+    fn read(remembering: &Remembering<Counting>, key: &str) -> Option<String> {
+        remembering.get(key).ok().flatten()
+    }
+
+    #[test]
+    fn a_secret_is_only_asked_for_once() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+        assert_eq!(reads(&store), 1);
+    }
+
+    #[test]
+    fn a_written_secret_replaces_the_remembered_one() {
+        let store = remembering();
+        store.store.store.put("token", "old");
+        read(&store, "token");
+
+        store.set("token", "new").map_err(|_| ()).unwrap();
+
+        assert_eq!(read(&store, "token").as_deref(), Some("new"));
+        assert_eq!(store.store.store.value("token").as_deref(), Some("new"));
+        assert_eq!(reads(&store), 1);
+    }
+
+    #[test]
+    fn a_deleted_secret_is_not_remembered() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+        read(&store, "token");
+
+        store.delete("token").map_err(|_| ()).unwrap();
+
+        assert_eq!(read(&store, "token"), None);
+        assert_eq!(reads(&store), 2);
+    }
+
+    #[test]
+    fn a_delete_the_store_refuses_keeps_the_secret() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+        read(&store, "token");
+        store.store.store.refuse_deletes();
+
+        assert!(store.delete("token").is_err());
+
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+    }
+
+    #[test]
+    fn a_refused_read_can_be_answered_later() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+        store.store.refuses_reads.store(true, Ordering::Relaxed);
+        assert!(store.get("token").is_err());
+
+        store.store.refuses_reads.store(false, Ordering::Relaxed);
+
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+    }
+
+    #[test]
+    fn a_missing_entry_is_looked_up_again() {
+        let store = remembering();
+        assert_eq!(read(&store, "token"), None);
+
+        store.store.store.put("token", "from another writer");
+
+        assert_eq!(
+            read(&store, "token").as_deref(),
+            Some("from another writer")
+        );
+    }
 
     /// Two data directories never share the entries that hold their secrets, and
     /// neither puts its own path into the name.

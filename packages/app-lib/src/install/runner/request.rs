@@ -136,6 +136,7 @@ pub(super) async fn run_request(
         InstallRequest::CreateModpackInstance {
             location,
             post_install_edit,
+            ..
         } => {
             let Some(instance_id) = current_instance_id(job_state) else {
                 return Err(crate::ErrorKind::InputError(

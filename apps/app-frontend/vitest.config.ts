@@ -88,7 +88,6 @@ export default defineConfig({
             '@tauri-apps/api/path',
             '@tauri-apps/plugin-http',
             '@tauri-apps/plugin-window-state',
-            '@modrinth/api-client > mitt',
             'ofetch',
             'vue-i18n',
         ],

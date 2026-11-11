@@ -1,7 +1,7 @@
 [package]
 name = "theseus"
 # The actual version is set by the theseus-build workflow on tagging
-version = "1.11.0-beta.2"
+version = "1.11.0-beta.4"
 edition.workspace = true
 
 [package.metadata.cargo-machete]
@@ -9,14 +9,9 @@ edition.workspace = true
 ignored = ["dotenvy"]
 
 [dependencies]
-ariadne = { workspace = true }
 async-minecraft-ping = { workspace = true, features = ["srv"] }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
-async-tungstenite = { workspace = true, features = [
-  "tokio-runtime",
-  "tokio-rustls-webpki-roots"
-] }
 async-walkdir = { workspace = true }
 async_zip = { workspace = true, features = [
   "bzip2",

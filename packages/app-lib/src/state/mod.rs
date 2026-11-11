@@ -111,10 +111,11 @@ static LAUNCHER_STATE: OnceCell<Arc<State>> = OnceCell::const_new();
 /// must still release the deferred work once the state exists.
 static FRONTEND_READY: FrontendReadiness = FrontendReadiness::new();
 
-/// Guards the long-running startup tasks below. Recreating the main webview
-/// calls `State::init` again, and a second copy of the config sync, watcher,
-/// refresh, controller and preload loops would double their work.
-static STARTUP_BACKGROUND_TASKS: OnceCell<()> = OnceCell::const_new();
+/// Guards the process-wide startup work. Recreating the main webview calls
+/// `State::init` again; a second recovery pass can interrupt install workers
+/// that are still running, and a second copy of the loops would double their
+/// work. A later caller waits for the first run through this cell.
+static STARTUP_WORK: OnceCell<()> = OnceCell::const_new();
 
 /// Bounds how long deferred startup work waits for the frontend. A window
 /// that never reports readiness (for example, a hidden lightweight-mode
@@ -768,19 +769,29 @@ impl State {
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await?;
 
+        STARTUP_WORK
+            .get_or_try_init(|| Self::start_background(Arc::clone(state)))
+            .await?;
+        Ok(())
+    }
+
+    /// Performs the recovery and background work that must happen once per
+    /// process. `STARTUP_WORK` serializes this for a recreated webview instead
+    /// of running recovery while the previous webview's workers are alive.
+    async fn start_background(state: Arc<Self>) -> crate::Result<()> {
         if let Err(error) =
-            instances::commands::recover_content_file_operations(state).await
+            instances::commands::recover_content_file_operations(&state).await
         {
             tracing::error!(%error, "Error recovering content file operations");
         }
         if let Err(e) =
-            crate::install::recovery::recover_interrupted_jobs(state).await
+            crate::install::recovery::recover_interrupted_jobs(&state).await
         {
             tracing::error!("Error recovering interrupted install jobs: {e}");
         }
         if let Err(e) =
             crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
-                state,
+                &state,
             )
             .await
         {
@@ -788,15 +799,11 @@ impl State {
                 "Error reconciling persisted CurseForge waiting install jobs: {e}"
             );
         }
-        crate::scheduler::reconcile::at_startup(state).await;
+        crate::scheduler::reconcile::at_startup(&state).await;
         crate::scheduler::quota::check_at_startup();
 
-        if STARTUP_BACKGROUND_TASKS.set(()).is_err() {
-            return Ok(());
-        }
-
         state.spawn_background({
-            let state = Arc::clone(state);
+            let state = Arc::clone(&state);
             async move {
                 wait_for_frontend_ready("deferred instance config sync").await;
                 instances::config_sync::run(state).await;
@@ -804,13 +811,13 @@ impl State {
         });
 
         state.spawn_background({
-            let state = Arc::clone(state);
+            let state = Arc::clone(&state);
             async move {
                 state.run_auto_concurrency_controller().await;
             }
         });
 
-        crate::telemetry::start(Arc::clone(state));
+        crate::telemetry::start(Arc::clone(&state));
 
         state.spawn_background(async move {
             wait_for_frontend_ready("Google Translate IP preload").await;
@@ -818,7 +825,7 @@ impl State {
         });
 
         state.spawn_background({
-            let state = Arc::clone(state);
+            let state = Arc::clone(&state);
             async move {
                 // Discord presence and settings migration do not scan
                 // instance directories, and the frontend reads settings while
@@ -2376,6 +2383,22 @@ mod frontend_readiness_tests {
         assert!(
             started.elapsed() < Duration::from_secs(2),
             "marking must wake the waiter instead of letting the timeout expire"
+        );
+    }
+
+    #[tokio::test]
+    async fn mark_releases_every_registered_waiter() {
+        let readiness = FrontendReadiness::new();
+        let started = Instant::now();
+        let (first, second, ()) = tokio::join!(
+            readiness.wait(Duration::from_secs(5)),
+            readiness.wait(Duration::from_secs(5)),
+            async { readiness.mark() },
+        );
+        assert!(first && second, "marking must wake every registered waiter");
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "waiters must not fall through to the timeout"
         );
     }
 }

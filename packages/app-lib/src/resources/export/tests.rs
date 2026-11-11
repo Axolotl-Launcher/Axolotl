@@ -38,17 +38,54 @@ async fn direct_link_instances_export_their_game_directory_and_loader_requiremen
     let state = State::get().await.unwrap();
     let (_cache, service, _, _) = setup(false).await;
     for mode in [ExternalGameDirMode::Isolated, ExternalGameDirMode::Shared] {
-        for (loader, library, loader_version) in [
-            (None, None, None),
+        for (game_version, loader, library, arguments, loader_version) in [
+            ("1.20.1", None, None, &[][..], None),
             (
+                "1.20.1",
                 Some("fabric"),
                 Some("net.fabricmc:fabric-loader:0.16.9"),
+                &[][..],
                 Some("0.16.9"),
             ),
             (
+                "1.20.1",
                 Some("forge"),
                 Some("net.minecraftforge:forge:1.20.1-47.3.0"),
+                &[][..],
                 Some("47.3.0"),
+            ),
+            (
+                "1.20.1",
+                Some("forge"),
+                Some("net.minecraftforge:forge:1.20.1-47.4.28:universal"),
+                &[][..],
+                Some("47.4.28"),
+            ),
+            (
+                "1.21.1",
+                Some("neoforge"),
+                Some("net.neoforged.fancymodloader:loader:4.0.43"),
+                &[
+                    "--fml.fmlVersion",
+                    "4.0.43",
+                    "--fml.neoForgeVersion",
+                    "21.1.248",
+                ][..],
+                Some("21.1.248"),
+            ),
+            (
+                "1.21.1",
+                Some("neoforge"),
+                Some("net.neoforged:neoforge:21.1.248:universal"),
+                &[][..],
+                Some("21.1.248"),
+            ),
+            (
+                "1.20.1",
+                Some("neoforge"),
+                Some("net.neoforged:forge:1.20.1-47.1.99:universal"),
+                &["--fml.forgeVersion", "47.1.99"][..],
+                Some("47.1.99"),
             ),
         ] {
             let temp = tempfile::tempdir().unwrap();
@@ -57,8 +94,9 @@ async fn direct_link_instances_export_their_game_directory_and_loader_requiremen
             std::fs::create_dir_all(&version_dir).unwrap();
             let version = serde_json::json!({
                 "id": "export-demo",
-                "inheritsFrom": "1.20.1",
+                "inheritsFrom": game_version,
                 "mainClass": "net.minecraft.client.main.Main",
+                "arguments": {"game": arguments},
                 "libraries": library.into_iter().map(|name| serde_json::json!({"name": name})).collect::<Vec<_>>(),
             });
             let version_bytes = serde_json::to_vec(&version).unwrap();
@@ -114,7 +152,7 @@ async fn direct_link_instances_export_their_game_directory_and_loader_requiremen
             )
             .await
             .unwrap();
-            assert_eq!(scan.requirements.game_version, "1.20.1");
+            assert_eq!(scan.requirements.game_version, game_version);
             assert_eq!(scan.requirements.loader.as_deref(), loader);
             assert_eq!(
                 scan.requirements.loader_version.as_deref(),
@@ -155,7 +193,7 @@ async fn direct_link_instances_export_their_game_directory_and_loader_requiremen
                 .unwrap();
                 let (_, manifest) = super::formats::manifest(&plan).unwrap();
                 if format == ResourceExportFormat::CurseForge {
-                    assert_eq!(manifest["minecraft"]["version"], "1.20.1");
+                    assert_eq!(manifest["minecraft"]["version"], game_version);
                     let loaders =
                         manifest["minecraft"]["modLoaders"].as_array().unwrap();
                     assert_eq!(loaders.len(), usize::from(loader.is_some()));
@@ -166,7 +204,10 @@ async fn direct_link_instances_export_their_game_directory_and_loader_requiremen
                         );
                     }
                 } else {
-                    assert_eq!(manifest["dependencies"]["minecraft"], "1.20.1");
+                    assert_eq!(
+                        manifest["dependencies"]["minecraft"],
+                        game_version
+                    );
                     if let Some(loader) = loader {
                         let key = if loader == "fabric" {
                             "fabric-loader"
@@ -201,6 +242,19 @@ async fn direct_link_instances_export_their_game_directory_and_loader_requiremen
                     "{:?}",
                     job.error
                 );
+                let preview = crate::api::pack::install_from::get_instance_from_pack(
+                    crate::api::pack::install_from::CreatePackLocation::FromFile {
+                        path: output.clone(),
+                    },
+                )
+                .await
+                .unwrap();
+                assert_eq!(preview.game_version, game_version);
+                assert_eq!(
+                    preview.modloader.as_str(),
+                    loader.unwrap_or("vanilla")
+                );
+                assert_eq!(preview.loader_version.as_deref(), loader_version);
                 let mut archive =
                     zip::ZipArchive::new(std::fs::File::open(output).unwrap())
                         .unwrap();

@@ -557,44 +557,35 @@ fn detect_loader(
         return Some(("cleanroom".into(), version));
     }
 
+    let neoforge_version = game_argument(json, "--fml.neoForgeVersion");
+    let forge_version = game_argument(json, "--fml.forgeVersion");
+    let is_neoforge =
+        lower.contains("net.neoforge") || neoforge_version.is_some();
+
     // Forge
-    if lower.contains("minecraftforge") && !lower.contains("net.neoforge") {
-        let version = try_extract_version_from_needle(
-            content,
-            "minecraftforge:forge:",
-            None,
-        )
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.minecraftforge:forge:",
-                None,
-            )
-        })
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.minecraftforge:fmlloader:",
-                None,
-            )
-        });
+    if (lower.contains("minecraftforge") || forge_version.is_some())
+        && !is_neoforge
+    {
+        let version = forge_version
+            .or_else(|| library_version(content, "minecraftforge:forge:"))
+            .or_else(|| library_version(content, "net.minecraftforge:forge:"))
+            .or_else(|| {
+                library_version(content, "net.minecraftforge:fmlloader:")
+            });
         return Some(("forge".into(), version));
     }
 
     // NeoForge
-    if lower.contains("net.neoforge") {
-        let version = try_extract_version_from_needle(
-            content,
-            "net.neoforged:neoforge:",
-            None,
-        )
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.neoforged.neoforge:neoforge:",
-                None,
-            )
-        });
+    if is_neoforge {
+        // NeoForge 1.20.1 still uses --fml.forgeVersion. Its FML library
+        // version is independent of the NeoForge version recorded here.
+        let version = neoforge_version
+            .or(forge_version)
+            .or_else(|| library_version(content, "net.neoforged:neoforge:"))
+            .or_else(|| {
+                library_version(content, "net.neoforged.neoforge:neoforge:")
+            })
+            .or_else(|| library_version(content, "net.neoforged:forge:"));
         return Some(("neoforge".into(), version));
     }
 
@@ -617,6 +608,34 @@ fn detect_loader(
 
     debug!("detect_loader: no known loader library found in JSON content");
     None
+}
+
+fn game_argument(json: &Value, name: &str) -> Option<String> {
+    json.get("arguments")?
+        .get("game")?
+        .as_array()?
+        .windows(2)
+        .find_map(|pair| {
+            if pair[0].as_str() != Some(name) {
+                return None;
+            }
+            pair[1]
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty() && !value.starts_with("--"))
+                .map(str::to_string)
+        })
+}
+
+fn library_version(content: &str, coordinate: &str) -> Option<String> {
+    let version = try_extract_version_from_needle(content, coordinate, None)?;
+    // Maven's fourth segment is an artifact classifier, not a loader version.
+    version
+        .split([':', '@'])
+        .next()
+        .map(str::trim)
+        .filter(|version| !version.is_empty())
+        .map(str::to_string)
 }
 
 fn detect_adjuncts(
@@ -787,6 +806,155 @@ mod tests {
             "neoforge",
             Some("1.20.1-44.0.3"),
         );
+    }
+
+    #[test]
+    fn forge_and_neoforge_read_explicit_game_arguments() {
+        for (game_version, loader, library, arguments, expected) in [
+            (
+                "1.21.1",
+                "neoforge",
+                "net.neoforged.fancymodloader:loader:4.0.43",
+                serde_json::json!([
+                    "--fml.fmlVersion",
+                    "4.0.43",
+                    "--fml.neoForgeVersion",
+                    "21.1.248"
+                ]),
+                "21.1.248",
+            ),
+            (
+                "1.20.6",
+                "neoforge",
+                "net.neoforged:neoforge:20.6.1:universal",
+                serde_json::json!([
+                    "--fml.forgeVersion",
+                    "47.1.99",
+                    "--fml.neoForgeVersion",
+                    "20.6.119-beta"
+                ]),
+                "20.6.119-beta",
+            ),
+            (
+                "1.20.1",
+                "neoforge",
+                "net.neoforged:forge:1.20.1-47.1.99:universal",
+                serde_json::json!(["--fml.forgeVersion", "47.1.99"]),
+                "47.1.99",
+            ),
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:fmlloader:1.20.1-47.4.2",
+                serde_json::json!(["--fml.forgeVersion", "47.4.28"]),
+                "47.4.28",
+            ),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let version = serde_json::json!({
+                "id": "export-demo",
+                "inheritsFrom": game_version,
+                "arguments": {"game": arguments},
+                "libraries": [{"name": library}],
+            });
+            let version_dir = write_version_dir(
+                temp.path(),
+                "export-demo",
+                &version.to_string(),
+            );
+            let detected = detect(&version_dir).unwrap();
+            assert_eq!(detected.vanilla_name, game_version);
+            assert_eq!(detected.loader.as_deref(), Some(loader));
+            assert_eq!(detected.loader_version.as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn forge_and_neoforge_library_versions_exclude_classifiers() {
+        for (game_version, loader, library, expected) in [
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:forge:1.20.1-47.4.28:universal",
+                "47.4.28",
+            ),
+            (
+                "1.7.10",
+                "forge",
+                "net.minecraftforge:forge:1.7.10-10.13.4.1614-1.7.10:universal",
+                "10.13.4.1614",
+            ),
+            (
+                "1.21.1",
+                "neoforge",
+                "net.neoforged:neoforge:21.1.248:universal",
+                "21.1.248",
+            ),
+            (
+                "1.20.6",
+                "neoforge",
+                "net.neoforged:neoforge:20.6.119-beta:universal@jar",
+                "20.6.119-beta",
+            ),
+            (
+                "1.20.1",
+                "neoforge",
+                "net.neoforged:forge:1.20.1-47.1.99:universal",
+                "47.1.99",
+            ),
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:forge:1.20.1-47.4.28",
+                "47.4.28",
+            ),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let version = serde_json::json!({
+                "id": "export-demo",
+                "inheritsFrom": game_version,
+                "libraries": [{"name": library}],
+            });
+            let version_dir = write_version_dir(
+                temp.path(),
+                "export-demo",
+                &version.to_string(),
+            );
+            let detected = detect(&version_dir).unwrap();
+            assert_eq!(detected.loader.as_deref(), Some(loader));
+            assert_eq!(detected.loader_version.as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn neoforge_does_not_use_the_fml_library_version() {
+        assert_loader(
+            r#"{
+                "arguments": {"game": ["--fml.fmlVersion", "4.0.43"]},
+                "libraries": [{"name": "net.neoforged.fancymodloader:loader:4.0.43"}]
+            }"#,
+            "neoforge",
+            None,
+        );
+    }
+
+    #[test]
+    fn malformed_loader_arguments_fall_back_to_the_library_version() {
+        for arguments in [
+            serde_json::json!(["--fml.neoForgeVersion"]),
+            serde_json::json!(["--fml.neoForgeVersion", " "]),
+            serde_json::json!([
+                "--fml.neoForgeVersion",
+                "--fml.fmlVersion",
+                "4.0.43"
+            ]),
+        ] {
+            let version = serde_json::json!({
+                "arguments": {"game": arguments},
+                "libraries": [{"name": "net.neoforged:neoforge:21.1.248:universal"}],
+            });
+            assert_loader(&version.to_string(), "neoforge", Some("21.1.248"));
+        }
     }
 
     #[test]

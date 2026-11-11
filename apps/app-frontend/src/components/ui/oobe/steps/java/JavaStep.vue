@@ -23,6 +23,7 @@ import DownloadJavaModal from '@/components/ui/settings/DownloadJavaModal.vue'
 import { trackEvent } from '@/helpers/analytics'
 import { java_discovery_listener } from '@/helpers/events'
 import { wait_for_install_job } from '@/helpers/install'
+import { confirmJavaSelection } from '@/helpers/java-selection'
 import {
     find_filtered_jres,
     get_java_default_versions,
@@ -190,13 +191,15 @@ function detailOf(java: JavaVersion) {
 
 /** Makes `java` the default for its major version, as Settings does. */
 async function choose(java: JavaVersion) {
-    if (defaults.get(java.parsed_version) === java.path || choosing.value) return
+    if (choosing.value) return
     choosing.value = java.path
     step.setBusy(true)
     try {
-        const saved = (await set_java_default_version(java.parsed_version, java.path)) as
+        const selected = await confirmJavaSelection(java, formatMessage)
+        if (!selected || defaults.get(selected.parsed_version) === selected.path) return
+        const saved = (await set_java_default_version(selected.parsed_version, selected.path)) as
             JavaVersion | undefined
-        defaults.set(java.parsed_version, saved?.path ?? java.path)
+        defaults.set(selected.parsed_version, saved?.path ?? selected.path)
         markChanged()
     } catch (error) {
         handleError(error as Error)
@@ -225,9 +228,11 @@ async function addManual() {
             addResult.value = { ok: false, message: formatMessage(messages.invalid) }
             return
         }
-        await set_java_version(java)
-        const saved = ((await set_java_default_version(java.parsed_version, java.path)) ??
-            java) as JavaVersion
+        const selected = await confirmJavaSelection(java, formatMessage)
+        if (!selected) return
+        await set_java_version(selected)
+        const saved = ((await set_java_default_version(selected.parsed_version, selected.path)) ??
+            selected) as JavaVersion
         defaults.set(saved.parsed_version, saved.path)
         if (!javas.value.some((entry) => entry.path === saved.path)) {
             javas.value = [...javas.value, saved]

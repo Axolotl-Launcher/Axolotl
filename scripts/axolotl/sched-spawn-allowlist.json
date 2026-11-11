@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "file": "packages/app-lib/src/util/java_storage.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed command-scoped Windows volume and storage-property inspection; awaited blocking worker owns only its temporary device handle, acquires no managed resource, and keeps driver I/O off the async runtime (D17)",
+      "sites": [
+        "inspect: tokio::task::spawn_blocking(move || inspect_windows(&path))"
+      ]
+    },
+    {
       "file": "apps/installer-ui/src/executable_install.rs",
       "form": "std::fs import",
       "count": 10,

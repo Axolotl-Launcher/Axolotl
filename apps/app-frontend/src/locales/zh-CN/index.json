@@ -1,4 +1,16 @@
 {
+  "app.java.external.title": {
+    "message": "使用此存储设备上的 Java？"
+  },
+  "app.java.external.body": {
+    "message": "此 Java 位于外部、网络或未识别的存储设备上。设备不可用时，游戏将无法启动。\n\n{path}"
+  },
+  "app.java.external.use": {
+    "message": "使用此 Java"
+  },
+  "app.java.external.cancel": {
+    "message": "取消"
+  },
   "app.downloads.slow-downloads.title": {
     "message": "下载缓慢？"
   },

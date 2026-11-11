@@ -464,12 +464,10 @@ pub async fn get_java_version_from_launch_context(
 ) -> crate::Result<Option<JavaVersion>> {
     if let Some(java) = context.launch_overrides.java_path.as_ref() {
         let java =
-            crate::api::jre::check_jre(std::path::PathBuf::from(java)).await;
-
-        if let Ok(java) = java {
-            validate_loader_java_version(version_info, &java)?;
-            return Ok(Some(java));
-        }
+            crate::api::jre::check_jre(std::path::PathBuf::from(java)).await?;
+        crate::api::jre::ensure_java_storage_approved(&java).await?;
+        validate_loader_java_version(version_info, &java)?;
+        return Ok(Some(java));
     }
 
     let key = required_java_major(version_info);
@@ -2550,6 +2548,7 @@ pub async fn launch_minecraft(
     // Test jre version
     let java_version =
         crate::api::jre::check_jre(java_version.path.clone().into()).await?;
+    crate::api::jre::ensure_java_storage_approved(&java_version).await?;
     validate_loader_java_version(&version_info, &java_version)?;
 
     // Runtime-verify and fall back for GC arguments against the *actual* JVM

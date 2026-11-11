@@ -25,6 +25,7 @@ use sysinfo::{MemoryRefreshKind, RefreshKind};
 
 use crate::state::documents;
 use crate::util::io;
+use crate::util::java_storage::{self, JavaStorage, StorageKind};
 use crate::util::jre::extract_java_version;
 use crate::{
     LoadingBarType, State,
@@ -36,6 +37,145 @@ use xz2::read::XzDecoder;
 pub struct RegisteredJavaVersions {
     pub runtimes: Vec<JavaVersion>,
     pub defaults: Vec<JavaVersion>,
+}
+
+#[derive(Serialize)]
+pub struct JavaSelectionInfo {
+    pub runtime: JavaVersion,
+    pub storage: JavaStorage,
+    pub requires_confirmation: bool,
+}
+
+pub async fn get_java_selection_info(
+    path: PathBuf,
+) -> crate::Result<JavaSelectionInfo> {
+    let runtime = check_jre(path).await?;
+    let storage = java_storage::inspect(Path::new(&runtime.path)).await?;
+    let state = State::get().await?;
+    let document =
+        documents::java::read(&documents::Documents::new(&state)).await?;
+    let requires_confirmation =
+        !storage_approved(&runtime.path, &storage, &document);
+    Ok(JavaSelectionInfo {
+        runtime,
+        storage,
+        requires_confirmation,
+    })
+}
+
+/// Records the actual volume that the user reviewed, never a drive letter alone.
+pub async fn approve_java_selection(
+    path: PathBuf,
+    volume_id: String,
+) -> crate::Result<JavaVersion> {
+    let selection = get_java_selection_info(path).await?;
+    if selection.storage.volume_id != volume_id {
+        return Err(crate::ErrorKind::InputError("The Java storage device changed. Select Java again before continuing.".into()).into());
+    }
+    let state = State::get().await?;
+    documents::java::approve_external(
+        &documents::Documents::new(&state),
+        selection.runtime.path.clone(),
+        volume_id,
+    )
+    .await?;
+    ensure_java_storage_approved(&selection.runtime).await?;
+    Ok(selection.runtime)
+}
+
+fn storage_approved(
+    path: &str,
+    storage: &JavaStorage,
+    document: &documents::java::JavaDocument,
+) -> bool {
+    !storage.requires_confirmation()
+        || document.external_approvals.iter().any(|approval| {
+            approval.path == path && approval.volume_id == storage.volume_id
+        })
+}
+
+pub async fn ensure_java_storage_approved(
+    java: &JavaVersion,
+) -> crate::Result<()> {
+    let state = State::get().await?;
+    let document =
+        documents::java::read(&documents::Documents::new(&state)).await?;
+    let storage = java_storage::inspect(Path::new(&java.path)).await?;
+    if storage_approved(&java.path, &storage, &document) {
+        return Ok(());
+    }
+    Err(crate::ErrorKind::LauncherError(format!(
+        "Java at {} is on external, network or unrecognized storage. Select it in Java settings and confirm that the device will remain connected.", java.path
+    )).into())
+}
+
+async fn automatic_candidates(
+    state: &State,
+    candidates: Vec<JavaVersion>,
+    major: u32,
+) -> crate::Result<Vec<JavaVersion>> {
+    let document =
+        documents::java::read(&documents::Documents::new(state)).await?;
+    let root = state.directories.java_versions_dir();
+    let document = &document;
+    let root = &root;
+    Ok(
+        validated_java_candidates(candidates, major, |candidate| async move {
+            let runtime =
+                jre::check_java_at_filepath(Path::new(&candidate.path))
+                    .await
+                    .ok()?;
+            let storage =
+                java_storage::inspect(Path::new(&runtime.path)).await.ok()?;
+            if !storage_approved(&runtime.path, &storage, &document) {
+                return None;
+            }
+            let rank = match storage.kind {
+                StorageKind::Local
+                    if Path::new(&runtime.path).starts_with(&root) =>
+                {
+                    0
+                }
+                StorageKind::Local => 1,
+                _ => 2,
+            };
+            Some((runtime, rank))
+        })
+        .await,
+    )
+}
+
+async fn validated_java_candidates<Validate, Checked>(
+    candidates: Vec<JavaVersion>,
+    major: u32,
+    mut validate: Validate,
+) -> Vec<JavaVersion>
+where
+    Validate: FnMut(JavaVersion) -> Checked,
+    Checked: Future<Output = Option<(JavaVersion, u8)>>,
+{
+    let mut valid = Vec::new();
+    let mut seen = HashSet::new();
+    for candidate in candidates {
+        if candidate.parsed_version < major
+            || !seen.insert(candidate.path.clone())
+        {
+            continue;
+        }
+        if let Some((java, rank)) = validate(candidate).await
+            && java.parsed_version >= major
+        {
+            valid.push((java, rank));
+        }
+    }
+    valid.sort_by(|(left, left_rank), (right, right_rank)| {
+        (left.parsed_version, left_rank, &left.path).cmp(&(
+            right.parsed_version,
+            right_rank,
+            &right.path,
+        ))
+    });
+    valid.into_iter().map(|(java, _)| java).collect()
 }
 
 /// Read stored Java registrations without discovery, execution or registration.
@@ -106,7 +246,8 @@ async fn register_managed_java_versions(state: &State) -> crate::Result<()> {
                 && JavaVersion::get(java.parsed_version, &documents)
                     .await?
                     .is_none();
-            if set_default {
+            if set_default && ensure_java_storage_approved(&java).await.is_ok()
+            {
                 java.upsert_as_default(&documents).await?;
             } else {
                 java.upsert(&documents).await?;
@@ -185,6 +326,7 @@ pub async fn set_java_default_version(
         ))
         .into());
     }
+    ensure_java_storage_approved(&java_version).await?;
 
     let state = State::get().await?;
     java_version
@@ -402,19 +544,15 @@ pub async fn find_cached_java(
 ) -> crate::Result<Option<JavaVersion>> {
     let state = State::get().await?;
 
-    for entry in DiscoveredJava::get_all(&state.derived).await? {
-        if entry.java.parsed_version != major_version {
-            continue;
-        }
-        let path = PathBuf::from(&entry.java.path);
-        if let Ok(java) = jre::check_java_at_filepath(&path).await
-            && java.parsed_version == major_version
-        {
-            return Ok(Some(java));
-        }
-    }
-
-    Ok(None)
+    let candidates = DiscoveredJava::get_all(&state.derived)
+        .await?
+        .into_iter()
+        .map(|entry| entry.java)
+        .collect();
+    Ok(automatic_candidates(&state, candidates, major_version)
+        .await?
+        .into_iter()
+        .find(|java| java.parsed_version == major_version))
 }
 
 /// Resolves an installed Java for `major_version` without downloading. A miss
@@ -432,23 +570,25 @@ pub async fn find_java_for_version(
         if let Ok(java) = jre::check_java_at_filepath(&path).await
             && java.parsed_version == major_version
         {
-            java.upsert(&documents).await?;
-            return Ok(Some(java));
+            if ensure_java_storage_approved(&java).await.is_ok() {
+                java.upsert(&documents).await?;
+                return Ok(Some(java));
+            }
+        } else {
+            tracing::warn!(major_version, path = %configured.path, "Configured Java default is no longer available; retaining the user's registration");
         }
-
-        tracing::warn!(
-            major_version,
-            path = %configured.path,
-            "Configured Java default is no longer valid"
-        );
-        JavaVersion::remove_default(major_version, &documents).await?;
     }
 
     if let Some(java) = find_cached_java(major_version).await? {
         return Ok(Some(java));
     }
 
-    let scanned = get_available_jres(false, false, false).await?;
+    let scanned = automatic_candidates(
+        &state,
+        get_available_jres(false, false, false).await?,
+        major_version,
+    )
+    .await?;
     if let Some(java) = scanned
         .into_iter()
         .find(|java| java.parsed_version == major_version)
@@ -460,7 +600,10 @@ pub async fn find_java_for_version(
         major_version,
         &JAVA_FULL_SCAN_STATE,
         || find_cached_java(major_version),
-        || refresh_discovered_javas(&state, true, false),
+        || async {
+            let scanned = refresh_discovered_javas(&state, true, false).await?;
+            automatic_candidates(&state, scanned, major_version).await
+        },
     )
     .await
 }
@@ -510,7 +653,10 @@ pub async fn find_compatible_java_for_version(
     jres.extend(
         JavaVersion::get_all(&documents::Documents::new(&state)).await?,
     );
-    Ok(closest_compatible_java(jres.iter(), major_version))
+    Ok(automatic_candidates(&state, jres, major_version)
+        .await?
+        .into_iter()
+        .next())
 }
 
 fn closest_compatible_java<'a>(
@@ -1876,9 +2022,12 @@ async fn download_java_from_feed_inner(
     .await?;
 
     let result = check_jre(executable).await?;
-    result
-        .upsert_as_default(&documents::Documents::new(&state))
-        .await?;
+    let documents = documents::Documents::new(&state);
+    if ensure_java_storage_approved(&result).await.is_ok() {
+        result.upsert_as_default(&documents).await?;
+    } else {
+        result.upsert(&documents).await?;
+    }
     if let Some(discovered) = DiscoveredJava::from_java(result.clone()) {
         discovered.upsert(&state.derived).await?;
     }
@@ -2121,6 +2270,85 @@ mod tests {
     use std::cell::{Cell, RefCell};
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn external_approval_is_bound_to_runtime_and_volume() {
+        let mut document = documents::java::JavaDocument::default();
+        let storage = JavaStorage {
+            kind: StorageKind::External,
+            volume_id: "volume-a".into(),
+        };
+        assert!(!storage_approved(
+            "E:/jdk/bin/javaw.exe",
+            &storage,
+            &document
+        ));
+        document.external_approvals.push(
+            documents::java::ExternalJavaApproval {
+                path: "E:/jdk/bin/javaw.exe".into(),
+                volume_id: "volume-a".into(),
+            },
+        );
+        assert!(storage_approved(
+            "E:/jdk/bin/javaw.exe",
+            &storage,
+            &document
+        ));
+        assert!(!storage_approved(
+            "E:/other/bin/javaw.exe",
+            &storage,
+            &document
+        ));
+        assert!(!storage_approved(
+            "E:/jdk/bin/javaw.exe",
+            &JavaStorage {
+                kind: StorageKind::External,
+                volume_id: "volume-b".into()
+            },
+            &document
+        ));
+    }
+
+    #[tokio::test]
+    async fn automatic_resolution_rejects_stale_records_and_ranks_local_candidates()
+     {
+        let candidates = vec![
+            java(17, "missing"),
+            java(21, "newer-local"),
+            java(17, "usb"),
+            java(17, "local-b"),
+            java(17, "local-a"),
+        ];
+        for candidates in
+            [candidates.clone(), candidates.into_iter().rev().collect()]
+        {
+            let valid =
+                validated_java_candidates(candidates, 17, |java| async move {
+                    if java.path == "missing" {
+                        return None;
+                    }
+                    let rank = if java.path == "usb" { 2 } else { 1 };
+                    Some((java, rank))
+                })
+                .await;
+            assert_eq!(
+                valid
+                    .iter()
+                    .map(|java| java.path.as_str())
+                    .collect::<Vec<_>>(),
+                ["local-a", "local-b", "usb", "newer-local"]
+            );
+        }
+        let valid = validated_java_candidates(
+            vec![java(17, "missing"), java(21, "available")],
+            17,
+            |candidate| async move {
+                (candidate.path != "missing").then_some((candidate, 1))
+            },
+        )
+        .await;
+        assert_eq!(valid.first().unwrap().path, "available");
+    }
 
     fn java(parsed_version: u32, path: &str) -> JavaVersion {
         JavaVersion {

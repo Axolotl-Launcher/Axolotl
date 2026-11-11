@@ -325,6 +325,11 @@ jobs:
         run: |
           cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::db::
           cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::db_backup::
+      - name: Test Java availability and external storage selection
+        run: |
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail api::jre::tests::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail documents::java::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail java_storage::
       # The settings documents: a document answers for its domain, and a key it
       # leaves out stays at its default instead of returning to the row.
       # Hermetic (in-memory sqlite + temp dirs).

@@ -1,4 +1,16 @@
 {
+  "app.java.external.title": {
+    "message": "Use Java from this storage device?"
+  },
+  "app.java.external.body": {
+    "message": "This Java installation is on external, network or unrecognized storage. Games cannot start while it is unavailable.\n\n{path}"
+  },
+  "app.java.external.use": {
+    "message": "Use this Java"
+  },
+  "app.java.external.cancel": {
+    "message": "Cancel"
+  },
   "app.downloads.slow-downloads.title": {
     "message": "Slow downloads?"
   },

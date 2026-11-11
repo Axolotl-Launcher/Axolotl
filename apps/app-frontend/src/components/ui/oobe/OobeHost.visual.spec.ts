@@ -43,6 +43,8 @@ const backend = vi.hoisted(() => ({
         distribution: string | null
     }>,
     javaDefaults: [] as Array<{ parsed_version: number; path: string }>,
+    externalJava: false,
+    acceptExternalJava: false,
     invoke: vi.fn(),
 }))
 
@@ -57,6 +59,7 @@ vi.mock('@tauri-apps/api/event', async (importOriginal) => ({
 vi.mock('@tauri-apps/plugin-dialog', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     open: async () => null,
+    confirm: async () => backend.acceptExternalJava,
 }))
 
 backend.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
@@ -90,6 +93,17 @@ backend.invoke.mockImplementation(async (command: string, args?: Record<string, 
             return backend.javas
         case 'plugin:jre|get_java_default_versions':
             return backend.javaDefaults
+        case 'plugin:jre|get_java_selection_info': {
+            const runtime = backend.javas.find((entry) => entry.path === args?.path)
+            if (!runtime) throw new Error('not a Java runtime')
+            return {
+                runtime,
+                storage: { kind: backend.externalJava ? 'external' : 'local', volume_id: 'volume' },
+                requires_confirmation: backend.externalJava,
+            }
+        }
+        case 'plugin:jre|approve_java_selection':
+            return backend.javas.find((entry) => entry.path === args?.path)
         case 'plugin:jre|set_java_default_version': {
             const java = backend.javas.find((entry) => entry.path === args?.path)
             if (!java) throw new Error('not a Java runtime')
@@ -128,6 +142,8 @@ afterEach(() => {
     backend.failImport = false
     backend.javas = []
     backend.javaDefaults = []
+    backend.externalJava = false
+    backend.acceptExternalJava = false
 })
 
 function i18n(locale: 'en-US' | 'zh-CN') {
@@ -637,6 +653,33 @@ it('groups the Java found on this device and changes Skip to Next once one is ch
     expect(events.complete).toEqual(['java_v1'])
     applyTheme('light')
     await shot('oobe-java-found-light')
+})
+
+it('requires approval before persisting an external Java choice during setup', async () => {
+    backend.externalJava = true
+    backend.javas = [javaRuntime(17, '17.0.12', 'E:/portable/bin/javaw.exe')]
+    const { events } = await render('en-US', javaOnly)
+    const choice = () =>
+        Array.from(document.querySelectorAll<HTMLElement>('.oobe-root [role="radio"]')).find(
+            (entry) => entry.textContent?.includes(backend.javas[0]!.path),
+        )
+    await waitFor(() => !!choice(), { label: 'external Java choice' })
+    choice()!.click()
+    await flushPromises()
+    expect(backend.javaDefaults).toEqual([])
+    expect(events.complete).toEqual([])
+    expect(backend.invoke).not.toHaveBeenCalledWith(
+        'plugin:jre|approve_java_selection',
+        expect.anything(),
+    )
+    backend.acceptExternalJava = true
+    choice()!.click()
+    await waitFor(() => backend.javaDefaults.length === 1, { label: 'approved Java default' })
+    expect(backend.invoke).toHaveBeenCalledWith('plugin:jre|approve_java_selection', {
+        path: 'E:/portable/bin/javaw.exe',
+        volumeId: 'volume',
+    })
+    expect(events.complete).toEqual(['java_v1'])
 })
 
 it('keeps Skip when a typed Java path cannot be started', async () => {

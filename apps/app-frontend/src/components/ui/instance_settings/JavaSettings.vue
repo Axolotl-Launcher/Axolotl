@@ -12,6 +12,7 @@ import useMemorySlider from '@/composables/useMemorySlider'
 import { collectGcContext, extractJavaMajorVersion } from '@/helpers/gc/context'
 import type { GcContext } from '@/helpers/gc/types'
 import { edit, get_content_snapshot, get_optimal_jre_key } from '@/helpers/instance'
+import { confirmJavaSelection } from '@/helpers/java-selection'
 import { get } from '@/helpers/settings'
 import { injectInstanceSettings } from '@/providers/instance-settings'
 
@@ -110,11 +111,22 @@ const displayedJava = computed({
     },
 })
 
-watch(overrideJavaInstall, (enabled) => {
-    if (enabled && !overrideJava.value.path) {
-        overrideJava.value = { path: optimalJava.value?.path ?? '' }
+async function setOverrideJavaInstall(enabled: boolean) {
+    if (enabled) {
+        const candidate = overrideJava.value.path
+            ? overrideJava.value
+            : { path: optimalJava.value?.path ?? '' }
+        try {
+            const selected = await confirmJavaSelection(candidate, formatMessage)
+            if (!selected) return
+            overrideJava.value = selected
+        } catch (error) {
+            handleError(error)
+            return
+        }
     }
-})
+    overrideJavaInstall.value = enabled
+}
 
 const overrideJavaArgs = ref((instance.value.extra_launch_args?.length ?? 0) > 0)
 const javaArgs = ref(
@@ -216,9 +228,10 @@ watch(
             {{ formatMessage(messages.javaInstallation) }}
         </h2>
         <Checkbox
-            v-model="overrideJavaInstall"
+            :model-value="overrideJavaInstall"
             :label="formatMessage(messages.customJavaInstallation)"
             class="mb-2"
+            @update:model-value="setOverrideJavaInstall"
         />
         <JavaSelector
             v-model="displayedJava"

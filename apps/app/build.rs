@@ -476,6 +476,8 @@ fn main() {
                     .commands(&[
                         "get_java_versions",
                         "get_java_default_versions",
+                        "get_java_selection_info",
+                        "approve_java_selection",
                         "set_java_version",
                         "set_java_default_version",
                         "remove_java_default_version",

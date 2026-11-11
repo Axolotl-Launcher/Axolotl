@@ -71,9 +71,6 @@ export interface CreateServerFlowContext<TCtx extends CreateServerFlowContext<TC
     createdServer: Ref<ServerManifestData | null>
     showEulaModal: Ref<boolean>
 
-    /** Registered by the configure stage to persist server.properties before finishing. */
-    saveServerProperties: Ref<(() => Promise<boolean>) | null>
-
     needsLoaderVersion: Ref<boolean>
     typeSupported: Ref<boolean>
     canContinueFromType: Ref<boolean>
@@ -150,7 +147,6 @@ export function createCreateServerFlowContext(
     const eulaText = ref('')
     const createdServer = ref<ServerManifestData | null>(null)
     const showEulaModal = ref(false)
-    const saveServerProperties = ref<(() => Promise<boolean>) | null>(null)
     let loaderRequest = 0
 
     const needsLoaderVersion = computed(
@@ -379,7 +375,6 @@ export function createCreateServerFlowContext(
         eulaText.value = ''
         createdServer.value = null
         showEulaModal.value = false
-        saveServerProperties.value = null
         void loadVersions()
         void loadMaxMemory()
     }
@@ -475,7 +470,6 @@ export function createCreateServerFlowContext(
         eulaText,
         createdServer,
         showEulaModal,
-        saveServerProperties,
         needsLoaderVersion,
         typeSupported,
         canContinueFromType,

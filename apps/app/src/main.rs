@@ -1043,7 +1043,6 @@ fn main() {
         .plugin(api::translation::init())
         .plugin(api::utils::init())
         .plugin(api::cache::init())
-        .plugin(api::content_favorites::init())
         .plugin(api::content_search::init())
         .plugin(api::resources::init())
         .plugin(api::curseforge::init())

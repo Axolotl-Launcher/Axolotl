@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { EditIcon, MaximizeIcon, ZoomInIcon, ZoomOutIcon } from '@modrinth/assets'
-import { Button, defineMessages, useVIntl } from '@modrinth/ui'
+import { Button, defineMessages, useFormatBytes, useVIntl } from '@modrinth/ui'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { canEditImage } from './image-encoding'
@@ -99,11 +99,7 @@ const imageStyle = computed(() => ({
     height: `${Math.max(1, Math.round(natural.value.height * displayScale.value))}px`,
 }))
 
-function formatByteSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
+const formatByteSize = useFormatBytes()
 
 /**
  * The stage's padding is not part of the room the image may use. Measuring the

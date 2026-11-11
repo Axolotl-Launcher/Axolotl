@@ -77,6 +77,7 @@ import SchematicInfoModal from '@/components/lab/schematic-preview/SchematicInfo
 import SchematicInstancePickerModal from '@/components/lab/schematic-preview/SchematicInstancePickerModal.vue'
 import SchematicMaterialSwatch from '@/components/lab/schematic-preview/SchematicMaterialSwatch.vue'
 import SchematicStateCard from '@/components/lab/schematic-preview/SchematicStateCard.vue'
+import { errorText } from '@/helpers/error-text'
 import { list } from '@/helpers/instance'
 import { isSchematicFileName, isSchematicSource } from '@/helpers/schematics'
 import type { GameInstance } from '@/helpers/types.d.ts'
@@ -677,7 +678,7 @@ async function openSource(source: SchematicPreviewSource) {
     } catch (caught) {
         if (activeOpenRequestId === requestId) activeOpenRequestId = undefined
         if (epoch !== requestEpoch) return
-        error.value = caught instanceof Error ? caught.message : String(caught)
+        error.value = errorText(caught)
         loadingStage.value = undefined
         const record = recent.value.find(
             (item) => JSON.stringify(item.source) === JSON.stringify(source),
@@ -851,7 +852,7 @@ function pumpMeshQueue() {
             })
             .catch((caught) => {
                 if (job.epoch !== resourceEpoch) return
-                addWarnings([caught instanceof Error ? caught.message : String(caught)])
+                addWarnings([errorText(caught)])
                 slot.busy = false
                 completeMeshJob()
                 pumpMeshQueue()
@@ -979,7 +980,7 @@ function ensureScene() {
                 : {}),
         })
     } catch (caught) {
-        error.value = caught instanceof Error ? caught.message : String(caught)
+        error.value = errorText(caught)
     }
 }
 

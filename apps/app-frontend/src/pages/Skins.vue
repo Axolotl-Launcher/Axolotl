@@ -43,6 +43,7 @@ import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { accountSelectionRevision } from '@/helpers/account-state'
 import { get_default_user, users } from '@/helpers/auth'
 import type { MinecraftCredential } from '@/helpers/auth-types'
+import { errorText } from '@/helpers/error-text'
 import { DEFAULT_UI_FONT_STACK, resolveFontFamily } from '@/helpers/font-family.ts'
 import type { RenderResult } from '@/helpers/rendering/batch-skin-renderer.ts'
 import { setActiveSkinPreviews, skinBlobUrlMap } from '@/helpers/rendering/batch-skin-renderer.ts'
@@ -583,7 +584,7 @@ function isSkinActive(skin: Skin) {
 }
 
 function getErrorMessage(error: unknown) {
-    return error instanceof Error ? error.message : String(error)
+    return errorText(error)
 }
 
 function isMinecraftSkinRateLimitError(error: unknown) {

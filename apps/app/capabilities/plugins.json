@@ -145,7 +145,6 @@
     "process:default",
     "cache:default",
     "content-search:default",
-    "content-favorites:default",
     "axolotl-resources:default",
     "curseforge:default",
     "mcarchive:default",

@@ -1,5 +1,7 @@
 import { CanvasTexture, NearestFilter, SRGBColorSpace } from 'three'
 
+import { errorText } from '@/helpers/error-text'
+
 import type { SchematicBlockState } from './backend.ts'
 
 export type SchematicWorkerResources = {
@@ -249,7 +251,7 @@ export async function createSchematicResources(
     } catch (error) {
         signal?.throwIfAborted()
         warnings.push(
-            `Bubble columns are drawn without bubbles because the sprite failed to load: ${error instanceof Error ? error.message : String(error)}`,
+            `Bubble columns are drawn without bubbles because the sprite failed to load: ${errorText(error)}`,
         )
     } finally {
         bubbleSprite?.close()

@@ -12,6 +12,7 @@ import dayjs from 'dayjs'
 import { ref, useTemplateRef } from 'vue'
 
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
+import { errorText } from '@/helpers/error-text'
 import { list } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types.d.ts'
 import {
@@ -121,7 +122,7 @@ async function show(instanceId?: string) {
         }
     } catch (caught) {
         instances.value = []
-        error.value = caught instanceof Error ? caught.message : String(caught)
+        error.value = errorText(caught)
     } finally {
         loading.value = false
     }
@@ -139,7 +140,7 @@ async function openInstance(instance: GameInstance) {
         worlds.value = loaded.filter(isSingleplayerWorld)
     } catch (caught) {
         worlds.value = []
-        worldError.value = caught instanceof Error ? caught.message : String(caught)
+        worldError.value = errorText(caught)
     } finally {
         loading.value = false
     }
@@ -163,7 +164,7 @@ async function installWorld(world: SingleplayerWorld) {
         else emit('select', target)
         modal.value?.hide()
     } catch (caught) {
-        installError.value = caught instanceof Error ? caught.message : String(caught)
+        installError.value = errorText(caught)
     } finally {
         installingWorldPath.value = null
     }

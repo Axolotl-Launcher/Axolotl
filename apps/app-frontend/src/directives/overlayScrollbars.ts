@@ -27,6 +27,14 @@ const mergeOptions = (options: PartialOptions = {}): PartialOptions => ({
         ...defaultOverlayScrollbarsOptions.scrollbars,
         ...(options.scrollbars ?? {}),
     },
+    update: {
+        ...defaultOverlayScrollbarsOptions.update,
+        ...(options.update ?? {}),
+        debounce:
+            options.update?.debounce === undefined
+                ? defaultOverlayScrollbarsOptions.update?.debounce
+                : options.update.debounce,
+    },
 })
 
 export const overlayScrollbarsDirective: ObjectDirective<HTMLElement, PartialOptions | undefined> =

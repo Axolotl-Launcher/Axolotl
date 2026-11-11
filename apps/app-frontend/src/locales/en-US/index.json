@@ -2723,66 +2723,6 @@
   "app.gc-notice.fallback": {
     "message": "Java did not accept {preferred}; using {chosen}."
   },
-  "app.headless-demo.brand-button": {
-    "message": "Brand button"
-  },
-  "app.headless-demo.checkbox-label": {
-    "message": "Accept demo checkbox (brand fill when checked)"
-  },
-  "app.headless-demo.controls": {
-    "message": "Controls"
-  },
-  "app.headless-demo.description": {
-    "message": "Isolated reka-ui primitives styled only with existing app tokens. Switch theme in Settings → Appearance to verify light, dark, and OLED."
-  },
-  "app.headless-demo.dialog-close": {
-    "message": "Close"
-  },
-  "app.headless-demo.dialog-description": {
-    "message": "This dialog content uses bg-surface-3, text-[var(--color-text-primary)], and border-surface-5. Overlay and focus ring stay readable in every theme."
-  },
-  "app.headless-demo.dialog-title": {
-    "message": "Token-mapped dialog"
-  },
-  "app.headless-demo.loader-fabric": {
-    "message": "Fabric"
-  },
-  "app.headless-demo.loader-forge": {
-    "message": "Forge"
-  },
-  "app.headless-demo.loader-neoforge": {
-    "message": "NeoForge"
-  },
-  "app.headless-demo.loader-vanilla": {
-    "message": "Vanilla"
-  },
-  "app.headless-demo.open-dialog": {
-    "message": "Open dialog"
-  },
-  "app.headless-demo.select-label": {
-    "message": "Loader"
-  },
-  "app.headless-demo.select-placeholder": {
-    "message": "Pick a loader"
-  },
-  "app.headless-demo.standard-button": {
-    "message": "Standard button"
-  },
-  "app.headless-demo.surfaces": {
-    "message": "Surfaces"
-  },
-  "app.headless-demo.theme-hint": {
-    "message": "No second theme system is introduced here — surfaces and brand colors follow the active theme."
-  },
-  "app.headless-demo.title": {
-    "message": "Headless token demo"
-  },
-  "app.headless-demo.tooltip-content": {
-    "message": "Tooltip body mapped to surface-4 / text-[var(--color-text-primary)]."
-  },
-  "app.headless-demo.tooltip-trigger": {
-    "message": "Hover tooltip"
-  },
   "app.home.breadcrumb": {
     "message": "Home"
   },
@@ -11539,9 +11479,6 @@
   },
   "app.servers.wizard.background-hint": {
     "message": "You can close this window — the download continues in the background."
-  },
-  "app.servers.wizard.configure-heading": {
-    "message": "Adjust the server settings, or finish to edit them later."
   },
   "app.servers.wizard.configure-title": {
     "message": "Configure"

@@ -3923,66 +3923,6 @@
   "app.gc-notice.fallback": {
     "message": "Java 不接受 {preferred}，已改用 {chosen}。"
   },
-  "app.headless-demo.brand-button": {
-    "message": "品牌按钮"
-  },
-  "app.headless-demo.checkbox-label": {
-    "message": "勾选演示复选框（选中时为品牌填充）"
-  },
-  "app.headless-demo.controls": {
-    "message": "控件"
-  },
-  "app.headless-demo.description": {
-    "message": "仅使用现有应用令牌样式化的隔离 reka-ui 原语。可在「设置 → 外观」切换主题以验证浅色、深色与 OLED。"
-  },
-  "app.headless-demo.dialog-close": {
-    "message": "关闭"
-  },
-  "app.headless-demo.dialog-description": {
-    "message": "此对话框内容使用 surface-3、主文本与 surface-5 边框。遮罩与焦点环在所有主题下保持可读。"
-  },
-  "app.headless-demo.dialog-title": {
-    "message": "令牌映射对话框"
-  },
-  "app.headless-demo.loader-fabric": {
-    "message": "Fabric"
-  },
-  "app.headless-demo.loader-forge": {
-    "message": "Forge"
-  },
-  "app.headless-demo.loader-neoforge": {
-    "message": "NeoForge"
-  },
-  "app.headless-demo.loader-vanilla": {
-    "message": "原版"
-  },
-  "app.headless-demo.open-dialog": {
-    "message": "打开对话框"
-  },
-  "app.headless-demo.select-label": {
-    "message": "加载器"
-  },
-  "app.headless-demo.select-placeholder": {
-    "message": "选择加载器"
-  },
-  "app.headless-demo.standard-button": {
-    "message": "标准按钮"
-  },
-  "app.headless-demo.surfaces": {
-    "message": "表面层级"
-  },
-  "app.headless-demo.theme-hint": {
-    "message": "这里不引入第二套主题系统 — 表面与品牌色跟随当前主题。"
-  },
-  "app.headless-demo.title": {
-    "message": "Headless 令牌演示"
-  },
-  "app.headless-demo.tooltip-content": {
-    "message": "提示内容映射到 surface-4 / 主文本。"
-  },
-  "app.headless-demo.tooltip-trigger": {
-    "message": "悬停提示"
-  },
   "app.home.breadcrumb": {
     "message": "主页"
   },
@@ -10267,9 +10207,6 @@
   },
   "app.servers.wizard.background-hint": {
     "message": "您可以关闭此窗口，下载将在后台继续进行。"
-  },
-  "app.servers.wizard.configure-heading": {
-    "message": "调整服务器设置，或直接完成，稍后再编辑。"
   },
   "app.servers.wizard.configure-title": {
     "message": "配置"

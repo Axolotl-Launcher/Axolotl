@@ -6404,9 +6404,6 @@
   "app.servers.wizard.background-hint": {
     "message": "您可以關閉此視窗，下載將在背景繼續進行。"
   },
-  "app.servers.wizard.configure-heading": {
-    "message": "調整伺服器設定，或直接完成，稍後再編輯。"
-  },
   "app.servers.wizard.configure-title": {
     "message": "設定"
   },

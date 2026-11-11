@@ -23,10 +23,16 @@ mod api;
 #[cfg(any(target_os = "linux", test))]
 mod appimage;
 mod error;
+#[cfg(windows)]
+#[path = "../../installer-ui/src/executable_install.rs"]
+mod executable_install;
 mod exit_barrier;
 mod lightweight_mode;
 mod mod_translation;
 mod portable;
+#[cfg(windows)]
+#[path = "../../installer-ui/src/portable_update.rs"]
+mod portable_update;
 mod seed_map;
 mod window_frame;
 
@@ -752,6 +758,19 @@ fn raise_file_descriptor_limit() {
 // if Tauri app is called with arguments, then those arguments will be treated as commands
 // ie: deep links or filepaths for .mrpacks
 fn main() {
+    #[cfg(windows)]
+    if let Err(error) = std::env::current_exe()
+        .map_err(|error| error.to_string())
+        .and_then(|executable| portable_update::recover(&executable))
+    {
+        let _ = DialogBuilder::message()
+            .set_level(MessageLevel::Error)
+            .set_title("Portable update")
+            .set_text(error)
+            .alert()
+            .show();
+        return;
+    }
     // Initialize portable mode first (checks .Axolotl folder and sets THESEUS_CONFIG_DIR)
     // SAFETY: Called at the start of main() before any threads or tokio runtime are spawned
     let _portable = unsafe { portable::init_portable_mode() };
@@ -1153,7 +1172,7 @@ fn main() {
                             s.restart_after_pending_update.load(Ordering::Relaxed)
                         })
                         .unwrap_or(false);
-                    if let Some((update, data)) = &*update_data.0.lock().unwrap()
+                    if let Some(update) = update_data.0.lock().unwrap().take()
                     {
                         // Installing waits on the user (an elevation prompt)
                         // by design, so the exit hard cap does not apply.
@@ -1171,34 +1190,17 @@ fn main() {
                             }
                         }
 
-                        let version = update.version.clone();
-                        let install_result = if is_apt_linux() {
-                            tauri::async_runtime::block_on(
-                                install_apt_package(&version, data),
-                            )
-                            .map_err(|error| error.to_string())
-                        } else {
-                            let update = if should_restart {
-                                (**update).clone()
-                            } else {
-                                (**update).clone().restart_after_install(false)
-                            };
-
-                            // Persist the trigger before installing: on Windows
-                            // the updater plugin launches the NSIS installer and
-                            // exits the process via `std::process::exit(0)`
-                            // without returning, so the success path below never
-                            // runs there. Bound this settings write, then lift
-                            // the cap again for the designed install wait.
-                            #[cfg(target_os = "windows")]
-                            {
-                                exit_barrier::rearm(exit_barrier::now_millis());
-                                set_changelog_toast(Some(update.version.clone()));
-                                exit_barrier::disarm();
-                            }
-
-                            update.install(data).map_err(|error| error.to_string())
-                        };
+                        let version = update.version().to_owned();
+                        let portable_worker = update.is_portable();
+                        // Windows installers exit inside the plugin; the portable
+                        // worker instead waits for this process and closes itself.
+                        #[cfg(target_os = "windows")]
+                        {
+                            exit_barrier::rearm(exit_barrier::now_millis());
+                            set_changelog_toast(Some(version.clone()));
+                            exit_barrier::disarm();
+                        }
+                        let install_result = update.install(should_restart);
 
                         // The install is the designed wait; the remaining
                         // toast and database close are bounded again.
@@ -1207,7 +1209,12 @@ fn main() {
                         match install_result {
                             Ok(()) => {
                                 set_changelog_toast(Some(version.clone()));
-                                if should_restart {
+                                if portable_worker {
+                                    tracing::info!(
+                                        "Portable update worker is ready (version {}); it will activate after process exit (restart: {})",
+                                        version, should_restart
+                                    );
+                                } else if should_restart {
                                     tracing::info!(
                                         "Pending update installed successfully (version {}); restarting because user requested reload",
                                         version

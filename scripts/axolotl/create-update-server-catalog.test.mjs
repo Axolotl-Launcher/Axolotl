@@ -37,6 +37,7 @@ const files = [
     'Axolotl_Launcher_1.9.5-beta.1_x64_nsis-setup.exe',
     'Axolotl_Launcher_1.9.5-beta.1_x64_nsis-setup.exe.sig',
     'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip',
+    'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip.sig',
 ]
 // Attached for the website, not installed by the Update Server.
 const webDemo = 'Axolotl_Launcher_1.9.5-beta.1_web_demo.zip'
@@ -83,6 +84,11 @@ try {
     assert.equal(
         catalog.artifacts.find((artifact) => artifact.filename.endsWith('portable.zip')).kind,
         'portable',
+    )
+    assert.equal(
+        catalog.artifacts.find((artifact) => artifact.filename.endsWith('portable.zip'))
+            .signatureFilename,
+        'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip.sig',
     )
     assert.deepEqual(
         catalog.artifacts.find((artifact) => artifact.filename.endsWith('_universal.app.tar.gz'))

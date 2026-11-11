@@ -34,9 +34,9 @@ pub(crate) fn check(path: &Path) -> Result<()> {
 }
 
 #[derive(Debug, PartialEq)]
-struct Executable {
-    bytes: u64,
-    sha256: String,
+pub(crate) struct Executable {
+    pub(crate) bytes: u64,
+    pub(crate) sha256: String,
 }
 
 pub(crate) fn dispatch(
@@ -175,7 +175,7 @@ fn inherit_ownership(
     Ok(ownership)
 }
 
-fn inspect(path: &Path) -> Result<Executable> {
+pub(crate) fn inspect(path: &Path) -> Result<Executable> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("{}: {error}", path.display()))?;
     if !metadata.is_file() || metadata.file_attributes() & 0x400 != 0 {
@@ -251,7 +251,11 @@ fn validate_pe(file: &mut File, bytes: u64) -> Result<()> {
     Ok(())
 }
 
-fn install(stage: &Path, target: &Path, expected: &Executable) -> Result<()> {
+pub(crate) fn install(
+    stage: &Path,
+    target: &Path,
+    expected: &Executable,
+) -> Result<()> {
     let parent = target
         .parent()
         .ok_or("Executable has no parent directory")?;

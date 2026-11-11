@@ -81,9 +81,13 @@ for (const variant of ['modern', 'native']) {
     }
 }
 if (sha256(binary) !== initialHash) throw new Error('Packaging changed the compiled application')
-const portable = path.join(root, 'target', `portable-${profile}`, 'Axolotl')
+const portable = path.join(
+    fs.mkdtempSync(path.join(root, 'target', `portable-${profile}-`)),
+    'Axolotl',
+)
 fs.mkdirSync(path.join(portable, '.Axolotl'), { recursive: true })
 fs.copyFileSync(binary, path.join(portable, 'Axolotl Launcher.exe'))
+fs.copyFileSync(process.env.AXOLOTL_INSTALLER_UI_PATH, path.join(portable, 'axolotl-updater.exe'))
 requireFile(path.join(app, 'resources/seed-map/axolotl-cubiomes.dll'))
 fs.cpSync(path.join(app, 'resources/seed-map'), path.join(portable, 'resources/seed-map'), {
     recursive: true,
@@ -114,5 +118,10 @@ run(
         },
     },
 )
+if (profile === 'release') {
+    const archive = path.join(destination, `Axolotl_Launcher_${version()}_x64_portable.zip`)
+    run('pnpm', ['tauri', 'signer', 'sign', archive], { cwd: app })
+    requireFile(`${archive}.sig`)
+}
 for (const file of files(destination).filter((file) => path.dirname(file) === destination))
     console.log(file)

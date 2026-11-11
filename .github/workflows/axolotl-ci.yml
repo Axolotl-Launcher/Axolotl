@@ -418,7 +418,7 @@ jobs:
         shell: pwsh
         env:
           AXOLOTL_INSTALLER_UI_PATH: ${{ github.workspace }}/target/ci/axolotl-installer-ui.exe
-        run: node --test apps/installer-ui/tests/executable-install.test.cjs
+          run: node --test apps/installer-ui/tests/executable-install.test.cjs apps/installer-ui/tests/portable-update.test.cjs
       - name: Package and verify both Windows installers from one binary
         if: runner.os == 'Windows'
         run: node scripts/axolotl/package-windows.mjs --profile ci --output target/ci-installers

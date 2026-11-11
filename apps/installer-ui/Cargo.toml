@@ -32,6 +32,7 @@ windows = { workspace = true, features = [
   "Win32_UI_WindowsAndMessaging",
 ] }
 wry = "0.55.1"
+zip.workspace = true
 
 [lints]
 workspace = true

@@ -98,7 +98,11 @@ pub(super) async fn execute(
                 let pending =
                     app.state::<crate::updater_impl::PendingUpdateData>();
                 let data = pending.0.lock().map_err(error)?;
-                result["pending_update"]=json!(data.as_ref().map(|(u,b)|json!({"version":u.version,"downloaded_bytes":b.len()})));
+                result["pending_update"] =
+                    json!(data.as_ref().map(|update| json!({
+                        "version": update.version(),
+                        "downloaded_bytes": update.downloaded_bytes()
+                    })));
             }
             #[cfg(not(feature = "updater"))]
             {

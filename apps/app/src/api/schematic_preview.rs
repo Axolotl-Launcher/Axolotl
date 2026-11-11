@@ -4227,6 +4227,7 @@ mod tests {
                 name: "andesite".into(),
                 properties: BTreeMap::new(),
             }),
+            false,
         )
         .unwrap();
         let exported = read_root(&export_litematic(&session).unwrap()).unwrap();

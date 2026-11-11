@@ -36,6 +36,8 @@ export interface UseBrowseSearchOptions {
     displayMode?: Ref<BrowseDisplayMode> | ComputedRef<BrowseDisplayMode>
     initialSearchResponse?: BrowseSearchResponse
     sortOptions?: readonly SortType[]
+    automaticSort?: boolean
+    supportedSortNames?: ComputedRef<readonly string[] | undefined>
 }
 
 export interface BrowseCommittedSearch {
@@ -114,7 +116,8 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         currentPage,
         overriddenProvidedFilterTypes,
         filters,
-        sortTypes,
+        availableSortTypes,
+        resetSort,
         requestParams,
         createPageParams,
         initializeQueryParams,
@@ -125,6 +128,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         options.environmentOverride ?? computed(() => undefined),
         options.sortOptions,
         options.deferInitialization,
+        { automatic: options.automaticSort, supportedSortNames: options.supportedSortNames },
     )
 
     const {
@@ -149,7 +153,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         isServerType.value ? serverRequestParams.value : requestParams.value,
     )
     const effectiveSortTypes = computed(() =>
-        isServerType.value ? (serverSortTypes as readonly SortType[]) : sortTypes,
+        isServerType.value ? (serverSortTypes as readonly SortType[]) : availableSortTypes.value,
     )
     const effectiveCurrentSortType = computed({
         get: () => (isServerType.value ? serverCurrentSortType.value : currentSortType.value),
@@ -276,6 +280,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
 
     const providedFiltersOrEmpty = computed(() => options.providedFilters?.value ?? [])
 
+    let restoringFilters = false
     watch(
         [
             query,
@@ -289,9 +294,9 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
             providedFiltersOrEmpty,
         ],
         () => {
-            currentPage.value = 1
+            if (!restoringFilters) currentPage.value = 1
         },
-        { deep: true },
+        { deep: true, flush: 'sync' },
     )
 
     function invalidatePendingSearch() {
@@ -326,8 +331,13 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         )
 
     function initializeFilters() {
-        initializeQueryParams()
-        initializeServerQueryParams()
+        restoringFilters = true
+        try {
+            initializeQueryParams()
+            initializeServerQueryParams()
+        } finally {
+            restoringFilters = false
+        }
     }
 
     async function refreshSearch(reuseCache = false) {
@@ -448,9 +458,13 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         () => options.projectType.value,
         (newType, oldType) => {
             debug('projectType changed', { from: oldType, to: newType })
-            effectiveCurrentSortType.value =
-                effectiveSortTypes.value.find((sortType) => sortType.name === 'relevance') ??
-                effectiveSortTypes.value[0]
+            if (isServerType.value) {
+                serverCurrentSortType.value =
+                    serverSortTypes.find((sortType) => sortType.name === 'relevance') ??
+                    serverSortTypes[0]
+            } else {
+                resetSort()
+            }
             query.value = ''
         },
     )

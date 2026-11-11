@@ -42,6 +42,8 @@ const api = vi.hoisted(() => ({
     extraQuery: null as unknown,
     context: null as unknown,
     enabled: null as unknown,
+    automaticSort: false as boolean | undefined,
+    supportedSortNames: null as unknown,
     selection: null as unknown,
     locale: 'en',
     query: {} as Record<string, string>,
@@ -348,9 +350,13 @@ vi.mock('@modrinth/ui', async () => {
         useBrowseSearch: (options: {
             projectType: { value: string }
             enabled: unknown
+            automaticSort?: boolean
+            supportedSortNames?: { value: readonly string[] | undefined }
             getExtraQueryParams: () => Record<string, unknown>
         }) => {
             api.enabled = options.enabled
+            api.automaticSort = options.automaticSort
+            api.supportedSortNames = options.supportedSortNames
             api.extraQuery = options.getExtraQueryParams
             return {
                 query: ref(''),
@@ -631,6 +637,10 @@ it.each(['mcarchive', 'planet_minecraft'] as const)(
         try {
             await flushPromises()
             expect(api.refresh).toHaveBeenCalledTimes(1)
+            expect(api.automaticSort).toBe(true)
+            expect((api.supportedSortNames as { value: readonly string[] }).value).toEqual([
+                'relevance',
+            ])
             expect((api.context as { filtersReady: { value: boolean } }).filtersReady.value).toBe(
                 false,
             )
@@ -640,6 +650,12 @@ it.each(['mcarchive', 'planet_minecraft'] as const)(
                 true,
             )
             expect(api.refresh).toHaveBeenCalledTimes(1)
+            const page = wrapper.vm as unknown as { selectContentSource: (source: string) => void }
+            page.selectContentSource('modrinth')
+            await flushPromises()
+            expect(
+                (api.supportedSortNames as { value: readonly string[] | undefined }).value,
+            ).toBeUndefined()
         } finally {
             wrapper.unmount()
             api.source = 'all'

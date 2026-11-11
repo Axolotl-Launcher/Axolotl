@@ -639,6 +639,10 @@ fn update_is_pending(_app: &tauri::AppHandle) -> bool {
 /// Quit reaches `RunEvent::Exit` without that event, so the exit handler runs
 /// it once when no pass has happened.
 fn run_exit_steps(app: &tauri::AppHandle) {
+    // Stop the debounced retry before the bounded exit flush: otherwise it
+    // could wake during database shutdown or the installer and start an
+    // untimed Mojang request.
+    theseus::minecraft_skins::begin_shutdown_flush();
     let flush = tauri::async_runtime::block_on(tokio::time::timeout(
         exit_barrier::SKIN_FLUSH_TIMEOUT,
         theseus::minecraft_skins::flush_pending_skin_change(),

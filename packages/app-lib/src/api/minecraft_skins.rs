@@ -59,6 +59,7 @@ use futures::{StreamExt, TryStreamExt, stream};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 use url::Url;
 use uuid::Uuid;
 
@@ -101,6 +102,10 @@ static PENDING_SKIN_CHANGE: LazyLock<Mutex<PendingSkinChangeState>> =
     LazyLock::new(|| Mutex::new(PendingSkinChangeState::default()));
 static SKIN_CHANGE_FLUSH_LOCK: LazyLock<Mutex<()>> =
     LazyLock::new(|| Mutex::new(()));
+/// Cancels debounced flushes when the exit barrier takes over. The barrier's
+/// explicit flush is not debounced and ignores this token.
+static SKIN_FLUSH_SHUTDOWN: LazyLock<CancellationToken> =
+    LazyLock::new(CancellationToken::new);
 
 #[derive(Debug, Default)]
 struct PendingSkinChangeState {
@@ -1221,13 +1226,20 @@ pub async fn normalize_skin_texture_for_preview(
     png_util::normalize_skin_texture_for_preview(texture).await
 }
 
+/// Stops new debounced flushes and cancels a running one. The exit barrier
+/// calls this before its own bounded flush so a scheduled retry cannot race
+/// database shutdown.
+pub fn begin_shutdown_flush() {
+    SKIN_FLUSH_SHUTDOWN.cancel();
+}
+
 /// Sends any pending skin change immediately.
 ///
 /// This is used before launching Minecraft and before closing the app so the debounced
 /// skin selection is still applied for those boundary cases.
 #[tracing::instrument]
 pub async fn flush_pending_skin_change() -> crate::Result<()> {
-    flush_pending_skin_change_inner(None).await
+    flush_pending_skin_change_inner(None, false).await
 }
 
 /// Sends any pending skin change for a specific Minecraft account immediately.
@@ -1235,9 +1247,10 @@ pub async fn flush_pending_skin_change() -> crate::Result<()> {
 pub async fn flush_pending_skin_change_for_profile(
     profile_id: Uuid,
 ) -> crate::Result<()> {
-    flush_pending_skin_change_inner(Some(PendingSkinChangeFilter::Profile(
-        profile_id,
-    )))
+    flush_pending_skin_change_inner(
+        Some(PendingSkinChangeFilter::Profile(profile_id)),
+        false,
+    )
     .await
 }
 
@@ -1265,21 +1278,38 @@ async fn set_pending_skin_change(change: PendingSkinChange) {
 }
 
 fn schedule_pending_skin_change_flush(profile_id: Uuid, generation: u64) {
-    tokio::spawn(async move {
-        tokio::time::sleep(SKIN_CHANGE_DEBOUNCE).await;
+    if SKIN_FLUSH_SHUTDOWN.is_cancelled() {
+        return;
+    }
 
-        if let Err(error) = flush_pending_skin_change_inner(Some(
-            PendingSkinChangeFilter::Generation {
+    let shutdown = SKIN_FLUSH_SHUTDOWN.clone();
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = shutdown.cancelled() => return,
+            () = tokio::time::sleep(SKIN_CHANGE_DEBOUNCE) => {}
+        }
+
+        if shutdown.is_cancelled() {
+            return;
+        }
+
+        let flush = flush_pending_skin_change_inner(
+            Some(PendingSkinChangeFilter::Generation {
                 profile_id,
                 generation,
-            },
-        ))
-        .await
-        {
-            let _ = crate::event::emit::emit_warning(&format!(
-                "Failed to apply pending Minecraft skin change: {error}"
-            ))
-            .await;
+            }),
+            true,
+        );
+        tokio::select! {
+            _ = shutdown.cancelled() => {},
+            result = flush => {
+                if let Err(error) = result {
+                    let _ = crate::event::emit::emit_warning(&format!(
+                        "Failed to apply pending Minecraft skin change: {error}"
+                    ))
+                    .await;
+                }
+            }
         }
     });
 }
@@ -1334,8 +1364,12 @@ enum PendingSkinChangeFilter {
 
 async fn flush_pending_skin_change_inner(
     filter: Option<PendingSkinChangeFilter>,
+    debounce: bool,
 ) -> crate::Result<()> {
     let _guard = SKIN_CHANGE_FLUSH_LOCK.lock().await;
+    if debounce && SKIN_FLUSH_SHUTDOWN.is_cancelled() {
+        return Ok(());
+    }
     let mut attempted = HashSet::new();
 
     loop {
@@ -1387,6 +1421,10 @@ async fn flush_pending_skin_change_inner(
         let Some((profile_id, change, generation)) = entry else {
             return Ok(());
         };
+
+        if debounce && SKIN_FLUSH_SHUTDOWN.is_cancelled() {
+            return Ok(());
+        }
 
         if filter.is_none() {
             attempted.insert(profile_id);

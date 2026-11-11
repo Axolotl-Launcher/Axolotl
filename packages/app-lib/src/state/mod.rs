@@ -81,9 +81,7 @@ pub mod minecraft_skins;
 mod cache;
 pub use self::cache::*;
 
-pub mod content_favorites;
 pub mod resources;
-pub use self::content_favorites::*;
 
 pub mod db;
 pub(crate) mod db_backup;
@@ -92,7 +90,6 @@ mod legacy_converter;
 
 pub mod attached_world_data;
 pub(crate) mod content_store;
-pub(crate) mod content_types;
 pub(crate) mod documents;
 pub mod favorite_groups;
 pub mod instance_groups;

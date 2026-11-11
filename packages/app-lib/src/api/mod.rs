@@ -2,7 +2,6 @@
 pub mod ai;
 pub mod anti_piracy;
 pub mod cache;
-pub mod content_favorites;
 pub mod content_search;
 pub mod curseforge;
 pub mod drop_classifier;
@@ -40,11 +39,10 @@ pub mod data {
     pub use crate::launcher::ExternalGameDirMode;
     pub use crate::state::{
         AppliedContentSetPatch, CacheBehaviour, CacheValueType, CachedEntry,
-        ContentFavorite, ContentFavoriteInput, ContentFavoriteProvider,
-        ContentFavoriteType, ContentFile, ContentItem, ContentItemCapabilities,
-        ContentItemOwner, ContentItemProject, ContentItemVersion,
-        ContentOwnershipKind, ContentProvider, ContentProviderRef,
-        ContentUpdatePlan, ContentUpdatePlanAction, ContentUpdateResolution,
+        ContentFile, ContentItem, ContentItemCapabilities, ContentItemOwner,
+        ContentItemProject, ContentItemVersion, ContentOwnershipKind,
+        ContentProvider, ContentProviderRef, ContentUpdatePlan,
+        ContentUpdatePlanAction, ContentUpdateResolution,
         ContentUpdateResolutionChoice, ContentUpdateScope, CoreComponent,
         CoreComponentKind, CoreComponentSource, CoreJarPreview,
         CreateDirectLinkInstance, CreateInstance, Credentials, Dependency,

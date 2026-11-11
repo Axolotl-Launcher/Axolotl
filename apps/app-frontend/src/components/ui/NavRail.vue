@@ -68,6 +68,7 @@ let railHeight = 0
 let railSize = ''
 let pendingPosition: { animate: boolean; target: HTMLElement | null } | null = null
 let resizeObserver: ResizeObserver | null = null
+let itemResizeObserver: ResizeObserver | null = null
 let itemObserver: MutationObserver | null = null
 
 const sliderStyle = computed(() => ({
@@ -91,6 +92,16 @@ function prepareGeometry(container: HTMLElement) {
             left: child.offsetLeft,
             width: child.offsetWidth,
         })
+    }
+}
+
+function observeItemSizes(container: HTMLElement) {
+    itemResizeObserver ??= new ResizeObserver(invalidateGeometry)
+    itemResizeObserver.disconnect()
+    for (const child of container.children) {
+        if (child instanceof HTMLElement && !child.classList.contains('nav-rail-slider')) {
+            itemResizeObserver.observe(child)
+        }
     }
 }
 
@@ -358,9 +369,13 @@ onMounted(() => {
         prepareGeometry(rail.value)
         resizeObserver = new ResizeObserver(onRailResize)
         resizeObserver.observe(rail.value)
+        observeItemSizes(rail.value)
         // A child-list change that keeps the rail's box size unchanged would
         // not fire the resize observer, but it still moves item offsets.
-        itemObserver = new MutationObserver(invalidateGeometry)
+        itemObserver = new MutationObserver(() => {
+            if (rail.value) observeItemSizes(rail.value)
+            invalidateGeometry()
+        })
         itemObserver.observe(rail.value, { childList: true })
     }
     void updateSlider()
@@ -371,6 +386,8 @@ onBeforeUnmount(() => {
     pendingPosition = null
     resizeObserver?.disconnect()
     resizeObserver = null
+    itemResizeObserver?.disconnect()
+    itemResizeObserver = null
     itemObserver?.disconnect()
     itemObserver = null
     clearPointerListeners()

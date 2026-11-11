@@ -147,6 +147,20 @@ it('invalidates cached geometry when the child list changes without resizing the
     await waitFor(() => slider.element.style.top === settingsTop())
 })
 
+it('invalidates cached geometry when an existing item changes size', async () => {
+    const router = basicRouter()
+    await router.push('/lab')
+    const wrapper = await mountBasicRail(router)
+    const library = wrapper.get('a[href="/library"]')
+    const lab = wrapper.get('a[href="/lab"]')
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+    const labTop = () => `${(lab.element as HTMLElement).offsetTop}px`
+    await waitFor(() => slider.element.style.top === labTop())
+
+    library.element.style.height = '96px'
+    await waitFor(() => slider.element.style.top === labTop())
+})
+
 function basicRouter() {
     return createRouter({
         history: createMemoryHistory(),

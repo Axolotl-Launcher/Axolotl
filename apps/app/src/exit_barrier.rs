@@ -15,13 +15,14 @@
 //!    through `request_restart` here, and the frontend's `restart_app` has
 //!    asked before step 1, so Tauri relaunches only after `Exit` returns.
 //!
-//! Budget: the bounded steps total 5 + 5 + 3 = 13 s, under the 15 s hard cap.
-//! A user-requested restart or a pending update gets [`RESTART_CAP`] for steps
-//! 1–5; a restart then gets the ordinary cap again for steps 6–7, while an
-//! update disarms it for the install and [`rearm`] bounds the steps after it
-//! returns. At the cap the barrier records the losses and exits the process;
-//! L3 work is never killed by the barrier, it ends with the process and is
-//! settled as interrupted on the next start.
+//! Budget: step 2 gets 2 s, and steps 3, 4 and 6 total 5 + 5 + 3 = 13 s, so
+//! the bounded steps can consume the 15 s hard cap; the cap remains the final
+//! bound. A user-requested restart or a pending update gets [`RESTART_CAP`]
+//! for steps 1–5; a restart then gets the ordinary cap again for steps 6–7,
+//! while an update disarms it for the install and [`rearm`] bounds the steps
+//! after it returns. At the cap the barrier records the losses and exits the
+//! process; L3 work is never killed by the barrier, it ends with the process
+//! and is settled as interrupted on the next start.
 //!
 //! Exit paths: the frontend's `exit_app`, the tray's quit, the frontend's
 //! `restart_app` and the updater's restart go through the barrier. macOS
@@ -43,6 +44,9 @@ pub const STEP_BUDGETS: [Duration; 3] = [
     Duration::from_secs(3),
 ];
 pub const SOFT_WINDOW: Duration = STEP_BUDGETS[0];
+/// Step 2: a pending skin change may call the Mojang API. Bound it so a slow
+/// request cannot consume the hard cap that steps 3–6 need.
+pub const SKIN_FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 pub const HARD_CAP: Duration = Duration::from_secs(15);
 /// A user-requested restart or a pending update gets one extended pass for
 /// steps 1–5. The update then disarms the cap for the install, which waits on
@@ -319,6 +323,11 @@ mod tests {
         assert_eq!(total, Duration::from_secs(13));
         assert!(total < HARD_CAP);
         assert_eq!(STEP_BUDGETS[0], SOFT_WINDOW);
+        assert_eq!(
+            total + SKIN_FLUSH_TIMEOUT,
+            HARD_CAP,
+            "the bounded steps reach, but never exceed, the hard cap"
+        );
     }
 
     #[test]

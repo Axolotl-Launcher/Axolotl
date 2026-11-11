@@ -247,6 +247,7 @@ async fn check_with_endpoints<R: Runtime>(
     let platform = update_platform()?;
     let current_version =
         webview.app_handle().package_info().version.to_string();
+    let app_handle = webview.app_handle().clone();
     let mut updater = webview
         .updater_builder()
         .endpoints(vec![update_endpoint()?])?
@@ -254,7 +255,14 @@ async fn check_with_endpoints<R: Runtime>(
         .header("X-Axolotl-Channel", channel)?
         .header("X-Axolotl-Platform", platform)?
         .header("X-Axolotl-Version", current_version)?
-        .on_before_exit(close_database_before_installer);
+        .on_before_exit(move || {
+            close_database_before_installer();
+            // The plugin's default hook clears Tauri's resource tables before
+            // the installer takes over. Replacing it to close the database
+            // would drop that cleanup; run it last, after which no Tauri API
+            // may be used.
+            app_handle.cleanup_before_exit();
+        });
 
     #[cfg(target_os = "windows")]
     {

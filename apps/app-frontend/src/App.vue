@@ -1592,9 +1592,13 @@ async function setupApp() {
     await localePreparation
     stateInitialized.value = true
     void nextTick(() => {
+        // The first rAF runs before the frame is painted; the second one runs
+        // after that paint, so deferred I/O cannot contend with it.
         requestAnimationFrame(() => {
-            invoke('frontend_ready').catch((error) => {
-                console.warn('Failed to report frontend readiness', error)
+            requestAnimationFrame(() => {
+                invoke('frontend_ready').catch((error) => {
+                    console.warn('Failed to report frontend readiness', error)
+                })
             })
         })
     })

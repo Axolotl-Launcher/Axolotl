@@ -17,28 +17,31 @@ use executor::L0Executor;
 use quiesce::QuiesceToken;
 
 static EXECUTOR: OnceLock<Option<L0Executor>> = OnceLock::new();
-/// Set before the quiesce request so an executor initialized concurrently
-/// still starts quiesced instead of racing past the exit request.
+/// Set before the quiesce request; `executor` checks it after publishing the
+/// executor so a concurrently initialized executor starts quiesced.
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 /// The launcher's L0 executor, started once on first use. `None` if its
 /// driver thread could not start; callers then run the task on the current
 /// runtime.
 fn executor() -> Option<&'static L0Executor> {
-    EXECUTOR
-        .get_or_init(|| {
-            let started = L0Executor::start(Arc::new(ControlTable::new()))
-                .inspect_err(|error| {
-                    tracing::error!(%error, "Could not start the L0 executor");
-                });
-            if EXIT_REQUESTED.load(Ordering::Acquire)
-                && let Ok(executor) = &started
-            {
-                executor.control().request_quiesce();
-            }
-            started.ok()
-        })
-        .as_ref()
+    let installed = EXECUTOR.get_or_init(|| {
+        let started = L0Executor::start(Arc::new(ControlTable::new()))
+            .inspect_err(|error| {
+                tracing::error!(%error, "Could not start the L0 executor");
+            });
+        started.ok()
+    });
+    // `request_exit` sets the flag before it reads the table. If it ran while
+    // this initializer was starting the executor, its `control()` read could
+    // see no table; check again after `get_or_init` publishes the executor so
+    // it cannot start unquiesced.
+    if EXIT_REQUESTED.load(Ordering::Acquire)
+        && let Some(executor) = installed
+    {
+        executor.control().request_quiesce();
+    }
+    installed.as_ref()
 }
 
 /// Runs an L0 task on the L0 executor, or on the current runtime when the

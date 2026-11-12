@@ -842,9 +842,7 @@ fn storage_file<R: Runtime>(
 }
 
 async fn storage_usage(directory: &Path) -> Result<u64> {
-    let Ok(mut entries) = tokio::fs::read_dir(directory).await else {
-        return Ok(0);
-    };
+    let mut entries = tokio::fs::read_dir(directory).await?;
     let mut total = 0u64;
     while let Ok(Some(entry)) = entries.next_entry().await {
         let Ok(metadata) = entry.metadata().await else {

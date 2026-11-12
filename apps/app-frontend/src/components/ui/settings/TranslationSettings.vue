@@ -664,7 +664,7 @@ async function clearCache() {
                     </div>
                 </template>
             </SettingsRow>
-            <SettingsRow v-if="settings.provider === 'ai' && aiAvailable">
+            <SettingsRow v-if="settings.provider === 'ai' && aiAvailable" stacked>
                 <template #label>{{ formatMessage(messages.aiModel) }}</template>
                 <template #control>
                     <div

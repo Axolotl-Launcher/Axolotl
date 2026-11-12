@@ -474,6 +474,63 @@ mod tests {
         drop(pass);
     }
 
+    #[test]
+    fn pending_update_failure_cannot_block_the_exit_handler() {
+        let source = include_str!("main.rs");
+        let pending = source
+            .split("if let Some(update) = update_data.0.lock().unwrap().take()")
+            .nth(1)
+            .expect("the pending update exit handler must exist")
+            .split("// Steps 6–7 of the exit barrier.")
+            .next()
+            .unwrap();
+        assert!(
+            pending
+                .contains("exit_barrier::rearm(exit_barrier::now_millis());")
+        );
+        assert!(pending.contains("set_changelog_toast(None);"));
+        for blocking_ui in
+            ["DialogBuilder", ".show()", ".alert()", "block_on(app"]
+        {
+            assert!(
+                !pending.contains(blocking_ui),
+                "pending update shutdown must not wait for error UI: {blocking_ui}"
+            );
+        }
+        let failure = pending
+            .split("Err(e) => {")
+            .nth(1)
+            .expect("installer failures must have an error branch");
+        assert!(failure.contains("tracing::error!"));
+        assert!(
+            failure.contains("Pending update install failed (version {}): {e}")
+        );
+        for early_exit in [
+            "restart_after_update = true",
+            "app.restart",
+            "request_restart",
+            "return",
+            "panic!",
+            ".unwrap()",
+        ] {
+            assert!(
+                !failure.contains(early_exit),
+                "installer failure must reach database shutdown: {early_exit}"
+            );
+        }
+        let cleanup = source
+            .split("// Steps 6–7 of the exit barrier.")
+            .nth(1)
+            .expect("exit finalization must follow update handling")
+            .split("#[cfg(target_os = \"macos\")]")
+            .next()
+            .unwrap();
+        assert!(cleanup.contains("exit_barrier::finish_exit("));
+        assert!(cleanup.contains("state.finish_database_session()"));
+        assert!(cleanup.contains("restart_after_update,"));
+        assert!(source.contains("let mut restart_after_update = false;"));
+    }
+
     struct FakeApp(RefCell<Vec<&'static str>>);
 
     impl Restarter for FakeApp {

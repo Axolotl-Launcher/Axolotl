@@ -1263,13 +1263,9 @@ fn main() {
                                 );
                                 set_changelog_toast(None);
 
-                                DialogBuilder::message()
-                                    .set_level(MessageLevel::Error)
-                                    .set_title("Update error")
-                                    .set_text(format!("Failed to install update due to an error:\n{e}"))
-                                    .alert()
-                                    .show()
-                                    .unwrap();
+                                // The event loop has exited; interactive error UI
+                                // can block database shutdown indefinitely. Keep
+                                // the diagnostic in the session log and finish exit.
                             }
                         }
                     }

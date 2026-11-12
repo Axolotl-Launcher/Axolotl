@@ -1232,42 +1232,34 @@ fn main() {
                         // toast and database close are bounded again.
                         exit_barrier::rearm(exit_barrier::now_millis());
 
-                        match install_result {
-                            Ok(()) => {
-                                set_changelog_toast(Some(version.clone()));
-                                if portable_worker {
+                        let outcome = exit_barrier::complete_pending_update(
+                            version,
+                            portable_worker,
+                            should_restart,
+                            install_result,
+                            set_changelog_toast,
+                            |outcome| match &outcome.status {
+                                exit_barrier::PendingUpdateStatus::PortableReady => {
                                     tracing::info!(
                                         "Portable update worker is ready (version {}); it will activate after process exit (restart: {})",
-                                        version, should_restart
-                                    );
-                                } else if should_restart {
-                                    tracing::info!(
-                                        "Pending update installed successfully (version {}); restarting because user requested reload",
-                                        version
-                                    );
-                                    // Restarting on the spot here would skip
-                                    // closing the database; `Exit` requests it
-                                    // after the pool is closed.
-                                    restart_after_update = true;
-                                } else {
-                                    tracing::info!(
-                                        "Pending update installed successfully (version {}); exiting without relaunch (user did not request reload)",
-                                        version
+                                        outcome.version, outcome.restart_requested
                                     );
                                 }
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Pending update install failed (version {}): {e}",
-                                    version
-                                );
-                                set_changelog_toast(None);
-
-                                // The event loop has exited; interactive error UI
-                                // can block database shutdown indefinitely. Keep
-                                // the diagnostic in the session log and finish exit.
-                            }
-                        }
+                                exit_barrier::PendingUpdateStatus::Installed => {
+                                    tracing::info!(
+                                        "Pending update installed successfully (version {}); exiting (restart requested: {})",
+                                        outcome.version, outcome.restart_requested
+                                    );
+                                }
+                                exit_barrier::PendingUpdateStatus::Failed(error) => {
+                                    tracing::error!(
+                                        "Pending update install failed (version {}): {error}",
+                                        outcome.version
+                                    );
+                                }
+                            },
+                        );
+                        restart_after_update = outcome.restart_after_exit();
                     }
                 }
                 // Steps 6–7 of the exit barrier.

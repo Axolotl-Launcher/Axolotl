@@ -269,6 +269,59 @@ pub trait Restarter {
     fn request_restart(&self);
 }
 
+#[cfg(any(feature = "updater", test))]
+#[derive(Debug, PartialEq, Eq)]
+pub enum PendingUpdateStatus {
+    Installed,
+    PortableReady,
+    Failed(String),
+}
+
+#[cfg(any(feature = "updater", test))]
+#[derive(Debug, PartialEq, Eq)]
+pub struct PendingUpdateOutcome {
+    pub version: String,
+    pub status: PendingUpdateStatus,
+    pub restart_requested: bool,
+}
+
+#[cfg(any(feature = "updater", test))]
+impl PendingUpdateOutcome {
+    pub fn restart_after_exit(&self) -> bool {
+        self.restart_requested && self.status == PendingUpdateStatus::Installed
+    }
+}
+
+/// Records the install result before database finalization. A portable worker
+/// owns its relaunch; failed installs never request a restart here.
+#[cfg(any(feature = "updater", test))]
+pub fn complete_pending_update(
+    version: String,
+    portable_worker: bool,
+    restart_requested: bool,
+    result: Result<(), String>,
+    set_toast: impl FnOnce(Option<String>),
+    report: impl FnOnce(&PendingUpdateOutcome),
+) -> PendingUpdateOutcome {
+    let status = match result {
+        Ok(()) if portable_worker => PendingUpdateStatus::PortableReady,
+        Ok(()) => PendingUpdateStatus::Installed,
+        Err(error) => PendingUpdateStatus::Failed(error),
+    };
+    let outcome = PendingUpdateOutcome {
+        version,
+        status,
+        restart_requested,
+    };
+    let toast = match &outcome.status {
+        PendingUpdateStatus::Failed(_) => None,
+        _ => Some(outcome.version.clone()),
+    };
+    set_toast(toast);
+    report(&outcome);
+    outcome
+}
+
 /// Steps 6–7: close the database session first, then restart if an update
 /// asked for it, so a restart never skips the clean-shutdown record.
 pub fn finish_exit(
@@ -475,60 +528,90 @@ mod tests {
     }
 
     #[test]
-    fn pending_update_failure_cannot_block_the_exit_handler() {
-        let source = include_str!("main.rs");
-        let pending = source
-            .split("if let Some(update) = update_data.0.lock().unwrap().take()")
-            .nth(1)
-            .expect("the pending update exit handler must exist")
-            .split("// Steps 6–7 of the exit barrier.")
-            .next()
-            .unwrap();
-        assert!(
-            pending
-                .contains("exit_barrier::rearm(exit_barrier::now_millis());")
-        );
-        assert!(pending.contains("set_changelog_toast(None);"));
-        for blocking_ui in
-            ["DialogBuilder", ".show()", ".alert()", "block_on(app"]
-        {
-            assert!(
-                !pending.contains(blocking_ui),
-                "pending update shutdown must not wait for error UI: {blocking_ui}"
-            );
-        }
-        let failure = pending
-            .split("Err(e) => {")
-            .nth(1)
-            .expect("installer failures must have an error branch");
-        assert!(failure.contains("tracing::error!"));
-        assert!(
-            failure.contains("Pending update install failed (version {}): {e}")
-        );
-        for early_exit in [
-            "restart_after_update = true",
-            "app.restart",
-            "request_restart",
-            "return",
-            "panic!",
-            ".unwrap()",
+    fn pending_update_outcomes_finalize_the_database_before_any_restart() {
+        let _serial = serial();
+        for (
+            result,
+            portable,
+            restart_requested,
+            expected_status,
+            expected_restart,
+        ) in [
+            (Ok(()), false, true, PendingUpdateStatus::Installed, true),
+            (Ok(()), false, false, PendingUpdateStatus::Installed, false),
+            (
+                Ok(()),
+                true,
+                true,
+                PendingUpdateStatus::PortableReady,
+                false,
+            ),
+            (
+                Err("authorization cancelled".to_owned()),
+                false,
+                true,
+                PendingUpdateStatus::Failed("authorization cancelled".into()),
+                false,
+            ),
+            (
+                Err("rpm rejected the package".to_owned()),
+                false,
+                false,
+                PendingUpdateStatus::Failed("rpm rejected the package".into()),
+                false,
+            ),
         ] {
-            assert!(
-                !failure.contains(early_exit),
-                "installer failure must reach database shutdown: {early_exit}"
+            let app = FakeApp(RefCell::default());
+            let toast = RefCell::new(None);
+            let reported = RefCell::new(None);
+            let outcome = complete_pending_update(
+                "1.2.3".into(),
+                portable,
+                restart_requested,
+                result,
+                |value| {
+                    *toast.borrow_mut() = Some(value);
+                    app.0.borrow_mut().push("persist_outcome");
+                },
+                |outcome| {
+                    *reported.borrow_mut() =
+                        Some(format!("{:?}", outcome.status));
+                    app.0.borrow_mut().push("report_outcome");
+                },
             );
+            assert_eq!(outcome.version, "1.2.3");
+            assert_eq!(outcome.status, expected_status);
+            assert_eq!(outcome.restart_after_exit(), expected_restart);
+            assert_eq!(
+                *reported.borrow(),
+                Some(format!("{expected_status:?}"))
+            );
+            assert_eq!(
+                *toast.borrow(),
+                Some(
+                    if matches!(expected_status, PendingUpdateStatus::Failed(_))
+                    {
+                        None
+                    } else {
+                        Some("1.2.3".into())
+                    }
+                ),
+            );
+            finish_exit(
+                || app.0.borrow_mut().push("finish_database_session"),
+                outcome.restart_after_exit(),
+                &app,
+            );
+            let mut expected = vec![
+                "persist_outcome",
+                "report_outcome",
+                "finish_database_session",
+            ];
+            if expected_restart {
+                expected.push("request_restart");
+            }
+            assert_eq!(*app.0.borrow(), expected);
         }
-        let cleanup = source
-            .split("// Steps 6–7 of the exit barrier.")
-            .nth(1)
-            .expect("exit finalization must follow update handling")
-            .split("#[cfg(target_os = \"macos\")]")
-            .next()
-            .unwrap();
-        assert!(cleanup.contains("exit_barrier::finish_exit("));
-        assert!(cleanup.contains("state.finish_database_session()"));
-        assert!(cleanup.contains("restart_after_update,"));
-        assert!(source.contains("let mut restart_after_update = false;"));
     }
 
     struct FakeApp(RefCell<Vec<&'static str>>);

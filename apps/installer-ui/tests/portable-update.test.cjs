@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const { createHash } = require('node:crypto')
 const { execFileSync, spawn } = require('node:child_process')
@@ -15,7 +16,9 @@ const helper =
         .map((profile) => path.join(root, 'target', profile, 'axolotl-installer-ui.exe'))
         .find((candidate) => fs.existsSync(candidate))
 const compiler = path.join(process.env.LOCALAPPDATA || '', 'tauri/NSIS/makensis.exe')
-const directory = windows ? fs.mkdtempSync(path.join(root, '.agents/plans/portable-worker-')) : null
+const directory = windows
+    ? fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-portable-worker-'))
+    : null
 
 after(async () => {
     if (directory)

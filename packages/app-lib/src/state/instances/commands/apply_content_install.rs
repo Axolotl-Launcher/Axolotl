@@ -1558,6 +1558,7 @@ pub(crate) async fn resolve_content_install_relative_path(
     instance_id: &str,
     original_relative_path: String,
     localized_candidate: Option<String>,
+    resource_chinese_filenames: Option<bool>,
     state: &State,
 ) -> crate::Result<String> {
     if files::get_instance_file_by_relative_path(
@@ -1583,10 +1584,15 @@ pub(crate) async fn resolve_content_install_relative_path(
     {
         return Ok(localized_candidate);
     }
-    if crate::state::Settings::get(&state.data)
-        .await?
-        .resource_chinese_filenames
-    {
+    let resource_chinese_filenames = match resource_chinese_filenames {
+        Some(value) => value,
+        None => {
+            crate::state::Settings::get(&state.data)
+                .await?
+                .resource_chinese_filenames
+        }
+    };
+    if resource_chinese_filenames {
         return Ok(localized_candidate);
     }
     Ok(original_relative_path)
@@ -1597,13 +1603,10 @@ pub(crate) async fn resolve_content_install_relative_path(
 async fn modrinth_chinese_file_name_candidate(
     project_id: &str,
     file_name: &str,
+    resource_chinese_filenames: bool,
     state: &State,
 ) -> Option<String> {
-    if !crate::state::Settings::get(&state.data)
-        .await
-        .ok()?
-        .resource_chinese_filenames
-    {
+    if !resource_chinese_filenames {
         return None;
     }
     let project = CachedEntry::get_project(
@@ -1637,19 +1640,31 @@ pub(crate) async fn add_downloaded_project_version(
     let project_type = downloaded.project_type;
     let project_id = &downloaded.project_id;
     let scope = resolve_content_scope(instance_id, None, state).await?;
+    let resource_chinese_filenames = if project_type == ProjectType::Mod {
+        None
+    } else {
+        crate::state::Settings::get(&state.data)
+            .await
+            .ok()
+            .map(|settings| settings.resource_chinese_filenames)
+    };
     let localized_candidate = if project_type == ProjectType::Mod {
         None
     } else {
-        modrinth_chinese_file_name_candidate(project_id, file_name, state)
-            .await
-            .map(|file_name| {
-                format!("{}/{}", project_type.get_folder(), file_name)
-            })
+        modrinth_chinese_file_name_candidate(
+            project_id,
+            file_name,
+            resource_chinese_filenames.unwrap_or(false),
+            state,
+        )
+        .await
+        .map(|file_name| format!("{}/{}", project_type.get_folder(), file_name))
     };
     let relative_path = resolve_content_install_relative_path(
         instance_id,
         format!("{}/{}", project_type.get_folder(), file_name),
         localized_candidate,
+        resource_chinese_filenames,
         state,
     )
     .await?;
@@ -1832,6 +1847,17 @@ pub(crate) async fn materialize_project_download_batch(
     let mut records = Vec::with_capacity(downloads.len());
     let mut sources = Vec::with_capacity(downloads.len());
     let mut destinations = std::collections::HashSet::new();
+    let resource_chinese_filenames = if downloads
+        .iter()
+        .any(|download| download.project_type != ProjectType::Mod)
+    {
+        crate::state::Settings::get(&state.data)
+            .await
+            .ok()
+            .map(|settings| settings.resource_chinese_filenames)
+    } else {
+        None
+    };
     for download in downloads {
         let localized = if download.project_type == ProjectType::Mod {
             None
@@ -1839,6 +1865,7 @@ pub(crate) async fn materialize_project_download_batch(
             modrinth_chinese_file_name_candidate(
                 &download.project_id,
                 &download.file_name,
+                resource_chinese_filenames.unwrap_or(false),
                 state,
             )
             .await
@@ -1854,6 +1881,7 @@ pub(crate) async fn materialize_project_download_batch(
                 download.file_name
             ),
             localized,
+            resource_chinese_filenames,
             state,
         )
         .await?;

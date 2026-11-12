@@ -1592,6 +1592,17 @@ async function setupApp() {
     themeStore.shortcutBindings = resolveAllBindings()
     await localePreparation
     stateInitialized.value = true
+    void nextTick(() => {
+        // The first rAF runs before the frame is painted; the second one runs
+        // after that paint, so deferred I/O cannot contend with it.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                invoke('frontend_ready').catch((error) => {
+                    console.warn('Failed to report frontend readiness', error)
+                })
+            })
+        })
+    })
     const stopMcpSync = await startMcpStateSync()
     const stopMcpUi = await startMcpUiBridge(router)
     const stopMcp = () => {

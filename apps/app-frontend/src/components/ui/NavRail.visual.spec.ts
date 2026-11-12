@@ -1,6 +1,6 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, expect, it } from 'vitest'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -109,6 +109,56 @@ it('honors an explicit primary predicate instead of the router default when both
     expect(wrapper.element.tagName).toBe('BUTTON')
     expect(wrapper.classes()).not.toContain('router-link-active')
     expect(wrapper.classes()).toContain('subpage-active')
+})
+
+it('invalidates cached geometry when the child list changes without resizing the rail', async () => {
+    const router = createRouter({
+        history: createMemoryHistory(),
+        routes: ['/library', '/lab', '/settings', '/downloads'].map((path) => ({
+            path,
+            component: { render: () => null },
+        })),
+    })
+    await router.push('/settings')
+    const items = ref(['/library', '/lab', '/settings'])
+    const Harness = defineComponent({
+        setup: () => () =>
+            h(
+                NavRail,
+                {},
+                {
+                    default: () =>
+                        items.value.map((path) =>
+                            h(NavButton, { key: path, to: path }, () => path),
+                        ),
+                },
+            ),
+    })
+    const wrapper = await mountThemed(Harness, {}, 'dark', { global: { plugins: [router] } })
+    cleanup.push(() => wrapper.unmount())
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+    const settings = wrapper.get('a[href="/settings"]')
+    const settingsTop = () => `${(settings.element as HTMLElement).offsetTop}px`
+    await waitFor(() => slider.element.style.top === settingsTop())
+
+    // Same item count and rail height, but settings moves up one slot.
+    items.value = ['/library', '/settings', '/downloads']
+    await nextTick()
+    await waitFor(() => slider.element.style.top === settingsTop())
+})
+
+it('invalidates cached geometry when an existing item changes size', async () => {
+    const router = basicRouter()
+    await router.push('/lab')
+    const wrapper = await mountBasicRail(router)
+    const library = wrapper.get('a[href="/library"]')
+    const lab = wrapper.get('a[href="/lab"]')
+    const slider = wrapper.get<HTMLElement>('.nav-rail-slider')
+    const labTop = () => `${(lab.element as HTMLElement).offsetTop}px`
+    await waitFor(() => slider.element.style.top === labTop())
+
+    library.element.style.height = '96px'
+    await waitFor(() => slider.element.style.top === labTop())
 })
 
 function basicRouter() {

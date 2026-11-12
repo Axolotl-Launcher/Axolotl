@@ -124,12 +124,9 @@ export const HOME_WIDGET_DEFAULT_SIZE: Record<HomeWidgetKind, HomeWidgetSize> = 
 export function getHomeWidgetCardDensity(
     dashboardSize: HomeWidgetSize | null | undefined,
 ): 'compact' | 'comfortable' {
-    return dashboardSize === '1x1' ||
-        dashboardSize === '1x2' ||
-        dashboardSize === '2x1' ||
-        dashboardSize === '2x2'
-        ? 'compact'
-        : 'comfortable'
+    if (!dashboardSize) return 'comfortable'
+    const [columns] = dashboardSize.split('x').map(Number)
+    return columns <= 2 ? 'compact' : 'comfortable'
 }
 
 const HOME_WIDGET_KINDS = new Set<HomeWidgetKind>(

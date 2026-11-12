@@ -298,10 +298,13 @@ const messages = defineMessages({
                 "
                 :size="dashboardDensity === 'compact' ? '40px' : '48px'"
             />
-            <div class="flex flex-col justify-between h-full">
-                <div class="flex items-center gap-2">
+            <div class="flex min-w-0 flex-col justify-between h-full">
+                <div class="flex min-w-0 items-center gap-2">
                     <div
-                        class="text-lg text-[var(--color-text-primary)] font-bold truncate smart-clickable:underline-on-hover"
+                        class="min-w-0 text-lg text-[var(--color-text-primary)] font-bold smart-clickable:underline-on-hover"
+                        :class="
+                            dashboardDensity ? 'break-words [overflow-wrap:anywhere]' : 'truncate'
+                        "
                     >
                         {{ world.name }}
                     </div>
@@ -386,7 +389,9 @@ const messages = defineMessages({
                         </template>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
+                <div
+                    class="flex min-w-0 items-center gap-2 text-sm text-[var(--color-text-tertiary)]"
+                >
                     <div
                         v-tooltip="world.last_played ? formatDateTime(world.last_played) : null"
                         class="w-fit shrink-0"

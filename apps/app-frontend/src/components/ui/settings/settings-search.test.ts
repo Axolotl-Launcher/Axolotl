@@ -256,11 +256,13 @@ it('every settings search result resolves to a category and a scroll target', ()
             },
         ]
         const literal = template.includes(`id="${targetId}"`)
+        // LogAgent's local setup reuses the section without the settings-page anchor.
+        const conditional = template.includes(`:id="localSetup ? undefined : '${targetId}'"`)
         const interpolated = interpolations.some(
             ({ prefix, pattern }) => targetId.startsWith(prefix) && template.includes(pattern),
         )
         expect(
-            literal || interpolated,
+            literal || conditional || interpolated,
             `${entry.id}: no anchor for ${targetId} in ${entry.categoryId}`,
         ).toBe(true)
     }

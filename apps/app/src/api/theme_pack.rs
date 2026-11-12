@@ -1651,17 +1651,21 @@ mod tests {
             serde_json::json!(["theme-pack:allow-theme-pack-page-request"])
         );
 
-        let config: serde_json::Value =
-            serde_json::from_str(include_str!("../../tauri.conf.json"))
+        for source in [
+            include_str!("../../tauri.conf.json"),
+            include_str!("../../tauri-release.conf.json"),
+        ] {
+            let config: serde_json::Value =
+                serde_json::from_str(source).unwrap();
+            let enabled = config["app"]["security"]["capabilities"]
+                .as_array()
                 .unwrap();
-        let enabled = config["app"]["security"]["capabilities"]
-            .as_array()
-            .unwrap();
-        for capability in ["app", "theme-pages"] {
-            assert!(
-                enabled.iter().any(|entry| entry == capability),
-                "the {capability} capability must be enabled in tauri.conf.json"
-            );
+            for capability in ["app", "theme-pages"] {
+                assert!(
+                    enabled.iter().any(|entry| entry == capability),
+                    "the {capability} capability must be enabled in {source}"
+                );
+            }
         }
     }
 }

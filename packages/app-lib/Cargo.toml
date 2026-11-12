@@ -98,12 +98,12 @@ ring = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 rustls-pki-types = { workspace = true }
+semver = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_cbor = { workspace = true }
 serde_ini = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-semver = { workspace = true }
 sha1_smol = { workspace = true }
 sha2 = { workspace = true }
 shlex = { workspace = true }

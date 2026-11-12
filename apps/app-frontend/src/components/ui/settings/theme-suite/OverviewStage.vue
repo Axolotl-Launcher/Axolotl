@@ -72,7 +72,7 @@ function confirmRemove(pack: InstalledThemePack) {
 
 <template>
     <div class="flex min-w-0 flex-col gap-4">
-        <p class="m-0 text-sm text-[var(--color-text-secondary)]">
+        <p class="m-0 text-sm text-secondary">
             {{ formatMessage(themeSuiteMessages.description) }}
         </p>
 
@@ -231,7 +231,7 @@ function confirmRemove(pack: InstalledThemePack) {
                                         <span
                                             v-for="capability in pack.manifest.capabilities"
                                             :key="capability"
-                                            class="rounded-full bg-surface-4 px-2 py-0.5 text-xs text-[var(--color-text-secondary)]"
+                                            class="rounded-full bg-surface-4 px-2 py-0.5 text-xs text-secondary"
                                         >
                                             {{ capabilityLabel(capability) }}
                                         </span>
@@ -282,9 +282,7 @@ function confirmRemove(pack: InstalledThemePack) {
                                     })
                                 }}
                             </p>
-                            <label
-                                class="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]"
-                            >
+                            <label class="flex items-center gap-2 text-sm text-secondary">
                                 <input v-model="removeData" type="checkbox" />
                                 {{ formatMessage(themeSuiteMessages.removePackData) }}
                             </label>

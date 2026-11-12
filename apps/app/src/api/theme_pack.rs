@@ -233,11 +233,6 @@ fn export_snapshot_archive(
     if !parent.is_dir() {
         return Err(theme_error("The selected folder does not exist"));
     }
-    if destination.exists() {
-        return Err(theme_error(
-            "A file already exists at the selected destination",
-        ));
-    }
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
@@ -254,6 +249,16 @@ fn export_snapshot_archive(
         limits,
     ) {
         Ok(()) => {
+            if destination.exists() {
+                // A save dialog already asked the user to confirm replacing
+                // the file; remove it only after the temporary archive exists.
+                std::fs::remove_file(destination).map_err(|error| {
+                    let _ = std::fs::remove_file(&temporary);
+                    theme_error(format!(
+                        "The existing snapshot could not be replaced: {error}"
+                    ))
+                })?;
+            }
             if let Err(error) = std::fs::rename(&temporary, destination) {
                 let _ = std::fs::remove_file(&temporary);
                 return Err(theme_error(format!(
@@ -1178,19 +1183,21 @@ mod tests {
     }
 
     #[test]
-    fn refuses_to_overwrite_an_existing_snapshot() {
+    fn replaces_an_existing_snapshot() {
         let directory = tempfile::tempdir().unwrap();
         let destination = directory.path().join("snapshot.zip");
         std::fs::write(&destination, b"existing").unwrap();
-        let error = export_snapshot_archive(
+        export_snapshot_archive(
             &destination,
             &snapshot(),
             None,
             None,
             ThemePackLimits::default(),
-        );
-        assert!(error.is_err());
-        assert_eq!(std::fs::read(&destination).unwrap(), b"existing");
+        )
+        .unwrap();
+        let names = archive_names(&destination);
+        assert!(names.contains(&"manifest.json".to_string()), "{names:?}");
+        assert_ne!(std::fs::read(&destination).unwrap(), b"existing");
     }
 
     #[test]

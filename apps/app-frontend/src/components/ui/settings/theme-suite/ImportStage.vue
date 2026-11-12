@@ -43,7 +43,7 @@ async function chooseArchive() {
             <h3 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                 {{ formatMessage(themeSuiteMessages.importTitle) }}
             </h3>
-            <p class="m-0 text-sm text-[var(--color-text-secondary)]">
+            <p class="m-0 text-sm text-secondary">
                 {{ formatMessage(themeSuiteMessages.importDescription) }}
             </p>
         </div>

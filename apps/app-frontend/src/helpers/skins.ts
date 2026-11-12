@@ -199,6 +199,14 @@ export async function normalize_skin_texture(
     })
 }
 
+export function skinExportFilename(
+    skin: Pick<Skin, 'name' | 'texture_key'> | null | undefined,
+): string {
+    const name = skin?.name?.trim() || skin?.texture_key?.trim() || 'skin'
+    const safe = name.replace(/[\\/:*?"<>|]+/g, '-')
+    return safe.toLowerCase().endsWith('.png') ? safe : `${safe}.png`
+}
+
 export async function unequip_skin(): Promise<void> {
     await invoke('plugin:minecraft-skins|unequip_skin')
 }

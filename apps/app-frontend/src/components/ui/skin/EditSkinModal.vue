@@ -25,9 +25,17 @@
                     <h2 class="text-base font-semibold mb-2">
                         {{ formatMessage(messages.textureSection) }}
                     </h2>
-                    <Button class="!shadow-none" @click="openTextureFileBrowser"
-                        ><UploadIcon /> {{ formatMessage(messages.replaceTextureButton) }}
-                    </Button>
+                    <div class="flex flex-wrap gap-2">
+                        <Button class="!shadow-none" @click="openTextureFileBrowser"
+                            ><UploadIcon /> {{ formatMessage(messages.replaceTextureButton) }}
+                        </Button>
+                        <Button
+                            class="!shadow-none"
+                            :disabled="!canExportTexture"
+                            @click="exportTexture"
+                            ><DownloadIcon /> {{ formatMessage(messages.exportTextureButton) }}
+                        </Button>
+                    </div>
                     <input
                         ref="textureFileInput"
                         type="file"
@@ -143,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { CheckIcon, SaveIcon, SpinnerIcon, UploadIcon, XIcon } from '@modrinth/assets'
+import { CheckIcon, DownloadIcon, SaveIcon, SpinnerIcon, UploadIcon, XIcon } from '@modrinth/assets'
 import {
     Button,
     CapeButton,
@@ -158,6 +166,8 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { arrayBufferToBase64 } from '@modrinth/utils'
+import { save as saveFileDialog } from '@tauri-apps/plugin-dialog'
+import { writeFile } from '@tauri-apps/plugin-fs'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 
 import {
@@ -168,6 +178,7 @@ import {
     normalize_skin_texture,
     save_custom_skin,
     type Skin,
+    skinExportFilename,
     type SkinModel,
     type SkinTextureUrl,
 } from '@/helpers/skins.ts'
@@ -189,6 +200,10 @@ const messages = defineMessages({
     replaceTextureButton: {
         id: 'app.skins.modal.replace-texture-button',
         defaultMessage: 'Replace texture',
+    },
+    exportTextureButton: {
+        id: 'app.skins.modal.export-texture-button',
+        defaultMessage: 'Export texture',
     },
     armStyleSection: {
         id: 'app.skins.modal.arm-style-section',
@@ -260,6 +275,7 @@ const props = defineProps<{ capes?: Cape[] }>()
 
 const selectedCapeTexture = computed(() => selectedCape.value?.texture)
 const canEditTextureAndModel = computed(() => currentSkin.value?.source !== 'default')
+const canExportTexture = computed(() => !!(uploadedTextureUrl.value || currentSkin.value))
 const {
     showTopFade: showCapeTopFade,
     showBottomFade: showCapeBottomFade,
@@ -409,6 +425,31 @@ function selectCape(cape: Cape | undefined) {
 
 function openTextureFileBrowser() {
     textureFileInput.value?.click()
+}
+
+async function exportTexture() {
+    try {
+        const textureUrl = uploadedTextureUrl.value
+            ? uploadedTextureUrl.value.original
+            : currentSkin.value
+              ? await get_normalized_skin_texture(currentSkin.value)
+              : null
+        if (!textureUrl) return
+
+        const path = await saveFileDialog({
+            defaultPath: skinExportFilename(currentSkin.value),
+            filters: [{ name: 'PNG', extensions: ['png'] }],
+        })
+        if (!path) return
+
+        const response = await fetch(textureUrl)
+        if (!response.ok) {
+            throw new Error(`Failed to read skin texture: ${response.status}`)
+        }
+        await writeFile(path, new Uint8Array(await response.arrayBuffer()))
+    } catch (error) {
+        handleError(error)
+    }
 }
 
 async function onTextureFileInputChange(e: Event) {

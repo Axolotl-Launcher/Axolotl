@@ -283,13 +283,13 @@ pub(crate) const DOMAINS: &[(&str, &[&str], u32)] = &[
             "onboarding_version",
             "oobe_completed_steps",
             "pending_update_toast_for_version",
+            "pending_update_failure",
             "skipped_update",
         ],
-        // `version` was dropped from the key set: a document that could answer
-        // it would let a file skip the settings migrations. 3 added
-        // `oobe_completed_steps`, so an older build reads the document as newer
-        // and leaves the OOBE record in it alone.
-        3,
+        // `version` stays outside the domains so a document cannot skip settings
+        // migrations. Newer schemas protect records from older writers: 3 added
+        // OOBE completion and 4 adds pending update failures.
+        4,
     ),
 ];
 
@@ -1300,7 +1300,7 @@ pub(crate) async fn store_domain(
         }
         Shipped::Missing => Document::new(),
     };
-    let target =
+    let mut target =
         row_values_of_domain(handle, keys, &config, &defaults, changed).await?;
     // Only whether a document is there matters here: a shape a newer build wrote
     // and a file this build cannot read are both `write`'s to leave alone, and it
@@ -1313,6 +1313,15 @@ pub(crate) async fn store_domain(
             }
             Stored::Missing | Stored::Unreadable => None,
         };
+    // This startup record has no SQL column. A row synchronization must keep
+    // its durable document value; the explicit marker writer updates it separately.
+    if domain == "state"
+        && let Some(value) = existing
+            .as_ref()
+            .and_then(|document| document.get("pending_update_failure"))
+    {
+        target.insert("pending_update_failure".into(), value.clone());
+    }
     // A domain with nothing to record and no document of its own keeps being
     // answered by the row: creating an empty one would take that answer away
     // before the domain's values have all been written to it.
@@ -1523,6 +1532,49 @@ pub(crate) async fn store_key(
         return Ok(());
     }
     write(documents, name, schema_version, &document).await
+}
+
+/// A document-only setting has no row fallback, so an acknowledged write must
+/// fail when the document cannot be changed rather than report a tolerant no-op.
+pub(crate) async fn store_key_confirmed(
+    documents: &Documents<'_>,
+    handle: &Handle,
+    key: &str,
+    value: Value,
+) -> crate::Result<()> {
+    let (name, _, schema_version) = domain_of(key).ok_or_else(|| {
+        crate::ErrorKind::InputError(format!(
+            "No document carries setting {key}"
+        ))
+    })?;
+    let refused = || {
+        crate::ErrorKind::OtherError(format!(
+            "Cannot persist {key}: its settings document is unreadable or from a newer build"
+        ))
+    };
+    match documents.stored::<Document>(name, schema_version).await {
+        Stored::Ready { .. } | Stored::Missing => {}
+        Stored::Newer { .. } | Stored::Unreadable => {
+            return Err(refused().into());
+        }
+    }
+    store_key(documents, handle, key, value.clone()).await?;
+    // The low-level write checks disk again, so confirm it did not refuse a
+    // replacement that appeared after the first read either.
+    match documents.stored::<Document>(name, schema_version).await {
+        Stored::Ready { .. } | Stored::Missing => {}
+        Stored::Newer { .. } | Stored::Unreadable => {
+            return Err(refused().into());
+        }
+    }
+    let actual = serde_json::to_value(read(documents, handle).await?)?;
+    if actual.get(key) != Some(&value) {
+        return Err(crate::ErrorKind::OtherError(format!(
+            "The settings document did not retain {key}"
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 /// The keys of one domain as the row holds them, read afresh rather than handed
@@ -1944,6 +1996,120 @@ mod tests {
             }
         }
         assert!(repeated.is_empty(), "keys two domains carry: {repeated:?}");
+    }
+
+    #[tokio::test]
+    async fn pending_update_failure_patch_survives_row_state_writes_and_clears()
+    {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool.clone());
+        let local = tempfile::tempdir().unwrap();
+        identify(local.path());
+        let failure = serde_json::json!({"version":"1.2.3", "error":"authorization cancelled"});
+        let saved = patch_with(
+            &handle,
+            serde_json::json!({"pending_update_failure":failure}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            saved.pending_update_failure.as_ref().unwrap().version,
+            "1.2.3"
+        );
+        patch_with(&handle, serde_json::json!({"skipped_update":"1.2.4"}))
+            .await
+            .unwrap();
+        assert_eq!(
+            Settings::get(&handle)
+                .await
+                .unwrap()
+                .pending_update_failure
+                .as_ref()
+                .unwrap()
+                .error,
+            "authorization cancelled"
+        );
+        patch_with(&handle, serde_json::json!({"pending_update_failure":null}))
+            .await
+            .unwrap();
+        assert!(
+            Settings::get(&handle)
+                .await
+                .unwrap()
+                .pending_update_failure
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn pending_update_failure_patch_refuses_newer_or_unreadable_state_documents()
+     {
+        for contents in [
+            r#"{"schema_version":5,"data":{"pending_update_failure":{"version":"newer","error":"retained"},"unknown_future_key":true}}"#,
+            r#"{"schema_version":4,"data":not valid json"#,
+        ] {
+            let pool = migrated_pool().await;
+            let handle = Handle::new(pool.clone());
+            let local = tempfile::tempdir().unwrap();
+            identify(local.path());
+            let root = local.path().join(DIR_NAME);
+            std::fs::create_dir_all(&root).unwrap();
+            let path = root.join("state.json");
+            std::fs::write(&path, contents).unwrap();
+            let before = std::fs::read(&path).unwrap();
+            for marker in [
+                Value::Null,
+                serde_json::json!({"version":"1.2.3", "error":"new failure"}),
+            ] {
+                let result = patch_with(
+                    &handle,
+                    serde_json::json!({"pending_update_failure":marker}),
+                )
+                .await;
+                assert!(
+                    result.is_err(),
+                    "a refused marker write must not report success"
+                );
+                assert_eq!(std::fs::read(&path).unwrap(), before);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn pending_update_failure_roundtrips_and_clears_in_state_document() {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool.clone());
+        let local = tempfile::tempdir().unwrap();
+        let documents = Documents::at(local.path().to_path_buf(), &pool);
+        std::fs::write(local.path().join("state.json"), r#"{"schema_version":3,"data":{"oobe_completed_steps":["account_v1"]}}"#).unwrap();
+        let mut settings = read(&documents, &handle).await.unwrap();
+        assert!(settings.pending_update_failure.is_none());
+        settings.pending_update_failure =
+            Some(crate::state::PendingUpdateFailure::new(
+                "1.2.3",
+                "authorization cancelled",
+            ));
+        store(&documents, &settings).await.unwrap();
+        let restored = read(&documents, &handle).await.unwrap();
+        assert_eq!(
+            restored.pending_update_failure,
+            settings.pending_update_failure
+        );
+        assert_eq!(restored.oobe_completed_steps, ["account_v1"]);
+        let stored: Value = serde_json::from_slice(
+            &std::fs::read(local.path().join("state.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(stored["schema_version"], 4);
+        settings.pending_update_failure = None;
+        store(&documents, &settings).await.unwrap();
+        assert!(
+            read(&documents, &handle)
+                .await
+                .unwrap()
+                .pending_update_failure
+                .is_none()
+        );
     }
 
     #[tokio::test]

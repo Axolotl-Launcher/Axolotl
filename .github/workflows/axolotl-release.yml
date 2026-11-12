@@ -185,7 +185,7 @@ jobs:
             node scripts/axolotl/package-windows.mjs --profile release --output target/release-assets/upload
           else
             pnpm --filter @modrinth/app tauri bundle --ci --config tauri-release.conf.json --config tauri-updater.conf.json
-            node scripts/axolotl/stage-release-assets.mjs --input target/release/bundle --output target/release-assets/upload --platform linux
+            node scripts/axolotl/stage-release-assets.mjs --input target/release/bundle --output target/release-assets/upload --platform linux --sign-packages
           fi
       - name: Upload release assets
         env:

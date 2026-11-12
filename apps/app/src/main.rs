@@ -1084,6 +1084,7 @@ fn main() {
         .manage(api::files::StudioWatchers::default())
         .plugin(api::servers::init())
         .manage(PendingUpdateData::default())
+        .manage(UpdateMethod::detect())
         .invoke_handler(tauri::generate_handler![
             initialize_state,
             get_update_channel,
@@ -1205,21 +1206,22 @@ fn main() {
                         // by design, so the exit hard cap does not apply.
                         exit_barrier::disarm();
 
-                        fn set_changelog_toast(version: Option<String>) {
+                        fn persist_update_notice(version: Option<String>, failure: Option<theseus::state::PendingUpdateFailure>) {
                             let toast_result =
                                 tauri::async_runtime::block_on(tokio::time::timeout(
                                     CHANGELOG_TOAST_TIMEOUT,
                                     settings::patch(serde_json::json!({
-                                        "pending_update_toast_for_version": version
+                                        "pending_update_toast_for_version": version,
+                                        "pending_update_failure": failure
                                     })),
                                 ));
                             match toast_result {
                                 Ok(Ok(_)) => {}
                                 Ok(Err(e)) => tracing::warn!(
-                                    "Failed to set pending_update_toast: {e}"
+                                    "Failed to persist pending update feedback: {e}"
                                 ),
                                 Err(_) => tracing::warn!(
-                                    "Timed out setting pending_update_toast after {} s",
+                                    "Timed out persisting pending update feedback after {} s",
                                     CHANGELOG_TOAST_TIMEOUT.as_secs()
                                 ),
                             }
@@ -1232,7 +1234,7 @@ fn main() {
                         #[cfg(target_os = "windows")]
                         {
                             exit_barrier::rearm(exit_barrier::now_millis());
-                            set_changelog_toast(Some(version.clone()));
+                            persist_update_notice(Some(version.clone()), None);
                             exit_barrier::disarm();
                         }
                         let install_result = update.install(should_restart);
@@ -1241,46 +1243,34 @@ fn main() {
                         // toast and database close are bounded again.
                         exit_barrier::rearm(exit_barrier::now_millis());
 
-                        match install_result {
-                            Ok(()) => {
-                                set_changelog_toast(Some(version.clone()));
-                                if portable_worker {
+                        let outcome = exit_barrier::complete_pending_update(
+                            version,
+                            portable_worker,
+                            should_restart,
+                            install_result,
+                            |outcome| persist_update_notice(outcome.toast_version(), outcome.failure_notice()),
+                            |outcome| match &outcome.status {
+                                exit_barrier::PendingUpdateStatus::PortableReady => {
                                     tracing::info!(
                                         "Portable update worker is ready (version {}); it will activate after process exit (restart: {})",
-                                        version, should_restart
-                                    );
-                                } else if should_restart {
-                                    tracing::info!(
-                                        "Pending update installed successfully (version {}); restarting because user requested reload",
-                                        version
-                                    );
-                                    // Restarting on the spot here would skip
-                                    // closing the database; `Exit` requests it
-                                    // after the pool is closed.
-                                    restart_after_update = true;
-                                } else {
-                                    tracing::info!(
-                                        "Pending update installed successfully (version {}); exiting without relaunch (user did not request reload)",
-                                        version
+                                        outcome.version, outcome.restart_requested
                                     );
                                 }
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Pending update install failed (version {}): {e}",
-                                    version
-                                );
-                                set_changelog_toast(None);
-
-                                DialogBuilder::message()
-                                    .set_level(MessageLevel::Error)
-                                    .set_title("Update error")
-                                    .set_text(format!("Failed to install update due to an error:\n{e}"))
-                                    .alert()
-                                    .show()
-                                    .unwrap();
-                            }
-                        }
+                                exit_barrier::PendingUpdateStatus::Installed => {
+                                    tracing::info!(
+                                        "Pending update installed successfully (version {}); exiting (restart requested: {})",
+                                        outcome.version, outcome.restart_requested
+                                    );
+                                }
+                                exit_barrier::PendingUpdateStatus::Failed(error) => {
+                                    tracing::error!(
+                                        "Pending update install failed (version {}): {error}",
+                                        outcome.version
+                                    );
+                                }
+                            },
+                        );
+                        restart_after_update = outcome.restart_after_exit();
                     }
                 }
                 // Steps 6–7 of the exit barrier.

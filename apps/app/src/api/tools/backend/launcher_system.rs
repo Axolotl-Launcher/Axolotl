@@ -185,7 +185,7 @@ pub(super) async fn execute(
                     },
                 )?;
                 Ok(
-                    json!({"available":true,"update_id":id,"current_version":meta["currentVersion"],"version":version,"published_at":meta["publishedAt"],"force_update":meta["forceUpdate"]}),
+                    json!({"available":true,"update_id":id,"current_version":meta["currentVersion"],"version":version,"published_at":meta["publishedAt"],"force_update":meta["forceUpdate"],"install_method":meta["installMethod"]}),
                 )
             }
             #[cfg(not(feature = "updater"))]

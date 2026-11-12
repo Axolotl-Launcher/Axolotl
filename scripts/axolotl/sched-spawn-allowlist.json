@@ -649,22 +649,31 @@
     },
     {
       "file": "apps/app/src/updater_impl.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "Reviewed startup-only package ownership probe before window creation: a two-second child wait and bounded 250 ms reap fall back to Manual. The operation-scoped worker owns only its rpm child, uses kill_on_drop on cancellation, acquires no managed locks and runs outside L0 (D17).",
+      "sites": [
+        "bounded_package_probe: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/updater_impl.rs",
       "form": "spawn_blocking",
       "count": 2,
-      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6); reviewed awaited signed-portable ZIP staging worker owns only unpublished staging files and acquires no managed resources (D17)",
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6); reviewed awaited signed-portable ZIP staging worker owns only unpublished staging files; package staging and installation retain a private temporary directory through consumer completion, including caller cancellation; neither worker acquires managed resources (D17)",
       "sites": [
         "enqueue_update_for_installation: let prepared = tokio::task::spawn_blocking(move || {",
-        "install_apt_package: let output = tokio::task::spawn_blocking(move || {"
+        "with_staged_package: tokio::task::spawn_blocking(move || {"
       ]
     },
     {
       "file": "apps/app/src/updater_impl.rs",
       "form": "std::fs",
       "count": 2,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "reason": "Reviewed package staging exclusively creates a mode-0600 file inside a private temporary directory in the awaited blocking worker, outside L0 and critical sections. probe_linux_host reads one small dpkg file list once at startup (D17).",
       "sites": [
-        "drop: if let Err(error) = std::fs::remove_file(&self.0)",
-        "install_apt_package: std::fs::write(&deb_path, data).map_err(|io| {"
+        "write_package_exclusively: let mut options = std::fs::OpenOptions::new();",
+        "probe_linux_host: std::fs::read_to_string(format!("
       ]
     },
     {

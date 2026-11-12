@@ -218,9 +218,15 @@ export type AppSettings = DohSettings & {
 
     skipped_update: string | null
     pending_update_toast_for_version: string | null
+    pending_update_failure?: PendingUpdateFailure | null
     auto_download_updates: boolean | null
 
     version: number
+}
+
+export type PendingUpdateFailure = {
+    version: string
+    error: string
 }
 
 export type PrivacySettings = {

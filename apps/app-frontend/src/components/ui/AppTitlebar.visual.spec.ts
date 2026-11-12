@@ -95,6 +95,7 @@ vi.mock('@/providers/app-update', () => ({
         downloadProgress: ref(1),
         finishedDownloading: ref(true),
         isVisible: ref(true),
+        manualInstall: ref(false),
         metered: ref(false),
         restarting: ref(false),
     },

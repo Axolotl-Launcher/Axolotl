@@ -75,6 +75,7 @@ pub(crate) async fn patch_with(
         .as_object()
         .map(|changes| changes.keys().cloned().collect())
         .unwrap_or_default();
+    let changes_update_failure = patch.get("pending_update_failure").is_some();
     let current = Settings::load_in(&mut unit).await?;
     let mut value = serde_json::to_value(&current)?;
     merge_settings(&mut value, patch)?;
@@ -96,11 +97,30 @@ pub(crate) async fn patch_with(
     )?;
     unit.settings_changed(changed);
     settings.save_in(&mut unit).await?;
-    let saved = Settings::load_in(&mut unit).await?;
+    let mut saved = Settings::load_in(&mut unit).await?;
     // The domains whose writes have moved to their documents are stated by this
     // commit, once the row has landed, and only the ones carrying a key the
     // patch named.
     unit.commit().await?;
+    if changes_update_failure {
+        let documents = handle.settings_documents().ok_or_else(|| {
+            crate::ErrorKind::OtherError(
+                "The settings document directory is not initialized".into(),
+            )
+        })?;
+        crate::state::documents::settings::store_key_confirmed(
+            &documents,
+            handle,
+            "pending_update_failure",
+            serde_json::to_value(settings.normalize().pending_update_failure)?,
+        )
+        .await?;
+        return Settings::get(handle).await;
+    }
+    if handle.settings_documents().is_some() {
+        saved.pending_update_failure =
+            Settings::get(handle).await?.pending_update_failure;
+    }
     Ok(saved)
 }
 

@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 
+import { stageReleaseAssets } from './stage-release-assets.mjs'
+
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-update-catalog-'))
 const releasePath = path.join(directory, 'release.json')
 const output = path.join(directory, 'catalog.json')
@@ -111,6 +113,78 @@ try {
                 env: { ...process.env, GITHUB_REPOSITORY: 'Axolotl-Launcher/Axolotl' },
             },
         )
+    assert.ok(catalog.artifacts.every((artifact) => artifact.kind !== 'signature'))
+    for (const extension of ['deb', 'rpm']) {
+        const packageArtifact = catalog.artifacts.find((artifact) => artifact.variant === extension)
+        assert.equal(packageArtifact.signatureFilename, `${packageArtifact.filename}.sig`)
+        const unsigned = structuredClone(release)
+        unsigned.assets = unsigned.assets.filter(
+            (asset) => asset.name !== packageArtifact.signatureFilename,
+        )
+        fs.writeFileSync(releasePath, JSON.stringify(unsigned))
+        const failure = run()
+        assert.notEqual(failure.status, 0)
+        assert.match(failure.stderr, /Missing updater signature/)
+        assert.deepEqual(JSON.parse(fs.readFileSync(output, 'utf8')), catalog)
+    }
+    const stagingInput = path.join(directory, 'bundle')
+    const stagingOutput = path.join(directory, 'staged')
+    const bundleDirectory = path.join(stagingInput, 'packages')
+    fs.mkdirSync(bundleDirectory, { recursive: true })
+    const stagedNames = [
+        'Axolotl.amd64.deb',
+        'Axolotl.x86_64.rpm',
+        'Axolotl.amd64.AppImage',
+        'Axolotl.amd64.AppImage.tar.gz',
+    ]
+    for (const name of stagedNames) {
+        fs.writeFileSync(path.join(bundleDirectory, name), name)
+        fs.writeFileSync(path.join(bundleDirectory, `${name}.sig`), `signature:${name}`)
+    }
+    for (const extension of ['deb', 'rpm']) {
+        const packageName = stagedNames.find((name) => name.endsWith(`.${extension}`))
+        const sidecar = path.join(bundleDirectory, `${packageName}.sig`)
+        fs.rmSync(sidecar)
+        assert.throws(
+            () =>
+                stageReleaseAssets({
+                    input: stagingInput,
+                    output: stagingOutput,
+                    platform: 'linux',
+                }),
+            /Missing updater signature/,
+        )
+        assert.equal(
+            fs.existsSync(stagingOutput),
+            false,
+            'reject unsigned inputs before publishing any staged artifact',
+        )
+        fs.writeFileSync(sidecar, `signature:${packageName}`)
+    }
+    const signed = []
+    for (const extension of ['deb', 'rpm']) {
+        fs.rmSync(
+            path.join(
+                bundleDirectory,
+                `${stagedNames.find((name) => name.endsWith(`.${extension}`))}.sig`,
+            ),
+        )
+    }
+    stageReleaseAssets(
+        { input: stagingInput, output: stagingOutput, platform: 'linux', signPackages: true },
+        (file) => {
+            signed.push(path.extname(file))
+            fs.writeFileSync(`${file}.sig`, `signed:${path.basename(file)}`)
+        },
+    )
+    assert.deepEqual(signed.sort(), ['.deb', '.rpm'])
+    for (const extension of ['deb', 'rpm']) {
+        const packageName = stagedNames.find((name) => name.endsWith(`.${extension}`))
+        assert.equal(
+            fs.readFileSync(path.join(stagingOutput, `${packageName}.sig`), 'utf8'),
+            `signed:${packageName}`,
+        )
+    }
     release.assets.reverse()
     fs.writeFileSync(releasePath, JSON.stringify(release))
     assert.equal(run().status, 0)

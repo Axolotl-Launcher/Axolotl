@@ -83,12 +83,12 @@ const assets = release.assets
             throw new Error(`Invalid release asset size: ${asset.name}`)
         }
         return {
-        filename: asset.name,
-        size: asset.size,
-        sha256: digest(asset),
+            filename: asset.name,
+            size: asset.size,
+            sha256: digest(asset),
             downloadUrl: asset.browser_download_url,
-        architecture: architecture(asset.name),
-        ...describe(asset.name),
+            architecture: architecture(asset.name),
+            ...describe(asset.name),
         }
     })
 
@@ -113,8 +113,12 @@ for (const artifact of primaryArtifacts) {
             candidate.kind === 'signature' && candidate.filename === `${artifact.filename}.sig`,
     )
     artifact.signatureFilename = signature?.filename ?? null
-    if (artifact.kind === 'updater' && !signature) {
-        throw new Error(`Missing Tauri updater signature for ${artifact.filename}`)
+    if (
+        (artifact.kind === 'updater' ||
+            (artifact.kind === 'installer' && ['deb', 'rpm'].includes(artifact.variant))) &&
+        !signature
+    ) {
+        throw new Error(`Missing updater signature for ${artifact.filename}`)
     }
     const key = [artifact.kind, artifact.platform, artifact.architecture, artifact.variant].join(
         ':',

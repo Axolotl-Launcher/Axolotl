@@ -15170,6 +15170,9 @@
   "app.update-popup.body.download-complete": {
     "message": "Axolotl Launcher v{version} has finished downloading. Reload to update now, or automatically when you close Axolotl Launcher."
   },
+  "app.update-popup.body.manual": {
+    "message": "Axolotl Launcher v{version} is available. This copy can't update itself, so download the new version from the website or update it with your package manager."
+  },
   "app.update-popup.body.metered": {
     "message": "Axolotl Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it."
   },
@@ -15181,6 +15184,9 @@
   },
   "app.update-popup.download-complete": {
     "message": "Download complete"
+  },
+  "app.update-popup.download-page": {
+    "message": "Download page"
   },
   "app.update-popup.reload": {
     "message": "Reload to update"
@@ -21283,5 +21289,11 @@
   },
   "app.settings.tabs.resource-management": {
     "message": "Resource management"
+  },
+  "app.update-popup.install-failed.title": {
+    "message": "Launcher update failed"
+  },
+  "app.update-popup.install-failed.body": {
+    "message": "The update to v{version} could not be installed. You can try again or update manually. {error}"
   }
 }

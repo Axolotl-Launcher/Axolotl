@@ -114,6 +114,8 @@ import { startMcpUiBridge } from '@/features/mcp/interface'
 import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
 import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
+import { openManualAppUpdate } from '@/helpers/app-update-download'
+import { createUpdateFailureConsumer } from '@/helpers/app-update-failure'
 import { get_version } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
 import { applySettingChanges, type PrivilegedSettingChange } from '@/helpers/deep-link-settings.ts'
@@ -155,6 +157,7 @@ import {
     getPrivacySettings,
     getUpdateChannel,
     getUpdatePreferences,
+    type PendingUpdateFailure,
     type PrivacySettings,
     savePrivacySettings,
     update as updateSettings,
@@ -465,6 +468,8 @@ watch(
     },
 )
 
+const pendingUpdateFailure = ref<PendingUpdateFailure | null>(null)
+const consumeUpdateFailure = createUpdateFailureConsumer()
 const stateInitialized = ref(false)
 let stopMcpStateSync: (() => void) | undefined
 const privacyConsentModal = ref<InstanceType<typeof PrivacyConsentModal>>()
@@ -1537,6 +1542,7 @@ async function setupApp() {
     const dev = await isDev()
     isDevEnvironment.value = dev
     pendingUpdateAnnouncementVersion.value = pending_update_toast_for_version
+    pendingUpdateFailure.value = initialSettings.pending_update_failure ?? null
     privacyConsentPending.value = telemetry_consent_version < 1
     const oobePending = oobe.prepare(oobe_completed_steps)
     if (oobePending) {
@@ -1750,6 +1756,24 @@ async function scheduleStartupDialogs() {
         await nextTick()
         updateAnnouncementModal.value.show(pendingUpdateAnnouncementVersion.value)
         return
+    }
+    try {
+        await consumeUpdateFailure(
+            pendingUpdateFailure.value,
+            (failure) =>
+                addNotification({
+                    title: formatMessage(updatePopupMessages.installFailedTitle),
+                    text: formatMessage(updatePopupMessages.installFailedBody, failure),
+                    type: 'warning',
+                    autoCloseMs: null,
+                }),
+            async () => {
+                await updateSettings({ pending_update_failure: null })
+                pendingUpdateFailure.value = null
+            },
+        )
+    } catch (error) {
+        console.warn('Could not consume the pending update failure notice', error)
     }
 }
 
@@ -2519,6 +2543,15 @@ async function handlePrivilegedCommand(e: AppCommand) {
 }
 
 const updatePopupMessages = defineMessages({
+    installFailedTitle: {
+        id: 'app.update-popup.install-failed.title',
+        defaultMessage: 'Launcher update failed',
+    },
+    installFailedBody: {
+        id: 'app.update-popup.install-failed.body',
+        defaultMessage:
+            'The update to v{version} could not be installed. You can try again or update manually. {error}',
+    },
     updateAvailable: {
         id: 'app.update-popup.title',
         defaultMessage: 'Update available',
@@ -2530,6 +2563,14 @@ const updatePopupMessages = defineMessages({
     meteredBody: {
         id: 'app.update-popup.body.metered',
         defaultMessage: `Axolotl Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it.`,
+    },
+    manualBody: {
+        id: 'app.update-popup.body.manual',
+        defaultMessage: `Axolotl Launcher v{version} is available. This copy can't update itself, so download the new version from the website or update it with your package manager.`,
+    },
+    downloadPage: {
+        id: 'app.update-popup.download-page',
+        defaultMessage: 'Download page',
     },
     downloadedBody: {
         id: 'app.update-popup.body.download-complete',
@@ -2599,7 +2640,26 @@ function showDelayedUpdatePopup() {
         return
     }
 
-    if (metered.value && !finishedDownloading.value) {
+    if (update.installMethod === 'manual') {
+        addPopupNotification({
+            title: formatMessage(updatePopupMessages.updateAvailable),
+            text: formatMessage(updatePopupMessages.manualBody, { version: update.version }),
+            type: 'info',
+            autoCloseMs: null,
+            buttons: [
+                {
+                    label: formatMessage(updatePopupMessages.downloadPage),
+                    action: () => downloadAvailableAppUpdate(),
+                    color: 'brand',
+                },
+                {
+                    label: formatMessage(updatePopupMessages.changelog),
+                    action: () => openAppUpdateChangelog(),
+                    keepOpen: true,
+                },
+            ],
+        })
+    } else if (metered.value && !finishedDownloading.value) {
         addPopupNotification({
             title: formatMessage(updatePopupMessages.updateAvailable),
             text: formatMessage(updatePopupMessages.meteredBody, { version: update.version }),
@@ -2702,6 +2762,14 @@ async function performUpdateCheck() {
 
     console.log(`Update ${update.version} is available.`)
 
+    if (update.installMethod === 'manual') {
+        // This copy cannot replace itself; offer the download page instead
+        // of downloading a package that would fail to install on exit.
+        markAppUpdateActionable(update.version)
+        scheduleDelayedUpdatePopup()
+        return 'available'
+    }
+
     metered.value = await isNetworkMetered()
 
     if (!metered.value) {
@@ -2736,7 +2804,12 @@ async function manualUpdateCheck() {
 }
 
 async function downloadAvailableUpdate() {
-    return downloadUpdate(availableUpdate.value)
+    const update = availableUpdate.value
+    if (update?.installMethod === 'manual') {
+        await openManualAppUpdate(update.version, openUrl)
+        return
+    }
+    return downloadUpdate(update)
 }
 
 async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {

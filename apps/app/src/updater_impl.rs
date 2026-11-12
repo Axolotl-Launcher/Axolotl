@@ -238,72 +238,56 @@ fn select_update_artifact(
     })
 }
 
-/// Finds the Linux installer package of `variant` (`deb` or `rpm`) for
-/// `arch` in a catalog release, with the path of its detached signature.
-fn select_package_artifact<'a>(
-    release: &'a VersionEntry,
+/// Selects the package itself; sidecars need not appear in the primary artifact list.
+fn select_package_artifact(
+    release: &VersionEntry,
     variant: &str,
     arch: &str,
-) -> Result<(&'a str, &'a str)> {
-    let version = &release.version;
-    let package = release
-        .artifacts
-        .iter()
-        .find(|entry| {
-            entry.kind == "installer"
-                && entry.variant.as_deref() == Some(variant)
-                && entry.platform == "linux"
-                && entry.architecture == arch
+) -> Result<UpdateArtifact> {
+    let mut matches = release.artifacts.iter().filter(|entry| {
+        entry.kind == "installer"
+            && entry.variant.as_deref() == Some(variant)
+            && entry.platform == "linux"
+            && entry.architecture == arch
+    });
+    let package = matches.next().ok_or_else(|| {
+        catalog_error(format!(
+            "Update catalog has no {variant} package of {} for {arch}",
+            release.version
+        ))
+    })?;
+    if matches.next().is_some()
+        || package.size == 0
+        || !package.sha256.as_ref().is_some_and(|hash| {
+            hash.len() == 64
+                && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
         })
-        .ok_or_else(|| {
-            catalog_error(format!(
-                "Update catalog has no {variant} package of {version} for {arch}"
-            ))
-        })?;
-    let signature_path = format!("{}.sig", package.relative_path);
-    let signature = release
-        .artifacts
-        .iter()
-        .find(|entry| {
-            entry.kind == "signature" && entry.relative_path == signature_path
-        })
-        .ok_or_else(|| {
-            catalog_error(format!(
-                "Update catalog has no signature for {}",
-                package.relative_path
-            ))
-        })?;
-    Ok((&package.relative_path, &signature.relative_path))
+    {
+        return Err(catalog_error(
+            "Invalid Linux package integrity metadata".into(),
+        ));
+    }
+    Ok(UpdateArtifact {
+        url: update_artifact_url(&package.relative_path)?,
+        sha256: package.sha256.clone().unwrap(),
+        size: package.size,
+        signature: package.signature.clone(),
+    })
 }
 
-/// Looks up the package that updates an apt or rpm install, and fetches its
-/// minisign signature so the download is verified like every other update.
+/// Uses the package's own inline signature or exact distribution sidecar.
 async fn fetch_package_update(
     version: &str,
     variant: &str,
 ) -> Result<PackageUpdate> {
     let release = fetch_update_release(version).await?;
-    let (package_path, signature_path) =
+    let package =
         select_package_artifact(&release, variant, std::env::consts::ARCH)?;
-    let url = update_artifact_url(package_path)?;
-
-    let response = theseus::http_client_builder()
-        .user_agent(launcher_user_agent())
-        .timeout(UPDATE_DOWNLOAD_TIMEOUT)
-        .build()?
-        .get(update_artifact_url(signature_path)?)
-        .send()
-        .await?;
-    if !response.status().is_success() {
-        return Err(Error::Network(format!(
-            "Failed to fetch update signature: {}",
-            response.status()
-        ))
-        .into());
-    }
-    let signature = response.text().await?.trim().to_owned();
-
-    Ok(PackageUpdate { url, signature })
+    let signature = artifact_signature(&package).await?;
+    Ok(PackageUpdate {
+        url: package.url,
+        signature,
+    })
 }
 
 fn select_portable_artifact(
@@ -342,14 +326,28 @@ fn select_portable_artifact(
     })
 }
 
-async fn portable_signature(asset: &UpdateArtifact) -> Result<String> {
-    if let Some(signature) = &asset.signature {
-        if signature.trim().len() >= 32 {
-            return Ok(signature.trim().to_owned());
-        }
+const MAX_UPDATE_SIGNATURE_BYTES: usize = 16_384;
+
+fn decode_artifact_signature(bytes: &[u8]) -> Result<String> {
+    if bytes.len() > MAX_UPDATE_SIGNATURE_BYTES {
         return Err(
-            Error::Network("Invalid portable update signature".into()).into()
+            Error::Network("Update signature is too large".into()).into()
         );
+    }
+    let signature = std::str::from_utf8(bytes)
+        .map_err(|_| {
+            Error::Network("Invalid update signature encoding".into())
+        })?
+        .trim();
+    if signature.len() < 32 {
+        return Err(Error::Network("Invalid update signature".into()).into());
+    }
+    Ok(signature.to_owned())
+}
+
+async fn artifact_signature(asset: &UpdateArtifact) -> Result<String> {
+    if let Some(signature) = &asset.signature {
+        return decode_artifact_signature(signature.as_bytes());
     }
     let mut response = theseus::http_client_builder()
         .user_agent(launcher_user_agent())
@@ -359,24 +357,19 @@ async fn portable_signature(asset: &UpdateArtifact) -> Result<String> {
         .send()
         .await?;
     if !response.status().is_success() {
-        return Err(Error::Network("This release has no signed portable package. Please update the portable package manually.".into()).into());
+        return Err(Error::Network("This release has no signed update package. Please update the launcher manually.".into()).into());
     }
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await? {
-        if bytes.len() + chunk.len() > 16_384 {
-            return Err(Error::Network(
-                "Portable update signature is too large".into(),
-            )
-            .into());
+        if chunk.len() > MAX_UPDATE_SIGNATURE_BYTES.saturating_sub(bytes.len())
+        {
+            return Err(
+                Error::Network("Update signature is too large".into()).into()
+            );
         }
         bytes.extend_from_slice(&chunk);
     }
-    String::from_utf8(bytes)
-        .map(|value| value.trim().to_owned())
-        .map_err(|_| {
-            Error::Network("Invalid portable update signature encoding".into())
-                .into()
-        })
+    decode_artifact_signature(&bytes)
 }
 
 // ── Updater plugin helpers ───────────────────────────────────────
@@ -720,7 +713,7 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
         fetch_update_artifact(&update.version, &update.download_url).await?
     };
     let signature = if checked.portable.is_some() {
-        portable_signature(&asset).await?
+        artifact_signature(&asset).await?
     } else {
         update.signature.clone()
     };
@@ -1335,8 +1328,8 @@ mod tests {
         assert_eq!((rpm.variant, rpm.program), ("rpm", "rpm"));
     }
 
-    /// The Linux part of the 1.10.5 catalog entry, as the Update Server
-    /// returns it.
+    /// Primary artifact shape emitted by the catalog generator. The live API
+    /// can additionally return sidecar entries, which selection does not require.
     fn linux_release() -> VersionEntry {
         let artifact =
             |kind: &str, variant: Option<&str>, arch: &str, path: &str| {
@@ -1365,25 +1358,91 @@ mod tests {
     }
 
     #[test]
-    fn packages_are_selected_with_their_signature() {
-        let release = linux_release();
-        assert_eq!(
-            select_package_artifact(&release, "deb", "x86_64").unwrap(),
-            (
-                "dist/1.10.5/Axolotl.Launcher_1.10.5_amd64.deb",
-                "dist/1.10.5/Axolotl.Launcher_1.10.5_amd64.deb.sig"
-            )
-        );
-        assert_eq!(
-            select_package_artifact(&release, "rpm", "x86_64").unwrap(),
-            (
-                "dist/1.10.5/Axolotl.Launcher-1.10.5-1.x86_64.rpm",
-                "dist/1.10.5/Axolotl.Launcher-1.10.5-1.x86_64.rpm.sig"
-            )
-        );
-        // No rpm for this architecture, and an arm64 deb without a signature.
+    fn packages_are_selected_without_sidecars_in_the_primary_artifact_list() {
+        let mut release = linux_release();
+        release.artifacts.retain(|entry| entry.kind != "signature");
+        for (variant, filename) in [
+            ("deb", "Axolotl.Launcher_1.10.5_amd64.deb"),
+            ("rpm", "Axolotl.Launcher-1.10.5-1.x86_64.rpm"),
+        ] {
+            let package =
+                select_package_artifact(&release, variant, "x86_64").unwrap();
+            assert_eq!(package.url.path(), format!("/dist/1.10.5/{filename}"));
+            assert!(package.signature.is_none());
+            assert_eq!(package.size, 1);
+            assert_eq!(package.sha256, "c".repeat(64));
+        }
         assert!(select_package_artifact(&release, "rpm", "aarch64").is_err());
-        assert!(select_package_artifact(&release, "deb", "aarch64").is_err());
+        assert!(select_package_artifact(&release, "deb", "aarch64").is_ok());
+        release.artifacts[0].size = 0;
+        assert!(select_package_artifact(&release, "rpm", "x86_64").is_err());
+    }
+
+    #[tokio::test]
+    async fn inline_package_signatures_are_used_without_sidecar_entries() {
+        let mut release = linux_release();
+        release.artifacts.retain(|entry| entry.kind != "signature");
+        let signature = "signed-inline-package".repeat(3);
+        release.artifacts[0].signature = Some(signature.clone());
+        let package =
+            select_package_artifact(&release, "rpm", "x86_64").unwrap();
+        assert_eq!(
+            super::artifact_signature(&package).await.unwrap(),
+            signature
+        );
+    }
+
+    #[test]
+    fn signature_validation_bounds_inline_and_downloaded_content() {
+        for content in [vec![b'a'; 16_385], vec![0xff; 40], b"short".to_vec()] {
+            assert!(super::decode_artifact_signature(&content).is_err());
+        }
+        assert_eq!(
+            super::decode_artifact_signature(&vec![b'a'; 16_384])
+                .unwrap()
+                .len(),
+            16_384
+        );
+    }
+
+    #[tokio::test]
+    async fn package_sidecars_use_the_exact_url_and_bound_the_response() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        for (status, bytes, succeeds) in [
+            ("200 OK", vec![b'a'; 64], true),
+            ("200 OK", vec![b'a'; 16_385], false),
+            ("404 Not Found", vec![b'a'; 64], false),
+        ] {
+            let listener =
+                tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut request = vec![0; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                assert!(
+                    String::from_utf8_lossy(&request[..count])
+                        .starts_with("GET /update.rpm.sig HTTP/1.1")
+                );
+                let header = format!(
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    bytes.len()
+                );
+                stream.write_all(header.as_bytes()).await.unwrap();
+                stream.write_all(&bytes).await.unwrap();
+            });
+            let package = super::UpdateArtifact {
+                url: format!("http://{address}/update.rpm").parse().unwrap(),
+                sha256: "c".repeat(64),
+                size: 1,
+                signature: None,
+            };
+            assert_eq!(
+                super::artifact_signature(&package).await.is_ok(),
+                succeeds
+            );
+            server.await.unwrap();
+        }
     }
 
     #[test]

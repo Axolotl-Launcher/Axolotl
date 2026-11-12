@@ -313,7 +313,7 @@ export function createThemeSuiteContext(
                 String(now.getMonth() + 1).padStart(2, '0'),
                 String(now.getDate()).padStart(2, '0'),
             ].join('')
-            const destination = await save({
+            let destination = await save({
                 defaultPath: `axolotl-theme-${stamp}.zip`,
                 filters: [
                     {
@@ -323,6 +323,7 @@ export function createThemeSuiteContext(
                 ],
             })
             if (!destination) return
+            if (!destination.toLowerCase().endsWith('.zip')) destination += '.zip'
             const source = activeSource.value
             const snapshot = await collectCurrentAppearanceSnapshot(
                 source,

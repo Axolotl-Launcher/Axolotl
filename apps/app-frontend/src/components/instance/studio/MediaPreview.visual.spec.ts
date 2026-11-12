@@ -43,6 +43,7 @@ vi.mock('@modrinth/ui', async () => {
                     ),
         }),
         defineMessages: (messages: unknown) => messages,
+        useFormatBytes: () => (bytes: number) => `${bytes} bytes`,
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),
@@ -141,7 +142,10 @@ it('renders a video from the same object URL', () => {
 it('reports the image dimensions and file size once the image decodes', async () => {
     const wrapper = mountPreview()
 
-    await vi.waitFor(() => expect(wrapper.text()).toContain('1 × 1 · 2.0 KB'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('1 × 1 · 2048 bytes'))
+
+    await wrapper.setProps({ size: 4096 })
+    expect(wrapper.text()).toContain('1 × 1 · 4096 bytes')
 })
 
 it('zooms in and out from the controls', async () => {

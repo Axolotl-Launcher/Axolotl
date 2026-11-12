@@ -168,6 +168,7 @@
     "drop:default",
     "terracotta:default",
     "multiplayer:default",
+    "theme-pack:default",
     "servers:default",
     "telemetry:default",
     "planet-minecraft:default"

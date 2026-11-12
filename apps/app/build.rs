@@ -864,6 +864,23 @@ fn main() {
                     ),
             )
             .plugin(
+                "theme-pack",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "theme_pack_list",
+                        "theme_pack_get",
+                        "theme_pack_install",
+                        "theme_pack_remove",
+                        "theme_pack_limits",
+                        "theme_pack_fetch",
+                        "theme_pack_data_dir",
+                        "theme_pack_resolve_page",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "third-party-accounts",
                 InlinedPlugin::new()
                     .commands(&[

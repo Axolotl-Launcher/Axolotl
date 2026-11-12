@@ -893,26 +893,36 @@ fn main() {
 
     tracing::info!("Initialized tracing subscriber. Loading Axolotl Launcher!");
 
-    let mut builder = tauri::Builder::default().register_uri_scheme_protocol(
-        "axolotl-skin",
-        move |context, request| {
-            if !is_allowed_blockbench_skin_request(&request) {
-                return Response::builder()
+    let mut builder = tauri::Builder::default()
+        .register_uri_scheme_protocol(
+            "axolotl-skin",
+            move |context, request| {
+                if !is_allowed_blockbench_skin_request(&request) {
+                    return Response::builder()
                     .status(StatusCode::FORBIDDEN)
                     .body(Vec::new())
                     .expect(
                         "failed to build Blockbench skin forbidden response",
                     );
-            }
-            let resource_dir = context
-                .app_handle()
-                .path()
-                .resource_dir()
-                .expect("failed to resolve Tauri resource directory")
-                .join(BLOCKBENCH_SKIN_RESOURCE_DIR);
-            blockbench_skin_response(request.uri().path(), &resource_dir)
-        },
-    );
+                }
+                let resource_dir = context
+                    .app_handle()
+                    .path()
+                    .resource_dir()
+                    .expect("failed to resolve Tauri resource directory")
+                    .join(BLOCKBENCH_SKIN_RESOURCE_DIR);
+                blockbench_skin_response(request.uri().path(), &resource_dir)
+            },
+        )
+        .register_uri_scheme_protocol(
+            "axolotl-theme",
+            move |context, request| {
+                api::theme_pack::protocol_response(
+                    context.app_handle(),
+                    &request,
+                )
+            },
+        );
 
     #[cfg(feature = "updater")]
     {
@@ -1081,6 +1091,7 @@ fn main() {
         .plugin(api::worlds::init())
         .plugin(api::terracotta::init())
         .plugin(api::multiplayer::init())
+        .plugin(api::theme_pack::init())
         .manage(api::files::StudioWatchers::default())
         .plugin(api::servers::init())
         .manage(PendingUpdateData::default())

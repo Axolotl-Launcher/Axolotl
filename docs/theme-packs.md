@@ -101,8 +101,13 @@ Available methods:
 
 The bridge derives the pack id from the child webview's server-side label, not
 from page input, so a page cannot read another pack's storage or network
-allowlist. Navigation away from the pack's own `axolotl-theme` origin is
-blocked.
+allowlist. Navigation outside the pack's URL prefix is blocked.
+
+All packs share the `axolotl-theme` origin. A page can therefore display
+another installed pack's static assets with a same-origin `<img>` or
+stylesheet, although it cannot call that pack's bridge identity, read its
+storage, or use its network allowlist. Treat files inside a theme pack as
+public; do not put secrets in a pack archive.
 
 ## Limits
 

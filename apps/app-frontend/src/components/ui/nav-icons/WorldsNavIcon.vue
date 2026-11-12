@@ -7,8 +7,8 @@
         </defs>
         <g :clip-path="`url(#${clipId})`">
             <!--
-                The land repeats every globe-width to the left, enough for an entry
-                spin, a click spin and a loop cycle at once to end where they began.
+                The land repeats every globe-width to the left, so every spin and
+                loop cycle, however they overlap, ends where it began.
             -->
             <g class="worlds-land">
                 <g
@@ -35,7 +35,12 @@ import { frames, type NavIconMotion } from './motion'
 import NavIconSvg from './NavIconSvg.vue'
 
 const GLOBE_WIDTH = 20
-const LAND_COPIES = [0, -20, -40, -60, -80, -100]
+
+/**
+ * Two overlapping entry spins and two click spins (two globe-widths each) plus
+ * one loop cycle can add up to nine globe-widths of travel.
+ */
+const LAND_COPIES = Array.from({ length: 10 }, (_, index) => -index * GLOBE_WIDTH)
 
 const clipId = `nav-icon-worlds-${useId()}`
 

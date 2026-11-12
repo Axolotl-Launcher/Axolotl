@@ -1,17 +1,3 @@
-import type { InjectionKey, Ref } from 'vue'
-
-/** What a nav button tells the icon inside it. */
-export interface NavIconInteraction {
-    /** True while the pointer is over an enabled button. */
-    hovered: Readonly<Ref<boolean>>
-    /** Increments on each primary-button press. */
-    presses: Readonly<Ref<number>>
-    /** Increments on each click, including keyboard activation. */
-    activations: Readonly<Ref<number>>
-}
-
-export const NAV_ICON_INTERACTION: InjectionKey<NavIconInteraction> = Symbol('nav-icon-interaction')
-
 /** Every animation a nav icon starts has an id with this prefix. */
 export const NAV_ICON_ANIMATION_PREFIX = 'nav-icon-'
 
@@ -26,11 +12,18 @@ export interface NavIconClip {
     delay?: number
     /**
      * Clips are added on top of whatever else runs on the part (the default),
-     * so an entry, a loop and a click can play at once. Use `replace` for
-     * properties that cannot be summed, such as stroke dashes, and only in
-     * `enter`.
+     * so an entry, a loop, a click and a quick repeat of any of them can play
+     * at once. Use `replace` for properties that cannot be summed, such as
+     * stroke dashes, and only in `enter`; such a clip never overlaps itself.
      */
     composite?: CompositeOperation
+    /**
+     * Set for clips that cannot be layered over a copy of themselves, such as a
+     * bubble that grows from nothing: a second copy starting at zero size would
+     * make the first vanish. Such a clip never overlaps itself, and its part
+     * should run no other clip.
+     */
+    single?: boolean
 }
 
 export interface NavIconPartMotion {

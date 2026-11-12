@@ -2,6 +2,8 @@
     <svg
         ref="root"
         xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
         :viewBox="viewBox"
         fill="none"
         stroke="currentColor"
@@ -16,12 +18,12 @@
 </template>
 
 <script setup lang="ts">
-import { inject, onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 
+import { injectNavIconInteraction } from './interaction'
 import {
     frames,
     NAV_ICON_ANIMATION_PREFIX,
-    NAV_ICON_INTERACTION,
     type NavIconClip,
     type NavIconMotion,
     type NavIconPartMotion,
@@ -64,25 +66,30 @@ const PRESS: NavIconClip = {
 }
 
 /**
- * Once the pointer leaves, a loop finishes its current cycle at least this much
- * faster, and fast enough to be back at rest within `WIND_DOWN_MAX_MS`.
+ * Once the pointer leaves, everything still moving is back at rest within
+ * `WIND_DOWN_MAX_MS`: a loop finishes its current cycle at least
+ * `WIND_DOWN_RATE` times faster, and longer one-shot clips speed up as needed.
  */
 const WIND_DOWN_RATE = 2.5
 const WIND_DOWN_MAX_MS = 500
 
+/**
+ * How many clips of one kind may overlap on a part, so quick repeated clicks or
+ * entries each add visible motion without piling up without bound.
+ */
+const MAX_OVERLAP = 2
+
+type AccentKind = 'enter' | 'activate' | 'press'
+
 const root = ref<SVGSVGElement | null>(null)
-const interaction = inject(NAV_ICON_INTERACTION, null)
+const interaction = injectNavIconInteraction()
+const reduceMotionQuery =
+    typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null
 
-/** One-shot clips per element and kind, so a kind never stacks on itself. */
-const accents = new Map<Element, Map<string, Animation>>()
+const accents = new Map<Element, Map<AccentKind, Animation[]>>()
 const loops = new Map<Element, Animation>()
-
-function reducedMotion(): boolean {
-    return (
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    )
-}
 
 function isLive(animation: Animation | undefined): animation is Animation {
     return !!animation && animation.playState !== 'finished' && animation.playState !== 'idle'
@@ -98,11 +105,13 @@ function start(element: Element, kind: string, clip: NavIconClip, iterations = 1
     })
 }
 
-function accent(element: Element, kind: 'enter' | 'activate' | 'press', clip: NavIconClip) {
-    const kinds = accents.get(element) ?? new Map<string, Animation>()
+function accent(element: Element, kind: AccentKind, clip: NavIconClip) {
+    const kinds = accents.get(element) ?? new Map<AccentKind, Animation[]>()
     accents.set(element, kinds)
-    if (isLive(kinds.get(kind))) return
-    kinds.set(kind, start(element, kind, clip))
+    const live = (kinds.get(kind) ?? []).filter(isLive)
+    // Added clips stack seamlessly; a replacing or single one would jump if layered.
+    const room = (clip.composite ?? 'add') === 'add' && !clip.single ? MAX_OVERLAP : 1
+    kinds.set(kind, live.length < room ? [...live, start(element, kind, clip)] : live)
 }
 
 function loop(element: Element, clip: NavIconClip) {
@@ -116,7 +125,7 @@ function loop(element: Element, clip: NavIconClip) {
     loops.set(element, start(element, 'idle', clip, Infinity))
 }
 
-/** Lets every loop finish the cycle it is in, faster, so it stops on the resting pose. */
+/** Brings everything still moving back to its resting pose quickly, without a jump. */
 function windDown() {
     for (const [element, animation] of loops) {
         const timing = animation.effect?.getComputedTiming()
@@ -133,6 +142,25 @@ function windDown() {
         animation.effect?.updateTiming({ iterations: iteration + 1 })
         animation.updatePlaybackRate(Math.max(WIND_DOWN_RATE, remaining / WIND_DOWN_MAX_MS))
     }
+    for (const kinds of accents.values()) {
+        for (const animation of [...kinds.values()].flat().filter(isLive)) {
+            const timing = animation.effect?.getComputedTiming()
+            if (!timing) continue
+            const remaining = Number(timing.endTime) - Number(timing.localTime)
+            const rate = remaining / WIND_DOWN_MAX_MS
+            if (rate > animation.playbackRate) animation.updatePlaybackRate(rate)
+        }
+    }
+}
+
+/** Drops every animation at once, for when motion is no longer wanted. */
+function stopAll() {
+    for (const animation of loops.values()) animation.cancel()
+    loops.clear()
+    for (const kinds of accents.values()) {
+        for (const animation of [...kinds.values()].flat()) animation.cancel()
+    }
+    accents.clear()
 }
 
 function parts(): [Element, NavIconPartMotion][] {
@@ -147,7 +175,7 @@ function parts(): [Element, NavIconPartMotion][] {
 }
 
 function enter() {
-    if (!root.value || reducedMotion()) return
+    if (!root.value || reduceMotionQuery?.matches) return
     accent(root.value, 'enter', POP)
     for (const [element, motion] of parts()) {
         if (motion.enter) accent(element, 'enter', motion.enter)
@@ -156,24 +184,29 @@ function enter() {
 }
 
 function press() {
-    if (root.value && !reducedMotion()) accent(root.value, 'press', PRESS)
+    if (root.value && !reduceMotionQuery?.matches) accent(root.value, 'press', PRESS)
 }
 
 function activate() {
-    if (!root.value || reducedMotion()) return
+    if (!root.value || reduceMotionQuery?.matches) return
     for (const [element, motion] of parts()) {
         if (motion.activate) accent(element, 'activate', motion.activate)
     }
+}
+
+function onReduceMotionChange(event: MediaQueryListEvent) {
+    if (event.matches) stopAll()
 }
 
 if (interaction) {
     watch(interaction.hovered, (hovered) => (hovered ? enter() : windDown()))
     watch(interaction.presses, press)
     watch(interaction.activations, activate)
+    reduceMotionQuery?.addEventListener?.('change', onReduceMotionChange)
 }
 
 onBeforeUnmount(() => {
-    for (const animation of loops.values()) animation.cancel()
-    loops.clear()
+    reduceMotionQuery?.removeEventListener?.('change', onReduceMotionChange)
+    stopAll()
 })
 </script>

@@ -6,35 +6,14 @@
             />
             <path d="M6.453 15h11.094" />
             <path d="M8.5 2h7" />
+            <!-- Entry bubbles and the hover simmer use separate circles, so they never share a part. -->
             <circle
-                class="lab-bubble lab-bubble-1"
-                cx="9.6"
-                cy="19"
-                r="1.2"
-                fill="currentColor"
-                stroke="none"
-            />
-            <circle
-                class="lab-bubble lab-bubble-2"
-                cx="14.4"
-                cy="19.2"
-                r="1"
-                fill="currentColor"
-                stroke="none"
-            />
-            <circle
-                class="lab-bubble lab-bubble-3"
-                cx="12"
-                cy="18.6"
-                r="1.1"
-                fill="currentColor"
-                stroke="none"
-            />
-            <circle
-                class="lab-bubble lab-puff"
-                cx="12"
-                cy="-0.6"
-                r="1.3"
+                v-for="bubble in BUBBLES"
+                :key="bubble.name"
+                :class="['lab-bubble', bubble.name]"
+                :cx="bubble.x"
+                :cy="bubble.y"
+                :r="bubble.r"
                 fill="currentColor"
                 stroke="none"
             />
@@ -43,8 +22,18 @@
 </template>
 
 <script setup lang="ts">
-import { frames, type NavIconClip, type NavIconMotion, swing } from './motion'
+import { frames, type NavIconMotion, swing } from './motion'
 import NavIconSvg from './NavIconSvg.vue'
+
+const BUBBLES = [
+    { name: 'lab-burst-1', x: 9.6, y: 19, r: 1.2 },
+    { name: 'lab-burst-2', x: 14.4, y: 19.2, r: 1 },
+    { name: 'lab-burst-3', x: 12, y: 18.6, r: 1.1 },
+    { name: 'lab-puff', x: 12, y: -0.6, r: 1.3 },
+    { name: 'lab-simmer-1', x: 11, y: 19.6, r: 0.9 },
+    { name: 'lab-simmer-2', x: 13.6, y: 18.4, r: 0.8 },
+    { name: 'lab-simmer-3', x: 8.4, y: 18.8, r: 0.85 },
+]
 
 /** A hard shake that dies away. */
 const shake = frames('transform', [
@@ -58,7 +47,10 @@ const shake = frames('transform', [
     [1, 'rotate(0deg)'],
 ])
 
-/** A bubble rises through the liquid and pops at its surface; it is hidden at both ends. */
+/**
+ * A bubble grows, rises through the liquid and pops at its surface. It is
+ * hidden at both ends but grows from nothing, so it runs alone on its circle.
+ */
 const rise: Keyframe[] = [
     { offset: 0, opacity: 0, transform: 'translateY(0) scale(0)', easing: 'ease-out' },
     { offset: 0.2, opacity: 1, transform: 'translateY(0) scale(1)', easing: 'ease-out' },
@@ -73,24 +65,20 @@ const puff: Keyframe[] = [
     { offset: 1, opacity: 0, transform: 'translateY(-4.5px) scale(1.6)' },
 ]
 
-/** Entry bubbles, then a steady simmer while the pointer stays. */
-function bubble(order: number): { enter: NavIconClip; idle: NavIconClip } {
-    return {
-        enter: { keyframes: rise, duration: 520, delay: 40 + order * 90 },
-        idle: { keyframes: rise, duration: 1000, delay: 840 + order * 330 },
-    }
-}
-
 const motion: NavIconMotion = {
     '.lab-flask': {
         enter: { keyframes: shake, duration: 900 },
         idle: { keyframes: swing((angle) => `rotate(${angle}deg)`, 4), duration: 1600, delay: 760 },
         activate: { keyframes: shake, duration: 900 },
     },
-    '.lab-bubble-1': bubble(0),
-    '.lab-bubble-2': bubble(1),
-    '.lab-bubble-3': bubble(2),
-    '.lab-puff': { enter: { keyframes: puff, duration: 600, delay: 160 } },
+    '.lab-burst-1': { enter: { keyframes: rise, duration: 520, delay: 40, single: true } },
+    '.lab-burst-2': { enter: { keyframes: rise, duration: 520, delay: 130, single: true } },
+    '.lab-burst-3': { enter: { keyframes: rise, duration: 520, delay: 220, single: true } },
+    '.lab-puff': { enter: { keyframes: puff, duration: 600, delay: 160, single: true } },
+    // While the pointer stays, the liquid keeps simmering.
+    '.lab-simmer-1': { idle: { keyframes: rise, duration: 1000, delay: 760 } },
+    '.lab-simmer-2': { idle: { keyframes: rise, duration: 1000, delay: 1090 } },
+    '.lab-simmer-3': { idle: { keyframes: rise, duration: 1000, delay: 1420 } },
 }
 </script>
 

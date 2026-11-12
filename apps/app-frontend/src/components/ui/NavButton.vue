@@ -44,13 +44,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, provide, readonly, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { RouterLink, useLink, useRoute } from 'vue-router'
+import { RouterLink, useLink, useRoute, useRouter } from 'vue-router'
 
-import { NAV_ICON_INTERACTION } from './nav-icons/motion'
+import { provideNavIconInteraction } from './nav-icons/interaction'
+import { injectNavRailOptimisticSelection } from './nav-rail-selection'
 
 const route = useRoute()
+const router = useRouter()
+const optimisticSelection = injectNavRailOptimisticSelection()
 
 type RouteFunction = (route: RouteLocationNormalizedLoaded) => boolean
 
@@ -70,23 +73,21 @@ const props = withDefaults(
 )
 
 const link = useLink({ to: computed(() => (typeof props.to === 'string' ? props.to : '/')) })
+const optimisticallyActive = computed(() => {
+    const href = optimisticSelection?.href.value
+    if (!href || typeof props.to !== 'string') return false
+    return router.resolve(props.to).path === href
+})
 const activeClasses = computed(() => {
     const primary = props.isPrimary ? props.isPrimary(route) : link.isActive.value
     return {
-        'router-link-active': primary,
-        'subpage-active': !primary && !!props.isSubpage?.(route),
+        'router-link-active': primary || optimisticallyActive.value,
+        'subpage-active': !primary && !optimisticallyActive.value && !!props.isSubpage?.(route),
     }
 })
 
 // The icon in the slot animates from these; a disabled destination stays still.
-const hovered = ref(false)
-const presses = ref(0)
-const activations = ref(0)
-provide(NAV_ICON_INTERACTION, {
-    hovered: readonly(hovered),
-    presses: readonly(presses),
-    activations: readonly(activations),
-})
+const { hovered, presses, activations } = provideNavIconInteraction()
 
 watch(
     () => props.disabled,

@@ -237,6 +237,35 @@ it('moves the slider on pointerdown before the router commits', async () => {
     expect(library.classes()).not.toContain('router-link-active')
 })
 
+it('styles the pressed item as selected while its navigation is pending', async () => {
+    let release!: () => void
+    let hold = false
+    const router = basicRouter()
+    router.beforeEach((to) => {
+        if (hold && to.path === '/lab') {
+            return new Promise<void>((resolve) => {
+                release = resolve
+            })
+        }
+    })
+    await router.push('/library')
+    const wrapper = await mountBasicRail(router)
+    const lab = wrapper.get('a[href="/lab"]')
+
+    hold = true
+    pointerDown(lab.element)
+    await nextTick()
+
+    expect(router.currentRoute.value.path).toBe('/library')
+    await waitFor(() => lab.classes().includes('router-link-active'))
+
+    await lab.trigger('click', { button: 0 })
+    await flushPromises()
+    release()
+    await flushPromises()
+    await waitFor(() => router.currentRoute.value.path === '/lab')
+})
+
 it('rolls the slider back when navigation is aborted', async () => {
     const router = basicRouter()
     router.beforeEach((to) => (to.path === '/lab' ? false : undefined))

@@ -55,6 +55,23 @@ function loopsForever(animation: Animation): boolean {
     return animation.effect?.getTiming().iterations === Infinity
 }
 
+/**
+ * True if the clip itself takes its part through a pose other than the resting
+ * one. Read from the clip's own keyframes, so a loop running on the same part
+ * cannot make a motionless clip look as if it moved.
+ */
+function leavesRest(animation: Animation): boolean {
+    if (!(animation.effect instanceof KeyframeEffect)) return false
+    return animation.effect.getKeyframes().some((keyframe) => {
+        const transform = keyframe.transform
+        return (
+            typeof transform === 'string' &&
+            transform !== 'none' &&
+            !new DOMMatrixReadOnly(transform).isIdentity
+        )
+    })
+}
+
 async function mountNavButton(
     icon: Component,
     props: { to?: string | (() => void); disabled?: boolean } = {},
@@ -106,11 +123,16 @@ it.each(ICONS)(
         await nextTick()
         const entry = navAnimations(button, 'enter')
         // The shared pop on the whole icon, plus the icon's own entry motion.
-        expect(entry.some((animation) => targetOf(animation) === svg)).toBe(true)
-        expect(entry.some((animation) => targetOf(animation) !== svg)).toBe(true)
+        expect(
+            entry.some((animation) => targetOf(animation) === svg && leavesRest(animation)),
+        ).toBe(true)
+        expect(
+            entry.some((animation) => targetOf(animation) !== svg && leavesRest(animation)),
+        ).toBe(true)
         const loops = navAnimations(button, 'idle')
         expect(loops.length).toBeGreaterThan(0)
         expect(loops.every(loopsForever)).toBe(true)
+        expect(loops.some(leavesRest)).toBe(true)
 
         await waitFor(() => navAnimations(button, 'enter').length === 0, {
             timeoutMs: 3000,
@@ -148,9 +170,12 @@ it('picks a winding-down loop back up when the pointer returns', async () => {
     expect(resumed).toHaveLength(loops.length)
     resumed.forEach((loop, index) => expect(loop).toBe(loops[index]))
     expect(resumed.every(loopsForever)).toBe(true)
+    // ...and back at its normal pace, not the faster wind-down one.
+    await Promise.all(resumed.map((loop) => loop.ready))
+    expect(resumed.map((loop) => loop.playbackRate)).toEqual(resumed.map(() => 1))
 })
 
-it('squashes the icon on press and plays its click motion', async () => {
+it('squashes the icon on press and answers every click with motion', async () => {
     const button = await mountNavButton(DiscoverNavIcon)
     const svg = button.querySelector('svg')
 
@@ -163,6 +188,33 @@ it('squashes the icon on press and plays its click motion', async () => {
     const clickMotion = navAnimations(button, 'activate')
     expect(clickMotion.length).toBeGreaterThan(0)
     expect(clickMotion.every((animation) => targetOf(animation) !== svg)).toBe(true)
+    expect(clickMotion.some(leavesRest)).toBe(true)
+
+    // A second click while the first motion runs adds its own on top...
+    click(button)
+    await nextTick()
+    expect(navAnimations(button, 'activate')).toHaveLength(2 * clickMotion.length)
+    // ...but rapid clicking does not pile motion up without bound.
+    click(button)
+    await nextTick()
+    expect(navAnimations(button, 'activate')).toHaveLength(2 * clickMotion.length)
+})
+
+it('brings an unfinished entry to rest quickly when the pointer leaves at once', async () => {
+    const button = await mountNavButton(DiscoverNavIcon)
+    pointerEnter(button)
+    await nextTick()
+    pointerLeave(button)
+    await nextTick()
+    const entry = navAnimations(button, 'enter')
+    expect(entry.length).toBeGreaterThan(0)
+    await Promise.all(entry.map((animation) => animation.ready))
+    for (const animation of entry) {
+        const timing = animation.effect!.getComputedTiming()
+        const remainingMs =
+            (Number(timing.endTime) - Number(timing.localTime)) / animation.playbackRate
+        expect(remainingMs).toBeLessThanOrEqual(520)
+    }
 })
 
 it.each([
@@ -194,5 +246,35 @@ it('stays still when reduced motion is requested', async () => {
     press(button)
     click(button)
     await nextTick()
+    expect(navAnimations(button)).toHaveLength(0)
+})
+
+it('stops at once when reduced motion is switched on mid-hover', async () => {
+    const listeners: ((event: MediaQueryListEvent) => void)[] = []
+    const reduceQuery = {
+        matches: false,
+        media: '(prefers-reduced-motion: reduce)',
+        addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+            listeners.push(listener)
+        },
+        removeEventListener: () => {},
+    }
+    const matchMedia = window.matchMedia.bind(window)
+    const spy = vi
+        .spyOn(window, 'matchMedia')
+        .mockImplementation((query: string) =>
+            query.includes('prefers-reduced-motion')
+                ? (reduceQuery as unknown as MediaQueryList)
+                : matchMedia(query),
+        )
+    cleanup.push(() => spy.mockRestore())
+
+    const button = await mountNavButton(SettingsNavIcon)
+    pointerEnter(button)
+    await nextTick()
+    expect(navAnimations(button, 'idle').length).toBeGreaterThan(0)
+
+    reduceQuery.matches = true
+    listeners.forEach((listener) => listener({ matches: true } as MediaQueryListEvent))
     expect(navAnimations(button)).toHaveLength(0)
 })

@@ -866,6 +866,7 @@ pub(crate) fn protocol_response_for(
              img-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
              font-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
              connect-src 'none'; media-src http://axolotl-theme.localhost axolotl-theme://localhost; \
+             object-src 'none'; base-uri 'none'; form-action 'none'; \
              frame-ancestors http://127.0.0.1:5201 http://tauri.localhost tauri://localhost \
              http://axolotl-theme.localhost axolotl-theme://localhost",
         );

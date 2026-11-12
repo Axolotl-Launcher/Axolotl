@@ -98,9 +98,7 @@ impl PendingUpdate {
             Self::Installer(update, data, method) => {
                 if let Some(installer) = method.package_installer() {
                     tauri::async_runtime::block_on(install_linux_package(
-                        installer,
-                        &update.version,
-                        &data,
+                        installer, &data,
                     ))
                     .map_err(|error| error.to_string())
                 } else {
@@ -984,7 +982,6 @@ pub fn is_apt_linux(method: tauri::State<'_, UpdateMethod>) -> bool {
 /// from the absolute path of a temporary file, which is removed afterwards.
 pub async fn install_linux_package(
     installer: PackageInstaller,
-    version: &str,
     data: &[u8],
 ) -> Result<()> {
     let PackageInstaller {
@@ -992,26 +989,15 @@ pub async fn install_linux_package(
         program,
         args,
     } = installer;
-    let package_path = std::env::temp_dir()
-        .join(format!("{PACKAGE_NAME}_{version}.{variant}"));
-    std::fs::write(&package_path, data).map_err(|io| {
-        catalog_error(format!("Failed to write the downloaded {variant}: {io}"))
-    })?;
-    let _package_cleanup = TempPackageFile(package_path.clone());
-
-    let install_path = package_path.clone();
-    let output = tokio::task::spawn_blocking(move || {
-        std::process::Command::new("pkexec")
-            .arg(program)
-            .args(args)
-            .arg(&install_path)
-            .output()
-    })
-    .await
-    .map_err(|join| {
-        catalog_error(format!("Failed to run the {program} updater: {join}"))
-    })?
-    .map_err(|io| catalog_error(format!("Failed to start pkexec: {io}")))?;
+    let output =
+        with_staged_package(variant, data.to_vec(), move |install_path| {
+            std::process::Command::new("pkexec")
+                .arg(program)
+                .args(args)
+                .arg(install_path)
+                .output()
+        })
+        .await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1025,25 +1011,47 @@ pub async fn install_linux_package(
     Ok(())
 }
 
-/// Removes a temporary update package when installation finishes or fails.
-///
-/// The installer awaits a blocking task and has several fallible operations
-/// after creating the file. Keeping cleanup in `Drop` makes every return path
-/// (including task and process-launch errors) remove the package.
-struct TempPackageFile(std::path::PathBuf);
+/// Owns the private package until the consumer completes. Keeping creation and
+/// installation in one worker also preserves it when the async caller is cancelled.
+async fn with_staged_package<T: Send + 'static>(
+    variant: &'static str,
+    data: Vec<u8>,
+    install: impl FnOnce(&std::path::Path) -> std::io::Result<T> + Send + 'static,
+) -> Result<T> {
+    tokio::task::spawn_blocking(move || {
+        let directory = tempfile::Builder::new()
+            .prefix("axolotl-package-")
+            .tempdir()?;
+        let path = directory.path().join(format!("update.{variant}"));
+        write_package_exclusively(&path, &data)?;
+        install(&path)
+    })
+    .await
+    .map_err(|join| {
+        catalog_error(format!("Failed to run package updater: {join}"))
+    })?
+    .map_err(|io| {
+        catalog_error(format!(
+            "Failed to stage or install update package: {io}"
+        ))
+    })
+}
 
-impl Drop for TempPackageFile {
-    fn drop(&mut self) {
-        if let Err(error) = std::fs::remove_file(&self.0)
-            && error.kind() != std::io::ErrorKind::NotFound
-        {
-            tracing::warn!(
-                path = %self.0.display(),
-                error = %error,
-                "Failed to remove temporary update package"
-            );
-        }
+fn write_package_exclusively(
+    path: &std::path::Path,
+    data: &[u8],
+) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
     }
+    let mut file = options.open(path)?;
+    file.write_all(data)?;
+    file.sync_all()
 }
 
 #[cfg(test)]
@@ -1052,10 +1060,178 @@ mod tests {
         LinuxHost, UPDATE_SERVER_API, UpdateMethod, VersionEntry,
         dpkg_list_contains, linux_update_method, select_package_artifact,
         select_portable_artifact, select_update_artifact, update_artifact_url,
-        update_endpoint, verify_update_signature,
+        update_endpoint, verify_update_signature, with_staged_package,
+        write_package_exclusively,
     };
     use base64::{Engine, engine::general_purpose::STANDARD};
     use tauri::utils::config::BundleType;
+
+    #[tokio::test]
+    async fn staged_packages_are_private_unique_and_removed_after_consumption()
+    {
+        let first = with_staged_package("rpm", b"first".to_vec(), |path| {
+            assert_eq!(std::fs::read(path)?, b"first");
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(
+                    path.metadata()?.permissions().mode() & 0o777,
+                    0o600
+                );
+                assert_eq!(
+                    path.parent().unwrap().metadata()?.permissions().mode()
+                        & 0o777,
+                    0o700
+                );
+            }
+            Ok(path.to_path_buf())
+        })
+        .await
+        .unwrap();
+        assert!(!first.parent().unwrap().exists());
+        let second = with_staged_package("rpm", b"second".to_vec(), |path| {
+            assert_eq!(std::fs::read(path)?, b"second");
+            Ok(path.to_path_buf())
+        })
+        .await
+        .unwrap();
+        assert_ne!(first, second);
+        assert!(!second.parent().unwrap().exists());
+    }
+
+    #[tokio::test]
+    async fn staged_packages_clean_up_after_consumer_failure() {
+        let path = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let captured = path.clone();
+        let failure = with_staged_package(
+            "deb",
+            vec![1],
+            move |path| -> std::io::Result<()> {
+                *captured.lock().unwrap() = Some(path.to_path_buf());
+                std::process::Command::new(
+                    "axolotl-missing-package-installer-66b39c7d",
+                )
+                .output()
+                .map(|_| ())
+            },
+        )
+        .await;
+        assert!(failure.is_err());
+        assert!(
+            !path
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .exists()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_child_process_consumes_the_staged_bytes_and_releases_the_directory()
+     {
+        let (path, output) =
+            with_staged_package("rpm", b"verified package".to_vec(), |path| {
+                #[cfg(windows)]
+                let output = std::process::Command::new("cmd")
+                    .args(["/D", "/C", "type"])
+                    .arg(path)
+                    .output()?;
+                #[cfg(not(windows))]
+                let output =
+                    std::process::Command::new("cat").arg(path).output()?;
+                Ok((path.to_path_buf(), output))
+            })
+            .await
+            .unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"verified package");
+        assert!(!path.parent().unwrap().exists());
+    }
+
+    #[tokio::test]
+    async fn a_nonzero_child_exit_still_removes_the_staged_package() {
+        let (path, output) = with_staged_package("deb", vec![1], |path| {
+            #[cfg(windows)]
+            let output = std::process::Command::new("cmd")
+                .args(["/D", "/C", "exit", "7"])
+                .output()?;
+            #[cfg(not(windows))]
+            let output = std::process::Command::new("sh")
+                .args(["-c", "exit 7"])
+                .output()?;
+            Ok((path.to_path_buf(), output))
+        })
+        .await
+        .unwrap();
+        assert_eq!(output.status.code(), Some(7));
+        assert!(!path.parent().unwrap().exists());
+    }
+
+    #[test]
+    fn staged_package_refuses_existing_files_without_overwriting_them() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("update.rpm");
+        std::fs::write(&path, b"unrelated").unwrap();
+        assert_eq!(
+            write_package_exclusively(&path, b"signed package")
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(std::fs::read(path).unwrap(), b"unrelated");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn staged_package_refuses_symlinks_without_touching_the_target() {
+        let directory = tempfile::tempdir().unwrap();
+        let target = directory.path().join("unrelated");
+        let path = directory.path().join("update.deb");
+        std::fs::write(&target, b"unrelated").unwrap();
+        std::os::unix::fs::symlink(&target, &path).unwrap();
+        assert_eq!(
+            write_package_exclusively(&path, b"signed package")
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(std::fs::read(target).unwrap(), b"unrelated");
+    }
+
+    #[tokio::test]
+    async fn cancelling_the_wait_keeps_the_package_until_the_consumer_finishes()
+    {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(with_staged_package(
+            "deb",
+            b"verified".to_vec(),
+            move |path| {
+                started_tx.send(path.to_path_buf()).unwrap();
+                release_rx.recv().unwrap();
+                assert_eq!(std::fs::read(path)?, b"verified");
+                finished_tx.send(()).unwrap();
+                Ok(())
+            },
+        ));
+        let path = started_rx.await.unwrap();
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert!(path.exists());
+        release_tx.send(()).unwrap();
+        finished_rx.await.unwrap();
+        for _ in 0..100 {
+            if !path.parent().unwrap().exists() {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        panic!("package directory remained after consumer completed");
+    }
 
     /// A host whose package databases own the executable as given.
     fn host(

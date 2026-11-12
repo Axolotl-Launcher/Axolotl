@@ -673,6 +673,21 @@ pub async fn parse_and_emit_command(command_string: &str) -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
+
+    /// The launcher state is a process-wide singleton; initialize it once and
+    /// reuse it so `State::get()` resolves inside these APIs. The state root
+    /// is intentionally leaked (`.keep()`) because the shared state outlives
+    /// this function.
+    async fn global_state() -> std::sync::Arc<crate::State> {
+        if !crate::State::initialized() {
+            let root = TempDir::new().unwrap().keep();
+            let _ =
+                crate::State::init_for_test(root.to_string_lossy().to_string())
+                    .await;
+        }
+        crate::State::get().await.unwrap()
+    }
 
     #[tokio::test]
     async fn invalid_oauth_callback_shapes_never_open_account_settings() {
@@ -692,6 +707,7 @@ mod tests {
 
     #[tokio::test]
     async fn parses_launch_query_command() {
+        global_state().await;
         let command =
             parse_command(
                 "axolotl://launch?instance_id=example%20instance&server=example.org%3A25565",
@@ -707,6 +723,7 @@ mod tests {
 
     #[tokio::test]
     async fn parses_legacy_aliases() {
+        global_state().await;
         assert!(matches!(
             parse_command("axolotl://discovery").await.unwrap(),
             CommandPayload::OpenRoute { path, .. } if path == "/browse/mod"
@@ -732,6 +749,7 @@ mod tests {
 
     #[tokio::test]
     async fn parses_unified_commands() {
+        global_state().await;
         assert!(matches!(
             parse_command("axolotl://project/sodium?tab=versions").await.unwrap(),
             CommandPayload::OpenRoute { path, .. } if path == "/project/sodium/versions"

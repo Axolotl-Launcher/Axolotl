@@ -182,10 +182,28 @@ impl ThemePackManifest {
         if capabilities.contains("Tokens") {
             validate_tokens("light", &self.tokens.light)?;
             validate_tokens("dark", &self.tokens.dark)?;
+        } else if !self.tokens.light.is_empty() || !self.tokens.dark.is_empty()
+        {
+            return Err(invalid(
+                "A theme pack that declares tokens must list the tokens capability",
+            ));
         }
         if capabilities.contains("Styles") && self.styles.is_empty() {
             return Err(invalid(
                 "A theme pack with the styles capability must list a stylesheet",
+            ));
+        }
+        if !capabilities.contains("Styles") && !self.styles.is_empty() {
+            return Err(invalid(
+                "A theme pack that lists stylesheets must declare the styles capability",
+            ));
+        }
+        if !capabilities.contains("Tokens")
+            && !capabilities.contains("Styles")
+            && (self.background.is_some() || self.fonts.ui.is_some())
+        {
+            return Err(invalid(
+                "A background or interface font requires the tokens or styles capability",
             ));
         }
         if self.styles.len() > 32 {
@@ -845,6 +863,42 @@ mod tests {
         manifest.tokens.dark.remove("--surface-3");
         let error = manifest.validate(directory.path()).unwrap_err();
         assert!(error.to_string().contains("--surface-3"));
+    }
+
+    #[test]
+    fn rejects_tokens_without_the_tokens_capability() {
+        let directory = pack_dir(&["styles/theme.css"]);
+        let mut manifest = manifest();
+        manifest
+            .capabilities
+            .retain(|capability| *capability != ThemePackCapability::Tokens);
+        let error = manifest.validate(directory.path()).unwrap_err();
+        assert!(error.to_string().contains("tokens capability"));
+    }
+
+    #[test]
+    fn rejects_styles_without_the_styles_capability() {
+        let directory = pack_dir(&["styles/theme.css"]);
+        let mut manifest = manifest();
+        manifest
+            .capabilities
+            .retain(|capability| *capability != ThemePackCapability::Styles);
+        let error = manifest.validate(directory.path()).unwrap_err();
+        assert!(error.to_string().contains("styles capability"));
+    }
+
+    #[test]
+    fn rejects_page_only_packs_that_restyle_the_launcher() {
+        let directory = pack_dir(&["assets/background.png"]);
+        let mut manifest = manifest();
+        manifest.capabilities = vec![ThemePackCapability::Pages];
+        manifest.tokens.light.clear();
+        manifest.tokens.dark.clear();
+        manifest.styles.clear();
+        manifest.fonts.ui = None;
+        manifest.pages = Vec::new();
+        let error = manifest.validate(directory.path()).unwrap_err();
+        assert!(error.to_string().contains("background or interface font"));
     }
 
     #[test]

@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import { Button, ColorPicker } from '@modrinth/ui'
-import { computed } from 'vue'
+import { computed, onUnmounted, watch } from 'vue'
 
 import { injectThemeSuiteContext } from './context'
 import { themeSuiteMessages } from './messages'
 
-const { formatMessage, colorsDraft, colorsBucket, error, installing, resetColors } =
-    injectThemeSuiteContext()
+const {
+    formatMessage,
+    colorsDraft,
+    colorsBucket,
+    error,
+    installing,
+    resetColors,
+    previewColors,
+    endColorPreview,
+} = injectThemeSuiteContext()
+
+watch(colorsDraft, previewColors, { deep: true })
+onUnmounted(endColorPreview)
 
 const bucketLabel = computed(() =>
     formatMessage(

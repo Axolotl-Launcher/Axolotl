@@ -25,6 +25,7 @@ vi.mock('@/helpers/theme-packs', () => ({
 
 const manifest = {
     id: 'aurora',
+    capabilities: ['tokens', 'styles'],
     tokens: {
         light: { '--surface-1': '#ffffff', '--surface-3': '#f1f1f1' },
         dark: { '--surface-1': '#000000', '--color-text-primary': '#ffffff' },
@@ -81,6 +82,20 @@ describe('collectCurrentAppearanceSnapshot', () => {
         expect(snapshot.tokensLight['--color-text-primary']).toBe('#1a202c')
         expect(snapshot.tokensDark['--surface-1']).toBe('#000000')
         expect(snapshot.tokensDark['--color-text-primary']).toBe('#ffffff')
+    })
+
+    it('ignores tokens from a pack that did not declare the tokens capability', async () => {
+        getThemePack.mockResolvedValue({
+            manifest: { ...manifest, capabilities: ['pages'] },
+        } as unknown as InstalledThemePack)
+        const snapshot = await collectCurrentAppearanceSnapshot(
+            'pack:aurora',
+            'light',
+            packSelection(),
+        )
+
+        expect(snapshot.tokensLight['--surface-3']).toBe('#f8f8f8')
+        expect(snapshot.tokensDark['--surface-1']).toBe('#101215')
     })
 
     it('captures both buckets for a built-in appearance', async () => {

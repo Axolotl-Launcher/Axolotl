@@ -59,7 +59,9 @@ device names, and symlinks are rejected.
   `--color-text-primary` for both modes. Values cannot contain `url()`,
   `var()`, `@import`, braces, semicolons, or backslashes.
 - `capabilities` gates which parts of the manifest are used: `tokens`,
-  `styles`, `pages`.
+  `styles`, `pages`. A pack that declares tokens or stylesheets must list the
+  matching capability, and `background`/`fonts.ui` require `tokens` or
+  `styles`; otherwise installation is rejected.
 - `permissions` gates what a page's bridge can request. A page may only list
   permissions the pack already declared.
 - `network.allow` accepts exact hosts and `*.` subdomain wildcards. Bare `*`,

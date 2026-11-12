@@ -15,6 +15,7 @@ import {
     removeThemePack,
     type ThemePackLimits,
 } from '@/helpers/theme-packs'
+import { applyCustomThemeColors, type ColorTheme } from '@/store/theme'
 
 import { themeSuiteMessages } from './messages'
 
@@ -94,6 +95,7 @@ export function createThemeSuiteContext(
     const installing = ref(false)
     const installError = ref('')
     const colorsDraft = ref<ThemeColorDraft>(readColorDefaults('dark'))
+    const colorPreviewActive = ref(false)
     const snapshotExporting = ref(false)
     const snapshotError = ref('')
     const snapshotExported = ref(false)
@@ -176,9 +178,29 @@ export function createThemeSuiteContext(
     }
 
     function close() {
+        endColorPreview()
         importPath.value = null
         installError.value = ''
         error.value = ''
+    }
+
+    /**
+     * Paints the color draft on the live document while the picker is open.
+     * The persisted source is restored when the stage closes or the user saves.
+     */
+    function previewColors() {
+        const current = settings.value
+        if (!current) return
+        applyCustomThemeColors(current.theme as ColorTheme, {
+            [colorsBucket.value]: { ...colorsDraft.value },
+        })
+        colorPreviewActive.value = true
+    }
+
+    function endColorPreview() {
+        if (!colorPreviewActive.value) return
+        colorPreviewActive.value = false
+        applyRuntimeFromSettings()
     }
 
     function openImport() {
@@ -347,6 +369,8 @@ export function createThemeSuiteContext(
         close,
         openImport,
         openColors,
+        previewColors,
+        endColorPreview,
         selectSource,
         install,
         remove,

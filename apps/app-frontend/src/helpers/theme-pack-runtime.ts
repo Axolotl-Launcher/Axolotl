@@ -175,8 +175,9 @@ export async function collectCurrentAppearanceSnapshot(
         const installed = await getThemePack(parsed.packId).catch(() => null)
         const manifest =
             installed?.manifest ?? (cachedManifest?.id === parsed.packId ? cachedManifest : null)
-        tokensLight = { ...SNAPSHOT_TOKEN_FALLBACKS.light, ...(manifest?.tokens?.light ?? {}) }
-        tokensDark = { ...SNAPSHOT_TOKEN_FALLBACKS.dark, ...(manifest?.tokens?.dark ?? {}) }
+        const packTokens = manifest?.capabilities?.includes('tokens') ? manifest.tokens : null
+        tokensLight = { ...SNAPSHOT_TOKEN_FALLBACKS.light, ...(packTokens?.light ?? {}) }
+        tokensDark = { ...SNAPSHOT_TOKEN_FALLBACKS.dark, ...(packTokens?.dark ?? {}) }
         // A pack that has since been uninstalled falls back to the built-in
         // theme at runtime, so the snapshot reflects that instead of failing.
         if (installed) packId = parsed.packId
@@ -282,28 +283,39 @@ function applyPackManifest(
     // Pack tokens replace any custom palette for this run.
     applyCustomThemeColors(theme, null)
 
+    const capabilities = new Set(manifest.capabilities ?? [])
+    const hasTokens = capabilities.has('tokens')
+    const hasStyles = capabilities.has('styles')
     const bucket = resolveColorBucket(
         theme,
         document.documentElement.classList.contains('dark-mode'),
     )
     const style = document.documentElement.style
-    for (const [name, value] of selectPackTokens(manifest, bucket)) {
-        style.setProperty(name, value)
-        appliedTokens.add(name)
+    if (hasTokens) {
+        for (const [name, value] of selectPackTokens(manifest, bucket)) {
+            style.setProperty(name, value)
+            appliedTokens.add(name)
+        }
     }
 
-    for (const stylesheet of manifest.styles ?? []) {
-        if (!stylesheet) continue
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = themePackAssetUrl(manifest.id, stylesheet)
-        link.dataset.themePack = manifest.id
-        document.head.appendChild(link)
-        appliedLinks.push(link)
+    if (hasStyles) {
+        for (const stylesheet of manifest.styles ?? []) {
+            if (!stylesheet) continue
+            const link = document.createElement('link')
+            link.rel = 'stylesheet'
+            link.href = themePackAssetUrl(manifest.id, stylesheet)
+            link.dataset.themePack = manifest.id
+            document.head.appendChild(link)
+            appliedLinks.push(link)
+        }
     }
 
-    applyPackBackground(manifest)
-    applyPackFont(manifest, selection.uiFont)
+    // A page-only pack may ship decorative assets, but it must not restyle the
+    // launcher without declaring the tokens or styles capability.
+    if (hasTokens || hasStyles) {
+        applyPackBackground(manifest)
+        applyPackFont(manifest, selection.uiFont)
+    }
 }
 
 function applySourceTheme(

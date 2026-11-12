@@ -287,6 +287,24 @@ pub struct PendingUpdateOutcome {
 
 #[cfg(any(feature = "updater", test))]
 impl PendingUpdateOutcome {
+    pub fn failure_notice(
+        &self,
+    ) -> Option<theseus::state::PendingUpdateFailure> {
+        match &self.status {
+            PendingUpdateStatus::Failed(error) => Some(
+                theseus::state::PendingUpdateFailure::new(&self.version, error),
+            ),
+            _ => None,
+        }
+    }
+
+    pub fn toast_version(&self) -> Option<String> {
+        match &self.status {
+            PendingUpdateStatus::Failed(_) => None,
+            _ => Some(self.version.clone()),
+        }
+    }
+
     pub fn restart_after_exit(&self) -> bool {
         self.restart_requested && self.status == PendingUpdateStatus::Installed
     }
@@ -300,7 +318,7 @@ pub fn complete_pending_update(
     portable_worker: bool,
     restart_requested: bool,
     result: Result<(), String>,
-    set_toast: impl FnOnce(Option<String>),
+    persist: impl FnOnce(&PendingUpdateOutcome),
     report: impl FnOnce(&PendingUpdateOutcome),
 ) -> PendingUpdateOutcome {
     let status = match result {
@@ -313,11 +331,7 @@ pub fn complete_pending_update(
         status,
         restart_requested,
     };
-    let toast = match &outcome.status {
-        PendingUpdateStatus::Failed(_) => None,
-        _ => Some(outcome.version.clone()),
-    };
-    set_toast(toast);
+    persist(&outcome);
     report(&outcome);
     outcome
 }
@@ -563,14 +577,16 @@ mod tests {
         ] {
             let app = FakeApp(RefCell::default());
             let toast = RefCell::new(None);
+            let failure = RefCell::new(None);
             let reported = RefCell::new(None);
             let outcome = complete_pending_update(
                 "1.2.3".into(),
                 portable,
                 restart_requested,
                 result,
-                |value| {
-                    *toast.borrow_mut() = Some(value);
+                |outcome| {
+                    *toast.borrow_mut() = Some(outcome.toast_version());
+                    *failure.borrow_mut() = outcome.failure_notice();
                     app.0.borrow_mut().push("persist_outcome");
                 },
                 |outcome| {
@@ -581,6 +597,16 @@ mod tests {
             );
             assert_eq!(outcome.version, "1.2.3");
             assert_eq!(outcome.status, expected_status);
+            assert_eq!(
+                *failure.borrow(),
+                match &expected_status {
+                    PendingUpdateStatus::Failed(error) =>
+                        Some(theseus::state::PendingUpdateFailure::new(
+                            "1.2.3", error
+                        )),
+                    _ => None,
+                }
+            );
             assert_eq!(outcome.restart_after_exit(), expected_restart);
             assert_eq!(
                 *reported.borrow(),

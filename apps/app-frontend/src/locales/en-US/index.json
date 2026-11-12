@@ -21289,5 +21289,11 @@
   },
   "app.settings.tabs.resource-management": {
     "message": "Resource management"
+  },
+  "app.update-popup.install-failed.title": {
+    "message": "Launcher update failed"
+  },
+  "app.update-popup.install-failed.body": {
+    "message": "The update to v{version} could not be installed. You can try again or update manually. {error}"
   }
 }

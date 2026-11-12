@@ -21289,5 +21289,11 @@
   },
   "app.settings.export.imported-dropped-text": {
     "message": "{count, plural, =0 {没有文档发生变化。} other {已更新 # 个本地设置文档。}} {dropped, plural, other {另有 # 个值因类型不合法被忽略。}}"
+  },
+  "app.update-popup.install-failed.title": {
+    "message": "启动器更新失败"
+  },
+  "app.update-popup.install-failed.body": {
+    "message": "未能安装 v{version} 更新。你可以重试或手动更新。{error}"
   }
 }

@@ -109,6 +109,22 @@ impl<'de> Deserialize<'de> for HomeLayout {
     }
 }
 
+/// The previous update attempt shown once when the launcher next starts.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct PendingUpdateFailure {
+    pub version: String,
+    pub error: String,
+}
+
+impl PendingUpdateFailure {
+    pub fn new(version: &str, error: &str) -> Self {
+        Self {
+            version: version.chars().take(128).collect(),
+            error: error.chars().take(2048).collect(),
+        }
+    }
+}
+
 /// Global Theseus settings
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Settings {
@@ -247,6 +263,8 @@ pub struct Settings {
 
     pub skipped_update: Option<String>,
     pub pending_update_toast_for_version: Option<String>,
+    #[serde(default)]
+    pub pending_update_failure: Option<PendingUpdateFailure>,
     pub auto_download_updates: Option<bool>,
     #[serde(default = "default_true")]
     pub allow_external_scheme: bool,
@@ -447,6 +465,7 @@ impl Default for Settings {
             show_skin_selector_in_sidebar: true,
             skipped_update: None,
             pending_update_toast_for_version: None,
+            pending_update_failure: None,
             auto_download_updates: None,
             allow_external_scheme: true,
             allow_privileged_scheme: false,
@@ -540,6 +559,10 @@ impl Settings {
             self.default_window_title.trim().to_string();
         self.default_game_language =
             normalize_game_language(&self.default_game_language);
+        self.pending_update_failure =
+            self.pending_update_failure.map(|failure| {
+                PendingUpdateFailure::new(&failure.version, &failure.error)
+            });
         self.ui_font = sanitize_font_family(self.ui_font.take());
         self.mono_font = sanitize_font_family(self.mono_font.take());
         self
@@ -686,6 +709,7 @@ impl Settings {
             skipped_update: record.skipped_update,
             pending_update_toast_for_version: record
                 .pending_update_toast_for_version,
+            pending_update_failure: None,
             auto_download_updates: record.auto_download_updates,
             allow_external_scheme: record.allow_external_scheme,
             allow_privileged_scheme: record.allow_privileged_scheme,
@@ -1264,6 +1288,29 @@ mod tests {
     use super::*;
     use crate::state::store::Collection as _;
     use crate::state::store::tests::support::migrated_pool;
+
+    #[test]
+    fn pending_update_failures_are_optional_and_bounded() {
+        let mut legacy = serde_json::to_value(Settings::default()).unwrap();
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("pending_update_failure");
+        assert!(
+            serde_json::from_value::<Settings>(legacy)
+                .unwrap()
+                .pending_update_failure
+                .is_none()
+        );
+        let mut settings = Settings::default();
+        settings.pending_update_failure = Some(PendingUpdateFailure {
+            version: "版".repeat(200),
+            error: "错".repeat(3000),
+        });
+        let failure = settings.normalize().pending_update_failure.unwrap();
+        assert_eq!(failure.version.chars().count(), 128);
+        assert_eq!(failure.error.chars().count(), 2048);
+    }
 
     #[test]
     fn forced_download_mode_is_opt_in_and_preserves_manual_limits() {

@@ -1196,21 +1196,22 @@ fn main() {
                         // by design, so the exit hard cap does not apply.
                         exit_barrier::disarm();
 
-                        fn set_changelog_toast(version: Option<String>) {
+                        fn persist_update_notice(version: Option<String>, failure: Option<theseus::state::PendingUpdateFailure>) {
                             let toast_result =
                                 tauri::async_runtime::block_on(tokio::time::timeout(
                                     CHANGELOG_TOAST_TIMEOUT,
                                     settings::patch(serde_json::json!({
-                                        "pending_update_toast_for_version": version
+                                        "pending_update_toast_for_version": version,
+                                        "pending_update_failure": failure
                                     })),
                                 ));
                             match toast_result {
                                 Ok(Ok(_)) => {}
                                 Ok(Err(e)) => tracing::warn!(
-                                    "Failed to set pending_update_toast: {e}"
+                                    "Failed to persist pending update feedback: {e}"
                                 ),
                                 Err(_) => tracing::warn!(
-                                    "Timed out setting pending_update_toast after {} s",
+                                    "Timed out persisting pending update feedback after {} s",
                                     CHANGELOG_TOAST_TIMEOUT.as_secs()
                                 ),
                             }
@@ -1223,7 +1224,7 @@ fn main() {
                         #[cfg(target_os = "windows")]
                         {
                             exit_barrier::rearm(exit_barrier::now_millis());
-                            set_changelog_toast(Some(version.clone()));
+                            persist_update_notice(Some(version.clone()), None);
                             exit_barrier::disarm();
                         }
                         let install_result = update.install(should_restart);
@@ -1237,7 +1238,7 @@ fn main() {
                             portable_worker,
                             should_restart,
                             install_result,
-                            set_changelog_toast,
+                            |outcome| persist_update_notice(outcome.toast_version(), outcome.failure_notice()),
                             |outcome| match &outcome.status {
                                 exit_barrier::PendingUpdateStatus::PortableReady => {
                                     tracing::info!(

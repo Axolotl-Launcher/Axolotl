@@ -19,6 +19,26 @@ export interface SkinEditorRecovery {
     name?: string
 }
 
+export interface SkinEditorDialogLabels {
+    settingsLabel: string
+    settingsTitle: string
+    autoSave: string
+    autoSaveDescription: string
+    interval: string
+    intervalDescription: string
+    warnBeforeLeave: string
+    warnBeforeLeaveDescription: string
+    recoveryTitle: string
+    recoveryBody: string
+    recoveryStartNew: string
+    recoveryContinue: string
+    unsavedTitle: string
+    unsavedBody: string
+    unsavedStay: string
+    unsavedDiscard: string
+    unsavedSave: string
+}
+
 export type SkinEditorParentMessage =
     | {
           type: 'axolotl-skin-theme'
@@ -32,6 +52,12 @@ export type SkinEditorParentMessage =
           type: 'axolotl-skin-config'
           autoSaveEnabled: boolean
           autoSaveIntervalSeconds: number
+          warnBeforeLeave: boolean
+      }
+    | ({ type: 'axolotl-skin-labels' } & SkinEditorDialogLabels)
+    | {
+          type: 'axolotl-skin-prompt-unsaved'
+          requestId: string
       }
     | {
           type: 'axolotl-skin-command'
@@ -75,6 +101,17 @@ export type SkinEditorEditorMessage =
           ok: boolean
       }
     | { type: 'axolotl-skin-new-skin-request' }
+    | {
+          type: 'axolotl-skin-settings-change'
+          autoSaveEnabled: boolean
+          autoSaveIntervalSeconds: number
+          warnBeforeLeave: boolean
+      }
+    | {
+          type: 'axolotl-skin-prompt-result'
+          requestId: string
+          choice: 'stay' | 'discard' | 'save'
+      }
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>
 
@@ -237,6 +274,36 @@ export function parseSkinEditorMessage(data: unknown): SkinEditorEditorMessage |
     }
 
     if (message.type === 'axolotl-skin-new-skin-request') return { type: message.type }
+
+    if (message.type === 'axolotl-skin-settings-change') {
+        if (
+            typeof message.autoSaveEnabled !== 'boolean' ||
+            typeof message.autoSaveIntervalSeconds !== 'number' ||
+            typeof message.warnBeforeLeave !== 'boolean'
+        ) {
+            return null
+        }
+        return {
+            type: message.type,
+            autoSaveEnabled: message.autoSaveEnabled,
+            autoSaveIntervalSeconds: message.autoSaveIntervalSeconds,
+            warnBeforeLeave: message.warnBeforeLeave,
+        }
+    }
+
+    if (message.type === 'axolotl-skin-prompt-result') {
+        if (
+            typeof message.requestId !== 'string' ||
+            (message.choice !== 'stay' && message.choice !== 'discard' && message.choice !== 'save')
+        ) {
+            return null
+        }
+        return {
+            type: message.type,
+            requestId: message.requestId,
+            choice: message.choice,
+        }
+    }
 
     return null
 }

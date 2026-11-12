@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::StreamExt;
@@ -100,6 +101,87 @@ struct UploadBody {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     files: Vec<UploadFile>,
     source: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UploadLimits {
+    max_files: usize,
+    max_total_bytes: usize,
+    max_request_body_bytes: usize,
+}
+
+struct EncodedUpload {
+    bytes: Vec<u8>,
+    compressed: bool,
+    json_bytes: usize,
+    log_bytes: usize,
+    file_count: usize,
+}
+
+fn encode_upload(
+    body: &UploadBody,
+    limits: &UploadLimits,
+) -> crate::Result<EncodedUpload> {
+    let file_count = body.files.len() + usize::from(body.content.is_some());
+    let log_bytes = body
+        .files
+        .iter()
+        .map(|file| file.content.len())
+        .sum::<usize>()
+        + body.content.as_ref().map_or(0, String::len);
+    if file_count > limits.max_files || log_bytes > limits.max_total_bytes {
+        return Err(crate::ErrorKind::InputError(format!(
+            "LogShare upload exceeds the server limits: {file_count} files / {} allowed, {log_bytes} log bytes / {} allowed",
+            limits.max_files, limits.max_total_bytes,
+        )).into());
+    }
+    let json = serde_json::to_vec(body)?;
+    let json_bytes = json.len();
+    if json_bytes > limits.max_request_body_bytes {
+        return Err(crate::ErrorKind::InputError(format!(
+            "LogShare request exceeds the server limit: {json_bytes} JSON bytes / {} allowed",
+            limits.max_request_body_bytes,
+        )).into());
+    }
+    let mut encoder =
+        flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+    encoder
+        .write_all(&json)
+        .map_err(crate::util::io::IOError::from)?;
+    let gzip = encoder.finish().map_err(crate::util::io::IOError::from)?;
+    let compressed = gzip.len() < json.len();
+    Ok(EncodedUpload {
+        bytes: if compressed { gzip } else { json },
+        compressed,
+        json_bytes,
+        log_bytes,
+        file_count,
+    })
+}
+
+fn upload_request(
+    client: &reqwest::Client,
+    encoded: EncodedUpload,
+) -> reqwest::RequestBuilder {
+    let request = client
+        .post(format!("{LOGSHARE_BASE_URL}/v1/log"))
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json");
+    let request = if encoded.compressed {
+        request.header("Content-Encoding", "gzip")
+    } else {
+        request
+    };
+    request.body(encoded.bytes)
+}
+
+fn upload_transport_error(error: reqwest::Error) -> crate::Error {
+    tracing::warn!(error = ?error, timeout = error.is_timeout(), connect = error.is_connect(), "LogShare upload transport failed");
+    crate::ErrorKind::NetworkError(format!(
+        "LogShare upload transport failed: {error:?}"
+    ))
+    .into()
 }
 
 pub async fn get_log_share_settings() -> crate::Result<LogShareSettings> {
@@ -242,22 +324,48 @@ pub async fn upload_crash(
     instance_id: &str,
 ) -> crate::Result<LogShareUploadResponse> {
     let prepared = prepare_upload(instance_id).await?;
-    upload_prepared(&prepared).await
+    upload_prepared(prepared).await
 }
 
 async fn upload_prepared(
-    prepared: &UploadBody,
+    prepared: UploadBody,
 ) -> crate::Result<LogShareUploadResponse> {
     let client = request_client().await?;
-    let body_value = serde_json::to_value(prepared)?;
-    let request = client
-        .post(format!("{LOGSHARE_BASE_URL}/v1/log"))
-        .header("Accept", "application/json")
-        .header("Accept-Encoding", "br, gzip");
-
-    let response = request.json(&body_value).send().await?;
+    let limits: UploadLimits = client
+        .get(format!("{LOGSHARE_BASE_URL}/v1/limits"))
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(upload_transport_error)?
+        .error_for_status()
+        .map_err(upload_transport_error)?
+        .json()
+        .await
+        .map_err(upload_transport_error)?;
+    let encoded =
+        tokio::task::spawn_blocking(move || encode_upload(&prepared, &limits))
+            .await
+            .map_err(|error| {
+                crate::ErrorKind::OtherError(format!(
+                    "Could not prepare LogShare upload: {error}"
+                ))
+            })??;
+    tracing::info!(
+        file_count = encoded.file_count,
+        log_bytes = encoded.log_bytes,
+        json_bytes = encoded.json_bytes,
+        upload_bytes = encoded.bytes.len(),
+        gzip = encoded.compressed,
+        "Uploading crash logs to LogShare"
+    );
+    let started = std::time::Instant::now();
+    let response = upload_request(&client, encoded)
+        .send()
+        .await
+        .map_err(upload_transport_error)?;
     let status = response.status();
-    let text = response.text().await?;
+    let text = response.text().await.map_err(upload_transport_error)?;
+    tracing::info!(elapsed_ms = started.elapsed().as_millis(), %status, "LogShare upload completed");
     if !status.is_success() {
         return Err(crate::ErrorKind::OtherError(format!(
             "LogShare upload failed with HTTP {status}: {}",
@@ -438,7 +546,7 @@ pub(super) async fn analyze_snapshot(
             {
                 ticket
             }
-            _ => upload_prepared(&prepared).await?,
+            _ => upload_prepared(prepared).await?,
         };
         (
             format!("{LOGSHARE_BASE_URL}/v1/ai/{}", ticket.id),
@@ -685,6 +793,65 @@ fn parse_sse_block(block: &str) -> Option<ParsedEvent> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
+
+    fn limits() -> UploadLimits {
+        UploadLimits {
+            max_files: 200,
+            max_total_bytes: 20 * 1024 * 1024,
+            max_request_body_bytes: 32 * 1024 * 1024,
+        }
+    }
+
+    #[test]
+    fn upload_request_compresses_full_logs_and_marks_the_request_body() {
+        let body = UploadBody {
+            content: None,
+            files: vec![UploadFile {
+                name: "latest.log".into(),
+                content: "[INFO] Loading mod 测试\n".repeat(300_000),
+            }],
+            source: "axolotl/test".into(),
+        };
+        let encoded = encode_upload(&body, &limits()).unwrap();
+        assert!(encoded.compressed);
+        assert!(encoded.bytes.len() < encoded.json_bytes / 10);
+        let request = upload_request(
+            &crate::util::http::client_builder().build().unwrap(),
+            encoded,
+        )
+        .build()
+        .unwrap();
+        assert_eq!(request.headers()["content-type"], "application/json");
+        assert_eq!(request.headers()["content-encoding"], "gzip");
+        let mut decoder = flate2::read::GzDecoder::new(
+            request.body().unwrap().as_bytes().unwrap(),
+        );
+        let mut decoded = String::new();
+        decoder.read_to_string(&mut decoded).unwrap();
+        let value: Value = serde_json::from_str(&decoded).unwrap();
+        assert_eq!(value["files"][0]["content"], body.files[0].content);
+        assert!(value.get("content").is_none());
+    }
+
+    #[test]
+    fn upload_limits_count_files_utf8_and_uncompressed_json() {
+        let body = UploadBody {
+            content: Some("测\n".repeat(10)),
+            files: Vec::new(),
+            source: "axolotl/test".into(),
+        };
+        let mut limit = limits();
+        limit.max_files = 0;
+        assert!(encode_upload(&body, &limit).is_err());
+        limit = limits();
+        limit.max_total_bytes = 39;
+        assert!(encode_upload(&body, &limit).is_err());
+        limit.max_total_bytes = 40;
+        assert!(encode_upload(&body, &limit).is_ok());
+        limit.max_request_body_bytes = 40;
+        assert!(encode_upload(&body, &limit).is_err());
+    }
 
     #[test]
     fn multi_file_upload_does_not_duplicate_combined_content() {

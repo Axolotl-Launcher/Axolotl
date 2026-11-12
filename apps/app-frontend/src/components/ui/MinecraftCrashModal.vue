@@ -2,7 +2,6 @@
 import {
     ClipboardCopyIcon,
     DownloadIcon,
-    ExternalIcon,
     FolderOpenIcon,
     LinkIcon,
     ListOrderedIcon,
@@ -25,6 +24,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { renderHighlightedString } from '@modrinth/utils/highlightjs'
+import QrcodeVue from 'qrcode.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -130,6 +130,7 @@ let analysisVersion = 0
 let summaryGeneration = 0
 let crashLogsPromise: Promise<void> | null = null
 let uploadTicketPromise: Promise<LogShareTicket | null> | null = null
+let uploadFailed = false
 const defaultSource = ref<AnalysisSource>(availableAnalysisSource('logshare'))
 const selectedSource = ref<AnalysisSource>(availableAnalysisSource('logshare'))
 const localAvailable = ref(false)
@@ -175,6 +176,7 @@ const logShareSettings = ref<LogShareSettings>({
 })
 const uploadTicket = ref<LogShareTicket | null>(null)
 const shareUrl = ref('')
+const diagnosticUrl = computed(() => shareUrl.value || uploadTicket.value?.url || '')
 const sharing = ref(false)
 const previewMode = ref(false)
 const exportingDiagnostic = ref(false)
@@ -452,6 +454,10 @@ const messages = defineMessages({
     copyLink: {
         id: 'app.minecraft-crash.copy-link',
         defaultMessage: 'Copy link',
+    },
+    scanLogs: {
+        id: 'app.minecraft-crash.scan-logs',
+        defaultMessage: 'Scan to view logs',
     },
     exportDiagnostic: {
         id: 'app.minecraft-crash.export-diagnostic',
@@ -754,6 +760,7 @@ function show(modalPayload: CrashModalPayload, isPreview = false): boolean {
     lastAnalysis = null
     uploadTicket.value = null
     uploadTicketPromise = null
+    uploadFailed = false
     shareUrl.value = ''
     sharing.value = false
     exportedDiagnosticPath.value = ''
@@ -1002,11 +1009,16 @@ async function openExportFolder(): Promise<void> {
     }
 }
 
-async function uploadTicketForInstance(instanceId: string): Promise<LogShareTicket | null> {
+async function uploadTicketForInstance(
+    instanceId: string,
+    retry = false,
+): Promise<LogShareTicket | null> {
     if (uploadTicket.value) return uploadTicket.value
     if (uploadTicketPromise) return uploadTicketPromise
+    if (uploadFailed && !retry) return null
 
     const version = analysisVersion
+    uploadFailed = false
     const request = logshare_upload_crash(instanceId)
         .then((ticket) => {
             if (version === analysisVersion) {
@@ -1017,6 +1029,7 @@ async function uploadTicketForInstance(instanceId: string): Promise<LogShareTick
             return ticket
         })
         .catch((error) => {
+            if (version === analysisVersion) uploadFailed = true
             console.error('Failed to upload crash diagnostic to LogShare', error)
             return null
         })
@@ -1082,7 +1095,7 @@ async function shareDiagnostic(): Promise<void> {
     const instanceId = payload.value.instance_id!
     try {
         if (logShareSettings.value.share_provider === 'logshare') {
-            const ticket = await uploadTicketForInstance(instanceId)
+            const ticket = await uploadTicketForInstance(instanceId, true)
             if (stale()) return
             if (ticket?.url) {
                 shareUrl.value = ticket.url
@@ -1152,9 +1165,9 @@ async function shareDiagnostic(): Promise<void> {
 }
 
 async function copyShareUrl(): Promise<void> {
-    if (!shareUrl.value) return
+    if (!diagnosticUrl.value) return
     try {
-        await navigator.clipboard.writeText(shareUrl.value)
+        await navigator.clipboard.writeText(diagnosticUrl.value)
         addNotification({
             title: formatMessage(messages.shareCopied),
             type: 'success',
@@ -1555,29 +1568,42 @@ defineExpose({
                         /></Button>
                     </div>
                     <div
-                        v-if="shareUrl"
-                        class="flex items-center gap-2 rounded-lg bg-surface-2 p-3"
+                        v-if="diagnosticUrl"
+                        data-testid="crash-diagnostic-link"
+                        class="flex items-center gap-3 rounded-lg bg-surface-2 p-3"
                     >
-                        <ExternalIcon
-                            class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
-                            aria-hidden="true"
-                        />
-                        <a
-                            :href="shareUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="min-w-0 flex-1 truncate text-sm text-[var(--color-text-default)] underline"
+                        <div
+                            role="img"
+                            :aria-label="formatMessage(messages.scanLogs)"
+                            class="shrink-0 overflow-hidden rounded-md"
                         >
-                            {{ shareUrl }}
-                        </a>
-                        <Button
-                            type="outlined"
-                            circular
-                            icon-only
-                            :label="formatMessage(messages.copyLink)"
-                            @click="copyShareUrl"
-                            ><ClipboardCopyIcon aria-hidden="true" />
-                        </Button>
+                            <QrcodeVue
+                                :value="diagnosticUrl"
+                                :size="120"
+                                :margin="4"
+                                level="M"
+                                render-as="svg"
+                                class="block size-[120px]"
+                                aria-hidden="true"
+                            />
+                        </div>
+                        <div class="flex min-w-0 flex-1 flex-col items-start gap-2">
+                            <span class="text-sm font-semibold">{{
+                                formatMessage(messages.scanLogs)
+                            }}</span>
+                            <a
+                                :href="diagnosticUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="break-all text-xs text-[var(--color-text-default)] underline"
+                                >{{ diagnosticUrl }}</a
+                            >
+                            <Button type="quiet" @click="copyShareUrl">
+                                <ClipboardCopyIcon aria-hidden="true" />{{
+                                    formatMessage(messages.copyLink)
+                                }}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </section>

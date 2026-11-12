@@ -1,4 +1,7 @@
 {
+  "app.minecraft-crash.scan-logs": {
+    "message": "扫码查看日志"
+  },
   "app.java.external.title": {
     "message": "使用此存储设备上的 Java？"
   },

@@ -1,4 +1,7 @@
 {
+  "app.minecraft-crash.scan-logs": {
+    "message": "Scan to view logs"
+  },
   "app.java.external.title": {
     "message": "Use Java from this storage device?"
   },

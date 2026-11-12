@@ -1,6 +1,7 @@
 import '@/test/visual-styles.scss'
 
 import { mount } from '@vue/test-utils'
+import QrcodeVue from 'qrcode.vue'
 import { afterEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, nextTick, ref } from 'vue'
@@ -166,6 +167,8 @@ afterEach(() => {
     cleanup.splice(0).forEach((dispose) => dispose())
     vi.restoreAllMocks()
     vi.clearAllMocks()
+    calls.upload.mockReset()
+    calls.insights.mockReset()
     calls.enabled = true
     calls.source = 'custom'
     calls.autoUpload = false
@@ -340,6 +343,7 @@ it('uses the local model when the saved default is cloud', async () => {
 })
 
 it('loads structured LogShare analysis for the selected file without a LogAgent entry', async () => {
+    calls.chinese = !!import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE
     calls.enabled = false
     calls.source = 'logshare'
     calls.autoUpload = true
@@ -367,6 +371,7 @@ it('loads structured LogShare analysis for the selected file without a LogAgent 
     })
     await router.push('/')
     const wrapper = mount(MinecraftCrashModal, {
+        attachTo: document.body,
         global: { directives: { tooltip: () => {} }, plugins: [router] },
     })
     cleanup.push(() => wrapper.unmount())
@@ -379,6 +384,33 @@ it('loads structured LogShare analysis for the selected file without a LogAgent 
         expect(calls.insights).toHaveBeenCalledWith('sAbCdEf', 'crash-reports/crash.txt'),
     )
     await vi.waitFor(() => expect(wrapper.text()).toContain('Install the missing dependency'))
+    const link = wrapper.get('[data-testid="crash-diagnostic-link"]')
+    expect(link.get('a').attributes('href')).toBe('https://logshare.cn/sAbCdEf')
+    expect(link.findComponent(QrcodeVue).props('value')).toBe('https://logshare.cn/sAbCdEf')
+    expect(link.get('svg').attributes('width')).toBe('120')
+    expect(getComputedStyle(link.get('svg').element).width).toBe('120px')
+    expect(getComputedStyle(link.get('svg').element).height).toBe('120px')
+    if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE) {
+        document.documentElement.classList.add('dark-mode')
+        for (const [width, name] of [
+            [1200, 'desktop'],
+            [780, 'medium'],
+            [480, 'narrow'],
+        ] as const) {
+            await page.viewport(width, 900)
+            wrapper.element.setAttribute(
+                'style',
+                'width: min(1100px, 100vw); background: var(--surface-1); color: var(--color-text-primary)',
+            )
+            await nextTick()
+            expect(link.element.scrollWidth).toBeLessThanOrEqual(link.element.clientWidth + 1)
+            await page.screenshot({
+                element: wrapper.element,
+                path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/crash-upload-${name}.png`,
+            })
+        }
+        calls.chinese = false
+    }
     expect(wrapper.text()).not.toContain('[object Object]')
     expect(wrapper.find('[data-testid="crash-analysis-controls"]').exists()).toBe(false)
     await wrapper
@@ -387,6 +419,87 @@ it('loads structured LogShare analysis for the selected file without a LogAgent 
         .trigger('click')
     await vi.waitFor(() => expect(calls.insights).toHaveBeenLastCalledWith('sAbCdEf', 'latest.log'))
     expect(calls.upload).toHaveBeenCalledTimes(1)
+})
+
+it('shows the QR code as soon as upload finishes, copies its URL and clears it for another crash', async () => {
+    calls.enabled = false
+    calls.source = 'logshare'
+    calls.autoUpload = true
+    let finishUpload!: (ticket: unknown) => void
+    calls.upload.mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finishUpload = resolve
+            }),
+    )
+    calls.insights.mockResolvedValue({})
+    const writeClipboard = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    const wrapper = await mountCrashModal('pending-upload')
+    expect(wrapper.find('[data-testid="crash-diagnostic-link"]').exists()).toBe(false)
+    finishUpload({
+        id: 'sAbCdEf',
+        url: 'https://logshare.cn/sAbCdEf',
+        raw: 'raw',
+        token: '',
+        files: [],
+    })
+    await vi.waitFor(() =>
+        expect(wrapper.find('[data-testid="crash-diagnostic-link"]').exists()).toBe(true),
+    )
+    await wrapper.get('[data-testid="crash-diagnostic-link"]').get('button').trigger('click')
+    expect(writeClipboard).toHaveBeenCalledExactlyOnceWith('https://logshare.cn/sAbCdEf')
+    calls.upload.mockRejectedValueOnce(new Error('Upload unavailable'))
+    await wrapper.vm.handleWarning({
+        kind: 'minecraft_crash',
+        instance_id: 'failed-upload',
+        instance_name: 'Another crash',
+    })
+    await vi.waitFor(() => expect(calls.upload).toHaveBeenCalledTimes(2))
+    expect(wrapper.find('[data-testid="crash-diagnostic-link"]').exists()).toBe(false)
+})
+
+it('does not restart a failed automatic upload when another log is selected', async () => {
+    calls.enabled = false
+    calls.source = 'logshare'
+    calls.autoUpload = true
+    calls.upload.mockRejectedValue(new Error('Upload unavailable'))
+    calls.logs.mockResolvedValue([
+        { filename: 'latest.log', log_type: 'InfoLog', age: 1000 },
+        { filename: 'crash.txt', log_type: 'CrashReport', age: 1000 },
+    ])
+    const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [{ path: '/', component: { render: () => null } }],
+    })
+    await router.push('/')
+    const wrapper = mount(MinecraftCrashModal, {
+        global: { directives: { tooltip: () => {} }, plugins: [router] },
+    })
+    cleanup.push(() => wrapper.unmount())
+    await wrapper.vm.handleWarning({
+        kind: 'minecraft_crash',
+        instance_id: 'upload-failed',
+        instance_name: 'Test',
+    })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Could not load the LogShare summary'))
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'latest.log')!
+        .trigger('click')
+    expect(calls.upload).toHaveBeenCalledTimes(1)
+    calls.upload.mockResolvedValue({
+        id: 'sAbCdEf',
+        url: 'https://logshare.cn/sAbCdEf',
+        raw: 'raw',
+        token: '',
+        files: [],
+    })
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    await actionButton(wrapper, 'Share diagnostic').trigger('click')
+    await vi.waitFor(() => expect(calls.upload).toHaveBeenCalledTimes(2))
+    expect(wrapper.get('[data-testid="crash-diagnostic-link"]').get('a').attributes('href')).toBe(
+        'https://logshare.cn/sAbCdEf',
+    )
 })
 
 it('keeps the active LogAgent workspace when log enumeration and duplicate crash notifications arrive late', async () => {

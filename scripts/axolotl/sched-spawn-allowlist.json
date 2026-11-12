@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "file": "packages/app-lib/src/api/logs/logshare.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed LogShare upload preparation: serializes and gzip-compresses one owned log snapshot within the server file/content/request limits; holds no managed resources and keeps CPU work off the async runtime (D17)",
+      "sites": [
+        "upload_prepared: tokio::task::spawn_blocking(move || encode_upload(&prepared, &limits))"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/util/java_storage.rs",
       "form": "spawn_blocking",
       "count": 1,

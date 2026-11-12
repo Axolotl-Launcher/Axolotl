@@ -186,6 +186,9 @@ async fn execute(
         let (url, host) = current;
         let addresses = resolve_public(&host).await?;
         let mut builder = crate::util::http::client_builder()
+            // A system proxy would resolve the host itself and bypass both the
+            // DNS pin and the public-address check below.
+            .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(REQUEST_TIMEOUT)
             .user_agent(crate::launcher_user_agent());
@@ -364,6 +367,10 @@ fn is_public_v4(address: Ipv4Addr) -> bool {
         || octets[0] == 0
         // 100.64.0.0/10 carrier-grade NAT.
         || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+        // 192.0.0.0/24 IETF protocol assignments.
+        || (octets[0] == 192 && octets[1] == 0)
+        // 192.88.99.0/24 6to4 relay anycast.
+        || (octets[0] == 192 && octets[1] == 88 && octets[2] == 99)
         // 198.18.0.0/15 benchmarking.
         || (octets[0] == 198 && (18..=19).contains(&octets[1]))
         // 240.0.0.0/4 reserved.
@@ -381,7 +388,10 @@ fn is_public_v6(address: Ipv6Addr) -> bool {
         || (segments[0] & 0xfe00) == 0xfc00 // unique local fc00::/7
         || (segments[0] & 0xffc0) == 0xfe80 // link local fe80::/10
         || (segments[0] & 0xffc0) == 0xfec0 // site local fec0::/10
-        || (segments[0] & 0xff00) == 0xff00) // multicast, already covered
+        || (segments[0] & 0xff00) == 0xff00 // multicast, already covered
+        // NAT64 and 6to4 embed an IPv4 address that is not checked here.
+        || (segments[0] == 0x0064 && segments[1] == 0xff9b)
+        || segments[0] == 0x2002)
 }
 
 async fn resolve_public(host: &str) -> crate::Result<Vec<SocketAddr>> {
@@ -437,6 +447,10 @@ mod tests {
         assert!(!is_public_ip("192.168.1.1".parse().unwrap()));
         assert!(!is_public_ip("169.254.169.254".parse().unwrap()));
         assert!(!is_public_ip("100.64.0.1".parse().unwrap()));
+        assert!(!is_public_ip("192.0.0.1".parse().unwrap()));
+        assert!(!is_public_ip("192.88.99.1".parse().unwrap()));
+        assert!(!is_public_ip("64:ff9b::1".parse().unwrap()));
+        assert!(!is_public_ip("2002::1".parse().unwrap()));
         assert!(!is_public_ip("::1".parse().unwrap()));
         assert!(!is_public_ip("fc00::1".parse().unwrap()));
         assert!(!is_public_ip("fe80::1".parse().unwrap()));

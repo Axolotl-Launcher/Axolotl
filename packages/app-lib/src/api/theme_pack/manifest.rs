@@ -656,11 +656,24 @@ pub fn validate_css(name: &str, css: &str) -> crate::Result<()> {
     if lowered.contains("@import") {
         return Err(invalid(format!("Stylesheet {name} may not use @import")));
     }
+    // `image-set()` and `src()` accept bare strings, so they never reach the
+    // `url()` scan below. Reject them outright: pack stylesheets are applied to
+    // the main window and must not fetch remote images.
+    if lowered.contains("image-set(")
+        || lowered.contains("-webkit-image-set(")
+        || lowered.contains("src(")
+    {
+        return Err(invalid(format!(
+            "Stylesheet {name} references a resource the launcher does not allow"
+        )));
+    }
     let mut rest = lowered.as_str();
     while let Some(index) = rest.find("url(") {
         rest = &rest[index + 4..];
         let Some(end) = rest.find(')') else {
-            break;
+            return Err(invalid(format!(
+                "Stylesheet {name} has an unterminated url() reference"
+            )));
         };
         let argument = rest[..end].trim().trim_matches(['"', '\'']).trim();
         let scheme = argument.split_once(':').map(|(scheme, _)| scheme).filter(
@@ -978,6 +991,46 @@ mod tests {
                 "expected {css} to be rejected"
             );
         }
+    }
+
+    #[test]
+    fn rejects_image_set_css_references() {
+        let directory = pack_dir(&[
+            "styles/theme.css",
+            "assets/background.png",
+            "assets/Inter.woff2",
+            "assets/icon.png",
+            "pages/home.html",
+        ]);
+        for css in [
+            r#".x { background: image-set("https://tracker.example/x.png" 1x); }"#,
+            r#".x { background: -webkit-image-set("https://tracker.example/x.png" 1x); }"#,
+            r#".x { src("https://tracker.example/x.woff2"); }"#,
+        ] {
+            std::fs::write(directory.path().join("styles/theme.css"), css)
+                .unwrap();
+            assert!(
+                manifest().validate(directory.path()).is_err(),
+                "expected {css} to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_unterminated_css_references() {
+        let directory = pack_dir(&[
+            "styles/theme.css",
+            "assets/background.png",
+            "assets/Inter.woff2",
+            "assets/icon.png",
+            "pages/home.html",
+        ]);
+        std::fs::write(
+            directory.path().join("styles/theme.css"),
+            ".x { background: url(https://tracker.example/pixel.png",
+        )
+        .unwrap();
+        assert!(manifest().validate(directory.path()).is_err());
     }
 
     #[test]

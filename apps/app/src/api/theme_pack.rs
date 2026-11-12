@@ -793,6 +793,7 @@ fn copy_pack_directory(
 }
 
 const THEME_STORAGE_MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
+const THEME_STORAGE_MAX_TOTAL_BYTES: u64 = 10 * 1024 * 1024;
 const THEME_STORAGE_MAX_FILES: usize = 256;
 const THEME_LOG_MAX_CHARS: usize = 256 * 1024;
 
@@ -838,6 +839,22 @@ fn storage_file<R: Runtime>(
         return Err(theme_error("The theme pack storage key is invalid"));
     }
     Ok(storage(app)?.pack_data_dir(pack_id)?.join(key))
+}
+
+async fn storage_usage(directory: &Path) -> Result<u64> {
+    let Ok(mut entries) = tokio::fs::read_dir(directory).await else {
+        return Ok(0);
+    };
+    let mut total = 0u64;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let Ok(metadata) = entry.metadata().await else {
+            continue;
+        };
+        if metadata.is_file() {
+            total = total.saturating_add(metadata.len());
+        }
+    }
+    Ok(total)
 }
 
 #[tauri::command]
@@ -912,8 +929,20 @@ pub async fn theme_pack_storage_write<R: Runtime>(
         return Err(theme_error("The theme pack storage entry is too large"));
     }
     let path = storage_file(&app, &pack_id, &key)?;
-    if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent).await?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| theme_error("The theme pack storage path is invalid"))?;
+    tokio::fs::create_dir_all(parent).await?;
+    let previous = tokio::fs::metadata(&path)
+        .await
+        .map(|metadata| metadata.len())
+        .unwrap_or_default();
+    let usage = storage_usage(parent).await?;
+    let next = usage
+        .saturating_sub(previous)
+        .saturating_add(contents.len() as u64);
+    if next > THEME_STORAGE_MAX_TOTAL_BYTES {
+        return Err(theme_error("The theme pack storage quota is exhausted"));
     }
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

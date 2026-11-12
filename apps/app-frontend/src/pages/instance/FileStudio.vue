@@ -55,6 +55,7 @@ import { useStudioMediaPreview } from '@/components/instance/studio/useStudioMed
 import { type StudioTreeNode, useStudioTree } from '@/components/instance/studio/useStudioTree'
 import { useStudioWatcher } from '@/components/instance/studio/useStudioWatcher'
 import type { ServerView } from '@/composables/useServers'
+import { errorText } from '@/helpers/error-text'
 import { get_full_path } from '@/helpers/instance'
 import {
     listenStudioFilesChanged,
@@ -235,7 +236,7 @@ const {
     (error) => {
         addNotification({
             title: formatMessage(messages.saveFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     },
@@ -254,7 +255,7 @@ const {
     (error) =>
         addNotification({
             title: formatMessage(messages.loadDirectoryFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         }),
 )
@@ -366,7 +367,7 @@ const {
 function notifyOperationFailure(error: unknown) {
     addNotification({
         title: formatMessage(messages.operationFailed),
-        text: error instanceof Error ? error.message : String(error),
+        text: errorText(error),
         type: 'error',
     })
 }
@@ -576,7 +577,7 @@ async function pasteClipboard() {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -607,7 +608,7 @@ async function deleteItem() {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -634,7 +635,7 @@ async function createItem() {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -701,7 +702,7 @@ async function processFileChanges(changedPaths: string[]) {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.loadDirectoryFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -817,7 +818,7 @@ async function openFileNow(node: StudioTreeNode) {
                 if (!canOpen(node.path, version)) return
                 addNotification({
                     title: formatMessage(messages.nbtLoadFailed),
-                    text: error instanceof Error ? error.message : String(error),
+                    text: errorText(error),
                     type: 'error',
                 })
                 return

@@ -325,6 +325,7 @@ import {
     getGameRuleMetadata,
     resolveGameRuleType,
 } from '@/components/ui/world/gameRuleRegistry.ts'
+import { errorText } from '@/helpers/error-text'
 import type { GameInstance } from '@/helpers/types'
 import {
     get_world_level_data,
@@ -411,7 +412,7 @@ async function load() {
         savedState.value = snapshotForm(level)
         loadError.value = undefined
     } catch (err) {
-        loadError.value = err instanceof Error ? err.message : String(err)
+        loadError.value = errorText(err)
     }
 }
 

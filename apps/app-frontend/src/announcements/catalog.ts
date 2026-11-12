@@ -6788,10 +6788,6 @@ export function getAnnouncements(): readonly LauncherAnnouncement[] {
     return launcherAnnouncements
 }
 
-export function getAnnouncementById(id: string) {
-    return launcherAnnouncements.find((announcement) => announcement.id === id)
-}
-
 export function getLocalizedAnnouncementText(
     text: LocalizedAnnouncementText,
     locale: string,

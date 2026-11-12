@@ -1,3 +1,5 @@
+import { errorText } from '@/helpers/error-text'
+
 import type { UndergroundMeshRequest } from './underground'
 import { buildUndergroundMesh } from './underground-mesh'
 
@@ -22,6 +24,6 @@ scope.onmessage = (event: MessageEvent<Message>) => {
         )
         scope.postMessage({ mesh }, buffers)
     } catch (error) {
-        scope.postMessage({ error: error instanceof Error ? error.message : String(error) })
+        scope.postMessage({ error: errorText(error) })
     }
 }

@@ -1,5 +1,7 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
 
+import { errorText } from '@/helpers/error-text'
+
 import { abortable } from './abortable.ts'
 import type { InstallJobSnapshot } from './install'
 import type { InstanceLoader } from './types'
@@ -278,12 +280,7 @@ async function benchmark_upgrade_plan<T>(operation: string, action: () => Promis
         return result
     } catch (error) {
         if (import.meta.env.DEV) {
-            record_upgrade_plan_bench(
-                operation,
-                startedAt,
-                false,
-                error instanceof Error ? error.message : String(error),
-            )
+            record_upgrade_plan_bench(operation, startedAt, false, errorText(error))
         }
         throw error
     }

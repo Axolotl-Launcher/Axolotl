@@ -132,7 +132,6 @@ export function createModpackServerFlowContext(
     const eulaText = ref('')
     const createdServer = ref<ServerManifestData | null>(null)
     const showEulaModal = ref(false)
-    const saveServerProperties = ref<(() => Promise<boolean>) | null>(null)
     let installSession = 0
 
     const modpackTitle = ref('')
@@ -444,7 +443,6 @@ export function createModpackServerFlowContext(
         eulaText.value = ''
         createdServer.value = null
         showEulaModal.value = false
-        saveServerProperties.value = null
         selectedJava.value = { path: '', version: '' }
         memoryMb.value = 2048
         void loadMaxMemory()
@@ -529,7 +527,6 @@ export function createModpackServerFlowContext(
         eulaText,
         createdServer,
         showEulaModal,
-        saveServerProperties,
         needsLoaderVersion,
         typeSupported,
         canContinueFromType,

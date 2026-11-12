@@ -13,6 +13,7 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { type AIProviderDefinition, getAICatalog, getAIState, sharedAIState } from '@/helpers/ai'
+import { errorText } from '@/helpers/error-text'
 import {
     clearTranslationCache,
     getGoogleIpPoolSize,
@@ -358,7 +359,7 @@ watch(
 
 function reportOperationError(error?: unknown, context?: string) {
     const errorKind = error ? getTranslationErrorKind(error) : 'provider'
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = errorText(error)
 
     debugLog('Error', `Operation failed${context ? ` (${context})` : ''}`, {
         kind: errorKind,
@@ -439,7 +440,7 @@ watch(
                 .catch((error) => {
                     // Log error but don't show notification to user
                     // Only the "Test" button should show errors
-                    const errorMessage = error instanceof Error ? error.message : String(error)
+                    const errorMessage = errorText(error)
                     debugLog('Save', 'Settings save failed (silent)', {
                         error: errorMessage,
                         provider: newSettings.provider,

@@ -40,6 +40,7 @@ import {
 import { useLogAgent } from '@/composables/useLogAgent'
 import type { MinecraftLaunchErrorPayload } from '@/composables/useMinecraftLaunchError'
 import { getAIState } from '@/helpers/ai'
+import { errorText } from '@/helpers/error-text'
 import { process_listener } from '@/helpers/events.js'
 import { get as getInstance } from '@/helpers/instance'
 import {
@@ -628,7 +629,7 @@ const renderedAiOutput = computed(() => renderHighlightedString(logAgentInsight.
 const renderedLogShareSummary = computed(() => renderHighlightedString(logShareSummary.value))
 
 function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error)
+    return errorText(error)
 }
 
 async function loadCrashLogContent(file: CrashLogFile): Promise<string> {

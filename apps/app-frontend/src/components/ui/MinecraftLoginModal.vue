@@ -6,6 +6,7 @@ import { computed, onUnmounted, ref } from 'vue'
 
 import { begin_device_login, poll_device_login } from '@/helpers/auth'
 import type { MinecraftCredential } from '@/helpers/auth-types'
+import { errorText } from '@/helpers/error-text'
 
 type DeviceLoginFlow = {
     device_code: string
@@ -100,7 +101,7 @@ async function pollDeviceLogin(delay: number) {
         const nextDelay = result.slow_down ? delay + 5000 : delay
         devicePollTimer = setTimeout(() => void pollDeviceLogin(nextDelay), nextDelay)
     } catch (error) {
-        deviceError.value = error instanceof Error ? error.message : String(error)
+        deviceError.value = errorText(error)
     }
 }
 
@@ -119,7 +120,7 @@ async function startDeviceLogin() {
         deviceExpiresAt = Date.now() + flow.expires_in * 1000
         void pollDeviceLogin(Math.max(flow.interval, 1) * 1000)
     } catch (error) {
-        deviceError.value = error instanceof Error ? error.message : String(error)
+        deviceError.value = errorText(error)
     } finally {
         busy.value = false
     }

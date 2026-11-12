@@ -64,6 +64,7 @@ import SeedMapStructureDetails from '@/components/lab/seed-map/SeedMapStructureD
 import SeedMapWorldImportModal, {
     type SeedMapWorldImport,
 } from '@/components/lab/seed-map/SeedMapWorldImportModal.vue'
+import { errorText } from '@/helpers/error-text'
 import {
     applyShareQuery,
     clearSeedMapHistory,
@@ -1749,7 +1750,7 @@ async function retryMap() {
         ensureProfile()
         scheduleRefresh(0)
     } catch (error) {
-        mapError.value = error instanceof Error ? error.message : String(error)
+        mapError.value = errorText(error)
     }
 }
 
@@ -1834,8 +1835,7 @@ async function requestFeatures(epoch: number) {
         features.value = result
         redraw()
     } catch (error) {
-        if (epoch === requestEpoch)
-            mapError.value = error instanceof Error ? error.message : String(error)
+        if (epoch === requestEpoch) mapError.value = errorText(error)
     }
 }
 

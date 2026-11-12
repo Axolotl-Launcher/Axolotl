@@ -21,6 +21,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
 import DownloadJavaModal from '@/components/ui/settings/DownloadJavaModal.vue'
 import { trackEvent } from '@/helpers/analytics'
+import { errorText } from '@/helpers/error-text'
 import { java_discovery_listener } from '@/helpers/events'
 import { wait_for_install_job } from '@/helpers/install'
 import { confirmJavaSelection } from '@/helpers/java-selection'
@@ -250,7 +251,7 @@ async function addManual() {
     } catch (error) {
         addResult.value = {
             ok: false,
-            message: error instanceof Error ? error.message : String(error),
+            message: errorText(error),
         }
     } finally {
         adding.value = false
@@ -269,7 +270,7 @@ async function onDownloaded(job: { job_id?: string } | null | undefined) {
         await Promise.all([loadDefaults(), refresh()])
     } catch (error) {
         download.state = 'failed'
-        download.message = error instanceof Error ? error.message : String(error)
+        download.message = errorText(error)
     }
 }
 </script>

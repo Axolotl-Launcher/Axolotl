@@ -49,6 +49,7 @@ pub(crate) mod offline_minecraft_skins;
 pub(crate) mod pending_backup_repository_cleanups;
 pub(crate) mod resource_artifact_evidence;
 pub(crate) mod resource_cache_entries;
+pub(crate) mod resource_cache_schema;
 pub(crate) mod resource_cache_state;
 pub(crate) mod resource_entry_graphs;
 pub(crate) mod resource_entry_links;

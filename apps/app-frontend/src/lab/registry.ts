@@ -85,7 +85,3 @@ export const labTools: readonly LabToolDefinition[] = [
         description: 'Design Minecraft banners with every Java Edition pattern and dye.',
     },
 ]
-
-export function getLabTool(id: string): LabToolDefinition | undefined {
-    return labTools.find((tool) => tool.id === id)
-}

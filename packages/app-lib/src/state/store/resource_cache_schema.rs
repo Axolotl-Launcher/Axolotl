@@ -1,9 +1,16 @@
+//! The schema of the resource cache database.
+//!
+//! The migrations are written here rather than read from a directory: these
+//! versions are already applied in existing caches, and restating them as files
+//! would change the checksums their applied records carry, so every one of them
+//! would stop opening.
+
 use sqlx::migrate::{Migration, MigrationType, Migrator};
 use std::borrow::Cow;
 
-pub const CACHE_SCHEMA_VERSION: u32 = 2;
+pub(crate) const CACHE_SCHEMA_VERSION: u32 = 2;
 
-pub fn migrator() -> Migrator {
+pub(crate) fn migrator() -> Migrator {
     Migrator {
         migrations: Cow::Owned(vec![
             Migration::new(

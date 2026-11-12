@@ -4,7 +4,6 @@
  * Handles single-file drops, batch drops, launcher instance imports,
  * modpack installs, content installation, and all related UI flows.
  */
-
 import type {
     BatchDropGroup,
     BatchDropItem,
@@ -31,6 +30,7 @@ import {
     scanLauncherInstances,
     type ScanResult,
 } from '@/helpers/drop'
+import { errorText } from '@/helpers/error-text'
 import { import_instance } from '@/helpers/import.js'
 import {
     install_create_modpack_instance,
@@ -793,7 +793,7 @@ export function useDropImport(options: DropImportOptions) {
             } catch (error) {
                 addNotification({
                     title: formatMessage(messages.dropScanFailed),
-                    text: error instanceof Error ? error.message : String(error),
+                    text: errorText(error),
                     type: 'error',
                 })
             } finally {
@@ -829,7 +829,7 @@ export function useDropImport(options: DropImportOptions) {
                     })
                 } catch (error) {
                     launcherZipTempDir.value = null
-                    const errorDetail = error instanceof Error ? error.message : String(error)
+                    const errorDetail = errorText(error)
                     console.error(
                         '[DropFlow] launcher zip extraction failed:',
                         errorDetail,
@@ -857,7 +857,7 @@ export function useDropImport(options: DropImportOptions) {
                 dropDebug('handleDropConfirm: launcher scan failed', error)
                 addNotification({
                     title: formatMessage(messages.dropScanFailed),
-                    text: error instanceof Error ? error.message : String(error),
+                    text: errorText(error),
                     type: 'error',
                 })
                 cleanupLauncherZipTemp()
@@ -1227,7 +1227,7 @@ export function useDropImport(options: DropImportOptions) {
                             notificationManager.removeNotification(analyzingNotification.id)
                             addNotification({
                                 title: formatMessage(messages.dropUnknownForceAnalysisFailedTitle),
-                                text: e instanceof Error ? e.message : String(e),
+                                text: errorText(e),
                                 type: 'error',
                             })
                         }
@@ -1322,7 +1322,7 @@ export function useDropImport(options: DropImportOptions) {
                         } catch (e) {
                             addNotification({
                                 title: formatMessage(messages.dropProcessFailedTitle),
-                                text: e instanceof Error ? e.message : String(e),
+                                text: errorText(e),
                                 type: 'error',
                             })
                         }
@@ -1712,7 +1712,7 @@ export function useDropImport(options: DropImportOptions) {
                     )
                 } catch (error) {
                     item.scanState = 'error'
-                    item.reason = error instanceof Error ? error.message : String(error)
+                    item.reason = errorText(error)
                     console.log(`[BatchDrop] scan ERROR idx=${index}`, error)
                 } finally {
                     batchScanDone.value++
@@ -1814,7 +1814,7 @@ export function useDropImport(options: DropImportOptions) {
                 scanBasePath = innerBase ? await join(tempDir, innerBase) : tempDir
             } catch (error) {
                 item.scanState = 'error'
-                item.reason = error instanceof Error ? error.message : String(error)
+                item.reason = errorText(error)
                 return
             }
         }
@@ -1851,7 +1851,7 @@ export function useDropImport(options: DropImportOptions) {
             }
         } catch (error) {
             item.scanState = 'error'
-            item.reason = error instanceof Error ? error.message : String(error)
+            item.reason = errorText(error)
         }
     }
 
@@ -2174,7 +2174,7 @@ export function useDropImport(options: DropImportOptions) {
         console.error('[BatchDrop] batch failed', error)
         addNotification({
             title: formatMessage(messages.dropImportFailedTitle),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
         batchPhase.value = 'idle'

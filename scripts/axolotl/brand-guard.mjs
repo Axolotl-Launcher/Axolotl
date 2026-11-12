@@ -75,7 +75,10 @@ const requiredInvariants = [
                 return typeof identifier === 'string' && identifier.startsWith('mr-auth:')
             }),
     ],
-    ['GHS telemetry disabled', frontendConfig.includes('ghsTelemetry: false')],
+    // The brand config no longer declares a telemetry capability object: the
+    // flag had no reader. A build that names no flag is the disabled one, and
+    // turning it on is what a fork must not do.
+    ['GHS telemetry disabled', !/ghsTelemetry\s*:\s*true/.test(frontendConfig)],
 ]
 for (const [label, valid] of requiredInvariants) {
     if (!valid) failures.push(`configuration: missing ${label}`)

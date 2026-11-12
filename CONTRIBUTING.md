@@ -48,6 +48,20 @@ cargo fmt --all --check
 cargo check --package theseus_gui --features updater
 ```
 
+### Scheduler 检查产物
+
+scheduler 生成器与后续门禁通过 `SCHED_ARTIFACT_DIR` 共享同一轮检查的产物。每轮创建独立的系统临时目录，不使用 `.agents/`；显式指定的 `--out`（生成器）或 `--dir`（门禁）优先于环境变量。
+
+```powershell
+$env:SCHED_ARTIFACT_DIR = node -e 'process.stdout.write(require("node:fs").mkdtempSync(require("node:path").join(require("node:os").tmpdir(), "axolotl-scheduler-")))'
+node scripts/axolotl/sched-resource-inventory.mjs
+# 在同一环境中运行 desktop CI 的 Check scheduler resource gates 所列全部门禁。
+```
+
+Bash 中可用 `export SCHED_ARTIFACT_DIR="$(mktemp -d)"` 准备目录。CI 在 runner 的临时目录下创建独立目录。`sched-level-predicate-check.mjs --write` 的报告也写入所选产物目录。
+
+调试构建启用 `SCHED_ORDER_GUARD=1` 时，插桩从同一个 `SCHED_ARTIFACT_DIR` 读取 `sched-resource-registry.json`，并写入 `sched-order-violations.json`；也可分别用 `SCHED_ORDER_REGISTRY` 和 `SCHED_ORDER_VIOLATIONS` 指定路径。检查及回放完成、输出检查完毕后，清理本轮创建的临时目录并取消环境变量。
+
 ### Rust 覆盖率
 
 CI 的 `coverage` 作业用 [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) 在 Linux 上测量 workspace 的行覆盖率，`scripts/axolotl/rust-coverage.mjs` 是本地与 CI 共用的唯一入口。产物在 `target/coverage/` 下（`lcov.info`、`total.txt`、`summary.txt`、`html/`），CI 把它整个作为 `rust-coverage` 工件上传，保留 7 天。

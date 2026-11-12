@@ -924,6 +924,50 @@ fn dpkg_list_contains(list: &str, exe: &std::path::Path) -> bool {
     list.lines().any(|line| std::path::Path::new(line) == exe)
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+const RPM_PROBE_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(2);
+const RPM_PROBE_REAP_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_millis(250);
+
+/// The package database is optional startup metadata. A stalled query must not
+/// prevent window creation; the worker owns and reaps only its own probe child.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+async fn bounded_package_probe(
+    mut command: tokio::process::Command,
+    timeout: std::time::Duration,
+) -> bool {
+    tokio::spawn(async move {
+        let child = command
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn();
+        let Ok(mut child) = child else {
+            return false;
+        };
+        match tokio::time::timeout(timeout, child.wait()).await {
+            Ok(Ok(status)) => status.success(),
+            result => {
+                // `kill` also waits, so use start_kill followed by a separate
+                // bounded reap. Tokio retains reaping responsibility on drop.
+                let _ = child.start_kill();
+                let _ =
+                    tokio::time::timeout(RPM_PROBE_REAP_TIMEOUT, child.wait())
+                        .await;
+                tracing::warn!(
+                    ?result,
+                    "Package ownership probe failed; using manual updates"
+                );
+                false
+            }
+        }
+    })
+    .await
+    .unwrap_or(false)
+}
+
 #[cfg(target_os = "linux")]
 fn probe_linux_host(
     bundle: Option<&tauri::utils::config::BundleType>,
@@ -944,14 +988,12 @@ fn probe_linux_host(
         });
     let rpm_owns_exe = matches!(bundle, Some(BundleType::Rpm))
         && exe.as_deref().is_some_and(|exe| {
-            std::process::Command::new("rpm")
-                .args(["--query", "--quiet", "--file"])
-                .arg(exe)
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                .is_ok_and(|status| status.success())
+            let mut command = tokio::process::Command::new("rpm");
+            command.args(["--query", "--quiet", "--file"]).arg(exe);
+            tauri::async_runtime::block_on(bounded_package_probe(
+                command,
+                RPM_PROBE_TIMEOUT,
+            ))
         });
     LinuxHost {
         dpkg_owns_exe,
@@ -1056,6 +1098,88 @@ mod tests {
     };
     use base64::{Engine, engine::general_purpose::STANDARD};
     use tauri::utils::config::BundleType;
+
+    fn probe_exit_command(code: u8) -> tokio::process::Command {
+        #[cfg(windows)]
+        {
+            let mut command = tokio::process::Command::new("cmd");
+            command.args(["/D", "/C", &format!("exit {code}")]);
+            command
+        }
+        #[cfg(not(windows))]
+        {
+            let mut command = tokio::process::Command::new("sh");
+            command.args(["-c", &format!("exit {code}")]);
+            command
+        }
+    }
+
+    #[tokio::test]
+    async fn package_probe_accepts_only_a_successful_owned_child() {
+        let timeout = std::time::Duration::from_secs(1);
+        assert!(
+            super::bounded_package_probe(probe_exit_command(0), timeout).await
+        );
+        assert!(
+            !super::bounded_package_probe(probe_exit_command(7), timeout).await
+        );
+        assert!(
+            !super::bounded_package_probe(
+                tokio::process::Command::new(
+                    "axolotl-nonexistent-rpm-probe-611fedca"
+                ),
+                timeout,
+            )
+            .await
+        );
+    }
+
+    #[test]
+    #[ignore = "subprocess fixture for the bounded startup probe"]
+    fn package_probe_stalled_child_fixture() {
+        let directory = std::env::var_os("AXOLOTL_TEST_RPM_PROBE_DIRECTORY")
+            .expect("only the probe test starts this fixture");
+        let directory = std::path::PathBuf::from(directory);
+        std::fs::write(directory.join("started"), b"started").unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        std::fs::write(directory.join("completed"), b"must not complete")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn stalled_package_probe_is_killed_and_falls_back_to_manual() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut command =
+            tokio::process::Command::new(std::env::current_exe().unwrap());
+        command
+            .args([
+                "--ignored",
+                "--exact",
+                "updater_impl::tests::package_probe_stalled_child_fixture",
+            ])
+            .env("AXOLOTL_TEST_RPM_PROBE_DIRECTORY", directory.path());
+        let started = std::time::Instant::now();
+        let owned = super::bounded_package_probe(
+            command,
+            std::time::Duration::from_millis(500),
+        )
+        .await;
+        assert!(!owned);
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        assert!(directory.path().join("started").exists());
+        assert_eq!(
+            linux_update_method(
+                Some(&BundleType::Rpm),
+                false,
+                host(false, owned, false, true)
+            ),
+            UpdateMethod::Manual
+        );
+        // The fixture writes after two seconds if it was left alive. Waiting
+        // here proves timeout cleanup terminated the actual child, not just its waiter.
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        assert!(!directory.path().join("completed").exists());
+    }
 
     #[tokio::test]
     async fn staged_packages_are_private_unique_and_removed_after_consumption()

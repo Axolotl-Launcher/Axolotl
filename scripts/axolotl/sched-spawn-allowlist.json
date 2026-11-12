@@ -649,6 +649,15 @@
     },
     {
       "file": "apps/app/src/updater_impl.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "Reviewed startup-only package ownership probe before window creation: a two-second child wait and bounded 250 ms reap fall back to Manual. The operation-scoped worker owns only its rpm child, uses kill_on_drop on cancellation, acquires no managed locks and runs outside L0 (D17).",
+      "sites": [
+        "bounded_package_probe: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/updater_impl.rs",
       "form": "spawn_blocking",
       "count": 2,
       "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6); reviewed awaited signed-portable ZIP staging worker owns only unpublished staging files; package staging and installation retain a private temporary directory through consumer completion, including caller cancellation; neither worker acquires managed resources (D17)",

@@ -324,7 +324,9 @@ const isEditableFile = computed(() => {
 
 const formattedSize = computed(() => {
     if (props.type === 'directory') {
-        return formatMessage(messages.itemCount, { count: props.count ?? 0 })
+        return props.count === undefined
+            ? ''
+            : formatMessage(messages.itemCount, { count: props.count })
     }
 
     if (props.size === undefined) return ''

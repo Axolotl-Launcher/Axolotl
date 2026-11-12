@@ -132,6 +132,116 @@ it('publishes a modpack-only first snapshot and its restored search immediately'
     }
 })
 
+it('commits large-list filter changes without waiting for background enrichment timers', async () => {
+    vi.useFakeTimers()
+    const items = ref<ContentItem[]>([
+        ...Array.from({ length: 5000 }, (_, index) => ({
+            id: `schematic-${index}`,
+            file_name: `建筑-${index}.litematic`,
+            project_type: 'schematic',
+            enabled: true,
+        })),
+        { id: 'mod', file_name: 'mod.jar', project_type: 'mod', enabled: false },
+    ])
+    let pipeline!: ReturnType<typeof useContentPipeline>
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                pipeline = useContentPipeline({
+                    items,
+                    sortItems: (items) => items,
+                    getItemId: (item) => item.id,
+                })
+                return () => h('div', String(pipeline.filteredItems.value.length))
+            },
+        }),
+    )
+    try {
+        pipeline.toggleTypeFilter('schematic')
+        await nextTick()
+        expect(wrapper.text()).toBe('5000')
+        pipeline.toggleTypeFilter('schematic')
+        await nextTick()
+        expect(wrapper.text()).toBe('5001')
+
+        // A user choice also flushes the newest snapshot, including its search index.
+        items.value = [
+            ...items.value,
+            {
+                id: 'new',
+                file_name: 'Fresh-target.litematic',
+                project_type: 'schematic',
+                enabled: false,
+            },
+        ]
+        await nextTick()
+        expect(wrapper.text()).toBe('5001')
+        pipeline.searchQuery.value = 'Fresh-target'
+        await nextTick()
+        expect(pipeline.filteredItems.value.map((item) => item.id)).toEqual(['new'])
+        pipeline.searchQuery.value = ''
+        pipeline.toggleStatusFilter('disabled')
+        await nextTick()
+        expect(pipeline.filteredItems.value.map((item) => item.id)).toEqual(['mod', 'new'])
+        await vi.advanceTimersByTimeAsync(100)
+        expect(pipeline.filteredItems.value.map((item) => item.id)).toEqual(['mod', 'new'])
+    } finally {
+        wrapper.unmount()
+        vi.useRealTimers()
+    }
+})
+
+it.each([true, false])(
+    'searches the newest snapshot when query changes in the same tick (%s)',
+    async (queryFirst) => {
+        vi.useFakeTimers()
+        const items = ref<ContentItem[]>([
+            { id: 'old', file_name: 'Old.jar', project_type: 'mod', enabled: true },
+        ])
+        let pipeline!: ReturnType<typeof useContentPipeline>
+        const wrapper = mount(
+            defineComponent({
+                setup() {
+                    pipeline = useContentPipeline({
+                        items,
+                        sortItems: (items) => items,
+                        getItemId: (item) => item.id,
+                    })
+                    return () =>
+                        h('div', pipeline.filteredItems.value.map((item) => item.id).join(','))
+                },
+            }),
+        )
+        try {
+            pipeline.searchQuery.value = 'Old'
+            await nextTick()
+            expect(wrapper.text()).toBe('old')
+            const update = () => {
+                items.value = [
+                    {
+                        id: 'new',
+                        file_name: 'Fresh-target.jar',
+                        project_type: 'mod',
+                        enabled: true,
+                    },
+                ]
+            }
+            if (queryFirst) {
+                pipeline.searchQuery.value = 'Fresh-target'
+                update()
+            } else {
+                update()
+                pipeline.searchQuery.value = 'Fresh-target'
+            }
+            await nextTick()
+            expect(wrapper.text()).toBe('new')
+        } finally {
+            wrapper.unmount()
+            vi.useRealTimers()
+        }
+    },
+)
+
 it('keeps an update filter through zero results and admits progressive candidates', async () => {
     const items = ref<ContentItem[]>([
         {

@@ -12,39 +12,33 @@ function fileNameSortKey(fileName: string): string {
     return fileName.replace(/\.disabled$/i, '')
 }
 
-function compareText(left: string, right: string, locale?: string): number {
-    return left.localeCompare(right, locale, {
-        numeric: true,
-        sensitivity: 'base',
-    })
-}
+type CompareText = (left: string, right: string) => number
 
 function compareByFileName(
     left: ContentItem,
     right: ContentItem,
-    locale?: string,
+    compareText: CompareText,
     getStableId: (item: ContentItem) => string = (item) => item.id,
 ): number {
     return (
-        compareText(fileNameSortKey(left.file_name), fileNameSortKey(right.file_name), locale) ||
-        compareText(left.file_name, right.file_name, locale) ||
-        compareText(left.project?.title ?? '', right.project?.title ?? '', locale) ||
-        compareText(getStableId(left), getStableId(right), locale)
+        compareText(fileNameSortKey(left.file_name), fileNameSortKey(right.file_name)) ||
+        compareText(left.file_name, right.file_name) ||
+        compareText(left.project?.title ?? '', right.project?.title ?? '') ||
+        compareText(getStableId(left), getStableId(right))
     )
 }
 
 function compareByProjectName(
     left: ContentItem,
     right: ContentItem,
-    locale?: string,
+    compareText: CompareText,
     getStableId?: (item: ContentItem) => string,
 ): number {
     return (
         compareText(
             left.project?.title ?? left.file_name,
             right.project?.title ?? right.file_name,
-            locale,
-        ) || compareByFileName(left, right, locale, getStableId)
+        ) || compareByFileName(left, right, compareText, getStableId)
     )
 }
 
@@ -55,28 +49,32 @@ export function sortContentItems(
     getStableId?: (item: ContentItem) => string,
 ): ContentItem[] {
     const sorted = [...items]
+    const compareText = new Intl.Collator(locale, {
+        numeric: true,
+        sensitivity: 'base',
+    }).compare
 
     return sorted.sort((left, right) => {
         switch (mode) {
             case 'project-name-desc':
-                return -compareByProjectName(left, right, locale, getStableId)
+                return -compareByProjectName(left, right, compareText, getStableId)
             case 'file-name-asc':
-                return compareByFileName(left, right, locale, getStableId)
+                return compareByFileName(left, right, compareText, getStableId)
             case 'file-name-desc':
-                return -compareByFileName(left, right, locale, getStableId)
+                return -compareByFileName(left, right, compareText, getStableId)
             case 'date-added-newest':
                 return (
                     (right.date_added ?? '').localeCompare(left.date_added ?? '') ||
-                    compareByFileName(left, right, locale, getStableId)
+                    compareByFileName(left, right, compareText, getStableId)
                 )
             case 'date-added-oldest':
                 return (
                     (left.date_added ?? '').localeCompare(right.date_added ?? '') ||
-                    compareByFileName(left, right, locale, getStableId)
+                    compareByFileName(left, right, compareText, getStableId)
                 )
             case 'project-name-asc':
             default:
-                return compareByProjectName(left, right, locale, getStableId)
+                return compareByProjectName(left, right, compareText, getStableId)
         }
     })
 }

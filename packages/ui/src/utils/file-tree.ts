@@ -31,6 +31,7 @@ type FileTreeNode<TFile extends FileTreeEntry> = {
     parent?: FileTreeNode<TFile>
     fileCount: number
     fileIds: string[]
+    sorted: boolean
 }
 
 function createFileTreeNode<TFile extends FileTreeEntry>(
@@ -44,6 +45,7 @@ function createFileTreeNode<TFile extends FileTreeEntry>(
         children: new Map(),
         fileCount: 0,
         fileIds: [],
+        sorted: false,
     }
 }
 
@@ -89,23 +91,25 @@ function appendFolderRows<TFile extends FileTreeEntry>(
     depth: number,
     expandedFolders: ReadonlySet<string>,
     rows: FileTreeRow<TFile>[],
-    locale: string,
+    compareText: (left: string, right: string) => number,
 ) {
-    const children = [...node.children.values()].sort((left, right) =>
-        left.name.localeCompare(right.name, locale, { sensitivity: 'base' }),
-    )
-    const files = [...node.directFiles].sort((left, right) =>
-        left.fileName.localeCompare(right.fileName, locale, { sensitivity: 'base' }),
-    )
+    if (!node.sorted) {
+        node.children = new Map(
+            [...node.children.entries()].sort(([, left], [, right]) =>
+                compareText(left.name, right.name),
+            ),
+        )
+        node.directFiles.sort((left, right) => compareText(left.fileName, right.fileName))
+        node.sorted = true
+    }
+    const children = [...node.children.values()]
+    const files = node.directFiles
     let folderIndex = 0
     let fileIndex = 0
     while (folderIndex < children.length || fileIndex < files.length) {
         const folder = children[folderIndex]
         const file = files[fileIndex]
-        if (
-            !folder ||
-            (file && folder.name.localeCompare(file.fileName, locale, { sensitivity: 'base' }) > 0)
-        ) {
+        if (!folder || (file && compareText(folder.name, file.fileName) > 0)) {
             rows.push({
                 kind: 'file',
                 file,
@@ -125,7 +129,7 @@ function appendFolderRows<TFile extends FileTreeEntry>(
             childIds: folder.fileIds,
         })
         if (expandedFolders.has(folder.path)) {
-            appendFolderRows(folder, depth + 1, expandedFolders, rows, locale)
+            appendFolderRows(folder, depth + 1, expandedFolders, rows, compareText)
         }
         folderIndex += 1
     }
@@ -140,6 +144,20 @@ export function collectFileTreeFolders(files: readonly FileTreeEntry[]): string[
         }
     }
     return [...folders].sort()
+}
+
+/** Retains the tree and locale ordering while only folder expansion changes. */
+export function createFileTreeRowBuilder<TFile extends FileTreeEntry>(
+    files: readonly TFile[],
+    locale = 'en',
+): (expandedFolders: ReadonlySet<string>) => FileTreeRow<TFile>[] {
+    const root = buildFileTree(files)
+    const compareText = new Intl.Collator(locale, { sensitivity: 'base' }).compare
+    return (expandedFolders) => {
+        const rows: FileTreeRow<TFile>[] = []
+        appendFolderRows(root, 0, expandedFolders, rows, compareText)
+        return rows
+    }
 }
 
 export function buildFileTreeRows<TFile extends FileTreeEntry>(
@@ -160,7 +178,5 @@ export function buildFileTreeRows<TFile extends FileTreeEntry>(
             }))
     }
 
-    const rows: FileTreeRow<TFile>[] = []
-    appendFolderRows(buildFileTree(files), 0, expandedFolders, rows, locale)
-    return rows
+    return createFileTreeRowBuilder(files, locale)(expandedFolders)
 }

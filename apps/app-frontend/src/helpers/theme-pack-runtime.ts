@@ -169,7 +169,7 @@ export async function collectCurrentAppearanceSnapshot(
     let tokensLight: Record<string, string>
     let tokensDark: Record<string, string>
 
-    let snapshotSource: 'builtin' | 'custom' = parsed.kind === 'custom' ? 'custom' : 'builtin'
+    const snapshotSource: 'builtin' | 'custom' = parsed.kind === 'custom' ? 'custom' : 'builtin'
     let packId: string | null = null
     if (parsed.kind === 'pack' && parsed.packId) {
         const installed = await getThemePack(parsed.packId).catch(() => null)

@@ -95,8 +95,8 @@ Available methods:
 
 | Method | Permission | Notes |
 | --- | --- | --- |
-| `network.fetch({ url, method, headers?, body? })` | `network` | HTTPS only, allow-listed host, GET/POST; request 1 MiB, response 8 MiB, 30 s timeout, 4 concurrent and 60 requests/minute per pack |
-| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files, 2 MiB per file |
+| `network.fetch({ url, method, headers?, body? })` | `network` | HTTPS only, allow-listed host, GET/POST; request 1 MiB, response 8 MiB, 30 s timeout, 4 concurrent and 60 requests/minute per pack; connects directly and ignores system HTTP proxies |
+| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files, 2 MiB per file, 10 MiB total |
 | `instances.list()` | `instances.read` | Read-only instance summaries |
 | `instances.mods(instanceId)` | `instances.read` | Read-only mod list |
 | `instances.logs(instanceId)` | `instances.logs` | Censored logs, last 256 KiB |

@@ -503,13 +503,16 @@ const messages = defineMessages({
                               ? null
                               : !supportsWorldQuickPlay
                                 ? formatMessage(messages.noSingleplayerQuickPlay)
-                                : playingOtherWorld || locked
+                                : playingOtherWorld
                                   ? formatMessage(messages.gameAlreadyOpen)
-                                  : null
+                                  : locked
+                                    ? formatMessage(messages.worldInUse)
+                                    : null
                     "
                     :disabled="
                         playingOtherWorld ||
                         startingInstance ||
+                        locked ||
                         (world.type == 'server' && !supportsServerQuickPlay) ||
                         (world.type == 'singleplayer' && !supportsWorldQuickPlay)
                     "

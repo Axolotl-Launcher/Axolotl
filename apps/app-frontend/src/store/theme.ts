@@ -126,6 +126,105 @@ export function deriveAccentVariants(hex: string): { light: string; dark: string
     }
 }
 
+export type CustomThemePalette = {
+    background: string
+    surface: string
+    text: string
+}
+
+export type CustomThemeColors = {
+    light?: CustomThemePalette
+    dark?: CustomThemePalette
+}
+
+const CUSTOM_THEME_VARIABLES = [
+    '--surface-1',
+    '--surface-1-5',
+    '--surface-2',
+    '--surface-2-5',
+    '--surface-3',
+    '--surface-4',
+    '--surface-5',
+    '--color-text-primary',
+    '--color-text-default',
+    '--color-text-tertiary',
+]
+
+function hexToRgb(hex: string): [number, number, number] | null {
+    const match = /^#([0-9a-f]{6})$/i.exec(hex.trim())
+    if (!match) return null
+    const value = Number.parseInt(match[1], 16)
+    return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff]
+}
+
+function rgbToHex([r, g, b]: [number, number, number]): string {
+    const channel = (value: number) =>
+        Math.round(clamp(value, 0, 255))
+            .toString(16)
+            .padStart(2, '0')
+    return `#${channel(r)}${channel(g)}${channel(b)}`
+}
+
+function mixHex(from: string, to: string, weight: number): string {
+    const start = hexToRgb(from)
+    const end = hexToRgb(to)
+    if (!start || !end) return from
+    return rgbToHex([
+        start[0] + (end[0] - start[0]) * weight,
+        start[1] + (end[1] - start[1]) * weight,
+        start[2] + (end[2] - start[2]) * weight,
+    ])
+}
+
+/**
+ * Derives the full surface/text ramp from the three colors a user picks, the
+ * same variables issue #976 proposes: background is `--surface-1`, surface is
+ * `--surface-3`, and the steps between and above them are interpolated. The
+ * upper surfaces step toward white on dark palettes and toward black on light
+ * ones so raised components stay distinguishable.
+ */
+export function deriveCustomThemeVariables(palette: CustomThemePalette): Record<string, string> {
+    const { background, surface } = palette
+    const rgb = hexToRgb(background) ?? [0, 0, 0]
+    const luminance = (rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722) / 255
+    const elevation = luminance < 0.5 ? '#ffffff' : '#000000'
+    const text = palette.text
+    return {
+        '--surface-1': background,
+        '--surface-1-5': mixHex(background, surface, 0.25),
+        '--surface-2': mixHex(background, surface, 0.5),
+        '--surface-2-5': mixHex(background, surface, 0.75),
+        '--surface-3': surface,
+        '--surface-4': mixHex(surface, elevation, 0.2),
+        '--surface-5': mixHex(surface, elevation, 0.4),
+        '--color-text-primary': text,
+        '--color-text-default': mixHex(text, background, 0.12),
+        '--color-text-tertiary': mixHex(text, background, 0.45),
+    }
+}
+
+/**
+ * Overrides the surface and text variables for the active light/dark bucket.
+ * Passing no palette (or a palette for the inactive bucket) clears any
+ * previous override so the base theme applies again.
+ */
+export function applyCustomThemeColors(
+    theme: ColorTheme,
+    colors: CustomThemeColors | null | undefined,
+) {
+    const html = document.documentElement
+    const lightActive =
+        theme === 'light' || (theme === 'system' && html.classList.contains('light-mode'))
+    const palette = colors?.[lightActive ? 'light' : 'dark']
+    if (!palette) {
+        for (const variable of CUSTOM_THEME_VARIABLES) html.style.removeProperty(variable)
+        return
+    }
+    for (const [variable, value] of Object.entries(deriveCustomThemeVariables(palette))) {
+        html.style.setProperty(variable, value)
+    }
+}
+
 export type ThemeStore = {
     selectedTheme: ColorTheme
     selectedAccentColor: AccentColorSetting

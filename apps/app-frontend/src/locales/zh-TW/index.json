@@ -644,6 +644,15 @@
   "app.appearance-settings.skip-non-essential-warnings.title": {
     "message": "跳過非必要的警告"
   },
+  "app.appearance-settings.theme-suite.description": {
+    "message": "匯入主題套件以自訂顏色、字型、背景和啟動器頁面，也可以自行調整顏色。"
+  },
+  "app.appearance-settings.theme-suite.manage": {
+    "message": "管理主題套件"
+  },
+  "app.appearance-settings.theme-suite.title": {
+    "message": "主題套件"
+  },
   "app.appearance-settings.toggle-sidebar.description": {
     "message": "啟用切換側邊欄的功能。"
   },
@@ -7582,6 +7591,174 @@
   },
   "app.symlink-warning.write.header": {
     "message": "共享實例"
+  },
+  "app.theme-suite.title": {
+    "message": "主題套件"
+  },
+  "app.theme-suite.description": {
+    "message": "選擇啟動器的外觀。主題套件可以自帶顏色、樣式和頁面。"
+  },
+  "app.theme-suite.overview-title": {
+    "message": "主題來源"
+  },
+  "app.theme-suite.overview-description": {
+    "message": "選擇啟動器使用的顏色和樣式。"
+  },
+  "app.theme-suite.built-in-name": {
+    "message": "內建主題"
+  },
+  "app.theme-suite.built-in-description": {
+    "message": "預設的 Axolotl 配色，跟隨所選的淺色、深色或 OLED 模式。"
+  },
+  "app.theme-suite.installed-title": {
+    "message": "已安裝的主題套件"
+  },
+  "app.theme-suite.no-packs": {
+    "message": "尚未安裝主題套件。匯入一個套件開始使用。"
+  },
+  "app.theme-suite.import-pack": {
+    "message": "匯入套件"
+  },
+  "app.theme-suite.export-snapshot": {
+    "message": "匯出快照"
+  },
+  "app.theme-suite.export-snapshot-unavailable": {
+    "message": "匯出主題快照暫不可用。"
+  },
+  "app.theme-suite.custom-colors": {
+    "message": "自訂顏色"
+  },
+  "app.theme-suite.custom-colors-description": {
+    "message": "自行選擇背景、面板和文字顏色。"
+  },
+  "app.theme-suite.remove-pack": {
+    "message": "移除"
+  },
+  "app.theme-suite.remove-pack-confirm": {
+    "message": "移除 {name}？此操作無法復原。"
+  },
+  "app.theme-suite.remove-pack-data": {
+    "message": "同時刪除套件儲存的資料"
+  },
+  "app.theme-suite.remove-pack-cancel": {
+    "message": "保留套件"
+  },
+  "app.theme-suite.pack-permissions": {
+    "message": "權限"
+  },
+  "app.theme-suite.capability-tokens": {
+    "message": "色彩權杖"
+  },
+  "app.theme-suite.capability-styles": {
+    "message": "樣式"
+  },
+  "app.theme-suite.capability-pages": {
+    "message": "頁面"
+  },
+  "app.theme-suite.import-title": {
+    "message": "匯入主題套件"
+  },
+  "app.theme-suite.import-description": {
+    "message": "主題套件是包含 manifest.json 檔案的 .zip 壓縮檔，用於描述其顏色、樣式和頁面。"
+  },
+  "app.theme-suite.choose-archive": {
+    "message": "選擇檔案"
+  },
+  "app.theme-suite.change-archive": {
+    "message": "更換檔案"
+  },
+  "app.theme-suite.archive-hint": {
+    "message": "選擇要安裝的主題套件壓縮檔（.zip）。"
+  },
+  "app.theme-suite.archive-filter": {
+    "message": "主題套件壓縮檔"
+  },
+  "app.theme-suite.archive-limit": {
+    "message": "壓縮檔最大為 {size}。"
+  },
+  "app.theme-suite.no-archive-chosen": {
+    "message": "尚未選擇壓縮檔。"
+  },
+  "app.theme-suite.invalid-archive": {
+    "message": "只能安裝包含有效 manifest.json 檔案的 .zip 壓縮檔。"
+  },
+  "app.theme-suite.preview-title": {
+    "message": "準備安裝"
+  },
+  "app.theme-suite.install": {
+    "message": "安裝"
+  },
+  "app.theme-suite.installing": {
+    "message": "正在安裝…"
+  },
+  "app.theme-suite.install-failed": {
+    "message": "主題套件安裝失敗。"
+  },
+  "app.theme-suite.colors-title": {
+    "message": "自訂顏色"
+  },
+  "app.theme-suite.colors-description": {
+    "message": "調整{theme}模式下的顏色。儲存後將切換到自訂顏色。"
+  },
+  "app.theme-suite.theme-light": {
+    "message": "淺色"
+  },
+  "app.theme-suite.theme-dark": {
+    "message": "深色"
+  },
+  "app.theme-suite.background": {
+    "message": "背景"
+  },
+  "app.theme-suite.surface": {
+    "message": "面板"
+  },
+  "app.theme-suite.text": {
+    "message": "文字"
+  },
+  "app.theme-suite.colors-preview": {
+    "message": "預覽"
+  },
+  "app.theme-suite.colors-preview-text": {
+    "message": "敏捷的棕色狐狸跳過了懶狗。"
+  },
+  "app.theme-suite.reset-colors": {
+    "message": "重設"
+  },
+  "app.theme-suite.save-colors": {
+    "message": "儲存"
+  },
+  "app.theme-suite.close": {
+    "message": "關閉"
+  },
+  "app.theme-suite.done": {
+    "message": "完成"
+  },
+  "app.theme-suite.active-badge": {
+    "message": "已啟用"
+  },
+  "app.theme-suite.activate": {
+    "message": "使用"
+  },
+  "app.theme-suite.size-label": {
+    "message": "大小：{size}"
+  },
+  "app.theme-suite.version-label": {
+    "message": "版本 {version}"
+  },
+  "app.theme-suite.engine-label": {
+    "message": "需要 Axolotl {version}"
+  },
+  "app.theme-suite.back": {
+    "message": "返回"
+  },
+  "app.theme-suite.loading": {
+    "message": "正在載入主題套件…"
+  },
+  "app.theme-suite.load-failed": {
+    "message": "主題套件載入失敗。"
+  },
+  "app.theme-suite.no-description": {
+    "message": "未提供描述。"
   },
   "app.translation-settings.ai-model": {
     "message": "文字模型"

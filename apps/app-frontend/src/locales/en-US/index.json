@@ -146,6 +146,174 @@
   "app.schematics.login-failed": {
     "message": "Could not complete the connection. Please try again."
   },
+  "app.theme-suite.title": {
+    "message": "Theme suite"
+  },
+  "app.theme-suite.description": {
+    "message": "Choose how the launcher looks. Theme packs can bring their own colors, styles and pages."
+  },
+  "app.theme-suite.overview-title": {
+    "message": "Theme source"
+  },
+  "app.theme-suite.overview-description": {
+    "message": "Pick the colors and styling the launcher uses."
+  },
+  "app.theme-suite.built-in-name": {
+    "message": "Built-in theme"
+  },
+  "app.theme-suite.built-in-description": {
+    "message": "The default Axolotl colors, following the selected light, dark or OLED mode."
+  },
+  "app.theme-suite.installed-title": {
+    "message": "Installed packs"
+  },
+  "app.theme-suite.no-packs": {
+    "message": "No theme packs installed yet. Import a pack to get started."
+  },
+  "app.theme-suite.import-pack": {
+    "message": "Import pack"
+  },
+  "app.theme-suite.export-snapshot": {
+    "message": "Export snapshot"
+  },
+  "app.theme-suite.export-snapshot-unavailable": {
+    "message": "Exporting a theme snapshot is not available yet."
+  },
+  "app.theme-suite.custom-colors": {
+    "message": "Custom colors"
+  },
+  "app.theme-suite.custom-colors-description": {
+    "message": "Pick your own background, surface and text colors."
+  },
+  "app.theme-suite.remove-pack": {
+    "message": "Remove"
+  },
+  "app.theme-suite.remove-pack-confirm": {
+    "message": "Remove {name}? This cannot be undone."
+  },
+  "app.theme-suite.remove-pack-data": {
+    "message": "Also delete saved pack data"
+  },
+  "app.theme-suite.remove-pack-cancel": {
+    "message": "Keep pack"
+  },
+  "app.theme-suite.pack-permissions": {
+    "message": "Permissions"
+  },
+  "app.theme-suite.capability-tokens": {
+    "message": "Color tokens"
+  },
+  "app.theme-suite.capability-styles": {
+    "message": "Styles"
+  },
+  "app.theme-suite.capability-pages": {
+    "message": "Pages"
+  },
+  "app.theme-suite.import-title": {
+    "message": "Import theme pack"
+  },
+  "app.theme-suite.import-description": {
+    "message": "Theme packs are .zip archives that contain a manifest.json file describing their colors, styles and pages."
+  },
+  "app.theme-suite.choose-archive": {
+    "message": "Choose file"
+  },
+  "app.theme-suite.change-archive": {
+    "message": "Change file"
+  },
+  "app.theme-suite.archive-hint": {
+    "message": "Select a theme pack archive (.zip) to install."
+  },
+  "app.theme-suite.archive-filter": {
+    "message": "Theme pack archive"
+  },
+  "app.theme-suite.archive-limit": {
+    "message": "Archives can be up to {size}."
+  },
+  "app.theme-suite.no-archive-chosen": {
+    "message": "No archive selected yet."
+  },
+  "app.theme-suite.invalid-archive": {
+    "message": "Only .zip archives with a valid manifest.json file can be installed."
+  },
+  "app.theme-suite.preview-title": {
+    "message": "Ready to install"
+  },
+  "app.theme-suite.install": {
+    "message": "Install"
+  },
+  "app.theme-suite.installing": {
+    "message": "Installing…"
+  },
+  "app.theme-suite.install-failed": {
+    "message": "The theme pack could not be installed."
+  },
+  "app.theme-suite.colors-title": {
+    "message": "Custom colors"
+  },
+  "app.theme-suite.colors-description": {
+    "message": "Adjust the colors used in {theme} mode. Saving switches the launcher to custom colors."
+  },
+  "app.theme-suite.theme-light": {
+    "message": "light"
+  },
+  "app.theme-suite.theme-dark": {
+    "message": "dark"
+  },
+  "app.theme-suite.background": {
+    "message": "Background"
+  },
+  "app.theme-suite.surface": {
+    "message": "Surface"
+  },
+  "app.theme-suite.text": {
+    "message": "Text"
+  },
+  "app.theme-suite.colors-preview": {
+    "message": "Preview"
+  },
+  "app.theme-suite.colors-preview-text": {
+    "message": "The quick brown fox jumps over the lazy dog."
+  },
+  "app.theme-suite.reset-colors": {
+    "message": "Reset"
+  },
+  "app.theme-suite.save-colors": {
+    "message": "Save"
+  },
+  "app.theme-suite.close": {
+    "message": "Close"
+  },
+  "app.theme-suite.done": {
+    "message": "Done"
+  },
+  "app.theme-suite.active-badge": {
+    "message": "Active"
+  },
+  "app.theme-suite.activate": {
+    "message": "Use"
+  },
+  "app.theme-suite.size-label": {
+    "message": "Size: {size}"
+  },
+  "app.theme-suite.version-label": {
+    "message": "Version {version}"
+  },
+  "app.theme-suite.engine-label": {
+    "message": "Requires Axolotl {version}"
+  },
+  "app.theme-suite.back": {
+    "message": "Back"
+  },
+  "app.theme-suite.loading": {
+    "message": "Loading theme packs…"
+  },
+  "app.theme-suite.load-failed": {
+    "message": "Theme packs could not be loaded."
+  },
+  "app.theme-suite.no-description": {
+    "message": "No description provided."
+  },
   "app.third-party.connected-notification": {
     "message": "Connected to Shimu Space"
   },
@@ -1084,6 +1252,15 @@
   },
   "app.appearance-settings.skip-non-essential-warnings.title": {
     "message": "Skip non-essential warnings"
+  },
+  "app.appearance-settings.theme-suite.description": {
+    "message": "Import a theme pack to customize colors, fonts, backgrounds, and launcher pages, or tune the colors yourself."
+  },
+  "app.appearance-settings.theme-suite.manage": {
+    "message": "Manage theme suite"
+  },
+  "app.appearance-settings.theme-suite.title": {
+    "message": "Theme suite"
   },
   "app.appearance-settings.toggle-sidebar.description": {
     "message": "Enables the ability to toggle the sidebar."

@@ -146,6 +146,174 @@
   "app.schematics.login-failed": {
     "message": "未能完成连接，请重试。"
   },
+  "app.theme-suite.title": {
+    "message": "主题套件"
+  },
+  "app.theme-suite.description": {
+    "message": "选择启动器的外观。主题套件可以自带颜色、样式和页面。"
+  },
+  "app.theme-suite.overview-title": {
+    "message": "主题来源"
+  },
+  "app.theme-suite.overview-description": {
+    "message": "选择启动器使用的颜色和样式。"
+  },
+  "app.theme-suite.built-in-name": {
+    "message": "内置主题"
+  },
+  "app.theme-suite.built-in-description": {
+    "message": "默认的 Axolotl 配色，跟随所选的浅色、深色或 OLED 模式。"
+  },
+  "app.theme-suite.installed-title": {
+    "message": "已安装的主题套件"
+  },
+  "app.theme-suite.no-packs": {
+    "message": "尚未安装主题套件。导入一个套件开始使用。"
+  },
+  "app.theme-suite.import-pack": {
+    "message": "导入套件"
+  },
+  "app.theme-suite.export-snapshot": {
+    "message": "导出快照"
+  },
+  "app.theme-suite.export-snapshot-unavailable": {
+    "message": "导出主题快照暂不可用。"
+  },
+  "app.theme-suite.custom-colors": {
+    "message": "自定义颜色"
+  },
+  "app.theme-suite.custom-colors-description": {
+    "message": "自行选择背景、面板和文字颜色。"
+  },
+  "app.theme-suite.remove-pack": {
+    "message": "移除"
+  },
+  "app.theme-suite.remove-pack-confirm": {
+    "message": "移除 {name}？此操作无法撤销。"
+  },
+  "app.theme-suite.remove-pack-data": {
+    "message": "同时删除套件保存的数据"
+  },
+  "app.theme-suite.remove-pack-cancel": {
+    "message": "保留套件"
+  },
+  "app.theme-suite.pack-permissions": {
+    "message": "权限"
+  },
+  "app.theme-suite.capability-tokens": {
+    "message": "颜色令牌"
+  },
+  "app.theme-suite.capability-styles": {
+    "message": "样式"
+  },
+  "app.theme-suite.capability-pages": {
+    "message": "页面"
+  },
+  "app.theme-suite.import-title": {
+    "message": "导入主题套件"
+  },
+  "app.theme-suite.import-description": {
+    "message": "主题套件是包含 manifest.json 文件的 .zip 压缩包，用于描述其颜色、样式和页面。"
+  },
+  "app.theme-suite.choose-archive": {
+    "message": "选择文件"
+  },
+  "app.theme-suite.change-archive": {
+    "message": "更换文件"
+  },
+  "app.theme-suite.archive-hint": {
+    "message": "选择要安装的主题套件压缩包（.zip）。"
+  },
+  "app.theme-suite.archive-filter": {
+    "message": "主题套件压缩包"
+  },
+  "app.theme-suite.archive-limit": {
+    "message": "压缩包最大为 {size}。"
+  },
+  "app.theme-suite.no-archive-chosen": {
+    "message": "尚未选择压缩包。"
+  },
+  "app.theme-suite.invalid-archive": {
+    "message": "只能安装包含有效 manifest.json 文件的 .zip 压缩包。"
+  },
+  "app.theme-suite.preview-title": {
+    "message": "准备安装"
+  },
+  "app.theme-suite.install": {
+    "message": "安装"
+  },
+  "app.theme-suite.installing": {
+    "message": "正在安装…"
+  },
+  "app.theme-suite.install-failed": {
+    "message": "主题套件安装失败。"
+  },
+  "app.theme-suite.colors-title": {
+    "message": "自定义颜色"
+  },
+  "app.theme-suite.colors-description": {
+    "message": "调整{theme}模式下的颜色。保存后将切换到自定义颜色。"
+  },
+  "app.theme-suite.theme-light": {
+    "message": "浅色"
+  },
+  "app.theme-suite.theme-dark": {
+    "message": "深色"
+  },
+  "app.theme-suite.background": {
+    "message": "背景"
+  },
+  "app.theme-suite.surface": {
+    "message": "面板"
+  },
+  "app.theme-suite.text": {
+    "message": "文字"
+  },
+  "app.theme-suite.colors-preview": {
+    "message": "预览"
+  },
+  "app.theme-suite.colors-preview-text": {
+    "message": "敏捷的棕色狐狸跳过了懒狗。"
+  },
+  "app.theme-suite.reset-colors": {
+    "message": "重置"
+  },
+  "app.theme-suite.save-colors": {
+    "message": "保存"
+  },
+  "app.theme-suite.close": {
+    "message": "关闭"
+  },
+  "app.theme-suite.done": {
+    "message": "完成"
+  },
+  "app.theme-suite.active-badge": {
+    "message": "已启用"
+  },
+  "app.theme-suite.activate": {
+    "message": "使用"
+  },
+  "app.theme-suite.size-label": {
+    "message": "大小：{size}"
+  },
+  "app.theme-suite.version-label": {
+    "message": "版本 {version}"
+  },
+  "app.theme-suite.engine-label": {
+    "message": "需要 Axolotl {version}"
+  },
+  "app.theme-suite.back": {
+    "message": "返回"
+  },
+  "app.theme-suite.loading": {
+    "message": "正在加载主题套件…"
+  },
+  "app.theme-suite.load-failed": {
+    "message": "主题套件加载失败。"
+  },
+  "app.theme-suite.no-description": {
+    "message": "未提供描述。"
+  },
   "app.third-party.connected-notification": {
     "message": "已成功连接拾木空间"
   },
@@ -2554,6 +2722,15 @@
   },
   "app.appearance-settings.skip-non-essential-warnings.title": {
     "message": "跳过非必要的警告"
+  },
+  "app.appearance-settings.theme-suite.description": {
+    "message": "导入主题套件以自定义颜色、字体、背景和启动器页面，也可以自行调整颜色。"
+  },
+  "app.appearance-settings.theme-suite.manage": {
+    "message": "管理主题套件"
+  },
+  "app.appearance-settings.theme-suite.title": {
+    "message": "主题套件"
   },
   "app.appearance-settings.toggle-sidebar.description": {
     "message": "启用切换侧边栏的功能。"

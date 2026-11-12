@@ -260,24 +260,27 @@ onUnmounted(() => {
                     @click="zoomedIn = !zoomedIn"
                 />
             </div>
-            <Button
+            <div v-if="filteredGallery.length > 1" class="absolute left-4 top-1/2 -translate-y-1/2">
+                <Button
+                    circular
+                    icon-only
+                    :label="formatMessage(commonMessages.backButton)"
+                    @click="changeImage(-1)"
+                    ><LeftArrowIcon />
+                </Button>
+            </div>
+            <div
                 v-if="filteredGallery.length > 1"
-                circular
-                icon-only
-                class="absolute left-4 top-1/2 -translate-y-1/2"
-                :aria-label="formatMessage(commonMessages.backButton)"
-                @click="changeImage(-1)"
-                ><LeftArrowIcon />
-            </Button>
-            <Button
-                v-if="filteredGallery.length > 1"
-                circular
-                icon-only
                 class="absolute right-4 top-1/2 -translate-y-1/2"
-                :aria-label="formatMessage(commonMessages.nextButton)"
-                @click="changeImage(1)"
-                ><RightArrowIcon />
-            </Button>
+            >
+                <Button
+                    circular
+                    icon-only
+                    :label="formatMessage(commonMessages.nextButton)"
+                    @click="changeImage(1)"
+                    ><RightArrowIcon />
+                </Button>
+            </div>
         </div>
         <template #actions>
             <div

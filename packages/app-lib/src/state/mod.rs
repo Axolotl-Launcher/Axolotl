@@ -844,21 +844,23 @@ impl State {
                     );
                 }
 
-                // Register watchers before the readiness wait so changes made
-                // during first paint are observed rather than missed.
-                instances::watcher::watch_instances_init(
-                    &state.file_watcher,
-                    &state.directories,
-                    &state.pool,
-                )
-                .await;
-
                 wait_for_frontend_ready("instance watcher and refresh").await;
 
                 crate::util::fetch::cleanup_stale_partial_downloads(vec![
                     state.directories.metadata_dir(),
                     state.directories.caches_dir(),
                 ]);
+
+                // Per-instance folder setup is serial database and filesystem
+                // work, so keep it off the first-paint path. The refresh below
+                // re-reads every instance after registration, which reconciles
+                // changes made before the watcher existed.
+                instances::watcher::watch_instances_init(
+                    &state.file_watcher,
+                    &state.directories,
+                    &state.pool,
+                )
+                .await;
 
                 if let Err(e) = instances::refresh_all_instances().await {
                     tracing::error!("Error refreshing instances: {e}");

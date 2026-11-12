@@ -803,8 +803,6 @@ pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
     pending_data.0.lock().unwrap().take();
 }
 
-// ── Install source ──────────────────────────────────────────────
-
 /// How this install applies a launcher update.
 ///
 /// It follows the bundle the running binary was installed from, not the

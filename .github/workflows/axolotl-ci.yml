@@ -197,9 +197,9 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      E2E_ARTIFACT_DIR: ${{ runner.temp }}/desktop-e2e
     steps:
+      - name: Set desktop E2E artifact directory
+        run: echo "E2E_ARTIFACT_DIR=$RUNNER_TEMP/desktop-e2e" >> "$GITHUB_ENV"
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -314,6 +314,21 @@
   "app.theme-suite.no-description": {
     "message": "No description provided."
   },
+  "app.theme-suite.page.loading": {
+    "message": "Loading theme page…"
+  },
+  "app.theme-suite.page.unavailable": {
+    "message": "Theme page unavailable"
+  },
+  "app.theme-suite.page.missing": {
+    "message": "The theme pack or page is not installed."
+  },
+  "app.theme-suite.page.error": {
+    "message": "The theme page could not be loaded."
+  },
+  "app.theme-suite.page.title": {
+    "message": "Theme pack page"
+  },
   "app.third-party.connected-notification": {
     "message": "Connected to Shimu Space"
   },
@@ -21475,5 +21490,11 @@
   },
   "app.update-popup.install-failed.body": {
     "message": "The update to v{version} could not be installed. You can try again or update manually. {error}"
+  },
+  "app.theme-suite.missing-pack-title": {
+    "message": "Theme pack unavailable"
+  },
+  "app.theme-suite.missing-pack-text": {
+    "message": "The theme pack \"{packId}\" is no longer installed. The built-in theme is being used instead."
   }
 }

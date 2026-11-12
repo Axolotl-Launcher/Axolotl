@@ -21,6 +21,7 @@ export type ThemePackManifest = {
         id: string
         title: Record<string, string>
         icon: string | null
+        entry: string
         order: number
         requires: ThemePackPermission[]
     }[]
@@ -102,6 +103,47 @@ export function themePackDisplayName(manifest: ThemePackManifest, locale: string
 
 export function themePackDescription(manifest: ThemePackManifest, locale: string): string {
     return pickManifestText(manifest.description, locale)
+}
+
+export type ThemePackNavPage = {
+    packId: string
+    pageId: string
+    title: string
+    iconUrl: string | null
+}
+
+/** Fired whenever the active theme source changes so the shell can re-read nav pages. */
+export const THEME_SOURCE_CHANGED_EVENT = 'axolotl-theme-source-changed'
+
+export function notifyThemeSourceChanged(source: string): void {
+    window.dispatchEvent(new CustomEvent(THEME_SOURCE_CHANGED_EVENT, { detail: source }))
+}
+
+/**
+ * Pages the active pack contributes to the launcher navigation. A page is only
+ * offered when the pack declares the `pages` capability and the permissions
+ * the page itself requires.
+ */
+export async function listActiveThemePackPages(
+    source: string | null | undefined,
+    locale: string,
+): Promise<ThemePackNavPage[]> {
+    if (!source?.startsWith('pack:')) return []
+    const pack = await getThemePack(source.slice('pack:'.length))
+    if (!pack) return []
+    const { manifest } = pack
+    if (!manifest.capabilities.includes('pages')) return []
+    return manifest.pages
+        .filter((page) =>
+            page.requires.every((permission) => manifest.permissions.includes(permission)),
+        )
+        .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
+        .map((page) => ({
+            packId: manifest.id,
+            pageId: page.id,
+            title: pickManifestText(page.title, locale) || page.id,
+            iconUrl: page.icon ? themePackAssetUrl(manifest.id, page.icon) : null,
+        }))
 }
 
 /** The origin the Rust `axolotl-theme` protocol serves pack assets from. */

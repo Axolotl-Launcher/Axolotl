@@ -314,6 +314,21 @@
   "app.theme-suite.no-description": {
     "message": "未提供描述。"
   },
+  "app.theme-suite.page.loading": {
+    "message": "正在加载主题页面…"
+  },
+  "app.theme-suite.page.unavailable": {
+    "message": "主题页面不可用"
+  },
+  "app.theme-suite.page.missing": {
+    "message": "该主题包或页面尚未安装。"
+  },
+  "app.theme-suite.page.error": {
+    "message": "主题页面加载失败。"
+  },
+  "app.theme-suite.page.title": {
+    "message": "主题包页面"
+  },
   "app.third-party.connected-notification": {
     "message": "已成功连接拾木空间"
   },
@@ -21475,5 +21490,11 @@
   },
   "app.update-popup.install-failed.body": {
     "message": "未能安装 v{version} 更新。你可以重试或手动更新。{error}"
+  },
+  "app.theme-suite.missing-pack-title": {
+    "message": "主题包不可用"
+  },
+  "app.theme-suite.missing-pack-text": {
+    "message": "主题包“{packId}”已不再安装，已改用内置主题。"
   }
 }

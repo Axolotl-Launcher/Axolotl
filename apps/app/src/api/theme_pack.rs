@@ -21,6 +21,13 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
             theme_pack_fetch,
             theme_pack_data_dir,
             theme_pack_resolve_page,
+            theme_pack_storage_list,
+            theme_pack_storage_read,
+            theme_pack_storage_write,
+            theme_pack_storage_delete,
+            theme_pack_instance_list,
+            theme_pack_instance_mods,
+            theme_pack_instance_logs,
         ])
         .build()
 }
@@ -146,6 +153,298 @@ pub async fn theme_pack_resolve_page<R: Runtime>(
     })
 }
 
+const THEME_STORAGE_MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
+const THEME_STORAGE_MAX_FILES: usize = 256;
+const THEME_LOG_MAX_CHARS: usize = 256 * 1024;
+
+fn theme_error(
+    message: impl Into<String>,
+) -> crate::api::TheseusSerializableError {
+    theseus::Error::from(theseus::ErrorKind::OtherError(message.into())).into()
+}
+
+async fn manifest_with_permission<R: Runtime>(
+    app: &AppHandle<R>,
+    pack_id: &str,
+    permission: theseus::theme_pack::ThemePackPermission,
+) -> Result<theseus::theme_pack::ThemePackManifest> {
+    let storage = storage(app)?;
+    let pack = theseus::theme_pack::store::get(&storage, pack_id)
+        .await?
+        .ok_or_else(|| theme_error("The theme pack is not installed"))?;
+    if !pack.manifest.has_permission(permission) {
+        return Err(theme_error(format!(
+            "The theme pack does not have the {permission:?} permission"
+        )));
+    }
+    Ok(pack.manifest)
+}
+
+fn valid_storage_key(key: &str) -> bool {
+    !key.is_empty()
+        && key.len() <= 128
+        && !key.starts_with('.')
+        && key.chars().all(|character| {
+            character.is_ascii_alphanumeric()
+                || matches!(character, '.' | '_' | '-')
+        })
+}
+
+fn storage_file<R: Runtime>(
+    app: &AppHandle<R>,
+    pack_id: &str,
+    key: &str,
+) -> Result<std::path::PathBuf> {
+    if !valid_storage_key(key) {
+        return Err(theme_error("The theme pack storage key is invalid"));
+    }
+    Ok(storage(app)?.pack_data_dir(pack_id)?.join(key))
+}
+
+#[tauri::command]
+pub async fn theme_pack_storage_list<R: Runtime>(
+    app: AppHandle<R>,
+    pack_id: String,
+) -> Result<Vec<String>> {
+    manifest_with_permission(
+        &app,
+        &pack_id,
+        theseus::theme_pack::ThemePackPermission::Storage,
+    )
+    .await?;
+    let directory = storage(&app)?.pack_data_dir(&pack_id)?;
+    tokio::fs::create_dir_all(&directory).await?;
+    let mut keys = Vec::new();
+    let mut entries = tokio::fs::read_dir(&directory).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        if keys.len() >= THEME_STORAGE_MAX_FILES {
+            break;
+        }
+        if !entry.file_type().await?.is_file() {
+            continue;
+        }
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            continue;
+        };
+        if valid_storage_key(&name) {
+            keys.push(name);
+        }
+    }
+    keys.sort();
+    Ok(keys)
+}
+
+#[tauri::command]
+pub async fn theme_pack_storage_read<R: Runtime>(
+    app: AppHandle<R>,
+    pack_id: String,
+    key: String,
+) -> Result<Option<String>> {
+    manifest_with_permission(
+        &app,
+        &pack_id,
+        theseus::theme_pack::ThemePackPermission::Storage,
+    )
+    .await?;
+    let path = storage_file(&app, &pack_id, &key)?;
+    let Ok(metadata) = tokio::fs::metadata(&path).await else {
+        return Ok(None);
+    };
+    if !metadata.is_file() || metadata.len() > THEME_STORAGE_MAX_FILE_BYTES {
+        return Err(theme_error("The theme pack storage entry is too large"));
+    }
+    Ok(Some(tokio::fs::read_to_string(&path).await?))
+}
+
+#[tauri::command]
+pub async fn theme_pack_storage_write<R: Runtime>(
+    app: AppHandle<R>,
+    pack_id: String,
+    key: String,
+    contents: String,
+) -> Result<()> {
+    manifest_with_permission(
+        &app,
+        &pack_id,
+        theseus::theme_pack::ThemePackPermission::Storage,
+    )
+    .await?;
+    if contents.len() as u64 > THEME_STORAGE_MAX_FILE_BYTES {
+        return Err(theme_error("The theme pack storage entry is too large"));
+    }
+    let path = storage_file(&app, &pack_id, &key)?;
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_nanos())
+        .unwrap_or_default();
+    let temporary =
+        path.with_extension(format!("{}-{stamp}.tmp", std::process::id()));
+    tokio::fs::write(&temporary, contents).await?;
+    tokio::fs::rename(&temporary, &path).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn theme_pack_storage_delete<R: Runtime>(
+    app: AppHandle<R>,
+    pack_id: String,
+    key: String,
+) -> Result<bool> {
+    manifest_with_permission(
+        &app,
+        &pack_id,
+        theseus::theme_pack::ThemePackPermission::Storage,
+    )
+    .await?;
+    let path = storage_file(&app, &pack_id, &key)?;
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
+        return Ok(false);
+    }
+    tokio::fs::remove_file(&path).await?;
+    Ok(true)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePackInstanceSummary {
+    pub id: String,
+    pub name: String,
+    pub game_version: String,
+    pub loader: serde_json::Value,
+    pub loader_version: Option<String>,
+    pub last_played: Option<String>,
+    pub time_played: u64,
+}
+
+#[tauri::command]
+pub async fn theme_pack_instance_list<R: Runtime>(
+    app: AppHandle<R>,
+    pack_id: String,
+) -> Result<Vec<ThemePackInstanceSummary>> {
+    manifest_with_permission(
+        &app,
+        &pack_id,
+        theseus::theme_pack::ThemePackPermission::InstancesRead,
+    )
+    .await?;
+    let instances = theseus::instance::list().await?;
+    Ok(instances
+        .into_iter()
+        .map(|metadata| {
+            let instance = metadata.instance;
+            let content = metadata.applied_content_set;
+            ThemePackInstanceSummary {
+                id: instance.id,
+                name: instance.name,
+                game_version: content.game_version,
+                loader: serde_json::to_value(content.loader)
+                    .unwrap_or(serde_json::Value::Null),
+                loader_version: content.loader_version,
+                last_played: instance
+                    .last_played
+                    .map(|played| played.to_rfc3339()),
+                time_played: instance
+                    .submitted_time_played
+                    .saturating_add(instance.recent_time_played),
+            }
+        })
+        .collect())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePackModSummary {
+    pub file_name: String,
+    pub enabled: bool,
+    pub size: u64,
+    pub project_type: serde_json::Value,
+    pub project_id: Option<String>,
+}
+
+#[tauri::command]
+pub async fn theme_pack_instance_mods<R: Runtime>(
+    app: AppHandle<R>,
+    pack_id: String,
+    instance_id: String,
+) -> Result<Vec<ThemePackModSummary>> {
+    manifest_with_permission(
+        &app,
+        &pack_id,
+        theseus::theme_pack::ThemePackPermission::InstancesRead,
+    )
+    .await?;
+    let projects = theseus::instance::get_projects(&instance_id, None).await?;
+    let mut mods: Vec<ThemePackModSummary> = projects
+        .iter()
+        .map(|entry| {
+            let file = entry.value();
+            ThemePackModSummary {
+                file_name: file.file_name.clone(),
+                enabled: file.enabled,
+                size: file.size,
+                project_type: serde_json::to_value(file.project_type)
+                    .unwrap_or(serde_json::Value::Null),
+                project_id: file
+                    .modrinth
+                    .as_ref()
+                    .map(|matched| matched.project_id.to_string()),
+            }
+        })
+        .collect();
+    mods.sort_by(|left, right| left.file_name.cmp(&right.file_name));
+    Ok(mods)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePackLogSummary {
+    pub log_type: serde_json::Value,
+    pub file_name: String,
+    pub age: u64,
+    pub output: String,
+    pub truncated: bool,
+}
+
+#[tauri::command]
+pub async fn theme_pack_instance_logs<R: Runtime>(
+    app: AppHandle<R>,
+    pack_id: String,
+    instance_id: String,
+) -> Result<Vec<ThemePackLogSummary>> {
+    manifest_with_permission(
+        &app,
+        &pack_id,
+        theseus::theme_pack::ThemePackPermission::InstancesLogs,
+    )
+    .await?;
+    let logs = theseus::logs::get_logs(&instance_id, None).await?;
+    Ok(logs
+        .into_iter()
+        .map(|log| {
+            let output = log.output.as_ref().map(|text| text.as_str());
+            let output = output.unwrap_or_default();
+            let length = output.chars().count();
+            let truncated = length > THEME_LOG_MAX_CHARS;
+            let output = if truncated {
+                output.chars().skip(length - THEME_LOG_MAX_CHARS).collect()
+            } else {
+                output.to_string()
+            };
+            ThemePackLogSummary {
+                log_type: serde_json::to_value(log.log_type)
+                    .unwrap_or(serde_json::Value::Null),
+                file_name: log.filename,
+                age: log.age,
+                output,
+                truncated,
+            }
+        })
+        .collect())
+}
+
 /// The protocol origin for theme assets. Windows cannot serve a custom scheme
 /// as a standard origin, so it uses the `.localhost` form there.
 pub fn theme_origin() -> &'static str {
@@ -206,8 +505,22 @@ pub(crate) fn protocol_response_for(
         .header(header::CONTENT_TYPE, content_type)
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(header::CACHE_CONTROL, "no-cache")
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-    if content_type.starts_with("text/html") {
+        .header(header::VARY, "Origin");
+    if let Some(origin) = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+    {
+        // Only echo an origin that passed `is_allowed_theme_request`; `null`
+        // is the opaque origin of a sandboxed pack page fetching its own font.
+        if origin == "null" || is_allowed_origin(origin) {
+            builder =
+                builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        }
+    }
+    if content_type.starts_with("text/html")
+        || content_type.starts_with("image/svg+xml")
+    {
         builder = builder.header(
             "Content-Security-Policy",
             "sandbox allow-scripts; default-src 'self'; script-src 'self' 'unsafe-inline'; \
@@ -221,6 +534,22 @@ pub(crate) fn protocol_response_for(
         .unwrap_or_else(|_| protocol_error(StatusCode::INTERNAL_SERVER_ERROR))
 }
 
+const ALLOWED_THEME_ORIGINS: [&str; 7] = [
+    "http://127.0.0.1:5201",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "tauri://localhost",
+    "axolotl-theme://localhost",
+    "http://axolotl-theme.localhost",
+    "axolotl-skin://localhost",
+];
+
+fn is_allowed_origin(origin: &str) -> bool {
+    ALLOWED_THEME_ORIGINS.iter().any(|allowed| {
+        origin == *allowed || origin.starts_with(&format!("{allowed}/"))
+    })
+}
+
 fn is_allowed_theme_request(request: &tauri::http::Request<Vec<u8>>) -> bool {
     if !matches!(
         request.uri().host(),
@@ -228,23 +557,12 @@ fn is_allowed_theme_request(request: &tauri::http::Request<Vec<u8>>) -> bool {
     ) {
         return false;
     }
-    const ALLOWED_ORIGINS: [&str; 7] = [
-        "http://127.0.0.1:5201",
-        "http://tauri.localhost",
-        "https://tauri.localhost",
-        "tauri://localhost",
-        "axolotl-theme://localhost",
-        "http://axolotl-theme.localhost",
-        "axolotl-skin://localhost",
-    ];
     match request
         .headers()
         .get(tauri::http::header::ORIGIN)
         .and_then(|value| value.to_str().ok())
     {
-        Some(origin) => ALLOWED_ORIGINS.iter().any(|allowed| {
-            origin == *allowed || origin.starts_with(&format!("{allowed}/"))
-        }),
+        Some(origin) => is_allowed_origin(origin),
         // Same-origin subresource loads (a stylesheet's own font, an image in
         // pack HTML) do not carry an Origin header.
         None => true,

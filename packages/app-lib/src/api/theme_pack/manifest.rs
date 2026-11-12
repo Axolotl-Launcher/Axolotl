@@ -436,24 +436,56 @@ fn validate_tokens(
     palette: &str,
     tokens: &BTreeMap<String, String>,
 ) -> crate::Result<()> {
-    for key in ["--surface-1", "--surface-3", "--color-text-primary"] {
-        let value = tokens.get(key).ok_or_else(|| {
-            invalid(format!("The {palette} token set must define {key}"))
-        })?;
-        if value.trim().is_empty() || value.len() > MAX_TEXT_LENGTH {
+    const MAX_TOKEN_COUNT: usize = 512;
+    const MAX_TOKEN_LENGTH: usize = 256;
+    if tokens.len() > MAX_TOKEN_COUNT {
+        return Err(invalid(format!(
+            "The {palette} token set declares too many tokens"
+        )));
+    }
+    for (key, value) in tokens {
+        let valid_name = key.starts_with("--")
+            && key.len() <= 64
+            && !key[2..].is_empty()
+            && key[2..].chars().all(|character| {
+                character.is_ascii_lowercase()
+                    || character.is_ascii_digit()
+                    || character == '-'
+            });
+        if !valid_name {
+            return Err(invalid(format!(
+                "The {palette} token {key} has an invalid name"
+            )));
+        }
+        if value.trim().is_empty()
+            || value.chars().count() > MAX_TOKEN_LENGTH
+            || value.chars().any(char::is_control)
+        {
             return Err(invalid(format!(
                 "The {palette} token {key} is empty or too long"
             )));
         }
         let lowered = value.to_ascii_lowercase();
-        if lowered.contains("url(")
+        if lowered.contains('\\')
+            || lowered.contains("url(")
+            || lowered.contains("image-set(")
+            || lowered.contains("src(")
+            || lowered.contains("var(")
+            || lowered.contains("expression(")
+            || lowered.contains("@import")
             || lowered.contains(';')
             || lowered.contains('{')
             || lowered.contains('}')
-            || lowered.contains("expression(")
         {
             return Err(invalid(format!(
                 "The {palette} token {key} contains CSS the launcher does not allow"
+            )));
+        }
+    }
+    for key in ["--surface-1", "--surface-3", "--color-text-primary"] {
+        if !tokens.contains_key(key) {
+            return Err(invalid(format!(
+                "The {palette} token set must define {key}"
             )));
         }
     }
@@ -529,7 +561,10 @@ pub fn validate_relative(path: &str) -> crate::Result<Vec<String>> {
         if component.is_empty()
             || component == "."
             || component == ".."
+            || component.trim_end() != component
+            || component.trim_end_matches([' ', '.']) == ".."
             || component.contains(':')
+            || is_windows_device_name(component)
         {
             return Err(invalid(format!(
                 "Theme pack path {path} contains an unsafe component"
@@ -538,6 +573,21 @@ pub fn validate_relative(path: &str) -> crate::Result<Vec<String>> {
         components.push(component.to_string());
     }
     Ok(components)
+}
+
+/// Rejects the reserved DOS device names, which Windows resolves in every
+/// directory even without an extension (`con`, `nul.txt`, `COM1`, …).
+fn is_windows_device_name(component: &str) -> bool {
+    let stem = component
+        .split('.')
+        .next()
+        .unwrap_or(component)
+        .trim_end_matches(' ')
+        .to_ascii_lowercase();
+    matches!(stem.as_str(), "con" | "prn" | "aux" | "nul")
+        || ((stem.starts_with("com") || stem.starts_with("lpt"))
+            && stem.len() == 4
+            && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
 /// Resolves a pack-relative path and proves the result is a regular file
@@ -576,6 +626,14 @@ pub fn validate_css(name: &str, css: &str) -> crate::Result<()> {
     // Decode CSS escapes and drop comments before looking for references.
     // Without this, `u\72l(https://…)` would slip past a literal `url(` scan.
     let normalized = normalize_css(css);
+    // A backslash left after decoding means the source used a second escape
+    // layer (`\5c 75 rl`, `\\`). The browser would decode that layer later and
+    // could reveal a `url(` or `@import`; reject instead of rescanning forever.
+    if normalized.contains('\\') {
+        return Err(invalid(format!(
+            "Stylesheet {name} contains an escaped sequence the launcher does not allow"
+        )));
+    }
     let lowered = normalized.to_ascii_lowercase();
     if lowered.contains("@import") {
         return Err(invalid(format!("Stylesheet {name} may not use @import")));
@@ -883,6 +941,65 @@ mod tests {
         )
         .unwrap();
         assert!(manifest().validate(directory.path()).is_ok());
+    }
+
+    #[test]
+    fn rejects_double_escaped_css_references() {
+        for css in [
+            r#".x { background: \5c 75 rl(https://tracker.example/a.png); }"#,
+            r#".x { \5c 40 import "https://tracker.example/a.css"; }"#,
+            r#".x { background: url(\\tracker.example/a.png); }"#,
+        ] {
+            assert!(
+                validate_css("theme.css", css).is_err(),
+                "expected {css} to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn validates_every_token_not_only_the_required_ones() {
+        let directory = pack_dir(&[
+            "styles/theme.css",
+            "assets/background.png",
+            "assets/Inter.woff2",
+            "assets/icon.png",
+            "pages/home.html",
+        ]);
+        let mut manifest = manifest();
+        manifest.tokens.light.insert(
+            "--custom-beacon".to_string(),
+            "url(https://tracker.example/pixel)".to_string(),
+        );
+        assert!(manifest.validate(directory.path()).is_err());
+
+        manifest.tokens.light.insert(
+            "--custom-beacon".to_string(),
+            "var(--custom-beacon)".to_string(),
+        );
+        assert!(manifest.validate(directory.path()).is_err());
+
+        manifest
+            .tokens
+            .light
+            .insert("--custom-beacon".to_string(), "#123456".to_string());
+        assert!(manifest.validate(directory.path()).is_ok());
+    }
+
+    #[test]
+    fn rejects_windows_special_path_components() {
+        for path in [
+            "pages/con.html",
+            "assets/nul.txt",
+            "assets/.. ",
+            "assets/COM1",
+        ] {
+            assert!(
+                validate_relative(path).is_err(),
+                "expected {path} to be rejected"
+            );
+        }
+        assert!(validate_relative("pages/home.html").is_ok());
     }
 
     #[test]

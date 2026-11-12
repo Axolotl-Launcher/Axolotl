@@ -3,11 +3,13 @@ import { computed, ref, type ShallowRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
 import { type AppSettings, get as getSettings, update as updateSettings } from '@/helpers/settings'
+import { applyThemeRuntime } from '@/helpers/theme-pack-runtime'
 import {
     getThemePackLimits,
     type InstalledThemePack,
     installThemePack,
     listThemePacks,
+    notifyThemeSourceChanged,
     removeThemePack,
     type ThemePackLimits,
 } from '@/helpers/theme-packs'
@@ -138,6 +140,24 @@ export function createThemeSuiteContext(
         }
     }
 
+    /**
+     * Applies the current selection immediately so the settings modal previews
+     * packs and custom colors without waiting for a restart.
+     */
+    function applyRuntimeFromSettings() {
+        const current = settings.value
+        if (!current) return
+        void applyThemeRuntime(current.theme, {
+            themeSource: current.theme_source ?? 'builtin',
+            customThemeColors: current.custom_theme_colors ?? null,
+            uiFont: current.ui_font ?? null,
+        })
+    }
+
+    function notifyActiveSource() {
+        notifyThemeSourceChanged(settings.value?.theme_source ?? 'builtin')
+    }
+
     function show() {
         importPath.value = null
         installError.value = ''
@@ -171,6 +191,8 @@ export function createThemeSuiteContext(
             settings.value = await updateSettings({ theme_source: source })
             selectedPackId.value = source.startsWith('pack:') ? source.slice('pack:'.length) : null
             resetColorsDraft()
+            applyRuntimeFromSettings()
+            notifyActiveSource()
         } catch (failure) {
             error.value = String(failure)
         } finally {
@@ -187,6 +209,8 @@ export function createThemeSuiteContext(
             await installThemePack(archivePath, false)
             importPath.value = null
             await refresh()
+            applyRuntimeFromSettings()
+            notifyActiveSource()
             modal.value?.setStage('overview')
         } catch (failure) {
             installError.value = String(failure)
@@ -206,6 +230,8 @@ export function createThemeSuiteContext(
                 settings.value = await updateSettings({ theme_source: 'builtin' })
             }
             await refresh()
+            applyRuntimeFromSettings()
+            notifyActiveSource()
         } catch (failure) {
             error.value = String(failure)
         } finally {
@@ -230,6 +256,8 @@ export function createThemeSuiteContext(
                 },
             })
             selectedPackId.value = null
+            applyRuntimeFromSettings()
+            notifyActiveSource()
             modal.value?.setStage('overview')
         } catch (failure) {
             error.value = String(failure)

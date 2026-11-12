@@ -121,4 +121,13 @@ export const themeSuiteMessages = defineMessages({
         id: 'app.theme-suite.no-description',
         defaultMessage: 'No description provided.',
     },
+    missingPackTitle: {
+        id: 'app.theme-suite.missing-pack-title',
+        defaultMessage: 'Theme pack unavailable',
+    },
+    missingPackText: {
+        id: 'app.theme-suite.missing-pack-text',
+        defaultMessage:
+            'The theme pack "{packId}" is no longer installed. The built-in theme is being used instead.',
+    },
 })

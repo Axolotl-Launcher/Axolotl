@@ -7760,6 +7760,21 @@
   "app.theme-suite.no-description": {
     "message": "未提供描述。"
   },
+  "app.theme-suite.page.loading": {
+    "message": "正在載入主題頁面…"
+  },
+  "app.theme-suite.page.unavailable": {
+    "message": "主題頁面無法使用"
+  },
+  "app.theme-suite.page.missing": {
+    "message": "該主題包或頁面尚未安裝。"
+  },
+  "app.theme-suite.page.error": {
+    "message": "主題頁面載入失敗。"
+  },
+  "app.theme-suite.page.title": {
+    "message": "主題包頁面"
+  },
   "app.translation-settings.ai-model": {
     "message": "文字模型"
   },
@@ -10459,5 +10474,11 @@
   },
   "app.settings.feature-flags.auto-install-dependencies": {
     "message": "自動安裝相依項"
+  },
+  "app.theme-suite.missing-pack-title": {
+    "message": "主題包無法使用"
+  },
+  "app.theme-suite.missing-pack-text": {
+    "message": "主題包「{packId}」已不再安裝，已改用內建主題。"
   }
 }

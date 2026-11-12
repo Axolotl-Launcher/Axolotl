@@ -13,6 +13,10 @@ use super::manifest::ThemePackManifest;
 use super::manifest::ThemePackPage;
 use crate::ErrorKind;
 
+/// Serializes installs so two archives cannot race over the same target
+/// directory or its backup.
+static INSTALL_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[derive(Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct InstalledThemePack {
@@ -53,6 +57,7 @@ pub async fn install(
     limits: ThemePackLimits,
     replace: bool,
 ) -> crate::Result<InstalledThemePack> {
+    let _install = INSTALL_LOCK.lock().await;
     tokio::fs::create_dir_all(storage.themes_dir())
         .await
         .map_err(io)?;
@@ -73,12 +78,15 @@ pub async fn install(
                     ))
                     .into());
                 }
-                archive::write_origin(
+                if let Err(error) = archive::write_origin(
                     &staging_for_task,
                     &archive_path,
                     &manifest.version,
                     extraction.uncompressed_bytes,
-                )?;
+                ) {
+                    let _ = std::fs::remove_dir_all(&staging_for_task);
+                    return Err(error);
+                }
                 Ok((manifest, extraction))
             }
             Err(error) => {
@@ -87,11 +95,17 @@ pub async fn install(
             }
         }
     })
-    .await
-    .map_err(|error| -> crate::Error {
-        ErrorKind::OtherError(format!("The theme pack install task failed: {error}"))
-            .into()
-    })??;
+    .await;
+    let extracted = match extracted {
+        Ok(result) => result?,
+        Err(error) => {
+            let _ = tokio::fs::remove_dir_all(&staging).await;
+            return Err(ErrorKind::OtherError(format!(
+                "The theme pack install task failed: {error}"
+            ))
+            .into());
+        }
+    };
 
     let (manifest, extraction) = extracted;
     let target = storage.pack_dir(&manifest.id)?;
@@ -149,7 +163,14 @@ pub async fn list(
                 continue;
             }
             match InstalledThemePack::from_directory(&path) {
-                Ok(pack) => packs.push(pack),
+                Ok(pack) if pack.manifest.id == name => packs.push(pack),
+                Ok(pack) => {
+                    tracing::warn!(
+                        path = %path.display(),
+                        manifest_id = %pack.manifest.id,
+                        "Skipping a theme pack whose folder does not match its id"
+                    );
+                }
                 Err(error) => {
                     tracing::warn!(
                         path = %path.display(),

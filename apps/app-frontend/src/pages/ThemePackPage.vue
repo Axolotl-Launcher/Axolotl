@@ -36,26 +36,29 @@ const frame = ref<HTMLIFrameElement | null>(null)
 const url = ref<string | null>(null)
 const error = ref<string | null>(null)
 const manifest = ref<ThemePackManifest | null>(null)
+const activePackId = ref<string | null>(null)
 let disposed = false
+let loadToken = 0
 
 function handleMessage(event: MessageEvent) {
     const target = frame.value?.contentWindow
     if (!target || event.source !== target) return
     const request = parseThemePackRequest(event.data)
-    if (!request || !manifest.value) return
-    void dispatchThemePackRequest(String(route.params.packId), manifest.value, request).then(
-        (response) => {
-            target.postMessage(response, '*')
-        },
-    )
+    const packId = activePackId.value
+    if (!request || !packId || !manifest.value) return
+    void dispatchThemePackRequest(packId, manifest.value, request).then((response) => {
+        target.postMessage(response, '*')
+    })
 }
 
 async function load() {
+    const token = ++loadToken
     const packId = String(route.params.packId ?? '')
     const pageId = String(route.params.pageId ?? '')
     error.value = null
     url.value = null
     manifest.value = null
+    activePackId.value = null
     if (!packId || !pageId) {
         error.value = formatMessage(messages.missing)
         return
@@ -65,15 +68,16 @@ async function load() {
             getThemePack(packId),
             resolveThemePackPage(packId, pageId),
         ])
-        if (disposed) return
+        if (disposed || token !== loadToken) return
         if (!pack) {
             error.value = formatMessage(messages.missing)
             return
         }
         manifest.value = pack.manifest
+        activePackId.value = packId
         url.value = page.url
     } catch (cause) {
-        if (disposed) return
+        if (disposed || token !== loadToken) return
         error.value = cause instanceof Error ? cause.message : formatMessage(messages.error)
     }
 }
@@ -100,10 +104,10 @@ watch(
             v-if="error"
             class="max-w-lg rounded-xl border border-solid border-divider bg-bg-raised p-6 text-center"
         >
-            <p class="m-0 text-lg font-bold text-contrast">
+            <p class="m-0 text-lg font-bold text-[var(--color-text-primary)]">
                 {{ formatMessage(messages.unavailable) }}
             </p>
-            <p class="mb-0 mt-2 text-sm text-secondary">{{ error }}</p>
+            <p class="mb-0 mt-2 text-sm text-[var(--color-text-tertiary)]">{{ error }}</p>
         </div>
         <iframe
             v-else-if="url"
@@ -114,6 +118,8 @@ watch(
             class="h-full w-full border-0"
             :title="formatMessage(messages.title)"
         />
-        <p v-else class="text-secondary">{{ formatMessage(messages.loading) }}</p>
+        <p v-else class="text-[var(--color-text-tertiary)]">
+            {{ formatMessage(messages.loading) }}
+        </p>
     </div>
 </template>

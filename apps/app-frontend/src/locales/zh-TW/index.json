@@ -7628,6 +7628,9 @@
   "app.theme-suite.export-snapshot-failed": {
     "message": "無法匯出快照：{error}"
   },
+  "app.theme-suite.export-snapshot-done": {
+    "message": "外觀快照已匯出。"
+  },
   "app.theme-suite.custom-colors": {
     "message": "自訂顏色"
   },
@@ -7648,6 +7651,18 @@
   },
   "app.theme-suite.pack-permissions": {
     "message": "權限"
+  },
+  "app.theme-suite.permission-storage": {
+    "message": "本機儲存"
+  },
+  "app.theme-suite.permission-instances-read": {
+    "message": "讀取實例"
+  },
+  "app.theme-suite.permission-instances-logs": {
+    "message": "讀取實例日誌"
+  },
+  "app.theme-suite.permission-network": {
+    "message": "網路存取"
   },
   "app.theme-suite.capability-tokens": {
     "message": "色彩權杖"

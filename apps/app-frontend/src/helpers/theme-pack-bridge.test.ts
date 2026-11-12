@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
     dispatchThemePackRequest,
@@ -6,6 +6,15 @@ import {
     THEME_PAGE_SANDBOX,
 } from '@/helpers/theme-pack-bridge'
 import type { ThemePackManifest } from '@/helpers/theme-packs'
+
+const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }))
+
+vi.mock('@tauri-apps/api/core', () => ({ invoke }))
+
+beforeEach(() => {
+    invoke.mockReset()
+    invoke.mockResolvedValue(undefined)
+})
 
 function manifest(overrides: Partial<ThemePackManifest> = {}): ThemePackManifest {
     return {
@@ -94,6 +103,25 @@ describe('theme pack bridge', () => {
         )
         expect(response.ok).toBe(false)
         expect(response.error).toContain('key')
+    })
+
+    it('forwards a permitted request to the matching command', async () => {
+        invoke.mockResolvedValue('contents')
+        const response = await dispatchThemePackRequest(
+            'example',
+            manifest({ permissions: ['storage'] }),
+            {
+                type: 'axolotl-theme-request',
+                id: '1',
+                method: 'storage.read',
+                params: { key: 'settings' },
+            },
+        )
+        expect(response).toMatchObject({ id: '1', ok: true, data: 'contents' })
+        expect(invoke).toHaveBeenCalledWith('theme_pack_storage_read', {
+            packId: 'example',
+            key: 'settings',
+        })
     })
 
     it('sandboxes pack pages without same-origin access', () => {

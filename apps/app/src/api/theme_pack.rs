@@ -200,13 +200,20 @@ pub async fn theme_pack_export_snapshot<R: Runtime>(
         None => (None, None),
     };
     let destination = std::path::PathBuf::from(destination);
-    export_snapshot_archive(
-        &destination,
-        &snapshot,
-        pack_dir.as_deref(),
-        pack_data_dir.as_deref(),
-        ThemePackLimits::from_env(),
-    )?;
+    let destination_for_task = destination.clone();
+    tokio::task::spawn_blocking(move || {
+        export_snapshot_archive(
+            &destination_for_task,
+            &snapshot,
+            pack_dir.as_deref(),
+            pack_data_dir.as_deref(),
+            ThemePackLimits::from_env(),
+        )
+    })
+    .await
+    .map_err(|error| {
+        theme_error(format!("The snapshot export task failed: {error}"))
+    })??;
     Ok(destination.to_string_lossy().to_string())
 }
 
@@ -249,21 +256,31 @@ fn export_snapshot_archive(
         limits,
     ) {
         Ok(()) => {
-            if destination.exists() {
-                // A save dialog already asked the user to confirm replacing
-                // the file; remove it only after the temporary archive exists.
-                std::fs::remove_file(destination).map_err(|error| {
+            // A save dialog already asked the user to confirm replacing the
+            // file. Move the old archive aside first so a failed rename cannot
+            // leave the user with neither the old nor the new snapshot.
+            let backup = destination
+                .exists()
+                .then(|| temporary.with_extension("bak"));
+            if let Some(backup) = &backup {
+                if let Err(error) = std::fs::rename(destination, backup) {
                     let _ = std::fs::remove_file(&temporary);
-                    theme_error(format!(
+                    return Err(theme_error(format!(
                         "The existing snapshot could not be replaced: {error}"
-                    ))
-                })?;
+                    )));
+                }
             }
             if let Err(error) = std::fs::rename(&temporary, destination) {
                 let _ = std::fs::remove_file(&temporary);
+                if let Some(backup) = &backup {
+                    let _ = std::fs::rename(backup, destination);
+                }
                 return Err(theme_error(format!(
                     "The appearance snapshot could not be saved: {error}"
                 )));
+            }
+            if let Some(backup) = &backup {
+                let _ = std::fs::remove_file(backup);
             }
             Ok(())
         }

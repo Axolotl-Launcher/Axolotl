@@ -182,6 +182,9 @@
   "app.theme-suite.export-snapshot-failed": {
     "message": "The snapshot could not be exported: {error}"
   },
+  "app.theme-suite.export-snapshot-done": {
+    "message": "Appearance snapshot exported."
+  },
   "app.theme-suite.custom-colors": {
     "message": "Custom colors"
   },
@@ -202,6 +205,18 @@
   },
   "app.theme-suite.pack-permissions": {
     "message": "Permissions"
+  },
+  "app.theme-suite.permission-storage": {
+    "message": "Local storage"
+  },
+  "app.theme-suite.permission-instances-read": {
+    "message": "Read instances"
+  },
+  "app.theme-suite.permission-instances-logs": {
+    "message": "Read instance logs"
+  },
+  "app.theme-suite.permission-network": {
+    "message": "Network access"
   },
   "app.theme-suite.capability-tokens": {
     "message": "Color tokens"

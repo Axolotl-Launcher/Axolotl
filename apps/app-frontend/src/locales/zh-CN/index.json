@@ -182,6 +182,9 @@
   "app.theme-suite.export-snapshot-failed": {
     "message": "无法导出快照：{error}"
   },
+  "app.theme-suite.export-snapshot-done": {
+    "message": "外观快照已导出。"
+  },
   "app.theme-suite.custom-colors": {
     "message": "自定义颜色"
   },
@@ -202,6 +205,18 @@
   },
   "app.theme-suite.pack-permissions": {
     "message": "权限"
+  },
+  "app.theme-suite.permission-storage": {
+    "message": "本地存储"
+  },
+  "app.theme-suite.permission-instances-read": {
+    "message": "读取实例"
+  },
+  "app.theme-suite.permission-instances-logs": {
+    "message": "读取实例日志"
+  },
+  "app.theme-suite.permission-network": {
+    "message": "网络访问"
   },
   "app.theme-suite.capability-tokens": {
     "message": "颜色令牌"

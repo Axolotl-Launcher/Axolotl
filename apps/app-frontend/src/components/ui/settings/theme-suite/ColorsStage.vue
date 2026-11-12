@@ -23,7 +23,7 @@ const bucketLabel = computed(() =>
             <h3 class="m-0 text-base font-semibold text-[var(--color-text-primary)]">
                 {{ formatMessage(themeSuiteMessages.colorsTitle) }}
             </h3>
-            <p class="m-0 text-sm text-secondary">
+            <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
                 {{ formatMessage(themeSuiteMessages.colorsDescription, { theme: bucketLabel }) }}
             </p>
         </div>

@@ -101,11 +101,11 @@ messages whose source is the page's own iframe.
 | --- | --- |
 | Archive size | 500 MiB |
 | Extracted size | 500 MiB |
-| Entries | 20,000 |
+| Entries | 4,096 |
 
-Override with `AXL_THEME_PACK_MAX_ARCHIVE_BYTES`,
-`AXL_THEME_PACK_MAX_UNCOMPRESSED_BYTES`, and
-`AXL_THEME_PACK_MAX_ENTRIES`.
+Override with `AXOLOTL_THEME_MAX_ARCHIVE_MB`,
+`AXOLOTL_THEME_MAX_UNCOMPRESSED_MB` (both in megabytes), and
+`AXOLOTL_THEME_MAX_ENTRIES`.
 
 ## Installing and exporting
 

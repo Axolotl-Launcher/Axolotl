@@ -16,6 +16,8 @@ import {
     type ThemePackLimits,
 } from '@/helpers/theme-packs'
 
+import { themeSuiteMessages } from './messages'
+
 export type ThemeSuiteSource = 'builtin' | 'custom' | `pack:${string}`
 export type ThemeColorBucket = 'light' | 'dark'
 
@@ -166,6 +168,8 @@ export function createThemeSuiteContext(
     function show() {
         importPath.value = null
         installError.value = ''
+        snapshotError.value = ''
+        snapshotExported.value = false
         modal.value?.setStage('overview')
         modal.value?.show()
         void refresh()
@@ -234,12 +238,18 @@ export function createThemeSuiteContext(
             if (wasActive) {
                 settings.value = await updateSettings({ theme_source: 'builtin' })
             }
-            await refresh()
-            applyRuntimeFromSettings()
-            notifyActiveSource()
         } catch (failure) {
             error.value = String(failure)
         } finally {
+            // Even when clearing the selection failed, the pack may already be
+            // gone; refresh and repaint from what is actually installed.
+            try {
+                await refresh()
+            } catch {
+                // Keep the removal error as the visible message.
+            }
+            applyRuntimeFromSettings()
+            notifyActiveSource()
             removingId.value = null
         }
     }
@@ -283,7 +293,12 @@ export function createThemeSuiteContext(
             ].join('')
             const destination = await save({
                 defaultPath: `axolotl-theme-${stamp}.zip`,
-                filters: [{ name: 'Zip archive', extensions: ['zip'] }],
+                filters: [
+                    {
+                        name: formatMessage(themeSuiteMessages.archiveFilter),
+                        extensions: ['zip'],
+                    },
+                ],
             })
             if (!destination) return
             const source = activeSource.value

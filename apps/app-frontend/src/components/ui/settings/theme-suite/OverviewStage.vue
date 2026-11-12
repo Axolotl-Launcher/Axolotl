@@ -8,6 +8,7 @@ import {
     type ThemePackCapability,
     themePackDescription,
     themePackDisplayName,
+    type ThemePackPermission,
 } from '@/helpers/theme-packs'
 
 import { injectThemeSuiteContext } from './context'
@@ -23,6 +24,7 @@ const {
     removingId,
     snapshotExporting,
     snapshotError,
+    snapshotExported,
     formatMessage,
     selectSource,
     remove,
@@ -53,6 +55,17 @@ function capabilityLabel(capability: ThemePackCapability) {
     return formatMessage(themeSuiteMessages.capabilityPages)
 }
 
+function permissionLabel(permission: ThemePackPermission) {
+    if (permission === 'storage') return formatMessage(themeSuiteMessages.permissionStorage)
+    if (permission === 'instances.read') {
+        return formatMessage(themeSuiteMessages.permissionInstancesRead)
+    }
+    if (permission === 'instances.logs') {
+        return formatMessage(themeSuiteMessages.permissionInstancesLogs)
+    }
+    return formatMessage(themeSuiteMessages.permissionNetwork)
+}
+
 function requestRemove(pack: InstalledThemePack) {
     confirmingRemove.value = pack.manifest.id
     removeData.value = false
@@ -72,7 +85,7 @@ function confirmRemove(pack: InstalledThemePack) {
 
 <template>
     <div class="flex min-w-0 flex-col gap-4">
-        <p class="m-0 text-sm text-secondary">
+        <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
             {{ formatMessage(themeSuiteMessages.description) }}
         </p>
 
@@ -231,7 +244,7 @@ function confirmRemove(pack: InstalledThemePack) {
                                         <span
                                             v-for="capability in pack.manifest.capabilities"
                                             :key="capability"
-                                            class="rounded-full bg-surface-4 px-2 py-0.5 text-xs text-secondary"
+                                            class="rounded-full bg-surface-4 px-2 py-0.5 text-xs text-[var(--color-text-tertiary)]"
                                         >
                                             {{ capabilityLabel(capability) }}
                                         </span>
@@ -241,7 +254,11 @@ function confirmRemove(pack: InstalledThemePack) {
                                         class="text-xs text-[var(--color-text-tertiary)]"
                                     >
                                         {{ formatMessage(themeSuiteMessages.packPermissions) }}:
-                                        {{ pack.manifest.permissions.join(', ') }}
+                                        {{
+                                            pack.manifest.permissions
+                                                .map(permissionLabel)
+                                                .join(', ')
+                                        }}
                                     </span>
                                 </span>
                             </button>
@@ -282,7 +299,9 @@ function confirmRemove(pack: InstalledThemePack) {
                                     })
                                 }}
                             </p>
-                            <label class="flex items-center gap-2 text-sm text-secondary">
+                            <label
+                                class="flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]"
+                            >
                                 <input v-model="removeData" type="checkbox" />
                                 {{ formatMessage(themeSuiteMessages.removePackData) }}
                             </label>
@@ -333,6 +352,13 @@ function confirmRemove(pack: InstalledThemePack) {
                     }}
                 </Button>
             </div>
+            <p
+                v-if="snapshotExported && !snapshotError"
+                class="m-0 text-sm text-green"
+                role="status"
+            >
+                {{ formatMessage(themeSuiteMessages.exportSnapshotDone) }}
+            </p>
             <p
                 v-if="snapshotError"
                 class="m-0 break-all text-sm text-[var(--color-red)]"

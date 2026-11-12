@@ -33,6 +33,10 @@ export const themeSuiteMessages = defineMessages({
         id: 'app.theme-suite.export-snapshot-failed',
         defaultMessage: 'The appearance snapshot could not be exported: {error}',
     },
+    exportSnapshotDone: {
+        id: 'app.theme-suite.export-snapshot-done',
+        defaultMessage: 'Appearance snapshot exported.',
+    },
     customColors: { id: 'app.theme-suite.custom-colors', defaultMessage: 'Custom colors' },
     customColorsDescription: {
         id: 'app.theme-suite.custom-colors-description',
@@ -49,6 +53,22 @@ export const themeSuiteMessages = defineMessages({
     },
     removePackCancel: { id: 'app.theme-suite.remove-pack-cancel', defaultMessage: 'Keep pack' },
     packPermissions: { id: 'app.theme-suite.pack-permissions', defaultMessage: 'Permissions' },
+    permissionStorage: {
+        id: 'app.theme-suite.permission-storage',
+        defaultMessage: 'Local storage',
+    },
+    permissionInstancesRead: {
+        id: 'app.theme-suite.permission-instances-read',
+        defaultMessage: 'Read instances',
+    },
+    permissionInstancesLogs: {
+        id: 'app.theme-suite.permission-instances-logs',
+        defaultMessage: 'Read instance logs',
+    },
+    permissionNetwork: {
+        id: 'app.theme-suite.permission-network',
+        defaultMessage: 'Network access',
+    },
     capabilityTokens: { id: 'app.theme-suite.capability-tokens', defaultMessage: 'Color tokens' },
     capabilityStyles: { id: 'app.theme-suite.capability-styles', defaultMessage: 'Styles' },
     capabilityPages: { id: 'app.theme-suite.capability-pages', defaultMessage: 'Pages' },

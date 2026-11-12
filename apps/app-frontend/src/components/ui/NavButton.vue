@@ -6,6 +6,10 @@
         active-class="nav-router-active"
         :class="activeClasses"
         class="w-12 h-12 text-[var(--color-text-default)] rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)]"
+        @pointerenter="onPointerEnter"
+        @pointerleave="onPointerLeave"
+        @pointerdown="onPointerDown"
+        @click="onActivate"
     >
         <slot />
     </RouterLink>
@@ -30,22 +34,23 @@
         v-bind="$attrs"
         class="button-animation border-none text-[var(--color-text-default)] cursor-pointer w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)]"
         :disabled="disabled"
-        @click="to"
+        @click="onClick"
+        @pointerenter="onPointerEnter"
+        @pointerleave="onPointerLeave"
+        @pointerdown="onPointerDown"
     >
         <slot />
     </button>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, provide, readonly, ref, watch } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { RouterLink, useLink, useRoute, useRouter } from 'vue-router'
+import { RouterLink, useLink, useRoute } from 'vue-router'
 
-import { injectNavRailOptimisticSelection } from './nav-rail-selection'
+import { NAV_ICON_INTERACTION } from './nav-icons/motion'
 
 const route = useRoute()
-const router = useRouter()
-const optimisticSelection = injectNavRailOptimisticSelection()
 
 type RouteFunction = (route: RouteLocationNormalizedLoaded) => boolean
 
@@ -65,18 +70,51 @@ const props = withDefaults(
 )
 
 const link = useLink({ to: computed(() => (typeof props.to === 'string' ? props.to : '/')) })
-const optimisticallyActive = computed(() => {
-    const href = optimisticSelection?.href.value
-    if (!href || typeof props.to !== 'string') return false
-    return router.resolve(props.to).path === href
-})
 const activeClasses = computed(() => {
     const primary = props.isPrimary ? props.isPrimary(route) : link.isActive.value
     return {
-        'router-link-active': primary || optimisticallyActive.value,
-        'subpage-active': !primary && !optimisticallyActive.value && !!props.isSubpage?.(route),
+        'router-link-active': primary,
+        'subpage-active': !primary && !!props.isSubpage?.(route),
     }
 })
+
+// The icon in the slot animates from these; a disabled destination stays still.
+const hovered = ref(false)
+const presses = ref(0)
+const activations = ref(0)
+provide(NAV_ICON_INTERACTION, {
+    hovered: readonly(hovered),
+    presses: readonly(presses),
+    activations: readonly(activations),
+})
+
+watch(
+    () => props.disabled,
+    (disabled) => {
+        if (disabled) hovered.value = false
+    },
+)
+
+function onPointerEnter() {
+    if (!props.disabled) hovered.value = true
+}
+
+function onPointerLeave() {
+    hovered.value = false
+}
+
+function onPointerDown(event: PointerEvent) {
+    if (!props.disabled && event.button === 0) presses.value++
+}
+
+function onActivate() {
+    if (!props.disabled) activations.value++
+}
+
+function onClick() {
+    onActivate()
+    if (typeof props.to === 'function') props.to()
+}
 
 defineOptions({
     inheritAttrs: false,

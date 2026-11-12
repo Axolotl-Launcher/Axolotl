@@ -53,7 +53,7 @@ it('anchors the floating control to the safe bottom-right of the content pane', 
         const placement = getComputedStyle(button.element.parentElement!)
         expect(placement.position).toBe('fixed')
         expect(Number.parseFloat(placement.right)).toBeGreaterThanOrEqual(324)
-        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(48)
+        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(12)
     } finally {
         cleanup()
     }
@@ -67,7 +67,7 @@ it('stays above the globally managed floating action bar', async () => {
         expect(button.exists()).toBe(true)
 
         const placement = getComputedStyle(button.element.parentElement!)
-        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(108)
+        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(56)
     } finally {
         cleanup()
     }

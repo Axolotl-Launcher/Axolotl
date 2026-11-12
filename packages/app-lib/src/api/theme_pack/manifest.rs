@@ -686,7 +686,7 @@ pub fn validate_css(name: &str, css: &str) -> crate::Result<()> {
             },
         );
         if argument.starts_with("//")
-            || matches!(scheme, Some(scheme) if scheme != "data")
+            || matches!(scheme, Some(scheme) if scheme != "data" && scheme != "axolotl-theme")
             || argument.starts_with("data:text/html")
         {
             return Err(invalid(format!(
@@ -1045,6 +1045,23 @@ mod tests {
         std::fs::write(
             directory.path().join("styles/theme.css"),
             ".x { background: url(../assets/background.png); }",
+        )
+        .unwrap();
+        assert!(manifest().validate(directory.path()).is_ok());
+    }
+
+    #[test]
+    fn accepts_theme_origin_css_references() {
+        let directory = pack_dir(&[
+            "styles/theme.css",
+            "assets/background.png",
+            "assets/Inter.woff2",
+            "assets/icon.png",
+            "pages/home.html",
+        ]);
+        std::fs::write(
+            directory.path().join("styles/theme.css"),
+            ".x { background: url(axolotl-theme://localhost/assets/background.png); }",
         )
         .unwrap();
         assert!(manifest().validate(directory.path()).is_ok());

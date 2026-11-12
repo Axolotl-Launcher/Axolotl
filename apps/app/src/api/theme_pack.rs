@@ -1668,4 +1668,20 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn main_webview_cannot_frame_theme_pages() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../../tauri.conf.json"))
+                .unwrap();
+        for key in ["csp", "devCsp"] {
+            let frame = config["app"]["security"][key]["frame-src"]
+                .as_str()
+                .expect("the CSP must declare frame-src");
+            assert!(
+                !frame.contains("axolotl-theme"),
+                "theme pages are hosted in a child webview, not framed: {frame}"
+            );
+        }
+    }
 }

@@ -1,9 +1,12 @@
+import '@/test/visual-styles.scss'
+
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import dayjs from 'dayjs'
 import { expect, it, vi } from 'vitest'
 import { defineComponent, h, Suspense } from 'vue'
 
+import { run } from '@/helpers/instance'
 import { resourceProjectDocuments } from '@/helpers/resources'
 import type { GameInstance } from '@/helpers/types'
 
@@ -32,7 +35,9 @@ vi.mock('@modrinth/ui', async () => {
             props: ['src'],
             setup: (props) => () => h('img', { src: props.src }),
         }),
-        Button: slots,
+        Button: (
+            await import('../../../../../../packages/ui/src/components/base/buttons/Button.vue')
+        ).default,
         OverflowMenu: slots,
         SmartClickable: slots,
         commonMessages: {
@@ -59,7 +64,7 @@ function instance(link: GameInstance['link'], id = 'instance'): GameInstance {
         game_version: '1.21.1',
     } as GameInstance
 }
-function render(value: GameInstance) {
+function render(value: GameInstance, dashboardDensity?: 'compact' | 'comfortable') {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const root = defineComponent({
         props: ['instance'],
@@ -70,10 +75,12 @@ function render(value: GameInstance) {
                         instance: props.instance,
                         playing: false,
                         lastPlayed: dayjs(0),
+                        dashboardDensity,
                     }),
             }),
     })
     const wrapper = mount(root, {
+        attachTo: document.body,
         props: { instance: value },
         global: {
             plugins: [[VueQueryPlugin, { queryClient: client }]],
@@ -177,6 +184,28 @@ it('imported project IDs without a provider never trigger an online lookup', asy
     try {
         await flushPromises()
         expect(resourceProjectDocuments).not.toHaveBeenCalled()
+    } finally {
+        cleanup()
+    }
+})
+
+it('centers the compact play icon and launches from the whole circular button', async () => {
+    vi.mocked(run)
+        .mockClear()
+        .mockResolvedValue(undefined as never)
+    const { wrapper, cleanup } = render(instance(null), 'compact')
+    try {
+        await flushPromises()
+        const button = wrapper.get('button[aria-label="Play"]')
+        const element = button.element as HTMLButtonElement
+        expect(button.find('button').exists()).toBe(false)
+        const bounds = element.getBoundingClientRect()
+        const icon = element.querySelector('svg')!.getBoundingClientRect()
+        expect(bounds.width).toBe(bounds.height)
+        expect(Math.abs(icon.x + icon.width / 2 - (bounds.x + bounds.width / 2))).toBeLessThan(1)
+        expect(Math.abs(icon.y + icon.height / 2 - (bounds.y + bounds.height / 2))).toBeLessThan(1)
+        await button.trigger('click')
+        expect(run).toHaveBeenCalledExactlyOnceWith('instance')
     } finally {
         cleanup()
     }

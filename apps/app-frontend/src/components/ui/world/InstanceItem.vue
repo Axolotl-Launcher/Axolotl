@@ -250,26 +250,29 @@ onUnmounted(() => {
                     v-if="isPlaying && !loading && !launchPending"
                     color="red"
                     :circular="dashboardDensity === 'compact'"
+                    :icon-only="dashboardDensity === 'compact'"
+                    :label="formatMessage(commonMessages.stopButton)"
+                    @click="stop"
                 >
-                    <button @click="stop">
-                        <StopCircleIcon aria-hidden="true" />
-                        <span v-if="dashboardDensity !== 'compact'">
-                            {{ formatMessage(commonMessages.stopButton) }}
-                        </span>
-                    </button>
+                    <StopCircleIcon aria-hidden="true" />
+                    <span v-if="dashboardDensity !== 'compact'">
+                        {{ formatMessage(commonMessages.stopButton) }}
+                    </span>
                 </Button>
-                <Button v-else :circular="dashboardDensity === 'compact'">
-                    <button
-                        v-tooltip="isPlaying ? formatMessage(messages.alreadyOpen) : null"
-                        :disabled="isPlaying || loading || launchPending"
-                        @click="play"
-                    >
-                        <SpinnerIcon v-if="loading || launchPending" class="animate-spin" />
-                        <PlayIcon v-else aria-hidden="true" />
-                        <span v-if="dashboardDensity !== 'compact'">
-                            {{ formatMessage(commonMessages.playButton) }}
-                        </span>
-                    </button>
+                <Button
+                    v-else
+                    v-tooltip="isPlaying ? formatMessage(messages.alreadyOpen) : null"
+                    :disabled="isPlaying || loading || launchPending"
+                    :circular="dashboardDensity === 'compact'"
+                    :icon-only="dashboardDensity === 'compact'"
+                    :label="formatMessage(commonMessages.playButton)"
+                    @click="play"
+                >
+                    <SpinnerIcon v-if="loading || launchPending" class="animate-spin" />
+                    <PlayIcon v-else aria-hidden="true" />
+                    <span v-if="dashboardDensity !== 'compact'">
+                        {{ formatMessage(commonMessages.playButton) }}
+                    </span>
                 </Button>
                 <OverflowMenu
                     type="button"

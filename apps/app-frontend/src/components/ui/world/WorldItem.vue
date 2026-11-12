@@ -477,49 +477,52 @@ const messages = defineMessages({
                     v-if="(playingWorld || (locked && playingInstance)) && !startingInstance"
                     color="red"
                     :circular="dashboardDensity === 'compact'"
+                    :icon-only="dashboardDensity === 'compact'"
+                    :label="formatMessage(commonMessages.stopButton)"
+                    @click="emit('stop')"
                 >
-                    <button @click="emit('stop')">
-                        <StopCircleIcon aria-hidden="true" />
-                        <span v-if="dashboardDensity !== 'compact'">
-                            {{ formatMessage(commonMessages.stopButton) }}
-                        </span>
-                    </button>
+                    <StopCircleIcon aria-hidden="true" />
+                    <span v-if="dashboardDensity !== 'compact'">
+                        {{ formatMessage(commonMessages.stopButton) }}
+                    </span>
                 </Button>
-                <Button v-else :circular="dashboardDensity === 'compact'">
-                    <button
-                        v-tooltip="
-                            world.type === 'server'
-                                ? !supportsServerQuickPlay
-                                    ? formatMessage(messages.noServerQuickPlay)
-                                    : playingOtherWorld
-                                      ? formatMessage(messages.gameAlreadyOpen)
-                                      : !serverStatus
-                                        ? formatMessage(messages.noContact)
-                                        : serverIncompatible
-                                          ? formatMessage(messages.incompatibleServer)
-                                          : null
-                                : quickPlayPending
-                                  ? null
-                                  : !supportsWorldQuickPlay
-                                    ? formatMessage(messages.noSingleplayerQuickPlay)
-                                    : playingOtherWorld || locked
-                                      ? formatMessage(messages.gameAlreadyOpen)
+                <Button
+                    v-else
+                    v-tooltip="
+                        world.type === 'server'
+                            ? !supportsServerQuickPlay
+                                ? formatMessage(messages.noServerQuickPlay)
+                                : playingOtherWorld
+                                  ? formatMessage(messages.gameAlreadyOpen)
+                                  : !serverStatus
+                                    ? formatMessage(messages.noContact)
+                                    : serverIncompatible
+                                      ? formatMessage(messages.incompatibleServer)
                                       : null
-                        "
-                        :disabled="
-                            playingOtherWorld ||
-                            startingInstance ||
-                            (world.type == 'server' && !supportsServerQuickPlay) ||
-                            (world.type == 'singleplayer' && !supportsWorldQuickPlay)
-                        "
-                        @click="emit('play')"
-                    >
-                        <SpinnerIcon v-if="startingInstance && playingWorld" class="animate-spin" />
-                        <PlayIcon v-else aria-hidden="true" />
-                        <span v-if="dashboardDensity !== 'compact'">
-                            {{ formatMessage(commonMessages.playButton) }}
-                        </span>
-                    </button>
+                            : quickPlayPending
+                              ? null
+                              : !supportsWorldQuickPlay
+                                ? formatMessage(messages.noSingleplayerQuickPlay)
+                                : playingOtherWorld || locked
+                                  ? formatMessage(messages.gameAlreadyOpen)
+                                  : null
+                    "
+                    :disabled="
+                        playingOtherWorld ||
+                        startingInstance ||
+                        (world.type == 'server' && !supportsServerQuickPlay) ||
+                        (world.type == 'singleplayer' && !supportsWorldQuickPlay)
+                    "
+                    :circular="dashboardDensity === 'compact'"
+                    :icon-only="dashboardDensity === 'compact'"
+                    :label="formatMessage(commonMessages.playButton)"
+                    @click="emit('play')"
+                >
+                    <SpinnerIcon v-if="startingInstance" class="animate-spin" />
+                    <PlayIcon v-else aria-hidden="true" />
+                    <span v-if="dashboardDensity !== 'compact'">
+                        {{ formatMessage(commonMessages.playButton) }}
+                    </span>
                 </Button>
                 <OverflowMenu
                     type="button"

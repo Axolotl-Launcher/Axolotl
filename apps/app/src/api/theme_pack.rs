@@ -861,7 +861,7 @@ pub(crate) fn protocol_response_for(
              img-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
              font-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
              connect-src 'none'; media-src http://axolotl-theme.localhost axolotl-theme://localhost; \
-             frame-ancestors http://tauri.localhost tauri://localhost \
+             frame-ancestors http://127.0.0.1:5201 http://tauri.localhost tauri://localhost \
              http://axolotl-theme.localhost axolotl-theme://localhost",
         );
     }
@@ -1011,6 +1011,10 @@ mod tests {
         assert!(csp.contains("connect-src 'none'"), "{csp}");
         assert!(
             csp.contains("script-src http://axolotl-theme.localhost"),
+            "{csp}"
+        );
+        assert!(
+            csp.contains("frame-ancestors http://127.0.0.1:5201"),
             "{csp}"
         );
         assert_eq!(

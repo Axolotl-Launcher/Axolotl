@@ -98,7 +98,7 @@ impl PendingUpdate {
             Self::Installer(update, data, method) => {
                 if let Some(installer) = method.package_installer() {
                     tauri::async_runtime::block_on(install_linux_package(
-                        installer, &data,
+                        installer, data,
                     ))
                     .map_err(|error| error.to_string())
                 } else {
@@ -1015,22 +1015,21 @@ pub fn is_apt_linux(method: tauri::State<'_, UpdateMethod>) -> bool {
 /// from the absolute path of a temporary file, which is removed afterwards.
 pub async fn install_linux_package(
     installer: PackageInstaller,
-    data: &[u8],
+    data: Vec<u8>,
 ) -> Result<()> {
     let PackageInstaller {
         variant,
         program,
         args,
     } = installer;
-    let output =
-        with_staged_package(variant, data.to_vec(), move |install_path| {
-            std::process::Command::new("pkexec")
-                .arg(program)
-                .args(args)
-                .arg(install_path)
-                .output()
-        })
-        .await?;
+    let output = with_staged_package(variant, data, move |install_path| {
+        std::process::Command::new("pkexec")
+            .arg(program)
+            .args(args)
+            .arg(install_path)
+            .output()
+    })
+    .await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

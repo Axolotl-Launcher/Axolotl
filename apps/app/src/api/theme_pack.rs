@@ -1,11 +1,21 @@
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::io::Write as _;
 use std::path::Path;
+use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use crate::api::Result;
 use tauri::AppHandle;
+use tauri::LogicalPosition;
+use tauri::LogicalSize;
 use tauri::Manager;
 use tauri::Runtime;
+use tauri::State;
+use tauri::Webview;
+use tauri::WebviewUrl;
+use tauri::webview::WebviewBuilder;
 use theseus::theme_pack::ThemePackStorage;
 use theseus::theme_pack::archive::ORIGIN_FILE;
 use theseus::theme_pack::archive::ThemePackLimits;
@@ -16,8 +26,25 @@ use theseus::theme_pack::network::ThemeNetworkRequest;
 use theseus::theme_pack::network::ThemeNetworkResponse;
 use theseus::theme_pack::store::InstalledThemePack;
 
+/// Child webview labels are the only webviews granted the page bridge
+/// permission. The label prefix is also used by the `theme-pages` capability.
+pub const THEME_PAGE_LABEL_PREFIX: &str = "theme-page-";
+
+/// Tracks which theme pack owns each page webview. The bridge command derives
+/// the pack id from this map instead of trusting the page, so a page cannot
+/// request another pack's storage or network allowlist.
+#[derive(Default)]
+pub struct ThemePackPageState {
+    pages: Mutex<HashMap<String, String>>,
+    counter: AtomicU64,
+}
+
 pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("theme-pack")
+        .setup(|app, _api| {
+            app.manage(ThemePackPageState::default());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             theme_pack_list,
             theme_pack_get,
@@ -35,6 +62,10 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
             theme_pack_instance_mods,
             theme_pack_instance_logs,
             theme_pack_export_snapshot,
+            theme_pack_open_page,
+            theme_pack_page_bounds,
+            theme_pack_close_page,
+            theme_pack_page_request,
         ])
         .build()
 }
@@ -156,8 +187,264 @@ pub async fn theme_pack_resolve_page<R: Runtime>(
         title: serde_json::to_value(&resolved.page.title)
             .unwrap_or(serde_json::Value::Null),
         path: resolved.path.to_string_lossy().to_string(),
-        url: format!("{}/{}/{}", theme_origin(), pack_id, resolved.page.entry),
+        url: format!(
+            "{}/{}/{}",
+            theme_origin(),
+            encode_url_segment(&pack_id),
+            resolved
+                .page
+                .entry
+                .split('/')
+                .map(encode_url_segment)
+                .collect::<Vec<_>>()
+                .join("/")
+        ),
     })
+}
+
+/// The bridge exposed to pack pages. It only calls the page bridge command;
+/// the child webview's capability grants nothing else.
+const THEME_PAGE_API: &str = r#"
+(function () {
+  const call = (method, params) =>
+    window.__TAURI_INTERNALS__.invoke('plugin:theme-pack|theme_pack_page_request', {
+      request: { method: method, params: params || {} },
+    });
+  Object.defineProperty(window, 'axolotlTheme', {
+    value: Object.freeze({
+      request: call,
+      network: {
+        fetch: (request) => call('network.fetch', request),
+      },
+      storage: {
+        list: () => call('storage.list'),
+        read: (key) => call('storage.read', { key: key }),
+        write: (key, contents) => call('storage.write', { key: key, contents: contents }),
+        delete: (key) => call('storage.delete', { key: key }),
+      },
+      instances: {
+        list: () => call('instances.list'),
+        mods: (instanceId) => call('instances.mods', { instanceId: instanceId }),
+        logs: (instanceId) => call('instances.logs', { instanceId: instanceId }),
+      },
+    }),
+  });
+})();
+"#;
+
+fn lock_pages(
+    state: &ThemePackPageState,
+) -> Result<std::sync::MutexGuard<'_, HashMap<String, String>>> {
+    state
+        .pages
+        .lock()
+        .map_err(|_| theme_error("The theme page state is unavailable"))
+}
+
+fn page_pack_id(state: &ThemePackPageState, label: &str) -> Result<String> {
+    lock_pages(state)?
+        .get(label)
+        .cloned()
+        .ok_or_else(|| theme_error("The theme page is not open"))
+}
+
+/// Opens a pack page in a child webview. Pack pages never share the main
+/// webview: their capability only allows `theme_pack_page_request`, so the
+/// page cannot reach filesystem, install, or process commands.
+#[tauri::command]
+pub async fn theme_pack_open_page<R: Runtime>(
+    webview: Webview<R>,
+    state: State<'_, ThemePackPageState>,
+    pack_id: String,
+    page_id: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<String> {
+    let app = webview.app_handle();
+    let storage = storage(app)?;
+    let resolved =
+        theseus::theme_pack::store::resolve_page(&storage, &pack_id, &page_id)?;
+    let entry = resolved
+        .page
+        .entry
+        .split('/')
+        .map(encode_url_segment)
+        .collect::<Vec<_>>()
+        .join("/");
+    let url = format!(
+        "{}/{}/{}",
+        theme_origin(),
+        encode_url_segment(&pack_id),
+        entry
+    );
+    let url = url
+        .parse()
+        .map_err(|_| theme_error("The theme page URL could not be resolved"))?;
+    let label = format!(
+        "{}{}",
+        THEME_PAGE_LABEL_PREFIX,
+        state.counter.fetch_add(1, Ordering::Relaxed)
+    );
+    let allowed_prefix = format!("{}/{}/", theme_origin(), pack_id);
+    let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(url))
+        .initialization_script(THEME_PAGE_API)
+        .on_navigation(move |url| url.as_str().starts_with(&allowed_prefix));
+    lock_pages(&state)?.insert(label.clone(), pack_id);
+    if let Err(error) = webview.window().add_child(
+        builder,
+        LogicalPosition::new(x, y),
+        LogicalSize::new(width.max(1.0), height.max(1.0)),
+    ) {
+        lock_pages(&state)?.remove(&label);
+        return Err(error.into());
+    }
+    Ok(label)
+}
+
+#[tauri::command]
+pub async fn theme_pack_page_bounds<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ThemePackPageState>,
+    label: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<()> {
+    page_pack_id(&state, &label)?;
+    let webview = app
+        .get_webview(&label)
+        .ok_or_else(|| theme_error("The theme page is not open"))?;
+    webview.set_position(LogicalPosition::new(x, y))?;
+    webview.set_size(LogicalSize::new(width.max(1.0), height.max(1.0)))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn theme_pack_close_page<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, ThemePackPageState>,
+    label: String,
+) -> Result<()> {
+    page_pack_id(&state, &label)?;
+    lock_pages(&state)?.remove(&label);
+    if let Some(webview) = app.get_webview(&label) {
+        webview.close()?;
+    }
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePageRequest {
+    pub method: String,
+    #[serde(default)]
+    pub params: serde_json::Value,
+}
+
+fn request_string(params: &serde_json::Value, key: &str) -> Result<String> {
+    params
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| {
+            theme_error("The theme page request is missing an argument")
+        })
+}
+
+#[tauri::command]
+pub async fn theme_pack_page_request<R: Runtime>(
+    webview: Webview<R>,
+    state: State<'_, ThemePackPageState>,
+    request: ThemePageRequest,
+) -> Result<serde_json::Value> {
+    let pack_id = page_pack_id(&state, webview.label())?;
+    let app = webview.app_handle().clone();
+    match request.method.as_str() {
+        "network.fetch" => {
+            let request: ThemeNetworkRequest =
+                serde_json::from_value(request.params).map_err(|error| {
+                    theme_error(&format!(
+                        "The network request is invalid: {error}"
+                    ))
+                })?;
+            let storage = storage(&app)?;
+            let response = theseus::theme_pack::network::fetch(
+                &storage, &pack_id, request,
+            )
+            .await?;
+            Ok(serde_json::to_value(response).map_err(|error| {
+                theme_error(&format!(
+                    "The response could not be serialized: {error}"
+                ))
+            })?)
+        }
+        "storage.list" => {
+            let keys = theme_pack_storage_list(app, pack_id).await?;
+            Ok(serde_json::to_value(keys).map_err(|error| {
+                theme_error(&format!(
+                    "The response could not be serialized: {error}"
+                ))
+            })?)
+        }
+        "storage.read" => {
+            let key = request_string(&request.params, "key")?;
+            let contents = theme_pack_storage_read(app, pack_id, key).await?;
+            Ok(serde_json::to_value(contents).map_err(|error| {
+                theme_error(&format!(
+                    "The response could not be serialized: {error}"
+                ))
+            })?)
+        }
+        "storage.write" => {
+            let key = request_string(&request.params, "key")?;
+            let contents = request_string(&request.params, "contents")?;
+            theme_pack_storage_write(app, pack_id, key, contents).await?;
+            Ok(serde_json::Value::Null)
+        }
+        "storage.delete" => {
+            let key = request_string(&request.params, "key")?;
+            let removed = theme_pack_storage_delete(app, pack_id, key).await?;
+            Ok(serde_json::to_value(removed).map_err(|error| {
+                theme_error(&format!(
+                    "The response could not be serialized: {error}"
+                ))
+            })?)
+        }
+        "instances.list" => {
+            let instances = theme_pack_instance_list(app, pack_id).await?;
+            Ok(serde_json::to_value(instances).map_err(|error| {
+                theme_error(&format!(
+                    "The response could not be serialized: {error}"
+                ))
+            })?)
+        }
+        "instances.mods" => {
+            let instance_id = request_string(&request.params, "instanceId")?;
+            let mods =
+                theme_pack_instance_mods(app, pack_id, instance_id).await?;
+            Ok(serde_json::to_value(mods).map_err(|error| {
+                theme_error(&format!(
+                    "The response could not be serialized: {error}"
+                ))
+            })?)
+        }
+        "instances.logs" => {
+            let instance_id = request_string(&request.params, "instanceId")?;
+            let logs =
+                theme_pack_instance_logs(app, pack_id, instance_id).await?;
+            Ok(serde_json::to_value(logs).map_err(|error| {
+                theme_error(&format!(
+                    "The response could not be serialized: {error}"
+                ))
+            })?)
+        }
+        method => Err(theme_error(&format!(
+            "The theme page method {method} is not available"
+        ))),
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -807,6 +1094,25 @@ pub fn theme_origin() -> &'static str {
     }
 }
 
+/// Percent-encodes one URL path segment. Manifest paths may contain spaces or
+/// `#`, which would otherwise be parsed as separators or fragments.
+fn encode_url_segment(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'.'
+            | b'_'
+            | b'~' => encoded.push(byte as char),
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
+}
+
 pub fn protocol_response(
     app: &AppHandle<impl Runtime>,
     request: &tauri::http::Request<Vec<u8>>,
@@ -864,28 +1170,35 @@ pub(crate) fn protocol_response_for(
         .and_then(|value| value.to_str().ok())
     {
         // Only echo an origin that passed `is_allowed_theme_request`; `null`
-        // is the opaque origin of a sandboxed pack page fetching its own font.
+        // is the opaque origin of a sandboxed SVG asset.
         if origin == "null" || is_allowed_origin(origin) {
             builder =
                 builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
         }
     }
-    if content_type.starts_with("text/html")
-        || content_type.starts_with("image/svg+xml")
-    {
-        // A CSP sandbox gives the document an opaque origin, so `'self'` would
-        // match nothing; name the theme origin explicitly instead.
+    if content_type.starts_with("text/html") {
+        // Pack pages run in a child webview whose capability only allows the
+        // page bridge command. They keep their real theme origin so the bridge
+        // capability applies, and the bridge derives the pack id from the
+        // webview label rather than from the page.
         builder = builder.header(
             "Content-Security-Policy",
-            "sandbox allow-scripts; default-src http://axolotl-theme.localhost axolotl-theme://localhost; \
+            "default-src http://axolotl-theme.localhost axolotl-theme://localhost; \
              script-src http://axolotl-theme.localhost axolotl-theme://localhost 'unsafe-inline'; \
              style-src http://axolotl-theme.localhost axolotl-theme://localhost 'unsafe-inline'; \
              img-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
              font-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
              connect-src 'none'; media-src http://axolotl-theme.localhost axolotl-theme://localhost; \
              object-src 'none'; base-uri 'none'; form-action 'none'; \
-             frame-ancestors http://127.0.0.1:5201 http://tauri.localhost tauri://localhost \
-             http://axolotl-theme.localhost axolotl-theme://localhost",
+             frame-src 'none'; frame-ancestors 'none'",
+        );
+    } else if content_type.starts_with("image/svg+xml") {
+        // SVG documents never need the bridge; keep them sandboxed so their
+        // scripts cannot run with the theme origin.
+        builder = builder.header(
+            "Content-Security-Policy",
+            "sandbox; default-src 'none'; style-src 'unsafe-inline'; \
+             img-src data:",
         );
     }
     builder
@@ -1029,17 +1342,19 @@ mod tests {
             .unwrap()
             .to_str()
             .unwrap();
-        assert!(csp.contains("sandbox allow-scripts"), "{csp}");
+        assert!(csp.contains("default-src http://axolotl-theme.localhost"));
+        // Pack pages run in a dedicated child webview whose capability only
+        // allows the page bridge, so they keep their real origin instead of
+        // relying on an iframe CSP sandbox.
+        assert!(!csp.contains("sandbox"), "{csp}");
         assert!(!csp.contains("allow-same-origin"), "{csp}");
         assert!(csp.contains("connect-src 'none'"), "{csp}");
         assert!(
             csp.contains("script-src http://axolotl-theme.localhost"),
             "{csp}"
         );
-        assert!(
-            csp.contains("frame-ancestors http://127.0.0.1:5201"),
-            "{csp}"
-        );
+        assert!(csp.contains("frame-src 'none'"), "{csp}");
+        assert!(csp.contains("frame-ancestors 'none'"), "{csp}");
         assert_eq!(
             response
                 .headers()
@@ -1051,6 +1366,31 @@ mod tests {
             response.headers().get("x-content-type-options").unwrap(),
             "nosniff"
         );
+    }
+
+    #[test]
+    fn sandboxes_svg_documents() {
+        let directory = tempfile::tempdir().unwrap();
+        let assets = directory.path().join("themes/demo/assets");
+        std::fs::create_dir_all(&assets).unwrap();
+        std::fs::write(assets.join("icon.svg"), "<svg></svg>").unwrap();
+        let storage = ThemePackStorage::new(directory.path());
+        let response = protocol_response_for(
+            &storage,
+            &request(
+                "http://axolotl-theme.localhost/demo/assets/icon.svg",
+                None,
+            ),
+        );
+        assert_eq!(response.status(), StatusCode::OK);
+        let csp = response
+            .headers()
+            .get("content-security-policy")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(csp.contains("sandbox"), "{csp}");
+        assert!(csp.contains("default-src 'none'"), "{csp}");
     }
 
     #[test]
@@ -1275,5 +1615,53 @@ mod tests {
         assert!(origin.contains("\"packId\": \"aurora\""));
         assert!(origin.contains("\"version\": \"2.1.0\""));
         assert!(!origin.contains("\"old\""));
+    }
+
+    #[test]
+    fn encode_url_segment_escapes_reserved_characters() {
+        assert_eq!(encode_url_segment("My Skin#1.html"), "My%20Skin%231.html");
+    }
+
+    #[test]
+    fn theme_pages_have_an_isolated_capability() {
+        for source in [
+            include_str!("../../capabilities/app.json"),
+            include_str!("../../capabilities/core.json"),
+            include_str!("../../capabilities/plugins.json"),
+            include_str!("../../capabilities/updater.json"),
+        ] {
+            let capability: serde_json::Value =
+                serde_json::from_str(source).unwrap();
+            assert_eq!(capability["webviews"], serde_json::json!(["main"]));
+            assert!(capability.get("windows").is_none());
+        }
+
+        let app: serde_json::Value =
+            serde_json::from_str(include_str!("../../capabilities/app.json"))
+                .unwrap();
+        assert_eq!(app["permissions"], serde_json::json!(["default"]));
+
+        let capability: serde_json::Value = serde_json::from_str(include_str!(
+            "../../capabilities/theme-pages.json"
+        ))
+        .unwrap();
+        assert_eq!(capability["webviews"], serde_json::json!(["theme-page-*"]));
+        assert_eq!(
+            capability["permissions"],
+            serde_json::json!(["theme-pack:allow-theme-pack-page-request"])
+        );
+
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../../tauri.conf.json"))
+                .unwrap();
+        let enabled = config["app"]["security"]["capabilities"]
+            .as_array()
+            .unwrap();
+        for capability in ["app", "theme-pages"] {
+            assert!(
+                enabled.iter().any(|entry| entry == capability),
+                "the {capability} capability must be enabled in tauri.conf.json"
+            );
+        }
     }
 }

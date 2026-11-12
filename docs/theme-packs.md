@@ -70,30 +70,39 @@ device names, and symlinks are rejected.
 
 ## Permissions and the page bridge
 
-Pack pages are loaded in an iframe with `sandbox="allow-scripts"` and a
-unique opaque origin, and the response CSP forbids all direct network access.
-A page talks to the launcher with `postMessage`:
+Pack pages are hosted in a dedicated child webview labeled
+`theme-page-*`. That webview has its own Tauri capability, which grants only
+the `theme_pack_page_request` command, so a page cannot reach filesystem,
+install, process, or any other launcher command. Application commands are
+separately gated by the `app` capability, which only the main launcher webview
+receives. The CSP also forbids direct network access; every request must go
+through the launcher.
+
+Pages call the frozen `window.axolotlTheme` object:
 
 ```js
-window.parent.postMessage(
-  { type: 'axolotl-theme-request', id: crypto.randomUUID(), method: 'storage.read', params: { key: 'state' } },
-  '*',
-)
+const state = await window.axolotlTheme.storage.read('state')
+const results = await window.axolotlTheme.network.fetch({
+  url: 'https://api.example.com/items',
+  method: 'GET',
+})
+const logs = await window.axolotlTheme.instances.logs(instanceId)
 ```
 
-The launcher replies with
-`{ type: 'axolotl-theme-response', id, ok, data | error }`. Available methods:
+Available methods:
 
 | Method | Permission | Notes |
 | --- | --- | --- |
-| `network.fetch` | `network` | HTTPS only, allow-listed host, GET/POST; request 1 MiB, response 8 MiB, 30 s timeout, 4 concurrent and 60 requests/minute per pack |
-| `storage.list` / `read` / `write` / `delete` | `storage` | Per-pack directory, 256 files, 2 MiB per file |
-| `instances.list` | `instances.read` | Read-only instance summaries |
-| `instances.mods` | `instances.read` | Read-only mod list |
-| `instances.logs` | `instances.logs` | Censored logs, last 256 KiB |
+| `network.fetch({ url, method, headers?, body? })` | `network` | HTTPS only, allow-listed host, GET/POST; request 1 MiB, response 8 MiB, 30 s timeout, 4 concurrent and 60 requests/minute per pack |
+| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files, 2 MiB per file |
+| `instances.list()` | `instances.read` | Read-only instance summaries |
+| `instances.mods(instanceId)` | `instances.read` | Read-only mod list |
+| `instances.logs(instanceId)` | `instances.logs` | Censored logs, last 256 KiB |
 
-Tauri IPC is not available inside pack pages, and the launcher only answers
-messages whose source is the page's own iframe.
+The bridge derives the pack id from the child webview's server-side label, not
+from page input, so a page cannot read another pack's storage or network
+allowlist. Navigation away from the pack's own `axolotl-theme` origin is
+blocked.
 
 ## Limits
 

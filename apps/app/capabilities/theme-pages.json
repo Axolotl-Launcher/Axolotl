@@ -1,0 +1,7 @@
+{
+  "identifier": "theme-pages",
+  "description": "Bridge access for isolated theme pack pages.",
+  "local": true,
+  "webviews": ["theme-page-*"],
+  "permissions": ["theme-pack:allow-theme-pack-page-request"]
+}

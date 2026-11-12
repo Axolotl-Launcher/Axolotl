@@ -63,41 +63,82 @@ export type ThemePackSnapshot = {
     packId: string | null
 }
 
+function themePackCommand(command: string): string {
+    return `plugin:theme-pack|${command}`
+}
+
 export function listThemePacks(): Promise<InstalledThemePack[]> {
-    return invoke<InstalledThemePack[]>('theme_pack_list')
+    return invoke<InstalledThemePack[]>(themePackCommand('theme_pack_list'))
 }
 
 export function getThemePack(packId: string): Promise<InstalledThemePack | null> {
-    return invoke<InstalledThemePack | null>('theme_pack_get', { packId })
+    return invoke<InstalledThemePack | null>(themePackCommand('theme_pack_get'), { packId })
 }
 
 export function installThemePack(
     archivePath: string,
     replace = false,
 ): Promise<InstalledThemePack> {
-    return invoke<InstalledThemePack>('theme_pack_install', { archivePath, replace })
+    return invoke<InstalledThemePack>(themePackCommand('theme_pack_install'), {
+        archivePath,
+        replace,
+    })
 }
 
 export function removeThemePack(packId: string, removeData = false): Promise<boolean> {
-    return invoke<boolean>('theme_pack_remove', { packId, removeData })
+    return invoke<boolean>(themePackCommand('theme_pack_remove'), { packId, removeData })
 }
 
 export function getThemePackLimits(): Promise<ThemePackLimits> {
-    return invoke<ThemePackLimits>('theme_pack_limits')
+    return invoke<ThemePackLimits>(themePackCommand('theme_pack_limits'))
 }
 
 export function exportThemePackSnapshot(
     destination: string,
     snapshot: ThemePackSnapshot,
 ): Promise<string> {
-    return invoke<string>('theme_pack_export_snapshot', { destination, snapshot })
+    return invoke<string>(themePackCommand('theme_pack_export_snapshot'), {
+        destination,
+        snapshot,
+    })
+}
+
+export type ThemePackPageBounds = {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
+/** Opens a pack page in a dedicated child webview and returns its label. */
+export function openThemePackPage(
+    packId: string,
+    pageId: string,
+    bounds: ThemePackPageBounds,
+): Promise<string> {
+    return invoke<string>(themePackCommand('theme_pack_open_page'), {
+        packId,
+        pageId,
+        ...bounds,
+    })
+}
+
+export function setThemePackPageBounds(label: string, bounds: ThemePackPageBounds): Promise<void> {
+    return invoke<void>(themePackCommand('theme_pack_page_bounds'), { label, ...bounds })
+}
+
+export function closeThemePackPage(label: string): Promise<void> {
+    return invoke<void>(themePackCommand('theme_pack_close_page'), { label })
 }
 
 export function resolveThemePackPage(
     packId: string,
     pageId: string,
 ): Promise<ResolvedThemePackPage> {
-    return invoke<ResolvedThemePackPage>('theme_pack_resolve_page', { packId, pageId })
+    return invoke<ResolvedThemePackPage>(themePackCommand('theme_pack_resolve_page'), {
+        packId,
+        pageId,
+    })
 }
 
 /**

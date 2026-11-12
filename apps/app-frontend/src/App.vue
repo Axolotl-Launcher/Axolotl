@@ -2586,6 +2586,7 @@ async function handlePrivilegedCommand(e: AppCommand) {
         if (!applySettingChanges(latest, e.changes ?? [])) return
         await updateSettings(diffSettings(before, latest)).catch(handleError)
         await applyThemeFromSettings(latest)
+        await refreshThemePackPages()
         setFollowSystemLocale(!latest.locale || latest.locale === 'system')
         await applyLocalePreference(latest.locale)
         addNotification({

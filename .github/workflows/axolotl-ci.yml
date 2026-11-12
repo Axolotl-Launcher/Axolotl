@@ -413,15 +413,15 @@ jobs:
         run: |
           node scripts/axolotl/build-desktop.mjs --profile ci
           node scripts/axolotl/build-desktop.mjs --profile ci --installer-only
+      - name: Package and verify both Windows installers from one binary
+        if: runner.os == 'Windows'
+        run: node scripts/axolotl/package-windows.mjs --profile ci --output target/ci-installers
       - name: Test transactional Windows executable updates
         if: runner.os == 'Windows'
         shell: pwsh
         env:
           AXOLOTL_INSTALLER_UI_PATH: ${{ github.workspace }}/target/ci/axolotl-installer-ui.exe
         run: node --test apps/installer-ui/tests/executable-install.test.cjs apps/installer-ui/tests/portable-update.test.cjs
-      - name: Package and verify both Windows installers from one binary
-        if: runner.os == 'Windows'
-        run: node scripts/axolotl/package-windows.mjs --profile ci --output target/ci-installers
       - name: Test actual Windows uninstallation
         if: runner.os == 'Windows'
         shell: pwsh

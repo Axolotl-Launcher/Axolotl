@@ -106,8 +106,10 @@ allowlist. Navigation outside the pack's URL prefix is blocked.
 All packs share the `axolotl-theme` origin. A page can therefore display
 another installed pack's static assets with a same-origin `<img>` or
 stylesheet, although it cannot call that pack's bridge identity, read its
-storage, or use its network allowlist. Treat files inside a theme pack as
-public; do not put secrets in a pack archive.
+storage, or use its network allowlist. Browser storage (`localStorage`,
+`sessionStorage`, IndexedDB) is shared by that origin as well. Treat files
+inside a theme pack as public, do not put secrets in a pack archive, and
+keep persistent page state in `axolotlTheme.storage`.
 
 ## Limits
 

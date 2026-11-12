@@ -1,5 +1,10 @@
 import { DEFAULT_UI_FONT_STACK } from '@/helpers/font-family'
-import { getThemePack, themePackAssetUrl, type ThemePackManifest } from '@/helpers/theme-packs'
+import {
+    getThemePack,
+    themePackAssetUrl,
+    type ThemePackManifest,
+    type ThemePackSnapshot,
+} from '@/helpers/theme-packs'
 import { applyCustomThemeColors, type ColorTheme, type CustomThemeColors } from '@/store/theme'
 
 export type ThemeRuntimeSource = 'builtin' | 'custom' | `pack:${string}` | null | undefined
@@ -91,6 +96,110 @@ export function selectPackTokens(
             value.length <= 256 &&
             !forbidden.some((token) => value.toLowerCase().includes(token)),
     )
+}
+
+/**
+ * The custom properties captured for a snapshot. Keep this in sync with the
+ * custom-theme variables in `@/store/theme`; that list is private to the store.
+ */
+const SNAPSHOT_TOKEN_VARIABLES = [
+    '--surface-1',
+    '--surface-1-5',
+    '--surface-2',
+    '--surface-2-5',
+    '--surface-3',
+    '--surface-4',
+    '--surface-5',
+    '--color-text-primary',
+    '--color-text-default',
+    '--color-text-tertiary',
+] as const
+
+/** Documented values from `packages/assets/styles/variables.scss`. */
+const SNAPSHOT_TOKEN_FALLBACKS: Record<ThemeColorBucket, Record<string, string>> = {
+    light: {
+        '--surface-1': '#ebebeb',
+        '--surface-1-5': '#ededed',
+        '--surface-2': '#f5f5f5',
+        '--surface-2-5': '#eef1f5',
+        '--surface-3': '#f8f8f8',
+        '--surface-4': '#ffffff',
+        '--surface-5': '#dddddd',
+        '--color-text-primary': '#1a202c',
+        '--color-text-default': '#2c2e31',
+        '--color-text-tertiary': '#484d54',
+    },
+    dark: {
+        '--surface-1': '#101215',
+        '--surface-1-5': '#15181c',
+        '--surface-2': '#1a1e24',
+        '--surface-2-5': '#20242b',
+        '--surface-3': '#262b34',
+        '--surface-4': '#333a46',
+        '--surface-5': '#424854',
+        '--color-text-primary': '#ffffff',
+        '--color-text-default': '#b0bac5',
+        '--color-text-tertiary': '#96a2b0',
+    },
+}
+
+function readSnapshotTokens(bucket: ThemeColorBucket): Record<string, string> {
+    const fallbacks = SNAPSHOT_TOKEN_FALLBACKS[bucket]
+    const style = canUseDom() ? getComputedStyle(document.documentElement) : null
+    const tokens: Record<string, string> = {}
+    for (const name of SNAPSHOT_TOKEN_VARIABLES) {
+        const value = style?.getPropertyValue(name).trim() ?? ''
+        tokens[name] = value || fallbacks[name]
+    }
+    return tokens
+}
+
+/**
+ * Collects the appearance the launcher is currently showing without changing
+ * it. An active theme pack contributes its own manifest tokens; built-in and
+ * custom appearances are read back from the document's computed properties.
+ */
+export async function collectCurrentAppearanceSnapshot(
+    source: ThemeRuntimeSource,
+    theme: ColorTheme,
+    selection: ThemeRuntimeSelection,
+    accentColor: string | null = null,
+): Promise<ThemePackSnapshot> {
+    const parsed = parseThemeSource(source)
+    let tokensLight: Record<string, string>
+    let tokensDark: Record<string, string>
+
+    let snapshotSource: 'builtin' | 'custom' = parsed.kind === 'custom' ? 'custom' : 'builtin'
+    let packId: string | null = null
+    if (parsed.kind === 'pack' && parsed.packId) {
+        const installed = await getThemePack(parsed.packId).catch(() => null)
+        const manifest =
+            installed?.manifest ?? (cachedManifest?.id === parsed.packId ? cachedManifest : null)
+        tokensLight = { ...SNAPSHOT_TOKEN_FALLBACKS.light, ...(manifest?.tokens?.light ?? {}) }
+        tokensDark = { ...SNAPSHOT_TOKEN_FALLBACKS.dark, ...(manifest?.tokens?.dark ?? {}) }
+        // A pack that has since been uninstalled falls back to the built-in
+        // theme at runtime, so the snapshot reflects that instead of failing.
+        if (installed) packId = parsed.packId
+    } else {
+        const prefersDark =
+            typeof window !== 'undefined' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches
+        const bucket = resolveColorBucket(theme, prefersDark)
+        const current = readSnapshotTokens(bucket)
+        tokensLight = bucket === 'light' ? current : { ...SNAPSHOT_TOKEN_FALLBACKS.light }
+        tokensDark = bucket === 'dark' ? current : { ...SNAPSHOT_TOKEN_FALLBACKS.dark }
+    }
+
+    return {
+        schemaVersion: 1,
+        source: packId ? `pack:${packId}` : snapshotSource,
+        theme,
+        accentColor,
+        customThemeColors: selection.customThemeColors ?? null,
+        tokensLight,
+        tokensDark,
+        packId,
+    }
 }
 
 function clearAppliedTokens() {

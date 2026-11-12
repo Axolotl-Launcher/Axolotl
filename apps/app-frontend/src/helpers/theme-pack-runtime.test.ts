@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
     applyThemeRuntime,
+    collectCurrentAppearanceSnapshot,
     parseThemeSource,
     reapplyThemeRuntime,
     resetThemeRuntime,
@@ -59,6 +60,40 @@ describe('parseThemeSource', () => {
 
     it('treats an empty pack id as built-in', () => {
         expect(parseThemeSource('pack:')).toEqual({ kind: 'builtin', packId: null })
+    })
+})
+
+describe('collectCurrentAppearanceSnapshot', () => {
+    it('uses the installed pack manifest tokens and records its source', async () => {
+        const snapshot = await collectCurrentAppearanceSnapshot(
+            'pack:aurora',
+            'dark',
+            packSelection(),
+            '#123456',
+        )
+
+        expect(snapshot.source).toBe('pack:aurora')
+        expect(snapshot.packId).toBe('aurora')
+        expect(snapshot.accentColor).toBe('#123456')
+        expect(snapshot.tokensLight['--surface-1']).toBe('#ffffff')
+        expect(snapshot.tokensLight['--surface-3']).toBe('#f1f1f1')
+        // The pack omits required tokens, so the documented defaults fill in.
+        expect(snapshot.tokensLight['--color-text-primary']).toBe('#1a202c')
+        expect(snapshot.tokensDark['--surface-1']).toBe('#000000')
+        expect(snapshot.tokensDark['--color-text-primary']).toBe('#ffffff')
+    })
+
+    it('captures both buckets for a built-in appearance', async () => {
+        const snapshot = await collectCurrentAppearanceSnapshot('builtin', 'light', {
+            themeSource: 'builtin',
+        })
+
+        expect(snapshot.source).toBe('builtin')
+        expect(snapshot.packId).toBeNull()
+        expect(snapshot.tokensLight['--surface-1']).toBe('#ebebeb')
+        expect(snapshot.tokensLight['--color-text-primary']).toBe('#1a202c')
+        expect(snapshot.tokensDark['--surface-1']).toBe('#101215')
+        expect(snapshot.tokensDark['--color-text-primary']).toBe('#ffffff')
     })
 })
 

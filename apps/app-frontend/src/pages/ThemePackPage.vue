@@ -3,7 +3,11 @@ import { defineMessages, useVIntl } from '@modrinth/ui'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { dispatchThemePackRequest, parseThemePackRequest } from '@/helpers/theme-pack-bridge'
+import {
+    dispatchThemePackRequest,
+    parseThemePackRequest,
+    THEME_PAGE_SANDBOX,
+} from '@/helpers/theme-pack-bridge'
 import { getThemePack, resolveThemePackPage, type ThemePackManifest } from '@/helpers/theme-packs'
 
 const messages = defineMessages({
@@ -105,7 +109,7 @@ watch(
             v-else-if="url"
             ref="frame"
             :src="url"
-            sandbox="allow-scripts"
+            :sandbox="THEME_PAGE_SANDBOX"
             referrerpolicy="no-referrer"
             class="h-full w-full border-0"
             :title="formatMessage(messages.title)"

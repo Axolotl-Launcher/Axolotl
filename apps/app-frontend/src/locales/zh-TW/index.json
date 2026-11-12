@@ -7622,8 +7622,11 @@
   "app.theme-suite.export-snapshot": {
     "message": "匯出快照"
   },
-  "app.theme-suite.export-snapshot-unavailable": {
-    "message": "匯出主題快照暫不可用。"
+  "app.theme-suite.exporting-snapshot": {
+    "message": "正在匯出…"
+  },
+  "app.theme-suite.export-snapshot-failed": {
+    "message": "無法匯出快照：{error}"
   },
   "app.theme-suite.custom-colors": {
     "message": "自訂顏色"

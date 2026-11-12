@@ -176,8 +176,11 @@
   "app.theme-suite.export-snapshot": {
     "message": "Export snapshot"
   },
-  "app.theme-suite.export-snapshot-unavailable": {
-    "message": "Exporting a theme snapshot is not available yet."
+  "app.theme-suite.exporting-snapshot": {
+    "message": "Exporting…"
+  },
+  "app.theme-suite.export-snapshot-failed": {
+    "message": "The snapshot could not be exported: {error}"
   },
   "app.theme-suite.custom-colors": {
     "message": "Custom colors"

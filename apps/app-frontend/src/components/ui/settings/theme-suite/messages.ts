@@ -25,9 +25,13 @@ export const themeSuiteMessages = defineMessages({
     },
     importPack: { id: 'app.theme-suite.import-pack', defaultMessage: 'Import pack' },
     exportSnapshot: { id: 'app.theme-suite.export-snapshot', defaultMessage: 'Export snapshot' },
-    exportSnapshotUnavailable: {
-        id: 'app.theme-suite.export-snapshot-unavailable',
-        defaultMessage: 'Exporting a theme snapshot is not available yet.',
+    exportingSnapshot: {
+        id: 'app.theme-suite.exporting-snapshot',
+        defaultMessage: 'Exporting snapshot…',
+    },
+    exportSnapshotFailed: {
+        id: 'app.theme-suite.export-snapshot-failed',
+        defaultMessage: 'The appearance snapshot could not be exported: {error}',
     },
     customColors: { id: 'app.theme-suite.custom-colors', defaultMessage: 'Custom colors' },
     customColorsDescription: {

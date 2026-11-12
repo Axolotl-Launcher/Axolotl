@@ -1,10 +1,12 @@
 import { createContext, type MultiStageModal, useVIntl } from '@modrinth/ui'
+import { save } from '@tauri-apps/plugin-dialog'
 import { computed, ref, type ShallowRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
 import { type AppSettings, get as getSettings, update as updateSettings } from '@/helpers/settings'
-import { applyThemeRuntime } from '@/helpers/theme-pack-runtime'
+import { applyThemeRuntime, collectCurrentAppearanceSnapshot } from '@/helpers/theme-pack-runtime'
 import {
+    exportThemePackSnapshot,
     getThemePackLimits,
     type InstalledThemePack,
     installThemePack,
@@ -90,6 +92,9 @@ export function createThemeSuiteContext(
     const installing = ref(false)
     const installError = ref('')
     const colorsDraft = ref<ThemeColorDraft>(readColorDefaults('dark'))
+    const snapshotExporting = ref(false)
+    const snapshotError = ref('')
+    const snapshotExported = ref(false)
 
     const activeSource = computed<ThemeSuiteSource>(() => settings.value?.theme_source ?? 'builtin')
 
@@ -264,6 +269,43 @@ export function createThemeSuiteContext(
         }
     }
 
+    async function exportSnapshot() {
+        if (snapshotExporting.value || !settings.value) return
+        snapshotExporting.value = true
+        snapshotError.value = ''
+        snapshotExported.value = false
+        try {
+            const now = new Date()
+            const stamp = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0'),
+            ].join('')
+            const destination = await save({
+                defaultPath: `axolotl-theme-${stamp}.zip`,
+                filters: [{ name: 'Zip archive', extensions: ['zip'] }],
+            })
+            if (!destination) return
+            const source = activeSource.value
+            const snapshot = await collectCurrentAppearanceSnapshot(
+                source,
+                activeTheme.value,
+                {
+                    themeSource: source,
+                    customThemeColors: settings.value.custom_theme_colors ?? null,
+                    uiFont: settings.value.ui_font ?? null,
+                },
+                settings.value.accent_color ?? null,
+            )
+            await exportThemePackSnapshot(destination, snapshot)
+            snapshotExported.value = true
+        } catch (failure) {
+            snapshotError.value = String(failure)
+        } finally {
+            snapshotExporting.value = false
+        }
+    }
+
     return {
         modal,
         formatMessage,
@@ -279,6 +321,9 @@ export function createThemeSuiteContext(
         installing,
         installError,
         colorsDraft,
+        snapshotExporting,
+        snapshotError,
+        snapshotExported,
         activeSource,
         activeTheme,
         colorsBucket,
@@ -292,6 +337,7 @@ export function createThemeSuiteContext(
         remove,
         resetColors,
         saveColors,
+        exportSnapshot,
     }
 }
 

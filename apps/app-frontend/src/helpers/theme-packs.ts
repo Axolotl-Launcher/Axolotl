@@ -48,6 +48,21 @@ export type ResolvedThemePackPage = {
     url: string
 }
 
+/**
+ * The appearance state sent to the backend when exporting a snapshot pack.
+ * `customThemeColors` stays opaque: the backend only copies it into `origin.json`.
+ */
+export type ThemePackSnapshot = {
+    schemaVersion: number
+    source: string
+    theme: string
+    accentColor: string | null
+    customThemeColors: Record<string, unknown> | null
+    tokensLight: Record<string, string>
+    tokensDark: Record<string, string>
+    packId: string | null
+}
+
 export function listThemePacks(): Promise<InstalledThemePack[]> {
     return invoke<InstalledThemePack[]>('theme_pack_list')
 }
@@ -69,6 +84,13 @@ export function removeThemePack(packId: string, removeData = false): Promise<boo
 
 export function getThemePackLimits(): Promise<ThemePackLimits> {
     return invoke<ThemePackLimits>('theme_pack_limits')
+}
+
+export function exportThemePackSnapshot(
+    destination: string,
+    snapshot: ThemePackSnapshot,
+): Promise<string> {
+    return invoke<string>('theme_pack_export_snapshot', { destination, snapshot })
 }
 
 export function resolveThemePackPage(

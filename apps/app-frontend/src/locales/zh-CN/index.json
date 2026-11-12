@@ -176,8 +176,11 @@
   "app.theme-suite.export-snapshot": {
     "message": "导出快照"
   },
-  "app.theme-suite.export-snapshot-unavailable": {
-    "message": "导出主题快照暂不可用。"
+  "app.theme-suite.exporting-snapshot": {
+    "message": "正在导出…"
+  },
+  "app.theme-suite.export-snapshot-failed": {
+    "message": "无法导出快照：{error}"
   },
   "app.theme-suite.custom-colors": {
     "message": "自定义颜色"

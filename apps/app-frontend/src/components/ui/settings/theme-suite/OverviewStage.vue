@@ -21,11 +21,14 @@ const {
     activeSource,
     selectingSource,
     removingId,
+    snapshotExporting,
+    snapshotError,
     formatMessage,
     selectSource,
     remove,
     openImport,
     openColors,
+    exportSnapshot,
 } = injectThemeSuiteContext()
 
 const formatBytes = useFormatBytes()
@@ -322,10 +325,25 @@ function confirmRemove(pack: InstalledThemePack) {
                 >
                     {{ formatMessage(themeSuiteMessages.activeBadge) }}
                 </span>
-                <span v-tooltip="formatMessage(themeSuiteMessages.exportSnapshotUnavailable)">
-                    <Button disabled>{{ formatMessage(themeSuiteMessages.exportSnapshot) }}</Button>
-                </span>
+                <Button :loading="snapshotExporting" @click="exportSnapshot">
+                    {{
+                        formatMessage(
+                            snapshotExporting
+                                ? themeSuiteMessages.exportingSnapshot
+                                : themeSuiteMessages.exportSnapshot,
+                        )
+                    }}
+                </Button>
             </div>
+            <p
+                v-if="snapshotError"
+                class="m-0 break-all text-sm text-[var(--color-red)]"
+                role="alert"
+            >
+                {{
+                    formatMessage(themeSuiteMessages.exportSnapshotFailed, { error: snapshotError })
+                }}
+            </p>
         </section>
     </div>
 </template>

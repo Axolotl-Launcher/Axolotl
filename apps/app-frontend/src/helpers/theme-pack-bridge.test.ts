@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { dispatchThemePackRequest, parseThemePackRequest } from '@/helpers/theme-pack-bridge'
+import {
+    dispatchThemePackRequest,
+    parseThemePackRequest,
+    THEME_PAGE_SANDBOX,
+} from '@/helpers/theme-pack-bridge'
 import type { ThemePackManifest } from '@/helpers/theme-packs'
 
 function manifest(overrides: Partial<ThemePackManifest> = {}): ThemePackManifest {
@@ -90,5 +94,10 @@ describe('theme pack bridge', () => {
         )
         expect(response.ok).toBe(false)
         expect(response.error).toContain('key')
+    })
+
+    it('sandboxes pack pages without same-origin access', () => {
+        expect(THEME_PAGE_SANDBOX).toBe('allow-scripts')
+        expect(THEME_PAGE_SANDBOX).not.toContain('allow-same-origin')
     })
 })

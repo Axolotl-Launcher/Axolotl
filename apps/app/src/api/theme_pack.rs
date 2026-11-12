@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+use std::io::Write as _;
 use std::path::Path;
 
 use crate::api::Result;
@@ -5,7 +7,11 @@ use tauri::AppHandle;
 use tauri::Manager;
 use tauri::Runtime;
 use theseus::theme_pack::ThemePackStorage;
+use theseus::theme_pack::archive::ORIGIN_FILE;
 use theseus::theme_pack::archive::ThemePackLimits;
+use theseus::theme_pack::archive::now_seconds;
+use theseus::theme_pack::manifest::MANIFEST_FILE;
+use theseus::theme_pack::manifest::ThemePackManifest;
 use theseus::theme_pack::network::ThemeNetworkRequest;
 use theseus::theme_pack::network::ThemeNetworkResponse;
 use theseus::theme_pack::store::InstalledThemePack;
@@ -28,6 +34,7 @@ pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
             theme_pack_instance_list,
             theme_pack_instance_mods,
             theme_pack_instance_logs,
+            theme_pack_export_snapshot,
         ])
         .build()
 }
@@ -151,6 +158,329 @@ pub async fn theme_pack_resolve_page<R: Runtime>(
         path: resolved.path.to_string_lossy().to_string(),
         url: format!("{}/{}/{}", theme_origin(), pack_id, resolved.page.entry),
     })
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePackSnapshot {
+    pub schema_version: u32,
+    pub source: String,
+    pub theme: String,
+    #[serde(default)]
+    pub accent_color: Option<String>,
+    #[serde(default)]
+    pub custom_theme_colors: serde_json::Value,
+    #[serde(default)]
+    pub tokens_light: BTreeMap<String, String>,
+    #[serde(default)]
+    pub tokens_dark: BTreeMap<String, String>,
+    #[serde(default)]
+    pub pack_id: Option<String>,
+}
+
+#[tauri::command]
+pub async fn theme_pack_export_snapshot<R: Runtime>(
+    app: AppHandle<R>,
+    destination: String,
+    snapshot: ThemePackSnapshot,
+) -> Result<String> {
+    let storage = storage(&app)?;
+    let (pack_dir, pack_data_dir) = match snapshot.pack_id.as_deref() {
+        Some(pack_id) => {
+            let installed = theseus::theme_pack::store::get(&storage, pack_id)
+                .await?
+                .ok_or_else(|| {
+                    theme_error("The theme pack is not installed")
+                })?;
+            (
+                Some(std::path::PathBuf::from(installed.path)),
+                Some(storage.pack_data_dir(pack_id)?),
+            )
+        }
+        None => (None, None),
+    };
+    let destination = std::path::PathBuf::from(destination);
+    export_snapshot_archive(
+        &destination,
+        &snapshot,
+        pack_dir.as_deref(),
+        pack_data_dir.as_deref(),
+        ThemePackLimits::from_env(),
+    )?;
+    Ok(destination.to_string_lossy().to_string())
+}
+
+fn export_snapshot_archive(
+    destination: &Path,
+    snapshot: &ThemePackSnapshot,
+    pack_dir: Option<&Path>,
+    pack_data_dir: Option<&Path>,
+    limits: ThemePackLimits,
+) -> Result<()> {
+    if !destination
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+    {
+        return Err(theme_error(
+            "The appearance snapshot must be saved as a .zip file",
+        ));
+    }
+    let parent = match destination.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    if !parent.is_dir() {
+        return Err(theme_error("The selected folder does not exist"));
+    }
+    if destination.exists() {
+        return Err(theme_error(
+            "A file already exists at the selected destination",
+        ));
+    }
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let temporary = parent.join(format!(
+        ".axolotl-theme-snapshot-{}-{nonce}.tmp",
+        std::process::id()
+    ));
+    match write_snapshot_archive(
+        &temporary,
+        snapshot,
+        pack_dir,
+        pack_data_dir,
+        limits,
+    ) {
+        Ok(()) => {
+            if let Err(error) = std::fs::rename(&temporary, destination) {
+                let _ = std::fs::remove_file(&temporary);
+                return Err(theme_error(format!(
+                    "The appearance snapshot could not be saved: {error}"
+                )));
+            }
+            Ok(())
+        }
+        Err(error) => {
+            let _ = std::fs::remove_file(&temporary);
+            Err(error)
+        }
+    }
+}
+
+fn write_snapshot_archive(
+    temporary: &Path,
+    snapshot: &ThemePackSnapshot,
+    pack_dir: Option<&Path>,
+    pack_data_dir: Option<&Path>,
+    limits: ThemePackLimits,
+) -> Result<()> {
+    let exported_at = now_seconds();
+    let file = std::fs::File::create(temporary).map_err(|error| {
+        theme_error(format!(
+            "The appearance snapshot file could not be created: {error}"
+        ))
+    })?;
+    let mut archive = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .unix_permissions(0o644);
+    let origin = match pack_dir {
+        Some(pack_dir) => {
+            let manifest = ThemePackManifest::load(pack_dir)?;
+            let mut entries = 0usize;
+            let mut bytes = 0u64;
+            copy_pack_directory(
+                &mut archive,
+                options,
+                pack_dir,
+                pack_dir,
+                pack_data_dir,
+                limits,
+                &mut entries,
+                &mut bytes,
+            )?;
+            serde_json::json!({
+                "kind": "pack",
+                "packId": manifest.id,
+                "version": manifest.version,
+                "exportedAt": exported_at,
+            })
+        }
+        None => {
+            let manifest = snapshot_manifest(snapshot, exported_at)?;
+            let bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| {
+                theme_error(format!(
+                    "The appearance snapshot manifest could not be written: {error}"
+                ))
+            })?;
+            write_archive_entry(&mut archive, options, MANIFEST_FILE, &bytes)?;
+            serde_json::json!({
+                "kind": snapshot.source,
+                "theme": snapshot.theme,
+                "accentColor": snapshot.accent_color,
+                "customThemeColors": snapshot.custom_theme_colors,
+                "exportedAt": exported_at,
+            })
+        }
+    };
+    let origin = serde_json::to_vec_pretty(&origin).map_err(|error| {
+        theme_error(format!(
+            "The appearance snapshot origin could not be written: {error}"
+        ))
+    })?;
+    write_archive_entry(&mut archive, options, ORIGIN_FILE, &origin)?;
+    archive.finish().map_err(|error| {
+        theme_error(format!(
+            "The appearance snapshot could not be finalized: {error}"
+        ))
+    })?;
+    Ok(())
+}
+
+fn snapshot_manifest(
+    snapshot: &ThemePackSnapshot,
+    exported_at: u64,
+) -> Result<ThemePackManifest> {
+    let manifest = serde_json::json!({
+        "schemaVersion": 1,
+        "id": format!("snapshot-{exported_at}"),
+        "name": { "en-US": "Appearance snapshot" },
+        "version": "1.0.0",
+        "engines": { "axolotl": ">=1.0.0" },
+        "capabilities": ["tokens"],
+        "tokens": {
+            "light": &snapshot.tokens_light,
+            "dark": &snapshot.tokens_dark,
+        },
+        "styles": [],
+        "permissions": [],
+        "network": { "allow": [] },
+        "pages": [],
+    });
+    serde_json::from_value(manifest).map_err(|error| {
+        theme_error(format!(
+            "The appearance snapshot manifest is invalid: {error}"
+        ))
+    })
+}
+
+fn write_archive_entry(
+    archive: &mut zip::ZipWriter<std::fs::File>,
+    options: zip::write::SimpleFileOptions,
+    name: &str,
+    bytes: &[u8],
+) -> Result<()> {
+    archive.start_file(name, options).map_err(|error| {
+        theme_error(format!(
+            "The appearance snapshot entry {name} could not be written: {error}"
+        ))
+    })?;
+    archive.write_all(bytes).map_err(|error| {
+        theme_error(format!(
+            "The appearance snapshot entry {name} could not be written: {error}"
+        ))
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn copy_pack_directory(
+    archive: &mut zip::ZipWriter<std::fs::File>,
+    options: zip::write::SimpleFileOptions,
+    root: &Path,
+    directory: &Path,
+    pack_data_dir: Option<&Path>,
+    limits: ThemePackLimits,
+    entries: &mut usize,
+    bytes: &mut u64,
+) -> Result<()> {
+    let read_dir = std::fs::read_dir(directory).map_err(|error| {
+        theme_error(format!("The theme pack folder could not be read: {error}"))
+    })?;
+    for entry in read_dir {
+        let entry = entry.map_err(|error| {
+            theme_error(format!(
+                "The theme pack folder could not be read: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        if pack_data_dir.is_some_and(|data_dir| path.starts_with(data_dir)) {
+            continue;
+        }
+        let metadata = std::fs::symlink_metadata(&path).map_err(|error| {
+            theme_error(format!(
+                "The theme pack file could not be read: {error}"
+            ))
+        })?;
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
+        if metadata.is_dir() {
+            copy_pack_directory(
+                archive,
+                options,
+                root,
+                &path,
+                pack_data_dir,
+                limits,
+                entries,
+                bytes,
+            )?;
+            continue;
+        }
+        if !metadata.is_file() {
+            continue;
+        }
+        let relative = path.strip_prefix(root).map_err(|error| {
+            theme_error(format!(
+                "The theme pack file could not be exported: {error}"
+            ))
+        })?;
+        let name = relative
+            .components()
+            .map(|component| component.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
+        if name == ORIGIN_FILE {
+            continue;
+        }
+        *entries += 1;
+        if *entries > limits.max_entries {
+            return Err(theme_error(format!(
+                "The theme pack has more than {} files",
+                limits.max_entries
+            )));
+        }
+        *bytes = bytes.checked_add(metadata.len()).ok_or_else(|| {
+            theme_error("The theme pack is too large to export")
+        })?;
+        if *bytes > limits.max_uncompressed_bytes {
+            return Err(theme_error(format!(
+                "The theme pack is larger than the {} byte export limit",
+                limits.max_uncompressed_bytes
+            )));
+        }
+        archive.start_file(&name, options).map_err(|error| {
+            theme_error(format!(
+                "The appearance snapshot entry {name} could not be written: {error}"
+            ))
+        })?;
+        let mut source = std::fs::File::open(&path).map_err(|error| {
+            theme_error(format!(
+                "The theme pack file could not be read: {error}"
+            ))
+        })?;
+        std::io::copy(&mut source, archive).map_err(|error| {
+            theme_error(format!(
+                "The appearance snapshot entry {name} could not be written: {error}"
+            ))
+        })?;
+    }
+    Ok(())
 }
 
 const THEME_STORAGE_MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
@@ -521,12 +851,18 @@ pub(crate) fn protocol_response_for(
     if content_type.starts_with("text/html")
         || content_type.starts_with("image/svg+xml")
     {
+        // A CSP sandbox gives the document an opaque origin, so `'self'` would
+        // match nothing; name the theme origin explicitly instead.
         builder = builder.header(
             "Content-Security-Policy",
-            "sandbox allow-scripts; default-src 'self'; script-src 'self' 'unsafe-inline'; \
-             style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; \
-             connect-src 'none'; media-src 'self'; frame-ancestors http://tauri.localhost \
-             tauri://localhost http://axolotl-theme.localhost axolotl-theme://localhost",
+            "sandbox allow-scripts; default-src http://axolotl-theme.localhost axolotl-theme://localhost; \
+             script-src http://axolotl-theme.localhost axolotl-theme://localhost 'unsafe-inline'; \
+             style-src http://axolotl-theme.localhost axolotl-theme://localhost 'unsafe-inline'; \
+             img-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
+             font-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
+             connect-src 'none'; media-src http://axolotl-theme.localhost axolotl-theme://localhost; \
+             frame-ancestors http://tauri.localhost tauri://localhost \
+             http://axolotl-theme.localhost axolotl-theme://localhost",
         );
     }
     builder
@@ -562,6 +898,9 @@ fn is_allowed_theme_request(request: &tauri::http::Request<Vec<u8>>) -> bool {
         .get(tauri::http::header::ORIGIN)
         .and_then(|value| value.to_str().ok())
     {
+        // `null` is the opaque origin of a sandboxed pack page requesting its
+        // own stylesheet, font, or image.
+        Some("null") => true,
         Some(origin) => is_allowed_origin(origin),
         // Same-origin subresource loads (a stylesheet's own font, an image in
         // pack HTML) do not carry an Origin header.
@@ -643,6 +982,51 @@ mod tests {
     }
 
     #[test]
+    fn serves_pack_pages_with_an_ipc_safe_csp() {
+        let directory = tempfile::tempdir().unwrap();
+        let page_dir = directory.path().join("themes/demo/pages");
+        std::fs::create_dir_all(&page_dir).unwrap();
+        std::fs::write(
+            page_dir.join("home.html"),
+            "<!doctype html><script src=\"../scripts/home.js\"></script>",
+        )
+        .unwrap();
+        let storage = ThemePackStorage::new(directory.path());
+        let response = protocol_response_for(
+            &storage,
+            &request(
+                "http://axolotl-theme.localhost/demo/pages/home.html",
+                Some("null"),
+            ),
+        );
+        assert_eq!(response.status(), StatusCode::OK);
+        let csp = response
+            .headers()
+            .get("content-security-policy")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(csp.contains("sandbox allow-scripts"), "{csp}");
+        assert!(!csp.contains("allow-same-origin"), "{csp}");
+        assert!(csp.contains("connect-src 'none'"), "{csp}");
+        assert!(
+            csp.contains("script-src http://axolotl-theme.localhost"),
+            "{csp}"
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get("access-control-allow-origin")
+                .unwrap(),
+            "null"
+        );
+        assert_eq!(
+            response.headers().get("x-content-type-options").unwrap(),
+            "nosniff"
+        );
+    }
+
+    #[test]
     fn refuses_a_foreign_origin() {
         let (_directory, storage) = storage_with_css();
         let response = protocol_response_for(
@@ -689,5 +1073,178 @@ mod tests {
             ),
         );
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    fn snapshot() -> ThemePackSnapshot {
+        let mut tokens_light = BTreeMap::new();
+        tokens_light.insert("--surface-1".to_string(), "#ebebeb".to_string());
+        tokens_light.insert("--surface-3".to_string(), "#f8f8f8".to_string());
+        tokens_light
+            .insert("--color-text-primary".to_string(), "#1a202c".to_string());
+        let mut tokens_dark = BTreeMap::new();
+        tokens_dark.insert("--surface-1".to_string(), "#101215".to_string());
+        tokens_dark.insert("--surface-3".to_string(), "#262b34".to_string());
+        tokens_dark
+            .insert("--color-text-primary".to_string(), "#ffffff".to_string());
+        ThemePackSnapshot {
+            schema_version: 1,
+            source: "builtin".to_string(),
+            theme: "dark".to_string(),
+            accent_color: Some("green".to_string()),
+            custom_theme_colors: serde_json::json!({
+                "light": { "bg": "#ffffff" },
+            }),
+            tokens_light,
+            tokens_dark,
+            pack_id: None,
+        }
+    }
+
+    fn archive_names(path: &Path) -> Vec<String> {
+        let mut archive =
+            zip::ZipArchive::new(std::fs::File::open(path).unwrap()).unwrap();
+        (0..archive.len())
+            .map(|index| {
+                archive
+                    .by_index(index)
+                    .unwrap()
+                    .name()
+                    .unwrap()
+                    .into_owned()
+            })
+            .collect()
+    }
+
+    fn archive_text(path: &Path, name: &str) -> String {
+        use std::io::Read as _;
+        let mut archive =
+            zip::ZipArchive::new(std::fs::File::open(path).unwrap()).unwrap();
+        let mut text = String::new();
+        archive
+            .by_name(name)
+            .unwrap()
+            .read_to_string(&mut text)
+            .unwrap();
+        text
+    }
+
+    #[test]
+    fn builds_a_valid_snapshot_manifest() {
+        let manifest = snapshot_manifest(&snapshot(), 1_700_000_000).unwrap();
+        assert_eq!(manifest.schema_version, 1);
+        assert_eq!(manifest.id, "snapshot-1700000000");
+        assert_eq!(
+            manifest.name.get("en-US").map(String::as_str),
+            Some("Appearance snapshot")
+        );
+        assert_eq!(manifest.version, "1.0.0");
+        assert_eq!(
+            manifest
+                .tokens
+                .dark
+                .get("--color-text-primary")
+                .map(String::as_str),
+            Some("#ffffff")
+        );
+    }
+
+    #[test]
+    fn writes_a_snapshot_archive() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("snapshot.zip");
+        export_snapshot_archive(
+            &destination,
+            &snapshot(),
+            None,
+            None,
+            ThemePackLimits::default(),
+        )
+        .unwrap();
+        let names = archive_names(&destination);
+        assert!(names.contains(&"manifest.json".to_string()), "{names:?}");
+        assert!(names.contains(&"origin.json".to_string()), "{names:?}");
+        assert!(
+            archive_text(&destination, "manifest.json")
+                .contains("\"schemaVersion\": 1")
+        );
+        let origin = archive_text(&destination, "origin.json");
+        assert!(origin.contains("\"kind\": \"builtin\""));
+        assert!(origin.contains("\"theme\": \"dark\""));
+        assert!(origin.contains("\"exportedAt\""));
+    }
+
+    #[test]
+    fn refuses_to_overwrite_an_existing_snapshot() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("snapshot.zip");
+        std::fs::write(&destination, b"existing").unwrap();
+        let error = export_snapshot_archive(
+            &destination,
+            &snapshot(),
+            None,
+            None,
+            ThemePackLimits::default(),
+        );
+        assert!(error.is_err());
+        assert_eq!(std::fs::read(&destination).unwrap(), b"existing");
+    }
+
+    #[test]
+    fn copies_a_pack_and_skips_staging() {
+        let directory = tempfile::tempdir().unwrap();
+        let pack = directory.path().join("themes/aurora");
+        std::fs::create_dir_all(pack.join("assets")).unwrap();
+        std::fs::create_dir_all(pack.join(".staging")).unwrap();
+        std::fs::create_dir_all(pack.join("data")).unwrap();
+        let manifest = serde_json::json!({
+            "schemaVersion": 1,
+            "id": "aurora",
+            "name": { "en-US": "Aurora" },
+            "version": "2.1.0",
+            "engines": { "axolotl": ">=1.0.0" },
+            "capabilities": ["tokens"],
+            "tokens": {
+                "light": {
+                    "--surface-1": "#ffffff",
+                    "--surface-3": "#ffffff",
+                    "--color-text-primary": "#000000"
+                },
+                "dark": {
+                    "--surface-1": "#000000",
+                    "--surface-3": "#000000",
+                    "--color-text-primary": "#ffffff"
+                }
+            }
+        });
+        std::fs::write(
+            pack.join("manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(pack.join("assets/theme.css"), ".x { color: red; }")
+            .unwrap();
+        std::fs::write(pack.join(".staging/temp.txt"), "staging").unwrap();
+        std::fs::write(pack.join("data/data.json"), "{}").unwrap();
+        std::fs::write(pack.join("origin.json"), "{\"old\":true}").unwrap();
+        let destination = directory.path().join("pack.zip");
+        export_snapshot_archive(
+            &destination,
+            &snapshot(),
+            Some(&pack),
+            Some(&pack.join("data")),
+            ThemePackLimits::default(),
+        )
+        .unwrap();
+        let names = archive_names(&destination);
+        assert!(names.contains(&"manifest.json".to_string()), "{names:?}");
+        assert!(names.contains(&"assets/theme.css".to_string()), "{names:?}");
+        assert!(names.contains(&"origin.json".to_string()), "{names:?}");
+        assert!(!names.iter().any(|name| name.starts_with(".staging")));
+        assert!(!names.iter().any(|name| name.starts_with("data/")));
+        let origin = archive_text(&destination, "origin.json");
+        assert!(origin.contains("\"kind\": \"pack\""));
+        assert!(origin.contains("\"packId\": \"aurora\""));
+        assert!(origin.contains("\"version\": \"2.1.0\""));
+        assert!(!origin.contains("\"old\""));
     }
 }

@@ -16,6 +16,9 @@ export interface ThemePackBridgeRequest {
     params?: Record<string, unknown>
 }
 
+/** `allow-scripts` only: no same-origin access and no Tauri IPC in pack pages. */
+export const THEME_PAGE_SANDBOX = 'allow-scripts'
+
 export interface ThemePackBridgeResponse {
     type: 'axolotl-theme-response'
     id: string

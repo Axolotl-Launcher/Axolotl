@@ -875,6 +875,7 @@ fn main() {
                         "theme_pack_fetch",
                         "theme_pack_data_dir",
                         "theme_pack_resolve_page",
+                        "theme_pack_export_snapshot",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

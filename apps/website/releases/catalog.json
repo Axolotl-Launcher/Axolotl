@@ -2,6 +2,131 @@
   "updated_at": "2026-11-11T04:11:57.577Z",
   "announcements": [
     {
+      "id": "launcher-1.11.0-beta.5",
+      "version": "1.11.0-beta.5",
+      "publishedAt": "2026-11-12",
+      "title": {
+        "en-US": "Axolotl Launcher 1.11.0-beta.5",
+        "zh-CN": "Axolotl Launcher 1.11.0-beta.5"
+      },
+      "changes": {
+        "added": [
+          {
+            "en-US": "Added block state editing for selected blocks in Schematic Workshop.",
+            "zh-CN": "投影工坊新增所选方块的状态编辑功能。"
+          },
+          {
+            "en-US": "Added QR codes for diagnostic links in the Minecraft crash window.",
+            "zh-CN": "Minecraft 崩溃窗口新增诊断链接二维码。"
+          },
+          {
+            "en-US": "Added confirmation when selecting a Java runtime on external, network, or unrecognized storage.",
+            "zh-CN": "选择位于外部、网络或无法识别存储设备上的 Java 时，新增确认提示。"
+          }
+        ],
+        "changed": [
+          {
+            "en-US": "Improved the responsiveness of large instance content and file lists.",
+            "zh-CN": "优化大型实例的内容列表和文件列表响应速度。"
+          },
+          {
+            "en-US": "Improved startup by deferring non-essential work and instance watcher setup until after the first frame.",
+            "zh-CN": "优化启动过程，将非必要工作和实例监视器初始化延后到首帧显示之后。"
+          },
+          {
+            "en-US": "Improved LogShare uploads with compression and updated diagnostic responses.",
+            "zh-CN": "优化 LogShare 集成，压缩上传内容并适配更新后的诊断结果。"
+          },
+          {
+            "en-US": "Temporarily paused cloud LogAgent analysis; local analysis remains available with a configured AI provider.",
+            "zh-CN": "暂时停用云端 LogAgent 分析；配置 AI 服务商后仍可使用本地分析。"
+          },
+          {
+            "en-US": "Updated the skin editor to use native settings and recovery dialogs.",
+            "zh-CN": "皮肤编辑器改用原生设置与草稿恢复对话框。"
+          },
+          {
+            "en-US": "Improved updater staging and added a manual download option for installations that cannot update themselves.",
+            "zh-CN": "优化更新包准备流程，并为无法自动更新的安装方式提供手动下载选项。"
+          }
+        ],
+        "fixed": [
+          {
+            "en-US": "Fixed Windows portable updates requiring the installer instead of applying the signed portable package.",
+            "zh-CN": "修复 Windows 便携版更新需要运行安装程序的问题，现在可直接应用已签名的便携版更新包。"
+          },
+          {
+            "en-US": "Fixed Linux updates choosing the wrong package type for the installation and added RPM package signature verification.",
+            "zh-CN": "修复 Linux 更新时选择的包类型与安装方式不匹配的问题，并加入 RPM 包签名验证。"
+          },
+          {
+            "en-US": "Fixed update installation failures not being reported on the next launcher startup.",
+            "zh-CN": "修复更新安装失败后，下次启动时未显示失败信息的问题。"
+          },
+          {
+            "en-US": "Fixed manual update downloads opening a release other than the version that was checked.",
+            "zh-CN": "修复手动下载更新时打开的版本与检查到的版本不一致的问题。"
+          },
+          {
+            "en-US": "Fixed Linux update catalogs containing only a primary package being rejected.",
+            "zh-CN": "修复仅包含主安装包的 Linux 更新目录被拒绝的问题。"
+          },
+          {
+            "en-US": "Fixed updater failures interrupting launcher shutdown and update installation affecting the running launcher executable.",
+            "zh-CN": "修复更新失败中断启动器退出，以及安装更新时影响正在运行的启动器可执行文件的问题。"
+          },
+          {
+            "en-US": "Fixed invalid or unavailable Java runtimes being accepted for game launches.",
+            "zh-CN": "修复无效或不可用的 Java 运行环境仍被用于启动游戏的问题。"
+          },
+          {
+            "en-US": "Fixed external instance exports recording incorrect Forge or NeoForge loader versions.",
+            "zh-CN": "修复导出外部实例时记录错误的 Forge 或 NeoForge 加载器版本的问题。"
+          },
+          {
+            "en-US": "Fixed imported version name detection for PCL CE instances.",
+            "zh-CN": "修复导入 PCL CE 实例时的版本名称识别问题。"
+          },
+          {
+            "en-US": "Fixed schematic block state edits failing to override source properties or applying to the wrong selection.",
+            "zh-CN": "修复投影方块状态编辑未覆盖源属性，或应用到错误选中对象的问题。"
+          },
+          {
+            "en-US": "Fixed the schematic preview failing to recover when resources could not be reloaded after an edit.",
+            "zh-CN": "修复投影编辑后资源重载失败时，预览无法恢复的问题。"
+          },
+          {
+            "en-US": "Fixed pending skin changes being discarded before they were applied during launcher exit.",
+            "zh-CN": "修复退出启动器时，尚未应用的皮肤修改被丢弃的问题。"
+          },
+          {
+            "en-US": "Fixed empty Discover searches defaulting to relevance instead of downloads where supported.",
+            "zh-CN": "修复发现页面空搜索在支持的内容源中默认按相关度而非下载量排序的问题。"
+          },
+          {
+            "en-US": "Fixed world locks being reported as a running instance.",
+            "zh-CN": "修复世界被占用时误报实例正在运行的问题。"
+          },
+          {
+            "en-US": "Fixed the gallery navigation controls appearing away from the image and recent world names overflowing narrow widgets.",
+            "zh-CN": "修复截图浏览导航按钮偏离图片，以及最近游玩世界名称在窄小组件中溢出的问题。"
+          },
+          {
+            "en-US": "Fixed navigation rail geometry and overlay scrollbar settings becoming stale after layout changes.",
+            "zh-CN": "修复布局变化后导航栏位置未更新，以及合并滚动条设置时默认值丢失的问题。"
+          },
+          {
+            "en-US": "Fixed .mrpack file associations not being registered by the Windows installer UI.",
+            "zh-CN": "修复 Windows 安装界面未注册 .mrpack 文件关联的问题。"
+          },
+          {
+            "en-US": "Fixed storage cleanup errors losing structured details and startup recovery becoming unavailable after a reload.",
+            "zh-CN": "修复存储清理错误详情丢失，以及重新加载后启动恢复无法重试的问题。"
+          }
+        ]
+      }
+    },
+    {
       "id": "launcher-1.11.0-beta.4",
       "version": "1.11.0-beta.4",
       "publishedAt": "2026-11-10",

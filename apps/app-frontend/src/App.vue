@@ -114,6 +114,7 @@ import { startMcpUiBridge } from '@/features/mcp/interface'
 import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
 import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
+import { openManualAppUpdate } from '@/helpers/app-update-download'
 import { createUpdateFailureConsumer } from '@/helpers/app-update-failure'
 import { get_version } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
@@ -2699,9 +2700,6 @@ function showDelayedUpdatePopup() {
 
 let lastUpdateChannel = 'release'
 
-/** Download section of the website, for installs that cannot update themselves. */
-const MANUAL_UPDATE_DOWNLOAD_URL = `${AxolotlBrandConfig.website}#download`
-
 async function performUpdateCheck() {
     const channel = await getUpdateChannel()
     const preferences = await getUpdatePreferences()
@@ -2795,11 +2793,12 @@ async function manualUpdateCheck() {
 }
 
 async function downloadAvailableUpdate() {
-    if (availableUpdate.value?.installMethod === 'manual') {
-        await openUrl(MANUAL_UPDATE_DOWNLOAD_URL)
+    const update = availableUpdate.value
+    if (update?.installMethod === 'manual') {
+        await openManualAppUpdate(update.version, openUrl)
         return
     }
-    return downloadUpdate(availableUpdate.value)
+    return downloadUpdate(update)
 }
 
 async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {

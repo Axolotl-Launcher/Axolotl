@@ -17,7 +17,7 @@
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
     "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
   ],
-  "rankFingerprint": "930365d4a314e9285f3c77601098d6f7182e5a7f35ce21de5de7056e7569aaab",
+  "rankFingerprint": "3ba35e63b1a89fb4b183a0bf61acdc980f15264ec118df31054640f206f16a68",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",

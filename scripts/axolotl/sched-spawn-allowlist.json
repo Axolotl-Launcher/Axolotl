@@ -2871,6 +2871,98 @@
         "worker: if fs::canonicalize(stage.parent().ok_or(\"Invalid portable stage\")?)",
         "write_new: let mut file = OpenOptions::new()"
       ]
+    },
+    {
+      "file": "apps/app/src/api/theme_pack.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed appearance snapshot export: drives zip creation and file publication on a blocking worker that the command awaits; owns only the caller-selected destination and acquires no managed resource (D17)",
+      "sites": [
+        "theme_pack_export_snapshot: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/theme_pack.rs",
+      "form": "std::fs",
+      "count": 14,
+      "reason": "reviewed theme pack protocol, snapshot export and pack copy: every path is confined to the themes directory or the caller-selected snapshot destination and no managed resource is acquired (D17)",
+      "sites": [
+        "<module>: archive: &mut zip::ZipWriter<std::fs::File>,",
+        "<module>: archive: &mut zip::ZipWriter<std::fs::File>,",
+        "copy_pack_directory: let metadata = std::fs::symlink_metadata(&path).map_err(|error| {",
+        "copy_pack_directory: let mut source = std::fs::File::open(&path).map_err(|error| {",
+        "copy_pack_directory: let read_dir = std::fs::read_dir(directory).map_err(|error| {",
+        "export_snapshot_archive: if let Err(error) = std::fs::rename(&temporary, destination) {",
+        "export_snapshot_archive: if let Err(error) = std::fs::rename(destination, backup) {",
+        "export_snapshot_archive: let _ = std::fs::remove_file(&temporary);",
+        "export_snapshot_archive: let _ = std::fs::remove_file(&temporary);",
+        "export_snapshot_archive: let _ = std::fs::remove_file(&temporary);",
+        "export_snapshot_archive: let _ = std::fs::remove_file(backup);",
+        "export_snapshot_archive: let _ = std::fs::rename(backup, destination);",
+        "protocol_response_for: let Ok(contents) = std::fs::read(&file_path) else {",
+        "write_snapshot_archive: let file = std::fs::File::create(temporary).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/theme_pack/archive.rs",
+      "form": "std::fs",
+      "count": 8,
+      "reason": "reviewed theme pack archive extraction: zip-slip checked, size-bounded unpack into a staging directory; the worker owns no managed resource and runs inside the awaited install task (D17)",
+      "sites": [
+        "<module>: use std::fs::File;",
+        "extract: let metadata = std::fs::metadata(archive_path).map_err(|error| {",
+        "extract: std::fs::create_dir_all(&path).map_err(|error| {",
+        "extract: std::fs::create_dir_all(destination).map_err(|error| {",
+        "extract: std::fs::create_dir_all(parent).map_err(|error| {",
+        "extract: std::fs::metadata(join_relative(destination, style).ok()?)",
+        "read_origin: let bytes = std::fs::read(pack_dir.join(ORIGIN_FILE)).ok()?;",
+        "write_origin: std::fs::write(pack_dir.join(ORIGIN_FILE), bytes).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/theme_pack/archive.rs",
+      "form": "std::fs import",
+      "count": 2,
+      "reason": "reviewed theme pack archive extraction: imported file helpers only open the archive and bounded staging output; no managed resource is acquired (D17)",
+      "sites": [
+        "extract: let file = File::open(archive_path).map_err(|error| {",
+        "extract: let mut output = File::create(&path).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/theme_pack/manifest.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "reviewed theme pack validation: reads the manifest and CSS files only after canonical path checks within one pack directory; short-lived install/listing work holds no managed resource (D17)",
+      "sites": [
+        "checked_file: let canonical = std::fs::canonicalize(&path).map_err(|_| {",
+        "checked_file: let canonical_pack = std::fs::canonicalize(pack_dir).map_err(|error| {",
+        "load: std::fs::read(pack_dir.join(MANIFEST_FILE)).map_err(|error| {",
+        "validate: let css = std::fs::read_to_string(&path).map_err(|error| {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/theme_pack/store.rs",
+      "form": "spawn_blocking",
+      "count": 3,
+      "reason": "reviewed install/list/get workers: awaited blocking extraction, directory scan and manifest load; install is serialized by INSTALL_LOCK and each worker owns only its staging directory (D17)",
+      "sites": [
+        "get: let result = tokio::task::spawn_blocking(move || {",
+        "install: let extracted = tokio::task::spawn_blocking(move || {",
+        "list: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/theme_pack/store.rs",
+      "form": "std::fs",
+      "count": 4,
+      "reason": "reviewed install staging cleanup and list directory scan: paths stay inside the themes directory or its hidden staging sibling; no managed resource beyond the awaited install worker (D17)",
+      "sites": [
+        "install: let _ = std::fs::remove_dir_all(&staging_for_task);",
+        "install: let _ = std::fs::remove_dir_all(&staging_for_task);",
+        "install: let _ = std::fs::remove_dir_all(&staging_for_task);",
+        "list: let entries = std::fs::read_dir(&themes_dir).map_err(io)?;"
+      ]
     }
   ]
 }

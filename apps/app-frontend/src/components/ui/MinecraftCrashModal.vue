@@ -55,6 +55,7 @@ import {
 } from '@/helpers/logs'
 import { shouldShowMinecraftCrash } from '@/helpers/process.js'
 import { highlightInFolder } from '@/helpers/utils'
+import { availableAnalysisSource, CLOUD_LOGAGENT_ENABLED } from '@/logagent/availability'
 import { visibleDraft } from '@/logagent/progress'
 import { parseLogAgentInsight } from '@/logagent/result'
 import type { AnalysisSource } from '@/logagent/types'
@@ -93,6 +94,7 @@ interface LogShareTicket {
     url: string
     raw: string
     token: string
+    files?: { name: string }[]
 }
 
 interface LogShareSettings {
@@ -128,13 +130,15 @@ let analysisVersion = 0
 let summaryGeneration = 0
 let crashLogsPromise: Promise<void> | null = null
 let uploadTicketPromise: Promise<LogShareTicket | null> | null = null
-const defaultSource = ref<AnalysisSource>('logshare')
-const selectedSource = ref<AnalysisSource>('logshare')
+const defaultSource = ref<AnalysisSource>(availableAnalysisSource('logshare'))
+const selectedSource = ref<AnalysisSource>(availableAnalysisSource('logshare'))
 const localAvailable = ref(false)
 const configuredModel = ref('')
 const configuredProvider = ref('')
 const choosingSource = ref(false)
-const aiAvailable = computed(() => selectedSource.value === 'logshare' || localAvailable.value)
+const aiAvailable = computed(
+    () => (CLOUD_LOGAGENT_ENABLED && selectedSource.value === 'logshare') || localAvailable.value,
+)
 const agent = useLogAgent()
 const aiOutput = agent.output
 const aiLoading = agent.busy
@@ -592,12 +596,7 @@ const showSupportHint = computed(
     () => Boolean(payload.value.body) && hint.value !== formatMessage(messages.supportHint),
 )
 const isLogShareAutoAnalysis = computed(
-    () =>
-        logShareSettingsLoaded.value &&
-        shouldUseLogShareAutoAnalysis({
-            ...logShareSettings.value,
-            ai_source: selectedSource.value,
-        }),
+    () => logShareSettingsLoaded.value && shouldUseLogShareAutoAnalysis(logShareSettings.value),
 )
 const selectedCrashLog = computed(
     () => crashLogFiles.value.find((file) => crashLogKey(file) === selectedLogKey.value) ?? null,
@@ -668,6 +667,9 @@ async function selectCrashLog(file: CrashLogFile): Promise<void> {
     selectedLogKey.value = key
     activeTab.value = key
     selectedLogLoading.value = false
+    summaryGeneration += 1
+    logShareSummaryLoading.value = false
+    if (payload.value.instance_id) void loadLogShareSummary(payload.value.instance_id)
     await loadCrashLogContent(file)
 }
 
@@ -813,10 +815,6 @@ function isLaunchFailure(error: unknown): boolean {
     return launchFailureBody(error) !== null
 }
 
-function useLogShareAi(): boolean {
-    return selectedSource.value === 'logshare'
-}
-
 function formatInsights(value: unknown): string {
     const record = (value ?? {}) as Record<string, unknown>
     const lines: string[] = []
@@ -837,8 +835,9 @@ function formatInsights(value: unknown): string {
                     : JSON.stringify(problem.message)
             lines.push(`- ${message}`)
             const solutions = Array.isArray(problem.solutions) ? problem.solutions : []
-            for (const solution of solutions as string[]) {
-                lines.push(`  - ${solution}`)
+            for (const solution of solutions) {
+                const message = typeof solution === 'string' ? solution : solution?.message
+                if (typeof message === 'string') lines.push(`  - ${message}`)
             }
         }
     }
@@ -866,7 +865,7 @@ async function loadLogShareSummary(instanceId: string): Promise<void> {
         version !== analysisVersion ||
         generation !== summaryGeneration ||
         instanceId !== payload.value.instance_id ||
-        !useLogShareAi()
+        !isLogShareAutoAnalysis.value
     logShareSummaryLoading.value = true
     logShareSummaryState.value = 'loading'
     logShareSummaryError.value = ''
@@ -875,7 +874,19 @@ async function loadLogShareSummary(instanceId: string): Promise<void> {
         const ticket = await uploadTicketForInstance(instanceId)
         if (!ticket) throw new Error('Could not upload the crash logs to LogShare')
         if (stale()) return
-        const insights = await logshare_get_insights(ticket.id)
+        await crashLogsPromise
+        if (stale()) return
+        const selectedFilename = selectedCrashLog.value
+            ? crashLogLabel(selectedCrashLog.value)
+            : null
+        const filename = ticket.files?.some((file) => file.name === selectedFilename)
+            ? selectedFilename
+            : null
+        if (ticket.files && ticket.files.length > 1 && !filename) {
+            logShareSummaryState.value = 'empty'
+            return
+        }
+        const insights = await logshare_get_insights(ticket.id, filename)
         if (stale()) return
         logShareSummary.value = formatInsights(insights)
         logShareSummaryState.value = logShareSummary.value ? 'ready' : 'empty'
@@ -933,11 +944,7 @@ async function handleLaunchError(
     }
     await refreshAIAvailability()
     if (!show(modalPayload)) return true
-    if (isLogShareAutoAnalysis.value) {
-        void loadLogShareSummary(modalPayload.instance_id)
-    } else {
-        await analyzeAndUpdate(modalPayload, formatMessage(messages.launchFailureHint))
-    }
+    await analyzeAndUpdate(modalPayload, formatMessage(messages.launchFailureHint))
     return true
 }
 
@@ -945,11 +952,7 @@ async function handleWarning(warning: CrashWarningPayload): Promise<void> {
     const modalPayload = { ...warning, hint: formatMessage(messages.analyzing) }
     await refreshAIAvailability()
     if (!show(modalPayload)) return
-    if (isLogShareAutoAnalysis.value) {
-        void loadLogShareSummary(modalPayload.instance_id)
-    } else {
-        await analyzeAndUpdate(modalPayload)
-    }
+    await analyzeAndUpdate(modalPayload)
 }
 
 function showPreview(): void {
@@ -1163,7 +1166,7 @@ async function copyShareUrl(): Promise<void> {
 
 function selectAnalysisSource(value: unknown): void {
     if (aiLoading.value) return
-    const next = value === 'custom' ? 'custom' : 'logshare'
+    const next = availableAnalysisSource(value === 'custom' ? 'custom' : 'logshare')
     choosingSource.value = false
     if (next === selectedSource.value) return
     selectedSource.value = next
@@ -1230,7 +1233,7 @@ async function refreshAIAvailability(): Promise<void> {
         ])
         logShareSettings.value = settings
         logShareSettingsLoaded.value = true
-        defaultSource.value = aiSettings.ai_source
+        defaultSource.value = availableAnalysisSource(aiSettings.ai_source)
         const state = await getAIState().catch(() => null)
         const provider = state?.providers.find(
             (item) => item.provider_id === aiSettings.provider_id,
@@ -1277,20 +1280,6 @@ async function handleProcessEvent(event: ProcessEvent): Promise<void> {
         if (!mounted || activeRuns.get(event.instance_id) !== event.uuid) return
         const instance = await getInstance(event.instance_id).catch(() => null)
         if (!mounted || activeRuns.get(event.instance_id) !== event.uuid) return
-
-        if (
-            shouldUseLogShareAutoAnalysis({
-                ...logShareSettings.value,
-                ai_source: defaultSource.value,
-            })
-        ) {
-            const shown = show({
-                instance_id: event.instance_id,
-                instance_name: instance?.name || 'Minecraft',
-            })
-            if (shown) void loadLogShareSummary(event.instance_id)
-            return
-        }
 
         const analysis = await refreshCrashAnalysis(event.instance_id).catch((error) => {
             console.error('Failed to analyze finished Minecraft process', error)
@@ -1436,6 +1425,7 @@ defineExpose({
                 </div>
 
                 <div
+                    v-if="aiAvailable"
                     class="mt-auto flex flex-col gap-3 border-0 border-t border-solid border-surface-4 pt-4"
                     data-testid="crash-analysis-controls"
                 >
@@ -1444,7 +1434,7 @@ defineExpose({
                             {{ formatMessage(messages.analysisSection) }}
                         </h3>
                         <Button
-                            v-if="!aiLoading"
+                            v-if="CLOUD_LOGAGENT_ENABLED && !aiLoading"
                             type="quiet"
                             @click="choosingSource = !choosingSource"
                             >{{

@@ -117,8 +117,8 @@ export async function logshare_upload_crash(instanceId) {
     return await invoke('plugin:logs|logs_logshare_upload_crash', { instanceId })
 }
 
-export async function logshare_get_insights(id) {
-    return await invoke('plugin:logs|logs_logshare_get_insights', { id })
+export async function logshare_get_insights(id, filename = null) {
+    return await invoke('plugin:logs|logs_logshare_get_insights', { id, filename })
 }
 
 export async function logshare_analyse_crash_direct(instanceId) {

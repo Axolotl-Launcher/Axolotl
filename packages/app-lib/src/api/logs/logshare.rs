@@ -57,13 +57,33 @@ pub struct LogShareUploadResponse {
     pub url: String,
     pub raw: String,
     pub token: String,
+    #[serde(default)]
+    pub deduplicated: bool,
+    #[serde(default)]
+    pub files: Vec<LogShareFile>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LogShareFile {
+    pub name: String,
+    pub size: u64,
+    pub lines: u64,
+    pub raw: String,
+    pub insights: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LogShareDeleteResponse {
     pub success: bool,
     pub deleted: Vec<String>,
-    pub failed: Vec<String>,
+    pub failed: Vec<LogShareDeleteFailure>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LogShareDeleteFailure {
+    pub id: String,
+    pub message: String,
+    pub code: u16,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -75,7 +95,8 @@ struct UploadFile {
 
 #[derive(Serialize, Debug, Clone)]
 struct UploadBody {
-    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     files: Vec<UploadFile>,
     source: String,
@@ -163,8 +184,9 @@ async fn remove_shared_log_record(id: &str) -> crate::Result<()> {
 }
 
 pub async fn delete_shared_log(id: String, token: String) -> crate::Result<()> {
-    let remote_result = delete_log(&id, &token).await;
-    if let Err(error) = remote_result {
+    if !token.is_empty()
+        && let Err(error) = delete_log(&id, &token).await
+    {
         tracing::warn!(
             "Remote LogShare deletion failed for {id}; removing the local record anyway: {error}"
         );
@@ -200,7 +222,7 @@ async fn prepare_upload(instance_id: &str) -> crate::Result<UploadBody> {
         Vec::new()
     };
     Ok(UploadBody {
-        content: combined,
+        content: files.is_empty().then_some(combined),
         files,
         source: source_identifier(),
     })
@@ -258,35 +280,48 @@ async fn upload_prepared(
         ))
         .into());
     }
-    Ok(LogShareUploadResponse {
-        success: true,
-        id: value
-            .get("id")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        url: value
-            .get("url")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        raw: value
-            .get("raw")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        token: value
-            .get("token")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-    })
+    parse_upload_response(value)
 }
 
-pub async fn get_insights(id: &str) -> crate::Result<Value> {
+fn parse_upload_response(
+    value: Value,
+) -> crate::Result<LogShareUploadResponse> {
+    let mut ticket: LogShareUploadResponse = serde_json::from_value(value)?;
+    if ticket.id.is_empty() || ticket.url.is_empty() || ticket.raw.is_empty() {
+        return Err(crate::ErrorKind::OtherError(
+            "LogShare returned an incomplete upload response".to_string(),
+        )
+        .into());
+    }
+    // A deduplication hit returns a fresh token that cannot delete the original.
+    if ticket.deduplicated {
+        ticket.token.clear();
+    }
+    Ok(ticket)
+}
+
+fn insights_url(
+    id: &str,
+    filename: Option<&str>,
+) -> crate::Result<reqwest::Url> {
+    let mut url = reqwest::Url::parse(LOGSHARE_BASE_URL)?;
+    let mut segments =
+        url.path_segments_mut().expect("LogShare URL has a host");
+    segments.extend(["v1", "insights", id]);
+    if let Some(filename) = filename {
+        segments.extend(filename.split('/'));
+    }
+    drop(segments);
+    Ok(url)
+}
+
+pub async fn get_insights(
+    id: &str,
+    filename: Option<&str>,
+) -> crate::Result<Value> {
     let client = request_client().await?;
     let response = client
-        .get(format!("{LOGSHARE_BASE_URL}/v1/insights/{id}"))
+        .get(insights_url(id, filename)?)
         .header("Accept", "application/json")
         .header("Accept-Encoding", "br, gzip")
         .send()
@@ -376,7 +411,7 @@ pub(super) async fn analyze_snapshot(
         .collect::<Vec<_>>()
         .join("\n\n");
     let prepared = UploadBody {
-        content,
+        content: (!settings.multi_file || files.is_empty()).then_some(content),
         files: if settings.multi_file {
             files
                 .into_iter()
@@ -644,5 +679,56 @@ fn parse_sse_block(block: &str) -> Option<ParsedEvent> {
                 error: None,
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multi_file_upload_does_not_duplicate_combined_content() {
+        let body = UploadBody {
+            content: None,
+            files: vec![UploadFile {
+                name: "latest.log".into(),
+                content: "log".into(),
+            }],
+            source: "axolotl/test".into(),
+        };
+        let value = serde_json::to_value(body).unwrap();
+        assert!(value.get("content").is_none());
+        assert_eq!(value["files"][0]["content"], "log");
+    }
+
+    #[test]
+    fn deduplicated_upload_discards_unusable_deletion_token() {
+        for deduplicated in [false, true] {
+            let ticket = parse_upload_response(json!({
+                "success": true, "id": "sAbCdEf", "url": "https://logshare.cn/sAbCdEf",
+                "raw": "https://api.logshare.cn/v1/raw/sAbCdEf", "token": "deletion-token",
+                "deduplicated": deduplicated,
+                "files": [{ "name": "latest.log", "size": 3, "lines": 1, "raw": "raw", "insights": "insights" }]
+            })).unwrap();
+            assert_eq!(
+                ticket.token,
+                if deduplicated { "" } else { "deletion-token" }
+            );
+            assert_eq!(ticket.files[0].name, "latest.log");
+        }
+    }
+
+    #[test]
+    fn insights_encodes_each_filename_segment() {
+        assert_eq!(
+            insights_url("sAbCdEf", Some("crash-reports/crash #1.txt"))
+                .unwrap()
+                .as_str(),
+            "https://api.logshare.cn/v1/insights/sAbCdEf/crash-reports/crash%20%231.txt"
+        );
+        assert_eq!(
+            insights_url("sAbCdEf", None).unwrap().as_str(),
+            "https://api.logshare.cn/v1/insights/sAbCdEf"
+        );
     }
 }

@@ -213,7 +213,7 @@ async fn write_row(
         ON CONFLICT(id) DO UPDATE SET
             url = excluded.url,
             raw = excluded.raw,
-            token = excluded.token,
+            token = CASE WHEN excluded.token = '' THEN shared_logs.token ELSE excluded.token END,
             provider = excluded.provider,
             instance_id = excluded.instance_id,
             instance_name = excluded.instance_name,

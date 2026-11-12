@@ -1,6 +1,137 @@
 {
-  "updated_at": "2026-11-08T16:10:25.272Z",
+  "updated_at": "2026-11-11T04:11:57.577Z",
   "announcements": [
+    {
+      "id": "launcher-1.11.0-beta.4",
+      "version": "1.11.0-beta.4",
+      "publishedAt": "2026-11-10",
+      "title": {
+        "en-US": "Axolotl Launcher 1.11.0-beta.4",
+        "zh-CN": "Axolotl Launcher 1.11.0-beta.4"
+      },
+      "changes": {
+        "added": [
+          {
+            "en-US": "Added groups and category filters to Favorites, with selection of saved content for installation.",
+            "zh-CN": "收藏页面新增分组和类别筛选，支持选择已收藏内容进行安装。"
+          },
+          {
+            "en-US": "Added options to favorite or unfavorite installed content from its row menu.",
+            "zh-CN": "内容页的项目菜单新增收藏和取消收藏选项。"
+          },
+          {
+            "en-US": "Added game directory selection when installing a modpack.",
+            "zh-CN": "安装整合包时新增游戏目录选择。"
+          },
+          {
+            "en-US": "Added drag-and-drop account ordering.",
+            "zh-CN": "新增通过拖拽调整账号顺序的功能。"
+          },
+          {
+            "en-US": "Added ANSI colour rendering to the console and export of complete source logs.",
+            "zh-CN": "控制台新增 ANSI 颜色显示和完整源日志导出。"
+          }
+        ],
+        "changed": [
+          {
+            "en-US": "Improved content installation previews by coalescing analysis updates and keeping reviews available during content refreshes.",
+            "zh-CN": "优化内容安装预览，合并分析更新，并在内容刷新期间保留安装审核。"
+          },
+          {
+            "en-US": "Improved home widget layouts for narrow windows, including calendar titles and pinned server columns.",
+            "zh-CN": "优化窄窗口下的首页小组件布局，包括日历标题和固定服务器列表。"
+          },
+          {
+            "en-US": "Improved launcher exit, restart, and update preparation to allow in-progress work to settle before closing.",
+            "zh-CN": "优化启动器退出、重启和更新前的处理，为进行中的任务预留收尾时间。"
+          },
+          {
+            "en-US": "Updated the built-in AI model catalog with Claude Fable 5.2.",
+            "zh-CN": "更新内置 AI 模型列表，加入 Claude Fable 5.2。"
+          }
+        ],
+        "removed": [
+          {
+            "en-US": "Removed upstream Modrinth account login and the associated friends and tunnel services.",
+            "zh-CN": "移除上游 Modrinth 账号登录及其关联的好友和隧道服务。"
+          },
+          {
+            "en-US": "Removed upstream hosting and billing integrations.",
+            "zh-CN": "移除上游服务器托管和账单集成。"
+          }
+        ],
+        "fixed": [
+          {
+            "en-US": "Fixed content filters and selected releases being lost during installation, including inherited filters and snapshot visibility.",
+            "zh-CN": "修复安装内容期间筛选条件和所选版本丢失的问题，包括继承的筛选条件和快照版本显示状态。"
+          },
+          {
+            "en-US": "Fixed canceling a content removal affecting projects other than the selected one.",
+            "zh-CN": "修复取消内容移除时影响其他项目的问题。"
+          },
+          {
+            "en-US": "Fixed Favorites showing stale installed states, project titles, or language-dependent results.",
+            "zh-CN": "修复收藏页面的已安装状态、项目标题或语言切换后的结果未及时更新的问题。"
+          },
+          {
+            "en-US": "Fixed removing a favorite not accounting for its linked projects across content sources.",
+            "zh-CN": "修复取消收藏时未正确处理不同内容源之间关联项目的问题。"
+          },
+          {
+            "en-US": "Fixed project type tabs disappearing from the Discover page.",
+            "zh-CN": "修复发现页面的项目类型标签消失的问题。"
+          },
+          {
+            "en-US": "Fixed imported game versions losing prerelease qualifiers or being inferred incorrectly when the client JAR recorded the actual version.",
+            "zh-CN": "修复导入游戏版本时丢失预发布标识，以及未使用客户端 JAR 中记录的实际版本的问题。"
+          },
+          {
+            "en-US": "Fixed legacy Forge installations failing to reuse verified libraries or resolve their old repository address.",
+            "zh-CN": "修复旧版 Forge 安装无法复用已校验的库文件，或无法解析旧仓库地址的问题。"
+          },
+          {
+            "en-US": "Fixed wrapped console rows being measured using invisible ANSI codes instead of visible text.",
+            "zh-CN": "修复控制台计算换行宽度时计入不可见 ANSI 控制码的问题。"
+          },
+          {
+            "en-US": "Fixed log export replacing source files and improved redaction while exporting logs.",
+            "zh-CN": "修复日志导出可能替换源文件的问题，并改进导出时的敏感信息遮蔽。"
+          },
+          {
+            "en-US": "Fixed macOS Keychain prompts repeating for the same secret and blocking unrelated credential lookups.",
+            "zh-CN": "修复 macOS 钥匙串为同一凭据反复弹出提示，并阻塞其他凭据读取的问题。"
+          },
+          {
+            "en-US": "Fixed AppImage links opening with a bundled handler instead of the host system's xdg-open.",
+            "zh-CN": "修复 AppImage 使用内置程序而非宿主系统的 xdg-open 打开链接的问题。"
+          },
+          {
+            "en-US": "Fixed the custom memory allocation slider remaining locked after selecting manual allocation.",
+            "zh-CN": "修复选择自定义内存分配后，内存滑块仍处于锁定状态的问题。"
+          },
+          {
+            "en-US": "Fixed account selection and instance breadcrumb labels not refreshing after changes made elsewhere.",
+            "zh-CN": "修复从其他位置更改账号或实例名称后，账号卡片和实例面包屑未及时更新的问题。"
+          },
+          {
+            "en-US": "Fixed Seed Map controls becoming unreachable in short windows.",
+            "zh-CN": "修复窗口高度较小时，种子地图部分控件无法访问的问题。"
+          },
+          {
+            "en-US": "Fixed animated background conversion feedback not being shown in settings.",
+            "zh-CN": "修复设置中未显示动态背景转换反馈的问题。"
+          },
+          {
+            "en-US": "Fixed finished installation tasks accumulating and expired tasks reopening a closed download popover.",
+            "zh-CN": "修复已完成安装任务持续堆积，以及任务过期时重新打开已关闭下载弹窗的问题。"
+          },
+          {
+            "en-US": "Fixed the Multiplayer page opening on the wrong tab and the content corner displaying incorrectly in transparent windows.",
+            "zh-CN": "修复多人游戏页面打开时标签不正确，以及透明窗口下内容区域边角显示异常的问题。"
+          }
+        ]
+      }
+    },
     {
       "id": "launcher-1.11.0-beta.3",
       "version": "1.11.0-beta.3",

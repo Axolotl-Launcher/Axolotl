@@ -7,6 +7,7 @@ import {
     setDatapackEnabled,
     type WorldWithDatapacks,
 } from '@/helpers/datapacks'
+import { errorText } from '@/helpers/error-text'
 import { formatDatapackVersion } from '@/helpers/pack-formats'
 
 function datapackDescription(description: unknown): string | undefined {
@@ -68,7 +69,7 @@ export function useWorldDatapacks(getInstanceId: () => string) {
             })
         } catch (error) {
             if (!isCurrent()) return
-            worldDatapackErrors.value = [error instanceof Error ? error.message : String(error)]
+            worldDatapackErrors.value = [errorText(error)]
             console.warn('Could not load world datapacks:', error)
         }
     }

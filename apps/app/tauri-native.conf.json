@@ -1,5 +1,14 @@
 {
+  "build": {
+    "beforeBuildCommand": "pnpm turbo run build --filter=@modrinth/app-frontend && node ../../scripts/axolotl/build-desktop.mjs --installer-only"
+  },
   "bundle": {
-    "createUpdaterArtifacts": false
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "nsis": {
+        "template": "./nsis/installer.nsi",
+        "installerHooks": "./nsis/native-hooks.nsi"
+      }
+    }
   }
 }

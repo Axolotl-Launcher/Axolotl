@@ -11,7 +11,7 @@ const backend = vi.hoisted(() => ({
 }))
 
 vi.mock('@tauri-apps/plugin-os', () => ({ platform: () => backend.platform }))
-vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }))
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), confirm: vi.fn() }))
 vi.mock('@/helpers/settings.ts', () => ({
     get: async () => structuredClone(backend.settings),
     update: async (patch: Record<string, unknown>) => {
@@ -23,6 +23,8 @@ vi.mock('@/helpers/jre', () => ({
     get_java_default_versions: async () => [],
     find_filtered_jres: vi.fn(),
     get_jre: vi.fn(),
+    get_java_selection_info: vi.fn(),
+    approve_java_selection: vi.fn(),
     remove_java_default_version: vi.fn(),
     set_java_default_version: vi.fn(),
     set_java_version: vi.fn(),

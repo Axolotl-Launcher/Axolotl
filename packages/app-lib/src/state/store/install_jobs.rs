@@ -414,7 +414,8 @@ impl InstallJobs {
         let sql = format!(
             "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND {filter})"
         );
-        let mut query = sqlx::query_scalar::<_, i64>(&sql).bind(instance_id);
+        let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
+            .bind(instance_id);
         for status in statuses {
             query = query.bind(*status);
         }
@@ -439,7 +440,7 @@ impl InstallJobs {
         let sql = format!(
             "SELECT COUNT(*) FROM install_jobs WHERE {filter} OR json_extract(state, '$.rollback.content') IS NOT NULL OR (json_extract(state, '$.rollback') IS NOT NULL AND json_extract(state, '$.rollback_error') IS NOT NULL)"
         );
-        let mut query = sqlx::query_scalar::<_, i64>(&sql);
+        let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql));
         for status in statuses {
             query = query.bind(*status);
         }

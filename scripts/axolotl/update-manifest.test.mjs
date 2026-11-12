@@ -36,6 +36,7 @@ test('generate stable tagged URLs from draft assets and verify the repository an
             .flatMap((name) => [name, `${name}.sig`])
             .map((name) => ({
                 name,
+                size: 1234,
                 // GitHub reports lowercase hex; one asset stays uppercase to prove normalization.
                 digest: `sha256:${name === names[1] ? sha256(name).toUpperCase() : sha256(name)}`,
                 browser_download_url: `https://github.com/Axolotl-Launcher/Axolotl/releases/download/untagged-example/${name}`,
@@ -79,6 +80,8 @@ test('generate stable tagged URLs from draft assets and verify the repository an
                     platform: 'windows-x86_64',
                     name: names[4],
                     sha256: sha256(names[4]),
+                    signature,
+                    size: 1234,
                     url: `https://github.com/${repository}/releases/download/${tag}/${names[4]}`,
                 },
             })
@@ -88,6 +91,26 @@ test('generate stable tagged URLs from draft assets and verify the repository an
 
         assert.equal(generate().status, 0)
         const original = JSON.parse(fs.readFileSync(outputPath, 'utf8'))
+        for (const mutation of [
+            { signature: '' },
+            { signature: undefined },
+            { size: 0 },
+            { size: undefined },
+        ]) {
+            const damaged = structuredClone(original)
+            Object.assign(damaged.artifacts.portable, mutation)
+            fs.writeFileSync(outputPath, JSON.stringify(damaged))
+            assert.notEqual(
+                verify().status,
+                0,
+                `Accepted portable metadata ${JSON.stringify(mutation)}`,
+            )
+        }
+        const unsignedPortable = structuredClone(original)
+        delete unsignedPortable.artifacts.portable.signature
+        delete unsignedPortable.artifacts.portable.size
+        fs.writeFileSync(outputPath, JSON.stringify(unsignedPortable))
+        assert.equal(verify().status, 0, 'Historical unsigned portable metadata remains verifiable')
         for (const url of [
             `https://github.com/Mystic-Stars/Axolotl/releases/download/${tag}/asset.tar.gz`,
             'https://github.com/Axolotl-Launcher/Axolotl/releases/download/untagged-example/asset.tar.gz',

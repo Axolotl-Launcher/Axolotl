@@ -124,6 +124,7 @@ import {
 } from '@/helpers/direct-link-sync'
 import { getMissingContentScannerSettings } from '@/helpers/downloads-scanner'
 import { classifyDroppedItem } from '@/helpers/drop'
+import { errorText } from '@/helpers/error-text'
 import {
     command_listener,
     drop_classify_progress_listener,
@@ -1023,7 +1024,7 @@ async function onImportFileReceived({
         notificationManager.removeNotification(processingNotify?.id)
         addNotification({
             title: formatMessage(messages.dropProcessFailedTitle),
-            text: e instanceof Error ? e.message : String(e),
+            text: errorText(e),
             type: 'error',
         })
     }

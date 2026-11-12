@@ -1,4 +1,16 @@
 {
+  "app.java.external.title": {
+    "message": "使用此存储设备上的 Java？"
+  },
+  "app.java.external.body": {
+    "message": "此 Java 位于外部、网络或未识别的存储设备上。设备不可用时，游戏将无法启动。\n\n{path}"
+  },
+  "app.java.external.use": {
+    "message": "使用此 Java"
+  },
+  "app.java.external.cancel": {
+    "message": "取消"
+  },
   "app.downloads.slow-downloads.title": {
     "message": "下载缓慢？"
   },
@@ -817,6 +829,261 @@
   },
   "app.java.searching": {
     "message": "正在查找 Java 安装……"
+  },
+  "app.lab.schematic-preview.block-state": {
+    "message": "方块状态"
+  },
+  "app.lab.schematic-preview.state.empty": {
+    "message": "该方块没有可修改的状态。"
+  },
+  "app.lab.schematic-preview.state.property.age": {
+    "message": "生长阶段"
+  },
+  "app.lab.schematic-preview.state.property.attached": {
+    "message": "依附"
+  },
+  "app.lab.schematic-preview.state.property.attachment": {
+    "message": "附着方式"
+  },
+  "app.lab.schematic-preview.state.property.axis": {
+    "message": "轴向"
+  },
+  "app.lab.schematic-preview.state.property.bites": {
+    "message": "已食用"
+  },
+  "app.lab.schematic-preview.state.property.conditional": {
+    "message": "条件触发"
+  },
+  "app.lab.schematic-preview.state.property.delay": {
+    "message": "延迟"
+  },
+  "app.lab.schematic-preview.state.property.disarmed": {
+    "message": "已拆除"
+  },
+  "app.lab.schematic-preview.state.property.distance": {
+    "message": "距离"
+  },
+  "app.lab.schematic-preview.state.property.down": {
+    "message": "下方连接"
+  },
+  "app.lab.schematic-preview.state.property.east": {
+    "message": "东侧连接"
+  },
+  "app.lab.schematic-preview.state.property.extended": {
+    "message": "伸出"
+  },
+  "app.lab.schematic-preview.state.property.eye": {
+    "message": "末影之眼"
+  },
+  "app.lab.schematic-preview.state.property.face": {
+    "message": "附着面"
+  },
+  "app.lab.schematic-preview.state.property.facing": {
+    "message": "朝向"
+  },
+  "app.lab.schematic-preview.state.property.half": {
+    "message": "上下半"
+  },
+  "app.lab.schematic-preview.state.property.hanging": {
+    "message": "悬挂"
+  },
+  "app.lab.schematic-preview.state.property.has_book": {
+    "message": "含书"
+  },
+  "app.lab.schematic-preview.state.property.has_record": {
+    "message": "含唱片"
+  },
+  "app.lab.schematic-preview.state.property.hinge": {
+    "message": "铰链"
+  },
+  "app.lab.schematic-preview.state.property.in_wall": {
+    "message": "嵌入墙体"
+  },
+  "app.lab.schematic-preview.state.property.instrument": {
+    "message": "乐器"
+  },
+  "app.lab.schematic-preview.state.property.level": {
+    "message": "等级"
+  },
+  "app.lab.schematic-preview.state.property.lit": {
+    "message": "点亮"
+  },
+  "app.lab.schematic-preview.state.property.locked": {
+    "message": "锁定"
+  },
+  "app.lab.schematic-preview.state.property.north": {
+    "message": "北侧连接"
+  },
+  "app.lab.schematic-preview.state.property.note": {
+    "message": "音符"
+  },
+  "app.lab.schematic-preview.state.property.occupied": {
+    "message": "已占用"
+  },
+  "app.lab.schematic-preview.state.property.open": {
+    "message": "开启"
+  },
+  "app.lab.schematic-preview.state.property.orientation": {
+    "message": "拼接朝向"
+  },
+  "app.lab.schematic-preview.state.property.part": {
+    "message": "部件"
+  },
+  "app.lab.schematic-preview.state.property.persistent": {
+    "message": "持久"
+  },
+  "app.lab.schematic-preview.state.property.power": {
+    "message": "信号强度"
+  },
+  "app.lab.schematic-preview.state.property.powered": {
+    "message": "供能"
+  },
+  "app.lab.schematic-preview.state.property.rotation": {
+    "message": "旋转"
+  },
+  "app.lab.schematic-preview.state.property.shape": {
+    "message": "形状"
+  },
+  "app.lab.schematic-preview.state.property.signal_fire": {
+    "message": "信号火"
+  },
+  "app.lab.schematic-preview.state.property.snowy": {
+    "message": "积雪"
+  },
+  "app.lab.schematic-preview.state.property.south": {
+    "message": "南侧连接"
+  },
+  "app.lab.schematic-preview.state.property.stage": {
+    "message": "阶段"
+  },
+  "app.lab.schematic-preview.state.property.tilt": {
+    "message": "倾斜"
+  },
+  "app.lab.schematic-preview.state.property.type": {
+    "message": "类型"
+  },
+  "app.lab.schematic-preview.state.property.up": {
+    "message": "上方连接"
+  },
+  "app.lab.schematic-preview.state.property.vertical_direction": {
+    "message": "垂直朝向"
+  },
+  "app.lab.schematic-preview.state.property.waterlogged": {
+    "message": "含水"
+  },
+  "app.lab.schematic-preview.state.property.west": {
+    "message": "西侧连接"
+  },
+  "app.lab.schematic-preview.state.readonly": {
+    "message": "部分属性暂不支持在此修改。"
+  },
+  "app.lab.schematic-preview.state.value.base": {
+    "message": "基部"
+  },
+  "app.lab.schematic-preview.state.value.bottom": {
+    "message": "下半"
+  },
+  "app.lab.schematic-preview.state.value.ceiling": {
+    "message": "天花板"
+  },
+  "app.lab.schematic-preview.state.value.double": {
+    "message": "双层"
+  },
+  "app.lab.schematic-preview.state.value.double_wall": {
+    "message": "双墙"
+  },
+  "app.lab.schematic-preview.state.value.down": {
+    "message": "下"
+  },
+  "app.lab.schematic-preview.state.value.east": {
+    "message": "东"
+  },
+  "app.lab.schematic-preview.state.value.floor": {
+    "message": "地面"
+  },
+  "app.lab.schematic-preview.state.value.foot": {
+    "message": "脚"
+  },
+  "app.lab.schematic-preview.state.value.frustum": {
+    "message": "中段"
+  },
+  "app.lab.schematic-preview.state.value.full": {
+    "message": "完整"
+  },
+  "app.lab.schematic-preview.state.value.head": {
+    "message": "头"
+  },
+  "app.lab.schematic-preview.state.value.inner_left": {
+    "message": "内左"
+  },
+  "app.lab.schematic-preview.state.value.inner_right": {
+    "message": "内右"
+  },
+  "app.lab.schematic-preview.state.value.left": {
+    "message": "左"
+  },
+  "app.lab.schematic-preview.state.value.lower": {
+    "message": "下半"
+  },
+  "app.lab.schematic-preview.state.value.middle": {
+    "message": "中段"
+  },
+  "app.lab.schematic-preview.state.value.middle_wall": {
+    "message": "中墙"
+  },
+  "app.lab.schematic-preview.state.value.none": {
+    "message": "无"
+  },
+  "app.lab.schematic-preview.state.value.north": {
+    "message": "北"
+  },
+  "app.lab.schematic-preview.state.value.outer_left": {
+    "message": "外左"
+  },
+  "app.lab.schematic-preview.state.value.outer_right": {
+    "message": "外右"
+  },
+  "app.lab.schematic-preview.state.value.partial": {
+    "message": "部分"
+  },
+  "app.lab.schematic-preview.state.value.right": {
+    "message": "右"
+  },
+  "app.lab.schematic-preview.state.value.side": {
+    "message": "侧"
+  },
+  "app.lab.schematic-preview.state.value.single": {
+    "message": "单个"
+  },
+  "app.lab.schematic-preview.state.value.single_wall": {
+    "message": "单墙"
+  },
+  "app.lab.schematic-preview.state.value.south": {
+    "message": "南"
+  },
+  "app.lab.schematic-preview.state.value.straight": {
+    "message": "直"
+  },
+  "app.lab.schematic-preview.state.value.tip": {
+    "message": "尖端"
+  },
+  "app.lab.schematic-preview.state.value.top": {
+    "message": "上半"
+  },
+  "app.lab.schematic-preview.state.value.unstable": {
+    "message": "不稳定"
+  },
+  "app.lab.schematic-preview.state.value.up": {
+    "message": "上"
+  },
+  "app.lab.schematic-preview.state.value.upper": {
+    "message": "上半"
+  },
+  "app.lab.schematic-preview.state.value.wall": {
+    "message": "墙面"
+  },
+  "app.lab.schematic-preview.state.value.west": {
+    "message": "西"
   },
   "app.lab.seed-map.area.incomplete": {
     "message": "这些结果只覆盖停止前已搜索的那部分区域。"
@@ -3667,66 +3934,6 @@
   },
   "app.gc-notice.fallback": {
     "message": "Java 不接受 {preferred}，已改用 {chosen}。"
-  },
-  "app.headless-demo.brand-button": {
-    "message": "品牌按钮"
-  },
-  "app.headless-demo.checkbox-label": {
-    "message": "勾选演示复选框（选中时为品牌填充）"
-  },
-  "app.headless-demo.controls": {
-    "message": "控件"
-  },
-  "app.headless-demo.description": {
-    "message": "仅使用现有应用令牌样式化的隔离 reka-ui 原语。可在「设置 → 外观」切换主题以验证浅色、深色与 OLED。"
-  },
-  "app.headless-demo.dialog-close": {
-    "message": "关闭"
-  },
-  "app.headless-demo.dialog-description": {
-    "message": "此对话框内容使用 surface-3、主文本与 surface-5 边框。遮罩与焦点环在所有主题下保持可读。"
-  },
-  "app.headless-demo.dialog-title": {
-    "message": "令牌映射对话框"
-  },
-  "app.headless-demo.loader-fabric": {
-    "message": "Fabric"
-  },
-  "app.headless-demo.loader-forge": {
-    "message": "Forge"
-  },
-  "app.headless-demo.loader-neoforge": {
-    "message": "NeoForge"
-  },
-  "app.headless-demo.loader-vanilla": {
-    "message": "原版"
-  },
-  "app.headless-demo.open-dialog": {
-    "message": "打开对话框"
-  },
-  "app.headless-demo.select-label": {
-    "message": "加载器"
-  },
-  "app.headless-demo.select-placeholder": {
-    "message": "选择加载器"
-  },
-  "app.headless-demo.standard-button": {
-    "message": "标准按钮"
-  },
-  "app.headless-demo.surfaces": {
-    "message": "表面层级"
-  },
-  "app.headless-demo.theme-hint": {
-    "message": "这里不引入第二套主题系统 — 表面与品牌色跟随当前主题。"
-  },
-  "app.headless-demo.title": {
-    "message": "Headless 令牌演示"
-  },
-  "app.headless-demo.tooltip-content": {
-    "message": "提示内容映射到 surface-4 / 主文本。"
-  },
-  "app.headless-demo.tooltip-trigger": {
-    "message": "悬停提示"
   },
   "app.home.breadcrumb": {
     "message": "主页"
@@ -10012,9 +10219,6 @@
   },
   "app.servers.wizard.background-hint": {
     "message": "您可以关闭此窗口，下载将在后台继续进行。"
-  },
-  "app.servers.wizard.configure-heading": {
-    "message": "调整服务器设置，或直接完成，稍后再编辑。"
   },
   "app.servers.wizard.configure-title": {
     "message": "配置"

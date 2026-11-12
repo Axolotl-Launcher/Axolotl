@@ -1,3 +1,5 @@
+import { errorText } from '@/helpers/error-text'
+
 import type { ResourceSearchExpression, SourceId } from './resources'
 
 export async function loadResourceSearchCategories(
@@ -10,7 +12,7 @@ export async function loadResourceSearchCategories(
         return null
     } catch (error) {
         if (source === 'curseforge') throw error
-        return `CurseForge: ${error instanceof Error ? error.message : String(error)}`
+        return `CurseForge: ${errorText(error)}`
     }
 }
 

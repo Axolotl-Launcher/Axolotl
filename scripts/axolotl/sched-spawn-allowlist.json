@@ -1,6 +1,33 @@
 {
   "entries": [
     {
+      "file": "packages/app-lib/src/util/java_storage.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed command-scoped Windows volume and storage-property inspection; awaited blocking worker owns only its temporary device handle, acquires no managed resource, and keeps driver I/O off the async runtime (D17)",
+      "sites": [
+        "inspect: tokio::task::spawn_blocking(move || inspect_windows(&path))"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/executable_install.rs",
+      "form": "std::fs import",
+      "count": 10,
+      "reason": "reviewed synchronous installer helper: headless metadata inspection, duplicated installation-ownership handle verification, same-volume staged executable verification and atomic publication before any GUI or async runtime; holds no launcher managed resources and retains NSIS directory ownership even after parent death (D17)",
+      "sites": [
+        "dispatch: fs::write(",
+        "inherit_ownership: let expected = fs::canonicalize(parent)",
+        "inherit_ownership: let ownership = unsafe { File::from_raw_handle(duplicate.0) };",
+        "inspect: let metadata = fs::symlink_metadata(path)",
+        "inspect: let mut file = File::open(path).map_err(|error| error.to_string())?;",
+        "install: OpenOptions::new()",
+        "install: let metadata = fs::symlink_metadata(target)",
+        "install: let parent = fs::canonicalize(parent).map_err(|error| error.to_string())?;",
+        "install: let stage_parent = fs::canonicalize(",
+        "record: if let Ok(mut file) = OpenOptions::new()"
+      ]
+    },
+    {
       "file": "apps/app/src/api/auth.rs",
       "form": "tokio::spawn",
       "count": 1,
@@ -411,6 +438,15 @@
       ]
     },
     {
+      "file": "apps/app/src/exit_barrier.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "exit hard-cap watchdog: started once by the first exit pass, follows the re-armable deadline (15 s normal, 30 s restart, disarmed for a pending update) and exits the process at the cap (spec §8.6)",
+      "sites": [
+        "watch_hard_cap: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
       "file": "apps/app/src/lightweight_mode.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 10,
@@ -614,9 +650,10 @@
     {
       "file": "apps/app/src/updater_impl.rs",
       "form": "spawn_blocking",
-      "count": 1,
-      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6); reviewed awaited signed-portable ZIP staging worker owns only unpublished staging files and acquires no managed resources (D17)",
       "sites": [
+        "enqueue_update_for_installation: let prepared = tokio::task::spawn_blocking(move || {",
         "install_linux_package: let output = tokio::task::spawn_blocking(move || {"
       ]
     },
@@ -2060,7 +2097,7 @@
       "count": 1,
       "reason": "bounded poll for the L0 driver thread to exit within its 5 s window",
       "sites": [
-        "shutdown: std::thread::sleep(Duration::from_millis(10));"
+        "wait_for_exit: std::thread::sleep(Duration::from_millis(10));"
       ]
     },
     {
@@ -2775,6 +2812,47 @@
       "reason": "Vendored HTTP plugin cookie persistence: operation-scoped asynchronous write of an already serialized snapshot; the cookie-store mutex is released before spawning, and the previous save task is cancelled when replaced.",
       "sites": [
         "request_save: let task = tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/portable_update.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "reviewed bounded 15-second readiness polling in synchronous Exit dispatcher; no runtime or managed resources held; worker holds installation ownership before acknowledging readiness (D17)",
+      "sites": [
+        "start: std::thread::sleep(Duration::from_millis(20));"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/portable_update.rs",
+      "form": "std::fs import",
+      "count": 24,
+      "reason": "reviewed exact synchronous portable transaction I/O: verified ZIP staging in awaited blocking worker, pre-runtime recovery, share-zero installation ownership and journaled program-only activation after parent exit; no launcher managed-resource acquisition, data-directory contents excluded (D17)",
+      "sites": [
+        "activate: fs::create_dir(stage.join(\"previous\"))",
+        "activate: fs::rename(&target, stage.join(\"previous\").join(&item.path))",
+        "activate: fs::rename(stage.join(\"payload\").join(&item.path), &target)",
+        "activate: let mut source = File::open(stage.join(\"payload\").join(MAIN))",
+        "digest: let mut file = File::open(path).map_err(|error| error.to_string())?;",
+        "dispatch: let _ = fs::write(stage.join(\"error.txt\"), error);",
+        "ownership: OpenOptions::new().read(true).write(true).create(true).truncate(false).share_mode(0)",
+        "prepare: fs::copy(payload.join(HELPER), stage.path().join(\"worker.exe\"))",
+        "prepare: fs::create_dir(&payload).map_err(|error| error.to_string())?;",
+        "prepare: let mut output = OpenOptions::new()",
+        "read_json: let file = File::open(path).map_err(|error| error.to_string())?;",
+        "recover_owned: fs::remove_file(&target)",
+        "recover_owned: fs::remove_file(&target).map_err(|error| error.to_string())?;",
+        "recover_owned: fs::remove_file(marker).map_err(|error| error.to_string())?;",
+        "recover_owned: fs::rename(&backup, &target)",
+        "regular: fs::symlink_metadata(path).map_err(|error| error.to_string())?;",
+        "safe_parents: fs::create_dir(&path).map_err(|error| error.to_string())?;",
+        "safe_parents: fs::symlink_metadata(root).map_err(|error| error.to_string())?;",
+        "safe_parents: match fs::symlink_metadata(&path) {",
+        "start: fs::read_to_string(self.stage.path().join(\"error.txt\"))",
+        "validate_journal: fs::symlink_metadata(&stage).map_err(|error| error.to_string())?;",
+        "worker: != fs::canonicalize(root).map_err(|error| error.to_string())?",
+        "worker: if fs::canonicalize(stage.parent().ok_or(\"Invalid portable stage\")?)",
+        "write_new: let mut file = OpenOptions::new()"
       ]
     }
   ]

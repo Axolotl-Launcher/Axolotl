@@ -87,6 +87,19 @@ export function createUpdateManifest(release, signaturesPath, tag) {
             sha256: assetSha256(asset),
             url: assetDownloadUrl(tag, asset.name),
         }
+        // Published historical portable packages were unsigned. Describe the
+        // package's own signature when attached, without borrowing the setup's.
+        if (release.assets.some((candidate) => candidate.name === `${asset.name}.sig`)) {
+            const signaturePath = path.join(signaturesPath, `${asset.name}.sig`)
+            const signature = fs.readFileSync(signaturePath, 'utf8')
+            if (
+                signature.trim().length < 32 ||
+                !Number.isSafeInteger(asset.size) ||
+                asset.size <= 0
+            )
+                throw new Error(`Invalid signed portable metadata ${asset.name}`)
+            Object.assign(artifacts[target.key], { signature, size: asset.size })
+        }
     }
     return {
         version: releaseVersion(tag),

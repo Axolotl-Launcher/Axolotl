@@ -13,6 +13,7 @@ it('reads Error instances and passes plain values through', () => {
     expect(errorText(new Error('cache unavailable'))).toBe('cache unavailable')
     expect(errorText('cache unavailable')).toBe('cache unavailable')
     expect(errorText(42)).toBe('42')
+    expect(errorText(false)).toBe('false')
 })
 
 it('shares one implementation with the existing multiplayer helper', () => {
@@ -29,9 +30,29 @@ it('reports no message when the value has none, or a non-string one', () => {
     expect(errorMessage({ message: null })).toBeNull()
     expect(errorMessage('plain text')).toBeNull()
 
-    // The formatting form still returns something readable for those values.
-    expect(errorText({ field_name: 'Theseus' })).toBe('[object Object]')
-    expect(errorText({ message: 42 })).toBe('[object Object]')
+    expect(errorText({ field_name: 'Theseus' })).toBe('{"field_name":"Theseus"}')
+    expect(errorText({ message: 42 })).toBe('{"message":42}')
+})
+
+it('preserves file failure details in objects and arrays without a message', () => {
+    const failure = { path: 'downloads/pack.zip', reason: 'permission denied' }
+    expect(errorText(failure)).toBe('{"path":"downloads/pack.zip","reason":"permission denied"}')
+    expect(errorText([failure])).toBe(
+        '[{"path":"downloads/pack.zip","reason":"permission denied"}]',
+    )
+})
+
+it('returns the localized fallback for absent or unserializable errors', () => {
+    const cycle: { file: string; cause?: unknown } = { file: 'cache.db' }
+    cycle.cause = cycle
+    for (const error of [null, undefined, cycle, { size: 1n }]) {
+        expect(errorText(error, '未知错误')).toBe('未知错误')
+    }
+})
+
+it('keeps a string result when an object has no JSON representation', () => {
+    expect(errorText({ toJSON: () => undefined }, '未知错误')).toBe('未知错误')
+    expect(multiplayerErrorText({ toJSON: () => undefined }).includes('cancelled')).toBe(false)
 })
 
 it('never throws on a value that cannot be inspected', () => {
@@ -71,11 +92,10 @@ it('never throws when reading the message property itself throws', () => {
     expect(errorText(hostile)).toBe('Unknown error')
 })
 
-it('uses the caller-provided fallback when the value cannot be converted', () => {
-    // Reachable through the second catch in `errorText`, not the message read.
+it('uses the caller-provided fallback when object serialization throws', () => {
     const hostile = {
-        toString() {
-            throw new Error('toString trap')
+        toJSON() {
+            throw new Error('serialization rejected')
         },
     }
     expect(errorMessage(hostile)).toBeNull()

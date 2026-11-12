@@ -188,8 +188,47 @@ jobs:
         run: pnpm --filter @modrinth/ui test
       - name: Test desktop frontend
         run: pnpm --filter @modrinth/app-frontend test
-      - name: Test desktop frontend overlays
-        run: pnpm --filter @modrinth/app-frontend test:visual
+
+  frontend-e2e:
+    name: Test desktop frontend user flows
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install browser system dependencies
+        run: pnpm --filter @modrinth/app-frontend exec playwright install-deps chromium
+      - name: Test desktop navigation and persisted appearance
+        run: |
+          set -o pipefail
+          mkdir -p .agents/plans/desktop-e2e
+          pnpm --filter @modrinth/app-frontend test:e2e 2>&1 | tee .agents/plans/desktop-e2e/run.log
+      - name: Upload desktop E2E failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-frontend-e2e-failure
+          path: |
+            .agents/plans/desktop-e2e/*.log
+            .agents/plans/desktop-e2e/*.json
+            .agents/plans/desktop-e2e/*.png
+            .agents/plans/desktop-e2e/webdriver/*.log
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
 
   resources:
     name: Prepare build resources
@@ -267,6 +306,8 @@ jobs:
         run: node scripts/axolotl/check-dead-utilities.mjs
       - name: Test version metadata writes
         run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail writing_version_info_creates_missing_parent_directory
+      - name: Test launcher memory behavior
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail api::memory
       # Runs the CurseForge content pipeline suites (recognition, dependency
       # selection, install, verification, manual downloads, reconciliation).
       # Linux only: the code is platform independent and this keeps the matrix
@@ -280,6 +321,15 @@ jobs:
       - name: Test derived database
         if: runner.os == 'Linux'
         run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail derived_db
+      - name: Test app database ownership and recovery
+        run: |
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::db::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::db_backup::
+      - name: Test Java availability and external storage selection
+        run: |
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail api::jre::tests::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail documents::java::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail java_storage::
       # The settings documents: a document answers for its domain, and a key it
       # leaves out stays at its default instead of returning to the row.
       # Hermetic (in-memory sqlite + temp dirs).
@@ -363,6 +413,12 @@ jobs:
         run: |
           node scripts/axolotl/build-desktop.mjs --profile ci
           node scripts/axolotl/build-desktop.mjs --profile ci --installer-only
+      - name: Test transactional Windows executable updates
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          AXOLOTL_INSTALLER_UI_PATH: ${{ github.workspace }}/target/ci/axolotl-installer-ui.exe
+        run: node --test apps/installer-ui/tests/executable-install.test.cjs apps/installer-ui/tests/portable-update.test.cjs
       - name: Package and verify both Windows installers from one binary
         if: runner.os == 'Windows'
         run: node scripts/axolotl/package-windows.mjs --profile ci --output target/ci-installers
@@ -372,7 +428,7 @@ jobs:
         run: |
           npm install --prefix target/uninstall-verification --no-save --no-audit --no-fund handlebars@4.7.8
           if ($LASTEXITCODE -ne 0) { throw "Failed to prepare NSIS fixture dependencies" }
-          node apps/installer-ui/tests/compile-fixture.cjs --tauri-nsis target/ci-bundle/release/nsis/x64
+          node apps/installer-ui/tests/compile-fixture.cjs --tauri-nsis target/ci-bundle/release/nsis/x64 --installer-helper target/ci/axolotl-installer-ui.exe
           if ($LASTEXITCODE -ne 0) { throw "Failed to compile NSIS uninstall fixture" }
           & apps/installer-ui/tests/uninstall-smoke.ps1
   website:

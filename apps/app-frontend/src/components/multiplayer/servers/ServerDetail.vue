@@ -38,6 +38,7 @@ import { useMultiplayerSession } from '@/composables/useMultiplayerSession'
 import { serverSetupStatus } from '@/composables/useServerInstalls'
 import { useServerLifecycle } from '@/composables/useServerLifecycle'
 import { useServers } from '@/composables/useServers'
+import { errorText } from '@/helpers/error-text'
 import { type PortProcessInfoData, servers as serversApi } from '@/helpers/servers'
 import { openPath } from '@/helpers/utils'
 
@@ -179,7 +180,7 @@ async function forceQuitPortProcess() {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.portForceQuitFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     } finally {

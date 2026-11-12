@@ -59,6 +59,18 @@ export function verifyUpdateManifest(manifest, tag, source = 'github', release) 
                 throw new Error(`Invalid manifest artifact: ${key}`)
             }
             // A stale zip attached to a newer release must not be described as this version's.
+            if (
+                (artifact.signature !== undefined || artifact.size !== undefined) &&
+                (typeof artifact.signature !== 'string' ||
+                    artifact.signature.trim().length < 32 ||
+                    !Number.isSafeInteger(artifact.size) ||
+                    artifact.size <= 0)
+            ) {
+                throw new Error(`Invalid signed portable metadata: ${key}`)
+            }
+            const releaseAsset = release?.assets?.find((asset) => asset.name === artifact.name)
+            if (artifact.size !== undefined && releaseAsset && artifact.size !== releaseAsset.size)
+                throw new Error(`Manifest artifact ${key} size does not match the release asset`)
             if (artifact.name !== portableArtifactName(tag)) {
                 throw new Error(`Manifest artifact ${key} does not match ${expectedVersion}`)
             }

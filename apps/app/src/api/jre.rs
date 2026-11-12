@@ -8,6 +8,8 @@ pub fn init<R: tauri::Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             get_java_versions,
             get_java_default_versions,
+            get_java_selection_info,
+            approve_java_selection,
             set_java_version,
             set_java_default_version,
             remove_java_default_version,
@@ -26,6 +28,21 @@ pub fn init<R: tauri::Runtime>() -> TauriPlugin<R> {
             download_java,
         ])
         .build()
+}
+
+#[tauri::command]
+pub async fn get_java_selection_info(
+    path: PathBuf,
+) -> Result<jre::JavaSelectionInfo> {
+    Ok(jre::get_java_selection_info(path).await?)
+}
+
+#[tauri::command]
+pub async fn approve_java_selection(
+    path: PathBuf,
+    volume_id: String,
+) -> Result<JavaVersion> {
+    Ok(jre::approve_java_selection(path, volume_id).await?)
 }
 
 #[tauri::command]

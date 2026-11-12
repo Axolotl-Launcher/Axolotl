@@ -338,18 +338,6 @@ fn main() {
                     ),
             )
             .plugin(
-                "content-favorites",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "content_favorites_list",
-                        "content_favorites_add",
-                        "content_favorites_remove",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
                 "axolotl-resources",
                 InlinedPlugin::new()
                     .commands(&[
@@ -476,6 +464,8 @@ fn main() {
                     .commands(&[
                         "get_java_versions",
                         "get_java_default_versions",
+                        "get_java_selection_info",
+                        "approve_java_selection",
                         "set_java_version",
                         "set_java_default_version",
                         "remove_java_default_version",

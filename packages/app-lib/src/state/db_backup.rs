@@ -22,6 +22,12 @@ const CURRENT_APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const REQUIRED_APP_DB_TABLES: &[&str] =
     &["_sqlx_migrations", "instances", "settings"];
 const MAX_APP_DB_BACKUPS: usize = 3;
+const RECOVERY_SNAPSHOT_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+fn is_snapshot_name(name: &str) -> bool {
+    (name.starts_with("app-db-before-") || name.starts_with("app-db-regular-"))
+        && name.ends_with(".db")
+}
 
 enum IntegrityStatus {
     Healthy,
@@ -43,8 +49,19 @@ async fn restore_corrupt_app_db_from(
     db_path: &Path,
     backup_dir: &Path,
 ) -> crate::Result<()> {
-    let corruption = match check_database_integrity(db_path).await? {
+    let first_corruption = match check_database_integrity(db_path).await? {
         IntegrityStatus::Healthy => return Ok(()),
+        IntegrityStatus::Corrupt(corruption) => corruption,
+    };
+    // Reopen after the first connection closed before replacing any files.
+    // Ownership is held by connect_app_db, so another cooperating launcher
+    // cannot change the family while a suspected corrupt view is confirmed.
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let corruption = match check_database_integrity(db_path).await? {
+        IntegrityStatus::Healthy => {
+            tracing::warn!(database = %db_path.display(), first_corruption, "Database passed a second independent integrity check; no recovery was performed");
+            return Ok(());
+        }
         IntegrityStatus::Corrupt(corruption) => corruption,
     };
 
@@ -85,22 +102,17 @@ async fn restore_corrupt_app_db_from(
         cleanup_staged_database(&restore_staging_path).await;
         return Err(error);
     }
-    if let Err(error) = archive_database_files(db_path, &corrupt_path).await {
-        cleanup_staged_database(&restore_staging_path).await;
-        return Err(error);
-    }
-    if let Err(error) = tokio::fs::rename(&restore_staging_path, db_path).await
-    {
-        let rollback_result =
-            restore_archived_database_files(&corrupt_path, db_path).await;
-        cleanup_staged_database(&restore_staging_path).await;
-        if let Err(rollback_error) = rollback_result {
-            return Err(crate::ErrorKind::FSError(format!(
-                "Failed to activate recovered app database: {error}; failed to restore original database: {rollback_error}"
-            ))
-            .into());
-        }
-        return Err(error.into());
+    tokio::fs::OpenOptions::new()
+        .write(true)
+        .open(&restore_staging_path)
+        .await?
+        .sync_all()
+        .await?;
+    let archived =
+        super::db::replace_database_files(db_path, &restore_staging_path)
+            .await?;
+    if let Err(error) = archive_database_files(&archived, &corrupt_path).await {
+        tracing::warn!(%error, archive = %archived.display(), "Recovered database is active; its previous file family remains beside it for manual recovery");
     }
 
     tracing::warn!(
@@ -150,7 +162,10 @@ async fn check_database_integrity(
         Err(error) if is_sqlite_corruption(&error) => {
             IntegrityStatus::Corrupt(error.to_string())
         }
-        Err(error) => return Err(error.into()),
+        Err(error) => {
+            conn.close().await?;
+            return Err(error.into());
+        }
     };
     conn.close().await?;
 
@@ -190,10 +205,7 @@ async fn latest_healthy_app_db_backup(
         else {
             continue;
         };
-        if !file_name.starts_with("app-db-before-")
-            || path.extension().and_then(|extension| extension.to_str())
-                != Some("db")
-        {
+        if !is_snapshot_name(file_name) {
             continue;
         }
         let modified = entry.metadata().await?.modified().unwrap_or(UNIX_EPOCH);
@@ -202,12 +214,24 @@ async fn latest_healthy_app_db_backup(
     candidates.sort_by(|left, right| right.0.cmp(&left.0));
 
     for (_, candidate) in candidates {
-        if matches!(
-            check_database_integrity(&candidate).await,
-            Ok(IntegrityStatus::Healthy)
-        ) && is_app_database(&candidate).await?
-        {
-            return Ok(Some(candidate));
+        match check_database_integrity(&candidate).await {
+            Ok(IntegrityStatus::Healthy) => {
+                match is_app_database(&candidate).await {
+                    Ok(true) => return Ok(Some(candidate)),
+                    Ok(false) => {
+                        tracing::warn!(backup = %candidate.display(), "Skipping backup without the required application tables")
+                    }
+                    Err(error) => {
+                        tracing::warn!(backup = %candidate.display(), %error, "Could not inspect backup schema; candidate was not selected")
+                    }
+                }
+            }
+            Ok(IntegrityStatus::Corrupt(reason)) => {
+                tracing::warn!(backup = %candidate.display(), reason, "Skipping a backup that failed its integrity check")
+            }
+            Err(error) => {
+                tracing::warn!(backup = %candidate.display(), %error, "Could not validate backup; this does not establish that its contents are corrupt")
+            }
         }
     }
 
@@ -253,21 +277,6 @@ async fn archive_database_files(
         archived_sidecars.push((destination, source));
     }
 
-    Ok(())
-}
-
-async fn restore_archived_database_files(
-    archive_path: &Path,
-    db_path: &Path,
-) -> crate::Result<()> {
-    tokio::fs::rename(archive_path, db_path).await?;
-    for suffix in ["-wal", "-shm"] {
-        let archived = sqlite_sidecar_path(archive_path, suffix);
-        if archived.try_exists()? {
-            tokio::fs::rename(archived, sqlite_sidecar_path(db_path, suffix))
-                .await?;
-        }
-    }
     Ok(())
 }
 
@@ -534,10 +543,42 @@ pub(crate) async fn maintain_app_db_backups(
     database: &Path,
 ) -> crate::Result<()> {
     let _guard = SNAPSHOT_WRITE.lock().await;
-    prune_app_db_backups(&app_db_backup_dir_for(database)?).await
+    let directory = app_db_backup_dir_for(database)?;
+    ensure_recent_recovery_snapshot(database, &directory).await?;
+    prune_app_db_backups(&directory).await
 }
 
-async fn open_read_only_db(db_path: &Path) -> crate::Result<SqliteConnection> {
+async fn ensure_recent_recovery_snapshot(
+    database: &Path,
+    directory: &Path,
+) -> crate::Result<()> {
+    if let Some(snapshot) = latest_healthy_app_db_backup(directory).await? {
+        let modified = tokio::fs::metadata(snapshot).await?.modified()?;
+        if SystemTime::now()
+            .duration_since(modified)
+            .is_ok_and(|age| age < RECOVERY_SNAPSHOT_INTERVAL)
+        {
+            return Ok(());
+        }
+    }
+    if !is_app_database(database).await? {
+        return Ok(());
+    }
+    tokio::fs::create_dir_all(directory).await?;
+    let destination =
+        directory.join(format!("app-db-regular-{}.db", uuid::Uuid::new_v4()));
+    let mut connection = open_read_only_db(database).await?;
+    let result =
+        create_verified_sqlite_snapshot(&mut connection, &destination).await;
+    connection.close().await?;
+    result?;
+    tracing::info!(backup = %destination.display(), "Created verified periodic app database recovery snapshot");
+    Ok(())
+}
+
+pub(super) async fn open_read_only_db(
+    db_path: &Path,
+) -> crate::Result<SqliteConnection> {
     let conn_options = SqliteConnectOptions::new()
         .filename(db_path)
         .busy_timeout(Duration::from_secs(30))
@@ -612,10 +653,7 @@ async fn prune_app_db_backups(backup_dir: &Path) -> crate::Result<()> {
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if name.starts_with("app-db-before-")
-            && path.extension().and_then(|extension| extension.to_str())
-                == Some("db")
-        {
+        if is_snapshot_name(name) {
             let modified =
                 entry.metadata().await?.modified().unwrap_or(UNIX_EPOCH);
             candidates.push((modified, path));
@@ -779,7 +817,7 @@ async fn create_sqlite_snapshot(
     Ok(())
 }
 
-async fn create_verified_sqlite_snapshot(
+pub(super) async fn create_verified_sqlite_snapshot(
     conn: &mut SqliteConnection,
     backup_path: &Path,
 ) -> crate::Result<()> {
@@ -815,6 +853,58 @@ async fn create_verified_sqlite_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn same_version_databases_get_regular_verified_recovery_points() {
+        let directory = tempfile::tempdir().unwrap();
+        let database = directory.path().join("release/app.db");
+        tokio::fs::create_dir_all(database.parent().unwrap())
+            .await
+            .unwrap();
+        create_test_app_db(&database, "same-version").await;
+        set_app_version(&database, CURRENT_APP_VERSION).await;
+        let snapshots = app_db_backup_dir_for(&database).unwrap();
+        ensure_recent_recovery_snapshot(&database, &snapshots)
+            .await
+            .unwrap();
+        let first = latest_healthy_app_db_backup(&snapshots)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            first
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("app-db-regular-")
+        );
+        assert_eq!(read_marker(&first).await, "same-version");
+        ensure_recent_recovery_snapshot(&database, &snapshots)
+            .await
+            .unwrap();
+        assert_eq!(
+            latest_healthy_app_db_backup(&snapshots)
+                .await
+                .unwrap()
+                .unwrap(),
+            first
+        );
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&first)
+            .unwrap()
+            .set_modified(UNIX_EPOCH)
+            .unwrap();
+        ensure_recent_recovery_snapshot(&database, &snapshots)
+            .await
+            .unwrap();
+        let second = latest_healthy_app_db_backup(&snapshots)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_ne!(first, second);
+        assert_eq!(read_marker(&second).await, "same-version");
+    }
 
     async fn set_app_version(path: &Path, version: &str) {
         let mut conn = SqliteConnectOptions::new()

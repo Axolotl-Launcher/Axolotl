@@ -20,6 +20,7 @@ import {
 import { open } from '@tauri-apps/plugin-dialog'
 import { computed, inject, onMounted, reactive, ref, watch } from 'vue'
 
+import { errorText } from '@/helpers/error-text'
 import type { DirectLinkSyncReport } from '@/helpers/instance'
 import { type ChooseImportMethod, startLauncherImport } from '@/helpers/launcher-import'
 import { addMinecraftRoot } from '@/helpers/minecraft-roots'
@@ -299,7 +300,7 @@ async function linkFolder(choice: string, origin: AddedFolder['origin']) {
         })
     } catch (error) {
         folder.state = 'failed'
-        folder.message = error instanceof Error ? error.message : String(error)
+        folder.message = errorText(error)
     } finally {
         step.setBusy(false)
     }

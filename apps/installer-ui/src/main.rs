@@ -1,12 +1,33 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(windows)]
+mod executable_install;
+#[cfg(windows)]
+mod portable_update;
+#[cfg(windows)]
 mod prerequisite;
 #[cfg(windows)]
 mod windows;
 
 #[cfg(windows)]
 fn main() {
+    if let Some(result) = portable_update::dispatch(std::env::args_os().skip(1))
+    {
+        if let Err(error) = result {
+            eprintln!("{error}");
+            std::process::exit(2);
+        }
+        return;
+    }
+    if let Some(result) =
+        executable_install::dispatch(std::env::args_os().skip(1))
+    {
+        if let Err(error) = result {
+            eprintln!("{error}");
+            std::process::exit(2);
+        }
+        return;
+    }
     if let Some(chinese) = prerequisite::requested_language() {
         std::process::exit(prerequisite::show(chinese));
     }

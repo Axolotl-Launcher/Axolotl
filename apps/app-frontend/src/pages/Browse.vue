@@ -1920,6 +1920,12 @@ const searchState = useBrowseSearch({
             : error instanceof Error
               ? error.message
               : resourceOperationError(error, formatMessage),
+    automaticSort: true,
+    supportedSortNames: computed(() =>
+        contentSource.value === 'mcarchive' || contentSource.value === 'planet_minecraft'
+            ? ['relevance']
+            : undefined,
+    ),
     sortOptions: [
         { name: 'relevance', display: 'Relevance' },
         { name: 'downloads', display: 'Downloads' },

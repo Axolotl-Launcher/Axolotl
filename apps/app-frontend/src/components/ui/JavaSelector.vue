@@ -8,19 +8,16 @@
         <div class="flex items-center gap-2 w-full min-w-0">
             <StyledInput
                 autocomplete="off"
-                :disabled="props.disabled"
-                :model-value="props.modelValue ? props.modelValue.path : ''"
+                :disabled="props.disabled || selectingJava"
+                :model-value="draftPath"
                 :placeholder="placeholder ?? '/path/to/java'"
                 wrapper-class="flex-1 min-w-0"
                 @update:model-value="
                     (val) => {
-                        emit('update:modelValue', {
-                            ...props.modelValue,
-                            path: val,
-                        })
+                        draftPath = val
                     }
                 "
-                @focusout="emit('commit', props.modelValue)"
+                @focusout="commitSelection({ ...props.modelValue, path: draftPath })"
             />
             <IconButton
                 :label="formatMessage(messages.testInstallation)"
@@ -33,7 +30,7 @@
                         : undefined
                 "
                 class="!shadow-none"
-                :disabled="testingJava || props.disabled"
+                :disabled="testingJava || props.disabled || selectingJava"
                 @click="runTest(props.modelValue?.path)"
                 @mouseenter="!props.disabled && (hoveringTest = true)"
                 @mouseleave="hoveringTest = false"
@@ -58,7 +55,9 @@
                 "
                 class="!shadow-none"
                 :aria-label="formatMessage(messages.installRecommended)"
-                :disabled="props.disabled || installingJava || recommendedInstalled"
+                :disabled="
+                    props.disabled || selectingJava || installingJava || recommendedInstalled
+                "
                 @click="reinstallJava"
                 ><DownloadIcon />
                 {{
@@ -72,7 +71,7 @@
                 :aria-label="
                     formatMessage(props.selectAllVersions ? messages.select : messages.detect)
                 "
-                :disabled="props.disabled"
+                :disabled="props.disabled || selectingJava"
                 @click="autoDetect"
                 ><SearchIcon />
                 {{ formatMessage(props.selectAllVersions ? messages.select : messages.detect) }}
@@ -80,7 +79,7 @@
             <Button
                 class="!shadow-none"
                 :aria-label="formatMessage(messages.browseForExecutable)"
-                :disabled="props.disabled"
+                :disabled="props.disabled || selectingJava"
                 @click="handleJavaFileInput()"
                 ><FolderSearchIcon />
                 {{ formatMessage(messages.browse) }}
@@ -114,6 +113,7 @@ import { computed, ref, watch } from 'vue'
 import JavaDetectionModal from '@/components/ui/JavaDetectionModal.vue'
 import useJavaTest from '@/composables/useJavaTest'
 import { trackEvent } from '@/helpers/analytics'
+import { confirmJavaSelection } from '@/helpers/java-selection'
 import { auto_install_java, find_filtered_jres, get_jre } from '@/helpers/jre.js'
 
 const { handleError } = injectNotificationManager()
@@ -187,6 +187,8 @@ const {
 const recommendedJavaTest = useJavaTest()
 
 const installingJava = ref(false)
+const draftPath = ref(props.modelValue?.path ?? '')
+const selectingJava = ref(false)
 const hoveringTest = ref(false)
 const testVersion = computed(() => (props.selectAllVersions ? null : props.version))
 const recommendedInstalled = computed(() => {
@@ -203,14 +205,40 @@ async function runTest(path) {
     }
 }
 
-function commitSelection(javaVersion) {
-    emit('update:modelValue', javaVersion)
-    emit('commit', javaVersion)
+async function commitSelection(javaVersion) {
+    if (selectingJava.value || props.disabled) return
+    const previousPath = props.modelValue?.path
+    const context = [props.id, props.version, props.selectAllVersions]
+    selectingJava.value = true
+    try {
+        const selected = await confirmJavaSelection(javaVersion, formatMessage)
+        if (
+            !selected ||
+            props.disabled ||
+            props.modelValue?.path !== previousPath ||
+            context.some(
+                (value, index) =>
+                    value !== [props.id, props.version, props.selectAllVersions][index],
+            )
+        ) {
+            draftPath.value = props.modelValue?.path ?? ''
+            return
+        }
+        draftPath.value = selected.path ?? ''
+        emit('update:modelValue', selected)
+        emit('commit', selected)
+    } catch (error) {
+        draftPath.value = props.modelValue?.path ?? ''
+        handleError(error)
+    } finally {
+        selectingJava.value = false
+    }
 }
 
 watch(
     [() => props.modelValue?.path, () => props.version, () => props.selectAllVersions],
     ([newPath]) => {
+        draftPath.value = newPath ?? ''
         if (newPath) {
             if (!hasInitialized) {
                 testJavaInstallation(newPath, testVersion.value, false)
@@ -247,7 +275,7 @@ async function handleJavaFileInput() {
             version: props.version,
         })
 
-        commitSelection(result)
+        await commitSelection(result)
     }
 }
 
@@ -259,7 +287,7 @@ async function autoDetect() {
     } else {
         const versions = await find_filtered_jres(filterVersion, false, false).catch(handleError)
         if (versions?.length > 0) {
-            commitSelection(versions[0])
+            await commitSelection(versions[0])
         }
     }
 }
@@ -281,7 +309,7 @@ async function reinstallJava() {
         }
 
         trackEvent('JavaReInstall', { path: path, version: props.version })
-        commitSelection(result)
+        await commitSelection(result)
         runTest(result.path)
     } finally {
         installingJava.value = false

@@ -43,7 +43,79 @@ pub struct UpdateMetadata {
 }
 
 #[derive(Default)]
-pub struct PendingUpdateData(pub Mutex<Option<(Arc<Update>, Vec<u8>)>>);
+pub struct PendingUpdateData(pub Mutex<Option<PendingUpdate>>);
+
+struct CheckedUpdate {
+    update: Update,
+    portable: Option<UpdateArtifact>,
+    install_method: UpdateMethod,
+}
+
+impl tauri::Resource for CheckedUpdate {}
+
+pub enum PendingUpdate {
+    Installer(Arc<Update>, Vec<u8>, UpdateMethod),
+    #[cfg(windows)]
+    Portable {
+        version: String,
+        downloaded_bytes: usize,
+        prepared: crate::portable_update::PreparedUpdate,
+    },
+}
+
+impl PendingUpdate {
+    pub fn downloaded_bytes(&self) -> usize {
+        match self {
+            Self::Installer(_, data, _) => data.len(),
+            #[cfg(windows)]
+            Self::Portable {
+                downloaded_bytes, ..
+            } => *downloaded_bytes,
+        }
+    }
+
+    pub fn version(&self) -> &str {
+        match self {
+            Self::Installer(update, _, _) => &update.version,
+            #[cfg(windows)]
+            Self::Portable { version, .. } => version,
+        }
+    }
+
+    pub fn is_portable(&self) -> bool {
+        match self {
+            #[cfg(windows)]
+            Self::Portable { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn install(self, restart: bool) -> std::result::Result<(), String> {
+        match self {
+            Self::Installer(_, _, UpdateMethod::Manual) => {
+                Err("This copy of Axolotl Launcher cannot update itself".into())
+            }
+            Self::Installer(update, data, method) => {
+                if let Some(installer) = method.package_installer() {
+                    tauri::async_runtime::block_on(install_linux_package(
+                        installer,
+                        &update.version,
+                        &data,
+                    ))
+                    .map_err(|error| error.to_string())
+                } else {
+                    (*update)
+                        .clone()
+                        .restart_after_install(restart)
+                        .install(data)
+                        .map_err(|error| error.to_string())
+                }
+            }
+            #[cfg(windows)]
+            Self::Portable { prepared, .. } => prepared.start(restart),
+        }
+    }
+}
 
 // ── Update Server API types ─────────────────────────────────────
 
@@ -70,13 +142,17 @@ struct ArtifactEntry {
     sha256: Option<String>,
     #[serde(default)]
     size: u64,
+    #[serde(default)]
+    signature: Option<String>,
 }
 
 /// Catalog integrity also allows the shared downloader to recover ranges.
+#[derive(Clone)]
 struct UpdateArtifact {
     url: Url,
     sha256: String,
     size: u64,
+    signature: Option<String>,
 }
 
 /// A distribution package that updates an apt or rpm install.
@@ -88,6 +164,14 @@ struct PackageUpdate {
 
 fn catalog_error(message: String) -> crate::api::TheseusSerializableError {
     theseus::Error::from(theseus::ErrorKind::OtherError(message)).into()
+}
+
+async fn fetch_update_artifact(
+    version: &str,
+    download_url: &Url,
+) -> Result<UpdateArtifact> {
+    let release = fetch_update_release(version).await?;
+    select_update_artifact(&release, download_url)
 }
 
 async fn fetch_update_release(version: &str) -> Result<VersionEntry> {
@@ -108,22 +192,17 @@ async fn fetch_update_release(version: &str) -> Result<VersionEntry> {
     }
 
     let catalog: VersionsResponse = response.json().await?;
-    catalog
+    let release = catalog
         .versions
         .into_iter()
         .find(|entry| entry.version == version)
         .ok_or_else(|| {
-            catalog_error(format!(
+            theseus::Error::from(theseus::ErrorKind::OtherError(format!(
                 "Update catalog has no entry for version {version}"
-            ))
-        })
-}
+            )))
+        })?;
 
-async fn fetch_update_artifact(
-    version: &str,
-    download_url: &Url,
-) -> Result<UpdateArtifact> {
-    select_update_artifact(&fetch_update_release(version).await?, download_url)
+    Ok(release)
 }
 
 fn select_update_artifact(
@@ -131,6 +210,7 @@ fn select_update_artifact(
     download_url: &Url,
 ) -> Result<UpdateArtifact> {
     let version = &release.version;
+    let arch = std::env::consts::ARCH;
     let artifact = release
         .artifacts
         .iter()
@@ -139,15 +219,15 @@ fn select_update_artifact(
                 .is_ok_and(|url| url == *download_url)
         })
         .ok_or_else(|| {
-            catalog_error(format!(
-                "Update catalog has no artifact of {version} at {download_url}"
-            ))
+            theseus::Error::from(theseus::ErrorKind::OtherError(format!(
+                "Update catalog has no matching artifact for {version} on {arch}"
+            )))
         })?;
 
     let sha256 = artifact.sha256.clone().ok_or_else(|| {
-        catalog_error(format!(
+        theseus::Error::from(theseus::ErrorKind::OtherError(format!(
             "Update catalog has no sha256 for the artifact of {version}"
-        ))
+        )))
     })?;
 
     let url = update_artifact_url(&artifact.relative_path)?;
@@ -156,6 +236,7 @@ fn select_update_artifact(
         url,
         sha256,
         size: artifact.size,
+        signature: artifact.signature.clone(),
     })
 }
 
@@ -227,6 +308,79 @@ async fn fetch_package_update(
     Ok(PackageUpdate { url, signature })
 }
 
+fn select_portable_artifact(
+    release: &VersionEntry,
+    arch: &str,
+) -> Result<UpdateArtifact> {
+    let expected =
+        format!("Axolotl_Launcher_{}_x64_portable.zip", release.version);
+    let mut matches = release.artifacts.iter().filter(|entry| {
+        arch == "x86_64"
+            && entry.kind == "portable"
+            && entry.variant.as_deref() == Some("portable")
+            && entry.platform == "windows"
+            && entry.architecture == arch
+            && entry.relative_path.trim_start_matches('/')
+                == format!("dist/{}/{}", release.version, expected)
+    });
+    let entry = matches.next().ok_or_else(|| Error::Network("This release has no matching portable update. Please update the portable package manually.".into()))?;
+    if matches.next().is_some()
+        || entry.size == 0
+        || !entry.sha256.as_ref().is_some_and(|hash| {
+            hash.len() == 64
+                && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+    {
+        return Err(Error::Network(
+            "Invalid portable update integrity metadata".into(),
+        )
+        .into());
+    }
+    Ok(UpdateArtifact {
+        url: update_artifact_url(&entry.relative_path)?,
+        sha256: entry.sha256.clone().unwrap(),
+        size: entry.size,
+        signature: entry.signature.clone(),
+    })
+}
+
+async fn portable_signature(asset: &UpdateArtifact) -> Result<String> {
+    if let Some(signature) = &asset.signature {
+        if signature.trim().len() >= 32 {
+            return Ok(signature.trim().to_owned());
+        }
+        return Err(
+            Error::Network("Invalid portable update signature".into()).into()
+        );
+    }
+    let mut response = theseus::http_client_builder()
+        .user_agent(launcher_user_agent())
+        .timeout(UPDATE_DOWNLOAD_TIMEOUT)
+        .build()?
+        .get(format!("{}.sig", asset.url))
+        .send()
+        .await?;
+    if !response.status().is_success() {
+        return Err(Error::Network("This release has no signed portable package. Please update the portable package manually.".into()).into());
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if bytes.len() + chunk.len() > 16_384 {
+            return Err(Error::Network(
+                "Portable update signature is too large".into(),
+            )
+            .into());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    String::from_utf8(bytes)
+        .map(|value| value.trim().to_owned())
+        .map_err(|_| {
+            Error::Network("Invalid portable update signature encoding".into())
+                .into()
+        })
+}
+
 // ── Updater plugin helpers ───────────────────────────────────────
 
 fn update_channel(channel: &str) -> Result<&str> {
@@ -287,6 +441,21 @@ fn update_artifact_url(relative_path: &str) -> Result<Url> {
     Ok(url)
 }
 
+/// The Windows updater launches the NSIS installer and exits with
+/// `std::process::exit(0)` without returning to the `Exit` handler. The
+/// plugin's hook is the last point where the database can be closed cleanly.
+fn close_database_before_installer() {
+    if let Some(state) = theseus::State::get_if_initialized()
+        && let Err(error) =
+            tauri::async_runtime::block_on(state.finish_database_session())
+    {
+        tracing::warn!(
+            %error,
+            "Could not record a clean database shutdown before the Windows installer"
+        );
+    }
+}
+
 /// Build the platform-updater with the given endpoints and run a check.
 async fn check_with_endpoints<R: Runtime>(
     webview: &Webview<R>,
@@ -296,13 +465,22 @@ async fn check_with_endpoints<R: Runtime>(
     let platform = update_platform()?;
     let current_version =
         webview.app_handle().package_info().version.to_string();
+    let app_handle = webview.app_handle().clone();
     let mut updater = webview
         .updater_builder()
         .endpoints(vec![update_endpoint()?])?
         .header("Accept", "application/json")?
         .header("X-Axolotl-Channel", channel)?
         .header("X-Axolotl-Platform", platform)?
-        .header("X-Axolotl-Version", current_version)?;
+        .header("X-Axolotl-Version", current_version)?
+        .on_before_exit(move || {
+            close_database_before_installer();
+            // The plugin's default hook clears Tauri's resource tables before
+            // the installer takes over. Replacing it to close the database
+            // would drop that cleanup; run it last, after which no Tauri API
+            // may be used.
+            app_handle.cleanup_before_exit();
+        });
 
     #[cfg(target_os = "windows")]
     {
@@ -343,13 +521,11 @@ async fn check_with_updater<R: Runtime>(
         return Ok(None);
     };
     update.timeout = Some(UPDATE_DOWNLOAD_TIMEOUT);
+
     let install_method = *webview.state::<UpdateMethod>();
 
-    // The manifest only offers the AppImage archive on Linux. A .deb or .rpm
-    // install is updated by its package manager instead, so point the
-    // download at that package from the Update Server catalog and take its
-    // own signature, which the download is verified against like any other.
-    // A manual install only reports the new version.
+    // Linux packages carry their own signature; AppImages and other platforms
+    // keep the updater manifest signature for their own archive.
     if let Some(installer) = install_method.package_installer() {
         let package =
             fetch_package_update(&update.version, installer.variant).await?;
@@ -369,8 +545,20 @@ async fn check_with_updater<R: Runtime>(
         .get("force_update")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
+    let portable = if cfg!(windows) && crate::portable::is_portable_mode() {
+        Some(select_portable_artifact(
+            &fetch_update_release(&update.version).await?,
+            std::env::consts::ARCH,
+        )?)
+    } else {
+        None
+    };
     let metadata = UpdateMetadata {
-        rid: webview.resources_table().add(update.clone()),
+        rid: webview.resources_table().add(CheckedUpdate {
+            update: update.clone(),
+            portable,
+            install_method,
+        }),
         current_version: update.current_version.clone(),
         version: update.version.clone(),
         date: None,
@@ -400,7 +588,11 @@ pub async fn get_update_size<R: Runtime>(
     webview: Webview<R>,
     rid: ResourceId,
 ) -> Result<Option<u64>> {
-    let update = webview.resources_table().get::<Update>(rid)?;
+    let checked = webview.resources_table().get::<CheckedUpdate>(rid)?;
+    if let Some(asset) = &checked.portable {
+        return Ok(Some(asset.size));
+    }
+    let update = &checked.update;
 
     let mut headers = update.headers.clone();
     if !headers.contains_key(ACCEPT) {
@@ -505,17 +697,13 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
     rid: ResourceId,
 ) -> Result<()> {
     let pending_data = webview.state::<PendingUpdateData>().inner();
-
-    if *webview.state::<UpdateMethod>() == UpdateMethod::Manual {
+    let checked = webview.resources_table().get::<CheckedUpdate>(rid)?;
+    if checked.install_method == UpdateMethod::Manual {
         return Err(catalog_error(
-            "This copy of Axolotl Launcher cannot update itself. Download the \
-             new version from the website or update it with your package \
-             manager."
-                .to_owned(),
+            "This copy of Axolotl Launcher cannot update itself. Download the new version from the website or update it with your package manager.".into(),
         ));
     }
-
-    let update = webview.resources_table().get::<Update>(rid)?;
+    let update = &checked.update;
 
     let progress = init_loading(
         LoadingBarType::LauncherUpdate {
@@ -528,8 +716,16 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
     .await?;
 
     let download_start = Instant::now();
-    let asset =
-        fetch_update_artifact(&update.version, &update.download_url).await?;
+    let asset = if let Some(asset) = &checked.portable {
+        asset.clone()
+    } else {
+        fetch_update_artifact(&update.version, &update.download_url).await?
+    };
+    let signature = if checked.portable.is_some() {
+        portable_signature(&asset).await?
+    } else {
+        update.signature.clone()
+    };
     let mut reported_fraction = 0.0_f64;
     let mut download_progress: Box<FetchProgressFn<'_>> =
         Box::new(|bytes, total| {
@@ -553,24 +749,52 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
         download_update_artifact(&asset, &mut download_progress).await?;
     drop(download_progress);
 
-    let public_key = webview
-        .app_handle()
-        .config()
-        .plugins
-        .0
-        .get("updater")
-        .and_then(|config| config.get("pubkey"))
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| Error::Network("Missing updater public key".into()))?;
-    verify_update_signature(&update_data, &update.signature, public_key)?;
+    {
+        let public_key = webview
+            .app_handle()
+            .config()
+            .plugins
+            .0
+            .get("updater")
+            .and_then(|config| config.get("pubkey"))
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                Error::Network("Missing updater public key".into())
+            })?;
+        verify_update_signature(&update_data, &signature, public_key)?;
+    }
     let download_duration = download_start.elapsed();
     tracing::info!("Downloaded update in {download_duration:?}");
 
-    pending_data
-        .0
-        .lock()
-        .unwrap()
-        .replace((update, update_data));
+    #[cfg(windows)]
+    let pending = if checked.portable.is_some() {
+        let executable = std::env::current_exe().map_err(Error::Io)?;
+        let downloaded_bytes = update_data.len();
+        let prepared = tokio::task::spawn_blocking(move || {
+            crate::portable_update::prepare(&update_data, executable)
+        })
+        .await
+        .map_err(|error| Error::Network(error.to_string()))?
+        .map_err(Error::Network)?;
+        PendingUpdate::Portable {
+            version: update.version.clone(),
+            downloaded_bytes,
+            prepared,
+        }
+    } else {
+        PendingUpdate::Installer(
+            Arc::new(update.clone()),
+            update_data,
+            checked.install_method,
+        )
+    };
+    #[cfg(not(windows))]
+    let pending = PendingUpdate::Installer(
+        Arc::new(update.clone()),
+        update_data,
+        checked.install_method,
+    );
+    pending_data.0.lock().unwrap().replace(pending);
 
     Ok(())
 }
@@ -827,8 +1051,8 @@ mod tests {
     use super::{
         LinuxHost, UPDATE_SERVER_API, UpdateMethod, VersionEntry,
         dpkg_list_contains, linux_update_method, select_package_artifact,
-        select_update_artifact, update_artifact_url, update_endpoint,
-        verify_update_signature,
+        select_portable_artifact, select_update_artifact, update_artifact_url,
+        update_endpoint, verify_update_signature,
     };
     use base64::{Engine, engine::general_purpose::STANDARD};
     use tauri::utils::config::BundleType;
@@ -1005,6 +1229,60 @@ mod tests {
             std::path::Path::new("/home/me/Applications/Axolotl Launcher")
         ));
         assert!(!dpkg_list_contains("", std::path::Path::new("/usr/bin/x")));
+    }
+
+    #[test]
+    fn portable_selection_requires_its_own_exact_versioned_package() {
+        let portable = serde_json::json!({
+            "kind": "portable", "variant": "portable", "platform": "windows", "architecture": "x86_64",
+            "relative_path": "dist/1.11.0/Axolotl_Launcher_1.11.0_x64_portable.zip",
+            "sha256": "a".repeat(64), "size": 123, "signature": "portable signature"
+        });
+        let release = |entry| {
+            serde_json::from_value::<VersionEntry>(serde_json::json!({
+            "version": "1.11.0", "artifacts": [
+                { "kind": "updater", "variant": "tauri", "platform": "windows", "architecture": "x86_64",
+                  "relative_path": "dist/1.11.0/setup.nsis.zip", "sha256": "b".repeat(64), "size": 5, "signature": "setup signature" }, entry
+            ]
+        })).unwrap()
+        };
+        let selected =
+            select_portable_artifact(&release(portable.clone()), "x86_64")
+                .unwrap();
+        assert_eq!(selected.signature.as_deref(), Some("portable signature"));
+        assert_eq!(selected.size, 123);
+        assert!(selected.url.path().ends_with("_portable.zip"));
+        assert!(
+            select_portable_artifact(&release(portable.clone()), "aarch64")
+                .is_err()
+        );
+        for (key, value) in [
+            ("kind", serde_json::json!("installer")),
+            ("variant", serde_json::json!("modern")),
+            ("platform", serde_json::json!("linux")),
+            ("architecture", serde_json::json!("aarch64")),
+            ("sha256", serde_json::json!("not a hash")),
+            ("size", serde_json::json!(0)),
+            (
+                "relative_path",
+                serde_json::json!(
+                    "dist/1.10.0/Axolotl_Launcher_1.10.0_x64_portable.zip"
+                ),
+            ),
+        ] {
+            let mut bad = portable.clone();
+            bad[key] = value;
+            assert!(
+                select_portable_artifact(&release(bad), "x86_64").is_err(),
+                "accepted invalid {key}"
+            );
+        }
+        let mut unsigned = portable;
+        unsigned.as_object_mut().unwrap().remove("signature");
+        let historical =
+            select_portable_artifact(&release(unsigned), "x86_64").unwrap();
+        assert!(historical.signature.is_none());
+        assert!(historical.url.path().ends_with("_portable.zip"));
     }
 
     #[test]

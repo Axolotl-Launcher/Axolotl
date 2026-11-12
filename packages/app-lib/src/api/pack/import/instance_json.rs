@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use serde_json::Value;
 use tracing::debug;
@@ -104,13 +105,17 @@ fn find_json(path: &Path) -> Option<(String, String)> {
             );
             continue;
         };
-        let version =
-            extract_version(&json, &content, &jf.with_extension("jar"), None);
+        let fname = jf
+            .file_stem()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| name.clone());
+        let version = extract_version(
+            &json,
+            &content,
+            &jf.with_extension("jar"),
+            Some(&fname),
+        );
         if !version.is_empty() {
-            let fname = jf
-                .file_stem()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| name.clone());
             debug!(
                 "instance_json: path={} json={} (multiple-json pick, version={})",
                 path.display(),
@@ -321,37 +326,34 @@ fn extract_version(
         return v;
     }
 
-    // ⑥ version.json inside the client jar (18w47b and later). Official
-    // version JSONs have none of the records above, and this also holds for a
-    // copy renamed by a launcher.
-    if let Some(v) = version_from_client_jar(client_jar) {
-        debug!("extract_version: method=⑥ client jar value={}", v);
-        return v;
-    }
-
-    // Everything below infers the version from a name, so it only runs when
-    // the JSON and the jar record none.
-    // ⑦ JSON id field → extract leading version
+    // ⑥ JSON id field → search for a version, as PCL-CE does.
     if let Some(id) = json.get("id").and_then(|v| v.as_str())
         && let Some(v) = extract_version_from_id(id)
     {
-        debug!("extract_version: method=⑦ id id={} value={}", id, v);
+        debug!("extract_version: method=⑥ id id={} value={}", id, v);
         return v;
     }
 
-    // ⑧ jar field (legacy versions store the base game in `jar`)
+    // ⑦ jar field (legacy versions store the base game in `jar`)
     if let Some(v) = json.get("jar").and_then(|v| v.as_str())
         && !v.is_empty()
     {
-        debug!("extract_version: method=⑧ jar value={}", v);
+        debug!("extract_version: method=⑦ jar value={}", v);
         return v.to_string();
     }
 
-    // ⑨ folder name fallback (renamed / non-standard instances)
+    // ⑧ folder name fallback (renamed / non-standard instances)
     if let Some(name) = folder_name
         && let Some(v) = extract_version_from_id(name)
     {
-        debug!("extract_version: method=⑨ folder_name value={}", v);
+        debug!("extract_version: method=⑧ folder_name value={}", v);
+        return v;
+    }
+
+    // ⑨ Read the client jar only when neither the JSON nor its name yielded
+    // a version. Name-based matching must take priority over this fallback.
+    if let Some(v) = version_from_client_jar(client_jar) {
+        debug!("extract_version: method=⑨ client jar value={}", v);
         return v;
     }
 
@@ -466,38 +468,28 @@ fn prerelease_qualifier_end(id: &str, separator: usize) -> Option<usize> {
     id[end..]
         .chars()
         .next()
-        .is_none_or(|next| matches!(next, '-' | '_' | ' '))
+        .is_none_or(|next| !next.is_ascii_alphanumeric() && next != '.')
         .then_some(end)
 }
 
-/// Extracts leading version number from the instance id.
-/// e.g. "1.8.9-forge-11.15.1.1722" → "1.8.9"
-/// Keeps the pre-release qualifier of an official id, since the version manifest
-/// lists "26.4-snapshot-7" and has no "26.4".
-/// Skips hash-like ids (≥32 chars, no separators).
+/// Searches the whole instance name using PCL-CE's release and weekly-snapshot
+/// forms. Custom prefixes and suffixes are not part of the game version.
+/// Keep official pre-release qualifiers, including the newer `26.1-pre-1` form.
 fn extract_version_from_id(id: &str) -> Option<String> {
-    let ver = id.trim();
-    if ver.is_empty() {
-        return None;
-    }
-    if ver.len() >= 32
-        && !ver.contains('.')
-        && !ver.contains('-')
-        && !ver.contains('_')
-    {
-        return None;
-    }
-    if let Some(first_sep) = ver.find(['-', '_', ' ']) {
-        let end = prerelease_qualifier_end(ver, first_sep).unwrap_or(first_sep);
-        let candidate = &ver[..end];
-        if candidate.starts_with("1.") || candidate.starts_with('2') {
-            return Some(candidate.to_string());
-        }
-    }
-    if ver.starts_with("1.") || ver.starts_with('2') {
-        return Some(ver.to_string());
-    }
-    None
+    static VERSION: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r"(?i)[1-9][0-9]w[0-9]{2}[a-g]|(?:1|[2-9][0-9])\.[0-9]+(?:\.[0-9]+)?|1\.RV-Pre1",
+        )
+        .expect("valid Minecraft version pattern")
+    });
+    let version = VERSION.find(id)?;
+    let end = version.end();
+    let end = if matches!(id.as_bytes().get(end), Some(b'-' | b' ')) {
+        prerelease_qualifier_end(id, end).unwrap_or(end)
+    } else {
+        end
+    };
+    Some(id[version.start()..end].to_string())
 }
 
 ///参考自PCL启动器
@@ -557,44 +549,35 @@ fn detect_loader(
         return Some(("cleanroom".into(), version));
     }
 
+    let neoforge_version = game_argument(json, "--fml.neoForgeVersion");
+    let forge_version = game_argument(json, "--fml.forgeVersion");
+    let is_neoforge =
+        lower.contains("net.neoforge") || neoforge_version.is_some();
+
     // Forge
-    if lower.contains("minecraftforge") && !lower.contains("net.neoforge") {
-        let version = try_extract_version_from_needle(
-            content,
-            "minecraftforge:forge:",
-            None,
-        )
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.minecraftforge:forge:",
-                None,
-            )
-        })
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.minecraftforge:fmlloader:",
-                None,
-            )
-        });
+    if (lower.contains("minecraftforge") || forge_version.is_some())
+        && !is_neoforge
+    {
+        let version = forge_version
+            .or_else(|| library_version(content, "minecraftforge:forge:"))
+            .or_else(|| library_version(content, "net.minecraftforge:forge:"))
+            .or_else(|| {
+                library_version(content, "net.minecraftforge:fmlloader:")
+            });
         return Some(("forge".into(), version));
     }
 
     // NeoForge
-    if lower.contains("net.neoforge") {
-        let version = try_extract_version_from_needle(
-            content,
-            "net.neoforged:neoforge:",
-            None,
-        )
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.neoforged.neoforge:neoforge:",
-                None,
-            )
-        });
+    if is_neoforge {
+        // NeoForge 1.20.1 still uses --fml.forgeVersion. Its FML library
+        // version is independent of the NeoForge version recorded here.
+        let version = neoforge_version
+            .or(forge_version)
+            .or_else(|| library_version(content, "net.neoforged:neoforge:"))
+            .or_else(|| {
+                library_version(content, "net.neoforged.neoforge:neoforge:")
+            })
+            .or_else(|| library_version(content, "net.neoforged:forge:"));
         return Some(("neoforge".into(), version));
     }
 
@@ -617,6 +600,34 @@ fn detect_loader(
 
     debug!("detect_loader: no known loader library found in JSON content");
     None
+}
+
+fn game_argument(json: &Value, name: &str) -> Option<String> {
+    json.get("arguments")?
+        .get("game")?
+        .as_array()?
+        .windows(2)
+        .find_map(|pair| {
+            if pair[0].as_str() != Some(name) {
+                return None;
+            }
+            pair[1]
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty() && !value.starts_with("--"))
+                .map(str::to_string)
+        })
+}
+
+fn library_version(content: &str, coordinate: &str) -> Option<String> {
+    let version = try_extract_version_from_needle(content, coordinate, None)?;
+    // Maven's fourth segment is an artifact classifier, not a loader version.
+    version
+        .split([':', '@'])
+        .next()
+        .map(str::trim)
+        .filter(|version| !version.is_empty())
+        .map(str::to_string)
 }
 
 fn detect_adjuncts(
@@ -787,6 +798,155 @@ mod tests {
             "neoforge",
             Some("1.20.1-44.0.3"),
         );
+    }
+
+    #[test]
+    fn forge_and_neoforge_read_explicit_game_arguments() {
+        for (game_version, loader, library, arguments, expected) in [
+            (
+                "1.21.1",
+                "neoforge",
+                "net.neoforged.fancymodloader:loader:4.0.43",
+                serde_json::json!([
+                    "--fml.fmlVersion",
+                    "4.0.43",
+                    "--fml.neoForgeVersion",
+                    "21.1.248"
+                ]),
+                "21.1.248",
+            ),
+            (
+                "1.20.6",
+                "neoforge",
+                "net.neoforged:neoforge:20.6.1:universal",
+                serde_json::json!([
+                    "--fml.forgeVersion",
+                    "47.1.99",
+                    "--fml.neoForgeVersion",
+                    "20.6.119-beta"
+                ]),
+                "20.6.119-beta",
+            ),
+            (
+                "1.20.1",
+                "neoforge",
+                "net.neoforged:forge:1.20.1-47.1.99:universal",
+                serde_json::json!(["--fml.forgeVersion", "47.1.99"]),
+                "47.1.99",
+            ),
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:fmlloader:1.20.1-47.4.2",
+                serde_json::json!(["--fml.forgeVersion", "47.4.28"]),
+                "47.4.28",
+            ),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let version = serde_json::json!({
+                "id": "export-demo",
+                "inheritsFrom": game_version,
+                "arguments": {"game": arguments},
+                "libraries": [{"name": library}],
+            });
+            let version_dir = write_version_dir(
+                temp.path(),
+                "export-demo",
+                &version.to_string(),
+            );
+            let detected = detect(&version_dir).unwrap();
+            assert_eq!(detected.vanilla_name, game_version);
+            assert_eq!(detected.loader.as_deref(), Some(loader));
+            assert_eq!(detected.loader_version.as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn forge_and_neoforge_library_versions_exclude_classifiers() {
+        for (game_version, loader, library, expected) in [
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:forge:1.20.1-47.4.28:universal",
+                "47.4.28",
+            ),
+            (
+                "1.7.10",
+                "forge",
+                "net.minecraftforge:forge:1.7.10-10.13.4.1614-1.7.10:universal",
+                "10.13.4.1614",
+            ),
+            (
+                "1.21.1",
+                "neoforge",
+                "net.neoforged:neoforge:21.1.248:universal",
+                "21.1.248",
+            ),
+            (
+                "1.20.6",
+                "neoforge",
+                "net.neoforged:neoforge:20.6.119-beta:universal@jar",
+                "20.6.119-beta",
+            ),
+            (
+                "1.20.1",
+                "neoforge",
+                "net.neoforged:forge:1.20.1-47.1.99:universal",
+                "47.1.99",
+            ),
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:forge:1.20.1-47.4.28",
+                "47.4.28",
+            ),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let version = serde_json::json!({
+                "id": "export-demo",
+                "inheritsFrom": game_version,
+                "libraries": [{"name": library}],
+            });
+            let version_dir = write_version_dir(
+                temp.path(),
+                "export-demo",
+                &version.to_string(),
+            );
+            let detected = detect(&version_dir).unwrap();
+            assert_eq!(detected.loader.as_deref(), Some(loader));
+            assert_eq!(detected.loader_version.as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn neoforge_does_not_use_the_fml_library_version() {
+        assert_loader(
+            r#"{
+                "arguments": {"game": ["--fml.fmlVersion", "4.0.43"]},
+                "libraries": [{"name": "net.neoforged.fancymodloader:loader:4.0.43"}]
+            }"#,
+            "neoforge",
+            None,
+        );
+    }
+
+    #[test]
+    fn malformed_loader_arguments_fall_back_to_the_library_version() {
+        for arguments in [
+            serde_json::json!(["--fml.neoForgeVersion"]),
+            serde_json::json!(["--fml.neoForgeVersion", " "]),
+            serde_json::json!([
+                "--fml.neoForgeVersion",
+                "--fml.fmlVersion",
+                "4.0.43"
+            ]),
+        ] {
+            let version = serde_json::json!({
+                "arguments": {"game": arguments},
+                "libraries": [{"name": "net.neoforged:neoforge:21.1.248:universal"}],
+            });
+            assert_loader(&version.to_string(), "neoforge", Some("21.1.248"));
+        }
     }
 
     #[test]
@@ -1037,6 +1197,127 @@ mod tests {
     }
 
     #[test]
+    fn version_names_search_for_pcl_style_versions_anywhere() {
+        for (name, expected) in [
+            ("整合包-1.20.1", "1.20.1"),
+            ("1.20.1整合包", "1.20.1"),
+            ("我的整合包（1.20.1）", "1.20.1"),
+            ("2026-1.20.1", "1.20.1"),
+            ("Fabric 0.16.10 - 1.21.1", "1.21.1"),
+            ("19w13b", "19w13b"),
+            ("我的快照19w13b", "19w13b"),
+            ("Snapshot-24W14A", "24W14A"),
+            ("Pack-1.12.2-to-1.20.1", "1.12.2"),
+            ("新版本 26.4-snapshot-7-Survival", "26.4-snapshot-7"),
+            ("整合包-26.1-pre-1", "26.1-pre-1"),
+            ("整合包（26.1-pre-1）", "26.1-pre-1"),
+            ("26.1-pre-1整合包", "26.1-pre-1"),
+            ("整合包-26.1-rc-2", "26.1-rc-2"),
+            ("整合包-1.21-pre12", "1.21-pre12"),
+            ("整合包-1.21-rc10", "1.21-rc10"),
+            ("Pack-1.14 Pre-Release 5", "1.14 Pre-Release 5"),
+            ("Pack-1.RV-Pre1", "1.RV-Pre1"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(name).as_deref(),
+                Some(expected),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn version_names_reject_non_version_prefixes_and_hashes() {
+        for name in [
+            "",
+            "Survival",
+            "2026-Survival",
+            "2.0-pack",
+            "1.invalid",
+            "1.",
+            "c20937bb9cb248468de8a554f50f7f51",
+        ] {
+            assert_eq!(extract_version_from_id(name), None, "{name}");
+        }
+    }
+
+    #[test]
+    fn detects_versions_in_custom_ids_and_json_file_names() {
+        for (name, expected) in [
+            ("整合包-1.20.1", "1.20.1"),
+            ("1.20.1整合包", "1.20.1"),
+            ("我的快照19w13b", "19w13b"),
+            ("2026-1.20.1", "1.20.1"),
+            ("整合包-26.1-pre-1", "26.1-pre-1"),
+        ] {
+            for id in [name, "Survival"] {
+                let dir = tempfile::tempdir().unwrap();
+                let version_dir = write_version_dir(
+                    dir.path(),
+                    name,
+                    &serde_json::json!({ "id": id, "libraries": [] })
+                        .to_string(),
+                );
+                let info = detect(&version_dir).expect("detect custom name");
+                assert_eq!(info.vanilla_name, expected, "{name}: {id}");
+            }
+        }
+    }
+
+    #[test]
+    fn detects_a_sole_json_by_its_file_name_in_dotminecraft() {
+        let dir = tempfile::tempdir().unwrap();
+        let minecraft = dir.path().join(".minecraft");
+        std::fs::create_dir(&minecraft).unwrap();
+        std::fs::write(
+            minecraft.join("整合包-26.1-pre-1.json"),
+            r#"{ "id": "Survival", "libraries": [] }"#,
+        )
+        .unwrap();
+
+        let info = detect(&minecraft).expect("detect from JSON file name");
+        assert_eq!(info.vanilla_name, "26.1-pre-1");
+    }
+
+    #[test]
+    fn selects_a_version_json_by_name_among_unrelated_json_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("broken.json"), "{").unwrap();
+        std::fs::write(dir.path().join("options.json"), r#"{ "volume": 1 }"#)
+            .unwrap();
+        std::fs::write(
+            dir.path().join("整合包-1.20.1.json"),
+            r#"{ "id": "Survival", "libraries": [] }"#,
+        )
+        .unwrap();
+
+        let info = detect(dir.path()).expect("select named version JSON");
+        assert_eq!(info.vanilla_name, "1.20.1");
+    }
+
+    #[test]
+    fn recorded_versions_outrank_custom_name_matches() {
+        for record in [
+            serde_json::json!({ "clientVersion": "1.21.1" }),
+            serde_json::json!({ "patches": [{ "id": "game", "version": "1.21.1" }] }),
+            serde_json::json!({ "arguments": { "game": ["--fml.mcVersion", "1.21.1"] } }),
+            serde_json::json!({ "inheritsFrom": "1.21.1" }),
+            serde_json::json!({ "libraries": [{ "name": "net.fabricmc:intermediary:1.21.1" }] }),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut json = record.clone();
+            json["id"] = "整合包-1.19.4".into();
+            let version_dir = write_version_dir(
+                dir.path(),
+                "整合包-1.20.1",
+                &json.to_string(),
+            );
+            let info = detect(&version_dir).expect("detect recorded version");
+            assert_eq!(info.vanilla_name, "1.21.1", "{record}");
+        }
+    }
+
+    #[test]
     fn official_snapshot_instance_keeps_its_full_version() {
         let dir = tempfile::tempdir().expect("temp dir");
         let version_dir = dir.path().join("26.4-snapshot-7");
@@ -1085,7 +1366,28 @@ mod tests {
     }
 
     #[test]
-    fn client_jar_outranks_a_version_inferred_from_a_name() {
+    fn name_matches_outrank_the_client_jar() {
+        for (name, id, expected) in [
+            ("整合包-1.20.1", "整合包-1.19.4", "1.19.4"),
+            ("整合包-1.20.1", "Survival", "1.20.1"),
+            ("整合包-26.1-pre-1", "Survival", "26.1-pre-1"),
+            ("整合包-26.4-snapshot-7", "Survival", "26.4-snapshot-7"),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let version_dir = write_version_dir(
+                dir.path(),
+                name,
+                &serde_json::json!({ "id": id }).to_string(),
+            );
+            write_client_jar(&version_dir, name, r#"{ "id": "1.21.1" }"#);
+
+            let info = detect(&version_dir).expect("detect name before jar");
+            assert_eq!(info.vanilla_name, expected, "{name}: {id}");
+        }
+    }
+
+    #[test]
+    fn client_jar_is_used_when_names_have_no_version() {
         for (recorded, expected) in [
             ("26.4-snapshot-7", "26.4-snapshot-7"),
             (
@@ -1096,12 +1398,12 @@ mod tests {
             let dir = tempfile::tempdir().expect("temp dir");
             let version_dir = write_version_dir(
                 dir.path(),
-                "1.20.1-Survival",
-                r#"{ "id": "1.20.1-Survival", "type": "release" }"#,
+                "Survival",
+                r#"{ "id": "Survival", "type": "release" }"#,
             );
             write_client_jar(
                 &version_dir,
-                "1.20.1-Survival",
+                "Survival",
                 &serde_json::json!({ "id": recorded }).to_string(),
             );
 
@@ -1125,7 +1427,7 @@ mod tests {
     }
 
     #[test]
-    fn names_are_used_only_without_any_version_record() {
+    fn name_fallbacks_use_id_before_json_file_name() {
         let dir = tempfile::tempdir().expect("temp dir");
         for (folder, json, expected) in [
             ("renamed", r#"{ "id": "1.12.2-Survival" }"#, "1.12.2"),

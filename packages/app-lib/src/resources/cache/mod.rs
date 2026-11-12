@@ -1,7 +1,6 @@
 //! An independently versioned SQLx pool. No joins or transactions use app.db.
 
 mod legacy;
-mod migrations;
 
 use chrono::Utc;
 use fs4::tokio::AsyncFileExt;
@@ -135,7 +134,11 @@ impl ResourceCache {
             }
             Err(error) => return Err(cache_error(error)),
         };
-        if let Err(error) = migrations::migrator().run(&pool).await {
+        if let Err(error) =
+            crate::state::store::resource_cache_schema::migrator()
+                .run(&pool)
+                .await
+        {
             pool.close().await;
             let corrupt = match &error {
                 sqlx::migrate::MigrateError::Execute(error)
@@ -160,7 +163,7 @@ impl ResourceCache {
                 }
             }
             pool = open_pool(options).await.map_err(cache_error)?;
-            migrations::migrator()
+            crate::state::store::resource_cache_schema::migrator()
                 .run(&pool)
                 .await
                 .map_err(cache_error)?;
@@ -412,7 +415,8 @@ impl ResourceCache {
             );
         }
         Ok(ResourceCacheInfo {
-            schema_version: migrations::CACHE_SCHEMA_VERSION,
+            schema_version:
+                crate::state::store::resource_cache_schema::CACHE_SCHEMA_VERSION,
             size_bytes,
             entry_count: count as u64,
         })

@@ -636,15 +636,25 @@ fn start_install(
         ));
         let _ = fs::remove_file(&status_path);
 
-        let result = match spawn_installer(&installer, &request, &status_path) {
-            Ok(mut child) => {
-                wait_for_installer(&mut child, &status_path, &proxy)
+        let result =
+            match spawn_installer(&installer, &request, &status_path) {
+                Ok(mut child) => {
+                    wait_for_installer(&mut child, &status_path, &proxy)
+                }
+                Err(error) => Err(InstallFailure {
+                    exit_code: None,
+                    message: error.to_string(),
+                }),
             }
-            Err(error) => Err(InstallFailure {
-                exit_code: None,
-                message: error.to_string(),
-            }),
-        };
+            .and_then(|()| {
+                crate::executable_install::check(
+                    &Path::new(&request.install_dir).join(MAIN_BINARY_NAME),
+                )
+                .map_err(|message| InstallFailure {
+                    exit_code: Some(0),
+                    message,
+                })
+            });
         let _ = fs::remove_file(status_path);
         let _ = proxy.send_event(UserEvent::Finished(result));
     });

@@ -3,6 +3,7 @@ import { CodeIcon, PlusIcon } from '@modrinth/assets'
 import { Button, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
 
+import { errorText } from '@/helpers/error-text'
 import {
     createItemNbtTree,
     createNbtTag,
@@ -93,7 +94,7 @@ watch(
             components.value = parsed.components || (!val && itemFormat.value !== 'legacy')
             parseError.value = ''
         } catch (error) {
-            parseError.value = error instanceof Error ? error.message : String(error)
+            parseError.value = errorText(error)
         }
     },
     { immediate: true },

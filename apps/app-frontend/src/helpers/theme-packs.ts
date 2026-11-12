@@ -214,9 +214,21 @@ export const THEME_PACK_ORIGIN = navigator.userAgent.includes('Windows')
     ? 'http://axolotl-theme.localhost'
     : 'axolotl-theme://localhost'
 
+/**
+ * `encodeURIComponent` leaves characters such as `'` and `)` untouched, but the
+ * runtime inserts asset URLs into CSS strings (`url('…')`). Escape the RFC 3986
+ * sub-delims as well so a pack path can never terminate the CSS declaration.
+ */
+function encodeAssetSegment(value: string): string {
+    return encodeURIComponent(value).replace(
+        /[!'()*]/g,
+        (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+    )
+}
+
 export function themePackAssetUrl(packId: string, relativePath: string): string {
-    return `${THEME_PACK_ORIGIN}/${encodeURIComponent(packId)}/${relativePath
+    return `${THEME_PACK_ORIGIN}/${encodeAssetSegment(packId)}/${relativePath
         .split('/')
-        .map((part) => encodeURIComponent(part))
+        .map(encodeAssetSegment)
         .join('/')}`
 }

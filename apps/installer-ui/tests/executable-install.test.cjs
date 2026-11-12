@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const { execFileSync, spawn } = require('node:child_process')
 const { once } = require('node:events')
@@ -15,11 +16,11 @@ const helper =
         .find((candidate) => fs.existsSync(candidate))
 const compiler = path.join(process.env.LOCALAPPDATA || '', 'tauri/NSIS/makensis.exe')
 const directory = windows
-    ? fs.mkdtempSync(path.join(root, '.agents/plans/updater-executable-test-'))
+    ? fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-executable-test-'))
     : undefined
 after(() => {
     if (directory) {
-        assert.equal(path.dirname(directory), path.join(root, '.agents/plans'))
+        assert.equal(path.dirname(directory), path.resolve(os.tmpdir()))
         fs.rmSync(directory, { recursive: true, force: true })
     }
 })

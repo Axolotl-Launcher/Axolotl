@@ -113,6 +113,8 @@ jobs:
         # Every gate runs even after one fails; the step fails at the end and
         # names each failed gate.
         run: |
+          SCHED_ARTIFACT_DIR="$(mktemp -d "$RUNNER_TEMP/axolotl-scheduler-XXXXXX")"
+          export SCHED_ARTIFACT_DIR
           failed=()
           # Usage: gate <highest accepted exit code> <command...>
           gate() {
@@ -195,6 +197,8 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      E2E_ARTIFACT_DIR: ${{ runner.temp }}/desktop-e2e
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -214,18 +218,14 @@ jobs:
       - name: Test desktop navigation and persisted appearance
         run: |
           set -o pipefail
-          mkdir -p .agents/plans/desktop-e2e
-          pnpm --filter @modrinth/app-frontend test:e2e 2>&1 | tee .agents/plans/desktop-e2e/run.log
+          mkdir -p "$E2E_ARTIFACT_DIR"
+          pnpm --filter @modrinth/app-frontend test:e2e 2>&1 | tee "$E2E_ARTIFACT_DIR/run.log"
       - name: Upload desktop E2E failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-frontend-e2e-failure
-          path: |
-            .agents/plans/desktop-e2e/*.log
-            .agents/plans/desktop-e2e/*.json
-            .agents/plans/desktop-e2e/*.png
-            .agents/plans/desktop-e2e/webdriver/*.log
+          path: ${{ env.E2E_ARTIFACT_DIR }}
           include-hidden-files: true
           retention-days: 7
           if-no-files-found: warn

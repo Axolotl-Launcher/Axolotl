@@ -5,7 +5,7 @@
 //
 // Usage: node scripts/axolotl/sched-whitelist-check.mjs [--dir <inventory dir>]
 
-import { defaultOutDir, isMain, loadPolicy, outputPaths, parseArgs, readJson, sourcesOf, workspaceCrates } from './sched-utils.mjs'
+import { isMain, loadPolicy, outputPaths, parseArgs, readJson, sourcesOf, workspaceCrates } from './sched-utils.mjs'
 
 export const WHITELIST_LIMIT = 10
 const CRITICAL_SECTION = 'packages/app-lib/src/install/critical_section.rs'
@@ -102,7 +102,7 @@ export function checkWhitelist(sources, policy, registry) {
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
     const policy = loadPolicy()
-    const registry = readJson(outputPaths(args.dir ?? defaultOutDir).registry)
+    const registry = readJson(outputPaths(args.dir).registry)
     const failures = checkWhitelist(sourcesOf(workspaceCrates()), policy, registry)
     console.log(`whitelist: ${policy.whitelist.length} site(s), cap ${WHITELIST_LIMIT}; guarded write APIs: ${policy.guardedWrites.length}`)
     if (failures.length > 0) {

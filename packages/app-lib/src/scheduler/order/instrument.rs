@@ -6,9 +6,13 @@
 //! written in code; everywhere else both calls do nothing.
 //!
 //! Every distinct nested pair a process sees, and every violation, is
-//! appended as one JSON object per line to
-//! `.agents/plans/sched-order-violations.json` (override the path with
-//! `SCHED_ORDER_VIOLATIONS`, the registry with `SCHED_ORDER_REGISTRY`).
+//! appended as one JSON object per line to `sched-order-violations.json` in
+//! `SCHED_ARTIFACT_DIR`, alongside the generated resource registry. Override
+//! either path with `SCHED_ORDER_VIOLATIONS` or `SCHED_ORDER_REGISTRY`.
+//! The guard needs the shared directory or both explicit paths; otherwise it
+//! logs a warning and stays disabled. Relative shared directories resolve
+//! from the repository root; relative explicit paths use the process working
+//! directory.
 //! Holders are tokio tasks, or threads outside a task. Only the annotated
 //! sites report, so nesting through unannotated code is not seen.
 
@@ -154,10 +158,18 @@ pub(super) mod enabled {
         }
     }
 
-    fn repo_path(relative: &str) -> PathBuf {
+    fn repo_path(relative: impl AsRef<std::path::Path>) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .join(relative)
+    }
+
+    fn artifact_directory(
+        env: &impl Fn(&str) -> Option<PathBuf>,
+    ) -> Option<PathBuf> {
+        env("SCHED_ARTIFACT_DIR")
+            .filter(|path| !path.as_os_str().is_empty())
+            .map(repo_path)
     }
 
     fn load() -> Option<Table> {
@@ -175,13 +187,28 @@ pub(super) mod enabled {
         // once, and truncating from each process would erase its siblings'
         // lines. Every line is stamped with this process's `run`, so a reader
         // filters to the run it asked about instead of sharing a truncation.
-        let path = |name: &str, default: &str| {
-            env(name).unwrap_or_else(|| repo_path(default))
+        let artifact_dir = artifact_directory(&env);
+        let path = |name: &str, file: &str| {
+            env(name)
+                .filter(|path| !path.as_os_str().is_empty())
+                .or_else(|| artifact_dir.as_ref().map(|dir| dir.join(file)))
         };
-        let registry = path(
-            "SCHED_ORDER_REGISTRY",
-            ".agents/plans/sched-resource-registry.json",
-        );
+        let Some(registry) =
+            path("SCHED_ORDER_REGISTRY", "sched-resource-registry.json")
+        else {
+            tracing::warn!(
+                "SCHED_ORDER_GUARD needs SCHED_ARTIFACT_DIR or SCHED_ORDER_REGISTRY; the order is not checked"
+            );
+            return None;
+        };
+        let Some(violations) =
+            path("SCHED_ORDER_VIOLATIONS", "sched-order-violations.json")
+        else {
+            tracing::warn!(
+                "SCHED_ORDER_GUARD needs SCHED_ARTIFACT_DIR or SCHED_ORDER_VIOLATIONS; the order is not checked"
+            );
+            return None;
+        };
         let Some(registry) = read_json(&registry) else {
             tracing::warn!(
                 path = %registry.display(),
@@ -191,14 +218,7 @@ pub(super) mod enabled {
         };
         let policy = read_json(&repo_path("scripts/axolotl/sched-policy.json"))
             .unwrap_or(Value::Null);
-        Table::from_json(
-            &registry,
-            &policy,
-            path(
-                "SCHED_ORDER_VIOLATIONS",
-                ".agents/plans/sched-order-violations.json",
-            ),
-        )
+        Table::from_json(&registry, &policy, violations)
     }
 
     fn read_json(file: &std::path::Path) -> Option<Value> {
@@ -498,7 +518,7 @@ pub(super) mod enabled {
 
         /// Only the registry and report paths are injectable; the policy is
         /// always the repo's, so this pins that the committed policy reaches
-        /// the table and the report defaults to the agent plans directory.
+        /// the table when the registry and report share an artifact directory.
         #[test]
         fn the_repo_policy_reaches_the_table() {
             let dir = tempfile::tempdir().unwrap();
@@ -508,10 +528,12 @@ pub(super) mod enabled {
                 r#"{"items": [{"ident": "t::a", "rank": 1, "scopeClass": "S8"}]}"#,
             )
             .unwrap();
-            let table = load_from(|name| {
-                (name == "SCHED_ORDER_REGISTRY").then(|| registry.clone())
+            let table = load_from(|name| match name {
+                "SCHED_ORDER_REGISTRY" => Some(registry.clone()),
+                "SCHED_ARTIFACT_DIR" => Some(dir.path().to_path_buf()),
+                _ => None,
             })
-            .expect("the registry alone is enough");
+            .expect("an explicit registry and artifact directory are enough");
             assert!(table.ranks.contains_key("t::a"));
             let policy: Value =
                 read_json(&repo_path("scripts/axolotl/sched-policy.json"))
@@ -527,18 +549,83 @@ pub(super) mod enabled {
             );
             assert_eq!(
                 table.out,
-                repo_path(".agents/plans/sched-order-violations.json"),
-                "the report defaults to the agent plans directory"
+                dir.path().join("sched-order-violations.json"),
+                "the report follows the selected artifact directory"
             );
         }
 
         #[test]
-        fn a_default_registry_path_is_under_the_repo() {
-            let path = repo_path(".agents/plans/sched-resource-registry.json");
-            assert!(path.is_absolute(), "{}", path.display());
-            assert!(
-                path.ends_with(".agents/plans/sched-resource-registry.json")
+        fn the_artifact_directory_supplies_both_paths() {
+            let dir = tempfile::tempdir().unwrap();
+            let registry = dir.path().join("sched-resource-registry.json");
+            std::fs::write(&registry, r#"{"items": []}"#).unwrap();
+            let table = load_from(|name| {
+                (name == "SCHED_ARTIFACT_DIR").then(|| dir.path().to_path_buf())
+            })
+            .expect("the shared artifact directory supplies both paths");
+            assert_eq!(
+                table.out,
+                dir.path().join("sched-order-violations.json")
             );
+        }
+
+        #[test]
+        fn relative_artifact_directories_resolve_from_the_repo() {
+            let relative = PathBuf::from("scheduler-test-output");
+            let selected = artifact_directory(&|name| {
+                (name == "SCHED_ARTIFACT_DIR").then(|| relative.clone())
+            })
+            .expect("a relative artifact directory is accepted");
+            assert!(selected.is_absolute());
+            assert_eq!(selected, repo_path(&relative));
+
+            let absolute = tempfile::tempdir().unwrap();
+            let selected = artifact_directory(&|name| {
+                (name == "SCHED_ARTIFACT_DIR")
+                    .then(|| absolute.path().to_path_buf())
+            })
+            .expect("an absolute artifact directory is accepted");
+            assert_eq!(selected, absolute.path());
+        }
+
+        #[test]
+        fn explicit_paths_override_the_shared_artifact_directory() {
+            let shared = tempfile::tempdir().unwrap();
+            let explicit = tempfile::tempdir().unwrap();
+            let registry = explicit.path().join("registry.json");
+            let violations = explicit.path().join("violations.json");
+            // No registry exists in the shared directory: loading must use
+            // the explicit path rather than fall back to that directory.
+            std::fs::write(&registry, r#"{"items": []}"#).unwrap();
+            let table = load_from(|name| match name {
+                "SCHED_ARTIFACT_DIR" => Some(shared.path().to_path_buf()),
+                "SCHED_ORDER_REGISTRY" => Some(registry.clone()),
+                "SCHED_ORDER_VIOLATIONS" => Some(violations.clone()),
+                _ => None,
+            })
+            .expect("explicit paths take precedence");
+            assert_eq!(table.out, violations);
+            table.append(json!({ "run": "explicit" }));
+            assert!(violations.is_file());
+            assert_eq!(std::fs::read_dir(shared.path()).unwrap().count(), 0);
+        }
+
+        #[test]
+        fn unconfigured_paths_disable_the_guard() {
+            assert!(load_from(|_| None).is_none());
+            assert!(load_from(|_| Some(PathBuf::new())).is_none());
+
+            let dir = tempfile::tempdir().unwrap();
+            let registry = dir.path().join("registry.json");
+            std::fs::write(&registry, r#"{"items": []}"#).unwrap();
+            assert!(
+                load_from(|name| {
+                    (name == "SCHED_ORDER_REGISTRY").then(|| registry.clone())
+                })
+                .is_none(),
+                "an explicit registry still needs a report destination"
+            );
+            assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
         }
 
         #[test]

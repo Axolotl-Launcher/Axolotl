@@ -4,12 +4,12 @@
 // shared accesses are separated in phase 3).
 //
 // Usage: node scripts/axolotl/sched-level-predicate-check.mjs [--dir <inventory dir>] [--write]
-// --write also renders .agents/plans/sched-level-predicate-report.md and
-// .agents/plans/sched-governance-table.md from the policy.
+// --write also renders sched-level-predicate-report.md and
+// sched-governance-table.md in the selected artifact directory.
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { defaultOutDir, isMain, loadPolicy, outputPaths, parseArgs, readJson, repoRoot } from './sched-utils.mjs'
+import { isMain, loadPolicy, outputPaths, parseArgs, readJson, repoRoot, resolveOutputDir } from './sched-utils.mjs'
 
 export const LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4']
 /** §8.1 business locks and the single-writer permit: holding one makes a task L3. */
@@ -91,13 +91,14 @@ function renderGovernance(policy) {
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
     const policy = loadPolicy()
-    const failures = checkGovernance(policy, readJson(outputPaths(args.dir ?? defaultOutDir).inventory))
+    const outDir = resolveOutputDir(args.dir)
+    const failures = checkGovernance(policy, readJson(outputPaths(outDir).inventory))
     const kept = policy.governance.filter((entry) => !entry.backfilled).length
     console.log(`governed items: ${policy.governance.length}; backfilled ${policy.governance.length - kept}, not backfilled ${kept}`)
     if (args.write) {
-        mkdirSync(path.resolve(repoRoot, '.agents/plans'), { recursive: true })
-        writeFileSync(path.resolve(repoRoot, '.agents/plans/sched-level-predicate-report.md'), renderReport(policy))
-        writeFileSync(path.resolve(repoRoot, '.agents/plans/sched-governance-table.md'), renderGovernance(policy))
+        mkdirSync(outDir, { recursive: true })
+        writeFileSync(path.join(outDir, 'sched-level-predicate-report.md'), renderReport(policy))
+        writeFileSync(path.join(outDir, 'sched-governance-table.md'), renderGovernance(policy))
     }
     if (failures.length > 0) {
         for (const failure of failures) console.error(failure)

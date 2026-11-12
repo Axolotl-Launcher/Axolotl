@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url'
 
 export const repoRoot = path.resolve(import.meta.dirname, '..', '..')
 export const policyPath = 'scripts/axolotl/sched-policy.json'
-export const defaultOutDir = '.agents/plans'
 
 /** Synchronization primitives that make a declaration a managed resource. */
 export const PRIMITIVES = ['Semaphore', 'Mutex', 'RwLock', 'AsyncMutex', 'AsyncRwLock', 'DashMap', 'DashSet']
@@ -716,7 +715,16 @@ export function parseArgs(argv) {
     return args
 }
 
-export function outputPaths(outDir = defaultOutDir) {
+/** Select one explicitly shared directory for this run's generated artifacts. */
+export function resolveOutputDir(directory = process.env.SCHED_ARTIFACT_DIR) {
+    if (typeof directory !== 'string' || !directory.trim()) {
+        throw new Error("Set SCHED_ARTIFACT_DIR or pass --out/--dir to select this run's scheduler artifact directory")
+    }
+    return path.resolve(repoRoot, directory)
+}
+
+export function outputPaths(directory) {
+    const outDir = resolveOutputDir(directory)
     return {
         inventory: `${outDir}/sched-resource-inventory.json`,
         registry: `${outDir}/sched-resource-registry.json`,

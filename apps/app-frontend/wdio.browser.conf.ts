@@ -1,4 +1,5 @@
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -6,10 +7,11 @@ import { browser } from '@wdio/globals'
 import { createLogger, createServer, type ViteDevServer } from 'vite'
 
 const projectRoot = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(projectRoot, '../..')
 const artifactDir = resolve(
-    process.env.E2E_ARTIFACT_DIR ?? resolve(repoRoot, '.agents/plans/desktop-e2e'),
+    process.env.E2E_ARTIFACT_DIR ?? mkdtempSync(resolve(tmpdir(), 'axolotl-desktop-e2e-')),
 )
+// Workers reload this configuration and inherit the coordinator's directory.
+process.env.E2E_ARTIFACT_DIR = artifactDir
 let server: ViteDevServer | undefined
 
 /** Real frontend routes with an E2E-only recorded bridge; no Rust process runs. */
@@ -42,6 +44,7 @@ export const config: WebdriverIO.Config = {
     connectionRetryCount: 2,
     async onPrepare() {
         mkdirSync(artifactDir, { recursive: true })
+        console.info(`Desktop E2E artifacts: ${artifactDir}`)
         const logger = createLogger('info', { prefix: 'desktop-e2e' })
         for (const level of ['info', 'warn', 'error'] as const) {
             const original = logger[level].bind(logger)

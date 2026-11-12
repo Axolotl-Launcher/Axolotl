@@ -6,7 +6,7 @@
 
 import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import { defaultOutDir, functionBodies, isMain, loadPolicy, loadSource, outputPaths, parseArgs, readJson, repoRoot, scanMethodHits, sourcesOf, workspaceCrates } from './sched-utils.mjs'
+import { functionBodies, isMain, loadPolicy, loadSource, outputPaths, parseArgs, readJson, repoRoot, scanMethodHits, sourcesOf, workspaceCrates } from './sched-utils.mjs'
 
 function filesUnder(dir) {
     const absolute = path.resolve(repoRoot, dir)
@@ -66,7 +66,7 @@ export function l0FunctionViolations(sources, policy) {
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
     const policy = loadPolicy()
-    const registry = readJson(outputPaths(args.dir ?? defaultOutDir).registry)
+    const registry = readJson(outputPaths(args.dir).registry)
     const root = args.root ?? policy.l0Module
     const all = args.root ? [] : sourcesOf(workspaceCrates())
     const sources = args.root

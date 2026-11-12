@@ -21,9 +21,10 @@ pub(crate) fn object_path(
 }
 
 pub(crate) async fn acquire_lock(sha512: &str) -> Arc<Mutex<()>> {
-    if ACQUIRE_LOCKS.len() >= 256 {
-        ACQUIRE_LOCKS.retain(|_, lock| lock.strong_count() > 0);
-    }
+    // The map holds one entry per publisher still running; dropping the dead
+    // ones on every call keeps it that size instead of at every object ever
+    // published.
+    ACQUIRE_LOCKS.retain(|_, lock| lock.strong_count() > 0);
     let mut slot = ACQUIRE_LOCKS
         .entry(sha512.to_ascii_lowercase())
         .or_default();

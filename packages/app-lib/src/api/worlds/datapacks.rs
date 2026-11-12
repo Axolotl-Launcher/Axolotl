@@ -106,17 +106,7 @@ async fn lock_world_mutation(world: &Path) -> Result<WorldMutationGuard> {
             lock
         }
     };
-    let operation = tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        lock.lock_owned(),
-    )
-    .await
-    .map_err(|_| {
-        ErrorKind::InputError(
-            "World is busy; retry after the current operation finishes".into(),
-        )
-        .as_error()
-    })?;
+    let operation = lock.lock_owned().await;
     let session = get_world_session_lock(&path).await?;
     Ok(WorldMutationGuard {
         _session: session,

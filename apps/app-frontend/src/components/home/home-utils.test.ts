@@ -2,15 +2,19 @@ import { expect, it } from 'vitest'
 
 import {
     buildHeatmapDays,
+    buildHeatWeeks,
     getActivePlayerAccount,
     getActivePlayerName,
+    getBandColumns,
+    getCalendarLayout,
+    getHeatLevel,
     getHomeItemVariant,
     getHomeWorldRowState,
-    getPlaytimeLevel,
+    getLongestStreak,
     getQuickSwitchInstances,
     getServerFill,
-    getStreakJoins,
     getTimeBucket,
+    getWeekSpan,
     resolveHomeLaunchInstance,
     stableGreetingIndex,
     toDateKey,
@@ -61,13 +65,84 @@ it('builds Monday-first month and year heatmap grids', () => {
     expect(year.filter((day) => day.inPeriod).length).toBe(366)
 })
 
-it('maps playtime thresholds and missing days deterministically', () => {
+it('scales heatmap steps to the busiest day in view, from four hours up', () => {
+    // Nothing played: every day is the empty step, even with a zero maximum.
+    expect([0, 0, 0].map((seconds) => getHeatLevel(seconds, 0))).toEqual([0, 0, 0])
+    expect(getHeatLevel(0, 3600)).toBe(0)
+    expect(getHeatLevel(-5, 3600)).toBe(0)
+    // Only one day played: an ordinary session is not the deepest colour...
+    expect(getHeatLevel(2 * 3600, 2 * 3600)).toBe(3)
+    expect(getHeatLevel(10 * 60, 10 * 60)).toBe(1)
+    // ...but a long one is.
+    expect(getHeatLevel(5 * 3600, 5 * 3600)).toBe(4)
+    // One extreme day: a short session still shows, the long one is the top.
+    const max = 10 * 3600
+    expect(getHeatLevel(60, max)).toBe(1)
+    expect(getHeatLevel(10 * 60, max)).toBe(1)
+    expect(getHeatLevel(max, max)).toBe(4)
+    // Steps rise with the share of the busiest day and never pass the top.
+    const busiest = 8 * 3600
     expect(
-        [0, 1, 30 * 60, 30 * 60 + 1, 90 * 60, 90 * 60 + 1, 180 * 60, 180 * 60 + 1].map(
-            getPlaytimeLevel,
-        ),
-    ).toEqual([0, 1, 1, 2, 2, 3, 3, 4])
+        [0.05, 0.2, 0.45, 0.8, 1, 2].map((share) => getHeatLevel(share * busiest, busiest)),
+    ).toEqual([1, 2, 3, 4, 4, 4])
     expect(toDateKey(new Date(2026, 6, 25, 12))).toBe('2026-07-25')
+})
+
+it('draws a band back to the first week played and three more, at least twelve', () => {
+    expect(getWeekSpan('2026-11-13', '2026-11-13')).toBe(1)
+    expect(getWeekSpan('2026-11-09', '2026-11-15')).toBe(1)
+    expect(getWeekSpan('2026-11-08', '2026-11-09')).toBe(2)
+    expect(getWeekSpan('2026-09-01', '2026-11-13')).toBe(11)
+    expect(getBandColumns(0)).toBe(Number.POSITIVE_INFINITY)
+    expect(getBandColumns(1)).toBe(12)
+    expect(getBandColumns(11)).toBe(14)
+    expect(getBandColumns(40)).toBe(43)
+})
+
+it('lays a heatmap band out in Monday-first week columns ending this week', () => {
+    // Thursday 13 November 2026.
+    const weeks = buildHeatWeeks(new Date(2026, 10, 13, 9), 3)
+    expect(weeks).toHaveLength(3)
+    expect(weeks.every((week) => week.length === 7)).toBe(true)
+    expect(weeks[0][0].dateKey).toBe('2026-10-26')
+    expect(weeks[0][0].date.getDay()).toBe(1)
+    expect(weeks[2][0].dateKey).toBe('2026-11-09')
+    expect(weeks[2][6].dateKey).toBe('2026-11-15')
+    // Weeks cross month and year ends without gaps.
+    const turn = buildHeatWeeks(new Date(2027, 0, 2, 12), 2).flat()
+    expect(turn.map((day) => day.dateKey).slice(5, 9)).toEqual([
+        '2026-12-26',
+        '2026-12-27',
+        '2026-12-28',
+        '2026-12-29',
+    ])
+})
+
+it('draws the calendar as a week, a month, a band or a strip by size', () => {
+    expect(['1x1', '1x2', '2x1', '2x2', '3x2', null].map(getCalendarLayout)).toEqual([
+        'week',
+        'month',
+        'strip',
+        'band',
+        'band',
+        'month',
+    ])
+})
+
+it('finds the longest run of consecutive played days', () => {
+    expect(getLongestStreak([])).toBe(0)
+    expect(getLongestStreak(['2026-11-05'])).toBe(1)
+    expect(
+        getLongestStreak([
+            '2026-11-03',
+            '2026-10-31',
+            '2026-11-01',
+            '2026-11-02',
+            '2026-11-02',
+            '2026-11-09',
+            '2026-11-10',
+        ]),
+    ).toBe(4)
 })
 
 it('uses only active online accounts for player greetings', () => {
@@ -184,34 +259,6 @@ it('lays collections out as rows, a strip of cards or a grid of tiles by size', 
     expect(getHomeItemVariant('2x2')).toBe('tile')
     expect(getHomeItemVariant('3x2')).toBe('tile')
     expect(getHomeItemVariant('2x3')).toBe('tile')
-})
-
-it('joins played days into one capsule per week row', () => {
-    // Mon..Sun, then the next week: Sat, Sun, Mon must not join across rows.
-    const played = [
-        true,
-        true,
-        false,
-        true,
-        false,
-        true,
-        true,
-        true,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-    ]
-    const joins = getStreakJoins(played)
-    expect(joins[0]).toEqual({ left: false, right: true })
-    expect(joins[1]).toEqual({ left: true, right: false })
-    expect(joins[2]).toEqual({ left: false, right: false })
-    expect(joins[3]).toEqual({ left: false, right: false })
-    expect(joins[6]).toEqual({ left: true, right: false })
-    expect(joins[7]).toEqual({ left: false, right: true })
-    expect(joins[8]).toEqual({ left: true, right: false })
 })
 
 it('reports how full a server is only when it says', () => {

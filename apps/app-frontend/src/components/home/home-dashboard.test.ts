@@ -260,7 +260,7 @@ it('normalizes malformed sizes while retaining duplicate widgets', () => {
         introduced: ['launch'],
         widgets: [
             { id: 'one', kind: 'calendar', size: '9x9' },
-            { id: 'two', kind: 'calendar', size: '1x1' },
+            { id: 'two', kind: 'calendar', size: '3x1' },
             { id: 'three', kind: 'world', size: '1x1', target: { instanceId: 'a' } },
         ],
     })
@@ -271,17 +271,19 @@ it('normalizes malformed sizes while retaining duplicate widgets', () => {
     ])
 })
 
-it('normalizes every persisted calendar placement to the fixed 1x2 size', () => {
+it('keeps the calendar heatmap sizes and resets the others to 1x2', () => {
     const normalized = normalizeHomeDashboard({
         version: 1,
         introduced: ['launch'],
         widgets: [
-            { id: 'small', kind: 'calendar', size: '1x1' },
-            { id: 'wide', kind: 'calendar', size: '2x2' },
+            { id: 'week', kind: 'calendar', size: '1x1' },
+            { id: 'band', kind: 'calendar', size: '2x2' },
+            { id: 'strip', kind: 'calendar', size: '2x1' },
+            { id: 'tall', kind: 'calendar', size: '2x3' },
         ],
     })
 
-    expect(normalized?.widgets.map((widget) => widget.size)).toEqual(['1x2', '1x2'])
+    expect(normalized?.widgets.map((widget) => widget.size)).toEqual(['1x1', '2x2', '2x1', '1x2'])
 })
 
 it('normalizes every persisted greeting placement to the fixed 2x1 size', () => {

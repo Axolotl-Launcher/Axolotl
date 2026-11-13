@@ -93,12 +93,90 @@ export function buildHeatmapDays(anchor: Date, view: PlaytimeView): HeatmapDay[]
     return days
 }
 
-export function getPlaytimeLevel(seconds: number): number {
-    if (seconds <= 0) return 0
-    if (seconds <= 30 * 60) return 1
-    if (seconds <= 90 * 60) return 2
-    if (seconds <= 180 * 60) return 3
-    return 4
+/** How many coloured steps the playtime heatmap has above the empty one. */
+export const HEAT_LEVELS = 4
+
+/**
+ * The least playtime that can be the top of the heatmap scale. With only a
+ * day or two of data, a couple of ordinary sessions are not shown as the
+ * deepest colour; in a busy month the busiest day sets the scale.
+ */
+export const HEAT_SCALE_FLOOR_SECONDS = 4 * 3600
+
+/**
+ * A day's step on the playtime heatmap, 0 to `HEAT_LEVELS`, scaled to the
+ * busiest day in view (but never to less than four hours). Any play at all is
+ * at least step 1, so a short session still shows; the scale is a square
+ * root, so the long days stand clearly apart without the rest collapsing to
+ * step 1.
+ */
+export function getHeatLevel(seconds: number, maxSeconds: number): number {
+    if (!(seconds > 0)) return 0
+    const top = Math.max(maxSeconds, HEAT_SCALE_FLOOR_SECONDS)
+    const ratio = Math.min(1, seconds / top)
+    return Math.min(HEAT_LEVELS, Math.max(1, Math.ceil(Math.sqrt(ratio) * HEAT_LEVELS)))
+}
+
+/** Week columns from the week holding `fromKey` to the week holding `toKey`, both counted. */
+export function getWeekSpan(fromKey: string, toKey: string): number {
+    const monday = (key: string) => {
+        const date = dateFromKey(key)
+        date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
+        return date.getTime()
+    }
+    return Math.round((monday(toKey) - monday(fromKey)) / (7 * 86400e3)) + 1
+}
+
+/** The fewest weeks a heatmap band draws, so a new player still sees a band. */
+export const HEAT_BAND_MIN_WEEKS = 12
+
+/**
+ * How many week columns a band draws: back to the first week with play and
+ * three more, at least `HEAT_BAND_MIN_WEEKS`; with no play at all, as many as
+ * fit (`Infinity`, for the caller to cap).
+ */
+export function getBandColumns(dataWeeks: number): number {
+    if (dataWeeks <= 0) return Number.POSITIVE_INFINITY
+    return Math.max(HEAT_BAND_MIN_WEEKS, dataWeeks + 3)
+}
+
+/**
+ * `weeks` columns of seven days (Monday first) ending with the week that holds
+ * `end`, oldest first: the layout of a contribution-style heatmap band.
+ */
+export function buildHeatWeeks(end: Date, weeks: number): HeatmapDay[][] {
+    const last = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 12)
+    const start = new Date(last)
+    start.setDate(last.getDate() - ((last.getDay() + 6) % 7) - (weeks - 1) * 7)
+    const columns: HeatmapDay[][] = []
+    const cursor = new Date(start)
+    for (let week = 0; week < weeks; week++) {
+        const column: HeatmapDay[] = []
+        for (let day = 0; day < 7; day++) {
+            const date = new Date(cursor)
+            column.push({ date, dateKey: toDateKey(date), inPeriod: true })
+            cursor.setDate(cursor.getDate() + 1)
+        }
+        columns.push(column)
+    }
+    return columns
+}
+
+/** The longest run of consecutive days among the given played days. */
+export function getLongestStreak(dateKeys: Iterable<string>): number {
+    const days = [...new Set(dateKeys)].sort()
+    let longest = 0
+    let run = 0
+    let previous: Date | null = null
+    for (const key of days) {
+        const date = dateFromKey(key)
+        const next = previous ? new Date(previous) : null
+        next?.setDate(next.getDate() + 1)
+        run = next && toDateKey(next) === key ? run + 1 : 1
+        longest = Math.max(longest, run)
+        previous = date
+    }
+    return longest
 }
 
 export type ActivePlayerAccount = {
@@ -245,21 +323,17 @@ export function getHomeItemVariant(size: string | null | undefined): HomeItemVar
 }
 
 /**
- * For each day of a calendar grid, whether it continues a run of played days
- * from the day to its left and into the day to its right. Runs stay inside a
- * week row, so a streak reads as one capsule per row.
+ * How the calendar draws at a size: `week` (one tile: this week's seven
+ * squares), `month` (one column: the month as a grid of weeks), `band` (wide
+ * and tall: a band of week columns with the day's instances under it) or
+ * `strip` (wide and one row: the band beside the figures).
  */
-export function getStreakJoins(
-    played: readonly boolean[],
-    columns = 7,
-): { left: boolean; right: boolean }[] {
-    return played.map((on, index) => {
-        const column = index % columns
-        return {
-            left: on && column > 0 && played[index - 1] === true,
-            right: on && column < columns - 1 && played[index + 1] === true,
-        }
-    })
+export type HomeCalendarLayout = 'week' | 'month' | 'band' | 'strip'
+
+export function getCalendarLayout(size: string | null | undefined): HomeCalendarLayout {
+    const [columns, rows] = (size ?? '1x2').split('x').map(Number)
+    if (!(columns >= 2)) return rows === 1 ? 'week' : 'month'
+    return rows === 1 ? 'strip' : 'band'
 }
 
 /** The share of a server's slots in use, 0 to 1; null when it does not say. */

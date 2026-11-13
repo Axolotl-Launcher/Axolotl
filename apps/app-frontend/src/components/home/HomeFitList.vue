@@ -12,7 +12,8 @@ import { type HomeItemVariant, homeWidgetMoreTargetKey } from './home-utils'
  * the ones that fit inside the widget completely and hides the rest, so no row
  * is cut in half at the card's edge and nothing scrolls inside the card. The
  * hidden items open from a "+N" button beside the widget's count, as plain
- * rows in a popover.
+ * rows in a popover. A list whose widget header is about something else
+ * (the calendar's month) turns the button off and says the count itself.
  */
 const props = withDefaults(
     defineProps<{
@@ -20,9 +21,16 @@ const props = withDefaults(
         itemKey: (item: T) => string | number
         variant: HomeItemVariant
         listClass?: string
+        /** Put the "+N" button in the widget header. */
+        headerMore?: boolean
     }>(),
-    { listClass: undefined },
+    { listClass: undefined, headerMore: true },
 )
+
+const emit = defineEmits<{
+    /** How many items are hidden because they do not fit. */
+    hidden: [count: number]
+}>()
 
 defineSlots<{
     default(props: { item: T; variant: HomeItemVariant }): unknown
@@ -43,6 +51,11 @@ const moreTarget = inject(homeWidgetMoreTargetKey, ref(null))
 const fitCount = ref(Number.POSITIVE_INFINITY)
 
 const hiddenItems = computed(() => props.items.slice(fitCount.value))
+watch(
+    () => hiddenItems.value.length,
+    (count) => emit('hidden', count),
+    { immediate: true },
+)
 
 function measure() {
     const element = list.value
@@ -90,7 +103,7 @@ watch(
             <slot :item="item" :variant="variant" />
         </li>
     </ul>
-    <Teleport v-if="moreTarget && hiddenItems.length > 0" defer :to="moreTarget">
+    <Teleport v-if="headerMore && moreTarget && hiddenItems.length > 0" defer :to="moreTarget">
         <PopoutMenu
             class="home-fit-more"
             type="button"

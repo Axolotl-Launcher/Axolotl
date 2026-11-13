@@ -2,17 +2,47 @@
   "app.appearance-settings.home-layout.minimal-hint": {
     "message": "What Minimal Home shows is set from \"Customize Minimal Home\" in the corner of the Home page."
   },
+  "app.home.calendar.day-instances": {
+    "message": "{name} · {total} instances"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, one {# day} other {# days}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "Longest day"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "Longest run"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "Most played"
+  },
+  "app.home.calendar.legend": {
+    "message": "Daily playtime, from less to more"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "Less"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "More"
+  },
   "app.home.calendar.month-empty": {
     "message": "No playtime this month"
   },
   "app.home.calendar.month-empty-hint": {
     "message": "Each day you play gets marked on the calendar."
   },
+  "app.home.calendar.month-hours-short": {
+    "message": "{hours}h this month"
+  },
   "app.home.calendar.stat-days": {
     "message": "{count, plural, one {day played} other {days played}}"
   },
   "app.home.calendar.stat-hours": {
     "message": "{count, plural, one {hour} other {hours}}"
+  },
+  "app.home.calendar.this-week": {
+    "message": "This week"
   },
   "app.home.challenge.difficulty": {
     "message": "Difficulty: {level}"

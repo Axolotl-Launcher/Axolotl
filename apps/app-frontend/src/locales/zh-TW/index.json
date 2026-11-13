@@ -11,17 +11,47 @@
   "app.downloads.slow-downloads.dismiss": {
     "message": "不再提示"
   },
+  "app.home.calendar.day-instances": {
+    "message": "{name} 等 {total} 個"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, other {# 天}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "最長一天"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "最長連續"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "最常玩"
+  },
+  "app.home.calendar.legend": {
+    "message": "每天的遊玩時長，從少到多"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "少"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "多"
+  },
   "app.home.calendar.month-empty": {
     "message": "本月還沒有遊玩記錄"
   },
   "app.home.calendar.month-empty-hint": {
     "message": "每次遊玩都會按天記在日曆上。"
   },
+  "app.home.calendar.month-hours-short": {
+    "message": "本月 {hours} 小時"
+  },
   "app.home.calendar.stat-days": {
     "message": "{count, plural, other {天有遊玩}}"
   },
   "app.home.calendar.stat-hours": {
     "message": "{count, plural, other {小時}}"
+  },
+  "app.home.calendar.this-week": {
+    "message": "本週"
   },
   "app.home.challenge.difficulty": {
     "message": "難度：{level}"

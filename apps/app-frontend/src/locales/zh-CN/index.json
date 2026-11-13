@@ -2,17 +2,47 @@
   "app.appearance-settings.home-layout.minimal-hint": {
     "message": "极简模式显示哪些内容，可在主页右下角的「自定义极简模式」里调整。"
   },
+  "app.home.calendar.day-instances": {
+    "message": "{name} 等 {total} 个"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, other {# 天}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "最长一天"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "最长连续"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "最常玩"
+  },
+  "app.home.calendar.legend": {
+    "message": "每天的游玩时长，从少到多"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "少"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "多"
+  },
   "app.home.calendar.month-empty": {
     "message": "本月还没有游玩记录"
   },
   "app.home.calendar.month-empty-hint": {
     "message": "每次游玩都会按天记在日历上。"
   },
+  "app.home.calendar.month-hours-short": {
+    "message": "本月 {hours} 小时"
+  },
   "app.home.calendar.stat-days": {
     "message": "{count, plural, other {天有游玩}}"
   },
   "app.home.calendar.stat-hours": {
     "message": "{count, plural, other {小时}}"
+  },
+  "app.home.calendar.this-week": {
+    "message": "本周"
   },
   "app.home.challenge.difficulty": {
     "message": "难度：{level}"

@@ -756,12 +756,6 @@ defineExpose({ openWidgetPicker, setLayout })
                 <span class="home-widget-add-tile-icon" aria-hidden="true"><PlusIcon /></span>
                 {{ formatMessage(messages.add) }}
             </button>
-            <div v-if="!editing && config.widgets.length > 0" class="home-widget-add-hint">
-                <button type="button" class="home-widget-add-link" @click="openWidgetPicker">
-                    <PlusIcon aria-hidden="true" />
-                    {{ formatMessage(messages.add) }}
-                </button>
-            </div>
             <div
                 v-if="config.widgets.length === 0"
                 class="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-divider text-center"
@@ -1007,8 +1001,15 @@ defineExpose({ openWidgetPicker, setLayout })
     display: none;
 }
 
-/* The calendar's day list is for clicking; while editing it gives its row to the strip. */
-.home-dashboard-grid.is-editing :deep(.home-calendar-day) {
+/*
+ * The calendar's day list is for clicking; while editing it gives its row to
+ * the strip. One-row calendars also drop their labels and second figure, so
+ * the squares keep their room.
+ */
+.home-dashboard-grid.is-editing :deep(.home-calendar-day),
+.home-dashboard-grid.is-editing :deep(.home-heat-weekday),
+.home-dashboard-grid.is-editing :deep(.is-strip .home-heat-legend),
+.home-dashboard-grid.is-editing :deep(.is-strip .home-calendar-stat + .home-calendar-stat) {
     display: none;
 }
 
@@ -1095,45 +1096,6 @@ defineExpose({ openWidgetPicker, setLayout })
     height: 1.25rem;
 }
 
-.home-widget-add-hint {
-    display: flex;
-    justify-content: center;
-    margin-top: 1.25rem;
-}
-
-.home-widget-add-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.375rem 0.875rem;
-    border: 1px dashed transparent;
-    border-radius: var(--radius-max);
-    background: transparent;
-    color: var(--color-text-tertiary);
-    cursor: pointer;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    transition:
-        border-color 120ms ease,
-        color 120ms ease;
-}
-
-.home-widget-add-link:hover,
-.home-widget-add-link:focus-visible {
-    border-color: color-mix(in srgb, var(--color-text-primary) 28%, transparent);
-    color: var(--color-text-primary);
-    outline: none;
-}
-
-.home-widget-add-link:focus-visible {
-    box-shadow: 0 0 0 3px var(--color-brand-shadow);
-}
-
-.home-widget-add-hint svg {
-    width: 1rem;
-    height: 1rem;
-}
-
 .home-dashboard.is-dragging,
 .home-dashboard.is-dragging * {
     user-select: none;
@@ -1144,8 +1106,7 @@ defineExpose({ openWidgetPicker, setLayout })
         scroll-behavior: auto;
     }
 
-    .home-widget-add-tile,
-    .home-widget-add-link {
+    .home-widget-add-tile {
         transition: none;
     }
 }

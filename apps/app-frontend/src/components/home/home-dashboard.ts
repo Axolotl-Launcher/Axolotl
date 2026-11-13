@@ -117,7 +117,7 @@ export const HOME_WIDGET_SIZE_OPTIONS: Record<HomeWidgetKind, readonly HomeWidge
     launch: ['2x2', '3x2', '2x1', '3x1'],
     greeting: ['2x1'],
     recent: ['2x1', '2x2', '2x3', '3x1', '3x2'],
-    calendar: ['1x2'],
+    calendar: ['1x2', '1x1', '2x1', '2x2'],
     'pinned-instances': HOME_WIDGET_STANDARD_SIZES,
     'pinned-worlds': HOME_WIDGET_STANDARD_SIZES,
     'pinned-servers': HOME_WIDGET_STANDARD_SIZES,

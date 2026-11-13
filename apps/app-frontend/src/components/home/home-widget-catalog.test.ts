@@ -70,7 +70,8 @@ it('filters by category and by name or description, ignoring case', () => {
 
 it('keeps a chosen size only when the kind allows it', () => {
     expect(resolveHomeWidgetSize('launch', '3x1')).toBe('3x1')
-    expect(resolveHomeWidgetSize('calendar', '2x2')).toBe('1x2')
+    expect(resolveHomeWidgetSize('calendar', '2x2')).toBe('2x2')
+    expect(resolveHomeWidgetSize('calendar', '3x2')).toBe('1x2')
     expect(resolveHomeWidgetSize('recent', null)).toBe(HOME_WIDGET_DEFAULT_SIZE.recent)
 })
 

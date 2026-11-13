@@ -195,7 +195,7 @@ it('colours each day of the month by its share of the busiest day, and rings tod
     expect(
         ['2026-01-05', '2026-01-06', '2026-01-07', '2026-01-12', '2026-01-08'].map(level),
     ).toEqual(['4', '2', '1', '2', '0'])
-    // Every step is a different colour, and the squares are squares.
+    // Every step is a different colour, and a cell is never taller than it is wide.
     const fills = ['0', '1', '2', '3', '4'].map(
         (step) =>
             getComputedStyle(wrapper.get(`.home-heat-legend [data-level="${step}"]`).element)
@@ -203,10 +203,15 @@ it('colours each day of the month by its share of the busiest day, and rings tod
     )
     expect(new Set(fills).size).toBe(5)
     const square = wrapper.get('[data-date-key="2026-01-05"]').element.getBoundingClientRect()
-    expect(Math.abs(square.width - square.height)).toBeLessThan(0.5)
+    expect(square.height).toBeLessThanOrEqual(square.width + 0.5)
     // Today is a ring, not a fill; days to come are faint and cannot be picked.
-    const today = wrapper.get('.home-heat-cell.is-today').element
-    expect(getComputedStyle(today).boxShadow).toContain('inset')
+    // Selected, it carries the selection ring alone instead of two stacked rings.
+    const today = wrapper.get('.home-heat-cell.is-today')
+    expect(today.classes()).toContain('is-selected')
+    expect(getComputedStyle(today.element).boxShadow).not.toContain('inset')
+    await wrapper.get('[data-date-key="2026-01-06"]').trigger('click')
+    expect(today.classes()).not.toContain('is-selected')
+    expect(getComputedStyle(today.element).boxShadow).toContain('inset')
     const future = wrapper.get('.home-heat-cell.is-future').element as HTMLButtonElement
     expect(future.disabled).toBe(true)
     expect(Number(getComputedStyle(future).opacity)).toBeLessThan(0.6)
@@ -232,18 +237,22 @@ it('moves between days with the arrow keys and picks one with Enter', async () =
     expect(wrapper.get('[data-date-key="2026-01-07"]').attributes('aria-pressed')).toBe('true')
 })
 
-it('lays the month out as squares across the card, left-aligned with the title', async () => {
+it('stretches the month across the card, left-aligned with the title', async () => {
     playtime.days = { '2026-01-07': 3600 }
     const wrapper = await heatmap('1x2', 240, 336)
     const card = wrapper.get('.home-calendar').element.getBoundingClientRect()
     const grid = wrapper.get('.home-heat-month[role="grid"]').element.getBoundingClientRect()
     const title = wrapper.get('.home-widget-frame-header').element.getBoundingClientRect()
     expect(Math.abs(grid.left - title.left)).toBeLessThan(1)
-    // Seven columns take the width: no strip of empty space beside them.
-    expect(card.right - grid.right).toBeLessThan(card.width / 7)
-    const square = wrapper.get('[data-date-key="2026-01-07"]').element.getBoundingClientRect()
-    expect(square.width).toBeGreaterThanOrEqual(22)
-    expect(Math.abs(square.width - square.height)).toBeLessThan(0.5)
+    // Seven columns always take the full width: the right edge mirrors the left.
+    expect(Math.abs(card.right - grid.right - (grid.left - card.left))).toBeLessThan(1)
+    const first = wrapper.get('[data-date-key="2026-01-05"]').element.getBoundingClientRect()
+    const last = wrapper.get('[data-date-key="2026-01-11"]').element.getBoundingClientRect()
+    expect(Math.abs(first.left - grid.left)).toBeLessThan(1)
+    expect(Math.abs(last.right - grid.right)).toBeLessThan(1)
+    // A cell flattens rather than leaving a gap, and is never taller than wide.
+    expect(first.width).toBeGreaterThanOrEqual(22)
+    expect(first.height).toBeLessThanOrEqual(first.width + 0.5)
     // Grid, the chosen day and the legend all fit inside the card.
     for (const selector of ['.home-heat-month[role="grid"]', '.home-calendar-summary'])
         expect(wrapper.get(selector).element.getBoundingClientRect().bottom).toBeLessThanOrEqual(

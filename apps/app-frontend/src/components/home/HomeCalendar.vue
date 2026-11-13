@@ -380,7 +380,10 @@ const daySummary = computed(() => {
     }
 })
 
-/* The month grid: seven square columns as wide as the card, as tall as it allows. */
+/*
+ * The month grid: seven columns that always span the card. A cell is square
+ * when the card is tall enough and flattens when a six-week month would not fit.
+ */
 const monthBox = ref<HTMLElement | null>(null)
 const monthBoxSize = ref({ width: 0, height: 0 })
 let monthObserver: ResizeObserver | null = null
@@ -400,7 +403,7 @@ const monthCell = computed(() => {
     if (!width || !height) return 22
     const byWidth = (width - 6 * MONTH_GAP) / 7
     const byHeight = (height - (rows - 1) * MONTH_GAP) / rows
-    return Math.max(12, Math.floor(Math.min(30, byWidth, byHeight)))
+    return Math.max(12, Math.floor(Math.min(byWidth, byHeight)))
 })
 
 function formatDuration(seconds: number): string {
@@ -1151,6 +1154,7 @@ html.has-custom-background .home-calendar {
 
 /* Today is a ring, never a fill, so it is not mistaken for a long day. */
 .home-heat-cell.is-today {
+    outline: none;
     box-shadow: inset 0 0 0 1.5px var(--home-heat-ring);
 }
 
@@ -1162,12 +1166,13 @@ html.has-custom-background .home-calendar {
     z-index: 1;
 }
 
-.home-heat-cell.is-today.is-selected,
-.home-heat-cell.is-today:focus-visible {
-    box-shadow:
-        inset 0 0 0 1.5px var(--home-heat-ring),
-        0 0 0 1.5px var(--home-heat-base),
-        0 0 0 3px var(--color-brand);
+/*
+ * One mark per cell: the selection ring replaces the level edge and today's
+ * ring instead of stacking on them. Today then reads from its bold number.
+ */
+.home-heat-cell.is-selected,
+.home-heat-cell:focus-visible {
+    outline: none;
 }
 
 /* The date sits small and quiet in the square; the colour leads. */
@@ -1214,8 +1219,13 @@ html.has-custom-background .home-calendar {
 
 .home-heat-month {
     --home-heat-cell: 1.375rem;
-    @apply grid justify-start gap-[3px];
-    grid-template-columns: repeat(7, var(--home-heat-cell));
+    @apply grid gap-[3px];
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.home-heat-month .home-heat-cell {
+    aspect-ratio: auto;
+    height: var(--home-heat-cell);
 }
 
 .home-calendar-summary {

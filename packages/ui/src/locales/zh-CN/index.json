@@ -1,4 +1,10 @@
 {
+  "console.log.export": {
+    "message": "保存完整日志"
+  },
+  "instance.files.studio.editor-loading": {
+    "message": "正在加载编辑器…"
+  },
   "drop.instance-import.title": {
     "defaultMessage": "导入实例"
   },

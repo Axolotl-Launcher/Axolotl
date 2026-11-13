@@ -1,4 +1,10 @@
 {
+  "app.browse.install.no-matching-version": {
+    "message": "没有符合所选筛选条件的版本。"
+  },
+  "browse.sort.project-published": {
+    "message": "项目首次发布时间"
+  },
   "app.appearance-settings.home-layout.minimal-hint": {
     "message": "极简模式显示哪些内容，可在主页右下角的「自定义极简模式」里调整。"
   },

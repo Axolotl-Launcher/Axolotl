@@ -96,7 +96,7 @@ Available methods:
 | Method | Permission | Notes |
 | --- | --- | --- |
 | `network.fetch({ url, method, headers?, body? })` | `network` | HTTPS only, allow-listed host, GET/POST; request 1 MiB, response 8 MiB, 30 s timeout, 4 concurrent and 60 requests/minute per pack; connects directly and ignores system HTTP proxies |
-| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files enforced on write, 2 MiB per file, 10 MiB total; keys use 1-128 ASCII letters, digits, `.`, `_` or `-`, may not start or end with `.` or name a Windows device |
+| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files enforced on write, writes serialized against the quota, 2 MiB per file, 10 MiB total; keys use 1-128 ASCII letters, digits, `.`, `_` or `-`, may not start or end with `.` or name a Windows device |
 | `instances.list()` | `instances.read` | Read-only instance summaries |
 | `instances.mods(instanceId)` | `instances.read` | Read-only mod list |
 | `instances.logs(instanceId)` | `instances.logs` | Censored logs, last 256 KiB |
@@ -105,9 +105,10 @@ The bridge derives the pack id from the child webview's server-side label, not
 from page input, so a page cannot read another pack's storage or network
 allowlist. Every bridge method also checks the `requires` list of the page
 that was opened: declaring `permissions` on the pack is not enough, the page
-must request the matching permission too. Navigation is limited to the exact
-entry document that was opened, so a page cannot navigate to another page
-with a different `requires` list.
+must request the matching permission too. Navigation is limited to the
+same-origin exact entry document that was opened, without a query or
+fragment, so a page cannot navigate to another origin or to a page with a
+different `requires` list.
 
 Each pack gets its own deterministic origin: `http://axolotl-theme.localhost:<port>`
 on Windows and `axolotl-theme://localhost:<port>` elsewhere, where the port is

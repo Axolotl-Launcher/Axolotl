@@ -32,6 +32,11 @@ use theseus::theme_pack::store::InstalledThemePack;
 /// permission. The label prefix is also used by the `theme-pages` capability.
 pub const THEME_PAGE_LABEL_PREFIX: &str = "theme-page-";
 
+/// Serializes storage accounting with the write it authorizes so concurrent
+/// pages cannot each pass the quota check against stale usage.
+static THEME_STORAGE_LOCK: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
+
 /// Tracks which theme pack owns each page webview. The bridge command derives
 /// the pack id from this map instead of trusting the page, so a page cannot
 /// request another pack's storage or network allowlist.
@@ -288,6 +293,15 @@ fn require_page_permission(
     }
 }
 
+/// A navigation target may only differ from the exact entry URL by nothing:
+/// a scheme, host, or port change would leave the pack origin and turn the
+/// page into a generic browser window with access to the new host.
+fn same_origin(left: &url::Url, right: &url::Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str() == right.host_str()
+        && left.port_or_known_default() == right.port_or_known_default()
+}
+
 /// Opens a pack page in a child webview. Pack pages never share the main
 /// webview: their capability only allows `theme_pack_page_request`, so the
 /// page cannot reach filesystem, install, or process commands.
@@ -314,8 +328,12 @@ pub async fn theme_pack_open_page<R: Runtime>(
         .collect::<Vec<_>>()
         .join("/");
     let origin = theme_origin_for(&pack_id);
-    let url = format!("{}/{}/{}", origin, encode_url_segment(&pack_id), entry);
-    let url = url
+    let origin_url = url::Url::parse(&origin).map_err(|_| {
+        theme_error("The theme page origin could not be resolved")
+    })?;
+    let page_url =
+        format!("{}/{}/{}", origin, encode_url_segment(&pack_id), entry);
+    let page_url: url::Url = page_url
         .parse()
         .map_err(|_| theme_error("The theme page URL could not be resolved"))?;
     let label = format!(
@@ -327,9 +345,15 @@ pub async fn theme_pack_open_page<R: Runtime>(
     // within the pack would let a page with fewer declared requirements take
     // over a bridge session opened for a page with more requirements.
     let allowed_path = format!("/{}/{}", encode_url_segment(&pack_id), entry);
-    let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(url))
-        .initialization_script(THEME_PAGE_API)
-        .on_navigation(move |url| url.path() == allowed_path);
+    let builder =
+        WebviewBuilder::new(label.clone(), WebviewUrl::External(page_url))
+            .initialization_script(THEME_PAGE_API)
+            .on_navigation(move |url| {
+                same_origin(url, &origin_url)
+                    && url.path() == allowed_path
+                    && url.query().is_none()
+                    && url.fragment().is_none()
+            });
     lock_pages(&state)?.insert(
         label.clone(),
         ThemePageOwner {
@@ -992,6 +1016,7 @@ pub async fn theme_pack_storage_write<R: Runtime>(
     key: String,
     contents: String,
 ) -> Result<()> {
+    let _guard = THEME_STORAGE_LOCK.lock().await;
     manifest_with_permission(
         &app,
         &pack_id,
@@ -1046,6 +1071,7 @@ pub async fn theme_pack_storage_delete<R: Runtime>(
     pack_id: String,
     key: String,
 ) -> Result<bool> {
+    let _guard = THEME_STORAGE_LOCK.lock().await;
     manifest_with_permission(
         &app,
         &pack_id,
@@ -1300,10 +1326,7 @@ pub(crate) fn protocol_response_for(
     {
         // Echo only the requesting pack's own origin or a launcher origin.
         // Another pack's origin must not gain CORS access to these assets.
-        if origin == "null"
-            || origin == pack_origin
-            || is_allowed_origin(origin)
-        {
+        if origin == pack_origin || is_allowed_origin(origin) {
             builder =
                 builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
         }
@@ -1388,9 +1411,6 @@ fn is_allowed_theme_request(request: &tauri::http::Request<Vec<u8>>) -> bool {
         .get(tauri::http::header::ORIGIN)
         .and_then(|value| value.to_str().ok())
     {
-        // `null` is the opaque origin of a sandboxed pack page requesting its
-        // own stylesheet, font, or image.
-        Some("null") => true,
         Some(origin) => is_allowed_origin(origin) || is_theme_origin(origin),
         // Same-origin subresource loads (a stylesheet's own font, an image in
         // pack HTML) do not carry an Origin header.
@@ -1530,6 +1550,27 @@ mod tests {
     }
 
     #[test]
+    fn navigation_must_stay_on_the_pack_origin() {
+        let origin = url::Url::parse(&theme_origin_for("demo")).unwrap();
+        let page = url::Url::parse(&format!(
+            "{}/demo/pages/home.html",
+            theme_origin_for("demo")
+        ))
+        .unwrap();
+        assert!(same_origin(&page, &origin));
+        let remote =
+            url::Url::parse("https://attacker.example/demo/pages/home.html")
+                .unwrap();
+        assert!(!same_origin(&remote, &origin));
+        let other = url::Url::parse(&format!(
+            "{}/demo/pages/home.html",
+            theme_origin_for("other")
+        ))
+        .unwrap();
+        assert!(!same_origin(&other, &origin));
+    }
+
+    #[test]
     fn serves_pack_pages_with_an_ipc_safe_csp() {
         let directory = tempfile::tempdir().unwrap();
         let page_dir = directory.path().join("themes/demo/pages");
@@ -1540,9 +1581,10 @@ mod tests {
         )
         .unwrap();
         let storage = ThemePackStorage::new(directory.path());
+        let origin = theme_origin_for("demo");
         let response = protocol_response_for(
             &storage,
-            &request(&pack_url("demo", "pages/home.html"), Some("null")),
+            &request(&pack_url("demo", "pages/home.html"), Some(&origin)),
         );
         assert_eq!(response.status(), StatusCode::OK);
         let csp = response
@@ -1551,7 +1593,6 @@ mod tests {
             .unwrap()
             .to_str()
             .unwrap();
-        let origin = theme_origin_for("demo");
         assert!(csp.contains(&format!("default-src {origin};")), "{csp}");
         // Pack pages run in a dedicated child webview whose capability only
         // allows the page bridge, so they keep their real origin instead of
@@ -1567,7 +1608,7 @@ mod tests {
                 .headers()
                 .get("access-control-allow-origin")
                 .unwrap(),
-            "null"
+            origin.as_str()
         );
         assert_eq!(
             response.headers().get("x-content-type-options").unwrap(),

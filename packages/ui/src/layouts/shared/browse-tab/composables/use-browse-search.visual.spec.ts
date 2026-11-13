@@ -199,11 +199,13 @@ it('counts the pages a cursor source reports a total for instead of one page ahe
         state.currentPage.value = 5
         await state.refreshSearch()
         expect(state.pageCount.value).toBe(20)
+        expect(state.pageCountKnown.value).toBe(true)
         expect(state.currentPage.value).toBe(5)
 
         state.currentPage.value = 1
         await state.refreshSearch()
         expect(state.pageCount.value).toBe(2)
+        expect(state.pageCountKnown.value).toBe(false)
     } finally {
         wrapper.unmount()
     }

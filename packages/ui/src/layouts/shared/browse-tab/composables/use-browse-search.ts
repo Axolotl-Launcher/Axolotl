@@ -70,6 +70,7 @@ export interface BrowseSearchState {
     serverHits: ShallowRef<BrowseSearchResponse['serverHits']>
     totalHits: Ref<number>
     pageCount: ComputedRef<number>
+    pageCountKnown: ComputedRef<boolean>
 
     maxResults: Ref<number>
     currentPage: Ref<number>
@@ -284,6 +285,19 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         if (!snapshot) return 1
         return pageCountOf(snapshot.response, snapshot.maxResults, snapshot.page)
     })
+    /**
+     * A cursor-paged source that cannot report a total only knows that one more
+     * page exists, so `pageCount` is a lower bound there and the page controls
+     * must not treat it as the end of the result set.
+     */
+    const pageCountKnown = computed(() => {
+        const snapshot = committed.value
+        if (!snapshot) return true
+        return (
+            snapshot.response.has_more === undefined ||
+            snapshot.response.total_precision !== 'unknown'
+        )
+    })
 
     let searchVersion = 0
     let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -485,6 +499,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         totalHits,
         searchError,
         pageCount,
+        pageCountKnown,
         maxResults,
         currentPage,
         isServerType,

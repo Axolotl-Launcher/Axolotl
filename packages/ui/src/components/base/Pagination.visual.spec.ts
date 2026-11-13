@@ -73,3 +73,13 @@ it('reaches both ends through the end buttons', async () => {
     await flushPromises()
     expect(wrapper.emitted('switch-page')).toEqual([[1], [10]])
 })
+
+it('asks for a page past the count when the source only knows a lower bound', async () => {
+    const wrapper = await mountThemed(Pagination, { page: 1, count: 2, countKnown: false }, 'dark')
+    mounted.push(wrapper)
+    const input = jumpField(wrapper)
+    await input.setValue('20')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.emitted('switch-page')).toEqual([[20]])
+})

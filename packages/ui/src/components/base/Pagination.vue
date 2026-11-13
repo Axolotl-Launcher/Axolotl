@@ -163,7 +163,7 @@
             type="number"
             inputmode="numeric"
             min="1"
-            :max="count"
+            :max="countKnown ? count : undefined"
             :placeholder="formatMessage(messages.goToPagePlaceholder)"
             :aria-label="formatMessage(messages.goToPage)"
             :disabled="loading"
@@ -199,11 +199,19 @@ const props = withDefaults(
         count: number
         loading?: boolean
         linkFunction?: (page: number) => string | undefined
+        /**
+         * Whether `count` is the real number of pages. A cursor-paged source only
+         * knows that one more page exists, so its `count` is a lower bound and a
+         * page past it is still worth asking for: the source resolves it and
+         * reports where it landed.
+         */
+        countKnown?: boolean
     }>(),
     {
         page: 1,
         count: 1,
         loading: false,
+        countKnown: true,
     },
 )
 
@@ -270,7 +278,7 @@ const pages = computed(() => {
 // behaves differently from a large one. The end buttons only disappear once the
 // reader is already on that end.
 const showFirstPage = computed(() => props.page > 1)
-const showLastPage = computed(() => props.page < props.count)
+const showLastPage = computed(() => props.countKnown && props.page < props.count)
 
 const activeGapIndex = ref<number | null>(null)
 const gapInputValue = ref('')
@@ -305,11 +313,16 @@ function fieldValue(event: Event | undefined, modelValue: string) {
     return element instanceof HTMLInputElement ? element.value : modelValue
 }
 
+function clampPage(newPage: number) {
+    const lowerBounded = Math.max(newPage, 1)
+    return props.countKnown ? Math.min(lowerBounded, props.count) : lowerBounded
+}
+
 function jumpToPage(value: string) {
     const parsed = Number.parseInt(value, 10)
     if (!Number.isFinite(parsed)) return
 
-    const target = Math.min(Math.max(parsed, 1), props.count)
+    const target = clampPage(parsed)
     if (target === props.page) return
     switchPage(target)
 }
@@ -341,6 +354,6 @@ watch(
 )
 
 function switchPage(newPage: number) {
-    emit('switch-page', Math.min(Math.max(newPage, 1), props.count))
+    emit('switch-page', clampPage(newPage))
 }
 </script>

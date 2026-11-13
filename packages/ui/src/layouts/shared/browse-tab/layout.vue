@@ -173,6 +173,7 @@ const skeletonCount = computed(() => {
                 :display-mode-tooltip="ctx.displayModeTooltip?.value"
                 :page="resultContext?.page ?? ctx.currentPage.value"
                 :page-count="ctx.pageCount.value"
+                :page-count-known="ctx.pageCountKnown?.value ?? true"
                 :loading="ctx.loading.value"
                 @display-mode="ctx.setDisplayMode?.($event)"
                 @switch-page="ctx.setPage"
@@ -444,6 +445,7 @@ const skeletonCount = computed(() => {
             <Pagination
                 :page="resultContext?.page ?? ctx.currentPage.value"
                 :count="ctx.pageCount.value"
+                :count-known="ctx.pageCountKnown?.value ?? true"
                 :loading="ctx.loading.value"
                 :class="ctx.variant === 'web' ? 'justify-end' : 'pagination-after'"
                 @switch-page="ctx.setPage"

@@ -165,3 +165,46 @@ it('does not search until prerequisites and restored filters are ready', async (
         vi.useRealTimers()
     }
 })
+
+it('counts the pages a cursor source reports a total for instead of one page ahead', async () => {
+    let state!: ReturnType<typeof useBrowseSearch>
+    const cursorResponse = (page: number, precision: 'exact' | 'unknown') => ({
+        projectHits: [],
+        serverHits: [],
+        total_hits: 400,
+        total_precision: precision,
+        has_more: true,
+        per_page: 20,
+        page,
+    })
+    const search = vi
+        .fn()
+        .mockImplementationOnce(async () => cursorResponse(5, 'exact'))
+        .mockImplementationOnce(async () => cursorResponse(1, 'unknown'))
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                state = useBrowseSearch({
+                    projectType: ref('mod'),
+                    tags: ref({}),
+                    search,
+                    persistentQueryParams: [],
+                    syncQueryParams: false,
+                })
+                return () => null
+            },
+        }),
+    )
+    try {
+        state.currentPage.value = 5
+        await state.refreshSearch()
+        expect(state.pageCount.value).toBe(20)
+        expect(state.currentPage.value).toBe(5)
+
+        state.currentPage.value = 1
+        await state.refreshSearch()
+        expect(state.pageCount.value).toBe(2)
+    } finally {
+        wrapper.unmount()
+    }
+})

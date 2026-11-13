@@ -86,6 +86,23 @@ export interface BrowseSearchState {
     onFilterChange: () => void
 }
 
+/**
+ * How many pages the current result set has.
+ *
+ * A cursor-paged source answers with `has_more` instead of a total, and the only
+ * bound it gives is "one more page than the one just read". When such a source
+ * still reports a total, the total describes the whole result set and is the
+ * better answer: the page controls can then offer the real range instead of
+ * clamping every forward jump to the next page. An unknown total leaves
+ * `has_more` as the only bound.
+ */
+function pageCountOf(response: BrowseSearchResponse, maxResults: number, page: number) {
+    if (response.has_more !== undefined && response.total_precision === 'unknown')
+        return page + (response.has_more ? 1 : 0)
+
+    return Math.max(1, Math.ceil(response.total_hits / maxResults))
+}
+
 export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchState {
     const { formatMessage } = useVIntl()
     const messages = defineMessages({
@@ -265,9 +282,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
     const pageCount = computed(() => {
         const snapshot = committed.value
         if (!snapshot) return 1
-        if (snapshot.response.has_more !== undefined)
-            return snapshot.page + (snapshot.response.has_more ? 1 : 0)
-        return Math.max(1, Math.ceil(snapshot.response.total_hits / snapshot.maxResults))
+        return pageCountOf(snapshot.response, snapshot.maxResults, snapshot.page)
     })
 
     let searchVersion = 0
@@ -366,10 +381,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
                 return
             }
 
-            const count =
-                response.has_more !== undefined
-                    ? context.page + (response.has_more ? 1 : 0)
-                    : Math.max(1, Math.ceil(response.total_hits / context.maxResults))
+            const count = pageCountOf(response, context.maxResults, context.page)
             const page = Math.min(response.page ?? context.page, count)
             committed.value = { ...context, response, page }
             currentPage.value = page

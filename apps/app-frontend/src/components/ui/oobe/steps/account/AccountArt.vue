@@ -10,12 +10,14 @@ import {
     layoutCards,
     moveOf,
     slotOf,
+    withPickOnHiddenCard,
 } from './card-layout'
 
 /**
  * The selected account's card in front, with Steve's head while there is none. With two
  * or more accounts the cards behind carry the others, and picking one of them slides its
- * card up to the front while the old front card sinks into its place.
+ * card up to the front while the old front card sinks into its place. From four accounts a
+ * faint card hides behind the stack; an account without a visible card is drawn out of it.
  */
 const { accounts, defaultAccount, headOf } = useOobeAccounts()
 
@@ -25,8 +27,11 @@ const POSES: Record<CardSlot, string> = {
     // Fanned out far enough that most of each head shows beside the front card.
     left: 'translate(-100px, 8px) rotate(-10deg) scale(0.88)',
     right: 'translate(100px, 8px) rotate(10deg) scale(0.88)',
+    // Only its top edge clears the front card; its head stays covered.
+    hidden: 'translate(0px, -46px) rotate(0deg) scale(0.8)',
 }
-const SIDE: Record<CardSlot, number> = { front: 0, left: -1, right: 1 }
+/** The side a card swings toward on its way; the hidden card is drawn out to the right. */
+const SIDE: Record<CardSlot, number> = { front: 0, left: -1, right: 1, hidden: 1 }
 
 const layout = ref<CardLayout>({})
 /** The last move of each account's card; `run` gives the card a new element so it plays again. */
@@ -36,13 +41,13 @@ let runs = 0
 watch(
     () => [accounts.value.map((account) => account.account_id), defaultAccount.value] as const,
     ([ids, selected]) => {
-        const previous = layout.value
-        const next = layoutCards(previous, ids, selected)
+        const before = withPickOnHiddenCard(layout.value, ids, selected)
+        const next = layoutCards(before, ids, selected)
         const updated = new Map(moves.value)
         for (const slot of CARD_SLOTS) {
             const id = next[slot]
-            const move = id ? moveOf(previous, next, id) : undefined
-            if (id && move) updated.set(id, { move, from: slotOf(previous, id), run: ++runs })
+            const move = id ? moveOf(before, next, id) : undefined
+            if (id && move) updated.set(id, { move, from: slotOf(before, id), run: ++runs })
         }
         moves.value = updated
         layout.value = next
@@ -51,10 +56,12 @@ watch(
 )
 
 const cards = computed(() =>
-    CARD_SLOTS.map((slot) => {
+    // The hidden card exists only while some account has no visible card.
+    CARD_SLOTS.filter((slot) => slot !== 'hidden' || layout.value.hidden).map((slot) => {
         const id = layout.value[slot]
         const motion = id ? moves.value.get(id) : undefined
         const from = motion?.from ?? slot
+        const leaving = motion?.move === 'rise' || motion?.move === 'draw'
         return {
             key: id ? `${id}#${motion?.run ?? 0}` : `empty-${slot}`,
             slot,
@@ -67,8 +74,8 @@ const cards = computed(() =>
             style: {
                 '--oobe-card-pose': POSES[slot],
                 '--oobe-card-from': POSES[from],
-                // A rising card leaves toward the side it came from; a sinking one toward its new side.
-                '--oobe-card-side': SIDE[motion?.move === 'rise' ? from : slot],
+                // A card coming forward swings toward the side it came from; one going back toward its new side.
+                '--oobe-card-side': SIDE[leaving ? from : slot],
             },
         }
     }),
@@ -213,7 +220,17 @@ const cards = computed(() =>
 .slot-right {
     z-index: 1;
     opacity: 0.7;
+}
 
+// Above the side cards, which never reach the strip of it that shows, so it can come out over them.
+.slot-hidden {
+    z-index: 2;
+    opacity: 0.4;
+}
+
+.slot-left,
+.slot-right,
+.slot-hidden {
     .front-only {
         opacity: 0;
     }
@@ -235,6 +252,22 @@ const cards = computed(() =>
     }
 }
 
+.move-draw {
+    animation: oobe-account-draw 820ms cubic-bezier(0.45, 0, 0.2, 1) both;
+
+    .front-only {
+        animation: oobe-account-front-in 820ms ease-in-out both;
+    }
+}
+
+.move-stow {
+    animation: oobe-account-stow 820ms cubic-bezier(0.45, 0, 0.2, 1) both;
+
+    .front-only {
+        animation: oobe-account-front-out 820ms ease-in-out both;
+    }
+}
+
 .move-enter {
     animation: oobe-account-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -243,6 +276,16 @@ const cards = computed(() =>
     image-rendering: pixelated;
     // A head that finishes rendering fades in over Steve's.
     animation: oobe-account-head-in 320ms ease-out both;
+}
+
+// A moving card is a new element but carries its head from the start.
+.move-rise,
+.move-sink,
+.move-draw,
+.move-stow {
+    .oobe-account-head {
+        animation: none;
+    }
 }
 
 .oobe-account-badge {
@@ -291,6 +334,52 @@ const cards = computed(() =>
         transform: var(--oobe-card-pose);
         opacity: 0.7;
         z-index: 1;
+    }
+}
+
+// Pulled up and out of the deck to the side, in front of the old card from halfway, then into place.
+@keyframes oobe-account-draw {
+    0% {
+        transform: var(--oobe-card-from);
+        opacity: 0.4;
+        z-index: 2;
+    }
+    50% {
+        transform: translate(calc(var(--oobe-card-side) * 70px), -100px)
+            rotate(calc(var(--oobe-card-side) * 6deg)) scale(0.88);
+        opacity: 1;
+        z-index: 2;
+    }
+    51% {
+        z-index: 3;
+    }
+    100% {
+        transform: var(--oobe-card-pose);
+        opacity: 1;
+        z-index: 3;
+    }
+}
+
+// Down and away from the drawn card, behind it from halfway, then tucked into the deck.
+@keyframes oobe-account-stow {
+    0% {
+        transform: var(--oobe-card-from);
+        opacity: 1;
+        z-index: 3;
+    }
+    50% {
+        transform: translate(calc(var(--oobe-card-side) * -28px), 26px)
+            rotate(calc(var(--oobe-card-side) * -3deg)) scale(0.9);
+        opacity: 0.9;
+        z-index: 3;
+    }
+    51% {
+        z-index: 2;
+    }
+    100% {
+        transform: var(--oobe-card-pose);
+        opacity: 0.4;
+        z-index: 2;
     }
 }
 
@@ -359,6 +448,10 @@ const cards = computed(() =>
     .move-rise .front-only,
     .move-sink,
     .move-sink .front-only,
+    .move-draw,
+    .move-draw .front-only,
+    .move-stow,
+    .move-stow .front-only,
     .move-enter {
         animation: none;
     }

@@ -417,11 +417,11 @@ it('keeps Skip for existing accounts and failed edits, then keeps Next after a s
 })
 
 describe('account art', () => {
-    const card = (slot: 'front' | 'left' | 'right') =>
+    const card = (slot: 'front' | 'left' | 'right' | 'hidden') =>
         document.querySelector<HTMLElement>(
             `[data-testid="oobe-account-card"][data-slot="${slot}"]`,
         )
-    const cardHead = (slot: 'front' | 'left' | 'right') =>
+    const cardHead = (slot: 'front' | 'left' | 'right' | 'hidden') =>
         card(slot)?.querySelector('[data-testid="oobe-account-head"]')?.getAttribute('href') ??
         undefined
     const head = (name: string) => headUrl(`${name}:https://skins.test/${name}`)
@@ -516,6 +516,71 @@ describe('account art', () => {
         swap.forEach((animation) => animation.finish())
         await settle()
         await shot('oobe-account-art-swapped')
+    })
+
+    it('hides a card from four accounts and draws accounts without a card out of it', async () => {
+        // Sorted, these are Alex, Bo, Ida, Kai, Notch, Zuri: Kai is on the hidden card.
+        signIn(['Alex', 'Bo', 'Ida', 'Kai', 'Notch', 'Zuri'], 'Alex')
+        await render('en-US', accountOnly)
+        await waitFor(() => cardHead('hidden') === head('Kai') && !!accountChoice('Zuri'), {
+            label: 'six accounts',
+        })
+        await settle()
+        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
+            head('Alex'),
+            head('Bo'),
+            head('Ida'),
+        ])
+        // Only the hidden card's top edge shows; its head lies within the front card.
+        const covered = card('front')!.getBoundingClientRect()
+        const hiddenHead = card('hidden')!
+            .querySelector('[data-testid="oobe-account-head"]')!
+            .getBoundingClientRect()
+        expect(hiddenHead.top).toBeGreaterThan(covered.top)
+        expect(hiddenHead.left).toBeGreaterThan(covered.left)
+        expect(hiddenHead.right).toBeLessThan(covered.right)
+        expect(card('hidden')!.getBoundingClientRect().top).toBeLessThan(covered.top)
+        await shot('oobe-account-art-deck')
+
+        // Zuri has no card: it is put on the hidden card out of sight and drawn out of the deck.
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardHead('front') === head('Zuri'), { label: 'Zuri drawn' })
+        expect(cardHead('hidden')).toBe(head('Alex'))
+        expect([cardHead('left'), cardHead('right')]).toEqual([head('Bo'), head('Ida')])
+
+        const draw = document
+            .getAnimations()
+            .filter(
+                (animation): animation is CSSAnimation =>
+                    animation instanceof CSSAnimation &&
+                    /draw|stow|front-(in|out)/.test(animation.animationName),
+            )
+        expect(draw.length).toBeGreaterThanOrEqual(2)
+        const at = (progress: number) =>
+            draw.forEach((animation) => {
+                animation.pause()
+                animation.currentTime = 820 * progress
+            })
+        at(0)
+        // It starts in the hidden card's place, with its head already there.
+        const drawnHead = card('front')!.querySelector('[data-testid="oobe-account-head"]')!
+        expect(getComputedStyle(drawnHead).opacity).toBe('1')
+        expect(getComputedStyle(card('front')!).zIndex).toBe('2')
+        at(0.25)
+        await shot('oobe-account-art-draw-25')
+        at(0.4)
+        expect(getComputedStyle(card('front')!).zIndex).toBe('2')
+        expect(getComputedStyle(card('hidden')!).zIndex).toBe('3')
+        at(0.5)
+        await shot('oobe-account-art-draw-50')
+        at(0.6)
+        expect(getComputedStyle(card('front')!).zIndex).toBe('3')
+        expect(getComputedStyle(card('hidden')!).zIndex).toBe('2')
+        at(0.75)
+        await shot('oobe-account-art-draw-75')
+        draw.forEach((animation) => animation.finish())
+        await settle()
+        await shot('oobe-account-art-drawn')
     })
 })
 

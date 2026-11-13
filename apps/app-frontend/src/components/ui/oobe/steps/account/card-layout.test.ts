@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { layoutCards, moveOf } from './card-layout'
+import { layoutCards, moveOf, withPickOnHiddenCard } from './card-layout'
 
 describe('layoutCards', () => {
     it('puts heads on the back cards only once there are two or more accounts', () => {
@@ -10,7 +10,7 @@ describe('layoutCards', () => {
             front: 'alex',
             left: 'notch',
         })
-        expect(layoutCards({}, ['alex', 'notch', 'steve', 'zuri'], 'notch')).toEqual({
+        expect(layoutCards({}, ['alex', 'notch', 'steve'], 'notch')).toEqual({
             front: 'notch',
             left: 'alex',
             right: 'steve',
@@ -34,13 +34,46 @@ describe('layoutCards', () => {
         expect(moveOf(before, after, 'alex')).toBe('sink')
     })
 
-    it('replaces the left card when a hidden account is picked and both slots are taken', () => {
-        const before = { front: 'alex', left: 'notch', right: 'steve' }
-        expect(layoutCards(before, ['alex', 'notch', 'steve', 'zuri'], 'zuri')).toEqual({
-            front: 'zuri',
-            left: 'alex',
+    it('hides a card behind the stack from four accounts', () => {
+        expect(layoutCards({}, ['alex', 'notch', 'steve'], 'alex')).toEqual({
+            front: 'alex',
+            left: 'notch',
             right: 'steve',
         })
+        expect(layoutCards({}, ['alex', 'notch', 'steve', 'zuri', 'kai'], 'alex')).toEqual({
+            front: 'alex',
+            left: 'notch',
+            right: 'steve',
+            hidden: 'zuri',
+        })
+    })
+
+    it('draws an account without a visible card out of the hidden card', () => {
+        const ids = ['alex', 'notch', 'steve', 'zuri', 'kai', 'ida']
+        const shown = { front: 'alex', left: 'notch', right: 'steve', hidden: 'zuri' }
+        // `kai` is on no card, so it takes the hidden card's place while that card is covered.
+        const before = withPickOnHiddenCard(shown, ids, 'kai')
+        expect(before).toEqual({ ...shown, hidden: 'kai' })
+        const after = layoutCards(before, ids, 'kai')
+        expect(after).toEqual({ front: 'kai', left: 'notch', right: 'steve', hidden: 'alex' })
+        expect(moveOf(before, after, 'kai')).toBe('draw')
+        expect(moveOf(before, after, 'alex')).toBe('stow')
+        expect(moveOf(before, after, 'notch')).toBeUndefined()
+    })
+
+    it('leaves picks of visible cards and the first layout alone', () => {
+        const ids = ['alex', 'notch', 'steve', 'zuri']
+        const shown = { front: 'alex', left: 'notch', right: 'steve', hidden: 'zuri' }
+        expect(withPickOnHiddenCard(shown, ids, 'notch')).toBe(shown)
+        expect(withPickOnHiddenCard(shown, ids.slice(0, 3), 'zuri')).toBe(shown)
+        expect(withPickOnHiddenCard({}, ids, 'zuri')).toEqual({})
+    })
+
+    it('tucks the front card into the hidden place when a new account signs in to a full stack', () => {
+        const before = { front: 'alex', left: 'notch', right: 'steve' }
+        const ids = ['alex', 'notch', 'steve', 'zuri']
+        const after = layoutCards(withPickOnHiddenCard(before, ids, 'zuri'), ids, 'zuri')
+        expect(after).toEqual({ front: 'zuri', left: 'notch', right: 'steve', hidden: 'alex' })
     })
 
     it('shows no account in front while none is selected', () => {

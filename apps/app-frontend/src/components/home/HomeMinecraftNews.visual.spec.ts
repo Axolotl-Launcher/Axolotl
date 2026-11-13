@@ -10,14 +10,25 @@ import HomeMinecraftNews from './HomeMinecraftNews.vue'
 const backend = vi.hoisted(() => ({ news: vi.fn() }))
 vi.mock('@/helpers/mc_news', () => ({ get_minecraft_news: backend.news }))
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }))
-vi.mock('@modrinth/ui', () => ({
-    defineMessages: (messages: unknown) => messages,
-    injectNotificationManager: () => ({ handleError: vi.fn() }),
-    useFormatDateTime: () => (value: string) => value,
-    useVIntl: () => ({
-        formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
-    }),
-}))
+vi.mock('@modrinth/ui', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        Button: defineComponent({
+            emits: ['click'],
+            setup:
+                (_, { slots, emit }) =>
+                () =>
+                    h('button', { onClick: () => emit('click') }, slots.default?.()),
+        }),
+        commonMessages: { retryButton: { defaultMessage: 'Retry' } },
+        defineMessages: (messages: unknown) => messages,
+        injectNotificationManager: () => ({ handleError: vi.fn() }),
+        useFormatDateTime: () => (value: string) => value,
+        useVIntl: () => ({
+            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+        }),
+    }
+})
 
 const network = useNetworkStatus()
 const article: MinecraftNewsItem = {
@@ -62,7 +73,8 @@ it.each(['event', 'refresh'] as const)(
         const view = mountNews()
         await flushPromises()
         expect(backend.news).not.toHaveBeenCalled()
-        expect(view.find('section').exists()).toBe(false)
+        // Offline, the card stays and says why it is empty instead of disappearing.
+        expect(view.text()).toContain('News shows up when you are online')
 
         if (source === 'event') window.dispatchEvent(new Event('online'))
         else network.markBrowserOnline()
@@ -83,7 +95,8 @@ it('retries a failed initial request after reconnecting without remounting the c
     const view = mountNews()
     await flushPromises()
     expect(backend.news).toHaveBeenCalledOnce()
-    expect(view.find('section').exists()).toBe(false)
+    expect(view.text()).toContain("Couldn't load the news")
+    expect(view.findAll('button').some((button) => button.text() === 'Retry')).toBe(true)
 
     network.setBrowserOffline(true)
     await flushPromises()
@@ -100,7 +113,8 @@ it('reuses fresh cached news across reconnects and page remounts', async () => {
     expect(backend.news).toHaveBeenCalledOnce()
     network.setBrowserOffline(true)
     await flushPromises()
-    expect(view.find('section').exists()).toBe(false)
+    // Headlines already loaded stay readable while offline.
+    expect(view.text()).toContain('Minecraft & updates')
     network.markBrowserOnline()
     await flushPromises()
     expect(view.text()).toContain('Minecraft & updates')
@@ -117,4 +131,20 @@ it('does not request news on reconnect after leaving the page', async () => {
     network.markBrowserOnline()
     await flushPromises()
     expect(backend.news).not.toHaveBeenCalled()
+})
+
+it('offers a retry for a failed request and says so when there is no news', async () => {
+    network.markBrowserOnline()
+    backend.news.mockRejectedValueOnce(new Error('failed')).mockResolvedValueOnce([])
+    const view = mountNews()
+    await flushPromises()
+    expect(view.get('.home-widget-frame-empty').attributes('data-tone')).toBe('warning')
+    await view
+        .findAll('button')
+        .find((button) => button.text() === 'Retry')!
+        .trigger('click')
+    await flushPromises()
+    expect(backend.news).toHaveBeenCalledTimes(2)
+    expect(view.text()).toContain('No news right now')
+    expect(view.get('.home-widget-frame-empty').attributes('data-tone')).toBe('neutral')
 })

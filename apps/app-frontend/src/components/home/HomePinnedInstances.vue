@@ -45,6 +45,10 @@ const messages = defineMessages({
         id: 'app.home.instances.pinned',
         defaultMessage: 'Pinned instances',
     },
+    emptyPinnedTitle: {
+        id: 'app.home.instances.pinned-empty-title',
+        defaultMessage: 'No pinned instances',
+    },
     emptyPinned: {
         id: 'app.home.instances.pinned-empty',
         defaultMessage: 'Pin an instance from its card menu or the library to keep it here.',
@@ -119,7 +123,8 @@ function rowMenu(instance: GameInstance) {
         :icon="GridIcon"
         :badge="pinnedInstances.length || null"
         :dense="dashboardSize?.endsWith('x1')"
-        :empty-text="pinnedInstances.length === 0 ? formatMessage(messages.emptyPinned) : null"
+        :empty-text="pinnedInstances.length === 0 ? formatMessage(messages.emptyPinnedTitle) : null"
+        :empty-hint="formatMessage(messages.emptyPinned)"
         :empty-icon="GridIcon"
     >
         <template v-if="pinnedInstances.length > 0" #actions>

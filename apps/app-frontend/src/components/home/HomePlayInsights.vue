@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChartIcon, GameIcon, TrendingUpIcon } from '@modrinth/assets'
+import { ChartIcon, GameIcon, TrendingUpIcon, UpdatedIcon } from '@modrinth/assets'
 import { Button, commonMessages, defineMessages, useFormatDateTime, useVIntl } from '@modrinth/ui'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, onUnmounted } from 'vue'
@@ -38,9 +38,20 @@ const messages = defineMessages({
             '{days, plural, one {# day played in a row} other {# days played in a row}}',
     },
     weekTop: { id: 'app.home.insights.week-top', defaultMessage: 'Most played: {name}' },
+    emptyTitle: { id: 'app.home.insights.empty-title', defaultMessage: 'No playtime yet' },
     empty: {
         id: 'app.home.insights.empty',
         defaultMessage: 'Play something and your stats will show up here.',
+    },
+    errorTitle: {
+        id: 'app.home.insights.error-title',
+        defaultMessage: "Couldn't load your playtime",
+    },
+    weekEmpty: { id: 'app.home.insights.week-empty', defaultMessage: 'Nothing played yet' },
+    lastWeek: { id: 'app.home.insights.last-week', defaultMessage: 'Last week: {duration}' },
+    ghostLegend: {
+        id: 'app.home.insights.ghost-legend',
+        defaultMessage: 'Faded bars are last week',
     },
     minutes: { id: 'app.home.playtime.minutes', defaultMessage: '{minutes}m' },
     hoursMinutes: { id: 'app.home.playtime.hours-minutes', defaultMessage: '{hours}h {minutes}m' },
@@ -123,6 +134,18 @@ const weekTopInstance = computed(() => {
 })
 
 const hasAnyPlaytime = computed(() => dailyPlaytime.value.some((entry) => entry.played_seconds > 0))
+/** Nothing loaded at all, or nothing ever played: the card shows its empty state. */
+const emptyState = computed(() => {
+    if (playtimeQuery.isError.value && !playtimeQuery.data.value) return 'error'
+    if (!playtimeQuery.isError.value && !hasAnyPlaytime.value) return 'empty'
+    return null
+})
+/**
+ * A week with no playtime yet still has a chart: last week's days in faded
+ * bars, so the card keeps its shape and says what to measure against.
+ */
+const weekIsEmpty = computed(() => thisWeekSeconds.value === 0)
+const showGhostWeek = computed(() => weekIsEmpty.value && lastWeekSeconds.value > 0)
 
 function formatDuration(seconds: number): string {
     const roundedSeconds = Math.max(0, Math.round(seconds))
@@ -166,10 +189,18 @@ const weekDays = computed(() => {
     })
     const peak = Math.max(1, ...days.map((day) => day.seconds))
     const peakKey = days.reduce((best, day) => (day.seconds > best.seconds ? day : best)).key
-    return days.map((day) => ({
+    const ghosts = days.map(
+        (_, offset) =>
+            dailyByDate.value.get(toDateKey(shiftedDate(weekStart.value, offset - 7)))
+                ?.played_seconds ?? 0,
+    )
+    const ghostPeak = Math.max(1, ...ghosts)
+    return days.map((day, index) => ({
         ...day,
         share: day.seconds / peak,
         peak: day.seconds > 0 && day.key === peakKey,
+        ghostSeconds: ghosts[index],
+        ghostShare: ghosts[index] / ghostPeak,
     }))
 })
 
@@ -220,22 +251,46 @@ onUnmounted(() => {
         :loading="playtimeQuery.isPending.value"
         :skeleton-rows="2"
         :empty-text="
-            !playtimeQuery.isError.value && !hasAnyPlaytime ? formatMessage(messages.empty) : null
+            emptyState === 'error'
+                ? formatMessage(messages.errorTitle)
+                : emptyState === 'empty'
+                  ? formatMessage(messages.emptyTitle)
+                  : null
         "
+        :empty-hint="emptyState === 'empty' ? formatMessage(messages.empty) : null"
+        :empty-tone="emptyState === 'error' ? 'warning' : 'neutral'"
         :empty-icon="ChartIcon"
     >
-        <Button
-            v-if="playtimeQuery.isError.value && !playtimeQuery.data.value"
-            @click="playtimeQuery.refetch()"
-        >
-            {{ formatMessage(commonMessages.retryButton) }}
-        </Button>
-        <div v-else class="flex min-w-0 flex-col gap-3">
+        <template v-if="emptyState === 'error'" #empty-action>
+            <Button size="sm" @click="playtimeQuery.refetch()">
+                <UpdatedIcon aria-hidden="true" />
+                {{ formatMessage(commonMessages.retryButton) }}
+            </Button>
+        </template>
+        <div class="flex min-w-0 flex-col gap-3">
             <div class="flex min-w-0 flex-col gap-0.5">
                 <span class="text-xs font-bold text-[var(--color-text-tertiary)]">{{
                     formatMessage(messages.thisWeekLabel)
                 }}</span>
-                <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                <div
+                    v-if="weekIsEmpty"
+                    class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1"
+                >
+                    <strong
+                        class="text-xl font-extrabold leading-tight text-[var(--color-text-default)]"
+                        >{{ formatMessage(messages.weekEmpty) }}</strong
+                    >
+                    <span
+                        v-if="lastWeekSeconds > 0"
+                        class="text-xs font-semibold text-[var(--color-text-tertiary)]"
+                        >{{
+                            formatMessage(messages.lastWeek, {
+                                duration: formatDuration(lastWeekSeconds),
+                            })
+                        }}</span
+                    >
+                </div>
+                <div v-else class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                     <strong
                         v-tooltip="thisWeekLine"
                         class="text-2xl font-extrabold leading-tight tabular-nums text-[var(--color-text-primary)]"
@@ -255,7 +310,12 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <ol class="home-insights-week" :aria-label="formatMessage(messages.thisWeekLabel)">
+            <ol
+                v-if="!weekIsEmpty || showGhostWeek"
+                class="home-insights-week"
+                :class="{ 'is-ghost': showGhostWeek }"
+                :aria-label="formatMessage(messages.thisWeekLabel)"
+            >
                 <li
                     v-for="day in weekDays"
                     :key="day.key"
@@ -270,7 +330,12 @@ onUnmounted(() => {
                 >
                     <span class="home-insights-plot">
                         <span
-                            v-if="day.seconds > 0"
+                            v-if="showGhostWeek && day.ghostSeconds > 0"
+                            class="home-insights-bar is-ghost"
+                            :style="{ height: `${Math.max(8, day.ghostShare * 100)}%` }"
+                        />
+                        <span
+                            v-else-if="day.seconds > 0"
                             class="home-insights-bar"
                             :style="{ height: `${Math.max(8, day.share * 100)}%` }"
                         >
@@ -282,6 +347,13 @@ onUnmounted(() => {
                     <span class="home-insights-day" aria-hidden="true">{{ day.label }}</span>
                 </li>
             </ol>
+            <p v-else class="m-0 text-xs leading-snug text-[var(--color-text-tertiary)]">
+                {{ formatMessage(messages.empty) }}
+            </p>
+            <p v-if="showGhostWeek" class="home-insights-legend">
+                <span aria-hidden="true" />
+                {{ formatMessage(messages.ghostLegend) }}
+            </p>
 
             <div v-if="streakDays > 0 || weekTopInstance" class="flex min-w-0 flex-wrap gap-1.5">
                 <span v-if="streakDays > 0" class="home-chip">
@@ -350,6 +422,24 @@ onUnmounted(() => {
 
 .home-insights-week > li.is-today .home-insights-bar {
     @apply bg-brand;
+}
+
+/* Last week's bars behind an empty week: dashed outlines, clearly not this week. */
+.home-insights-bar.is-ghost,
+.home-insights-week > li.is-today .home-insights-bar.is-ghost {
+    border: 1.5px dashed color-mix(in srgb, var(--color-brand) 55%, transparent);
+    border-bottom: 0;
+    background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+}
+
+.home-insights-legend {
+    @apply m-0 flex items-center gap-1.5 text-[0.6875rem] font-semibold text-[var(--color-text-tertiary)];
+}
+
+.home-insights-legend > span {
+    @apply inline-block size-2.5 rounded-[0.125rem];
+    border: 1.5px dashed color-mix(in srgb, var(--color-brand) 55%, transparent);
+    background: color-mix(in srgb, var(--color-brand) 10%, transparent);
 }
 
 /* The value shows over the week's longest day, and over any day on hover or focus. */

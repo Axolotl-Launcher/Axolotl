@@ -34,6 +34,9 @@ const props = withDefaults(
          * provides an editor", so a preview can opt out with `false`.
          */
         editable?: boolean
+        /** The minimal Home can hide the date or the heading on their own. */
+        showDate?: boolean
+        showHeading?: boolean
     }>(),
     {
         playerName: null,
@@ -45,6 +48,8 @@ const props = withDefaults(
         greetingFontSize: HOME_GREETING_DEFAULT_FONT_SIZE,
         override: null,
         editable: undefined,
+        showDate: true,
+        showHeading: true,
     },
 )
 
@@ -266,12 +271,12 @@ onUnmounted(() => window.clearInterval(timer))
         "
     >
         <span
-            v-if="variant !== 'standard' || dashboardSize"
+            v-if="showDate && (variant !== 'standard' || dashboardSize)"
             class="text-xs font-bold leading-none tracking-normal text-[var(--color-text-tertiary)]"
         >
             {{ dateLabel }}
         </span>
-        <div ref="greetingGroup" class="group flex min-w-0 items-center gap-2">
+        <div v-if="showHeading" ref="greetingGroup" class="group flex min-w-0 items-center gap-2">
             <h1
                 class="m-0 max-w-full break-words font-extrabold text-[var(--color-text-primary)]"
                 :class="[

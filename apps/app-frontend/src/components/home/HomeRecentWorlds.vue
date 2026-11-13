@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { GameIcon, HistoryIcon, ServerIcon } from '@modrinth/assets'
+import { GameIcon, GridIcon, HistoryIcon, ServerIcon } from '@modrinth/assets'
 import {
+    ButtonLink,
     commonMessages,
     defineMessages,
     formatLoaderLabel,
@@ -11,6 +12,7 @@ import {
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { computed, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import {
     HOME_RECENT_DEFAULT_LIMIT,
@@ -67,8 +69,16 @@ const messages = defineMessages({
         defaultMessage: 'Start from your recent projects',
     },
     emptyRecent: {
-        id: 'app.home.recent.empty',
-        defaultMessage: 'No recent activity yet.',
+        id: 'app.home.recent.empty-title',
+        defaultMessage: 'No recent activity yet',
+    },
+    emptyRecentHint: {
+        id: 'app.home.recent.empty-hint',
+        defaultMessage: 'Worlds, servers and instances you play show up here.',
+    },
+    viewAllInstances: {
+        id: 'app.home.instances.view-all',
+        defaultMessage: 'View all instances',
     },
     noServerQuickPlay: {
         id: 'instance.worlds.no_server_quick_play',
@@ -280,8 +290,15 @@ async function stopInstance(instance: GameInstance) {
         :loading="!recentWorldsLoaded"
         :skeleton-rows="Math.min(limit, 2)"
         :empty-text="recentItems.length === 0 ? formatMessage(messages.emptyRecent) : null"
+        :empty-hint="formatMessage(messages.emptyRecentHint)"
         :empty-icon="HistoryIcon"
     >
+        <template #empty-action>
+            <ButtonLink :as="RouterLink" to="/library" size="sm">
+                <GridIcon aria-hidden="true" />
+                {{ formatMessage(messages.viewAllInstances) }}
+            </ButtonLink>
+        </template>
         <ul class="home-pinned-list home-recent-list">
             <li
                 v-for="item in recentItems"

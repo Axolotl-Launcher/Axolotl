@@ -1,3 +1,5 @@
+import { type HomeMinimalOptions, normalizeHomeMinimalOptions } from './home-minimal'
+
 export const HOME_DASHBOARD_VERSION = 1 as const
 export const HOME_WIDGET_LAYOUTS = ['grid', 'free'] as const
 export const HOME_WIDGET_STANDARD_SIZES = ['1x1', '2x1', '1x2', '2x2'] as const
@@ -89,6 +91,11 @@ export type HomeDashboardConfig = {
      * layout was saved is placed into it once; removing it afterwards sticks.
      */
     introduced?: HomeWidgetKind[]
+    /**
+     * How the minimal Home looks. It shares this value with the widgets so it
+     * needs no column of its own; absent means the standard layout.
+     */
+    minimal?: HomeMinimalOptions
 }
 
 /** Kinds every saved layout receives once, in the order they shipped. */
@@ -415,7 +422,18 @@ export function normalizeHomeDashboard(value: unknown): HomeDashboardConfig | nu
         layout,
         widgets: introduceHomeWidgets(layout, widgets, introduced),
         introduced: [...new Set([...introduced, ...HOME_INTRODUCED_WIDGET_KINDS])],
+        ...(value.minimal !== undefined
+            ? { minimal: normalizeHomeMinimalOptions(value.minimal) }
+            : {}),
     }
+}
+
+/** Saves the minimal Home options; the widgets are left as they are. */
+export function setHomeMinimalOptions(
+    config: HomeDashboardConfig,
+    minimal: HomeMinimalOptions,
+): HomeDashboardConfig {
+    return { ...config, minimal }
 }
 
 export function replaceHomeDashboardWidgets(

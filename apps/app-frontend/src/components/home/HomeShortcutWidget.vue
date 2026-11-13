@@ -5,11 +5,13 @@ import {
     IssuesIcon,
     NoSignalIcon,
     PlayIcon,
+    RefreshCwIcon,
     ServerIcon,
     SignalIcon,
     SpinnerIcon,
     StopCircleIcon,
     TimerIcon,
+    TrashIcon,
 } from '@modrinth/assets'
 import {
     Avatar,
@@ -26,6 +28,7 @@ import { computed, ref, watch } from 'vue'
 
 import type { HomeWidgetPlacement, HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
+import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
@@ -50,6 +53,12 @@ const props = defineProps<{
     dashboardSize: HomeWidgetSize
 }>()
 
+const emit = defineEmits<{
+    /** The target is gone: pick another one for this widget, or remove it. */
+    replace: []
+    remove: []
+}>()
+
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const formatRelativeTime = useRelativeTime()
@@ -66,6 +75,12 @@ const messages = defineMessages({
         id: 'app.home.widgets.unavailable',
         defaultMessage: 'Content unavailable',
     },
+    missingHint: {
+        id: 'app.home.shortcut.missing-hint',
+        defaultMessage: 'It was deleted or moved. Pick another one or remove this widget.',
+    },
+    replace: { id: 'app.home.widgets.replace', defaultMessage: 'Replace target' },
+    remove: { id: 'app.home.widgets.remove', defaultMessage: 'Remove widget' },
     played: { id: 'app.instance.played', defaultMessage: 'Played {time}' },
     neverPlayed: { id: 'app.instance.never-played', defaultMessage: 'Never played' },
     instance: { id: 'app.home.shortcut.kind.instance', defaultMessage: 'Instance' },
@@ -305,22 +320,41 @@ watch(
                 <div class="home-skeleton h-2.5 w-1/2" />
             </div>
         </div>
-        <div
+        <HomeWidgetFrame
             v-else-if="missing"
-            class="flex min-w-0 min-h-0 h-full flex-col items-center justify-center gap-2 p-4 box-border text-center"
+            class="home-shortcut-missing box-border h-full p-4"
+            :title="placement.target?.fallbackLabel || kindLabel"
+            :icon="kindIcon"
+            dense
+            :empty-text="formatMessage(messages.unavailable)"
+            :empty-hint="formatMessage(messages.missingHint)"
+            empty-tone="warning"
+            :empty-icon="IssuesIcon"
         >
-            <span
-                class="flex size-10 items-center justify-center rounded-full bg-[var(--home-widget-tint)] text-[var(--color-text-tertiary)]"
-                aria-hidden="true"
-                ><IssuesIcon class="size-5"
-            /></span>
-            <strong class="max-w-full truncate text-[var(--color-text-primary)]">{{
-                placement.target?.fallbackLabel
-            }}</strong>
-            <span class="text-sm text-[var(--color-text-tertiary)]">{{
-                formatMessage(messages.unavailable)
-            }}</span>
-        </div>
+            <template #empty-action>
+                <Button
+                    v-tooltip="formatMessage(messages.replace)"
+                    size="sm"
+                    circular
+                    icon-only
+                    :aria-label="formatMessage(messages.replace)"
+                    @click="emit('replace')"
+                >
+                    <RefreshCwIcon aria-hidden="true" />
+                </Button>
+                <Button
+                    v-tooltip="formatMessage(messages.remove)"
+                    size="sm"
+                    circular
+                    icon-only
+                    type="quiet"
+                    :aria-label="formatMessage(messages.remove)"
+                    @click="emit('remove')"
+                >
+                    <TrashIcon aria-hidden="true" />
+                </Button>
+            </template>
+        </HomeWidgetFrame>
         <div v-else class="home-shortcut-card">
             <span
                 v-if="artUrl"

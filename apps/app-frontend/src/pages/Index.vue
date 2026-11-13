@@ -5,6 +5,7 @@ import {
     LayoutTemplateIcon,
     MinimizeIcon,
     MoveIcon,
+    PaletteIcon,
     PencilIcon,
     PlusIcon,
     RotateCounterClockwiseIcon,
@@ -16,6 +17,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { useQueryClient } from '@tanstack/vue-query'
+import { onClickOutside } from '@vueuse/core'
 import { computed, inject, onUnmounted, provide, type Ref, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -29,12 +31,14 @@ import {
     normalizeHomeDashboard,
     pruneHomeGreetingOverrides,
     setHomeGreetingOverride,
+    setHomeMinimalOptions,
 } from '@/components/home/home-dashboard'
 import {
     HOME_GREETING_EDITOR_KEY,
     type HomeGreetingEditorContext,
 } from '@/components/home/home-greeting-editor'
 import { HOME_LAUNCH_KEY } from '@/components/home/home-launch-context'
+import { type HomeMinimalOptions, resolveHomeMinimalLayout } from '@/components/home/home-minimal'
 import { getActivePlayerAccount } from '@/components/home/home-utils'
 import HomeDailyChallenge from '@/components/home/HomeDailyChallenge.vue'
 import HomeDashboard from '@/components/home/HomeDashboard.vue'
@@ -42,6 +46,7 @@ import HomeGreetingAccountModal from '@/components/home/HomeGreetingAccountModal
 import HomeInstancePickerModal from '@/components/home/HomeInstancePickerModal.vue'
 import HomeMinecraftNews from '@/components/home/HomeMinecraftNews.vue'
 import HomeMinimal from '@/components/home/HomeMinimal.vue'
+import HomeMinimalCustomizer from '@/components/home/HomeMinimalCustomizer.vue'
 import HomePlayInsights from '@/components/home/HomePlayInsights.vue'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { get_default_user, users } from '@/helpers/auth'
@@ -108,6 +113,10 @@ const messages = defineMessages({
         id: 'app.home.widgets.reset',
         defaultMessage: 'Restore default widgets',
     },
+    customizeMinimal: {
+        id: 'app.home.minimal.customize',
+        defaultMessage: 'Customize Minimal Home',
+    },
 })
 
 const recentProjectsInHomeFlag: FeatureFlag = 'worlds_in_home'
@@ -136,10 +145,52 @@ const dashboardSaveQueue = createHomeDashboardSaveQueue(
     },
     handleError,
 )
+const floatingControlsBottom = computed(() =>
+    themeStore.getFeatureFlag('page_path') ? '3.5rem' : '1rem',
+)
+const floatingControlsRight = computed(
+    () => `calc(${pageContext.floatingActionBarOffsets?.right.value ?? '0px'} + 1rem)`,
+)
 const floatingControlsStyle = computed(() => ({
-    bottom: themeStore.getFeatureFlag('page_path') ? '3.5rem' : '1rem',
-    right: `calc(${pageContext.floatingActionBarOffsets?.right.value ?? '0px'} + 1rem)`,
+    bottom: floatingControlsBottom.value,
+    right: floatingControlsRight.value,
 }))
+
+/*
+ * The minimal Home's options live in the dashboard config. The customizer
+ * opens from the floating controls, which stay on the page whatever it hides,
+ * so the user can always get back to the options or change the instance.
+ */
+const minimalLayout = computed(() => resolveHomeMinimalLayout(dashboardConfig.value?.minimal))
+const minimalCustomizerOpen = ref(false)
+const minimalCustomizer = ref<InstanceType<typeof HomeMinimalCustomizer>>()
+const minimalCustomizeButton = ref<HTMLButtonElement>()
+const minimalCustomizerStyle = computed(() => ({
+    bottom: `calc(${floatingControlsBottom.value} + 3.25rem)`,
+    right: floatingControlsRight.value,
+}))
+onClickOutside(
+    computed(() => minimalCustomizer.value?.$el as HTMLElement | undefined),
+    () => (minimalCustomizerOpen.value = false),
+    {
+        ignore: [minimalCustomizeButton],
+    },
+)
+
+function changeMinimalInstance() {
+    minimalCustomizerOpen.value = false
+    instancePicker.value?.show()
+}
+
+function updateMinimalOptions(options: HomeMinimalOptions) {
+    updateDashboardConfig(
+        setHomeMinimalOptions(
+            dashboardConfig.value ??
+                createDefaultHomeDashboard(themeStore.getFeatureFlag(recentProjectsInHomeFlag)),
+            options,
+        ),
+    )
+}
 
 const animateSidebarShow = ref(false)
 const sidebarTimer = setTimeout(() => {
@@ -299,7 +350,9 @@ watch(accountChangeRevision, (revision, previousRevision) => {
 
 function resetDashboardConfig() {
     if (!window.confirm(formatMessage(messages.resetWidgets))) return
-    updateDashboardConfig(createDefaultHomeDashboard())
+    // Restoring the widgets leaves the minimal Home as the user set it.
+    const minimal = dashboardConfig.value?.minimal
+    updateDashboardConfig({ ...createDefaultHomeDashboard(), ...(minimal ? { minimal } : {}) })
 }
 
 async function selectMinimalInstance(instance: GameInstance) {
@@ -331,6 +384,7 @@ async function toggleHomeLayout() {
     switchingLayout.value = true
     themeStore.homeLayout = nextLayout
     if (nextLayout === 'minimal') dashboardEditing.value = false
+    else minimalCustomizerOpen.value = false
 
     try {
         await updateSettings({ home_layout: nextLayout })
@@ -412,7 +466,12 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             @change="updateDashboardConfig"
         />
 
-        <HomeMinimal v-else :instances="instances" :player-name="playerName" />
+        <HomeMinimal
+            v-else
+            :instances="instances"
+            :player-name="playerName"
+            :layout="minimalLayout"
+        />
     </div>
     <div class="home-floating-controls" :style="floatingControlsStyle">
         <template v-if="!isMinimal">
@@ -483,6 +542,21 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             </button>
             <span class="home-floating-divider" aria-hidden="true" />
         </template>
+        <template v-else>
+            <button
+                ref="minimalCustomizeButton"
+                v-tooltip="formatMessage(messages.customizeMinimal)"
+                type="button"
+                class="home-floating-action home-minimal-customize"
+                :class="{ 'is-active': minimalCustomizerOpen }"
+                :aria-label="formatMessage(messages.customizeMinimal)"
+                :aria-expanded="minimalCustomizerOpen"
+                @click="minimalCustomizerOpen = !minimalCustomizerOpen"
+            >
+                <PaletteIcon />
+            </button>
+            <span class="home-floating-divider" aria-hidden="true" />
+        </template>
         <button
             v-tooltip="
                 formatMessage(isMinimal ? messages.switchToInformation : messages.switchToMinimal)
@@ -508,6 +582,16 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             </span>
         </button>
     </div>
+    <HomeMinimalCustomizer
+        v-if="isMinimal && minimalCustomizerOpen"
+        ref="minimalCustomizer"
+        :style="minimalCustomizerStyle"
+        :options="dashboardConfig?.minimal"
+        :can-change-instance="instances.length > 0"
+        @update="updateMinimalOptions"
+        @close="minimalCustomizerOpen = false"
+        @change-instance="changeMinimalInstance"
+    />
     <Teleport v-if="!isMinimal" to="#sidebar-default-teleport-target">
         <div
             class="flex min-w-0 flex-col slide-enter-active"

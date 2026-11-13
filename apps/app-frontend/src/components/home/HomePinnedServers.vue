@@ -59,6 +59,10 @@ const messages = defineMessages({
         id: 'app.home.servers.pinned',
         defaultMessage: 'Pinned servers',
     },
+    emptyServersTitle: {
+        id: 'app.home.servers.empty-title',
+        defaultMessage: 'No pinned servers',
+    },
     emptyServers: {
         id: 'app.home.servers.empty',
         defaultMessage: 'Favorite a server and it will be pinned here.',
@@ -407,7 +411,8 @@ function localServerMenu(serverId: string): MenuAction[] {
         :dense="dashboardSize?.endsWith('x1')"
         :loading="!favoritesLoaded"
         :skeleton-rows="dashboardSize === '1x1' ? 1 : 3"
-        :empty-text="hasServers ? null : formatMessage(messages.emptyServers)"
+        :empty-text="hasServers ? null : formatMessage(messages.emptyServersTitle)"
+        :empty-hint="formatMessage(messages.emptyServers)"
         :empty-icon="ServerIcon"
     >
         <template #empty-action>

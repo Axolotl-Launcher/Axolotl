@@ -725,6 +725,8 @@ defineExpose({ openWidgetPicker, setLayout })
                                 :placement="widget"
                                 :instances="instances"
                                 :dashboard-size="effectiveSize(widget)"
+                                @replace="replaceWidgetTarget(widget)"
+                                @remove="removeWidget(widget.id)"
                             />
                         </div>
                     </article>
@@ -967,14 +969,15 @@ defineExpose({ openWidgetPicker, setLayout })
 
 /*
  * The edit strip takes a row of the tile, and nothing in it can be clicked
- * anyway: an empty widget says what it is in one line and drops its icon and
- * next-step button, so nothing is cut off at the bottom.
+ * anyway: an empty widget keeps its picture and its title on one line and drops
+ * the hint and the next-step button, so nothing is cut off at the bottom.
  */
-.home-dashboard-grid.is-editing :deep(.home-widget-frame-empty) > :not(p) {
+.home-dashboard-grid.is-editing :deep(.home-widget-frame-empty-action),
+.home-dashboard-grid.is-editing :deep(.home-widget-frame-empty-hint) {
     display: none;
 }
 
-.home-dashboard-grid.is-editing :deep(.home-widget-frame-empty) > p {
+.home-dashboard-grid.is-editing :deep(.home-widget-frame-empty-title) {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;

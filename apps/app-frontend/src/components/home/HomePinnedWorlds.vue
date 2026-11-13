@@ -48,6 +48,7 @@ const messages = defineMessages({
         id: 'app.home.worlds.pinned',
         defaultMessage: 'Pinned worlds',
     },
+    emptyWorldsTitle: { id: 'app.home.worlds.empty-title', defaultMessage: 'No pinned worlds' },
     emptyWorlds: {
         id: 'app.home.worlds.empty',
         defaultMessage: 'Favorite a world and it will be pinned here.',
@@ -192,7 +193,8 @@ async function stopInstance(instance: GameInstance) {
         :dense="dashboardSize?.endsWith('x1')"
         :loading="!favoritesLoaded"
         :skeleton-rows="dashboardSize === '1x1' ? 1 : 3"
-        :empty-text="favorites.length === 0 ? formatMessage(messages.emptyWorlds) : null"
+        :empty-text="favorites.length === 0 ? formatMessage(messages.emptyWorldsTitle) : null"
+        :empty-hint="formatMessage(messages.emptyWorlds)"
         :empty-icon="GameIcon"
     >
         <template #empty-action>

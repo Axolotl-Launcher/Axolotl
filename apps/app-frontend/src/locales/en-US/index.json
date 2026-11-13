@@ -1,9 +1,171 @@
 {
+  "app.appearance-settings.home-layout.minimal-hint": {
+    "message": "What Minimal Home shows is set from \"Customize Minimal Home\" in the corner of the Home page."
+  },
+  "app.home.calendar.month-empty": {
+    "message": "No playtime this month"
+  },
+  "app.home.calendar.month-empty-hint": {
+    "message": "Each day you play gets marked on the calendar."
+  },
+  "app.home.challenge.empty-hint": {
+    "message": "Pick your own goal for this session."
+  },
+  "app.home.challenge.empty-title": {
+    "message": "No challenge today"
+  },
+  "app.home.insights.empty-title": {
+    "message": "No playtime yet"
+  },
+  "app.home.insights.error-title": {
+    "message": "Couldn't load your playtime"
+  },
+  "app.home.insights.ghost-legend": {
+    "message": "Faded bars are last week"
+  },
+  "app.home.insights.last-week": {
+    "message": "Last week: {duration}"
+  },
+  "app.home.insights.week-empty": {
+    "message": "Nothing played yet"
+  },
+  "app.home.instances.pinned-empty-title": {
+    "message": "No pinned instances"
+  },
+  "app.home.launch.browse-modpacks": {
+    "message": "Browse modpacks"
+  },
+  "app.home.launch.choose-hint": {
+    "message": "Pick the instance Home starts. You can change it any time."
+  },
+  "app.home.launch.create-or-import": {
+    "message": "Create or import"
+  },
+  "app.home.launch.fresh-hint": {
+    "message": "Create one from scratch, import one from another launcher, or start from a modpack."
+  },
+  "app.home.launch.quick-pick": {
+    "message": "Quick pick"
+  },
   "app.home.launch.recent-short": {
     "message": "Recent"
   },
+  "app.home.minimal.arrangement": {
+    "message": "Arrangement"
+  },
+  "app.home.minimal.arrangement.row": {
+    "message": "Side by side"
+  },
+  "app.home.minimal.arrangement.stacked": {
+    "message": "Stacked"
+  },
+  "app.home.minimal.change-instance": {
+    "message": "Change Home instance"
+  },
+  "app.home.minimal.customize": {
+    "message": "Customize Minimal Home"
+  },
+  "app.home.minimal.customize.close": {
+    "message": "Close"
+  },
+  "app.home.minimal.density": {
+    "message": "Spacing"
+  },
+  "app.home.minimal.density.comfortable": {
+    "message": "Roomy"
+  },
+  "app.home.minimal.density.compact": {
+    "message": "Compact"
+  },
+  "app.home.minimal.layout": {
+    "message": "Layout"
+  },
+  "app.home.minimal.position": {
+    "message": "Vertical position"
+  },
+  "app.home.minimal.position.center": {
+    "message": "Centered"
+  },
+  "app.home.minimal.position.upper": {
+    "message": "Slightly up"
+  },
+  "app.home.minimal.preset": {
+    "message": "Style"
+  },
+  "app.home.minimal.preset.custom": {
+    "message": "Custom"
+  },
+  "app.home.minimal.preset.custom-hint": {
+    "message": "Your own mix"
+  },
+  "app.home.minimal.preset.pure": {
+    "message": "Pure"
+  },
+  "app.home.minimal.preset.pure-hint": {
+    "message": "Icon, name and launch button"
+  },
+  "app.home.minimal.preset.standard": {
+    "message": "Standard"
+  },
+  "app.home.minimal.preset.standard-hint": {
+    "message": "Greeting, details and recent"
+  },
+  "app.home.minimal.show": {
+    "message": "Show"
+  },
+  "app.home.minimal.show.date": {
+    "message": "Date"
+  },
+  "app.home.minimal.show.greeting": {
+    "message": "Greeting"
+  },
+  "app.home.minimal.show.meta": {
+    "message": "Info tags"
+  },
+  "app.home.minimal.show.status": {
+    "message": "Status line"
+  },
+  "app.home.minimal.show.switch": {
+    "message": "Switch instance button"
+  },
+  "app.home.minimal.surface": {
+    "message": "Background"
+  },
+  "app.home.minimal.surface.card": {
+    "message": "Card"
+  },
+  "app.home.minimal.surface.plain": {
+    "message": "None"
+  },
+  "app.home.news.empty-title": {
+    "message": "No news right now"
+  },
+  "app.home.news.error-title": {
+    "message": "Couldn't load the news"
+  },
+  "app.home.news.offline-title": {
+    "message": "News shows up when you are online"
+  },
+  "app.home.news.open-site": {
+    "message": "Open minecraft.net"
+  },
+  "app.home.recent.empty-hint": {
+    "message": "Worlds, servers and instances you play show up here."
+  },
+  "app.home.recent.empty-title": {
+    "message": "No recent activity yet"
+  },
   "app.home.row.shortcut-created": {
     "message": "Shortcut created"
+  },
+  "app.home.servers.empty-title": {
+    "message": "No pinned servers"
+  },
+  "app.home.shortcut.missing-hint": {
+    "message": "It was deleted or moved. Pick another one or remove this widget."
+  },
+  "app.home.worlds.empty-title": {
+    "message": "No pinned worlds"
   },
   "app.minecraft-crash.scan-logs": {
     "message": "Scan to view logs"
@@ -3049,9 +3211,6 @@
   },
   "app.home.playtime.sessions": {
     "message": "{count, plural, one {# successful launch} other {# successful launches}}"
-  },
-  "app.home.recent.empty": {
-    "message": "No recent activity yet."
   },
   "app.home.recent.title": {
     "message": "Start from your recent projects"

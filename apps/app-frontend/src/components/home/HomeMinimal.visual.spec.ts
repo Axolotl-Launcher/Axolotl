@@ -1,3 +1,5 @@
+import '@/test/visual-styles.scss'
+
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
@@ -6,6 +8,12 @@ import { computed, defineComponent, h, ref } from 'vue'
 import type { GameInstance } from '@/helpers/types'
 
 import { HOME_LAUNCH_KEY, type HomeLaunchContext } from './home-launch'
+import {
+    HOME_MINIMAL_PURE,
+    HOME_MINIMAL_STANDARD,
+    resolveHomeMinimalLayout,
+    updateHomeMinimalLayout,
+} from './home-minimal'
 import HomeMinimal from './HomeMinimal.vue'
 
 const backend = vi.hoisted(() => ({ processes: vi.fn(), listen: vi.fn() }))
@@ -23,7 +31,20 @@ vi.mock('@/composables/useNetworkStatus', async () => {
     const { ref } = await import('vue')
     return { useNetworkStatus: () => ({ offline: ref(false) }) }
 })
-vi.mock('@/components/home/HomeGreeting.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/home/HomeGreeting.vue', async () => {
+    const { defineComponent, h } = await import('vue')
+    return {
+        default: defineComponent({
+            props: ['showDate', 'showHeading'],
+            setup: (props) => () =>
+                h('header', {
+                    'data-greeting': '',
+                    'data-show-date': String(props.showDate),
+                    'data-show-heading': String(props.showHeading),
+                }),
+        }),
+    }
+})
 vi.mock('@/components/home/home-dashboard-runtime', () => ({
     useOptionalHomeDashboardRuntime: () => null,
 }))
@@ -252,6 +273,120 @@ it('asks for an instance when none was ever played', async () => {
         expect(wrapper.get('.home-launch-card').classes()).toContain('is-empty')
         await wrapper.get('.home-launch-primary').trigger('click')
         expect(context.choose).toHaveBeenCalledOnce()
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+function mountMinimal(layout: Parameters<typeof resolveHomeMinimalLayout>[0] | null) {
+    backend.processes.mockResolvedValue([])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const instances = ['one', 'two'].map(
+        (id, index) =>
+            ({
+                id,
+                name: id === 'one' ? 'One' : 'Two',
+                install_stage: 'installed',
+                loader: 'vanilla',
+                game_version: '1.21',
+                last_played: `2026-0${index + 1}-01T10:00:00Z`,
+            }) as unknown as GameInstance,
+    )
+    const wrapper = mount(HomeMinimal, {
+        attachTo: document.body,
+        props: {
+            instances,
+            layout: layout ? resolveHomeMinimalLayout(layout) : null,
+        },
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            provide: { [HOME_LAUNCH_KEY as symbol]: launchContext('one') },
+            directives: { tooltip: () => {} },
+            stubs: { RouterLink: routerLinkStub },
+        },
+    })
+    wrapper.element.setAttribute('style', 'width:960px')
+    return { wrapper, queryClient }
+}
+
+it('draws the pure preset as one launchable instance in the middle and nothing else', async () => {
+    const { wrapper, queryClient } = mountMinimal({ preset: 'pure', ...HOME_MINIMAL_PURE })
+    try {
+        await flushPromises()
+        // Only the icon, the name and the launch button remain.
+        expect(wrapper.find('[data-greeting]').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-status').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-meta').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-switch').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-recent').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-glow').exists()).toBe(false)
+        expect(wrapper.get('.home-launch-name').text()).toBe('One')
+        expect(wrapper.get('.home-launch-primary').text()).toBe('Play')
+
+        // No card behind it, and the column is centred on the page with no leftover space.
+        const card = wrapper.get('.home-launch-card')
+        expect(card.classes()).not.toContain('home-surface')
+        const stage = wrapper.get('.minimal-home-stage').element as HTMLElement
+        const stageBox = stage.getBoundingClientRect()
+        const cardBox = card.element.getBoundingClientRect()
+        expect(
+            Math.abs(cardBox.left + cardBox.width / 2 - (stageBox.left + stageBox.width / 2)),
+            JSON.stringify({ stageBox, cardBox }),
+        ).toBeLessThan(1)
+        const style = getComputedStyle(stage)
+        expect(style.paddingTop).toBe(style.paddingBottom)
+        const icon = wrapper.get('.home-launch-icon').element.getBoundingClientRect()
+        const button = wrapper.get('.home-launch-primary').element.getBoundingClientRect()
+        // Stacked: icon over the button, both on the same centre line.
+        expect(icon.bottom).toBeLessThanOrEqual(button.top)
+        expect(
+            Math.abs(icon.left + icon.width / 2 - (button.left + button.width / 2)),
+            JSON.stringify({ icon, button }),
+        ).toBeLessThan(1)
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('keeps the standard look when no options were ever saved', async () => {
+    const { wrapper, queryClient } = mountMinimal(null)
+    try {
+        await flushPromises()
+        expect(wrapper.find('[data-greeting]').exists()).toBe(true)
+        expect(wrapper.get('.home-launch-card').classes()).toContain('home-surface')
+        expect(wrapper.find('.home-launch-status').exists()).toBe(true)
+        expect(wrapper.find('.home-launch-meta').exists()).toBe(true)
+        expect(wrapper.find('.home-launch-switch').exists()).toBe(true)
+        expect(wrapper.find('.home-launch-recent').exists()).toBe(true)
+        expect(wrapper.get('.minimal-home-stage').attributes('data-position')).toBe(
+            HOME_MINIMAL_STANDARD.position,
+        )
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('hides each part on its own without leaving an empty greeting behind', async () => {
+    const { wrapper, queryClient } = mountMinimal(
+        updateHomeMinimalLayout(null, { show: { greeting: false, switch: false } }),
+    )
+    try {
+        await flushPromises()
+        const greeting = wrapper.get('[data-greeting]')
+        expect(greeting.attributes('data-show-date')).toBe('true')
+        expect(greeting.attributes('data-show-heading')).toBe('false')
+        expect(wrapper.find('.home-launch-switch').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-status').exists()).toBe(true)
+        await wrapper.setProps({
+            layout: resolveHomeMinimalLayout(
+                updateHomeMinimalLayout(null, { show: { greeting: false, date: false } }),
+            ),
+        })
+        expect(wrapper.find('[data-greeting]').exists()).toBe(false)
     } finally {
         wrapper.unmount()
         queryClient.clear()

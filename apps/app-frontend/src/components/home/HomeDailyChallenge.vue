@@ -16,6 +16,11 @@ const messages = defineMessages({
     easy: { id: 'app.home.challenge.easy', defaultMessage: 'Easy' },
     medium: { id: 'app.home.challenge.medium', defaultMessage: 'Medium' },
     hard: { id: 'app.home.challenge.hard', defaultMessage: 'Hard' },
+    emptyTitle: { id: 'app.home.challenge.empty-title', defaultMessage: 'No challenge today' },
+    emptyHint: {
+        id: 'app.home.challenge.empty-hint',
+        defaultMessage: 'Pick your own goal for this session.',
+    },
 })
 
 const difficultyMessages = {
@@ -30,8 +35,10 @@ const dailyIndex = stableGreetingIndex(
 )
 const challengeIndex = ref(dailyIndex)
 
-const challenge = computed(() => dailyChallenges[challengeIndex.value])
+/** Undefined when the challenge list is empty; the card then shows its empty state. */
+const challenge = computed(() => dailyChallenges[challengeIndex.value] ?? null)
 const challengeText = computed(() => {
+    if (!challenge.value) return ''
     const lowerLocale = locale.value.toLowerCase()
     if (lowerLocale == 'zh-tw') {
         return challenge.value.text['zh-TW']
@@ -63,8 +70,11 @@ function shuffleChallenge() {
         class="home-sidebar-section home-surface"
         :title="formatMessage(messages.dailyChallenge)"
         :icon="SparklesIcon"
+        :empty-text="challenge ? null : formatMessage(messages.emptyTitle)"
+        :empty-hint="formatMessage(messages.emptyHint)"
+        :empty-icon="SparklesIcon"
     >
-        <template #actions>
+        <template v-if="dailyChallenges.length > 1" #actions>
             <Button
                 v-tooltip="formatMessage(messages.shuffle)"
                 type="quiet"
@@ -76,7 +86,7 @@ function shuffleChallenge() {
                 ><UpdatedIcon />
             </Button>
         </template>
-        <figure class="home-challenge m-0 flex min-w-0 flex-col gap-2.5">
+        <figure v-if="challenge" class="home-challenge m-0 flex min-w-0 flex-col gap-2.5">
             <blockquote
                 class="m-0 text-sm font-medium leading-relaxed text-[var(--color-text-primary)]"
                 aria-live="polite"

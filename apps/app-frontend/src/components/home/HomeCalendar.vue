@@ -85,12 +85,22 @@ const messages = defineMessages({
         defaultMessage: '{duration} this month',
     },
     hoursShort: { id: 'app.home.playtime.hours-short', defaultMessage: '{hours}h' },
+    monthEmpty: {
+        id: 'app.home.calendar.month-empty',
+        defaultMessage: 'No playtime this month',
+    },
+    monthEmptyHint: {
+        id: 'app.home.calendar.month-empty-hint',
+        defaultMessage: 'Each day you play gets marked on the calendar.',
+    },
 })
 
 const todayKey = toDateKey(new Date())
 const anchor = ref(new Date())
 const selectedKey = ref(todayKey)
 const dailyPlaytime = ref<DailyPlaytime[]>([])
+/** Set once the shown month has loaded, so an empty month is not shown while it loads. */
+const playtimeLoaded = ref(false)
 const dayDetails = ref<DailyPlaytimeEntry[]>([])
 const playtimeRequests = createRequestGeneration()
 const detailsRequests = createRequestGeneration()
@@ -177,6 +187,7 @@ async function refreshPlaytime() {
             end === toDateKey(periodEnd.value)
         ) {
             dailyPlaytime.value = result
+            playtimeLoaded.value = true
         }
     } catch (error) {
         if (
@@ -342,7 +353,22 @@ watch(instanceRevision, async () => {
             </div>
         </div>
 
-        <div class="home-calendar-day flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 pt-2">
+        <div
+            v-if="playtimeLoaded && monthSeconds === 0"
+            class="home-calendar-day home-calendar-empty flex min-h-0 min-w-0 flex-1 items-center gap-3 pt-2"
+        >
+            <span class="home-calendar-empty-art" aria-hidden="true"><CalendarIcon /></span>
+            <span class="flex min-w-0 flex-col gap-0.5">
+                <strong
+                    class="text-[0.8125rem] font-bold leading-snug text-[var(--color-text-primary)]"
+                    >{{ formatMessage(messages.monthEmpty) }}</strong
+                >
+                <span class="text-xs leading-snug text-[var(--color-text-tertiary)]">{{
+                    formatMessage(messages.monthEmptyHint)
+                }}</span>
+            </span>
+        </div>
+        <div v-else class="home-calendar-day flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 pt-2">
             <div class="flex min-w-0 items-baseline gap-1.5 px-1 text-xs">
                 <h3
                     class="m-0 min-w-0 truncate text-[0.8125rem] font-bold text-[var(--color-text-primary)]"
@@ -355,6 +381,7 @@ watch(instanceRevision, async () => {
                     >{{ formatShortDuration(dayTotalSeconds) }}</span
                 >
                 <span
+                    v-if="monthSeconds > 0"
                     v-tooltip="
                         formatMessage(messages.monthTotal, {
                             duration: formatDuration(monthSeconds),
@@ -495,6 +522,28 @@ watch(instanceRevision, async () => {
 
 .home-calendar-day {
     border-top: 1px solid var(--home-widget-edge);
+}
+
+/* An empty month: the same picture as the other empty widgets, in a row. */
+.home-calendar-empty-art {
+    @apply relative ml-1.5 flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-brand;
+    isolation: isolate;
+    background: color-mix(in srgb, var(--color-brand) 16%, var(--home-widget-fill, transparent));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 28%, transparent);
+}
+
+.home-calendar-empty-art::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--home-widget-tint-strong);
+    content: '';
+    transform: translate(-0.375rem, 0.1875rem) rotate(-11deg);
+}
+
+.home-calendar-empty-art svg {
+    @apply size-4;
 }
 
 /* Name on the first line, its share of the day and the time on the second. */

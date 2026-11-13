@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ExternalIcon, NewspaperIcon } from '@modrinth/assets'
+import { ExternalIcon, NewspaperIcon, UpdatedIcon } from '@modrinth/assets'
 import {
+    Button,
+    commonMessages,
     defineMessages,
     injectNotificationManager,
     useFormatDateTime,
@@ -23,7 +25,16 @@ const formatDate = useFormatDateTime({ dateStyle: 'medium' })
 const messages = defineMessages({
     news: { id: 'app.home.news.title', defaultMessage: 'Minecraft news' },
     openArticle: { id: 'app.home.news.open-article', defaultMessage: 'Read on minecraft.net' },
+    errorTitle: { id: 'app.home.news.error-title', defaultMessage: "Couldn't load the news" },
+    emptyTitle: { id: 'app.home.news.empty-title', defaultMessage: 'No news right now' },
+    offlineTitle: {
+        id: 'app.home.news.offline-title',
+        defaultMessage: 'News shows up when you are online',
+    },
+    openSite: { id: 'app.home.news.open-site', defaultMessage: 'Open minecraft.net' },
 })
+
+const NEWS_SITE = 'https://www.minecraft.net/en-us/articles'
 
 const NEWS_COUNT = 12
 const NEWS_SKELETON_COUNT = 4
@@ -48,11 +59,40 @@ const newsItems = computed(() =>
         title: decodeHtmlEntities(item.title),
     })),
 )
-const loading = computed(() => newsQuery.isPending.value)
+const loading = computed(() => !offline.value && newsQuery.isPending.value)
 const featured = computed(() => newsItems.value[0] ?? null)
 const rest = computed(() => newsItems.value.slice(1))
 
-const visible = computed(() => !offline.value && (loading.value || newsItems.value.length > 0))
+/**
+ * The card stays when there is nothing to show, and says why: offline, a
+ * failed request (with a retry), or simply no articles.
+ */
+const emptyState = computed(() => {
+    if (loading.value || newsItems.value.length > 0) return null
+    if (offline.value) return 'offline'
+    if (newsQuery.isError.value) return 'error'
+    return 'empty'
+})
+const emptyText = computed(() => {
+    switch (emptyState.value) {
+        case 'offline':
+            return formatMessage(messages.offlineTitle)
+        case 'error':
+            return formatMessage(messages.errorTitle)
+        case 'empty':
+            return formatMessage(messages.emptyTitle)
+        default:
+            return null
+    }
+})
+
+async function openSite() {
+    try {
+        await openUrl(NEWS_SITE)
+    } catch (error) {
+        handleError(error)
+    }
+}
 
 function newsDateLabel(item: MinecraftNewsItem): string | null {
     if (!item.date) return null
@@ -76,13 +116,25 @@ async function openArticle(item: MinecraftNewsItem) {
 
 <template>
     <HomeWidgetFrame
-        v-if="visible"
         class="home-sidebar-section home-surface"
         :title="formatMessage(messages.news)"
         :icon="NewspaperIcon"
         :loading="loading"
         :skeleton-rows="NEWS_SKELETON_COUNT"
+        :empty-text="emptyText"
+        :empty-icon="NewspaperIcon"
+        :empty-tone="emptyState === 'error' ? 'warning' : 'neutral'"
     >
+        <template v-if="emptyState === 'error' || emptyState === 'empty'" #empty-action>
+            <Button v-if="emptyState === 'error'" size="sm" @click="newsQuery.refetch()">
+                <UpdatedIcon aria-hidden="true" />
+                {{ formatMessage(commonMessages.retryButton) }}
+            </Button>
+            <Button size="sm" type="quiet" @click="openSite">
+                <ExternalIcon aria-hidden="true" />
+                {{ formatMessage(messages.openSite) }}
+            </Button>
+        </template>
         <div class="flex min-w-0 flex-col gap-1">
             <button
                 v-if="featured"

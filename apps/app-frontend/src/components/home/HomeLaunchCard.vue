@@ -4,9 +4,11 @@ import './home-widget.css'
 import {
     ArrowLeftRightIcon,
     ClockIcon,
+    CompassIcon,
     DownloadIcon,
     GameIcon,
     ListIcon,
+    PackagePlusIcon,
     PlayIcon,
     PlusIcon,
     RightArrowIcon,
@@ -39,6 +41,7 @@ import type { HomeWidgetPlacement, HomeWidgetSize } from './home-dashboard'
 import { useOptionalHomeDashboardRuntime } from './home-dashboard-runtime'
 import { useIconTint } from './home-icon-tint'
 import { HOME_LAUNCH_KEY, useHomeLaunchState } from './home-launch'
+import { HOME_MINIMAL_STANDARD, type HomeMinimalLayout } from './home-minimal'
 import { getQuickSwitchInstances, resolveHomeLaunchInstance } from './home-utils'
 import HomeGreeting from './HomeGreeting.vue'
 
@@ -51,12 +54,15 @@ const props = withDefaults(
         placement?: HomeWidgetPlacement | null
         dashboardSize?: HomeWidgetSize | null
         playerName?: string | null
+        /** The minimal Home layout; only the stage reads it. */
+        stage?: HomeMinimalLayout | null
     }>(),
     {
         variant: 'widget',
         placement: null,
         dashboardSize: null,
         playerName: null,
+        stage: null,
     },
 )
 
@@ -118,6 +124,21 @@ const messages = defineMessages({
         id: 'app.instance.offline-installed-only',
         defaultMessage: 'Offline mode can only launch fully downloaded instances.',
     },
+    freshHint: {
+        id: 'app.home.launch.fresh-hint',
+        defaultMessage:
+            'Create one from scratch, import one from another launcher, or start from a modpack.',
+    },
+    createOrImport: {
+        id: 'app.home.launch.create-or-import',
+        defaultMessage: 'Create or import',
+    },
+    browseModpacks: { id: 'app.home.launch.browse-modpacks', defaultMessage: 'Browse modpacks' },
+    chooseHint: {
+        id: 'app.home.launch.choose-hint',
+        defaultMessage: 'Pick the instance Home starts. You can change it any time.',
+    },
+    quickPick: { id: 'app.home.launch.quick-pick', defaultMessage: 'Quick pick' },
 })
 
 const resolved = computed(() =>
@@ -196,25 +217,61 @@ const statusLabel = computed(() => {
     if (phase.value === 'not-installed') return formatMessage(messages.notInstalled)
     return formatMessage(resolved.value?.chosen ? messages.homeInstance : messages.continuePlaying)
 })
+/** The minimal Home's layout; the dashboard card always shows everything. */
+const stageLayout = computed(() =>
+    props.variant === 'stage' ? (props.stage ?? HOME_MINIMAL_STANDARD) : null,
+)
+const show = computed(() => stageLayout.value?.show ?? HOME_MINIMAL_STANDARD.show)
+/** Without a target the card explains what to do next, so it keeps its surface. */
+const plain = computed(() => stageLayout.value?.surface === 'plain' && target.value !== null)
+const fresh = computed(() => props.instances.length === 0)
+/**
+ * Without a card, or with only the name left beside the icon, a full-width
+ * row would leave a lopsided gap; the content then takes its own width and
+ * sits in the middle of the page.
+ */
+const fitContent = computed(
+    () =>
+        !!stageLayout.value &&
+        target.value !== null &&
+        stageLayout.value.arrangement === 'row' &&
+        (plain.value || (!show.value.meta && !show.value.recent)),
+)
 const iconSize = computed(() => {
-    if (props.variant === 'stage') return '104px'
+    const layout = stageLayout.value
+    if (layout) {
+        if (layout.arrangement === 'stacked') return layout.density === 'compact' ? '88px' : '112px'
+        return layout.density === 'compact' ? '80px' : '104px'
+    }
     return shape.value === 'hero' ? '88px' : '64px'
 })
 </script>
 
 <template>
-    <div class="home-launch" :data-variant="variant" :data-shape="shape">
+    <div
+        class="home-launch"
+        :data-variant="variant"
+        :data-shape="shape"
+        :data-arrangement="stageLayout?.arrangement"
+        :data-density="stageLayout?.density"
+        :data-surface="stageLayout ? (plain ? 'plain' : 'card') : undefined"
+        :data-fit="fitContent ? '' : undefined"
+    >
         <section
             class="home-launch-card"
             :class="[
-                variant === 'stage' ? 'home-surface home-surface-hero' : 'home-surface-bare',
-                { 'is-empty': !target },
+                variant !== 'stage'
+                    ? 'home-surface-bare'
+                    : plain
+                      ? 'home-legible'
+                      : 'home-surface home-surface-hero',
+                { 'is-empty': !target, 'is-fresh': !target && fresh },
             ]"
             :data-phase="target ? phase : undefined"
             :aria-label="target?.name"
         >
             <span
-                v-if="target"
+                v-if="target && !plain"
                 class="home-launch-glow"
                 :class="{ 'is-tinted': tint }"
                 :style="tint ? { '--home-launch-tint': tint } : undefined"
@@ -248,14 +305,14 @@ const iconSize = computed(() => {
                 </router-link>
 
                 <div class="home-launch-copy">
-                    <span class="home-launch-status">
+                    <span v-if="show.status" class="home-launch-status">
                         <span class="home-launch-status-dot" aria-hidden="true" />
                         <span class="truncate">{{ statusLabel }}</span>
                     </span>
                     <router-link :to="instanceRoute" class="home-launch-name">
                         {{ target.name }}
                     </router-link>
-                    <div class="home-launch-meta">
+                    <div v-if="show.meta" class="home-launch-meta">
                         <span class="home-chip">
                             <GameIcon aria-hidden="true" />
                             <span class="truncate">{{ versionLabel }}</span>
@@ -270,7 +327,10 @@ const iconSize = computed(() => {
                         </span>
                         <GameDirectoryBadge v-if="gameDirectory" :directory="gameDirectory" />
                     </div>
-                    <span v-if="lastWorld && shape === 'hero'" class="home-launch-detail">
+                    <span
+                        v-if="show.meta && lastWorld && shape === 'hero'"
+                        class="home-launch-detail"
+                    >
                         <ServerIcon v-if="lastWorld.type === 'server'" aria-hidden="true" />
                         <GameIcon v-else aria-hidden="true" />
                         <span class="truncate">{{
@@ -350,7 +410,7 @@ const iconSize = computed(() => {
                             }}</span>
                         </Button>
                         <button
-                            v-if="launch"
+                            v-if="launch && show.switch"
                             v-tooltip="
                                 shape === 'strip'
                                     ? formatMessage(messages.switchInstance)
@@ -399,44 +459,87 @@ const iconSize = computed(() => {
 
             <template v-else>
                 <div class="home-launch-empty-icon" aria-hidden="true">
-                    <ListIcon v-if="instances.length > 0" />
-                    <PlusIcon v-else />
+                    <PackagePlusIcon v-if="fresh" />
+                    <ListIcon v-else />
                 </div>
                 <div class="home-launch-copy">
                     <h2 class="home-launch-name">
                         {{
                             formatMessage(
-                                instances.length > 0
-                                    ? messages.chooseHomeInstance
-                                    : messages.noInstances,
+                                fresh ? messages.noInstances : messages.chooseHomeInstance,
                             )
                         }}
                     </h2>
+                    <p v-if="shape === 'hero'" class="home-launch-hint">
+                        {{ formatMessage(fresh ? messages.freshHint : messages.chooseHint) }}
+                    </p>
                 </div>
-                <div class="home-launch-actions">
-                    <Button
-                        type="colored"
-                        color="brand"
-                        size="xl"
-                        class="home-launch-primary"
-                        @click="instances.length > 0 ? launch?.choose() : launch?.create()"
+                <div class="home-launch-footer">
+                    <div class="home-launch-actions">
+                        <Button
+                            type="colored"
+                            color="brand"
+                            size="xl"
+                            class="home-launch-primary"
+                            @click="fresh ? launch?.create() : launch?.choose()"
+                        >
+                            <PlusIcon v-if="fresh" aria-hidden="true" />
+                            <ListIcon v-else aria-hidden="true" />
+                            <span class="truncate">{{
+                                formatMessage(
+                                    fresh ? messages.createOrImport : messages.chooseInstance,
+                                )
+                            }}</span>
+                        </Button>
+                        <router-link
+                            v-if="fresh"
+                            v-tooltip="
+                                shape === 'strip'
+                                    ? formatMessage(messages.browseModpacks)
+                                    : undefined
+                            "
+                            to="/browse/modpack"
+                            class="home-launch-switch"
+                            :aria-label="formatMessage(messages.browseModpacks)"
+                        >
+                            <CompassIcon aria-hidden="true" />
+                            <span class="home-launch-switch-label">{{
+                                formatMessage(messages.browseModpacks)
+                            }}</span>
+                        </router-link>
+                    </div>
+                    <div
+                        v-if="!fresh && launch && shape === 'hero' && quickSwitch.length > 0"
+                        class="home-launch-switcher"
+                        role="group"
+                        :aria-label="formatMessage(messages.quickPick)"
                     >
-                        <ListIcon v-if="instances.length > 0" aria-hidden="true" />
-                        <PlusIcon v-else aria-hidden="true" />
-                        <span class="truncate">{{
-                            formatMessage(
-                                instances.length > 0
-                                    ? messages.chooseInstance
-                                    : messages.createInstance,
-                            )
+                        <span class="home-launch-switcher-label" aria-hidden="true">{{
+                            formatMessage(messages.quickPick)
                         }}</span>
-                    </Button>
+                        <button
+                            v-for="instance in quickSwitch"
+                            :key="instance.id"
+                            v-tooltip="instance.name"
+                            type="button"
+                            class="home-launch-switch-avatar"
+                            :aria-label="formatMessage(messages.switchTo, { name: instance.name })"
+                            @click="launch.select(instance)"
+                        >
+                            <InstanceIcon
+                                :icon-path="instance.icon_path"
+                                :instance-id="instance.id"
+                                :loader="instance.loader"
+                                size="36px"
+                            />
+                        </button>
+                    </div>
                 </div>
             </template>
         </section>
 
         <nav
-            v-if="variant === 'stage' && launch && target && quickSwitch.length > 0"
+            v-if="variant === 'stage' && show.recent && launch && target && quickSwitch.length > 0"
             class="home-launch-recent"
             :aria-label="formatMessage(messages.recent)"
         >
@@ -591,14 +694,49 @@ const iconSize = computed(() => {
     transform: translateY(-1px) scale(1.02);
 }
 
+/*
+ * The empty card's picture: the next step's icon on an accent tile, with two
+ * faint tiles fanned out behind it, drawn from the widget tokens only.
+ */
 .home-launch-empty-icon {
-    @apply flex size-14 items-center justify-center rounded-[var(--radius-lg)] text-brand;
+    @apply relative flex size-16 items-center justify-center rounded-[var(--radius-lg)] text-brand;
     grid-area: icon;
-    background: var(--home-widget-accent-tint);
+    background: color-mix(in srgb, var(--color-brand) 16%, var(--home-widget-fill, transparent));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 30%, transparent);
+}
+
+.home-launch-empty-icon::before,
+.home-launch-empty-icon::after {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--home-widget-tint-strong);
+    content: '';
+}
+
+.home-launch-empty-icon::before {
+    transform: translate(-0.5rem, 0.25rem) rotate(-10deg);
+}
+
+.home-launch-empty-icon::after {
+    transform: translate(0.5rem, 0.25rem) rotate(9deg);
 }
 
 .home-launch-empty-icon svg {
-    @apply size-6;
+    @apply size-7;
+}
+
+.home-launch[data-shape='strip'] .home-launch-empty-icon {
+    @apply size-12;
+}
+
+.home-launch[data-shape='strip'] .home-launch-empty-icon svg {
+    @apply size-5;
+}
+
+.home-launch-hint {
+    @apply m-0 max-w-[34rem] text-sm leading-snug text-[var(--color-text-tertiary)];
 }
 
 .home-launch-copy {
@@ -686,11 +824,6 @@ a.home-launch-name:focus-visible,
     grid-area: actions;
 }
 
-/* The empty state has no footer: its button sits in the grid directly. */
-.home-launch-card.is-empty .home-launch-actions {
-    grid-area: footer;
-}
-
 .home-launch-primary {
     min-width: 9.5rem;
     max-width: 14rem;
@@ -714,6 +847,10 @@ a.home-launch-name:focus-visible,
 
 .home-launch-switch svg {
     @apply size-4 shrink-0;
+}
+
+a.home-launch-switch {
+    @apply no-underline;
 }
 
 .home-launch-switch:hover {
@@ -824,6 +961,84 @@ a.home-launch-name:focus-visible,
     .home-launch-recent-list {
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+/*
+ * Minimal Home layouts. `stacked` puts the icon, the name and the button in
+ * one centred column; `plain` drops the card so only the content sits on the
+ * page; `compact` tightens the spacing. Hidden parts are not rendered at all,
+ * so no gap is left behind for them.
+ */
+.home-launch[data-variant='stage'][data-arrangement='stacked'] {
+    align-items: center;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='stacked'] .home-launch-card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas:
+        'icon'
+        'copy'
+        'footer';
+    justify-items: center;
+    row-gap: 1.25rem;
+    min-width: min(100%, 24rem);
+    text-align: center;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='stacked'] .home-launch-recent {
+    width: 100%;
+    max-width: 40rem;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='stacked'] .home-launch-copy {
+    align-items: center;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='stacked'] .home-launch-meta,
+.home-launch[data-variant='stage'][data-arrangement='stacked'] .home-launch-footer,
+.home-launch[data-variant='stage'][data-arrangement='stacked'] .home-launch-actions {
+    justify-content: center;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='stacked'] .home-launch-name {
+    text-align: center;
+}
+
+.home-launch[data-variant='stage'][data-surface='plain'] .home-launch-card {
+    padding: 0;
+    overflow: visible;
+}
+
+.home-launch[data-variant='stage'][data-density='compact'] .home-launch-card {
+    row-gap: 1rem;
+    column-gap: 1.25rem;
+}
+
+.home-launch[data-variant='stage'][data-density='compact'][data-surface='card'] .home-launch-card {
+    padding: 1.25rem 1.5rem;
+}
+
+.home-launch[data-variant='stage'][data-density='compact'] .home-launch-name {
+    @apply text-[1.375rem];
+}
+
+.home-launch[data-variant='stage'][data-density='compact'] .home-launch-primary {
+    min-width: 10rem;
+}
+
+.home-launch[data-variant='stage'][data-density='compact'] {
+    gap: 0.75rem;
+}
+
+.home-launch[data-variant='stage'][data-fit] {
+    align-items: center;
+}
+
+.home-launch[data-variant='stage'][data-fit] .home-launch-card {
+    width: fit-content;
+    min-width: min(100%, 22rem);
+    max-width: 100%;
 }
 
 /* A narrower strip keeps two quick switches and drops the second chip. */

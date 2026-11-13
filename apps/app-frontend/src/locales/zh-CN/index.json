@@ -1,9 +1,171 @@
 {
+  "app.appearance-settings.home-layout.minimal-hint": {
+    "message": "极简模式显示哪些内容，可在主页右下角的「自定义极简模式」里调整。"
+  },
+  "app.home.calendar.month-empty": {
+    "message": "本月还没有游玩记录"
+  },
+  "app.home.calendar.month-empty-hint": {
+    "message": "每次游玩都会按天记在日历上。"
+  },
+  "app.home.challenge.empty-hint": {
+    "message": "这一局就给自己定个小目标吧。"
+  },
+  "app.home.challenge.empty-title": {
+    "message": "今天没有挑战"
+  },
+  "app.home.insights.empty-title": {
+    "message": "还没有游玩记录"
+  },
+  "app.home.insights.error-title": {
+    "message": "游玩记录加载失败"
+  },
+  "app.home.insights.ghost-legend": {
+    "message": "虚线柱为上周"
+  },
+  "app.home.insights.last-week": {
+    "message": "上周 {duration}"
+  },
+  "app.home.insights.week-empty": {
+    "message": "本周还没玩"
+  },
+  "app.home.instances.pinned-empty-title": {
+    "message": "还没有固定的实例"
+  },
+  "app.home.launch.browse-modpacks": {
+    "message": "浏览整合包"
+  },
+  "app.home.launch.choose-hint": {
+    "message": "选一个主页要启动的实例，之后随时可以换。"
+  },
+  "app.home.launch.create-or-import": {
+    "message": "创建或导入实例"
+  },
+  "app.home.launch.fresh-hint": {
+    "message": "从零创建、从其他启动器导入，或者从一个整合包开始。"
+  },
+  "app.home.launch.quick-pick": {
+    "message": "快速选择"
+  },
   "app.home.launch.recent-short": {
     "message": "最近"
   },
+  "app.home.minimal.arrangement": {
+    "message": "排列"
+  },
+  "app.home.minimal.arrangement.row": {
+    "message": "左右"
+  },
+  "app.home.minimal.arrangement.stacked": {
+    "message": "上下居中"
+  },
+  "app.home.minimal.change-instance": {
+    "message": "更换主页实例"
+  },
+  "app.home.minimal.customize": {
+    "message": "自定义极简模式"
+  },
+  "app.home.minimal.customize.close": {
+    "message": "关闭"
+  },
+  "app.home.minimal.density": {
+    "message": "间距"
+  },
+  "app.home.minimal.density.comfortable": {
+    "message": "宽松"
+  },
+  "app.home.minimal.density.compact": {
+    "message": "紧凑"
+  },
+  "app.home.minimal.layout": {
+    "message": "布局"
+  },
+  "app.home.minimal.position": {
+    "message": "垂直位置"
+  },
+  "app.home.minimal.position.center": {
+    "message": "居中"
+  },
+  "app.home.minimal.position.upper": {
+    "message": "偏上"
+  },
+  "app.home.minimal.preset": {
+    "message": "样式"
+  },
+  "app.home.minimal.preset.custom": {
+    "message": "自定义"
+  },
+  "app.home.minimal.preset.custom-hint": {
+    "message": "按你的喜好组合"
+  },
+  "app.home.minimal.preset.pure": {
+    "message": "纯净"
+  },
+  "app.home.minimal.preset.pure-hint": {
+    "message": "只有图标、名称和启动按钮"
+  },
+  "app.home.minimal.preset.standard": {
+    "message": "标准"
+  },
+  "app.home.minimal.preset.standard-hint": {
+    "message": "问候语、详情和最近游玩"
+  },
+  "app.home.minimal.show": {
+    "message": "显示"
+  },
+  "app.home.minimal.show.date": {
+    "message": "日期"
+  },
+  "app.home.minimal.show.greeting": {
+    "message": "问候语"
+  },
+  "app.home.minimal.show.meta": {
+    "message": "信息标签"
+  },
+  "app.home.minimal.show.status": {
+    "message": "状态行"
+  },
+  "app.home.minimal.show.switch": {
+    "message": "「切换实例」按钮"
+  },
+  "app.home.minimal.surface": {
+    "message": "底板"
+  },
+  "app.home.minimal.surface.card": {
+    "message": "卡片"
+  },
+  "app.home.minimal.surface.plain": {
+    "message": "无"
+  },
+  "app.home.news.empty-title": {
+    "message": "暂时没有新闻"
+  },
+  "app.home.news.error-title": {
+    "message": "新闻加载失败"
+  },
+  "app.home.news.offline-title": {
+    "message": "联网后会显示新闻"
+  },
+  "app.home.news.open-site": {
+    "message": "打开 minecraft.net"
+  },
+  "app.home.recent.empty-hint": {
+    "message": "玩过的世界、服务器和实例会出现在这里。"
+  },
+  "app.home.recent.empty-title": {
+    "message": "还没有最近的项目"
+  },
   "app.home.row.shortcut-created": {
     "message": "已创建快捷方式"
+  },
+  "app.home.servers.empty-title": {
+    "message": "还没有固定的服务器"
+  },
+  "app.home.shortcut.missing-hint": {
+    "message": "它可能已被删除或移动。换一个目标，或移除这个小组件。"
+  },
+  "app.home.worlds.empty-title": {
+    "message": "还没有固定的世界"
   },
   "app.minecraft-crash.scan-logs": {
     "message": "扫码查看日志"
@@ -4249,9 +4411,6 @@
   },
   "app.home.playtime.sessions": {
     "message": "成功启动 {count} 次"
-  },
-  "app.home.recent.empty": {
-    "message": "还没有最近活动。"
   },
   "app.home.recent.title": {
     "message": "从最近的项目开始"

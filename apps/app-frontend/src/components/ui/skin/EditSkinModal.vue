@@ -373,7 +373,10 @@ const saveTooltip = computed(() => {
     return undefined
 })
 
+let textureRequest = 0
+
 function resetState() {
+    textureRequest++
     mode.value = 'new'
     currentSkin.value = null
     uploadedTextureUrl.value = null
@@ -391,6 +394,7 @@ function cancelReset() {
 }
 
 function handleModalHide() {
+    textureRequest++
     cancelReset()
     resetTimer = setTimeout(() => {
         resetTimer = undefined
@@ -398,9 +402,13 @@ function handleModalHide() {
     }, 250)
 }
 
-onBeforeUnmount(cancelReset)
+onBeforeUnmount(() => {
+    textureRequest++
+    cancelReset()
+})
 
 async function show(e: MouseEvent, skin?: Skin) {
+    textureRequest++
     cancelReset()
     mode.value = skin ? 'edit' : 'new'
     currentSkin.value = skin ?? null
@@ -420,11 +428,14 @@ async function show(e: MouseEvent, skin?: Skin) {
 }
 
 async function showNew(e: MouseEvent, skinTextureUrl: SkinTextureUrl) {
+    const request = ++textureRequest
     cancelReset()
     mode.value = 'new'
     currentSkin.value = null
     uploadedTextureUrl.value = skinTextureUrl
-    variant.value = await determineModelType(skinTextureUrl.original)
+    const detectedVariant = await determineModelType(skinTextureUrl.original)
+    if (request !== textureRequest) return
+    variant.value = detectedVariant
     selectedCape.value = undefined
 
     await loadPreviewSkin()
@@ -440,6 +451,7 @@ async function setUploadedTexture(skinTextureUrl: SkinTextureUrl) {
 }
 
 function hide() {
+    textureRequest++
     modal.value?.hide()
 }
 
@@ -482,19 +494,21 @@ async function onTextureFileInputChange(e: Event) {
         return
     }
 
+    const request = ++textureRequest
     try {
-        const originalSkinTexUrl = `data:image/png;base64,${arrayBufferToBase64(
-            await file.arrayBuffer(),
-        )}`
+        const bytes = await file.arrayBuffer()
+        if (request !== textureRequest) return
+        const originalSkinTexUrl = `data:image/png;base64,${arrayBufferToBase64(bytes)}`
         const skinTextureNormalized = await normalize_skin_texture(originalSkinTexUrl, true)
+        if (request !== textureRequest) return
         await setUploadedTexture({
             original: originalSkinTexUrl,
             normalized: `data:image/png;base64,${arrayBufferToBase64(skinTextureNormalized)}`,
         })
     } catch (error) {
-        handleError(error)
+        if (request === textureRequest) handleError(error)
     } finally {
-        if (textureFileInput.value) {
+        if (request === textureRequest && textureFileInput.value) {
             textureFileInput.value.value = ''
         }
     }

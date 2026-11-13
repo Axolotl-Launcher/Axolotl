@@ -27,3 +27,18 @@ it('escapes names that Windows reserves for devices', () => {
     expect(skinExportFilename({ name: 'lpt1.png', texture_key: 'abc' })).toBe('_lpt1.png')
     expect(skinExportFilename({ name: 'console', texture_key: 'abc' })).toBe('console.png')
 })
+
+it.each(['COM¹', 'com².png', 'LPT³.PNG', 'lpt¹.extra'])(
+    'escapes Windows superscript device name %s',
+    (name) => {
+        const expected = name.toLowerCase().endsWith('.png') ? `_${name}` : `_${name}.png`
+        expect(skinExportFilename({ name, texture_key: 'abc' })).toBe(expected)
+    },
+)
+
+it.each(['COM⁴', 'COM10', 'lpt0', 'COM¹-skin'])(
+    'preserves non-reserved device-like name %s',
+    (name) => {
+        expect(skinExportFilename({ name, texture_key: 'abc' })).toBe(`${name}.png`)
+    },
+)

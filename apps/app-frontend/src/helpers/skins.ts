@@ -199,7 +199,7 @@ export async function normalize_skin_texture(
     })
 }
 
-const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i
+const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(\..*)?$/i
 
 export function skinExportFilename(
     skin: Pick<Skin, 'name' | 'texture_key'> | null | undefined,

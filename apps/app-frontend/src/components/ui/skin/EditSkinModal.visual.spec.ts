@@ -9,6 +9,8 @@ const backend = vi.hoisted(() => ({
     save: vi.fn(),
     writeFile: vi.fn(),
     getNormalizedTexture: vi.fn(),
+    normalizeTexture: vi.fn(),
+    handleError: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: backend.save }))
@@ -19,6 +21,7 @@ vi.mock('@/helpers/skins.ts', async (importOriginal) => {
         ...actual,
         determineModelType: async () => 'CLASSIC' as const,
         get_normalized_skin_texture: backend.getNormalizedTexture,
+        normalize_skin_texture: backend.normalizeTexture,
     }
 })
 vi.mock('@modrinth/ui', async () => {
@@ -41,7 +44,7 @@ vi.mock('@modrinth/ui', async () => {
         CapeLikeTextButton: SlotButton,
         commonMessages: { cancelButton: { defaultMessage: 'Cancel' } },
         defineMessages: (messages: unknown) => messages,
-        injectNotificationManager: () => ({ handleError: vi.fn() }),
+        injectNotificationManager: () => ({ handleError: backend.handleError }),
         NewModal: defineComponent({
             setup(_, { slots, expose }) {
                 expose({ show: () => {}, hide: () => {} })
@@ -162,4 +165,118 @@ it('exports the skin being edited after an earlier texture upload', async () => 
     await vi.waitFor(() => expect(backend.writeFile).toHaveBeenCalledTimes(1))
     const [, bytes] = backend.writeFile.mock.calls[0]
     expect(Array.from(bytes as Uint8Array)).toEqual([1, 2, 3])
+})
+
+function deferred<T>() {
+    let resolve!: (value: T) => void
+    let reject!: (error: Error) => void
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res
+        reject = rej
+    })
+    return { promise, resolve, reject }
+}
+
+async function upload(file: File) {
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    const input = wrapper!.get<HTMLInputElement>('input[type="file"]')
+    input.element.files = transfer.files
+    await input.trigger('change')
+    await flushPromises()
+}
+
+async function showSkin(skinToEdit: Skin) {
+    await (
+        wrapper!.vm as unknown as { show: (event: MouseEvent, skin: Skin) => Promise<void> }
+    ).show(new MouseEvent('click'), skinToEdit)
+    await flushPromises()
+}
+
+async function expectExport(expected: number[]) {
+    backend.save.mockResolvedValue('/tmp/export.png')
+    const button = wrapper!
+        .findAll('button')
+        .find((candidate) => candidate.text().includes('Export texture'))!
+    await button.trigger('click')
+    await vi.waitFor(() => expect(backend.writeFile).toHaveBeenCalledTimes(1))
+    expect(Array.from(backend.writeFile.mock.calls[0][1] as Uint8Array)).toEqual(expected)
+}
+
+it.each(['reading', 'normalizing'])(
+    'ignores an upload still %s when another skin opens',
+    async (stage) => {
+        await openExport()
+        const read = deferred<ArrayBuffer>()
+        const normalize = deferred<Uint8Array>()
+        const file = new File([new Uint8Array([7, 8, 9])], 'old.png', { type: 'image/png' })
+        vi.spyOn(file, 'arrayBuffer').mockReturnValue(
+            stage === 'reading' ? read.promise : Promise.resolve(new Uint8Array([7, 8, 9]).buffer),
+        )
+        backend.normalizeTexture.mockReturnValue(normalize.promise)
+        await upload(file)
+
+        await showSkin({ ...skin, name: 'Other', texture: 'data:image/png;base64,BAUG' })
+        read.resolve(new Uint8Array([7, 8, 9]).buffer)
+        normalize.resolve(new Uint8Array([7, 8, 9]))
+        await flushPromises()
+
+        await expectExport([4, 5, 6])
+    },
+)
+
+it('keeps the newest upload when an older normalization finishes later', async () => {
+    await openExport()
+    const older = deferred<Uint8Array>()
+    backend.normalizeTexture
+        .mockReturnValueOnce(older.promise)
+        .mockResolvedValue(new Uint8Array([7, 8, 9]))
+    await upload(new File([new Uint8Array([4, 5, 6])], 'old.png'))
+    await upload(new File([new Uint8Array([7, 8, 9])], 'new.png'))
+    older.resolve(new Uint8Array([4, 5, 6]))
+    await flushPromises()
+
+    await expectExport([7, 8, 9])
+})
+
+it('invalidates a pending upload as soon as the editor hides', async () => {
+    await openExport()
+    const normalize = deferred<Uint8Array>()
+    backend.normalizeTexture.mockReturnValue(normalize.promise)
+    await upload(new File([new Uint8Array([7, 8, 9])], 'old.png'))
+    ;(wrapper!.vm as unknown as { hide: () => void }).hide()
+    normalize.resolve(new Uint8Array([7, 8, 9]))
+    await flushPromises()
+
+    await expectExport([1, 2, 3])
+})
+
+it('does not report errors from an upload belonging to a previous skin', async () => {
+    await openExport()
+    const normalize = deferred<Uint8Array>()
+    backend.normalizeTexture.mockReturnValue(normalize.promise)
+    await upload(new File([new Uint8Array([7, 8, 9])], 'old.png'))
+    await showSkin({ ...skin, name: 'Other', texture: 'data:image/png;base64,BAUG' })
+    normalize.reject(new Error('obsolete upload failed'))
+    await flushPromises()
+
+    expect(backend.handleError).not.toHaveBeenCalled()
+    await expectExport([4, 5, 6])
+})
+
+it('captures the filename and texture together before waiting for the save dialog', async () => {
+    const dialog = deferred<string | null>()
+    backend.save.mockReturnValue(dialog.promise)
+    const button = await openExport()
+    await button.trigger('click')
+    expect(backend.save).toHaveBeenCalledWith({
+        defaultPath: 'My Skin.png',
+        filters: [{ name: 'PNG', extensions: ['png'] }],
+    })
+    await showSkin({ ...skin, name: 'Other', texture: 'data:image/png;base64,BAUG' })
+    dialog.resolve('/tmp/My Skin.png')
+
+    await vi.waitFor(() => expect(backend.writeFile).toHaveBeenCalledTimes(1))
+    expect(backend.writeFile.mock.calls[0][0]).toBe('/tmp/My Skin.png')
+    expect(Array.from(backend.writeFile.mock.calls[0][1] as Uint8Array)).toEqual([1, 2, 3])
 })

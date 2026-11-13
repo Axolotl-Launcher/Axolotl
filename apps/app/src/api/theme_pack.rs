@@ -22,6 +22,7 @@ use theseus::theme_pack::archive::ThemePackLimits;
 use theseus::theme_pack::archive::now_seconds;
 use theseus::theme_pack::manifest::MANIFEST_FILE;
 use theseus::theme_pack::manifest::ThemePackManifest;
+use theseus::theme_pack::manifest::ThemePackPermission;
 use theseus::theme_pack::manifest::is_windows_device_name;
 use theseus::theme_pack::network::ThemeNetworkRequest;
 use theseus::theme_pack::network::ThemeNetworkResponse;
@@ -36,8 +37,16 @@ pub const THEME_PAGE_LABEL_PREFIX: &str = "theme-page-";
 /// request another pack's storage or network allowlist.
 #[derive(Default)]
 pub struct ThemePackPageState {
-    pages: Mutex<HashMap<String, String>>,
+    pages: Mutex<HashMap<String, ThemePageOwner>>,
     counter: AtomicU64,
+}
+
+/// The resolved identity of an open page. Requirements are captured when the
+/// page opens so navigation cannot widen what the page declared.
+#[derive(Clone)]
+struct ThemePageOwner {
+    pack_id: String,
+    requires: Vec<ThemePackPermission>,
 }
 
 pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
@@ -190,7 +199,7 @@ pub async fn theme_pack_resolve_page<R: Runtime>(
         path: resolved.path.to_string_lossy().to_string(),
         url: format!(
             "{}/{}/{}",
-            theme_origin(),
+            theme_origin_for(&pack_id),
             encode_url_segment(&pack_id),
             resolved
                 .page
@@ -235,18 +244,48 @@ const THEME_PAGE_API: &str = r#"
 
 fn lock_pages(
     state: &ThemePackPageState,
-) -> Result<std::sync::MutexGuard<'_, HashMap<String, String>>> {
+) -> Result<std::sync::MutexGuard<'_, HashMap<String, ThemePageOwner>>> {
     state
         .pages
         .lock()
         .map_err(|_| theme_error("The theme page state is unavailable"))
 }
 
-fn page_pack_id(state: &ThemePackPageState, label: &str) -> Result<String> {
+fn page_owner(
+    state: &ThemePackPageState,
+    label: &str,
+) -> Result<ThemePageOwner> {
     lock_pages(state)?
         .get(label)
         .cloned()
         .ok_or_else(|| theme_error("The theme page is not open"))
+}
+
+fn page_pack_id(state: &ThemePackPageState, label: &str) -> Result<String> {
+    page_owner(state, label).map(|owner| owner.pack_id)
+}
+
+fn permission_name(permission: ThemePackPermission) -> &'static str {
+    match permission {
+        ThemePackPermission::Storage => "storage",
+        ThemePackPermission::InstancesRead => "instances.read",
+        ThemePackPermission::InstancesLogs => "instances.logs",
+        ThemePackPermission::Network => "network",
+    }
+}
+
+fn require_page_permission(
+    owner: &ThemePageOwner,
+    permission: ThemePackPermission,
+) -> Result<()> {
+    if owner.requires.contains(&permission) {
+        Ok(())
+    } else {
+        Err(theme_error(&format!(
+            "The theme page did not declare the {} permission",
+            permission_name(permission)
+        )))
+    }
 }
 
 /// Opens a pack page in a child webview. Pack pages never share the main
@@ -274,12 +313,8 @@ pub async fn theme_pack_open_page<R: Runtime>(
         .map(encode_url_segment)
         .collect::<Vec<_>>()
         .join("/");
-    let url = format!(
-        "{}/{}/{}",
-        theme_origin(),
-        encode_url_segment(&pack_id),
-        entry
-    );
+    let origin = theme_origin_for(&pack_id);
+    let url = format!("{}/{}/{}", origin, encode_url_segment(&pack_id), entry);
     let url = url
         .parse()
         .map_err(|_| theme_error("The theme page URL could not be resolved"))?;
@@ -288,11 +323,20 @@ pub async fn theme_pack_open_page<R: Runtime>(
         THEME_PAGE_LABEL_PREFIX,
         state.counter.fetch_add(1, Ordering::Relaxed)
     );
-    let allowed_prefix = format!("{}/{}/", theme_origin(), pack_id);
+    // Only the declared entry may load in this webview. Allowing navigation
+    // within the pack would let a page with fewer declared requirements take
+    // over a bridge session opened for a page with more requirements.
+    let allowed_path = format!("/{}/{}", encode_url_segment(&pack_id), entry);
     let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(url))
         .initialization_script(THEME_PAGE_API)
-        .on_navigation(move |url| url.as_str().starts_with(&allowed_prefix));
-    lock_pages(&state)?.insert(label.clone(), pack_id);
+        .on_navigation(move |url| url.path() == allowed_path);
+    lock_pages(&state)?.insert(
+        label.clone(),
+        ThemePageOwner {
+            pack_id,
+            requires: resolved.page.requires.clone(),
+        },
+    );
     if let Err(error) = webview.window().add_child(
         builder,
         LogicalPosition::new(x, y),
@@ -361,10 +405,12 @@ pub async fn theme_pack_page_request<R: Runtime>(
     state: State<'_, ThemePackPageState>,
     request: ThemePageRequest,
 ) -> Result<serde_json::Value> {
-    let pack_id = page_pack_id(&state, webview.label())?;
+    let owner = page_owner(&state, webview.label())?;
+    let pack_id = owner.pack_id.clone();
     let app = webview.app_handle().clone();
     match request.method.as_str() {
         "network.fetch" => {
+            require_page_permission(&owner, ThemePackPermission::Network)?;
             let request: ThemeNetworkRequest =
                 serde_json::from_value(request.params).map_err(|error| {
                     theme_error(&format!(
@@ -383,6 +429,7 @@ pub async fn theme_pack_page_request<R: Runtime>(
             })?)
         }
         "storage.list" => {
+            require_page_permission(&owner, ThemePackPermission::Storage)?;
             let keys = theme_pack_storage_list(app, pack_id).await?;
             Ok(serde_json::to_value(keys).map_err(|error| {
                 theme_error(&format!(
@@ -391,6 +438,7 @@ pub async fn theme_pack_page_request<R: Runtime>(
             })?)
         }
         "storage.read" => {
+            require_page_permission(&owner, ThemePackPermission::Storage)?;
             let key = request_string(&request.params, "key")?;
             let contents = theme_pack_storage_read(app, pack_id, key).await?;
             Ok(serde_json::to_value(contents).map_err(|error| {
@@ -400,12 +448,14 @@ pub async fn theme_pack_page_request<R: Runtime>(
             })?)
         }
         "storage.write" => {
+            require_page_permission(&owner, ThemePackPermission::Storage)?;
             let key = request_string(&request.params, "key")?;
             let contents = request_string(&request.params, "contents")?;
             theme_pack_storage_write(app, pack_id, key, contents).await?;
             Ok(serde_json::Value::Null)
         }
         "storage.delete" => {
+            require_page_permission(&owner, ThemePackPermission::Storage)?;
             let key = request_string(&request.params, "key")?;
             let removed = theme_pack_storage_delete(app, pack_id, key).await?;
             Ok(serde_json::to_value(removed).map_err(|error| {
@@ -415,6 +465,10 @@ pub async fn theme_pack_page_request<R: Runtime>(
             })?)
         }
         "instances.list" => {
+            require_page_permission(
+                &owner,
+                ThemePackPermission::InstancesRead,
+            )?;
             let instances = theme_pack_instance_list(app, pack_id).await?;
             Ok(serde_json::to_value(instances).map_err(|error| {
                 theme_error(&format!(
@@ -423,6 +477,10 @@ pub async fn theme_pack_page_request<R: Runtime>(
             })?)
         }
         "instances.mods" => {
+            require_page_permission(
+                &owner,
+                ThemePackPermission::InstancesRead,
+            )?;
             let instance_id = request_string(&request.params, "instanceId")?;
             let mods =
                 theme_pack_instance_mods(app, pack_id, instance_id).await?;
@@ -433,6 +491,10 @@ pub async fn theme_pack_page_request<R: Runtime>(
             })?)
         }
         "instances.logs" => {
+            require_page_permission(
+                &owner,
+                ThemePackPermission::InstancesLogs,
+            )?;
             let instance_id = request_string(&request.params, "instanceId")?;
             let logs =
                 theme_pack_instance_logs(app, pack_id, instance_id).await?;
@@ -528,10 +590,12 @@ fn export_snapshot_archive(
     if !parent.is_dir() {
         return Err(theme_error("The selected folder does not exist"));
     }
-    let nonce = std::time::SystemTime::now()
+    let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or_default();
+    let sequence = SNAPSHOT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let nonce = nanos ^ (u128::from(sequence) << 64);
     let temporary = parent.join(format!(
         ".axolotl-theme-snapshot-{}-{nonce}.tmp",
         std::process::id()
@@ -542,6 +606,7 @@ fn export_snapshot_archive(
         pack_dir,
         pack_data_dir,
         limits,
+        nonce,
     ) {
         Ok(()) => {
             // A save dialog already asked the user to confirm replacing the
@@ -585,6 +650,7 @@ fn write_snapshot_archive(
     pack_dir: Option<&Path>,
     pack_data_dir: Option<&Path>,
     limits: ThemePackLimits,
+    nonce: u128,
 ) -> Result<()> {
     let exported_at = now_seconds();
     let file = std::fs::File::create(temporary).map_err(|error| {
@@ -619,7 +685,7 @@ fn write_snapshot_archive(
             })
         }
         None => {
-            let manifest = snapshot_manifest(snapshot, exported_at)?;
+            let manifest = snapshot_manifest(snapshot, exported_at, nonce)?;
             let bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| {
                 theme_error(format!(
                     "The appearance snapshot manifest could not be written: {error}"
@@ -652,10 +718,11 @@ fn write_snapshot_archive(
 fn snapshot_manifest(
     snapshot: &ThemePackSnapshot,
     exported_at: u64,
+    nonce: u128,
 ) -> Result<ThemePackManifest> {
     let manifest = serde_json::json!({
         "schemaVersion": 1,
-        "id": format!("snapshot-{exported_at}"),
+        "id": format!("snapshot-{exported_at}-{nonce}"),
         "name": { "en-US": "Appearance snapshot" },
         "version": "1.0.0",
         "engines": { "axolotl": ">=1.0.0" },
@@ -793,6 +860,8 @@ fn copy_pack_directory(
     Ok(())
 }
 
+static SNAPSHOT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
 const THEME_STORAGE_MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const THEME_STORAGE_MAX_TOTAL_BYTES: u64 = 10 * 1024 * 1024;
 const THEME_STORAGE_MAX_FILES: usize = 256;
@@ -847,18 +916,18 @@ fn storage_file<R: Runtime>(
     Ok(storage(app)?.pack_data_dir(pack_id)?.join(key))
 }
 
-async fn storage_usage(directory: &Path) -> Result<u64> {
+async fn storage_usage(directory: &Path) -> Result<(u64, usize)> {
     let mut entries = tokio::fs::read_dir(directory).await?;
     let mut total = 0u64;
-    while let Ok(Some(entry)) = entries.next_entry().await {
-        let Ok(metadata) = entry.metadata().await else {
-            continue;
-        };
+    let mut files = 0usize;
+    while let Some(entry) = entries.next_entry().await? {
+        let metadata = entry.metadata().await?;
         if metadata.is_file() {
             total = total.saturating_add(metadata.len());
+            files += 1;
         }
     }
-    Ok(total)
+    Ok((total, files))
 }
 
 #[tauri::command]
@@ -937,11 +1006,17 @@ pub async fn theme_pack_storage_write<R: Runtime>(
         .parent()
         .ok_or_else(|| theme_error("The theme pack storage path is invalid"))?;
     tokio::fs::create_dir_all(parent).await?;
-    let previous = tokio::fs::metadata(&path)
-        .await
+    let existing = tokio::fs::metadata(&path).await.ok();
+    let exists = existing.as_ref().is_some_and(|metadata| metadata.is_file());
+    let previous = existing
+        .as_ref()
+        .filter(|metadata| metadata.is_file())
         .map(|metadata| metadata.len())
         .unwrap_or_default();
-    let usage = storage_usage(parent).await?;
+    let (usage, files) = storage_usage(parent).await?;
+    if !exists && files >= THEME_STORAGE_MAX_FILES {
+        return Err(theme_error("The theme pack storage has too many files"));
+    }
     let next = usage
         .saturating_sub(previous)
         .saturating_add(contents.len() as u64);
@@ -954,8 +1029,14 @@ pub async fn theme_pack_storage_write<R: Runtime>(
         .unwrap_or_default();
     let temporary =
         path.with_extension(format!("{}-{stamp}.tmp", std::process::id()));
-    tokio::fs::write(&temporary, contents).await?;
-    tokio::fs::rename(&temporary, &path).await?;
+    if let Err(error) = tokio::fs::write(&temporary, contents).await {
+        let _ = tokio::fs::remove_file(&temporary).await;
+        return Err(error.into());
+    }
+    if let Err(error) = tokio::fs::rename(&temporary, &path).await {
+        let _ = tokio::fs::remove_file(&temporary).await;
+        return Err(error.into());
+    }
     Ok(())
 }
 
@@ -1117,13 +1198,29 @@ pub async fn theme_pack_instance_logs<R: Runtime>(
         .collect())
 }
 
-/// The protocol origin for theme assets. Windows cannot serve a custom scheme
-/// as a standard origin, so it uses the `.localhost` form there.
-pub fn theme_origin() -> &'static str {
+/// Every pack gets its own origin by deriving a stable port from its id. The
+/// launcher and the protocol handler share the algorithm, so two packs never
+/// share `localStorage`, `sessionStorage`, IndexedDB, or CSSOM access.
+pub fn theme_pack_port(pack_id: &str) -> u16 {
+    // FNV-1a keeps this cheap and deterministic; the frontend implements the
+    // same hash in `themePackPort`.
+    let mut hash: u32 = 2_166_136_261;
+    for byte in pack_id.bytes() {
+        hash ^= u32::from(byte);
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    (20_000 + hash % 40_000) as u16
+}
+
+/// The protocol origin for one theme pack. Windows cannot serve a custom
+/// scheme as a standard origin, so it uses the `.localhost` form there. The
+/// port is virtual: wry intercepts the request before any network access.
+pub fn theme_origin_for(pack_id: &str) -> String {
+    let port = theme_pack_port(pack_id);
     if cfg!(windows) {
-        "http://axolotl-theme.localhost"
+        format!("http://axolotl-theme.localhost:{port}")
     } else {
-        "axolotl-theme://localhost"
+        format!("axolotl-theme://localhost:{port}")
     }
 }
 
@@ -1182,6 +1279,12 @@ pub(crate) fn protocol_response_for(
     let Some((pack_id, relative)) = path.split_once('/') else {
         return protocol_error(StatusCode::NOT_FOUND);
     };
+    // The port is part of the pack origin. Rejecting a mismatched port stops
+    // one pack page from reading another pack's assets through this handler.
+    if request.uri().port_u16() != Some(theme_pack_port(pack_id)) {
+        return protocol_error(StatusCode::NOT_FOUND);
+    }
+    let pack_origin = theme_origin_for(pack_id);
     let Ok(file_path) =
         theseus::theme_pack::store::asset_path(storage, pack_id, relative)
     else {
@@ -1202,9 +1305,12 @@ pub(crate) fn protocol_response_for(
         .get(header::ORIGIN)
         .and_then(|value| value.to_str().ok())
     {
-        // Only echo an origin that passed `is_allowed_theme_request`; `null`
-        // is the opaque origin of a sandboxed SVG asset.
-        if origin == "null" || is_allowed_origin(origin) {
+        // Echo only the requesting pack's own origin or a launcher origin.
+        // Another pack's origin must not gain CORS access to these assets.
+        if origin == "null"
+            || origin == pack_origin
+            || is_allowed_origin(origin)
+        {
             builder =
                 builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
         }
@@ -1214,16 +1320,19 @@ pub(crate) fn protocol_response_for(
         // page bridge command. They keep their real theme origin so the bridge
         // capability applies, and the bridge derives the pack id from the
         // webview label rather than from the page.
+        let origin = theme_origin_for(pack_id);
         builder = builder.header(
             "Content-Security-Policy",
-            "default-src http://axolotl-theme.localhost axolotl-theme://localhost; \
-             script-src http://axolotl-theme.localhost axolotl-theme://localhost 'unsafe-inline'; \
-             style-src http://axolotl-theme.localhost axolotl-theme://localhost 'unsafe-inline'; \
-             img-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
-             font-src http://axolotl-theme.localhost axolotl-theme://localhost data:; \
-             connect-src 'none'; media-src http://axolotl-theme.localhost axolotl-theme://localhost; \
-             object-src 'none'; base-uri 'none'; form-action 'none'; \
-             frame-src 'none'; frame-ancestors 'none'",
+            format!(
+                "default-src {origin}; \
+                 script-src {origin} 'unsafe-inline'; \
+                 style-src {origin} 'unsafe-inline'; \
+                 img-src {origin} data:; \
+                 font-src {origin} data:; \
+                 connect-src 'none'; media-src {origin}; \
+                 object-src 'none'; base-uri 'none'; form-action 'none'; \
+                 frame-src 'none'; frame-ancestors 'none'"
+            ),
         );
     } else if content_type.starts_with("image/svg+xml") {
         // SVG documents never need the bridge; keep them sandboxed so their
@@ -1255,6 +1364,25 @@ fn is_allowed_origin(origin: &str) -> bool {
     })
 }
 
+/// Matches the per-pack origins (`http://axolotl-theme.localhost:<port>` on
+/// Windows, `axolotl-theme://localhost:<port>` elsewhere) without accepting a
+/// path or arbitrary suffix.
+fn is_theme_origin(origin: &str) -> bool {
+    fn valid_port_suffix(rest: &str) -> bool {
+        rest.is_empty()
+            || rest.strip_prefix(':').is_some_and(|port| {
+                !port.is_empty()
+                    && port.chars().all(|character| character.is_ascii_digit())
+            })
+    }
+    origin
+        .strip_prefix("http://axolotl-theme.localhost")
+        .is_some_and(valid_port_suffix)
+        || origin
+            .strip_prefix("axolotl-theme://localhost")
+            .is_some_and(valid_port_suffix)
+}
+
 fn is_allowed_theme_request(request: &tauri::http::Request<Vec<u8>>) -> bool {
     if !matches!(
         request.uri().host(),
@@ -1270,7 +1398,7 @@ fn is_allowed_theme_request(request: &tauri::http::Request<Vec<u8>>) -> bool {
         // `null` is the opaque origin of a sandboxed pack page requesting its
         // own stylesheet, font, or image.
         Some("null") => true,
-        Some(origin) => is_allowed_origin(origin),
+        Some(origin) => is_allowed_origin(origin) || is_theme_origin(origin),
         // Same-origin subresource loads (a stylesheet's own font, an image in
         // pack HTML) do not carry an Origin header.
         None => true,
@@ -1323,6 +1451,10 @@ mod tests {
         builder.body(Vec::new()).unwrap()
     }
 
+    fn pack_url(pack_id: &str, path: &str) -> String {
+        format!("{}/{pack_id}/{path}", theme_origin_for(pack_id))
+    }
+
     fn storage_with_css() -> (tempfile::TempDir, ThemePackStorage) {
         let directory = tempfile::tempdir().unwrap();
         let styles = directory.path().join("themes/demo/styles");
@@ -1352,10 +1484,7 @@ mod tests {
         let (_directory, storage) = storage_with_css();
         let response = protocol_response_for(
             &storage,
-            &request(
-                "http://axolotl-theme.localhost/demo/styles/theme.css",
-                None,
-            ),
+            &request(&pack_url("demo", "styles/theme.css"), None),
         );
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
@@ -1363,6 +1492,48 @@ mod tests {
             "text/css; charset=utf-8"
         );
         assert_eq!(response.body(), b".x { color: red; }");
+    }
+
+    #[test]
+    fn rejects_requests_on_another_packs_port() {
+        let (_directory, storage) = storage_with_css();
+        let response = protocol_response_for(
+            &storage,
+            &request(
+                &format!(
+                    "{}/demo/styles/theme.css",
+                    theme_origin_for("another-pack")
+                ),
+                None,
+            ),
+        );
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn page_permissions_gate_bridge_methods() {
+        let owner = ThemePageOwner {
+            pack_id: "demo".to_string(),
+            requires: vec![ThemePackPermission::Storage],
+        };
+        assert!(
+            require_page_permission(&owner, ThemePackPermission::Storage)
+                .is_ok()
+        );
+        let error =
+            require_page_permission(&owner, ThemePackPermission::Network)
+                .unwrap_err();
+        assert!(error.to_string().contains("network"), "{error}");
+    }
+
+    #[test]
+    fn every_pack_gets_a_stable_origin() {
+        assert_eq!(theme_origin_for("demo"), theme_origin_for("demo"));
+        assert_ne!(theme_origin_for("demo"), theme_origin_for("other"));
+        let port = theme_pack_port("demo");
+        assert!((20_000..60_000).contains(&port));
+        // Must match `themePackPort` in theme-packs.ts.
+        assert_eq!(port, 49_814);
     }
 
     #[test]
@@ -1378,10 +1549,7 @@ mod tests {
         let storage = ThemePackStorage::new(directory.path());
         let response = protocol_response_for(
             &storage,
-            &request(
-                "http://axolotl-theme.localhost/demo/pages/home.html",
-                Some("null"),
-            ),
+            &request(&pack_url("demo", "pages/home.html"), Some("null")),
         );
         assert_eq!(response.status(), StatusCode::OK);
         let csp = response
@@ -1390,17 +1558,15 @@ mod tests {
             .unwrap()
             .to_str()
             .unwrap();
-        assert!(csp.contains("default-src http://axolotl-theme.localhost"));
+        let origin = theme_origin_for("demo");
+        assert!(csp.contains(&format!("default-src {origin};")), "{csp}");
         // Pack pages run in a dedicated child webview whose capability only
         // allows the page bridge, so they keep their real origin instead of
         // relying on an iframe CSP sandbox.
         assert!(!csp.contains("sandbox"), "{csp}");
         assert!(!csp.contains("allow-same-origin"), "{csp}");
         assert!(csp.contains("connect-src 'none'"), "{csp}");
-        assert!(
-            csp.contains("script-src http://axolotl-theme.localhost"),
-            "{csp}"
-        );
+        assert!(csp.contains(&format!("script-src {origin}")), "{csp}");
         assert!(csp.contains("frame-src 'none'"), "{csp}");
         assert!(csp.contains("frame-ancestors 'none'"), "{csp}");
         assert_eq!(
@@ -1425,10 +1591,7 @@ mod tests {
         let storage = ThemePackStorage::new(directory.path());
         let response = protocol_response_for(
             &storage,
-            &request(
-                "http://axolotl-theme.localhost/demo/assets/icon.svg",
-                None,
-            ),
+            &request(&pack_url("demo", "assets/icon.svg"), None),
         );
         assert_eq!(response.status(), StatusCode::OK);
         let csp = response
@@ -1447,7 +1610,7 @@ mod tests {
         let response = protocol_response_for(
             &storage,
             &request(
-                "http://axolotl-theme.localhost/demo/styles/theme.css",
+                &pack_url("demo", "styles/theme.css"),
                 Some("https://tracker.example"),
             ),
         );
@@ -1465,7 +1628,11 @@ mod tests {
             let response = protocol_response_for(
                 &storage,
                 &request(
-                    &format!("http://axolotl-theme.localhost{path}"),
+                    &format!(
+                        "{}/{}",
+                        theme_origin_for("demo"),
+                        path.trim_start_matches('/')
+                    ),
                     None,
                 ),
             );
@@ -1483,7 +1650,7 @@ mod tests {
         let response = protocol_response_for(
             &storage,
             &request(
-                "http://axolotl-theme.localhost/../styles/theme.css",
+                &format!("{}/../styles/theme.css", theme_origin_for("demo")),
                 None,
             ),
         );
@@ -1545,13 +1712,16 @@ mod tests {
 
     #[test]
     fn builds_a_valid_snapshot_manifest() {
-        let manifest = snapshot_manifest(&snapshot(), 1_700_000_000).unwrap();
+        let manifest =
+            snapshot_manifest(&snapshot(), 1_700_000_000, 42).unwrap();
         assert_eq!(manifest.schema_version, 1);
-        assert_eq!(manifest.id, "snapshot-1700000000");
+        assert_eq!(manifest.id, "snapshot-1700000000-42");
         assert_eq!(
             manifest.name.get("en-US").map(String::as_str),
             Some("Appearance snapshot")
         );
+        let next = snapshot_manifest(&snapshot(), 1_700_000_000, 43).unwrap();
+        assert_ne!(manifest.id, next.id);
         assert_eq!(manifest.version, "1.0.0");
         assert_eq!(
             manifest

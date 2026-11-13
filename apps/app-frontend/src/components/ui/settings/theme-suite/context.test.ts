@@ -68,6 +68,25 @@ beforeEach(() => {
     mocks.save.mockResolvedValue(null)
 })
 
+describe('theme suite colors', () => {
+    it('resets to the built-in defaults instead of the live preview values', () => {
+        const context = createThemeSuiteContext(shallowRef(null))
+        context.colorsDraft.value = {
+            background: '#111111',
+            surface: '#222222',
+            text: '#333333',
+        }
+
+        context.resetColors()
+
+        expect(context.colorsDraft.value).toEqual({
+            background: '#101215',
+            surface: '#262b34',
+            text: '#ffffff',
+        })
+    })
+})
+
 describe('theme suite refresh', () => {
     it('does not let a refresh that started earlier overwrite a new selection', async () => {
         const stale = deferred<ReturnType<typeof settings>>()

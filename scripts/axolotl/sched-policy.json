@@ -15,7 +15,8 @@
     "install/runner.rs queue_resource_plan: admission (S2) -> install_db_semaphore (S5) -> instance content lock (S3)",
     "api/instance/backup.rs *_inner: instance maintenance lock (S2) -> instance content lock (S3) -> REPOSITORY_LOCK (S1)",
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
-    "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
+    "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)",
+    "api/theme_pack/store.rs install: INSTALL_LOCK (S7) serializes extraction and directory replacement and takes no other managed lock; ThemePackPageState.pages (S8) only guards the label map"
   ],
   "rankFingerprint": "3ba35e63b1a89fb4b183a0bf61acdc980f15264ec118df31054640f206f16a68",
   "classes": {
@@ -41,6 +42,8 @@
     "theseus::state::State.screenshot_locks": "S3",
     "theseus::state::State.synced_options_lock": "S7",
     "theseus::state::instances::config_sync::DIRTY_INSTANCES": "S8",
+    "theseus::api::theme_pack::store::INSTALL_LOCK": "S7",
+    "theseus_gui::api::theme_pack::ThemePackPageState.pages": "S8",
     "theseus::state::process::LOG_BUFFERS": "S8",
     "theseus::state::process::ProcessManager.processes": "S10",
     "theseus::util::single_flight::FLIGHTS": "S6"

@@ -122,11 +122,23 @@ pub async fn install(
     let backup = target_exists
         .then(|| archive::hidden_sibling(storage.themes_dir(), "old"));
     if let Some(backup) = &backup {
-        tokio::fs::rename(&target, backup).await.map_err(io)?;
+        if let Err(error) = tokio::fs::rename(&target, backup).await {
+            let _ = tokio::fs::remove_dir_all(&staging).await;
+            return Err(io(error));
+        }
     }
     if let Err(error) = tokio::fs::rename(&staging, &target).await {
         if let Some(backup) = &backup {
-            let _ = tokio::fs::rename(backup, &target).await;
+            if let Err(restore) = tokio::fs::rename(backup, &target).await {
+                let _ = tokio::fs::remove_dir_all(&staging).await;
+                return Err(ErrorKind::OtherError(format!(
+                    "The theme pack could not be installed ({error}); the \
+                     previous copy could not be restored ({restore}) and is \
+                     preserved at {}",
+                    backup.display()
+                ))
+                .into());
+            }
         }
         let _ = tokio::fs::remove_dir_all(&staging).await;
         return Err(io(error));

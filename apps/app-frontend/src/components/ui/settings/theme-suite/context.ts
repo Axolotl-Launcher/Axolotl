@@ -304,7 +304,10 @@ export function createThemeSuiteContext(
     }
 
     function resetColors() {
-        colorsDraft.value = readColorDefaults(colorsBucket.value)
+        // Use the documented built-in palette instead of computed styles:
+        // live preview writes the draft onto the same root element, so reading
+        // it back would make Reset restore the previewed custom colors.
+        colorsDraft.value = { ...FALLBACK_COLORS[colorsBucket.value] }
     }
 
     async function saveColors() {

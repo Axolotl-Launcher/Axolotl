@@ -96,22 +96,27 @@ Available methods:
 | Method | Permission | Notes |
 | --- | --- | --- |
 | `network.fetch({ url, method, headers?, body? })` | `network` | HTTPS only, allow-listed host, GET/POST; request 1 MiB, response 8 MiB, 30 s timeout, 4 concurrent and 60 requests/minute per pack; connects directly and ignores system HTTP proxies |
-| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files, 2 MiB per file, 10 MiB total; keys use 1-128 ASCII letters, digits, `.`, `_` or `-`, may not start or end with `.` or name a Windows device |
+| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files enforced on write, 2 MiB per file, 10 MiB total; keys use 1-128 ASCII letters, digits, `.`, `_` or `-`, may not start or end with `.` or name a Windows device |
 | `instances.list()` | `instances.read` | Read-only instance summaries |
 | `instances.mods(instanceId)` | `instances.read` | Read-only mod list |
 | `instances.logs(instanceId)` | `instances.logs` | Censored logs, last 256 KiB |
 
 The bridge derives the pack id from the child webview's server-side label, not
 from page input, so a page cannot read another pack's storage or network
-allowlist. Navigation outside the pack's URL prefix is blocked.
+allowlist. Every bridge method also checks the `requires` list of the page
+that was opened: declaring `permissions` on the pack is not enough, the page
+must request the matching permission too. Navigation is limited to the exact
+entry document that was opened, so a page cannot navigate to another page
+with a different `requires` list.
 
-All packs share the `axolotl-theme` origin. A page can therefore display
-another installed pack's static assets with a same-origin `<img>` or
-stylesheet, although it cannot call that pack's bridge identity, read its
-storage, or use its network allowlist. Browser storage (`localStorage`,
-`sessionStorage`, IndexedDB) is shared by that origin as well. Treat files
-inside a theme pack as public, do not put secrets in a pack archive, and
-keep persistent page state in `axolotlTheme.storage`.
+Each pack gets its own deterministic origin: `http://axolotl-theme.localhost:<port>`
+on Windows and `axolotl-theme://localhost:<port>` elsewhere, where the port is
+derived from the pack id. The protocol rejects a request whose port does not
+belong to the pack in its path. Browser storage (`localStorage`,
+`sessionStorage`, IndexedDB) is therefore isolated per pack. Cross-origin
+reads of another pack's stylesheets or scripts are blocked by the browser;
+static assets are still public by nature, so do not put secrets in a pack
+archive. Keep persistent page state in `axolotlTheme.storage`.
 
 ## Limits
 

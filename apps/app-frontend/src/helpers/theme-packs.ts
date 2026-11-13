@@ -243,10 +243,26 @@ export function createThemePackPagesRefresher(
     }
 }
 
-/** The origin the Rust `axolotl-theme` protocol serves pack assets from. */
-export const THEME_PACK_ORIGIN = navigator.userAgent.includes('Windows')
-    ? 'http://axolotl-theme.localhost'
-    : 'axolotl-theme://localhost'
+/**
+ * Every pack gets its own origin so one pack page cannot read another pack's
+ * CSSOM or browser storage. The port is derived with the same FNV-1a hash as
+ * `theme_pack_port` in the Rust protocol handler.
+ */
+export function themePackPort(packId: string): number {
+    let hash = 2166136261
+    for (const byte of new TextEncoder().encode(packId)) {
+        hash ^= byte
+        hash = Math.imul(hash, 16777619) >>> 0
+    }
+    return 20000 + (hash % 40000)
+}
+
+export function themePackOrigin(packId: string): string {
+    const port = themePackPort(packId)
+    return navigator.userAgent.includes('Windows')
+        ? `http://axolotl-theme.localhost:${port}`
+        : `axolotl-theme://localhost:${port}`
+}
 
 /**
  * `encodeURIComponent` leaves characters such as `'` and `)` untouched, but the
@@ -261,7 +277,7 @@ function encodeAssetSegment(value: string): string {
 }
 
 export function themePackAssetUrl(packId: string, relativePath: string): string {
-    return `${THEME_PACK_ORIGIN}/${encodeAssetSegment(packId)}/${relativePath
+    return `${themePackOrigin(packId)}/${encodeAssetSegment(packId)}/${relativePath
         .split('/')
         .map(encodeAssetSegment)
         .join('/')}`

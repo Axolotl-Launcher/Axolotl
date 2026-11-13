@@ -108,6 +108,18 @@ pub async fn install(
     };
 
     let (manifest, extraction) = extracted;
+    let port = manifest::origin_port(&manifest.id);
+    if list(storage).await?.iter().any(|pack| {
+        pack.manifest.id != manifest.id
+            && manifest::origin_port(&pack.manifest.id) == port
+    }) {
+        let _ = tokio::fs::remove_dir_all(&staging).await;
+        return Err(ErrorKind::InputError(format!(
+            "Theme pack {} would share a browser origin with another installed pack",
+            manifest.id
+        ))
+        .into());
+    }
     let target = storage.pack_dir(&manifest.id)?;
     let target_exists = tokio::fs::try_exists(&target).await.unwrap_or(false);
     if target_exists && !replace {
@@ -381,6 +393,44 @@ mod tests {
                 .is_err()
         );
         assert!(asset_path(&storage, "good-pack", "/etc/passwd").is_err());
+    }
+
+    #[test]
+    fn rejects_packs_that_would_share_a_browser_origin() {
+        fn write_archive(path: &Path, id: &str) {
+            let file = std::fs::File::create(path).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            zip.start_file("manifest.json", SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(
+                format!(
+                    r##"{{"schemaVersion":1,"id":"{id}","name":{{"en-US":"Test"}},"version":"1.0.0","engines":{{"axolotl":">=1.0.0"}},"capabilities":["tokens"],"tokens":{{"light":{{"--surface-1":"#ffffff","--surface-3":"#f5f5f5","--color-text-primary":"#101215"}},"dark":{{"--surface-1":"#101215","--surface-3":"#262b34","--color-text-primary":"#eceff4"}}}}}}"##
+                )
+                .as_bytes(),
+            )
+            .unwrap();
+            zip.finish().unwrap();
+        }
+
+        let temp = tempfile::tempdir().unwrap();
+        let storage = storage(temp.path());
+        let first = temp.path().join("first.zip");
+        let second = temp.path().join("second.zip");
+        write_archive(&first, "demo-theme");
+        write_archive(&second, "pack-37858");
+        block_on(install(&storage, &first, ThemePackLimits::default(), false))
+            .unwrap();
+        let error = block_on(install(
+            &storage,
+            &second,
+            ThemePackLimits::default(),
+            false,
+        ))
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("share a browser origin"),
+            "{error}"
+        );
     }
 
     #[test]

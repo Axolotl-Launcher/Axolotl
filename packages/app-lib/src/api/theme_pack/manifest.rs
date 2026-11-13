@@ -613,6 +613,18 @@ pub fn is_windows_device_name(component: &str) -> bool {
             && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
+/// The loopback port that gives a pack its own browser origin. Every pack page
+/// is served from `axolotl-theme.localhost:<port>`, so two packs must never
+/// share a port or they could read each other's styles and browser storage.
+pub fn origin_port(pack_id: &str) -> u16 {
+    let mut hash = 2_166_136_261u32;
+    for byte in pack_id.as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    20_000 + (hash % 40_000) as u16
+}
+
 /// Resolves a pack-relative path and proves the result is a regular file
 /// inside the pack directory. `canonicalize` also defeats a symlink that
 /// points outside the pack.

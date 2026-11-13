@@ -1202,14 +1202,7 @@ pub async fn theme_pack_instance_logs<R: Runtime>(
 /// launcher and the protocol handler share the algorithm, so two packs never
 /// share `localStorage`, `sessionStorage`, IndexedDB, or CSSOM access.
 pub fn theme_pack_port(pack_id: &str) -> u16 {
-    // FNV-1a keeps this cheap and deterministic; the frontend implements the
-    // same hash in `themePackPort`.
-    let mut hash: u32 = 2_166_136_261;
-    for byte in pack_id.bytes() {
-        hash ^= u32::from(byte);
-        hash = hash.wrapping_mul(16_777_619);
-    }
-    (20_000 + hash % 40_000) as u16
+    theseus::theme_pack::manifest::origin_port(pack_id)
 }
 
 /// The protocol origin for one theme pack. Windows cannot serve a custom

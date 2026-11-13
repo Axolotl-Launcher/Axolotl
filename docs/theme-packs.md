@@ -112,7 +112,8 @@ with a different `requires` list.
 Each pack gets its own deterministic origin: `http://axolotl-theme.localhost:<port>`
 on Windows and `axolotl-theme://localhost:<port>` elsewhere, where the port is
 derived from the pack id. The protocol rejects a request whose port does not
-belong to the pack in its path. Browser storage (`localStorage`,
+belong to the pack in its path, and installing a pack whose id would derive an
+already-used port is refused. Browser storage (`localStorage`,
 `sessionStorage`, IndexedDB) is therefore isolated per pack. Cross-origin
 reads of another pack's stylesheets or scripts are blocked by the browser;
 static assets are still public by nature, so do not put secrets in a pack

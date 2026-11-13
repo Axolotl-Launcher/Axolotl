@@ -19,13 +19,17 @@ afterEach(() =>
         .forEach((fn) => fn()),
 )
 
-async function modal(child: ReturnType<typeof h>, props: Record<string, unknown> = {}) {
+async function modal(
+    child: ReturnType<typeof h>,
+    props: Record<string, unknown> = {},
+    slots: Record<string, () => unknown> = {},
+) {
     const teleports = document.createElement('div')
     teleports.id = 'teleports'
     document.body.append(teleports)
     cleanup.push(() => teleports.remove())
     const wrapper = await mountThemed(NewModal, { header: 'Export logs', ...props }, 'dark', {
-        slots: { default: () => child },
+        slots: { default: () => child, ...slots },
         global: {
             provide: {
                 [I18N_INJECTION_KEY as symbol]: {
@@ -52,6 +56,17 @@ function escape(target: Element) {
             cancelable: true,
         }),
     )
+}
+
+function tab(target: Element, shiftKey = false) {
+    const event = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        shiftKey,
+        bubbles: true,
+        cancelable: true,
+    })
+    target.dispatchEvent(event)
+    return event
 }
 
 it('keeps additional workflow header content outside the stage scroll area', async () => {
@@ -405,4 +420,59 @@ it('does not run opening callbacks after the component unmounts', async () => {
     expect(document.body.style.overflow).toBe('hidden')
     await next.vm.hide()
     expect(document.body.style.overflow).toBe('')
+})
+
+it('labels a title-slot modal through the header element', async () => {
+    await modal(h('p', 'Body'), {}, { title: () => h('span', 'Custom export title') })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    const labelledBy = body.getAttribute('aria-labelledby')!
+    const label = document.getElementById(labelledBy)
+    expect(label).not.toBeNull()
+    expect(label?.textContent).toContain('Custom export title')
+    expect(document.querySelectorAll(`[id="${labelledBy}"]`)).toHaveLength(1)
+})
+
+it('keeps the default header as the modal label', async () => {
+    await modal(h('p', 'Body'))
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    const label = document.getElementById(body.getAttribute('aria-labelledby')!)
+    expect(label?.textContent).toContain('Export logs')
+})
+
+it('falls back to focusing the modal body when it has no focusable content', async () => {
+    await modal(h('p', 'Nothing interactive here'), { closable: false })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    expect(body.getAttribute('tabindex')).toBe('-1')
+    await waitFor(() => document.activeElement === body)
+})
+
+it('restores focus to the previously focused element when the modal closes', async () => {
+    const trigger = document.createElement('button')
+    trigger.textContent = 'Open modal'
+    document.body.append(trigger)
+    cleanup.push(() => trigger.remove())
+    trigger.focus()
+    const { vm } = await modal(h('button', 'Inside'))
+    await waitFor(() => document.querySelector('.modal-body')?.contains(document.activeElement))
+    await vm.hide()
+    expect(document.activeElement).toBe(trigger)
+})
+
+it('wraps Tab focus between the first and last focusable elements', async () => {
+    await modal(
+        h('div', [
+            h('button', { id: 'first-action' }, 'First'),
+            h('button', { id: 'last-action' }, 'Last'),
+        ]),
+        { closable: false },
+    )
+    const first = document.querySelector<HTMLElement>('#first-action')!
+    const last = document.querySelector<HTMLElement>('#last-action')!
+
+    first.focus()
+    expect(tab(first, true).defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(last)
+
+    expect(tab(last).defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(first)
 })

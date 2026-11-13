@@ -137,3 +137,18 @@ it('applies numeric constraints and exposes select on the actual field', async (
     expect(field.element.selectionStart).toBe(0)
     expect(field.element.selectionEnd).toBe(9)
 })
+
+for (const multiline of [false, true]) {
+    it(`exposes ${multiline ? 'textarea' : 'input'} error state through aria-invalid`, async () => {
+        const wrapper = await mountThemed(
+            StyledInput,
+            { modelValue: '', multiline, error: true },
+            'dark',
+        )
+        cleanup.push(() => wrapper.unmount())
+        const field = wrapper.get(multiline ? 'textarea' : 'input')
+        expect(field.attributes('aria-invalid')).toBe('true')
+        await wrapper.setProps({ error: false })
+        expect(field.attributes('aria-invalid')).toBeUndefined()
+    })
+}

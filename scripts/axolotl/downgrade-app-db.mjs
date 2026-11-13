@@ -57,7 +57,7 @@ const CHANNELS = ['release', 'beta']
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
     20261113120000: {},
-    20261112120000: {
+    20261114120000: {
         columns: [
             { table: 'settings', column: 'theme_source' },
             { table: 'settings', column: 'custom_theme_colors' },

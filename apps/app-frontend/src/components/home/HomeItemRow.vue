@@ -37,6 +37,8 @@ const props = withDefaults(
         running?: boolean
         starting?: boolean
         playDisabled?: boolean
+        /** Disables the Stop button, e.g. while a server is already shutting down. */
+        stopDisabled?: boolean
         playLabel: string
         stopLabel: string
         /** Hides the play/stop button, for rows that only link somewhere. */
@@ -56,6 +58,7 @@ const props = withDefaults(
         running: false,
         starting: false,
         playDisabled: false,
+        stopDisabled: false,
         hideAction: false,
         variant: 'row',
     },
@@ -126,6 +129,7 @@ const iconSize = computed(() => (props.variant === 'tile' ? '52px' : '32px'))
                     type="button"
                     class="home-item-row-play is-stop"
                     :aria-label="stopLabel"
+                    :disabled="stopDisabled"
                     @click="$emit('stop')"
                 >
                     <StopCircleIcon aria-hidden="true" />

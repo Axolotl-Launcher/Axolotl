@@ -397,7 +397,13 @@ async function joinServer(world: ServerWorld & WorldWithInstance, instance: Game
 }
 
 async function stopInstance(instance: GameInstance) {
-    await kill(instance.id).catch(handleError)
+    try {
+        await kill(instance.id)
+    } catch (error) {
+        // The game is still running: keep this row's Stop button.
+        handleError(error)
+        return
+    }
     playingServerKey.value = null
     trackEvent('InstanceStop', {
         loader: instance.loader,
@@ -541,6 +547,7 @@ function localServerMenu(serverId: string): MenuAction[] {
                     :variant="itemVariant"
                     :running="entry.server.running || entry.server.starting"
                     :play-disabled="entry.server.stopping"
+                    :stop-disabled="entry.server.stopping"
                     :play-label="formatMessage(messages.start)"
                     :stop-label="
                         formatMessage(entry.server.stopping ? messages.stopping : messages.stop)

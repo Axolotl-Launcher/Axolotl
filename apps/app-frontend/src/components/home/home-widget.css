@@ -70,6 +70,12 @@
 }
 
 /* Over a background image, the less opaque a widget is the more it frosts. */
+/* "Advanced rendering" off means no blur anywhere, Home included. */
+.disable-advanced-rendering .home-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
 html.has-custom-background .home-surface {
     --home-widget-blur: calc((1 - var(--home-widget-bg-alpha, 1)) * 10px + 2px);
     /* As the fill fades, a halo in the page colour takes over keeping text readable. */

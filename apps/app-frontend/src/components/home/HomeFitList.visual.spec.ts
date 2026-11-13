@@ -3,7 +3,7 @@ import '@/test/visual-styles.scss'
 import { mount } from '@vue/test-utils'
 import { IntlMessageFormat } from 'intl-messageformat'
 import { expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick, provide, ref } from 'vue'
+import { type Component, defineComponent, h, nextTick, provide, ref } from 'vue'
 
 import { homeWidgetMoreTargetKey } from './home-utils'
 import HomeFitList from './HomeFitList.vue'
@@ -46,7 +46,7 @@ function mountList(height: number, variant: 'row' | 'card' = 'row') {
                     h('header', [h('span', { ref: target, class: 'more-target' })]),
                     h('div', { style: `display:flex;flex-direction:column;height:${height}px` }, [
                         h(
-                            HomeFitList,
+                            HomeFitList as Component,
                             { items, itemKey: (item: string) => item, variant },
                             {
                                 default: ({ item }: { item: string }) =>

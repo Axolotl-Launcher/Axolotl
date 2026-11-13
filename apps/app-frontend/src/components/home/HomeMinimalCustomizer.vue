@@ -142,9 +142,13 @@ function setShown(element: HomeMinimalElement, shown: boolean) {
     emit('update', updateHomeMinimalLayout(props.options, { show: { [element]: shown } }))
 }
 
-function setChoice(key: (typeof choices)[number]['key'] | 'arrangement', value: string) {
+type ChoiceKey = keyof Omit<HomeMinimalLayout, 'show'>
+
+function setChoice<K extends ChoiceKey>(key: K, value: HomeMinimalLayout[K]) {
     if (layout.value[key] === value) return
-    emit('update', updateHomeMinimalLayout(props.options, { [key]: value }))
+    const patch: Partial<Omit<HomeMinimalLayout, 'show'>> = {}
+    patch[key] = value
+    emit('update', updateHomeMinimalLayout(props.options, patch))
 }
 
 /*

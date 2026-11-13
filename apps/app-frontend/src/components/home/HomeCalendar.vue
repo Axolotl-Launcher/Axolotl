@@ -150,7 +150,11 @@ const selectedKey = ref(todayKey)
 const focusKey = ref(todayKey)
 const dailyPlaytime = ref<DailyPlaytime[]>([])
 /** Set once the shown range has loaded, so an empty month is not shown while it loads. */
-const playtimeLoaded = ref(false)
+/** The range whose response `dailyPlaytime` holds; null while unknown or failed. */
+const loadedRangeKey = ref<string | null>(null)
+const playtimeLoaded = computed(
+    () => loadedRangeKey.value === `${fetchRange.value.start}\0${fetchRange.value.end}`,
+)
 const dayDetails = ref<DailyPlaytimeEntry[]>([])
 /** Instances of the chosen day that did not fit under the map. */
 const hiddenDetails = ref(0)
@@ -468,13 +472,14 @@ async function refreshPlaytime() {
         const now = fetchRange.value
         if (playtimeRequests.isCurrent(request, `${now.start}\0${now.end}`)) {
             dailyPlaytime.value = result
-            playtimeLoaded.value = true
+            loadedRangeKey.value = `${now.start}\0${now.end}`
         }
     } catch (error) {
         const now = fetchRange.value
         if (playtimeRequests.isCurrent(request, `${now.start}\0${now.end}`)) {
             handleError(error)
             dailyPlaytime.value = []
+            loadedRangeKey.value = null
         }
     }
 }

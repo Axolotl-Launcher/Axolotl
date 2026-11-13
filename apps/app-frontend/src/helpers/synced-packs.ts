@@ -3,9 +3,9 @@ import { queryOptions } from '@tanstack/vue-query'
 import { invoke } from '@tauri-apps/api/core'
 
 import { adaptContentItems, isSyncedOptionAvailable } from './instance'
-import type { DesyncServerMode } from './worlds'
 
 export type SyncedPackType = 'resourcepack' | 'datapack'
+export type DesyncServerMode = 'KeepInOtherInstances' | 'RemoveFromOtherInstances'
 export type SyncedPackAction = 'enable' | 'disable'
 
 export function isSyncedPackTypeAvailable(projectType: ContentItem['project_type']): boolean {

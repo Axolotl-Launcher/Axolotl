@@ -1132,6 +1132,14 @@ async fn a_disk_edit_during_network_work_cannot_publish_a_candidate_for_the_old_
 
 #[tokio::test]
 async fn retry_failed_entries_does_not_requery_successful_peers() {
+    recover_failed_entry(RefreshMode::RetryFailed).await;
+    recover_failed_entry(RefreshMode::Normal).await;
+}
+
+async fn recover_failed_entry(mode: RefreshMode) {
+    use crate::state::store::content_refresh_presentations::{
+        ContentRefreshPresentations, PresentationKey,
+    };
     let (_temp, state, provider) = fixture().await;
     state
         .content_refresh
@@ -1159,7 +1167,25 @@ async fn retry_failed_entries_does_not_requery_successful_peers() {
     .await
     .unwrap()
     .unwrap();
-    slow.failed(chrono::Utc::now().timestamp(), "offline".into());
+    let before = content_snapshot::get(&state.data, "instance")
+        .await
+        .unwrap();
+    let fast_presentation =
+        serde_json::to_value(before.presentations.get(&fast.file_id).unwrap())
+            .unwrap();
+    ContentRefreshPresentations::set(
+        &state.data,
+        &PresentationKey {
+            instance_id: "instance".into(),
+            file_id: slow.file_id.clone(),
+        },
+        None,
+    )
+    .await
+    .unwrap();
+    let attempted_at = chrono::Utc::now().timestamp()
+        - if mode == RefreshMode::Normal { 300 } else { 0 };
+    slow.failed(attempted_at, "offline".into());
     ContentRefreshChecks::set(
         &state.data,
         &RefreshCheckKey {
@@ -1173,7 +1199,7 @@ async fn retry_failed_entries_does_not_requery_successful_peers() {
     provider.queries.store(0, Ordering::SeqCst);
     state
         .content_refresh
-        .start(state.clone(), "instance".into(), RefreshMode::RetryFailed)
+        .start(state.clone(), "instance".into(), mode)
         .await
         .unwrap();
     finished(&state).await;
@@ -1205,6 +1231,32 @@ async fn retry_failed_entries_does_not_requery_successful_peers() {
         CheckAttempt::Succeeded
     );
     assert!(provider.queries.load(Ordering::SeqCst) < 6);
+    let after = content_snapshot::get(&state.data, "instance")
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(after.presentations.get(&fast.file_id).unwrap())
+            .unwrap(),
+        fast_presentation
+    );
+    let recovered = after.presentations.get(&slow.file_id).unwrap();
+    assert_eq!(
+        recovered.content.project.as_ref().unwrap().title,
+        "Title slow"
+    );
+    assert_eq!(
+        recovered.content.owner.as_ref().unwrap().name,
+        "ExampleAuthor"
+    );
+    let refreshed = state
+        .content_refresh
+        .state(&state, "instance")
+        .await
+        .unwrap();
+    assert!(!refreshed.snapshot.warnings.iter().any(|warning| {
+        warning.code == "resource_update_unavailable"
+            && warning.entry_id.as_deref() == Some("slow")
+    }));
     state.content_refresh.shutdown().await;
     state.pool.close().await;
 }
@@ -1275,12 +1327,12 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
     assert!(!pack_needs_refresh(
         Some(&restored),
         RefreshMode::Normal,
-        110 + REMOTE_CACHE_SECONDS - 1
+        110 + 299
     ));
     assert!(pack_needs_refresh(
         Some(&restored),
         RefreshMode::Normal,
-        110 + REMOTE_CACHE_SECONDS
+        110 + 300
     ));
     let recovered =
         pack_attempt(Some(restored), location, link, 120, &Ok(None));
@@ -1293,6 +1345,16 @@ async fn pack_failures_survive_reload_and_retry_preserves_success_until_recovere
         .unwrap();
     assert!(restored.last_error.is_none());
     assert!(restored.pack.is_none());
+    assert!(!pack_needs_refresh(
+        Some(&restored),
+        RefreshMode::Normal,
+        120 + REMOTE_CACHE_SECONDS - 1
+    ));
+    assert!(pack_needs_refresh(
+        Some(&restored),
+        RefreshMode::Normal,
+        120 + REMOTE_CACHE_SECONDS
+    ));
     assert!(!pack_needs_refresh(
         Some(&restored),
         RefreshMode::RetryFailed,

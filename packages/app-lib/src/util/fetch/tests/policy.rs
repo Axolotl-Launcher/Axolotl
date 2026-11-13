@@ -49,3 +49,40 @@ fn source_matching_is_origin_safe() {
     assert!(header_requires_official_only("Authorization"));
     assert!(!is_sensitive_header("accept"));
 }
+
+#[tokio::test]
+async fn range_protocol_cooldown_expires_and_success_clears_failures() {
+    let _guard = super::fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    RANGE_SPLITTING_PROTOCOL_FAILURES.lock().clear();
+    let mut download_route = route(
+        "http://range-policy.invalid/file".to_owned(),
+        DownloadRouteSource::Official,
+        false,
+        true,
+    );
+    download_route.proxy = ProxyPolicy::Direct;
+    let authority = crate::util::download::proxy_context::authority_key(
+        &range_splitting_authority(&download_route).unwrap(),
+        download_route.proxy,
+    );
+    disable_range_splitting(&download_route);
+    disable_range_splitting(&download_route);
+    assert!(!range_splitting_allowed(&download_route));
+    RANGE_SPLITTING_PROTOCOL_FAILURES
+        .lock()
+        .get_mut(&authority)
+        .unwrap()
+        .1 = std::time::Instant::now() - Duration::from_secs(31);
+    assert!(range_splitting_allowed(&download_route));
+    disable_range_splitting(&download_route);
+    assert!(range_splitting_allowed(&download_route));
+    disable_range_splitting(&download_route);
+    assert!(!range_splitting_allowed(&download_route));
+    record_range_splitting_success(&download_route);
+    assert!(range_splitting_allowed(&download_route));
+    assert!(
+        !RANGE_SPLITTING_PROTOCOL_FAILURES
+            .lock()
+            .contains_key(&authority)
+    );
+}

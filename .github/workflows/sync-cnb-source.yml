@@ -20,6 +20,10 @@ concurrency:
 jobs:
   sync:
     name: Sync Git ref
+    # Pushes made by Dependabot never receive repository secrets, so the mirror
+    # cannot authenticate. Its dependency branches are mirrored once the content
+    # reaches a branch or tag pushed by a maintainer.
+    if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

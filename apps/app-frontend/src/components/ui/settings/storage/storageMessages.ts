@@ -44,6 +44,10 @@ export const storageMessages = defineMessages({
         id: 'app.settings.storage.cacheClearFailed',
         defaultMessage: 'Could not clear the cache. Please try again.',
     },
+    unknownError: {
+        id: 'app.settings.storage.unknownError',
+        defaultMessage: 'Unknown error',
+    },
     clearingCache: {
         id: 'app.settings.storage.clearingCache',
         defaultMessage: 'Clearing cache\u2026',

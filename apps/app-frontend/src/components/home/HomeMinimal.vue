@@ -23,13 +23,16 @@ import dayjs from 'dayjs'
 import { computed, onUnmounted, ref, watch } from 'vue'
 
 import HomeGreeting from '@/components/home/HomeGreeting.vue'
+import GameDirectoryBadge from '@/components/ui/instance/GameDirectoryBadge.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { trackEvent } from '@/helpers/analytics'
 import { process_listener } from '@/helpers/events'
+import { hasMultipleGameDirectories, resolveGameDirectory } from '@/helpers/game-directory'
 import { install_existing_instance, install_pack_to_existing_instance } from '@/helpers/install'
 import { kill, run } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { get_by_instance_id } from '@/helpers/process'
 import type { GameInstance } from '@/helpers/types'
 import { handleSevereError } from '@/store/error'
@@ -89,6 +92,10 @@ const messages = defineMessages({
 const selectedInstance = computed(() =>
     props.instances.find((instance) => instance.id === props.selectedInstanceId),
 )
+const showGameDirectory = computed(() => hasMultipleGameDirectories(props.instances))
+const selectedGameDirectory = computed(() =>
+    selectedInstance.value ? resolveGameDirectory(selectedInstance.value) : null,
+)
 const processQuery = useQuery({
     queryKey: computed(() => ['home', 'instance-processes', selectedInstance.value?.id]),
     queryFn: () => get_by_instance_id(selectedInstance.value!.id),
@@ -105,6 +112,8 @@ const installing = computed(
 const busy = computed(
     () =>
         loading.value ||
+        (selectedInstance.value != null &&
+            instanceLaunchStartedAt(selectedInstance.value.id) !== undefined) ||
         installing.value ||
         processQuery.isFetching.value ||
         (currentEvent.value === 'launched' && !running.value),
@@ -212,10 +221,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <section
-        data-onboarding-id="home-instances"
-        class="minimal-home-stage flex min-w-0 items-center justify-center px-6 pb-14 pt-8"
-    >
+    <section class="minimal-home-stage flex min-w-0 items-center justify-center px-6 pb-14 pt-8">
         <div class="flex w-full max-w-3xl flex-col items-center text-center">
             <HomeGreeting :player-name="playerName" variant="minimal" />
 
@@ -254,6 +260,10 @@ onUnmounted(() => {
                                         <TimerIcon class="size-4 shrink-0" aria-hidden="true" />
                                         <span class="truncate">{{ lastPlayed }}</span>
                                     </span>
+                                    <GameDirectoryBadge
+                                        v-if="showGameDirectory && selectedGameDirectory"
+                                        :directory="selectedGameDirectory"
+                                    />
                                 </div>
                             </div>
                         </router-link>

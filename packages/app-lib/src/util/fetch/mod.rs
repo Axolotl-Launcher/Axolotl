@@ -13,6 +13,7 @@ mod segmented;
 mod tail;
 mod throttle;
 mod transfer;
+mod weighted;
 
 #[cfg(test)]
 mod tests;
@@ -38,7 +39,6 @@ pub(crate) use self::progress::*;
 pub(crate) use self::request::*;
 pub use self::request::{
     fetch, fetch_advanced, fetch_json, fetch_json_nonempty, fetch_official,
-    post_json,
 };
 pub use self::routes::resolve_download_routes_for;
 pub(crate) use self::routes::*;

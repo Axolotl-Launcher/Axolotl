@@ -3,12 +3,6 @@
     <FileUnsavedChangesModal ref="unsavedChangesModal" />
     <FileCreateItemModal ref="createItemModal" :type="newItemType" @create="handleCreateNewItem" />
     <FileUploadConflictModal ref="uploadConflictModal" @proceed="handleExtractConfirm" />
-    <FileUploadZipUrlModal
-        v-if="ctx.showInstallFromUrl"
-        ref="uploadZipUrlModal"
-        :disabled="isBusy"
-        :disabled-tooltip="busyTooltip"
-    />
     <FileRenameItemModal ref="renameItemModal" :item="selectedItem" @rename="handleRenameItem" />
     <FileMoveItemModal
         ref="moveItemModal"
@@ -54,7 +48,6 @@
                     :is-editor-find-open="fileEditorRef?.isFindOpen"
                     :search-query="searchQuery"
                     :show-refresh-button="showRefreshButton"
-                    :show-install-from-url="ctx.showInstallFromUrl"
                     :base-id="baseId"
                     :disabled="isBusy"
                     :disabled-tooltip="busyTooltip"
@@ -63,7 +56,6 @@
                     @prefetch-home="handlePrefetchHome"
                     @update:search-query="searchQuery = $event"
                     @create="showCreateModal"
-                    @unzip-from-url="showUnzipFromUrlModal"
                     @refresh="ctx.refresh"
                     @share="() => fileEditorRef?.shareLog()"
                     @find="() => fileEditorRef?.toggleFind()"
@@ -153,7 +145,6 @@
                     v-else
                     ref="fileEditorRef"
                     :file="ctx.editingFile.value"
-                    :editor-component="editorComponent"
                     @close="handleEditorClose"
                 />
             </div>
@@ -218,8 +209,7 @@ import {
     SaveIcon,
     TrashIcon,
 } from '@modrinth/assets'
-import type { Component } from 'vue'
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import Button from '#ui/components/base/buttons/Button.vue'
 import FloatingActionBar from '#ui/components/base/FloatingActionBar.vue'
@@ -242,7 +232,6 @@ import FileMoveItemModal from './components/modals/FileMoveItemModal.vue'
 import FileRenameItemModal from './components/modals/FileRenameItemModal.vue'
 import FileUnsavedChangesModal from './components/modals/FileUnsavedChangesModal.vue'
 import FileUploadConflictModal from './components/modals/FileUploadConflictModal.vue'
-import FileUploadZipUrlModal from './components/modals/FileUploadZipUrlModal.vue'
 import { useFileSearch } from './composables/file-search'
 import { useFileSelection } from './composables/file-selection'
 import { useFileSorting } from './composables/file-sorting'
@@ -298,16 +287,6 @@ defineProps<{
 
 const { addNotification } = injectNotificationManager()
 const ctx = injectFileManager()
-
-const editorComponent = shallowRef<Component | null>(null)
-import('vue3-ace-editor')
-    .then(async (mod) => {
-        await Promise.all([import('#ui/utils/ace-theme'), import('#ui/utils/ace-mode-log.ts')])
-        editorComponent.value = mod.VAceEditor
-    })
-    .catch((error) => {
-        console.error('Failed to load the code editor:', error)
-    })
 
 const baseId = `files-${Math.random().toString(36).slice(2, 9)}`
 
@@ -373,7 +352,6 @@ const renameItemModal = ref<InstanceType<typeof FileRenameItemModal>>()
 const moveItemModal = ref<InstanceType<typeof FileMoveItemModal>>()
 const deleteItemModal = ref<InstanceType<typeof FileDeleteItemModal>>()
 const uploadConflictModal = ref<InstanceType<typeof FileUploadConflictModal>>()
-const uploadZipUrlModal = ref<InstanceType<typeof FileUploadZipUrlModal>>()
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu>>()
 
 const newItemType = ref<'file' | 'directory'>('file')
@@ -571,11 +549,6 @@ function showCreateModal(type: 'file' | 'directory') {
     if (isBusy.value) return
     newItemType.value = type
     createItemModal.value?.show()
-}
-
-function showUnzipFromUrlModal(cf: boolean) {
-    if (isBusy.value) return
-    uploadZipUrlModal.value?.show(cf)
 }
 
 function showRenameModal(item: FileItem) {

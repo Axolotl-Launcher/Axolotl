@@ -533,13 +533,24 @@ pub(crate) fn legacy_library_download_urls(
 
     let repository = repository.unwrap_or(LIBRARIES_MAVEN);
     let mut repository_url = Url::parse(repository).ok()?;
-    if repository_url.scheme() != "https"
-        || repository_url.host_str().is_none()
+    if repository_url.host_str().is_none()
         || !repository_url.username().is_empty()
         || repository_url.password().is_some()
         || repository_url.query().is_some()
         || repository_url.fragment().is_some()
     {
+        return None;
+    }
+    // Old Forge manifests use the retired HTTP Maven root. Upgrade only that
+    // exact public repository, after rejecting credentials and URL suffixes.
+    if matches!(repository_url.scheme(), "http" | "https")
+        && repository_url.host_str() == Some("files.minecraftforge.net")
+        && repository_url.port().is_none()
+        && matches!(repository_url.path(), "/maven" | "/maven/")
+    {
+        repository_url = Url::parse(FORGE_MAVEN).ok()?;
+    }
+    if repository_url.scheme() != "https" {
         return None;
     }
     let normalized_path =
@@ -2073,6 +2084,10 @@ pub async fn download_assets(
 
     let mut batch_items = coalesce_batch_assets(batch_items);
 
+    if st.force_multiconnection_downloads() {
+        fallback_assets.extend(batch_items.drain(..).map(fallback_batch_asset));
+    }
+
     // Batch-download the object files over a single shared HTTP/2 connection:
     // hundreds of concurrent multiplexed streams, one connection per
     // authority — never one connection per file.
@@ -2203,7 +2218,11 @@ pub async fn download_assets(
             .map(Ok::<FallbackAsset, crate::Error>)
             .try_for_each_concurrent(st.download_concurrency().clamp(1, ASSET_BATCH_CONCURRENCY), |item| {
                 let progress = progress.clone();
-                let semaphore = &asset_download_semaphore;
+                let semaphore = if st.force_multiconnection_downloads() {
+                    &st.download_semaphore
+                } else {
+                    &asset_download_semaphore
+                };
                 async move {
                     let resource_path = &item.resource_path;
                     let hash = &item.hash;
@@ -3744,6 +3763,38 @@ mod tests {
     }
 
     #[test]
+    fn legacy_forge_repository_is_upgraded_without_allowing_other_http_sources()
+    {
+        let artifact = "net/minecraftforge/forge/1.12.2-14.23.5.2847/forge-1.12.2-14.23.5.2847.jar";
+        for repository in [
+            "http://files.minecraftforge.net/maven",
+            "http://files.minecraftforge.net/maven/",
+            "https://files.minecraftforge.net/maven/",
+        ] {
+            let candidates =
+                legacy_library_download_urls(Some(repository), artifact)
+                    .unwrap();
+            assert_eq!(candidates[0], format!("{FORGE_MAVEN}/{artifact}"));
+            assert!(candidates.iter().all(|url| url.starts_with("https://")));
+        }
+        for repository in [
+            "http://files.minecraftforge.net.evil.invalid/maven/",
+            "http://files.minecraftforge.net/other/",
+            "http://files.minecraftforge.net:8080/maven/",
+            "http://user@files.minecraftforge.net/maven/",
+            "http://files.minecraftforge.net/maven/?token=secret",
+            "http://files.minecraftforge.net/maven/#fragment",
+            "ftp://files.minecraftforge.net/maven/",
+        ] {
+            assert!(
+                legacy_library_download_urls(Some(repository), artifact)
+                    .is_none(),
+                "{repository}"
+            );
+        }
+    }
+
+    #[test]
     fn legacy_maven_download_uses_trusted_declared_paths() {
         assert_eq!(
             legacy_library_download_urls(
@@ -3818,13 +3869,25 @@ mod tests {
         writer.finish().unwrap();
     }
 
+    fn native_test_classifier() -> &'static str {
+        if cfg!(windows) {
+            "natives-windows"
+        } else if cfg!(target_os = "macos") {
+            "natives-osx"
+        } else {
+            "natives-linux"
+        }
+    }
+
     fn modern_native_library(sha1: &str) -> Library {
+        let classifier = native_test_classifier();
+        let os_key = classifier.trim_start_matches("natives-");
         serde_json::from_value(serde_json::json!({
             "name": "org.lwjgl:lwjgl-platform:3.2.1",
-            "natives": { "windows": "natives-windows" },
+            "natives": { (os_key): classifier },
             "downloads": {
                 "classifiers": {
-                    "natives-windows": {
+                    (classifier): {
                         "sha1": sha1,
                         "size": 64,
                         "url": "https://example.com/natives.jar"
@@ -4032,9 +4095,10 @@ mod tests {
         let natives_root = directory.path().join("natives");
         let libraries_dir = directory.path().join("libraries");
         let caches_dir = directory.path().join("caches");
-        let archive = libraries_dir.join(
-            "org/lwjgl/lwjgl-platform/3.2.1/lwjgl-platform-3.2.1-natives-windows.jar",
-        );
+        let archive = libraries_dir.join(format!(
+            "org/lwjgl/lwjgl-platform/3.2.1/lwjgl-platform-3.2.1-{}.jar",
+            native_test_classifier()
+        ));
         std::fs::create_dir_all(archive.parent().unwrap()).unwrap();
         write_native_archive(&archive, &[("lwjgl.dll", b"from-libraries")]);
 
@@ -4064,9 +4128,10 @@ mod tests {
         let natives_root = directory.path().join("natives");
         let libraries_dir = directory.path().join("libraries");
         let caches_dir = directory.path().join("caches");
-        let archive = libraries_dir.join(
-            "org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-natives-windows.jar",
-        );
+        let archive = libraries_dir.join(format!(
+            "org/lwjgl/lwjgl/lwjgl-platform/2.9.0/lwjgl-platform-2.9.0-{}.jar",
+            native_test_classifier()
+        ));
         std::fs::create_dir_all(archive.parent().unwrap()).unwrap();
         write_native_archive(&archive, &[("lwjgl.dll", b"legacy-binary")]);
 

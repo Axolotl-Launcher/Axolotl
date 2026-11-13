@@ -1,8 +1,7 @@
 <template>
-    <div data-onboarding-id="creation-import" class="flex flex-col gap-4">
-        <div data-onboarding-id="creation-import-methods" class="flex flex-col gap-3">
+    <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-3">
             <BigOptionButton
-                data-onboarding-id="creation-import-file"
                 :icon="FileIcon"
                 no-icon-border
                 :title="formatMessage(messages.selectFile)"
@@ -10,7 +9,6 @@
                 @click="handleOpenFilePicker"
             />
             <BigOptionButton
-                data-onboarding-id="creation-import-folder"
                 :icon="FolderIcon"
                 no-icon-border
                 :title="formatMessage(messages.selectFolder)"

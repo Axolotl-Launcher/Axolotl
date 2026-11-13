@@ -1,5 +1,7 @@
 import { gunzipSync, strFromU8 } from 'fflate'
 
+import { errorText } from '@/helpers/error-text'
+
 import type {
     StructureBlocksRequest,
     StructureBlocksResponse,
@@ -11,7 +13,11 @@ import {
     structureChestBlocks,
 } from './structure-blocks'
 
-const scope = self as DedicatedWorkerGlobalScope
+type WorkerScope = {
+    onmessage: ((event: MessageEvent<StructureBlocksRequest>) => void) | null
+    postMessage(message: unknown, transfer?: Transferable[]): void
+}
+const scope = self as unknown as WorkerScope
 const packs = import.meta.glob('./assets/versions/*/structures.json.gz', {
     query: '?url',
     import: 'default',
@@ -42,7 +48,7 @@ scope.onmessage = async (event: MessageEvent<StructureBlocksRequest>) => {
     } catch (error) {
         scope.postMessage({
             type: 'error',
-            message: error instanceof Error ? error.message : String(error),
+            message: errorText(error),
         } satisfies StructureBlocksResponse)
     }
 }

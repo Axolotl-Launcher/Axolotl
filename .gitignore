@@ -87,7 +87,6 @@ access-jwt*.txt
 /.agents/plans/
 /.agents/tmp/
 /.agents/cache/
-/.agents/plans/
 
 # Oh My Code
 .omc/

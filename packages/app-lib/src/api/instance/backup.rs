@@ -282,12 +282,11 @@ struct RestoreJournalRoot {
 pub(crate) async fn lock_instance_maintenance(
     instance_id: &str,
 ) -> tokio::sync::OwnedMutexGuard<()> {
-    INSTANCE_MAINTENANCE_LOCKS
+    let lock = INSTANCE_MAINTENANCE_LOCKS
         .entry(instance_id.to_string())
         .or_insert_with(|| Arc::new(Mutex::new(())))
-        .clone()
-        .lock_owned()
-        .await
+        .clone();
+    lock.lock_owned().await
 }
 
 fn default_repository_path(state: &State) -> PathBuf {
@@ -493,7 +492,12 @@ fn reserve_instance_operation(
     Ok(())
 }
 
+/// Records the operation's progress.
+///
+/// `pool` is the repository the operation already holds open; a write that has
+/// none opens one for itself, which is what a caller outside an operation does.
 async fn update_persisted_operation(
+    pool: Option<&SqlitePool>,
     operation_id: Uuid,
     state: BackupOperationState,
     processed_bytes: Option<u64>,
@@ -502,6 +506,20 @@ async fn update_persisted_operation(
     error: Option<&str>,
     snapshot_id: Option<&str>,
 ) {
+    if let Some(pool) = pool {
+        write_operation_progress(
+            pool,
+            operation_id,
+            state,
+            processed_bytes,
+            total_bytes,
+            cancellable,
+            error,
+            snapshot_id,
+        )
+        .await;
+        return;
+    }
     if !State::initialized() {
         return;
     }
@@ -512,6 +530,30 @@ async fn update_persisted_operation(
     else {
         return;
     };
+    write_operation_progress(
+        &pool,
+        operation_id,
+        state,
+        processed_bytes,
+        total_bytes,
+        cancellable,
+        error,
+        snapshot_id,
+    )
+    .await;
+    pool.close().await;
+}
+
+async fn write_operation_progress(
+    pool: &SqlitePool,
+    operation_id: Uuid,
+    state: BackupOperationState,
+    processed_bytes: Option<u64>,
+    total_bytes: Option<u64>,
+    cancellable: Option<bool>,
+    error: Option<&str>,
+    snapshot_id: Option<&str>,
+) {
     let now = Utc::now().timestamp_millis();
     let finished_at = state.is_terminal().then_some(now);
     let _ = sqlx::query(
@@ -529,9 +571,8 @@ async fn update_persisted_operation(
     .bind(now)
     .bind(finished_at)
     .bind(operation_id.to_string())
-    .execute(&pool)
+    .execute(pool)
     .await;
-    pool.close().await;
 }
 
 async fn store_restore_preview(
@@ -584,7 +625,7 @@ pub async fn list_operations(
         query.push_str(" AND state NOT IN ('completed', 'cancelled', 'failed', 'interrupted')");
     }
     query.push_str(" ORDER BY created_at DESC");
-    let mut request = sqlx::query(&query);
+    let mut request = sqlx::query(sqlx::AssertSqlSafe(query));
     if let Some(instance_id) = instance_id {
         request = request.bind(instance_id);
     }
@@ -1210,6 +1251,7 @@ fn snapshot_from_row(row: sqlx::sqlite::SqliteRow) -> BackupSnapshot {
 }
 
 async fn emit_backup_progress(
+    pool: Option<&SqlitePool>,
     operation_id: Uuid,
     instance_id: Option<&str>,
     operation_type: InstanceBackupOperationType,
@@ -1250,6 +1292,7 @@ async fn emit_backup_progress(
     };
     if let Some(state) = persisted_state {
         update_persisted_operation(
+            pool,
             operation_id,
             state,
             Some(processed_bytes),
@@ -1362,6 +1405,7 @@ pub async fn start_snapshot(instance_id: String) -> crate::Result<Uuid> {
             }
         };
         update_persisted_operation(
+            None,
             operation_id,
             operation_state,
             Some(total_bytes),
@@ -1501,6 +1545,7 @@ async fn create_snapshot_inner(
     io::create_dir_all(&staging).await?;
     let mut created_objects = HashSet::new();
     let mut scan_result = scan_snapshot_attempt(
+        Some(&pool),
         &root,
         &repository,
         &staging,
@@ -1517,6 +1562,7 @@ async fn create_snapshot_inner(
         let _ = io::remove_dir_all(&staging).await;
         io::create_dir_all(&staging).await?;
         scan_result = scan_snapshot_attempt(
+            Some(&pool),
             &root,
             &repository,
             &staging,
@@ -1569,6 +1615,7 @@ async fn create_snapshot_inner(
         .into());
     }
     emit_backup_progress(
+        Some(&pool),
         operation_id,
         Some(instance_id),
         InstanceBackupOperationType::Create,
@@ -1664,6 +1711,7 @@ async fn create_snapshot_inner(
 }
 
 async fn scan_snapshot_attempt(
+    pool: Option<&SqlitePool>,
     root: &Path,
     repository: &Path,
     staging: &Path,
@@ -1674,6 +1722,7 @@ async fn scan_snapshot_attempt(
     created_objects: &mut HashSet<String>,
 ) -> crate::Result<(Vec<PendingEntry>, u64)> {
     emit_backup_progress(
+        pool,
         operation_id,
         Some(instance_id),
         InstanceBackupOperationType::Create,
@@ -1687,6 +1736,7 @@ async fn scan_snapshot_attempt(
     .await;
     let total_bytes = measure_snapshot(root, exclusions, cancellation).await?;
     emit_backup_progress(
+        pool,
         operation_id,
         Some(instance_id),
         InstanceBackupOperationType::Create,
@@ -1699,6 +1749,7 @@ async fn scan_snapshot_attempt(
     )
     .await;
     scan_snapshot(
+        pool,
         root,
         repository,
         staging,
@@ -1756,6 +1807,7 @@ async fn measure_snapshot(
 }
 
 async fn scan_snapshot(
+    pool: Option<&SqlitePool>,
     root: &Path,
     repository: &Path,
     staging: &Path,
@@ -1865,6 +1917,7 @@ async fn scan_snapshot(
         }
         processed_bytes = processed_bytes.saturating_add(size);
         emit_backup_progress(
+            pool,
             operation_id,
             Some(instance_id),
             InstanceBackupOperationType::Create,
@@ -2056,6 +2109,7 @@ async fn snapshot_operation_metadata(
 pub async fn delete_snapshot(snapshot_id: &str) -> crate::Result<()> {
     let operation_id = Uuid::new_v4();
     emit_backup_progress(
+        None,
         operation_id,
         None,
         InstanceBackupOperationType::Delete,
@@ -2071,6 +2125,7 @@ pub async fn delete_snapshot(snapshot_id: &str) -> crate::Result<()> {
         match snapshot_operation_metadata(snapshot_id).await {
             Ok((instance_id, total_bytes)) => {
                 emit_backup_progress(
+                    None,
                     operation_id,
                     Some(&instance_id),
                     InstanceBackupOperationType::Delete,
@@ -2108,6 +2163,7 @@ pub async fn delete_snapshot(snapshot_id: &str) -> crate::Result<()> {
         ),
     };
     emit_backup_progress(
+        None,
         operation_id,
         instance_id,
         InstanceBackupOperationType::Delete,
@@ -2761,6 +2817,7 @@ pub async fn start_restore_preview(snapshot_id: &str) -> crate::Result<Uuid> {
             };
         cancellable.store(false, Ordering::Release);
         update_persisted_operation(
+            None,
             operation_id,
             state,
             Some(processed_bytes),
@@ -2771,6 +2828,7 @@ pub async fn start_restore_preview(snapshot_id: &str) -> crate::Result<Uuid> {
         )
         .await;
         emit_backup_progress(
+            None,
             operation_id,
             Some(&instance_id),
             InstanceBackupOperationType::RestorePreview,
@@ -2844,6 +2902,7 @@ pub async fn restore_snapshot(
     let plan_token = plan_token.to_string();
     tokio::spawn(async move {
         emit_backup_progress(
+            None,
             operation_id,
             Some(&instance_id),
             InstanceBackupOperationType::Restore,
@@ -2857,6 +2916,7 @@ pub async fn restore_snapshot(
         .await;
         if cancellation.is_cancelled() {
             update_persisted_operation(
+                None,
                 operation_id,
                 BackupOperationState::Cancelled,
                 Some(0),
@@ -2901,6 +2961,7 @@ pub async fn restore_snapshot(
             ),
         };
         update_persisted_operation(
+            None,
             operation_id,
             state,
             Some(processed_bytes),
@@ -2911,6 +2972,7 @@ pub async fn restore_snapshot(
         )
         .await;
         emit_backup_progress(
+            None,
             operation_id,
             Some(&instance_id),
             InstanceBackupOperationType::Restore,
@@ -3058,6 +3120,7 @@ async fn build_restore_plan(
         }
     }
     let current = scan_restore_entries(
+        Some(pool),
         root,
         whole_root,
         &selected_roots,
@@ -3069,6 +3132,7 @@ async fn build_restore_plan(
 }
 
 async fn scan_restore_entries(
+    pool: Option<&SqlitePool>,
     root: &Path,
     whole_root: bool,
     selected_roots: &[(String, bool)],
@@ -3167,6 +3231,7 @@ async fn scan_restore_entries(
         }
         if let Some(progress) = progress {
             emit_backup_progress(
+                pool,
                 progress.operation_id,
                 Some(&progress.instance_id),
                 InstanceBackupOperationType::RestorePreview,
@@ -3507,6 +3572,7 @@ async fn restore_snapshot_inner(
         .into());
     }
     update_persisted_operation(
+        Some(&pool),
         operation_id,
         BackupOperationState::Materializing,
         Some(0),
@@ -3552,6 +3618,7 @@ async fn restore_snapshot_inner(
         return Err(error);
     }
     update_persisted_operation(
+        Some(&pool),
         operation_id,
         BackupOperationState::Applying,
         None,
@@ -3837,6 +3904,7 @@ pub async fn start_repository_move(
     )
     .await?;
     update_persisted_operation(
+        None,
         operation_id,
         BackupOperationState::Queued,
         Some(0),
@@ -3848,6 +3916,7 @@ pub async fn start_repository_move(
     .await;
     tokio::spawn(async move {
         emit_backup_progress(
+            None,
             operation_id,
             None,
             InstanceBackupOperationType::RepositoryMove,
@@ -3878,6 +3947,7 @@ pub async fn start_repository_move(
             ),
         };
         update_persisted_operation(
+            None,
             operation_id,
             state,
             Some(processed_bytes),
@@ -3888,6 +3958,7 @@ pub async fn start_repository_move(
         )
         .await;
         emit_backup_progress(
+            None,
             operation_id,
             None,
             InstanceBackupOperationType::RepositoryMove,
@@ -4103,6 +4174,28 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn maintenance_lock_wait_does_not_hold_registry_shard() {
+        use std::future::Future;
+        let instance = format!("lock-test-{}", Uuid::new_v4());
+        let held = lock_instance_maintenance(&instance).await;
+        {
+            let mut waiting =
+                std::pin::pin!(lock_instance_maintenance(&instance));
+            let mut context =
+                std::task::Context::from_waker(std::task::Waker::noop());
+            assert!(waiting.as_mut().poll(&mut context).is_pending());
+            assert!(
+                INSTANCE_MAINTENANCE_LOCKS
+                    .try_entry(instance.clone())
+                    .is_some()
+            );
+            drop(held);
+            waiting.await;
+        }
+        INSTANCE_MAINTENANCE_LOCKS.remove(&instance);
+    }
+
+    #[tokio::test]
     async fn committed_restore_housekeeping_leaves_unfinished_restores_and_instances_untouched()
      {
         let directory = tempfile::tempdir().unwrap();
@@ -4239,6 +4332,7 @@ mod tests {
             .unwrap();
 
         let entries = scan_restore_entries(
+            None,
             temp.path(),
             true,
             &[],
@@ -4384,7 +4478,12 @@ mod tests {
 
     #[test]
     fn rejects_paths_outside_the_instance() {
-        for path in ["", ".", "..", "../saves", "/saves", "C:\\saves"] {
+        let mut paths = vec!["", ".", "..", "../saves", "/saves"];
+        // A drive-relative path only exists on Windows; on Unix `C:/saves` is
+        // an ordinary relative directory name.
+        #[cfg(windows)]
+        paths.push("C:\\saves");
+        for path in paths {
             assert!(normalize_relative_directory(path).is_err(), "{path}");
         }
     }
@@ -4706,6 +4805,7 @@ mod tests {
 
         let mut first_objects = HashSet::new();
         let (first_entries, first_added) = scan_snapshot(
+            None,
             &instance,
             &repository,
             &staging,
@@ -4755,6 +4855,7 @@ mod tests {
         tokio::fs::create_dir_all(&second_staging).await.unwrap();
         let mut second_objects = HashSet::new();
         let (second_entries, second_added) = scan_snapshot(
+            None,
             &instance,
             &repository,
             &second_staging,

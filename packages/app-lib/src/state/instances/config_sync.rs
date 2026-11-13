@@ -107,6 +107,9 @@ pub(crate) async fn sync_instance(
     state: &State,
     instance_id: &str,
 ) -> crate::Result<()> {
+    // Keep the metadata read and file write in the same critical section as
+    // deletion, so a sync cannot recreate a file while the profile is removed.
+    let _instance_lock = state.lock_instance_content(instance_id).await;
     sync_instance_with_dirs(&state.directories, &state.pool, instance_id).await
 }
 
@@ -156,19 +159,14 @@ async fn sync_instance_with_dirs(
 }
 
 pub(crate) async fn reconcile_all(state: &State) -> crate::Result<()> {
-    reconcile_all_with_dirs(&state.directories, &state.pool).await
-}
-
-async fn reconcile_all_with_dirs(
-    dirs: &DirectoryInfo,
-    pool: &SqlitePool,
-) -> crate::Result<()> {
-    let rows = config_sync_rows::list_instance_config_sync_rows(pool).await?;
+    let rows =
+        config_sync_rows::list_instance_config_sync_rows(&state.pool).await?;
 
     for row in rows {
-        let file_exists = tokio::fs::try_exists(config_path(dirs, &row.path))
-            .await
-            .unwrap_or(false);
+        let file_exists =
+            tokio::fs::try_exists(config_path(&state.directories, &row.path))
+                .await
+                .unwrap_or(false);
         let needs_sync = !file_exists
             || row.generated_at.is_none()
             || row.config_updated_at.is_none()
@@ -178,9 +176,7 @@ async fn reconcile_all_with_dirs(
             continue;
         }
 
-        if let Err(error) =
-            sync_instance_with_dirs(dirs, pool, &row.instance_id).await
-        {
+        if let Err(error) = sync_instance(state, &row.instance_id).await {
             tracing::warn!(
                 "Failed to sync instance config for {}: {error}",
                 row.instance_id
@@ -688,6 +684,16 @@ mod tests {
     async fn reconcile_all_rebuilds_missing_file() {
         let (temp, dirs) = test_dirs();
         let pool = test_pool().await;
+        let state = crate::state::test_state(
+            DirectoryInfo {
+                settings_dir: dirs.settings_dir.clone(),
+                config_dir: dirs.config_dir.clone(),
+                app_identifier: dirs.app_identifier.clone(),
+            },
+            pool.clone(),
+        )
+        .await
+        .unwrap();
         insert_instance(
             &dirs,
             &pool,
@@ -700,7 +706,7 @@ mod tests {
             .await
             .unwrap();
 
-        reconcile_all_with_dirs(&dirs, &pool).await.unwrap();
+        reconcile_all(&state).await.unwrap();
 
         assert!(config_path(&dirs, "Rebuild Instance").is_file());
         let generated_at = config_sync_rows::get_config_sync_generated_at(
@@ -718,6 +724,16 @@ mod tests {
     async fn reconcile_all_skips_when_state_is_latest() {
         let (temp, dirs) = test_dirs();
         let pool = test_pool().await;
+        let state = crate::state::test_state(
+            DirectoryInfo {
+                settings_dir: dirs.settings_dir.clone(),
+                config_dir: dirs.config_dir.clone(),
+                app_identifier: dirs.app_identifier.clone(),
+            },
+            pool.clone(),
+        )
+        .await
+        .unwrap();
         insert_instance(
             &dirs,
             &pool,
@@ -737,7 +753,7 @@ mod tests {
             std::fs::metadata(&path).unwrap().modified().unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
-        reconcile_all_with_dirs(&dirs, &pool).await.unwrap();
+        reconcile_all(&state).await.unwrap();
 
         let after_modified =
             std::fs::metadata(&path).unwrap().modified().unwrap();

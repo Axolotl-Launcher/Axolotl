@@ -20,6 +20,7 @@ import {
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
+import { errorText } from '@/helpers/error-text'
 import { list } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types.d.ts'
 import {
@@ -78,7 +79,7 @@ const messages = defineMessages({
     },
     noSchematics: {
         id: 'app.lab.schematic-preview.instance-picker.empty',
-        defaultMessage: 'No .litematic or .schem files were found in this instance.',
+        defaultMessage: 'No schematic files were found in this instance.',
     },
     noMatchingSchematics: {
         id: 'app.lab.schematic-preview.instance-picker.no-matching-schematics',
@@ -169,7 +170,7 @@ async function loadFiles(instanceId = selectedInstanceId.value) {
     } catch (caught) {
         if (request !== fileRequest || instanceId !== selectedInstanceId.value) return
         files.value = []
-        error.value = caught instanceof Error ? caught.message : String(caught)
+        error.value = errorText(caught)
     } finally {
         if (request === fileRequest) loadingFiles.value = false
     }
@@ -206,7 +207,7 @@ async function show(preferredInstanceId?: string) {
     } catch (caught) {
         instances.value = []
         files.value = []
-        error.value = caught instanceof Error ? caught.message : String(caught)
+        error.value = errorText(caught)
     } finally {
         loadingInstances.value = false
         await nextTick()

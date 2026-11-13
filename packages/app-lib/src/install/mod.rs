@@ -38,15 +38,46 @@ pub use model::{
 };
 pub use runner::{
     cancel_job, clear_job_history, create_instance,
-    create_instance_with_adjuncts, create_modpack_instance, dismiss_job,
-    download_java, duplicate_instance, get_job, import_instance,
-    import_instance_with_path, import_instance_with_plan,
-    install_content_batch, install_curseforge_world, install_existing_instance,
-    install_pack_to_existing_instance, job_support_details, list_jobs,
-    queue_content_change, repair_cache_and_retry_job, resume_job, retry_job,
-    retry_job_as_new, skip_missing_content_and_resume_job,
-    update_managed_curseforge_modpack, upgrade_unmanaged_instance,
+    create_instance_with_adjuncts, create_modpack_instance,
+    create_modpack_instance_with_game_dir, dismiss_job, download_java,
+    duplicate_instance, get_job, import_instance, import_instance_with_path,
+    import_instance_with_plan, install_content_batch, install_curseforge_world,
+    install_existing_instance, install_pack_to_existing_instance,
+    job_support_details, list_jobs, queue_content_change,
+    repair_cache_and_retry_job, resume_job, retry_job, retry_job_as_new,
+    skip_missing_content_and_resume_job, update_managed_curseforge_modpack,
+    upgrade_unmanaged_instance,
 };
+
+/// Returns live observations, or the bounded capture saved with a historical job.
+pub async fn job_download_diagnostics(
+    job_id: uuid::Uuid,
+    file_id: Option<&str>,
+) -> crate::Result<crate::DownloadDiagnosticsSnapshot> {
+    let state = crate::State::get().await?;
+    job_download_diagnostics_with_state(job_id, file_id, &state).await
+}
+
+pub(crate) async fn job_download_diagnostics_with_state(
+    job_id: uuid::Uuid,
+    file_id: Option<&str>,
+    state: &crate::State,
+) -> crate::Result<crate::DownloadDiagnosticsSnapshot> {
+    let live = crate::util::download::telemetry::snapshot(
+        Some(&job_id.to_string()),
+        file_id,
+    );
+    if !live.enabled {
+        return Ok(live);
+    }
+    if let Some(job) = store::get(job_id, state).await?
+        && (job.status.is_finished() || live.files.is_empty())
+        && let Some(saved) = job.state.download_diagnostics
+    {
+        return Ok(saved.snapshot(file_id));
+    }
+    Ok(live)
+}
 
 /// Replaces credentials and IP addresses in text the user may share publicly
 /// (support reports, exported logs) with placeholders.

@@ -1,0 +1,309 @@
+{
+  "id": "lhGA9TYQ",
+  "slug": "architectury-api",
+  "title": "Architectury API",
+  "description": "An intermediary api aimed to ease developing multiplatform mods.",
+  "author": "shedaniel",
+  "categories": ["fabric", "forge", "library", "neoforge", "quilt"],
+  "display_categories": ["fabric", "forge", "library", "neoforge", "quilt"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 107474146,
+  "followers": 7751,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.16.5",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19-pre1",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "22w42a",
+    "22w43a",
+    "22w44a",
+    "1.19.3-pre2",
+    "1.19.3",
+    "23w03a",
+    "1.19.4-pre3",
+    "1.19.4",
+    "23w13a",
+    "23w13a_or_b",
+    "23w18a",
+    "1.20-pre1",
+    "1.20-pre5",
+    "1.20",
+    "1.20.1",
+    "23w31a",
+    "23w32a",
+    "23w33a",
+    "23w35a",
+    "1.20.2-pre1",
+    "1.20.2-pre2",
+    "1.20.2-pre4",
+    "1.20.2",
+    "23w40a",
+    "23w41a",
+    "1.20.3-pre1",
+    "1.20.4",
+    "24w09a",
+    "24w12a",
+    "24w14potato",
+    "24w14a",
+    "1.20.5-pre1",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "24w40a",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5-pre2",
+    "1.21.5-rc1",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "dZ7iNvS4",
+  "date_created": "2020-11-16T10:40:17.116288Z",
+  "date_modified": "2026-10-09T19:30:17.890953Z",
+  "color": 1315603,
+  "published": "2020-11-16T10:40:17.116288Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/architectury/architectury/issues",
+  "source_url": "https://github.com/architectury/architectury",
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [
+    {
+      "platform": "Github",
+      "url": "https://github.com/sponsors/MaxNeedsSnacks"
+    },
+    {
+      "platform": "Patreon",
+      "url": "https://patreon.com/shedaniel"
+    }
+  ],
+  "versions_total": 413,
+  "body": "![Architectury API](https://www.bisecthosting.com/images/CF/ARCHITECTURY_API/MP_ARC_Header.webp)\n\nTalk to us on [Discord](https://discord.gg/C2RdJDpRBP)!\n\nAn intermediary api aimed to ease developing multiplatform mods.\n\n![description](https://www.bisecthosting.com/images/CF/ARCHITECTURY_API/MP_ARCHITECTURY_Description.webp)\n\n### What is Architectury API\n\nArchitectury API is an api to abstract calls to fabric api and forge api as both loader has different implementations of\nwhat can be perceived as the same thing.\n\nArchitectury API updates regularly, with new hooks and features. Currently contains over **90** events hooks, networking\nabstraction, loader calls abstraction, game registry abstraction and an easy to use @ExpectPlatform annotation (Only\nworks on static methods).\n\n### Do I really need this API?\n\nArchitectury API is only one part of the architectury ecosystem, **Architectury Plugin** is the gradle plugin enabling\nall this multiplatform actions.\n\nArchitectury API is optional for projects built on architectury, you may create your architectury project with just\nArchitectury Plugin.\n\n### Advantages of Architectury\n\n- Open sourced\n- Less boilerplate for your multiplatform mod\n\n### Getting started with making multiplatform mods\n\nArchitectury Loom: https://github.com/architectury/architectury-loom (a fork of Fabric Loom adding multiplatform development capabilities)\n\nGradle Plugin: https://github.com/architectury/architectury-plugin (includes Architectury Injectables, for the `@ExpectPlatform` annotation)\n\nExample Mod: https://github.com/architectury/architectury-example-mod (a discontinued example mod using Architectury, if possible, use the templates instead)\n\nMod Templates: https://github.com/architectury/architectury-templates (a set of templates to get started using the Architectury toolchain)\n\n### Example: Usage of @ExpectPlatform\nExmaple of the @ExpectPlatform annotation, part of Architectury Injectables\n\n### Credits\n\nIn certain older versions, this library used to bundle typetools; you can find its license [here](https://github.com/jhalterman/typetools/blob/master/LICENSE.txt \"\")\n\n[![bisect hosting code : Architectury for 25% off](https://www.bisecthosting.com/images/CF/ARCHITECTURY_API/MP_ARCHITECTURY_Promo.webp)](https://bisecthosting.com/Architectury)",
+  "gallery": [],
+  "team": [
+    {
+      "username": "MaxNeedsSnacks",
+      "role": "Author",
+      "avatar": "https://avatars3.githubusercontent.com/u/12750501?v=4"
+    },
+    {
+      "username": "Juuz",
+      "role": "Toolchain Maintainer",
+      "avatar": "https://avatars0.githubusercontent.com/u/6596629?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "dZ7iNvS4",
+      "name": "[NeoForge 26.3] v22.0.5",
+      "version_number": "22.0.5+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-09T19:30:17.890953Z",
+      "downloads": 12700,
+      "changelog": "## Architectury v22.0.5 for 26.3\nUpdated at **2026-10-09 19:29**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.3)\n- Add back particle register method",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "architectury-neoforge-22.0.5.jar",
+          "size": 622642,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "1pMaB6So",
+      "name": "[Fabric 26.3] v22.0.5",
+      "version_number": "22.0.5+fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-09T19:30:17.890431Z",
+      "downloads": 250303,
+      "changelog": "## Architectury v22.0.5 for 26.3\nUpdated at **2026-10-09 19:29**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.3)\n- Add back particle register method",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "architectury-fabric-22.0.5.jar",
+          "size": 622542,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ohb3PBGZ",
+      "name": "[Fabric 26.2] v21.1.12",
+      "version_number": "21.1.12+fabric",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-09T19:23:17.877564Z",
+      "downloads": 148826,
+      "changelog": "## Architectury v21.1.12 for 26.2\nUpdated at **2026-10-09 19:22**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.2)\n- Add back particle register method",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "architectury-fabric-21.1.12.jar",
+          "size": 624143,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "tihphFAj",
+      "name": "[NeoForge 26.2] v21.1.12",
+      "version_number": "21.1.12+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-09T19:23:17.836512Z",
+      "downloads": 4690,
+      "changelog": "## Architectury v21.1.12 for 26.2\nUpdated at **2026-10-09 19:22**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.2)\n- Add back particle register method",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "architectury-neoforge-21.1.12.jar",
+          "size": 621944,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fyNzvIcr",
+      "name": "[NeoForge 26.1.2] v20.1.17",
+      "version_number": "20.1.17+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-09T19:18:26.813179Z",
+      "downloads": 4544,
+      "changelog": "## Architectury v20.1.17 for 26.1.2\nUpdated at **2026-10-09 19:17**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.1)\n- Add back particle register method",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "architectury-neoforge-20.1.17.jar",
+          "size": 618823,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "9kMQ7HXI",
+      "name": "[Fabric 26.1.2] v20.1.17",
+      "version_number": "20.1.17+fabric",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-09T19:18:26.752355Z",
+      "downloads": 55073,
+      "changelog": "## Architectury v20.1.17 for 26.1.2\nUpdated at **2026-10-09 19:17**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.1)\n- Add back particle register method",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "architectury-fabric-20.1.17.jar",
+          "size": 622900,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "oMUmsk4c",
+      "name": "[NeoForge 26.3] v22.0.4",
+      "version_number": "22.0.4+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-06T02:47:49.655124Z",
+      "downloads": 3448,
+      "changelog": "## Architectury v22.0.4 for 26.3\nUpdated at **2026-10-06 02:47**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.3)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "architectury-neoforge-22.0.4.jar",
+          "size": 622557,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WYttntbU",
+      "name": "[Fabric 26.3] v22.0.4",
+      "version_number": "22.0.4+fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-06T02:47:49.654494Z",
+      "downloads": 82065,
+      "changelog": "## Architectury v22.0.4 for 26.3\nUpdated at **2026-10-06 02:47**.\n[Click here for changelog](https://www.github.com/architectury/architectury/commits/26.3)",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "architectury-fabric-22.0.4.jar",
+          "size": 622449,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

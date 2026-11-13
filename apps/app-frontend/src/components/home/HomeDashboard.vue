@@ -43,6 +43,7 @@ import {
     type HomeWidgetSize,
     moveHomeWidget,
     packHomeWidgets,
+    reflowFreeHomeWidgets,
     removeHomeWidget,
     replaceHomeDashboardWidgets,
     resizeHomeWidget,
@@ -113,6 +114,12 @@ const freeGridColumnPitch = computed(
 )
 const freeGridRowPitch = HOME_WIDGET_GRID_ROW_HEIGHT + HOME_WIDGET_GRID_GAP
 const resolvedFreePositions = computed(() => {
+    // Editing keeps the saved positions, so a drop lands where it was dropped.
+    const reflowed = editing.value
+        ? null
+        : reflowFreeHomeWidgets(props.config.widgets, columnCount.value)
+    if (reflowed) return reflowed
+
     const positions: Record<string, HomeWidgetPosition> = {}
     const positioned: HomeWidgetPlacement[] = []
     const activeId = freeDrag.value?.id
@@ -453,6 +460,10 @@ function moveWidget(index: number, direction: -1 | 1) {
     emit('change', moveHomeWidget(props.config, index, direction))
 }
 
+function widgetSizeOptions(widget: HomeWidgetPlacement) {
+    return HOME_WIDGET_SIZE_OPTIONS[widget.kind]
+}
+
 function widgetOptions(widget: HomeWidgetPlacement, index: number) {
     const sizeOptions = HOME_WIDGET_SIZE_OPTIONS[widget.kind]
     return [
@@ -577,7 +588,6 @@ defineExpose({ openWidgetPicker, setLayout })
                 chosen-class="home-widget-chosen"
                 drag-class="home-widget-drag"
                 fallback-class="home-widget-fallback"
-                data-onboarding-id="home-widget-grid"
                 @start="startWidgetDrag"
                 @end="finishWidgetDrag"
             >
@@ -622,7 +632,7 @@ defineExpose({ openWidgetPicker, setLayout })
                                         {{ formatMessage(messages.recentItems, { count: limit }) }}
                                     </template>
                                     <template
-                                        v-for="size in HOME_WIDGET_SIZE_OPTIONS[widget.kind]"
+                                        v-for="size in widgetSizeOptions(widget)"
                                         #[`size-${size}`]
                                         :key="size"
                                     >

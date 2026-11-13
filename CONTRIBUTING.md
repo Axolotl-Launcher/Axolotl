@@ -12,6 +12,9 @@
 - **pnpm**：以根目录 [`package.json`](package.json) 的 `packageManager` 为准
 - **Rust**：以 [`rust-toolchain.toml`](rust-toolchain.toml) 为准
 - [Tauri v2 系统依赖](https://v2.tauri.app/start/prerequisites/)
+- **Linux 链接器**：[`.cargo/config.toml`](.cargo/config.toml) 让 Linux 构建使用 [mold](https://github.com/rui314/mold) 链接，需要 `ld.mold` 在 `PATH` 中，且 C 编译器为 GCC 12.1+ 或 Clang。用发行版的包管理器安装即可（Debian/Ubuntu：`sudo apt install mold`；Fedora：`sudo dnf install mold`；Arch：`sudo pacman -S mold`），`nix develop` 已自带。Windows 使用 Rust 工具链自带的 rust-lld，无需额外安装。
+- **macOS 链接器**：使用 LLD，通过 `brew install lld@21` 安装，并在启动开发或构建命令前运行 `export PATH="$(brew --prefix lld@21)/bin:$PATH"`，确保 `ld64.lld` 在 `PATH` 中。CI 和 release 工作流会自动安装并验证链接器。
+- **Rust 编译并行数**：dev、CI、release 和依赖缓存预热统一使用 4 个 Cargo 编译任务，macOS ARM64 使用 2 个。`pnpm app:dev`、`pnpm app:build` 和应用包的 `tauri`、`test`、`lint`、`fix` 脚本会自动选择；本地在 macOS ARM64 上直接运行 `cargo` 时需设置 `CARGO_BUILD_JOBS=2`。可通过 `CARGO_BUILD_JOBS` 显式覆盖默认值。
 
 ### 启动开发环境
 
@@ -44,6 +47,52 @@ cargo fmt --all --check
 # Rust 基础检查
 cargo check --package theseus_gui --features updater
 ```
+
+### Scheduler 检查产物
+
+scheduler 生成器与后续门禁通过 `SCHED_ARTIFACT_DIR` 共享同一轮检查的产物。每轮创建独立的系统临时目录，不使用 `.agents/`；显式指定的 `--out`（生成器）或 `--dir`（门禁）优先于环境变量。
+
+```powershell
+$env:SCHED_ARTIFACT_DIR = node -e 'process.stdout.write(require("node:fs").mkdtempSync(require("node:path").join(require("node:os").tmpdir(), "axolotl-scheduler-")))'
+node scripts/axolotl/sched-resource-inventory.mjs
+# 在同一环境中运行 desktop CI 的 Check scheduler resource gates 所列全部门禁。
+```
+
+Bash 中可用 `export SCHED_ARTIFACT_DIR="$(mktemp -d)"` 准备目录。CI 在 runner 的临时目录下创建独立目录。`sched-level-predicate-check.mjs --write` 的报告也写入所选产物目录。
+
+调试构建启用 `SCHED_ORDER_GUARD=1` 时，插桩从同一个 `SCHED_ARTIFACT_DIR` 读取 `sched-resource-registry.json`，并写入 `sched-order-violations.json`；也可分别用 `SCHED_ORDER_REGISTRY` 和 `SCHED_ORDER_VIOLATIONS` 指定路径。检查及回放完成、输出检查完毕后，清理本轮创建的临时目录并取消环境变量。
+
+### Rust 覆盖率
+
+CI 的 `coverage` 作业用 [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) 在 Linux 上测量 workspace 的行覆盖率，`scripts/axolotl/rust-coverage.mjs` 是本地与 CI 共用的唯一入口。产物在 `target/coverage/` 下（`lcov.info`、`total.txt`、`summary.txt`、`html/`），CI 把它整个作为 `rust-coverage` 工件上传，保留 7 天。
+
+本地先准备工具与构建前置条件（子模块缺失时 `apps/app` 的构建脚本会失败；跳过 Blockbench 皮肤编辑器可以省下一次前端构建）：
+
+```powershell
+cargo install cargo-llvm-cov --version 0.9.1 --locked
+rustup component add llvm-tools-preview
+git submodule update --init --recursive
+$env:AXOLOTL_SKIP_BLOCKBENCH_BUILD = "1"
+```
+
+运行方式：
+
+```powershell
+# 完整测量，跑完自动打开 HTML 报告
+pnpm coverage:rust
+# 完整测量，只产出报告与 lcov，不打开浏览器
+pnpm coverage:rust:lcov
+# 只测一个 crate，迭代更快
+cargo llvm-cov -p theseus --html --open
+```
+
+`theseus_gui` 会启用 `theseus/tauri`，而该特性会把 `theseus` 测试需要的一组辅助函数编译掉，Cargo 又按单次调用统一特性，所以整条命令不能一次跑完整个 workspace：脚本先测除壳以外的所有 crate（`theseus` 不带 `tauri`），再单独测壳。两轮 profiling 数据会在生成报告时合并，同一行只要任一轮执行过就算已覆盖。
+
+插桩构建与报告都写在 `target/` 下（`target/llvm-cov-target/`、`target/coverage/`），已被忽略，不会出现在 `git status` 中。
+
+口径说明：指标是 `cargo llvm-cov report` 的 TOTAL 行覆盖率，只统计当前操作系统上编译得到的代码，因此 Linux 的 CI 数字不包含 `cfg(windows)` / `cfg(target_os = "macos")` 分支。`cargo-llvm-cov` 默认把 `tests/`、`examples/`、`benches/` 目录与 `tests.rs`、`*_tests.rs`、`*-tests.rs` 这类测试专用文件排除在分母之外；写在源码里的内联 `#[cfg(test)] mod tests` 计入分母，测试执行时会被命中。按当前源码结构（内联测试约占可报告行的 35%），75% 的行覆盖率大约对应 61% 的生产代码覆盖率，改 Rust 代码时请以这个口径判断目标，不要用排除文件的方式把缺口藏起来。
+
+首次实测基线是 **59.97%（159990/266762 行）**，因此 CI 现在用棘轮门槛 `COVERAGE_MIN_LINES = 59`（`.github/workflows/axolotl-ci.yml` 的 `coverage` 作业）：它只防回退，不是目标值。目标是 75%，补测试推进后要同步调高这个数，**不允许为了让某个改动过关而下调**。门槛接入 `Desktop CI result` 汇总闸，不达标会阻断合并。覆盖率作业失败时，`rust-coverage` 工件仍会照常上传，先看 `total.txt` 和 HTML 报告定位缺口；常见热点见 `.agents/plans/` 下的基线记录。
 
 ### 构建缓存与磁盘空间
 

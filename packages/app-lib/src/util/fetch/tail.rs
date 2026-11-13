@@ -87,7 +87,6 @@ async fn download_tail_candidate(
     requested_start: u64,
     requested_end: u64,
     custom_header: Option<&(String, String)>,
-    credentials: Option<&crate::state::ModrinthCredentials>,
     download_meta: Option<&DownloadMeta>,
     part_path: &Path,
     candidate_index: usize,
@@ -96,19 +95,23 @@ async fn download_tail_candidate(
     integrity: &Integrity,
     validator: &Mutex<Option<ResourceValidator>>,
     redirect_target: Option<&AsyncMutex<Option<Url>>>,
+    diagnostics: Option<
+        &std::sync::Arc<crate::util::download::telemetry::FileCapture>,
+    >,
 ) -> Result<TailCandidateCompletion, SegmentDownloadError> {
     let _activity = (candidate_index > 0)
         .then(crate::State::get_if_initialized)
         .flatten()
         .map(|state| state.begin_download_connection());
     let path = tail_candidate_path(part_path, range.index, candidate_index);
+    let telemetry =
+        diagnostics.and_then(|capture| capture.begin_http_request(route));
     let mut cleanup = TailCandidateCleanupGuard::new(path.clone());
     let response = tokio::time::timeout(
         native_first_byte_timeout(route, false),
         send_path_request_with_clients(
             route,
             custom_header,
-            credentials,
             download_meta,
             Some(requested_start),
             Some(requested_end),
@@ -120,6 +123,9 @@ async fn download_tail_candidate(
     .map_err(|_| SegmentDownloadError::Transport)?
     .map_err(|_| SegmentDownloadError::Transport)?;
     let (response, final_url) = response;
+    if let Some(telemetry) = &telemetry {
+        telemetry.connected(response.version(), response.remote_addr());
+    }
     let parsed_content_range = parse_content_range(&response);
     if response.status() != StatusCode::PARTIAL_CONTENT
         || !parsed_content_range.is_some_and(|range| {
@@ -167,6 +173,9 @@ async fn download_tail_candidate(
         let accepted = usize::try_from(expected.saturating_sub(received))
             .unwrap_or(usize::MAX)
             .min(chunk.len());
+        if let Some(telemetry) = &telemetry {
+            telemetry.received(chunk.len());
+        }
         crate::util::download::local_resources::write(
             &path,
             accepted as u64,
@@ -189,6 +198,9 @@ async fn download_tail_candidate(
     }
     if received != expected {
         return Err(SegmentDownloadError::Transport);
+    }
+    if let Some(telemetry) = &telemetry {
+        telemetry.finish();
     }
     crate::util::download::local_resources::write(&path, 0, file.flush())
         .await
@@ -213,7 +225,6 @@ pub(crate) async fn race_tail_candidates(
     requested_start: u64,
     requested_end: u64,
     custom_header: Option<&(String, String)>,
-    credentials: Option<&crate::state::ModrinthCredentials>,
     download_meta: Option<&DownloadMeta>,
     part_path: &Path,
     system_client: &reqwest::Client,
@@ -221,6 +232,9 @@ pub(crate) async fn race_tail_candidates(
     integrity: &Integrity,
     validator: &Mutex<Option<ResourceValidator>>,
     redirect_target: Option<&AsyncMutex<Option<Url>>>,
+    diagnostics: Option<
+        &std::sync::Arc<crate::util::download::telemetry::FileCapture>,
+    >,
 ) -> Result<(TailCandidateCompletion, usize), SegmentDownloadError> {
     let first = download_tail_candidate(
         route,
@@ -229,7 +243,6 @@ pub(crate) async fn race_tail_candidates(
         requested_start,
         requested_end,
         custom_header,
-        credentials,
         download_meta,
         part_path,
         0,
@@ -238,6 +251,7 @@ pub(crate) async fn race_tail_candidates(
         integrity,
         validator,
         redirect_target,
+        diagnostics,
     );
     let second = download_tail_candidate(
         route,
@@ -246,7 +260,6 @@ pub(crate) async fn race_tail_candidates(
         requested_start,
         requested_end,
         custom_header,
-        credentials,
         download_meta,
         part_path,
         1,
@@ -255,6 +268,7 @@ pub(crate) async fn race_tail_candidates(
         integrity,
         validator,
         redirect_target,
+        diagnostics,
     );
     tokio::pin!(first, second);
     tokio::select! {

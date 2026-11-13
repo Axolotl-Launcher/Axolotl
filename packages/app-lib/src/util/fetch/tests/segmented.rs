@@ -16,6 +16,68 @@ use super::fixtures;
 use super::fixtures::*;
 
 #[tokio::test]
+async fn sparse_checkpoint_updates_only_flushed_contiguous_completed_ranges() {
+    use crate::util::download::range_journal::RangeJournal;
+    let directory = tempfile::tempdir().unwrap();
+    let part = directory.path().join("checkpoint.part");
+    let half = 4 * 1024 * 1024;
+    let size = 2 * half;
+    tokio::fs::write(&part, vec![7; size as usize])
+        .await
+        .unwrap();
+    let integrity =
+        Integrity::sha1("validated-after-completion").with_size(size);
+    let journal = RangeJournal::new(&part, &integrity, size, 2);
+    journal.persist().await.unwrap();
+    let first = DownloadRange::new(0, 0, half - 1);
+    first.accept_chunk(half as usize);
+    assert!(first.finish());
+    let active = DownloadRange::new(1, half, half + half / 2 - 1);
+    active.accept_chunk((half / 2) as usize);
+    let tail = DownloadRange::new(2, half + half / 2, size - 1);
+    tail.accept_chunk((half / 2) as usize);
+    assert!(tail.finish());
+    let ranges = vec![first, active, tail];
+    checkpoint_completed_ranges(&journal, &part, &ranges)
+        .await
+        .unwrap();
+    // Dropping an interrupted scheduler must neither truncate sparse output
+    // nor trust an active writer's received bytes as persisted data.
+    drop(SegmentCleanupGuard::new(&part).preserve_sparse());
+    assert_eq!(tokio::fs::metadata(&part).await.unwrap().len(), size);
+    let restored = RangeJournal::load(&part, &integrity, size)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        restored
+            .ranges()
+            .await
+            .iter()
+            .map(|r| r.written)
+            .collect::<Vec<_>>(),
+        vec![half, 0]
+    );
+    assert!(ranges[1].finish());
+    checkpoint_completed_ranges(&journal, &part, &ranges)
+        .await
+        .unwrap();
+    let restored = RangeJournal::load(&part, &integrity, size)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        restored
+            .ranges()
+            .await
+            .iter()
+            .map(|r| r.written)
+            .collect::<Vec<_>>(),
+        vec![half, half]
+    );
+}
+
+#[tokio::test]
 async fn segmented_download_uses_parallel_validated_ranges() {
     let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
     RANGE_SPLITTING_PROTOCOL_FAILURES.lock().clear();
@@ -47,7 +109,7 @@ async fn segmented_download_uses_parallel_validated_ranges() {
         .with_integrity(Integrity::sha1(hash).with_size(size as u64));
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("fixture.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -67,7 +129,6 @@ async fn segmented_download_uses_parallel_validated_ranges() {
             size as u64,
             &part_path,
             &semaphore,
-            None,
             &client,
             &client,
             1,
@@ -143,7 +204,7 @@ async fn mirror_ranges_start_concurrently_and_retries_reuse_redirect() {
         .with_integrity(Integrity::sha1(hash).with_size(size as u64));
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("redirect.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -156,7 +217,6 @@ async fn mirror_ranges_start_concurrently_and_retries_reuse_redirect() {
             size as u64,
             &part_path,
             &FetchSemaphore(Semaphore::new(8)),
-            None,
             &client,
             &client,
             1,
@@ -206,7 +266,7 @@ async fn temporary_range_failure_resumes_without_disabling_segments() {
         .with_integrity(Integrity::sha1(hash).with_size(size as u64));
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("retry.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -219,7 +279,6 @@ async fn temporary_range_failure_resumes_without_disabling_segments() {
             size as u64,
             &part_path,
             &FetchSemaphore(Semaphore::new(8)),
-            None,
             &client,
             &client,
             1,
@@ -262,7 +321,7 @@ async fn invalid_content_range_disables_range_splitting_after_repeats() {
     };
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("fixture.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -282,7 +341,6 @@ async fn invalid_content_range_disables_range_splitting_after_repeats() {
         &route,
         DownloadRange::new(0, 0, data.len() as u64 - 1),
         data.len() as u64,
-        None,
         None,
         None,
         &part_path,
@@ -313,6 +371,163 @@ async fn invalid_content_range_disables_range_splitting_after_repeats() {
     assert!(
         !range_splitting_allowed(&route),
         "repeated protocol failures should disable range splitting"
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn exhausted_range_recovers_without_discarding_sibling_progress() {
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = (SEGMENTED_DOWNLOAD_THRESHOLD * 2) as usize;
+    let data = Arc::new(
+        (0..size)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, requests, normal_requests, server) = spawn_range_server(
+        data,
+        RangeServerBehavior {
+            fail_prefix_requests: 3,
+            slow_body: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let route = DownloadRoute {
+        url: url.clone(),
+        source: DownloadRouteSource::Alternate,
+        is_mirror: false,
+        allow_sensitive_headers: false,
+        supports_range: true,
+        proxy: ProxyPolicy::Direct,
+    };
+    let mut request = DownloadRequest::new(&url, ResourceClass::Other)
+        .with_integrity(Integrity::sha1(hash).with_size(size as u64))
+        .with_batch_download_policy();
+    request.prefer_http1 = true;
+    let directory = tempfile::tempdir().unwrap();
+    let part = directory.path().join("exhausted.part");
+    let client = crate::util::http::client_builder()
+        .no_proxy()
+        .build()
+        .unwrap();
+    let semaphore = FetchSemaphore(Semaphore::new(4));
+    let samples = Arc::new(Mutex::new(Vec::new()));
+    let captured = Arc::clone(&samples);
+    let mut progress: Box<FetchProgressFn<'_>> = Box::new(move |bytes, _| {
+        captured.lock().push(bytes);
+        Box::pin(async { Ok(()) })
+    });
+    let result = tokio::time::timeout(
+        Duration::from_secs(20),
+        try_segmented_download(
+            SegmentedDownloadContext::new(
+                &request,
+                &route,
+                &[],
+                size as u64,
+                &part,
+                &semaphore,
+                &client,
+                &client,
+                1,
+                1,
+                false,
+            ),
+            Some(&mut progress),
+        ),
+    )
+    .await
+    .unwrap();
+    assert!(
+        matches!(result, SegmentedDownloadOutcome::Success(_)),
+        "one exhausted range must not cancel its productive sibling"
+    );
+    assert_eq!(
+        requests.load(Ordering::Relaxed),
+        5,
+        "the healthy sibling must be requested only once"
+    );
+    assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+    assert_eq!(
+        verify_file(&part, &request.integrity).await.unwrap(),
+        size as u64
+    );
+    let samples = samples.lock();
+    assert!(samples.windows(2).all(|pair| pair[0] <= pair[1]));
+    assert!(samples.iter().all(|bytes| *bytes <= size as u64));
+    assert_eq!(samples.last(), Some(&(size as u64)));
+    server.abort();
+}
+
+#[tokio::test]
+async fn permanently_failed_range_has_a_bounded_recovery_budget() {
+    use crate::util::download::constants::{
+        SEGMENT_RECOVERY_ROUNDS, SEGMENT_RETRY_ATTEMPTS,
+    };
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = (SEGMENTED_DOWNLOAD_THRESHOLD * 2) as usize;
+    let data = Arc::new(vec![7; size]);
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, requests, normal_requests, server) = spawn_range_server(
+        data,
+        RangeServerBehavior {
+            fail_prefix_requests: usize::MAX,
+            ..Default::default()
+        },
+    )
+    .await;
+    let route = DownloadRoute {
+        url: url.clone(),
+        source: DownloadRouteSource::Alternate,
+        is_mirror: false,
+        allow_sensitive_headers: false,
+        supports_range: true,
+        proxy: ProxyPolicy::Direct,
+    };
+    let mut request = DownloadRequest::new(&url, ResourceClass::Other)
+        .with_integrity(Integrity::sha1(hash).with_size(size as u64))
+        .with_batch_download_policy();
+    request.prefer_http1 = true;
+    let directory = tempfile::tempdir().unwrap();
+    let part = directory.path().join("permanent.part");
+    let client = crate::util::http::client_builder()
+        .no_proxy()
+        .build()
+        .unwrap();
+    let semaphore = FetchSemaphore(Semaphore::new(4));
+    let result = tokio::time::timeout(
+        Duration::from_secs(10),
+        try_segmented_download(
+            SegmentedDownloadContext::new(
+                &request,
+                &route,
+                &[],
+                size as u64,
+                &part,
+                &semaphore,
+                &client,
+                &client,
+                1,
+                1,
+                false,
+            ),
+            None,
+        ),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(result, SegmentedDownloadOutcome::SourceFailed));
+    assert_eq!(
+        requests.load(Ordering::Relaxed),
+        1 + SEGMENT_RETRY_ATTEMPTS * (1 + SEGMENT_RECOVERY_ROUNDS)
+    );
+    assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+    assert_eq!(semaphore.0.available_permits(), 4);
+    assert!(
+        !part.exists(),
+        "failed sparse data must not become a contiguous resume prefix"
     );
     server.abort();
 }

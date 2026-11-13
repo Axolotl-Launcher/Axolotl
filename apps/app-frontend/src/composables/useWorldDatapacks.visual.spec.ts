@@ -1,8 +1,18 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
-import { listDatapacks, setDatapackEnabled, type WorldWithDatapacks } from '@/helpers/datapacks'
+import type { WorldWithDatapacks } from '@/helpers/datapacks'
 
 import { useWorldDatapacks } from './useWorldDatapacks'
+
+// The spies come from `vi.hoisted` and are referenced directly: another spec
+// in the same browser worker can replace the module export, and a
+// `vi.mocked(...)` cast then yields a function without the mock methods
+// (`mockResolvedValueOnce is not a function`).
+const backend = vi.hoisted(() => ({
+    listDatapacks: vi.fn(),
+    setDatapackEnabled: vi.fn(),
+    deleteDatapack: vi.fn(),
+}))
 
 vi.mock('@modrinth/ui', () => ({
     useDebugLogger: () => () => {},
@@ -11,13 +21,11 @@ vi.mock('@modrinth/ui', () => ({
         formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
     }),
 }))
-vi.mock('@/helpers/datapacks', () => ({
-    listDatapacks: vi.fn(),
-    setDatapackEnabled: vi.fn(),
-    deleteDatapack: vi.fn(),
-}))
+vi.mock('@/helpers/datapacks', () => backend)
 
 beforeEach(() => vi.resetAllMocks())
+
+const { listDatapacks, setDatapackEnabled } = backend
 
 function world(path = 'world', enabled: boolean | undefined = true): WorldWithDatapacks {
     return {
@@ -36,7 +44,7 @@ function world(path = 'world', enabled: boolean | undefined = true): WorldWithDa
 
 it('keeps previous rows and reports failure, including on first load', async () => {
     const state = useWorldDatapacks(() => 'instance')
-    vi.mocked(listDatapacks)
+    listDatapacks
         .mockRejectedValueOnce(new Error('offline'))
         .mockResolvedValueOnce([world()])
         .mockRejectedValueOnce(new Error('offline'))
@@ -51,17 +59,15 @@ it('keeps previous rows and reports failure, including on first load', async () 
 
 it('merges successful worlds while preserving failed worlds and disabling unknown state', async () => {
     const state = useWorldDatapacks(() => 'instance')
-    vi.mocked(listDatapacks)
-        .mockResolvedValueOnce([world(), world('second')])
-        .mockResolvedValueOnce([
-            { ...world(), datapacks: [], read_error: 'denied' },
-            world('second', false),
-            {
-                ...world('third'),
-                datapacks: [{ ...world('third').datapacks[0], enabled: undefined }],
-                state_error: 'corrupt',
-            },
-        ])
+    listDatapacks.mockResolvedValueOnce([world(), world('second')]).mockResolvedValueOnce([
+        { ...world(), datapacks: [], read_error: 'denied' },
+        world('second', false),
+        {
+            ...world('third'),
+            datapacks: [{ ...world('third').datapacks[0], enabled: undefined }],
+            state_error: 'corrupt',
+        },
+    ])
     await state.loadWorldDatapacks()
     await state.loadWorldDatapacks()
     const items = state.worldDatapackItems.value
@@ -80,7 +86,7 @@ it('discards responses for a different instance and rolls back failed toggles', 
     let instanceId = 'first'
     const state = useWorldDatapacks(() => instanceId)
     let complete!: (value: WorldWithDatapacks[]) => void
-    vi.mocked(listDatapacks)
+    listDatapacks
         .mockImplementationOnce(
             () =>
                 new Promise((resolve) => {
@@ -94,7 +100,7 @@ it('discards responses for a different instance and rolls back failed toggles', 
     complete([world('old')])
     await old
     expect(state.worldDatapacks.value.map((entry) => entry.path)).toEqual(['new'])
-    vi.mocked(setDatapackEnabled).mockRejectedValue(new Error('world locked'))
+    setDatapackEnabled.mockRejectedValue(new Error('world locked'))
     await expect(
         state.toggleWorldDatapackItem(state.worldDatapackItems.value[0], false),
     ).rejects.toThrow('world locked')

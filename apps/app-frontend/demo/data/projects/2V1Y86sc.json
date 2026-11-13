@@ -1,0 +1,544 @@
+{
+  "id": "2V1Y86sc",
+  "slug": "navas-zamega",
+  "title": "Navas ZA Megas",
+  "description": "Adds All Megas from Pokemon Legends ZA into Cobblemon! (MSD Required)",
+  "author": "natusue233",
+  "categories": ["adventure", "datapack", "fabric", "neoforge"],
+  "display_categories": ["adventure", "datapack", "fabric", "neoforge"],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 9967142,
+  "followers": 231,
+  "license": {
+    "id": "LicenseRef-MEGA-SHOWDOWN-LICENSE-v2.1",
+    "name": ""
+  },
+  "loaders": ["datapack", "fabric", "neoforge"],
+  "game_versions": ["1.21.1"],
+  "latest_version": "r9p6V7hl",
+  "date_created": "2025-11-01T03:26:59.177282Z",
+  "date_modified": "2026-10-13T04:28:10.895294Z",
+  "color": 6247040,
+  "published": "2025-11-01T03:26:59.177282Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/fFGMtmN4RQ",
+  "donation_urls": [],
+  "versions_total": 72,
+  "body": "# ⚠️ READ BEFORE INSTALLING ⚠️\n\nThe original owners of Navas have stoped updating this addon and deleted their discord. It was given to MSD moderators to continue the addon till we can fully implement it into MSD!\n\n# **❌ Compatibility & Setup Rules (Important)**\n\nDO NOT use this alongside zamegaearly\n→ Its content is already fully integrated here.\n\nDO NOT mix this with other Mega packs\n→ Conflicts will happen.\n\nDelete Eternal Flower Floette data from all packs\n→ Except: Mega Showdown and Cobblemon\n→ Required since v1.3.1\n\nDelete ALL previous versions of this mod\n→ Includes resource packs and data packs\n→ Required since v1.4 (this is now a mod, not a pack)\n\n# **🔍 In-Game Info**\n\nAbilities\n\nAbility effects\n\nMega Stone crafting recipes\n\n## **👉 All viewable in-game.**\nPlease don’t ask for lists—we put the info where it belongs.\n\n# **✨ Mega Pokémon Included (45 Total, DLC Included)**\n\nIn the 1.5.2 Release they now all use the same abilities as the Legends ZA OU format on Pokemon Showdown. Look there if you want to know exact details of what abilties they got!",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/2V1Y86sc/images/4366662ca140d77fe72c153eda85e36fd87252be_350.webp",
+      "featured": false,
+      "title": "😋👍🏻",
+      "description": null,
+      "created": "2026-01-18T07:43:58.876084Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/2V1Y86sc/images/200f8ace36ab22b06616afce25d1a80b20bd1c7d_350.webp",
+      "featured": false,
+      "title": "💫All of Mega pokemons💫ver1.4",
+      "description": "Hope u guys enjoy it!!!",
+      "created": "2025-12-28T03:59:09.499759Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/2V1Y86sc/images/774ea4545b778a6f55b6db6c9111db4ce336c9ee_350.webp",
+      "featured": false,
+      "title": " Position of Megastones since ver1.4",
+      "description": " ",
+      "created": "2025-12-28T09:53:11.161397Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/2V1Y86sc/images/3ce88ec4a00f58503c07300d470111d7ce02f185_350.webp",
+      "featured": false,
+      "title": "The spawn of Eternal Flower Floette",
+      "description": "Beside the withered rose at night.\ncommand:/pokegive floette flower=eternal",
+      "created": "2025-12-29T03:54:01.393468Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "natusue233",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/BRsk2hPf/3bb804013be473444a706e1f8c61b9008dc0510e.webp"
+    },
+    {
+      "username": "sishengruyu",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/x8yBHQWB/498fe410fba7e1a6234907a3292570e0f35992c3_96.webp"
+    },
+    {
+      "username": "GrenCobblemon",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/AJDmnWaX/487299f4d04f8f7e55336414b6a727e9e9254372_96.webp"
+    },
+    {
+      "username": "hugoarts",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/Oes716i5/1a87026ae3112c8cb530cfdf83941c7e1e5b7acd.jpeg"
+    },
+    {
+      "username": "Sevonents",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/dfVDekgf/63a7002da0e9407c98612097fa472c8f8be73d2d_96.webp"
+    },
+    {
+      "username": "Radowkage",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/fkuesSus/1c2e53eced6801d1d5e7281e85c639d1169899b9_96.webp"
+    },
+    {
+      "username": "sanji1",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/user/Rwvdj7I4/35a3353d61633cef233fb24704a554974440ace4.webp"
+    },
+    {
+      "username": "YajatKaul",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/ie9n0dZq/f403b1cdfc5d8729ea61a1d5432418b41ae5dfad_96.webp"
+    },
+    {
+      "username": "Narenhate",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/vKl9T5Mx/4d65a538a66f39bb3fcccc706c97238715ef806f_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "CBalGwUD",
+      "name": "zamega 1.8.2+1.8.2",
+      "version_number": "1.8.2+1.8.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-13T04:28:10.895294Z",
+      "downloads": 14136,
+      "changelog": "# 1.8.2+1.8.2-Release\r\n- 1.8.2",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-fabric-1.8.2+1.8.2.jar",
+          "size": 896936,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vqbkMrnN",
+      "name": "zamega 1.8.2+1.8.2",
+      "version_number": "1.8.2+1.8.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-13T04:28:07.844628Z",
+      "downloads": 3760,
+      "changelog": "# 1.8.2+1.8.2-Release\r\n- 1.8.2",
+      "dependencies": [
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-neoforge-1.8.2+1.8.2.jar",
+          "size": 895899,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "AkUZt99V",
+      "name": "zamega 1.8.1+1.8",
+      "version_number": "1.8.1+1.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-10T16:51:30.609479Z",
+      "downloads": 355232,
+      "changelog": "# 1.8.1+1.8-Release\r\n- 1.8 fix",
+      "dependencies": [
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-fabric-1.8.1+1.8.jar",
+          "size": 899567,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vXsHwaru",
+      "name": "zamega 1.8.1+1.8",
+      "version_number": "1.8.1+1.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-10T16:51:30.607329Z",
+      "downloads": 17460,
+      "changelog": "# 1.8.1+1.8-Release\r\n- 1.8 fix",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-neoforge-1.8.1+1.8.jar",
+          "size": 898531,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "rLxNIykC",
+      "name": "zamega 1.8.0+1.8",
+      "version_number": "1.8.0+1.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-10T16:48:33.822041Z",
+      "downloads": 1023,
+      "changelog": "# 1.8.0+1.8-Release\r\n- MSD latest version compatible ",
+      "dependencies": [
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-neoforge-1.8.0+1.8.jar",
+          "size": 898531,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vCuxIeMI",
+      "name": "zamega 1.8.0+1.8",
+      "version_number": "1.8.0+1.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-10T16:48:30.420136Z",
+      "downloads": 936,
+      "changelog": "# 1.8.0+1.8-Release\r\n- MSD latest version compatible ",
+      "dependencies": [
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-fabric-1.8.0+1.8.jar",
+          "size": 899567,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lmM1mzoE",
+      "name": "zamega 1.7.7+1.8",
+      "version_number": "1.7.7+1.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-06T08:33:50.662037Z",
+      "downloads": 3602,
+      "changelog": "# 1.7.7+1.8-Release\r\n- Zygarde patch",
+      "dependencies": [
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-neoforge-1.7.7+1.8.jar",
+          "size": 1081862,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "jlpvkxRM",
+      "name": "zamega 1.7.7+1.8",
+      "version_number": "1.7.7+1.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-06T08:33:49.408358Z",
+      "downloads": 11158,
+      "changelog": "# 1.7.7+1.8-Release\r\n- Zygarde patch",
+      "dependencies": [
+        {
+          "project_id": "ccKDOlHs",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "jtmvUHXj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "SszvX85I",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "lhGA9TYQ",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "zamega-fabric-1.7.7+1.8.jar",
+          "size": 1082897,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

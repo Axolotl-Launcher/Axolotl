@@ -131,6 +131,17 @@ const {
 
 const lastSelectedIndex = ref<number | null>(null)
 
+// Templates unwrap refs, so pass the ref through explicitly from script.
+function handleItemSelection(
+    itemId: string,
+    selected: boolean,
+    index?: number,
+    event?: MouseEvent,
+    item?: ContentCardTableItem,
+) {
+    toggleItemSelection(itemId, selected, lastSelectedIndex, index, event, item)
+}
+
 function handleSort(column: ContentCardTableSortColumn) {
     if (!props.sortable) return
 
@@ -334,10 +345,9 @@ function handleItemUpdate(id: string) {
                     ]"
                     @select="
                         (val, event) =>
-                            toggleItemSelection(
+                            handleItemSelection(
                                 item.id,
                                 val ?? false,
-                                lastSelectedIndex,
                                 visibleRange.start + idx,
                                 event,
                                 item,
@@ -437,15 +447,7 @@ function handleItemUpdate(id: string) {
                     index === items.length - 1 && !flat ? 'rounded-b-[20px]' : '',
                 ]"
                 @select="
-                    (val, event) =>
-                        toggleItemSelection(
-                            item.id,
-                            val ?? false,
-                            lastSelectedIndex,
-                            index,
-                            event,
-                            item,
-                        )
+                    (val, event) => handleItemSelection(item.id, val ?? false, index, event, item)
                 "
                 @update:enabled="(val) => emit('update:enabled', item.id, val)"
                 @delete="(e: MouseEvent) => emit('delete', item.id, e)"

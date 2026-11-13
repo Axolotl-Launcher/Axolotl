@@ -93,9 +93,9 @@ it('keeps the selected world and modal open when installation fails, then allows
 
     await wrapper.get('button[aria-label="Install datapack into World A"]').trigger('click')
     await flushPromises()
-    expect(wrapper.get('dialog').exists()).toBe(true)
+    expect(wrapper.find('dialog').exists()).toBe(true)
     expect(wrapper.get('[role="alert"]').text()).toContain('install failed')
-    expect(wrapper.get('button[aria-label="Install datapack into World A"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="Install datapack into World A"]').exists()).toBe(true)
 
     await wrapper.get('button[aria-label="Install datapack into World A"]').trigger('click')
     await flushPromises()

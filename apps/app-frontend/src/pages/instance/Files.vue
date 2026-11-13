@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { CodeIcon, FileArchiveIcon } from '@modrinth/assets'
-import type { EditingFile, FileContextMenuOption, FileItem } from '@modrinth/ui'
+import type {
+    EditingFile,
+    ExtractDryRunResult,
+    FileContextMenuOption,
+    FileItem,
+} from '@modrinth/ui'
 import {
     Button,
     commonMessages,
@@ -16,15 +21,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
 import {
     mkdir,
-    readDir,
     readFile as readFileBytes,
     readTextFile,
     remove,
     rename,
-    stat,
     writeTextFile,
 } from '@tauri-apps/plugin-fs'
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { instance_listener } from '@/helpers/events'
@@ -32,6 +35,8 @@ import { get_full_path } from '@/helpers/instance'
 import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
 import { highlightInFolder } from '@/helpers/utils'
+
+import { readInstanceDirectory, readInstanceDirectoryCounts } from './files-directory'
 
 const props = defineProps<{
     instance: GameInstance
@@ -75,91 +80,61 @@ const error = ref<Error | null>(null)
 const currentPath = ref('')
 const editingFile = ref<EditingFile | null>(null)
 const refreshRequests = createRequestGeneration()
+let disposed = false
 
 debug('setup: start, instance.id =', props.instance.id)
 
 instanceRoot.value = await get_full_path(props.instance.id)
 debug('setup: instanceRoot =', instanceRoot.value)
-await refresh()
-debug('setup: refresh complete, items =', items.value.length, 'error =', error.value)
 
 async function resolvePath(relativePath: string): Promise<string> {
     return relativePath ? join(instanceRoot.value, ...relativePath.split('/')) : instanceRoot.value
-}
-
-async function listDirectory(dirPath: string): Promise<FileItem[]> {
-    const absPath = await resolvePath(dirPath)
-    debug('listDirectory: dirPath =', dirPath, 'absPath =', absPath)
-    const entries = await readDir(absPath)
-    debug('listDirectory: got', entries.length, 'entries')
-
-    const results = await Promise.all(
-        entries.map(async (entry) => {
-            const entryAbsPath = await join(absPath, entry.name)
-            let metadata
-            try {
-                metadata = await stat(entryAbsPath)
-            } catch {
-                debug('listDirectory: stat failed for', entry.name, '- skipping')
-                return null
-            }
-            const item: FileItem = {
-                name: entry.name,
-                type: entry.isDirectory ? 'directory' : 'file',
-                path: dirPath ? `${dirPath}/${entry.name}` : entry.name,
-                modified: metadata.mtime ? Math.floor(metadata.mtime.getTime() / 1000) : 0,
-                created: metadata.birthtime ? Math.floor(metadata.birthtime.getTime() / 1000) : 0,
-            }
-            if (!entry.isDirectory) {
-                item.size = metadata.size
-            }
-            if (entry.isDirectory) {
-                try {
-                    const children = await readDir(entryAbsPath)
-                    item.count = children.length
-                } catch {
-                    item.count = 0
-                }
-            }
-            return item
-        }),
-    )
-    return results.filter((item): item is FileItem => item !== null)
 }
 
 async function refresh() {
     const request = refreshRequests.begin(`${instanceRoot.value}\0${currentPath.value}`)
     const requestedRoot = instanceRoot.value
     const requestedPath = currentPath.value
+    const isCurrent = () =>
+        !disposed &&
+        refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`) &&
+        requestedRoot === instanceRoot.value &&
+        requestedPath === currentPath.value
     debug('refresh: called, currentPath =', currentPath.value, 'instanceRoot =', instanceRoot.value)
     loading.value = true
     error.value = null
     try {
-        const nextItems = await listDirectory(requestedPath)
-        if (
-            !refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`) ||
-            requestedRoot !== instanceRoot.value ||
-            requestedPath !== currentPath.value
-        )
-            return
+        const absolutePath = requestedPath
+            ? await join(requestedRoot, ...requestedPath.split('/'))
+            : requestedRoot
+        if (!isCurrent()) return
+        const nextItems = await readInstanceDirectory(absolutePath, requestedPath, isCurrent)
+        if (!isCurrent()) return
         items.value = nextItems
         debug('refresh: success, items =', items.value.length)
+        void loadDirectoryCounts(absolutePath, items.value, isCurrent)
     } catch (e) {
         debug('refresh: error =', e)
-        if (
-            !refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`) ||
-            requestedRoot !== instanceRoot.value ||
-            requestedPath !== currentPath.value
-        )
-            return
+        if (!isCurrent()) return
         error.value = e instanceof Error ? e : new Error(String(e))
         items.value = []
     } finally {
-        if (refreshRequests.isCurrent(request, `${instanceRoot.value}\0${currentPath.value}`)) {
+        if (isCurrent()) {
             loading.value = false
             firstPaintPending.value = false
         }
     }
+}
+
+async function loadDirectoryCounts(
+    absolutePath: string,
+    directoryItems: FileItem[],
+    isCurrent: () => boolean,
+) {
+    await nextTick()
+    // Let the new list paint before serializing entries from large child folders.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
+    if (isCurrent()) await readInstanceDirectoryCounts(absolutePath, directoryItems, isCurrent)
 }
 
 function navigateTo(path: string) {
@@ -260,12 +235,14 @@ async function handleDownloadFile(path: string, _fileName: string) {
 
 async function handleExtractFile(path: string, override: boolean, dry: boolean) {
     try {
-        return await invoke('plugin:files|file_extract_zip', {
-            instanceId: props.instance.id,
-            filePath: path,
-            overrideConflicts: override,
-            dryRun: dry,
-        })
+        return (
+            (await invoke<ExtractDryRunResult | null>('plugin:files|file_extract_zip', {
+                instanceId: props.instance.id,
+                filePath: path,
+                overrideConflicts: override,
+                dryRun: dry,
+            })) ?? undefined
+        )
     } catch (e) {
         addNotification({
             title: formatMessage(commonMessages.extractFailedLabel),
@@ -308,6 +285,8 @@ const unlistenInstances = await instance_listener(
 debug('setup: instance_listener registered')
 
 onUnmounted(() => {
+    disposed = true
+    refreshRequests.invalidate()
     unlistenInstances()
 })
 
@@ -352,6 +331,8 @@ provideFileManager({
         formatMessage(messages.addingFiles, { completed, total }),
     symlinkTarget: computed(() => props.instance.symlink_target),
 })
+
+void refresh()
 </script>
 
 <template>

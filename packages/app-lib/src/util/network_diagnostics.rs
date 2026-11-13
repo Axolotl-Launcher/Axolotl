@@ -135,7 +135,7 @@ async fn probe_connection(
         Some(proxy),
     )?);
     // A fresh client avoids reporting a warm pool's timings as a new connection.
-    let builder = reqwest::Client::builder()
+    let builder = crate::util::http::client_builder()
         .dns_resolver(Arc::clone(&resolver))
         .redirect(reqwest::redirect::Policy::none())
         .timeout(Duration::from_secs(12))

@@ -244,7 +244,7 @@ fn rejects_bad_header_question_class_type_truncation_and_oversize() {
     );
 }
 
-struct DohFixture {
+pub(crate) struct DohFixture {
     endpoint: Arc<str>,
     requests: Arc<AtomicUsize>,
     task: tokio::task::JoinHandle<()>,
@@ -257,7 +257,23 @@ impl Drop for DohFixture {
 }
 
 impl DohFixture {
-    async fn start(ipv4_delay: Duration, ipv6_delay: Duration) -> Self {
+    pub(crate) async fn start(
+        ipv4_delay: Duration,
+        ipv6_delay: Duration,
+    ) -> Self {
+        Self::start_with_ipv4(
+            ipv4_delay,
+            ipv6_delay,
+            Ipv4Addr::new(151, 101, 1, 242),
+        )
+        .await
+    }
+
+    pub(crate) async fn start_with_ipv4(
+        ipv4_delay: Duration,
+        ipv6_delay: Duration,
+        ipv4_address: Ipv4Addr,
+    ) -> Self {
         let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
             .await
             .unwrap();
@@ -303,7 +319,17 @@ impl DohFixture {
                             let ipv4 = query.queries.first().unwrap().query_type() == RecordType::A;
                             tokio::time::sleep(if ipv4 { ipv4_delay } else { ipv6_delay }).await;
                             let mut response = if ipv4 {
-                                response_with_chain(&query, 60)
+                                let mut response = query.clone();
+                                response.metadata.message_type = MessageType::Response;
+                                response.add_answer(Record::from_rdata(
+                                    query.queries.first().unwrap().name().clone(), 60,
+                                    RData::A(A(ipv4_address)),
+                                ));
+                                // Preserve metadata coverage for the ordinary fixture.
+                                if ipv4_address == Ipv4Addr::new(151, 101, 1, 242) {
+                                    response = response_with_chain(&query, 60);
+                                }
+                                response
                             } else {
                                 let mut response = query.clone();
                                 response.metadata.message_type = MessageType::Response;
@@ -335,8 +361,10 @@ impl DohFixture {
     }
 }
 
-fn fixture_resolver(fixtures: &[&DohFixture]) -> DownloadDnsResolver {
-    DownloadDnsResolver {
+pub(crate) fn fixture_resolver(
+    fixtures: &[&DohFixture],
+) -> DownloadDnsResolver {
+    let resolver = DownloadDnsResolver {
         doh_enabled: true,
         doh_endpoints: Arc::new(
             fixtures.iter().map(|f| f.endpoint.clone()).collect(),
@@ -344,11 +372,390 @@ fn fixture_resolver(fixtures: &[&DohFixture]) -> DownloadDnsResolver {
         doh_clients: Arc::new(
             fixtures
                 .iter()
-                .map(|_| reqwest::Client::builder().no_proxy().build().unwrap())
+                .map(|_| {
+                    crate::util::http::client_builder()
+                        .no_proxy()
+                        .build()
+                        .unwrap()
+                })
                 .collect(),
         ),
         ..Default::default()
+    };
+    resolver.set_test_system_answer("cdn.example", Duration::ZERO, Vec::new());
+    resolver
+}
+
+#[tokio::test]
+async fn slow_system_fallback_has_the_full_caller_budget() {
+    let stalled =
+        DohFixture::start(Duration::from_secs(10), Duration::from_secs(10))
+            .await;
+    let resolver = fixture_resolver(&[&stalled]);
+    resolver.test_system_answers.lock().insert(
+        "slow-system.example".into(),
+        (Duration::from_secs(4), vec!["127.0.0.1:0".parse().unwrap()]),
+    );
+    let addresses = tokio::time::timeout(
+        Duration::from_secs(5),
+        resolver.resolve_host("slow-system.example"),
+    )
+    .await
+    .expect("system DNS must not lose three seconds waiting for DoH")
+    .unwrap();
+    assert_eq!(addresses, vec!["127.0.0.1".parse::<IpAddr>().unwrap()]);
+    assert!(stalled.requests.load(Ordering::SeqCst) > 0);
+    let cache = resolver.last_resolved.lock();
+    assert_eq!(cache.get("slow-system.example").unwrap().ttl, CACHE_TTL);
+}
+
+#[tokio::test]
+async fn system_failure_keeps_fast_doh_usable() {
+    let fast = DohFixture::start(Duration::ZERO, Duration::ZERO).await;
+    let resolver = fixture_resolver(&[&fast]);
+    resolver
+        .test_system_answers
+        .lock()
+        .insert("cdn.example".into(), (Duration::ZERO, Vec::new()));
+    let addresses = tokio::time::timeout(
+        Duration::from_secs(2),
+        resolver.resolve_host("cdn.example"),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(addresses.contains(&"151.101.1.242".parse().unwrap()));
+    assert!(
+        resolver
+            .last_resolved
+            .lock()
+            .get("cdn.example")
+            .unwrap()
+            .ttl
+            <= Duration::from_secs(60)
+    );
+}
+
+#[tokio::test]
+async fn system_recovery_keeps_parallel_doh_result_when_system_stalls() {
+    let fast =
+        DohFixture::start(Duration::from_secs(2), Duration::from_secs(2)).await;
+    let resolver = fixture_resolver(&[&fast]);
+    resolver.cache_addresses(
+        "cdn.example".into(),
+        vec!["127.0.0.2:0".parse().unwrap()],
+        CACHE_TTL,
+    );
+    resolver.request_system_recovery("cdn.example");
+    resolver.set_test_system_answer(
+        "cdn.example",
+        Duration::from_secs(10),
+        vec!["127.0.0.1:0".parse().unwrap()],
+    );
+    let addresses = tokio::time::timeout(
+        Duration::from_secs(4),
+        resolver.resolve_host("cdn.example"),
+    )
+    .await
+    .expect("DoH should already be ready when the system recovery budget ends")
+    .unwrap();
+    assert!(addresses.contains(&"151.101.1.242".parse().unwrap()));
+}
+
+#[tokio::test]
+async fn body_failure_after_successful_headers_recovers_only_redirect_target() {
+    use crate::util::fetch::{
+        DownloadClients, DownloadRoute, DownloadRouteSource, ProxyPolicy,
+        request_dns_system_recovery,
+    };
+    let clients =
+        DownloadClients::build(&Default::default(), false, true).unwrap();
+    let resolver = clients.system_dns.clone();
+    for host in ["origin.example", "target.example"] {
+        resolver.cache_addresses(
+            host.into(),
+            vec!["127.0.0.2:0".parse().unwrap()],
+            CACHE_TTL,
+        );
     }
+    let route = DownloadRoute {
+        url: "https://origin.example/file".into(),
+        source: DownloadRouteSource::Official,
+        is_mirror: false,
+        allow_sensitive_headers: false,
+        supports_range: true,
+        proxy: ProxyPolicy::System,
+    };
+    crate::util::download::proxy_context::with_snapshot(clients, async {
+        // Headers succeeding on each attempt used to reset the two-failure
+        // counter and keep the bad edge cached forever.
+        for _ in 0..2 {
+            resolver.record_host_success(
+                "target.example",
+                "127.0.0.2".parse().unwrap(),
+            );
+            request_dns_system_recovery(&route, "https://target.example/file");
+        }
+    })
+    .await;
+    assert!(resolver.resolved_addresses("target.example").is_empty());
+    assert!(!resolver.resolved_addresses("origin.example").is_empty());
+    assert!(
+        resolver
+            .last_resolved
+            .lock()
+            .get("target.example")
+            .unwrap()
+            .prefer_system
+    );
+}
+
+#[test]
+fn mixed_system_answers_replace_each_other_without_losing_provenance() {
+    let resolver = DownloadDnsResolver::default();
+    let now = Instant::now();
+    let answer = |source, ips: &[&str]| DnsAnswer {
+        queried_host: "cdn.example".into(),
+        cname_chain: Vec::new(),
+        addresses: ips
+            .iter()
+            .map(|ip| DnsAddress {
+                ip: ip.parse().unwrap(),
+                expires_at: now + CACHE_TTL,
+            })
+            .collect(),
+        fetched_at: now,
+        source,
+    };
+    resolver.remember_answer(
+        "cdn.example",
+        answer(DnsSource::System, &["198.18.0.1", "::1"]),
+    );
+    resolver.remember_answer(
+        "cdn.example",
+        answer(DnsSource::System, &["::1", "198.18.0.1"]),
+    );
+    for provider in 0..BUILTIN_DOH_SERVERS.len() {
+        let source = DnsSource::Doh(Arc::from(format!("provider-{provider}")));
+        resolver.remember_answer(
+            "cdn.example",
+            answer(source.clone(), &["151.101.1.242"]),
+        );
+        resolver.remember_answer(
+            "cdn.example",
+            answer(source, &["2a04:4e42::498"]),
+        );
+    }
+    let cache = resolver.dns_answers.lock();
+    let answers = cache.get("cdn.example").unwrap();
+    assert_eq!(answers.len(), BUILTIN_DOH_SERVERS.len() * 2 + 1);
+    assert_eq!(
+        answers
+            .iter()
+            .filter(|answer| answer.source == DnsSource::System)
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn native_truncated_body_retries_redirect_target_through_system_dns() {
+    use crate::util::fetch::{
+        DownloadClients, DownloadRequest, DownloadRoute, DownloadRouteSource,
+        FetchSemaphore, Integrity, ProxyPolicy, ResourceClass,
+        run_native_download_attempts,
+    };
+    use crate::util::proxy::{ProxyConfig, ProxyMode};
+    let bad_listener = tokio::net::TcpListener::bind(("127.0.0.2", 0))
+        .await
+        .unwrap();
+    let port = bad_listener.local_addr().unwrap().port();
+    let good_listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+        .await
+        .unwrap();
+    let target = format!("http://localhost:{port}/file");
+    let bad_target = target.clone();
+    let bad = tokio::spawn(async move {
+        loop {
+            let (mut stream, _) = bad_listener.accept().await.unwrap();
+            let mut buffer = [0; 4096];
+            let read = stream.read(&mut buffer).await.unwrap();
+            if String::from_utf8_lossy(&buffer[..read]).contains("/redirect") {
+                stream.write_all(format!("HTTP/1.1 302 Found\r\nLocation: {bad_target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
+            } else {
+                stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nx").await.unwrap();
+            }
+        }
+    });
+    let good = tokio::spawn(async move {
+        let (mut stream, _) = good_listener.accept().await.unwrap();
+        let mut buffer = [0; 4096];
+        stream.read(&mut buffer).await.unwrap();
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok").await.unwrap();
+    });
+    let mut clients = DownloadClients::build(
+        &ProxyConfig {
+            mode: ProxyMode::None,
+            ..Default::default()
+        },
+        false,
+        true,
+    )
+    .unwrap();
+    clients.scope = format!("dns-body-{port}");
+    let resolver = clients.system_dns.clone();
+    for host in ["origin.example", "localhost"] {
+        resolver.cache_addresses(
+            host.into(),
+            vec!["127.0.0.2:0".parse().unwrap()],
+            CACHE_TTL,
+        );
+    }
+    resolver.set_test_system_answer(
+        "localhost",
+        Duration::ZERO,
+        vec!["127.0.0.1:0".parse().unwrap()],
+    );
+    let origin = format!("http://origin.example:{port}/redirect");
+    let route = DownloadRoute {
+        url: origin.clone(),
+        source: DownloadRouteSource::Official,
+        is_mirror: false,
+        allow_sensitive_headers: false,
+        supports_range: false,
+        proxy: ProxyPolicy::System,
+    };
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("file.bin");
+    let part = directory.path().join("file.bin.part");
+    let result = crate::util::download::proxy_context::with_snapshot(
+        clients,
+        tokio::time::timeout(
+            Duration::from_secs(20),
+            run_native_download_attempts(
+                DownloadRequest::new(&origin, ResourceClass::Other)
+                    .with_integrity(Integrity::default().with_size(2)),
+                &destination,
+                &FetchSemaphore(tokio::sync::Semaphore::new(8)),
+                None,
+                vec![route],
+                part,
+                None,
+            ),
+        ),
+    )
+    .await;
+    bad.abort();
+    good.abort();
+    result.unwrap().unwrap();
+    assert_eq!(tokio::fs::read(&destination).await.unwrap(), b"ok");
+    assert_eq!(
+        resolver.resolved_addresses("localhost"),
+        vec!["127.0.0.1".parse::<IpAddr>().unwrap()]
+    );
+    assert_eq!(
+        resolver.resolved_addresses("origin.example"),
+        vec!["127.0.0.2".parse::<IpAddr>().unwrap()]
+    );
+}
+
+#[tokio::test]
+async fn failed_valid_doh_address_recovers_through_system_dns() {
+    let fast = DohFixture::start(Duration::ZERO, Duration::ZERO).await;
+    let resolver = fixture_resolver(&[&fast]);
+    resolver.test_system_answers.lock().insert(
+        "cdn.example".into(),
+        (
+            Duration::from_millis(200),
+            vec!["127.0.0.1:0".parse().unwrap()],
+        ),
+    );
+    // The real DoH fixture returns a valid remote address before system DNS.
+    let initial = resolver.resolve_host("cdn.example").await.unwrap();
+    assert!(initial.contains(&"151.101.1.242".parse().unwrap()));
+    assert!(!resolver.record_connection_failure("cdn.example"));
+    assert!(resolver.record_connection_failure("cdn.example"));
+    resolver.record_host_success("cdn.example", initial[0]);
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut buffer = [0; 2048];
+        stream.read(&mut buffer).await.unwrap();
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok").await.unwrap();
+    });
+    let client = crate::util::http::client_builder()
+        .no_proxy()
+        .dns_resolver(Arc::new(resolver.clone()))
+        .timeout(Duration::from_secs(2))
+        .build()
+        .unwrap();
+    let body = client
+        .get(format!("http://cdn.example:{port}/file"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert_eq!(body, "ok");
+    server.await.unwrap();
+    assert_eq!(
+        resolver.resolved_addresses("cdn.example"),
+        vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
+    );
+}
+
+#[tokio::test]
+async fn stalled_doh_candidates_include_system_provenance() {
+    let stalled =
+        DohFixture::start(Duration::from_secs(10), Duration::from_secs(10))
+            .await;
+    let resolver = fixture_resolver(&[&stalled]);
+    resolver.test_system_answers.lock().insert(
+        "cdn.example".into(),
+        (
+            Duration::from_millis(20),
+            vec!["198.18.0.1:0".parse().unwrap()],
+        ),
+    );
+    let answers = resolver
+        .candidate_snapshot(
+            "cdn.example",
+            &CancellationToken::new(),
+            Instant::now() + Duration::from_millis(100),
+        )
+        .await
+        .unwrap();
+    assert_eq!(answers.len(), 1);
+    assert_eq!(answers[0].source, DnsSource::System);
+    assert_eq!(
+        answers[0].addresses[0].ip,
+        "198.18.0.1".parse::<IpAddr>().unwrap()
+    );
+}
+
+#[tokio::test]
+async fn sustained_slow_address_expires_without_aborting_current_connection() {
+    let fast = DohFixture::start(Duration::ZERO, Duration::ZERO).await;
+    let resolver = fixture_resolver(&[&fast]);
+    resolver.test_system_answers.lock().insert(
+        "cdn.example".into(),
+        (
+            Duration::from_millis(200),
+            vec!["127.0.0.1:0".parse().unwrap()],
+        ),
+    );
+    let addresses = resolver.resolve_host("cdn.example").await.unwrap();
+    resolver.request_system_recovery("cdn.example");
+    resolver.record_host_success("cdn.example", addresses[0]);
+    assert!(resolver.resolved_addresses("cdn.example").is_empty());
+    assert_eq!(
+        resolver.resolve_host("cdn.example").await.unwrap(),
+        vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]
+    );
 }
 
 #[tokio::test]

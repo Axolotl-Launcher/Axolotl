@@ -156,6 +156,9 @@ pub struct DownloadRequest {
     pub(crate) allow_http1_segmented_download: bool,
     pub(crate) batch_download: bool,
     pub(crate) prefer_http1: bool,
+    /// Explicit opt-in: retain independent connections across retry rounds.
+    pub(crate) force_multiconnection: bool,
+    pub(crate) forced_allocation: Option<Arc<super::weighted::ForcedDownload>>,
     /// Minimum independent Range connections, bounded by data and resource limits.
     pub(crate) range_connection_floor: Option<usize>,
     /// Requested H2 range streams when the file does not qualify for
@@ -163,6 +166,8 @@ pub struct DownloadRequest {
     pub(crate) h2_range_concurrency: Option<usize>,
     pub(crate) cancellation: Option<tokio_util::sync::CancellationToken>,
     pub(crate) install_tracking: Option<DownloadInstallTracking>,
+    pub(crate) diagnostics:
+        Option<Arc<crate::util::download::telemetry::FileCapture>>,
     pub(crate) endpoint_migrations: Arc<std::sync::atomic::AtomicU8>,
     pub(crate) endpoint_migration_generations: Arc<Mutex<HashSet<(u64, u64)>>>,
     pub(crate) transfer_counters: Arc<
@@ -190,10 +195,13 @@ impl DownloadRequest {
             allow_http1_segmented_download: true,
             batch_download: false,
             prefer_http1: false,
+            force_multiconnection: false,
+            forced_allocation: None,
             range_connection_floor: None,
             h2_range_concurrency: None,
             cancellation: None,
             install_tracking: None,
+            diagnostics: None,
             endpoint_migrations: Arc::new(std::sync::atomic::AtomicU8::new(0)),
             endpoint_migration_generations: Arc::default(),
             transfer_counters: Arc::default(),
@@ -204,6 +212,14 @@ impl DownloadRequest {
         self.allow_segmented_download = allow;
         self.allow_http1_segmented_download = allow;
         self
+    }
+
+    /// Use the same range connection policy as a standalone modpack archive.
+    pub fn with_large_file_download_policy(self) -> Self {
+        self.with_range_connection_floor(LARGE_FILE_RANGE_CONNECTION_FLOOR)
+            .with_h2_range_concurrency(
+                crate::util::download::constants::MODPACK_REQUESTED_H2_RANGES,
+            )
     }
 
     pub(crate) fn with_http1_segmented_download(mut self, allow: bool) -> Self {

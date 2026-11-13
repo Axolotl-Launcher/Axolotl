@@ -13,8 +13,6 @@
     "DEV",
     "MODRINTH_URL",
     "MODRINTH_API_BASE_URL",
-    "MODRINTH_ARCHON_BASE_URL",
-    "VITE_STRIPE_PUBLISHABLE_KEY",
     "TELEMETRY_ADMIN_MOCK_AUTH",
     "TELEMETRY_ADMIN_MOCK_SCENARIO",
     "TELEMETRY_ADMIN_REMOTE_BINDINGS",
@@ -126,13 +124,14 @@
         "RUST_*",
         "RUSTFLAGS",
         "FORCE_COLOR",
-        "NEXTEST_*"
+        "NEXTEST_*",
+        "SCHED_*"
       ],
       "passThroughEnv": ["SCCACHE_*", "RUSTC_WRAPPER", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
     },
     "test:e2e": {
       "cache": false,
-      "env": ["CI", "PLAYWRIGHT_BASE_URL", "FORCE_COLOR"]
+      "env": ["CI", "PLAYWRIGHT_BASE_URL", "FORCE_COLOR", "E2E_ARTIFACT_DIR"]
     },
     "fix": {},
     "fix:ancillary": {

@@ -103,6 +103,109 @@ fn dynamic_ranges_split_the_largest_remaining_tail() {
 }
 
 #[test]
+fn forced_ranges_bisect_large_remaining_work_and_cover_it_exactly() {
+    use crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE;
+
+    let start = 123;
+    let size = 256 * 1024 * 1024;
+    let mut ranges = vec![DownloadRange::new(0, start, start + size - 1)];
+    while ranges.len() < 72 {
+        let largest =
+            ranges.iter().max_by_key(|range| range.remaining()).unwrap();
+        let before = largest.remaining();
+        let tail = largest
+            .split_remaining_in_half(ranges.len(), FORCED_MIN_SEGMENT_SIZE)
+            .unwrap();
+        assert_eq!(tail.remaining(), before / 2);
+        assert_eq!(largest.remaining(), before.div_ceil(2));
+        ranges.push(tail);
+    }
+
+    let smallest = ranges.iter().map(DownloadRange::remaining).min().unwrap();
+    let largest = ranges.iter().map(DownloadRange::remaining).max().unwrap();
+    assert!(smallest >= 2 * 1024 * 1024);
+    assert!(largest <= smallest * 2);
+    assert_eq!(
+        ranges.iter().map(DownloadRange::remaining).sum::<u64>(),
+        size
+    );
+    ranges.sort_by_key(|range| range.start);
+    assert_eq!(ranges[0].start, start);
+    assert_eq!(ranges.last().unwrap().end(), start + size - 1);
+    for pair in ranges.windows(2) {
+        assert_eq!(pair[0].end() + 1, pair[1].start);
+    }
+}
+
+#[test]
+fn forced_range_bisection_excludes_already_downloaded_prefix() {
+    use crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE;
+
+    let start = 500;
+    let size = 10 * 1024 * 1024 + 1;
+    let downloaded = 3 * 1024 * 1024;
+    let range = DownloadRange::new(0, start, start + size - 1);
+    assert_eq!(range.accept_chunk(downloaded), (downloaded, false));
+    let remaining = range.remaining();
+    let tail = range
+        .split_remaining_in_half(1, FORCED_MIN_SEGMENT_SIZE)
+        .unwrap();
+
+    assert_eq!(tail.remaining(), remaining / 2);
+    assert_eq!(range.remaining(), remaining.div_ceil(2));
+    assert_eq!(range.start, start);
+    assert_eq!(
+        tail.start,
+        start + downloaded as u64 + remaining.div_ceil(2)
+    );
+    assert_eq!(range.end() + 1, tail.start);
+    assert_eq!(tail.end(), start + size - 1);
+    assert_eq!(
+        downloaded as u64 + range.remaining() + tail.remaining(),
+        size
+    );
+    assert_eq!(range.state.lock().downloaded, downloaded as u64);
+}
+
+#[test]
+fn forced_range_bisection_preserves_minimum_size_on_both_sides() {
+    use crate::util::download::constants::FORCED_MIN_SEGMENT_SIZE;
+
+    for remaining in [
+        FORCED_MIN_SEGMENT_SIZE * 2 - 1,
+        FORCED_MIN_SEGMENT_SIZE * 2,
+        FORCED_MIN_SEGMENT_SIZE * 2 + 1,
+    ] {
+        let range = DownloadRange::new(0, 100, 100 + remaining - 1);
+        let end = range.end();
+        let tail = range.split_remaining_in_half(1, FORCED_MIN_SEGMENT_SIZE);
+        if remaining < FORCED_MIN_SEGMENT_SIZE * 2 {
+            assert!(tail.is_none());
+            assert_eq!(range.end(), end);
+            assert_eq!(range.remaining(), remaining);
+        } else {
+            let tail = tail.unwrap();
+            assert_eq!(range.remaining(), remaining.div_ceil(2));
+            assert_eq!(tail.remaining(), remaining / 2);
+            assert!(range.remaining() >= FORCED_MIN_SEGMENT_SIZE);
+            assert!(tail.remaining() >= FORCED_MIN_SEGMENT_SIZE);
+            assert_eq!(range.end() + 1, tail.start);
+            assert_eq!(tail.end(), end);
+            assert_eq!(range.remaining() + tail.remaining(), remaining);
+            assert!(
+                range
+                    .split_remaining_in_half(2, FORCED_MIN_SEGMENT_SIZE)
+                    .is_none()
+            );
+            assert!(
+                tail.split_remaining_in_half(2, FORCED_MIN_SEGMENT_SIZE)
+                    .is_none()
+            );
+        }
+    }
+}
+
+#[test]
 fn large_files_start_parallel_ranges_without_consulting_speed_floor() {
     let size = 16 * 1024 * 1024;
     assert_eq!(initial_segment_count(size, 64), 16);
@@ -407,4 +510,16 @@ fn segmented_download_starts_at_four_mebibytes() {
 
 fn create_initial_ranges(size: u64, count: usize) -> Vec<DownloadRange> {
     create_remaining_ranges(size, 0, count)
+}
+
+#[test]
+fn forced_range_budget_uses_small_blocks_and_respects_connection_limits() {
+    use super::super::segment::forced_range_cap;
+    assert_eq!(forced_range_cap(1024 * 1024, 256, 256), 64);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 72, 256), 72);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 128, 256), 128);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 256, 256), 256);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 16, 256), 16);
+    assert_eq!(forced_range_cap(4 * 1024 * 1024, 256, 64), 64);
+    assert_eq!(forced_range_cap(16 * 1024, 256, 256), 1);
 }

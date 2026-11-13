@@ -45,7 +45,10 @@ export interface ContentSelectionContext {
     ) => Promise<GameInstance | null>
     refreshInstalledIdentities: () => Promise<void>
     setTarget: (instance: GameInstance | null) => void
-    add: (item: ContentSelectionItem) => Promise<boolean>
+    add: (
+        item: ContentSelectionItem,
+        resolveVersion?: (isCurrent: () => boolean) => Promise<string | null | undefined>,
+    ) => Promise<boolean>
     remove: (key: string) => void
     clear: () => void
     isSelected: (key: string) => boolean

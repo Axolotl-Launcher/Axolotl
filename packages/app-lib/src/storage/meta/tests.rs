@@ -267,7 +267,7 @@ async fn channel_references_union_versions_and_detect_pending_recovery() {
             .await
             .unwrap();
         if version == "second" {
-            sqlx::query("INSERT INTO install_jobs(id, kind, status, state, created, modified) VALUES ('job', 'install_instance', 'failed', '{\"rollback\":{}}', 0, 0)").execute(&pool).await.unwrap();
+            sqlx::query("INSERT INTO install_jobs(id, kind, status, state, created, modified) VALUES ('job', 'install_instance', 'failed', '{\"rollback\":{},\"rollback_error\":{\"code\":\"rollback_error\"}}', 0, 0)").execute(&pool).await.unwrap();
             let mut recovering = References::default();
             channel_references(&pool, &mut recovering, &directories)
                 .await

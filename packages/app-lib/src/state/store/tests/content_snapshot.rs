@@ -1,6 +1,10 @@
 //! What a content snapshot reads, and the transaction it reads it in.
 
 use crate::state::instances::commands::content_snapshot::local;
+use crate::state::store::content_file_fingerprints::{
+    ContentFileFingerprints, FileFingerprintRecord, FileModifiedTime,
+    FingerprintKey,
+};
 use crate::state::store::content_snapshot::{get, get_with_saved_pack, pause};
 use crate::state::store::derived_db::{DerivedDb, FILE_NAME};
 use crate::state::store::{Collection as _, Handle, content_refresh_checks::*};
@@ -103,6 +107,127 @@ async fn local_snapshot_does_not_scan_direct_instances_or_require_a_game_directo
         snapshot.items[0].content.as_ref().unwrap().file_name,
         "a.jar"
     );
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn local_snapshot_preserves_file_dates_across_scans_and_link_modes() {
+    for linked in [false, true] {
+        let pool = seeded().await;
+        if linked {
+            sqlx::query("UPDATE instances SET linked_dot_minecraft = 'Z:/nonexistent/minecraft', linked_launcher = 'generic' WHERE id = 'instance'")
+                .execute(&pool).await.unwrap();
+        }
+        sqlx::raw_sql(
+            "UPDATE instance_files SET added_at = 100, modified_at = 5000;
+             INSERT INTO instance_files (id, instance_id, relative_path, file_name, enabled, sha1, size, added_at, modified_at) VALUES ('older-file', 'instance', 'mods/z.jar', 'z.jar', 1, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 3, 100, 5000);"
+        ).execute(&pool).await.unwrap();
+        let handle = Handle::new(pool.clone());
+        for (id, path, hash, seconds, nanos) in [
+            ("file", "mods/a.jar", "a", 2000, 123_456_789),
+            ("older-file", "mods/z.jar", "b", 1000, 0),
+        ] {
+            ContentFileFingerprints::set(
+                &handle,
+                &FingerprintKey {
+                    instance_id: "instance".into(),
+                    file_id: id.into(),
+                },
+                Some(&FileFingerprintRecord {
+                    content_root: "Z:/nonexistent/minecraft".into(),
+                    relative_path: path.into(),
+                    size: 3,
+                    modified: FileModifiedTime { seconds, nanos },
+                    hashes: vec![crate::resources::ContentHash {
+                        algorithm: crate::resources::HashAlgorithm::Sha1,
+                        value: hash.repeat(40),
+                    }],
+                    curseforge_fingerprint: None,
+                }),
+            )
+            .await
+            .unwrap();
+        }
+        for scan_time in [5000, 6000] {
+            sqlx::query("UPDATE instance_files SET modified_at = ?")
+                .bind(scan_time)
+                .execute(&pool)
+                .await
+                .unwrap();
+            let snapshot =
+                local::project(get(&handle, "instance").await.unwrap());
+            let mut dates = snapshot
+                .items
+                .iter()
+                .map(|item| {
+                    let content = item.content.as_ref().unwrap();
+                    (
+                        content.file_name.as_str(),
+                        content.date_added.as_deref().unwrap(),
+                    )
+                })
+                .collect::<Vec<_>>();
+            dates.sort_unstable();
+            assert_eq!(
+                dates,
+                [
+                    ("a.jar", "1970-01-01T00:33:20.123456789+00:00"),
+                    ("z.jar", "1970-01-01T00:16:40+00:00"),
+                ],
+                "linked={linked}, scan_time={scan_time}"
+            );
+        }
+        pool.close().await;
+    }
+}
+
+#[tokio::test]
+async fn local_snapshot_ignores_missing_or_stale_file_date_evidence() {
+    let pool = seeded().await;
+    sqlx::query("UPDATE instance_files SET added_at = 100, modified_at = 5000")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let handle = Handle::new(pool.clone());
+    let fingerprint = FileFingerprintRecord {
+        content_root: "Z:/nonexistent/minecraft".into(),
+        relative_path: "mods/a.jar".into(),
+        size: 3,
+        modified: FileModifiedTime {
+            seconds: 2000,
+            nanos: 0,
+        },
+        hashes: vec![crate::resources::ContentHash {
+            algorithm: crate::resources::HashAlgorithm::Sha1,
+            value: "a".repeat(40),
+        }],
+        curseforge_fingerprint: None,
+    };
+    for stale in ["missing", "path", "size", "hash", "timestamp"] {
+        let mut records = get(&handle, "instance").await.unwrap();
+        let mut record = fingerprint.clone();
+        match stale {
+            "path" => record.relative_path = "mods/previous.jar".into(),
+            "size" => record.size += 1,
+            "hash" => record.hashes[0].value = "b".repeat(40),
+            "timestamp" => record.modified.seconds = i64::MAX,
+            _ => {}
+        }
+        if stale != "missing" {
+            records.fingerprints.insert("file".into(), record);
+        }
+        let snapshot = local::project(records);
+        assert_eq!(
+            snapshot.items[0]
+                .content
+                .as_ref()
+                .unwrap()
+                .date_added
+                .as_deref(),
+            Some("1970-01-01T00:01:40+00:00"),
+            "{stale} evidence must use the original tracked date"
+        );
+    }
     pool.close().await;
 }
 
@@ -256,6 +381,164 @@ async fn local_declarations_fill_remote_unknown_dimensions_without_overriding_mi
         );
         assert_ne!(assessment.game_version, Unknown);
     }
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn multi_loader_projection_selects_instance_metadata_over_saved_local_fallback()
+ {
+    use crate::resources::CompatibilityState::{Compatible, Incompatible};
+    use crate::state::ModLoader;
+    use crate::state::store::content_refresh_presentations::PresentationRecord;
+
+    let pool = seeded().await;
+    let handle = Handle::new(pool.clone());
+    let metadata = serde_json::json!({
+        "metadata_version": 3,
+        "mod_id": "journeymap-wrongloader",
+        "name": "JourneyMap Fabric probe",
+        "version": "not a fabric mod",
+        "minecraft_version": "1.20.1",
+        "loader": "fabric",
+        "dependencies": [],
+        "variants": [{
+            "metadata_version": 3,
+            "mod_id": "journeymap",
+            "name": "JourneyMap",
+            "version": "1.21.1-6.0.9",
+            "minecraft_version": "[1.21.1]",
+            "loader": "neoforge",
+            "dependencies": []
+        }]
+    })
+    .to_string();
+    sqlx::query(
+        "UPDATE instance_files SET local_mod_data = ? WHERE id = 'file'",
+    )
+    .bind(&metadata)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let mut old_records = get(&handle, "instance").await.unwrap();
+    old_records.files[0].local_mod_data = Some(metadata.clone());
+    let location = location_key(&old_records.instance);
+    let stale_content =
+        local::project(old_records).items.remove(0).content.unwrap();
+    assert_eq!(
+        stale_content.project.as_ref().unwrap().id,
+        "local:journeymap-wrongloader"
+    );
+    assert_eq!(
+        stale_content.version.as_ref().unwrap().version_number,
+        "not a fabric mod"
+    );
+
+    for (
+        loader,
+        game_version,
+        expected_id,
+        expected_name,
+        expected_version,
+        expected_loader,
+        compatible,
+    ) in [
+        (
+            ModLoader::NeoForge,
+            "1.21.1",
+            "journeymap",
+            "JourneyMap",
+            "1.21.1-6.0.9",
+            "neoforge",
+            Compatible,
+        ),
+        (
+            ModLoader::Fabric,
+            "1.20.1",
+            "journeymap-wrongloader",
+            "JourneyMap Fabric probe",
+            "not a fabric mod",
+            "fabric",
+            Compatible,
+        ),
+        (
+            ModLoader::Forge,
+            "1.20.1",
+            "journeymap-wrongloader",
+            "JourneyMap Fabric probe",
+            "not a fabric mod",
+            "fabric",
+            Incompatible,
+        ),
+    ] {
+        let mut records = get(&handle, "instance").await.unwrap();
+        records.content_set.loader = loader;
+        records.content_set.game_version = game_version.into();
+        records.files[0].local_mod_data = Some(metadata.clone());
+        records.presentations.insert(
+            "file".into(),
+            PresentationRecord {
+                location_key: location.clone(),
+                saved_at: 123,
+                content: stale_content.clone(),
+            },
+        );
+        let mut snapshot = local::project(records);
+        let item = &snapshot.items[0];
+        let content = item.content.as_ref().unwrap();
+        let project = content.project.as_ref().unwrap();
+        assert_eq!(project.id, format!("local:{expected_id}"));
+        assert_eq!(project.slug.as_deref(), Some(expected_id));
+        assert_eq!(project.title, expected_name);
+        assert_eq!(
+            content.version.as_ref().unwrap().version_number,
+            expected_version
+        );
+        assert_eq!(content.loader.as_deref(), Some(expected_loader));
+        let compatibility = item.compatibility.as_ref().unwrap();
+        assert_eq!(compatibility.game_version, Compatible);
+        assert_eq!(compatibility.loader, compatible);
+        crate::resources::installed::attach_compatibility(
+            &pool,
+            "instance",
+            game_version,
+            loader.as_str(),
+            &mut snapshot.items,
+            None,
+        )
+        .await
+        .unwrap();
+        let compatibility = snapshot.items[0].compatibility.as_ref().unwrap();
+        assert_eq!(compatibility.game_version, Compatible);
+        assert_eq!(compatibility.loader, compatible);
+    }
+
+    let mut records = get(&handle, "instance").await.unwrap();
+    records.content_set.loader = ModLoader::NeoForge;
+    records.content_set.game_version = "1.21.1".into();
+    records.files[0].local_mod_data = Some(metadata);
+    let mut remote_content = stale_content;
+    let project = remote_content.project.as_mut().unwrap();
+    project.id = "remote-project".into();
+    project.title = "Provider title".into();
+    let version = remote_content.version.as_mut().unwrap();
+    version.id = "remote-release".into();
+    version.version_number = "Provider version".into();
+    records.presentations.insert(
+        "file".into(),
+        PresentationRecord {
+            location_key: location,
+            saved_at: 123,
+            content: remote_content,
+        },
+    );
+    let snapshot = local::project(records);
+    let content = snapshot.items[0].content.as_ref().unwrap();
+    assert_eq!(content.project.as_ref().unwrap().title, "Provider title");
+    assert_eq!(
+        content.version.as_ref().unwrap().version_number,
+        "Provider version"
+    );
+    assert_eq!(content.loader.as_deref(), Some("neoforge"));
     pool.close().await;
 }
 

@@ -50,7 +50,27 @@ pub fn assess_compatibility(
     target: &ipc::ResourceTarget,
     kind: ResourceType,
 ) -> CompatibilityAssessment {
-    assess_declared_compatibility(&release.compatibility, target, kind)
+    let mut assessment =
+        assess_declared_compatibility(&release.compatibility, target, kind);
+    // Minecraft loads only archives and folders from a world's datapacks
+    // directory, never jars. Projects that publish a mod build next to the
+    // datapack list that jar as a newer release of the same project.
+    if kind == ResourceType::DataPack && has_jar_primary(release) {
+        assessment.loader = CompatibilityState::Incompatible;
+        if !assessment.reasons.iter().any(|reason| reason == "loader") {
+            assessment.reasons.push("loader".into());
+        }
+    }
+    assessment
+}
+
+fn has_jar_primary(release: &ResourceRelease) -> bool {
+    release
+        .artifacts
+        .iter()
+        .filter(|artifact| artifact.role == ArtifactRole::Primary)
+        .filter_map(|artifact| artifact.file_name.as_deref())
+        .any(|name| name.to_ascii_lowercase().ends_with(".jar"))
 }
 
 pub fn assess_declared_compatibility(
@@ -546,6 +566,40 @@ mod tests {
             new.reference
         );
     }
+    #[test]
+    fn a_jar_is_never_a_compatible_datapack_release() {
+        let target = ipc::ResourceTarget {
+            game_versions: vec![],
+            loaders: vec!["fabric".into()],
+            channels: vec![],
+        };
+        let mut jar = release("1", SourceId::modrinth(), 1, 'a');
+        jar.compatibility.loaders = vec!["fabric".into()];
+        let mut zip = jar.clone();
+        zip.compatibility.loaders = vec!["datapack".into()];
+        zip.artifacts[0].file_name = Some("pack.ZIP".into());
+        let assessment =
+            assess_compatibility(&jar, &target, ResourceType::DataPack);
+        assert_eq!(assessment.loader, CompatibilityState::Incompatible);
+        assert!(assessment.reasons.contains(&"loader".to_string()));
+        assert_eq!(
+            assess_compatibility(&zip, &target, ResourceType::DataPack).loader,
+            CompatibilityState::Compatible
+        );
+        assert_eq!(
+            assess_compatibility(&jar, &target, ResourceType::Mod).loader,
+            CompatibilityState::Compatible
+        );
+        let mut attachment = zip.artifacts[0].clone();
+        attachment.role = ArtifactRole::Attachment;
+        attachment.file_name = Some("sources.jar".into());
+        zip.artifacts.push(attachment);
+        assert_eq!(
+            assess_compatibility(&zip, &target, ResourceType::DataPack).loader,
+            CompatibilityState::Compatible
+        );
+    }
+
     #[test]
     fn wildcard_preserves_major_and_minor_boundaries() {
         assert!(matches_game_version("1.20.x", "1.20.4"));

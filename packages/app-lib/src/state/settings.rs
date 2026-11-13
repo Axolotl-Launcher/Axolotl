@@ -8,9 +8,14 @@ use crate::state::store::settings::{
 use crate::state::store::{Atom, Handle};
 use crate::util::download::constants::{
     AUTO_DOWNLOAD_CONCURRENCY_INITIAL, DOWNLOAD_CONCURRENCY_HARD_MAX,
+    FORCED_DOWNLOAD_CONCURRENCY_DEFAULT, FORCED_DOWNLOAD_CONCURRENCY_MAX,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+fn default_forced_max_concurrent_downloads() -> usize {
+    FORCED_DOWNLOAD_CONCURRENCY_DEFAULT
+}
 
 // Types
 #[derive(
@@ -104,6 +109,22 @@ impl<'de> Deserialize<'de> for HomeLayout {
     }
 }
 
+/// The previous update attempt shown once when the launcher next starts.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct PendingUpdateFailure {
+    pub version: String,
+    pub error: String,
+}
+
+impl PendingUpdateFailure {
+    pub fn new(version: &str, error: &str) -> Self {
+        Self {
+            version: version.chars().take(128).collect(),
+            error: error.chars().take(2048).collect(),
+        }
+    }
+}
+
 /// Global Theseus settings
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Settings {
@@ -115,6 +136,10 @@ pub struct Settings {
     pub max_concurrent_writes: usize,
     #[serde(default)]
     pub auto_concurrent_downloads: bool,
+    #[serde(default)]
+    pub force_multiconnection_downloads: bool,
+    #[serde(default = "default_forced_max_concurrent_downloads")]
+    pub forced_max_concurrent_downloads: usize,
     #[serde(default)]
     pub minecraft_metadata_source: DownloadSourceMode,
     #[serde(default)]
@@ -193,9 +218,16 @@ pub struct Settings {
     #[serde(skip, default)]
     pub personalized_ads: bool,
 
+    /// Progress of the guided tour the OOBE replaced. Nothing reads these any
+    /// more; they stay because the row and the state document carry them.
     pub onboarded: bool,
     pub onboarding_version: usize,
     pub onboarding_instance_tour_completed: bool,
+    /// The first-run (OOBE) screens this install has been through, by their
+    /// stable ids such as `language_v1`. A release that adds a screen gives it
+    /// a new id, so the next start shows that screen alone.
+    #[serde(default)]
+    pub oobe_completed_steps: Vec<String>,
 
     pub extra_launch_args: Vec<String>,
     pub custom_env_vars: Vec<(String, String)>,
@@ -206,6 +238,8 @@ pub struct Settings {
     pub hide_on_process_start: bool,
     pub enter_lightweight_mode_on_game_launch: bool,
     pub auto_set_java_high_performance_mode: bool,
+    #[serde(default)]
+    pub minecraft_use_console_java: bool,
     pub hooks: Hooks,
 
     pub custom_dir: Option<String>,
@@ -229,6 +263,8 @@ pub struct Settings {
 
     pub skipped_update: Option<String>,
     pub pending_update_toast_for_version: Option<String>,
+    #[serde(default)]
+    pub pending_update_failure: Option<PendingUpdateFailure>,
     pub auto_download_updates: Option<bool>,
     #[serde(default = "default_true")]
     pub allow_external_scheme: bool,
@@ -318,6 +354,7 @@ pub enum FeatureFlag {
     PageTransitions,
     ShowVersionEnvironmentColumn,
     AutoInstallDependencies,
+    AdvancedDownloadInfo,
 }
 
 /// The settings a database that has never been used holds.
@@ -336,6 +373,9 @@ impl Default for Settings {
             max_concurrent_downloads: 10,
             max_concurrent_writes: 10,
             auto_concurrent_downloads: true,
+            force_multiconnection_downloads: false,
+            forced_max_concurrent_downloads:
+                FORCED_DOWNLOAD_CONCURRENCY_DEFAULT,
             minecraft_metadata_source: DownloadSourceMode::Auto,
             minecraft_file_source: DownloadSourceMode::Auto,
             modrinth_source: DownloadSourceMode::Auto,
@@ -391,6 +431,7 @@ impl Default for Settings {
             // The column is added defaulting to on and a later migration copies
             // `onboarded` into it, so a fresh row reads as off.
             onboarding_instance_tour_completed: false,
+            oobe_completed_steps: Vec::new(),
             extra_launch_args: Vec::new(),
             custom_env_vars: Vec::new(),
             memory: MemorySettings {
@@ -406,6 +447,7 @@ impl Default for Settings {
             hide_on_process_start: false,
             enter_lightweight_mode_on_game_launch: false,
             auto_set_java_high_performance_mode: true,
+            minecraft_use_console_java: false,
             // The column is added defaulting to empty, which means the launcher
             // picks the language rather than the user naming one.
             default_game_language: String::new(),
@@ -423,6 +465,7 @@ impl Default for Settings {
             show_skin_selector_in_sidebar: true,
             skipped_update: None,
             pending_update_toast_for_version: None,
+            pending_update_failure: None,
             auto_download_updates: None,
             allow_external_scheme: true,
             allow_privileged_scheme: false,
@@ -436,7 +479,30 @@ impl Default for Settings {
 impl Settings {
     const CURRENT_VERSION: usize = 3;
 
+    pub(crate) fn advanced_download_info_enabled(&self) -> bool {
+        self.developer_mode
+            && self.feature_flags.get(&FeatureFlag::AdvancedDownloadInfo)
+                == Some(&true)
+    }
+
+    /// The settings this launch runs with.
+    ///
+    /// A start that has named the directory of the settings documents gets them
+    /// composed with the row; one that has not — and a unit test that builds a
+    /// handle of its own — reads the row alone, which is what it always did. The
+    /// signature carries no part of that decision: these settings are read at
+    /// every turn, from every module.
     pub async fn get(handle: &Handle) -> crate::Result<Self> {
+        let Some(documents) = handle.settings_documents() else {
+            return Self::read_row(handle).await;
+        };
+        super::documents::settings::cached(&documents, handle).await
+    }
+
+    /// The settings the row alone holds: the whole answer while no document
+    /// directory is named, and what a read falls back on for a domain whose
+    /// document is missing or cannot be read.
+    pub(crate) async fn read_row(handle: &Handle) -> crate::Result<Self> {
         let Some(record) = StoredSettings::get(handle, &Singleton).await?
         else {
             return Err(crate::ErrorKind::OtherError(
@@ -451,16 +517,26 @@ impl Settings {
     /// The ranges and shapes a value of these settings has to hold, in the one
     /// place they are written down.
     ///
-    /// A settings document is text the user may edit by hand, so a number out
-    /// of range is pulled back into it here rather than trusted; the row is
-    /// read and written through the same function, so the two cannot drift
-    /// apart about what a stored value is allowed to be.
+    /// This is the stored side of the rules: what a settings document, or a row
+    /// an older build wrote, already holds is converged to the nearest legal
+    /// value and never refused, because a file the user may edit by hand cannot
+    /// be answered with an error. Refusing is what an entry point does instead —
+    /// `patch_with` and the other writers reject the input they cannot
+    /// represent, so the caller that handed it over learns about it. The two are
+    /// therefore not one check written twice: each answers a source the other
+    /// never sees.
+    ///
+    /// The row is read and written through this function too, so the two cannot
+    /// drift apart about what a stored value is allowed to be.
     pub(crate) fn normalize(mut self) -> Self {
         self.max_concurrent_downloads = self
             .max_concurrent_downloads
             .clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX);
-        // The upper bound above is the download engine's; how many writes run
-        // at once never had one, so a value past it keeps what the user set.
+        self.forced_max_concurrent_downloads = self
+            .forced_max_concurrent_downloads
+            .clamp(1, FORCED_DOWNLOAD_CONCURRENCY_MAX);
+        // The upper bounds above are the download engine's; how many writes run
+        // at once never had one, so a value past them keeps what the user set.
         self.max_concurrent_writes = self.max_concurrent_writes.max(1);
         self.custom_background_blur = self.custom_background_blur.min(40);
         self.custom_background_opacity =
@@ -475,10 +551,18 @@ impl Settings {
         // Home and Library must stay reachable from the nav rail.
         self.hidden_nav_items
             .retain(|id| id != "home" && id != "library");
+        let mut seen_steps = std::collections::HashSet::new();
+        self.oobe_completed_steps.retain(|id| {
+            !id.trim().is_empty() && seen_steps.insert(id.clone())
+        });
         self.default_window_title =
             self.default_window_title.trim().to_string();
         self.default_game_language =
             normalize_game_language(&self.default_game_language);
+        self.pending_update_failure =
+            self.pending_update_failure.map(|failure| {
+                PendingUpdateFailure::new(&failure.version, &failure.error)
+            });
         self.ui_font = sanitize_font_family(self.ui_font.take());
         self.mono_font = sanitize_font_family(self.mono_font.take());
         self
@@ -501,6 +585,12 @@ impl Settings {
                 as usize,
             max_concurrent_writes: record.max_concurrent_writes.max(1) as usize,
             auto_concurrent_downloads: record.auto_concurrent_downloads,
+            force_multiconnection_downloads: record
+                .force_multiconnection_downloads,
+            forced_max_concurrent_downloads: usize::try_from(
+                record.forced_max_concurrent_downloads,
+            )
+            .unwrap_or(1),
             minecraft_metadata_source: to_source_mode(
                 record.minecraft_metadata_source,
             ),
@@ -571,6 +661,10 @@ impl Settings {
             onboarding_version: record.onboarding_version.max(0) as usize,
             onboarding_instance_tour_completed: record
                 .onboarding_instance_tour_completed,
+            oobe_completed_steps: serde_json::from_str(
+                &record.oobe_completed_steps,
+            )
+            .unwrap_or_default(),
             extra_launch_args: serde_json::from_str(&record.extra_launch_args)
                 .ok()
                 .unwrap_or_default(),
@@ -585,14 +679,15 @@ impl Settings {
             force_fullscreen: record.mc_force_fullscreen,
             maximize_window: record.mc_maximize_window,
             game_resolution: WindowSize(
-                record.mc_game_resolution_x as u16,
-                record.mc_game_resolution_y as u16,
+                record.mc_game_resolution_x.clamp(0, u16::MAX as i64) as u16,
+                record.mc_game_resolution_y.clamp(0, u16::MAX as i64) as u16,
             ),
             hide_on_process_start: record.hide_on_process_start,
             enter_lightweight_mode_on_game_launch: record
                 .enter_lightweight_mode_on_game_launch,
             auto_set_java_high_performance_mode: record
                 .auto_set_java_high_performance_mode,
+            minecraft_use_console_java: record.minecraft_use_console_java,
             hooks: Hooks {
                 pre_launch: record.hook_pre_launch,
                 wrapper: record.hook_wrapper,
@@ -614,6 +709,7 @@ impl Settings {
             skipped_update: record.skipped_update,
             pending_update_toast_for_version: record
                 .pending_update_toast_for_version,
+            pending_update_failure: None,
             auto_download_updates: record.auto_download_updates,
             allow_external_scheme: record.allow_external_scheme,
             allow_privileged_scheme: record.allow_privileged_scheme,
@@ -623,7 +719,30 @@ impl Settings {
     }
 
     pub async fn update(&self, handle: &Handle) -> crate::Result<()> {
-        StoredSettings::set(handle, &Singleton, Some(&self.to_record()?)).await
+        StoredSettings::set(handle, &Singleton, Some(&self.to_record()?))
+            .await?;
+        // A read composes the row with the documents, so the row changing is a
+        // reason for the next read to compose again. `set` commits the unit it
+        // writes inside before it answers, so this invalidation already lands
+        // after that commit: unlike a caller's own unit, there is no window
+        // between the write and the commit to defer it for.
+        super::documents::settings::invalidate();
+        // The row has landed, so the domains that read from their documents are
+        // written after it: a start stopped between the two finds a document
+        // behind the row, and a commit that failed never reached this. The row
+        // is read again there rather than taken from `self`, so a writer that
+        // landed in between is not undone by this one.
+        //
+        // This writer cannot say which keys it changed — it states a whole
+        // `Settings` — so every domain is stated, and the keys a deployment
+        // answers are left out of the local documents as they always are.
+        //
+        // A document that cannot be written costs that domain and is left in
+        // the log: this is the whole-row writer a start reaches through the
+        // directory move and the settings migrations, so it must not keep a
+        // start from coming up.
+        super::documents::settings::store_cut_over(handle, None).await;
+        Ok(())
     }
 
     fn to_record(&self) -> crate::Result<SettingsRecord> {
@@ -684,6 +803,11 @@ impl Settings {
                 .curseforge_source
                 .prefers_mirror(auto_prefers_mirror),
             auto_concurrent_downloads: settings.auto_concurrent_downloads,
+            force_multiconnection_downloads: settings
+                .force_multiconnection_downloads,
+            forced_max_concurrent_downloads: settings
+                .forced_max_concurrent_downloads
+                as i64,
             minecraft_metadata_source: from_source_mode(
                 settings.minecraft_metadata_source,
             ),
@@ -700,6 +824,7 @@ impl Settings {
             mc_memory_optimize: settings.memory.optimize_before_launch,
             auto_set_java_high_performance_mode: settings
                 .auto_set_java_high_performance_mode,
+            minecraft_use_console_java: settings.minecraft_use_console_java,
             transparent_background: settings.transparent_background,
             transparent_background_opacity: settings
                 .transparent_background_opacity
@@ -740,6 +865,9 @@ impl Settings {
             hidden_nav_items: serde_json::to_string(
                 &settings.hidden_nav_items,
             )?,
+            oobe_completed_steps: serde_json::to_string(
+                &settings.oobe_completed_steps,
+            )?,
             custom_window_title_enabled: settings.custom_window_title_enabled,
             default_window_title: settings.default_window_title.clone(),
             custom_background_component_opacity: settings
@@ -771,11 +899,25 @@ impl Settings {
     /// Writes these settings inside `unit`.
     pub(crate) async fn save_in(&self, unit: &mut Atom) -> crate::Result<()> {
         StoredSettings::atom_set(unit, &Singleton, Some(&self.to_record()?))
-            .await
+            .await?;
+        // Registered rather than said here: a read between this write and the
+        // unit's commit still composes the row the commit has not replaced, so
+        // the invalidation belongs to the commit and not to the write.
+        unit.invalidate_settings_after_commit();
+        Ok(())
     }
 
     pub fn effective_max_concurrent_downloads(&self) -> usize {
-        if self.auto_concurrent_downloads {
+        if self.force_multiconnection_downloads {
+            let forced = self
+                .forced_max_concurrent_downloads
+                .clamp(1, FORCED_DOWNLOAD_CONCURRENCY_MAX);
+            if self.auto_concurrent_downloads {
+                forced
+            } else {
+                self.max_concurrent_downloads.clamp(1, forced)
+            }
+        } else if self.auto_concurrent_downloads {
             AUTO_DOWNLOAD_CONCURRENCY_INITIAL
         } else {
             self.max_concurrent_downloads
@@ -839,6 +981,10 @@ impl Settings {
     }
 
     pub async fn migrate(handle: &Handle) -> crate::Result<()> {
+        // Migration states the whole settings row. Serialize with the
+        // field-level writers (including the startup log-level patch) so its
+        // snapshot cannot overwrite a patch that landed after it was read.
+        let _guard = crate::api::settings::SETTINGS_WRITE.lock().await;
         let mut settings = Self::get(handle).await?;
 
         if settings.version < Settings::CURRENT_VERSION {
@@ -1146,6 +1292,113 @@ mod tests {
     use super::*;
     use crate::state::store::Collection as _;
     use crate::state::store::tests::support::migrated_pool;
+
+    #[test]
+    fn pending_update_failures_are_optional_and_bounded() {
+        let mut legacy = serde_json::to_value(Settings::default()).unwrap();
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("pending_update_failure");
+        assert!(
+            serde_json::from_value::<Settings>(legacy)
+                .unwrap()
+                .pending_update_failure
+                .is_none()
+        );
+        let mut settings = Settings::default();
+        settings.pending_update_failure = Some(PendingUpdateFailure {
+            version: "版".repeat(200),
+            error: "错".repeat(3000),
+        });
+        let failure = settings.normalize().pending_update_failure.unwrap();
+        assert_eq!(failure.version.chars().count(), 128);
+        assert_eq!(failure.error.chars().count(), 2048);
+    }
+
+    #[test]
+    fn forced_download_mode_is_opt_in_and_preserves_manual_limits() {
+        let mut settings = Settings::default();
+        assert!(!settings.force_multiconnection_downloads);
+        let mut legacy = serde_json::to_value(&settings).unwrap();
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("force_multiconnection_downloads");
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("forced_max_concurrent_downloads");
+        let legacy = serde_json::from_value::<Settings>(legacy).unwrap();
+        assert!(!legacy.force_multiconnection_downloads);
+        assert_eq!(legacy.forced_max_concurrent_downloads, 72);
+        settings.force_multiconnection_downloads = true;
+        assert_eq!(
+            settings.effective_max_concurrent_downloads(),
+            FORCED_DOWNLOAD_CONCURRENCY_DEFAULT
+        );
+        for limit in [72, 100, 128, 256] {
+            settings.forced_max_concurrent_downloads = limit;
+            assert_eq!(settings.effective_max_concurrent_downloads(), limit);
+        }
+        settings.forced_max_concurrent_downloads = 72;
+        settings.auto_concurrent_downloads = false;
+        settings.max_concurrent_downloads = 80;
+        assert_eq!(settings.effective_max_concurrent_downloads(), 72);
+        settings.max_concurrent_downloads = 32;
+        assert_eq!(settings.effective_max_concurrent_downloads(), 32);
+        settings.forced_max_concurrent_downloads = 128;
+        let restored = Settings::from_record(settings.to_record().unwrap());
+        assert_eq!(restored.forced_max_concurrent_downloads, 128);
+        assert!(restored.force_multiconnection_downloads);
+        assert_eq!(restored.max_concurrent_downloads, 32);
+    }
+
+    #[test]
+    fn forced_connection_limit_normalizes_invalid_stored_values() {
+        for (value, expected) in [(0, 1), (999, 256)] {
+            let settings = Settings {
+                forced_max_concurrent_downloads: value,
+                ..Settings::default()
+            }
+            .normalize();
+            assert_eq!(settings.forced_max_concurrent_downloads, expected);
+            let mut record = Settings::default().to_record().unwrap();
+            record.forced_max_concurrent_downloads = value as i64;
+            assert_eq!(
+                Settings::from_record(record).forced_max_concurrent_downloads,
+                expected
+            );
+        }
+        let mut record = Settings::default().to_record().unwrap();
+        record.forced_max_concurrent_downloads = -1;
+        assert_eq!(
+            Settings::from_record(record).forced_max_concurrent_downloads,
+            1
+        );
+    }
+
+    #[test]
+    fn download_diagnostics_requires_developer_mode_and_explicit_flag() {
+        let mut settings = Settings::default();
+        assert!(!settings.advanced_download_info_enabled());
+        settings
+            .feature_flags
+            .insert(FeatureFlag::AdvancedDownloadInfo, true);
+        assert!(!settings.advanced_download_info_enabled());
+        settings.developer_mode = true;
+        assert!(settings.advanced_download_info_enabled());
+        let saved = serde_json::to_value(&settings).unwrap();
+        assert_eq!(saved["feature_flags"]["advanced_download_info"], true);
+        let restored: Settings = serde_json::from_value(saved).unwrap();
+        assert!(restored.advanced_download_info_enabled());
+        settings
+            .feature_flags
+            .insert(FeatureFlag::AdvancedDownloadInfo, false);
+        assert!(!settings.advanced_download_info_enabled());
+        settings.developer_mode = false;
+        assert!(!settings.advanced_download_info_enabled());
+    }
 
     /// The keys where two settings carry different values, written out so a
     /// failure names them instead of printing two whole `Settings`.

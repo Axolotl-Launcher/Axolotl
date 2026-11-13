@@ -44,7 +44,7 @@ async fn stalled_tail_range_is_hedged_and_temp_files_are_cleaned() {
         .with_integrity(Integrity::sha1(hash).with_size(size as u64));
     let directory = tempfile::tempdir().unwrap();
     let part_path = directory.path().join("hedged.part");
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -59,7 +59,6 @@ async fn stalled_tail_range_is_hedged_and_temp_files_are_cleaned() {
             size as u64,
             &part_path,
             &semaphore,
-            None,
             &client,
             &client,
             1,

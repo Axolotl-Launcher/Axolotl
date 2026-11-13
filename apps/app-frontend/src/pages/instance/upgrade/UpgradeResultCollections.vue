@@ -226,7 +226,7 @@
                                     /><span v-else>{{ item.current }}</span>
                                     <span v-if="item.target" aria-hidden="true">→</span>
                                     <UpgradeVersionChangelogPopout
-                                        v-if="item.targetReleaseId"
+                                        v-if="item.targetReleaseId && item.target"
                                         :label="item.target"
                                         :provider="item.provider"
                                         :project-id="item.projectId"
@@ -732,8 +732,8 @@ function searchFields(item: UpgradeDetailItem) {
 function releaseLabel(item: UpgradeDetailItem, releaseId: string | null) {
     return releaseId
         ? upgradeVersionDisplayLabel(versionsQuery.data.value, {
-              provider: item.provider,
-              projectId: item.projectId,
+              provider: item.provider ?? '',
+              projectId: item.projectId ?? '',
               releaseId,
           })
         : null
@@ -768,7 +768,8 @@ function warningIdentity(warning: UpgradeWarningRow) {
     )
 }
 function warningContext(warning: UpgradeWarningRow) {
-    return `${formatMessage(messages[upgradeWarningContentKind(warning)])} · ${warning.provider ?? formatMessage(messages.localContent)}`
+    const kind = upgradeWarningContentKind(warning) as keyof typeof messages
+    return `${formatMessage(messages[kind])} · ${warning.provider ?? formatMessage(messages.localContent)}`
 }
 function warningSearchFields(warning: UpgradeWarningRow) {
     return [

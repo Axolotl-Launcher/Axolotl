@@ -1,0 +1,285 @@
+{
+  "id": "Y8161YLz",
+  "slug": "kappa-shader",
+  "title": "Kappa Shader",
+  "description": "A high-quality realistic, yet also somewhat stylized shaderpack.",
+  "author": "RRe36",
+  "categories": [
+    "atmosphere",
+    "bloom",
+    "colored-lighting",
+    "foliage",
+    "high",
+    "iris",
+    "optifine",
+    "pbr",
+    "realistic",
+    "reflections",
+    "semi-realistic",
+    "shadows"
+  ],
+  "display_categories": ["atmosphere", "colored-lighting", "iris", "optifine", "pbr"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "shader",
+  "downloads": 3387557,
+  "followers": 1297,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["iris", "optifine"],
+  "game_versions": [
+    "1.16",
+    "1.16.1",
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4"
+  ],
+  "latest_version": "8p4viq8V",
+  "date_created": "2023-05-09T13:42:51.983588Z",
+  "date_modified": "2025-02-28T15:26:59.884492Z",
+  "color": 13948116,
+  "published": "2023-05-09T13:42:51.983588Z",
+  "additional_categories": [
+    "bloom",
+    "foliage",
+    "high",
+    "realistic",
+    "reflections",
+    "semi-realistic",
+    "shadows"
+  ],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/y5xzQ6H",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/rre36"
+    }
+  ],
+  "versions_total": 4,
+  "body": "[![Kappa Shader Banner](https://rre36.com/wp-content/uploads/2021/03/Kappa-Banner.jpg)](https://youtu.be/QWAb4RLTiMk)\n\n## **What is the Kappa Shader?**\nA shaderpack that aims towards a realistic, but also authentic look. So it is not plainly using physically accurate vales and equations like many other packs do. Instead, while still using many accurate calculations, it is tweaked to reproduce what you could observe in nature, which usually goes beyond just having equations to describe most phenomenons.\n\n## **What features does it offer?**\n* Dynamic soft shadows\n* Screen-space path-tracing (SSPT)\n* Temporal Anti-Aliasing and Upscaling (TAAU)\n* Procedural realistic skybox with multiple cloud layers\n* Screen-space reflections and optional offscreen environment reflections (when enabling the reflection capture)\n* Volumetric fog\n* Random per-day and daytime driven weather parameters controlling clouds and fog\n* labPBR resourcepack support\n* Various optional lens effects such as depth of field, lens flares and vignette\nand many, many more.\n\n## **Any Requirements?**\n* Optifine for 1.16 or newer/Iris 1.5.0 or newer\n* GTX 1050/RX 560 or similar/better (has to support OpenGL 4.0, something faster than those is recommended though)\n* Windows/Linux\n* **DUE TO REPEATED ISSUE-REPORTS: Intel HD 5000 Graphics and older are NOT supported!**\n\n## **External Links:**\n* My Website: [Link](https://rre36.com/kappa-shader)\n* My Discord Server: [Link](https://discord.gg/y5xzQ6H)\n\n[![Become a Patron](https://rre36.com/wp-content/uploads/2023/05/Patreon_ForEmbed.png)](https://www.patreon.com/bePatron?u=19790203)",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/Y8161YLz/images/3ed9c691e908da42205867608bf98118a6d060cb_350.webp",
+      "featured": true,
+      "title": "Kappa Shader v5.0",
+      "description": "© 2023 RRe36 - All Rights Reserved",
+      "created": "2023-05-09T13:55:08.484327Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Y8161YLz/images/4cd8efed2e4602d465a3975acd2c973c5d0e1d22_350.webp",
+      "featured": false,
+      "title": null,
+      "description": "© 2025 RRe36 - All Rights Reserved",
+      "created": "2025-02-28T16:08:02.534382Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Y8161YLz/images/e9ab33c68ee57df9344b894b791def6c4d53e52d_350.webp",
+      "featured": false,
+      "title": null,
+      "description": "© 2025 RRe36 - All Rights Reserved",
+      "created": "2025-02-28T16:08:16.231502Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Y8161YLz/images/5ecb99797230bbdd6f3023f9a8ac1798f17b4780_350.webp",
+      "featured": false,
+      "title": null,
+      "description": "© 2025 RRe36 - All Rights Reserved",
+      "created": "2025-02-28T16:08:51.608047Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "RRe36",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/15215556?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "8p4viq8V",
+      "name": "Kappa Shader v5.3",
+      "version_number": "5.3",
+      "version_type": "release",
+      "game_versions": [
+        "1.16.5",
+        "1.17",
+        "1.17.1",
+        "1.18",
+        "1.18.1",
+        "1.18.2",
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4"
+      ],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2025-02-28T15:26:59.884492Z",
+      "downloads": 2273372,
+      "changelog": "**By downloading you agree to the terms of use as detailed [here](https://rre36.com/copyright-license).**\n\nChangelog on: [Link](https://rre36.com/projects/kappa-shader/kappa-shader-v5-3-lots-of-little-improvements)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Kappa_v5.3.zip",
+          "size": 3872527,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KO0EB3IW",
+      "name": "Kappa Shader v5.2",
+      "version_number": "5.2",
+      "version_type": "release",
+      "game_versions": [
+        "1.16",
+        "1.16.1",
+        "1.16.2",
+        "1.16.3",
+        "1.16.4",
+        "1.16.5",
+        "1.17",
+        "1.17.1",
+        "1.18",
+        "1.18.1",
+        "1.18.2",
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20",
+        "1.20.1"
+      ],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2023-06-12T16:32:26.579513Z",
+      "downloads": 1066519,
+      "changelog": "**By downloading you agree to the terms of use as detailed [here](https://rre36.com/copyright-license).**\n\nChangelog on: [Link](https://rre36.com/projects/kappa-shader/kappa-shader-v5-2-even-more-bugfixes-and-tweaks)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Kappa_v5.2.zip",
+          "size": 3868665,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "H7Y5on9s",
+      "name": "Kappa Shader v5.1",
+      "version_number": "5.1",
+      "version_type": "release",
+      "game_versions": [
+        "1.16",
+        "1.16.1",
+        "1.16.2",
+        "1.16.3",
+        "1.16.4",
+        "1.16.5",
+        "1.17",
+        "1.17.1",
+        "1.18",
+        "1.18.1",
+        "1.18.2",
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20"
+      ],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2023-05-12T17:57:23.461378Z",
+      "downloads": 24835,
+      "changelog": "**By downloading you agree to the terms of use as detailed [here](https://rre36.com/copyright-license).**\n\nChangelog on: [Link](https://rre36.com/projects/kappa-shader/kappa-shader-v5-1-bugfixes-over-bugfixes)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Kappa_v5.1.zip",
+          "size": 3866853,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "e0M2oYBm",
+      "name": "Kappa Shader v5.0a",
+      "version_number": "5.0a",
+      "version_type": "release",
+      "game_versions": [
+        "1.16",
+        "1.16.1",
+        "1.16.2",
+        "1.16.3",
+        "1.16.4",
+        "1.16.5",
+        "1.17",
+        "1.17.1",
+        "1.18",
+        "1.18.1",
+        "1.18.2",
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4"
+      ],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2023-05-09T13:51:48.050810Z",
+      "downloads": 22913,
+      "changelog": "**By downloading you agree to the terms of use as detailed [here](https://rre36.com/copyright-license).**",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Kappa_v5.0a.zip",
+          "size": 3864790,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

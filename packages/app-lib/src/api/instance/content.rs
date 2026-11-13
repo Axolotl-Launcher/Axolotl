@@ -147,9 +147,16 @@ async fn plan_content_updates_with_refresh(
     refresh_remote: bool,
 ) -> crate::Result<ContentUpdatePlan> {
     let state = State::get().await?;
-    let snapshot =
+    let snapshot = if scope == ContentUpdateScope::Pack && refresh_remote {
+        crate::state::instances::commands::content_snapshot::get_pack_update_snapshot(
+            instance_id,
+            &state,
+        )
+        .await?
+    } else {
         crate::state::get_content_snapshot(instance_id, refresh_remote, &state)
-            .await?;
+            .await?
+    };
     let mut actions = Vec::new();
 
     match scope {

@@ -23,6 +23,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             logs_get_logs,
             logs_get_logs_by_filename,
             logs_get_output_by_filename,
+            logs_export_log_file,
             logs_delete_logs,
             logs_delete_logs_by_filename,
             logs_get_latest_log_cursor,
@@ -81,6 +82,19 @@ pub async fn logs_get_output_by_filename(
     filename: String,
 ) -> Result<CensoredString> {
     Ok(logs::get_output_by_filename(instance_id, log_type, &filename).await?)
+}
+
+#[tauri::command]
+pub async fn logs_export_log_file(
+    instance_id: &str,
+    log_type: LogType,
+    filename: String,
+    output_path: PathBuf,
+) -> Result<()> {
+    Ok(
+        logs::export_log_file(instance_id, log_type, &filename, output_path)
+            .await?,
+    )
 }
 
 /// Delete all logs for an instance.
@@ -258,8 +272,11 @@ pub async fn logs_logshare_upload_crash(
 }
 
 #[tauri::command]
-pub async fn logs_logshare_get_insights(id: &str) -> Result<serde_json::Value> {
-    Ok(logs::get_insights(id).await?)
+pub async fn logs_logshare_get_insights(
+    id: &str,
+    filename: Option<&str>,
+) -> Result<serde_json::Value> {
+    Ok(logs::get_insights(id, filename).await?)
 }
 
 #[tauri::command]

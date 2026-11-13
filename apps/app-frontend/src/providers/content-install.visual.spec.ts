@@ -4,10 +4,11 @@ import { get_project, get_version_many } from '@/helpers/cache.js'
 import { getCurseForgeFile, getCurseForgeFiles, getCurseForgeProject } from '@/helpers/curseforge'
 import {
     install_create_instance,
+    install_create_modpack_instance,
     installJobInstanceId,
     wait_for_install_job,
 } from '@/helpers/install'
-import { get, get_content_snapshot, get_install_candidates } from '@/helpers/instance'
+import { get, get_content_snapshot, get_install_candidates, list } from '@/helpers/instance'
 import { resourceReleaseDocuments, resourceReleases } from '@/helpers/resources'
 
 import { createContentInstall } from './content-install'
@@ -466,7 +467,7 @@ it('closes the install target after queueing without reporting failure or settli
         title: 'Example',
         project_type: 'mod',
         versions: ['release'],
-    })
+    } as unknown as Awaited<ReturnType<typeof get_project>>)
     vi.mocked(get_version_many).mockResolvedValue([
         {
             id: 'release',
@@ -474,7 +475,7 @@ it('closes the install target after queueing without reporting failure or settli
             game_versions: ['1.20.1'],
             loaders: ['fabric'],
         },
-    ])
+    ] as never)
     vi.mocked(get_install_candidates).mockResolvedValue([
         {
             id: 'instance',
@@ -527,7 +528,7 @@ it('direct instance installation settles the caller when resource review is canc
         title: 'Example',
         project_type: 'mod',
         versions: ['release'],
-    })
+    } as unknown as Awaited<ReturnType<typeof get_project>>)
     vi.mocked(get_version_many).mockResolvedValue([
         {
             id: 'release',
@@ -585,7 +586,7 @@ it('CF install target selection includes compatible files from the second source
             exhaustedSources: [],
             sourceFailures: [],
             requestId: 'test',
-        }) as Awaited<ReturnType<typeof resourceReleases>>
+        }) as unknown as Awaited<ReturnType<typeof resourceReleases>>
     vi.mocked(resourceReleases)
         .mockResolvedValueOnce(
             page(
@@ -652,3 +653,60 @@ it('CF install target selection includes compatible files from the second source
     )
     context.handleCancel()
 })
+
+it.each(['modrinth', 'curseforge'] as const)(
+    'passes the chosen game directory into a new %s modpack installation',
+    async (source) => {
+        vi.clearAllMocks()
+        vi.mocked(list).mockResolvedValue([])
+        vi.mocked(get_project).mockResolvedValue({
+            ...project('pack'),
+            project_type: 'modpack',
+        } as never)
+        vi.mocked(get_version_many).mockResolvedValue([release('pack')])
+        vi.mocked(getCurseForgeProject).mockResolvedValue({
+            id: 42,
+            name: 'Pack',
+            classId: 4471,
+            slug: 'pack',
+            authors: [],
+        } as never)
+        vi.mocked(getCurseForgeFile).mockResolvedValue({
+            id: 7,
+            displayName: 'Pack',
+            fileName: 'pack.zip',
+            fileDate: '2025-01-01',
+            gameVersions: ['1.20.1', 'Fabric'],
+            isAvailable: true,
+            hashes: [],
+        } as never)
+        vi.mocked(install_create_modpack_instance).mockResolvedValue({
+            job_id: 'pack-job',
+        } as never)
+        vi.mocked(install_create_instance).mockResolvedValue({ job_id: 'pack-job' } as never)
+        vi.mocked(installJobInstanceId).mockReturnValue(null)
+        const { context } = installationContext()
+        context.setModpackInstallModal({ show: vi.fn(), hide: vi.fn() })
+        if (source === 'modrinth') await context.install('pack', null, null, 'test')
+        else await context.installCurseForge('42', '7', null, 'test')
+        await context.handleModpackInstall(
+            source === 'modrinth' ? 'pack-release' : '7',
+            'My Pack',
+            '/games/.minecraft/versions/My Pack',
+        )
+        if (source === 'modrinth') {
+            expect(install_create_modpack_instance).toHaveBeenCalledWith(
+                expect.anything(),
+                { name: 'My Pack' },
+                '/games/.minecraft/versions/My Pack',
+            )
+        } else {
+            expect(install_create_instance).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'My Pack',
+                    gameDirOverride: '/games/.minecraft/versions/My Pack',
+                }),
+            )
+        }
+    },
+)

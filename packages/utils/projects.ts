@@ -3,35 +3,37 @@ import type { Labrinth } from '@modrinth/api-client'
 import { compareByIndex } from './utils'
 // noinspection JSUnusedGlobalSymbols
 
-export const isApproved = (project) => {
+export type ProjectStatusHolder = { status: string } | null | undefined
+
+export const isApproved = (project: ProjectStatusHolder) => {
     return project && APPROVED_PROJECT_STATUSES.includes(project.status)
 }
 
-export const isListed = (project) => {
+export const isListed = (project: ProjectStatusHolder) => {
     return project && LISTED_PROJECT_STATUSES.includes(project.status)
 }
 
-export const isUnlisted = (project) => {
+export const isUnlisted = (project: ProjectStatusHolder) => {
     return project && UNLISTED_PROJECT_STATUSES.includes(project.status)
 }
 
-export const isPrivate = (project) => {
+export const isPrivate = (project: ProjectStatusHolder) => {
     return project && PRIVATE_PROJECT_STATUSES.includes(project.status)
 }
 
-export const isRejected = (project) => {
+export const isRejected = (project: ProjectStatusHolder) => {
     return project && REJECTED_PROJECT_STATUSES.includes(project.status)
 }
 
-export const isUnderReview = (project) => {
+export const isUnderReview = (project: ProjectStatusHolder) => {
     return project && UNDER_REVIEW_PROJECT_STATUSES.includes(project.status)
 }
 
-export const isDraft = (project) => {
+export const isDraft = (project: ProjectStatusHolder) => {
     return project && DRAFT_PROJECT_STATUSES.includes(project.status)
 }
 
-export const showDownloadCount = (project) => {
+export const showDownloadCount = (project: ProjectStatusHolder) => {
     return project && !['draft', 'processing', 'rejected'].includes(project.status)
 }
 
@@ -59,7 +61,10 @@ export type PlatformTag = {
     supported_project_types: DisplayProjectType[]
 }
 
-export function getVersionsToDisplay(project, allGameVersions: GameVersionTag[]) {
+export function getVersionsToDisplay(
+    project: ProjectStatusHolder & { game_versions?: string[] },
+    allGameVersions: GameVersionTag[],
+) {
     const projectVersions = Array.isArray(project?.game_versions) ? project.game_versions : []
     const versionTags = Array.isArray(allGameVersions) ? allGameVersions : []
     return formatVersionsForDisplay(projectVersions, versionTags)
@@ -79,7 +84,7 @@ export function formatVersionsForDisplay(
     )
 
     {
-        const indices = allVersions.reduce((map, gameVersion, index) => {
+        const indices = allVersions.reduce<Record<string, number>>((map, gameVersion, index) => {
             map[gameVersion.version] = index
             return map
         }, {})

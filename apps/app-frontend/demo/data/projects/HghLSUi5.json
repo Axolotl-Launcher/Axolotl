@@ -1,0 +1,211 @@
+{
+  "id": "HghLSUi5",
+  "slug": "brasil-cobblemon-mobile",
+  "title": "Cobblemon Brasil [Mobile]",
+  "description": "Mod optimized and translated into PT-BR, made to run Cobblemon on Mobile with Pojav.",
+  "author": "brasilcobblemon",
+  "categories": ["adventure", "fabric"],
+  "display_categories": ["adventure"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 885130,
+  "followers": 10,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.21.1"],
+  "latest_version": "ruu64kBU",
+  "date_created": "2025-01-26T18:06:05.275771Z",
+  "date_modified": "2026-10-11T06:48:08.831934Z",
+  "color": 13951779,
+  "published": "2025-01-26T18:06:05.275771Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/cobblemonbrasil",
+  "donation_urls": [],
+  "versions_total": 67,
+  "body": "# Cobblemon Brasil – Your Pokémon Adventure in Minecraft!\n\nEmbark on an epic journey with Cobblemon Brasil Mobile, where the world of Pokémon meets the limitless creativity of Minecraft! Capture, train, and battle with your favorite Pokémon as you explore a vast and immersive world.\n\nOptimized for mobile, this version ensures smooth gameplay with carefully tuned settings—so you can enjoy the adventure anytime, anywhere! Are you ready to become a Pokémon Master in Minecraft? Let the journey begin! 🚀🔥\n\n## Modpack Features:\n\n1. **Cobblemon**  \n   The main mod of the server, Cobblemon, brings the world of Pokémon to Minecraft! Capture, train, and battle with a wide variety of Pokémon in a fully dynamic and interactive environment.\n\n2. **PT-BR Resource Pack**  \n   The PT-BR translation is not officially available on Cobblemon for now, however, we brought a translation made by the community to support non-english speakers.\n\n3. **Modified Options**  \n   With the options properly configured, the Cobblemon mod becomes smooth playable on mobile devices.\n\n## Requirements:\n\nTo ensure optimal performance and a flawless experience, we recommend at least 1GB of dedicated RAM to run the modpack ideally. This will ensure you can play smoothly without performance drops.\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/HghLSUi5/images/1ce4d000be73c8d98d0fa65bf428abc83410a152_350.webp",
+      "featured": false,
+      "title": "Cobblemon Brasil Spawn",
+      "description": null,
+      "created": "2025-01-26T18:07:22.148130Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "brasilcobblemon",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/lUCdVkJd/f1516ea68b826d26a1600703d26b689974071d52_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "ruu64kBU",
+      "name": "Cobblemon Brasil [Mobile] 2.4.3",
+      "version_number": "2.4.3",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T06:48:08.831934Z",
+      "downloads": 27097,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.4.3.mrpack",
+          "size": 124340386,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "SOtbSAcy",
+      "name": "Cobblemon Brasil [Mobile] 2.4.2",
+      "version_number": "2.4.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T05:46:46.415188Z",
+      "downloads": 102,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.4.2.mrpack",
+          "size": 124206137,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Rgxx6wTn",
+      "name": "Cobblemon Brasil [Mobile] 2.4.1",
+      "version_number": "2.4.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T05:26:09.939214Z",
+      "downloads": 36,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.4.1.mrpack",
+          "size": 122738229,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "JQOcKHgq",
+      "name": "Cobblemon Brasil [Mobile] 2.4.0",
+      "version_number": "2.4.0",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T05:14:53.459028Z",
+      "downloads": 30,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.4.0.mrpack",
+          "size": 124545726,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hOaCZPn1",
+      "name": "Cobblemon Brasil [Mobile] 2.3.9",
+      "version_number": "2.3.9",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T04:54:15.066700Z",
+      "downloads": 54,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.3.9.mrpack",
+          "size": 125227431,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "n4yo7wqy",
+      "name": "Cobblemon Brasil [Mobile] 2.3.8",
+      "version_number": "2.3.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-03T16:12:32.404777Z",
+      "downloads": 18033,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.3.8.mrpack",
+          "size": 122738229,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fAzlET6B",
+      "name": "Cobblemon Brasil [Mobile] 2.3.7",
+      "version_number": "2.3.7",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T00:06:07.998954Z",
+      "downloads": 22873,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.3.7.mrpack",
+          "size": 122455723,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "TT3u7JaM",
+      "name": "Cobblemon Brasil [Mobile] 2.3.6",
+      "version_number": "2.3.6",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-12T01:29:37.592639Z",
+      "downloads": 5778,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Brasil [Mobile] 2.3.6.mrpack",
+          "size": 120582288,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

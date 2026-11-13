@@ -20,6 +20,7 @@ use uuid::Uuid;
 use crate::state::instances::adapters::sqlite::{
     content_entries, files, pack_members,
 };
+use crate::state::instances::commands::materialization_path_key;
 
 pub async fn recover_interrupted_jobs(state: &State) -> crate::Result<()> {
     crate::state::instances::commands::recover_legacy_rollbacks(state).await?;
@@ -153,6 +154,9 @@ pub(crate) fn finalize_rollback_state(
     if !cleanup_succeeded {
         return;
     }
+    // An error left by an earlier failed attempt no longer describes this
+    // job; keeping it would still count it as pending recovery.
+    job_state.rollback_error = None;
     job_state.record_event(InstallJobEventKind::RollbackCompleted);
     job_state.progress.phase = InstallPhaseId::Finalizing;
     job_state.progress.progress = None;
@@ -348,6 +352,7 @@ pub(crate) async fn prepare_existing_content_rollback(
         state,
         extra_relative_paths,
         InstallContentRollbackScope::PackManaged,
+        false,
     )
     .await
 }
@@ -364,6 +369,23 @@ pub(crate) async fn prepare_existing_upgrade_content_rollback(
         state,
         replacement_paths,
         InstallContentRollbackScope::AllContent,
+        false,
+    )
+    .await
+}
+
+pub(crate) async fn prepare_existing_pack_update_rollback(
+    job_id: Uuid,
+    job_state: &mut InstallJobState,
+    state: &State,
+) -> crate::Result<()> {
+    prepare_existing_content_rollback_with_scope(
+        job_id,
+        job_state,
+        state,
+        Vec::new(),
+        InstallContentRollbackScope::PackManaged,
+        true,
     )
     .await
 }
@@ -374,6 +396,7 @@ async fn prepare_existing_content_rollback_with_scope(
     state: &State,
     extra_relative_paths: Vec<String>,
     scope: InstallContentRollbackScope,
+    retain_original_files: bool,
 ) -> crate::Result<()> {
     if job_state
         .rollback
@@ -455,13 +478,21 @@ async fn prepare_existing_content_rollback_with_scope(
         .filter_map(|file_id| files_by_id.get(file_id))
         .map(|file| file.relative_path.clone())
         .chain(extra_relative_paths)
-        .filter(|path| !user_owned_paths.contains(path))
+        .filter(|path| {
+            !user_owned_paths.iter().any(|owned| {
+                materialization_path_key(owned)
+                    == materialization_path_key(path)
+            })
+        })
         .collect::<Vec<_>>();
     paths.sort();
     paths.dedup();
 
     let mut file_snapshots = Vec::with_capacity(paths.len());
     let mut protected_paths = Vec::new();
+    if retain_original_files {
+        protected_paths.extend(user_owned_paths.iter().cloned());
+    }
     for (index, relative_path) in paths.into_iter().enumerate() {
         let source = checked_instance_path(&instance_base, &relative_path)?;
         let instance_file = instance_files
@@ -508,6 +539,7 @@ async fn prepare_existing_content_rollback_with_scope(
     let snapshot = InstallContentRollbackSnapshot {
         staging_id: job_id.to_string(),
         stage: InstallContentRollbackStage::Planned,
+        retain_original_files,
         scope,
         files: file_snapshots,
         entries: entry_snapshots,
@@ -522,6 +554,7 @@ async fn prepare_existing_content_rollback_with_scope(
         )
         .await?,
         replacement_paths: Vec::new(),
+        replacement_files: Vec::new(),
         protected_paths,
     };
     job_state.rollback.as_mut().unwrap().content = Some(snapshot);
@@ -560,7 +593,9 @@ async fn prepare_existing_content_rollback_with_scope(
     super::events::InstallProgressReporter::new(job_id, job_state.clone())
         .set_rollback(job_state.rollback.clone())
         .await?;
-    remove_snapshotted_db_state(job_state, state).await?;
+    if !retain_original_files {
+        remove_snapshotted_db_state(job_state, state).await?;
+    }
     Ok(())
 }
 
@@ -744,13 +779,16 @@ async fn stage_snapshot_files(
             verify_file(&target, file).await?;
             if source.exists()
                 && snapshot.scope == InstallContentRollbackScope::PackManaged
+                && !snapshot.retain_original_files
             {
                 verify_file(&source, file).await?;
                 crate::util::io::remove_file(&source).await?;
             }
             continue;
         }
-        if snapshot.scope == InstallContentRollbackScope::AllContent {
+        if snapshot.scope == InstallContentRollbackScope::AllContent
+            || snapshot.retain_original_files
+        {
             crate::util::io::copy(&source, &target).await?;
             verify_file(&target, file).await?;
         } else {
@@ -780,6 +818,22 @@ async fn restore_snapshot_files(
                     crate::util::io::remove_file(&source).await?;
                 }
                 continue;
+            }
+            if snapshot.retain_original_files {
+                let (size, sha1) =
+                    crate::util::fetch::sha1_file_async(&target).await?;
+                if !snapshot.replacement_files.iter().any(|replacement| {
+                    materialization_path_key(&replacement.relative_path)
+                        == materialization_path_key(&file.relative_path)
+                        && replacement.size == size
+                        && replacement.sha1.eq_ignore_ascii_case(&sha1)
+                }) {
+                    return Err(crate::ErrorKind::FSError(format!(
+                        "Content changed after pack update started: {}",
+                        file.relative_path
+                    ))
+                    .into());
+                }
             }
             crate::util::io::remove_file(&target).await?;
         }
@@ -931,30 +985,113 @@ async fn clean_replacement_files(
         })
         .filter_map(|entry| entry.file_id.as_deref())
         .filter_map(|id| paths_by_id.get(id).copied())
+        .map(materialization_path_key)
         .collect::<HashSet<_>>();
     let old_paths = snapshot
         .files
         .iter()
-        .map(|file| file.relative_path.as_str())
+        .filter(|file| {
+            (snapshot.scope != InstallContentRollbackScope::AllContent
+                && !snapshot.retain_original_files)
+                || file.existed
+        })
+        .map(|file| materialization_path_key(&file.relative_path))
         .collect::<HashSet<_>>();
     let cleanup_paths = rollback_paths
         .into_iter()
         .chain(snapshot.replacement_paths.iter().cloned())
+        .chain(
+            snapshot
+                .replacement_files
+                .iter()
+                .map(|file| file.relative_path.clone()),
+        )
         .collect::<HashSet<_>>();
     for relative_path in cleanup_paths {
-        if snapshot.protected_paths.contains(&relative_path) {
+        let path_key = materialization_path_key(&relative_path);
+        if snapshot
+            .protected_paths
+            .iter()
+            .any(|path| materialization_path_key(path) == path_key)
+        {
             continue;
         }
-        if protected_paths.contains(relative_path.as_str()) {
+        if snapshot.retain_original_files && old_paths.contains(&path_key) {
+            continue;
+        }
+        if protected_paths.contains(&path_key)
+            && !(snapshot.retain_original_files
+                && snapshot.replacement_files.iter().any(|file| {
+                    materialization_path_key(&file.relative_path) == path_key
+                }))
+        {
             return Err(crate::ErrorKind::FSError(format!(
                 "Refusing to remove user-owned rollback path: {relative_path}"
             ))
             .into());
         }
-        if old_paths.contains(relative_path.as_str()) {
+        if old_paths.contains(&path_key) {
             continue;
         }
         let path = checked_instance_path(instance_base, &relative_path)?;
+        if snapshot.scope == InstallContentRollbackScope::AllContent
+            || snapshot.retain_original_files
+        {
+            // The persisted download identity also covers a filesystem move
+            // interrupted before the new path was committed to the index.
+            let mut expected = snapshot
+                .replacement_files
+                .iter()
+                .filter(|file| {
+                    materialization_path_key(&file.relative_path) == path_key
+                })
+                .map(|file| (file.sha1.as_str(), file.size))
+                .collect::<Vec<_>>();
+            if expected.is_empty() {
+                expected.extend(
+                    current_files
+                        .iter()
+                        .find(|file| {
+                            materialization_path_key(&file.relative_path)
+                                == path_key
+                        })
+                        .map(|file| (file.sha1.as_str(), file.size)),
+                );
+            }
+            if expected.is_empty() {
+                continue;
+            }
+            let metadata = match tokio::fs::symlink_metadata(&path).await {
+                Ok(metadata) => metadata,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    continue;
+                }
+                Err(error) => return Err(error.into()),
+            };
+            if !metadata.is_file()
+                || crate::util::io::is_symlink_or_reparse(&metadata)
+                || !expected.iter().any(|(_, size)| *size == metadata.len())
+            {
+                if snapshot.retain_original_files {
+                    return Err(crate::ErrorKind::FSError(format!(
+                        "Pack update replacement changed before rollback: {relative_path}"
+                    )).into());
+                }
+                continue;
+            }
+            let (_, sha1) = crate::util::fetch::sha1_file_async(&path).await?;
+            if !expected.iter().any(|(expected_sha1, expected_size)| {
+                *expected_size == metadata.len()
+                    && sha1.eq_ignore_ascii_case(expected_sha1)
+            }) {
+                if snapshot.retain_original_files {
+                    return Err(crate::ErrorKind::FSError(format!(
+                        "Pack update replacement changed before rollback: {relative_path}"
+                    )).into());
+                }
+                continue;
+            }
+        }
         match crate::util::io::remove_file(&path).await {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -975,11 +1112,37 @@ async fn restore_snapshotted_db_state(
     let current_entries =
         content_entries::get_content_entries(content_set_id, &state.pool)
             .await?;
+    let retained_paths = snapshot
+        .files
+        .iter()
+        .map(|file| materialization_path_key(&file.relative_path))
+        .chain(
+            snapshot
+                .replacement_files
+                .iter()
+                .map(|file| materialization_path_key(&file.relative_path)),
+        )
+        .collect::<HashSet<_>>();
+    let current_files =
+        files::get_instance_files(instance_id, &state.pool).await?;
+    let retained_file_ids = current_files
+        .iter()
+        .filter(|file| {
+            snapshot.retain_original_files
+                && retained_paths
+                    .contains(&materialization_path_key(&file.relative_path))
+        })
+        .map(|file| file.id.clone())
+        .collect::<HashSet<_>>();
     let current_file_ids = current_entries
         .iter()
         .filter(|entry| {
             snapshot.scope == InstallContentRollbackScope::AllContent
                 || entry.ownership_kind == ContentOwnershipKind::PackManaged
+                || entry
+                    .file_id
+                    .as_ref()
+                    .is_some_and(|id| retained_file_ids.contains(id))
         })
         .filter_map(|entry| entry.file_id.clone())
         .collect::<Vec<_>>();
@@ -1005,6 +1168,14 @@ async fn restore_snapshotted_db_state(
             )
             .await?;
         }
+    }
+    for file_id in retained_file_ids {
+        content_entries::delete_entries_for_file_in_transaction(
+            content_set_id,
+            &file_id,
+            &mut tx,
+        )
+        .await?;
     }
     for file_id in current_file_ids {
         files::delete_unreferenced_file_by_id_in_transaction(

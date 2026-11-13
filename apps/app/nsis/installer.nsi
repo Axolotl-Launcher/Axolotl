@@ -51,6 +51,7 @@ ${StrLoc}
 !define UNINSTALLERHEADERIMAGE "{{uninstaller_header_image}}"
 !define MAINBINARYNAME "{{main_binary_name}}"
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
+!insertmacro AxlExecutableMetadata "${MAINBINARYSRCPATH}"
 !define BUNDLEID "{{bundle_id}}"
 !define COPYRIGHT "{{copyright}}"
 !define OUTFILE "{{out_file}}"
@@ -111,6 +112,8 @@ Var ResourceDirNotice
 Var OptionsError
 Var DesktopShortcutCheckbox
 Var DesktopShortcutState
+Var FileAssociationCheckbox
+Var FileAssociationState
 Var InstallerBodyFont
 Var InstallerTitleFont
 Var InstallerSmallFont
@@ -128,6 +131,73 @@ Var UninstallFailure
 !macro AxlStyleControl CONTROL FOREGROUND BACKGROUND
   SetCtlColors ${CONTROL} ${FOREGROUND} ${BACKGROUND}
   System::Call 'uxtheme::SetWindowTheme(p ${CONTROL}, w "DarkMode_Explorer", w "")'
+!macroend
+
+; File associations are user-owned state. Register them only when the user
+; asked for them, remember the previous handler instead of clobbering it, and
+; on removal only touch entries that still point at this launcher.
+!macro AxlAssociateFileType EXT FILECLASS DESCRIPTION ICON COMMANDTEXT COMMAND
+  Push $R0
+  ClearErrors
+  ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.${EXT}" ""
+  ${If} $R0 != "${FILECLASS}"
+    ; Keep the previous handler so uninstall can restore it.
+    WriteRegStr SHELL_CONTEXT "Software\Classes\.${EXT}" "${FILECLASS}_backup" "$R0"
+    WriteRegStr SHELL_CONTEXT "Software\Classes\.${EXT}" "" "${FILECLASS}"
+  ${EndIf}
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}" "" `${DESCRIPTION}`
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\DefaultIcon" "" `${ICON}`
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell" "" "open"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell\open" "" `${COMMANDTEXT}`
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell\open\command" "" `${COMMAND}`
+  !insertmacro UPDATEFILEASSOC
+  Pop $R0
+!macroend
+
+; Remove the association only when the extension still resolves to our ProgID
+; and that ProgID still points at this installation. If the user rebound it to
+; another application, its handler stays untouched; only our leftover entries
+; are dropped.
+!macro AxlUnassociateFileTypeIfOwned EXT FILECLASS
+  Push $R0
+  Push $R1
+  Push $R2
+  ; $R0 = current default for the extension, $R1 = handler we recorded when we
+  ; associated it, $R2 = command of the ProgID we would have written.
+  ClearErrors
+  ReadRegStr $R0 SHELL_CONTEXT "Software\Classes\.${EXT}" ""
+  ClearErrors
+  ReadRegStr $R1 SHELL_CONTEXT "Software\Classes\.${EXT}" "${FILECLASS}_backup"
+  ClearErrors
+  ReadRegStr $R2 SHELL_CONTEXT "Software\Classes\${FILECLASS}\shell\open\command" ""
+  ${If} $R0 == "${FILECLASS}"
+    ; Only ours when we recorded a previous handler or still own the ProgID.
+    ${If} $R1 != ""
+    ${OrIf} $R2 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+      ${If} $R1 != ""
+        WriteRegStr SHELL_CONTEXT "Software\Classes\.${EXT}" "" "$R1"
+      ${Else}
+        ClearErrors
+        DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}" ""
+      ${EndIf}
+      ClearErrors
+      DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}" "${FILECLASS}_backup"
+      ClearErrors
+      DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}\OpenWithProgids" "${FILECLASS}"
+    ${EndIf}
+  ${Else}
+    ClearErrors
+    DeleteRegValue SHELL_CONTEXT "Software\Classes\.${EXT}" "${FILECLASS}_backup"
+  ${EndIf}
+  ; The ProgID name is generic, so only delete it while it belongs to us.
+  ${If} $R2 == "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+    ClearErrors
+    DeleteRegKey SHELL_CONTEXT "Software\Classes\${FILECLASS}"
+  ${EndIf}
+  !insertmacro UPDATEFILEASSOC
+  Pop $R2
+  Pop $R1
+  Pop $R0
 !macroend
 
 Name "${PRODUCTNAME}"
@@ -575,66 +645,72 @@ Function PageOptions
   ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
   SetCtlColors $OptionsDialog ${AXL_TEXT} ${AXL_BACKGROUND}
 
-  ${NSD_CreateLabel} 0 0 100% 18u "$(axlOptionsTitle)"
+  ${NSD_CreateLabel} 0 0 100% 14u "$(axlOptionsTitle)"
   Pop $0
   SetCtlColors $0 ${AXL_TEXT} ${AXL_BACKGROUND}
   SendMessage $0 ${WM_SETFONT} $InstallerTitleFont 1
 
-  ${NSD_CreateLabel} 0 25u 100% 10u "$(axlInstallDirectoryLabel)"
+  ${NSD_CreateLabel} 0 17u 100% 10u "$(axlInstallDirectoryLabel)"
   Pop $0
   SetCtlColors $0 ${AXL_TEXT} ${AXL_BACKGROUND}
   SendMessage $0 ${WM_SETFONT} $InstallerBodyFont 1
 
-  ${NSD_CreateText} 0 38u 77% 14u "$INSTDIR"
+  ${NSD_CreateText} 0 27u 77% 12u "$INSTDIR"
   Pop $InstallDirInput
   !insertmacro AxlStyleControl $InstallDirInput ${AXL_TEXT} ${AXL_CONTROL}
   SendMessage $InstallDirInput ${WM_SETFONT} $InstallerBodyFont 1
 
-  ${NSD_CreateButton} 79% 38u 21% 14u "$(axlBrowse)"
+  ${NSD_CreateButton} 79% 27u 21% 12u "$(axlBrowse)"
   Pop $0
   !insertmacro AxlStyleControl $0 ${AXL_TEXT} ${AXL_CONTROL}
   ${NSD_OnClick} $0 BrowseInstallDirectory
 
   ${If} $FreshInstall = 1
-    ${NSD_CreateLabel} 0 61u 100% 10u "$(axlResourceDirectoryLabel)"
+    ${NSD_CreateLabel} 0 44u 100% 10u "$(axlResourceDirectoryLabel)"
     Pop $ResourceDirLabel
     SetCtlColors $ResourceDirLabel ${AXL_TEXT} ${AXL_BACKGROUND}
     SendMessage $ResourceDirLabel ${WM_SETFONT} $InstallerBodyFont 1
 
-    ${NSD_CreateLabel} 0 73u 100% 18u "$(axlResourceDirectoryDescription)"
+    ${NSD_CreateLabel} 0 53u 100% 12u "$(axlResourceDirectoryDescription)"
     Pop $ResourceDirDescription
     SetCtlColors $ResourceDirDescription ${AXL_TEXT_MUTED} ${AXL_BACKGROUND}
     SendMessage $ResourceDirDescription ${WM_SETFONT} $InstallerSmallFont 1
 
-    ${NSD_CreateText} 0 94u 77% 14u "$ResourceDir"
+    ${NSD_CreateText} 0 65u 77% 12u "$ResourceDir"
     Pop $ResourceDirInput
     !insertmacro AxlStyleControl $ResourceDirInput ${AXL_TEXT} ${AXL_CONTROL}
     SendMessage $ResourceDirInput ${WM_SETFONT} $InstallerBodyFont 1
 
-    ${NSD_CreateButton} 79% 94u 21% 14u "$(axlBrowse)"
+    ${NSD_CreateButton} 79% 65u 21% 12u "$(axlBrowse)"
     Pop $ResourceDirBrowse
     !insertmacro AxlStyleControl $ResourceDirBrowse ${AXL_TEXT} ${AXL_CONTROL}
     ${NSD_OnClick} $ResourceDirBrowse BrowseResourceDirectory
 
-    ${NSD_CreateLabel} 0 111u 100% 18u ""
+    ${NSD_CreateLabel} 0 78u 100% 11u ""
     Pop $ResourceDirNotice
     SendMessage $ResourceDirNotice ${WM_SETFONT} $InstallerSmallFont 1
     ShowWindow $ResourceDirNotice ${SW_HIDE}
     Call UpdateResourceDirectoryNotice
   ${Else}
-    ${NSD_CreateLabel} 0 64u 100% 34u "$(axlExistingInstallDirectoryPreserved)"
+    ${NSD_CreateLabel} 0 44u 100% 24u "$(axlExistingInstallDirectoryPreserved)"
     Pop $0
     SetCtlColors $0 ${AXL_TEXT_MUTED} ${AXL_SURFACE}
     SendMessage $0 ${WM_SETFONT} $InstallerBodyFont 1
   ${EndIf}
 
-  ${NSD_CreateCheckbox} 0 134u 100% 12u "$(createDesktop)"
+  ${NSD_CreateCheckbox} 0 91u 100% 10u "$(createDesktop)"
   Pop $DesktopShortcutCheckbox
   !insertmacro AxlStyleControl $DesktopShortcutCheckbox ${AXL_TEXT} ${AXL_BACKGROUND}
   SendMessage $DesktopShortcutCheckbox ${WM_SETFONT} $InstallerBodyFont 1
   ${NSD_SetState} $DesktopShortcutCheckbox $DesktopShortcutState
 
-  ${NSD_CreateLabel} 0 151u 100% 20u ""
+  ${NSD_CreateCheckbox} 0 102u 100% 10u "$(axlAssociateFileTypes)"
+  Pop $FileAssociationCheckbox
+  !insertmacro AxlStyleControl $FileAssociationCheckbox ${AXL_TEXT} ${AXL_BACKGROUND}
+  SendMessage $FileAssociationCheckbox ${WM_SETFONT} $InstallerBodyFont 1
+  ${NSD_SetState} $FileAssociationCheckbox $FileAssociationState
+
+  ${NSD_CreateLabel} 0 113u 100% 14u ""
   Pop $OptionsError
   SetCtlColors $OptionsError ${AXL_ERROR} ${AXL_BACKGROUND}
   SendMessage $OptionsError ${WM_SETFONT} $InstallerSmallFont 1
@@ -659,6 +735,7 @@ Function PageLeaveOptions
   ${EndIf}
 
   ${NSD_GetState} $DesktopShortcutCheckbox $DesktopShortcutState
+  ${NSD_GetState} $FileAssociationCheckbox $FileAssociationState
 
   ${If} $FreshInstall <> 1
     Return
@@ -857,6 +934,7 @@ LangString axlOptionsTitle ${LANG_ENGLISH} "Installation settings"
 LangString axlInstallDirectoryLabel ${LANG_ENGLISH} "Program installation location"
 LangString axlResourceDirectoryLabel ${LANG_ENGLISH} "Application directory"
 LangString axlResourceDirectoryDescription ${LANG_ENGLISH} "Stores game instances, Java runtimes, resources, and caches. This directory can grow significantly."
+LangString axlAssociateFileTypes ${LANG_ENGLISH} "Associate .mrpack modpack files with Axolotl"
 LangString axlBrowse ${LANG_ENGLISH} "Browse..."
 LangString axlSelectInstallDirectory ${LANG_ENGLISH} "Select the program installation location"
 LangString axlSelectResourceDirectory ${LANG_ENGLISH} "Select the application directory"
@@ -880,6 +958,7 @@ LangString axlOptionsTitle ${LANG_SIMPCHINESE} "安装设置"
 LangString axlInstallDirectoryLabel ${LANG_SIMPCHINESE} "程序安装位置"
 LangString axlResourceDirectoryLabel ${LANG_SIMPCHINESE} "应用目录"
 LangString axlResourceDirectoryDescription ${LANG_SIMPCHINESE} "用于保存游戏实例、Java、游戏资源和缓存，后续可能占用较多空间。"
+LangString axlAssociateFileTypes ${LANG_SIMPCHINESE} "将 .mrpack 整合包文件关联到 Axolotl"
 LangString axlBrowse ${LANG_SIMPCHINESE} "浏览..."
 LangString axlSelectInstallDirectory ${LANG_SIMPCHINESE} "选择程序安装位置"
 LangString axlSelectResourceDirectory ${LANG_SIMPCHINESE} "选择应用目录"
@@ -895,6 +974,42 @@ LangString axlResourceDirectoryNotWritable ${LANG_SIMPCHINESE} "Axolotl 无法�
 LangString axlFinishTitle ${LANG_SIMPCHINESE} "Axolotl Launcher 已安装"
 LangString axlFinishText ${LANG_SIMPCHINESE} "一切准备就绪。当前应用目录：$\r$\n$ResourceDir"
 LangString axlFinishButton ${LANG_SIMPCHINESE} "完成"
+
+Function RequireInstallerWebView2
+  Push $0
+  Push $1
+  ; Evergreen registers in the 32-bit view for both machine and user installs.
+  SetRegView 32
+  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
+  ${VersionCompare} "$0" "0.0.0.0" $1
+  ${If} $0 == ""
+  ${OrIf} $1 <> 1
+    ReadRegStr $0 HKCU "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
+    ${VersionCompare} "$0" "0.0.0.0" $1
+  ${EndIf}
+  SetRegView lastused
+  ${If} $0 != ""
+  ${AndIf} $1 = 1
+    Pop $1
+    Pop $0
+    Return
+  ${EndIf}
+  Pop $1
+  Pop $0
+  Call ShowMissingInstallerWebView2
+FunctionEnd
+
+Function ShowMissingInstallerWebView2
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\AxolotlInstallerUI.exe" "${AXL_INSTALLER_UI_PATH}"
+  StrCpy $0 2
+  ExecWait '"$PLUGINSDIR\AxolotlInstallerUI.exe" --webview2-required --language "$LANGUAGE"' $0
+  ${If} $0 = 10
+    ExecShell "open" "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+  ${EndIf}
+  SetErrorLevel 2
+  Quit
+FunctionEnd
 
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode
@@ -951,6 +1066,27 @@ Function .onInit
     StrCpy $FreshInstall 0
   ${EndIf}
 
+  ; Associate .mrpack files by default on first install. Reinstalls and silent
+  ; installs keep the choice recorded in the uninstall registry key, while the
+  ; custom installer UI passes an explicit choice on the command line.
+  StrCpy $FileAssociationState ${BST_CHECKED}
+  ${If} $FreshInstall = 0
+    ClearErrors
+    ReadRegStr $0 SHCTX "${UNINSTKEY}" "FileAssociation"
+    ${IfNot} ${Errors}
+    ${AndIf} $0 == "0"
+      StrCpy $FileAssociationState ${BST_UNCHECKED}
+    ${EndIf}
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/FILE_ASSOCIATION" $0
+  ${IfNot} ${Errors}
+    StrCpy $FileAssociationState ${BST_CHECKED}
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/NO_FILE_ASSOCIATION" $0
+  ${IfNot} ${Errors}
+    StrCpy $FileAssociationState ${BST_UNCHECKED}
+  ${EndIf}
+
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; Set default install location
     !if "${INSTALLMODE}" == "perMachine"
@@ -985,8 +1121,10 @@ Function .onInit
   Push 4
   Call ReportInstallerProgress
 
+  !ifndef AXL_NATIVE_INSTALLER
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode <> 1
+    Call RequireInstallerWebView2
     InitPluginsDir
     SetOutPath "$PLUGINSDIR"
     File "/oname=$PLUGINSDIR\AxolotlInstallerUI.exe" "${AXL_INSTALLER_UI_PATH}"
@@ -997,6 +1135,7 @@ Function .onInit
       Quit
     ${EndIf}
   ${EndIf}
+  !endif
 FunctionEnd
 
 
@@ -1122,14 +1261,15 @@ Section Install
   Call ReportInstallerProgress
   SetOutPath $INSTDIR
 
+  !insertmacro AxlPrepareUpdatePrivileges
+  !insertmacro AxlAcquireInstallOwnership
+  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+
   !ifmacrodef NSIS_HOOK_PREINSTALL
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
-
-  ; Copy main executable
-  File "${MAINBINARYSRCPATH}"
+  !insertmacro AxlInstallExecutable "${MAINBINARYSRCPATH}" "$INSTDIR\${MAINBINARYNAME}.exe"
 
   ; Copy resources
   {{#each resources_dirs}}
@@ -1147,12 +1287,24 @@ Section Install
   Push 64
   Call ReportInstallerProgress
 
-  ; Create file associations
-  {{#each file_associations as |association| ~}}
-    {{#each association.ext as |ext| ~}}
-       !insertmacro APP_ASSOCIATE "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
-    {{/each}}
-  {{/each}}
+  ; Create file associations only when requested. In-place updates never touch
+  ; them: the registered command still points to this executable, and claiming
+  ; the extension again could override a handler the user picked afterwards.
+  ${If} $UpdateMode <> 1
+    ${If} $FileAssociationState = ${BST_CHECKED}
+      {{#each file_associations as |association| ~}}
+        {{#each association.ext as |ext| ~}}
+           !insertmacro AxlAssociateFileType "{{ext}}" "{{or association.name ext}}" "{{association-description association.description ext}}" "$INSTDIR\${MAINBINARYNAME}.exe,0" "Open with ${PRODUCTNAME}" "$INSTDIR\${MAINBINARYNAME}.exe $\"%1$\""
+        {{/each}}
+      {{/each}}
+    ${Else}
+      {{#each file_associations as |association| ~}}
+        {{#each association.ext as |ext| ~}}
+          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+        {{/each}}
+      {{/each}}
+    ${EndIf}
+  ${EndIf}
 
   ; Register deep links
   {{#each deep_link_protocols as |protocol| ~}}
@@ -1164,6 +1316,16 @@ Section Install
 
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
+
+  ; Remember whether this installation owns the file association so the
+  ; uninstaller can leave a handler the user chose later untouched.
+  ${If} $UpdateMode <> 1
+    ${If} $FileAssociationState = ${BST_CHECKED}
+      WriteRegStr SHCTX "${UNINSTKEY}" "FileAssociation" "1"
+    ${Else}
+      WriteRegStr SHCTX "${UNINSTKEY}" "FileAssociation" "0"
+    ${EndIf}
+  ${EndIf}
 
   ; Save $INSTDIR in registry for future installations
   WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
@@ -1268,6 +1430,14 @@ Function .onInstSuccess
   ${EndIf}
 FunctionEnd
 
+Function .onInstFailed
+  ${If} $AxlExecutableStage != ""
+    Delete "$AxlExecutableStage"
+  ${EndIf}
+  Push "Installation failed; the previous executable backup was retained."
+  Call AxlLogExecutableInstall
+FunctionEnd
+
 Function un.onInit
   !insertmacro SetContext
 
@@ -1305,6 +1475,7 @@ Function un.onInit
     StrCpy $UpdateMode 1
   ${EndIf}
 
+  !ifndef AXL_NATIVE_INSTALLER
   ${If} $UninstallUiChild <> 1
   ${AndIf} $PassiveMode <> 1
   ${AndIf} $UpdateMode <> 1
@@ -1316,6 +1487,7 @@ Function un.onInit
     SetErrorLevel $0
     Quit
   ${EndIf}
+  !endif
 FunctionEnd
 
 Function un.ReportInstallerProgress
@@ -1406,12 +1578,20 @@ Section Uninstall
 
   Push 66
   Call un.ReportInstallerProgress
-  ; Delete app associations
-  {{#each file_associations as |association| ~}}
-    {{#each association.ext as |ext| ~}}
-      !insertmacro APP_UNASSOCIATE "{{ext}}" "{{or association.name ext}}"
-    {{/each}}
-  {{/each}}
+  ; Delete app associations, but only the ones this launcher still owns and the
+  ; user did not opt out of at install time.
+  ; Leave the association alone on in-place updates: the command still points at
+  ; this installation, and the update never re-creates what a cleanup removes.
+  ${If} $UpdateMode <> 1
+    ReadRegStr $R8 SHCTX "${UNINSTKEY}" "FileAssociation"
+    ${If} $R8 != "0"
+      {{#each file_associations as |association| ~}}
+        {{#each association.ext as |ext| ~}}
+          !insertmacro AxlUnassociateFileTypeIfOwned "{{ext}}" "{{or association.name ext}}"
+        {{/each}}
+      {{/each}}
+    ${EndIf}
+  ${EndIf}
 
   ; Delete deep links
   {{#each deep_link_protocols as |protocol| ~}}

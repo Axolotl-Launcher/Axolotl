@@ -4,7 +4,6 @@
             <SelectTrigger
                 :class="[headlessTokenClasses.selectTrigger, 'w-full']"
                 :aria-label="name || placeholder"
-                :data-onboarding-id="onboardingId"
             >
                 <SelectValue :placeholder="placeholder">
                     {{ selectedLabel }}
@@ -64,14 +63,11 @@ const props = defineProps<{
     placeholder?: string
     id?: string
     name?: string
-    dataOnboardingId?: string
 }>()
 
 const emit = defineEmits<{
     'update:modelValue': [value: T]
 }>()
-
-const onboardingId = computed(() => props.dataOnboardingId)
 
 const selectedLabel = computed(() => {
     if (props.modelValue === undefined) return undefined

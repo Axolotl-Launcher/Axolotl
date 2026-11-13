@@ -49,8 +49,13 @@ SHS = "SHS"
 cancell = "cancell"
 # Heraldic term for vertical stripes, the `minecraft:small_stripes` banner pattern.
 paly = "paly"
+# Wrong spelling in third-party package `tauri-plugin-http`
+shoudln = "shoudln"
 
 [default.extend-identifiers]
+# Fixed image crate APIs: numer abbreviates the frame-delay numerator.
+numer_denom_ms = "numer_denom_ms"
+from_numer_denom_ms = "from_numer_denom_ms"
 # Minecraft locale identifiers containing the ISO 3166-1 code for Bosnia and
 # Herzegovina or the ISO 639-1 code for Bashkir.
 bs_ba = "bs_ba"

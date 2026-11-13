@@ -46,11 +46,8 @@ export interface BrowseInstallContext {
     name: string
     loader: string
     gameVersion: string
-    serverId?: string | null
-    upstream?: { project_id?: string | null } | null
     iconSrc?: string | null
     iconFrameless?: boolean
-    isMedal?: boolean
     backUrl: string | RouteLocationRaw
     backLabel: string
     heading: string

@@ -22,7 +22,6 @@ import {
     Admonition,
     Avatar,
     Button,
-    type ButtonMenuOption,
     type ComboboxOption,
     commonMessages,
     ConfirmModal,
@@ -66,6 +65,7 @@ import {
     type ScreenshotGroup,
     type ScreenshotGroupImport,
     type ScreenshotKey,
+    type ScreenshotScanResult,
     set_screenshot_group_memberships,
 } from '@/helpers/instance'
 import { MAX_INSTANCE_GROUP_NAME_LENGTH } from '@/helpers/instance-groups'
@@ -342,11 +342,20 @@ const messages = defineMessages({
 })
 
 const screenshotsQuery = useQuery(
-    computed(() =>
-        props.instanceId
-            ? instanceScreenshotsQueryOptions(props.instanceId)
-            : syncedScreenshotsQueryOptions(),
-    ),
+    computed<{
+        queryKey: readonly unknown[]
+        queryFn: () => Promise<ScreenshotScanResult>
+    }>(() => ({
+        queryKey: props.instanceId
+            ? screenshotKeys.instance(props.instanceId)
+            : screenshotKeys.synced(),
+        queryFn: async (): Promise<ScreenshotScanResult> => {
+            const options = props.instanceId
+                ? instanceScreenshotsQueryOptions(props.instanceId)
+                : syncedScreenshotsQueryOptions()
+            return (options.queryFn as () => Promise<ScreenshotScanResult>)()
+        },
+    })),
 )
 const instancesQuery = useQuery(instanceListQueryOptions())
 const screenshotGroupsQuery = useQuery(screenshotGroupsQueryOptions())
@@ -387,10 +396,11 @@ const screenshotsError = computed(() => {
         (groupBy.value === 'custom' ? screenshotGroupsQuery.error.value : null)
     if (!error) return null
     if (error instanceof Error) return error
-    if (typeof error === 'object' && error !== null && 'message' in error) {
-        return new Error(String(error.message))
+    const unknownError: unknown = error
+    if (typeof unknownError === 'object' && unknownError !== null && 'message' in unknownError) {
+        return new Error(String((unknownError as { message: unknown }).message))
     }
-    return new Error(String(error))
+    return new Error(String(unknownError))
 })
 const hasScreenshotViewData = computed(
     () =>
@@ -873,7 +883,7 @@ watch(
 )
 
 useAppEvent('instance', (event) => {
-    if (event.event !== 'screenshots_updated') return
+    if (event.event !== 'screenshots_updated' || !event.instance_id) return
     void invalidateScreenshots([event.instance_id])
 })
 
@@ -1155,7 +1165,7 @@ function requestDelete(screenshot: InstanceScreenshot, fromPreview = false) {
 
 function showScreenshotOptions(screenshot: InstanceScreenshot, event: MouseEvent) {
     screenshotOptionsTarget.value = screenshot
-    const options: ButtonMenuOption[] = [
+    const options: Parameters<InstanceType<typeof ContextMenu>['open']>[1] = [
         ...(event.type === 'contextmenu'
             ? [
                   {

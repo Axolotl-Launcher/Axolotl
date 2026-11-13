@@ -858,8 +858,11 @@ function registerControls() {
         busy: submissionBusy,
         nextLabel: formatMessage(submissionBusy.value ? messages.starting : messages.start),
         onNext: startUpgrade,
-        onBack: () =>
-            router.push(`/instance/${encodeURIComponent(flow.instanceId.value)}/upgrade/customize`),
+        onBack: async () => {
+            await router.push(
+                `/instance/${encodeURIComponent(flow.instanceId.value)}/upgrade/customize`,
+            )
+        },
     })
 }
 

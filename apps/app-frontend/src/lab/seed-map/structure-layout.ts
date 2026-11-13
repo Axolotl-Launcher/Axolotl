@@ -35,7 +35,7 @@ export function seedMapKnownLayoutChests(
             !piece?.positionKnown ||
             !piece.min ||
             !['NeSCLT', 'NeSCRT'].includes(piece.name) ||
-            container.table.replace(/^minecraft:/, '') !== 'chests/nether_bridge'
+            container.table?.replace(/^minecraft:/, '') !== 'chests/nether_bridge'
         )
             return []
         const position: [number, number, number] = [container.x, piece.min.y + 2, container.z]

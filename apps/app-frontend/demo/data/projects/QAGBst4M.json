@@ -1,0 +1,289 @@
+{
+  "id": "QAGBst4M",
+  "slug": "puzzles-lib",
+  "title": "Puzzles Lib",
+  "description": "Why is it called Puzzles? That's the puzzle.",
+  "author": "Fuzs",
+  "categories": ["fabric", "forge", "library", "neoforge"],
+  "display_categories": ["fabric", "forge", "library", "neoforge"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 66768488,
+  "followers": 3938,
+  "license": {
+    "id": "MPL-2.0",
+    "name": "Mozilla Public License 2.0"
+  },
+  "loaders": ["fabric", "forge", "neoforge"],
+  "game_versions": [
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.4",
+    "1.21",
+    "1.21.1",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "NiTMKi94",
+  "date_created": "2022-07-06T18:55:14.270853Z",
+  "date_modified": "2026-10-21T12:09:27.037575Z",
+  "color": 1778205,
+  "published": "2022-07-06T18:55:14.270853Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/Fuzss/puzzleslib/issues",
+  "source_url": "https://github.com/Fuzss/puzzleslib",
+  "wiki_url": null,
+  "discord_url": "https://lunapixel.studio/discord",
+  "donation_urls": [],
+  "versions_total": 683,
+  "body": "<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/data/puzzleslib/banner.png\" width=\"854\" height=\"240\" /></p>\n<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/data/puzzleslib/strip.png\" width=\"854\" height=\"14\" /></p>\n<p style=\"text-align: center; line-height: 36px;\"><a href=\"https://lunapixel.studio/discord\"></a>&emsp;<a href=\"https://x.com/Fusseel\"></a>&emsp;<a href=\"https://www.youtube.com/@heyitsfuzs\"></a>&emsp;<a href=\"https://github.com/Fuzss\"></a>&emsp;<a href=\"https://www.curseforge.com/members/fuzs_\"></a>&emsp;<a href=\"https://modrinth.com/user/Fuzs\"></a></p>\n<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/data/puzzleslib/strip.png\" width=\"854\" height=\"14\" /></p>\n<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/commons/headers/about.png\" width=\"854\" height=\"32\" /></p>\n<p><strong><span style=\"font-size: 14px;\">Puzzles Lib</span></strong><span style=\"font-size: 14px;\"> is a library mod required by many of </span><em><span style=\"font-size: 14px;\">@heyitsfuzs</span></em><span style=\"font-size: 14px;\"> Minecraft mods. It does not add new blocks, items, mobs, or gameplay on its own; instead, it provides the shared systems those mods need to run properly. 🧩</span></p>\n<p><span style=\"font-size: 14px;\">For players, this means simpler installation and more consistent behaviour across supported mods. If another mod lists this mod as required, install it alongside that mod and leave it enabled. ✅</span></p>\n<p><span style=\"font-size: 14px;\">The mod is built mainly for </span><em><span style=\"font-size: 14px;\">@heyitsfuzs</span></em><span style=\"font-size: 14px;\"> own projects and is not intended as a general-purpose library for other mod developers. Its focus is keeping those mods reliable, maintainable, and available across supported mod loaders. 🔧</span></p>\n<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/data/puzzleslib/strip.png\" width=\"854\" height=\"14\" /></p>\n<p></p>\n<ul>\n<li><span style=\"font-size: 14px;\">🧩 </span><strong><span style=\"font-size: 14px;\">Required Library:</span></strong><span style=\"font-size: 14px;\"> Provides the shared foundation needed by many </span><em><span style=\"font-size: 14px;\">@heyitsfuzs</span></em><span style=\"font-size: 14px;\"> mods.</span></li>\n<li><span style=\"font-size: 14px;\">🔄 </span><strong><span style=\"font-size: 14px;\">Multi-Loader Support:</span></strong><span style=\"font-size: 14px;\"> Helps supported mods work consistently across Fabric and NeoForge.</span></li>\n<li><span style=\"font-size: 14px;\">🛠️ </span><strong><span style=\"font-size: 14px;\">Shared Mod Systems:</span></strong><span style=\"font-size: 14px;\"> Supports common features used by dependent mods, such as configuration, networking, events, and registration support.</span></li>\n<li><span style=\"font-size: 14px;\">🚀 </span><strong><span style=\"font-size: 14px;\">Lightweight Foundation:</span></strong><span style=\"font-size: 14px;\"> Runs in the background without adding gameplay content or cluttering your world.</span></li>\n<li><span style=\"font-size: 14px;\">📦 </span><strong><span style=\"font-size: 14px;\">Improved Modpack Reliability:</span></strong><span style=\"font-size: 14px;\"> Reduces duplicated systems between mods, helping dependent mods behave more consistently.</span></li>\n<li><span style=\"font-size: 14px;\">🌐 </span><strong><span style=\"font-size: 14px;\">Client and Server Support:</span></strong><span style=\"font-size: 14px;\"> Designed for use in single-player, multiplayer, and dedicated server environments.</span></li>\n</ul>\n<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/data/puzzleslib/strip.png\" width=\"854\" height=\"14\" /></p>\n<p></p>\n<p><strong><span style=\"font-size: 14px;\">⏩ </span></strong><strong><span style=\"font-size: 14px;\">INSTALLATION REQUIRED ON CLIENT &amp; REQUIRED ON SERVER</span></strong></p>\n<p><strong><span style=\"font-size: 14px;\">⏩ </span></strong><strong><span style=\"font-size: 14px;\">REQUIRES </span></strong><a href=\"https://modrinth.com/mod/fabric-api\"><strong><span style=\"font-size: 14px;\">FABRIC API</span></strong></a><strong><span style=\"font-size: 14px;\"> TO BE INSTALLED (FABRIC)</span></strong></p>\n<p><strong><span style=\"font-size: 14px;\">⏩ </span></strong><strong><span style=\"font-size: 14px;\">REQUIRES </span></strong><a href=\"https://modrinth.com/mod/forge-config-api-port\"><strong><span style=\"font-size: 14px;\">FORGE CONFIG API PORT</span></strong></a><strong><span style=\"font-size: 14px;\"> TO BE INSTALLED (FABRIC)</span></strong></p>\n<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/data/puzzleslib/strip.png\" width=\"854\" height=\"14\" /></p>\n<table style=\"text-align: center;\">\n<tbody>\n<tr>\n<td><a href=\"https://modrinth.com/mod/fantastic-wings\"></a></td>\n<td>&emsp;&emsp;</td>\n<td><a href=\"https://modrinth.com/mod/fast-item-frames\"></a></td>\n</tr>\n<tr>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n</tr>\n<tr>\n<td><a href=\"https://modrinth.com/mod/easy-magic\"></a></td>\n<td>&emsp;&emsp;</td>\n<td><a href=\"https://modrinth.com/mod/better-tridents\"></a></td>\n</tr>\n<tr>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n</tr>\n<tr>\n<td><a href=\"https://modrinth.com/mod/echo-chest\"></a></td>\n<td>&emsp;&emsp;</td>\n<td><a href=\"https://modrinth.com/mod/effect-insights\"></a></td>\n</tr>\n<tr>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n</tr>\n<tr>\n<td><a href=\"https://modrinth.com/mod/enchantment-insights\"></a></td>\n<td>&emsp;&emsp;</td>\n<td><a href=\"https://modrinth.com/mod/universal-enchants\"></a></td>\n</tr>\n<tr>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n<td>&nbsp;</td>\n</tr>\n<tr>\n<td><a href=\"https://modrinth.com/mod/mob-plaques\"></a></td>\n<td>&emsp;&emsp;</td>\n<td><a href=\"https://modrinth.com/mod/spiky-spikes\"></a></td>\n</tr>\n</tbody>\n</table>\n<p><img src=\"https://raw.githubusercontent.com/Fuzss/modresources/main/pages/data/puzzleslib/strip.png\" width=\"854\" height=\"14\" /></p>\n<p><span style=\"font-size: 14px;\">© 2026 @heyitsfuzs. All rights reserved. This page was last edited on 11 September 2026, at 06:44 (UTC).</span></p>\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/QAGBst4M/images/c1324d9942aa50dce1fbf176dbcfd06a5c23e5ae_350.webp",
+      "featured": true,
+      "title": null,
+      "description": null,
+      "created": "2025-07-29T07:41:15.035967Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Fuzs",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/28218241?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "NiTMKi94",
+      "name": "v21.1.65-mc1.21.1+fabric",
+      "version_number": "21.1.65",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-21T12:09:27.037575Z",
+      "downloads": 9587,
+      "changelog": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres\nto [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [v21.1.65-mc1.21.1] - 2026-10-21\n\n### Fixed\n\n- Ensure the enchanted loot bonus callback only runs once on NeoForge\n\n## [v21.1.64-mc1.21.1] - 2026-10-11\n\n### Changed\n\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v21.1.63-mc1.21.1] - 2026-10-08\n\n### Fixed\n\n- Restore transitive access wideners that are not covered elsewhere\n\n## [v21.1.62-mc1.21.1] - 2026-09-29\n\n### Fixed\n\n- Always rebind mutable capability components on retrieval to fix desync issues\n\n## [v21.1.61-mc1.21.1] - 2026-09-13\n\n### Added\n\n- Backport `MutableBakedQuad`\n- Backport `QuadCollection`\n- Add some required `QuadUtils` helpers\n\n## [v21.1.60-mc1.21.1] - 2026-09-07\n\n### Added\n\n- Backport `ColorCollection`\n- Backport `VariantUtils`\n- Backport `ProjectileHelper`\n- Backport `EntityHelper::dropFromGiftLootTable` & `EntityHelper::dropFromShearingLootTable`\n\n## [v21.1.59-mc1.21.1] - 2026-09-06\n\n### Added\n\n- Backport `ServerResourcesLoadCallback` & `ClientTagsUpdatedCallback`\n\n## [v21.1.58-mc1.21.1] - 2026-09-05\n\n### Added\n\n- Backport `BlockStateResolverContext`\n- Backport `AbstractMenuSelectionList`\n\n## [v21.1.57-mc1.21.1] - 2026-09-02\n\n### Added\n\n- Backport updated `RangedSliderButton`\n\n## [v21.1.56-mc1.21.1] - 2026-08-31\n\n### Added\n\n- Backport modern `ParticleProvider`\n- Backport `TrimPatternBuilder`\n- Backport `RegistryManager::registerCreativeModeTab`\n\n### Changed\n\n- Delay setting up handshake payloads to avoid registering `IModBusEvents` too early on NeoForge\n- Set spawn cost in `SpawnerDataBuilder`\n\n## [v21.1.55-mc1.21.1] - 2026-08-13\n\n### Added\n\n- Backport modern vanilla input classes (most importantly `InputWithModifiers`)\n- Backport modern `SimpleJsonResourceReloadListener`\n- Backport modern `DataP\n\n…",
+      "dependencies": [
+        {
+          "project_id": "ohNO6lps",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "puzzleslib-v21.1.65-mc1.21.1+fabric.jar",
+          "size": 1507590,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "kiX1lfse",
+      "name": "v21.1.65-mc1.21.1+neoforge",
+      "version_number": "21.1.65",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-21T12:09:24.260464Z",
+      "downloads": 22572,
+      "changelog": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres\nto [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [v21.1.65-mc1.21.1] - 2026-10-21\n\n### Fixed\n\n- Ensure the enchanted loot bonus callback only runs once on NeoForge\n\n## [v21.1.64-mc1.21.1] - 2026-10-11\n\n### Changed\n\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v21.1.63-mc1.21.1] - 2026-10-08\n\n### Fixed\n\n- Restore transitive access wideners that are not covered elsewhere\n\n## [v21.1.62-mc1.21.1] - 2026-09-29\n\n### Fixed\n\n- Always rebind mutable capability components on retrieval to fix desync issues\n\n## [v21.1.61-mc1.21.1] - 2026-09-13\n\n### Added\n\n- Backport `MutableBakedQuad`\n- Backport `QuadCollection`\n- Add some required `QuadUtils` helpers\n\n## [v21.1.60-mc1.21.1] - 2026-09-07\n\n### Added\n\n- Backport `ColorCollection`\n- Backport `VariantUtils`\n- Backport `ProjectileHelper`\n- Backport `EntityHelper::dropFromGiftLootTable` & `EntityHelper::dropFromShearingLootTable`\n\n## [v21.1.59-mc1.21.1] - 2026-09-06\n\n### Added\n\n- Backport `ServerResourcesLoadCallback` & `ClientTagsUpdatedCallback`\n\n## [v21.1.58-mc1.21.1] - 2026-09-05\n\n### Added\n\n- Backport `BlockStateResolverContext`\n- Backport `AbstractMenuSelectionList`\n\n## [v21.1.57-mc1.21.1] - 2026-09-02\n\n### Added\n\n- Backport updated `RangedSliderButton`\n\n## [v21.1.56-mc1.21.1] - 2026-08-31\n\n### Added\n\n- Backport modern `ParticleProvider`\n- Backport `TrimPatternBuilder`\n- Backport `RegistryManager::registerCreativeModeTab`\n\n### Changed\n\n- Delay setting up handshake payloads to avoid registering `IModBusEvents` too early on NeoForge\n- Set spawn cost in `SpawnerDataBuilder`\n\n## [v21.1.55-mc1.21.1] - 2026-08-13\n\n### Added\n\n- Backport modern vanilla input classes (most importantly `InputWithModifiers`)\n- Backport modern `SimpleJsonResourceReloadListener`\n- Backport modern `DataP\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "puzzleslib-v21.1.65-mc1.21.1+neoforge.jar",
+          "size": 1451117,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "68hLXNWE",
+      "name": "v26.3.15-mc26.3.x+fabric",
+      "version_number": "26.3.15",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-14T14:25:24.884817Z",
+      "downloads": 164433,
+      "changelog": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [v26.3.15-mc26.3.x] - 2026-10-14\n\n### Changed\n\n- Update for latest versions of Fabric API and NeoForge\n\n### Fixed\n\n- Fix a memory leak in `ConfigDataSetImpl` by registering its event handlers only once instead of per instance\n\n## [v26.3.14-mc26.3.x] - 2026-10-11\n\n### Changed\n\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v26.3.13-mc26.3.x] - 2026-10-08\n\n### Fixed\n\n- Fix unstable ordering of the recipe unlock advancements generated via `IdBoundRecipeOutput`\n\n## [v26.3.12-mc26.3.x] - 2026-10-07\n\n### Added\n\n- Add `BlockSetFamily.Writable::provideFor` and `BlockSetFamily.Writable::provide` for providing existing blocks, items,\n  and entity types to a block set family\n- Add `BlockSetFamily::getBaseName`, and `BlockSetFamily::getAll*Variants`\n\n## [v26.3.11-mc26.3.x] - 2026-10-06\n\n### Changed\n\n- Read biome data during biome modification from Fabric API's live `BiomeModificationContext`\n- Use the public `TagBuilder` methods in `FabricTagAppender` instead of Fabric API internals\n\n### Fixed\n\n- Fix a possible crash while loading registries when no pending registration is available for modifying enchantments on\n  NeoForge\n\n## [v26.3.10-mc26.3.x] - 2026-10-05\n\n### Added\n\n- Add `ModifyEnchantmentsCallback`\n- Add back `CalculateLivingVisibilityCallback`\n- Add back `GameplayContentContext::registerFuel` and `GameplayContentContext::registerCompostable` for registering fuel\n  values and composter values via data-driven context providers\n\n### Changed\n\n- Rework `BlockSetFamily` registration for wooden cooking times and flammability to use `GameplayContentContext`\n- Remove the `hasProjectile` argument from `ArrowLooseCallback`\n\n### Fixed\n\n- Fix `ComputeFovModifierCallback` receiving t\n\n…",
+      "dependencies": [
+        {
+          "project_id": "ohNO6lps",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "puzzleslib-v26.3.15-mc26.3.x+fabric.jar",
+          "size": 1093312,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "LkRTTxrD",
+      "name": "v26.3.15-mc26.3.x+neoforge",
+      "version_number": "26.3.15",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-14T14:25:24.872910Z",
+      "downloads": 9320,
+      "changelog": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [v26.3.15-mc26.3.x] - 2026-10-14\n\n### Changed\n\n- Update for latest versions of Fabric API and NeoForge\n\n### Fixed\n\n- Fix a memory leak in `ConfigDataSetImpl` by registering its event handlers only once instead of per instance\n\n## [v26.3.14-mc26.3.x] - 2026-10-11\n\n### Changed\n\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v26.3.13-mc26.3.x] - 2026-10-08\n\n### Fixed\n\n- Fix unstable ordering of the recipe unlock advancements generated via `IdBoundRecipeOutput`\n\n## [v26.3.12-mc26.3.x] - 2026-10-07\n\n### Added\n\n- Add `BlockSetFamily.Writable::provideFor` and `BlockSetFamily.Writable::provide` for providing existing blocks, items,\n  and entity types to a block set family\n- Add `BlockSetFamily::getBaseName`, and `BlockSetFamily::getAll*Variants`\n\n## [v26.3.11-mc26.3.x] - 2026-10-06\n\n### Changed\n\n- Read biome data during biome modification from Fabric API's live `BiomeModificationContext`\n- Use the public `TagBuilder` methods in `FabricTagAppender` instead of Fabric API internals\n\n### Fixed\n\n- Fix a possible crash while loading registries when no pending registration is available for modifying enchantments on\n  NeoForge\n\n## [v26.3.10-mc26.3.x] - 2026-10-05\n\n### Added\n\n- Add `ModifyEnchantmentsCallback`\n- Add back `CalculateLivingVisibilityCallback`\n- Add back `GameplayContentContext::registerFuel` and `GameplayContentContext::registerCompostable` for registering fuel\n  values and composter values via data-driven context providers\n\n### Changed\n\n- Rework `BlockSetFamily` registration for wooden cooking times and flammability to use `GameplayContentContext`\n- Remove the `hasProjectile` argument from `ArrowLooseCallback`\n\n### Fixed\n\n- Fix `ComputeFovModifierCallback` receiving t\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "puzzleslib-v26.3.15-mc26.3.x+neoforge.jar",
+          "size": 1034978,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "XkWV0WSp",
+      "name": "v26.2.5-mc26.2.x+neoforge",
+      "version_number": "26.2.5",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-11T14:21:47.038486Z",
+      "downloads": 4952,
+      "changelog": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres\nto [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [v26.2.5-mc26.2.x] - 2026-10-11\n\n### Changed\n\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v26.2.4-mc26.2.x] - 2026-09-14\n\n### Added\n\n- Add back updated `ClientInputEvents.MouseScroll`\n- Add `AbstractAdvancementProvider$DisplayInfoBuilder`\n- Add `AbstractAtlasProvider::armorTrims` & `AbstractAtlasProvider$TrimPatternBuilder` for generating armor trim atlases\n- Add `RegistryManager::bootstrapTag`, replacing `RegistryManager::prepareTag`\n- Add an `AbstractLootProvider$Blocks::generateFor(BlockSetFamily)` overload\n\n### Changed\n\n- `SpawnerDataBuilder::apply` now also copies the mob spawn cost\n- Register handshake payloads after mod construction instead of during it\n- Invoke `ClientTagsUpdatedCallback` later during client setup\n\n## [v26.2.3-mc26.2.x] - 2026-08-05\n\n### Changed\n\n- Allow `BlockStateResolverContext` to fully support the dynamic resources option from\n  the [ModernFix](https://modrinth.com/mod/modernfix) mod on NeoForge\n\n## [v26.2.2-mc26.2.x] - 2026-08-04\n\n### Added\n\n- Add `ScreenEvents.AfterForeground`\n- Add `ItemHelper::shouldDisplayAllTooltipInformation`\n\n### Changed\n\n- Properly use Fabric's new character type events\n- Simplify `ItemComponentsContextFabricImpl` implementation\n- Migrate implementation in `BuiltInBlockModelsContextFabricImpl` to Fabric's new native callback\n- Use accumulated scroll values provided by NeoForge's `MouseScrollingEvent` instead of capturing them manually\n- Avoid creating a custom `ModelBakery` for `BlockStateResolverContext` to improve compatibility with other mods on\n  NeoForge\n\n### Fixed\n\n- Fix crashes on start-up on newer versions of NeoForge\n\n## [v26.2.1-mc26.2.x] - 2026-07-13\n\n### Changed\n\n- Add missing `BlockSetFamily::ge\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "puzzleslib-v26.2.5-mc26.2.x+neoforge.jar",
+          "size": 1080361,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "TXPuVSH3",
+      "name": "v26.2.5-mc26.2.x+fabric",
+      "version_number": "26.2.5",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T14:21:47.034646Z",
+      "downloads": 89547,
+      "changelog": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres\nto [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [v26.2.5-mc26.2.x] - 2026-10-11\n\n### Changed\n\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v26.2.4-mc26.2.x] - 2026-09-14\n\n### Added\n\n- Add back updated `ClientInputEvents.MouseScroll`\n- Add `AbstractAdvancementProvider$DisplayInfoBuilder`\n- Add `AbstractAtlasProvider::armorTrims` & `AbstractAtlasProvider$TrimPatternBuilder` for generating armor trim atlases\n- Add `RegistryManager::bootstrapTag`, replacing `RegistryManager::prepareTag`\n- Add an `AbstractLootProvider$Blocks::generateFor(BlockSetFamily)` overload\n\n### Changed\n\n- `SpawnerDataBuilder::apply` now also copies the mob spawn cost\n- Register handshake payloads after mod construction instead of during it\n- Invoke `ClientTagsUpdatedCallback` later during client setup\n\n## [v26.2.3-mc26.2.x] - 2026-08-05\n\n### Changed\n\n- Allow `BlockStateResolverContext` to fully support the dynamic resources option from\n  the [ModernFix](https://modrinth.com/mod/modernfix) mod on NeoForge\n\n## [v26.2.2-mc26.2.x] - 2026-08-04\n\n### Added\n\n- Add `ScreenEvents.AfterForeground`\n- Add `ItemHelper::shouldDisplayAllTooltipInformation`\n\n### Changed\n\n- Properly use Fabric's new character type events\n- Simplify `ItemComponentsContextFabricImpl` implementation\n- Migrate implementation in `BuiltInBlockModelsContextFabricImpl` to Fabric's new native callback\n- Use accumulated scroll values provided by NeoForge's `MouseScrollingEvent` instead of capturing them manually\n- Avoid creating a custom `ModelBakery` for `BlockStateResolverContext` to improve compatibility with other mods on\n  NeoForge\n\n### Fixed\n\n- Fix crashes on start-up on newer versions of NeoForge\n\n## [v26.2.1-mc26.2.x] - 2026-07-13\n\n### Changed\n\n- Add missing `BlockSetFamily::ge\n\n…",
+      "dependencies": [
+        {
+          "project_id": "ohNO6lps",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "puzzleslib-v26.2.5-mc26.2.x+fabric.jar",
+          "size": 1153987,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "QSW0oJPl",
+      "name": "[FABRIC] [1.20.1] PuzzlesLib-v8.1.36",
+      "version_number": "v8.1.36-1.20.1-Fabric",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T14:11:17.343372Z",
+      "downloads": 28143,
+      "changelog": "# Changelog\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog].\n\n## [v8.1.36-1.20.1] - 2026-10-11\n### Changed\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v8.1.35-1.20.1] - 2026-10-08\n### Fixed\n- Fix the Mixin refmap being missing from built Forge JARs by disabling Gradle's build cache\n\n## [v8.1.34-1.20.1] - 2026-09-29\n### Fixed\n- Always rebind mutable capability components on retrieval to fix desync issues\n\n## [v8.1.33-1.20.1] - 2025-08-03\n### Fixed\n- Fix a start-up crash on Forge caused by `java.lang.NoSuchMethodException: fuzs.puzzleslib.impl.event.LootTableModifyEvent.<init>()`\n\n## [v8.1.32-1.20.1] - 2025-04-05\n### Changed\n- Add a bunch of safety checks for casting in event invokers\n\n## [v8.1.31-1.20.1] - 2025-03-09\n### Fixed\n- Fix crash from invoking `ContainerMenuHelper::createListBackedContainer`\n\n## [v8.1.30-1.20.1] - 2025-03-09\n### Added\n- Backport `MenuScreensContext`\n- Backport `ContainerMenuHelper`, `ContainerSerializationHelper`, `ListBackedContainer`, `QuickMoveRuleSet`\n\n## [v8.1.29-1.20.1] - 2025-03-09\n### Fixed\n- Fix crash when breaking blocks with some Tinkers' Construct tools\n\n## [v8.1.28-1.20.1] - 2025-03-08\n### Changed\n- Update bundled Puzzles Access Api mod to v20.1.1\n\n## [v8.1.27-1.20.1] - 2025-03-08\n### Added\n- Backport Capability System v3 from 1.20.4 version so that the Cardinal Components mod is no longer required\n### Changed\n- Update Fabric Loom to v1.9\n- Update bundled Puzzles Access Api mod\n- Update a bunch of data providers\n\n## [v8.1.26-1.20.1] - 2025-03-04\n### Changed\n- Include [Mixin Extras](https://github.com/LlamaLad7/MixinExtras) library\n\n## [v8.1.25-1.20.1] - 2024-11-15\n### Fixed\n- Fix crash due to out of bounds index in `TooltipRenderHelper::createClientComponents`\n\n## [v8.1.24-1.20.1] - 2024-10-04\n### Fixed\n- Fix `DynamicPackResources` failing to generate some resources\n\n## [v8.1.23-1.20.1] - 2024-09-09\n### Fixed\n- Fi\n\n…",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "ohNO6lps",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "PuzzlesLib-v8.1.36-1.20.1-Fabric.jar",
+          "size": 1084883,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hOfDHA4g",
+      "name": "[FORGE] [1.20.1] v8.1.36",
+      "version_number": "8.1.36",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-11T14:11:03.164145Z",
+      "downloads": 114798,
+      "changelog": "# Changelog\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog].\n\n## [v8.1.36-1.20.1] - 2026-10-11\n### Changed\n- Cache method handles in `FabricEventFactory` to reduce event listener invocation overhead\n\n## [v8.1.35-1.20.1] - 2026-10-08\n### Fixed\n- Fix the Mixin refmap being missing from built Forge JARs by disabling Gradle's build cache\n\n## [v8.1.34-1.20.1] - 2026-09-29\n### Fixed\n- Always rebind mutable capability components on retrieval to fix desync issues\n\n## [v8.1.33-1.20.1] - 2025-08-03\n### Fixed\n- Fix a start-up crash on Forge caused by `java.lang.NoSuchMethodException: fuzs.puzzleslib.impl.event.LootTableModifyEvent.<init>()`\n\n## [v8.1.32-1.20.1] - 2025-04-05\n### Changed\n- Add a bunch of safety checks for casting in event invokers\n\n## [v8.1.31-1.20.1] - 2025-03-09\n### Fixed\n- Fix crash from invoking `ContainerMenuHelper::createListBackedContainer`\n\n## [v8.1.30-1.20.1] - 2025-03-09\n### Added\n- Backport `MenuScreensContext`\n- Backport `ContainerMenuHelper`, `ContainerSerializationHelper`, `ListBackedContainer`, `QuickMoveRuleSet`\n\n## [v8.1.29-1.20.1] - 2025-03-09\n### Fixed\n- Fix crash when breaking blocks with some Tinkers' Construct tools\n\n## [v8.1.28-1.20.1] - 2025-03-08\n### Changed\n- Update bundled Puzzles Access Api mod to v20.1.1\n\n## [v8.1.27-1.20.1] - 2025-03-08\n### Added\n- Backport Capability System v3 from 1.20.4 version so that the Cardinal Components mod is no longer required\n### Changed\n- Update Fabric Loom to v1.9\n- Update bundled Puzzles Access Api mod\n- Update a bunch of data providers\n\n## [v8.1.26-1.20.1] - 2025-03-04\n### Changed\n- Include [Mixin Extras](https://github.com/LlamaLad7/MixinExtras) library\n\n## [v8.1.25-1.20.1] - 2024-11-15\n### Fixed\n- Fix crash due to out of bounds index in `TooltipRenderHelper::createClientComponents`\n\n## [v8.1.24-1.20.1] - 2024-10-04\n### Fixed\n- Fix `DynamicPackResources` failing to generate some resources\n\n## [v8.1.23-1.20.1] - 2024-09-09\n### Fixed\n- Fi\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "PuzzlesLib-v8.1.36-1.20.1-Forge.jar",
+          "size": 1790007,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

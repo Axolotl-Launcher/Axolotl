@@ -1,8 +1,18 @@
 <template>
-    <ReadyTransition :pending="loading">
+    <ReadyTransition :pending="contentPending">
         <template #pending>
-            <LoadingIndicator class="pt-4" />
+            <p
+                v-if="isInstanceBusy"
+                class="m-0 pt-4 text-[var(--color-text-tertiary)]"
+                role="status"
+            >
+                {{ formatMessage(messages.instanceContentProcessing) }}
+            </p>
+            <LoadingIndicator v-else class="pt-4" />
         </template>
+        <p v-if="isInstanceBusy" class="mb-4 mt-0 text-[var(--color-text-tertiary)]" role="status">
+            {{ formatMessage(messages.instanceContentProcessing) }}
+        </p>
         <CollapsibleAdmonition
             v-if="postUpgradeNotice?.warnings.length"
             v-model="postUpgradeNoticeExpanded"
@@ -193,17 +203,18 @@
             </div>
         </CollapsibleAdmonition>
         <div
-            v-if="contentRefreshTask?.failed"
+            v-if="contentRetryMode"
             class="mb-3 flex flex-wrap items-center gap-3 text-sm text-[var(--color-text-tertiary)]"
             role="status"
         >
-            <span v-if="contentRefreshTask.failed">{{
+            <span v-if="contentRefreshTask?.failed">{{
                 formatMessage(messages.contentCheckFailures, { count: contentRefreshTask.failed })
             }}</span>
             <Button
-                v-if="contentRefreshTask.failed && !contentRefreshTask.running"
                 size="2xs"
                 type="outlined"
+                :disabled="isInstanceBusy || contentRefreshTask?.running || !!contentRetryPending"
+                :loading="!!contentRetryPending"
                 @click="retryFailedContent"
                 >{{ formatMessage(commonMessages.retryButton) }}</Button
             >
@@ -260,7 +271,7 @@
                             .filter(Boolean)
                             .join(' ')
                     "
-                    :symlink-target="props.instance.symlink_target"
+                    :symlink-target="props.instance.symlink_target ?? undefined"
                     @confirm="handleModpackUpdateConfirm"
                     @cancel="handleModpackUpdateCancel"
                 />
@@ -299,6 +310,7 @@
                             : undefined
                     "
                     :action-loading="contentUpdateSubmitting"
+                    :action-error="contentUpdateError"
                     :hide-on-update="false"
                     @retry="contentVersions.retry"
                     @update="handleModalUpdate"
@@ -319,6 +331,8 @@
 <script setup lang="ts">
 import type { Labrinth } from '@modrinth/api-client'
 import {
+    BookmarkFilledIcon,
+    BookmarkIcon,
     BookOpenIcon,
     ClipboardCopyIcon,
     ExternalIcon,
@@ -368,6 +382,7 @@ import ResourceBackupsModal from '@/components/ui/ResourceBackupsModal.vue'
 import ResourceHistoryModal from '@/components/ui/ResourceHistoryModal.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import ResourceReleaseChangelog from '@/components/ui/ResourceReleaseChangelog.vue'
+import { useContentFavorites } from '@/composables/useContentFavorites'
 import { contentVersionContext, useContentVersions } from '@/composables/useContentVersions'
 import { postUpgradeNoticeQueryKey, usePostUpgradeNotice } from '@/composables/usePostUpgradeNotice'
 import { useWorldDatapacks } from '@/composables/useWorldDatapacks'
@@ -375,11 +390,12 @@ import { trackEvent } from '@/helpers/analytics'
 import { get_version_many } from '@/helpers/cache.js'
 import {
     activeContentChangeJobs as selectActiveContentChangeJobs,
+    contentChangeAffectsItem,
     contentItemStableId,
-    hasActiveContentChange,
-    pendingContentChangeAffectsItem,
+    indexContentChanges,
 } from '@/helpers/content-change-jobs'
 import { createContentEventRefresh } from '@/helpers/content-event-refresh'
+import { contentItemFavoriteInput } from '@/helpers/content-favorites'
 import { isUnresolvedProjectId } from '@/helpers/content-identity'
 import { applyContentItemUpdates, matchesContentItem } from '@/helpers/content-item-state'
 import { contentProjectUrl } from '@/helpers/content-project-links'
@@ -419,6 +435,7 @@ import {
     normalizeInstanceContentSnapshot,
 } from '@/helpers/instance-content'
 import { postUpgradeWarningForContent } from '@/helpers/post-upgrade-notice'
+import { resourceOperationError } from '@/helpers/resource-operation-logic'
 import {
     confirmedContentGroupKey,
     duplicateGroupUpdateEntries,
@@ -433,7 +450,19 @@ import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
 import { useTheming } from '@/store/state'
 
+import {
+    createContentRefreshSettlement,
+    modsContentLoading,
+    modsContentPending,
+    modsContentRetryMode,
+    modsContentScopeTransition,
+} from './mods-content-state'
+
 const messages = defineMessages({
+    instanceContentProcessing: {
+        id: 'app.instance.content.processing',
+        defaultMessage: 'Updating instance files… Content will refresh when this finishes.',
+    },
     checkingContent: {
         id: 'app.instance.content.checking',
         defaultMessage: 'Refreshing… {current}/{total}',
@@ -491,6 +520,15 @@ const messages = defineMessages({
     contentTypeProject: {
         id: 'app.instance.mods.content-type-project',
         defaultMessage: 'project',
+    },
+    updateNothingToApplyTitle: {
+        id: 'app.instance.mods.update-nothing-to-apply.title',
+        defaultMessage: 'Nothing to update',
+    },
+    updateNothingToApplyBody: {
+        id: 'app.instance.mods.update-nothing-to-apply.body',
+        defaultMessage:
+            'No newer compatible version was found for the selected content, so no files were changed.',
     },
     bulkUpdateResolvingVersions: {
         id: 'app.instance.mods.bulk-update.resolving-versions',
@@ -634,11 +672,21 @@ const messages = defineMessages({
         id: 'app.project.open-in-mcmod',
         defaultMessage: 'Open in MC Mod',
     },
+    addToFavorites: {
+        id: 'app.content-favorites.add',
+        defaultMessage: 'Add to favorites',
+    },
+    removeFromFavorites: {
+        id: 'app.content-favorites.remove',
+        defaultMessage: 'Remove from favorites',
+    },
 })
 
 const { formatMessage } = useVIntl()
 const debugState = useDebugLogger('Mods:state')
 const { handleError, addNotification } = injectNotificationManager()
+const contentFavorites = useContentFavorites()
+void contentFavorites.load().catch(handleError)
 const downloadManager = injectDownloadManager()
 const {
     installingItems,
@@ -1191,6 +1239,9 @@ const pendingContentChanges = computed(() =>
         (pending) => pending.instanceId === props.instance.id,
     ),
 )
+const contentChangeIndex = computed(() =>
+    indexContentChanges(activeContentChangeJobs.value, pendingContentChanges.value),
+)
 const isBulkOperating = localBulkOperating
 const CONTENT_EVENT_DEBOUNCE_MS = 180
 let suppressSyncedUntil = 0
@@ -1208,6 +1259,14 @@ watch(isBulkOperating, (operating) => {
 })
 
 const isInstanceBusy = computed(() => props.instance?.install_stage !== 'installed')
+const contentPending = computed(() =>
+    modsContentPending({
+        busy: isInstanceBusy.value,
+        hasSnapshot: contentSnapshot.value !== null,
+        hasItems: mergedProjects.value.length + displayedLinkedModpackContentItems.value.length > 0,
+        loading: loading.value,
+    }),
+)
 const isPackUnlinkDisabled = computed(
     () =>
         isInstanceBusy.value ||
@@ -1220,9 +1279,14 @@ const appliedContentSources = new WeakMap<ContentItem, { source: ContentItem; lo
 let contentRequestGeneration = 0
 let activeBypassRefresh: Promise<void> | null = null
 const contentRefreshTask = ref<ContentRefreshTask | null>(null)
+const contentRetryMode = computed(() =>
+    modsContentRetryMode(contentWarnings.value, contentRefreshTask.value?.failed ?? 0),
+)
+const contentRetryPending = ref<symbol | null>(null)
 let contentRefreshSubscription: ReturnType<typeof createContentRefreshSubscription> | undefined
 let contentRefreshConnection: Promise<void> | undefined
 let subscribedInstanceId: string | undefined
+const contentRefreshSettlement = createContentRefreshSettlement()
 
 async function connectContentRefresh() {
     const instanceId = props.instance.id
@@ -1230,6 +1294,7 @@ async function connectContentRefresh() {
         return contentRefreshConnection
     contentRefreshSubscription?.dispose()
     subscribedInstanceId = instanceId
+    contentRefreshSettlement.reset()
     const itemCache = new WeakMap<InstanceContentSnapshotItem, ContentItem>()
     let snapshot: InstanceContentData['snapshot'] | undefined
     const subscription = createContentRefreshSubscription(
@@ -1242,7 +1307,11 @@ async function connectContentRefresh() {
             )
                 return
             contentRefreshTask.value = state.task
-            loading.value = state.snapshot.items.length === 0 && (state.task?.running ?? true)
+            loading.value = modsContentLoading({
+                hasSnapshot: true,
+                hasItems: state.snapshot.items.length > 0,
+                settled: contentRefreshSettlement.observe(state.task),
+            })
             if (snapshot === state.snapshot) return
             snapshot = state.snapshot
             const data = normalizeInstanceContentSnapshot(instanceId, state.snapshot, itemCache)
@@ -1270,10 +1339,41 @@ async function connectContentRefresh() {
 }
 
 async function retryFailedContent() {
+    if (
+        !contentRetryMode.value ||
+        isInstanceBusy.value ||
+        contentRefreshTask.value?.running ||
+        contentRetryPending.value
+    )
+        return
+    const instanceId = props.instance.id
+    const generation = contentRequestGeneration
+    const pending = Symbol()
+    contentRetryPending.value = pending
     try {
-        await contentRefreshSubscription?.start('retry_failed')
+        await connectContentRefresh()
+        if (
+            !isCurrentContentRequest(instanceId, generation) ||
+            contentRetryPending.value !== pending ||
+            isInstanceBusy.value ||
+            contentRefreshTask.value?.running
+        )
+            return
+        const mode = contentRetryMode.value
+        if (!mode) return
+        const task = await contentRefreshSubscription?.start(mode)
+        if (task && isCurrentContentRequest(instanceId, generation))
+            loading.value = modsContentLoading({
+                hasSnapshot: contentSnapshot.value !== null,
+                hasItems:
+                    mergedProjects.value.length + displayedLinkedModpackContentItems.value.length >
+                    0,
+                settled: contentRefreshSettlement.started(task.id),
+            })
     } catch (error) {
-        handleError(error as Error)
+        if (isCurrentContentRequest(instanceId, generation)) handleError(error as Error)
+    } finally {
+        if (contentRetryPending.value === pending) contentRetryPending.value = null
     }
 }
 
@@ -1298,14 +1398,17 @@ watch(
 )
 
 function invalidateContentRequests(clearState = false) {
+    contentRetryPending.value = null
     contentEventRefresh.clear()
     contentRefreshSubscription?.dispose()
     contentRefreshSubscription = undefined
     contentRefreshConnection = undefined
     subscribedInstanceId = undefined
+    contentRefreshSettlement.reset()
     contentEnrichmentController?.abort()
     contentRequestGeneration += 1
     contentTitleEnrichment.clear()
+    contentRefreshTask.value = null
     if (!clearState) return
     resetUpdateState()
 
@@ -1319,8 +1422,14 @@ function invalidateContentRequests(clearState = false) {
     linkedModpackCategories.value = []
     linkedModpackHasUpdate.value = false
     linkedModpackUpdateVersionId.value = null
-    contentRefreshTask.value = null
-    loading.value = false
+    contentLoadError.value = null
+    loading.value = true
+}
+
+function suspendContentRequests() {
+    invalidateContentRequests()
+    contentLoadError.value = null
+    loading.value = !contentSnapshot.value
 }
 const isPackLocked = computed(
     () =>
@@ -1405,6 +1514,7 @@ const updaterReleaseRefs = computed(
         ),
 )
 const contentUpdateSubmitting = ref(false)
+const contentUpdateError = ref<string>()
 const updatingModpack = ref(false)
 const pendingModpackUpdateVersion = ref<Labrinth.Versions.v2.Version | null>(null)
 const isModpackUpdateDowngrade = ref(false)
@@ -1450,11 +1560,7 @@ function getStableContentId(item: ContentItem) {
 }
 
 function hasGlobalContentChange(item: ContentItem) {
-    return (
-        pendingContentChanges.value.some((pending) =>
-            pendingContentChangeAffectsItem(pending, item),
-        ) || hasActiveContentChange(activeContentChangeJobs.value, item)
-    )
+    return contentChangeAffectsItem(contentChangeIndex.value, item)
 }
 
 function getContentOperationKeys(item: ContentItem) {
@@ -1597,7 +1703,10 @@ async function handleUploadFiles() {
 }
 
 function dependencyRefMatchesContentItem(
-    reference: { provider: 'modrinth' | 'curseforge' | 'local'; projectId: string },
+    reference: {
+        provider: 'modrinth' | 'curseforge' | 'local' | 'mcarchive'
+        projectId: string
+    },
     item: ContentItem,
 ) {
     const itemProjectId = item.project?.id ?? ''
@@ -1827,7 +1936,7 @@ async function applyToggleDisableBatch(items: ContentItem[], enabled: boolean) {
             keys: getContentOperationKeys(item),
             originalFileName: item.file_name,
             originalFilePath: item.file_path,
-            originalEnabled: item.enabled,
+            originalEnabled: item.enabled ?? false,
             optimisticPath: enabled ? trimmedPath : `${trimmedPath}.disabled`,
         })
     }
@@ -1952,6 +2061,7 @@ async function removeMod(mod: ContentItem) {
         if (isWorldDatapackItem(mod)) {
             await deleteWorldDatapackItem(mod)
         } else {
+            if (!contentId) return
             const removedPath = mod.file_path
             await remove_content_entry(props.instance.id, contentId)
             projects.value = projects.value.filter((x) => removedPath !== x.file_path)
@@ -2108,6 +2218,12 @@ async function reviewResourceChanges(entryIds: string[], release: SourceReleaseR
             entryIds,
             (job) => downloadManager.trackJob(job),
             formatMessage,
+            () =>
+                addNotification({
+                    type: 'info',
+                    title: formatMessage(messages.updateNothingToApplyTitle),
+                    text: formatMessage(messages.updateNothingToApplyBody),
+                }),
         )
     const preview = resourceOperationPreview.value
     if (!preview) return false
@@ -2249,6 +2365,7 @@ async function handleUpdate(item: ContentItem) {
 }
 
 async function handleSwitchVersion(item: ContentItem) {
+    contentUpdateError.value = undefined
     const entry = contentSnapshot.value?.items.find(
         (entry) => entry.entryId === item.instanceEntryId,
     )
@@ -2282,6 +2399,7 @@ watch(
 )
 
 async function handleModpackUpdate() {
+    contentUpdateError.value = undefined
     const link = props.instance.link
     if (!link?.project_id) return
     const projectId =
@@ -2323,6 +2441,7 @@ function updaterChangelogRef(version: Labrinth.Versions.v2.Version): SourceRelea
 }
 
 function resetUpdateState() {
+    contentUpdateError.value = undefined
     contentVersions.reset()
     updatingModpack.value = false
     updatingProject.value = null
@@ -2382,7 +2501,7 @@ async function handleModpackUpdateConfirm() {
         await initProjects()
         succeeded = true
     } catch (error) {
-        handleError(error as Error)
+        contentUpdateError.value = resourceOperationError(error, formatMessage)
     } finally {
         isModpackUpdating.value = false
         contentUpdateSubmitting.value = false
@@ -2403,6 +2522,7 @@ async function handleModalUpdate(
     event?: MouseEvent,
 ) {
     if (contentUpdateSubmitting.value) return
+    contentUpdateError.value = undefined
     contentUpdateSubmitting.value = true
     let succeeded = false
     if (updatingModpack.value) {
@@ -2560,6 +2680,17 @@ function getOverflowOptions(item: ContentItem): OverflowMenuOption[] {
         })
     }
 
+    const favorite = contentItemFavoriteInput(item)
+    if (favorite) {
+        const saved = contentFavorites.isFavorite(favorite.provider, favorite.project_id)
+        options.push({
+            id: formatMessage(saved ? messages.removeFromFavorites : messages.addToFavorites),
+            icon: saved ? BookmarkFilledIcon : BookmarkIcon,
+            disabled: contentFavorites.isPending(favorite.provider, favorite.project_id),
+            action: () => void contentFavorites.toggle(favorite).catch(handleError),
+        })
+    }
+
     return options
 }
 
@@ -2588,9 +2719,14 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
     contentEventRefresh.clear()
     void loadWorldDatapacks()
     if (!props.instance || props.instance.install_stage !== 'installed') {
-        invalidateContentRequests(true)
+        suspendContentRequests()
         return
     }
+    loading.value = modsContentLoading({
+        hasSnapshot: contentSnapshot.value !== null,
+        hasItems: mergedProjects.value.length + displayedLinkedModpackContentItems.value.length > 0,
+        settled: contentRefreshSettlement.settled,
+    })
     const instanceId = props.instance.id
     const generation = ++contentRequestGeneration
     contentEnrichmentController?.abort()
@@ -2600,11 +2736,19 @@ async function initProjectsInternal(cacheBehaviour?: CacheBehaviour) {
         await connectContentRefresh()
         if (!isCurrentContentRequest(instanceId, generation)) return
         if (alreadyConnected) await contentRefreshSubscription?.reload()
-        await contentRefreshSubscription?.start(
+        const task = await contentRefreshSubscription?.start(
             cacheBehaviour === 'bypass' || cacheBehaviour === 'must_revalidate'
                 ? 'force_remote'
                 : 'normal',
         )
+        if (task && isCurrentContentRequest(instanceId, generation))
+            loading.value = modsContentLoading({
+                hasSnapshot: contentSnapshot.value !== null,
+                hasItems:
+                    mergedProjects.value.length + displayedLinkedModpackContentItems.value.length >
+                    0,
+                settled: contentRefreshSettlement.started(task.id),
+            })
     } catch (error) {
         if (!isCurrentContentRequest(instanceId, generation)) return
         handleError(error as Error)
@@ -2948,7 +3092,7 @@ provideContentManager({
             effectiveProvider === 'curseforge'
                 ? item.provider_refs
                       ?.find(
-                          (ref): ref is { provider: 'curseforge'; project_id: number } =>
+                          (ref) =>
                               ref.provider === 'curseforge' && typeof ref.project_id === 'number',
                       )
                       ?.project_id.toString()
@@ -3062,6 +3206,7 @@ provideContentManager({
                       : null,
             toggleDisabled: item.instanceCapabilities?.canToggle === false,
             hideSwitchVersion:
+                item.project_type === 'schematic' ||
                 (isPackLocked.value && item.instanceOwnershipKind === 'pack_managed') ||
                 item.instanceCapabilities?.canChangeVersion === false,
             pendingManualDownload: item.pendingManualDownload,
@@ -3092,7 +3237,7 @@ function getInstallRevision() {
 
 async function loadInitialContent(): Promise<void> {
     if (props.instance.install_stage !== 'installed') {
-        invalidateContentRequests(true)
+        suspendContentRequests()
         return
     }
     handledInstallRevision.value = getInstallRevision()
@@ -3134,24 +3279,12 @@ onMounted(() => {
 })
 
 watch(
-    () => props.instance?.install_stage,
-    async (newStage, oldStage) => {
-        if (oldStage !== 'installed' && newStage === 'installed') {
-            await refreshContentState()
-        } else if (newStage !== 'installed') {
-            invalidateContentRequests(true)
-        }
-    },
-)
-
-watch(
-    () => props.instance.id,
-    async (newId, oldId) => {
-        if (newId === oldId) return
-        invalidateContentRequests(true)
-        if (props.instance.install_stage === 'installed') {
-            await refreshContentState()
-        }
+    () => ({ id: props.instance.id, install_stage: props.instance.install_stage }),
+    async (current, previous) => {
+        const transition = modsContentScopeTransition(current, previous)
+        if (transition.clear) invalidateContentRequests(true)
+        if (transition.suspend) suspendContentRequests()
+        if (transition.refresh) await refreshContentState()
     },
 )
 

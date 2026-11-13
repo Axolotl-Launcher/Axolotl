@@ -1,12 +1,21 @@
 use crate::State;
 use crate::event::InstancePayloadType;
 use crate::event::emit::{emit_instance, emit_minecraft_crash_warning};
+use crate::scheduler::order::instrument;
 use crate::state::{
     DirectoryInfo, InstanceInstallStage, ProjectType, attached_world_data,
 };
 use crate::worlds::WorldType;
-use notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_mini::{DebounceEventResult, Debouncer, new_debouncer};
+use futures::{
+    FutureExt, StreamExt, future::BoxFuture, stream::FuturesUnordered,
+};
+use notify::event::{AccessKind, AccessMode};
+use notify::{
+    EventHandler, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+};
+use notify_debouncer_mini::{
+    Config, DebounceEventResult, Debouncer, new_debouncer_opt,
+};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -21,8 +30,117 @@ use tokio::sync::{RwLock, mpsc::channel};
 use super::adapters::sqlite::instance_rows;
 use super::config_sync::{CONFIG_FILE_NAME, CONFIG_FILE_TEMP_NAME};
 
+struct ContentChangeWatcher(RecommendedWatcher);
+
+#[derive(Default)]
+struct ScreenshotReconciliations {
+    active: HashSet<String>,
+    dirty: HashSet<String>,
+    jobs: FuturesUnordered<BoxFuture<'static, String>>,
+}
+
+impl ScreenshotReconciliations {
+    fn enqueue(&mut self, instance_id: String) {
+        self.enqueue_with(instance_id, |instance_id| async move {
+            crate::api::instance::reconcile_screenshots(&instance_id).await
+        });
+    }
+
+    fn enqueue_with<F, Fut>(&mut self, instance_id: String, run: F)
+    where
+        F: FnOnce(String) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = crate::Result<()>> + Send + 'static,
+    {
+        if !self.active.insert(instance_id.clone()) {
+            self.dirty.insert(instance_id);
+            return;
+        }
+        self.jobs.push(Box::pin(async move {
+            let result = std::panic::AssertUnwindSafe(async {
+                run(instance_id.clone()).await
+            })
+            .catch_unwind()
+            .await;
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => tracing::debug!(%error, %instance_id, "Screenshot index reconciliation failed"),
+                Err(_) => tracing::warn!(%instance_id, "Screenshot index reconciliation panicked"),
+            }
+            instance_id
+        }));
+    }
+
+    async fn next(&mut self) {
+        self.next_with(|instance_id| async move {
+            crate::api::instance::reconcile_screenshots(&instance_id).await
+        })
+        .await;
+    }
+
+    async fn next_with<F, Fut>(&mut self, run: F)
+    where
+        F: FnOnce(String) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = crate::Result<()>> + Send + 'static,
+    {
+        if let Some(instance_id) = self.jobs.next().await {
+            self.active.remove(&instance_id);
+            if self.dirty.remove(&instance_id) {
+                self.enqueue_with(instance_id, run);
+            }
+        }
+    }
+}
+
+fn content_change_handler(mut handler: impl EventHandler) -> impl EventHandler {
+    move |result: notify::Result<notify::Event>| {
+        // The mini debouncer discards event kinds. Filter reads here so a scan
+        // cannot invalidate itself by opening files (notably on Linux).
+        if result.as_ref().is_ok_and(|event| {
+            !event.need_rescan()
+                && matches!(event.kind, EventKind::Access(kind) if kind != AccessKind::Close(AccessMode::Write))
+        }) {
+            return;
+        }
+        handler.handle_event(result);
+    }
+}
+
+impl Watcher for ContentChangeWatcher {
+    fn new<F: EventHandler>(
+        event_handler: F,
+        config: notify::Config,
+    ) -> notify::Result<Self> {
+        RecommendedWatcher::new(content_change_handler(event_handler), config)
+            .map(Self)
+    }
+
+    fn watch(
+        &mut self,
+        path: &Path,
+        recursive_mode: RecursiveMode,
+    ) -> notify::Result<()> {
+        self.0.watch(path, recursive_mode)
+    }
+
+    fn unwatch(&mut self, path: &Path) -> notify::Result<()> {
+        self.0.unwatch(path)
+    }
+
+    fn paths_mut(&mut self) -> Box<dyn notify::PathsMut + '_> {
+        self.0.paths_mut()
+    }
+
+    fn configure(&mut self, config: notify::Config) -> notify::Result<bool> {
+        self.0.configure(config)
+    }
+
+    fn kind() -> notify::WatcherKind {
+        RecommendedWatcher::kind()
+    }
+}
+
 pub struct FileWatcher {
-    watcher: RwLock<Debouncer<RecommendedWatcher>>,
+    watcher: RwLock<Debouncer<ContentChangeWatcher>>,
     instance_ids: Arc<RwLock<HashMap<String, HashSet<String>>>>,
     content_changes: Arc<RwLock<HashMap<String, InstanceContentChangeState>>>,
     manual_import_directory: Arc<RwLock<Option<PathBuf>>>,
@@ -62,8 +180,8 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
     let event_manual_import_directory = manual_import_directory.clone();
     let manual_import_generation = Arc::new(AtomicU64::new(0));
 
-    let file_watcher = new_debouncer(
-        Duration::from_secs_f32(1.0),
+    let file_watcher = new_debouncer_opt::<_, ContentChangeWatcher>(
+        Config::default().with_timeout(Duration::from_secs_f32(1.0)),
         move |res: DebounceEventResult| {
             tx.blocking_send(res).ok();
         },
@@ -72,15 +190,32 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
     tokio::task::spawn(async move {
         let span = tracing::span!(tracing::Level::INFO, "init_watcher");
         tracing::info!(parent: &span, "Initing watcher");
-        while let Some(res) = rx.recv().await {
+        let mut screenshots = ScreenshotReconciliations::default();
+        loop {
+            let res = tokio::select! {
+                res = rx.recv() => match res {
+                    Some(res) => res,
+                    None => break,
+                },
+                () = screenshots.next(), if !screenshots.jobs.is_empty() => continue,
+            };
             let _span = span.enter();
 
             match res {
                 Ok(events) => {
+                    let _order_ids = instrument::hold(
+                        "theseus::state::instances::watcher::FileWatcher.instance_ids",
+                    );
+                    // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids
                     let instance_ids = event_instance_ids.read().await;
+                    instrument::touch(
+                        "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+                    );
+                    // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
                     let manual_import_directory =
                         event_manual_import_directory.read().await.clone();
                     let mut visited_instances = Vec::new();
+                    let mut screenshot_instances = HashSet::new();
                     let mut synced_option_files =
                         HashMap::<String, HashSet<String>>::new();
                     let mut scan_manual_downloads = false;
@@ -177,13 +312,8 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                                     .as_ref()
                                     .is_some_and(|x| *x == "screenshots")
                                 {
-                                    let screenshot_instance_id =
-                                        instance_id.clone();
-                                    tokio::spawn(async move {
-                                        if let Err(error) = crate::api::instance::reconcile_screenshots(&screenshot_instance_id).await {
-                                        tracing::debug!(%error, "Screenshot index reconciliation failed");
-                                    }
-                                    });
+                                    screenshot_instances
+                                        .insert(instance_id.clone());
                                 }
                                 if !relative_path.is_empty() {
                                     record_upgrade_content_change(
@@ -306,6 +436,9 @@ pub async fn init_watcher() -> crate::Result<FileWatcher> {
                             scan_manual_downloads = true;
                         }
                     }
+                    for instance_id in screenshot_instances {
+                        screenshots.enqueue(instance_id);
+                    }
                     for (instance_id, file_names) in synced_option_files {
                         tokio::spawn(async move {
                             for file_name in file_names {
@@ -410,11 +543,19 @@ impl FileWatcher {
         &self,
         directory: Option<PathBuf>,
     ) -> crate::Result<()> {
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
         let current = self.manual_import_directory.read().await.clone();
         if current == directory {
             return Ok(());
         }
 
+        let _order_watcher = instrument::hold(
+            "theseus::state::instances::watcher::FileWatcher.watcher",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.watcher
         let mut debouncer = self.watcher.write().await;
         if let Some(directory) = directory.as_ref() {
             debouncer
@@ -424,11 +565,19 @@ impl FileWatcher {
         if let Some(current) = current.as_ref() {
             let _ = debouncer.watcher().unwatch(current);
         }
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
         *self.manual_import_directory.write().await = directory;
         let generation = self
             .manual_import_generation
             .fetch_add(1, Ordering::Relaxed)
             + 1;
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.manual_import_directory",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.manual_import_directory temporary
         let Some(directory) = self.manual_import_directory.read().await.clone()
         else {
             return Ok(());
@@ -546,7 +695,15 @@ pub(crate) async fn watch_instance_folder(
 
     let full_instance_path_key =
         full_instance_path.to_string_lossy().to_string();
+    let _order_watcher = instrument::hold(
+        "theseus::state::instances::watcher::FileWatcher.watcher",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.watcher
     let mut debouncer = watcher.watcher.write().await;
+    instrument::touch(
+        "theseus::state::instances::watcher::FileWatcher.instance_ids",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids temporary
     let is_watched = watcher
         .instance_ids
         .read()
@@ -575,6 +732,10 @@ pub(crate) async fn watch_instance_folder(
         }
     }
 
+    let _order_ids = instrument::hold(
+        "theseus::state::instances::watcher::FileWatcher.instance_ids",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids
     let mut instance_ids = watcher.instance_ids.write().await;
     instance_ids
         .entry(instance_path.to_string())
@@ -584,8 +745,16 @@ pub(crate) async fn watch_instance_folder(
         .entry(full_instance_path_key)
         .or_default()
         .insert(instance_id.to_string());
+    // sched-order-release: theseus::state::instances::watcher::FileWatcher.instance_ids
     drop(instance_ids);
+    drop(_order_ids);
+    // sched-order-release: theseus::state::instances::watcher::FileWatcher.watcher
     drop(debouncer);
+    drop(_order_watcher);
+    instrument::touch(
+        "theseus::state::instances::watcher::FileWatcher.content_changes",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.content_changes temporary
     watcher
         .content_changes
         .write()
@@ -606,8 +775,16 @@ pub(crate) async fn unwatch_instance_folder(
 ) {
     let full_instance_path_key =
         full_instance_path.to_string_lossy().to_string();
+    let _order_watcher = instrument::hold(
+        "theseus::state::instances::watcher::FileWatcher.watcher",
+    );
+    // sched-order: theseus::state::instances::watcher::FileWatcher.watcher
     let mut debouncer = watcher.watcher.write().await;
     let (removed_instance_ids, should_unwatch) = {
+        let _order_ids = instrument::hold(
+            "theseus::state::instances::watcher::FileWatcher.instance_ids",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.instance_ids
         let mut mappings = watcher.instance_ids.write().await;
         let removed_instance_ids =
             mappings.remove(instance_path).unwrap_or_default();
@@ -628,8 +805,14 @@ pub(crate) async fn unwatch_instance_folder(
             let _ = debouncer.watcher().unwatch(&full_path);
         }
     }
+    // sched-order-release: theseus::state::instances::watcher::FileWatcher.watcher
     drop(debouncer);
+    drop(_order_watcher);
     for instance_id in removed_instance_ids {
+        instrument::touch(
+            "theseus::state::instances::watcher::FileWatcher.content_changes",
+        );
+        // sched-order: theseus::state::instances::watcher::FileWatcher.content_changes temporary
         watcher.content_changes.write().await.remove(&instance_id);
     }
 }
@@ -733,6 +916,106 @@ fn crash_task(instance_id: String) {
 fn is_config_sync_file_name(name: &std::ffi::OsStr) -> bool {
     let name = name.to_string_lossy();
     name == CONFIG_FILE_NAME || name == CONFIG_FILE_TEMP_NAME
+}
+
+#[cfg(test)]
+mod screenshot_reconciliation_tests {
+    use super::*;
+    use std::future::Future;
+    use std::sync::atomic::AtomicUsize;
+
+    fn poll_jobs(queue: &mut ScreenshotReconciliations) {
+        let mut next = std::pin::pin!(queue.next());
+        let mut context =
+            std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(next.as_mut().poll(&mut context).is_pending());
+    }
+
+    #[tokio::test]
+    async fn screenshot_events_merge_across_batches_without_losing_dirty_rerun()
+    {
+        let mut queue = ScreenshotReconciliations::default();
+        let first = Arc::new(tokio::sync::Notify::new());
+        let runs = Arc::new(AtomicUsize::new(0));
+        let signal = first.clone();
+        let counter = runs.clone();
+        queue.enqueue_with("one".into(), move |_| async move {
+            counter.fetch_add(1, Ordering::SeqCst);
+            signal.notified().await;
+            Ok(())
+        });
+        poll_jobs(&mut queue);
+        for _ in 0..200 {
+            queue.enqueue_with("one".into(), |_| async {
+                panic!("duplicate scan started")
+            });
+        }
+        queue.enqueue_with("two".into(), |_| async { Ok(()) });
+        assert_eq!(queue.jobs.len(), 2);
+        assert_eq!(queue.dirty.len(), 1);
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert!(queue.active.contains("one"));
+        first.notify_one();
+        let counter = runs.clone();
+        queue
+            .next_with(move |instance_id| async move {
+                assert_eq!(instance_id, "one");
+                counter.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            })
+            .await;
+        assert_eq!(
+            queue.jobs.len(),
+            1,
+            "dirty events schedule a follow-up scan"
+        );
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert_eq!(runs.load(Ordering::SeqCst), 2);
+        assert!(queue.jobs.is_empty());
+        assert!(queue.active.is_empty());
+        assert!(queue.dirty.is_empty());
+    }
+
+    #[tokio::test]
+    async fn screenshot_reconciliation_failure_and_panic_release_the_instance()
+    {
+        let mut queue = ScreenshotReconciliations::default();
+        queue.enqueue_with("failure".into(), |_| async {
+            Err(crate::ErrorKind::OtherError("fixture failure".into()).into())
+        });
+        queue.enqueue_with("panic".into(), |_| async {
+            panic!("fixture panic")
+        });
+        queue.next_with(|_| async { Ok(()) }).await;
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert!(queue.active.is_empty());
+        queue.enqueue_with("failure".into(), |_| async { Ok(()) });
+        queue.enqueue_with("panic".into(), |_| async { Ok(()) });
+        queue.next_with(|_| async { Ok(()) }).await;
+        queue.next_with(|_| async { Ok(()) }).await;
+        assert!(queue.active.is_empty());
+    }
+
+    #[tokio::test]
+    async fn dropping_screenshot_queue_cancels_owned_reconciliation() {
+        struct Dropped(Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for Dropped {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let guard = Dropped(dropped.clone());
+        let mut queue = ScreenshotReconciliations::default();
+        queue.enqueue_with("one".into(), move |_| async move {
+            let _guard = guard;
+            std::future::pending::<()>().await;
+            Ok(())
+        });
+        poll_jobs(&mut queue);
+        drop(queue);
+        assert!(dropped.load(Ordering::SeqCst));
+    }
 }
 
 #[cfg(test)]
@@ -966,5 +1249,160 @@ mod config_file_name_tests {
                 .unwrap()
                 .epoch
         );
+    }
+}
+
+#[cfg(test)]
+mod content_event_tests {
+    use super::*;
+    use notify::event::{
+        CreateKind, DataChange, Flag, ModifyKind, RemoveKind, RenameMode,
+    };
+
+    #[test]
+    fn ignores_access_events_before_debouncing() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut handler = content_change_handler(move |event| {
+            tx.send(event).unwrap();
+        });
+        for kind in [
+            AccessKind::Any,
+            AccessKind::Read,
+            AccessKind::Open(AccessMode::Any),
+            AccessKind::Open(AccessMode::Read),
+            AccessKind::Open(AccessMode::Write),
+            AccessKind::Close(AccessMode::Read),
+            AccessKind::Close(AccessMode::Any),
+            AccessKind::Other,
+        ] {
+            handler
+                .handle_event(Ok(notify::Event::new(EventKind::Access(kind))));
+        }
+        assert!(matches!(
+            rx.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
+    fn preserves_mutations_rescans_and_errors_before_debouncing() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut handler = content_change_handler(move |event| {
+            tx.send(event).unwrap();
+        });
+        for kind in [
+            EventKind::Any,
+            EventKind::Other,
+            EventKind::Access(AccessKind::Close(AccessMode::Write)),
+            EventKind::Create(CreateKind::File),
+            EventKind::Modify(ModifyKind::Data(DataChange::Content)),
+            EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
+            EventKind::Remove(RemoveKind::File),
+        ] {
+            let event = notify::Event::new(kind)
+                .add_path(PathBuf::from("mods/example.jar"));
+            handler.handle_event(Ok(event.clone()));
+            assert_eq!(rx.try_recv().unwrap().unwrap(), event);
+        }
+        let rescan = notify::Event::new(EventKind::Access(AccessKind::Read))
+            .set_flag(Flag::Rescan);
+        handler.handle_event(Ok(rescan.clone()));
+        assert_eq!(rx.try_recv().unwrap().unwrap(), rescan);
+        handler.handle_event(Err(notify::Error::generic("watch failed")));
+        assert_eq!(
+            rx.try_recv().unwrap().unwrap_err().to_string(),
+            "watch failed"
+        );
+    }
+
+    async fn wait_for_content_change(
+        watcher: &FileWatcher,
+        previous_generation: u64,
+        path: &str,
+    ) -> InstanceContentWatchSnapshot {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let snapshot =
+                    watcher.content_watch_snapshot("instance").await.unwrap();
+                if snapshot.generation > previous_generation
+                    && snapshot.dirty_paths.contains(path)
+                {
+                    return snapshot;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("no content change received for {path}"))
+    }
+
+    #[tokio::test]
+    async fn reads_leave_content_generation_unchanged_but_mutations_update_it()
+    {
+        let root = tempfile::tempdir().unwrap();
+        let mods = root.path().join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        let existing = mods.join("existing.jar");
+        std::fs::write(&existing, b"initial content").unwrap();
+        let deleted = mods.join("deleted.jar");
+        std::fs::write(&deleted, b"content to delete").unwrap();
+        let metadata = std::fs::metadata(&existing).unwrap();
+        let watcher = init_watcher().await.unwrap();
+        watch_instance_folder("instance", "instance", root.path(), &watcher)
+            .await;
+        let initial = watcher.content_watch_snapshot("instance").await.unwrap();
+
+        for _ in 0..3 {
+            assert_eq!(std::fs::read(&existing).unwrap(), b"initial content");
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        // Batch mode may take twice the one-second debounce timeout.
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        let after_reads = std::fs::metadata(&existing).unwrap();
+        assert_eq!(metadata.len(), after_reads.len());
+        assert_eq!(
+            metadata.modified().unwrap(),
+            after_reads.modified().unwrap()
+        );
+        assert_eq!(
+            watcher.content_watch_snapshot("instance").await.unwrap(),
+            initial
+        );
+
+        std::fs::write(&existing, b"changed content").unwrap();
+        let changed = wait_for_content_change(
+            &watcher,
+            initial.generation,
+            "mods/existing.jar",
+        )
+        .await;
+        assert!(changed.directory_dirty);
+
+        let created = mods.join("created.jar");
+        std::fs::write(&created, b"new content").unwrap();
+        let changed = wait_for_content_change(
+            &watcher,
+            changed.generation,
+            "mods/created.jar",
+        )
+        .await;
+
+        let renamed = mods.join("renamed.jar");
+        std::fs::rename(&created, &renamed).unwrap();
+        let changed = wait_for_content_change(
+            &watcher,
+            changed.generation,
+            "mods/renamed.jar",
+        )
+        .await;
+
+        std::fs::remove_file(&deleted).unwrap();
+        wait_for_content_change(
+            &watcher,
+            changed.generation,
+            "mods/deleted.jar",
+        )
+        .await;
+        unwatch_instance_folder("instance", root.path(), &watcher).await;
     }
 }

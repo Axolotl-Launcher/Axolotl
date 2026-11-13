@@ -87,9 +87,9 @@
 
             <Suspense>
                 <TresMesh
-                    :position="spotlightPosition"
+                    :position="spotlightPositionVector"
                     :rotation="[-Math.PI / 2, 0, 0]"
-                    :scale="spotlightScale"
+                    :scale="spotlightScaleVector"
                 >
                     <TresCircleGeometry :args="[1, 128]" />
                     <TresShaderMaterial v-bind="radialSpotlightShader" />
@@ -99,12 +99,12 @@
             <TresPerspectiveCamera
                 :make-default.camel="true"
                 :fov="cameraConfig.fov"
-                :position="cameraConfig.position"
+                :position="cameraPositionVector"
                 :look-at="cameraConfig.target"
             />
 
             <TresAmbientLight :intensity="2" />
-            <TresDirectionalLight :position="[-3, 4, -2]" :intensity="1.2" />
+            <TresDirectionalLight :position="directionalLightPosition" :intensity="1.2" />
         </TresCanvas>
 
         <div v-if="showLoading" class="absolute inset-0 flex items-center justify-center">
@@ -372,6 +372,12 @@ const rendererDpr: [number, number] = [1, 2]
 const radialSpotlightShader = createRadialSpotlightShader(isDarkPreviewTheme.value)
 const isReady = computed(() => isModelLoaded.value && isTextureLoaded.value && hasResolvedFit.value)
 const { isPreviewVisible, showLoading } = useSkinPreviewLoading(isReady)
+
+// TresJS types its transform props as three.js vectors rather than tuples.
+const spotlightPositionVector = computed(() => new THREE.Vector3(...spotlightPosition.value))
+const spotlightScaleVector = computed(() => new THREE.Vector3(...spotlightScale.value))
+const cameraPositionVector = computed(() => new THREE.Vector3(...cameraConfig.value.position))
+const directionalLightPosition = new THREE.Vector3(-3, 4, -2)
 
 onMounted(() => {
     observeSubtitleElement()

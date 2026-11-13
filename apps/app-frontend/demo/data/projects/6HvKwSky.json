@@ -1,0 +1,246 @@
+{
+  "id": "6HvKwSky",
+  "slug": "homestead",
+  "title": "Homestead",
+  "description": "Welcome to Homestead, a hand-crafted world brimming with quests to embark on, vibrant landscapes and endless building possibilities. Settle in, explore, and create the cozy life you've always dreamed of!",
+  "author": "Tokimi",
+  "categories": ["adventure", "fabric", "multiplayer", "optimization", "quests", "technology"],
+  "display_categories": ["adventure", "multiplayer", "quests"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 793658,
+  "followers": 1391,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.20.1"],
+  "latest_version": "I59aPn2B",
+  "date_created": "2025-04-27T19:23:40.592699Z",
+  "date_modified": "2026-10-23T04:31:16.229195Z",
+  "color": 2241071,
+  "published": "2025-04-27T19:23:40.592699Z",
+  "additional_categories": ["optimization", "technology"],
+  "issues_url": "https://github.com/iamtokimi/homestead/issues",
+  "source_url": null,
+  "wiki_url": "https://cozystudios.org/homestead/intro/",
+  "discord_url": "https://discord.gg/qHB5D9uzHe",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://patreon.com/Tokimi"
+    },
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/tokimi"
+    }
+  ],
+  "versions_total": 34,
+  "body": "<p align=\"center\">\n<img src=\"https://cozystudios.org/img/homestead/description/01_the-valley.webp\" alt=\"Panel 1: The valley\" width=\"836\">\n<img src=\"https://cozystudios.org/img/homestead/description/02_the-welcome-book.webp\" alt=\"Panel 2: The welcome book\" width=\"836\" loading=\"lazy\">\n<img src=\"https://cozystudios.org/img/homestead/description/03_chapters.webp\" alt=\"Panel 3: Chapters\" width=\"836\" loading=\"lazy\">\nPanel 4: Chapters\nPanel 5: Chapters\nPanel 6: Farming\nPanel 7: Building\nPanel 8: Building\nPanel 9: Building\nPanel 10: The cellar\nPanel 11: Plushies\nPanel 12: Fishing\nPanel 13: The lake\nPanel 14: Tokimi&#x27;s note\nPanel 15: The lake at night\nPanel 16: The interface\nPanel 17: Machines\nPanel 18: Backpacks\nPanel 19: Gear\nPanel 20: The windmill\nPanel 21: The title screen\nPanel 22: Shaders\nPanel 23: Getting started\nPanel 24: Credits<a href=\"https://discord.gg/qHB5D9uzHe\" target=\"_blank\" rel=\"noopener noreferrer\">Join the Homestead Discord</a><a href=\"https://cozystudios.org/homestead/intro/\" target=\"_blank\" rel=\"noopener noreferrer\">Read the Homestead wiki</a>\nPanel 25: Thank yous\n</p>\n\n<details>\n<summary>Open to Read the Text on the Images Above</summary>\n# Homestead\n\n**#1 Cozy Modpack. In the entire world.**\n\nWelcome to Homestead. Settle down, play slow, farm, cook, and take in the world around you. 709 quests to walk you through it all.\n\n> **Minecraft 1.20.1 · Fabric · 709 Quests · 27 Chapters**\n\n---\n\n## Why We Built This\n\nHomestead is a passion project built from the creativity of Tokimi and the CozyStudios team. Over 5-6 months in the making, it is the result of hundreds of hours, thousands of dollars, and lots of coffee and tea.\n\nWhether you are here to build, explore, automate, or simply unwind, we hope you enjoy Homestead as much as we do. There is lots to do, lots of fun things to explore, and just an overall good time.\n\n> *\"I have created Homestead for the sole purpose of wanting to have a pack that I would enjoy playing. It turned into something more than that really quickly, and it became what it is now. I hope yall enjoy.\"*\n> *— Tokimi*\n\n---\n\n## What You'll Do Here\n\n**709 quests across 27 chapters.** Here are 10 of them:\n\n- **Cogs and Whimsy** — 73 quests\n- **Catch of the Day** — 64 quests\n- **The Portable Life** — 57 quests\n- **Seasoned and Settled** — 53 quests\n- **Liquid Courage** — 47 quests\n- **Vines and Vintage** — 32 quests\n- **Roots That Run Deep** — 28 quests\n- **Forged Fables** — 27 quests\n- **The Whispers of the Wilds** — 26 quests\n- **The Heart of the Homestead** — 19 quests\n\n---\n\n## A Farmer's Life\n\n**187 dishes you can cook.** Till your fields, raise your animals, and work your way through nearly 200 recipes across the farming and food mods bundled in.\n\n---\n\n## The Home You Shape\n\n**35 ways to cut one plank. 6,981 chipped blocks in total.** Whatever your build style, there is a block for it.\n\n---\n\n## The Cellar and the Kettle\n\n**177 things to pour.** Barrels, kegs, and brewing stations full of drinks, broths, and specialty pours to sip or sell.\n\n---\n\n## Good Company\n\n**100+ plushies to find.** Collect plushies of mobs, YouTubers, and community members scattered through the world.\n\n---\n\n## Catch of the Day\n\n**33 fish in these waters, 12 tiers of crates to haul up.**\n\n- Rods on the Rail: 9\n- In the Overworld, in water: 16\n- In the Nether, in lava: 9\n- In the End, in water: 7\n- Plus a full set of cooked and crafted recipes to round out your catch\n\n---\n\n## The Cozy Interface\n\nRebuilt menus and overlays so every screen in the pack feels like it belongs in the same world.\n\n---\n\n## Cogs and Whimsy\n\n**73 quests, the biggest chapter of the 27.** The full Create experience, with guided questlines that walk you from your first cogwheel to industrial-scale contraptions.\n\n---\n\n## Carrying and Keeping\n\n**6 packs to grow into:** Leather, Copper, Iron, Gold, Diamond, Netherite.\n\n**57 upgrades to slot in** for stacking, filtering, pickup, magnet, cooking, and more.\n\n**37 ways to keep it all** across storage drawers, inventory connectors, storage terminals, and the rest of the Sophisticated Storage lineup.\n\n---\n\n## Forged Fables\n\nA full gear progression that goes beyond Netherite.\n\n**Diamond → Obsidian** (9 pieces): add an Obsidian Ingot to your diamond gear with an Obsidian Upgrade Smithing Template.\n\n**Obsidian** gets 3 extra pieces beyond the usual kit: Horse Armor, Nautilus Armor, and a Spear.\n\n**Obsidian → Netherite** (9 pieces): add a Netherite Ingot with a Netherite Upgrade Smithing Template.\n\n**Past Netherite:** 4 more Netherite tiers above it (Iron, Gold, Emerald, Diamond, 9 pieces each) and 8 Mythic Gem kits off the side (Ruby, Topaz, Peridot, Sapphire, Jade, Aquamarine, Ametrine, Citrine, 72 more pieces).\n\n---\n\n## The Whispers of the Wilds\n\nAutomated windmills, hand-built structures, and the full farm-life questline. It's farming time.\n\n---\n\n## Built-in Shaders\n\nThree looks ship enabled out of the box: **Dawn, Day, Night.**\n\n**Bundled in the pack:**\n- Complementary Reimagined (Low / Mid / Extreme)\n\n**Four more come with it:**\n- Nostalgia\n- Makeup Ultrafast\n- Potato\n- Super Duper Vanilla\n\n---\n\n## How You Start\n\n**1. Pick your launcher.** Install through the CurseForge, Prism, or Modrinth launcher. Minecraft 1.20.1 on Fabric.\n\n**2. Set the memory.** Give it 6-8GB of memory. Stay within 6-10GB; more than that can hurt instead of help.\n\n**3. Open the quest book.** Start a world and open the quest book. The First Sprout chapter walks you in.\n\n**4. Server and shaders.** Running a server? There is a dedicated Server Pack ready to download. Shaders come preloaded; turn them off in Video Settings if you need the frames.\n\n---\n\n## Credits and Doors\n\n*I hope you enjoyed it just as much as I loved creating it.*\n\n- **Pack, Quests and Lore:** Tokimi\n- **Team:** CozyCord / CozyStudios\n- **Secondary Dev:** Meleon\n- **Backend Dev:** Salad\n- **Logo:** Slugv\n- **Character Art:** BRY-LH\n- **Description:** Larsonix\n\n---\n\n## Special Thank You's\n\nThank you to everyone who beta tested the pack, finding all the bugs and issues that we could.\n\nXodk · Army · Lyn · Alexelle · Nylon · Gonzo · Cobra · Mama Native · Snowylasvegas · Wistericle · Yuki · Navinor\n\nThank you to the mod developers who helped us with coding our very own mod and bringing to life our crazy ideas.\n\n- **Javivi** — Developer\n- **Raboy** — Animator\n- **Flash** — Models / Textures\n- **Bret06** — Developer\n- **Artmanoil** — Custom GUI / TexturePack Guy\n- **Gigoe** — Main Menu / Loading Screen Artist\n</details>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/6HvKwSky/images/057b9011123acf728799764fac9e3eef55dbfb8b.png",
+      "featured": true,
+      "title": "Built-In Shaders",
+      "description": "We have many shaders to choose from. Ranging from lightweight  potato shaders to the most extreme and cinematic shaders!",
+      "created": "2025-04-28T19:06:49.678959Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/6HvKwSky/images/7811b43e81618b05220b9194d4f9e2acea60bed7_350.webp",
+      "featured": false,
+      "title": "Main Menu Screen",
+      "description": "This is where you will be greeted once you have installed the dependent mods from the No FTB Screen.",
+      "created": "2025-04-28T19:04:02.746136Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/6HvKwSky/images/3d23ea591e079879278901c52bee8ce194f41a36_350.webp",
+      "featured": false,
+      "title": "Main Menu (Night Mode)",
+      "description": "You can change your Main Menu from lightmode to dark mode by clicking on the Sun/Moon.",
+      "created": "2025-04-28T19:04:30.797475Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/6HvKwSky/images/f0cd3cb40d59517ceb6100f33c9dcb7316fdee13_350.webp",
+      "featured": false,
+      "title": "No FTB Screen",
+      "description": "This will be the first screen you see when you open the modpack. Due to FTB not being able to be distributed through Modrinth, we have been able to do it through this method. Follow the instructions on screen to get playing!",
+      "created": "2025-04-28T19:05:18.383633Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Tokimi",
+      "role": "Main Modpack Dev",
+      "avatar": "https://cdn.modrinth.com/data/zrCdIfFo/3d3e2ae9889a77bf45e69a9bdaf6b9b83c54fc5b_96.webp"
+    },
+    {
+      "username": "codenamemeleon",
+      "role": "Secondary Modpack Dev",
+      "avatar": "https://cdn.modrinth.com/user/tVz4UFeV/03138da55b156dcb455ec380b7be3a2532bf2b44.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "I59aPn2B",
+      "name": "Homestead 2.0",
+      "version_number": "2.0",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T04:31:16.229195Z",
+      "downloads": 2599,
+      "changelog": "<p style=\"text-align: center;\"><img alt=\"Homestead 2.0 Update\" src=\"https://cozystudios.org/img/homestead/homestead-2.0-logo.png\" /></p>\n<blockquote>\n<h3>&#9888;&#65039; Before you update</h3>\n<p><strong>Read through all of the changelogs before updating.</strong> Several mods have been removed and some changes can permanently affect your existing world.</p>\n<p><strong>Back up your world first.</strong> Make a copy of your save folder before loading it on 2.0 so you can roll back if anything looks off.</p>\n<p>If you have any items stored in <strong>Storage Drawers</strong> or <strong>Iron Chests: Restocked</strong>, follow the migration steps in <a href=\"https://cozystudios.org/blog/homestead-2-0-update/#%EF%B8%8F-read-this-first-storage-mods-are-being-removed-%EF%B8%8F\">this section of the 2.0 announcement</a> before updating, or those items will be gone forever.</p>\n</blockquote>\n<h2>&#9881;&#65039; Summary</h2>\n<p>The Final Content update for Homestead. Lots of bug fixes, lots of changes, and a whole lot of stuff removed and added. Enjoy.</p>\n<hr />\n<h2>&#127793; Added Mods &amp; Datapacks</h2>\n<ul>\n<li><strong>Better Days</strong></li>\n<li><strong>Dyed End</strong></li>\n<li><strong>Better End Rod</strong></li>\n<li><strong>Echoes of The End (Structures)</strong></li>\n<li><strong>Endercon</strong></li>\n<li><strong>Streams Reflowing</strong></li>\n<li><strong>SpawnFilter</strong></li>\n<li><strong>Soundscape</strong></li>\n<li><strong>The Ultimate Compat Mod</strong></li>\n<li><strong>Let's Do: Bakery</strong></li>\n<li><strong>Colored Water</strong></li>\n<li><strong>Enchant Descriptions Compat</strong></li>\n<li><strong>Farmer's Delight Cutting Compat</strong></li>\n<li><strong>Supplementaries Compat</strong></li>\n<li><strong>No Chat Restrictions</strong></li>\n<li><strong>Icy's Better Horses</strong></li>\n<li><strong>Fast Noise</strong></li>\n<li><strong>BEBPM</strong></li>\n<li><strong>Tokimi's Boatyard</strong></li>\n</ul>\n<hr />\n<h2>&#10060; Removed Mods &amp; Datapacks<\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 2.0.mrpack",
+          "size": 104015867,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WMsE2fOj",
+      "name": "Homestead 1.3.7",
+      "version_number": "1.3.7",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-05-19T21:39:01.525930Z",
+      "downloads": 371853,
+      "changelog": "---\n\n## 🧸 Fixes & Additions\n- Fixed the Discord button on the main menu to lead to the brand new CozyStudios Discord\n- Fixed the Wiki button to go to the website wiki now\n- Updated both of the above buttons on the Welcome Screen as well (the screen when you make a new world)\n- Fixed the Performance & Settings Guide button on the Welcome Screen\n\n---\n\n## 🔧 Updated / Downgraded Mods\n- Colorwheel `→ 1.2.6`\n- Vanilla Backport `→ 1.1.7.4`\n\n---",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 1.3.7.mrpack",
+          "size": 112965569,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2n0Dcqwe",
+      "name": "Homestead 1.3.6",
+      "version_number": "1.3.6",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-05-14T06:43:08.114318Z",
+      "downloads": 15011,
+      "changelog": "---\n\n## ❌ Removed Mods & Datapacks\n- **Trowel** (no longer needed since Tokimi's Toolshed has one)\n- **Noisium** (removed by the mod author so no longer usable)\n\n---\n\n## 🧸 Fixes & Additions\n- Fixed Construction Wand config to fix the \"shift + scroll wheel\" issue\n- Actually fixed the wool to string recipe now :P oops\n- Fixed Cage Lamp recipes from Create Deco\n- Fixed Sheet Metal recipes from Create Deco\n- Fixed Hexalia's mortar and pestle recipe\n- Fixed Tokimi's Toolshed scythes to have compat with RightClickHarvest (in the mod itself)\n- Fixed obsidian tools / compat tool with Tokimi's Toolshed to be repaired with the correct materials (in the mod itself)\n\n---\n\n## 🔧 Updated / Downgraded Mods\n- Bookshelf `→ 20.2.15`\n- Colorwheel `→ 1.2.5`\n- Deeper & Darker `→ 1.3.3-plus-b`\n- Entity Culling `→ 1.10.2`\n- Geophilic `→ 3.5`\n- Hexalia `→ 1.3.2`\n- Moonlight Lib `→ 2.16.32`\n- Particle Rain `→ v4-beta.10`\n- Platform `→ 1.3.3`\n- Tokimi's Toolshed `→ 1.3`\n- Vanilla Backport `→ 1.1.7.3`\n\n---",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 1.3.6.mrpack",
+          "size": 112965232,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ZtAIsStb",
+      "name": "Homestead 1.3.5",
+      "version_number": "1.3.5",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-05-06T06:56:17.681633Z",
+      "downloads": 15999,
+      "changelog": "## 🌱 Added Mods & Datapacks\n- **Immersive Furniture**\n- **Simple Hats**\n- **Mo Glass**\n- **ScreenshotToClipboard**\n\n---\n\n## ❌ Removed Mods & Datapacks\n- **Screenshot To Clipboard** (old version — replaced with ScreenshotToClipboard)\n\n---\n\n## 🧸 Fixes & Additions\n- Took away the Mushling Plushie popup (no longer happening)\n- Fixed Simple Hats config:\n  - Seasonal Bag Chance `20 → 5`\n  - Allow Hat In Helmet Slot `No → Yes`\n  - Chest Weight None `150 → 67`\n  - Entity Weight None `200 → 100`\n- Fixed the diamond reinforced rod quest from the \"Catch of the Day\" questline\n- Fixed the Sophisticated Storage and Create crash (shoutout to the Sophisticated dev for finally fixing it :D)\n- Fixed Screenshot to Clipboard to finally work (literally swapped mods because the old one stopped working)\n- Fixed Sophisticated Backpacks config:\n  - `buffHealth: true → false`\n  - `equipWithArmor: true → false`\n  - `playJukebox: true → false`\n  - `buffWithPotionEffects: true → false`\n- Fixed the wool to string recipe giving only 1 string instead of 4 (Cozy Studios Core mod)\n- Fixed Mushling spawns (Cozy Studios Core mod)\n- Fixed Fancy Beds RP\n\n---\n\n## 🔧 Updated / Downgraded Mods\n- AmbientSounds `→ 6.3.8`\n- Collective `→ 8.22`\n- Colorwheel `→ 1.2.4`\n- Construction Wand `→ 2.1.2`\n- Cozy Studios Core `→ 1.4`\n- CreativeCore `→ 2.12.36`\n- Fabric API `→ 0.92.8`\n- Fabric Language Kotlin `→ 1.13.11`\n- Hexalia `→ 1.3.1`\n- JEBr `→ 3.0.0`\n- Ksyxis `→ 1.4.3`\n- KubeJS `→ 2001.6.5-build.26`\n- MCPitanLib `→ 3.6.8`\n- MmmMmmMmmMmm `→ 2.0.12`\n- Moonlight Lib `→ 2.16.31`\n- MidnightLib `→ 1.9.3`\n- Neruina `→ 3.3.1`\n- Open Parties and Claims `→ 0.26.2`\n- Repurposed Structures `→ 7.1.23`\n- Sophisticated Storage `→ 1.3.5.11.142`\n- Simple Voice Chat `→ 2.6.17`\n- Starter Kit `→ 8.0`\n- Subtle Effects `→ 1.14.3`\n- TrashSlot `→ 15.1.5`\n- Xaero's Minimap `→ 25.3.12`\n- Xaero's World Map `→ 1.40.16`\n\n---",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 1.3.5.mrpack",
+          "size": 112963546,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "48I6dpsh",
+      "name": "Homestead 1.3.4",
+      "version_number": "1.3.4",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-22T15:08:47.601975Z",
+      "downloads": 21640,
+      "changelog": "- Added [Mushling Plushie Announcement](https://www.makeship.com/petitions/mushling)\n- Fixed Abacus out-of-memory error\n\nUpdated Mods:\n\n- Colorwheel Patcher `→ 1.0.5`\n- CraterLib `→ 3.1.1`\n- MCPitanLib `→ 3.6.6`\n- Obsidian Equipment Reworked `→ 0.4`\n- Tokimi's Toolshed `→ 1.2`\n- Fzzy Config `→ 0.7.6`\n- Umbrellas `→ 1.4.2`\n- Ksyxis `→ 1.4.2`\n- Open Parties and Claims `→ 0.26.1`\n- Moonlight Lib `→ 2.16.30`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 1.3.4.mrpack",
+          "size": 112970483,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Vu1Tm8uY",
+      "name": "Homestead 1.3.3",
+      "version_number": "1.3.3",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-14T17:16:57.245742Z",
+      "downloads": 14990,
+      "changelog": "- Fixed an issue that caused the CF modpack version to act like the Modrinth version\n- Fixed server crashes (caused by JER)\n- Fixed the main menu to match version #\n- Removed JER",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 1.3.3.mrpack",
+          "size": 111295109,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "p2WOv4Wn",
+      "name": "Homestead 1.3.2",
+      "version_number": "1.3.2",
+      "version_type": "beta",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-14T03:41:51.756061Z",
+      "downloads": 1619,
+      "changelog": "- Fixed FPS issues (was caused by Sound Physics Perfected and Ixeris)\n- Fixed string duplication glitch\n- Added default keybind option for right-click to see uses of items with JEI\n- Fixed log spam from Repurposed Structures / C2ME (was caused by the dev of RS leaving in debug mixins — just updated the mod)\n- Fixed the tooltip not showing mod names (was caused by Jade config disabling it by default)\n- Fixed some broken FTB quests in the Tips section\n- Fixed broken Complementary Shaders\n- Changed config for Colorwheel to go into fallback mode for shaders that aren't compatible",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 1.3.2.mrpack",
+          "size": 111295196,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "V7MoMWwM",
+      "name": "Homestead 1.3.1",
+      "version_number": "1.3.1",
+      "version_type": "beta",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-10T17:22:30.001433Z",
+      "downloads": 7942,
+      "changelog": "- Updated Jade Addons to 5.5.1 (was causing a serious crash issue with Create locking worlds)\n- Updated Fancy Menu Main Menu screens to match the version #\n- Updated Obsidian Equipment Reworked to 0.3 (added item migration for old obsidian equipment items mod from exline to the new one)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Homestead 1.3.1.mrpack",
+          "size": 120785635,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

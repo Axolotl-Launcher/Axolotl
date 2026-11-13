@@ -1,9 +1,13 @@
 import { defineMessages } from '@modrinth/ui'
 import { renderHighlightedString } from '@modrinth/utils'
 import { configuredXss } from '@modrinth/utils/parse'
+import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
+import { type as getOsType } from '@tauri-apps/plugin-os'
 import { LRUCache } from 'lru-cache'
+
+import { AxolotlBrandConfig } from '@/config'
 
 import {
     createTranslationBatches,
@@ -39,7 +43,7 @@ export interface TranslatableHit {
     provider_project_id?: string
 }
 
-export type TranslationProvider = 'google' | 'deepl' | 'ai'
+export type TranslationProvider = 'google' | 'deepl' | 'ai' | 'bili-index-translate'
 export type TranslationMode = 'bilingual' | 'translation-only'
 export type TranslationStyle =
     | 'default'
@@ -69,8 +73,9 @@ export async function translateInBatches(
     request: TranslationRequest,
     onBatch?: (response: TranslationResponse) => void,
     execute: (request: TranslationRequest) => Promise<TranslationResponse> = translate,
+    options: { maxItems?: number } = {},
 ): Promise<TranslationResponse> {
-    return executeTranslationBatches(request, onBatch, execute)
+    return executeTranslationBatches(request, onBatch, execute, options)
 }
 
 interface ProtectedElement {
@@ -382,17 +387,16 @@ export function renderTranslatedDescription(
     mode: TranslationMode,
     style: TranslationStyle,
 ): string {
-    let restored: Map<string, string>
-    try {
-        restored = restorePreparedDescription(prepared, translations)
-    } catch {
-        return prepared.blocks.map((block) => block.originalHtml).join('')
-    }
-
     return prepared.blocks
         .map((block) => {
-            if (!block.translatable) return block.originalHtml
-            const translated = restored.get(block.id) ?? block.originalHtml
+            const text = translations[block.id]
+            if (!block.translatable || !text) return block.originalHtml
+            let translated: string
+            try {
+                translated = restoreTranslatedBlock(block, text)
+            } catch {
+                return block.originalHtml
+            }
             if (mode === 'translation-only') return translated
             return `${block.originalHtml}<div class="ax-translation-block ${translationStyleClass(style)}">${translated}</div>`
         })
@@ -400,6 +404,22 @@ export function renderTranslatedDescription(
 }
 
 const MIRROR_API_BASE = 'https://mod.mcimirror.top/translate'
+
+let mirrorUserAgent: Promise<string> | undefined
+
+/**
+ * MCIM may only serve launchers whose User-Agent is registered with it, so its
+ * requests carry Axolotl's registered one instead of the HTTP plugin's default.
+ */
+function getMirrorUserAgent(): Promise<string> {
+    mirrorUserAgent ??= Promise.all([getVersion(), getOsType()])
+        .then(([version, os]) => AxolotlBrandConfig.userAgent(version, os))
+        .catch((error) => {
+            mirrorUserAgent = undefined
+            throw error
+        })
+    return mirrorUserAgent
+}
 
 /** Cache: key → translated description string. Key format: `cf:{provider_project_id}` or `mr:{project_id}`. */
 const descriptionCache = new LRUCache<string, string>({
@@ -442,10 +462,21 @@ async function fetchMirrorDescription(hit: TranslatableHit): Promise<string | nu
 
     if (!id || !hit.provider) return null
 
-    const url = `${MIRROR_API_BASE}/${hit.provider}/${encodeURIComponent(id)}`
+    const url =
+        hit.provider === 'curseforge'
+            ? `${MIRROR_API_BASE}/curseforge?modId=${encodeURIComponent(id)}`
+            : `${MIRROR_API_BASE}/modrinth?project_id=${encodeURIComponent(id)}`
+
+    let userAgent: string
+    try {
+        userAgent = await getMirrorUserAgent()
+    } catch {
+        // Nothing reached MCIM, so nothing is cached and a later call retries.
+        return null
+    }
 
     try {
-        const response = await tauriFetch(url)
+        const response = await tauriFetch(url, { headers: { 'User-Agent': userAgent } })
         if (!response.ok) return null
         const data = (await response.json()) as MirrorTranslationResponse
         const translated = data.translated?.trim() || null

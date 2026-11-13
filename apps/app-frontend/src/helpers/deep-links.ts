@@ -1,3 +1,5 @@
+import { getVisibleSettingsCategoryDefinitions } from '@/components/ui/settings/settings-category-definitions'
+
 const SAFE_QUERY = /^[A-Za-z0-9\-_.~%&=+]*$/
 
 const PROJECT_TYPES = new Set([
@@ -8,25 +10,12 @@ const PROJECT_TYPES = new Set([
     'shader',
     'plugin',
     'server',
+    'schematic',
 ])
 
-const SETTINGS_TABS = new Set([
-    'interface',
-    'home-navigation',
-    'shortcut-settings',
-    'language-translation',
-    'ai',
-    'launch-defaults',
-    'instance-sync',
-    'java-performance',
-    'content-downloads',
-    'network-multiplayer',
-    'storage-backups',
-    'privacy-data',
-    'updates',
-    'about',
-    'logs',
-])
+const SETTINGS_TABS = new Set<string>(
+    getVisibleSettingsCategoryDefinitions(false).map((category) => category.id),
+)
 
 const LAB_TOOLS = new Set([
     'skin-editor',

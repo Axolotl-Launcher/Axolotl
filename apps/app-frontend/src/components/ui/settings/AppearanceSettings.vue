@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-    ChevronDownIcon,
-    ImageIcon,
-    LayoutTemplateIcon,
-    MinimizeIcon,
-    TrashIcon,
-    UploadIcon,
-} from '@modrinth/assets'
+import { ChevronDownIcon, LayoutTemplateIcon, MinimizeIcon } from '@modrinth/assets'
 import {
     Button,
     Combobox,
@@ -18,16 +11,9 @@ import {
     Toggle,
     useVIntl,
 } from '@modrinth/ui'
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
-import { appDataDir, join } from '@tauri-apps/api/path'
-import type { DragDropEvent } from '@tauri-apps/api/webview'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import { open } from '@tauri-apps/plugin-dialog'
-import { exists, mkdir, readFile, remove, writeFile } from '@tauri-apps/plugin-fs'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import HeadlessSelect from '@/components/ui/headless/HeadlessSelect.vue'
-import HeadlessTooltip from '@/components/ui/headless/HeadlessTooltip.vue'
 import {
     buildFontFamilyOptions,
     canonicalFontFamily,
@@ -59,6 +45,8 @@ import {
 } from '@/store/theme.ts'
 
 import AccentColorOption from './AccentColorOption.vue'
+import LauncherBackgroundSettings from './LauncherBackgroundSettings.vue'
+import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 
@@ -170,55 +158,6 @@ const messages = defineMessages({
         id: 'app.appearance-settings.custom-background.description',
         defaultMessage:
             'Choose or drop a custom image, then fine-tune how it blends with the launcher interface.',
-    },
-    customBackgroundEmpty: {
-        id: 'app.appearance-settings.custom-background.empty',
-        defaultMessage: 'No custom background selected',
-    },
-    customBackgroundChoose: {
-        id: 'app.appearance-settings.custom-background.choose',
-        defaultMessage: 'Choose image',
-    },
-    customBackgroundChooseOrDrop: {
-        id: 'app.appearance-settings.custom-background.choose-or-drop',
-        defaultMessage: 'Click to choose, or drop an image here',
-    },
-    customBackgroundDropHint: {
-        id: 'app.appearance-settings.custom-background.drop-hint',
-        defaultMessage: 'Drop image here',
-    },
-    customBackgroundReplace: {
-        id: 'app.appearance-settings.custom-background.replace',
-        defaultMessage: 'Replace image',
-    },
-    customBackgroundRemove: {
-        id: 'app.appearance-settings.custom-background.remove',
-        defaultMessage: 'Remove',
-    },
-    customBackgroundBlur: {
-        id: 'app.appearance-settings.custom-background.blur',
-        defaultMessage: 'Background blur',
-    },
-    customBackgroundBlurDescription: {
-        id: 'app.appearance-settings.custom-background.blur-description',
-        defaultMessage: 'Soften image details to keep launcher content easy to read.',
-    },
-    customBackgroundOpacity: {
-        id: 'app.appearance-settings.custom-background.opacity',
-        defaultMessage: 'Background visibility',
-    },
-    customBackgroundOpacityDescription: {
-        id: 'app.appearance-settings.custom-background.opacity-description',
-        defaultMessage: 'Control how strongly the image shows through the interface.',
-    },
-    customBackgroundComponentOpacity: {
-        id: 'app.appearance-settings.custom-background.component-opacity',
-        defaultMessage: 'Component opacity',
-    },
-    customBackgroundComponentOpacityDescription: {
-        id: 'app.appearance-settings.custom-background.component-opacity-description',
-        defaultMessage:
-            'How opaque launcher components and chrome stay over a custom background. At 100% components are fully opaque; lower it to let the image show through.',
     },
     transparentBackgroundTitle: {
         id: 'app.appearance-settings.transparent-background.title',
@@ -523,6 +462,15 @@ const os = ref(await getOS())
 const settings = ref(await get())
 const saveDraft = createSettingsPatchSaver(settings.value, update)
 
+async function reloadSettings() {
+    try {
+        settings.value = await get()
+        saveDraft.reset(settings.value)
+    } catch (error) {
+        handleError(error)
+    }
+}
+
 /** Nav ids that must stay visible so the shell remains navigable. */
 const LOCKED_NAV_ITEM_IDS = new Set(['home', 'library'])
 
@@ -594,11 +542,6 @@ function setNavItemVisible(id: string, visible: boolean) {
     settings.value.hidden_nav_items = [...hidden]
     themeStore.hiddenNavItems = settings.value.hidden_nav_items
 }
-const customBackgroundPreview = computed(() =>
-    settings.value.custom_background_path
-        ? convertFileSrc(settings.value.custom_background_path)
-        : null,
-)
 
 const accentColorOptions: Array<{
     value: AccentColor
@@ -645,127 +588,6 @@ function setHomeLayout(value: string | number) {
     if (value !== 'standard' && value !== 'minimal') return
     settings.value.home_layout = value as HomeLayout
     themeStore.homeLayout = value as HomeLayout
-}
-
-const CUSTOM_BACKGROUND_EXTENSIONS = ['png', 'jpeg', 'jpg', 'webp', 'gif', 'avif', 'bmp']
-
-function isCustomBackgroundImagePath(path: string) {
-    const extension = path.split('.').pop()?.toLowerCase() ?? ''
-    return CUSTOM_BACKGROUND_EXTENSIONS.includes(extension)
-}
-
-async function storeCustomBackgroundBytes(bytes: Uint8Array, extension: string) {
-    const backgroundDirectory = await join(await appDataDir(), 'backgrounds')
-    const storedPath = await join(
-        backgroundDirectory,
-        `launcher-background-${Date.now()}.${extension}`,
-    )
-    const previousPath = settings.value.custom_background_path
-
-    await mkdir(backgroundDirectory, { recursive: true })
-    await writeFile(storedPath, bytes)
-
-    settings.value.custom_background_path = storedPath
-
-    if (previousPath && previousPath !== storedPath && (await exists(previousPath))) {
-        try {
-            await remove(previousPath)
-        } catch (error) {
-            console.warn('Failed to remove previous custom background', error)
-        }
-    }
-}
-
-async function storeCustomBackgroundFromPath(sourcePath: string) {
-    try {
-        const extension = sourcePath.split('.').pop()?.toLowerCase() ?? 'png'
-        await storeCustomBackgroundBytes(await readFile(sourcePath), extension)
-    } catch (error) {
-        handleError(error)
-    }
-}
-
-async function storeCustomBackgroundFromDroppedPath(path: string) {
-    try {
-        const data = await invoke<ArrayBuffer>('plugin:files|file_read_dragged_file', { path })
-        const extension = path.split('.').pop()?.toLowerCase() ?? 'png'
-        await storeCustomBackgroundBytes(new Uint8Array(data), extension)
-    } catch (error) {
-        handleError(error)
-    }
-}
-
-async function chooseCustomBackground() {
-    const selectedPath = await open({
-        multiple: false,
-        filters: [
-            {
-                name: 'Image',
-                extensions: [...CUSTOM_BACKGROUND_EXTENSIONS],
-            },
-        ],
-    })
-
-    if (!selectedPath || Array.isArray(selectedPath)) return
-
-    await storeCustomBackgroundFromPath(selectedPath)
-}
-
-async function removeCustomBackground() {
-    const backgroundPath = settings.value.custom_background_path
-    settings.value.custom_background_path = null
-
-    if (!backgroundPath) return
-
-    try {
-        if (await exists(backgroundPath)) await remove(backgroundPath)
-    } catch (error) {
-        handleError(error)
-    }
-}
-
-const backgroundPreviewRef = ref<HTMLElement | null>(null)
-const isBackgroundDragActive = ref(false)
-let unlistenNativeBackgroundDrop: (() => void) | null = null
-
-function pointInBackgroundPreview(position: { x: number; y: number }) {
-    const rect = backgroundPreviewRef.value?.getBoundingClientRect()
-    if (!rect) return false
-    const scale = window.devicePixelRatio || 1
-    const x = position.x / scale
-    const y = position.y / scale
-    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
-}
-
-async function setupNativeBackgroundDrop() {
-    if (props.scope !== 'interface') return
-
-    try {
-        unlistenNativeBackgroundDrop = await getCurrentWebview().onDragDropEvent(
-            (event: { payload: DragDropEvent }) => {
-                const payload = event.payload
-                if (payload.type === 'leave') {
-                    isBackgroundDragActive.value = false
-                    return
-                }
-
-                const path = payload.paths?.find((item) => isCustomBackgroundImagePath(item))
-                const inside = pointInBackgroundPreview(payload.position)
-
-                if (payload.type === 'enter' || payload.type === 'over') {
-                    isBackgroundDragActive.value = Boolean(path && inside)
-                    return
-                }
-
-                if (payload.type === 'drop') {
-                    isBackgroundDragActive.value = false
-                    if (path && inside) void storeCustomBackgroundFromDroppedPath(path)
-                }
-            },
-        )
-    } catch (error) {
-        console.warn('Failed to set up native drop handler for launcher background', error)
-    }
 }
 
 const systemFonts = ref<SystemFontFamily[]>([])
@@ -842,16 +664,9 @@ const monoFontPreview = computed(() =>
 )
 
 onMounted(() => {
-    void setupNativeBackgroundDrop()
-
     if (props.scope === 'interface') {
         void loadSystemFonts()
     }
-})
-
-onUnmounted(() => {
-    unlistenNativeBackgroundDrop?.()
-    unlistenNativeBackgroundDrop = null
 })
 
 watch(
@@ -1089,138 +904,7 @@ watch(
                     {{ formatMessage(messages.customBackgroundDescription) }}
                 </p>
             </template>
-            <div class="flex flex-col gap-4 p-4 appearance-panel--divided">
-                <div
-                    ref="backgroundPreviewRef"
-                    class="group relative h-44 cursor-pointer overflow-hidden rounded-lg border border-solid transition-colors"
-                    :class="
-                        isBackgroundDragActive
-                            ? 'border-brand bg-surface-2'
-                            : 'border-surface-4 bg-surface-1'
-                    "
-                    role="button"
-                    tabindex="0"
-                    :aria-label="formatMessage(messages.customBackgroundChoose)"
-                    @click="chooseCustomBackground"
-                    @keydown.enter.prevent="chooseCustomBackground"
-                    @keydown.space.prevent="chooseCustomBackground"
-                >
-                    <div
-                        v-if="customBackgroundPreview"
-                        class="absolute -inset-10 bg-cover bg-center"
-                        :style="{
-                            backgroundImage: `url(&quot;${customBackgroundPreview}&quot;)`,
-                            filter: `blur(${settings.custom_background_blur}px)`,
-                            opacity: settings.custom_background_opacity / 100,
-                        }"
-                    />
-                    <div class="custom-bg-preview-dim absolute inset-0" />
-                    <div class="relative flex h-full items-center justify-center">
-                        <div
-                            v-if="!customBackgroundPreview"
-                            class="flex flex-col items-center gap-2 text-[var(--color-text-tertiary)]"
-                        >
-                            <ImageIcon class="size-8" />
-                            <span class="font-semibold">{{
-                                isBackgroundDragActive
-                                    ? formatMessage(messages.customBackgroundDropHint)
-                                    : formatMessage(messages.customBackgroundEmpty)
-                            }}</span>
-                            <span v-if="!isBackgroundDragActive" class="text-sm">
-                                {{ formatMessage(messages.customBackgroundChooseOrDrop) }}
-                            </span>
-                        </div>
-                        <div
-                            v-else-if="isBackgroundDragActive"
-                            class="custom-bg-preview-drag absolute inset-0 flex items-center justify-center"
-                        >
-                            <span class="font-semibold text-[var(--color-text-primary)]">
-                                {{ formatMessage(messages.customBackgroundDropHint) }}
-                            </span>
-                        </div>
-                        <div
-                            v-if="customBackgroundPreview && !isBackgroundDragActive"
-                            class="custom-bg-preview-actions absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 p-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                        >
-                            <HeadlessTooltip side="top">
-                                <Button
-                                    type="base"
-                                    native-type="button"
-                                    @click.stop="chooseCustomBackground"
-                                >
-                                    <UploadIcon />
-                                    {{ formatMessage(messages.customBackgroundReplace) }}
-                                </Button>
-                                <template #content>
-                                    {{ formatMessage(messages.customBackgroundChooseOrDrop) }}
-                                </template>
-                            </HeadlessTooltip>
-                            <Button
-                                type="outlined"
-                                color="red"
-                                native-type="button"
-                                @click.stop="removeCustomBackground"
-                            >
-                                <TrashIcon />
-                                {{ formatMessage(messages.customBackgroundRemove) }}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-if="customBackgroundPreview" class="grid gap-5 lg:grid-cols-2">
-                    <div class="flex flex-col gap-2">
-                        <h3 class="m-0 font-semibold text-[var(--color-text-primary)]">
-                            {{ formatMessage(messages.customBackgroundBlur) }}
-                        </h3>
-                        <Slider
-                            id="custom-background-blur"
-                            v-model="settings.custom_background_blur"
-                            :min="0"
-                            :max="40"
-                            :step="1"
-                            unit="px"
-                        />
-                        <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
-                            {{ formatMessage(messages.customBackgroundBlurDescription) }}
-                        </p>
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <h3 class="m-0 font-semibold text-[var(--color-text-primary)]">
-                            {{ formatMessage(messages.customBackgroundOpacity) }}
-                        </h3>
-                        <Slider
-                            id="custom-background-opacity"
-                            v-model="settings.custom_background_opacity"
-                            :min="10"
-                            :max="100"
-                            :step="5"
-                            unit="%"
-                        />
-                        <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
-                            {{ formatMessage(messages.customBackgroundOpacityDescription) }}
-                        </p>
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <h3 class="m-0 font-semibold text-[var(--color-text-primary)]">
-                            {{ formatMessage(messages.customBackgroundComponentOpacity) }}
-                        </h3>
-                        <Slider
-                            id="custom-background-component-opacity"
-                            v-model="settings.custom_background_component_opacity"
-                            :min="0"
-                            :max="100"
-                            :step="5"
-                            unit="%"
-                        />
-                        <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
-                            {{
-                                formatMessage(messages.customBackgroundComponentOpacityDescription)
-                            }}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <LauncherBackgroundSettings v-model:settings="settings" />
             <SettingsRow>
                 <template #label>
                     <span id="settings-target-appearance-transparent-background" tabindex="-1">
@@ -1231,9 +915,15 @@ watch(
                     <span class="block">{{
                         formatMessage(messages.transparentBackgroundDescription)
                     }}</span>
-                    <span v-if="customBackgroundPreview" class="mt-1 block text-orange">
+                    <span v-if="settings.custom_background_path" class="mt-1 block text-orange">
                         {{ formatMessage(messages.transparentBackgroundConflict) }}
                     </span>
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="transparent_background"
+                        @cleared="reloadSettings"
+                    />
                 </template>
                 <template #control>
                     <Toggle
@@ -1249,6 +939,12 @@ watch(
                 }}</template>
                 <template #description>
                     {{ formatMessage(messages.transparentBackgroundOpacityDescription) }}
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="transparent_background_opacity"
+                        @cleared="reloadSettings"
+                    />
                 </template>
                 <template #control>
                     <div class="w-full">
@@ -1269,6 +965,12 @@ watch(
                 }}</template>
                 <template #description>
                     {{ formatMessage(messages.transparentBackgroundBlurDescription) }}
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="transparent_background_blur"
+                        @cleared="reloadSettings"
+                    />
                 </template>
                 <template #control>
                     <Toggle
@@ -1410,6 +1112,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.homeLayoutDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="home_layout" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div
                         class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-solid border-surface-4 bg-surface-3 p-1"
@@ -1450,6 +1155,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.homeWidgetBackgroundOpacityDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="home_widget_background_opacity"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Slider
@@ -1471,6 +1182,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.defaultLandingPageDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="default_page" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <HeadlessSelect
@@ -1507,6 +1221,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.sidebarInstanceCountDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="sidebar_instance_count"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Slider
@@ -1653,6 +1373,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.advancedRenderingDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="advanced_rendering" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle
                         id="advanced-rendering"
@@ -1698,6 +1421,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.nativeDecorationsDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="native_decorations" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle id="native-decorations" v-model="settings.native_decorations" />
                 </template>
@@ -1711,6 +1437,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.closeBehaviorDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="close_behavior" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Combobox
                         id="close-behavior"
@@ -1739,6 +1468,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.hideNametagDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="hide_nametag_skins_page"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="hide-nametag-skins-page"
@@ -1761,6 +1496,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.nametagUsesAppFontDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="nametag_uses_app_font"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="nametag-uses-app-font"
@@ -1858,10 +1599,6 @@ watch(
 </template>
 
 <style scoped lang="scss">
-.appearance-panel--divided {
-    border-bottom: 1px solid var(--settings-divider, var(--surface-4));
-}
-
 .hue-slider {
     appearance: none;
     display: block;
@@ -1906,29 +1643,5 @@ watch(
         border: 0.1875rem solid var(--surface-4);
         box-shadow: var(--shadow-button);
     }
-}
-
-.custom-bg-preview-dim {
-    background-color: color-mix(
-        in srgb,
-        var(--surface-1) var(--opacity-ratio-keep-35),
-        transparent
-    );
-}
-
-.custom-bg-preview-drag {
-    background-color: color-mix(
-        in srgb,
-        var(--surface-1) var(--opacity-ratio-keep-70),
-        transparent
-    );
-}
-
-.custom-bg-preview-actions {
-    background-color: color-mix(
-        in srgb,
-        var(--surface-1) var(--opacity-ratio-keep-80),
-        transparent
-    );
 }
 </style>

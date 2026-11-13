@@ -16,6 +16,8 @@ interface UvBounds {
     maxV: number
 }
 
+type FaceUvBounds = Pick<UvBounds, 'minU' | 'maxU'>
+
 const ARMOR_ARM_UV_RECTS: Record<string, UvBounds> = {
     '0,0,-1': { minU: 44, maxU: 48, minV: 20, maxV: 32 },
     '0,0,1': { minU: 52, maxU: 56, minV: 20, maxV: 32 },
@@ -25,7 +27,7 @@ const ARMOR_ARM_UV_RECTS: Record<string, UvBounds> = {
     '1,0,0': { minU: 40, maxU: 44, minV: 20, maxV: 32 },
 }
 
-const ARMOR_LEG_UV_RECTS: Record<string, UvBounds> = {
+const ARMOR_LEG_UV_RECTS: Record<string, FaceUvBounds> = {
     '0,0,-1': { minU: 4, maxU: 8 },
     '0,0,1': { minU: 12, maxU: 16 },
     '0,-1,0': { minU: 8, maxU: 12 },
@@ -34,7 +36,7 @@ const ARMOR_LEG_UV_RECTS: Record<string, UvBounds> = {
     '1,0,0': { minU: 0, maxU: 4 },
 }
 
-function armorLegUvRect(normal: string, bodyPart: ArmorBodyPart): UvBounds | undefined {
+function armorLegUvRect(normal: string, bodyPart: ArmorBodyPart): FaceUvBounds | undefined {
     if (bodyPart !== 'leftLeg') return ARMOR_LEG_UV_RECTS[normal]
     if (normal === '-1,0,0') return ARMOR_LEG_UV_RECTS['1,0,0']
     if (normal === '1,0,0') return ARMOR_LEG_UV_RECTS['-1,0,0']

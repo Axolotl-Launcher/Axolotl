@@ -78,15 +78,20 @@ tokio::task_local! {
     static EXECUTING_JOB: Uuid;
 }
 
+/// The job's execution slot for a recovery action, or `None` when the job
+/// finished or started canceling while it waited; callers then read the job
+/// again and answer from its current state.
 pub(crate) async fn recovery_execution_slot<'a>(
     state: &'a State,
     job_id: Uuid,
-) -> crate::Result<(
-    Option<tokio::sync::OwnedMutexGuard<()>>,
-    tokio::sync::SemaphorePermit<'a>,
-)> {
+) -> crate::Result<
+    Option<(
+        Option<tokio::sync::OwnedMutexGuard<()>>,
+        tokio::sync::SemaphorePermit<'a>,
+    )>,
+> {
     let record = store::get_required(job_id, state).await?;
-    admission::execution_slot(state, &record).await
+    admission::queued_slot(state, &record).await
 }
 
 /// Serializes interactive content mutations with task admission.
@@ -161,9 +166,19 @@ pub async fn create_modpack_instance(
     location: CreatePackLocation,
     post_install_edit: Option<InstallPostInstallEdit>,
 ) -> crate::Result<InstallJobSnapshot> {
+    create_modpack_instance_with_game_dir(location, post_install_edit, None)
+        .await
+}
+
+pub async fn create_modpack_instance_with_game_dir(
+    location: CreatePackLocation,
+    post_install_edit: Option<InstallPostInstallEdit>,
+    game_dir_override: Option<String>,
+) -> crate::Result<InstallJobSnapshot> {
     start(InstallRequest::CreateModpackInstance {
         location,
         post_install_edit,
+        game_dir_override,
     })
     .await
 }
@@ -313,9 +328,38 @@ pub async fn install_content_batch(
     .await
 }
 
+fn resource_plan_names(
+    plan: &crate::resources::ResourceOperationPlan,
+    names: &HashMap<String, String>,
+) -> Vec<String> {
+    use crate::resources::ResourceActionKind;
+
+    let nodes: HashMap<_, _> =
+        plan.nodes.iter().map(|node| (&node.id, node)).collect();
+    let mut seen = HashSet::new();
+    plan.actions
+        .iter()
+        .filter(|action| action.kind != ResourceActionKind::Keep)
+        .filter_map(|action| {
+            let node = nodes.get(&action.node_id)?;
+            let name = names
+                .get(node.id.as_str())
+                .map(String::as_str)
+                .filter(|name| !name.trim().is_empty())
+                .or(action.target.file_name.as_deref())?
+                .trim();
+            if name.is_empty() || !seen.insert(&node.resource) {
+                return None;
+            }
+            Some(name.to_string())
+        })
+        .collect()
+}
+
 pub async fn queue_resource_plan(
     plan_id: crate::resources::PlanId,
     revision: u32,
+    resource_names: HashMap<String, String>,
 ) -> crate::Result<InstallJobSnapshot> {
     let state = State::get().await?;
     let instance = ResourceOperationPlans::instance_at(
@@ -415,6 +459,7 @@ pub async fn queue_resource_plan(
         .into(),
         icon: None,
     });
+    job.resource_names = resource_plan_names(&plan, &resource_names);
     let now = chrono::Utc::now().timestamp();
     InstallJobs::insert_in(
         &mut tx,
@@ -580,6 +625,16 @@ pub async fn retry_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
         .into());
     }
 
+    if job.state.rollback_error.is_some()
+        && job
+            .state
+            .rollback
+            .as_ref()
+            .and_then(|rollback| rollback.content.as_ref())
+            .is_some_and(|snapshot| snapshot.retain_original_files)
+    {
+        recovery::apply_cleanup(&mut job.state, &state).await?;
+    }
     let resume_checkpoint = prepare_pack_retry(&mut job.state, &state).await?;
     if !resume_checkpoint {
         job.state.target = job.state.request.target();
@@ -597,13 +652,15 @@ pub async fn retry_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
     job.state.progress.progress = None;
     job.state.progress.details = InstallPhaseDetails::Empty;
     job.state.progress.parallel = None;
-    if !resume_checkpoint {
+    let creates_instance =
+        matches!(job.state.target, InstallTarget::NewInstance { .. });
+    job.state.initialization_pending = creates_instance && !resume_checkpoint;
+    if !resume_checkpoint && !creates_instance {
         init::prepare_initial_instance(&mut job.state, &state).await?;
     }
     job.state.record_event(InstallJobEventKind::JobQueued {
         kind: job.state.request.kind(),
     });
-
     let record = store::update_status(
         job_id,
         InstallJobStatus::Queued,
@@ -611,8 +668,13 @@ pub async fn retry_job(job_id: Uuid) -> crate::Result<InstallJobSnapshot> {
         &state,
     )
     .await?;
+    let snapshot = if resume_checkpoint || !creates_instance {
+        record.snapshot()
+    } else {
+        initialize_queued_job(record, &mut job.state, &state).await?
+    };
     InstallProgressReporter::reset_job(job_id);
-    lifecycle::emit_job_best_effort(&record.snapshot()).await;
+    lifecycle::emit_job_best_effort(&snapshot).await;
     lifecycle::spawn_job(job_id);
 
     // The spawned job may already have progressed (or finished) by the time
@@ -900,6 +962,18 @@ pub async fn retry_job_as_new(
         )
         .into());
     }
+    if job.state.rollback_error.is_some()
+        && job
+            .state
+            .rollback
+            .as_ref()
+            .and_then(|rollback| rollback.content.as_ref())
+            .is_some_and(|snapshot| snapshot.retain_original_files)
+    {
+        return Err(crate::ErrorKind::InputError(
+            "The previous pack update must finish rolling back before starting a new task".into(),
+        ).into());
+    }
     let new_job = start(job.state.request).await?;
     // The spawned job may already have progressed (or finished) by the time
     // the command returns; hand the caller the freshest stored state.
@@ -1070,6 +1144,14 @@ impl CancelCleanupRegistration {
             dashmap::mapref::entry::Entry::Vacant(_) => unreachable!(),
         }
     }
+
+    /// Whether a request arrived since the last one was consumed; it stays
+    /// pending until `retry_requested` takes it.
+    fn retry_pending(&self) -> bool {
+        CANCEL_CLEANUPS
+            .get(&self.job_id)
+            .is_some_and(|entry| *entry)
+    }
 }
 
 impl Drop for CancelCleanupRegistration {
@@ -1099,15 +1181,67 @@ async fn run_cancel_cleanup<F, Fut>(
     F: FnMut() -> Fut,
     Fut: Future<Output = crate::Result<()>>,
 {
+    let mut failures = 0;
     loop {
-        if let Err(error) = cleanup().await {
-            let job_id = registration.job_id;
-            tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
+        match cleanup().await {
+            Ok(()) => failures = 0,
+            Err(error) => {
+                failures += 1;
+                let job_id = registration.job_id;
+                // A request that arrived meanwhile reruns the cleanup at once
+                // below. Otherwise back off and retry while still owning the
+                // registration, so no second cleanup can start alongside.
+                if failures < RECOVERY_ATTEMPTS && !registration.retry_pending()
+                {
+                    tracing::warn!(%job_id, %error, attempt = failures, "Canceled install cleanup failed; retrying");
+                    tokio::time::sleep(RECOVERY_RETRY_DELAY * failures).await;
+                    continue;
+                }
+                if failures >= RECOVERY_ATTEMPTS {
+                    tracing::error!(%job_id, %error, "Canceled install cleanup could not finish; durable canceling state remains recoverable");
+                }
+            }
         }
         // Consume a pending request or release ownership under the same entry
         // lock, so a request arriving during cleanup cannot be stranded.
         if !registration.retry_requested() {
             break;
+        }
+    }
+}
+
+/// Recovery and cancel cleanup re-read the job and are safe to run again, as
+/// startup recovery runs them. Their writes wait a bounded time for the
+/// install database writer, so a failed attempt is retried a few times here
+/// instead of leaving the job Queued, Running or Canceling until the next
+/// launch.
+const RECOVERY_ATTEMPTS: u32 = 3;
+#[cfg(not(test))]
+const RECOVERY_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_secs(2);
+#[cfg(test)]
+const RECOVERY_RETRY_DELAY: std::time::Duration =
+    std::time::Duration::from_millis(10);
+
+/// Runs `recover` up to `RECOVERY_ATTEMPTS` times, backing off between
+/// failures, and returns the last result.
+async fn retry_recovery<F, Fut>(
+    job_id: Uuid,
+    mut recover: F,
+) -> crate::Result<()>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = crate::Result<()>>,
+{
+    let mut attempt = 1;
+    loop {
+        match recover().await {
+            Err(error) if attempt < RECOVERY_ATTEMPTS => {
+                tracing::warn!(%job_id, %error, attempt, "Install recovery failed; retrying");
+                tokio::time::sleep(RECOVERY_RETRY_DELAY * attempt).await;
+                attempt += 1;
+            }
+            result => return result,
         }
     }
 }
@@ -1118,7 +1252,13 @@ async fn finish_canceling_job(
 ) -> crate::Result<()> {
     let _metadata_usage = crate::storage::usage::lease().await?;
     let initial = store::get_required(job_id, state).await?;
-    let _execution = admission::execution_lock(state, &initial).await;
+    let Some(_execution) = admission::execution_lock(state, &initial).await
+    else {
+        return Err(crate::ErrorKind::OtherError(
+            "Timed out waiting for the install execution lock".into(),
+        )
+        .into());
+    };
     let mut job = store::get_required(job_id, state).await?;
     if job.status != InstallJobStatus::Canceling {
         return Ok(());
@@ -1289,27 +1429,10 @@ async fn enqueue_with_content_plan(
     };
     let id = Uuid::new_v4();
     let mut job_state = InstallJobState::new(request);
-    if let Err(error) =
-        init::prepare_initial_instance(&mut job_state, state).await
-    {
-        return Err(cleanup_failed_initial_install(
-            &mut job_state,
-            state,
-            error,
-        )
-        .await);
-    }
-    let record = match store::insert_with_content_plan(
-        id,
-        &job_state,
-        InstallJobStatus::Queued,
-        content_plan.map(|(id, _)| id),
-        state,
-    )
-    .await
-    {
-        Ok(record) => record,
-        Err(error) => {
+    if matches!(job_state.target, InstallTarget::ExistingInstance { .. }) {
+        if let Err(error) =
+            init::prepare_initial_instance(&mut job_state, state).await
+        {
             return Err(cleanup_failed_initial_install(
                 &mut job_state,
                 state,
@@ -1317,8 +1440,36 @@ async fn enqueue_with_content_plan(
             )
             .await);
         }
-    };
-    Ok(record.snapshot())
+        return match store::insert_with_content_plan(
+            id,
+            &job_state,
+            InstallJobStatus::Queued,
+            content_plan.map(|(id, _)| id),
+            state,
+        )
+        .await
+        {
+            Ok(record) => Ok(record.snapshot()),
+            Err(error) => Err(cleanup_failed_initial_install(
+                &mut job_state,
+                state,
+                error,
+            )
+            .await),
+        };
+    }
+    // Persist the request before any instance can be committed. Creation binds
+    // its target and cleanup intent in that same instance transaction.
+    job_state.initialization_pending = true;
+    let record = store::insert_with_content_plan(
+        id,
+        &job_state,
+        InstallJobStatus::Queued,
+        content_plan.map(|(id, _)| id),
+        state,
+    )
+    .await?;
+    initialize_queued_job(record, &mut job_state, state).await
 }
 
 pub(crate) async fn content_plan_job(
@@ -1422,6 +1573,103 @@ pub(crate) async fn queue_content_update_plan(
     Ok(snapshot)
 }
 
+async fn initialize_queued_job(
+    record: store::InstallJobRecord,
+    job_state: &mut InstallJobState,
+    state: &State,
+) -> crate::Result<InstallJobSnapshot> {
+    // Cancellation cleanup and execution must wait until initialization has
+    // stopped publishing files, including when the command future is dropped.
+    let _execution = admission::execution_lock(state, &record)
+        .await
+        .ok_or_else(|| {
+            ErrorKind::InputError("Install initialization is busy".into())
+        })?;
+    let latest = store::get_required(record.id, state).await?;
+    if latest.status != InstallJobStatus::Queued {
+        return Ok(latest.snapshot());
+    }
+    if let Err(error) = store::initializing_job(
+        record.id,
+        init::prepare_initial_instance(job_state, state),
+    )
+    .await
+    {
+        let durable = store::get_required(record.id, state).await?;
+        if durable.status != InstallJobStatus::Queued {
+            return Err(error);
+        }
+        // A late create failure may have committed the target before the
+        // caller received it. The durable binding is authoritative.
+        if matches!(
+            durable.state.cleanup,
+            InstallCleanup::DeleteNewInstance {
+                instance_id: Some(_)
+            }
+        ) {
+            job_state.target = durable.state.target;
+            job_state.cleanup = durable.state.cleanup;
+        }
+        lifecycle::begin_failed_job_rollback(job_state, &error);
+        let claimed = store::update_status_if(
+            record.id,
+            InstallJobStatus::Queued,
+            InstallJobStatus::Canceling,
+            job_state,
+            state,
+        )
+        .await?;
+        if claimed.is_none() {
+            return Err(error);
+        }
+        let cleaned = recovery::apply_cleanup(job_state, state).await;
+        let succeeded = cleaned.is_ok();
+        if let Err(cleanup_error) = &cleaned {
+            job_state.rollback_error = Some(InstallErrorView::from_error(
+                "rollback_error",
+                InstallPhaseId::RollingBack,
+                cleanup_error,
+                None,
+            ));
+        }
+        recovery::finalize_rollback_state(job_state, succeeded);
+        if succeeded {
+            clear_deleted_new_instance_id(job_state);
+        }
+        let saved = store::update_status(
+            record.id,
+            if succeeded {
+                InstallJobStatus::Failed
+            } else {
+                InstallJobStatus::Canceling
+            },
+            job_state,
+            state,
+        )
+        .await?;
+        lifecycle::emit_job_best_effort(&saved.snapshot()).await;
+        return match cleaned {
+            Ok(()) => Err(error),
+            Err(cleanup_error) => Err(ErrorKind::OtherError(format!(
+                "Install initialization failed: {error}; cleanup also failed: {cleanup_error}"
+            )).into()),
+        };
+    }
+    job_state.initialization_pending = false;
+    let saved = store::update_status_if(
+        record.id,
+        InstallJobStatus::Queued,
+        InstallJobStatus::Queued,
+        job_state,
+        state,
+    )
+    .await?;
+    Ok(match saved {
+        Some(record) => record.snapshot(),
+        None => store::get_required(record.id, state).await?.snapshot(),
+    })
+}
+
 async fn cleanup_failed_initial_install(
     job_state: &mut InstallJobState,
     state: &State,
@@ -1429,12 +1677,12 @@ async fn cleanup_failed_initial_install(
 ) -> crate::Error {
     match recovery::apply_cleanup(job_state, state).await {
         Ok(()) => error,
-        Err(cleanup_error) => crate::ErrorKind::OtherError(format!(
+        Err(cleanup_error) => ErrorKind::OtherError(format!(
             "Install initialization failed: {error}; cleanup also failed: {cleanup_error}"
-        ))
-        .into(),
+        )).into(),
     }
 }
+
 async fn apply_post_install_edit(
     instance_id: &str,
     edit: Option<InstallPostInstallEdit>,

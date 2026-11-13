@@ -67,7 +67,7 @@ it('expandSearchQuery returns null for empty and whitespace-only queries', () =>
 })
 
 it('expandSearchQuery flags compact queries', () => {
-    const expansion = expandSearchQuery('sodiumextra')
+    const expansion = expandSearchQuery('sodiumextra')!
     expect(expansion).toBeTruthy()
     expect(expansion.compact).toBe(true)
     expect(expansion.normalized).toBe('sodiumextra')
@@ -76,20 +76,20 @@ it('expandSearchQuery flags compact queries', () => {
 })
 
 it('expandSearchQuery never treats spaced queries as compact', () => {
-    const expansion = expandSearchQuery('sodium extra')
+    const expansion = expandSearchQuery('sodium extra')!
     expect(expansion).toBeTruthy()
     expect(expansion.compact).toBe(false)
 })
 
 it('expansion of hyphenated queries covers both providers', () => {
-    const expansion = expandSearchQuery('sodium-extra')
+    const expansion = expandSearchQuery('sodium-extra')!
     expect(expansion).toBeTruthy()
     expect(expansion.modrinthVariants).toEqual(['sodium-extra', 'sodium extra', 'sodiumextra'])
     expect(expansion.curseforgeVariants).toEqual(['sodium-extra', 'sodiumextra'])
 })
 
 it('expansion dedupes and caps variants', () => {
-    const expansion = expandSearchQuery('a b c')
+    const expansion = expandSearchQuery('a b c')!
     expect(expansion).toBeTruthy()
     expect(expansion.modrinthVariants.length <= 3).toBeTruthy()
     expect(expansion.curseforgeVariants.length <= 3).toBeTruthy()

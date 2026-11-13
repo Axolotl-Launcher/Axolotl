@@ -17,7 +17,10 @@ use crate::api::curseforge::selection::{
 };
 use crate::api::curseforge::transport::api_key;
 use crate::api::curseforge::validation::validate_file_name;
-use crate::install::InstallProgressReporter;
+use crate::install::{
+    InstallJobEventKind, InstallPhaseDetails, InstallPhaseId,
+    InstallProgressReporter,
+};
 use crate::state::ProjectType;
 use crate::util::fetch::{
     ContentValidation, DownloadRequest, FetchProgressFn, ResourceClass,
@@ -85,7 +88,7 @@ pub(crate) async fn download_curseforge_archive(
             &file.file_name,
         )?);
     let tracking_item_id = path.display().to_string();
-    download_curseforge_path(
+    let result = download_curseforge_path(
         url,
         file,
         &path,
@@ -95,7 +98,25 @@ pub(crate) async fn download_curseforge_archive(
         curseforge_modpack_h2_range_concurrency(file.file_length),
         true,
     )
-    .await
+    .await?;
+    if let Some(reporter) = reporter {
+        // Archive reuse and single-flight followers have no transport events.
+        // Settle the verified archive independently of how it was obtained.
+        reporter
+            .clone()
+            .without_phase_updates()
+            .update_with_events(
+                InstallPhaseId::DownloadingPackFile,
+                None,
+                InstallPhaseDetails::Empty,
+                vec![InstallJobEventKind::ContentFileCompleted {
+                    path: tracking_item_id,
+                    bytes: result.size,
+                }],
+            )
+            .await?;
+    }
+    Ok(result)
 }
 
 pub(crate) struct DownloadInstalledFileRequest<'a> {
@@ -188,6 +209,7 @@ pub(crate) async fn download_installed_file(
                 instance_id,
                 format!("{folder}/{file_name}"),
                 localized_candidate,
+                None,
                 &state,
             )
             .await?

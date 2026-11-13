@@ -1,0 +1,4 @@
+# Recorded third-party text and IDs (see sources.json), kept as their authors published them.
+# Spell checkers that honor .ignore files, such as typos, skip them.
+*
+!.ignore

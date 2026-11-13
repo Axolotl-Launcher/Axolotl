@@ -346,11 +346,13 @@ impl SharedH2Connection {
         request: http::Request<()>,
     ) -> crate::Result<http::Response<h2::RecvStream>> {
         let ready_started = std::time::Instant::now();
+        // sched-order: theseus::util::download::h2_pool::SharedH2Connection.sender temporary
         let sender = self
             .sender
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .clone();
+        // sched-order: theseus::util::download::h2_pool::SharedH2Connection.last_activity temporary
         *self
             .last_activity
             .lock()
@@ -372,6 +374,7 @@ impl SharedH2Connection {
             );
         }
         let (response, _) = {
+            // sched-order: theseus::util::download::h2_pool::SharedH2Connection.sender
             let _admission =
                 self.sender.lock().unwrap_or_else(|p| p.into_inner());
             if self.is_retiring() || self.is_dead() {
@@ -678,6 +681,120 @@ mod address_tests {
     use super::*;
 
     #[tokio::test]
+    async fn valid_but_unreachable_doh_answer_uses_system_with_host_override() {
+        use crate::util::download_dns::metadata_tests::{
+            DohFixture, fixture_resolver,
+        };
+        use crate::util::fetch::{
+            DownloadClients, DownloadRouteSource, ProxyPolicy,
+        };
+        let fixture = DohFixture::start_with_ipv4(
+            Duration::ZERO,
+            Duration::from_secs(10),
+            "127.0.0.2".parse().unwrap(),
+        )
+        .await;
+        let resolver = Arc::new(fixture_resolver(&[&fixture]));
+        resolver
+            .set_host_override("origin.example", "edge.example")
+            .unwrap();
+        resolver.set_test_system_answer(
+            "edge.example",
+            Duration::from_millis(800),
+            vec!["127.0.0.1:0".parse().unwrap()],
+        );
+        assert_eq!(
+            resolver.resolve_host("origin.example").await.unwrap(),
+            vec!["127.0.0.2".parse::<IpAddr>().unwrap()]
+        );
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let mut clients =
+            DownloadClients::build(&Default::default(), false, false).unwrap();
+        clients.system_dns = resolver.clone();
+        let route = DownloadRoute {
+            url: "https://origin.example/file".into(),
+            source: DownloadRouteSource::Official,
+            is_mirror: false,
+            allow_sensitive_headers: false,
+            supports_range: true,
+            proxy: ProxyPolicy::System,
+        };
+        super::super::proxy_context::with_snapshot(clients, async {
+            let stream = tokio::time::timeout(
+                Duration::from_secs(3),
+                connect_tcp("origin.example", port, &route, false),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            assert_eq!(
+                stream.peer_addr().unwrap(),
+                listener.local_addr().unwrap()
+            );
+        })
+        .await;
+        assert_eq!(
+            resolver.resolved_addresses("origin.example"),
+            vec!["127.0.0.1".parse::<IpAddr>().unwrap()]
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_refresh_does_not_skip_independent_system_connect() {
+        use crate::util::fetch::{
+            DownloadClients, DownloadRouteSource, ProxyPolicy,
+        };
+        let mut clients =
+            DownloadClients::build(&Default::default(), false, true).unwrap();
+        let resolver = clients.system_dns.clone();
+        resolver.set_test_addresses(
+            "origin.example",
+            vec!["127.0.0.2:0".parse().unwrap()],
+        );
+        resolver.pre_resolve("origin.example").await;
+        resolver.set_test_lookup_error(
+            "origin.example",
+            std::io::ErrorKind::TimedOut,
+        );
+        resolver.set_test_system_answer(
+            "origin.example",
+            Duration::ZERO,
+            vec!["127.0.0.1:0".parse().unwrap()],
+        );
+        assert!(!resolver.record_connection_failure("origin.example"));
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let port = listener.local_addr().unwrap().port();
+        clients.scope = format!("dns-refresh-failure-{port}");
+        let route = DownloadRoute {
+            url: "https://origin.example/file".into(),
+            source: DownloadRouteSource::Official,
+            is_mirror: false,
+            allow_sensitive_headers: false,
+            supports_range: true,
+            proxy: ProxyPolicy::System,
+        };
+        super::super::proxy_context::with_snapshot(clients, async {
+            let stream = tokio::time::timeout(
+                Duration::from_secs(3),
+                connect_tcp("origin.example", port, &route, false),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            assert_eq!(
+                stream.peer_addr().unwrap(),
+                listener.local_addr().unwrap()
+            );
+        })
+        .await;
+    }
+
+    #[tokio::test]
     async fn progresses_to_third_address_after_two_connection_failures() {
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
             .await
@@ -822,40 +939,48 @@ async fn connect_tcp(
             Err(error) => last_error = Some(error),
         }
         if resolver.record_connection_failure(host) {
-            let refreshed = resolver.resolve_host(host).await?;
-            if !refreshed.is_empty() && refreshed != addresses {
-                match connect_addresses(host, port, &refreshed, parallel).await
+            match resolver.resolve_host(host).await {
+                Ok(refreshed)
+                    if !refreshed.is_empty() && refreshed != addresses =>
                 {
+                    let untried: Vec<_> = refreshed
+                        .iter()
+                        .copied()
+                        .filter(|address| !addresses.contains(address))
+                        .collect();
+                    if !untried.is_empty() {
+                        match connect_addresses(host, port, &untried, parallel)
+                            .await
+                        {
+                            Ok(stream) => return Ok(stream),
+                            Err(error) => last_error = Some(error),
+                        }
+                    }
+                    addresses.extend(refreshed);
+                }
+                Err(error) => last_error = Some(error),
+                _ => {}
+            }
+        }
+    }
+    // A successful DoH response says nothing about reachability of its edge.
+    // Keep system DNS available even when encrypted DNS is enabled, and apply
+    // the same host override and physical connection limits to the fallback.
+    match resolver.resolve_system_host(host).await {
+        Ok(system_addresses) => {
+            let untried: Vec<_> = system_addresses
+                .into_iter()
+                .filter(|address| !addresses.contains(address))
+                .collect();
+            if !untried.is_empty() {
+                match connect_addresses(host, port, &untried, parallel).await {
                     Ok(stream) => return Ok(stream),
                     Err(error) => last_error = Some(error),
                 }
             }
         }
-    }
-    if !resolver.doh_enabled() {
-        let stream = tokio::time::timeout(
-            CONNECT_TIMEOUT,
-            tokio::net::TcpStream::connect((host, port)),
-        )
-        .await
-        .map_err(|_| {
-            last_error.take().unwrap_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    format!("connection to {host}:{port} timed out"),
-                )
-            })
-        })?
-        .map_err(|error| {
-            last_error.take().unwrap_or_else(|| {
-                std::io::Error::new(
-                    error.kind(),
-                    format!("connection to {host}:{port} failed: {error}"),
-                )
-            })
-        })?;
-        stream.set_nodelay(true).ok();
-        return Ok(stream);
+        Err(error) if last_error.is_none() => last_error = Some(error),
+        _ => {}
     }
     Err(last_error.unwrap_or_else(|| {
         std::io::Error::new(
@@ -914,7 +1039,15 @@ async fn establish(
         .host_str()
         .unwrap_or_default()
         .trim_matches(['[', ']']);
-    let port = destination.port_or_known_default().unwrap_or(HTTPS_PORT);
+    let mut port = destination.port_or_known_default().unwrap_or(HTTPS_PORT);
+    // Loopback fixtures listen on an ephemeral port while the routed URL keeps
+    // the scheme default; honour the port the test address names.
+    #[cfg(test)]
+    {
+        port = super::proxy_context::resolver(route.proxy)
+            .test_port(host)
+            .unwrap_or(port);
+    }
     let proxy = proxy::intercept(route);
     // A selected origin endpoint cannot be used through a proxy: CONNECT and
     // SOCKS must preserve proxy-side routing and hostname resolution.
@@ -1102,6 +1235,7 @@ async fn wait_for_idle(
 }
 
 pub(crate) async fn evict_idle_connections(scope: Option<&str>) {
+    // sched-order: theseus::util::download::h2_pool::CONNECTIONS temporary
     let slots = CONNECTIONS
         .lock()
         .await
@@ -1117,6 +1251,7 @@ pub(crate) async fn evict_idle_connections(scope: Option<&str>) {
             connection.evict();
         }
     }
+    // sched-order: theseus::util::download::h2_pool::PARALLEL_CONNECTIONS temporary
     let pools = PARALLEL_CONNECTIONS
         .lock()
         .await
@@ -1157,6 +1292,7 @@ pub(crate) async fn observe_adaptive_connections() {
 }
 
 async fn retire_obsolete_connections(current: &ConnectionPoolKey) {
+    // sched-order: theseus::util::download::h2_pool::CONNECTIONS temporary
     let slots = CONNECTIONS
         .lock()
         .await
@@ -1175,6 +1311,7 @@ async fn retire_obsolete_connections(current: &ConnectionPoolKey) {
             connection.retire();
         }
     }
+    // sched-order: theseus::util::download::h2_pool::PARALLEL_CONNECTIONS temporary
     let pools = PARALLEL_CONNECTIONS
         .lock()
         .await
@@ -1192,11 +1329,13 @@ async fn retire_obsolete_connections(current: &ConnectionPoolKey) {
             state.prune();
         }
     }
+    // sched-order: theseus::util::download::h2_pool::CONNECTIONS temporary
     CONNECTIONS.lock().await.retain(|key, slot| {
         key == current
             || key.budget_scope != current.budget_scope
             || Arc::strong_count(slot) > 1
     });
+    // sched-order: theseus::util::download::h2_pool::PARALLEL_CONNECTIONS temporary
     PARALLEL_CONNECTIONS.lock().await.retain(|key, pool| {
         key == current
             || key.budget_scope != current.budget_scope

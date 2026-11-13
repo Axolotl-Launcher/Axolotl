@@ -39,7 +39,7 @@ async fn route_probe_selects_a_faster_distinct_authority() {
     let mut candidate = route(url, DownloadRouteSource::Alternate, false, true);
     candidate.proxy = ProxyPolicy::Direct;
     let candidates = vec![candidate.clone()];
-    let client = reqwest::Client::builder()
+    let client = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -51,7 +51,6 @@ async fn route_probe_selects_a_faster_distinct_authority() {
         &candidates,
         64 * 1024,
         data.len() as u64,
-        None,
         None,
         None,
         &semaphore,
@@ -80,7 +79,6 @@ async fn route_probe_selects_a_faster_distinct_authority() {
             &candidates,
             1,
             data.len() as u64,
-            None,
             None,
             None,
             &semaphore,
@@ -118,7 +116,6 @@ async fn recovery_probe_prefers_measured_http1_without_recording_protocol_failur
         data.len() as u64,
         0,
         true,
-        None,
         &semaphore,
     )
     .await
@@ -185,7 +182,6 @@ async fn recovery_probe_compares_http1_and_alternate_cdn() {
             data.len() as u64,
             0,
             true,
-            None,
             &semaphore,
         )
         .await

@@ -5,7 +5,7 @@ Vanilla Minecraft data reused across Lab features, together with the modules tha
 - `assets/items/` — per-version item manifests (identifiers, readable names, atlas texture keys).
 - `assets/tags/` — per-version vanilla item tags.
 - `assets/vanilla/` — item name index, potion list and potion item list.
-- `assets/texture-atlas.json` / `assets/texture-atlas.png` — item icon atlas and its layout.
+- `assets/texture-atlas.json` / `assets/texture-atlas.webp` — item icon atlas and its layout.
 - `resources.ts`, `item-names.ts`, `item-images.ts` — atlas and manifest loaders, name resolution and icon slicing.
 - `versions.ts`, `types.ts` — shared version primitives, plus the version identifier and pack format types.
 

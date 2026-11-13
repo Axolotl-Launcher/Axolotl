@@ -244,6 +244,24 @@ console.log('refusals')
 }
 
 {
+    // A failed record blocks sqlx with `Dirty` even when every applied record
+    // is gone; the warning promises removal, so the record must actually go.
+    const failedDb = path.join(settingsDir, 'beta', 'failed-record.db')
+    sampleDatabase(failedDb, { applied: [] })
+    const database = new DatabaseSync(failedDb)
+    database
+        .prepare(
+            `INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time)
+             VALUES (?, ?, FALSE, X'00', 0)`,
+        )
+        .run(CLOSE_BEHAVIOR + 100, 'failed-migration')
+    database.close()
+
+    const result = run(['--db', failedDb, '--to', String(CLOSE_BEHAVIOR), '--apply'])
+    check('removes a failed migration record', result.status === 0 && migrations(failedDb).length === 0, result.output)
+}
+
+{
     const stranger = path.join(settingsDir, 'beta', 'stranger.db')
     fs.mkdirSync(path.dirname(stranger), { recursive: true })
     new DatabaseSync(stranger).exec('CREATE TABLE unrelated (a)')
@@ -565,6 +583,168 @@ console.log('the account secret marks: added forward, dropped by a downgrade')
     check('re-upgrading adds the marks back', ['minecraft_users', 'minecraft_device_tokens', 'modrinth_users'].every((table) => columns(file, table).includes('secrets_externalized')))
     check('and leaves every row unmoved', old.prepare('SELECT COUNT(*) AS count FROM minecraft_users WHERE secrets_externalized <> 0').get().count === 0)
     old.close()
+}
+
+// --- the scheduler schema -----------------------------------------------------
+
+console.log('the scheduler schema: upgrade, downgrade and re-upgrade')
+{
+    const LEVEL = 20261103130000
+    const SCHEDULER_TAGS = 20261110120000
+    const file = path.join(directory, 'level', 'beta', 'app.db')
+    const files = fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+    const later = files.filter((name) => Number(name.slice(0, 14)) >= LEVEL)
+    const { database, apply } = migratedDatabase(file, files.filter((name) => Number(name.slice(0, 14)) < LEVEL))
+    database.exec(`
+        INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified)
+            VALUES ('sample', '/sample', 'installed', '1', 'Sample', 10, 20);
+        INSERT INTO install_jobs(id, instance_id, kind, status, state, created, modified)
+            VALUES ('frozen', 'sample', 'install_content', 'queued', '{}', 1, 2);
+    `)
+    const original = database.prepare('SELECT * FROM install_jobs').all()
+    for (const name of later) apply(name)
+    check('existing install jobs start at scheduling level L3', database.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    const schedulerTables = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('scheduler_tags', 'scheduler_restart_budget')"
+    check('an upgraded database gains the scheduler collections', database.prepare(schedulerTables).get().count === 2)
+    const schedulerIndex = "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name = 'scheduler_tags_owner'"
+    check('an upgraded database gains the scheduler owner index', database.prepare(schedulerIndex).get().count === 1)
+    database.exec(`
+        INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (1, 1, 'l3', 'install', 'frozen', 10);
+        INSERT INTO scheduler_restart_budget(scope, failures, first_failure_at, revoked, updated_at) VALUES ('l1:config_sync', 2, 5, 0, 6);
+    `)
+    assert.throws(() => database.exec("INSERT INTO scheduler_tags(id, generation, level, origin, owner, created_at) VALUES (2, 1, 'l9', 'x', 'y', 0)"), /CHECK/)
+    database.close()
+    const downgrade = run(['--db', file, '--to', String(LEVEL), '--apply'])
+    check('a downgrade removes the level column', downgrade.status === 0 && !columns(file, 'install_jobs').includes('level'), downgrade.output)
+    check('downgrade leaves no record of the scheduler migration', !migrations(file).includes(SCHEDULER_TAGS))
+    const old = new DatabaseSync(file)
+    assert.deepEqual(old.prepare('SELECT * FROM install_jobs').all(), original)
+    check('downgrade removes the scheduler collections and their index', old.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'scheduler_%'").get().count === 0)
+    old.exec('BEGIN')
+    for (const name of later) {
+        const sql = fs.readFileSync(path.join(migrationsDir, name))
+        old.exec(sql.toString())
+        old.prepare('INSERT INTO _sqlx_migrations(version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)')
+            .run(Number(name.slice(0, 14)), name, createHash('sha384').update(sql).digest())
+    }
+    old.exec('COMMIT')
+    check('re-upgraded install jobs start at scheduling level L3 again', old.prepare("SELECT level FROM install_jobs WHERE id = 'frozen'").get().level === 'l3')
+    check('re-upgrade recreates empty scheduler collections', old.prepare(schedulerTables).get().count === 2 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_tags').get().count === 0 && old.prepare('SELECT COUNT(*) AS count FROM scheduler_restart_budget').get().count === 0)
+    check('re-upgrade recreates the scheduler owner index', old.prepare(schedulerIndex).get().count === 1)
+    old.close()
+}
+
+{
+    const CONSOLE_JAVA = 20261106150000
+    const file = path.join(directory, 'console-java.db')
+    sampleDatabase(file, { withColumn: false, applied: [CONSOLE_JAVA] })
+    const sql = fs.readFileSync(
+        path.join(migrationsDir, '20261106150000_minecraft-console-java.sql'),
+        'utf8',
+    )
+    const database = new DatabaseSync(file)
+    database.exec(sql)
+    check(
+        'console Java defaults off for existing settings',
+        database.prepare('SELECT minecraft_use_console_java FROM settings').get()
+            .minecraft_use_console_java === 0,
+    )
+    database.exec('UPDATE settings SET minecraft_use_console_java = 1')
+    database.close()
+    const downgraded = run(['--db', file, '--to', String(CONSOLE_JAVA), '--apply'])
+    check(
+        'console Java downgrade removes its column',
+        downgraded.status === 0 && !columns(file, 'settings').includes('minecraft_use_console_java'),
+        downgraded.output,
+    )
+    const restored = new DatabaseSync(file)
+    check(
+        'console Java downgrade preserves other settings',
+        restored.prepare('SELECT max_memory FROM settings').get().max_memory === 4096,
+    )
+    restored.exec(sql)
+    check(
+        'console Java can be upgraded again',
+        restored.prepare('SELECT minecraft_use_console_java FROM settings').get()
+            .minecraft_use_console_java === 0,
+    )
+    restored.close()
+}
+
+{
+    const FORCE_MULTICONNECTION = 20261107120000
+    const file = path.join(directory, 'force-multiconnection.db')
+    sampleDatabase(file, { withColumn: false, applied: [FORCE_MULTICONNECTION] })
+    const sql = fs.readFileSync(
+        path.join(migrationsDir, '20261107120000_force-multiconnection-downloads.sql'),
+        'utf8',
+    )
+    const database = new DatabaseSync(file)
+    database.exec(sql)
+    check(
+        'forced connections default off on upgrade',
+        database.prepare('SELECT force_multiconnection_downloads FROM settings').get()
+            .force_multiconnection_downloads === 0,
+    )
+    database.exec('UPDATE settings SET force_multiconnection_downloads = 1')
+    database.close()
+    const downgraded = run(['--db', file, '--to', String(FORCE_MULTICONNECTION), '--apply'])
+    check(
+        'forced connection downgrade removes its column',
+        downgraded.status === 0 &&
+            !columns(file, 'settings').includes('force_multiconnection_downloads'),
+        downgraded.output,
+    )
+    const restored = new DatabaseSync(file)
+    check(
+        'forced connection downgrade preserves other settings',
+        restored.prepare('SELECT max_memory FROM settings').get().max_memory === 4096,
+    )
+    restored.exec(sql)
+    check(
+        'forced connections can upgrade again',
+        restored.prepare('SELECT force_multiconnection_downloads FROM settings').get()
+            .force_multiconnection_downloads === 0,
+    )
+    restored.close()
+}
+
+{
+    const FORCED_CONNECTION_LIMIT = 20261108120000
+    const file = path.join(directory, 'forced-connection-limit.db')
+    sampleDatabase(file, { withColumn: false, applied: [FORCED_CONNECTION_LIMIT] })
+    const sql = fs.readFileSync(
+        path.join(migrationsDir, '20261108120000_forced-download-connection-limit.sql'),
+        'utf8',
+    )
+    const database = new DatabaseSync(file)
+    database.exec(sql)
+    check(
+        'forced connection limit defaults to 72 on upgrade',
+        database.prepare('SELECT forced_max_concurrent_downloads FROM settings').get()
+            .forced_max_concurrent_downloads === 72,
+    )
+    database.exec('UPDATE settings SET forced_max_concurrent_downloads = 128')
+    database.close()
+    const downgraded = run(['--db', file, '--to', String(FORCED_CONNECTION_LIMIT), '--apply'])
+    check(
+        'forced connection downgrade removes its column',
+        downgraded.status === 0 &&
+            !columns(file, 'settings').includes('forced_max_concurrent_downloads'),
+        downgraded.output,
+    )
+    const restored = new DatabaseSync(file)
+    check(
+        'forced connection downgrade preserves other settings',
+        restored.prepare('SELECT max_memory FROM settings').get().max_memory === 4096,
+    )
+    restored.exec(sql)
+    check(
+        'forced connections can upgrade again',
+        restored.prepare('SELECT forced_max_concurrent_downloads FROM settings').get()
+            .forced_max_concurrent_downloads === 72,
+    )
+    restored.close()
 }
 
 if (process.platform !== 'win32') {

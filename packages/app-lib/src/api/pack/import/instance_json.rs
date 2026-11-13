@@ -1,4 +1,6 @@
+use std::io::Read;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use serde_json::Value;
 use tracing::debug;
@@ -103,12 +105,17 @@ fn find_json(path: &Path) -> Option<(String, String)> {
             );
             continue;
         };
-        let version = extract_version(&json, &content, None);
+        let fname = jf
+            .file_stem()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| name.clone());
+        let version = extract_version(
+            &json,
+            &content,
+            &jf.with_extension("jar"),
+            Some(&fname),
+        );
         if !version.is_empty() {
-            let fname = jf
-                .file_stem()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| name.clone());
             debug!(
                 "instance_json: path={} json={} (multiple-json pick, version={})",
                 path.display(),
@@ -135,7 +142,9 @@ pub fn detect(path: &Path) -> Option<InstanceInfo> {
             return None;
         }
     };
-    let mut vanilla_name = extract_version(&json, &content, Some(&name));
+    let client_jar = path.join(format!("{name}.jar"));
+    let mut vanilla_name =
+        extract_version(&json, &content, &client_jar, Some(&name));
     debug!(
         "instance_json: path={} extract_version returned {:?}",
         path.display(),
@@ -255,6 +264,7 @@ pub(crate) fn normalize_imported_loader_version(
 fn extract_version(
     json: &Value,
     json_str: &str,
+    client_jar: &Path,
     folder_name: Option<&str>,
 ) -> String {
     // ① PCL download record clientVersion
@@ -316,7 +326,7 @@ fn extract_version(
         return v;
     }
 
-    // ⑥ JSON id field → extract leading version
+    // ⑥ JSON id field → search for a version, as PCL-CE does.
     if let Some(id) = json.get("id").and_then(|v| v.as_str())
         && let Some(v) = extract_version_from_id(id)
     {
@@ -337,6 +347,13 @@ fn extract_version(
         && let Some(v) = extract_version_from_id(name)
     {
         debug!("extract_version: method=⑧ folder_name value={}", v);
+        return v;
+    }
+
+    // ⑨ Read the client jar only when neither the JSON nor its name yielded
+    // a version. Name-based matching must take priority over this fallback.
+    if let Some(v) = version_from_client_jar(client_jar) {
+        debug!("extract_version: method=⑨ client jar value={}", v);
         return v;
     }
 
@@ -401,34 +418,78 @@ fn extract_version_from_libraries(content: &str) -> Option<String> {
             }
         }
     }
+    // Fabric-like: net.fabricmc:intermediary:1.20.1 → "1.20.1"
+    for needle in [
+        "net.fabricmc:intermediary:",
+        "net.legacyfabric:intermediary:",
+        "org.quiltmc:hashed:",
+    ] {
+        if let Some(version) =
+            try_extract_version_from_needle(content, needle, None)
+        {
+            return Some(version);
+        }
+    }
     None
 }
 
-/// Extracts leading version number from the instance id.
-/// e.g. "1.8.9-forge-11.15.1.1722" → "1.8.9"
-/// Skips hash-like ids (≥32 chars, no separators).
+/// Reads the game version the client jar records about itself. The id of some
+/// versions carries a build hash: "1.14 Pre-Release 5 / c20937bb...".
+fn version_from_client_jar(jar: &Path) -> Option<String> {
+    let file = std::fs::File::open(jar).ok()?;
+    let mut archive = zip::ZipArchive::new(file).ok()?;
+    let entry = archive.by_name("version.json").ok()?;
+    let metadata: Value = serde_json::from_reader(entry.take(65_536)).ok()?;
+    let id = metadata.get("id")?.as_str()?;
+    let id = id.split(" / ").next().unwrap_or(id).trim();
+    (!id.is_empty()).then(|| id.to_string())
+}
+
+/// Where the Mojang pre-release qualifier after `separator` ends, if there is
+/// one: the `-snapshot-7` of "26.4-snapshot-7", the `-pre1` of "1.21-pre1" or the
+/// ` Pre-Release 5` of "1.14 Pre-Release 5". These are part of the game version.
+/// A qualifier needs its number, so a name like "1.20.1-rc-pack" is not one.
+fn prerelease_qualifier_end(id: &str, separator: usize) -> Option<usize> {
+    let rest = &id[separator + 1..];
+    let lower = rest.to_ascii_lowercase();
+    let label = ["snapshot", "pre-release", "pre", "rc"]
+        .into_iter()
+        .find(|label| lower.starts_with(label))?;
+    let after_label = &rest[label.len()..];
+    let number = after_label.strip_prefix(['-', ' ']).unwrap_or(after_label);
+    let digits = number.len()
+        - number
+            .trim_start_matches(|c: char| c.is_ascii_digit())
+            .len();
+    if digits == 0 {
+        return None;
+    }
+    let end = id.len() - number.len() + digits;
+    id[end..]
+        .chars()
+        .next()
+        .is_none_or(|next| !next.is_ascii_alphanumeric() && next != '.')
+        .then_some(end)
+}
+
+/// Searches the whole instance name using PCL-CE's release and weekly-snapshot
+/// forms. Custom prefixes and suffixes are not part of the game version.
+/// Keep official pre-release qualifiers, including the newer `26.1-pre-1` form.
 fn extract_version_from_id(id: &str) -> Option<String> {
-    let ver = id.trim();
-    if ver.is_empty() {
-        return None;
-    }
-    if ver.len() >= 32
-        && !ver.contains('.')
-        && !ver.contains('-')
-        && !ver.contains('_')
-    {
-        return None;
-    }
-    if let Some(first_sep) = ver.find(['-', '_', ' ']) {
-        let candidate = &ver[..first_sep];
-        if candidate.starts_with("1.") || candidate.starts_with('2') {
-            return Some(candidate.to_string());
-        }
-    }
-    if ver.starts_with("1.") || ver.starts_with('2') {
-        return Some(ver.to_string());
-    }
-    None
+    static VERSION: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r"(?i)[1-9][0-9]w[0-9]{2}[a-g]|(?:1|[2-9][0-9])\.[0-9]+(?:\.[0-9]+)?|1\.RV-Pre1",
+        )
+        .expect("valid Minecraft version pattern")
+    });
+    let version = VERSION.find(id)?;
+    let end = version.end();
+    let end = if matches!(id.as_bytes().get(end), Some(b'-' | b' ')) {
+        prerelease_qualifier_end(id, end).unwrap_or(end)
+    } else {
+        end
+    };
+    Some(id[version.start()..end].to_string())
 }
 
 ///参考自PCL启动器
@@ -488,44 +549,35 @@ fn detect_loader(
         return Some(("cleanroom".into(), version));
     }
 
+    let neoforge_version = game_argument(json, "--fml.neoForgeVersion");
+    let forge_version = game_argument(json, "--fml.forgeVersion");
+    let is_neoforge =
+        lower.contains("net.neoforge") || neoforge_version.is_some();
+
     // Forge
-    if lower.contains("minecraftforge") && !lower.contains("net.neoforge") {
-        let version = try_extract_version_from_needle(
-            content,
-            "minecraftforge:forge:",
-            None,
-        )
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.minecraftforge:forge:",
-                None,
-            )
-        })
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.minecraftforge:fmlloader:",
-                None,
-            )
-        });
+    if (lower.contains("minecraftforge") || forge_version.is_some())
+        && !is_neoforge
+    {
+        let version = forge_version
+            .or_else(|| library_version(content, "minecraftforge:forge:"))
+            .or_else(|| library_version(content, "net.minecraftforge:forge:"))
+            .or_else(|| {
+                library_version(content, "net.minecraftforge:fmlloader:")
+            });
         return Some(("forge".into(), version));
     }
 
     // NeoForge
-    if lower.contains("net.neoforge") {
-        let version = try_extract_version_from_needle(
-            content,
-            "net.neoforged:neoforge:",
-            None,
-        )
-        .or_else(|| {
-            try_extract_version_from_needle(
-                content,
-                "net.neoforged.neoforge:neoforge:",
-                None,
-            )
-        });
+    if is_neoforge {
+        // NeoForge 1.20.1 still uses --fml.forgeVersion. Its FML library
+        // version is independent of the NeoForge version recorded here.
+        let version = neoforge_version
+            .or(forge_version)
+            .or_else(|| library_version(content, "net.neoforged:neoforge:"))
+            .or_else(|| {
+                library_version(content, "net.neoforged.neoforge:neoforge:")
+            })
+            .or_else(|| library_version(content, "net.neoforged:forge:"));
         return Some(("neoforge".into(), version));
     }
 
@@ -548,6 +600,34 @@ fn detect_loader(
 
     debug!("detect_loader: no known loader library found in JSON content");
     None
+}
+
+fn game_argument(json: &Value, name: &str) -> Option<String> {
+    json.get("arguments")?
+        .get("game")?
+        .as_array()?
+        .windows(2)
+        .find_map(|pair| {
+            if pair[0].as_str() != Some(name) {
+                return None;
+            }
+            pair[1]
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty() && !value.starts_with("--"))
+                .map(str::to_string)
+        })
+}
+
+fn library_version(content: &str, coordinate: &str) -> Option<String> {
+    let version = try_extract_version_from_needle(content, coordinate, None)?;
+    // Maven's fourth segment is an artifact classifier, not a loader version.
+    version
+        .split([':', '@'])
+        .next()
+        .map(str::trim)
+        .filter(|version| !version.is_empty())
+        .map(str::to_string)
 }
 
 fn detect_adjuncts(
@@ -718,6 +798,155 @@ mod tests {
             "neoforge",
             Some("1.20.1-44.0.3"),
         );
+    }
+
+    #[test]
+    fn forge_and_neoforge_read_explicit_game_arguments() {
+        for (game_version, loader, library, arguments, expected) in [
+            (
+                "1.21.1",
+                "neoforge",
+                "net.neoforged.fancymodloader:loader:4.0.43",
+                serde_json::json!([
+                    "--fml.fmlVersion",
+                    "4.0.43",
+                    "--fml.neoForgeVersion",
+                    "21.1.248"
+                ]),
+                "21.1.248",
+            ),
+            (
+                "1.20.6",
+                "neoforge",
+                "net.neoforged:neoforge:20.6.1:universal",
+                serde_json::json!([
+                    "--fml.forgeVersion",
+                    "47.1.99",
+                    "--fml.neoForgeVersion",
+                    "20.6.119-beta"
+                ]),
+                "20.6.119-beta",
+            ),
+            (
+                "1.20.1",
+                "neoforge",
+                "net.neoforged:forge:1.20.1-47.1.99:universal",
+                serde_json::json!(["--fml.forgeVersion", "47.1.99"]),
+                "47.1.99",
+            ),
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:fmlloader:1.20.1-47.4.2",
+                serde_json::json!(["--fml.forgeVersion", "47.4.28"]),
+                "47.4.28",
+            ),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let version = serde_json::json!({
+                "id": "export-demo",
+                "inheritsFrom": game_version,
+                "arguments": {"game": arguments},
+                "libraries": [{"name": library}],
+            });
+            let version_dir = write_version_dir(
+                temp.path(),
+                "export-demo",
+                &version.to_string(),
+            );
+            let detected = detect(&version_dir).unwrap();
+            assert_eq!(detected.vanilla_name, game_version);
+            assert_eq!(detected.loader.as_deref(), Some(loader));
+            assert_eq!(detected.loader_version.as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn forge_and_neoforge_library_versions_exclude_classifiers() {
+        for (game_version, loader, library, expected) in [
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:forge:1.20.1-47.4.28:universal",
+                "47.4.28",
+            ),
+            (
+                "1.7.10",
+                "forge",
+                "net.minecraftforge:forge:1.7.10-10.13.4.1614-1.7.10:universal",
+                "10.13.4.1614",
+            ),
+            (
+                "1.21.1",
+                "neoforge",
+                "net.neoforged:neoforge:21.1.248:universal",
+                "21.1.248",
+            ),
+            (
+                "1.20.6",
+                "neoforge",
+                "net.neoforged:neoforge:20.6.119-beta:universal@jar",
+                "20.6.119-beta",
+            ),
+            (
+                "1.20.1",
+                "neoforge",
+                "net.neoforged:forge:1.20.1-47.1.99:universal",
+                "47.1.99",
+            ),
+            (
+                "1.20.1",
+                "forge",
+                "net.minecraftforge:forge:1.20.1-47.4.28",
+                "47.4.28",
+            ),
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let version = serde_json::json!({
+                "id": "export-demo",
+                "inheritsFrom": game_version,
+                "libraries": [{"name": library}],
+            });
+            let version_dir = write_version_dir(
+                temp.path(),
+                "export-demo",
+                &version.to_string(),
+            );
+            let detected = detect(&version_dir).unwrap();
+            assert_eq!(detected.loader.as_deref(), Some(loader));
+            assert_eq!(detected.loader_version.as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn neoforge_does_not_use_the_fml_library_version() {
+        assert_loader(
+            r#"{
+                "arguments": {"game": ["--fml.fmlVersion", "4.0.43"]},
+                "libraries": [{"name": "net.neoforged.fancymodloader:loader:4.0.43"}]
+            }"#,
+            "neoforge",
+            None,
+        );
+    }
+
+    #[test]
+    fn malformed_loader_arguments_fall_back_to_the_library_version() {
+        for arguments in [
+            serde_json::json!(["--fml.neoForgeVersion"]),
+            serde_json::json!(["--fml.neoForgeVersion", " "]),
+            serde_json::json!([
+                "--fml.neoForgeVersion",
+                "--fml.fmlVersion",
+                "4.0.43"
+            ]),
+        ] {
+            let version = serde_json::json!({
+                "arguments": {"game": arguments},
+                "libraries": [{"name": "net.neoforged:neoforge:21.1.248:universal"}],
+            });
+            assert_loader(&version.to_string(), "neoforge", Some("21.1.248"));
+        }
     }
 
     #[test]
@@ -925,6 +1154,309 @@ mod tests {
     #[test]
     fn test_no_loader() {
         assert!(detect_from_json(r#"{"id": "1.20.4"}"#).is_none());
+    }
+
+    #[test]
+    fn version_ids_keep_official_prerelease_qualifiers() {
+        for (id, expected) in [
+            ("26.4-snapshot-7", "26.4-snapshot-7"),
+            ("26.1-pre-1", "26.1-pre-1"),
+            ("26.1-rc-2", "26.1-rc-2"),
+            ("1.21-pre1", "1.21-pre1"),
+            ("1.21-rc1", "1.21-rc1"),
+            ("1.14 Pre-Release 5", "1.14 Pre-Release 5"),
+            ("1.RV-Pre1", "1.RV-Pre1"),
+            ("26.4-snapshot-7-Survival", "26.4-snapshot-7"),
+            ("1.21-pre1_unobfuscated", "1.21-pre1"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(id).as_deref(),
+                Some(expected),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn version_ids_still_drop_loader_and_custom_suffixes() {
+        for (id, expected) in [
+            ("1.8.9-forge-11.15.1.1722", "1.8.9"),
+            ("1.20.1-fabric-0.15.11", "1.20.1"),
+            ("1.20.1-rc-pack", "1.20.1"),
+            ("1.20.1-preview", "1.20.1"),
+            ("1.20.1-pre1.5", "1.20.1"),
+            ("26.4-Survival", "26.4"),
+            ("1.21.11_unobfuscated", "1.21.11"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(id).as_deref(),
+                Some(expected),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn version_names_search_for_pcl_style_versions_anywhere() {
+        for (name, expected) in [
+            ("整合包-1.20.1", "1.20.1"),
+            ("1.20.1整合包", "1.20.1"),
+            ("我的整合包（1.20.1）", "1.20.1"),
+            ("2026-1.20.1", "1.20.1"),
+            ("Fabric 0.16.10 - 1.21.1", "1.21.1"),
+            ("19w13b", "19w13b"),
+            ("我的快照19w13b", "19w13b"),
+            ("Snapshot-24W14A", "24W14A"),
+            ("Pack-1.12.2-to-1.20.1", "1.12.2"),
+            ("新版本 26.4-snapshot-7-Survival", "26.4-snapshot-7"),
+            ("整合包-26.1-pre-1", "26.1-pre-1"),
+            ("整合包（26.1-pre-1）", "26.1-pre-1"),
+            ("26.1-pre-1整合包", "26.1-pre-1"),
+            ("整合包-26.1-rc-2", "26.1-rc-2"),
+            ("整合包-1.21-pre12", "1.21-pre12"),
+            ("整合包-1.21-rc10", "1.21-rc10"),
+            ("Pack-1.14 Pre-Release 5", "1.14 Pre-Release 5"),
+            ("Pack-1.RV-Pre1", "1.RV-Pre1"),
+        ] {
+            assert_eq!(
+                extract_version_from_id(name).as_deref(),
+                Some(expected),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn version_names_reject_non_version_prefixes_and_hashes() {
+        for name in [
+            "",
+            "Survival",
+            "2026-Survival",
+            "2.0-pack",
+            "1.invalid",
+            "1.",
+            "c20937bb9cb248468de8a554f50f7f51",
+        ] {
+            assert_eq!(extract_version_from_id(name), None, "{name}");
+        }
+    }
+
+    #[test]
+    fn detects_versions_in_custom_ids_and_json_file_names() {
+        for (name, expected) in [
+            ("整合包-1.20.1", "1.20.1"),
+            ("1.20.1整合包", "1.20.1"),
+            ("我的快照19w13b", "19w13b"),
+            ("2026-1.20.1", "1.20.1"),
+            ("整合包-26.1-pre-1", "26.1-pre-1"),
+        ] {
+            for id in [name, "Survival"] {
+                let dir = tempfile::tempdir().unwrap();
+                let version_dir = write_version_dir(
+                    dir.path(),
+                    name,
+                    &serde_json::json!({ "id": id, "libraries": [] })
+                        .to_string(),
+                );
+                let info = detect(&version_dir).expect("detect custom name");
+                assert_eq!(info.vanilla_name, expected, "{name}: {id}");
+            }
+        }
+    }
+
+    #[test]
+    fn detects_a_sole_json_by_its_file_name_in_dotminecraft() {
+        let dir = tempfile::tempdir().unwrap();
+        let minecraft = dir.path().join(".minecraft");
+        std::fs::create_dir(&minecraft).unwrap();
+        std::fs::write(
+            minecraft.join("整合包-26.1-pre-1.json"),
+            r#"{ "id": "Survival", "libraries": [] }"#,
+        )
+        .unwrap();
+
+        let info = detect(&minecraft).expect("detect from JSON file name");
+        assert_eq!(info.vanilla_name, "26.1-pre-1");
+    }
+
+    #[test]
+    fn selects_a_version_json_by_name_among_unrelated_json_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("broken.json"), "{").unwrap();
+        std::fs::write(dir.path().join("options.json"), r#"{ "volume": 1 }"#)
+            .unwrap();
+        std::fs::write(
+            dir.path().join("整合包-1.20.1.json"),
+            r#"{ "id": "Survival", "libraries": [] }"#,
+        )
+        .unwrap();
+
+        let info = detect(dir.path()).expect("select named version JSON");
+        assert_eq!(info.vanilla_name, "1.20.1");
+    }
+
+    #[test]
+    fn recorded_versions_outrank_custom_name_matches() {
+        for record in [
+            serde_json::json!({ "clientVersion": "1.21.1" }),
+            serde_json::json!({ "patches": [{ "id": "game", "version": "1.21.1" }] }),
+            serde_json::json!({ "arguments": { "game": ["--fml.mcVersion", "1.21.1"] } }),
+            serde_json::json!({ "inheritsFrom": "1.21.1" }),
+            serde_json::json!({ "libraries": [{ "name": "net.fabricmc:intermediary:1.21.1" }] }),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut json = record.clone();
+            json["id"] = "整合包-1.19.4".into();
+            let version_dir = write_version_dir(
+                dir.path(),
+                "整合包-1.20.1",
+                &json.to_string(),
+            );
+            let info = detect(&version_dir).expect("detect recorded version");
+            assert_eq!(info.vanilla_name, "1.21.1", "{record}");
+        }
+    }
+
+    #[test]
+    fn official_snapshot_instance_keeps_its_full_version() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let version_dir = dir.path().join("26.4-snapshot-7");
+        std::fs::create_dir(&version_dir).expect("create version dir");
+        std::fs::write(
+            version_dir.join("26.4-snapshot-7.json"),
+            r#"{
+                "id": "26.4-snapshot-7",
+                "type": "snapshot",
+                "mainClass": "net.minecraft.client.main.Main",
+                "libraries": [{ "name": "com.mojang:brigadier:1.3.10" }]
+            }"#,
+        )
+        .expect("write version json");
+
+        let info = detect(&version_dir).expect("detect should succeed");
+        assert_eq!(info.vanilla_name, "26.4-snapshot-7");
+        assert_eq!(info.loader, None);
+    }
+
+    fn write_version_dir(
+        root: &Path,
+        name: &str,
+        json: &str,
+    ) -> std::path::PathBuf {
+        let version_dir = root.join(name);
+        std::fs::create_dir(&version_dir).expect("create version dir");
+        std::fs::write(version_dir.join(format!("{name}.json")), json)
+            .expect("write version json");
+        version_dir
+    }
+
+    fn write_client_jar(version_dir: &Path, name: &str, version_json: &str) {
+        use std::io::Write;
+        let jar =
+            std::fs::File::create(version_dir.join(format!("{name}.jar")))
+                .expect("create jar");
+        let mut zip = zip::ZipWriter::new(jar);
+        zip.start_file(
+            "version.json",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .expect("start entry");
+        zip.write_all(version_json.as_bytes()).expect("write entry");
+        zip.finish().expect("finish jar");
+    }
+
+    #[test]
+    fn name_matches_outrank_the_client_jar() {
+        for (name, id, expected) in [
+            ("整合包-1.20.1", "整合包-1.19.4", "1.19.4"),
+            ("整合包-1.20.1", "Survival", "1.20.1"),
+            ("整合包-26.1-pre-1", "Survival", "26.1-pre-1"),
+            ("整合包-26.4-snapshot-7", "Survival", "26.4-snapshot-7"),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let version_dir = write_version_dir(
+                dir.path(),
+                name,
+                &serde_json::json!({ "id": id }).to_string(),
+            );
+            write_client_jar(&version_dir, name, r#"{ "id": "1.21.1" }"#);
+
+            let info = detect(&version_dir).expect("detect name before jar");
+            assert_eq!(info.vanilla_name, expected, "{name}: {id}");
+        }
+    }
+
+    #[test]
+    fn client_jar_is_used_when_names_have_no_version() {
+        for (recorded, expected) in [
+            ("26.4-snapshot-7", "26.4-snapshot-7"),
+            (
+                "1.14 Pre-Release 5 / c20937bb9cb248468de8a554f50f7f51",
+                "1.14 Pre-Release 5",
+            ),
+        ] {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let version_dir = write_version_dir(
+                dir.path(),
+                "Survival",
+                r#"{ "id": "Survival", "type": "release" }"#,
+            );
+            write_client_jar(
+                &version_dir,
+                "Survival",
+                &serde_json::json!({ "id": recorded }).to_string(),
+            );
+
+            let info = detect(&version_dir).expect("detect should succeed");
+            assert_eq!(info.vanilla_name, expected);
+        }
+    }
+
+    #[test]
+    fn client_version_outranks_the_client_jar_and_every_name() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let version_dir = write_version_dir(
+            dir.path(),
+            "1.19.4-pack",
+            r#"{ "id": "1.18.2-pack", "clientVersion": "1.21.1" }"#,
+        );
+        write_client_jar(&version_dir, "1.19.4-pack", r#"{ "id": "1.20.1" }"#);
+
+        let info = detect(&version_dir).expect("detect should succeed");
+        assert_eq!(info.vanilla_name, "1.21.1");
+    }
+
+    #[test]
+    fn name_fallbacks_use_id_before_json_file_name() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        for (folder, json, expected) in [
+            ("renamed", r#"{ "id": "1.12.2-Survival" }"#, "1.12.2"),
+            ("1.16.5-Survival", r#"{ "id": "Survival" }"#, "1.16.5"),
+        ] {
+            let version_dir = write_version_dir(dir.path(), folder, json);
+            let info = detect(&version_dir).expect("detect should succeed");
+            assert_eq!(info.vanilla_name, expected, "{folder}");
+        }
+    }
+
+    #[test]
+    fn flattened_fabric_json_reads_the_intermediary_version() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let version_dir = write_version_dir(
+            dir.path(),
+            "Fabric Pack",
+            r#"{
+                "id": "Fabric Pack",
+                "libraries": [
+                    { "name": "net.fabricmc:fabric-loader:0.15.11" },
+                    { "name": "net.fabricmc:intermediary:24w14a" }
+                ]
+            }"#,
+        );
+
+        let info = detect(&version_dir).expect("detect should succeed");
+        assert_eq!(info.vanilla_name, "24w14a");
+        assert_eq!(info.loader.as_deref(), Some("fabric"));
     }
 
     #[test]

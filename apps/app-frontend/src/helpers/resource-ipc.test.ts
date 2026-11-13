@@ -13,5 +13,5 @@ it('every resource IPC handler has a matching desktop permission declaration', (
     expect(handlers).toBeTruthy()
     expect(permissions).toBeTruthy()
     const names = (source: string) => [...new Set(source.match(/\bresource_[a-z_]+\b/g))].sort()
-    expect(names(handlers)).toEqual(names(permissions))
+    expect(names(handlers!)).toEqual(names(permissions!))
 })

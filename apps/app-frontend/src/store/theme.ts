@@ -36,6 +36,7 @@ export const DEFAULT_FEATURE_FLAGS = {
     page_transitions: true,
     advanced_filters_collapsed: true,
     auto_install_dependencies: true,
+    advanced_download_info: false,
 }
 
 export const THEME_OPTIONS = ['dark', 'light', 'oled', 'system'] as const

@@ -40,7 +40,7 @@ const props = withDefaults(
     {
         neverEmpty: true,
         // Intentional any type, as this default should only be used for primitives (string or number)
-        formatLabel: (item) => item.toString(),
+        formatLabel: (item: T) => String(item),
         capitalize: true,
         size: 'standard',
     },

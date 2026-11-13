@@ -1,0 +1,422 @@
+{
+  "id": "dspVZXKP",
+  "slug": "fast-better-grass",
+  "title": "Fast Better Grass",
+  "description": "Makes grass and related blocks use the top texture on the sides. Works with other resource packs!",
+  "author": "robotkoer",
+  "categories": [
+    "128x",
+    "16x",
+    "256x",
+    "32x",
+    "48x",
+    "512x+",
+    "64x",
+    "8x-",
+    "decoration",
+    "minecraft",
+    "models",
+    "realistic",
+    "simplistic",
+    "tweaks",
+    "vanilla-like"
+  ],
+  "display_categories": ["decoration", "minecraft", "models", "tweaks"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "resourcepack",
+  "downloads": 13963886,
+  "followers": 2707,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["minecraft"],
+  "game_versions": [
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "Alviiov6",
+  "date_created": "2023-01-28T14:09:55.563214Z",
+  "date_modified": "2026-09-15T17:46:43.902705Z",
+  "color": 2242588,
+  "published": "2023-01-28T14:09:55.563214Z",
+  "additional_categories": [
+    "128x",
+    "16x",
+    "256x",
+    "32x",
+    "48x",
+    "512x+",
+    "64x",
+    "8x-",
+    "realistic",
+    "simplistic",
+    "vanilla-like"
+  ],
+  "issues_url": "https://github.com/Fabulously-Optimized/fabulously-optimized/issues",
+  "source_url": "https://github.com/Fabulously-Optimized/fabulously-optimized/tree/main/Resource%20Packs/Fast%20Better%20Grass",
+  "wiki_url": "https://fabulously-optimized.gitbook.io/modpack/readme/changed-options#resource-packs",
+  "discord_url": "https://fabulously-optimized.github.io/discord",
+  "donation_urls": [],
+  "versions_total": 19,
+  "body": "**As seen on [Fabulously Optimized](https://modrinth.com/modpack/fabulously-optimized)!**\n\nThis resource pack makes the following blocks use the top texture on their sides as well:\n\n* Grass block\n* Snow-covered grass block\n* Dirt path\n* Podzol\n* Mycelium\n* Warped nylium\n* Crimson nylium\n\nDirt paths have a special feature - they \"spread\" to the block below in order to look more seamless on villages.\n\nIn other words, the pack imitates OptiFine's Better Grass feature (fast mode) in resource pack form. The imitation is done by solely adjusting vanilla block models, no assets from other mods are used.\n\nFAQ:\n\n* Q: Does this work with my resource pack?\n  *  A: Yes.\n* Q: Do I need any mods to use this?\n  *  A: No.\n* Q: Can you also imitate the fancy mode?\n  *  A: Not yet, maybe I'll figure a way out some day.\n* Q: How does it compare to other similar packs?\n  *  A: This resource pack: \n     * uses only models, no textures (looks good with other resource packs and has smaller filesize)\n     * requires no mods to use\n     * works with resource packs that also attempt to change block models\n     * has down-spreading dirt paths\n     * gives a minor performance boost\n* Q: Backports to older versions?\n  *  A: Not planned.",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/dspVZXKP/images/44b46fae71c21058a904311d99f63d4881d24b1c_350.webp",
+      "featured": true,
+      "title": "Village",
+      "description": "Default",
+      "created": "2023-01-28T14:12:30.697260Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/dspVZXKP/images/0d10827b2f42346f1ae7420e797ad34b4e2c881a_350.webp",
+      "featured": false,
+      "title": "Supported blocks",
+      "description": "Default",
+      "created": "2023-01-28T14:11:57.643420Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/dspVZXKP/images/ecdba620a0e62fcdae0b14cb467cab0bcaab26c7_350.webp",
+      "featured": false,
+      "title": "Supported blocks",
+      "description": "Faithful 64x",
+      "created": "2023-01-28T14:12:12.377509Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/dspVZXKP/images/80ad2f98d002d9db016eeec81b7dd5df8e24a3c3_350.webp",
+      "featured": false,
+      "title": "Village",
+      "description": "Faithful 64x",
+      "created": "2023-01-28T14:12:43.512585Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "robotkoer",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/user/2avTeeAE/icon.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "Alviiov6",
+      "name": "26.3+",
+      "version_number": "26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-15T17:46:43.902705Z",
+      "downloads": 289522,
+      "changelog": "Increased compatibility with future versions",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10907,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "U9zNcnWW",
+      "name": "26.2",
+      "version_number": "26.2",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-06-16T18:10:48.865426Z",
+      "downloads": 1662886,
+      "changelog": "Updated to 26.2",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10928,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "J3ILsuJi",
+      "name": "26.1",
+      "version_number": "26.1",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-03-23T17:49:58.260503Z",
+      "downloads": 1340980,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10928,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "xteFNcow",
+      "name": "1.21.11",
+      "version_number": "1.21.11",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-12-09T11:04:51.072760Z",
+      "downloads": 1349604,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10927,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "3bM2pL1r",
+      "name": "1.21.9",
+      "version_number": "1.21.9",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-10-01T16:02:55.912840Z",
+      "downloads": 536717,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10928,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "AoMig6dj",
+      "name": "1.21.7",
+      "version_number": "1.21.7",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-06-30T15:13:16.106140Z",
+      "downloads": 587563,
+      "changelog": "1.21.7 support",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10917,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2bVtaOUU",
+      "name": "1.21.6",
+      "version_number": "1.21.6",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-06-14T10:32:35.301597Z",
+      "downloads": 121415,
+      "changelog": "1.21.6 support",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10917,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "F1SMzWd8",
+      "name": "1.21.5",
+      "version_number": "1.21.5",
+      "version_type": "release",
+      "game_versions": [
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5"
+      ],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-03-25T16:50:58.660359Z",
+      "downloads": 646654,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fast Better Grass.zip",
+          "size": 10916,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

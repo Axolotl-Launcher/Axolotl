@@ -1,3 +1,5 @@
+import { errorText } from '@/helpers/error-text'
+
 import type { SeedMapTile, SeedMapTileRequest } from './backend.ts'
 
 export type SeedMapTileBounds = { minX: number; minZ: number; maxX: number; maxZ: number }
@@ -240,7 +242,7 @@ export function createSeedMapTileLayer(options: {
                 job.request.width === view.level.pixels &&
                 intersects(job, view.bounds)
             ) {
-                options.onError(error instanceof Error ? error.message : String(error))
+                options.onError(errorText(error))
             }
         } finally {
             inFlight.delete(job.key)

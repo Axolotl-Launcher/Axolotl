@@ -1,0 +1,221 @@
+{
+  "id": "t1tOiUHZ",
+  "slug": "create_plus",
+  "title": "Create+",
+  "description": "A simple, optimized, Vanilla+ pack, with the special exception of Create (and its addons). Now with Create: Aeronautics!",
+  "author": "Sshmoob",
+  "categories": [
+    "adventure",
+    "forge",
+    "lightweight",
+    "multiplayer",
+    "neoforge",
+    "optimization",
+    "technology"
+  ],
+  "display_categories": ["lightweight", "multiplayer", "technology"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 1480695,
+  "followers": 614,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["forge", "neoforge"],
+  "game_versions": ["1.19.2", "1.21.1"],
+  "latest_version": "BSg2ZS8u",
+  "date_created": "2024-04-29T02:33:54.609163Z",
+  "date_modified": "2026-06-15T00:34:52.861465Z",
+  "color": 6507106,
+  "published": "2024-04-29T02:33:54.609163Z",
+  "additional_categories": ["adventure", "optimization"],
+  "issues_url": "https://github.com/Sshmoob/Create-Plus/issues",
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 13,
+  "body": "Aeronautics is out, and an alpha release of Create+ is out with it! Remember though, it is an alpha. The summary is that some mods, like Tetra, are missing due to not being updated to the latest version, and as of right now, there is no server pack. However, a beta version is getting closer and closer over time.\n\n-------------------------------------------------------------------------------------\n\n### Create+ is built around a simple concept: A simple Vanilla+ modpack, but with one exception that the pack revolves around: _Create_.   \n\nYou can expect Vanilla+ mods like Supplementaries as well as Create addons such as Create: Aeronautics. It will also have mods to have players focus on the Create way of doing things - that is, the build it yourself way - such as Aileron. With it, in order to venture vast distances or travel quickly, players can't just make a bunch of firework rockets. They'll have to actually build planes, trains, helicopters, or whatever else floats their boat to do so. And don't forget about the infrastructure they'll need to build to do so.\n\n\n**Create+ also:**\n- Is Performant and lightweight. See the:\n<details>\n<summary>List of performance mods</summary>\n  \n- Flevorium\n- Sodium (obviously)\n- Entity Culling\n- Modernfix (with dynamic resources now enabled since issues were fixed)\n- Lithium\n- FerriteCore\n- ImmediatelyFast\n- Kerria\n- Fast Noise\n- Ixeris\n- C2ME\n- Cerulean\n- NERB (EMI has a craftables view, you know)\n- BadOptimizations\n- More Culling\n- Structure Layout Optimizer\n- Quickpack\n- Better Biome Reblend\n- Async Logger\n- Create Smart Bounds\n\n<br> \n\n- Not including Iris (for now, while it still has issues with Aeronautics) (when Iris is present some immediately fast optimizations get disabled, which is why you get better performance without it even if you aren't using shaders) (sorry for the parenthesis spamming)\n- Technically TooManyRecipeViewers, since it+EMI is faster than JEI+EMI\n- Fast Paintings (technically an optimization mod)\n\nSince you looked this far, you should also try using Java 25 and the jvm flags `-XX:+UseZGC -XX:+UseCompactObjectHeaders`. No need to unlock experimental vm options. You're welcome :)\n</details>\n\n- Is Built for survival multiplayer with friends.   \nVoicechat is already included, and it also has e4mc if you don't want to pay for a server or host one yourself. Although, if you want your friends to be able to play while you aren't on, [Kinetic](https://billing.kinetichosting.com/aff.php?aff=1024) is pretty cheap... <sup><sub> $8/month? For 8GB RAM? In this economy!?!<sup><sub>  \n\n- Has the visual upgrades your used to, like EMF+ETF for Fresh Animations and Fresh Player Extension, Polytone to support Visual Effects+, Continuity for connected textures, etc.. There are also smaller niceties like smooth swapping and eating animations.\n\n- Has a truly Vanilla+ base. No unbalanced, bloated, unnecessary mods. For example, Farmer's Delight and some addons for it, Quark (with some modules disabled), Amendments, etc. as well as smaller tweaks like potions stacking to 16 and Lootr.  \n  \nAnd plenty more. I hope you like it! If you have any suggestions or encounter any issues, just visit the report issues link of the side of this description.\n\n\n<details>\n<summary>All included mods (as of 6.0 Early Alpha E):</summary>\n\n### Mods\n\n- [[EMF] Entity Model Features](https://modrinth.com/mod/4I1XuqiY)\n- [[ETF] Entity Texture Features](https://modrinth.com/mod/BVzZfTc1)\n- [Aileron](https://modrinth.com/mod/b8kG1VGq)\n- [Alloyed](https://modrinth.com/mod/KUInlTFo)\n- [Amendments](https://modrinth.com/mod/6iTJugQR)\n- [Another Furniture](https://modrinth.com/mod/ulloLmqG)\n- [AppleSkin](https://modrinth.com/mod/EsAfCjCV)\n- [Architectury API](https://modrinth.com/mod/lhGA9TYQ)\n- [Armor Statues](https://modrinth.com/mod/bbGCtEvb)\n- [Async Logger](https://modrinth.com/mod/zvNzKfGF)\n- [AsyncParticles](https://modrinth.com/mod/c3onkd5k)\n- [Axes Are Weapons](https://modrinth.com/mod/1jvt7RTc)\n- [BadOptimizations](https://modrinth.com/mod/g96Z4WVZ)\n- [Balm](https://modrinth.com/mod/MBAkmtvl)\n- [Better Advancements](https://modrinth.com/mod/Q2OqKxDG)\n- [Better Biome Reblend](https://modrinth.com/mod/Xh8hkQmD)\n- [Bookshelf](https://modrinth.com/mod/uy4Cnpcm)\n- [Carry On](https://modrinth.com/mod/joEfVgkn)\n- [Cerulean](https://modrinth.com/mod/dv57xmf9)\n- [Chat Heads](https://modrinth.com/mod/Wb5oqrBJ)\n- [Cloth Config API](https://modrinth.com/mod/9s6osm5g)\n- [Companion 🐕](https://modrinth.com/mod/4w0EzGRW)\n- [Concurrent Chunk Management Engine (NeoForge)](https://modrinth.com/mod/COlSi5iR)\n- [Configured Defaults](https://modrinth.com/mod/SISoSFPP)\n- [Connector Extras](https://modrinth.com/mod/FYpiwiBR)\n- [Continuity](https://modrinth.com/mod/1IjD5062)\n- [Controlling](https://modrinth.com/mod/xv94TkTM)\n- [CoroUtil](https://modrinth.com/mod/rLLJ1OZM)\n- [Create](https://modrinth.com/mod/LNytGWDc)\n- [Create Aeronautics](https://modrinth.com/mod/oWaK0Q19)\n- [Create Big Cannons](https://modrinth.com/mod/GWp4jCJj)\n- [Create Slice & Dice](https://modrinth.com/mod/GmjmRQ0A)\n- [Create Smart Bounds](https://modrinth.com/mod/kSok4DxT)\n- [Create: Bells & Whistles](https://modrinth.com/mod/gJ5afkVv)\n- [Create: Bits 'n' Bobs](https://modrinth.com/mod/T8bvmqVZ)\n- [Create: Cardboarded Conveynience](https://modrinth.com/mod/dWU6xUnj)\n- [Create: Extended Wrenches](https://modrinth.com/mod/WNRCHiE5)\n- [Create: Factory](https://modrinth.com/mod/j6Zt3N7W)\n- [Create: Framed](https://modrinth.com/mod/15fFZ3f4)\n- [Create: Pattern Schematics](https://modrinth.com/mod/cpqKG67r)\n- [Create: Prismatic Shine](https://modrinth.com/mod/udEtt0b2)\n- [Create: Shuffle Filter](https://modrinth.com/mod/gv5RRavC)\n- [Cut Through](https://modrinth.com/mod/Dk6su9JN)\n- [Detail Armor Bar Reconstructed](https://modrinth.com/mod/Si9Uim4y)\n- [Ding](https://modrinth.com/mod/UEtTD3gP)\n- [Distracting Trims](https://modrinth.com/mod/xQU6E1ee)\n- [Dynamic FPS](https://modrinth.com/mod/LQ3K71Q1)\n- [e4mc](https://modrinth.com/mod/qANg5Jrr)\n- [Easy Anvils](https://modrinth.com/mod/OZBR5JT5)\n- [Eating Animations](https://modrinth.com/mod/X8CISwXp)\n- [Ecologics](https://modrinth.com/mod/NCKpPR0Z)\n- [EMI](https://modrinth.com/mod/fRiHVvU7)\n- [EMI Loot](https://modrinth.com/mod/qbbO7Jns)\n- [EMI++](https://modrinth.com/mod/AWMWYMwC)\n- [End's Delight](https://modrinth.com/mod/yHN0njMr)\n- [Entity Culling](https://modrinth.com/mod/NNAgCjsB)\n- [Explosive Enhancement: Reforged](https://modrinth.com/mod/r0camchr)\n- [Farmer's Delight](https://modrinth.com/mod/R2OftAxM)\n- [Fast Noise](https://modrinth.com/mod/OnlVIpq5)\n- [Fast Paintings](https://modrinth.com/mod/z3TzcquW)\n- [FerriteCore](https://modrinth.com/mod/uXXizFIs)\n- [Flerovium](https://modrinth.com/mod/4Rh1Mobu)\n- [Forgified Fabric API](https://modrinth.com/mod/Aqlf1Shp)\n- [Fzzy Config](https://modrinth.com/mod/hYykXjDp)\n- [GPUBooster](https://modrinth.com/mod/5CTSrY8X)\n- [GroovyModLoader (GML)](https://modrinth.com/mod/zg2tT2Vu)\n- [iChunUtil](https://modrinth.com/mod/W6ROj0Hl)\n- [ImmediatelyFast](https://modrinth.com/mod/5ZwdcRci)\n- [Inventory Blur](https://modrinth.com/mod/lTS6nyFs)\n- [Ixeris](https://modrinth.com/mod/p8RJPJIC)\n- [Kerria](https://modrinth.com/mod/f0ruQTF7)\n- [Kiwi 🥝](https://modrinth.com/mod/ufdDoWPd)\n- [Konkrete](https://modrinth.com/mod/J81TRJWm)\n- [Kotlin for Forge](https://modrinth.com/mod/ordsPcFz)\n- [LambDynamicLights - Dynamic Lights](https://modrinth.com/mod/yBW8D80W)\n- [Lithium](https://modrinth.com/mod/gvQqBUqZ)\n- [Lodestone](https://modrinth.com/mod/bN3xUWdo)\n- [Lootr](https://modrinth.com/mod/EltpO5cN)\n- [M.R.U](https://modrinth.com/mod/SNVQ2c0g)\n- [Map Atlases [Forge]](https://modrinth.com/mod/4hwXMFif)\n- [Miner's Delight](https://modrinth.com/mod/qMxbM4BQ)\n- [Model Gap Fix](https://modrinth.com/mod/QdG47OkI)\n- [ModernFix](https://modrinth.com/mod/nmDcB62a)\n- [Moonlight Lib](https://modrinth.com/mod/twkfQtEc)\n- [More Culling](https://modrinth.com/mod/51shyZVL)\n- [More Sounds](https://modrinth.com/mod/8jvcOd6S)\n- [Mouse Tweaks](https://modrinth.com/mod/aC3cM3Vq)\n- [My Nether's Delight](https://modrinth.com/mod/O53VhQoZ)\n- [Neo Bee Fix](https://modrinth.com/mod/DzSY371i)\n- [NetherPortalFix](https://modrinth.com/mod/nPZr02ET)\n- [Not Enough Animations](https://modrinth.com/mod/MPCX6s5C)\n- [Not Enough Recipe Book [NERB]](https://modrinth.com/mod/bQh7xzFq)\n- [Particle Effects](https://modrinth.com/mod/PLAGcSFJ)\n- [Polytone](https://modrinth.com/mod/3qAYkBMB)\n- [Potion Stacks](https://modrinth.com/mod/CQTUbhIo)\n- [Prickle](https://modrinth.com/mod/aaRl8GiW)\n- [Puzzles Lib](https://modrinth.com/mod/QAGBst4M)\n- [Quark](https://modrinth.com/mod/qnQsVE2z)\n- [quick pack](https://modrinth.com/mod/pSISfJ4O)\n- [Reconnectible Chains](https://modrinth.com/mod/5pzBXDS3)\n- [Reese's Sodium Options](https://modrinth.com/mod/Bh37bMuy)\n- [Resourceful Config](https://modrinth.com/mod/M1953qlQ)\n- [Resourcify](https://modrinth.com/mod/RLzHAoZe)\n- [Ritchie's Projectile Library](https://modrinth.com/mod/B3pb093D)\n- [Sable](https://modrinth.com/mod/T9PomCSv)\n- [Sable: Physics Compat](https://modrinth.com/mod/sZbcIrJb)\n- [Scholar](https://modrinth.com/mod/fX4dIQCo)\n- [Seamless Sleep](https://modrinth.com/mod/IyHq05yB)\n- [Searchables](https://modrinth.com/mod/fuuu3xnx)\n- [ShatterLib | OctoLib](https://modrinth.com/mod/RH2KUdKJ)\n- [Simple Netherite Horse Armor](https://modrinth.com/mod/nDFVOeq7)\n- [Simple Voice Chat](https://modrinth.com/mod/9eGKb6K1)\n- [Sinytra Connector](https://modrinth.com/mod/u58R1TMW)\n- [SmartBlockPlacement](https://modrinth.com/mod/WVehudAZ)\n- [Smarter Farmers (farmers replant)](https://modrinth.com/mod/Bh6ZOMvp)\n- [Smooth Swapping](https://modrinth.com/mod/ydZic5r4)\n- [Sodium](https://modrinth.com/mod/AANobbMI)\n- [Sodium Extra](https://modrinth.com/mod/PtjYWJkn)\n- [Sophisticated Backpacks](https://modrinth.com/mod/TyCTlI4b)\n- [Sophisticated Core](https://modrinth.com/mod/nmoqTijg)\n- [Sounds](https://modrinth.com/mod/ZouiUX7t)\n- [Status Effect Bars Reforged](https://modrinth.com/mod/TxIuhIFo)\n- [Steam 'n' Rails Neoforge](https://modrinth.com/mod/L3Jv0QZI)\n- [Structure Layout Optimizer](https://modrinth.com/mod/ayPU0OHc)\n- [Supplementaries](https://modrinth.com/mod/fFEIiSDQ)\n- [ToolTipFix](https://modrinth.com/mod/2RKFTmiB)\n- [TooManyRecipeViewers](https://modrinth.com/mod/yFypjcfd)\n- [TrashSlot](https://modrinth.com/mod/vRYk0bv7)\n- [TxniLib](https://modrinth.com/mod/vBbPDuOs)\n- [Updating World Icon](https://modrinth.com/mod/ZlX3EVmE)\n- [Yeetus Experimentus](https://modrinth.com/mod/HaaH232J)\n- [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/1eAoo2KR)\n- [YUNG's API](https://modrinth.com/mod/Ua7DFN59)\n- [YUNG's Better Desert Temples](https://modrinth.com/mod/XNlO7sBv)\n- [YUNG's Better Dungeons](https://modrinth.com/mod/o1C1Dkj5)\n- [YUNG's Better Nether Fortresses](https://modrinth.com/mod/Z2mXHnxP)\n- [YUNG's Better Ocean Monuments](https://modrinth.com/mod/3dT9sgt4)\n- [YUNG's Better Strongholds](https://modrinth.com/mod/kidLKymU)\n- [YUNG's Extras](https://modrinth.com/mod/ZYgyPyfq)\n- [Zeta](https://modrinth.com/mod/MVARlG2f)\n- [Zume](https://modrinth.com/mod/o6qsdrrQ)\n\n### Resource Packs\n\n- [Fresh Animations](https://modrinth.com/resourcepack/50dA9Sha)\n- [Fresh Animations: Player Extension](https://modrinth.com/resourcepack/TAIMVZCL)\n- [Visual Effects+](https://modrinth.com/resourcepack/ZyZknBVG)\n\n</details>",
+  "gallery": [],
+  "team": [
+    {
+      "username": "Sshmoob",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/TxEqj3YD/9d7374716caabe827eee36333ea355a2aa7a1179_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "BSg2ZS8u",
+      "name": "Create+ 6.0.0 Alpha f",
+      "version_number": "6.0.0-alpha-f",
+      "version_type": "alpha",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-06-15T00:34:52.861465Z",
+      "downloads": 672087,
+      "changelog": "- Update Aero\n- Update Sable\n- Update Sodium\n- Update many others\n- _Add Components and Additions_\n- Add many other mods (mostly sable fixes but also Reliable Advancements and Brick and Mortar)\n- Fix EMI bug",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+ 6.0.0 Alpha f.mrpack",
+          "size": 3540285,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "3XKDXorU",
+      "name": "Create+ 6.0.0 Alpha E",
+      "version_number": "6.0.0-alpha-e",
+      "version_type": "alpha",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-05-16T23:04:46.050414Z",
+      "downloads": 118147,
+      "changelog": "- Remove Enchancement\n- Remove End Remastered until I have actually tried it in a playthrough \n- Other small updates and changes",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+-6.0.0 Alpha E.mrpack",
+          "size": 811506,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Tg9n3zcA",
+      "name": "Create+ 6.0.0 Early Alpha (D)",
+      "version_number": "6.0.0-alpha-d",
+      "version_type": "alpha",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-04-27T00:44:47.216062Z",
+      "downloads": 99269,
+      "changelog": "- Fixed Appleskin crash, enabled by default!\n- Iris (and Complementary Shaders to go with it)\n- C2ME\n- Async Particles\n- Ixeris\n- Update Sable, Aero, and Create\n- Smartblockplacement\n- Back to Zume from Ok Zoomer (yay)\n- Default options and controls included",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+-6.0.0 Alpha D.mrpack",
+          "size": 7816759,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "9LkhwJXA",
+      "name": "Create+ 6.0.0 Early Aero Alpha (C)",
+      "version_number": "6.0.0-alpha-c",
+      "version_type": "alpha",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-04-21T04:43:28.192511Z",
+      "downloads": 34474,
+      "changelog": "- Fixed Create recipes not showing in EMI\n- Fixed some bugs with CBC\n- Improved memory performance further by enabling dynamic resources by default. Surprisingly, from my testing, this didn't cause any new issues, but if you do find any, let me know!\n- Vault size -> 32 stacks\n- Other small changes and mod updates",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+ 6.0.0 Alpha C.mrpack",
+          "size": 9719140,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OXO8nbBc",
+      "name": "Create+ 6.0.0 Early Aeronautics Alpha (B)",
+      "version_number": "6.0.0-alpha-b",
+      "version_type": "alpha",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-04-19T21:28:58.877774Z",
+      "downloads": 10532,
+      "changelog": "- Fix a crash caused by enchancement\n- Fix 2 other bugs\n- Re-enable Flevorium now that it updated to support Aero, resulting in better performance\n- Add Kerria for better performance",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+ 6.0.0 Alpha (B).mrpack",
+          "size": 5549209,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KcmBnLug",
+      "name": "Create+ 6.0.0 Early Aero Alpha",
+      "version_number": "6.0.0-alpha-a",
+      "version_type": "alpha",
+      "game_versions": ["1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-04-19T17:26:29.289865Z",
+      "downloads": 6585,
+      "changelog": "Too many changes to count, but the important ones are Create v6, Create Simulated (+Aeronautics+Offroad), and 1.21.1 Neo. The pack is also much lighter, but some of it is due to bugs and incompatibilities that need to be fixed first with certain mods.  \nI also have to update my own mods as well, and reconfigure everything (I restarted configs from scratch).  \nThis is pretty early, don't expect anything polished, but at least you have a somewhat decent pack you can use to play Aeronautics with your friends!",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+ 1.21.1-6.0.0 Alpha.mrpack",
+          "size": 5027147,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OirSzesD",
+      "name": "Create+ 5.2.1b",
+      "version_number": "5.2.1b",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-08-27T04:57:00.220468Z",
+      "downloads": 369045,
+      "changelog": "EMERGENCY HOTFIX: Create Crafts and Additions got removed somehow, oops.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+ 5.2.1b.mrpack",
+          "size": 27209112,
+          "primary": true
+        },
+        {
+          "filename": "Create+ 5.2.1b (Server Pack).mrpack",
+          "size": 20714395,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "fkhIORJR",
+      "name": "Create+ 5.2.1a",
+      "version_number": "5.2.1a",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-08-06T00:27:43.805278Z",
+      "downloads": 20073,
+      "changelog": "NOTICE: HOW SERVER PACKS WORK HAS BEEN REDONE. It is now available as a .mrpack file instead of a zip archive.\nThis will be transferred to a seperate project in the future but for right now it will remain at the bottom of this page.\n\n\n- Fixed graphical bugs with tooltips (fixes #18)\n- Disable allowing players to right click ice to put items into it. I wish it was shift-click instead, so this feature could still be used for decoration, but with the mod's current implementation it is just too annoying. (Fixes #22)\n- Update mods",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Create+ 5.2.1a.mrpack",
+          "size": 27448596,
+          "primary": true
+        },
+        {
+          "filename": "Create+ 5.2.1a (Server Pack).mrpack",
+          "size": 20954147,
+          "primary": false
+        }
+      ]
+    }
+  ]
+}

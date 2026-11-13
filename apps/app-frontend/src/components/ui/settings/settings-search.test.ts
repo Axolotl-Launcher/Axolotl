@@ -40,6 +40,7 @@ const settingsComponentFiles = {
         './StorageSettings.vue',
     ],
     'privacy-data': ['./PrivacySettings.vue'],
+    'third-party-accounts': ['./ThirdPartyAccountsSettings.vue'],
     'instance-sync': ['./instances/index.vue'],
     updates: ['./UpdateSettings.vue'],
     logs: ['./LogsSettings.vue'],
@@ -202,7 +203,11 @@ it('settings navigation groups preserve the intended Axolotl information archite
         'content-downloads',
         'network-multiplayer',
     ])
-    expect(categoriesForGroup('data-privacy')).toEqual(['storage-backups', 'privacy-data'])
+    expect(categoriesForGroup('data-privacy')).toEqual([
+        'storage-backups',
+        'third-party-accounts',
+        'privacy-data',
+    ])
     expect(categoriesForGroup('support')).toEqual([
         'updates',
         'about',
@@ -251,11 +256,13 @@ it('every settings search result resolves to a category and a scroll target', ()
             },
         ]
         const literal = template.includes(`id="${targetId}"`)
+        // LogAgent's local setup reuses the section without the settings-page anchor.
+        const conditional = template.includes(`:id="localSetup ? undefined : '${targetId}'"`)
         const interpolated = interpolations.some(
             ({ prefix, pattern }) => targetId.startsWith(prefix) && template.includes(pattern),
         )
         expect(
-            literal || interpolated,
+            literal || conditional || interpolated,
             `${entry.id}: no anchor for ${targetId} in ${entry.categoryId}`,
         ).toBe(true)
     }

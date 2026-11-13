@@ -1,0 +1,254 @@
+{
+  "id": "bHUKuhiA",
+  "slug": "optifabric-modpack",
+  "title": "OptiFabric",
+  "description": "Best alternative to OptiFine",
+  "author": "Creanter",
+  "categories": ["adventure", "combat", "fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 1753930,
+  "followers": 535,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "h1PDx4J8",
+  "date_created": "2024-01-13T00:09:39.802383Z",
+  "date_modified": "2026-10-04T14:47:09.211845Z",
+  "color": 9711383,
+  "published": "2024-01-13T00:09:39.802383Z",
+  "additional_categories": ["adventure", "combat"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/xJqUfX4d9K",
+  "donation_urls": [],
+  "versions_total": 263,
+  "body": "![OptiFabric Banner](https://www.bisecthosting.com/images/CF/OptiFABRIC/BH_OF_header.webp)\n\n[Discord](https://discord.gg/a2fhAY8wnQ)\n[My Projects](https://www.curseforge.com/members/creanter/projects)\n\n---\n\n## ✨ OptiFabric\n\n**OptiFabric** is a modern Fabric replacement for OptiFine, bringing OptiFine-like features, shader support, resource pack compatibility, and better optimization for higher FPS and smoother gameplay.\n\n---\n\n## 🚀 Main Benefits\n\n| Feature                         | Description                                                                                |\n| ------------------------------- | ------------------------------------------------------------------------------------------ |\n| ⚡ **Higher FPS**                | Improves overall game performance and responsiveness.                                      |\n| 💾 **Lower RAM Usage**          | Reduces memory usage and unnecessary system load.                                          |\n| 🌅 **Shader Support**           | Allows using shaders on Fabric.                                                            |\n| 🧱 **Rendering Optimization**   | Optimizes blocks, entities, chunks, and visual effects.                                    |\n| 👀 **Smart Culling**            | Stops rendering blocks and entities that are not visible to the player.                    |\n| 🌐 **Server Ping Optimization** | Improves multiplayer server list pinging and makes refreshing servers faster and smoother. |\n| 🛡️ **Background Optimization** | Lowers resource usage when Minecraft is minimized.                                         |\n\n---\n\n## ❓ What Does It Replace From OptiFine?\n\n| Feature                    |   Support  |\n| -------------------------- | :--------: |\n| 🔍 Zoom                    | ✅ Included |\n| 🌅 Shaders                 | ✅ Included |\n| 💡 Dynamic Lights          | ✅ Included |\n| 🍃 Smart Leaves            | ✅ Included |\n| 🦸 Capes                   | ✅ Included |\n| ⚙️ Advanced Video Settings | ✅ Included |\n| 📸 HD Screenshots          | ✅ Included |\n\n---\n\n## 🎨 Resource Pack Features\n\n|                          |                          |\n| ------------------------ | ------------------------ |\n| 🖼️ Animated Textures    | 🔗 Connected Textures    |\n| 🔳 Custom GUI            | 🪙 Custom Items          |\n| ☁️ Custom Sky            | 🅰️ HD Fonts             |\n| 🎲 Random Entities       | 📐 Custom Entity Models  |\n| 🌈 Custom Colors         | 🚀 Splash Screen Support |\n| 🔍 Anisotropic Filtering | 📷 HD Screenshots        |\n\n---\n\n## 💬 Community & Support\n\nNeed help, want to report a bug, or follow updates? Join the Discord community.\n\n[Join Discord](https://discord.gg/xJqUfX4d9K)\n\n---\n\n[![Hosting](https://imgur.com/71IXfzh.png)](https://billing.sparkedhost.com/aff.php?aff=2774)\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/bHUKuhiA/images/b624e3f1300be65b0fc32f7572aae8be381ed48d_350.webp",
+      "featured": false,
+      "title": "Shaders",
+      "description": null,
+      "created": "2024-08-27T21:41:16.481414Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/bHUKuhiA/images/e8df53236c2f082bc28012f059c43faa5b2f6abd_350.webp",
+      "featured": false,
+      "title": "43 chunks",
+      "description": null,
+      "created": "2025-04-28T21:44:13.869718Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Creanter",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/131404555?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "h1PDx4J8",
+      "name": "9.0.0",
+      "version_number": "9.0.0",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-04T14:47:09.211845Z",
+      "downloads": 24779,
+      "changelog": "### ✅Update\n- MoreCulling, Iris Shaders, C2M, Lithium, EMF, ETF, Mod Menu, Reese's Sodium Options\n### ♻️Returned\n- Zoomify, Language Reload, Puzzle, Configured Defaults\n### ❌Removed\n- **Ok Zoomer → It's Zoom!** — Zoomify is back\n- **Polytone** — Will return once it's updated",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFabric 26.3 9.0.0.mrpack",
+          "size": 1051567,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "XWKgv0W0",
+      "name": "9.0.0 beta 3",
+      "version_number": "9.0.0_beta_3",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-22T20:16:13.308197Z",
+      "downloads": 11842,
+      "changelog": "### ✨Added\n- Temporarily added **Ok Zoomer** as a replacement for **Zoomify**\n### ✅Update\n- EMF, ETF, Server Pinger Fixer, Cloth Config API, Fabric API\n### ♻️Returned\n- Entity Culling, ImmediatelyFast, Skyboxify, OptiGUI, Sodium Shadowy Path Blocks (SSPB), Animatica Refabricated, C2M, RenderScale\n### ❌Removed\n- Cubes Without Borders - now built into Minecraft\n### ⏳ Temporarily removed\n- Polytone, Puzzle, Language Reload, Configured Defaults, Zoomify",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFabric 26.3 9.0.0 beta 3.mrpack",
+          "size": 1051108,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "nX6peL0l",
+      "name": "9.0.0 beta 2",
+      "version_number": "9.0.0_beta_2",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-16T19:26:40.851091Z",
+      "downloads": 5116,
+      "changelog": "## ✅Update\n- Continuity, Fabric API\n## ♻️Returned\n- Lithium, Sodium Extra, Fabric Capes, EMF, ETF, LambDynamicLights, BetterGrassify, Mod Menu, Reese's Sodium Options\n## ⏳ Temporarily removed\n- LambDynamicLights, Cubes Without Borders, Polytone, Puzzle, Entity Culling, Language Reload, Skyboxify, OptiGUI, Sodium Shadowy Path Blocks (SSPB), Animatica Refabricated, Configured Defaults, RenderScale, ImmediatelyFast, Zoomify",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFabric 26.3 9.0.0 beta 2.mrpack",
+          "size": 57384,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fZzYmIM7",
+      "name": "9.0.0 beta 1",
+      "version_number": "9.0.0_beta_1",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T22:04:13.753229Z",
+      "downloads": 2061,
+      "changelog": "## Support 26.3",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFabric 26.3 9.0.0 beta 1.mrpack",
+          "size": 55593,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fgfohK8A",
+      "name": "8.0.2",
+      "version_number": "8.0.2",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-06T13:21:59.250892Z",
+      "downloads": 19480,
+      "changelog": "## ✅Update\n- Fabric loader 0.19.3 --> 0.19.5\n- ImmediatelyFast, Skyboxify, LambDynamicLights, Polytone, EMF, ETF, Fabric API",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optifabric 26.2 8.0.2.mrpack",
+          "size": 1065125,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "aAg5h5T4",
+      "name": "7.2.2",
+      "version_number": "7.2.2",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-06T13:21:36.005293Z",
+      "downloads": 3242,
+      "changelog": "## ✨Added\n- Polytone\n## ✅Update\n- Fabric loader 0.19.2 --> 0.19.5\n- Sodium, Iris Shaders, Sodium Extra, Lithium, MoreCulling, Entity Culling, ImmediatelyFast, Better Block Entities, LambDynamicLights, Skyboxify, ETF, EMF, Animatica Refabricated, Fabric Capes, Mod Menu, C2M, Language Reload, BetterGrassify, Reese's Sodium Options, Fabric API",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Optifabric 26.1.2 7.2.2.mrpack",
+          "size": 2378242,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WIBSNedi",
+      "name": "7.1.1",
+      "version_number": "7.1.1",
+      "version_type": "release",
+      "game_versions": ["26.1.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-06T13:21:08.493652Z",
+      "downloads": 497,
+      "changelog": "## ✅Update\n- Fabric loader 0.19.2 --> 0.19.5\n- Lithium, ImmediatelyFast, Entity Culling, MoreCulling, Better Block Entities, BetterGrassify, Skyboxify, Fabric Capes, RenderScale, EMF, ETF, Animatica Refabricated, LambDynamicLights, Language Reload, Dynamic FPS, Zoomify, Mod Menu, Reese's Sodium Options, YetAnotherConfigLib, Fabric Language Kotlin, Fabric API",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFabric 26.1.1 7.1.1.mrpack",
+          "size": 7124,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "pWcxWBXa",
+      "name": "7.0.1",
+      "version_number": "7.0.1",
+      "version_type": "release",
+      "game_versions": ["26.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-06T09:57:31.067713Z",
+      "downloads": 1702,
+      "changelog": "## ✅ Update\n- Fabric Loader 0.19.2 --> 0.19.5\n- ImmediatelyFast, Entity Culling, MoreCulling, Lithium, ETF, EMF, BetterGrassify, Fabric Capes, LambDynamicLights, Skyboxify, Animatica Refabricated, Dynamic FPS, Reese's Sodium Options, Zoomify, Mod Menu, Language Reload, YetAnotherConfigLib, Fabric API, Fabric Language Kotlin",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFabric 26.1 7.0.1.mrpack",
+          "size": 7106,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -14,12 +14,12 @@ import {
 import {
     Avatar,
     Button,
-    type ButtonMenuOption,
     commonMessages,
     defineMessages,
     FilterPills,
     injectNotificationManager,
     NewModal,
+    type OverflowMenuOption,
     StyledInput,
     Table,
     type TableColumn,
@@ -261,7 +261,7 @@ function refreshAllSyncedServers() {
     if (!refreshingAllSyncedServers.value) refreshMutation.mutate()
 }
 
-function syncedServerMenuOptions(server: SyncedServer): ButtonMenuOption[] {
+function syncedServerMenuOptions(server: SyncedServer): OverflowMenuOption[] {
     return [
         {
             id: 'refresh',
@@ -281,12 +281,12 @@ function syncedServerMenuOptions(server: SyncedServer): ButtonMenuOption[] {
             icon: EditIcon,
             action: () => openSyncedServerEditor(server),
         },
-        { type: 'divider' },
+        { divider: true },
         {
             id: 'remove',
             label: formatMessage(commonMessages.removeButton),
             icon: TrashIcon,
-            tone: 'red',
+            color: 'red',
             disabled: removeMutation.isPending.value,
             action: () => removeMutation.mutate(server.id),
         },

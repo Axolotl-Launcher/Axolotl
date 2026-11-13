@@ -44,15 +44,6 @@
                     </Button>
                 </div>
             </div>
-            <CollapsibleAdmonition
-                v-if="ctx.crashAnalysis?.value && !isFullscreen"
-                type="critical"
-                :header="crashHeader"
-                :items="crashItems"
-                dismissible
-                @dismiss="ctx.onDismissCrash?.()"
-            />
-
             <div class="flex items-center gap-2">
                 <StyledInput
                     v-model="searchQuery"
@@ -107,6 +98,14 @@
                         @toggle-fullscreen="toggleFullscreen"
                         @delete="handleDelete"
                     />
+                    <Button
+                        v-if="resolvedExportLog"
+                        type="quiet"
+                        :disabled="exportingLog || resolvedLoading"
+                        @click="handleExportLog"
+                    >
+                        <DownloadIcon />{{ formatMessage(consoleMessages.exportLog) }}
+                    </Button>
                 </div>
             </div>
 
@@ -187,7 +186,7 @@ import {
     WrapTextIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, isRef, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, isRef, nextTick, onBeforeUnmount, type Ref, ref } from 'vue'
 
 import Admonition from '#ui/components/base/Admonition.vue'
 import Button from '#ui/components/base/buttons/Button.vue'
@@ -212,6 +211,7 @@ import ConsoleActionButtons from './components/ConsoleActionButtons.vue'
 import ConsoleFilterPills from './components/ConsoleFilterPills.vue'
 import LogViewport from './components/LogViewport.vue'
 import { useConsoleFilters } from './composables'
+import { createConsoleLineFilter } from './composables/console-filtering'
 import { consoleMessages, localFindingMessages } from './messages'
 import { injectConsoleManager } from './providers'
 import type { LogLevel, LogLine } from './types'
@@ -608,47 +608,23 @@ const localCrashItems = computed<CollapsibleAdmonitionItem[]>(() => {
     return items
 })
 
-const crashHeader = computed(() => {
-    const analysis = ctx.crashAnalysis?.value
-    const findings = analysis?.findings.length ?? 0
-    return formatMessage(consoleMessages.crashHeader, { findings })
-})
-
-const crashItems = computed<CollapsibleAdmonitionItem[]>(() => {
-    const analysis = ctx.crashAnalysis?.value
-    if (!analysis) return []
-    return analysis.findings.map((finding) => {
-        const copy = localFindingCopy[finding.id as keyof typeof localFindingCopy]
-        const title = copy
-            ? formatMessage(copy.title)
-            : formatMessage(consoleMessages.fallbackFindingTitle, { finding: finding.id })
-        const action = copy
-            ? formatMessage(copy.action)
-            : formatMessage(consoleMessages.fallbackFindingAction)
-        const evidence = finding.evidence.map(
-            (item) => `${item.filename}:${item.line} - ${item.text}`,
-        )
-        const mods = analysis.mods.map((mod) => {
-            const identity = mod.name || mod.id || mod.file_name
-            const modId = mod.id && mod.id !== identity ? ` (${mod.id})` : ''
-            return formatMessage(consoleMessages.matchedMod, {
-                identity,
-                modId,
-                fileName: mod.file_name,
-            })
-        })
-        return {
-            title,
-            descriptions: [action, ...mods, ...evidence],
-        }
-    })
-})
-
 const viewportRef = ref<InstanceType<typeof LogViewport> | null>(null)
 const shareModal = ref<InstanceType<typeof ShareModal> | null>(null)
 const deleteModal = ref<InstanceType<typeof NewModal> | null>(null)
 const isDeleting = ref(false)
 const exportingCrashContext = ref(false)
+const exportingLog = ref(false)
+const resolvedExportLog = computed(() => unwrapMaybeRef(ctx.onExportLog))
+async function handleExportLog() {
+    const exportLog = resolvedExportLog.value
+    if (!exportLog || exportingLog.value) return
+    exportingLog.value = true
+    try {
+        await exportLog()
+    } finally {
+        exportingLog.value = false
+    }
+}
 const searchQuery = ref('')
 const wrapLines = ref(false)
 const logFontSize = ref(12)
@@ -664,7 +640,8 @@ const fullscreenBodyClass = 'modrinth-console-fullscreen-active'
 const fullscreenIntercomPadding = 20
 const fullscreenIntercomPaddingRequestId = Symbol('console-fullscreen')
 const isApp =
-    typeof window !== 'undefined' && !!(window as Record<string, unknown>).__TAURI_INTERNALS__
+    typeof window !== 'undefined' &&
+    !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 const isSharing = ref(false)
 const { activeFilters, toggleFilter, buildFilterPredicate } = useConsoleFilters()
 const hasLogs = computed(() => ctx.logLines.value.length > 0)
@@ -699,17 +676,15 @@ function buildCombinedPredicate(): ((line: LogLine) => boolean) | null {
     }
 }
 
+const filterLines = createConsoleLineFilter()
 const filteredLines = computed(() => {
     const predicate = buildCombinedPredicate()
     const src = ctx.logLines.value
-    if (!predicate) {
-        return src.map((line, i) => ({ line, originalIndex: i }))
-    }
-    const out: Array<{ line: LogLine; originalIndex: number }> = []
-    for (let i = 0; i < src.length; i++) {
-        if (predicate(src[i]!)) out.push({ line: src[i]!, originalIndex: i })
-    }
-    return out
+    return filterLines(
+        src,
+        JSON.stringify([[...activeFilters.value].sort(), searchQuery.value]),
+        predicate,
+    )
 })
 
 onBeforeUnmount(() => {
@@ -747,7 +722,7 @@ const showCommandInput = computed(() => {
 
 const commandDisabled = computed(() => unwrapMaybeRef(ctx.disableCommandInput) ?? false)
 
-const commandDisabledTooltip = computed(() => ctx.disableCommandInputTooltip?.value)
+const commandDisabledTooltip = computed(() => unwrapMaybeRef(ctx.disableCommandInputTooltip))
 
 const commandPlaceholder = computed(() => {
     if (!commandDisabled.value) return formatMessage(consoleMessages.commandPlaceholder)
@@ -786,7 +761,7 @@ const resolvedDeleteDisabled = computed(() => {
     return isRef(v) ? v.value : v
 })
 
-function unwrapMaybeRef<T>(value: T | { value: T } | undefined): T | undefined {
+function unwrapMaybeRef<T>(value: T | Ref<T> | undefined): T | undefined {
     if (value === undefined) return undefined
     return isRef(value) ? value.value : value
 }

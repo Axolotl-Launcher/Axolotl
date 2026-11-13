@@ -4,12 +4,12 @@
  * Handles single-file drops, batch drops, launcher instance imports,
  * modpack installs, content installation, and all related UI flows.
  */
-
 import type {
     BatchDropGroup,
     BatchDropItem,
     BatchDropPhase,
     ClassificationResult,
+    FileDropProvider,
     SymlinkMethodChoice,
     SymlinkMethodInstance,
 } from '@modrinth/ui'
@@ -18,7 +18,6 @@ import { join } from '@tauri-apps/api/path'
 import { computed, type ComputedRef, nextTick, ref } from 'vue'
 import type { Router } from 'vue-router'
 
-import { syncConfiguredDirectLinks } from '@/helpers/direct-link-sync'
 import {
     classifyDroppedItem,
     classifyDroppedItemWithExtraction,
@@ -31,6 +30,7 @@ import {
     scanLauncherInstances,
     type ScanResult,
 } from '@/helpers/drop'
+import { errorText } from '@/helpers/error-text'
 import { import_instance } from '@/helpers/import.js'
 import {
     install_create_modpack_instance,
@@ -39,13 +39,13 @@ import {
 } from '@/helpers/install'
 import {
     add_project_from_path,
-    type ExternalMinecraftRoot,
     get as getInstance,
     import_world_save,
     install_datapack_to_world,
     list as listInstances,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
+import { addMinecraftRoot } from '@/helpers/minecraft-roots'
 import { assessLocalModCompatibility } from '@/helpers/version-compatibility'
 import type { AppNotificationManager } from '@/providers/app-notifications'
 import type { AppPopupNotificationManager } from '@/providers/app-popup-notifications'
@@ -110,7 +110,7 @@ export interface DropImportOptions {
     /** Content install provider functions */
     contentInstall: ContentInstallContext
     /** File drop handler from providers */
-    fileDrop: (paths: string[]) => void
+    fileDrop: FileDropProvider
     /** Whether currently on skins page */
     onSkinsPage: ComputedRef<boolean>
     /** Whether currently on schematic workshop page */
@@ -195,6 +195,7 @@ export function useDropImport(options: DropImportOptions) {
                 launcherType?: string
                 basePath?: string
                 compatibleMode?: boolean
+                versionPath?: string
             }>
         }) => void
         hide: () => void
@@ -312,6 +313,15 @@ export function useDropImport(options: DropImportOptions) {
             id: 'app.drop.error.unknown-text',
             defaultMessage: 'Could not determine what kind of file this is.',
         },
+        dropInvalidFolderText: {
+            id: 'app.drop.error.invalid-folder-text',
+            defaultMessage:
+                'No valid game instance or supported content was found in this folder. Choose another folder.',
+        },
+        dropInvalidFolderTitle: {
+            id: 'app.drop.error.invalid-folder-title',
+            defaultMessage: 'Cannot import folder',
+        },
         dropUnknownDepthText: {
             id: 'app.drop.error.unknown-depth-text',
             defaultMessage:
@@ -377,6 +387,11 @@ export function useDropImport(options: DropImportOptions) {
         dropNoInstances: {
             id: 'app.drop.no-instances',
             defaultMessage: 'No instances found',
+        },
+        dropNoInstancesText: {
+            id: 'app.drop.no-instances-text',
+            defaultMessage:
+                'No valid game instance was found in this folder. Choose a launcher folder or a .minecraft folder containing a game version.',
         },
         dropMinecraftAdded: {
             id: 'app.drop.minecraft-root-added',
@@ -529,8 +544,19 @@ export function useDropImport(options: DropImportOptions) {
         return /\.zip$/i.test(path)
     }
 
+    function unknownTitleMessage(reason: string | undefined): string {
+        return formatMessage(
+            reason === 'folder_has_no_importable_content'
+                ? messages.dropInvalidFolderTitle
+                : messages.dropUnknownTitle,
+        )
+    }
+
     function unknownReasonMessage(reason: string | undefined): string {
         const normalized = reason?.toLowerCase() ?? ''
+        if (normalized === 'folder_has_no_importable_content') {
+            return formatMessage(messages.dropInvalidFolderText)
+        }
         if (normalized.includes('too deep') || normalized.includes('nesting')) {
             return formatMessage(messages.dropUnknownDepthText)
         }
@@ -636,7 +662,7 @@ export function useDropImport(options: DropImportOptions) {
                     launcherType,
                     basePath: gameDir,
                     name: versionName,
-                    path: gameDir,
+                    path: single.versionPath,
                     compatibleMode: true,
                     versionPath: single.versionPath,
                 },
@@ -645,7 +671,7 @@ export function useDropImport(options: DropImportOptions) {
                 instances: [
                     {
                         name: versionName,
-                        path: gameDir,
+                        path: single.versionPath,
                         launcherType,
                         basePath: gameDir,
                         compatibleMode: true,
@@ -655,19 +681,20 @@ export function useDropImport(options: DropImportOptions) {
             })
         } else if (choice === 'old-way') {
             const single = scanResults![0].instances[0]
+            const instancePath = single.versionPath ?? single.path
             selectedInstances.value = [
                 {
                     launcherType,
                     basePath: gameDir,
                     name: versionName,
-                    path: single.path,
+                    path: instancePath,
                 },
             ]
             symlinkCardsModal.value?.show({
                 instances: [
                     {
                         name: versionName,
-                        path: single.path,
+                        path: instancePath,
                         launcherType,
                         basePath: gameDir,
                     },
@@ -750,35 +777,15 @@ export function useDropImport(options: DropImportOptions) {
             scanningInstances.value = true
             try {
                 const path = (classification?.base_path ?? filePath).trim()
-                const raw = localStorage.getItem('axolotl-minecraft-directories')
-                const stored: unknown = raw ? JSON.parse(raw) : []
-                const roots: ExternalMinecraftRoot[] = (
-                    Array.isArray(stored) ? stored : []
-                ).flatMap((value) => {
-                    if (typeof value === 'string')
-                        return [{ path: value, mode: 'automatic' as const }]
-                    if (!value || typeof value.path !== 'string') return []
-                    return [
-                        {
-                            path: value.path,
-                            mode:
-                                value.mode === 'shared'
-                                    ? ('shared' as const)
-                                    : value.mode === 'automatic'
-                                      ? ('automatic' as const)
-                                      : ('isolated' as const),
-                        },
-                    ]
-                })
-                const existing = roots.find((root) => root.path === path)
-                if (!existing) roots.push({ path, mode: 'automatic' })
-                const report = await syncConfiguredDirectLinks(roots)
-                if (report.errors.length || report.missing) {
+                const { report, kept } = await addMinecraftRoot(
+                    path,
+                    (result) => !result.errors.length && !result.missing,
+                )
+                if (!kept) {
                     throw new Error(
                         report.errors.join('\n') || formatMessage(messages.dropNoInstances),
                     )
                 }
-                localStorage.setItem('axolotl-minecraft-directories', JSON.stringify(roots))
                 addNotification({
                     title: formatMessage(messages.dropMinecraftAdded),
                     type: 'success',
@@ -786,7 +793,7 @@ export function useDropImport(options: DropImportOptions) {
             } catch (error) {
                 addNotification({
                     title: formatMessage(messages.dropScanFailed),
-                    text: error instanceof Error ? error.message : String(error),
+                    text: errorText(error),
                     type: 'error',
                 })
             } finally {
@@ -822,7 +829,7 @@ export function useDropImport(options: DropImportOptions) {
                     })
                 } catch (error) {
                     launcherZipTempDir.value = null
-                    const errorDetail = error instanceof Error ? error.message : String(error)
+                    const errorDetail = errorText(error)
                     console.error(
                         '[DropFlow] launcher zip extraction failed:',
                         errorDetail,
@@ -850,7 +857,7 @@ export function useDropImport(options: DropImportOptions) {
                 dropDebug('handleDropConfirm: launcher scan failed', error)
                 addNotification({
                     title: formatMessage(messages.dropScanFailed),
-                    text: error instanceof Error ? error.message : String(error),
+                    text: errorText(error),
                     type: 'error',
                 })
                 cleanupLauncherZipTemp()
@@ -864,7 +871,11 @@ export function useDropImport(options: DropImportOptions) {
             if (totalInstances === 0) {
                 currentImportContext.value = null
                 dropDebug('handleDropConfirm: no instances found')
-                addNotification({ title: formatMessage(messages.dropNoInstances), type: 'warning' })
+                addNotification({
+                    title: formatMessage(messages.dropNoInstances),
+                    text: formatMessage(messages.dropNoInstancesText),
+                    type: 'warning',
+                })
                 cleanupLauncherZipTemp()
                 return
             }
@@ -1216,7 +1227,7 @@ export function useDropImport(options: DropImportOptions) {
                             notificationManager.removeNotification(analyzingNotification.id)
                             addNotification({
                                 title: formatMessage(messages.dropUnknownForceAnalysisFailedTitle),
-                                text: e instanceof Error ? e.message : String(e),
+                                text: errorText(e),
                                 type: 'error',
                             })
                         }
@@ -1233,7 +1244,7 @@ export function useDropImport(options: DropImportOptions) {
     ) {
         if (result.item_type === 'unknown') {
             addNotification({
-                title: formatMessage(messages.dropUnknownTitle),
+                title: unknownTitleMessage(result.reason),
                 text: unknownReasonMessage(result.reason),
                 type: 'error',
             })
@@ -1311,7 +1322,7 @@ export function useDropImport(options: DropImportOptions) {
                         } catch (e) {
                             addNotification({
                                 title: formatMessage(messages.dropProcessFailedTitle),
-                                text: e instanceof Error ? e.message : String(e),
+                                text: errorText(e),
                                 type: 'error',
                             })
                         }
@@ -1472,12 +1483,8 @@ export function useDropImport(options: DropImportOptions) {
         cleanupLauncherZipTemp()
     }
 
-    function resolvedInstancePath(
-        inst: SelectedInstance,
-        _ctx: ImportContext | null,
-    ): string | undefined {
-        if (inst.compatibleMode) return inst.versionPath
-        return inst.path
+    function resolvedInstancePath(inst: SelectedInstance): string {
+        return inst.versionPath ?? inst.path
     }
 
     async function onSymlinkMethodConfirmed(choices: SymlinkMethodChoice[] | boolean) {
@@ -1705,7 +1712,7 @@ export function useDropImport(options: DropImportOptions) {
                     )
                 } catch (error) {
                     item.scanState = 'error'
-                    item.reason = error instanceof Error ? error.message : String(error)
+                    item.reason = errorText(error)
                     console.log(`[BatchDrop] scan ERROR idx=${index}`, error)
                 } finally {
                     batchScanDone.value++
@@ -1729,7 +1736,10 @@ export function useDropImport(options: DropImportOptions) {
         )
         if (resolved.item_type === 'unknown') {
             item.scanState = 'skipped'
-            item.reason = resolved.reason ?? 'unknown'
+            item.reason =
+                resolved.reason === 'folder_has_no_importable_content'
+                    ? unknownReasonMessage(resolved.reason)
+                    : (resolved.reason ?? 'unknown')
             return
         }
 
@@ -1804,7 +1814,7 @@ export function useDropImport(options: DropImportOptions) {
                 scanBasePath = innerBase ? await join(tempDir, innerBase) : tempDir
             } catch (error) {
                 item.scanState = 'error'
-                item.reason = error instanceof Error ? error.message : String(error)
+                item.reason = errorText(error)
                 return
             }
         }
@@ -1817,7 +1827,7 @@ export function useDropImport(options: DropImportOptions) {
             )
             if (instances.length === 0) {
                 item.scanState = 'skipped'
-                item.reason = 'No importable instances found'
+                item.reason = formatMessage(messages.dropNoInstancesText)
                 return
             }
             item.scanState = 'done'
@@ -1841,7 +1851,7 @@ export function useDropImport(options: DropImportOptions) {
             }
         } catch (error) {
             item.scanState = 'error'
-            item.reason = error instanceof Error ? error.message : String(error)
+            item.reason = errorText(error)
         }
     }
 
@@ -2164,7 +2174,7 @@ export function useDropImport(options: DropImportOptions) {
         console.error('[BatchDrop] batch failed', error)
         addNotification({
             title: formatMessage(messages.dropImportFailedTitle),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
         batchPhase.value = 'idle'
@@ -2515,7 +2525,7 @@ export function useDropImport(options: DropImportOptions) {
                         })
                     } else {
                         addNotification({
-                            title: formatMessage(messages.dropUnknownTitle),
+                            title: unknownTitleMessage(classification?.reason),
                             text: unknownReasonMessage(classification?.reason),
                             type: 'error',
                         })
@@ -2638,6 +2648,7 @@ export function useDropImport(options: DropImportOptions) {
         clearDropProcessingNotification,
         showNestedUnpackPrompt,
         showForceAnalysisPrompt,
+        unknownTitleMessage,
         unknownReasonMessage,
     }
 }

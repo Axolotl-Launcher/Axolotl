@@ -171,6 +171,7 @@ export function useImageEditor() {
         element: HTMLCanvasElement,
         editorData: ImageViewerEditorData,
         viewportSize?: { width: number; height: number },
+        options?: { backgroundColor?: string; imageSmoothing?: boolean },
     ) {
         await dispose()
         loading.value = true
@@ -185,7 +186,11 @@ export function useImageEditor() {
                 width: originalWidth.value,
                 height: originalHeight.value,
                 enableRetinaScaling: false,
-                backgroundColor: '#111827',
+                // An empty background leaves the canvas transparent, which the
+                // export keeps: a surface that shows textures needs the cut-out
+                // pixels to stay cut out instead of being filled with the
+                // workspace colour.
+                backgroundColor: options?.backgroundColor ?? '#111827',
                 preserveObjectStacking: true,
                 selection: true,
             })
@@ -198,6 +203,10 @@ export function useImageEditor() {
                 originY: 'top',
                 width: originalWidth.value,
                 height: originalHeight.value,
+                // Smoothing is a per-image choice: a screenshot has no visible
+                // pixels, while a texture scaled up 25× turns to mush without
+                // nearest-neighbour sampling.
+                imageSmoothing: options?.imageSmoothing ?? true,
                 selectable: false,
                 evented: false,
                 excludeFromExport: false,
@@ -215,9 +224,15 @@ export function useImageEditor() {
     }
 
     function bindCanvasEvents(editorCanvas: FabricCanvas) {
-        editorCanvas.on('mouse:down', handleMouseDown)
-        editorCanvas.on('mouse:move', handleMouseMove)
-        editorCanvas.on('mouse:up', handleMouseUp)
+        editorCanvas.on('mouse:down', (event) =>
+            handleMouseDown(event as unknown as FabricPointerEvent),
+        )
+        editorCanvas.on('mouse:move', (event) =>
+            handleMouseMove(event as unknown as FabricPointerEvent),
+        )
+        editorCanvas.on('mouse:up', (event) =>
+            handleMouseUp(event as unknown as FabricPointerEvent),
+        )
         editorCanvas.on('object:added', () => {
             if (!constructingObject && !restoringHistory && !editorCanvas.isDrawingMode) {
                 recordHistory()
@@ -226,7 +241,7 @@ export function useImageEditor() {
         })
         editorCanvas.on('path:created', ({ path }) => {
             if (tool.value === 'eraser' && eraserMode.value === 'area') {
-                void eraseAreaWithPath(path).catch((error) => {
+                void eraseAreaWithPath(path as FabricPath).catch((error) => {
                     debugEraser('area:error', error)
                 })
                 return
@@ -767,9 +782,12 @@ export function useImageEditor() {
                         undefined,
                         object.calcTransformMatrix(),
                     )
-                    const nextClipPath = object.clipPath
-                        ? fabricModule.util.mergeClipPaths(object.clipPath, clipPath)
-                        : clipPath
+                    const nextClipPath: FabricObject = object.clipPath
+                        ? fabricModule.util.mergeClipPaths(
+                              object.clipPath as FabricObject,
+                              clipPath as FabricObject,
+                          )
+                        : (clipPath as FabricObject)
                     object.set('clipPath', nextClipPath)
                 }),
             )

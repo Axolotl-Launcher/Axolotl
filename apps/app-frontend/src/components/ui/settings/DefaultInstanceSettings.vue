@@ -3,6 +3,7 @@ import {
     Combobox,
     type ComboboxOption,
     defineMessages,
+    injectNotificationManager,
     StyledInput,
     Toggle,
     useVIntl,
@@ -17,11 +18,13 @@ import { createSettingsPatchSaver } from '@/helpers/settings-patch'
 import { usableU16 } from '@/helpers/usable-u16'
 
 import LogShareSettings from './LogShareSettings.vue'
+import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 import SharedLogsSettings from './SharedLogsSettings.vue'
 
 const { formatMessage } = useVIntl()
+const { handleError } = injectNotificationManager()
 
 const messages = defineMessages({
     gameLanguageSectionTitle: {
@@ -173,6 +176,15 @@ const fetchSettings = await get()
 const saveDraft = createSettingsPatchSaver(fetchSettings, update)
 const supportsMaximizeWindow = (await platform()) === 'windows'
 const settings = ref(fetchSettings)
+
+async function reloadSettings() {
+    try {
+        settings.value = await get()
+        saveDraft.reset(settings.value)
+    } catch (error) {
+        handleError(error)
+    }
+}
 const FOLLOW_LAUNCHER_LANGUAGE = 'follow-launcher'
 const gameLanguageOptions = computed<ComboboxOption<string>[]>(() => {
     const current = settings.value.default_game_language
@@ -264,6 +276,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.defaultGameLanguageDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="default_game_language"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Combobox
                         id="default-game-language"
@@ -292,6 +310,9 @@ watch(
                 <template #description>{{
                     formatMessage(messages.fullscreenDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="force_fullscreen" @cleared="reloadSettings" />
+                </template>
                 <template #control
                     ><Toggle id="fullscreen" v-model="settings.force_fullscreen"
                 /></template>
@@ -308,6 +329,9 @@ watch(
                             )
                         }}
                     </span>
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="maximize_window" @cleared="reloadSettings" />
                 </template>
                 <template #control>
                     <Toggle
@@ -329,9 +353,9 @@ watch(
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
-                        min="1"
-                        max="65535"
-                        step="1"
+                        :min="1"
+                        :max="65535"
+                        :step="1"
                         :placeholder="formatMessage(messages.widthPlaceholder)"
                         @update:model-value="(value: unknown) => setResolutionDimension(0, value)"
                     />
@@ -349,9 +373,9 @@ watch(
                         :disabled="settings.force_fullscreen"
                         autocomplete="off"
                         type="number"
-                        min="1"
-                        max="65535"
-                        step="1"
+                        :min="1"
+                        :max="65535"
+                        :step="1"
                         :placeholder="formatMessage(messages.heightPlaceholder)"
                         @update:model-value="(value: unknown) => setResolutionDimension(1, value)"
                     />
@@ -366,6 +390,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.windowTitleEnabledDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="custom_window_title_enabled"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="custom-window-title-enabled"
@@ -420,7 +450,10 @@ watch(
                 <template #control>
                     <StyledInput
                         id="pre-launch"
-                        v-model="settings.hooks.pre_launch"
+                        :model-value="settings.hooks.pre_launch ?? ''"
+                        @update:model-value="
+                            (value) => (settings.hooks.pre_launch = String(value ?? ''))
+                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.preLaunchPlaceholder)"
@@ -434,7 +467,10 @@ watch(
                 <template #control>
                     <StyledInput
                         id="wrapper"
-                        v-model="settings.hooks.wrapper"
+                        :model-value="settings.hooks.wrapper ?? ''"
+                        @update:model-value="
+                            (value) => (settings.hooks.wrapper = String(value ?? ''))
+                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.wrapperPlaceholder)"
@@ -448,7 +484,10 @@ watch(
                 <template #control>
                     <StyledInput
                         id="post-exit"
-                        v-model="settings.hooks.post_exit"
+                        :model-value="settings.hooks.post_exit ?? ''"
+                        @update:model-value="
+                            (value) => (settings.hooks.post_exit = String(value ?? ''))
+                        "
                         autocomplete="off"
                         type="text"
                         :placeholder="formatMessage(messages.postExitPlaceholder)"
@@ -471,6 +510,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.lightweightModeDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="enter_lightweight_mode_on_game_launch"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="enter-lightweight-mode-on-game-launch"
@@ -493,6 +538,12 @@ watch(
                 <template #description>{{
                     formatMessage(messages.minimizeLauncherDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="hide_on_process_start"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="minimize-launcher"

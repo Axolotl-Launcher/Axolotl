@@ -15,6 +15,7 @@ export type SettingsCategoryId =
     | 'network-connection'
     | 'storage-backups'
     | 'privacy-data'
+    | 'third-party-accounts'
     | 'updates'
     | 'about'
     | 'logs'
@@ -28,7 +29,6 @@ export interface SettingsCategoryDefinition {
     group: SettingsGroupId
     flushContent?: boolean
     developerOnly?: boolean
-    onboardingId?: string
 }
 
 /**
@@ -47,7 +47,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Appearance',
         }),
         group: 'launcher',
-        onboardingId: 'settings-tab-interface',
     },
     {
         id: 'home-navigation',
@@ -56,7 +55,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Home & navigation',
         }),
         group: 'launcher',
-        onboardingId: 'settings-tab-home-navigation',
     },
     {
         id: 'shortcut-settings',
@@ -65,7 +63,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Keyboard shortcuts',
         }),
         group: 'launcher',
-        onboardingId: 'settings-tab-shortcut-settings',
     },
     {
         id: 'language-translation',
@@ -74,7 +71,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Language & translation',
         }),
         group: 'launcher',
-        onboardingId: 'settings-tab-language-translation',
     },
     {
         id: 'ai',
@@ -84,7 +80,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
         }),
         group: 'launcher',
         flushContent: true,
-        onboardingId: 'settings-tab-ai',
     },
     {
         id: 'mcp',
@@ -101,7 +96,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Launch defaults',
         }),
         group: 'game',
-        onboardingId: 'settings-tab-launch-defaults',
     },
     {
         id: 'instance-sync',
@@ -110,7 +104,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Instance synchronization',
         }),
         group: 'game',
-        onboardingId: 'settings-tab-instance-sync',
     },
     {
         id: 'java-performance',
@@ -119,7 +112,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Java & performance',
         }),
         group: 'game',
-        onboardingId: 'settings-tab-java-performance',
     },
     {
         id: 'content-downloads',
@@ -128,7 +120,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Content & downloads',
         }),
         group: 'game',
-        onboardingId: 'settings-tab-content-downloads',
     },
     {
         id: 'network-multiplayer',
@@ -137,7 +128,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Network & multiplayer',
         }),
         group: 'game',
-        onboardingId: 'settings-tab-network-multiplayer',
     },
     {
         id: 'storage-backups',
@@ -146,7 +136,14 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Storage & backups',
         }),
         group: 'data-privacy',
-        onboardingId: 'settings-tab-storage-backups',
+    },
+    {
+        id: 'third-party-accounts',
+        name: defineMessage({
+            id: 'app.settings.tabs.third-party-accounts',
+            defaultMessage: 'Third-party accounts',
+        }),
+        group: 'data-privacy',
     },
     {
         id: 'privacy-data',
@@ -155,7 +152,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Privacy & data sharing',
         }),
         group: 'data-privacy',
-        onboardingId: 'settings-tab-privacy-data',
     },
     {
         id: 'updates',
@@ -164,7 +160,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Updates',
         }),
         group: 'support',
-        onboardingId: 'settings-tab-updates',
     },
     {
         id: 'about',
@@ -173,7 +168,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'About',
         }),
         group: 'support',
-        onboardingId: 'settings-tab-about',
     },
     {
         id: 'network-connection',
@@ -190,7 +184,6 @@ export const settingsCategoryDefinitions: SettingsCategoryDefinition[] = [
             defaultMessage: 'Logs & diagnostics',
         }),
         group: 'support',
-        onboardingId: 'settings-tab-logs',
     },
     {
         id: 'feature-flags',

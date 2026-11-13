@@ -33,11 +33,13 @@ export function useInstanceGroups(instances: Ref<{ id: string; groups: string[] 
     const libraryGroups = ref<InstanceGroupDefinition[]>([])
     const libraryGroupsLoaded = ref(false)
     let disposed = false
+    let fetchGeneration = 0
     let stopListening: (() => void) | undefined
 
     async function fetchGroups() {
+        const generation = ++fetchGeneration
         const groups = await list_groups()
-        if (disposed) return
+        if (disposed || generation !== fetchGeneration) return
         libraryGroups.value = groups
         libraryGroupsLoaded.value = true
     }

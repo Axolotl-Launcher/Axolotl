@@ -5,19 +5,20 @@
         :role="mode === 'local' ? 'tablist' : undefined"
         class="relative flex w-fit select-none overflow-x-auto rounded-full bg-surface-3 p-1 text-sm font-bold"
         :class="{ 'shadow-xl border border-solid border-surface-4': mode === 'navigation' }"
+        @click.capture="onTabClickCapture"
     >
         <template v-if="mode === 'navigation'">
             <RouterLink
                 v-for="(link, index) in filteredLinks"
                 v-show="link.shown ?? true"
                 :key="link.href"
-                ref="tabLinkElements"
                 :replace="replace"
                 :to="query ? (link.href ? `?${query}=${link.href}` : '?') : link.href"
-                :data-onboarding-id="link.onboardingId"
                 class="button-animation z-[1] flex flex-row items-center gap-2 px-4 py-2 focus:rounded-full"
                 :class="getSSRFallbackClasses(index)"
-                @click="saveSliderSnapshot(true)"
+                @pointerdown="onTabPointerDown(index, $event)"
+                @dragstart.capture="cancelPendingActivation"
+                @contextmenu.capture="cancelPendingActivation"
                 @mouseenter="link.onHover?.()"
                 @focus="link.onHover?.()"
             >
@@ -44,13 +45,12 @@
                 v-show="link.shown ?? true"
                 :id="link.href ? `nav-tab-${link.href}` : undefined"
                 :key="link.href"
-                ref="tabLinkElements"
                 type="button"
                 role="tab"
                 :aria-selected="index === currentActiveIndex"
                 class="button-animation z-[1] flex flex-row items-center gap-2 border-0 bg-transparent px-4 py-2 text-inherit hover:cursor-pointer focus:rounded-full"
                 :class="getSSRFallbackClasses(index)"
-                @click="emit('tabClick', index, link)"
+                @click="onLocalTabClick(index, link)"
             >
                 <component
                     :is="link.icon"
@@ -58,22 +58,23 @@
                     class="size-5"
                     :class="getIconClasses(index)"
                 />
-                <span class="text-nowrap" :class="getLabelClasses(index)">
-                    {{ link.label }}
-                </span>
+                <span class="text-nowrap" :class="getLabelClasses(index)">{{ link.label }}</span>
             </button>
         </template>
 
         <!-- Animated slider background -->
         <div
             v-if="sliderReady && currentActiveIndex !== -1"
-            class="pointer-events-none absolute h-[calc(100%-0.5rem)] overflow-hidden rounded-full p-1"
+            ref="slider"
+            class="navtabs-slider pointer-events-none absolute h-[calc(100%-0.5rem)] overflow-hidden rounded-full p-1"
             :class="[
                 subpageSelected ? 'bg-surface-4' : 'bg-button-bgSelected',
                 { 'navtabs-transition': transitionsEnabled },
             ]"
             :style="sliderStyle"
             aria-hidden="true"
+            @transitionend="onSliderTransitionEnd"
+            @transitioncancel="finishSliderAnimation"
         />
     </nav>
 </template>
@@ -81,9 +82,13 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+
+import { isModifierKeyDown } from '../../utils/events'
+import { navigateSettled } from '../../utils/navigation'
 
 const route = useRoute()
+const router = useRouter()
 
 interface Tab {
     label: string
@@ -92,20 +97,20 @@ interface Tab {
     icon?: Component
     subpages?: string[]
     onHover?: () => void
-    onboardingId?: string
 }
 
-interface SliderSnapshot {
-    left: number
-    top: number
-    right: number
-    bottom: number
-    savedAt: number
-    preserveOnUnmount: boolean
+interface Selection {
+    index: number
+    href: string | null
+    isSubpage: boolean
 }
 
-const sliderSnapshotMaxAge = 1000
-const navigationSliderSnapshots = new Map<string, SliderSnapshot>()
+interface OptimisticActivation {
+    token: number
+    href: string
+    index: number
+    source: 'pointer' | 'click'
+}
 
 const props = withDefaults(
     defineProps<{
@@ -114,11 +119,19 @@ const props = withDefaults(
         query?: string
         mode?: 'navigation' | 'local'
         activeIndex?: number
+        /**
+         * When true, the active tab follows the router after mount (back/forward,
+         * redirects, programmatic pushes). When false (default), the route only
+         * seeds the initial selection; later route changes do not move the pill.
+         * Ignored in local mode, where `activeIndex` controls selection.
+         */
+        routeSync?: boolean
     }>(),
     {
         mode: 'navigation',
         query: undefined,
         activeIndex: undefined,
+        routeSync: false,
     },
 )
 
@@ -128,32 +141,44 @@ const emit = defineEmits<{
 
 // DOM refs
 const scrollContainer = ref<HTMLElement | null>(null)
-const tabLinkElements = ref<HTMLElement[]>()
+const slider = ref<HTMLElement | null>(null)
 let containerResizeObserver: ResizeObserver | null = null
 
-// Slider pos state
+// Slider position state
 const sliderLeft = ref(4)
 const sliderTop = ref(4)
 const sliderRight = ref(4)
 const sliderBottom = ref(4)
 
-// active tab state
-const currentActiveIndex = ref(-1)
+// Selection state
+const activeHref = ref<string | null>(null)
 const subpageSelected = ref(false)
+const confirmedHref = ref<string | null>(null)
+const confirmedSubpage = ref(false)
 
-// SSR state
+// Animation state
 const sliderReady = ref(false)
 const transitionsEnabled = ref(false)
+const isAnimating = ref(false)
+const resizePending = ref(false)
 
 // Stagger delays for the trailing edges of the slider animation
 const sliderDelays = ref({ left: '0ms', top: '0ms', right: '0ms', bottom: '0ms' })
 
+let activationToken = 0
+let optimisticActivation: OptimisticActivation | null = null
+let pointerCleanup: (() => void) | null = null
+let clickSafetyTimer: number | null = null
+let animationWatchdog: number | null = null
+let snapRestoreFrame: number | null = null
+let disposed = false
+const animatedEdges = new Set<string>()
+
 const filteredLinks = computed(() => props.links.filter((link) => link.shown ?? true))
-const navigationGroupKey = computed(() =>
-    props.mode === 'navigation'
-        ? filteredLinks.value.map((link) => link.href.split('?')[0]).join('|')
-        : null,
-)
+const currentActiveIndex = computed(() => {
+    if (activeHref.value === null) return -1
+    return filteredLinks.value.findIndex((link) => link.href === activeHref.value)
+})
 
 const sliderStyle = computed(() => ({
     left: `${sliderLeft.value}px`,
@@ -197,29 +222,26 @@ function getLabelClasses(index: number) {
     }
 }
 
-function computeActiveIndex(): { index: number; isSubpage: boolean } {
-    if (props.mode === 'local' && props.activeIndex !== undefined) {
-        return {
-            index: Math.min(props.activeIndex, filteredLinks.value.length - 1),
-            isSubpage: false,
-        }
-    }
-
-    for (let i = filteredLinks.value.length - 1; i >= 0; i--) {
-        const link = filteredLinks.value[i]
-        const decodedPath = decodeURIComponent(route.path)
+function findSelection(
+    location: { path: string; query: Record<string, unknown> },
+    links: Tab[],
+    queryProp?: string,
+): Selection {
+    for (let i = links.length - 1; i >= 0; i--) {
+        const link = links[i]
+        const decodedPath = decodeURIComponent(location.path)
         const decodedHref = decodeURIComponent(link.href.split('?')[0])
 
-        if (props.query) {
-            const queryValue = route.query[props.query]
+        if (queryProp) {
+            const queryValue = location.query[queryProp]
             if (queryValue === link.href || (!queryValue && !link.href)) {
-                return { index: i, isSubpage: false }
+                return { index: i, href: link.href, isSubpage: false }
             }
             continue
         }
 
         if (decodedPath === decodedHref) {
-            return { index: i, isSubpage: false }
+            return { index: i, href: link.href, isSubpage: false }
         }
 
         const isSubpageMatch =
@@ -229,29 +251,35 @@ function computeActiveIndex(): { index: number; isSubpage: boolean } {
             link.subpages?.some((subpage) => decodedPath.includes(subpage))
 
         if (isSubpageMatch) {
-            return { index: i, isSubpage: true }
+            return { index: i, href: link.href, isSubpage: true }
         }
     }
 
-    return { index: -1, isSubpage: false }
+    return { index: -1, href: null, isSubpage: false }
+}
+
+function selectionForIndex(index: number, isSubpage = false): Selection {
+    const link = filteredLinks.value[index]
+    if (!link) return { index: -1, href: null, isSubpage: false }
+    return { index, href: link.href, isSubpage }
+}
+
+function clampLocalIndex(index: number): number {
+    return Math.max(-1, Math.min(index, filteredLinks.value.length - 1))
 }
 
 function getTabElement(index: number): HTMLElement | null {
     if (index === -1) return null
 
-    const container = scrollContainer.value as HTMLElement | undefined
+    const container = scrollContainer.value
     if (!container) return null
 
-    const tabs = container.querySelectorAll('.button-animation')
-    const element = tabs[index] as HTMLElement | undefined
-
-    if (!element) return null
-
-    return element
+    const tabs = container.querySelectorAll<HTMLElement>(':scope > .button-animation')
+    return tabs[index] ?? null
 }
 
-function measureActiveTab() {
-    const el = getTabElement(currentActiveIndex.value)
+function measureTab(index: number) {
+    const el = getTabElement(index)
     if (!el?.offsetParent) return null
     const parent = el.offsetParent as HTMLElement
     return {
@@ -262,144 +290,471 @@ function measureActiveTab() {
     }
 }
 
-function animateSliderTo(newPosition: {
+function positionsEqual(position: {
     left: number
     top: number
     right: number
     bottom: number
-}) {
+}): boolean {
+    return (
+        position.left === sliderLeft.value &&
+        position.top === sliderTop.value &&
+        position.right === sliderRight.value &&
+        position.bottom === sliderBottom.value
+    )
+}
+
+function clearAnimationWatchdog() {
+    if (animationWatchdog !== null) {
+        window.clearTimeout(animationWatchdog)
+        animationWatchdog = null
+    }
+}
+
+function finishSliderAnimation() {
+    if (!isAnimating.value && !resizePending.value) return
+    isAnimating.value = false
+    animatedEdges.clear()
+    clearAnimationWatchdog()
+    if (resizePending.value) {
+        resizePending.value = false
+        reconcileSliderAfterLayout()
+    }
+}
+
+function armAnimationWatchdog() {
+    clearAnimationWatchdog()
+    animationWatchdog = window.setTimeout(() => {
+        animationWatchdog = null
+        finishSliderAnimation()
+    }, 500)
+}
+
+function animateSliderTo(position: { left: number; top: number; right: number; bottom: number }) {
+    if (positionsEqual(position)) {
+        finishSliderAnimation()
+        return
+    }
+
     const STAGGER_DELAY = '200ms'
-
     sliderDelays.value = {
-        left: newPosition.left < sliderLeft.value ? '0ms' : STAGGER_DELAY,
-        right: newPosition.left < sliderLeft.value ? STAGGER_DELAY : '0ms',
-        top: newPosition.top < sliderTop.value ? '0ms' : STAGGER_DELAY,
-        bottom: newPosition.top < sliderTop.value ? STAGGER_DELAY : '0ms',
+        left: position.left < sliderLeft.value ? '0ms' : STAGGER_DELAY,
+        right: position.left < sliderLeft.value ? STAGGER_DELAY : '0ms',
+        top: position.top < sliderTop.value ? '0ms' : STAGGER_DELAY,
+        bottom: position.top < sliderTop.value ? STAGGER_DELAY : '0ms',
     }
-
-    sliderLeft.value = newPosition.left
-    sliderRight.value = newPosition.right
-    sliderTop.value = newPosition.top
-    sliderBottom.value = newPosition.bottom
-}
-
-function applySliderPosition(
-    newPosition: { left: number; top: number; right: number; bottom: number },
-    animate: boolean,
-) {
-    if (!animate) {
-        const restore = transitionsEnabled.value
-        transitionsEnabled.value = false
-        sliderLeft.value = newPosition.left
-        sliderTop.value = newPosition.top
-        sliderRight.value = newPosition.right
-        sliderBottom.value = newPosition.bottom
-        sliderReady.value = true
-        requestAnimationFrame(() => {
-            transitionsEnabled.value = restore
-        })
-        return
-    }
-
-    animateSliderTo(newPosition)
+    sliderLeft.value = position.left
+    sliderRight.value = position.right
+    sliderTop.value = position.top
+    sliderBottom.value = position.bottom
     sliderReady.value = true
+    isAnimating.value = true
+    animatedEdges.clear()
+    armAnimationWatchdog()
 }
 
-function positionSlider() {
-    const newPosition = measureActiveTab()
-    if (!newPosition) return
+function snapSliderTo(position: { left: number; top: number; right: number; bottom: number }) {
+    finishSliderAnimation()
+    if (snapRestoreFrame !== null) {
+        cancelAnimationFrame(snapRestoreFrame)
+        snapRestoreFrame = null
+    }
 
-    // First paint: snap so the pill never slides in from the default 4/4 inset
-    // (that read as a left jump after browse finished loading).
-    if (!sliderReady.value) {
-        transitionsEnabled.value = false
-        applySliderPosition(newPosition, false)
-        requestAnimationFrame(() => {
-            transitionsEnabled.value = true
-        })
+    transitionsEnabled.value = false
+    sliderDelays.value = { left: '0ms', top: '0ms', right: '0ms', bottom: '0ms' }
+    sliderLeft.value = position.left
+    sliderTop.value = position.top
+    sliderRight.value = position.right
+    sliderBottom.value = position.bottom
+    sliderReady.value = true
+    snapRestoreFrame = requestAnimationFrame(() => {
+        snapRestoreFrame = null
+        transitionsEnabled.value = true
+    })
+}
+
+function applySelection(selection: Selection, animate: boolean) {
+    const wasHidden = currentActiveIndex.value === -1 || !sliderReady.value
+    activeHref.value = selection.href
+    subpageSelected.value = selection.isSubpage
+
+    if (selection.index === -1) {
         return
     }
 
-    applySliderPosition(newPosition, true)
+    const position = measureTab(selection.index)
+    if (!position) return
+
+    if (!animate || wasHidden) {
+        snapSliderTo(position)
+    } else {
+        animateSliderTo(position)
+    }
 }
 
-function snapSliderToActiveTab() {
-    // ResizeObserver can fire mid-layout while browse swaps skeletons for cards.
-    // Measure on the next frame, and only commit when the rect actually moved.
+function reconcileSliderAfterLayout() {
+    if (isAnimating.value) {
+        resizePending.value = true
+        return
+    }
+
     requestAnimationFrame(() => {
-        const newPosition = measureActiveTab()
-        if (!newPosition) return
-        if (
-            newPosition.left === sliderLeft.value &&
-            newPosition.top === sliderTop.value &&
-            newPosition.right === sliderRight.value &&
-            newPosition.bottom === sliderBottom.value
-        ) {
+        if (disposed || isAnimating.value) {
+            if (!disposed) resizePending.value = true
             return
         }
-        applySliderPosition(newPosition, false)
+        const position = measureTab(currentActiveIndex.value)
+        if (!position || positionsEqual(position)) return
+        snapSliderTo(position)
     })
 }
 
-function saveSliderSnapshot(preserveOnUnmount = false) {
-    const key = navigationGroupKey.value
-    if (!key || !sliderReady.value || currentActiveIndex.value === -1) return
-
-    navigationSliderSnapshots.set(key, {
-        left: sliderLeft.value,
-        top: sliderTop.value,
-        right: sliderRight.value,
-        bottom: sliderBottom.value,
-        savedAt: Date.now(),
-        preserveOnUnmount,
-    })
+function onSliderTransitionEnd(event: TransitionEvent) {
+    if (!isAnimating.value || event.target !== slider.value) return
+    if (['left', 'top', 'right', 'bottom'].includes(event.propertyName)) {
+        animatedEdges.add(event.propertyName)
+    }
+    if (animatedEdges.size >= 4) finishSliderAnimation()
 }
 
-async function updateActiveTab() {
+function resolveTabTarget(link: Tab): string {
+    return props.query ? (link.href ? `?${props.query}=${link.href}` : '?') : link.href
+}
+
+function canInterceptEvent(event: MouseEvent, anchor: HTMLAnchorElement | null) {
+    if (event.button !== 0 || isModifierKeyDown(event)) return false
+    if (event.defaultPrevented || !anchor) return false
+    if (anchor.target === '_blank' || anchor.hasAttribute('download')) return false
+    return true
+}
+
+function resolveAnchor(target: EventTarget | null): HTMLAnchorElement | null {
+    if (!(target instanceof Element)) return null
+    const anchor = target.closest<HTMLAnchorElement>('a[href]')
+    if (!anchor || !scrollContainer.value?.contains(anchor)) return null
+    const tabs = scrollContainer.value.querySelectorAll<HTMLAnchorElement>(
+        ':scope > a.button-animation',
+    )
+    return Array.from(tabs).includes(anchor) ? anchor : null
+}
+
+function anchorIndex(anchor: HTMLAnchorElement): number {
+    const tabs = scrollContainer.value?.querySelectorAll<HTMLAnchorElement>(
+        ':scope > a.button-animation',
+    )
+    return tabs ? Array.from(tabs).indexOf(anchor) : -1
+}
+
+function clearPointerListeners(clearTimer = true) {
+    pointerCleanup?.()
+    pointerCleanup = null
+    if (clearTimer && clickSafetyTimer !== null) {
+        window.clearTimeout(clickSafetyTimer)
+        clickSafetyTimer = null
+    }
+}
+
+function clearActivation() {
+    clearPointerListeners()
+    optimisticActivation = null
+}
+
+function restoreSelection(): Selection {
+    if (props.mode === 'local') {
+        if (props.activeIndex !== undefined) {
+            return selectionForIndex(clampLocalIndex(props.activeIndex))
+        }
+        return confirmedHref.value
+            ? selectionForIndex(
+                  filteredLinks.value.findIndex((link) => link.href === confirmedHref.value),
+                  false,
+              )
+            : { index: -1, href: null, isSubpage: false }
+    }
+
+    return props.routeSync
+        ? findSelection(route, filteredLinks.value, props.query)
+        : {
+              index: filteredLinks.value.findIndex((link) => link.href === confirmedHref.value),
+              href: confirmedHref.value,
+              isSubpage: confirmedSubpage.value,
+          }
+}
+
+function rollbackActivation(token: number) {
+    if (!optimisticActivation || optimisticActivation.token !== token) return
+    clearActivation()
+    const selection = restoreSelection()
+    applySelection(selection, true)
+}
+
+function confirmActivation(token: number, selection: Selection) {
+    if (!optimisticActivation || optimisticActivation.token !== token) return
+    clearActivation()
+    confirmedHref.value = selection.href
+    confirmedSubpage.value = selection.isSubpage
+    activeHref.value = selection.href
+    subpageSelected.value = selection.isSubpage
+    void nextTick(() => reconcileSliderAfterLayout())
+}
+
+function activateOptimistically(index: number, source: OptimisticActivation['source']) {
+    const link = filteredLinks.value[index]
+    if (!link) return
+
+    clearPointerListeners()
+    const token = ++activationToken
+    optimisticActivation = { token, href: link.href, index, source }
+
+    const wasHidden = currentActiveIndex.value === -1 || !sliderReady.value
+    activeHref.value = link.href
+    subpageSelected.value = false
+
+    const position = measureTab(index)
+    if (!position) return
+
+    if (wasHidden) {
+        snapSliderTo(position)
+    } else {
+        animateSliderTo(position)
+    }
+}
+
+function armPointerRelease(token: number, anchor: HTMLAnchorElement) {
+    const controller = new AbortController()
+    const cleanup = () => {
+        controller.abort()
+        if (pointerCleanup === cleanup) pointerCleanup = null
+    }
+    pointerCleanup = cleanup
+
+    window.addEventListener(
+        'pointerup',
+        (event) => {
+            if (optimisticActivation?.token !== token) {
+                cleanup()
+                return
+            }
+            if (event.target instanceof Node && anchor.contains(event.target)) {
+                if (clickSafetyTimer !== null) window.clearTimeout(clickSafetyTimer)
+                clickSafetyTimer = window.setTimeout(() => {
+                    clickSafetyTimer = null
+                    rollbackActivation(token)
+                    cleanup()
+                }, 700)
+                return
+            }
+            rollbackActivation(token)
+            cleanup()
+        },
+        { capture: true, signal: controller.signal },
+    )
+    window.addEventListener(
+        'pointercancel',
+        () => {
+            rollbackActivation(token)
+            cleanup()
+        },
+        { signal: controller.signal },
+    )
+    window.addEventListener(
+        'dragstart',
+        () => {
+            rollbackActivation(token)
+            cleanup()
+        },
+        { capture: true, signal: controller.signal },
+    )
+    window.addEventListener(
+        'contextmenu',
+        () => {
+            rollbackActivation(token)
+            cleanup()
+        },
+        { capture: true, signal: controller.signal },
+    )
+}
+
+function onTabPointerDown(index: number, event: PointerEvent) {
+    if (props.mode !== 'navigation') return
+    if (event.button !== 0 || !event.isPrimary) return
+    if (event.pointerType !== 'mouse') return
+    if (isModifierKeyDown(event) || event.defaultPrevented) return
+
+    const anchor = event.currentTarget instanceof HTMLAnchorElement ? event.currentTarget : null
+    if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return
+
+    activateOptimistically(index, 'pointer')
+    if (optimisticActivation) armPointerRelease(optimisticActivation.token, anchor)
+}
+
+function cancelPendingActivation() {
+    if (optimisticActivation) rollbackActivation(optimisticActivation.token)
+}
+
+async function settleNavigation(token: number, target: string) {
+    const outcome = await navigateSettled(router, target, props.replace)
+    if (disposed || optimisticActivation?.token !== token) return
+
+    if (outcome.ok) {
+        const selection = findSelection(route, filteredLinks.value, props.query)
+        if (selection.href === optimisticActivation.href) {
+            confirmActivation(token, selection)
+            return
+        }
+
+        clearActivation()
+        confirmedHref.value = selection.href
+        confirmedSubpage.value = selection.isSubpage
+        applySelection(selection, true)
+        return
+    }
+
+    rollbackActivation(token)
+}
+
+function onTabClickCapture(event: MouseEvent) {
+    if (props.mode !== 'navigation') return
+    const anchor = resolveAnchor(event.target)
+    if (!canInterceptEvent(event, anchor)) return
+
+    const index = anchorIndex(anchor!)
+    if (index === -1) return
+    const link = filteredLinks.value[index]
+    if (!link) return
+
+    event.preventDefault()
+    clearPointerListeners()
+
+    if (optimisticActivation?.href !== link.href) {
+        activateOptimistically(index, 'click')
+    }
+
+    const token = optimisticActivation?.token
+    if (token === undefined) return
+    void settleNavigation(token, resolveTabTarget(link))
+}
+
+function onLocalTabClick(index: number, link: Tab) {
+    if (props.activeIndex === undefined) {
+        activeHref.value = link.href
+        subpageSelected.value = false
+        confirmedHref.value = link.href
+        confirmedSubpage.value = false
+        const position = measureTab(index)
+        if (position) {
+            if (!sliderReady.value) snapSliderTo(position)
+            else animateSliderTo(position)
+        }
+    }
+    emit('tabClick', index, link)
+}
+
+function onRouteChanged() {
+    if (props.mode !== 'navigation') return
+
+    const selection = findSelection(route, filteredLinks.value, props.query)
+
+    if (optimisticActivation) {
+        if (selection.href === optimisticActivation.href) {
+            confirmActivation(optimisticActivation.token, selection)
+        } else {
+            clearActivation()
+            confirmedHref.value = selection.href
+            confirmedSubpage.value = selection.isSubpage
+            applySelection(selection, true)
+        }
+        return
+    }
+
+    if (!props.routeSync) return
+
+    confirmedHref.value = selection.href
+    confirmedSubpage.value = selection.isSubpage
+    applySelection(selection, true)
+}
+
+function onActiveIndexChanged() {
+    if (props.mode !== 'local' || props.activeIndex === undefined) return
+    const index = clampLocalIndex(props.activeIndex)
+    const selection = selectionForIndex(index)
+    confirmedHref.value = selection.href
+    confirmedSubpage.value = selection.isSubpage
+    applySelection(selection, true)
+}
+
+function linksFingerprint() {
+    return props.links
+        .map(
+            (link) =>
+                `${link.href}|${link.shown ?? true}|${link.label}|${link.icon ? 1 : 0}|${
+                    link.subpages?.join(',') ?? ''
+                }`,
+        )
+        .join('\n')
+}
+
+async function onLinksChanged() {
     await nextTick()
-    const { index, isSubpage } = computeActiveIndex()
-    currentActiveIndex.value = index
-    subpageSelected.value = isSubpage
 
-    if (index !== -1) {
-        positionSlider()
-    } else {
-        sliderLeft.value = 0
-        sliderRight.value = 0
+    if (props.mode === 'navigation') {
+        const currentHref = activeHref.value
+        const currentVisible =
+            currentHref !== null && filteredLinks.value.some((link) => link.href === currentHref)
+
+        if (!currentVisible) {
+            if (props.routeSync) {
+                const selection = findSelection(route, filteredLinks.value, props.query)
+                confirmedHref.value = selection.href
+                confirmedSubpage.value = selection.isSubpage
+                applySelection(selection, false)
+            } else if (currentHref !== null) {
+                activeHref.value = null
+                subpageSelected.value = false
+                confirmedHref.value = null
+                confirmedSubpage.value = false
+            }
+            return
+        }
+
+        // A route can point at a tab that only becomes visible once data loads
+        // (e.g. the gallery tab). Re-resolve it when the link set settles.
+        if (props.routeSync && !optimisticActivation) {
+            const selection = findSelection(route, filteredLinks.value, props.query)
+            if (selection.href !== currentHref) {
+                confirmedHref.value = selection.href
+                confirmedSubpage.value = selection.isSubpage
+                applySelection(selection, false)
+                return
+            }
+        }
     }
+
+    reconcileSliderAfterLayout()
 }
 
-const initialActive = computeActiveIndex()
-currentActiveIndex.value = initialActive.index
-subpageSelected.value = initialActive.isSubpage
+const initialSelection: Selection =
+    props.mode === 'navigation'
+        ? findSelection(route, filteredLinks.value, props.query)
+        : props.activeIndex !== undefined
+          ? selectionForIndex(clampLocalIndex(props.activeIndex))
+          : { index: -1, href: null, isSubpage: false }
 
-const restoredNavigationGroupKey = navigationGroupKey.value
-const navigationGroupSnapshot = restoredNavigationGroupKey
-    ? navigationSliderSnapshots.get(restoredNavigationGroupKey)
-    : undefined
-const restoredSliderSnapshot =
-    !!navigationGroupSnapshot &&
-    Date.now() - navigationGroupSnapshot.savedAt <= sliderSnapshotMaxAge
-if (restoredSliderSnapshot) {
-    sliderLeft.value = navigationGroupSnapshot.left
-    sliderTop.value = navigationGroupSnapshot.top
-    sliderRight.value = navigationGroupSnapshot.right
-    sliderBottom.value = navigationGroupSnapshot.bottom
-    sliderReady.value = true
-    transitionsEnabled.value = true
-    navigationSliderSnapshots.delete(restoredNavigationGroupKey)
-} else if (restoredNavigationGroupKey) {
-    navigationSliderSnapshots.delete(restoredNavigationGroupKey)
-}
+activeHref.value = initialSelection.href
+subpageSelected.value = initialSelection.isSubpage
+confirmedHref.value = initialSelection.href
+confirmedSubpage.value = initialSelection.isSubpage
 
-onMounted(() => {
-    if (!restoredSliderSnapshot) {
-        void updateActiveTab()
-    } else {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => void updateActiveTab())
-        })
+onMounted(async () => {
+    await nextTick()
+    if (disposed) return
+    if (currentActiveIndex.value !== -1) {
+        const position = measureTab(currentActiveIndex.value)
+        if (position) snapSliderTo(position)
     }
+    requestAnimationFrame(() => {
+        if (!disposed) transitionsEnabled.value = true
+    })
 })
 
 watch(
@@ -408,51 +763,39 @@ watch(
         containerResizeObserver?.disconnect()
         containerResizeObserver = null
         if (!el) return
-        containerResizeObserver = new ResizeObserver(() => snapSliderToActiveTab())
+        containerResizeObserver = new ResizeObserver(() => reconcileSliderAfterLayout())
         containerResizeObserver.observe(el)
     },
     { immediate: true },
 )
 
 onBeforeUnmount(() => {
+    disposed = true
+    clearActivation()
+    finishSliderAnimation()
+    if (snapRestoreFrame !== null) {
+        cancelAnimationFrame(snapRestoreFrame)
+        snapRestoreFrame = null
+    }
     containerResizeObserver?.disconnect()
     containerResizeObserver = null
-    const key = navigationGroupKey.value
-    const existingSnapshot = key ? navigationSliderSnapshots.get(key) : undefined
-    if (
-        existingSnapshot?.preserveOnUnmount &&
-        Date.now() - existingSnapshot.savedAt <= sliderSnapshotMaxAge
-    ) {
-        return
-    }
-    saveSliderSnapshot()
 })
 
 watch(
     () => [route.path, route.query],
-    () => {
-        if (props.mode === 'navigation') {
-            updateActiveTab()
-        }
-    },
+    () => onRouteChanged(),
 )
 
 watch(
     () => props.activeIndex,
-    () => {
-        if (props.mode === 'local') {
-            updateActiveTab()
-        }
-    },
+    () => onActiveIndexChanged(),
 )
 
 watch(
-    () => props.links,
-    async () => {
-        await nextTick()
-        updateActiveTab()
+    () => linksFingerprint(),
+    () => {
+        void onLinksChanged()
     },
-    { deep: true },
 )
 </script>
 

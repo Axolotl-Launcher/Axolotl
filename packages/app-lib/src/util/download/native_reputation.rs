@@ -120,6 +120,7 @@ pub(crate) async fn load_if_needed() {
             return;
         }
         let cutoff = now_secs().saturating_sub(MAX_AGE_SECS);
+        // sched-order: theseus::util::download::native_reputation::REPUTATION
         let mut reputation = REPUTATION.lock();
         for route in store.routes.into_iter().take(MAX_ENTRIES) {
             if route.health.updated_at < cutoff {
@@ -134,7 +135,9 @@ pub(crate) async fn load_if_needed() {
                 route.health,
             );
         }
+        // sched-order-release: theseus::util::download::native_reputation::REPUTATION
         drop(reputation);
+        // sched-order: theseus::util::download::native_reputation::TRANSPORT_REPUTATION
         let mut transports = TRANSPORT_REPUTATION.lock();
         for transport in store.transports.into_iter().take(MAX_ENTRIES) {
             if transport.health.updated_at < cutoff {
@@ -354,6 +357,7 @@ async fn write_snapshot() -> std::io::Result<()> {
     let Some(path) = PATH.get().cloned().or_else(reputation_path) else {
         return Ok(());
     };
+    // sched-order: theseus::util::download::native_reputation::REPUTATION temporary
     let mut routes = REPUTATION
         .lock()
         .iter()
@@ -368,6 +372,7 @@ async fn write_snapshot() -> std::io::Result<()> {
         std::cmp::Reverse(route.health.updated_at)
     });
     routes.truncate(MAX_ENTRIES);
+    // sched-order: theseus::util::download::native_reputation::TRANSPORT_REPUTATION temporary
     let mut transports = TRANSPORT_REPUTATION
         .lock()
         .iter()

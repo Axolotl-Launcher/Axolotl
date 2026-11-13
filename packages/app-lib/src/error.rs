@@ -42,11 +42,6 @@ pub enum ErrorKind {
     #[error("NBT data structure error: {0}")]
     NBTReprError(#[from] quartz_nbt::NbtReprError),
 
-    #[error("Serialization error (websocket): {0}")]
-    WebsocketSerializationError(
-        #[from] ariadne::networking::serialization::SerializationError,
-    ),
-
     #[error("Error parsing UUID: {0}")]
     UUIDError(#[from] uuid::Error),
 
@@ -106,12 +101,6 @@ pub enum ErrorKind {
 
     #[error("{0}")]
     LabrinthError(LabrinthError),
-
-    #[error("Websocket error: {0}")]
-    WSError(#[from] async_tungstenite::tungstenite::Error),
-
-    #[error("Websocket closed before {0} could be received!")]
-    WSClosedError(String),
 
     #[error("Incorrect Sha1 hash for download: {0} != {1}")]
     HashError(String, String),
@@ -240,6 +229,7 @@ pub enum ErrorKind {
     #[error("Windows error: {0}")]
     WindowsError(#[from] windows_core::Error),
 
+    #[cfg(target_os = "linux")]
     #[error("zbus error: {0}")]
     ZbusError(#[from] zbus::Error),
 

@@ -7,6 +7,7 @@ use std::time::{Duration, SystemTime};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{Emitter, Runtime};
+use theseus::scheduler::order::instrument;
 
 use crate::mod_translation;
 use crate::mod_translation::analyze::{AnalysisSummary, JarInspection};
@@ -630,10 +631,18 @@ fn emit_task_event<R: Runtime>(
     report: Option<TranslationReport>,
     error: Option<TaskFailure>,
 ) {
+    let _order_gate = instrument::hold(
+        "theseus_gui::api::mod_translation::TaskHandle.event_gate",
+    );
+    // sched-order: theseus_gui::api::mod_translation::TaskHandle.event_gate
     let Ok(_event_guard) = handle.event_gate.lock() else {
         return;
     };
     let event = {
+        let _order_snapshot = instrument::hold(
+            "theseus_gui::api::mod_translation::TaskHandle.snapshot",
+        );
+        // sched-order: theseus_gui::api::mod_translation::TaskHandle.snapshot
         let Ok(mut snapshot) = handle.snapshot.lock() else {
             return;
         };

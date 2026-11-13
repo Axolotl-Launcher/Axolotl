@@ -11,6 +11,7 @@ use crate::api::curseforge::modpack::{
 };
 use crate::api::curseforge::selection::persist_manual_download;
 use crate::install::{InstallJobEventKind, InstallProgressReporter};
+use crate::state::instances::commands::materialization_path_key;
 use crate::state::{
     ContentProviderRef, ContentSourceKind, CurseForgeFileId,
     CurseForgeProjectId, EditInstance, InstanceLink,
@@ -18,6 +19,10 @@ use crate::state::{
 use crate::util::fetch::sha1_file_async;
 use crate::{ErrorKind, State};
 use std::collections::{HashMap, HashSet};
+
+#[cfg(all(test, not(feature = "tauri")))]
+#[path = "managed_tests.rs"]
+mod tests;
 
 pub async fn update_managed_modpack(
     instance_id: &str,
@@ -148,19 +153,26 @@ pub(crate) async fn update_managed_modpack_with_reporter(
     .into_iter()
     .filter_map(|entry| entry.file_id.map(|file_id| (entry.id, file_id)))
     .collect::<HashMap<_, _>>();
-    let files =
+    let original_files =
         crate::state::instances::adapters::sqlite::files::get_instance_files(
             instance_id,
             &state.pool,
         )
-        .await?
-        .into_iter()
-        .map(|file| (file.id.clone(), file.relative_path))
+        .await?;
+    let files = original_files
+        .iter()
+        .map(|file| (file.id.clone(), file.relative_path.clone()))
         .collect::<HashMap<_, _>>();
-    let backup = create_curseforge_update_backup(
-        &metadata, &members, &entries, &files, &state,
-    )
-    .await?;
+    let backup = if reporter.is_none() {
+        Some(
+            create_curseforge_update_backup(
+                &metadata, &members, &entries, &files, &state,
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
     let result = match install_modpack_with_reporter(
         CurseForgeModpackInstallRequest {
             instance_id: instance_id.to_string(),
@@ -175,30 +187,34 @@ pub(crate) async fn update_managed_modpack_with_reporter(
     {
         Ok(result) => result,
         Err(error) => {
-            rollback_curseforge_update(
-                instance_id,
-                &metadata,
-                &members,
-                &backup,
-                &[],
-                &state,
-            )
-            .await?;
+            if let Some(backup) = &backup {
+                rollback_curseforge_update(
+                    instance_id,
+                    &metadata,
+                    &members,
+                    backup,
+                    &[],
+                    &state,
+                )
+                .await?;
+            }
             return Err(error);
         }
     };
     if !result.content.manual_downloads.is_empty()
         || !result.content.failed_downloads.is_empty()
     {
-        rollback_curseforge_update(
-            instance_id,
-            &metadata,
-            &members,
-            &backup,
-            &result.content.installed,
-            &state,
-        )
-        .await?;
+        if let Some(backup) = &backup {
+            rollback_curseforge_update(
+                instance_id,
+                &metadata,
+                &members,
+                backup,
+                &result.content.installed,
+                &state,
+            )
+            .await?;
+        }
         return Ok(result);
     }
 
@@ -219,45 +235,14 @@ pub(crate) async fn update_managed_modpack_with_reporter(
             )
         })?;
 
-    let expected_keys = expected
-        .members
-        .iter()
-        .map(|member| {
-            format!(
-                "curseforge:{}:{}",
-                member.project_id,
-                member.project_type.get_name()
-            )
-        })
-        .collect::<HashSet<_>>();
-    for member in &members {
-        if expected_keys.contains(&member.member_key)
-            || member.override_kind
-                == crate::state::instances::PackMemberOverrideKind::Version
-        {
-            continue;
-        }
-        let Some(entry_id) = member.content_entry_id.as_ref() else {
-            continue;
-        };
-        let Some(file_id) = entries.get(entry_id) else {
-            continue;
-        };
-        let Some(relative_path) = files.get(file_id) else {
-            continue;
-        };
-        crate::state::instances::commands::remove_project(
-            instance_id,
-            relative_path,
-            &state,
-        )
-        .await?;
-    }
-    crate::state::sync_content_files(instance_id, &state).await?;
-    crate::state::instances::commands::reconcile_curseforge_members(
+    finalize_updated_content(
         instance_id,
         &metadata.applied_content_set.id,
+        &members,
+        &entries,
+        &original_files,
         &expected,
+        &result.content.installed,
         &state,
     )
     .await?;
@@ -280,6 +265,128 @@ pub(crate) async fn update_managed_modpack_with_reporter(
     )
     .await?;
     Ok(result)
+}
+
+async fn finalize_updated_content(
+    instance_id: &str,
+    content_set_id: &str,
+    members: &[crate::state::instances::PackMember],
+    entries: &HashMap<String, String>,
+    files: &[crate::state::InstanceFile],
+    expected: &crate::api::curseforge::CurseForgePackExpectedContent,
+    installed: &[CurseForgeInstalledFile],
+    state: &State,
+) -> crate::Result<()> {
+    cleanup_replaced_members(
+        instance_id,
+        members,
+        entries,
+        files,
+        expected,
+        installed,
+        state,
+    )
+    .await?;
+    crate::state::sync_content_files(instance_id, state).await?;
+    crate::state::instances::commands::reconcile_curseforge_members(
+        instance_id,
+        content_set_id,
+        expected,
+        state,
+    )
+    .await
+}
+
+async fn cleanup_replaced_members(
+    instance_id: &str,
+    members: &[crate::state::instances::PackMember],
+    entries: &HashMap<String, String>,
+    files: &[crate::state::InstanceFile],
+    expected: &crate::api::curseforge::CurseForgePackExpectedContent,
+    installed: &[CurseForgeInstalledFile],
+    state: &State,
+) -> crate::Result<()> {
+    let targets = expected
+        .members
+        .iter()
+        .map(|member| {
+            (
+                format!(
+                    "curseforge:{}:{}",
+                    member.project_id,
+                    member.project_type.get_name()
+                ),
+                member,
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    let installed_paths = installed
+        .iter()
+        .flat_map(|file| {
+            [
+                file.relative_path.clone(),
+                format!("{}.disabled", file.relative_path),
+            ]
+        })
+        .chain(
+            expected
+                .overrides
+                .iter()
+                .map(|file| file.expected_relative_path.clone()),
+        )
+        .map(|path| materialization_path_key(&path))
+        .collect::<HashSet<_>>();
+    for member in members {
+        if matches!(
+            member.override_kind,
+            crate::state::instances::PackMemberOverrideKind::Version
+                | crate::state::instances::PackMemberOverrideKind::Removed
+        ) {
+            continue;
+        }
+        let Some(file) = member
+            .content_entry_id
+            .as_ref()
+            .and_then(|entry| entries.get(entry))
+            .and_then(|id| files.iter().find(|file| &file.id == id))
+        else {
+            continue;
+        };
+        if let Some(target) = targets.get(&member.member_key) {
+            if member.provider_release_id.as_deref()
+                == Some(target.file_id.to_string().as_str())
+            {
+                continue;
+            }
+            if !installed.iter().any(|file| {
+                file.project_id == target.project_id
+                    && file.file_id == target.file_id
+            }) {
+                continue;
+            }
+            // A version can change without changing its filename. The installed
+            // target is the replacement, even when its old index ID was reused.
+            if materialization_path_key(&file.relative_path)
+                == materialization_path_key(&target.expected_relative_path)
+                || materialization_path_key(&file.relative_path)
+                    == materialization_path_key(&format!(
+                        "{}.disabled",
+                        target.expected_relative_path
+                    ))
+            {
+                continue;
+            }
+        }
+        if installed_paths
+            .contains(&materialization_path_key(&file.relative_path))
+        {
+            continue;
+        }
+        crate::state::instances::commands::remove_replaced_project_if_unchanged(
+            instance_id, &file.relative_path, &file.sha1, file.size, state,
+        ).await?;
+    }
+    Ok(())
 }
 
 pub(crate) struct CurseForgeUpdateBackup {

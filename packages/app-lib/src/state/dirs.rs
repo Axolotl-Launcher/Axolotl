@@ -6,9 +6,13 @@ use crate::state::store::derived_db::{DerivedDb, FILE_NAME};
 use crate::state::store::discovered_javas::{
     DiscoveredJavaRecord, DiscoveredJavas,
 };
+use crate::state::store::pending_backup_repository_cleanups::{
+    CleanupRecord, PendingBackupRepositoryCleanups,
+};
 use crate::state::store::{Collection as _, Handle, atom};
 use crate::state::{Settings, documents};
 use crate::util::fetch::IoSemaphore;
+use chrono::Utc;
 use dashmap::DashSet;
 use sqlx::SqlitePool;
 use std::path::{Path, PathBuf};
@@ -27,6 +31,32 @@ pub struct DirectoryInfo {
     pub settings_dir: PathBuf, // Base settings directory- app database
     pub config_dir: PathBuf, // Base config directory- instances, minecraft downloads, etc. Changeable as a setting.
     pub app_identifier: String,
+}
+
+async fn prepare_directory_move(
+    source: &Path,
+    destination: &Path,
+) -> crate::Result<bool> {
+    crate::util::io::create_dir_all(destination).await?;
+    match crate::util::io::metadata(source).await {
+        Ok(metadata) if metadata.is_dir() => Ok(true),
+        Ok(_) => Err(crate::ErrorKind::DirectoryMoveError(format!(
+            "The old launcher storage path is not a directory: {}",
+            source.display()
+        ))
+        .into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            // A disconnected drive must not prevent switching to a new root.
+            // There is nothing to migrate, and creating the old path would
+            // either fail again or recreate directories on the wrong drive.
+            tracing::warn!(
+                path = %source.display(),
+                "Old launcher storage directory is missing; switching without migrating its files"
+            );
+            Ok(false)
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 impl DirectoryInfo {
@@ -404,13 +434,13 @@ impl DirectoryInfo {
                     )
                     .await?
                     {
-                        sqlx::query(
-                            "INSERT INTO pending_backup_repository_cleanups (path, created_at)
-                             VALUES (?, unixepoch('subsec') * 1000)
-                             ON CONFLICT(path) DO UPDATE SET created_at = excluded.created_at",
+                        PendingBackupRepositoryCleanups::set(
+                            handle,
+                            &path.to_string_lossy().to_string(),
+                            Some(&CleanupRecord {
+                                created_at: Utc::now().timestamp_millis(),
+                            }),
                         )
-                        .bind(path.to_string_lossy().to_string())
-                        .execute(pool)
                         .await?;
                     }
                 }
@@ -433,12 +463,8 @@ impl DirectoryInfo {
                     paths: &mut Vec<MovePath>,
                     total_size: &mut u64,
                 ) -> crate::Result<()> {
-                    if !source.exists() {
-                        crate::util::io::create_dir_all(source).await?;
-                    }
-
-                    if !destination.exists() {
-                        crate::util::io::create_dir_all(destination).await?;
+                    if !prepare_directory_move(source, destination).await? {
+                        return Ok(());
                     }
 
                     for entry_path in
@@ -684,45 +710,15 @@ impl DirectoryInfo {
                     .trim_end_matches('\\')
                     .to_string();
                 let new_dir = new_dir.as_str();
-                sqlx::query!(
-                    "
-                    UPDATE instances
-                    SET icon_path = replace(icon_path, ?, ?)
-                    WHERE icon_path IS NOT NULL
-                    ",
+                let mut conn = pool.acquire().await?;
+                crate::state::instances::adapters::sqlite::stored_paths::rewrite_launcher_directory(
+                    &mut conn,
                     prev_custom_dir,
                     new_dir,
                 )
-                .execute(pool)
-                .await?;
-                sqlx::query!(
-                    "
-                    UPDATE instance_files
-                    SET icon_path = replace(icon_path, ?, ?)
-                    WHERE icon_path IS NOT NULL AND icon_path != ''
-                    ",
-                    prev_custom_dir,
-                    new_dir,
-                )
-                .execute(pool)
-                .await?;
-                sqlx::query!(
-                    "
-                    UPDATE instance_launch_overrides
-                    SET overrides = jsonb(json_set(
-                        overrides,
-                        '$.java_path',
-                        replace(json_extract(overrides, '$.java_path'), ?, ?)
-                    ))
-                    WHERE json_type(overrides, '$.java_path') = 'text'
-                    ",
-                    prev_custom_dir,
-                    new_dir,
-                )
-                .execute(pool)
                 .await?;
                 crate::state::instances::adapters::sqlite::config_sync_rows::mark_all_config_dirty(
-                    pool,
+                    &mut *conn,
                 )
                 .await?;
             }
@@ -738,6 +734,64 @@ impl DirectoryInfo {
         settings.update(handle).await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod directory_move_tests {
+    use super::prepare_directory_move;
+
+    #[tokio::test]
+    async fn missing_old_storage_does_not_block_switching_directories() {
+        let temp = tempfile::tempdir().unwrap();
+        let missing_root = temp.path().join("disconnected-drive");
+        let new_root = temp.path().join("new-storage");
+
+        for folder in ["caches", "profiles", "meta"] {
+            let destination = new_root.join(folder);
+            assert!(
+                !prepare_directory_move(
+                    &missing_root.join(folder),
+                    &destination
+                )
+                .await
+                .unwrap()
+            );
+            assert!(destination.is_dir());
+        }
+        assert!(!missing_root.exists(), "never recreate the old storage");
+    }
+
+    #[tokio::test]
+    async fn existing_old_storage_is_still_migrated() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("old/profiles");
+        let destination = temp.path().join("new/profiles");
+        tokio::fs::create_dir_all(&source).await.unwrap();
+        tokio::fs::write(source.join("instance.json"), b"instance")
+            .await
+            .unwrap();
+
+        assert!(prepare_directory_move(&source, &destination).await.unwrap());
+        assert!(destination.is_dir());
+        assert_eq!(
+            tokio::fs::read(source.join("instance.json")).await.unwrap(),
+            b"instance"
+        );
+    }
+
+    #[tokio::test]
+    async fn malformed_old_storage_is_not_treated_as_missing() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("profiles");
+        tokio::fs::write(&source, b"not a directory").await.unwrap();
+
+        let error = prepare_directory_move(&source, &temp.path().join("new"))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(source.to_string_lossy().as_ref()), "{error}");
+        assert!(error.contains("not a directory"), "{error}");
     }
 }
 

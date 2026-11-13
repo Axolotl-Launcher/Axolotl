@@ -1,0 +1,210 @@
+{
+  "id": "4BV47HRn",
+  "slug": "better-mc-forge-bmc4",
+  "title": "Better MC [FORGE] - BMC4",
+  "description": "Version 1.20.1 | A Proper Vanilla+ Modpack | Don't play Vanilla play this!",
+  "author": "SHXRKIE",
+  "categories": ["adventure", "combat", "forge", "kitchen-sink", "lightweight", "multiplayer"],
+  "display_categories": ["adventure", "combat"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 2301928,
+  "followers": 672,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["forge"],
+  "game_versions": ["1.20.1"],
+  "latest_version": "bdRIjRgs",
+  "date_created": "2023-07-19T10:06:01.730452Z",
+  "date_modified": "2026-07-15T07:13:42.142751Z",
+  "color": 3418425,
+  "published": "2023-07-19T10:06:01.730452Z",
+  "additional_categories": ["kitchen-sink", "lightweight", "multiplayer"],
+  "issues_url": "https://discord.gg/LunaPixel",
+  "source_url": null,
+  "wiki_url": "https://github.com/LunaPixelStudios/Better-MC/wiki",
+  "discord_url": "https://discord.gg/LunaPixel",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/shxrkie"
+    }
+  ],
+  "versions_total": 12,
+  "body": "![In purple text and white text, \"BETTER MINECRAFT\" is displayed infront of a screenshot of the Minecraft Overworld. The background image has a tree with purple leaves on both sides.](https://cdn.modrinth.com/data/cached_images/fc76c836ab354e79660c2f5d81a13a87396a2f38.jpeg)\n\n![In all-caps bold text, the word \"FEATURES\". ](https://cdn.modrinth.com/data/cached_images/785d3640a720d7e56cba3a6e2bbcdc37f34cf7e1.png)\n\n✔️ Full parity with [Curseforge Version](https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4)\n\n✔️ 100+ Quests\n\n✔️ Completely Overhauled World Generation ([Biomes o' Plenty](https://modrinth.com/mod/biomes-o-plenty), [Geophilic](https://modrinth.com/datapack/geophilic))\n\n✔️ Fully Optimized with Shader Support\n\n✔️ Overhauled Stronghold & Fortresses\n\n✔️ New Bosses and Mobs ([Mowzie's Mobs](https://www.curseforge.com/minecraft/mc-mods/mowzies-mobs), [Cataclysm](https://modrinth.com/mod/l_enders-cataclysm))\n\n✔️ Thousands of NEW Dungeons & Structures ([When Dungeons Arise](https://modrinth.com/mod/when-dungeons-arise), [AdoraBuild: Structures](https://modrinth.com/mod/adorabuild-structures))\n\n✔️ The Aether Dimension with Many Tweaks and Additions ([Deep Aether](https://modrinth.com/mod/deep-aether), [Aether Redux](https://modrinth.com/mod/the-aether-redux), [Aether Villages](https://modrinth.com/mod/aether-villages))\n\n✔️ QoL Features such as [Waystones](https://modrinth.com/mod/waystones) and [ XP Tomes](https://modrinth.com/mod/xp-tome)\n\n✔️ [Xaero's Minimap](https://modrinth.com/mod/xaeros-minimap) with Additional Features\n\n✔️ [Rideable Dragons](https://modrinth.com/mod/dragon-mounts-legacy/)\n\n✔️ Many Custom Features for an Improved Experience\n\n✔️ Built-in, [Free World Sharing](https://www.youtube.com/watch?v=tLTC6wYcWVM)\n\n✔️ [270+ Mods](https://www.modpackindex.com/modpack/64026/better-mc-forge-bmc4)\n\n[Live count of how many members are online in the Luna Pixel Studios discord server.](https://lunapixel.studio/discord)\n\n[![Use code LUNAPIXEL for 25% off Bisect Hosting](https://cdn.modrinth.com/data/cached_images/2c3d1af34a17cb45f2ba4b9cfca4bd54d1c857ef.png)](https://lunapixel.studio/bisect)\n\n<iframe src=\"https://www.youtube.com/embed/2pPFQRC-0tg\" width=\"410\" height=\"230\" allowfullscreen=\"allowfullscreen\"></iframe>\n<iframe src=\"https://www.youtube.com/embed/SV_SKlxNEUM?wmode=transparent\" width=\"410\" height=\"230\" allowfullscreen=\"allowfullscreen\"></iframe>\n\nNOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/4BV47HRn/images/d3df28d6602d05c894c33fac6f6e0e42b5ea7739_350.webp",
+      "featured": true,
+      "title": "Banner",
+      "description": null,
+      "created": "2023-11-17T17:36:57.187275Z"
+    }
+  ],
+  "team": [],
+  "versions": [
+    {
+      "id": "bdRIjRgs",
+      "name": "Better MC [FORGE] - BMC4 v59",
+      "version_number": "v59",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-07-15T07:13:42.142751Z",
+      "downloads": 501106,
+      "changelog": "Major update to bring the Modrinth version up-to-date with the CurseForge version! There have been many changes since the last version uploaded on Modrinth, [you can read all the changelogs here.](https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] 1.20.1 1.20.1 v59.mrpack",
+          "size": 90351891,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "krFPoaLH",
+      "name": "Better MC [FORGE] - BMC4 v43",
+      "version_number": "v43",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-06-09T20:26:21.153830Z",
+      "downloads": 1299684,
+      "changelog": "# [Stability Update]\n## Mod Changes\n- 🟢 Added Easy Disenchanting (by Txni)\n- 🟢 Added Early Bedtime (by Txni)\n- 🔴 Removed Enchantment Transfer (Replaced)\n- 🔵 Updated 35 mods\n## Config Changes\n- Some resourcepacks that were previously hidden from the resourcepacks screen are now visible again and can be optionally enabled by users\n- Set the FallingTree tree size limit to 500, as trees no longer break instaneously\n## Updates\n- Added Glow Jam Cookies (Delightful)\n- Stained glass now has connected textures (Stay Clear)\n- Changed several recipes to be much simpler (Delightful)\n## Fixes\n- Frequent crash due to Aether Redux compat (Delightful)\n- Servers not fully closing after crashing/shutting down (Pack Analytics)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] BMC4 v43.mrpack",
+          "size": 192650424,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bXQ3GijP",
+      "name": "Better MC [FORGE] - BMC4 v40",
+      "version_number": "v40",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-05-15T01:13:09.270533Z",
+      "downloads": 62375,
+      "changelog": "**\\[Stability Update]**\nIn this update, we have updated the Simple Storage Network mod to the latest version. This version of the mod has a bug that prevents hoppers from working with storage networks in some cases, but also fixes several crashes and other small bugs. After careful consideration, we decided that the hopper bug is less urgent than the game crashing issues. If you would like to continue using hoppers in your storage network, you are free to downgrade the Simple Storage Network mod to version 1.11.3\n\n**Mod Changes**\n* Added DnT Ancient City Overhaul (by Nova_Wostra)\n* Added Mining Speed Tooltips (by Txni)\n* Added Misc Tweaks (by pajic)\n* Added Aether Addon Emissivity (by TheAetherTeam)\n* Removed Inventory Management (Deleted from Curseforge)\n* Updated 34 mods\n\n**Config Changes**\n* Fixed all Dragon Egg quests completing when one dragon egg was obtained\n* Set Leaf Culling to Solid mode to improve appearance of leaves\n* Regenerated the ModernFix structure cache to fix a rare crash and improve chunk generation speeds\n* Unbound the JEI Select Search Bar keybind as it caused issues while typing\n* Re-enabled Quark inventory sort buttons\n\n**Updates**\n* Enchanted books from BetterNether and Spawners+ will now have unique textures (Beautiful Enchanted Books)\n* Boulders now have smaller hitboxes while travelling to avoid unwanted collision with terrain (Mowzie's Mobs)\n\n**Fixes**\n* Crash when opening inventories (Polymorph)\n* Particles turning black while items are being picked up (Mowzie's Mobs)\n* Crash when adding the Travelers Backpacks mod to the modpack manually (AllTheLeaks)\n* Twisting Ivy and Helixes are now properly orientated (Jaden's Nether Expansion)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] - BMC4 v40.mrpack",
+          "size": 67155580,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OTsmdIBF",
+      "name": "Better MC [FORGE] - BMC4 v36",
+      "version_number": "v36",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-01-19T09:51:43.507302Z",
+      "downloads": 136782,
+      "changelog": "## [Quality of Life Update]\n \n### Mods:\n+ Added Just Zoom (by Keksuccino)\n+ Added Toni's Immersive Lanterns (by Txni)\n+ Added Distraction Free Recipes (EMI / REI / JEI) (by Txni)\n+ Added Quests Kill Task Tweaks (by MuonR)\n+ Added Sodium/Embeddium Options Mod Compat (by Txni)\n+ Added Structure Layout Optimizer (by telepathicgrunt)\n+ Added TerrablenderFix (by racoonman2)\n+ Added Pack Analytics (by Txni)\n- Removed Spyglass Improvements (Players did not properly understand the spyglass requirement to zoom)\n \n### Configs:\n- Added the modpack version to the main menu\n- Changed the Inventory tutorial quest to give a Lantern instead of a Charm of Life, to show players the new Immersive Lanterns mod\n- Bound Vein Mining to ~\n \n### Updates:\n- Added Black Ice Glaciers, a new soul sand valley sub-biome (Jaden's Nether Expansion)\n- Added Black Icicles, acts like dripstone but more fragile breaking with most projectiles, freezes upon being impaled. Can be loaded into crossbows. (Jaden's Nether Expansion)\n- Added Black Strays, a variant of the strays found only in the nether (Jaden's Nether Expansion)\n- Added new track \"Sublimate\" plays in Black Ice Glaciers and composed by Shroomaniac (Jaden's Nether Expansion)\n- Added a custom animation for when the player is on fire (Not Enough Animations)\n- Soul Sand Valleys now generate mound formations to break-up the repetitive terrain (Jaden's Nether Expansion)\n- Netherite Grates now let light through (Jaden's Nether Expansion)\n \n### Fixes:\n- Gamebreaking world corruption when using Ambrosium Torch Arrows (Ascended Quark)\n- Gamebreaking lag when near the world border (Sound Physics Remastered)\n- Guards not being able to be created with crossbows in 1.20.1 (Guard Villagers)\n- Guards not staying on patrol point (Guard Villagers)\n- Witches attacking baby villagers (Guard Villagers)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] - BMC4 v36.mrpack",
+          "size": 158912399,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2Ekp9EMN",
+      "name": "Better MC [FORGE] - BMC4 v34.5",
+      "version_number": "v34.5",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-11-19T23:27:08.783517Z",
+      "downloads": 48194,
+      "changelog": "View v33 changelog [here](https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4/files/5800094)\n\nView v33.5 changelog [here](https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4/files/5807434)\n\nView v34 changelog [here](https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4/files/5854101)\n\n[Fix Update]\nFORGE IS NOW 43.3.12\n\nChanges:\n- Added AllTheLeaks (Memory Leak Fix) (by Uncandango)\n- Added BMC Pale Garden \"Datafixer\" (by MuonR)\n- Added More Information to Cataclysm Boss Quests\n- Changed Dragon Egg Quest\n- Stopped Creaking from Overspawning\n- Removed Extra Calender Quest\n- Removed DTK Update (Accidently left this Pale Garden mod in the Modpack after testing, Biomes will revert to other Pale Garden Mod that is present)\n- Lots of Fixes from Mod Updates\n\nUpdated:\n- [ETF] Entity Texture Features\n- AAA Particles\n- Ascended Quark\n- Cristel Lib\n- Enchantment Descriptions\n- Entity Culling Fabric/Forge\n- Euphoria Patches\n- Every Compat (Wood Good)\n- Farmer's Delight\n- Friends & Foes\n- FTB Library\n- ImmediatelyFast\n- L_Ender 's Cataclysm\n- ModernFix\n- Moonlight Lib\n- Not Enough Animations\n- Pale Garden and Creaking\n- Ping Wheel\n- Puzzles Lib\n- Skin Layers 3D\n- Snow Under Trees\n- Sodium/Embeddium Options API\n- Supplementaries\n- Supplementaries Squared\n- The Aether\n- The Aether: Redux\n- Xaero's Minimap\n- XaeroPlus\n- Complementary Shaders - Reimagined\n\nAS ALWAYS BACKUP YOUR WORLD BEFORE UPDATING",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] - BMC4 v34.5.mrpack",
+          "size": 33617272,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "4ZAlMNbq",
+      "name": "Better MC [FORGE] - BMC4 v32.5",
+      "version_number": "v32.5",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-09-25T07:58:04.402942Z",
+      "downloads": 40395,
+      "changelog": "\"Sorry for taking so long! Life's been really weird for me as of late and I apologize for the delays, I'm getting back to work as much as I can!\"\n\n**- from Tlp**\n\nCopied from CF changelog:\n\n**- Fixed many Alex Mobs Crashes & Bugs (Alex Mobs)**\n\n**- Fixed Server Crash when wearing non-vanilla armor and taking damage (Deeper & Darker)**\n\n(quick reupload because I'm a goofball)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] - BMC4 v32.5.mrpack",
+          "size": 123085497,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "IGwlsu0n",
+      "name": "Better MC [FORGE] - BMC4 v28",
+      "version_number": "v28",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-06-11T23:37:57.820989Z",
+      "downloads": 79402,
+      "changelog": "[Copied from CF changelog]\n\n**[Visuals Update]**\n\n**Mods:**\n+ Added Yung Structures Addon for Loot Integrations (by someaddon)\n- Removed Endless Biomes (Caused many crashes and massive lag)\n \n**Configs:**\n- Added a quest for the Season Calendar\n- Set the default render distance y-stretch to 400%. Feel free to lower this value in Video Settings for better performance.\n- Heavily customized the default enabled config for the Euphoria Patches shaderpack so it works with the new colored lighting, alongside some other tweaks for a better experience.\n- Increased the spawn rate of end cities by 150%. Keep in mind that end cities are unable to spawn on many modded blocks and are more common in vanilla biomes.\n- VanilAA shaders are no longer enabled by default, as it caused issues for people on lower end GPUs. If you have a decent GPU then these shaders should still be fully compatible, and you will see much better graphics quality with it enabled and may even gain FPS.\n \n**Updates:**\n- Added 6 new structures (Philip's Ruins)\n- Added a cooldown to Umvuthi's hurt animation to prevent him from getting stuck (Mowzies Mobs)\n- Zooming now works when in third-person and will overall be a lot smoother (Just Zoom)\n- Added Advanced Colored Lighting and Colored Light Fog, which allows for beautiful colored lighting to be created by light sources (Complementary Shaders)\n- Added Carved Bases, which are a decorative block for the bottom of the walls in the bronze dungeon (Aether Redux)\n- Added a new light block, the Runelight, which can be turned on/off with a right-click (Aether Redux)\n- Added unique sky colors to some biomes (Aether Redux)\n- Decreased the spawn rate of nagas (Mowzies Mobs)\n- Entities hit by a torch or flint and steel will be set on fire (Amendments)\n \nThe following updates are specifically for when the Euphoria Patches shaderpack is enabled in Video Settings:\n- Added custom properties to many modded blocks. The End and Nether dimensions are especially affected by this.\n\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] - BMC4 v28.mrpack",
+          "size": 118534354,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "C3rdirIw",
+      "name": "Better MC [FORGE] 1.20.1 v4 HF",
+      "version_number": "v4",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2023-12-12T09:41:07.770998Z",
+      "downloads": 71170,
+      "changelog": "**[Spawners+ Update]**\n\nFORGE IS NOW 47.2.17\n\n**HotFix:**\n- Added Just Zoom [Forge] (by Keksuccino)\n- Fixed Resource Pack order and Keybinds resetting\n\n**Mods:**\n- Added Spawners+ (by NathanTheCraziest)\n- Reverted Nether Chested (Causes Crash)\n\n**Changes:**\n- Nerfed wildfire crown (Friends&Foes)\n- Baby winged animals inherit their wing color from their parents (Aether: Lost Content Addon)\n- Phoenix tools are properly considered as Aether tools (Aether: Lost Content Addon)\n- Aechor Plants no longer disappear when hit with a Gravitite Sword (The Aether)\n- Aether flower bounding boxes now offset properly (The Aether)\n- Ambrosium no longer can enchant all blocks (The Aether)\n- Added Waystones to Cherry and Bamboo Repurposed Structures villages (Waystones)\n- Inject waystone pieces into Repurposed Structures zombie village variants (Waystones)\n\n**Fixes:**\n- Support for some modded dimensions (Xaero's Minimap & World Map)\n- Entity icon resource loading causing crashes for some (Xaero's Minimap & World Map)\n- Various null pointer exception crashes before or during client world changes (Xaero's Minimap & World Map)\n- Incorrect use of accessory tags. Should work with the normal curios slots now (Aether: Lost Content Addon)\n- Dendler not spawning properly in the hasturian wastes (Eldritch End)\n- Animated texture optimizations causing animated textures to be out of sync (Embeddium)\n- \"Loading terrain\" screen not going away for a long time when facing certain directions in the world (Embeddium)\n- Another edge case where chunk regions are ordered incorrectly, causing water to disappear behind stained glass (Embeddium)\n- Crash related to blaze/wildfire/illusioner (Friends&Foes)\n- Portals still being linked to return portal positions even after those portals are broken (NetherPortalFix)\n- Buckets not having any effect on waterlogged waystones (Waystones)\n- Warp stone cooldown getting corrupted into millions of seconds (Waystones)\n- Issues with What Are They Up To Mod\n \n\n**AS ALWAYS\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FORGE] 1.20.1 v4 HF.mrpack",
+          "size": 101644856,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

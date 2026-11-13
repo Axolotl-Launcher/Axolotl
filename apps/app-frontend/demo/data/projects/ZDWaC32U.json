@@ -1,0 +1,211 @@
+{
+  "id": "ZDWaC32U",
+  "slug": "oneclient-skyblock",
+  "title": "OneClient (SkyBlock) [Modpack / Client]",
+  "description": "All in one SkyBlock modpack for OneClient by Polyfrost, the client for everyone. Optimized FPS / performance, world hosting, QoL features, in one place.",
+  "author": "Wyvest",
+  "categories": ["fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["multiplayer"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 966307,
+  "followers": 1,
+  "license": {
+    "id": "GPL-3.0-only",
+    "name": "GNU General Public License v3.0 only"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.21.11", "26.1.2", "26.2", "26.3"],
+  "latest_version": "W2w121wb",
+  "date_created": "2026-07-23T01:21:59.610490Z",
+  "date_modified": "2026-10-23T11:09:41.523233Z",
+  "color": 13885692,
+  "published": "2026-07-23T01:21:59.610490Z",
+  "additional_categories": ["lightweight", "optimization"],
+  "issues_url": "https://github.com/Polyfrost/DataStorageV2/issues",
+  "source_url": "https://github.com/Polyfrost/DataStorageV2",
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/polyfrost",
+  "donation_urls": [],
+  "versions_total": 1152,
+  "body": "# OneClient\n\nOneClient ships the most bleeding-edge mods, packaged with the best visuals out of any client, powered by [OneConfig](https://modrinth.com/mod/oneconfig).\n\n## SkyBlock\n\nThis modpack packages the best Hypixel SkyBlock mods, all verified and checked by the Polyfrost team: the basics (SkyHanni, Skyblocker, SkyOcean, Odin), and some more niche mods (SkyBlock Item List from Meowdding, IQ Addons, Iconographic)\n\n## Performance\n\nIn the background, our competitors like Lunar Client and Feather/Dawn Client literally **run an instance of Chromium _in-game_** to power their GUIs.\n\n***Yes, clients actually are running Chrome IN YOUR _MINECRAFT_...***\n\nWe use our own rendering library called PolyCompose (based on JetBrains Compose), resulting in drastically better visuals but also performance.\n\nWe package almost **TWICE** as many performance mods as Fabulously Optimized (27 vs 14 mods), meaning performance is significantly better in-game. And don't even get us started with Lunar/Feather...\n\n## User Interface\n\nOneClient features a clean and sleek user interface, meticulously designed by actual designers. Optimized for looking good without sacrificing any easy of use. Supports themeing, so you can choose between what you prefer.\n\n![OneClient UI](https://polyfrost.org/ui.webp)\n![OneClient UI options](https://polyfrost.org/settings.webp)\n![OneClient UI theming](https://polyfrost.org/themes.webp)\n\n## HUDs\n\nWe package our own HUD mods: EvergreenHUD and VanillaHUD, two of the best HUD mods ever created for Minecraft. \n\n***On [Hypixel SkyBlock](https://modrinth.com/modpack/oneclient-skyblock), we support all the major SkyBlock mod HUDs, meaning all your favorite mods' HUDs show in one place.***\n\n## Fully open-source\n\nThis should go without saying, but we are 100% open-source. We haven't had a single private repository on our GitHub since January 2026.",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/ZDWaC32U/images/31b082233a7f443aac1eef5745f68005f6c4a52c_350.webp",
+      "featured": true,
+      "title": "Banner",
+      "description": null,
+      "created": "2026-10-06T10:14:27.053048Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Wyvest",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/a6VEZDKe/f5aa0ec7453bb84b15870fd32026fd24229cfc23_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "W2w121wb",
+      "name": "OneClient (SkyBlock) v2.0.458 (26.3)",
+      "version_number": "v2.0.458",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T11:09:41.523233Z",
+      "downloads": 0,
+      "changelog": "Automated build for Minecraft 26.3. (a55900a)\n\nContent SHA-1: `b759fd5f822158e56ae2808be48819195aa880cc`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.3-fabric.mrpack",
+          "size": 24518,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lj5pVpn1",
+      "name": "OneClient (SkyBlock) v2.0.457 (26.3)",
+      "version_number": "v2.0.457",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:30.555901Z",
+      "downloads": 616,
+      "changelog": "Automated build for Minecraft 26.3. (b23b933)\n\nContent SHA-1: `0bb0cbc7d0d2cda3f53e23d312accbe40036fa24`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.3-fabric.mrpack",
+          "size": 24514,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ne14PJ5R",
+      "name": "OneClient (SkyBlock) v2.0.457 (26.2)",
+      "version_number": "v2.0.457",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:29.260102Z",
+      "downloads": 559,
+      "changelog": "Automated build for Minecraft 26.2. (b23b933)\n\nContent SHA-1: `b863f25c3b45a0b499d522eb182ef0a6bb71bf3c`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.2-fabric.mrpack",
+          "size": 26822,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Alyvda7B",
+      "name": "OneClient (SkyBlock) v2.0.457 (26.1.2)",
+      "version_number": "v2.0.457",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:27.928551Z",
+      "downloads": 168,
+      "changelog": "Automated build for Minecraft 26.1.2. (b23b933)\n\nContent SHA-1: `bcc57ac7cd7858e29698574c5b6c585dfd93efad`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.1.2-fabric.mrpack",
+          "size": 27116,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fcDBGKKh",
+      "name": "OneClient (SkyBlock) v2.0.456 (26.3)",
+      "version_number": "v2.0.456",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T00:36:21.311112Z",
+      "downloads": 950,
+      "changelog": "Automated build for Minecraft 26.3. (0581cac)\n\nContent SHA-1: `d602cdfc1eab6b33a95aaf8079a1d4a37583bf3b`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.3-fabric.mrpack",
+          "size": 24509,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "nKGWPAB6",
+      "name": "OneClient (SkyBlock) v2.0.456 (26.2)",
+      "version_number": "v2.0.456",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T00:36:19.961844Z",
+      "downloads": 878,
+      "changelog": "Automated build for Minecraft 26.2. (0581cac)\n\nContent SHA-1: `0319b7e5ea7b62921ef06a79578ab20f625a10c4`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.2-fabric.mrpack",
+          "size": 26809,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "aNkGkVvI",
+      "name": "OneClient (SkyBlock) v2.0.455 (26.3)",
+      "version_number": "v2.0.455",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-22T21:27:36.913668Z",
+      "downloads": 1155,
+      "changelog": "Automated build for Minecraft 26.3. (1a71184)\n\nContent SHA-1: `ecc9ed12056e5f1bddefd655c058d6d91502f593`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.3-fabric.mrpack",
+          "size": 24511,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "afhkg4ql",
+      "name": "OneClient (SkyBlock) v2.0.454 (26.2)",
+      "version_number": "v2.0.454",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-22T18:07:30.539492Z",
+      "downloads": 1515,
+      "changelog": "Automated build for Minecraft 26.2. (1a71184)\n\nContent SHA-1: `5b6419bfa8c8686ed7f96c028d76dbdc5cda0b59`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-skyblock-26.2-fabric.mrpack",
+          "size": 26811,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

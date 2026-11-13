@@ -35,7 +35,7 @@ export const configuredXss = new FilterXSS({
             float: /^left|right$/,
         },
     },
-    onIgnoreTagAttr: (tag, name, value) => {
+    onIgnoreTagAttr: (tag: string, name: string, value: string) => {
         // Allow iframes from acceptable sources
         if (tag === 'iframe' && name === 'src') {
             const allowedSources = [
@@ -85,7 +85,7 @@ export const configuredXss = new FilterXSS({
             return `${name}="${escapeAttrValue(allowedClasses.join(' '))}"`
         }
     },
-    safeAttrValue(tag, name, value, cssFilter) {
+    safeAttrValue(tag: string, name: string, value: string, cssFilter: (value: string) => string) {
         if (
             (tag === 'img' || tag === 'video' || tag === 'audio' || tag === 'source') &&
             (name === 'src' || name === 'srcset' || name === 'poster') &&

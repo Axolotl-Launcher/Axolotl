@@ -1,18 +1,17 @@
 [package]
 name = "theseus"
 # The actual version is set by the theseus-build workflow on tagging
-version = "1.10.4"
+version = "1.11.0-beta.5"
 edition.workspace = true
 
+[package.metadata.cargo-machete]
+# Used in build.rs to read build-time environment values from .env.
+ignored = ["dotenvy"]
+
 [dependencies]
-ariadne = { workspace = true }
 async-minecraft-ping = { workspace = true, features = ["srv"] }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
-async-tungstenite = { workspace = true, features = [
-  "tokio-runtime",
-  "tokio-rustls-webpki-roots"
-] }
 async-walkdir = { workspace = true }
 async_zip = { workspace = true, features = [
   "bzip2",
@@ -38,6 +37,7 @@ data-url = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 dirs = { workspace = true }
 discord-rich-presence = { workspace = true }
+dom_query = { workspace = true }
 dunce = { workspace = true }
 either = { workspace = true }
 encoding_rs = { workspace = true }
@@ -62,7 +62,6 @@ hyper-util = { workspace = true, features = [
 iana-time-zone = { workspace = true }
 indicatif = { workspace = true, optional = true }
 itertools = { workspace = true }
-jsonwebtoken = { workspace = true }
 keyring = { workspace = true }
 local-ip-address = { workspace = true }
 md5 = { workspace = true }
@@ -83,17 +82,19 @@ reqwest = { workspace = true, features = [
   "brotli",
   "charset",
   "deflate",
+  "form",
   "gzip",
   "http2",
   "json",
-  "macos-system-configuration",
   "multipart",
-  "rustls-tls-native-roots",
-  "rustls-tls-webpki-roots",
+  "query",
+  "rustls-no-provider",
   "socks",
   "stream",
+  "system-proxy",
 ] }
 rgb = { workspace = true }
+ring = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 rustls-pki-types = { workspace = true }
@@ -149,18 +150,22 @@ uuid = { workspace = true, features = ["serde", "v4"] }
 webpki-roots = { workspace = true }
 whoami = { workspace = true }
 xz2 = { workspace = true }
-zbus = { workspace = true }
 zhconv = { workspace = true }
 zip = { workspace = true }
 
 [dev-dependencies]
 chrono-tz = "0.10.4"
+jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
 rcgen = { version = "0.14.7", default-features = false, features = ["ring"] }
+rsa = "0.9.10"
 
 [build-dependencies]
 dotenvy = { workspace = true }
 dunce = { workspace = true }
 sha2 = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cidre = { workspace = true, features = ["blocks", "nw"] }
@@ -174,6 +179,8 @@ windows = { workspace = true, features = [
   "Win32_Security",
   "Win32_Storage_FileSystem",
   "Win32_System_Com",
+  "Win32_System_IO",
+  "Win32_System_Ioctl",
   "Win32_System_JobObjects",
   "Win32_System_ProcessStatus",
   "Win32_System_RestartManager",

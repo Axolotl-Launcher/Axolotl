@@ -7,6 +7,7 @@ import {
     download_job_retry,
     type InstallJobSnapshot,
 } from '@/helpers/install'
+import { installProgressFraction, installProgressTextSource } from '@/helpers/install-progress'
 
 import { createDownloadManager } from './download-manager'
 
@@ -100,7 +101,7 @@ it.each(['terminal', 'removed'])(
                 },
             })
             vi.mocked(download_job_get).mockResolvedValue(
-                state === 'terminal' ? job('succeeded', running.modified) : null,
+                (state === 'terminal' ? job('succeeded', running.modified) : null) as never,
             )
             await expect(manager.cancel('one')).resolves.toBeUndefined()
             expect(manager.activeJobs.value).toHaveLength(0)
@@ -161,7 +162,7 @@ it('fairly polls more than eight stale jobs and continues after a timed-out stat
     try {
         await manager.start()
         vi.mocked(download_job_get).mockImplementation(
-            async (id) => jobs.find((candidate) => candidate.job_id === id) ?? null,
+            async (id) => (jobs.find((candidate) => candidate.job_id === id) ?? null) as never,
         )
         await vi.advanceTimersByTimeAsync(60_000)
         expect(vi.mocked(download_job_get).mock.calls.some(([id]) => id === '8')).toBe(true)
@@ -207,7 +208,7 @@ it('retries accepted cancellation cleanup while suppressing concurrent cancellat
     try {
         await manager.start()
         const accepted = deferred<InstallJobSnapshot>()
-        const read = deferred<InstallJobSnapshot | null>()
+        const read = deferred<InstallJobSnapshot>()
         vi.mocked(download_job_cancel).mockReturnValueOnce(accepted.promise)
         vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
         const cancellation = manager.cancel('one')
@@ -296,7 +297,7 @@ it('polls stale active jobs, preserves events received during reads and stops on
     const manager = createDownloadManager(vi.fn())
     try {
         await manager.start()
-        const read = deferred<InstallJobSnapshot | null>()
+        const read = deferred<InstallJobSnapshot>()
         vi.mocked(download_job_get).mockReturnValueOnce(read.promise)
         await vi.advanceTimersByTimeAsync(30_000)
         expect(download_job_get).toHaveBeenCalledOnce()
@@ -311,6 +312,154 @@ it('polls stale active jobs, preserves events received during reads and stops on
         manager.dispose()
         await vi.advanceTimersByTimeAsync(120_000)
         expect(download_job_get).toHaveBeenCalledTimes(2)
+    } finally {
+        manager.dispose()
+        vi.useRealTimers()
+    }
+})
+
+it('modpack request updates exclude archive and parallel Minecraft bytes from content progress', async () => {
+    vi.useFakeTimers()
+    const content: InstallJobSnapshot = {
+        ...job('running', '2026-10-31T12:00:00Z'),
+        kind: 'create_modpack_instance',
+        provider: 'modrinth',
+        phase: 'downloading_content',
+        progress: { current: 1, total: 2, secondary: { current: 40, total: 100 } },
+        summary: {
+            files_completed: 1,
+            files_total: 2,
+            bytes_downloaded: 40,
+            bytes_total: 100,
+            fallback_count: 0,
+        },
+        items: [
+            {
+                id: 'pack.mrpack',
+                name: 'pack.mrpack',
+                status: 'completed',
+                bytes_downloaded: 200,
+                bytes_total: 200,
+            },
+            {
+                id: 'minecraft.jar',
+                name: 'minecraft.jar',
+                status: 'downloading',
+                bytes_downloaded: 20,
+                bytes_total: 80,
+            },
+            {
+                id: 'mods/a.jar',
+                name: 'mods/a.jar',
+                status: 'completed',
+                bytes_downloaded: 40,
+                bytes_total: 40,
+            },
+            {
+                id: 'mods/b.jar',
+                name: 'mods/b.jar',
+                status: 'queued',
+                bytes_downloaded: 0,
+                bytes_total: 60,
+            },
+        ],
+    }
+    backend.list.mockResolvedValue({ jobs: [content] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const request = backend.requests.mock.calls[0][0]
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            name: 'mods/b.jar',
+            url: 'https://cdn.modrinth.com/data/b.jar',
+            source: 'official',
+            bytes_total: 60,
+            attempt: 1,
+            max_attempts: 3,
+        })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            bytes: 10,
+            status: 'downloading',
+            speed_bytes_per_second: 10,
+            eta_seconds: 5,
+            content_bytes: { current: 50, total: 100 },
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        const updated = manager.jobs.value[0]
+        expect(updated.items[3].status).toBe('downloading')
+        expect(updated.items[3].bytes_downloaded).toBe(10)
+        expect(updated.progress).toEqual({
+            ...content.progress,
+            secondary: { current: 50, total: 100 },
+        })
+        expect(updated.summary.bytes_downloaded).toBe(50)
+        expect(updated.summary.bytes_total).toBe(100)
+        expect(installProgressFraction(updated)).toBe(0.5)
+        expect(installProgressTextSource(updated)).toEqual({
+            type: 'bytes',
+            current: 50,
+            total: 100,
+        })
+
+        // Replacing an earlier per-file sample must retain aggregate arrival order.
+        for (const [id, bytes, current] of [
+            ['mods/b.jar', 15, 55],
+            ['minecraft.jar', 30, 60],
+            ['mods/b.jar', 25, 65],
+        ] as const)
+            request({
+                type: 'progress',
+                job_id: 'one',
+                id,
+                bytes,
+                status: 'downloading',
+                content_bytes: { current, total: 100 },
+            })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].summary.bytes_downloaded).toBe(65)
+
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            name: 'mods/b.jar',
+            bytes_total: 60,
+            attempt: 2,
+            max_attempts: 3,
+        })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            bytes: 10,
+            status: 'downloading',
+            content_bytes: { current: 50, total: 100 },
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(installProgressFraction(manager.jobs.value[0])).toBe(0.5)
+
+        backend.jobs.mock.calls[0][0]({
+            ...manager.jobs.value[0],
+            phase: 'extracting_overrides',
+            progress: null,
+        })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'mods/b.jar',
+            bytes: 20,
+            status: 'downloading',
+            content_bytes: { current: 60, total: 100 },
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toBeNull()
+        expect(installProgressFraction(manager.jobs.value[0])).toBeNull()
     } finally {
         manager.dispose()
         vi.useRealTimers()
@@ -406,6 +555,61 @@ it('subscribes concurrently, snapshots only after every subscription, then repla
     await start
     expect(manager.jobs.value[0].status).toBe('succeeded')
     manager.dispose()
+})
+
+it('downgrading a pack counts only its current archive even when the previous archive has the same size', async () => {
+    vi.useFakeTimers()
+    const current: InstallJobSnapshot = {
+        ...job('running', '2026-11-07T11:00:00Z'),
+        kind: 'install_pack_to_existing_instance',
+        phase: 'downloading_pack_file',
+        progress: { current: 0, total: 100 },
+        summary: { files_completed: 1, bytes_downloaded: 100, bytes_total: 200, fallback_count: 0 },
+        items: [
+            {
+                id: 'old.mrpack',
+                name: 'old.mrpack',
+                status: 'completed',
+                bytes_downloaded: 100,
+                bytes_total: 100,
+            },
+        ],
+    }
+    backend.list.mockResolvedValue({ jobs: [current] })
+    const manager = createDownloadManager(vi.fn())
+    try {
+        await manager.start()
+        const request = backend.requests.mock.calls[0][0]
+        request({
+            type: 'started',
+            job_id: 'one',
+            id: 'new.mrpack',
+            name: 'new.mrpack',
+            url: 'https://example.invalid/new.mrpack',
+            source: 'official',
+            bytes_total: 100,
+            attempt: 1,
+            max_attempts: 5,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toEqual({ current: 0, total: 100 })
+        request({
+            type: 'progress',
+            job_id: 'one',
+            id: 'new.mrpack',
+            bytes: 25,
+            status: 'downloading',
+            speed_bytes_per_second: 25,
+            eta_seconds: 3,
+        })
+        await vi.advanceTimersByTimeAsync(16)
+        expect(manager.jobs.value[0].progress).toEqual({ current: 25, total: 100 })
+        expect(manager.jobs.value[0].summary.bytes_downloaded).toBe(25)
+        expect(manager.jobs.value[0].items[0].bytes_downloaded).toBe(100)
+    } finally {
+        manager.dispose()
+        vi.useRealTimers()
+    }
 })
 
 it('releases subscriptions that resolve after disposal without dispatching snapshots', async () => {

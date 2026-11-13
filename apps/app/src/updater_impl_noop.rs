@@ -3,6 +3,18 @@ use crate::api::Result;
 #[derive(Default)]
 pub struct PendingUpdateData(());
 
+/// Builds without the updater never apply launcher updates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdateMethod {
+    Updater,
+}
+
+impl UpdateMethod {
+    pub fn detect() -> Self {
+        Self::Updater
+    }
+}
+
 #[tauri::command]
 pub fn check_app_update() -> Result<()> {
     Ok(())

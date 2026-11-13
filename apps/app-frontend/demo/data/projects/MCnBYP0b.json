@@ -1,0 +1,329 @@
+{
+  "id": "MCnBYP0b",
+  "slug": "true-ending",
+  "title": "True Ending - Ender Dragon Overhaul",
+  "description": "An Ender Dragon overhaul with progressing difficulty, new attacks, and elegant particle animation.",
+  "author": "limesplatus",
+  "categories": ["datapack", "fabric", "forge", "magic", "mobs", "neoforge", "quilt"],
+  "display_categories": ["datapack", "fabric", "forge", "magic", "mobs", "neoforge", "quilt"],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 6608394,
+  "followers": 1923,
+  "license": {
+    "id": "LicenseRef-Custom",
+    "name": ""
+  },
+  "loaders": ["datapack", "fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2"
+  ],
+  "latest_version": "6Ja5EUoL",
+  "date_created": "2023-08-08T01:36:55.613852Z",
+  "date_modified": "2025-10-19T22:39:53.671799Z",
+  "color": 2688563,
+  "published": "2023-08-08T01:36:55.613852Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/limesplatus"
+    }
+  ],
+  "versions_total": 50,
+  "body": "![https://cdn.discordapp.com/attachments/748244223903400028/1252362326104080404/Untitled2572_20240617164028.png?ex=6671f0ce&is=66709f4e&hm=a647e076ffd5fd09df3fdb6ef59e216103d2f8b72c6539e81c2bd52047e23ddb&](https://cdn.modrinth.com/data/cached_images/9e6566ac6b560166b7da9d0f53cf3ae3876c1871.png)\n\n# About\n\nTrue Ending dramatically overhauls the vanilla Ender Dragon. Fight a now much stronger Ender Dragon, with increased health, new attacks, and new phases that progressively up the dragon's difficulty. Through other additions like longer lasting dragon breath, particle ambience, and a climatic final hit, the Ender Dragon fight is now much more exciting and more satisfying to beat.\n\n**Difficulty:** Damage from the True Ending Ender Dragon is scaled by difficulty, so if you're looking for a greater challenge, set your world's game mode to Hard. This also works by making the fight easier with Easy mode.\n\n# ♪ Boss Music\n\nTrue Ending adds boss music to the Ender Dragon boss fight! If you're using the datapack version, you'll have to [download the resource pack by clicking here](https://modrinth.com/resourcepack/true-ending-ender-dragon-music). Mod users won't have to install the resource pack as its already nicely installed along the mod jar file.\n\n# Settings\n\n\n\n\nYou can configure multiple settings in True Ending, like the Ender Dragon's health, through its settings menu by using `/function true_ending:_settings` in chat.\n\n# All Features\n \n<details>\n  <summary>Show All Additions and Changes</summary>\n\n\n- Ender Dragon Health has increased from 200 HP to 300 HP\n- During the Ender Dragon boss fight, boss music now plays to all players at the center island\n- Ambient particles now surround the arena and players during the Ender Dragon fight\n- Added a dragon dive attack that creates a huge shockwave when the Ender Dragon hits the ground\n - Additionally, a variant where it performs 3 dives (Triple Dive) when perching at 75% health or lower\n- Added a chain fired Dragon Fireball attack\n- Added a huge laser attack\n- Added a final phase where the Ender Dragon hovers above the ground for the player to levitate and deal the last blow mid air.\n- Caged end crystal towers are now broken in a more intuitive way: A phantom guards it and when the phantom is killed, the cage is broken\n- At 10% HP the Ender Dragon will be immune to damage till perched. If not already perched or about to perch, it will forcefully perch after 30 seconds\n- Added an End Crystal counter when an End Crystal is broken displaying how many are left to break\n- Everyone within 128 blocks of the center end island now receives the \"Free the End\" advancement after defeating the Ender Dragon\n- Ender Dragon respawn animation revamped\n- When the Ender Dragon is respawned, a sound is played globally to all players in the end dimension\n- Dragon Breath/Area Effect Clouds from Dragon Fireballs duration increased from 30 seconds to 1 minute\n- Dragon Fireballs now deal damage directly on impact\n- Dropped Ender Pearls break from new Ender Dragon attacks (this is to prevent obtaining massive amounts of Ender Pearls from the Enderman killed during the fight)\n- Ender Dragon knockback resistance has been increased massively to prevent arrows from locking the dragon mid-air before perching\n- End Crystal fire is now soul fire\n\n\n\n</details>\n\n***\n\n[![](https://cdn.modrinth.com/data/cached_images/89d7de50b2a682d1519c983d42d182f9099bcd33_0.webp)](https://youtu.be/gmK0zj07qsE)\n\n[![](https://cdn.modrinth.com/data/cached_images/3a81bec138c36a57ea937c23d3478ecf01de0426.png)](https://discord.gg/XZVARKkjwt)\n\nJoin the Discord Server to chat, discuss, and get help with my mods!\n\nhttps://discord.gg/XZVARKkjwt\n\n[image](https://ko-fi.com/limesplatus/tiers)\n\n\nHelp support the making of my datapacks with memberships or donations on Ko-fi!\n\nhttps://ko-fi.com/limesplatus/tiers\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/MCnBYP0b/images/ea3a32fdb577f54a944e050302006098ec5b14a4_350.webp",
+      "featured": true,
+      "title": "Stage Ambience",
+      "description": "(shader)",
+      "created": "2024-06-17T20:27:50.749004Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MCnBYP0b/images/5b6babe2e770f43f1ad31cde7d058e81ae43459f_350.webp",
+      "featured": false,
+      "title": "Thumbnail",
+      "description": null,
+      "created": "2023-08-08T21:48:03.155122Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MCnBYP0b/images/08af3f8e521b69188f17794a256857ee73158e3d_350.webp",
+      "featured": false,
+      "title": "Final Phase",
+      "description": "(shader)\nsparkle",
+      "created": "2023-08-09T02:32:10.030541Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/MCnBYP0b/images/aedb887bdfacd722ee6a089795f5802ea4815167.gif",
+      "featured": false,
+      "title": "Shockwave Dive",
+      "description": " ",
+      "created": "2023-08-10T18:15:53.088351Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "limesplatus",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/6gUWVwiH/3fe0c6b15dce11cc51850252a3791b01a892c25a.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "BWvn4Jtr",
+      "name": "1.1.4d",
+      "version_number": "1.1.4d",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2025-10-19T22:39:53.671799Z",
+      "downloads": 273245,
+      "changelog": "- Ender dragon's breath now displayed correct particles for 1.21.6+ by updating Particle tag to custom_particle",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-1.1.4d.jar",
+          "size": 5549831,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6Ja5EUoL",
+      "name": "1.1.4d",
+      "version_number": "1.1.4d",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1",
+        "26.1.1",
+        "26.1.2"
+      ],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2025-10-19T22:39:27.633905Z",
+      "downloads": 62528,
+      "changelog": "- Ender dragon's breath now displayed correct particles for 1.21.6+ by updating Particle tag to custom_particle",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-1.1.4d.zip",
+          "size": 5538209,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KOkqCDJu",
+      "name": "1.1.4c",
+      "version_number": "1.1.4c",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10"
+      ],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2025-10-19T16:04:05.392892Z",
+      "downloads": 2448,
+      "changelog": "- Removed True Ending load message that on 1.21.10 would display when joining the world",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-1.1.4c.jar",
+          "size": 5549819,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "xpvVYdt3",
+      "name": "1.1.4c",
+      "version_number": "1.1.4c",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10"
+      ],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2025-10-19T16:03:26.467528Z",
+      "downloads": 416,
+      "changelog": "- Removed True Ending load message that on 1.21.10 would display when joining the world",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-1.1.4c.zip",
+          "size": 5538197,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "9vOSLya4",
+      "name": "1.1.4b",
+      "version_number": "1.1.4b",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10"
+      ],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2025-10-11T20:28:42.108602Z",
+      "downloads": 8516,
+      "changelog": "- Updated to 1.21.9-10",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-1.1.4b.jar",
+          "size": 5549830,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "al7M1mA2",
+      "name": "1.1.4b",
+      "version_number": "1.1.4b",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10"
+      ],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2025-10-11T20:27:51.106097Z",
+      "downloads": 1806,
+      "changelog": "- Updated to 1.21.9-10",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-1.1.4b.zip",
+          "size": 5538207,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "uS9WXkkR",
+      "name": "1.1.4b",
+      "version_number": "1.1.4b",
+      "version_type": "release",
+      "game_versions": ["1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8"],
+      "loaders": ["fabric", "forge", "neoforge", "quilt"],
+      "featured": false,
+      "date_published": "2025-05-30T02:17:01.347936Z",
+      "downloads": 58561,
+      "changelog": "- Fixed a bug in 1.1.4a (previous version): ender dragon boss music wouldn't loop\n- Fixed a bug where indication particles for triple dive would display during normal dive",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-v1.1.4b-1.21.2-5.jar",
+          "size": 5513276,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ZTVGHbdd",
+      "name": "1.1.4b",
+      "version_number": "1.1.4b",
+      "version_type": "release",
+      "game_versions": ["1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2025-05-30T02:16:31.438598Z",
+      "downloads": 15970,
+      "changelog": "- Fixed a bug in 1.1.4a (previous version): ender dragon boss music wouldn't loop\n- Fixed a bug where indication particles for triple dive would display during normal dive",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "tru.e-ending-v1.1.4b-1.21.2-5.zip",
+          "size": 5502168,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

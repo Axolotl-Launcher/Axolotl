@@ -1,9 +1,23 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { defineComponent, h, ref } from 'vue'
 
 import FileEditor from '../layouts/shared/files-tab/components/editor/FileEditor.vue'
 import { mountThemed } from './visual-harness'
+
+const CodeEditorStub = defineComponent({
+    props: { content: String, readOnly: Boolean },
+    emits: ['update:content'],
+    setup(props, { emit }) {
+        return () =>
+            h('textarea', {
+                value: props.content,
+                readonly: props.readOnly,
+                onInput: (event: Event) =>
+                    emit('update:content', (event.target as HTMLTextAreaElement).value),
+            })
+    },
+})
 
 const cleanup: (() => void)[] = []
 afterEach(() => {
@@ -25,10 +39,11 @@ async function mountEditor(readFile: (path: string) => Promise<string>) {
     const notify = vi.fn()
     const wrapper = await mountThemed(
         FileEditor,
-        { file: { name: 'options.txt', path: 'options.txt' }, editorComponent: null },
+        { file: { name: 'options.txt', path: 'options.txt' } },
         'dark',
         {
             global: {
+                stubs: { CodeEditor: CodeEditorStub },
                 provide: {
                     [Symbol.for('modrinth:fileManagerContext')]: {
                         isBusy: ref(false),

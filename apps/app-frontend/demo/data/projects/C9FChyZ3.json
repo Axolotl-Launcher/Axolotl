@@ -1,0 +1,242 @@
+{
+  "id": "C9FChyZ3",
+  "slug": "cobblemondelta",
+  "title": "Cobblemon Delta",
+  "description": "Pokemon Cobblemon Pack - QoL and Performance mods! The server included in the pack has Mega Evolution, Paradox Pokemon, Area Zero, Real Player Gyms, Raids, Dungeons, Pokemon Fishing!",
+  "author": "ItsJustChris",
+  "categories": ["adventure", "fabric", "lightweight", "multiplayer", "optimization", "quests"],
+  "display_categories": ["adventure", "lightweight", "multiplayer"],
+  "client_side": "required",
+  "server_side": "optional",
+  "project_type": "modpack",
+  "downloads": 1694723,
+  "followers": 333,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.20.1", "1.21.1"],
+  "latest_version": "anD1pCq8",
+  "date_created": "2023-10-16T02:47:40.150979Z",
+  "date_modified": "2026-10-15T10:07:33.338437Z",
+  "color": 4407114,
+  "published": "2023-10-16T02:47:40.150979Z",
+  "additional_categories": ["optimization", "quests"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/kxejbkF",
+  "donation_urls": [],
+  "versions_total": 110,
+  "body": "This pack includes a few QOL and Performance mods along side Cobblemon, an expansive Pokémon mod!  This pack is Highly Optimized and runs good on low end hardware. We Recommend Setting your Ram to 4gb. \n\nThis pack is on Cobblemon 1.7.3, the latest version of Cobblemon!\n\nJoin Cobblemon Delta via the multiplayer section to play with friends and many other things!\n\n<details>\n<summary>Server Features</summary>\n\n- Raids\n- Gyms\n- Dungeons\n- Join/Create Towns\n- Breeding\n- Wonder Trade System\n- GTS (Grand Trading System from Pokemmo)\n- Battle Frontier\n- Shiny Weekends\n- Alpha Pokemon\n- Game Corner\n- Daycare\n- Player Shops\n- Champion Tournaments\n- Land Claims\n- Seasonal Events\n- Outbreaks\n- Hunting/Breeding Bounties\n- Server Block/Item Shop\n- and more!\n\n<details>\n<summary>Resource Packs</summary>\n\n- 3D Crops (Disabled Default)\n- Kiece Cobblemon Minimap Icons (Enabled Default)\n- Kiece Icons v4.1 VCompat (Enabled Default)\n- Cobblemon Emissive Ores (Disabled Default)\n- Poke Plaques (Enabled Default)\n- Held Item Descriptions (Enabled Default)\n- TPC Vitamin Descriptions (Enabled Default)\n\n </details>\n\nJoin our Discord for more info: https://discord.gg/cobblemondelta\n\nServer IP: play.cobblemondelta.com",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/C9FChyZ3/images/760c588fcaf71f5614b3a99be01f966a5167afc3_350.webp",
+      "featured": true,
+      "title": "Mega Evolution",
+      "description": "Cobblemon Delta is the first server to have fully functional Mega Evolution! You can find Mega Stones in Dungeons or Area Zero!",
+      "created": "2024-03-04T08:00:51.009893Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/C9FChyZ3/images/46b46f0bd92ade53a81c1c9d10df42c9b871af68_350.webp",
+      "featured": false,
+      "title": "Ultra Space",
+      "description": "Explore Ultra Space on our server! Explore and build in Ultra Space or look for Ultra Nests which spawn Ultra Beasts!",
+      "created": "2024-06-03T07:30:12.158405Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/C9FChyZ3/images/96d61564776acd89b472eff1a1e381eb564ab88e_350.webp",
+      "featured": false,
+      "title": "Gyms",
+      "description": "Fight gyms for ingame items and shiny pokemon! Also you'll be able to participate in the champions tournament upon gaining all 8 badges!",
+      "created": "2023-10-16T03:06:38.892061Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/C9FChyZ3/images/45e40ab5189b4f2d39eaa94f758c09c0adee70f5_350.webp",
+      "featured": false,
+      "title": "Community Day",
+      "description": "This is our last community day's exclusive pokemon!",
+      "created": "2023-10-16T03:07:07.766582Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "ItsJustChris",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/XhwMDioZ/1d782c9f24a56558bdff4d775e8422d6bf58ba7b.png"
+    },
+    {
+      "username": "chriscendo",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/user/rRWIa2UV/dcea324fce3aa11adcb743862ad1bfa94c77ea70.webp"
+    },
+    {
+      "username": "Deltric",
+      "role": "Member",
+      "avatar": "https://avatars.githubusercontent.com/u/25653276?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "GFIYals6",
+      "name": "Cobblemon Delta 4.4.2",
+      "version_number": "4.4.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-15T10:07:33.338437Z",
+      "downloads": 15954,
+      "changelog": "Updated DeltaClient",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.4.2.mrpack",
+          "size": 137448111,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KBixprfE",
+      "name": "Cobblemon Delta 4.4.1",
+      "version_number": "4.4.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-12T10:15:56.589010Z",
+      "downloads": 8649,
+      "changelog": "Updated DeltaClient (Fix Shoulder Mount Bug)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.4.1.mrpack",
+          "size": 133330960,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "40HIFl2F",
+      "name": "Cobblemon Delta 4.4.0",
+      "version_number": "4.4.0",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T10:27:04.761997Z",
+      "downloads": 5308,
+      "changelog": "Updated To Cobblemon 1.8.2\nUpdated DeltaClient",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.4.0.mrpack",
+          "size": 133310809,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "swdZGQR1",
+      "name": "Cobblemon Delta 4.3.2",
+      "version_number": "4.3.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-10T10:04:57.378347Z",
+      "downloads": 4369,
+      "changelog": "Updated DeltaClient (Battle Factory Rogue Halloween Update)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.3.2.mrpack",
+          "size": 133281136,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OE4Rzj1w",
+      "name": "Cobblemon Delta 4.3.1",
+      "version_number": "4.3.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-05T08:54:31.543738Z",
+      "downloads": 11274,
+      "changelog": "Fixed a resource pack reload issue\nAdded Mega Darkrai Boss Fight sky effect",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.3.1.mrpack",
+          "size": 132926258,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WuGB4lu9",
+      "name": "Cobblemon Delta 4.3.0",
+      "version_number": "4.3.0",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-05T06:18:39.981482Z",
+      "downloads": 539,
+      "changelog": "Added ViveCraft\nAdded VR Support in DeltaClient",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.3.0.mrpack",
+          "size": 132918081,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5httYiv9",
+      "name": "Cobblemon Delta 4.2.0",
+      "version_number": "4.2.0",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-01T09:08:38.668340Z",
+      "downloads": 12084,
+      "changelog": "Halloween Update",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.2.0.mrpack",
+          "size": 132362573,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "wnT0XqEG",
+      "name": "Cobblemon Delta 4.1.2",
+      "version_number": "4.1.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-19T11:33:50.916079Z",
+      "downloads": 28032,
+      "changelog": "Updated DeltaClient",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Delta 4.1.2.mrpack",
+          "size": 127884526,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,303 @@
+{
+  "id": "8oi3bsk5",
+  "slug": "terralith",
+  "title": "Terralith",
+  "description": "Explore almost 100 new biomes consisting of both realism and light fantasy, using just Vanilla blocks. Complete with several immersive structures to compliment the overhauled terrain.",
+  "author": "Starmute",
+  "categories": ["datapack", "fabric", "forge", "neoforge", "quilt", "worldgen"],
+  "display_categories": ["datapack", "fabric", "forge", "neoforge", "quilt", "worldgen"],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 24733616,
+  "followers": 8875,
+  "license": {
+    "id": "LicenseRef-Stardust-Labs-License",
+    "name": ""
+  },
+  "loaders": ["datapack", "fabric", "forge", "neoforge", "quilt"],
+  "game_versions": [
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "fqnsIp6d",
+  "date_created": "2022-11-13T21:48:54.507121Z",
+  "date_modified": "2026-09-27T20:51:14.636501Z",
+  "color": 4996660,
+  "published": "2022-11-13T21:48:54.507121Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/Stardust-Labs-MC/Terralith/issues",
+  "source_url": "https://github.com/Stardust-Labs-MC/Terralith",
+  "wiki_url": "https://stardustlabs.miraheze.org/wiki/Terralith",
+  "discord_url": "https://discord.gg/stardustlabs",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://patreon.com/stardustlabs"
+    },
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/stardustlabs"
+    }
+  ],
+  "versions_total": 83,
+  "body": "\n# Terralith\n\n[Latest Version](https://github.com/Stardust-Labs-MC/Terralith/releases) [Discord Badge](https://discord.gg/stardustlabs) [Modrinth Badge](https://modrinth.com/mod/terralith) [License Badge](https://github.com/Stardust-Labs-MC/license) [Wiki Badge](https://stardustlabs.miraheze.org/) [Issues Badge](https://github.com/Stardust-Labs-MC/Terralith/issues) [Weblate Badge](https://weblate.catter.dev/projects/stardust-labs)\n\nTerralith takes Minecraft's 1.18 massive world generation overhaul, and turns it up to eleven.\n\n![terralith_banner_squashed](https://user-images.githubusercontent.com/63272345/224816673-7f074733-da85-4673-a7b0-3362651c4dbd.png)\n\n## Notes\n- In 2.6.0, the **mod** version of Terralith relies on [Lithostitched](https://modrinth.com/mod/lithostitched) as a required dependency to work.\n- In 2.6.0, the mod version of Terralith is different from the datapack version, and it is no longer recommended to swap between the two without causing potential damage to your world.\n- Terralith is compatible with most biome-adding mods when using Terrablender or equivilent, but biome-adding datapacks are typically not compatible.\n- Terralith is fully compatible with the mod version of Tectonic. If you are using the datapack versions, you must use [Terratonic](https://modrinth.com/datapack/terratonic) __instead__ of Tectonic.\n- You CANNOT remove Terralith from an existing world!\n- It is not recommended to add Terralith to an existing world - reset yours first, or use a new world\n- View the structures and biomes per seed using [jacobsjo](https://github.com/jacobsjo)'s [Minecraft Datapack Map](https://map.jacobsjo.eu/)\n\n## Description\n### Biomes\nTerralith adds over 95 brand new biomes, as well as updating almost every vanilla biome with new and improved features. There are also new terrain types: canyons, shattered biomes, floating islands, deep ocean trenches, and much, much more.\n\n**Yellowstone** is one of Terralith's staple biomes - a simple and beautiful landscape, based on the real life US National Park. Among the list of realistic biomes are **Yosemite Cliffs**, **Shield**, and many more depending on what you're looking for in a biome. **Highlands** and its variants offer a flat surface to create on - builders can imagine anything from huge mega cities to small simple cottages. Adventurers can explore the breath-taking **Volcanic Peaks** and discover the beautiful **Desert Oases**.\n\nWhile realistic biomes can remind us of the beautiful planet we live on, Terralith offers a plunge into the world of fantasy as well. Adventurers can wander through the purple and mystical **Moonlight Grove** and **Amethyst Rainforest**, or climb the unforgiving cliffs of the **Scarlet Mountains**. If determined, sailers can find the mysterious **Mirage Isles**, or even the elusive and nostalgic **Alpha Islands**. Terralith encourages imagination to run wild here.\n\nIf you feel the surface is too face, have no fear - custom caves lurk beneath your feet! Similar to Minecraft's Lush Cave, the **Underground Jungle** is full of foliage, and rarely some old abandoned houses. Other caves, like **Infested** and **Fungal Caves** are overgrown with spiders and fungi! If you dig super deep, you could stumble upon a sister to the Deep Dark: the **Frostfire Caves** are dangerous and menacing. Beware!\n\n### Structures\nTo tie all of Terralith's magnificent biomes together are it's structures. The ominous tall **Spire** pierces the sky in the iciest biomes. Rarely, you can find **Fortified Villages** in the plains and desert - the villagers have progressed quite far as a society! Finally, if you find yourself lost at night, cold and hungry, you might stumble into the warm protection of the simple Glacial Hut.\n\n### Add-Ons\nTerralith has a suite of official add-ons you can try out. When using the datapack versions of the add-ons, ensure they load above Terralith.\n- [Remove Stardust Labs Intro Message](https://modrinth.com/datapack/remove-terralith-intro-message) is mostly self explanitory\n- [Terralith: No Structures](https://modrinth.com/datapack/terralith-no-structures) prevents all Terralith structures from generating\n- [Terralith: Extra Recipes](https://modrinth.com/datapack/terralith-extra-recipes) adds a couple useful recipe expansions, such as allowing Diorite, Andesite, and Granite to craft stone tools\n- [Terralith: ReStoned](https://modrinth.com/datapack/terralith-restoned) re-adds the Vanilla generation of Andesite/Diorite/Granite blobs\n\n### Config\nAs of 2.6.0, the **mod** version of Terralith has a config file. It is located in your client's `.config` folder under the name `terralith.json`, or you can edit the config directly in game via Neoforge's mod menu or Fabric's [Mod Menu](https://modrinth.com/mod/modmenu).\n- Custom Structures (`default: on`) - Spawns custom structures, such as Fortified Villages and Mage Towers.\n- Fog Tweaks (`default: on`) - Changes fog distance and color is some biomes, such as swamps and caves.\n- Intro Message (`default: on`) - Shows a toast when creating a new world, giving discord link and warning about difficulties when trying to uninstall.\n- Skylands (`default: on`) - A set of four season-themed biomes generating as sky islands above deep oceans. Disabling prevents them from generating.\n- Terrain Slabs (`default: on`) - In biomes with surface stone, stone slabs will generate to smooth the terrain. Disabling prevents them from generating.\n- Vanilla Stone Generation (`default: off`) - Follows Vanilla behavior and generates small blobs of granite, andesite, and diorite throughout the underground. Terralith replaces this with dedicated cave biomes for each stone type.\n- Recipe Changes (`default: off`) - Allows some items crafted with cobblestone to be crafted with alternate stones, and adds a recipe for converting stone slabs to cobblestone.\n\n### World Types\nAs of 2.6.0, the **mod** version of Terralith adds support for all world types. This means Terralith will respect superflat worlds, and work with the Single Biome, Large Biomes, and Amplified world types. Additionally, Terralith adds two new world types:\n- Amplified + Large Biomes (`terralith:amplified_large_biomes`): Combines the Amplified and Large Biomes into a single world type. It does not look the best, but it is very fun.\n- Oops! All Skylands (`terralith:all_skylands`): Creates a void world that is completely filled in with Skylands, and only Skylands. This world type exists solely for fun.\n__ __\n\n[![Patron Ad](https://user-images.githubusercontent.com/63272345/224786738-7baefaf8-267f-41b6-8ac5-53cc4bd5707e.png)](https://www.patreon.com/stardustlabs)\n\n[![Bisect Hosting Ad](https://user-images.githubusercontent.com/63272345/224786219-f87f21d2-fb51-4d78-82df-a16e83fe25c9.png)](https://www.bisecthosting.com/stardust)\n    ",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/8oi3bsk5/images/c4168f5d280c85e0e3d050bb8f3bc776fd0762d4_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2022-11-13T21:53:29.371658Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/8oi3bsk5/images/4957da7c3da1386fb12b76001a2321be7b2ff9bc_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2022-11-13T21:53:31.044672Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/8oi3bsk5/images/c5b10dfed4a506559d2e2081821e99e1f5b66794_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2022-11-13T21:53:32.559416Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Apollo",
+      "role": "Mod Dev",
+      "avatar": "https://avatars.githubusercontent.com/u/102649729?v=4"
+    },
+    {
+      "username": "catter1",
+      "role": "Maintainer",
+      "avatar": "https://avatars.githubusercontent.com/u/63272345?v=4"
+    },
+    {
+      "username": "Starmute",
+      "role": "Creator",
+      "avatar": "https://cdn.modrinth.com/user/oRXQvVNJ/97f7c767b3b6c78eafb51a2e17f04b36da5d294d.jpeg"
+    }
+  ],
+  "versions": [
+    {
+      "id": "fqnsIp6d",
+      "name": "v2.6.5+26.3 ~ Datapack",
+      "version_number": "2.6.5+26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-09-27T20:51:14.636501Z",
+      "downloads": 28563,
+      "changelog": "# Terralith v2.6.5+26.3\n- Updated to support 26.3 (Apollo)\n- Implemented new Poplar blocks into existing biomes\n- Added Shelf Mushrooms to all fallen logs\n- Added custom Abandoned Camps for Alpine Highlands (more later!)\n- Vanilla Abandoned Camps generate in Terralith biomes\n- Fixed a bug where features would not generate properly in Gravel Desert\n- Fixed a bug where Scarlet Mountain had too much snow\n- Fixed a bug where upgrading to new versions could result in small chunk borders\n\nHuge thank you to Apollo for making the majority of this update happen.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Terralith_v2.6.5+26.3.zip",
+          "size": 2985816,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GpiePbRq",
+      "name": "v2.6.5+26.3 ~ Neoforge Mod",
+      "version_number": "2.6.5+26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-27T20:43:43.702329Z",
+      "downloads": 7337,
+      "changelog": "# Terralith v2.6.5+26.3\n- Updated to support 26.3 (Apollo)\n- Implemented new Poplar blocks into existing biomes\n- Added Shelf Mushrooms to all fallen logs\n- Added custom Abandoned Camps for Alpine Highlands (more later!)\n- Vanilla Abandoned Camps generate in Terralith biomes\n- Fixed a bug where features would not generate properly in Gravel Desert\n- Fixed a bug where Scarlet Mountain had too much snow\n- Fixed a bug where upgrading to new versions could result in small chunk borders\n\nHuge thank you to Apollo for making the majority of this update happen.",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Terralith_v2.6.5+26.3-neoforge.jar",
+          "size": 2954905,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "aGE3hYAA",
+      "name": "v2.6.5+26.3 ~ Fabric Mod",
+      "version_number": "2.6.5+26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-27T20:41:09.135416Z",
+      "downloads": 115956,
+      "changelog": "# Terralith v2.6.5+26.3\n- Updated to support 26.3 (Apollo)\n- Implemented new Poplar blocks into existing biomes\n- Added Shelf Mushrooms to all fallen logs\n- Added custom Abandoned Camps for Alpine Highlands (more later!)\n- Vanilla Abandoned Camps generate in Terralith biomes\n- Fixed a bug where features would not generate properly in Gravel Desert\n- Fixed a bug where Scarlet Mountain had too much snow\n- Fixed a bug where upgrading to new versions could result in small chunk borders\n\nHuge thank you to Apollo for making the majority of this update happen.",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Terralith_26.3_v2.6.5+26.3.jar",
+          "size": 2954218,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "CzijfXJQ",
+      "name": "v2.6.4 ~ Datapack",
+      "version_number": "2.6.4",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-07-08T15:20:28.216422Z",
+      "downloads": 100057,
+      "changelog": "# Terralith v2.6.4\n- Fixed critical issue where Sulfur Caves and the greater cave distribution rework did not apply when Lithostitched was installed",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Terralith_26.2_v2.6.4.zip",
+          "size": 3001471,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lqrGyTjO",
+      "name": "v2.6.4 ~ Neoforge Mod",
+      "version_number": "2.6.4",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-07-08T15:19:19.692519Z",
+      "downloads": 19643,
+      "changelog": "# Terralith 2.6.4\n- Fixed critical issue where Sulfur Caves and the greater cave distribution rework did not apply when Lithostitched was installed",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Terralith_26.2_v2.6.4_Neoforge.jar",
+          "size": 2975530,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OxfI2n80",
+      "name": "v2.6.4 ~ Fabric Mod",
+      "version_number": "2.6.4",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-07-08T15:05:22.539780Z",
+      "downloads": 308101,
+      "changelog": "# Terralith 2.6.4\n- Fixed critical issue where Sulfur Caves and the greater cave distribution rework did not apply when Lithostitched was installed",
+      "dependencies": [
+        {
+          "project_id": "XaDC71GB",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Terralith_26.2_v2.6.4.jar",
+          "size": 2974843,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "eihdCshF",
+      "name": "v2.6.3 ~ Datapack 26.2",
+      "version_number": "2.6.3",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["datapack"],
+      "featured": false,
+      "date_published": "2026-07-02T16:50:48.440929Z",
+      "downloads": 7138,
+      "changelog": "# Terralith 2.6.3 (26.2)\n- Updated to support 26.2\n- Added geysers to Yellowstone\n- Added Cinnabar to Stony Spires\n- Added Tuff to Sulfur Caves",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Terralith_26.2_v2.6.3.zip",
+          "size": 3001072,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "xPKJtK4N",
+      "name": "v2.6.3 ~ Fabric Mod 26.2",
+      "version_number": "2.6.3",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-07-02T16:49:56.378762Z",
+      "downloads": 1326,
+      "changelog": "# Terralith 2.6.3 (26.2)\n- Updated to support 26.2\n- Added geysers to Yellowstone\n- Added Cinnabar to Stony Spires\n- Added Tuff to Sulfur Caves",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Terralith_26.2_v2.6.3_Neoforge.jar",
+          "size": 2969181,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

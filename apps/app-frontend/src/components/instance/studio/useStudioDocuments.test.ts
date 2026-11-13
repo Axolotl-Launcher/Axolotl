@@ -10,6 +10,10 @@ function document(path: string, kind: StudioDocument['kind'] = 'text'): StudioDo
     return { kind, path, name: path, content: 'saved', savedContent: 'saved', saving: false }
 }
 
+function failOnSave(error: unknown): never {
+    throw error instanceof Error ? error : new Error(String(error))
+}
+
 function deferred() {
     let resolve!: () => void
     const promise = new Promise<void>((done) => {
@@ -26,7 +30,7 @@ for (const kind of ['text', 'nbt'] as const) {
             await writeFile(path, 'saved')
             const studio = useStudioDocuments(async (_, content) => {
                 await writeFile(path, content)
-            }, expect.fail)
+            }, failOnSave)
             await studio.open(document('document', kind))
             studio.updateActiveContent('unsaved')
             const old = studio.activeDocument.value!
@@ -50,7 +54,7 @@ it('deletion waits for an in-flight write and blocks saves until it finishes', a
         events.push('write')
         await write.promise
         events.push('written')
-    }, expect.fail)
+    }, failOnSave)
     await studio.open(document('level.dat', 'nbt'))
     studio.updateActiveContent('edited')
     const saving = studio.saveActive()
@@ -72,7 +76,7 @@ it('deletion waits for an in-flight write and blocks saves until it finishes', a
 })
 
 it('directory deletion removes active and inactive descendants but keeps adjacent paths', async () => {
-    const studio = useStudioDocuments(async () => {}, expect.fail)
+    const studio = useStudioDocuments(async () => {}, failOnSave)
     for (const path of ['config/a', 'config/b', 'configuration/keep'])
         await studio.open(document(path))
     studio.documents.value[0].content = 'dirty inactive'
@@ -87,7 +91,7 @@ it('failed deletion retains dirty content and allows a later save', async () => 
     const writes: string[] = []
     const studio = useStudioDocuments(async (_, content) => {
         writes.push(content)
-    }, expect.fail)
+    }, failOnSave)
     await studio.open(document('settings.json'))
     studio.updateActiveContent('unsaved content')
     await expect(
@@ -102,7 +106,7 @@ it('failed deletion retains dirty content and allows a later save', async () => 
 })
 
 it('a read started before deletion cannot reopen a deleted descendant', async () => {
-    const studio = useStudioDocuments(async () => {}, expect.fail)
+    const studio = useStudioDocuments(async () => {}, failOnSave)
     const version = studio.pathVersion('config/new.json')
     await studio.deletePath('config', async () => {})
     expect(await studio.open(document('config/new.json'), version)).toBe(false)
@@ -116,7 +120,7 @@ it('ordinary close saves edits and concurrent closes do not remove another tab',
     const studio = useStudioDocuments(async (document, content) => {
         writes.push(`${document.path}:${content}`)
         await pending.promise
-    }, expect.fail)
+    }, failOnSave)
     await studio.open(document('a'))
     await studio.open(document('b'))
     studio.documents.value[0].content = 'edited'
@@ -129,9 +133,41 @@ it('ordinary close saves edits and concurrent closes do not remove another tab',
     expect(studio.activePath.value).toBe('b')
 })
 
+it('a deletion waits for a write it did not start', async () => {
+    const pending = deferred()
+    const studio = useStudioDocuments(async () => {}, failOnSave)
+    const removed: string[] = []
+    // An image edit is written by the page, not by a document, so the delete has
+    // no other way of knowing it is still running.
+    studio.trackWrite('screenshots/block.png', pending.promise)
+
+    const deleting = studio.deletePath('screenshots/block.png', async () => {
+        removed.push('block.png')
+    })
+    await Promise.resolve()
+    expect(removed).toEqual([])
+
+    pending.resolve()
+    await deleting
+    expect(removed).toEqual(['block.png'])
+})
+
+it('a failed write does not keep a deletion from finishing', async () => {
+    const studio = useStudioDocuments(async () => {}, failOnSave)
+    const removed: string[] = []
+    studio.trackWrite('screenshots/block.png', Promise.reject(new Error('disk full')))
+
+    expect(
+        await studio.deletePath('screenshots/block.png', async () => {
+            removed.push('block.png')
+        }),
+    ).toBe(true)
+    expect(removed).toEqual(['block.png'])
+})
+
 it('a deletion finishing after a workspace reset does not close the new workspace document', async () => {
     const pending = deferred()
-    const studio = useStudioDocuments(async () => {}, expect.fail)
+    const studio = useStudioDocuments(async () => {}, failOnSave)
     await studio.open(document('same-path'))
     const version = studio.pathVersion('same-path')
     const deleting = studio.deletePath('same-path', () => pending.promise)

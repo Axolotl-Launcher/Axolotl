@@ -55,6 +55,8 @@ fn record() -> SettingsRecord {
         use_modrinth_mirror: false,
         use_curseforge_mirror: true,
         auto_concurrent_downloads: false,
+        force_multiconnection_downloads: true,
+        forced_max_concurrent_downloads: 128,
         minecraft_metadata_source: DownloadSource::OfficialOnly,
         minecraft_file_source: DownloadSource::MirrorPreferred,
         modrinth_source: DownloadSource::Auto,
@@ -65,6 +67,7 @@ fn record() -> SettingsRecord {
         mc_memory_auto: true,
         mc_memory_optimize: true,
         auto_set_java_high_performance_mode: false,
+        minecraft_use_console_java: true,
         transparent_background: true,
         transparent_background_opacity: 33,
         transparent_background_blur: true,
@@ -100,6 +103,7 @@ fn record() -> SettingsRecord {
         resource_chinese_filenames: false,
         resource_preserve_filenames: false,
         default_game_language: "en_us".to_string(),
+        oobe_completed_steps: "[\"language_v1\"]".to_string(),
     }
 }
 
@@ -129,6 +133,7 @@ async fn the_migrated_row_reads_as_the_settings_it_holds() {
     assert_eq!(stored.auto_download_updates, None);
     assert_eq!(stored.version, 1);
     assert_eq!(stored.default_game_language, "");
+    assert_eq!(stored.oobe_completed_steps, "[]");
 }
 
 #[tokio::test]

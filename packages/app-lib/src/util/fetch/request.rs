@@ -10,7 +10,8 @@ use super::file;
 use super::file::response_validator;
 use super::file::{response_status_error, sha1_async};
 use super::model::{
-    DownloadMeta, DownloadRoute, FetchProgressFn, ProxyPolicy, ResourceClass,
+    DownloadMeta, DownloadRoute, DownloadRouteSource, FetchProgressFn,
+    ProxyPolicy, ResourceClass,
 };
 use super::policy::{
     fetch_retry_delay, header_requires_official_only, is_sensitive_header,
@@ -32,10 +33,10 @@ use crate::event::LoadingBarId;
 use crate::event::emit::emit_loading;
 use crate::util::download::constants::DOWNLOAD_META_HEADER;
 use crate::util::download::constants::{
-    AUTHORIZATION_HEADER, DOWNLOAD_PROGRESS_LOG_INTERVAL, FETCH_CDN,
-    FETCH_CLEAN_RETRY, FETCH_COOLDOWN_THEN_RETRY, FETCH_EO_CACHE_STATUS,
-    FETCH_HEDGE_FAILED, FETCH_MIRROR, FETCH_MISSING, FETCH_OFFICIAL,
-    FETCH_RETRY_SAME_ROUTE, FETCH_STOP, FETCH_SWITCH_ROUTE,
+    DOWNLOAD_PROGRESS_LOG_INTERVAL, FETCH_CDN, FETCH_CLEAN_RETRY,
+    FETCH_COOLDOWN_THEN_RETRY, FETCH_EO_CACHE_STATUS, FETCH_HEDGE_FAILED,
+    FETCH_MIRROR, FETCH_MISSING, FETCH_OFFICIAL, FETCH_RETRY_SAME_ROUTE,
+    FETCH_STOP, FETCH_SWITCH_ROUTE,
     FETCH_TIMED_OUT_WAITING_FOR_CDN_CONNECTION_RESOURCES, FETCH_UNKNOWN,
     METADATA_ATTEMPT_BUDGET, METADATA_HEDGE_DELAY, METADATA_REQUEST_TIMEOUT,
     MODRINTH_CDN_ATTEMPT_TIMEOUT, MODRINTH_CDN_ATTEMPTS, RESOURCE_WAIT_TIMEOUT,
@@ -56,7 +57,27 @@ use serde::de::DeserializeOwned;
 use std::collections::VecDeque;
 #[cfg(test)]
 use std::error::Error;
-use std::time::{self, Instant};
+use std::time::{self, Duration, Instant};
+
+/// Applies the caller's validator, then refuses an MCIM API response whose
+/// cache dates show that the mirror stopped refreshing it.
+fn validate_route_response(
+    route: &DownloadRoute,
+    bytes: &Bytes,
+    response_validator: Option<
+        &(dyn Fn(&Bytes) -> crate::Result<()> + Send + Sync),
+    >,
+) -> crate::Result<()> {
+    if let Some(validate_response) = response_validator {
+        validate_response(bytes)?;
+    }
+    if route.source == DownloadRouteSource::Mcim
+        && crate::util::download::mcim::is_api_url(&route.url)
+    {
+        crate::util::download::mcim::check_cache_dates(bytes)?;
+    }
+    Ok(())
+}
 
 async fn fetch_validated_metadata_route(
     route: &DownloadRoute,
@@ -122,7 +143,9 @@ async fn fetch_validated_metadata_route(
             );
         }
     }
-    if let Err(error) = response_validator(&bytes) {
+    if let Err(error) =
+        validate_route_response(route, &bytes, Some(response_validator))
+    {
         record_route_failure(route, resource, None);
         return Err(error);
     }
@@ -155,6 +178,33 @@ pub(crate) async fn fetch_hedged_metadata(
     client: &reqwest::Client,
     response_validator: &(dyn Fn(&Bytes) -> crate::Result<()> + Send + Sync),
 ) -> Result<Bytes, Vec<(usize, crate::Error)>> {
+    fetch_hedged_metadata_with_hedge_delay(
+        routes,
+        resource,
+        sha1,
+        header,
+        semaphore,
+        client,
+        response_validator,
+        METADATA_HEDGE_DELAY,
+    )
+    .await
+}
+
+/// The hedge delay is a parameter so a test can hold the second route back
+/// without racing the primary against a fixed interval: the interval and the
+/// request's own latency share one wall clock, and an instrumented build can
+/// lose that race while behaving correctly.
+pub(crate) async fn fetch_hedged_metadata_with_hedge_delay(
+    routes: &[DownloadRoute],
+    resource: ResourceClass,
+    sha1: Option<&str>,
+    header: Option<(&str, &str)>,
+    semaphore: &FetchSemaphore,
+    client: &reqwest::Client,
+    response_validator: &(dyn Fn(&Bytes) -> crate::Result<()> + Send + Sync),
+    hedge_delay: Duration,
+) -> Result<Bytes, Vec<(usize, crate::Error)>> {
     let primary = async {
         fetch_validated_metadata_route(
             &routes[0],
@@ -169,7 +219,7 @@ pub(crate) async fn fetch_hedged_metadata(
         .map_err(|error| (0, error))
     };
     tokio::pin!(primary);
-    let delay = tokio::time::sleep(METADATA_HEDGE_DELAY);
+    let delay = tokio::time::sleep(hedge_delay);
     tokio::pin!(delay);
 
     let first_error = tokio::select! {
@@ -541,16 +591,6 @@ async fn fetch_advanced_inner(
         || url.starts_with(env!("MODRINTH_API_URL_V3"));
     let requires_auth =
         is_api_url && requires_modrinth_auth(&method, header, uri_path);
-    let creds = if requires_auth
-        && header.as_ref().is_none_or(|x| !is_sensitive_header(x.0))
-    {
-        // The session is a stored record, so it is read through the store and
-        // not through the connection the caller handed on.
-        let state = crate::State::get().await?;
-        crate::state::ModrinthCredentials::get_active(&state.data).await?
-    } else {
-        None
-    };
     if method != Method::GET
         || header
             .as_ref()
@@ -570,7 +610,6 @@ async fn fetch_advanced_inner(
         && json_body.is_none()
         && download_meta.is_none()
         && progress.is_none()
-        && creds.is_none()
         && header.is_none_or(|(name, _)| !is_sensitive_header(name))
         && response_validator.is_some();
     if hedge_is_safe
@@ -656,8 +695,7 @@ async fn fetch_advanced_inner(
                 "Starting metadata or API request attempt"
             );
 
-            let protected_headers = creds.is_some()
-                || download_meta_header.is_some()
+            let protected_headers = download_meta_header.is_some()
                 || header.is_some_and(|header| is_sensitive_header(header.0));
             let download_clients = DownloadClients::for_request(
                 &NO_REDIRECT_REQWEST_CLIENT,
@@ -701,12 +739,6 @@ async fn fetch_advanced_inner(
                     || !is_sensitive_header(header.0))
             {
                 req = req.header(header.0, header.1);
-            }
-
-            if route.allow_sensitive_headers
-                && let Some(ref creds) = creds
-            {
-                req = req.header(AUTHORIZATION_HEADER, &creds.session);
             }
 
             if let Some((name, value)) = &download_meta_header {
@@ -1113,9 +1145,11 @@ async fn fetch_advanced_inner(
                             }
                         }
 
-                        if let Some(validate_response) = response_validator
-                            && let Err(error) = validate_response(&bytes)
-                        {
+                        if let Err(error) = validate_route_response(
+                            route,
+                            &bytes,
+                            response_validator,
+                        ) {
                             record_route_failure(route, resource, None);
                             let decision = if has_next_route {
                                 FETCH_SWITCH_ROUTE
@@ -1330,25 +1364,4 @@ async fn fetch_advanced_inner(
         total_attempts,
         attempt_budget,
     ))
-}
-
-#[tracing::instrument(skip_all)]
-pub async fn post_json(
-    url: &str,
-    json_body: serde_json::Value,
-    semaphore: &FetchSemaphore,
-) -> crate::Result<()> {
-    let _permit = semaphore.0.acquire().await?;
-
-    let mut req = INSECURE_REQWEST_CLIENT.post(url).json(&json_body);
-
-    let state = crate::State::get().await?;
-    if let Some(creds) =
-        crate::state::ModrinthCredentials::get_active(&state.data).await?
-    {
-        req = req.header(AUTHORIZATION_HEADER, &creds.session);
-    }
-
-    req.send().await?.error_for_status()?;
-    Ok(())
 }

@@ -1,11 +1,23 @@
-//! Foundations of the five-level task scheduler. This stage only observes:
-//! leaf locking, the debug resource-order guard, the L0 supervisor skeleton and
-//! the process-wide panic hook. Nothing here changes how existing tasks run.
+//! The five-level task scheduler: leaf locking, the per-family resource order
+//! and its instrumented guard, the L0 supervisor and executor, scheduling
+//! tags, the bands with aging, admission quotas, per-instance fairness, the
+//! reclaim bypass, the read-only view and the process-wide panic hook.
 
+pub mod aging;
+pub mod bands;
+pub mod bypass;
+pub mod eviction;
+pub mod fairness;
+pub mod idle_policy;
+pub mod l0;
 pub mod leaf;
 pub mod order;
 pub mod panic;
+pub mod quota;
+pub(crate) mod reconcile;
 pub mod supervisor;
+pub mod tag;
+pub mod view;
 
 #[cfg(test)]
 mod budget;

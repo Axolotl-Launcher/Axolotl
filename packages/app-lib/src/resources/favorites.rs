@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::*;
+use crate::event::emit::emit_favorite_groups_changed;
 use crate::state::store::Collection as _;
 use crate::state::store::Handle;
 use crate::state::store::atom;
@@ -47,6 +48,16 @@ fn favorite_key(project: &SourceProjectRef) -> ResourceFavoriteKey {
         source: project.source.as_str().to_owned(),
         project_id: project.project_id.as_str().to_owned(),
     }
+}
+
+/// The key favorite groups are stored under. Kept separate from
+/// `ResourceFavoriteKey` so the grouping file stays readable JSON.
+fn favorite_group_key(project: &SourceProjectRef) -> String {
+    format!(
+        "{}:{}",
+        project.source.as_str(),
+        project.project_id.as_str()
+    )
 }
 
 pub async fn list() -> ResourceResult<Vec<ResourceFavorite>> {
@@ -97,6 +108,9 @@ pub(crate) async fn remove_project(
 ) -> ResourceResult<()> {
     let handle = Handle::new(pool.clone());
     ResourceFavorites::set(&handle, &favorite_key(project), None).await?;
+    let group_key = favorite_group_key(project);
+    crate::state::favorite_groups::forget(&group_key);
+    emit_favorite_groups_changed(std::slice::from_ref(&group_key)).await?;
     Ok(())
 }
 
@@ -259,15 +273,41 @@ impl ResourceService {
         }
         let handle = Handle::new(pool.clone());
         let mut unit = atom(&handle).await?;
-        for project in projects {
+        for project in &projects {
             ResourceFavorites::atom_set(
                 &mut unit,
-                &favorite_key(&project),
+                &favorite_key(project),
                 None,
             )
             .await?;
         }
         unit.commit().await?;
+        let group_keys =
+            projects.iter().map(favorite_group_key).collect::<Vec<_>>();
+        for group_key in &group_keys {
+            crate::state::favorite_groups::forget(group_key);
+        }
+        emit_favorite_groups_changed(&group_keys).await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn project(source: &str, project_id: &str) -> SourceProjectRef {
+        SourceProjectRef {
+            source: SourceId::new(source).unwrap(),
+            project_id: SourceProjectId::new(project_id).unwrap(),
+        }
+    }
+
+    #[test]
+    fn favorite_group_key_is_source_and_project_id() {
+        assert_eq!(
+            favorite_group_key(&project("modrinth", "sodium")),
+            "modrinth:sodium"
+        );
     }
 }

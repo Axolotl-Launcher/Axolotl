@@ -6,12 +6,18 @@ import {
     setLastBrowseContentDisplayMode,
     setLastBrowseContentProjectType,
 } from './browse-display-mode.ts'
-import { getLastLibraryDisplayMode, setLastLibraryDisplayMode } from './library-display-mode.ts'
+import {
+    getLastInstanceLibraryDisplayMode,
+    getLastLibraryDisplayMode,
+    setLastInstanceLibraryDisplayMode,
+    setLastLibraryDisplayMode,
+} from './library-display-mode.ts'
 import { getSidebarExpanded, setSidebarExpanded } from './sidebar-state.ts'
 
 const storageKey = 'axolotl-browse-content-display-mode'
 const projectTypeStorageKey = 'axolotl-browse-content-project-type'
 const libraryDisplayModeStorageKey = 'axolotl-library-display-mode'
+const instanceLibraryDisplayModeStorageKey = 'axolotl-instance-library-display-mode'
 const sidebarStorageKey = 'axolotl-right-sidebar-expanded'
 const originalStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 
@@ -84,6 +90,30 @@ it('library display mode persists cards and falls back to the standard grid', ()
 
         values.set(libraryDisplayModeStorageKey, 'invalid')
         expect(getLastLibraryDisplayMode()).toBe('standard')
+    } finally {
+        restoreStorage()
+    }
+})
+
+it('instance library display mode persists the list and keeps the old preference', () => {
+    const values = installMemoryStorage()
+
+    try {
+        expect(getLastInstanceLibraryDisplayMode()).toBe('standard')
+
+        values.set(libraryDisplayModeStorageKey, 'cards')
+        expect(getLastInstanceLibraryDisplayMode()).toBe('cards')
+
+        setLastInstanceLibraryDisplayMode('list')
+        expect(getLastInstanceLibraryDisplayMode()).toBe('list')
+        expect(values.get(instanceLibraryDisplayModeStorageKey)).toBe('list')
+
+        setLastInstanceLibraryDisplayMode('standard')
+        expect(getLastInstanceLibraryDisplayMode()).toBe('standard')
+        expect(values.get(libraryDisplayModeStorageKey)).toBe('cards')
+
+        values.set(instanceLibraryDisplayModeStorageKey, 'invalid')
+        expect(getLastInstanceLibraryDisplayMode()).toBe('cards')
     } finally {
         restoreStorage()
     }

@@ -158,6 +158,48 @@ function mountCards() {
     })
 }
 
+it('scans shared-root instances using their concrete version metadata paths', async () => {
+    let receive!: (snapshot: ImportPlanSnapshot) => void
+    plans.listen.mockImplementation(async (callback) => {
+        receive = callback
+        return vi.fn()
+    })
+    plans.start.mockImplementation(async (request) => {
+        receive(snapshot(request.requestId, request.instancePath))
+        return request.requestId
+    })
+    const wrapper = mountCards()
+    const root = 'D:/Games/.minecraft'
+    const versionPath = `${root}/versions/1.20.1`
+    try {
+        wrapper.vm.show({
+            instances: [
+                {
+                    name: '1.20.1',
+                    path: root,
+                    basePath: root,
+                    launcherType: 'Generic',
+                    versionPath,
+                    compatibleMode: true,
+                },
+            ],
+        })
+        await vi.waitFor(() => expect(plans.start).toHaveBeenCalledOnce())
+        expect(plans.start).toHaveBeenCalledWith(
+            expect.objectContaining({ instancePath: versionPath, basePath: root }),
+        )
+        const confirm = () =>
+            wrapper.findAll('button').find((button) => button.text() === 'Confirm')!
+        await vi.waitFor(() => expect(confirm().attributes('disabled')).toBeUndefined())
+        await confirm().trigger('click')
+        expect(wrapper.emitted('confirm')![0]).toEqual([
+            [expect.objectContaining({ instanceName: '1.20.1', instancePath: versionPath })],
+        ])
+    } finally {
+        wrapper.unmount()
+    }
+})
+
 it('keeps Confirm locked before the queued snapshot is applied and rejects direct submissions', async () => {
     const applyFrame = holdSnapshots()
     let receive!: (value: ImportPlanSnapshot) => void

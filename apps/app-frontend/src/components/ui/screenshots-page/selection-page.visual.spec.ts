@@ -25,6 +25,11 @@ vi.mock('@/helpers/instance', () => ({
     getInstanceIconUrl: () => null,
     import_screenshot_groups: vi.fn(),
     list_all_screenshots: async () => fixture.screenshots,
+    list_screenshots: async () => fixture.screenshots,
+    list_synced_screenshots_with_warnings: async () => ({
+        screenshots: fixture.screenshots,
+        skipped_instances: fixture.skipped,
+    }),
     move_screenshots: fixture.moved,
     open_screenshot: vi.fn(),
     rename_screenshot_group: vi.fn(),

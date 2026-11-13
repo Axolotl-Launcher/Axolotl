@@ -1,10 +1,10 @@
-import { invoke } from '@tauri-apps/api/core'
 import { beforeEach, expect, it, vi } from 'vitest'
 
 import { resourceCheckUpdates, type ResourceUpdateProgress } from './resources'
 
+const backend = vi.hoisted(() => ({ invoke: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({
-    invoke: vi.fn(),
+    invoke: backend.invoke,
     Channel: class {
         onmessage?: (progress: ResourceUpdateProgress) => void
     },
@@ -22,7 +22,7 @@ const emptyResult = () => ({
 
 it('delivers visible-entry updates before the visible batch finishes', async () => {
     let complete!: (value: ReturnType<typeof emptyResult>) => void
-    vi.mocked(invoke).mockImplementation(
+    backend.invoke.mockImplementation(
         () =>
             new Promise((resolve) => {
                 complete = resolve
@@ -36,7 +36,7 @@ it('delivers visible-entry updates before the visible batch finishes', async () 
     }).then(() => {
         finished = true
     })
-    const args = vi.mocked(invoke).mock.calls[0][1] as {
+    const args = backend.invoke.mock.calls[0][1] as {
         entryIds: string[]
         onProgress: { onmessage: (progress: ResourceUpdateProgress) => void }
     }
@@ -56,7 +56,7 @@ it('delivers visible-entry updates before the visible batch finishes', async () 
 
 it('ignores late progress when the instance request has been canceled', async () => {
     let complete!: (value: ReturnType<typeof emptyResult>) => void
-    vi.mocked(invoke).mockImplementation((command) =>
+    backend.invoke.mockImplementation((command) =>
         command.endsWith('|resource_cancel')
             ? Promise.resolve(undefined)
             : new Promise((resolve) => {
@@ -66,7 +66,7 @@ it('ignores late progress when the instance request has been canceled', async ()
     const controller = new AbortController()
     const onProgress = vi.fn()
     const pending = resourceCheckUpdates('instance', controller.signal, { onProgress })
-    const args = vi.mocked(invoke).mock.calls[0][1] as {
+    const args = backend.invoke.mock.calls[0][1] as {
         onProgress: { onmessage: (progress: ResourceUpdateProgress) => void }
     }
     controller.abort()
@@ -77,9 +77,9 @@ it('ignores late progress when the instance request has been canceled', async ()
 })
 
 it('reserves full instance checks for callers without an entry scope', async () => {
-    vi.mocked(invoke).mockResolvedValue(emptyResult())
+    backend.invoke.mockResolvedValue(emptyResult())
     await resourceCheckUpdates('instance')
-    expect(vi.mocked(invoke).mock.calls[0][1]).toMatchObject({ entryIds: null })
+    expect(backend.invoke.mock.calls[0][1]).toMatchObject({ entryIds: null })
     await resourceCheckUpdates('instance', undefined, { entryIds: [] })
-    expect(vi.mocked(invoke).mock.calls[1][1]).toMatchObject({ entryIds: [] })
+    expect(backend.invoke.mock.calls[1][1]).toMatchObject({ entryIds: [] })
 })

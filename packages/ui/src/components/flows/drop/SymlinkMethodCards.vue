@@ -947,7 +947,7 @@ async function startPlan(index = activeIndex.value) {
             launcherType: instance.launcherType ?? 'Generic',
             basePath: instance.basePath ?? '',
             instanceFolder: instance.name,
-            instancePath: instance.path,
+            instancePath: instance.versionPath ?? instance.path,
             gameVersion: saved?.touched.gameVersion ? saved.gameVersion : null,
             loader: saved?.touched.loader ? saved.loader : null,
             loaderVersion: saved?.touched.loaderVersion ? saved.loaderVersion : null,
@@ -1144,7 +1144,7 @@ function handleConfirm() {
         const snapshot = snapshots.value[index] ?? null
         return {
             instanceName: instance.name,
-            instancePath: instance.path,
+            instancePath: instance.versionPath ?? instance.path,
             symlink: false,
             gameVersion:
                 (saved?.touched.gameVersion

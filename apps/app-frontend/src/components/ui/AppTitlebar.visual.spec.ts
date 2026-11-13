@@ -84,6 +84,7 @@ vi.mock(import('@/composables/browse/install-job-notifications'), () => ({
         stateSignature: computed(() => ''),
         buttons: computed(() => undefined),
         refresh: vi.fn(async () => {}),
+        clearFinishedJobs: vi.fn(),
         dispose: vi.fn(),
     }),
 }))
@@ -94,6 +95,7 @@ vi.mock('@/providers/app-update', () => ({
         downloadProgress: ref(1),
         finishedDownloading: ref(true),
         isVisible: ref(true),
+        manualInstall: ref(false),
         metered: ref(false),
         restarting: ref(false),
     },
@@ -144,7 +146,11 @@ async function mountTitlebar(withActionBar = false) {
                 component: { render: () => null },
                 meta: {
                     breadcrumb: [
-                        { name: 'Discover content', link: '/browse', query: { i: 'demo' } },
+                        {
+                            name: 'Discover content',
+                            link: '/browse',
+                            query: { i: 'demo' },
+                        } as { name: string; link?: string; query?: Record<string, string> },
                         { name: 'Just Enough Items (JEI) / 一个很长的模组名称'.repeat(8) },
                     ],
                 },

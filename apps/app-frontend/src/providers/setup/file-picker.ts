@@ -5,6 +5,7 @@ import { readFile } from '@tauri-apps/plugin-fs'
 import { useTemplateRef } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
+import type InstanceIconPickerModal from '@/components/ui/modal/InstanceIconPickerModal.vue'
 import { getLoaderInstanceIcon } from '@/helpers/instance-icons'
 
 function getFileName(path: string, fallback: string) {

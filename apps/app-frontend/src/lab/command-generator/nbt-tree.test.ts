@@ -35,6 +35,7 @@ describe('NBT tree round trips', () => {
         const output = serializeNbt([createNbtTag('key"\\', 'string', 'value"\\')])
         const parsed = NbtTag.fromString(output)
         expect(parsed.isCompound()).toBeTruthy()
+        if (!parsed.isCompound()) throw new Error('expected a compound tag')
         expect(parsed.get('key"\\')?.getAsString()).toBe('value"\\')
     })
 })

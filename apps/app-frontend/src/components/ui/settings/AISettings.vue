@@ -399,12 +399,13 @@ async function openSponsoredWebsite() {
     }
 }
 
-async function setMasterEnabled(enabled: boolean) {
+async function setMasterEnabled(enabled: boolean | undefined) {
+    const next = enabled ?? false
     const previous = state.value.settings.enabled
-    state.value.settings.enabled = enabled
+    state.value.settings.enabled = next
     masterBusy.value = true
     try {
-        await updateAISettings(enabled)
+        await updateAISettings(next)
     } catch (error) {
         state.value.settings.enabled = previous
         handleError(error)
@@ -435,16 +436,17 @@ async function saveProvider() {
     }
 }
 
-async function setProviderEnabled(enabled: boolean) {
+async function setProviderEnabled(enabled: boolean | undefined) {
     if (!selectedConfig.value) return
     await setProviderEnabledById(selectedConfig.value.provider_id, enabled)
 }
 
-async function setProviderEnabledById(providerId: string, enabled: boolean) {
+async function setProviderEnabledById(providerId: string, enabled: boolean | undefined) {
+    const next = enabled ?? false
     const config = state.value.providers.find((provider) => provider.provider_id === providerId)
     if (!config) return
     const previous = config.enabled
-    config.enabled = enabled
+    config.enabled = next
     busy.value = true
     try {
         await updateAIProvider({
@@ -578,21 +580,22 @@ async function openOAuthAuthorization() {
     }
 }
 
-async function setModelEnabled(modelId: string, enabled: boolean) {
+async function setModelEnabled(modelId: string, enabled: boolean | undefined) {
+    const next = enabled ?? false
     const config = selectedConfig.value
     const model = config?.models.find((item) => item.id === modelId)
     if (!config || !model) return
-    model.enabled = enabled
+    model.enabled = next
     try {
         await updateAIModel({
             provider_id: config.provider_id,
             model_id: model.id,
             display_name: model.name,
-            enabled,
+            enabled: next,
         })
-        if (enabled && !selectedTestModel.value) selectedTestModel.value = model.id
+        if (next && !selectedTestModel.value) selectedTestModel.value = model.id
     } catch (error) {
-        model.enabled = !enabled
+        model.enabled = !next
         handleError(error)
     }
 }

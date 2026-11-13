@@ -100,6 +100,52 @@ async fn modrinth_catalog_pages_share_one_complete_response() {
 }
 
 #[tokio::test]
+async fn modrinth_releases_come_back_newest_first_whatever_the_source_order() {
+    // MCIM serves a project's releases in another order than Modrinth.
+    let transport = FixtureTransport::new(|_, _| {
+        let release: Value = serde_json::from_str(fixtures::MR_IRIS).unwrap();
+        Ok(Value::Array(
+            (1..=3)
+                .map(|day| {
+                    let mut value = release.clone();
+                    value["id"] = json!(format!("v{day:07}"));
+                    value["date_published"] =
+                        json!(format!("2026-01-0{day}T00:00:00Z"));
+                    value
+                })
+                .collect(),
+        ))
+    });
+    let (_temp, cache) = cache().await;
+    let service = ResourceService::new(
+        cache.clone(),
+        vec![Arc::new(ModrinthProvider::new(transport))],
+    )
+    .unwrap();
+    let reference = ResourceRef::Source {
+        project: source_project(SourceId::modrinth(), "YL57xq9U").unwrap(),
+    };
+    let page = service
+        .releases(
+            &reference,
+            target(),
+            None,
+            RequestId::new("order").unwrap(),
+            None,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let ids = page
+        .entries
+        .iter()
+        .map(|release| release.reference.release_id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["v0000003", "v0000002", "v0000001"]);
+    cache.close().await;
+}
+
+#[tokio::test]
 async fn presentation_failure_uses_expired_metadata_without_masking_force_refresh()
  {
     let (_temp, cache) = cache().await;
@@ -2967,7 +3013,10 @@ async fn real_http_batches_and_reopened_sqlite_cache_obey_force_refresh() {
     });
     let transport = Arc::new(HttpTransport {
         base: format!("http://{address}"),
-        client: reqwest::Client::builder().no_proxy().build().unwrap(),
+        client: crate::util::http::client_builder()
+            .no_proxy()
+            .build()
+            .unwrap(),
     });
     let (_temp, cache) = cache().await;
     let service = ResourceService::new(

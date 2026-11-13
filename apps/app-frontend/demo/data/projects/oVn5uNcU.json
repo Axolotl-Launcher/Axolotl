@@ -1,0 +1,232 @@
+{
+  "id": "oVn5uNcU",
+  "slug": "hoplite-for-lunar-client",
+  "title": "Hoplite for Lunar Client",
+  "description": "Tailor-made list of popular mods to enhance your gameplay experience on Hoplite through Lunar Client, including in-game proximity voice chat.",
+  "author": "LunarClient",
+  "categories": ["combat", "fabric", "multiplayer", "optimization"],
+  "display_categories": ["combat", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 1066293,
+  "followers": 94,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.20.1", "1.21", "1.21.8", "1.21.11"],
+  "latest_version": "Ensf9uf2",
+  "date_created": "2023-11-14T04:54:24.583675Z",
+  "date_modified": "2026-04-10T20:55:02.158089Z",
+  "color": 328708,
+  "published": "2023-11-14T04:54:24.583675Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://lunarclient.com/discord",
+  "donation_urls": [],
+  "versions_total": 8,
+  "body": "![Lunar Client Download Grid](https://cmsassets.lunarclientcdn.com/cdn-cgi/image/quality=85,format=auto/assets/bb4999e152-hoplite-modpack.png)\n\n# Hoplite for Lunar Client\n\n**Hoplite for Lunar Client** is a tailor-made list of popular mods to enhance your gameplay experience, including in-game proximity voice chat. These mods are validated to work with Lunar Client.\n\n_Note: While you're able to use **Hoplite for Lunar Client** on any modpack loader, it's heavily recommended to use it on [**Lunar Client**](https://lunarclient.com/download) to ensure you get the best experience on **Hoplite**._\n\n## Modpack Content\n\n* **Simple Voice Chat**: Proximity voice chat for Minecraft with a variety of features.\n* **Cloth Config API**: Configuration library for Minecraft Mods.\n* **Krypton**: Optimizes in the Minecraft network stack. Reduces memory and CPU usage.\n* **Mod Menu**: Adds a mod menu to view an in-game list of all the mods you have installed.\n* **More Culling**: Prevents the rendering of things you cannot see to improve FPS.\n* **Memory Leak Fix**: Fixes random memory leaks found within vanilla Minecraft.\n* **Sodium Extra**: Adds features found in Optifine to Sodium, like particle and animation settings.\n* **Reese's Sodium Options**: Replaces Sodium's option screen to improve user experience.\n\n## FAQ\n\n<details>\n<summary>What's Hoplite and where can I play it?</summary>\n\nHoplite is a Minecraft server created and owned by [SpeedSilver](https://www.youtube.com/@SpeedSilver). Hoplite offers innovative new games such as Battle Royale and Duels. All of the gamemodes found on Hoplite, contain custom items referred to as \"[Legendary Items](https://www.lunarclient.com/news/mod-loading-on-lunar-client#section-How_to_get_the_Hoplite_Modpack)\". These are unique custom model items, that have special abilities to create a unique combat experience. You can play Hoplite today @ [hoplite.gg](https://hoplite.gg/).\n\nNot sold yet? [Read more](https://www.lunarclient.com/news/why-lunar-client-is-the-best-for-playing-hoplite)!\n\n</details>\n\n<details>\n<summary>How do I launch this on Lunar Client?</summary>\n  \n<center><b>Simple! In three easy steps you can be ready to go!</b></center>\n\n<br>\n\n### Step 1: Download Lunar Client\n[![Lunar Client Download Grid](https://cmsassets.lunarclientcdn.com/cdn-cgi/image/quality=85,format=auto/assets/edcac7cc5f-lunar-client-download-grid.png)](https://www.lunarclient.com/download)\n\n### Step 2: Open Lunar Client and Click the Hoplite Logo\n[![Launcher Hoplite Quickplay](https://cmsassets.lunarclientcdn.com/cdn-cgi/image/quality=85,format=auto/assets/c058e104f6-launcher-hoplite-quickplay.png)](https://www.lunarclient.com/news/mod-loading-on-lunar-client#section-How_to_get_the_Hoplite_Modpack)\n\n### Step 3: Click \"Launch Modpack\"\n[Launcher Hoplite Mod Prompt](https://www.lunarclient.com/news/mod-loading-on-lunar-client#section-How_to_get_the_Hoplite_Modpack)\n\n</details>\n\n<br>\n\nConnect and create one of a kind experiences and get the latest updates by joining our [Discord](https://lunarclient.com/discord) Community.",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/oVn5uNcU/images/b16b4e690561fa10e919a52f7cc85e1ce758ff49_350.webp",
+      "featured": true,
+      "title": "Hoplite Server",
+      "description": null,
+      "created": "2023-11-14T05:20:42.635847Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/oVn5uNcU/images/96d198caff57f012995be451387c35ead648873a_350.webp",
+      "featured": false,
+      "title": "In-game Voice Chat",
+      "description": "In-game voice chat with your friends while playing!",
+      "created": "2023-12-21T09:07:18.809164Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/oVn5uNcU/images/5e323941edea1f27dc44dc96d9a49b6d2ed68eef_350.webp",
+      "featured": false,
+      "title": "Custom Legendary Weapons",
+      "description": "Battle it out with custom legendary weapons with unique abilities!",
+      "created": "2023-12-21T09:08:43.149320Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/oVn5uNcU/images/ce584bd71198ceddad43af44e698deaa09177e62_350.webp",
+      "featured": false,
+      "title": "Custom Structures",
+      "description": "Parachute to explore custom structures & more!",
+      "created": "2023-12-21T09:10:06.518022Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "LunarClient",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/D39BYbZ1/efb43b00b7d186782a82c5a04f38fdbd0242697f.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "Ensf9uf2",
+      "name": "Hoplite for Lunar Client 0.0.8",
+      "version_number": "0.0.8",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-10T20:55:02.158089Z",
+      "downloads": 136098,
+      "changelog": "* Updated mods to 1.21.11",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client 0.0.8.mrpack",
+          "size": 2368,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "PpSwo9D4",
+      "name": "Hoplite for Lunar Client 0.0.7",
+      "version_number": "0.0.7",
+      "version_type": "release",
+      "game_versions": ["1.21.8"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-11-29T03:35:01.283491Z",
+      "downloads": 156400,
+      "changelog": "* Updated all mods to 1.21.8\n* Removed Nvidium\n* Removed Indium\n* Removed Nuit",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client 1.0.0.mrpack",
+          "size": 12806,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vyy4Ad1A",
+      "name": "Hoplite for Lunar Client 0.0.6",
+      "version_number": "0.0.6",
+      "version_type": "release",
+      "game_versions": ["1.21"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-09-12T07:02:15.264710Z",
+      "downloads": 428494,
+      "changelog": "- Added Noxesium 2.2.0\n- Updated Cloth Config API to 15.0.130\n- Updated Fabric API to 0.102.0\n- Updated Indium to 1.0.35\n- Updated Lithium to 0.13.0\n- Updated Mod Menu to 11.0.2\n- Updated Nvidium to 0.3.1\n- Updated Simple Voice Chat to 2.5.21",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client 0.0.6.mrpack",
+          "size": 8427,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "AhnjJKnx",
+      "name": "Hoplite for Lunar Client 0.0.5",
+      "version_number": "0.0.5",
+      "version_type": "release",
+      "game_versions": ["1.21"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-08-02T11:52:19.500397Z",
+      "downloads": 68376,
+      "changelog": "Updated to Minecraft 1.21 for Hoplite Season 6\n- Updated all existing mods\n- Added Text PlaceHolder API\n- Removed MemoryLeakFix (Not Updated)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client 0.0.5.mrpack",
+          "size": 12283,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "YpLsFEup",
+      "name": "Hoplite for Lunar Client 0.0.4",
+      "version_number": "0.0.4",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-06-05T04:14:27.541391Z",
+      "downloads": 120563,
+      "changelog": "- Updated Iris to 1.7.0\n- Updated MoreCulling to 0.24.0\n- Updated Fabric Loader to 0.5.11\n- Added Fabric API",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client 0.0.4.mrpack",
+          "size": 3140,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8XAvte2N",
+      "name": "Hoplite for Lunar Client 0.0.3",
+      "version_number": "0.0.3",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-04-12T03:09:32.654653Z",
+      "downloads": 49846,
+      "changelog": "- Added Sodium\n- Added Iris\n- Added Indium\n- Added FerriteCore\n- Added Lithium\n- Updated Sodium Extra\n- Updated Reese's Sodium Options\n- Updated More Culling\n- Updated Memory Leak Fix\n- Updated CIT Resewn",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client 0.0.3.mrpack",
+          "size": 2980,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "BRahV6xU",
+      "name": "Hoplite for Lunar Client 0.0.2",
+      "version_number": "0.0.2",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-01-09T00:31:25.239163Z",
+      "downloads": 95422,
+      "changelog": "- Updates Nvidium to 0.2.5-beta",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client 0.0.2.mrpack",
+          "size": 2192,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "yJ3d2cJM",
+      "name": "Hoplite for Lunar Client 0.0.1",
+      "version_number": "0.0.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-12-23T05:31:22.166225Z",
+      "downloads": 11115,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Hoplite for Lunar Client.mrpack",
+          "size": 4454,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

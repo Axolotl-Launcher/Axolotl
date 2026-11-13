@@ -1,5 +1,168 @@
 use super::*;
 
+fn resource_names_plan() -> crate::resources::ResourceOperationPlan {
+    use crate::resources::*;
+
+    let node =
+        |id: &str, source: SourceId, project: &str| ResourceDependencyNode {
+            id: SelectionId::new(id).unwrap(),
+            root_selection_ids: vec![],
+            resource_type: Some(ResourceType::Mod),
+            resource: ResourceRef::Source {
+                project: SourceProjectRef {
+                    source,
+                    project_id: SourceProjectId::new(project).unwrap(),
+                },
+            },
+            scope: InstallScope::Instance,
+            state: DependencyNodeState::Install,
+            artifact: None,
+            installed_entries: vec![],
+            compatibility: CompatibilityAssessment {
+                game_version: CompatibilityState::Compatible,
+                loader: CompatibilityState::Compatible,
+                reasons: vec![],
+            },
+            declared_compatibility: None,
+        };
+    let nodes = vec![
+        node("root", SourceId::modrinth(), "shared"),
+        node("same-project", SourceId::modrinth(), "shared"),
+        node("other-provider", SourceId::curseforge(), "shared"),
+        node("optional", SourceId::modrinth(), "optional"),
+        node("unchanged", SourceId::modrinth(), "unchanged"),
+        node("filename", SourceId::modrinth(), "filename"),
+    ];
+    let actions = [
+        (0, ResourceActionKind::Install),
+        (1, ResourceActionKind::Replace),
+        (2, ResourceActionKind::Enable),
+        (4, ResourceActionKind::Keep),
+        (5, ResourceActionKind::Install),
+    ]
+    .into_iter()
+    .map(|(index, kind)| {
+        let ResourceRef::Source { project } = &nodes[index].resource else {
+            unreachable!()
+        };
+        ResourceEntryAction {
+            entry_id: InstalledEntryId::new(format!("entry-{index}")).unwrap(),
+            node_id: nodes[index].id.clone(),
+            kind,
+            current: None,
+            target: ResourceArtifact {
+                reference: SourceArtifactRef {
+                    release: SourceReleaseRef {
+                        project: project.clone(),
+                        release_id: SourceReleaseId::new("version").unwrap(),
+                    },
+                    artifact_id: SourceArtifactId::new("artifact").unwrap(),
+                },
+                file_name: Some("manually-renamed-1.2.jar".into()),
+                role: ArtifactRole::Primary,
+                available: Some(true),
+                integrity: ArtifactIntegrity {
+                    size: None,
+                    hashes: vec![],
+                },
+                acquisition: ArtifactAcquisition::Unavailable,
+                dependencies: vec![],
+            },
+            target_relative_path: format!("mods/{index}.jar"),
+        }
+    })
+    .collect();
+    ResourceOperationPlan {
+        schema_version: ResourceContractVersion,
+        id: PlanId::new("resource-names-plan").unwrap(),
+        revision: 1,
+        instance_id: "instance".into(),
+        instance_revision: 1,
+        intent: ResourceOperationIntent::Install,
+        selections: vec![],
+        active_roots: vec![],
+        nodes,
+        edges: vec![],
+        actions,
+        issues: vec![],
+        exceptions: vec![],
+        selection_reasons: vec![],
+    }
+}
+
+#[test]
+fn resource_names_follow_executed_actions_and_provider_identity() {
+    let plan = resource_names_plan();
+    let names = HashMap::from([
+        ("root".into(), "  Same display name  ".into()),
+        ("same-project".into(), "Duplicate file".into()),
+        ("other-provider".into(), "Same display name".into()),
+        ("optional".into(), "Not selected".into()),
+        ("unchanged".into(), "Already installed".into()),
+        ("filename".into(), "  ".into()),
+        ("unknown-node".into(), "Not in plan".into()),
+    ]);
+    assert_eq!(
+        resource_plan_names(&plan, &names),
+        [
+            "Same display name",
+            "Same display name",
+            "manually-renamed-1.2.jar"
+        ]
+    );
+}
+
+#[test]
+fn resource_names_survive_frozen_job_persistence_and_snapshot_round_trip() {
+    let plan = resource_names_plan();
+    let names = HashMap::from([("root".into(), "Actual project title".into())]);
+    let mut job = InstallJobState::new(InstallRequest::InstallContentBatch {
+        instance_id: "instance".into(),
+        items: vec![InstallContentBatchItem::FrozenResource {
+            plan: plan.clone(),
+        }],
+        display_title: "Install resources".into(),
+        display_icon: None,
+    });
+    job.resource_names = resource_plan_names(&plan, &names);
+    let serialized = serde_json::to_value(&job).unwrap();
+    let restored: InstallJobState =
+        serde_json::from_value(serialized.clone()).unwrap();
+    assert_eq!(restored.resource_names, job.resource_names);
+    assert_eq!(restored.clone().resource_names, job.resource_names);
+    let now = chrono::Utc::now();
+    let record = store::InstallJobRecord {
+        id: Uuid::new_v4(),
+        instance_id: Some("instance".into()),
+        kind: restored.request.kind(),
+        status: InstallJobStatus::Queued,
+        state: restored,
+        created: now,
+        modified: now,
+        finished: None,
+        dismissed: false,
+    };
+    let snapshot = record.snapshot();
+    assert_eq!(snapshot.resource_names, job.resource_names);
+    let restored_snapshot: InstallJobSnapshot =
+        serde_json::from_value(serde_json::to_value(&snapshot).unwrap())
+            .unwrap();
+    assert_eq!(restored_snapshot.resource_names, job.resource_names);
+
+    let mut legacy_job = serialized;
+    legacy_job.as_object_mut().unwrap().remove("resource_names");
+    let legacy: InstallJobState = serde_json::from_value(legacy_job).unwrap();
+    assert!(legacy.resource_names.is_empty());
+    let mut legacy_snapshot = serde_json::to_value(snapshot).unwrap();
+    legacy_snapshot
+        .as_object_mut()
+        .unwrap()
+        .remove("resource_names");
+    let legacy: InstallJobSnapshot =
+        serde_json::from_value(legacy_snapshot).unwrap();
+    assert!(legacy.resource_names.is_empty());
+}
+
 #[tokio::test]
 async fn cancel_cleanup_retries_a_request_received_during_a_failed_attempt() {
     use std::sync::Arc;
@@ -74,6 +237,83 @@ async fn cancel_cleanup_registration_is_released_when_the_worker_is_aborted() {
     let successor = CancelCleanupRegistration::request(job_id).unwrap();
     drop(successor);
     assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
+fn writer_timeout() -> crate::Error {
+    ErrorKind::InputError(
+        "Timed out waiting for the install database writer".into(),
+    )
+    .into()
+}
+
+#[tokio::test]
+async fn cancel_cleanup_retries_a_failed_final_write_without_a_new_request() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let attempts = AtomicU32::new(0);
+    run_cancel_cleanup(registration, || async {
+        // The rollback finished, but the Canceling -> Canceled write timed
+        // out waiting for the writer once.
+        if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Err(writer_timeout());
+        }
+        Ok(())
+    })
+    .await;
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    assert!(!CANCEL_CLEANUPS.contains_key(&job_id));
+}
+
+#[tokio::test]
+async fn cancel_cleanup_gives_up_after_bounded_attempts() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    let job_id = Uuid::new_v4();
+    let registration = CancelCleanupRegistration::request(job_id).unwrap();
+    let attempts = AtomicU32::new(0);
+    run_cancel_cleanup(registration, || async {
+        attempts.fetch_add(1, Ordering::SeqCst);
+        Err(writer_timeout())
+    })
+    .await;
+    assert_eq!(attempts.load(Ordering::SeqCst), RECOVERY_ATTEMPTS);
+    assert!(
+        CancelCleanupRegistration::request(job_id).is_some(),
+        "a later cancel request can start a fresh cleanup"
+    );
+}
+
+#[tokio::test]
+async fn recovery_is_retried_when_its_write_also_times_out() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    let attempts = AtomicU32::new(0);
+    let result = retry_recovery(Uuid::new_v4(), || async {
+        // The worker already failed; the first recovery write times out too.
+        if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Err(writer_timeout());
+        }
+        Ok(())
+    })
+    .await;
+    assert!(result.is_ok());
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+
+    let attempts = AtomicU32::new(0);
+    let result = retry_recovery(Uuid::new_v4(), || async {
+        attempts.fetch_add(1, Ordering::SeqCst);
+        Err(writer_timeout())
+    })
+    .await;
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("install database writer")
+    );
+    assert_eq!(attempts.load(Ordering::SeqCst), RECOVERY_ATTEMPTS);
 }
 
 #[test]
@@ -664,6 +904,7 @@ fn partial_pack_download() -> InstallJobState {
             path: "pack.mrpack".into(),
         },
         post_install_edit: None,
+        game_dir_override: None,
     });
     job.target = InstallTarget::NewInstance {
         instance_id: Some("partial".into()),
@@ -986,6 +1227,68 @@ async fn global_state() -> std::sync::Arc<State> {
     State::get().await.unwrap()
 }
 
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn interrupted_initialization_recovers_the_bound_instance() {
+    crate::event::EventState::init().await.unwrap();
+    let state = global_state().await;
+    let id = Uuid::new_v4();
+    let request = InstallRequest::CreateInstance {
+        name: format!("Interrupted initialization {id}"),
+        game_version: "1.21.1".into(),
+        loader: ModLoader::Vanilla,
+        loader_version: None,
+        adjuncts: Vec::new(),
+        icon_path: None,
+        link: InstanceLink::Unmanaged,
+        game_dir_override: None,
+    };
+    let mut job = InstallJobState::new(request);
+    job.initialization_pending = true;
+    store::insert(id, &job, InstallJobStatus::Queued, &state)
+        .await
+        .unwrap();
+    let created = store::initializing_job(
+        id,
+        crate::state::create_instance(
+            crate::state::CreateInstance {
+                name: format!("Interrupted initialization {id}"),
+                path: None,
+                game_version: "1.21.1".into(),
+                loader: ModLoader::Vanilla,
+                loader_version: None,
+                icon_path: None,
+                link: InstanceLink::Unmanaged,
+                symlink_target: None,
+                game_dir_override: None,
+            },
+            &state,
+        ),
+    )
+    .await
+    .unwrap();
+    let failure = ErrorKind::OtherError("initializer stopped".into()).into();
+    lifecycle::recover_stopped_job(id, &state, None, &failure)
+        .await
+        .unwrap();
+    let recovered = store::get_required(id, &state).await.unwrap();
+    assert_eq!(recovered.status, InstallJobStatus::Failed);
+    assert!(
+        crate::state::get_instance(&created.id, &state.pool)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        !state
+            .directories
+            .instances_dir()
+            .join(created.path)
+            .exists()
+    );
+    assert!(recovered.state.rollback_error.is_none());
+}
+
 #[tokio::test]
 async fn direct_link_instances_cannot_be_duplicated() {
     let state = global_state().await;
@@ -1080,6 +1383,22 @@ fn interrupted_upgrade_uses_terminal_phase_after_successful_recovery() {
     assert_eq!(status, InstallJobStatus::Interrupted);
     assert_eq!(job_state.progress.phase, InstallPhaseId::Finalizing);
     assert!(job_state.rollback_error.is_none());
+}
+
+#[test]
+fn successful_rollback_clears_an_earlier_rollback_error() {
+    let mut job_state = upgrade_job_state();
+    job_state.progress.phase = InstallPhaseId::RollingBack;
+    job_state.rollback_error = Some(InstallErrorView::from_message(
+        "rollback_error",
+        InstallPhaseId::RollingBack,
+        "rollback failed",
+    ));
+
+    recovery::finalize_rollback_state(&mut job_state, true);
+
+    assert!(job_state.rollback_error.is_none());
+    assert_eq!(job_state.progress.phase, InstallPhaseId::Finalizing);
 }
 
 #[test]
@@ -1594,7 +1913,7 @@ async fn upgrade_applies_solver_and_non_solver_physical_actions() {
     ];
     let selections = vec![
         crate::state::InstanceUpgradeSelection {
-            content_id: upgrade_id,
+            content_id: upgrade_id.clone(),
             provider: Some(ContentProvider::Modrinth),
             project_id: Some("AANobbMI".to_string()),
             current_release_id: Some("7pwil2dy".to_string()),
@@ -1637,15 +1956,66 @@ async fn upgrade_applies_solver_and_non_solver_physical_actions() {
     let (_, staged_sha1) = crate::util::fetch::sha1_file_async(&staged_path)
         .await
         .unwrap();
-    let staged = vec![StagedUpgradeMutation {
+    let old_file = files
+        .iter()
+        .find(|file| file.relative_path == "mods/solver-upgrade.jar")
+        .unwrap();
+    let old_artifact = crate::resources::ResourceArtifact {
+        reference: crate::resources::SourceArtifactRef {
+            release: crate::resources::SourceReleaseRef {
+                project: crate::resources::SourceProjectRef {
+                    source: crate::resources::SourceId::modrinth(),
+                    project_id: crate::resources::SourceProjectId::new(
+                        "AANobbMI",
+                    )
+                    .unwrap(),
+                },
+                release_id: crate::resources::SourceReleaseId::new("7pwil2dy")
+                    .unwrap(),
+            },
+            artifact_id: crate::resources::SourceArtifactId::new(
+                "solver-upgrade.jar",
+            )
+            .unwrap(),
+        },
+        file_name: Some("solver-upgrade.jar".into()),
+        role: crate::resources::ArtifactRole::Primary,
+        available: Some(true),
+        integrity: crate::resources::ArtifactIntegrity {
+            size: Some(old_file.size),
+            hashes: vec![crate::resources::ContentHash {
+                algorithm: crate::resources::HashAlgorithm::Sha1,
+                value: old_file.sha1.clone(),
+            }],
+        },
+        acquisition: crate::resources::ArtifactAcquisition::Unavailable,
+        dependencies: Vec::new(),
+    };
+    crate::state::store::resource_installed_artifacts::ResourceInstalledArtifacts::set(
+        &state.data,
+        &upgrade_id,
+        Some(&crate::state::store::resource_installed_artifacts::ResourceInstalledArtifactRecord {
+            artifact: serde_json::to_string(&old_artifact).unwrap(),
+            scope: serde_json::to_string(&crate::resources::InstallScope::Instance).unwrap(),
+        }),
+    ).await.unwrap();
+    let staged =
+        vec![stage_downloaded_upgrade_request(UpgradeStagingRequest {
+        index: 0,
+        provider: ContentProvider::Modrinth,
+        project_id: "AANobbMI".into(),
+        release_id: "vf7UgZpC".into(),
+        current_release_id: Some("7pwil2dy".into()),
+        current_file: Some((old_file.sha1.clone(), old_file.size)),
+        existing_entry_id: Some(upgrade_id.clone()),
         existing_path: Some("mods/solver-upgrade.jar".to_string()),
-        target_path: "mods/solver-upgrade.jar".to_string(),
         ownership: crate::state::instances::ContentOwnershipKind::UserAdded,
         auto_dependency: false,
         enabled: true,
-        download: StagedUpgradeDownload::Modrinth(
+        project_type: Some(crate::state::ProjectType::Mod),
+    }, StagedUpgradeDownload::Modrinth(
             crate::state::instances::commands::DownloadedProjectVersion {
-                file_name: "solver-upgrade.jar".to_string(),
+                file_name: "solver-upgraded.jar".to_string(),
                 path: staged_path,
                 sha1: staged_sha1,
                 size: b"target-upgrade".len() as u64,
@@ -1653,10 +2023,110 @@ async fn upgrade_applies_solver_and_non_solver_physical_actions() {
                 project_id: "AANobbMI".to_string(),
                 version_id: "vf7UgZpC".to_string(),
             },
+        ), None, &state).await.unwrap()];
+    assert_eq!(staged[0].target_path, "mods/solver-upgraded.jar");
+    let StagedUpgradeDownload::Modrinth(downloaded) = &staged[0].download
+    else {
+        unreachable!();
+    };
+    let crash_download = downloaded.clone();
+    for (path, release, expected) in [
+        (
+            "mods/solver-upgrade.jar.disabled",
+            Some("7pwil2dy"),
+            "mods/solver-upgraded.jar.disabled",
         ),
-    }];
+        (
+            "mods/前缀 solver-upgrade.jar.disabled",
+            Some("7pwil2dy"),
+            "mods/前缀 solver-upgraded.jar.disabled",
+        ),
+        ("mods/my-custom.jar", Some("7pwil2dy"), "mods/my-custom.jar"),
+        ("mods/solver-upgrade.jar", None, "mods/solver-upgrade.jar"),
+    ] {
+        let mutation = stage_downloaded_upgrade_request(
+            UpgradeStagingRequest {
+                index: 0,
+                provider: ContentProvider::Modrinth,
+                project_id: "AANobbMI".into(),
+                release_id: "vf7UgZpC".into(),
+                current_release_id: release.map(str::to_owned),
+                current_file: Some((old_file.sha1.clone(), old_file.size)),
+                existing_entry_id: Some(upgrade_id.clone()),
+                existing_path: Some(path.into()),
+                ownership:
+                    crate::state::instances::ContentOwnershipKind::UserAdded,
+                auto_dependency: false,
+                enabled: !path.ends_with(".disabled"),
+                project_type: Some(crate::state::ProjectType::Mod),
+            },
+            StagedUpgradeDownload::Modrinth(downloaded.clone()),
+            None,
+            &state,
+        )
+        .await
+        .unwrap();
+        assert_eq!(mutation.target_path, expected);
+    }
 
-    apply_upgrade_content(
+    let mut rollback_job =
+        InstallJobState::new(InstallRequest::InstallExistingInstance {
+            instance_id: instance_id.clone(),
+            force: false,
+        });
+    rollback_job.rollback = Some(InstallRollbackState {
+        instance: instance.clone(),
+        install_stage: InstanceInstallStage::Installed,
+        content: None,
+    });
+    rollback_job.cleanup = InstallCleanup::RestoreExistingInstance {
+        instance_id: instance_id.clone(),
+    };
+    let rollback_job_id = Uuid::new_v4();
+    store::insert(
+        rollback_job_id,
+        &rollback_job,
+        InstallJobStatus::Queued,
+        &state,
+    )
+    .await
+    .unwrap();
+    recovery::prepare_existing_upgrade_content_rollback(
+        rollback_job_id,
+        &mut rollback_job,
+        &state,
+        vec![
+            "mods/solver-upgraded.jar".into(),
+            "mods/solver-upgraded.jar.disabled".into(),
+            "mods/external-new.jar".into(),
+        ],
+    )
+    .await
+    .unwrap();
+    recovery::restore_upgrade_db_baseline(&rollback_job, &state)
+        .await
+        .unwrap();
+    prepare_upgrade_replacement_files(&mut rollback_job, &staged)
+        .await
+        .unwrap();
+    InstallProgressReporter::new(rollback_job_id, rollback_job.clone())
+        .set_rollback(rollback_job.rollback.clone())
+        .await
+        .unwrap();
+    crate::util::io::write(base.join("mods/external-new.jar"), b"external-new")
+        .await
+        .unwrap();
+    rollback_job
+        .rollback
+        .as_mut()
+        .unwrap()
+        .content
+        .as_mut()
+        .unwrap()
+        .replacement_paths
+        .push("mods/external-new.jar".into());
+
+    let applied = apply_upgrade_content(
         &instance_id,
         staged,
         &execution,
@@ -1668,11 +2138,46 @@ async fn upgrade_applies_solver_and_non_solver_physical_actions() {
     .unwrap();
 
     assert_eq!(
-        tokio::fs::read(base.join("mods/solver-upgrade.jar"))
+        tokio::fs::read(base.join("mods/solver-upgraded.jar"))
             .await
             .unwrap(),
         b"target-upgrade"
     );
+    assert!(!base.join("mods/solver-upgrade.jar").exists());
+    assert_eq!(
+        applied.launcher_expected_files["mods/solver-upgrade.jar"],
+        None
+    );
+    assert!(
+        applied.launcher_expected_files["mods/solver-upgraded.jar"].is_some()
+    );
+    let renamed_entry = crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_relative_path(
+        &instance.applied_content_set.id,
+        "mods/solver-upgraded.jar",
+        &state.pool,
+    ).await.unwrap().unwrap();
+    assert_eq!(renamed_entry.id, upgrade_id);
+    let updated_refs = crate::state::instances::adapters::sqlite::content_entries::get_content_provider_refs(
+        &upgrade_id, &state.pool,
+    ).await.unwrap();
+    assert!(updated_refs.iter().any(|reference| {
+        reference.provider() == ContentProvider::Modrinth
+            && reference.database_release_id().as_deref() == Some("vf7UgZpC")
+    }));
+    let updated_artifact = crate::state::store::resource_installed_artifacts::ResourceInstalledArtifacts::get(
+        &state.data, &upgrade_id,
+    ).await.unwrap();
+    assert!(updated_artifact.is_none_or(|record| {
+        serde_json::from_str::<crate::resources::ResourceArtifact>(
+            &record.artifact,
+        )
+        .unwrap()
+        .reference
+        .release
+        .release_id
+        .as_str()
+            == "vf7UgZpC"
+    }));
     assert_eq!(
         tokio::fs::read(base.join("mods/solver-keep.jar"))
             .await
@@ -1691,6 +2196,204 @@ async fn upgrade_applies_solver_and_non_solver_physical_actions() {
             .unwrap(),
         b"externally-modified"
     );
+    let indexed_external_path = base.join("mods/external-indexed.jar");
+    crate::util::io::write(&indexed_external_path, b"launcher-new")
+        .await
+        .unwrap();
+    let (_, indexed_sha1) =
+        crate::util::fetch::sha1_file_async(&indexed_external_path)
+            .await
+            .unwrap();
+    crate::state::record_project_file_atomic(
+        &instance_id,
+        "mods/external-indexed.jar",
+        &indexed_sha1,
+        b"launcher-new".len() as u64,
+        crate::state::ProjectType::Mod,
+        crate::state::instances::ContentSourceKind::Local,
+        crate::state::instances::ContentOwnershipKind::UserAdded,
+        None,
+        false,
+        None,
+        &state,
+    )
+    .await
+    .unwrap();
+    crate::util::io::write(&indexed_external_path, b"external-new")
+        .await
+        .unwrap();
+    recovery::apply_cleanup(&mut rollback_job, &state)
+        .await
+        .unwrap();
+    assert_eq!(
+        tokio::fs::read(base.join("mods/solver-upgrade.jar"))
+            .await
+            .unwrap(),
+        b"old-upgrade"
+    );
+    assert!(!base.join("mods/solver-upgraded.jar").exists());
+    assert!(!base.join("mods/solver-upgraded.jar.disabled").exists());
+    assert_eq!(
+        tokio::fs::read(base.join("mods/external-new.jar"))
+            .await
+            .unwrap(),
+        b"external-new"
+    );
+    assert_eq!(
+        tokio::fs::read(indexed_external_path).await.unwrap(),
+        b"external-new"
+    );
+    let restored_entry = crate::state::instances::adapters::sqlite::content_entries::get_content_entry_by_relative_path(
+        &instance.applied_content_set.id, "mods/solver-upgrade.jar", &state.pool,
+    ).await.unwrap().unwrap();
+    assert_eq!(restored_entry.id, upgrade_id);
+
+    // Recover a filesystem move whose index update never happened. Different
+    // external bytes remain protected even if a later scan indexed them.
+    for external_change in [false, true] {
+        let metadata = crate::state::get_instance(&instance_id, &state.pool)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut interrupted =
+            InstallJobState::new(InstallRequest::InstallExistingInstance {
+                instance_id: instance_id.clone(),
+                force: false,
+            });
+        interrupted.rollback = Some(InstallRollbackState {
+            instance: metadata,
+            install_stage: InstanceInstallStage::Installed,
+            content: None,
+        });
+        interrupted.cleanup = InstallCleanup::RestoreExistingInstance {
+            instance_id: instance_id.clone(),
+        };
+        let interrupted_id = Uuid::new_v4();
+        store::insert(
+            interrupted_id,
+            &interrupted,
+            InstallJobStatus::Queued,
+            &state,
+        )
+        .await
+        .unwrap();
+        recovery::prepare_existing_upgrade_content_rollback(
+            interrupted_id,
+            &mut interrupted,
+            &state,
+            vec![
+                "mods/crash-target.jar".into(),
+                "mods/crash-target.jar.disabled".into(),
+            ],
+        )
+        .await
+        .unwrap();
+        recovery::restore_upgrade_db_baseline(&interrupted, &state)
+            .await
+            .unwrap();
+        let mut mutation = test_upgrade_mutation(
+            Some("mods/solver-upgrade.jar"),
+            "mods/crash-target.jar",
+        );
+        mutation.download =
+            StagedUpgradeDownload::Modrinth(crash_download.clone());
+        prepare_upgrade_replacement_files(&mut interrupted, &[mutation])
+            .await
+            .unwrap();
+        InstallProgressReporter::new(interrupted_id, interrupted.clone())
+            .set_rollback(interrupted.rollback.clone())
+            .await
+            .unwrap();
+        let crash_target = base.join("mods/crash-target.jar");
+        if external_change {
+            crate::util::io::write(&crash_target, b"external-value")
+                .await
+                .unwrap();
+            let (_, external_sha1) =
+                crate::util::fetch::sha1_file_async(&crash_target)
+                    .await
+                    .unwrap();
+            crate::state::record_project_file_atomic(
+                &instance_id,
+                "mods/crash-target.jar",
+                &external_sha1,
+                b"external-value".len() as u64,
+                crate::state::ProjectType::Mod,
+                crate::state::instances::ContentSourceKind::Local,
+                crate::state::instances::ContentOwnershipKind::UserAdded,
+                None,
+                false,
+                None,
+                &state,
+            )
+            .await
+            .unwrap();
+        } else {
+            crate::util::io::write(
+                base.join("mods/solver-upgrade.jar"),
+                b"target-upgrade",
+            )
+            .await
+            .unwrap();
+            tokio::fs::rename(
+                base.join("mods/solver-upgrade.jar"),
+                &crash_target,
+            )
+            .await
+            .unwrap();
+        }
+        let persisted = store::get_required(interrupted_id, &state)
+            .await
+            .unwrap()
+            .state;
+        let mut recovered: InstallJobState =
+            serde_json::from_value(serde_json::to_value(&persisted).unwrap())
+                .unwrap();
+        assert_eq!(
+            recovered
+                .rollback
+                .as_ref()
+                .unwrap()
+                .content
+                .as_ref()
+                .unwrap()
+                .replacement_files
+                .len(),
+            2
+        );
+        let mut legacy = serde_json::to_value(&persisted).unwrap();
+        legacy["rollback"]["content"]
+            .as_object_mut()
+            .unwrap()
+            .remove("replacement_files");
+        let legacy: InstallJobState = serde_json::from_value(legacy).unwrap();
+        assert!(
+            legacy
+                .rollback
+                .unwrap()
+                .content
+                .unwrap()
+                .replacement_files
+                .is_empty()
+        );
+        recovery::apply_cleanup(&mut recovered, &state)
+            .await
+            .unwrap();
+        assert_eq!(
+            tokio::fs::read(base.join("mods/solver-upgrade.jar"))
+                .await
+                .unwrap(),
+            b"old-upgrade"
+        );
+        if external_change {
+            assert_eq!(
+                tokio::fs::read(crash_target).await.unwrap(),
+                b"external-value"
+            );
+        } else {
+            assert!(!crash_target.exists());
+        }
+    }
 }
 
 #[test]
@@ -1869,6 +2572,85 @@ fn test_upgrade_mutation(
                 version_id: "version".to_string(),
             },
         ),
+    }
+}
+
+#[test]
+fn instance_upgrade_target_names_reject_batch_and_disk_collisions() {
+    for target in ["mods/new.jar", "mods/NEW.jar", "mods/new.jar.disabled"] {
+        let staged = vec![
+            test_upgrade_mutation(Some("mods/old.jar"), "mods/new.jar"),
+            test_upgrade_mutation(Some("mods/other.jar"), target),
+        ];
+        assert!(validate_upgrade_target_paths(&staged, &[]).is_err());
+    }
+    let mutation = test_upgrade_mutation(Some("mods/old.jar"), "mods/new.jar");
+    for existing in ["mods/new.jar", "mods/NEW.jar", "mods/new.jar.disabled"] {
+        assert!(
+            validate_upgrade_target_paths(
+                std::slice::from_ref(&mutation),
+                &[existing.into()],
+            )
+            .is_err()
+        );
+    }
+    assert!(
+        validate_upgrade_target_paths(
+            &[test_upgrade_mutation(
+                Some("mods/custom.jar.disabled"),
+                "mods/custom.jar.disabled"
+            )],
+            &["mods/custom.jar.disabled".into()],
+        )
+        .is_ok()
+    );
+    assert!(
+        validate_upgrade_target_paths(
+            &[test_upgrade_mutation(
+                Some("mods/custom.jar.disabled"),
+                "mods/custom.jar.disabled"
+            )],
+            &["mods/custom.jar.disabled".into(), "mods/custom.jar".into()],
+        )
+        .is_err()
+    );
+    assert!(
+        validate_upgrade_target_paths(
+            &[test_upgrade_mutation(None, "../outside.jar")],
+            &[],
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn instance_upgrade_provider_names_preserve_custom_and_disabled_paths() {
+    for (current, original, expected) in [
+        ("mods/old.jar", Some("old.jar"), "mods/new.jar"),
+        (
+            "mods/前缀 old.jar.disabled",
+            Some("old.jar"),
+            "mods/前缀 new.jar.disabled",
+        ),
+        (
+            "mods/my-custom.jar.disabled",
+            Some("old.jar"),
+            "mods/my-custom.jar.disabled",
+        ),
+        (
+            "mods/old.jar-old.jar",
+            Some("old.jar"),
+            "mods/old.jar-old.jar",
+        ),
+        ("mods/old.jar", None, "mods/old.jar"),
+    ] {
+        assert_eq!(
+            crate::state::instances::commands::preserved_update_relative_path(
+                current, original, "new.jar",
+            )
+            .unwrap(),
+            expected
+        );
     }
 }
 

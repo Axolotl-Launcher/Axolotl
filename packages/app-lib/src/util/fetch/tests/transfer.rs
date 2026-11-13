@@ -19,7 +19,76 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 
 #[tokio::test]
-async fn failed_checkpoint_ranges_restart_full_download_but_io_and_cancel_keep_checkpoints()
+async fn launcher_update_policy_downloads_sha256_ranges_and_handles_ignored_ranges()
+ {
+    use sha2::{Digest, Sha256};
+
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = 6 * 1024 * 1024;
+    let data = Arc::new(
+        (0..size)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = format!("{:x}", Sha256::digest(&data[..]));
+    for ignore_range in [false, true] {
+        let (url, requests, normal_requests, server) = spawn_range_server(
+            data.clone(),
+            RangeServerBehavior {
+                ignore_range,
+                slow_body: !ignore_range,
+                ..Default::default()
+            },
+        )
+        .await;
+        let request = DownloadRequest::new(url, ResourceClass::Other)
+            .with_integrity(Integrity {
+                size: Some(size as u64),
+                sha256: Some(hash.clone()),
+                ..Integrity::default()
+            })
+            .with_large_file_download_policy();
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("update");
+        let samples = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        let recorded = samples.clone();
+        let mut progress: Box<FetchProgressFn<'_>> =
+            Box::new(move |bytes, total| {
+                recorded.lock().push((bytes, total));
+                Box::pin(async { Ok(()) })
+            });
+        let result = tokio::time::timeout(
+            Duration::from_secs(30),
+            super::super::transfer::download_to_path_inner(
+                request,
+                &destination,
+                &FetchSemaphore(Semaphore::new(8)),
+                Some(&mut progress),
+            ),
+        )
+        .await
+        .expect("update download should complete with or without Range support")
+        .unwrap();
+        assert_eq!(result.size, size as u64);
+        assert_eq!(tokio::fs::read(destination).await.unwrap(), *data);
+        if ignore_range {
+            assert!(normal_requests.load(Ordering::Relaxed) >= 1);
+        } else {
+            assert!(requests.load(Ordering::Relaxed) >= 2);
+            assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+        }
+        let samples = samples.lock();
+        assert!(samples.iter().any(|(bytes, _)| *bytes > 0));
+        assert!(samples.iter().all(|(bytes, total)| {
+            *bytes <= size as u64 && *total == size as u64
+        }));
+        drop(samples);
+        server.abort();
+    }
+}
+
+#[tokio::test]
+async fn failed_checkpoint_ranges_preserve_valid_data_unless_ranges_are_unsupported()
  {
     use super::super::super::download::h2_download::{
         H2DownloadFailure, H2DownloadOutcome,
@@ -54,7 +123,7 @@ async fn failed_checkpoint_ranges_restart_full_download_but_io_and_cancel_keep_c
             },
         )
         .await;
-        if failure == H2DownloadFailure::Io {
+        if failure != H2DownloadFailure::RangeUnsupported {
             assert!(result.is_err());
             assert!(part.exists() && journal.exists());
         } else {
@@ -81,6 +150,102 @@ async fn failed_checkpoint_ranges_restart_full_download_but_io_and_cancel_keep_c
         .is_err()
     );
     assert!(part.exists() && journal.exists());
+}
+
+#[tokio::test]
+async fn checkpoint_entrypoint_restores_sparse_bytes_with_independent_ranges_and_progress()
+ {
+    use crate::util::download::range_journal::RangeJournal;
+    use sha2::{Digest, Sha256};
+    use tokio::io::{AsyncSeekExt, AsyncWriteExt};
+
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = 20 * 1024 * 1024;
+    let data = Arc::new(
+        (0..size)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, requests, normal_requests, server) = spawn_range_server(
+        data.clone(),
+        RangeServerBehavior {
+            slow_body: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let request = DownloadRequest::new(&url, ResourceClass::Modrinth)
+        .with_integrity(Integrity::sha1(hash).with_size(size as u64))
+        .with_range_connection_floor(32);
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("checkpoint.mrpack");
+    let part = suffixed_path(&destination, ".part");
+    for concurrency in [64, 1] {
+        if destination.exists() {
+            tokio::fs::remove_file(&destination).await.unwrap();
+        }
+        let before = requests.load(Ordering::Relaxed);
+        let journal =
+            RangeJournal::new(&part, &request.integrity, size as u64, 8);
+        let mut output = tokio::fs::File::create(&part).await.unwrap();
+        output.set_len(size as u64).await.unwrap();
+        let prefix = 64 * 1024;
+        for (index, range) in journal.ranges().await.into_iter().enumerate() {
+            let start = range.start as usize;
+            output
+                .seek(std::io::SeekFrom::Start(range.start))
+                .await
+                .unwrap();
+            output
+                .write_all(&data[start..start + prefix])
+                .await
+                .unwrap();
+            journal
+                .checkpoint(
+                    index,
+                    prefix as u64,
+                    &Sha256::new_with_prefix(&data[start..start + prefix]),
+                )
+                .await
+                .unwrap();
+        }
+        output.flush().await.unwrap();
+        drop(output);
+        let samples = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        let recorded = samples.clone();
+        let mut progress: Box<FetchProgressFn<'_>> =
+            Box::new(move |bytes, total| {
+                recorded.lock().push((bytes, total));
+                Box::pin(async { Ok(()) })
+            });
+        let result = tokio::time::timeout(Duration::from_secs(60), super::super::transfer::download_to_path_inner(
+            request.clone(),
+            &destination,
+            &FetchSemaphore(Semaphore::new(concurrency)),
+            Some(&mut progress),
+        ))
+        .await
+        .expect("checkpoint recovery must keep polling sibling writers and queued ranges")
+        .unwrap();
+        assert_eq!(result.size, size as u64);
+        assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+        assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+        assert!(
+            requests.load(Ordering::Relaxed) - before
+                >= if concurrency == 64 { 32 } else { 8 },
+            "eight legacy ranges must be split into independent requests at entry"
+        );
+        let samples = samples.lock();
+        assert_eq!(
+            samples.first().copied(),
+            Some(((8 * prefix) as u64, size as u64))
+        );
+        assert_eq!(samples.last().copied(), Some((size as u64, size as u64)));
+        assert!(samples.windows(2).all(|pair| pair[0].0 <= pair[1].0));
+        assert!(!crate::util::download::range_journal::path(&part).exists());
+    }
+    server.abort();
 }
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -896,4 +1061,499 @@ async fn segmented_fallback_keeps_partial_files_for_resume() {
         "the preserved partial data should not be discarded"
     );
     server.abort();
+}
+
+#[tokio::test]
+async fn forced_multiconnection_fills_small_file_budget_and_recovers_disconnects()
+ {
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let data = Arc::new(vec![37; 1024 * 1024]);
+    let (url, requests, normal_requests, server) = spawn_range_server(
+        data.clone(),
+        RangeServerBehavior {
+            fail_first_range: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("forced.bin");
+    let mut request = DownloadRequest::new(&url, ResourceClass::Modrinth)
+        .with_integrity(
+            Integrity::sha1(
+                sha1_async(Bytes::copy_from_slice(&data)).await.unwrap(),
+            )
+            .with_size(data.len() as u64),
+        )
+        .with_batch_download_policy();
+    request.force_multiconnection = true;
+    let result = download_to_path(
+        request,
+        &destination,
+        &FetchSemaphore(Semaphore::new(16)),
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.size, data.len() as u64);
+    assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+    assert!(
+        requests.load(Ordering::Relaxed) > 16,
+        "all 16 initial ranges plus a disconnected range retry"
+    );
+    assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+    server.abort();
+}
+
+#[tokio::test]
+async fn forced_multiconnection_discovers_size_before_splitting() {
+    let data = Arc::new(vec![49; 1024 * 1024]);
+    let (url, requests, normal_requests, server) =
+        spawn_range_server(data.clone(), RangeServerBehavior::default()).await;
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("unknown-size.bin");
+    let mut request = DownloadRequest::new(&url, ResourceClass::Other)
+        .with_integrity(Integrity::sha1(
+            sha1_async(Bytes::copy_from_slice(&data)).await.unwrap(),
+        ));
+    request.force_multiconnection = true;
+    download_to_path(
+        request,
+        &destination,
+        &FetchSemaphore(Semaphore::new(16)),
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+    assert_eq!(
+        normal_requests.load(Ordering::Relaxed),
+        1,
+        "only the size discovery request is unsegmented"
+    );
+    assert!(requests.load(Ordering::Relaxed) >= 17);
+    server.abort();
+}
+
+#[tokio::test]
+async fn forced_multiconnection_accepts_an_empty_verified_file() {
+    let data = Arc::new(Vec::new());
+    let (url, _, _, server) =
+        spawn_range_server(data.clone(), RangeServerBehavior::default()).await;
+    let mut request = DownloadRequest::new(&url, ResourceClass::Other)
+        .with_integrity(
+            Integrity::sha1(sha1_async(Bytes::new()).await.unwrap())
+                .with_size(0),
+        );
+    request.force_multiconnection = true;
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("empty-forced.bin");
+    let result = tokio::time::timeout(
+        crate::util::download::constants::DOWNLOAD_SCHEDULING_GRACE,
+        download_to_path(
+            request,
+            &destination,
+            &FetchSemaphore(Semaphore::new(4)),
+            None,
+        ),
+    )
+    .await
+    .expect("empty files must not wait for weighted quota")
+    .unwrap();
+    assert_eq!(result.size, 0);
+    assert_eq!(tokio::fs::read(destination).await.unwrap(), *data);
+    server.abort();
+}
+
+#[tokio::test]
+async fn forced_multiconnection_never_falls_back_after_transport_or_range_failures()
+ {
+    let _guard = fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    for behavior in [
+        RangeServerBehavior {
+            fail_all_ranges: true,
+            ..Default::default()
+        },
+        RangeServerBehavior {
+            ignore_range: true,
+            ..Default::default()
+        },
+        RangeServerBehavior {
+            wrong_content_range: true,
+            ..Default::default()
+        },
+    ] {
+        let data = Arc::new(vec![71; 128 * 1024]);
+        let (url, requests, normal_requests, server) =
+            spawn_range_server(data.clone(), behavior).await;
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("rejected.bin");
+        let mut request = DownloadRequest::new(&url, ResourceClass::Other)
+            .with_integrity(
+                Integrity::sha1(
+                    sha1_async(Bytes::copy_from_slice(&data)).await.unwrap(),
+                )
+                .with_size(data.len() as u64),
+            );
+        request.force_multiconnection = true;
+        let result = download_to_path(
+            request,
+            &destination,
+            &FetchSemaphore(Semaphore::new(2)),
+            None,
+        )
+        .await;
+        assert!(result.is_err());
+        assert_eq!(
+            normal_requests.load(Ordering::Relaxed),
+            0,
+            "forced retries must never send an unsegmented request"
+        );
+        if behavior.fail_all_ranges {
+            assert!(
+                requests.load(Ordering::Relaxed) > 6,
+                "transport retries must span multiple rounds"
+            );
+        }
+        assert!(!destination.exists());
+        server.abort();
+    }
+}
+
+#[tokio::test]
+async fn forced_multiconnection_keeps_expanded_ranges_productive() {
+    BENCHMARK_TIMING.scope((), async {
+        let clients = DownloadClients::build(
+            &crate::util::proxy::ProxyConfig {
+                mode: crate::util::proxy::ProxyMode::None,
+                ..Default::default()
+            },
+            false,
+            false,
+        ).unwrap();
+        crate::util::download::proxy_context::with_snapshot(clients, async {
+            let mut data = vec![0; 32 * 1024 * 1024];
+            for (index, chunk) in data.chunks_exact_mut(8).enumerate() {
+                chunk.copy_from_slice(&(index as u64).to_le_bytes());
+            }
+            let data = Arc::new(data);
+            let observed = Arc::new(parking_lot::Mutex::new(Vec::new()));
+            let (url, _, normal, server) = spawn_observed_range_server(
+                Arc::clone(&data),
+                RangeServerBehavior { slow_body: true, ..Default::default() },
+                Some(Arc::clone(&observed)),
+            ).await;
+            let directory = tempfile::tempdir().unwrap();
+            let destination = directory.path().join("expanded-large-file.bin");
+            let mut request = DownloadRequest::new(&url, ResourceClass::Other)
+                .with_integrity(Integrity::sha1(sha1_smol::Sha1::from(&data[..]).hexdigest()).with_size(data.len() as u64));
+            request.force_multiconnection = true;
+            let semaphore = FetchSemaphore(Semaphore::new(16));
+            let occupied = semaphore.0.acquire_many(15).await.unwrap();
+            let verify = async {
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while observed.lock().is_empty() {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                }).await.unwrap();
+                assert_eq!(observed.lock().len(), 1, "the file must start with one long range");
+                drop(occupied);
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while observed.lock().len() < 16 {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                }).await.unwrap();
+                let initial = observed.lock().clone();
+                assert!(initial.iter().skip(1).all(|&(start, end)| end - start + 1 >= 1024 * 1024),
+                    "expansion must assign useful portions of the remaining file, not fixed minimum-size tails: {initial:?}");
+                for _ in 0..3 {
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    assert!(semaphore.0.available_permits() <= 2,
+                        "expanded connections must remain productive across multiple scheduler ticks");
+                }
+            };
+            let (result, ()) = tokio::join!(
+                super::super::transfer::download_to_path_inner(request, &destination, &semaphore, None),
+                verify,
+            );
+            result.unwrap();
+            assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+            assert_eq!(normal.load(Ordering::Relaxed), 0);
+            server.abort();
+        }).await;
+    }).await;
+}
+
+#[tokio::test]
+async fn forced_multiconnection_waits_for_busy_slots_and_fills_them() {
+    BENCHMARK_TIMING
+        .scope((), async {
+            let clients = DownloadClients::build(
+                &crate::util::proxy::ProxyConfig {
+                    mode: crate::util::proxy::ProxyMode::None,
+                    ..Default::default()
+                },
+                false,
+                false,
+            )
+            .unwrap();
+            crate::util::download::proxy_context::with_snapshot(clients, async {
+            let data = Arc::new(vec![83; 64 * 1024]);
+            let (url, requests, normal_requests, server) = spawn_range_server(
+                data.clone(),
+                RangeServerBehavior {
+                    delay_range_body: true,
+                    ..Default::default()
+                },
+            )
+            .await;
+            let directory = tempfile::tempdir().unwrap();
+            let destination = directory.path().join("busy.bin");
+            let mut request = DownloadRequest::new(&url, ResourceClass::Other)
+                .with_integrity(
+                    Integrity::sha1(
+                        sha1_async(Bytes::copy_from_slice(&data))
+                            .await
+                            .unwrap(),
+                    )
+                    .with_size(data.len() as u64),
+                );
+            request.force_multiconnection = true;
+            let semaphore = FetchSemaphore(Semaphore::new(4));
+            let occupied = semaphore.0.acquire_many(3).await.unwrap();
+            let release = async {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                drop(occupied);
+                tokio::time::sleep(
+                    crate::util::download::constants::DOWNLOAD_SCHEDULING_GRACE,
+                )
+                .await;
+                assert_eq!(
+                    requests.load(Ordering::Relaxed),
+                    4,
+                    "four live ranges before the delayed bodies can finish"
+                );
+                assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+            };
+            let (result, ()) = tokio::join!(
+                super::super::transfer::download_to_path_inner(
+                    request,
+                    &destination,
+                    &semaphore,
+                    None
+                ),
+                release
+            );
+            result.unwrap();
+            assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+            server.abort();
+        }).await;
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn forced_multiconnection_shares_the_pool_by_remaining_file_size() {
+    BENCHMARK_TIMING
+        .scope((), async {
+            let clients = DownloadClients::build(
+                &crate::util::proxy::ProxyConfig {
+                    mode: crate::util::proxy::ProxyMode::None,
+                    ..Default::default()
+                },
+                false,
+                false,
+            )
+            .unwrap();
+            crate::util::download::proxy_context::with_snapshot(
+                clients,
+                async {
+                    let mut fixtures = Vec::new();
+                    let mut requests = Vec::new();
+                    let directory = tempfile::tempdir().unwrap();
+                    for (index, size) in
+                        [2 * 1024 * 1024, 1024 * 1024, 512 * 1024]
+                            .into_iter()
+                            .enumerate()
+                    {
+                        let data = Arc::new(vec![index as u8 + 1; size]);
+                        let server = spawn_range_server(
+                            data.clone(),
+                            RangeServerBehavior {
+                                delay_range_body: true,
+                                ..Default::default()
+                            },
+                        )
+                        .await;
+                        let mut request = DownloadRequest::new(
+                            &server.0,
+                            ResourceClass::Other,
+                        )
+                        .with_integrity(
+                            Integrity::sha1(
+                                sha1_async(Bytes::copy_from_slice(&data))
+                                    .await
+                                    .unwrap(),
+                            )
+                            .with_size(size as u64),
+                        );
+                        request.force_multiconnection = true;
+                        requests.push(request);
+                        fixtures.push((
+                            data,
+                            server,
+                            directory
+                                .path()
+                                .join(format!("weighted-{index}.bin")),
+                        ));
+                    }
+                    let semaphore = FetchSemaphore(Semaphore::new(72));
+                    let downloads = futures::future::join_all(
+                        requests.into_iter().zip(&fixtures).map(
+                            |(request, (_, _, path))| {
+                                super::super::transfer::download_to_path_inner(
+                                    request, path, &semaphore, None,
+                                )
+                            },
+                        ),
+                    );
+                    let verify_shares = async {
+                        tokio::time::timeout(
+            crate::util::download::constants::DOWNLOAD_SCHEDULING_GRACE,
+            async {
+                loop {
+                    if fixtures
+                        .iter()
+                        .map(|(_, (_, count, _, _), _)| {
+                            count.load(Ordering::Relaxed)
+                        })
+                        .sum::<usize>()
+                        == 72
+                    {
+                        break;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(10))
+                        .await;
+                }
+            },
+        )
+        .await
+        .unwrap();
+                        assert_eq!(
+                            fixtures
+                                .iter()
+                                .map(|(_, (_, count, _, _), _)| count
+                                    .load(Ordering::Relaxed))
+                                .collect::<Vec<_>>(),
+                            vec![41, 21, 10]
+                        );
+                    };
+                    let (results, ()) = tokio::join!(downloads, verify_shares);
+                    for (result, (data, (_, _, normal, server), path)) in
+                        results.into_iter().zip(fixtures)
+                    {
+                        result.unwrap();
+                        assert_eq!(tokio::fs::read(path).await.unwrap(), *data);
+                        assert_eq!(normal.load(Ordering::Relaxed), 0);
+                        server.abort();
+                    }
+                },
+            )
+            .await;
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn forced_multiconnection_reclaims_connections_and_flushes_partial_ranges()
+ {
+    BENCHMARK_TIMING.scope((), async {
+            let clients = DownloadClients::build(&crate::util::proxy::ProxyConfig {
+                mode: crate::util::proxy::ProxyMode::None,
+                ..Default::default()
+            }, false, false).unwrap();
+            crate::util::download::proxy_context::with_snapshot(clients, async {
+    let first_data = Arc::new(vec![17; 1024 * 1024]);
+    let second_data = Arc::new(vec![29; 2 * 1024 * 1024]);
+    let first = spawn_range_server(
+        first_data.clone(),
+        RangeServerBehavior {
+            pause_range_after_prefix: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let second = spawn_range_server(
+        second_data.clone(),
+        RangeServerBehavior {
+            delay_range_body: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let mut first_request =
+        DownloadRequest::new(&first.0, ResourceClass::Other).with_integrity(
+            Integrity::sha1(
+                sha1_async(Bytes::copy_from_slice(&first_data))
+                    .await
+                    .unwrap(),
+            )
+            .with_size(first_data.len() as u64),
+        );
+    first_request.force_multiconnection = true;
+    let mut second_request =
+        DownloadRequest::new(&second.0, ResourceClass::Other).with_integrity(
+            Integrity::sha1(
+                sha1_async(Bytes::copy_from_slice(&second_data))
+                    .await
+                    .unwrap(),
+            )
+            .with_size(second_data.len() as u64),
+        );
+    second_request.force_multiconnection = true;
+    let semaphore = FetchSemaphore(Semaphore::new(72));
+    let directory = tempfile::tempdir().unwrap();
+    let first_path = directory.path().join("first-weighted.bin");
+    let second_path = directory.path().join("second-weighted.bin");
+    let second_download = async {
+        tokio::time::timeout(
+            crate::util::download::constants::DOWNLOAD_SCHEDULING_GRACE,
+            async {
+                while first.1.load(Ordering::Relaxed) < 64 {
+                    tokio::time::sleep(std::time::Duration::from_millis(10))
+                        .await;
+                }
+            },
+        )
+        .await
+        .unwrap();
+        super::super::transfer::download_to_path_inner(second_request, &second_path, &semaphore, None).await
+    };
+    let verify_reclaim = async {
+        tokio::time::timeout(crate::util::download::constants::DOWNLOAD_SCHEDULING_GRACE, async {
+            while second.1.load(Ordering::Relaxed) < 48 {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }).await.expect("the later file must receive its weighted share while the first file is still paused");
+    };
+    let (first_result, second_result, ()) = tokio::join!(
+        super::super::transfer::download_to_path_inner(first_request, &first_path, &semaphore, None),
+        second_download,
+        verify_reclaim,
+    );
+    first_result.unwrap();
+    second_result.unwrap();
+    assert_eq!(tokio::fs::read(first_path).await.unwrap(), *first_data);
+    assert_eq!(tokio::fs::read(second_path).await.unwrap(), *second_data);
+    assert!(
+        first.1.load(Ordering::Relaxed) > 64,
+        "yielded partial ranges must resume"
+    );
+    assert_eq!(first.2.load(Ordering::Relaxed), 0);
+    assert_eq!(second.2.load(Ordering::Relaxed), 0);
+    first.3.abort();
+    second.3.abort();
+
+    }).await;
+        }).await;
 }

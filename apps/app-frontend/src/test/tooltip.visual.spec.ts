@@ -445,6 +445,29 @@ it('keeps a tooltip open while another enabled trigger remains active', async ()
     unmount()
 })
 
+it('hides a tooltip when its focused trigger is clicked', async () => {
+    const value = ref<unknown>('Open settings')
+    const { trigger, unmount } = mountTrigger(value)
+    applyTheme('dark')
+    await nextTick()
+
+    trigger.focus()
+    trigger.dispatchEvent(new MouseEvent('mouseenter'))
+    await waitFor(() => !!popper(), { label: 'the focused tooltip' })
+
+    trigger.click()
+    await waitFor(() => !popper(), { label: 'the clicked tooltip to hide' })
+
+    // The trigger can remain focused while its dialog is open. A later render
+    // must not resurrect the tooltip over that dialog.
+    value.value = 'Updated settings'
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    expect(popper()).toBeNull()
+
+    unmount()
+})
+
 it('re-reads its content when the value changes', async () => {
     // The value is deliberately not captured from the binding object passed to
     // `mounted`: Vue replaces that object on re-render, so a captured one would

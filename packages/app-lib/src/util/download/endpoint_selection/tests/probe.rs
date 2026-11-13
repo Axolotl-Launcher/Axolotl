@@ -1,9 +1,13 @@
 use super::*;
+use crate::util::download::constants::{
+    TEST_SLOW_MIN_FLOW as SLOW_MIN_FLOW, TEST_SLOW_WINDOW as SLOW_WINDOW,
+};
 use crate::util::download::endpoint_selection::model::CandidateSource;
 use crate::util::fetch::{DownloadRouteSource, ProxyPolicy};
 use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use std::net::{Ipv4Addr, SocketAddr};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Clone, Copy)]
@@ -98,9 +102,14 @@ impl TlsFixture {
                 PrivatePkcs8KeyDer::from(leaf_key.serialize_der()).into(),
             )
             .unwrap();
-        if protocol == Protocol::H2 {
-            config.alpn_protocols = vec![b"h2".to_vec()];
-        }
+        // An h2 endpoint still answers the HTTP/1.1 that a probe dials before
+        // the selection settles: offering only `h2` makes rustls abort that
+        // probe with `NoApplicationProtocol`, which is a TLS failure the test
+        // mistakes for a download failure. Real CDN endpoints negotiate either.
+        config.alpn_protocols = match protocol {
+            Protocol::H2 => vec![b"h2".to_vec(), b"http/1.1".to_vec()],
+            Protocol::Http1 => vec![b"http/1.1".to_vec()],
+        };
         let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(config));
         let listener = tokio::net::TcpListener::bind((bind_ip, port))
             .await
@@ -116,17 +125,34 @@ impl TlsFixture {
                 tokio::select! {
                     incoming = listener.accept() => {
                         let Ok((socket, _)) = incoming else { break };
+                        // Real CDN endpoints disable Nagle, and so do the other
+                        // paced h2 fixtures. Linux loopback has a ~64 KiB MSS,
+                        // so each 16 KiB DATA frame is a short segment that
+                        // Nagle can hold until the client's delayed ACK, about
+                        // 40 ms. A probe timing a whole 1 MiB tail in ~30 ms
+                        // then measures one sample at half the other's rate,
+                        // `rank_candidates` rejects the peer as uncertain, and
+                        // the trial ends in `NoGain`.
+                        socket.set_nodelay(true).ok();
                         let acceptor = acceptor.clone();
                         let counted = counted.clone();
                         let expected_host = expected_host.clone();
                         handlers.spawn(async move {
                             let Ok(mut stream) = acceptor.accept(socket).await else { return };
                             assert_eq!(stream.get_ref().1.server_name(), Some(expected_host.as_str()));
-                            if protocol == Protocol::H2 {
-                                let mut connection = h2::server::handshake(stream).await.unwrap();
+                            let negotiated_h2 = stream.get_ref().1.alpn_protocol() == Some(b"h2");
+                            if protocol == Protocol::H2 && negotiated_h2 {
+                                // A probe may dial this peer over HTTP/1 before
+                                // the selection settles, and the connection then
+                                // falls through to the HTTP/1 arm below rather
+                                // than failing the handshake.
+                                let Ok(mut connection) = h2::server::handshake(stream).await else { return };
                                 let mut transfers = tokio::task::JoinSet::new();
                                 while let Some(request) = connection.accept().await {
-                                    let (request, mut respond) = request.unwrap();
+                                    // A client that gives up on this peer closes
+                                    // the connection; that is a result the tests
+                                    // provoke, not a fixture failure.
+                                    let Ok((request, mut respond)) = request else { break };
                                     counted.fetch_add(1, Ordering::SeqCst);
                                     assert_eq!(request.uri().host(), Some("cdn.modrinth.com"));
                                     assert!(request.headers().get(header::AUTHORIZATION).is_none());
@@ -281,7 +307,7 @@ impl TlsFixture {
         };
         let mut builder = probe_client_builder(&candidate, &target);
         if trust_fixture {
-            builder = builder.add_root_certificate(self.root.clone());
+            builder = builder.tls_certs_only([self.root.clone()]);
         }
         ProbeSession::with_client(
             candidate,
@@ -353,11 +379,11 @@ async fn pinned_redirect_uses_other_hosts_normal_client_and_removes_authorizatio
     )
     .await;
     let mut clients = production_clients(&origin);
-    let fallback = reqwest::Client::builder()
+    let fallback = crate::util::http::client_builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .http1_only()
-        .add_root_certificate(other.root.clone())
+        .tls_certs_only([other.root.clone()])
         .resolve("different.invalid", other.address)
         .build()
         .unwrap();
@@ -367,7 +393,6 @@ async fn pinned_redirect_uses_other_hosts_normal_client_and_removes_authorizatio
         crate::util::download::native_request::send_path_request_with_clients(
             &fixture_route(),
             Some(&("Authorization".into(), "secret-token".into())),
-            None,
             None,
             Some(0),
             Some(65535),
@@ -509,8 +534,8 @@ async fn automatic_trial_measures_candidates_with_only_one_recovery_slot_and_res
             );
         }
         native_slow::with_test_timing(
-            Duration::from_millis(75),
-            Duration::from_millis(150),
+            SLOW_WINDOW,
+            SLOW_MIN_FLOW,
             crate::util::fetch::download_endpoint_fixture(
                 request.clone(),
                 &destination,
@@ -572,7 +597,7 @@ async fn production_reqwest_requests_and_retries_follow_new_selection_without_dn
             .endpoints
             .install_test_selection(expected, Protocol::Http1);
         let (response, _) = crate::util::download::native_request::send_path_request_with_clients(
-            &route, None, None, None, Some(0), Some(65535), &clients, None).await.unwrap();
+            &route, None, None, Some(0), Some(65535), &clients, None).await.unwrap();
         assert_eq!(response.remote_addr(), Some(expected));
         assert_eq!(response.bytes().await.unwrap().len(), 65536);
     }
@@ -800,8 +825,8 @@ async fn same_url_http1_download_resumes_on_new_ip_and_verifies_final_hash() {
             );
         }
         native_slow::with_test_timing(
-            Duration::from_millis(75),
-            Duration::from_millis(150),
+            SLOW_WINDOW,
+            SLOW_MIN_FLOW,
             crate::util::fetch::download_endpoint_fixture(
                 request.clone(),
                 &destination,
@@ -850,6 +875,15 @@ async fn automatic_native_h2_recovery(range_count: Option<usize>) {
         Ipv4Addr::new(127, 0, 0, 2),
     )
     .await;
+    // Register before the clients are built: a fallback request from the
+    // pinned path to a general client must trust the same loopback CAs, or it
+    // fails with `UnknownIssuer` instead of exercising the recovery this test
+    // is about. The registry is read while `DownloadClients::build` runs, so
+    // it cannot be installed later from inside the transfer future.
+    crate::util::fetch::register_test_trust_roots(vec![
+        slow.root.clone(),
+        fast.root.clone(),
+    ]);
     let clients = production_clients(&slow);
     clients
         .endpoints
@@ -905,8 +939,8 @@ async fn automatic_native_h2_recovery(range_count: Option<usize>) {
                 .unwrap();
             assert_eq!(initial.remote_addr, Some(slow.address));
             let result = native_slow::with_test_timing(
-                Duration::from_millis(75),
-                Duration::from_millis(150),
+                SLOW_WINDOW,
+                SLOW_MIN_FLOW,
                 crate::util::fetch::download_endpoint_fixture(
                     request.clone(),
                     &destination,

@@ -154,7 +154,9 @@ function assignUniqueNames(entries: NameEntry[]): Map<string, string> {
 }
 
 function getSidebarTitle(recipe: RecipeState, ctx: RecipeSlotContext): string | undefined {
-    const result = recipe.slots[resultSlotForType(recipe.recipeType)]
+    const slot = resultSlotForType(recipe.recipeType)
+    if (!slot) return undefined
+    const result = recipe.slots[slot]
     const resolved =
         result?.kind === 'custom_item'
             ? ctx.customItemsByUid[result.uid]

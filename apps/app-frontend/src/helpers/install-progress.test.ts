@@ -1,11 +1,14 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 import {
     effectiveInstallProgress,
     effectiveParallelProgress,
+    formatInstallProgressText,
     hasDeterminateInstallProgress,
     installProgressFraction,
     installProgressTextSource,
+    isInstallMainTrackComplete,
+    parallelInstallProgressTextSource,
     preserveMonotonicProgress,
     type ProgressTextSnapshot,
 } from './install-progress.ts'
@@ -81,6 +84,25 @@ it('CurseForge modpacks use settled file progress for completion', () => {
 
     expect(installProgressFraction(job)).toBe(1)
     expect(installProgressTextSource(job)).toEqual({ type: 'items', current: 3, total: 3 })
+})
+
+it('content completion waits for settled files even when byte progress reaches its total', () => {
+    for (const provider of ['modrinth', 'curse_forge']) {
+        const downloading = {
+            ...progressJob(),
+            provider,
+            phase: 'downloading_content',
+            progress: { current: 9, total: 10, secondary: { current: 1000, total: 1000 } },
+        }
+        expect(isInstallMainTrackComplete(downloading)).toBe(false)
+        expect(
+            isInstallMainTrackComplete({
+                ...downloading,
+                progress: { ...downloading.progress, current: 10 },
+            }),
+        ).toBe(true)
+        expect(isInstallMainTrackComplete({ ...downloading, status: 'succeeded' })).toBe(true)
+    }
 })
 
 it('CurseForge file progress remains monotonic while byte samples change', () => {
@@ -244,6 +266,26 @@ it('pack download uses current progress instead of stale summary', () => {
     ).toEqual({ type: 'bytes', current: 0, total: 51 })
 })
 
+it('completed archive and extraction counters do not mark a running installation complete', () => {
+    for (const phase of ['downloading_pack_file', 'extracting_overrides', 'finalizing']) {
+        const job = progressJob({ phase, progress: { current: 100, total: 100 } })
+        expect(isInstallMainTrackComplete(job)).toBe(false)
+        expect(isInstallMainTrackComplete({ ...job, status: 'succeeded' })).toBe(true)
+    }
+})
+
+it('extraction formats its own byte counter and never reuses download summary bytes', () => {
+    const job = progressJob({
+        phase: 'extracting_overrides',
+        progress: { current: 50, total: 100 },
+        summary: { files_completed: 10, bytes_downloaded: 900, bytes_total: 1000 },
+    })
+    expect(formatInstallProgressText(installProgressTextSource(job), (value) => `${value} B`)).toBe(
+        '50 B / 100 B',
+    )
+    expect(installProgressTextSource({ ...job, progress: null })).toEqual({ type: 'phase' })
+})
+
 it('minecraft download uses current progress instead of content summary', () => {
     expect(
         installProgressTextSource(
@@ -274,6 +316,28 @@ it('content download uses current secondary bytes', () => {
             }),
         ),
     ).toEqual({ type: 'bytes', current: 220, total: 300 })
+})
+
+it('modpack bars and byte labels include live native summary bytes', () => {
+    const downloading = progressJob({
+        provider: 'modrinth',
+        phase: 'downloading_content',
+        progress: { current: 1, total: 3, secondary: { current: 40, total: 300 } },
+        summary: { files_completed: 1, bytes_downloaded: 220, bytes_total: 300 },
+    })
+    expect(installProgressFraction(downloading)).toBe(220 / 300)
+    expect(installProgressTextSource(downloading)).toEqual({
+        type: 'bytes',
+        current: 220,
+        total: 300,
+    })
+    expect(isInstallMainTrackComplete(downloading)).toBe(false)
+    expect(
+        effectiveInstallProgress({
+            ...downloading,
+            summary: { bytes_downloaded: 900, bytes_total: 1000 },
+        }),
+    ).toEqual({ current: 40, total: 300 })
 })
 
 it('content download without secondary uses current file counter', () => {
@@ -336,4 +400,69 @@ it('waiting job preserves required-file progress policy', () => {
             }),
         ),
     ).toEqual({ type: 'required_files' })
+})
+
+it('loader processor progress uses percentages on both tracks without byte formatting', () => {
+    const job = progressJob({
+        phase: 'running_loader_processors',
+        progress: { current: 7, total: 10 },
+        parallel: { phase: 'running_loader_processors', current: 7, total: 10 },
+    })
+    const formatBytes = vi.fn((value: number) => `${value} B`)
+    for (const source of [installProgressTextSource(job), parallelInstallProgressTextSource(job)]) {
+        expect(source).toEqual({ type: 'percentage', current: 7, total: 10 })
+        expect(formatInstallProgressText(source, formatBytes)).toBe('70%')
+    }
+    expect(formatBytes).not.toHaveBeenCalled()
+})
+
+it('parallel download units come from their own phase and Java step', () => {
+    for (const [phase, details, expectedType] of [
+        ['downloading_minecraft', { type: 'empty' }, 'bytes'],
+        ['downloading_pack_file', { type: 'empty' }, 'bytes'],
+        ['preparing_java', { type: 'java', step: 'downloading' }, 'bytes'],
+        ['preparing_java', { type: 'java', step: 'extracting' }, 'phase'],
+        ['resolving_loader', { type: 'empty' }, 'phase'],
+    ] as const) {
+        const source = parallelInstallProgressTextSource(
+            progressJob({
+                phase: 'downloading_content',
+                progress: { current: 2, total: 3 },
+                details: { type: 'java', step: 'downloading' },
+                summary: { files_completed: 3, bytes_downloaded: 900, bytes_total: 1000 },
+                parallel: { phase, current: 4, total: 12, details },
+            }),
+        )
+        expect(source.type).toBe(expectedType)
+        expect(formatInstallProgressText(source, (value) => `${value} B`)).toBe(
+            expectedType === 'bytes' ? '4 B / 12 B' : '',
+        )
+    }
+})
+
+it('indeterminate loader progress does not invent a percentage on either track', () => {
+    for (const total of [0, Number.NaN, Number.POSITIVE_INFINITY]) {
+        const job = progressJob({
+            phase: 'running_loader_processors',
+            progress: { current: 0, total },
+            parallel: { phase: 'running_loader_processors', current: 0, total },
+        })
+        expect(installProgressTextSource(job)).toEqual({ type: 'phase' })
+        expect(parallelInstallProgressTextSource(job)).toEqual({ type: 'phase' })
+    }
+    expect(parallelInstallProgressTextSource(progressJob())).toEqual({ type: 'phase' })
+})
+
+it('loader percentages stay within zero and one hundred and round to whole numbers', () => {
+    for (const [current, total, label] of [
+        [0, 10, '0%'],
+        [1, 3, '33%'],
+        [10, 10, '100%'],
+        [12, 10, '100%'],
+    ] as const) {
+        const source = installProgressTextSource(
+            progressJob({ phase: 'running_loader_processors', progress: { current, total } }),
+        )
+        expect(formatInstallProgressText(source, String)).toBe(label)
+    }
 })

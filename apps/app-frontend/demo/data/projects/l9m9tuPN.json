@@ -1,0 +1,208 @@
+{
+  "id": "l9m9tuPN",
+  "slug": "zombie-invade-100-days",
+  "title": "Zombie Invade 100 Days",
+  "description": "僵尸入侵 100 天（高版本惊变重制）—— Same as Forge Labs 100 Days Zombie Apocalypse in new Minecraft",
+  "author": "FlameFire",
+  "categories": ["challenging", "combat", "forge", "multiplayer"],
+  "display_categories": ["challenging", "combat"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 15257049,
+  "followers": 657,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["forge"],
+  "game_versions": ["1.19.2", "1.20.1"],
+  "latest_version": "M8j2mfGj",
+  "date_created": "2024-04-11T10:43:49.307213Z",
+  "date_modified": "2025-12-13T12:35:19.753501Z",
+  "color": 2170391,
+  "published": "2024-04-11T10:43:49.307213Z",
+  "additional_categories": ["multiplayer"],
+  "issues_url": "https://www.mcmod.cn/modpack/835.html",
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 7,
+  "body": "## 简体中文 (Simplified Chinese)\n\n以著名的僵尸启示录为原型，加上一些具有新功能的新模组在 Minecraft 新版本中制作的丧尸围城整合包！旨在尽可能多地还原僵尸启示录。\n\n### 开始（v2.3）\n\n- 创建世界的三种选择：平坦主世界（在数据包选择界面选择）、超平坦（见下方 v2.0~v2.2 版本）、正常世界\n- 进入世界后由荒野手册提供后续帮助\n\n<details>\n<summary>历史版本</summary>\n\n#### v2.0~2.2\n- 建议使用**超平坦**模式，以村庄为根据地，建设防御工事（当然也可以游玩正常世界）\n- 主世界默认生成失落城市（无需手动启用）\n  - 正常超平坦世界无法生成失落城市，建议解决方法如下：创建世界时自定义超平坦 -> 预设 -> 主世界 -> 将 `minecraft:bedrock,130*minecraft:dirt,minecraft:grass_block;minecraft:plains` 替换至上方输入栏 -> 使用预设 -> 完成\n  - 关闭主世界生成失落城市请前往 LostCities 模组设置 -> LostCities/common -> Profiles -> 删除 `minecraft:overworld` 这一项（点击右边按钮，提示文本错误仅为配置模组问题）\n\n#### v1.x\n- 建议使用**超平坦**模式，以村庄为根据地，建设防御工事（当然也可以游玩正常世界）\n- 如果你想要更有趣和更具挑战性的游戏，可以在创建世界时点击`数据包`按钮并添加 [Zombie Invade Nether End](https://modrinth.com/datapack/zombie-invade-nether-end)(僵尸入侵下界和末地) 和 [Horde Nights](https://modrinth.com/datapack/blood-moon)(怪物之夜，即血月) 至右侧来加载它们\n\n</details>\n\n### 注明\n\n- 中文社区请转到 [MC百科](https://www.mcmod.cn/modpack/835.html)\n- 各版本更新内容请在 Changelog 标签查看\n- 核心模组\n  - 在 v2.1 及以下为 [僵尸游戏(Zombie Game)](https://www.mcmod.cn/class/11546.html) （感谢作者 阿骏/Aljun2007 使我产生了制作整合包的想法）\n  - 在 v2.2 及以上为 [终焉之日(End of Days)](https://www.mcmod.cn/class/16472.html)\n\n<details>\n<summary>服务端</summary>\n\n服务端在 v1.2 及以上版本提供，位于单版本页面（在 Versions 标签中点击某一版本名称可以进入），拉至页面底部找到带 server 标注的文件即可\n  - 当前版本（v2.3）服务端在下载后请直接导入启动器安装，安装的位置即为服务端文件夹（与旧版本目录结构相同，可脱离启动器随意移动至任何位置方便开服），安装完成后依然按照以下方式操作\n  - Windows 用户运行 `startserver.bat` 安装，以后每次需要启动服务器时再次运行即可\n  - 其他系统请直接运行 Forge 安装器 `forge-xxx-installer.jar`（需要已经正确安装的 Java），完成后运行带 `start` 字样的脚本启动服务器\n\n</details>\n\n<details>\n<summary>已还原的内容</summary>\n\n- 丧尸材质 [Tissou's Zombie Pack](https://www.curseforge.com/minecraft/texture-packs/tissous-zombie-pack-optifine-1-7x-1-20)\n- 玩家倒地救援 [Hardcore Revival](https://www.mcmod.cn/class/4187.html)\n- 玩家受伤等屏幕效果 [EnhancedVisuals](https://www.mcmod.cn/class/2054.html)\n- 生物死亡肢解流血效果 [Physics mod](https://www.mcmod.cn/class/3460.html)\n- 双开门 [Quark](https://www.mcmod.cn/class/527.html)\n- 生物血条 [Neat](https://www.mcmod.cn/class/619.html) 和伤害跳字 [TslatEntityStatus](https://www.mcmod.cn/class/9442.html)\n- 刷怪笼自动销毁 [Ageing Spawners](https://www.mcmod.cn/class/5539.html)\n- 动态环境（声音物理 [Sound Physics Remastered](https://www.mcmod.cn/class/8197.html) 和脚步声 [Presence Footstep](https://www.mcmod.cn/class/4819.html)）\n- 连锁采集 [Ore Excavation](https://www.mcmod.cn/class/1955.html)\n- 斯巴达的武器 [Spartan Weaponry](https://www.mcmod.cn/class/2297.html) 和盾 [Spartan Shields](https://www.mcmod.cn/class/2790.html)\n- 动态的树 [Dynamic Trees](https://www.mcmod.cn/class/1071.html)\n- _(以及更多…)_\n\n</details>\n\n\n## English\n\nRemake from famous modpack Zombie Apocalypse, in new Minecraft version with new features and mods! The pack aims to restore Zombie Apocalypse as much as possible.\n\n### Start (v2.3)\n\n- Three world creation options: Flat Overworld (select in Data Packs interface), Superflat (see v2.0~v2.2 below), and normal world\n- After entering the world, Wild Book will provide more help\n\n<details>\n<summary>Previous version</summary>\n\n#### v2.0~2.2\n- It's recommended to play in **Superflat** world type, building fortifications based on villages (of course you can still play normal world)\n- The overworld now generates lost cities by default (no manually enable)\n  - Normally, superflat worlds cannot generate lost cities, the suggested solution is as follows: Customise Superflat -> Presets -> Main world -> Replace `minecraft:bedrock,130*minecraft:dirt,minecraft:grass_block;minecraft:plains` in the input field above -> Use Preset -> Done\n  - To disable the overworld generation of lost cities, please go to LostCities mod settings -> LostCities/common -> Profiles -> Delete `minecraft:overworld` (click the button on the right, the text error is just config mod's problem)\n\n#### v1.x\n- It's recommended to play in **Superflat** world type, building fortifications based on villages (of course you can still play normal world)\n- If you want more interesting and challenging, you can click `Data Packs` button and add [Zombie Invade Nether End](https://modrinth.com/datapack/zombie-invade-nether-end) and [Horde Nights](https://modrinth.com/datapack/blood-moon) to the right side to load them when creating a new world\n\n</details>\n\n### Notes\n\n- The only community is Chinese, link to [MC百科](https://www.mcmod.cn/modpack/835.html)\n- Please check the Changelog tab for update contents of each version\n- Core mods\n  - v2.1 and below: [Zombie Game](https://www.curseforge.com/minecraft/mc-mods/zombiegame) (Thanks to the author Aljun2007 for giving me the idea to make this modpack)\n  - v2.2 and above: [End of Days](https://www.curseforge.com/minecraft/mc-mods/endofday)\n\n<details>\n<summary>Server</summary>\n\nServer pack is available from v1.2 and above, located on the single version page (click on a version name in the Versions tab to enter), scroll to the bottom of the page to find the file marked with server\n  - For the current version (v2.3), please import the server pack directly into a launcher after downloading, the installation location is the server folder (same directory structure as the old version, can be moved to any location for easy server setup), after installation, still do the following steps\n  - Windows users run `startserver.bat` to install, then run again each time you need to start the server\n  - For other systems, run the Forge installer `forge-xxx-installer.jar` directly (needs a Java that has been installed correctly), then run the script with `start` to start the server\n\n</details>\n\n<details>\n<summary>Restored Contents</summary>\n\n- Zombie textures [Tissou's Zombie Pack](https://www.curseforge.com/minecraft/texture-packs/tissous-zombie-pack-optifine-1-7x-1-20)\n- Player downed rescue [Hardcore Revival](https://modrinth.com/mod/hardcore-revival)\n- Player injury screen effects [EnhancedVisuals](https://modrinth.com/mod/enhancedvisuals)\n- Creature death dismemberment and blood effects [Physics Mod](https://modrinth.com/mod/physicsmod)\n- Double door opening [Quark](https://modrinth.com/mod/quark)\n- Creature health bar [Neat](https://modrinth.com/mod/neat) and damage numbers [TslatEntityStatus](https://www.mcmod.cn/class/9442.html)\n- Spawner auto-destruction [Ageing Spawners](https://www.curseforge.com/minecraft/mc-mods/ageing-spawners)\n- Dynamic environment (sound physics [Sound Physics Remastered](https://modrinth.com/mod/sound-physics-remastered) and footstep sounds [Presence Footsteps](https://www.curseforge.com/minecraft/mc-mods/presence-footsteps-forge))\n- Chain mining [Ore Excavation](https://modrinth.com/mod/ore-excavation)\n- Spartan weapons [Spartan Weaponry](https://modrinth.com/mod/spartan-weaponry) and shields [Spartan Shields](https://modrinth.com/mod/spartan-shields)\n- Dynamic trees [Dynamic Trees](https://modrinth.com/mod/dynamictrees)\n- _(And more...)_\n\n</details>",
+  "gallery": [],
+  "team": [
+    {
+      "username": "FlameFire",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/P3U9o13d/9510f2f2765baed3e8cb159df4311e069f8dc8f3.jpeg"
+    }
+  ],
+  "versions": [
+    {
+      "id": "M8j2mfGj",
+      "name": "Zombie Invade 100 Days v2.3 Fix",
+      "version_number": "2.3-Fix",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-12-13T12:35:19.753501Z",
+      "downloads": 9018285,
+      "changelog": "### v2.3 Fix\n#### CN\n- 修复荒野手册无法打开的问题\n  - 旧版本手动修复操作方法：直接点击 Download 下载此版本的安装包（mrpack格式）-> 用压缩软件直接打开 -> 进入 overrides 文件夹 ① -> 在启动器打开旧版本游戏文件夹 ② -> 将 ① 中的 patchouli_books 文件夹整个放入 ② 中 -> 重启游戏即可\n- 服务端依然使用 v2.3\n\n#### EN\n- Fix the Wild Book can't open\n  - Old version manual fix method: Download this new pack (in mrpack format) -> Open it directly with compression software -> Navigate to **overrides** folder ① -> Manually open the old version game folder separately ② -> Copy the entire **patchouli_books** folder from ① to ② -> Restart the game\n- Server pack is still v2.3\n\n### v2.3\n#### CN\n- 小幅降低僵尸强度\n- 隐藏无法获取/制作的物品\n- 修复多人模式不发放初始物品的问题\n- 修复终焉之日按键配置名称的问题\n- 修复村民出售弹药堆叠数量的问题\n- 修复 100 天后\n  - 仍出现血月的问题\n  - 不显示游戏结束的问题\n- 取消烈焰人刷怪笼自动销毁\n- 大幅增加防具盔甲值\n- 修改初始三件套装备\n- 删除商店方块配方\n- 流浪商人不再会出现\n- 隐藏不常用和无用按键绑定\n- 添加和修改模组以优化体验和性能\n- 清理冗余配置文件\n- 加强村民守卫\n  - 血量由 40 增加到 60\n  - 玩家能够随意打开守卫背包给予装备和配置跟随\n- 添加城市建筑种类和战利品箱数量\n- 添加新超平坦预设（数据包）\n- 现在血条显示更简洁\n- 更新枪械模组\n- 补充模组汉化\n- 添加更多引导\n- 完善荒野手册\n  - 添加更多提示\n  - 添加更新日志\n\n#### EN\n- Slightly reduce zombie strength\n- Hide items that can't be obtained/made\n- Fix multiplayer won't get starter items\n- Fix key binding name of mod End of Days\n- Fix villager selling ammo stacks\n- Fix after 100 days that\n  - Blood moon still appears\n  - The game end prompt won't be displayed\n- Blaze spawner will no longer break\n- Significantly increase armor defense\n- Change the initial three equipments\n- Delete Store block recipe\n- Wandering trader will no longer appear\n- Hide infrequent and useless key bindings\n- Add and modify mods to optimize experience and performance\n- Clean up redundant config files\n- Strengthen villager guard\n  - HP increased from 40 to 60\n  - Player can open the guard's inventory and give equipment/follow commands\n- Add new city building types and increase loot chest quantities\n- Add new superflat preset (datapack)\n- Health bar display is now more concise\n- Update TACZ\n- Add more guide\n- Improve Wild Book\n  - Add more tips\n  - Add changelog",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Zombie Invade 100 Days 2.3.mrpack",
+          "size": 29975184,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6OMYdNAO",
+      "name": "Zombie Invade 100 Days v2.3",
+      "version_number": "2.3",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-12-10T09:22:14.347933Z",
+      "downloads": 220461,
+      "changelog": "### v2.3\n#### CN\n- 小幅降低僵尸强度\n- 隐藏无法获取/制作的物品\n- 修复多人模式不发放初始物品的问题\n- 修复终焉之日按键配置名称的问题\n- 修复村民出售弹药堆叠数量的问题\n- 修复 100 天后\n  - 仍出现血月的问题\n  - 不显示游戏结束的问题\n- 取消烈焰人刷怪笼自动销毁\n- 大幅增加防具盔甲值\n- 修改初始三件套装备\n- 删除商店方块配方\n- 流浪商人不再会出现\n- 隐藏不常用和无用按键绑定\n- 添加和修改模组以优化体验和性能\n- 清理冗余配置文件\n- 加强村民守卫\n  - 血量由 40 增加到 60\n  - 玩家能够随意打开守卫背包给予装备和配置跟随\n- 添加城市建筑种类和战利品箱数量\n- 添加新超平坦预设（数据包）\n- 现在血条显示更简洁\n- 更新枪械模组\n- 补充模组汉化\n- 添加更多引导\n- 完善荒野手册\n  - 添加更多提示\n  - 添加更新日志\n\n#### EN\n- Slightly reduce zombie strength\n- Hide items that can't be obtained/made\n- Fix multiplayer won't get starter items\n- Fix key binding name of mod End of Days\n- Fix villager selling ammo stacks\n- Fix after 100 days that\n  - Blood moon still appears\n  - The game end prompt won't be displayed\n- Blaze spawner will no longer break\n- Significantly increase armor defense\n- Change the initial three equipments\n- Delete Store block recipe\n- Wandering trader will no longer appear\n- Hide infrequent and useless key bindings\n- Add and modify mods to optimize experience and performance\n- Clean up redundant config files\n- Strengthen villager guard\n  - HP increased from 40 to 60\n  - Player can open the guard's inventory and give equipment/follow commands\n- Add new city building types and increase loot chest quantities\n- Add new superflat preset (datapack)\n- Health bar display is now more concise\n- Update TACZ\n- Add more guide\n- Improve Wild Book\n  - Add more tips\n  - Add changelog",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Zombie Invade 100 Days 2.3.mrpack",
+          "size": 29926597,
+          "primary": true
+        },
+        {
+          "filename": "Zombie Invade 100 Days 2.3 [server].mrpack",
+          "size": 10802022,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "klJz6Y5h",
+      "name": "Zombie Invade 100 Days v2.2",
+      "version_number": "2.2",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-07-27T16:49:02.833619Z",
+      "downloads": 1760793,
+      "changelog": "2025.8.4\n- 修复服务端无法启动的问题 (Fix server starting)\n\n#### CN\n- 添加闪烁标语\n- 修改游戏窗口图标\n- 修复第 1 天显示 Day 2\n- 修复 100 天后天数跳数\n- 血月由平均 10 天改为逐渐提高频率，并在第 95~100 天一定发生\n- 平滑淡入淡出血月红色晕影\n- 现在血月期间月亮会变红\n- 更新枪械模组（新枪械、配件和自动换弹）\n- 添加枪械附魔\n- 修改村民交易和荒野手册以适配新内容\n- 添加和补充部分缺失的汉化\n- 更新和修改一些模组\n- 核心模组僵尸游戏改为终焉之日（整合包适配版）\n- 你所期待的全新入侵进化机制（共 100 天）\n  - 10 觉醒进化：僵尸意识开始觉醒，隔墙有耳（透视目标），并开始获得属性加强\n  - 20 基础进化：互相跟随，成群结队，皮革装备\n  - 30 技巧进化：持盾，爬梯子，铁装备\n  - 40 远程进化：使用弓箭，抛投三叉戟，金装备\n  - 50 敏捷进化：来回跳跃以便接近玩家，钻石装备\n  - 60 搭建进化：放置方块\n  - 70 下界进化：使用末影珍珠，免疫营火、岩浆块、熔岩，下界合金装备\n  - 80 挖掘进化：破坏方块，无法被困住\n  - 90 终极进化：使用TNT，骑幻翼，自爆\n\n#### EN\n- Add splash texts\n- Modify game window icon\n- Fix Day 1 being displayed as Day 2\n- Fix day count splashing after Day 100\n- Blood Moon: Change from an average occurrence every 10 days to gradually increasing frequency, with a guaranteed occurrence between Days 95~100\n- Smooth the fade-in and fade-out of the Blood Moon's red vignette effect\n- The moon now turns red during Blood Moons\n- Update TaCZ (new guns, attachments, and automatic reloading)\n- Add gun enchantments\n- Adjust villager trades and the Wilderness Guide to adaptive new content\n- Change core mod \"Zombie Game\" to \"End of Days\" (modpack-adapted version)\n- The highly anticipated new evolution mechanism:\n  - Day 10 Awakening Evolution: Zombies develop rudimentary consciousness, target detection through walls, and start evolution\n  - Day 20 Basic Evolution: They follow each other in groups and wear leather armor\n  - Day 30 Skill Evolution: They use shields, climb ladders, and wear iron armor\n  - Day 40 Ranged Evolution: They wield bows, throw tridents, and wear golden armor\n  - Day 50 Agility Evolution: They jump back and forth to close in on players and wear diamond armor\n  - Day 60 Construction Evolution: They place blocks\n  - Day 70 Nether Evolution: They use ender pearls, gain immunity to campfires, magma blocks, and lava, and wear netherite armor\n  - Day 80 Digging Evolution: They break blocks and can no longer be trapped\n  - Day 90 Ultimate Evolution:\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Zombie Invade 100 Days 2.2.mrpack",
+          "size": 29151568,
+          "primary": true
+        },
+        {
+          "filename": "Zombie Invade 100 Days 2.2 [server].zip",
+          "size": 149560980,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "ywbuIlaX",
+      "name": "Zombie Invade 100 Days v2.1",
+      "version_number": "2.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2025-01-31T20:01:55.452531Z",
+      "downloads": 1993930,
+      "changelog": "### v2.1\n\n#### CN\n- 修复重进世界天数显示重置的问题\n- 修复血月界面显示\n- 更新枪械和部分模组\n- 添加荒野手册内容\n- 丰富主世界战利品箱（火药，纸，甘蔗，矿物，钱袋）\n- 统一部分附魔名称\n- 禁止僵尸转化溺尸\n- 加强村民守卫\n- 生物掉落的钱币现在受抢夺影响，约为 60（无抢夺），120（抢夺 III），单位：银币 / 50只\n- 添加掉落钱币的生物（溺尸，僵尸村民，僵尸猪灵，僵尸疣猪兽）\n- 修改村民交易（出售墨囊和粘液球；提高部分交易次数；降低部分物品出售价格；提高部分物品回收价格）\n- 添加快速交易，交易次数显示\n- 添加荒野手册配方\n- 删除火药配方\n- 删除亮度调整和EMI交易扩展\n\n> _（感谢B站 @浑元Rysn和他的联机小伙伴 、@6币巷烟徳不出皿梓 的建议和意见）_\n\n#### EN\n- Fix re-entry days display reset\n- Fix blood moon interface display\n- Update gun mod and some other mods\n- Add Wild Book Content\n- Richer loot chest in overworld (gunpowder, paper, sugar cane, ores, coin bag)\n- Stop zombie transform into drowned\n- Villager guard get stronger\n- Coins dropped by mobs are now affected by looting, about 60 when no looting, 120 from looting III, unit: silver coins / 50 mobs\n- Added mobs that dropped coins (drowned, zombie villager, zombified piglin, zoglin)\n- Modify villager trades (sell ink sac and slime ball; increase the number of trade counts; reduce the selling price of some items; increase the recycling price of some items)\n- Add Bulk Villager Trading, Trade Uses\n- Add Wild Book recipe\n- Delete gunpowder recipe\n- Remove Boosted Brightness and EMI Trades",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Zombie Invade 100 Days 2.1.mrpack",
+          "size": 27173551,
+          "primary": true
+        },
+        {
+          "filename": "Zombie Invade 100 Days 2.1 [server].zip",
+          "size": 134821456,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "IyLHiIBF",
+      "name": "Zombie Invade 100 Days v2.0",
+      "version_number": "2.0",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-12-30T07:07:30.072914Z",
+      "downloads": 327790,
+      "changelog": "### v2.0\n\n#### CN\n- 升级至 1.20.1\n- 添加荒野手册指导书\n- 添加游戏过程显示\n- 添加钱币系统\n- 添加更多模组\n- 村民交易修改（见荒野手册）\n- 补充修复斯巴达汉化\n- 枪械由 CGM 改为 TACZ\n- 修改优化血月数据包\n- 修改天数显示方式（每天清晨）\n\n#### EN\n- Upgrade to 1.20.1\n- Add Wild Book (guide book)\n- Add gameplay display\n- Add coin system\n- More mods\n- Villager trading modification (see Wild Book)\n- Add fixes to Spartan Chinese\n- Guns changed from CGM to TACZ\n- Modify and optimise blood moon datapack\n- Change the way to show day counts (every morning)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Zombie Invade 100 Days 2.0.mrpack",
+          "size": 28848664,
+          "primary": true
+        },
+        {
+          "filename": "Zombie Invade 100 Days 2.0 [server].zip",
+          "size": 122060121,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "7NwKDGt0",
+      "name": "Zombie Invade 100 Days v1.2",
+      "version_number": "1.2",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": true,
+      "date_published": "2024-05-20T15:00:45.534489Z",
+      "downloads": 1735323,
+      "changelog": "### v1.2\n\n#### CN\n\n- **添加服务端整合包**（版本页面底部文件标注 **server** 处）\n- 移除 Enhanced Celestials 模组，因为已有数据包代替\n- 添加 Day Counter 模组，在快捷栏上方显示当前天数\n- 更新部分模组\n\n#### EN\n\n- **Add server-side pack** (file named by **server**, bottom of the version page)\n- Removed **Enhanced Celestials** because there's datapack instead\n- Add **Day Counter** to display the current days on the actionbar\n- Update some mods",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Zombie Invade 100 Days 1.2.mrpack",
+          "size": 59507527,
+          "primary": true
+        },
+        {
+          "filename": "Zombie Invade 100 Days 1.2 [server].zip",
+          "size": 76475483,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "L3SGuHlm",
+      "name": "Zombie Invade 100 Days v1.1",
+      "version_number": "1.1",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": true,
+      "date_published": "2024-04-16T05:16:22.996291Z",
+      "downloads": 200175,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Zombie Invade 100 Days 1.1.mrpack",
+          "size": 59491955,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

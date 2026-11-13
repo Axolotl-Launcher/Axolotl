@@ -231,7 +231,8 @@ pub(crate) async fn attach_compatibility(
                     && item.materialization_state
                         == crate::state::PackMemberMaterializationState::Present
                 {
-                    item.capabilities.can_change_version = true;
+                    item.capabilities.can_change_version = item.project_type
+                        != crate::state::ProjectType::Schematic;
                 }
                 if item.resource_id.is_none() {
                     item.resource_id = identities
@@ -263,8 +264,13 @@ pub(crate) async fn attach_compatibility(
             >(local.as_deref()?)
             .ok()?;
             Some(ReleaseCompatibility {
-                game_versions: metadata.minecraft_version.into_iter().collect(),
-                loaders: metadata.loader.into_iter().collect(),
+                game_versions: metadata
+                    .for_loader(loader)
+                    .minecraft_version
+                    .clone()
+                    .into_iter()
+                    .collect(),
+                loaders: metadata.supported_loaders(),
             })
         })();
         let mut remote = exact.and_then(|record| record.declared_compatibility);

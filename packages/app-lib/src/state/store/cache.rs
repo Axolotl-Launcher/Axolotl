@@ -5,8 +5,10 @@
 //! is stored as: what the text means is the caller's business, and a payload
 //! the cache would not have written is not read back.
 //!
-//! A set of keys is not a row of this collection, so the statements that read
-//! or write a whole set in one go stay beside the callers that need them.
+//! A set of keys is not a row of this collection, so the statement that writes
+//! a whole set in one go lives here as a batch rather than as a verb: the caller
+//! decides which row wins a key or an alias, and the statement writes the set
+//! under the same rules a single write keeps.
 
 use sqlx::SqliteConnection;
 
@@ -181,6 +183,37 @@ impl Collection for Cache {
         }
         Ok(())
     }
+}
+
+/// Writes a set of rows as one statement.
+///
+/// `rows` is the JSON array the caller built, one object per row with the fields
+/// the table stores. The caller has already decided which row wins a key or an
+/// alias within the set; a row that only differs by holding an alias another row
+/// claims is replaced by the same statement, so an alias still names one row of
+/// a type.
+pub(crate) async fn write_many(
+    conn: &mut SqliteConnection,
+    rows: &str,
+) -> crate::Result<()> {
+    sqlx::query(
+        "
+        INSERT OR REPLACE INTO cache (id, data_type, alias, data, expires)
+            SELECT
+                json_extract(value, '$.id') AS id,
+                json_extract(value, '$.data_type') AS data_type,
+                json_extract(value, '$.alias') AS alias,
+                json_extract(value, '$.data') AS data,
+                json_extract(value, '$.expires') AS expires
+            FROM
+                json_each(?1)
+        ",
+    )
+    .bind(rows)
+    .execute(&mut *conn)
+    .await?;
+
+    Ok(())
 }
 
 /// Writes one row, after taking the alias from whichever row of the same type

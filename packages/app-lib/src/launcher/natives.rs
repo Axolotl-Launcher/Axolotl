@@ -563,17 +563,28 @@ mod tests {
     #[test]
     fn modern_native_resolution_does_not_fallback_to_unverified_maven_artifact()
     {
+        // The classifier is resolved for the host OS, so the fixture names the
+        // one this test binary looks up instead of a fixed Windows classifier.
+        let classifier = if cfg!(windows) {
+            "natives-windows"
+        } else if cfg!(target_os = "macos") {
+            "natives-osx"
+        } else {
+            "natives-linux"
+        };
+        let os_key = classifier.trim_start_matches("natives-");
         let root = tempfile::tempdir().unwrap();
         let libraries_dir = root.path().join("libraries");
         let caches_dir = root.path().join("caches");
-        let classified = libraries_dir
-            .join("org/lwjgl/lwjgl/3.2.2/lwjgl-3.2.2-natives-windows.jar");
+        let classified = libraries_dir.join(format!(
+            "org/lwjgl/lwjgl/3.2.2/lwjgl-3.2.2-{classifier}.jar"
+        ));
         std::fs::create_dir_all(classified.parent().unwrap()).unwrap();
         write_archive(&classified, &[("lwjgl.dll", b"wrong")]);
         let library: Library = serde_json::from_value(serde_json::json!({
             "name": "org.lwjgl:lwjgl:3.2.2",
-            "natives": {"windows": "natives-windows"},
-            "downloads": {"classifiers": {"natives-windows": {
+            "natives": {os_key: classifier},
+            "downloads": {"classifiers": {classifier: {
                 "sha1": "05359f3aa50d36352815fc662ea73e1c00d22170",
                 "size": 279593,
                 "url": "https://libraries.minecraft.net/native.jar"

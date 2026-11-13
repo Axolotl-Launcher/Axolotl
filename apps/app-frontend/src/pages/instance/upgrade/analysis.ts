@@ -295,17 +295,28 @@ export function groupUpgradeIssues(
         byContent: Map<string, Map<string, InstanceUpgradeIssue>>,
         global: InstanceUpgradeIssue[],
     ) {
+        const requestingRoots =
+            issue.code === 'prerelease_only'
+                ? issue.dependencyRequirements
+                      .map((requirement) => requirement.rootContentId)
+                      .filter((id) => itemsById.has(id))
+                : []
         const contentId = issueContentId(issue, itemsById, itemsByProject)
-        if (!contentId) {
+        const contentIds = new Set(
+            requestingRoots.length ? requestingRoots : contentId ? [contentId] : [],
+        )
+        if (!contentIds.size) {
             global.push(issue)
             return
         }
-        const issues = byContent.get(contentId) ?? new Map<string, InstanceUpgradeIssue>()
-        const key = issueIdentity(issue)
-        const existing = issues.get(key)
-        if (!existing || (existing.contentId === null && issue.contentId !== null))
-            issues.set(key, issue)
-        byContent.set(contentId, issues)
+        for (const id of contentIds) {
+            const issues = byContent.get(id) ?? new Map<string, InstanceUpgradeIssue>()
+            const key = issueIdentity(issue)
+            const existing = issues.get(key)
+            if (!existing || (existing.contentId === null && issue.contentId !== null))
+                issues.set(key, issue)
+            byContent.set(id, issues)
+        }
     }
 
     for (const issue of plan.blockingIssues) collect(issue, blockingByContent, globalBlockingIssues)

@@ -160,8 +160,11 @@ const messages = defineMessages({
 
 const settings = ref(await getSettings())
 const saveDraft = createSettingsPatchSaver(settings.value, updateSettings)
-const options = ref<FeatureFlag[]>(Object.keys(DEFAULT_FEATURE_FLAGS))
-const featureFlagLabels: Record<FeatureFlag, keyof typeof messages> = {
+type DeveloperFeatureFlag = Exclude<FeatureFlag, 'advanced_download_info'>
+const options = (Object.keys(DEFAULT_FEATURE_FLAGS) as FeatureFlag[]).filter(
+    (option): option is DeveloperFeatureFlag => option !== 'advanced_download_info',
+)
+const featureFlagLabels: Record<DeveloperFeatureFlag, keyof typeof messages> = {
     project_background: 'projectBackground',
     page_path: 'pagePath',
     worlds_tab: 'worldsTab',
@@ -179,7 +182,7 @@ const featureFlagLabels: Record<FeatureFlag, keyof typeof messages> = {
     auto_install_dependencies: 'autoInstallDependencies',
 }
 
-function setFeatureFlag(key: string, value: boolean) {
+function setFeatureFlag(key: FeatureFlag, value: boolean) {
     themeStore.featureFlags[key] = value
     settings.value.feature_flags[key] = value
 }

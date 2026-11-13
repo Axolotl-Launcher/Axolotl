@@ -33,8 +33,9 @@ vi.mock('@modrinth/ui', async () => ({
     useVIntl: () => ({
         formatMessage: (message: { id: string; defaultMessage: string }) =>
             calls.chinese
-                ? ((chinese as Record<string, { message: string }>)[message.id]?.message ??
-                  message.defaultMessage)
+                ? ((chinese as Record<string, { message?: string; defaultMessage?: string }>)[
+                      message.id
+                  ]?.message ?? message.defaultMessage)
                 : message.defaultMessage,
     }),
     injectNotificationManager: () => ({ handleError: calls.handleError }),
@@ -92,16 +93,10 @@ async function render(width = 900, localSetup = false) {
     const wrapper = mount(LogShareSettings, {
         props: { localSetup },
         attachTo: document.body,
-        global: { plugins: [router], provide: { replayOnboarding: async () => {} } },
+        global: { plugins: [router] },
     })
     wrappers.push(wrapper)
-    await vi.waitFor(() =>
-        expect(
-            wrapper
-                .find(localSetup ? '#crash-analysis-ai-enabled' : '[role="radiogroup"]')
-                .exists(),
-        ).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('#crash-analysis-ai-enabled').exists()).toBe(true))
     wrapper.element.setAttribute(
         'style',
         `width: min(${width}px, 100vw); padding: 24px; background: var(--surface-2)`,
@@ -109,27 +104,27 @@ async function render(width = 900, localSetup = false) {
     return wrapper
 }
 
-it('shows only relevant analysis settings and saves source selection once', async () => {
+it('hides cloud options while exposing local configuration and diagnostic sharing', async () => {
+    calls.settings.ai_source = 'logshare'
     const wrapper = await render()
     expect(wrapper.findAll('#settings-target-log-share')).toHaveLength(1)
     expect(wrapper.find('#crash-analysis-ai-model').exists()).toBe(true)
+    expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Cloud LogShare')
     expect(wrapper.find('#log-share-no-storage').exists()).toBe(false)
     expect(wrapper.find('#log-share-provider').exists()).toBe(true)
-    expect(wrapper.find('#log-share-show-progress').exists()).toBe(true)
-    await wrapper.get('button[value="logshare"]').trigger('click')
-    await vi.waitFor(() => expect(wrapper.find('#log-share-no-storage').exists()).toBe(true))
-    expect(calls.saveAI).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('#log-share-auto-upload').exists()).toBe(true)
+    await wrapper.get('#crash-analysis-ai-enabled').trigger('click')
+    await vi.waitFor(() => expect(calls.saveAI).toHaveBeenCalledTimes(1))
     expect(calls.saveAI.mock.calls[0][0].ai_source).toBe('logshare')
-    expect(wrapper.find('#crash-analysis-ai-model').exists()).toBe(false)
-    expect(wrapper.find('#log-share-provider').exists()).toBe(true)
 })
 
-it('retains the selected source when saving fails', async () => {
+it('retains local settings when saving fails', async () => {
     calls.saveAI.mockRejectedValueOnce(new Error('save failed'))
     const wrapper = await render()
-    await wrapper.get('button[value="logshare"]').trigger('click')
+    await wrapper.get('#crash-analysis-ai-enabled').trigger('click')
     await vi.waitFor(() => expect(calls.handleError).toHaveBeenCalled())
-    expect(wrapper.get('button[value="custom"]').attributes('aria-checked')).toBe('true')
+    expect(wrapper.get('#crash-analysis-ai-enabled').attributes('aria-checked')).toBe('true')
     expect(wrapper.find('#crash-analysis-ai-model').exists()).toBe(true)
 })
 

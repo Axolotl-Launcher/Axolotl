@@ -89,6 +89,10 @@ pub async fn create_group(name: String) -> crate::Result<InstanceGroup> {
     let name = validate_group_name(&name)?;
     let id = Uuid::new_v4().to_string();
     instance_groups::create(&id, name);
+    // Creating a group changes the library even when it has no members yet;
+    // without this event the frontend keeps its stale list until the next
+    // membership change and empty groups never appear.
+    emit_instance_groups_changed(&[]).await?;
 
     Ok(InstanceGroup {
         id,

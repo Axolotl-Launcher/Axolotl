@@ -141,6 +141,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         threshold: 0.4,
         distance: 100,
     })
+    let indexedCollection: ContentItem[] | undefined
 
     function orderedItems(source: () => ContentItem[]) {
         let previousKey: string | undefined
@@ -176,6 +177,16 @@ export function useContentPipeline(config: ContentPipelineConfig) {
             ...item,
             update: null,
         }))
+    })
+
+    const searchCollection = computed(() => {
+        const seenIds = new Set<string>()
+        return [...sortedItems.value, ...modpackItemsNoUpdate.value].filter((item) => {
+            const id = getItemId(item)
+            if (seenIds.has(id)) return false
+            seenIds.add(id)
+            return true
+        })
     })
 
     const filterValidationOptions = computed(() => {
@@ -237,6 +248,11 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         // Step 1: Fuse search once (old code calls fuse.search 3 times, we call once)
         let fuseResults: ContentItem[] | null = null
         if (query) {
+            const collection = searchCollection.value
+            if (indexedCollection !== collection) {
+                fuse.setCollection(collection)
+                indexedCollection = collection
+            }
             fuseResults = fuse.search(query).map((r) => r.item)
         }
 
@@ -392,17 +408,16 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         }
     }
 
-    // Bound recomputation without postponing it indefinitely during a stream of patches.
+    let hasContentSnapshot = false
+    // Publish the first snapshot before rendering; batch only subsequent enrichment.
     watch(
-        [
-            sortedItems,
-            modpackItemsNoUpdate,
-            () => duplicateItems?.value,
-            searchQuery,
-            selectedTypeFilter,
-            selectedStatusFilters,
-        ],
+        [sortedItems, modpackItemsNoUpdate, () => duplicateItems?.value],
         () => {
+            if (!hasContentSnapshot) {
+                result.value = runPipeline()
+                hasContentSnapshot = searchableItemCount.value > 0
+                return
+            }
             if (pipelineTimer) return
             pipelineTimer = setTimeout(() => {
                 pipelineTimer = null
@@ -412,35 +427,16 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         { immediate: true },
     )
 
-    // Update Fuse index asynchronously when items change (separate from pipeline)
+    // User choices should commit in the next render, independently of enrichment batching.
     watch(
-        () => [sortedItems.value, modpackItemsNoUpdate.value] as const,
-        ([sorted, modpack]) => {
-            const seenIds = new Set<string>()
-            const collection: ContentItem[] = []
-
-            for (const item of sorted) {
-                const id = getItemId(item)
-                if (!seenIds.has(id)) {
-                    seenIds.add(id)
-                    collection.push(item)
-                }
+        [searchQuery, selectedTypeFilter, selectedStatusFilters, () => config.sortKey?.value],
+        () => {
+            if (pipelineTimer) {
+                clearTimeout(pipelineTimer)
+                pipelineTimer = null
             }
-
-            for (const item of modpack) {
-                const id = getItemId(item)
-                if (!seenIds.has(id)) {
-                    seenIds.add(id)
-                    collection.push(item)
-                }
-            }
-
-            // Use setTimeout to avoid blocking the main thread
-            setTimeout(() => {
-                fuse.setCollection(collection)
-            }, 0)
+            result.value = runPipeline()
         },
-        { immediate: true },
     )
 
     // ---- filter API (compatible with old interface) ----
@@ -547,6 +543,11 @@ export function useContentPipeline(config: ContentPipelineConfig) {
             selectedTypeFilter.value = selectedTypeFilter.value.includes(filterId)
                 ? selectedTypeFilter.value.filter((id) => id !== filterId)
                 : [...selectedTypeFilter.value, filterId]
+            return
+        }
+
+        if (selectedTypeFilter.value.length === 1 && selectedTypeFilter.value[0] === filterId) {
+            selectedTypeFilter.value = []
             return
         }
 

@@ -1,0 +1,444 @@
+{
+  "id": "Va3BanZa",
+  "slug": "e19_cobblemon_minimap_icons",
+  "title": "E19 - Cobblemon Minimap Icons",
+  "description": "Cobblemon icons from MBCMechachu for Xaero's Minimap.",
+  "author": "Emery319",
+  "categories": ["64x", "entities", "gui", "minecraft", "modded"],
+  "display_categories": ["entities", "gui", "minecraft", "modded"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "resourcepack",
+  "downloads": 8434754,
+  "followers": 412,
+  "license": {
+    "id": "MPL-2.0",
+    "name": "Mozilla Public License 2.0"
+  },
+  "loaders": ["minecraft"],
+  "game_versions": ["1.20", "1.20.1", "1.21", "1.21.1"],
+  "latest_version": "MAumPyhV",
+  "date_created": "2024-01-14T04:05:08.907269Z",
+  "date_modified": "2026-10-11T10:52:33.281540Z",
+  "color": 1381655,
+  "published": "2024-01-14T04:05:08.907269Z",
+  "additional_categories": ["64x"],
+  "issues_url": "https://github.com/Emery319/E19-CobblemonMinimapIcons/issues",
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 39,
+  "body": "![Title](https://cdn.modrinth.com/data/BBCSgkwA/images/b7b71fcbd8bc982dfd7b31b851ee352e5355d24b.png)\nCobblemon icons from MBCMechachu for Xaero's Minimap!\n\n## Showcase\n\n![shinyMark](https://cdn.modrinth.com/data/BBCSgkwA/images/f81b5a1a7c3defd525e14530e154ebc3314951c0.png)\n- Includes Unmarked Shiny Version​​​​.\n\n![uniqueForm](https://cdn.modrinth.com/data/BBCSgkwA/images/ee4883a6c439cf678c23d68027cf6a3b333c61a5.png) \n- [Full Unique Forms List](https://wiki.cobblemon.com/index.php/Pokémon/Unique_Forms).\n\nspeciesVariety\n- Supports All Cobblemon Form Variations.\n\naddonSupport\n- Supported Addon List.\n<details>\n<summary>Spoiler</summary>\n  \n**Official**\n\n- [Combee MC Remodel](https://modrinth.com/resourcepack/combee-mc-remodel)\n- [Vivillon Pride Patterns](https://modrinth.com/datapack/vivillon-pride-patterns)\n  \n**Fakemon**\n\n- [Alatia's Fakemon](https://modrinth.com/datapack/cobblemon-alatias-fakemon-pack)\n  \n**Pokémon Expansion**\n\n- [AllTheMons](https://modrinth.com/datapack/allthemons)\n- [AllTheMons x Mega Showdown](https://modrinth.com/datapack/allthemons-x-mega-showdown-legacy)\n- [AllTheMons x Mega Showdown Radiants](https://modrinth.com/datapack/cobblemon-radiants)\n- [Alphabet Soup](https://modrinth.com/datapack/alphabetsoup)\n- [Ascension Megamons](https://modrinth.com/mod/ascension-megamons)\n- [Baby Legends](https://modrinth.com/datapack/baby-legends-cobblemon)\n- [CloudMons](https://modrinth.com/datapack/cloudmons)\n- [CobbleCats](https://modrinth.com/datapack/cobble-cats)\n- [Cobbled Variants](https://modrinth.com/datapack/cobbled-variants)\n- [Cobblemon Cafe](https://modrinth.com/datapack/cobble-caf-forms)\n- [Cobblemon: Exploration Day](https://modrinth.com/datapack/cobblemon-exploration-day)\n- [Cobblemon: Lost Lore](https://modrinth.com/datapack/poketwo)\n- [Cobblemon: MC Swords for Honedge Line](https://modrinth.com/datapack/cobblemon-mc-swords-for-honedge-line)\n- [Cobblemon: Mega Showdown](https://modrinth.com/mod/cobblemon-mega-showdown)\n- [Colorable Forretress Shulker Boxes](https://modrinth.com/datapack/colorable-forretress-shulker-boxes)\n- [Complete Cobblemon Collection](https://modrinth.com/datapack/complete-cobblemon-collection-myths-and-legends-compat)\n- [Eternal Floette](https://modrinth.com/datapack/cobblemon-eternal-floette)\n- [Flower Expansion](https://modrinth.com/datapack/flower-expansion-cobblemon)\n- [GenoMons](https://modrinth.com/datapack/genomons)\n- [Gholdengo Shiny Fix](https://modrinth.com/resourcepack/gholdengo-shiny-fix)\n- [HiddenMons](https://modrinth.com/datapack/hiddenmons-cobblemon)\n- [Hydro's Reanimodel Pack](https://modrinth.com/datapack/hydro-reanimodel-pack)\n- [Kale's Collection](https://modrinth.com/datapack/kales-cobblemon-collection)\n- [LackingMons](https://modrinth.com/datapack/lackingmons)\n- [MissingMons](https://modrinth.com/datapack/missingmons-cobblemon)\n- [MoreMons](https://modrinth.com/resourcepack/moremons)\n- [MundialMons ReaniPack](https://modrinth.com/datapack/mundialmons)\n- [MysticMons](https://modrinth.com/datapack/mysticmons)\n- [Navas' ZAmega](https://modrinth.com/datapack/navas-zamega)\n- [NotSoCobblemon Allone's Additions](https://modrinth.com/datapack/notsocobblemon-allones-additions)\n- [OdysseyMons](https://modrinth.com/resourcepack/odysseymons)\n- [Pigeon's PokePack](https://modrinth.com/datapack/pigeons-poke-pack)\n- [Pokemans Pack](https://modrinth.com/datapack/cobblemon-pokemans)\n- [Pokopia Cosmetic Forms](https://modrinth.com/datapack/pokopia)\n- [Rillaboom Wood Variant Cosmetics](https://modrinth.com/datapack/rillaboom-wood-variant-cosmetics-cobblemon)\n- [Rotom Appliances](https://modrinth.com/datapack/rotom-appliances)\n- [SaltMons](https://modrinth.com/datapack/saltmons)\n- [The Jewel Pokemon](https://modrinth.com/datapack/the-jewel-pokmon-cobblemon)\n- [Torterras O' Plenty](https://modrinth.com/datapack/torterras-o-plenty)\n- [WaviMons](https://modrinth.com/datapack/wavimons-(cobblemon))\n- [W's Dusk-souls](https://modrinth.com/datapack/ws-dusk-souls)\n- [W's Shulker Forretress](https://modrinth.com/datapack/ws-shulker-forretress)\n\n</details>\n\nbigIconVersion\n- Big Icon Version Coming Soon.\n\n## Guide\n**Keep Entity Icons Visible**\n1. Enter your world and press \"Y\" to open the \"Minimap Settings\".\n2. Select \"Entity Radar Settings\".\n3. Change \"Display Icons\" to \"Always\".\n4. Adjust \"Entity Icon Scale\" to a size that‘s convenient for you.\n\n**Display Only Pokémon Icons**\n1. Enter .minecraft/config/xaero/minimap folder and open \"default_radar_categories_client.json\".\n2. Replace `\"hardInclude\": \"anything\"` with `\"hardInclude\": \"nothing\"`\n3. Replace `\"includeList\": []` with `\"includeList\": [\"cobblemon:pokemon\"]`\n\n**Using With Other Packs**\n- [Combee MC Remodel](https://modrinth.com/resourcepack/combee-mc-remodel) should be placed above this pack.\n- All ​​other​​ packs ​​should​​ be placed​​ under this pack.\n\n\n\n## Credit\n- Pokémon sprites are from [MBCMechachu](https://www.deviantart.com/mbcmechachu). His page has extensive credits for each contributed artists.\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/Va3BanZa/images/95aa4abdc7e578f9d8ef328bac2cf3ffd5720dbc_350.webp",
+      "featured": true,
+      "title": "Example",
+      "description": null,
+      "created": "2024-01-14T05:12:43.332052Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Va3BanZa/images/7c84204532c17e4453f1010855f5bb697ddbefb1_350.webp",
+      "featured": false,
+      "title": "Overworld",
+      "description": null,
+      "created": "2024-01-14T05:11:51.693562Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Va3BanZa/images/99b92d1293e3ac914e68ab925aa13e2ca681e094_350.webp",
+      "featured": false,
+      "title": "The Nether",
+      "description": null,
+      "created": "2024-01-14T05:12:08.399302Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Va3BanZa/images/5e2f6909b00489252f8c32f9169e29011b3efad7_350.webp",
+      "featured": false,
+      "title": "The End",
+      "description": null,
+      "created": "2024-01-14T05:12:23.182154Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Emery319",
+      "role": "Owner",
+      "avatar": null
+    }
+  ],
+  "versions": [
+    {
+      "id": "MAumPyhV",
+      "name": "E19 1.21.1-1.5.2",
+      "version_number": "1.5.2",
+      "version_type": "release",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-10-11T10:52:33.281540Z",
+      "downloads": 37754,
+      "changelog": "### [1.5.2] - 2026/10/11\n- Adapted for Cobblemon 1.8.2.\n- Added icons for Pikachu paper costume, female Sudowoodo, and female Snover line.\n- Fixed Gyarados resolver issue where female icon couldn't display and updated its Magikarp Jump variant icons.\n- Updated all regional biases forms. (Exeggcute, Cubone, Koffing, Cyndaquil, Quilava, Mime Jr., Oshawott, Dewott, Petilil, Rufflet, Goomy, Bergmite, Rowlet, Dartrix) \n- Updated Baltoy icon. (MBCMechachu)\n- Added icons for Cyclizar variants. (currently unused, same as Koraidon and Miraidon variants) \n- Adapted W's Dusk-souls 1.0.5 & W's Shulker Forretress 1.1.0.\n- Adapted Cobblemon: Lost Lore v3.1.0. (added more anime variant icons; some addon original variants will display as default form) \n- Adapted Pokopia Cosmetic Forms 1.1. (also added icons for all 8 Pokopia characters) \n- Adapted Mega Showdown 1.2.0, Complete Cobblemon Collection 2.21, and Navas ZA Megas 1.8.1.\n- Fixed Shiny Komala texture path issue. \n- Fixed Shiny Mewtwo texture path issue from ATM. (user_hm5vt2sjj1c36pou, WildChargerTV) \n- Fixed mega Mewtwo from Mega Showdown. (WildChargerTV) \n- Fixed original mega Magearna and mega Tatsugiri from Navas ZA Megas. (WildChargerTV thank you!) \n- Can't wait for Machinarium 2!\n\n\n_This version modifies official Cobblemon resolvers, which may cause missing models, texture glitches, or crashes. If you encounter these issues, test with the [Master Klefki Version](https://modrinth.com/resourcepack/e19_cobblemon_minimap_icons/version/1.5.2a) first. If the bug disappears and is caused by this pack, DO NOT report it to the official Cobblemon GitLab—please submit your issue on the [E19 GitHub](https://github.com/Emery319/E19-CobblemonMinimapIcons/issues) instead._",
+      "dependencies": [
+        {
+          "project_id": "BlIiMzsQ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "2PwY98im",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "nHMcH3tj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Cobblemon Minimap Icons.zip",
+          "size": 23270833,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "qQyJT8OZ",
+      "name": "E19 1.21.1-1.5.2a",
+      "version_number": "1.5.2a",
+      "version_type": "release",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-10-11T10:44:29.132240Z",
+      "downloads": 1729,
+      "changelog": "### [1.5.2a] - 2026/10/11\n- Adapted W's Dusk-souls 1.0.5 & W's Shulker Forretress 1.1.0.\n- Adapted Cobblemon: Lost Lore v3.1.0. (added more anime variant icons; some addon original variants will display as default form) \n- Adapted Pokopia Cosmetic Forms 1.1. (also added icons for all 8 Pokopia characters) \n- Adapted Mega Showdown 1.2.0, Complete Cobblemon Collection 2.21, and Navas ZA Megas 1.8.1.\n- Fixed Shiny Komala texture path issue. \n- Fixed Shiny Mewtwo texture path issue from ATM. (user_hm5vt2sjj1c36pou, WildChargerTV) \n- Fixed mega Mewtwo from Mega Showdown. (WildChargerTV) \n- Fixed original mega Magearna and mega Tatsugiri from Navas ZA Megas. (WildChargerTV thank you!) \n\n\n_This version aims to eliminate missing models, texture glitches, and crashes by removing all Cobblemon variant displays, delivering the most stable, cleanest, and seamless gameplay experience._",
+      "dependencies": [
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Master Klefki Version.zip",
+          "size": 11725052,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KFRx7psn",
+      "name": "E19 1.21.1-1.5.1",
+      "version_number": "1.5.1",
+      "version_type": "beta",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-30T05:27:23.650183Z",
+      "downloads": 32557,
+      "changelog": "### [1.5.1] - 2026/9/30\n- Added icons for the 14 new Arbok variants introduced in Cobblemon 1.8, and redrew the existing 7 variants to resolve icon-to-model mismatches. \n- Adapted for Rillaboom Wood Variant Cosmetics 1.0.0. \n- Fixed Pokémon displaying as substitutes when posers are missing (Maushold, alola bias Pikachu, alola bias Pichu). \n- Added poser for female Milotic. \n- Adjusted color variant icons for Wooper and Quagsire (Cobbled Variants). \n- Fixed missing colors on Pecharunt's icon. \n\n_This version modifies official Cobblemon resolvers, which may cause missing models, texture glitches, or crashes. If you encounter these issues, test with the [Master Klefki Version](https://modrinth.com/resourcepack/e19_cobblemon_minimap_icons/version/1.5.1a) first. If the bug disappears and is caused by this pack, DO NOT report it to the official Cobblemon GitLab—please submit your issue on the [E19 GitHub](https://github.com/Emery319/E19-CobblemonMinimapIcons/issues) instead._",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "BlIiMzsQ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "nHMcH3tj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "2PwY98im",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Cobblemon Minimap Icons.zip",
+          "size": 21707727,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "cdPx895P",
+      "name": "E19 1.21.1-1.5.1a",
+      "version_number": "1.5.1a",
+      "version_type": "beta",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-30T05:23:16.691847Z",
+      "downloads": 2244,
+      "changelog": "### [1.5.1a] - 2026/9/30\n- **Master Klefki Version** release!  \n\n\n_This version aims to eliminate missing models, texture glitches, and crashes by removing all Cobblemon variant displays, delivering the most stable, cleanest, and seamless gameplay experience._",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Master Klefki Version.zip",
+          "size": 11647136,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "yYa0GCRG",
+      "name": "E19 1.21.1-1.5.0",
+      "version_number": "1.5.0",
+      "version_type": "beta",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-23T06:08:28.765423Z",
+      "downloads": 17179,
+      "changelog": "### [1.5.0] - 2026/9/23\n- Adapted for Cobblemon 1.8.1 (the newly added Arbok variant icons are not included) (eldritchXpresso, DarthMewtwo, flygohr). \n- Adapted for ATM 4.0 (thanks to Umbreeunix, eldritchXpresso). \n- Adapted for ATMxMSD v4.0 (eldritchXpresso, InfinityGaben). \n- Adapted for Vivillon Pride Patterns 2.0. \n- Adjusted black outline from #070707 to #101010 (MBCMechachu). \n- Cleaned up Galarian Slowpoke's eyes (MBCMechachu). \n- Added combee_mc_remodel icon for replacement. \n- Adjusted Silk Scarf Braixen icon. \n- Added stick for Delphox icon, moving empty-hand Delphox to an alternate icon.",
+      "dependencies": [
+        {
+          "project_id": "nHMcH3tj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "2PwY98im",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "BlIiMzsQ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Cobblemon Minimap Icons.zip",
+          "size": 21438579,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "YGgixlha",
+      "name": "E19 1.21.1-1.4.4",
+      "version_number": "1.4.4",
+      "version_type": "beta",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-02-06T17:24:19.283973Z",
+      "downloads": 3933619,
+      "changelog": "### [1.4.4] - 2026/2/7\n- Fixed the filename typos for Torterra empyreal (Torterras O' Plenty) and Aegislash ruined (Cobbled Variants).\n- Fixed an issue where the icons for Electrode's watermelon cosmetic (lime and green) were swapped with the actual colors.\n- For ATMxMSD Radiant: removed unimplemented radiant icons to reduce the resource pack size, and updated the shiny marks on all placeholder icons to radiant marks. Fixed the issue where radiant icons for the following Pokémon would not display correctly: Kyurem origin, Lucario y, Bidoof sirdoof, Plusle male, Minun female, Wimpod silverfish.\n- Fixed a critical issue where opening a PC containing paldean Wooper would cause the game to crash. Special thanks to managlue for discovering and accurately locating the problem!\n- Xaero's Minimap version 25.3.7 causes most icon packs to stop working, but this was fixed in version 25.3.9. If you encounter an issue where icons appear as dots, please check that you are not using Xaero's Minimap version 25.3.7.",
+      "dependencies": [
+        {
+          "project_id": "nHMcH3tj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "BlIiMzsQ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "2PwY98im",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Cobblemon Minimap Icons.zip",
+          "size": 19398814,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "963XH42m",
+      "name": "E19 1.21.1-1.4.3",
+      "version_number": "1.4.3",
+      "version_type": "beta",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-02-04T09:30:01.503013Z",
+      "downloads": 6708,
+      "changelog": "### [1.4.3] - 2026/2/4\n- Added all ZA megas and their corresponding shiny forms, it’s finally complete, thanks to all the artists involved in drawing these icons!\n- Now this pack can display icons for sheared Slowpoke, Mareep, Wooloo, and Dubwool.\n- Added female forms for the following Pokémon:\n\n<details>\n<summary>Spoiler</summary>\n  \n> Rhyhorn  \n> Rhydon  \n> Rhyperior  \n> Steelix  \n> Houndoom  \n> Meditite  \n> Medicham  \n> Starly  \n> Staravia  \n> Staraptor  \n> Pachirisu  \n> Croagunk  \n> Toxicroak\n\n</details>\n\n- Also added female icons for these Pokémon, even though their female forms do not currently exist in the Cobblemon base mod:\n\n<details>\n<summary>Spoiler</summary>\n\n> Meganium  \n> Sudowoodo  \n> Politoed  \n> Gligar  \n> Ursaring  \n> Beautifly  \n> Dustox  \n> Gulpin  \n> Swalot  \n> Numel  \n> Camerupt  \n> Finneon  \n> Lumineon  \n> Snover  \n> Abomasnow  \n> Tangrowth\n\n</details>\n\n- Added a watermelon cosmetic icon for hisuian Electrode.\n- Female Mimikyu models and icons now wear a small flower (just like Acerola's Mimikins). This feature will be removed when Cobblemon officially implements Mimikins.\n- Added more icons for different forms of Pokémon. These forms do not exist in the base Cobblemon mod for now, but many have been implemented by addons:\n\n<details>\n<summary>Spoiler</summary>\n\n> Reshiram & Zekrom overdrive  \n> Solgaleo & Lunala radiant  \n> Zacian & Zamazenta behemoth  \n> Cramorant gulping, gorging  \n> Koraidon & Miraidon sprinting, swimming, gliding  \n> Pikachu cosplay  \n> Pichu spiky ear  \n> Mewtwo armored  \n> Groudon virus  \n> Tapu family zmove  \n> Magearna sleeping, power off  \n> Marshadow zenith  \n> Urshifu out of battle  \n> Zarude dada  \n> Ogerpon in battle, terastallizes  \n> Terapagos terastal, stellar  \n> Pecharunt shell  \n> Genesect drive  \n> Arceus plate  \n> Silvally memory\n\n</details>\n\n- Added the singer Jigglypuff icon.\n- Added the icon for hisui Bergmite, which does not exist in the game yet.\n- Honedge and Doublade now default to their unsheathed \n\n…",
+      "dependencies": [
+        {
+          "project_id": "BlIiMzsQ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "nHMcH3tj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "2PwY98im",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Cobblemon Minimap Icons.zip",
+          "size": 21970920,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "HbtFieA6",
+      "name": "E19 1.21.1-1.4.2",
+      "version_number": "1.4.2",
+      "version_type": "beta",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-01-15T10:57:02.069523Z",
+      "downloads": 88320,
+      "changelog": "### [1.4.2] - 2026/1/15\n- Fixed Furfrou icon issues and added icons for the 6 new cosmetics variants from the 1.7 update.\n- Fixed Smeargle's tail color being stuck as green and red (for shiny). (lolnebby)\n- Adapted Navas' ZAmega (algodaodoce). Added za mega icons created by a team of talented artists (see full credits: https://docs.google.com/spreadsheets/d/1kI_PDXnbghxjN2LBvxA6Pz-QqMYlVGN3Z1EivXOYwNY/edit?gid=1051438000#gid=1051438000). Some mega icons are still missing and use their base forms as placeholders; these will be updated later.\n- Updated the following Pokémon's icons to match MBCMechachu's sprites: Rabsca, Palafin, Koraidon, Miraidon, Dipplin, Hydrapple, Terapagos.\n- Added compatibility for MundialMons ReaniPack and new galarian Mime Jr. icons (MBCMechachu!).\n- Adapted more ATMxMSD cobblemon variants (karen7597). Added icons for shadow Mewtwo and Mewtwo Mega X (shadow mega y still uses the mega y icon for now).\n- Added compatibility for Cobbled Variants. Variant icons drawn by the addon author zac_lyor! Including metal variants for the Beldum line, tree variants for the Phantump line, and axolotl color variants for the Wooper line.\n- Brightened the flower color for the green Flabebe & Floette icon from Flower Expansion and removed unnecessary texture files to reduce pack size.\n- Added missing alolan Raichu to the \"shiny_raw\" folder.\n- Updated compatibility for Baby Legends 2.2.\n- Updated the unique mark system. Since there are now too many forms (unique, cosmetics, etc.), the golden exclamation mark was becoming redundant. From now on, the exclamation mark is removed for any icon that is visually different from its base form. It will only be kept for forms that use the exact same sprite as the original to help distinguish them.",
+      "dependencies": [
+        {
+          "project_id": "nHMcH3tj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "2PwY98im",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "BlIiMzsQ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "1bokaNcj",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "E19 Cobblemon Minimap Icons.zip",
+          "size": 17257831,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,228 @@
+{
+  "id": "Mo0nlQxI",
+  "slug": "svc-for-lunar-client",
+  "title": "SVC for Lunar Client",
+  "description": "A light-weight modpack to jump straight into a world with friends, using Simple Voice Chat, on Lunar Client.",
+  "author": "LunarClient",
+  "categories": ["fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "unknown",
+  "server_side": "unknown",
+  "project_type": "modpack",
+  "downloads": 834453,
+  "followers": 52,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.21.4",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.10",
+    "1.21.11",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "qoQUxPAZ",
+  "date_created": "2025-01-22T09:41:42.929793Z",
+  "date_modified": "2026-09-26T08:13:53.878920Z",
+  "color": 2368548,
+  "published": "2025-01-22T09:41:42.929793Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 10,
+  "body": "# SVC for Lunar Client\n\n**SVC for Lunar Client** is a lightweight modpack that allows you to use Simple Voice Chat on Lunar Client.\n\n_Note: We recommend using [**Lunar Client**](https://lunarclient.com/download) to gain the best experience while using this modpack, however it can be launched on any modpack loader._\n\n## Modpack Content\n\n* **Simple Voice Chat**: A working voice chat in Minecraft.\n* **Sodium**: Modern rendering engine which greatly improves performance.\n* **Iris**: Modern shaders mod for Minecraft, compatible with OptiFine shader packs.\n* **Fabric API**: Adds common hooks and intercompatibility measures.\n* **Mod Menu**: Adds a mod menu to view an in-game list of all the mods you have installed.\n\n## FAQ\n\n<details>\n<summary>How do I install the SVC modpack on Lunar Client?</summary>\n\n<center><b>Here are the five easy steps you need to take!</b></center>\n\n### Step 1: Download Lunar Client\n[![Lunar Client Download Grid](https://cmsassets.lunarclientcdn.com/cdn-cgi/image/quality=85,format=auto/assets/edcac7cc5f-lunar-client-download-grid.png)](https://www.lunarclient.com/download)\n\n### Step 2: Select \"Versions\" on the Lunar Client Launcher\n[![Lunar Client Launcher](https://cmsassets.lunarclientcdn.com/cdn-cgi/image/quality=85,format=auto/assets/bbe073a641-launcher-versions-tab.png)](https://www.lunarclient.com/news/mod-loading-on-lunar-client)\n\n### Step 3: Click \"Modpacks\" on the top of the page\n[![Lunar Client Modpacks](https://cmsassets.lunarclientcdn.com/cdn-cgi/image/quality=85,format=auto/assets/13915e6116-lunarclient-modpacks-page.png)](https://www.lunarclient.com/news/mod-loading-on-lunar-client)\n\n### Step 4: Install your modpack of choosing, in this case the SVC for Lunar Client Modpack.\n[Lunar Client Modpack Installer](https://www.lunarclient.com/news/mod-loading-on-lunar-client)\n\n### Step 5: Click \"Launch Game\" after the install is complete!\n[Lunar Client Launch Button](https://www.lunarclient.com/news/mod-loading-on-lunar-client)\n\n</details>\n\n<br>\n\nConnect with fellow SVC enthusiasts and stay in the loop with latest updates in our [Discord](https://lunarclient.com/discord).",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/Mo0nlQxI/images/b337428db95cf90dfb4dc7ceaeb0f779c5f89251_350.webp",
+      "featured": true,
+      "title": "SVC for Lunar Client",
+      "description": null,
+      "created": "2025-01-22T10:08:40.618089Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Mo0nlQxI/images/7ac7f1cd5435576975435ba9ff4e628c3fd581a9_350.webp",
+      "featured": false,
+      "title": "In-game Voice Chat",
+      "description": "In-game voice chat with your friends while playing!",
+      "created": "2025-01-22T10:11:42.422464Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "LunarClient",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/D39BYbZ1/efb43b00b7d186782a82c5a04f38fdbd0242697f.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "qoQUxPAZ",
+      "name": "SVC for Lunar Client 0.1.0",
+      "version_number": "0.1.0",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-26T08:13:53.878920Z",
+      "downloads": 38866,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 0.1.0.mrpack",
+          "size": 1357,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "cTLWJnW1",
+      "name": "SVC for Lunar Client 0.0.9",
+      "version_number": "0.0.9",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-16T13:22:51.781497Z",
+      "downloads": 51765,
+      "changelog": "* Updated SVC from 2.6.20 to 2.6.22",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 0.0.9.mrpack",
+          "size": 1344,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "pHsvoDcI",
+      "name": "SVC for Lunar Client 0.0.8",
+      "version_number": "0.0.8",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-19T02:16:42.679158Z",
+      "downloads": 39896,
+      "changelog": "* Updated to 26.2",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 0.0.8.mrpack",
+          "size": 1342,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "LACUdtYZ",
+      "name": "SVC for Lunar Client 0.0.7",
+      "version_number": "0.0.7",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-15T23:59:27.015362Z",
+      "downloads": 85524,
+      "changelog": "* Updated to 26.1.2",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 0.0.7.mrpack",
+          "size": 1358,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "ZpIcVarx",
+      "name": "SVC for Lunar Client 0.0.6",
+      "version_number": "0.0.6",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-12-31T02:24:13.656878Z",
+      "downloads": 195087,
+      "changelog": "* Update to Minecraft 1.21.11",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 1.0.0.mrpack",
+          "size": 8212,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "61GM9rlu",
+      "name": "SVC for Lunar Client 0.0.5",
+      "version_number": "0.0.5",
+      "version_type": "release",
+      "game_versions": ["1.21.10"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-11-08T05:20:44.616917Z",
+      "downloads": 59727,
+      "changelog": "* Update to Minecraft 1.21.10",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 1.0.0.mrpack",
+          "size": 7626,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "QpnNmGDS",
+      "name": "SVC for Lunar Client 0.0.4",
+      "version_number": "0.0.4",
+      "version_type": "release",
+      "game_versions": ["1.21.8"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-08-27T06:34:08.006340Z",
+      "downloads": 48885,
+      "changelog": "- Update to Minecraft 1.21.8",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 0.0.4.mrpack",
+          "size": 1207,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "CgUqMaj7",
+      "name": "SVC for Lunar Client 0.0.3",
+      "version_number": "0.0.3",
+      "version_type": "release",
+      "game_versions": ["1.21.7"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-07-07T18:42:51.852908Z",
+      "downloads": 73034,
+      "changelog": "- Update to Minecraft 1.21.7",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "SVC for Lunar Client 0.0.3.mrpack",
+          "size": 7626,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

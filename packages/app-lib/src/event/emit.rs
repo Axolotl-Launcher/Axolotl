@@ -1,4 +1,4 @@
-use super::{FriendPayload, LoadingBarId};
+use super::LoadingBarId;
 use crate::event::{
     CommandPayload, EventError, InstanceBackupProgressPayload,
     InstanceBulkUpdateProgressPayload, InstancePayloadType, LoadingBar,
@@ -7,36 +7,17 @@ use crate::event::{
 #[cfg(feature = "tauri")]
 use crate::event::{
     InstanceGroupsChangedPayload, InstancePayload, JavaDiscoveryPayload,
-    JavaDownloadConfirmationPayload, LoadingPayload, ProcessPayload,
-    ServerPayload, WarningPayload,
+    LoadingPayload, ProcessPayload, ServerPayload, WarningPayload,
 };
 use futures::prelude::*;
-use serde_json::Value;
 #[cfg(feature = "tauri")]
-use std::sync::LazyLock;
+use serde::Serialize;
 #[cfg(feature = "tauri")]
 use tauri::{Emitter, Manager};
-#[cfg(feature = "tauri")]
-use tokio::sync::oneshot;
 use uuid::Uuid;
 
 #[cfg(feature = "cli")]
 const CLI_PROGRESS_BAR_TOTAL: u64 = 1000;
-
-#[cfg(feature = "tauri")]
-static JAVA_DOWNLOAD_CONFIRMATIONS: LazyLock<
-    dashmap::DashMap<Uuid, oneshot::Sender<bool>>,
-> = LazyLock::new(dashmap::DashMap::new);
-
-#[cfg(feature = "tauri")]
-struct PendingJavaDownloadConfirmation(Uuid);
-
-#[cfg(feature = "tauri")]
-impl Drop for PendingJavaDownloadConfirmation {
-    fn drop(&mut self) {
-        JAVA_DOWNLOAD_CONFIRMATIONS.remove(&self.0);
-    }
-}
 
 /*
    Events are a way we can communicate with the Tauri frontend from the Rust backend.
@@ -196,11 +177,43 @@ pub async fn emit_warning(message: &str) -> crate::Result<()> {
                     kind: None,
                     instance_id: None,
                     instance_name: None,
+                    java_version: None,
                 },
             )
             .map_err(EventError::from)?;
     }
     tracing::warn!("{}", message);
+    Ok(())
+}
+
+pub async fn emit_missing_java_warning(
+    instance_id: &str,
+    instance_name: &str,
+    java_version: u32,
+) -> crate::Result<()> {
+    let message = format!(
+        "Installing {instance_name} was canceled because Java {java_version} was not found. Install or configure Java {java_version} and try again."
+    );
+    #[cfg(feature = "tauri")]
+    {
+        let event_state = crate::EventState::get()?;
+        event_state
+            .app
+            .emit(
+                "warning",
+                WarningPayload {
+                    message: message.clone(),
+                    kind: Some("missing_java".to_string()),
+                    instance_id: Some(instance_id.to_string()),
+                    instance_name: Some(instance_name.to_string()),
+                    java_version: Some(java_version),
+                },
+            )
+            .map_err(EventError::from)?;
+    }
+    #[cfg(not(feature = "tauri"))]
+    let _ = instance_id;
+    tracing::warn!("{message}");
     Ok(())
 }
 
@@ -221,6 +234,7 @@ pub async fn emit_minecraft_crash_warning(
                     kind: Some("minecraft_crash".to_string()),
                     instance_id: Some(instance_id.to_string()),
                     instance_name: Some(instance_name.to_string()),
+                    java_version: None,
                 },
             )
             .map_err(EventError::from)?;
@@ -243,46 +257,6 @@ pub async fn emit_java_discovery_update(count: usize) -> crate::Result<()> {
     }
     tracing::debug!("Java discovery updated: {count} installations");
     Ok(())
-}
-
-#[allow(unused_variables)]
-pub async fn request_java_download_confirmation(
-    version: u32,
-) -> crate::Result<bool> {
-    #[cfg(feature = "tauri")]
-    {
-        let event_state = crate::EventState::get()?;
-        let request_id = Uuid::new_v4();
-        let (sender, receiver) = oneshot::channel();
-        JAVA_DOWNLOAD_CONFIRMATIONS.insert(request_id, sender);
-        let _pending = PendingJavaDownloadConfirmation(request_id);
-
-        event_state
-            .app
-            .emit(
-                "java_download_confirmation",
-                JavaDownloadConfirmationPayload {
-                    request_id,
-                    version,
-                },
-            )
-            .map_err(EventError::from)?;
-
-        Ok(receiver.await.unwrap_or(false))
-    }
-
-    #[cfg(not(feature = "tauri"))]
-    Ok(true)
-}
-
-#[cfg(feature = "tauri")]
-pub fn respond_to_java_download_confirmation(
-    request_id: Uuid,
-    approved: bool,
-) -> bool {
-    JAVA_DOWNLOAD_CONFIRMATIONS
-        .remove(&request_id)
-        .is_some_and(|(_, sender)| sender.send(approved).is_ok())
 }
 
 #[allow(unused_variables)]
@@ -419,20 +393,6 @@ pub async fn emit_server(
 }
 
 #[allow(unused_variables)]
-pub async fn emit_friend(payload: FriendPayload) -> crate::Result<()> {
-    #[cfg(feature = "tauri")]
-    {
-        let event_state = crate::EventState::get()?;
-        event_state
-            .app
-            .emit("friend", payload)
-            .map_err(EventError::from)?;
-    }
-
-    Ok(())
-}
-
-#[allow(unused_variables)]
 pub async fn emit_instance_groups_changed(
     instance_ids: &[String],
 ) -> crate::Result<()> {
@@ -452,17 +412,29 @@ pub async fn emit_instance_groups_changed(
     Ok(())
 }
 
+#[cfg(feature = "tauri")]
+#[derive(Serialize, Clone)]
+pub struct FavoriteGroupsChangedPayload {
+    pub favorite_keys: Vec<String>,
+}
+
 #[allow(unused_variables)]
-pub async fn emit_notification(payload: Value) -> crate::Result<()> {
+pub async fn emit_favorite_groups_changed(
+    favorite_keys: &[String],
+) -> crate::Result<()> {
     #[cfg(feature = "tauri")]
     {
         let event_state = crate::EventState::get()?;
         event_state
             .app
-            .emit("notification", payload)
+            .emit(
+                "favorite_groups_changed",
+                FavoriteGroupsChangedPayload {
+                    favorite_keys: favorite_keys.to_vec(),
+                },
+            )
             .map_err(EventError::from)?;
     }
-
     Ok(())
 }
 

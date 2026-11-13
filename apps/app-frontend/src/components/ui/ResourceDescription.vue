@@ -146,7 +146,7 @@ onScopeDispose(() => controller?.abort())
             :active="false"
             :translations="{}"
             mode="bilingual"
-            style="weakened"
+            :style="'weakened'"
         />
     </div>
 </template>

@@ -3,7 +3,9 @@ import { SearchIcon } from '@modrinth/assets'
 import { EmptyState, StyledInput, useVIntl } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
+import GameDirectoryBadge from '@/components/ui/instance/GameDirectoryBadge.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
+import { hasMultipleGameDirectories, resolveGameDirectory } from '@/helpers/game-directory'
 import type { GameInstance } from '@/helpers/types'
 
 const props = defineProps<{
@@ -21,6 +23,7 @@ const emit = defineEmits<{
 const { locale } = useVIntl()
 const searchInput = ref<InstanceType<typeof StyledInput>>()
 const searchQuery = ref('')
+const showGameDirectory = computed(() => hasMultipleGameDirectories(props.instances))
 
 const visibleInstances = computed(() => {
     const query = searchQuery.value.trim().toLocaleLowerCase(locale.value)
@@ -75,8 +78,14 @@ defineExpose({ reset, focus })
                     <span class="truncate font-semibold text-[var(--color-text-primary)]">{{
                         instance.name
                     }}</span>
-                    <span class="truncate text-sm capitalize text-[var(--color-text-tertiary)]">
-                        {{ instance.loader }} {{ instance.game_version }}
+                    <span class="flex min-w-0 items-center gap-2">
+                        <span class="truncate text-sm capitalize text-[var(--color-text-tertiary)]">
+                            {{ instance.loader }} {{ instance.game_version }}
+                        </span>
+                        <GameDirectoryBadge
+                            v-if="showGameDirectory"
+                            :directory="resolveGameDirectory(instance)"
+                        />
                     </span>
                 </span>
                 <slot name="action" :instance="instance" />

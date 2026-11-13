@@ -46,7 +46,7 @@ withDefaults(
 <style scoped>
 .settings-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(10rem, 12rem);
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, var(--settings-control-width, 12rem));
     align-items: center;
     gap: var(--gap-xl);
     min-height: 4rem;
@@ -66,6 +66,11 @@ withDefaults(
 .settings-row-stacked {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
+    gap: var(--gap-md);
+}
+
+.settings-row-control {
+    align-items: center;
     gap: var(--gap-md);
 }
 

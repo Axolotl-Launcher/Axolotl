@@ -16,6 +16,7 @@ import {
     Button,
     commonMessages,
     defineMessages,
+    getEditorLanguage,
     injectNotificationManager,
     NewModal,
     type OverflowMenuOption,
@@ -23,7 +24,6 @@ import {
     StyledInput,
     useVIntl,
 } from '@modrinth/ui'
-import { convertFileSrc } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
 import {
     copyFile,
@@ -41,16 +41,21 @@ import { NbtFile, NbtTag } from 'deepslate/nbt'
 import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 
+import type { MediaEditLocation, MediaEditSave } from '@/components/instance/studio/media-edit'
+import MediaPreview from '@/components/instance/studio/MediaPreview.vue'
 import NbtEditor from '@/components/instance/studio/NbtEditor.vue'
+import { schematicWorkshopTarget } from '@/components/instance/studio/schematic-workshop'
 import StudioEditor from '@/components/instance/studio/StudioEditor.vue'
 import StudioEditorTabs from '@/components/instance/studio/StudioEditorTabs.vue'
 import {
     type StudioDocument,
     useStudioDocuments,
 } from '@/components/instance/studio/useStudioDocuments'
+import { useStudioMediaPreview } from '@/components/instance/studio/useStudioMediaPreview'
 import { type StudioTreeNode, useStudioTree } from '@/components/instance/studio/useStudioTree'
 import { useStudioWatcher } from '@/components/instance/studio/useStudioWatcher'
 import type { ServerView } from '@/composables/useServers'
+import { errorText } from '@/helpers/error-text'
 import { get_full_path } from '@/helpers/instance'
 import {
     listenStudioFilesChanged,
@@ -114,6 +119,31 @@ const messages = defineMessages({
         id: 'instance.files.studio.save-failed',
         defaultMessage: 'Could not save file',
     },
+    editConflict: {
+        id: 'instance.files.studio.edit-conflict',
+        defaultMessage: 'This file changed on disk after it was opened. The edit was not saved.',
+    },
+    editDeleted: {
+        id: 'instance.files.studio.edit-deleted',
+        defaultMessage: 'This file was removed before the edit could be saved.',
+    },
+    discardImageTitle: {
+        id: 'instance.files.studio.discard-image-title',
+        defaultMessage: 'Discard the image edit?',
+    },
+    discardImageDescription: {
+        id: 'instance.files.studio.discard-image-description',
+        defaultMessage:
+            'The image has changes that have not been saved. Opening another file discards them.',
+    },
+    discardImageKeep: {
+        id: 'instance.files.studio.discard-image-keep',
+        defaultMessage: 'Keep editing',
+    },
+    discardImageConfirm: {
+        id: 'instance.files.studio.discard-image-confirm',
+        defaultMessage: 'Discard',
+    },
     loadingFile: {
         id: 'instance.files.studio.loading-file',
         defaultMessage: 'Loading file...',
@@ -138,6 +168,10 @@ const messages = defineMessages({
     openInSystem: {
         id: 'instance.files.studio.open-in-system',
         defaultMessage: 'Open in system',
+    },
+    openInSchematicWorkshop: {
+        id: 'instance.files.studio.open-in-schematic-workshop',
+        defaultMessage: 'Open with schematic workshop',
     },
     openPath: {
         id: 'instance.files.studio.open-path',
@@ -165,7 +199,10 @@ const createName = ref('')
 const studioEditor = ref<InstanceType<typeof StudioEditor> | InstanceType<typeof NbtEditor> | null>(
     null,
 )
+const mediaPreview = ref<InstanceType<typeof MediaPreview> | null>(null)
+const discardModal = ref<InstanceType<typeof NewModal> | null>(null)
 const nbtFiles = new Map<string, NbtFile>()
+let settleDiscard: ((confirmed: boolean) => void) | null = null
 
 const {
     documents,
@@ -176,6 +213,7 @@ const {
     open: openDocument,
     close: closeDocument,
     deletePath: deleteDocumentPath,
+    trackWrite,
     isDeleting,
     pathVersion,
     canOpen,
@@ -198,7 +236,7 @@ const {
     (error) => {
         addNotification({
             title: formatMessage(messages.saveFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     },
@@ -217,7 +255,7 @@ const {
     (error) =>
         addNotification({
             title: formatMessage(messages.loadDirectoryFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         }),
 )
@@ -242,8 +280,7 @@ const deleteLabel = computed(() =>
 const editorLanguage = computed(() => {
     const extension = selectedName.value.split('.').pop()?.toLowerCase()
     if (extension === 'dat' || extension === 'nbt') return 'json'
-    if (extension === 'yml') return 'yaml'
-    return extension ?? 'plaintext'
+    return getEditorLanguage(extension ?? '')
 })
 const breadcrumbSegments = computed(() => selectedFilePath.value.split('/').filter(Boolean))
 const visibleBreadcrumbSegments = ref<string[]>([])
@@ -256,8 +293,6 @@ function previewKind(name: string): StudioDocument['kind'] | null {
     if (/\.(mp4|webm|ogv|mov|m4v)$/i.test(name)) return 'video'
     return null
 }
-
-const previewUrl = ref('')
 
 async function resolvePath(relativePath: string): Promise<string> {
     return relativePath ? join(instanceRoot.value, ...relativePath.split('/')) : instanceRoot.value
@@ -275,8 +310,156 @@ async function readBinary(path: string): Promise<Uint8Array> {
 
 async function writeBinary(path: string, bytes: Uint8Array): Promise<void> {
     if (props.instance) return writeStudioBinary(props.instance.id, path, bytes)
-    return writeFile(await resolvePath(path), bytes)
+    return replaceFile(await resolvePath(path), bytes)
 }
+
+/**
+ * Writes through a temporary file and renames it over the destination.
+ *
+ * The fs plugin truncates the destination before it writes, so an interrupted
+ * write - a full disk, the app stopping - would leave the original file empty
+ * or partial. The rename either happens or it does not.
+ */
+async function replaceFile(target: string, bytes: Uint8Array): Promise<void> {
+    // A sibling path, so the rename stays on one filesystem and cannot degrade
+    // into a copy that is itself interruptible.
+    const temporary = `${target}.${crypto.randomUUID()}.tmp`
+    try {
+        await writeFile(temporary, bytes)
+        await rename(temporary, target)
+    } catch (error) {
+        await remove(temporary).catch(() => undefined)
+        throw error
+    }
+}
+
+const mediaKind = computed(() => {
+    const kind = activeDocument.value?.kind
+    return kind === 'image' || kind === 'video' ? kind : null
+})
+
+// Only media documents are read as bytes; text and NBT documents have their own
+// loading path and would otherwise be read twice.
+const mediaDocument = computed(() => (mediaKind.value ? activeDocument.value : null))
+// Bumped when the bytes on disk change under the preview, so the object URL is
+// rebuilt from the new content instead of showing what was read first.
+const mediaRevision = ref(0)
+// Handed to the preview so an edit knows which file and which instance it
+// belongs to, even if the tab or the instance changes before it is written.
+const mediaEditLocation = computed<MediaEditLocation | null>(() => {
+    const document = mediaDocument.value
+    if (!document) return null
+    return {
+        instanceId: props.instance?.id ?? null,
+        root: instanceRoot.value,
+        path: document.path,
+    }
+})
+
+const {
+    url: mediaPreviewUrl,
+    bytes: mediaPreviewBytes,
+    content: mediaPreviewContent,
+    loading: mediaPreviewLoading,
+    failed: mediaPreviewFailed,
+} = useStudioMediaPreview(mediaDocument, readBinary, mediaRevision)
+
+function notifyOperationFailure(error: unknown) {
+    addNotification({
+        title: formatMessage(messages.operationFailed),
+        text: errorText(error),
+        type: 'error',
+    })
+}
+
+async function writeEditedImage({ location, original, bytes }: MediaEditSave) {
+    try {
+        // A delete that is already running would otherwise be followed by this
+        // write, and the file the user just removed would reappear.
+        if (isDeleting(location.path)) {
+            addNotification({
+                title: formatMessage(messages.saveFailed),
+                text: formatMessage(messages.editDeleted),
+                type: 'error',
+            })
+            return
+        }
+        // The file may have been replaced since the preview read it - by a
+        // screenshot, another editor, or the user's own tooling. The edit was
+        // drawn over `original`, so writing it over newer bytes would silently
+        // undo whatever changed them.
+        if (!sameBytes(await readMediaBytes(location), original)) {
+            addNotification({
+                title: formatMessage(messages.saveFailed),
+                text: formatMessage(messages.editConflict),
+                type: 'error',
+            })
+            return
+        }
+        const write = writeMediaBytes(location, bytes)
+        trackWrite(location.path, write)
+        await write
+        mediaRevision.value += 1
+    } catch (error) {
+        notifyOperationFailure(error)
+    }
+}
+
+async function readMediaBytes(location: MediaEditLocation): Promise<Uint8Array> {
+    if (location.instanceId) return readStudioBinary(location.instanceId, location.path)
+    return readFile(await join(location.root, ...location.path.split('/')))
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+    if (left.byteLength !== right.byteLength) return false
+    for (let index = 0; index < left.byteLength; index += 1) {
+        if (left[index] !== right[index]) return false
+    }
+    return true
+}
+
+async function writeMediaBytes(location: MediaEditLocation, bytes: Uint8Array) {
+    if (location.instanceId) return writeStudioBinary(location.instanceId, location.path, bytes)
+    return replaceFile(await join(location.root, ...location.path.split('/')), bytes)
+}
+
+/**
+ * Whether switching away from the open image editor may proceed.
+ *
+ * Text documents are written to disk when the active tab changes, but an image
+ * lives on a canvas until it is saved: switching documents unmounts the editor
+ * and the pixels are gone. The user decides instead of losing the edit quietly.
+ */
+function confirmDiscardImageEdits(): Promise<boolean> {
+    if (!mediaPreview.value?.hasUnsavedEdits) return Promise.resolve(true)
+    return new Promise((resolve) => {
+        settleDiscard = resolve
+        discardModal.value?.show()
+    })
+}
+
+function resolveDiscard(confirmed: boolean) {
+    const settle = settleDiscard
+    if (!settle) return
+    settleDiscard = null
+    if (confirmed) mediaPreview.value?.discardEdits()
+    discardModal.value?.hide()
+    settle(confirmed)
+}
+
+/**
+ * Reloading the preview under an open editor would unmount the canvas and take
+ * the edit with it, so a change on disk waits until the editor is closed.
+ */
+const mediaPendingReload = ref(false)
+watch(
+    () => mediaPreview.value?.isEditing ?? false,
+    (editing) => {
+        if (editing || !mediaPendingReload.value) return
+        mediaPendingReload.value = false
+        mediaRevision.value += 1
+    },
+)
 
 function exitStudio() {
     if (props.server) {
@@ -394,7 +577,7 @@ async function pasteClipboard() {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -425,7 +608,7 @@ async function deleteItem() {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -452,7 +635,7 @@ async function createItem() {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.operationFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -519,7 +702,7 @@ async function processFileChanges(changedPaths: string[]) {
     } catch (error) {
         addNotification({
             title: formatMessage(messages.loadDirectoryFailed),
-            text: error instanceof Error ? error.message : String(error),
+            text: errorText(error),
             type: 'error',
         })
     }
@@ -529,6 +712,14 @@ async function processFileChanges(changedPaths: string[]) {
             .filter((document) => paths.has(document.path))
             .map((document) => reloadCleanDocument(document)),
     )
+
+    // A preview holds the bytes it read, so a media file replaced on disk (by a
+    // screenshot, another editor, or the crop this page just wrote) has to be
+    // read again rather than left showing the previous content.
+    if (mediaKind.value && activeDocument.value && paths.has(activeDocument.value.path)) {
+        if (mediaPreview.value?.isEditing) mediaPendingReload.value = true
+        else mediaRevision.value += 1
+    }
 }
 
 const studioWatcher = useStudioWatcher(
@@ -559,16 +750,6 @@ watch(activePath, async (path) => {
 
 watch(breadcrumbSegments, () => nextTick(updateVisibleBreadcrumbs), { immediate: true })
 
-watch(
-    [activeDocument, instanceRoot],
-    async () => {
-        previewUrl.value = activeDocument.value
-            ? convertFileSrc(await resolvePath(activeDocument.value.path))
-            : ''
-    },
-    { immediate: true },
-)
-
 onMounted(() => {
     breadcrumbObserver = new ResizeObserver(updateVisibleBreadcrumbs)
     if (breadcrumbOuter.value) breadcrumbObserver.observe(breadcrumbOuter.value)
@@ -580,6 +761,12 @@ onBeforeUnmount(() => {
 
 async function openFile(node: StudioTreeNode) {
     if (node.type !== 'file' || fileLoading.value || isDeleting(node.path)) return
+    if (node.path === activePath.value) return
+    if (!(await confirmDiscardImageEdits())) return
+    await openFileNow(node)
+}
+
+async function openFileNow(node: StudioTreeNode) {
     const version = pathVersion(node.path)
 
     const existingDocument = documents.value.find((document) => document.path === node.path)
@@ -631,7 +818,7 @@ async function openFile(node: StudioTreeNode) {
                 if (!canOpen(node.path, version)) return
                 addNotification({
                     title: formatMessage(messages.nbtLoadFailed),
-                    text: error instanceof Error ? error.message : String(error),
+                    text: errorText(error),
                     type: 'error',
                 })
                 return
@@ -677,6 +864,8 @@ async function openFile(node: StudioTreeNode) {
 }
 
 async function activateTab(path: string) {
+    if (path === activePath.value) return
+    if (!(await confirmDiscardImageEdits())) return
     await activateDocument(path)
 }
 
@@ -686,6 +875,19 @@ async function formatActiveDocument() {
 
 async function openInSystem(path: string) {
     await openPath(await resolvePath(path))
+}
+
+const schematicTarget = computed(() =>
+    schematicWorkshopTarget(activeDocument.value, props.instance?.id),
+)
+
+async function openInSchematicWorkshop() {
+    const target = schematicTarget.value
+    if (!target) return
+    await router.push({
+        name: 'SchematicWorkshop',
+        query: { instance: target.instanceId, path: target.path },
+    })
 }
 
 async function revealInSystem(path: string) {
@@ -746,6 +948,24 @@ onBeforeRouteLeave(() => {
         <section
             class="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(13rem,22rem)_minmax(0,1fr)] overflow-hidden rounded-[20px] border border-solid border-surface-4 bg-surface-1 shadow-sm"
         >
+            <NewModal
+                ref="discardModal"
+                :header="formatMessage(messages.discardImageTitle)"
+                max-width="420px"
+                :on-hide="() => resolveDiscard(false)"
+            >
+                <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
+                    {{ formatMessage(messages.discardImageDescription) }}
+                </p>
+                <template #actions>
+                    <Button @click="resolveDiscard(false)">
+                        {{ formatMessage(messages.discardImageKeep) }}
+                    </Button>
+                    <Button type="colored" color="red" @click="resolveDiscard(true)">
+                        {{ formatMessage(messages.discardImageConfirm) }}
+                    </Button>
+                </template>
+            </NewModal>
             <NewModal
                 ref="createModal"
                 :header="formatMessage(messages.createItem)"
@@ -922,22 +1142,21 @@ onBeforeRouteLeave(() => {
                     >
                         {{ formatMessage(messages.loadingFile) }}
                     </div>
-                    <div
-                        v-if="activeDocument?.kind === 'image'"
-                        class="flex size-full items-center justify-center overflow-auto bg-surface-1 p-6"
-                    >
-                        <img
-                            :src="previewUrl"
-                            :alt="activeDocument.name"
-                            class="max-h-full max-w-full object-contain"
-                        />
-                    </div>
-                    <div
-                        v-else-if="activeDocument?.kind === 'video'"
-                        class="flex size-full items-center justify-center bg-surface-1 p-6"
-                    >
-                        <video :src="previewUrl" controls class="max-h-full max-w-full" />
-                    </div>
+                    <MediaPreview
+                        v-if="mediaKind"
+                        ref="mediaPreview"
+                        :kind="mediaKind"
+                        :url="mediaPreviewUrl"
+                        :name="selectedName"
+                        :size="mediaPreviewBytes"
+                        :content="mediaPreviewContent"
+                        :location="mediaEditLocation"
+                        :loading="mediaPreviewLoading"
+                        :failed="mediaPreviewFailed"
+                        @open-in-system="openInSystem(selectedFilePath)"
+                        @save="writeEditedImage"
+                        @edit-failed="notifyOperationFailure"
+                    />
                     <div
                         v-else-if="activeDocument?.kind === 'unsupported'"
                         class="flex size-full items-center justify-center p-8 text-center"
@@ -946,9 +1165,18 @@ onBeforeRouteLeave(() => {
                             <p class="m-0 text-sm text-[var(--color-text-tertiary)]">
                                 {{ formatMessage(messages.nonTextFile) }}
                             </p>
-                            <Button type="outlined" @click="openInSystem(activeDocument.path)"
-                                >{{ formatMessage(messages.openInSystem) }}
-                            </Button>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <Button
+                                    v-if="schematicTarget"
+                                    type="colored"
+                                    color="brand"
+                                    @click="openInSchematicWorkshop"
+                                    >{{ formatMessage(messages.openInSchematicWorkshop) }}
+                                </Button>
+                                <Button type="outlined" @click="openInSystem(activeDocument.path)"
+                                    >{{ formatMessage(messages.openInSystem) }}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                     <StudioEditor

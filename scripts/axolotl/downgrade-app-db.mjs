@@ -56,6 +56,21 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    20261110120000: { tables: ['scheduler_restart_budget', 'scheduler_tags'] },
+    20261108120000: {
+        columns: [{ table: 'settings', column: 'forced_max_concurrent_downloads' }],
+    },
+    20261107120000: {
+        columns: [{ table: 'settings', column: 'force_multiconnection_downloads' }],
+    },
+    20261106150000: {
+        columns: [{ table: 'settings', column: 'minecraft_use_console_java' }],
+    },
+    // settings.oobe_completed_steps
+    20261104120000: {
+        columns: [{ table: 'settings', column: 'oobe_completed_steps' }],
+    },
+    20261103130000: { columns: [{ table: 'install_jobs', column: 'level' }] },
     // settings.default_game_language
     20261103120000: {
         columns: [{ table: 'settings', column: 'default_game_language' }],
@@ -763,9 +778,8 @@ function main() {
     const state = planDowngrade(db, args.to)
     note(`database: ${db}`)
 
-    if (state.applied.length === 0) {
-        note(`nothing to do: no applied migration at or after ${args.to}`)
-        if (state.failed.length > 0) reportPlan(state)
+    if (state.applied.length === 0 && state.failed.length === 0) {
+        note(`nothing to do: no migration at or after ${args.to}`)
         return
     }
 
@@ -826,9 +840,15 @@ function main() {
                     if (present) writable.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
                 }
             }
-            writable
-                .prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${state.applied.join(', ')})`)
-                .run()
+            // Failed records block sqlx with `MigrateError::Dirty` before it
+            // even compares versions, so the warning that promises to remove
+            // them must actually remove them.
+            const versions = [...state.applied, ...state.failed]
+            if (versions.length > 0) {
+                writable
+                    .prepare(`DELETE FROM _sqlx_migrations WHERE version IN (${versions.join(', ')})`)
+                    .run()
+            }
             writable.exec('COMMIT')
         } catch (error) {
             writable.exec('ROLLBACK')

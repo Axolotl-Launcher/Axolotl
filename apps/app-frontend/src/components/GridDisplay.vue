@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DragDropProvider } from '@dnd-kit/vue'
+import { DragDropProvider, type DragEndEvent } from '@dnd-kit/vue'
 import {
     ArrowUpDownIcon,
     ClipboardCopyIcon,
@@ -8,6 +8,7 @@ import {
     FolderOpenIcon,
     GridIcon,
     LayersIcon,
+    ListIcon,
     MinusIcon,
     MoreVerticalIcon,
     PinIcon,
@@ -45,13 +46,21 @@ import { UNGROUPED_GROUP_KEY, useGridGrouping } from '@/composables/useGridGroup
 import { FAVORITES_GROUP_ID, useInstanceGroups } from '@/composables/useInstanceGroups'
 import { trackEvent } from '@/helpers/analytics'
 import { process_listener } from '@/helpers/events'
+import {
+    type GameDirectoryInfo,
+    hasMultipleGameDirectories,
+    resolveGameDirectory,
+} from '@/helpers/game-directory'
+import { gameDirectoryMessages } from '@/helpers/game-directory-messages'
 import { install_duplicate_instance } from '@/helpers/install'
 import { kill, remove, run, set_pinned } from '@/helpers/instance'
 import { create_group as createGroup } from '@/helpers/instance-groups'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { updateRunningInstanceIds } from '@/helpers/instance-running-state'
 import {
-    getLastLibraryDisplayMode,
-    setLastLibraryDisplayMode,
+    getLastInstanceLibraryDisplayMode,
+    type InstanceLibraryDisplayMode,
+    setLastInstanceLibraryDisplayMode,
 } from '@/helpers/library-display-mode'
 import { get_all, get_by_instance_id } from '@/helpers/process'
 import type { GameInstance } from '@/helpers/types'
@@ -90,6 +99,7 @@ const messages = defineMessages({
     gameVersion: { id: 'app.instances.group.game-version', defaultMessage: 'Game version' },
     group: { id: 'app.instances.group.group', defaultMessage: 'Custom group' },
     loader: { id: 'app.instances.group.loader', defaultMessage: 'Loader' },
+    gameDirectory: gameDirectoryMessages.groupBy,
     none: { id: 'app.instances.group.none', defaultMessage: 'No grouping' },
     ungrouped: { id: 'app.instances.group.ungrouped', defaultMessage: 'No group' },
     editGroups: { id: 'app.instances.edit-groups', defaultMessage: 'Edit groups' },
@@ -102,6 +112,7 @@ const messages = defineMessages({
     view: { id: 'app.library.view', defaultMessage: 'View' },
     standardView: { id: 'app.library.view.standard', defaultMessage: 'Standard grid' },
     cardsView: { id: 'app.library.view.cards', defaultMessage: 'Library cards' },
+    listView: { id: 'app.library.view.list', defaultMessage: 'Detailed list' },
     sortBy: { id: 'app.instances.sort-by', defaultMessage: 'Sort by' },
     ascAlphabetical: {
         id: 'app.instances.sort.direction.asc-alphabetical',
@@ -163,13 +174,16 @@ const optionMessages = {
     'Date created': messages.dateCreated,
     'Date modified': messages.dateModified,
     'Game version': messages.gameVersion,
+    'Game directory': messages.gameDirectory,
     Group: messages.group,
     Loader: messages.loader,
     None: messages.none,
 }
 
-const formatOption = (option) =>
-    optionMessages[option] ? formatMessage(optionMessages[option]) : option
+const formatOption = (option: string) =>
+    option in optionMessages
+        ? formatMessage(optionMessages[option as keyof typeof optionMessages])
+        : option
 
 const props = withDefaults(
     defineProps<{
@@ -182,22 +196,23 @@ const props = withDefaults(
     },
 )
 
-const instanceOptions = ref(null)
-const backgroundContextMenu = ref(null)
-const currentDeleteInstance = ref(null)
+const instanceOptions = ref<InstanceType<typeof ContextMenu> | null>(null)
+const backgroundContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null)
+const currentDeleteInstance = ref<GameInstance | null>(null)
 const currentContextSectionKey = ref('')
-const confirmModal = ref(null)
+const confirmModal = ref<InstanceType<typeof ConfirmDeleteInstanceModal> | null>(null)
 const search = ref('')
-const displayMode = ref(getLastLibraryDisplayMode())
+const displayMode = ref(getLastInstanceLibraryDisplayMode())
 const runningInstanceIds = ref(new Set<string>())
-const startingInstanceIds = ref(new Set<string>())
 let unlistenProcesses: (() => void) | undefined
 let disposed = false
 
 async function refreshRunningInstances() {
     const processes = await get_all().catch(handleError)
     if (processes && !disposed)
-        runningInstanceIds.value = new Set(processes.map((process) => process.instance_id))
+        runningInstanceIds.value = new Set(
+            (processes as { instance_id: string }[]).map((process) => process.instance_id),
+        )
 }
 
 function setInstanceRunning(instanceId: string, running: boolean) {
@@ -264,7 +279,7 @@ function handleMoveGroup(groupKey: string, direction: -1 | 1) {
     ).catch(handleError)
 }
 
-const addToExistingGroupModal = ref(null)
+const addToExistingGroupModal = ref<InstanceType<typeof InstanceGroupModal> | null>(null)
 const addToExistingGroupName = ref('')
 const addToExistingGroupId = ref('')
 
@@ -348,24 +363,28 @@ async function removeSelectedInstancesFromGroups() {
     }
 }
 
-const newGroupModal = ref(null)
+const newGroupModal = ref<InstanceType<typeof InstanceGroupModal> | null>(null)
 
 function openNewGroupModal() {
     newGroupModal.value?.show([...selectedInstanceIds.value])
 }
 
-const displayModeOptions = computed(() => [
-    { id: 'standard', label: formatMessage(messages.standardView), icon: GridIcon },
-    { id: 'cards', label: formatMessage(messages.cardsView), icon: CollectionIcon },
-])
+const displayModeOptions = computed(
+    () =>
+        [
+            { id: 'standard', label: formatMessage(messages.standardView), icon: GridIcon },
+            { id: 'cards', label: formatMessage(messages.cardsView), icon: CollectionIcon },
+            { id: 'list', label: formatMessage(messages.listView), icon: ListIcon },
+        ] as const,
+)
 
 const currentDisplayMode = computed(() =>
     displayModeOptions.value.find((option) => option.id === displayMode.value),
 )
 
-function setDisplayMode(mode) {
+function setDisplayMode(mode: InstanceLibraryDisplayMode) {
     displayMode.value = mode
-    setLastLibraryDisplayMode(mode)
+    setLastInstanceLibraryDisplayMode(mode)
 }
 
 const filteredInstances = computed(() =>
@@ -384,6 +403,7 @@ const {
     toggleSortDirection,
 } = useGridGrouping(props.label, filteredInstances, {
     formatLoader: (loader) => formatLoader(formatMessage, loader),
+    getGameDirectory: resolveGameDirectory,
 })
 
 const {
@@ -407,6 +427,28 @@ const groupNameMap = computed(() => {
     }
     return map
 })
+
+const gameDirectoryMap = computed(() => {
+    const map = new Map<string, GameDirectoryInfo>()
+    for (const instance of props.instances) {
+        const directory = resolveGameDirectory(instance)
+        if (!map.has(directory.key)) map.set(directory.key, directory)
+    }
+    return map
+})
+
+const showGameDirectory = computed(() => hasMultipleGameDirectories(props.instances))
+
+function formatSectionName(sectionKey: string): string {
+    if (state.value.group === 'Game directory') {
+        const directory = gameDirectoryMap.value.get(sectionKey)
+        if (directory?.kind === 'managed') {
+            return formatMessage(gameDirectoryMessages.managed)
+        }
+        if (directory?.path) return directory.path
+    }
+    return groupNameMap.value.get(sectionKey) || sectionKey
+}
 
 function generateGroupStableId(): string {
     return `gid_${++groupStableIdCounter}`
@@ -468,7 +510,7 @@ const displaySections = computed(() => {
         const remaining = Array.from(resultMap.entries())
         if (state.value.group === 'Game version') {
             remaining.sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-        } else {
+        } else if (state.value.group !== 'Game directory') {
             remaining.sort((a, b) => a[0].localeCompare(b[0]))
         }
 
@@ -541,31 +583,28 @@ async function deleteInstance() {
     }
 }
 
-async function duplicateInstance(p) {
+async function duplicateInstance(p: string) {
     await install_duplicate_instance(p).catch(handleError)
 }
 
-function getInstanceProxy(instanceId) {
+function getInstanceProxy(instanceId: string) {
     const instanceData = props.instances.find((i) => i.id === instanceId)
     if (!instanceData) return null
     return {
         instance: instanceData,
         playing:
-            runningInstanceIds.value.has(instanceId) || startingInstanceIds.value.has(instanceId),
-        play: async (_e, context) => {
+            runningInstanceIds.value.has(instanceId) ||
+            instanceLaunchStartedAt(instanceId) !== undefined,
+        play: async (_e: MouseEvent | null, context: string) => {
             if (
                 runningInstanceIds.value.has(instanceId) ||
-                startingInstanceIds.value.has(instanceId)
+                instanceLaunchStartedAt(instanceId) !== undefined
             )
                 return
-            startingInstanceIds.value = new Set(startingInstanceIds.value).add(instanceId)
             try {
                 await run(instanceId)
                 setInstanceRunning(instanceId, true)
             } finally {
-                const next = new Set(startingInstanceIds.value)
-                next.delete(instanceId)
-                startingInstanceIds.value = next
                 trackEvent('InstanceStart', {
                     loader: instanceData.loader,
                     game_version: instanceData.game_version,
@@ -573,7 +612,7 @@ function getInstanceProxy(instanceId) {
                 })
             }
         },
-        stop: async (_e, context) => {
+        stop: async (_e: MouseEvent | null, context: string) => {
             if (!runningInstanceIds.value.has(instanceId)) return
             await kill(instanceId).finally(() => {
                 setInstanceRunning(instanceId, false)
@@ -594,7 +633,7 @@ function getInstanceProxy(instanceId) {
     }
 }
 
-const handleRightClick = (event, instanceId, sectionKey) => {
+const handleRightClick = (event: MouseEvent, instanceId: string, sectionKey: string) => {
     const item = getInstanceProxy(instanceId)
     if (!item) return
     currentContextSectionKey.value = sectionKey
@@ -602,7 +641,8 @@ const handleRightClick = (event, instanceId, sectionKey) => {
         grouping.value === 'Group' &&
         sectionKey !== UNGROUPED_GROUP_KEY &&
         sectionKey !== FAVORITES_GROUP_ID
-    const baseOptions = [
+    type GridContextOption = Parameters<InstanceType<typeof ContextMenu>['showMenu']>[2][number]
+    const baseOptions: GridContextOption[] = [
         {
             section: 'pin',
             name: item.instance.groups?.includes(FAVORITES_GROUP_ID)
@@ -626,26 +666,28 @@ const handleRightClick = (event, instanceId, sectionKey) => {
         },
     ]
 
-    instanceOptions.value.showMenu(
+    instanceOptions.value?.showMenu(
         event,
         item,
-        item.playing
-            ? [
-                  {
-                      name: 'stop',
-                      section: 'primary',
-                      color: 'danger',
-                  },
-                  ...baseOptions,
-              ]
-            : [
-                  {
-                      name: 'play',
-                      section: 'primary',
-                      color: 'primary',
-                  },
-                  ...baseOptions,
-              ],
+        instanceLaunchStartedAt(item.instance.id) !== undefined
+            ? baseOptions
+            : item.playing
+              ? [
+                    {
+                        name: 'stop',
+                        section: 'primary',
+                        color: 'danger',
+                    } as GridContextOption,
+                    ...baseOptions,
+                ]
+              : [
+                    {
+                        name: 'play',
+                        section: 'primary',
+                        color: 'primary',
+                    } as GridContextOption,
+                    ...baseOptions,
+                ],
     )
 }
 
@@ -665,7 +707,11 @@ const handleBackgroundOption = ({ option }: { option: string }) => {
     }
 }
 
-const handleOptionsClick = async (args) => {
+const handleOptionsClick = async (args: {
+    option: string
+    item: ReturnType<typeof getInstanceProxy> | null
+}) => {
+    if (!args.item) return
     switch (args.option) {
         case 'play':
             if ((await get_by_instance_id(args.item.instance.id).catch(handleError))?.length) break
@@ -726,7 +772,7 @@ const handleOptionsClick = async (args) => {
             break
         case 'delete':
             currentDeleteInstance.value = args.item.instance
-            confirmModal.value.show()
+            confirmModal.value?.show()
             break
     }
 }
@@ -751,10 +797,10 @@ watch(flatVisibleInstanceIds, (ids) => {
     if (selectedInstanceIds.value.size === 0) selectMode.value = false
 })
 
-let longPressTimer = null
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let longPressTriggered = false
 
-function startLongPress(instanceId) {
+function startLongPress(instanceId: string) {
     longPressTriggered = false
     longPressTimer = setTimeout(() => {
         longPressTriggered = true
@@ -772,7 +818,7 @@ function cancelLongPress() {
     }
 }
 
-function handleCardClick(instanceId, event) {
+function handleCardClick(instanceId: string, event?: MouseEvent) {
     if (longPressTriggered) {
         longPressTriggered = false
         return
@@ -786,7 +832,7 @@ function handleCardClick(instanceId, event) {
     }
 }
 
-function handleToggleInstance(instanceId, shiftKey) {
+function handleToggleInstance(instanceId: string, shiftKey: boolean) {
     const flatIds = flatVisibleInstanceIds.value
     const anchor = anchorInstanceId.value
 
@@ -824,7 +870,7 @@ function handleToggleInstance(instanceId, shiftKey) {
     anchorInstanceId.value = selectedInstanceIds.value.has(instanceId) ? instanceId : null
 }
 
-function toggleInstanceSelection(instanceId) {
+function toggleInstanceSelection(instanceId: string) {
     const newSet = new Set(selectedInstanceIds.value)
     if (newSet.has(instanceId)) {
         newSet.delete(instanceId)
@@ -837,7 +883,7 @@ function toggleInstanceSelection(instanceId) {
     }
 }
 
-function handleCheckboxClick(instanceId, event) {
+function handleCheckboxClick(instanceId: string, event?: MouseEvent) {
     if (!selectMode.value) {
         selectMode.value = true
     }
@@ -845,7 +891,7 @@ function handleCheckboxClick(instanceId, event) {
     handleToggleInstance(instanceId, shiftKey)
 }
 
-const batchDeleteConfirmModal = ref(null)
+const batchDeleteConfirmModal = ref<InstanceType<typeof ConfirmDeleteInstanceModal> | null>(null)
 const batchDeleteTargets = ref<
     Pick<GameInstance, 'id' | 'name' | 'icon_path' | 'loader' | 'game_version' | 'path'>[]
 >([])
@@ -910,9 +956,7 @@ function onGroupReorder() {
 type InstanceDragData = { instanceId: string; fromGroup: string }
 type InstanceGroupDropData = { groupId: string }
 
-async function handleInstanceDragEnd(event: {
-    operation: { source?: { data?: unknown }; target?: { data?: unknown } }
-}) {
+async function handleInstanceDragEnd(event: DragEndEvent) {
     const sourceData = event.operation.source?.data as InstanceDragData | undefined
     const targetData = event.operation.target?.data as InstanceGroupDropData | undefined
     if (!sourceData || !targetData) return
@@ -992,7 +1036,7 @@ async function handleInstanceDragEnd(event: {
                 v-tooltip="{ content: formatMessage(messages.groupBy), triggers: ['hover'] }"
                 width="content"
                 :options="
-                    ['Group', 'Loader', 'Game version', 'None'].map((value) => ({
+                    ['Group', 'Loader', 'Game version', 'Game directory', 'None'].map((value) => ({
                         value,
                         label: formatOption(value),
                     }))
@@ -1034,7 +1078,7 @@ async function handleInstanceDragEnd(event: {
                 v-if="pinnedSection"
                 :key="pinnedSection.id"
                 :section-key="pinnedSection.key"
-                :group-name="groupNameMap.get(pinnedSection.key) || pinnedSection.key"
+                :group-name="formatSectionName(pinnedSection.key)"
                 :instances="pinnedSection.instances"
                 :running-instance-ids="runningInstanceIds"
                 :grouping="grouping"
@@ -1042,6 +1086,7 @@ async function handleInstanceDragEnd(event: {
                 :display-mode="displayMode"
                 :select-mode="selectMode"
                 :selected-instance-ids="selectedInstanceIds"
+                :show-game-directory="showGameDirectory"
                 :is-sort-ascending="isSortAscending"
                 @toggle-collapse="
                     (key: string) => setSectionCollapsed(key, !isSectionCollapsed(key))
@@ -1088,9 +1133,7 @@ async function handleInstanceDragEnd(event: {
                     <div :key="instanceSection.id" class="min-w-0 w-full">
                         <InstanceGroup
                             :section-key="instanceSection.key"
-                            :group-name="
-                                groupNameMap.get(instanceSection.key) || instanceSection.key
-                            "
+                            :group-name="formatSectionName(instanceSection.key)"
                             :instances="instanceSection.instances"
                             :running-instance-ids="runningInstanceIds"
                             :grouping="grouping"
@@ -1098,6 +1141,7 @@ async function handleInstanceDragEnd(event: {
                             :display-mode="displayMode"
                             :select-mode="selectMode"
                             :selected-instance-ids="selectedInstanceIds"
+                            :show-game-directory="showGameDirectory"
                             :hide-header="
                                 (hideUngroupedHeader &&
                                     instanceSection.key === UNGROUPED_GROUP_KEY) ||

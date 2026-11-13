@@ -1,11 +1,6 @@
 use std::process::Command;
 use tauri_build::{DefaultPermissionRule, InlinedPlugin};
 
-#[cfg(windows)]
-const NPM_COMMAND: &str = "npm.cmd";
-#[cfg(not(windows))]
-const NPM_COMMAND: &str = "npm";
-
 fn run_command(command: &mut Command, description: &str) {
     let status = command.status().unwrap_or_else(|error| {
         panic!("Failed to start {description}: {error}")
@@ -21,59 +16,6 @@ fn copy_if_changed(source: &std::path::Path, destination: &std::path::Path) {
     if std::fs::read(destination).ok().as_deref() != Some(contents.as_slice()) {
         std::fs::copy(source, destination).expect("Copy generated resource");
     }
-}
-
-fn newest_mtime(path: &std::path::Path) -> Option<std::time::SystemTime> {
-    let mut newest: Option<std::time::SystemTime> = None;
-    if path.is_file() {
-        return path.metadata().and_then(|m| m.modified()).ok();
-    }
-    if path.is_dir()
-        && let Ok(entries) = std::fs::read_dir(path)
-    {
-        for entry in entries.flatten() {
-            if let Some(time) = newest_mtime(&entry.path()) {
-                newest = Some(newest.map_or(time, |current| current.max(time)));
-            }
-        }
-    }
-    newest
-}
-
-fn blockbench_skin_is_fresh(
-    blockbench_dir: &std::path::Path,
-    synced_bundle: &std::path::Path,
-) -> bool {
-    let bundle = blockbench_dir.join("dist/skin.bundle.js");
-    let Ok(bundle_time) = bundle.metadata().and_then(|m| m.modified()) else {
-        return false;
-    };
-    let Ok(synced_time) = synced_bundle.metadata().and_then(|m| m.modified())
-    else {
-        return false;
-    };
-    if synced_time < bundle_time {
-        return false;
-    }
-
-    // Inputs that feed `npm run build-skin` or the resource sync. node_modules
-    // is intentionally excluded: it is huge and its mtimes churn independently
-    // of Blockbench sources.
-    let input_paths = [
-        blockbench_dir.join("package.json"),
-        blockbench_dir.join("package-lock.json"),
-        blockbench_dir.join("build.js"),
-        blockbench_dir.join("js"),
-        blockbench_dir.join("css"),
-        blockbench_dir.join("assets"),
-        blockbench_dir.join("font"),
-        blockbench_dir.join("index.html"),
-    ];
-    input_paths.iter().all(|input| {
-        newest_mtime(input)
-            .map(|input_time| input_time <= bundle_time)
-            .unwrap_or(true)
-    })
 }
 
 fn build_blockbench_skin_editor() {
@@ -97,6 +39,7 @@ fn build_blockbench_skin_editor() {
         return;
     }
 
+    println!("cargo:rerun-if-env-changed=AXOLOTL_SKIP_BLOCKBENCH_BUILD");
     if std::env::var_os("AXOLOTL_SKIP_BLOCKBENCH_BUILD").is_some_and(|value| {
         !value.is_empty() && value != "0" && value != "false"
     }) {
@@ -112,34 +55,12 @@ fn build_blockbench_skin_editor() {
         "Blockbench skin editor submodule is missing. Run git submodule update --init --recursive."
     );
 
-    let synced_bundle = std::path::Path::new(
-        "resources/blockbench-skin/dist/skin.bundle.js.gz",
-    );
-    if blockbench_skin_is_fresh(blockbench_dir, synced_bundle) {
-        return;
-    }
-
-    if !blockbench_dir.join("node_modules").is_dir() {
-        run_command(
-            Command::new(NPM_COMMAND)
-                .arg("ci")
-                .current_dir(blockbench_dir),
-            "Blockbench skin editor dependency install",
-        );
-    }
-
-    run_command(
-        Command::new(NPM_COMMAND)
-            .arg("run")
-            .arg("build-skin")
-            .current_dir(blockbench_dir),
-        "Blockbench skin editor build",
-    );
     run_command(
         Command::new("node")
-            .arg("scripts/axolotl/sync-blockbench-skin-editor.mjs")
+            .arg("scripts/axolotl/build-blockbench-skin-editor.mjs")
+            .arg(std::env::var_os("OUT_DIR").expect("Cargo output directory"))
             .current_dir("../.."),
-        "Blockbench skin editor resource sync",
+        "Blockbench skin editor build and resource sync",
     );
 }
 
@@ -238,7 +159,11 @@ fn build_seed_map_engine() {
                     "-O3",
                     "-std=gnu11",
                     "-fwrapv",
-                    "-static-libgcc",
+                    if architecture == "aarch64" {
+                        "--rtlib=compiler-rt"
+                    } else {
+                        "-static-libgcc"
+                    },
                     "-Wl,--export-all-symbols",
                     // Tauri watches the bundled DLL. Keep identical builds
                     // byte-for-byte stable so syncing it preserves its mtime.
@@ -297,18 +222,42 @@ fn main() {
     println!(
         "cargo:rerun-if-changed=../../third-party/blockbench/package-lock.json"
     );
+    println!(
+        "cargo:rerun-if-changed=../../scripts/axolotl/build-blockbench-skin-editor.mjs"
+    );
+    println!(
+        "cargo:rerun-if-changed=../../scripts/axolotl/desktop-build-utils.mjs"
+    );
+    println!(
+        "cargo:rerun-if-changed=../../scripts/axolotl/sync-blockbench-skin-editor.mjs"
+    );
     println!("cargo:rerun-if-changed=../../third-party/blockbench/build.js");
+    println!(
+        "cargo:rerun-if-changed=../../third-party/blockbench/tsconfig.json"
+    );
+    println!("cargo:rerun-if-changed=../../third-party/blockbench/lang");
+    println!("cargo:rerun-if-changed=../../third-party/blockbench/keymaps");
+    println!("cargo:rerun-if-changed=../../third-party/blockbench/themes");
     println!("cargo:rerun-if-changed=../../third-party/blockbench/js");
     println!("cargo:rerun-if-changed=../../third-party/blockbench/css");
     println!("cargo:rerun-if-changed=../../third-party/blockbench/assets");
     println!("cargo:rerun-if-changed=../../third-party/blockbench/font");
     println!("cargo:rerun-if-changed=../../third-party/blockbench/index.html");
-    // Tauri validates frontendDist during Cargo metadata/check builds. The
-    // frontend build runs in parallel in CI, so create the directory before
-    // tauri-build reads the configuration. A real frontend build overwrites
-    // this directory with the actual assets before packaging.
-    std::fs::create_dir_all("../app-frontend/dist")
-        .expect("Failed to create the frontend distribution directory");
+    let attributes = if tauri_build::is_dev() {
+        // The context macro uses devUrl without watching the production dist.
+        // Keep tracking original icons, since the macro embeds cached copies.
+        println!("cargo:rerun-if-changed=icons");
+        if std::path::Path::new("Info.plist").exists() {
+            println!("cargo:rerun-if-changed=Info.plist");
+        }
+        tauri_build::Attributes::new()
+    } else {
+        // Cargo checks can run before the parallel frontend build in CI.
+        std::fs::create_dir_all("../app-frontend/dist")
+            .expect("Failed to create the frontend distribution directory");
+        tauri_build::Attributes::new()
+            .codegen(tauri_build::CodegenContext::new())
+    };
     build_blockbench_skin_editor();
 
     build_seed_map_engine();
@@ -318,8 +267,7 @@ fn main() {
     // But I think it's not worth it
     // https://github.com/tauri-apps/tauri/issues/10075
     tauri_build::try_build(
-        tauri_build::Attributes::new()
-            .codegen(tauri_build::CodegenContext::new())
+        attributes
             .plugin(
                 "auth",
                 InlinedPlugin::new()
@@ -394,18 +342,6 @@ fn main() {
                     ),
             )
             .plugin(
-                "content-favorites",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "content_favorites_list",
-                        "content_favorites_add",
-                        "content_favorites_remove",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
                 "axolotl-resources",
                 InlinedPlugin::new()
                     .commands(&[
@@ -430,6 +366,11 @@ fn main() {
                         "resource_favorites",
                         "resource_favorite_add",
                         "resource_favorite_remove",
+                        "resource_favorite_groups",
+                        "resource_favorite_group_create",
+                        "resource_favorite_group_rename",
+                        "resource_favorite_group_delete",
+                        "resource_favorite_group_update_memberships",
                         "resource_prepare_operation",
                         "resource_analysis_open",
                         "resource_analysis_update",
@@ -527,6 +468,8 @@ fn main() {
                     .commands(&[
                         "get_java_versions",
                         "get_java_default_versions",
+                        "get_java_selection_info",
+                        "approve_java_selection",
                         "set_java_version",
                         "set_java_default_version",
                         "remove_java_default_version",
@@ -535,7 +478,6 @@ fn main() {
                         "jre_get_jre",
                         "jre_test_jre",
                         "jre_auto_install_java",
-                        "jre_respond_to_download_confirmation",
                         "jre_get_max_memory",
                         "jre_get_memory_status",
                         "jre_optimize_memory",
@@ -556,6 +498,7 @@ fn main() {
                         "logs_get_logs",
                         "logs_get_logs_by_filename",
                         "logs_get_output_by_filename",
+                        "logs_export_log_file",
                         "logs_delete_logs",
                         "logs_delete_logs_by_filename",
                         "logs_get_latest_log_cursor",
@@ -620,19 +563,6 @@ fn main() {
                     ),
             )
             .plugin(
-                "mr-auth",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "modrinth_login",
-                        "logout",
-                        "get",
-                        "cancel_modrinth_login",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
                 "install",
                 InlinedPlugin::new()
                     .commands(&[
@@ -666,6 +596,7 @@ fn main() {
                         "download_job_delete",
                         "download_history_clear",
                         "download_job_support_details",
+                        "download_diagnostics",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -843,6 +774,12 @@ fn main() {
                     .commands(&[
                         "settings_get",
                         "settings_patch",
+                        "settings_layers",
+                        "settings_override_clear",
+                        "settings_sanitise",
+                        "settings_import_scan",
+                        "settings_import",
+                        "settings_export",
                         "privacy_get",
                         "privacy_set",
                         "telemetry_set",
@@ -925,6 +862,32 @@ fn main() {
                         "mcp_disconnect",
                         "mcp_ui_claim",
                         "mcp_ui_respond",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "third-party-accounts",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "get_account",
+                        "begin_authorization",
+                        "cancel_authorization",
+                        "disconnect",
+                        "check_connection",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "schematics",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "schematics_list",
+                        "schematics_get",
+                        "schematics_install",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -1025,6 +988,7 @@ fn main() {
                         "file_extract_zip",
                         "file_save_as",
                         "file_read_dragged_file",
+                        "background_convert_animated",
                         "screenshot_thumbnail",
                         "studio_read_text",
                         "studio_read_binary",
@@ -1163,19 +1127,6 @@ fn main() {
                         "servers_get_log_delta",
                         "servers_get_console_delta",
                         "servers_clear_log",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
-                "friends",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "friends",
-                        "friend_statuses",
-                        "add_friend",
-                        "remove_friend",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

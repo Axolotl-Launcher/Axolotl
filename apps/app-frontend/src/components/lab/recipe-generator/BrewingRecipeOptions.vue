@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Combobox, defineMessages, useVIntl } from '@modrinth/ui'
+import { Combobox, defineMessages, useVIntl } from '@modrinth/ui'
 
 import { parseRecipeJsonObject } from '@/lab/recipe-generator/recipe-engine'
 import type { BrewingState } from '@/lab/recipe-generator/types'
@@ -7,7 +7,6 @@ import potionIds from '@/lab/shared/minecraft/assets/vanilla/potions.json'
 import { resolveRecipePotionName } from '@/lab/shared/minecraft/item-names'
 
 const model = defineModel<BrewingState>({ required: true })
-const emit = defineEmits<{ guide: [] }>()
 const { formatMessage, locale } = useVIntl()
 const messages = defineMessages({
     title: { id: 'app.lab.recipe-generator.brewing.title', defaultMessage: 'Brewing conditions' },
@@ -51,7 +50,6 @@ const messages = defineMessages({
         defaultMessage:
             'Drop any supported item into the input, reagent and output slots. Potion choices override only the potion ID in the corresponding JSON object. Other conditions and components are preserved.',
     },
-    guide: { id: 'app.lab.recipe-generator.brewing.guide', defaultMessage: 'Brewing guide' },
 })
 const potionFields = [
     { key: 'inputPotion', label: messages.input },
@@ -76,14 +74,9 @@ function invalid(source: string) {
 <template>
     <div
         class="flex flex-col gap-3 border-t border-surface-4 pt-3"
-        data-onboarding-id="recipe-brewing-editor"
+        data-testid="recipe-brewing-editor"
     >
-        <div class="flex items-center justify-between gap-3">
-            <strong class="text-sm">{{ formatMessage(messages.title) }}</strong
-            ><Button type="quiet" size="2xs" @click="emit('guide')">{{
-                formatMessage(messages.guide)
-            }}</Button>
-        </div>
+        <strong class="text-sm">{{ formatMessage(messages.title) }}</strong>
         <p class="m-0 text-xs text-[var(--color-text-tertiary)]">
             {{ formatMessage(messages.hint) }}
         </p>

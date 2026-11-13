@@ -71,7 +71,9 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
             try {
                 const processes = await get_all()
                 if (!disposed)
-                    runningInstanceIds.value = processes.map((process) => process.instance_id)
+                    runningInstanceIds.value = processes.map(
+                        (process: { instance_id: string }) => process.instance_id,
+                    )
             } catch (error) {
                 handleError(error)
             }
@@ -193,8 +195,11 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     void refreshFavorites()
     void refreshRecentWorlds()
 
-    void process_listener((event: { event: string }) => {
-        if (event.event === 'launched' || event.event === 'finished') void refreshRunningInstances()
+    void process_listener(async (event: { event: string }) => {
+        if (disposed || (event.event !== 'launched' && event.event !== 'finished')) return
+        loadedWorlds.clear()
+        instanceRevision.value += 1
+        await Promise.all([refreshRunningInstances(), refreshFavorites(), refreshRecentWorlds()])
     })
         .then((unlisten) => {
             if (disposed) unlisten()

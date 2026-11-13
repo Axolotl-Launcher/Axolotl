@@ -55,7 +55,11 @@ export class LogAgentModel extends BaseChatModel<ModelOptions> {
     }
 
     bindTools(tools: BindToolsInput[]) {
-        return this.withConfig({ tools: tools.map((tool) => convertToOpenAITool(tool)) })
+        return this.withConfig({
+            // `ToolDefinition` is an interface, so spread it into a plain object that
+            // satisfies the `Record<string, unknown>[]` call option.
+            tools: tools.map((tool) => ({ ...convertToOpenAITool(tool) })),
+        })
     }
 
     async _generate(

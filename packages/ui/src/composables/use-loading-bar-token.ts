@@ -14,8 +14,9 @@ import { injectLoadingState } from '#ui/providers/loading-state'
  * Safe to call without a provider mounted; becomes a no-op.
  */
 export function useLoadingBarToken(pending: Ref<boolean>): void {
-    const loadingState = injectLoadingState(null)
-    if (!loadingState) return
+    const injectedLoadingState = injectLoadingState(null)
+    if (!injectedLoadingState) return
+    const loadingState = injectedLoadingState
 
     let token: symbol | null = null
 

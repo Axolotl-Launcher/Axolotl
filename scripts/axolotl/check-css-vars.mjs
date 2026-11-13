@@ -97,6 +97,10 @@ allow('runtime-set', [
         'packages/ui/src/components/base/FloatingActionBar.vue :style `--floating-action-bar-right-offset`',
     ],
     [
+        'favorites-sidebar-top',
+        'apps/app-frontend/src/pages/Favorites.vue :style `--favorites-sidebar-top` measured from the sticky favorites toolbar height',
+    ],
+    [
         'home-free-grid-column-pitch',
         'apps/app-frontend/src/components/home/HomeDashboard.vue :style `--home-free-grid-column-pitch`',
     ],
@@ -123,10 +127,6 @@ allow('runtime-set', [
     [
         'minecraft-text-shadow-color',
         'apps/app-frontend/src/pages/LabGradientText.vue :style `--minecraft-text-shadow-color`',
-    ],
-    [
-        'onboarding-dialogue-reserved-space',
-        'apps/app-frontend/src/components/ui/onboarding/useOnboardingTour.ts setProperty `--onboarding-dialogue-reserved-space`',
     ],
     [
         'property-progress',

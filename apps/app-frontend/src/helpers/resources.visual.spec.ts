@@ -37,7 +37,8 @@ it('rejects as soon as the request is aborted and asks the native side to stop i
     )
     controller.abort()
     await expect(result).rejects.toMatchObject({ name: 'AbortError' })
-    const requestId = vi.mocked(invoke).mock.calls[0][1]?.requestId
+    const requestId = (vi.mocked(invoke).mock.calls[0][1] as { requestId?: string } | undefined)
+        ?.requestId
     expect(vi.mocked(invoke)).toHaveBeenCalledWith('plugin:axolotl-resources|resource_cancel', {
         requestId,
     })

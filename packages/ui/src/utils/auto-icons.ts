@@ -3,10 +3,8 @@ import {
     BoxIcon,
     BracesIcon,
     CalendarIcon,
-    CardIcon,
     CheckCircleIcon,
     CircleAlertIcon,
-    CurrencyIcon,
     DiscordIcon,
     FileArchiveIcon,
     FileCodeIcon,
@@ -23,7 +21,6 @@ import {
     LockIcon,
     PackageOpenIcon,
     PaintbrushIcon,
-    PayPalIcon,
     PlugIcon,
     PolygonIcon,
     ScaleIcon,
@@ -44,7 +41,7 @@ import {
     FILE_TEXT_EXTENSIONS,
 } from './file-extensions'
 
-export const PROJECT_TYPE_ICONS: Record<ProjectType, Component> = {
+export const PROJECT_TYPE_ICONS: Record<ProjectType | 'minecraft_java_server', Component> = {
     mod: BoxIcon,
     modpack: PackageOpenIcon,
     resourcepack: PaintbrushIcon,
@@ -53,12 +50,6 @@ export const PROJECT_TYPE_ICONS: Record<ProjectType, Component> = {
     datapack: BracesIcon,
     project: BoxIcon,
     minecraft_java_server: ServerIcon,
-}
-
-export const PAYMENT_METHOD_ICONS: Record<string, Component> = {
-    card: CardIcon,
-    cashapp: CurrencyIcon,
-    paypal: PayPalIcon,
 }
 
 export const SOCIAL_PLATFORM_ICONS: Record<string, Component> = {
@@ -106,10 +97,6 @@ const BLOCKCHAIN_CONFIG: Record<string, { icon: Component; color: string }> = {
 
 export function getProjectTypeIcon(projectType: ProjectType): Component {
     return PROJECT_TYPE_ICONS[projectType] ?? BoxIcon
-}
-
-export function getPaymentMethodIcon(method: string): Component {
-    return PAYMENT_METHOD_ICONS[method] ?? UnknownIcon
 }
 
 export function getSocialPlatformIcon(platform: string): Component {

@@ -1,12 +1,74 @@
 {
   "entries": [
     {
+      "file": "packages/app-lib/src/api/logs/logshare.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed LogShare upload preparation: serializes and gzip-compresses one owned log snapshot within the server file/content/request limits; holds no managed resources and keeps CPU work off the async runtime (D17)",
+      "sites": [
+        "upload_prepared: tokio::task::spawn_blocking(move || encode_upload(&prepared, &limits))"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/util/java_storage.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed command-scoped Windows volume and storage-property inspection; awaited blocking worker owns only its temporary device handle, acquires no managed resource, and keeps driver I/O off the async runtime (D17)",
+      "sites": [
+        "inspect: tokio::task::spawn_blocking(move || inspect_windows(&path))"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/executable_install.rs",
+      "form": "std::fs import",
+      "count": 10,
+      "reason": "reviewed synchronous installer helper: headless metadata inspection, duplicated installation-ownership handle verification, same-volume staged executable verification and atomic publication before any GUI or async runtime; holds no launcher managed resources and retains NSIS directory ownership even after parent death (D17)",
+      "sites": [
+        "dispatch: fs::write(",
+        "inherit_ownership: let expected = fs::canonicalize(parent)",
+        "inherit_ownership: let ownership = unsafe { File::from_raw_handle(duplicate.0) };",
+        "inspect: let metadata = fs::symlink_metadata(path)",
+        "inspect: let mut file = File::open(path).map_err(|error| error.to_string())?;",
+        "install: OpenOptions::new()",
+        "install: let metadata = fs::symlink_metadata(target)",
+        "install: let parent = fs::canonicalize(parent).map_err(|error| error.to_string())?;",
+        "install: let stage_parent = fs::canonicalize(",
+        "record: if let Ok(mut file) = OpenOptions::new()"
+      ]
+    },
+    {
       "file": "apps/app/src/api/auth.rs",
       "form": "tokio::spawn",
       "count": 1,
       "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "browser_login: let auth_code = tokio::spawn(oauth_utils::auth_code_reply::listen_fixed("
+      ]
+    },
+    {
+      "file": "apps/app/src/api/background.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "reviewed operation-scoped animated background decoding and encoding; the command awaits this blocking task while holding only its conversion permit, and the worker acquires no managed resource (D17)",
+      "sites": [
+        "background_convert_animated: let result = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/background.rs",
+      "form": "std::fs import",
+      "count": 9,
+      "reason": "reviewed background source reads in the awaited blocking conversion, path validation before admission, and temporary output publication/cleanup under the single conversion permit; command-scoped work outside L0 with no nested managed acquisition (D17)",
+      "sites": [
+        "convert_background: let bytes = fs::read(input_path).map_err(|error| {",
+        "convert_background: let metadata = fs::metadata(input_path).map_err(|error| {",
+        "validate_output_path: fs::canonicalize(&background_directory).map_err(|error| {",
+        "validate_output_path: fs::create_dir_all(&background_directory).map_err(|error| {",
+        "validate_output_path: fs::create_dir_all(parent).map_err(|error| {",
+        "validate_output_path: let canonical_parent = fs::canonicalize(parent).map_err(|error| {",
+        "write_atomically: fs::write(&temporary_path, bytes).map_err(|error| {",
+        "write_atomically: if let Err(error) = fs::rename(&temporary_path, output_path) {",
+        "write_atomically: let _ = fs::remove_file(&temporary_path);"
       ]
     },
     {
@@ -121,15 +183,6 @@
       ]
     },
     {
-      "file": "apps/app/src/api/mr_auth.rs",
-      "form": "tokio::spawn",
-      "count": 1,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "modrinth_login: let auth_code = tokio::spawn(oauth_utils::auth_code_reply::listen("
-      ]
-    },
-    {
       "file": "apps/app/src/api/resources.rs",
       "form": "tauri::async_runtime::spawn",
       "count": 1,
@@ -151,10 +204,11 @@
     {
       "file": "apps/app/src/api/schematic_preview.rs",
       "form": "std::fs",
-      "count": 7,
+      "count": 8,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "list_instance_schematics: std::fs::read_dir(&directory).map_err(|error| error.to_string())?",
+        "open: let bytes = std::fs::read(path).map_err(|e| e.to_string())?;",
         "parse_schematic: let bytes = std::fs::read(path).map_err(|error| error.to_string())?;",
         "parse_schematic: std::fs::metadata(path).map_err(|error| error.to_string())?;",
         "resolve_source: let canonical = std::fs::canonicalize(&candidate)",
@@ -227,6 +281,153 @@
       ]
     },
     {
+      "file": "apps/app/src/api/tools/backend/core.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking tool work runs on the blocking pool, not an async worker",
+      "sites": [
+        "execute: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/files/mod.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking file work runs on the blocking pool",
+      "sites": [
+        "execute: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/files/paths.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking file work and its synchronous write run on the blocking pool",
+      "sites": [
+        "payload: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/files/paths.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): blocking file work and its synchronous write run on the blocking pool",
+      "sites": [
+        "payload: std::fs::write(&destination, bytes).map_err(error)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/gallery.rs",
+      "form": "spawn_blocking",
+      "count": 4,
+      "reason": "MCP tool backend (upstream #1024): PNG decode/resize and file writes run on the blocking pool",
+      "sites": [
+        "bytes: tokio::task::spawn_blocking(move || {",
+        "execute: let raw = tokio::task::spawn_blocking(move || png(&raw, 16384))",
+        "execute: tokio::task::spawn_blocking(move || png(&source, dimension))",
+        "execute: tokio::task::spawn_blocking(move||{paths::write(&paths::open_root(&root)?,&path,&data,None,true)?;Ok(json!({\"path\":path,\"bytes\":data.len(),\"sha256\":paths::hash(&data)}))}).await.map_err(paths::error)?"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/instance_maintenance.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): symlink metadata helper, no I/O of its own",
+      "sites": [
+        "linked: fn linked(metadata: &std::fs::Metadata) -> bool {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/java.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "MCP tool backend (upstream #1024): Java validation and version probes run on the blocking pool",
+      "sites": [
+        "execute: let valid = tokio::task::spawn_blocking(move || {",
+        "execute: let version = tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/launcher_system.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): system probe on the blocking pool and a background task for the tool",
+      "sites": [
+        "execute: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/launcher_system.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): system probe on the blocking pool and a background task for the tool",
+      "sites": [
+        "execute: tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/reviewed.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): symlink metadata helper, no I/O of its own",
+      "sites": [
+        "linked: pub(super) fn linked(metadata: &std::fs::Metadata) -> bool {"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/schematics.rs",
+      "form": "spawn_blocking",
+      "count": 6,
+      "reason": "MCP tool backend (upstream #1024): schematic parse/render and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: document = tokio::task::spawn_blocking(move || {",
+        "execute: document = tokio::task::spawn_blocking(move || {",
+        "execute: let document = tokio::task::spawn_blocking(move || {",
+        "execute: let files=tokio::task::spawn_blocking(move||{",
+        "execute: tokio::task::spawn_blocking(move||{let bytes=document.data.export(&format).map_err(error)?;if bytes.len()>16*1024*1024{return Err(error(\"export size\"));}paths::write(&paths::open_root(&root)?,&path,&bytes,None,true)?;Ok(json!({\"path\":path,\"bytes\":bytes.len(),\"sha256\":paths::hash(&bytes)}))}).await.map_err(error)?",
+        "execute: tokio::task::spawn_blocking(move||{let mut items=Vec::new();for dy in 0..height{for dz in 0..depth{for dx in 0..width{let p=[x+dx as i32,y+dy as i32,z+dz as i32];items.push(json!({\"position\":p,\"state\":document.data.block(&region_id,p).map_err(error)?}));}}}Ok(json!({\"blocks\":items}))}).await.map_err(error)?"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/schematics.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): schematic parse/render and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: std::fs::write(temp.path(), bytes).map_err(error)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/seed_tools.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "MCP tool backend (upstream #1024): seed tool work and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: return tokio::task::spawn_blocking(move || {",
+        "execute: tokio::task::spawn_blocking(move||match command{"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/seed_tools.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "MCP tool backend (upstream #1024): seed tool work and its temporary-file writes run on the blocking pool",
+      "sites": [
+        "execute: std::fs::create_dir_all(temp.path().join(\"data/minecraft\"))",
+        "execute: std::fs::write(",
+        "execute: std::fs::write(temp.path().join(\"level.dat\"), bytes)"
+      ]
+    },
+    {
+      "file": "apps/app/src/api/tools/backend/worlds/paths.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "MCP tool backend (upstream #1024): symlink metadata helper, no I/O of its own",
+      "sites": [
+        "is_link: fn is_link(metadata: &std::fs::Metadata) -> bool {"
+      ]
+    },
+    {
       "file": "apps/app/src/api/utils.rs",
       "form": "spawn_blocking",
       "count": 2,
@@ -243,6 +444,15 @@
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "read_file_tail: let mut file = std::fs::File::open(path)?;"
+      ]
+    },
+    {
+      "file": "apps/app/src/exit_barrier.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "exit hard-cap watchdog: started once by the first exit pass, follows the re-armable deadline (15 s normal, 30 s restart, disarmed for a pending update) and exits the process at the cap (spec §8.6)",
+      "sites": [
+        "watch_hard_cap: tauri::async_runtime::spawn(async move {"
       ]
     },
     {
@@ -448,48 +658,59 @@
     },
     {
       "file": "apps/app/src/updater_impl.rs",
-      "form": "spawn_blocking",
+      "form": "tokio::spawn",
       "count": 1,
-      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6)",
+      "reason": "Reviewed startup-only package ownership probe before window creation: a two-second child wait and bounded 250 ms reap fall back to Manual. The operation-scoped worker owns only its rpm child, uses kill_on_drop on cancellation, acquires no managed locks and runs outside L0 (D17).",
       "sites": [
-        "install_apt_package: let output = tokio::task::spawn_blocking(move || {"
+        "bounded_package_probe: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/app/src/updater_impl.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "phase-0 baseline: blocking work on the shared blocking pool, which L0 must stop using (T3.6); reviewed awaited signed-portable ZIP staging worker owns only unpublished staging files; package staging and installation retain a private temporary directory through consumer completion, including caller cancellation; neither worker acquires managed resources (D17)",
+      "sites": [
+        "enqueue_update_for_installation: let prepared = tokio::task::spawn_blocking(move || {",
+        "with_staged_package: tokio::task::spawn_blocking(move || {"
       ]
     },
     {
       "file": "apps/app/src/updater_impl.rs",
       "form": "std::fs",
       "count": 2,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
+      "reason": "Reviewed package staging exclusively creates a mode-0600 file inside a private temporary directory in the awaited blocking worker, outside L0 and critical sections. probe_linux_host reads one small dpkg file list once at startup (D17).",
       "sites": [
-        "drop: if let Err(error) = std::fs::remove_file(&self.0)",
-        "install_apt_package: std::fs::write(&deb_path, data).map_err(|io| {"
+        "write_package_exclusively: let mut options = std::fs::OpenOptions::new();",
+        "probe_linux_host: std::fs::read_to_string(format!("
       ]
     },
     {
       "file": "apps/installer-ui/src/windows.rs",
       "form": "std::fs import",
       "count": 11,
-      "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "reason": "Installer-only synchronous I/O outside L0 and critical sections (D17). Profile removal touches only an owned tempfile directory after WebView2 shutdown, with bounded retries; other sites retain the phase-0 baseline review.",
       "sites": [
         "install_dir_requires_elevation: let can_write = fs::OpenOptions::new()",
         "install_dir_requires_elevation: let removed = fs::remove_file(&write_test).is_ok();",
         "read_installer_status: let bytes = fs::read(status_path)?;",
+        "remove_webview_data_directory: match fs::remove_dir_all(directory) {",
         "start_install: let _ = fs::remove_file(&status_path);",
         "start_install: let _ = fs::remove_file(status_path);",
         "start_uninstall: let _ = fs::remove_file(&status_path);",
         "start_uninstall: let _ = fs::remove_file(status_path);",
         "validate_request: if fs::create_dir_all(&resource_dir).is_err() {",
         "validate_request: if fs::write(&write_test, b\"Axolotl Launcher\").is_err() {",
-        "validate_request: let _ = fs::remove_file(write_test);",
-        "webview_data_directory: fs::create_dir_all(&directory).map_err(|error| {"
+        "validate_request: let _ = fs::remove_file(write_test);"
       ]
     },
     {
       "file": "apps/installer-ui/src/windows.rs",
       "form": "std::thread::sleep",
-      "count": 1,
-      "reason": "phase-0 baseline: blocking sleep outside async code",
+      "count": 2,
+      "reason": "Installer-only blocking waits outside async code. Profile cleanup retries every 50 ms for at most five seconds after WebView shutdown or failed startup; installer child polling retains its phase-0 baseline review.",
       "sites": [
+        "remove_webview_data_directory: thread::sleep(Duration::from_millis(50));",
         "wait_for_installer: Ok(None) => thread::sleep(Duration::from_millis(120)),"
       ]
     },
@@ -924,6 +1145,25 @@
       ]
     },
     {
+      "file": "packages/app-lib/src/api/logs/document.rs",
+      "form": "spawn_blocking",
+      "count": 2,
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
+      "sites": [
+        "load_log_document: let (text, source_truncated) = tokio::task::spawn_blocking(move || {",
+        "export_log_file: tokio::task::spawn_blocking(move || {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/api/logs/document.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "Inspection and streaming export perform file operations on the blocking pool without resource locks; export pins directory handles, decompresses and censors fixed chunks, and atomically publishes a temporary entry",
+      "sites": [
+        "read_file: let file = std::fs::File::open(resolved)?;"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/api/memory.rs",
       "form": "spawn_blocking",
       "count": 2,
@@ -1050,13 +1290,14 @@
     {
       "file": "packages/app-lib/src/api/pack/import/instance_json.rs",
       "form": "std::fs",
-      "count": 4,
+      "count": 5,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "find_json: if let Ok(dir) = std::fs::read_dir(path) {",
         "find_json: let Ok(content) = std::fs::read_to_string(jf) else {",
         "find_json: let content = std::fs::read_to_string(&json_files[0]).ok()?;",
-        "find_json: let content = std::fs::read_to_string(&primary).ok()?;"
+        "find_json: let content = std::fs::read_to_string(&primary).ok()?;",
+        "version_from_client_jar: let file = std::fs::File::open(jar).ok()?;"
       ]
     },
     {
@@ -1093,7 +1334,7 @@
       "count": 1,
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
-        "read_pclce_config: let content = std::fs::read_to_string(&path).inspect_err(|e| {"
+        "read_pclce_config_at: let content = std::fs::read_to_string(path).inspect_err(|e| {"
       ]
     },
     {
@@ -1108,19 +1349,22 @@
     {
       "file": "packages/app-lib/src/api/pack/install_from.rs",
       "form": "spawn_blocking",
-      "count": 1,
-      "reason": "upstream baseline (merged from main 99422786d): blocking file hashing on the shared blocking pool, which L0 must stop using (T3.6)",
+      "count": 3,
+      "reason": "reviewed operation-scoped local pack identity reads, format detection and MRPack manifest parsing on the shared blocking pool; each task is awaited, not an L0 background task (D17)",
       "sites": [
+        "get_instance_from_pack: return tokio::task::spawn_blocking(move || {",
+        "get_instance_from_pack: tokio::task::spawn_blocking(move || {",
         "local_pack_retry_identity: tokio::task::spawn_blocking(move || {"
       ]
     },
     {
       "file": "packages/app-lib/src/api/pack/install_from.rs",
       "form": "std::fs",
-      "count": 2,
-      "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17); the second site came with upstream main 99422786d",
+      "count": 3,
+      "reason": "reviewed local pack archive validation, retry identity reads and MRPack preview file I/O; local_mrpack_preview runs in an awaited blocking task before instance creation, not in L0 or under a managed lock (D17)",
       "sites": [
         "get_instance_from_pack: let file = std::fs::File::open(&path)",
+        "local_mrpack_preview: let file = std::fs::File::open(path)?;",
         "local_pack_retry_identity: let file = std::fs::File::open(&path)?;"
       ]
     },
@@ -1856,6 +2100,65 @@
       ]
     },
     {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "spawn_blocking",
+      "count": 1,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
+      "sites": [
+        "spawn_blocking: self.handle.spawn_blocking(work)"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "bounded poll for the L0 driver thread to exit within its 5 s window",
+      "sites": [
+        "wait_for_exit: std::thread::sleep(Duration::from_millis(10));"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "thread::Builder",
+      "count": 1,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
+      "sites": [
+        "start: let thread = std::thread::Builder::new()"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/executor.rs",
+      "form": "thread::Builder spawn",
+      "count": 4,
+      "reason": "L0 executor: its driver thread, and spawns onto the L0 runtime and its own blocking pool (T3.6)",
+      "sites": [
+        "spawn: let _ = self.handle.spawn(async move {",
+        "start: .spawn(move || {",
+        "start: supervisor.spawn(\"l0-task\", task);",
+        "start: supervisor.spawn(\"l0-task\", task);"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/l0/mod.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "fallback onto the current runtime when the L0 executor cannot start",
+      "sites": [
+        "spawn_on_current: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/scheduler/order/instrument.rs",
+      "form": "std::fs",
+      "count": 3,
+      "reason": "debug-only order guard: appends one line per reported pair and reads the generated registry at startup (SCHED_ORDER_GUARD=1)",
+      "sites": [
+        "append: if let Ok(mut file) = std::fs::OpenOptions::new()",
+        "append: let _ = std::fs::create_dir_all(parent);",
+        "read_json: serde_json::from_str(&std::fs::read_to_string(file).ok()?).ok()"
+      ]
+    },
+    {
       "file": "packages/app-lib/src/scheduler/panic.rs",
       "form": "std::fs",
       "count": 4,
@@ -1895,14 +2198,12 @@
       ]
     },
     {
-      "file": "packages/app-lib/src/state/friends.rs",
-      "form": "tokio::spawn",
-      "count": 3,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "file": "packages/app-lib/src/state/documents/mod.rs",
+      "form": "std::fs",
+      "count": 1,
+      "reason": "settings documents (upstream #1034): symlink-following metadata probe on the document path",
       "sites": [
-        "connect: tokio::spawn(async move {",
-        "socket_loop: tokio::task::spawn(async move {",
-        "socket_read_loop: tokio::spawn(async move {"
+        "on_path: match std::fs::metadata(path) {"
       ]
     },
     {
@@ -1910,6 +2211,16 @@
       "form": "std::fs import",
       "count": 2,
       "reason": "phase-0 baseline: synchronous file I/O through an imported std::fs name; must not appear in L0 or inside a critical section (D17)",
+      "sites": [
+        "read_from_disk: match fs::read_to_string(&path)",
+        "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
+      ]
+    },
+    {
+      "file": "packages/app-lib/src/state/favorite_groups.rs",
+      "form": "std::fs import",
+      "count": 2,
+      "reason": "favorite group store mirrors the instance group JSON store: synchronous file I/O through an imported std::fs name; it is not held in L0 or inside a critical section",
       "sites": [
         "read_from_disk: match fs::read_to_string(&path)",
         "write_to_disk: fs::write(path, serde_json::to_string_pretty(file)?)?;"
@@ -2055,12 +2366,11 @@
     {
       "file": "packages/app-lib/src/state/instances/watcher.rs",
       "form": "tokio::spawn",
-      "count": 9,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
+      "count": 8,
+      "reason": "reviewed watcher-scoped tasks: screenshot reconciliation is now owned and coalesced by the watcher pump rather than spawned per filesystem event; remaining event delivery, configuration/manual-download reconciliation and crash notification tasks retain their existing operation scopes",
       "sites": [
         "configure_manual_import_directory: tokio::spawn(async move {",
         "crash_task: tokio::task::spawn(async move {",
-        "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
         "init_watcher: tokio::spawn(async move {",
@@ -2111,15 +2421,14 @@
     {
       "file": "packages/app-lib/src/state/process.rs",
       "form": "tokio::spawn",
-      "count": 6,
+      "count": 5,
       "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
         "insert_new_process: process.output_tasks.push(tokio::spawn(async move {",
-        "insert_new_process: tokio::spawn(Process::sequential_process_manager(",
+        "insert_new_process: tokio::spawn(Process::react_to_process(",
         "parse_and_insert_server_join: tokio::spawn(async move {",
-        "sequential_process_manager: tokio::spawn(async move {",
-        "sequential_process_manager: tokio::spawn(async move {"
+        "react_to_process: tokio::spawn(async move {"
       ]
     },
     {
@@ -2129,16 +2438,6 @@
       "reason": "phase-0 baseline: synchronous file I/O; must not appear in L0 or inside a critical section (D17)",
       "sites": [
         "auto_prefers_mirror: std::fs::read_link(\"/etc/localtime\")"
-      ]
-    },
-    {
-      "file": "packages/app-lib/src/state/tunnel.rs",
-      "form": "tokio::spawn",
-      "count": 2,
-      "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
-      "sites": [
-        "drop: tokio::spawn(close_sockets(self.write.clone(), sockets));",
-        "shutdown: tokio::spawn(close_sockets(self.write.clone(), sockets)).await?"
       ]
     },
     {
@@ -2482,7 +2781,95 @@
       "count": 1,
       "reason": "phase-0 baseline: existing task spawn; moves to scheduler dispatch with the governed items (spec §5.6) or stays operation-scoped",
       "sites": [
-        "start: let task = tokio::spawn(async move {"
+        "start_with_runtime: let task = tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "packages/launcher-tools/src/operations.rs",
+      "form": "tokio::spawn",
+      "count": 2,
+      "reason": "launcher-tools operation dispatch (upstream): runs a queued tool command on the runtime",
+      "sites": [
+        "enqueue: tokio::spawn(async move {",
+        "enqueue: tokio::spawn(async move { backend.execute(command, context).await }).await"
+      ]
+    },
+    {
+      "file": "packages/launcher-tools/src/runtime.rs",
+      "form": "tokio::spawn",
+      "count": 1,
+      "reason": "launcher-tools runtime (upstream): background runtime task",
+      "sites": [
+        "execute: tokio::spawn(async move {"
+      ]
+    },
+    {
+      "file": "third-party/tauri-plugin-http/src/lib.rs",
+      "form": "std::fs",
+      "count": 2,
+      "reason": "Vendored HTTP plugin cookie initialization: imports File and creates the application cache directory synchronously during Tauri plugin setup, before handling requests; no cookie-store mutex is held.",
+      "sites": [
+        "init: std::fs::create_dir_all(&cache_dir)?;",
+        "init: use std::fs::File;"
+      ]
+    },
+    {
+      "file": "third-party/tauri-plugin-http/src/lib.rs",
+      "form": "std::fs import",
+      "count": 1,
+      "reason": "Vendored HTTP plugin cookie initialization: opens the single persistent cookie file synchronously during Tauri plugin setup; no cookie-store mutex is held.",
+      "sites": [
+        "init: let file = File::options()"
+      ]
+    },
+    {
+      "file": "third-party/tauri-plugin-http/src/reqwest_cookie_store.rs",
+      "form": "tauri::async_runtime::spawn",
+      "count": 1,
+      "reason": "Vendored HTTP plugin cookie persistence: operation-scoped asynchronous write of an already serialized snapshot; the cookie-store mutex is released before spawning, and the previous save task is cancelled when replaced.",
+      "sites": [
+        "request_save: let task = tauri::async_runtime::spawn(async move {"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/portable_update.rs",
+      "form": "std::thread::sleep",
+      "count": 1,
+      "reason": "reviewed bounded 15-second readiness polling in synchronous Exit dispatcher; no runtime or managed resources held; worker holds installation ownership before acknowledging readiness (D17)",
+      "sites": [
+        "start: std::thread::sleep(Duration::from_millis(20));"
+      ]
+    },
+    {
+      "file": "apps/installer-ui/src/portable_update.rs",
+      "form": "std::fs import",
+      "count": 24,
+      "reason": "reviewed exact synchronous portable transaction I/O: verified ZIP staging in awaited blocking worker, pre-runtime recovery, share-zero installation ownership and journaled program-only activation after parent exit; no launcher managed-resource acquisition, data-directory contents excluded (D17)",
+      "sites": [
+        "activate: fs::create_dir(stage.join(\"previous\"))",
+        "activate: fs::rename(&target, stage.join(\"previous\").join(&item.path))",
+        "activate: fs::rename(stage.join(\"payload\").join(&item.path), &target)",
+        "activate: let mut source = File::open(stage.join(\"payload\").join(MAIN))",
+        "digest: let mut file = File::open(path).map_err(|error| error.to_string())?;",
+        "dispatch: let _ = fs::write(stage.join(\"error.txt\"), error);",
+        "ownership: OpenOptions::new().read(true).write(true).create(true).truncate(false).share_mode(0)",
+        "prepare: fs::copy(payload.join(HELPER), stage.path().join(\"worker.exe\"))",
+        "prepare: fs::create_dir(&payload).map_err(|error| error.to_string())?;",
+        "prepare: let mut output = OpenOptions::new()",
+        "read_json: let file = File::open(path).map_err(|error| error.to_string())?;",
+        "recover_owned: fs::remove_file(&target)",
+        "recover_owned: fs::remove_file(&target).map_err(|error| error.to_string())?;",
+        "recover_owned: fs::remove_file(marker).map_err(|error| error.to_string())?;",
+        "recover_owned: fs::rename(&backup, &target)",
+        "regular: fs::symlink_metadata(path).map_err(|error| error.to_string())?;",
+        "safe_parents: fs::create_dir(&path).map_err(|error| error.to_string())?;",
+        "safe_parents: fs::symlink_metadata(root).map_err(|error| error.to_string())?;",
+        "safe_parents: match fs::symlink_metadata(&path) {",
+        "start: fs::read_to_string(self.stage.path().join(\"error.txt\"))",
+        "validate_journal: fs::symlink_metadata(&stage).map_err(|error| error.to_string())?;",
+        "worker: != fs::canonicalize(root).map_err(|error| error.to_string())?",
+        "worker: if fs::canonicalize(stage.parent().ok_or(\"Invalid portable stage\")?)",
+        "write_new: let mut file = OpenOptions::new()"
       ]
     }
   ]

@@ -51,7 +51,7 @@ jobs:
           submodules: recursive
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -69,7 +69,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/release-policy.test.mjs scripts/axolotl/windows-package-architecture.test.mjs
           node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
           node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
@@ -138,6 +138,9 @@ jobs:
           - name: Windows x64
             runner: windows-2025
             platform: windows
+          - name: Windows arm64
+            runner: windows-11-arm
+            platform: windows
     runs-on: ${{ matrix.runner }}
     env:
       SQLX_OFFLINE: true
@@ -185,7 +188,7 @@ jobs:
             node scripts/axolotl/package-windows.mjs --profile release --output target/release-assets/upload
           else
             pnpm --filter @modrinth/app tauri bundle --ci --config tauri-release.conf.json --config tauri-updater.conf.json
-            node scripts/axolotl/stage-release-assets.mjs --input target/release/bundle --output target/release-assets/upload --platform linux
+            node scripts/axolotl/stage-release-assets.mjs --input target/release/bundle --output target/release-assets/upload --platform linux --sign-packages
           fi
       - name: Upload release assets
         env:
@@ -202,7 +205,7 @@ jobs:
         include:
           - runner: macos-26
             target: aarch64-apple-darwin
-          - runner: macos-15-intel
+          - runner: macos-26-intel
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     env:
@@ -277,9 +280,36 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/axolotl/upload-release-assets.mjs "$GITHUB_REF_NAME" target/release-assets/upload
 
+  web-demo:
+    name: Package web demo
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Package web demo
+        run: node scripts/axolotl/package-web-demo.mjs "$GITHUB_REF_NAME" target/release-assets/web-demo
+      - name: Upload web demo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/axolotl/upload-release-assets.mjs "$GITHUB_REF_NAME" target/release-assets/web-demo
+
   verify-and-publish:
     name: Verify and publish existing assets
-    needs: [build, macos-universal]
+    # Waits for the web demo so the mirrors copy it, but its result does not gate publication.
+    needs: [build, macos-universal, web-demo]
     if: >-
       ${{ !cancelled() &&
           (github.event_name == 'workflow_dispatch' ||
@@ -315,6 +345,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TARGET: ${{ inputs.target || 'all' }}
+          AXOLOTL_REQUIRE_WINDOWS_ARM64: ${{ github.event_name == 'push' }}
         run: |
           args=()
           if [[ "$RELEASE_TARGET" != all && "$RELEASE_TARGET" != github ]]; then
@@ -422,7 +453,7 @@ jobs:
           ref: main
           path: website-publish
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Generate website release data from the release tag
         run: |
           if [[ "${RELEASE_TAG}" != *-* ]]; then
@@ -482,6 +513,20 @@ jobs:
             --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME" \
             --branch main \
             --commit-message "Launcher ${RELEASE_TAG} (GitHub Actions ${GITHUB_RUN_ID})"
+
+  sync-website-release-data:
+    name: Sync release data to the website repository
+    # Finish the legacy deployment before triggering the independent website deployment.
+    needs: [verify-and-publish, publish-website]
+    if: ${{ !cancelled() && needs.verify-and-publish.result == 'success' && (github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'website') }}
+    uses: ./.github/workflows/sync-website-release-data.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+      release-metadata-artifact: published-release-metadata
+      deploy-unchanged: ${{ github.event_name == 'workflow_dispatch' }}
+    secrets:
+      WEBSITE_SYNC_APP_PRIVATE_KEY: ${{ secrets.WEBSITE_SYNC_APP_PRIVATE_KEY }}
+      WEBSITE_SYNC_TOKEN: ${{ secrets.WEBSITE_SYNC_TOKEN }}
 
   mirror-cnb:
     name: Mirror release to CNB

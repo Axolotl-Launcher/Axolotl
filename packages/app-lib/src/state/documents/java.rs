@@ -9,14 +9,14 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use super::{Documents, Stored, WRITES};
+use super::{Documents, Stored, WRITES, composed, without_shipped};
 use crate::state::store;
 
 pub(crate) const DOCUMENT: &str = "java";
 
 /// Bumped whenever the key set of this document changes, including when a key
 /// is dropped. The document records it; a newer document is still read.
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 
 /// An installed runtime, identified by the path of its executable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +43,14 @@ pub(crate) struct JavaDocument {
     pub(crate) runtimes: Vec<JavaRuntime>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) defaults: Vec<JavaDefault>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) external_approvals: Vec<ExternalJavaApproval>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct ExternalJavaApproval {
+    pub(crate) path: String,
+    pub(crate) volume_id: String,
 }
 
 impl JavaDocument {
@@ -162,23 +170,20 @@ impl JavaDocument {
     }
 }
 
-/// The document, or the rows while it does not exist. A document that exists
-/// answers on its own: every key it leaves out is a default, so an older build
-/// falling back to the rows cannot resurrect what a newer one wrote.
+/// The document, composed of the keys the deployment ships and the ones the
+/// local document names, or the rows while neither of them answers.
+///
+/// A layer answers a whole key, and the defaults are pointers at runtimes, so a
+/// composed document can name a runtime it does not hold. That is what
+/// `default_for` already answers nothing for: the pairing is kept by what the
+/// document holds, not by which layer wrote it.
 pub(crate) async fn read(
     documents: &Documents<'_>,
 ) -> crate::Result<JavaDocument> {
-    match documents
-        .stored::<JavaDocument>(DOCUMENT, SCHEMA_VERSION)
-        .await
-    {
-        Stored::Ready { document, .. } | Stored::Newer { document, .. } => {
-            Ok(document)
-        }
-        Stored::Missing | Stored::Unreadable => {
-            from_database(documents.pool()).await
-        }
-    }
+    composed(documents, DOCUMENT, SCHEMA_VERSION, async {
+        from_database(documents.pool()).await
+    })
+    .await
 }
 
 async fn from_database(pool: &SqlitePool) -> crate::Result<JavaDocument> {
@@ -202,7 +207,11 @@ async fn from_database(pool: &SqlitePool) -> crate::Result<JavaDocument> {
                 path: record.path,
             })
             .collect();
-    Ok(JavaDocument { runtimes, defaults })
+    Ok(JavaDocument {
+        runtimes,
+        defaults,
+        external_approvals: Vec::new(),
+    })
 }
 
 /// Writes the document the rows hand over to, unless one is already in place.
@@ -220,6 +229,11 @@ pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
             tracing::warn!(%error, "Could not read the Java runtime rows");
             return false;
         }
+    };
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return false;
     };
     match documents.write(DOCUMENT, SCHEMA_VERSION, &document).await {
         Ok(()) => true,
@@ -287,6 +301,25 @@ pub(crate) async fn forget(
 ) -> crate::Result<()> {
     update(documents, |document| {
         document.forget(path);
+        document
+            .external_approvals
+            .retain(|approval| approval.path != path);
+    })
+    .await
+}
+
+pub(crate) async fn approve_external(
+    documents: &Documents<'_>,
+    path: String,
+    volume_id: String,
+) -> crate::Result<()> {
+    update(documents, |document| {
+        document
+            .external_approvals
+            .retain(|approval| approval.path != path);
+        document
+            .external_approvals
+            .push(ExternalJavaApproval { path, volume_id });
     })
     .await
 }
@@ -296,6 +329,14 @@ pub(crate) async fn forget(
 ///
 /// A launcher that has no document yet is answered by its rows, and the move
 /// leaves the document holding their rewritten paths.
+///
+/// The draft is a composed document, so it carries the keys the deployment
+/// answers as well as the local and row ones: copied into the local document
+/// they would shadow every later change of the deployment's own, so they are
+/// dropped before the write whichever of the two the draft came from. A key the
+/// user's own document carries is not one of them and stays as it stands, and a
+/// deployment document this build cannot read leaves the local one alone: what
+/// it answers is unknown, so the move is reported without writing.
 pub(crate) async fn move_installations(
     documents: &Documents<'_>,
     from: &str,
@@ -305,6 +346,11 @@ pub(crate) async fn move_installations(
     let _writing = WRITES.lock().await;
     let mut document = read(documents).await?;
     let dropped = document.move_installations(from, to, &is_incomplete)?;
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return Ok(dropped);
+    };
     documents.write(DOCUMENT, SCHEMA_VERSION, &document).await?;
 
     Ok(dropped)
@@ -324,7 +370,14 @@ async fn update(
         Stored::Newer { .. } => return Ok(()),
         Stored::Ready { document, .. } => document,
         Stored::Missing | Stored::Unreadable => {
-            from_database(documents.pool()).await?
+            let draft = from_database(documents.pool()).await?;
+            let Some(draft) =
+                without_shipped(documents, DOCUMENT, SCHEMA_VERSION, draft)
+                    .await
+            else {
+                return Ok(());
+            };
+            draft
         }
     };
     apply(&mut document);
@@ -336,7 +389,15 @@ mod tests {
     use sqlx::SqlitePool;
 
     use super::*;
-    use crate::state::documents::test_support::{create_java_tables, pool};
+    use crate::state::documents::test_support::{
+        create_java_tables, layered, pool, ship,
+    };
+    use crate::state::store::Collection;
+    use crate::state::store::Handle;
+    use crate::state::store::java_default_versions::{
+        JavaDefaultVersionRecord, JavaDefaultVersions,
+    };
+    use crate::state::store::java_versions::{JavaVersionRecord, JavaVersions};
 
     fn documents<'a>(
         root: &tempfile::TempDir,
@@ -348,16 +409,39 @@ mod tests {
     async fn installed_pool() -> SqlitePool {
         let pool = pool().await;
         create_java_tables(&pool).await;
-        sqlx::query(
-            "INSERT INTO java_versions (major_version, full_version, architecture, path, distribution) VALUES (21, '21.0.1', 'x86_64', '/java/temurin-21/bin/java', 'temurin'), (17, '17.0.9', 'x86_64', '/java/temurin-17/bin/java', NULL)",
+        let handle = Handle::new(pool.clone());
+        let runtimes = [
+            (
+                "/java/temurin-21/bin/java",
+                JavaVersionRecord {
+                    major_version: 21,
+                    full_version: "21.0.1".to_string(),
+                    architecture: "x86_64".to_string(),
+                    distribution: Some("temurin".to_string()),
+                },
+            ),
+            (
+                "/java/temurin-17/bin/java",
+                JavaVersionRecord {
+                    major_version: 17,
+                    full_version: "17.0.9".to_string(),
+                    architecture: "x86_64".to_string(),
+                    distribution: None,
+                },
+            ),
+        ];
+        for (path, record) in runtimes {
+            JavaVersions::set(&handle, &path.to_string(), Some(&record))
+                .await
+                .unwrap();
+        }
+        JavaDefaultVersions::set(
+            &handle,
+            &21,
+            Some(&JavaDefaultVersionRecord {
+                path: "/java/temurin-21/bin/java".to_string(),
+            }),
         )
-        .execute(&pool)
-        .await
-        .unwrap();
-        sqlx::query(
-            "INSERT INTO java_default_versions (major_version, path) VALUES (21, '/java/temurin-21/bin/java')",
-        )
-        .execute(&pool)
         .await
         .unwrap();
         pool
@@ -384,6 +468,37 @@ mod tests {
                 .map(|runtime| runtime.major_version)
                 .collect::<Vec<_>>(),
             [21]
+        );
+    }
+
+    #[tokio::test]
+    async fn external_approval_survives_runtime_scans_and_is_removed_when_forgotten()
+     {
+        let pool = installed_pool().await;
+        let root = tempfile::tempdir().unwrap();
+        let documents = documents(&root, &pool);
+        approve_external(
+            &documents,
+            "/java/temurin-17/bin/java".into(),
+            "volume-a".into(),
+        )
+        .await
+        .unwrap();
+        save_all(&documents, Vec::<JavaRuntime>::new())
+            .await
+            .unwrap();
+        let document = read(&documents).await.unwrap();
+        assert_eq!(document.external_approvals.len(), 1);
+        assert_eq!(document.external_approvals[0].volume_id, "volume-a");
+        forget(&documents, "/java/temurin-17/bin/java")
+            .await
+            .unwrap();
+        assert!(
+            read(&documents)
+                .await
+                .unwrap()
+                .external_approvals
+                .is_empty()
         );
     }
 
@@ -476,6 +591,70 @@ mod tests {
         assert!(document.installed_defaults().is_empty());
     }
 
+    /// A deployment's document replaces the list it names, and the default it
+    /// ships keeps pointing at a runtime the composed document holds.
+    #[tokio::test]
+    async fn a_deployment_document_pairs_its_own_runtime_with_its_default() {
+        let pool = installed_pool().await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"runtimes":[{"path":"/deploy/jdk/bin/java","major_version":21,"full_version":"21.0.2"}],"defaults":[{"major_version":21,"path":"/deploy/jdk/bin/java"}]}"#,
+        );
+
+        let document =
+            read(&layered(&local, &deployment, &pool)).await.unwrap();
+
+        assert_eq!(
+            document
+                .runtimes
+                .iter()
+                .map(|runtime| runtime.path.as_str())
+                .collect::<Vec<_>>(),
+            ["/deploy/jdk/bin/java"],
+            "the deployment answers the runtimes it names in place of the rows'"
+        );
+        assert_eq!(
+            document
+                .default_for(21)
+                .map(|runtime| runtime.path.as_str()),
+            Some("/deploy/jdk/bin/java"),
+            "a default answers only while the composed document holds the runtime it names"
+        );
+        assert!(document.default_for(17).is_none());
+    }
+
+    /// A default is a pointer, and the layers are laid key by key: a deployment
+    /// that answers the defaults alone leaves them pointing at a runtime the
+    /// composed document does not hold, which reads as no default at all.
+    #[tokio::test]
+    async fn a_deployment_default_without_its_runtime_is_not_a_default() {
+        let pool = installed_pool().await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"defaults":[{"major_version":21,"path":"/deploy/jdk/bin/java"}]}"#,
+        );
+
+        let document =
+            read(&layered(&local, &deployment, &pool)).await.unwrap();
+
+        assert_eq!(
+            document.runtimes.len(),
+            2,
+            "a key the deployment leaves out is still the rows'"
+        );
+        assert!(
+            document.default_for(21).is_none(),
+            "the pairing is kept by what the document holds, not by which layer wrote the pointer"
+        );
+        assert!(document.installed_defaults().is_empty());
+    }
+
     #[tokio::test]
     async fn a_write_only_carries_the_keys_that_differ_from_the_default() {
         let pool = installed_pool().await;
@@ -558,6 +737,44 @@ mod tests {
                 .iter()
                 .all(|runtime| !runtime.path.starts_with("/java/")),
             "the fixtures live under /java, so a stale path means the move missed one"
+        );
+    }
+
+    /// A key the deployment answers is not copied out of the rows into the local
+    /// document: the local copy is the last word for the keys it carries, so the
+    /// deployment's list of runtimes would never arrive again.
+    #[tokio::test]
+    async fn a_deployment_value_is_not_copied_into_the_local_document() {
+        let pool = installed_pool().await;
+        let local = tempfile::tempdir().unwrap();
+        let deployment = tempfile::tempdir().unwrap();
+        ship(
+            &deployment,
+            DOCUMENT,
+            r#"{"runtimes":[{"path":"/deploy/jdk/bin/java","major_version":21,"full_version":"21.0.2"}]}"#,
+        );
+        let documents = layered(&local, &deployment, &pool);
+
+        assert!(hand_over_if_missing(&documents).await);
+
+        let stored: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(documents.path(DOCUMENT)).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            !stored["data"].as_object().unwrap().contains_key("runtimes"),
+            "the key the deployment answers is left out of the local document"
+        );
+        assert_eq!(
+            read(&documents)
+                .await
+                .unwrap()
+                .runtimes
+                .iter()
+                .map(|runtime| runtime.path.as_str())
+                .collect::<Vec<_>>(),
+            ["/deploy/jdk/bin/java"],
+            "and the answer the deployment gives is the one the domain reads"
         );
     }
 }

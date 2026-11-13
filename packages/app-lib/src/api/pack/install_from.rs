@@ -1,5 +1,8 @@
 use crate::State;
-use crate::api::pack::detect::detect_local_pack_sync;
+use crate::api::pack::detect::{
+    LocalPackFormat, MRPACK_MANIFEST, detect_local_pack_sync,
+    select_mrpack_manifest,
+};
 use crate::data::ModLoader;
 use crate::install::{
     InstallErrorContext, InstallJobEventKind, InstallPhaseDetails,
@@ -24,6 +27,7 @@ use path_util::SafeRelativeUtf8UnixPathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::future::Future;
+use std::io::Read;
 
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -222,6 +226,133 @@ pub(crate) async fn local_pack_retry_identity(
     .await?
 }
 
+fn local_mrpack_preview(path: &Path) -> crate::Result<CreatePackInstance> {
+    let file = std::fs::File::open(path)?;
+    let invalid_archive = |error| {
+        crate::ErrorKind::InputError(format!(
+            "Cannot read local modpack manifest: {error}"
+        ))
+    };
+    let mut archive = ZipArchive::new(file).map_err(invalid_archive)?;
+    let (index, _) = select_mrpack_manifest(
+        archive
+            .file_names_raw()
+            .enumerate()
+            .filter_map(|(index, name)| {
+                std::str::from_utf8(name).ok().map(|name| (index, name))
+            }),
+    )
+    .ok_or_else(|| {
+        crate::ErrorKind::InputError(format!(
+            "Modpack archive is missing {MRPACK_MANIFEST}"
+        ))
+    })?;
+    let mut manifest = Vec::new();
+    archive
+        .by_index(index)
+        .map_err(invalid_archive)?
+        .read_to_end(&mut manifest)?;
+    let manifest = manifest
+        .strip_prefix(&[0xef, 0xbb, 0xbf])
+        .unwrap_or(&manifest);
+    let pack: PackFormat = serde_json::from_slice(manifest)?;
+    if pack.game != "minecraft" || pack.format_version != 1 {
+        return Err(crate::ErrorKind::InputError(
+            "Unsupported Minecraft modpack manifest format".to_string(),
+        )
+        .into());
+    }
+    if pack.name.trim().is_empty() {
+        return Err(crate::ErrorKind::InputError(
+            "Pack did not specify a name".to_string(),
+        )
+        .into());
+    }
+    let game_version = pack
+        .dependencies
+        .get(&PackDependency::Minecraft)
+        .filter(|version| !version.trim().is_empty())
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Pack did not specify Minecraft version".to_string(),
+            )
+        })?;
+    let primary = primary_pack_loader(&pack.dependencies)?;
+    let (dependency, modloader) =
+        primary.unwrap_or((PackDependency::Minecraft, ModLoader::Vanilla));
+    let mut components = vec![LoaderComponent::new_primary(
+        "preview",
+        modloader,
+        (modloader != ModLoader::Vanilla)
+            .then(|| pack.dependencies[&dependency].clone()),
+    )];
+    for (dependency, kind) in [
+        (PackDependency::OptiFine, LoaderComponentKind::OptiFine),
+        (PackDependency::LiteLoader, LoaderComponentKind::LiteLoader),
+        (PackDependency::OptiFabric, LoaderComponentKind::OptiFabric),
+    ] {
+        if let Some(version) = pack.dependencies.get(&dependency) {
+            components.push(LoaderComponent {
+                instance_id: "preview".to_string(),
+                kind,
+                version: Some(version.clone()),
+                role: LoaderComponentRole::Adjunct,
+                provider_metadata: None,
+            });
+        }
+    }
+    if components.iter().any(|component| {
+        component
+            .version
+            .as_ref()
+            .is_some_and(|version| version.trim().is_empty())
+    }) {
+        return Err(crate::ErrorKind::InputError(
+            "Pack declares an empty loader version".to_string(),
+        )
+        .into());
+    }
+    crate::install::runner::validate_loader_components(&components)?;
+    let (modloader, loader_version) =
+        crate::state::project_loader_components(&components)?;
+    Ok(CreatePackInstance {
+        name: pack.name,
+        game_version: game_version.clone(),
+        modloader,
+        loader_version,
+        unknown_file: false,
+        ..Default::default()
+    })
+}
+
+fn primary_pack_loader(
+    dependencies: &HashMap<PackDependency, String>,
+) -> crate::Result<Option<(PackDependency, ModLoader)>> {
+    let primary = [
+        (PackDependency::Forge, ModLoader::Forge),
+        (PackDependency::NeoForge, ModLoader::NeoForge),
+        (PackDependency::FabricLoader, ModLoader::Fabric),
+        (PackDependency::QuiltLoader, ModLoader::Quilt),
+        (PackDependency::Cleanroom, ModLoader::Cleanroom),
+        (PackDependency::LegacyFabric, ModLoader::LegacyFabric),
+    ]
+    .into_iter()
+    .filter(|(dependency, _)| dependencies.contains_key(dependency))
+    .collect::<Vec<_>>();
+    if primary.len() > 1 {
+        return Err(crate::ErrorKind::InputError(format!(
+            "Pack declares incompatible primary loaders: {}",
+            primary
+                .iter()
+                .map(|(_, loader)| loader.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+        .into());
+    }
+    Ok(primary.first().copied())
+}
+
 pub async fn get_instance_from_pack(
     location: CreatePackLocation,
 ) -> crate::Result<CreatePackInstance> {
@@ -258,6 +389,25 @@ pub async fn get_instance_from_pack(
                 ))
             })?;
 
+            let detected = {
+                let path = path.clone();
+                tokio::task::spawn_blocking(move || {
+                    detect_local_pack_sync(&path)
+                })
+                .await?
+            };
+            if let Ok(detected) = &detected
+                && detected.format == LocalPackFormat::Mrpack
+            {
+                // Parsing failures are fatal: publishing default metadata would
+                // leave a believable but incorrect instance after a failed import.
+                let path = path.clone();
+                return tokio::task::spawn_blocking(move || {
+                    local_mrpack_preview(&path)
+                })
+                .await?;
+            }
+
             // CurseForge archives carry authoritative identity metadata in
             // manifest.json. Read it before instance creation so we do not
             // briefly create a 1.19.4/Vanilla instance.
@@ -274,10 +424,8 @@ pub async fn get_instance_from_pack(
                 });
             }
 
-            // Scan ZIP entry names to detect pack format (no extraction, just
-            // reads the central directory). This tells us what kind of content
-            // we're dealing with before any expensive operations.
-            let is_known_file = detect_local_pack_sync(&path).is_ok();
+            // Other formats resolve their full metadata in their installers.
+            let is_known_file = detected.is_ok();
 
             Ok(CreatePackInstance {
                 name: file_name,
@@ -445,7 +593,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
             }),
             details.clone(),
             vec![InstallJobEventKind::ContentFileQueued {
-                path: item_path,
+                path: item_path.clone(),
                 bytes_total: Some(pack_file.size as u64),
                 max_attempts: INSTALL_FILE_REPORTED_ATTEMPTS,
             }],
@@ -466,7 +614,7 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
             .with_download_meta(download_meta)
             .with_install_tracking(
                 reporter.clone(),
-                pack_path.display().to_string(),
+                item_path.clone(),
                 pack_file.filename.clone(),
             ),
         &pack_path,
@@ -484,7 +632,15 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
     }
 
     reporter
-        .update(InstallPhaseId::ResolvingPack, None, details.clone())
+        .update_with_events(
+            InstallPhaseId::ResolvingPack,
+            None,
+            details.clone(),
+            vec![InstallJobEventKind::ContentFileCompleted {
+                path: item_path,
+                bytes: download_result.size,
+            }],
+        )
         .await?;
 
     let project = CachedEntry::get_project(
@@ -647,31 +803,10 @@ pub(crate) async fn set_instance_information_with_local_loader_versions(
         .into());
     };
 
-    let primary_dependencies = [
-        (PackDependency::Forge, ModLoader::Forge),
-        (PackDependency::NeoForge, ModLoader::NeoForge),
-        (PackDependency::FabricLoader, ModLoader::Fabric),
-        (PackDependency::QuiltLoader, ModLoader::Quilt),
-        (PackDependency::Cleanroom, ModLoader::Cleanroom),
-        (PackDependency::LegacyFabric, ModLoader::LegacyFabric),
-    ]
-    .into_iter()
-    .filter(|(dependency, _)| dependencies.contains_key(dependency))
-    .collect::<Vec<_>>();
-    if primary_dependencies.len() > 1 {
-        return Err(crate::ErrorKind::InputError(format!(
-            "Pack declares incompatible primary loaders: {}",
-            primary_dependencies
-                .iter()
-                .map(|(_, loader)| loader.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ))
-        .into());
-    }
+    let primary_dependency = primary_pack_loader(dependencies)?;
 
-    let primary_loader = primary_dependencies
-        .first()
+    let primary_loader = primary_dependency
+        .as_ref()
         .map(|(_, loader)| *loader)
         .unwrap_or(ModLoader::Vanilla);
     let mut components = vec![LoaderComponent::new_primary(
@@ -679,7 +814,7 @@ pub(crate) async fn set_instance_information_with_local_loader_versions(
         primary_loader,
         None,
     )];
-    if let Some((dependency, loader)) = primary_dependencies.first() {
+    if let Some((dependency, loader)) = primary_dependency.as_ref() {
         let version = resolve_pack_loader_version(
             dependencies,
             *dependency,
@@ -841,6 +976,143 @@ async fn resolve_pack_loader_version(
         ))
         .into()
     })
+}
+
+#[cfg(test)]
+mod local_preview_tests {
+    use super::*;
+    use std::io::Write;
+
+    fn pack_json(dependencies: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "game": "minecraft",
+            "formatVersion": 1,
+            "versionId": "1.5.9",
+            "name": "你好，新蒸程",
+            "files": [],
+            "dependencies": dependencies,
+        })
+    }
+
+    fn archive(entries: &[(&str, String)]) -> (tempfile::TempDir, PathBuf) {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("export.zip");
+        let mut zip =
+            zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+        for (name, contents) in entries {
+            zip.start_file(*name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(contents.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+        (directory, path)
+    }
+
+    #[tokio::test]
+    async fn mrpack_preview_has_declared_identity_before_instance_creation() {
+        for base in ["", "export/"] {
+            for (dependency, loader, version) in [
+                ("forge", ModLoader::Forge, "47.4.0"),
+                ("neoforge", ModLoader::NeoForge, "21.1.233"),
+                ("neo-forge", ModLoader::NeoForge, "21.1.233"),
+                ("fabric-loader", ModLoader::Fabric, "0.17.2"),
+                ("quilt-loader", ModLoader::Quilt, "0.29.1"),
+                ("cleanroom", ModLoader::Cleanroom, "0.3.0"),
+                ("legacy_fabric", ModLoader::LegacyFabric, "0.16.10"),
+            ] {
+                let pack = pack_json(serde_json::json!({
+                    "minecraft": "1.21.1",
+                    (dependency): version,
+                }));
+                let (_directory, path) = archive(&[(
+                    &format!("{base}modrinth.index.json"),
+                    pack.to_string(),
+                )]);
+                let preview =
+                    get_instance_from_pack(CreatePackLocation::FromFile {
+                        path,
+                    })
+                    .await
+                    .unwrap();
+                assert_eq!(preview.name, "你好，新蒸程");
+                assert_eq!(preview.game_version, "1.21.1");
+                assert_eq!(preview.modloader, loader);
+                assert_eq!(preview.loader_version.as_deref(), Some(version));
+                assert!(!preview.unknown_file);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn mrpack_preview_prefers_root_manifest_over_override_metadata() {
+        let root = pack_json(serde_json::json!({"minecraft": "1.21.1"}));
+        let shadow = pack_json(serde_json::json!({"minecraft": "1.19.4"}));
+        let (_directory, path) = archive(&[
+            ("overrides/modrinth.index.json", shadow.to_string()),
+            ("modrinth.index.json", root.to_string()),
+        ]);
+        let preview =
+            get_instance_from_pack(CreatePackLocation::FromFile { path })
+                .await
+                .unwrap();
+        assert_eq!(preview.game_version, "1.21.1");
+        assert_eq!(preview.modloader, ModLoader::Vanilla);
+        assert!(preview.loader_version.is_none());
+    }
+
+    #[tokio::test]
+    async fn invalid_root_mrpack_is_not_replaced_by_a_valid_nested_manifest() {
+        let valid = pack_json(serde_json::json!({"minecraft": "1.21.1"}));
+        let (_directory, path) = archive(&[
+            ("overrides/modrinth.index.json", valid.to_string()),
+            ("modrinth.index.json", "{broken".to_string()),
+        ]);
+        assert!(
+            get_instance_from_pack(CreatePackLocation::FromFile { path })
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn recognized_mrpack_never_falls_back_after_invalid_metadata() {
+        let mut invalid = vec!["{broken".to_string()];
+        for dependencies in [
+            serde_json::json!({}),
+            serde_json::json!({"minecraft": ""}),
+            serde_json::json!({"minecraft": "   "}),
+            serde_json::json!({"minecraft": "1.21.1", "neoforge": ""}),
+            serde_json::json!({"minecraft": "1.21.1", "forge": "47", "neoforge": "21"}),
+            serde_json::json!({"minecraft": "1.21.1", "optifabric": "1.0"}),
+        ] {
+            invalid.push(pack_json(dependencies).to_string());
+        }
+        for (key, value) in [
+            ("game", serde_json::json!("other-game")),
+            ("name", serde_json::json!(" ")),
+            ("formatVersion", serde_json::json!(2)),
+        ] {
+            let mut pack =
+                pack_json(serde_json::json!({"minecraft": "1.21.1"}));
+            pack[key] = value;
+            invalid.push(pack.to_string());
+        }
+        for manifest in invalid {
+            for base in ["", "export/"] {
+                let (_directory, path) = archive(&[(
+                    &format!("{base}modrinth.index.json"),
+                    manifest.clone(),
+                )]);
+                assert!(
+                    get_instance_from_pack(CreatePackLocation::FromFile {
+                        path
+                    })
+                    .await
+                    .is_err()
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]

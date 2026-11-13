@@ -6,6 +6,9 @@ import CurseForge from './CurseForge.vue'
 import Project from './Index.vue'
 
 const api = vi.hoisted(() => ({
+    selection: null as unknown,
+    add: vi.fn().mockResolvedValue(true),
+    remove: vi.fn(),
     project: vi.fn(),
     projectV3: vi.fn().mockResolvedValue(null),
     background: false,
@@ -121,21 +124,28 @@ vi.mock('@/providers/content-install', () => ({
 vi.mock('@/providers/content-selection', async () => {
     const { ref } = await import('vue')
     return {
-        makeContentSelectionKey: () => '',
-        injectContentSelection: () => ({
-            targetInstance: ref(null),
-            instances: ref([]),
-            selectedProjects: ref([]),
-            selectedCount: ref(0),
-            state: ref('idle'),
-            progress: ref(null),
-            refreshInstances: api.refreshInstances,
-            refreshInstalledIdentities: vi.fn(),
-            setTarget: vi.fn(),
-            isInstalling: () => false,
-            isSelected: () => false,
-            isInstalledIdentity: () => false,
-        }),
+        makeContentSelectionKey: () => 'project-key',
+        injectContentSelection: () =>
+            (api.selection = {
+                items: ref(new Map()),
+                add: api.add,
+                remove: api.remove,
+                targetInstance: ref(null),
+                instances: ref([]),
+                selectedProjects: ref([]),
+                selectedCount: ref(0),
+                state: ref('idle'),
+                progress: ref(null),
+                refreshInstances: api.refreshInstances,
+                refreshInstalledIdentities: vi.fn(),
+                setTarget: vi.fn(),
+                isInstalling: () => false,
+                isSelected: (key: string) =>
+                    (api.selection as { items: { value: Map<string, unknown> } }).items.value.has(
+                        key,
+                    ),
+                isInstalledIdentity: () => false,
+            }),
     }
 })
 
@@ -143,18 +153,6 @@ vi.mock('@/providers/server-install', async () => {
     const { ref } = await import('vue')
     return { injectServerInstall: () => ({ installingServerProjects: ref([]) }) }
 })
-vi.mock('@/providers/setup/server-install-content', () => ({
-    createServerInstallContent: () => ({
-        serverContextServerData: { value: null },
-        isServerContext: { value: false },
-        queuedServerInstallProjectIds: { value: new Set() },
-        serverContentProjectIds: { value: new Set() },
-        isInstallingQueuedServerInstalls: { value: false },
-        watchServerContextChanges: vi.fn(),
-        initServerContext: async () => {},
-        getProjectInstallContext: () => null,
-    }),
-}))
 vi.mock('@/components/browse/BrowseInstanceSelector.vue', () => ({
     default: { render: () => null },
 }))
@@ -602,5 +600,114 @@ it('shows the navigation title before the main project request completes', async
     } finally {
         wrapper.unmount()
         window.history.replaceState({}, '')
+    }
+})
+
+it('keeps the local project target when an old hosting deep link includes sid and wid', async () => {
+    const originalQuery = api.query
+    api.query = { ...originalQuery, sid: 'old-host', wid: 'old-world' } as typeof api.query
+    api.project.mockResolvedValue({
+        id: 'one',
+        slug: 'one',
+        title: 'Public project',
+        project_type: 'mod',
+        versions: [],
+        team: 'team',
+        categories: [],
+        game_versions: [],
+        loaders: [],
+        gallery: [],
+    })
+    api.refreshInstances.mockReset().mockResolvedValue(undefined)
+    api.instance.mockResolvedValue({
+        id: 'target-instance',
+        name: 'Local instance',
+        loader: 'fabric',
+        game_version: '1.21.8',
+    })
+    const wrapper = mount(Project, {
+        global: { stubs: { Teleport: true, RouterView: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await vi.waitFor(() => expect(wrapper.text()).toContain('Public project'))
+        expect(api.refreshInstances).toHaveBeenCalledWith('target-instance', expect.any(Function))
+        const page = wrapper.vm as unknown as {
+            projectInstallContext: { name: string }
+            versionsHref: string
+        }
+        expect(page.projectInstallContext.name).toBe('Local instance')
+        expect(page.versionsHref).toContain('i=target-instance')
+        expect(page.versionsHref).not.toContain('sid=')
+        expect(page.versionsHref).not.toContain('wid=')
+    } finally {
+        wrapper.unmount()
+        api.query = originalQuery
+    }
+})
+
+it('keeps top-level filtered and explicit version installation aligned with the selected release', async () => {
+    const ui = await import('@modrinth/ui')
+    const originalQuery = api.query
+    api.query = { ...originalQuery, g: '1.21.1', l: 'neoforge' } as typeof api.query
+    api.project.mockResolvedValue({
+        id: 'one',
+        title: 'One',
+        description: '',
+        body: '',
+        project_type: 'mod',
+        loaders: ['fabric', 'neoforge'],
+        versions: [],
+        team: 'team',
+        gallery: [],
+        categories: [],
+    })
+    vi.mocked(ui.getLatestMatchingInstallVersion).mockReturnValue({
+        id: 'filtered-release',
+    } as never)
+    vi.mocked(ui.getTargetInstallPreferences).mockReturnValue({
+        gameVersions: ['26.3'],
+        loaders: ['fabric'],
+    })
+    const wrapper = mount(Project, {
+        global: { stubs: { Teleport: true }, directives: { tooltip: {} } },
+    })
+    try {
+        await flushPromises()
+        const selection = api.selection as {
+            targetInstance: { value: unknown }
+            isSelected: () => boolean
+            items: { value: Map<string, object> }
+        }
+        selection.targetInstance.value = { id: 'fabric', game_version: '26.3', loader: 'fabric' }
+        const vm = wrapper.vm as unknown as { install: (id: string | null) => Promise<void> }
+        Object.assign(vm, {
+            projectClassificationReady: true,
+            versionsReady: true,
+            instanceReady: true,
+        })
+        await vm.install(null)
+        expect(ui.getLatestMatchingInstallVersion).toHaveBeenLastCalledWith(expect.any(Array), {
+            gameVersions: ['1.21.1'],
+            loaders: ['neoforge'],
+        })
+        expect(api.add).toHaveBeenLastCalledWith(
+            expect.objectContaining({ versionId: 'filtered-release' }),
+        )
+        selection.items.value.set('project-key', {})
+        api.remove.mockClear()
+        vi.mocked(ui.getLatestMatchingInstallVersion).mockClear()
+        await vm.install(null)
+        expect(api.remove).toHaveBeenCalledOnce()
+        expect(ui.getLatestMatchingInstallVersion).not.toHaveBeenCalled()
+        selection.items.value.set('project-key', { versionId: 'filtered-release' })
+        await vm.install('explicit-release')
+        expect(api.add).toHaveBeenLastCalledWith(
+            expect.objectContaining({ versionId: 'explicit-release' }),
+        )
+    } finally {
+        wrapper.unmount()
+        api.query = originalQuery
+        vi.mocked(ui.getLatestMatchingInstallVersion).mockReset()
+        vi.mocked(ui.getTargetInstallPreferences).mockReset()
     }
 })

@@ -1,4 +1,4 @@
-import type { ContentItem } from '@modrinth/ui'
+import type { ContentItem, MessageDescriptor } from '@modrinth/ui'
 import { expect, it, vi } from 'vitest'
 
 import { type InstallJobSnapshot, wait_for_install_job } from './install.ts'
@@ -9,7 +9,11 @@ import {
     type ResourceEntryReview,
     reviewResourceEntryChanges,
 } from './resource-update-selection.ts'
-import { resourcePrepareEntryOperation, resourceQueuePlan } from './resources'
+import {
+    type ResourceOperationProgress,
+    resourcePrepareEntryOperation,
+    resourceQueuePlan,
+} from './resources'
 
 vi.mock('./resources', () => ({
     resourcePrepareEntryOperation: vi.fn(),
@@ -38,6 +42,89 @@ function readyUpdates() {
     vi.mocked(resourceQueuePlan).mockResolvedValue({ job_id: 'job' } as never)
     vi.mocked(wait_for_install_job).mockResolvedValue({} as never)
 }
+
+it('passes streamed project titles to direct update jobs without waiting for extra metadata', async () => {
+    readyUpdates()
+    vi.mocked(resourcePrepareEntryOperation).mockImplementationOnce(
+        async (_instance, _intent, _entries, _release, _dependencies, _signal, onProgress) => {
+            onProgress?.({
+                kind: 'node',
+                node: { id: 'updated-node' },
+                metadata: { title: 'Actual project title' },
+            } as ResourceOperationProgress)
+            onProgress?.({
+                kind: 'node',
+                node: { id: 'missing-metadata' },
+                metadata: null,
+            } as ResourceOperationProgress)
+            onProgress?.({
+                kind: 'node',
+                node: { id: 'blank-title' },
+                metadata: { title: '  ' },
+            } as ResourceOperationProgress)
+            onProgress?.({
+                kind: 'node',
+                node: { id: 'removed-node' },
+                metadata: { title: 'Removed title' },
+            } as ResourceOperationProgress)
+            onProgress?.({
+                kind: 'nodeRemoved',
+                nodeId: 'removed-node',
+            } as ResourceOperationProgress)
+            return { id: 'named-plan', revision: 2, issues: [], actions: [{}] } as never
+        },
+    )
+    await expect(queueResourceEntryUpdates('named-update', ['a'], vi.fn(), vi.fn())).resolves.toBe(
+        true,
+    )
+    expect(resourcePrepareEntryOperation).toHaveBeenCalledOnce()
+    expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('named-plan', 2, {
+        'updated-node': 'Actual project title',
+    })
+})
+
+it('discards failed-attempt titles and isolates late progress when retrying update preparation', async () => {
+    readyUpdates()
+    let staleProgress: ((progress: ResourceOperationProgress) => void) | undefined
+    vi.mocked(resourcePrepareEntryOperation)
+        .mockImplementationOnce(
+            async (_instance, _intent, _entries, _release, _dependencies, _signal, onProgress) => {
+                staleProgress = onProgress
+                onProgress?.({
+                    kind: 'node',
+                    node: { id: 'reused-node' },
+                    metadata: { title: 'Old title' },
+                } as ResourceOperationProgress)
+                onProgress?.({
+                    kind: 'node',
+                    node: { id: 'old-only' },
+                    metadata: { title: 'Old-only title' },
+                } as ResourceOperationProgress)
+                throw new Error('instance changed while preparing the plan')
+            },
+        )
+        .mockImplementationOnce(
+            async (_instance, _intent, _entries, _release, _dependencies, _signal, onProgress) => {
+                onProgress?.({
+                    kind: 'node',
+                    node: { id: 'reused-node' },
+                    metadata: { title: 'Current title' },
+                } as ResourceOperationProgress)
+                staleProgress?.({
+                    kind: 'node',
+                    node: { id: 'late-old-node' },
+                    metadata: { title: 'Late old title' },
+                } as ResourceOperationProgress)
+                return { id: 'current-plan', revision: 3, issues: [], actions: [{}] } as never
+            },
+        )
+    await expect(queueResourceEntryUpdates('named-retry', ['a'], vi.fn(), vi.fn())).resolves.toBe(
+        true,
+    )
+    expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('current-plan', 3, {
+        'reused-node': 'Current title',
+    })
+})
 
 it('prepares the next update only after the previous native job finishes in the same instance', async () => {
     readyUpdates()
@@ -170,10 +257,10 @@ it('single, selected, all and duplicate updates queue exact entries without depe
             null,
             false,
             undefined,
-            undefined,
+            expect.any(Function),
             false,
         )
-        expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('direct-plan', 3)
+        expect(resourceQueuePlan).toHaveBeenCalledExactlyOnceWith('direct-plan', 3, {})
         expect(track).toHaveBeenCalledExactlyOnceWith({ job_id: 'direct-job' })
     }
 })
@@ -181,7 +268,7 @@ it('single, selected, all and duplicate updates queue exact entries without depe
 it('does not queue empty or blocked updates and propagates prepare and queue failures', async () => {
     vi.clearAllMocks()
     const track = vi.fn()
-    const format = vi.fn((message: { defaultMessage: string }) => message.defaultMessage)
+    const format = vi.fn((message: MessageDescriptor) => message.defaultMessage ?? '')
     expect(await queueResourceEntryUpdates('instance', [], track, format)).toBe(false)
     expect(resourcePrepareEntryOperation).not.toHaveBeenCalled()
     vi.mocked(resourcePrepareEntryOperation).mockResolvedValue({
@@ -216,6 +303,44 @@ it('does not queue empty or blocked updates and propagates prepare and queue fai
         'stale revision',
     )
     expect(track).not.toHaveBeenCalled()
+})
+
+it('reports a prepared update with nothing to apply instead of finishing silently', async () => {
+    readyUpdates()
+    const nothing = vi.fn()
+    expect(await queueResourceEntryUpdates('quiet', [], vi.fn(), vi.fn(), nothing)).toBe(false)
+    expect(nothing).not.toHaveBeenCalled()
+    vi.mocked(resourcePrepareEntryOperation).mockResolvedValueOnce({
+        id: 'plan',
+        revision: 1,
+        actions: [],
+        issues: [],
+    } as never)
+    expect(await queueResourceEntryUpdates('quiet', ['entry'], vi.fn(), vi.fn(), nothing)).toBe(
+        false,
+    )
+    expect(nothing).toHaveBeenCalledOnce()
+    expect(resourceQueuePlan).not.toHaveBeenCalled()
+    expect(await queueResourceEntryUpdates('quiet', ['entry'], vi.fn(), vi.fn(), nothing)).toBe(
+        true,
+    )
+    expect(nothing).toHaveBeenCalledOnce()
+})
+
+it('shows one nothing-to-apply notice for overlapping requests that share a pending task', async () => {
+    readyUpdates()
+    const pending = deferred<unknown>()
+    vi.mocked(resourcePrepareEntryOperation).mockReturnValueOnce(pending.promise as never)
+    const first = vi.fn()
+    const second = vi.fn()
+    const requests = [
+        queueResourceEntryUpdates('shared-quiet', ['entry'], vi.fn(), vi.fn(), first),
+        queueResourceEntryUpdates('shared-quiet', ['entry'], vi.fn(), vi.fn(), second),
+    ]
+    pending.resolve({ id: 'plan', revision: 1, actions: [], issues: [] })
+    expect(await Promise.all(requests)).toEqual([false, false])
+    expect(resourcePrepareEntryOperation).toHaveBeenCalledOnce()
+    expect(first.mock.calls.length + second.mock.calls.length).toBe(1)
 })
 
 function item(entry: string, overrides: Partial<ContentItem> = {}): ContentItem {

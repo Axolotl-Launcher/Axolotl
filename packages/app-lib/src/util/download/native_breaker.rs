@@ -4,7 +4,7 @@ use crate::util::download::constants::{
     NATIVE_BREAKER_JITTER_MAX, NATIVE_BREAKER_JITTER_MIN,
     NATIVE_BREAKER_MAX_EXPONENT,
 };
-use crate::util::fetch::{DownloadRoute, ProxyPolicy};
+use crate::util::fetch::{DownloadRoute, DownloadRouteSource, ProxyPolicy};
 use parking_lot::Mutex;
 use rand::Rng;
 use std::collections::HashMap;
@@ -90,6 +90,13 @@ pub(crate) fn is_open(route: &DownloadRoute) -> bool {
         return false;
     };
     entry.causes.values_mut().any(active)
+}
+
+/// Whether `route` may take over from a route whose breaker is open. MCIM
+/// may not: it is used only after an official attempt fails, so an official
+/// route keeps its attempt when MCIM is the only route left to replace it.
+pub(crate) fn can_replace_open_route(route: &DownloadRoute) -> bool {
+    route.source != DownloadRouteSource::Mcim && !is_open(route)
 }
 
 pub(crate) fn should_skip(

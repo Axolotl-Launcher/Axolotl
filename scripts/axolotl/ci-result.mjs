@@ -19,6 +19,7 @@ export function validateCiResults(jobs) {
         ['frontend', 'frontend'],
         ['resources', 'desktop'],
         ['desktop', 'desktop'],
+        ['coverage', 'desktop'],
         ['website', 'website'],
     ]) {
         requireResult(name, outputs[scope] === 'true' ? 'success' : 'skipped')

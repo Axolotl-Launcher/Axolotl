@@ -103,7 +103,8 @@ const clients = computed(
         ] as const,
 )
 
-function changeFullAccess(enabled: boolean) {
+function changeFullAccess(value: boolean | undefined) {
+    const enabled = value ?? false
     if (!enabled) {
         void configure(state.value.enabled, false)
         return
@@ -136,7 +137,7 @@ async function enableFullAccess() {
                         id="mcp-enabled"
                         :model-value="state.enabled"
                         :disabled="!loaded || busy"
-                        @update:model-value="(enabled) => configure(enabled, fullAccess)"
+                        @update:model-value="(enabled) => configure(enabled ?? false, fullAccess)"
                 /></template>
             </SettingsRow>
             <div class="flex flex-col gap-2 px-4 pb-4">

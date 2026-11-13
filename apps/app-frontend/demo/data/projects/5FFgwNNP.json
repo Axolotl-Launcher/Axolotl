@@ -1,0 +1,537 @@
+{
+  "id": "5FFgwNNP",
+  "slug": "cobblemon-fabric",
+  "title": "Cobblemon Official Modpack [Fabric]",
+  "description": "The official modpack of the Cobblemon mod, for Fabric!",
+  "author": "CobbledStudios",
+  "categories": ["adventure", "fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["adventure", "lightweight", "multiplayer"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 11438598,
+  "followers": 2711,
+  "license": {
+    "id": "MPL-2.0",
+    "name": "Mozilla Public License 2.0"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.20.1", "1.21.1"],
+  "latest_version": "BpTjgzL8",
+  "date_created": "2022-11-28T05:06:55.254214Z",
+  "date_modified": "2026-10-11T03:18:29.226421Z",
+  "color": 3415591,
+  "published": "2022-11-28T05:06:55.254214Z",
+  "additional_categories": ["optimization"],
+  "issues_url": "https://gitlab.com/cable-mc/cobblemon/-/issues",
+  "source_url": "https://gitlab.com/cable-mc/cobblemon",
+  "wiki_url": "https://wiki.cobblemon.com/index.php/Main_Page",
+  "discord_url": "https://discord.gg/cobblemon",
+  "donation_urls": [],
+  "versions_total": 13,
+  "body": "<p><center><a title=\"https://cobblemon.com\" href=\"https://cobblemon.com\"><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/aerodactyl_banner.png\" alt=\"\"/></a></center></p>\n<p><center><span><strong><font size=\"5\">The Official Modpack of the Cobblemon Mod </font></strong><em>for Fabric</em></span></center></p>\n<p><center><span><em><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/cobblemon_divider.png?ref_type=heads\" /></em></span></center></p>\n<center><iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/nKokFJ1Nn2E?si=2FaoRtpvdoCCdMJU\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe></center>\n<p><center><span><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/cobblemon_divider.png?ref_type=heads\" alt=\"\" width=\"838\" height=\"32\" /></span></center></p>\n<p><center><span><font size=\"4\"><strong><em>Cobblemon Features (so far!):</em></strong></font></span></center></p>\n<ul>\n<li><span>Capture Pok&eacute;mon to expand your team, battle wild Pok&eacute;mon to gain experience, level up to unlock new moves, and evolve your Pok&eacute;mon. There are over 800 Pokémon to catch!</span></li>\n<li><span>Battles using the <a title=\"https://pokemonshowdown.com\" href=\"https://pokemonshowdown.com\"><span><em>Pok&eacute;mon Showdown!</em></span></a> engine for accurate competitive battle mechanics.</span></li>\n<li><span>Some<em> Legends Arceus</em>-style&nbsp;mechanics, such as move relearning, physically running from battle, and evolving your Pok&eacute;mon when <em>you</em> decide.</span></li>\n<li><span>Toggle free-movement during battles. You can build, mine, or fight mobs while in Pok&eacute;mon battles!</span></li>\n<li><span>Record the Pokémon you see and catch with a Pokédex. They come with a scanning feature to analyze wild Pokémon!</span></li>\n<li><span>Explore the Minecraft world in style by riding your Pokémon!</span></li>\n<li><span>Engage in tough battles with Alpha Pokémon that can be caught or defeated for rewards!</span></li>\n<li><span>You can trade and battle with your friends in multiplayer.</span></li>\n<li><span>Let your Pokémon roam free wherever you want using pastures!</span></li>\n<li><span>Berries which can be found in the wild, grown on farmland, mulched for bonuses, and cross-bred to mutate new berries.</span></li>\n<li><span>Medicine items can be made by putting crops and berries into a brewing stand. Brewed potions heal more!</span></li>\n<li><span>Ancient structures in the world to discover. Some of these structures have gilded chests, which may contain valuable loot or other surprises!</span></li>\n<li><span>Fossils can be found by excavating suspicious gravel or sand at certain locations, which can then be revived using a resurrection machine.</span></li>\n<li><span>All Pokémon from generations 1 to 9 can be spawned and battled with, but if they don't have a model yet then they will display as a substitute doll.</span></li>\n<li><span>Full support for custom variations and fakemon using data packs and resource packs. You can find out how to do it using <a href=\"https://cobblemon.com/guides/custompokemon.html\">our guide</a>!<span></li>\n<li><span><strong><em>... and many more to come!</em></strong></span></li>\n</ul>\n<p><center><span><em><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/cobblemon_divider.png?ref_type=heads\" /></em></span></center></p>\n<p><center><span><font size=\"5\"><strong>About This Modpack:</strong></font></span></center></p>\n<p><center>The Cobblemon modpack is designed to make your Minecraft experience immersive with improved visuals and audio while running better than vanilla Cobblemon by using many optimization mods. There are also some quality-of-life features added to improve gameplay without making any significant alterations to vanilla Minecraft. Included are optional extras such a recommended resource pack and shader pack, disabled by default.</center></p>\n<p><center><strong><em>Notice:</em> Cobblemon does NOT have an official server.</strong> You can find a list of public servers on our <a title=\"https://cobblemon.com/en/servers\" href=\"https://cobblemon.com/en/servers\">website</a>, or in the #server-listings channel in our Discord, and add them to the multiplayer menu. Alternatively, you can buy your own server from hosts such as <a title=\"https://www.bisecthosting.com/cobblemon\" href=\"https://www.bisecthosting.com/cobblemon\"><strong>BisectHosting</strong></a>.</center></p>\n<p><center><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/bisect_banner2.webp\" alt=\"\"/></center></p>\n<p><center><span><font size=\"4\"><strong><em>Technical Details:</em></strong></font></span></center></p>\n<ul>\n<li>Both the modpack and server package are able to connect with vanilla Cobblemon servers and clients.</li>\n<li>Recommended to run with a minimum of 2.5 GB of memory.&nbsp;<em>Use 3 GB or more for best performance.</em></li>\n<li>This modpack is for&nbsp;<strong>Fabric</strong>, but a NeoForge version is available <a title=\"https://modrinth.com/modpack/cobblemon-neoforge\" href=\"https://modrinth.com/modpack/cobblemon-neoforge\">here</a>. <strong>It is recommended to play the Fabric version because it has better performance.</strong></li>\n</ul>\n<p><center><span><em><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/cobblemon_divider.png?ref_type=heads\" /></em></span></center></p>\n<p><center><span><font size=\"5\"><strong>Welcome to Cobbled Farms!</strong></font></span></center></p>\n<p><center></center></p>\n<p><center>Welcome to <a title=\"https://www.curseforge.com/minecraft/worlds/cobbled-farms\" href=\"https://www.curseforge.com/minecraft/worlds/cobbled-farms\">Cobbled Farms</a>, a bundled single-player world that explains the features of Cobblemon to both fresh and veteran trainers! Your job is to help the locals of this small farming community maintain their beautiful home while they're away. Thankfully, they took time to leave behind books to explain everything you would need to know to maintain Cobbled Farms, and even create your own farming community in your own world or server! Be sure to check back on new versions of the tutorial world every major update to learn about any new features the Cobblemon development team may have added. Happy farming!</center></p>\n<p><center></center></p>\n<p><center><span><em><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/cobblemon_divider.png?ref_type=heads\" /></em></span></center></p>\n<p><center><em><strong>Note:</strong></em>&nbsp;The Cobblemon mod is still in development and is being actively updated. There are many features that are work-in-progress or placeholders until things are finished. There are also some existing features that will be getting more polish as we keep moving. Many more features are planned, including but not limited to things like NPCs, riding Pok&eacute;mon, breeding, and structures.</center></p>\n<p><center>Join our Discord to follow development progress, chat with the team, ask questions, and get sneak peeks into upcoming features!</center></p>\n<p><center><a title=\"https://discord.gg/cobblemon\" href=\"https://discord.gg/cobblemon\"></a><span style=\"font-size: 18px;\"></span></center></p>\n<p><center><span><em><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/cobblemon_divider.png?ref_type=heads\" /></em></span></center></p>\n<p><center><span><font size=\"5\"><strong>Modpack Contents:</strong></font></span></center></p>\n<p><center><em>This modpack will allow clients to connect to servers that only run Cobblemon and Fabric API.</em></center></p>\n<p><center><em>If you want to get any of these mods for personal use, please download them from their original pages to support their authors.</em></center></p>\n<h4><strong>Mods:</strong></h4>\n<li><a href=\"https://modrinth.com/mod/advanced-loot-info\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Advanced Loot Info (ALI)</a>&nbsp;- EMI plugin for displaying loot table information.</li>\n<li><a href=\"https://modrinth.com/mod/ambient-environment\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Ambient Environment</a>&nbsp;- Adds color noise to biome colors.</li>\n<li><a href=\"https://modrinth.com/mod/appleskin\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">AppleSkin</a>&nbsp;- Displays more information about food-related values.</li>\n<li><a href=\"https://modrinth.com/mod/bad-wither-no-cookie\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Bad Wither No Cookie - Reloaded</a>&nbsp;- Changes many loud server-wide broadcast sounds to be local.</li>\n<li><a href=\"https://modrinth.com/mod/better-advancements\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Better Advancements</a>&nbsp;- Enlarges the advancement page and displays progress info.</li>\n<li><a href=\"https://modrinth.com/mod/better-ping-display-fabric\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Better Ping Display</a>&nbsp;- Displays each player's ping in the player list as a number in (ms).</li>\n<li><a href=\"https://modrinth.com/mod/better-third-person\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Better Third Person</a>&nbsp;- Allows independent rotation of the camera in third-person view.&nbsp;<a href=\"https://gyazo.com/c225d60a5d871b3676e2835896a7e0ad\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><em>Permission</em></a></li>\n<li><a href=\"https://modrinth.com/mod/cherished-worlds\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Cherished Worlds</a>&nbsp;- Adds the ability to bookmark and search worlds.</li>\n<li><a href=\"https://modrinth.com/mod/cit-resewn\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">CIT Resewn</a>&nbsp;- Adds support for MCPatcher's Custom Item Textures (CIT) for resource packs.</li>\n<li><a href=\"https://modrinth.com/mod/clumps\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Clumps</a>&nbsp;- Groups EXP orbs in close proximity together into a single entity to reduce lag.</li>\n<li><a href=\"https://cobblemon.com/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Cobblemon</a>&nbsp;- Adds the Pok&eacute;mon to your Minecraft.</li>\n<li><a href=\"https://modrinth.com/mod/crafting-tweaks\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Crafting Tweaks</a>&nbsp;- Allows you to rotate, balance, or clear the crafting grid using buttons.&nbsp;<a href=\"https://gyazo.com/40a91e89ff83c69c3dce16fe8ca184c8\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><em>Permission</em></a></li>\n<li><a href=\"https://modrinth.com/mod/craftpresence\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">CraftPresence</a>&nbsp;- Displays info about the game being played on Discord.</li>\n<li><a href=\"https://modrinth.com/mod/dynamiccrosshair\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Dynamic Crosshair</a>&nbsp;- Changes the crosshair depending on what is being looked at.</li>\n<li><a href=\"https://modrinth.com/mod/emi\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">EMI</a>&nbsp;- Adds an item and recipe viewer, integrates with JEI.</li>\n<li><a href=\"https://modrinth.com/mod/emi-enchanting\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">EMI Enchanting</a>&nbsp;- EMI Plugin that gives basic enchantment information.</li>\n<li><a href=\"https://modrinth.com/mod/emi-ores\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">EMI Ores</a>&nbsp;- EMI plugin that displays information about how ores generate in the world.</li>\n<li><a href=\"https://modrinth.com/mod/emi-professions-(emip)\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">EMI professions (EMIP)</a>&nbsp;- EMI plugin that adds information about profession workstations.</li>\n<li><a href=\"https://modrinth.com/mod/enchantment-descriptions\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Enchantment Descriptions</a>&nbsp;- Adds descriptions of enchantments to the tooltips of enchanted books.</li>\n<li><a href=\"https://modrinth.com/mod/enhanced-attack-indicator\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Enhanced Attack Indicator</a>&nbsp;- Shows the attack indicator progress meter on more actions.</li>\n<li><a href=\"https://modrinth.com/mod/entityculling\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Entity Culling</a>&nbsp;- Skips rendering entities you can't see to improve performance.</li>\n<li><a href=\"https://modrinth.com/mod/entity-model-features\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Entity Model Features (EMF)</a>&nbsp;- Adds support for OptiFine's Custom Entity Models (CEM) for resource packs.</li>\n<li><a href=\"https://modrinth.com/mod/entitytexturefeatures\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Entity Texture Features (ETF)</a>&nbsp;- Adds support for OptiFine's Entity Texture Features (ETF) for resource packs.</li>\n<li><a href=\"https://modrinth.com/mod/fallingleaves\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Falling Leaves</a>&nbsp;- Adds falling leaf and snow particles.</li>\n<li><a href=\"https://modrinth.com/mod/fancymenu\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">FancyMenu</a>&nbsp;- Customizes the main menu.</li>\n<li><a href=\"https://modrinth.com/mod/ferrite-core\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">FerriteCore</a>&nbsp;- Optimizes memory usage.</li>\n<li><a href=\"https://modrinth.com/mod/invmove\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">InvMove</a>&nbsp;- Adds the ability to walk around while in inventories.</li>\n<li><a href=\"https://modrinth.com/mod/invmovecompats\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">InvMoveCompats</a>&nbsp;- Adds InvMove compatibility with EMI and JEI.</li>\n<li><a href=\"https://modrinth.com/mod/just-enough-effect-descriptions-jeed\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Just Enough Effect Descriptions (JEED)</a>&nbsp;- JEI plugin that displays information on all status effects.</li>\n<li><a href=\"https://modrinth.com/mod/jei\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Just Enough Items (JEI)</a>&nbsp;- Adds an item and recipe viewer.</li>\n<li><a href=\"https://modrinth.com/mod/krypton\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Krypton</a>&nbsp;- Optimizes the networking stack.</li>\n<li><a href=\"https://modrinth.com/mod/lambdynamiclights\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">LambDynamicLights</a>&nbsp;- Adds dynamic lights.</li>\n<li><a href=\"https://modrinth.com/mod/language-reload\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Language Reload</a>&nbsp;- Improves the language selection menu.</li>\n<li><a href=\"https://modrinth.com/mod/lmd\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Let Me Despawn</a>&nbsp;- Allows mobs that pick up items to despawn.</li>\n<li><a href=\"https://modrinth.com/mod/lithium\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Lithium</a>&nbsp;- Adds many game optimizations.</li>\n<li><a href=\"https://modrinth.com/mod/make_bubbles_pop\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Make Bubbles Pop</a>&nbsp;- Makes bubble particles pop.</li>\n<li><a href=\"https://modrinth.com/mod/monsters-in-the-closet\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Monsters in the Closet</a>&nbsp;- Highlights any mobs that are preventing you from sleeping.</li>\n<li><a href=\"https://modrinth.com/mod/netherportalfix\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">NetherPortalFix</a>&nbsp;- Fixes a bug with nether portal linking in multiplayer.&nbsp;<a href=\"https://gyazo.com/40a91e89ff83c69c3dce16fe8ca184c8\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><em>Permission</em></a></li>\n<li><a href=\"https://modrinth.com/mod/not-enough-animations\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Not Enough Animations</a>&nbsp;- Adds more animations to vanilla actions.</li>\n<li><a href=\"https://modrinth.com/mod/particle-rain\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Particle Rain</a>&nbsp;- Replaces the default weather with particle effects, better on performance than vanilla rain.</li>\n<li><a href=\"https://modrinth.com/mod/particular\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Particular</a>&nbsp;- Enhances the ambience with particle-based visual effects.</li>\n<li><a href=\"https://modrinth.com/mod/presence-footsteps\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Presence Footsteps</a>&nbsp;- Makes footsteps sound better and more dynamic.</li>\n<li><a href=\"https://modrinth.com/mod/reeses-sodium-options\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Reese's Sodium Options</a>&nbsp;- Improves Sodium's options menu.</li>\n<li><a href=\"https://modrinth.com/mod/satin-free-wakes\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Satin Free Wakes</a>&nbsp;- Adds wakes that trail behind things moving across water, updated version of <a href=\"https://modrinth.com/mod/wakes\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Wakes</a>.</li>\n<li><a href=\"https://modrinth.com/mod/shulkerboxtooltip\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">ShulkerBoxTooltip</a>&nbsp;- Allows viewing the contents of shulker boxes in your inventory with \"Shift\".</li>\n<li><a href=\"https://modrinth.com/mod/sodium\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Sodium</a>&nbsp;- Optimizes rendering.</li>\n<li><a href=\"https://modrinth.com/mod/sodium-extra\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Sodium Extra</a>&nbsp;- Provides more options in the video settings.</li>\n<li><a href=\"https://modrinth.com/mod/sodium-shadowy-path-blocks\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Sodium Shadowy Path Blocks (SSPB)</a>&nbsp;- Smooths shading on path blocks with Sodium.</li>\n<li><a href=\"https://modrinth.com/mod/snow-imprints\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Soft Imprints</a>&nbsp;- Adds trails in snow and sand.</li>\n<li><a href=\"https://modrinth.com/mod/stendhal\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Stendhal</a>&nbsp;- Better utilities for writing in books.</li>\n<li><a href=\"https://modrinth.com/mod/swingthrough\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">SwingThrough</a>&nbsp;- Allows hitting enemies through obstructions like grass.</li>\n<li><a href=\"https://modrinth.com/mod/tips\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Tips</a>&nbsp;- Adds tips to loading and pause menus.</li>\n<li><a href=\"https://modrinth.com/mod/tooltipfix\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">ToolTipFix</a>&nbsp;- Fixes tooltips runnning off-screen.</li>\n<li><a href=\"https://modrinth.com/mod/visuality\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Visuality</a>&nbsp;- Adds various particle effects to blocks and entities.</li>\n<li><a href=\"https://modrinth.com/mod/xaeros-minimap\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Xaero's Minimap</a>&nbsp;- Displays a minimap of nearby terrain, players, and entities, and allows waypoint use.</li>\n<li><a href=\"https://modrinth.com/mod/xaeros-world-map\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Xaero's World Map</a>&nbsp;- Adds a full-screen world map.</li>\n<li><a href=\"https://modrinth.com/mod/yosbr\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Your Options Shall Be Respected (YOSBR)</a>&nbsp;- Prevents configs from being overwritten by updates.</li>\n<h4><strong>Dependencies:</strong></h4>\n<li><a href=\"https://modrinth.com/mod/advanced-core-info\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Advanced Core Info (ACI)</a>&nbsp;- Required by Advanced Loot Info (ALI).</li>\n<li><a href=\"https://modrinth.com/mod/almanac\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Almanac</a>&nbsp;- Required by Let Me Despawn.</li>\n<li><a href=\"https://modrinth.com/mod/balm\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Balm</a>&nbsp;- Required by Crafting Tweaks and NetherPortalFix.&nbsp;<a href=\"https://gyazo.com/40a91e89ff83c69c3dce16fe8ca184c8\" target=\"_blank\" rel=\"nofollow noopener noreferrer\"><em>Permission</em></a></li>\n<li><a href=\"https://modrinth.com/mod/bisect-mod\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">BisectHosting Server Integration Menu</a>&nbsp;- Required by our hosting partner.</li>\n<li><a href=\"https://modrinth.com/mod/bookshelf-lib\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Bookshelf</a>&nbsp;- Required by Enchantment Descriptions.</li>\n<li><a href=\"https://modrinth.com/mod/cloth-config\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Cloth Config API</a>&nbsp;- Required by many mods to use their in-game config menus.</li>\n<li><a href=\"https://modrinth.com/mod/fabric-api\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Fabric API</a>&nbsp;- Required by all Fabric mods.</li>\n<li><a href=\"https://modrinth.com/mod/iris\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Iris Shaders</a>&nbsp;- Required by all shader packs.</li>\n<li><a href=\"https://modrinth.com/mod/konkrete\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Konkrete</a>&nbsp;- Required by FancyMenu.</li>\n<li><a href=\"https://modrinth.com/mod/melody\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Melody</a>&nbsp;- Required by FancyMenu.</li>\n<li><a href=\"https://modrinth.com/mod/modmenu\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Mod Menu</a>&nbsp;- Allows in-game configuration of Fabric mods.</li>\n<li><a href=\"https://modrinth.com/mod/open-loader\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Open Loader</a>&nbsp;- Required by Tips.</li>\n<li><a href=\"https://modrinth.com/mod/owo-lib\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">oωo-lib</a>&nbsp;- Required by Particular.</li>\n<li><a href=\"https://modrinth.com/mod/prickle\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Prickle</a>&nbsp;- Required by Enchantment Descriptions.</li>\n<li><a href=\"https://modrinth.com/mod/unilib\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">UniLib</a>&nbsp;- Required by CraftPresence.</li>\n<li><a href=\"https://modrinth.com/mod/yacl\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">YetAnotherConfigLib</a>&nbsp;- Required by Satin Free Wakes.</li>\n<h4><strong>Resourcepacks:</strong></h4>\n<li><a href=\"https://modrinth.com/resourcepack/better-leaves\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Motschen's Better Leaves</a>&nbsp;(<em>not enabled by default</em>) - Resource pack to make leaves look bushier.</li>\n<h4><strong>Shaderpacks:</strong></h4>\n<li><a href=\"https://modrinth.com/shader/complementary-reimagined\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">Complementary Shaders - Reimagined</a>&nbsp;(<em>not enabled by default</em>) - Recommended shader pack.</li>\n<p><center><span><em><img src=\"https://gitlab.com/cable-mc/cobblemon-assets/-/raw/master/graphics/cobblemon_divider.png?ref_type=heads\" /></em></span></center></p>\n<p><center><span><font size=\"4\"><strong><em>Cobblemon is not affiliated with Pokémon nor Minecraft.</em></font></strong></span></center></p>\n<p><center><span><font size=\"4\"><em>Minecraft is a trademark of Mojang Synergies AB ｜ Pokémon is a trademark of Nintendo, Creatures Inc. and GAME FREAK inc.</em></font></span></center></p>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/5FFgwNNP/images/43765359395bb8216a238d18c02a045106d7bad4_350.webp",
+      "featured": true,
+      "title": "Pancham Family",
+      "description": null,
+      "created": "2026-09-07T22:08:54.065493Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/5FFgwNNP/images/b35c1c743230736b7f1a658681b9e2474551d3de_350.webp",
+      "featured": false,
+      "title": "Pokédex",
+      "description": null,
+      "created": "2024-12-28T05:46:39.810711Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/5FFgwNNP/images/3867190664feae606c624ebda171faf5a2289c1b_350.webp",
+      "featured": false,
+      "title": "Pokédex Scanning",
+      "description": null,
+      "created": "2024-12-28T05:46:59.007372Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/5FFgwNNP/images/f6a1ac1010bf832d30a9747e2d54ff03ac57c546_350.webp",
+      "featured": false,
+      "title": "Riding",
+      "description": null,
+      "created": "2026-09-07T01:44:15.487224Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Reisen",
+      "role": "Modeler",
+      "avatar": "https://cdn.modrinth.com/user/AEFONbAM/9e97453507a8245981d5cd825280f23be44f15ac.jpeg"
+    },
+    {
+      "username": "EikoBiko",
+      "role": "Artist",
+      "avatar": "https://avatars.githubusercontent.com/u/53350053?v=4"
+    },
+    {
+      "username": "SilverBerr1",
+      "role": "Animator",
+      "avatar": "https://cdn.modrinth.com/data/Lyx7YoCn/a5602ca1beab8fbf69483f8abb9782dd1f6c935a_96.webp"
+    },
+    {
+      "username": "Brotatsun64",
+      "role": "Modeling Manager",
+      "avatar": "https://avatars.githubusercontent.com/u/46329688?v=4"
+    },
+    {
+      "username": "Myslippy",
+      "role": "-Content Director-",
+      "avatar": "https://cdn.modrinth.com/user/MTYoSoFD/76a048d367b52d757d6f0ad7fb77c375d46b81c3.png"
+    },
+    {
+      "username": "MoeBoy76",
+      "role": "Programmer",
+      "avatar": "https://avatars.githubusercontent.com/u/5157044?v=4"
+    },
+    {
+      "username": "giodude1580",
+      "role": "Concept Artist",
+      "avatar": "https://cdn.modrinth.com/user/3ITMSaed/d851d778a5fea33c3a4d21e941bdb5def67f6f3b.webp"
+    },
+    {
+      "username": "Tyzillion",
+      "role": "Engineer",
+      "avatar": "https://cdn.modrinth.com/user/dQGCm35H/eb1ccd65c2a509bdb040610cc94b79dd044c55aa.png"
+    },
+    {
+      "username": "maashous",
+      "role": "Modeler",
+      "avatar": "https://cdn.modrinth.com/user/MCVYLFkz/d2e243b24295bf3cf2f92e2aaad7b393026624ba.png"
+    },
+    {
+      "username": "NickImpact",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/5sh2xJH1/52cf2d4f5abc9f02158e6f688a4bc11bd3a06424.png"
+    },
+    {
+      "username": "drewlordybuilds",
+      "role": "Builder",
+      "avatar": "https://cdn.modrinth.com/user/KeUQ7ZHP/142b6437fb64c1999f40f35605d6625c7548e1d1.png"
+    },
+    {
+      "username": "Mallowuu",
+      "role": "Builder",
+      "avatar": "https://cdn.modrinth.com/user/bLn7HLnv/ef679c6498fd45fb91cbb4bfc1f514547446a246.jpg"
+    },
+    {
+      "username": "whatsy",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/jNhagW4O/5c9bf619a6d4ce63037f97fb3507485a376bc57e.gif"
+    },
+    {
+      "username": "QriviateA",
+      "role": "Animator",
+      "avatar": "https://cdn.modrinth.com/user/yDVmTIFj/63bfec9d9859ebbbe41588307d41d465913d8955.png"
+    },
+    {
+      "username": "FrankTheFarmer",
+      "role": "Engineer",
+      "avatar": "https://cdn.modrinth.com/user/xwndtJNf/bf39d28ee9ae6a22da1233078a97ff665cc5e3b8.png"
+    },
+    {
+      "username": "lilpebs",
+      "role": "Web Developer",
+      "avatar": "https://avatars.githubusercontent.com/u/56152154?v=4"
+    },
+    {
+      "username": "SPGesus",
+      "role": "Game Designer",
+      "avatar": "https://avatars.githubusercontent.com/u/1885531?v=4"
+    },
+    {
+      "username": "BlackSpirit",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/RtpC4MQe/27f25f74e7bd43356e9deed7a155f04ebf907bb1.jpeg"
+    },
+    {
+      "username": "heaveninvoid_",
+      "role": "Modeler / Animator",
+      "avatar": "https://cdn.modrinth.com/user/Yn8FGCFK/02b0fa36932b171e3408a5b5c46ff1e5d41617c2.png"
+    },
+    {
+      "username": "Hysako_",
+      "role": "GUI Artist",
+      "avatar": "https://cdn.modrinth.com/data/qCRXuh8C/a543380d1a5135465be615aebc22dd1ab9a6861a_96.webp"
+    },
+    {
+      "username": "plastered_crab",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/HuQLuBto/06ceac014b045e9075071bc5bd039712d82ee341.webp"
+    },
+    {
+      "username": "Torchmarrow",
+      "role": "Animation Lead",
+      "avatar": "https://cdn.modrinth.com/user/qvXIRb6l/959c0222ff02e5e1a1084609b7aa57234f88896d.png"
+    },
+    {
+      "username": "TotallyNotAHobo",
+      "role": "Modeler / Animator",
+      "avatar": "https://cdn.modrinth.com/data/opJiXNUK/3894ab1c67a3139c27bbdf387b374b3c77e7ed6a_96.webp"
+    },
+    {
+      "username": "Valirus",
+      "role": "Builder",
+      "avatar": "https://cdn.modrinth.com/user/da6ZRzUg/6ee6b74cd34823fdf89ea0f4b9091984d1ee35dd.jpg"
+    },
+    {
+      "username": "Sterrezo",
+      "role": "Sound Design Lead / Composer",
+      "avatar": "https://avatars.githubusercontent.com/u/129781298?v=4"
+    },
+    {
+      "username": "Kenji_64",
+      "role": "Engineer",
+      "avatar": "https://cdn.modrinth.com/user/jhADXEJy/ed7a5b6c0234642d7b8166bfe4d922ca80337166.png"
+    },
+    {
+      "username": "Jakotens",
+      "role": "Character Design Lead",
+      "avatar": "https://cdn.modrinth.com/data/GZ85Bcpf/eeff955db4e18d3c152397abf26338dcdd06a6b6_96.webp"
+    },
+    {
+      "username": "boyfriends",
+      "role": "Modeler",
+      "avatar": "https://cdn.modrinth.com/data/fVmmXGxd/10d9dccf55eb28be2b984582de4f7d58b6aa12db_96.webp"
+    },
+    {
+      "username": "Apion",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/3W1WkCoS/6978dca61e86e220825ce05277c46e11d34206bb.png"
+    },
+    {
+      "username": "dhi_holo",
+      "role": "Block Modeler",
+      "avatar": "https://avatars.githubusercontent.com/u/91051135?v=4"
+    },
+    {
+      "username": "Erusel",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/noDLDId5/f0480bb02acf53f91e563ae90f74f720b6a727a4.webp"
+    },
+    {
+      "username": "Bwavii",
+      "role": "Trainer Modeler",
+      "avatar": "https://cdn.modrinth.com/data/10gHAJi0/a61327d822911cfdd4cb4a26d1b74d5e5bc732b7_96.webp"
+    },
+    {
+      "username": "SamIr0n",
+      "role": "Builder",
+      "avatar": "https://cdn.modrinth.com/user/el0L3d8r/04ed0bb16527126fd013fddc24c1e76cb4a8a7a9.png"
+    },
+    {
+      "username": "Gesteyy",
+      "role": "Modeler / Animator",
+      "avatar": "https://cdn.modrinth.com/user/wSmyvutu/1c69e47f231d533efb9bcd512beec946067ddfa1.png"
+    },
+    {
+      "username": "Carmendarr",
+      "role": "Engineer",
+      "avatar": "https://cdn.modrinth.com/data/cwNBX3aK/45a76182895260a5f07fdd5c21b96b6bc6b80e6f.gif"
+    },
+    {
+      "username": "gingledoof0",
+      "role": "Animator",
+      "avatar": "https://avatars.githubusercontent.com/u/122708062?v=4"
+    },
+    {
+      "username": "Dynamite2pt0",
+      "role": "Builder",
+      "avatar": null
+    },
+    {
+      "username": "virtuositas",
+      "role": "Marketing Lead",
+      "avatar": "https://cdn.modrinth.com/data/BFjumSLg/e7dbf6e6fd78eb03e1f7b07b5b2a4b03123baea1_96.webp"
+    },
+    {
+      "username": "Azooreh",
+      "role": "Builder",
+      "avatar": "https://cdn.modrinth.com/user/M5Bza0tl/b0cfc1e9686f259acce2911159e6d74b71c31547.png"
+    },
+    {
+      "username": "complacentdev",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/ehDqGNl7/5024a351fc6abd14b0559448e267abb1d3637c83.gif"
+    },
+    {
+      "username": "Wi2tert",
+      "role": "Character Designer",
+      "avatar": "https://cdn.modrinth.com/user/wLrkmI5q/66e4f6551810d9318a32ddc116983861675a94d0.jpeg"
+    },
+    {
+      "username": "konohadaze",
+      "role": "Game Designer",
+      "avatar": "https://cdn.modrinth.com/data/UZbAOG8n/fc6fecc5ae77734628d28f99e570bfd45d784fb4.png"
+    },
+    {
+      "username": "Rogerregoat",
+      "role": "Animator",
+      "avatar": "https://cdn.modrinth.com/user/VOWSnRYI/a1e0ae038d3ba8ffe2337a52f7d4b7a1429d42a9.png"
+    },
+    {
+      "username": "Genotype",
+      "role": "Engineer",
+      "avatar": "https://cdn.modrinth.com/data/xkzf84Dj/4ae68be7c2a7d4039661bc99641f9162bdb90bca_96.webp"
+    },
+    {
+      "username": "Sarge54125",
+      "role": "Game Designer",
+      "avatar": "https://cdn.modrinth.com/data/jfioVS1m/38ccbd23c4c75aca7093262c0db74fd0e94a36c7_96.webp"
+    },
+    {
+      "username": "duckyquackington1",
+      "role": "Wiki Writer",
+      "avatar": "https://cdn.modrinth.com/user/JeYpmPOr/d90a84b68aa87da8d225b91b8ef713d1e1805bb4.webp"
+    },
+    {
+      "username": "Charzard4261",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/data/vJuGKegJ/0bfca506f7b11cbb0221e66694b0982477992193_96.webp"
+    },
+    {
+      "username": "whoisvoxel",
+      "role": "Builder",
+      "avatar": null
+    },
+    {
+      "username": "JPAKx4",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/user/hYrx9UH4/d49afc35b120fabcd37a83f9aebb90d5b757a6cc.png"
+    },
+    {
+      "username": "Glitch_Ratt",
+      "role": "Animator",
+      "avatar": "https://cdn.modrinth.com/data/9ypPpMr2/70fa24c5e8c7e7e9df5135da1dcb1e5fa789f797_96.webp"
+    },
+    {
+      "username": "RedGenesectNinja",
+      "role": "Engineer",
+      "avatar": "https://cdn.modrinth.com/user/TW1kURn7/cea701fca5172477da5ef67b9b029b8c07064a3b.jpeg"
+    },
+    {
+      "username": "negocio",
+      "role": "Programmer",
+      "avatar": "https://cdn.modrinth.com/data/sRiT7qL6/60b89662fa4530e697a6d95c3385a42bd7a96413_96.webp"
+    },
+    {
+      "username": "321retrogamer",
+      "role": "VFX Designer",
+      "avatar": "https://avatars.githubusercontent.com/u/71422864?v=4"
+    },
+    {
+      "username": "JadedTeal",
+      "role": "VFX Designer",
+      "avatar": "https://cdn.modrinth.com/user/x2N004wo/e47da4f40811899d88994efd274ddea6e7123bcb.png"
+    },
+    {
+      "username": "DoctorWafflePhD",
+      "role": "VFX Designer",
+      "avatar": "https://cdn.modrinth.com/data/MyEgisPa/7a10d49764c29b101ac1689fed7f3ae48b16a9a7_96.webp"
+    },
+    {
+      "username": "nickaholic",
+      "role": "Builder",
+      "avatar": "https://cdn.modrinth.com/user/1W4JWNTP/f100f79df411366deb0601c094659f5b03eb5b01.webp"
+    },
+    {
+      "username": "KleeHubertus",
+      "role": "Modeler / Animator",
+      "avatar": "https://cdn.modrinth.com/user/gZoYr0Qx/cb3db921dd2550cbeb6e787160729f2aa459384b.png"
+    },
+    {
+      "username": "JoeSeff",
+      "role": "Modeler",
+      "avatar": "https://avatars.githubusercontent.com/u/79892465?v=4"
+    },
+    {
+      "username": "Hiroku",
+      "role": "-Studio Director-",
+      "avatar": "https://avatars.githubusercontent.com/u/1784721?v=4"
+    },
+    {
+      "username": "Veraxiel",
+      "role": "-Art Director-",
+      "avatar": "https://avatars.githubusercontent.com/u/86495981?v=4"
+    },
+    {
+      "username": "addy_bromide",
+      "role": "Builder",
+      "avatar": "https://cdn.modrinth.com/user/gcljA5Ak/08c4ada7c6cb2d50bea947e794cadad0aefda671.webp"
+    },
+    {
+      "username": "Waldleufer",
+      "role": "Programmer",
+      "avatar": null
+    }
+  ],
+  "versions": [
+    {
+      "id": "BpTjgzL8",
+      "name": "Cobblemon Official Modpack [Fabric] 1.8.2",
+      "version_number": "1.8.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-11T03:18:29.226421Z",
+      "downloads": 208815,
+      "changelog": "Updated to Cobblemon 1.8.2\n\nUpdated Mods:\n* Advanced Loot Info (ALI)\n* Balm\n* BisectHosting Server Integration Menu\n* Entity Culling\n* Entity Model Features [EMF]\n* Entity Texture Features [ETF]\n* FancyMenu\n* Just Enough Effect Descriptions (JEED)\n* Just Enough Items (JEI)\n* Mod Menu\n* Not Enough Animations\n* Particle Rain\n* Reese's Sodium Options\n* Sodium Extra\n* Xaero's Minimap\n* Xaero's World Map\n\nUpdated Resource Packs:\n* Motschen's Better Leaves\n\nUpdated Shader Packs:\n* Complementary Shaders",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Official Modpack [Fabric] 1.8.2.mrpack",
+          "size": 100855710,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Cqimd3JM",
+      "name": "Cobblemon Official Modpack [Fabric] 1.8.1",
+      "version_number": "1.8.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-13T00:36:09.749124Z",
+      "downloads": 543325,
+      "changelog": "Updated to Cobblemon 1.8.1\n\nUpdated Mods:\n* Just Enough Items (JEI)\n* Xaero's Minimap\n* Xaero's World Map\n\nUpdated Shader Packs:\n* Complementary Shaders",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Modpack [Fabric] 1.8.1.mrpack",
+          "size": 100909813,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "zsTAkftH",
+      "name": "Cobblemon Official Modpack [Fabric] 1.8",
+      "version_number": "1.8",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-06T04:05:40.647104Z",
+      "downloads": 162592,
+      "changelog": "Updated to Cobblemon 1.8\n\nUpdated to Fabric 0.19.5\n\nAdded Mods:\n* Soft Imprints\n\nRemoved Mods:\n* Sodium Extras\n* Sodium Leaf Culling\n* Sodium Options API\n\nUpdated Mods:\n* Advanced Loot Info (ALI)\n* Bad Wither No Cookie - Reloaded\n* Balm\n* Bookshelf\n* Crafting Tweaks\n* CraftPresence\n* Default Options\n* EMI\n* EMI Ores\n* Enchantment Descriptions\n* Entity Culling\n* Entity Model Features [EMF]\n* Entity Texture Features [ETF]\n* Fabric API\n* FancyMenu\n* Just Enough Effect Descriptions (JEED)\n* Just Enough Items (JEI)\n* LambDynamicLights\n* Language Reload\n* Lithium\n* Mod Menu\n* Not Enough Animations\n* Particle Rain\n* Particular\n* Presence Footsteps\n* Reese's Sodium Options\n* Shulker Box Tooltips\n* Sodium\n* Sodium Extra\n* Sodium Shadowy Path Blocks (SSPB)\n* UniLib\n* Xaero's Minimap\n* Xaero's World Map\n\nUpdated Resource Packs:\n* Motschen's Better Leaves\n\nUpdated Shader Packs:\n* Complementary Shaders",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Official Modpack [Fabric] 1.8.mrpack",
+          "size": 100855648,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Lydu1ZNo",
+      "name": "Cobblemon Official Modpack [Fabric] 1.7.3",
+      "version_number": "1.7.3",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-01-31T02:15:30.175458Z",
+      "downloads": 4352709,
+      "changelog": "Updated to Cobblemon 1.7.3\n\nUpdated Mods:\n- Advanced Loot Info\n- Complementary Shaders - Reimagined\n- Crafting Tweaks\n- FerriteCore",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Modpack [Fabric] 1.7.3.mrpack",
+          "size": 101013638,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "pVGZ9l8W",
+      "name": "Cobblemon Official Modpack [Fabric] 1.7.2",
+      "version_number": "1.7.2",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-01-25T04:33:26.572703Z",
+      "downloads": 193471,
+      "changelog": "Updated to Cobblemon 1.7.2\n\nRemoved ImmediatelyFast\n\nUpdated Mods:\n- Advanced Loot Info\n- Almanac\n- Balm\n- Bookshelf\n- Dynamic Crosshair\n- Entity Culling\n- Entity Model Features [EMF]\n- Entity Texture Features [ETF]\n- Fabric API\n- InvMove\n- Just Enough Effect Descriptions\n- Just Enough Items (JEI)\n- LambDynamicLights\n- Not Enough Animations\n- Particle Rain\n- YetAnotherConfigLib\n- Xaero's Minimap & World Map",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Modpack [Fabric] 1.7.2.mrpack",
+          "size": 100960500,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "DbQNxSJ0",
+      "name": "Cobblemon Official Modpack [Fabric] 1.7.1",
+      "version_number": "1.7.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-11-29T02:27:41.839520Z",
+      "downloads": 880481,
+      "changelog": "Updated to Cobblemon 1.7.1.\n\nUpdated mods:\n- [EMF] Entity Model Features\n- [ETF] Entity Texture Features\n- Balm\n- FancyMenu\n- Just Enough Effect Descriptions (JEED)\n- Just Enough Items (JEI)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Modpack [Fabric] 1.7.1.mrpack",
+          "size": 100951108,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "jMz7A3RO",
+      "name": "Cobblemon Official Modpack [Fabric] 1.7",
+      "version_number": "1.7",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-11-22T00:48:57.491974Z",
+      "downloads": 157312,
+      "changelog": "Updated to Cobblemon 1.7.\n\nRemoved Mods:\n- Medal\n\nUpdated Mods:\n- Advanced Loot Info\n- Almanac\n- Balm\n- BisectHosting Server Integration Menu\n- Bookshelf\n- Complementary Shaders - Reimagined\n- CraftPresence\n- Dynamic Crosshair\n- Enchantment Descriptions\n- Entity Culling\n- Entity Model Features (EMF)\n- Entity Texture Features (ETF)\n- Fabric API\n- FancyMenu\n- ImmediatelyFast\n- InvMove\n- InvMove Compats\n- Just Enough Effects\n- JEI\n- LambDynamicLights\n- Language Reload\n- Lithium\n- Motschen's Better Leaves\n- NetherPortalFix\n- Not Enough Animations\n- Particle Rain\n- Presence Footsteps\n- Prickle\n- Shulker Box Tooltip\n- Tips\n- UniLib\n- YetAnotherConfigLib",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Modpack [Fabric] 1.7.mrpack",
+          "size": 100937721,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "98odLiu9",
+      "name": "Cobblemon Official Modpack [Fabric] 1.6.1.4",
+      "version_number": "1.6.1.4",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-07-01T04:32:02.692075Z",
+      "downloads": 1025746,
+      "changelog": "Updated Medal to 1.0.3 to fix a crash.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Official [Fabric] 1.6.1.4.mrpack",
+          "size": 93771086,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

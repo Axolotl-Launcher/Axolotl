@@ -2,6 +2,7 @@
   inputs,
   callPackage,
   mkShell,
+  mold,
   writeShellScriptBin,
   ...
 }:
@@ -11,14 +12,14 @@
     update-gradle-deps = writeShellScriptBin "update-gradle-deps" ''
       ${axolotl.mitmCache.updateScript}
     '';
-    update-pnpm-deps = writeShellScriptBin "update-pnpm-deps" (
-      builtins.readFile ./update-pnpm-deps.sh
-    );
+    update-pnpm-deps = writeShellScriptBin "update-pnpm-deps" (builtins.readFile ./update-pnpm-deps.sh);
   in
-    mkShell {
-      packages = [
-        update-gradle-deps
-        update-pnpm-deps
-      ];
-    }
+  mkShell {
+    packages = [
+      # The Linux linker that .cargo/config.toml selects.
+      mold
+      update-gradle-deps
+      update-pnpm-deps
+    ];
+  }
 )

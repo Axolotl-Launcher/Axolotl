@@ -1,6 +1,7 @@
 import { defineMessages } from '#ui/composables/i18n'
 
 export const consoleMessages = defineMessages({
+    exportLog: { id: 'console.log.export', defaultMessage: 'Save complete log' },
     exportCrashContext: {
         id: 'console.crash.export-context',
         defaultMessage: 'Export crash context',

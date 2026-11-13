@@ -36,7 +36,7 @@ function item(projectId: string, versionId: string, options: ItemOptions = {}): 
             id: projectId,
             slug: projectId,
             title: options.title ?? projectId,
-            icon_url: null,
+            icon_url: undefined,
         },
         version: { id: versionId, version_number: versionId, file_name: `${projectId}.jar` },
         update: null,
@@ -49,7 +49,7 @@ function item(projectId: string, versionId: string, options: ItemOptions = {}): 
             requiredBy: options.requiredBy ?? [],
             orphaned: false,
         },
-    } as ContentItem
+    }
 }
 
 const ref = (projectId: string, releaseId = '1') => ({

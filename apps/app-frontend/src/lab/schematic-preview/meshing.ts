@@ -11,6 +11,10 @@ import {
 
 import type { SchematicBlockState } from './backend.ts'
 import { isSchematicAir } from './editing.ts'
+import type { SchematicFluidNeighborhood } from './fluid-mesh.ts'
+import { getSchematicFluidMesh, isSchematicWaterlogged, schematicFluidKind } from './fluid-mesh.ts'
+
+export { isSchematicWaterlogged } from './fluid-mesh.ts'
 
 export const SCHEMATIC_DIRECTIONS = ['west', 'east', 'down', 'up', 'north', 'south'] as const
 export type SchematicDirection = (typeof SCHEMATIC_DIRECTIONS)[number]
@@ -375,40 +379,29 @@ export function getSchematicSpecialBlockMesh(
 
 const WATERLOGGED_FLUID_INSET = 1 / 64
 
-export function isSchematicWaterlogged(state: SchematicBlockState) {
-    return state.properties.waterlogged === 'true'
-}
-
 /**
- * Vanilla keeps the fluid of a waterlogged block flush with the block bounds, where it shares
- * planes with the host block's own faces. Translucent geometry is drawn after opaque geometry with
- * `depthFunc: LessEqual`, so a flush fluid would paint over cutout blocks such as leaves. Pulling
- * the fluid a fraction of a pixel inside keeps it visible only through the host block's gaps.
+ * Fluid held by a waterlogged block, meshed apart from the block so it can stay translucent.
+ *
+ * Vanilla keeps the fluid flush with the block bounds, where it shares planes with the host block's
+ * own faces. Translucent geometry is drawn after opaque geometry with `depthFunc: LessEqual`, so a
+ * flush fluid would paint over cutout blocks such as leaves. Pulling the side faces a fraction of a
+ * pixel inside keeps the fluid visible only through the host block's gaps, while the surface and the
+ * floor keep the full block extent so two neighbouring fluids meet instead of leaving a gap.
  */
-function insetWaterloggedFluid(mesh: Mesh) {
-    const inset = (value: number) =>
-        value <= 0 ? WATERLOGGED_FLUID_INSET : value >= 1 ? 1 - WATERLOGGED_FLUID_INSET : value
-    for (const quad of mesh.quads) {
-        for (const vertex of quad.vertices()) {
-            vertex.pos = new Vector(inset(vertex.pos.x), inset(vertex.pos.y), inset(vertex.pos.z))
-        }
-    }
-    return mesh
-}
-
-/** Fluid held by a waterlogged block, meshed apart from the block so it can stay translucent. */
 export function getSchematicWaterloggedFluidMesh(
     state: SchematicBlockState,
     atlas: TextureAtlasProvider,
     cull: Cull,
+    neighborhood?: SchematicFluidNeighborhood,
 ) {
     if (!isSchematicWaterlogged(state)) return undefined
-    const fluid = getSchematicSpecialBlockMesh(
-        { name: 'minecraft:water', properties: { level: '0' } },
+    return getSchematicFluidMesh({
+        state: { name: 'minecraft:water', properties: { level: '0' } },
         atlas,
         cull,
-    )
-    return fluid.quads.length > 0 ? insetWaterloggedFluid(fluid) : undefined
+        inset: WATERLOGGED_FLUID_INSET,
+        neighborhood,
+    })
 }
 
 function seamlessGlassId(name: string) {
@@ -483,6 +476,40 @@ export function extractSchematicNeighborFace(blocks: Uint32Array, direction: Sch
     return face
 }
 
+/**
+ * Palette index at a cell of the chunk plus its six neighbours, or `undefined` when the cell falls
+ * outside that volume. Callers that sample a neighbourhood need the difference between a cell that
+ * is known to be empty and a cell the mesh job carries no data for.
+ */
+export function schematicBlockIndexAt(
+    blocks: Uint32Array,
+    neighborFaces: SchematicNeighborFaces,
+    x: number,
+    y: number,
+    z: number,
+): number | undefined {
+    if (x === -1 && y >= 0 && y < 16 && z >= 0 && z < 16) {
+        return neighborFaces.west?.[y * 16 + z]
+    }
+    if (x === 16 && y >= 0 && y < 16 && z >= 0 && z < 16) {
+        return neighborFaces.east?.[y * 16 + z]
+    }
+    if (y === -1 && x >= 0 && x < 16 && z >= 0 && z < 16) {
+        return neighborFaces.down?.[z * 16 + x]
+    }
+    if (y === 16 && x >= 0 && x < 16 && z >= 0 && z < 16) {
+        return neighborFaces.up?.[z * 16 + x]
+    }
+    if (z === -1 && x >= 0 && x < 16 && y >= 0 && y < 16) {
+        return neighborFaces.north?.[y * 16 + x]
+    }
+    if (z === 16 && x >= 0 && x < 16 && y >= 0 && y < 16) {
+        return neighborFaces.south?.[y * 16 + x]
+    }
+    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) return undefined
+    return blocks[y * 256 + z * 16 + x]
+}
+
 export function schematicBlockAt(
     blocks: Uint32Array,
     neighborFaces: SchematicNeighborFaces,
@@ -490,37 +517,21 @@ export function schematicBlockAt(
     y: number,
     z: number,
 ) {
-    if (x === -1 && y >= 0 && y < 16 && z >= 0 && z < 16) {
-        return neighborFaces.west?.[y * 16 + z] ?? 0
-    }
-    if (x === 16 && y >= 0 && y < 16 && z >= 0 && z < 16) {
-        return neighborFaces.east?.[y * 16 + z] ?? 0
-    }
-    if (y === -1 && x >= 0 && x < 16 && z >= 0 && z < 16) {
-        return neighborFaces.down?.[z * 16 + x] ?? 0
-    }
-    if (y === 16 && x >= 0 && x < 16 && z >= 0 && z < 16) {
-        return neighborFaces.up?.[z * 16 + x] ?? 0
-    }
-    if (z === -1 && x >= 0 && x < 16 && y >= 0 && y < 16) {
-        return neighborFaces.north?.[y * 16 + x] ?? 0
-    }
-    if (z === 16 && x >= 0 && x < 16 && y >= 0 && y < 16) {
-        return neighborFaces.south?.[y * 16 + x] ?? 0
-    }
-    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) return 0
-    return blocks[y * 256 + z * 16 + x] ?? 0
-}
-
-function holdsSchematicWater(state: SchematicBlockState) {
-    return isSchematicWaterlogged(state) || normalizedBlockName(state.name) === 'minecraft:water'
+    return schematicBlockIndexAt(blocks, neighborFaces, x, y, z) ?? 0
 }
 
 /**
  * Waterlogged fluid is inset away from every block boundary so the host block's own faces stay in
  * front of it. Two adjacent waterlogged blocks would then show a seam where their fluid volumes
  * pull apart, so fluid faces shared with another water-holding block are culled the way vanilla
- * culls faces between two cells of the same fluid.
+ * culls faces between two cells of the same fluid. Only the same fluid counts: water neither hides
+ * nor merges with lava, exactly like vanilla compares the two fluid states.
+ *
+ * The surface is the exception to inheriting the host cull: a fluid surface sits at the fluid
+ * height, not at the top of the block, so a block above it never reaches it and only another cell
+ * of fluid can hide it. Vanilla draws the surface for the same reason and skips it only when the
+ * cell above holds the same fluid (`BlockOcclusionCache#shouldDrawFullBlockFluidSide` returns
+ * early for `Direction.UP`, before it compares any block shape).
  */
 export function getSchematicFluidCull(
     position: readonly [number, number, number],
@@ -529,7 +540,11 @@ export function getSchematicFluidCull(
     palette: readonly SchematicBlockState[],
     cull: Cull,
 ) {
-    const fluidCull: Cull = { ...cull }
+    const fluidCull: Cull = { ...cull, up: false }
+    const current =
+        palette[schematicBlockAt(blocks, neighborFaces, position[0], position[1], position[2])]
+    const kind = current ? schematicFluidKind(current) : undefined
+    if (!kind) return fluidCull
     for (const direction of SCHEMATIC_DIRECTIONS) {
         if (fluidCull[direction]) continue
         const offset = SCHEMATIC_DIRECTION_OFFSETS[direction]
@@ -543,7 +558,7 @@ export function getSchematicFluidCull(
                     position[2] + offset[2],
                 )
             ]
-        if (neighbor && holdsSchematicWater(neighbor)) fluidCull[direction] = true
+        if (neighbor && schematicFluidKind(neighbor) === kind) fluidCull[direction] = true
     }
     return fluidCull
 }

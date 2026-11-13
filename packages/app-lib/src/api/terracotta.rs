@@ -710,7 +710,7 @@ pub async fn update_terracotta() -> eyre::Result<TerracottaUpdate> {
 
 fn terracotta_client() -> &'static reqwest::Client {
     static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-        reqwest::Client::builder()
+        crate::util::http::client_builder()
             .no_proxy()
             .connect_timeout(std::time::Duration::from_secs(2))
             .timeout(TERRACOTTA_REQUEST_TIMEOUT)

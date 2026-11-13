@@ -1,6 +1,6 @@
 import { Checkbox, FileTreeSelect, I18N_INJECTION_KEY, MultiStageModal } from '@modrinth/ui'
 import { save } from '@tauri-apps/plugin-dialog'
-import { flushPromises } from '@vue/test-utils'
+import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
@@ -90,6 +90,22 @@ async function mountExport() {
     })
 }
 
+/**
+ * `MultiStageModal` is a generic SFC, which @vue/test-utils' overloads
+ * mistake for a functional component and type as a DOM wrapper. The test
+ * only needs the methods the component exposes, so narrow the wrapper locally.
+ */
+interface MultiStageModalVm {
+    show: () => void
+    hide: () => void
+    setStage: (indexOrId: number | string) => void
+    nextStage: () => void
+    prevStage: () => void
+}
+
+const modalOf = (wrapper: Awaited<ReturnType<typeof mountExport>>) =>
+    wrapper.findComponent(MultiStageModal) as unknown as VueWrapper<MultiStageModalVm>
+
 function resolved(revision = 1): ExportResolutionSession {
     return {
         id: 'fresh',
@@ -134,7 +150,7 @@ it('does not queue an export after unmount while the native save dialog is open'
     const wrapper = await mountExport()
     wrapper.vm.show()
     await flushPromises()
-    wrapper.findComponent(MultiStageModal).vm.setStage('package')
+    modalOf(wrapper).vm.setStage('package')
     await flushPromises()
     exportButton().click()
     await flushPromises()
@@ -188,7 +204,7 @@ it('starts verification when opened and keeps its progress in the fixed header a
         expect(resourceExportRefresh).toHaveBeenCalledTimes(1)
         const progress = document.querySelector('[data-export-progress]')!
         expect(progress.closest('[data-modal-content]')).toBeNull()
-        const modal = wrapper.findComponent(MultiStageModal)
+        const modal = modalOf(wrapper)
         modal.vm.nextStage()
         await flushPromises()
         expect(document.querySelector('[data-export-progress]')).toBe(progress)
@@ -279,7 +295,7 @@ it('queues unfinished verification, freezes the current selection and closes the
     try {
         wrapper.vm.show()
         await flushPromises()
-        const modal = wrapper.findComponent(MultiStageModal)
+        const modal = modalOf(wrapper)
         modal.vm.setStage('package')
         await flushPromises()
         const inputs = document.querySelectorAll<HTMLInputElement>('[role="dialog"] input')
@@ -325,7 +341,7 @@ it('checks the full snapshot once while selection changes preserve the in-flight
         await flushPromises()
         const signal = vi.mocked(resourceExportRefresh).mock.calls[0][5]!
         expect(vi.mocked(resourceExportRefresh).mock.calls[0][2]).toEqual(scan.files)
-        const modal = wrapper.findComponent(MultiStageModal)
+        const modal = modalOf(wrapper)
         const category = wrapper
             .findAllComponents(Checkbox)
             .find((checkbox) => checkbox.props('label') === 'Mods and plugins')!
@@ -379,7 +395,7 @@ it('retries exact failed references and sends explicit fallback choices to the q
     try {
         wrapper.vm.show()
         await flushPromises()
-        wrapper.findComponent(MultiStageModal).vm.setStage('package')
+        modalOf(wrapper).vm.setStage('package')
         await flushPromises()
         const retry = [
             ...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
@@ -415,7 +431,7 @@ it('retains package input and selection when queue submission fails', async () =
     try {
         wrapper.vm.show()
         await flushPromises()
-        wrapper.findComponent(MultiStageModal).vm.setStage('package')
+        modalOf(wrapper).vm.setStage('package')
         await flushPromises()
         const input = document.querySelector<HTMLInputElement>('[role="dialog"] input')!
         input.value = 'Retained package'
@@ -449,7 +465,7 @@ it('retains completed evidence and fallback choices through deselection and retr
     try {
         wrapper.vm.show()
         await flushPromises()
-        const modal = wrapper.findComponent(MultiStageModal)
+        const modal = modalOf(wrapper)
         modal.vm.setStage('package')
         await flushPromises()
         const checkbox = [
@@ -499,7 +515,7 @@ it('locks decisions during queue submission and preserves them when the save dia
     try {
         wrapper.vm.show()
         await flushPromises()
-        wrapper.findComponent(MultiStageModal).vm.setStage('package')
+        modalOf(wrapper).vm.setStage('package')
         await flushPromises()
         exportButton().click()
         await flushPromises()
@@ -524,7 +540,7 @@ it('keeps exact selection and directory through category backtracking without re
     try {
         wrapper.vm.show()
         await flushPromises()
-        const modal = wrapper.findComponent(MultiStageModal)
+        const modal = modalOf(wrapper)
         modal.vm.nextStage()
         await flushPromises()
         let tree = wrapper.findComponent(FileTreeSelect)
@@ -565,14 +581,14 @@ it('cancels a hidden scan and rejects its late response after reopening', async 
         wrapper.vm.show()
         await waitFor(() => vi.mocked(resourceExportScan).mock.calls.length > 0)
         const signal = vi.mocked(resourceExportScan).mock.calls[0][1]!
-        wrapper.findComponent(MultiStageModal).vm.hide()
+        modalOf(wrapper).vm.hide()
         await flushPromises()
         expect(signal.aborted).toBe(true)
         wrapper.vm.show()
         await flushPromises()
         resolveOld({ ...snapshot('old'), files: [] })
         await flushPromises()
-        wrapper.findComponent(MultiStageModal).vm.nextStage()
+        modalOf(wrapper).vm.nextStage()
         await flushPromises()
         expect(
             wrapper

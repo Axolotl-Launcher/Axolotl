@@ -1,6 +1,6 @@
 use super::*;
 
-struct CancellationRegistration<'a> {
+pub(super) struct CancellationRegistration<'a> {
     registrations:
         &'a dashmap::DashMap<Uuid, tokio_util::sync::CancellationToken>,
     id: Uuid,
@@ -11,12 +11,28 @@ impl Drop for CancellationRegistration<'_> {
     }
 }
 
+pub(super) fn register_cancellation<'a>(
+    state: &'a State,
+    job_id: Uuid,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> CancellationRegistration<'a> {
+    state
+        .install_job_cancellations
+        .insert(job_id, cancellation.clone());
+    CancellationRegistration {
+        registrations: &state.install_job_cancellations,
+        id: job_id,
+    }
+}
+
 pub(super) fn spawn_job(job_id: Uuid) {
     tokio::spawn(async move {
         let result =
             worker_result(EXECUTING_JOB.scope(job_id, run_job(job_id))).await;
         if let Err(error) = result {
-            tracing::error!(%job_id, %error, "Install worker recovery could not finish; persisted recovery information is retained");
+            // A recovery failure was already reported with its own message;
+            // this is the work (or panic) error that followed it.
+            tracing::warn!(%job_id, %error, "Install worker ended with an error");
         }
     });
 }
@@ -29,11 +45,43 @@ async fn worker_result(
         .catch_unwind()
         .await
         .unwrap_or_else(|_| {
+            tracing::error!("Install worker panicked; recovery is required");
             Err(ErrorKind::OtherError(
                 "Install worker panicked; recovery is required".into(),
             )
             .into())
         })
+}
+
+pub(super) async fn supervise_install_worker(
+    job_id: Uuid,
+    state: &State,
+    reporter: &InstallProgressReporter,
+    cancellation: &tokio_util::sync::CancellationToken,
+    work: impl Future<Output = crate::Result<()>>,
+) -> crate::Result<()> {
+    let result = worker_result(work).await;
+    if let Err(error) = &result {
+        let cancel_requested = cancellation.is_cancelled();
+        if let Err(recovery_error) = retry_recovery(job_id, || {
+            recover_owned_job(
+                job_id,
+                state,
+                Some(reporter),
+                error,
+                cancel_requested,
+            )
+        })
+        .await
+        {
+            // Only a recovery failure deserves the "recovery could not
+            // finish" report; the work error below is not one. Keep both
+            // errors: recovery may not have persisted the work error.
+            tracing::error!(%job_id, work_error = %error, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+            return Err(recovery_error);
+        }
+    }
+    result
 }
 
 pub(super) async fn recover_stopped_job(
@@ -46,15 +94,26 @@ pub(super) async fn recover_stopped_job(
     let initial = store::get_required(job_id, state).await?;
     // Absence of a token can be a registration race. Ownership, followed by a
     // fresh status read, proves that no worker can still publish these files.
-    let _execution = admission::execution_lock(state, &initial).await;
-    recover_owned_job(job_id, state, reporter, error).await
+    let Some(_execution) = admission::execution_lock(state, &initial).await
+    else {
+        return Err(crate::ErrorKind::OtherError(
+            "Timed out waiting for the install execution lock".into(),
+        )
+        .into());
+    };
+    recover_owned_job(job_id, state, reporter, error, false).await
 }
 
-async fn recover_owned_job(
+/// `cancel_requested` is a cancellation this process signaled to the worker.
+/// Its `Canceling` checkpoint can time out and leave the row `Running`, and
+/// the worker's `Canceled` write can time out too; the job is still canceled,
+/// never failed.
+pub(super) async fn recover_owned_job(
     job_id: Uuid,
     state: &State,
     reporter: Option<&InstallProgressReporter>,
     error: &crate::Error,
+    cancel_requested: bool,
 ) -> crate::Result<()> {
     let mut job = store::get_required(job_id, state).await?;
     if !needs_worker_recovery(job.status) {
@@ -77,7 +136,9 @@ async fn recover_owned_job(
     if complete_committed_job(job_id, &mut job.state, state).await? {
         return Ok(());
     }
-    if job.status == InstallJobStatus::Canceling {
+    if job.status == InstallJobStatus::Canceling
+        || (cancel_requested && job.status == InstallJobStatus::Running)
+    {
         finish_canceled_job(job_id, &mut job.state, state).await?;
         return Ok(());
     }
@@ -305,28 +366,59 @@ async fn run_job(job_id: Uuid) -> crate::Result<()> {
         return Ok(());
     }
 
-    let (_execution, _install_permit) =
-        match admission::execution_slot(&state, &job).await {
-            Ok(slot) => slot,
-            Err(error) => {
-                drop(_metadata_usage);
-                recover_stopped_job(job_id, &state, None, &error).await?;
-                return Err(error);
+    // The wait runs in bounded steps that re-read the job, so it keeps its
+    // place in line and leaves only once the job finished or is canceling.
+    let (_execution, _install_permit) = match admission::queued_slot(
+        &state, &job,
+    )
+    .await
+    {
+        Ok(Some(slot)) => slot,
+        Ok(None) => return Ok(()),
+        Err(error) => {
+            drop(_metadata_usage);
+            if let Err(recovery_error) = retry_recovery(job_id, || {
+                recover_stopped_job(job_id, &state, None, &error)
+            })
+            .await
+            {
+                tracing::error!(%job_id, work_error = %error, %recovery_error, "Install worker recovery could not finish; persisted recovery information is retained");
+                return Err(recovery_error);
             }
-        };
+            return Err(error);
+        }
+    };
+    let job = store::get_required(job_id, &state).await?;
     let reporter = InstallProgressReporter::new(job_id, job.state.clone());
-    let result = worker_result(run_owned_job(job_id, &state)).await;
-    if let Err(error) = &result {
-        recover_owned_job(job_id, &state, Some(&reporter), error).await?;
-    }
-    result
+    // Kept here so recovery still sees a cancellation the worker was given
+    // after the worker has unregistered it.
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    supervise_install_worker(
+        job_id,
+        &state,
+        &reporter,
+        &cancellation,
+        run_owned_job(job_id, &state, &cancellation),
+    )
+    .await
 }
 
-async fn run_owned_job(job_id: Uuid, state: &State) -> crate::Result<()> {
+async fn run_owned_job(
+    job_id: Uuid,
+    state: &State,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> crate::Result<()> {
     let job = store::get_required(job_id, state).await?;
 
     if job.status != InstallJobStatus::Queued {
         return Ok(());
+    }
+    if job.state.initialization_pending {
+        return Err(ErrorKind::InputError(
+            "Instance initialization was interrupted before it completed"
+                .into(),
+        )
+        .into());
     }
 
     let mut job_state = job.state.clone();
@@ -343,14 +435,8 @@ async fn run_owned_job(job_id: Uuid, state: &State) -> crate::Result<()> {
         return Ok(());
     };
     tracing::info!(%job_id, status = record.status.as_str(), phase = ?job_state.progress.phase, "Install job execution started");
-    let cancellation = tokio_util::sync::CancellationToken::new();
-    state
-        .install_job_cancellations
-        .insert(job_id, cancellation.clone());
-    let _registration = CancellationRegistration {
-        registrations: &state.install_job_cancellations,
-        id: job_id,
-    };
+    let cancellation = cancellation.clone();
+    let _registration = register_cancellation(state, job_id, &cancellation);
     emit_job_best_effort(&record.snapshot()).await;
     if store::get_required(job_id, state).await?.status
         == InstallJobStatus::Canceling
@@ -410,13 +496,22 @@ async fn run_owned_job(job_id: Uuid, state: &State) -> crate::Result<()> {
                 &error,
                 None,
             ));
-            let record = store::update_status(
+            // A concurrent cancel owns the terminal state: writing Interrupted
+            // over a row the cancel path already moved to Canceling would make
+            // `finish_canceling_job` return without its rollback. The
+            // conditional write makes that decision in one SQL statement, so
+            // a cancel that lands after this point still wins.
+            let Some(record) = store::update_status_if(
                 job_id,
+                InstallJobStatus::Running,
                 InstallJobStatus::Interrupted,
                 &job_state,
                 state,
             )
-            .await?;
+            .await?
+            else {
+                return Ok(());
+            };
             emit_install_job(&record.snapshot()).await?;
             return Ok(());
         }
@@ -491,6 +586,9 @@ async fn run_owned_job(job_id: Uuid, state: &State) -> crate::Result<()> {
                 return Ok(());
             };
             tracing::info!(%job_id, status = record.status.as_str(), phase = ?completed_state.progress.phase, "Install job execution completed");
+            // Publish the committed result before instance observers and rollback
+            // cleanup can delay the download UI's terminal transition.
+            emit_job_best_effort(&record.snapshot()).await;
             if let Some(instance_id) = instance_id.as_ref()
                 && let Err(error) =
                     emit_instance(instance_id, InstancePayloadType::Edited)
@@ -518,13 +616,6 @@ async fn run_owned_job(job_id: Uuid, state: &State) -> crate::Result<()> {
                     job_id = %job_id,
                     error = %error,
                     "Install job succeeded, but rollback staging could not be discarded"
-                );
-            }
-            if let Err(error) = emit_install_job(&record.snapshot()).await {
-                tracing::warn!(
-                    job_id = %job_id,
-                    error = %error,
-                    "Install job succeeded, but its final event could not be emitted"
                 );
             }
         }

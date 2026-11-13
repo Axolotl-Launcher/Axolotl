@@ -13,10 +13,12 @@ import {
     HOME_GREETING_GLOBAL_KEY,
     HOME_GREETING_NICKNAME_MAX,
     HOME_GREETING_TITLE_MAX,
+    type HomeWidgetPlacement,
     moveHomeWidget,
     normalizeHomeDashboard,
     packHomeWidgets,
     pruneHomeGreetingOverrides,
+    reflowFreeHomeWidgets,
     removeHomeWidget,
     replaceHomeDashboardWidgets,
     resizeHomeWidget,
@@ -28,7 +30,7 @@ import {
 } from './home-dashboard.ts'
 
 function greetingOptionsOf(config: ReturnType<typeof createDefaultHomeDashboard>) {
-    const widget = config.widgets.find((candidate) => candidate.kind === 'greeting')
+    const widget = config.widgets.find((candidate) => candidate.kind === 'greeting')!
     expect(widget, 'the default dashboard has a greeting widget').toBeTruthy()
     return { widget, options: widget.options }
 }
@@ -413,5 +415,48 @@ it('normalizes stored overrides and drops unusable entries', () => {
     expect(greetingOptionsOf(normalized).options?.greetingOverrides).toEqual({
         'account-a': { nickname: 'Alex' },
         'account-e': { nickname: 'Bea', title: 'Hello there' },
+    })
+})
+
+it('keeps free positions while they fit and flows them in reading order once they do not', () => {
+    const widgets = [
+        { id: 'greeting', kind: 'greeting', size: '2x1', position: { column: 0, row: 0 } },
+        { id: 'later', kind: 'pinned-worlds', size: '1x2', position: { column: 3, row: 0 } },
+        { id: 'calendar', kind: 'calendar', size: '1x2', position: { column: 2, row: 0 } },
+        { id: 'recent', kind: 'recent', size: '2x2', position: { column: 0, row: 1 } },
+    ] as HomeWidgetPlacement[]
+
+    expect(reflowFreeHomeWidgets(widgets, 4)).toBeNull()
+    expect(reflowFreeHomeWidgets(widgets, 2)).toEqual({
+        greeting: { column: 0, row: 0 },
+        calendar: { column: 0, row: 1 },
+        later: { column: 1, row: 1 },
+        recent: { column: 0, row: 3 },
+    })
+    expect(reflowFreeHomeWidgets(widgets, 1)).toEqual({
+        greeting: { column: 0, row: 0 },
+        calendar: { column: 0, row: 1 },
+        later: { column: 0, row: 3 },
+        recent: { column: 0, row: 5 },
+    })
+})
+
+it('never lets a later free widget fill an earlier gap while reflowing', () => {
+    const widgets = [
+        { id: 'tall', kind: 'calendar', size: '1x2', position: { column: 0, row: 0 } },
+        { id: 'wide', kind: 'recent', size: '2x1', position: { column: 1, row: 0 } },
+        { id: 'small', kind: 'instance', size: '1x1', position: { column: 3, row: 0 } },
+    ] as HomeWidgetPlacement[]
+
+    // The grid layout packs densely: the small widget fills the gap first.
+    expect(packHomeWidgets(widgets, 2).map(({ id, column, row }) => [id, column, row])).toEqual([
+        ['tall', 1, 1],
+        ['wide', 1, 3],
+        ['small', 2, 1],
+    ])
+    expect(reflowFreeHomeWidgets(widgets, 2)).toEqual({
+        tall: { column: 0, row: 0 },
+        wide: { column: 0, row: 2 },
+        small: { column: 0, row: 3 },
     })
 })

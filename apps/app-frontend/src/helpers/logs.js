@@ -35,6 +35,15 @@ export async function get_output_by_filename(instanceId, logType, filename) {
     })
 }
 
+export async function export_log_file(instanceId, logType, filename) {
+    const outputPath = await save({
+        defaultPath: filename.replace(/\.gz$/, ''),
+        filters: [{ name: 'Log', extensions: ['log', 'txt'] }],
+    })
+    if (!outputPath) return
+    await invoke('plugin:logs|logs_export_log_file', { instanceId, logType, filename, outputPath })
+}
+
 /// Delete an instance's log by filename
 export async function delete_logs_by_filename(instanceId, logType, filename) {
     return await invoke('plugin:logs|logs_delete_logs_by_filename', {
@@ -108,8 +117,8 @@ export async function logshare_upload_crash(instanceId) {
     return await invoke('plugin:logs|logs_logshare_upload_crash', { instanceId })
 }
 
-export async function logshare_get_insights(id) {
-    return await invoke('plugin:logs|logs_logshare_get_insights', { id })
+export async function logshare_get_insights(id, filename = null) {
+    return await invoke('plugin:logs|logs_logshare_get_insights', { id, filename })
 }
 
 export async function logshare_analyse_crash_direct(instanceId) {
@@ -133,13 +142,14 @@ export async function delete_shared_log(id, token) {
 }
 
 /// Export the censored files and local analysis from an instance's latest run.
+/// Returns the saved archive path, or null when the save dialog is cancelled.
 export async function export_crash_context(instanceId, instanceName) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const outputPath = await save({
         defaultPath: `${instanceName || 'Minecraft'} crash context ${timestamp}.zip`,
         filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
     })
-    if (!outputPath) return false
+    if (!outputPath) return null
     await invoke('plugin:logs|logs_export_crash_context', { instanceId, outputPath })
-    return true
+    return outputPath
 }

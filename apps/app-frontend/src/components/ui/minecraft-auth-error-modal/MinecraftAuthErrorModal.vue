@@ -17,6 +17,7 @@ import {
     NewModal,
     useVIntl,
 } from '@modrinth/ui'
+import { useClipboard } from '@vueuse/core'
 import { computed, ref } from 'vue'
 
 import { AxolotlBrandConfig } from '@/config'
@@ -31,7 +32,7 @@ const modal = ref<InstanceType<typeof NewModal>>()
 const rawError = ref<string>('')
 const matchedError = ref<MinecraftAuthError | null>(null)
 const debugCollapsed = ref(true)
-const copied = ref(false)
+const { copy: copyToClipboard, copied } = useClipboard({ copiedDuring: 3000 })
 const loadingSignIn = ref(false)
 const { formatMessage } = useVIntl()
 const missingJavaProfile = computed(() =>
@@ -161,14 +162,6 @@ async function signInAgain() {
 }
 
 const debugInfo = computed(() => rawError.value || formatMessage(messages.noErrorMessage))
-
-async function copyToClipboard(text: string) {
-    await navigator.clipboard.writeText(text)
-    copied.value = true
-    setTimeout(() => {
-        copied.value = false
-    }, 3000)
-}
 </script>
 
 <template>

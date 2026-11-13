@@ -1,19 +1,30 @@
 <template>
-    <SidebarSection :title="formatMessage(messages.title)" :visible="project.versions?.length > 0">
+    <SidebarSection
+        :title="formatMessage(messages.title)"
+        :visible="!!(project.game_versions?.length || project.versions?.length)"
+    >
         <section class="flex flex-col gap-2">
             <h3 class="text-[var(--color-text-default)] !font-normal text-base m-0">
                 {{ formatMessage(messages.minecraftJava) }}
             </h3>
             <div class="flex flex-wrap gap-1">
                 <TagItem
-                    v-for="version in getVersionsToDisplay(project, tags.gameVersions)"
+                    v-for="version in tags.gameVersions.length
+                        ? getVersionsToDisplay(project, tags.gameVersions)
+                        : (project.game_versions ?? [])"
                     :key="`version-tag-${version}`"
                 >
                     {{ version }}
                 </TagItem>
             </div>
         </section>
-        <section v-if="project.project_type !== 'resourcepack'" class="flex flex-col gap-2">
+        <section
+            v-if="
+                project.project_type !== 'resourcepack' &&
+                (project.loaders.length || noModpackLoader)
+            "
+            class="flex flex-col gap-2"
+        >
             <h3 class="text-[var(--color-text-default)] !font-normal text-base m-0">
                 {{ formatMessage(messages.platforms) }}
             </h3>
@@ -128,11 +139,13 @@ const TYPES_WITH_ENVS = ['mod', 'modpack'] as const
 const props = defineProps<{
     project: {
         project_type: string
+        status: string
         loaders: string[]
         client_side: EnvironmentValue
         server_side: EnvironmentValue
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        versions: any[]
+        versions?: any[]
+        game_versions?: string[]
     }
     tags: {
         gameVersions: GameVersionTag[]

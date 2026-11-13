@@ -62,8 +62,8 @@ it('matches Minecraft preview text shadow colors', () => {
 it('keeps multiline text and formatting in generated output', () => {
     const document = {
         lines: [
-            [{ text: 'A', formats: ['bold', 'italic'] as const }],
-            [{ text: 'B', formats: [] }],
+            [{ text: 'A', formats: ['bold', 'italic'] as TextFormat[] }],
+            [{ text: 'B', formats: [] as TextFormat[] }],
         ],
     }
     expect(generateGradientOutput(document, ['#123456', '#ABCDEF'], 'vanilla', options)).toBe(

@@ -1,4 +1,259 @@
 {
+  "app.minecraft-crash.scan-logs": {
+    "message": "Scan to view logs"
+  },
+  "app.java.external.title": {
+    "message": "Use Java from this storage device?"
+  },
+  "app.java.external.body": {
+    "message": "This Java installation is on external, network or unrecognized storage. Games cannot start while it is unavailable.\n\n{path}"
+  },
+  "app.java.external.use": {
+    "message": "Use this Java"
+  },
+  "app.java.external.cancel": {
+    "message": "Cancel"
+  },
+  "app.downloads.slow-downloads.title": {
+    "message": "Slow downloads?"
+  },
+  "app.downloads.slow-downloads.description": {
+    "message": "You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed."
+  },
+  "app.downloads.slow-downloads.dismiss": {
+    "message": "Don't show again"
+  },
+  "app.settings.resources.force-multiconnection": {
+    "message": "Force multi-connection downloads"
+  },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems."
+  },
+  "app.settings.resources.experimental": {
+    "message": "Experimental"
+  },
+  "app.schematics.source.reden": {
+    "message": "Reden"
+  },
+  "app.schematics.source.buildschematics": {
+    "message": "BuildSchematics"
+  },
+  "app.schematics.failed-sources": {
+    "message": "{sources} could not be loaded."
+  },
+  "app.schematics.sort.default": {
+    "message": "Source order"
+  },
+  "app.schematics.sort.name": {
+    "message": "Name"
+  },
+  "app.schematics.login-required-sources": {
+    "message": "{count, plural, one {# source requires <login-link>sign-in</login-link>} other {# sources require <login-link>sign-in</login-link>}}"
+  },
+  "app.schematics.open-source": {
+    "message": "View on source website"
+  },
+  "app.schematics.instances-error": {
+    "message": "Could not load your instances."
+  },
+  "app.browse.schematics-project-type": {
+    "message": "Schematics"
+  },
+  "app.schematics.source": {
+    "message": "Shimu Space"
+  },
+  "app.schematics.login-title": {
+    "message": "Connect Shimu Space"
+  },
+  "app.schematics.login-description": {
+    "message": "Sign in to browse free schematics from Shimu Space and install them into your Minecraft instances."
+  },
+  "app.schematics.login": {
+    "message": "Sign in to Shimu Space"
+  },
+  "app.schematics.waiting": {
+    "message": "Complete authorization in your browser"
+  },
+  "app.schematics.expired": {
+    "message": "Reconnect Shimu Space"
+  },
+  "app.schematics.load-error": {
+    "message": "Could not load schematics."
+  },
+  "app.schematics.account-error": {
+    "message": "Could not read your Shimu Space account."
+  },
+  "app.schematics.empty-title": {
+    "message": "No schematics found"
+  },
+  "app.schematics.empty-description": {
+    "message": "Try another page or a different search."
+  },
+  "app.schematics.loading": {
+    "message": "Loading schematics…"
+  },
+  "app.schematics.retry": {
+    "message": "Retry"
+  },
+  "app.schematics.search": {
+    "message": "Search schematics"
+  },
+  "app.schematics.sort.hot": {
+    "message": "Popular"
+  },
+  "app.schematics.sort.featured": {
+    "message": "Featured"
+  },
+  "app.schematics.author-summary": {
+    "message": "{author} · {summary}"
+  },
+  "app.schematics.select-instance": {
+    "message": "Choose an instance"
+  },
+  "app.schematics.install": {
+    "message": "Install"
+  },
+  "app.schematics.installing": {
+    "message": "Installing…"
+  },
+  "app.schematics.preview": {
+    "message": "Preview"
+  },
+  "app.schematics.files": {
+    "message": "Files"
+  },
+  "app.schematics.creator": {
+    "message": "Creator"
+  },
+  "app.schematics.source-heading": {
+    "message": "Source"
+  },
+  "app.schematics.preview-source": {
+    "message": "Shimu Space · {fileName}"
+  },
+  "app.schematics.installed": {
+    "message": "Installed"
+  },
+  "app.schematics.install-success": {
+    "message": "Schematic installed"
+  },
+  "app.schematics.install-failed": {
+    "message": "Could not install this schematic. Please try again."
+  },
+  "app.schematics.file-exists": {
+    "message": "A file with this name already exists in the instance. Choose another instance or rename the existing file."
+  },
+  "app.schematics.login-failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
+  "app.third-party.connected-notification": {
+    "message": "Connected to Shimu Space"
+  },
+  "app.third-party.description": {
+    "message": "Connect external accounts for use in the launcher."
+  },
+  "app.third-party.shimu": {
+    "message": "Shimu Space"
+  },
+  "app.third-party.shimu-purpose": {
+    "message": "Connect your Shimu Space account."
+  },
+  "app.third-party.identity": {
+    "message": "{nickname} · {username}"
+  },
+  "app.third-party.connected": {
+    "message": "Connected"
+  },
+  "app.third-party.disconnected": {
+    "message": "Not connected"
+  },
+  "app.third-party.expired": {
+    "message": "Sign in again"
+  },
+  "app.third-party.waiting": {
+    "message": "Waiting for authorization"
+  },
+  "app.third-party.exchanging": {
+    "message": "Completing connection"
+  },
+  "app.third-party.connect": {
+    "message": "Connect"
+  },
+  "app.third-party.reconnect": {
+    "message": "Reconnect"
+  },
+  "app.third-party.cancel": {
+    "message": "Cancel"
+  },
+  "app.third-party.more": {
+    "message": "Shimu Space account options"
+  },
+  "app.third-party.check": {
+    "message": "Check connection"
+  },
+  "app.third-party.disconnect": {
+    "message": "Disconnect"
+  },
+  "app.third-party.disconnect-title": {
+    "message": "Disconnect Shimu Space?"
+  },
+  "app.third-party.disconnect-description": {
+    "message": "This removes the account credential from this launcher. To revoke the authorization at Shimu Space, manage it on their website."
+  },
+  "app.third-party.denied": {
+    "message": "Authorization was declined. You can connect again."
+  },
+  "app.third-party.timed-out": {
+    "message": "Authorization timed out. Connect again to continue."
+  },
+  "app.third-party.failed": {
+    "message": "Could not complete the connection. Please try again."
+  },
+  "app.third-party.load-failed": {
+    "message": "Could not read the account status."
+  },
+  "app.third-party.check-failed": {
+    "message": "Could not check the connection. Please try again."
+  },
+  "app.third-party.action-failed": {
+    "message": "The account operation failed. Please try again."
+  },
+  "app.third-party.retry": {
+    "message": "Retry"
+  },
+  "app.third-party.unavailable": {
+    "message": "Account connection is unavailable in this build."
+  },
+  "app.third-party.permissions": {
+    "message": "Authorization: read your profile and posts, and download resources. Authorization expires after 3 days; you will need to sign in again."
+  },
+  "app.third-party.browser": {
+    "message": "Complete the authorization in your browser."
+  },
+  "app.third-party.search": {
+    "message": "Shimu mcimg OAuth account authorization sign in connect"
+  },
+  "app.settings.tabs.third-party-accounts": {
+    "message": "Third-party accounts"
+  },
+  "app.downloads.task.install-content": {
+    "message": "Install content"
+  },
+  "app.downloads.task.install-content-named": {
+    "message": "Install content: {name}"
+  },
+  "app.downloads.task.install-content-batch": {
+    "message": "Install content: {name} ({count} items)"
+  },
+  "app.downloads.task.change-content": {
+    "message": "Change content"
+  },
+  "app.downloads.task.change-content-named": {
+    "message": "Change content: {name}"
+  },
+  "app.downloads.task.change-content-batch": {
+    "message": "Change content: {name} ({count} items)"
+  },
   "app.account.modrinth-account": {
     "message": "Modrinth account"
   },
@@ -563,6 +818,15 @@
   "app.appearance-settings.color-theme.title": {
     "message": "Color theme"
   },
+  "app.appearance-settings.custom-background.adjust": {
+    "message": "Adjust background crop"
+  },
+  "app.appearance-settings.custom-background.animated-unsupported": {
+    "message": "This image format isn't supported as a launcher background."
+  },
+  "app.appearance-settings.custom-background.backend-unavailable": {
+    "message": "AVIF and MP4 backgrounds need FFmpeg support, which is not available yet."
+  },
   "app.appearance-settings.custom-background.blur": {
     "message": "Background blur"
   },
@@ -581,6 +845,24 @@
   "app.appearance-settings.custom-background.component-opacity-description": {
     "message": "How opaque launcher components and chrome stay over a custom background. At 100% components are fully opaque; lower it to let the image show through."
   },
+  "app.appearance-settings.custom-background.conversion-failed": {
+    "message": "The animated background could not be converted."
+  },
+  "app.appearance-settings.custom-background.converting": {
+    "message": "Converting animated background…"
+  },
+  "app.appearance-settings.custom-background.converting-hint": {
+    "message": "This can take a few seconds for longer animations."
+  },
+  "app.appearance-settings.custom-background.crop-aspect-window": {
+    "message": "Current window"
+  },
+  "app.appearance-settings.custom-background.crop-confirm": {
+    "message": "Use as background"
+  },
+  "app.appearance-settings.custom-background.crop-title": {
+    "message": "Crop launcher background"
+  },
   "app.appearance-settings.custom-background.description": {
     "message": "Choose or drop a custom image, then fine-tune how it blends with the launcher interface."
   },
@@ -596,6 +878,24 @@
   "app.appearance-settings.custom-background.opacity-description": {
     "message": "Control how strongly the image shows through the interface."
   },
+  "app.appearance-settings.custom-background.picker-all-files": {
+    "message": "All files"
+  },
+  "app.appearance-settings.custom-background.picker-media": {
+    "message": "Image or video"
+  },
+  "app.appearance-settings.custom-background.preview-close": {
+    "message": "Close preview"
+  },
+  "app.appearance-settings.custom-background.preview-expand": {
+    "message": "Expand preview"
+  },
+  "app.appearance-settings.custom-background.preview-pin": {
+    "message": "Keep open"
+  },
+  "app.appearance-settings.custom-background.preview-unpin": {
+    "message": "Unpin"
+  },
   "app.appearance-settings.custom-background.remove": {
     "message": "Remove"
   },
@@ -604,6 +904,9 @@
   },
   "app.appearance-settings.custom-background.title": {
     "message": "Launcher background"
+  },
+  "app.appearance-settings.custom-background.too-large": {
+    "message": "This image is too large to use as a launcher background."
   },
   "app.appearance-settings.default-landing-page.description": {
     "message": "Change the page to which the launcher opens on."
@@ -971,6 +1274,12 @@
   "app.browse.preparing-selected": {
     "message": "Preparing {completed}/{total}"
   },
+  "app.browse.reviewing-selected": {
+    "message": "Reviewing content changes…"
+  },
+  "app.browse.queueing-selected": {
+    "message": "Adding to download queue…"
+  },
   "app.browse.project-type.datapacks": {
     "message": "Data Packs"
   },
@@ -1052,6 +1361,60 @@
   "app.content-favorites.empty-title": {
     "message": "No favorites yet"
   },
+  "app.content-favorites.filters.categories": {
+    "message": "Categories"
+  },
+  "app.content-favorites.filters.no-categories": {
+    "message": "No categories to filter yet."
+  },
+  "app.content-favorites.groups.all": {
+    "message": "All favorites"
+  },
+  "app.content-favorites.groups.create-title": {
+    "message": "New group"
+  },
+  "app.content-favorites.groups.delete": {
+    "message": "Delete group"
+  },
+  "app.content-favorites.groups.delete-description": {
+    "message": "Favorites in {name} will not be deleted. They become ungrouped instead."
+  },
+  "app.content-favorites.groups.manage": {
+    "message": "Groups"
+  },
+  "app.content-favorites.groups.name": {
+    "message": "Group name"
+  },
+  "app.content-favorites.groups.name-empty": {
+    "message": "Group names cannot be empty."
+  },
+  "app.content-favorites.groups.name-placeholder": {
+    "message": "Enter a group name"
+  },
+  "app.content-favorites.groups.name-too-long": {
+    "message": "Group names cannot be longer than {max} characters."
+  },
+  "app.content-favorites.groups.new": {
+    "message": "New group"
+  },
+  "app.content-favorites.groups.none": {
+    "message": "No groups yet"
+  },
+  "app.content-favorites.groups.rename": {
+    "message": "Rename group"
+  },
+  "app.content-favorites.groups.rename-title": {
+    "message": "Rename group"
+  },
+  "app.content-favorites.groups.save": {
+    "message": "Save"
+  },
+  "app.content-favorites.groups.title": {
+    "message": "Groups"
+  },
+  "app.content-favorites.groups.ungrouped": {
+    "message": "No group"
+  },
   "app.content-favorites.load-failed": {
     "message": "Failed to load favorites"
   },
@@ -1059,7 +1422,7 @@
     "message": "Updating favorites…"
   },
   "app.content-favorites.no-matches-description": {
-    "message": "Try a different search or content type."
+    "message": "Try a different search, content type, group, or category."
   },
   "app.content-favorites.no-matches-title": {
     "message": "No matching favorites"
@@ -1892,6 +2255,12 @@
   "app.drop.content-installed-title": {
     "message": "Content installed"
   },
+  "app.drop.error.invalid-folder-text": {
+    "message": "No valid game instance or supported content was found in this folder. Choose another folder."
+  },
+  "app.drop.error.invalid-folder-title": {
+    "message": "Cannot import folder"
+  },
   "app.drop.error.multiple-files-text": {
     "message": "Please drop one file at a time."
   },
@@ -1984,6 +2353,9 @@
   },
   "app.drop.no-instances": {
     "message": "No instances found"
+  },
+  "app.drop.no-instances-text": {
+    "message": "No valid game instance was found in this folder. Choose a launcher folder or a .minecraft folder containing a game version."
   },
   "app.drop.overlay-subtitle": {
     "message": "Release to analyze"
@@ -2365,66 +2737,6 @@
   },
   "app.gc-notice.fallback": {
     "message": "Java did not accept {preferred}; using {chosen}."
-  },
-  "app.headless-demo.brand-button": {
-    "message": "Brand button"
-  },
-  "app.headless-demo.checkbox-label": {
-    "message": "Accept demo checkbox (brand fill when checked)"
-  },
-  "app.headless-demo.controls": {
-    "message": "Controls"
-  },
-  "app.headless-demo.description": {
-    "message": "Isolated reka-ui primitives styled only with existing app tokens. Switch theme in Settings → Appearance to verify light, dark, and OLED."
-  },
-  "app.headless-demo.dialog-close": {
-    "message": "Close"
-  },
-  "app.headless-demo.dialog-description": {
-    "message": "This dialog content uses bg-surface-3, text-[var(--color-text-primary)], and border-surface-5. Overlay and focus ring stay readable in every theme."
-  },
-  "app.headless-demo.dialog-title": {
-    "message": "Token-mapped dialog"
-  },
-  "app.headless-demo.loader-fabric": {
-    "message": "Fabric"
-  },
-  "app.headless-demo.loader-forge": {
-    "message": "Forge"
-  },
-  "app.headless-demo.loader-neoforge": {
-    "message": "NeoForge"
-  },
-  "app.headless-demo.loader-vanilla": {
-    "message": "Vanilla"
-  },
-  "app.headless-demo.open-dialog": {
-    "message": "Open dialog"
-  },
-  "app.headless-demo.select-label": {
-    "message": "Loader"
-  },
-  "app.headless-demo.select-placeholder": {
-    "message": "Pick a loader"
-  },
-  "app.headless-demo.standard-button": {
-    "message": "Standard button"
-  },
-  "app.headless-demo.surfaces": {
-    "message": "Surfaces"
-  },
-  "app.headless-demo.theme-hint": {
-    "message": "No second theme system is introduced here — surfaces and brand colors follow the active theme."
-  },
-  "app.headless-demo.title": {
-    "message": "Headless token demo"
-  },
-  "app.headless-demo.tooltip-content": {
-    "message": "Tooltip body mapped to surface-4 / text-[var(--color-text-primary)]."
-  },
-  "app.headless-demo.tooltip-trigger": {
-    "message": "Hover tooltip"
   },
   "app.home.breadcrumb": {
     "message": "Home"
@@ -3047,6 +3359,9 @@
   "app.instance.content.check-failures": {
     "message": "{count, plural, one {# check failed} other {# checks failed}}"
   },
+  "app.instance.content.processing": {
+    "message": "Updating instance files… Content will refresh when this finishes."
+  },
   "app.instance.content.checking": {
     "message": "Refreshing… {current}/{total}"
   },
@@ -3653,6 +3968,12 @@
   "app.instance.mods.update-added-content.description": {
     "message": "Updates only content added after the modpack was installed. Modpack files are not changed."
   },
+  "app.instance.mods.update-nothing-to-apply.body": {
+    "message": "No newer compatible version was found for the selected content, so no files were changed."
+  },
+  "app.instance.mods.update-nothing-to-apply.title": {
+    "message": "Nothing to update"
+  },
   "app.instance.never-played": {
     "message": "Never played"
   },
@@ -3830,6 +4151,12 @@
   "app.instances.edit-groups": {
     "message": "Edit groups"
   },
+  "app.instances.game-directory.managed": {
+    "message": "Axolotl data directory"
+  },
+  "app.instances.game-directory.managed-short": {
+    "message": "Axolotl"
+  },
   "app.instances.group-by": {
     "message": "Group by"
   },
@@ -3853,6 +4180,9 @@
   },
   "app.instances.group.expand": {
     "message": "Expand group"
+  },
+  "app.instances.group.game-directory": {
+    "message": "Game directory"
   },
   "app.instances.group.game-version": {
     "message": "Game version"
@@ -4064,26 +4394,14 @@
   "app.java-arguments.presets.use": {
     "message": "Use preset"
   },
-  "app.java-download-confirmation.body": {
-    "message": "No compatible Java {version} installation was found. You can download it now or postpone Java setup while the remaining game resources continue downloading."
+  "app.install.missing-java.body": {
+    "message": "This installation cannot continue because no usable Java {version} installation was found. You can install or configure Java {version} in Java settings, then try installing again."
   },
-  "app.java-download-confirmation.download": {
-    "message": "Download Java"
+  "app.install.missing-java.open-settings": {
+    "message": "Open Java settings"
   },
-  "app.java-download-confirmation.later-description": {
-    "message": "The instance will finish installing, but Java {version} must be configured before you can play."
-  },
-  "app.java-download-confirmation.postponed-body": {
-    "message": "The instance will finish installing. Configure Java {version} before launching it."
-  },
-  "app.java-download-confirmation.postponed-title": {
-    "message": "Java setup postponed"
-  },
-  "app.java-download-confirmation.set-up-later": {
-    "message": "Set up later"
-  },
-  "app.java-download-confirmation.title": {
-    "message": "Download Java {version}?"
+  "app.install.missing-java.title": {
+    "message": "Java {version} is needed to install this instance"
   },
   "app.java.already-installed": {
     "message": "Already installed"
@@ -5480,9 +5798,6 @@
   "app.lab.recipe-generator.brewing.count": {
     "message": "Output count"
   },
-  "app.lab.recipe-generator.brewing.guide": {
-    "message": "Brewing guide"
-  },
   "app.lab.recipe-generator.brewing.hint": {
     "message": "Drop any supported item into the input, reagent and output slots. Potion choices override only the potion ID in the corresponding JSON object. Other conditions and components are preserved."
   },
@@ -5921,6 +6236,9 @@
   "app.lab.schematic-preview.block-picker.title": {
     "message": "Replace blocks"
   },
+  "app.lab.schematic-preview.block-state": {
+    "message": "Block state"
+  },
   "app.lab.schematic-preview.blocks": {
     "message": "Blocks"
   },
@@ -6009,7 +6327,7 @@
     "message": "Collapse folder {name}"
   },
   "app.lab.schematic-preview.instance-picker.empty": {
-    "message": "No .litematic or .schem files were found in this instance."
+    "message": "No schematic files were found in this instance."
   },
   "app.lab.schematic-preview.instance-picker.expand-folder": {
     "message": "Expand folder {name}"
@@ -6164,6 +6482,258 @@
   "app.lab.schematic-preview.selection.single": {
     "message": "Select"
   },
+  "app.lab.schematic-preview.state.empty": {
+    "message": "This block has no state properties."
+  },
+  "app.lab.schematic-preview.state.property.age": {
+    "message": "Age"
+  },
+  "app.lab.schematic-preview.state.property.attached": {
+    "message": "Attached"
+  },
+  "app.lab.schematic-preview.state.property.attachment": {
+    "message": "Attachment"
+  },
+  "app.lab.schematic-preview.state.property.axis": {
+    "message": "Axis"
+  },
+  "app.lab.schematic-preview.state.property.bites": {
+    "message": "Bites"
+  },
+  "app.lab.schematic-preview.state.property.conditional": {
+    "message": "Conditional"
+  },
+  "app.lab.schematic-preview.state.property.delay": {
+    "message": "Delay"
+  },
+  "app.lab.schematic-preview.state.property.disarmed": {
+    "message": "Disarmed"
+  },
+  "app.lab.schematic-preview.state.property.distance": {
+    "message": "Distance"
+  },
+  "app.lab.schematic-preview.state.property.down": {
+    "message": "Down"
+  },
+  "app.lab.schematic-preview.state.property.east": {
+    "message": "East"
+  },
+  "app.lab.schematic-preview.state.property.extended": {
+    "message": "Extended"
+  },
+  "app.lab.schematic-preview.state.property.eye": {
+    "message": "Eye"
+  },
+  "app.lab.schematic-preview.state.property.face": {
+    "message": "Face"
+  },
+  "app.lab.schematic-preview.state.property.facing": {
+    "message": "Facing"
+  },
+  "app.lab.schematic-preview.state.property.half": {
+    "message": "Half"
+  },
+  "app.lab.schematic-preview.state.property.hanging": {
+    "message": "Hanging"
+  },
+  "app.lab.schematic-preview.state.property.has_book": {
+    "message": "Has book"
+  },
+  "app.lab.schematic-preview.state.property.has_record": {
+    "message": "Has record"
+  },
+  "app.lab.schematic-preview.state.property.hinge": {
+    "message": "Hinge"
+  },
+  "app.lab.schematic-preview.state.property.in_wall": {
+    "message": "In wall"
+  },
+  "app.lab.schematic-preview.state.property.instrument": {
+    "message": "Instrument"
+  },
+  "app.lab.schematic-preview.state.property.level": {
+    "message": "Level"
+  },
+  "app.lab.schematic-preview.state.property.lit": {
+    "message": "Lit"
+  },
+  "app.lab.schematic-preview.state.property.locked": {
+    "message": "Locked"
+  },
+  "app.lab.schematic-preview.state.property.north": {
+    "message": "North"
+  },
+  "app.lab.schematic-preview.state.property.note": {
+    "message": "Note"
+  },
+  "app.lab.schematic-preview.state.property.occupied": {
+    "message": "Occupied"
+  },
+  "app.lab.schematic-preview.state.property.open": {
+    "message": "Open"
+  },
+  "app.lab.schematic-preview.state.property.orientation": {
+    "message": "Orientation"
+  },
+  "app.lab.schematic-preview.state.property.part": {
+    "message": "Part"
+  },
+  "app.lab.schematic-preview.state.property.persistent": {
+    "message": "Persistent"
+  },
+  "app.lab.schematic-preview.state.property.power": {
+    "message": "Power"
+  },
+  "app.lab.schematic-preview.state.property.powered": {
+    "message": "Powered"
+  },
+  "app.lab.schematic-preview.state.property.rotation": {
+    "message": "Rotation"
+  },
+  "app.lab.schematic-preview.state.property.shape": {
+    "message": "Shape"
+  },
+  "app.lab.schematic-preview.state.property.signal_fire": {
+    "message": "Signal fire"
+  },
+  "app.lab.schematic-preview.state.property.snowy": {
+    "message": "Snowy"
+  },
+  "app.lab.schematic-preview.state.property.south": {
+    "message": "South"
+  },
+  "app.lab.schematic-preview.state.property.stage": {
+    "message": "Stage"
+  },
+  "app.lab.schematic-preview.state.property.tilt": {
+    "message": "Tilt"
+  },
+  "app.lab.schematic-preview.state.property.type": {
+    "message": "Type"
+  },
+  "app.lab.schematic-preview.state.property.up": {
+    "message": "Up"
+  },
+  "app.lab.schematic-preview.state.property.vertical_direction": {
+    "message": "Vertical direction"
+  },
+  "app.lab.schematic-preview.state.property.waterlogged": {
+    "message": "Waterlogged"
+  },
+  "app.lab.schematic-preview.state.property.west": {
+    "message": "West"
+  },
+  "app.lab.schematic-preview.state.readonly": {
+    "message": "Some properties cannot be changed here."
+  },
+  "app.lab.schematic-preview.state.value.base": {
+    "message": "Base"
+  },
+  "app.lab.schematic-preview.state.value.bottom": {
+    "message": "Bottom"
+  },
+  "app.lab.schematic-preview.state.value.ceiling": {
+    "message": "Ceiling"
+  },
+  "app.lab.schematic-preview.state.value.double": {
+    "message": "Double"
+  },
+  "app.lab.schematic-preview.state.value.double_wall": {
+    "message": "Double wall"
+  },
+  "app.lab.schematic-preview.state.value.down": {
+    "message": "Down"
+  },
+  "app.lab.schematic-preview.state.value.east": {
+    "message": "East"
+  },
+  "app.lab.schematic-preview.state.value.floor": {
+    "message": "Floor"
+  },
+  "app.lab.schematic-preview.state.value.foot": {
+    "message": "Foot"
+  },
+  "app.lab.schematic-preview.state.value.frustum": {
+    "message": "Frustum"
+  },
+  "app.lab.schematic-preview.state.value.full": {
+    "message": "Full"
+  },
+  "app.lab.schematic-preview.state.value.head": {
+    "message": "Head"
+  },
+  "app.lab.schematic-preview.state.value.inner_left": {
+    "message": "Inner left"
+  },
+  "app.lab.schematic-preview.state.value.inner_right": {
+    "message": "Inner right"
+  },
+  "app.lab.schematic-preview.state.value.left": {
+    "message": "Left"
+  },
+  "app.lab.schematic-preview.state.value.lower": {
+    "message": "Lower"
+  },
+  "app.lab.schematic-preview.state.value.middle": {
+    "message": "Middle"
+  },
+  "app.lab.schematic-preview.state.value.middle_wall": {
+    "message": "Middle wall"
+  },
+  "app.lab.schematic-preview.state.value.none": {
+    "message": "None"
+  },
+  "app.lab.schematic-preview.state.value.north": {
+    "message": "North"
+  },
+  "app.lab.schematic-preview.state.value.outer_left": {
+    "message": "Outer left"
+  },
+  "app.lab.schematic-preview.state.value.outer_right": {
+    "message": "Outer right"
+  },
+  "app.lab.schematic-preview.state.value.partial": {
+    "message": "Partial"
+  },
+  "app.lab.schematic-preview.state.value.right": {
+    "message": "Right"
+  },
+  "app.lab.schematic-preview.state.value.side": {
+    "message": "Side"
+  },
+  "app.lab.schematic-preview.state.value.single": {
+    "message": "Single"
+  },
+  "app.lab.schematic-preview.state.value.single_wall": {
+    "message": "Single wall"
+  },
+  "app.lab.schematic-preview.state.value.south": {
+    "message": "South"
+  },
+  "app.lab.schematic-preview.state.value.straight": {
+    "message": "Straight"
+  },
+  "app.lab.schematic-preview.state.value.tip": {
+    "message": "Tip"
+  },
+  "app.lab.schematic-preview.state.value.top": {
+    "message": "Top"
+  },
+  "app.lab.schematic-preview.state.value.unstable": {
+    "message": "Unstable"
+  },
+  "app.lab.schematic-preview.state.value.up": {
+    "message": "Up"
+  },
+  "app.lab.schematic-preview.state.value.upper": {
+    "message": "Upper"
+  },
+  "app.lab.schematic-preview.state.value.wall": {
+    "message": "Wall"
+  },
+  "app.lab.schematic-preview.state.value.west": {
+    "message": "West"
+  },
   "app.lab.schematic-preview.tab.edit": {
     "message": "Edit"
   },
@@ -6226,9 +6796,6 @@
   },
   "app.lab.seed-map.add-marker": {
     "message": "Add marker"
-  },
-  "app.lab.seed-map.advanced-tour": {
-    "message": "Map exploration guide"
   },
   "app.lab.seed-map.approximate": {
     "message": "Estimated"
@@ -7769,8 +8336,29 @@
   "app.lab.seed-map.zoom-to-show": {
     "message": "Zoom in to show {layer}"
   },
+  "app.lab.skin-editor.auto-save.error": {
+    "message": "Auto-save failed"
+  },
+  "app.lab.skin-editor.auto-save.off": {
+    "message": "Auto-save off"
+  },
+  "app.lab.skin-editor.auto-save.saved": {
+    "message": "Draft saved {time}"
+  },
+  "app.lab.skin-editor.auto-save.saving": {
+    "message": "Saving draft…"
+  },
+  "app.lab.skin-editor.auto-save.unsaved": {
+    "message": "Unsaved changes"
+  },
+  "app.lab.skin-editor.auto-save.up-to-date": {
+    "message": "Up to date"
+  },
   "app.lab.skin-editor.description": {
     "message": "Create and edit Minecraft player skins locally."
+  },
+  "app.lab.skin-editor.discard-draft-failed": {
+    "message": "The recovery draft could not be discarded. Stay on this page and try again."
   },
   "app.lab.skin-editor.export-skin": {
     "message": "Minecraft skin PNG"
@@ -7784,11 +8372,71 @@
   "app.lab.skin-editor.loading": {
     "message": "Loading skin editor"
   },
+  "app.lab.skin-editor.recovery.body": {
+    "message": "A recovery draft was saved on {date}."
+  },
+  "app.lab.skin-editor.recovery.continue": {
+    "message": "Continue"
+  },
+  "app.lab.skin-editor.recovery.start-new": {
+    "message": "Start new"
+  },
+  "app.lab.skin-editor.recovery.title": {
+    "message": "Continue last skin?"
+  },
   "app.lab.skin-editor.retry": {
     "message": "Try again"
   },
+  "app.lab.skin-editor.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.settings.auto-save": {
+    "message": "Automatically save a recovery draft"
+  },
+  "app.lab.skin-editor.settings.auto-save-description": {
+    "message": "Recovery drafts stay on this device and are separate from exported PNG files."
+  },
+  "app.lab.skin-editor.settings.cancel": {
+    "message": "Cancel"
+  },
+  "app.lab.skin-editor.settings.interval": {
+    "message": "Save interval (seconds)"
+  },
+  "app.lab.skin-editor.settings.interval-description": {
+    "message": "Use a value between 5 and 600 seconds."
+  },
+  "app.lab.skin-editor.settings.save": {
+    "message": "Save settings"
+  },
+  "app.lab.skin-editor.settings.title": {
+    "message": "Editor settings"
+  },
+  "app.lab.skin-editor.settings.tooltip": {
+    "message": "Skin editor settings"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave": {
+    "message": "Warn before leaving with unsaved changes"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave-description": {
+    "message": "When auto-save is off, this warning is always enabled to protect your work."
+  },
   "app.lab.skin-editor.title": {
     "message": "Skin editor"
+  },
+  "app.lab.skin-editor.unsaved.body": {
+    "message": "Save your skin before leaving, or discard the current changes."
+  },
+  "app.lab.skin-editor.unsaved.discard": {
+    "message": "Discard"
+  },
+  "app.lab.skin-editor.unsaved.save": {
+    "message": "Save PNG"
+  },
+  "app.lab.skin-editor.unsaved.stay": {
+    "message": "Stay"
+  },
+  "app.lab.skin-editor.unsaved.title": {
+    "message": "Unsaved skin"
   },
   "app.lab.title": {
     "message": "Lab"
@@ -7849,6 +8497,9 @@
   },
   "app.library.view.cards": {
     "message": "Library cards"
+  },
+  "app.library.view.list": {
+    "message": "Detailed list"
   },
   "app.library.view.standard": {
     "message": "Standard grid"
@@ -8080,9 +8731,6 @@
   },
   "app.logagent.settings.supported-models": {
     "message": "Choose a model that supports tool calling. Protocol support does not guarantee that every model accepts tools. Copilot Auto requires selecting an explicit model."
-  },
-  "app.logagent.settings.tour": {
-    "message": "About analysis sources"
   },
   "app.logagent.source-cloud": {
     "message": "Cloud LogShare"
@@ -8434,6 +9082,15 @@
   },
   "app.minecraft-crash.exited-before-initialization": {
     "message": "The Java process exited before it could connect to the launcher. The selected Java version is probably incompatible with this Minecraft or Mod loader version. Select the Java version required by the instance, then try again."
+  },
+  "app.minecraft-crash.export-diagnostic": {
+    "message": "Export diagnostic package"
+  },
+  "app.minecraft-crash.export-saved": {
+    "message": "Diagnostic package saved to {path}"
+  },
+  "app.minecraft-crash.exporting-diagnostic": {
+    "message": "Exporting diagnostic package..."
   },
   "app.minecraft-crash.initialization-timed-out": {
     "message": "The Java process started but did not connect to the launcher within 15 seconds. Check the selected Java version and any wrapper command, then try again."
@@ -8939,347 +9596,257 @@
   "app.notification.warning": {
     "message": "Warning"
   },
-  "app.onboarding.account.description": {
-    "message": "When you are ready, sign in, switch accounts, or open your profile here. No deadline."
+  "app.oobe.account.add": {
+    "message": "Add"
   },
-  "app.onboarding.account.title": {
-    "message": "Accounts, on your schedule"
+  "app.oobe.account.add-another": {
+    "message": "Add another account"
   },
-  "app.onboarding.action.click-create": {
-    "message": "Click Create new instance to continue"
+  "app.oobe.account.add-title": {
+    "message": "Add an account"
   },
-  "app.onboarding.action.click-creation-method": {
-    "message": "Choose a route to continue"
+  "app.oobe.account.added": {
+    "message": "On this device"
   },
-  "app.onboarding.action.click-discover": {
-    "message": "Click Discover content to continue"
+  "app.oobe.account.description": {
+    "message": "Add the account you play Minecraft with."
   },
-  "app.onboarding.action.click-downloads": {
-    "message": "Click Downloads to continue"
+  "app.oobe.account.label": {
+    "message": "Account"
   },
-  "app.onboarding.action.click-favorites": {
-    "message": "Click Favorites to continue"
+  "app.oobe.account.microsoft": {
+    "message": "Microsoft account"
   },
-  "app.onboarding.action.click-lab": {
-    "message": "Click Lab to continue"
+  "app.oobe.account.microsoft-detail": {
+    "message": "Sign in with the account that owns Minecraft: Java Edition."
   },
-  "app.onboarding.action.click-library": {
-    "message": "Click Library to continue"
+  "app.oobe.account.offline": {
+    "message": "Offline account"
   },
-  "app.onboarding.action.click-settings": {
-    "message": "Click Settings to continue"
+  "app.oobe.account.offline-detail": {
+    "message": "Just a player name. Only works on servers that allow offline players."
   },
-  "app.onboarding.action.click-skins": {
-    "message": "Click Skin selector to continue"
+  "app.oobe.account.offline-restricted": {
+    "message": "Sign in with a Microsoft account on this device first."
   },
-  "app.onboarding.action.click-tab": {
-    "message": "Click this tab to continue"
+  "app.oobe.account.recommended": {
+    "message": "Recommended"
   },
-  "app.onboarding.action.continue-area": {
-    "message": "Click anywhere for the next bit"
+  "app.oobe.account.third-party": {
+    "message": "Third-party account"
   },
-  "app.onboarding.action.finish-area": {
-    "message": "Click anywhere and you are all set"
+  "app.oobe.account.third-party-detail": {
+    "message": "LittleSkin or another Yggdrasil authentication service."
   },
-  "app.onboarding.action.open-gradient-text": {
-    "message": "Open Gradient text generator to continue"
+  "app.oobe.account.title": {
+    "message": "Who is using the launcher?"
   },
-  "app.onboarding.action.open-recipe-generator": {
-    "message": "Open Recipe generator to continue"
+  "app.oobe.action.back": {
+    "message": "Back"
   },
-  "app.onboarding.action.open-schematic-workshop": {
-    "message": "Open Schematic workshop to continue"
+  "app.oobe.action.finish": {
+    "message": "Finish"
   },
-  "app.onboarding.action.open-seed-map": {
-    "message": "Open Seed map to continue"
+  "app.oobe.action.next": {
+    "message": "Next"
   },
-  "app.onboarding.action.return-lab": {
-    "message": "Click Lab to continue"
+  "app.oobe.action.skip": {
+    "message": "Skip"
   },
-  "app.onboarding.action.skip": {
-    "message": "Leave the tour"
+  "app.oobe.appearance.home.minimal": {
+    "message": "Minimal"
   },
-  "app.onboarding.action.start": {
-    "message": "Take the tour"
+  "app.oobe.appearance.home.minimal-detail": {
+    "message": "One instance and a Play button, nothing else."
   },
-  "app.onboarding.ai.description": {
-    "message": "Connect text-model providers once, choose the models you want available, or switch every AI feature off in one place."
+  "app.oobe.appearance.home.standard": {
+    "message": "Information"
   },
-  "app.onboarding.ai.title": {
-    "message": "Bring your own AI provider"
+  "app.oobe.appearance.home.standard-detail": {
+    "message": "A greeting and widgets for your instances, news and more."
   },
-  "app.onboarding.appearance.description": {
-    "message": "Theme, accent, custom launcher background, and window effects all live here. Make the launcher feel familiar."
+  "app.oobe.appearance.home.title": {
+    "message": "Home page"
   },
-  "app.onboarding.appearance.title": {
-    "message": "Set the vibe"
+  "app.oobe.appearance.label": {
+    "message": "Appearance"
   },
-  "app.onboarding.brewing.description": {
-    "message": "Choose an input, reagent and output. Potion conditions are optional, and output components can be edited as validated JSON. Brewing recipes require Minecraft 26.3."
+  "app.oobe.appearance.later": {
+    "message": "You can change these any time in Settings: the color theme under Appearance, the home page under Home & navigation."
   },
-  "app.onboarding.brewing.title": {
-    "message": "Create a brewing recipe"
+  "app.oobe.appearance.save-failed": {
+    "message": "This choice could not be saved. It still applies until you restart."
   },
-  "app.onboarding.browse.description": {
-    "message": "Search available sources together. Matching titles are candidates until their files are verified. Project pages keep versions, changelogs, galleries, and install options in one place. Installation previews expand required dependencies; use + to add an optional dependency and resolve its requirements. When automatic dependency installation is off, use + to explicitly add missing required dependencies."
+  "app.oobe.appearance.theme.dark": {
+    "message": "Dark"
   },
-  "app.onboarding.browse.title": {
-    "message": "Search with receipts"
+  "app.oobe.appearance.theme.light": {
+    "message": "Light"
   },
-  "app.onboarding.create.description": {
-    "message": "Start from scratch or bring in an existing instance or modpack. Your call."
+  "app.oobe.appearance.theme.oled": {
+    "message": "OLED"
   },
-  "app.onboarding.create.title": {
-    "message": "Make a fresh start"
+  "app.oobe.appearance.theme.system": {
+    "message": "Match system"
   },
-  "app.onboarding.creation-confirm.description": {
-    "message": "This creates the instance with your choices. I keep a strict hands-off policy."
+  "app.oobe.appearance.theme.title": {
+    "message": "Color theme"
   },
-  "app.onboarding.creation-confirm.title": {
-    "message": "One last look"
+  "app.oobe.appearance.title": {
+    "message": "Choose the style you like."
   },
-  "app.onboarding.creation-loader.description": {
-    "message": "Vanilla, Fabric, Forge, NeoForge, and friends. Pick what your content needs."
+  "app.oobe.dialog-label": {
+    "message": "Set up Axolotl Launcher"
   },
-  "app.onboarding.creation-loader.title": {
-    "message": "Choose the engine"
+  "app.oobe.language.description": {
+    "message": "The launcher switches as soon as you pick one."
   },
-  "app.onboarding.creation-name.description": {
-    "message": "Pick a name your future self will recognize at a glance."
-  },
-  "app.onboarding.creation-name.title": {
-    "message": "Give it a memorable name"
-  },
-  "app.onboarding.creation-version.description": {
-    "message": "Choose the Minecraft version for this instance. Compatibility likes specifics."
-  },
-  "app.onboarding.creation-version.title": {
-    "message": "Set the game version"
-  },
-  "app.onboarding.creation.description": {
-    "message": "Start fresh with a custom setup, or import an existing instance or modpack. Your call."
-  },
-  "app.onboarding.creation.title": {
-    "message": "Pick your route"
-  },
-  "app.onboarding.defaults.description": {
-    "message": "New instances inherit these choices, so you do not have to repeat the homework."
-  },
-  "app.onboarding.defaults.title": {
-    "message": "Start ahead"
-  },
-  "app.onboarding.discover.description": {
-    "message": "Modpacks, mods, plugins, resource packs, shaders: the good kind of rabbit hole."
-  },
-  "app.onboarding.discover.title": {
-    "message": "Find something new"
-  },
-  "app.onboarding.downloads-page.description": {
-    "message": "Active work, history, errors, retries, cancellations, and diagnostics all leave a paper trail here."
-  },
-  "app.onboarding.downloads-page.title": {
-    "message": "Nothing gets lost"
-  },
-  "app.onboarding.downloads.description": {
-    "message": "Installations and content downloads report in here, so nothing has to disappear mysteriously."
-  },
-  "app.onboarding.downloads.title": {
-    "message": "Download control room"
-  },
-  "app.onboarding.favorites.description": {
-    "message": "Open Favorites to revisit saved mods, resource packs, data packs, and shaders. The launcher refreshes their project details, then you can choose an instance and add mixed sources to the same install cart."
-  },
-  "app.onboarding.favorites.title": {
-    "message": "Keep a short list"
-  },
-  "app.onboarding.home-customize.description": {
-    "message": "Use the bottom-right edit control to add, resize, and configure widgets. While editing, switch between an automatically packed grid and a free grid that preserves empty cells."
-  },
-  "app.onboarding.home-customize.title": {
-    "message": "Arrange it your way"
-  },
-  "app.onboarding.home-layout.description": {
-    "message": "Use the bottom-right control to switch between Information Home and Minimal Home. Widget editing stays with Information Home."
-  },
-  "app.onboarding.home-layout.title": {
-    "message": "Change the amount of detail"
-  },
-  "app.onboarding.home-widgets.description": {
-    "message": "Information Home is built from widgets for recent activity, playtime, instances, worlds, and servers. The grid reflows as the window or account sidebar changes."
-  },
-  "app.onboarding.home-widgets.title": {
-    "message": "Your Home, your layout"
-  },
-  "app.onboarding.instance-actions.description": {
-    "message": "Launch, stop, repair, configure, export, or open the instance from its header. Export verifies all exportable files once in the background while you choose categories, adjust files, and fill in package information. Changing selections reuses that verification. You can queue the export before verification finishes and follow its progress in Downloads."
-  },
-  "app.onboarding.instance-actions.title": {
-    "message": "The main controls"
-  },
-  "app.onboarding.instance-tabs.description": {
-    "message": "Use these tabs for content, files, screenshots, worlds, and logs. Filter content by installation platform or ownership. Duplicate resources start collapsed; expand a group to inspect each file or update every updatable copy together. Installations, Mod updates, and version switches use a dependency preview. Review missing or conflicting dependencies before continuing; use + to add optional dependencies. Compatibility exceptions apply only to the selected release and dimension. Restore recorded updates from verified history backups, or open Old files and backups in the content toolbar to search, select, and review manual cleanup. Content download settings control Chinese filenames and preserved local prefixes and suffixes."
-  },
-  "app.onboarding.instance-tabs.title": {
-    "message": "The rest of the workshop"
-  },
-  "app.onboarding.java.description": {
-    "message": "The Java runtimes that start Minecraft live here. Technical, but well-behaved."
-  },
-  "app.onboarding.java.title": {
-    "message": "Java, under the hood"
-  },
-  "app.onboarding.lab-editor.description": {
-    "message": "Edit text, choose colors, preview the result, and copy the format your Minecraft setup expects."
-  },
-  "app.onboarding.lab-editor.title": {
-    "message": "Build and copy in one place"
-  },
-  "app.onboarding.lab-recipe-generator.description": {
-    "message": "Pick a Java version, fill the recipe slots, and copy or export the JSON locally."
-  },
-  "app.onboarding.lab-recipe-generator.title": {
-    "message": "Craft data pack recipes"
-  },
-  "app.onboarding.lab-schematic.description": {
-    "message": "Open a local .litematic or .schem file, or choose one from an installed instance. The 3D workspace keeps viewing, measurement, layer controls, materials, and local edits together."
-  },
-  "app.onboarding.lab-schematic.title": {
-    "message": "Inspect a build before placing it"
-  },
-  "app.onboarding.lab-seed-map.description": {
-    "message": "Enter a seed or load one from an instance, then inspect biomes, structures, and ore layers on the local map."
-  },
-  "app.onboarding.lab-seed-map.title": {
-    "message": "Find a world before you load it"
-  },
-  "app.onboarding.lab-tools.description": {
-    "message": "Create formatted text and recipe data packs, explore Java worlds, and inspect schematic builds without leaving the launcher."
-  },
-  "app.onboarding.lab-tools.title": {
-    "message": "Local tools for Minecraft"
-  },
-  "app.onboarding.lab.description": {
-    "message": "The Lab keeps local Minecraft tools inside the launcher, without another website or account."
-  },
-  "app.onboarding.lab.title": {
-    "message": "Useful tools, built in"
-  },
-  "app.onboarding.language.description": {
-    "message": "Switch the launcher UI language here, or keep System language. Content translation for project pages is configured on this page too."
-  },
-  "app.onboarding.language.title": {
-    "message": "Speak your language"
-  },
-  "app.onboarding.library-page.description": {
-    "message": "Filter by modpack, server, or custom setup, then open any instance to manage it."
-  },
-  "app.onboarding.library-page.title": {
-    "message": "Everything, in its place"
-  },
-  "app.onboarding.library.description": {
-    "message": "Instances keep versions, loaders, content, and saves separate. No accidental mod soup."
-  },
-  "app.onboarding.library.title": {
-    "message": "Your launch shelf"
-  },
-  "app.onboarding.logagent-cloud.description": {
-    "message": "Cloud options appear when Cloud LogShare is selected. Analyze without storing logs still sends content to LogShare and disables the automatic summary. Cancelling disconnects the launcher; a cloud task may continue on the server."
-  },
-  "app.onboarding.logagent-cloud.title": {
-    "message": "Control cloud storage"
-  },
-  "app.onboarding.logagent-sharing.description": {
-    "message": "Choosing local analysis does not upload logs to LogShare. You can still explicitly share a diagnostic link using your selected sharing service."
-  },
-  "app.onboarding.logagent-sharing.title": {
-    "message": "Sharing is a separate action"
-  },
-  "app.onboarding.logagent-source.description": {
-    "message": "Local LogAgent investigates logs in this launcher using your configured model. Relevant excerpts are sent to that model provider. Cloud LogShare analyzes logs on its server. The crash window shows live progress and keeps the completed steps in a collapsible history. This setting is a default; the crash window can override it for one analysis."
-  },
-  "app.onboarding.logagent-source.title": {
-    "message": "Choose where analysis runs"
-  },
-  "app.onboarding.mascot-alt": {
-    "message": "Axolotl guide"
-  },
-  "app.onboarding.offline-account.description": {
-    "message": "Open Playing as in the sidebar to add an offline Minecraft account. You may need to sign in with an official Minecraft account on this device first."
-  },
-  "app.onboarding.offline-account.title": {
-    "message": "Offline accounts"
-  },
-  "app.onboarding.privacy.description": {
-    "message": "Manage anonymous telemetry, Discord Rich Presence, and the Minecraft log analysis service whenever you need to."
-  },
-  "app.onboarding.privacy.title": {
-    "message": "Your data, your call"
-  },
-  "app.onboarding.resources.description": {
-    "message": "Choose how content downloads and installs, including your preferred resource source. Modrinth is the default; changing the description source only changes what you read."
-  },
-  "app.onboarding.resources.title": {
-    "message": "Do not cook the computer"
-  },
-  "app.onboarding.seed-map-area.description": {
-    "message": "Hold the right mouse button and drag on the 2D map to select an area. Count mineral candidate blocks at a chosen height range, or search supported container loot by item name or ID. Results include prediction limits and can be canceled. A right-click without dragging still adds a marker."
-  },
-  "app.onboarding.seed-map-area.title": {
-    "message": "Analyze a selected area"
-  },
-  "app.onboarding.seed-map-underground.description": {
-    "message": "Underground opens the 3D X-Ray view directly. Click to look around, move with WASD, use Space / Shift to rise or descend, and press Esc to release the mouse. Idle computation preloads full-height 16 × 16 chunks up to a horizontal radius of 12 chunks. Surface and bedrock layers can be switched independently. The upper-left overlay shows your position and the targeted block; the upper-right status shows the loaded chunk count and whether generation is running. Fluids and bedrock thickness are estimates; mineral positions are candidates."
-  },
-  "app.onboarding.seed-map-underground.title": {
-    "message": "Look below the surface"
-  },
-  "app.onboarding.seed-map.description": {
-    "message": "Zoom in to see supported 2D structure layouts directly on the map. Select a structure to open its capabilities and details beside the map; drag the divider to resize. In Layout, supported structures can switch between frames and original template blocks colored from their textures. Partial layouts, representative palettes and height limits are explained in the preview."
-  },
-  "app.onboarding.seed-map.title": {
-    "message": "Explore structure details"
-  },
-  "app.onboarding.settings.description": {
-    "message": "Appearance, language, AI providers, launch defaults, content downloads, and privacy all live here."
-  },
-  "app.onboarding.settings.title": {
-    "message": "Make it yours"
-  },
-  "app.onboarding.skins-page.description": {
-    "message": "Add, preview, sort, and apply skins here. No pressure to sign in just yet."
-  },
-  "app.onboarding.skins-page.title": {
-    "message": "Your skin drawer"
-  },
-  "app.onboarding.skins.description": {
-    "message": "Keep your Minecraft skins together. Signing in can wait until you feel like it."
-  },
-  "app.onboarding.skins.title": {
-    "message": "A new look, maybe"
-  },
-  "app.onboarding.translation.description": {
-    "message": "Translate Modrinth project titles, summaries, and descriptions while you browse. Keep the original, show both, or make the translation the main character."
-  },
-  "app.onboarding.translation.title": {
-    "message": "Translation, the Axolotl way"
-  },
-  "app.onboarding.updates.description": {
-    "message": "Choose when Axolotl checks for updates and whether it installs them for you."
-  },
-  "app.onboarding.updates.title": {
-    "message": "Stay in the loop"
-  },
-  "app.onboarding.welcome.description": {
-    "message": "Your instances, content, worlds, and downloads now have one home. Let us take a quick lap before you settle in."
-  },
-  "app.onboarding.welcome.footer": {
-    "message": "Your last next launcher."
-  },
-  "app.onboarding.welcome.language-label": {
+  "app.oobe.language.label": {
     "message": "Language"
   },
-  "app.onboarding.welcome.title": {
-    "message": "Everything is ready"
+  "app.oobe.language.list-label": {
+    "message": "Launcher language"
+  },
+  "app.oobe.language.save-failed": {
+    "message": "The language could not be saved. Try another choice or try again."
+  },
+  "app.oobe.language.system": {
+    "message": "Match this device"
+  },
+  "app.oobe.language.system-detail": {
+    "message": "Currently {language}"
+  },
+  "app.oobe.language.title": {
+    "message": "Choose the launcher language."
+  },
+  "app.oobe.migration.add-folder": {
+    "message": "Add .minecraft folder"
+  },
+  "app.oobe.migration.description": {
+    "message": "Bring your existing instances and .minecraft folders along."
+  },
+  "app.oobe.migration.detected.title": {
+    "message": "Found on this device"
+  },
+  "app.oobe.migration.direct-hint": {
+    "message": "The launcher manages its {count, plural, one {# version} other {# versions}} directly, without copying anything."
+  },
+  "app.oobe.migration.folder-added": {
+    "message": "{count, plural, =0 {Added} one {Added, # version found} other {Added, # versions found}}"
+  },
+  "app.oobe.migration.folders.description": {
+    "message": "The launcher manages the versions in it directly, without copying anything."
+  },
+  "app.oobe.migration.folders.title": {
+    "message": "Use a .minecraft folder in place"
+  },
+  "app.oobe.migration.generic": {
+    "message": "Minecraft folder"
+  },
+  "app.oobe.migration.import-selected": {
+    "message": "{count, plural, =0 {Import} one {Import # instance} other {Import # instances}}"
+  },
+  "app.oobe.migration.import-started": {
+    "message": "{count, plural, one {# instance is} other {# instances are}} being imported. You can keep going while that runs."
+  },
+  "app.oobe.migration.instance-count": {
+    "message": "{count, plural, one {# instance} other {# instances}}"
+  },
+  "app.oobe.migration.label": {
+    "message": "Import"
+  },
+  "app.oobe.migration.method": {
+    "message": "How to bring it over"
+  },
+  "app.oobe.migration.method.direct": {
+    "message": "Use in place"
+  },
+  "app.oobe.migration.method.import": {
+    "message": "Import"
+  },
+  "app.oobe.migration.more-options": {
+    "message": "More import options"
+  },
+  "app.oobe.migration.none-found": {
+    "message": "No other launchers were found on this device."
+  },
+  "app.oobe.migration.official-launcher": {
+    "message": "Official launcher"
+  },
+  "app.oobe.migration.scanning": {
+    "message": "Looking for other launchers…"
+  },
+  "app.oobe.migration.select-folder": {
+    "message": "Select a .minecraft folder"
+  },
+  "app.oobe.migration.title": {
+    "message": "Import data from other launchers?"
+  },
+  "app.oobe.migration.use-folder": {
+    "message": "Use this folder"
+  },
+  "app.oobe.java.add.action": {
+    "message": "Add"
+  },
+  "app.oobe.java.add.added": {
+    "message": "Added Java {version}. It is now used for Java {major}."
+  },
+  "app.oobe.java.add.description": {
+    "message": "Enter the path to a java executable, or browse for it."
+  },
+  "app.oobe.java.add.invalid": {
+    "message": "No Java runtime could be started from this path."
+  },
+  "app.oobe.java.add.placeholder": {
+    "message": "/path/to/java"
+  },
+  "app.oobe.java.add.title": {
+    "message": "Add a Java you already have"
+  },
+  "app.oobe.java.description": {
+    "message": "Minecraft runs on Java. Use one you already have, or download one."
+  },
+  "app.oobe.java.download.description": {
+    "message": "Choose a distribution and a version. You can keep going while it downloads."
+  },
+  "app.oobe.java.download.done": {
+    "message": "Java downloaded."
+  },
+  "app.oobe.java.download.downloading": {
+    "message": "Downloading Java…"
+  },
+  "app.oobe.java.download.title": {
+    "message": "Download Java"
+  },
+  "app.oobe.java.found.description": {
+    "message": "Pick the one to use for each Java version."
+  },
+  "app.oobe.java.found.title": {
+    "message": "Found on this device"
+  },
+  "app.oobe.java.label": {
+    "message": "Java"
+  },
+  "app.oobe.java.none-found": {
+    "message": "No Java installations were found on this device."
+  },
+  "app.oobe.java.title": {
+    "message": "Choose or download Java."
+  },
+  "app.oobe.progress": {
+    "message": "Setup progress"
+  },
+  "app.oobe.welcome.label": {
+    "message": "Welcome"
+  },
+  "app.oobe.welcome.ready": {
+    "message": "Everything is set. Click anywhere to open the launcher."
+  },
+  "app.oobe.welcome.start": {
+    "message": "Get started"
+  },
+  "app.oobe.welcome.title": {
+    "message": "Welcome!"
   },
   "app.page-path.copied": {
     "message": "Copied"
@@ -9940,6 +10507,15 @@
   },
   "app.resources.operation.apply": {
     "message": "Queue changes"
+  },
+  "app.resources.operation.force-install": {
+    "message": "Force install without dependencies"
+  },
+  "app.resources.operation.force-install-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies."
+  },
+  "app.resources.operation.force-install-compatibility-tooltip": {
+    "message": "{reason} Try installing only the selected content without dependencies and accept its Minecraft or loader compatibility mismatches."
   },
   "app.resources.operation.artifact": {
     "message": "{source} · release {release} · {file}"
@@ -10919,9 +11495,6 @@
   "app.servers.wizard.background-hint": {
     "message": "You can close this window — the download continues in the background."
   },
-  "app.servers.wizard.configure-heading": {
-    "message": "Adjust the server settings, or finish to edit them later."
-  },
   "app.servers.wizard.configure-title": {
     "message": "Configure"
   },
@@ -11126,8 +11699,8 @@
   "app.settings.about.qq-group": {
     "message": "Player QQ group"
   },
-  "app.settings.about.replay-onboarding": {
-    "message": "Replay tour"
+  "app.settings.about.replay-oobe": {
+    "message": "Run first-time setup again"
   },
   "app.settings.about.report-issue": {
     "message": "Issues & feedback"
@@ -11410,6 +11983,30 @@
   },
   "app.settings.environment-variables.invalid-format": {
     "message": "Use NAME=value, separated by spaces. A name and an equals sign are required; the value may be empty or contain more equals signs."
+  },
+  "app.settings.export.all-button": {
+    "message": "Export all settings files…"
+  },
+  "app.settings.export.all-label": {
+    "message": "All settings files"
+  },
+  "app.settings.export.exported-text": {
+    "message": "The settings archive was saved to {path}"
+  },
+  "app.settings.export.exported-title": {
+    "message": "Settings exported"
+  },
+  "app.settings.export.patch-button": {
+    "message": "Export patch…"
+  },
+  "app.settings.export.patch-description": {
+    "message": "Only keys that differ from the defaults. The archive holds one document per domain; unzip it and use it directly as a deployment config."
+  },
+  "app.settings.export.patch-label": {
+    "message": "Deployment patch"
+  },
+  "app.settings.export.title": {
+    "message": "Manage settings files"
   },
   "app.settings.feature-flags.advanced-filters-collapsed": {
     "message": "Collapse advanced filters by default"
@@ -12482,6 +13079,9 @@
   "app.settings.groups.support": {
     "message": "App & support"
   },
+  "app.settings.java.use-console-java": {
+    "message": "Use java instead of javaw when launching Minecraft"
+  },
   "app.settings.java.auto-high-performance-mode": {
     "message": "Automatically use high-performance GPU for Java"
   },
@@ -12621,7 +13221,7 @@
     "message": "Network connections"
   },
   "app.settings.logs.export.modal.network-connections-hint": {
-    "message": "Run fresh tests for all services using launcher network settings when exporting, including a short download sample."
+    "message": "Run fresh service tests using launcher network settings, including a short download sample. Also include captured file timings, request speeds and remote addresses when advanced download information is enabled."
   },
   "app.settings.logs.export.modal.range": {
     "message": "Time range"
@@ -12836,6 +13436,12 @@
   "app.settings.network.url": {
     "message": "Request URL"
   },
+  "app.settings.override.hint": {
+    "message": "Overrides the deployed value."
+  },
+  "app.settings.override.restore": {
+    "message": "Restore deployed value"
+  },
   "app.settings.privacy.data-handling": {
     "message": "Telemetry uses a random installation identifier and sends only a daily activity signal. Turning telemetry off clears pending data immediately."
   },
@@ -12945,7 +13551,7 @@
     "message": "CurseForge"
   },
   "app.settings.resources.curseforge-mirror-description": {
-    "message": "CurseForge file downloads."
+    "message": "CurseForge searches, project and file lookups, and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first."
   },
   "app.settings.resources.curseforge-restriction-bypass": {
     "message": "Automatically download restricted CurseForge files"
@@ -12980,11 +13586,20 @@
   "app.settings.resources.ignore-ssl-errors-description": {
     "message": "Allows downloads through proxies or network tools that replace HTTPS certificates. This disables certificate verification and can expose downloads to tampering. Enable it only when necessary."
   },
+  "app.settings.resources.forced-connection-limit": {
+    "message": "Experimental connection limit"
+  },
+  "app.settings.resources.forced-connection-limit-description": {
+    "message": "Connections are shared across files in proportion to their remaining size. Default: 72. A lower manual download limit still applies. Higher limits may increase network load and retries. In most cases, higher the cap is, faster the speed is. If you think your downloading speed isn't fast enough, you can increase the value with precision. If speed dropped, please decrase this value."
+  },
+  "app.settings.resources.forced-connection-limit-custom": {
+    "message": "Custom"
+  },
   "app.settings.resources.maximum-downloads": {
     "message": "Maximum concurrent downloads"
   },
   "app.settings.resources.maximum-downloads-description": {
-    "message": "Automatic mode uses 64 concurrent downloads. Manual changes apply immediately."
+    "message": "Automatic mode adjusts the connection limit. Forced multi-connection downloads use the experimental connection limit, or a lower manual limit. Manual changes apply immediately."
   },
   "app.settings.resources.maximum-writes": {
     "message": "Maximum concurrent writes"
@@ -13038,7 +13653,7 @@
     "message": "Modrinth"
   },
   "app.settings.resources.modrinth-mirror-description": {
-    "message": "Modrinth file downloads."
+    "message": "Modrinth searches, project and version lookups, and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first."
   },
   "app.settings.resources.mojang-auth-service": {
     "message": "Mojang authentication service"
@@ -13138,6 +13753,9 @@
   },
   "app.settings.resources.source.automatic": {
     "message": "Automatic (recommended)"
+  },
+  "app.settings.resources.source.mcim": {
+    "message": "Prefer MCIM"
   },
   "app.settings.resources.source.mojang-mirror-preferred": {
     "message": "Prefer Fallen-Proxy"
@@ -13525,6 +14143,9 @@
   },
   "app.settings.storage.unknown": {
     "message": "Kept"
+  },
+  "app.settings.storage.unknownError": {
+    "message": "Unknown error"
   },
   "app.settings.storage.unknownUsage": {
     "message": "Files whose usage cannot be verified are kept."
@@ -14417,6 +15038,9 @@
   "app.translation-settings.provider.ai": {
     "message": "AI model"
   },
+  "app.translation-settings.provider.bili-index-translate": {
+    "message": "Bili Index Translate"
+  },
   "app.translation-settings.provider.deepl": {
     "message": "DeepL"
   },
@@ -14501,6 +15125,18 @@
   "app.translation.error.rate-limited": {
     "message": "The translation service is temporarily rate limited. Please try again later."
   },
+  "app.unsaved-selection.description": {
+    "message": "You have selected {count} item(s) that have not been installed. Leaving will discard them."
+  },
+  "app.unsaved-selection.discard": {
+    "message": "Discard and leave"
+  },
+  "app.unsaved-selection.stay": {
+    "message": "Stay on this page"
+  },
+  "app.unsaved-selection.title": {
+    "message": "Uninstalled selection"
+  },
   "app.update-announcement.category.added": {
     "message": "Added"
   },
@@ -14540,6 +15176,9 @@
   "app.update-popup.body.download-complete": {
     "message": "Axolotl Launcher v{version} has finished downloading. Reload to update now, or automatically when you close Axolotl Launcher."
   },
+  "app.update-popup.body.manual": {
+    "message": "Axolotl Launcher v{version} is available. This copy can't update itself, so download the new version from the website or update it with your package manager."
+  },
   "app.update-popup.body.metered": {
     "message": "Axolotl Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it."
   },
@@ -14551,6 +15190,9 @@
   },
   "app.update-popup.download-complete": {
     "message": "Download complete"
+  },
+  "app.update-popup.download-page": {
+    "message": "Download page"
   },
   "app.update-popup.reload": {
     "message": "Reload to update"
@@ -15326,6 +15968,24 @@
   "instance.files.studio.editor-loading": {
     "message": "Loading editor..."
   },
+  "instance.files.studio.edit-deleted": {
+    "message": "This file was removed before the edit could be saved."
+  },
+  "instance.files.studio.discard-image-confirm": {
+    "message": "Discard"
+  },
+  "instance.files.studio.discard-image-description": {
+    "message": "The image has changes that have not been saved. Opening another file discards them."
+  },
+  "instance.files.studio.discard-image-keep": {
+    "message": "Keep editing"
+  },
+  "instance.files.studio.discard-image-title": {
+    "message": "Discard the image edit?"
+  },
+  "instance.files.studio.edit-conflict": {
+    "message": "This file changed on disk after it was opened. The edit was not saved."
+  },
   "instance.files.studio.empty-description": {
     "message": "Open any text file from the explorer."
   },
@@ -15386,6 +16046,9 @@
   "instance.files.studio.not-text-file": {
     "message": "This file is not a text file and cannot be opened in Studio."
   },
+  "instance.files.studio.open-in-schematic-workshop": {
+    "message": "Open with schematic workshop"
+  },
   "instance.files.studio.open-in-system": {
     "message": "Open in system"
   },
@@ -15397,6 +16060,33 @@
   },
   "instance.files.studio.paste": {
     "message": "Paste"
+  },
+  "instance.files.studio.preview-actual-size": {
+    "message": "Actual size"
+  },
+  "instance.files.studio.preview-edit": {
+    "message": "Edit"
+  },
+  "instance.files.studio.preview-failed": {
+    "message": "This file could not be previewed."
+  },
+  "instance.files.studio.preview-fit": {
+    "message": "Fit to window"
+  },
+  "instance.files.studio.preview-loading": {
+    "message": "Loading preview..."
+  },
+  "instance.files.studio.preview-save": {
+    "message": "Save"
+  },
+  "instance.files.studio.preview-tools": {
+    "message": "Image editing tools"
+  },
+  "instance.files.studio.preview-zoom-in": {
+    "message": "Zoom in"
+  },
+  "instance.files.studio.preview-zoom-out": {
+    "message": "Zoom out"
   },
   "instance.files.studio.refresh": {
     "message": "Refresh files"
@@ -16712,6 +17402,9 @@
   "instance.upgrade.select.loading-fabric-versions": {
     "message": "Loading Fabric versions…"
   },
+  "instance.upgrade.select.downgrade-unsupported": {
+    "message": "Downgrading is not supported."
+  },
   "instance.upgrade.select.loading-versions": {
     "message": "Loading Minecraft versions…"
   },
@@ -16849,6 +17542,9 @@
   },
   "minecraft-account.copy-uuid": {
     "message": "Copy UUID"
+  },
+  "minecraft-account.drag-to-reorder": {
+    "message": "Drag to reorder, or press Alt with the arrow keys"
   },
   "minecraft-account.label": {
     "message": "Minecraft account"
@@ -17329,5 +18025,3467 @@
   },
   "app.skins.player.save-failed": {
     "message": "Could not save the skin. Please try again."
+  },
+  "app.downloads.diagnostics.title": {
+    "message": "Advanced download information"
+  },
+  "app.downloads.diagnostics.file": {
+    "message": "File"
+  },
+  "app.downloads.diagnostics.waiting": {
+    "message": "Waiting for download observations. Start a download after enabling this option."
+  },
+  "app.downloads.diagnostics.loading": {
+    "message": "Loading download information…"
+  },
+  "app.downloads.diagnostics.unavailable": {
+    "message": "Download information could not be refreshed. Retrying…"
+  },
+  "app.downloads.diagnostics.disabled": {
+    "message": "Download observation is disabled."
+  },
+  "app.downloads.diagnostics.elapsed": {
+    "message": "File elapsed time"
+  },
+  "app.downloads.diagnostics.network-elapsed": {
+    "message": "Network time"
+  },
+  "app.downloads.diagnostics.received": {
+    "message": "Received bytes"
+  },
+  "app.downloads.diagnostics.active-requests": {
+    "message": "Active requests"
+  },
+  "app.downloads.diagnostics.effective-requests": {
+    "message": "Requests receiving data"
+  },
+  "app.downloads.diagnostics.physical-connections": {
+    "message": "Physical connections"
+  },
+  "app.downloads.diagnostics.effective-physical": {
+    "message": "Connections receiving data"
+  },
+  "app.downloads.diagnostics.configured-limit": {
+    "message": "Configured limit"
+  },
+  "app.downloads.diagnostics.effective-cap": {
+    "message": "Current request limit"
+  },
+  "app.downloads.diagnostics.target": {
+    "message": "Target requests"
+  },
+  "app.downloads.diagnostics.held": {
+    "message": "Held permits"
+  },
+  "app.downloads.diagnostics.pool": {
+    "message": "Available pool permits"
+  },
+  "app.downloads.diagnostics.address": {
+    "message": "Remote address"
+  },
+  "app.downloads.diagnostics.protocol": {
+    "message": "Protocol / socket"
+  },
+  "app.downloads.diagnostics.speed": {
+    "message": "Request speed"
+  },
+  "app.downloads.diagnostics.duration": {
+    "message": "Request time"
+  },
+  "app.downloads.diagnostics.state": {
+    "message": "State"
+  },
+  "app.downloads.diagnostics.slow": {
+    "message": "Slow"
+  },
+  "app.downloads.diagnostics.proxy": {
+    "message": "Proxy"
+  },
+  "app.downloads.diagnostics.socket": {
+    "message": "Socket #{id}"
+  },
+  "app.downloads.diagnostics.seconds": {
+    "message": "{seconds} s"
+  },
+  "app.downloads.diagnostics.rate": {
+    "message": "{speed}/s"
+  },
+  "app.downloads.diagnostics.priority": {
+    "message": "Active / slow first"
+  },
+  "app.downloads.diagnostics.note": {
+    "message": "Each row is a request or HTTP/2 stream; streams may share a socket. Unknown physical connection counts are shown as —. Active speeds use recent samples; finished speeds are averages. Slow means below 256 KiB/s after warm-up. Receiving data means bytes arrived within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.fileSelectionGuide": {
+    "message": "Choose a file, and its download summary will appear below."
+  },
+  "app.downloads.diagnostics.truncated": {
+    "message": "Observation limits reached: {files} earlier files and {transfers} earlier requests are omitted."
+  },
+  "app.downloads.diagnostics.no-requests": {
+    "message": "No requests observed for this file yet."
+  },
+  "app.downloads.diagnostics.active": {
+    "message": "Active"
+  },
+  "app.downloads.diagnostics.connecting": {
+    "message": "Connecting"
+  },
+  "app.downloads.diagnostics.completed": {
+    "message": "Completed"
+  },
+  "app.downloads.diagnostics.closed": {
+    "message": "Closed"
+  },
+  "app.downloads.diagnostics.failed": {
+    "message": "Failed"
+  },
+  "app.downloads.diagnostics.canceled": {
+    "message": "Canceled"
+  },
+  "app.settings.feature-flags.advanced-download-info": {
+    "message": "Advanced download information"
+  },
+  "app.settings.feature-flags.advanced-download-info-description": {
+    "message": "Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections."
+  },
+  "app.downloads.diagnostics.elapsed-help": {
+    "message": "Time spent processing this file, including resource waits, existing-file checks, transfer, writing and integrity verification. This is not the entire installation time."
+  },
+  "app.downloads.diagnostics.network-elapsed-help": {
+    "message": "Time from the first recorded request starting to the last request finishing, including connection setup, response waits and retry gaps. Parallel request times are not added together."
+  },
+  "app.downloads.diagnostics.received-help": {
+    "message": "Total response body bytes received, excluding headers and TLS overhead. Retries may count duplicate bytes, so this can differ from the file size; cached files may show zero."
+  },
+  "app.downloads.diagnostics.active-requests-help": {
+    "message": "Requests or HTTP/2 streams currently in the active state, excluding those still connecting. Active requests may be waiting without receiving data."
+  },
+  "app.downloads.diagnostics.effective-requests-help": {
+    "message": "Active requests that received bytes within the last 2 seconds."
+  },
+  "app.downloads.diagnostics.physical-connections-help": {
+    "message": "Distinct identifiable physical connections used by this file’s active requests. HTTP/2 streams may share a connection. Idle connections are excluded; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.effective-physical-help": {
+    "message": "Distinct identifiable connections with an active request that received bytes within the last 2 seconds. Shared connections count once; — means the count is unknown."
+  },
+  "app.downloads.diagnostics.configured-limit-help": {
+    "message": "Configured resource permit limit for the global download pool. Shared across files and tasks; this is not a physical connection count or a per-file allocation."
+  },
+  "app.downloads.diagnostics.effective-cap-help": {
+    "message": "Adaptive concurrency limit for this file, adjusted for remaining data, available resources and failures. Completed files retain the last reported value."
+  },
+  "app.downloads.diagnostics.target-help": {
+    "message": "Concurrency the scheduler aims to maintain for this file, subject to available permits and splittable work. This is not the active request count; completed files retain the last value."
+  },
+  "app.downloads.diagnostics.held-help": {
+    "message": "Download resource permits currently held by this file’s scheduler. These are not physical connections and are released when the file finishes."
+  },
+  "app.downloads.diagnostics.pool-help": {
+    "message": "Currently available resource permits in the global download pool, shared with other files and tasks. This is not the number of sockets the operating system can open."
+  },
+  "app.settings.export.cleanup-label": {
+    "message": "Local settings files"
+  },
+  "app.settings.export.cleanup-button": {
+    "message": "Clean up…"
+  },
+  "app.settings.export.cleanup-running": {
+    "message": "Cleaning up…"
+  },
+  "app.settings.export.cleanup-confirm-title": {
+    "message": "Clean up local settings files?"
+  },
+  "app.settings.export.cleanup-confirm-description": {
+    "message": "Rewrites every local settings document, discarding unknown and redundant keys. This cannot be undone."
+  },
+  "app.settings.export.cleanup-confirm-proceed": {
+    "message": "Clean up"
+  },
+  "app.settings.export.cleanup-done-title": {
+    "message": "Local settings files cleaned up"
+  },
+  "app.settings.export.cleanup-done-text": {
+    "message": "{count, plural, =0 {No local settings document needed rewriting.} one {Rewrote # local settings document.} other {Rewrote # local settings documents.}}"
+  },
+  "app.settings.export.import-label": {
+    "message": "Settings archive"
+  },
+  "app.settings.export.import-button": {
+    "message": "Import…"
+  },
+  "app.settings.export.import-running": {
+    "message": "Importing…"
+  },
+  "app.settings.export.import-confirm-title": {
+    "message": "Import settings?"
+  },
+  "app.settings.export.import-confirm-description": {
+    "message": "Merges the archive into your local settings. Where both set the same key, the imported value wins. This cannot be undone."
+  },
+  "app.settings.export.import-confirm-proceed": {
+    "message": "Import"
+  },
+  "app.settings.export.imported-title": {
+    "message": "Settings imported"
+  },
+  "app.settings.export.imported-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}}"
+  },
+  "app.settings.export.import-danger-title": {
+    "message": "The settings you are about to import may be dangerous"
+  },
+  "app.settings.export.import-danger-description": {
+    "message": "The settings you are about to import will change {keys}."
+  },
+  "app.settings.export.import-danger-key-column": {
+    "message": "Dangerous setting"
+  },
+  "app.settings.export.import-danger-before-column": {
+    "message": "Before import"
+  },
+  "app.settings.export.import-danger-after-column": {
+    "message": "After import"
+  },
+  "app.settings.export.import-danger-note": {
+    "message": "They change the arguments the game is started with or the commands that run before it, and may also change the environment of the game process, for example by injecting environment variables. If you do not trust where the file came from, or do not understand what they mean and do, you should cancel the import or skip these dangerous settings. Please continue only if you fully understand and trust them."
+  },
+  "app.settings.export.import-danger-cancel": {
+    "message": "Cancel import"
+  },
+  "app.settings.export.import-danger-skip": {
+    "message": "Skip dangerous settings"
+  },
+  "app.settings.export.import-danger-allow": {
+    "message": "Continue import"
+  },
+  "app.settings.export.imported-dropped-text": {
+    "message": "{count, plural, =0 {No local settings document changed.} one {Updated # local settings document.} other {Updated # local settings documents.}} {dropped, plural, one {# value was ignored because its type is invalid.} other {# values were ignored because their types are invalid.}}"
+  },
+  "app.lab.command-generator.enchantment.sharpness": {
+    "message": "Sharpness"
+  },
+  "app.lab.command-generator.enchantment.smite": {
+    "message": "Smite"
+  },
+  "app.lab.command-generator.enchantment.bane-of-arthropods": {
+    "message": "Bane of Arthropods"
+  },
+  "app.lab.command-generator.enchantment.knockback": {
+    "message": "Knockback"
+  },
+  "app.lab.command-generator.enchantment.fire-aspect": {
+    "message": "Fire Aspect"
+  },
+  "app.lab.command-generator.enchantment.looting": {
+    "message": "Looting"
+  },
+  "app.lab.command-generator.enchantment.sweeping-edge": {
+    "message": "Sweeping Edge"
+  },
+  "app.lab.command-generator.enchantment.efficiency": {
+    "message": "Efficiency"
+  },
+  "app.lab.command-generator.enchantment.silk-touch": {
+    "message": "Silk Touch"
+  },
+  "app.lab.command-generator.enchantment.unbreaking": {
+    "message": "Unbreaking"
+  },
+  "app.lab.command-generator.enchantment.fortune": {
+    "message": "Fortune"
+  },
+  "app.lab.command-generator.enchantment.mending": {
+    "message": "Mending"
+  },
+  "app.lab.command-generator.enchantment.power": {
+    "message": "Power"
+  },
+  "app.lab.command-generator.enchantment.punch": {
+    "message": "Punch"
+  },
+  "app.lab.command-generator.enchantment.flame": {
+    "message": "Flame"
+  },
+  "app.lab.command-generator.enchantment.infinity": {
+    "message": "Infinity"
+  },
+  "app.lab.command-generator.enchantment.multishot": {
+    "message": "Multishot"
+  },
+  "app.lab.command-generator.enchantment.quick-charge": {
+    "message": "Quick Charge"
+  },
+  "app.lab.command-generator.enchantment.piercing": {
+    "message": "Piercing"
+  },
+  "app.lab.command-generator.enchantment.protection": {
+    "message": "Protection"
+  },
+  "app.lab.command-generator.enchantment.fire-protection": {
+    "message": "Fire Protection"
+  },
+  "app.lab.command-generator.enchantment.feather-falling": {
+    "message": "Feather Falling"
+  },
+  "app.lab.command-generator.enchantment.blast-protection": {
+    "message": "Blast Protection"
+  },
+  "app.lab.command-generator.enchantment.projectile-protection": {
+    "message": "Projectile Protection"
+  },
+  "app.lab.command-generator.enchantment.respiration": {
+    "message": "Respiration"
+  },
+  "app.lab.command-generator.enchantment.aqua-affinity": {
+    "message": "Aqua Affinity"
+  },
+  "app.lab.command-generator.enchantment.thorns": {
+    "message": "Thorns"
+  },
+  "app.lab.command-generator.enchantment.depth-strider": {
+    "message": "Depth Strider"
+  },
+  "app.lab.command-generator.enchantment.frost-walker": {
+    "message": "Frost Walker"
+  },
+  "app.lab.command-generator.enchantment.binding-curse": {
+    "message": "Curse of Binding"
+  },
+  "app.lab.command-generator.enchantment.vanishing-curse": {
+    "message": "Curse of Vanishing"
+  },
+  "app.lab.command-generator.enchantment.soul-speed": {
+    "message": "Soul Speed"
+  },
+  "app.lab.command-generator.enchantment.swift-sneak": {
+    "message": "Swift Sneak"
+  },
+  "app.lab.command-generator.enchantment.loyalty": {
+    "message": "Loyalty"
+  },
+  "app.lab.command-generator.enchantment.impaling": {
+    "message": "Impaling"
+  },
+  "app.lab.command-generator.enchantment.riptide": {
+    "message": "Riptide"
+  },
+  "app.lab.command-generator.enchantment.channeling": {
+    "message": "Channeling"
+  },
+  "app.lab.command-generator.enchantment.luck-of-the-sea": {
+    "message": "Luck of the Sea"
+  },
+  "app.lab.command-generator.enchantment.lure": {
+    "message": "Lure"
+  },
+  "app.lab.command-generator.cat.player": {
+    "message": "Player"
+  },
+  "app.lab.command-generator.cat.world": {
+    "message": "World"
+  },
+  "app.lab.command-generator.cat.entity": {
+    "message": "Entity"
+  },
+  "app.lab.command-generator.cat.block": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.cat.item": {
+    "message": "Item"
+  },
+  "app.lab.command-generator.cat.communication": {
+    "message": "Communication"
+  },
+  "app.lab.command-generator.cat.server": {
+    "message": "Server"
+  },
+  "app.lab.command-generator.cat.data": {
+    "message": "Data"
+  },
+  "app.lab.command-generator.cat.misc": {
+    "message": "Misc"
+  },
+  "app.lab.command-generator.perm.0": {
+    "message": "Everyone"
+  },
+  "app.lab.command-generator.perm.1": {
+    "message": "Admin"
+  },
+  "app.lab.command-generator.perm.2": {
+    "message": "OP"
+  },
+  "app.lab.command-generator.perm.3": {
+    "message": "Server console"
+  },
+  "app.lab.command-generator.perm.4": {
+    "message": "Singleplayer only"
+  },
+  "app.lab.command-generator.guide.give.summary": {
+    "message": "Give items to players, with optional NBT customisation."
+  },
+  "app.lab.command-generator.guide.give.ex1": {
+    "message": "Give yourself 64 diamonds"
+  },
+  "app.lab.command-generator.guide.give.ex2": {
+    "message": "Give the nearest player a Sharpness V diamond sword"
+  },
+  "app.lab.command-generator.guide.give.tip1": {
+    "message": "Maximum count is 99; higher values are clamped"
+  },
+  "app.lab.command-generator.guide.give.tip2": {
+    "message": "NBT data must be wrapped in curly braces"
+  },
+  "app.lab.command-generator.guide.summon.summary": {
+    "message": "Summon an entity at a given position."
+  },
+  "app.lab.command-generator.guide.summon.ex1": {
+    "message": "Summon an axolotl at your current position"
+  },
+  "app.lab.command-generator.guide.summon.ex2": {
+    "message": "Summon a creeper with explosion radius 10"
+  },
+  "app.lab.command-generator.guide.summon.tip1": {
+    "message": "Entity IDs need the minecraft: namespace"
+  },
+  "app.lab.command-generator.guide.gamemode.summary": {
+    "message": "Switch a player's game mode."
+  },
+  "app.lab.command-generator.guide.gamemode.ex1": {
+    "message": "Switch all players to Creative"
+  },
+  "app.lab.command-generator.guide.gamemode.ex2": {
+    "message": "Switch yourself to Survival"
+  },
+  "app.lab.command-generator.guide.effect.summary": {
+    "message": "Give or remove status effects."
+  },
+  "app.lab.command-generator.guide.effect.ex1": {
+    "message": "Give yourself Speed III for 30 seconds"
+  },
+  "app.lab.command-generator.guide.effect.ex2": {
+    "message": "Clear Poison from all players"
+  },
+  "app.lab.command-generator.guide.time.summary": {
+    "message": "Set or query the game time."
+  },
+  "app.lab.command-generator.guide.time.ex1": {
+    "message": "Set the time to day (1000 ticks)"
+  },
+  "app.lab.command-generator.guide.time.ex2": {
+    "message": "Advance time by 1000 ticks"
+  },
+  "app.lab.command-generator.guide.time.tip1": {
+    "message": "0 = sunrise, 6000 = noon, 12000 = sunset, 18000 = midnight"
+  },
+  "app.lab.command-generator.guide.weather.summary": {
+    "message": "Set the weather."
+  },
+  "app.lab.command-generator.guide.weather.ex1": {
+    "message": "Set the weather to clear"
+  },
+  "app.lab.command-generator.guide.weather.ex2": {
+    "message": "Set rain lasting 10 minutes"
+  },
+  "app.lab.command-generator.guide.tp.summary": {
+    "message": "Teleport an entity to a target position."
+  },
+  "app.lab.command-generator.guide.tp.ex1": {
+    "message": "Teleport yourself to (100, 64, 200)"
+  },
+  "app.lab.command-generator.guide.tp.ex2": {
+    "message": "Teleport the nearest player to you"
+  },
+  "app.lab.command-generator.guide.execute.summary": {
+    "message": "Run a command in a specific context, with optional conditions and modifiers."
+  },
+  "app.lab.command-generator.guide.execute.ex1": {
+    "message": "Make all players say hello at their own positions"
+  },
+  "app.lab.command-generator.guide.execute.ex2": {
+    "message": "Broadcast if any zombies exist"
+  },
+  "app.lab.command-generator.guide.execute.tip1": {
+    "message": "The chain must end with run"
+  },
+  "app.lab.command-generator.guide.execute.tip2": {
+    "message": "Common subcommands: as / at / positioned / if / unless"
+  },
+  "app.lab.command-generator.guide.fill.summary": {
+    "message": "Fill a region with the given block."
+  },
+  "app.lab.command-generator.guide.fill.ex1": {
+    "message": "Fill an 11x1x11 region with stone"
+  },
+  "app.lab.command-generator.guide.fill.ex2": {
+    "message": "Fill a glass hollow shell"
+  },
+  "app.lab.command-generator.guide.fill.tip1": {
+    "message": "Modes: replace / keep / outline / hollow / destroy"
+  },
+  "app.lab.command-generator.guide.setblock.summary": {
+    "message": "Place a single block."
+  },
+  "app.lab.command-generator.guide.setblock.ex1": {
+    "message": "Place a chest above your head"
+  },
+  "app.lab.command-generator.preset.entity.self": {
+    "message": "Self"
+  },
+  "app.lab.command-generator.preset.entity.all-players": {
+    "message": "All players"
+  },
+  "app.lab.command-generator.preset.entity.nearest-player": {
+    "message": "Nearest player"
+  },
+  "app.lab.command-generator.preset.entity.random-player": {
+    "message": "Random player"
+  },
+  "app.lab.command-generator.preset.entity.all-entities": {
+    "message": "All entities"
+  },
+  "app.lab.command-generator.preset.entity.nearest-entity": {
+    "message": "Nearest entity"
+  },
+  "app.lab.command-generator.preset.entity.zombies": {
+    "message": "Zombies"
+  },
+  "app.lab.command-generator.preset.entity.skeletons": {
+    "message": "Skeletons"
+  },
+  "app.lab.command-generator.preset.entity.creepers": {
+    "message": "Creepers"
+  },
+  "app.lab.command-generator.preset.entity.endermen": {
+    "message": "Endermen"
+  },
+  "app.lab.command-generator.preset.entity.villagers": {
+    "message": "Villagers"
+  },
+  "app.lab.command-generator.preset.entity.items": {
+    "message": "Items on ground"
+  },
+  "app.lab.command-generator.preset.entity.creative-players": {
+    "message": "Creative players"
+  },
+  "app.lab.command-generator.preset.entity.survival-players": {
+    "message": "Survival players"
+  },
+  "app.lab.command-generator.preset.entity.nearby-10": {
+    "message": "Nearby players (10 blocks)"
+  },
+  "app.lab.command-generator.preset.entity.nearby-entities-5": {
+    "message": "Nearby entities (5 blocks)"
+  },
+  "app.log-share.settings.ai-source": {
+    "message": "AI analysis source"
+  },
+  "app.log-share.settings.title": {
+    "message": "Log sharing & AI analysis"
+  },
+  "app.lab.command-generator.cmd.advancement.desc": {
+    "message": "Grant or revoke player advancements"
+  },
+  "app.lab.command-generator.cmd.attribute.desc": {
+    "message": "Modify or query entity attributes"
+  },
+  "app.lab.command-generator.cmd.ban.desc": {
+    "message": "Ban a player"
+  },
+  "app.lab.command-generator.cmd.ban-ip.desc": {
+    "message": "Ban an IP address"
+  },
+  "app.lab.command-generator.cmd.banlist.desc": {
+    "message": "View the ban list"
+  },
+  "app.lab.command-generator.cmd.bossbar.desc": {
+    "message": "Create or modify a boss bar"
+  },
+  "app.lab.command-generator.cmd.clear.desc": {
+    "message": "Clear a player's inventory"
+  },
+  "app.lab.command-generator.cmd.clone.desc": {
+    "message": "Clone a region of blocks"
+  },
+  "app.lab.command-generator.cmd.damage.desc": {
+    "message": "Deal damage to entities"
+  },
+  "app.lab.command-generator.cmd.data.desc": {
+    "message": "Read and write block, entity, or storage NBT"
+  },
+  "app.lab.command-generator.cmd.datapack.desc": {
+    "message": "Control data pack loading"
+  },
+  "app.lab.command-generator.cmd.debug.desc": {
+    "message": "Debug command"
+  },
+  "app.lab.command-generator.cmd.defaultgamemode.desc": {
+    "message": "Set the default game mode for new players"
+  },
+  "app.lab.command-generator.cmd.deop.desc": {
+    "message": "Revoke a player's operator status"
+  },
+  "app.lab.command-generator.cmd.dialog.desc": {
+    "message": "Show a dialog to the client (1.21.6+)"
+  },
+  "app.lab.command-generator.cmd.difficulty.desc": {
+    "message": "Set the game difficulty"
+  },
+  "app.lab.command-generator.cmd.effect.desc": {
+    "message": "Give or remove status effects"
+  },
+  "app.lab.command-generator.cmd.enchant.desc": {
+    "message": "Enchant the held item"
+  },
+  "app.lab.command-generator.cmd.execute.desc": {
+    "message": "Execute a command with a specific context"
+  },
+  "app.lab.command-generator.cmd.experience.desc": {
+    "message": "Give or remove player experience"
+  },
+  "app.lab.command-generator.cmd.fill.desc": {
+    "message": "Fill a region of blocks"
+  },
+  "app.lab.command-generator.cmd.fillbiome.desc": {
+    "message": "Fill a biome region (1.19+)"
+  },
+  "app.lab.command-generator.cmd.forceload.desc": {
+    "message": "Force-load or unload chunks"
+  },
+  "app.lab.command-generator.cmd.function.desc": {
+    "message": "Run a function"
+  },
+  "app.lab.command-generator.cmd.gamemode.desc": {
+    "message": "Set a player's game mode"
+  },
+  "app.lab.command-generator.cmd.gamerule.desc": {
+    "message": "Set a game rule"
+  },
+  "app.lab.command-generator.cmd.give.desc": {
+    "message": "Give items to players"
+  },
+  "app.lab.command-generator.cmd.help.desc": {
+    "message": "Show command help"
+  },
+  "app.lab.command-generator.cmd.item.desc": {
+    "message": "Modify items in a container"
+  },
+  "app.lab.command-generator.cmd.jfr.desc": {
+    "message": "Java Flight Recorder profiling"
+  },
+  "app.lab.command-generator.cmd.kick.desc": {
+    "message": "Kick a player"
+  },
+  "app.lab.command-generator.cmd.kill.desc": {
+    "message": "Kill entities"
+  },
+  "app.lab.command-generator.cmd.list.desc": {
+    "message": "List online players"
+  },
+  "app.lab.command-generator.cmd.locate.desc": {
+    "message": "Locate the nearest structure or biome"
+  },
+  "app.lab.command-generator.cmd.loot.desc": {
+    "message": "Drop loot"
+  },
+  "app.lab.command-generator.cmd.me.desc": {
+    "message": "Send a third-person message"
+  },
+  "app.lab.command-generator.cmd.msg.desc": {
+    "message": "Send a private message"
+  },
+  "app.lab.command-generator.cmd.op.desc": {
+    "message": "Grant operator status"
+  },
+  "app.lab.command-generator.cmd.pardon.desc": {
+    "message": "Unban a player"
+  },
+  "app.lab.command-generator.cmd.pardon-ip.desc": {
+    "message": "Unban an IP address"
+  },
+  "app.lab.command-generator.cmd.particle.desc": {
+    "message": "Spawn particles"
+  },
+  "app.lab.command-generator.cmd.placefeature.desc": {
+    "message": "Place a configured feature (1.18.2)"
+  },
+  "app.lab.command-generator.cmd.playsound.desc": {
+    "message": "Play a sound"
+  },
+  "app.lab.command-generator.cmd.publish.desc": {
+    "message": "Publish a local world to LAN"
+  },
+  "app.lab.command-generator.cmd.random.desc": {
+    "message": "Draw random values (1.20.2+)"
+  },
+  "app.lab.command-generator.cmd.recipe.desc": {
+    "message": "Give or take crafting recipes"
+  },
+  "app.lab.command-generator.cmd.reload.desc": {
+    "message": "Reload data packs"
+  },
+  "app.lab.command-generator.cmd.replaceitem.desc": {
+    "message": "Replace items in an inventory (up to 1.16)"
+  },
+  "app.lab.command-generator.cmd.ride.desc": {
+    "message": "Make an entity ride or dismount (1.19.4+)"
+  },
+  "app.lab.command-generator.cmd.say.desc": {
+    "message": "Broadcast a message to all players"
+  },
+  "app.lab.command-generator.cmd.schedule.desc": {
+    "message": "Schedule a function"
+  },
+  "app.lab.command-generator.cmd.scoreboard.desc": {
+    "message": "Manage the scoreboard"
+  },
+  "app.lab.command-generator.cmd.seed.desc": {
+    "message": "Show the world seed"
+  },
+  "app.lab.command-generator.cmd.setblock.desc": {
+    "message": "Place a single block"
+  },
+  "app.lab.command-generator.cmd.setidletimeout.desc": {
+    "message": "Set the idle timeout for players"
+  },
+  "app.lab.command-generator.cmd.setworldspawn.desc": {
+    "message": "Set the world spawn point"
+  },
+  "app.lab.command-generator.cmd.spawnpoint.desc": {
+    "message": "Set a player's spawn point"
+  },
+  "app.lab.command-generator.cmd.spectate.desc": {
+    "message": "Make a spectator watch an entity"
+  },
+  "app.lab.command-generator.cmd.spreadplayers.desc": {
+    "message": "Spread entities randomly"
+  },
+  "app.lab.command-generator.cmd.stop.desc": {
+    "message": "Stop the server"
+  },
+  "app.lab.command-generator.cmd.stopsound.desc": {
+    "message": "Stop a sound"
+  },
+  "app.lab.command-generator.cmd.stopwatch.desc": {
+    "message": "Create or modify a stopwatch (1.21.11+)"
+  },
+  "app.lab.command-generator.cmd.summon.desc": {
+    "message": "Summon an entity"
+  },
+  "app.lab.command-generator.cmd.swing.desc": {
+    "message": "Swing an entity's hand (1.21.4+)"
+  },
+  "app.lab.command-generator.cmd.tag.desc": {
+    "message": "Manage entity tags"
+  },
+  "app.lab.command-generator.cmd.team.desc": {
+    "message": "Manage scoreboard teams"
+  },
+  "app.lab.command-generator.cmd.teammsg.desc": {
+    "message": "Send a message to your team"
+  },
+  "app.lab.command-generator.cmd.teleport.desc": {
+    "message": "Teleport an entity"
+  },
+  "app.lab.command-generator.cmd.tell.desc": {
+    "message": "Send a private message"
+  },
+  "app.lab.command-generator.cmd.tellraw.desc": {
+    "message": "Send a raw JSON message"
+  },
+  "app.lab.command-generator.cmd.tick.desc": {
+    "message": "Control tick rate (1.20.3+)"
+  },
+  "app.lab.command-generator.cmd.time.desc": {
+    "message": "Set or query the game time"
+  },
+  "app.lab.command-generator.cmd.title.desc": {
+    "message": "Manage the screen title"
+  },
+  "app.lab.command-generator.cmd.trigger.desc": {
+    "message": "Trigger a scoreboard objective"
+  },
+  "app.lab.command-generator.cmd.waypoint.desc": {
+    "message": "Manage locator bar waypoints (1.21.6+)"
+  },
+  "app.lab.command-generator.cmd.weather.desc": {
+    "message": "Set the weather"
+  },
+  "app.lab.command-generator.cmd.whitelist.desc": {
+    "message": "Manage the server whitelist"
+  },
+  "app.lab.command-generator.cmd.worldborder.desc": {
+    "message": "Manage the world border"
+  },
+  "app.lab.command-generator.cmd.xp.desc": {
+    "message": "Give or remove player experience"
+  },
+  "app.lab.command-generator.execute.category.modifiers": {
+    "message": "Modifiers · Change the execution context"
+  },
+  "app.lab.command-generator.execute.category.conditions": {
+    "message": "Conditions · Check before continuing"
+  },
+  "app.lab.command-generator.execute.category.store": {
+    "message": "Store · Save the result (Java Edition)"
+  },
+  "app.lab.command-generator.execute.as.label": {
+    "message": "as · Change executor"
+  },
+  "app.lab.command-generator.execute.as.desc": {
+    "message": "Run as the given entity, keeping position and rotation"
+  },
+  "app.lab.command-generator.execute.at.label": {
+    "message": "at · Change position and rotation"
+  },
+  "app.lab.command-generator.execute.at.desc": {
+    "message": "Use the target's position and rotation"
+  },
+  "app.lab.command-generator.execute.positioned.label": {
+    "message": "positioned · Change position"
+  },
+  "app.lab.command-generator.execute.positioned.desc": {
+    "message": "Change the execution position, keeping executor and rotation"
+  },
+  "app.lab.command-generator.execute.positioned-as.label": {
+    "message": "positioned as · Use target's position"
+  },
+  "app.lab.command-generator.execute.positioned-as.desc": {
+    "message": "Use the target's position as the execution position"
+  },
+  "app.lab.command-generator.execute.rotated.label": {
+    "message": "rotated · Change rotation"
+  },
+  "app.lab.command-generator.execute.rotated.desc": {
+    "message": "Change the execution rotation, keeping position and executor"
+  },
+  "app.lab.command-generator.execute.rotated-as.label": {
+    "message": "rotated as · Use target's rotation"
+  },
+  "app.lab.command-generator.execute.rotated-as.desc": {
+    "message": "Use the target's rotation as the execution rotation"
+  },
+  "app.lab.command-generator.execute.facing.label": {
+    "message": "facing · Face a coordinate"
+  },
+  "app.lab.command-generator.execute.facing.desc": {
+    "message": "Face the execution direction toward a coordinate"
+  },
+  "app.lab.command-generator.execute.facing-entity.label": {
+    "message": "facing entity · Face an entity"
+  },
+  "app.lab.command-generator.execute.facing-entity.desc": {
+    "message": "Face the execution direction toward an entity"
+  },
+  "app.lab.command-generator.execute.in.label": {
+    "message": "in · Switch dimension"
+  },
+  "app.lab.command-generator.execute.in.desc": {
+    "message": "Switch the execution dimension, keeping coordinates"
+  },
+  "app.lab.command-generator.execute.anchored.label": {
+    "message": "anchored · Change anchor point"
+  },
+  "app.lab.command-generator.execute.anchored.desc": {
+    "message": "Change the anchor point (feet or eyes) for ^ coordinates"
+  },
+  "app.lab.command-generator.execute.align.label": {
+    "message": "align · Align to block grid"
+  },
+  "app.lab.command-generator.execute.align.desc": {
+    "message": "Align the execution coordinates to the block grid"
+  },
+  "app.lab.command-generator.execute.if-entity.label": {
+    "message": "if entity · Check entity exists"
+  },
+  "app.lab.command-generator.execute.if-entity.desc": {
+    "message": "Continue if the given entity exists"
+  },
+  "app.lab.command-generator.execute.unless-entity.label": {
+    "message": "unless entity · Check entity absent"
+  },
+  "app.lab.command-generator.execute.unless-entity.desc": {
+    "message": "Continue if the given entity does not exist"
+  },
+  "app.lab.command-generator.execute.if-block.label": {
+    "message": "if block · Check block"
+  },
+  "app.lab.command-generator.execute.if-block.desc": {
+    "message": "Continue if the given position is the given block"
+  },
+  "app.lab.command-generator.execute.if-blocks.label": {
+    "message": "if blocks · Check region"
+  },
+  "app.lab.command-generator.execute.if-blocks.desc": {
+    "message": "Continue if the two regions match"
+  },
+  "app.lab.command-generator.execute.if-score.label": {
+    "message": "if score · Compare scores"
+  },
+  "app.lab.command-generator.execute.if-score.desc": {
+    "message": "Continue if the score comparison holds"
+  },
+  "app.lab.command-generator.execute.if-score-matches.label": {
+    "message": "if score matches · Check score range"
+  },
+  "app.lab.command-generator.execute.if-score-matches.desc": {
+    "message": "Continue if the score is within the given range"
+  },
+  "app.lab.command-generator.execute.if-biome.label": {
+    "message": "if biome · Check biome"
+  },
+  "app.lab.command-generator.execute.if-biome.desc": {
+    "message": "Continue if the position matches the biome"
+  },
+  "app.lab.command-generator.execute.if-data.label": {
+    "message": "if data · Check NBT data"
+  },
+  "app.lab.command-generator.execute.if-data.desc": {
+    "message": "Continue if the given NBT path exists"
+  },
+  "app.lab.command-generator.execute.if-items.label": {
+    "message": "if items · Check items (1.21+)"
+  },
+  "app.lab.command-generator.execute.if-items.desc": {
+    "message": "Continue if the given slot contains the item"
+  },
+  "app.lab.command-generator.execute.if-function.label": {
+    "message": "if function · Check function result"
+  },
+  "app.lab.command-generator.execute.if-function.desc": {
+    "message": "Continue if the function returns success"
+  },
+  "app.lab.command-generator.execute.unless-block.label": {
+    "message": "unless block · Check block (inverse)"
+  },
+  "app.lab.command-generator.execute.unless-block.desc": {
+    "message": "Continue if the position is NOT the given block"
+  },
+  "app.lab.command-generator.execute.unless-score.label": {
+    "message": "unless score · Compare scores (inverse)"
+  },
+  "app.lab.command-generator.execute.unless-score.desc": {
+    "message": "Continue if the score comparison does not hold"
+  },
+  "app.lab.command-generator.execute.store-result-score.label": {
+    "message": "store result score · Store into scoreboard"
+  },
+  "app.lab.command-generator.execute.store-result-score.desc": {
+    "message": "Store the command's actual result into a scoreboard"
+  },
+  "app.lab.command-generator.execute.store-success-score.label": {
+    "message": "store success score · Store success flag"
+  },
+  "app.lab.command-generator.execute.store-success-score.desc": {
+    "message": "Store 1 or 0 depending on the command's success"
+  },
+  "app.lab.command-generator.execute.store-result-bossbar.label": {
+    "message": "store result bossbar · Store into boss bar"
+  },
+  "app.lab.command-generator.execute.store-result-bossbar.desc": {
+    "message": "Store the result into a boss bar's value or max"
+  },
+  "app.lab.command-generator.preset.common.self": {
+    "message": "Self"
+  },
+  "app.lab.command-generator.preset.common.all-players": {
+    "message": "All players"
+  },
+  "app.lab.command-generator.preset.common.nearest-player": {
+    "message": "Nearest player"
+  },
+  "app.lab.command-generator.preset.common.all-entities": {
+    "message": "All entities"
+  },
+  "app.lab.command-generator.preset.entity.all-zombies": {
+    "message": "All zombies"
+  },
+  "app.lab.command-generator.preset.entity.all-items": {
+    "message": "All item entities"
+  },
+  "app.lab.command-generator.preset.entity-type.pig": {
+    "message": "Pig"
+  },
+  "app.lab.command-generator.preset.entity-type.boat": {
+    "message": "Boat"
+  },
+  "app.lab.command-generator.preset.entity-type.minecart": {
+    "message": "Minecart"
+  },
+  "app.lab.command-generator.preset.entity-type.horse": {
+    "message": "Horse"
+  },
+  "app.lab.command-generator.preset.entity-type.axolotl": {
+    "message": "Axolotl"
+  },
+  "app.lab.command-generator.preset.entity-type.zombie": {
+    "message": "Zombie"
+  },
+  "app.lab.command-generator.preset.entity-type.creeper": {
+    "message": "Creeper"
+  },
+  "app.lab.command-generator.preset.entity-type.ender-dragon": {
+    "message": "Ender dragon"
+  },
+  "app.lab.command-generator.preset.entity-type.wither": {
+    "message": "Wither"
+  },
+  "app.lab.command-generator.preset.entity-type.lightning": {
+    "message": "Lightning bolt"
+  },
+  "app.lab.command-generator.preset.count.1": {
+    "message": "1"
+  },
+  "app.lab.command-generator.preset.count.10": {
+    "message": "10"
+  },
+  "app.lab.command-generator.preset.count.16": {
+    "message": "16"
+  },
+  "app.lab.command-generator.preset.count.64": {
+    "message": "64"
+  },
+  "app.lab.command-generator.preset.count.100": {
+    "message": "100"
+  },
+  "app.lab.command-generator.preset.amount.10": {
+    "message": "10"
+  },
+  "app.lab.command-generator.preset.amount.30": {
+    "message": "30"
+  },
+  "app.lab.command-generator.preset.amount.100": {
+    "message": "100"
+  },
+  "app.lab.command-generator.preset.action.add": {
+    "message": "Add"
+  },
+  "app.lab.command-generator.preset.action.set": {
+    "message": "Set"
+  },
+  "app.lab.command-generator.preset.unit.levels": {
+    "message": "Levels"
+  },
+  "app.lab.command-generator.preset.unit.points": {
+    "message": "Points"
+  },
+  "app.lab.command-generator.preset.boolean.true": {
+    "message": "true"
+  },
+  "app.lab.command-generator.preset.boolean.false": {
+    "message": "false"
+  },
+  "app.lab.command-generator.preset.coord.current": {
+    "message": "Current position"
+  },
+  "app.lab.command-generator.preset.coord.world-center": {
+    "message": "World center"
+  },
+  "app.lab.command-generator.preset.coord.below": {
+    "message": "Block below"
+  },
+  "app.lab.command-generator.preset.distance.10": {
+    "message": "10"
+  },
+  "app.lab.command-generator.preset.distance.50": {
+    "message": "50"
+  },
+  "app.lab.command-generator.preset.distance.100": {
+    "message": "100"
+  },
+  "app.lab.command-generator.preset.distance.500": {
+    "message": "500"
+  },
+  "app.lab.command-generator.preset.distance.1000": {
+    "message": "1000"
+  },
+  "app.lab.command-generator.preset.minutes.5": {
+    "message": "5 minutes"
+  },
+  "app.lab.command-generator.preset.minutes.15": {
+    "message": "15 minutes"
+  },
+  "app.lab.command-generator.preset.minutes.30": {
+    "message": "30 minutes"
+  },
+  "app.lab.command-generator.preset.port.25565": {
+    "message": "25565"
+  },
+  "app.lab.command-generator.preset.port.25566": {
+    "message": "25566"
+  },
+  "app.lab.command-generator.preset.duration.10s": {
+    "message": "10 seconds"
+  },
+  "app.lab.command-generator.preset.duration.30s": {
+    "message": "30 seconds"
+  },
+  "app.lab.command-generator.preset.duration.1m": {
+    "message": "1 minute"
+  },
+  "app.lab.command-generator.preset.duration.5m": {
+    "message": "5 minutes"
+  },
+  "app.lab.command-generator.preset.duration.10m": {
+    "message": "10 minutes"
+  },
+  "app.lab.command-generator.preset.duration.30m": {
+    "message": "30 minutes"
+  },
+  "app.lab.command-generator.preset.time.1s": {
+    "message": "1 second"
+  },
+  "app.lab.command-generator.preset.time.10s": {
+    "message": "10 seconds"
+  },
+  "app.lab.command-generator.preset.time.1m": {
+    "message": "1 minute"
+  },
+  "app.lab.command-generator.preset.time.1d": {
+    "message": "1 day"
+  },
+  "app.lab.command-generator.preset.range.1-10": {
+    "message": "1 to 10"
+  },
+  "app.lab.command-generator.preset.range.1-100": {
+    "message": "1 to 100"
+  },
+  "app.lab.command-generator.preset.range.1-6": {
+    "message": "1 to 6"
+  },
+  "app.lab.command-generator.preset.range.0-1": {
+    "message": "0 to 1"
+  },
+  "app.lab.command-generator.preset.range.exact-5": {
+    "message": "Exactly 5"
+  },
+  "app.lab.command-generator.preset.range.min-10": {
+    "message": "At least 10"
+  },
+  "app.lab.command-generator.preset.range.max-5": {
+    "message": "At most 5"
+  },
+  "app.lab.command-generator.preset.gamemode.survival": {
+    "message": "Survival"
+  },
+  "app.lab.command-generator.preset.gamemode.creative": {
+    "message": "Creative"
+  },
+  "app.lab.command-generator.preset.gamemode.adventure": {
+    "message": "Adventure"
+  },
+  "app.lab.command-generator.preset.gamemode.spectator": {
+    "message": "Spectator"
+  },
+  "app.lab.command-generator.preset.difficulty.peaceful": {
+    "message": "Peaceful"
+  },
+  "app.lab.command-generator.preset.difficulty.easy": {
+    "message": "Easy"
+  },
+  "app.lab.command-generator.preset.difficulty.normal": {
+    "message": "Normal"
+  },
+  "app.lab.command-generator.preset.difficulty.hard": {
+    "message": "Hard"
+  },
+  "app.lab.command-generator.preset.weather.clear": {
+    "message": "Clear"
+  },
+  "app.lab.command-generator.preset.weather.rain": {
+    "message": "Rain"
+  },
+  "app.lab.command-generator.preset.weather.thunder": {
+    "message": "Thunder"
+  },
+  "app.lab.command-generator.preset.time-of-day.day": {
+    "message": "Day"
+  },
+  "app.lab.command-generator.preset.time-of-day.noon": {
+    "message": "Noon"
+  },
+  "app.lab.command-generator.preset.time-of-day.night": {
+    "message": "Night"
+  },
+  "app.lab.command-generator.preset.time-of-day.midnight": {
+    "message": "Midnight"
+  },
+  "app.lab.command-generator.preset.time-action.set": {
+    "message": "Set"
+  },
+  "app.lab.command-generator.preset.time-action.add": {
+    "message": "Add"
+  },
+  "app.lab.command-generator.preset.time-action.query": {
+    "message": "Query"
+  },
+  "app.lab.command-generator.preset.item.diamond": {
+    "message": "Diamond"
+  },
+  "app.lab.command-generator.preset.item.netherite-ingot": {
+    "message": "Netherite ingot"
+  },
+  "app.lab.command-generator.preset.item.diamond-sword": {
+    "message": "Diamond sword"
+  },
+  "app.lab.command-generator.preset.item.golden-apple": {
+    "message": "Golden apple"
+  },
+  "app.lab.command-generator.preset.item.enchanted-golden-apple": {
+    "message": "Enchanted golden apple"
+  },
+  "app.lab.command-generator.preset.item.elytra": {
+    "message": "Elytra"
+  },
+  "app.lab.command-generator.preset.block.stone": {
+    "message": "Stone"
+  },
+  "app.lab.command-generator.preset.block.glass": {
+    "message": "Glass"
+  },
+  "app.lab.command-generator.preset.block.air": {
+    "message": "Air"
+  },
+  "app.lab.command-generator.preset.block.diamond-block": {
+    "message": "Diamond block"
+  },
+  "app.lab.command-generator.preset.block.chest": {
+    "message": "Chest"
+  },
+  "app.lab.command-generator.preset.block.grass": {
+    "message": "Grass block"
+  },
+  "app.lab.command-generator.preset.fill-mode.replace": {
+    "message": "Replace"
+  },
+  "app.lab.command-generator.preset.fill-mode.keep": {
+    "message": "Keep"
+  },
+  "app.lab.command-generator.preset.fill-mode.outline": {
+    "message": "Outline"
+  },
+  "app.lab.command-generator.preset.fill-mode.hollow": {
+    "message": "Hollow"
+  },
+  "app.lab.command-generator.preset.fill-mode.destroy": {
+    "message": "Destroy"
+  },
+  "app.lab.command-generator.preset.effect.speed": {
+    "message": "Speed"
+  },
+  "app.lab.command-generator.preset.effect.strength": {
+    "message": "Strength"
+  },
+  "app.lab.command-generator.preset.effect.jump-boost": {
+    "message": "Jump Boost"
+  },
+  "app.lab.command-generator.preset.effect.regeneration": {
+    "message": "Regeneration"
+  },
+  "app.lab.command-generator.preset.effect.night-vision": {
+    "message": "Night Vision"
+  },
+  "app.lab.command-generator.preset.effect.poison": {
+    "message": "Poison"
+  },
+  "app.lab.command-generator.preset.effect.action.0": {
+    "message": "Give"
+  },
+  "app.lab.command-generator.preset.effect.action.1": {
+    "message": "Clear"
+  },
+  "app.lab.command-generator.preset.enchantment.sharpness": {
+    "message": "Sharpness"
+  },
+  "app.lab.command-generator.preset.enchantment.unbreaking": {
+    "message": "Unbreaking"
+  },
+  "app.lab.command-generator.preset.enchantment.mending": {
+    "message": "Mending"
+  },
+  "app.lab.command-generator.preset.enchantment.protection": {
+    "message": "Protection"
+  },
+  "app.lab.command-generator.preset.enchantment.fortune": {
+    "message": "Fortune"
+  },
+  "app.lab.command-generator.preset.particle.flame": {
+    "message": "Flame"
+  },
+  "app.lab.command-generator.preset.particle.heart": {
+    "message": "Heart"
+  },
+  "app.lab.command-generator.preset.particle.explosion": {
+    "message": "Explosion"
+  },
+  "app.lab.command-generator.preset.particle.portal": {
+    "message": "Portal"
+  },
+  "app.lab.command-generator.preset.biome.plains": {
+    "message": "Plains"
+  },
+  "app.lab.command-generator.preset.biome.desert": {
+    "message": "Desert"
+  },
+  "app.lab.command-generator.preset.biome.forest": {
+    "message": "Forest"
+  },
+  "app.lab.command-generator.preset.biome.ocean": {
+    "message": "Ocean"
+  },
+  "app.lab.command-generator.preset.biome.snowy-plains": {
+    "message": "Snowy plains"
+  },
+  "app.lab.command-generator.preset.biome.jungle": {
+    "message": "Jungle"
+  },
+  "app.lab.command-generator.preset.dimension.overworld": {
+    "message": "Overworld"
+  },
+  "app.lab.command-generator.preset.dimension.nether": {
+    "message": "Nether"
+  },
+  "app.lab.command-generator.preset.dimension.end": {
+    "message": "The End"
+  },
+  "app.lab.command-generator.preset.feature.oak": {
+    "message": "Oak"
+  },
+  "app.lab.command-generator.preset.feature.spruce": {
+    "message": "Spruce"
+  },
+  "app.lab.command-generator.preset.feature.birch": {
+    "message": "Birch"
+  },
+  "app.lab.command-generator.preset.feature.grass": {
+    "message": "Grass"
+  },
+  "app.lab.command-generator.preset.feature.flower": {
+    "message": "Flower"
+  },
+  "app.lab.command-generator.preset.color.gold": {
+    "message": "Gold"
+  },
+  "app.lab.command-generator.preset.color.red": {
+    "message": "Red"
+  },
+  "app.lab.command-generator.preset.color.green": {
+    "message": "Green"
+  },
+  "app.lab.command-generator.preset.color.blue": {
+    "message": "Blue"
+  },
+  "app.lab.command-generator.preset.color.white": {
+    "message": "White"
+  },
+  "app.lab.command-generator.preset.rotation.north": {
+    "message": "North (0)"
+  },
+  "app.lab.command-generator.preset.rotation.east": {
+    "message": "East (90)"
+  },
+  "app.lab.command-generator.preset.rotation.south": {
+    "message": "South (180)"
+  },
+  "app.lab.command-generator.preset.rotation.west": {
+    "message": "West (-90)"
+  },
+  "app.lab.command-generator.preset.pitch.horizontal": {
+    "message": "Horizontal (0)"
+  },
+  "app.lab.command-generator.preset.pitch.up": {
+    "message": "Up (-90)"
+  },
+  "app.lab.command-generator.preset.pitch.down": {
+    "message": "Down (90)"
+  },
+  "app.lab.command-generator.preset.anchor.eyes": {
+    "message": "Eyes"
+  },
+  "app.lab.command-generator.preset.anchor.feet": {
+    "message": "Feet"
+  },
+  "app.lab.command-generator.preset.align.xyz": {
+    "message": "All"
+  },
+  "app.lab.command-generator.preset.align.x": {
+    "message": "X only"
+  },
+  "app.lab.command-generator.preset.align.y": {
+    "message": "Y only"
+  },
+  "app.lab.command-generator.preset.align.z": {
+    "message": "Z only"
+  },
+  "app.lab.command-generator.preset.ride-action.mount": {
+    "message": "Mount"
+  },
+  "app.lab.command-generator.preset.ride-action.dismount": {
+    "message": "Dismount"
+  },
+  "app.lab.command-generator.preset.tag-action.add": {
+    "message": "Add"
+  },
+  "app.lab.command-generator.preset.tag-action.remove": {
+    "message": "Remove"
+  },
+  "app.lab.command-generator.preset.tag-action.list": {
+    "message": "List"
+  },
+  "app.lab.command-generator.preset.random-action.value": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.preset.random-action.roll": {
+    "message": "Roll"
+  },
+  "app.lab.command-generator.preset.random-action.reset": {
+    "message": "Reset"
+  },
+  "app.lab.command-generator.preset.tick-action.freeze": {
+    "message": "Freeze"
+  },
+  "app.lab.command-generator.preset.tick-action.unfreeze": {
+    "message": "Unfreeze"
+  },
+  "app.lab.command-generator.preset.tick-action.rate": {
+    "message": "Set rate"
+  },
+  "app.lab.command-generator.preset.tick-action.sprint": {
+    "message": "Sprint"
+  },
+  "app.lab.command-generator.preset.tick-action.step": {
+    "message": "Step"
+  },
+  "app.lab.command-generator.preset.tick-action.query": {
+    "message": "Query"
+  },
+  "app.lab.command-generator.preset.tick-rate.1": {
+    "message": "1"
+  },
+  "app.lab.command-generator.preset.tick-rate.20": {
+    "message": "20"
+  },
+  "app.lab.command-generator.preset.tick-rate.100": {
+    "message": "100"
+  },
+  "app.lab.command-generator.preset.waypoint-action.list": {
+    "message": "List"
+  },
+  "app.lab.command-generator.preset.waypoint-action.add": {
+    "message": "Add"
+  },
+  "app.lab.command-generator.preset.waypoint-action.remove": {
+    "message": "Remove"
+  },
+  "app.lab.command-generator.preset.waypoint-action.modify": {
+    "message": "Modify"
+  },
+  "app.lab.command-generator.preset.stopwatch-action.create": {
+    "message": "Create"
+  },
+  "app.lab.command-generator.preset.stopwatch-action.query": {
+    "message": "Query"
+  },
+  "app.lab.command-generator.preset.stopwatch-action.restart": {
+    "message": "Restart"
+  },
+  "app.lab.command-generator.preset.stopwatch-action.remove": {
+    "message": "Remove"
+  },
+  "app.lab.command-generator.preset.scale.1": {
+    "message": "1"
+  },
+  "app.lab.command-generator.preset.scale.0-05": {
+    "message": "0.05"
+  },
+  "app.lab.command-generator.preset.scale.20": {
+    "message": "20"
+  },
+  "app.lab.command-generator.preset.hand.mainhand": {
+    "message": "Main hand"
+  },
+  "app.lab.command-generator.preset.hand.offhand": {
+    "message": "Off hand"
+  },
+  "app.lab.command-generator.preset.damage-amount.1": {
+    "message": "1"
+  },
+  "app.lab.command-generator.preset.damage-amount.5": {
+    "message": "5"
+  },
+  "app.lab.command-generator.preset.damage-amount.10": {
+    "message": "10"
+  },
+  "app.lab.command-generator.preset.damage-amount.fatal": {
+    "message": "Fatal"
+  },
+  "app.lab.command-generator.preset.damage-type.generic": {
+    "message": "Generic"
+  },
+  "app.lab.command-generator.preset.damage-type.fire": {
+    "message": "Fire"
+  },
+  "app.lab.command-generator.preset.damage-type.fall": {
+    "message": "Fall"
+  },
+  "app.lab.command-generator.preset.damage-type.void": {
+    "message": "Void"
+  },
+  "app.lab.command-generator.preset.damage-type.drowning": {
+    "message": "Drowning"
+  },
+  "app.lab.command-generator.preset.blocks-mode.all": {
+    "message": "All"
+  },
+  "app.lab.command-generator.preset.blocks-mode.masked": {
+    "message": "Masked"
+  },
+  "app.lab.command-generator.preset.data-target.block": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.preset.data-target.entity": {
+    "message": "Entity"
+  },
+  "app.lab.command-generator.preset.data-target.storage": {
+    "message": "Storage"
+  },
+  "app.lab.command-generator.preset.slot.mainhand": {
+    "message": "Main hand"
+  },
+  "app.lab.command-generator.preset.slot.container-all": {
+    "message": "All containers"
+  },
+  "app.lab.command-generator.preset.slot.all": {
+    "message": "All slots"
+  },
+  "app.lab.command-generator.preset.bossbar-value.value": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.preset.bossbar-value.max": {
+    "message": "Max"
+  },
+  "app.lab.command-generator.preset.attribute.max-health": {
+    "message": "Max health"
+  },
+  "app.lab.command-generator.preset.attribute.movement-speed": {
+    "message": "Movement speed"
+  },
+  "app.lab.command-generator.preset.attribute.attack-damage": {
+    "message": "Attack damage"
+  },
+  "app.lab.command-generator.preset.attribute.action.get": {
+    "message": "Get"
+  },
+  "app.lab.command-generator.preset.attribute.action.base": {
+    "message": "Base"
+  },
+  "app.lab.command-generator.preset.attribute.action.value": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.preset.scoreboard.category.objectives": {
+    "message": "Objectives"
+  },
+  "app.lab.command-generator.preset.scoreboard.category.players": {
+    "message": "Players"
+  },
+  "app.lab.command-generator.preset.banlist.type.0": {
+    "message": "Players"
+  },
+  "app.lab.command-generator.preset.banlist.type.1": {
+    "message": "IPs"
+  },
+  "app.lab.command-generator.preset.advancement.action.0": {
+    "message": "Grant"
+  },
+  "app.lab.command-generator.preset.advancement.action.1": {
+    "message": "Revoke"
+  },
+  "app.lab.command-generator.arg.advancement.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.advancement.action.desc": {
+    "message": "grant to give, revoke to remove"
+  },
+  "app.lab.command-generator.arg.advancement.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.advancement.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.advancement.advancement.display": {
+    "message": "Advancement"
+  },
+  "app.lab.command-generator.arg.advancement.advancement.desc": {
+    "message": "Advancement identifier"
+  },
+  "app.lab.command-generator.arg.advancement.criterion.display": {
+    "message": "Criterion"
+  },
+  "app.lab.command-generator.arg.advancement.criterion.desc": {
+    "message": "Advancement criterion; leave blank for all"
+  },
+  "app.lab.command-generator.arg.attribute.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.attribute.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.attribute.attribute.display": {
+    "message": "Attribute"
+  },
+  "app.lab.command-generator.arg.attribute.attribute.desc": {
+    "message": "Attribute ID"
+  },
+  "app.lab.command-generator.arg.attribute.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.attribute.action.desc": {
+    "message": "get / base / value"
+  },
+  "app.lab.command-generator.arg.attribute.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.attribute.value.desc": {
+    "message": "Attribute value"
+  },
+  "app.lab.command-generator.arg.ban.target.display": {
+    "message": "Player name"
+  },
+  "app.lab.command-generator.arg.ban.target.desc": {
+    "message": "Player name to ban"
+  },
+  "app.lab.command-generator.arg.ban.reason.display": {
+    "message": "Reason"
+  },
+  "app.lab.command-generator.arg.ban.reason.desc": {
+    "message": "Ban reason"
+  },
+  "app.lab.command-generator.arg.ban-ip.target.display": {
+    "message": "IP address"
+  },
+  "app.lab.command-generator.arg.ban-ip.target.desc": {
+    "message": "IP address to ban"
+  },
+  "app.lab.command-generator.arg.ban-ip.reason.display": {
+    "message": "Reason"
+  },
+  "app.lab.command-generator.arg.ban-ip.reason.desc": {
+    "message": "Ban reason"
+  },
+  "app.lab.command-generator.arg.banlist.type.display": {
+    "message": "Type"
+  },
+  "app.lab.command-generator.arg.banlist.type.desc": {
+    "message": "players or ips"
+  },
+  "app.lab.command-generator.arg.bossbar.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.bossbar.action.desc": {
+    "message": "add / remove / get / set / list"
+  },
+  "app.lab.command-generator.arg.bossbar.id.display": {
+    "message": "ID"
+  },
+  "app.lab.command-generator.arg.bossbar.id.desc": {
+    "message": "Boss bar identifier"
+  },
+  "app.lab.command-generator.arg.bossbar.property.display": {
+    "message": "Property"
+  },
+  "app.lab.command-generator.arg.bossbar.property.desc": {
+    "message": "name / color / style / value / max / visible / players"
+  },
+  "app.lab.command-generator.arg.bossbar.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.bossbar.value.desc": {
+    "message": "Property value"
+  },
+  "app.lab.command-generator.arg.clear.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.clear.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.clear.item.display": {
+    "message": "Item"
+  },
+  "app.lab.command-generator.arg.clear.item.desc": {
+    "message": "Item ID to clear"
+  },
+  "app.lab.command-generator.arg.clear.maxCount.display": {
+    "message": "Max count"
+  },
+  "app.lab.command-generator.arg.clear.maxCount.desc": {
+    "message": "Maximum number of items to clear"
+  },
+  "app.lab.command-generator.arg.clone.begin.display": {
+    "message": "Begin"
+  },
+  "app.lab.command-generator.arg.clone.begin.desc": {
+    "message": "Starting coordinate"
+  },
+  "app.lab.command-generator.arg.clone.end.display": {
+    "message": "End"
+  },
+  "app.lab.command-generator.arg.clone.end.desc": {
+    "message": "Ending coordinate"
+  },
+  "app.lab.command-generator.arg.clone.destination.display": {
+    "message": "Destination"
+  },
+  "app.lab.command-generator.arg.clone.destination.desc": {
+    "message": "Target coordinate"
+  },
+  "app.lab.command-generator.arg.clone.maskMode.display": {
+    "message": "Mask mode"
+  },
+  "app.lab.command-generator.arg.clone.maskMode.desc": {
+    "message": "filtered / replace / masked"
+  },
+  "app.lab.command-generator.arg.damage.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.damage.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.damage.amount.display": {
+    "message": "Amount"
+  },
+  "app.lab.command-generator.arg.damage.amount.desc": {
+    "message": "Damage amount"
+  },
+  "app.lab.command-generator.arg.damage.damageType.display": {
+    "message": "Damage type"
+  },
+  "app.lab.command-generator.arg.damage.damageType.desc": {
+    "message": "Damage type ID"
+  },
+  "app.lab.command-generator.arg.damage.source.display": {
+    "message": "Source"
+  },
+  "app.lab.command-generator.arg.damage.source.desc": {
+    "message": "Source entity selector"
+  },
+  "app.lab.command-generator.arg.data.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.data.action.desc": {
+    "message": "get / merge / modify / remove"
+  },
+  "app.lab.command-generator.arg.data.targetType.display": {
+    "message": "Target type"
+  },
+  "app.lab.command-generator.arg.data.targetType.desc": {
+    "message": "block / entity / storage"
+  },
+  "app.lab.command-generator.arg.data.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.data.target.desc": {
+    "message": "Block coordinate, entity selector, or storage ID"
+  },
+  "app.lab.command-generator.arg.data.path.display": {
+    "message": "NBT path"
+  },
+  "app.lab.command-generator.arg.data.path.desc": {
+    "message": "NBT path to operate on"
+  },
+  "app.lab.command-generator.arg.data.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.data.value.desc": {
+    "message": "NBT value to write"
+  },
+  "app.lab.command-generator.arg.datapack.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.datapack.action.desc": {
+    "message": "enable / disable / list"
+  },
+  "app.lab.command-generator.arg.datapack.name.display": {
+    "message": "Data pack name"
+  },
+  "app.lab.command-generator.arg.datapack.name.desc": {
+    "message": "Data pack identifier"
+  },
+  "app.lab.command-generator.arg.debug.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.debug.action.desc": {
+    "message": "start / stop / function"
+  },
+  "app.lab.command-generator.arg.defaultgamemode.mode.display": {
+    "message": "Mode"
+  },
+  "app.lab.command-generator.arg.defaultgamemode.mode.desc": {
+    "message": "survival / creative / adventure / spectator"
+  },
+  "app.lab.command-generator.arg.deop.target.display": {
+    "message": "Player name"
+  },
+  "app.lab.command-generator.arg.deop.target.desc": {
+    "message": "Player name to deop"
+  },
+  "app.lab.command-generator.arg.dialog.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.dialog.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.dialog.dialog.display": {
+    "message": "Dialog ID"
+  },
+  "app.lab.command-generator.arg.dialog.dialog.desc": {
+    "message": "Dialog identifier"
+  },
+  "app.lab.command-generator.arg.difficulty.difficulty.display": {
+    "message": "Difficulty"
+  },
+  "app.lab.command-generator.arg.difficulty.difficulty.desc": {
+    "message": "peaceful / easy / normal / hard"
+  },
+  "app.lab.command-generator.arg.effect.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.effect.action.desc": {
+    "message": "give or clear"
+  },
+  "app.lab.command-generator.arg.effect.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.effect.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.effect.effect.display": {
+    "message": "Effect"
+  },
+  "app.lab.command-generator.arg.effect.effect.desc": {
+    "message": "Status effect ID"
+  },
+  "app.lab.command-generator.arg.effect.duration.display": {
+    "message": "Duration"
+  },
+  "app.lab.command-generator.arg.effect.duration.desc": {
+    "message": "Duration in seconds"
+  },
+  "app.lab.command-generator.arg.effect.amplifier.display": {
+    "message": "Amplifier"
+  },
+  "app.lab.command-generator.arg.effect.amplifier.desc": {
+    "message": "Amplifier level (0 is level I)"
+  },
+  "app.lab.command-generator.arg.effect.hideParticles.display": {
+    "message": "Hide particles"
+  },
+  "app.lab.command-generator.arg.effect.hideParticles.desc": {
+    "message": "Whether to hide particle effects"
+  },
+  "app.lab.command-generator.arg.enchant.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.enchant.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.enchant.enchantment.display": {
+    "message": "Enchantment"
+  },
+  "app.lab.command-generator.arg.enchant.enchantment.desc": {
+    "message": "Enchantment ID"
+  },
+  "app.lab.command-generator.arg.enchant.level.display": {
+    "message": "Level"
+  },
+  "app.lab.command-generator.arg.enchant.level.desc": {
+    "message": "Enchantment level"
+  },
+  "app.lab.command-generator.arg.experience.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.experience.action.desc": {
+    "message": "add or set"
+  },
+  "app.lab.command-generator.arg.experience.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.experience.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.experience.amount.display": {
+    "message": "Amount"
+  },
+  "app.lab.command-generator.arg.experience.amount.desc": {
+    "message": "Experience amount"
+  },
+  "app.lab.command-generator.arg.experience.unit.display": {
+    "message": "Unit"
+  },
+  "app.lab.command-generator.arg.experience.unit.desc": {
+    "message": "points or levels"
+  },
+  "app.lab.command-generator.arg.fill.from.display": {
+    "message": "From"
+  },
+  "app.lab.command-generator.arg.fill.from.desc": {
+    "message": "Starting coordinate"
+  },
+  "app.lab.command-generator.arg.fill.to.display": {
+    "message": "To"
+  },
+  "app.lab.command-generator.arg.fill.to.desc": {
+    "message": "Ending coordinate"
+  },
+  "app.lab.command-generator.arg.fill.block.display": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.arg.fill.block.desc": {
+    "message": "Block ID to fill with"
+  },
+  "app.lab.command-generator.arg.fill.mode.display": {
+    "message": "Mode"
+  },
+  "app.lab.command-generator.arg.fill.mode.desc": {
+    "message": "replace / keep / outline / hollow / destroy"
+  },
+  "app.lab.command-generator.arg.fillbiome.from.display": {
+    "message": "From"
+  },
+  "app.lab.command-generator.arg.fillbiome.from.desc": {
+    "message": "Starting coordinate"
+  },
+  "app.lab.command-generator.arg.fillbiome.to.display": {
+    "message": "To"
+  },
+  "app.lab.command-generator.arg.fillbiome.to.desc": {
+    "message": "Ending coordinate"
+  },
+  "app.lab.command-generator.arg.fillbiome.biome.display": {
+    "message": "Biome"
+  },
+  "app.lab.command-generator.arg.fillbiome.biome.desc": {
+    "message": "Biome ID"
+  },
+  "app.lab.command-generator.arg.forceload.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.forceload.action.desc": {
+    "message": "add / remove / query"
+  },
+  "app.lab.command-generator.arg.forceload.from.display": {
+    "message": "From"
+  },
+  "app.lab.command-generator.arg.forceload.from.desc": {
+    "message": "Starting coordinate"
+  },
+  "app.lab.command-generator.arg.forceload.to.display": {
+    "message": "To"
+  },
+  "app.lab.command-generator.arg.forceload.to.desc": {
+    "message": "Ending coordinate"
+  },
+  "app.lab.command-generator.arg.function.name.display": {
+    "message": "Function name"
+  },
+  "app.lab.command-generator.arg.function.name.desc": {
+    "message": "Function identifier"
+  },
+  "app.lab.command-generator.arg.gamemode.mode.display": {
+    "message": "Mode"
+  },
+  "app.lab.command-generator.arg.gamemode.mode.desc": {
+    "message": "survival / creative / adventure / spectator"
+  },
+  "app.lab.command-generator.arg.gamemode.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.gamemode.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.gamerule.rule.display": {
+    "message": "Rule"
+  },
+  "app.lab.command-generator.arg.gamerule.rule.desc": {
+    "message": "Game rule name"
+  },
+  "app.lab.command-generator.arg.gamerule.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.gamerule.value.desc": {
+    "message": "Game rule value (true/false or number)"
+  },
+  "app.lab.command-generator.arg.give.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.give.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.give.item.display": {
+    "message": "Item"
+  },
+  "app.lab.command-generator.arg.give.item.desc": {
+    "message": "Item ID"
+  },
+  "app.lab.command-generator.arg.give.count.display": {
+    "message": "Count"
+  },
+  "app.lab.command-generator.arg.give.count.desc": {
+    "message": "Item count"
+  },
+  "app.lab.command-generator.arg.give.nbt.display": {
+    "message": "NBT"
+  },
+  "app.lab.command-generator.arg.give.nbt.desc": {
+    "message": "Item NBT data"
+  },
+  "app.lab.command-generator.arg.help.command.display": {
+    "message": "Command"
+  },
+  "app.lab.command-generator.arg.help.command.desc": {
+    "message": "Command name to query"
+  },
+  "app.lab.command-generator.arg.item.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.item.action.desc": {
+    "message": "replace / modify / block"
+  },
+  "app.lab.command-generator.arg.item.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.item.pos.desc": {
+    "message": "Container position"
+  },
+  "app.lab.command-generator.arg.item.slot.display": {
+    "message": "Slot"
+  },
+  "app.lab.command-generator.arg.item.slot.desc": {
+    "message": "Slot name, e.g. container.0"
+  },
+  "app.lab.command-generator.arg.item.item.display": {
+    "message": "Item"
+  },
+  "app.lab.command-generator.arg.item.item.desc": {
+    "message": "Item ID"
+  },
+  "app.lab.command-generator.arg.item.count.display": {
+    "message": "Count"
+  },
+  "app.lab.command-generator.arg.item.count.desc": {
+    "message": "Item count"
+  },
+  "app.lab.command-generator.arg.item.nbt.display": {
+    "message": "NBT"
+  },
+  "app.lab.command-generator.arg.item.nbt.desc": {
+    "message": "Item NBT data"
+  },
+  "app.lab.command-generator.arg.jfr.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.jfr.action.desc": {
+    "message": "start or stop"
+  },
+  "app.lab.command-generator.arg.kick.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.kick.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.kick.reason.display": {
+    "message": "Reason"
+  },
+  "app.lab.command-generator.arg.kick.reason.desc": {
+    "message": "Kick reason"
+  },
+  "app.lab.command-generator.arg.kill.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.kill.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.list.uuids.display": {
+    "message": "Show UUIDs"
+  },
+  "app.lab.command-generator.arg.list.uuids.desc": {
+    "message": "Whether to display UUIDs"
+  },
+  "app.lab.command-generator.arg.locate.type.display": {
+    "message": "Type"
+  },
+  "app.lab.command-generator.arg.locate.type.desc": {
+    "message": "structure / biome / poi"
+  },
+  "app.lab.command-generator.arg.locate.id.display": {
+    "message": "Identifier"
+  },
+  "app.lab.command-generator.arg.locate.id.desc": {
+    "message": "Target ID to locate"
+  },
+  "app.lab.command-generator.arg.loot.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.loot.action.desc": {
+    "message": "give / insert / spawn"
+  },
+  "app.lab.command-generator.arg.loot.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.loot.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.loot.source.display": {
+    "message": "Source"
+  },
+  "app.lab.command-generator.arg.loot.source.desc": {
+    "message": "Loot source"
+  },
+  "app.lab.command-generator.arg.me.message.display": {
+    "message": "Message"
+  },
+  "app.lab.command-generator.arg.me.message.desc": {
+    "message": "Message content"
+  },
+  "app.lab.command-generator.arg.msg.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.msg.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.msg.message.display": {
+    "message": "Message"
+  },
+  "app.lab.command-generator.arg.msg.message.desc": {
+    "message": "Private message content"
+  },
+  "app.lab.command-generator.arg.op.target.display": {
+    "message": "Player name"
+  },
+  "app.lab.command-generator.arg.op.target.desc": {
+    "message": "Player name to op"
+  },
+  "app.lab.command-generator.arg.pardon.target.display": {
+    "message": "Player name"
+  },
+  "app.lab.command-generator.arg.pardon.target.desc": {
+    "message": "Player name to unban"
+  },
+  "app.lab.command-generator.arg.pardon-ip.target.display": {
+    "message": "IP address"
+  },
+  "app.lab.command-generator.arg.pardon-ip.target.desc": {
+    "message": "IP address to unban"
+  },
+  "app.lab.command-generator.arg.particle.name.display": {
+    "message": "Particle"
+  },
+  "app.lab.command-generator.arg.particle.name.desc": {
+    "message": "Particle ID"
+  },
+  "app.lab.command-generator.arg.particle.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.particle.pos.desc": {
+    "message": "Spawn position"
+  },
+  "app.lab.command-generator.arg.particle.delta.display": {
+    "message": "Delta"
+  },
+  "app.lab.command-generator.arg.particle.delta.desc": {
+    "message": "Spread range"
+  },
+  "app.lab.command-generator.arg.particle.speed.display": {
+    "message": "Speed"
+  },
+  "app.lab.command-generator.arg.particle.speed.desc": {
+    "message": "Particle speed"
+  },
+  "app.lab.command-generator.arg.particle.count.display": {
+    "message": "Count"
+  },
+  "app.lab.command-generator.arg.particle.count.desc": {
+    "message": "Particle count"
+  },
+  "app.lab.command-generator.arg.particle.mode.display": {
+    "message": "Mode"
+  },
+  "app.lab.command-generator.arg.particle.mode.desc": {
+    "message": "normal or force"
+  },
+  "app.lab.command-generator.arg.placefeature.id.display": {
+    "message": "Feature ID"
+  },
+  "app.lab.command-generator.arg.placefeature.id.desc": {
+    "message": "Feature identifier"
+  },
+  "app.lab.command-generator.arg.placefeature.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.placefeature.pos.desc": {
+    "message": "Placement coordinate"
+  },
+  "app.lab.command-generator.arg.playsound.sound.display": {
+    "message": "Sound"
+  },
+  "app.lab.command-generator.arg.playsound.sound.desc": {
+    "message": "Sound ID"
+  },
+  "app.lab.command-generator.arg.playsound.source.display": {
+    "message": "Source"
+  },
+  "app.lab.command-generator.arg.playsound.source.desc": {
+    "message": "Sound category"
+  },
+  "app.lab.command-generator.arg.playsound.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.playsound.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.playsound.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.playsound.pos.desc": {
+    "message": "Playback position"
+  },
+  "app.lab.command-generator.arg.playsound.volume.display": {
+    "message": "Volume"
+  },
+  "app.lab.command-generator.arg.playsound.volume.desc": {
+    "message": "Volume"
+  },
+  "app.lab.command-generator.arg.playsound.pitch.display": {
+    "message": "Pitch"
+  },
+  "app.lab.command-generator.arg.playsound.pitch.desc": {
+    "message": "Pitch"
+  },
+  "app.lab.command-generator.arg.playsound.minVolume.display": {
+    "message": "Minimum volume"
+  },
+  "app.lab.command-generator.arg.playsound.minVolume.desc": {
+    "message": "Minimum volume"
+  },
+  "app.lab.command-generator.arg.publish.port.display": {
+    "message": "Port"
+  },
+  "app.lab.command-generator.arg.publish.port.desc": {
+    "message": "LAN port"
+  },
+  "app.lab.command-generator.arg.publish.allowCheats.display": {
+    "message": "Allow cheats"
+  },
+  "app.lab.command-generator.arg.publish.allowCheats.desc": {
+    "message": "Whether to allow cheats"
+  },
+  "app.lab.command-generator.arg.publish.gamemode.display": {
+    "message": "Game mode"
+  },
+  "app.lab.command-generator.arg.publish.gamemode.desc": {
+    "message": "Default game mode"
+  },
+  "app.lab.command-generator.arg.random.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.random.action.desc": {
+    "message": "value / roll / reset"
+  },
+  "app.lab.command-generator.arg.random.range.display": {
+    "message": "Range"
+  },
+  "app.lab.command-generator.arg.random.range.desc": {
+    "message": "Value range, e.g. 1..100"
+  },
+  "app.lab.command-generator.arg.random.sequence.display": {
+    "message": "Sequence"
+  },
+  "app.lab.command-generator.arg.random.sequence.desc": {
+    "message": "Random sequence ID"
+  },
+  "app.lab.command-generator.arg.recipe.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.recipe.action.desc": {
+    "message": "give or take"
+  },
+  "app.lab.command-generator.arg.recipe.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.recipe.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.recipe.recipe.display": {
+    "message": "Recipe"
+  },
+  "app.lab.command-generator.arg.recipe.recipe.desc": {
+    "message": "Recipe ID; leave blank for all"
+  },
+  "app.lab.command-generator.arg.replaceitem.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.replaceitem.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.replaceitem.slot.display": {
+    "message": "Slot"
+  },
+  "app.lab.command-generator.arg.replaceitem.slot.desc": {
+    "message": "Slot name, e.g. container.0"
+  },
+  "app.lab.command-generator.arg.replaceitem.item.display": {
+    "message": "Item"
+  },
+  "app.lab.command-generator.arg.replaceitem.item.desc": {
+    "message": "Item ID"
+  },
+  "app.lab.command-generator.arg.replaceitem.count.display": {
+    "message": "Count"
+  },
+  "app.lab.command-generator.arg.replaceitem.count.desc": {
+    "message": "Item count"
+  },
+  "app.lab.command-generator.arg.replaceitem.nbt.display": {
+    "message": "NBT"
+  },
+  "app.lab.command-generator.arg.replaceitem.nbt.desc": {
+    "message": "Item NBT data"
+  },
+  "app.lab.command-generator.arg.ride.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.ride.target.desc": {
+    "message": "Riding entity"
+  },
+  "app.lab.command-generator.arg.ride.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.ride.action.desc": {
+    "message": "mount or dismount"
+  },
+  "app.lab.command-generator.arg.ride.vehicle.display": {
+    "message": "Vehicle"
+  },
+  "app.lab.command-generator.arg.ride.vehicle.desc": {
+    "message": "Vehicle entity"
+  },
+  "app.lab.command-generator.arg.say.message.display": {
+    "message": "Message"
+  },
+  "app.lab.command-generator.arg.say.message.desc": {
+    "message": "Message to broadcast"
+  },
+  "app.lab.command-generator.arg.schedule.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.schedule.action.desc": {
+    "message": "clear or function"
+  },
+  "app.lab.command-generator.arg.schedule.name.display": {
+    "message": "Name"
+  },
+  "app.lab.command-generator.arg.schedule.name.desc": {
+    "message": "Schedule name or function ID"
+  },
+  "app.lab.command-generator.arg.schedule.time.display": {
+    "message": "Time"
+  },
+  "app.lab.command-generator.arg.schedule.time.desc": {
+    "message": "Delay, e.g. 10s, 1d"
+  },
+  "app.lab.command-generator.arg.scoreboard.category.display": {
+    "message": "Category"
+  },
+  "app.lab.command-generator.arg.scoreboard.category.desc": {
+    "message": "objectives or players"
+  },
+  "app.lab.command-generator.arg.scoreboard.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.scoreboard.action.desc": {
+    "message": "add / remove / list / set / get / reset / operation"
+  },
+  "app.lab.command-generator.arg.scoreboard.objective.display": {
+    "message": "Objective"
+  },
+  "app.lab.command-generator.arg.scoreboard.objective.desc": {
+    "message": "Objective name"
+  },
+  "app.lab.command-generator.arg.setblock.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.setblock.pos.desc": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.setblock.block.display": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.arg.setblock.block.desc": {
+    "message": "Block ID"
+  },
+  "app.lab.command-generator.arg.setblock.mode.display": {
+    "message": "Mode"
+  },
+  "app.lab.command-generator.arg.setblock.mode.desc": {
+    "message": "replace / keep / destroy"
+  },
+  "app.lab.command-generator.arg.setidletimeout.minutes.display": {
+    "message": "Minutes"
+  },
+  "app.lab.command-generator.arg.setidletimeout.minutes.desc": {
+    "message": "Idle timeout in minutes"
+  },
+  "app.lab.command-generator.arg.setworldspawn.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.setworldspawn.pos.desc": {
+    "message": "Spawn point coordinate"
+  },
+  "app.lab.command-generator.arg.setworldspawn.angle.display": {
+    "message": "Angle"
+  },
+  "app.lab.command-generator.arg.setworldspawn.angle.desc": {
+    "message": "Spawn view angle"
+  },
+  "app.lab.command-generator.arg.spawnpoint.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.spawnpoint.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.spawnpoint.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.spawnpoint.pos.desc": {
+    "message": "Spawn point coordinate"
+  },
+  "app.lab.command-generator.arg.spawnpoint.angle.display": {
+    "message": "Angle"
+  },
+  "app.lab.command-generator.arg.spawnpoint.angle.desc": {
+    "message": "Spawn view angle"
+  },
+  "app.lab.command-generator.arg.spectate.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.spectate.target.desc": {
+    "message": "Entity to spectate"
+  },
+  "app.lab.command-generator.arg.spectate.player.display": {
+    "message": "Spectator"
+  },
+  "app.lab.command-generator.arg.spectate.player.desc": {
+    "message": "Spectating player"
+  },
+  "app.lab.command-generator.arg.spreadplayers.center.display": {
+    "message": "Center"
+  },
+  "app.lab.command-generator.arg.spreadplayers.center.desc": {
+    "message": "Spread center coordinate"
+  },
+  "app.lab.command-generator.arg.spreadplayers.spreadDistance.display": {
+    "message": "Spread distance"
+  },
+  "app.lab.command-generator.arg.spreadplayers.spreadDistance.desc": {
+    "message": "Minimum spread distance"
+  },
+  "app.lab.command-generator.arg.spreadplayers.maxRange.display": {
+    "message": "Max range"
+  },
+  "app.lab.command-generator.arg.spreadplayers.maxRange.desc": {
+    "message": "Maximum range"
+  },
+  "app.lab.command-generator.arg.spreadplayers.respectTeams.display": {
+    "message": "Respect teams"
+  },
+  "app.lab.command-generator.arg.spreadplayers.respectTeams.desc": {
+    "message": "Whether to spread by team"
+  },
+  "app.lab.command-generator.arg.spreadplayers.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.spreadplayers.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.stopsound.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.stopsound.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.stopsound.source.display": {
+    "message": "Source"
+  },
+  "app.lab.command-generator.arg.stopsound.source.desc": {
+    "message": "Sound category"
+  },
+  "app.lab.command-generator.arg.stopsound.sound.display": {
+    "message": "Sound"
+  },
+  "app.lab.command-generator.arg.stopsound.sound.desc": {
+    "message": "Sound ID"
+  },
+  "app.lab.command-generator.arg.stopwatch.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.stopwatch.action.desc": {
+    "message": "create / query / restart / remove"
+  },
+  "app.lab.command-generator.arg.stopwatch.id.display": {
+    "message": "ID"
+  },
+  "app.lab.command-generator.arg.stopwatch.id.desc": {
+    "message": "Stopwatch identifier"
+  },
+  "app.lab.command-generator.arg.stopwatch.scale.display": {
+    "message": "Scale"
+  },
+  "app.lab.command-generator.arg.stopwatch.scale.desc": {
+    "message": "Scale factor, e.g. 0.05 to convert ticks to seconds"
+  },
+  "app.lab.command-generator.arg.summon.entity.display": {
+    "message": "Entity"
+  },
+  "app.lab.command-generator.arg.summon.entity.desc": {
+    "message": "Entity ID"
+  },
+  "app.lab.command-generator.arg.summon.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.summon.pos.desc": {
+    "message": "Summon position"
+  },
+  "app.lab.command-generator.arg.summon.nbt.display": {
+    "message": "NBT"
+  },
+  "app.lab.command-generator.arg.summon.nbt.desc": {
+    "message": "Entity NBT data"
+  },
+  "app.lab.command-generator.arg.swing.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.swing.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.swing.hand.display": {
+    "message": "Hand"
+  },
+  "app.lab.command-generator.arg.swing.hand.desc": {
+    "message": "mainhand or offhand"
+  },
+  "app.lab.command-generator.arg.tag.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.tag.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.tag.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.tag.action.desc": {
+    "message": "add / remove / list"
+  },
+  "app.lab.command-generator.arg.tag.name.display": {
+    "message": "Tag name"
+  },
+  "app.lab.command-generator.arg.tag.name.desc": {
+    "message": "Tag name"
+  },
+  "app.lab.command-generator.arg.team.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.team.action.desc": {
+    "message": "add / remove / empty / join / leave / list / modify"
+  },
+  "app.lab.command-generator.arg.team.team.display": {
+    "message": "Team"
+  },
+  "app.lab.command-generator.arg.team.team.desc": {
+    "message": "Team name"
+  },
+  "app.lab.command-generator.arg.team.members.display": {
+    "message": "Members"
+  },
+  "app.lab.command-generator.arg.team.members.desc": {
+    "message": "Member selector"
+  },
+  "app.lab.command-generator.arg.teammsg.message.display": {
+    "message": "Message"
+  },
+  "app.lab.command-generator.arg.teammsg.message.desc": {
+    "message": "Message to send to the team"
+  },
+  "app.lab.command-generator.arg.teleport.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.teleport.target.desc": {
+    "message": "Entity to teleport"
+  },
+  "app.lab.command-generator.arg.teleport.destination.display": {
+    "message": "Destination"
+  },
+  "app.lab.command-generator.arg.teleport.destination.desc": {
+    "message": "Target coordinate or entity selector"
+  },
+  "app.lab.command-generator.arg.teleport.rotation.display": {
+    "message": "Rotation"
+  },
+  "app.lab.command-generator.arg.teleport.rotation.desc": {
+    "message": "Yaw and pitch"
+  },
+  "app.lab.command-generator.arg.tell.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.tell.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.tell.message.display": {
+    "message": "Message"
+  },
+  "app.lab.command-generator.arg.tell.message.desc": {
+    "message": "Private message content"
+  },
+  "app.lab.command-generator.arg.tellraw.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.tellraw.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.tellraw.message.display": {
+    "message": "JSON message"
+  },
+  "app.lab.command-generator.arg.tellraw.message.desc": {
+    "message": "JSON message content"
+  },
+  "app.lab.command-generator.arg.tick.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.tick.action.desc": {
+    "message": "freeze / unfreeze / rate / sprint / step / query"
+  },
+  "app.lab.command-generator.arg.tick.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.tick.value.desc": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.time.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.time.action.desc": {
+    "message": "set / add / query"
+  },
+  "app.lab.command-generator.arg.time.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.time.value.desc": {
+    "message": "Time value (day/noon/night/midnight or number)"
+  },
+  "app.lab.command-generator.arg.title.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.title.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.title.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.title.action.desc": {
+    "message": "title / subtitle / actionbar / times / reset"
+  },
+  "app.lab.command-generator.arg.title.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.title.value.desc": {
+    "message": "Title content or time values (JSON text)"
+  },
+  "app.lab.command-generator.arg.trigger.objective.display": {
+    "message": "Objective"
+  },
+  "app.lab.command-generator.arg.trigger.objective.desc": {
+    "message": "Trigger objective name"
+  },
+  "app.lab.command-generator.arg.trigger.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.trigger.value.desc": {
+    "message": "Value to set"
+  },
+  "app.lab.command-generator.arg.waypoint.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.waypoint.action.desc": {
+    "message": "list / add / remove / modify"
+  },
+  "app.lab.command-generator.arg.waypoint.name.display": {
+    "message": "Name"
+  },
+  "app.lab.command-generator.arg.waypoint.name.desc": {
+    "message": "Waypoint name"
+  },
+  "app.lab.command-generator.arg.waypoint.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.waypoint.pos.desc": {
+    "message": "Waypoint coordinate"
+  },
+  "app.lab.command-generator.arg.waypoint.color.display": {
+    "message": "Color"
+  },
+  "app.lab.command-generator.arg.waypoint.color.desc": {
+    "message": "Color value (named color or #RRGGBB)"
+  },
+  "app.lab.command-generator.arg.weather.type.display": {
+    "message": "Type"
+  },
+  "app.lab.command-generator.arg.weather.type.desc": {
+    "message": "clear / rain / thunder"
+  },
+  "app.lab.command-generator.arg.weather.duration.display": {
+    "message": "Duration"
+  },
+  "app.lab.command-generator.arg.weather.duration.desc": {
+    "message": "Duration in seconds"
+  },
+  "app.lab.command-generator.arg.whitelist.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.whitelist.action.desc": {
+    "message": "add / remove / list / on / off / reload"
+  },
+  "app.lab.command-generator.arg.whitelist.target.display": {
+    "message": "Player name"
+  },
+  "app.lab.command-generator.arg.whitelist.target.desc": {
+    "message": "Player name to add or remove"
+  },
+  "app.lab.command-generator.arg.worldborder.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.worldborder.action.desc": {
+    "message": "add / set / center / damage / get / warning"
+  },
+  "app.lab.command-generator.arg.worldborder.value.display": {
+    "message": "Value"
+  },
+  "app.lab.command-generator.arg.worldborder.value.desc": {
+    "message": "Parameter value"
+  },
+  "app.lab.command-generator.arg.xp.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.xp.action.desc": {
+    "message": "add or set"
+  },
+  "app.lab.command-generator.arg.xp.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.xp.target.desc": {
+    "message": "Target selector"
+  },
+  "app.lab.command-generator.arg.xp.amount.display": {
+    "message": "Amount"
+  },
+  "app.lab.command-generator.arg.xp.amount.desc": {
+    "message": "Experience amount"
+  },
+  "app.lab.command-generator.arg.xp.unit.display": {
+    "message": "Unit"
+  },
+  "app.lab.command-generator.arg.xp.unit.desc": {
+    "message": "points or levels"
+  },
+  "app.lab.command-generator.arg.execute.as.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.as.target.desc": {
+    "message": "New executor"
+  },
+  "app.lab.command-generator.arg.execute.at.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.at.target.desc": {
+    "message": "Position reference entity"
+  },
+  "app.lab.command-generator.arg.execute.positioned.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.positioned.pos.desc": {
+    "message": "New execution position"
+  },
+  "app.lab.command-generator.arg.execute.positioned-as.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.positioned-as.target.desc": {
+    "message": "Position reference entity"
+  },
+  "app.lab.command-generator.arg.execute.rotated.yaw.display": {
+    "message": "Yaw"
+  },
+  "app.lab.command-generator.arg.execute.rotated.yaw.desc": {
+    "message": "Horizontal rotation"
+  },
+  "app.lab.command-generator.arg.execute.rotated.pitch.display": {
+    "message": "Pitch"
+  },
+  "app.lab.command-generator.arg.execute.rotated.pitch.desc": {
+    "message": "Vertical rotation"
+  },
+  "app.lab.command-generator.arg.execute.rotated-as.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.rotated-as.target.desc": {
+    "message": "Rotation reference entity"
+  },
+  "app.lab.command-generator.arg.execute.facing.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.facing.pos.desc": {
+    "message": "Coordinate to face"
+  },
+  "app.lab.command-generator.arg.execute.facing-entity.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.facing-entity.target.desc": {
+    "message": "Entity to face"
+  },
+  "app.lab.command-generator.arg.execute.facing-entity.anchor.display": {
+    "message": "Anchor"
+  },
+  "app.lab.command-generator.arg.execute.facing-entity.anchor.desc": {
+    "message": "eyes or feet"
+  },
+  "app.lab.command-generator.arg.execute.in.dimension.display": {
+    "message": "Dimension"
+  },
+  "app.lab.command-generator.arg.execute.in.dimension.desc": {
+    "message": "Target dimension"
+  },
+  "app.lab.command-generator.arg.execute.anchored.anchor.display": {
+    "message": "Anchor"
+  },
+  "app.lab.command-generator.arg.execute.anchored.anchor.desc": {
+    "message": "eyes or feet"
+  },
+  "app.lab.command-generator.arg.execute.align.axes.display": {
+    "message": "Axes"
+  },
+  "app.lab.command-generator.arg.execute.align.axes.desc": {
+    "message": "Axes to align"
+  },
+  "app.lab.command-generator.arg.execute.if-entity.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.if-entity.target.desc": {
+    "message": "Entity to check for"
+  },
+  "app.lab.command-generator.arg.execute.unless-entity.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.unless-entity.target.desc": {
+    "message": "Entity to check for absence"
+  },
+  "app.lab.command-generator.arg.execute.if-block.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.if-block.pos.desc": {
+    "message": "Position to check"
+  },
+  "app.lab.command-generator.arg.execute.if-block.block.display": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.arg.execute.if-block.block.desc": {
+    "message": "Block ID"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.begin.display": {
+    "message": "Begin"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.begin.desc": {
+    "message": "Source region start coordinate"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.end.display": {
+    "message": "End"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.end.desc": {
+    "message": "Source region end coordinate"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.destination.display": {
+    "message": "Destination"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.destination.desc": {
+    "message": "Destination region start coordinate"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.mode.display": {
+    "message": "Mode"
+  },
+  "app.lab.command-generator.arg.execute.if-blocks.mode.desc": {
+    "message": "all or masked"
+  },
+  "app.lab.command-generator.arg.execute.if-score.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.if-score.target.desc": {
+    "message": "Left-hand score holder"
+  },
+  "app.lab.command-generator.arg.execute.if-score.objective.display": {
+    "message": "Objective"
+  },
+  "app.lab.command-generator.arg.execute.if-score.objective.desc": {
+    "message": "Left-hand objective"
+  },
+  "app.lab.command-generator.arg.execute.if-score.operator.display": {
+    "message": "Operator"
+  },
+  "app.lab.command-generator.arg.execute.if-score.operator.desc": {
+    "message": "Comparison operator"
+  },
+  "app.lab.command-generator.arg.execute.if-score.source.display": {
+    "message": "Source"
+  },
+  "app.lab.command-generator.arg.execute.if-score.source.desc": {
+    "message": "Right-hand score holder"
+  },
+  "app.lab.command-generator.arg.execute.if-score.sourceObjective.display": {
+    "message": "Source objective"
+  },
+  "app.lab.command-generator.arg.execute.if-score.sourceObjective.desc": {
+    "message": "Right-hand objective"
+  },
+  "app.lab.command-generator.arg.execute.if-score-matches.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.if-score-matches.target.desc": {
+    "message": "Score holder"
+  },
+  "app.lab.command-generator.arg.execute.if-score-matches.objective.display": {
+    "message": "Objective"
+  },
+  "app.lab.command-generator.arg.execute.if-score-matches.objective.desc": {
+    "message": "Objective name"
+  },
+  "app.lab.command-generator.arg.execute.if-score-matches.range.display": {
+    "message": "Range"
+  },
+  "app.lab.command-generator.arg.execute.if-score-matches.range.desc": {
+    "message": "Value range, e.g. 1..10"
+  },
+  "app.lab.command-generator.arg.execute.if-biome.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.if-biome.pos.desc": {
+    "message": "Position to check"
+  },
+  "app.lab.command-generator.arg.execute.if-biome.biome.display": {
+    "message": "Biome"
+  },
+  "app.lab.command-generator.arg.execute.if-biome.biome.desc": {
+    "message": "Biome ID"
+  },
+  "app.lab.command-generator.arg.execute.if-data.targetType.display": {
+    "message": "Target type"
+  },
+  "app.lab.command-generator.arg.execute.if-data.targetType.desc": {
+    "message": "block / entity / storage"
+  },
+  "app.lab.command-generator.arg.execute.if-data.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.if-data.target.desc": {
+    "message": "Block coordinate, entity selector, or storage ID"
+  },
+  "app.lab.command-generator.arg.execute.if-data.path.display": {
+    "message": "NBT path"
+  },
+  "app.lab.command-generator.arg.execute.if-data.path.desc": {
+    "message": "NBT path to check"
+  },
+  "app.lab.command-generator.arg.execute.if-items.source.display": {
+    "message": "Source"
+  },
+  "app.lab.command-generator.arg.execute.if-items.source.desc": {
+    "message": "block or entity"
+  },
+  "app.lab.command-generator.arg.execute.if-items.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.if-items.target.desc": {
+    "message": "Block position or entity selector"
+  },
+  "app.lab.command-generator.arg.execute.if-items.slot.display": {
+    "message": "Slot"
+  },
+  "app.lab.command-generator.arg.execute.if-items.slot.desc": {
+    "message": "Slot name"
+  },
+  "app.lab.command-generator.arg.execute.if-items.item.display": {
+    "message": "Item"
+  },
+  "app.lab.command-generator.arg.execute.if-items.item.desc": {
+    "message": "Item ID"
+  },
+  "app.lab.command-generator.arg.execute.if-function.name.display": {
+    "message": "Function name"
+  },
+  "app.lab.command-generator.arg.execute.if-function.name.desc": {
+    "message": "Function identifier"
+  },
+  "app.lab.command-generator.arg.execute.unless-block.pos.display": {
+    "message": "Position"
+  },
+  "app.lab.command-generator.arg.execute.unless-block.pos.desc": {
+    "message": "Position to check"
+  },
+  "app.lab.command-generator.arg.execute.unless-block.block.display": {
+    "message": "Block"
+  },
+  "app.lab.command-generator.arg.execute.unless-block.block.desc": {
+    "message": "Block ID"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.target.desc": {
+    "message": "Left-hand score holder"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.objective.display": {
+    "message": "Objective"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.objective.desc": {
+    "message": "Left-hand objective"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.operator.display": {
+    "message": "Operator"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.operator.desc": {
+    "message": "Comparison operator"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.source.display": {
+    "message": "Source"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.source.desc": {
+    "message": "Right-hand score holder"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.sourceObjective.display": {
+    "message": "Source objective"
+  },
+  "app.lab.command-generator.arg.execute.unless-score.sourceObjective.desc": {
+    "message": "Right-hand objective"
+  },
+  "app.lab.command-generator.arg.execute.store-result-score.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.store-result-score.target.desc": {
+    "message": "Score holder"
+  },
+  "app.lab.command-generator.arg.execute.store-result-score.objective.display": {
+    "message": "Objective"
+  },
+  "app.lab.command-generator.arg.execute.store-result-score.objective.desc": {
+    "message": "Objective name"
+  },
+  "app.lab.command-generator.arg.execute.store-success-score.target.display": {
+    "message": "Target"
+  },
+  "app.lab.command-generator.arg.execute.store-success-score.target.desc": {
+    "message": "Score holder"
+  },
+  "app.lab.command-generator.arg.execute.store-success-score.objective.display": {
+    "message": "Objective"
+  },
+  "app.lab.command-generator.arg.execute.store-success-score.objective.desc": {
+    "message": "Objective name"
+  },
+  "app.lab.command-generator.arg.execute.store-result-bossbar.id.display": {
+    "message": "Boss bar ID"
+  },
+  "app.lab.command-generator.arg.execute.store-result-bossbar.id.desc": {
+    "message": "Boss bar identifier"
+  },
+  "app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.display": {
+    "message": "Store to"
+  },
+  "app.lab.command-generator.arg.execute.store-result-bossbar.valueOrMax.desc": {
+    "message": "value or max"
+  },
+  "app.mcp.client-search": {
+    "message": "MCP Model Context Protocol Codex Claude Code Cursor VS Code installation connection agent"
+  },
+  "app.lab.command-generator.perm.0.desc": {
+    "message": "No special permission required"
+  },
+  "app.lab.command-generator.perm.1.desc": {
+    "message": "Can bypass spawn protection"
+  },
+  "app.lab.command-generator.perm.2.desc": {
+    "message": "Most gameplay commands, command blocks and functions"
+  },
+  "app.lab.command-generator.perm.3.desc": {
+    "message": "Multiplayer management commands"
+  },
+  "app.lab.command-generator.perm.4.desc": {
+    "message": "Server management commands"
+  },
+  "app.lab.command-generator.block.air": {
+    "message": "Air"
+  },
+  "app.lab.command-generator.block.cave_air": {
+    "message": "Cave Air"
+  },
+  "app.lab.command-generator.block.void_air": {
+    "message": "Void Air"
+  },
+  "app.lab.command-generator.block.water": {
+    "message": "Water"
+  },
+  "app.lab.command-generator.block.lava": {
+    "message": "Lava"
+  },
+  "app.lab.command-generator.block.fire": {
+    "message": "Fire"
+  },
+  "app.lab.command-generator.block.nether_portal": {
+    "message": "Nether Portal"
+  },
+  "app.lab.command-generator.block.end_portal": {
+    "message": "End Portal"
+  },
+  "app.lab.command-generator.block.end_gateway": {
+    "message": "End Gateway"
+  },
+  "app.lab.command-generator.block.frosted_ice": {
+    "message": "Frosted Ice"
+  },
+  "app.lab.command-generator.block.bubble_column": {
+    "message": "Bubble Column"
+  },
+  "app.lab.command-generator.block.moving_piston": {
+    "message": "Moving Piston"
+  },
+  "app.lab.command-generator.block.piston_head": {
+    "message": "Piston Head"
+  },
+  "app.lab.command-generator.block.light": {
+    "message": "Light"
+  },
+  "app.lab.command-generator.preset.advancement.everything": {
+    "message": "Everything"
+  },
+  "app.lab.command-generator.preset.advancement.everything.desc": {
+    "message": "Grant or revoke every loaded advancement"
+  },
+  "app.lab.command-generator.preset.advancement.root": {
+    "message": "Minecraft (root)"
+  },
+  "app.lab.command-generator.preset.advancement.stone-age": {
+    "message": "Stone Age"
+  },
+  "app.lab.command-generator.preset.advancement.diamonds": {
+    "message": "Diamonds!"
+  },
+  "app.lab.command-generator.preset.advancement.enter-nether": {
+    "message": "We Need to Go Deeper"
+  },
+  "app.lab.command-generator.preset.advancement.kill-dragon": {
+    "message": "Free the End"
+  },
+  "app.lab.command-generator.preset.advancement.elytra": {
+    "message": "Sky's the Limit"
+  },
+  "app.lab.command-generator.preset.advancement.hero-village": {
+    "message": "Hero of the Village"
+  },
+  "app.lab.command-generator.preset.advancement.breed-animals": {
+    "message": "The Parrots and the Bats"
+  },
+  "app.lab.command-generator.preset.gamerule.keep-inventory": {
+    "message": "Keep inventory"
+  },
+  "app.lab.command-generator.preset.gamerule.no-mob-griefing": {
+    "message": "Disable mob griefing"
+  },
+  "app.lab.command-generator.preset.gamerule.no-daylight-cycle": {
+    "message": "Lock daylight cycle"
+  },
+  "app.lab.command-generator.preset.gamerule.no-mob-spawning": {
+    "message": "Disable mob spawning"
+  },
+  "app.lab.command-generator.preset.gamerule.no-fire-tick": {
+    "message": "Disable fire spread"
+  },
+  "app.lab.command-generator.preset.gamerule.no-weather-cycle": {
+    "message": "Lock weather"
+  },
+  "app.lab.command-generator.preset.gamerule.no-natural-regen": {
+    "message": "Disable natural regeneration"
+  },
+  "app.lab.command-generator.preset.gamerule.no-insomnia": {
+    "message": "Disable insomnia"
+  },
+  "app.lab.command-generator.preset.gamerule.no-command-feedback": {
+    "message": "Disable command feedback"
+  },
+  "app.lab.command-generator.arg.item.targetType.display": {
+    "message": "Target type"
+  },
+  "app.lab.command-generator.arg.item.targetType.desc": {
+    "message": "Choose a block or an entity."
+  },
+  "app.lab.command-generator.arg.item.target.display": {
+    "message": "Target entity"
+  },
+  "app.lab.command-generator.arg.item.target.desc": {
+    "message": "Entity whose item will be changed."
+  },
+  "app.lab.command-generator.arg.item.source.display": {
+    "message": "Replacement source"
+  },
+  "app.lab.command-generator.arg.item.source.desc": {
+    "message": "Replace the slot with the selected item."
+  },
+  "app.lab.command-generator.arg.item.modifier.display": {
+    "message": "Item modifier"
+  },
+  "app.lab.command-generator.arg.item.modifier.desc": {
+    "message": "Resource ID of the item modifier."
+  },
+  "app.lab.command-generator.arg.advancement.mode.display": {
+    "message": "Selection mode"
+  },
+  "app.lab.command-generator.arg.advancement.mode.desc": {
+    "message": "Choose one advancement, a tree, or everything."
+  },
+  "app.lab.command-generator.cmd.locatebiome.desc": {
+    "message": "Locate the nearest biome."
+  },
+  "app.lab.command-generator.arg.time.clock.display": {
+    "message": "World clock"
+  },
+  "app.lab.command-generator.arg.time.clock.desc": {
+    "message": "Leave empty to use the dimension’s default clock."
+  },
+  "app.lab.command-generator.arg.time.rate.display": {
+    "message": "Clock rate"
+  },
+  "app.lab.command-generator.arg.time.rate.desc": {
+    "message": "A multiplier greater than 0 and at most 1000."
+  },
+  "app.lab.command-generator.preset.time.clock-time": {
+    "message": "Clock ticks"
+  },
+  "app.lab.command-generator.preset.time.game-time": {
+    "message": "Elapsed game ticks"
+  },
+  "app.lab.command-generator.preset.time.day-cycles": {
+    "message": "Day cycles"
+  },
+  "app.lab.command-generator.arg.time.query.display": {
+    "message": "Query"
+  },
+  "app.lab.command-generator.arg.time.query.desc": {
+    "message": "Use time, gametime, or a timeline ID; append repetition to count cycles."
+  },
+  "app.lab.command-generator.preset.gamerule.fire-radius": {
+    "message": "Fire spread radius"
+  },
+  "app.lab.command-generator.arg.gamerule.value.desc.26": {
+    "message": "A boolean or integer, depending on the game rule. Fire spread radius 0 disables spread."
+  },
+  "app.lab.command-generator.arg.dialog.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.dialog.action.desc": {
+    "message": "Show or clear a dialog."
+  },
+  "app.lab.command-generator.arg.fetchprofile.source.display": {
+    "message": "Profile source"
+  },
+  "app.lab.command-generator.arg.fetchprofile.source.desc": {
+    "message": "Fetch by player name, UUID, or entity."
+  },
+  "app.lab.command-generator.arg.fetchprofile.profile.display": {
+    "message": "Name, UUID or selector"
+  },
+  "app.lab.command-generator.arg.fetchprofile.profile.desc": {
+    "message": "Enter a player name, UUID, or a single entity selector."
+  },
+  "app.lab.command-generator.cmd.fetchprofile.desc": {
+    "message": "Fetch a player profile."
+  },
+  "app.lab.command-generator.cmd.unpublish.desc": {
+    "message": "Stop sharing the single-player world."
+  },
+  "app.lab.command-generator.arg.compute.context.display": {
+    "message": "Context"
+  },
+  "app.lab.command-generator.arg.compute.context.desc": {
+    "message": "Choose the context in which to evaluate the provider."
+  },
+  "app.lab.command-generator.arg.compute.pos.display": {
+    "message": "Block position"
+  },
+  "app.lab.command-generator.arg.compute.pos.desc": {
+    "message": "Block position"
+  },
+  "app.lab.command-generator.arg.compute.target.display": {
+    "message": "Entity"
+  },
+  "app.lab.command-generator.arg.compute.target.desc": {
+    "message": "Select one entity."
+  },
+  "app.lab.command-generator.arg.compute.type.display": {
+    "message": "Result type"
+  },
+  "app.lab.command-generator.arg.compute.type.desc": {
+    "message": "Result type"
+  },
+  "app.lab.command-generator.arg.compute.provider.display": {
+    "message": "Number provider"
+  },
+  "app.lab.command-generator.arg.compute.provider.desc": {
+    "message": "Enter an inline number provider or a namespaced registry ID."
+  },
+  "app.lab.command-generator.arg.compute.scale.display": {
+    "message": "Scale"
+  },
+  "app.lab.command-generator.arg.compute.scale.desc": {
+    "message": "Scale the float result before returning an integer."
+  },
+  "app.lab.command-generator.cmd.compute.desc": {
+    "message": "Evaluate a number provider."
+  },
+  "app.lab.command-generator.arg.posteffect.action.display": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.posteffect.action.desc": {
+    "message": "Action"
+  },
+  "app.lab.command-generator.arg.posteffect.target.display": {
+    "message": "Players"
+  },
+  "app.lab.command-generator.arg.posteffect.target.desc": {
+    "message": "Players"
+  },
+  "app.lab.command-generator.arg.posteffect.effect.display": {
+    "message": "Post effect"
+  },
+  "app.lab.command-generator.arg.posteffect.effect.desc": {
+    "message": "Resource ID of a client-side postprocessing effect."
+  },
+  "app.lab.command-generator.cmd.posteffect.desc": {
+    "message": "Manage screen postprocessing effects."
+  },
+  "app.lab.command-generator.arg.swing.animation.display": {
+    "message": "Animation"
+  },
+  "app.lab.command-generator.arg.swing.animation.desc": {
+    "message": "Animation"
+  },
+  "app.lab.command-generator.arg.swing.duration.display": {
+    "message": "Animation duration"
+  },
+  "app.lab.command-generator.arg.swing.duration.desc": {
+    "message": "Positive duration in ticks, seconds (s), or days (d)."
+  },
+  "app.lab.command-generator.arg.item.slot.desc.26": {
+    "message": "Slot range, inline slot source, or namespaced slot-source ID."
+  },
+  "app.lab.command-generator.arg.data.method.display": {
+    "message": "Modification"
+  },
+  "app.lab.command-generator.arg.data.method.desc": {
+    "message": "Modification"
+  },
+  "app.lab.command-generator.arg.data.source.display": {
+    "message": "Value source"
+  },
+  "app.lab.command-generator.arg.data.source.desc": {
+    "message": "Value source"
+  },
+  "app.lab.command-generator.arg.data.index.display": {
+    "message": "Insert index"
+  },
+  "app.lab.command-generator.arg.data.index.desc": {
+    "message": "Insert index"
+  },
+  "app.lab.command-generator.arg.data.literalValue.display": {
+    "message": "SNBT value"
+  },
+  "app.lab.command-generator.arg.data.literalValue.desc": {
+    "message": "SNBT value"
+  },
+  "app.lab.command-generator.execute.if-slots.label": {
+    "message": "if slots"
+  },
+  "app.lab.command-generator.execute.if-slots.desc": {
+    "message": "Test slots on a block or entity using a slot source."
+  },
+  "app.lab.command-generator.arg.execute.source.display": {
+    "message": "Source type"
+  },
+  "app.lab.command-generator.arg.execute.source.desc": {
+    "message": "Source type"
+  },
+  "app.lab.command-generator.arg.execute.target.display": {
+    "message": "Entity or position"
+  },
+  "app.lab.command-generator.arg.execute.target.desc": {
+    "message": "Entity or position"
+  },
+  "app.lab.command-generator.arg.execute.slots.display": {
+    "message": "Slot source"
+  },
+  "app.lab.command-generator.arg.execute.slots.desc": {
+    "message": "A slot range, inline slot source or namespaced ID."
+  },
+  "app.lab.command-generator.execute.unless-slots.label": {
+    "message": "unless slots"
+  },
+  "app.lab.command-generator.execute.unless-slots.desc": {
+    "message": "Test slots on a block or entity using a slot source."
+  },
+  "app.lab.command-generator.arg.execute.slot.desc.26": {
+    "message": "Slot range or slot source."
+  },
+  "app.lab.command-generator.arg.waypoint.waypoint.display": {
+    "message": "Waypoint entity"
+  },
+  "app.lab.command-generator.arg.waypoint.waypoint.desc": {
+    "message": "Waypoint entity"
+  },
+  "app.lab.command-generator.arg.waypoint.property.display": {
+    "message": "Property"
+  },
+  "app.lab.command-generator.arg.waypoint.property.desc": {
+    "message": "Property"
+  },
+  "app.lab.command-generator.arg.waypoint.value.display": {
+    "message": "Color or style"
+  },
+  "app.lab.command-generator.arg.waypoint.value.desc": {
+    "message": "Color or style"
+  },
+  "app.settings.network.search": {
+    "message": "DNS IP latency speed connectivity diagnostics CurseForge CF Modrinth MR CDN Mojang API proxy"
+  },
+  "app.settings.resources.app-cache": {
+    "message": "App cache"
+  },
+  "app.settings.tabs.default-instance-options": {
+    "message": "Default instance options"
+  },
+  "app.settings.tabs.java-installations": {
+    "message": "Java installations"
+  },
+  "app.settings.tabs.language": {
+    "message": "Language"
+  },
+  "app.settings.tabs.resource-management": {
+    "message": "Resource management"
+  },
+  "app.update-popup.install-failed.title": {
+    "message": "Launcher update failed"
+  },
+  "app.update-popup.install-failed.body": {
+    "message": "The update to v{version} could not be installed. You can try again or update manually. {error}"
   }
 }

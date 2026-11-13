@@ -1,12 +1,13 @@
 #[cfg(test)]
 use super::file;
 use super::file::{
-    any_route_can_resume, destination_download_lock, part_resume_expected,
-    preserve_or_remove_partial, remove_if_exists, suffixed_path,
+    any_route_can_resume, destination_download_lock, finalize_download,
+    part_resume_expected, preserve_or_remove_partial, remove_if_exists,
+    suffixed_path,
 };
 use super::model::{
     DownloadRequest, DownloadResult, DownloadRoute, DownloadRouteSource,
-    FetchProgressFn, Integrity, attach_verified_integrity,
+    FetchProgressFn, Integrity, ResourceClass, attach_verified_integrity,
 };
 #[cfg(test)]
 use super::policy;
@@ -176,6 +177,9 @@ pub(crate) fn build_download_routes(
         routes.retain(|route| !route.is_mirror);
     }
     deduplicate_download_routes(&mut routes);
+    // Every official candidate URL comes before the MCIM fallbacks, which
+    // MCIM asks to be used only once the official sources have failed.
+    routes.sort_by_key(|route| route.source == DownloadRouteSource::Mcim);
     if routes.is_empty()
         && let Ok(url) = retired_sources::normalize(&request.url)
     {
@@ -189,7 +193,8 @@ pub(crate) async fn select_h2_download_route(
     routes: &[DownloadRoute],
     part_path: &Path,
 ) -> Option<(DownloadRoute, crate::util::download::native::NativeH2Policy)> {
-    if !request.allow_segmented_download
+    if request.force_multiconnection
+        || !request.allow_segmented_download
         || part_resume_expected(part_path).await
         || request.url.starts_with(FETCH_HTTP)
     {
@@ -393,20 +398,78 @@ async fn resume_checkpointed_download(
     destination: &Path,
     part_path: &Path,
     semaphore: &FetchSemaphore,
+    progress: Option<&mut FetchProgressFn<'_>>,
 ) -> crate::Result<Option<DownloadResult>> {
+    let progress = tokio::sync::Mutex::new(progress);
     resume_checkpointed_download_with(
         request,
         routes,
         part_path,
-        |route| async move {
-            crate::util::download::h2_range::resume_http1(
-                request,
-                &route,
-                destination,
-                part_path,
-                semaphore,
-            )
-            .await
+        |route| {
+            let progress = &progress;
+            async move {
+                use crate::util::download::h2_download::{H2DownloadFailure, H2DownloadOutcome};
+                if !tokio::fs::try_exists(crate::util::download::range_journal::path(part_path)).await?
+                {
+                    return Ok(None);
+                }
+                let Some(size) = request.integrity.size.filter(|_| request.integrity.supports_resume()) else {
+                    crate::util::download::h2_range::discard(part_path).await?;
+                    return Ok(None);
+                };
+                if !route.supports_range {
+                    return Ok(None);
+                }
+                let mut progress = progress.lock().await;
+                let download = super::segmented::try_segmented_download(
+                    super::segmented::SegmentedDownloadContext::new(
+                        request, &route, &[], size, part_path, semaphore,
+                        &super::client::HTTP1_NO_REDIRECT_REQWEST_CLIENT,
+                        &super::client::HTTP1_DIRECT_REQWEST_CLIENT,
+                        1, routes.len().max(1), false,
+                    ),
+                    progress.as_deref_mut(),
+                );
+                let outcome = if let Some(cancellation) = request.cancellation.as_ref() {
+                    tokio::select! {
+                        biased;
+                        _ = cancellation.cancelled() => return Ok(Some(H2DownloadOutcome::Canceled)),
+                        outcome = download => outcome,
+                    }
+                } else {
+                    download.await
+                };
+                Ok(Some(match outcome {
+                    super::segmented::SegmentedDownloadOutcome::Success(result) => {
+                        finalize_download(part_path, destination).await?;
+                        remove_if_exists(&crate::util::download::range_journal::path(part_path)).await?;
+                        record_route_transfer_success(&route, request.resource, result.size, result.transfer_elapsed);
+                        if let Some(tracking) = &request.install_tracking
+                            && let Err(error) = tracking.reporter.record_download_request_finished(&tracking.item_id, result.size).await
+                        {
+                            tracing::warn!(%error, "Failed to record completed download request");
+                        }
+                        H2DownloadOutcome::Completed(DownloadResult {
+                            path: destination.to_path_buf(), url: result.final_url,
+                            source: route.source, size: result.size, attempts: 1,
+                            fallback_count: 0, verified_sha1: request.integrity.sha1.clone(),
+                            verified_sha512: request.integrity.sha512.clone(), verified_file: None,
+                        })
+                    }
+                    super::segmented::SegmentedDownloadOutcome::Fatal(error) => return Err(error),
+                    super::segmented::SegmentedDownloadOutcome::SourceFailed
+                    | super::segmented::SegmentedDownloadOutcome::SwitchRoute(_) => H2DownloadOutcome::Fallback {
+                        failure: H2DownloadFailure::Connect, preserve_partial: true,
+                    },
+                    super::segmented::SegmentedDownloadOutcome::IntegrityFailed(_) => H2DownloadOutcome::Fallback {
+                        failure: H2DownloadFailure::Integrity, preserve_partial: false,
+                    },
+                    super::segmented::SegmentedDownloadOutcome::FallbackSingle { .. }
+                    | super::segmented::SegmentedDownloadOutcome::MetadataSizeChanged(_) => H2DownloadOutcome::Fallback {
+                        failure: H2DownloadFailure::RangeUnsupported, preserve_partial: false,
+                    },
+                }))
+            }
         },
     )
     .await
@@ -471,7 +534,9 @@ where
         }
     }
     if had_range_failure {
-        crate::util::download::h2_range::discard(part_path).await?;
+        return Err(ErrorKind::NetworkError(
+            "Checkpoint range recovery failed; verified partial data was preserved".into(),
+        ).into());
     }
     Ok(None)
 }
@@ -482,6 +547,57 @@ pub(crate) async fn download_to_path_inner(
     semaphore: &FetchSemaphore,
     progress: Option<&mut FetchProgressFn<'_>>,
 ) -> crate::Result<DownloadResult> {
+    let capture =
+        crate::util::download::telemetry::begin_file(&mut request, destination);
+    let cancellation = request.cancellation.clone();
+    let result = download_to_path_tracked_inner(
+        request,
+        destination,
+        semaphore,
+        progress,
+    )
+    .await;
+    if let Some(capture) = &capture {
+        if cancellation.is_some_and(|token| token.is_cancelled()) {
+            capture.cancel();
+        } else {
+            capture.finish(result.is_ok());
+        }
+    }
+    result
+}
+
+async fn download_to_path_tracked_inner(
+    mut request: DownloadRequest,
+    destination: &Path,
+    semaphore: &FetchSemaphore,
+    mut progress: Option<&mut FetchProgressFn<'_>>,
+) -> crate::Result<DownloadResult> {
+    request.force_multiconnection |= crate::State::get_if_initialized()
+        .is_some_and(|state| state.force_multiconnection_downloads());
+    if request.force_multiconnection
+        && request.resource != ResourceClass::Metadata
+    {
+        request.allow_segmented_download = true;
+        request.allow_http1_segmented_download = true;
+        request.prefer_http1 = true;
+    } else {
+        request.force_multiconnection = false;
+    }
+    if request.force_multiconnection {
+        let pool = crate::State::get_if_initialized()
+            .map_or(std::ptr::from_ref(semaphore) as usize, |_| 0);
+        request.forced_allocation =
+            Some(super::weighted::ForcedDownload::register(
+                pool,
+                request.integrity.size,
+            ));
+        request.forced_allocation.as_ref().unwrap().quota(
+            super::segment::range_concurrency_limit(&request, semaphore),
+        );
+        // Let other ready files join the shared budget before admitting ranges.
+        tokio::task::yield_now().await;
+    }
     let _endpoint_registration =
         crate::util::download::proxy_context::clients()
             .and_then(|clients| clients.endpoints.register_download(&request));
@@ -524,13 +640,16 @@ pub(crate) async fn download_to_path_inner(
         destination,
         &part_path,
         semaphore,
+        progress.as_deref_mut(),
     )
     .await?
     {
         return Ok(result);
     }
     prepare_partial_download(&routes, &part_path, &request.integrity).await?;
-    prepare_native_download_routes(&request, &mut routes, semaphore).await;
+    if !request.force_multiconnection {
+        prepare_native_download_routes(&request, &mut routes, semaphore).await;
+    }
 
     // Small files can share H2. Large, hash-verified range downloads enter
     // the independent-connection scheduler even when an H2 socket is warm.
@@ -576,6 +695,7 @@ pub(crate) async fn download_to_path_inner(
         destination,
         &part_path,
         semaphore,
+        progress.as_deref_mut(),
     )
     .await?
     {

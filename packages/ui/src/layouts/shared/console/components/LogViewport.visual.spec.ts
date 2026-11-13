@@ -97,3 +97,104 @@ it('generates balanced HTML when matches cross syntax spans or escaped entities'
         expect(template.content.querySelectorAll('mark').length).toBeGreaterThan(0)
     }
 })
+
+it('recalculates wrapped row heights when its real container width changes', async () => {
+    const host = document.createElement('div')
+    host.style.cssText = 'height:300px;width:800px;position:relative'
+    document.body.append(host)
+    const wrapper = await mountThemed(
+        LogViewport,
+        {
+            lines: [{ line: { text: 'x'.repeat(500), level: 'info' }, originalIndex: 0 }],
+            wrap: true,
+        },
+        'dark',
+        { attachTo: host },
+    )
+    try {
+        await expect
+            .poll(() => wrapper.get('.log-line').element.getBoundingClientRect().height)
+            .toBeGreaterThan(17)
+        const wide = wrapper.get('.log-line').element.getBoundingClientRect().height
+        host.style.width = '300px'
+        await expect
+            .poll(() => wrapper.get('.log-line').element.getBoundingClientRect().height)
+            .toBeGreaterThan(wide)
+    } finally {
+        wrapper.unmount()
+        host.remove()
+    }
+})
+
+it('rebuilds wrapped offsets when filtering replaces interior rows with the same endpoints', async () => {
+    const host = document.createElement('div')
+    host.style.cssText = 'height:300px;width:400px;position:relative'
+    document.body.append(host)
+    const first = { line: { text: 'first', level: 'info' as const }, originalIndex: 0 }
+    const last = { line: { text: 'last', level: 'info' as const }, originalIndex: 3 }
+    const long = { line: { text: 'x'.repeat(1000), level: 'warn' as const }, originalIndex: 1 }
+    const short = { line: { text: 'short', level: 'error' as const }, originalIndex: 2 }
+    const wrapper = await mountThemed(
+        LogViewport,
+        { lines: [first, long, last], wrap: true },
+        'dark',
+        { attachTo: host },
+    )
+    const total = () => (wrapper.get('.log-viewport-spacer').element as HTMLElement).style.height
+    try {
+        await expect.poll(() => Number.parseFloat(total())).toBeGreaterThan(100)
+        await wrapper.setProps({ lines: [first, short, last] })
+        await expect.poll(total).toBe('51px')
+        await wrapper.setProps({ lines: [first, long, last] })
+        await expect.poll(() => Number.parseFloat(total())).toBeGreaterThan(100)
+    } finally {
+        wrapper.unmount()
+        host.remove()
+    }
+})
+
+it('measures ANSI-heavy wrapped rows like their visible plain-text equivalents', async () => {
+    const host = document.createElement('div')
+    host.style.cssText = 'height:300px;width:400px;position:relative'
+    document.body.append(host)
+    const visible = `<&"'abc>`.repeat(10)
+    const ansi = [...visible].map((character) => `\x1b[38;2;1;2;3m${character}\x1b[0m`).join('')
+    const makeLine = (text: string, originalIndex: number) => ({
+        line: { text, level: 'info' as const },
+        originalIndex,
+    })
+    const wrapper = await mountThemed(
+        LogViewport,
+        { lines: [makeLine(visible, 0), makeLine(ansi, 1)], wrap: true },
+        'dark',
+        { attachTo: host },
+    )
+    const heights = () =>
+        wrapper.findAll('.log-line').map((row) => row.element.getBoundingClientRect().height)
+    try {
+        await expect.poll(() => heights()[0]).toBeGreaterThan(17)
+        expect(wrapper.findAll('.log-line-content').map((row) => row.element.textContent)).toEqual([
+            visible,
+            visible,
+        ])
+        expect(heights()[1]).toBe(heights()[0])
+        expect(
+            Number.parseFloat(
+                (wrapper.get('.log-viewport-spacer').element as HTMLElement).style.height,
+            ),
+        ).toBe(heights()[0] * 2)
+        const wideHeight = heights()[0]
+        host.style.width = '200px'
+        await expect.poll(() => heights()[0]).toBeGreaterThan(wideHeight)
+        expect(heights()[1]).toBe(heights()[0])
+        await wrapper.setProps({
+            lines: [makeLine(visible, 0), makeLine(ansi, 1), makeLine(ansi, 2)],
+        })
+        expect(heights()).toEqual([heights()[0], heights()[0], heights()[0]])
+        await wrapper.setProps({ wrap: false })
+        expect(heights()).toEqual([17, 17, 17])
+    } finally {
+        wrapper.unmount()
+        host.remove()
+    }
+})

@@ -1,0 +1,42 @@
+[
+  {
+    "instance_id": "fabulously-optimized",
+    "name": "hjfunnyMC",
+    "address": "mc.hjfunny.site",
+    "icon": "mc.hjfunny.site.png",
+    "status": {
+      "description": "§r§r§l§r§l§r§#FF0000§lh§r§#FF3600§lj§r§#FF6D00§lf§r§#FFA300§lu§r§#FFDA00§ln§r§#ECFF00§ln§r§#B6FF00§ly§r§#7FFF00§lM§r§#48FF00§lC§r§#12FF00§l §r§#00FF24§lN§r§#00FF5B§le§r§#00FF91§lt§r§#00FFC8§lw§r§#00FFFF§lo§r§#00C8FF§lr§r§#0091FF§lk§r§#005BFF§l §r§#0024FF§l[§r§#1200FF§l1§r§#4800FF§l.§r§#7F00FF§l7§r§#B600FF§l-§r§#EC00FF§l2§r§#FF00DA§l6§r§#FF00A3§l.§r§#FF006D§l2§r§#FF0036§l]§r §r§8|§r §r§c§l新周目开荒中！§r\n§r§r§r§cmc§r§7.§r§6hjfunny§r§7.§r§esite§r §r§8|§r QQ 交流群: 799512425§r",
+      "players": {
+        "online": 0,
+        "max": 2026,
+        "sample": []
+      },
+      "version": {
+        "name": "1.7.2-26.2",
+        "protocol": 776,
+        "legacy": false
+      },
+      "enforces_secure_chat": false
+    }
+  },
+  {
+    "instance_id": "fabulously-optimized",
+    "name": "Hypixel",
+    "address": "mc.hypixel.net",
+    "icon": "mc.hypixel.net.png",
+    "status": {
+      "description": "§f                 §aHypixel Network §c[1.8/26.3]\n§f              §6§lSKYBLOCK §e§lGHOST VISITORS",
+      "players": {
+        "max": 200000,
+        "online": 18179,
+        "sample": []
+      },
+      "version": {
+        "name": "Requires MC 1.8 / 1.21",
+        "protocol": 47,
+        "legacy": false
+      },
+      "enforces_secure_chat": false
+    }
+  }
+]

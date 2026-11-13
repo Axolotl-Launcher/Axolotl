@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { RESOURCE_ANALYSIS_TIMEOUT_MS } from '@/helpers/resource-analysis-request'
 import {
@@ -11,7 +11,10 @@ import {
     type ResourceSelection,
 } from '@/helpers/resources'
 
-import { createContentAnalysis } from './content-analysis'
+import { CONTENT_ANALYSIS_DEBOUNCE_MS, createContentAnalysis } from './content-analysis'
+
+beforeEach(() => vi.useFakeTimers())
+afterEach(() => vi.useRealTimers())
 
 vi.mock('@/helpers/resources', () => ({
     resourceAnalysisOpen: vi.fn().mockResolvedValue('session'),
@@ -38,8 +41,60 @@ function input(project = 'first', instanceId = 'instance') {
     }
 }
 const tick = async () => {
+    await vi.advanceTimersByTimeAsync(CONTENT_ANALYSIS_DEBOUNCE_MS)
     for (let step = 0; step < 16; step++) await Promise.resolve()
 }
+
+it.each([20, 60, 200])(
+    'coalesces %i rapid selections and immediately reviews the final selection',
+    async (count) => {
+        vi.clearAllMocks()
+        vi.mocked(resourceAnalysisUpdate).mockResolvedValue(plan)
+        vi.mocked(resourcePrepareOperation).mockResolvedValue(plan)
+        const cart = createContentAnalysis()
+        try {
+            const selections: ResourceSelection[] = []
+            for (let i = 0; i < count; i++) {
+                selections.push(input(`project-${i}`).selections[0])
+                cart.update({ ...input(), selections: [...selections] })
+            }
+            expect(resourceAnalysisOpen).not.toHaveBeenCalled()
+            const review = cart.review()!
+            await expect(review.prepare(new AbortController().signal, vi.fn())).resolves.toBe(plan)
+            expect(resourceAnalysisUpdate).toHaveBeenCalledOnce()
+            expect(vi.mocked(resourceAnalysisUpdate).mock.calls[0][2]).toEqual(selections)
+            expect(vi.mocked(resourcePrepareOperation).mock.calls[0][2]).toHaveLength(count)
+            await tick()
+            expect(resourceAnalysisUpdate).toHaveBeenCalledOnce()
+        } finally {
+            cart.clear()
+        }
+    },
+)
+
+it('starts background work only after selections settle and cancels scheduled work synchronously', async () => {
+    vi.clearAllMocks()
+    vi.mocked(resourceAnalysisUpdate).mockResolvedValue(plan)
+    const cart = createContentAnalysis()
+    try {
+        cart.update(input())
+        await vi.advanceTimersByTimeAsync(CONTENT_ANALYSIS_DEBOUNCE_MS - 1)
+        expect(resourceAnalysisOpen).not.toHaveBeenCalled()
+        cart.update(input('second'))
+        await tick()
+        expect(resourceAnalysisUpdate).toHaveBeenCalledOnce()
+        cart.update(input('third'))
+        cart.cancel()
+        await tick()
+        expect(resourceAnalysisUpdate).toHaveBeenCalledOnce()
+        cart.update(input('fourth'))
+        cart.clear()
+        await tick()
+        expect(resourceAnalysisUpdate).toHaveBeenCalledOnce()
+    } finally {
+        cart.clear()
+    }
+})
 
 it('replays only the nodes still shown and the latest stage, and ignores an older selection', async () => {
     vi.clearAllMocks()
@@ -59,7 +114,7 @@ it('replays only the nodes still shown and the latest stage, and ignores an olde
     send({ kind: 'nodeRemoved', nodeId: 'removed' })
     send({ kind: 'phase', phase: 'prefetching' })
     send({ kind: 'node', selectionRevision: 0, node: { id: 'older' } })
-    const onProgress = vi.fn()
+    const onProgress = vi.fn<(progress: ResourceOperationProgress) => void>()
     const prepared = cart.review()!.prepare(new AbortController().signal, onProgress)
     await tick()
     expect(

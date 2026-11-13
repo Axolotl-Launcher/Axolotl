@@ -127,6 +127,8 @@ const abilities: Record<string, SettingAbility> = {
     max_concurrent_downloads: int('max_concurrent_downloads'),
     max_concurrent_writes: int('max_concurrent_writes'),
     auto_concurrent_downloads: bool('auto_concurrent_downloads'),
+    force_multiconnection_downloads: bool('force_multiconnection_downloads'),
+    forced_max_concurrent_downloads: int('forced_max_concurrent_downloads'),
     bypass_curseforge_download_restrictions: bool('bypass_curseforge_download_restrictions'),
     ignore_ssl_errors: bool('ignore_ssl_errors'),
     memory_max: memoryMax,

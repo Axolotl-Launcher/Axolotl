@@ -84,12 +84,12 @@ export interface ContentCardTableItem {
     dependency?: {
         autoDependency: boolean
         requiredBy: Array<{
-            provider: 'modrinth' | 'curseforge' | 'local'
+            provider: 'modrinth' | 'curseforge' | 'local' | 'mcarchive'
             projectId: string
             releaseId: string
         }>
         requires: Array<{
-            provider: 'modrinth' | 'curseforge' | 'local'
+            provider: 'modrinth' | 'curseforge' | 'local' | 'mcarchive'
             projectId: string
             releaseId: string
         }>

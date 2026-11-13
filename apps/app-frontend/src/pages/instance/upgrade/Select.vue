@@ -45,6 +45,9 @@
                 <p v-else class="m-0 text-sm text-[var(--color-text-tertiary)]">
                     {{ formatMessage(messages.noNewerRelease) }}
                 </p>
+                <p class="mb-0 mt-2 text-sm text-[var(--color-text-tertiary)]">
+                    {{ formatMessage(messages.downgradeUnsupported) }}
+                </p>
                 <template v-if="isFabric && selectedGameVersion">
                     <label
                         class="mb-2 mt-4 block text-sm font-medium text-[var(--color-text-primary)]"
@@ -216,6 +219,10 @@ const messages = defineMessages({
     loadingVersions: {
         id: 'instance.upgrade.select.loading-versions',
         defaultMessage: 'Loading Minecraft versions…',
+    },
+    downgradeUnsupported: {
+        id: 'instance.upgrade.select.downgrade-unsupported',
+        defaultMessage: 'Downgrading is not supported.',
     },
     fabricVersion: {
         id: 'instance.upgrade.select.fabric-version',
@@ -441,7 +448,9 @@ function registerControls() {
             reusesPlan.value ? messages.reviewCompatibility : messages.checkCompatibility,
         ),
         onNext: startPlanning,
-        onBack: () => router.push(`/instance/${encodeURIComponent(flow.instanceId.value)}`),
+        onBack: async () => {
+            await router.push(`/instance/${encodeURIComponent(flow.instanceId.value)}`)
+        },
     })
 }
 onMounted(registerControls)

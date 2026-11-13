@@ -2,13 +2,18 @@
 import { CloudIcon, MonitorIcon } from '@modrinth/assets'
 import { defineMessages, useVIntl } from '@modrinth/ui'
 
+import { CLOUD_LOGAGENT_ENABLED } from '@/logagent/availability'
 import type { AnalysisSource } from '@/logagent/types'
 
 const props = defineProps<{ modelValue: AnalysisSource; disabled?: boolean; localModel?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [source: AnalysisSource] }>()
 const { formatMessage } = useVIntl()
 function moveSelection(event: KeyboardEvent, source: AnalysisSource) {
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) || props.disabled)
+    if (
+        !CLOUD_LOGAGENT_ENABLED ||
+        !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) ||
+        props.disabled
+    )
         return
     event.preventDefault()
     const next = source === 'custom' ? 'logshare' : 'custom'
@@ -38,7 +43,9 @@ const messages = defineMessages({
         class="flex min-w-0 flex-wrap gap-2"
     >
         <button
-            v-for="source in ['custom', 'logshare'] as const"
+            v-for="source in (CLOUD_LOGAGENT_ENABLED
+                ? ['custom', 'logshare']
+                : ['custom']) as AnalysisSource[]"
             :key="source"
             type="button"
             role="radio"

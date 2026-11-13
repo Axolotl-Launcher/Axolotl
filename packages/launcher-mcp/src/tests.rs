@@ -125,7 +125,7 @@ async fn server_with_backend(
 }
 
 async fn connect(server: &Server, auth: bool, name: &str) -> Client {
-    let http = reqwest::Client::builder().no_proxy().build().unwrap();
+    let http = http_client();
     let endpoint = server.snapshot().endpoint.unwrap();
     let request = http
         .post(&endpoint)
@@ -364,7 +364,7 @@ async fn bearer_auth_and_origin_validation_remain_independent_of_control_permiss
  {
     let server = server(true, true).await;
     let endpoint = server.snapshot().endpoint.unwrap();
-    let http = reqwest::Client::builder().no_proxy().build().unwrap();
+    let http = http_client();
     assert_eq!(
         http.post(&endpoint).send().await.unwrap().status(),
         StatusCode::UNAUTHORIZED
@@ -1512,4 +1512,11 @@ async fn backend_failures_are_tool_errors_and_do_not_end_control() {
         false
     );
     server.stop().await;
+}
+
+fn http_client() -> reqwest::Client {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+    reqwest::Client::builder().no_proxy().build().unwrap()
 }

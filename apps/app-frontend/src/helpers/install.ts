@@ -171,6 +171,7 @@ export interface InstallJobSnapshot {
         | { type: 'import'; launcher_type: string; instance_folder: string }
     parallel?: InstallParallelProgress | null
     display?: { title: string; icon?: string | null } | null
+    resource_names?: string[]
     error?: InstallErrorView | null
     rollback_error?: InstallErrorView | null
     pause_reason?: InstallPauseReason | null
@@ -316,6 +317,7 @@ export type DownloadRequestUpdate =
               | 'finalizing'
           speed_bytes_per_second?: number | null
           eta_seconds?: number | null
+          content_bytes?: { current: number; total: number } | null
       }
     | { type: 'finished'; job_id: string; id: string; bytes: number }
     | { type: 'failed'; job_id: string; id: string }
@@ -367,10 +369,12 @@ export async function install_create_instance(request: InstallCreateInstanceRequ
 export async function install_create_modpack_instance(
     location: CreatePackLocation,
     postInstallEdit?: InstallPostInstallEdit | null,
+    gameDirOverride?: string | null,
 ) {
     return await invoke<InstallJobSnapshot>('plugin:install|install_create_modpack_instance', {
         location,
         postInstallEdit,
+        gameDirOverride,
     })
 }
 

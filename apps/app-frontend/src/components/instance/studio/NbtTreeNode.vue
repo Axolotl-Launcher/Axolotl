@@ -57,22 +57,23 @@ const displayValue = computed(() => {
 })
 
 function children(): Array<{ name?: string; tag: NbtTag; path: (string | number)[] }> {
-    if (props.tag.isCompound()) {
-        return [...props.tag.keys()].map((name) => ({
+    const tag = props.tag
+    if (tag.isCompound()) {
+        return [...tag.keys()].map((name) => ({
             name,
-            tag: props.tag.get(name)!,
+            tag: tag.get(name)!,
             path: [...props.path, name],
         }))
     }
-    if (props.tag.isList()) {
-        return Array.from({ length: props.tag.length }, (_, index) => ({
-            tag: props.tag.get(index),
+    if (tag.isList()) {
+        return Array.from({ length: tag.length }, (_, index) => ({
+            tag: tag.get(index)!,
             path: [...props.path, index],
         }))
     }
-    if (props.tag.isArray()) {
-        return Array.from({ length: props.tag.length }, (_, index) => ({
-            tag: props.tag.get(index),
+    if (tag.isArray()) {
+        return Array.from({ length: tag.length }, (_, index) => ({
+            tag: tag.get(index)!,
             path: [...props.path, index],
         }))
     }

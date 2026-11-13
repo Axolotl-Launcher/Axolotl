@@ -1,4 +1,4 @@
-import type { MessageDescriptor } from '@modrinth/ui'
+import { defineMessage, type MessageDescriptor } from '@modrinth/ui'
 
 import {
     settingsCategoryDefinitions,
@@ -17,6 +17,18 @@ export interface SettingsSearchEntry {
 const message = (id: string, defaultMessage: string): MessageDescriptor => ({ id, defaultMessage })
 
 export const settingsSearchEntries: SettingsSearchEntry[] = [
+    {
+        id: 'third-party-shimu',
+        categoryId: 'third-party-accounts',
+        targetId: 'settings-target-third-party-shimu',
+        label: message('app.third-party.shimu', 'Shimu Space'),
+        keywords: [
+            defineMessage({
+                id: 'app.third-party.search',
+                defaultMessage: 'Shimu mcimg OAuth account authorization sign in connect',
+            }),
+        ],
+    },
     {
         id: 'mcp-authentication',
         categoryId: 'mcp',
@@ -49,10 +61,11 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         targetId: 'settings-target-mcp-clients',
         label: message('app.mcp.setup-title', 'Connect your AI client'),
         keywords: [
-            message(
-                'app.mcp.client-search',
-                'MCP Model Context Protocol Codex Claude Code Cursor VS Code installation connection agent',
-            ),
+            defineMessage({
+                id: 'app.mcp.client-search',
+                defaultMessage:
+                    'MCP Model Context Protocol Codex Claude Code Cursor VS Code installation connection agent',
+            }),
         ],
     },
     {
@@ -61,10 +74,11 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         targetId: 'settings-target-network-tests',
         label: message('app.settings.network.title', 'Connection tests'),
         keywords: [
-            message(
-                'app.settings.network.search',
-                'DNS IP latency speed connectivity diagnostics CurseForge CF Modrinth MR CDN Mojang API proxy',
-            ),
+            defineMessage({
+                id: 'app.settings.network.search',
+                defaultMessage:
+                    'DNS IP latency speed connectivity diagnostics CurseForge CF Modrinth MR CDN Mojang API proxy',
+            }),
         ],
     },
     {
@@ -189,10 +203,10 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
             'Used the first time an instance launches. Instances that have already been played keep their in-game language.',
         ),
         keywords: [
-            message(
-                'app.settings.defaults.game-language.search',
-                'Minecraft game language locale language region',
-            ),
+            defineMessage({
+                id: 'app.settings.defaults.game-language.search',
+                defaultMessage: 'Minecraft game language locale language region',
+            }),
         ],
     },
     {
@@ -497,7 +511,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         id: 'language-launcher-language',
         categoryId: 'language-translation',
         targetId: 'settings-target-language',
-        label: message('app.settings.tabs.language', 'Language'),
+        label: defineMessage({ id: 'app.settings.tabs.language', defaultMessage: 'Language' }),
     },
     {
         id: 'translation-service',
@@ -537,12 +551,17 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         id: 'log-share',
         categoryId: 'launch-defaults',
         targetId: 'settings-target-log-share',
-        label: message('app.log-share.settings.title', 'Log sharing & AI analysis'),
+        label: defineMessage({
+            id: 'app.log-share.settings.title',
+            defaultMessage: 'Log sharing & AI analysis',
+        }),
         keywords: [
             message('app.log-share.settings.share-provider', 'Log sharing service'),
-            message('app.log-share.settings.ai-source', 'AI analysis source'),
+            defineMessage({
+                id: 'app.log-share.settings.ai-source',
+                defaultMessage: 'AI analysis source',
+            }),
             message('app.logagent.source-local', 'Local LogAgent'),
-            message('app.logagent.source-cloud', 'Cloud LogShare'),
             message('app.logagent.settings.analysis-title', 'Crash analysis'),
             message('app.logagent.settings.sharing-title', 'Diagnostic sharing'),
             message('app.logagent.settings.display-title', 'Analysis display'),
@@ -553,7 +572,12 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         categoryId: 'launch-defaults',
         targetId: 'settings-target-shared-logs',
         label: message('app.log-share.shared-logs.title', 'Shared logs'),
-        keywords: [message('app.log-share.settings.title', 'Log sharing & AI analysis')],
+        keywords: [
+            defineMessage({
+                id: 'app.log-share.settings.title',
+                defaultMessage: 'Log sharing & AI analysis',
+            }),
+        ],
     },
     {
         id: 'privacy-telemetry',
@@ -641,7 +665,19 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
     {
         id: 'java-installations',
         categoryId: 'java-performance',
-        label: message('app.settings.tabs.java-installations', 'Java installations'),
+        label: defineMessage({
+            id: 'app.settings.tabs.java-installations',
+            defaultMessage: 'Java installations',
+        }),
+    },
+    {
+        id: 'java-use-console',
+        categoryId: 'java-performance',
+        targetId: 'settings-target-java-use-console',
+        label: message(
+            'app.settings.java.use-console-java',
+            'Use java instead of javaw when launching Minecraft',
+        ),
     },
     {
         id: 'java-memory',
@@ -662,7 +698,10 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         label: message('app.settings.defaults.fullscreen', 'Fullscreen'),
         keywords: [
             message('app.settings.defaults.width', 'Window width'),
-            message('app.settings.tabs.default-instance-options', 'Default instance options'),
+            defineMessage({
+                id: 'app.settings.tabs.default-instance-options',
+                defaultMessage: 'Default instance options',
+            }),
         ],
     },
     {
@@ -696,7 +735,12 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         categoryId: 'content-downloads',
         targetId: 'settings-target-resources-download-mirrors',
         label: message('app.settings.resources.download-mirrors', 'Download mirrors'),
-        keywords: [message('app.settings.tabs.resource-management', 'Resource management')],
+        keywords: [
+            defineMessage({
+                id: 'app.settings.tabs.resource-management',
+                defaultMessage: 'Resource management',
+            }),
+        ],
     },
     {
         id: 'resources-curseforge-api-key',
@@ -766,6 +810,23 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         keywords: [message('app.settings.resources.proxy-settings', 'Proxy settings')],
     },
     {
+        id: 'resources-force-multiconnection',
+        categoryId: 'content-downloads',
+        targetId: 'settings-target-resources-force-multiconnection',
+        label: message(
+            'app.settings.resources.force-multiconnection',
+            'Force multi-connection downloads',
+        ),
+        keywords: [
+            message('app.settings.resources.experimental', 'Experimental'),
+            message(
+                'app.settings.resources.forced-connection-limit',
+                'Experimental connection limit',
+            ),
+            message('app.settings.resources.forced-connection-limit-custom', 'Custom'),
+        ],
+    },
+    {
         id: 'resources-download-concurrency',
         categoryId: 'content-downloads',
         targetId: 'settings-target-resources-maximum-downloads',
@@ -779,7 +840,10 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         label: message('app.settings.resources.proxy-settings', 'Proxy settings'),
         keywords: [
             message('app.settings.resources.proxy-mode', 'Proxy mode'),
-            message('app.settings.tabs.resource-management', 'Resource management'),
+            defineMessage({
+                id: 'app.settings.tabs.resource-management',
+                defaultMessage: 'Resource management',
+            }),
         ],
     },
     {
@@ -805,7 +869,12 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         categoryId: 'storage-backups',
         targetId: 'settings-target-resources-database-backups',
         label: message('app.settings.resources.database-backups', 'App database backups'),
-        keywords: [message('app.settings.tabs.resource-management', 'Resource management')],
+        keywords: [
+            defineMessage({
+                id: 'app.settings.tabs.resource-management',
+                defaultMessage: 'Resource management',
+            }),
+        ],
     },
     {
         id: 'storage-app-directory',
@@ -823,7 +892,10 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         id: 'storage-cache',
         categoryId: 'storage-backups',
         targetId: 'settings-target-storage-overview',
-        label: message('app.settings.resources.app-cache', 'App cache'),
+        label: defineMessage({
+            id: 'app.settings.resources.app-cache',
+            defaultMessage: 'App cache',
+        }),
     },
     {
         id: 'multiplayer-public-nodes',
@@ -853,15 +925,28 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
         label: message('app.settings.tabs.about', 'About'),
     },
     {
-        id: 'about-replay-tour',
+        id: 'about-replay-oobe',
         categoryId: 'about',
-        targetId: 'settings-target-about-replay-tour',
-        label: message('app.settings.about.replay-onboarding', 'Replay tour'),
+        targetId: 'settings-target-about-replay-oobe',
+        label: message('app.settings.about.replay-oobe', 'Run first-time setup again'),
     },
     {
         id: 'feature-flags',
         categoryId: 'feature-flags',
         label: message('settings.feature-flags.title', 'Feature flags'),
+    },
+    {
+        id: 'advanced-download-info',
+        categoryId: 'logs',
+        targetId: 'settings-target-advanced-download-info',
+        label: message(
+            'app.settings.feature-flags.advanced-download-info',
+            'Advanced download information',
+        ),
+        description: message(
+            'app.settings.feature-flags.advanced-download-info-description',
+            'Show file timings, request speeds and remote addresses in download details. Observations are collected while enabled and included when exporting network connections.',
+        ),
     },
 ]
 

@@ -1,0 +1,249 @@
+{
+  "id": "8fxQRGcg",
+  "slug": "spunky-boost",
+  "title": "Spunky Boost",
+  "description": "The Best Modpack to optimize PojavLauncher's performance! Available in all versions",
+  "author": "spunkyinsaan",
+  "categories": ["combat", "fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 711731,
+  "followers": 151,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.18.2",
+    "1.20.1",
+    "1.20.4",
+    "1.21",
+    "1.21.1",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "bpwrkk7E",
+  "date_created": "2025-01-19T15:54:45.241795Z",
+  "date_modified": "2026-10-14T09:26:18.606084Z",
+  "color": 562996,
+  "published": "2025-01-19T15:54:45.241795Z",
+  "additional_categories": ["combat"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.com/invite/spunkyinsaan",
+  "donation_urls": [
+    {
+      "platform": "Paypal",
+      "url": "https://www.paypal.com/paypalme/spunkyinsaan"
+    }
+  ],
+  "versions_total": 26,
+  "body": "# Spunky Boost\n\nDo you face lag or crashes while playing Minecraft on PojavLauncher? Don’t worry! The **Spunky Boost Modpack** is here to fix that. It’s made to make your Minecraft game run faster and smoother, even on slow devices.\n\nThe Spunky Boost Modpack is a group of special mods that help Minecraft run better on PojavLauncher. It’s lightweight, meaning it won’t slow down your device but will make the game run much smoother.\n\n---\n\n## Feature Overview\n\n1. **No More Lag**  \n   It makes the game run faster, so you don’t get stuck or lag during gameplay.\n\n2. **Fixes Crashes**  \n   It helps prevent the game from crashing, giving you a better experience.\n\n3. **Works on Low-End Devices**  \n   Even if your device isn’t powerful, this modpack helps it run Minecraft without issues.\n\n4. **Easy to Use**  \n   You don’t need to be an expert. Just install the modpack, and you’re good to go!\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/8fxQRGcg/images/27763b277aff9ed0c1bb9652f4d89330bdc587c1_350.webp",
+      "featured": false,
+      "title": "FPS Showcase",
+      "description": null,
+      "created": "2025-01-25T04:56:53.251663Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/8fxQRGcg/images/807613102ab46ee49ff577a6a7e5d46af80fbbc4_350.webp",
+      "featured": false,
+      "title": "Runtime & Renderer",
+      "description": null,
+      "created": "2025-01-25T04:58:04.172954Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/8fxQRGcg/images/e851213a2f347f647201a2056a4f16a867d25d53_350.webp",
+      "featured": false,
+      "title": "Mods Included ",
+      "description": null,
+      "created": "2025-01-25T04:59:33.549257Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "spunkyinsaan",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/ZvPyrCGa/a1d120df5bf160586a38f3ab83aaa1104b79b3ab_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "bpwrkk7E",
+      "name": "Spunky Boost 26.3",
+      "version_number": "26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-14T09:26:18.606084Z",
+      "downloads": 9112,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 26.3.mrpack",
+          "size": 189288,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "uKMOz2Yl",
+      "name": "Spunky Boost 26.2",
+      "version_number": "26.2",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-22T17:20:48.725567Z",
+      "downloads": 18586,
+      "changelog": "- Added Skin Changer Mod\n- Updated mods to their final version for 26.2 \n- Fixed crashing issues on phone\n- Fixed some known bugs",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 26.2.mrpack",
+          "size": 189773,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "XyWPEJUi",
+      "name": "Spunky Boost 26.2",
+      "version_number": "26.2-Beta",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-26T04:51:43.759051Z",
+      "downloads": 51767,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 26.2.mrpack",
+          "size": 36838,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "FdMlNMj7",
+      "name": "Spunky Boost 26.1.2 - Release",
+      "version_number": "26.1.2",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-19T16:03:05.194203Z",
+      "downloads": 40111,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 26.1.2.mrpack",
+          "size": 156709,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "bxBgsiEy",
+      "name": "Spunky Boost 26.1.1 - Release",
+      "version_number": "26.1.1",
+      "version_type": "release",
+      "game_versions": ["26.1.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-19T14:39:37.376135Z",
+      "downloads": 3403,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 26.1.1.mrpack",
+          "size": 111048,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "JjwtBzBq",
+      "name": "Spunky Boost 26.1 - Release",
+      "version_number": "26.1",
+      "version_type": "release",
+      "game_versions": ["26.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-19T14:33:36.653425Z",
+      "downloads": 8075,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 26.1.mrpack",
+          "size": 110801,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "yULCRVDW",
+      "name": "Spunky Boost 26.1 - Beta",
+      "version_number": "26.1",
+      "version_type": "beta",
+      "game_versions": ["26.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-03T05:38:00.066340Z",
+      "downloads": 9645,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 26.1.mrpack",
+          "size": 398611,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "nNObOTIT",
+      "name": "Spunky Boost 1.21.11",
+      "version_number": "1.21.11",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-01-23T12:25:06.495744Z",
+      "downloads": 151080,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Spunky Boost 1.21.11.mrpack",
+          "size": 34161,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

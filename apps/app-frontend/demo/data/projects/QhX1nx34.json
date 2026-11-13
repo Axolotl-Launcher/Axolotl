@@ -1,0 +1,211 @@
+{
+  "id": "QhX1nx34",
+  "slug": "oneclient-modpack",
+  "title": "OneClient (Modpack / Client)",
+  "description": "All in one modpack for OneClient by Polyfrost, the client for everyone. Optimized FPS / performance, world hosting, QoL features, in one place.",
+  "author": "Wyvest",
+  "categories": ["fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 1291463,
+  "followers": 39,
+  "license": {
+    "id": "GPL-3.0-only",
+    "name": "GNU General Public License v3.0 only"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.21.1", "1.21.10", "1.21.11", "26.1.2", "26.2", "26.3"],
+  "latest_version": "DXbwNQCv",
+  "date_created": "2026-07-22T15:30:21.260778Z",
+  "date_modified": "2026-10-23T11:09:39.304389Z",
+  "color": 13885692,
+  "published": "2026-07-22T15:30:21.260778Z",
+  "additional_categories": ["lightweight", "multiplayer"],
+  "issues_url": "https://github.com/Polyfrost/DataStorageV2/issues",
+  "source_url": "https://github.com/Polyfrost/DataStorageV2/",
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/polyfrost",
+  "donation_urls": [],
+  "versions_total": 1744,
+  "body": "# OneClient\n\nOneClient ships the most bleeding-edge mods, packaged with the best visuals out of any client, powered by [OneConfig](https://modrinth.com/mod/oneconfig).\n\n## Performance\n\nIn the background, our competitors like Lunar Client and Feather/Dawn Client literally **run an instance of Chromium _in-game_** to power their GUIs.\n\n***Yes, clients actually are running Chrome IN YOUR _MINECRAFT_...***\n\nWe use our own rendering library called PolyCompose (based on JetBrains Compose), resulting in drastically better visuals but also performance.\n\nWe package almost **TWICE** as many performance mods as Fabulously Optimized (27 vs 14 mods), meaning performance is significantly better in-game. And don't even get us started with Lunar/Feather...\n\n## User Interface\n\nOneClient features a clean and sleek user interface, meticulously designed by actual designers. Optimized for looking good without sacrificing any easy of use. Supports themeing, so you can choose between what you prefer.\n\n![OneClient UI](https://polyfrost.org/ui.webp)\n![OneClient UI options](https://polyfrost.org/settings.webp)\n![OneClient UI theming](https://polyfrost.org/themes.webp)\n\n## HUDs\n\nWe package our own HUD mods: EvergreenHUD and VanillaHUD, two of the best HUD mods ever created for Minecraft. On [Hypixel SkyBlock](https://modrinth.com/modpack/oneclient-skyblock), we support all the major SkyBlock mod HUDs, meaning all your favorite mods' HUDs show in one place.\n\n## Fully open-source\n\nThis should go without saying, but we are 100% open-source. We haven't had a single private repository on our GitHub since January 2026.",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/QhX1nx34/images/ad7816dd25b204403628d372c04f52ace7a06a28_350.webp",
+      "featured": true,
+      "title": "Banner",
+      "description": null,
+      "created": "2026-10-06T10:08:41.598666Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Wyvest",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/a6VEZDKe/f5aa0ec7453bb84b15870fd32026fd24229cfc23_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "DXbwNQCv",
+      "name": "OneClient v2.0.431 (26.3)",
+      "version_number": "v2.0.431",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T11:09:39.304389Z",
+      "downloads": 0,
+      "changelog": "Automated build for Minecraft 26.3. (a55900a)\n\nContent SHA-1: `9badbf52a859a5b91e72d99716f317465168e0eb`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-26.3-fabric.mrpack",
+          "size": 23160,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WiCesEAn",
+      "name": "OneClient v2.0.430 (26.3)",
+      "version_number": "v2.0.430",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:24.706177Z",
+      "downloads": 1180,
+      "changelog": "Automated build for Minecraft 26.3. (b23b933)\n\nContent SHA-1: `91708e54215e5517b63a1924d552e6efe7fc410a`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-26.3-fabric.mrpack",
+          "size": 23164,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "cEIFkkNK",
+      "name": "OneClient v2.0.430 (26.2)",
+      "version_number": "v2.0.430",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:22.422379Z",
+      "downloads": 971,
+      "changelog": "Automated build for Minecraft 26.2. (b23b933)\n\nContent SHA-1: `7b0c2025f9963816cacb8789128970ad32fdc0f3`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-26.2-fabric.mrpack",
+          "size": 24161,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5zXd1t94",
+      "name": "OneClient v2.0.430 (26.1.2)",
+      "version_number": "v2.0.430",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:20.409668Z",
+      "downloads": 226,
+      "changelog": "Automated build for Minecraft 26.1.2. (b23b933)\n\nContent SHA-1: `96f418c24cfee8a10f208f4bf9ede83c033aa901`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-26.1.2-fabric.mrpack",
+          "size": 23816,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lqqecSEu",
+      "name": "OneClient v2.0.430 (1.21.11)",
+      "version_number": "v2.0.430",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:18.188921Z",
+      "downloads": 1081,
+      "changelog": "Automated build for Minecraft 1.21.11. (b23b933)\n\nContent SHA-1: `a92adad6b79e26501f70ade1006fc199e0de7d41`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-1.21.11-fabric.mrpack",
+          "size": 24419,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "nKN54OZk",
+      "name": "OneClient v2.0.430 (1.21.10)",
+      "version_number": "v2.0.430",
+      "version_type": "release",
+      "game_versions": ["1.21.10"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:15.695614Z",
+      "downloads": 12,
+      "changelog": "Automated build for Minecraft 1.21.10. (b23b933)\n\nContent SHA-1: `7f46c695ff5ceb99c8e98d69b9775200bba89782`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-1.21.10-fabric.mrpack",
+          "size": 23961,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "sh12hVDA",
+      "name": "OneClient v2.0.430 (1.21.1)",
+      "version_number": "v2.0.430",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T05:53:13.684887Z",
+      "downloads": 22,
+      "changelog": "Automated build for Minecraft 1.21.1. (b23b933)\n\nContent SHA-1: `ec32659d6ffc2500039a7ef70fdb359b4369b24c`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-1.21.1-fabric.mrpack",
+          "size": 23727,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "7R6Akn5k",
+      "name": "OneClient v2.0.429 (26.3)",
+      "version_number": "v2.0.429",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-23T00:36:18.076961Z",
+      "downloads": 1190,
+      "changelog": "Automated build for Minecraft 26.3. (0581cac)\n\nContent SHA-1: `719aef7c35ac4e0cfcca3a97cb2f0e94448c13f3`",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "oneclient-26.3-fabric.mrpack",
+          "size": 23153,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -10,6 +10,8 @@ const backend = vi.hoisted(() => ({
 }))
 
 vi.mock('@/helpers/settings.ts', () => ({
+    getSettingsLayers: vi.fn(async () => []),
+    clearSettingsOverride: vi.fn(async () => true),
     get: async () => structuredClone(backend.settings),
     update: async (patch: Record<string, unknown>) => {
         backend.patches.push(patch)
@@ -58,6 +60,12 @@ vi.mock('@modrinth/ui', async () => {
                 ),
     })
     return {
+        Button: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('button', slots.default?.()),
+        }),
         Combobox: combobox,
         Toggle: toggle,
         Card: defineComponent({
@@ -98,6 +106,7 @@ vi.mock('@modrinth/ui', async () => {
             },
         }),
         defineMessages: (messages: unknown) => messages,
+        injectNotificationManager: () => ({ handleError: vi.fn() }),
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),

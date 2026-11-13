@@ -1,6 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 
+import { renderTranslatedDescription } from '@/helpers/translation'
+
 import TranslatedProjectDescription from './TranslatedProjectDescription.vue'
 
 const render = vi.hoisted(() => ({
@@ -48,6 +50,7 @@ it('defers parsing, skips stale bodies and keeps image dimensions while loading 
         await flushPromises()
         expect(wrapper.text()).toBe('Current')
         expect(wrapper.get('img').attributes()).toMatchObject({
+            referrerpolicy: 'no-referrer',
             loading: 'lazy',
             decoding: 'async',
             width: '100',
@@ -57,6 +60,53 @@ it('defers parsing, skips stale bodies and keeps image dimensions while loading 
         wrapper.unmount()
         render.tasks[2]()
         expect(render.markdown).toHaveBeenCalledTimes(1)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('retains existing paragraph nodes and animations when another translation arrives', async () => {
+    render.tasks = []
+    vi.mocked(renderTranslatedDescription).mockImplementation((_prepared, translations) =>
+        ['first', 'second']
+            .map(
+                (id) =>
+                    `<p>${id}</p>${translations[id] ? `<div class="ax-translation-block">${translations[id]}</div>` : ''}`,
+            )
+            .join(''),
+    )
+    const wrapper = mount(TranslatedProjectDescription, {
+        attachTo: document.body,
+        props: {
+            description: 'Body',
+            active: true,
+            translations: { first: 'First translation' },
+            mode: 'bilingual',
+            style: 'weakened',
+        },
+    })
+    try {
+        render.tasks.shift()!()
+        await flushPromises()
+        const first = wrapper.get('.ax-translation-block').element
+        const original = wrapper.get('p').element
+        const animation = first.getAnimations()[0]
+        expect(animation).toBeDefined()
+        await wrapper.setProps({
+            translations: { first: 'First translation', second: 'Second translation' },
+        })
+        render.tasks.shift()!()
+        await flushPromises()
+        const translated = wrapper.findAll('.ax-translation-block')
+        expect(translated).toHaveLength(2)
+        expect(translated[0].element).toBe(first)
+        expect(wrapper.get('p').element).toBe(original)
+        expect(first.getAnimations()[0]).toBe(animation)
+        expect(translated[1].element.getAnimations()[0]).toBeDefined()
+        await wrapper.setProps({ active: false })
+        render.tasks.shift()!()
+        await flushPromises()
+        expect(wrapper.find('.ax-translation-block').exists()).toBe(false)
     } finally {
         wrapper.unmount()
     }

@@ -144,7 +144,7 @@ export function buildGcCandidateChain(
     preferred: ResolvedGcStrategyId,
 ): { ids: string[]; args: string[][] } {
     const preferredDemand = SAFE_TO_DEMANDING.indexOf(preferred)
-    const ids: string[] = [preferred]
+    const ids: Array<ResolvedGcStrategyId | 'minimal-g1'> = [preferred]
     if (preferredDemand > 0) {
         for (let demand = preferredDemand - 1; demand >= 0; demand -= 1) {
             ids.push(SAFE_TO_DEMANDING[demand])

@@ -16,7 +16,7 @@ export const multiplayerRoutes: RouteRecordRaw[] = [
         children: [
             {
                 path: '',
-                redirect: { name: 'MultiplayerServers' },
+                redirect: { name: 'MultiplayerRooms' },
             },
             {
                 path: 'servers',

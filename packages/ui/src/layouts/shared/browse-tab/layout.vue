@@ -1,35 +1,34 @@
 <script setup lang="ts">
 import type { Labrinth } from '@modrinth/api-client'
-import { ArrowUpDownIcon, EyeIcon, SearchIcon } from '@modrinth/assets'
-import { computed, ref, toValue } from 'vue'
+import { computed, toValue } from 'vue'
 
 import Button from '#ui/components/base/buttons/Button.vue'
-import Combobox, { type ComboboxOption } from '#ui/components/base/Combobox.vue'
+import type { ComboboxOption } from '#ui/components/base/Combobox.vue'
 import EmptyState from '#ui/components/base/EmptyState.vue'
-import NavTabs from '#ui/components/base/NavTabs.vue'
 import Pagination from '#ui/components/base/Pagination.vue'
-import PopoutMenu from '#ui/components/base/PopoutMenu.vue'
-import StyledInput from '#ui/components/base/StyledInput.vue'
 import ProjectCard from '#ui/components/project/card/ProjectCard.vue'
 import ContentCardReveal from '#ui/components/project/ContentCardReveal.vue'
 import ProjectCardList from '#ui/components/project/ProjectCardList.vue'
 import ProjectCardSkeleton from '#ui/components/project/ProjectCardSkeleton.vue'
 import SearchFilterControl from '#ui/components/search/SearchFilterControl.vue'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
-import { useStickyObserver } from '#ui/composables/sticky-observer'
-import { commonMessages, formatProjectTypeSentence } from '#ui/utils/common-messages'
+import { formatProjectTypeSentence } from '#ui/utils/common-messages'
 import type { SortType } from '#ui/utils/search'
 
+import BrowseResultControls from './components/BrowseResultControls.vue'
 import SelectedProjectsFloatingBar from './components/SelectedProjectsFloatingBar.vue'
 import { projectCardDates } from './composables/project-dates'
 import BrowseInstallHeader from './header.vue'
 import { injectBrowseManager } from './providers/browse-manager'
+import BrowseToolbar from './toolbar.vue'
+import type { BrowseDisplayMode } from './types'
 
 const ctx = injectBrowseManager()
+// The provider context narrows this to list/grid, but the composable can also
+// produce compact and gallery layouts through the same value.
+const effectiveLayout = computed<BrowseDisplayMode>(() => ctx.effectiveLayout.value)
 const { formatMessage } = useVIntl()
 const lockedMessages = computed(() => toValue(ctx.lockedFilterMessages))
-const stickyChromeRef = ref<HTMLElement | null>(null)
-const { isStuck: isChromeStuck } = useStickyObserver(stickyChromeRef, 'BrowseToolbarChrome')
 const showInstallHeader = computed(
     () =>
         !!ctx.installContext?.value &&
@@ -37,18 +36,10 @@ const showInstallHeader = computed(
         ctx.variant !== 'web',
 )
 
-const maxResultsValues = computed<number[]>(
-    () => ctx.maxResultsOptions?.value ?? [5, 10, 15, 20, 50, 100],
-)
-
 const messages = defineMessages({
     searchPlaceholder: {
         id: 'browse.search.placeholder',
         defaultMessage: 'Search {projectType}...',
-    },
-    viewPrefix: {
-        id: 'browse.view-prefix',
-        defaultMessage: 'View:',
     },
     filterResults: {
         id: 'browse.filter-results',
@@ -61,10 +52,6 @@ const messages = defineMessages({
     offlineHeading: {
         id: 'browse.offline.heading',
         defaultMessage: 'No connection',
-    },
-    loadingLabel: {
-        id: 'browse.loading-results',
-        defaultMessage: 'Loading results…',
     },
     noResults: {
         id: 'browse.no-results',
@@ -132,13 +119,6 @@ const sortTypeOptions = computed<ComboboxOption<string>[]>(() =>
     })),
 )
 
-const maxResultsOptions = computed<ComboboxOption<number>[]>(() =>
-    maxResultsValues.value.map((value) => ({
-        value,
-        label: String(value),
-    })),
-)
-
 const currentSortTypeName = computed<string>({
     get: () => ctx.effectiveCurrentSortType.value?.name ?? '',
     set: (name: string) => {
@@ -149,17 +129,12 @@ const currentSortTypeName = computed<string>({
     },
 })
 
-const selectedDisplayMode = computed(() =>
-    ctx.displayModeOptions?.value.find((option) => option.id === ctx.displayMode?.value),
-)
-
 const resultContext = computed(() => ctx.committed?.value)
 const resultProjectType = computed(() => resultContext.value?.projectType ?? ctx.projectType.value)
 const resultIsServer = computed(() => resultProjectType.value === 'server')
-const initialLoading = computed(() => ctx.loading.value && !resultContext.value)
 
 const skeletonCount = computed(() => {
-    const layout = ctx.effectiveLayout.value
+    const layout = effectiveLayout.value
     if (layout === 'grid' || layout === 'gallery') return 6
     // Match the visible list density without stacking a full viewport of rows.
     return Math.min(ctx.maxResults?.value ?? 8, 8)
@@ -167,141 +142,51 @@ const skeletonCount = computed(() => {
 </script>
 
 <template>
-    <div
-        ref="stickyChromeRef"
-        class="browse-toolbar-chrome sticky top-0 z-20 flex flex-col gap-3 border-b border-solid border-surface-5"
-        :class="[
-            isChromeStuck && ctx.variant !== 'web'
-                ? 'border-t shadow-[0_8px_16px_-12px_rgba(0,0,0,0.35)]'
-                : '',
-            ctx.variant === 'web'
-                ? 'mb-3 rounded-xl bg-surface-1 p-3'
-                : '-mx-6 -mt-6 border-0 bg-[color-mix(in_srgb,var(--surface-1-opaque,var(--surface-1))_20%,transparent)] backdrop-blur-xl',
-        ]"
+    <BrowseToolbar
+        v-model:query="ctx.query.value"
+        :variant="ctx.variant"
+        :tabs="ctx.selectableProjectTypes.value"
+        :show-tabs="ctx.showProjectTypeTabs.value"
+        :disabled="ctx.filtersReady?.value === false"
+        :placeholder="
+            formatMessage(messages.searchPlaceholder, {
+                projectType: formatProjectTypeSentence(formatMessage, ctx.projectType.value, 2),
+            })
+        "
+        @clear="ctx.clearSearch()"
     >
-        <div v-if="showInstallHeader" class="p-3 pb-0">
-            <BrowseInstallHeader />
-        </div>
-        <div class="flex flex-col gap-3" :class="ctx.variant === 'web' ? '' : 'p-3'">
-            <div class="flex min-w-0 flex-wrap items-center gap-2">
-                <NavTabs
-                    v-if="ctx.showProjectTypeTabs.value"
-                    :links="ctx.selectableProjectTypes.value"
-                    class="min-w-0 max-w-full"
-                />
-                <div class="ml-auto shrink-0">
-                    <slot name="nav-tabs-actions" />
-                </div>
-            </div>
-
-            <div class="flex min-w-0 flex-wrap items-center gap-2">
-                <StyledInput
-                    v-model="ctx.query.value"
-                    :disabled="ctx.filtersReady?.value === false"
-                    :icon="SearchIcon"
-                    type="text"
-                    autocomplete="off"
-                    :placeholder="
-                        formatMessage(messages.searchPlaceholder, {
-                            projectType: formatProjectTypeSentence(
-                                formatMessage,
-                                ctx.projectType.value,
-                                2,
-                            ),
-                        })
-                    "
-                    clearable
-                    wrapper-class="min-w-0 flex-[1_1_16rem]"
-                    :input-class="ctx.variant === 'web' ? '!h-12' : 'h-12'"
-                    @clear="ctx.clearSearch()"
-                />
-                <slot name="search-bar-actions" />
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-                <Combobox
-                    v-model="currentSortTypeName"
-                    v-tooltip="{
-                        content: formatMessage(commonMessages.sortByLabel),
-                        triggers: ['hover'],
-                    }"
-                    :disabled="ctx.filtersReady?.value === false"
-                    width="content"
-                    :options="sortTypeOptions"
-                    trigger-class="!min-h-10"
-                >
-                    <template #prefix>
-                        <ArrowUpDownIcon class="size-5 shrink-0 text-[var(--color-text-default)]" />
-                    </template>
-                    <template #selected="{ label }">
-                        <span class="font-semibold text-[var(--color-text-tertiary)]">{{
-                            label
-                        }}</span>
-                    </template>
-                </Combobox>
-
-                <Combobox
-                    v-model="ctx.maxResults.value"
-                    v-tooltip="{ content: formatMessage(messages.viewPrefix), triggers: ['hover'] }"
-                    :disabled="ctx.filtersReady?.value === false"
-                    width="content"
-                    :options="maxResultsOptions"
-                    trigger-class="!min-h-10"
-                >
-                    <template #prefix>
-                        <EyeIcon class="size-5 shrink-0 text-[var(--color-text-default)]" />
-                    </template>
-                    <template #selected="{ label }">
-                        <span class="font-semibold text-[var(--color-text-tertiary)]">{{
-                            label
-                        }}</span>
-                    </template>
-                </Combobox>
-
-                <div v-if="ctx.filtersMenuOpen && !ctx.filtersMenuOpen.value" class="lg:hidden">
-                    <Button @click="ctx.filtersMenuOpen.value = true"
-                        >{{ formatMessage(messages.filterResults) }}
-                    </Button>
-                </div>
-
-                <PopoutMenu
-                    v-if="
-                        ctx.displayMode &&
-                        ctx.displayModeOptions?.value.length &&
-                        ctx.setDisplayMode
-                    "
-                    :tooltip="ctx.displayModeTooltip?.value"
-                    placement="bottom-end"
-                >
-                    <Button circular icon-only :aria-label="ctx.displayModeTooltip?.value"
-                        ><component :is="selectedDisplayMode?.icon" />
-                    </Button>
-                    <template #menu>
-                        <div class="flex w-44 flex-col gap-1 p-1">
-                            <Button
-                                v-for="option in ctx.displayModeOptions.value"
-                                :key="option.id"
-                                :type="ctx.displayMode.value === option.id ? 'base' : 'quiet'"
-                                class="flex w-full items-center gap-2 !justify-start text-left"
-                                :aria-pressed="ctx.displayMode.value === option.id"
-                                @click="ctx.setDisplayMode!(option.id)"
-                            >
-                                <component :is="option.icon" class="h-4 w-4" />
-                                <span>{{ option.label }}</span>
-                            </Button>
-                        </div>
-                    </template>
-                </PopoutMenu>
-
-                <Pagination
-                    :page="resultContext?.page ?? ctx.currentPage.value"
-                    :count="ctx.pageCount.value"
-                    :loading="ctx.loading.value"
-                    :class="ctx.variant === 'web' ? 'mx-auto sm:ml-auto sm:mr-0' : 'ml-auto'"
-                    @switch-page="ctx.setPage"
-                />
-            </div>
-
+        <template v-if="showInstallHeader" #install-header><BrowseInstallHeader /></template>
+        <template #nav-tabs-actions><slot name="nav-tabs-actions" /></template>
+        <template #search-bar-actions><slot name="search-bar-actions" /></template>
+        <template #controls>
+            <BrowseResultControls
+                v-model:sort="currentSortTypeName"
+                v-model:page-size="ctx.maxResults.value"
+                :variant="ctx.variant"
+                :sort-options="sortTypeOptions"
+                :page-size-options="ctx.maxResultsOptions?.value"
+                :disabled="ctx.filtersReady?.value === false"
+                :display-mode="ctx.displayMode?.value"
+                :display-mode-options="
+                    ctx.setDisplayMode ? ctx.displayModeOptions?.value : undefined
+                "
+                :display-mode-tooltip="ctx.displayModeTooltip?.value"
+                :page="resultContext?.page ?? ctx.currentPage.value"
+                :page-count="ctx.pageCount.value"
+                :loading="ctx.loading.value"
+                @display-mode="ctx.setDisplayMode?.($event)"
+                @switch-page="ctx.setPage"
+            >
+                <template #filters-button>
+                    <div v-if="ctx.filtersMenuOpen && !ctx.filtersMenuOpen.value" class="lg:hidden">
+                        <Button @click="ctx.filtersMenuOpen.value = true">{{
+                            formatMessage(messages.filterResults)
+                        }}</Button>
+                    </div>
+                </template>
+            </BrowseResultControls>
+        </template>
+        <template #filters>
             <SearchFilterControl
                 v-if="ctx.filtersReady?.value !== false && ctx.isServerType.value"
                 v-model:selected-filters="ctx.serverCurrentFilters.value"
@@ -325,8 +210,8 @@ const skeletonCount = computed(() => {
                 :project-type="ctx.projectType.value"
                 :provided-message="lockedMessages?.providedBy"
             />
-        </div>
-    </div>
+        </template>
+    </BrowseToolbar>
 
     <SelectedProjectsFloatingBar v-if="ctx.installContext?.value && ctx.variant !== 'web'" />
 
@@ -340,15 +225,8 @@ const skeletonCount = computed(() => {
         <span>{{ ctx.searchError.value }}</span>
         <Button @click="ctx.refreshSearch()">{{ formatMessage(messages.retryLabel) }}</Button>
     </div>
-    <p
-        v-if="ctx.loading.value && !initialLoading"
-        role="status"
-        class="my-2 text-sm text-[var(--color-text-tertiary)]"
-    >
-        {{ formatMessage(messages.loadingLabel) }}
-    </p>
     <div class="search relative" :aria-busy="ctx.loading.value">
-        <section v-if="initialLoading" class="py-1" aria-busy="true" aria-live="polite">
+        <section v-if="ctx.loading.value" class="py-1" aria-busy="true" aria-live="polite">
             <ProjectCardList :layout="ctx.effectiveLayout.value">
                 <ProjectCardSkeleton
                     v-for="index in skeletonCount"
@@ -443,7 +321,7 @@ const skeletonCount = computed(() => {
                                                 ? 'colored'
                                                 : 'base'
                                     "
-                                    :size="ctx.effectiveLayout.value === 'compact' ? '2xs' : 'md'"
+                                    :size="effectiveLayout === 'compact' ? '2xs' : 'md'"
                                     :circular="action.circular"
                                     :icon-only="action.circular"
                                     :label="action.circular ? action.label : undefined"
@@ -452,7 +330,7 @@ const skeletonCount = computed(() => {
                                 >
                                     <component :is="action.icon" :class="action.iconClass" />
                                     <template v-if="!action.circular">{{
-                                        ctx.effectiveLayout.value === 'compact'
+                                        effectiveLayout === 'compact'
                                             ? (action.compactLabel ?? action.label)
                                             : action.label
                                     }}</template>
@@ -541,7 +419,7 @@ const skeletonCount = computed(() => {
                                                 ? 'colored'
                                                 : 'base'
                                     "
-                                    :size="ctx.effectiveLayout.value === 'compact' ? '2xs' : 'md'"
+                                    :size="effectiveLayout === 'compact' ? '2xs' : 'md'"
                                     :circular="action.circular"
                                     :icon-only="action.circular"
                                     :label="action.circular ? action.label : undefined"
@@ -550,7 +428,7 @@ const skeletonCount = computed(() => {
                                 >
                                     <component :is="action.icon" :class="action.iconClass" />
                                     <template v-if="!action.circular">{{
-                                        ctx.effectiveLayout.value === 'compact'
+                                        effectiveLayout === 'compact'
                                             ? (action.compactLabel ?? action.label)
                                             : action.label
                                     }}</template>

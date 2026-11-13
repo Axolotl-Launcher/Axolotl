@@ -23,6 +23,7 @@ import { get as getSettings } from '@/helpers/settings'
 
 import type { InstallJobSnapshot } from './install'
 import { removeInstanceCache } from './instance-cache'
+import { trackInstanceLaunch } from './instance-launch-state'
 import type {
     CacheBehaviour,
     ContentFile,
@@ -492,10 +493,12 @@ export interface InstanceContentSnapshot {
 export async function get_content_snapshot(
     instanceId: string,
     deferEnrichment = false,
+    refreshFiles = false,
 ): Promise<InstanceContentSnapshot> {
     return await invoke('plugin:instance|instance_get_content_snapshot', {
         instanceId,
         deferEnrichment,
+        refreshFiles,
     })
 }
 
@@ -618,7 +621,16 @@ export async function get_dependencies_as_content_items(
     return items
 }
 
-export function adaptContentItems(items: ContentItem[]): ContentItem[] {
+type ContentItemWithEmbeddedMetadata = ContentItem & {
+    embedded_metadata?: {
+        icon_path?: string
+        icon_url?: string
+    } | null
+}
+
+export function adaptContentItems(
+    items: ContentItemWithEmbeddedMetadata[],
+): ContentItemWithEmbeddedMetadata[] {
     return items.map((item) => {
         const embeddedMetadata = item.embedded_metadata
         if (!embeddedMetadata?.icon_path) return item
@@ -1001,16 +1013,18 @@ export async function run(
     instanceId: string,
     serverAddress: string | null = null,
 ): Promise<InstanceRunResult> {
-    const { args, gcIntent } = await resolveGcLaunchIntent(instanceId)
-    const result = await invoke<InstanceRunResult>('plugin:instance|instance_run', {
-        instanceId,
-        serverAddress,
-        offlineMode: isOfflineMode(),
-        extraLaunchArgs: args,
-        gcIntent,
+    return trackInstanceLaunch(instanceId, async () => {
+        const { args, gcIntent } = await resolveGcLaunchIntent(instanceId)
+        const result = await invoke<InstanceRunResult>('plugin:instance|instance_run', {
+            instanceId,
+            serverAddress,
+            offlineMode: isOfflineMode(),
+            extraLaunchArgs: args,
+            gcIntent,
+        })
+        setLastGcLaunchReport(result.gc_notice)
+        return result
     })
-    setLastGcLaunchReport(result.gc_notice)
-    return result
 }
 
 export async function kill(instanceId: string): Promise<void> {

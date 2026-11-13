@@ -1445,6 +1445,62 @@ async fn the_same_datapack_in_two_worlds_produces_two_scoped_actions() {
 }
 
 #[tokio::test]
+async fn a_datapack_updates_to_the_newest_datapack_and_never_to_the_projects_mod_jar()
+ {
+    let mut old = release("pack0000", "1", 'a');
+    let mut new = release("pack0000", "2", 'b');
+    for release in [&mut old, &mut new] {
+        release.compatibility.loaders = vec!["datapack".into()];
+        release.artifacts[0].file_name =
+            Some(format!("pack-{}.zip", release.version));
+    }
+    // The project also publishes a mod build, later than either datapack.
+    let jar = release("pack0000", "3", 'c');
+    let (_directory, service) =
+        service(vec![old.clone(), new.clone(), jar]).await;
+    let scope = InstallScope::World {
+        relative_path: "saves/world".into(),
+    };
+    let mut entry =
+        installed(&old, "entry", "saves/world/datapacks/pack-1.zip");
+    entry.scope = scope.clone();
+    entry.resource_type = ResourceType::DataPack;
+    let update = updates::check_entry_with_policy(
+        &service,
+        &entry,
+        &target(),
+        &SourceId::modrinth(),
+        &CancellationToken::new(),
+        CachePolicy::UseFresh,
+    )
+    .await
+    .unwrap();
+    assert_eq!(update, Some(new.reference.clone()));
+    let mut root = selection("root", &old, Some("entry"));
+    root.release = ReleaseSelection::Automatic;
+    root.scope = scope;
+    root.resource_type = ResourceType::DataPack;
+    let plan = service
+        .build_operation(
+            draft(vec![root], ResourceOperationIntent::Update),
+            &target(),
+            &[entry],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+        .plan;
+    assert!(plan.issues.is_empty(), "{:?}", plan.issues);
+    assert_eq!(plan.actions.len(), 1);
+    assert_eq!(plan.actions[0].target.reference, new.artifacts[0].reference);
+    assert_eq!(
+        plan.actions[0].target_relative_path,
+        "saves/world/datapacks/pack-2.zip"
+    );
+    service.cache().close().await;
+}
+
+#[tokio::test]
 async fn confirmed_cross_source_dependency_preserves_both_parent_requirements()
 {
     cross_source_dependency_plan(true, false, None).await;
@@ -3119,4 +3175,34 @@ async fn whole_instance_update_checks_run_concurrently_with_source_limits() {
     assert!(result.failed_entries.is_empty());
     assert_eq!(provider.maximum.load(Ordering::SeqCst), 3);
     cache.close().await;
+}
+
+#[tokio::test]
+async fn reinstalling_a_missing_file_preserves_its_entry_id() {
+    let current = release("root0000", "1", 'a');
+    let (_temp, service) = service(vec![current.clone()]).await;
+    let mut entry = installed(
+        &current,
+        "existing-entry",
+        &format!("mods/{}", current.artifacts[0].file_name.as_ref().unwrap()),
+    );
+    entry.missing = true;
+    let built = service
+        .build_operation(
+            draft(
+                vec![selection("root", &current, None)],
+                ResourceOperationIntent::Install,
+            ),
+            &target(),
+            &[entry.clone()],
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert!(!built.plan.issues.iter().any(|issue| issue.blocking));
+    assert_eq!(built.plan.actions.len(), 1);
+    assert_eq!(built.plan.actions[0].entry_id, entry.entry_id);
+    assert_eq!(built.plan.actions[0].kind, ResourceActionKind::Replace);
+    assert!(built.plan.actions[0].current.as_ref().unwrap().missing);
+    service.cache().close().await;
 }

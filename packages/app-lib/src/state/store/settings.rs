@@ -121,6 +121,8 @@ pub(crate) struct SettingsRecord {
     pub use_modrinth_mirror: bool,
     pub use_curseforge_mirror: bool,
     pub auto_concurrent_downloads: bool,
+    pub force_multiconnection_downloads: bool,
+    pub forced_max_concurrent_downloads: i64,
     pub minecraft_metadata_source: DownloadSource,
     pub minecraft_file_source: DownloadSource,
     pub modrinth_source: DownloadSource,
@@ -131,6 +133,7 @@ pub(crate) struct SettingsRecord {
     pub mc_memory_auto: bool,
     pub mc_memory_optimize: bool,
     pub auto_set_java_high_performance_mode: bool,
+    pub minecraft_use_console_java: bool,
     pub transparent_background: bool,
     pub transparent_background_opacity: i64,
     pub transparent_background_blur: bool,
@@ -154,6 +157,7 @@ pub(crate) struct SettingsRecord {
     pub ignore_ssl_errors: bool,
     pub home_widget_background_opacity: i64,
     pub hidden_nav_items: String,
+    pub oobe_completed_steps: String,
     pub custom_window_title_enabled: bool,
     pub default_window_title: String,
     pub custom_background_component_opacity: i64,
@@ -195,7 +199,14 @@ impl Settings {
             .await?
             .ok_or_else(missing_row)?;
         change(&mut record);
-        <Self as Collection>::atom_set(unit, &Singleton, Some(&record)).await
+        <Self as Collection>::atom_set(unit, &Singleton, Some(&record)).await?;
+        // The row a settings read composes with the documents has changed, and
+        // `update`/`save_in` are not the only writer of it. Registered rather
+        // than said here, so the invalidation lands when the caller's unit
+        // commits: a read before that still composes the row this write has not
+        // replaced, and must not be the answer a later read keeps.
+        unit.invalidate_settings_after_commit();
+        Ok(())
     }
 
     /// Reads the columns the proxy and the CurseForge key live in.
@@ -316,12 +327,13 @@ impl Collection for Settings {
                 version, locale, accent_color, custom_background_path,
                 custom_background_blur, custom_background_opacity,
                 use_minecraft_mirror, use_modrinth_mirror,
-                use_curseforge_mirror, auto_concurrent_downloads,
+                use_curseforge_mirror, auto_concurrent_downloads, force_multiconnection_downloads, forced_max_concurrent_downloads,
                 minecraft_metadata_source, minecraft_file_source,
                 modrinth_source, curseforge_source, onboarding_version,
                 onboarding_instance_tour_completed, sidebar_instance_count,
                 mc_memory_auto, mc_memory_optimize,
-                auto_set_java_high_performance_mode, transparent_background,
+                auto_set_java_high_performance_mode, minecraft_use_console_java,
+                transparent_background,
                 transparent_background_opacity, transparent_background_blur,
                 home_layout, minimal_home_instance_id, auto_hide_downloads_button,
                 json(home_widgets) AS home_widgets, mojang_auth_source,
@@ -339,7 +351,7 @@ impl Collection for Settings {
                 backup_repository_path, allow_external_scheme,
                 allow_privileged_scheme, doh_enabled,
                 resource_chinese_filenames, resource_preserve_filenames,
-                default_game_language
+                default_game_language, oobe_completed_steps
             FROM settings
             WHERE id = 0
             ",
@@ -458,6 +470,10 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         use_modrinth_mirror: row.try_get("use_modrinth_mirror")?,
         use_curseforge_mirror: row.try_get("use_curseforge_mirror")?,
         auto_concurrent_downloads: row.try_get("auto_concurrent_downloads")?,
+        force_multiconnection_downloads: row
+            .try_get("force_multiconnection_downloads")?,
+        forced_max_concurrent_downloads: row
+            .try_get("forced_max_concurrent_downloads")?,
         minecraft_metadata_source: source("minecraft_metadata_source")?,
         minecraft_file_source: source("minecraft_file_source")?,
         modrinth_source: source("modrinth_source")?,
@@ -470,6 +486,8 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         mc_memory_optimize: row.try_get("mc_memory_optimize")?,
         auto_set_java_high_performance_mode: row
             .try_get("auto_set_java_high_performance_mode")?,
+        minecraft_use_console_java: row
+            .try_get("minecraft_use_console_java")?,
         transparent_background: row.try_get("transparent_background")?,
         transparent_background_opacity: row
             .try_get("transparent_background_opacity")?,
@@ -520,6 +538,7 @@ fn to_record(row: SqliteRow) -> crate::Result<SettingsRecord> {
         resource_preserve_filenames: row
             .try_get("resource_preserve_filenames")?,
         default_game_language: row.try_get("default_game_language")?,
+        oobe_completed_steps: row.try_get("oobe_completed_steps")?,
     })
 }
 async fn write_row(
@@ -561,7 +580,8 @@ async fn write_row(
             default_window_title, custom_background_component_opacity,
             ui_font, mono_font, backup_repository_path, allow_external_scheme,
             allow_privileged_scheme, doh_enabled, resource_chinese_filenames,
-            resource_preserve_filenames, default_game_language
+            resource_preserve_filenames, default_game_language,
+            oobe_completed_steps, minecraft_use_console_java, force_multiconnection_downloads, forced_max_concurrent_downloads
         )
         VALUES (
             0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?),
@@ -571,7 +591,7 @@ async fn write_row(
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb(?), ?,
             jsonb(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT (id) DO UPDATE SET
             max_concurrent_downloads = excluded.max_concurrent_downloads,
@@ -617,6 +637,8 @@ async fn write_row(
             use_modrinth_mirror = excluded.use_modrinth_mirror,
             use_curseforge_mirror = excluded.use_curseforge_mirror,
             auto_concurrent_downloads = excluded.auto_concurrent_downloads,
+            force_multiconnection_downloads = excluded.force_multiconnection_downloads,
+            forced_max_concurrent_downloads = excluded.forced_max_concurrent_downloads,
             minecraft_metadata_source = excluded.minecraft_metadata_source,
             minecraft_file_source = excluded.minecraft_file_source,
             modrinth_source = excluded.modrinth_source,
@@ -629,6 +651,7 @@ async fn write_row(
             mc_memory_optimize = excluded.mc_memory_optimize,
             auto_set_java_high_performance_mode =
                 excluded.auto_set_java_high_performance_mode,
+            minecraft_use_console_java = excluded.minecraft_use_console_java,
             transparent_background = excluded.transparent_background,
             transparent_background_opacity =
                 excluded.transparent_background_opacity,
@@ -675,7 +698,8 @@ async fn write_row(
             doh_enabled = excluded.doh_enabled,
             resource_chinese_filenames = excluded.resource_chinese_filenames,
             resource_preserve_filenames = excluded.resource_preserve_filenames,
-            default_game_language = excluded.default_game_language
+            default_game_language = excluded.default_game_language,
+            oobe_completed_steps = excluded.oobe_completed_steps
         ",
     )
     .bind(record.max_concurrent_downloads)
@@ -765,6 +789,10 @@ async fn write_row(
     .bind(record.resource_chinese_filenames)
     .bind(record.resource_preserve_filenames)
     .bind(&record.default_game_language)
+    .bind(&record.oobe_completed_steps)
+    .bind(record.minecraft_use_console_java)
+    .bind(record.force_multiconnection_downloads)
+    .bind(record.forced_max_concurrent_downloads)
     .execute(&mut *conn)
     .await?;
 

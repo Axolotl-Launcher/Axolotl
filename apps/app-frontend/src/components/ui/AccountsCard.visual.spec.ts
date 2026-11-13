@@ -1,8 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, Suspense } from 'vue'
+import Draggable from 'vuedraggable'
 
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
+import { ACCOUNT_ORDER_STORAGE_KEY, readAccountOrder } from '@/helpers/account-order'
+import { notifyAccountSelectionChanged } from '@/helpers/account-state'
+import { set_default_user } from '@/helpers/auth'
 
 import AccountsCard from './AccountsCard.vue'
 
@@ -91,12 +95,12 @@ function deferred<T>() {
     return { promise, resolve, reject }
 }
 
-function account(name: string) {
+function account(name: string, accountId = 'microsoft:saved-id', profileId = 'saved-id') {
     return {
-        account_id: 'microsoft:saved-id',
+        account_id: accountId,
         account_type: 'microsoft',
         profile: {
-            id: 'saved-id',
+            id: profileId,
             name,
             skins: [
                 { state: 'ACTIVE', url: 'https://example.test/skin', textureKey: 'saved-skin' },
@@ -108,6 +112,7 @@ function account(name: string) {
 const cleanup: (() => void)[] = []
 beforeEach(() => {
     vi.resetAllMocks()
+    localStorage.removeItem(ACCOUNT_ORDER_STORAGE_KEY)
     useNetworkStatus().setBrowserOffline(false)
     useNetworkStatus().markBrowserOnline()
     backend.defaultUser.mockResolvedValue('microsoft:saved-id')
@@ -130,6 +135,45 @@ function mountCard() {
     cleanup.push(() => wrapper.unmount())
     return wrapper
 }
+
+it('shows an account selected outside the card without a restart', async () => {
+    backend.defaultUser.mockResolvedValue(null)
+    backend.users.mockResolvedValue([])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const wrapper = mountCard()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('SignedInElsewhere')
+
+    backend.defaultUser.mockResolvedValue('microsoft:saved-id')
+    backend.users.mockResolvedValue([account('SignedInElsewhere')])
+    notifyAccountSelectionChanged()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('SignedInElsewhere')
+})
+
+it('picks up an outside selection that lands during its own failed write', async () => {
+    backend.users.mockResolvedValue([account('BeforeOutsideChange')])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const write = deferred<void>()
+    vi.mocked(set_default_user).mockReturnValue(write.promise)
+    const wrapper = mountCard()
+    await flushPromises()
+
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text().includes('BeforeOutsideChange'))!
+        .trigger('click')
+    await flushPromises()
+    expect(set_default_user).toHaveBeenCalledOnce()
+
+    backend.users.mockResolvedValue([account('AfterOutsideChange')])
+    notifyAccountSelectionChanged()
+    write.reject(new Error('write failed'))
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('AfterOutsideChange')
+})
 
 it('shows saved accounts while online profiles and head rendering are still pending', async () => {
     const online = deferred<ReturnType<typeof account>[]>()
@@ -192,4 +236,85 @@ it('does not let a late cached head overwrite the refreshed skin', async () => {
     await flushPromises()
     expect(wrapper.text()).toContain('UpdatedPlayer')
     expect(wrapper.find('img').attributes('src')).toBe('data:image/png;base64,new-avatar')
+})
+
+it('renders accounts in the order saved between starts', async () => {
+    localStorage.setItem(
+        ACCOUNT_ORDER_STORAGE_KEY,
+        JSON.stringify(['microsoft:two', 'microsoft:one']),
+    )
+    backend.defaultUser.mockResolvedValue('microsoft:one')
+    backend.users.mockResolvedValue([
+        account('Alpha', 'microsoft:one', 'one'),
+        account('Beta', 'microsoft:two', 'two'),
+    ])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const wrapper = mountCard()
+    await flushPromises()
+
+    const names = wrapper
+        .findAll('p')
+        .map((paragraph) => paragraph.text())
+        .filter((text) => text === 'Alpha' || text === 'Beta')
+    expect(names).toEqual(['Beta', 'Alpha'])
+})
+
+it('moves an account with the keyboard handle', async () => {
+    backend.defaultUser.mockResolvedValue('microsoft:one')
+    backend.users.mockResolvedValue([
+        account('Alpha', 'microsoft:one', 'one'),
+        account('Beta', 'microsoft:two', 'two'),
+    ])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const wrapper = mountCard()
+    await flushPromises()
+
+    const row = wrapper.findAll('button').find((button) => button.text().includes('Alpha'))!
+    await row.trigger('keydown', { key: 'ArrowDown', altKey: true })
+    await flushPromises()
+
+    expect(readAccountOrder()).toEqual(['microsoft:two', 'microsoft:one'])
+    expect(set_default_user).not.toHaveBeenCalled()
+})
+
+it('persists the order a drag leaves behind without selecting an account', async () => {
+    backend.defaultUser.mockResolvedValue('microsoft:one')
+    backend.users.mockResolvedValue([
+        account('Alpha', 'microsoft:one', 'one'),
+        account('Beta', 'microsoft:two', 'two'),
+    ])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const wrapper = mountCard()
+    await flushPromises()
+
+    const draggable = wrapper.findComponent(Draggable)
+    const list = draggable.props('list') as Array<{ account_id: string }>
+    expect(list.map((entry) => entry.account_id)).toEqual(['microsoft:one', 'microsoft:two'])
+
+    draggable.vm.$emit('start')
+    const [moved] = list.splice(0, 1)
+    list.splice(1, 0, moved)
+    draggable.vm.$emit('end')
+    await flushPromises()
+
+    expect(readAccountOrder()).toEqual(['microsoft:two', 'microsoft:one'])
+    expect(set_default_user).not.toHaveBeenCalled()
+})
+
+it('does not pin the default order when a drag lands where it started', async () => {
+    backend.defaultUser.mockResolvedValue('microsoft:one')
+    backend.users.mockResolvedValue([
+        account('Alpha', 'microsoft:one', 'one'),
+        account('Beta', 'microsoft:two', 'two'),
+    ])
+    backend.heads.mockResolvedValue('data:image/png;base64,avatar')
+    const wrapper = mountCard()
+    await flushPromises()
+
+    const draggable = wrapper.findComponent(Draggable)
+    draggable.vm.$emit('start')
+    draggable.vm.$emit('end')
+    await flushPromises()
+
+    expect(readAccountOrder()).toEqual([])
 })

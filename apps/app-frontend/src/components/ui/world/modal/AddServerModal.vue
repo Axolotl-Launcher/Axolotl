@@ -54,6 +54,7 @@ async function addServer(play: boolean) {
             index,
             address: address.value,
             pack_status: resourcePackStatus,
+            display_status: 'normal',
         },
         play,
     )

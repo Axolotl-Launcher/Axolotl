@@ -39,9 +39,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { RouterLink, useLink, useRoute } from 'vue-router'
+import { RouterLink, useLink, useRoute, useRouter } from 'vue-router'
+
+import { injectNavRailOptimisticSelection } from './nav-rail-selection'
 
 const route = useRoute()
+const router = useRouter()
+const optimisticSelection = injectNavRailOptimisticSelection()
 
 type RouteFunction = (route: RouteLocationNormalizedLoaded) => boolean
 
@@ -61,11 +65,16 @@ const props = withDefaults(
 )
 
 const link = useLink({ to: computed(() => (typeof props.to === 'string' ? props.to : '/')) })
+const optimisticallyActive = computed(() => {
+    const href = optimisticSelection?.href.value
+    if (!href || typeof props.to !== 'string') return false
+    return router.resolve(props.to).path === href
+})
 const activeClasses = computed(() => {
     const primary = props.isPrimary ? props.isPrimary(route) : link.isActive.value
     return {
-        'router-link-active': primary,
-        'subpage-active': !primary && !!props.isSubpage?.(route),
+        'router-link-active': primary || optimisticallyActive.value,
+        'subpage-active': !primary && !optimisticallyActive.value && !!props.isSubpage?.(route),
     }
 })
 

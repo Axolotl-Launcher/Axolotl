@@ -22,6 +22,16 @@ export const discoverRoutes: RouteRecordRaw[] = [
         },
     },
     {
+        path: '/browse/schematic',
+        name: 'DiscoverSchematics',
+        component: () => import('@/pages/Schematics.vue'),
+        meta: {
+            useContext: true,
+            breadcrumb: [{ name: '?BrowseTitle' }],
+            pageTransitionGroup: 'browse',
+        },
+    },
+    {
         path: '/browse/:projectType',
         name: 'DiscoverContent',
         component: () => import('@/pages/Browse.vue'),
@@ -35,7 +45,9 @@ export const discoverRoutes: RouteRecordRaw[] = [
     {
         path: '/:projectType(mod|plugin|datapack|resourcepack|shader|modpack)/:id/:rest(.*)*',
         redirect: (to) => {
-            const rest = to.params.rest ? `/${[].concat(to.params.rest).join('/')}` : ''
+            const restParam = to.params.rest
+            const restSegments = Array.isArray(restParam) ? restParam : restParam ? [restParam] : []
+            const rest = restSegments.length ? `/${restSegments.join('/')}` : ''
             return `/project/${to.params.id}${rest}${to.hash}`
         },
     },
@@ -110,6 +122,16 @@ export const discoverRoutes: RouteRecordRaw[] = [
             breadcrumb: [{ name: '?Project' }],
             discordActivity: 'Browsing mods...',
             pageTransitionGroup: 'planet-minecraft-project',
+        },
+    },
+    {
+        path: '/project/:source(shimu|reden|buildschematics)/:id/:tab(files)?',
+        name: 'SchematicProject',
+        component: () => import('@/pages/project/Schematic.vue'),
+        meta: {
+            useContext: true,
+            breadcrumb: [{ name: '?Project' }],
+            pageTransitionGroup: 'shimu-project',
         },
     },
     {

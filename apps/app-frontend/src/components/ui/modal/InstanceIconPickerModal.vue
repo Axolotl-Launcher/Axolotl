@@ -305,7 +305,17 @@ async function renderGeneratedIcon(): Promise<Blob> {
     if (!selectedBackground.value.colors) {
         const response = await fetch(selectedIcon.value.url)
         if (!response.ok) throw new Error(formatMessage(messages.loadError))
-        return await response.blob()
+        const blob = await response.blob()
+        if (blob.type === 'image/png') return blob
+
+        const symbol = await loadImage(selectedIcon.value.url)
+        const canvas = document.createElement('canvas')
+        canvas.width = symbol.naturalWidth
+        canvas.height = symbol.naturalHeight
+        const context = canvas.getContext('2d')
+        if (!context) throw new Error(formatMessage(messages.loadError))
+        context.drawImage(symbol, 0, 0)
+        return await canvasToBlob(canvas)
     }
 
     const size = 512

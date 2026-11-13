@@ -23,6 +23,7 @@ import { trackEvent } from '@/helpers/analytics'
 import { collectGcContext } from '@/helpers/gc/context'
 import { wait_for_install_job } from '@/helpers/install'
 import { getJavaArgumentPresets } from '@/helpers/java-argument-presets'
+import { confirmJavaSelection } from '@/helpers/java-selection'
 import {
     find_filtered_jres,
     get_java_default_versions,
@@ -63,6 +64,10 @@ const messages = defineMessages({
     viewInstalled: {
         id: 'app.settings.java.view-installed',
         defaultMessage: 'View installed Java',
+    },
+    useConsoleJava: {
+        id: 'app.settings.java.use-console-java',
+        defaultMessage: 'Use java instead of javaw when launching Minecraft',
     },
     autoHighPerformanceMode: {
         id: 'app.settings.java.auto-high-performance-mode',
@@ -138,12 +143,16 @@ const supportsMemoryOptimization = currentPlatform === 'windows'
 const settings = ref(await get().catch(handleError))
 const saveDraft = settings.value ? createSettingsPatchSaver(settings.value, update) : undefined
 const autoHighPerformanceMode = ref(settings.value?.auto_set_java_high_performance_mode ?? false)
+const useConsoleJava = ref(settings.value?.minecraft_use_console_java ?? false)
 
 const javaArgs = ref((settings.value?.extra_launch_args ?? []).join(' '))
 
 const memory = ref(
     settings.value?.memory
-        ? { optimize_before_launch: false, ...settings.value.memory }
+        ? {
+              ...settings.value.memory,
+              optimize_before_launch: settings.value.memory.optimize_before_launch ?? false,
+          }
         : { maximum: 2048, automatic: true, optimize_before_launch: false },
 )
 
@@ -178,13 +187,14 @@ await updateGcContext()
 watch(() => memory.value.maximum, updateGcContext)
 
 watch(
-    [autoHighPerformanceMode, memory, javaArgs],
+    [autoHighPerformanceMode, useConsoleJava, memory, javaArgs],
     async () => {
         if (!settings.value) return
 
         settings.value = {
             ...settings.value,
             auto_set_java_high_performance_mode: autoHighPerformanceMode.value,
+            minecraft_use_console_java: useConsoleJava.value,
             memory: memory.value,
             extra_launch_args: javaArgs.value.trim().split(/\s+/).filter(Boolean),
         }
@@ -283,7 +293,9 @@ async function handleManualAdd() {
     const javaInfo = await get_jre(filePath).catch(handleError)
     if (!javaInfo) return
 
-    await set_java_version(javaInfo).catch(handleError)
+    const selected = await confirmJavaSelection(javaInfo, formatMessage).catch(handleError)
+    if (!selected) return
+    await set_java_version(selected).catch(handleError)
     trackEvent('JavaManualSelect', { path: filePath })
 }
 
@@ -396,6 +408,23 @@ async function onJavaDownloaded(job) {
                     {{ formatMessage(messages.cancel) }}
                 </Button>
             </div>
+        </div>
+
+        <div
+            v-if="currentPlatform === 'windows'"
+            class="flex items-center justify-between gap-4 border-0 border-t border-solid border-button-border pt-5"
+        >
+            <label
+                for="settings-target-java-use-console"
+                class="text-sm font-semibold text-[var(--color-text-primary)]"
+            >
+                {{ formatMessage(messages.useConsoleJava) }}
+            </label>
+            <Toggle
+                id="settings-target-java-use-console"
+                v-model="useConsoleJava"
+                :disabled="!settings"
+            />
         </div>
 
         <div

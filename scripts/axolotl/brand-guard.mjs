@@ -3,7 +3,15 @@ import path from 'node:path'
 
 const roots = ['apps/app', 'apps/app-frontend', 'packages/app-lib']
 const ignoredNames = new Set(['LICENSE', 'COPYING.md'])
-const ignoredDirectories = new Set(['dist', 'build', 'node_modules', 'target', '.gradle', '.sqlx', 'bin'])
+const ignoredDirectories = new Set([
+    'dist',
+    'build',
+    'node_modules',
+    'target',
+    '.gradle',
+    '.sqlx',
+    'bin',
+])
 const forbiddenPatterns = [
     ['official product name', /Modrinth App/g],
     ['official API identity', /modrinth\/theseus/gi],
@@ -46,6 +54,9 @@ for (const root of roots) {
 
 const tauriConfig = JSON.parse(await readFile('apps/app/tauri.conf.json', 'utf8'))
 const frontendConfig = await readFile('apps/app-frontend/src/config.ts', 'utf8')
+const shellMain = await readFile('apps/app/src/main.rs', 'utf8')
+const shellBuild = await readFile('apps/app/build.rs', 'utf8')
+const pluginCapabilities = JSON.parse(await readFile('apps/app/capabilities/plugins.json', 'utf8'))
 const requiredInvariants = [
     ['product name', tauriConfig.productName === 'Axolotl Launcher'],
     ['bundle identifier', tauriConfig.identifier === 'red.ghs.axolotl'],
@@ -53,15 +64,21 @@ const requiredInvariants = [
         'deep-link scheme',
         tauriConfig.plugins?.['deep-link']?.desktop?.schemes?.includes('axolotl') === true,
     ],
+    ['User-Agent format', frontendConfig.includes('Axolotl-Launcher/${version} (${os})')],
     [
-        'User-Agent format',
-        frontendConfig.includes('Axolotl-Launcher/${version} (${os})'),
+        'private Modrinth login removed',
+        !shellMain.includes('api::mr_auth::init') &&
+            !shellBuild.includes('"mr-auth"') &&
+            !pluginCapabilities.permissions.some((permission) => {
+                const identifier =
+                    typeof permission === 'string' ? permission : permission?.identifier
+                return typeof identifier === 'string' && identifier.startsWith('mr-auth:')
+            }),
     ],
-    [
-        'private Modrinth services disabled',
-        frontendConfig.includes('privateModrinthServices: false'),
-    ],
-    ['GHS telemetry disabled', frontendConfig.includes('ghsTelemetry: false')],
+    // The brand config no longer declares a telemetry capability object: the
+    // flag had no reader. A build that names no flag is the disabled one, and
+    // turning it on is what a fork must not do.
+    ['GHS telemetry disabled', !/ghsTelemetry\s*:\s*true/.test(frontendConfig)],
 ]
 for (const [label, valid] of requiredInvariants) {
     if (!valid) failures.push(`configuration: missing ${label}`)

@@ -168,6 +168,10 @@ export function useSearch(
     environmentOverride: Ref<EnvironmentSearchOverride | undefined> = ref(undefined),
     sortOptions?: readonly SortType[],
     deferInitialization = false,
+    sortPolicy?: {
+        automatic?: boolean
+        supportedSortNames?: Ref<readonly string[] | undefined>
+    },
 ) {
     const query = ref('')
     const maxResults = ref(readPersistedMaxResults())
@@ -215,7 +219,35 @@ export function useSearch(
         ],
     )
 
-    const currentSortType: Ref<SortType> = ref(sortTypes[0])
+    const availableSortTypes = computed(() => {
+        const supported = sortPolicy?.supportedSortNames?.value
+        return supported ? sortTypes.filter((sort) => supported.includes(sort.name)) : sortTypes
+    })
+    const explicitSortType = ref<SortType | undefined>(
+        sortPolicy?.automatic ? undefined : sortTypes[0],
+    )
+    const currentSortType = computed({
+        get: () => {
+            const available = availableSortTypes.value
+            const selected = available.find((sort) => sort.name === explicitSortType.value?.name)
+            if (selected) return selected
+            const defaultName =
+                sortPolicy?.automatic && !query.value.trim() ? 'downloads' : 'relevance'
+            return (
+                available.find((sort) => sort.name === defaultName) ??
+                available.find((sort) => sort.name === 'relevance') ??
+                available[0] ??
+                sortTypes[0]
+            )
+        },
+        set: (sort: SortType) => {
+            explicitSortType.value = sort
+        },
+    })
+    const resetSort = () => {
+        explicitSortType.value = sortPolicy?.automatic ? undefined : sortTypes[0]
+    }
+    const searchText = computed(() => (sortPolicy?.automatic ? query.value.trim() : query.value))
 
     const route = useRoute()
     const currentPage = ref(1)
@@ -267,20 +299,32 @@ export function useSearch(
 
     const filters = computed(() => {
         const categoryFilters: Record<string, FilterType> = {}
-        const categories = sortedCategories(tags.value, formatCategoryName, locale.value).sort(
-            (a, b) => {
-                if (
-                    a.header === b.header &&
-                    a.display_index !== undefined &&
-                    b.display_index !== undefined &&
-                    a.display_index !== b.display_index
-                ) {
-                    return a.display_index - b.display_index
+        const categories = (
+            sortedCategories(tags.value, formatCategoryName, locale.value) as Array<
+                Labrinth.Tags.v2.Category & {
+                    display_index?: number
+                    header_display_name?: string
+                    display_name?: string
+                    icon_url?: string
                 }
-                return 0
-            },
-        )
-        for (const category of categories) {
+            >
+        ).sort((a, b) => {
+            if (
+                a.header === b.header &&
+                a.display_index !== undefined &&
+                b.display_index !== undefined &&
+                a.display_index !== b.display_index
+            ) {
+                return a.display_index - b.display_index
+            }
+            return 0
+        })
+        for (const rawCategory of categories) {
+            const category = rawCategory as Labrinth.Tags.v2.Category & {
+                header_display_name?: string
+                display_name?: string
+                icon_url?: string
+            }
             const filterTypeId = `category_${category.project_type}_${category.header}`
             if (!categoryFilters[filterTypeId]) {
                 categoryFilters[filterTypeId] = {
@@ -613,6 +657,7 @@ export function useSearch(
                 supported_project_types: ['mod', 'plugin', 'datapack'],
                 display: 'toggle',
                 query_param: 'a',
+                supports_negative_filter: false,
                 searchable: false,
                 ordering: -1000,
                 options: excludeableProjectTypes.map((target) => ({
@@ -784,8 +829,8 @@ export function useSearch(
     const requestParams: Ref<string> = computed(() => {
         const params = [`limit=${maxResults.value}`, `index=${currentSortType.value.name}`]
 
-        if (query.value.length > 0) {
-            params.push(`query=${encodeURIComponent(query.value)}`)
+        if (searchText.value.length > 0) {
+            params.push(`query=${encodeURIComponent(searchText.value)}`)
         }
 
         if (newFilters.value) {
@@ -856,8 +901,11 @@ export function useSearch(
             }
         })
         loadQueryParam(['s'], (sort) => {
-            currentSortType.value =
-                sortTypes.find((sortType) => sortType.name === sort) ?? sortTypes[0]
+            const name = Array.isArray(sort) ? sort[0] : sort
+            explicitSortType.value = sortTypes.find((sortType) => sortType.name === name)
+            if (!sortPolicy?.automatic && !explicitSortType.value) {
+                explicitSortType.value = sortTypes[0]
+            }
             readParams.add('s')
         })
         loadQueryParam(['m'], (count) => {
@@ -937,8 +985,8 @@ export function useSearch(
     function createPageParams(): LocationQueryRaw {
         const items: Record<string, string[]> = {}
 
-        if (query.value) {
-            items.q = [query.value]
+        if (searchText.value) {
+            items.q = [searchText.value]
         }
 
         currentFilters.value.forEach((filterValue) => {
@@ -968,7 +1016,11 @@ export function useSearch(
             }
         })
 
-        if (currentSortType.value.name !== 'relevance') {
+        // In automatic mode an absent sort parameter follows the query. An
+        // explicit choice must survive navigation even when it equals the default.
+        if (sortPolicy?.automatic) {
+            if (explicitSortType.value) items.s = [explicitSortType.value.name]
+        } else if (currentSortType.value.name !== 'relevance') {
             items.s = [currentSortType.value.name]
         }
         if (maxResults.value !== 20) {
@@ -1024,6 +1076,7 @@ export function useSearch(
 
         // Lists
         sortTypes,
+        availableSortTypes,
         filters,
 
         // Computed
@@ -1032,6 +1085,7 @@ export function useSearch(
 
         // Functions
         initializeQueryParams,
+        resetSort,
         createPageParams,
         createPageParamsString,
     }

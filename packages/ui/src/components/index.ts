@@ -1,5 +1,11 @@
 export * from './base'
+export * from './code-editor'
 export * from './flows'
+export { imageViewerEditorMessages } from './image-viewer-editor/image-viewer-editor-messages'
+export type {
+    ScreenshotEditorTool,
+    ScreenshotEraserMode,
+} from './image-viewer-editor/image-viewer-editor-types'
 export { default as ImageViewerEditor } from './image-viewer-editor/index.vue'
 export type {
     ImageViewerEditorData,
@@ -8,6 +14,7 @@ export type {
     ImageViewerEditorSavePayload,
     ImageViewerEditorSource,
 } from './image-viewer-editor/types'
+export { useImageEditor } from './image-viewer-editor/use-image-editor'
 export * from './modal'
 export * from './nav'
 export * from './notifications'

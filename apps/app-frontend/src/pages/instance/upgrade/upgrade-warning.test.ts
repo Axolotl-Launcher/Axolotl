@@ -15,15 +15,16 @@ import {
     upgradeWarningMessageId,
 } from './upgrade-warning.ts'
 
-const base = {
+const base: InstanceUpgradeResult = {
     planId: 'plan',
     sourceInstanceId: 'source',
     targetInstanceId: 'target',
     backupInstanceId: null,
     solution: { kind: 'custom', selections: [], dependencyChanges: [], warnings: [] },
+    compatibilityWarnings: [],
     externalChanges: [],
     skippedDueToExternalConflict: [],
-} as InstanceUpgradeResult
+}
 
 it('structured warning maps by stable code', () => {
     const rows = upgradeResultWarningRows({

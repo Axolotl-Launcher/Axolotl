@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { parse } from 'yaml'
 
 import { findSuccessfulBaseline, scopeProtocol } from './ci-baseline.mjs'
 import { detectChanges } from './ci-changes.mjs'
@@ -29,6 +30,22 @@ const success = (head = sha('a'), overrides = {}) => ({
     ...overrides,
 })
 const log = () => {}
+
+test('workflow steps declare an executable run or action at step level', () => {
+    const directory = new URL('../../.github/workflows/', import.meta.url)
+    for (const file of fs.readdirSync(directory).filter((file) => /\.ya?ml$/.test(file))) {
+        const workflow = parse(fs.readFileSync(new URL(file, directory), 'utf8'))
+        for (const [jobId, job] of Object.entries(workflow.jobs ?? {})) {
+            for (const [index, step] of (job.steps ?? []).entries()) {
+                assert.equal(
+                    Number(typeof step.run === 'string') + Number(typeof step.uses === 'string'),
+                    1,
+                    `${file}: ${jobId} step ${index + 1} (${step.name ?? step.id ?? 'unnamed'}) needs exactly one of run or uses`,
+                )
+            }
+        }
+    }
+})
 
 test('baseline lookup rejects old strategy, failed, cancelled, foreign and non-ancestor runs', () => {
     const candidates = [
@@ -210,6 +227,7 @@ test('CI result rejects skipped selected jobs and cancelled runs before establis
         frontend: { result: 'success' },
         resources: { result: 'success' },
         desktop: { result: 'success' },
+        coverage: { result: 'success' },
         website: { result: 'skipped' },
     }
     assert.doesNotThrow(() => validateCiResults(jobs))
@@ -217,6 +235,10 @@ test('CI result rejects skipped selected jobs and cancelled runs before establis
         assert.throws(
             () => validateCiResults({ ...jobs, desktop: { result } }),
             /desktop: expected success/,
+        )
+        assert.throws(
+            () => validateCiResults({ ...jobs, coverage: { result } }),
+            /coverage: expected success/,
         )
     }
     assert.throws(

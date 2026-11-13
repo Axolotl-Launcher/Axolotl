@@ -21,6 +21,7 @@ export default mergeConfig(
     viteConfig,
     defineConfig({
         optimizeDeps: {
+            exclude: ['monaco-editor'],
             include: ['qrcode.vue'],
         },
         test: {

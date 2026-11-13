@@ -1,0 +1,250 @@
+{
+  "id": "BHtwz1lb",
+  "slug": "optifine-for-fabric",
+  "title": "OptiFine for Fabric",
+  "description": "OptiFine features for Fabric — powered by Fabric optimization and modern Minecraft performance mods. High FPS even on low‑end systems. Shaders! 26.3: Wilderness Bound alpha!",
+  "author": "iFamished",
+  "categories": ["adventure", "fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "optional",
+  "project_type": "modpack",
+  "downloads": 742113,
+  "followers": 180,
+  "license": {
+    "id": "GPL-3.0-or-later",
+    "name": "GNU General Public License v3.0 or later"
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.16.5",
+    "1.17.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2-rc-2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "4CLTDIi4",
+  "date_created": "2025-01-11T21:23:22.267911Z",
+  "date_modified": "2026-09-18T00:43:48.465433Z",
+  "color": 13942137,
+  "published": "2025-01-11T21:23:22.267911Z",
+  "additional_categories": ["adventure"],
+  "issues_url": "https://github.com/iModder/OptiFine-for-Fabric/issues",
+  "source_url": null,
+  "wiki_url": "https://optifineforfabric.com",
+  "discord_url": "https://discord.gg/aNUYADauTJ",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://patreon.com/iFamished"
+    }
+  ],
+  "versions_total": 61,
+  "body": "<a href=\"https://billing.sparkedhost.com/aff.php?aff=3222\" target=\"_blank\" rel=\"noopener noreferrer\">\n  <img src=\"https://rhs.millered001.workers.dev/data/cached_images/4e12092abc4a8b0484f1be38be022ea6e0a7a8e3_0.webp\" alt=\"Affiliate badge\" />\n</a>\n\n---\n\n<a href=\"https://discord.com/invite/aNUYADauTJ\" target=\"_blank\" rel=\"noopener noreferrer\">\n  <img src=\"https://rhs.millered001.workers.dev/data/cached_images/0d7f1adac8117017806c02e0413f92122f33cfc8.png\" alt=\"Join the Discord\">\n</a>\n\n###\n\n<a href=\"https://rhs.millered001.workers.dev/modpack/optifine-for-quilt\" target=\"_blank\" rel=\"noopener noreferrer\">\n  <img src=\"https://rhs.millered001.workers.dev/data/cached_images/bc885867df43a3b3db4253988eb3bec6aa4a0323.png\" alt=\"Also try OFQ\">\n</a>\n<a href=\"https://rhs.millered001.workers.dev/modpack/optifine-for-neoforge\" target=\"_blank\" rel=\"noopener noreferrer\">\n  Also try OFN\n</a>\n\n###\n\n\n\n###\n\n### OptiFine for Fabric v5 is in alpha testing!\nOptiFine for Fabric v5 brings many exciting new features to the pack. During the alpha stage, v4 will continue to be supported and updated to the newest versions, rather than v5. **Please report any bugs you find!**\n\n---\n\n## Looking for a modpack that has all the features OptiFine does? You're in the right place!\nOptiFine for Fabric is a **Fabric optimization modpack** designed to being **OptiFine-style features to Fabric**, powered by **modern Minecraft performance mods** like Sodium, Iris Shaders, Lithium, and more. Perfect for players searching for modern OptiFine alternatives.\n\n### ⚡ Insane Performance Boost\n- 🧠 **Lightweight optimization** for smoother gameplay\n- 🖥️ Runs great even on **low-end systems** thanks to the optimized **Fabric loader**\n- ⚡ **8x FPS** compared to Vanilla \n- 💻 No stuttering frames\n- 📶 Less lag\n\n### 🎨 Graphics Enhancements\n- 🌈 **HD textures** and resource pack support\n- 🔍 Built-in **zoom functionality** (just like OptiFine - but with more customibility!)\n- 🧊 **Connected textures** for seamless visuals\n- 🧥 Support for **capes** and custom models\n- 🔦 Dynamic lighting and shader compatibility\n- 🧪 Includes **block & entity model enhancements**\n- 🧵 Smooth animations and visual polish\n\n### ✅ Better Than OptiFine\n- 🧩 Fabric compatibility\n- 🧠 More **reliable** and modular\n- 🧪 Actively maintained and updated for **latest Minecraft versions**\n\n### 🛠️ Modding Flexibility\n- 🔧 Compatible with **additional mods** for custom setups\n- 🧭 Working on **Lunar Client compatibility**\n\n---\n\n### FPS Comparison Chart\nFPS Benchmark\n\n_Benchmarked on a mid-range desktop computer._\n\n---\n\n### What version should I use?\nTo get the correct version of OptiFine for Fabric for your setup:\n\n- Open the **Download page**: [optifineforfabric.com/download](https://optifineforfabric.com/download)   \n- Choose your **Minecraft version** from the dropdown.  \n- Select the **latest stable release** shown for that Minecraft version.  \n   - Stable releases have **no suffix** (no `-alpha`, `-beta`, `-dev`).  \n   - The selector automatically filters versions so you don’t need to interpret compatibility badges.\n\n**How to compare versions:**  \nPick the version with the **highest numbers from left to right**.  \nExamples:\n- `3.4.1` is newer than `2.5.3`  \n- `3.5.2` is newer than `3.4.1`\n\nIf no stable releases exist for your Minecraft version, you may use an **alpha**, **beta**, or **dev** build. These appear clearly labeled in the selector.\n\n---\n\n<details>\n<summary>Detailed Version Guide</summary>\n  \nOptiFine for Fabric uses a structured versioning system. Every release follows this format:\n\n**`<major>[.<minor>[.<build>]][-channel[.<channelBuild>]]`**\n\nExamples:\n- `2.5` — stable  \n- `2.5.1` — hotfix for `2.5`  \n- `2.6-alpha.1` — first alpha release for a seperate Minecraft version\n\nThe version number describes **the pack itself**, not the Minecraft version. Minecraft compatibility is shown separately on Modrinth.\n\n---\n\n## Version Number Breakdown\n\n### Major — `<major>`\nLarge updates to the pack.  \nThis number only increases when the pack undergoes a significant redesign or major feature shift.\n\n### Minor — `<minor>`\nNormal updates within a major version.  \nThis increases when the pack receives meaningful improvements, mod additions, compatibility changes, etc.\n\n### Build — `<build>`\nA patch‑level counter **within the same Minecraft version**.\n\nThis number increases when the pack receives bug fixes or small adjustments for that specific Minecraft version.\n\nThis number **resets when Minecraft updates**, because each Minecraft version starts its own patch sequence.\n\nExamples:\n- `2.5` → Minecraft 1.21.1 (stable release)\n- `2.5.1` → Minecraft 1.21.1 (first patch)j\n- `2.5-alpha.1` → Minecraft 1.21.2 (first alpha build)\n- `2.5-beta.2` → Minecraft 1.20.1 (second beta build)\n\nBuild numbers simply indicate bug fixes and other minor changes tied to Minecraft versions.\n\n---\n\n## Release Channels\n\nChannels appear after a dash.  \n\n- `-dev` — Experimental development builds. Unstable and incomplete, highly likely to not even work.  \n- `-alpha` — Early testing builds. Features may be missing or broken.  \n- `-beta` — Feature‑complete testing builds. Mostly stable.  \n- **No suffix** — Stable release and/or hotfix. Fully tested and recommended.\n\nRecency is shown by the dot and the number.  \n- A channel followed by `.<number>` indicates the senority of the build. For example:\n  - `-alpha.1` indicates the first alpha build\n  - `-dev.3` indicates the third dev build\n  - `-beta.4` indicates the fourth beta build\n\n---\n\n## Choosing the Right Version\n\n- Use the **latest stable** version for your Minecraft version.  \n- Only use **alpha**, **beta**, or **dev** builds if you need early access or want to help test.  \n\nMinecraft compatibility is shown on Modrinth, while the version number reflects the evolution of the pack itself.\n\n</details>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/BHtwz1lb/images/c2bea2944b9587f784ba52ce6a6b427a49057be9.png",
+      "featured": true,
+      "title": null,
+      "description": null,
+      "created": "2025-01-11T21:43:06.632556Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "iFamished",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/7y55DCpu/87084d688a44886d4da0caf1de6465d76824f7c9_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "4CLTDIi4",
+      "name": "OptiFine for Fabric 4.1-alpha.1",
+      "version_number": "4.1-alpha.1",
+      "version_type": "alpha",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-18T00:43:48.465433Z",
+      "downloads": 33448,
+      "changelog": "Updated to Minecraft 26.3",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric v4.1 • 26.3 • Alpha 1 4.1-alpha.1.mrpack",
+          "size": 950588,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "FEXkqR6A",
+      "name": "OptiFine for Fabric v4.1 • 26.2 • Alpha 1",
+      "version_number": "4.1-alpha.1",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-19T18:46:37.944424Z",
+      "downloads": 79634,
+      "changelog": "### New features\n- Enabled all up-to-date mods\n### Updates\n- Cloth Config API\n- Entity Culling\n- Fabric API\n- ImmediatelyFast\n- LanguageReload\n- Mod Menu\n- Remove Reloading Screen\n- Sodium Extra\n- ModernFix (temporarily using ModernFix-mVUS)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric 4.1.11-alpha.mrpack",
+          "size": 936365,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hWmVBytK",
+      "name": "OptiFine for Fabric v5 • 1.21.11 • Alpha 1",
+      "version_number": "5-alpha.1",
+      "version_type": "alpha",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-17T18:07:31.912045Z",
+      "downloads": 17714,
+      "changelog": "### New features\n- Reimagined mod collection\n- Cleaner menus\n- Default configuration files\n- Dedicated `OptiFine for Fabric...` settings menu\n- Faster loading times\n- Less bloat\n- More stable experience\n- Broader compatibility\n\n### Updates\n- Fabric loader\n- Most mods\n\n### Fixed bugs\n- Joining servers and singleplayer worlds show blending text at one stage\n- Updating the pack overrides certain configs",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric 5.0-alpha.mrpack",
+          "size": 996423,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "wGbPXrBt",
+      "name": "OptiFine for Fabric v4.1 • 26.2 • Alpha 3",
+      "version_number": "4.1-alpha.3",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-17T17:29:28.011006Z",
+      "downloads": 2582,
+      "changelog": "### Updates\n- Entity Model Features\n- Entity Texture Features\n- BetterGrassify\n- C2ME\n- Fzzy Config\n- Iris\n- LibJF\n- Lithium\n- Reese's Sodium Options\n- Sodium Extra",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric 4.1.10-alpha.mrpack",
+          "size": 936221,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "TG21cI3U",
+      "name": "OptiFine for Fabric v4.1 • 26.2 • Alpha 2",
+      "version_number": "4.1-alpha.2",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-16T21:17:42.348767Z",
+      "downloads": 1019,
+      "changelog": "### Updates\n- BadOptimizations\n- Capes\n- Continuity",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric 4.1.9-alpha.mrpack",
+          "size": 936220,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fYHwgOn1",
+      "name": "OptiFine for Fabric v4.1 • 26.2 • Alpha 1",
+      "version_number": "4.1-alpha.1",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-16T16:20:45.899638Z",
+      "downloads": 850,
+      "changelog": "Updated to 26.2",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric 4.1.8-alpha.mrpack",
+          "size": 939056,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "quKsfFMu",
+      "name": "OptiFine for Fabric v4.1 • 26.2-Rc-2 • Alpha 1",
+      "version_number": "4.1-alpha.1",
+      "version_type": "alpha",
+      "game_versions": ["26.2-rc-2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-16T16:18:01.424078Z",
+      "downloads": 541,
+      "changelog": "Updated to Minecraft 26.2-Rc-2",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric 4.1.7-alpha.mrpack",
+          "size": 936227,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "alAAY9bu",
+      "name": "OptiFine for Fabric v4.1 • 26.1.2 • Alpha 2",
+      "version_number": "4.1-alpha.2",
+      "version_type": "alpha",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-05-25T15:19:37.474419Z",
+      "downloads": 27424,
+      "changelog": "**Updates:**\n- Fabric loader 0.19.1 -> 0.19.2  \n- A bunch of mods  ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "OptiFine for Fabric 4.1.6.mrpack",
+          "size": 936245,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -14,21 +14,24 @@ pub(super) struct StagedUpgradeMutation {
     pub(super) download: StagedUpgradeDownload,
 }
 
-struct UpgradeStagingRequest {
-    index: usize,
-    provider: ContentProvider,
-    project_id: String,
-    release_id: String,
-    auto_dependency: bool,
-    enabled: bool,
-    existing_path: Option<String>,
-    ownership: crate::state::instances::ContentOwnershipKind,
-    project_type: Option<crate::state::ProjectType>,
+pub(super) struct UpgradeStagingRequest {
+    pub(super) index: usize,
+    pub(super) provider: ContentProvider,
+    pub(super) project_id: String,
+    pub(super) release_id: String,
+    pub(super) current_release_id: Option<String>,
+    pub(super) current_file: Option<(String, u64)>,
+    pub(super) existing_entry_id: Option<String>,
+    pub(super) auto_dependency: bool,
+    pub(super) enabled: bool,
+    pub(super) existing_path: Option<String>,
+    pub(super) ownership: crate::state::instances::ContentOwnershipKind,
+    pub(super) project_type: Option<crate::state::ProjectType>,
 }
 
 pub(super) struct AppliedUpgradeContent {
-    skipped: Vec<String>,
-    launcher_expected_files:
+    pub(super) skipped: Vec<String>,
+    pub(super) launcher_expected_files:
         HashMap<String, Option<crate::state::InstanceUpgradeSourceFile>>,
 }
 
@@ -200,7 +203,15 @@ pub(super) async fn run_instance_upgrade(
     if shared_upgrade_mode == SharedUpgradeMode::Direct {
         let replacement_paths = staged
             .iter()
-            .map(|mutation| mutation.target_path.clone())
+            .flat_map(|mutation| {
+                std::iter::once(mutation.target_path.as_str())
+                    .chain(mutation.existing_path.as_deref())
+                    .flat_map(|path| {
+                        let enabled =
+                            path.strip_suffix(".disabled").unwrap_or(path);
+                        [enabled.to_string(), format!("{enabled}.disabled")]
+                    })
+            })
             .collect::<Vec<_>>();
         recovery::prepare_existing_upgrade_content_rollback(
             job_id,
@@ -210,6 +221,10 @@ pub(super) async fn run_instance_upgrade(
         )
         .await?;
         recovery::restore_upgrade_db_baseline(job_state, state).await?;
+        prepare_upgrade_replacement_files(job_state, &staged).await?;
+        InstallProgressReporter::new(job_id, job_state.clone())
+            .set_rollback(job_state.rollback.clone())
+            .await?;
     }
 
     update_progress(
@@ -823,6 +838,7 @@ async fn stage_upgrade_content(
         ContentProvider,
         String,
         String,
+        Option<String>,
         bool,
         bool,
     )>::new();
@@ -851,6 +867,7 @@ async fn stage_upgrade_content(
             provider,
             project_id,
             target_release_id,
+            selection.current_release_id.clone(),
             false,
             selection.enabled,
         ));
@@ -873,6 +890,7 @@ async fn stage_upgrade_content(
                     change.project_id
                 ))
             })?,
+            change.current_release_id.clone(),
             true,
             change.enabled,
         ));
@@ -899,6 +917,7 @@ async fn stage_upgrade_content(
                     provider,
                     project_id,
                     release_id,
+                    current_release_id,
                     auto_dependency,
                     enabled,
                 ),
@@ -931,11 +950,18 @@ async fn stage_upgrade_content(
                             crate::state::instances::adapters::filesystem::project_type_from_relative_path,
                         )
                     });
+                let current_file = existing_path.as_deref().and_then(|path| {
+                    files.iter().find(|file| file.relative_path == path)
+                        .map(|file| (file.sha1.clone(), file.size))
+                });
                 UpgradeStagingRequest {
                     index,
                     provider,
                     project_id,
                     release_id,
+                    current_release_id,
+                    current_file,
+                    existing_entry_id: existing_entry.map(|entry| entry.id.clone()),
                     auto_dependency,
                     enabled,
                     existing_path,
@@ -970,7 +996,9 @@ async fn stage_upgrade_content(
             }
         })
         .collect::<FuturesUnordered<_>>();
-    collect_ordered_upgrade_staging(&mut downloads).await
+    let staged = collect_ordered_upgrade_staging(&mut downloads).await?;
+    validate_upgrade_targets(instance_id, &staged).await?;
+    Ok(staged)
 }
 
 pub(super) async fn collect_ordered_upgrade_staging<F, T>(
@@ -1059,22 +1087,53 @@ async fn stage_one_upgrade_request(
                 .into());
             }
         };
-    let target_path =
-        context
-            .existing_path
-            .clone()
-            .unwrap_or_else(|| match &download {
-                StagedUpgradeDownload::Modrinth(download) => format!(
-                    "{}/{}",
-                    download.project_type.get_folder(),
-                    download.file_name
-                ),
-                StagedUpgradeDownload::CurseForge(download) => format!(
-                    "{}/{}",
-                    download.project_type.get_folder(),
-                    download.file.file_name
-                ),
-            });
+    stage_downloaded_upgrade_request(context, download, reporter, state).await
+}
+
+pub(super) async fn stage_downloaded_upgrade_request(
+    context: UpgradeStagingRequest,
+    download: StagedUpgradeDownload,
+    reporter: Option<InstallProgressReporter>,
+    state: &State,
+) -> crate::Result<StagedUpgradeMutation> {
+    let (project_type, file_name) = match &download {
+        StagedUpgradeDownload::Modrinth(download) => {
+            (download.project_type, download.file_name.as_str())
+        }
+        StagedUpgradeDownload::CurseForge(download) => {
+            (download.project_type, download.file.file_name.as_str())
+        }
+    };
+    let target_path = if let Some(path) = context.existing_path.as_deref() {
+        // Only a hash-verified old artifact can identify the provider-owned part
+        // of a name. A custom name (or unavailable metadata) is never guessed.
+        let old_name = match upgrade_current_provider_file_name(&context, state)
+            .await
+        {
+            Ok(name) => name,
+            Err(error) => {
+                tracing::warn!(%error, path, "Could not resolve the previous upgrade filename; preserving it");
+                None
+            }
+        };
+        let desired =
+            crate::state::instances::commands::configured_update_relative_path(
+                path,
+                old_name.as_deref(),
+                file_name,
+                state,
+            )
+            .await?;
+        if desired.eq_ignore_ascii_case(path) {
+            path.to_string()
+        } else {
+            desired
+        }
+    } else {
+        let file_name =
+            crate::util::io::sanitize_download_file_name(file_name)?;
+        format!("{}/{file_name}", project_type.get_folder())
+    };
     let download_size = match &download {
         StagedUpgradeDownload::Modrinth(download) => download.size,
         StagedUpgradeDownload::CurseForge(download) => {
@@ -1099,6 +1158,265 @@ async fn stage_one_upgrade_request(
     })
 }
 
+async fn upgrade_current_provider_file_name(
+    context: &UpgradeStagingRequest,
+    state: &State,
+) -> crate::Result<Option<String>> {
+    let (Some(release_id), Some((sha1, size))) = (
+        context.current_release_id.as_deref(),
+        context.current_file.as_ref(),
+    ) else {
+        return Ok(None);
+    };
+    if let Some(entry_id) = context.existing_entry_id.as_ref()
+        && let Some(record) = crate::state::store::resource_installed_artifacts::ResourceInstalledArtifacts::get(
+            &state.data, entry_id,
+        ).await?
+        && let Ok(artifact) = serde_json::from_str::<crate::resources::ResourceArtifact>(&record.artifact)
+        && artifact.reference.release.project.source.as_str() == context.provider.as_str()
+        && artifact.reference.release.project.project_id.as_str() == context.project_id
+        && artifact.reference.release.release_id.as_str() == release_id
+        && crate::resources::identity::exact_integrity(
+            &crate::resources::ArtifactIntegrity {
+                size: Some(*size),
+                hashes: vec![crate::resources::ContentHash {
+                    algorithm: crate::resources::HashAlgorithm::Sha1,
+                    value: sha1.clone(),
+                }],
+            },
+            &artifact.integrity,
+        )
+        && artifact.file_name.is_some()
+    {
+        return Ok(artifact.file_name);
+    }
+    match context.provider {
+        ContentProvider::Modrinth => {
+            let version = crate::state::CachedEntry::get_version(
+                &crate::state::ModrinthVersionId::new(release_id.to_string())?,
+                None,
+                state.cache_pool(),
+                &state.api_semaphore,
+            )
+            .await?;
+            Ok(version
+                .filter(|version| version.project_id == context.project_id)
+                .and_then(|version| {
+                    let mut files = version.files.into_iter().filter(|file| {
+                        u64::from(file.size) == *size
+                            && file.hashes.get("sha1").is_some_and(|hash| {
+                                hash.eq_ignore_ascii_case(sha1)
+                            })
+                    });
+                    let file = files.next()?;
+                    files.next().is_none().then_some(file)
+                })
+                .map(|file| file.filename))
+        }
+        ContentProvider::CurseForge => {
+            let project_id =
+                context.project_id.parse::<u32>().map_err(|_| {
+                    crate::ErrorKind::InputError(
+                        "Invalid previous CurseForge project id".into(),
+                    )
+                })?;
+            let file_id = release_id.parse::<u32>().map_err(|_| {
+                crate::ErrorKind::InputError(
+                    "Invalid previous CurseForge file id".into(),
+                )
+            })?;
+            let file =
+                crate::api::curseforge::get_file(project_id, file_id).await?;
+            Ok((file.mod_id == project_id
+                && file.id == file_id
+                && file.file_length == *size
+                && file.hashes.iter().any(|hash| {
+                    hash.algo == 1 && hash.value.eq_ignore_ascii_case(sha1)
+                }))
+            .then_some(file.file_name))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn upgrade_filename_key(path: &str) -> String {
+    let path = path.to_ascii_lowercase();
+    path.strip_suffix(".disabled").unwrap_or(&path).to_string()
+}
+
+pub(super) async fn prepare_upgrade_replacement_files(
+    job_state: &mut InstallJobState,
+    staged: &[StagedUpgradeMutation],
+) -> crate::Result<()> {
+    let snapshot = job_state
+        .rollback
+        .as_mut()
+        .and_then(|rollback| rollback.content.as_mut())
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Upgrade rollback snapshot is missing".into(),
+            )
+        })?;
+    let original_paths = snapshot
+        .files
+        .iter()
+        .filter(|file| file.existed)
+        .map(|file| file.relative_path.as_str())
+        .collect::<HashSet<_>>();
+    for mutation in staged {
+        let (download_path, expected_size) = match &mutation.download {
+            StagedUpgradeDownload::Modrinth(download) => {
+                (&download.path, download.size)
+            }
+            StagedUpgradeDownload::CurseForge(download) => {
+                (&download.path, download.file.file_length)
+            }
+        };
+        let (size, sha1) =
+            crate::util::fetch::sha1_file_async(download_path).await?;
+        if size != expected_size
+            || matches!(&mutation.download,
+            StagedUpgradeDownload::Modrinth(download) if !download.sha1.eq_ignore_ascii_case(&sha1))
+        {
+            return Err(crate::ErrorKind::InputError(
+                "Staged upgrade download changed before applying".into(),
+            )
+            .into());
+        }
+        let enabled_path = mutation
+            .target_path
+            .strip_suffix(".disabled")
+            .unwrap_or(&mutation.target_path);
+        for relative_path in
+            [enabled_path.to_string(), format!("{enabled_path}.disabled")]
+        {
+            if original_paths.contains(relative_path.as_str()) {
+                continue;
+            }
+            snapshot.replacement_files.push(
+                crate::install::model::InstallRollbackReplacementFile {
+                    relative_path,
+                    sha1: sha1.clone(),
+                    size,
+                },
+            );
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn validate_upgrade_target_paths(
+    staged: &[StagedUpgradeMutation],
+    existing_paths: &[String],
+) -> crate::Result<()> {
+    let mut targets = HashSet::new();
+    let mut existing = HashMap::<String, Vec<&str>>::new();
+    for path in existing_paths {
+        existing
+            .entry(upgrade_filename_key(path))
+            .or_default()
+            .push(path);
+    }
+    for mutation in staged {
+        path_util::SafeRelativeUtf8UnixPathBuf::try_from(
+            mutation.target_path.clone(),
+        )?;
+        let target_key = upgrade_filename_key(&mutation.target_path);
+        if !targets.insert(target_key.clone())
+            || existing.get(&target_key).is_some_and(|paths| {
+                paths.iter().any(|path| {
+                    mutation.existing_path.as_deref() != Some(*path)
+                })
+            })
+        {
+            return Err(crate::ErrorKind::InputError(format!(
+                "Cannot upgrade content because {} conflicts with another file",
+                mutation.target_path,
+            ))
+            .into());
+        }
+    }
+    Ok(())
+}
+
+async fn validate_upgrade_targets(
+    instance_id: &str,
+    staged: &[StagedUpgradeMutation],
+) -> crate::Result<()> {
+    let base = crate::api::instance::get_full_path(instance_id).await?;
+    let mut parents = HashSet::new();
+    for mutation in staged {
+        recovery::checked_instance_path(&base, &mutation.target_path)?;
+        if let Some(source) = mutation.existing_path.as_deref() {
+            recovery::checked_instance_path(&base, source)?;
+        }
+        if let Some((parent, _)) = mutation.target_path.rsplit_once('/') {
+            parents.insert(parent.to_string());
+        }
+    }
+    let mut paths = Vec::new();
+    for parent in parents {
+        let directory = recovery::checked_instance_path(&base, &parent)?;
+        let mut entries = match tokio::fs::read_dir(directory).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        };
+        while let Some(entry) = entries.next_entry().await? {
+            paths.push(format!(
+                "{parent}/{}",
+                entry.file_name().to_string_lossy()
+            ));
+        }
+    }
+    validate_upgrade_target_paths(staged, &paths)
+}
+
+#[cfg(windows)]
+async fn validate_upgrade_mutation_target(
+    instance_id: &str,
+    mutation: &StagedUpgradeMutation,
+) -> crate::Result<()> {
+    let base = crate::api::instance::get_full_path(instance_id).await?;
+    if let Some(source) = mutation.existing_path.as_deref() {
+        recovery::checked_instance_path(&base, source)?;
+    }
+    let enabled_path = mutation
+        .target_path
+        .strip_suffix(".disabled")
+        .unwrap_or(&mutation.target_path);
+    for candidate in
+        [enabled_path.to_string(), format!("{enabled_path}.disabled")]
+    {
+        let path = recovery::checked_instance_path(&base, &candidate)?;
+        if mutation
+            .existing_path
+            .as_deref()
+            .is_some_and(|source| source.eq_ignore_ascii_case(&candidate))
+        {
+            continue;
+        }
+        match tokio::fs::symlink_metadata(path).await {
+            Ok(_) => return Err(crate::ErrorKind::InputError(format!(
+                "Cannot upgrade content because {candidate} conflicts with another file"
+            )).into()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+async fn validate_upgrade_mutation_target(
+    instance_id: &str,
+    mutation: &StagedUpgradeMutation,
+) -> crate::Result<()> {
+    validate_upgrade_targets(instance_id, std::slice::from_ref(mutation)).await
+}
+
 pub(super) async fn apply_upgrade_content(
     instance_id: &str,
     staged: Vec<StagedUpgradeMutation>,
@@ -1107,6 +1425,8 @@ pub(super) async fn apply_upgrade_content(
     source_files: &[crate::state::InstanceUpgradeSourceFile],
     state: &State,
 ) -> crate::Result<AppliedUpgradeContent> {
+    validate_upgrade_target_paths(&staged, &[])?;
+    let mut applied_source_paths = HashSet::new();
     let mut skipped = Vec::new();
     let mut launcher_expected_files = HashMap::new();
     #[cfg(debug_assertions)]
@@ -1144,11 +1464,17 @@ pub(super) async fn apply_upgrade_content(
             skipped.push(mutation.target_path);
             continue;
         }
-        let relative_path = match mutation.download {
+        validate_upgrade_mutation_target(instance_id, &mutation).await?;
+        let write_path = mutation
+            .existing_path
+            .as_deref()
+            .unwrap_or(&mutation.target_path)
+            .to_string();
+        let mut relative_path = match mutation.download {
             StagedUpgradeDownload::Modrinth(download) => {
                 crate::state::instances::commands::apply_downloaded_project_version_at_path(
                     instance_id,
-                    &mutation.target_path,
+                    &write_path,
                     download,
                     crate::state::instances::ContentSourceKind::Local,
                     mutation.ownership,
@@ -1161,11 +1487,22 @@ pub(super) async fn apply_upgrade_content(
                     instance_id,
                     download,
                     mutation.ownership,
-                    &mutation.target_path,
+                    &write_path,
                 )
                 .await?
             }
         };
+        if relative_path != mutation.target_path {
+            crate::state::instances::commands::rename_project_file(
+                instance_id,
+                &relative_path,
+                &mutation.target_path,
+                state,
+            )
+            .await?;
+            relative_path = mutation.target_path;
+        }
+        applied_source_paths.insert(write_path.clone());
         let scope = crate::state::instances::commands::resolve_content_scope(
             instance_id,
             None,
@@ -1203,7 +1540,7 @@ pub(super) async fn apply_upgrade_content(
         }
         record_launcher_expected_file(
             instance_id,
-            &relative_path,
+            &write_path,
             &final_relative_path,
             &mut launcher_expected_files,
         )
@@ -1234,6 +1571,9 @@ pub(super) async fn apply_upgrade_content(
         .collect::<HashMap<_, _>>();
     for item in &execution.items {
         let path = item.relative_path.as_str();
+        if applied_source_paths.contains(path) {
+            continue;
+        }
         if external_paths.contains(path)
             || source_file_changed(path, source_files, instance_id).await?
         {
@@ -1257,6 +1597,9 @@ pub(super) async fn apply_upgrade_content(
         let Some(path) = item_paths.get(content_id).copied() else {
             continue;
         };
+        if applied_source_paths.contains(path) {
+            continue;
+        }
         if external_paths.contains(path)
             || source_file_changed(path, source_files, instance_id).await?
         {

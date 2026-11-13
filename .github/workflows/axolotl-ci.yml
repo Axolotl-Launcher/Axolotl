@@ -54,7 +54,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -70,6 +70,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node --test scripts/axolotl/ci-changes.test.mjs
+          node --test scripts/axolotl/build-jobs.test.mjs
+          node --test scripts/axolotl/rust-coverage.test.mjs
+          node --test scripts/axolotl/check-db-test-isolation.test.mjs
           node --test scripts/axolotl/release-policy.test.mjs
           node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
@@ -97,17 +100,21 @@ jobs:
         run: node scripts/axolotl/check-dead-colours.test.mjs
       - name: Check downgrade for app database
         run: node scripts/axolotl/downgrade-app-db.test.mjs
+      - name: Check database test isolation
+        run: node scripts/axolotl/check-db-test-isolation.mjs
       - name: Check release notes
         run: node --test scripts/axolotl/create-release-notes.test.mjs
       - name: Check Discord release notifications
         run: node --test scripts/axolotl/publish-discord-release.test.mjs
       - name: Check scheduler resource gates
-        # Advisory until the team adopts the scheduler policy: these gates fail
-        # on any new lock, spawn or std::fs site until its policy entry lands.
-        continue-on-error: true
+        # Blocking since the scheduler policy is part of the tree: a new lock,
+        # spawn or std::fs site fails until its policy entry lands, and a stale
+        # rank fingerprint fails until it is re-reviewed.
         # Every gate runs even after one fails; the step fails at the end and
         # names each failed gate.
         run: |
+          SCHED_ARTIFACT_DIR="$(mktemp -d "$RUNNER_TEMP/axolotl-scheduler-XXXXXX")"
+          export SCHED_ARTIFACT_DIR
           failed=()
           # Usage: gate <highest accepted exit code> <command...>
           gate() {
@@ -127,10 +134,16 @@ jobs:
           gate 0 node scripts/axolotl/sched-l0-resource-check.mjs
           gate 0 node scripts/axolotl/sched-level-predicate-check.mjs
           gate 0 node scripts/axolotl/sched-bare-spawn-check.mjs
-          # Exit 1 from these two means the design falls back to per-family
-          # orders (an accepted outcome); only other codes fail.
+          gate 0 node scripts/axolotl/sched-whitelist-check.mjs
+          gate 0 node scripts/axolotl/sched-enter-ban-check.mjs
+          gate 0 node scripts/axolotl/sched-tag-check.mjs
+          gate 0 node scripts/axolotl/sched-unbounded-sender-check.mjs
+          # Exit 1 here means the design falls back to per-family orders (an
+          # accepted outcome, spec §11.8 R5); only other codes fail.
           gate 1 node scripts/axolotl/sched-recall-gap-gate.mjs
-          gate 1 node scripts/axolotl/sched-order-annotation-check.mjs
+          # Within each family the order is enforced: every acquisition point
+          # the per-family order can judge must carry an annotation.
+          gate 0 node scripts/axolotl/sched-order-annotation-check.mjs --require-annotations
           if [ "${#failed[@]}" -gt 0 ]; then
             printf 'failed scheduler gates:\n'
             printf '  %s\n' "${failed[@]}"
@@ -153,7 +166,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -177,8 +190,45 @@ jobs:
         run: pnpm --filter @modrinth/ui test
       - name: Test desktop frontend
         run: pnpm --filter @modrinth/app-frontend test
-      - name: Test desktop frontend overlays
-        run: pnpm --filter @modrinth/app-frontend test:visual
+
+  frontend-e2e:
+    name: Test desktop frontend user flows
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Set desktop E2E artifact directory
+        run: echo "E2E_ARTIFACT_DIR=$RUNNER_TEMP/desktop-e2e" >> "$GITHUB_ENV"
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install browser system dependencies
+        run: pnpm --filter @modrinth/app-frontend exec playwright install-deps chromium
+      - name: Test desktop navigation and persisted appearance
+        run: |
+          set -o pipefail
+          mkdir -p "$E2E_ARTIFACT_DIR"
+          pnpm --filter @modrinth/app-frontend test:e2e 2>&1 | tee "$E2E_ARTIFACT_DIR/run.log"
+      - name: Upload desktop E2E failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-frontend-e2e-failure
+          path: ${{ env.E2E_ARTIFACT_DIR }}
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
 
   resources:
     name: Prepare build resources
@@ -191,7 +241,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -219,7 +269,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2025, macos-15, ubuntu-24.04]
+        os:
+          # - windows-2025
+          # - macos-26
+          - ubuntu-24.04
     runs-on: ${{ matrix.os }}
     env:
       SQLX_OFFLINE: true
@@ -237,6 +290,10 @@ jobs:
         with:
           profile: ci
           save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        with:
+          tool: cargo-nextest@0.9.150
       - name: Set frontend target for reusable build
         shell: bash
         run: |
@@ -251,51 +308,103 @@ jobs:
       - name: Check for dead alpha utilities
         run: node scripts/axolotl/check-dead-utilities.mjs
       - name: Test version metadata writes
-        run: cargo test --package theseus writing_version_info_creates_missing_parent_directory
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail writing_version_info_creates_missing_parent_directory
+      - name: Test launcher memory behavior
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail api::memory
       # Runs the CurseForge content pipeline suites (recognition, dependency
       # selection, install, verification, manual downloads, reconciliation).
       # Linux only: the code is platform independent and this keeps the matrix
       # cost to one extra test binary run.
       - name: Test CurseForge content pipeline
         if: runner.os == 'Linux'
-        run: cargo test --package theseus curseforge
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail curseforge
       # The rebuildable database: an unknown migration version and an
       # unreadable file both leave it disabled, keeping the file, without
       # failing startup. Hermetic (temp dirs + sqlite).
       - name: Test derived database
         if: runner.os == 'Linux'
-        run: cargo test --package theseus derived_db
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail derived_db
+      - name: Test app database ownership and recovery
+        run: |
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::db::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::db_backup::
+      - name: Test Java availability and external storage selection
+        run: |
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail api::jre::tests::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail documents::java::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail java_storage::
       # The settings documents: a document answers for its domain, and a key it
       # leaves out stays at its default instead of returning to the row.
       # Hermetic (in-memory sqlite + temp dirs).
       - name: Test settings documents
         if: runner.os == 'Linux'
-        run: cargo test --package theseus state::documents
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::documents
+      # The store collections: every record the launcher keeps between runs, a
+      # suite per collection. These suites were in no filter at all, so they
+      # went three months with foreign-key and assertion failures nobody saw.
+      # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
+      - name: Test the store collections
+        if: runner.os == 'Linux'
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::store::tests
+      # The scheduler: tags and their cap, the L0 executor, queue, quiesce,
+      # supervision, the critical-section API and telemetry reconciliation.
+      # Hermetic (timers, temp dirs, in-memory sqlite); Linux only for matrix
+      # cost. These suites were in no filter, so the Node gates were the only
+      # thing watching the scheduler.
+      - name: Test the scheduler
+        if: runner.os == 'Linux'
+        run: |
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail scheduler::
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail install::critical_section
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail telemetry::reconcile
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::process::playtime_clock
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::process::l0_separation_tests
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail state::process::stopped_detector_tests
       # The account secrets: a row keeps a secret the credential store will not
       # take, and moving the rows into the store keeps the rows it already moved.
       # Hermetic (in-memory sqlite, and a store substituted for the platform's).
       - name: Test account secrets
         if: runner.os == 'Linux'
         run: |
-          cargo test --package theseus store::tests::secrets
-          cargo test --package theseus marks_whose_account_secrets_were_moved
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail store::tests::secrets
+          cargo nextest run --package theseus --no-fail-fast --no-tests=fail marks_whose_account_secrets_were_moved
       # The refresh state lives in the derived database now, so deleting an
       # instance has to take its rows with it: the guard is the deletion step.
       - name: Test refresh state
         if: runner.os == 'Linux'
-        run: cargo test --package theseus content_refresh
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail content_refresh
       - name: Test instance deletion
         if: runner.os == 'Linux'
-        run: cargo test --package theseus remove_instance
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail remove_instance
       # Provider-neutral resource layer: catalog, plans, execution, providers.
       # Hermetic (in-memory sqlite + temp dirs); Linux only for matrix cost.
       - name: Test provider-neutral resource layer
         if: runner.os == 'Linux'
-        run: cargo test --package theseus resources
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail resources
       - name: Test Java build fingerprints
         if: runner.os == 'Linux'
-        run: cargo test --package theseus --test java_build_cache
+        run: cargo nextest run --package theseus --no-fail-fast --no-tests=fail --test java_build_cache
       - run: cargo check --package theseus_gui --features updater
+      # .cargo/config.toml links Linux builds with mold, and mold stamps its
+      # version into .comment. This fails if another linker made the binaries.
+      - name: Verify mold linked the Linux test binaries
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mapfile -t binaries < <(find target/debug/deps -maxdepth 1 -type f -executable -name 'theseus-*')
+          if [ "${#binaries[@]}" -eq 0 ]; then
+            echo 'No theseus test binaries to inspect' >&2
+            exit 1
+          fi
+          for binary in "${binaries[@]}"; do
+            comment="$(readelf --string-dump=.comment "$binary")"
+            if [[ "$comment" != *'mold '* ]]; then
+              echo "$binary was not linked by mold:" >&2
+              echo "$comment" >&2
+              exit 1
+            fi
+          done
+          echo "mold linked ${#binaries[@]} theseus test binaries"
       - name: Test Windows installer UI and core
         if: runner.os == 'Windows'
         run: |
@@ -310,13 +419,19 @@ jobs:
       - name: Package and verify both Windows installers from one binary
         if: runner.os == 'Windows'
         run: node scripts/axolotl/package-windows.mjs --profile ci --output target/ci-installers
+      - name: Test transactional Windows executable updates
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          AXOLOTL_INSTALLER_UI_PATH: ${{ github.workspace }}/target/ci/axolotl-installer-ui.exe
+        run: node --test apps/installer-ui/tests/executable-install.test.cjs apps/installer-ui/tests/portable-update.test.cjs
       - name: Test actual Windows uninstallation
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           npm install --prefix target/uninstall-verification --no-save --no-audit --no-fund handlebars@4.7.8
           if ($LASTEXITCODE -ne 0) { throw "Failed to prepare NSIS fixture dependencies" }
-          node apps/installer-ui/tests/compile-fixture.cjs --tauri-nsis target/ci-bundle/release/nsis/x64
+          node apps/installer-ui/tests/compile-fixture.cjs --tauri-nsis target/ci-bundle/release/nsis/x64 --installer-helper target/ci/axolotl-installer-ui.exe
           if ($LASTEXITCODE -ne 0) { throw "Failed to compile NSIS uninstall fixture" }
           & apps/installer-ui/tests/uninstall-smoke.ps1
   website:
@@ -332,7 +447,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -347,11 +462,65 @@ jobs:
           NITRO_PRESET: ${{ matrix.nitro-preset }}
         run: pnpm --filter @axolotl/website build
 
+  # Reports Rust line coverage for the whole workspace. A single OS keeps the
+  # cost near the existing matrix while still measuring every crate, which the
+  # filtered `cargo test` steps in the desktop job never do.
+  #
+  # The floor is a ratchet, not the 75% goal: the first measured baseline was
+  # 59.97%, so the gate holds just under it and rises as tests are added. Raise
+  # it; never lower it to make a change pass.
+  coverage:
+    name: Measure Rust coverage
+    needs: [changes, guardrails, resources]
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-24.04
+    env:
+      SQLX_OFFLINE: true
+      # Instrumented tests reach the same deep async chains as the desktop job.
+      RUST_MIN_STACK: 67108864
+      COVERAGE_MIN_LINES: '59'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Setup desktop build
+        uses: ./.github/actions/setup-desktop-build
+        with:
+          profile: ci
+      - name: Install coverage tools
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        with:
+          tool: cargo-llvm-cov@0.9.1,cargo-nextest@0.9.150
+      # cargo-llvm-cov shells out to llvm-cov and llvm-profdata from this component.
+      - name: Install LLVM coverage tools
+        run: rustup component add llvm-tools-preview
+      - name: Measure coverage
+        run: |
+          node scripts/axolotl/rust-coverage.mjs \
+            --keep-report-on-test-fail --fail-under "$COVERAGE_MIN_LINES"
+      # The gate fails after the reports are written, so the artifacts below
+      # still publish the evidence for a red run.
+      - name: Publish coverage summary
+        if: ${{ !cancelled() && hashFiles('target/coverage/total.txt') != '' }}
+        run: |
+          summary="$(cat target/coverage/total.txt)"
+          echo "$summary"
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage report
+        if: ${{ !cancelled() && hashFiles('target/coverage/total.txt') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rust-coverage
+          path: target/coverage/
+          retention-days: 7
+          if-no-files-found: error
+
   desktop-ci-result:
     name: Desktop CI result
     # Report failed checks, but skip the gate when a newer run cancels this workflow.
     if: ${{ !cancelled() }}
-    needs: [changes, guardrails, frontend, resources, desktop, website]
+    needs: [changes, guardrails, frontend, resources, desktop, coverage, website]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

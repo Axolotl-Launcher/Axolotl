@@ -24,8 +24,9 @@ function contentItem(path: string): ContentItem {
             file_name: fileName,
         },
         update: null,
+        origin_provider: null,
         provider_refs: [],
-    } as ContentItem
+    }
 }
 
 it('toggle updates survive recomputing an icon-bearing display clone', () => {

@@ -103,7 +103,7 @@ impl ChatModel {
         let proxy = state.proxy_config().await?;
         let client = proxy
             .apply(
-                reqwest::Client::builder()
+                crate::util::http::client_builder()
                     .timeout(Duration::from_secs(120))
                     .user_agent(crate::launcher_user_agent()),
             )?

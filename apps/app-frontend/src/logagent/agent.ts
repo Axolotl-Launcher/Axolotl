@@ -101,7 +101,7 @@ export async function runLocalAgent(
             }),
         }),
     ]
-    const availableTools = new Set(tools.map((tool) => tool.name))
+    const availableTools = new Set<string>(tools.map((tool) => tool.name))
     let invalidToolRounds = 0
     let modelTurns = 0
     const gatewayWithBudget: AgentGateway = {

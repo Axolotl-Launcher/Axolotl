@@ -1,0 +1,218 @@
+{
+  "id": "shFhR8Vx",
+  "slug": "better-mc-fabric-bmc2",
+  "title": "Better MC [FABRIC] - BMC2",
+  "description": "Version 1.20 | A Proper Vanilla+ Modpack | Don't play Vanilla play this!",
+  "author": "SHXRKIE",
+  "categories": [
+    "adventure",
+    "combat",
+    "fabric",
+    "kitchen-sink",
+    "lightweight",
+    "multiplayer",
+    "optimization"
+  ],
+  "display_categories": ["adventure", "combat", "optimization"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 3696658,
+  "followers": 1490,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.20.1"],
+  "latest_version": "M5BnAIQy",
+  "date_created": "2022-05-17T15:51:54.121490Z",
+  "date_modified": "2026-07-15T06:31:46.447453Z",
+  "color": 3222862,
+  "published": "2022-05-17T15:51:54.121490Z",
+  "additional_categories": ["kitchen-sink", "lightweight", "multiplayer"],
+  "issues_url": "https://discord.gg/LunaPixel",
+  "source_url": null,
+  "wiki_url": "https://github.com/LunaPixelStudios/Better-Minecraft/wiki",
+  "discord_url": "https://discord.gg/LunaPixel",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/shxrkie"
+    }
+  ],
+  "versions_total": 8,
+  "body": "![In purple text and white text, \"BETTER MINECRAFT\" is displayed infront of a screenshot of the Minecraft Overworld. The background image has a tree with purple leaves on both sides.](https://cdn.modrinth.com/data/cached_images/c70cead9de9ef1c6d61fc38dc356d7141b3a8d6d.jpeg)\n\n![In all-caps bold text, the word \"FEATURES\". ](https://cdn.modrinth.com/data/cached_images/785d3640a720d7e56cba3a6e2bbcdc37f34cf7e1.png)\n\n✔️ Full parity with [Curseforge Version](https://www.curseforge.com/minecraft/modpacks/better-mc-fabric-bmc2)\n\n✔️ 100+ Quests\n\n✔️ Completely Overhauled World Generation ([Promenade](https://modrinth.com/mod/promenade), [Geophilic](https://modrinth.com/datapack/geophilic))\n\n✔️ Fully Optimized with Shader Support\n\n✔️ Overhauled Stronghold & Fortresses\n\n✔️ New Bosses and Mobs ([Bosses of Mass Destruction](https://modrinth.com/mod/bosses-of-mass-destruction), [Frostiful](https://modrinth.com/mod/frostiful))\n\n✔️ Hundreds of NEW Dungeons & Structures ([When Dungeons Arise](https://modrinth.com/mod/when-dungeons-arise), [AdoraBuild: Structures](https://modrinth.com/mod/adorabuild-structures))\n\n✔️ QoL Features such as [Waystones](https://modrinth.com/mod/waystones) and [XP Storage](https://modrinth.com/mod/xp-storage)\n\n✔️ [Xaero's Minimap](https://modrinth.com/mod/xaeros-minimap) with Additional Features\n\n✔️ Many Custom Features for an Improved Experience\n\n✔️ Built-in, [Free World Sharing](https://www.youtube.com/watch?v=tLTC6wYcWVM)\n\n✔️ [280+ Mods](https://www.modpackindex.com/modpack/64017/better-mc-fabric-bmc2)\n\n[Live count of how many members are online in the Luna Pixel Studios discord server.](https://lunapixel.studio/discord)\n\n[![Use code LUNAPIXEL for 25% off Bisect Hosting](https://cdn.modrinth.com/data/cached_images/2c3d1af34a17cb45f2ba4b9cfca4bd54d1c857ef.png)](https://lunapixel.studio/bisect)\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/yEDj3QS45X4\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/h2CLjWebHQg\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\nNOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/shFhR8Vx/images/d3df28d6602d05c894c33fac6f6e0e42b5ea7739_350.webp",
+      "featured": true,
+      "title": "Banner",
+      "description": null,
+      "created": "2023-11-17T17:35:40.373062Z"
+    }
+  ],
+  "team": [],
+  "versions": [
+    {
+      "id": "M5BnAIQy",
+      "name": "Better MC [FABRIC] - BMC2 v40",
+      "version_number": "v40",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-15T06:31:46.447453Z",
+      "downloads": 955962,
+      "changelog": "Major update to bring the Modrinth version up-to-date with the CurseForge version! There have been many changes since the last version uploaded on Modrinth; [you can read all the changelogs here.](https://www.curseforge.com/minecraft/modpacks/better-mc-fabric-bmc2)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "BMC2 [FABRIC] 1.20.1 v40.mrpack",
+          "size": 66273847,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Ur9uoHH5",
+      "name": "Better MC [FABRIC] - BMC2 v26.5",
+      "version_number": "v26.5",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-01-19T06:39:41.349487Z",
+      "downloads": 2169865,
+      "changelog": "## v26.5 Changelog:\n- Fixed Invalid Every Compat Textures\n- Updated Every Compat\n- Updated Supplementaries\n \n## v26 Changelog:\n**[Big Update]**\n\n**FABRIC IS NOW 0.16.9**\n \n- Added Oh The Biomes We've Gone (by AOCAWOL)\n- Added Paradise Lost (by ImmortalDevs)\n- Added Ender's Delight (by Furti_Two)\n- Added Explorify – Dungeons & Structures (by bebebea_loste)\n- Added MVS - Moog's Voyager Structures (by finndog_123)\n- Added MNS - Moog's Nether Structures (by finndog_123)\n- Added MES - Moog's End Structures (by finndog_123)\n- Added Chef's Delight [Fabric] (by redstone3game)\n- Added Public Gui Announcement (by AbsolemJackdaw)\n- Added Stony Cliffs Are Cool (by bebebea_loste)\n- Added Faster Random (by AnOpenSauceDev)\n- Added Noisium (by Steveplays28)\n- Added Sodium/Embeddium Dynamic Lights (by Txni)\n- Added Sodium/Embeddium Extras (by Txni)\n- Added Sodium/Embeddium Options Mod Compat (by Txni)\n- Added Quests Freeze Fix (by Txni)\n- Added Feature Recycler (by Corgi_Taco)\n- Added Structure Layout Optimizer (by telepathicgrunt)\n- Added Spyglass Improvements: Zoom, Quick Access... [Fabric/Forge] (by Im_JC52)\n- Added (Unofficial) Mandala's GUI - Dark Mode Mod Compatibility (by Gammael)\n- Added Mandala's GUI - Add-Ons (by cesar_zorak)\n- Removed Zoomify (Replaced)\n- Removed What Are They Up To (Replaced)\n- Removed LambDynamicLights (Replaced)\n- Removed [Deprecated] Farmer's Delight (Replaced)\n- Removed Unnecessary Resource Packs\n- Greatly Improved Performance Client and Server\n- Fixed Spawner Silencer on servers\n- Fixed Broken custom Dispenser behaviors\n- Fixed frostwalk protection race condition crash in singleplayer\n- Fixed race condition crash when fixing inconsistencies in party data\n- Fixed many real and potential issues in singleplayer by adding a lot of ServerLevel null checks\n- Improved how server thread is ensured in singleplayer, fixing many real and potential issues\n- Lots of Updates, Changes & Fixes that I wont be listing since there is way too much\n- Updated Menu's & Lo\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FABRIC] - BMC2 v26.5.mrpack",
+          "size": 41170391,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "SH0rTaJc",
+      "name": "Better MC [FABRIC] 1.20.1 v25",
+      "version_number": "v25",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-06-01T01:30:25.771010Z",
+      "downloads": 345868,
+      "changelog": "(Mostly copied from CF changelog, if anything is broken with parity please let me know!)\n\n**[Content Update]**\n\n**FABRIC MODLOADER IS NOW 0.15.11**\n\n**Mods:**\n+ Added Charm Forked (by MuonR)\n+ Added Eden Ring Reforked (by ErzeKawek)\n+ Added AdoraBuild: Structures (by AdoraBuild)\n+ Added Blossom Blade (by joshieman)\n+ Added Sawmill (by MehVahdJukaar)\n+ Added Autochef's Delight (by Snownee)\n+ Added Decorative Blocks (by stohun)\n+ Added Farmer's Delight Refabricated (by MerchantPug)\n+ Added Nether's Delight Refabricated (by RaymondBlaze)\n+ Added ucrashedlol (by skycatminepokie)\n+ Added Better End Crashed Ships Tweaks (by MuonR)\n+ Added Thermoo Patches (by TheDeathlyCow)\n+ Added Fabric Seasons Recipe Fix (by booleven)\n+ Added Faster Random (by AnOpenSauceDev)\n+ Added Bygone Nether: Soul Stone Recipe (by ElocinDev)\n+ Added Cubes Without Borders (by Kir_Antipov)\n+ Added Amendments (by plantspookable)\n+ Added Autoslabs Compat (by ProvidenceDaemon)\n+ Added Cut Through (by Fuzs)\n+ Added Particle Core (by fzzyhmstrs)\n+ Added Log Begone (by AzureDoomC)\n+ Added IJM's Tweaks (by ItsJustMiaouss)\n- Removed Explorify (Extremely overpowered)\n- Removed Chef's Delight (Unmaintained)\n- Removed the old Farmers Delight port (Replaced by a better port of the mod)\n- Removed Server Country Flags (Many users incorrectly assumed that it gave away their precise location)\n- Removed Nethers Delight (Replaced)\n- Removed Model Gap Fix (Causes lag)\n- Removed Decorative Blocks Fork (Replaced)\n- Removed Double Doors (Replaced)\n- Removed Yeetus Experimentus (Replaced)\n- Removed Too Fast (Replaced)\n\n**Configs:**\n- Increased structure spawn rate by 50%\n- Added many new quests and fixed all broken/incomplete quests\n- Set the default vertical render distance to 400%\n- Respawned ender dragons now drop an dragon egg\n- Flipped order in ResourcepackOverrides as it was previously the wrong way around\n- Removed the Seasonal quests\n\n \n**Updates:**\n- Added 25 new structures (Philip's Ruins)\n- Added animations to \n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FABRIC] - BMC2 v25.mrpack",
+          "size": 92458808,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "BY4V7F8j",
+      "name": "Better MC [FABRIC] 1.20.1 v24",
+      "version_number": "v24",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-02-26T00:52:54.059237Z",
+      "downloads": 120582,
+      "changelog": "**[Parity Update]**\n\nNear full 1:1 parity with the Curseforge modpack! Players of the Modrinth and Curseforge versions should now be able to play together without issues.\n\n**NOTE:** For licensing reasons, we had to remove some mods from this version of the pack. You will have a menu upon game launch prompting you to download the required mods.\n\n**AS ALWAYS, PLEASE BE SURE TO BACK UP YOUR WORLDS BEFORE UPDATING! THINGS ARE LIABLE TO BREAK.**",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FABRIC] 1.20.1 v24.mrpack",
+          "size": 88304551,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lWrorZjI",
+      "name": "Better MC [FABRIC] 1.20.1 v3.5",
+      "version_number": "v3.5",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-12-10T04:41:52.139988Z",
+      "downloads": 44505,
+      "changelog": "**[Big Update]**\n\nAlmost 1:1 with Curseforge Modpack\n\n**v3.5:**\n- Reverted FWaystones (Causes Crash)\n- Reverted Nether Chested (Causes Crash)\n\n**Mods:**\n- Added Spawners+\n- Added Backpacked\n- Added Guard Villagers\n- Added Bygone Nether\n- Added Frostiful\n- Added Chunk Sending\n- Added Loot Integrations\n- Added fix GPU memory leak\n- Added Structure Essentials\n- Added Better Fps - Render Distance\n- Added Connectivity\n- Added Server Performance - Smooth Chunk Save\n- Added Memory Settings\n- Added Better chunk loading\n- Added Biome Music\n- Added Client Crafting\n- Added Recipe Essentials\n- Added Redirector\n- Added Too Fast\n- Added Paintings ++\n- Added Snow Real Magic!\n- Added SparseStructuresReforged\n- Added Void Totem\n- Added Too Fast\n- Added Alternate Current\n- Added Animal Feeding Trough\n- Added Better Tridents\n- Added Clean Cut\n- Added Expanded Delight\n- Added Farmer's Knives\n- Added Snowy Spirit\n- Added Universal Ores\n- Added Fabric Seasons Extra\n\n**Resource Packs:**\n- Added Custom Resource Pack\n- Added Icon Xaero's\n\n**Changes:**\n- Added several villages (Towns and Towers)\n- Boosted Mauler scaling allowing significant growth when fed with enchanted items (Friends&Foes)\n- Changed Wildfire Crown Fragments to be immune to fire/lava (Friends&Foes)\n- Replaced Chorus Fruit in Subway's one End-themed piece with another Ender Pearl. Better progression balance with vanilla (The Bumblezone)\n- Replaced Shulker Shell in Subway's one End-themed piece with another End Crystal. Better progression balance with vanilla (The Bumblezone)\n\n**Fixes:**\n- Compatibility problems leading to client/server crashes related to Illusioner and Blaze interactions (Friends&Foes)\n- Mauler collider box scaling issues (Friends&Foes)\n- Crash related to blaze (Friends&Foes)\n- Mauler being immortal (Friends&Foes)\n- Floral Meadow missing flowers (The Bumblezone)\n- Possible crash with immutable lists (The Bumblezone)\n- Crash with Sticky Honey Redstone (The Bumblezone)\n- Incompat with Sounds Physics Remastered\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FABRIC] 1.20.1 v3.5.mrpack",
+          "size": 69620142,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5eSyIshW",
+      "name": "Better MC [FABRIC] 1.20.1 v3",
+      "version_number": "v3",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-12-07T14:31:39.371286Z",
+      "downloads": 9494,
+      "changelog": "**[Big Update]**\n\nAlmost 1:1 with Curseforge Modpack\n\n**Mods:**\n- Added Spawners+\n- Added Backpacked\n- Added Guard Villagers\n- Added Bygone Nether\n- Added Frostiful\n- Added Chunk Sending\n- Added Loot Integrations\n- Added fix GPU memory leak\n- Added Structure Essentials\n- Added Better Fps - Render Distance\n- Added Connectivity\n- Added Server Performance - Smooth Chunk Save\n- Added Memory Settings\n- Added Better chunk loading\n- Added Biome Music\n- Added Client Crafting\n- Added Recipe Essentials\n- Added Redirector\n- Added Too Fast\n- Added Paintings ++\n- Added Snow Real Magic!\n- Added SparseStructuresReforged\n- Added Void Totem\n- Added Too Fast\n- Added Alternate Current\n- Added Animal Feeding Trough\n- Added Better Tridents\n- Added Clean Cut\n- Added Expanded Delight\n- Added Farmer's Knives\n- Added Snowy Spirit\n- Added Universal Ores\n- Added Fabric Seasons Extra\n\n**Resource Packs:**\n- Added Custom Resource Pack\n- Added Icon Xaero's\n\n**Changes:**\n- Added several villages (Towns and Towers)\n- Boosted Mauler scaling allowing significant growth when fed with enchanted items (Friends&Foes)\n- Changed Wildfire Crown Fragments to be immune to fire/lava (Friends&Foes)\n- Replaced Chorus Fruit in Subway's one End-themed piece with another Ender Pearl. Better progression balance with vanilla (The Bumblezone)\n- Replaced Shulker Shell in Subway's one End-themed piece with another End Crystal. Better progression balance with vanilla (The Bumblezone)\n\n**Fixes:**\n- Compatibility problems leading to client/server crashes related to Illusioner and Blaze interactions (Friends&Foes)\n- Mauler collider box scaling issues (Friends&Foes)\n- Crash related to blaze (Friends&Foes)\n- Mauler being immortal (Friends&Foes)\n- Floral Meadow missing flowers (The Bumblezone)\n- Possible crash with immutable lists (The Bumblezone)\n- Crash with Sticky Honey Redstone (The Bumblezone)\n- Incompat with Sounds Physics Remastered mod where it caused players to get launched away from Essence Block despite not near it \n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FABRIC] 1.20.1 v3.mrpack",
+          "size": 69620094,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8xwR1JNo",
+      "name": "Better MC [FABRIC] 1.20.1 v2 HF",
+      "version_number": "v2",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-12-01T02:56:12.403394Z",
+      "downloads": 6810,
+      "changelog": "**[Hearth & Home Update]**\n\nFABRIC IS NOW 0.14.25\n\n**HotFix:**\nServer Side not working\n\n**Mods:**\n- Added Hearth & Home\n- Added The Bumblezone\n- Added DEUF Refabricated\n- Added Ping Wheel\n- Added Ocean's Delight\n\n**Changes:**\n- Implemented Cherrier Groves (Geophilic)\n- Resonance ring is now unstackable (Mythic Charms)\n- Equipping and unequipping charms now deals damage, 1 heart for a fragile charm and half a heart for an unbreakable one (Mythic Charms)\n- Charms can now be equipped quickly, with right-click (Mythic Charms)\n- Added sounds for equipping and unequipping charms (Mythic Charms)\n- Added sound that plays if the combination is equipped (Mythic Charms)\n- Added the ability to switch dimensions viewed on the map without physically switching dimensions. You can do it from the map switching menu, with a quick toggle button on the map screen or with a key binding (Xaero's World Map)\n- Added the ability to teleport between dimensions by right clicking a map of another dimension (Xaero's World Map)\n- You can now connect waypoint sub-worlds that are from the same dimension (Xaero's Minimap)\n- Optimisation of tracked player dimension filtering when rendering them (Xaero's Minimap & World Map)\n- Some general waypoint-related optimisations (Xaero's Minimap & World Map)\n- Slightly optimised region unloading (Xaero's World Map)\n- FTB Teams support (Xaero's Minimap)\n\n**Fixes:**\n- Memory Leak (Carry On)\n- Golems pattern spawns with dispenser (Friends&Foes)\n- Golems and Wildfire immunity to fall damage (Friends&Foes)\n- Magnum torches occasionally missing out on spawns at their range's edge (Magnum Torch)\n- Waypoint dimension scaling not working quite right for modded dimensions. Requires visitting the dimensions once after updating (Xaero's Minimap)\n- Incorrect waypoint order when rendering them with dimension scaling (Xaero's Minimap)\n- \"Load New Chunks\" and \"Update Chunks\" options not working for non-world-save maps in singleplayer (Xaero's World Map)\n- Some regions refusi\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FABRIC] 1.20.1 v2.mrpack",
+          "size": 26913009,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "MwRs7ZdQ",
+      "name": "Better MC [FABRIC] - BMC2 v1",
+      "version_number": "v1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-11-17T17:34:01.844364Z",
+      "downloads": 22409,
+      "changelog": "✔️ Most features from [Better MC [FABRIC] - BMC2 that is on CurseForge](https://legacy.curseforge.com/minecraft/modpacks/better-mc-fabric-bmc2)\n\n✔️ Modrinth still lacks a lot of mods so consider this version the \"LITE\" version of [Better MC [FABRIC] - BMC2](https://legacy.curseforge.com/minecraft/modpacks/better-mc-fabric-bmc2)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Better MC [FABRIC] 1.20.1 v1.mrpack",
+          "size": 14745605,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

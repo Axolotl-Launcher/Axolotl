@@ -3,6 +3,7 @@
 mod entry;
 
 const REMOTE_CACHE_SECONDS: i64 = 24 * 60 * 60;
+const REMOTE_FAILURE_RETRY_SECONDS: i64 = 5 * 60;
 
 use super::*;
 use crate::state::store::{
@@ -747,7 +748,8 @@ fn pack_needs_refresh(
         }
         RefreshMode::Normal => saved.is_none_or(|saved| {
             if saved.last_error.is_some() {
-                now.saturating_sub(saved.attempted_at) >= REMOTE_CACHE_SECONDS
+                now.saturating_sub(saved.attempted_at)
+                    >= REMOTE_FAILURE_RETRY_SECONDS
             } else {
                 now.saturating_sub(saved.saved_at) >= REMOTE_CACHE_SECONDS
             }

@@ -22,6 +22,8 @@ pub(crate) const AUTO_DOWNLOAD_SAMPLE_INTERVAL: Duration =
 pub(crate) const AUTO_DOWNLOAD_TRIAL_WINDOWS: usize = 2;
 pub(crate) const AUTO_DOWNLOAD_UTILIZATION_WINDOWS: usize = 2;
 pub(crate) const DOWNLOAD_CONCURRENCY_HARD_MAX: usize = 256;
+pub(crate) const FORCED_DOWNLOAD_CONCURRENCY_DEFAULT: usize = 72;
+pub(crate) const FORCED_DOWNLOAD_CONCURRENCY_MAX: usize = 256;
 
 /// Per-file Range splitting, retry and tail recovery.
 pub(crate) const ADAPTIVE_RANGE_BYTES: u64 = 4 * 1024 * 1024;
@@ -43,6 +45,8 @@ pub(crate) const MAX_SEGMENT_CONCURRENCY: usize = 64;
 pub(crate) const MAX_TAIL_HEDGES_PER_FILE: usize = 2;
 pub(crate) const MIN_PARALLEL_RANGES: usize = 2;
 pub(crate) const MIN_SEGMENT_SIZE: u64 = 256 * 1024;
+/// Explicit aggressive mode trades request overhead for more independent connections.
+pub(crate) const FORCED_MIN_SEGMENT_SIZE: u64 = 16 * 1024;
 pub(crate) const RANGE_CHECKPOINT_BYTES: u64 = 4 * 1024 * 1024;
 pub(crate) const RANGE_FULL_FAILURE_LIMIT: u32 = 1;
 #[cfg(not(test))]
@@ -59,6 +63,7 @@ pub(crate) const SEGMENT_EXPANSION_SAMPLE_COUNT: usize = 3;
 pub(crate) const SEGMENT_EXPANSION_GAIN_PERCENT: u128 = 115;
 pub(crate) const SEGMENT_EXPANSION_RETRY_SPEED_PERCENT: u128 = 50;
 pub(crate) const SEGMENT_RETRY_ATTEMPTS: usize = 3;
+pub(crate) const SEGMENT_RECOVERY_ROUNDS: usize = 2;
 #[cfg(not(test))]
 pub(crate) const TAIL_HEDGE_IDLE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(crate) const TAIL_HEDGE_MIN_REMAINING: u64 = 16 * 1024 * 1024;
@@ -193,6 +198,12 @@ pub(crate) const MAX_FAILURE_COOLDOWN: Duration = Duration::from_secs(1);
 pub(crate) const MAX_H2_RANGES_PER_FILE: usize = 16;
 pub(crate) const MAX_REDIRECT_LOCATION_BYTES: usize = 8 * 1024;
 pub(crate) const MAX_TASK_PROBE_STATES: usize = 64;
+/// MCIM re-checks every cached entry at least daily: its status page buckets
+/// freshness at 2 h and 24 h, and tags refresh once a day. An entry older than
+/// two days means its refresh has stalled, which the MCIM guide warns upstream
+/// risk control can cause.
+pub(crate) const MCIM_STALE_AFTER: Duration =
+    Duration::from_secs(2 * 24 * 60 * 60);
 pub(crate) const METADATA_ATTEMPT_BUDGET: usize = 4;
 pub(crate) const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(not(test))]
@@ -361,6 +372,7 @@ pub(crate) const ALIYUN_MAVEN_BASE_URL: &str =
     "https://maven.aliyun.com/repository/public";
 pub(crate) const BMCLAPI_BASE_URL: &str = "https://bmclapi2.bangbang93.com";
 pub(crate) const CURSEFORGE_API_HOST: &str = "api.curseforge.com";
+pub(crate) const CURSEFORGE_API_V1_PREFIX: &str = "/v1/";
 pub(crate) const CURSEFORGE_EDGE_HOST: &str = "edge.forgecdn.net";
 pub(crate) const FABRIC_MAVEN: &str = "https://maven.fabricmc.net";
 pub(crate) const FETCH_MAVEN: &str = "/maven/";
@@ -375,7 +387,10 @@ pub(crate) const LIBRARIES_MAVEN: &str = "https://libraries.minecraft.net";
 pub(crate) const MACHINA_LWJGL_RELEASE: &str = "https://github.com/MinecraftMachina/lwjgl/releases/download/2.9.4-20150209-mmachina.2/";
 pub(crate) const MAVEN_CENTRAL: &str = "https://repo.maven.apache.org/maven2";
 pub(crate) const MCIM_BASE_URL: &str = "https://mod.mcimirror.top";
+pub(crate) const MCIM_CURSEFORGE_PREFIX: &str = "/curseforge";
+pub(crate) const MCIM_MODRINTH_PREFIX: &str = "/modrinth";
 pub(crate) const MODRINTH_API_HOST: &str = "api.modrinth.com";
+pub(crate) const MODRINTH_API_V2_PREFIX: &str = "/v2/";
 pub(crate) const MODRINTH_CDN_AUTHORITY: &str = "cdn.modrinth.com:443";
 pub(crate) const MODRINTH_CDN_HOST: &str = "cdn.modrinth.com";
 pub(crate) const MODRINTH_CDN_ORIGIN: &str = "https://cdn.modrinth.com/";
@@ -769,6 +784,19 @@ pub(crate) const H2_POOL_TEST_INVALID_443: &str = "test.invalid:443";
 pub(crate) const JOB_PROBE_WINDOW: Duration = Duration::from_secs(10);
 #[cfg(test)]
 pub(crate) const METADATA_HEDGE_DELAY: Duration = Duration::from_millis(100);
+/// Slow-detection window used by the download fixtures.
+///
+/// `NATIVE_SLOW_REQUIRED_WINDOWS` windows must complete before the policy
+/// probes, so the matching `TEST_SLOW_MIN_FLOW` stays strictly below
+/// `TEST_SLOW_WINDOW * NATIVE_SLOW_REQUIRED_WINDOWS`. Driving both from these
+/// two constants keeps that relation in one place: a test that sets the
+/// minimum flow equal to two windows makes the decision depend on which clock
+/// is read first, and an instrumented run then reports `NoGain` for a
+/// transfer that is genuinely slow.
+#[cfg(test)]
+pub(crate) const TEST_SLOW_WINDOW: Duration = Duration::from_millis(75);
+#[cfg(test)]
+pub(crate) const TEST_SLOW_MIN_FLOW: Duration = Duration::from_millis(100);
 #[cfg(test)]
 pub(crate) const NATIVE_SLOW_IDLE_TIMEOUT: Duration =
     Duration::from_millis(500);

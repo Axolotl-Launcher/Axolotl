@@ -1,0 +1,257 @@
+{
+  "id": "r4GILswZ",
+  "slug": "faithful-64x",
+  "title": "Faithful 64x",
+  "description": "An even more detailed experience with quadruple-resolution textures!",
+  "author": "Faithful-Resource-Pack",
+  "categories": ["64x", "minecraft", "vanilla-like"],
+  "display_categories": ["64x", "minecraft", "vanilla-like"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "resourcepack",
+  "downloads": 7686511,
+  "followers": 2216,
+  "license": {
+    "id": "LicenseRef-Faithful-Resource-Pack-License",
+    "name": ""
+  },
+  "loaders": ["minecraft"],
+  "game_versions": [
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "6QfM0mZq",
+  "date_created": "2022-08-14T20:42:22.655477Z",
+  "date_modified": "2026-09-15T17:26:12.276217Z",
+  "color": 5451571,
+  "published": "2022-08-14T20:42:22.655477Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/Faithful-Resource-Pack/Faithful-Java-64x/issues",
+  "source_url": "https://github.com/Faithful-Resource-Pack/Faithful-Java-64x",
+  "wiki_url": "https://faithfulpack.net",
+  "discord_url": "https://discord.gg/sN9YRQbBv7",
+  "donation_urls": [],
+  "versions_total": 20,
+  "body": "<center>\n\t<img style=\"width: 1142px;\" src=\"https://raw.githubusercontent.com/faithful-Resource-Pack/Branding/main/wordmarks/outlined/cracked/f64_wordmark.png\">\n\t<h1>The go-to 64x resource pack for Minecraft.</h1>\n\t<a href=\"https://www.curseforge.com/minecraft-bedrock/addons/faithful-64x-bedrock\" rel=\"nofollow\">\n\t\t<img\n\t\t\tstyle=\"width: 1142px;\"\n\t\t\tsrc=\"https://raw.githubusercontent.com/Faithful-Resource-Pack/Branding/main/social_media/buttons/bedrock_button.png\"\n\t\t\talt=\"Get the Bedrock pack here\"\n\t\t>\n\t</a>\n</center>\n<hr>\n<p>\n    The logical next step in upscaling Minecraft textures. Just like Faithful 32x, this pack is based on the default art—masterfully remade in quadruple \n\tthe resolution and adding just the right amount of extra detail for the perfect vanilla-style Minecraft experience. \n\t<br><br>\n    By basing its textures directly on its 32x counterparts, it achieves great consistency between packs and is always improving in quality. \\\n\tIf you're into detailed resource packs but still want that vanilla feel, this pack is for you!\n\n</p>\n<center>\n\t<a href=\"https://discord.gg/sN9YRQbBv7\" rel=\"nofollow\">\n\t\t<img style=\"width: 1142px;\" src=\"https://raw.githubusercontent.com/Faithful-Resource-Pack/Branding/main/social_media/buttons/discord_button.png\" alt=\"Discord Server\">\n\t</a>\n  <br><br>\n\t<a href=\"https://faithfulpack.net/\" rel=\"nofollow\">\n\t\tWebsite\n\t</a>\n</center>\n<hr>\n<center><h2>Additional Information:</h2></center>\n<p>\n\tIf you have any feedback, want to report a bug, or generally need help,\n\tjoin our <a href=\"https://discord.gg/sN9YRQbBv7\" target=\"_blank\" rel=\"noopener\">Discord</a> server above, make a\n\t<a href=\"https://github.com/Faithful-Resource-Pack/Faithful-64x-Java/issues\" target=\"_blank\" rel=\"noopener\">GitHub issue</a>,\n\tor comment below. For any commercial or distribution-related questions, refer to our\n\t<a href=\"http://faithfulpack.net/license\" target=\"_blank\" rel=\"noopener\">license</a>.\n\t<br><br>\n\tAll textures and add-ons are provided by contributors volunteering in their free time.\n\tAnyone can submit textures through our Discord server linked above, or make an\n\t<a href=\"http://faithfulpack.net/addons\" target=\"_blank\" rel=\"noopener\">add-on</a>\n\tto officially list on our website. Before you begin, make sure to read our\n\t<a href=\"https://docs.faithfulpack.net/pages/textures/f64-texturing-guidelines\" target=\"_blank\" rel=\"noopener\">texturing guidelines</a>\n\twhich precisely outline the art style of the pack.\n\t<br><br>\n\tEach pack has listings on our <a href=\"faithfulpack.net\" target=\"_blank\" rel=\"noopener\">website</a>,\n\t<a href=\"https://www.curseforge.com/members/faithful_resource_pack/projects\" target=\"_blank\" rel=\"noopener\">CurseForge</a>,\n\t<a href=\"https://www.planetminecraft.com/member/faithful_resource_pack/submissions/\" target=\"_blank\" rel=\"noopener\">Planet Minecraft</a>,\n\tand <a href=\"https://modrinth.com/user/Faithful-Resource-Pack\" target=\"_blank\" rel=\"noopener\">Modrinth</a>,\n\tand some packs are additionally listed on <a href=\"https://mcpedl.com/user/faithful-resource-pack/\" target=\"_blank\" rel=\"noopener\">MCPEDL</a>\n\tand the <a href=\"https://www.minecraftforum.net/members/Faithful_Resource_Pack\" target=\"_blank\" rel=\"noopener\">Minecraft Forums</a>.\n\t<strong>Downloads from any other sites are unofficial, unsupported and could be dangerous!</strong>\n\tRemember to stay safe on the internet.\n</p>\n<hr>\n<center><h2>Our Other Projects:</h2></center>\n<div style=\"text-align: center\">\n\t<a href=\"https://modrinth.com/resourcepack/faithful-32x\" rel=\"nofollow\">\n\t\tFaithful 32x\n\t</a>\n\t<br><br>\n\t<a href=\"https://modrinth.com/resourcepack/classic-faithful-32x-programmer-art\" rel=\"nofollow\">\n\t\tClassic Faithful 32x\n\t</a>\n\t<br><br>\n\t<a href=\"https://modrinth.com/resourcepack/classic-faithful-32x-jappa\" rel=\"nofollow\">\n\t\tClassic Faithful 32x Jappa\n\t</a>\n\t<br><br>\n\t<a href=\"https://www.curseforge.com/minecraft/texture-packs/classic-faithful-64x\" rel=\"nofollow\">\n\t\tClassic Faithful 64x Jappa\n\t</a>\n</div>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/r4GILswZ/images/336b7507a4e27b3abb29ecb678bdf3055b3f7015_350.webp",
+      "featured": true,
+      "title": null,
+      "description": null,
+      "created": "2026-04-01T21:44:11.971832Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/r4GILswZ/images/198bdecdedefb3f21ec22c3c97eae5e04a28f5e4_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2025-10-04T21:37:02.167335Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/r4GILswZ/images/61fd9226ed76274bd5c031aa1a2f67cef0ba5269_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2025-10-04T21:37:08.437821Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/r4GILswZ/images/cf3ca721267bdfc362cf1f4ecea430d5301dbd96_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2025-10-04T21:37:15.435823Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "HARYA301",
+      "role": "Project Manager/Artist",
+      "avatar": "https://cdn.modrinth.com/data/pJZOlieu/6020b6141dbebd5882e97981dbd0f67e261d9790_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "6QfM0mZq",
+      "name": "Faithful 64x: Release 15 (Wilderness Bound Drop)",
+      "version_number": "Release-15-Wilderness-Bound-Drop",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-09-15T17:26:12.276217Z",
+      "downloads": 280587,
+      "changelog": "# Added:\n## Blocks:\n- Poplar Planks (HARYA)\n- Poplar Door (HARYA)\n- Poplar Leaves (HARYA)\n- Poplar Trapdoor (HARYA)\n- Poplar Log (HARYA)\n- Poplar Sign (HARYA)\n- Poplar Hanging Sign (HARYA)\n- Stripped Poplar Log (HARYA)\n- Shelf Mushroom (HARYA)\n- Red Shrub (HARYA)\n- Poplar Sapling (HARYA)\n- Straw Bed (HARYA)\n## Items:\n- Poplar Sign (HARYA)\n- Poplar Hanging Sign (HARYA)\n- Poplar Boat (HARYA)\n- Poplar Chest Boat (HARYA)\n- Poplar Door (HARYA)\n- Cushions (HARYA)\n- Map (HARYA)\n- All Locations Maps (HARYA)\n## Entities:\n- Cushions (HARYA)\n- Poplar Boat (HARYA)\n## Map:\n- Mineshaft (HARYA)\n- Abandonned Camp (HARYA)\n- Player Map Icon (HARYA)\n- Ancient City (HARYA)\n- Warm Ocean Ruin (HARYA)\n- Desert Pyramid (HARYA)\n- Jungle Pyramid (HARYA)\n## Particles:\n- Poplar Leaves (HARYA)\n- Straw Bed (HARYA)\n## UI:\n- Minigames (HARYA)\n- Friends (HARYA)\n- Private Server (HARYA)\n- New Game Drop panorama for Java & Bedrock (HARYA)\n# Changed:\n## Blocks:\n- Gray Glazed Terracotta (HARYA)\n- Chiseled Quartz Top (HARYA)\n- Oak Trapdoor (HARYA)\n- Black Glazed Terracotta (HARYA)\n- Orange Glazed Terracotta (HARYA)\n- Barrel Top (HARYA)\n- Note Block (HARYA)\n- Conduit Eye (HARYA)\n- Brewing Stand Base (HARYA)\n- Chiseled Deepslate (HARYA)\n- Cauldron Bottom (HARYA)\n- End Rod (HARYA)\n- Composter Side & Bottom (HARYA)\n- Conduit Eye (HARYA)\n- Amethyst Buds (HARYA)\n- Melon (HARYA)\n- Iron Block (HARYA)\n- Rooted Dirt (HARYA)\n- Jungle Sapling (HARYA)\n- Acacia Sapling (HARYA)\n- Blackstone Top (HARYA)\n- Dark Oak Door (HARYA)\n- Dead Bush (HARYA)\n- Hay Block Side (HARYA)\n- Tripwire & Tripwire Hook (HARYA)\n- Jukebox (HARYA)\n- Calibrated Sculk Sensor Amethyst (HARYA)\n- Crimson & Warped Stem (HARYA)\n- Mud Bricks (HARYA)\n- Packed Mud (HARYA)\n- Diorite (HARYA)\n- Target Block Side (HARYA)\n- Packed Ice (HARYA)\n- Red Glazed Terracotta (HARYA)\n- Polished Diorite (HARYA)\n- Vine (HARYA)\n- Shroomlight (HARYA)\n- Redstone Lines (HARYA)\n- Purpur Pillar Top (HARYA)\n- Yellow Glazed Terracotta (HARYA)\n- Green Glazed Terracotta (HARYA)\n-\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - Release 15.zip",
+          "size": 19411638,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "AOqbBNcY",
+      "name": "Faithful 64x - Release 14 (Chaos Cubed)",
+      "version_number": "Release-14-Chaos-Cubed",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-06-16T15:42:17.834592Z",
+      "downloads": 694315,
+      "changelog": "# Added:\n## Blocks:\n- Cinnabar (HARYA)\n- Cinnabar Bricks (HARYA)\n- Polished Sulfur (HARYA)\n- Chiseled Sulfur (HARYA)\n- Polished Cinnabar (HARYA)\n- Chiseled Cinnabar (HARYA)\n- Sulfur Spike (HARYA)\n- Sulfur (HARYA)\n- Potent Sulfur (HARYA)\n## Items:\n- Sulfur Cube Bucket (HARYA)\n- Sulfur Cube Spawn Egg (HARYA)\n- Sulfur Spike (HARYA)\n- Music Disc Bounce (HARYA)\n## Entities:\n- Sulfur Cube Outer (HARYA)\n- Sulfur Cube Inner (HARYA & M_GRD)\n- Baby Sulfur Cube (HARYA)\n## GUI:\n- Remove & Player Reporting (HARYA)\n- Friends Background (HARYA)\n- Friends Icon (HARYA)\n- Bug (HARYA)\n- Join & Invite (HARYA)\n- Cubed Choas Panorama (HARYA & Bachale)\n## Particles:\n- White Bubble (Liam & Careeoki)\n- Sulfur Cube Goo (HARYA)\n- Noxious Gas (HARYA)\n- Geyser (HARYA)\n# Changed:\n## Blocks:\n- Cactus (HARYA)\n- All Planks (HARYA)\n- Cartography Table (HARYA)\n- Lectern Base (HARYA)\n- Crafting Table Sides (HARYA & Evorp)\n- Sandstone & Red Sandstone Top (HARYA)\n- Smithing Table Sides (HARYA)\n- Fletching Table (HARYA)\n- Soul Soil (HARYA)\n- Nether Sprouts (HARYA)\n- Snowy Grass Block Side (HARYA)\n- Gravel (HARYA)\n- Suspicious Gravel (HARYA)\n- Normal & Red Cut Sandstone (HARYA)\n- Trial Spawner Active States Corners (HARYA)\n- Raw Copper Block (HARYA)\n- Fire & Dead Fire Coral Block (HARYA)\n- Hopper Outside (HARYA)\n- Mangrove Roots (HARYA)\n- Mud (HARYA)\n- Muddy Mangrove Roots (HARYA)\n- Smithing Table Top (HARYA)\n- Calcite (HARYA)\n- Smooth Basalt (HARYA)\n- Stone (HARYA)\n- All Ores [Small Tweaks or only stone base changes] (HARYA)\n- Smooth Stone (HARYA)\n- Stonecutter (HARYA)\n- Nether Quartz Ore (HARYA)\n- Mushroom Blocks set (HARYA)\n- Azalea & Flowering Azalea Leaves (HARYA)\n- Ancient Debris (HARYA)\n- Redstone Lamp (HARYA)\n- Spore Blossom Base (HARYA)\n- Poppy (HARYA)\n- Diamond & Gold Block (HARYA)\n- Spore Blossom (HARYA)\n- Deepslate Bricks (HARYA)\n- Cracked Bricks (HARYA)\n- Blue Glazed Terracotta (HARYA)\n- Acacia Leaves (HARYA)\n## Items:\n- Armor Trims (HARYA)\n- Sentry Armor Trim Template (HARYA)\n- Spire Armor T\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - Release 14.zip",
+          "size": 15357404,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "yjAqtxxY",
+      "name": "Faithful 64x - Release 13",
+      "version_number": "Release-13",
+      "version_type": "release",
+      "game_versions": ["26.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2026-03-24T17:02:09.977535Z",
+      "downloads": 483993,
+      "changelog": "# Added:\n## Blocks:\n- Golden Dandelion (HARYA_)\n## Items:\n- Agent Spawn Egg [Bedrock] (HARYA_)\n## Entities:\n- Baby Cow (HARYA_)\n- Baby Chicken (HARYA_)\n- Baby Pig (HARYA_)\n- Baby Sheep (HARYA_)\n- Baby Cat (HARYA_)\n- Baby Wolf (HARYA_)\n- Baby Rabbit (HARYA_)\n- Baby Squid & Glow Squid (HARYA_)\n- Baby Turtle (HARYA_)\n- Baby Fox (HARYA_)\n- Baby Axolotl (HARYA_)\n- Baby Camel (HARYA_)\n- Baby Bee (HARYA_)\n- Baby Husk (HARYA_)\n- Baby Zombie (HARYA_)\n- Baby Llama (HARYA_)\n- Baby Polar Bear (HARYA_)\n- Baby Drowned (HARYA_)\n- Baby Villagers (HARYA_)\n- Baby Zombie Villagers (HARYA_)\n- Baby Piglin (HARYA_)\n- Baby Horse (HARYA_)\n- Baby Strider (HARYA_)\n- Baby Hoglin & Zoglin (HARYA_)\n- Baby Panda (HARYA_)\n- Baby Piglin & Zombifie Piglin (HARYA_)\n- Snifflet (HARYA_)\n## Armors:\n- All Baby Humanoid Armors (HARYA_)\nGUI:\n- A huge thank to Bachale for the recreation of the 26.1 Panorama.\n- Furnace Recipe Toggle [Bedrock] (HARYA_)\n- Achievements Pause Menu Icon [Bedrock] (HARYA_)\n- Mount Button [Bedrock] (HARYA_)\n- Marketplace Pause Menu Icon [Bedrock] (HARYA_)\n- Furnace Category Icon Blocks [Bedrock] (HARYA_)\n- Furnace Category Icon Items [Bedrock] (HARYA_ & Evorp)\n- Furnace Category Icon Food [Bedrock] (HARYA_ & Evorp)\n- Furnace Recipe Toggle [Bedrock] (HARYA_)\n- Mob Effect Background [Bedrock] (HARYA_)\n- Preedit (HARYA_)\n# Changed:\n## Blocks:\n- Pointed Dripstone (HARYA_)\n- Granite (HARYA_)\n- Cornflower (HARYA_)\n- Crimson & Warped Nylium Top (HARYA_)\n- Mycelium Top (HARYA_)\n- Crimson Trapdoor (HARYA_)\n- Podzol (HARYA_)\n- Exposed Copper Block Set (HARYA_)\n- Weathered Copper Block Set (HARYA_)\n- Composter Compost (HARYA_)\n- Raw Iron Block (HARYA_)\n- Polished Diorite (HARYA_)\n- Cactus Bottom (HARYA_)\n- Nether & Warped Wart Block (HARYA_)\n- Soul Sand (HARYA_)\n- Green Glazed Terracotta (HARYA_)\n- Purpur Block (HARYA_)\n- Lectern (HARYA_)\n- Oak Sapling (HARYA_)\n- Glowstone (HARYA_)\n- All Logs Top (HARYA_)\n- Cherry & Mangrove Doors bolts (HARYA_)\n- Grindstone Round (HARYA_)\n- Barrel Side & To\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - Release 13.zip",
+          "size": 18343100,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "vyty9ijM",
+      "name": "Faithful 64x - December 2025 Release",
+      "version_number": "Release-12",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["minecraft"],
+      "featured": true,
+      "date_published": "2025-12-09T16:09:08.567510Z",
+      "downloads": 1105920,
+      "changelog": "# Added:\n## Items:\n- Spears (HARYA_)\n- Nautilus Armors (HARYA_)\n- Nautilus Spawn Egg (HARYA_)\n- Zombie Nautilus Spawn Egg (HARYA_)\n- Parched Spawn Egg (HARYA_)\n- Husk Camel Spawn Egg (HARYA_)\n- Netherite Horse Armor (HARYA_)\n## Entities:\n- Nautilus (HARYA_)\n- Zombie & Coral Zombie Nautilus (HARYA_)\n- Patched (HARYA_)\n- Baby Nautilus (HARYA_)\n- Camel Husk (HARYA_)\n- Netherite Horse Armor (HARYA_)\n- Nautilus Armor (HARYA_)\n## Effects:\n- Breath of the Nautilus (HARYA_)\n## UI:\n- Nautilus (HARYA_)\n- A special thanks to Bachale for reproducing Mount of Mayhem panorama perfectly!\n# Changed:\n## Blocks:\n- Azalea (HARYA_)\n- Flowering Azalea (HARYA_)\n- Potted Azalea (HARYA_)\n- Fire Coral (HARYA_)\n- All Rails (HARYA_)\n- Stonecutter Side (HARYA_)\n- All Copper Chests (HARYA_)\n- Cauldron & Hopper Inner (HARYA_)\n- Deepslate Bricks (HARYA_)\n- Polished Blackstone Bricks (HARYA_)\n- Flower Pot (HARYA_)\n- TNT Side (HARYA_ & Evorp)\n- Netherite Block (HARYA_)\n- Dead Bush (HARYA_)\n- Polished Granite (HARYA_)\n- Cracked Polished Blackstone Bricks (HARYA_)\n- Cracked Deeplsate Bricks (HARYA_)\n- Dandelion (HARYA_)\n- All Terracotta Blocks (HARYA_)\n- Cut Copper (HARYA_)\n- Quartz Pillar Top (HARYA_)\n## Items:\n- Turtle Egg (HARYA_)\n- Salmon/Cooked Salmon (HARYA_)\n- Cod/Cooked Cod (HARYA_)\n- All Buckets (HARYA_, Evorp & [REDACTED])\n- Fermented Spider Eye (HARYA_)\n- Fireball (HARYA_)\n- Coal (HARYA_)\n- Nautilus Shell (HARYA_)\n- Doors (HARYA_)\n- Zombie Horse Spawn Egg (HARYA_)\n- Fermented Spider Eye (HARYA_)\n- Flower Pot (HARYA_)\n- Phantom Membrane (HARYA_)\n## Entities:\n- Zombie Horse (HARYA_)\n- Trident (HARYA_)\n- Leather Horse Armor (HARYA_)\n- Horse White Marking (HARYA_)\nPiglin & Puglin Brute (HARYA_)\n## Paitings:\n- Cotan (HARYA_)\n# Bedrock:\n## Vibrant Visuals:\n- Fixed Copper Doors items reflections to matching their blocks variants\n- Updated & improved various MERS\n- Fixed Sculk Catalyst Top MERS resolution making the reflection stretch\n- Added VV's support for 1.21.130's panorama\n## Added:\n- Blue R\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - December 2025 Release.zip",
+          "size": 16053919,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "YVr5XH0b",
+      "name": "Faithful 64x - Release 11",
+      "version_number": "Release-11",
+      "version_type": "release",
+      "game_versions": ["1.21.9", "1.21.10"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-09-30T16:10:56.293545Z",
+      "downloads": 481733,
+      "changelog": "# Added:\n## Blocks:\n- Copper Chest [All variants] (HARYA_)\n- All Shelves [All variants] (HARYA_)\n- Copper Bars [All variants] (HARYA_)\n- Lightning Rods [All variants] (HARYA_)\n- Copper Lanterns [All variants] (HARYA_)\n- Copper Chains [All variants] (HARYA_)\n- Copper Torch (HARYA_)\n## Items:\n- Copper Tools (HARYA_)\n- Copper Amor (HARYA_)\n- Spawn Eggs (HARYA_):\n1. Zombified Piglin\n1. Turtle\n1. Stray\n1. Ender Dragon\n1. Dolphin\n1. Hoglin\n1. Zombie Hoglin\n1. Iron Golem\n1. Zombie Horse\n1. Elder Guardian\n1. Skeleton Horse\n1. Snow Golem\n1. Wither\n1. Magma Cube\n1. Copper Golem\n- Nugget Copper (HARYA_)\n- Copper Horse Armor (HARYA_)\n## Entities:\n- All Copper Golem [All variants] (HARYA_)\n- Copper Horse Armor (HARYA_)\n## Armors:\n- Copper (HARYA_)\n## Environment:\n- End Flash (HARYA_)\n# Changed:\n## Blocks:\n- Clay (HARYA_)\n- Tube Coral Block (HARYA_)\n- All Copper Doors (HARYA_)\n- Honey Block (HARYA_)\n- Tube Coral (HARYA_)\n- Raw Gold Block (HARYA_)\n- Coal Block (HARYA_)\n- Bubble Coral Fan (HARYA_)\n- Fire Block (HARYA_)\n- Nether Wart (HARYA_)\n- TNT Side (HARYA_)\n- Polished Blackstone (HARYA_)\n- Composter Bottom (HARYA_)\n- Spruce Door (HARYA_)\n- Spruce Trapdoor (HARYA_)\n- Nether Portal (Evorp & Eva)\n- Lapis Block (HARYA_)\n- Basalt (HARYA_)\n- Blackstone (HARYA_)\n- Gilded Blackstone (HARYA_)\n- Lodestone (HARYA_)\n- Jigsaw (HARYA_)\n- Ladder (HARYA_)\n- Iron Trapdoor (HARYA_)\n- Bee Nest & Hive Top & Bottom\n- Bamboo Leaves (HARYA_)\n- Cobbled Deepslate (HARYA_)\n- Tube Coral Fan (HARYA_)\n- Gold Ore & Gold Deepslate Ore (HARYA_)\n- Lilac (HARYA_)\n- Dripstone Block (HARYA_)\n- Big Dripleaf (HARYA_)\n- Guster Pottery Pattern (HARYA_)\n- All Copper Door (HARYA_)\n- Ender Portal Frame Top (HARYA_)\n- Redstone Torch (HARYA_)\n- Pale Oak Door (HARYA_)\n- Fletching Table Side & Front (HARYA_ & Evorp)\n- Spore Blossom Base (HARYA_)\n- Campfire Fire & Soul Campfire Fire (HARYA_)\n- Jungle Door (HARYA_)\n## Items:\n- Echo Shard (HARYA_)\n- Arrows (HARYA_)\n- Amethyst Shard (HARYA_)\n- All Boats (HARYA_)\n- All Chest Boa\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - September 2025 Release.zip",
+          "size": 16018496,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5T6GekBK",
+      "name": "Faithful 64x - Release 10",
+      "version_number": "Release-10",
+      "version_type": "release",
+      "game_versions": ["1.21.7", "1.21.8"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-07-05T13:06:26.078946Z",
+      "downloads": 487216,
+      "changelog": "### Added:\n## Blocks:\n\n- Dried Ghast (HARYA_)\n- Test Blocks (Banjoei)\n- Items:\n- Harness (HARYA_)\n- Tears Music Disc (HARYA_)\n- Spawn Eggs:\n- Pillager (HARYA_)\n- Fox (HARYA_)\n- Wandering (HARYA_)\n- Zombie (HARYA_)\n- Evoker (HARYA_)\n- Vandicator (HARYA_)\n- Villager (HARYA_)\n- Sheep (HARYA_)\n- Pig (HARYA_)\n- Armadillo (HARYA_)\n- Allay (HARYA_)\n- Vex (HARYA_)\n- Witch (HARYA_)\n- Cow (HARYA_)\n- Mooshrom (HARYA_)\n- Blaze (HARYA_)\n- Axoloth (HARYA_)\n- Endermite (HARYA_)\n- Bat (HARYA_)\n- Slime (HARYA_)\n- Cat (HARYA_)\n- Shulker (HARYA_)\n- Breeze (HARYA_)\n- Ocelot (HARYA_)\n- Drowned (HARYA_)\n- Sniffer (HARYA_)\n- Creeper (HARYA_)\n- Zombie (HARYA_)\n- Phantom (HARYA_)\n- Creaking (HARYA_)\n- Rabbit (HARYA_)\n- Habbit (HARYA_)\n- Skeleton (HARYA_)\n- Wither Skeleton (HARYA_)\n- Bogged (HARYA_)\n- Camel (HARYA_)\n- Spider (HARYA_)\n- Cave Spider (HARYA_)\n- Strider (HARYA_)\n- Polar Bear (HARYA_)\n- Warden (HARYA_)\n- Goat (HARYA_)\n- Horse (HARYA_)\n- Tadpole (HARYA_)\n- Cod (HARYA_)\n- Tropical (HARYA_)\n- Pufferfish (HARYA_)\n- Salmon (HARYA_)\n- Enderman (HARYA_)\n- Wolf (HARYA_)\n- Panda (HARYA_)\n- Guardian (HARYA_)\n- Glow Squid (HARYA_)\n- Ghast (HARYA_)\n- Happy Ghast (HARYA_)\n- Piglin (HARYA_)\n- Pigline Brute (HARYA_)\n- Mule (HARYA_)\n- Donkey (HARYA_)\n- Llama (HARYA_)\n- Wandering Trader Llama (HARYA_)\n- Husk (HARYA_)\n- Lava Chicken Music Disk (HARYA_)\n- Copper Set: (Bedrock Edition Only):\n- Copper Axe (HARYA_)\n- Copper Hoe (HARYA_)\n- Copper Sword (HARYA_)\n- Copper Shovel (HARYA_)\n- Copper Pickaxe (HARYA_)\n- Copper Helmet (HARYA_ & Evorp)\n- Copper Chestplate (HARYA_ & Evorp)\n- Copper Leggings (HARYA_ & Evorp)\n- Copper Boots (HARYA_ & Evorp)\n- Copper Armor (HARYA_)\n## Entities:\n- Happy Ghast (HARYA_)\n- Happy Ghast Harness (HARYA_)\n- Happy Ghast Rope (HARYA_)\n## User Interfaces:\n- Locator Bar (HARYA_)\n- A bunch of new Bedrock UIs (HARYA_)\n- Music Notes (HARYA_)\n## Paintings:\n- Unpacked (HARYA_)\n### Changed:\n## Blocks:\n- Bookshelves (HARYA_ & Jamiscus)\n- Hay Block (HARYA_ & Evorp)\n- Quartz Pillar (Ev\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - Release 10.zip",
+          "size": 18001871,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5cOeToG5",
+      "name": "Faithful 64x - March Release 2025",
+      "version_number": "R9",
+      "version_type": "release",
+      "game_versions": ["1.21.5"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-03-16T15:47:09.074032Z",
+      "downloads": 425565,
+      "changelog": "# Added:\n\n## Blocks:\n- Eyeblossom (HARYA_)\n- Pale Oak Sapling (HARYA_)\n- Wildflowers (HARYA_)\n- Leaf Litter (HARYA_)\n- Creaking Heart Dormant (HARYA_)\n- Firefly Bush (HARYA_)\n- Cactus Flowers (HARYA_)\n- Resin Block (HARYA_)\n- Small & Tall Dry Grass (HARYA_)\n- Bush (HARYA_)\n- Entities:\n- Cold Chicken (HARYA_)\n- Warm (HARYA_)\n- Cold Cow (HARYA_)\n- Warm Cow (HARYA_)\n- Cold Pig (HARYA_)\n- Warm Pig (HARYA_)\n\n## Items:\n- Wildflowers (HARYA_)\n- Brown Egg (HARYA_ and Evorp)\n- Blue Egg (HARYA_ and Evorp)\n- Parrot Spawn Egg (HARYA_)\n- Rabbit Spawn Egg (HARYA_)\n- Chicken Spawn Egg (HARYA_)\n- Allay Spawn Egg (HARYA_)\n- Bee Spawn Egg (HARYA_)\n\n## Paintings:\n- Fern (HARYA_)\n- Prairie Ride (HARYA_)\n- Bouquet (HARYA_)\n- Sunflower (HARYA_)\n- Bouquet (HARYA_)\n- Cotan (HARYA_)\n- Humble (HARYA_)\n- Tides (HARYA_)\n- \n# Changed:\n## Blocks:\n- Grindstone (HARYA_)\n- Twisted Vines (HARYA_)\n- Wheat (HARYA_)\n- Campfire & Soul Campfire (HARYA_)\n- Hopper Top (HARYA_)\n- Composter Ready (HARYA_)\n- Barrel Top (HARYA_)\n- All Concrete Powders (HARYA_)\n- Oak Door (HARYA_)\n- Light Blue Glazed Terracotta (HARYA_)\n- Dirt (HARYA_):\n- Grass Block Side (HARYA_)\n- Podzol Side (HARYA_)\n- Snowy Grass Block Side (HARYA_)\n- Mycelium Side (HARYA_)\n- Rooted Dirt (HARYA_)\n- Coarse Dirt (HARYA_)\n- Grass Path Side (HARYA_)\n- Warped Door (HARYA_)\n- Crismon Door (HARYA_)\n- Creaking Heart (HARYA_)\n- Vault (HARYA_)\n- Logs:\n- Oak Side (HARYA_)\n- Acacia Side (HARYA_)\n- Spruce Side (HARYA_)\n- Dark Oak Side (HARYA_)\n- Jungle Side (HARYA_)\n- Loom Front (HARYA_ and Evorp)\n- Jungle Trapdoor (HARYA_)\n- Warped Trapdoor (HARYA_)\n- Acacia Trapdoor (HARYA_)\n- Grass Block Top (HARYA_)\n- Oak Trapdoor (HARYA_)\n\n## Entities:\n- Bee (HARYA_)\n- Cod (HARYA_)\n- Salmon (HARYA_)\n- Cow:\n- Cow (HARYA_)\n- Brown Mooshroom (HARYA_)\n- Red Mooshroom (HARYA_)\n- Signs:\n- Oak (HARYA_)\n- Acacia (HARYA_)\n- Spruce (HARYA_)\n- Dark Oak (HARYA_)\n- Jungle (HARYA_)\n- Wool Sheep (HARYA_)\n- Allay (HARYA_)\n- \n## Items:\n- Light Gray Dye (HARYA_)\n- Bow Pulling (HARYA\n\n…",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - March 2025 Release.zip",
+          "size": 10988275,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "M9TLA4q3",
+      "name": "Faithful 64x - December 2024 Release",
+      "version_number": "R8",
+      "version_type": "release",
+      "game_versions": ["1.21.4"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2024-12-22T12:26:11.829826Z",
+      "downloads": 469252,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Faithful 64x - December 2024 Release.zip",
+          "size": 10526243,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

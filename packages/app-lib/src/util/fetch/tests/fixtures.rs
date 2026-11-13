@@ -30,6 +30,10 @@ pub(super) struct RangeServerBehavior {
     pub(super) ignore_range: bool,
     pub(super) slow_body: bool,
     pub(super) fail_first_range: bool,
+    pub(super) fail_all_ranges: bool,
+    pub(super) delay_range_body: bool,
+    pub(super) pause_range_after_prefix: bool,
+    pub(super) fail_prefix_requests: usize,
     pub(super) stall_first_range: bool,
     pub(super) vary_mod_validators: bool,
     pub(super) vary_range_validators: bool,
@@ -44,6 +48,19 @@ pub(super) async fn spawn_range_server(
     Arc<AtomicUsize>,
     tokio::task::JoinHandle<()>,
 ) {
+    spawn_observed_range_server(data, behavior, None).await
+}
+
+pub(super) async fn spawn_observed_range_server(
+    data: Arc<Vec<u8>>,
+    behavior: RangeServerBehavior,
+    observed_ranges: Option<Arc<parking_lot::Mutex<Vec<(u64, u64)>>>>,
+) -> (
+    String,
+    Arc<AtomicUsize>,
+    Arc<AtomicUsize>,
+    tokio::task::JoinHandle<()>,
+) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let requests = Arc::new(AtomicUsize::new(0));
@@ -51,6 +68,7 @@ pub(super) async fn spawn_range_server(
     let normal_requests = Arc::new(AtomicUsize::new(0));
     let normal_request_count = normal_requests.clone();
     let failed_range = Arc::new(AtomicBool::new(false));
+    let failed_prefix_requests = Arc::new(AtomicUsize::new(0));
     let stalled_range = Arc::new(AtomicBool::new(false));
     let handle = tokio::spawn(async move {
         loop {
@@ -61,7 +79,9 @@ pub(super) async fn spawn_range_server(
             let requests = request_count.clone();
             let normal_requests = normal_request_count.clone();
             let failed_range = Arc::clone(&failed_range);
+            let failed_prefix_requests = Arc::clone(&failed_prefix_requests);
             let stalled_range = Arc::clone(&stalled_range);
+            let observed_ranges = observed_ranges.clone();
             tokio::spawn(async move {
                 requests.fetch_add(1, Ordering::Relaxed);
                 let mut request = Vec::new();
@@ -93,13 +113,25 @@ pub(super) async fn spawn_range_server(
                         return;
                     };
                     let end = if end.is_empty() {
-                        data.len() as u64 - 1
+                        (data.len() as u64).saturating_sub(1)
                     } else {
                         let Ok(end) = end.parse::<u64>() else {
                             return;
                         };
                         end
                     };
+                    if start >= data.len() as u64 || start > end {
+                        let headers = format!(
+                            "HTTP/1.1 416 Range Not Satisfiable\r\nContent-Length: 0\r\nContent-Range: bytes */{}\r\nConnection: close\r\n\r\n",
+                            data.len(),
+                        );
+                        let _ = stream.write_all(headers.as_bytes()).await;
+                        return;
+                    }
+                    let end = end.min(data.len() as u64 - 1);
+                    if let Some(observed_ranges) = &observed_ranges {
+                        observed_ranges.lock().push((start, end));
+                    }
                     let body = &data[start as usize..=end as usize];
                     let reported_start = if behavior.wrong_content_range {
                         start.saturating_add(1)
@@ -142,6 +174,22 @@ pub(super) async fn spawn_range_server(
                 if stream.write_all(headers.as_bytes()).await.is_err() {
                     return;
                 }
+                if behavior.delay_range_body && requested_range.is_some() {
+                    tokio::time::sleep(DOWNLOAD_SCHEDULING_GRACE * 2).await;
+                }
+                if behavior.fail_prefix_requests > 0
+                    && requested_range
+                        .and_then(|range| range.split_once('-'))
+                        .and_then(|(_, end)| end.parse::<usize>().ok())
+                        == Some(data.len() / 2 - 1)
+                    && failed_prefix_requests.fetch_add(1, Ordering::Relaxed)
+                        < behavior.fail_prefix_requests
+                {
+                    let _ = stream
+                        .write_all(&body[..body.len().min(16 * 1024)])
+                        .await;
+                    return;
+                }
                 if requested_range.is_some()
                     && behavior.stall_first_range
                     && !stalled_range.swap(true, Ordering::Relaxed)
@@ -150,13 +198,26 @@ pub(super) async fn spawn_range_server(
                     return;
                 }
                 if requested_range.is_some()
-                    && behavior.fail_first_range
-                    && !failed_range.swap(true, Ordering::Relaxed)
+                    && (behavior.fail_all_ranges
+                        || (behavior.fail_first_range
+                            && !failed_range.swap(true, Ordering::Relaxed)))
                 {
                     let midpoint = body.len() / 2;
                     let _ = stream.write_all(&body[..midpoint]).await;
                     return;
                 }
+                let body = if behavior.pause_range_after_prefix
+                    && requested_range.is_some()
+                {
+                    let prefix = body.len().min(1024);
+                    if stream.write_all(&body[..prefix]).await.is_err() {
+                        return;
+                    }
+                    tokio::time::sleep(DOWNLOAD_SCHEDULING_GRACE * 2).await;
+                    &body[prefix..]
+                } else {
+                    body
+                };
                 for chunk in body.chunks(64 * 1024) {
                     if stream.write_all(chunk).await.is_err() {
                         return;

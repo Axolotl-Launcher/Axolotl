@@ -1,6 +1,4 @@
 //! Theseus state management system
-use ariadne::ids::UserId;
-use ariadne::users::UserStatus;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -201,20 +199,14 @@ pub struct WarningPayload {
     pub instance_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub java_version: Option<u32>,
 }
 
 #[derive(Serialize, Clone)]
 #[cfg(feature = "tauri")]
 pub struct JavaDiscoveryPayload {
     pub count: usize,
-}
-
-#[derive(Serialize, Clone)]
-#[cfg(feature = "tauri")]
-#[serde(rename_all = "camelCase")]
-pub struct JavaDownloadConfirmationPayload {
-    pub request_id: Uuid,
-    pub version: u32,
 }
 
 #[derive(Serialize, Clone)]
@@ -447,16 +439,6 @@ pub enum InstancePayloadType {
 #[derive(Serialize, Clone)]
 pub struct InstanceGroupsChangedPayload {
     pub instance_ids: Vec<String>,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "snake_case")]
-#[serde(tag = "event")]
-pub enum FriendPayload {
-    FriendRequest { from: UserId },
-    UserOffline { id: UserId },
-    StatusUpdate { user_status: UserStatus },
-    StatusSync,
 }
 
 #[cfg(feature = "tauri")]

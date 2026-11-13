@@ -1,0 +1,252 @@
+{
+  "id": "gvQqBUqZ",
+  "slug": "lithium",
+  "title": "Lithium",
+  "description": "No-compromises game logic optimization mod, useful for both single-player games and multi-player servers.",
+  "author": "jellysquid3",
+  "categories": ["fabric", "neoforge", "optimization", "quilt"],
+  "display_categories": ["fabric", "neoforge", "optimization", "quilt"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 140491483,
+  "followers": 24015,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "neoforge", "quilt"],
+  "game_versions": [
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "xS0Q8LSi",
+  "date_created": "2021-01-03T00:56:52.292581Z",
+  "date_modified": "2026-09-28T03:43:35.615649Z",
+  "color": 15395571,
+  "published": "2021-01-03T00:56:52.292581Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/caffeinemc/lithium-fabric/issues",
+  "source_url": "https://github.com/caffeinemc/lithium-fabric",
+  "wiki_url": null,
+  "discord_url": "https://caffeinemc.net/discord",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/2No2Name"
+    }
+  ],
+  "versions_total": 180,
+  "body": "Lithium is a modern, general-purpose optimization mod for Minecraft which works to improve a number of systems (game physics, mob AI, block ticking, etc) with the goal of **not changing any vanilla mechanics**. \n\n<br>\n\nThe mod works **on both the client and server**, and can be installed on servers **without requiring clients to also have the mod** (and vice versa.)\n\n<br>\n\nFor multiplayer servers, administrators can expect a sizeable improvement to tick times, allowing their hardware to support more loaded entities, chunks, and players. Even in single-player, Lithium helps to improve performance by optimizing the internal game server, which is used for \"ticking\" the world. This can free up your computer's processor to focus on other tasks, resulting in **improved frame rates and increased responsiveness**. \n\n\n<br>\n\n\nThe strict goal of maintaining exact behavior with vanilla makes Lithium suitable for almost any Minecraft server running Fabric, even for highly complex gameplay scenarios and creations. In fact, our continued insistence towards not changing vanilla gameplay has even led to the mod being officially allowed in [Minecraft speedrunning](https://www.speedrun.com/mc).\n\n<br>\n\n## Installation\n\nMake sure you have the latest version of Fabric Loader present and then simply drop the mod into your mods folder. No other mods or additional setup (not even Fabric API!) is required. You do not need to create new worlds in order to take advantage of the mod.\n\n<br>\n\n\nWhile you're at it, you may want to check out [Sodium](https://modrinth.com/mod/sodium), which improves rendering performance.\n\n<br>\n\n## Configuration\n\nLithium makes use of an semi-unusual configuration system which allows you to enable or completely disable patches the mod applies. This system allows fine-grained control over what code in Minecraft is modified by Lithium, and as such, can be used to completely eliminate bugs or mod incompatibilities introduced by the mod.\n\n<br>\n\nFor more information, please read [the wiki entry](https://github.com/CaffeineMC/lithium-fabric/wiki/Configuration-File) on modifying your configuration file.\n\n<br>\n\nPlease note: An empty configuration file is *perfectly normal* and just means you want to use the default options, which are already set up out of the box for the best performance the mod can offer.\n\n<br>\n\n## Reporting Issues\n\nPlease use the issue tracker linked at the top of the page to report bugs, crashes, and other issues.\n\n",
+  "gallery": [],
+  "team": [
+    {
+      "username": "jellysquid3",
+      "role": "Original Author",
+      "avatar": "https://cdn.modrinth.com/user/TEZXhE2U/f4705a5f2388c65029ae2e59f1434b3e6e4de23a.png"
+    },
+    {
+      "username": "2No2Name",
+      "role": "Project Lead",
+      "avatar": "https://avatars.githubusercontent.com/u/50278648?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "1rb9wI5K",
+      "name": "Lithium 0.26.2 for Neoforge",
+      "version_number": "mc26.3-0.26.2-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-28T03:43:35.615649Z",
+      "downloads": 65862,
+      "changelog": "Lithium 0.26.2 for Minecraft 26.3.x fixes several issues.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.3-0.26.2/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Changes\n- Re-enable previously disabled optimization after fixing initialization crash\n- Fix api jar build\n- Fix mod compatibility issue with Streams Reflowing\n- Fix movement notification of stationary minecarts (Thanks to HaHaWTH)\n- Fix memory leak of vibration system optimization",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-neoforge-0.26.2+mc26.3.jar",
+          "size": 903255,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "xS0Q8LSi",
+      "name": "Lithium 0.26.2 for Fabric",
+      "version_number": "mc26.3-0.26.2-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-28T03:43:35.593224Z",
+      "downloads": 2196102,
+      "changelog": "Lithium 0.26.2 for Minecraft 26.3.x fixes several issues.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.3-0.26.2/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Changes\n- Re-enable previously disabled optimization after fixing initialization crash\n- Fix api jar build\n- Fix mod compatibility issue with Streams Reflowing\n- Fix movement notification of stationary minecarts (Thanks to HaHaWTH)\n- Fix memory leak of vibration system optimization",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-fabric-0.26.2+mc26.3.jar",
+          "size": 914543,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "WXHRsMRl",
+      "name": "Lithium 0.26.1 for Fabric",
+      "version_number": "mc26.3-0.26.1-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-09-16T14:39:40.495837Z",
+      "downloads": 920889,
+      "changelog": "Lithium 0.26.1 for Minecraft 26.3.x fixes two critical issues.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.3-0.26.1/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Changes\n- Fix F3+1 profiler crash\n- Disable optimization that causes chunk corruption",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-fabric-0.26.1+mc26.3.jar",
+          "size": 915429,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "efIED0FC",
+      "name": "Lithium 0.26.1 for Neoforge",
+      "version_number": "mc26.3-0.26.1-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-16T14:39:40.492614Z",
+      "downloads": 11754,
+      "changelog": "Lithium 0.26.1 for Minecraft 26.3.x fixes two critical issues.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.3-0.26.1/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Changes\n- Fix F3+1 profiler crash\n- Disable optimization that causes chunk corruption",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-neoforge-0.26.1+mc26.3.jar",
+          "size": 904073,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "J9CowDXK",
+      "name": "Lithium 0.25.3 for Neoforge",
+      "version_number": "mc26.2-0.25.3-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-07-29T12:19:55.371250Z",
+      "downloads": 129223,
+      "changelog": "Lithium 0.25.3 for Minecraft 26.2.x fixes a few issues.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.2-0.25.3/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Fixes\n- Fix player standing on sculk sensor not waking the sculk sensor\n- Fix furnace not waking when fuel slot is modified with /item command",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-neoforge-0.25.3+mc26.2.jar",
+          "size": 904073,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "f7vZ0VWU",
+      "name": "Lithium 0.25.3 for Fabric",
+      "version_number": "mc26.2-0.25.3-fabric",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-07-29T12:19:55.348704Z",
+      "downloads": 4480445,
+      "changelog": "Lithium 0.25.3 for Minecraft 26.2.x fixes a few issues.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.2-0.25.3/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Fixes\n- Fix player standing on sculk sensor not waking the sculk sensor\n- Fix furnace not waking when fuel slot is modified with /item command",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-fabric-0.25.3+mc26.2.jar",
+          "size": 912850,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "eZ0KJiEA",
+      "name": "Lithium 0.24.7 for Neoforge",
+      "version_number": "mc26.1.2-0.24.7-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-07-29T11:40:19.063019Z",
+      "downloads": 48857,
+      "changelog": "Lithium 0.24.7 for Minecraft 26.1.x backports all changes made since the release of Minecraft 26.2.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.1.2-0.24.7/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Additions\n- Reduce allocations in entity explosion exposure raycasts\n- Use caching in entity explosion exposure block access\n- Add isDescending to lazy shape context optimization\n\n## Changes\n- Include tag-playing villager baby sensor in adult sensor optimization\n\n## Fixes\n- Fix explosion no air counting optimization breaking visual explosion size since Lithium 0.24.5\n- Fix supporting block movement shortcut not offsetting VoxelShape\n- Avoid crashing when modded levels with broken registries are created\n- Fix adult sensor optimization only applying to animals that grew up since last reload\n\n- Fix various minor non-vanilla behaviors of VoxelShape optimizations\n- Fix goat jump target choice optimization possibly breaking and crashing (Thanks to gurrveerrrr)\n- Fix collision with hard EnderDragon, EnderDragonPart and NeoForge PartEntity boxes not being possible\n- Fix collision with modded spectator EnderDragonPart being possible\n- Fix EntityClassGroup entries missing when multiple theoretical entity types per entity class are decided using entity type parameter\n- Fix some startup crashes with other mods by using conformVisibility for mixins",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-neoforge-0.24.7+mc26.1.2.jar",
+          "size": 904051,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Oqq8TOAV",
+      "name": "Lithium 0.24.7 for Fabric",
+      "version_number": "mc26.1.2-0.24.7-fabric",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": false,
+      "date_published": "2026-07-29T11:40:19.016269Z",
+      "downloads": 1133364,
+      "changelog": "Lithium 0.24.7 for Minecraft 26.1.x backports all changes made since the release of Minecraft 26.2.\n\nMake sure to take a backup of your world before using the mod and please report any bugs and mod compatibility issues at the [issue tracker](https://github.com/CaffeineMC/lithium-fabric/issues). You can check the [description of each optimization](https://github.com/CaffeineMC/lithium/blob/mc26.1.2-0.24.7/lithium-mixin-config.md) and how to disable it when encountering a problem.\n\n## Additions\n- Reduce allocations in entity explosion exposure raycasts\n- Use caching in entity explosion exposure block access\n- Add isDescending to lazy shape context optimization\n\n## Changes\n- Include tag-playing villager baby sensor in adult sensor optimization\n\n## Fixes\n- Fix explosion no air counting optimization breaking visual explosion size since Lithium 0.24.5\n- Fix supporting block movement shortcut not offsetting VoxelShape\n- Avoid crashing when modded levels with broken registries are created\n- Fix adult sensor optimization only applying to animals that grew up since last reload\n\n- Fix various minor non-vanilla behaviors of VoxelShape optimizations\n- Fix goat jump target choice optimization possibly breaking and crashing (Thanks to gurrveerrrr)\n- Fix collision with hard EnderDragon, EnderDragonPart and NeoForge PartEntity boxes not being possible\n- Fix collision with modded spectator EnderDragonPart being possible\n- Fix EntityClassGroup entries missing when multiple theoretical entity types per entity class are decided using entity type parameter\n- Fix some startup crashes with other mods by using conformVisibility for mixins",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "lithium-fabric-0.24.7+mc26.1.2.jar",
+          "size": 912821,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

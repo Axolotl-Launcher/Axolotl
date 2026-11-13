@@ -9,7 +9,7 @@
             <button
                 type="button"
                 :aria-label="formatMessage(messages.downloads)"
-                :title="activeJobs[0]?.display?.title ?? formatMessage(messages.downloads)"
+                :title="firstJobTitle"
                 :class="[
                     'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-solid border-transparent px-2.5 text-base font-semibold leading-5 text-[var(--color-text-primary)] transition-colors',
                     activeJobs.length || hasLegacyDownload
@@ -22,7 +22,7 @@
                 <DownloadIcon v-else class="size-5 shrink-0" />
                 <template v-if="activeJobs.length || hasLegacyDownload">
                     <span class="max-w-[12rem] truncate text-sm font-semibold">
-                        {{ activeJobs[0]?.display?.title ?? formatMessage(messages.downloads) }}
+                        {{ firstJobTitle }}
                     </span>
                     <span
                         v-if="firstJobSpeed"
@@ -83,7 +83,7 @@
                                 class="min-w-0 flex-1 truncate text-left text-sm font-semibold text-[var(--color-text-primary)]"
                                 @click="runPopoutAction(hide, () => openDetails(job.job_id))"
                             >
-                                {{ job.display?.title ?? phaseLabel(job.phase) }}
+                                {{ jobTitle(job) }}
                             </button>
                             <button
                                 v-tooltip="
@@ -120,7 +120,7 @@
                             :progress="progressPercent(job) ?? 0"
                             :max="100"
                             :waiting="progressPercent(job) === null"
-                            :aria-label="job.display?.title ?? phaseLabel(job.phase)"
+                            :aria-label="jobTitle(job)"
                         />
                     </div>
                 </div>
@@ -168,11 +168,12 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { exportMessages } from '@/components/ui/export/messages'
+import { installPhaseMessage } from '@/composables/browse/install-job-messages'
 import { useDownloadTelemetry } from '@/composables/useDownloadTelemetry'
 import type { InstallJobSnapshot, InstallPhaseId } from '@/helpers/install'
+import { installJobTitle } from '@/helpers/install-job-presentation'
 import {
-    effectiveInstallProgress,
-    hasDeterminateInstallProgress,
+    formatInstallProgressText,
     installProgressFraction,
     installProgressTextSource,
 } from '@/helpers/install-progress'
@@ -248,6 +249,11 @@ const phaseDescriptors: Partial<Record<InstallPhaseId, (typeof messages)[keyof t
     }
 
 const activeJobs = computed(() => downloadManager.activeJobs.value)
+const firstJobTitle = computed(() =>
+    activeJobs.value[0]
+        ? installJobTitle(activeJobs.value[0], formatMessage, formatMessage(messages.downloads))
+        : formatMessage(messages.downloads),
+)
 const displayedTelemetry = useDownloadTelemetry(activeJobs)
 const firstJobSpeed = computed(
     () => displayedTelemetry(activeJobs.value[0])?.speed_bytes_per_second,
@@ -271,7 +277,11 @@ const triggerStyle = computed(() => {
 })
 
 function phaseLabel(phase: InstallPhaseId) {
-    return formatMessage(phaseDescriptors[phase] ?? messages.unknownPhase)
+    return formatMessage(phaseDescriptors[phase] ?? installPhaseMessage(phase))
+}
+
+function jobTitle(job: InstallJobSnapshot) {
+    return installJobTitle(job, formatMessage, phaseLabel(job.phase))
 }
 
 function progressPercent(job: InstallJobSnapshot) {
@@ -282,15 +292,10 @@ function progressPercent(job: InstallJobSnapshot) {
 
 function progressLabel(job: InstallJobSnapshot) {
     const source = installProgressTextSource(job)
-    if (source.type === 'bytes')
-        return `${formatBytes(source.current)} / ${formatBytes(source.total)}`
-    if (source.type === 'items')
-        return `${Math.min(source.current, source.total)} / ${source.total}`
+    const label = formatInstallProgressText(source, formatBytes)
+    if (label) return label
     if (source.type === 'required_files')
         return `${job.summary.files_completed} / ${job.summary.files_total ?? '—'}`
-    const progress = effectiveInstallProgress(job)
-    if (hasDeterminateInstallProgress(progress))
-        return `${Math.min(progress.current, progress.total)} / ${progress.total}`
     return ''
 }
 

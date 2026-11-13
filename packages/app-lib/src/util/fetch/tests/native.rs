@@ -1,6 +1,8 @@
 //! Fetch native tests.
 
-use crate::util::download::constants::FILE_VALIDATION_CONCURRENCY;
+use crate::util::download::constants::{
+    FILE_VALIDATION_CONCURRENCY, PARTIAL_FILE_SUFFIX,
+};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -285,6 +287,65 @@ async fn check_h2_fallback(
 }
 
 #[tokio::test]
+async fn small_verified_file_recovers_parallel_ranges_after_http2_fallback() {
+    let _guard = super::fixtures::RANGE_SPLITTING_TEST_LOCK.lock().await;
+    RANGE_SPLITTING_PROTOCOL_FAILURES.lock().clear();
+    RANGE_SPLITTING_SUPPORTED.lock().clear();
+    let data = Arc::new(
+        (0..2 * 1024 * 1024)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, requests, normal_requests, server) =
+        spawn_range_server(data.clone(), Default::default()).await;
+    let mut primary =
+        route(url.clone(), DownloadRouteSource::Official, false, true);
+    primary.proxy = ProxyPolicy::Direct;
+    let directory = tempfile::tempdir().unwrap();
+    let semaphore = FetchSemaphore(Semaphore::new(16));
+    for recovering in [false, true] {
+        let mut request = DownloadRequest::new(&url, ResourceClass::Modrinth)
+            .with_integrity(
+                Integrity::sha1(hash.clone()).with_size(data.len() as u64),
+            );
+        request.prefer_http1 = recovering;
+        assert!(!request.batch_download);
+        let destination = directory.path().join(format!("small-{recovering}"));
+        let part = suffixed_path(&destination, PARTIAL_FILE_SUFFIX);
+        let prefix = 64 * 1024;
+        tokio::fs::write(&part, &data[..prefix]).await.unwrap();
+        let before = requests.load(Ordering::Relaxed);
+        let result = run_native_download_attempts(
+            request,
+            &destination,
+            &semaphore,
+            None,
+            vec![primary.clone()],
+            part.clone(),
+            None,
+        )
+        .await
+        .unwrap();
+        let count = requests.load(Ordering::Relaxed) - before;
+        if recovering {
+            assert!(count > 1, "slow fallback must split the remaining bytes");
+        } else {
+            assert_eq!(
+                count, 1,
+                "healthy small files should stay single-stream"
+            );
+        }
+        assert_eq!(result.size, data.len() as u64);
+        assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+        assert!(!part.exists());
+        assert_eq!(semaphore.0.available_permits(), 16);
+    }
+    assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+    server.abort();
+}
+
+#[tokio::test]
 async fn slow_h2_fallback_restarts_single_source_over_http1() {
     check_h2_fallback(false, false, H2FailureFixture::Slow).await;
 }
@@ -315,4 +376,207 @@ fn redirect_hops_rebuild_the_same_range_header() {
     let redirected = byte_range_header_value(Some(1024), Some(2047));
     assert_eq!(original.as_deref(), Some("bytes=1024-2047"));
     assert_eq!(redirected, original);
+}
+
+#[tokio::test]
+async fn hash_verified_ranges_correct_manifest_sizes_without_poisoning_server()
+{
+    let _guard = RANGE_SPLITTING_TEST_LOCK.lock().await;
+    RANGE_SPLITTING_PROTOCOL_FAILURES.lock().clear();
+    let size = 10_000_128;
+    let data = Arc::new(
+        (0..size)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>(),
+    );
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, requests, normal_requests, server) =
+        spawn_range_server(data.clone(), Default::default()).await;
+    let directory = tempfile::tempdir().unwrap();
+    let semaphore = FetchSemaphore(Semaphore::new(96));
+
+    for (index, missing_bytes) in [2_i64, 1, -2, 0].into_iter().enumerate() {
+        let file_url = url.replace("/file", &format!("/file-{index}.mrpack"));
+        let mut download_route =
+            route(file_url.clone(), DownloadRouteSource::Official, false, true);
+        download_route.proxy = ProxyPolicy::Direct;
+        let destination = directory.path().join(format!("file-{index}.mrpack"));
+        let before = requests.load(Ordering::Relaxed);
+        let result = run_native_download_attempts(
+            DownloadRequest::new(&file_url, ResourceClass::Other)
+                .with_integrity(
+                    Integrity::sha1(hash.clone())
+                        .with_size((size as i64 - missing_bytes) as u64),
+                )
+                .with_range_connection_floor(32),
+            &destination,
+            &semaphore,
+            None,
+            vec![download_route.clone()],
+            suffixed_path(&destination, ".part"),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.size, size as u64);
+        assert_eq!(tokio::fs::read(&destination).await.unwrap(), *data);
+        assert_eq!(normal_requests.load(Ordering::Relaxed), 0);
+        assert!(range_splitting_allowed(&download_route));
+        if missing_bytes == 0 {
+            assert!(
+                requests.load(Ordering::Relaxed) - before >= 32,
+                "the next file must retain independent parallel ranges"
+            );
+        }
+    }
+    server.abort();
+}
+
+#[tokio::test]
+async fn range_metadata_correction_keeps_hash_and_range_validation() {
+    let _guard = RANGE_SPLITTING_TEST_LOCK.lock().await;
+    RANGE_SPLITTING_PROTOCOL_FAILURES.lock().clear();
+    let size = 10_000_128_u64;
+    let data = Arc::new(vec![41_u8; size as usize]);
+    let (url, _, _, server) =
+        spawn_range_server(data.clone(), Default::default()).await;
+    let mut download_route =
+        route(url.clone(), DownloadRouteSource::Official, false, true);
+    download_route.proxy = ProxyPolicy::Direct;
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("wrong-hash.bin");
+    let semaphore = FetchSemaphore(Semaphore::new(96));
+    let result = run_native_download_attempts(
+        DownloadRequest::new(&url, ResourceClass::Other)
+            .with_integrity(Integrity::sha1("0".repeat(40)).with_size(size - 2))
+            .with_range_connection_floor(32),
+        &destination,
+        &semaphore,
+        None,
+        vec![download_route.clone()],
+        suffixed_path(&destination, ".part"),
+        None,
+    )
+    .await;
+    assert!(
+        result.is_err(),
+        "correcting size must not accept a wrong hash"
+    );
+    assert!(!destination.exists());
+    assert!(
+        range_splitting_allowed(&download_route),
+        "content hash failures must not poison other files"
+    );
+    server.abort();
+
+    let (url, _, _, server) = spawn_range_server(
+        data.clone(),
+        RangeServerBehavior {
+            wrong_content_range: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let mut download_route =
+        route(url.clone(), DownloadRouteSource::Official, false, true);
+    download_route.proxy = ProxyPolicy::Direct;
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let request = DownloadRequest::new(&url, ResourceClass::Other)
+        .with_integrity(Integrity::sha1(hash).with_size(size - 2))
+        .with_range_connection_floor(32);
+    let client = crate::util::http::client_builder()
+        .no_proxy()
+        .build()
+        .unwrap();
+    let part = directory.path().join("wrong-bounds.part");
+    let outcome = try_segmented_download(
+        SegmentedDownloadContext::new(
+            &request,
+            &download_route,
+            &[],
+            size - 2,
+            &part,
+            &semaphore,
+            &client,
+            &client,
+            1,
+            1,
+            false,
+        ),
+        None,
+    )
+    .await;
+    assert!(
+        matches!(
+            outcome,
+            SegmentedDownloadOutcome::FallbackSingle {
+                reason: "invalid Content-Range",
+                ..
+            }
+        ),
+        "a mismatched start/end must not be accepted as a size correction"
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn ranges_past_actual_eof_report_metadata_size_without_accepting_bad_bounds()
+ {
+    let _guard = RANGE_SPLITTING_TEST_LOCK.lock().await;
+    let size = 1024 * 1024_u64;
+    let data = Arc::new(vec![53_u8; size as usize]);
+    let hash = sha1_smol::Sha1::from(&data[..]).hexdigest();
+    let (url, _, _, server) =
+        spawn_range_server(data, Default::default()).await;
+    let mut download_route =
+        route(url.clone(), DownloadRouteSource::Official, false, true);
+    download_route.proxy = ProxyPolicy::Direct;
+    let request = DownloadRequest::new(&url, ResourceClass::Other)
+        .with_integrity(Integrity::sha1(hash).with_size(size + 2));
+    let client = crate::util::http::client_builder()
+        .no_proxy()
+        .build()
+        .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let semaphore = FetchSemaphore(Semaphore::new(8));
+    for (index, start) in [size - 64, size + 1].into_iter().enumerate() {
+        let part = directory.path().join(format!("eof-{index}.part"));
+        let output = crate::util::download::range_output::RangeOutput::create(
+            &part,
+            size + 2,
+        )
+        .await
+        .unwrap();
+        let permit = acquire_native_connection(&download_route, &semaphore)
+            .await
+            .unwrap();
+        let (progress, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        let result = download_segment(
+            &download_route,
+            DownloadRange::new(0, start, size + 1),
+            size + 2,
+            None,
+            None,
+            &part,
+            &output,
+            permit,
+            &client,
+            &client,
+            progress,
+            &crate::util::download_manager::DownloadSpeedTracker::default(),
+            &parking_lot::Mutex::new(None),
+            None,
+            &semaphore,
+            &std::sync::atomic::AtomicUsize::new(0),
+            &std::sync::atomic::AtomicBool::new(false),
+            &request,
+        )
+        .await;
+        assert!(
+            matches!(result, Err(SegmentDownloadError::MetadataSizeChanged(total)) if total == size),
+            "a valid clipped 206 or out-of-bounds 416 must discover the actual size"
+        );
+    }
+    server.abort();
 }

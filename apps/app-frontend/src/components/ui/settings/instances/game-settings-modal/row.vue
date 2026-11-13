@@ -288,7 +288,7 @@ function updateValue(value: string | number | boolean | undefined) {
             <Slider
                 v-if="isSlider"
                 size="standard"
-                :model-value="sliderValue"
+                :model-value="sliderValue ?? undefined"
                 :min="inputMin ?? 0"
                 :max="inputMax ?? 100"
                 :step="inputStep ?? 1"

@@ -46,20 +46,21 @@ export interface ConsoleManagerContext {
     activeLogSourceIndex?: Ref<number>
 
     sendCommand?: (cmd: string) => void
-    showCommandInput?: boolean | Ref<boolean> | ComputedRef<boolean>
-    disableCommandInput?: boolean | Ref<boolean> | ComputedRef<boolean>
-    disableCommandInputTooltip?: string | Ref<string | undefined> | ComputedRef<string | undefined>
+    showCommandInput?: boolean | Ref<boolean>
+    disableCommandInput?: boolean | Ref<boolean>
+    disableCommandInputTooltip?: string | Ref<string | undefined>
 
-    loading?: Ref<boolean> | ComputedRef<boolean>
+    loading?: Ref<boolean>
 
     onClear?: () => void
-    clearDisabled?: Ref<boolean> | ComputedRef<boolean>
-    clearDisabledTooltip?: string | Ref<string | undefined> | ComputedRef<string | undefined>
+    clearDisabled?: Ref<boolean>
+    clearDisabledTooltip?: string | Ref<string | undefined>
     onDelete?: () => Promise<void>
-    deleteDisabled?: Ref<boolean> | ComputedRef<boolean>
-    deleteDisabledTooltip?: string | Ref<string | undefined> | ComputedRef<string | undefined>
+    onExportLog?: (() => Promise<void>) | Ref<(() => Promise<void>) | undefined>
+    deleteDisabled?: Ref<boolean>
+    deleteDisabledTooltip?: string | Ref<string | undefined>
 
-    shareDisabled?: Ref<boolean> | ComputedRef<boolean>
+    shareDisabled?: Ref<boolean>
 
     emptyStateType?: 'server' | 'instance'
 

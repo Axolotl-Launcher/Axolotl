@@ -1,32 +1,27 @@
 <script setup lang="ts">
 import '@/assets/stylesheets/window-frame.css'
 
-import { AuthFeature, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
+import { ModrinthApiError, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
 import {
     ChangeSkinIcon,
     CompassIcon,
-    ExternalIcon,
     FlaskConicalIcon,
     FolderOpenIcon,
     HomeIcon,
     ImagesIcon,
     LibraryIcon,
-    LogInIcon,
-    LogOutIcon,
     PlusIcon,
     RefreshCwIcon,
     RightArrowIcon,
     RotateCounterClockwiseIcon,
     SettingsIcon,
     SpinnerIcon,
-    UserIcon,
     UsersIcon,
     WorldIcon,
     XIcon,
 } from '@modrinth/assets'
 import {
     Admonition,
-    Avatar,
     BatchScanOverlay,
     BigOptionButton,
     bindingMatchesKeyboardEvent,
@@ -48,7 +43,6 @@ import {
     LoadingBar,
     NewModal,
     NotificationPanel,
-    OverflowMenu,
     PopupNotificationPanel,
     provideModalBehavior,
     provideModrinthClient,
@@ -66,11 +60,19 @@ import { getVersion } from '@tauri-apps/api/app'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Effect, getCurrentWindow } from '@tauri-apps/api/window'
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { type as getOsType } from '@tauri-apps/plugin-os'
 import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
-import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import {
+    computed,
+    defineAsyncComponent,
+    nextTick,
+    onMounted,
+    onUnmounted,
+    provide,
+    ref,
+    watch,
+} from 'vue'
 import { type RouteLocationNormalizedLoaded, RouterView, useRoute, useRouter } from 'vue-router'
 
 import { getAnnouncementByVersion } from '@/announcements/catalog'
@@ -85,21 +87,21 @@ import AddServerToInstanceModal from '@/components/ui/install_flow/AddServerToIn
 import UnknownPackWarningModal from '@/components/ui/install_flow/UnknownPackWarningModal.vue'
 import MinecraftAuthErrorModal from '@/components/ui/minecraft-auth-error-modal/MinecraftAuthErrorModal.vue'
 import MinecraftCrashModal from '@/components/ui/MinecraftCrashModal.vue'
-import AuthGrantFlowWaitModal from '@/components/ui/modal/AuthGrantFlowWaitModal.vue'
 import CurseForgeManualDownloadsModal from '@/components/ui/modal/CurseForgeManualDownloadsModal.vue'
 import InstanceIconPickerModal from '@/components/ui/modal/InstanceIconPickerModal.vue'
-import JavaDownloadConfirmationModal from '@/components/ui/modal/JavaDownloadConfirmationModal.vue'
+import MissingJavaModal from '@/components/ui/modal/MissingJavaModal.vue'
 import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
 import ModpackInstallModal from '@/components/ui/modal/ModpackInstallModal.vue'
 import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
 import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
-import OnboardingOverlay from '@/components/ui/onboarding/OnboardingOverlay.vue'
+import { createOobeController } from '@/components/ui/oobe/useOobe'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import RemoteAnnouncements from '@/components/ui/RemoteAnnouncements.vue'
 import ResourceOperationPreviewModal from '@/components/ui/ResourceOperationPreviewModal.vue'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
+import UnsavedSelectionModal from '@/components/ui/UnsavedSelectionModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { isOfflineAccountRestrictedError } from '@/composables/useAntiPiracyStatus'
@@ -107,14 +109,16 @@ import { useDropImport } from '@/composables/useDropImport'
 import { minecraftLaunchErrorKey } from '@/composables/useMinecraftLaunchError'
 import { setupMojangAuthMonitor, useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
-import { AxolotlBrandConfig, config, getOfficialLabrinthBaseUrl } from '@/config'
+import { AxolotlBrandConfig, config } from '@/config'
 import { startMcpUiBridge } from '@/features/mcp/interface'
 import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
 import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
-import { get_user, get_version } from '@/helpers/cache.js'
+import { openManualAppUpdate } from '@/helpers/app-update-download'
+import { createUpdateFailureConsumer } from '@/helpers/app-update-failure'
+import { get_version } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
-import { applySettingChanges } from '@/helpers/deep-link-settings.ts'
+import { applySettingChanges, type PrivilegedSettingChange } from '@/helpers/deep-link-settings.ts'
 import { resolveOpenRoute, resolveSettingsRoute } from '@/helpers/deep-links.ts'
 import {
     DIRECT_LINKS_SYNCED_EVENT,
@@ -122,17 +126,20 @@ import {
 } from '@/helpers/direct-link-sync'
 import { getMissingContentScannerSettings } from '@/helpers/downloads-scanner'
 import { classifyDroppedItem } from '@/helpers/drop'
+import { errorText } from '@/helpers/error-text'
 import {
     command_listener,
     drop_classify_progress_listener,
-    java_download_confirmation_listener,
     warning_listener,
 } from '@/helpers/events.js'
 import { fileOperationError } from '@/helpers/file-operation-errors'
-import { install_create_modpack_instance, install_get_modpack_preview } from '@/helpers/install'
+import {
+    type CreatePackLocation,
+    install_create_modpack_instance,
+    install_get_modpack_preview,
+} from '@/helpers/install'
 import { type DirectLinkSyncReport, get as getInstance, run } from '@/helpers/instance'
 import { type BackupOperation, cancelBackup, listBackupOperations } from '@/helpers/instance-backup'
-import { cancelLogin, get as getCreds, login, logout } from '@/helpers/mr_auth.ts'
 import { installNativeEditMenuBoundary } from '@/helpers/native-edit-menu'
 import { getNavShortcutEnabled } from '@/helpers/nav-shortcut-state'
 import { runWhenIdle } from '@/helpers/page-transition'
@@ -150,6 +157,7 @@ import {
     getPrivacySettings,
     getUpdateChannel,
     getUpdatePreferences,
+    type PendingUpdateFailure,
     type PrivacySettings,
     savePrivacySettings,
     update as updateSettings,
@@ -163,6 +171,8 @@ import {
 import { resolveAllBindings } from '@/helpers/shortcut-bindings'
 import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.ts'
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
+import { consumeThirdPartyAuthorizationReturn } from '@/helpers/third-party-accounts'
+import { shouldWarnAboutUnsavedSelection } from '@/helpers/unsaved-selection'
 import {
     areUpdatesEnabled,
     backupAppDbForUpdate,
@@ -193,6 +203,7 @@ import {
     setAppUpdateActions,
 } from '@/providers/app-update.ts'
 import { createContentInstall, provideContentInstall } from '@/providers/content-install'
+import type { ModalRef } from '@/providers/content-install-types'
 import { createContentSelection, provideContentSelection } from '@/providers/content-selection'
 import { createDownloadManager, provideDownloadManager } from '@/providers/download-manager'
 import {
@@ -201,7 +212,7 @@ import {
 } from '@/providers/download-progress.ts'
 import { createServerInstall, provideServerInstall } from '@/providers/server-install'
 import { setupProviders } from '@/providers/setup'
-import { setupAuthProvider } from '@/providers/setup/auth'
+import { setupContentInstallPreviews } from '@/providers/setup/content-install-previews'
 import { setupLoadingStateProvider } from '@/providers/setup/loading-state'
 import { useError } from '@/store/error.js'
 import { useTheming } from '@/store/state'
@@ -220,10 +231,46 @@ const onSettingsPage = computed(() => route.path.startsWith('/settings'))
 const isSchematicFile = (path: string) => /\.(litematic|schematic|schem)$/i.test(path)
 const APP_LEFT_NAV_WIDTH = '4rem'
 
+/** Payload of the Rust `warning` event consumed by the app shell. */
+interface WarningPayload {
+    message: string
+    kind: string
+    java_version?: number
+    instance_id?: string
+    instance_name?: string
+}
+
+/** Payload of the Rust `drop_classify_progress` event. */
+interface DropClassifyProgressPayload {
+    currentItem?: string
+}
+
+/** Payload of the Rust `command` event (opening commands and deep links). */
+interface AppCommand {
+    event: string
+    id?: string
+    path?: string
+    query?: string
+    tab?: string
+    entry?: string
+    server?: string
+    singleplayer_world?: string
+    changes?: PrivilegedSettingChange[]
+    instance_id?: string
+}
+
+/** Fields shared by history and popup notifications that end up in exported logs. */
+interface ExportableNotification {
+    title?: string
+    text?: string
+    errorCode?: string
+    supportData?: Record<string, unknown>
+}
+
 const discoverContentPath = computed(() => discoverContentTarget(route))
 
 const pagePathCopied = ref(false)
-let pagePathCopiedTimer: ReturnType<typeof window.setTimeout> | undefined
+let pagePathCopiedTimer: number | undefined
 
 async function copyPagePath() {
     try {
@@ -259,7 +306,6 @@ function getPageTransitionKey(route: RouteLocationNormalizedLoaded) {
     return `${transitionGroup}:`
 }
 const APP_SIDEBAR_WIDTH = 300
-const credentials = ref()
 const sidebarToggled = ref(getSidebarExpanded())
 
 function toggleSidebar() {
@@ -271,11 +317,13 @@ const forceSidebar = computed(
     () => route.path.startsWith('/browse') || route.path.startsWith('/project'),
 )
 const forceSidebarHidden = computed(() => route.path === '/settings')
+const hideSidebarForPage = computed(() => route.name === 'SkinEditor')
 /** Console fullscreen collapses the account sidebar so its controls stay reachable. */
 const consoleFullscreenActive = ref(false)
 const sidebarVisible = computed(
     () =>
         !forceSidebarHidden.value &&
+        !hideSidebarForPage.value &&
         !consoleFullscreenActive.value &&
         (sidebarToggled.value || forceSidebar.value),
 )
@@ -322,16 +370,7 @@ void appVersion
 const tauriApiClient = new TauriModrinthClient({
     userAgent: async () => AxolotlBrandConfig.userAgent(await appVersion, await getOsType()),
     labrinthBaseUrl: config.labrinthBaseUrl,
-    features: [
-        ...(AxolotlBrandConfig.capabilities.privateModrinthServices
-            ? [
-                  new AuthFeature({
-                      token: async () => (await getCreds())?.session,
-                  }),
-              ]
-            : []),
-        new VerboseLoggingFeature(),
-    ],
+    features: [new VerboseLoggingFeature()],
 })
 provideModrinthClient(tauriApiClient)
 providePageContext({
@@ -373,12 +412,13 @@ const {
 
 const { offline } = useNetworkStatus()
 
-// Temporarily pause automatic tours while keeping manual replay available.
-const autoStartOnboarding = false
-const showOnboarding = ref(false)
-const onboardingMode = ref('main')
-const onboardingSettings = ref(null)
-const onboardingReplay = ref(false)
+const OobeHost = defineAsyncComponent(() => import('@/components/ui/oobe/OobeHost.vue'))
+const oobe = createOobeController()
+const oobeVisible = oobe.visible
+watch(oobeVisible, (visible) => {
+    if (visible) notificationManager.holdNotifications()
+    else notificationManager.releaseNotifications()
+})
 const nativeDecorations = ref(false)
 
 const os = ref('')
@@ -428,6 +468,8 @@ watch(
     },
 )
 
+const pendingUpdateFailure = ref<PendingUpdateFailure | null>(null)
+const consumeUpdateFailure = createUpdateFailureConsumer()
 const stateInitialized = ref(false)
 let stopMcpStateSync: (() => void) | undefined
 const privacyConsentModal = ref<InstanceType<typeof PrivacyConsentModal>>()
@@ -517,8 +559,8 @@ let maximizedStateTimer: ReturnType<typeof setTimeout> | undefined
 let unlistenWindowResize: (() => void) | undefined
 let stopNativeEditMenu: (() => void) | undefined
 const minecraftCrashModal = ref()
-const javaDownloadConfirmationModal = ref()
-const pendingUpdateAnnouncementVersion = ref(null)
+const missingJavaModal = ref<InstanceType<typeof MissingJavaModal>>()
+const pendingUpdateAnnouncementVersion = ref<string | null>(null)
 const updateAnnouncementShowing = ref(false)
 
 setupMojangAuthMonitor(stateInitialized)
@@ -529,7 +571,7 @@ const appUpdateDownload = {
     progress: appUpdateState.progress,
     version: ref(),
 }
-let unlistenUpdateDownload
+let unlistenUpdateDownload: (() => void) | null = null
 
 const {
     metered,
@@ -541,7 +583,7 @@ const {
     updatesEnabled,
     updatesPaused,
 } = appUpdateState
-let delayedUpdatePopupTimeout = null
+let delayedUpdatePopupTimeout: ReturnType<typeof setTimeout> | null = null
 
 async function checkUpdates() {
     if (!(await areUpdatesEnabled())) {
@@ -625,7 +667,7 @@ function nearestScrollContainer(target: EventTarget | null) {
  * host a full-height container inside it, so fall back to whatever fills the
  * middle of the viewport.
  */
-function resolvePageScroller() {
+function resolvePageScroller(): HTMLElement | null {
     const viewport = document.querySelector<HTMLElement>('.app-viewport')
     if (!viewport) return null
     if (isPageScroller(viewport)) return viewport
@@ -636,7 +678,7 @@ function resolvePageScroller() {
         bounds.top + bounds.height / 2,
     )
     while (element) {
-        if (isPageScroller(element)) return element
+        if (element instanceof HTMLElement && isPageScroller(element)) return element
         element = element.parentElement
     }
 
@@ -799,8 +841,8 @@ onMounted(async () => {
     // Not passive: a bound wheel direction has to keep the page from scrolling.
     window.addEventListener('wheel', handleShortcutWheel, { capture: true, passive: false })
     unlistenCloseRequested = await getCurrentWindow().onCloseRequested(handleCloseRequested)
-    document.querySelector('body').addEventListener('click', handleClick)
-    document.querySelector('body').addEventListener('auxclick', handleAuxClick)
+    document.body.addEventListener('click', handleClick)
+    document.body.addEventListener('auxclick', handleAuxClick)
     window.addEventListener(DIRECT_LINKS_SYNCED_EVENT, handleDirectLinkSyncReport)
     window.addEventListener('modrinth-console-fullscreen', handleConsoleFullscreen as EventListener)
 
@@ -889,12 +931,12 @@ onUnmounted(async () => {
     stopNativeTrafficLightAnchorTracking()
     window.removeEventListener('keydown', handleGlobalKeydown, true)
     window.removeEventListener('mousedown', handleShortcutMouse, true)
-    window.removeEventListener('wheel', handleShortcutWheel, { capture: true, passive: false })
+    window.removeEventListener('wheel', handleShortcutWheel, { capture: true })
     unlistenCloseRequested?.()
     unlistenLightweightModeError?.()
     unlistenSystemAccentColor?.()
-    document.querySelector('body').removeEventListener('click', handleClick)
-    document.querySelector('body').removeEventListener('auxclick', handleAuxClick)
+    document.body.removeEventListener('click', handleClick)
+    document.body.removeEventListener('auxclick', handleAuxClick)
     window.removeEventListener(DIRECT_LINKS_SYNCED_EVENT, handleDirectLinkSyncReport)
     window.removeEventListener(
         'modrinth-console-fullscreen',
@@ -974,7 +1016,7 @@ async function onImportFileReceived({
         // ── Unknown (no extraction) → error ──
         if (classification.item_type === 'unknown') {
             addNotification({
-                title: formatMessage(messages.dropUnknownTitle),
+                title: unknownTitleMessage(classification.reason),
                 text: unknownReasonMessage(classification.reason),
                 type: 'error',
             })
@@ -987,18 +1029,13 @@ async function onImportFileReceived({
         notificationManager.removeNotification(processingNotify?.id)
         addNotification({
             title: formatMessage(messages.dropProcessFailedTitle),
-            text: e instanceof Error ? e.message : String(e),
+            text: errorText(e),
             type: 'error',
         })
     }
 }
 
 const messages = defineMessages({
-    modrinthAccount: { id: 'app.account.modrinth-account', defaultMessage: 'Modrinth account' },
-    signInModrinth: {
-        id: 'app.account.sign-in-modrinth',
-        defaultMessage: 'Sign in to a Modrinth account',
-    },
     updateInstalledToastTitle: {
         id: 'app.update.complete-toast.title',
         defaultMessage: 'Version {version} was successfully installed!',
@@ -1113,10 +1150,6 @@ const messages = defineMessages({
     createInstance: {
         id: 'app.navigation.create-instance',
         defaultMessage: 'Create new instance',
-    },
-    signedInAs: {
-        id: 'app.account.signed-in-as',
-        defaultMessage: 'Signed in as',
     },
     playingAs: {
         id: 'app.minecraft.playing-as',
@@ -1401,7 +1434,7 @@ notificationManager.errorTextFormatter = (error) =>
     fileOperationError(error, getOsType(), formatMessage) ??
     (isResourceOperationError(error) ? resourceOperationError(error, formatMessage) : null)
 
-function getErrorNotificationDetails(notification) {
+function getErrorNotificationDetails(notification: ExportableNotification) {
     const details = [notification.title, notification.text, notification.errorCode].filter(Boolean)
     if (notification.supportData) {
         details.push(JSON.stringify(notification.supportData, null, 2))
@@ -1409,7 +1442,7 @@ function getErrorNotificationDetails(notification) {
     return details.join('\n\n')
 }
 
-async function exportNotificationErrorLogs(notification) {
+async function exportNotificationErrorLogs(notification: ExportableNotification) {
     try {
         await exportErrorLogs(getErrorNotificationDetails(notification))
     } catch (error) {
@@ -1422,7 +1455,6 @@ async function applyThemeFromSettings(s: Awaited<ReturnType<typeof getSettings>>
     themeStore.setThemeState(s.theme)
     await initializeSystemAccentColor()
     themeStore.setAccentColor(s.accent_color)
-    themeStore.collapsedNavigation = s.collapsed_navigation
     themeStore.advancedRendering = s.advanced_rendering
     themeStore.hideNametagSkinsPage = s.hide_nametag_skins_page
     themeStore.nametagUsesAppFont = s.nametag_uses_app_font
@@ -1457,11 +1489,11 @@ async function setupApp() {
         telemetry,
         telemetry_consent_version,
         discord_rpc,
-        collapsed_navigation,
+        collapsed_navigation: _collapsed_navigation,
         hide_nametag_skins_page,
         nametag_uses_app_font,
         advanced_rendering,
-        onboarded,
+        oobe_completed_steps,
         default_page,
         toggle_sidebar,
         custom_background_path,
@@ -1510,10 +1542,15 @@ async function setupApp() {
     const dev = await isDev()
     isDevEnvironment.value = dev
     pendingUpdateAnnouncementVersion.value = pending_update_toast_for_version
-    if (autoStartOnboarding && !onboarded && route.path !== '/') await router.replace('/')
+    pendingUpdateFailure.value = initialSettings.pending_update_failure ?? null
     privacyConsentPending.value = telemetry_consent_version < 1
-    showOnboarding.value = false
-    onboardingSettings.value = initialSettings
+    const oobePending = oobe.prepare(oobe_completed_steps)
+    if (oobePending) {
+        // Shown now, before the awaits below: every startup dialog and community announcement
+        // waits on it being visible, and notifications are held before it renders.
+        oobe.show()
+        notificationManager.holdNotifications()
+    }
 
     nativeDecorations.value = native_decorations
     if (os.value !== 'MacOS') await getCurrentWindow().setDecorations(native_decorations)
@@ -1521,7 +1558,6 @@ async function setupApp() {
     themeStore.setThemeState(theme)
     await initializeSystemAccentColor()
     themeStore.setAccentColor(accent_color)
-    themeStore.collapsedNavigation = collapsed_navigation
     themeStore.advancedRendering = advanced_rendering
     themeStore.hideNametagSkinsPage = hide_nametag_skins_page
     themeStore.nametagUsesAppFont = nametag_uses_app_font
@@ -1562,6 +1598,17 @@ async function setupApp() {
     themeStore.shortcutBindings = resolveAllBindings()
     await localePreparation
     stateInitialized.value = true
+    void nextTick(() => {
+        // The first rAF runs before the frame is painted; the second one runs
+        // after that paint, so deferred I/O cannot contend with it.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                invoke('frontend_ready').catch((error) => {
+                    console.warn('Failed to report frontend readiness', error)
+                })
+            })
+        })
+    })
     const stopMcpSync = await startMcpStateSync()
     const stopMcpUi = await startMcpUiBridge(router)
     const stopMcp = () => {
@@ -1570,15 +1617,12 @@ async function setupApp() {
     }
     if (appUnmounted) stopMcp()
     else stopMcpStateSync = stopMcp
-    if (privacyConsentPending.value) {
-        await nextTick()
-        privacyConsentModal.value?.show({
+    if (!oobePending && privacyConsentPending.value) {
+        await showPrivacyConsent({
             telemetry,
             discord_rpc,
             consent_version: telemetry_consent_version,
         })
-    } else {
-        showOnboarding.value = autoStartOnboarding && !onboarded
     }
 
     unlistenWindowResize = await getCurrentWindow().onResized(() => {
@@ -1606,9 +1650,14 @@ async function setupApp() {
         document.getElementsByTagName('html')[0].classList.add('windows')
     }
 
-    await warning_listener(async (e) => {
+    await warning_listener(async (e: WarningPayload) => {
         if (e.kind === 'minecraft_crash') {
             await minecraftCrashModal.value?.handleWarning(e)
+            return
+        }
+
+        if (e.kind === 'missing_java') {
+            if (e.java_version !== undefined) missingJavaModal.value?.show(e.java_version)
             return
         }
 
@@ -1618,10 +1667,7 @@ async function setupApp() {
             type: 'warning',
         })
     })
-    await java_download_confirmation_listener((request) => {
-        javaDownloadConfirmationModal.value?.show(request)
-    })
-    await drop_classify_progress_listener((payload) => {
+    await drop_classify_progress_listener((payload: DropClassifyProgressPayload) => {
         if (dropProcessingNotificationId.value === null) return
         const name = payload.currentItem?.split(/[/\\]/).pop() || 'file'
         notificationManager.removeNotification(dropProcessingNotificationId.value)
@@ -1633,7 +1679,6 @@ async function setupApp() {
     })
 
     get_opening_command().then(handleCommand)
-    fetchCredentials()
 }
 
 type SystemAccentColorPayload = {
@@ -1664,51 +1709,26 @@ async function initializeSystemAccentColor() {
     }
 }
 
-function startOnboarding(mode = 'main') {
-    onboardingReplay.value = false
-    onboardingMode.value = mode
-    showOnboarding.value = true
+async function showPrivacyConsent(privacy: PrivacySettings) {
+    await nextTick()
+    privacyConsentModal.value?.show(privacy)
 }
 
-async function replayOnboarding(mode) {
-    onboardingReplay.value = true
-    onboardingMode.value = mode
-    if (mode === 'main') await router.replace('/')
-    if (mode === 'logagent') await router.replace('/settings#launch-defaults')
-    showOnboarding.value = true
-}
-
-async function finishOnboarding() {
-    const wasReplay = onboardingReplay.value
-    const settings = onboardingSettings.value ?? (await getSettings())
-    if (!onboardingReplay.value) {
-        if (onboardingMode.value === 'instance') {
-            settings.onboarding_instance_tour_completed = true
-        } else if (onboardingMode.value === 'main') {
-            settings.onboarded = true
-            settings.onboarding_version = 1
+/** The OOBE comes first; the privacy choice and the update notes wait until it closes. */
+async function finishOobe() {
+    await oobe.finish()
+    if (privacyConsentPending.value) {
+        try {
+            await showPrivacyConsent(await getPrivacySettings())
+        } catch (error) {
+            handleError(error)
         }
-        await updateSettings(
-            onboardingMode.value === 'instance'
-                ? { onboarding_instance_tour_completed: true }
-                : { onboarded: true, onboarding_version: 1 },
-        )
-        onboardingSettings.value = settings
+        return
     }
-    showOnboarding.value = false
-    onboardingReplay.value = false
-    if (!wasReplay) await scheduleStartupDialogs()
+    await scheduleStartupDialogs()
 }
 
-async function skipOnboarding() {
-    await finishOnboarding()
-}
-
-async function closeOnboardingSettings() {
-    if (route.path === '/settings') await router.replace('/')
-}
-
-async function handleUpdateAnnouncementClosed(version) {
+async function handleUpdateAnnouncementClosed(version: string | null) {
     if (pendingUpdateAnnouncementVersion.value !== version) return
 
     const settings = await getSettings()
@@ -1726,7 +1746,7 @@ async function scheduleStartupDialogs() {
     if (
         !stateInitialized.value ||
         privacyConsentPending.value ||
-        showOnboarding.value ||
+        oobeVisible.value ||
         updateAnnouncementShowing.value
     )
         return
@@ -1737,20 +1757,29 @@ async function scheduleStartupDialogs() {
         updateAnnouncementModal.value.show(pendingUpdateAnnouncementVersion.value)
         return
     }
+    try {
+        await consumeUpdateFailure(
+            pendingUpdateFailure.value,
+            (failure) =>
+                addNotification({
+                    title: formatMessage(updatePopupMessages.installFailedTitle),
+                    text: formatMessage(updatePopupMessages.installFailedBody, failure),
+                    type: 'warning',
+                    autoCloseMs: null,
+                }),
+            async () => {
+                await updateSettings({ pending_update_failure: null })
+                pendingUpdateFailure.value = null
+            },
+        )
+    } catch (error) {
+        console.warn('Could not consume the pending update failure notice', error)
+    }
 }
 
-async function handlePrivacyConsentSaved(privacy: PrivacySettings) {
+async function handlePrivacyConsentSaved() {
     privacyConsentPending.value = false
-    if (onboardingSettings.value) {
-        onboardingSettings.value.telemetry = privacy.telemetry
-        onboardingSettings.value.discord_rpc = privacy.discord_rpc
-        onboardingSettings.value.telemetry_consent_version = privacy.consent_version
-    }
-    if (autoStartOnboarding && !onboardingSettings.value?.onboarded) {
-        startOnboarding('main')
-    } else {
-        await scheduleStartupDialogs()
-    }
+    await scheduleStartupDialogs()
 }
 
 async function previewPrivacyConsentModal() {
@@ -1762,19 +1791,13 @@ async function previewPrivacyConsentModal() {
             consent_version: 0,
         })
         privacyConsentPending.value = true
-        if (onboardingSettings.value) {
-            onboardingSettings.value.telemetry = privacy.telemetry
-            onboardingSettings.value.discord_rpc = privacy.discord_rpc
-            onboardingSettings.value.telemetry_consent_version = privacy.consent_version
-        }
-        await nextTick()
-        privacyConsentModal.value?.show(privacy)
+        await showPrivacyConsent(privacy)
     } catch (error) {
         handleError(error)
     }
 }
 
-provide('replayOnboarding', replayOnboarding)
+provide('replayOobe', oobe.replay)
 provide(minecraftLaunchErrorKey, async (launchError, payload) => {
     if (isOfflineAccountRestrictedError(launchError)) {
         useError().showAntiPiracyNotice()
@@ -1806,13 +1829,13 @@ stateInitialization
         setupApp().catch((err) => {
             stateFailed.value = true
             console.error(err)
-            error.showError(err, null, true, 'state_init')
+            showStateInitError(err)
         })
     })
     .catch((err) => {
         stateFailed.value = true
         console.error('Failed to initialize app', err)
-        error.showError(err, null, true, 'state_init')
+        showStateInitError(err)
     })
 
 /**
@@ -1989,10 +2012,10 @@ const handleClose = closeWindowImmediately
 
 const loading = setupLoadingStateProvider()
 loading.setEnabled(false)
-let initialLoadToken = loading.begin()
-let routerToken = null
-let suspenseToken = null
-let lastDiscordActivity = null
+let initialLoadToken: symbol | null = loading.begin()
+let routerToken: symbol | null = null
+let suspenseToken: symbol | null = null
+let lastDiscordActivity: string | null = null
 let discordActivityUpdate = Promise.resolve()
 
 let suspensePending = false
@@ -2010,6 +2033,38 @@ router.beforeEach(() => {
     routerToken = loading.begin()
 })
 
+let promptUnsavedSelection: ((value: boolean) => void) | null = null
+let discardSelectionOnArrival = false
+
+function requestUnsavedSelectionDecision(): Promise<boolean> {
+    promptUnsavedSelection?.(false)
+    return new Promise<boolean>((resolve) => {
+        promptUnsavedSelection = resolve
+        unsavedSelectionModal.value?.show()
+    })
+}
+
+function settleUnsavedSelection(leave: boolean) {
+    const resolve = promptUnsavedSelection
+    promptUnsavedSelection = null
+    unsavedSelectionModal.value?.hide()
+    resolve?.(leave)
+}
+
+router.beforeEach(async (to, from) => {
+    const processing = ['validating', 'reviewing', 'queueing'].includes(
+        contentSelection.state.value,
+    )
+    if (
+        processing ||
+        !shouldWarnAboutUnsavedSelection(from.path, to.path, contentSelection.selectedCount.value)
+    )
+        return
+    const leave = await requestUnsavedSelectionDecision()
+    if (!leave) return false
+    discardSelectionOnArrival = true
+})
+
 function syncDiscordActivity(to: RouteLocationNormalizedLoaded) {
     const activity =
         typeof to.meta.discordActivity === 'string' ? to.meta.discordActivity : 'Idling...'
@@ -2025,6 +2080,8 @@ function syncDiscordActivity(to: RouteLocationNormalizedLoaded) {
 }
 
 router.afterEach((to, from, failure) => {
+    if (!failure && discardSelectionOnArrival) contentSelection.clear()
+    discardSelectionOnArrival = false
     if (!failure) void invoke('lightweight_mode_set_route', { route: to.fullPath })
     trackEvent('PageView', {
         path: to.path,
@@ -2090,34 +2147,38 @@ watch(offline, (isOffline) => {
     }
 })
 
-watch(
-    () => route.path,
-    (path) => {
-        if (
-            autoStartOnboarding &&
-            path.startsWith('/instance/') &&
-            onboardingSettings.value?.onboarded &&
-            !onboardingSettings.value?.onboarding_instance_tour_completed &&
-            !showOnboarding.value
-        ) {
-            startOnboarding('instance')
-        }
+const error = useError()
+
+/**
+ * The error store is plain JS, so its action infers the `source` parameter as
+ * `null` from its default. Widen it at this boundary to keep passing the
+ * `state_init` source the error modal branches on.
+ */
+function showStateInitError(err: unknown) {
+    const showError = error.showError as (
+        error: unknown,
+        context: unknown,
+        closable?: boolean,
+        source?: string | null,
+    ) => void
+    showError(err, null, true, 'state_init')
+}
+
+error.setMinecraftLaunchErrorHandler(
+    (launchError: unknown, context: { instanceId?: string } | null) => {
+        if (!minecraftCrashModal.value?.isLaunchFailure(launchError) || !context?.instanceId)
+            return false
+        void minecraftCrashModal.value.handleLaunchError(launchError, {
+            instance_id: context.instanceId,
+            instance_name: 'Minecraft',
+        })
+        return true
     },
 )
-
-const error = useError()
-error.setMinecraftLaunchErrorHandler((launchError, context) => {
-    if (!minecraftCrashModal.value?.isLaunchFailure(launchError) || !context?.instanceId)
-        return false
-    void minecraftCrashModal.value.handleLaunchError(launchError, {
-        instance_id: context.instanceId,
-        instance_name: 'Minecraft',
-    })
-    return true
-})
 const errorModal = ref()
 const antiPiracyNoticeModal = ref<InstanceType<typeof OfflineAccountRestrictionModal>>()
 const minecraftAuthErrorModal = ref()
+const unsavedSelectionModal = ref<InstanceType<typeof UnsavedSelectionModal>>()
 
 const contentInstall = createContentInstall({ router, handleError, addNotification })
 provideContentInstall(contentInstall)
@@ -2164,6 +2225,12 @@ const {
 const modInstallModal = ref()
 const resourceInstallPreview = ref<InstanceType<typeof ResourceOperationPreviewModal> | null>(null)
 const contentInstallPreviewModal = ref<InstanceType<typeof ContentInstallPreviewModal> | null>(null)
+setupContentInstallPreviews({
+    resourcePreview: resourceInstallPreview,
+    contentPreview: contentInstallPreviewModal,
+    contentSelection,
+    contentInstall,
+})
 const modpackAlreadyInstalledModal = ref()
 const contentInstallModpackInstallModal = ref<InstanceType<typeof ModpackInstallModal> | null>(null)
 const handleContentInstallModpackDuplicateGoToInstance = (instanceId: string) =>
@@ -2171,7 +2238,6 @@ const handleContentInstallModpackDuplicateGoToInstance = (instanceId: string) =>
 const contentInstallCurseForgeManualDownloadsModal = ref()
 const addServerToInstanceModal = ref()
 const incompatibilityWarningModal = ref()
-const modrinthLoginFlowWaitModal = ref()
 
 // ── Drop import system ──────────────────────────────────────────────────
 const dropImport = useDropImport({
@@ -2184,7 +2250,7 @@ const dropImport = useDropImport({
     onSchematicWorkshopPage,
     onSettingsPage,
     isSchematicFile,
-    trackEvent,
+    trackEvent: trackEvent as (name: string, properties?: Record<string, unknown>) => void,
     router,
 })
 
@@ -2239,6 +2305,7 @@ const {
     clearDropProcessingNotification,
     showNestedUnpackPrompt,
     showForceAnalysisPrompt,
+    unknownTitleMessage,
     unknownReasonMessage,
 } = dropImport
 
@@ -2248,7 +2315,9 @@ watch(
     dropIncompatibilityWarningModal,
     (modal) => {
         if (modal) {
-            setContentIncompatibilityWarningModal(modal)
+            // The drop-flow ref only declares `show`, while the content-install
+            // provider expects the full modal ref (which also has `hide`).
+            setContentIncompatibilityWarningModal(modal as unknown as ModalRef)
         }
     },
     { flush: 'post' },
@@ -2262,66 +2331,6 @@ watch(
     { flush: 'post' },
 )
 
-setupAuthProvider(credentials, async (_redirectPath) => {
-    if (AxolotlBrandConfig.capabilities.privateModrinthServices) await signIn()
-})
-
-async function validateSession(sessionToken) {
-    try {
-        const response = await tauriFetch(`${getOfficialLabrinthBaseUrl()}/v2/user`, {
-            method: 'GET',
-            headers: { Authorization: sessionToken },
-        })
-        if (response.status === 401) return false
-        return true
-    } catch {
-        return true
-    }
-}
-
-async function fetchCredentials() {
-    if (!AxolotlBrandConfig.capabilities.privateModrinthServices) {
-        credentials.value = null
-        return
-    }
-    const creds = await getCreds().catch(handleError)
-    if (creds && creds.user_id) {
-        if (creds.session && !(await validateSession(creds.session))) {
-            await logout().catch(handleError)
-            credentials.value = null
-            return
-        }
-        creds.user = await get_user(creds.user_id, 'bypass').catch(handleError)
-    }
-    credentials.value = creds ?? null
-}
-
-async function signIn() {
-    modrinthLoginFlowWaitModal.value.show()
-
-    try {
-        await login()
-        await fetchCredentials()
-    } catch (error) {
-        if (
-            typeof error === 'object' &&
-            typeof error['message'] === 'string' &&
-            error.message.includes('Login canceled')
-        ) {
-            // Not really an error due to being a result of user interaction, show nothing
-        } else {
-            handleError(error)
-        }
-    } finally {
-        modrinthLoginFlowWaitModal.value.hide()
-    }
-}
-
-async function logOut() {
-    await logout().catch(handleError)
-    await fetchCredentials()
-}
-
 onMounted(() => {
     invoke('show_window')
 
@@ -2332,9 +2341,6 @@ onMounted(() => {
     setContentIncompatibilityWarningModal(incompatibilityWarningModal.value)
     dropIncompatibilityWarningModal.value = incompatibilityWarningModal.value
     setContentInstallModal(modInstallModal.value)
-    contentSelection.setPreviewModal(contentInstallPreviewModal.value)
-    contentSelection.setResourceInstallPreview(resourceInstallPreview.value)
-    contentInstall.setResourceInstallPreview(resourceInstallPreview.value)
     setContentInstallModpackInstallModal(contentInstallModpackInstallModal.value!)
     setContentInstallCurseForgeManualDownloadsModal(
         contentInstallCurseForgeManualDownloadsModal.value,
@@ -2368,7 +2374,7 @@ provide('accountsCard', accounts)
 
 command_listener(handleCommand)
 
-async function handleCommand(e) {
+async function handleCommand(e: AppCommand | null) {
     if (!e) return
     if (e.event === 'OpenRoute') {
         const target = resolveOpenRoute(e.path ?? '', e.query ?? null)
@@ -2391,6 +2397,13 @@ async function handleCommand(e) {
         return
     }
     if (e.event === 'OpenSettings') {
+        if (e.tab === 'third-party-accounts') {
+            const returnTo = await consumeThirdPartyAuthorizationReturn().catch(handleError)
+            if (returnTo) {
+                await router.push(returnTo)
+                return
+            }
+        }
         const target = resolveSettingsRoute(e.tab ?? null, e.entry ?? null)
         await router.push({ path: target.path, hash: target.hash })
         if (target.entry) {
@@ -2413,8 +2426,8 @@ async function handleCommand(e) {
     if (e.event === 'RunMRPack') {
         // RunMRPack should directly install a local modpack file given a path;
         // non-mrpack archives (CurseForge/MCBBS/HMCL/MultiMC zips) are format-sniffed by the backend
-        if (e.path.endsWith('.mrpack') || e.path.endsWith('.zip')) {
-            const location = { type: 'fromFile', path: e.path }
+        if (e.path && (e.path.endsWith('.mrpack') || e.path.endsWith('.zip'))) {
+            const location: CreatePackLocation = { type: 'fromFile', path: e.path }
             const preview = await install_get_modpack_preview(location).catch(handleError)
             if (preview?.unknownFile) {
                 const splitPath = e.path.split(/[\\/]/)
@@ -2431,8 +2444,9 @@ async function handleCommand(e) {
             })
         }
     } else if (e.event === 'LaunchInstance') {
+        if (!e.id) return
         const instance = await getInstance(e.id).catch(() => null)
-        const handleLaunchCommandError = async (launchError) => {
+        const handleLaunchCommandError = async (launchError: unknown) => {
             if (isOfflineAccountRestrictedError(launchError)) {
                 error.showAntiPiracyNotice()
                 return
@@ -2454,6 +2468,7 @@ async function handleCommand(e) {
             await run(e.id).catch(handleLaunchCommandError)
         }
     } else if (e.event === 'InstallVersion') {
+        if (!e.id) return
         const version = await get_version(e.id, 'must_revalidate').catch(handleError)
         if (version) {
             await contentInstall
@@ -2471,6 +2486,7 @@ async function handleCommand(e) {
                 .catch(handleError)
         }
     } else {
+        if (!e.id) return
         await contentInstall
             .install(e.id, null, null, 'URLConfirmModal', undefined, undefined, {
                 showProjectInfo: true,
@@ -2495,7 +2511,7 @@ const privilegedMessages = defineMessages({
 })
 
 // 启用开关时已强制阅读确认，执行不再逐次确认
-async function handlePrivilegedCommand(e) {
+async function handlePrivilegedCommand(e: AppCommand) {
     if (e.event === 'UpdateSettings') {
         const latest = await getSettings().catch(handleError)
         if (!latest) return
@@ -2511,7 +2527,7 @@ async function handlePrivilegedCommand(e) {
         })
         return
     }
-    const processes = await get_by_instance_id(e.instance_id).catch(() => [])
+    const processes = await get_by_instance_id(e.instance_id ?? '').catch(() => [])
     if (!processes.length) {
         addNotification({
             title: formatMessage(privilegedMessages.noProcesses),
@@ -2527,6 +2543,15 @@ async function handlePrivilegedCommand(e) {
 }
 
 const updatePopupMessages = defineMessages({
+    installFailedTitle: {
+        id: 'app.update-popup.install-failed.title',
+        defaultMessage: 'Launcher update failed',
+    },
+    installFailedBody: {
+        id: 'app.update-popup.install-failed.body',
+        defaultMessage:
+            'The update to v{version} could not be installed. You can try again or update manually. {error}',
+    },
     updateAvailable: {
         id: 'app.update-popup.title',
         defaultMessage: 'Update available',
@@ -2538,6 +2563,14 @@ const updatePopupMessages = defineMessages({
     meteredBody: {
         id: 'app.update-popup.body.metered',
         defaultMessage: `Axolotl Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it.`,
+    },
+    manualBody: {
+        id: 'app.update-popup.body.manual',
+        defaultMessage: `Axolotl Launcher v{version} is available. This copy can't update itself, so download the new version from the website or update it with your package manager.`,
+    },
+    downloadPage: {
+        id: 'app.update-popup.download-page',
+        defaultMessage: 'Download page',
     },
     downloadedBody: {
         id: 'app.update-popup.body.download-complete',
@@ -2607,7 +2640,26 @@ function showDelayedUpdatePopup() {
         return
     }
 
-    if (metered.value && !finishedDownloading.value) {
+    if (update.installMethod === 'manual') {
+        addPopupNotification({
+            title: formatMessage(updatePopupMessages.updateAvailable),
+            text: formatMessage(updatePopupMessages.manualBody, { version: update.version }),
+            type: 'info',
+            autoCloseMs: null,
+            buttons: [
+                {
+                    label: formatMessage(updatePopupMessages.downloadPage),
+                    action: () => downloadAvailableAppUpdate(),
+                    color: 'brand',
+                },
+                {
+                    label: formatMessage(updatePopupMessages.changelog),
+                    action: () => openAppUpdateChangelog(),
+                    keepOpen: true,
+                },
+            ],
+        })
+    } else if (metered.value && !finishedDownloading.value) {
         addPopupNotification({
             title: formatMessage(updatePopupMessages.updateAvailable),
             text: formatMessage(updatePopupMessages.meteredBody, { version: update.version }),
@@ -2710,6 +2762,14 @@ async function performUpdateCheck() {
 
     console.log(`Update ${update.version} is available.`)
 
+    if (update.installMethod === 'manual') {
+        // This copy cannot replace itself; offer the download page instead
+        // of downloading a package that would fail to install on exit.
+        markAppUpdateActionable(update.version)
+        scheduleDelayedUpdatePopup()
+        return 'available'
+    }
+
     metered.value = await isNetworkMetered()
 
     if (!metered.value) {
@@ -2744,10 +2804,15 @@ async function manualUpdateCheck() {
 }
 
 async function downloadAvailableUpdate() {
-    return downloadUpdate(availableUpdate.value)
+    const update = availableUpdate.value
+    if (update?.installMethod === 'manual') {
+        await openManualAppUpdate(update.version, openUrl)
+        return
+    }
+    return downloadUpdate(update)
 }
 
-async function downloadUpdate(versionToDownload) {
+async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {
     if (!versionToDownload) {
         handleError(`Failed to download update: no version available`)
         return
@@ -2766,9 +2831,8 @@ async function downloadUpdate(versionToDownload) {
             .then(() => {
                 downloading.value = false
                 finishedDownloading.value = true
-                unlistenUpdateDownload?.().then(() => {
-                    unlistenUpdateDownload = null
-                })
+                unlistenUpdateDownload?.()
+                unlistenUpdateDownload = null
                 console.log('Finished downloading!')
                 markAppUpdateActionable(versionToDownload.version, 'downloaded')
                 scheduleDelayedUpdatePopup()
@@ -2776,9 +2840,8 @@ async function downloadUpdate(versionToDownload) {
             .catch((error) => {
                 downloading.value = false
                 appUpdateDownload.progress.value = 0
-                unlistenUpdateDownload?.().then(() => {
-                    unlistenUpdateDownload = null
-                })
+                unlistenUpdateDownload?.()
+                unlistenUpdateDownload = null
                 handleError(error)
             })
         unlistenUpdateDownload = await subscribeToDownloadProgress(
@@ -2821,7 +2884,9 @@ setAppUpdateActions({
     },
 })
 
-async function openModrinthProjectLinkInApp(parsed) {
+async function openModrinthProjectLinkInApp(
+    parsed: NonNullable<ReturnType<typeof parseModrinthLink>>,
+) {
     const { slug, pathSuffix, url } = parsed
     const loadToken = loading.begin()
     try {
@@ -2843,20 +2908,21 @@ async function openModrinthProjectLinkInApp(parsed) {
     }
 }
 
-function handleClick(e) {
-    let target = e.target
+function handleClick(e: MouseEvent) {
+    let target = e.target as Element | null
     while (target != null) {
         if (target.matches('a')) {
+            const anchor = target as HTMLAnchorElement
             // RouterLinks and same-origin SPA paths must keep default handling /
             // vue-router click; only intercept true external protocol links.
-            const href = target.getAttribute('href') ?? ''
-            const externalUrl = getExternalLinkUrl(href, target.href)
+            const href = anchor.getAttribute('href') ?? ''
+            const externalUrl = getExternalLinkUrl(href, anchor.href)
             const isRouterLink =
-                target.classList.contains('router-link-active') ||
+                anchor.classList.contains('router-link-active') ||
                 (href.startsWith('/') && !externalUrl)
-            if (!isRouterLink && externalUrl && !target.classList.contains('router-link-active')) {
+            if (!isRouterLink && externalUrl && !anchor.classList.contains('router-link-active')) {
                 const parsed = parseModrinthLink(externalUrl)
-                if (target.target !== '_blank' && parsed) {
+                if (anchor.target !== '_blank' && parsed) {
                     void openModrinthProjectLinkInApp(parsed)
                 } else {
                     openUrl(externalUrl)
@@ -2869,7 +2935,7 @@ function handleClick(e) {
     }
 }
 
-function handleAuxClick(e) {
+function handleAuxClick(e: MouseEvent) {
     // A shortcut answers to this button, so the click is not a click at all.
     if (findShortcut(e, bindingMatchesMouseEvent)) return
 
@@ -2882,7 +2948,7 @@ function handleAuxClick(e) {
             bubbles: true,
             cancelable: true,
         })
-        e.target.dispatchEvent(event)
+        e.target?.dispatchEvent(event)
     }
 }
 
@@ -2925,7 +2991,9 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     <div
         v-if="stateInitialized"
         class="app-grid-layout relative"
+        :inert="oobeVisible"
         :class="{
+            invisible: oobeVisible,
             'disable-advanced-rendering': !themeStore.advancedRendering,
             'has-custom-background':
                 themeStore.customBackgroundPath && !themeStore.transparentBackground,
@@ -2959,9 +3027,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 </span>
             </div>
         </Transition>
-        <Suspense>
-            <AuthGrantFlowWaitModal ref="modrinthLoginFlowWaitModal" @flow-cancel="cancelLogin" />
-        </Suspense>
         <InstanceIconPickerModal ref="instanceIconPickerModal" />
         <CreationFlowModal
             ref="installationModal"
@@ -2992,7 +3057,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('screenshots')"
                     v-tooltip.right="formatMessage(messages.screenshots)"
-                    data-onboarding-id="nav-screenshots"
                     to="/screenshots"
                     :is-primary="(r) => r.path.startsWith('/screenshots')"
                 >
@@ -3010,7 +3074,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('discover')"
                     v-tooltip.right="formatMessage(messages.discoverContent)"
-                    data-onboarding-id="nav-discover"
                     :to="discoverContentPath"
                     :disabled="offline"
                     :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
@@ -3021,7 +3084,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('skins')"
                     v-tooltip.right="formatMessage(messages.skinSelector)"
-                    data-onboarding-id="nav-skins"
                     to="/skins"
                 >
                     <ChangeSkinIcon />
@@ -3037,7 +3099,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('library')"
                     v-tooltip.right="formatMessage(messages.library)"
-                    data-onboarding-id="nav-library"
                     to="/library"
                     :is-primary="(r) => r.matched.some((record) => record.name === 'Library')"
                     :is-subpage="
@@ -3045,7 +3106,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                             route.path.startsWith('/instance') ||
                             ((route.path.startsWith('/browse') ||
                                 route.path.startsWith('/project')) &&
-                                route.query.i)
+                                !!route.query.i)
                     "
                 >
                     <LibraryIcon />
@@ -3053,7 +3114,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('lab')"
                     v-tooltip.right="formatMessage(messages.lab)"
-                    data-onboarding-id="nav-lab"
                     to="/lab"
                     :is-primary="(r) => r.path.startsWith('/lab')"
                 >
@@ -3068,68 +3128,13 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
             <NavButton
                 v-tooltip.right="formatMessage(messages.createInstance)"
-                data-onboarding-id="create-instance"
                 to="/create"
                 :disabled="offline"
             >
                 <PlusIcon />
             </NavButton>
-            <NavButton
-                v-tooltip.right="formatMessage(commonMessages.settingsLabel)"
-                data-onboarding-id="nav-settings"
-                to="/settings"
-            >
+            <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
                 <SettingsIcon />
-            </NavButton>
-            <OverflowMenu
-                v-if="AxolotlBrandConfig.capabilities.privateModrinthServices && credentials?.user"
-                v-tooltip.right="formatMessage(messages.modrinthAccount)"
-                data-onboarding-id="account-entry"
-                class="w-12 h-12 text-[var(--color-text-default)] rounded-full flex items-center justify-center text-2xl transition-all bg-transparent hover:bg-surface-4 hover:text-[var(--color-text-primary)] border-0 cursor-pointer"
-                :options="[
-                    {
-                        id: 'view-profile',
-                        action: () =>
-                            openUrl('https://modrinth.com/user/' + credentials.user.username),
-                    },
-                    {
-                        id: 'sign-out',
-                        action: () => logOut(),
-                        color: 'danger',
-                    },
-                ]"
-                placement="right-end"
-            >
-                <Avatar :src="credentials?.user?.avatar_url" alt="" size="32px" circle />
-                <template #view-profile>
-                    <UserIcon />
-                    <span class="inline-flex items-center gap-1">
-                        {{ formatMessage(messages.signedInAs) }}
-                        <span
-                            class="inline-flex items-center gap-1 text-[var(--color-text-primary)] font-semibold"
-                        >
-                            <Avatar
-                                :src="credentials?.user?.avatar_url"
-                                alt=""
-                                size="20px"
-                                circle
-                            />
-                            {{ credentials?.user?.username }}
-                        </span>
-                    </span>
-                    <ExternalIcon />
-                </template>
-                <template #sign-out>
-                    <LogOutIcon /> {{ formatMessage(commonMessages.signOutButton) }}
-                </template>
-            </OverflowMenu>
-            <NavButton
-                v-else-if="AxolotlBrandConfig.capabilities.privateModrinthServices"
-                v-tooltip.right="formatMessage(messages.signInModrinth)"
-                data-onboarding-id="account-entry"
-                :to="() => signIn()"
-            >
-                <LogInIcon class="text-brand" />
             </NavButton>
         </div>
         <AppTitlebar
@@ -3148,7 +3153,9 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     <div
         v-if="stateInitialized"
         class="app-contents"
+        :inert="oobeVisible"
         :class="{
+            invisible: oobeVisible,
             'sidebar-enabled': sidebarVisible,
             'studio-mode':
                 route.name === 'FileStudio' || route.name === 'MultiplayerServerFileStudio',
@@ -3230,7 +3237,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             class="app-sidebar mt-px shrink-0 flex flex-col border-0 border-l-[1px] border-[--brand-gradient-border] border-solid"
         >
             <button
-                v-if="!forceSidebar && !forceSidebarHidden"
+                v-if="!forceSidebar && !forceSidebarHidden && !hideSidebarForPage"
                 v-tooltip.left="
                     sidebarToggled
                         ? formatMessage(messages.collapseSidebar)
@@ -3287,24 +3294,18 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         :error-action-label="formatMessage(messages.exportErrorLogs)"
     />
     <MinecraftCrashModal ref="minecraftCrashModal" />
-    <JavaDownloadConfirmationModal ref="javaDownloadConfirmationModal" />
+    <MissingJavaModal ref="missingJavaModal" />
     <PrivacyConsentModal ref="privacyConsentModal" @saved="handlePrivacyConsentSaved" />
     <RemoteAnnouncements
         :ready="
-            stateInitialized &&
-            !privacyConsentPending &&
-            !showOnboarding &&
-            !updateAnnouncementShowing
+            stateInitialized && !privacyConsentPending && !oobeVisible && !updateAnnouncementShowing
         "
     />
     <RemoteAnnouncements
         ref="remoteAnnouncementPreview"
         preview-only
         :ready="
-            stateInitialized &&
-            !privacyConsentPending &&
-            !showOnboarding &&
-            !updateAnnouncementShowing
+            stateInitialized && !privacyConsentPending && !oobeVisible && !updateAnnouncementShowing
         "
     />
     <UpdateAnnouncementModal
@@ -3397,7 +3398,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         :preferred-game-version="contentInstallPreferredGameVersion"
         :release-game-versions="contentInstallReleaseGameVersions"
         :project-info="contentInstallProjectInfo"
-        :symlink-target="contentInstallSymlinkTarget"
+        :symlink-target="contentInstallSymlinkTarget ?? undefined"
         @install="handleInstallToInstance"
         @create-and-install="handleCreateAndInstall"
         @navigate="handleContentInstallNavigate"
@@ -3405,6 +3406,12 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     />
     <ContentInstallPreviewModal ref="contentInstallPreviewModal" />
     <ResourceOperationPreviewModal ref="resourceInstallPreview" />
+    <UnsavedSelectionModal
+        ref="unsavedSelectionModal"
+        :count="contentSelection.selectedCount.value"
+        @stay="settleUnsavedSelection(false)"
+        @discard="settleUnsavedSelection(true)"
+    />
     <ModpackAlreadyInstalledModal
         ref="modpackAlreadyInstalledModal"
         @create-anyway="handleModpackDuplicateCreateAnyway"
@@ -3412,7 +3419,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
     />
     <AddServerToInstanceModal
         ref="addServerToInstanceModal"
-        :symlink-target="addServerSymlinkTarget"
+        :symlink-target="addServerSymlinkTarget ?? undefined"
     />
     <ContentUpdaterModal
         ref="incompatibilityWarningModal"
@@ -3567,12 +3574,11 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
         @cancel="cancelBatchScan"
     />
 
-    <OnboardingOverlay
-        :visible="showOnboarding"
-        :mode="onboardingMode"
-        @complete="finishOnboarding"
-        @skip="skipOnboarding"
-        @request-close-settings="closeOnboardingSettings"
+    <OobeHost
+        v-if="stateInitialized && oobeVisible"
+        :steps="oobe.steps.value"
+        @complete="oobe.complete"
+        @finish="finishOobe"
     />
 </template>
 
@@ -3727,19 +3733,13 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 
     &.has-custom-background,
     &.has-transparent-background {
-        border-top-left-radius: 0;
-
+        // Keep the rounded top-left corner over the image as well: a square
+        // corner against the nav rail and titlebar reads as a hard seam. The
+        // notch outside that corner is filled by `window-frame.css`, which also
+        // owns the CSS window contour and must keep it on `::after`.
         &::before {
             border: none;
             box-shadow: none;
-        }
-    }
-
-    &.has-custom-background {
-        // The page already reads `--color-bg` from the base rule above; neither
-        // opacity setting applies to it (see `global.scss`).
-        .loading-indicator-container {
-            border-top-left-radius: 0;
         }
     }
 }

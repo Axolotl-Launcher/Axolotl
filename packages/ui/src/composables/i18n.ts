@@ -1,4 +1,5 @@
 import IntlMessageFormat from 'intl-messageformat'
+import { LRUCache } from 'lru-cache'
 import type { Ref } from 'vue'
 import type { CompileError, MessageCompiler, MessageContext } from 'vue-i18n'
 
@@ -277,6 +278,29 @@ export function buildLocaleMessages(
     return messages
 }
 
+// IntlMessageFormat resolves the locale while it is constructed, which is a
+// visible cost on every translation. vue-i18n calls the message compiler again
+// for each `t()` invocation, so formatter instances are reused instead of being
+// rebuilt. Keys include the locale, so changing locales never reuses a
+// formatter built for another locale, and both caches are bounded so a long
+// session cannot grow them without limit.
+const fallbackFormatterCache = new LRUCache<string, IntlMessageFormat>({ max: 500 })
+const messageFormatterCache = new LRUCache<string, IntlMessageFormat>({ max: 1000 })
+
+function getCachedFormatter(
+    cache: LRUCache<string, IntlMessageFormat>,
+    locale: string,
+    message: string,
+): IntlMessageFormat {
+    const cacheKey = `${locale}:${message}`
+    let formatter = cache.get(cacheKey)
+    if (!formatter) {
+        formatter = new IntlMessageFormat(message, locale)
+        cache.set(cacheKey, formatter)
+    }
+    return formatter
+}
+
 /**
  * Creates a vue-i18n message compiler that uses IntlMessageFormat for ICU syntax support.
  * This enables pluralization, select, and other ICU message features.
@@ -295,7 +319,7 @@ export function createMessageCompiler(): MessageCompiler {
         }
 
         try {
-            const formatter = new IntlMessageFormat(messageString, locale)
+            const formatter = getCachedFormatter(messageFormatterCache, locale, messageString)
             return (ctx: MessageContext) => {
                 try {
                     return formatter.format(ctx.values as Record<string, unknown>) as string
@@ -339,7 +363,11 @@ export function useVIntl(): VIntlFormatters & { locale: Ref<string> } {
             // Fallback to defaultMessage if key not found
             const defaultMsg = descriptor.defaultMessage ?? key
             try {
-                const formatter = new IntlMessageFormat(defaultMsg, locale.value)
+                const formatter = getCachedFormatter(
+                    fallbackFormatterCache,
+                    locale.value,
+                    defaultMsg,
+                )
                 result = formatter.format(values ?? {}) as string
             } catch {
                 result = defaultMsg

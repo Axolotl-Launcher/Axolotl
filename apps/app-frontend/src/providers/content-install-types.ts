@@ -64,7 +64,11 @@ export interface ContentInstallContext {
     ) => void
     setContentInstallModal: (ref: ModalRef) => void
     setModpackInstallModal: (ref: ModpackInstallModalRef) => void
-    handleModpackInstall: (versionId: string, name: string) => Promise<void>
+    handleModpackInstall: (
+        versionId: string,
+        name: string,
+        gameDirOverride?: string | null,
+    ) => Promise<void>
     handleModpackInstallCancel: () => void
     setCurseForgeManualDownloadsModal: (ref: CurseForgeManualDownloadsModalRef) => void
     showCurseForgeManualDownloads: (

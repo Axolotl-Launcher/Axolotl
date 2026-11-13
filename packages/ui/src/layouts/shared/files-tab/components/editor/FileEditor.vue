@@ -17,17 +17,17 @@
             @replace="replaceOne"
             @replace-all="replaceAllOccurrences"
         />
-        <component
-            :is="props.editorComponent"
-            v-if="!isEditingImage && !isLoading && props.editorComponent"
-            v-model:value="fileContent"
-            :lang="editorLanguage"
-            theme="modrinth"
-            :readonly="isEditorReadOnly"
-            :print-margin="false"
-            :style="{ height: editorHeight, fontSize: '0.875rem' }"
-            class="ace-modrinth rounded-[var(--radius-xl)]"
-            @init="onEditorInit"
+        <CodeEditor
+            v-if="!isEditingImage && !isLoading && !editorFailed"
+            v-model:content="fileContent"
+            :file-path="props.file?.path"
+            :language="editorLanguage"
+            :read-only="isEditorReadOnly"
+            :options="{ minimap: { enabled: false }, wordWrap: 'on' }"
+            :style="{ height: editorHeight }"
+            @ready="onEditorInit"
+            @save="saveFileContent(false)"
+            @error="editorFailed = true"
         />
         <FileImageViewer v-else-if="isEditingImage && imagePreview" :image-blob="imagePreview" />
         <textarea
@@ -51,9 +51,10 @@
 
 <script setup lang="ts">
 import { SpinnerIcon } from '@modrinth/assets'
-import type { Ace } from 'ace-builds'
-import { type Component, computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import type * as Monaco from 'monaco-editor/editor/editor.api.js'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 
+import CodeEditor from '#ui/components/code-editor/CodeEditor.vue'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
 import { injectModrinthClient } from '#ui/providers'
 import { injectNotificationManager } from '#ui/providers/web-notifications'
@@ -67,7 +68,6 @@ import FileImageViewer from './FileImageViewer.vue'
 
 const props = defineProps<{
     file: EditingFile | null
-    editorComponent: Component | null
 }>()
 
 const emit = defineEmits<{
@@ -139,7 +139,8 @@ const isLoading = ref(false)
 // earlier read finishing first must not expose the editor for the new file.
 let loadRequest = 0
 const saving = ref(false)
-const editorInstance = ref<Ace.Editor | null>(null)
+const editorInstance = shallowRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
+const editorFailed = ref(false)
 const editorContainer = ref<HTMLElement | null>(null)
 const editorHeight = ref('300px')
 
@@ -150,6 +151,15 @@ const currentFindMatch = ref(0)
 const findReplaceRef = ref<{ focusFindInput: () => void; openReplace: () => void } | null>(null)
 
 watch(inFileFindQuery, handleFindInput)
+watch(
+    fileContent,
+    () => {
+        const count = findMatches().length
+        findMatchCount.value = count
+        currentFindMatch.value = count ? Math.min(currentFindMatch.value || 1, count) : 0
+    },
+    { flush: 'post' },
+)
 
 function updateEditorHeight() {
     if (editorContainer.value) {
@@ -170,8 +180,8 @@ const editorLanguage = computed(() => {
 })
 const isEditorReadOnly = computed(() => ctx.isBusy?.value ?? false)
 
-watch(isEditorReadOnly, (readOnly) => {
-    editorInstance.value?.setReadOnly(readOnly)
+watch(isLoading, (loading) => {
+    if (loading) editorInstance.value = null
 })
 
 watch(
@@ -241,31 +251,18 @@ function resetState() {
     imagePreview.value = null
 }
 
-function onEditorInit(editor: Ace.Editor) {
+function onEditorInit(editor: Monaco.editor.IStandaloneCodeEditor, runtime: typeof Monaco) {
     editorInstance.value = editor
-    editor.setReadOnly(isEditorReadOnly.value)
-
-    editor.commands.addCommand({
-        name: 'save',
-        bindKey: { win: 'Ctrl-S', mac: 'Command-S' },
-        exec: () => saveFileContent(false),
+    editor.addCommand(runtime.KeyMod.CtrlCmd | runtime.KeyCode.KeyF, () => toggleFind())
+    const replaceKey = /Mac/.test(navigator.platform)
+        ? runtime.KeyMod.CtrlCmd | runtime.KeyMod.Alt | runtime.KeyCode.KeyF
+        : runtime.KeyMod.CtrlCmd | runtime.KeyCode.KeyH
+    editor.addCommand(replaceKey, () => {
+        if (isEditorReadOnly.value) return
+        isFindOpen.value = true
+        nextTick(() => findReplaceRef.value?.openReplace())
     })
-
-    editor.commands.addCommand({
-        name: 'find',
-        bindKey: { win: 'Ctrl-F', mac: 'Command-F' },
-        exec: () => toggleFind(),
-    })
-
-    editor.commands.addCommand({
-        name: 'replace',
-        bindKey: { win: 'Ctrl-H', mac: 'Command-Option-F' },
-        exec: () => {
-            if (isEditorReadOnly.value) return
-            isFindOpen.value = true
-            nextTick(() => findReplaceRef.value?.openReplace())
-        },
-    })
+    handleFindInput()
 }
 
 let pendingSave: Promise<boolean> | null = null
@@ -280,7 +277,7 @@ async function saveFileContent(exit: boolean = false): Promise<boolean> {
     if (pendingSave) {
         const saved = await pendingSave
         if (!saved) return false
-        if (pendingSave) return saveFileContent(exit)
+        if (pendingSave != null) return saveFileContent(exit)
         if (!hasUnsavedChanges.value) {
             if (exit) emit('close')
             return true
@@ -362,10 +359,27 @@ async function shareLog() {
     }
 }
 
-function countOccurrences(content: string, query: string): number {
-    if (!query) return 0
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return (content.match(new RegExp(escaped, 'gi')) ?? []).length
+function findMatches() {
+    const query = inFileFindQuery.value
+    return query
+        ? (editorInstance.value
+              ?.getModel()
+              ?.findMatches(query, false, false, false, null, false, Number.MAX_SAFE_INTEGER) ?? [])
+        : []
+}
+
+function selectMatch(index: number) {
+    const matches = findMatches()
+    findMatchCount.value = matches.length
+    if (!matches.length) {
+        currentFindMatch.value = 0
+        return
+    }
+    const normalized = ((index % matches.length) + matches.length) % matches.length
+    currentFindMatch.value = normalized + 1
+    const range = matches[normalized].range
+    editorInstance.value?.setSelection(range)
+    editorInstance.value?.revealRangeInCenterIfOutsideViewport(range)
 }
 
 function toggleFind() {
@@ -382,71 +396,48 @@ function closeFind() {
     inFileFindQuery.value = ''
     findMatchCount.value = 0
     currentFindMatch.value = 0
-    editorInstance.value?.find('', { wrap: true })
     editorInstance.value?.focus()
 }
 
-function replaceOne(query: string) {
+function replaceOne(replacement: string) {
     const editor = editorInstance.value
-    if (!editor || isEditorReadOnly.value || findMatchCount.value === 0) return
-    editor.replace(query)
-    nextTick(() => {
-        const count = countOccurrences(fileContent.value, inFileFindQuery.value)
-        findMatchCount.value = count
-        currentFindMatch.value = count > 0 ? Math.min(currentFindMatch.value, count) : 0
-    })
+    if (!editor || isEditorReadOnly.value) return
+    const matches = findMatches()
+    const index = Math.max(0, currentFindMatch.value - 1)
+    const match = matches[index]
+    if (!match) return
+    editor.pushUndoStop()
+    editor.executeEdits('replace', [
+        { range: match.range, text: replacement, forceMoveMarkers: true },
+    ])
+    editor.pushUndoStop()
+    selectMatch(index)
 }
 
-function replaceAllOccurrences(query: string) {
+function replaceAllOccurrences(replacement: string) {
     const editor = editorInstance.value
-    if (!editor || isEditorReadOnly.value || findMatchCount.value === 0) return
-    editor.replaceAll(query)
-    nextTick(() => {
-        const count = countOccurrences(fileContent.value, inFileFindQuery.value)
-        findMatchCount.value = count
-        currentFindMatch.value = count > 0 ? 1 : 0
-        if (count > 0) {
-            editor.find(inFileFindQuery.value, { wrap: true, caseSensitive: false })
-        }
-    })
+    if (!editor || isEditorReadOnly.value) return
+    const matches = findMatches()
+    if (!matches.length) return
+    editor.pushUndoStop()
+    editor.executeEdits(
+        'replace-all',
+        matches.map(({ range }) => ({ range, text: replacement, forceMoveMarkers: true })),
+    )
+    editor.pushUndoStop()
+    selectMatch(0)
 }
 
 function handleFindInput() {
-    const editor = editorInstance.value
-    if (!editor) return
-
-    const query = inFileFindQuery.value
-    if (!query) {
-        findMatchCount.value = 0
-        currentFindMatch.value = 0
-        editor.find('', { wrap: true })
-        return
-    }
-
-    const count = countOccurrences(fileContent.value, query)
-    findMatchCount.value = count
-
-    if (count > 0) {
-        editor.find(query, { wrap: true, caseSensitive: false })
-        currentFindMatch.value = 1
-    } else {
-        currentFindMatch.value = 0
-    }
+    selectMatch(0)
 }
 
 function findNext() {
-    const editor = editorInstance.value
-    if (!editor || findMatchCount.value === 0) return
-    editor.findNext()
-    currentFindMatch.value = (currentFindMatch.value % findMatchCount.value) + 1
+    selectMatch(currentFindMatch.value)
 }
 
 function findPrevious() {
-    const editor = editorInstance.value
-    if (!editor || findMatchCount.value === 0) return
-    editor.findPrevious()
-    currentFindMatch.value =
-        ((currentFindMatch.value - 2 + findMatchCount.value) % findMatchCount.value) + 1
+    selectMatch(currentFindMatch.value - 2)
 }
 
 function close() {

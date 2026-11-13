@@ -42,6 +42,46 @@ fn successful_build_stays_fresh_with_old_unchanged_jars() {
 }
 
 #[test]
+fn generated_jars_do_not_dirty_the_next_cargo_invocation() {
+    let (root, out) = fixture();
+    let invocation = SystemTime::now();
+    let generated = invocation + Duration::from_secs(60);
+    let inputs = java_cache::input_fingerprint(root.path()).unwrap();
+    let contents = java_cache::JARS
+        .iter()
+        .map(|jar| fs::read(out.join(jar)).unwrap())
+        .collect::<Vec<_>>();
+    for jar in java_cache::JARS {
+        fs::File::options()
+            .write(true)
+            .open(out.join(jar))
+            .unwrap()
+            .set_modified(generated)
+            .unwrap();
+    }
+
+    java_cache::record_success(&out, &inputs).unwrap();
+
+    for (jar, contents) in java_cache::JARS.iter().zip(contents) {
+        let path = out.join(jar);
+        assert!(fs::metadata(&path).unwrap().modified().unwrap() <= invocation);
+        assert_eq!(fs::read(path).unwrap(), contents);
+    }
+    assert!(java_cache::is_fresh(&out, &inputs));
+
+    let jar = out.join(java_cache::JARS[0]);
+    fs::write(&jar, "external corruption").unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&jar)
+        .unwrap()
+        .set_modified(generated)
+        .unwrap();
+    assert!(fs::metadata(jar).unwrap().modified().unwrap() > invocation);
+    assert!(!java_cache::is_fresh(&out, &inputs));
+}
+
+#[test]
 fn input_contents_and_deletions_invalidate_even_without_newer_mtimes() {
     let (root, out) = fixture();
     let source = root.path().join("java/src/Example.java");

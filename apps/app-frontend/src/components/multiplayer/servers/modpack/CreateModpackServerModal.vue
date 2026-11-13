@@ -4,7 +4,10 @@ import { commonMessages, defineMessages, MultiStageModal } from '@modrinth/ui'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import type { ComponentExposed } from 'vue-component-type-helpers'
 
-import { provideCreateServerFlow } from '@/components/multiplayer/servers/create-server-flow'
+import {
+    type CreateServerFlowContextValue,
+    provideCreateServerFlow,
+} from '@/components/multiplayer/servers/create-server-flow'
 import EulaModal from '@/components/multiplayer/servers/EulaModal.vue'
 import {
     createModpackServerFlowContext,
@@ -19,7 +22,9 @@ const modal = useTemplateRef<ComponentExposed<typeof MultiStageModal>>('modal')
 const eulaModal = useTemplateRef<ComponentExposed<typeof EulaModal>>('eulaModal')
 
 const ctx = createModpackServerFlowContext(modal)
-provideCreateServerFlow(ctx)
+// The modpack context is a superset of the base flow context; `stageConfigs` is
+// invariant on the context type, so narrow to the base view for consumers.
+provideCreateServerFlow(ctx as unknown as CreateServerFlowContextValue)
 provideModpackServerFlow(ctx)
 
 const messages = defineMessages({

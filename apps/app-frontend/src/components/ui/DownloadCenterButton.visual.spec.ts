@@ -11,6 +11,7 @@ vi.mock('@/providers/download-manager', () => ({ injectDownloadManager: () => fi
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
+    const { IntlMessageFormat } = await import('intl-messageformat')
     return {
         ProgressBar: (
             await import('../../../../../packages/ui/src/components/base/ProgressBar.vue')
@@ -29,11 +30,45 @@ vi.mock('@modrinth/ui', async () => {
                     h('div', [slots.trigger?.(), slots.menu?.({ hide: vi.fn() })]),
         }),
         defineMessages: (messages: unknown) => messages,
+        defineMessage: (message: unknown) => message,
         injectNotificationManager: () => ({ handleError: fixture.handleError }),
-        useFormatBytes: () => (value: number) => String(value),
+        useFormatBytes: () => (value: number) => `${value} B`,
         useVIntl: () => ({
-            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+            formatMessage: (
+                message: { defaultMessage: string },
+                values?: Record<string, string | number>,
+            ) => new IntlMessageFormat(message.defaultMessage, 'en-US').format(values),
         }),
+    }
+})
+
+it('uses named batch titles in the trigger, menu and progress accessibility label', () => {
+    fixture.manager = {
+        initializationState: ref('ready'),
+        activeJobs: ref([
+            {
+                job_id: 'named-batch',
+                kind: 'install_content',
+                display: { title: 'Install resources' },
+                resource_names: ['Sodium', 'Iris'],
+                status: 'running',
+                phase: 'downloading_content',
+                progress: { current: 1, total: 2 },
+                summary: { bytes_downloaded: 0, files_completed: 1, files_total: 2 },
+                items: [],
+            },
+        ]),
+        legacyDownloads: ref([]),
+    }
+    const wrapper = mount(DownloadCenterButton, { global: { directives: { tooltip: () => {} } } })
+    try {
+        const title = 'Install content: Sodium (2 items)'
+        expect(wrapper.get('[title]').attributes('title')).toBe(title)
+        expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toBe(title)
+        expect(wrapper.text().split(title)).toHaveLength(3)
+        expect(wrapper.text()).not.toContain('Install resources')
+    } finally {
+        wrapper.unmount()
     }
 })
 
@@ -59,8 +94,8 @@ it('uses indeterminate progress without stale summary bytes and restores measure
         legacyDownloads: ref([]),
     }
     const wrapper = mount(DownloadCenterButton, { global: { directives: { tooltip: () => {} } } })
-    const bar = () => wrapper.get('[role="progressbar"]')
-    const trigger = () => wrapper.get('[aria-label="Downloads"]')
+    const bar = () => wrapper.get<HTMLElement>('[role="progressbar"]')
+    const trigger = () => wrapper.get<HTMLElement>('[aria-label="Downloads"]')
     try {
         expect(bar().attributes('aria-valuenow')).toBeUndefined()
         expect(bar().find('.progress-bar--waiting').exists()).toBe(true)
@@ -76,7 +111,7 @@ it('uses indeterminate progress without stale summary bytes and restores measure
         expect(bar().attributes('aria-valuenow')).toBe('25')
         expect(bar().find('.progress-bar--waiting').exists()).toBe(false)
         expect(trigger().element.style.backgroundImage).toContain('25%')
-        expect(wrapper.text()).toContain('25 / 100')
+        expect(wrapper.text()).toContain('25 B / 100 B')
 
         for (const phase of ['extracting_overrides', 'finalizing'] as const) {
             jobs.value[0] = { ...jobs.value[0], phase, progress: null }
@@ -90,7 +125,16 @@ it('uses indeterminate progress without stale summary bytes and restores measure
         jobs.value[0] = { ...jobs.value[0], progress: { current: 2, total: 5 } }
         await flushPromises()
         expect(bar().attributes('aria-valuenow')).toBe('40')
-        expect(wrapper.text()).toContain('2 / 5')
+        expect(wrapper.text()).not.toContain('2 / 5')
+
+        jobs.value[0] = {
+            ...jobs.value[0],
+            phase: 'extracting_overrides',
+            progress: { current: 111165031, total: 111165031 },
+        }
+        await flushPromises()
+        expect(wrapper.text()).toContain('Extracting overrides')
+        expect(wrapper.text()).not.toContain('111165031 / 111165031')
 
         jobs.value[0] = {
             ...jobs.value[0],

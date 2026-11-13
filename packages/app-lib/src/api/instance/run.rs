@@ -1,17 +1,10 @@
-use super::content::get_projects;
 use crate::server_address::ServerAddress;
 use crate::state::{
-    Credentials, InstanceInstallStage, InstanceLink, ProcessMetadata, Settings,
-    State,
+    Credentials, InstanceInstallStage, ProcessMetadata, Settings, State,
 };
-use crate::util::fetch;
 use crate::util::io::IOError;
-use crate::util::mojang::mojang_service_url;
-use serde_json::json;
-use std::collections::HashMap;
 use std::time::Duration;
 use tokio::process::Command;
-use tracing::{info, warn};
 
 pub use crate::launcher::jvm_args::{GcLaunchIntent, GcLaunchReport};
 
@@ -294,59 +287,6 @@ async fn run_credentials(
     )
     .await?;
 
-    if credentials.is_microsoft()
-        && let Some(project_id) = server_play_project_id(&context.link)
-        && !project_id.trim().is_empty()
-    {
-        let server_id = uuid::Uuid::new_v4().to_string();
-        let join_url = mojang_service_url(
-            "https://sessionserver.mojang.com/session/minecraft/join",
-            state.mojang_auth_use_mirror(),
-        );
-        let join_result = fetch::authentication_client()
-            .post(join_url.as_ref())
-            .json(&json!({
-                "accessToken": &credentials.access_token,
-                "selectedProfile": credentials.offline_profile.id.simple().to_string(),
-                "serverId": &server_id,
-            }))
-            .timeout(Duration::from_secs(5))
-            .send()
-            .await;
-
-        match join_result {
-            Ok(resp) if resp.status().is_success() => {
-                let result = fetch::post_json(
-                    concat!(
-                        env!("MODRINTH_API_BASE_URL"),
-                        "analytics/minecraft-server-play"
-                    ),
-                    json!({
-                        "project_id": project_id,
-                        "username": &credentials.offline_profile.name,
-                        "server_id": &server_id,
-                    }),
-                    &state.api_semaphore,
-                )
-                .await;
-
-                match result {
-                    Ok(()) => {
-                        info!(
-                            "Tracked server play for '{project_id}' in analytics"
-                        )
-                    }
-                    Err(err) => warn!("Failed to report server play: {err:?}"),
-                }
-            }
-            Ok(resp) => warn!(
-                "Failed to join Mojang session server: HTTP {}",
-                resp.status()
-            ),
-            Err(err) => warn!("Failed to join Mojang session server: {err:?}"),
-        }
-    }
-
     if offline_mode {
         crate::minecraft_skins::flush_pending_skin_change_for_profile(
             credentials.offline_profile.id,
@@ -414,40 +354,6 @@ async fn run_credentials(
     Ok((process, gc_report))
 }
 
-fn server_play_project_id(link: &InstanceLink) -> Option<&String> {
-    match link {
-        InstanceLink::ServerProject { project_id }
-        | InstanceLink::ServerProjectModpack {
-            server_project_id: project_id,
-            ..
-        } => Some(project_id),
-        InstanceLink::Unmanaged
-        | InstanceLink::ModrinthModpack { .. }
-        | InstanceLink::CurseForgeModpack { .. }
-        | InstanceLink::ImportedModpack { .. }
-        | InstanceLink::SharedInstance { .. } => None,
-    }
-}
-
-fn modrinth_pack_version_id(link: &InstanceLink) -> Option<&str> {
-    match link {
-        InstanceLink::ModrinthModpack { version_id, .. }
-        | InstanceLink::ServerProjectModpack {
-            content_version_id: version_id,
-            ..
-        } => Some(version_id),
-        InstanceLink::Unmanaged
-        | InstanceLink::ServerProject { .. }
-        | InstanceLink::CurseForgeModpack { .. }
-        | InstanceLink::ImportedModpack { .. }
-        | InstanceLink::SharedInstance { .. } => None,
-    }
-}
-
-fn playtime_api_url(base_url: &str) -> String {
-    format!("{}/analytics/playtime", base_url.trim_end_matches('/'))
-}
-
 pub async fn kill(instance_id: &str) -> crate::Result<()> {
     let state = State::get().await?;
     let processes =
@@ -458,104 +364,4 @@ pub async fn kill(instance_id: &str) -> crate::Result<()> {
     }
 
     Ok(())
-}
-
-#[tracing::instrument]
-pub async fn try_update_playtime_by_instance_id(
-    instance_id: &str,
-) -> crate::Result<()> {
-    let state = State::get().await?;
-    let context =
-        crate::state::instances::commands::get_instance_launch_context(
-            instance_id,
-            &state.pool,
-        )
-        .await?
-        .ok_or_else(|| {
-            crate::ErrorKind::OtherError(format!(
-                "Tried to update playtime for nonexistent instance {instance_id}!"
-            ))
-        })?;
-    let updated_recent_playtime = context.instance.recent_time_played;
-    let res = if updated_recent_playtime > 0 {
-        let modrinth_pack_version_id = modrinth_pack_version_id(&context.link);
-        let playtime_update_json = json!({
-            "seconds": updated_recent_playtime,
-            "loader": context.applied_content_set.loader.as_str(),
-            "game_version": &context.applied_content_set.game_version,
-            "parent": modrinth_pack_version_id,
-        });
-        let mut hashmap: HashMap<String, serde_json::Value> = HashMap::new();
-
-        for (_, project) in get_projects(instance_id, None).await? {
-            if let Some(metadata) = project.modrinth {
-                hashmap.insert(
-                    metadata.version_id.to_string(),
-                    playtime_update_json.clone(),
-                );
-            }
-        }
-
-        let playtime_url = playtime_api_url(env!("MODRINTH_API_BASE_URL"));
-        fetch::post_json(
-            &playtime_url,
-            serde_json::to_value(hashmap)?,
-            &state.api_semaphore,
-        )
-        .await
-    } else {
-        Ok(())
-    };
-
-    if res.is_ok() {
-        crate::state::instances::commands::mark_instance_playtime_submitted(
-            &context.instance.id,
-            updated_recent_playtime,
-            &state.pool,
-        )
-        .await?;
-    }
-
-    res
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{modrinth_pack_version_id, playtime_api_url};
-    use crate::state::InstanceLink;
-
-    #[test]
-    fn playtime_parent_requires_an_explicit_modrinth_link() {
-        let modrinth = InstanceLink::ModrinthModpack {
-            project_id: "project".to_string(),
-            version_id: "version".to_string(),
-        };
-        let curseforge = InstanceLink::CurseForgeModpack {
-            project_id: "123".to_string(),
-            version_id: "456".to_string(),
-        };
-        let imported = InstanceLink::ImportedModpack {
-            project_id: Some("legacy-project".to_string()),
-            version_id: Some("legacy-version".to_string()),
-            name: None,
-            version_number: None,
-            filename: None,
-        };
-
-        assert_eq!(modrinth_pack_version_id(&modrinth), Some("version"));
-        assert_eq!(modrinth_pack_version_id(&curseforge), None);
-        assert_eq!(modrinth_pack_version_id(&imported), None);
-    }
-
-    #[test]
-    fn playtime_url_has_a_single_path_separator() {
-        assert_eq!(
-            playtime_api_url("https://api.modrinth.com"),
-            "https://api.modrinth.com/analytics/playtime"
-        );
-        assert_eq!(
-            playtime_api_url("https://api.modrinth.com/"),
-            "https://api.modrinth.com/analytics/playtime"
-        );
-    }
 }

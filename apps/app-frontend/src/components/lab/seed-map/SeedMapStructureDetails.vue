@@ -549,7 +549,7 @@ async function copyLoot() {
         <div
             class="min-h-0 flex-1 overflow-y-auto p-4"
             :aria-busy="busy || lootBusy"
-            data-onboarding-id="seed-map-structure-details"
+            data-testid="seed-map-structure-details"
         >
             <p v-if="busy" class="m-0 text-sm">{{ formatMessage(messages.loading) }}</p>
             <div v-if="failed" class="flex flex-col gap-2 text-sm">
@@ -736,7 +736,7 @@ async function copyLoot() {
                 <div
                     v-else
                     class="flex flex-col gap-3 text-sm"
-                    data-onboarding-id="seed-map-container-loot"
+                    data-testid="seed-map-container-loot"
                 >
                     <p v-if="!details.containers.length" class="m-0">
                         {{ formatMessage(messages.noLoot) }}

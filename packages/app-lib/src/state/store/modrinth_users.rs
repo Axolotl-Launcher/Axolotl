@@ -1,15 +1,16 @@
-//! The Modrinth account the launcher is signed in with.
+//! Historical Modrinth sessions retained for migration and log redaction.
 //!
 //! The session id is kept in the system credential store, and the row's
 //! `secrets_externalized` says whether the store holds it; a session the store
-//! would not take stays in its column.
+//! would not take stays in its column. These records no longer authenticate
+//! launcher requests.
 
 use sqlx::SqliteConnection;
 
 use super::Collection;
 use super::secrets::{self, Stored, Undo};
 
-/// The Modrinth sessions, one per account.
+/// Historical Modrinth sessions, one per account.
 pub(crate) struct ModrinthUsers;
 
 /// The bit of `secrets_externalized` that says the store holds the session id.
@@ -356,9 +357,8 @@ async fn write_row(
     }
 
     // The store is written first, so a row only says the session was moved once
-    // the session is there. What the store held before comes back if the row
-    // below cannot be written, which would otherwise leave the two disagreeing
-    // about which session is the account's.
+    // the session is there. A row left as it was beside a newer session still
+    // reads: it says a session is somewhere, not which one.
     let mut undo = Undo::default();
     let stored = if record.session_id.is_empty() {
         // A session the account no longer has leaves no entry behind.
@@ -366,7 +366,6 @@ async fn write_row(
         false
     } else {
         let position = session_key(key);
-        undo.watch(&position).await;
         let stored = secrets::keep(position.clone(), &record.session_id).await;
         if !stored {
             // The row keeps the session, so nothing names the entry any more.

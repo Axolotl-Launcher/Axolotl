@@ -167,7 +167,7 @@ function buildProjectHref(path: string): string {
             for (const v of val) {
                 if (v != null) params.append(key, v)
             }
-        } else if (val) {
+        } else if (val || (['g', 'l'].includes(key) && val === '')) {
             params.append(key, String(val))
         }
     }

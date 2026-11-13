@@ -87,7 +87,7 @@ function fromTag(name: string, tag: NbtTag): NbtTagNode {
             name,
             'list',
             '',
-            Array.from({ length: tag.length }, (_, i) => fromTag(String(i), tag.get(i))),
+            Array.from({ length: tag.length }, (_, i) => fromTag(String(i), tag.get(i)!)),
         )
     }
     if (tag.isString()) return createNbtTag(name, 'string', tag.getAsString())
@@ -98,7 +98,7 @@ function fromTag(name: string, tag: NbtTag): NbtTagNode {
     }
     // Typed arrays retain their exact SNBT representation, including long precision.
     const raw = tag.isLongArray()
-        ? `[L;${Array.from({ length: tag.length }, (_, i) => tag.get(i).toString()).join(',')}]`
+        ? `[L;${Array.from({ length: tag.length }, (_, i) => tag.get(i)!.toString()).join(',')}]`
         : tag.toString()
     return createNbtTag(name, 'raw', raw)
 }

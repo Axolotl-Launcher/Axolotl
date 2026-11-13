@@ -1,0 +1,239 @@
+{
+  "id": "ch7UHY2J",
+  "slug": "sodiumplus",
+  "title": "Sodium Plus",
+  "description": "A client-side optimization modpack with a few extra tweaks.",
+  "author": "NoSadBeHappy",
+  "categories": ["fabric", "lightweight", "multiplayer", "optimization", "quilt"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 2889174,
+  "followers": 641,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["quilt", "fabric"],
+  "game_versions": [
+    "1.18.2",
+    "1.19",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.21",
+    "1.21.5",
+    "1.21.8",
+    "1.21.10",
+    "1.21.11",
+    "26.1.2",
+    "26.2"
+  ],
+  "latest_version": "PPhWUGkB",
+  "date_created": "2022-05-19T02:57:12.389199Z",
+  "date_modified": "2026-09-19T00:39:28.793026Z",
+  "color": 8375147,
+  "published": "2022-05-19T02:57:12.389199Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/happyredstone/sodiumplus/issues",
+  "source_url": "https://github.com/happyredstone/sodiumplus",
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/dsct28MQMC",
+  "donation_urls": [
+    {
+      "platform": "Bmac",
+      "url": "https://buymeacoffee.com/sodiumplus"
+    }
+  ],
+  "versions_total": 66,
+  "body": "# Sodium Plus\n\n### If you have any issues and you have used your launcher to update the modpack, try instead to make a new instance and see if that works. \n\nIf this works I am more than happy to help you transfer your data over on discord. If it still has some problem, create a github issue.\n\n## About\n\nSodium Plus aims to re-create the experience of the OptiFine mod, while still having the most resource-efficient Minecraft client you can have. It also comes with some visual tweaks, quality-of-life changes, and a couple of bug patches. A couple of these mods you may not like, as it changes gameplay, even if it is only client-side. Because of this, I might make a fair play edition later on.\n\nPlease submit any bugs or feature requests on out GitHub issues page: [https://github.com/happyredstone/sodiumplus/issues](https://github.com/happyredstone/sodiumplus/issues)\n\nYou shouldn't get banned or kicked for joining a current version of the game, but might have issues with older versions due to use of viaFabricPlus. **_I am not responsible for any bans you might get!_**\n\n\n## Server\n\nSodium Plus supports being installed on a server as of version 2.4.7.\nInstall the SERVER release on the server, and the same number version on any clients.\nSERVER releases should work on clients, but there is no reason not to use the normal releases.\n\n\n## List of mods:\n\n<details>\n<summary>Expand</summary>\n\n- [AmbientSounds](https://modrinth.com/mod/fM515JnW)\n- [Animatica Refabricated](https://modrinth.com/mod/xEyZuswh)\n- [AppleSkin](https://modrinth.com/mod/EsAfCjCV)\n- [AudioThrottle](https://modrinth.com/mod/KEwZNpc5)\n- [Auto Clicker](https://modrinth.com/mod/r8axuw4u)\n- [Axiom](https://modrinth.com/mod/N6n5dqoA)\n- [Better Statistics Screen](https://modrinth.com/mod/n6PXGAoM)\n- [Better Tab](https://modrinth.com/mod/LS20Llnw)\n- [Blur\\+](https://modrinth.com/mod/NK39zBp2)\n- [CICADA](https://modrinth.com/mod/IwCkru1D)\n- [CalcMod](https://modrinth.com/mod/XoHTb2Ap)\n- [Chat Heads](https://modrinth.com/mod/Wb5oqrBJ)\n- [ClickThrough Plus](https://modrinth.com/mod/fJi8nm80)\n- [Cloth Config v26\\.2](https://modrinth.com/mod/9s6osm5g)\n- [Collective](https://modrinth.com/mod/e0M1UDsY)\n- [Continuity](https://modrinth.com/mod/1IjD5062)\n- [Craft Config Library](https://modrinth.com/mod/pqvUbuK1)\n- [Crash Assistant](https://modrinth.com/mod/ix1qq8Ux)\n- [CreativeCore](https://modrinth.com/mod/OsZiaDHq)\n- [Cull Leaves](https://modrinth.com/mod/GNxdLCoP)\n- [Distant Horizons](https://modrinth.com/mod/uCdwusMi)\n- [Dynamic FPS](https://modrinth.com/mod/LQ3K71Q1)\n- [Emojis](https://modrinth.com/mod/KQwtIZnW)\n- [Entity Model Features](https://modrinth.com/mod/4I1XuqiY)\n- [Entity Texture Features](https://modrinth.com/mod/BVzZfTc1)\n- [Entity View Distance](https://modrinth.com/mod/ihnBJ6on)\n- [EntityCulling](https://modrinth.com/mod/NNAgCjsB)\n- [FPS\\-Display](https://modrinth.com/mod/DIlqwRFH)\n- [Fabric API](https://modrinth.com/mod/P7dR8mSH)\n- [Fabric Language Kotlin](https://modrinth.com/mod/Ha28R6CL)\n- [Fadeless](https://modrinth.com/mod/ncKjyGm3)\n- [Falling Leaves](https://modrinth.com/mod/WhbRG4iK)\n- [Fast Noise](https://modrinth.com/mod/OnlVIpq5)\n- [Fast Surface](https://modrinth.com/mod/FRSaEVFk)\n- [Faster Iris Shadow Mapper](https://modrinth.com/mod/nSRLvOHG)\n- [FerriteCore](https://modrinth.com/mod/uXXizFIs)\n- [Flashback](https://modrinth.com/mod/4das1Fjq)\n- [Full Brightness Toggle](https://modrinth.com/mod/aEK1KhsC)\n- [Held Item Info](https://modrinth.com/mod/tEcWzCZz)\n- [Hold That Chunk V2](https://modrinth.com/mod/L4u8Yt14)\n- [ImmediatelyFast](https://modrinth.com/mod/5ZwdcRci)\n- [Iris](https://modrinth.com/mod/YL57xq9U)\n- [Jade](https://modrinth.com/mod/nvQzSEkH)\n- [Language Reload](https://modrinth.com/mod/uLbm7CG6)\n- [LibJF](https://modrinth.com/mod/WKwQAwke)\n- [Litematica](https://modrinth.com/mod/bEpr0Arc)\n- [Lithium](https://modrinth.com/mod/gvQqBUqZ)\n- [MaLiLib](https://modrinth.com/mod/GcWjdA9I)\n- [MidnightLib](https://modrinth.com/mod/codAaoxh)\n- [MiniHUD](https://modrinth.com/mod/UMxybHE8)\n- [Mod Menu](https://modrinth.com/mod/mOgUt4GM)\n- [More Chat History](https://modrinth.com/mod/8qkXwOnk)\n- [No Chat Reports](https://modrinth.com/mod/qQyHxfxd)\n- [NotEnoughAnimations](https://modrinth.com/mod/MPCX6s5C)\n- [Nuit](https://modrinth.com/mod/YBz7DOs8)\n- [Nuit Interop](https://modrinth.com/mod/HpdHOPOp)\n- [Optimized block entities](https://modrinth.com/mod/AtOSAunf)\n- [Presence Footsteps](https://modrinth.com/mod/rcTfTZr3)\n- [Puzzle](https://modrinth.com/mod/3IuO68q1)\n- [Reese's Sodium Options](https://modrinth.com/mod/Bh37bMuy)\n- [Shulker Box Tooltip](https://modrinth.com/mod/2M01OLQq)\n- [Simple Voice Chat](https://modrinth.com/mod/9eGKb6K1)\n- [Sodium](https://modrinth.com/mod/AANobbMI)\n- [Sodium Extra](https://modrinth.com/mod/PtjYWJkn)\n- [Sound Physics Remastered](https://modrinth.com/mod/qyVF9oeo)\n- [TCDCommons API](https://modrinth.com/mod/Eldc1g37)\n- [ViaFabricPlus](https://modrinth.com/mod/rIC2XJV4)\n- [Visuality](https://modrinth.com/mod/rI0hvYcd)\n- [Xaero's Minimap](https://modrinth.com/mod/1bokaNcj)\n- [Xaero's World Map](https://modrinth.com/mod/NcUtCpym)\n- [YetAnotherConfigLib](https://modrinth.com/mod/1eAoo2KR)\n- [ZConfig](https://modrinth.com/mod/4qmvXRB9)\n- [Zoomify](https://modrinth.com/mod/w7ThoJFB)\n- [lazy\\-language\\-loader](https://modrinth.com/mod/Nz0RSWrF)\n\nResource packs:\n\n- Fresh Animations\n- Redstone Tweaks\n\n</details>\n\nNote: If you're looking for __OutPerform__, it is no longer maintained. My friend is now helping me work on Sodium Plus, since he no longer works on OutPerform, and Sodium Plus is much better.\n\nOld OutPerform versions can be found here:\nhttps://modrinth.com/modpack/outperform\n\nIf you would like to suggest anything, use out GitHub issues for now: https://github.com/NoSadBeHappy/sodiumplus/issues\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/ch7UHY2J/images/f516760f3a1cb5a7cc13964037ab962582a7f3fd_350.webp",
+      "featured": false,
+      "title": "Title Screen",
+      "description": "The title screen.",
+      "created": "2023-11-03T23:37:35.144233Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/ch7UHY2J/images/7f9e3f932b31300b570568627944c638e02fab6f_350.webp",
+      "featured": false,
+      "title": "Max Settings FPS",
+      "description": "The FPS at maximum settings, see https://github.com/NoSadBeHappy/sodiumplus/tree/main/media#readme for more details",
+      "created": "2023-11-03T23:38:37.171840Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/ch7UHY2J/images/49779414dfdfe33b32f0a46df1811ab22bc73fd7_350.webp",
+      "featured": false,
+      "title": "Minimum Settings FPS",
+      "description": "The FPS at minimum settings, see https://github.com/NoSadBeHappy/sodiumplus/tree/main/media#readme for more details",
+      "created": "2023-11-03T23:38:15.258547Z"
+    }
+  ],
+  "team": [],
+  "versions": [
+    {
+      "id": "PPhWUGkB",
+      "name": "Sodium Plus 2.4.7 SERVER",
+      "version_number": "SERVER2.4.7",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-19T00:39:28.793026Z",
+      "downloads": 113819,
+      "changelog": "Server release!\nDesigned to be used with client on 2.4.7, however not required.\n\nUses chunksmith for pregeneration and voxy compatibility. Admin command resources here: https://github.com/Kishku7/Chunksmith/wiki",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.7 SERVER.mrpack",
+          "size": 4231,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hKkkVcVE",
+      "name": "Sodium Plus 2.4.7",
+      "version_number": "2.4.7",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-19T00:32:07.850378Z",
+      "downloads": 11184,
+      "changelog": "updated all mods\nadded chunksmith for voxy server support",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.7.mrpack",
+          "size": 278622,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OZYClchm",
+      "name": "Sodium Plus 2.4.6",
+      "version_number": "2.4.6",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-11T16:59:44.896088Z",
+      "downloads": 22447,
+      "changelog": "using voxy instead of distant horizons. In a singleplayer world chunk generation is more agressive with voxy, so you may want to disable it in video settings if you have a lot of lag.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.6.mrpack",
+          "size": 270337,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "48IOzJTE",
+      "name": "Sodium Plus 2.4.5",
+      "version_number": "2.4.5",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-07T16:07:15.718461Z",
+      "downloads": 12014,
+      "changelog": "updated all mods\nadded fast surface",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.5.mrpack",
+          "size": 268251,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fGE0zcer",
+      "name": "Sodium Plus 2.4.4",
+      "version_number": "2.4.4",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-04T16:47:38.846185Z",
+      "downloads": 11865,
+      "changelog": "Updated all mods\nmade some large mods optional to install\nremoved fabrishot, was causing issues. I will add it back later hopefully.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.4.mrpack",
+          "size": 268639,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Uvkumb7a",
+      "name": "Sodium Plus 2.4.4",
+      "version_number": "2.4.4",
+      "version_type": "alpha",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-18T17:53:23.568361Z",
+      "downloads": 59981,
+      "changelog": "updated all mods",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.3.mrpack",
+          "size": 265943,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "YPxQ3lEG",
+      "name": "Sodium Plus 2.4.3",
+      "version_number": "2.4.3",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-20T16:46:59.736307Z",
+      "downloads": 122893,
+      "changelog": "updated all mods\nremoved freecam (accidentally added it to my personal instance and made the new versions from that accidentally)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.3.mrpack",
+          "size": 265496,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "RDHZNrbp",
+      "name": "Sodium Plus 2.4.2",
+      "version_number": "2.4.2",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-09T16:43:09.201411Z",
+      "downloads": 44312,
+      "changelog": "updated all mods\n\nadded audio throttle (in my testing increased FPS by about 7% in noisy enviroments.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "2.4.2.mrpack",
+          "size": 265302,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

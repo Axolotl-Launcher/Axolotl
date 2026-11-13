@@ -1,0 +1,232 @@
+{
+  "id": "uPkIzDYf",
+  "slug": "the-horrors-in-the-fog",
+  "title": "the horrors in the fog",
+  "description": "a horror mod pack that is spooky",
+  "author": "theernyclan",
+  "categories": ["adventure", "challenging", "forge", "optimization"],
+  "display_categories": ["adventure", "challenging", "optimization"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 838826,
+  "followers": 237,
+  "license": {
+    "id": "GPL-3.0-only",
+    "name": "GNU General Public License v3.0 only"
+  },
+  "loaders": ["forge"],
+  "game_versions": ["1.19.2", "1.20.1"],
+  "latest_version": "e5sVUHuu",
+  "date_created": "2024-01-10T01:22:59.705258Z",
+  "date_modified": "2024-10-02T20:49:45.139097Z",
+  "color": 1117711,
+  "published": "2024-01-10T01:22:59.705258Z",
+  "additional_categories": [],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 19,
+  "body": "![title](https://cdn.modrinth.com/data/cached_images/f0b6c0a068fbd71ea8989bae1ee9e9be2be63a38.png)\n\n\nA horror modpack that is meant to be terrifying and challenging\n\n*and funny at times*\n_________________________________________________________________________________________\n-content-\n\nadds many iconic horror mods such as:\n\n<details>\n<summary>Spoiler</summary>\n\n- From The Fog \"also known as the Herobrine mod\"\n- The Man From The Fog\n- The Midnight Lurker\n- The Better Cave Dweller\n- The Knocker\n- Nyf's Spiders\n- Sanity: Descent Into Madness\n- Doctor Who: Weeping Angels\n- And other mods such as preformance mods, shaders, and guns to help with smoothness and immersion\n\n</details>\n\n\n_____________________________________________________________________________________\n**the mod may have jumpscares**\n**and loud effects**\n_________________________________________________________\n\n****if you want to be spooked, then this is the modpack for you****\n\n*reccomended with friends*",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/uPkIzDYf/images/ecdfdb8d6eccb2c1ef40de620238899f3d5f89ef_350.webp",
+      "featured": false,
+      "title": "cave man",
+      "description": null,
+      "created": "2024-01-10T01:29:50.882194Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/uPkIzDYf/images/e4391c9da854526484060774316f20fbd2a916c1_350.webp",
+      "featured": false,
+      "title": "herobrine",
+      "description": null,
+      "created": "2024-01-10T01:30:22.265176Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/uPkIzDYf/images/776972897f57e061ef915d63853f3bf45e1e6842_350.webp",
+      "featured": false,
+      "title": "the man from the fogs autistic brother",
+      "description": null,
+      "created": "2024-01-10T01:31:00.136131Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/uPkIzDYf/images/bae0466b0d43d2dacb60ac1c231b3c6e49dd6920_350.webp",
+      "featured": false,
+      "title": "he knows what you did",
+      "description": null,
+      "created": "2024-01-10T01:31:24.470455Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "theernyclan",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/nFITQaFj/868e7a475efbfd14e4c40c10a372d7ada640d79f.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "e5sVUHuu",
+      "name": "the horrors in the fog 1.1.9",
+      "version_number": "1.1.9",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-10-02T20:49:45.139097Z",
+      "downloads": 312673,
+      "changelog": "![title](https://cdn.modrinth.com/data/cached_images/54c15a03d1b02ccf173aea813acd30eedb130073.png)\n\nremoved:\n-----------------------------------------------------------\ncant breathe\n\nsiren head\n[https://www.curseforge.com/minecraft/mc-mods/siren-head-the-arrival]\n\ntough as nails\n\nadded\n-----------------------------------------------------------\nthe anomaly\n[https://www.curseforge.com/minecraft/mc-mods/the-anomaly](https://www.curseforge.com/minecraft/mc-mods/the-anomaly)\n\nthe mimicer\n[https://www.curseforge.com/minecraft/mc-mods/the-mimicer]\n\nReplayMod for Forge Reborn (Discontinued)\n[https://www.curseforge.com/minecraft/mc-mods/replaymod-for-forge-reborn]",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2) 1.1.9.mrpack",
+          "size": 44787558,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "OylAWWPM",
+      "name": "the horrors in the fog 1.1.8",
+      "version_number": "1.1.8",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-09-27T16:27:04.528762Z",
+      "downloads": 3809,
+      "changelog": "![title](https://cdn.modrinth.com/data/cached_images/229453a583ffbf20de473c69e43f6e5fdd2ead9a.png)\n\nremoved the paranoia mod/ fixed an issue were mobs could fly\n\nupdated all the mods",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2 ( 1.1.8.mrpack",
+          "size": 37083203,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "KmXDLbz5",
+      "name": "the horrors in the fog 1.1.7",
+      "version_number": "1.1.7",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-09-26T22:40:20.371840Z",
+      "downloads": 1100,
+      "changelog": "![title](https://cdn.modrinth.com/data/cached_images/54c15a03d1b02ccf173aea813acd30eedb130073.png)\n\nHELLO EVERYONE!\n\nits been a while and feel like giving you guys a GREAT update\n\nnew mods:\ncant breathe\n------------\nMrCrayfish's Gun Mod\n[https://legacy.curseforge.com/minecraft/mc-mods/mrcrayfishs-gun-mod]\n--------------------------------------------\nUnfortunate Development\n-----------------------",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2) 1.1.7.mrpack",
+          "size": 37085843,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "HRIbF6Ar",
+      "name": "the horrors in the fog 1.1.6",
+      "version_number": "1.1.6",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-07-27T20:15:19.132294Z",
+      "downloads": 19408,
+      "changelog": "updated most of the mods\n\nadded a few mods",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2) 1.1.6 .mrpack",
+          "size": 29040119,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "L4q7ERzr",
+      "name": "the horrors in the fog 1.1.5 the fox update v2",
+      "version_number": "1.1.5",
+      "version_type": "alpha",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-06-02T03:10:01.112945Z",
+      "downloads": 16035,
+      "changelog": "added more crap",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2) the fox update v2 1.1.5.mrpack",
+          "size": 99274678,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "dfD6L4oh",
+      "name": "the horrors in the fog 1.1.4 (the fox update)",
+      "version_number": "1.1.4",
+      "version_type": "alpha",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-06-02T02:37:16.126746Z",
+      "downloads": 590,
+      "changelog": "funny update",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2) (the fox update) 1.1.4.mrpack",
+          "size": 88107501,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "YKVDIep9",
+      "name": "the horrors in the fog 1.1.3",
+      "version_number": "1.1.3",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-06-01T19:43:49.983592Z",
+      "downloads": 3470,
+      "changelog": "removed  a few annoying mod and made the game harder",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2) 1.1.3.mrpack",
+          "size": 36138446,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "iAzSYIwk",
+      "name": "the horrors in the fog 1.1.2 (biomechanical sirens)",
+      "version_number": "1.1.2",
+      "version_type": "release",
+      "game_versions": ["1.19.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2024-05-22T23:16:34.094595Z",
+      "downloads": 2768,
+      "changelog": "added sirenhead to the game lol\n[https://www.curseforge.com/minecraft/mc-mods/siren-head-the-arrival](https://www.curseforge.com/minecraft/mc-mods/siren-head-the-arrival)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "the horrors in the fog (1.19.2 1.1.2.mrpack",
+          "size": 42982735,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

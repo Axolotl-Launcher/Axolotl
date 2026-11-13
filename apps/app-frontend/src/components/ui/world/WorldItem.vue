@@ -277,12 +277,14 @@ const messages = defineMessages({
             />
         </template>
         <div
-            class="grid grid-cols-[auto_minmax(0,3fr)_minmax(0,4fr)_auto] items-center gap-2 rounded-lg smart-clickable:highlight-on-hover"
+            class="grid items-center gap-2 rounded-lg smart-clickable:highlight-on-hover"
             :class="[
+                dashboardDensity === 'compact'
+                    ? 'grid-cols-[auto_minmax(0,1fr)_auto]'
+                    : 'grid-cols-[auto_minmax(0,3fr)_minmax(0,4fr)_auto]',
                 {
                     'world-item-highlighted': highlighted,
-                    'world-item-dashboard-compact grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 p-1.5':
-                        dashboardDensity === 'compact',
+                    'world-item-dashboard-compact p-1.5': dashboardDensity === 'compact',
                     'world-item-dashboard-comfortable p-2': dashboardDensity === 'comfortable',
                 },
                 flat ? 'px-2 py-2 hover:bg-surface-4' : 'card-shadow bg-surface-2 p-3',
@@ -296,10 +298,13 @@ const messages = defineMessages({
                 "
                 :size="dashboardDensity === 'compact' ? '40px' : '48px'"
             />
-            <div class="flex flex-col justify-between h-full">
-                <div class="flex items-center gap-2">
+            <div class="flex min-w-0 flex-col justify-between h-full">
+                <div class="flex min-w-0 items-center gap-2">
                     <div
-                        class="text-lg text-[var(--color-text-primary)] font-bold truncate smart-clickable:underline-on-hover"
+                        class="min-w-0 text-lg text-[var(--color-text-primary)] font-bold smart-clickable:underline-on-hover"
+                        :class="
+                            dashboardDensity ? 'break-words [overflow-wrap:anywhere]' : 'truncate'
+                        "
                     >
                         {{ world.name }}
                     </div>
@@ -384,7 +389,9 @@ const messages = defineMessages({
                         </template>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 text-sm text-[var(--color-text-tertiary)]">
+                <div
+                    class="flex min-w-0 items-center gap-2 text-sm text-[var(--color-text-tertiary)]"
+                >
                     <div
                         v-tooltip="world.last_played ? formatDateTime(world.last_played) : null"
                         class="w-fit shrink-0"
@@ -470,49 +477,55 @@ const messages = defineMessages({
                     v-if="(playingWorld || (locked && playingInstance)) && !startingInstance"
                     color="red"
                     :circular="dashboardDensity === 'compact'"
+                    :icon-only="dashboardDensity === 'compact'"
+                    :label="formatMessage(commonMessages.stopButton)"
+                    @click="emit('stop')"
                 >
-                    <button @click="emit('stop')">
-                        <StopCircleIcon aria-hidden="true" />
-                        <span v-if="dashboardDensity !== 'compact'">
-                            {{ formatMessage(commonMessages.stopButton) }}
-                        </span>
-                    </button>
+                    <StopCircleIcon aria-hidden="true" />
+                    <span v-if="dashboardDensity !== 'compact'">
+                        {{ formatMessage(commonMessages.stopButton) }}
+                    </span>
                 </Button>
-                <Button v-else :circular="dashboardDensity === 'compact'">
-                    <button
-                        v-tooltip="
-                            world.type === 'server'
-                                ? !supportsServerQuickPlay
-                                    ? formatMessage(messages.noServerQuickPlay)
-                                    : playingOtherWorld
-                                      ? formatMessage(messages.gameAlreadyOpen)
-                                      : !serverStatus
-                                        ? formatMessage(messages.noContact)
-                                        : serverIncompatible
-                                          ? formatMessage(messages.incompatibleServer)
-                                          : null
-                                : quickPlayPending
-                                  ? null
-                                  : !supportsWorldQuickPlay
-                                    ? formatMessage(messages.noSingleplayerQuickPlay)
-                                    : playingOtherWorld || locked
-                                      ? formatMessage(messages.gameAlreadyOpen)
+                <Button
+                    v-else
+                    v-tooltip="
+                        world.type === 'server'
+                            ? !supportsServerQuickPlay
+                                ? formatMessage(messages.noServerQuickPlay)
+                                : playingOtherWorld
+                                  ? formatMessage(messages.gameAlreadyOpen)
+                                  : !serverStatus
+                                    ? formatMessage(messages.noContact)
+                                    : serverIncompatible
+                                      ? formatMessage(messages.incompatibleServer)
                                       : null
-                        "
-                        :disabled="
-                            playingOtherWorld ||
-                            startingInstance ||
-                            (world.type == 'server' && !supportsServerQuickPlay) ||
-                            (world.type == 'singleplayer' && !supportsWorldQuickPlay)
-                        "
-                        @click="emit('play')"
-                    >
-                        <SpinnerIcon v-if="startingInstance && playingWorld" class="animate-spin" />
-                        <PlayIcon v-else aria-hidden="true" />
-                        <span v-if="dashboardDensity !== 'compact'">
-                            {{ formatMessage(commonMessages.playButton) }}
-                        </span>
-                    </button>
+                            : quickPlayPending
+                              ? null
+                              : !supportsWorldQuickPlay
+                                ? formatMessage(messages.noSingleplayerQuickPlay)
+                                : playingOtherWorld
+                                  ? formatMessage(messages.gameAlreadyOpen)
+                                  : locked
+                                    ? formatMessage(messages.worldInUse)
+                                    : null
+                    "
+                    :disabled="
+                        playingOtherWorld ||
+                        startingInstance ||
+                        locked ||
+                        (world.type == 'server' && !supportsServerQuickPlay) ||
+                        (world.type == 'singleplayer' && !supportsWorldQuickPlay)
+                    "
+                    :circular="dashboardDensity === 'compact'"
+                    :icon-only="dashboardDensity === 'compact'"
+                    :label="formatMessage(commonMessages.playButton)"
+                    @click="emit('play')"
+                >
+                    <SpinnerIcon v-if="startingInstance" class="animate-spin" />
+                    <PlayIcon v-else aria-hidden="true" />
+                    <span v-if="dashboardDensity !== 'compact'">
+                        {{ formatMessage(commonMessages.playButton) }}
+                    </span>
                 </Button>
                 <OverflowMenu
                     type="button"

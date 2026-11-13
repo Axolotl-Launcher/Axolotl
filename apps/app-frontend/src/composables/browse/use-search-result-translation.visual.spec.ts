@@ -46,7 +46,7 @@ it('empty search snapshots cancel older translations without restoring old resul
         locale = ref('zh-CN')
     const pending: Array<(value: typeof projects.value) => void> = []
     const translate = vi.fn(
-        () =>
+        (_items: typeof projects.value, _locale: string, _force: boolean, _server: boolean) =>
             new Promise<typeof projects.value>((resolve) => {
                 pending.push(resolve)
             }),

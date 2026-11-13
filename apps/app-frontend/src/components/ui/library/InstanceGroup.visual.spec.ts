@@ -4,11 +4,19 @@ import { expect, it, vi } from 'vitest'
 import type { GameInstance } from '@/helpers/types'
 
 import InstanceGroup from './InstanceGroup.vue'
+const dnd = vi.hoisted(() => ({
+    options: undefined as { disabled?: { value: boolean } } | undefined,
+}))
 vi.mock('@/composables/useInstanceGroups', () => ({ FAVORITES_GROUP_ID: 'favorites' }))
 vi.mock('@/composables/useGridGrouping', () => ({ UNGROUPED_GROUP_KEY: 'ungrouped' }))
 vi.mock('@dnd-kit/vue', async () => {
     const { ref } = await import('vue')
-    return { useDroppable: () => ({ isDropTarget: ref(false) }) }
+    return {
+        useDroppable: (options: { disabled?: { value: boolean } }) => {
+            dnd.options = options
+            return { isDropTarget: ref(false) }
+        },
+    }
 })
 vi.mock('@/components/ui/library/DraggableInstanceCard.vue', async () => {
     const { defineComponent, h } = await import('vue')
@@ -17,7 +25,7 @@ vi.mock('@/components/ui/library/DraggableInstanceCard.vue', async () => {
             setup:
                 (_, { slots }) =>
                 () =>
-                    h('div', slots.default?.({ isDragging: false })),
+                    h('div', { 'data-draggable-card': '' }, slots.default?.({ isDragging: false })),
         }),
     }
 })
@@ -25,9 +33,42 @@ vi.mock('@/components/ui/Instance.vue', async () => {
     const { defineComponent, h } = await import('vue')
     return {
         default: defineComponent({
-            props: ['playing', 'instance'],
-            setup: (props) => () =>
-                h('div', { 'data-playing': String(props.playing), 'data-id': props.instance.id }),
+            props: [
+                'playing',
+                'instance',
+                'showGameDirectory',
+                'variant',
+                'showMore',
+                'selectMode',
+                'selected',
+            ],
+            emits: ['more', 'toggleSelect'],
+            setup:
+                (props, { emit }) =>
+                () =>
+                    h(
+                        'div',
+                        {
+                            'data-playing': String(props.playing),
+                            'data-id': props.instance.id,
+                            'data-show-game-directory': String(props.showGameDirectory),
+                            'data-variant': props.variant,
+                            'data-show-more': String(props.showMore),
+                            'data-select-mode': String(props.selectMode),
+                            'data-selected': String(props.selected),
+                            onClick: (event: MouseEvent) => emit('more', event),
+                        },
+                        [
+                            h(
+                                'button',
+                                {
+                                    'data-instance-select': props.instance.id,
+                                    onClick: (event: MouseEvent) => emit('toggleSelect', event),
+                                },
+                                'Select',
+                            ),
+                        ],
+                    ),
         }),
     }
 })
@@ -44,7 +85,9 @@ vi.mock('@modrinth/ui', async () => {
         Button: control,
         Checkbox: control,
         IconButton: control,
-        InlineEditableText: control,
+        InlineEditableText: defineComponent({
+            setup: () => () => h('input', { 'data-inline-editable': '' }),
+        }),
         NewModal: control,
         TagItem: control,
         commonMessages: {},
@@ -70,7 +113,7 @@ it.each(['Group', 'None'])(
                 isCollapsed: false,
                 displayMode: 'cards',
                 selectMode: false,
-                selectedInstanceIds: new Set(),
+                selectedInstanceIds: new Set<string>(),
             },
             global: { directives: { tooltip: () => {} } },
         })
@@ -82,3 +125,74 @@ it.each(['Group', 'None'])(
         }
     },
 )
+
+it('renders a vertical list with inline selection and more actions', () => {
+    const wrapper = mount(InstanceGroup, {
+        props: {
+            sectionKey: 'a',
+            groupName: 'A',
+            grouping: 'Group',
+            instances: [
+                { id: 'one', name: 'One' },
+                { id: 'two', name: 'Two' },
+            ] as GameInstance[],
+            runningInstanceIds: new Set<string>(),
+            isCollapsed: false,
+            displayMode: 'list',
+            selectMode: true,
+            selectedInstanceIds: new Set(['one']),
+        },
+        global: { directives: { tooltip: () => {} } },
+    })
+    try {
+        expect(wrapper.get('[data-layout="list"]').classes()).toContain('flex-col')
+        expect(wrapper.findAll('[data-id]')).toHaveLength(2)
+        expect(wrapper.get('[data-id="one"]').attributes('data-variant')).toBe('list')
+        expect(wrapper.get('[data-id="one"]').attributes('data-show-more')).toBe('true')
+        expect(wrapper.get('[data-id="one"]').attributes('data-selected')).toBe('true')
+
+        // The card overlay must not duplicate the inline checkbox/more in list mode.
+        expect(wrapper.findAll('[data-instance-select]')).toHaveLength(2)
+        expect(wrapper.find('.absolute.right-2.bottom-2').exists()).toBe(false)
+        expect(wrapper.find('.absolute.right-2.top-2').exists()).toBe(false)
+
+        const row = wrapper.get('[data-id="one"]')
+        row.trigger('click')
+        expect(wrapper.emitted('handleContextMenu')).toHaveLength(1)
+
+        wrapper.get('[data-instance-select="one"]').trigger('click')
+        expect(wrapper.emitted('handleCheckboxClick')).toHaveLength(1)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('keeps game-directory sections automatic and non-draggable', () => {
+    const wrapper = mount(InstanceGroup, {
+        props: {
+            sectionKey: 'external:d:/minecraft/.minecraft',
+            groupName: String.raw`D:\Minecraft\.minecraft`,
+            grouping: 'Game directory',
+            instances: [{ id: 'one', name: 'One' }] as GameInstance[],
+            runningInstanceIds: new Set<string>(),
+            isCollapsed: false,
+            displayMode: 'cards',
+            selectMode: false,
+            selectedInstanceIds: new Set<string>(),
+            showGameDirectory: true,
+        },
+        global: { directives: { tooltip: () => {} } },
+    })
+    try {
+        expect(wrapper.find('[data-inline-editable]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="instance-group-actions"]').exists()).toBe(false)
+        expect(wrapper.get('[data-testid="instance-group-name"]').text()).toBe(
+            String.raw`D:\Minecraft\.minecraft`,
+        )
+        expect(wrapper.find('[data-draggable-card]').exists()).toBe(false)
+        expect(wrapper.get('[data-id="one"]').attributes('data-show-game-directory')).toBe('true')
+        expect(dnd.options?.disabled?.value).toBe(true)
+    } finally {
+        wrapper.unmount()
+    }
+})

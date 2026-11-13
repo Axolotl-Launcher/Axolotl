@@ -11,6 +11,7 @@
   gradle_9,
   jdk17,
   makeRustPlatform,
+  mold,
   nodejs_24,
   pkg-config,
   pnpmConfigHook,
@@ -28,24 +29,26 @@
 let
   pname = "axolotl";
   version = with builtins; (fromJSON (readFile ../apps/app-frontend/package.json)).version;
-  src = with lib.fileset; toSource {
-    root = ../.;
-    fileset = unions [
-      ../.cargo
-      ../apps
-      ../packages
-      ../patches
-      ../scripts
-      ../third-party
-      ../Cargo.lock
-      ../Cargo.toml
-      ../package.json
-      ../pnpm-lock.yaml
-      ../pnpm-workspace.yaml
-      ../rust-toolchain.toml
-      ../turbo.jsonc
-    ];
-  };
+  src =
+    with lib.fileset;
+    toSource {
+      root = ../.;
+      fileset = unions [
+        ../.cargo
+        ../apps
+        ../packages
+        ../patches
+        ../scripts
+        ../third-party
+        ../Cargo.lock
+        ../Cargo.toml
+        ../package.json
+        ../pnpm-lock.yaml
+        ../pnpm-workspace.yaml
+        ../rust-toolchain.toml
+        ../turbo.jsonc
+      ];
+    };
 
   blockbench = callPackage ./blockbench.nix { inherit inputs; };
 
@@ -65,68 +68,71 @@ let
     rustc = rustToolchain;
   };
 in
-  rustPlatform.buildRustPackage (finalAttrs: {
+rustPlatform.buildRustPackage (finalAttrs: {
+  inherit pname version src;
+  # Deps prefetch
+  cargoLock = {
+    lockFile = ../Cargo.lock;
+    outputHashes = {
+      "tauri-plugin-updater-2.10.1" = "sha256-LcnavYjT6nK0fQ/Gtb5HnkVzUuFuIL/9ewUq3PaTJTo=";
+      "tauri-plugin-window-state-2.4.1" = "sha256-WPZ5HvSY5NCwjHXVgovBK4Xvf8Zl4Z8vJinKZvRJPhQ=";
+    };
+  };
+  mitmCache = gradle_9_j17.fetchDeps {
+    pkg = finalAttrs.finalPackage;
+    data = ./mitmCache.json;
+  };
+  pnpmDeps = fetchPnpmDeps {
     inherit pname version src;
-    # Deps prefetch
-    cargoLock = {
-      lockFile = ../Cargo.lock;
-      outputHashes = {
-        "tauri-plugin-updater-2.10.1" = "sha256-LcnavYjT6nK0fQ/Gtb5HnkVzUuFuIL/9ewUq3PaTJTo=";
-        "tauri-plugin-window-state-2.4.1" = "sha256-WPZ5HvSY5NCwjHXVgovBK4Xvf8Zl4Z8vJinKZvRJPhQ=";
-      };
-    };
-    mitmCache = gradle_9_j17.fetchDeps {
-      pkg = finalAttrs.finalPackage;
-      data = ./mitmCache.json;
-    };
-    pnpmDeps = fetchPnpmDeps {
-      inherit pname version src;
-      pnpm = pnpm_10_33_2;
-      fetcherVersion = 4;
-      hash = "sha256-0n9R5WGotwKva650WC39aICVcoVz2EoO3VHAse40BXI=";
-    };
-    # Gradle
-    gradleFlags = [
-      "--no-configuration-cache"
-      "-x"
-      "spotlessJava"
-    ];
-    preGradleUpdate = ''
-      cd packages/app-lib/java
-    '';
-    gradleUpdateTask = "nixDownloadDeps authlibInjector";
-    # Workflow
-    dontUseGradleBuild = true;
-    dontUseGradleCheck = true;
-    dontCargoCheck = true;
-    # Axolotl
-    nativeBuildInputs = [
-      cargo-tauri.hook
-      gradle_9_j17
-      jdk17
-      makeShellWrapper
-      nodejs_24
-      pkg-config
-      pnpmConfigHook
-      pnpm_10_33_2
-      wrapGAppsHook4
-    ];
-    buildInputs = [
-      glib-networking
-      libayatana-appindicator
-      librsvg
-      webkitgtk_4_1
-    ];
-    preBuild = ''
-      ln -s '${blockbench}/node_modules' 'third-party/blockbench/node_modules'
-      makeShellWrapper '${gradle_9_j17}/bin/gradle' 'packages/app-lib/java/gradlew' \
-        --add-flags "''${gradleFlags[*]}"      \
-        --add-flags "''${gradleFlagsArray[*]}" \
-    '';
-    installPhase = ''
-      runHook preInstall
-      mkdir -p "$out/bin"
-      cp "target/${stdenv.hostPlatform.rust.rustcTarget}/release/Axolotl Launcher" "$out/bin"
-      runHook postInstall
-    '';
-  })
+    pnpm = pnpm_10_33_2;
+    fetcherVersion = 4;
+    hash = "sha256-ztrbyNOSGwaXP6R9FSAo3jX/JKZ9sgxpIrK1dklKUWs=";
+  };
+  # Gradle
+  gradleFlags = [
+    "--no-configuration-cache"
+    "-x"
+    "spotlessJava"
+  ];
+  preGradleUpdate = ''
+    cd packages/app-lib/java
+  '';
+  gradleUpdateTask = "nixDownloadDeps authlibInjector";
+  # Workflow
+  dontUseGradleBuild = true;
+  dontUseGradleCheck = true;
+  dontCargoCheck = true;
+  # Axolotl
+  nativeBuildInputs = [
+    cargo-tauri.hook
+    gradle_9_j17
+    jdk17
+    makeShellWrapper
+    # .cargo/config.toml links Linux builds with -fuse-ld=mold. nixpkgs'
+    # mold is the wrapped one, so library rpaths are set as with ld.
+    mold
+    nodejs_24
+    pkg-config
+    pnpmConfigHook
+    pnpm_10_33_2
+    wrapGAppsHook4
+  ];
+  buildInputs = [
+    glib-networking
+    libayatana-appindicator
+    librsvg
+    webkitgtk_4_1
+  ];
+  preBuild = ''
+    ln -s '${blockbench}/node_modules' 'third-party/blockbench/node_modules'
+    makeShellWrapper '${gradle_9_j17}/bin/gradle' 'packages/app-lib/java/gradlew' \
+      --add-flags "''${gradleFlags[*]}"      \
+      --add-flags "''${gradleFlagsArray[*]}" \
+  '';
+  installPhase = ''
+    runHook preInstall
+    mkdir -p "$out/bin"
+    cp "target/${stdenv.hostPlatform.rust.rustcTarget}/release/Axolotl Launcher" "$out/bin"
+    runHook postInstall
+  '';
+})

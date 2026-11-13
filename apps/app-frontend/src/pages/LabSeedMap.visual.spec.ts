@@ -67,7 +67,7 @@ vi.mock('@/components/lab/seed-map/SeedMapUndergroundPreview.vue', () => ({
         props: ['query'],
         emits: ['close'],
         setup:
-            (_, { emit }) =>
+            (_: unknown, { emit }: { emit: (event: 'close') => void }) =>
             () =>
                 h('div', { 'data-testid': 'direct-underground' }, [
                     h('button', { onClick: () => emit('close') }, 'Back to map'),
@@ -104,6 +104,7 @@ vi.mock('@modrinth/ui', async () => {
     return {
         Admonition: control,
         Checkbox: control,
+        ColorPicker: control,
         Combobox: control,
         PopoutMenu: control,
         Slider: control,
@@ -138,7 +139,7 @@ type MapVm = {
     scheduleRefresh: (delay?: number) => void
     drawMap: () => void
     features: SeedMapFeature[]
-    selection: { x: number; z: number; feature?: SeedMapFeature } | null
+    selection: { x: number; z: number; feature?: SeedMapFeature; markerId?: string } | null
     focusedPiece: SeedMapStructurePiece | null
     selectAt: (x: number, y: number) => void
     worldToScreen: (x: number, z: number) => { x: number; y: number }
@@ -366,7 +367,7 @@ it('enlarges POI images and their hit targets only when closer than four blocks 
             })
             const point = vm.worldToScreen(0, 0)
             vm.selectAt(point.x + 18, point.y)
-            expect(!!vm.selection?.feature).toBe(hit)
+            expect(!!(vm.selection as MapVm['selection'])?.feature).toBe(hit)
         }
     } finally {
         drawImage.mockRestore()
@@ -511,7 +512,7 @@ it.each([-2, 0, 0.5])(
         )
         const { vm } = await openMap()
         expect(vm.workspace.zoom).toBe(zoom)
-        expect(wrapper!.get('canvas').exists()).toBe(true)
+        expect(wrapper!.find('canvas').exists()).toBe(true)
     },
 )
 
@@ -567,7 +568,6 @@ it('can leave a close-zoom map with pending work and navigate back through the a
         global: {
             plugins: [router],
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     await vi.waitFor(() => expect(wrapper!.find('canvas').exists()).toBe(true))
@@ -749,6 +749,34 @@ it('paints unselected Ancient city piece projections on the map canvas', async (
     })
 })
 
+it.each([900, 600, 400])(
+    'keeps the map controls reachable in a %ipx desktop window',
+    async (height) => {
+        await page.viewport(1280, height)
+        const { canvas } = await openMap()
+        const root = wrapper!.element as HTMLElement
+        root.style.cssText = `width: 1200px; height: ${height - 48}px`
+        canvas.style.width = ''
+        canvas.style.height = ''
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        const toolbar = wrapper!.get('.seed-map-toolbar').element as HTMLElement
+        expect(toolbar.scrollHeight).toBeLessThanOrEqual(toolbar.clientHeight + 1)
+        const pane = wrapper!.get('.seed-map-workspace-panes').element
+        root.scrollTop = root.scrollHeight
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        expect(pane.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+            root.getBoundingClientRect().bottom,
+        )
+        for (const button of wrapper!.findAll('.map-control-stack button')) {
+            const bounds = button.element.getBoundingClientRect()
+            expect(bounds.top).toBeGreaterThanOrEqual(root.getBoundingClientRect().top)
+            expect(bounds.bottom).toBeLessThanOrEqual(root.getBoundingClientRect().bottom)
+        }
+        if (height === 900) expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight + 1)
+        await page.viewport(1280, 1100)
+    },
+)
+
 it('keeps screen coordinates and painted canvas intact when opening, dragging and closing details', async () => {
     await page.viewport(1280, 1100)
     const { vm, canvas } = await openMap()
@@ -867,7 +895,6 @@ async function openMap() {
         attachTo: document.body,
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     await flushPromises()
@@ -885,7 +912,6 @@ it('opens 3D directly from Underground and suspends 2D tile generation until ret
     const { canvas } = await openMap()
     await userEvent.click(page.getByRole('button', { name: 'Underground', exact: true }))
     await expect.poll(() => wrapper?.find('[data-testid=direct-underground]').exists()).toBe(true)
-    expect(wrapper!.find('[data-onboarding-id=seed-map-underground-layers]').exists()).toBe(false)
     expect(wrapper!.text()).not.toContain('Explore in 3D')
     const count = backend.tiles.length
     await new Promise((resolve) => setTimeout(resolve, 250))
@@ -922,7 +948,6 @@ it('restores a saved underground workspace directly into 3D after profiles load 
         attachTo: document.body,
         global: {
             directives: { tooltip: () => {} },
-            provide: { replayOnboarding: async () => {} },
         },
     })
     await expect.poll(() => wrapper?.find('[data-testid=direct-underground]').exists()).toBe(true)

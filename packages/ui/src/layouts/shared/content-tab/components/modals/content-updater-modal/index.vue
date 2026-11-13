@@ -23,6 +23,7 @@
         <template v-if="showSimplifiedWarning">
             <div class="p-6">
                 <Admonition type="warning" :body="warning ?? ''" />
+                <p v-if="actionError" class="mb-0 text-red" role="alert">{{ actionError }}</p>
             </div>
         </template>
 
@@ -272,6 +273,7 @@
                 </div>
             </div>
 
+            <p v-if="actionError" class="m-0 px-4 pt-4 text-red" role="alert">{{ actionError }}</p>
             <div
                 class="w-full flex flex-row items-center gap-4 p-4 border-solid border-x-0 border-b-0 border-t border-surface-4"
             >
@@ -546,6 +548,7 @@ const props = withDefaults(
         mode?: 'version' | 'incompatibility-warning'
         warning?: string
         actionLoading?: boolean
+        actionError?: string
         /** Keep the modal open until the parent confirms the operation was accepted. */
         hideOnUpdate?: boolean
         /** Whether versions are currently being loaded */
@@ -566,6 +569,7 @@ const props = withDefaults(
         mode: 'version',
         warning: undefined,
         actionLoading: false,
+        actionError: undefined,
         hideOnUpdate: true,
         loading: false,
         loadingError: undefined,

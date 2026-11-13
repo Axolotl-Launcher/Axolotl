@@ -136,6 +136,7 @@ pub(super) async fn run_request(
         InstallRequest::CreateModpackInstance {
             location,
             post_install_edit,
+            ..
         } => {
             let Some(instance_id) = current_instance_id(job_state) else {
                 return Err(crate::ErrorKind::InputError(
@@ -681,6 +682,10 @@ pub(super) async fn run_request(
             file_id,
         } => {
             prepare_existing_rollback(job_state, state, &instance_id).await?;
+            recovery::prepare_existing_pack_update_rollback(
+                job_id, job_state, state,
+            )
+            .await?;
             crate::state::instances::commands::set_instance_install_stage(
                 &instance_id,
                 InstanceInstallStage::PackInstalling,

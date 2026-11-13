@@ -29,6 +29,29 @@ use crate::state::{
     ContentRequirement, ContentSourceKind, local_id,
 };
 
+fn file_modified_date(
+    file: &crate::state::instances::InstanceFile,
+    fingerprint: Option<
+        &crate::state::store::content_file_fingerprints::FileFingerprintRecord,
+    >,
+) -> String {
+    // Database modified_at tracks scans and mutations, not the file's date.
+    fingerprint
+        .filter(|record| {
+            record.relative_path == file.relative_path
+                && record.size == file.size
+                && record.sha1().eq_ignore_ascii_case(&file.sha1)
+        })
+        .and_then(|record| {
+            chrono::DateTime::from_timestamp(
+                record.modified.seconds,
+                record.modified.nanos,
+            )
+        })
+        .unwrap_or(file.added_at)
+        .to_rfc3339()
+}
+
 pub(crate) async fn get_content_snapshot(
     instance_id: &str,
     refresh_remote: bool,
@@ -37,8 +60,34 @@ pub(crate) async fn get_content_snapshot(
     if !refresh_remote {
         return local::get(instance_id, state).await;
     }
-    get_content_snapshot_inner(instance_id, refresh_remote, true, true, state)
-        .await
+    get_content_snapshot_inner(
+        instance_id,
+        refresh_remote,
+        true,
+        true,
+        true,
+        state,
+        crate::api::curseforge::get_modpack_expected_members,
+    )
+    .await
+}
+
+pub(crate) async fn get_pack_update_snapshot(
+    instance_id: &str,
+    state: &State,
+) -> crate::Result<InstanceContentSnapshot> {
+    // Pack review needs only pack metadata. Per-item enrichment can reconcile
+    // provider references or start dependency writes after this snapshot read.
+    get_content_snapshot_inner(
+        instance_id,
+        true,
+        true,
+        true,
+        false,
+        state,
+        crate::api::curseforge::get_modpack_expected_members,
+    )
+    .await
 }
 
 pub(crate) async fn get_cached_content_snapshot(
@@ -55,13 +104,23 @@ pub(crate) async fn get_local_content_snapshot(
     local::get(instance_id, state).await
 }
 
-async fn get_content_snapshot_inner(
+async fn get_content_snapshot_inner<F, Fut>(
     instance_id: &str,
     refresh_remote: bool,
     sync_direct_instance: bool,
     enrich: bool,
+    enrich_items: bool,
     state: &State,
-) -> crate::Result<InstanceContentSnapshot> {
+    expected_pack: F,
+) -> crate::Result<InstanceContentSnapshot>
+where
+    F: FnOnce(u32, u32) -> Fut,
+    Fut: std::future::Future<
+            Output = crate::Result<
+                crate::api::curseforge::CurseForgePackExpectedContent,
+            >,
+        >,
+{
     super::repair_recorded_pack_unlink(instance_id, &state.pool).await?;
     let instance = instance_rows::get_instance_by_id(instance_id, &state.pool)
         .await?
@@ -84,7 +143,7 @@ async fn get_content_snapshot_inner(
     // refreshed.
     let cached_files =
         files::get_instance_files(&instance.id, &state.pool).await?;
-    let files = if refresh_remote
+    if refresh_remote
         || (sync_direct_instance
             && instance.is_direct_linked()
             && cached_files.is_empty())
@@ -101,10 +160,7 @@ async fn get_content_snapshot_inner(
         if !stable {
             return local::get(instance_id, state).await;
         }
-        files::get_instance_files(&instance.id, &state.pool).await?
-    } else {
-        cached_files
-    };
+    }
     let content_set = if refresh_remote
         || sync_direct_instance && instance.is_direct_linked()
     {
@@ -149,11 +205,7 @@ async fn get_content_snapshot_inner(
             .zip(version_id.parse::<u32>().ok());
         let result = match parsed_ids {
             Some((project_id, version_id)) => {
-                match crate::api::curseforge::get_modpack_expected_members(
-                    project_id, version_id,
-                )
-                .await
-                {
+                match expected_pack(project_id, version_id).await {
                     Ok(expected) => {
                         let should_reconcile = needs_reconciliation
                             || needs_local_classification
@@ -198,32 +250,23 @@ async fn get_content_snapshot_inner(
         }
     }
 
-    let entries =
-        content_entries::get_content_entries(&content_set.id, &state.pool)
-            .await?;
-    let members =
-        pack_members::get_pack_members(&content_set.id, &state.pool).await?;
-    let pending_manual_downloads =
-        pack_members::get_pending_manual_downloads(instance_id, &state.pool)
-            .await?;
-
-    let mut refs_by_entry = HashMap::new();
-    let mut origin_by_entry = HashMap::new();
-    let provider_rows =
-        content_entries::get_provider_refs_with_origin_for_content_set(
-            &content_set.id,
-            &state.pool,
-        )
+    // Reconciliation can change both membership and its revision. Read them
+    // together after those writes, rather than combining new members with the
+    // pre-reconciliation content set.
+    let crate::state::store::content_snapshot::SnapshotRecords {
+        instance,
+        content_set,
+        link,
+        files,
+        entries,
+        members,
+        pending: pending_manual_downloads,
+        references: refs_by_entry,
+        origins: origin_by_entry,
+        fingerprints,
+        ..
+    } = crate::state::store::content_snapshot::get(&state.data, instance_id)
         .await?;
-    for (entry_id, reference, origin) in provider_rows {
-        refs_by_entry
-            .entry(entry_id.clone())
-            .or_insert_with(Vec::new)
-            .push(reference);
-        if let Some(provider) = origin {
-            origin_by_entry.insert(entry_id, provider);
-        }
-    }
 
     let entries_by_file_id = entries
         .iter()
@@ -251,7 +294,10 @@ async fn get_content_snapshot_inner(
         if let Ok(metadata) =
             serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(json)
         {
-            local_metadata_by_entry.insert(entry.id.clone(), metadata);
+            local_metadata_by_entry.insert(
+                entry.id.clone(),
+                metadata.for_loader(content_set.loader.as_str()).clone(),
+            );
         }
     }
     let mut represented_members = HashSet::new();
@@ -283,6 +329,9 @@ async fn get_content_snapshot_inner(
             serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(json)
                 .ok()
         });
+        let local_mod = local_mod
+            .as_ref()
+            .map(|metadata| metadata.for_loader(content_set.loader.as_str()));
         let title = local_mod
             .as_ref()
             .and_then(|metadata| metadata.name.clone())
@@ -325,7 +374,10 @@ async fn get_content_snapshot_inner(
             }),
             owner: None,
             update: None,
-            date_added: Some(file.modified_at.to_rfc3339()),
+            date_added: Some(file_modified_date(
+                &file,
+                fingerprints.get(&file.id),
+            )),
             provider_refs,
             origin_provider,
             rollback: None,
@@ -369,7 +421,7 @@ async fn get_content_snapshot_inner(
     // Dependency discovery can fetch metadata for every member of a pack.
     // Even an explicit refresh returns the file snapshot first; the slower
     // metadata pass publishes one lightweight follow-up snapshot when done.
-    if refresh_remote {
+    if refresh_remote && enrich_items {
         let instance_id = instance_id.to_string();
         let entries = entries.clone();
         let refs_by_entry = refs_by_entry.clone();
@@ -488,7 +540,7 @@ async fn get_content_snapshot_inner(
     } else {
         CacheBehaviour::CacheOnly
     };
-    if enrich {
+    if enrich && enrich_items {
         match list_all_content_from_files(
             instance_id,
             files_for_listing,
@@ -1151,7 +1203,9 @@ fn snapshot_item(
             can_toggle: present,
             can_delete: present,
             can_update: present && has_provider,
-            can_change_version: present && has_provider,
+            can_change_version: present
+                && has_provider
+                && project_type != crate::state::ProjectType::Schematic,
             can_restore_pack_default: member.is_some()
                 && (override_kind != PackMemberOverrideKind::None
                     || materialization_state
@@ -1262,10 +1316,112 @@ fn pack_provider(link: &InstanceLink) -> Option<ContentProvider> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::state::instances::adapters::sqlite::{
         content_entries, content_sets, pack_members,
     };
+
+    #[tokio::test]
+    async fn refreshed_pack_snapshot_uses_the_reconciled_membership_revision() {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = crate::state::DirectoryInfo {
+            settings_dir: temp.path().into(),
+            config_dir: temp.path().into(),
+            app_identifier: "pack-update-review-test".into(),
+        };
+        std::fs::create_dir_all(directories.instances_dir().join("example"))
+            .unwrap();
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(temp.path().join("state.db"))
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        sqlx::raw_sql("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified) VALUES ('instance', 'example', 'installed', '1', 'Example', 1, 1); INSERT INTO instance_content_sets(id, instance_id, name, source_kind, status, game_version, loader, created, modified) VALUES ('set', 'instance', 'Example', 'curseforge', 'available', '1.21.1', 'neoforge', 1, 1); UPDATE instances SET applied_content_set_id = 'set' WHERE id = 'instance';")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let mut tx = pool.begin().await.unwrap();
+        links::upsert_instance_link(
+            "instance",
+            &InstanceLink::CurseForgeModpack {
+                project_id: "925200".into(),
+                version_id: "9190157".into(),
+            },
+            &mut tx,
+        )
+        .await
+        .unwrap();
+        tx.commit().await.unwrap();
+        let state = crate::state::test_state(directories, pool).await.unwrap();
+        let before =
+            crate::resources::plans::instance_revision(&state.pool, "instance")
+                .await
+                .unwrap();
+
+        let snapshot = get_content_snapshot_inner(
+            "instance",
+            true,
+            true,
+            false,
+            false,
+            &state,
+            |project, release| async move {
+                assert_eq!((project, release), (925200, 9190157));
+                Ok(crate::api::curseforge::CurseForgePackExpectedContent {
+                    members: vec![crate::api::curseforge::CurseForgePackExpectedMember {
+                        project_id: 123,
+                        file_id: 456,
+                        project_type: crate::state::ProjectType::Mod,
+                        expected_relative_path: "mods/member.jar".into(),
+                        required: true,
+                        expected_sha1: None,
+                        expected_size: None,
+                        expected_fingerprint: None,
+                        manual_download: None,
+                    }],
+                    // Overrides trigger reconciliation even for an already
+                    // calibrated pack, as in All the Mods 10.
+                    overrides: vec![crate::api::curseforge::CurseForgePackExpectedOverride {
+                        project_type: crate::state::ProjectType::Mod,
+                        expected_relative_path: "mods/override.jar".into(),
+                    }],
+                })
+            },
+        )
+        .await
+        .unwrap();
+        let current =
+            crate::resources::plans::instance_revision(&state.pool, "instance")
+                .await
+                .unwrap();
+        assert!(current > before, "the refresh must exercise a real write");
+        assert_eq!(snapshot.revision, current);
+        assert!(snapshot.pack.unwrap().reconciled);
+        assert_eq!(snapshot.items.len(), 1);
+        assert_eq!(
+            snapshot.items[0].provider_release_id.as_deref(),
+            Some("456"),
+        );
+
+        let mut tx = state.pool.begin().await.unwrap();
+        content_sets::bump_content_set_revision_in_transaction("set", &mut tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        assert_ne!(
+            snapshot.revision,
+            crate::resources::plans::instance_revision(&state.pool, "instance")
+                .await
+                .unwrap(),
+            "a change after review must still invalidate the snapshot",
+        );
+        state.pool.close().await;
+    }
 
     fn content_with_refs(
         provider_refs: Vec<ContentProviderRef>,
@@ -1476,7 +1632,9 @@ pub(crate) async fn refresh_background_metadata(
                 serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(
                     file.local_mod_data.as_deref()?,
                 )
-                .ok()?,
+                .ok()?
+                .for_loader(records.content_set.loader.as_str())
+                .clone(),
             ))
         })
         .collect();

@@ -16,6 +16,7 @@ pub(crate) mod h2_stream_budget;
 pub(crate) mod integrity;
 pub mod legacy;
 pub(crate) mod local_resources;
+pub(crate) mod mcim;
 pub(crate) mod modrinth_cdn;
 pub(crate) mod modrinth_redirect;
 pub(crate) mod native;
@@ -31,6 +32,7 @@ pub(crate) mod retired_sources;
 pub(crate) mod route_health;
 pub(crate) mod route_policy;
 pub(crate) mod stream_output;
+pub mod telemetry;
 pub(crate) mod verified_file;
 pub(crate) fn task_concurrency_limit(state: &crate::State) -> Option<usize> {
     Some(state.download_concurrency())

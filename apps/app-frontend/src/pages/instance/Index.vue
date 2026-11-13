@@ -133,7 +133,7 @@
                     </div>
                 </template>
                 <template #actions>
-                    <div data-onboarding-id="instance-actions" class="flex gap-2">
+                    <div class="flex gap-2">
                         <Button
                             v-if="
                                 [
@@ -164,7 +164,7 @@
                             {{ formatMessage(commonMessages.repairButton) }}
                         </Button>
                         <Button
-                            v-else-if="playing === true"
+                            v-else-if="playing === true && !loading"
                             type="colored"
                             color="red"
                             size="xl"
@@ -224,7 +224,7 @@
                             </OverflowMenu>
                         </ButtonGroup>
                         <Button
-                            v-else-if="loading === true && playing === false"
+                            v-else-if="loading === true"
                             type="colored"
                             color="brand"
                             size="xl"
@@ -299,17 +299,14 @@
                 </template>
             </ContentPageHeader>
         </div>
-        <div
-            data-onboarding-id="instance-tabs"
-            :class="['px-6', { 'shrink-0': isFixedRender, hidden: isStudioMode }]"
-        >
+        <div :class="['px-6', { 'shrink-0': isFixedRender, hidden: isStudioMode }]">
             <SymlinkInstanceWarning
                 v-if="instance?.symlink_target && !symlinkWarning.isHidden.value"
                 :symlink-target="instance.symlink_target"
                 class="mb-3"
                 dismissible
             />
-            <NavTabs v-if="!hideInstanceTabs" :links="tabs" />
+            <NavTabs v-if="!hideInstanceTabs" :links="tabs" route-sync />
         </div>
         <div
             :class="['p-6 pt-4', { 'flex min-h-0 flex-1 flex-col overflow-hidden': isFixedRender }]"
@@ -469,6 +466,7 @@ import {
     run,
 } from '@/helpers/instance'
 import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import { get_by_instance_id } from '@/helpers/process'
 import { createRequestGeneration } from '@/helpers/request-generation'
 import type { GameInstance } from '@/helpers/types'
@@ -553,12 +551,29 @@ const postUpgradeNoticeQuery = usePostUpgradeNotice(() => instance.value?.id ?? 
 const postUpgradeNotice = computed(() => postUpgradeNoticeQuery.data.value ?? null)
 const symlinkWarning = useSymlinkWarningDismiss(instanceId)
 const playing = ref(false)
-const loading = ref(false)
+const localLoading = ref(false)
+const launchStartedAt = computed(() => instanceLaunchStartedAt(props.id))
+const loading = computed(() => localLoading.value || launchStartedAt.value !== undefined)
 const launchElapsedSeconds = ref(0)
 const subpagePending = ref(false)
 const stopping = ref(false)
 const exportModal = ref<InstanceType<typeof ExportModal>>()
 let launchElapsedTimer: ReturnType<typeof setInterval> | undefined
+
+watch(
+    launchStartedAt,
+    (startedAt) => {
+        clearInterval(launchElapsedTimer)
+        launchElapsedSeconds.value = 0
+        if (startedAt === undefined) return
+        const updateElapsed = () => {
+            launchElapsedSeconds.value = Math.floor((Date.now() - startedAt) / 1000)
+        }
+        updateElapsed()
+        launchElapsedTimer = setInterval(updateElapsed, 1000)
+    },
+    { immediate: true },
+)
 
 useLoadingBarToken(subpagePending)
 
@@ -815,7 +830,12 @@ function updateBreadcrumbs() {
 updateBreadcrumbs()
 
 watch(
-    () => instance.value?.id,
+    () => [
+        instance.value?.id,
+        instance.value?.name,
+        instance.value?.icon_path,
+        instance.value?.loader,
+    ],
     () => {
         updateBreadcrumbs()
     },
@@ -826,11 +846,7 @@ const options = ref<InstanceType<typeof ContextMenu> | null>(null)
 const startInstance = async (context: string) => {
     if (!instance.value) return
 
-    loading.value = true
-    launchElapsedSeconds.value = 0
-    launchElapsedTimer = setInterval(() => {
-        launchElapsedSeconds.value += 1
-    }, 1000)
+    if (loading.value) return
     try {
         const result = await run(props.id)
         const gcNotice = result.gc_notice
@@ -852,10 +868,6 @@ const startInstance = async (context: string) => {
         if (!handled) {
             handleSevereError(err, { instanceId: props.id })
         }
-    } finally {
-        clearInterval(launchElapsedTimer)
-        launchElapsedTimer = undefined
-        loading.value = false
     }
 
     trackEvent('InstanceStart', {
@@ -881,31 +893,33 @@ const stopInstance = async (context: string) => {
 
 const handlePlayServer = async () => {
     if (!instance.value?.link?.project_id) return
-    loading.value = true
+    localLoading.value = true
     try {
         await playServerProject(instance.value.link.project_id)
     } finally {
         await updatePlayState()
-        loading.value = false
+        localLoading.value = false
     }
 }
 
 const repairInstance = async () => {
+    const currentInstance = instance.value
+    if (!currentInstance) return
     if (
-        instance.value.install_stage !== 'pack_installed' &&
-        (instance.value.link?.type === 'modrinth_modpack' ||
-            instance.value.link?.type === 'server_project_modpack')
+        currentInstance.install_stage !== 'pack_installed' &&
+        (currentInstance.link?.type === 'modrinth_modpack' ||
+            currentInstance.link?.type === 'server_project_modpack')
     ) {
-        await install_pack_to_existing_instance(instance.value.id, {
+        await install_pack_to_existing_instance(currentInstance.id, {
             type: 'fromVersionId',
             project_id:
-                instance.value.link.project_id ?? instance.value.link.server_project_id ?? '',
+                currentInstance.link.project_id ?? currentInstance.link.server_project_id ?? '',
             version_id:
-                instance.value.link.version_id ?? instance.value.link.content_version_id ?? '',
-            title: instance.value.name,
+                currentInstance.link.version_id ?? currentInstance.link.content_version_id ?? '',
+            title: currentInstance.name,
         }).catch(handleError)
     } else {
-        await install_existing_instance(instance.value.id, false).catch(handleError)
+        await install_existing_instance(currentInstance.id, false).catch(handleError)
     }
 }
 
@@ -942,33 +956,35 @@ const openUpgrade = async () => {
 
 const handleRightClick = (event: MouseEvent) => {
     const baseOptions = [
-        { name: 'add_content', section: 'manage', shown: !instance.value.link },
+        { name: 'add_content', section: 'manage', shown: !instance.value?.link },
         { type: 'divider' },
         { name: 'edit', section: 'manage' },
         { name: 'open_folder', section: 'navigate' },
         { name: 'copy_path', section: 'navigate' },
-    ]
+    ] as const
 
     options.value?.showMenu(
         event,
         instance.value,
-        playing.value
-            ? [
-                  {
-                      name: 'stop',
-                      section: 'primary',
-                      color: 'danger',
-                  },
-                  ...baseOptions,
-              ]
-            : [
-                  {
-                      name: 'play',
-                      section: 'primary',
-                      color: 'primary',
-                  },
-                  ...baseOptions,
-              ],
+        loading.value
+            ? [...baseOptions]
+            : playing.value
+              ? [
+                    {
+                        name: 'stop',
+                        section: 'primary',
+                        color: 'danger',
+                    },
+                    ...baseOptions,
+                ]
+              : [
+                    {
+                        name: 'play',
+                        section: 'primary',
+                        color: 'primary',
+                    },
+                    ...baseOptions,
+                ],
     )
 }
 
@@ -1018,7 +1034,10 @@ const unlistenInstances = await instance_listener(
 )
 
 const unlistenProcesses = await process_listener((e: { event: string; instance_id: string }) => {
-    if (e.event === 'finished' && e.instance_id === props.id) {
+    if (e.event === 'launched' && e.instance_id === props.id) {
+        processReads.invalidate()
+        playing.value = true
+    } else if (e.event === 'finished' && e.instance_id === props.id) {
         processReads.invalidate()
         playing.value = false
         void queryClient.invalidateQueries({ queryKey: postUpgradeNoticeQueryKey(props.id) })
@@ -1058,7 +1077,7 @@ onUnmounted(() => {
     unlistenProcesses()
     unlistenInstances()
     const instanceId = displayedInstanceRoute.value.params.id
-    if (instanceId) {
+    if (typeof instanceId === 'string' && instanceId) {
         const { destroy } = useInstanceConsole(instanceId)
         destroy()
     }

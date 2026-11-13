@@ -1,13 +1,14 @@
 import type { ContentItem } from '@modrinth/ui'
 import { expect, it } from 'vitest'
+import { computed, shallowRef } from 'vue'
 
+import modsSource from '@/pages/instance/Mods.vue?raw'
 import type { PendingContentChange } from '@/providers/download-manager.ts'
 
 import {
     activeContentChangeJobs,
     contentChangeAffectsItem,
-    hasActiveContentChange,
-    pendingContentChangeAffectsItem,
+    indexContentChanges,
 } from './content-change-jobs.ts'
 import type { InstallJobSnapshot } from './install.ts'
 
@@ -56,15 +57,19 @@ it('active content jobs are restored by kind, instance, and active status', () =
 
 it('resolved jobs affect only their persisted stable content IDs', () => {
     const update = job('queued', { type: 'update_one', content_id: 'entry-a' }, ['entry-a'])
-    expect(contentChangeAffectsItem(update, userItem)).toBe(true)
-    expect(contentChangeAffectsItem(update, packItem)).toBe(false)
-    expect(hasActiveContentChange([update], userItem)).toBe(true)
+    const index = indexContentChanges([update], [])
+    expect(contentChangeAffectsItem(index, userItem)).toBe(true)
+    expect(contentChangeAffectsItem(index, packItem)).toBe(false)
 })
 
 it('unresolved update-all marks user-added content without blocking pack content', () => {
     const updateAll = job('queued', { type: 'update_all_user_added' })
-    expect(contentChangeAffectsItem(updateAll, userItem)).toBe(true)
-    expect(contentChangeAffectsItem(updateAll, packItem)).toBe(false)
+    expect(contentChangeAffectsItem(indexContentChanges([updateAll], []), userItem)).toBe(true)
+    expect(contentChangeAffectsItem(indexContentChanges([updateAll], []), packItem)).toBe(false)
+    updateAll.content_change!.content_ids = ['entry-b']
+    const resolved = indexContentChanges([updateAll], [])
+    expect(contentChangeAffectsItem(resolved, userItem)).toBe(false)
+    expect(contentChangeAffectsItem(resolved, packItem)).toBe(true)
 })
 
 it('submission reservations synchronously cover their exact content scope', () => {
@@ -86,8 +91,110 @@ it('submission reservations synchronously cover their exact content scope', () =
         updateAll: true,
     }
 
-    expect(pendingContentChangeAffectsItem(selected, userItem)).toBe(true)
-    expect(pendingContentChangeAffectsItem(selected, packItem)).toBe(false)
-    expect(pendingContentChangeAffectsItem(updateAll, userItem)).toBe(true)
-    expect(pendingContentChangeAffectsItem(updateAll, packItem)).toBe(false)
+    expect(contentChangeAffectsItem(indexContentChanges([], [selected]), userItem)).toBe(true)
+    expect(contentChangeAffectsItem(indexContentChanges([], [selected]), packItem)).toBe(false)
+    // updateAll is scoped to user-added entries even if a stale reservation has IDs.
+    updateAll.contentIds = ['entry-b']
+    expect(contentChangeAffectsItem(indexContentChanges([], [updateAll]), userItem)).toBe(true)
+    expect(contentChangeAffectsItem(indexContentChanges([], [updateAll]), packItem)).toBe(false)
+})
+
+it('uses entry, member, then file identity without falling through an unmatched higher-priority ID', () => {
+    const index = indexContentChanges(
+        [job('running', { type: 'update_all_user_added' }, ['member', 'file'])],
+        [],
+    )
+    expect(
+        contentChangeAffectsItem(index, {
+            instanceEntryId: 'other',
+            instanceMemberId: 'member',
+            instanceFileId: 'file',
+        } as ContentItem),
+    ).toBe(false)
+    expect(
+        contentChangeAffectsItem(index, {
+            instanceMemberId: 'member',
+            instanceFileId: 'other',
+        } as ContentItem),
+    ).toBe(true)
+    expect(contentChangeAffectsItem(index, { instanceFileId: 'file' } as ContentItem)).toBe(true)
+    expect(contentChangeAffectsItem(index, {} as ContentItem)).toBe(false)
+})
+
+it('rebuilds the computed index when the instance or pending/job snapshots change', () => {
+    const instanceId = shallowRef('instance-a')
+    const jobs = shallowRef([
+        job('running', { type: 'update_one', content_id: 'entry-a' }, ['entry-a']),
+    ])
+    const pending = shallowRef<PendingContentChange[]>([])
+    let builds = 0
+    const index = computed(() => {
+        builds++
+        return indexContentChanges(
+            activeContentChangeJobs(jobs.value, instanceId.value),
+            pending.value.filter((change) => change.instanceId === instanceId.value),
+        )
+    })
+    expect(contentChangeAffectsItem(index.value, userItem)).toBe(true)
+    expect(contentChangeAffectsItem(index.value, packItem)).toBe(false)
+    expect(builds).toBe(1)
+    jobs.value = []
+    expect(contentChangeAffectsItem(index.value, userItem)).toBe(false)
+    pending.value = [
+        {
+            instanceId: 'instance-b',
+            contentIds: ['entry-b'],
+            updateAll: false,
+        } as PendingContentChange,
+    ]
+    expect(contentChangeAffectsItem(index.value, packItem)).toBe(false)
+    instanceId.value = 'instance-b'
+    expect(contentChangeAffectsItem(index.value, packItem)).toBe(true)
+    pending.value = []
+    expect(contentChangeAffectsItem(index.value, packItem)).toBe(false)
+})
+
+it.each([500, 1000])('reads %i IDs once per snapshot, not again for every content row', (size) => {
+    let reads = 0
+    const ids = Array.from({ length: size }, (_, i) => `entry-${i}`)
+    const counted = new Proxy(ids, {
+        get(target, property, receiver) {
+            if (typeof property === 'string' && /^\d+$/.test(property)) reads++
+            return Reflect.get(target, property, receiver)
+        },
+    })
+    const index = indexContentChanges(
+        [job('running', { type: 'update_all_user_added' }, counted)],
+        [{ contentIds: counted, updateAll: false } as PendingContentChange],
+    )
+    expect(reads).toBe(size * 2)
+    let membershipScans = 0
+    const iterateIds = index.contentIds[Symbol.iterator].bind(index.contentIds)
+    Object.defineProperty(index.contentIds, Symbol.iterator, {
+        value: function* () {
+            for (const id of iterateIds()) {
+                membershipScans++
+                yield id
+            }
+        },
+    })
+    for (let i = 0; i < size; i++) {
+        expect(
+            contentChangeAffectsItem(index, { instanceEntryId: `entry-${i}` } as ContentItem),
+        ).toBe(true)
+        expect(
+            contentChangeAffectsItem(index, { instanceEntryId: `absent-${i}` } as ContentItem),
+        ).toBe(false)
+    }
+    expect(reads).toBe(size * 2)
+    expect(membershipScans).toBe(0)
+})
+
+it('shares the computed membership index across rendered mod rows', () => {
+    expect(modsSource).toMatch(
+        /const contentChangeIndex = computed\(\(\) =>\s*indexContentChanges\(activeContentChangeJobs.value, pendingContentChanges.value\)/,
+    )
+    expect(modsSource).toMatch(
+        /function hasGlobalContentChange\(item: ContentItem\) \{\s*return contentChangeAffectsItem\(contentChangeIndex.value, item\)/,
+    )
 })

@@ -14,10 +14,10 @@ export const dependencyGraphMetrics = {
     rowGap: 30,
 } as const
 
-export type DependencyGraphNodeGeometry = Pick<
-    typeof dependencyGraphMetrics,
-    'nodeWidth' | 'nodeHeight'
->
+export type DependencyGraphNodeGeometry = {
+    nodeWidth: number
+    nodeHeight: number
+}
 
 export type DependencyGraphNodeBounds = DependencyGraphNodeGeometry & {
     left: number
@@ -38,7 +38,7 @@ export function dependencyGraphNodeGeometry(compact: boolean): DependencyGraphNo
 }
 
 export function dependencyGraphNodeBounds(
-    node: Pick<DependencyGraphNode, 'x' | 'y'>,
+    node: NodePosition,
     geometry: DependencyGraphNodeGeometry,
 ): DependencyGraphNodeBounds {
     const centerX = node.x + geometry.nodeWidth / 2

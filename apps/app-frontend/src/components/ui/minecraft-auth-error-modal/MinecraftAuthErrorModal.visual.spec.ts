@@ -40,7 +40,7 @@ afterEach(() =>
 it.each(['en-US', 'zh-CN'])(
     'offers purchase and profile setup help for missing Java ownership in %s and resets for other errors',
     async (locale) => {
-        const translations: Record<string, { message: string }> =
+        const translations: Record<string, { message?: string; defaultMessage?: string }> =
             locale === 'zh-CN' ? chineseMessages : {}
         const wrapper = await mountThemed(MinecraftAuthErrorModal, {}, 'dark', {
             global: {

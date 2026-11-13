@@ -13,7 +13,6 @@ import {
 } from '@/store/navigation-return'
 
 import { discoverRoutes } from './discover'
-import { headlessDemoRoutes } from './headless-demo'
 import { homeRoutes } from './home'
 import { instanceRoutes } from './instance'
 import { labRoutes } from './lab'
@@ -25,7 +24,7 @@ import { utilityRoutes } from './utility'
  * Application router. Domain tables live in sibling modules; URLs and most
  * names match the legacy `routes.js` table (names are PascalCase).
  */
-export default createRouter({
+const router = createRouter({
     history: createWebHistory(),
     routes: [
         ...homeRoutes,
@@ -35,34 +34,9 @@ export default createRouter({
         ...labRoutes,
         ...libraryRoutes,
         ...instanceRoutes,
-        ...headlessDemoRoutes,
     ],
     linkActiveClass: 'router-link-active',
     linkExactActiveClass: 'router-link-exact-active',
-    beforeEach(to, from) {
-        // Use store helpers that bootstrap pinia if missing. Throwing here would
-        // abort navigation and leave the user stuck on the current page.
-        try {
-            if (!getActivePinia()) {
-                setActivePinia(createPinia())
-            }
-            const parkedUpgrade = peekUpgradeFlow()
-            if (
-                parkedUpgrade &&
-                !to.path.startsWith('/project/') &&
-                !to.fullPath.startsWith(parkedUpgrade.returnFullPath)
-            ) {
-                if (parkedUpgrade.plan?.id)
-                    void discard_instance_upgrade_plan(parkedUpgrade.plan.id).catch(console.error)
-                clearUpgradeFlow()
-            }
-            if (to.path.startsWith('/browse/')) {
-                prepareBrowseReturnNavigation(to.fullPath, from.path)
-            }
-        } catch (error) {
-            console.warn('[router] navigation-return guard failed; allowing navigation', error)
-        }
-    },
     scrollBehavior(to, from) {
         try {
             if (
@@ -83,3 +57,30 @@ export default createRouter({
         }
     },
 })
+
+router.beforeEach((to, from) => {
+    // Use store helpers that bootstrap pinia if missing. Throwing here would
+    // abort navigation and leave the user stuck on the current page.
+    try {
+        if (!getActivePinia()) {
+            setActivePinia(createPinia())
+        }
+        const parkedUpgrade = peekUpgradeFlow()
+        if (
+            parkedUpgrade &&
+            !to.path.startsWith('/project/') &&
+            !to.fullPath.startsWith(parkedUpgrade.returnFullPath)
+        ) {
+            if (parkedUpgrade.plan?.id)
+                void discard_instance_upgrade_plan(parkedUpgrade.plan.id).catch(console.error)
+            clearUpgradeFlow()
+        }
+        if (to.path.startsWith('/browse/')) {
+            prepareBrowseReturnNavigation(to.fullPath, from.path)
+        }
+    } catch (error) {
+        console.warn('[router] navigation-return guard failed; allowing navigation', error)
+    }
+})
+
+export default router

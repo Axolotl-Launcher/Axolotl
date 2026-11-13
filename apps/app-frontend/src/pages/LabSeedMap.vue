@@ -12,7 +12,6 @@ import {
     HashIcon,
     HistoryIcon,
     ImportIcon,
-    InfoIcon,
     LandmarkIcon,
     LayersIcon,
     MinusIcon,
@@ -31,6 +30,7 @@ import {
     Admonition,
     Button,
     Checkbox,
+    ColorPicker,
     Combobox,
     defineMessages,
     injectNotificationManager,
@@ -45,7 +45,6 @@ import {
 import {
     computed,
     defineAsyncComponent,
-    inject,
     nextTick,
     onBeforeUnmount,
     onMounted,
@@ -65,6 +64,7 @@ import SeedMapStructureDetails from '@/components/lab/seed-map/SeedMapStructureD
 import SeedMapWorldImportModal, {
     type SeedMapWorldImport,
 } from '@/components/lab/seed-map/SeedMapWorldImportModal.vue'
+import { errorText } from '@/helpers/error-text'
 import {
     applyShareQuery,
     clearSeedMapHistory,
@@ -250,9 +250,9 @@ const activePointers = new Map<number, ActivePointer>()
 const pointer = reactive({ id: -1, startX: 0, startY: 0, centerX: 0, centerZ: 0, moved: false })
 const viewport = reactive({ width: 0, height: 0 })
 let requestEpoch = 0
-let refreshTimer: ReturnType<typeof window.setTimeout> | undefined
-let saveTimer: ReturnType<typeof window.setTimeout> | undefined
-let longPressTimer: ReturnType<typeof window.setTimeout> | undefined
+let refreshTimer: number | undefined
+let saveTimer: number | undefined
+let longPressTimer: number | undefined
 let redrawFrame: number | undefined
 let panFrame: number | undefined
 let pendingPanCenter: { x: number; z: number } | undefined
@@ -262,8 +262,8 @@ let pinchDistance = 0
 let wheelMode: 'trackpad' | 'wheel' | undefined
 let wheelGestureStartedAt = 0
 let wheelDelta = 0
-let wheelTimer: ReturnType<typeof window.setTimeout> | undefined
-let trackpadTimer: ReturnType<typeof window.setTimeout> | undefined
+let wheelTimer: number | undefined
+let trackpadTimer: number | undefined
 let wheelAnchor = { x: 0, y: 0 }
 let suppressPointerSelection = false
 let centerOnNextSpawn = false
@@ -272,8 +272,8 @@ let spawnRequest: { key: string; promise: Promise<SeedMapSpawnPoint> } | undefin
 let disposed = false
 let pendingHistorySource: SeedMapHistorySource | null = null
 let pendingHistoryLabels: { instanceName?: string; worldName?: string } = {}
-let historyTimer: ReturnType<typeof window.setTimeout> | undefined
-let progressTimer: ReturnType<typeof window.setTimeout> | undefined
+let historyTimer: number | undefined
+let progressTimer: number | undefined
 let applyingSharedState = false
 let biomeLookupToken = 0
 const dimensionViews = new Map<SeedMapDimension, DimensionView>()
@@ -401,7 +401,6 @@ const messages = defineMessages({
         defaultMessage: 'Result limit reached. Select fewer ore types to see more positions.',
     },
     undergroundMode: { id: 'app.lab.seed-map.underground-mode', defaultMessage: 'Underground' },
-    advancedTour: { id: 'app.lab.seed-map.advanced-tour', defaultMessage: 'Map exploration guide' },
     abandonedCamp: {
         id: 'app.lab.seed-map.feature.abandoned-camp',
         defaultMessage: 'Abandoned camp',
@@ -623,7 +622,7 @@ const availableVersions = computed(() =>
         .map((profile) => profile.version)
         .sort(compareSeedMapVersions),
 )
-const dimensions = computed(
+const dimensions = computed<SeedMapDimension[]>(
     () => selectedProfile.value?.dimensions ?? ['overworld', 'nether', 'end'],
 )
 const scale = computed(() => 4 ** workspace.zoom)
@@ -646,7 +645,6 @@ const layoutLayer = createSeedMapLayoutLayer(getSeedMapStructureDetails, () => {
     redraw()
 })
 let layoutRefreshTimer: ReturnType<typeof setTimeout> | undefined
-const replayOnboarding = inject<(mode: 'seed-map') => Promise<void>>('replayOnboarding')
 const structureQuery = computed<SeedMapStructureQuery | null>(() =>
     selection.value?.feature
         ? {
@@ -1752,12 +1750,8 @@ async function retryMap() {
         ensureProfile()
         scheduleRefresh(0)
     } catch (error) {
-        mapError.value = error instanceof Error ? error.message : String(error)
+        mapError.value = errorText(error)
     }
-}
-async function startMapGuide() {
-    if (document.fullscreenElement) await document.exitFullscreen()
-    await replayOnboarding?.('seed-map')
 }
 
 function scheduleRefresh(delay = 80) {
@@ -1841,8 +1835,7 @@ async function requestFeatures(epoch: number) {
         features.value = result
         redraw()
     } catch (error) {
-        if (epoch === requestEpoch)
-            mapError.value = error instanceof Error ? error.message : String(error)
+        if (epoch === requestEpoch) mapError.value = errorText(error)
     }
 }
 
@@ -2405,7 +2398,7 @@ function clearOres() {
 
 function resetOres() {
     const current = new Set(dimensionOres.value.map((ore) => ore.kind))
-    const defaultOre = workspace.dimension === 'nether' ? 'netherite' : 'diamond'
+    const defaultOre: SeedMapOreKind = workspace.dimension === 'nether' ? 'netherite' : 'diamond'
     workspace.selectedOres = [
         ...workspace.selectedOres.filter((ore) => !current.has(ore)),
         ...(current.has(defaultOre) ? [defaultOre] : []),
@@ -2699,9 +2692,9 @@ function selectDimension(dimension: SeedMapDimension) {
 
 <template>
     <main
-        class="seed-map-page mx-auto flex h-full min-h-0 w-full max-w-[110rem] flex-col gap-3 p-4"
+        class="seed-map-page mx-auto flex h-full min-h-0 w-full max-w-[110rem] flex-col gap-3 overflow-y-auto p-4"
     >
-        <header class="flex min-h-9 items-center justify-between gap-3">
+        <header class="flex min-h-9 shrink-0 items-center justify-between gap-3">
             <div class="min-w-0">
                 <h1 class="m-0 truncate text-xl font-bold text-[var(--color-text-primary)]">
                     {{ formatMessage(messages.title) }}
@@ -2727,7 +2720,7 @@ function selectDimension(dimension: SeedMapDimension) {
             </div>
         </header>
 
-        <section data-onboarding-id="seed-map-toolbar" class="seed-map-toolbar">
+        <section class="seed-map-toolbar shrink-0">
             <div class="toolbar-primary">
                 <div class="control-group seed-map-edition">
                     <span class="control-label">{{ formatMessage(messages.edition) }}</span>
@@ -2969,14 +2962,14 @@ function selectDimension(dimension: SeedMapDimension) {
             ></Admonition
         >
 
+        <!-- Preserve room for the map's overlaid controls; shorter windows scroll this page. -->
         <section
             ref="fullscreenContainer"
-            class="seed-map-experience min-h-0 flex-1 bg-surface-1"
-            data-onboarding-id="seed-map-workspace"
+            class="seed-map-experience min-h-[20rem] flex-1 bg-surface-1"
             tabindex="0"
             @keydown="onMapKeydown"
         >
-            <div class="layer-strip border border-surface-5 bg-surface-2">
+            <div class="layer-strip shrink-0 border border-surface-5 bg-surface-2">
                 <div class="layer-strip-heading">
                     <span>{{
                         formatMessage(
@@ -3020,18 +3013,9 @@ function selectDimension(dimension: SeedMapDimension) {
                             :type="workspace.displayMode === 'underground' ? 'colored' : 'quiet'"
                             :disabled="!undergroundSupported"
                             size="2xs"
-                            data-onboarding-id="seed-map-underground-mode"
                             @click="setDisplayMode('underground')"
                             ><LayersIcon />{{ formatMessage(messages.undergroundMode) }}</Button
                         >
-                        <Button
-                            type="quiet"
-                            icon-only
-                            :aria-label="formatMessage(messages.advancedTour)"
-                            data-onboarding-id="seed-map-advanced-guide"
-                            @click="startMapGuide"
-                            ><InfoIcon
-                        /></Button>
                     </div>
                     <div class="flex items-center gap-1">
                         <Button
@@ -3264,12 +3248,11 @@ function selectDimension(dimension: SeedMapDimension) {
 
             <SeedMapSplitView
                 :open="!!structureQuery || !!selectedArea"
-                class="seed-map-workspace-panes min-h-[32rem] rounded-b-[var(--radius-md)] border-x border-b border-surface-5"
+                class="seed-map-workspace-panes min-h-0 rounded-b-[var(--radius-md)] border-x border-b border-surface-5"
             >
                 <template #default="{ canvasSize, visibleSize }">
                     <div
                         class="seed-map-canvas-shell relative min-h-0 min-w-0 flex-1 overflow-hidden bg-surface-2"
-                        data-onboarding-id="seed-map-canvas"
                         @contextmenu.prevent
                     >
                         <canvas
@@ -3572,11 +3555,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                         v-model="markerName"
                                         :placeholder="formatMessage(messages.markerName)"
                                     />
-                                    <input
+                                    <ColorPicker
                                         v-model="markerColor"
-                                        type="color"
-                                        class="marker-color-input"
-                                        :aria-label="formatMessage(messages.markerColor)"
+                                        :label="formatMessage(messages.markerColor)"
                                     />
                                 </div>
                                 <div class="mt-3 flex flex-wrap gap-2">
@@ -3712,7 +3693,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                 :highlighted-biomes="workspace.highlightedBiomes"
                                 :available-biome-ids="selectedProfile?.biomes"
                                 :available-dimensions="dimensions"
-                                :container="isFullscreen ? fullscreenContainer : undefined"
+                                :container="
+                                    isFullscreen ? (fullscreenContainer ?? undefined) : undefined
+                                "
                                 @update:dimension="selectDimension($event)"
                                 @update:enabled="workspace.highlightBiomeEnabled = $event"
                                 @update:highlighted-biomes="workspace.highlightedBiomes = $event"
@@ -3793,11 +3776,9 @@ function selectDimension(dimension: SeedMapDimension) {
                                     v-model="markerName"
                                     :placeholder="formatMessage(messages.markerName)"
                                 />
-                                <input
+                                <ColorPicker
                                     v-model="markerColor"
-                                    type="color"
-                                    class="size-9 rounded border border-surface-4 bg-surface-3"
-                                    :aria-label="formatMessage(messages.markerColor)"
+                                    :label="formatMessage(messages.markerColor)"
                                 />
                             </div>
                             <div class="flex flex-wrap items-center gap-2">
@@ -4137,8 +4118,6 @@ function selectDimension(dimension: SeedMapDimension) {
 }
 
 .seed-map-experience:fullscreen .seed-map-workspace-panes {
-    /* The normal map has a 32rem minimum for usability; fullscreen must be able
-        * to shrink so the toolbar and canvas do not push the surface past the viewport. */
     min-height: 0;
 }
 
@@ -4581,15 +4560,6 @@ function selectDimension(dimension: SeedMapDimension) {
     white-space: nowrap;
 }
 
-.marker-color-input {
-    width: 2.25rem;
-    height: 2.25rem;
-    border: 1px solid var(--surface-5);
-    border-radius: var(--radius-sm);
-    background: var(--surface-4);
-    padding: 0.2rem;
-}
-
 @media (max-width: 1200px) {
     .toolbar-primary {
         grid-template-columns: minmax(11rem, 1fr) minmax(8rem, 0.7fr);
@@ -4622,6 +4592,10 @@ function selectDimension(dimension: SeedMapDimension) {
 }
 
 @media (max-width: 900px) {
+    .seed-map-workspace-panes {
+        min-height: 32rem;
+    }
+
     .seed-map-page {
         height: auto;
         min-height: 100%;

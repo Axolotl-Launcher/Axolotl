@@ -7,7 +7,10 @@ import { purgeLauncherCache } from '@/helpers/cache.js'
 import type { CacheCleanupResult } from '@/helpers/storage'
 
 import CacheCleanupButton from './CacheCleanupButton.vue'
-const preferences = vi.hoisted(() => ({ skipWarnings: false }))
+const preferences = vi.hoisted(() => ({ skipWarnings: false, locale: 'en' }))
+const zhMessages: Record<string, string> = {
+    'app.settings.storage.unknownError': '未知错误',
+}
 vi.mock('@/helpers/cache.js', () => ({ purgeLauncherCache: vi.fn() }))
 vi.mock('@/store/theme', () => ({
     useTheming: () => ({ getFeatureFlag: () => preferences.skipWarnings }),
@@ -64,8 +67,15 @@ vi.mock('@modrinth/ui', () => ({
     }),
     defineMessages: (messages: unknown) => messages,
     useVIntl: () => ({
-        formatMessage: (message: { defaultMessage: string }, values?: Record<string, number>) =>
-            new IntlMessageFormat(message.defaultMessage, 'en').format(values),
+        formatMessage: (
+            message: { id: string; defaultMessage: string },
+            values?: Record<string, number>,
+        ) => {
+            const template =
+                (preferences.locale === 'zh-CN' ? zhMessages[message.id] : undefined) ??
+                message.defaultMessage
+            return new IntlMessageFormat(template, preferences.locale).format(values)
+        },
     }),
 }))
 
@@ -73,6 +83,7 @@ const mounted: ReturnType<typeof mount>[] = []
 afterEach(() => {
     mounted.splice(0).forEach((wrapper) => wrapper.unmount())
     preferences.skipWarnings = false
+    preferences.locale = 'en'
     vi.resetAllMocks()
 })
 it('keeps cache cleanup pending until the shared cleanup operation completes', async () => {
@@ -115,6 +126,66 @@ it('leaves the cache confirmation available for retry after failure', async () =
     await flushPromises()
     expect(wrapper.find('section').exists()).toBe(true)
     expect(wrapper.text()).toContain('Could not clear the cache')
+    expect(wrapper.emitted('cleared')).toBeUndefined()
+})
+it('localizes the fallback for a value that cannot be formatted', async () => {
+    // `formatMessage` runs while the rejection is handled, so the fallback text
+    // follows the current locale instead of the helper's English default.
+    const wrapper = mount(CacheCleanupButton)
+    mounted.push(wrapper)
+    await wrapper.get('button').trigger('click')
+    preferences.locale = 'zh-CN'
+    vi.mocked(purgeLauncherCache).mockRejectedValueOnce(
+        // A plain object (safe to log) whose JSON serialization throws.
+        Object.defineProperty({}, 'toJSON', {
+            value() {
+                throw new Error('serialization rejected')
+            },
+        }),
+    )
+    await wrapper
+        .findAll('button')
+        .filter((button) => button.text() === 'Clear cache')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('未知错误')
+    expect(wrapper.text()).not.toContain('Unknown error')
+})
+it('shows the message of a serialized Tauri rejection in the failure details', async () => {
+    // A rejected `invoke` arrives as a plain serialized object, not an `Error`;
+    // the component must surface its message instead of `[object Object]`.
+    const wrapper = mount(CacheCleanupButton)
+    mounted.push(wrapper)
+    await wrapper.get('button').trigger('click')
+    vi.mocked(purgeLauncherCache).mockRejectedValueOnce({
+        field_name: 'Theseus',
+        message: 'cache in use by a running instance',
+    })
+    await wrapper
+        .findAll('button')
+        .filter((button) => button.text() === 'Clear cache')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Could not clear the cache')
+    expect(wrapper.text()).toContain('cache in use by a running instance')
+    expect(wrapper.text()).not.toContain('[object Object]')
+})
+it('shows structured file details when a cleanup rejection has no message', async () => {
+    const wrapper = mount(CacheCleanupButton)
+    mounted.push(wrapper)
+    await wrapper.get('button').trigger('click')
+    vi.mocked(purgeLauncherCache).mockRejectedValueOnce({
+        path: 'downloads/pack.zip',
+        reason: 'permission denied',
+    })
+    await wrapper
+        .findAll('button')
+        .filter((button) => button.text() === 'Clear cache')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.get('details').text()).toContain('downloads/pack.zip')
+    expect(wrapper.get('details').text()).toContain('permission denied')
+    expect(wrapper.text()).not.toContain('[object Object]')
     expect(wrapper.emitted('cleared')).toBeUndefined()
 })
 it('respects the preference to skip optional warnings', async () => {

@@ -23,7 +23,7 @@ function page(start: number, count: number, cursor: string | null) {
         exhaustedSources: [],
         sourceFailures: [],
         requestId: 'test',
-    } as Awaited<ReturnType<typeof resourceReleases>>
+    } as unknown as Awaited<ReturnType<typeof resourceReleases>>
 }
 
 beforeEach(() => {

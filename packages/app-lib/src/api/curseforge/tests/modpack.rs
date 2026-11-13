@@ -30,6 +30,111 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn cached_modpack_archive_completes_queued_item_and_history() {
+    use crate::install::{
+        DownloadItemStatus, InstallJobEventKind, InstallJobState,
+        InstallJobStatus, InstallPhaseDetails, InstallPhaseId, InstallProgress,
+        InstallProgressReporter, InstallRequest, store,
+    };
+    let state = super::fixtures::stage6_state().await;
+    let project_id = 123456;
+    for phase in [
+        InstallPhaseId::ResolvingPack,
+        InstallPhaseId::DownloadingPackFile,
+    ] {
+        let file_id = if phase == InstallPhaseId::ResolvingPack {
+            1
+        } else {
+            2
+        };
+        let path = state
+            .directories
+            .caches_dir()
+            .join("curseforge")
+            .join("modpacks")
+            .join(project_id.to_string())
+            .join(file_id.to_string())
+            .join("cached-pack.zip");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        write_override_test_archive(&path, &[("config/test.txt", b"cached")]);
+        let bytes = std::fs::read(&path).unwrap();
+        let size = bytes.len() as u64;
+        let file = stage8_curseforge_file(
+            project_id,
+            file_id,
+            "cached-pack.zip",
+            size,
+            vec![CurseForgeFileHash {
+                algo: 1,
+                value: sha1_smol::Sha1::from(&bytes).hexdigest(),
+            }],
+            0,
+        );
+        let job_id = uuid::Uuid::new_v4();
+        let mut job = InstallJobState::new(InstallRequest::CreateInstance {
+            name: "Cached archive".into(),
+            game_version: "1.21.1".into(),
+            loader: crate::state::ModLoader::Vanilla,
+            loader_version: None,
+            adjuncts: Vec::new(),
+            icon_path: None,
+            link: crate::state::InstanceLink::Unmanaged,
+            game_dir_override: None,
+        });
+        job.set_progress(
+            phase,
+            Some(InstallProgress {
+                current: 3,
+                total: 10,
+                secondary: None,
+            }),
+            InstallPhaseDetails::Empty,
+        );
+        job.record_event(InstallJobEventKind::ContentFileQueued {
+            path: path.display().to_string(),
+            bytes_total: Some(size),
+            max_attempts: 5,
+        });
+        store::insert(job_id, &job, InstallJobStatus::Running, &state)
+            .await
+            .unwrap();
+        let reporter = InstallProgressReporter::new(job_id, job);
+        let result =
+            crate::api::curseforge::verify::download_curseforge_archive(
+                project_id,
+                file_id,
+                &file,
+                "http://127.0.0.1:1/cached-pack.zip",
+                None,
+                Some(&reporter),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            result.attempts, 0,
+            "cache reuse must not invent network requests"
+        );
+        let live = reporter.current_state().await.unwrap();
+        assert_eq!(live.progress.phase, phase);
+        assert_eq!(live.progress.progress.as_ref().unwrap().current, 3);
+        let items = live.download_items();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].status, DownloadItemStatus::Completed);
+        assert_eq!(items[0].bytes_downloaded, size);
+        assert_eq!(items[0].bytes_total, Some(size));
+        reporter.persist().await.unwrap();
+        InstallProgressReporter::reset_job(job_id);
+        let history = store::get_required(job_id, &state)
+            .await
+            .unwrap()
+            .snapshot();
+        assert_eq!(history.items[0].status, DownloadItemStatus::Completed);
+        assert_eq!(history.items[0].bytes_downloaded, size);
+    }
+}
+
 #[test]
 fn modpack_manifest_worlds_use_the_save_importer_instead_of_the_mod_file_installer()
  {
@@ -386,8 +491,18 @@ fn archive_paths_stay_inside_the_instance() {
         safe_archive_relative_path("config/example.toml").unwrap(),
         "config/example.toml"
     );
-    assert!(safe_archive_relative_path("../options.txt").is_err());
-    assert!(safe_archive_relative_path("/options.txt").is_err());
+    for path in [
+        "../options.txt",
+        "/options.txt",
+        r"..\outside.txt",
+        "config/.. /outside.txt",
+        "config/file.",
+        "config/file ",
+        "config/NUL",
+        "config/file:stream",
+    ] {
+        assert!(safe_archive_relative_path(path).is_err(), "{path:?}");
+    }
 }
 
 #[test]

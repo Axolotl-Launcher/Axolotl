@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { portableTargets } from './create-update-manifest.mjs'
 import { isExcludedRelease, selectLatestStableRelease } from './release-policy.mjs'
 import {
     assetDownloadUrl,
@@ -36,7 +37,9 @@ const assetMirrorConcurrency =
         : 4
 
 if (command !== 'finalize' || !tag || !outputDirectory || !token) {
-    throw new Error('Usage: node cnb-release.mjs finalize <tag> <output-dir>; CNB_TOKEN is required')
+    throw new Error(
+        'Usage: node cnb-release.mjs finalize <tag> <output-dir>; CNB_TOKEN is required',
+    )
 }
 
 const apiHeaders = {
@@ -175,15 +178,15 @@ async function loadGithubRelease(url) {
         headers: githubApiHeaders,
     })
     if (!response.ok) {
-        throw new Error(`Loading GitHub release failed (${response.status}): ${await response.text()}`)
+        throw new Error(
+            `Loading GitHub release failed (${response.status}): ${await response.text()}`,
+        )
     }
     return await response.json()
 }
 
 async function getGithubRelease() {
-    return await loadGithubRelease(
-        `${githubApiBaseUrl}/releases/tags/${encodeURIComponent(tag)}`,
-    )
+    return await loadGithubRelease(`${githubApiBaseUrl}/releases/tags/${encodeURIComponent(tag)}`)
 }
 
 async function getLatestGithubRelease() {
@@ -191,7 +194,9 @@ async function getLatestGithubRelease() {
     if (!isExcludedRelease(latest.tag_name)) return latest
 
     for (let page = 1; ; page++) {
-        const releases = await loadGithubRelease(`${githubApiBaseUrl}/releases?per_page=100&page=${page}`)
+        const releases = await loadGithubRelease(
+            `${githubApiBaseUrl}/releases?per_page=100&page=${page}`,
+        )
         const release = selectLatestStableRelease(releases)
         if (release) return release
         if (releases.length < 100) {
@@ -266,15 +271,23 @@ function createCnbManifest(githubManifest, mirroredNames) {
         'linux-x86_64',
         'windows-x86_64',
     ]
+    if (Object.hasOwn(githubManifest.platforms ?? {}, 'windows-aarch64'))
+        requiredPlatforms.push('windows-aarch64')
     const platforms = {}
     for (const platform of requiredPlatforms) {
         const update = githubManifest.platforms?.[platform]
-        if (!update || typeof update.signature !== 'string' || update.signature.trim().length < 32) {
+        if (
+            !update ||
+            typeof update.signature !== 'string' ||
+            update.signature.trim().length < 32
+        ) {
             throw new Error(`Missing signed GitHub update for ${platform}`)
         }
         const filename = decodeURIComponent(path.posix.basename(new URL(update.url).pathname))
         if (!mirroredNames.has(filename)) {
-            throw new Error(`GitHub release is missing updater artifact ${filename} for ${platform}`)
+            throw new Error(
+                `GitHub release is missing updater artifact ${filename} for ${platform}`,
+            )
         }
         platforms[platform] = {
             ...update,
@@ -282,10 +295,21 @@ function createCnbManifest(githubManifest, mirroredNames) {
         }
     }
 
+    const artifacts = {}
+    for (const target of portableTargets) {
+        const artifact = githubManifest.artifacts?.[target.key]
+        if (!artifact) continue
+        if (!mirroredNames.has(artifact.name)) {
+            throw new Error(`GitHub release is missing artifact ${artifact.name} for ${target.key}`)
+        }
+        artifacts[target.key] = { ...artifact, url: assetDownloadUrl(tag, artifact.name, 'cnb') }
+    }
+
     return {
         ...githubManifest,
         version: tag.replace(/^v/, ''),
         platforms,
+        ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}),
     }
 }
 
@@ -327,7 +351,7 @@ async function finalizeRelease() {
     const release = await ensureRelease(githubRelease)
     const mirroredNames = await mirrorGithubAssets(release, githubRelease)
     const manifest = createCnbManifest(githubManifest, mirroredNames)
-    verifyUpdateManifest(manifest, tag, 'cnb')
+    verifyUpdateManifest(manifest, tag, 'cnb', githubRelease)
     const manifestPath = path.join(outputDirectory, 'latest.json')
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
     await uploadAsset(release, manifestPath)

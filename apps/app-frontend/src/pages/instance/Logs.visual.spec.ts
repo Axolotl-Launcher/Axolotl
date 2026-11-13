@@ -2,12 +2,15 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { type ComputedRef, defineComponent, h, type Ref, Suspense } from 'vue'
 
+import { export_log_file } from '@/helpers/logs.js'
+
 import Logs from './Logs.vue'
 
 type Manager = {
     loading: ComputedRef<boolean>
     shareDisabled: ComputedRef<boolean>
     activeLogSourceIndex: Ref<number>
+    onExportLog: ComputedRef<(() => Promise<void>) | undefined>
 }
 const mocks = vi.hoisted(() => ({
     manager: null as Manager | null,
@@ -58,6 +61,7 @@ vi.mock('@/helpers/events.js', () => ({
 vi.mock('@/helpers/logs.js', () => ({
     delete_logs_by_filename: vi.fn(),
     export_crash_context: vi.fn(),
+    export_log_file: vi.fn(),
     get_output_by_filename: mocks.getOutput,
 }))
 vi.mock('@modrinth/ui', () => ({
@@ -91,6 +95,24 @@ async function mountLogs() {
     await flushPromises()
     return wrapper
 }
+
+it('exports the selected source instead of the retained display buffer', async () => {
+    vi.clearAllMocks()
+    mocks.getHistoricalLogs.mockResolvedValueOnce([log('old.log.gz')])
+    mocks.getOutput.mockResolvedValue('display truncated')
+    vi.mocked(export_log_file).mockResolvedValue(undefined)
+    const wrapper = await mountLogs()
+    try {
+        expect(mocks.manager!.onExportLog.value).toBeUndefined()
+        expect(export_log_file).not.toHaveBeenCalled()
+        mocks.manager!.activeLogSourceIndex.value = 1
+        await flushPromises()
+        await mocks.manager!.onExportLog.value!()
+        expect(export_log_file).toHaveBeenLastCalledWith('instance', 'InfoLog', 'old.log.gz')
+    } finally {
+        wrapper.unmount()
+    }
+})
 
 it('lets the log list and the selected log finish their own loading when they interleave', async () => {
     vi.clearAllMocks()

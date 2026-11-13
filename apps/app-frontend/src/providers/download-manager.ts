@@ -263,9 +263,13 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         if (update.type === 'progress') {
             const pendingIndex = pendingProgressUpdateIndexes.get(key)
             if (pendingIndex != null) {
-                pendingRequestUpdates[pendingIndex] = update
-                scheduleRequestFlush()
-                return
+                // Keep aggregate samples in arrival order when coalescing
+                // progress from several files within the same frame.
+                pendingRequestUpdates.splice(pendingIndex, 1)
+                for (const [pendingKey, index] of pendingProgressUpdateIndexes) {
+                    if (index > pendingIndex)
+                        pendingProgressUpdateIndexes.set(pendingKey, index - 1)
+                }
             }
             pendingProgressUpdateIndexes.set(key, pendingRequestUpdates.length)
         } else {
@@ -289,6 +293,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         pendingProgressUpdateIndexes.clear()
         const next = [...jobs.value]
         const mutableJobs = new Map<number, InstallJobSnapshot>()
+        const updatedItems = new Map<string, InstallJobSnapshot['items'][number]>()
         for (const update of updates) {
             const jobIndex = next.findIndex((job) => job.job_id === update.job_id)
             if (jobIndex === -1) {
@@ -304,15 +309,48 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
                 next[jobIndex] = job
                 mutableJobs.set(jobIndex, job)
             }
-            applyRequestUpdateToJob(update, job)
+            const item = applyRequestUpdateToJob(update, job)
+            if (item) updatedItems.set(job.job_id, item)
         }
-        for (const job of mutableJobs.values()) syncLiveByteProgress(job)
+        for (const job of mutableJobs.values())
+            if (!(
+                job.phase === 'downloading_content' &&
+                updates.some(
+                    (update) =>
+                        update.job_id === job.job_id &&
+                        update.type === 'progress' &&
+                        update.content_bytes != null &&
+                        (!job.progress?.secondary ||
+                            job.progress.secondary.total === update.content_bytes.total),
+                )
+            ))
+                syncLiveByteProgress(job, updatedItems.get(job.job_id))
         for (const job of mutableJobs.values()) bumpJobRevision(job.job_id)
         for (const job of mutableJobs.values()) lastJobActivity.set(job.job_id, Date.now())
         jobs.value = next
     }
 
-    function syncLiveByteProgress(job: InstallJobSnapshot) {
+    function syncLiveByteProgress(
+        job: InstallJobSnapshot,
+        updatedItem?: InstallJobSnapshot['items'][number],
+    ) {
+        if (job.phase === 'downloading_pack_file') {
+            // Updating a pack also downloads its old archive for rollback. Only
+            // the current request belongs to this archive's progress counter.
+            if (!updatedItem) return
+            const total = updatedItem.bytes_total ?? job.progress?.total
+            if (total == null || total <= 0) return
+            const current = Math.min(
+                Math.max(job.progress?.current ?? 0, updatedItem.bytes_downloaded),
+                total,
+            )
+            job.progress = { current, total }
+            job.summary = { ...job.summary, bytes_downloaded: current, bytes_total: total }
+            return
+        }
+        // Modpack content shares this item list with the archive and parallel
+        // Minecraft downloads. Only native content snapshots know batch membership.
+        if (!(job.phase === 'downloading_content' && job.kind === 'change_content')) return
         const itemTotal = job.items.reduce((sum, item) => sum + (item.bytes_total ?? 0), 0)
         const total = Math.max(job.summary.bytes_total ?? 0, itemTotal) || null
         const downloaded = job.items.reduce((sum, item) => sum + item.bytes_downloaded, 0)
@@ -321,15 +359,6 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
             total == null ? downloaded : Math.min(downloaded, total),
         )
         job.summary = { ...job.summary, bytes_downloaded: current, bytes_total: total }
-        if (job.phase === 'downloading_pack_file') {
-            const packTotal = job.progress?.total || itemTotal
-            if (packTotal > 0) {
-                job.progress = {
-                    current: Math.min(Math.max(job.progress?.current ?? 0, downloaded), packTotal),
-                    total: packTotal,
-                }
-            }
-        }
         if (job.phase === 'downloading_content' && job.progress?.secondary) {
             job.progress = {
                 ...job.progress,
@@ -360,9 +389,10 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
         switch (update.type) {
             case 'started':
                 item = {
-                    ...(current ?? { id: update.id, name: update.name, bytes_downloaded: 0 }),
+                    ...(current ?? { id: update.id, name: update.name }),
                     status: 'downloading',
-                    bytes_total: current?.bytes_total ?? update.bytes_total,
+                    bytes_downloaded: 0,
+                    bytes_total: update.bytes_total ?? current?.bytes_total,
                     attempt: update.attempt,
                     max_attempts: update.max_attempts,
                     error: null,
@@ -371,6 +401,21 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
                 }
                 break
             case 'progress':
+                if (job.phase === 'downloading_content' && update.content_bytes) {
+                    const bytes = update.content_bytes
+                    if (!job.progress?.secondary || job.progress.secondary.total === bytes.total) {
+                        job.summary = {
+                            ...job.summary,
+                            bytes_downloaded: bytes.current,
+                            bytes_total: bytes.total,
+                        }
+                        if (job.progress?.secondary)
+                            job.progress = {
+                                ...job.progress,
+                                secondary: { ...bytes },
+                            }
+                    }
+                }
                 if (!current) return
                 item = {
                     ...current,
@@ -401,6 +446,7 @@ export function createDownloadManager(handleError: (error: unknown) => void): Do
 
         if (itemIndex === -1) job.items.push(item)
         else job.items[itemIndex] = item
+        return item
     }
 
     async function refresh(failOnError = false) {

@@ -16,12 +16,12 @@ import { RouterLink, useRouter } from 'vue-router'
 import bannerDesignerToolCover from '@/assets/lab/banner-designer-tool-cover.png'
 import commandGeneratorToolCover from '@/assets/lab/command-generator-tool-cover.png'
 import StrongholdEyeIcon from '@/assets/lab/eye-of-ender.svg?component'
-import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.png'
-import modTranslationCover from '@/assets/lab/mod-translation-cover.png'
-import recipeGeneratorToolCover from '@/assets/lab/recipe-generator-tool-cover.png'
-import schematicPreviewToolCover from '@/assets/lab/schematic-preview-cover.png'
-import seedMapToolCover from '@/assets/lab/seed-map-tool-cover.png'
-import skinEditorToolCover from '@/assets/lab/skin-editor-tool-cover.png'
+import gradientTextToolCover from '@/assets/lab/gradient-text-tool-cover.avif'
+import modTranslationCover from '@/assets/lab/mod-translation-cover.avif'
+import recipeGeneratorToolCover from '@/assets/lab/recipe-generator-tool-cover.avif'
+import schematicPreviewToolCover from '@/assets/lab/schematic-preview-cover.avif'
+import seedMapToolCover from '@/assets/lab/seed-map-tool-cover.avif'
+import skinEditorToolCover from '@/assets/lab/skin-editor-tool-cover.webp'
 import strongholdToolCover from '@/assets/lab/stronghold-tool-cover.png'
 import {
     getLabCategoryFilter,
@@ -218,12 +218,6 @@ function toolDescription(toolId: string, fallback: string) {
     return fallback
 }
 
-function toolOnboardingId(toolId: string) {
-    return ['gradient-text', 'recipe-generator', 'seed-map', 'schematic-preview'].includes(toolId)
-        ? `lab-${toolId}-card`
-        : undefined
-}
-
 function toolIconClasses(toolId: string) {
     if (toolId === 'seed-map') return 'bg-highlight-green text-brand'
     return 'bg-brand-highlight text-brand'
@@ -290,12 +284,7 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
             />
         </div>
 
-        <section
-            v-if="visibleTools.length"
-            aria-label="Lab tools"
-            data-onboarding-id="lab-tools"
-            class="flex flex-col gap-3"
-        >
+        <section v-if="visibleTools.length" aria-label="Lab tools" class="flex flex-col gap-3">
             <Card
                 v-for="tool in visibleTools"
                 :key="tool.id"
@@ -334,6 +323,8 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                             v-if="toolCoverImages[tool.id]"
                             :src="toolCoverImages[tool.id]"
                             alt=""
+                            loading="lazy"
+                            decoding="async"
                             class="absolute inset-0 h-full w-full object-cover"
                         />
                         <div
@@ -354,7 +345,6 @@ function favoriteFilterLabel(value: LabFavoriteFilter) {
                 <div class="flex min-w-0 flex-1 flex-col">
                     <RouterLink
                         :to="tool.route"
-                        :data-onboarding-id="toolOnboardingId(tool.id)"
                         class="min-w-0 rounded-[var(--radius-lg)] text-inherit no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                         <h2

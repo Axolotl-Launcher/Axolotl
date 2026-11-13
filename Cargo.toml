@@ -4,27 +4,23 @@ members = [
   "apps/app",
   "apps/installer-ui",
   "packages/app-lib",
-  "packages/ariadne",
   "packages/content-management",
   "packages/daedalus",
   "packages/launcher-mcp",
   "packages/launcher-tools",
   "packages/path-util",
+  "third-party/tauri-plugin-http",
 ]
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.90.0"
+rust-version = "1.94.0"
 repository = "https://github.com/Axolotl-Launcher/Axolotl"
 
 [workspace.dependencies]
-ariadne = { path = "packages/ariadne" }
 async-minecraft-ping = { path = "packages/async-minecraft-ping" }
 async-recursion = "1.1.1"
 async-trait = "0.1.89"
-async-tungstenite = { version = "0.31.0", default-features = false, features = [
-  "futures-03-sink"
-] }
 async-walkdir = "2.1.0"
 async_zip = "0.0.18"
 axum = { version = "0.8.9", default-features = false, features = [
@@ -51,6 +47,7 @@ data-url = "0.3.2"
 derive_more = "2.1.1"
 dirs = "6.0.0"
 discord-rich-presence = "1.0.0"
+dom_query = "0.27.0"
 dotenvy = "0.15.7"
 dunce = "1.0.5"
 either = "1.15.0"
@@ -72,15 +69,13 @@ hyper = "1.7.0"
 hyper-util = "0.1.17"
 iana-time-zone = "0.1.65"
 image = { version = "0.25.5", default-features = false, features = [
+  "gif",
   "jpeg",
   "png",
   "webp"
 ] }
 indicatif = "0.18.0"
 itertools = "0.14.0"
-# jsonwebtoken 10 requires an explicit crypto backend; rust_crypto keeps the
-# build pure Rust (the aws_lc_rs backend would add a native C dependency).
-jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 junction = "1"
 keyring = "4.1.5"
 launcher-mcp = { path = "packages/launcher-mcp" }
@@ -89,6 +84,7 @@ libc = "0.2.189"
 libloading = "0.7.4"
 local-ip-address = "0.6.7"
 md5 = "0.8.0"
+minisign-verify = "0.2.5"
 native-dialog = "0.9.2"
 notify = { version = "8.2.0", default-features = false }
 notify-debouncer-mini = { version = "0.7.0", default-features = false }
@@ -104,8 +100,9 @@ quick-xml = "0.41.0"
 # Stays on 0.8 until p256 updates to 0.9. Floor at 0.8.8 (GHSA-cq8v-f236-94qc).
 rand = "0.8.8"
 regex = "1.12.2"
-reqwest = { version = "0.12.24", default-features = false }
+reqwest = { version = "0.13.4", default-features = false }
 rgb = "0.8.52"
+ring = "0.17.14"
 rmcp = { version = "3.7.0", default-features = false, features = [
   "server",
   "transport-streamable-http-server"
@@ -119,7 +116,6 @@ rustls-native-certs = "0.8.4"
 rustls-pki-types = "1.15.0"
 semver = "1.0.28"
 serde = "1.0.228"
-serde_bytes = "0.11.19"
 serde_cbor = "0.11.2"
 serde_ini = "0.2.0"
 serde_json = "1.0.145"
@@ -128,7 +124,7 @@ sha1_smol = { version = "1.0.1", features = ["std"] }
 sha2 = "0.10.9"
 shlex = "1.3.0"
 socket2 = "0.6.5"
-sqlx = { version = "0.8.6", default-features = false }
+sqlx = { version = "0.9.0", default-features = false }
 symlink-rs = "1"
 sysinfo = { version = "0.37.2", default-features = false }
 tar = "0.4.44"
@@ -137,7 +133,7 @@ tauri-build = "2.4.1"
 tauri-plugin-deep-link = "2.4.3"
 tauri-plugin-dialog = "2.4.0"
 tauri-plugin-fs = "2.4.5"
-tauri-plugin-http = "2.5.7"
+tauri-plugin-http = { path = "third-party/tauri-plugin-http" }
 tauri-plugin-opener = "2.5.0"
 tauri-plugin-os = "2.3.1"
 tauri-plugin-single-instance = "2.3.4"
@@ -155,18 +151,22 @@ tokio-rustls = { version = "0.26.4", default-features = false, features = [
   "tls12"
 ] }
 tokio-util = "0.7.16"
-toml = "0.8.19"
+toml = { version = "1.1.3", default-features = false, features = [
+  "parse",
+  "serde",
+  "std",
+] }
 tower-service = "0.3.3"
 tracing = "0.1.41"
 tracing-error = "0.2.1"
 tracing-subscriber = "0.3.20"
 trash = "5.2.2"
-typed-path = "0.12.0"
+typed-path = "0.13.0"
 unicode-normalization = "0.1.25"
 url = "2.5.7"
 urlencoding = "2.1.3"
-utoipa = { version = "5.4.0", features = ["actix_extras", "chrono", "decimal"] }
 uuid = "1.18.1"
+webp-animation = { version = "0.10.0", features = ["static"] }
 webpki-roots = "1.0.10"
 whoami = "1.6.1"
 windows = "=0.61.3"  # Locked on 0.61 until we can update windows-core to 0.62

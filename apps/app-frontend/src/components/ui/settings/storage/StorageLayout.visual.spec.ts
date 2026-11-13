@@ -171,7 +171,9 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
                 [I18N_INJECTION_KEY as symbol]: {
                     locale: ref('zh-CN'),
                     t: (id: string, values: Record<string, unknown>) => {
-                        const message = (zh as Record<string, { message: string }>)[id]?.message
+                        const message = (
+                            zh as Record<string, { message?: string; defaultMessage?: string }>
+                        )[id]?.message
                         return message ? new IntlMessageFormat(message, 'zh-CN').format(values) : id
                     },
                     setLocale: () => {},
@@ -192,7 +194,7 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
     finishInitial(initialSnapshot)
     await flushPromises()
     await waitFor(() => wrapper.find('strong').exists())
-    const categoryRows = wrapper.findAll('.tree-row')
+    const categoryRows = wrapper.findAll<HTMLElement>('.tree-row')
     const cacheRow = categoryRows.find((row) => row.text().includes('缓存数据'))!
     const referenceRow = categoryRows.find((row) => row.text().includes('实例数据'))!
     for (const row of categoryRows.filter(
@@ -219,7 +221,7 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
         .trigger('click')
     await flushPromises()
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('19')
-    expect(wrapper.findAll('.tree-row').length).toBe(categoryRows.length)
+    expect(wrapper.findAll<HTMLElement>('.tree-row').length).toBe(categoryRows.length)
     expect(wrapper.find('.animate-pulse').exists()).toBe(false)
     if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE)
         await page.screenshot({
@@ -231,9 +233,13 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
     vi.mocked(openStoragePaths).mockResolvedValue({ opened: [], failed: [] })
     referenceRow.element.click()
-    const instanceRow = wrapper.findAll('.tree-row').find((row) => row.text().includes('红石生存'))!
+    const instanceRow = wrapper
+        .findAll<HTMLElement>('.tree-row')
+        .find((row) => row.text().includes('红石生存'))!
     await waitFor(() => instanceRow.element.getBoundingClientRect().height > 0)
-    const openInstance = instanceRow.get('button[aria-label="在文件管理器中打开文件夹"]')
+    const openInstance = instanceRow.get<HTMLElement>(
+        'button[aria-label="在文件管理器中打开文件夹"]',
+    )
     const disclosure = instanceRow.element.closest('details')!
     openInstance.element.click()
     await flushPromises()
@@ -246,15 +252,17 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
     )
     instanceRow.element.click()
     const modsRow = wrapper
-        .findAll('.tree-row')
+        .findAll<HTMLElement>('.tree-row')
         .find((row) => row.text().includes('模组') && !row.text().includes('mod.jar'))!
     await waitFor(() => modsRow.element.getBoundingClientRect().height > 0)
-    modsRow.get('button[aria-label="在文件管理器中打开文件夹"]').element.click()
+    modsRow.get<HTMLElement>('button[aria-label="在文件管理器中打开文件夹"]').element.click()
     await flushPromises()
     expect(openStoragePaths).toHaveBeenLastCalledWith([
         { path: 'D:/Minecraft/Axolotl/mods', kind: 'directory' },
     ])
-    const fileRow = wrapper.findAll('.tree-row').find((row) => row.text().includes('mod.jar'))!
+    const fileRow = wrapper
+        .findAll<HTMLElement>('.tree-row')
+        .find((row) => row.text().includes('mod.jar'))!
     expect(fileRow.find('button[aria-label="在文件管理器中打开文件夹"]').exists()).toBe(false)
     expect(cacheRow.find('button[aria-label="在文件管理器中打开文件夹"]').exists()).toBe(false)
     if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE)
@@ -271,7 +279,7 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
     const cacheDisclosure = cacheRow.element.closest('details')!
     const wasOpen = cacheDisclosure.open
     cacheRow
-        .findAll('button')
+        .findAll<HTMLElement>('button')
         .find((button) => button.text() === '清理缓存')!
         .element.click()
     await waitFor(() => !!document.querySelector('[role="dialog"]'))
@@ -372,7 +380,8 @@ it.each([1024, 680])('storage overview and cleanup use real components at %i px'
             path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/deleting-${width}.png`,
         })
     vi.mocked(scanStorage).mockReturnValueOnce(new Promise(() => {}))
-    const nextAnalysis = await vi.mocked(analyzeMeta).mock.results[0].value
+    const nextAnalysis: Awaited<ReturnType<typeof analyzeMeta>> =
+        await vi.mocked(analyzeMeta).mock.results[0].value
     vi.mocked(analyzeMeta).mockResolvedValue({
         ...nextAnalysis,
         id: 'next-plan',

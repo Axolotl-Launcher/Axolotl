@@ -1147,6 +1147,22 @@
                                     </label>
 
                                     <label class="checkbox-label">
+                                        <input id="file-association" type="checkbox" checked />
+                                        <div class="checkbox-box">
+                                            <svg
+                                                class="check-icon"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="3"
+                                            >
+                                                <path d="M5 12l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <span data-i18n="fileAssociation">Associate .mrpack modpacks</span>
+                                    </label>
+
+                                    <label class="checkbox-label">
                                         <input id="launch-after" type="checkbox" checked />
                                         <div class="checkbox-box">
                                             <svg
@@ -1294,6 +1310,7 @@
                     existingNotice:
                         'Your existing application directory will be preserved. You can change it later in Settings.',
                     desktopShortcut: 'Desktop shortcut',
+                    fileAssociation: 'Associate .mrpack modpacks',
                     launchAfter: 'Launch when complete',
                     deleteAppData: 'Delete configuration and caches',
                     uninstallTitle: 'Uninstall Axolotl Launcher',
@@ -1377,6 +1394,7 @@
                     dataHint: '实例、Java、资源与缓存',
                     existingNotice: '现有应用目录会被保留，之后仍可在启动器设置中修改。',
                     desktopShortcut: '创建桌面快捷方式',
+                    fileAssociation: '关联 .mrpack 整合包文件',
                     launchAfter: '完成后启动',
                     deleteAppData: '删除配置与缓存',
                     uninstallTitle: '卸载 Axolotl Launcher',
@@ -1567,6 +1585,7 @@
                     installDir: $('#install-dir').value.trim(),
                     resourceDir: $('#resource-dir').value.trim(),
                     desktopShortcut: $('#desktop-shortcut').checked,
+                    fileAssociation: $('#file-association').checked,
                     launchAfter: state.launchAfter,
                 })
 

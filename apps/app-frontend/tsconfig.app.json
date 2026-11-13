@@ -3,7 +3,7 @@
     "target": "ES2020",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
 
     "moduleResolution": "bundler",
@@ -20,6 +20,8 @@
 
     "paths": {
       "@modrinth/api-client": ["../../packages/api-client/src/index.ts"],
+      "#ui/*": ["../../packages/ui/src/*"],
+      "@modrinth/ui/*": ["../../packages/ui/*"],
       "@/*": ["./src/*"]
     }
   },

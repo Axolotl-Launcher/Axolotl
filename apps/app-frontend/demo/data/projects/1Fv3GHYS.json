@@ -1,0 +1,263 @@
+{
+  "id": "1Fv3GHYS",
+  "slug": "rso",
+  "title": "红石生电优化【Redstone Survival Optimization】",
+  "description": "一个红石玩家必备的整合包，轻，快，小，是他的特点！A must-have integration package for a Redstone player, light, fast, and small, are his characteristics!",
+  "author": "moonboss666",
+  "categories": ["fabric", "lightweight", "multiplayer", "optimization"],
+  "display_categories": ["lightweight", "multiplayer", "optimization"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "modpack",
+  "downloads": 1304165,
+  "followers": 124,
+  "license": {
+    "id": "GPL-3.0-only",
+    "name": "GNU General Public License v3.0 only"
+  },
+  "loaders": ["fabric"],
+  "game_versions": [
+    "1.19.4",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "OVctf4EH",
+  "date_created": "2022-09-12T16:27:32.529077Z",
+  "date_modified": "2026-10-20T08:33:40.827148Z",
+  "color": 16375993,
+  "published": "2022-09-12T16:27:32.529077Z",
+  "additional_categories": [],
+  "issues_url": "https://kook.top/yMpSz4",
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [
+    {
+      "platform": "Other",
+      "url": "https://afdian.com/a/moonmc"
+    },
+    {
+      "platform": "Paypal",
+      "url": "https://paypal.me/moonboos"
+    }
+  ],
+  "versions_total": 270,
+  "body": "大家好我是“明月庄主”这是我为红石玩家，红石生电玩家所制作的，一个整合包。里面包含了大多数红石玩家需要的模组和材质包。还有和基友一起联机的模组、语音模组等！\n\nThis is an integration package I created for Redstone players and Redstone power generation players. It contains the modules and material packs that most Redstone players need. There are also online modules and voice modules with friends!\n\n<a href=\"https://afdian.com/a/moonmc\"><img width=\"320\" height=\"180\" src=\"https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.jpg\" alt=\"\"></a>\n\n# 我的世界《红石生电优化》整合包，功能介绍\n\n<div style=\"text-align: center; margin: 1em 0;\">\n  <a href=\"https://www.bilibili.com/video/BV1tgQPBQEEz\" target=\"_blank\" rel=\"noopener noreferrer\">\n    <img\n      src=\"https://cdn.modrinth.com/data/1Fv3GHYS/images/4b4c59c858e19e9d2987b207d8924dd4bb1a90d9.jpeg\"\n      alt=\"我的世界《红石生电优化》整合包功能介绍视频\"\n      style=\"width: 100%; max-width: 720px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);\"\n    >\n  </a>\n  <p style=\"font-size: 14px; color: #666; margin-top: 8px;\">点击封面，在新页面打开B站完整介绍视频</p>\n</div>\n\n</details>\n\n<details><summary><h1>在你喜欢的启动器安装？</h1></summary>\n\n![PCL2启动器安装方式](https://cdn.modrinth.com/data/1Fv3GHYS/images/e38afb701b8d8d521b5337e11f1c284fc0adc42f.png)\n\n</details>\n\n<details><summary><h1>其中我用到了非常优秀光影</h1></summary>\n\n[bsl-shaders](https://modrinth.com/shader/bsl-shaders)\n\n[complementary-reimagined](https://modrinth.com/shader/complementary-reimagined)\n\n[complementary-unbound](https://modrinth.com/shader/complementary-unbound)\n\n[astralex](https://modrinth.com/shader/astralex)\n\n[rethinking-voxels](https://modrinth.com/shader/rethinking-voxels)\n\n[sildurs-shaders](https://sildurs-shaders.github.io/)\n\n[makeup-ultra-fast-shaders](https://modrinth.com/shader/makeup-ultra-fast-shaders)\n\n</details>\n\n<video controls src=\"http://storage.live.com/items/422547C35B31E9DD!2916:/luseban.mp4?authkey=ANauAeRrkeiUhd4\n\" ></video>",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/1Fv3GHYS/images/5cb6d7e04c823359f9f706873198d98269fa7025_350.webp",
+      "featured": true,
+      "title": "效果展示",
+      "description": "漂亮的光影",
+      "created": "2023-09-03T10:42:22.879052Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1Fv3GHYS/images/0aaef9c52fa0b60a734c689801af901a90745fae_350.webp",
+      "featured": false,
+      "title": "效果展示",
+      "description": "暗黑风格的GUI",
+      "created": "2023-09-03T10:42:59.321907Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1Fv3GHYS/images/9863dc63327dd40c16613cac56caf5074ba5d368_350.webp",
+      "featured": false,
+      "title": "效果展示",
+      "description": "透明的GUI",
+      "created": "2023-09-03T10:43:14.965654Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/1Fv3GHYS/images/e38afb701b8d8d521b5337e11f1c284fc0adc42f_350.webp",
+      "featured": false,
+      "title": "pcl如何下载",
+      "description": null,
+      "created": "2024-12-05T05:14:51.051542Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "moonboss666",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/FKbUp6KI/a8f5c68b83df36e13683576cde3ec24d3ce1b330.png"
+    }
+  ],
+  "versions": [
+    {
+      "id": "OVctf4EH",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.9",
+      "version_number": "26.3-2.9",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-20T08:33:40.827148Z",
+      "downloads": 3194,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.9.mrpack",
+          "size": 974773,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "RVQeYOH6",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.8",
+      "version_number": "26.3-2.8",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-19T09:41:17.917323Z",
+      "downloads": 558,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.8.mrpack",
+          "size": 974701,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "lusS0wrh",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.7",
+      "version_number": "26.3-2.7",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-18T07:08:07.332861Z",
+      "downloads": 782,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.7.mrpack",
+          "size": 717448,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "gN8Bp1Yp",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.7",
+      "version_number": "26.3-2.7",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-16T08:38:43.361148Z",
+      "downloads": 1428,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.7.mrpack",
+          "size": 963338,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fgKHBtYL",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.6",
+      "version_number": "26.3-2.6",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-10T05:59:50.785805Z",
+      "downloads": 5110,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.6.mrpack",
+          "size": 706011,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "MwxtxOwp",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.5",
+      "version_number": "26.3-2.5",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-09T07:24:33.121175Z",
+      "downloads": 691,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.5.mrpack",
+          "size": 705501,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "9n8zOP18",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.4",
+      "version_number": "26.3-2.4",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-07T08:23:27.107083Z",
+      "downloads": 1132,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.4.mrpack",
+          "size": 962592,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "mL2TGbWU",
+      "name": "红石生电优化【Redstone Survival Optimization】 26.3-2.3",
+      "version_number": "26.3-2.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-06T12:20:08.146270Z",
+      "downloads": 784,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "红石生电优化 26.3-2.3.mrpack",
+          "size": 962363,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

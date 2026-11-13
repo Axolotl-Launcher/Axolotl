@@ -585,10 +585,15 @@ export function resourceRevisePlan(
         requestId,
     )
 }
-export function resourceQueuePlan(planId: string, revision: number) {
+export function resourceQueuePlan(
+    planId: string,
+    revision: number,
+    resourceNames?: Record<string, string>,
+) {
     return invoke<InstallJobSnapshot>('plugin:axolotl-resources|resource_queue_plan', {
         planId,
         revision,
+        resourceNames,
     })
 }
 

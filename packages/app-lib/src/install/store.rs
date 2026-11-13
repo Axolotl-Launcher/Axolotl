@@ -12,6 +12,64 @@ use crate::state::{InstanceInstallStage, State};
 use chrono::{DateTime, TimeZone, Utc};
 use uuid::Uuid;
 
+tokio::task_local! {
+    static INITIALIZING_JOB: Uuid;
+}
+
+pub(crate) async fn initializing_job<F: std::future::Future>(
+    job_id: Uuid,
+    work: F,
+) -> F::Output {
+    INITIALIZING_JOB.scope(job_id, work).await
+}
+
+/// Publish the new target and its cleanup intent in the instance transaction.
+pub(crate) async fn attach_initial_instance(
+    instance: &crate::state::Instance,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> crate::Result<()> {
+    let Ok(job_id) = INITIALIZING_JOB.try_with(|id| *id) else {
+        return Ok(());
+    };
+    let key = job_id.to_string();
+    let mut row =
+        InstallJobs::read(&mut **tx, &key).await?.ok_or_else(|| {
+            crate::ErrorKind::InputError(
+                "Install initialization job disappeared".into(),
+            )
+        })?;
+    if row.status != InstallJobStatus::Queued.as_str() {
+        return Err(crate::ErrorKind::InputError(
+            "Install initialization was canceled".into(),
+        )
+        .into());
+    }
+    let mut state: InstallJobState = serde_json::from_str(&row.state)?;
+    if !matches!(
+        state.cleanup,
+        super::model::InstallCleanup::DeleteNewInstance { instance_id: None }
+    ) {
+        return Err(crate::ErrorKind::InputError(
+            "Install initialization already has a target".into(),
+        )
+        .into());
+    }
+    state.target = super::model::InstallTarget::NewInstance {
+        instance_id: Some(instance.id.clone()),
+    };
+    state.cleanup = super::model::InstallCleanup::DeleteNewInstance {
+        instance_id: Some(instance.id.clone()),
+    };
+    state.display = Some(super::model::InstallJobDisplay {
+        title: instance.name.clone(),
+        icon: instance.icon_path.clone(),
+    });
+    row.instance_id = Some(instance.id.clone());
+    row.state = serde_json::to_string(&state)?;
+    row.modified = Utc::now().timestamp();
+    InstallJobs::write(&mut **tx, &key, Some(&row)).await
+}
+
 fn same_execution(
     stored: &str,
     incoming: &InstallJobState,
@@ -66,6 +124,7 @@ impl InstallJobRecord {
             details: self.state.progress.details.clone(),
             parallel: self.state.progress.parallel.clone(),
             display: self.state.display.clone(),
+            resource_names: self.state.resource_names.clone(),
             error: self.state.error.clone(),
             rollback_error: self.state.rollback_error.clone(),
             pause_reason: self.state.pause_reason.clone(),
@@ -206,16 +265,9 @@ pub async fn update_state(
     state: &InstallJobState,
     app_state: &State,
 ) -> crate::Result<InstallJobRecord> {
-    let _db_permit =
-        app_state
-            .install_db_semaphore
-            .acquire()
-            .await
-            .map_err(|_| {
-                crate::ErrorKind::OtherError(
-                    "install database semaphore closed".to_string(),
-                )
-            })?;
+    // Bounded like every other install database writer: on timeout the write
+    // is abandoned before its unit opens, so the row keeps its last commit.
+    let _db_permit = app_state.acquire_install_db_permit().await?;
     let json = serde_json::to_string(state)?;
     let key = id.to_string();
     let modified = Utc::now().timestamp();
@@ -244,16 +296,9 @@ pub async fn checkpoint_running_state(
     state: &InstallJobState,
     app_state: &State,
 ) -> crate::Result<Option<InstallJobRecord>> {
-    let _db_permit =
-        app_state
-            .install_db_semaphore
-            .acquire()
-            .await
-            .map_err(|_| {
-                crate::ErrorKind::OtherError(
-                    "install database semaphore closed".to_string(),
-                )
-            })?;
+    // Bounded like every other install database writer: on timeout the write
+    // is abandoned before its unit opens, so the row keeps its last commit.
+    let _db_permit = app_state.acquire_install_db_permit().await?;
     let json = serde_json::to_string(state)?;
     let key = id.to_string();
     let modified = Utc::now().timestamp();
@@ -276,25 +321,36 @@ pub async fn checkpoint_running_state(
     Ok(Some(get_required(id, app_state).await?))
 }
 
+fn serialize_status_state(
+    id: Uuid,
+    status: InstallJobStatus,
+    state: &InstallJobState,
+) -> crate::Result<String> {
+    if status.is_finished() || status == InstallJobStatus::WaitingForUser {
+        let diagnostics = crate::util::download::telemetry::export_snapshot(
+            Some(&id.to_string()),
+        );
+        if diagnostics.enabled && !diagnostics.files.is_empty() {
+            let mut saved = state.clone();
+            saved.download_diagnostics = Some(diagnostics);
+            return Ok(serde_json::to_string(&saved)?);
+        }
+    }
+    Ok(serde_json::to_string(state)?)
+}
+
 pub async fn update_status(
     id: Uuid,
     status: InstallJobStatus,
     state: &InstallJobState,
     app_state: &State,
 ) -> crate::Result<InstallJobRecord> {
-    let _db_permit =
-        app_state
-            .install_db_semaphore
-            .acquire()
-            .await
-            .map_err(|_| {
-                crate::ErrorKind::OtherError(
-                    "install database semaphore closed".to_string(),
-                )
-            })?;
+    // Bounded like every other install database writer: on timeout the write
+    // is abandoned before its unit opens, so the row keeps its last commit.
+    let _db_permit = app_state.acquire_install_db_permit().await?;
     let now = Utc::now();
     let finished = status.is_finished().then_some(now.timestamp());
-    let json = serde_json::to_string(state)?;
+    let json = serialize_status_state(id, status, state)?;
     let key = id.to_string();
     let modified = now.timestamp();
 
@@ -319,19 +375,12 @@ pub async fn update_status_if(
     state: &InstallJobState,
     app_state: &State,
 ) -> crate::Result<Option<InstallJobRecord>> {
-    let _db_permit =
-        app_state
-            .install_db_semaphore
-            .acquire()
-            .await
-            .map_err(|_| {
-                crate::ErrorKind::OtherError(
-                    "install database semaphore closed".to_string(),
-                )
-            })?;
+    // Bounded like every other install database writer: on timeout the write
+    // is abandoned before its unit opens, so the row keeps its last commit.
+    let _db_permit = app_state.acquire_install_db_permit().await?;
     let now = Utc::now();
     let finished = status.is_finished().then_some(now.timestamp());
-    let json = serde_json::to_string(state)?;
+    let json = serialize_status_state(id, status, state)?;
     let key = id.to_string();
     let modified = now.timestamp();
 
@@ -365,7 +414,7 @@ pub async fn complete_running_job(
 ) -> crate::Result<Option<InstallJobRecord>> {
     let now = Utc::now();
     let modified = now.timestamp();
-    let json = serde_json::to_string(state)?;
+    let json = serialize_status_state(id, InstallJobStatus::Succeeded, state)?;
     let id_value = id.to_string();
     let instance_id = instance_id(state);
     let completes_instance_install_stage =
@@ -565,7 +614,7 @@ async fn compare_and_swap_status(
     key: &str,
     expected: InstallJobStatus,
     status: InstallJobStatus,
-    instance_id: Option<String>,
+    mut instance_id: Option<String>,
     state_json: &str,
     modified: i64,
     finished: Option<i64>,
@@ -577,9 +626,32 @@ async fn compare_and_swap_status(
     if row.status.as_str() != expected.as_str() {
         return Ok(false);
     }
+    let mut state_json = state_json.to_string();
+    if expected == InstallJobStatus::Queued {
+        let durable: InstallJobState = serde_json::from_str(&row.state)?;
+        let mut incoming: InstallJobState = serde_json::from_str(&state_json)?;
+        if matches!(
+            incoming.target,
+            super::model::InstallTarget::NewInstance { instance_id: None }
+        ) && matches!(
+            durable.cleanup,
+            super::model::InstallCleanup::DeleteNewInstance {
+                instance_id: Some(_)
+            }
+        ) && !durable.instance_deleted()
+        {
+            // A cancel checkpoint may have read the queue before creation
+            // committed. It must not erase the atomically bound cleanup target.
+            incoming.target = durable.target;
+            incoming.cleanup = durable.cleanup;
+            incoming.display = durable.display;
+            instance_id = row.instance_id.clone();
+            state_json = serde_json::to_string(&incoming)?;
+        }
+    }
     row.instance_id = instance_id;
     row.status = status.as_str().to_string();
-    row.state = state_json.to_string();
+    row.state = state_json;
     row.modified = modified;
     row.finished = finished;
     write_job(unit, key, row).await?;
@@ -647,4 +719,369 @@ fn timestamp(value: i64) -> DateTime<Utc> {
 
 fn optional_timestamp(value: i64) -> Option<DateTime<Utc>> {
     Utc.timestamp_opt(value, 0).single()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::install::model::{ContentChangeIntent, InstallRequest};
+    use std::sync::Arc;
+
+    async fn fixture() -> (tempfile::TempDir, Arc<State>) {
+        let temp = tempfile::tempdir().unwrap();
+        let directories = crate::state::DirectoryInfo {
+            settings_dir: temp.path().into(),
+            config_dir: temp.path().into(),
+            app_identifier: "store-test".into(),
+        };
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(4)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(temp.path().join("state.db"))
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!().run(&pool).await.unwrap();
+        sqlx::query("INSERT INTO instances(id, path, install_stage, launcher_feature_version, name, created, modified) VALUES ('first', 'first', 'installed', '1', 'first', 1, 1)").execute(&pool).await.unwrap();
+        let state = crate::state::test_state(directories, pool).await.unwrap();
+        (temp, state)
+    }
+
+    fn creation_request() -> super::super::model::InstallRequest {
+        super::super::model::InstallRequest::CreateInstance {
+            name: "Recoverable creation".into(),
+            game_version: "1.21.1".into(),
+            loader: crate::data::ModLoader::Vanilla,
+            loader_version: None,
+            adjuncts: Vec::new(),
+            icon_path: None,
+            link: crate::state::InstanceLink::Unmanaged,
+            game_dir_override: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn completed_diagnostics_survive_capture_reset_and_history_reload() {
+        use crate::util::download::telemetry;
+        use crate::util::fetch::{DownloadRequest, ResourceClass};
+        let _lock = telemetry::TEST_LOCK.lock().await;
+        telemetry::set_enabled(false);
+        telemetry::set_enabled(true);
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = InstallJobState::new(creation_request());
+        let reporter =
+            crate::install::InstallProgressReporter::new(id, job.clone());
+        let mut request = DownloadRequest::new(
+            "https://example.invalid/pack?token=secret",
+            ResourceClass::Modrinth,
+        )
+        .with_install_tracking(reporter, "pack.mrpack", "pack.mrpack");
+        let guard = telemetry::begin_file(
+            &mut request,
+            std::path::Path::new("pack.mrpack"),
+        )
+        .unwrap();
+        guard.finish(true);
+        insert(id, &job, InstallJobStatus::Running, &state)
+            .await
+            .unwrap();
+        update_status(id, InstallJobStatus::Succeeded, &job, &state)
+            .await
+            .unwrap();
+        let saved = get_required(id, &state).await.unwrap();
+        let captured = saved.state.download_diagnostics.as_ref().unwrap();
+        assert_eq!(captured.files.len(), 1);
+        let file_id = captured.files[0].summary.id.clone();
+        assert!(!serde_json::to_string(captured).unwrap().contains("secret"));
+        telemetry::set_enabled(false);
+        let hidden = crate::install::job_download_diagnostics_with_state(
+            id,
+            Some(&file_id),
+            &state,
+        )
+        .await
+        .unwrap();
+        assert!(!hidden.enabled);
+        assert!(hidden.files.is_empty());
+        telemetry::set_enabled(true);
+        assert!(
+            telemetry::snapshot(Some(&id.to_string()), None)
+                .files
+                .is_empty()
+        );
+        let restored = crate::install::job_download_diagnostics_with_state(
+            id,
+            Some(&file_id),
+            &state,
+        )
+        .await
+        .unwrap();
+        assert_eq!(restored.files.len(), 1);
+        assert_eq!(restored.selected_file.unwrap().summary.status, "completed");
+        telemetry::set_enabled(false);
+        let legacy: InstallJobState =
+            serde_json::from_str(&serde_json::to_string(&job).unwrap())
+                .unwrap();
+        assert!(legacy.download_diagnostics.is_none());
+    }
+
+    async fn create_initial_target(
+        state: &State,
+    ) -> crate::Result<crate::state::Instance> {
+        crate::state::create_instance(
+            crate::state::CreateInstance {
+                name: "Recoverable creation".into(),
+                path: None,
+                game_version: "1.21.1".into(),
+                loader: crate::data::ModLoader::Vanilla,
+                loader_version: None,
+                icon_path: None,
+                link: crate::state::InstanceLink::Unmanaged,
+                symlink_target: None,
+                game_dir_override: None,
+            },
+            state,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn initialization_atomically_records_the_new_instance_for_recovery() {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let mut job =
+            super::super::model::InstallJobState::new(creation_request());
+        job.initialization_pending = true;
+        insert(id, &job, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        let created = initializing_job(id, create_initial_target(&state))
+            .await
+            .unwrap();
+        let durable = get_required(id, &state).await.unwrap();
+        assert!(durable.state.initialization_pending);
+        assert_eq!(durable.instance_id.as_deref(), Some(created.id.as_str()));
+        assert!(matches!(durable.state.cleanup,
+            super::super::model::InstallCleanup::DeleteNewInstance { instance_id: Some(target) }
+                if target == created.id));
+        assert!(
+            list_interrupted_candidates(&state)
+                .await
+                .unwrap()
+                .iter()
+                .any(|job| job.id == id)
+        );
+        assert!(
+            state
+                .directories
+                .instances_dir()
+                .join(created.path)
+                .is_dir()
+        );
+    }
+
+    #[tokio::test]
+    async fn initialization_cannot_publish_an_instance_after_job_cancellation()
+    {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = super::super::model::InstallJobState::new(creation_request());
+        insert(id, &job, InstallJobStatus::Canceling, &state)
+            .await
+            .unwrap();
+        assert!(
+            initializing_job(id, create_initial_target(&state))
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            crate::state::instances::adapters::sqlite::instance_rows::list_instances(&state.pool)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            get_required(id, &state)
+                .await
+                .unwrap()
+                .instance_id
+                .is_none()
+        );
+        assert!(
+            !state
+                .directories
+                .instances_dir()
+                .join("Recoverable creation")
+                .exists()
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_queue_cancellation_preserves_the_initialization_target() {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let stale =
+            super::super::model::InstallJobState::new(creation_request());
+        insert(id, &stale, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        let created = initializing_job(id, create_initial_target(&state))
+            .await
+            .unwrap();
+        let canceled = update_status_if(
+            id,
+            InstallJobStatus::Queued,
+            InstallJobStatus::Canceling,
+            &stale,
+            &state,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(canceled.instance_id.as_deref(), Some(created.id.as_str()));
+        assert!(matches!(canceled.state.cleanup,
+            super::super::model::InstallCleanup::DeleteNewInstance { instance_id: Some(target) }
+                if target == created.id));
+    }
+
+    #[tokio::test]
+    async fn failed_initialization_binding_rolls_back_the_instance_transaction()
+    {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = super::super::model::InstallJobState::new(creation_request());
+        insert(id, &job, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        sqlx::raw_sql("CREATE TRIGGER reject_initial_target BEFORE UPDATE OF instance_id ON install_jobs WHEN NEW.instance_id IS NOT NULL BEGIN SELECT RAISE(ABORT, 'injected initialization binding failure'); END;")
+            .execute(&state.pool).await.unwrap();
+        assert!(
+            initializing_job(id, create_initial_target(&state))
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            crate::state::instances::adapters::sqlite::instance_rows::list_instances(&state.pool)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            get_required(id, &state)
+                .await
+                .unwrap()
+                .instance_id
+                .is_none()
+        );
+        assert!(
+            !state
+                .directories
+                .instances_dir()
+                .join("Recoverable creation")
+                .exists()
+        );
+    }
+
+    #[tokio::test]
+    async fn dropped_initialization_future_keeps_its_durable_cleanup_target() {
+        let (_temp, state) = fixture().await;
+        let id = Uuid::new_v4();
+        let job = super::super::model::InstallJobState::new(creation_request());
+        insert(id, &job, InstallJobStatus::Queued, &state)
+            .await
+            .unwrap();
+        let (ready, received) = tokio::sync::oneshot::channel();
+        let worker_state = state.clone();
+        let worker = tokio::spawn(initializing_job(id, async move {
+            let created = create_initial_target(&worker_state).await.unwrap();
+            ready.send(created.id).unwrap();
+            std::future::pending::<()>().await;
+        }));
+        let instance_id = received.await.unwrap();
+        worker.abort();
+        assert!(worker.await.unwrap_err().is_cancelled());
+        let durable = get_required(id, &state).await.unwrap();
+        assert_eq!(durable.instance_id.as_deref(), Some(instance_id.as_str()));
+        assert!(
+            list_interrupted_candidates(&state)
+                .await
+                .unwrap()
+                .iter()
+                .any(|job| job.id == id)
+        );
+    }
+
+    #[tokio::test]
+    async fn store_write_entry_times_out_and_reports() {
+        let (_temp, app_state) = fixture().await;
+        app_state.set_install_db_permit_timeout_for_test(
+            std::time::Duration::from_millis(20),
+        );
+        let id = Uuid::new_v4();
+        let job = InstallJobState::new(InstallRequest::ChangeContent {
+            instance_id: "first".into(),
+            intent: ContentChangeIntent::UpdateOne {
+                content_id: "mod".into(),
+                target_release_id: Some("version".into()),
+            },
+            display_title: "Change content".into(),
+            display_icon: None,
+        });
+        let before = insert(id, &job, InstallJobStatus::Running, &app_state)
+            .await
+            .unwrap();
+        // A state that differs from the stored one, so a write that slipped
+        // through would show in the comparison below.
+        let mut changed = job.clone();
+        changed.retry_from_checkpoint = !job.retry_from_checkpoint;
+        changed.record_event(crate::install::InstallJobEventKind::JobStarted);
+        assert_ne!(
+            serde_json::to_value(&changed).unwrap(),
+            serde_json::to_value(&before.state).unwrap()
+        );
+
+        let writer = app_state.install_db_semaphore.acquire().await.unwrap();
+        let (state, checkpoint, status, swap) = tokio::join!(
+            update_state(id, &changed, &app_state),
+            checkpoint_running_state(id, &changed, &app_state),
+            update_status(id, InstallJobStatus::Failed, &changed, &app_state),
+            update_status_if(
+                id,
+                InstallJobStatus::Running,
+                InstallJobStatus::Succeeded,
+                &changed,
+                &app_state,
+            ),
+        );
+        let timed_out = |error: crate::Error| {
+            error
+                .to_string()
+                .contains("Timed out waiting for the install database writer")
+        };
+        assert!(timed_out(state.unwrap_err()));
+        assert!(timed_out(checkpoint.unwrap_err()));
+        assert!(timed_out(status.unwrap_err()));
+        assert!(timed_out(swap.unwrap_err()));
+        drop(writer);
+
+        let after = get_required(id, &app_state).await.unwrap();
+        assert_eq!(after.status, before.status, "no entry wrote its status");
+        assert_eq!(
+            after.finished, before.finished,
+            "no entry finished the job"
+        );
+        assert_eq!(
+            serde_json::to_value(&after.state).unwrap(),
+            serde_json::to_value(&before.state).unwrap(),
+            "no entry wrote its state"
+        );
+        assert_eq!(after.modified, before.modified, "no entry touched the row");
+        app_state.pool.close().await;
+    }
 }

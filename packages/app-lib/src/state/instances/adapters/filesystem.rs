@@ -271,6 +271,7 @@ pub(crate) fn is_scannable_project_path(
             extension.eq_ignore_ascii_case("litematic")
                 || extension.eq_ignore_ascii_case("schematic")
                 || extension.eq_ignore_ascii_case("schem")
+                || extension.eq_ignore_ascii_case("nbt")
         }
         // WorldSave folders (saves/) are handled separately via worlds.rs,
         // not scanned as regular project files.
@@ -377,6 +378,8 @@ mod tests {
         fs::write(schematics.join("redstone/contraptions/gear.schem"), "c")
             .unwrap();
         fs::write(schematics.join("redstone/notes.txt"), "d").unwrap();
+        fs::write(schematics.join("redstone/structure.NBT"), "f").unwrap();
+        fs::write(schematics.join("structure.nbt.disabled"), "g").unwrap();
         fs::write(instance_dir.join("mods/example.jar"), "e").unwrap();
 
         let files = scan_content_files(root.path(), "inst").unwrap();
@@ -390,7 +393,9 @@ mod tests {
         assert!(paths.contains(&"schematics/redstone/contraptions/gear.schem"));
         assert!(!paths.contains(&"schematics/redstone/notes.txt"));
         assert!(paths.contains(&"mods/example.jar"));
-        assert_eq!(files.len(), 4);
+        assert!(paths.contains(&"schematics/redstone/structure.NBT"));
+        assert!(paths.contains(&"schematics/structure.nbt.disabled"));
+        assert_eq!(files.len(), 6);
     }
 
     #[test]
@@ -446,6 +451,10 @@ mod tests {
         ));
         assert!(should_retain_instance_file_path(
             "schematics/redstone/house.litematic"
+        ));
+        assert!(should_retain_instance_file_path("schematics/structure.nbt"));
+        assert!(should_retain_instance_file_path(
+            "schematics/redstone/structure.NBT.disabled"
         ));
         assert!(!should_retain_instance_file_path(
             "shaderpacks/BSL_v10.1.3.zip.txt"

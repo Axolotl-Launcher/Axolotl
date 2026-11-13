@@ -6,7 +6,7 @@
 // Exit 0: within the gate. Exit 1: fallback triggered. Exit 2: unreadable input.
 // Usage: node scripts/axolotl/sched-recall-gap-gate.mjs [--dir <inventory dir>] [--ratio 0.1]
 
-import { defaultOutDir, isMain, outputPaths, parseArgs, readJson } from './sched-utils.mjs'
+import { isMain, outputPaths, parseArgs, readJson } from './sched-utils.mjs'
 
 export const DEFAULT_RATIO = 0.1
 
@@ -19,9 +19,9 @@ export function evaluateGap(inventory, recallGap, ratio = DEFAULT_RATIO) {
 
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
-    const paths = outputPaths(args.dir ?? defaultOutDir)
     let result
     try {
+        const paths = outputPaths(args.dir)
         result = evaluateGap(readJson(paths.inventory), readJson(paths.recallGap), args.ratio ? Number(args.ratio) : DEFAULT_RATIO)
     } catch (error) {
         console.error(`sched-recall-gap-gate: ${error.message}`)

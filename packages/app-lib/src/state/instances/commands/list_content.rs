@@ -287,13 +287,8 @@ pub(crate) async fn list_content(
     .await?;
     let files = files.into_iter().collect::<Vec<_>>();
 
-    content_files_to_content_items(
-        &resolved.instance,
-        &files,
-        cache_behaviour,
-        state,
-    )
-    .await
+    content_files_to_content_items(&resolved, &files, cache_behaviour, state)
+        .await
 }
 
 pub(crate) async fn list_all_content(
@@ -316,13 +311,8 @@ pub(crate) async fn list_all_content(
     .into_iter()
     .collect::<Vec<_>>();
 
-    content_files_to_content_items(
-        &resolved.instance,
-        &files,
-        cache_behaviour,
-        state,
-    )
-    .await
+    content_files_to_content_items(&resolved, &files, cache_behaviour, state)
+        .await
 }
 
 pub(crate) async fn list_all_content_from_files(
@@ -346,13 +336,8 @@ pub(crate) async fn list_all_content_from_files(
     .into_iter()
     .collect::<Vec<_>>();
 
-    content_files_to_content_items(
-        &resolved.instance,
-        &files,
-        cache_behaviour,
-        state,
-    )
-    .await
+    content_files_to_content_items(&resolved, &files, cache_behaviour, state)
+        .await
 }
 
 pub(crate) async fn list_content_by_paths(
@@ -389,13 +374,8 @@ pub(crate) async fn list_content_by_paths(
     .into_iter()
     .collect::<Vec<_>>();
 
-    content_files_to_content_items(
-        &resolved.instance,
-        &files,
-        cache_behaviour,
-        state,
-    )
-    .await
+    content_files_to_content_items(&resolved, &files, cache_behaviour, state)
+        .await
 }
 
 pub(crate) async fn list_linked_modpack_content(
@@ -428,7 +408,7 @@ pub(crate) async fn list_linked_modpack_content(
         let files = files.into_iter().collect::<Vec<_>>();
 
         return content_files_to_content_items(
-            &resolved.instance,
+            &resolved,
             &files,
             cache_behaviour,
             state,
@@ -451,7 +431,7 @@ pub(crate) async fn list_linked_modpack_content(
         let files = files.into_iter().collect::<Vec<_>>();
 
         return content_files_to_content_items(
-            &resolved.instance,
+            &resolved,
             &files,
             cache_behaviour,
             state,
@@ -486,13 +466,8 @@ pub(crate) async fn list_linked_modpack_content(
     .await?;
     let files = files.into_iter().collect::<Vec<_>>();
 
-    content_files_to_content_items(
-        &resolved.instance,
-        &files,
-        cache_behaviour,
-        state,
-    )
-    .await
+    content_files_to_content_items(&resolved, &files, cache_behaviour, state)
+        .await
 }
 
 async fn resolve_content_scope_with_instance(

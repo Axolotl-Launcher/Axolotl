@@ -1,212 +1,83 @@
 # @modrinth/api-client
 
-Platform-agnostic API client for Modrinth's services. Works in Nuxt (SSR + CSR), Tauri (desktop app), and plain Node/browser environments.
+Platform-agnostic client used by Axolotl for public content-service APIs. It supports Nuxt, Tauri and generic Node/browser environments. Modrinth account login, friends and commercial hosting integrations have been removed from this fork; do not reintroduce their modules, node authentication or socket clients during upstream synchronization.
 
 ## Architecture
 
-```
-Request Flow:
-  Module Method → client.request() → Feature Chain (middleware) → Platform executeRequest()
-```
+Requests follow `Module method → client.request() → feature chain → platform executeRequest()`.
 
-### Key Directories
+- `src/core/` owns client, module, feature and upload abstractions.
+- `src/platform/` implements generic, Nuxt, Tauri and XHR upload transport.
+- `src/features/` owns request middleware such as retry, circuit breaking and optional authentication.
+- `src/modules/` groups endpoint modules by service, including Labrinth, LauncherMeta, Paper, Purpur and Mclogs.
+- `src/types/` owns client configuration, request, upload and error contracts.
 
-- **`src/core/`** — base classes (`AbstractModrinthClient`, `AbstractModule`, `AbstractFeature`, etc.)
-- **`src/platform/`** — platform implementations (generic, nuxt, tauri, xhr-upload, websocket)
-- **`src/features/`** — middleware plugins (auth, retry, circuit-breaker, etc.)
-- **`src/modules/`** — API endpoint modules organized by service (`labrinth/`, `archon/`, `kyros/`, `iso3166/`)
-- **`src/types/`** — core type definitions (client config, request options, upload types, errors)
-
-### Client Hierarchy
-
-All platform clients extend `XHRUploadClient` → `AbstractModrinthClient`:
-
-- **`GenericModrinthClient`** — uses `ofetch`, attaches WebSocket client to `archon.sockets`
-- **`NuxtModrinthClient`** — uses Nuxt's `$fetch`, SSR-aware, blocks `upload()` during SSR
-- **`TauriModrinthClient`** — uses `@tauri-apps/plugin-http`
-
-### Module Access
-
-Modules are lazy-loaded and accessed as a nested structure:
+Modules are lazy-loaded from `MODULE_REGISTRY` in `src/modules/index.ts`. Nested client properties and types are inferred from that registry. Keep implementations, registry entries, barrel exports and response types aligned when adding or removing an API.
 
 ```ts
-client.labrinth.projects_v2
-client.labrinth.projects_v3
-client.labrinth.versions_v3
-client.labrinth.collections
-client.labrinth.billing_internal
-client.archon.servers_v0
-client.archon.servers_v1
-client.archon.backups_queue_v1
-client.archon.backups_v1
-client.archon.content_v0
-client.kyros.files_v0
-client.iso3166.data
-... etc.
+const project = await client.labrinth.projects_v2.get('sodium')
+const version = await client.labrinth.versions_v3.getVersion('version-id')
 ```
 
-This structure is derived at runtime from the flat `MODULE_REGISTRY` in `modules/index.ts` via `buildModuleStructure()`, and the TypeScript types are inferred automatically via `InferredClientModules`.
+## Requests and authentication
 
-## Critical: Always use `this.client.request()`
+API modules must use `this.client.request()` or `this.client.upload()` for HTTP calls. Do not call `$fetch`, `fetch` or another transport directly from modules: doing so bypasses the platform and middleware chain. The existing node-only ISO3166 data module is the exception.
 
-API modules **must** use `this.client.request()` (or `.upload`) for all HTTP calls — never `$fetch`, `fetch`, or any other HTTP library directly. The request method routes through the platform-specific implementation (Nuxt `$fetch`, Tauri HTTP plugin, etc.) and the feature middleware chain (auth, retry, circuit breaker). Using `$fetch` directly bypasses the platform layer and will fail in Tauri (CORS/sandboxing). The only exception is the `ISO3166Module` which is explicitly node-only.
+Axolotl's desktop content client is anonymous. Generic authentication middleware may be used by an explicitly authenticated consumer, but must not implicitly read historical Modrinth launcher sessions or attach them to public requests.
 
-For external APIs (non-Modrinth), pass the full base URL as the `api` field and set `skipAuth: true`:
+For external services, pass the full base URL as `api` and set `skipAuth: true`:
 
 ```ts
-this.client.request<MyType>('/endpoint', {
-  api: 'https://external-api.com',
+return this.client.request<ResponseType>('/endpoint', {
+  api: 'https://external-api.example',
   version: 1,
-  method: 'POST',
-  body: { data },
+  method: 'GET',
   skipAuth: true,
 })
 ```
 
-## Usage
+Do not restore Archon/Kyros base URLs, node credentials, panel headers, WebSocket or server-sync transports to support an obsolete hosting caller. Current local-server capabilities belong to the desktop runtime and its platform providers.
 
-Vue consumers can provide the client via the [DI standard](../../standards/frontend/DEPENDENCY_INJECTION.md). The following shows the platform setup pattern; verify each app's actual provider setup before using it. The current website does not provide the desktop layout contracts:
+## Vue consumers
 
-```ts
-// apps/website/src/app.vue (Nuxt)
-const client = new NuxtModrinthClient({ ... })
-provideModrinthClient(client)
-
-// apps/app-frontend/src/App.vue (Tauri)
-const client = new TauriModrinthClient({ ... })
-provideModrinthClient(client)
-```
-
-Components anywhere in the tree then inject it:
+Consumers provide the client through the [dependency injection standard](../../standards/frontend/DEPENDENCY_INJECTION.md). The desktop app uses `TauriModrinthClient`; shared components obtain the abstract client through `injectModrinthClient()` from `@modrinth/ui`. Do not assume the website provides every desktop layout contract.
 
 ```ts
-const { labrinth, archon, kyros } = injectModrinthClient()
-
-// Fetch data
+const { labrinth } = injectModrinthClient()
 const project = await labrinth.projects_v3.get(projectId)
-
-// Use with TanStack Query
-const { data } = useQuery({
-  queryKey: ['project', projectId],
-  queryFn: () => labrinth.projects_v3.get(projectId),
-})
 ```
-
-`provideModrinthClient` and `injectModrinthClient` are exported from `@modrinth/ui` (defined in `packages/ui/src/providers/api-client.ts`). The provider is typed as `AbstractModrinthClient`, so shared components in `packages/ui` work with any platform client.
 
 ## Types
 
-Types must match 1:1 with how they are returned from the backend API they are fetching from. Do not reshape, rename, or omit fields — the types should be a direct representation of the API response.
-
-Types are organized in namespaces that mirror the backend services:
+Endpoint types must match the actual backend response: do not reshape or omit fields merely because the desktop UI does not use them. Keep them in the service's `types.ts` and expose them through the package root.
 
 ```ts
-import type { Labrinth, Archon, Kyros, ISO3166 } from '@modrinth/api-client'
+import type { Labrinth } from '@modrinth/api-client'
 
-const project: Labrinth.Projects.v3.Project = ...
-const server: Archon.Servers.v0.Server = ...
-const auth: Archon.Websocket.v0.WSAuth = ...
+const project: Labrinth.Projects.v3.Project = await client.labrinth.projects_v3.get(projectId)
 ```
 
-Each API has a `types.ts` in its module directory (`modules/labrinth/types.ts`, `modules/archon/types.ts`, etc.) using nested namespaces: `Namespace.Domain.Version.Type`.
+Removing an obsolete feature does not authorize changing unrelated public project, user or version response contracts.
 
-## Features (Middleware)
+## Uploads
 
-Features wrap requests in a chain. Each feature can modify the request, retry, or short-circuit:
-
-- **`AuthFeature`** — injects `Authorization: Bearer <token>`, supports async token providers
-- **`RetryFeature`** — exponential/linear/constant backoff, retries on 408/429/5xx and network errors
-- **`CircuitBreakerFeature`** — opens after N consecutive failures per endpoint, resets after timeout
-
-## XHR Upload
-
-File uploads use `XMLHttpRequest` for progress tracking (not available via `fetch`). The `upload()` method returns an `UploadHandle<T>`:
+The XHR upload layer provides progress and cancellation in browser-capable environments. Nuxt rejects uploads during SSR. Use the existing `UploadHandle<T>` contract: `promise`, `onProgress()` and `cancel()`.
 
 ```ts
-interface UploadHandle<T> {
-  promise: Promise<T>
-  onProgress(callback: (progress: UploadProgress) => void): UploadHandle<T> // chainable
-  cancel(): void
-}
-```
-
-Supports two modes:
-
-- **Single file** — `{ file: File | Blob }` sends with `Content-Type: application/octet-stream`
-- **FormData** — `{ formData: FormData }` for multipart uploads (browser/platform sets boundary)
-
-Uploads go through the feature chain (auth, retry, etc.). Features detect uploads via `context.metadata.isUpload`.
-
-### Usage Example (server file upload)
-
-```ts
-const uploader = client.kyros.files_v0.uploadFile(path, file, {
-  onProgress: ({ progress }) => {
-    uploadProgress.value = Math.round(progress * 100)
-  },
+const upload = client.upload<void>('/example-upload', {
+  api: 'https://upload.example',
+  version: 1,
+  file,
+  skipAuth: true,
 })
-// Cancel if needed: uploader.cancel()
-await uploader.promise
+upload.onProgress(({ progress }) => updateProgress(progress))
+await upload.promise
 ```
 
-### Usage Example (version creation with FormData)
+Use explicit files or FormData according to the endpoint; preserve feature-chain handling and cancellation. See [the upload implementation](src/platform/xhr-upload-client.ts) for the transport contract.
 
-```ts
-const handle = client.labrinth.versions_v3.createVersion(draftVersion, files, projectType)
-handle.onProgress((progress) => {
-  uploadProgress.value = progress
-})
-await handle.promise
-```
+## Validation and extension
 
-See [the upload implementation](src/platform/xhr-upload-client.ts) for current request and cancellation behavior.
+Follow the [frontend development standard](../../standards/frontend/DEVELOPMENT.md). Run this package's `fix` and `lint` before a frontend commit, and `build` to verify JavaScript and TypeScript declaration output. There is no package `test` script; exercise affected consumers' existing tests when changing shared behavior.
 
-## WebSocket
-
-WebSocket support is attached to `client.archon.sockets` (only on `GenericModrinthClient`). It provides event-based communication with Modrinth Hosting servers.
-
-### Connection Flow
-
-```
-client.archon.sockets.safeConnect(serverId)
-  → fetches JWT auth via archon.servers_v0.getWebSocketAuth()
-  → opens wss:// connection
-  → sends { event: 'auth', jwt: token }
-  → server responds with { event: 'auth-ok' }
-  → ready to receive events
-```
-
-Auto-reconnects on unexpected disconnection with exponential backoff (base 1s, max 30s, up to 10 attempts).
-
-### Subscribing to Events
-
-```ts
-const unsub = client.archon.sockets.on(serverId, 'stats', (data) => {
-  // data is typed as Archon.Websocket.v0.WSStatsEvent
-  cpuUsage.value = data.cpu_percent
-})
-
-// Clean up
-onUnmounted(() => {
-  unsub()
-  client.archon.sockets.disconnect(serverId)
-})
-```
-
-Event types: `log`, `stats`, `power-state`, `uptime`, `backup-progress`, `installation-result`, `filesystem-ops`, `new-mod`, `auth-expiring`, `auth-incorrect`, `auth-ok`.
-
-### Sending Commands
-
-```ts
-client.archon.sockets.send(serverId, { event: 'command', cmd: '/say hello' })
-```
-
-See [the WebSocket implementation](src/core/abstract-websocket.ts) for current subscription and reconnect behavior. The old desktop hosting route has been removed.
-
-## Validation
-
-Follow the [frontend development standard](../../standards/frontend/DEVELOPMENT.md). Use the package's existing `lint` and `build` scripts; the build emits bundled JavaScript and TypeScript declarations.
-
-## Adding a New API Module
-
-Use the [`api-module` skill](../../.agents/skills/api-module/SKILL.md) for the workflow and the [API module standard](../../standards/frontend/ADDING_API_MODULES.md) for types, registration and exports.
+For a new endpoint module, follow the [`api-module` skill](../../.agents/skills/api-module/SKILL.md) and [API module standard](../../standards/frontend/ADDING_API_MODULES.md).

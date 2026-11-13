@@ -242,7 +242,7 @@ pub(super) fn clients(
         .redirect(reqwest::redirect::Policy::none())
         .http1_only()
         .read_timeout(Duration::from_secs(60))
-        .add_root_certificate(first.root.clone())
+        .tls_certs_only([first.root.clone()])
         .resolve("cdn.modrinth.com", first.address);
     let base = if mode == SelectionMode::Auto {
         base.pool_max_idle_per_host(0)

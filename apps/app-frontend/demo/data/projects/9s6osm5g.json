@@ -1,0 +1,275 @@
+{
+  "id": "9s6osm5g",
+  "slug": "cloth-config",
+  "title": "Cloth Config API",
+  "description": "Configuration Library for Minecraft Mods",
+  "author": "shedaniel",
+  "categories": ["fabric", "forge", "library", "neoforge"],
+  "display_categories": ["fabric", "forge", "library", "neoforge"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 183347073,
+  "followers": 16947,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "forge", "neoforge"],
+  "game_versions": [
+    "1.14",
+    "1.14.1",
+    "1.14.2",
+    "1.14.3",
+    "1.14.4",
+    "1.15",
+    "1.15.1",
+    "1.15.2",
+    "1.16",
+    "1.16.1",
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "22w43a",
+    "1.19.3-pre2",
+    "1.19.3",
+    "1.19.4-pre1",
+    "1.19.4",
+    "23w13a_or_b",
+    "1.20-pre6",
+    "1.20",
+    "1.20.1",
+    "23w31a",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "24w09a",
+    "24w14potato",
+    "24w14a",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "24w36a",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "GchRXPnb",
+  "date_created": "2022-04-21T10:29:41.555173Z",
+  "date_modified": "2026-09-23T07:00:51.350542Z",
+  "color": 11654752,
+  "published": "2022-04-21T10:29:41.555173Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/shedaniel/ClothConfig/issues",
+  "source_url": "https://github.com/shedaniel/ClothConfig/",
+  "wiki_url": "https://shedaniel.gitbook.io/cloth-config/",
+  "discord_url": "https://discord.gg/Vs9AVkxjYY",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/shedaniel"
+    }
+  ],
+  "versions_total": 161,
+  "body": "[<img src=\"https://i.imgur.com/ZEORx0F.png\" alt=\"\" width=\"225\"/>](https://discord.gg/Vs9AVkxjYY) [<img src=\"https://i.imgur.com/LrVLC2a.png\" alt=\"\" width=\"201\"/>](https://www.patreon.com/shedaniel)\n\nCloth Config API is a config screen api.\n\n### Developers Wiki\n[https://shedaniel.gitbook.io/cloth-config/](https://shedaniel.gitbook.io/cloth-config/)\n\n![](https://i.imgur.com/AkpzyeC.png)",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/9s6osm5g/images/baa0dc605540953f5262f24109ec7837c090a04c.png",
+      "featured": true,
+      "title": "Example Config Screen",
+      "description": null,
+      "created": "2022-04-21T10:31:01.159433Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "shedaniel",
+      "role": "Owner",
+      "avatar": "https://avatars2.githubusercontent.com/u/34910653?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "GchRXPnb",
+      "name": "[NeoForge 26.3] v26.3.159",
+      "version_number": "26.3.159+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-23T07:00:51.350542Z",
+      "downloads": 94611,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-neoforge-26.3.159.jar",
+          "size": 1135657,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "fg2uyxOW",
+      "name": "[Fabric 26.3] v26.3.159",
+      "version_number": "26.3.159+fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-23T07:00:48.136714Z",
+      "downloads": 2506524,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-fabric-26.3.159.jar",
+          "size": 1135009,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "eZ3xIIuk",
+      "name": "[Fabric 26.3] v26.3.158",
+      "version_number": "26.3.158+fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T03:38:34.451316Z",
+      "downloads": 555278,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-26.3.158.jar",
+          "size": 1134981,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "zErG1kOw",
+      "name": "[NeoForge 26.2] v26.2.155",
+      "version_number": "26.2.155+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-06-18T00:27:29.988672Z",
+      "downloads": 342697,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-26.2.155.jar",
+          "size": 1135847,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Nv3xnWXd",
+      "name": "[Fabric 26.2] v26.2.155",
+      "version_number": "26.2.155+fabric",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-18T00:27:27.147096Z",
+      "downloads": 8512062,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-26.2.155.jar",
+          "size": 1135186,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "TimoYzse",
+      "name": "[NeoForge 26.1] v26.1.154",
+      "version_number": "26.1.154+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-03-26T16:04:39.594678Z",
+      "downloads": 317616,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-26.1.154.jar",
+          "size": 1135993,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "GFM8zh9J",
+      "name": "[Fabric 26.1] v26.1.154",
+      "version_number": "26.1.154+fabric",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-03-26T16:04:35.361210Z",
+      "downloads": 7711413,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-26.1.154.jar",
+          "size": 1135373,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Wsus0EWg",
+      "name": "[NeoForge 1.21.11] v21.11.153",
+      "version_number": "21.11.153+neoforge",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2025-12-21T13:12:12.590809Z",
+      "downloads": 424685,
+      "changelog": "",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "cloth-config-21.11.153-neoforge.jar",
+          "size": 1157748,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

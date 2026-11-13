@@ -44,6 +44,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             download_job_delete,
             download_history_clear,
             download_job_support_details,
+            download_diagnostics,
         ])
         .build()
 }
@@ -117,10 +118,12 @@ pub async fn install_create_instance(
 pub async fn install_create_modpack_instance(
     location: CreatePackLocation,
     post_install_edit: Option<InstallPostInstallEditRequest>,
+    game_dir_override: Option<String>,
 ) -> Result<InstallJobSnapshot> {
-    Ok(theseus::install::create_modpack_instance(
+    Ok(theseus::install::create_modpack_instance_with_game_dir(
         location,
         post_install_edit.map(|edit| edit.into_core()).transpose()?,
+        game_dir_override,
     )
     .await?)
 }
@@ -367,6 +370,22 @@ pub async fn download_job_list(
     let next_cursor =
         (jobs.len() == limit).then(|| (offset + limit).to_string());
     Ok(DownloadJobPage { jobs, next_cursor })
+}
+
+#[tauri::command]
+pub async fn download_diagnostics(
+    job_id: String,
+    file_id: Option<String>,
+) -> Result<theseus::DownloadDiagnosticsSnapshot> {
+    let job_id = Uuid::parse_str(&job_id).map_err(|_| {
+        theseus::Error::from(theseus::ErrorKind::InputError(
+            "Invalid download task id".into(),
+        ))
+    })?;
+    Ok(
+        theseus::install::job_download_diagnostics(job_id, file_id.as_deref())
+            .await?,
+    )
 }
 
 #[tauri::command]

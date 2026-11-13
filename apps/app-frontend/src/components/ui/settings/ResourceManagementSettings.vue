@@ -1,10 +1,13 @@
 <script setup>
 import { BoxIcon, FolderOpenIcon, FolderSearchIcon, PlusIcon, TrashIcon } from '@modrinth/assets'
 import {
+    Badge,
     Combobox,
     defineMessages,
     IconButton,
     injectNotificationManager,
+    loadMinecraftDirectories,
+    MINECRAFT_DIRECTORIES_STORAGE_KEY,
     Slider,
     StyledInput,
     Toggle,
@@ -31,6 +34,7 @@ import { get, getProxyConfig, setProxyConfig, testProxyConfig, update } from '@/
 import { createSettingsPatchSaver } from '@/helpers/settings-patch'
 import { showAppDbBackupsFolder } from '@/helpers/utils.js'
 
+import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
 
@@ -44,8 +48,20 @@ const props = defineProps({
 })
 
 const { handleError } = injectNotificationManager()
+defineExpose({ reloadSettings })
+
 const settings = ref(await get())
 const saveDraft = createSettingsPatchSaver(settings.value, update)
+
+async function reloadSettings() {
+    try {
+        settings.value = await get()
+        saveDraft.reset(settings.value)
+    } catch (error) {
+        handleError(error)
+    }
+}
+
 const missingContentScannerSettings = ref(getMissingContentScannerSettings())
 const minecraftDirectories = ref(loadMinecraftDirectories())
 const minecraftDirectoryError = ref(null)
@@ -362,6 +378,10 @@ const messages = defineMessages({
         id: 'app.settings.resources.source.open-bmcl-api',
         defaultMessage: 'Prefer OpenBMCLAPI',
     },
+    mcimSource: {
+        id: 'app.settings.resources.source.mcim',
+        defaultMessage: 'Prefer MCIM',
+    },
     minecraftMetadataSource: {
         id: 'app.settings.resources.minecraft-metadata-source',
         defaultMessage: 'Minecraft metadata',
@@ -384,7 +404,8 @@ const messages = defineMessages({
     },
     modrinthMirrorDescription: {
         id: 'app.settings.resources.modrinth-mirror-description',
-        defaultMessage: 'Modrinth file downloads.',
+        defaultMessage:
+            'Modrinth searches, project and version lookups, and file downloads. The MCIM mirror steps in when Modrinth fails or is slow to answer. Files always try the official CDN first.',
     },
     curseforgeMirror: {
         id: 'app.settings.resources.curseforge-mirror',
@@ -392,7 +413,8 @@ const messages = defineMessages({
     },
     curseforgeMirrorDescription: {
         id: 'app.settings.resources.curseforge-mirror-description',
-        defaultMessage: 'CurseForge file downloads.',
+        defaultMessage:
+            'CurseForge searches, project and file lookups, and file downloads. The MCIM mirror steps in when CurseForge fails or no API key is set. Files always try the official CDN first.',
     },
     curseforgeRestrictionBypass: {
         id: 'app.settings.resources.curseforge-restriction-bypass',
@@ -490,6 +512,32 @@ const messages = defineMessages({
         id: 'app.settings.resources.source.mojang-official-only',
         defaultMessage: 'Official source only',
     },
+    forceMulticonnection: {
+        id: 'app.settings.resources.force-multiconnection',
+        defaultMessage: 'Force multi-connection downloads',
+    },
+    forceMulticonnectionDescription: {
+        id: 'app.settings.resources.force-multiconnection-description',
+        defaultMessage:
+            'Uses more aggressive download logic that may improve your download speed. Consider enabling this option if you encounter problems.',
+    },
+    forcedConnectionLimit: {
+        id: 'app.settings.resources.forced-connection-limit',
+        defaultMessage: 'Experimental connection limit',
+    },
+    forcedConnectionLimitDescription: {
+        id: 'app.settings.resources.forced-connection-limit-description',
+        defaultMessage:
+            'Connections are shared across files in proportion to their remaining size. Default: 72. A lower manual download limit still applies. Higher limits may increase network load and retries.',
+    },
+    forcedConnectionLimitCustom: {
+        id: 'app.settings.resources.forced-connection-limit-custom',
+        defaultMessage: 'Custom',
+    },
+    experimental: {
+        id: 'app.settings.resources.experimental',
+        defaultMessage: 'Experimental',
+    },
     maximumDownloads: {
         id: 'app.settings.resources.maximum-downloads',
         defaultMessage: 'Maximum concurrent downloads',
@@ -506,7 +554,7 @@ const messages = defineMessages({
     maximumDownloadsDescription: {
         id: 'app.settings.resources.maximum-downloads-description',
         defaultMessage:
-            'Automatic mode uses 64 concurrent downloads. Manual changes apply immediately.',
+            'Automatic mode adjusts the connection limit. Forced multi-connection downloads use the experimental connection limit, or a lower manual limit. Manual changes apply immediately.',
     },
     manualConcurrency: {
         id: 'app.settings.resources.concurrency.manual',
@@ -651,41 +699,7 @@ const messages = defineMessages({
     },
 })
 
-const MINECRAFT_DIRECTORIES_STORAGE_KEY = 'axolotl-minecraft-directories'
-
 /** @typedef {import('@/helpers/instance').ExternalMinecraftRoot} ExternalMinecraftRoot */
-
-/** @returns {ExternalMinecraftRoot[]} */
-function loadMinecraftDirectories() {
-    try {
-        const raw = localStorage.getItem(MINECRAFT_DIRECTORIES_STORAGE_KEY)
-        if (!raw) return []
-        const parsed = JSON.parse(raw)
-        if (!Array.isArray(parsed)) return []
-        const directories = parsed.flatMap((value) => {
-            if (typeof value === 'string') return [{ path: value, mode: 'automatic' }]
-            if (value && typeof value === 'object' && typeof value.path === 'string') {
-                return [
-                    {
-                        path: value.path,
-                        mode:
-                            value.mode === 'shared'
-                                ? 'shared'
-                                : value.mode === 'automatic'
-                                  ? 'automatic'
-                                  : 'isolated',
-                    },
-                ]
-            }
-            return []
-        })
-        return [
-            ...new Map(directories.map((directory) => [directory.path.trim(), directory])).values(),
-        ]
-    } catch {
-        return []
-    }
-}
 
 /** @param {ExternalMinecraftRoot[]} values */
 function persistMinecraftDirectories(values) {
@@ -747,14 +761,20 @@ const minecraftDirectoryModeOptions = computed(() => [
     { value: 'isolated', label: formatMessage(messages.minecraftDirectoryModeIsolated) },
     { value: 'shared', label: formatMessage(messages.minecraftDirectoryModeShared) },
 ])
+const mcimSourceOption = computed(() => ({
+    value: 'mirror_preferred',
+    label: formatMessage(messages.mcimSource),
+}))
 const modrinthSourceOptions = computed(() => [
     automaticSourceOption.value,
     officialPreferredSourceOption.value,
+    mcimSourceOption.value,
     officialOnlySourceOption.value,
 ])
 const curseforgeSourceOptions = computed(() => [
     automaticSourceOption.value,
     officialPreferredSourceOption.value,
+    mcimSourceOption.value,
     officialOnlySourceOption.value,
 ])
 const mojangAuthSource = downloadSourceModel('mojang_auth_source')
@@ -780,6 +800,53 @@ const downloadConcurrencyOptions = computed(() => [
         label: formatMessage(messages.manualConcurrency),
     },
 ])
+const forcedConnectionPresets = [72, 128, 256]
+const forcedConnectionMode = ref(
+    forcedConnectionPresets.includes(settings.value.forced_max_concurrent_downloads)
+        ? String(settings.value.forced_max_concurrent_downloads)
+        : 'custom',
+)
+watch(settings, (value) => {
+    forcedConnectionMode.value = forcedConnectionPresets.includes(
+        value.forced_max_concurrent_downloads,
+    )
+        ? String(value.forced_max_concurrent_downloads)
+        : 'custom'
+})
+const forcedConnectionOptions = computed(() => [
+    ...forcedConnectionPresets.map((value) => ({ value: String(value), label: String(value) })),
+    { value: 'custom', label: formatMessage(messages.forcedConnectionLimitCustom) },
+])
+const forcedConnectionSelection = computed({
+    get: () => forcedConnectionMode.value,
+    set: (mode) => {
+        forcedConnectionMode.value = mode
+        if (mode !== 'custom') settings.value.forced_max_concurrent_downloads = Number(mode)
+    },
+})
+const forcedConnectionLimit = computed({
+    get: () => settings.value.forced_max_concurrent_downloads,
+    set: (value) => {
+        if (Number.isFinite(value)) {
+            settings.value.forced_max_concurrent_downloads = Math.min(
+                256,
+                Math.max(1, Math.trunc(value)),
+            )
+        }
+    },
+})
+const manualDownloadConcurrency = computed({
+    get: () =>
+        Math.min(
+            settings.value.max_concurrent_downloads,
+            settings.value.force_multiconnection_downloads
+                ? settings.value.forced_max_concurrent_downloads
+                : 256,
+        ),
+    set: (value) => {
+        settings.value.max_concurrent_downloads = value
+    },
+})
 const proxyModeOptions = computed(() => [
     {
         value: 'none',
@@ -1037,6 +1104,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.chineseNamesDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="resource_chinese_filenames"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control
                     ><Toggle
                         id="resource-chinese-filenames"
@@ -1052,6 +1125,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.preserveNamesDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="resource_preserve_filenames"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control
                     ><Toggle
                         id="resource-preserve-filenames"
@@ -1075,6 +1154,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.minecraftMetadataSourceDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="minecraft_metadata_source"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox
@@ -1089,6 +1174,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.minecraftFileSourceDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="minecraft_file_source"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox v-model="minecraftFileSource" :options="minecraftSourceOptions" />
@@ -1100,6 +1191,9 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.modrinthMirrorDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="modrinth_source" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox
@@ -1114,6 +1208,9 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.curseforgeMirrorDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="curseforge_source" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox
@@ -1129,6 +1226,12 @@ function validateMinecraftDirectory(_value) {
                 }}</template>
                 <template #description>
                     {{ formatMessage(messages.curseforgeRestrictionBypassDescription) }}
+                </template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="bypass_curseforge_download_restrictions"
+                        @cleared="reloadSettings"
+                    />
                 </template>
                 <template #control>
                     <Toggle
@@ -1230,8 +1333,68 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.ignoreSslErrorsDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="ignore_ssl_errors" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle id="ignore-ssl-errors" v-model="settings.ignore_ssl_errors" />
+                </template>
+            </SettingsRow>
+            <SettingsRow>
+                <template #label>
+                    <span
+                        id="settings-target-resources-force-multiconnection"
+                        tabindex="-1"
+                        class="flex flex-wrap items-center gap-2"
+                    >
+                        {{ formatMessage(messages.forceMulticonnection) }}
+                        <Badge color="orange" :type="formatMessage(messages.experimental)" />
+                    </span>
+                </template>
+                <template #description>{{
+                    formatMessage(messages.forceMulticonnectionDescription)
+                }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="force_multiconnection_downloads"
+                        @cleared="reloadSettings"
+                    />
+                </template>
+                <template #control>
+                    <Toggle
+                        id="force-multiconnection-downloads"
+                        v-model="settings.force_multiconnection_downloads"
+                    />
+                </template>
+            </SettingsRow>
+            <SettingsRow v-if="settings.force_multiconnection_downloads" stacked>
+                <template #label>{{ formatMessage(messages.forcedConnectionLimit) }}</template>
+                <template #description>{{
+                    formatMessage(messages.forcedConnectionLimitDescription)
+                }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="forced_max_concurrent_downloads"
+                        @cleared="reloadSettings"
+                    />
+                </template>
+                <template #control>
+                    <div class="flex w-full flex-col gap-3">
+                        <div class="w-48 max-w-full">
+                            <Combobox
+                                v-model="forcedConnectionSelection"
+                                :options="forcedConnectionOptions"
+                            />
+                        </div>
+                        <Slider
+                            v-if="forcedConnectionMode === 'custom'"
+                            id="forced-connection-limit"
+                            v-model="forcedConnectionLimit"
+                            :min="1"
+                            :max="256"
+                            :step="1"
+                        />
+                    </div>
                 </template>
             </SettingsRow>
             <SettingsRow stacked>
@@ -1254,9 +1417,13 @@ function validateMinecraftDirectory(_value) {
                         <Slider
                             v-if="!settings.auto_concurrent_downloads"
                             id="max-downloads"
-                            v-model="settings.max_concurrent_downloads"
+                            v-model="manualDownloadConcurrency"
                             :min="1"
-                            :max="256"
+                            :max="
+                                settings.force_multiconnection_downloads
+                                    ? settings.forced_max_concurrent_downloads
+                                    : 256
+                            "
                             :step="1"
                         />
                     </div>
@@ -1267,6 +1434,12 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.maximumWritesDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="max_concurrent_writes"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Slider
@@ -1295,6 +1468,9 @@ function validateMinecraftDirectory(_value) {
                 <template #description>{{
                     formatMessage(messages.mojangAuthServiceDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="mojang_auth_source" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <div class="w-full">
                         <Combobox v-model="mojangAuthSource" :options="mojangAuthSourceOptions" />
@@ -1314,6 +1490,9 @@ function validateMinecraftDirectory(_value) {
             </template>
             <SettingsRow>
                 <template #label>{{ formatMessage(messages.dohEnabled) }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="doh_enabled" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle id="doh-enabled" v-model="settings.doh_enabled" />
                 </template>

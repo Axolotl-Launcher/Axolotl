@@ -1,0 +1,457 @@
+{
+  "id": "PtjYWJkn",
+  "slug": "sodium-extra",
+  "title": "Sodium Extra",
+  "description": "A Sodium addon that adds features that shouldn't be in Sodium.",
+  "author": "FlashyReese",
+  "categories": ["cursed", "fabric", "neoforge", "optimization", "quilt", "utility"],
+  "display_categories": ["cursed", "fabric", "neoforge", "optimization", "quilt", "utility"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 105275133,
+  "followers": 13740,
+  "license": {
+    "id": "LGPL-3.0-only",
+    "name": "GNU Lesser General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "neoforge", "quilt"],
+  "game_versions": [
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "te2y9qZn",
+  "date_created": "2021-02-17T04:37:04.928784Z",
+  "date_modified": "2026-09-16T02:48:18.058397Z",
+  "color": 16577485,
+  "published": "2021-02-17T04:37:04.928784Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/FlashyReese/sodium-extra-fabric/issues",
+  "source_url": "https://github.com/FlashyReese/sodium-extra-fabric",
+  "wiki_url": "https://github.com/FlashyReese/sodium-extra-fabric/wiki",
+  "discord_url": "https://flashyreese.me/discord",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/flashyreese"
+    }
+  ],
+  "versions_total": 208,
+  "body": "# What is Sodium Extra?\nSodium Extra aims to bring most of OptiFine's eye-candy options to Sodium; in addition to providing some features such as visual bug fixes and other performance options that are not yet available on Sodium.\n\n# Features\nHere is a basic rundown of what this mod does.\n\n- Animations Settings (Control fire, water, lava, block animations and etc...)\n- Particles Settings (Control all types of particles, including ones from other mods)\n- Details Settings (Control sky, stars, sun/moon, weather, and much more)\n- Render Settings (Control fog, static entities, and other miscellaneous renderings)\n- Extra Settings (Display FPS, coordinates, toast notifications, clouds, and much more)\n\nSee a more detailed explanation of what features are included in Sodium Extra [here](https://github.com/FlashyReese/sodium-extra-fabric/wiki/Features).\n\n# Modpack Permissions\nThis is a free and open-source project; you can include it in your mod pack as long as you provide attribution!\n\n# Common Questions\n- **Do I need Sodium installed for this mod to work?** You will need to download Sodium for this mod to work.\n- **Can I re-host/upload this mod somewhere else?** Yes, as long as you provide the mod source code. Preferably if you message/ask me for permission about it first.\n- **Will you add x features to this mod?** No, unless I explicitly state that I will.\n- **I have more questions!** Join our [Discord](https://flashyreese.me/discord)!\n\n# Support the project\n[![Support me Ko-fi](https://i.imgur.com/FSNi7zk.png)](https://ko-fi.com/flashyreese)",
+  "gallery": [],
+  "team": [
+    {
+      "username": "FlashyReese",
+      "role": "Owner",
+      "avatar": "https://avatars3.githubusercontent.com/u/30311066?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "te2y9qZn",
+      "name": "[Fabric] Sodium Extra 0.9.4 - Minecraft 26.3",
+      "version_number": "mc26.3-0.9.4+fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-16T02:48:18.058397Z",
+      "downloads": 2189537,
+      "changelog": "### Changed\r\n\r\n- Ported Sodium Extra to Minecraft 26.3.\r\n- Reworked Reduce Resolution on macOS to use SDL's high pixel-density window handling.\r\n- Improved planar and custom fog distance handling.\r\n\r\n### Removed\r\n\r\n- Removed the Wayland/XWayland Fullscreen Resolution option and recovery flow; Sodium now provides this support.\r\n- Removed the legacy macOS OpenGL and Vulkan framebuffer/presentation workarounds; SDL now handles the required window scaling.\r\n\r\n### Fixed\r\n\r\n- Fixed Panini Projection scaling with the active FOV.\r\n- Fixed blank tooltip translations.\r\n- Fixed custom fog distance encoding and preservation.\r\n- Improved fog rendering compatibility by avoiding a Redirect.\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc26.2-0.9.4...mc26.3-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-fabric-0.9.4+mc26.3.jar",
+          "size": 465553,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "sbwUWMDW",
+      "name": "[NeoForge] Sodium Extra 0.9.4 - Minecraft 26.3",
+      "version_number": "mc26.3-0.9.4+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-16T02:48:12.683081Z",
+      "downloads": 43362,
+      "changelog": "### Changed\r\n\r\n- Ported Sodium Extra to Minecraft 26.3.\r\n- Reworked Reduce Resolution on macOS to use SDL's high pixel-density window handling.\r\n- Improved planar and custom fog distance handling.\r\n\r\n### Removed\r\n\r\n- Removed the Wayland/XWayland Fullscreen Resolution option and recovery flow; Sodium now provides this support.\r\n- Removed the legacy macOS OpenGL and Vulkan framebuffer/presentation workarounds; SDL now handles the required window scaling.\r\n\r\n### Fixed\r\n\r\n- Fixed Panini Projection scaling with the active FOV.\r\n- Fixed blank tooltip translations.\r\n- Fixed custom fog distance encoding and preservation.\r\n- Improved fog rendering compatibility by avoiding a Redirect.\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc26.2-0.9.4...mc26.3-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-neoforge-0.9.4+mc26.3.jar",
+          "size": 465843,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "kGXOsmfx",
+      "name": "[Fabric] Sodium Extra 0.9.4 - Minecraft 26.2",
+      "version_number": "mc26.2-0.9.4+fabric",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-16T02:22:22.518627Z",
+      "downloads": 785241,
+      "changelog": "## What's Changed\r\n* Use EYE_PLANE_ABSOLUTE_NV calculation instead for planar fog distance by @lowercasebtw in https://github.com/FlashyReese/sodium-extra/pull/594\r\n* fix: handle blank tooltip translations by @Tsingloong611 in https://github.com/FlashyReese/sodium-extra/pull/590\r\n* fix: stop using Redirect to improve mod compatibility by @lunaynx in https://github.com/FlashyReese/sodium-extra/pull/599\r\n\r\n## New Contributors\r\n* @lowercasebtw made their first contribution in https://github.com/FlashyReese/sodium-extra/pull/594\r\n* @Tsingloong611 made their first contribution in https://github.com/FlashyReese/sodium-extra/pull/590\r\n* @lunaynx made their first contribution in https://github.com/FlashyReese/sodium-extra/pull/599\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc26.2-0.9.3...mc26.2-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-fabric-0.9.4+mc26.2.jar",
+          "size": 484469,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "jeKkuhSg",
+      "name": "[NeoForge] Sodium Extra 0.9.4 - Minecraft 26.2",
+      "version_number": "mc26.2-0.9.4+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-16T02:22:16.251811Z",
+      "downloads": 17328,
+      "changelog": "## What's Changed\r\n* Use EYE_PLANE_ABSOLUTE_NV calculation instead for planar fog distance by @lowercasebtw in https://github.com/FlashyReese/sodium-extra/pull/594\r\n* fix: handle blank tooltip translations by @Tsingloong611 in https://github.com/FlashyReese/sodium-extra/pull/590\r\n* fix: stop using Redirect to improve mod compatibility by @lunaynx in https://github.com/FlashyReese/sodium-extra/pull/599\r\n\r\n## New Contributors\r\n* @lowercasebtw made their first contribution in https://github.com/FlashyReese/sodium-extra/pull/594\r\n* @Tsingloong611 made their first contribution in https://github.com/FlashyReese/sodium-extra/pull/590\r\n* @lunaynx made their first contribution in https://github.com/FlashyReese/sodium-extra/pull/599\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc26.2-0.9.3...mc26.2-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-neoforge-0.9.4+mc26.2.jar",
+          "size": 484393,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "AdU0HYOc",
+      "name": "[Fabric] Sodium Extra 0.9.4 - Minecraft 26.1.2",
+      "version_number": "mc26.1.2-0.9.4+fabric",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-16T02:20:26.239694Z",
+      "downloads": 170040,
+      "changelog": "### Changed\r\n\r\n- Updated Sodium to 0.9.2.\r\n\r\n### Fixed\r\n\r\n- Corrected planar fog distance calculations.\r\n- Fixed Panini Projection scaling with the active FOV.\r\n- Fixed custom fog distance encoding and preservation.\r\n- Fixed blank tooltip translations.\r\n- Improved fog rendering compatibility by avoiding a Redirect.\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc26.1.2-0.9.3...mc26.1.2-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-fabric-0.9.4+mc26.1.2.jar",
+          "size": 479510,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5xSwvXof",
+      "name": "[NeoForge] Sodium Extra 0.9.4 - Minecraft 26.1.2",
+      "version_number": "mc26.1.2-0.9.4+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-16T02:20:18.951762Z",
+      "downloads": 10797,
+      "changelog": "### Changed\r\n\r\n- Updated Sodium to 0.9.2.\r\n\r\n### Fixed\r\n\r\n- Corrected planar fog distance calculations.\r\n- Fixed Panini Projection scaling with the active FOV.\r\n- Fixed custom fog distance encoding and preservation.\r\n- Fixed blank tooltip translations.\r\n- Improved fog rendering compatibility by avoiding a Redirect.\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc26.1.2-0.9.3...mc26.1.2-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-neoforge-0.9.4+mc26.1.2.jar",
+          "size": 479189,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "oqoegXMw",
+      "name": "[Fabric] Sodium Extra 0.9.4 - Minecraft 1.21.11",
+      "version_number": "mc1.21.11-0.9.4+fabric",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-16T02:19:22.337700Z",
+      "downloads": 759864,
+      "changelog": "### Fixed\r\n\r\n- Corrected planar and custom fog distance handling.\r\n- Fixed Panini Projection scaling with the active FOV.\r\n- Fixed Panini Projection frustum preservation.\r\n- Fixed blank tooltip translations.\r\n- Improved fog rendering compatibility by avoiding a Redirect.\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc1.21.11-0.9.3...mc1.21.11-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-fabric-0.9.4+mc1.21.11.jar",
+          "size": 471588,
+          "primary": true
+        },
+        {
+          "filename": "sodium-extra-fabric-0.9.4+mc1.21.11-dev-shadow.jar",
+          "size": 469881,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "rvyx2x5p",
+      "name": "[NeoForge] Sodium Extra 0.9.4 - Minecraft 1.21.11",
+      "version_number": "mc1.21.11-0.9.4+neoforge",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-16T02:19:14.796941Z",
+      "downloads": 13151,
+      "changelog": "### Fixed\r\n\r\n- Corrected planar and custom fog distance handling.\r\n- Fixed Panini Projection scaling with the active FOV.\r\n- Fixed Panini Projection frustum preservation.\r\n- Fixed blank tooltip translations.\r\n- Improved fog rendering compatibility by avoiding a Redirect.\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/sodium-extra/compare/mc1.21.11-0.9.3...mc1.21.11-0.9.4",
+      "dependencies": [
+        {
+          "project_id": "Bh37bMuy",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "EE4vxUHj",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "sodium-extra-neoforge-0.9.4+mc1.21.11.jar",
+          "size": 471692,
+          "primary": true
+        },
+        {
+          "filename": "sodium-extra-neoforge-0.9.4+mc1.21.11-dev-shadow.jar",
+          "size": 459138,
+          "primary": false
+        }
+      ]
+    }
+  ]
+}

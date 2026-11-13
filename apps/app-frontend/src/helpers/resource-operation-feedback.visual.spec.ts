@@ -13,9 +13,15 @@ import {
 vi.mock('@modrinth/ui', () => ({ defineMessages: (messages: unknown) => messages }))
 
 function formatter(locale: 'en-US' | 'zh-CN') {
-    const catalog: Record<string, { message: string }> = locale === 'zh-CN' ? chinese : english
+    const catalog: Record<string, { message?: string; defaultMessage?: string }> =
+        locale === 'zh-CN' ? chinese : english
     return (descriptor: { id: string; defaultMessage?: string }) =>
-        String(new IntlMessageFormat(catalog[descriptor.id].message, locale).format())
+        String(
+            new IntlMessageFormat(
+                catalog[descriptor.id].message ?? descriptor.defaultMessage ?? descriptor.id,
+                locale,
+            ).format(),
+        )
 }
 
 const cases: [string, ResourceFailureKind][] = [

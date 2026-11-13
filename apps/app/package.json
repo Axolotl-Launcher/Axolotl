@@ -1,13 +1,13 @@
 {
   "name": "@modrinth/app",
   "scripts": {
-    "tauri": "tauri",
-    "build": "tauri build --config tauri-release.conf.json",
-    "dev": "tauri dev",
-    "test": "cargo nextest run --all-targets --no-fail-fast",
-    "lint": "cargo fmt --check && cargo clippy --all-targets && cargo clippy --all-targets --features updater",
+    "tauri": "node ../../scripts/axolotl/tauri.mjs",
+    "build": "node ../../scripts/axolotl/tauri.mjs build --config tauri-release.conf.json",
+    "dev": "node ../../scripts/axolotl/tauri.mjs dev",
+    "test": "node ../../scripts/axolotl/cargo.mjs nextest run --all-targets --no-fail-fast",
+    "lint": "node ../../scripts/axolotl/cargo.mjs fmt --check && node ../../scripts/axolotl/cargo.mjs clippy --all-targets && node ../../scripts/axolotl/cargo.mjs clippy --all-targets --features updater",
     "lint:ancillary": "prettier --check .",
-    "fix": "cargo clippy --all-targets --fix --allow-dirty && cargo clippy --all-targets --features updater --fix --allow-dirty && cargo fmt",
+    "fix": "node ../../scripts/axolotl/cargo.mjs clippy --all-targets --fix --allow-dirty && node ../../scripts/axolotl/cargo.mjs clippy --all-targets --features updater --fix --allow-dirty && node ../../scripts/axolotl/cargo.mjs fmt",
     "fix:ancillary": "prettier --write ."
   },
   "devDependencies": {

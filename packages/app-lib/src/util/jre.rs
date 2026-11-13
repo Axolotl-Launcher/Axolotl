@@ -774,51 +774,129 @@ pub async fn check_java_at_filepath(path: &Path) -> crate::Result<JavaVersion> {
         return Ok(java_version);
     }
 
+    // Read the JVM's own properties before trying the Java 8 helper class.
+    let output = java_probe_command(&java)?
+        .args(["-XshowSettings:properties", "-version"])
+        .output()?;
+    let settings = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout),
+    );
+    if output.status.success() {
+        if let Some(version) = java_version_from_properties(&java, &settings) {
+            return Ok(version);
+        }
+        // Older HotSpot versions print only the version banner here.
+        let internal = java_probe_command(&java)?
+            .arg("-Xinternalversion")
+            .output()?;
+        if internal.status.success()
+            && let Some(version) = java_version_from_legacy_output(
+                &java,
+                &settings,
+                &format!(
+                    "{}\n{}",
+                    String::from_utf8_lossy(&internal.stderr),
+                    String::from_utf8_lossy(&internal.stdout),
+                ),
+            )
+        {
+            return Ok(version);
+        }
+    }
+
     let (_temp, file_path) =
         get_resource_file!(env "JAVA_JARS_DIR" / "theseus.jar")?;
 
-    let output = java_environment::command(&java)
+    let output = java_probe_command(&java)?
         .arg("-cp")
         .arg(file_path)
         .arg("com.modrinth.theseus.JavaInfo")
         .output()?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    let mut java_version = None;
-    let mut java_arch = None;
-
-    for line in stdout.lines() {
-        let mut parts = line.split('=');
-        let key = parts.next().unwrap_or_default();
-        let value = parts.next().unwrap_or_default();
-
-        if key == "os.arch" {
-            java_arch = Some(value);
-        } else if key == "java.version" {
-            java_version = Some(value);
-        }
+    if !output.status.success() {
+        return Err(JREError::FailedJavaCheck(java).into());
     }
 
-    // Extract version info from it
-    if let Some(arch) = java_arch
-        && let Some(version) = java_version
-    {
-        if let Ok(version) = extract_java_version(version) {
-            let path = java.to_string_lossy().to_string();
-            return Ok(JavaVersion {
-                parsed_version: version,
-                path,
-                version: version.to_string(),
-                architecture: arch.to_string(),
-                distribution: None,
-            });
+    java_version_from_properties(
+        &java,
+        &String::from_utf8_lossy(&output.stdout),
+    )
+    .ok_or_else(|| JREError::FailedJavaCheck(java).into())
+}
+
+/// Parses properties from both JVM settings output and the bundled helper.
+fn java_version_from_properties(
+    java: &Path,
+    output: &str,
+) -> Option<JavaVersion> {
+    let mut version = None;
+    let mut architecture = None;
+    for line in output.lines() {
+        let Some((key, value)) = line.trim().split_once('=') else {
+            continue;
+        };
+        let value = value.trim();
+        if value.is_empty() {
+            continue;
         }
-
-        return Err(JREError::InvalidJREVersion(version.to_owned()).into());
+        match key.trim() {
+            "java.version" => version = extract_java_version(value).ok(),
+            "os.arch" => architecture = Some(value.to_string()),
+            _ => {}
+        }
     }
+    let parsed_version = version?;
+    Some(JavaVersion {
+        parsed_version,
+        path: java.to_string_lossy().to_string(),
+        version: parsed_version.to_string(),
+        architecture: architecture?,
+        distribution: None,
+    })
+}
 
-    Err(JREError::FailedJavaCheck(java).into())
+fn java_version_from_legacy_output(
+    java: &Path,
+    banner: &str,
+    internal: &str,
+) -> Option<JavaVersion> {
+    let version = banner.lines().find_map(|line| {
+        let line = line.trim();
+        let quoted = line
+            .strip_prefix("java version \"")
+            .or_else(|| line.strip_prefix("openjdk version \""))?;
+        extract_java_version(quoted.split_once('"')?.0).ok()
+    })?;
+    let platform = internal.split_once(" for ")?.1.split_whitespace().next()?;
+    let architecture = normalize_release_arch(platform.split_once('-')?.1)?;
+    Some(JavaVersion {
+        parsed_version: version,
+        path: java.to_string_lossy().to_string(),
+        version: version.to_string(),
+        architecture,
+        distribution: None,
+    })
+}
+
+fn java_probe_command(java: &Path) -> Result<std::process::Command, JREError> {
+    #[cfg(windows)]
+    let executable = java.with_file_name("java.exe");
+    #[cfg(not(windows))]
+    let executable = java.to_path_buf();
+    if !executable.is_file() {
+        return Err(JREError::NoExecutable(executable));
+    }
+    let command = java_environment::command(executable);
+    // javaw.exe displays JVM errors in a dialog, even with its output piped.
+    #[cfg(windows)]
+    let command = {
+        use std::os::windows::process::CommandExt;
+        let mut command = command;
+        command.creation_flags(0x0800_0000);
+        command
+    };
+    Ok(command)
 }
 
 /// Reads a Java installation's `release` file (present in Java 8+ distributions
@@ -1006,10 +1084,142 @@ mod tests {
 
     #[test]
     fn extracts_major_versions_from_version_strings() {
+        assert_eq!(extract_java_version("1.6.0_45").unwrap(), 6);
+        assert_eq!(extract_java_version("1.7.0_80").unwrap(), 7);
         assert_eq!(extract_java_version("1.8.0_321").unwrap(), 8);
         assert_eq!(extract_java_version("17.0.1").unwrap(), 17);
         assert_eq!(extract_java_version("21-ea").unwrap(), 21);
         assert_eq!(extract_java_version("25").unwrap(), 25);
         assert!(extract_java_version("garbage").is_err());
+    }
+
+    #[test]
+    fn version_probe_reads_legacy_and_modern_jvm_properties() {
+        let java = Path::new("runtime/bin").join(JAVA_BIN);
+        for (version, major) in [
+            ("1.5.0_22", 5),
+            ("1.6.0_45", 6),
+            ("1.7.0_80", 7),
+            ("1.8.0_51", 8),
+            ("17.0.15", 17),
+            ("21.0.7", 21),
+            ("25-ea", 25),
+        ] {
+            for architecture in ["x86", "amd64", "aarch64"] {
+                let settings = format!(
+                    "Property settings:\n    java.version = {version}\n    os.arch = {architecture}\n"
+                );
+                let found =
+                    java_version_from_properties(&java, &settings).unwrap();
+                assert_eq!(found.parsed_version, major);
+                assert_eq!(found.architecture, architecture);
+                assert_eq!(Path::new(&found.path), java.as_path());
+            }
+        }
+        let helper = java_version_from_properties(
+            &java,
+            "os.arch=amd64\njava.version=1.7.0_80\n",
+        )
+        .unwrap();
+        assert_eq!(helper.parsed_version, 7);
+        for incomplete in [
+            "Unrecognized option: -XshowSettings:properties",
+            "java.version=1.7.0_80",
+            "os.arch=amd64",
+            "java.version=invalid\nos.arch=amd64",
+            "java.version=1.7.0_80\nos.arch=",
+        ] {
+            assert!(java_version_from_properties(&java, incomplete).is_none());
+        }
+    }
+
+    #[test]
+    fn version_probe_reads_legacy_hotspot_banners() {
+        let java = Path::new("runtime/bin/java");
+        for (version, platform, architecture) in [
+            ("1.5.0_22", "windows-x86", "x86"),
+            ("1.6.0-119", "windows-amd64", "amd64"),
+            ("1.6.0_45", "linux-i586", "x86"),
+            ("1.7.0_80", "macosx-x86_64", "amd64"),
+        ] {
+            let detected = java_version_from_legacy_output(
+                java,
+                &format!("java version \"{version}\"\n"),
+                &format!("Java HotSpot(TM) Server VM (test) for {platform} JRE ({version})"),
+            )
+            .unwrap();
+            assert_eq!(
+                detected.parsed_version,
+                extract_java_version(version).unwrap()
+            );
+            assert_eq!(detected.architecture, architecture);
+        }
+        assert!(
+            java_version_from_legacy_output(
+                java,
+                "java version \"1.6.0_45\"",
+                "No architecture information",
+            )
+            .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn discovery_preserves_legacy_and_modern_java() {
+        let root = tempfile::tempdir().unwrap();
+        let mut paths = HashSet::new();
+        for version in [5, 6, 7, 8, 17, 21, 25] {
+            let runtime = root.path().join(format!("java-{version}"));
+            let bin = runtime.join("bin");
+            make_java_bin(&bin);
+            let version_string = if version <= 8 {
+                format!("1.{version}.0")
+            } else {
+                format!("{version}.0.1")
+            };
+            std::fs::write(
+                runtime.join("release"),
+                format!(
+                    "JAVA_VERSION=\"{version_string}\"\nOS_ARCH=\"amd64\"\n"
+                ),
+            )
+            .unwrap();
+            let java = bin.join(JAVA_BIN);
+            paths.insert(java);
+        }
+        let found: HashSet<_> = check_java_at_filepaths(paths)
+            .await
+            .into_iter()
+            .map(|java| {
+                let expected = root
+                    .path()
+                    .join(format!("java-{}", java.parsed_version))
+                    .join("bin")
+                    .join(JAVA_BIN);
+                assert_eq!(
+                    Path::new(&java.path),
+                    io::canonicalize(expected).unwrap()
+                );
+                java.parsed_version
+            })
+            .collect();
+        assert_eq!(found, HashSet::from([5, 6, 7, 8, 17, 21, 25]));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn version_probe_uses_the_console_from_the_same_runtime() {
+        let root = tempfile::tempdir().unwrap();
+        let bin = root.path().join("bin");
+        make_java_bin(&bin);
+        let windowed = bin.join("javaw.exe");
+        let console = bin.join("java.exe");
+        assert!(matches!(
+            java_probe_command(&windowed),
+            Err(JREError::NoExecutable(path)) if path == console
+        ));
+        std::fs::write(&console, []).unwrap();
+        let command = java_probe_command(&windowed).unwrap();
+        assert_eq!(command.get_program(), console.as_os_str());
     }
 }

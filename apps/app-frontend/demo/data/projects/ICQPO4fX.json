@@ -1,0 +1,254 @@
+{
+  "id": "ICQPO4fX",
+  "slug": "fresh-smooth",
+  "title": "Fresh & Smooth",
+  "description": "Making Minecraft As Animated, and As Fresh As possible while remaining fully client-based (similar to Actions & Stuff pack)",
+  "author": "EnderPacks",
+  "categories": ["adventure", "fabric", "lightweight", "multiplayer", "neoforge", "optimization"],
+  "display_categories": ["adventure", "lightweight", "optimization"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "modpack",
+  "downloads": 1529339,
+  "followers": 1829,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["fabric", "neoforge"],
+  "game_versions": [
+    "1.20.1",
+    "1.21.1",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.8",
+    "1.21.10",
+    "1.21.11",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "WkwdmoDl",
+  "date_created": "2025-02-23T14:04:41.869041Z",
+  "date_modified": "2026-10-16T16:26:15.295569Z",
+  "color": 10774100,
+  "published": "2025-02-23T14:04:41.869041Z",
+  "additional_categories": ["multiplayer"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": "https://discord.gg/swzrfdWYYS",
+  "donation_urls": [],
+  "versions_total": 117,
+  "body": "<h1 style=\"text-align: center;\">Fresh & Smooth</h1>\n\nThis is a **modpack** dedicated to mods and texture packs that **makes the game more alive** and make it feel as fresh (and smooth) as possible.\n\nYou can also try this modpack on Curseforge! [CF Fresh n' Smooth modpack](https://www.curseforge.com/minecraft/modpacks/fresh-and-smooth)\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/_srPykohHSQ\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/Tq6TZfTmhZA\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n\n<h3>What is it inspired by?</h3>\n\nThe main **inspiration** behind this project were two add-ons, **[Actions & Stuff](https://www.minecraft.net/en-us/marketplace/pdp?id=61c7a786-d7ad-49e0-a710-817121cd9795)** and **[Realistic Biomes](https://www.minecraft.net/en-us/marketplace/pdp?id=2249c366-c812-4fe5-a6ec-abe9d6bea6bc).**\n\nThe mod pack is available for **1.21.5** and **1.21.11** **fabric**; in light of the amount of mods here, the performance is smooth, but require a capable computer, more emphasis on the Processor due to animations and particles.\n\n<h2>credits to mods that aren't on the modrinth ecosystem:</h2>\n\n<ul>\n  <li><a href=\"https://www.planetminecraft.com/texture-pack/action-s-amp-stuff-pumpkin-no-blur/\n\"> Action and stuff pumpkins</a></li>\n\n\n  <li><a href=\"https://legacy.curseforge.com/minecraft/texture-packs/better-tridents\"> Better Trident</a></li>\n\n\n  <li><a href=\"https://www.curseforge.com/minecraft/texture-packs/luminous\"> Lumious 1.4</a></li>\n</ul>\n\n\n- [Sildur's enhanced default](https://www.curseforge.com/minecraft/shaders/sildurs-enhanced-default)\n\n- [Locomotion By James 1.21.10+ only](https://github.com/Trainguy9512/locomotion/tags)\n\n\n**IMPORTANT:** to avoid FPS drops, play this modpack on a server, **this way your processor only handle the visuals**, whilst the server handles the entities and the chunks, if you don't believe me, try running my modpack on a server vs on singleplayer.\n\nAny Reputable Service is fine, but if you'd like to support me, use **[Pinehosting](https://pine.host/enderverse)**, write my Code \"ENDER\" and you'll get 30% your 1st month!\n\n<h2>Take a look at this video!</h2>\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube-nocookie.com/embed/hV6BZ-LhxbA\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>\n",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/ICQPO4fX/images/e1efdf4cb9091259da01cb198dc48f6d95c359af.gif",
+      "featured": true,
+      "title": "Smooth Player Animations",
+      "description": null,
+      "created": "2026-01-08T13:09:04.638276Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/ICQPO4fX/images/b90936300d4384f49fdb6e85341fe98d00d56eca_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2025-03-01T23:11:03.065364Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/ICQPO4fX/images/1f37415406f97cf1db33c8e5dc37cc07e1297ade_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2025-04-14T12:22:42.952771Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/ICQPO4fX/images/e35b95b43c71b46419a10d7d12a3797bc83f78e3_350.webp",
+      "featured": false,
+      "title": "Glowing Trims",
+      "description": null,
+      "created": "2025-04-14T12:22:56.500527Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "EnderPacks",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/cyzeSBW4/2ab64b9773e22801028f994bb4d32435dcd8b620_96.webp"
+    },
+    {
+      "username": "Betaeta",
+      "role": "Former Porter (1.21.5)",
+      "avatar": "https://cdn.modrinth.com/user/WHVBS7Ye/597acd4602d4be2529457b1690152a80f18ff6d5.png"
+    },
+    {
+      "username": "Fyoncle",
+      "role": "Contributer",
+      "avatar": "https://cdn.modrinth.com/data/I8WoZuCX/ec24c7631500978ae0f6b5612aea4ff62ed8feae_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "WkwdmoDl",
+      "name": "Fresh & Smooth 26.3 RELEASE - BIG Player Animation Update too!",
+      "version_number": "2.9.7+26.3",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-16T16:26:15.295569Z",
+      "downloads": 25988,
+      "changelog": "**- Touch'n Motion (COMPLETE OVERHAUL OF THE PLAYER ANIMATION)**\n\n**- Port to 26.3 (some mods have been shaved for this pack to work at all lol)**\n\n**- Custom Glow Enchantment Outline (old enchantment glint mod is outdated for now)**\n\n**- fixing fishing rod on the enchanted fishing line mod**\n\n**- Take A seat (+ compat for Fa player), you can now sit down!**\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fresh & Smooth 26.3 (initial release) 2.9.7.mrpack",
+          "size": 5805081,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "7WgtmLp8",
+      "name": "Fresh & Smooth 2.9.6 (26.2)",
+      "version_number": "2.9.6+26.2",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-30T17:37:16.115370Z",
+      "downloads": 80956,
+      "changelog": "## Version 26.2 - First Stable Full Release\n\n*Note: Work on version 26.3 is currently in progress, but being delayed while waiting for most mods to update.*\n\n### Fixes & Improvements\n\nResolved an issue where visual effects was failing to load\n\nFixed stuttering on distant animations due to a particular performance mod.\n\nDebloated the pack to reduce lag and improve overall performance (most notably particle ticking).\n\nFixed a visual inventory glitches that occurred while using workbenches.\n\nFixed buggy visuals for baby horses.\n\nFixed glitchy models for baby zombies.\n\n\n### Additions\n\nAdded Do A Barrel Roll to the pack\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fresh & Smooth 26.2 full release 1.0.0.mrpack",
+          "size": 4469614,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "H0gL1Nnt",
+      "name": "Fresh & Smooth 1.21.11",
+      "version_number": "2.9.5+1.21.11",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-20T15:10:08.607527Z",
+      "downloads": 36225,
+      "changelog": "- re-enabled Visual effects+ \n\n- configured not enough animations to include torch and lanterns \n\n- Re-enabled AsyncParticles on 1.21.11, performance is much better with VFX+ now \n\n- Enchanted Fishing Line \n\n- Fixed enchanting table glitch \n\n- updated some projects for more features and less bugs \n\n- minor adjustments to the atmosphere \n\n- fixed item sprite issue ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fresh & Smooth (1.21.11) 2.9.5 fixed.mrpack",
+          "size": 8551512,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "y7eWOo4p",
+      "name": "Fresh & Smooth 26.2 | 2.9.5",
+      "version_number": "2.9.5+26.2",
+      "version_type": "beta",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-18T15:10:58.866944Z",
+      "downloads": 126602,
+      "changelog": "[initial 26.2 update, with plenty of bug fixes (still have some slight visual and audio bugs, bear with me as I eradicate them)\n\n- reupload as the last version wasnt client sided",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fresh & Smooth 26.2 2.9.5.mrpack",
+          "size": 4723976,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "QVeqcipm",
+      "name": "Fresh & Smooth 2.9.5",
+      "version_number": "2.9.5+26.1.2",
+      "version_type": "beta",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-03T12:06:51.895921Z",
+      "downloads": 75070,
+      "changelog": "- Fixed so many bugs, including chests being invisible\n\n- Sunbathing godrays work now\n\n- better performance with particles thanks to AsyncParticles",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fresh & Smooth 2.9.5 2.9.5.mrpack",
+          "size": 9983712,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "didDeXKR",
+      "name": "Fresh & Smooth 2.9.4",
+      "version_number": "2.9.4+1.21.11",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-18T14:13:42.760182Z",
+      "downloads": 93845,
+      "changelog": "- removed overrided packs\n\n- fixed shield\n\n- fixed perspective bugs\n\n- fixed bad fog visuals for rain/thunders\n\n- fixed rain particles\n\n- maintain CF versions\n\n- fixed stuttering mob animations\n\n- 3d armor is now compatible with lively turtle helmet\n\n- I see my armored hand\n\n- passive pre generation for less lag related to chunk loading ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fresh & Smooth 2.9.4 2.9.4.mrpack",
+          "size": 4612262,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "NTyPK7zG",
+      "name": "F&S 2.9.3 | IMPORTANT UPDATE",
+      "version_number": "2.9.3+1.21.11",
+      "version_type": "release",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-03T13:17:49.518363Z",
+      "downloads": 42897,
+      "changelog": "[This update overhauls the visual effects on the game and remain FPS-friendly while at it!]\n\n**- Updated sunbathing godrays**\n\n**- ADDED VFX+ 1.2 (NO MORE FPS STUTTERS ON THIS PACK!!!)**\n\n**- Cinematic Respawn**\n\n**- Fixed enchanting table glitch**\n\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Fresh & Smooth 2.9.3.mrpack",
+          "size": 28153568,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8u6aLDzE",
+      "name": "Fresh & Smooth 2.9.2",
+      "version_number": "2.9.2+26.1.2",
+      "version_type": "beta",
+      "game_versions": ["26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-07-03T12:58:20.844841Z",
+      "downloads": 76208,
+      "changelog": "HIGHLY UNSTABLE!",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "F&S Punchy 26.1.2 2.9.2.mrpack",
+          "size": 9977969,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

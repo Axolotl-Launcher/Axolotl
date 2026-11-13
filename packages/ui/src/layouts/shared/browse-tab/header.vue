@@ -6,14 +6,11 @@ import { useRouter } from 'vue-router'
 import Admonition from '#ui/components/base/Admonition.vue'
 import Avatar from '#ui/components/base/Avatar.vue'
 import Button from '#ui/components/base/buttons/Button.vue'
-import { useServerImage } from '#ui/composables/use-server-image'
 import { formatLoaderLabel } from '#ui/utils/loaders'
 
 import SelectedProjectsLeaveModal from './components/SelectedProjectsLeaveModal.vue'
 import { injectBrowseManager } from './providers/browse-manager'
 import type { BrowseInstallContext } from './types'
-
-const MEDAL_ICON_URL = 'https://cdn-raw.modrinth.com/medal_icon.webp'
 
 const router = useRouter()
 const props = defineProps<{
@@ -25,17 +22,7 @@ const ctx = injectBrowseManager(null)
 const installContext = computed(() => props.installContext ?? ctx?.installContext?.value ?? null)
 const selectedProjectsLeaveModal = ref<InstanceType<typeof SelectedProjectsLeaveModal>>()
 
-const serverId = computed(() => installContext.value?.serverId ?? '')
-const upstream = computed(() => installContext.value?.upstream ?? null)
-
-const { image: fetchedIcon } = useServerImage(serverId, upstream, {
-    enabled: computed(() => !!installContext.value?.serverId),
-})
-
-const iconSrc = computed(() => {
-    if (installContext.value?.isMedal) return MEDAL_ICON_URL
-    return fetchedIcon.value ?? installContext.value?.iconSrc ?? null
-})
+const iconSrc = computed(() => installContext.value?.iconSrc ?? null)
 
 const loaderIcon = computed(() => {
     const loader = installContext.value?.loader

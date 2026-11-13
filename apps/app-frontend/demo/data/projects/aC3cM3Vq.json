@@ -1,0 +1,336 @@
+{
+  "id": "aC3cM3Vq",
+  "slug": "mouse-tweaks",
+  "title": "Mouse Tweaks",
+  "description": "Enhances inventory management by adding various functions to the mouse buttons. ",
+  "author": "YaLTeR",
+  "categories": ["fabric", "forge", "modloader", "neoforge", "storage", "utility"],
+  "display_categories": ["fabric", "forge", "modloader", "neoforge", "storage", "utility"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 64439063,
+  "followers": 9251,
+  "license": {
+    "id": "BSD-3-Clause",
+    "name": "BSD 3-Clause \"New\" or \"Revised\" License"
+  },
+  "loaders": ["fabric", "forge", "modloader", "neoforge"],
+  "game_versions": [
+    "b1.7.3",
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "nDrx0Wkc",
+  "date_created": "2021-03-20T15:55:49.895120Z",
+  "date_modified": "2026-09-20T19:33:11.716978Z",
+  "color": 14145495,
+  "published": "2021-03-20T15:55:49.895120Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/YaLTeR/MouseTweaks/issues",
+  "source_url": "https://github.com/YaLTeR/MouseTweaks",
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [
+    {
+      "platform": "Github",
+      "url": "https://github.com/sponsors/YaLTeR"
+    }
+  ],
+  "versions_total": 55,
+  "body": "Mouse Tweaks replaces the standard RMB dragging mechanic, adds two new LMB dragging mechanics and an ability to quickly move items with the scroll wheel.\n\n## Installation\n\n1. Install a compatible mod loader:\n    - 1.16.5 and later: install Minecraft Forge or Fabric.\n    - 1.14.4 and later: install Minecraft Forge.\n    - 1.12.2 and earlier: install either Minecraft Forge or LiteLoader (or both).\n2. Put the Mouse Tweaks jar-file into the mods folder in your .minecraft directory.\n\nMouse Tweaks is purely client-side. There is no server-side component.\n\n### Extras\n\n[**Mouse Tweaks API**](https://github.com/YaLTeR/MouseTweaks/tree/master/src/main/java/yalter/mousetweaks/api)\n\nConfiguration file: `.minecraft/config/MouseTweaks.cfg`\n\n## Tweaks\n\n### RMB Tweak\n\nVery similar to the standard RMB dragging mechanic, with one difference: if you drag over a slot multiple times, an item will be put there multiple times. Replaces the standard mechanic if enabled.\n\n**Configuration setting:** `RMBTweak=1`\n\nHold your right mouse button:\n\n![](https://i.imgur.com/Uo7xF.png)\n\nDrag your mouse around the crafting grid:\n\n![](https://i.imgur.com/NCRED.png)\n\nYou can drag your mouse on top of existing items:\n\n![](https://i.imgur.com/6MQv6.png)\n\n### LMB Tweak (with item)\n\nLets you quickly pick up or move items of the same type.\n\n**Configuration setting:** `LMBTweakWithItem=1`\n\nHold your left mouse button to pick up an item:\n\n\n\nDrag your mouse across the inventory. Items of the same type will be picked up:\n\n\n\nHold shift and drag. Items of the same type will get \"shift-clicked\":\n\n\n\n### LMB Tweak (without item)\n\nQuickly move items into another inventory.\n\n**Configuration setting:** `LMBTweakWithoutItem=1`\n\nHold shift, then hold your left mouse button:\n\n*(Mouse cursor is not visible for some reason)*\n\n\n\nDrag your mouse across the inventory. Items will get \"shift-clicked\":\n\n*(Mouse cursor is not visible for some reason)*\n\n\n\n### Wheel Tweak\n\nScroll to quickly move items between inventories. When you scroll down on an item stack, its items will be moved one by one. When you scroll up, items will be moved into it from another inventory.\n\n**Configuration setting:** `WheelTweak=1`\n\n**Configuration setting:** `WheelSearchOrder=1`\n\nWhen you scroll up, the mod will search for items from last to first (when this is set to 1) or from first to last (when this is set to 0).\n\n**Configuration setting:** `WheelScrollDirection=0`\n\nSet this to 1 to invert the default scroll actions. So, when set to 1, scrolling down will pull the items and scrolling up will push the items.\n\nSet this to 2 to enable the inventory position aware scrolling. Scrolling up will push the items into the other inventory if it's above the selected slot, or pull items from the other inventory if it's below the selected slot. Vice versa for scrolling down.\n\n### Obsolete / Removed Settings\n\nThese settings existed in older Mouse Tweaks versions but were removed since.\n\n**Configuration setting:** `OnTickMethodOrder=Forge, LiteLoader`\n\nMouse Tweaks can use multiple APIs for an OnTick method that it requires. You can use this setting to control the API it prefers. This shouldn't really matter at all. If a method isn't supported (for example, you don't have the API installed) the mod will proceed to check the next ones.\n\n**Configuration setting:** `ScrollHandling=0`\n\nToggles between \"smooth scrolling, minor issues\" (0) and \"non-smooth scrolling, no issues\" (1). When set to smooth scrolling, minor issues may be experienced such as scrolling \"through\" JEI or other mods. When set to non-smooth scrolling, those issues will not happen, but the scrolling will be a little non-smooth. Non-smooth scrolling works only with the Forge OnTick method.\n\nThis option is set to smooth scrolling by default because the aforementioned issues require rather specific conditions to trigger and aren't very impactful, while scrolling items is something you do all the time and want the experience to be as good as possible.\n\n## Compatibility\n\nMouse Tweaks is compatible with everything based on `GuiContainer` (as long as the behavior isn't changed too much).\n\nIf your GUI isn't based on `GuiContainer`, or if you want to improve compatibility (making Mouse Tweaks ignore some slot, for example), take a look at the [API documentation](https://github.com/YaLTeR/MouseTweaks/blob/2dc5bb108c2663f9a07b3a181483733a0274b41a/src/api/java/yalter/mousetweaks/api/IMTModGuiContainer3.java).\n\n## Modpacks\n\nFeel free to include Mouse Tweaks in modpacks.\n",
+  "gallery": [],
+  "team": [
+    {
+      "username": "YaLTeR",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/On32SQVu/8790148b53ccb56bd36d02623a71e71c9deeb4b4.jpeg"
+    }
+  ],
+  "versions": [
+    {
+      "id": "nDrx0Wkc",
+      "name": "[26.3 Forge] Mouse Tweaks 2.31",
+      "version_number": "26.3-2.31-forge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-09-20T19:33:11.716978Z",
+      "downloads": 16608,
+      "changelog": "Updated to Minecraft 26.3.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "MouseTweaks-forge-mc26.3-2.31.jar",
+          "size": 74103,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-forge-mc26.3-2.31-api.jar",
+          "size": 1995,
+          "primary": false
+        },
+        {
+          "filename": "MouseTweaks-forge-mc26.3-2.31-src.jar",
+          "size": 20252,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "f4tPRGDq",
+      "name": "[26.3 NeoForge] Mouse Tweaks 2.31",
+      "version_number": "26.3-2.31-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-15T20:52:25.056514Z",
+      "downloads": 26527,
+      "changelog": "Updated to Minecraft 26.3.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "MouseTweaks-neoforge-mc26.3-2.31.jar",
+          "size": 74133,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-neoforge-mc26.3-2.31-api.jar",
+          "size": 1995,
+          "primary": false
+        },
+        {
+          "filename": "MouseTweaks-neoforge-mc26.3-2.31-src.jar",
+          "size": 20700,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "LeMuMhLv",
+      "name": "[26.3 Fabric] Mouse Tweaks 2.31",
+      "version_number": "26.3-2.31-fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-15T17:43:07.905822Z",
+      "downloads": 968740,
+      "changelog": "Updated to Minecraft 26.3.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "MouseTweaks-fabric-mc26.3-2.31.jar",
+          "size": 74569,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-fabric-mc26.3-2.31-sources.jar",
+          "size": 63557,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "A88Ep3CF",
+      "name": "[26.2 Forge] Mouse Tweaks 2.31",
+      "version_number": "26.2-2.31-forge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-06-18T09:11:11.900039Z",
+      "downloads": 31055,
+      "changelog": "Updated to Minecraft 26.2.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "MouseTweaks-forge-mc26.2-2.31.jar",
+          "size": 74453,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-forge-mc26.2-2.31-api.jar",
+          "size": 1995,
+          "primary": false
+        },
+        {
+          "filename": "MouseTweaks-forge-mc26.2-2.31-src.jar",
+          "size": 20201,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "rokwij6O",
+      "name": "[26.2 NeoForge] Mouse Tweaks 2.31",
+      "version_number": "26.2-2.31-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-06-16T20:34:57.817903Z",
+      "downloads": 52802,
+      "changelog": "Updated to Minecraft 26.2.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "MouseTweaks-neoforge-mc26.2-2.31.jar",
+          "size": 74483,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-neoforge-mc26.2-2.31-api.jar",
+          "size": 1995,
+          "primary": false
+        },
+        {
+          "filename": "MouseTweaks-neoforge-mc26.2-2.31-src.jar",
+          "size": 20649,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "jOiTBIaB",
+      "name": "[26.2 Fabric] Mouse Tweaks 2.31",
+      "version_number": "26.2-2.31-fabric",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-16T18:58:14.228408Z",
+      "downloads": 1999510,
+      "changelog": "Updated to Minecraft 26.2.",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "mOgUt4GM",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "MouseTweaks-fabric-mc26.2-2.31.jar",
+          "size": 75872,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-fabric-mc26.2-2.31-sources.jar",
+          "size": 64632,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "EBIKCzuP",
+      "name": "[26.1 Fabric] Mouse Tweaks 2.31",
+      "version_number": "26.1-2.31-fabric",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-03-29T13:39:14.830868Z",
+      "downloads": 1724514,
+      "changelog": "- Updated to Minecraft 26.1.\n- Wheel tweak will no longer reset the smelting progress when scrolling items from the furnace input slot.\n- Wheel tweak will now work as expected when holding a Bundle on the mouse (it will move items the same way as when holding any other item).\n- Fixed a rare and hard to hit bug where very quick scrolling could push fewer items than expected into empty slots.\n\nThe way the wheel tweak changes work under the hood is that the wheel tweak will now grab the items with a right click instead of a left click. This leaves half of the stack in the slot instead of taking the whole stack out temporarily. For a furnace input slot, this lets the smelting continue instead of interrupting it.",
+      "dependencies": [
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "mOgUt4GM",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "MouseTweaks-fabric-mc26.1-2.31.jar",
+          "size": 75833,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-fabric-mc26.1-2.31-sources.jar",
+          "size": 64629,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "Vd1fgVcT",
+      "name": "[26.1 NeoForge] Mouse Tweaks 2.31",
+      "version_number": "26.1-2.31-neoforge",
+      "version_type": "release",
+      "game_versions": ["26.1", "26.1.1", "26.1.2"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-03-29T13:38:34.215512Z",
+      "downloads": 63363,
+      "changelog": "- Updated to Minecraft 26.1.\n- Wheel tweak will no longer reset the smelting progress when scrolling items from the furnace input slot.\n- Wheel tweak will now work as expected when holding a Bundle on the mouse (it will move items the same way as when holding any other item).\n- Fixed a rare and hard to hit bug where very quick scrolling could push fewer items than expected into empty slots.\n\nThe way the wheel tweak changes work under the hood is that the wheel tweak will now grab the items with a right click instead of a left click. This leaves half of the stack in the slot instead of taking the whole stack out temporarily. For a furnace input slot, this lets the smelting continue instead of interrupting it.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "MouseTweaks-neoforge-mc26.1-2.31.jar",
+          "size": 74445,
+          "primary": true
+        },
+        {
+          "filename": "MouseTweaks-neoforge-mc26.1-2.31-api.jar",
+          "size": 1995,
+          "primary": false
+        },
+        {
+          "filename": "MouseTweaks-neoforge-mc26.1-2.31-src.jar",
+          "size": 20646,
+          "primary": false
+        }
+      ]
+    }
+  ]
+}

@@ -21,6 +21,7 @@ import {
     type InstallPhaseId,
     type InstallProgress,
 } from '@/helpers/install'
+import { installJobTitle } from '@/helpers/install-job-presentation'
 import {
     effectiveInstallProgress,
     hasDeterminateInstallProgress,
@@ -227,6 +228,8 @@ const activeJobStatuses = new Set<InstallJobStatus>([
 ])
 const cancelableJobStatuses = new Set<InstallJobStatus>(['queued', 'running', 'waiting_for_user'])
 const copyDetailsStallMs = 30_000
+/** How long a job that needs nothing more from the user stays in the popup. */
+const finishedJobRetentionMs = 10_000
 
 interface ProgressSnapshot {
     signature: string
@@ -245,6 +248,8 @@ export async function useInstallJobNotifications(opts: {
     manager: DownloadManager
     handleError: (err: unknown) => void
     onChange: (resummon?: boolean) => void
+    /** A finished job left the popup on its own, which is not news to the user. */
+    onFinishedJobExpired: () => void
 }) {
     const { formatMessage } = useVIntl()
     const jobs = ref<InstallJobSnapshot[]>([])
@@ -258,19 +263,19 @@ export async function useInstallJobNotifications(opts: {
     let nextJobOrder = 0
     const copiedResetTimeouts = new Map<string, number>()
     const progressSnapshots = new Map<string, ProgressSnapshot>()
+    const finishedJobExpiry = new Map<string, ReturnType<typeof setTimeout>>()
+    const clearedFailedJobIds = new Set<string>()
 
     function getTitle(job: InstallJobSnapshot): string {
         if (job.error?.code === 'cache_repair_required') {
             return formatMessage(messages.cacheRepairTitle)
         }
-        if (job.display?.title) return job.display.title
-        if (job.details.type === 'instance') return job.details.name
-        if (job.details.type === 'modpack' && job.details.title) return job.details.title
         const instanceId = installJobInstanceId(job)
-        return job.instance_deleted
+        const fallback = job.instance_deleted
             ? formatMessage(messages.deletedInstance)
             : ((instanceId ? instanceNames.value[instanceId] : null) ??
-                  formatMessage(messages.unknownInstance))
+              formatMessage(messages.unknownInstance))
+        return installJobTitle(job, formatMessage, fallback)
     }
 
     function getText(job: InstallJobSnapshot): string {
@@ -418,9 +423,6 @@ export async function useInstallJobNotifications(opts: {
             job.phase === 'downloading_minecraft'
         ) {
             return 'bytes'
-        }
-        if (job.phase === 'running_loader_processors') {
-            return 'count'
         }
         return 'percentage'
     }
@@ -679,7 +681,50 @@ export async function useInstallJobNotifications(opts: {
         return buttons
     }
 
+    function syncFinishedJobExpiry(visibleJobs: InstallJobSnapshot[]) {
+        const retainedJobIds = new Set(
+            visibleJobs
+                .filter((job) => retainedJobStatuses.has(job.status))
+                .map((job) => job.job_id),
+        )
+        for (const [jobId, timeout] of finishedJobExpiry) {
+            if (retainedJobIds.has(jobId)) continue
+            clearTimeout(timeout)
+            finishedJobExpiry.delete(jobId)
+        }
+        for (const jobId of retainedJobIds) {
+            if (finishedJobExpiry.has(jobId)) continue
+            finishedJobExpiry.set(
+                jobId,
+                setTimeout(() => {
+                    finishedJobExpiry.delete(jobId)
+                    jobs.value = jobs.value.filter((job) => job.job_id !== jobId)
+                    opts.onFinishedJobExpired()
+                }, finishedJobRetentionMs),
+            )
+        }
+    }
+
+    /**
+     * Drops finished jobs from the popup for the "clear" action. The jobs stay
+     * on the downloads page. A later job must not bring them back, and a failed
+     * job only returns if it is retried.
+     */
+    function clearFinishedJobs() {
+        for (const job of jobs.value) {
+            if (isFailedJob(job)) clearedFailedJobIds.add(job.job_id)
+        }
+        jobs.value = jobs.value.filter((job) => !isFinishedJob(job))
+        syncFinishedJobExpiry(jobs.value)
+    }
+
     function setJobs(nextJobs: InstallJobSnapshot[]) {
+        for (const jobId of clearedFailedJobIds) {
+            if (!nextJobs.some((job) => job.job_id === jobId && isFailedJob(job))) {
+                clearedFailedJobIds.delete(jobId)
+            }
+        }
+
         const currentJobs = new Map(jobs.value.map((job) => [job.job_id, job]))
         nextJobs = nextJobs.map((job) => {
             const current = currentJobs.get(job.job_id)
@@ -695,10 +740,11 @@ export async function useInstallJobNotifications(opts: {
         const currentJobIds = new Set(jobs.value.map((job) => job.job_id))
         const visibleJobs = nextJobs.filter(
             (job) =>
-                visibleJobStatuses.has(job.status) ||
+                (visibleJobStatuses.has(job.status) && !clearedFailedJobIds.has(job.job_id)) ||
                 (retainedJobStatuses.has(job.status) && currentJobIds.has(job.job_id)),
         )
         syncProgressSnapshots(visibleJobs)
+        syncFinishedJobExpiry(visibleJobs)
 
         jobs.value = visibleJobs.sort(
             (a, b) =>
@@ -865,9 +911,13 @@ export async function useInstallJobNotifications(opts: {
         stateSignature,
         buttons,
         refresh,
+        clearFinishedJobs,
         dispose: () => {
             for (const timeout of copiedResetTimeouts.values()) {
                 window.clearTimeout(timeout)
+            }
+            for (const timeout of finishedJobExpiry.values()) {
+                clearTimeout(timeout)
             }
             for (const jobId of progressSnapshots.keys()) {
                 clearProgressSnapshot(jobId)

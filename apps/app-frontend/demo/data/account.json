@@ -1,0 +1,15 @@
+{
+  "id": "93aeb143b3764adc9fbd525facdde3c8",
+  "name": "Mystic_Stars",
+  "skin": {
+    "texture_key": "505728326b1cda785bfd0f1ebd9cc78582624f59c57c184b522c6cd39724e80f",
+    "file": "mystic-stars-skin.png",
+    "url": "https://textures.minecraft.net/texture/505728326b1cda785bfd0f1ebd9cc78582624f59c57c184b522c6cd39724e80f",
+    "variant": "SLIM"
+  },
+  "cape": {
+    "texture_key": "afd553b39358a24edfe3b8a9a939fa5fa4faa4d9a9c3d6af8eafb377fa05c2bb",
+    "file": "mystic-stars-cape.png",
+    "url": "https://textures.minecraft.net/texture/afd553b39358a24edfe3b8a9a939fa5fa4faa4d9a9c3d6af8eafb377fa05c2bb"
+  }
+}

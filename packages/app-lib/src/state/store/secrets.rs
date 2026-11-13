@@ -13,8 +13,13 @@
 //!
 //! This module is the only way the crate reaches the store.
 
+#[cfg(test)]
 use std::cell::Cell;
+#[cfg(any(target_os = "macos", test))]
+use std::collections::HashMap;
 use std::path::Path;
+#[cfg(any(target_os = "macos", test))]
+use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -46,19 +51,46 @@ pub(crate) enum Stored {
     Unavailable,
 }
 
+/// Whether this host has no credential store the launcher can use.
+///
+/// One store answers the whole process, so one answer is kept. A test build
+/// reaches a store through a substitute of its own, which is why the verdict is
+/// per thread there: a test that brings one must not decide for the test running
+/// beside it.
+#[cfg(not(test))]
+static NO_STORE: AtomicBool = AtomicBool::new(false);
+
+#[cfg(test)]
 thread_local! {
-    /// Whether this thread already found no credential store to work with, which
-    /// is as far as it needs to look: from then on the rows keep their own
-    /// secrets.
     static NO_STORE: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Whether the run has already said that this host has no credential store.
 static REPORTED: AtomicBool = AtomicBool::new(false);
 
-/// Whether this thread has no credential store the launcher can use.
-pub(crate) fn unavailable() -> bool {
+#[cfg(not(test))]
+fn no_store() -> bool {
+    NO_STORE.load(Ordering::Relaxed)
+}
+
+#[cfg(test)]
+fn no_store() -> bool {
     NO_STORE.with(Cell::get)
+}
+
+#[cfg(not(test))]
+fn note_no_store() {
+    NO_STORE.store(true, Ordering::Relaxed);
+}
+
+#[cfg(test)]
+fn note_no_store() {
+    NO_STORE.with(|flag| flag.set(true));
+}
+
+/// Whether the launcher has no credential store to work with.
+pub(crate) fn unavailable() -> bool {
+    no_store()
 }
 
 /// Names this run's entries after the data directory they belong to.
@@ -108,6 +140,35 @@ pub(crate) fn key(parts: &[&str]) -> String {
         key.push_str(part);
     }
     key
+}
+
+/// Reads an entry whose caller has no database fallback. A missing or locked
+/// system store must remain an error rather than looking like a signed-out user.
+pub(crate) fn read_entry(key: &str) -> crate::Result<Option<String>> {
+    if unavailable() {
+        return Err(unreadable());
+    }
+    backend().get(key).map_err(|_| unreadable())
+}
+
+/// Writes or removes an entry that must stay entirely in the system store.
+/// Callers with long records split them before reaching this boundary.
+pub(crate) fn write_entry(key: &str, value: Option<&str>) -> crate::Result<()> {
+    if unavailable() {
+        return Err(unreadable());
+    }
+    match value {
+        Some(value) if size(value) <= MOST => backend().set(key, value),
+        Some(_) => {
+            return Err(crate::ErrorKind::InputError(
+                "The credential exceeds the system store entry limit"
+                    .to_string(),
+            )
+            .into());
+        }
+        None => backend().delete(key),
+    }
+    .map_err(|_| unreadable())
 }
 
 /// Stores one secret, and says whether the store holds it now.
@@ -218,21 +279,17 @@ fn refused_error(key: &str) -> crate::Error {
     .into()
 }
 
-/// The store as one write found it: what each key held, so a write whose own
-/// statement then fails leaves the store the way it was.
+/// The store as one delete found it: what each dropped key held, so a row that
+/// then fails to go away leaves the store the way it was.
+///
+/// Only a drop is undone. A secret a write has just stored is not put back: a row
+/// states that the store holds its secret, not which secret, so a row left as it
+/// was beside a newer secret is a row that still reads — while a restored older
+/// token is one the sign-in that replaced it may already have spent.
 #[derive(Default)]
 pub(crate) struct Undo(Vec<(String, Option<String>)>);
 
 impl Undo {
-    /// Reads what one key holds now, before the write that is about to change it.
-    pub(crate) async fn watch(&mut self, key: &str) {
-        let held = match take(key.to_string()).await {
-            Stored::Value(value) => Some(value),
-            Stored::Missing | Stored::Unavailable => None,
-        };
-        self.0.push((key.to_string(), held));
-    }
-
     /// Drops one entry, because nothing will name it afterwards, and keeps what
     /// it held.
     ///
@@ -312,7 +369,14 @@ pub(crate) trait Backend: Send + Sync {
 }
 
 /// Why a store would not take part, in the words the platform gave.
-pub(crate) struct Refused(String);
+///
+/// `permanent` marks the answer a host without a credential store gives: only that
+/// one is worth remembering, because a store that is merely busy or that dislikes
+/// one key answers differently the next time.
+pub(crate) struct Refused {
+    reason: String,
+    permanent: bool,
+}
 
 /// The platform's credential store.
 #[cfg(not(test))]
@@ -340,6 +404,64 @@ impl Backend for System {
     }
 }
 
+/// A store that is asked for each secret once per run.
+///
+/// Release builds carry no stable code signature, so the macOS keychain treats
+/// every update as a new application and asks for the login password on each
+/// read of each item until the user picks "Always Allow". Account refreshes read
+/// the same items again and again, which turns one prompt into a stream of them.
+///
+/// The lock only ever covers one map operation and is never held across the
+/// store, whose answer can wait on the user. Only a value is remembered: a
+/// missing entry costs no prompt, and a refusal has to be able to change.
+#[cfg(any(target_os = "macos", test))]
+struct Remembering<B> {
+    store: B,
+    known: Mutex<HashMap<String, String>>,
+}
+
+#[cfg(any(target_os = "macos", test))]
+impl<B> Remembering<B> {
+    fn new(store: B) -> Self {
+        Self {
+            store,
+            known: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn known(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
+        self.known.lock().unwrap_or_else(|error| error.into_inner())
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+impl<B: Backend> Backend for Remembering<B> {
+    fn set(&self, key: &str, value: &str) -> Result<(), Refused> {
+        self.store.set(key, value)?;
+        self.known().insert(key.to_string(), value.to_string());
+        Ok(())
+    }
+
+    fn get(&self, key: &str) -> Result<Option<String>, Refused> {
+        if let Some(value) = self.known().get(key) {
+            return Ok(Some(value.clone()));
+        }
+        let Some(value) = self.store.get(key)? else {
+            return Ok(None);
+        };
+        // A write that landed during the read is newer than what was read.
+        Ok(Some(
+            self.known().entry(key.to_string()).or_insert(value).clone(),
+        ))
+    }
+
+    fn delete(&self, key: &str) -> Result<(), Refused> {
+        self.store.delete(key)?;
+        self.known().remove(key);
+        Ok(())
+    }
+}
+
 #[cfg(not(test))]
 fn entry(key: &str) -> Result<keyring::Entry, Refused> {
     // The data directory the run keeps its rows in is part of the name, so two
@@ -355,13 +477,21 @@ fn namespace() -> String {
 
 #[cfg(not(test))]
 fn refused(error: keyring::Error) -> Refused {
-    Refused(error.to_string())
+    Refused {
+        // A host with no credential store says so this way; a store that is
+        // locked, busy or unhappy with one key says something else, and asking
+        // again later is worth the call.
+        permanent: matches!(error, keyring::Error::NoStorageAccess(_)),
+        reason: error.to_string(),
+    }
 }
 
 /// Reports a refusal once: a host without a credential store refuses every
 /// secret, and the run needs to say so once rather than once per token.
-fn report(key: &str, Refused(reason): Refused) {
-    NO_STORE.with(|flag| flag.set(true));
+fn report(key: &str, Refused { reason, permanent }: Refused) {
+    if permanent {
+        note_no_store();
+    }
     if !REPORTED.swap(true, Ordering::Relaxed) {
         tracing::warn!(
             %key,
@@ -376,7 +506,14 @@ fn backend() -> &'static dyn Backend {
     testing::backend()
 }
 
-#[cfg(not(test))]
+#[cfg(all(not(test), target_os = "macos"))]
+fn backend() -> &'static dyn Backend {
+    static KEYCHAIN: std::sync::LazyLock<Remembering<System>> =
+        std::sync::LazyLock::new(|| Remembering::new(System));
+    &*KEYCHAIN
+}
+
+#[cfg(all(not(test), not(target_os = "macos")))]
 fn backend() -> &'static dyn Backend {
     &System
 }
@@ -444,7 +581,12 @@ pub(crate) mod testing {
 
         fn delete(&self, key: &str) -> Result<(), Refused> {
             if self.refuses_deletes.load(Ordering::Relaxed) {
-                return Err(Refused("the keyring is locked".to_string()));
+                // A store that is locked, not one that is missing: the next
+                // call is worth making.
+                return Err(Refused {
+                    reason: "the keyring is locked".to_string(),
+                    permanent: false,
+                });
             }
             self.lock().remove(key);
             Ok(())
@@ -456,15 +598,24 @@ pub(crate) mod testing {
 
     impl Backend for Refusing {
         fn set(&self, _: &str, _: &str) -> Result<(), Refused> {
-            Err(Refused("no credential store".to_string()))
+            Err(Refused {
+                reason: "no credential store".to_string(),
+                permanent: true,
+            })
         }
 
         fn get(&self, _: &str) -> Result<Option<String>, Refused> {
-            Err(Refused("no credential store".to_string()))
+            Err(Refused {
+                reason: "no credential store".to_string(),
+                permanent: true,
+            })
         }
 
         fn delete(&self, _: &str) -> Result<(), Refused> {
-            Err(Refused("no credential store".to_string()))
+            Err(Refused {
+                reason: "no credential store".to_string(),
+                permanent: true,
+            })
         }
     }
 
@@ -531,8 +682,123 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-    use super::{base_identifier, namespace_of};
+    use super::testing::Memory;
+    use super::{Backend, Refused, Remembering, base_identifier, namespace_of};
+
+    /// A store that counts how often it is really asked for a value.
+    #[derive(Default)]
+    struct Counting {
+        store: Memory,
+        reads: AtomicUsize,
+        refuses_reads: AtomicBool,
+    }
+
+    impl Backend for Counting {
+        fn set(&self, key: &str, value: &str) -> Result<(), Refused> {
+            self.store.set(key, value)
+        }
+
+        fn get(&self, key: &str) -> Result<Option<String>, Refused> {
+            self.reads.fetch_add(1, Ordering::Relaxed);
+            if self.refuses_reads.load(Ordering::Relaxed) {
+                return Err(Refused {
+                    reason: "the user cancelled the prompt".to_string(),
+                    permanent: false,
+                });
+            }
+            self.store.get(key)
+        }
+
+        fn delete(&self, key: &str) -> Result<(), Refused> {
+            self.store.delete(key)
+        }
+    }
+
+    fn remembering() -> Remembering<Counting> {
+        Remembering::new(Counting::default())
+    }
+
+    fn reads(remembering: &Remembering<Counting>) -> usize {
+        remembering.store.reads.load(Ordering::Relaxed)
+    }
+
+    fn read(remembering: &Remembering<Counting>, key: &str) -> Option<String> {
+        remembering.get(key).ok().flatten()
+    }
+
+    #[test]
+    fn a_secret_is_only_asked_for_once() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+        assert_eq!(reads(&store), 1);
+    }
+
+    #[test]
+    fn a_written_secret_replaces_the_remembered_one() {
+        let store = remembering();
+        store.store.store.put("token", "old");
+        read(&store, "token");
+
+        store.set("token", "new").map_err(|_| ()).unwrap();
+
+        assert_eq!(read(&store, "token").as_deref(), Some("new"));
+        assert_eq!(store.store.store.value("token").as_deref(), Some("new"));
+        assert_eq!(reads(&store), 1);
+    }
+
+    #[test]
+    fn a_deleted_secret_is_not_remembered() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+        read(&store, "token");
+
+        store.delete("token").map_err(|_| ()).unwrap();
+
+        assert_eq!(read(&store, "token"), None);
+        assert_eq!(reads(&store), 2);
+    }
+
+    #[test]
+    fn a_delete_the_store_refuses_keeps_the_secret() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+        read(&store, "token");
+        store.store.store.refuse_deletes();
+
+        assert!(store.delete("token").is_err());
+
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+    }
+
+    #[test]
+    fn a_refused_read_can_be_answered_later() {
+        let store = remembering();
+        store.store.store.put("token", "secret");
+        store.store.refuses_reads.store(true, Ordering::Relaxed);
+        assert!(store.get("token").is_err());
+
+        store.store.refuses_reads.store(false, Ordering::Relaxed);
+
+        assert_eq!(read(&store, "token").as_deref(), Some("secret"));
+    }
+
+    #[test]
+    fn a_missing_entry_is_looked_up_again() {
+        let store = remembering();
+        assert_eq!(read(&store, "token"), None);
+
+        store.store.store.put("token", "from another writer");
+
+        assert_eq!(
+            read(&store, "token").as_deref(),
+            Some("from another writer")
+        );
+    }
 
     /// Two data directories never share the entries that hold their secrets, and
     /// neither puts its own path into the name.

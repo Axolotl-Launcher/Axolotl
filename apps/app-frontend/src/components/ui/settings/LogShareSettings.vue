@@ -7,7 +7,7 @@ import {
     Toggle,
     useVIntl,
 } from '@modrinth/ui'
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import LogAgentSourcePicker from '@/components/ui/LogAgentSourcePicker.vue'
@@ -18,6 +18,7 @@ import {
     update_crash_analysis_ai_settings,
     update_log_share_settings,
 } from '@/helpers/logs'
+import { CLOUD_LOGAGENT_ENABLED } from '@/logagent/availability'
 import type { AnalysisSettings } from '@/logagent/types'
 
 import SettingsRow from './SettingsRow.vue'
@@ -37,7 +38,6 @@ type LogShareSettings = {
 
 const { formatMessage } = useVIntl()
 const router = useRouter()
-const replayOnboarding = inject<(mode: 'logagent') => Promise<void>>('replayOnboarding')
 const { handleError } = injectNotificationManager()
 const settings = ref<LogShareSettings>({
     share_provider: 'logshare',
@@ -85,7 +85,6 @@ const messages = defineMessages({
         id: 'app.logagent.settings.manage-models',
         defaultMessage: 'Configure AI providers',
     },
-    tour: { id: 'app.logagent.settings.tour', defaultMessage: 'About analysis sources' },
     supportedModels: {
         id: 'app.logagent.settings.supported-models',
         defaultMessage:
@@ -164,7 +163,7 @@ const modelOptions = computed(
             .map((model) => ({ value: model.id, label: model.name || model.id })) ?? [],
 )
 
-const isCustom = computed(() => aiSettings.value.ai_source === 'custom')
+const isCustom = computed(() => !CLOUD_LOGAGENT_ENABLED || aiSettings.value.ai_source === 'custom')
 
 const shareProviderOptions = [
     { value: 'logshare', label: 'LogShare' },
@@ -256,24 +255,19 @@ onMounted(async () => {
 <template>
     <div v-if="!loading" class="flex min-w-0 flex-col gap-6">
         <SettingsSection
+            :id="localSetup ? undefined : 'settings-target-log-share'"
             :title="formatMessage(localSetup ? messages.localSetupTitle : messages.analysisTitle)"
             :description="
-                formatMessage(
-                    localSetup ? messages.localSetupDescription : messages.analysisDescription,
-                )
+                CLOUD_LOGAGENT_ENABLED
+                    ? formatMessage(
+                          localSetup
+                              ? messages.localSetupDescription
+                              : messages.analysisDescription,
+                      )
+                    : undefined
             "
         >
-            <template #extra
-                ><Button v-if="!localSetup" type="quiet" @click="replayOnboarding?.('logagent')">{{
-                    formatMessage(messages.tour)
-                }}</Button></template
-            >
-            <div
-                v-if="!localSetup"
-                id="settings-target-log-share"
-                data-onboarding-id="logagent-settings-source"
-                class="p-4"
-            >
+            <div v-if="CLOUD_LOGAGENT_ENABLED && !localSetup" class="p-4">
                 <LogAgentSourcePicker
                     :model-value="aiSettings.ai_source"
                     :disabled="saving"
@@ -338,7 +332,7 @@ onMounted(async () => {
                     }}</Button>
                 </div>
             </template>
-            <div v-else data-onboarding-id="logagent-settings-cloud">
+            <div v-else>
                 <SettingsRow inline-control>
                     <template #label>{{ formatMessage(messages.noStorage) }}</template>
                     <template #description>{{
@@ -369,10 +363,27 @@ onMounted(async () => {
         </SettingsSection>
         <SettingsSection
             v-if="!localSetup"
-            data-onboarding-id="logagent-settings-sharing"
             :title="formatMessage(messages.sharingTitle)"
             :description="formatMessage(messages.sharingDescription)"
         >
+            <SettingsRow
+                v-if="!CLOUD_LOGAGENT_ENABLED && settings.ai_source === 'logshare'"
+                inline-control
+            >
+                <template #label>{{ formatMessage(messages.autoUpload) }}</template>
+                <template #description>{{
+                    formatMessage(messages.autoUploadDescription)
+                }}</template>
+                <template #control
+                    ><Toggle
+                        id="log-share-auto-upload"
+                        :model-value="settings.auto_upload"
+                        :disabled="saving"
+                        @update:model-value="
+                            updateShare({ auto_upload: !!$event, no_storage: false })
+                        "
+                /></template>
+            </SettingsRow>
             <SettingsRow>
                 <template #label>{{ formatMessage(messages.shareProvider) }}</template>
                 <template #control

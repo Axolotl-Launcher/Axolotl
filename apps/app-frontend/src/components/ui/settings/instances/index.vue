@@ -26,7 +26,8 @@ import {
     syncedOptionsKeys,
     syncedServersQueryOptions,
 } from '@/helpers/synced-options'
-import { syncedPackKeys, syncedPackQueryOptions } from '@/helpers/synced-packs'
+import { list_synced_packs, syncedPackKeys } from '@/helpers/synced-packs'
+import type { GameInstance } from '@/helpers/types'
 import { instanceKeys, instanceListQueryOptions } from '@/pages/instance/query-options'
 
 import SettingsRow from '../SettingsRow.vue'
@@ -244,8 +245,14 @@ const defaultGlobalOptions: GlobalSyncedOptions = {
 const globalOptionsQuery = useQuery(globalSyncedOptionsQueryOptions())
 const initializedOptionsQuery = useQuery(initializedSyncedOptionsQueryOptions())
 const gameOptionSourcesQuery = useQuery(gameOptionsSyncSourcesQueryOptions())
-const resourcePacksQuery = useQuery(syncedPackQueryOptions('resourcepack'))
-const dataPacksQuery = useQuery(syncedPackQueryOptions('datapack'))
+const resourcePacksQuery = useQuery({
+    queryKey: syncedPackKeys.list('resourcepack'),
+    queryFn: () => list_synced_packs('resourcepack'),
+})
+const dataPacksQuery = useQuery({
+    queryKey: syncedPackKeys.list('datapack'),
+    queryFn: () => list_synced_packs('datapack'),
+})
 const globalOptions = computed(() => globalOptionsQuery.data.value ?? defaultGlobalOptions)
 const initializedOptions = computed(
     () => initializedOptionsQuery.data.value ?? defaultGlobalOptions,
@@ -341,7 +348,7 @@ const baseInstances = computed(() =>
               name: instance.name,
               icon_path: instance.icon_path,
               eligible:
-                  !instance.quarantined &&
+                  !(instance as GameInstance & { quarantined?: boolean }).quarantined &&
                   (baseOption.value !== 'multiplayer_servers' ||
                       canSourceMultiplayerServers(instance)),
           })),
@@ -610,7 +617,9 @@ onScopeDispose(clearBaseSource)
                         :model-value="globalOptions[row.option]"
                         :disabled="!canToggleGlobalOptions"
                         :aria-label="formatMessage(messages[row.title])"
-                        @update:model-value="(enabled) => toggleGlobalOption(row.option, enabled)"
+                        @update:model-value="
+                            (enabled) => toggleGlobalOption(row.option, enabled ?? false)
+                        "
                     />
                 </template>
             </SettingsRow>

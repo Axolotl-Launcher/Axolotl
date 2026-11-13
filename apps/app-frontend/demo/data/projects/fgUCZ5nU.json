@@ -1,0 +1,203 @@
+{
+  "id": "fgUCZ5nU",
+  "slug": "pokemon-elysium",
+  "title": "Pokemon Elysium",
+  "description": "Modpack originally made for the Pokemon Elysium server, a Cobblemon-focused pack with hints of low-tech steampunk.",
+  "author": "Chubblezap",
+  "categories": ["adventure", "combat", "fabric", "kitchen-sink", "lightweight", "multiplayer"],
+  "display_categories": ["adventure", "combat", "multiplayer"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 1273874,
+  "followers": 132,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.19.2", "1.20.1"],
+  "latest_version": "3P8petnB",
+  "date_created": "2023-05-07T11:33:51.614622Z",
+  "date_modified": "2024-01-17T07:12:08.904769Z",
+  "color": 14167088,
+  "published": "2023-05-07T11:33:51.614622Z",
+  "additional_categories": ["kitchen-sink", "lightweight"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [],
+  "versions_total": 19,
+  "body": "## A Smooth Cobblemon Experience\n\nPokemon Elysium is a Cobblemon-focused modpack originally designed for the Pokemon Elysium server. Includes a handful of other mods like Farmer's Delight, Supplementaries and Create for variety, and a number of resource packs and addons from the wonderful Cobblemon community. Alongside this is a full suite of performance-enhancing mods like Sodium, Lithium and Starlight, and quality-of-life tweaks designed for the smoothest experience possible. Some server utility mods are also included, encouraging players to work together and build their legacies in teams.\n\n\n### Licensing\nUses [Structory](https://www.curseforge.com/minecraft/mc-mods/structory)\n\nContains [Overimagined Shaders](https://github.com/isuewo/OverimaginedShaders)\n\nContains VidyaPokeCriesCobblemon by KonohaDaze with [permission](https://imgur.com/a/FTbr5er)\n\nContains Cobblemon HGSS Soundpack by KonohaDaze  with [permission](https://imgur.com/a/XFO1kgy)",
+  "gallery": [],
+  "team": [
+    {
+      "username": "Chubblezap",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/28516513?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "3P8petnB",
+      "name": "Pokemon Elysium 1.2.1",
+      "version_number": "1.2.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2024-01-17T07:12:08.904769Z",
+      "downloads": 1101721,
+      "changelog": "- Updated Jade + Addons\n- Updated Cobblemon\n- Updated Where Are My Tms\n- Added Packet Fixer\n- Added Cobblepedia\n- Updated Supplementaries + Moonlight\n- Updated Waystones + Balm\n- Updated Very Scuffed Cobblemon Breeding\n\n(REMEMBER TO UPDATE RESOURCE PACKS)\n- Updated Missingmons \n- Updated CreateMon\n- Updated UltiMon\n- Updated Cobblemon Interface",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 1.2.1.mrpack",
+          "size": 140354243,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "EV11fvem",
+      "name": "Pokemon Elysium 1.2.0",
+      "version_number": "1.2.0",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-12-16T20:01:00.321116Z",
+      "downloads": 34855,
+      "changelog": "- Added Enchanted Vertical Slabs\n- Added More Slabs, Stairs and Walls",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 1.2.0.mrpack",
+          "size": 140628961,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "duGvERZk",
+      "name": "Pokemon Elysium 1.1.2",
+      "version_number": "1.1.2",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-11-24T06:50:12.556576Z",
+      "downloads": 14251,
+      "changelog": "- Updated Supplementaries (should fix a number of issues including the map crash)\n- Updated Cobblemon Interface and CreateMon (make sure your resourcepacks aren't still using the old ones)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 1.1.2.mrpack",
+          "size": 140628599,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "8y6FugbR",
+      "name": "Pokemon Elysium 1.1.1",
+      "version_number": "1.1.1",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-11-18T11:48:25.480636Z",
+      "downloads": 3615,
+      "changelog": "- Added Infinite Banner Patterns\n- Fixed shaders being enabled by default oops",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 1.1.1.mrpack",
+          "size": 140627617,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "V5BDCOGK",
+      "name": "Pokemon Elysium",
+      "version_number": "1.1.0",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-11-17T09:42:13.317008Z",
+      "downloads": 2672,
+      "changelog": "- Removed Let Me Despawn (only needed server-side)\n- Updated Handcrafted\n- Updated Fabric API\n- Added Polymorph",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 1.1.0.mrpack",
+          "size": 140627286,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "3wDKOHQR",
+      "name": "Pokemon Elysium",
+      "version_number": "1.0.0",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-11-13T01:05:17.262845Z",
+      "downloads": 10161,
+      "changelog": "-Updated to 1.20\n-Way too many changes to list, rebuilt from the ground up",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 1.20 PREVIEW 2 1.20.1.mrpack",
+          "size": 141265074,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "K3sXhozi",
+      "name": "Pokemon Elysium 0.6.5",
+      "version_number": "0.6.5",
+      "version_type": "beta",
+      "game_versions": ["1.19.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-07-10T20:58:19.500172Z",
+      "downloads": 89730,
+      "changelog": "- Removed VechicleFix (fixes a bug with Create's minecart contraptions)\n- Updated Mysticmons (Haxorus line)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 0.6.5.mrpack",
+          "size": 29835929,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "CHZLmRBQ",
+      "name": "Pokemon Elysium 0.6.4",
+      "version_number": "0.6.4",
+      "version_type": "beta",
+      "game_versions": ["1.19.2"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2023-06-24T20:38:47.807288Z",
+      "downloads": 5700,
+      "changelog": "- Added Alolamons (Toucannon, Vikavolt)\n- Updated MysticMons (Zoroark, Mightyena, Bisharp)\n- Updated VeryScuffedCobblemonBreeding",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Pokemon Elysium 0.6.4.mrpack",
+          "size": 29836072,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

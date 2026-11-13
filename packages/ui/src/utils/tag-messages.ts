@@ -640,11 +640,14 @@ export function getTagMessage(
     enforceType?: 'loader' | 'category',
 ): MessageDescriptor | undefined {
     if (enforceType === 'loader') {
-        return loaderMessages[tag]
+        return loaderMessages[tag as keyof typeof loaderMessages]
     } else if (enforceType === 'category') {
-        return categoryMessages[tag]
+        return categoryMessages[tag as keyof typeof categoryMessages]
     } else {
-        return loaderMessages[tag] ?? categoryMessages[tag]
+        return (
+            loaderMessages[tag as keyof typeof loaderMessages] ??
+            categoryMessages[tag as keyof typeof categoryMessages]
+        )
     }
 }
 
@@ -657,7 +660,7 @@ export function getCategoryMessage(category: string) {
 }
 
 export function getCategoryHeaderMessage(header: string): MessageDescriptor | undefined {
-    return categoryHeaderMessages[header]
+    return categoryHeaderMessages[header as keyof typeof categoryHeaderMessages]
 }
 
 export function formatTag(

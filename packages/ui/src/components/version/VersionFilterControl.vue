@@ -278,20 +278,29 @@ const platformOptions = computed<MultiSelectOption<string>[]>(() =>
 const selectedChannels = ref<string[]>([])
 const selectedGameVersions = ref<string[]>([])
 const selectedPlatforms = ref<string[]>([])
+// An untouched, absent axis inherits the install target. Editing it to an
+// empty selection explicitly removes that constraint.
+let gameVersionSpecified = false
+let platformSpecified = false
 
-selectedChannels.value = route.query.c ? getArrayOrString(route.query.c) : []
-selectedGameVersions.value = route.query.g ? getArrayOrString(route.query.g) : []
-selectedPlatforms.value = route.query.l ? getArrayOrString(route.query.l) : []
-
-// The tags can arrive after the filter is created; a selected version is
-// only known to be a snapshot once they have.
-let snapshotsDecided = false
 watch(
-    gameVersionTags,
-    (tags) => {
-        if (snapshotsDecided || tags.size === 0) return
-        snapshotsDecided = true
-        if (selectedGameVersions.value.some((version) => !isReleaseGameVersion(version)))
+    () => [route.query.c, route.query.g, route.query.l],
+    () => {
+        gameVersionSpecified = Object.hasOwn(route.query, 'g')
+        platformSpecified = Object.hasOwn(route.query, 'l')
+        selectedChannels.value = route.query.c ? getArrayOrString(route.query.c) : []
+        selectedGameVersions.value = route.query.g ? getArrayOrString(route.query.g) : []
+        selectedPlatforms.value = route.query.l ? getArrayOrString(route.query.l) : []
+    },
+    { immediate: true },
+)
+
+// Route history can restore a snapshot after tags have already loaded. Only
+// enable visibility here; an explicit user choice to show all remains valid.
+watch(
+    [gameVersionTags, selectedGameVersions],
+    ([tags, selected]) => {
+        if (tags.size && selected.some((version) => !isReleaseGameVersion(version)))
             showSnapshots.value = true
     },
     { immediate: true },
@@ -311,10 +320,12 @@ async function toggleFilter(type: FilterType, filter: Filter, bulk = false) {
             ? selectedChannels.value.filter((x) => x !== filter)
             : [...selectedChannels.value, filter]
     } else if (type === 'gameVersion') {
+        gameVersionSpecified = true
         selectedGameVersions.value = selectedGameVersions.value.includes(filter)
             ? selectedGameVersions.value.filter((x) => x !== filter)
             : [...selectedGameVersions.value, filter]
     } else if (type === 'platform') {
+        platformSpecified = true
         selectedPlatforms.value = selectedPlatforms.value.includes(filter)
             ? selectedPlatforms.value.filter((x) => x !== filter)
             : [...selectedPlatforms.value, filter]
@@ -325,6 +336,7 @@ async function toggleFilter(type: FilterType, filter: Filter, bulk = false) {
 }
 
 function updateSelectedGameVersions(versions: string[]) {
+    gameVersionSpecified = true
     selectedGameVersions.value = versions
     updateFilters()
 }
@@ -335,6 +347,7 @@ function updateSelectedChannels(channels: string[]) {
 }
 
 function updateSelectedPlatforms(platforms: string[]) {
+    platformSpecified = true
     selectedPlatforms.value = platforms
     updateFilters()
 }
@@ -351,12 +364,15 @@ function updateShowSnapshots(value: boolean, _event?: MouseEvent) {
     )
 
     if (selectedReleaseGameVersions.length !== selectedGameVersions.value.length) {
+        gameVersionSpecified = true
         selectedGameVersions.value = selectedReleaseGameVersions
         updateFilters()
     }
 }
 
 async function clearFilters() {
+    gameVersionSpecified ||= selectedGameVersions.value.length > 0
+    platformSpecified ||= selectedPlatforms.value.length > 0
     selectedChannels.value = []
     selectedGameVersions.value = []
     selectedPlatforms.value = []
@@ -367,8 +383,16 @@ async function clearFilters() {
 function updateFilters() {
     emit('update:query', {
         c: selectedChannels.value,
-        g: selectedGameVersions.value,
-        l: selectedPlatforms.value,
+        g: selectedGameVersions.value.length
+            ? selectedGameVersions.value
+            : gameVersionSpecified
+              ? ''
+              : undefined,
+        l: selectedPlatforms.value.length
+            ? selectedPlatforms.value
+            : platformSpecified
+              ? ''
+              : undefined,
         page: undefined,
     })
 }

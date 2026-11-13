@@ -88,11 +88,7 @@
             </h3>
             <div class="flex flex-wrap gap-1.5">
                 <TagItem v-for="language in languages" :key="`${language}`">
-                    {{
-                        SERVER_LANGUAGES[language]
-                            ? formatMessage(SERVER_LANGUAGES[language])
-                            : language
-                    }}
+                    {{ formatLanguage(language) }}
                 </TagItem>
             </div>
         </section>
@@ -105,7 +101,7 @@ import { SERVER_LANGUAGES } from '@modrinth/ui'
 import { formatVersionsForDisplay, type GameVersionTag, type PlatformTag } from '@modrinth/utils'
 import { computed } from 'vue'
 
-import { defineMessages, useVIntl } from '../../composables'
+import { defineMessages, type MessageDescriptor, useVIntl } from '../../composables'
 import { injectNotificationManager } from '../../providers'
 import Button from '../base/buttons/Button.vue'
 import FormattedTag from '../base/FormattedTag.vue'
@@ -185,6 +181,11 @@ const supportedVersionsList = computed(() => {
 
 const { addNotification } = injectNotificationManager()
 const { formatMessage } = useVIntl()
+
+function formatLanguage(language: string): string {
+    const message = (SERVER_LANGUAGES as Record<string, MessageDescriptor | undefined>)[language]
+    return message ? formatMessage(message) : language
+}
 
 function handleCopyIP() {
     navigator.clipboard.writeText(ipAddress.value).then(() => {

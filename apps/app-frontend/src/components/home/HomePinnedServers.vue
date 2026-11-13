@@ -16,6 +16,7 @@ import {
     Button,
     defineMessages,
     injectNotificationManager,
+    type MenuAction,
     OverflowMenu,
     SmartClickable,
     useVIntl,
@@ -79,10 +80,6 @@ const messages = defineMessages({
     join: {
         id: 'app.home.servers.join',
         defaultMessage: 'Join server',
-    },
-    stop: {
-        id: 'app.home.servers.stop',
-        defaultMessage: 'Stop',
     },
     unpin: {
         id: 'app.home.servers.unpin',
@@ -180,7 +177,7 @@ function linkedServer(world: ServerWorld & WorldWithInstance) {
 }
 
 function serverMenuOptions(world: ServerWorld & WorldWithInstance) {
-    const options = [{ id: 'unpin', action: () => unpinServer(world) }]
+    const options: MenuAction[] = [{ id: 'unpin', action: () => unpinServer(world) }]
     if (!isLocalEntry(world)) return options
 
     const linked = linkedServer(world)
@@ -580,9 +577,11 @@ async function unpinLocalServer(serverId: string) {
     transition: background-color 120ms ease;
 }
 
+/* Two columns only while each keeps room for the player count: a 2-wide card
+   on a narrow dashboard otherwise cut "18179/200000" down to "18179/20000…". */
 .home-pinned-servers[data-size='2x1'] .home-server-list,
 .home-pinned-servers[data-size='2x2'] .home-server-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
     column-gap: 0.5rem;
 }
 

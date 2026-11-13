@@ -11,7 +11,6 @@ mod java_cache;
 const DATA_DIR_SUFFIX_VAR: &str = "AXOLOTL_DATA_DIR_SUFFIX";
 
 /// Public service defaults for downstream builds that have no `.env`.
-/// Private Modrinth services remain disabled by Axolotl capabilities at runtime.
 const MODRINTH_ENV_DEFAULTS: &[(&str, &str)] = &[
     ("MODRINTH_API_BASE_URL", "https://api.modrinth.com"),
     ("MODRINTH_API_URL", "https://api.modrinth.com/v2/"),
@@ -21,7 +20,6 @@ const MODRINTH_ENV_DEFAULTS: &[(&str, &str)] = &[
         "https://launcher-meta.modrinth.com/",
     ),
     ("MODRINTH_URL", "https://modrinth.com/"),
-    ("MODRINTH_SOCKET_URL", "wss://disabled.invalid/"),
 ];
 
 fn main() {
@@ -61,6 +59,10 @@ fn set_env() {
         .collect();
 
     for (var_name, var_value) in &dotenv_values {
+        // Ignore obsolete shared credentials left in local configuration.
+        if var_name == "SHIMU_OAUTH_CLIENT_SECRET" {
+            continue;
+        }
         if var_name == "DATABASE_URL"
             || var_name == "CURSEFORGE_API_KEY"
             || var_name == DATA_DIR_SUFFIX_VAR

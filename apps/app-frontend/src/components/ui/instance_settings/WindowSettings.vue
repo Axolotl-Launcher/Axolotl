@@ -15,7 +15,7 @@ import { get } from '@/helpers/settings.ts'
 import { usableU16 } from '@/helpers/usable-u16'
 import { injectInstanceSettings } from '@/providers/instance-settings'
 
-import type { AppSettings, GameInstance } from '../../../helpers/types'
+import type { GameInstance } from '../../../helpers/types'
 
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
@@ -24,7 +24,10 @@ const { instance } = injectInstanceSettings()
 const initialInstance = instance.value
 const supportsMaximizeWindow = (await platform()) === 'windows'
 
-const globalSettings = (await get().catch(handleError)) as AppSettings
+const globalSettings = await get().catch((error) => {
+    handleError(error)
+    throw error
+})
 
 const overrideWindowSettings = ref(
     initialInstance.game_resolution != null ||
@@ -35,9 +38,11 @@ const resolution: Ref<[number, number]> = ref([
     ...(initialInstance.game_resolution ?? globalSettings.game_resolution),
 ] as [number, number])
 const fullscreenSetting: Ref<boolean> = ref(
-    initialInstance.force_fullscreen ?? globalSettings.force_fullscreen,
+    initialInstance.force_fullscreen ?? globalSettings.force_fullscreen ?? false,
 )
-const maximizeWindowSetting = ref(initialInstance.maximize_window ?? globalSettings.maximize_window)
+const maximizeWindowSetting = ref(
+    initialInstance.maximize_window ?? globalSettings.maximize_window ?? false,
+)
 const windowTitle = ref(initialInstance.window_title ?? '')
 // Incremented when an unusable size edit is discarded, so both number fields re-mount
 // and show the stored value again instead of the text the user cleared.
@@ -179,12 +184,14 @@ const messages = defineMessages({
             <Toggle
                 id="fullscreen"
                 :model-value="
-                    overrideWindowSettings ? fullscreenSetting : globalSettings.force_fullscreen
+                    overrideWindowSettings
+                        ? fullscreenSetting
+                        : (globalSettings.force_fullscreen ?? false)
                 "
                 :disabled="!overrideWindowSettings"
                 @update:model-value="
                     (e) => {
-                        fullscreenSetting = e
+                        fullscreenSetting = e ?? false
                     }
                 "
             />
@@ -207,10 +214,12 @@ const messages = defineMessages({
             <Toggle
                 id="maximize-window"
                 :model-value="
-                    overrideWindowSettings ? maximizeWindowSetting : globalSettings.maximize_window
+                    overrideWindowSettings
+                        ? maximizeWindowSetting
+                        : (globalSettings.maximize_window ?? false)
                 "
                 :disabled="!overrideWindowSettings || fullscreenSetting || !supportsMaximizeWindow"
-                @update:model-value="(value) => (maximizeWindowSetting = value)"
+                @update:model-value="(value) => (maximizeWindowSetting = value ?? false)"
             />
         </div>
 
@@ -231,9 +240,9 @@ const messages = defineMessages({
                 autocomplete="off"
                 :disabled="!overrideWindowSettings || fullscreenSetting"
                 type="number"
-                min="1"
-                max="65535"
-                step="1"
+                :min="1"
+                :max="65535"
+                :step="1"
                 :placeholder="formatMessage(messages.enterWidth)"
                 @update:model-value="(value: unknown) => setDimension(0, value)"
             />
@@ -256,9 +265,9 @@ const messages = defineMessages({
                 autocomplete="off"
                 :disabled="!overrideWindowSettings || fullscreenSetting"
                 type="number"
-                min="1"
-                max="65535"
-                step="1"
+                :min="1"
+                :max="65535"
+                :step="1"
                 :placeholder="formatMessage(messages.enterHeight)"
                 @update:model-value="(value: unknown) => setDimension(1, value)"
             />

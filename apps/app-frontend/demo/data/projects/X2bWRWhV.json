@@ -1,0 +1,242 @@
+{
+  "id": "X2bWRWhV",
+  "slug": "ardacraft",
+  "title": "ArdaCraft",
+  "description": "The modpack for the ArdaCraft server, a Lord of the Rings project re-creating J.R.R. Tolkien's Middle-earth in Minecraft.",
+  "author": "Fornad",
+  "categories": ["adventure", "fabric", "multiplayer", "optimization"],
+  "display_categories": ["multiplayer"],
+  "client_side": "required",
+  "server_side": "required",
+  "project_type": "modpack",
+  "downloads": 1141792,
+  "followers": 581,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric"],
+  "game_versions": ["1.19.2", "1.20.1"],
+  "latest_version": "50WUxKon",
+  "date_created": "2023-03-30T18:53:34.329678Z",
+  "date_modified": "2026-08-25T16:12:12.406991Z",
+  "color": 3097193,
+  "published": "2023-03-30T18:53:34.329678Z",
+  "additional_categories": ["adventure", "optimization"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": "https://ardacraft.me/modpack/",
+  "discord_url": "https://discord.com/invite/fykFabG",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/Ardacraft"
+    }
+  ],
+  "versions_total": 23,
+  "body": "[![ArdaCraft Logo](https://cdn.modrinth.com/data/cached_images/f39d0ecb219a1ac234c324327ac2110ae0eb45e3_0.webp)](https://www.ardacraft.me/)\n## \"*In a hole in the ground, there lived a hobbit.*\"\n\n \n\n**With these words scribbled on the back of a student's exam paper, the English writer and professor J.R.R. Tolkien began a series of books which have enthralled millions and contain within their pages the greatest fantasy universe ever created.**\n\n\n**Now, a team of builders of all nationalities and ages, united by their love for Tolkien's works, have embarked on a singularly ambitious project - to recreate Tolkien's Middle-earth at a scale and level of detail never before seen in any video game.**\n\n \n\nWe have combined our knowledge - not only of building, but of geology, botany, history and Tolkien's every word and letter to ensure that this project surpasses any other of its kind.\n\n \n\nWe have a friendly community of skilled builders, and are always looking for new members! Our community is made up of people from a range of backgrounds, nationalities and ages - united by a love for Tolkien's work.\n\n## Our modpack and server\n\nIf you need help installing this modpack, see our guide [here](https://ardacraft.me/modpack/).\n\nThis modpack is designed for players joining ArdaCraft. The two main content mods are [Conquest Reforged](https://modrinth.com/mod/conquest-reforged) and [Create](https://modrinth.com/mod/create-fabric), alongside a suite of visual and performance-optimisation mods aimed to make players' experience as smooth as possible.\n\nAlthough the server is aimed at re-creating Middle-earth, we also have a plots world where anyone can join and try their hand at building using the Conquest Reforged mod. You can also add your friends to your plot to build together!\n\nWhen you join, you will be given an guidebook which gives you basic information about how to explore our world, claim a plot, and participate in the community. We highly recommend that you join our [Discord](https://discord.com/invite/fykFabG) for announcements, events, project discussions, discourse around Tolkien's work, screenshots of the server, tech support, discussion around film and TV, art, music and more!\n\nOur Discord is also the place where you can apply to join our team, once you've built on our plot world. We look forward to seeing you online!\n\n## Permissions and credit\n\n### Resource Packs\n\nThe **ArdaCraft Resource Pack** is made by the ArdaCraft team.\n\n### Mods\n\nArdaPaths, ArdaRegions, ArdaMobs, ArdaGrass, Arda LODs Downloader, ArdaSettings, and Axiom Overrides were made by the ArdaCraft team.\n\n### Shader Packs\n\n**Xonks-Bliss-ArdaCraft-Settings** is our own edit of the [Bliss shader pack](https://modrinth.com/shader/bliss-shader) which changes saturation and shading, as well as providing compatibility with Conquest Reforged blocks. The developer, X0nk, gave us permission to redistribute this [here](https://cdn.discordapp.com/attachments/825656408540184577/1150490385941008505/image.png).",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/X2bWRWhV/images/1bb1f16e022e04899a52828d481fefc6eb934d59_350.webp",
+      "featured": true,
+      "title": "Edoras",
+      "description": null,
+      "created": "2023-03-30T18:59:52.343075Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/X2bWRWhV/images/c8689ed1efc1f500c0ecd5c6d8b0f97b7fa28ec0_350.webp",
+      "featured": false,
+      "title": "The Argonath",
+      "description": null,
+      "created": "2023-03-30T19:00:31.873030Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/X2bWRWhV/images/fe99496e43d40ea0e91c9071f5b1f6bbb69cc3b2_350.webp",
+      "featured": false,
+      "title": "Caves in Moria",
+      "description": null,
+      "created": "2023-03-30T19:02:06.267516Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/X2bWRWhV/images/6564bcdbc3befbeb8c6d0069d7430c8912852f45_350.webp",
+      "featured": false,
+      "title": "Thorin's Halls",
+      "description": null,
+      "created": "2023-03-30T19:03:40.085834Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "Fornad",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/BhuOAiOR/7a58c25f1b4deb1206775484502754d136add326.jpeg"
+    },
+    {
+      "username": "tapter",
+      "role": "Member",
+      "avatar": "https://cdn.modrinth.com/data/P9gSCq7n/b8b0ce66cd04c678e7a7114cffef3f54da667801_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "50WUxKon",
+      "name": "ArdaCraft 2.7.2",
+      "version_number": "24",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-08-25T16:12:12.406991Z",
+      "downloads": 116603,
+      "changelog": "- Update Conquest Reforged from 1.6.0 to 1.7.0\n- Update ArdaMusic from 1.0.2 to 1.1.3\n- Update ArdaMaps from 1.0.0 to 1.1.0\n- Update Arda Paths from 1.3.0 to 1.4.0\n- Update Arda Regions from 2.0.1 to 2.0.2\n- Update Paintbrush from 1.2.5 to 1.3.1\n- Update DaylightChangerStruggle from 1.0.1 to 1.0.2\n- Update SchemNexus from 1.0.1 to 1.0.3\n\n- Remove ParticleCore\n\n- Update ACRP from 1.2.2 to 1.2.8\n- Added Highlight Layers resource pack\n\n- Updated AC Bliss shaders\n",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.7.2.mrpack",
+          "size": 311624319,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "2v0Z4JsJ",
+      "name": "ArdaCraft 2.7.1",
+      "version_number": "23",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-29T22:43:02.623962Z",
+      "downloads": 148299,
+      "changelog": "- added ardamaps\n- updated pathfinder to 1.3.0",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.7.1.mrpack",
+          "size": 310115430,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "nyrXYmXL",
+      "name": "ArdaCraft 2.7.0",
+      "version_number": "22",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-06-27T20:51:49.951073Z",
+      "downloads": 5467,
+      "changelog": "### Added\n- ardamusic 1.0.2\n- dynamic-fps 3.11.4\n- enhancedblockentities 0.9+1.20\n- fzzy_config 0.7.6+1.20.1\n- Ixeris 4.3.0+1.20.1\n- NoChatRestrictions Fabric-MC1.20.1-v1.0.0\n- particle_core 0.3.3+1.20.1\n- schemnexus 1.0.1\n- Sintel 0.2.1\n- threadtweak 0.1.1 (mc1.20.2)\n- vmp 0.2.0+beta.7.102\n### Removed\n- journeymap 5.10.3\n- MapFrontiers 2.6.1p3\n- musictriggers 7.0.4\n- Patchouli 84.1\n- patchoulibutton 1.0.2\n- theimpossiblelibrary 0.4.7\n### Updated\n- aclodgrabber 2.0.2 → 2.0.3\n- AmbientSounds 6.3.3 → 6.3.8\n- arda-regions 1.0.0 → 2.0.1\n- ArdaPaths 1.2.5 → 1.2.6\n- Axiom 5.2.1 → 5.4.2\n- c2me alpha.11.16 → alpha.11.18\n- ConquestReforged 1.5.2 → 1.6.0\n- CreativeCore 2.12.34 → 2.12.38\n- drippyloadingscreen 3.1.0 → 3.1.2\n- drop_confirm 6.1.0 → 6.1.1\n- entity_model_features 3.0.10 → 3.2.4\n- entity_texture_features 7.0.8 → 7.1\n- entityculling 1.9.5 → 1.10.2\n- fabric-api 0.92.7 → 0.92.9\n- fabric-language-kotlin 1.13.8 (kotlin 2.3.0) → 1.13.11 (kotlin 2.3.21)\n- fancymenu 3.8.1 → 3.9.1\n- ImmediatelyFast 1.5.3 → 1.5.4\n- Kiwi 11.10.2 → 11.10.3\n- MedievalArmsCR 1.0.0 → 2.0.0\n- midnightlib 1.9.2 → 1.9.3\n- notenoughanimations 1.11.1 → 1.12.3\n- packetfixer 3.3.0 → 3.3.2\n- skinlayers3d 1.10.1 → 1.11.1",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.7.0.mrpack",
+          "size": 310471165,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "SpGtZAQA",
+      "name": "ArdaCraft 2.6.4",
+      "version_number": "21",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-20T07:19:06.803773Z",
+      "downloads": 121926,
+      "changelog": "- Updated Conquest Reforged to fix crashing bug",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.6.4.mrpack",
+          "size": 264315270,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "aZE4bO3e",
+      "name": "ArdaCraft 2.6.3",
+      "version_number": "20",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-19T17:20:53.445710Z",
+      "downloads": 1548,
+      "changelog": "- Updated Conquest Reforged and shader config",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.6.3.mrpack",
+          "size": 264299966,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "720m5WrF",
+      "name": "ArdaCraft 2.6.2",
+      "version_number": "19",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-04-12T16:06:17.436978Z",
+      "downloads": 16071,
+      "changelog": "**Changelog**\n\n- Updated Conquest Reforged\n- Updated ArdaCraft Resource Pack",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.6.2.mrpack",
+          "size": 264280513,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "NviYZah1",
+      "name": "ArdaCraft 2.6.1",
+      "version_number": "18",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-02-18T00:02:31.237363Z",
+      "downloads": 126222,
+      "changelog": "Update Notes\n- Hotfix to remedy some of the issues we've noticed in the past week.\n- Fixes various textures and models in the resource pack\n- Includes the updated LODs Downloader that we accidentally didn't include, Flatpack users should now be able to use the LODs Downloader.\n\nMods\n- Update ACRP from 1.1.2 to 1.1.3\n- Update ArdaCraft LODs Downloader from 2.0.1 to 2.0.2\n- Update Arda Paths from 1.2.4 to 1.2.5\n  \nResource Pack\n- Added missing Hearthfire bucket item frame model\n- Dwarven chair cutout rendertype fix\n- Break old quern, square stool, cross stool, folding stool, mortars, short broom, cooking pots and added item frame models for CR versions\n- Break hearthfire rope on a wall duplicate\n- Fixed angelica and cow parsley height = 2 CTM's\n  \nShaders\n- Fixed cabbages wobbling\n  ",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.6.1.mrpack",
+          "size": 264268270,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hl4TSIO3",
+      "name": "ArdaCraft 2.6.0",
+      "version_number": "17",
+      "version_type": "release",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-02-08T16:06:26.544063Z",
+      "downloads": 16896,
+      "changelog": "- Add ArdaRegions\n- Add Puzzle\n- Update 3D Skin Layers from 1.9.0 to 1.10.1\n- Update ACRP from 1.1.1 to 1.1.2\n- Update AmbientSounds from 6.1.11 to 6.3.3\n- Update ArdaCraft LODs Downloader from 2.0.1 to 2.0.2\n- Update Arda Paths from 1.2.1 to 1.2.4\n- Update ArdaMobs from 1.2 to 1.3\n- Update Axiom from 5.1.1 to 5.2.1\n- Update Conquest Hearthfire from 1.0.3 to 1.0.4\n- Update Conquest Reforged Paintbrush from 1.2.4 to 1.2.5\n- Update Create Fabric from 0.5.1-j to 6.0.8.1-custom\n- Update CreativeCore from 2.12.33 to 2.12.34\n- Update Drippy Loading Screen from 3.0.12 to 3.1.0\n- Update DropConfirm from 5.0.2 to 6.1.0\n- Update Entity Culling from 1.9.0 to 1.9.5\n- Update Entity Model Features from 3.0.1 to 3.0.10\n- Update Entity Texture Features from 7.0.2 to 7.0.8\n- Update Fabric API from 0.92.6 to 0.92.7\n- Update Fabric from 0.18.0 to 0.18.4\n- Update Fabric Language Kotlin from 1.13.6 to 1.13.8\n- Update FancyMenu from 3.7.0 to 3.8.1\n- Update Forge Config API from 8.0.2 to 8.0.3\n- Update ImmediatelyFast from 1.5.2 to 1.5.3\n- Update Kiwi from 11.8.29 to 11.10.2\n- Update Language Reload from 1.7.4 to 1.7.5\n- Update Lithium from 0.11.3 to 0.11.4\n- Update MapFrontier from 2.6.1 to 2.6.1p3\n- Update ModernFix from 5.24.4 to 5.25.2\n- Update Not Enough Animations from 1.10.2 to 1.11.1\n- Update OptiGUI from 2.3.0-beta.6.1 to 2.3.0-beta.9\n- Update Polytone from 3.5.9 to 3.5.22\n- Update The Impossible Library from 0.4.5 to 0.4.7",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "ArdaCraft 2.6.0.mrpack",
+          "size": 264446644,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

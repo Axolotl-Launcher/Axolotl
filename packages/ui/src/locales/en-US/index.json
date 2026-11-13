@@ -77,6 +77,12 @@
   "browse.search.placeholder": {
     "defaultMessage": "Search {projectType}..."
   },
+  "browse.select-all-button.label": {
+    "defaultMessage": "Select all ({count})"
+  },
+  "browse.select-all-button.selecting": {
+    "defaultMessage": "Selecting {completed}/{total}"
+  },
   "browse.selected-projects-floating-bar.aria-label": {
     "defaultMessage": "Selected projects"
   },
@@ -331,6 +337,78 @@
   },
   "collections.label.private": {
     "defaultMessage": "Private"
+  },
+  "color-picker.dialog-label": {
+    "defaultMessage": "Colour picker"
+  },
+  "color-picker.dye-presets": {
+    "defaultMessage": "Dye colours"
+  },
+  "color-picker.dye.black": {
+    "defaultMessage": "Black"
+  },
+  "color-picker.dye.blue": {
+    "defaultMessage": "Blue"
+  },
+  "color-picker.dye.brown": {
+    "defaultMessage": "Brown"
+  },
+  "color-picker.dye.cyan": {
+    "defaultMessage": "Cyan"
+  },
+  "color-picker.dye.gray": {
+    "defaultMessage": "Gray"
+  },
+  "color-picker.dye.green": {
+    "defaultMessage": "Green"
+  },
+  "color-picker.dye.light-blue": {
+    "defaultMessage": "Light blue"
+  },
+  "color-picker.dye.light-gray": {
+    "defaultMessage": "Light gray"
+  },
+  "color-picker.dye.lime": {
+    "defaultMessage": "Lime"
+  },
+  "color-picker.dye.magenta": {
+    "defaultMessage": "Magenta"
+  },
+  "color-picker.dye.orange": {
+    "defaultMessage": "Orange"
+  },
+  "color-picker.dye.pink": {
+    "defaultMessage": "Pink"
+  },
+  "color-picker.dye.purple": {
+    "defaultMessage": "Purple"
+  },
+  "color-picker.dye.red": {
+    "defaultMessage": "Red"
+  },
+  "color-picker.dye.white": {
+    "defaultMessage": "White"
+  },
+  "color-picker.dye.yellow": {
+    "defaultMessage": "Yellow"
+  },
+  "color-picker.hex": {
+    "defaultMessage": "Hex colour"
+  },
+  "color-picker.hue": {
+    "defaultMessage": "Hue"
+  },
+  "color-picker.open": {
+    "defaultMessage": "Choose colour"
+  },
+  "color-picker.recent-colors": {
+    "defaultMessage": "Recently used"
+  },
+  "color-picker.saturation-brightness": {
+    "defaultMessage": "Saturation and brightness"
+  },
+  "color-picker.saturation-brightness.value": {
+    "defaultMessage": "Saturation {saturation}%, brightness {brightness}%"
   },
   "console.action.collapse": {
     "defaultMessage": "Collapse"
@@ -2089,6 +2167,72 @@
   },
   "header.category.resolutions": {
     "defaultMessage": "Resolution"
+  },
+  "image-crop.animated-preview": {
+    "defaultMessage": "Animated result preview"
+  },
+  "image-crop.apply": {
+    "defaultMessage": "Use image"
+  },
+  "image-crop.aspect-ratio": {
+    "defaultMessage": "Aspect ratio"
+  },
+  "image-crop.auto-compress": {
+    "defaultMessage": "Auto-compress"
+  },
+  "image-crop.decode-error": {
+    "defaultMessage": "This image could not be opened. Choose a different image."
+  },
+  "image-crop.dimensions": {
+    "defaultMessage": "{width} × {height} px"
+  },
+  "image-crop.drag-hint": {
+    "defaultMessage": "Drag the image to reposition it."
+  },
+  "image-crop.export-error": {
+    "defaultMessage": "The cropped image could not be created. Try again."
+  },
+  "image-crop.help": {
+    "defaultMessage": "Drag the image to reposition it. Scroll over the workspace or use the zoom control to zoom."
+  },
+  "image-crop.keep-original": {
+    "defaultMessage": "Keep original"
+  },
+  "image-crop.loading": {
+    "defaultMessage": "Loading image…"
+  },
+  "image-crop.oversized-bytes": {
+    "defaultMessage": "The source is {size} MB; the usual limit is {limit} MB. Continuing may use a lot of memory."
+  },
+  "image-crop.oversized-pixels": {
+    "defaultMessage": "The image is {width} × {height} pixels; the usual limit is {limit} megapixels. Continuing may use a lot of memory."
+  },
+  "image-crop.oversized-title": {
+    "defaultMessage": "This file is larger than the usual limit"
+  },
+  "image-crop.oversized-keep-original-hint": {
+    "defaultMessage": "Keep original keeps the source resolution and frame rate; the animation may use more memory and CPU."
+  },
+  "image-crop.preview": {
+    "defaultMessage": "Result preview"
+  },
+  "image-crop.preview-label": {
+    "defaultMessage": "Cropped result preview, {width} by {height} pixels"
+  },
+  "image-crop.title": {
+    "defaultMessage": "Crop image"
+  },
+  "image-crop.too-large": {
+    "defaultMessage": "This image is too large to crop."
+  },
+  "image-crop.workspace": {
+    "defaultMessage": "Crop workspace"
+  },
+  "image-crop.zoom": {
+    "defaultMessage": "Zoom"
+  },
+  "image-crop.zoom-status": {
+    "defaultMessage": "Zoom {percent}%, {width} × {height} pixels"
   },
   "image-viewer.close": {
     "defaultMessage": "Close"

@@ -28,6 +28,8 @@ const defaultContentVersionSource: ContentVersionSource = {
 }
 
 export function contentVersionContext(item: ContentItem, entry?: InstanceContentSnapshotItem) {
+    if (item.project_type === 'schematic' || item.instanceCapabilities?.canChangeVersion === false)
+        return null
     const exact = entry?.artifactRef
     const pinned = exact?.release.releaseId ?? entry?.providerReleaseId ?? item.version?.id
     const project =

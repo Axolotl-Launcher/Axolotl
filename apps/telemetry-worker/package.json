@@ -11,7 +11,7 @@
     "test": "vitest run && node --test scripts/configure-rate-limit.node-test.mjs scripts/check-deployment.node-test.mjs"
   },
   "dependencies": {
-    "hono": "^4.13.11",
+    "hono": "^4.13.16",
     "zod": "^4.6.6"
   },
   "devDependencies": {

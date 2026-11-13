@@ -7,6 +7,7 @@ import { RouterLink } from 'vue-router'
 import type { HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
 import HomeInstanceCard from '@/components/home/HomeInstanceCard.vue'
+import { hasMultipleGameDirectories } from '@/helpers/game-directory'
 import { set_pinned } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
 
@@ -47,6 +48,7 @@ const cardLayout = computed(() => {
     if (props.dashboardSize === '2x2') return 'tile' as const
     return 'row' as const
 })
+const showGameDirectory = computed(() => hasMultipleGameDirectories(props.instances))
 
 async function updatePinned(instance: GameInstance, pinned: boolean) {
     await set_pinned(instance.id, pinned).catch(handleError)
@@ -87,6 +89,7 @@ async function updatePinned(instance: GameInstance, pinned: boolean) {
                 :pinned="true"
                 :layout="cardLayout"
                 :playing="runningInstanceIds.includes(instance.id)"
+                :show-game-directory="showGameDirectory"
                 @pinned-change="updatePinned"
             />
         </div>

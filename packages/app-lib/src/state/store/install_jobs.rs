@@ -414,7 +414,8 @@ impl InstallJobs {
         let sql = format!(
             "SELECT EXISTS(SELECT 1 FROM install_jobs WHERE instance_id = ? AND {filter})"
         );
-        let mut query = sqlx::query_scalar::<_, i64>(&sql).bind(instance_id);
+        let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
+            .bind(instance_id);
         for status in statuses {
             query = query.bind(*status);
         }
@@ -423,7 +424,11 @@ impl InstallJobs {
         Ok(busy != 0)
     }
 
-    /// Whether any job is in one of `statuses`, or still holds a rollback.
+    /// Whether any job is in one of `statuses`, or holds a rollback that has
+    /// not been restored yet: one that still keeps its content snapshot, or
+    /// one whose restore failed. A completed rollback discards its content but
+    /// keeps the instance metadata, so failed and interrupted jobs stop
+    /// counting once their rollback has succeeded.
     pub(crate) async fn unfinished_or_rollback<'e, E>(
         exec: E,
         statuses: &[&str],
@@ -433,9 +438,9 @@ impl InstallJobs {
     {
         let filter = status_filter(statuses);
         let sql = format!(
-            "SELECT COUNT(*) FROM install_jobs WHERE {filter} OR json_extract(state, '$.rollback') IS NOT NULL"
+            "SELECT COUNT(*) FROM install_jobs WHERE {filter} OR json_extract(state, '$.rollback.content') IS NOT NULL OR (json_extract(state, '$.rollback') IS NOT NULL AND json_extract(state, '$.rollback_error') IS NOT NULL)"
         );
-        let mut query = sqlx::query_scalar::<_, i64>(&sql);
+        let mut query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql));
         for status in statuses {
             query = query.bind(*status);
         }

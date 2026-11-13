@@ -139,6 +139,8 @@ export type AppSettings = DohSettings & {
     max_concurrent_downloads: number
     max_concurrent_writes: number
     auto_concurrent_downloads: boolean
+    force_multiconnection_downloads: boolean
+    forced_max_concurrent_downloads: number
     minecraft_metadata_source: DownloadSourceMode
     minecraft_file_source: DownloadSourceMode
     modrinth_source: DownloadSourceMode
@@ -187,9 +189,8 @@ export type AppSettings = DohSettings & {
     discord_rpc: boolean
     allow_external_scheme: boolean
     allow_privileged_scheme: boolean
-    onboarded: boolean
-    onboarding_version: number
-    onboarding_instance_tour_completed: boolean
+    /** OOBE step ids this install has moved past; see components/ui/oobe/AGENTS.md. */
+    oobe_completed_steps: string[]
 
     extra_launch_args: string[]
     custom_env_vars: [string, string][]
@@ -200,6 +201,7 @@ export type AppSettings = DohSettings & {
     hide_on_process_start: boolean
     enter_lightweight_mode_on_game_launch: boolean
     auto_set_java_high_performance_mode: boolean
+    minecraft_use_console_java: boolean
     hooks: Hooks
 
     custom_dir?: string | null
@@ -216,9 +218,15 @@ export type AppSettings = DohSettings & {
 
     skipped_update: string | null
     pending_update_toast_for_version: string | null
+    pending_update_failure?: PendingUpdateFailure | null
     auto_download_updates: boolean | null
 
     version: number
+}
+
+export type PendingUpdateFailure = {
+    version: string
+    error: string
 }
 
 export type PrivacySettings = {
@@ -250,7 +258,14 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
         enabled ? 'mirror_preferred' : 'official_only'
 
     settings.auto_concurrent_downloads ??= true
+    settings.force_multiconnection_downloads ??= false
+    settings.forced_max_concurrent_downloads = Number.isFinite(
+        settings.forced_max_concurrent_downloads,
+    )
+        ? Math.min(256, Math.max(1, Math.trunc(settings.forced_max_concurrent_downloads)))
+        : 72
     settings.auto_set_java_high_performance_mode ??= true
+    settings.minecraft_use_console_java ??= false
     settings.minecraft_metadata_source ??=
         usesLegacyDefaults || !hasLegacySettings
             ? 'auto'
@@ -274,6 +289,7 @@ function normalizeDownloadSettings(settings: AppSettings & LegacyMirrorSettings)
     settings.mojang_auth_source ??= 'auto'
     settings.terracotta_public_nodes ??= ['wss://center.node.1tmc.top']
     settings.hidden_nav_items ??= []
+    settings.oobe_completed_steps ??= []
     settings.allow_external_scheme ??= true
     settings.allow_privileged_scheme ??= false
     settings.custom_window_title_enabled ??= false
@@ -345,6 +361,77 @@ export type AppSettingsPatch = {
 /** Merges edited fields into the authoritative backend settings. */
 export async function update(patch: AppSettingsPatch): Promise<AppSettings> {
     return normalizeDownloadSettings(await invoke('plugin:settings|settings_patch', { patch }))
+}
+
+export type SettingsLayerDomain =
+    'appearance' | 'download' | 'game' | 'backup' | 'bootstrap' | 'network' | 'privacy' | 'state'
+
+/** One setting as provided by the deployment, stored locally and currently in effect. */
+export type SettingLayer = {
+    key: string
+    domain: SettingsLayerDomain
+    provided: unknown | null
+    provided_present: boolean
+    local: unknown | null
+    local_present: boolean
+    effective: unknown
+}
+
+/** One import entry that would be executed or injected into the game process. */
+export type DangerousImport = {
+    key: string
+    /** The value in effect now; `null` while the key has none. */
+    before: unknown | null
+    /** The value the archive states. */
+    after: unknown
+}
+
+/** What importing a settings archive would find in it. */
+export type ImportScan = {
+    domains: string[]
+    dangerous: DangerousImport[]
+}
+
+/** What importing a settings archive wrote. */
+export type ImportResult = {
+    documents: number
+    dropped: number
+}
+
+/** What to do with the settings of a document that can run commands. */
+export type ImportDanger = 'skip' | 'allow'
+
+export type SettingsExportKind = 'effective' | 'patch'
+
+export async function getSettingsLayers(): Promise<SettingLayer[]> {
+    return await invoke('plugin:settings|settings_layers')
+}
+
+/** Removes the local value only while it still equals the effect the user saw. */
+export async function clearSettingsOverride(key: string, expected: unknown): Promise<boolean> {
+    return await invoke('plugin:settings|settings_override_clear', { key, expected })
+}
+
+export async function exportSettings(outputPath: string, kind: SettingsExportKind): Promise<void> {
+    await invoke('plugin:settings|settings_export', { outputPath, kind })
+}
+
+/** Rewrites every local document in this build's shape; returns how many it rewrote. */
+export async function sanitiseSettings(): Promise<number> {
+    return await invoke('plugin:settings|settings_sanitise')
+}
+
+/** Reads which documents and which dangerous settings an archive carries. */
+export async function scanSettingsImport(inputPath: string): Promise<ImportScan> {
+    return await invoke('plugin:settings|settings_import_scan', { inputPath })
+}
+
+/** Merges a settings archive into the local documents; returns what it wrote. */
+export async function importSettings(
+    inputPath: string,
+    danger: ImportDanger,
+): Promise<ImportResult> {
+    return await invoke('plugin:settings|settings_import', { inputPath, danger })
 }
 
 export async function cancel_directory_change(): Promise<void> {

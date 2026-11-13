@@ -19,6 +19,8 @@ const backend = vi.hoisted(() => ({
 vi.mock('@/store/theme.ts', () => ({ DEFAULT_FEATURE_FLAGS: {} }))
 vi.mock('@/helpers/settings', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/helpers/settings')>()),
+    getSettingsLayers: vi.fn(async () => []),
+    clearSettingsOverride: vi.fn(async () => true),
     get: async () => structuredClone(backend.global),
     update: async (patch: Record<string, unknown>) => {
         Object.assign(backend.global, patch)
@@ -73,6 +75,12 @@ vi.mock('@modrinth/ui', async () => {
                 }),
     })
     return {
+        Button: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('button', slots.default?.()),
+        }),
         Card: card,
         Checkbox: toggle,
         Combobox: { name: 'Combobox', render: () => null },
@@ -194,7 +202,7 @@ it('opens Java settings without waiting for Java metadata or content enrichment'
     vi.mocked(get_optimal_jre_key).mockImplementationOnce(() => new Promise(() => {}))
     const wrapper = await openSettings('instance')
     expect(wrapper.text()).toContain('Java installation')
-    expect(wrapper.get('#env-vars').exists()).toBe(true)
+    expect(wrapper.find('#env-vars').exists()).toBe(true)
     expect(get_content_snapshot).toHaveBeenCalledExactlyOnceWith('instance-a', true)
     await wrapper.get('input[aria-label="Custom memory allocation"]').setValue(true)
     wrapper.findComponent({ name: 'Slider' }).vm.$emit('update:modelValue', 4096)

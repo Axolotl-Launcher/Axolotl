@@ -15,7 +15,13 @@ import {
 // whatever the module graph happened to contain.
 const resourceReleases = vi.fn<ContentVersionSource['resourceReleases']>()
 const resourceReleaseDocuments = vi.fn<ContentVersionSource['resourceReleaseDocuments']>()
-const source: ContentVersionSource = { resourceReleases, resourceReleaseDocuments }
+// `vi.fn<GenericFn>()` records the arguments but erases the generic call signature,
+// so re-attach the source contract to the spied implementations.
+const source: ContentVersionSource = {
+    resourceReleases: resourceReleases as unknown as ContentVersionSource['resourceReleases'],
+    resourceReleaseDocuments:
+        resourceReleaseDocuments as unknown as ContentVersionSource['resourceReleaseDocuments'],
+}
 
 beforeEach(() => {
     resourceReleases.mockReset()

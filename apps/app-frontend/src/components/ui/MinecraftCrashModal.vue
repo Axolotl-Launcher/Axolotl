@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import {
     ClipboardCopyIcon,
-    ExternalIcon,
+    DownloadIcon,
+    FolderOpenIcon,
     LinkIcon,
     ListOrderedIcon,
     ScanEyeIcon,
@@ -23,6 +24,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { renderHighlightedString } from '@modrinth/utils/highlightjs'
+import QrcodeVue from 'qrcode.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -38,9 +40,11 @@ import {
 import { useLogAgent } from '@/composables/useLogAgent'
 import type { MinecraftLaunchErrorPayload } from '@/composables/useMinecraftLaunchError'
 import { getAIState } from '@/helpers/ai'
+import { errorText } from '@/helpers/error-text'
 import { process_listener } from '@/helpers/events.js'
 import { get as getInstance } from '@/helpers/instance'
 import {
+    export_crash_context,
     get_crash_analysis_ai_settings,
     get_log_share_settings,
     get_logs,
@@ -50,6 +54,8 @@ import {
     record_shared_log,
 } from '@/helpers/logs'
 import { shouldShowMinecraftCrash } from '@/helpers/process.js'
+import { highlightInFolder } from '@/helpers/utils'
+import { availableAnalysisSource, CLOUD_LOGAGENT_ENABLED } from '@/logagent/availability'
 import { visibleDraft } from '@/logagent/progress'
 import { parseLogAgentInsight } from '@/logagent/result'
 import type { AnalysisSource } from '@/logagent/types'
@@ -88,6 +94,7 @@ interface LogShareTicket {
     url: string
     raw: string
     token: string
+    files?: { name: string }[]
 }
 
 interface LogShareSettings {
@@ -108,7 +115,7 @@ const route = useRoute()
 const localSetupModal = ref<InstanceType<typeof NewModal>>()
 const localSetupSaving = ref(false)
 let resumeAfterProviderSettings = false
-const { addNotification } = injectNotificationManager()
+const { addNotification, handleError } = injectNotificationManager()
 const modal = ref<InstanceType<typeof NewModal>>()
 const modChangesModal = ref<InstanceType<typeof CrashModChangesModal>>()
 const payload = ref<Partial<CrashModalPayload>>({})
@@ -123,13 +130,16 @@ let analysisVersion = 0
 let summaryGeneration = 0
 let crashLogsPromise: Promise<void> | null = null
 let uploadTicketPromise: Promise<LogShareTicket | null> | null = null
-const defaultSource = ref<AnalysisSource>('logshare')
-const selectedSource = ref<AnalysisSource>('logshare')
+let uploadFailed = false
+const defaultSource = ref<AnalysisSource>(availableAnalysisSource('logshare'))
+const selectedSource = ref<AnalysisSource>(availableAnalysisSource('logshare'))
 const localAvailable = ref(false)
 const configuredModel = ref('')
 const configuredProvider = ref('')
 const choosingSource = ref(false)
-const aiAvailable = computed(() => selectedSource.value === 'logshare' || localAvailable.value)
+const aiAvailable = computed(
+    () => (CLOUD_LOGAGENT_ENABLED && selectedSource.value === 'logshare') || localAvailable.value,
+)
 const agent = useLogAgent()
 const aiOutput = agent.output
 const aiLoading = agent.busy
@@ -166,7 +176,11 @@ const logShareSettings = ref<LogShareSettings>({
 })
 const uploadTicket = ref<LogShareTicket | null>(null)
 const shareUrl = ref('')
+const diagnosticUrl = computed(() => shareUrl.value || uploadTicket.value?.url || '')
 const sharing = ref(false)
+const previewMode = ref(false)
+const exportingDiagnostic = ref(false)
+const exportedDiagnosticPath = ref('')
 const logShareSummary = ref('')
 const logShareSummaryLoading = ref(false)
 const logShareSummaryState = ref<'idle' | 'loading' | 'ready' | 'empty' | 'unavailable' | 'error'>(
@@ -441,6 +455,22 @@ const messages = defineMessages({
         id: 'app.minecraft-crash.copy-link',
         defaultMessage: 'Copy link',
     },
+    scanLogs: {
+        id: 'app.minecraft-crash.scan-logs',
+        defaultMessage: 'Scan to view logs',
+    },
+    exportDiagnostic: {
+        id: 'app.minecraft-crash.export-diagnostic',
+        defaultMessage: 'Export diagnostic package',
+    },
+    exportingDiagnostic: {
+        id: 'app.minecraft-crash.exporting-diagnostic',
+        defaultMessage: 'Exporting diagnostic package...',
+    },
+    exportDiagnosticSaved: {
+        id: 'app.minecraft-crash.export-saved',
+        defaultMessage: 'Diagnostic package saved to {path}',
+    },
     noLogContent: {
         id: 'app.minecraft-crash.no-log-content',
         defaultMessage:
@@ -572,12 +602,7 @@ const showSupportHint = computed(
     () => Boolean(payload.value.body) && hint.value !== formatMessage(messages.supportHint),
 )
 const isLogShareAutoAnalysis = computed(
-    () =>
-        logShareSettingsLoaded.value &&
-        shouldUseLogShareAutoAnalysis({
-            ...logShareSettings.value,
-            ai_source: selectedSource.value,
-        }),
+    () => logShareSettingsLoaded.value && shouldUseLogShareAutoAnalysis(logShareSettings.value),
 )
 const selectedCrashLog = computed(
     () => crashLogFiles.value.find((file) => crashLogKey(file) === selectedLogKey.value) ?? null,
@@ -609,7 +634,7 @@ const renderedAiOutput = computed(() => renderHighlightedString(logAgentInsight.
 const renderedLogShareSummary = computed(() => renderHighlightedString(logShareSummary.value))
 
 function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error)
+    return errorText(error)
 }
 
 async function loadCrashLogContent(file: CrashLogFile): Promise<string> {
@@ -648,6 +673,9 @@ async function selectCrashLog(file: CrashLogFile): Promise<void> {
     selectedLogKey.value = key
     activeTab.value = key
     selectedLogLoading.value = false
+    summaryGeneration += 1
+    logShareSummaryLoading.value = false
+    if (payload.value.instance_id) void loadLogShareSummary(payload.value.instance_id)
     await loadCrashLogContent(file)
 }
 
@@ -728,11 +756,14 @@ function show(modalPayload: CrashModalPayload, isPreview = false): boolean {
     choosingSource.value = false
     selectedSource.value = defaultSource.value
     payload.value = modalPayload
+    previewMode.value = isPreview
     lastAnalysis = null
     uploadTicket.value = null
     uploadTicketPromise = null
+    uploadFailed = false
     shareUrl.value = ''
     sharing.value = false
+    exportedDiagnosticPath.value = ''
     logShareSummary.value = ''
     logShareSummaryLoading.value = false
     logShareSummaryState.value = 'idle'
@@ -791,10 +822,6 @@ function isLaunchFailure(error: unknown): boolean {
     return launchFailureBody(error) !== null
 }
 
-function useLogShareAi(): boolean {
-    return selectedSource.value === 'logshare'
-}
-
 function formatInsights(value: unknown): string {
     const record = (value ?? {}) as Record<string, unknown>
     const lines: string[] = []
@@ -815,8 +842,9 @@ function formatInsights(value: unknown): string {
                     : JSON.stringify(problem.message)
             lines.push(`- ${message}`)
             const solutions = Array.isArray(problem.solutions) ? problem.solutions : []
-            for (const solution of solutions as string[]) {
-                lines.push(`  - ${solution}`)
+            for (const solution of solutions) {
+                const message = typeof solution === 'string' ? solution : solution?.message
+                if (typeof message === 'string') lines.push(`  - ${message}`)
             }
         }
     }
@@ -844,7 +872,7 @@ async function loadLogShareSummary(instanceId: string): Promise<void> {
         version !== analysisVersion ||
         generation !== summaryGeneration ||
         instanceId !== payload.value.instance_id ||
-        !useLogShareAi()
+        !isLogShareAutoAnalysis.value
     logShareSummaryLoading.value = true
     logShareSummaryState.value = 'loading'
     logShareSummaryError.value = ''
@@ -853,7 +881,19 @@ async function loadLogShareSummary(instanceId: string): Promise<void> {
         const ticket = await uploadTicketForInstance(instanceId)
         if (!ticket) throw new Error('Could not upload the crash logs to LogShare')
         if (stale()) return
-        const insights = await logshare_get_insights(ticket.id)
+        await crashLogsPromise
+        if (stale()) return
+        const selectedFilename = selectedCrashLog.value
+            ? crashLogLabel(selectedCrashLog.value)
+            : null
+        const filename = ticket.files?.some((file) => file.name === selectedFilename)
+            ? selectedFilename
+            : null
+        if (ticket.files && ticket.files.length > 1 && !filename) {
+            logShareSummaryState.value = 'empty'
+            return
+        }
+        const insights = await logshare_get_insights(ticket.id, filename)
         if (stale()) return
         logShareSummary.value = formatInsights(insights)
         logShareSummaryState.value = logShareSummary.value ? 'ready' : 'empty'
@@ -911,11 +951,7 @@ async function handleLaunchError(
     }
     await refreshAIAvailability()
     if (!show(modalPayload)) return true
-    if (isLogShareAutoAnalysis.value) {
-        void loadLogShareSummary(modalPayload.instance_id)
-    } else {
-        await analyzeAndUpdate(modalPayload, formatMessage(messages.launchFailureHint))
-    }
+    await analyzeAndUpdate(modalPayload, formatMessage(messages.launchFailureHint))
     return true
 }
 
@@ -923,11 +959,7 @@ async function handleWarning(warning: CrashWarningPayload): Promise<void> {
     const modalPayload = { ...warning, hint: formatMessage(messages.analyzing) }
     await refreshAIAvailability()
     if (!show(modalPayload)) return
-    if (isLogShareAutoAnalysis.value) {
-        void loadLogShareSummary(modalPayload.instance_id)
-    } else {
-        await analyzeAndUpdate(modalPayload)
-    }
+    await analyzeAndUpdate(modalPayload)
 }
 
 function showPreview(): void {
@@ -947,11 +979,46 @@ function notifyNoLogContent(): void {
     })
 }
 
-async function uploadTicketForInstance(instanceId: string): Promise<LogShareTicket | null> {
-    if (uploadTicket.value) return uploadTicket.value
-    if (uploadTicketPromise) return uploadTicketPromise
+async function exportDiagnostic(): Promise<void> {
+    if (exportingDiagnostic.value || previewMode.value) return
+    const instanceId = payload.value.instance_id
+    if (!instanceId) return
 
     const version = analysisVersion
+    exportingDiagnostic.value = true
+    exportedDiagnosticPath.value = ''
+    try {
+        const path = await export_crash_context(
+            instanceId,
+            payload.value.instance_name || 'Minecraft',
+        )
+        if (version === analysisVersion && path) exportedDiagnosticPath.value = path
+    } catch (error) {
+        if (version === analysisVersion) handleError(error)
+    } finally {
+        exportingDiagnostic.value = false
+    }
+}
+
+async function openExportFolder(): Promise<void> {
+    if (!exportedDiagnosticPath.value) return
+    try {
+        await highlightInFolder(exportedDiagnosticPath.value)
+    } catch (error) {
+        handleError(error)
+    }
+}
+
+async function uploadTicketForInstance(
+    instanceId: string,
+    retry = false,
+): Promise<LogShareTicket | null> {
+    if (uploadTicket.value) return uploadTicket.value
+    if (uploadTicketPromise) return uploadTicketPromise
+    if (uploadFailed && !retry) return null
+
+    const version = analysisVersion
+    uploadFailed = false
     const request = logshare_upload_crash(instanceId)
         .then((ticket) => {
             if (version === analysisVersion) {
@@ -962,6 +1029,7 @@ async function uploadTicketForInstance(instanceId: string): Promise<LogShareTick
             return ticket
         })
         .catch((error) => {
+            if (version === analysisVersion) uploadFailed = true
             console.error('Failed to upload crash diagnostic to LogShare', error)
             return null
         })
@@ -1027,7 +1095,7 @@ async function shareDiagnostic(): Promise<void> {
     const instanceId = payload.value.instance_id!
     try {
         if (logShareSettings.value.share_provider === 'logshare') {
-            const ticket = await uploadTicketForInstance(instanceId)
+            const ticket = await uploadTicketForInstance(instanceId, true)
             if (stale()) return
             if (ticket?.url) {
                 shareUrl.value = ticket.url
@@ -1097,9 +1165,9 @@ async function shareDiagnostic(): Promise<void> {
 }
 
 async function copyShareUrl(): Promise<void> {
-    if (!shareUrl.value) return
+    if (!diagnosticUrl.value) return
     try {
-        await navigator.clipboard.writeText(shareUrl.value)
+        await navigator.clipboard.writeText(diagnosticUrl.value)
         addNotification({
             title: formatMessage(messages.shareCopied),
             type: 'success',
@@ -1111,7 +1179,7 @@ async function copyShareUrl(): Promise<void> {
 
 function selectAnalysisSource(value: unknown): void {
     if (aiLoading.value) return
-    const next = value === 'custom' ? 'custom' : 'logshare'
+    const next = availableAnalysisSource(value === 'custom' ? 'custom' : 'logshare')
     choosingSource.value = false
     if (next === selectedSource.value) return
     selectedSource.value = next
@@ -1178,7 +1246,7 @@ async function refreshAIAvailability(): Promise<void> {
         ])
         logShareSettings.value = settings
         logShareSettingsLoaded.value = true
-        defaultSource.value = aiSettings.ai_source
+        defaultSource.value = availableAnalysisSource(aiSettings.ai_source)
         const state = await getAIState().catch(() => null)
         const provider = state?.providers.find(
             (item) => item.provider_id === aiSettings.provider_id,
@@ -1225,20 +1293,6 @@ async function handleProcessEvent(event: ProcessEvent): Promise<void> {
         if (!mounted || activeRuns.get(event.instance_id) !== event.uuid) return
         const instance = await getInstance(event.instance_id).catch(() => null)
         if (!mounted || activeRuns.get(event.instance_id) !== event.uuid) return
-
-        if (
-            shouldUseLogShareAutoAnalysis({
-                ...logShareSettings.value,
-                ai_source: defaultSource.value,
-            })
-        ) {
-            const shown = show({
-                instance_id: event.instance_id,
-                instance_name: instance?.name || 'Minecraft',
-            })
-            if (shown) void loadLogShareSummary(event.instance_id)
-            return
-        }
 
         const analysis = await refreshCrashAnalysis(event.instance_id).catch((error) => {
             console.error('Failed to analyze finished Minecraft process', error)
@@ -1384,6 +1438,7 @@ defineExpose({
                 </div>
 
                 <div
+                    v-if="aiAvailable"
                     class="mt-auto flex flex-col gap-3 border-0 border-t border-solid border-surface-4 pt-4"
                     data-testid="crash-analysis-controls"
                 >
@@ -1392,7 +1447,7 @@ defineExpose({
                             {{ formatMessage(messages.analysisSection) }}
                         </h3>
                         <Button
-                            v-if="!aiLoading"
+                            v-if="CLOUD_LOGAGENT_ENABLED && !aiLoading"
                             type="quiet"
                             @click="choosingSource = !choosingSource"
                             >{{
@@ -1466,34 +1521,89 @@ defineExpose({
                                 )
                             }}</Button
                         >
+                        <Button
+                            type="quiet"
+                            :disabled="previewMode || exportingDiagnostic"
+                            :loading="exportingDiagnostic"
+                            @click="exportDiagnostic"
+                            ><DownloadIcon aria-hidden="true" />{{
+                                formatMessage(
+                                    exportingDiagnostic
+                                        ? messages.exportingDiagnostic
+                                        : messages.exportDiagnostic,
+                                )
+                            }}</Button
+                        >
                         <Button v-if="modChangesAvailable" type="quiet" @click="openModChanges">{{
                             formatMessage(messages.viewModChanges)
                         }}</Button>
                     </div>
                     <div
-                        v-if="shareUrl"
+                        v-if="exportedDiagnosticPath"
+                        role="status"
                         class="flex items-center gap-2 rounded-lg bg-surface-2 p-3"
                     >
-                        <ExternalIcon
+                        <FolderOpenIcon
                             class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
                             aria-hidden="true"
                         />
-                        <a
-                            :href="shareUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="min-w-0 flex-1 truncate text-sm text-[var(--color-text-default)] underline"
+                        <span
+                            class="min-w-0 flex-1 truncate text-sm text-[var(--color-text-default)]"
+                            :title="exportedDiagnosticPath"
                         >
-                            {{ shareUrl }}
-                        </a>
+                            {{
+                                formatMessage(messages.exportDiagnosticSaved, {
+                                    path: exportedDiagnosticPath,
+                                })
+                            }}
+                        </span>
                         <Button
+                            v-tooltip="formatMessage(commonMessages.openInFolderButton)"
                             type="outlined"
                             circular
                             icon-only
-                            :label="formatMessage(messages.copyLink)"
-                            @click="copyShareUrl"
-                            ><ClipboardCopyIcon aria-hidden="true" />
-                        </Button>
+                            :label="formatMessage(commonMessages.openInFolderButton)"
+                            @click="openExportFolder"
+                            ><FolderOpenIcon aria-hidden="true"
+                        /></Button>
+                    </div>
+                    <div
+                        v-if="diagnosticUrl"
+                        data-testid="crash-diagnostic-link"
+                        class="flex items-center gap-3 rounded-lg bg-surface-2 p-3"
+                    >
+                        <div
+                            role="img"
+                            :aria-label="formatMessage(messages.scanLogs)"
+                            class="shrink-0 overflow-hidden rounded-md"
+                        >
+                            <QrcodeVue
+                                :value="diagnosticUrl"
+                                :size="120"
+                                :margin="4"
+                                level="M"
+                                render-as="svg"
+                                class="block size-[120px]"
+                                aria-hidden="true"
+                            />
+                        </div>
+                        <div class="flex min-w-0 flex-1 flex-col items-start gap-2">
+                            <span class="text-sm font-semibold">{{
+                                formatMessage(messages.scanLogs)
+                            }}</span>
+                            <a
+                                :href="diagnosticUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="break-all text-xs text-[var(--color-text-default)] underline"
+                                >{{ diagnosticUrl }}</a
+                            >
+                            <Button type="quiet" @click="copyShareUrl">
+                                <ClipboardCopyIcon aria-hidden="true" />{{
+                                    formatMessage(messages.copyLink)
+                                }}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </section>

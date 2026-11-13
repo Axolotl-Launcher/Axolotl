@@ -1,0 +1,363 @@
+{
+  "id": "51shyZVL",
+  "slug": "moreculling",
+  "title": "More Culling",
+  "description": "A mod that changes how multiple types of culling are handled in order to improve performance",
+  "author": "FX",
+  "categories": ["fabric", "library", "neoforge", "optimization", "quilt", "utility"],
+  "display_categories": ["fabric", "library", "neoforge", "optimization", "quilt", "utility"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 72977439,
+  "followers": 6300,
+  "license": {
+    "id": "GPL-3.0-only",
+    "name": "GNU General Public License v3.0 only"
+  },
+  "loaders": ["fabric", "neoforge", "quilt"],
+  "game_versions": [
+    "21w37a",
+    "21w38a",
+    "21w39a",
+    "21w40a",
+    "21w41a",
+    "21w42a",
+    "21w43a",
+    "21w44a",
+    "1.18-pre1",
+    "1.18-pre2",
+    "1.18-pre3",
+    "1.18-pre4",
+    "1.18-pre5",
+    "1.18-pre6",
+    "1.18-pre7",
+    "1.18-pre8",
+    "1.18-rc1",
+    "1.18-rc2",
+    "1.18-rc3",
+    "1.18-rc4",
+    "1.18",
+    "1.18.1-pre1",
+    "1.18.1-rc1",
+    "1.18.1-rc2",
+    "1.18.1-rc3",
+    "1.18.1",
+    "22w03a",
+    "22w05a",
+    "22w06a",
+    "22w07a",
+    "1.18.2-pre1",
+    "1.18.2-pre2",
+    "1.18.2-pre3",
+    "1.18.2-rc1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "t7vAlfgO",
+  "date_created": "2022-06-02T22:36:08.467225Z",
+  "date_modified": "2026-10-03T09:14:52.187590Z",
+  "color": 263172,
+  "published": "2022-06-02T22:36:08.467225Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/fxmorin/moreculling/issues",
+  "source_url": "https://github.com/fxmorin/moreculling",
+  "wiki_url": "https://github.com/FxMorin/MoreCulling/wiki",
+  "discord_url": "https://discord.gg/SGFDrvA",
+  "donation_urls": [
+    {
+      "platform": "Github",
+      "url": "https://github.com/sponsors/fxmorin"
+    }
+  ],
+  "versions_total": 175,
+  "body": "<img src=\"https://github.com/FxMorin/MoreCulling/blob/master/images/moreculling-banner.png?raw=true\" alt=\"MoreCulling Banner\">\n\n### A mod that changes how multiple types of culling are handled in order to improve performance\nCulling is when you don't render things that the player can't see, to improve performance\n\nRequires Cloth Config!\n  \n**Make sure to report any bugs [here](https://github.com/fxmorin/moreculling/issues)!** \n\n**Discord Server:** [https://discord.gg/SGFDrvA](https://discord.gg/SGFDrvA)  \n  \n**Head over to the [wiki](https://github.com/fxmorin/MoreCulling/wiki) for information on:**   \nWhat's Culled, Performance, Compatibility, Bug Fixes, and more!  \n\nCheck out [MoreCullingExtra](https://modrinth.com/mod/morecullingextra) for extra culling features  \n\n## My other optimizations/fixes\n* [MemoryLeakFix](https://modrinth.com/mod/memoryleakfix) - Fixes multiple memory leaks for both the client and server\n* [Carpet-Fixes](https://modrinth.com/mod/carpet-fixes) - Largest Server-Side bug fixing mod\n* [Blanket](https://modrinth.com/mod/blanket) - Client-side tweaks/fixes\n* [RailOptimization](https://modrinth.com/mod/rail-optimization) - Make powered rails less laggy\n\n## More Info  \nFeel free to contribute to the project!  \nI'm also fine if you use this mod in your modpacks, just make sure to mention it.   \n\nHowever I don't allow clients or other mods to merge this mod without permission, if you would like to use this mod in your client or another mod please contact me. \n\n---\n\nFor transparency, I give my maintainer (1Foxy2) 75% of profits on modrinth.",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/51shyZVL/images/4c966271f02d0a7713069e94c933406e8e5b9097_350.webp",
+      "featured": true,
+      "title": "[MoreCulling] Block Culling",
+      "description": "MoreCulling removes most faces using aggressive block culling. It's able to get much higher frames in most areas of the game, without changing any visuals.",
+      "created": "2022-12-19T17:37:00.822052Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/51shyZVL/images/0bf9a362086fc489a48c89aa97ece4ba3000f53f_350.webp",
+      "featured": false,
+      "title": "[Vanilla] Block Culling",
+      "description": "Minecraft does block culling in order to render as little as possible. Although they do a pretty bad job at it and lots of blocks render faces you can't see",
+      "created": "2022-12-19T17:36:59.130084Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/51shyZVL/images/80416ac9e448a2294495ca7fb7a6c73a30da4fc8_350.webp",
+      "featured": false,
+      "title": "[Vanilla] Map Culling",
+      "description": "Minecraft does not cull stuff like maps behind blocks, causing huge performance loss for no reason",
+      "created": "2022-12-19T17:28:50.648297Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/51shyZVL/images/c118e13432c2a2c1e7f86352cff4030f65785087_350.webp",
+      "featured": false,
+      "title": "[MoreCulling] Map Culling",
+      "description": "MoreCulling correctly culls there maps, and does the same for signs. Resulting in a much smoother and faster game",
+      "created": "2022-12-19T17:28:51.921456Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "1Foxy2",
+      "role": "Maintainer",
+      "avatar": "https://cdn.modrinth.com/user/QjIAV8Is/c45dc602be7445bc3a6a4f1038fb74264d1fd884.png"
+    },
+    {
+      "username": "FX",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/28154542?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "t7vAlfgO",
+      "name": "1.9.0",
+      "version_number": "1.9.0",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "quilt"],
+      "featured": true,
+      "date_published": "2026-10-03T09:14:52.187590Z",
+      "downloads": 1224827,
+      "changelog": "- fix icon in modmenu\r\n- add english upside down translation by @Fhilips613  in #473 ",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-fabric-26.3-1.9.0.jar",
+          "size": 294320,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "1of2eSie",
+      "name": "1.9.0",
+      "version_number": "1.9.0",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-10-03T09:13:58.297550Z",
+      "downloads": 21098,
+      "changelog": "- fix icon in modmenu\n- add english upside down translation by @Fhilips613  in #473 ",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-neoforge-26.3-1.9.0.jar",
+          "size": 276980,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "zL2UEFXS",
+      "name": "v1.9.0-beta.1",
+      "version_number": "1.9.0-beta.1",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric", "quilt"],
+      "featured": true,
+      "date_published": "2026-09-15T20:43:48.322581Z",
+      "downloads": 710412,
+      "changelog": "- port to 26.3",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-fabric-26.3-1.9.0-beta.1.jar",
+          "size": 291201,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "U1j9RSbg",
+      "name": "v1.9.0-beta.1",
+      "version_number": "1.9.0-beta.1",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-15T20:42:56.284784Z",
+      "downloads": 6150,
+      "changelog": "- port to 26.3",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-neoforge-26.3-1.9.0-beta.1.jar",
+          "size": 275145,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "wUYbHzXF",
+      "name": "v1.0.10",
+      "version_number": "1.0.10",
+      "version_type": "release",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["fabric", "quilt"],
+      "featured": true,
+      "date_published": "2026-09-07T21:20:46.398247Z",
+      "downloads": 223444,
+      "changelog": "- Fix #455 farmers delight basket culling incorrectly\r\n- Fix #469 crash on loading screen",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-fabric-1.21.1-1.0.10.jar",
+          "size": 332266,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5M4T2FfG",
+      "name": "v1.0.10",
+      "version_number": "1.0.10",
+      "version_type": "release",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-07T21:18:54.160512Z",
+      "downloads": 227332,
+      "changelog": "- Fix #455 farmers delight basket culling incorrectly\r\n- Fix #469 crash on loading screen",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-neoforge-1.21.1-1.0.10.jar",
+          "size": 335699,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "D5oVCouK",
+      "name": "v1.8.1",
+      "version_number": "1.8.1",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["fabric", "quilt"],
+      "featured": true,
+      "date_published": "2026-08-02T18:57:49.995348Z",
+      "downloads": 2134929,
+      "changelog": "- fix #466 crash with client tweaks\r\n- fix mangrove roots culling, dont cull option not working with sodium by @Spagles in #467 \r\n- remove cloud culling as its no longer needed\r\n- update zh_cn.json by @RimacC2-EV in #460 ",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-fabric-26.2-1.8.1.jar",
+          "size": 363646,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "dKLDGs8Q",
+      "name": "v1.8.1",
+      "version_number": "1.8.1",
+      "version_type": "release",
+      "game_versions": ["26.2"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-08-02T18:56:37.315577Z",
+      "downloads": 42349,
+      "changelog": "- fix #466 crash with client tweaks\n- fix mangrove roots culling, dont cull option not working with sodium by @Spagles in #467 \n- remove cloud culling as its no longer needed\n- update zh_cn.json by @RimacC2-EV in #460 ",
+      "dependencies": [
+        {
+          "project_id": "9s6osm5g",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "moreculling-neoforge-26.2-1.8.1.jar",
+          "size": 349733,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

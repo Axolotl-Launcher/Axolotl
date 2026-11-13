@@ -274,7 +274,6 @@ const {
     selectedStatusFilters,
     row1FilterOptions,
     row2FilterOptions,
-    totalCount,
     filterCounts,
     filteredItems: pipelineFilteredItems,
     filteredModpackItems: pipelineFilteredModpackItems,
@@ -620,9 +619,6 @@ const { folderRows: schematicFolderRows, regularItems: schematicGroupRegularItem
         modpackChildIdSet,
         searchQuery,
         expandedGroups,
-        persistExpandedGroups: (groups) => {
-            if (ctx.instanceId) expandedGroupsMemory.set(ctx.instanceId, groups)
-        },
         getItemId,
         mapToTableItem,
         isGroupedItem: (item) =>
@@ -1087,12 +1083,13 @@ async function confirmBulkUpdate() {
                 bulkStatusMessage.value = null
             })
         } else if (ctx.bulkUpdateItems) {
+            const bulkUpdateItems = ctx.bulkUpdateItems
             bulkItemCount.value = items.length
             await runBulkWithWaiting(
                 'update',
                 items.length,
                 async () => {
-                    return await ctx.bulkUpdateItems(items)
+                    return await bulkUpdateItems(items)
                 },
                 () => {
                     clearSelection()
@@ -1156,7 +1153,6 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                 <ContentTypeFilter
                     v-model:selected="selectedTypeFilter"
                     :options="row1FilterOptions"
-                    :total-count="totalCount"
                     :filter-counts="filterCounts"
                     @toggle="toggleTypeFilter"
                 />
@@ -1178,22 +1174,6 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
                     <template #header-project>
                         <div class="flex min-w-0 flex-1 items-center gap-4">
                             <div class="flex shrink-0 items-center gap-4">
-                                <button
-                                    class="relative pb-1 text-base font-semibold transition-colors"
-                                    :class="
-                                        selectedStatusFilters.length === 0
-                                            ? 'text-brand'
-                                            : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-default)]'
-                                    "
-                                    :aria-pressed="selectedStatusFilters.length === 0"
-                                    @click="selectedStatusFilters = []"
-                                >
-                                    {{ formatMessage(commonMessages.allProjectType) }}
-                                    <span
-                                        v-if="selectedStatusFilters.length === 0"
-                                        class="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-brand"
-                                    />
-                                </button>
                                 <button
                                     v-for="option in row2FilterOptions"
                                     :key="option.id"
@@ -1380,7 +1360,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             "
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
-            :symlink-target="ctx.symlinkTarget?.value"
+            :symlink-target="ctx.symlinkTarget?.value ?? undefined"
             :action="confirmDelete"
         />
         <ContentDependencyWarningModal
@@ -1394,7 +1374,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             "
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
-            :symlink-target="ctx.symlinkTarget?.value"
+            :symlink-target="ctx.symlinkTarget?.value ?? undefined"
             :action="confirmDependencyWarningDelete"
         />
         <ConfirmBulkUpdateModal
@@ -1413,7 +1393,7 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
             :server="ctx.deletionContext === 'server'"
             :action-disabled="ctx.isBusy.value"
             :action-disabled-tooltip="ctx.busyMessage?.value ?? undefined"
-            :symlink-target="ctx.symlinkTarget?.value"
+            :symlink-target="ctx.symlinkTarget?.value ?? undefined"
             @update="confirmBulkUpdate"
         />
         <ConfirmUnlinkModal

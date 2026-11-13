@@ -1,7 +1,7 @@
 {
   "name": "@modrinth/app-frontend",
   "private": true,
-  "version": "1.10.4",
+  "version": "1.11.0-beta.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "intl:extract": "formatjs extract \"src/**/*.{vue,ts,tsx,js,jsx,mts,cts,mjs,cjs}\" --ignore \"**/*.d.ts\" --ignore node_modules --out-file src/locales/en-US/index.json --format crowdin --preserve-whitespace",
     "intl:prune-local": "pnpm -w scripts i18n-icu-contract prune-local --scope apps/app-frontend",
     "test": "vue-tsc --noEmit && vitest run --config vitest.config.ts",
-    "test:visual": "vitest run --config vitest.config.ts",
+    "test:visual": "vitest run --config vitest.config.ts --project visual",
     "test:e2e": "wdio run wdio.browser.conf.ts"
   },
   "dependencies": {
@@ -53,10 +53,10 @@
     "langchain": "1.5.10",
     "langsmith": "0.9.0",
     "lru-cache": "^11.5.2",
-    "monaco-editor": "^0.56.0",
     "ofetch": "^1.5.1",
     "overlayscrollbars": "^2.16.0",
     "pinia": "^3.0.4",
+    "qrcode.vue": "^3.10.0",
     "reka-ui": "^2.10.1",
     "three": "^0.185.1",
     "vite-svg-loader": "^5.1.3",

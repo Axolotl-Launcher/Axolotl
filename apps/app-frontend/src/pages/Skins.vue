@@ -42,6 +42,8 @@ import { useMojangAuthStatus } from '@/composables/useMojangAuth'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { accountSelectionRevision } from '@/helpers/account-state'
 import { get_default_user, users } from '@/helpers/auth'
+import type { MinecraftCredential } from '@/helpers/auth-types'
+import { errorText } from '@/helpers/error-text'
 import { DEFAULT_UI_FONT_STACK, resolveFontFamily } from '@/helpers/font-family.ts'
 import type { RenderResult } from '@/helpers/rendering/batch-skin-renderer.ts'
 import { setActiveSkinPreviews, skinBlobUrlMap } from '@/helpers/rendering/batch-skin-renderer.ts'
@@ -315,7 +317,7 @@ const { offline } = useNetworkStatus()
 const mojangAuth = useMojangAuthStatus()
 
 const accountsCard = inject('accountsCard') as Ref<typeof AccountsCard>
-const currentUser = ref(undefined)
+const currentUser = ref<MinecraftCredential | undefined>(undefined)
 const currentUserId = ref<string | undefined>(undefined)
 watch(currentUserId, () => playerSkinModal.value?.hide())
 const currentAccountType = ref<'microsoft' | 'offline' | 'yggdrasil' | undefined>(undefined)
@@ -582,7 +584,7 @@ function isSkinActive(skin: Skin) {
 }
 
 function getErrorMessage(error: unknown) {
-    return error instanceof Error ? error.message : String(error)
+    return errorText(error)
 }
 
 function isMinecraftSkinRateLimitError(error: unknown) {
@@ -904,9 +906,11 @@ async function loadCurrentUser(generation = skinAccountGeneration) {
             users(offline.value, true),
         ])
         if (generation !== skinAccountGeneration) return false
-        const selectedAccount = allAccounts.find((acc) => acc.account_id === defaultId)
+        const selectedAccount = allAccounts.find(
+            (acc: MinecraftCredential) => acc.account_id === defaultId,
+        )
         currentAccountType.value = selectedAccount?.account_type
-        currentUserId.value = defaultId
+        currentUserId.value = defaultId ?? undefined
         currentUser.value = selectedAccount
         return true
     } catch (e) {
@@ -1207,11 +1211,7 @@ watch(offline, () => {
         </section>
     </Teleport>
 
-    <div
-        v-if="currentUser || isAccountLoading"
-        data-onboarding-id="skins-page"
-        class="skin-layout box-border min-h-full p-4"
-    >
+    <div v-if="currentUser || isAccountLoading" class="skin-layout box-border min-h-full p-4">
         <div class="sticky top-6 self-start p-2 pt-0">
             <h1 class="m-0 text-2xl font-bold flex items-center gap-2">
                 {{ formatMessage(messages.skinSelectorTitle) }}
@@ -1362,11 +1362,7 @@ watch(offline, () => {
         </div>
     </div>
 
-    <div
-        v-else
-        data-onboarding-id="skins-page"
-        class="box-border flex min-h-full items-center justify-center pt-[25%]"
-    >
+    <div v-else class="box-border flex min-h-full items-center justify-center pt-[25%]">
         <div
             class="relative mx-auto flex w-full max-w-xl flex-col gap-5 rounded-lg bg-surface-3 p-7 shadow-lg"
         >

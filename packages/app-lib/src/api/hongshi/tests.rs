@@ -21,7 +21,7 @@ async fn official_kernel_forwards_a_real_minecraft_connection() {
         .unwrap();
     let version = local.status.version.name.clone();
     local.ping(12345).await.unwrap();
-    let client = reqwest::Client::new();
+    let client = crate::util::http::client_builder().build().unwrap();
     let directory = tempfile::tempdir().unwrap();
     let binary = directory.path().join(binary_name());
     install_from(
@@ -150,7 +150,7 @@ async fn direct_binary_install_succeeds_then_cached_help_is_reused() {
     )])
     .await;
     install_from(
-        &reqwest::Client::new(),
+        &crate::util::http::client_builder().build().unwrap(),
         &url,
         &path,
         0,
@@ -184,7 +184,7 @@ async fn direct_binary_install_succeeds_then_cached_help_is_reused() {
     let (url, server) = http_server(vec![(200, String::new(), binary)]).await;
     assert!(
         install_from(
-            &reqwest::Client::new(),
+            &crate::util::http::client_builder().build().unwrap(),
             &url,
             &blocked,
             0,
@@ -332,7 +332,7 @@ async fn missing_build_can_later_install_a_valid_binary_without_resetting_availa
         ),
     ])
     .await;
-    let client = reqwest::Client::new();
+    let client = crate::util::http::client_builder().build().unwrap();
     let token = CancellationToken::new();
     let error = install_from(&client, &url, &path, 0, &token)
         .await
@@ -408,7 +408,7 @@ async fn download_size_header_is_rejected_before_a_file_is_installed() {
     let path = directory.path().join(binary_name());
     std::fs::write(&path, b"existing file").unwrap();
     let error = install_from(
-        &reqwest::Client::new(),
+        &crate::util::http::client_builder().build().unwrap(),
         &url,
         &path,
         0,
@@ -447,7 +447,7 @@ async fn cancelling_staged_help_reaps_the_process_before_removing_download() {
         cancellation.cancel();
     });
     let error = install_from(
-        &reqwest::Client::new(),
+        &crate::util::http::client_builder().build().unwrap(),
         &url,
         &directory.path().join(binary_name()),
         0,
@@ -606,7 +606,7 @@ async fn truncated_node_response_falls_back_to_validated_v2_disk_cache() {
         stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{").await.unwrap();
     });
     let (map, cached) = load_node_map_from(
-        &reqwest::Client::new(),
+        &crate::util::http::client_builder().build().unwrap(),
         &url,
         &path,
         &Mutex::new(NodeCache::default()),
@@ -634,7 +634,7 @@ async fn node_fallback_ignores_legacy_and_invalid_v2_cache_files() {
         (503, String::new(), Vec::new()),
     ])
     .await;
-    let client = reqwest::Client::new();
+    let client = crate::util::http::client_builder().build().unwrap();
     let cache = Mutex::new(NodeCache::default());
     assert!(
         load_node_map_from(&client, &url, &path, &cache, true)
@@ -874,7 +874,7 @@ async fn missing_build_can_be_retried_and_does_not_replace_existing_file() {
     let path = directory.0.join(binary_name());
     std::fs::write(&path, b"existing file").unwrap();
     let (url, server) = http_server(vec![(404, String::new(), br#"{"detail":{"message":"not uploaded","expected_file":"hongshic-macos-arm64"}}"#.to_vec()), (200, String::new(), b"invalid binary".to_vec())]).await;
-    let client = reqwest::Client::new();
+    let client = crate::util::http::client_builder().build().unwrap();
     let token = CancellationToken::new();
     let error = install_from(&client, &url, &path, 0, &token)
         .await
@@ -913,7 +913,7 @@ async fn rate_limited_download_retries_once() {
     ])
     .await;
     let error = install_from(
-        &reqwest::Client::new(),
+        &crate::util::http::client_builder().build().unwrap(),
         &url,
         &directory.0.join(binary_name()),
         0,
@@ -940,7 +940,7 @@ async fn rate_limit_wait_is_cancellable() {
     let result = tokio::time::timeout(
         Duration::from_secs(2),
         install_from(
-            &reqwest::Client::new(),
+            &crate::util::http::client_builder().build().unwrap(),
             &url,
             &directory.0.join(binary_name()),
             0,
@@ -968,7 +968,7 @@ async fn node_cache_refresh_empty_and_cooldown() {
         (429, "Retry-After: 61\r\n".into(), b"{}".to_vec()),
     ])
     .await;
-    let client = reqwest::Client::new();
+    let client = crate::util::http::client_builder().build().unwrap();
     assert_eq!(
         load_node_map_from(&client, &url, &path, &cache, false)
             .await

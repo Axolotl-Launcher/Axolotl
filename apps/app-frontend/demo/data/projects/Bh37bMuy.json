@@ -1,0 +1,472 @@
+{
+  "id": "Bh37bMuy",
+  "slug": "reeses-sodium-options",
+  "title": "Reese's Sodium Options",
+  "description": "Alternative Options Menu for Sodium",
+  "author": "FlashyReese",
+  "categories": ["fabric", "neoforge", "quilt", "utility"],
+  "display_categories": ["fabric", "neoforge", "quilt", "utility"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "mod",
+  "downloads": 88311437,
+  "followers": 9007,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric", "neoforge", "quilt"],
+  "game_versions": [
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "22w42a",
+    "22w43a",
+    "22w44a",
+    "22w45a",
+    "22w46a",
+    "1.19.3-pre1",
+    "1.19.3-pre2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "GGxJ0JAt",
+  "date_created": "2021-08-21T06:10:10.242065Z",
+  "date_modified": "2026-10-16T11:35:17.736671Z",
+  "color": 6978040,
+  "published": "2021-08-21T06:10:10.242065Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/FlashyReese/reeses-sodium-options/issues",
+  "source_url": "https://github.com/FlashyReese/reeses-sodium-options",
+  "wiki_url": null,
+  "discord_url": "https://flashyreese.me/discord",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/flashyreese"
+    }
+  ],
+  "versions_total": 169,
+  "body": "Reese's Sodium Options replaces Sodium's options screen with an alternate layout and styling focused on a compact, navigable configuration experience.\n\nModern Sodium already provides a full configuration screen and public options API. RSO is mainly an alternative frontend for users who prefer its tab layout, grouped presentation, styling, and extra quality-of-life controls.\n\n# Features\n\n- Alternative Sodium options screen layout and styling.\n- Search bar for quickly finding options.\n- Scrollable vertical tab list and option pages.\n- Collapsible mod tab groups with configurable behavior.\n- Collapsible option groups within pages.\n- Customizable tab headers, including icons and version labels.\n- Configurable tooltip delay and optional option ID display.\n- Focused option tooltips for keyboard/controller navigation.\n- Optional color themes for option pages and controls.\n- Per-option reset-to-default overlay.\n- Per-option undo overlay for modified options.\n- `SHIFT` + scroll slider adjustments.\n- Optional reverse cycling controls.\n- Improved keyboard navigation.\n- UI narration support.\n- Optional Controlify support for controller navigation and button guides.\n- Option to disable RSO and return to Sodium's default options screen.\n\n# Screenshots\n\n![image2](https://cdn.modrinth.com/data/Bh37bMuy/images/ef92f9dbadd953c9acfbc0a5246921a8226dac1c.png)\n\n![image](https://i.imgur.com/KBsXRBI.png)\n\n# Requirements\n\n- [Sodium](https://modrinth.com/mod/sodium)\n\n# Optional Integrations\n\n- [Controlify](https://modrinth.com/mod/controlify) for controller navigation support.\n\n# Notes\n\nRSO is a client-side UI replacement for Sodium's options screen. It is not required for Sodium configuration, and it is intended for users who prefer RSO's layout, styling, and quality-of-life behavior.\n\nSodium Options API is no longer supported on versions where Sodium already provides the relevant options API directly.\n\n#### Please do not ask CaffeineMC for support with this mod. Reese's Sodium Options has no affiliation with CaffeineMC.\n\n# Support the Project\n\nIf you want to support the time that goes into maintaining Reese's Sodium Options and my other Minecraft mods, you can do so through Ko-fi.\n\n[![Support me on Ko-fi](https://i.imgur.com/FSNi7zk.png)](https://ko-fi.com/flashyreese)",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/Bh37bMuy/images/ef92f9dbadd953c9acfbc0a5246921a8226dac1c_350.webp",
+      "featured": false,
+      "title": "Default",
+      "description": null,
+      "created": "2026-06-21T09:35:09.560009Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Bh37bMuy/images/0d3a148aad2cc5e33ea77308e533f432567b49db_350.webp",
+      "featured": false,
+      "title": "Disabled Color Themes",
+      "description": null,
+      "created": "2026-06-21T09:35:35.572131Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Bh37bMuy/images/3537476814a78b92bad8e258af3a87408b8f5617_350.webp",
+      "featured": false,
+      "title": "Disabled Version Labels",
+      "description": null,
+      "created": "2026-06-21T09:35:50.185811Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/Bh37bMuy/images/4dbc5ac6e373ced6e10a0ed0cbeb94b088511d9d_350.webp",
+      "featured": false,
+      "title": "Disabled Tab Headers",
+      "description": null,
+      "created": "2026-06-21T09:35:41.520828Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "FlashyReese",
+      "role": "Owner",
+      "avatar": "https://avatars3.githubusercontent.com/u/30311066?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "GGxJ0JAt",
+      "name": "[Fabric] 2.2.6-beta.1 - Minecraft 26.3",
+      "version_number": "mc26.3-2.2.6-beta.1+fabric",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-10-16T11:35:17.736671Z",
+      "downloads": 96780,
+      "changelog": "## What's Changed\r\n* Update uk_ua.json by @Tenwoc in https://github.com/FlashyReese/reeses-sodium-options/pull/191\r\n* localization: Update Simplified Chinese translations by @mahiro76 in https://github.com/FlashyReese/reeses-sodium-options/pull/185\r\n* Add Spanish localization for Reese's Sodium Options by @Texaliuz in https://github.com/FlashyReese/reeses-sodium-options/pull/184\r\n\r\n## New Contributors\r\n* @Tenwoc made their first contribution in https://github.com/FlashyReese/reeses-sodium-options/pull/191\r\n* @mahiro76 made their first contribution in https://github.com/FlashyReese/reeses-sodium-options/pull/185\r\n* @Texaliuz made their first contribution in https://github.com/FlashyReese/reeses-sodium-options/pull/184\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc26.3-2.2.5...mc26.3-2.2.6-beta.1",
+      "dependencies": [
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.6-beta.1+mc26.3.jar",
+          "size": 265048,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.6-beta.1+mc26.3-dev.jar",
+          "size": 1924,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "S9MvJoF5",
+      "name": "[NeoForge] 2.2.6-beta.1 - Minecraft 26.3",
+      "version_number": "mc26.3-2.2.6-beta.1+neoforge",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-10-16T11:35:10.172780Z",
+      "downloads": 3392,
+      "changelog": "## What's Changed\r\n* Update uk_ua.json by @Tenwoc in https://github.com/FlashyReese/reeses-sodium-options/pull/191\r\n* localization: Update Simplified Chinese translations by @mahiro76 in https://github.com/FlashyReese/reeses-sodium-options/pull/185\r\n* Add Spanish localization for Reese's Sodium Options by @Texaliuz in https://github.com/FlashyReese/reeses-sodium-options/pull/184\r\n\r\n## New Contributors\r\n* @Tenwoc made their first contribution in https://github.com/FlashyReese/reeses-sodium-options/pull/191\r\n* @mahiro76 made their first contribution in https://github.com/FlashyReese/reeses-sodium-options/pull/185\r\n* @Texaliuz made their first contribution in https://github.com/FlashyReese/reeses-sodium-options/pull/184\r\n\r\n**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc26.3-2.2.5...mc26.3-2.2.6-beta.1",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.6-beta.1+mc26.3.jar",
+          "size": 264881,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.6-beta.1+mc26.3-dev.jar",
+          "size": 1741,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "5NexXh0N",
+      "name": "[Fabric] 2.2.6-beta.1 - Minecraft 1.21.11",
+      "version_number": "mc1.21.11-2.2.6-beta.1+fabric",
+      "version_type": "beta",
+      "game_versions": ["1.21.11"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-10-16T11:33:18.739409Z",
+      "downloads": 42877,
+      "changelog": "**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc1.21.11-2.2.4...mc1.21.11-2.2.6-beta.1",
+      "dependencies": [
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.6-beta.1+mc1.21.11.jar",
+          "size": 265217,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.6-beta.1+mc1.21.11-dev-shadow.jar",
+          "size": 263007,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "sXMyefh8",
+      "name": "[NeoForge] 2.2.6-beta.1 - Minecraft 1.21.11",
+      "version_number": "mc1.21.11-2.2.6-beta.1+neoforge",
+      "version_type": "beta",
+      "game_versions": ["1.21.11"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-10-16T11:33:10.541196Z",
+      "downloads": 1092,
+      "changelog": "**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc1.21.11-2.2.4...mc1.21.11-2.2.6-beta.1",
+      "dependencies": [
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.6-beta.1+mc1.21.11.jar",
+          "size": 267073,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.6-beta.1+mc1.21.11-dev-shadow.jar",
+          "size": 262867,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "EfchygKx",
+      "name": "[Fabric] Reese's Sodium Options 2.2.5 - Minecraft 26.3",
+      "version_number": "mc26.3-2.2.5+fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2026-09-24T19:57:32.368318Z",
+      "downloads": 1214377,
+      "changelog": "**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc26.3-2.2.4...mc26.3-2.2.5",
+      "dependencies": [
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.5+mc26.3.jar",
+          "size": 258082,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.5+mc26.3-dev.jar",
+          "size": 1918,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "G3OpbiiZ",
+      "name": "[NeoForge] Reese's Sodium Options 2.2.5 - Minecraft 26.3",
+      "version_number": "mc26.3-2.2.5+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": true,
+      "date_published": "2026-09-24T19:57:24.903303Z",
+      "downloads": 14970,
+      "changelog": "**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc26.3-2.2.4...mc26.3-2.2.5",
+      "dependencies": [
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.5+mc26.3.jar",
+          "size": 257911,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.5+mc26.3-dev.jar",
+          "size": 1731,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "ewg6u30j",
+      "name": "[Fabric] Reese's Sodium Options 2.2.4 - Minecraft 26.3",
+      "version_number": "mc26.3-2.2.4+fabric",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-09-16T01:05:08.778062Z",
+      "downloads": 440705,
+      "changelog": "**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc26.2-2.2.4...mc26.3-2.2.4",
+      "dependencies": [
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.4+mc26.3.jar",
+          "size": 245281,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-fabric-2.2.4+mc26.3-dev.jar",
+          "size": 1883,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "id": "G4XdFjLq",
+      "name": "[NeoForge] Reese's Sodium Options 2.2.4 - Minecraft 26.3",
+      "version_number": "mc26.3-2.2.4+neoforge",
+      "version_type": "release",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-09-16T01:05:02.413045Z",
+      "downloads": 2840,
+      "changelog": "**Full Changelog**: https://github.com/FlashyReese/reeses-sodium-options/compare/mc26.2-2.2.4...mc26.3-2.2.4",
+      "dependencies": [
+        {
+          "project_id": "YL57xq9U",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "AANobbMI",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "PtjYWJkn",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.4+mc26.3.jar",
+          "size": 245112,
+          "primary": true
+        },
+        {
+          "filename": "reeses-sodium-options-neoforge-2.2.4+mc26.3-dev.jar",
+          "size": 1698,
+          "primary": false
+        }
+      ]
+    }
+  ]
+}

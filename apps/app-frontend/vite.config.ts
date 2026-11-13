@@ -131,6 +131,7 @@ export default defineConfig(({ command }) => ({
         }),
     ],
     optimizeDeps: {
+        exclude: ['monaco-editor'],
         include: [
             'deepagents/browser',
             'langchain',
@@ -140,7 +141,6 @@ export default defineConfig(({ command }) => ({
             '@langchain/core/utils/function_calling',
             'zod',
         ],
-        exclude: ['ace-builds', 'vue3-ace-editor'],
     },
 
     // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

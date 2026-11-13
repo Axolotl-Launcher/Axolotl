@@ -3,9 +3,16 @@ import dayjs from 'dayjs'
 import type { Ref } from 'vue'
 import { computed } from 'vue'
 
+import {
+    type GameDirectoryInfo,
+    MANAGED_GAME_DIRECTORY_KEY,
+    resolveGameDirectory,
+} from '@/helpers/game-directory'
+import type { GameInstance } from '@/helpers/types'
+
 export const UNGROUPED_GROUP_KEY = '__ungrouped__'
 
-export type GridGroupingOption = 'Group' | 'Loader' | 'Game version' | 'None'
+export type GridGroupingOption = 'Group' | 'Loader' | 'Game version' | 'Game directory' | 'None'
 export type GridSortOption =
     'Name' | 'Last played' | 'Date created' | 'Date modified' | 'Game version'
 
@@ -26,15 +33,32 @@ export interface GridDisplayState {
     collapsedGroups: string[]
 }
 
-export function useGridGrouping<T extends Record<string, unknown>>(
+/**
+ * The fields grouping and sorting read off an instance. Everything is optional
+ * so callers can group lighter shapes (tests, previews) while `GameInstance`
+ * provides the real values.
+ */
+export interface GridGroupableInstance {
+    name?: string
+    loader?: string
+    game_version?: string
+    groups?: string[]
+    last_played?: string | number | Date | null
+    date_created?: string
+    date_modified?: string
+    [key: string]: unknown
+}
+
+export function useGridGrouping<T extends GridGroupableInstance>(
     label: string,
     instances: Ref<T[]>,
     options: {
         getSearchText?: (instance: T) => string
         getLoader?: (instance: T) => string
         getGameVersion?: (instance: T) => string
+        getGameDirectory?: (instance: T) => GameDirectoryInfo
         getGroups?: (instance: T) => string[]
-        getLastPlayed?: (instance: T) => string | number | null
+        getLastPlayed?: (instance: T) => string | number | Date | null
         getDateCreated?: (instance: T) => string
         getDateModified?: (instance: T) => string
         formatLoader?: (loader: string) => string
@@ -113,6 +137,9 @@ export function useGridGrouping<T extends Record<string, unknown>>(
         const instanceMap = new Map<string, T[]>()
         const getLoader = options.getLoader ?? ((i: T) => i.loader ?? '')
         const getGameVersion = options.getGameVersion ?? ((i: T) => i.game_version ?? '')
+        const getGameDirectory =
+            options.getGameDirectory ??
+            ((i: T) => resolveGameDirectory(i as unknown as Pick<GameInstance, keyof GameInstance>))
         const getGroups = options.getGroups ?? ((i: T) => i.groups ?? [])
         const formatLoader = options.formatLoader ?? ((l: string) => l)
 
@@ -134,6 +161,16 @@ export function useGridGrouping<T extends Record<string, unknown>>(
                         instanceMap.set(gameVersion, [])
                     }
                     instanceMap.get(gameVersion)!.push(instance)
+                })
+                break
+
+            case 'Game directory':
+                instances.forEach((instance) => {
+                    const directoryKey = getGameDirectory(instance).key
+                    if (!instanceMap.has(directoryKey)) {
+                        instanceMap.set(directoryKey, [])
+                    }
+                    instanceMap.get(directoryKey)!.push(instance)
                 })
                 break
 
@@ -164,7 +201,7 @@ export function useGridGrouping<T extends Record<string, unknown>>(
         group: GridGroupingOption,
         sortBy: GridSortOption,
     ): Map<string, T[]> {
-        if (group !== 'Group' && group !== 'Game version') {
+        if (group !== 'Group' && group !== 'Game version' && group !== 'Game directory') {
             return instanceMap
         }
 
@@ -182,6 +219,10 @@ export function useGridGrouping<T extends Record<string, unknown>>(
         }
 
         const sortedEntries = [...instanceMap.entries()].sort((a, b) => {
+            if (group === 'Game directory') {
+                if (a[0] === MANAGED_GAME_DIRECTORY_KEY) return -1
+                if (b[0] === MANAGED_GAME_DIRECTORY_KEY) return 1
+            }
             if (group === 'Group') {
                 if (a[0] === UNGROUPED_GROUP_KEY && b[0] !== UNGROUPED_GROUP_KEY) return -1
                 if (a[0] !== UNGROUPED_GROUP_KEY && b[0] === UNGROUPED_GROUP_KEY) return 1

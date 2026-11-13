@@ -24,8 +24,9 @@ vi.mock('@modrinth/ui', async () => ({
             values?: Record<string, string>,
         ) => {
             const text = calls.chinese
-                ? ((chinese as Record<string, { message: string }>)[message.id]?.message ??
-                  message.defaultMessage)
+                ? ((chinese as Record<string, { message?: string; defaultMessage?: string }>)[
+                      message.id
+                  ]?.message ?? message.defaultMessage)
                 : message.defaultMessage
             return text.replace('{name}', values?.name ?? '')
         },
@@ -238,7 +239,6 @@ it('renders Chinese results, long addresses and errors in light, dark and OLED w
         if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE)
             await page.screenshot({
                 element: wrapper.element,
-                style: '[data-scale] { transform: none !important; }',
                 path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/network-${theme}.png`,
             })
         wrapper.unmount()
@@ -257,7 +257,6 @@ it('renders Chinese results, long addresses and errors in light, dark and OLED w
     if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE)
         await page.screenshot({
             element: narrow.element,
-            style: '[data-scale] { transform: none !important; }',
             path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/network-narrow.png`,
         })
 })

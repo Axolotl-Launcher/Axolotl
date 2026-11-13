@@ -52,6 +52,49 @@ it('keeps only live scope listeners after repeated mounts', async () => {
     expect(backend.list.mock.calls.length).toBe(before + 1)
 })
 
+it('publishes empty groups returned by a group-change refresh', async () => {
+    let refresh!: () => void
+    backend.list.mockResolvedValueOnce([])
+    backend.list.mockResolvedValueOnce([{ id: 'empty', name: 'Empty' }])
+    backend.listen.mockImplementation(async (callback: () => void) => {
+        refresh = callback
+        return () => {}
+    })
+    const { groups } = start()
+    await flushPromises()
+    expect(groups.libraryGroups.value).toEqual([])
+
+    refresh()
+    await flushPromises()
+
+    expect(groups.libraryGroups.value).toEqual([{ id: 'empty', name: 'Empty' }])
+})
+
+it('ignores a stale group read that resolves after a newer one', async () => {
+    let resolveInitial!: (groups: { id: string; name: string }[]) => void
+    let resolveRefresh!: (groups: { id: string; name: string }[]) => void
+    let refresh!: () => void
+    backend.list.mockImplementationOnce(() => new Promise((resolve) => (resolveInitial = resolve)))
+    backend.list.mockImplementationOnce(() => new Promise((resolve) => (resolveRefresh = resolve)))
+    backend.listen.mockImplementation(async (callback: () => void) => {
+        refresh = callback
+        return () => {}
+    })
+    const { groups } = start()
+    await flushPromises()
+
+    refresh()
+    await flushPromises()
+    resolveRefresh([{ id: 'new', name: 'New' }])
+    await flushPromises()
+    expect(groups.libraryGroups.value).toEqual([{ id: 'new', name: 'New' }])
+
+    resolveInitial([])
+    await flushPromises()
+    expect(groups.libraryGroups.value).toEqual([{ id: 'new', name: 'New' }])
+    expect(groups.libraryGroupsLoaded.value).toBe(true)
+})
+
 it('releases a subscription that finishes registering after disposal', async () => {
     let finish!: (cleanup: () => void) => void
     const cleanup = vi.fn()

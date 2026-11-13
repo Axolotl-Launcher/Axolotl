@@ -1,0 +1,397 @@
+{
+  "id": "u6dRKJwZ",
+  "slug": "jei",
+  "title": "Just Enough Items (JEI)",
+  "description": "View Items and Recipes",
+  "author": "mezz",
+  "categories": ["fabric", "forge", "library", "neoforge", "utility"],
+  "display_categories": ["fabric", "forge", "library", "neoforge", "utility"],
+  "client_side": "optional",
+  "server_side": "optional",
+  "project_type": "mod",
+  "downloads": 85701783,
+  "followers": 11579,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["fabric", "forge", "neoforge"],
+  "game_versions": [
+    "1.8",
+    "1.8.8",
+    "1.8.9",
+    "1.9",
+    "1.9.4",
+    "1.10",
+    "1.10.2",
+    "1.11",
+    "1.11.2",
+    "1.12",
+    "1.12.1",
+    "1.12.2",
+    "1.13.2",
+    "1.14.2",
+    "1.14.3",
+    "1.14.4",
+    "1.15.1",
+    "1.15.2",
+    "1.16.1",
+    "1.16.2",
+    "1.16.3",
+    "1.16.4",
+    "1.16.5",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.4",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.4",
+    "1.21.5",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "P9sPjaao",
+  "date_created": "2023-01-27T05:19:03.821699Z",
+  "date_modified": "2026-10-22T09:30:10.901266Z",
+  "color": 9934998,
+  "published": "2023-01-27T05:19:03.821699Z",
+  "additional_categories": [],
+  "issues_url": "https://github.com/mezz/JustEnoughItems/issues?q=is%3Aissue",
+  "source_url": "https://github.com/mezz/JustEnoughItems",
+  "wiki_url": "https://github.com/mezz/JustEnoughItems/wiki",
+  "discord_url": "https://discord.gg/sCQcWU2",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://www.patreon.com/mezz"
+    },
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/mezz_"
+    }
+  ],
+  "versions_total": 3887,
+  "body": "# Just Enough Items\nJEI is an item and recipe viewing mod for Minecraft, built from the ground up for stability and performance.\n\n![JEI Recipe GUI](https://cdn.modrinth.com/data/u6dRKJwZ/images/ee0ea4051573264d2b4edb53f9d4e634faa11f21.png)\n\n## Controls\n\n### Inventory:\n*(Minecraft Options -> Controls)*\n\nShow **R**ecipes: *Hover over item + R*  \nShow **U**ses: *Hover over item + U*  \nToggle Item List **O**verlay: *Control + O*  \n\n### Item List:\nShow Recipes: *Click Item or type R*  \nShow Uses: *Right-Click Item or type U*  \nNext/Previous page: *Scroll Wheel*  \n\n### Search:\nSelect Search Bar: *Click or Control + F*  \nClear Search: *Right Click*  \nPrevious Search: *Up Arrow * \nSearch by Mod Name: *Type @ in front of a word (@thaum)*  \nMultiple terms work together *(wand @thaum)*  \n\nExclude search terms: *Type - in front of a word (@thaum -wand)*  \n\nSearch terms that have spaces in them: *Type \"\" around the words (\"two words\")*\n\n### Recipe View:\nNext/Previous page: *Scroll Wheel*  \nShow all Recipes: *Click the recipe category's name*  \nMove items into crafting area: *Click the [+] button. Shift-Click to move multiple sets of items.*  \n\n<details>\n<summary>View advanced controls</summary>\n\n### Advanced Search:\nSearch by Tooltip Only: *Type # in front of a word*  \nSearch by OreDict name: *Type $ in front of a word*  \nSearch by Creative Tab: *Type % in front of a word*  \nMultiple Searches: *Separate terms with | characters, like \"wrench|hammer\"*  \n\n### With Cheat Mode Active:\nGet a full stack of Items: *Click Item*  \nGet one Item: *Right-Click Item*  \nDelete Item: *Drop an Item into the Item List*  \n\n### With Item List Edit Mode Active: \n*(These controls are shown in-game on the item tooltip)*\n\nHide Item: *Control-Click Item*  \nHide Items and Sub-Items: *Control-Right-Click Item*  \nHide all Items from a mod: *Control-Shift-Click Item*\n\n</details>\n\n## FAQ\n### Can I include JEI in my mod pack?\nOf course!\n\n### Can JEI run client-only, or with a vanilla server?\n[1.21.1 or lower] Yes, with some features disabled:\n- The \"Move items into crafting area\" [+] buttons.\n- Cheating in items that have lots of NBT data.\n- Deleting items.\n\n[1.21.2+] Since Minecraft 1.21.2, recipes are stored on the server and not the client. Please install JEI and NeoForge/Fabric on the server to sync recipes to the client.\n\n### Where can I find the ___ feature from NEI?\n\n[The chart here shows which mods support each feature.](https://docs.google.com/spreadsheets/d/1NEWZjKvWB-SibY1BXc1zoYkK7AhjMMBZess9wMy--6w/edit#gid=0)\n\n### I have an issue / bug / crash / report / request, where can I send it?\n[JEI Github Issues Page](https://github.com/mezz/JustEnoughItems/issues)\n\n## Support\n[Become a patron on Patreon](https://www.patreon.com/mezz)",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/u6dRKJwZ/images/f281af132332942e0739d557d6608e9263273fbb.jpeg",
+      "featured": true,
+      "title": "jei-header",
+      "description": "Zoomed image of JEI viewed on a high resolution CRT monitor",
+      "created": "2023-01-29T23:20:13.068911Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/u6dRKJwZ/images/3eeba45a5139933d338cb1b3d93ba341693f9ed8_350.webp",
+      "featured": false,
+      "title": "Recipe Completion",
+      "description": null,
+      "created": "2023-01-27T05:18:47.838148Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/u6dRKJwZ/images/7e845f89fbd1cece7cbec9474c193d500d34e5d9_350.webp",
+      "featured": false,
+      "title": "JEI Recipe GUI",
+      "description": null,
+      "created": "2023-01-27T05:27:31.621057Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/u6dRKJwZ/images/631c360143228a749271d1b01e8c3d9963f9b495_350.webp",
+      "featured": false,
+      "title": "Potions",
+      "description": null,
+      "created": "2023-01-27T05:18:47.838148Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "mezz",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/916092?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "P9sPjaao",
+      "name": "31.16.0.89 for NeoForge 26.3",
+      "version_number": "31.16.0.89",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-22T09:30:10.901266Z",
+      "downloads": 2951,
+      "changelog": "  * [fix #4576 Scope ingredient codec caches to each runtime](https://github.com/mezz/JustEnoughItems/commit/e48eb0ea57757bd61abe9f29b029c9e51c4707be) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-26.3-neoforge-31.16.0.89.jar",
+          "size": 4738498,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Nfv71T5d",
+      "name": "31.16.0.89 for Fabric 26.3",
+      "version_number": "31.16.0.89",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-22T09:30:03.108711Z",
+      "downloads": 30561,
+      "changelog": "  * [fix #4576 Scope ingredient codec caches to each runtime](https://github.com/mezz/JustEnoughItems/commit/e48eb0ea57757bd61abe9f29b029c9e51c4707be) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-26.3-fabric-31.16.0.89.jar",
+          "size": 4767247,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "zebBMGcX",
+      "name": "31.16.0.88 for NeoForge 26.3",
+      "version_number": "31.16.0.88",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["neoforge"],
+      "featured": false,
+      "date_published": "2026-10-22T08:26:28.137977Z",
+      "downloads": 162,
+      "changelog": "  * [Use child widgets instead of ReflectionUtil to get text boxes](https://github.com/mezz/JustEnoughItems/commit/81d07875f856bd827d872bd8ad5c97843b356e78) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-26.3-neoforge-31.16.0.88.jar",
+          "size": 4738514,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "z8okfInj",
+      "name": "31.16.0.88 for Fabric 26.3",
+      "version_number": "31.16.0.88",
+      "version_type": "beta",
+      "game_versions": ["26.3"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-22T08:26:19.655996Z",
+      "downloads": 1247,
+      "changelog": "  * [Use child widgets instead of ReflectionUtil to get text boxes](https://github.com/mezz/JustEnoughItems/commit/81d07875f856bd827d872bd8ad5c97843b356e78) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-26.3-fabric-31.16.0.88.jar",
+          "size": 4767263,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "oC8SAEUG",
+      "name": "15.74.0.228 for Fabric 1.20.1",
+      "version_number": "15.74.0.228",
+      "version_type": "beta",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-21T14:31:38.089113Z",
+      "downloads": 8072,
+      "changelog": "  * [Fix #4570 crash with unavailable vanilla recipe catalysts](https://github.com/mezz/JustEnoughItems/commit/f1b7b7bd0d8a0f55d90d1426cb84cb1a267d2a36) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-1.20.1-fabric-15.74.0.228.jar",
+          "size": 6929002,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "MoqLPMQn",
+      "name": "15.74.0.228 for Forge 1.20.1",
+      "version_number": "15.74.0.228",
+      "version_type": "beta",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-21T14:31:31.692885Z",
+      "downloads": 33229,
+      "changelog": "  * [Fix #4570 crash with unavailable vanilla recipe catalysts](https://github.com/mezz/JustEnoughItems/commit/f1b7b7bd0d8a0f55d90d1426cb84cb1a267d2a36) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-1.20.1-forge-15.74.0.228.jar",
+          "size": 6892778,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "F2JRIgT7",
+      "name": "15.74.0.227 for Fabric 1.20.1",
+      "version_number": "15.74.0.227",
+      "version_type": "beta",
+      "game_versions": ["1.20.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-10-20T17:05:14.257180Z",
+      "downloads": 4345,
+      "changelog": "  * [Fix #4566 preserve search field linkage after remapping](https://github.com/mezz/JustEnoughItems/commit/0dd4db5c0033b6d05559ac34b136fba8a2b94496) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-1.20.1-fabric-15.74.0.227.jar",
+          "size": 6928859,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "TrKZlZ0b",
+      "name": "15.74.0.227 for Forge 1.20.1",
+      "version_number": "15.74.0.227",
+      "version_type": "beta",
+      "game_versions": ["1.20.1"],
+      "loaders": ["forge"],
+      "featured": false,
+      "date_published": "2026-10-20T17:05:06.754742Z",
+      "downloads": 17007,
+      "changelog": "  * [Fix #4566 preserve search field linkage after remapping](https://github.com/mezz/JustEnoughItems/commit/0dd4db5c0033b6d05559ac34b136fba8a2b94496) - mezz\n",
+      "dependencies": [
+        {
+          "project_id": "7tEfOcA7",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "BOHUKqOz",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "jei-1.20.1-forge-15.74.0.227.jar",
+          "size": 6892654,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

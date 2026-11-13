@@ -57,18 +57,16 @@
                     <div class="flex flex-col gap-1">
                         <InstanceRowCard
                             v-for="inst in group.instances"
-                            :key="`${group.launcherType}:${inst.name}`"
+                            :key="`${group.launcherType}:${instanceKey(inst)}`"
                             :name="inst.name"
                             :version="inst.version"
                             :loader="inst.loader"
-                            @select="toggleInstance(group.launcherType, group.launcherName, inst)"
+                            @select="toggleInstance(group.launcherType, inst)"
                         >
                             <template #prepend>
                                 <Checkbox
-                                    :model-value="isSelected(group.launcherType, inst.name)"
-                                    @update:model-value="
-                                        toggleInstance(group.launcherType, group.launcherName, inst)
-                                    "
+                                    :model-value="isSelected(group.launcherType, inst)"
+                                    @update:model-value="toggleInstance(group.launcherType, inst)"
                                     @click.stop
                                 />
                             </template>
@@ -226,8 +224,12 @@ const selectedCount = computed(() => {
     return count
 })
 
-function isSelected(launcherType: string, name: string): boolean {
-    return selectedMap.value.get(launcherType)?.has(name) ?? false
+function instanceKey(instance: { name: string; path: string; versionPath?: string }) {
+    return instance.versionPath || instance.path || instance.name
+}
+
+function isSelected(launcherType: string, instance: InstanceInfo): boolean {
+    return selectedMap.value.get(launcherType)?.has(instanceKey(instance)) ?? false
 }
 
 function onHide() {
@@ -238,15 +240,16 @@ function onHide() {
     emit('cancel')
 }
 
-function toggleInstance(launcherType: string, launcherName: string, inst: InstanceInfo) {
+function toggleInstance(launcherType: string, inst: InstanceInfo) {
+    const key = instanceKey(inst)
     const set = selectedMap.value.get(launcherType)
     if (!set) {
-        selectedMap.value.set(launcherType, new Set([inst.name]))
-    } else if (set.has(inst.name)) {
-        set.delete(inst.name)
+        selectedMap.value.set(launcherType, new Set([key]))
+    } else if (set.has(key)) {
+        set.delete(key)
         if (set.size === 0) selectedMap.value.delete(launcherType)
     } else {
-        set.add(inst.name)
+        set.add(key)
     }
     selectedMap.value = new Map(selectedMap.value)
 }
@@ -254,7 +257,7 @@ function toggleInstance(launcherType: string, launcherName: string, inst: Instan
 function selectAll() {
     const map = new Map<string, Set<string>>()
     for (const group of internalResults.value) {
-        const names = new Set(group.instances.map((i) => i.name))
+        const names = new Set(group.instances.map(instanceKey))
         map.set(group.launcherType, names)
     }
     selectedMap.value = map
@@ -272,7 +275,7 @@ function handleConfirm() {
         const group = internalResults.value.find((g) => g.launcherType === launcherType)
         if (!group) continue
         const instances = group.instances
-            .filter((i) => names.has(i.name))
+            .filter((i) => names.has(instanceKey(i)))
             .map((i) => ({
                 name: i.name,
                 path: i.path,

@@ -17,6 +17,7 @@ import {
 import {
     Accordion,
     Button,
+    ColorPicker,
     Combobox,
     defineMessages,
     injectNotificationManager,
@@ -37,7 +38,7 @@ import {
 } from 'vue'
 
 import minecraftPreviewFont from '@/assets/lab/Minecraft_AE.ttf'
-import minecraftPreviewBackground from '@/assets/lab/minecraft-preview.png'
+import minecraftPreviewBackground from '@/assets/lab/minecraft-preview.webp'
 import {
     type GradientPreset,
     loadGradientTextState,
@@ -66,7 +67,6 @@ import {
 const { addNotification, handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const editor = useTemplateRef<HTMLDivElement>('editor')
-const newColorPicker = useTemplateRef<HTMLInputElement>('newColorPicker')
 const activeTextFormats = ref<TextFormat[]>([])
 const editorSelection = shallowRef<Range | null>(null)
 const obfuscationFrame = ref(0)
@@ -81,7 +81,7 @@ const presets = ref<GradientPreset[]>(initialState.presets)
 const importValue = ref('')
 const importError = ref('')
 const presetName = ref('')
-let obfuscationTimer: ReturnType<typeof window.setInterval> | undefined
+let obfuscationTimer: number | undefined
 
 const OBFUSCATED_PREVIEW_GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
 
@@ -409,10 +409,6 @@ function updateColor(index: number, value: string) {
     if (color) colors.value[index] = color
 }
 
-function openNewColorPicker() {
-    newColorPicker.value?.click()
-}
-
 function addPickedColor(value: string) {
     const color = normalizeHexColor(value)
     if (color) replaceColors([...colors.value, color])
@@ -664,7 +660,7 @@ function formatAdapterName(adapterId: GradientFormatId): string {
             </div>
         </header>
 
-        <div class="lab-workbench" data-onboarding-id="lab-gradient-text-editor">
+        <div class="lab-workbench">
             <section class="lab-panel min-w-0">
                 <section class="lab-panel-section p-4">
                     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -732,21 +728,23 @@ function formatAdapterName(adapterId: GradientFormatId): string {
                                 @click="randomizeColors"
                                 ><RefreshCwIcon />
                             </Button>
-                            <input
-                                ref="newColorPicker"
-                                type="color"
-                                :value="colors[colors.length - 1]"
-                                :aria-label="formatMessage(messages.addColor)"
-                                class="lab-new-color-picker"
-                                @change="addPickedColor(($event.target as HTMLInputElement).value)"
-                            />
-                            <Button
-                                type="colored"
-                                color="brand"
-                                size="2xs"
-                                @click="openNewColorPicker"
-                                ><PlusIcon />{{ formatMessage(messages.addColor) }}
-                            </Button>
+                            <ColorPicker
+                                :model-value="colors[colors.length - 1]"
+                                :label="formatMessage(messages.addColor)"
+                                @change="addPickedColor"
+                            >
+                                <template #trigger="{ toggle, expanded }">
+                                    <Button
+                                        type="colored"
+                                        color="brand"
+                                        size="2xs"
+                                        aria-haspopup="dialog"
+                                        :aria-expanded="expanded"
+                                        @click="toggle"
+                                        ><PlusIcon />{{ formatMessage(messages.addColor) }}
+                                    </Button>
+                                </template>
+                            </ColorPicker>
                         </div>
                     </div>
                     <div
@@ -755,19 +753,13 @@ function formatAdapterName(adapterId: GradientFormatId): string {
                     ></div>
                     <div class="lab-color-list">
                         <div v-for="(color, index) in colors" :key="index" class="lab-color-row">
-                            <label class="lab-color-swatch" :style="{ backgroundColor: color }">
-                                <input
-                                    type="color"
-                                    :value="color"
-                                    :aria-label="`${formatMessage(messages.colorsTitle)} ${index + 1}`"
-                                    @input="
-                                        updateColor(
-                                            index,
-                                            ($event.target as HTMLInputElement).value,
-                                        )
-                                    "
-                                />
-                            </label>
+                            <ColorPicker
+                                :model-value="color"
+                                :label="`${formatMessage(messages.colorsTitle)} ${index + 1}`"
+                                size="sm"
+                                class="justify-self-center"
+                                @update:model-value="updateColor(index, $event)"
+                            />
                             <StyledInput
                                 v-model="colorInputValues[index]"
                                 size="small"
@@ -1102,49 +1094,6 @@ function formatAdapterName(adapterId: GradientFormatId): string {
 
 .lab-color-row + .lab-color-row {
     border-top: 1px solid var(--color-surface-4);
-}
-
-.lab-color-swatch {
-    position: relative;
-    display: block;
-    width: 2rem;
-    height: 2rem;
-    margin-inline: auto;
-    overflow: hidden;
-    border: 2px solid var(--color-surface-5);
-    border-radius: 0.375rem;
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
-    cursor: pointer;
-}
-
-.lab-color-swatch:focus-within {
-    border-color: var(--color-brand);
-    outline: 2px solid var(--color-brand-shadow);
-    outline-offset: 1px;
-}
-
-.lab-color-swatch input,
-.lab-new-color-picker {
-    appearance: auto !important;
-    -webkit-appearance: auto !important;
-}
-
-.lab-color-swatch input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
-.lab-new-color-picker {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
 }
 
 .lab-segmented {

@@ -106,11 +106,10 @@ fn push_maven_fallbacks(urls: &mut Vec<String>, relative_path: &str) {
 }
 
 fn declared_download_urls(
-    library_name: &str,
     repository: Option<&str>,
     declared_url: Option<&str>,
     relative_path: &str,
-) -> crate::Result<Vec<String>> {
+) -> Vec<String> {
     let mut urls = match declared_url {
         Some(url) => minecraft_library_mirrors(url),
         None => Vec::new(),
@@ -118,20 +117,21 @@ fn declared_download_urls(
     if urls.is_empty() {
         // Old format: resolve through the declaring repository, always ending
         // with Mojang's Maven as the default location.
-        let mut urls = legacy_library_download_urls(repository, relative_path)
-            .ok_or_else(|| {
-                crate::ErrorKind::LauncherError(format!(
-                    "No safe download location is known for required \
-                         linked library {library_name}"
-                ))
-            })?;
+        // An unusable repository must not prevent verification of an existing
+        // local artifact. An empty candidate list is rejected only if the file
+        // actually needs downloading; never invent fallbacks for unsafe URLs.
+        let Some(mut urls) =
+            legacy_library_download_urls(repository, relative_path)
+        else {
+            return Vec::new();
+        };
         // legacy_library_download_urls already ends with the Mojang Maven;
         // dedup keeps that position while BMCLAPI slots in before it.
         push_maven_fallbacks(&mut urls, relative_path);
-        return Ok(urls);
+        return urls;
     }
     push_maven_fallbacks(&mut urls, relative_path);
-    Ok(urls)
+    urls
 }
 
 /// Plan for the classpath artifact of a linked library. Returns `None` when no
@@ -184,11 +184,10 @@ pub(crate) fn linked_classpath_plan(
         return Ok(None);
     }
     let urls = declared_download_urls(
-        &lib.name,
         lib.url.as_deref(),
         declared_url.as_deref(),
         &relative,
-    )?;
+    );
 
     Ok(Some(LinkedFilePlan {
         label: lib.name.clone(),
@@ -278,11 +277,10 @@ pub(crate) fn linked_native_plan(
         return Ok(None);
     }
     let urls = declared_download_urls(
-        &lib.name,
         lib.url.as_deref(),
         declared_url.as_deref(),
         &relative,
-    )?;
+    );
 
     Ok(Some(LinkedFilePlan {
         label: format!("{}:{classifier}", lib.name),
@@ -361,7 +359,7 @@ async fn ensure_file(st: &State, plan: &LinkedFilePlan) -> crate::Result<bool> {
 
     let Some(primary) = plan.urls.first() else {
         return Err(crate::ErrorKind::LauncherError(format!(
-            "No download location is known for required linked dependency {}",
+            "No safe download location is known for required linked dependency {}",
             plan.label
         ))
         .into());
@@ -1059,6 +1057,53 @@ mod tests {
         }));
 
         assert!(linked_classpath_plan(&direct, &library).unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn legacy_repository_does_not_block_verified_local_libraries() {
+        let (_temp, state) = ensure_test_state().await;
+        let root = tempdir().unwrap();
+        let direct = direct_for(root.path());
+        let body = b"existing verified forge jar";
+        for repository in [
+            "http://files.minecraftforge.net/maven/",
+            "http://unusable.invalid/maven/",
+        ] {
+            let library = linked_library(json!({
+                "name": "net.minecraftforge:forge:1.12.2-14.23.5.2847",
+                "url": repository,
+                "checksums": [sha1_hex(body)]
+            }));
+            let plan =
+                linked_classpath_plan(&direct, &library).unwrap().unwrap();
+            std::fs::create_dir_all(plan.destination.parent().unwrap())
+                .unwrap();
+            std::fs::write(&plan.destination, body).unwrap();
+            assert!(!ensure_file(&state, &plan).await.unwrap());
+            assert_eq!(std::fs::read(&plan.destination).unwrap(), body);
+        }
+    }
+
+    #[tokio::test]
+    async fn unusable_repository_still_rejects_missing_or_corrupt_local_libraries()
+     {
+        let (_temp, state) = ensure_test_state().await;
+        let root = tempdir().unwrap();
+        let direct = direct_for(root.path());
+        let library = linked_library(json!({
+            "name": "net.minecraftforge:forge:1.12.2-14.23.5.2847",
+            "url": "http://unusable.invalid/maven/",
+            "checksums": [sha1_hex(b"expected")]
+        }));
+        let plan = linked_classpath_plan(&direct, &library).unwrap().unwrap();
+        assert!(plan.urls.is_empty());
+        let missing = ensure_file(&state, &plan).await.unwrap_err().to_string();
+        assert!(missing.contains("No safe download location"));
+        std::fs::create_dir_all(plan.destination.parent().unwrap()).unwrap();
+        std::fs::write(&plan.destination, b"corrupt").unwrap();
+        let corrupt = ensure_file(&state, &plan).await.unwrap_err().to_string();
+        assert!(corrupt.contains("No safe download location"));
+        assert_eq!(std::fs::read(&plan.destination).unwrap(), b"corrupt");
     }
 
     #[test]

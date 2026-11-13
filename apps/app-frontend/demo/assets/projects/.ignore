@@ -1,0 +1,4 @@
+# Recorded project icons, named by their Modrinth project IDs (see data/sources.json).
+# Spell checkers that honor .ignore files, such as typos, skip them.
+*
+!.ignore

@@ -22,6 +22,14 @@ export async function get_java_default_versions() {
     return await invoke('plugin:jre|get_java_default_versions')
 }
 
+export async function get_java_selection_info(path) {
+    return await invoke('plugin:jre|get_java_selection_info', { path })
+}
+
+export async function approve_java_selection(path, volumeId) {
+    return await invoke('plugin:jre|approve_java_selection', { path, volumeId })
+}
+
 export async function set_java_version(javaVersion) {
     return await invoke('plugin:jre|set_java_version', { javaVersion })
 }
@@ -69,13 +77,6 @@ export async function test_jre(path, majorVersion) {
 // Automatically installs specified java version
 export async function auto_install_java(javaVersion) {
     return await invoke('plugin:jre|jre_auto_install_java', { javaVersion })
-}
-
-export async function respond_to_java_download_confirmation(requestId, approved) {
-    return await invoke('plugin:jre|jre_respond_to_download_confirmation', {
-        requestId,
-        approved,
-    })
 }
 
 export async function list_java_distribution_versions(distribution) {

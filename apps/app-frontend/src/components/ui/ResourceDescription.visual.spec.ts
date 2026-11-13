@@ -1,5 +1,5 @@
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, type GlobalMountOptions, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 
@@ -7,7 +7,7 @@ import { resourceDescription, resourceGet } from '@/helpers/resources'
 
 import ResourceDescription from './ResourceDescription.vue'
 
-function queryPlugin() {
+function queryPlugin(): { plugins: GlobalMountOptions['plugins'] } {
     return { plugins: [[VueQueryPlugin, { queryClient: new QueryClient() }]] }
 }
 

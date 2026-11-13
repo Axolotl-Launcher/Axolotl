@@ -202,7 +202,7 @@ beforeEach(() => {
         providers: [],
         terracotta: { status: 'idle' },
         hongshi: idle(),
-    } as MultiplayerState
+    } as unknown as MultiplayerState
     fixture.servers = ref([
         {
             id: 'test-server',

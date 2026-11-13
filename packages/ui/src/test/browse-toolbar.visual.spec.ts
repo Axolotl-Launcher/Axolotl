@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import Button from '../components/base/buttons/Button.vue'
 import PopoutMenu from '../components/base/PopoutMenu.vue'
+import ProjectCardSkeleton from '../components/project/ProjectCardSkeleton.vue'
 import BrowsePageLayout from '../layouts/shared/browse-tab/layout.vue'
 import {
     type BrowseManagerContext,
@@ -53,6 +54,7 @@ async function mountBrowseToolbar() {
         effectiveSortTypes: computed(() => [sort]),
         effectiveCurrentSortType: ref(sort),
         loading: ref(false),
+        committed: shallowRef(null),
         projectHits: shallowRef([]),
         serverHits: shallowRef([]),
         totalHits: ref(0),
@@ -159,8 +161,35 @@ async function mountBrowseToolbar() {
         global: { plugins: [router], stubs: { SearchFilterControl: true } },
     })
     cleanup.push(() => wrapper.unmount())
-    return { wrapper, host, query, translate, chooseInstance }
+    return { wrapper, host, query, translate, chooseInstance, context }
 }
+
+it('uses skeletons exclusively during both initial loading and replacement searches', async () => {
+    const { wrapper, context } = await mountBrowseToolbar()
+    context.loading.value = true
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAllComponents(ProjectCardSkeleton)).toHaveLength(8)
+    expect(wrapper.text()).not.toContain('No results found')
+
+    context.committed!.value = {
+        projectType: 'mod',
+        sortType: { name: 'relevance', display: 'Relevance' },
+        page: 1,
+        maxResults: 20,
+        deprioritizedTags: [],
+        excludeLoaders: false,
+        response: { projectHits: [], serverHits: [], total_hits: 0, per_page: 20 },
+    }
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAllComponents(ProjectCardSkeleton)).toHaveLength(8)
+    expect(wrapper.text()).not.toContain('Loading results')
+    expect(wrapper.text()).not.toContain('No results found')
+
+    context.loading.value = false
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAllComponents(ProjectCardSkeleton)).toHaveLength(0)
+    expect(wrapper.text()).toContain('No results found')
+})
 
 it('keeps browsing controls usable when the content column shrinks and expands', async () => {
     const { wrapper, host, query, translate, chooseInstance } = await mountBrowseToolbar()

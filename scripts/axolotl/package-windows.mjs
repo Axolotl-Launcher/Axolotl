@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util'
 import {
     app,
     files,
+    output,
     requireFile,
     requireProfile,
     root,
@@ -12,6 +13,11 @@ import {
     sha256,
     version,
 } from './desktop-build-utils.mjs'
+import {
+    verifyWindowsBinaryArchitecture,
+    verifyWindowsBundleArchitecture,
+    windowsPackageArchitecture,
+} from './windows-package-architecture.mjs'
 
 const { values } = parseArgs({
     options: {
@@ -24,16 +30,26 @@ const profile = values.profile
 requireProfile(profile)
 const source = path.join(root, 'target', profile)
 const binary = requireFile(path.join(source, 'Axolotl Launcher.exe'))
+const host = output('rustc', ['-vV']).match(/^host: (.+)$/m)?.[1]
+const architecture = windowsPackageArchitecture(host)
 const initialHash = sha256(binary)
 process.env.AXOLOTL_INSTALLER_UI_PATH = requireFile(path.join(source, 'axolotl-installer-ui.exe'))
+for (const file of [
+    binary,
+    process.env.AXOLOTL_INSTALLER_UI_PATH,
+    requireFile(path.join(app, 'resources/seed-map/axolotl-cubiomes.dll')),
+]) {
+    verifyWindowsBinaryArchitecture(fs.readFileSync(file), architecture, file)
+}
 const destination = path.resolve(values.output)
 fs.mkdirSync(destination, { recursive: true })
 const target =
     profile === 'release' ? path.join(root, 'target') : path.join(root, 'target/ci-bundle')
 process.env.CARGO_TARGET_DIR = target
-const releaseDirectory = path.join(target, 'release')
+const bundleTarget = architecture === 'arm64' ? host : undefined
+const releaseDirectory = path.join(target, ...(bundleTarget ? [bundleTarget] : []), 'release')
 fs.mkdirSync(releaseDirectory, { recursive: true })
-if (profile !== 'release')
+if (profile !== 'release' || bundleTarget)
     fs.copyFileSync(binary, path.join(releaseDirectory, 'Axolotl Launcher.exe'))
 const bundleDirectory = path.join(releaseDirectory, 'bundle/nsis')
 
@@ -55,14 +71,16 @@ for (const variant of ['modern', 'native']) {
         '--config',
         `tauri-${variant}.conf.json`,
     ]
+    if (bundleTarget) args.push('--target', bundleTarget)
     if (variant === 'modern' && profile === 'release')
         args.push('--config', 'tauri-updater.conf.json')
     if (profile === 'ci') args.push('--no-sign')
     run('pnpm', args, { cwd: app })
     const installers = fs.readdirSync(bundleDirectory).filter((file) => file.endsWith('-setup.exe'))
     if (installers.length !== 1) throw new Error(`Expected one ${variant} installer`)
+    verifyWindowsBundleArchitecture(installers[0], architecture)
     const installer = path.join(bundleDirectory, installers[0])
-    const name = `Axolotl_Launcher_${version()}_x64_${variant === 'modern' ? 'modern' : 'nsis'}-setup.exe`
+    const name = `Axolotl_Launcher_${version()}_${architecture}_${variant === 'modern' ? 'modern' : 'nsis'}-setup.exe`
     fs.copyFileSync(installer, path.join(destination, name))
     if (variant === 'native' && fs.existsSync(`${installer}.sig`)) {
         fs.copyFileSync(`${installer}.sig`, path.join(destination, `${name}.sig`))
@@ -74,6 +92,7 @@ for (const variant of ['modern', 'native']) {
             .readdirSync(bundleDirectory)
             .filter((file) => file.endsWith('-setup.nsis.zip'))
         if (archives.length !== 1) throw new Error('Missing modern updater archive')
+        verifyWindowsBundleArchitecture(archives[0], architecture)
         for (const suffix of ['', '.sig']) {
             const file = requireFile(path.join(bundleDirectory, `${archives[0]}${suffix}`))
             fs.copyFileSync(file, path.join(destination, path.basename(file)))
@@ -81,9 +100,13 @@ for (const variant of ['modern', 'native']) {
     }
 }
 if (sha256(binary) !== initialHash) throw new Error('Packaging changed the compiled application')
-const portable = path.join(root, 'target', `portable-${profile}`, 'Axolotl')
+const portable = path.join(
+    fs.mkdtempSync(path.join(root, 'target', `portable-${profile}-`)),
+    'Axolotl',
+)
 fs.mkdirSync(path.join(portable, '.Axolotl'), { recursive: true })
 fs.copyFileSync(binary, path.join(portable, 'Axolotl Launcher.exe'))
+fs.copyFileSync(process.env.AXOLOTL_INSTALLER_UI_PATH, path.join(portable, 'axolotl-updater.exe'))
 requireFile(path.join(app, 'resources/seed-map/axolotl-cubiomes.dll'))
 fs.cpSync(path.join(app, 'resources/seed-map'), path.join(portable, 'resources/seed-map'), {
     recursive: true,
@@ -109,10 +132,18 @@ run(
             AXOLOTL_PORTABLE_SOURCE: portable,
             AXOLOTL_PORTABLE_ZIP: path.join(
                 destination,
-                `Axolotl_Launcher_${version()}_x64_portable.zip`,
+                `Axolotl_Launcher_${version()}_${architecture}_portable.zip`,
             ),
         },
     },
 )
+if (profile === 'release') {
+    const archive = path.join(
+        destination,
+        `Axolotl_Launcher_${version()}_${architecture}_portable.zip`,
+    )
+    run('pnpm', ['tauri', 'signer', 'sign', archive], { cwd: app })
+    requireFile(`${archive}.sig`)
+}
 for (const file of files(destination).filter((file) => path.dirname(file) === destination))
     console.log(file)

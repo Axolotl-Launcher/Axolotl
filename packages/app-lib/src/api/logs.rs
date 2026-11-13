@@ -25,7 +25,7 @@ pub use analysis_settings::{
 
 mod document;
 pub mod logagent;
-pub use document::{LogDocument, read_log_document};
+pub use document::{LogDocument, export_log_file, read_log_document};
 
 mod crash_analysis;
 pub use crash_analysis::{
@@ -130,36 +130,44 @@ pub struct LatestLogCursor {
 pub struct CensoredString(String);
 impl CensoredString {
     pub fn censor(mut s: String, credentials_list: &[Credentials]) -> Self {
-        let username = whoami::username();
-        s = s
-            .replace(&format!("/{username}/"), "/{COMPUTER_USERNAME}/")
-            .replace(&format!("\\{username}\\"), "\\{COMPUTER_USERNAME}\\");
-        for credentials in credentials_list {
-            // Use the offline profile to guarantee that this function does not cause
-            // Mojang API request, and is never delayed by a network request. The offline
-            // profile is optimistically updated on upsert from time to time anyway
-            if credentials.access_token.len() >= 8 {
-                s = s.replace(
-                    &credentials.access_token,
-                    "{MINECRAFT_ACCESS_TOKEN}",
-                );
-            }
-            s = s
-                .replace(
-                    &credentials.offline_profile.name,
-                    "{MINECRAFT_USERNAME}",
-                )
-                .replace(
-                    &credentials.offline_profile.id.as_simple().to_string(),
-                    "{MINECRAFT_UUID}",
-                )
-                .replace(
-                    &credentials.offline_profile.id.as_hyphenated().to_string(),
-                    "{MINECRAFT_UUID}",
-                );
+        for (pattern, replacement) in Self::replacements(credentials_list) {
+            s = s.replace(&pattern, replacement);
         }
-
         Self(s)
+    }
+
+    fn replacements(
+        credentials_list: &[Credentials],
+    ) -> Vec<(String, &'static str)> {
+        let username = whoami::username();
+        let mut rules = vec![
+            (format!("/{username}/"), "/{COMPUTER_USERNAME}/"),
+            (format!("\\{username}\\"), "\\{COMPUTER_USERNAME}\\"),
+        ];
+        for credentials in credentials_list {
+            // The offline profile never makes a network request during censorship.
+            if credentials.access_token.len() >= 8 {
+                rules.push((
+                    credentials.access_token.clone(),
+                    "{MINECRAFT_ACCESS_TOKEN}",
+                ));
+            }
+            if !credentials.offline_profile.name.is_empty() {
+                rules.push((
+                    credentials.offline_profile.name.clone(),
+                    "{MINECRAFT_USERNAME}",
+                ));
+            }
+            rules.push((
+                credentials.offline_profile.id.as_simple().to_string(),
+                "{MINECRAFT_UUID}",
+            ));
+            rules.push((
+                credentials.offline_profile.id.as_hyphenated().to_string(),
+                "{MINECRAFT_UUID}",
+            ));
+        }
+        rules
     }
 
     pub fn as_str(&self) -> &str {

@@ -86,6 +86,7 @@ pub(crate) async fn finalize_curseforge_materializations(
 pub(crate) async fn verify_and_record_curseforge_modpack_file(
     task: CurseForgeVerificationTask,
     database_tx: mpsc::Sender<CurseForgeDatabaseTask>,
+    reporter: Option<&crate::install::InstallProgressReporter>,
 ) -> crate::Result<()> {
     if task.cancellation.is_cancelled() {
         remove_curseforge_staged_file(&task.download_path).await;
@@ -116,6 +117,15 @@ pub(crate) async fn verify_and_record_curseforge_modpack_file(
             "CurseForge modpack verification canceled".to_string(),
         )
         .into());
+    }
+    if let Some(reporter) = reporter {
+        reporter
+            .track_pack_update_file(
+                &task.relative_path,
+                &verified.sha1,
+                verified.size,
+            )
+            .await?;
     }
     // Only materialization needs the per-instance lock. Hashing and database
     // persistence run in separate workers so verification does not serialize

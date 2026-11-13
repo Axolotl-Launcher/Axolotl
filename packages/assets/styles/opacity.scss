@@ -63,6 +63,7 @@
     // share: `keep-60` is `b * 0.60`. Migrating a fixed `color-mix(… 60%,
     // transparent)` to `keep-60` renders identically at a 100% baseline and
     // follows the setting everywhere else. Rungs are added as sites migrate.
+    --opacity-ratio-keep-95: calc(var(--opacity-baseline, 100%) * 0.95);
     --opacity-ratio-keep-90: calc(var(--opacity-baseline, 100%) * 0.9);
     --opacity-ratio-keep-82: calc(var(--opacity-baseline, 100%) * 0.82);
     --opacity-ratio-keep-80: calc(var(--opacity-baseline, 100%) * 0.8);

@@ -26,6 +26,9 @@ vi.mock('./BackupRepositorySettings.vue', () => ({
 vi.mock('./StorageSettings.vue', () => ({
     default: defineComponent({ setup: () => () => h('div', { 'data-test': 'analysis' }) }),
 }))
+vi.mock('./SettingsExportSection.vue', () => ({
+    default: defineComponent({ setup: () => () => h('div', { 'data-test': 'settings-export' }) }),
+}))
 vi.mock('./SettingsRow.vue', () => ({
     default: defineComponent({
         setup:
@@ -36,10 +39,11 @@ vi.mock('./SettingsRow.vue', () => ({
 }))
 vi.mock('./SettingsSection.vue', () => ({
     default: defineComponent({
+        props: ['title'],
         setup:
-            (_, { slots }) =>
+            (props, { slots }) =>
             () =>
-                h('section', slots.default?.()),
+                h('section', [props.title && h('h2', props.title), slots.default?.()]),
     }),
 }))
 
@@ -62,8 +66,15 @@ it('shows storage analysis alongside storage and backup settings', async () => {
     const { wrapper, router } = await page('/settings?source=test#storage-backups')
     await vi.waitFor(() => expect(wrapper.find('[data-test="analysis"]').exists()).toBe(true))
     expect(wrapper.find('[data-test="backups"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="settings-export"]').exists()).toBe(true)
     expect(router.currentRoute.value.query).toEqual({ source: 'test' })
     expect(router.currentRoute.value.hash).toBe('#storage-backups')
+})
+
+it('titles storage analysis like the other sections on the page', async () => {
+    const { wrapper } = await page('/settings#storage-backups')
+    await vi.waitFor(() => expect(wrapper.find('[data-test="analysis"]').exists()).toBe(true))
+    expect(wrapper.find('h2').text()).toBe('Storage analysis')
 })
 
 it('keeps old analysis links on the complete storage and backups page', async () => {

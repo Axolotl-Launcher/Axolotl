@@ -3,6 +3,7 @@ import { confirmedContentGroupKey, type ContentItem, type useVIntl } from '@modr
 import { type InstallJobSnapshot, wait_for_install_job } from './install'
 import { resourcePlanIssueFeedback } from './resource-operation-feedback'
 import {
+    type ResourceOperationProgress,
     resourcePrepareEntryOperation,
     resourceQueuePlan,
     type SourceReleaseRef,
@@ -13,11 +14,18 @@ export { confirmedContentGroupKey } from '@modrinth/ui'
 const instanceUpdates = new Map<string, Promise<boolean>>()
 const pendingEntries = new Map<string, Map<string, Promise<boolean>>>()
 
+/**
+ * Queues direct updates for installed entries. `onNothingToApply` runs once
+ * for each prepared plan that has no file to change, so the caller can say so
+ * instead of finishing silently. A request whose entries are already pending
+ * shares that task and its single notice.
+ */
 export async function queueResourceEntryUpdates(
     instanceId: string,
     entryIds: string[],
     track: (job: InstallJobSnapshot) => void,
     formatMessage: ReturnType<typeof useVIntl>['formatMessage'],
+    onNothingToApply?: () => void,
 ): Promise<boolean> {
     const selected = [...new Set(entryIds)]
     if (!selected.length) return false
@@ -28,7 +36,15 @@ export async function queueResourceEntryUpdates(
         const previous = instanceUpdates.get(instanceId) ?? Promise.resolve(false)
         const task = previous
             .catch(() => false)
-            .then(() => runResourceEntryUpdate(instanceId, remaining, track, formatMessage))
+            .then(() =>
+                runResourceEntryUpdate(
+                    instanceId,
+                    remaining,
+                    track,
+                    formatMessage,
+                    onNothingToApply,
+                ),
+            )
         instanceUpdates.set(instanceId, task)
         pendingEntries.set(instanceId, entries)
         for (const entry of remaining) entries.set(entry, task)
@@ -48,8 +64,9 @@ async function runResourceEntryUpdate(
     entryIds: string[],
     track: (job: InstallJobSnapshot) => void,
     formatMessage: ReturnType<typeof useVIntl>['formatMessage'],
+    onNothingToApply?: () => void,
 ) {
-    const prepare = () =>
+    const prepare = (onProgress: (progress: ResourceOperationProgress) => void) =>
         resourcePrepareEntryOperation(
             instanceId,
             'update',
@@ -57,13 +74,18 @@ async function runResourceEntryUpdate(
             null,
             false,
             undefined,
-            undefined,
+            onProgress,
             false,
         )
     let queuedJob: InstallJobSnapshot
     for (let attempt = 0; ; attempt++) {
+        const resourceNames = new Map<string, string>()
         try {
-            const plan = await prepare()
+            const plan = await prepare((progress) => {
+                if (progress.kind === 'node' && progress.metadata?.title.trim())
+                    resourceNames.set(progress.node.id, progress.metadata.title)
+                else if (progress.kind === 'nodeRemoved') resourceNames.delete(progress.nodeId)
+            })
             const blocking = plan.issues.filter((issue) => issue.blocking)
             if (blocking.length)
                 throw new Error(
@@ -73,8 +95,15 @@ async function runResourceEntryUpdate(
                         )
                         .join('\n'),
                 )
-            if (!plan.actions.length) return false
-            queuedJob = await resourceQueuePlan(plan.id, plan.revision)
+            if (!plan.actions.length) {
+                onNothingToApply?.()
+                return false
+            }
+            queuedJob = await resourceQueuePlan(
+                plan.id,
+                plan.revision,
+                Object.fromEntries(resourceNames),
+            )
             break
         } catch (error) {
             const message = preparationErrorMessage(error)

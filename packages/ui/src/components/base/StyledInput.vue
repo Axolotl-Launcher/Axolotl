@@ -158,10 +158,17 @@ type NativeInputAttrs = Omit<
 function nativeAttrs() {
     const { class: _class, style: _style, onInput: listener, ...native } = attrs
     const { onInput: inputListener, ...inputAttrs } = props.inputAttrs ?? {}
+    const inputListeners = [onInput, listener, inputListener].filter(
+        (fn): fn is (event: Event) => void => typeof fn === 'function',
+    )
     return {
         ...native,
         ...inputAttrs,
-        onInput: [onInput, listener, inputListener].flat().filter((fn) => typeof fn === 'function'),
+        onInput: (event: Event) => {
+            for (const inputListener of inputListeners) {
+                inputListener(event)
+            }
+        },
     }
 }
 

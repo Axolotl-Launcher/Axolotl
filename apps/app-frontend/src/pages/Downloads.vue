@@ -1,7 +1,7 @@
 <template>
     <div class="box-border flex min-h-full w-full flex-col gap-3 p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div data-onboarding-id="downloads-tabs">
+            <div data-testid="downloads-tabs">
                 <NavTabs
                     :active-index="tab === 'active' ? 0 : 1"
                     :links="downloadTabs"
@@ -52,6 +52,50 @@
                 {{ formatMessage(messages.clearHistory) }}
             </Button>
         </div>
+
+        <Card
+            v-if="!hideSlowDownloadsHint && !slowDownloadsHintClosed"
+            class="!m-0"
+            data-testid="slow-downloads-hint"
+        >
+            <div class="flex items-center justify-between gap-3">
+                <h3 class="m-0 text-base font-semibold">
+                    {{ formatMessage(messages.slowDownloadsTitle) }}
+                </h3>
+                <Button
+                    type="quiet"
+                    size="sm"
+                    icon-only
+                    :label="formatMessage(commonMessages.closeButton)"
+                    class="shrink-0"
+                    data-testid="close-slow-downloads-hint"
+                    @click="slowDownloadsHintClosed = true"
+                >
+                    <XIcon />
+                </Button>
+            </div>
+            <p class="mb-2 mt-1">
+                <IntlFormatted :message-id="messages.slowDownloadsDescription">
+                    <template #settings-link="{ children }">
+                        <a
+                            class="text-link hover:underline"
+                            :href="downloadSettingsHref"
+                            @click.prevent="router.push(downloadSettingsHref)"
+                        >
+                            <component :is="() => children" />
+                        </a>
+                    </template>
+                </IntlFormatted>
+            </p>
+            <button
+                type="button"
+                class="cursor-pointer border-0 bg-transparent p-0 text-sm text-[var(--color-text-tertiary)] hover:underline"
+                data-testid="dismiss-slow-downloads-hint"
+                @click="hideSlowDownloadsHint = true"
+            >
+                {{ formatMessage(messages.dismissSlowDownloadsHint) }}
+            </button>
+        </Card>
 
         <div
             v-if="manager.initializationState.value === 'loading'"
@@ -462,6 +506,13 @@
                         :heading="formatMessage(messages.noFileDetailsTitle)"
                         :description="formatMessage(messages.noFileDetails)"
                     />
+                    <DownloadDiagnosticsPanel
+                        v-if="
+                            themeStore.devMode &&
+                            themeStore.getFeatureFlag('advanced_download_info')
+                        "
+                        :job-id="job.job_id"
+                    />
                 </div>
             </Card>
         </div>
@@ -551,6 +602,7 @@ import {
     defineMessages,
     EmptyState,
     injectNotificationManager,
+    IntlFormatted,
     type MessageDescriptor,
     NavTabs,
     NewModal,
@@ -565,6 +617,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { useLocalStorage } from '@vueuse/core'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -583,17 +636,23 @@ import {
     type InstallJobStatus,
     type InstallPhaseId,
 } from '@/helpers/install'
+import { installJobResourceMatches, installJobTitle } from '@/helpers/install-job-presentation'
+import { isActiveInstallJobStatus } from '@/helpers/install-job-status'
 import {
     effectiveInstallProgress,
     effectiveParallelProgress,
+    formatInstallProgressText,
     hasDeterminateInstallProgress,
     installProgressFraction,
     installProgressTextSource,
+    isInstallMainTrackComplete as isMainTrackComplete,
+    parallelInstallProgressTextSource,
 } from '@/helpers/install-progress'
 import type { LoadingBar } from '@/helpers/state'
 import { instanceKeys, instanceListQueryOptions } from '@/pages/instance/query-options'
 import { injectContentInstall } from '@/providers/content-install'
 import { injectDownloadManager } from '@/providers/download-manager'
+import { useTheming } from '@/store/state'
 
 import {
     createDownloadFocusState,
@@ -601,11 +660,13 @@ import {
     reconcileDownloadFocus,
     stopDownloadFocusAutoFollow,
 } from './download-focus'
+import DownloadDiagnosticsPanel from './downloads/DownloadDiagnosticsPanel.vue'
 import { isSuccessfulUpgradeJob, upgradeResultLocation } from './instance/upgrade/result'
 
 type DownloadItem = InstallJobSnapshot['items'][number]
 
 const manager = injectDownloadManager()
+const themeStore = useTheming()
 const queryClient = useQueryClient()
 const instancesQuery = useQuery(instanceListQueryOptions())
 const instanceNames = computed(
@@ -668,6 +729,11 @@ const router = useRouter()
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const formatBytes = useFormatBytes()
+const downloadSettingsHref = '/settings?target=resources-force-multiconnection#content-downloads'
+const hideSlowDownloadsHint = useLocalStorage('axolotl:downloads:hide-slow-downloads-hint', false, {
+    writeDefaults: false,
+})
+const slowDownloadsHintClosed = ref(false)
 const tab = ref<'active' | 'history'>(route.query.tab === 'history' ? 'history' : 'active')
 const query = ref('')
 const provider = ref('all')
@@ -687,6 +753,19 @@ watch(
 )
 
 const messages = defineMessages({
+    slowDownloadsTitle: {
+        id: 'app.downloads.slow-downloads.title',
+        defaultMessage: 'Slow downloads?',
+    },
+    slowDownloadsDescription: {
+        id: 'app.downloads.slow-downloads.description',
+        defaultMessage:
+            'You can enable forced multi-threaded downloads in <settings-link>Download settings</settings-link>. This may help improve your download speed.',
+    },
+    dismissSlowDownloadsHint: {
+        id: 'app.downloads.slow-downloads.dismiss',
+        defaultMessage: "Don't show again",
+    },
     fileDetails: { id: 'app.downloads.file-details', defaultMessage: 'File details' },
     openFileDetails: {
         id: 'app.downloads.open-file-details',
@@ -987,6 +1066,7 @@ const visibleJobs = computed(() => {
         return (
             !normalized ||
             jobTitle(job).toLowerCase().includes(normalized) ||
+            installJobResourceMatches(job, normalized) ||
             targetInstanceName(job)?.toLowerCase().includes(normalized) ||
             job.job_id.includes(normalized)
         )
@@ -1023,12 +1103,7 @@ const emptyState = computed(() => {
     }
 })
 function jobTitle(job: InstallJobSnapshot) {
-    return (
-        job.display?.title ||
-        (job.details.type === 'instance' ? job.details.name : null) ||
-        (job.details.type === 'modpack' ? job.details.title : null) ||
-        jobTypeLabel(job)
-    )
+    return installJobTitle(job, formatMessage, jobTypeLabel(job))
 }
 
 function displayIcon(icon: string) {
@@ -1120,6 +1195,7 @@ function isLocalRecoveryValidation(job: InstallJobSnapshot) {
 
 function jobPhaseLabel(job: InstallJobSnapshot) {
     if (job.rollback_error) return formatMessage(messages.cleanupIncomplete)
+    if (!isActiveInstallJobStatus(job.status)) return statusLabel(job.status)
     // Older queued content jobs were initialized with the generic instance phase.
     // Keep their label meaningful while they are resumed or waiting for the worker.
     if (job.kind === 'install_content' && job.phase === 'preparing_instance') {
@@ -1205,13 +1281,6 @@ function isFinished(job: InstallJobSnapshot) {
     return job.status === 'succeeded'
 }
 
-function isMainTrackComplete(job: InstallJobSnapshot) {
-    if (isFinished(job)) return true
-    const progress = effectiveInstallProgress(job)
-    if (job.phase === 'downloading_content' && progress?.total === 0) return true
-    return hasDeterminateInstallProgress(progress) && progress.current >= progress.total
-}
-
 function isParallelTrackComplete(job: InstallJobSnapshot) {
     if (isFinished(job)) return true
     const progress = effectiveParallelProgress(job)
@@ -1233,11 +1302,13 @@ function hasDeterminateParallelProgress(job: InstallJobSnapshot) {
 
 function parallelProgressText(job: InstallJobSnapshot) {
     if (isParallelTrackComplete(job)) return statusLabel('completed')
-    const progress = effectiveParallelProgress(job)
-    if (!hasDeterminateInstallProgress(progress)) {
-        return job.parallel ? phaseLabel(job.parallel.phase) : ''
-    }
-    return `${phaseLabel(job.parallel!.phase)}: ${formatBytes(progress.current)} / ${formatBytes(progress.total)}`
+    if (!job.parallel) return ''
+    const source = parallelInstallProgressTextSource(job)
+    const label = phaseLabel(job.parallel.phase)
+    // The progress bar already displays the percentage beside this label.
+    if (source.type === 'percentage') return label
+    const value = formatInstallProgressText(source, formatBytes)
+    return value ? `${label}: ${value}` : label
 }
 
 function progressText(job: InstallJobSnapshot) {
@@ -1256,10 +1327,8 @@ function progressText(job: InstallJobSnapshot) {
         }
         return formatMessage(messages.verifyingDownloadedFiles)
     }
-    if (textSource.type === 'bytes')
-        return `${formatBytes(textSource.current)} / ${formatBytes(textSource.total)}`
-    if (textSource.type === 'items') return `${textSource.current} / ${textSource.total}`
-    return phaseLabel(job.phase)
+    if (textSource.type === 'percentage') return phaseLabel(job.phase)
+    return formatInstallProgressText(textSource, formatBytes) || phaseLabel(job.phase)
 }
 
 function isResolvedRequiredFile(item: DownloadItem) {

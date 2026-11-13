@@ -9,9 +9,9 @@ Vue 3 + Vite frontend for the Tauri desktop application. Follow the [frontend de
 - For content-management features, preserve provider-qualified identities across display, selection, persistence and installation.
 - When adding, renaming or changing a native `invoke` call, read and follow the [Tauri command completion rules](../app/AGENTS.md#tauri-command-completion). Include the shell's handler, build-time command manifest and window permissions in the change; frontend mocks cannot establish that the command is allowed at runtime.
 
-## Onboarding
+## First-Run OOBE
 
-For additions or material changes to a page, route, navigation entry, large user-facing component, core workflow, settings section or content-management feature, assess the first-use journey. Read [onboarding instructions](src/components/ui/onboarding/AGENTS.md) before changing guided behavior or targets, and whenever a feature requires a new or updated tour.
+The first-run OOBE is a fixed flow. Do not add steps to it, or change the existing ones, unless the user explicitly asks for that OOBE change; new features do not get OOBE content by default. Read [OOBE instructions](src/components/ui/oobe/AGENTS.md) before touching the OOBE, its step ids or the startup order it takes part in.
 
 ## Update Announcements
 

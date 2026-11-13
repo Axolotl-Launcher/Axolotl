@@ -1,0 +1,684 @@
+{
+  "id": "W2pr9jyL",
+  "slug": "cobblemon-additions",
+  "title": "Cobblemon additions",
+  "description": "A Mod that adds villages with Pokemon Village/City variants - Originally made for the Brocraft server.\n\nThis will spawn in a variety of structures within the villages as well. We are planning on adding rare structures!",
+  "author": "strikebyte",
+  "categories": ["adventure", "datapack", "decoration", "economy", "fabric", "worldgen"],
+  "display_categories": ["adventure", "datapack", "decoration", "fabric", "worldgen"],
+  "client_side": "optional",
+  "server_side": "required",
+  "project_type": "mod",
+  "downloads": 10655081,
+  "followers": 672,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["datapack", "fabric"],
+  "game_versions": [
+    "1.20.1",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11"
+  ],
+  "latest_version": "J1wqmyOI",
+  "date_created": "2024-07-14T16:01:06.731116Z",
+  "date_modified": "2026-03-19T03:49:35.201472Z",
+  "color": 5987660,
+  "published": "2024-07-14T16:01:06.731116Z",
+  "additional_categories": ["economy"],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": "https://bca-brocraft-cobblemon-additions.fandom.com/wiki/(BCA)_Brocraft_Cobblemon_Additions_Wiki",
+  "discord_url": "https://discord.gg/Ge5dqkSupd",
+  "donation_urls": [
+    {
+      "platform": "Patreon",
+      "url": "https://patreon.com/strikebyte"
+    }
+  ],
+  "versions_total": 23,
+  "body": "# Brocraft Cobblemon Additions\n\n## Overview\n\n**Brocraft Cobblemon Additions** is a Minecraft Mod that enhances your gameplay experience by replacing the traditional village structures with unique, custom-built structures inspired by the Cobblemon universe. This mod is designed to integrate seamlessly with existing Cobblemon features, providing a fresh take on village exploration.\n\n**SUPPORT AND COMMUNITY DISCORD:** Feel free to join our [discord](https://discord.gg/hJvDaPc39T)! \n  \nAnnoucements and details for the mod will be posted in our discord!\n\n## Support the Development on Patreon!\nIf you enjoy this project and want to help support its development, consider becoming a patron! By joining my Patreon, you’ll get access to exclusive content, early releases, and be part of a growing community of dedicated players.\n\n👉 [Join my Patreon here!](https://www.patreon.com/c/Strikebyte)\n\n## Here is a quick glimpse into **Cobblemon Additions** \nI hope you enjoy what you find in your adventures!\n<iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/fP062mLAtSA?si=wEDRPXrhvIWFqpSd\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>\n\n## Features\n\n- **Custom Structures:** Replaces vanilla villages with a variety of custom-designed structures, each contributing to a vibrant game world.\n- **Unique Town Centers:** Enjoy specially crafted town centers that serve as focal points for villages, including the **Battlepad** and **The Department store**. (more to come)\n- **Diverse Environment:** Explore different themed buildings, including cozy cottages, bustling PokéMarts, and serene retreats.\n- **Varied Pathways:** Navigate the world with unique pathways that enhance the aesthetic appeal and functionality of your villages.\n- **Dynamic Villager Interaction:** Integrate Cobblemon mechanics with villagers, offering unique interactions and services.\n\n## Installation (For the old datapack versions only)\n\n1. Ensure you have Minecraft with Fabric installed.\n2. Download the latest release of **Brocraft Cobblemon Additions** from the releases section.\n3. Place the downloaded `.zip` file into the `Datapacks` folder of your Minecraft installation/world.\n4. Launch Minecraft and enjoy!\n\n## Dependencies\n\n- **Cobblemon version 1.6.1**\n- **Waystones**\n- Sophisticated Backpacks (Optional)\n- Traveler's backpack (Optional)\n- Cobblenav (optional)\n- **[EMF] Entity Model Features version 2.2.6**(optional - only needed if you use the cobblefolk datapack)\n- **[ETF] Entity Texture Features version 6.2.5**(optional - only needed if you use the cobblefolk datapack)\n\n\n- **it is also recommended that you use the cobblefolk datapack that comes with the cobbletowns mod for the best immersion** (Look on the cobblemon discord in the cobbletowns support channel for the current functioning version)\n\n## Structure Pools\n\nThis mod features multiple structure pools, including:\n\n- **Centers:** Custom town center structures.\n- **General Structures:** A variety of themed homes and buildings.\n- **Paths:** Unique pathways for enhanced navigation.\n- **Store Workers:** Villager NPCs for shops and services.\n- **General Decor:** Decorative items to enhance the village aesthetics.\n- **Lamp Posts:** Functional light sources for your villages.\n- **Berries:** Custom berry structures to enrich the environment.\n\n## License\n\nThis mod is licensed under the [ARR License](LICENSE).\nDo not re-upload this mod\n\n## Acknowledgements\n\n- Special thanks to the creators of Cobblemon and the Minecraft community for their inspiration and support.",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/W2pr9jyL/images/7d7c2bc55c2fda6506e5fd8c765dbd4bd58476c5_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2024-11-22T02:03:19.154024Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/W2pr9jyL/images/d8a40da0b2d06b9339638044435010533efd5656_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2024-12-26T06:22:02.263754Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/W2pr9jyL/images/39d11fe41a67a956649eeca77d3a636a2e1ee855_350.webp",
+      "featured": false,
+      "title": "Find this NPC in the Lodge!",
+      "description": null,
+      "created": "2025-08-02T22:38:24.306772Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/W2pr9jyL/images/6556a30fc36c8bd6b944764e552637634e7006ee_350.webp",
+      "featured": false,
+      "title": "a village in a dark forest",
+      "description": null,
+      "created": "2025-08-02T22:42:15.781940Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "strikebyte",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/user/aJEqBPRR/2ce327619ea37f7f53ccc1cc82bae1a67f59b308.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "NVitD9gY",
+      "name": "v4.3.0 — Fairy Villages, Season 1 NPCs & Ice Village Overhaul",
+      "version_number": "4.3.0",
+      "version_type": "release",
+      "game_versions": [
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11"
+      ],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-03-19T03:49:35.201472Z",
+      "downloads": 2508581,
+      "changelog": "## What's New in v4.3.0\n\nRequires **Cobblemon 1.7.3+1.21.1** (updated from 1.7.0).\n\n---\n\n### ✨ Fairy Village — New Village Type\nA fully realized Fairy-type village has been added with a complete structure set:\n- **The Petalwake Pavilion** — large center building\n- **Sugarblossom Bakery** — mid-tier community building\n- 11 residential structures (Blossomveil Manor, Charmglade House, Glimmerfern Lodge, Honeyblush Haven, Luminelle Cottage, Moonpetal Cottage, Pixie Lantern House, Rosequartz Retreat, Starbloom Residence, Sylveon's Ribbon Rest, Whisperwind House)\n- Fairy-specific road paths (straight, curved, T-joint, crossroads)\n- Biome tag support for automatic placement in Fairy-type biomes\n\n### 🧊 Ice Village Overhaul\n- Complete restructure of the ice village layout and jigsaw connections\n- Ice structures reorganized into a proper `structures/` subdirectory\n- Silverpine Lodge updated with NPC support (receptionists)\n- Waystone data normalized across ice village structures\n- New ice road path set\n\n### 👥 NPC Expansion — Season 1 Players\nA large cast of NPCs has been added, all with custom player skins and full Cobblemon dialogue trees:\n\n**Season 1 Player NPCs** (15 players): broconutpie, darkwolverine, dragoon217, fishingninja25, indeanajowns, ironboundjam03, joltthewolf, kaydenbreak, kuyajaedan, sakuyahimevt, strikebyte, teddycheese, terrablast98, xxmoonflowerxx1, and more\n\n**Receptionists**: Nurse Joy (Pokécenter), Silverpine Lodge receptionist (×2 variants), Wyrm's Rest receptionist — all with location-specific dialogue\n\n**Staff NPCs**: fishingninja25, ironboundjam03, kaydenbreak, strikebyte, rhett (architect)\n\n**Patreon NPCs**: dragoon217, kuyajaedan\n\n### 🐴 Decorative Pokémon Spawners\nNew structure-placed spawners added for horse-type Pokémon:\n- Ponyta, Rapidash, Alolan Ponyta, Alolan Rapidash\n- Blitzle, Zebstrika\n- Mudbray, Mudsdale\n\n### 🔧 Structure Fixes\n- Painting offsets corrected across multiple structures (dark, default, ice, fighting biomes)\n- Waystone ori\n\n…",
+      "dependencies": [
+        {
+          "project_id": "8oi3bsk5",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "u6dRKJwZ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rOrXjyPb",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "s7N7AsqL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "bI8Nt3uA",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "TyCTlI4b",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rlloIFEV",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-4.3.0.jar",
+          "size": 3198962,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "9PMzbD4o",
+      "name": "❄️ Brocraft Cobblemon Additions — Ice Village Update ❄️",
+      "version_number": "4.2.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2026-01-15T05:09:45.322615Z",
+      "downloads": 1637021,
+      "changelog": "**Minecraft 1.21.1 | Fabric | Cobblemon 1.7.1+**\n\nThe next major BCA update is here, and it’s a **big one**.  \nThis release introduces the **first fully biome-specific village set**, expands NPC systems, and adds a brand-new way Pokémon appear in the world — all backed by major under-the-hood tooling improvements.\n\n---\n\n## 🏔️ NEW: Ice-Type Villages\nBCA now features **custom Ice biome villages**, built from the ground up to feel distinct, immersive, and alive.\n\n### ❄️ What’s Included\n- **Complete Ice Village generation system**\n  - Small / Mid / Large variants\n  - Custom worldgen pools\n- **12+ unique Ice-themed structures**, including:\n  - 🏔️ **Arctic Timber Haven**\n  - 🏡 **Blizzard Bluff Cabin**\n  - 🔨 **Frost Forge Cabin**\n  - 🏨 **New Ice Lodge**\n  - ⛸️ **Ice Skating Rink**\n  - 🧊 **Igloo PokéCenter**\n- Ice-adapted **paths, décor, and one-off buildings**\n- Updated **village Pokémon spawn pools** for cold biomes\n\nThese villages are not reskins — they’re a **fully separate biome identity** and set the foundation for future biome-specific expansions.\n\n---\n\n## 👥 NPC SYSTEM — NOW LIVE\nNPCs are officially entering the world of BCA.\n\n### 🩺 Nurse Joy (First Major NPC)\n- Fully modeled and textured\n- Custom dialogue interactions\n- Appears naturally within appropriate structures\n\n### 🧑‍🤝‍🧑 Additional NPCs\n- Staff & patron NPCs have been added as part of the system rollout\n- Includes:\n  - Custom textures\n  - Shared animation system\n  - “Look Around” idle behavior\n  - Dialogue system examples\n\n> As future updates roll out, **you’ll encounter more NPCs naturally** throughout villages and structures.\n\n---\n\n## 🎮 NEW FEATURE: DecoMon\nThe world is getting more alive.\n\n**DecoMon** are Pokémon that:\n- Belong to *other people* (NPC-owned or ambient)\n- Do **not** behave like wild encounters\n- Can be **scanned to register in your Pokédex**\n- Exist primarily to add **life, realism, and world flavor**\n\nExamples include Pokémon like **Chansey** or **Happiny** appearing naturally i\n\n…",
+      "dependencies": [
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rOrXjyPb",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rlloIFEV",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "u6dRKJwZ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "TyCTlI4b",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "8oi3bsk5",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "bI8Nt3uA",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "s7N7AsqL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-4.2.1.jar",
+          "size": 3646231,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "degN5DK4",
+      "name": "4.1.6 Bug Fix",
+      "version_number": "4.1.6",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-12-06T05:39:15.922263Z",
+      "downloads": 3985326,
+      "changelog": "Hopefully this will be the final hotfix for 4.1.x\n\nThis update fixes the issues with several jigsaw blocks that were stopping berries from spawning. Had to update several things on the dev server. \n\nEnjoy the update!",
+      "dependencies": [
+        {
+          "project_id": "8oi3bsk5",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "u6dRKJwZ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "bI8Nt3uA",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rlloIFEV",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "s7N7AsqL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "TyCTlI4b",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rOrXjyPb",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-4.1.6.jar",
+          "size": 1961229,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "MPKncXHo",
+      "name": "Version 4.1.5 Hotfix",
+      "version_number": "4.1.5",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-12-03T05:43:23.731636Z",
+      "downloads": 15839,
+      "changelog": "downgraded painting sizes due to hardware limitations\nfixed more broken loot tables (hopefully the last time)\nfixed a few other errors and bugs.",
+      "dependencies": [
+        {
+          "project_id": "rlloIFEV",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "TyCTlI4b",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "s7N7AsqL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "rOrXjyPb",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "bI8Nt3uA",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "8oi3bsk5",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "u6dRKJwZ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-4.1.5.jar",
+          "size": 1833751,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6MIK2jcv",
+      "name": "The Fighting Biome Update!",
+      "version_number": "4.1.4",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-11-29T00:50:20.539718Z",
+      "downloads": 30870,
+      "changelog": "# **BCA v4.1.4 – Fighting Biomes Update!**  \n\nHello Trainers!\n\nVersion **4.1.4** is now ready — the next biome-specific update in our type-themed release cycle! This update focuses on **Fighting-type Pokémon**, delivering new structures, new workers, visual enhancements, and long-requested quality-of-life additions.\n\nThis update introduces brand-new Fighting-aligned village variants across the following biomes:\n\n- **Sunflower Plains**  \n- **Plains**  \n- **Savanna**  \n- **Meadow**  \n- **Savanna Plateau**\n\nThese bring new designs, layouts, decorations, and structural themes tied to the Fighting aesthetic.\n\n---\n\n## **New in v4.1.4**\n\n### **Custom Paintings**\nA full set of custom BCA-themed paintings has been added to enrich builds and structures.\n\n### **Full Loot Table Rework**\nWe’ve completely rebuilt the loot tables across all structures — improving balance, variety, and mod-integration support.  \nThis rework also includes:\n- Fixes for **missing loot tables**\n- Better item variety based on structure type\n- Cleaner fallback behavior for optional mod items\n\n### **Currency Exchange Worker**\nA brand-new NPC worker now appears in updated settlements, allowing players to exchange currencies directly in-game. Perfect for Cobbledollars and upcoming economic systems.\n\n### **New Farmers Market Store Workers**\nThe farmers market has been refreshed with updated workers, better structure integration, and more thematic personalities for each stall.\n\n### **Pokémon Spawn Integration in Custom Structures**\nCustom structures will now correctly **reflect Cobblemon’s spawn rules**, meaning:\n- Pokémon that match the biome and structure theme can spawn naturally\n- Improved thematic consistency (Fighting villages → Fighting-adjacent Pokémon, etc.)\n- Better synergy with Cobblemon’s own world-gen systems\n\n---\n\n## **Next Update: Winter / Christmas Release**\nWe’re already preparing the seasonal **Winter Update**, featuring snowy biome expansions, holiday touches, and further biome-specific pro\n\n…",
+      "dependencies": [
+        {
+          "project_id": "u6dRKJwZ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "bI8Nt3uA",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "Hk96hAj9",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "TyCTlI4b",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "8oi3bsk5",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "67dS28p4",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "s7N7AsqL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "rlloIFEV",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rOrXjyPb",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-4.1.4.jar",
+          "size": 157349789,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "3zlnEowb",
+      "name": "Biome Specific update >The Halloween update! ",
+      "version_number": "4.0.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-10-31T23:45:14.393714Z",
+      "downloads": 381375,
+      "changelog": "# 🎃 Brocraft Cobblemon Additions v4.0.0 – Changelog\n\n## ✨ Overview\nThe **Halloween Town Update** marks a major milestone for BCA — introducing the **first biome-specific town variation** and the foundation for future biome-based expansions.  \nThis version brings atmospheric Halloween flair, smoother structure generation, and several important performance and stability improvements.\n\n---\n\n## 🏘️ New Additions\n\n### 🎃 Biome-Specific Towns\n- Introduced the **first themed biome variation** — a **Halloween-inspired town** featuring spooky architecture, glowing lanterns, and seasonal decor.  \n- This update establishes the **biome variant framework**, allowing future towns to generate uniquely depending on biome type.\n\n### 🧱 Biome Framework Foundation\n- Added a modular system to support **biome-specific structure sets**.  \n- Enables future updates like *Plains*, *Tundra*, and *Forest* themes with unique designs, NPCs, and loot.\n\n---\n\n## ⚙️ Fixes & Improvements\n- 🧩 Optimized **structure generation performance** for smoother worldgen and reduced lag.  \n- 🧭 Improved **village pooling and biome-matching logic** for better placement variety.  \n- 💡 Fixed **lighting and decorative block inconsistencies** within structures.  \n- 🎁 Updated **loot tables** for improved balance and more rewarding exploration.  \n- 🧱 General **bug fixes** across structure pools and decorative feature generation.  \n- 🧰 Cleaned up **data files and NBT templates** to improve generation speed and maintainability.\n\n---\n\n## 🧩 Compatibility\n- ✅ **Minecraft Version:** 1.21.1 only  \n- 🧬 **Cobblemon:** 1.6 and above  \n  *(BCA is also being prepared for full Cobblemon 1.7 compatibility upon release)*  \n- 🌍 **Biome Support:** Fully compatible with **Terralith**  \n- 🎒 Optional Mod Integration (soft fail):\n  - Traveler’s Backpack  \n  - PokeNav  \n  - Waystones  \n  - Sophisticated Backpacks  \n\n*(All integrations are optional — no crashes if mods are missing.)*\n\n---\n\n## 🌾 Coming Next\n- **The Plains Update**\n\n…",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "67dS28p4",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "u6dRKJwZ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "bI8Nt3uA",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "rlloIFEV",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "8oi3bsk5",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "Hk96hAj9",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "TyCTlI4b",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "s7N7AsqL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-4.0.1.jar",
+          "size": 1155211,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "dFAYPidJ",
+      "name": "The Entrance of the Academy",
+      "version_number": "3.9.4",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": true,
+      "date_published": "2025-09-21T00:31:04.838904Z",
+      "downloads": 831064,
+      "changelog": "Changes: \n - World gen\n    - Towns should now not stack on top of eachother and should be MUCH smoother. Some world gen problems may persist, so please report back on problems that you are able to see and find\n    - the lodge now spawns connected to land and does not spawn suspended in the air. \n - New Structure! \n    - The academy drops into the mod! This is a location that in the future, you will be able to find a library full of all sorts of cobblemon lore and information! \n - loot table balancing!\n    - Loot tables have been heavily balanced. there are now far fewer items in chests and barrels. In the future if people are still saying that there is too much loot in the different villages, we will then cut down the number of chests per village. We will probably do this anyway as there are way to many chests and barrels in a few of the builds. \n- Cobbledollars only going forward until we figure out a workaround to intelligently determine how to use one or the other.",
+      "dependencies": [
+        {
+          "project_id": "rlloIFEV",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "Hk96hAj9",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "TyCTlI4b",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "67dS28p4",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "s7N7AsqL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "8oi3bsk5",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "u6dRKJwZ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "bI8Nt3uA",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-3.9.4.jar",
+          "size": 836758,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "jLi3yepb",
+      "name": "The Final Relic Coin Version! 3.9.3.1",
+      "version_number": "3.9.3.1",
+      "version_type": "release",
+      "game_versions": ["1.21.1"],
+      "loaders": ["fabric"],
+      "featured": false,
+      "date_published": "2025-09-21T00:24:10.314305Z",
+      "downloads": 853,
+      "changelog": "- loot table balancing!\n    - Loot tables have been heavily balanced. there are now far fewer items in chests and barrels. In the future if people are still saying that there is too much loot in the different villages, we will then cut down the number of chests per village. We will probably do this anyway as there are way to many chests and barrels in a few of the builds. ",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        },
+        {
+          "project_id": "LOpKHB2A",
+          "version_id": null,
+          "dependency_type": "required",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "cobblemon-additions-3.9.3.1.jar",
+          "size": 823512,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

@@ -68,6 +68,12 @@
   "browse.search.placeholder": {
     "defaultMessage": "搜索{projectType}……"
   },
+  "browse.select-all-button.label": {
+    "defaultMessage": "全选（{count}）"
+  },
+  "browse.select-all-button.selecting": {
+    "defaultMessage": "正在选择 {completed}/{total}"
+  },
   "browse.selected-projects-floating-bar.aria-label": {
     "defaultMessage": "选定的项目"
   },
@@ -307,6 +313,78 @@
   },
   "collections.label.private": {
     "defaultMessage": "私有"
+  },
+  "color-picker.dialog-label": {
+    "defaultMessage": "取色器"
+  },
+  "color-picker.dye-presets": {
+    "defaultMessage": "染料颜色"
+  },
+  "color-picker.dye.black": {
+    "defaultMessage": "黑色"
+  },
+  "color-picker.dye.blue": {
+    "defaultMessage": "蓝色"
+  },
+  "color-picker.dye.brown": {
+    "defaultMessage": "棕色"
+  },
+  "color-picker.dye.cyan": {
+    "defaultMessage": "青色"
+  },
+  "color-picker.dye.gray": {
+    "defaultMessage": "灰色"
+  },
+  "color-picker.dye.green": {
+    "defaultMessage": "绿色"
+  },
+  "color-picker.dye.light-blue": {
+    "defaultMessage": "淡蓝色"
+  },
+  "color-picker.dye.light-gray": {
+    "defaultMessage": "淡灰色"
+  },
+  "color-picker.dye.lime": {
+    "defaultMessage": "黄绿色"
+  },
+  "color-picker.dye.magenta": {
+    "defaultMessage": "品红色"
+  },
+  "color-picker.dye.orange": {
+    "defaultMessage": "橙色"
+  },
+  "color-picker.dye.pink": {
+    "defaultMessage": "粉红色"
+  },
+  "color-picker.dye.purple": {
+    "defaultMessage": "紫色"
+  },
+  "color-picker.dye.red": {
+    "defaultMessage": "红色"
+  },
+  "color-picker.dye.white": {
+    "defaultMessage": "白色"
+  },
+  "color-picker.dye.yellow": {
+    "defaultMessage": "黄色"
+  },
+  "color-picker.hex": {
+    "defaultMessage": "十六进制颜色"
+  },
+  "color-picker.hue": {
+    "defaultMessage": "色相"
+  },
+  "color-picker.open": {
+    "defaultMessage": "选择颜色"
+  },
+  "color-picker.recent-colors": {
+    "defaultMessage": "最近使用"
+  },
+  "color-picker.saturation-brightness": {
+    "defaultMessage": "饱和度与亮度"
+  },
+  "color-picker.saturation-brightness.value": {
+    "defaultMessage": "饱和度 {saturation}%，亮度 {brightness}%"
   },
   "console.action.collapse": {
     "defaultMessage": "收起"
@@ -1756,6 +1834,72 @@
   },
   "header.category.resolutions": {
     "defaultMessage": "分辨率"
+  },
+  "image-crop.animated-preview": {
+    "defaultMessage": "动画结果预览"
+  },
+  "image-crop.apply": {
+    "defaultMessage": "使用图片"
+  },
+  "image-crop.aspect-ratio": {
+    "defaultMessage": "宽高比"
+  },
+  "image-crop.auto-compress": {
+    "defaultMessage": "自动压缩"
+  },
+  "image-crop.decode-error": {
+    "defaultMessage": "无法打开这张图片，请选择其他图片。"
+  },
+  "image-crop.dimensions": {
+    "defaultMessage": "{width} × {height} 像素"
+  },
+  "image-crop.drag-hint": {
+    "defaultMessage": "拖动图片调整位置。"
+  },
+  "image-crop.export-error": {
+    "defaultMessage": "无法生成裁剪后的图片，请重试。"
+  },
+  "image-crop.help": {
+    "defaultMessage": "拖动图片调整位置。在工作区滚动或使用缩放控件进行缩放。"
+  },
+  "image-crop.keep-original": {
+    "defaultMessage": "保留原图"
+  },
+  "image-crop.loading": {
+    "defaultMessage": "正在加载图片…"
+  },
+  "image-crop.oversized-bytes": {
+    "defaultMessage": "源文件为 {size} MB，常规上限为 {limit} MB。继续可能会占用大量内存。"
+  },
+  "image-crop.oversized-pixels": {
+    "defaultMessage": "图片尺寸为 {width} × {height} 像素，常规上限为 {limit} 百万像素。继续可能会占用大量内存。"
+  },
+  "image-crop.oversized-title": {
+    "defaultMessage": "文件超过常规上限"
+  },
+  "image-crop.oversized-keep-original-hint": {
+    "defaultMessage": "保留原图会保留原始分辨率和帧率，动画可能占用更多内存和 CPU。"
+  },
+  "image-crop.preview": {
+    "defaultMessage": "结果预览"
+  },
+  "image-crop.preview-label": {
+    "defaultMessage": "裁剪结果预览：{width} × {height} 像素"
+  },
+  "image-crop.title": {
+    "defaultMessage": "裁剪图片"
+  },
+  "image-crop.too-large": {
+    "defaultMessage": "图片尺寸过大，无法裁剪。"
+  },
+  "image-crop.workspace": {
+    "defaultMessage": "裁剪工作区"
+  },
+  "image-crop.zoom": {
+    "defaultMessage": "缩放"
+  },
+  "image-crop.zoom-status": {
+    "defaultMessage": "缩放 {percent}%，{width} × {height} 像素"
   },
   "input.search-version.placeholder": {
     "defaultMessage": "查找版本……"

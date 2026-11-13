@@ -59,11 +59,22 @@ fn read_accent_color() -> Result<AccentColor, String> {
     Ok(AccentColor::new(color.R, color.G, color.B))
 }
 
-/// The Windows watcher thread parks until it is unparked. Its handle is kept so
-/// a shutdown path can unpark and join it; nothing does that yet.
+/// The Windows watcher parks until it is signalled. The stop flag makes the
+/// exit bounded even when an unpark is missed, and the thread handle lets the
+/// shutdown path signal it.
 #[cfg(target_os = "windows")]
-static ACCENT_COLOR_WATCHER: std::sync::OnceLock<std::thread::JoinHandle<()>> =
+struct AccentColorWatcher {
+    thread: std::thread::Thread,
+    _handle: std::thread::JoinHandle<()>,
+}
+
+#[cfg(target_os = "windows")]
+static ACCENT_COLOR_WATCHER: std::sync::OnceLock<AccentColorWatcher> =
     std::sync::OnceLock::new();
+
+#[cfg(target_os = "windows")]
+static ACCENT_COLOR_WATCHER_STOPPED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 #[cfg(target_os = "windows")]
 fn start_accent_color_watcher<R: Runtime>(app: AppHandle<R>) {
@@ -101,10 +112,18 @@ fn start_accent_color_watcher<R: Runtime>(app: AppHandle<R>) {
             }
         };
 
-        std::thread::park();
+        while !ACCENT_COLOR_WATCHER_STOPPED
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            std::thread::park_timeout(std::time::Duration::from_millis(250));
+        }
         let _ = settings.RemoveColorValuesChanged(token);
     });
-    let _ = ACCENT_COLOR_WATCHER.set(watcher);
+    let thread = watcher.thread().clone();
+    let _ = ACCENT_COLOR_WATCHER.set(AccentColorWatcher {
+        thread,
+        _handle: watcher,
+    });
 }
 
 #[cfg(target_os = "macos")]
@@ -171,7 +190,16 @@ fn stop_accent_color_watcher() {
     });
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+fn stop_accent_color_watcher() {
+    ACCENT_COLOR_WATCHER_STOPPED
+        .store(true, std::sync::atomic::Ordering::Release);
+    if let Some(watcher) = ACCENT_COLOR_WATCHER.get() {
+        watcher.thread.unpark();
+    }
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 fn stop_accent_color_watcher() {}
 
 #[cfg(target_os = "linux")]

@@ -5,7 +5,7 @@
 
 Platform-agnostic TypeScript client for Modrinth's API across Node.js, browsers, Nuxt, and Tauri.
 
-**⚠️ We use this internally to power modrinth.com, Modrinth App, and Modrinth Hosting frontends. It may break without any notice, but you are welcome to use it.**
+This workspace package supports Axolotl Launcher’s content API requests. It retains its upstream license and package name; Modrinth Hosting integrations are not included.
 
 ## Installation
 
@@ -74,7 +74,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { AuthFeature, TauriModrinthClient } from '@modrinth/api-client'
 
 const client = new TauriModrinthClient({
-  userAgent: async () => `modrinth/theseus/${await getVersion()} (support@modrinth.com)`,
+  userAgent: async () => `Axolotl-Launcher/${await getVersion()}`,
   features: [new AuthFeature({ token: process.env.MODRINTH_TOKEN })],
 })
 
@@ -98,10 +98,6 @@ import type { Labrinth } from '@modrinth/api-client'
 
 const project: Labrinth.Projects.v3.Project = await client.labrinth.projects_v3.get('sodium')
 ```
-
-## Modrinth Hosting API Modules
-
-- These modules are internal to Modrinth and are only supported inside the Modrinth Hosting panel in Modrinth App and on modrinth.com. They should not be expected to work in third-party clients today. We are discussing how to safely expose access to your own server through these APIs in the future.
 
 ## Base URLs
 
@@ -140,14 +136,14 @@ const client = new GenericModrinthClient({
 })
 ```
 
-Built-in features include authentication, node auth, retries, circuit breaking, panel version headers, and verbose logging.
+Built-in features include authentication, retries, circuit breaking, and verbose logging.
 
 ## Uploads
 
 Upload endpoints return an `UploadHandle<T>` with progress and cancellation support:
 
 ```ts
-const upload = client.kyros.files_v0.uploadFile(path, file)
+const upload = client.labrinth.versions_v3.createVersion(draftVersion, files, projectType)
 
 upload.onProgress(({ progress }) => {
   console.log(Math.round(progress * 100))

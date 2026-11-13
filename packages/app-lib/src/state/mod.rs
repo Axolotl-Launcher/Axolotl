@@ -52,6 +52,10 @@ mod installer_settings;
 
 mod process;
 pub use self::process::*;
+#[cfg(test)]
+pub(crate) use self::process::{
+    LOG_RING_BUFFER_BYTE_CAPACITY, filled_log_ring_buffer,
+};
 
 pub(crate) async fn instance_has_running_process(
     instance_id: &str,
@@ -77,34 +81,97 @@ pub mod minecraft_skins;
 mod cache;
 pub use self::cache::*;
 
-pub mod content_favorites;
 pub mod resources;
-pub use self::content_favorites::*;
-
-mod friends;
-pub use self::friends::*;
-
-mod tunnel;
-pub use self::tunnel::*;
 
 pub mod db;
 pub(crate) mod db_backup;
-mod mr_auth;
-
-pub use self::mr_auth::*;
 
 mod legacy_converter;
 
 pub mod attached_world_data;
 pub(crate) mod content_store;
-pub(crate) mod content_types;
 pub(crate) mod documents;
+pub mod favorite_groups;
 pub mod instance_groups;
 pub(crate) mod store;
 
 // Global state
 // RwLock on state only has concurrent reads, except for config dir change which takes control of the State
 static LAUNCHER_STATE: OnceCell<Arc<State>> = OnceCell::const_new();
+
+/// Set once the shell reports that its first initialized frame is rendered.
+/// Startup work that is not needed for first paint waits for this signal so it
+/// stops competing with the frontend for disk and database I/O.
+///
+/// The latch is process-wide rather than a field of [`State`]: the signal can
+/// arrive before `State::init` has finished, and a signal that arrives first
+/// must still release the deferred work once the state exists.
+static FRONTEND_READY: FrontendReadiness = FrontendReadiness::new();
+
+/// Guards the process-wide startup work. Recreating the main webview calls
+/// `State::init` again; a second recovery pass can interrupt install workers
+/// that are still running, and a second copy of the loops would double their
+/// work. A later caller waits for the first run through this cell.
+static STARTUP_WORK: OnceCell<()> = OnceCell::const_new();
+
+/// Bounds how long deferred startup work waits for the frontend. A window
+/// that never reports readiness (for example, a hidden lightweight-mode
+/// window) must not stall maintenance forever.
+const FRONTEND_READY_FALLBACK: Duration = Duration::from_secs(5);
+
+struct FrontendReadiness {
+    ready: OnceCell<()>,
+    notify: tokio::sync::Notify,
+}
+
+impl FrontendReadiness {
+    const fn new() -> Self {
+        Self {
+            ready: OnceCell::const_new(),
+            notify: tokio::sync::Notify::const_new(),
+        }
+    }
+    fn mark(&self) {
+        if self.ready.set(()).is_ok() {
+            self.notify.notify_waiters();
+        }
+    }
+
+    fn is_ready(&self) -> bool {
+        self.ready.get().is_some()
+    }
+
+    async fn wait(&self, timeout: Duration) -> bool {
+        if self.is_ready() {
+            return true;
+        }
+        let notified = self.notify.notified();
+        tokio::pin!(notified);
+        // Register before checking again: `notify_waiters` only wakes
+        // waiters that already exist, so a mark between the first check and
+        // the wait would otherwise be lost.
+        notified.as_mut().enable();
+        if self.is_ready() {
+            return true;
+        }
+        // Report only whether the notification arrived in time. Checking the
+        // latch again would also return true after a lost wakeup, when the
+        // work actually waited for the whole fallback.
+        tokio::time::timeout(timeout, notified).await.is_ok()
+    }
+}
+
+/// Runs non-critical startup work once the shell has painted, or after the
+/// fallback when no readiness signal arrives.
+async fn wait_for_frontend_ready(work: &str) {
+    if !FRONTEND_READY.wait(FRONTEND_READY_FALLBACK).await {
+        tracing::debug!(
+            work,
+            "Frontend readiness not reported before the fallback"
+        );
+    }
+}
+
 /// Pauses maintenance loops that only serve the launcher UI while the main
 /// window is destroyed in lightweight mode.
 pub(crate) struct MaintenanceGate {
@@ -174,6 +241,7 @@ pub struct State {
     fetch_concurrency_limit: AtomicUsize,
     api_concurrency_limit: AtomicUsize,
     auto_concurrent_downloads: AtomicBool,
+    force_multiconnection_downloads: AtomicBool,
     auto_concurrency_ceiling: AtomicUsize,
     download_active_connections: AtomicUsize,
     download_sample_bytes: AtomicU64,
@@ -182,6 +250,8 @@ pub struct State {
     download_sample_throttles: AtomicU64,
     pub(crate) install_job_semaphore: Semaphore,
     pub(crate) install_db_semaphore: Semaphore,
+    #[cfg(test)]
+    install_db_permit_timeout: AtomicU64,
     pub(crate) install_admission_locks: DashMap<String, Arc<AsyncMutex<()>>>,
     pub(crate) install_execution_locks: DashMap<String, Arc<AsyncMutex<()>>>,
     pub(crate) install_job_cancellations: DashMap<Uuid, CancellationToken>,
@@ -208,8 +278,6 @@ pub struct State {
     //
     // /// App identifier string (like com.modrinth.AxolotlLauncher)
     // pub app_identifier: String,
-    /// Friends socket
-    pub friends_socket: FriendsSocket,
 
     pub restart_after_pending_update: AtomicBool,
 
@@ -331,12 +399,12 @@ impl State {
         &self,
         instance_id: &str,
     ) -> tokio::sync::OwnedMutexGuard<()> {
-        self.screenshot_locks
+        let lock = self
+            .screenshot_locks
             .entry(instance_id.to_string())
             .or_insert_with(|| Arc::new(AsyncMutex::new(())))
-            .clone()
-            .lock_owned()
-            .await
+            .clone();
+        lock.lock_owned().await
     }
 
     pub(crate) async fn lock_synced_options(
@@ -528,7 +596,7 @@ impl Drop for InstanceLockGuard {
     }
 }
 
-fn grow_semaphore(
+pub(crate) fn grow_semaphore(
     semaphore: &Semaphore,
     current_limit: &AtomicUsize,
     target: usize,
@@ -551,7 +619,7 @@ fn grow_semaphore(
     }
 }
 
-async fn shrink_semaphore(
+pub(crate) async fn shrink_semaphore(
     semaphore: &Semaphore,
     current_limit: &AtomicUsize,
     target: &AtomicUsize,
@@ -687,24 +755,42 @@ impl AutoConcurrencyController {
 }
 
 impl State {
+    /// Records that the launcher shell has rendered its first initialized
+    /// frame. Deferred startup work waits for this signal before it starts.
+    pub fn mark_frontend_ready() {
+        FRONTEND_READY.mark();
+    }
+
     pub async fn init(app_identifier: String) -> crate::Result<()> {
         let state = LAUNCHER_STATE
             .get_or_try_init(move || Self::initialize_state(app_identifier))
             .await?;
 
+        STARTUP_WORK
+            .get_or_try_init(|| Self::start_background(Arc::clone(state)))
+            .await?;
+        Ok(())
+    }
+
+    /// Performs the recovery and background work that must happen once per
+    /// process. `STARTUP_WORK` serializes this for a recreated webview instead
+    /// of running recovery while the previous webview's workers are alive.
+    async fn start_background(state: Arc<Self>) -> crate::Result<()> {
         if let Err(error) =
-            instances::commands::recover_content_file_operations(state).await
+            instances::commands::recover_content_file_operations(&state).await
         {
             tracing::error!(%error, "Error recovering content file operations");
+            return Err(error);
         }
         if let Err(e) =
-            crate::install::recovery::recover_interrupted_jobs(state).await
+            crate::install::recovery::recover_interrupted_jobs(&state).await
         {
             tracing::error!("Error recovering interrupted install jobs: {e}");
+            return Err(e);
         }
         if let Err(e) =
             crate::api::curseforge::reconcile_persisted_curseforge_waiting_jobs(
-                state,
+                &state,
             )
             .await
         {
@@ -712,35 +798,60 @@ impl State {
                 "Error reconciling persisted CurseForge waiting install jobs: {e}"
             );
         }
+        crate::scheduler::reconcile::at_startup(&state).await;
+        crate::scheduler::quota::check_at_startup();
 
         state.spawn_background({
-            let state = Arc::clone(state);
+            let state = Arc::clone(&state);
             async move {
+                wait_for_frontend_ready("deferred instance config sync").await;
                 instances::config_sync::run(state).await;
             }
         });
 
         state.spawn_background({
-            let state = Arc::clone(state);
+            let state = Arc::clone(&state);
             async move {
                 state.run_auto_concurrency_controller().await;
             }
         });
 
-        crate::telemetry::start(Arc::clone(state));
+        crate::telemetry::start(Arc::clone(&state));
 
         state.spawn_background(async move {
+            wait_for_frontend_ready("Google Translate IP preload").await;
             crate::google_ip::preload().await;
         });
 
         state.spawn_background({
-            let state = Arc::clone(state);
+            let state = Arc::clone(&state);
             async move {
+                // Discord presence and settings migration do not scan
+                // instance directories, and the frontend reads settings while
+                // it sets up, so they start immediately instead of waiting for
+                // the first frame. Only the instance scans below are deferred.
+                let res = tokio::try_join!(
+                    state.discord_rpc.clear_to_default(true),
+                    Settings::migrate(&state.data),
+                );
+
+                if let Err(e) = res {
+                    tracing::error!(
+                        "Error running discord RPC or migrating settings: {e}"
+                    );
+                }
+
+                wait_for_frontend_ready("instance watcher and refresh").await;
+
                 crate::util::fetch::cleanup_stale_partial_downloads(vec![
                     state.directories.metadata_dir(),
                     state.directories.caches_dir(),
                 ]);
 
+                // Per-instance folder setup is serial database and filesystem
+                // work, so keep it off the first-paint path. The refresh below
+                // re-reads every instance after registration, which reconciles
+                // changes made before the watcher existed.
                 instances::watcher::watch_instances_init(
                     &state.file_watcher,
                     &state.directories,
@@ -748,18 +859,9 @@ impl State {
                 )
                 .await;
 
-                let res = tokio::try_join!(
-                    state.discord_rpc.clear_to_default(true),
-                    instances::refresh_all_instances(),
-                    Settings::migrate(&state.data),
-                    ModrinthCredentials::refresh_all(),
-                );
-
-                if let Err(e) = res {
-                    tracing::error!("Error running discord RPC: {e}");
+                if let Err(e) = instances::refresh_all_instances().await {
+                    tracing::error!("Error refreshing instances: {e}");
                 }
-
-                // Axolotl does not connect to Modrinth's private friends socket.
             }
         });
 
@@ -969,6 +1071,10 @@ impl State {
         self.configured_http_client.read().clone()
     }
 
+    pub(crate) fn force_multiconnection_downloads(&self) -> bool {
+        self.force_multiconnection_downloads.load(Ordering::Acquire)
+    }
+
     pub(crate) fn download_concurrency(&self) -> usize {
         self.download_concurrency_target.load(Ordering::Acquire)
     }
@@ -1002,6 +1108,9 @@ impl State {
         self: &Arc<Self>,
         settings: &Settings,
     ) {
+        crate::util::download::telemetry::set_enabled(
+            settings.advanced_download_info_enabled(),
+        );
         self.minecraft_metadata_source
             .store(settings.minecraft_metadata_source as u8, Ordering::Relaxed);
         self.minecraft_file_source
@@ -1026,13 +1135,20 @@ impl State {
         }
         self.auto_prefers_mirror
             .store(settings.auto_prefers_mirror(), Ordering::Relaxed);
+        let was_forced = self
+            .force_multiconnection_downloads
+            .swap(settings.force_multiconnection_downloads, Ordering::AcqRel);
         let was_auto = self
             .auto_concurrent_downloads
             .swap(settings.auto_concurrent_downloads, Ordering::AcqRel);
         self.auto_concurrency_ceiling
             .store(AUTO_DOWNLOAD_CONCURRENCY_MAX, Ordering::Release);
-        if settings.auto_concurrent_downloads {
-            if !was_auto {
+        if settings.force_multiconnection_downloads {
+            self.resize_download_concurrency(
+                settings.effective_max_concurrent_downloads(),
+            );
+        } else if settings.auto_concurrent_downloads {
+            if !was_auto || was_forced {
                 self.resize_download_concurrency(
                     AUTO_DOWNLOAD_CONCURRENCY_INITIAL,
                 );
@@ -1064,7 +1180,9 @@ impl State {
             crate::util::download::local_resources::sample_cpu().await;
             crate::util::download::h2_pool::observe_adaptive_connections()
                 .await;
-            if !self.auto_concurrent_downloads.load(Ordering::Acquire) {
+            if !self.auto_concurrent_downloads.load(Ordering::Acquire)
+                || self.force_multiconnection_downloads()
+            {
                 controller = AutoConcurrencyController::default();
                 trial_lease = None;
                 self.download_sample_bytes.swap(0, Ordering::AcqRel);
@@ -1144,6 +1262,15 @@ impl State {
         }
     }
 
+    /// Install jobs whose runner is still alive, read from memory so the exit
+    /// barrier can list them even when the database no longer answers.
+    pub fn running_install_jobs(&self) -> Vec<Uuid> {
+        self.install_job_cancellations
+            .iter()
+            .map(|entry| *entry.key())
+            .collect()
+    }
+
     fn download_work_is_idle(&self) -> bool {
         self.download_active_connections.load(Ordering::Acquire) == 0
             && self.install_job_cancellations.is_empty()
@@ -1153,6 +1280,10 @@ impl State {
         let target = target.clamp(1, DOWNLOAD_CONCURRENCY_HARD_MAX);
         self.download_concurrency_target
             .store(target, Ordering::Release);
+
+        if self.force_multiconnection_downloads() {
+            crate::util::download::native_budget::set_forced_capacity(target);
+        }
 
         grow_semaphore(
             &self.fetch_semaphore.0,
@@ -1182,7 +1313,9 @@ impl State {
             });
         }
 
-        if self.download_concurrency_limit.load(Ordering::Acquire) > target {
+        if self.download_concurrency_limit.load(Ordering::Acquire) > target
+            || crate::util::download::native_budget::forced_capacity_needs_shrink()
+        {
             let state = Arc::clone(self);
             tokio::spawn(async move {
                 shrink_semaphore(
@@ -1191,6 +1324,7 @@ impl State {
                     &state.download_concurrency_target,
                 )
                 .await;
+                crate::util::download::native_budget::shrink_forced_capacity().await;
             });
         }
 
@@ -1278,6 +1412,11 @@ impl State {
             "Could not find valid settings dir".to_string(),
         ))?;
         store::secrets::identify(&settings_dir);
+        // The settings are composed from the documents in this directory from
+        // here on, and the read below sizes the semaphores and the client the
+        // launcher starts with: a root named after it would leave the launch
+        // running on the rows.
+        documents::settings::identify(&settings_dir);
 
         tracing::info!("Connecting to app database");
         let pool = db::connect(&app_identifier).await?;
@@ -1301,8 +1440,19 @@ impl State {
             &app_identifier,
         )
         .await?;
+        crate::util::download::telemetry::set_enabled(
+            settings.advanced_download_info_enabled(),
+        );
         let download_concurrency =
             settings.effective_max_concurrent_downloads();
+        crate::util::download::native_budget::set_forced_capacity(
+            if settings.force_multiconnection_downloads {
+                download_concurrency
+            } else {
+                settings.forced_max_concurrent_downloads
+            },
+        );
+        crate::util::download::native_budget::shrink_forced_capacity().await;
         let fetch_semaphore =
             FetchSemaphore(Semaphore::new(download_concurrency));
         let download_semaphore =
@@ -1336,11 +1486,25 @@ impl State {
 
         documents::hand_over(&pool, &directories.settings_dir).await;
 
-        if !legacy.java_versions.is_empty() {
-            let documents = documents::Documents::at(
-                directories.settings_dir.join(documents::DIR_NAME),
-                &pool,
+        let documents = documents::Documents::at(
+            directories.settings_dir.join(documents::DIR_NAME),
+            &pool,
+        )
+        .with_config_root(documents::config_root());
+        // A deployment changes a value by changing its own document, so a local
+        // copy that repeats the old one has to go: it would shadow the change
+        // forever. This is the one place that drops them, because a read must
+        // never write to disk.
+        if let Err(error) =
+            documents::settings::prune_redundant(&documents).await
+        {
+            tracing::warn!(
+                %error,
+                "Failed to drop the settings entries a provided value covers"
             );
+        }
+
+        if !legacy.java_versions.is_empty() {
             if let Err(error) =
                 JavaVersion::save_all(&documents, &legacy.java_versions).await
             {
@@ -1365,8 +1529,6 @@ impl State {
         let file_watcher = instances::watcher::init_watcher().await?;
 
         let process_manager = ProcessManager::new();
-
-        let friends_socket = FriendsSocket::new();
 
         Ok(Arc::new(Self {
             directories,
@@ -1401,6 +1563,9 @@ impl State {
             auto_concurrent_downloads: AtomicBool::new(
                 settings.auto_concurrent_downloads,
             ),
+            force_multiconnection_downloads: AtomicBool::new(
+                settings.force_multiconnection_downloads,
+            ),
             auto_concurrency_ceiling: AtomicUsize::new(
                 AUTO_DOWNLOAD_CONCURRENCY_MAX,
             ),
@@ -1413,6 +1578,8 @@ impl State {
             install_admission_locks: DashMap::new(),
             install_execution_locks: DashMap::new(),
             install_db_semaphore: Semaphore::new(1),
+            #[cfg(test)]
+            install_db_permit_timeout: AtomicU64::new(20_000),
             install_job_cancellations: DashMap::new(),
             install_job_operation_locks: DashMap::new(),
             discord_rpc,
@@ -1420,7 +1587,6 @@ impl State {
             maintenance_gate: MaintenanceGate::new(),
             background_tasks: Mutex::new(Vec::new()),
             background_tracker: tokio_util::task::TaskTracker::new(),
-            friends_socket,
             restart_after_pending_update: AtomicBool::new(false),
             instance_locks: Arc::new(InstanceLockManager::default()),
             data,
@@ -1472,22 +1638,36 @@ impl State {
     pub(crate) async fn acquire_install_db_permit(
         &self,
     ) -> crate::Result<tokio::sync::SemaphorePermit<'_>> {
-        let permit = tokio::time::timeout(
-            Duration::from_secs(20),
-            self.install_db_semaphore.acquire(),
-        )
-        .await
-        .map_err(|_| {
-            crate::ErrorKind::InputError(
-                "Timed out waiting for the install database writer".to_string(),
-            )
-        })?
-        .map_err(|_| {
-            crate::ErrorKind::OtherError(
-                "install database semaphore closed".to_string(),
-            )
-        })?;
+        #[cfg(test)]
+        let timeout = Duration::from_millis(
+            self.install_db_permit_timeout.load(Ordering::Relaxed),
+        );
+        #[cfg(not(test))]
+        let timeout = Duration::from_secs(20);
+        let permit =
+            tokio::time::timeout(timeout, self.install_db_semaphore.acquire())
+                .await
+                .map_err(|_| {
+                    crate::ErrorKind::InputError(
+                        "Timed out waiting for the install database writer"
+                            .to_string(),
+                    )
+                })?
+                .map_err(|_| {
+                    crate::ErrorKind::OtherError(
+                        "install database semaphore closed".to_string(),
+                    )
+                })?;
         Ok(permit)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_install_db_permit_timeout_for_test(
+        &self,
+        timeout: Duration,
+    ) {
+        self.install_db_permit_timeout
+            .store(timeout.as_millis().max(1) as u64, Ordering::Relaxed);
     }
 
     pub(crate) async fn lock_instance_content_exclusive(
@@ -1599,6 +1779,7 @@ pub(crate) async fn test_state(
         fetch_concurrency_limit: AtomicUsize::new(8),
         api_concurrency_limit: AtomicUsize::new(8),
         auto_concurrent_downloads: AtomicBool::new(false),
+        force_multiconnection_downloads: AtomicBool::new(false),
         auto_concurrency_ceiling: AtomicUsize::new(8),
         download_active_connections: AtomicUsize::new(0),
         download_sample_bytes: AtomicU64::new(0),
@@ -1609,6 +1790,8 @@ pub(crate) async fn test_state(
         install_admission_locks: DashMap::new(),
         install_execution_locks: DashMap::new(),
         install_db_semaphore: Semaphore::new(1),
+        #[cfg(test)]
+        install_db_permit_timeout: AtomicU64::new(20_000),
         install_job_cancellations: DashMap::new(),
         install_job_operation_locks: DashMap::new(),
         discord_rpc: DiscordGuard::init()?,
@@ -1616,7 +1799,6 @@ pub(crate) async fn test_state(
         maintenance_gate: MaintenanceGate::new(),
         background_tasks: Mutex::new(Vec::new()),
         background_tracker: tokio_util::task::TaskTracker::new(),
-        friends_socket: FriendsSocket::new(),
         restart_after_pending_update: AtomicBool::new(false),
         instance_locks: Arc::new(InstanceLockManager::default()),
         data: store::Handle::new(pool.clone()),
@@ -2023,6 +2205,52 @@ mod shutdown_tests {
     use super::*;
     use std::future::Future;
 
+    #[tokio::test]
+    async fn screenshot_lock_wait_does_not_hold_registry_shard() {
+        let (_temp, state) = fixture().await;
+        let held = state.lock_instance_screenshots("waiter").await;
+        let mut waiting =
+            std::pin::pin!(state.lock_instance_screenshots("waiter"));
+        let mut context =
+            std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(waiting.as_mut().poll(&mut context).is_pending());
+        assert!(state.screenshot_locks.try_entry("waiter".into()).is_some());
+        drop(held);
+        waiting.await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn screenshot_lock_burst_keeps_runtime_responsive() {
+        let (_temp, state) = fixture().await;
+        let held = state.lock_instance_screenshots("burst").await;
+        {
+            // Fail safely before spawning blocked workers if the shard regression returns.
+            let mut waiting =
+                std::pin::pin!(state.lock_instance_screenshots("burst"));
+            let mut context =
+                std::task::Context::from_waker(std::task::Waker::noop());
+            assert!(waiting.as_mut().poll(&mut context).is_pending());
+            assert!(state.screenshot_locks.try_entry("burst".into()).is_some());
+        }
+        let mut tasks = tokio::task::JoinSet::new();
+        for _ in 0..64 {
+            let state = state.clone();
+            tasks.spawn(async move {
+                let _guard = state.lock_instance_screenshots("burst").await;
+                tokio::task::yield_now().await;
+            });
+        }
+        tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            drop(held);
+            while let Some(result) = tasks.join_next().await {
+                result.unwrap();
+            }
+        })
+        .await
+        .expect("screenshot waiters must not starve the runtime");
+    }
+
     async fn fixture() -> (tempfile::TempDir, Arc<State>) {
         let temp = tempfile::tempdir().unwrap();
         let directories = DirectoryInfo {
@@ -2124,5 +2352,45 @@ mod shutdown_tests {
         state.shutdown().await;
         assert!(all_dropped(&[flag]).await);
         assert!(state.background_tasks.lock().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod frontend_readiness_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn wait_times_out_before_mark_and_returns_after_it() {
+        let readiness = FrontendReadiness::new();
+        assert!(
+            !readiness.wait(Duration::from_millis(10)).await,
+            "an unmarked readiness latch must time out"
+        );
+        readiness.mark();
+        assert!(
+            readiness.wait(Duration::from_millis(10)).await,
+            "a marked readiness latch must return without waiting"
+        );
+    }
+
+    #[tokio::test]
+    async fn mark_releases_a_registered_waiter() {
+        let readiness = FrontendReadiness::new();
+        let (ready, ()) =
+            tokio::join!(readiness.wait(Duration::from_secs(30)), async {
+                readiness.mark()
+            },);
+        assert!(ready, "marking must wake the waiting task");
+    }
+
+    #[tokio::test]
+    async fn mark_releases_every_registered_waiter() {
+        let readiness = FrontendReadiness::new();
+        let (first, second, ()) = tokio::join!(
+            readiness.wait(Duration::from_secs(30)),
+            readiness.wait(Duration::from_secs(30)),
+            async { readiness.mark() },
+        );
+        assert!(first && second, "marking must wake every registered waiter");
     }
 }

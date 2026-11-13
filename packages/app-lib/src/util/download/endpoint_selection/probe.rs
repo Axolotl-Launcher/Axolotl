@@ -87,7 +87,7 @@ impl ProbeSession {
         let builder = probe_client_builder(&candidate, &target);
         #[cfg(test)]
         let builder = if let Some((_, root)) = fixture {
-            builder.add_root_certificate(root)
+            builder.tls_certs_only([root])
         } else {
             builder
         };

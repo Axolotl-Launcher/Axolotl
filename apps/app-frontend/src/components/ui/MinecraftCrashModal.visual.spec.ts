@@ -1,6 +1,7 @@
 import '@/test/visual-styles.scss'
 
 import { mount } from '@vue/test-utils'
+import QrcodeVue from 'qrcode.vue'
 import { afterEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, nextTick, ref } from 'vue'
@@ -14,7 +15,14 @@ const calls = vi.hoisted(() => ({
     logs: vi.fn(),
     prepare: vi.fn(),
     cancel: vi.fn(),
+    exportCrash: vi.fn(),
+    highlight: vi.fn(),
+    handleError: vi.fn(),
+    upload: vi.fn(),
+    insights: vi.fn(),
     enabled: true,
+    source: 'custom',
+    autoUpload: false,
     chinese: false,
     process: undefined as
         | undefined
@@ -28,20 +36,27 @@ const calls = vi.hoisted(() => ({
 
 vi.mock('@modrinth/ui', async () => ({
     defineMessages: (messages: unknown) => messages,
-    commonMessages: { closeButton: { defaultMessage: 'Close' } },
+    commonMessages: {
+        closeButton: { defaultMessage: 'Close' },
+        openInFolderButton: { defaultMessage: 'Open in folder' },
+    },
     useVIntl: () => ({
         formatMessage: (
             message: { id: string; defaultMessage: string },
             values: Record<string, unknown> = {},
         ) =>
             (calls.chinese
-                ? ((chinese as Record<string, { message: string }>)[message.id]?.message ??
-                  message.defaultMessage)
+                ? ((chinese as Record<string, { message?: string; defaultMessage?: string }>)[
+                      message.id
+                  ]?.message ?? message.defaultMessage)
                 : message.defaultMessage
             ).replace(/\{(\w+)(?:, number)?\}/g, (_, key) => String(values[key] ?? key)),
     }),
     injectModrinthClient: () => ({}),
-    injectNotificationManager: () => ({ addNotification: vi.fn() }),
+    injectNotificationManager: () => ({
+        addNotification: vi.fn(),
+        handleError: calls.handleError,
+    }),
     Button: (await import('../../../../../packages/ui/src/components/base/buttons/Button.vue'))
         .default,
     Card: defineComponent({
@@ -119,23 +134,26 @@ vi.mock('@/composables/useCrashAnalysis', () => ({
     refreshCrashAnalysis: async () => null,
 }))
 vi.mock('@/helpers/logs', () => ({
+    export_crash_context: calls.exportCrash,
     get_crash_analysis_ai_settings: async () => ({
         enabled: calls.enabled,
         provider_id: 'codeflow',
         model_id: 'gpt-6-luna',
-        ai_source: 'custom',
+        ai_source: calls.source,
     }),
     get_log_share_settings: async () => ({
-        ai_source: 'custom',
-        auto_upload: false,
+        share_provider: 'logshare',
+        ai_source: calls.source,
+        auto_upload: calls.autoUpload,
         show_progress: true,
     }),
     get_logs: calls.logs,
     get_output_by_filename: async () => 'log evidence',
-    logshare_get_insights: vi.fn(),
-    logshare_upload_crash: vi.fn(),
+    logshare_get_insights: calls.insights,
+    logshare_upload_crash: calls.upload,
     record_shared_log: vi.fn(),
 }))
+vi.mock('@/helpers/utils', () => ({ highlightInFolder: calls.highlight }))
 vi.mock('@/logagent/backend.ts', () => ({
     prepareSession: calls.prepare,
     cancelSession: calls.cancel,
@@ -149,12 +167,15 @@ afterEach(() => {
     cleanup.splice(0).forEach((dispose) => dispose())
     vi.restoreAllMocks()
     vi.clearAllMocks()
+    calls.upload.mockReset()
+    calls.insights.mockReset()
     calls.enabled = true
+    calls.source = 'custom'
+    calls.autoUpload = false
     calls.chinese = false
 })
 
-it('offers configuration instead of a missing analyze button and keeps source changes local to this run', async () => {
-    calls.enabled = false
+async function mountCrashModal(instanceId: string, instanceName = 'Test') {
     calls.logs.mockResolvedValue([])
     const router = createRouter({
         history: createMemoryHistory(),
@@ -170,40 +191,108 @@ it('offers configuration instead of a missing analyze button and keeps source ch
     cleanup.push(() => wrapper.unmount())
     await wrapper.vm.handleWarning({
         kind: 'minecraft_crash',
-        instance_id: 'unconfigured',
-        instance_name: 'Test',
+        instance_id: instanceId,
+        instance_name: instanceName,
     })
-    const controls = wrapper.get('[data-testid="crash-analysis-controls"]')
-    expect(controls.text()).toContain('Configure analysis')
-    await controls
-        .findAll('button')
-        .find((button) => button.text() === 'Change')!
-        .trigger('click')
-    await controls.get('[role="radio"][value="logshare"]').trigger('click')
-    expect(controls.text()).toContain('Cloud LogShare')
-    expect(controls.text()).toContain('Start analysis')
-    expect(controls.find('[role="radiogroup"]').exists()).toBe(false)
-    await controls
-        .findAll('button')
-        .find((button) => button.text() === 'Change')!
-        .trigger('click')
-    await controls.get('[role="radio"][value="custom"]').trigger('click')
-    await controls
-        .findAll('button')
-        .find((button) => button.text() === 'Configure analysis')!
-        .trigger('click')
-    expect(wrapper.text()).toContain('Return to analysis')
-    expect(router.currentRoute.value.fullPath).toBe('/')
-    await wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Enable configured model')!
-        .trigger('click')
-    await wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Return to analysis')!
-        .trigger('click')
-    await vi.waitFor(() => expect(controls.text()).toContain('Start analysis'))
-    expect(controls.text()).toContain('Local LogAgent')
+    return wrapper
+}
+
+function actionButton(wrapper: Awaited<ReturnType<typeof mountCrashModal>>, label: string) {
+    return wrapper.findAll('button').find((button) => button.text() === label)!
+}
+
+it('exports the crash diagnostic package and opens its folder', async () => {
+    calls.exportCrash.mockResolvedValue('C:/exports/crash.zip')
+    calls.highlight.mockResolvedValue(undefined)
+    const wrapper = await mountCrashModal('export', 'Export test')
+
+    await actionButton(wrapper, 'Export diagnostic package').trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Diagnostic package saved to'))
+    expect(calls.exportCrash).toHaveBeenCalledExactlyOnceWith('export', 'Export test')
+    expect(wrapper.get('[role="status"]').text()).toContain('C:/exports/crash.zip')
+
+    await wrapper.get('[aria-label="Open in folder"]').trigger('click')
+    await vi.waitFor(() =>
+        expect(calls.highlight).toHaveBeenCalledExactlyOnceWith('C:/exports/crash.zip'),
+    )
+})
+
+it('does not report an export when the save dialog is cancelled', async () => {
+    calls.exportCrash.mockResolvedValue(null)
+    const wrapper = await mountCrashModal('cancel')
+
+    const button = actionButton(wrapper, 'Export diagnostic package')
+    await button.trigger('click')
+    await vi.waitFor(() => expect(calls.exportCrash).toHaveBeenCalledOnce())
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(button.attributes('aria-busy')).toBeUndefined()
+    expect(button.attributes('disabled')).toBeUndefined()
+})
+
+it('surfaces export failures and lets the user retry', async () => {
+    calls.exportCrash.mockRejectedValueOnce(new Error('Archive failed'))
+    const wrapper = await mountCrashModal('failure')
+
+    await actionButton(wrapper, 'Export diagnostic package').trigger('click')
+    await vi.waitFor(() => expect(calls.handleError).toHaveBeenCalledOnce())
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    const button = actionButton(wrapper, 'Export diagnostic package')
+    expect(button.attributes('aria-busy')).toBeUndefined()
+
+    calls.exportCrash.mockResolvedValueOnce('C:/exports/retry.zip')
+    await button.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('C:/exports/retry.zip'))
+    expect(calls.exportCrash).toHaveBeenCalledTimes(2)
+})
+
+it('does not allow exporting from the crash window preview', async () => {
+    const wrapper = await mountCrashModal('preview-source')
+    wrapper.vm.showPreview()
+    await nextTick()
+
+    const button = actionButton(wrapper, 'Export diagnostic package')
+    expect(button.attributes('disabled')).toBeDefined()
+    await button.trigger('click')
+    expect(calls.exportCrash).not.toHaveBeenCalled()
+})
+
+it('ignores an export that finishes after another crash replaces the window', async () => {
+    let resolveExport!: (path: string) => void
+    calls.exportCrash.mockImplementationOnce(
+        () =>
+            new Promise<string>((resolve) => {
+                resolveExport = resolve
+            }),
+    )
+    const wrapper = await mountCrashModal('stale')
+
+    await actionButton(wrapper, 'Export diagnostic package').trigger('click')
+    await vi.waitFor(() => expect(calls.exportCrash).toHaveBeenCalledOnce())
+    await wrapper.vm.handleWarning({
+        kind: 'minecraft_crash',
+        instance_id: 'new-crash',
+        instance_name: 'New crash',
+    })
+    resolveExport('C:/exports/stale.zip')
+    await vi.waitFor(() =>
+        expect(
+            actionButton(wrapper, 'Export diagnostic package').attributes('aria-busy'),
+        ).toBeUndefined(),
+    )
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+})
+
+it('hides LogAgent when local analysis is not configured and preserves crash actions', async () => {
+    calls.enabled = false
+    const wrapper = await mountCrashModal('unconfigured')
+    expect(wrapper.find('[data-testid="crash-analysis-controls"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Cloud LogShare')
+    expect(wrapper.text()).not.toContain('Configure analysis')
+    expect(actionButton(wrapper, 'Export diagnostic package').exists()).toBe(true)
+    expect(actionButton(wrapper, 'Share diagnostic').exists()).toBe(true)
+    await wrapper.vm.openAIAnalysis()
+    expect(calls.prepare).not.toHaveBeenCalled()
+    expect(wrapper.find('.crash-modal-ai-output').exists()).toBe(false)
 })
 
 it('keeps crash analysis controls readable in the sidebar', async () => {
@@ -241,27 +330,146 @@ it('keeps crash analysis controls readable in the sidebar', async () => {
             element: wrapper.element,
             path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/logagent-crash-desktop.png`,
         })
-    await controls
-        .findAll('button')
-        .find((button) => button.text() === (calls.chinese ? '更改' : 'Change'))!
-        .trigger('click')
-    expect(controls.findAll('[role="radio"]')).toHaveLength(2)
-    if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE)
-        await page.screenshot({
-            element: controls.element,
-            path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/logagent-crash-source.png`,
-        })
+    expect(controls.findAll('[role="radio"]')).toHaveLength(0)
+    expect(controls.text()).not.toContain('Cloud LogShare')
 })
 
-it('restores this crash after visiting provider settings without resetting the selected source', async () => {
+it('uses the local model when the saved default is cloud', async () => {
+    calls.source = 'logshare'
+    const wrapper = await mountCrashModal('cloud-default')
+    const controls = wrapper.get('[data-testid="crash-analysis-controls"]')
+    expect(controls.text()).toContain('Local LogAgent')
+    expect(controls.text()).not.toContain('Cloud LogShare')
+})
+
+it('loads structured LogShare analysis for the selected file without a LogAgent entry', async () => {
+    calls.chinese = !!import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE
     calls.enabled = false
-    calls.logs.mockResolvedValue([{ filename: 'latest.log', log_type: 'InfoLog', age: 1000 }])
+    calls.source = 'logshare'
+    calls.autoUpload = true
+    calls.upload.mockResolvedValue({
+        id: 'sAbCdEf',
+        url: 'https://logshare.cn/sAbCdEf',
+        raw: 'raw',
+        token: '',
+        files: [{ name: 'latest.log' }, { name: 'crash-reports/crash.txt' }],
+    })
+    calls.insights.mockImplementation(async (_id: string, filename: string) => ({
+        analysis: {
+            problems: [
+                { message: filename, solutions: [{ message: 'Install the missing dependency' }] },
+            ],
+        },
+    }))
+    calls.logs.mockResolvedValue([
+        { filename: 'latest.log', log_type: 'InfoLog', age: 1000 },
+        { filename: 'crash.txt', log_type: 'CrashReport', age: 1000 },
+    ])
     const router = createRouter({
         history: createMemoryHistory(),
-        routes: [
-            { path: '/', component: { render: () => null } },
-            { path: '/settings', component: { render: () => null } },
-        ],
+        routes: [{ path: '/', component: { render: () => null } }],
+    })
+    await router.push('/')
+    const wrapper = mount(MinecraftCrashModal, {
+        attachTo: document.body,
+        global: { directives: { tooltip: () => {} }, plugins: [router] },
+    })
+    cleanup.push(() => wrapper.unmount())
+    await wrapper.vm.handleWarning({
+        kind: 'minecraft_crash',
+        instance_id: 'summary',
+        instance_name: 'Test',
+    })
+    await vi.waitFor(() =>
+        expect(calls.insights).toHaveBeenCalledWith('sAbCdEf', 'crash-reports/crash.txt'),
+    )
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Install the missing dependency'))
+    const link = wrapper.get('[data-testid="crash-diagnostic-link"]')
+    expect(link.get('a').attributes('href')).toBe('https://logshare.cn/sAbCdEf')
+    expect(link.findComponent(QrcodeVue).props('value')).toBe('https://logshare.cn/sAbCdEf')
+    expect(link.get('svg').attributes('width')).toBe('120')
+    expect(getComputedStyle(link.get('svg').element).width).toBe('120px')
+    expect(getComputedStyle(link.get('svg').element).height).toBe('120px')
+    if (import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE) {
+        document.documentElement.classList.add('dark-mode')
+        for (const [width, name] of [
+            [1200, 'desktop'],
+            [780, 'medium'],
+            [480, 'narrow'],
+        ] as const) {
+            await page.viewport(width, 900)
+            wrapper.element.setAttribute(
+                'style',
+                'width: min(1100px, 100vw); background: var(--surface-1); color: var(--color-text-primary)',
+            )
+            await nextTick()
+            expect(link.element.scrollWidth).toBeLessThanOrEqual(link.element.clientWidth + 1)
+            await page.screenshot({
+                element: wrapper.element,
+                path: `${import.meta.env.VITE_AXOLOTL_VISUAL_EVIDENCE}/crash-upload-${name}.png`,
+            })
+        }
+        calls.chinese = false
+    }
+    expect(wrapper.text()).not.toContain('[object Object]')
+    expect(wrapper.find('[data-testid="crash-analysis-controls"]').exists()).toBe(false)
+    await wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'latest.log')!
+        .trigger('click')
+    await vi.waitFor(() => expect(calls.insights).toHaveBeenLastCalledWith('sAbCdEf', 'latest.log'))
+    expect(calls.upload).toHaveBeenCalledTimes(1)
+})
+
+it('shows the QR code as soon as upload finishes, copies its URL and clears it for another crash', async () => {
+    calls.enabled = false
+    calls.source = 'logshare'
+    calls.autoUpload = true
+    let finishUpload!: (ticket: unknown) => void
+    calls.upload.mockImplementationOnce(
+        () =>
+            new Promise((resolve) => {
+                finishUpload = resolve
+            }),
+    )
+    calls.insights.mockResolvedValue({})
+    const writeClipboard = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    const wrapper = await mountCrashModal('pending-upload')
+    expect(wrapper.find('[data-testid="crash-diagnostic-link"]').exists()).toBe(false)
+    finishUpload({
+        id: 'sAbCdEf',
+        url: 'https://logshare.cn/sAbCdEf',
+        raw: 'raw',
+        token: '',
+        files: [],
+    })
+    await vi.waitFor(() =>
+        expect(wrapper.find('[data-testid="crash-diagnostic-link"]').exists()).toBe(true),
+    )
+    await wrapper.get('[data-testid="crash-diagnostic-link"]').get('button').trigger('click')
+    expect(writeClipboard).toHaveBeenCalledExactlyOnceWith('https://logshare.cn/sAbCdEf')
+    calls.upload.mockRejectedValueOnce(new Error('Upload unavailable'))
+    await wrapper.vm.handleWarning({
+        kind: 'minecraft_crash',
+        instance_id: 'failed-upload',
+        instance_name: 'Another crash',
+    })
+    await vi.waitFor(() => expect(calls.upload).toHaveBeenCalledTimes(2))
+    expect(wrapper.find('[data-testid="crash-diagnostic-link"]').exists()).toBe(false)
+})
+
+it('does not restart a failed automatic upload when another log is selected', async () => {
+    calls.enabled = false
+    calls.source = 'logshare'
+    calls.autoUpload = true
+    calls.upload.mockRejectedValue(new Error('Upload unavailable'))
+    calls.logs.mockResolvedValue([
+        { filename: 'latest.log', log_type: 'InfoLog', age: 1000 },
+        { filename: 'crash.txt', log_type: 'CrashReport', age: 1000 },
+    ])
+    const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [{ path: '/', component: { render: () => null } }],
     })
     await router.push('/')
     const wrapper = mount(MinecraftCrashModal, {
@@ -270,31 +478,28 @@ it('restores this crash after visiting provider settings without resetting the s
     cleanup.push(() => wrapper.unmount())
     await wrapper.vm.handleWarning({
         kind: 'minecraft_crash',
-        instance_id: 'provider-setup',
-        instance_name: 'Preserved crash',
+        instance_id: 'upload-failed',
+        instance_name: 'Test',
     })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Could not load the LogShare summary'))
     await wrapper
         .findAll('button')
-        .find((button) => button.text() === 'Configure analysis')!
+        .find((button) => button.text() === 'latest.log')!
         .trigger('click')
-    await wrapper
-        .findAll('button')
-        .find((button) => button.text() === 'Configure providers')!
-        .trigger('click')
-    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/settings#ai'))
-    calls.enabled = true
-    await router.push('/settings#launch-defaults')
-    await vi.waitFor(() =>
-        expect(wrapper.find('[data-testid="crash-analysis-controls"]').exists()).toBe(true),
+    expect(calls.upload).toHaveBeenCalledTimes(1)
+    calls.upload.mockResolvedValue({
+        id: 'sAbCdEf',
+        url: 'https://logshare.cn/sAbCdEf',
+        raw: 'raw',
+        token: '',
+        files: [],
+    })
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    await actionButton(wrapper, 'Share diagnostic').trigger('click')
+    await vi.waitFor(() => expect(calls.upload).toHaveBeenCalledTimes(2))
+    expect(wrapper.get('[data-testid="crash-diagnostic-link"]').get('a').attributes('href')).toBe(
+        'https://logshare.cn/sAbCdEf',
     )
-    expect(wrapper.text()).toContain('Preserved crash')
-    expect(wrapper.get('[data-testid="crash-analysis-controls"]').text()).toContain(
-        'Local LogAgent',
-    )
-    expect(wrapper.get('[data-testid="crash-analysis-controls"]').text()).toContain(
-        'Start analysis',
-    )
-    expect(calls.logs).toHaveBeenCalledTimes(1)
 })
 
 it('keeps the active LogAgent workspace when log enumeration and duplicate crash notifications arrive late', async () => {

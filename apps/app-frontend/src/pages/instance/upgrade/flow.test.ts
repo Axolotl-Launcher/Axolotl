@@ -13,6 +13,11 @@ import {
     upgradeProgressDestination,
 } from './flow.ts'
 
+// The route helpers only read a subset of the plan, so these fixtures are partial.
+function partialPlan(plan: object): InstanceUpgradePlan {
+    return plan as unknown as InstanceUpgradePlan
+}
+
 function selectionFlow(plan: InstanceUpgradePlan | null): InstanceUpgradeFlow {
     return { plan: ref(plan) } as InstanceUpgradeFlow
 }
@@ -23,22 +28,24 @@ it('selection route requires an unblocked plan with a selected solution', () => 
     expect(
         isUpgradeRouteAvailable(
             'selection',
-            selectionFlow({ blockingIssues: [], selectedSolution: null } as InstanceUpgradePlan),
+            selectionFlow(partialPlan({ blockingIssues: [], selectedSolution: null })),
         ),
     ).toBe(false)
     expect(
         isUpgradeRouteAvailable(
             'selection',
-            selectionFlow({
-                blockingIssues: [{ code: 'dependency_conflict' }],
-                selectedSolution,
-            } as InstanceUpgradePlan),
+            selectionFlow(
+                partialPlan({
+                    blockingIssues: [{ code: 'dependency_conflict' }],
+                    selectedSolution,
+                }),
+            ),
         ),
     ).toBe(false)
     expect(
         isUpgradeRouteAvailable(
             'selection',
-            selectionFlow({ blockingIssues: [], selectedSolution } as InstanceUpgradePlan),
+            selectionFlow(partialPlan({ blockingIssues: [], selectedSolution })),
         ),
     ).toBe(true)
 })

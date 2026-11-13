@@ -214,6 +214,6 @@ export async function flush_pending_skin_change_for_profile(profileId: string): 
 }
 
 export async function get_dragged_skin_data(path: string): Promise<Uint8Array> {
-    const data = await invoke('plugin:minecraft-skins|get_dragged_skin_data', { path })
+    const data = await invoke<number[]>('plugin:minecraft-skins|get_dragged_skin_data', { path })
     return new Uint8Array(data)
 }

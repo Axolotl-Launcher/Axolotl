@@ -229,13 +229,39 @@ pub(super) async fn download_modpack_archive_with_reporter(
             .await?;
     }
     let pack_path_for_manifest = pack_path.clone();
+    let retain_original_files = match reporter.as_ref() {
+        Some(reporter) => reporter
+            .current_state()
+            .await?
+            .rollback
+            .and_then(|rollback| rollback.content)
+            .is_some_and(|snapshot| snapshot.retain_original_files),
+        None => false,
+    };
     let manifest = tokio::task::spawn_blocking(move || {
         let file = std::fs::File::open(&pack_path_for_manifest)?;
         let mut archive =
             zip::ZipArchive::new(file).map_err(modpack_zip_error)?;
-        read_modpack_manifest(&mut archive)
+        let manifest = read_modpack_manifest(&mut archive)?;
+        let identities = if retain_original_files {
+            crate::api::curseforge::archive::read_modpack_override_identities(
+                &mut archive,
+                &manifest,
+            )?
+        } else {
+            Vec::new()
+        };
+        Ok::<_, crate::Error>((manifest, identities))
     })
     .await??;
+    let (manifest, override_identities) = manifest;
+    if let Some(reporter) = reporter.as_ref() {
+        crate::api::curseforge::archive::track_modpack_override_identities(
+            reporter,
+            &override_identities,
+        )
+        .await?;
+    }
     Ok((pack_path, manifest))
 }
 
@@ -380,6 +406,26 @@ pub async fn install_modpack_with_reporter(
             &pack_members,
             request.install_optional,
         );
+    let original_files =
+        crate::state::instances::adapters::sqlite::files::get_instance_files(
+            &request.instance_id,
+            &state.pool,
+        )
+        .await?;
+    let original_disabled_files = if request.allow_target_change
+        && !disabled_pack_projects.is_empty()
+    {
+        let original_entries = crate::state::instances::adapters::sqlite::content_entries::get_content_entries(
+            &content_set.id, &state.pool,
+        ).await?;
+        original_disabled_pack_files(
+            &pack_members,
+            &original_entries,
+            &original_files,
+        )
+    } else {
+        HashMap::new()
+    };
     let loader_type_value = loader.as_deref().and_then(loader_type);
     let project_ids = selected_files
         .iter()
@@ -398,14 +444,10 @@ pub async fn install_modpack_with_reporter(
         .collect::<Vec<_>>();
     let file_meta = get_modpack_files(file_ids).await?;
     let existing_relative_paths = Arc::new(
-        crate::state::instances::adapters::sqlite::files::get_instance_files(
-            &request.instance_id,
-            &state.pool,
-        )
-        .await?
-        .into_iter()
-        .map(|file| file.relative_path)
-        .collect::<HashSet<_>>(),
+        original_files
+            .iter()
+            .map(|file| file.relative_path.clone())
+            .collect::<HashSet<_>>(),
     );
     let prefer_localized_names =
         Settings::get(&state.data).await?.resource_chinese_filenames;
@@ -502,20 +544,15 @@ pub async fn install_modpack_with_reporter(
     .await?;
 
     if request.allow_target_change {
-        for installed in &content.installed {
-            if disabled_pack_projects
-                .contains(&installed.project_id.to_string())
-                && !installed.relative_path.ends_with(".disabled")
-            {
-                crate::state::instances::commands::toggle_disable_project(
-                    &request.instance_id,
-                    &installed.relative_path,
-                    Some(false),
-                    &state,
-                )
-                .await?;
-            }
-        }
+        finalize_disabled_pack_files(
+            &request.instance_id,
+            &content.installed,
+            &disabled_pack_projects,
+            &original_disabled_files,
+            reporter.as_ref(),
+            &state,
+        )
+        .await?;
     }
 
     let instance_path =
@@ -568,8 +605,6 @@ pub async fn install_modpack_with_reporter(
             crate::api::instance::edit(
             &request.instance_id,
             EditInstance {
-                name: (!request.allow_target_change)
-                    .then_some(project.name.clone()),
                 icon_path: (!request.allow_target_change).then(|| {
                     cached_icon_path
                         .as_ref()
@@ -663,4 +698,82 @@ pub async fn install_modpack_with_reporter(
         minecraft_version: manifest.minecraft.version,
         loader,
     })
+}
+
+pub(crate) fn original_disabled_pack_files(
+    members: &[crate::state::instances::PackMember],
+    entries: &[crate::state::instances::ContentEntry],
+    files: &[crate::state::InstanceFile],
+) -> HashMap<String, crate::state::InstanceFile> {
+    members
+        .iter()
+        .filter(|member| {
+            member.override_kind
+                == crate::state::instances::PackMemberOverrideKind::Disabled
+                && member.provider
+                    == Some(crate::state::ContentProvider::CurseForge)
+        })
+        .filter_map(|member| {
+            let project_id = member.provider_project_id.as_ref()?;
+            let entry = entries.iter().find(|entry| {
+                Some(&entry.id) == member.content_entry_id.as_ref()
+                    && entry.ownership_kind
+                        == crate::state::ContentOwnershipKind::PackManaged
+            })?;
+            let file = files.iter().find(|file| {
+                Some(&file.id) == entry.file_id.as_ref()
+                    && !file.enabled
+                    && file.relative_path.ends_with(".disabled")
+            })?;
+            Some((project_id.clone(), file.clone()))
+        })
+        .collect()
+}
+
+pub(crate) async fn finalize_disabled_pack_files(
+    instance_id: &str,
+    installed: &[crate::api::curseforge::dto::CurseForgeInstalledFile],
+    disabled_projects: &HashSet<String>,
+    originals: &HashMap<String, crate::state::InstanceFile>,
+    reporter: Option<&InstallProgressReporter>,
+    state: &State,
+) -> crate::Result<()> {
+    use crate::state::instances::commands::materialization_path_key;
+    for installed in installed {
+        let project_id = installed.project_id.to_string();
+        if !disabled_projects.contains(&project_id)
+            || installed.relative_path.ends_with(".disabled")
+        {
+            continue;
+        }
+        let target = format!("{}.disabled", installed.relative_path);
+        if let Some(reporter) = reporter {
+            let file = crate::state::instances::adapters::sqlite::files::get_instance_file_by_relative_path(
+                instance_id, &installed.relative_path, &state.pool,
+            ).await?.ok_or_else(|| ErrorKind::InputError(format!(
+                "Installed pack file is missing from the index: {}", installed.relative_path
+            )))?;
+            reporter
+                .track_pack_update_file(&target, &file.sha1, file.size)
+                .await?;
+        }
+        if let Some(original) = originals.get(&project_id).filter(|file| {
+            materialization_path_key(&file.relative_path)
+                == materialization_path_key(&target)
+        }) {
+            // Retaining the baseline keeps this old disabled target present;
+            // remove only its captured identity before publishing the new one.
+            crate::state::instances::commands::remove_replaced_project_if_unchanged(
+                instance_id, &original.relative_path, &original.sha1, original.size, state,
+            ).await?;
+        }
+        crate::state::instances::commands::toggle_disable_project(
+            instance_id,
+            &installed.relative_path,
+            Some(false),
+            state,
+        )
+        .await?;
+    }
+    Ok(())
 }

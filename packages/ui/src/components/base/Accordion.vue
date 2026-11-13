@@ -75,9 +75,9 @@ const props = withDefaults(
     {
         type: 'standard',
         openByDefault: false,
-        buttonClass: null,
-        contentClass: null,
-        titleWrapperClass: null,
+        buttonClass: undefined,
+        contentClass: undefined,
+        titleWrapperClass: undefined,
         forceOpen: false,
         overflowVisible: false,
         divider: false,

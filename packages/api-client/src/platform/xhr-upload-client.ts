@@ -19,8 +19,6 @@ export abstract class XHRUploadClient extends AbstractModrinthClient {
         let baseUrl: string
         if (options.api === 'labrinth') {
             baseUrl = this.resolveBaseUrl(this.config.labrinthBaseUrl!)
-        } else if (options.api === 'archon') {
-            baseUrl = this.resolveBaseUrl(this.config.archonBaseUrl!)
         } else {
             baseUrl = options.api
         }
@@ -56,7 +54,6 @@ export abstract class XHRUploadClient extends AbstractModrinthClient {
                         ...options.headers,
                     },
                 }
-                this.attachArchonSentryCaptureHeader(mergedOptions)
 
                 const uploadContext = this.buildUploadContext(url, path, mergedOptions)
                 context = uploadContext

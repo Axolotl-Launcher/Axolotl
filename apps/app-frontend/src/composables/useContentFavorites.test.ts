@@ -54,6 +54,40 @@ it('content favorites load, add, remove, and keep provider-qualified identities'
     expect(store.isFavorite('curseforge', 'same-id')).toBe(true)
 })
 
+it('removes a favorite through any of its linked projects', async () => {
+    const saved = {
+        ...favorite('modrinth', 'primary', 'mod', 1),
+        projects: [
+            { source: 'modrinth', projectId: 'primary' },
+            { source: 'curseforge', projectId: '42' },
+        ],
+    } as ContentFavorite
+    const removed: string[] = []
+    let finishRemoval!: () => void
+    const store = createContentFavoritesStore({
+        list: async () => [saved],
+        add: async () => saved,
+        remove: (provider, projectId) => {
+            removed.push(`${provider}:${projectId}`)
+            return new Promise<void>((resolve) => (finishRemoval = resolve))
+        },
+    })
+    await store.load()
+
+    const removal = store.toggle({
+        provider: 'curseforge',
+        project_id: '42',
+        content_type: 'mod',
+    })
+    expect(store.isPending('curseforge', '42')).toBe(true)
+    finishRemoval()
+    await removal
+
+    expect(removed).toEqual(['modrinth:primary'])
+    expect(store.isFavorite('curseforge', '42')).toBe(false)
+    expect(store.isFavorite('modrinth', 'primary')).toBe(false)
+})
+
 it('refreshing a favorite replaces its updated locator even when its identity is unchanged', async () => {
     let saved = { ...favorite('modrinth', 'same-id', 'mod', 1), locator: 'old-slug' }
     const store = createContentFavoritesStore({

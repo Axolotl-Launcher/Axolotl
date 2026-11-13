@@ -10,7 +10,7 @@ import {
 } from '@modrinth/ui'
 import { getVersion } from '@tauri-apps/api/app'
 import { platform as getOsPlatform, version as getOsVersion } from '@tauri-apps/plugin-os'
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import {
@@ -69,8 +69,8 @@ const hasSearchQuery = computed(() => !!normalizeSettingsSearchText(searchQuery.
 const debouncedSearchQuery = ref('')
 const searchResultsPending = ref(false)
 const showContentSkeleton = ref(false)
-let searchDebounceTimer: ReturnType<typeof window.setTimeout> | undefined
-let searchHighlightTimer: ReturnType<typeof window.setTimeout> | undefined
+let searchDebounceTimer: number | undefined
+let searchHighlightTimer: number | undefined
 let categoryTransitionToken = 0
 
 const SEARCH_DEBOUNCE_MS = 120
@@ -218,6 +218,25 @@ const searchResults = computed<SettingsSearchResult[]>(() => {
     )
 })
 
+watch(
+    () => [route.query.target, route.hash] as const,
+    ([targetId, hash]) => {
+        if (typeof targetId !== 'string') return
+        const category = visibleCategories.value.find((item) => item.id === hash.slice(1))
+        const entry = category?.entries.find((item) => item.id === targetId)
+        if (!category || !entry) return
+        selectedCategoryId.value = category.id
+        expandedGroups.value[category.group] = true
+        pendingSearchTarget.value = {
+            categoryId: category.id,
+            targetId: getSettingsSearchTargetId(entry),
+            query: '',
+        }
+        void revealSearchTarget()
+    },
+    { immediate: true },
+)
+
 watch(visibleCategories, (categories) => {
     if (!categories.some((category) => category.id === selectedCategoryId.value)) {
         selectedCategoryId.value = categories[0]?.id ?? 'interface'
@@ -263,6 +282,7 @@ async function revealSearchTarget() {
 }
 
 watch(isContentLoading, () => void revealSearchTarget(), { flush: 'post' })
+onMounted(() => void revealSearchTarget())
 
 function onSettingsContentResolved() {
     settingsContentPending.value = false
@@ -488,7 +508,6 @@ const pageTitle: MessageDescriptor = settingsPageTitle
                                 v-for="category in group.categories"
                                 :key="category.id"
                                 type="button"
-                                :data-onboarding-id="category.onboardingId"
                                 class="settings-category-button hover:bg-surface-3 hover:text-[var(--color-text-primary)]"
                                 :class="{ 'is-active': activeCategory?.id === category.id }"
                                 @click="selectCategory(category.id)"

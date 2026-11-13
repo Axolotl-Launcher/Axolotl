@@ -1,0 +1,332 @@
+{
+  "id": "RphJSnEs",
+  "slug": "astralex",
+  "title": "AstraLex Shaders",
+  "description": "Shaderpack with very high customization. If you like effects, this shaderpack is made for you!",
+  "author": "LexBoosT",
+  "categories": [
+    "atmosphere",
+    "bloom",
+    "cartoon",
+    "colored-lighting",
+    "fantasy",
+    "foliage",
+    "iris",
+    "medium",
+    "optifine",
+    "pbr",
+    "reflections",
+    "shadows"
+  ],
+  "display_categories": ["atmosphere", "cartoon", "fantasy", "iris", "optifine"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "shader",
+  "downloads": 5721747,
+  "followers": 1204,
+  "license": {
+    "id": "LicenseRef-All-Rights-Reserved",
+    "name": ""
+  },
+  "loaders": ["iris", "optifine"],
+  "game_versions": [
+    "1.16.5",
+    "1.17",
+    "1.17.1",
+    "1.18",
+    "1.18.1",
+    "1.18.2",
+    "1.19",
+    "1.19.1",
+    "1.19.2",
+    "1.19.3",
+    "1.19.4",
+    "1.20",
+    "1.20.1",
+    "1.20.2",
+    "1.20.3",
+    "1.20.4",
+    "1.20.5",
+    "1.20.6",
+    "1.21",
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4",
+    "1.21.5",
+    "1.21.6",
+    "1.21.7",
+    "1.21.8",
+    "1.21.9",
+    "1.21.10",
+    "1.21.11",
+    "26.1-snapshot-3",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.3"
+  ],
+  "latest_version": "qSbtQS2o",
+  "date_created": "2023-03-01T14:42:36.291700Z",
+  "date_modified": "2024-06-16T14:35:35.447944Z",
+  "color": 2168086,
+  "published": "2023-03-01T14:42:36.291700Z",
+  "additional_categories": [
+    "bloom",
+    "colored-lighting",
+    "foliage",
+    "medium",
+    "pbr",
+    "reflections",
+    "shadows"
+  ],
+  "issues_url": null,
+  "source_url": null,
+  "wiki_url": "https://wiki.shaderlabs.org/wiki/Frequently_Asked_Questions#Common_mod_problems_and_fixes",
+  "discord_url": "https://discord.gg/yrBbR6G",
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/astralex_shaders"
+    }
+  ],
+  "versions_total": 24,
+  "body": "![image](https://i.ibb.co/YZ3qdsT/curseforge2.png)\n\n# ABOUT THE SHADERS\n\nAstraLex Shaders is a shaderpack for Minecraft: Java Edition with very high\ncustomization. This shader includes:\n\n* Realtime Shadows \n* Water / Clouds\n* Volumetric Light\n* Ambient Occlusion\n* Bloom\n* Dof / Chromatic Aberration / Distance Blur \n* MotionBlur\n* Aces ToneMap\n* TAA/FXAA... \n\nAdditional effects are available, such as:\n\n* Celshading\n* Constellations\n* Shooting Stars\n* Drawing Child Birds\n* Planet / Majora's Mask Moon\n* Nebula\n* Reticle\n* Entities Flash\n* CRT Effects\n* Refractions for Biome\n* Realist Rain Drops on Screen\n\nand many more !\n\n# AGREEMENT\n\nYou're allowed to...\n\n* Use this shaderpack for taking screenshots and videos.\n* Modify the shaderpack for personal use.\n* Redistribute the shaderpack for modpack / server with my permission.\n* You can only share the direct link of the archive\n\nYou're not allowed to...\n\n* Redistribute the shaderpack without my permission.\n* Distribute shaders link other than Curseforge/Modrinth link.\n* Claim (and rename) the shaderpack (or its code) as your own.\n* Use monetized URL shorteners to my site or files.\n\n*My shader and myself (the author) should be credited clearly, add link to my site if possible.\n\n# INSTALLATION\n\n* Download and install Optifine or Iris\n* Download the shaderpack\n* Put the shaderpack inside .minecraft\\shaderpacks\n* Launch Minecraft\n* Open Options, Video Settings, Shaders\n* Choose AstraLex Shaders\n\n# QUICK LINKS\n* [AstraLex Shaders](https://lextermina7.wixsite.com/astralex) - Official site.\n* [shaderLABS Discord](https://discord.gg/yrBbR6G) - Discuss everything about Minecraft shaders here.",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/RphJSnEs/images/a8a1137931740b5e6d59a12ce3bfb103c3d9397b_350.webp",
+      "featured": true,
+      "title": "Cover",
+      "description": null,
+      "created": "2023-03-01T22:45:25.368124Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/RphJSnEs/images/94cba843df8f5ee3c995b92bfe9baeb69e40462d_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2023-03-01T22:31:37.577314Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/RphJSnEs/images/e815c5cc27a91339c22ed418ae3794715a803210_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2023-03-01T22:31:49.256493Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/RphJSnEs/images/465e4c9bb9bb74c6624141a00c716da69c9e9509_350.webp",
+      "featured": false,
+      "title": null,
+      "description": null,
+      "created": "2023-03-01T22:31:58.202580Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "LexBoosT",
+      "role": "Owner",
+      "avatar": "https://cdn.modrinth.com/data/ru36iGu5/46556c9cdd19c93813fece78bcb728507d4f3c94_96.webp"
+    }
+  ],
+  "versions": [
+    {
+      "id": "qSbtQS2o",
+      "name": "AstraLex V93.0",
+      "version_number": "93.0",
+      "version_type": "release",
+      "game_versions": [
+        "1.16.5",
+        "1.17",
+        "1.17.1",
+        "1.18",
+        "1.18.1",
+        "1.18.2",
+        "1.19",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4",
+        "1.20",
+        "1.20.1",
+        "1.20.2",
+        "1.20.3",
+        "1.20.4",
+        "1.20.5",
+        "1.20.6",
+        "1.21",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10",
+        "1.21.11",
+        "26.1-snapshot-3",
+        "26.1",
+        "26.1.1",
+        "26.1.2",
+        "26.2",
+        "26.3"
+      ],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2024-06-16T14:35:35.447944Z",
+      "downloads": 3870654,
+      "changelog": "# Version 93.0\n\n- Fixed underwater caustics not appearing at a certain depth.\n- Improved a bit dithering on SSS.\n- Improved sky color.\n- Decreased Rain Fog.\n- Increased a bit Day Light Intensity.\n- Decreased Day Ambience Intensity.\n- Fixed shootingStars appears when it rain.\n- Fixed Black Hole disappearing when underwater in Ender.\n- Fixed Compatibility for certain hardware on Iris.\n- Added option to Disable Flash Entities effect on players.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV93.0§r§l.zip",
+          "size": 3184524,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "5dwd2E9U",
+      "name": "AstraLex V92.1",
+      "version_number": "92.1",
+      "version_type": "release",
+      "game_versions": ["1.16.5", "1.20.6"],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2024-05-06T15:11:02.069244Z",
+      "downloads": 687440,
+      "changelog": "# Version 92.1\n\n- Fix bobbing on Moonphase.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV92.1§r§l.zip",
+          "size": 3183918,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "c2e7ue8C",
+      "name": "AstraLex V92.0",
+      "version_number": "92.0",
+      "version_type": "release",
+      "game_versions": ["1.16.5", "1.20.6"],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2024-05-02T12:24:31.954515Z",
+      "downloads": 5822,
+      "changelog": "# Version 92.0\n\n- Improved Dynamic Handlight\n- The coloring of the light in hand is now based on Blocklight color when Colored Dynamic Handlight is disable.\n- Added Copper lamp with possibility to adjusts intensity for all dimensions.\n- Adjust Redstone torch, conduit, Sea pickles, Magma Block Lighting.\n- Added Mace for Flash Entities.\n- Added emissivness for the breeze.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV92.0§r§l.zip",
+          "size": 3184033,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "883Kw4Yw",
+      "name": "AstraLex V91.1",
+      "version_number": "91.1",
+      "version_type": "release",
+      "game_versions": ["1.20.5"],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2024-04-27T15:24:43.639829Z",
+      "downloads": 76326,
+      "changelog": "# Version 91.1\n\n- Fixed typo in language files.\n- Adjusts Ripples.\n- Improve a bit LightShaft Smoker the night.\n- Added armadillo and bogged IDs for Flash Entities.\n- Fix typo in block.properties for Iris compatibility.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV91.1§r§l.zip",
+          "size": 3182803,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "QnFycQTM",
+      "name": "AstraLex V91.0",
+      "version_number": "91.0",
+      "version_type": "release",
+      "game_versions": ["1.16.5", "1.20.4"],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2024-01-02T23:54:37.968631Z",
+      "downloads": 182001,
+      "changelog": "# Version 91.0\n\n- Fixed Blaze too bright.\n- Fixed Colorgrading.\n- Now Chromatic aberration is split into 3 parts (OFF, Chromatic Blur (Need DOF enabled), Standard).\n- Fix Compilation error when you enabled Vanilla Sky.\n- Added a slider to adjust the color intensity of the Round Sun/Moon.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV91.0§r§l.zip",
+          "size": 3182645,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "dj8NQFCR",
+      "name": "AstraLex V90.0",
+      "version_number": "90.0",
+      "version_type": "release",
+      "game_versions": ["1.20.2"],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2023-09-29T21:16:43.426869Z",
+      "downloads": 82875,
+      "changelog": "# Version 90.0\n\n- Added Anisotropic Filtering (Thx IMS & ruvaldak).\n- Fixed Stars jitter when you disable Double layer stars.\n- Fixed Stars disappears when you disabled Stars jitter.\n- Added Distant Fade for Underwater Fog.\n- Fixed Lightmap on gbuffers_block.\n- Other small adjustments.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV90.0§r§l.zip",
+          "size": 3182607,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "hF5VHt2C",
+      "name": "AstraLex V89.0",
+      "version_number": "89.0",
+      "version_type": "release",
+      "game_versions": ["1.16.5", "1.20.1"],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2023-09-14T01:09:59.690844Z",
+      "downloads": 606993,
+      "changelog": "# Version 89.0\n\n- Added Night Desaturation option in World Menu (enabled by default).\n- Improved AO.\n- Improved SSS.\n- Added Rough Blur Option.\n- Slight modification of the Lens Flare.\n- Improved a bit Lost Glare and Vortex.\n- Decreased Light Shaft in Ender.\n- Improved stars jitter in Ender.\n- Set Nether Portal to \"No Disk\".\n- Deacreased Sun Size.\n- Increased Sun Color and sunRays color.\n- Deacreased Blocklight on hands and added option for that.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV89.0§r§l.zip",
+          "size": 3180580,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "4XE7DvP7",
+      "name": "AstraLex V88.0",
+      "version_number": "88.0",
+      "version_type": "release",
+      "game_versions": ["1.16.5", "1.20.1"],
+      "loaders": ["iris", "optifine"],
+      "featured": false,
+      "date_published": "2023-09-08T16:16:12.552620Z",
+      "downloads": 17392,
+      "changelog": "# Version 88.0\n\n- Added option for adjusts AO on normals.\n- Added Option to adjust normals strength.\n- Modifying shadow blur by gaussian blur.\n- Fixed Corruption Effect.\n- Fixed Hyper Speed Effect.\n- Fixed Frosted Lens Effect.\n- Fixed KUWAHARA Effect.\n- Fixed Underwater Blur.\n- Code rearrangement.\n- Others small Adjutments and optimizations.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "§r§lAstra§4§lLex§r§l_By_LexBoosT_§4§lV88.0§r§l.zip",
+          "size": 3182202,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

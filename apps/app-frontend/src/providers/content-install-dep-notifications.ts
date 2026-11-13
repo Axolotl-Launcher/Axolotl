@@ -1,5 +1,5 @@
-import type { MessageDescriptor, MessageFormatPrimitiveValue } from '@formatjs/intl'
 import type { Labrinth } from '@modrinth/api-client'
+import type { MessageDescriptor } from '@modrinth/ui'
 
 import { get_project_many } from '@/helpers/cache.js'
 import { get_content_items } from '@/helpers/instance'
@@ -15,6 +15,8 @@ import {
 export interface ContentInstallNotifier {
     (instanceId: string, dependencyProjectIds: string[]): Promise<void>
 }
+
+type MessageFormatPrimitiveValue = string | number | boolean | null | undefined
 
 type FormatMessage = (
     descriptor: MessageDescriptor,

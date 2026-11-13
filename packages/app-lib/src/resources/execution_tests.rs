@@ -653,11 +653,21 @@ async fn missing_backup_is_only_idempotent_when_original_bytes_are_restored() {
         old: Some(old),
         target,
     };
-    assert!(recover_files(temp.path(), &[file.clone()]).await.is_err());
+    assert!(
+        recover_files(temp.path(), &[file.clone()], test_access())
+            .await
+            .is_err()
+    );
     std::fs::write(temp.path().join("new.jar"), b"new bytes").unwrap();
-    assert!(recover_files(temp.path(), &[file.clone()]).await.is_err());
+    assert!(
+        recover_files(temp.path(), &[file.clone()], test_access())
+            .await
+            .is_err()
+    );
     std::fs::write(temp.path().join("old.jar"), b"old bytes").unwrap();
-    recover_files(temp.path(), &[file]).await.unwrap();
+    recover_files(temp.path(), &[file], test_access())
+        .await
+        .unwrap();
     assert!(!temp.path().join("new.jar").exists());
 }
 
@@ -686,6 +696,15 @@ async fn restoring_a_missing_current_artifact_executes_without_inventing_a_backu
         .unwrap()
         .remove(0);
     assert!(!current.missing);
+    assert_eq!(current.entry_id, original.entry_id);
+    assert_eq!(current.artifact, original.artifact);
+    assert!(
+        sqlx::query("PRAGMA foreign_key_check")
+            .fetch_all(&state.pool)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     let history = history::list_with_state("instance", None, &state)
         .await
         .unwrap();
@@ -1677,6 +1696,91 @@ async fn local_plan(
     plan
 }
 
+#[cfg(not(feature = "tauri"))]
+#[tokio::test]
+async fn frozen_resource_file_details_survive_history_compaction() {
+    use crate::install::{
+        DownloadItemStatus, InstallJobEventKind, InstallJobState,
+        InstallJobStatus, InstallProgressReporter, InstallRequest,
+    };
+
+    crate::event::EventState::init().await.unwrap();
+    // State is process-global, so its temporary root must outlive this test.
+    let reporter_root = tempfile::tempdir().unwrap().keep();
+    let app_state = crate::State::init_for_test(
+        reporter_root.to_string_lossy().into_owned(),
+    )
+    .await
+    .unwrap();
+    for fail in [false, true] {
+        let (_temp, state, original, _, root) = fixture().await;
+        std::fs::write(root.join("new.zip"), b"new bytes").unwrap();
+        let target =
+            artifact(SourceId::modrinth(), "root0000", "new", b"new bytes");
+        let plan =
+            local_plan(&state, original.clone(), target, "new.zip", None).await;
+        if fail {
+            std::fs::write(root.join("new.zip"), b"changed bytes").unwrap();
+        }
+        // Reporter persistence is isolated from the execution fixture's DB.
+        let job = InstallJobState::new(InstallRequest::DownloadJava {
+            vendor: "test".into(),
+            version: 21,
+        });
+        let job_id = uuid::Uuid::new_v4();
+        crate::install::store::insert(
+            job_id,
+            &job,
+            InstallJobStatus::Running,
+            &app_state,
+        )
+        .await
+        .unwrap();
+        let reporter = InstallProgressReporter::new(job_id, job);
+        let result =
+            execute("instance", &plan, Some(reporter.clone()), &state).await;
+        assert_eq!(result.is_err(), fail);
+        let mut job = reporter.current_state().await.unwrap();
+        let items = job.download_items();
+        assert_eq!(items.len(), 1, "the actual execution must record its file");
+        assert_eq!(items[0].id, original.relative_path);
+        if fail {
+            assert_eq!(items[0].status, DownloadItemStatus::Failed);
+            assert!(items[0].error.is_some());
+            assert_eq!(
+                std::fs::read(root.join(&original.relative_path)).unwrap(),
+                b"old bytes"
+            );
+        } else {
+            assert_eq!(items[0].status, DownloadItemStatus::Completed);
+            assert_eq!(items[0].bytes_downloaded, 9);
+            assert_eq!(items[0].bytes_total, Some(9));
+            job.record_event(InstallJobEventKind::JobSucceeded {
+                instance_id: None,
+            });
+        }
+        job.compact_transient_download_events();
+        let restored: InstallJobState =
+            serde_json::from_str(&serde_json::to_string(&job).unwrap())
+                .unwrap();
+        crate::install::store::update_state(job_id, &restored, &app_state)
+            .await
+            .unwrap();
+        let history = crate::install::store::get_required(job_id, &app_state)
+            .await
+            .unwrap()
+            .snapshot();
+        assert_eq!(history.items.len(), 1);
+        assert_eq!(history.items[0].name, original.relative_path);
+        assert_eq!(history.items[0].status, items[0].status);
+        assert_eq!(
+            history.items[0].bytes_downloaded,
+            items[0].bytes_downloaded
+        );
+        state.pool.close().await;
+    }
+}
+
 #[tokio::test]
 async fn forced_writes_skip_readonly_files_without_changing_their_database_or_history()
  {
@@ -2301,14 +2405,20 @@ async fn interrupted_materialization_recovers_exact_backup_and_rejects_external_
         old: Some(old.integrity),
         target: new.integrity,
     }];
-    recover_files(temp.path(), &journal).await.unwrap();
+    recover_files(temp.path(), &journal, test_access())
+        .await
+        .unwrap();
     assert_eq!(
         std::fs::read(temp.path().join("active.zip")).unwrap(),
         b"old bytes"
     );
     std::fs::write(temp.path().join("backup.old"), b"old bytes").unwrap();
     std::fs::write(temp.path().join("active.zip"), b"user changes").unwrap();
-    assert!(recover_files(temp.path(), &journal).await.is_err());
+    assert!(
+        recover_files(temp.path(), &journal, test_access())
+            .await
+            .is_err()
+    );
     assert_eq!(
         std::fs::read(temp.path().join("active.zip")).unwrap(),
         b"user changes"
@@ -3411,4 +3521,11 @@ async fn a_satisfied_filename_dependency_is_rechecked_before_any_file_is_replace
         b"local bytes"
     );
     state.pool.close().await;
+}
+
+fn test_access() -> WriteAccess<'static> {
+    critical_section::whitelisted_for_test(
+        critical_section::WhitelistSite::Tests,
+    )
+    .into()
 }

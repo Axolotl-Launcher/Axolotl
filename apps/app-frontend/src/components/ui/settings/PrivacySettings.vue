@@ -11,6 +11,7 @@ import {
     update as updateSettings,
 } from '@/helpers/settings'
 
+import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSaveStatus from './SettingsSaveStatus.vue'
 import SettingsSection from './SettingsSection.vue'
@@ -27,6 +28,17 @@ const allowPrivilegedScheme = ref((await getSettings()).allow_privileged_scheme)
 const privilegedConsentModal = ref<InstanceType<typeof PrivilegedConsentModal> | null>(null)
 const lastSaveState = ref<'idle' | 'saved' | 'error'>('idle')
 const retrySave = ref<(() => void) | undefined>()
+
+async function reloadSettings() {
+    try {
+        privacy.value = await getPrivacySettings()
+        const current = await getSettings()
+        allowExternalScheme.value = current.allow_external_scheme
+        allowPrivilegedScheme.value = current.allow_privileged_scheme
+    } catch (error) {
+        handleError(error)
+    }
+}
 
 const messages = defineMessages({
     privacyTitle: {
@@ -194,6 +206,9 @@ async function updateDiscordRpc(value: boolean) {
                     </span>
                 </template>
                 <template #description>{{ formatMessage(messages.telemetryDescription) }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="telemetry" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle
                         id="privacy-telemetry"
@@ -212,6 +227,9 @@ async function updateDiscordRpc(value: boolean) {
                 <template #description>{{
                     formatMessage(messages.discordRpcDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint key-name="discord_rpc" @cleared="reloadSettings" />
+                </template>
                 <template #control>
                     <Toggle
                         id="privacy-discord-rpc"
@@ -239,6 +257,12 @@ async function updateDiscordRpc(value: boolean) {
                 <template #description>{{
                     formatMessage(messages.externalSchemeDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="allow_external_scheme"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="privacy-external-scheme"
@@ -257,6 +281,12 @@ async function updateDiscordRpc(value: boolean) {
                 <template #description>{{
                     formatMessage(messages.privilegedSchemeDescription)
                 }}</template>
+                <template #copy>
+                    <PinnedOverrideHint
+                        key-name="allow_privileged_scheme"
+                        @cleared="reloadSettings"
+                    />
+                </template>
                 <template #control>
                     <Toggle
                         id="privacy-privileged-scheme"

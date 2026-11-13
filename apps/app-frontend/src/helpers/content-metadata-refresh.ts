@@ -42,7 +42,12 @@ export async function drainContentMetadata(options: ContentMetadataDrainOptions)
     for (let start = 0; start < paths.length; start += chunkSize) {
         const chunk = paths.slice(start, start + chunkSize)
         const originals = new Map(
-            options.originalsForChunk(chunk).map((item) => [item.file_path, item]),
+            options
+                .originalsForChunk(chunk)
+                .filter(
+                    (item): item is ContentItem & { file_path: string } => item.file_path != null,
+                )
+                .map((item) => [item.file_path, item]),
         )
 
         const items = await fetchChunk(chunk)

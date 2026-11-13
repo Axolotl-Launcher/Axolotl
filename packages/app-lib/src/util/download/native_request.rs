@@ -4,9 +4,9 @@ use super::modrinth_redirect::repair_official_redirect as repair_official_cdn_re
 use super::retired_sources;
 use crate::ErrorKind;
 use crate::util::download::constants::{
-    API_KEY_HEADER, AUTHORIZATION_HEADER, CURSEFORGE_API_HOST,
-    CURSEFORGE_EDGE_HOST, DOWNLOAD_META_HEADER, IDENTITY_ENCODING,
-    MAX_DOWNLOAD_REDIRECTS, MAX_REDIRECT_LOCATION_BYTES,
+    API_KEY_HEADER, CURSEFORGE_API_HOST, CURSEFORGE_EDGE_HOST,
+    DOWNLOAD_META_HEADER, IDENTITY_ENCODING, MAX_DOWNLOAD_REDIRECTS,
+    MAX_REDIRECT_LOCATION_BYTES,
     NATIVE_REQUEST_TIMED_OUT_WAITING_FOR_CDN_RESPONSE_CONNECTION_BUDGET,
     RESOURCE_WAIT_TIMEOUT,
 };
@@ -201,7 +201,6 @@ async fn send_cdn_request_inner(
 pub(crate) async fn send_path_request_with_clients(
     route: &DownloadRoute,
     custom_header: Option<&(String, String)>,
-    credentials: Option<&crate::state::ModrinthCredentials>,
     download_meta: Option<&DownloadMeta>,
     range_start: Option<u64>,
     range_end: Option<u64>,
@@ -254,10 +253,6 @@ pub(crate) async fn send_path_request_with_clients(
                 || original.host_str() == Some(CURSEFORGE_API_HOST))
         {
             request = request.header(name, value);
-        }
-        if allow_sensitive && let Some(credentials) = credentials {
-            request =
-                request.header(AUTHORIZATION_HEADER, &credentials.session);
         }
         if !route.is_mirror
             && same_as_original
@@ -410,7 +405,6 @@ pub(crate) async fn send_path_request_with_clients(
 pub(crate) async fn send_path_request(
     route: &DownloadRoute,
     custom_header: Option<&(String, String)>,
-    credentials: Option<&crate::state::ModrinthCredentials>,
     download_meta: Option<&DownloadMeta>,
     range_start: Option<u64>,
     range_end: Option<u64>,
@@ -422,7 +416,6 @@ pub(crate) async fn send_path_request(
     send_path_request_with_clients(
         route,
         custom_header,
-        credentials,
         download_meta,
         range_start,
         range_end,
@@ -478,7 +471,7 @@ mod tests {
             stream.write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await.unwrap();
             headers
         });
-        let client = reqwest::Client::builder()
+        let client = crate::util::http::client_builder()
             .proxy(reqwest::Proxy::all(format!("http://{address}")).unwrap())
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(3))
@@ -536,7 +529,7 @@ mod tests {
                 stream.write_all(response.as_bytes()).await.unwrap();
             }
         });
-        let client = reqwest::Client::builder()
+        let client = crate::util::http::client_builder()
             .proxy(reqwest::Proxy::all(format!("http://{address}")).unwrap())
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(3))
@@ -560,7 +553,6 @@ mod tests {
             let (response, final_url) = send_path_request_with_clients(
                 &route,
                 Some(&header),
-                None,
                 None,
                 Some(start),
                 Some(start + 3),
@@ -603,7 +595,7 @@ mod tests {
                     stream.write_all(format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
                 }
             });
-            let client = reqwest::Client::builder()
+            let client = crate::util::http::client_builder()
                 .proxy(
                     reqwest::Proxy::all(format!("http://{address}")).unwrap(),
                 )
@@ -626,7 +618,6 @@ mod tests {
             };
             let (response, final_url) = send_path_request_with_clients(
                 &route,
-                None,
                 None,
                 None,
                 Some(0),
@@ -657,7 +648,7 @@ mod tests {
         let clients = DownloadClients::for_request(&client, &client);
         assert!(
             send_path_request_with_clients(
-                &route, None, None, None, None, None, &clients, None
+                &route, None, None, None, None, &clients, None
             )
             .await
             .is_err()
@@ -689,7 +680,7 @@ mod tests {
                 let clients = DownloadClients::for_request(&client, &client);
                 assert!(
                     send_path_request_with_clients(
-                        &route, None, None, None, None, None, &clients, None
+                        &route, None, None, None, None, &clients, None
                     )
                     .await
                     .is_err()
@@ -760,7 +751,7 @@ mod tests {
             assert!(headers.contains("range: bytes=0-3"));
             stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\ndata").await.unwrap();
         });
-        let client = reqwest::Client::builder()
+        let client = crate::util::http::client_builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(3))
@@ -841,8 +832,7 @@ mod tests {
                             DownloadClients::for_request(&client, &client);
                         assert!(
                             send_path_request_with_clients(
-                                &route, None, None, None, None, None, &clients,
-                                None
+                                &route, None, None, None, None, &clients, None
                             )
                             .await
                             .is_err()
@@ -875,7 +865,7 @@ mod tests {
         ] {
             let listener =
                 tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let client = reqwest::Client::builder()
+            let client = crate::util::http::client_builder()
                 .proxy(
                     reqwest::Proxy::all(format!(
                         "http://{}",
@@ -898,7 +888,7 @@ mod tests {
             let clients = DownloadClients::for_request(&client, &client);
             assert!(
                 send_path_request_with_clients(
-                    &route, None, None, None, None, None, &clients, None
+                    &route, None, None, None, None, &clients, None
                 )
                 .await
                 .is_err()

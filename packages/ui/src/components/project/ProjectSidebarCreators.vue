@@ -7,7 +7,12 @@
                     :to="orgLink(organization.slug)"
                     :target="linkTarget ?? null"
                 >
-                    <Avatar :src="organization.icon_url" :alt="organization.name" size="32px" />
+                    <Avatar
+                        referrerpolicy="no-referrer"
+                        :src="organization.icon_url"
+                        :alt="organization.name"
+                        size="32px"
+                    />
                     <div class="flex flex-col flex-nowrap justify-center">
                         <span class="group-hover:underline font-medium">
                             {{ organization.name }}
@@ -28,6 +33,7 @@
                 :target="linkTarget ?? null"
             >
                 <Avatar
+                    referrerpolicy="no-referrer"
                     :src="member.user.avatar_url"
                     :alt="member.user.username"
                     size="32px"

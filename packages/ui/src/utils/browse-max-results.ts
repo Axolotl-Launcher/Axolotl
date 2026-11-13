@@ -7,6 +7,7 @@
 
 export const MAX_RESULTS_STORAGE_KEY = 'browse-max-results'
 export const MAX_RESULTS_DEFAULT = 20
+export const MAX_RESULTS_OPTIONS = [5, 10, 15, 20, 50, 100]
 /** The largest page size the browse UI offers; nothing above it is a real choice. */
 export const MAX_RESULTS_LIMIT = 100
 

@@ -72,14 +72,16 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
                 crate::mod_metadata::LocalModMetadata,
             >(file.local_mod_data.as_deref()?)
             .ok()?;
+            let selected = metadata.for_loader(content_set.loader.as_str());
             Some((
                 file.id.clone(),
                 crate::resources::ReleaseCompatibility {
-                    game_versions: metadata
+                    game_versions: selected
                         .minecraft_version
+                        .clone()
                         .into_iter()
                         .collect(),
-                    loaders: metadata.loader.into_iter().collect(),
+                    loaders: metadata.supported_loaders(),
                 },
             ))
         })
@@ -111,6 +113,9 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             serde_json::from_str::<crate::mod_metadata::LocalModMetadata>(json)
                 .ok()
         });
+        let local_mod = local_mod
+            .as_ref()
+            .map(|metadata| metadata.for_loader(content_set.loader.as_str()));
         let title = local_mod
             .as_ref()
             .and_then(|metadata| metadata.name.clone())
@@ -159,7 +164,10 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
                     owner_type: crate::state::OwnerType::User,
                 }),
             update: None,
-            date_added: Some(file.modified_at.to_rfc3339()),
+            date_added: Some(super::file_modified_date(
+                &file,
+                fingerprints.get(&file.id),
+            )),
             provider_refs,
             origin_provider,
             rollback: None,
@@ -174,13 +182,33 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             && record.content.size == content.size
             && record.content.origin_provider == content.origin_provider
         {
-            content.project =
-                record.content.project.clone().or(content.project);
-            content.version =
-                record.content.version.clone().or(content.version);
+            // A saved local fallback may describe another loader from this
+            // same JAR. Keep freshly selected metadata over that fallback.
+            content.project = record
+                .content
+                .project
+                .clone()
+                .filter(|project| {
+                    local_mod.is_none()
+                        || !project
+                            .id
+                            .starts_with(crate::state::LOCAL_ID_PREFIX)
+                })
+                .or(content.project);
+            content.version = record
+                .content
+                .version
+                .clone()
+                .filter(|version| {
+                    local_mod.is_none()
+                        || !version
+                            .id
+                            .starts_with(crate::state::LOCAL_ID_PREFIX)
+                })
+                .or(content.version);
             content.owner = record.content.owner.clone().or(content.owner);
             content.environment = record.content.environment;
-            content.loader = record.content.loader.clone().or(content.loader);
+            content.loader = content.loader.or(record.content.loader.clone());
             content.external = record.content.external;
         }
         items.push(super::snapshot_item(
@@ -269,8 +297,10 @@ pub(crate) fn project(records: SnapshotRecords) -> InstanceContentSnapshot {
             });
         if let Some(record) = artifact {
             item.artifact_ref = Some(record.artifact.reference.clone());
-            item.capabilities.can_change_version = item.materialization_state
-                == PackMemberMaterializationState::Present;
+            item.capabilities.can_change_version = item.project_type
+                != crate::state::ProjectType::Schematic
+                && item.materialization_state
+                    == PackMemberMaterializationState::Present;
             item.compatibility =
                 record.declared_compatibility.as_ref().map(|declared| {
                     let kind = match item.project_type {

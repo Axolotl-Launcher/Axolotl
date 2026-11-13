@@ -13,6 +13,7 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { type AIProviderDefinition, getAICatalog, getAIState, sharedAIState } from '@/helpers/ai'
+import { errorText } from '@/helpers/error-text'
 import {
     clearTranslationCache,
     getGoogleIpPoolSize,
@@ -32,7 +33,7 @@ import SettingsSection from './SettingsSection.vue'
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 const settings = ref<TranslationSettingsState>({
-    provider: 'google',
+    provider: 'bili-index-translate',
     target_language: '',
     mode: 'bilingual',
     auto_translate: false,
@@ -78,6 +79,10 @@ const messages = defineMessages({
     google: {
         id: 'app.translation-settings.provider.google',
         defaultMessage: 'Google Translate (free)',
+    },
+    biliIndexTranslate: {
+        id: 'app.translation-settings.provider.bili-index-translate',
+        defaultMessage: 'Bili Index Translate',
     },
     deepl: {
         id: 'app.translation-settings.provider.deepl',
@@ -251,7 +256,12 @@ const targetLanguage = computed({
 
 function providerName(provider: TranslationProvider) {
     return formatMessage(
-        { google: messages.google, deepl: messages.deepl, ai: messages.ai }[provider],
+        {
+            google: messages.google,
+            deepl: messages.deepl,
+            ai: messages.ai,
+            'bili-index-translate': messages.biliIndexTranslate,
+        }[provider],
     )
 }
 
@@ -277,6 +287,7 @@ function styleName(style: TranslationStyle) {
 }
 
 const translationProviders = computed<TranslationProvider[]>(() => [
+    'bili-index-translate',
     'google',
     ...(aiAvailable.value ? (['ai'] as const) : []),
     'deepl',
@@ -308,6 +319,12 @@ const aiProviderOptions = computed(() =>
             provider.provider_id,
     })),
 )
+const deeplApiKey = computed({
+    get: () => settings.value.deepl_api_key ?? '',
+    set: (value: string) => {
+        settings.value.deepl_api_key = value
+    },
+})
 const selectedAIProvider = computed({
     get: () => settings.value.ai_provider_id,
     set: (providerId: string) => {
@@ -352,7 +369,7 @@ watch(
 
 function reportOperationError(error?: unknown, context?: string) {
     const errorKind = error ? getTranslationErrorKind(error) : 'provider'
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = errorText(error)
 
     debugLog('Error', `Operation failed${context ? ` (${context})` : ''}`, {
         kind: errorKind,
@@ -433,7 +450,7 @@ watch(
                 .catch((error) => {
                     // Log error but don't show notification to user
                     // Only the "Test" button should show errors
-                    const errorMessage = error instanceof Error ? error.message : String(error)
+                    const errorMessage = errorText(error)
                     debugLog('Save', 'Settings save failed (silent)', {
                         error: errorMessage,
                         provider: newSettings.provider,
@@ -584,7 +601,7 @@ async function clearCache() {
                     </Button>
                 </div>
             </template>
-            <SettingsRow>
+            <SettingsRow class="[--settings-control-width:16rem]">
                 <template #label>{{ formatMessage(messages.provider) }}</template>
                 <template #description>
                     <span v-if="settings.provider === 'google'">
@@ -612,7 +629,7 @@ async function clearCache() {
                 <template #description>{{ formatMessage(messages.deeplApiKeyHint) }}</template>
                 <template #control>
                     <StyledInput
-                        v-model="settings.deepl_api_key"
+                        v-model="deeplApiKey"
                         type="password"
                         :placeholder="formatMessage(messages.deeplApiKeyPlaceholder)"
                         wrapper-class="w-full"
@@ -657,7 +674,7 @@ async function clearCache() {
                     </div>
                 </template>
             </SettingsRow>
-            <SettingsRow v-if="settings.provider === 'ai' && aiAvailable">
+            <SettingsRow v-if="settings.provider === 'ai' && aiAvailable" stacked>
                 <template #label>{{ formatMessage(messages.aiModel) }}</template>
                 <template #control>
                     <div

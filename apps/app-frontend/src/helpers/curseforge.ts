@@ -11,6 +11,7 @@ import {
     resourceReleases,
     sourceResource,
 } from './resources.ts'
+import type { CacheBehaviour } from './types'
 
 export type ContentProvider = 'modrinth' | 'curseforge'
 

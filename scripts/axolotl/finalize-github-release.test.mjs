@@ -8,27 +8,29 @@ import test from 'node:test'
 import { finalizeGithubRelease } from './finalize-github-release.mjs'
 import { assetDownloadUrl } from './release-utils.mjs'
 
-const tag = 'v1.10.0-beta.5'
+const tag = 'v1.11.0-beta.1'
 const names = [
     'Axolotl_universal.app.tar.gz',
     'Axolotl_aarch64.AppImage.tar.gz',
     'Axolotl_amd64.AppImage.tar.gz',
     'Axolotl_x64-setup.nsis.zip',
+    'Axolotl_Launcher_1.11.0-beta.1_x64_portable.zip',
 ]
 
-function fixture(t) {
+function fixture(t, releaseTag = tag) {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-finalize-'))
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
     const state = {
         release: {
             id: 123,
-            tag_name: tag,
+            tag_name: releaseTag,
             draft: true,
             created_at: '2026-10-22T10:00:00Z',
             assets: names
                 .flatMap((name) => [name, `${name}.sig`])
                 .map((name) => ({
                     name,
+                    size: 1234,
                     digest: `sha256:${createHash('sha256').update(name).digest('hex')}`,
                     browser_download_url: `https://github.com/Example/Axolotl/releases/download/untagged-example/${name}`,
                 })),
@@ -43,7 +45,7 @@ function fixture(t) {
             return JSON.stringify(args[1].includes('?') ? [state.release] : state.release)
         }
         assert.deepEqual(args.slice(2, 5), [
-            tag,
+            releaseTag,
             '--repo',
             process.env.GITHUB_REPOSITORY || 'Axolotl-Launcher/Axolotl',
         ])
@@ -63,12 +65,11 @@ function fixture(t) {
             state.manifest = fs.readFileSync(args[5], 'utf8')
             state.release.assets.push({ name: 'latest.json' })
         } else if (args[1] === 'edit') {
-            assert(args.includes('--prerelease'))
-            assert(args.includes('--latest=false'))
+            assert.equal(args.includes('--prerelease'), releaseTag.includes('-'))
             state.release.draft = false
             state.release.published_at = '2026-10-22T12:00:00Z'
             for (const asset of state.release.assets)
-                asset.browser_download_url = assetDownloadUrl(tag, asset.name)
+                asset.browser_download_url = assetDownloadUrl(releaseTag, asset.name)
         } else {
             assert.fail(`Unexpected gh command: ${args}`)
         }
@@ -81,7 +82,7 @@ test('publish draft assets, refresh public metadata and preserve the manifest on
     const { directory, state, run } = fixture(t)
     const release = finalizeGithubRelease(tag, directory, { run })
     assert.equal(release.draft, false)
-    assert.equal(release.assets.length, 9)
+    assert.equal(release.assets.length, 11)
     assert.equal(
         JSON.parse(state.manifest).platforms['darwin-aarch64'].url,
         assetDownloadUrl(tag, names[0]),
@@ -157,6 +158,53 @@ test('a published manifest with a divergent SHA-256 is rejected', (t) => {
     state.calls.length = 0
     assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
     assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+})
+
+test('a published manifest with a divergent portable artifact is rejected', (t) => {
+    const { directory, state, run } = fixture(t)
+    finalizeGithubRelease(tag, directory, { run })
+    const manifest = JSON.parse(state.manifest)
+    assert.equal(manifest.artifacts.portable.name, names[4])
+    manifest.artifacts.portable.sha256 = createHash('sha256').update('other').digest('hex')
+    state.manifest = JSON.stringify(manifest)
+    state.calls.length = 0
+    assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
+    assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+})
+
+test('a published portable signature or size cannot diverge from its own release asset', (t) => {
+    for (const field of ['signature', 'size']) {
+        const { directory, state, run } = fixture(t)
+        finalizeGithubRelease(tag, directory, { run })
+        const manifest = JSON.parse(state.manifest)
+        manifest.artifacts.portable[field] = field === 'signature' ? 'different'.repeat(12) : 1235
+        state.manifest = JSON.stringify(manifest)
+        assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
+    }
+})
+
+test('a release older than the artifact field keeps verifying without it', (t) => {
+    const { directory, state, run } = fixture(t, 'v1.10.4')
+    state.release.assets = state.release.assets.filter((asset) => !asset.name.includes('portable'))
+    finalizeGithubRelease('v1.10.4', directory, { run })
+    assert.equal(JSON.parse(state.manifest).artifacts, undefined)
+    state.calls.length = 0
+    finalizeGithubRelease('v1.10.4', directory, { run })
+    assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+})
+
+test('a release at or above the artifact field must publish it', (t) => {
+    const { directory, state, run } = fixture(t)
+    finalizeGithubRelease(tag, directory, { run })
+    const published = JSON.parse(state.manifest)
+    assert.ok(published.artifacts)
+    delete published.artifacts
+    state.manifest = JSON.stringify(published)
+    state.calls.length = 0
+    assert.throws(
+        () => finalizeGithubRelease(tag, directory, { run }),
+        /is missing the portable artifact|does not match/,
+    )
 })
 
 test('excluded or malformed tags cannot issue GitHub commands', (t) => {

@@ -1,0 +1,326 @@
+{
+  "id": "gfiYlQU0",
+  "slug": "cobblemon-interface",
+  "title": "Cobblemon Interface",
+  "description": "Cobblemon inspired GUI Textures and Sounds",
+  "author": "VinnyStalck",
+  "categories": ["16x", "audio", "core-shaders", "gui", "minecraft", "modded", "themed"],
+  "display_categories": ["audio", "gui", "minecraft", "modded"],
+  "client_side": "required",
+  "server_side": "unsupported",
+  "project_type": "resourcepack",
+  "downloads": 10062203,
+  "followers": 387,
+  "license": {
+    "id": "MIT",
+    "name": "MIT License"
+  },
+  "loaders": ["minecraft"],
+  "game_versions": ["1.19", "1.19.1", "1.19.2", "1.20", "1.20.1", "1.21", "1.21.1"],
+  "latest_version": "8SjyMuZO",
+  "date_created": "2023-04-01T13:54:15.021636Z",
+  "date_modified": "2025-11-14T13:23:05.222340Z",
+  "color": 3684408,
+  "published": "2023-04-01T13:54:15.021636Z",
+  "additional_categories": ["16x", "core-shaders", "themed"],
+  "issues_url": "https://gitlab.com/VinnyStalck/cobblemon-interface/-/issues",
+  "source_url": "https://gitlab.com/VinnyStalck/cobblemon-interface",
+  "wiki_url": null,
+  "discord_url": null,
+  "donation_urls": [
+    {
+      "platform": "Ko-fi",
+      "url": "https://ko-fi.com/stalck"
+    }
+  ],
+  "versions_total": 25,
+  "body": "Makes Minecraft's interface and sounds fit the [Cobblemon](https://modrinth.com/mod/cobblemon) mod aesthetics.\n\n### Mod Support\n\n| Mod | Cobblemon Interface |\n|----:|:--------------------|\n| [Cobblemon](https://modrinth.com/mod/cobblemon) | >= v1.1 |\n| [Fabric API](https://modrinth.com/mod/fabric-api) | >= v0.7 |\n| [Mod Menu](https://modrinth.com/mod/modmenu) | >= v0.1 |\n| [Raised](https://modrinth.com/mod/raised) | >= v1.5.1 |\n\n### Recommendations\n\n[![](https://vinnystalck.gitlab.io/minecraft-badges/badges/respackopts/cozy-recommends.png)](https://modrinth.com/mod/respackopts)\n\n⭐️: Highly Recommended |\n📁: Resourcepack |\n🛠️: Mod\n\n- 🛠️⭐️ **[Respackopts](https://modrinth.com/mod/respackopts)**: Allows you to customize various aspects of the resourcepack in-game.\n- 📁⭐️ **[Cobblemon Interface: Modded](https://modrinth.com/project/cobblemon-interface-modded)**: Adds support for many mods;\n- 🛠️ **[Raised](https://modrinth.com/mod/raised)**: Moves the hotbar so it doesn't crop the texture;\n- 📁 **[Fancy Item Renders](https://modrinth.com/resourcepack/fancy-item-renders)**: Tilts item displays so that items that have long textures (swords for example) doesn't look off with the rounded item slots.\n\n### Minecraft Pack Version Compatibility\n[Minecraft pack format](https://minecraft.wiki/w/Pack_format)\n\n| Minecraft Pack | Minecraft | Cobblemon Interface |\n|---------------:|:---------:|:--------------------|\n| 9              | <= 1.19.2 | <= v0.7             |\n| 15             | >= 1.20   | >= v0.8             |\n| 34             | >= 1.21   | >= v1.4             |\n\n\n## Credits\n\nTexture based on [Torrezx-Improved Library](https://www.curseforge.com/minecraft/texture-packs/torrezx-improved-library) resourcepack books and inspired by the books in [Legends of Arceus trailer](https://youtu.be/SbIA8FKhwl0) intro books\n\n## More\n\n[Gitlab](https://gitlab.com/VinnyStalck/cobblemon-interface)\n[Ko-fi](https://ko-fi.com/M4M5K4BDR)\n\n[Discord](https://discord.com/channels/934267676354834442/1091579923396820992)\n\n👆 You need to be in the [Official Cobblemon Discord Server🔗](https://discord.gg/cobblemon).",
+  "gallery": [
+    {
+      "url": "https://cdn.modrinth.com/data/gfiYlQU0/images/0b58e578696610b931b2eb8788994f8dd2f187a9_350.webp",
+      "featured": true,
+      "title": "Hotbar",
+      "description": "With Cobblemon, Appleskin and Raised mods",
+      "created": "2023-04-12T14:04:08.402210Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/gfiYlQU0/images/c138fbf36259774d469bcc9f8dca2699d3268b22.png",
+      "featured": false,
+      "title": null,
+      "description": "With Cobblemon, Appleskin and Raised mods",
+      "created": "2023-04-12T14:00:08.515069Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/gfiYlQU0/images/720fa6bcb9d4cf9509e30749fbeb9d6d70b17c29_350.webp",
+      "featured": false,
+      "title": "Cobblemon",
+      "description": "Starter Selection screen",
+      "created": "2024-04-24T17:29:30.513150Z"
+    },
+    {
+      "url": "https://cdn.modrinth.com/data/gfiYlQU0/images/e7a76f0ac5a5c22a352d82a53b42df826a8dc602.png",
+      "featured": false,
+      "title": "Campfire Pot",
+      "description": "From Cobblemon 1.7",
+      "created": "2025-11-14T13:28:43.548188Z"
+    }
+  ],
+  "team": [
+    {
+      "username": "VinnyStalck",
+      "role": "Owner",
+      "avatar": "https://avatars.githubusercontent.com/u/42945819?v=4"
+    }
+  ],
+  "versions": [
+    {
+      "id": "8SjyMuZO",
+      "name": "v1.6 - Cobblemon 1.7 Update",
+      "version_number": "1.6.0",
+      "version_type": "release",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-11-14T13:23:05.222340Z",
+      "downloads": 6882939,
+      "changelog": "![](https://gitlab.com/VinnyStalck/cobblemon-interface/-/raw/main/assets/images/base/campfire-pot.png)\n\n### Added\n\n- Textures:\n  - Cobblemon Pots\n  - Cobblemon JEI integration\n\n### Changed\n\n- Tweaked Recipe Book filter button textures.",
+      "dependencies": [
+        {
+          "project_id": "TiF5QWZY",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.6.0.zip",
+          "size": 14108266,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "u1d3rSlD",
+      "name": "v1.5.1 - Quick fix",
+      "version_number": "1.5.1",
+      "version_type": "release",
+      "game_versions": ["1.20", "1.20.1", "1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-08-16T14:48:28.129222Z",
+      "downloads": 480476,
+      "changelog": "### Added\n\n- Moved [Raised](https://modrinth.com/mod/raised) mod compat from modded to here.\n\n### Fixed\n\n- Added missing half health sprite respackopts files.",
+      "dependencies": [
+        {
+          "project_id": "TiF5QWZY",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "nCQRBEiR",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.5.1.zip",
+          "size": 14100838,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "IfyJiKm5",
+      "name": "1.5.0 - Respackopts",
+      "version_number": "1.5.0",
+      "version_type": "release",
+      "game_versions": ["1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-08-13T19:26:41.973417Z",
+      "downloads": 11751,
+      "changelog": "### Added\n\n- Be able to remove the custom Cobblemon panorama with Respackopts in the *Panorama* option.\n- Merged Recolored addon resourcepack into Cobblemon Interface. Can be enabled with Respackopts in the *HUD Sprite Color* option.\n- Merged UI Sound Boost addon resourcepack into Cobblemon Interface. Can be enabled with Respackopts in the *Boost Click Sound* option.\n\n### Changed\n\n- Modified `pack.mcmeta` description colors.\n- Now uses [Respackopts](https://modrinth.com/mod/respackopts) for configuration.",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "TiF5QWZY",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.5.0.zip",
+          "size": 14097732,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "Akq5Ob0N",
+      "name": "v1.4.1",
+      "version_number": "1.4.1",
+      "version_type": "release",
+      "game_versions": ["1.20", "1.20.1", "1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2025-04-08T01:46:15.012891Z",
+      "downloads": 578940,
+      "changelog": "### Changed\n\n- Changed vehicle/mount health gui sprite color. Made by `@xandor4223` on Discord.\n\n### Fixed\n\n- [1.20.1] Vehicle/Mount health bar offset. Made by `@xandor4223` on Discord.\n- Updated Fabric API creative buttons.",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "R6DWLPUQ",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "5DF3hBIs",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.4.1.zip",
+          "size": 14079240,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "MvlCqFMT",
+      "name": "v1.4.0 - 1.21 Update",
+      "version_number": "1.4.0",
+      "version_type": "release",
+      "game_versions": ["1.20", "1.20.1", "1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2024-12-16T18:47:15.578337Z",
+      "downloads": 677001,
+      "changelog": "## [1.4.0] - 2024-12-16\n\n**Minecraft 1.21 Update**\n\nAdapted textures for the changes made in Minecraft 1.21.\n\n### Added\n\n- All empty slots textures.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.4.0.zip",
+          "size": 14077537,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "BJU4Vpl6",
+      "name": "Minecraft 1.21 Update",
+      "version_number": "1.4.0-SNAPSHOT",
+      "version_type": "beta",
+      "game_versions": ["1.20", "1.20.1", "1.21", "1.21.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2024-11-05T19:32:48.664676Z",
+      "downloads": 156751,
+      "changelog": "Adapted textures for the changes made in Minecraft 1.21.\n\n**Changes**\n- Changed Wither Heart icons;\n- Updated Advancement sprites;\n- Updated Recipe Book UI;\n- Tweaked Inventory large effect background;\n\n**Fixes**\n- Fixed Grindstone and Villager container texture.\n- Updated pack format to 34.",
+      "dependencies": [
+        {
+          "project_id": "MdwFAVRL",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "P7dR8mSH",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        },
+        {
+          "project_id": "mOgUt4GM",
+          "version_id": null,
+          "dependency_type": "optional",
+          "file_name": null
+        }
+      ],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.4.0-SNAPSHOT.zip",
+          "size": 14073575,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "6hb7vaHw",
+      "name": "v1.3 - Hotbar Fix",
+      "version_number": "1.3.0",
+      "version_type": "release",
+      "game_versions": ["1.20", "1.20.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2024-07-16T14:10:08.550857Z",
+      "downloads": 63843,
+      "changelog": "Fixed the misalignment on the hotbar icons.\n\n**Fixes**\n- Fixed the misalignment on the hotbar health/armor/mount health/baubles icons.\n\nObs: Also Update the [Modded Addon](https://modrinth.com/resourcepack/cobblemon-interface-modded)",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.3.0.zip",
+          "size": 13921653,
+          "primary": true
+        }
+      ]
+    },
+    {
+      "id": "3TlAilFq",
+      "name": "v1.2 - Bundle and Gamemode Switcher",
+      "version_number": "1.2.0",
+      "version_type": "release",
+      "game_versions": ["1.20", "1.20.1"],
+      "loaders": ["minecraft"],
+      "featured": false,
+      "date_published": "2024-06-16T22:29:19.940056Z",
+      "downloads": 6714,
+      "changelog": "Added two missing textures that weren't included before.\n\n**Additions:**\n- Textures for the Bundle GUI and Gamemode Switcher GUI.",
+      "dependencies": [],
+      "files": [
+        {
+          "filename": "Cobblemon Interface v1.2.0.zip",
+          "size": 13921647,
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

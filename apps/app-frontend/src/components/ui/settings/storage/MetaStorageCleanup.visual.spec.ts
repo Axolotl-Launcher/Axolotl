@@ -155,6 +155,43 @@ it('keeps the reviewed selection and modal after a cleanup failure', async () =>
     expect(wrapper.getComponent({ name: 'NewModal' }).props('disableClose')).toBe(false)
 })
 
+it('shows the message of a serialized Tauri rejection in the cleanup error', async () => {
+    // A rejected `cleanMeta` invoke arrives as a plain serialized object, not an
+    // `Error`; the component must surface its message instead of `[object Object]`.
+    const { wrapper } = await analyzed()
+    await wrapper.get('[role="checkbox"]').trigger('click')
+    await button(wrapper, 'Clean selected files').trigger('click')
+    vi.mocked(cleanMeta).mockRejectedValue({
+        field_name: 'Theseus',
+        message: 'references changed by a parallel scan',
+    })
+    await wrapper
+        .findAll('button')
+        .filter((element) => element.text() === 'Clean selected files')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('references changed by a parallel scan')
+    expect(wrapper.text()).not.toContain('[object Object]')
+})
+
+it('retains structured file failure details without a message', async () => {
+    const { wrapper } = await analyzed()
+    await wrapper.get('[role="checkbox"]').trigger('click')
+    await button(wrapper, 'Clean selected files').trigger('click')
+    vi.mocked(cleanMeta).mockRejectedValue({
+        path: 'libraries/example.jar',
+        reason: 'file is busy',
+    })
+    await wrapper
+        .findAll('button')
+        .filter((element) => element.text() === 'Clean selected files')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('libraries/example.jar')
+    expect(wrapper.get('[role="alert"]').text()).toContain('file is busy')
+    expect(wrapper.text()).not.toContain('[object Object]')
+})
+
 it('closes after deletion while a slow totals refresh continues separately', async () => {
     const { wrapper, refreshStorage } = await analyzed()
     await wrapper.get('[role="checkbox"]').trigger('click')

@@ -1016,7 +1016,17 @@ mod tests {
     #[tokio::test]
     async fn native_classifier_is_published_from_the_internal_native_cache() {
         let (_temp, state, direct) = fixture().await;
-        let native_bytes = jar_bytes(b"windows narrator native");
+        // Native classifiers are resolved for the host OS, so the fixture has
+        // to name the classifier this test binary will actually look up.
+        let classifier = if cfg!(windows) {
+            "natives-windows"
+        } else if cfg!(target_os = "macos") {
+            "natives-osx"
+        } else {
+            "natives-linux"
+        };
+        let os_key = classifier.trim_start_matches("natives-");
+        let native_bytes = jar_bytes(b"narrator native");
         let native_sha1 = sha1_smol::Sha1::from(&native_bytes[..]).hexdigest();
         let native_cache = state
             .directories
@@ -1024,21 +1034,26 @@ mod tests {
             .join("minecraft-natives")
             .join(format!("{native_sha1}.jar"));
         write(&native_cache, &native_bytes);
+        let path = format!(
+            "com/mojang/text2speech/1.10.3/text2speech-1.10.3-{classifier}.jar"
+        );
         let mut info = version_info();
         info.libraries = serde_json::from_value(json!([{
             "name": "com.mojang:text2speech:1.10.3",
-            "natives": {"windows": "natives-windows"},
+            "natives": {os_key: classifier},
             "downloads": {
                 "artifact": {"path": "com/mojang/text2speech/1.10.3/text2speech-1.10.3.jar", "sha1": "", "size": 0, "url": ""},
-                "classifiers": {"natives-windows": {"path": "com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-windows.jar", "sha1": native_sha1, "size": native_bytes.len(), "url": "https://libraries.minecraft.net/com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-windows.jar"}}
+                "classifiers": {classifier: {"path": path, "sha1": native_sha1, "size": native_bytes.len(), "url": format!("https://libraries.minecraft.net/{path}")}}
             }
         }])).unwrap();
         seed_cache(&state, &info);
         finalize(&state, &direct, &info, &CancellationToken::new())
             .await
             .unwrap();
-        let published = direct.libraries_dir().join("com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-windows.jar");
-        assert_eq!(std::fs::read(published).unwrap(), native_bytes);
+        assert_eq!(
+            std::fs::read(direct.libraries_dir().join(path)).unwrap(),
+            native_bytes
+        );
     }
 
     #[tokio::test]

@@ -71,3 +71,18 @@ async fn recording_a_log_again_keeps_the_moment_it_was_first_shared() {
     assert_eq!(stored.token, "second");
     assert_eq!(stored.created_at, 10);
 }
+
+#[tokio::test]
+async fn a_deduplicated_upload_preserves_the_original_deletion_token() {
+    let handle = support::handle().await;
+    let id = "log".to_string();
+    SharedLogs::set(&handle, &id, Some(&log(10, "original")))
+        .await
+        .unwrap();
+    SharedLogs::set(&handle, &id, Some(&log(20, "")))
+        .await
+        .unwrap();
+    let stored = SharedLogs::get(&handle, &id).await.unwrap().unwrap();
+    assert_eq!(stored.token, "original");
+    assert_eq!(stored.created_at, 10);
+}

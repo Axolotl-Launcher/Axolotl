@@ -297,7 +297,7 @@ mod tests {
         let (http, http_task) = server().await;
         let (https, https_task) = server().await;
         let client = apply_protocol_list(
-            reqwest::Client::builder(),
+            crate::util::http::client_builder(),
             &format!("http={http};https={https}"),
             "",
             Environment::default(),
@@ -337,7 +337,7 @@ mod tests {
     async fn environment_proxy_and_credentials_override_the_registry() {
         let (address, task) = server().await;
         let client = apply_protocol_list(
-            reqwest::Client::builder(),
+            crate::util::http::client_builder(),
             "http=127.0.0.1:1",
             "",
             Environment {
@@ -366,7 +366,7 @@ mod tests {
     async fn bypass_list_keeps_loopback_requests_direct() {
         let (address, task) = server().await;
         let client = apply_protocol_list(
-            reqwest::Client::builder(),
+            crate::util::http::client_builder(),
             "http=127.0.0.1:1",
             "127.0.0.1;*.example.invalid;<local>",
             Environment::default(),
@@ -388,7 +388,7 @@ mod tests {
      {
         let (address, task) = server().await;
         let client = apply_protocol_list(
-            reqwest::Client::builder(),
+            crate::util::http::client_builder(),
             "https=127.0.0.1:1",
             "*",
             Environment {

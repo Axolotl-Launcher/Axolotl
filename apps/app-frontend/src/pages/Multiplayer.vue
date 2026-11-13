@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ServerIcon, UsersIcon } from '@modrinth/assets'
-import { defineMessages, NavTabs, useVIntl } from '@modrinth/ui'
-import { computed } from 'vue'
+import { defineMessages, navigateSettled, NavTabs, useVIntl } from '@modrinth/ui'
+import { computed, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 
 const { formatMessage } = useVIntl()
@@ -14,8 +14,16 @@ const messages = defineMessages({
     roomsTab: { id: 'app.multiplayer.tab.rooms', defaultMessage: 'Rooms' },
 })
 
-const activeTab = computed(() =>
-    route.path.startsWith('/multiplayer/rooms') ? 'rooms' : 'servers',
+function tabForPath(path: string): 'rooms' | 'servers' {
+    return path.startsWith('/multiplayer/rooms') ? 'rooms' : 'servers'
+}
+
+const activeTab = ref<'rooms' | 'servers'>(tabForPath(route.path))
+watch(
+    () => route.path,
+    (path) => {
+        activeTab.value = tabForPath(path)
+    },
 )
 // 服务器详情页用固定高度布局：控制台内部滚动，命令输入框始终可见
 const isStudioMode = computed(() => route.name === 'MultiplayerServerFileStudio')
@@ -23,12 +31,15 @@ const isFixedRender = computed(
     () => route.name === 'MultiplayerServerDetail' || route.name === 'MultiplayerServerFileStudio',
 )
 const tabLinks = computed(() => [
-    { label: formatMessage(messages.serversTab), href: '/multiplayer/servers', icon: ServerIcon },
     { label: formatMessage(messages.roomsTab), href: '/multiplayer/rooms', icon: UsersIcon },
+    { label: formatMessage(messages.serversTab), href: '/multiplayer/servers', icon: ServerIcon },
 ])
 
-function handleTabClick(index: number) {
-    void router.push(tabLinks.value[index]?.href ?? '/multiplayer/servers')
+async function handleTabClick(index: number) {
+    const href = tabLinks.value[index]?.href ?? '/multiplayer/servers'
+    activeTab.value = tabForPath(href)
+    const outcome = await navigateSettled(router, href)
+    if (!outcome.ok) activeTab.value = tabForPath(route.path)
 }
 </script>
 
@@ -55,7 +66,7 @@ function handleTabClick(index: number) {
             -->
             <NavTabs
                 mode="local"
-                :active-index="activeTab === 'rooms' ? 1 : 0"
+                :active-index="activeTab === 'rooms' ? 0 : 1"
                 :links="tabLinks"
                 @tab-click="handleTabClick"
             />

@@ -2,6 +2,7 @@
     <ContentPageHeader>
         <template #icon>
             <Avatar
+                referrerpolicy="no-referrer"
                 loading="lazy"
                 decoding="async"
                 :src="project.icon_url"
@@ -26,7 +27,7 @@
         </template>
         <template #title-suffix>
             <ProjectStatusBadge
-                v-if="member || project.status !== 'approved'"
+                v-if="project.status && (member || project.status !== 'approved')"
                 :status="project.status"
             />
         </template>
@@ -57,6 +58,7 @@
                 </template>
                 <template v-else>
                     <div
+                        v-if="project.downloads !== undefined"
                         v-tooltip="
                             capitalizeString(
                                 formatMessage(commonMessages.projectDownloads, {
@@ -70,7 +72,7 @@
                         {{ formatCompactNumber(project.downloads) }}
                     </div>
                     <div
-                        v-if="showFollowers"
+                        v-if="showFollowers && project.followers !== undefined"
                         v-tooltip="
                             capitalizeString(
                                 formatMessage(commonMessages.projectFollowers, {
@@ -127,7 +129,10 @@ const { formatCompactNumber } = useCompactNumber()
 
 const props = withDefaults(
     defineProps<{
-        project: Project
+        project: Pick<Project, 'title' | 'description' | 'categories'> &
+            Partial<Pick<Project, 'icon_url' | 'status' | 'downloads' | 'followers'>> & {
+                project_type: string
+            }
         member?: boolean
         projectV3?: Labrinth.Projects.v3.Project | null
         ping?: number

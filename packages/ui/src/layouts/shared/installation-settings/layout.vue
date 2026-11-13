@@ -350,22 +350,6 @@ async function handleUnlink() {
     debug('handleUnlink: invoked ctx.unlinkModpack')
 }
 
-const emit = defineEmits<{
-    'reset-server': []
-}>()
-
-function handleIncompatibleResetServer() {
-    debug('handleIncompatibleResetServer: start', { snapshot: stateSnapshot() })
-    if (ctx.isBusy.value) {
-        debug('handleIncompatibleResetServer: ignored busy')
-        return
-    }
-    form.cancelPreview()
-    form.cancelEditing()
-    emit('reset-server')
-    debug('handleIncompatibleResetServer: emitted reset-server')
-}
-
 function handleStartEditing() {
     debug('handleStartEditing: before', stateSnapshot())
     form.isEditing.value = true
@@ -1138,14 +1122,14 @@ const messages = defineMessages({
             <ConfirmRepairModal
                 ref="repairModal"
                 :server="ctx.isServer"
-                :symlink-target="ctx.symlinkTarget?.value"
+                :symlink-target="ctx.symlinkTarget?.value ?? undefined"
                 @repair="handleRepair"
             />
             <ConfirmReinstallModal
                 ref="reinstallModal"
                 :server="ctx.isServer"
                 :backup-tip="ctx.modpack.value?.title"
-                :symlink-target="ctx.symlinkTarget?.value"
+                :symlink-target="ctx.symlinkTarget?.value ?? undefined"
                 @reinstall="handleReinstall"
             />
             <ConfirmUnlinkModal
@@ -1163,7 +1147,6 @@ const messages = defineMessages({
                 @confirm-loader-change="form.confirmLoaderChange()"
                 @auto-fix="form.confirmAutoFix()"
                 @disable-conflicts="form.confirmDisableConflicts()"
-                @reset-server="handleIncompatibleResetServer"
                 @cancel="form.cancelPreview()"
             />
 

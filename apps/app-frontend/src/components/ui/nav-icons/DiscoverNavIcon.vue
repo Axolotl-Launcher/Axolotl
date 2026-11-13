@@ -28,17 +28,17 @@ const spin = frames(
     SPIN_EASING,
 )
 
-const respin = frames(
-    'transform',
-    [
-        [0, 'rotate(0deg)'],
-        [0.5, 'rotate(390deg)'],
-        [0.7, 'rotate(350deg)'],
-        [0.86, 'rotate(366deg)'],
-        [1, 'rotate(360deg)'],
-    ],
-    SPIN_EASING,
-)
+/** A click flicks the needle like a struck spring: it twangs back and forth. */
+const twang = frames('transform', [
+    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
+    [0.1, 'rotate(-55deg)'],
+    [0.26, 'rotate(40deg)'],
+    [0.42, 'rotate(-26deg)'],
+    [0.58, 'rotate(15deg)'],
+    [0.74, 'rotate(-7deg)'],
+    [0.88, 'rotate(3deg)'],
+    [1, 'rotate(0deg)'],
+])
 
 const motion: NavIconMotion = {
     '.discover-needle': {
@@ -49,7 +49,7 @@ const motion: NavIconMotion = {
             duration: 1400,
             delay: 850,
         },
-        activate: { keyframes: respin, duration: 800 },
+        activate: { keyframes: twang, duration: 850 },
     },
 }
 </script>

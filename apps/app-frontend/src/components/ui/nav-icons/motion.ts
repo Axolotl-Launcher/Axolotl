@@ -24,6 +24,12 @@ export interface NavIconClip {
      * should run no other clip.
      */
     single?: boolean
+    /**
+     * Set for a clip that every event should replay from its start, cancelling
+     * the copy still playing, such as a click ripple. Its part should run no
+     * other clip.
+     */
+    restart?: boolean
 }
 
 export interface NavIconPartMotion {
@@ -31,7 +37,11 @@ export interface NavIconPartMotion {
     enter?: NavIconClip
     /** Looped while the pointer stays; when it leaves, the current cycle finishes faster. */
     idle?: NavIconClip
-    /** Played once on each click or keyboard activation. */
+    /**
+     * Played once on each click or keyboard activation. Give it a different
+     * kind of motion from `enter`, and more force: clicking must not feel like
+     * hovering again.
+     */
     activate?: NavIconClip
 }
 

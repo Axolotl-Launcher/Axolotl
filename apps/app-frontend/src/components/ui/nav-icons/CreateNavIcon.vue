@@ -13,7 +13,7 @@ import NavIconSvg from './NavIconSvg.vue'
 
 const TURN_EASING = 'cubic-bezier(0.3, 0.7, 0.4, 1)'
 
-/** Springy turns; the plus is symmetric, so they end where they started. */
+/** A springy half turn; the plus is symmetric, so it ends where it started. */
 const halfTurn = frames(
     'transform',
     [
@@ -26,16 +26,18 @@ const halfTurn = frames(
     TURN_EASING,
 )
 
-const quarterTurn = frames(
+/** A click squeezes the plus small, then bursts it open with a quarter twist. */
+const burst = frames(
     'transform',
     [
-        [0, 'rotate(0deg)'],
-        [0.5, 'rotate(105deg)'],
-        [0.72, 'rotate(84deg)'],
-        [0.88, 'rotate(93deg)'],
-        [1, 'rotate(90deg)'],
+        [0, 'rotate(0deg) scale(1)'],
+        [0.14, 'rotate(0deg) scale(0.62)'],
+        [0.4, 'rotate(45deg) scale(1.38)'],
+        [0.62, 'rotate(84deg) scale(0.93)'],
+        [0.8, 'rotate(92deg) scale(1.03)'],
+        [1, 'rotate(90deg) scale(1)'],
     ],
-    TURN_EASING,
+    'ease-out',
 )
 
 const motion: NavIconMotion = {
@@ -43,7 +45,7 @@ const motion: NavIconMotion = {
         enter: { keyframes: halfTurn, duration: 700 },
         // While the pointer stays, the plus keeps pulsing as an invitation.
         idle: { keyframes: bob((size) => `scale(${size})`, 1.16, 1), duration: 1100, delay: 620 },
-        activate: { keyframes: quarterTurn, duration: 600 },
+        activate: { keyframes: burst, duration: 600 },
     },
 }
 </script>

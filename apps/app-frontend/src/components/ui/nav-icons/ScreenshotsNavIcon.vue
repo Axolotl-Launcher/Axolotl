@@ -58,11 +58,49 @@ const flash = frames(
     'ease-out',
 )
 
+/** A click fires the shutter: the top photo punches straight out at you... */
+const punch = frames(
+    'transform',
+    [
+        [0, 'scale(1)'],
+        [0.12, 'scale(0.82)'],
+        [0.34, 'scale(1.22)'],
+        [0.56, 'scale(0.94)'],
+        [0.76, 'scale(1.04)'],
+        [1, 'scale(1)'],
+    ],
+    'ease-out',
+)
+
+/** ...the print behind is knocked away and slides back... */
+const knock = frames(
+    'transform',
+    [
+        [0, 'translate(0, 0)'],
+        [0.3, 'translate(-3.5px, 3.5px)'],
+        [0.62, 'translate(0.6px, -0.6px)'],
+        [1, 'translate(0, 0)'],
+    ],
+    'ease-out',
+)
+
+/** ...and the sun bursts. */
+const burst = frames(
+    'transform',
+    [
+        [0, 'scale(1)'],
+        [0.3, 'scale(3.2)'],
+        [0.6, 'scale(0.7)'],
+        [1, 'scale(1)'],
+    ],
+    'ease-out',
+)
+
 const motion: NavIconMotion = {
     '.shots-front': {
         enter: { keyframes: snap, duration: 720 },
         idle: { keyframes: swing((angle) => `rotate(${angle}deg)`, 5), duration: 1600, delay: 600 },
-        activate: { keyframes: snap, duration: 720 },
+        activate: { keyframes: punch, duration: 560 },
     },
     '.shots-back': {
         enter: { keyframes: fan, duration: 720 },
@@ -71,12 +109,12 @@ const motion: NavIconMotion = {
             duration: 1600,
             delay: 600,
         },
-        activate: { keyframes: fan, duration: 720 },
+        activate: { keyframes: knock, duration: 560 },
     },
     '.shots-sun': {
         enter: { keyframes: flash, duration: 720 },
         idle: { keyframes: bob((size) => `scale(${size})`, 1.6, 1), duration: 1600, delay: 900 },
-        activate: { keyframes: flash, duration: 720 },
+        activate: { keyframes: burst, duration: 560 },
     },
     '.shots-hill': { enter: redraw(720) },
 }

@@ -42,16 +42,41 @@ const tip = frames(
     'ease-out',
 )
 
+/** A click knocks on the house: it rattles side to side... */
+const rattle = frames('transform', [
+    [0, 'translateX(0)'],
+    [0.12, 'translateX(-2px)'],
+    [0.26, 'translateX(1.8px)'],
+    [0.4, 'translateX(-1.3px)'],
+    [0.54, 'translateX(0.8px)'],
+    [0.7, 'translateX(-0.4px)'],
+    [1, 'translateX(0)'],
+])
+
+/** ...and the roof clatters up the other way before it drops back. */
+const clatter = frames(
+    'transform',
+    [
+        [0, 'translateY(0) rotate(0deg)'],
+        [0.1, 'translateY(-3px) rotate(-9deg)'],
+        [0.3, 'translateY(0.6px) rotate(5deg)'],
+        [0.5, 'translateY(-0.8px) rotate(-3deg)'],
+        [0.7, 'translateY(0) rotate(1.5deg)'],
+        [1, 'translateY(0) rotate(0deg)'],
+    ],
+    'ease-out',
+)
+
 const motion: NavIconMotion = {
     '.home-house': {
         enter: { keyframes: jump, duration: 720 },
         idle: { keyframes: bob((y) => `translateY(${y}px)`, -1.4), duration: 1100, delay: 640 },
-        activate: { keyframes: jump, duration: 720 },
+        activate: { keyframes: rattle, duration: 520 },
     },
     '.home-roof': {
         enter: { keyframes: tip, duration: 720 },
         idle: { keyframes: bob((angle) => `rotate(${angle}deg)`, 6), duration: 1100, delay: 900 },
-        activate: { keyframes: tip, duration: 720 },
+        activate: { keyframes: clatter, duration: 600 },
     },
     '.home-door': { enter: redraw(720) },
 }

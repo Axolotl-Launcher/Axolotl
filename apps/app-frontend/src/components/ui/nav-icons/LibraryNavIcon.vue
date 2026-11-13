@@ -39,23 +39,61 @@ const flop = frames('transform', [
 /** While the pointer stays, the books keep a slow wave going. */
 const wave = bob((y) => `translateY(${y}px)`, -1.6)
 
-function book(order: number): { enter: NavIconClip; idle: NavIconClip; activate: NavIconClip } {
-    const stagger = order * 60
+/** A click pulls the middle book right out of the shelf and drops it back with a thud... */
+const pull = frames(
+    'transform',
+    [
+        [0, 'translateY(0) scaleY(1)'],
+        [0.28, 'translateY(-6px) scaleY(1)', 'ease-in'],
+        [0.5, 'translateY(0.6px) scaleY(0.8)'],
+        [0.7, 'translateY(-0.6px) scaleY(1.05)'],
+        [1, 'translateY(0) scaleY(1)'],
+    ],
+    'ease-out',
+)
+
+/** ...that jolts the books beside it... */
+const jolt = frames(
+    'transform',
+    [
+        [0, 'translateY(0) scaleY(1)'],
+        [0.46, 'translateY(0) scaleY(1)'],
+        [0.56, 'translateY(0.4px) scaleY(0.88)'],
+        [0.76, 'translateY(0) scaleY(1.03)'],
+        [1, 'translateY(0) scaleY(1)'],
+    ],
+    'ease-out',
+)
+
+/** ...and knocks the leaning one further over for a moment. */
+const knock = frames(
+    'transform',
+    [
+        [0, 'rotate(0deg)'],
+        [0.46, 'rotate(0deg)'],
+        [0.58, 'rotate(-7deg)'],
+        [0.76, 'rotate(3deg)'],
+        [1, 'rotate(0deg)'],
+    ],
+    'ease-out',
+)
+
+function book(order: number, activate: NavIconClip): NavIconMotion[string] {
     return {
-        enter: { keyframes: hop, duration: 460, delay: stagger },
+        enter: { keyframes: hop, duration: 460, delay: order * 60 },
         idle: { keyframes: wave, duration: 1200, delay: 560 + order * 160 },
-        activate: { keyframes: hop, duration: 460, delay: stagger },
+        activate,
     }
 }
 
 const motion: NavIconMotion = {
-    '.library-book-1': book(0),
-    '.library-book-2': book(1),
-    '.library-book-3': book(2),
+    '.library-book-1': book(0, { keyframes: jolt, duration: 650 }),
+    '.library-book-2': book(1, { keyframes: jolt, duration: 650 }),
+    '.library-book-3': book(2, { keyframes: pull, duration: 650 }),
     '.library-lean': {
         enter: { keyframes: flop, duration: 900 },
         idle: { keyframes: bob((angle) => `rotate(${angle}deg)`, 6), duration: 1200, delay: 820 },
-        activate: { keyframes: flop, duration: 900 },
+        activate: { keyframes: knock, duration: 650 },
     },
 }
 </script>

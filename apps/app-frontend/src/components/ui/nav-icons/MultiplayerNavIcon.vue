@@ -33,16 +33,33 @@ const hop = frames(
 /** While the pointer stays, the two keep bobbing as if chatting, half a beat apart. */
 const chat = bob((y) => `translateY(${y}px)`, -1.8)
 
+/** A click makes the two lunge together and bump shoulders, then spring apart. */
+function bump(direction: 1 | -1) {
+    const lunge = (shift: number, angle: number) =>
+        `translateX(${direction * shift}px) rotate(${direction * angle}deg)`
+    return frames(
+        'transform',
+        [
+            [0, lunge(0, 0)],
+            [0.22, lunge(2.2, 9)],
+            [0.42, lunge(-0.9, -3.5)],
+            [0.62, lunge(0.4, 1.5)],
+            [1, lunge(0, 0)],
+        ],
+        'ease-out',
+    )
+}
+
 const motion: NavIconMotion = {
     '.mp-front': {
         enter: { keyframes: hop, duration: 700 },
         idle: { keyframes: chat, duration: 1100, delay: 620 },
-        activate: { keyframes: hop, duration: 700 },
+        activate: { keyframes: bump(1), duration: 600 },
     },
     '.mp-back': {
         enter: { keyframes: hop, duration: 700, delay: 110 },
         idle: { keyframes: chat, duration: 1100, delay: 1170 },
-        activate: { keyframes: hop, duration: 700, delay: 110 },
+        activate: { keyframes: bump(-1), duration: 600 },
     },
 }
 </script>

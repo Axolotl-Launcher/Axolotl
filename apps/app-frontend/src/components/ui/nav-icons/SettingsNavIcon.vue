@@ -49,16 +49,39 @@ const pulse = frames(
     'ease-out',
 )
 
+/** A click kicks the gear back a notch, like a ratchet catching, and it snaps home... */
+const ratchet = frames('transform', [
+    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
+    [0.16, 'rotate(-50deg)'],
+    [0.36, 'rotate(12deg)'],
+    [0.54, 'rotate(-5deg)'],
+    [0.72, 'rotate(2deg)'],
+    [1, 'rotate(0deg)'],
+])
+
+/** ...while the hub is punched in and springs out. */
+const punch = frames(
+    'transform',
+    [
+        [0, 'scale(1)'],
+        [0.14, 'scale(0.4)'],
+        [0.4, 'scale(1.45)'],
+        [0.62, 'scale(0.9)'],
+        [1, 'scale(1)'],
+    ],
+    'ease-out',
+)
+
 const motion: NavIconMotion = {
     '.settings-gear': {
         enter: { keyframes: fullTurn, duration: 950 },
         idle: { keyframes: turn, duration: 3000, delay: 950 },
-        activate: { keyframes: fullTurn, duration: 800 },
+        activate: { keyframes: ratchet, duration: 700 },
     },
     '.settings-hub': {
         enter: { keyframes: pulse, duration: 950 },
         idle: { keyframes: bob((size) => `scale(${size})`, 0.8, 1), duration: 900, delay: 950 },
-        activate: { keyframes: pulse, duration: 800 },
+        activate: { keyframes: punch, duration: 700 },
     },
 }
 </script>

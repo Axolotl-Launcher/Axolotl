@@ -33,6 +33,7 @@ const BUBBLES = [
     { name: 'lab-simmer-1', x: 11, y: 19.6, r: 0.9 },
     { name: 'lab-simmer-2', x: 13.6, y: 18.4, r: 0.8 },
     { name: 'lab-simmer-3', x: 8.4, y: 18.8, r: 0.85 },
+    { name: 'lab-blast', x: 12, y: -1, r: 1.8 },
 ]
 
 /** A hard shake that dies away. */
@@ -65,12 +66,34 @@ const puff: Keyframe[] = [
     { offset: 1, opacity: 0, transform: 'translateY(-4.5px) scale(1.6)' },
 ]
 
+/** A click sets off a reaction: the flask is slammed flat, then jumps back up... */
+const slam = frames(
+    'transform',
+    [
+        [0, 'scale(1, 1)'],
+        [0.14, 'scale(1.14, 0.8)'],
+        [0.34, 'scale(0.92, 1.12)'],
+        [0.54, 'scale(1.04, 0.96)'],
+        [0.74, 'scale(0.99, 1.01)'],
+        [1, 'scale(1, 1)'],
+    ],
+    'ease-out',
+)
+
+/** ...and a big cloud blows out of the neck. */
+const blast: Keyframe[] = [
+    { offset: 0, opacity: 0, transform: 'translateY(0) scale(0)', easing: 'ease-out' },
+    { offset: 0.2, opacity: 1, transform: 'translateY(-2px) scale(1)', easing: 'ease-out' },
+    { offset: 1, opacity: 0, transform: 'translateY(-7px) scale(2.1)' },
+]
+
 const motion: NavIconMotion = {
     '.lab-flask': {
         enter: { keyframes: shake, duration: 900 },
         idle: { keyframes: swing((angle) => `rotate(${angle}deg)`, 4), duration: 1600, delay: 760 },
-        activate: { keyframes: shake, duration: 900 },
+        activate: { keyframes: slam, duration: 620 },
     },
+    '.lab-blast': { activate: { keyframes: blast, duration: 650, delay: 90, single: true } },
     '.lab-burst-1': { enter: { keyframes: rise, duration: 520, delay: 40, single: true } },
     '.lab-burst-2': { enter: { keyframes: rise, duration: 520, delay: 130, single: true } },
     '.lab-burst-3': { enter: { keyframes: rise, duration: 520, delay: 220, single: true } },

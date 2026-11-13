@@ -14,11 +14,19 @@
         class="overflow-visible"
     >
         <slot />
+        <!-- Hidden at rest; each click sends a ripple out from the icon. -->
+        <circle
+            class="nav-icon-ripple"
+            :cx="ring.cx"
+            :cy="ring.cy"
+            :r="ring.r"
+            :stroke-width="ring.strokeWidth"
+        />
     </svg>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { injectNavIconInteraction } from './interaction'
 import {
@@ -33,7 +41,14 @@ const props = withDefaults(defineProps<{ motion: NavIconMotion; viewBox?: string
     viewBox: '0 0 24 24',
 })
 
-/** The whole glyph pops the moment the pointer arrives... */
+/** A ring just inside the icon's box, with a stroke as thin as the artwork's. */
+const ring = computed(() => {
+    const [minX, minY, width, height] = props.viewBox.split(/[\s,]+/).map(Number)
+    const size = Math.min(width, height)
+    return { cx: minX + width / 2, cy: minY + height / 2, r: size * 0.46, strokeWidth: size / 16 }
+})
+
+/** Hovering is light: the whole glyph pops up the moment the pointer arrives... */
 const POP: NavIconClip = {
     duration: 480,
     keyframes: frames(
@@ -49,20 +64,37 @@ const POP: NavIconClip = {
     ),
 }
 
-/** ...and squashes, then springs back, when it is pressed. */
+/** ...pressing is heavy: it is crushed down first, then springs back hard... */
 const PRESS: NavIconClip = {
-    duration: 460,
+    duration: 520,
     keyframes: frames(
         'transform',
         [
             [0, 'scale(1)'],
-            [0.16, 'scale(0.78)'],
-            [0.48, 'scale(1.14)'],
-            [0.72, 'scale(0.97)'],
+            [0.14, 'scale(0.72)'],
+            [0.42, 'scale(1.2)'],
+            [0.64, 'scale(0.95)'],
+            [0.82, 'scale(1.03)'],
             [1, 'scale(1)'],
         ],
         'ease-out',
     ),
+}
+
+/** ...and every click sends a ripple out, restarting it if one is still spreading. */
+const RIPPLE: NavIconClip = {
+    duration: 520,
+    composite: 'replace',
+    restart: true,
+    keyframes: [
+        {
+            offset: 0,
+            opacity: 0.6,
+            transform: 'scale(0.55)',
+            easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)',
+        },
+        { offset: 1, opacity: 0, transform: 'scale(1.5)' },
+    ],
 }
 
 /**
@@ -109,6 +141,11 @@ function accent(element: Element, kind: AccentKind, clip: NavIconClip) {
     const kinds = accents.get(element) ?? new Map<AccentKind, Animation[]>()
     accents.set(element, kinds)
     const live = (kinds.get(kind) ?? []).filter(isLive)
+    if (clip.restart) {
+        for (const animation of live) animation.cancel()
+        kinds.set(kind, [start(element, kind, clip)])
+        return
+    }
     // Added clips stack seamlessly; a replacing or single one would jump if layered.
     const room = (clip.composite ?? 'add') === 'add' && !clip.single ? MAX_OVERLAP : 1
     kinds.set(kind, live.length < room ? [...live, start(element, kind, clip)] : live)
@@ -189,6 +226,8 @@ function press() {
 
 function activate() {
     if (!root.value || reduceMotionQuery?.matches) return
+    const ripple = root.value.querySelector(':scope > .nav-icon-ripple')
+    if (ripple) accent(ripple, 'activate', RIPPLE)
     for (const [element, motion] of parts()) {
         if (motion.activate) accent(element, 'activate', motion.activate)
     }
@@ -210,3 +249,12 @@ onBeforeUnmount(() => {
     stopAll()
 })
 </script>
+
+<style scoped>
+.nav-icon-ripple {
+    opacity: 0;
+    pointer-events: none;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+</style>

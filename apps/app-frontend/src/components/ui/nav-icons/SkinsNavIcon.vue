@@ -33,11 +33,20 @@ const fling = frames('transform', [
     [1, 'rotate(0deg)'],
 ])
 
+/** A click turns the hanger right round on the rail: back of the shirt, then front again. */
+const turnAround = frames('transform', [
+    [0, 'scaleX(1)', 'ease-in'],
+    [0.25, 'scaleX(0)', 'ease-out'],
+    [0.5, 'scaleX(-1)', 'ease-in'],
+    [0.75, 'scaleX(0)', 'ease-out'],
+    [1, 'scaleX(1)'],
+])
+
 const motion: NavIconMotion = {
     '.skins-hanger': {
         enter: { keyframes: fling, duration: 1000 },
         idle: { keyframes: swing((angle) => `rotate(${angle}deg)`, 7), duration: 1800, delay: 760 },
-        activate: { keyframes: fling, duration: 1000 },
+        activate: { keyframes: turnAround, duration: 700 },
     },
 }
 </script>

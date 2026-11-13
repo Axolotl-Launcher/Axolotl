@@ -118,6 +118,9 @@ it.each(ICONS)(
         const button = await mountNavButton(icon)
         const svg = button.querySelector('svg')
         expect(navAnimations(button)).toHaveLength(0)
+        // The click ripple is part of every icon but invisible at rest.
+        const ripple = svg?.querySelector('.nav-icon-ripple')
+        expect(ripple && getComputedStyle(ripple).opacity).toBe('0')
 
         pointerEnter(button)
         await nextTick()
@@ -175,7 +178,21 @@ it('picks a winding-down loop back up when the pointer returns', async () => {
     expect(resumed.map((loop) => loop.playbackRate)).toEqual(resumed.map(() => 1))
 })
 
-it('squashes the icon on press and answers every click with motion', async () => {
+function isRipple(animation: Animation): boolean {
+    return !!targetOf(animation)?.classList.contains('nav-icon-ripple')
+}
+
+/** The smallest uniform scale a root clip reaches, from its keyframes. */
+function smallestScale(animation: Animation): number {
+    if (!(animation.effect instanceof KeyframeEffect)) return 1
+    return Math.min(
+        ...animation.effect
+            .getKeyframes()
+            .map((keyframe) => new DOMMatrixReadOnly(String(keyframe.transform)).a),
+    )
+}
+
+it('squashes the icon on press and answers every click with motion and a ripple', async () => {
     const button = await mountNavButton(DiscoverNavIcon)
     const svg = button.querySelector('svg')
 
@@ -185,20 +202,66 @@ it('squashes the icon on press and answers every click with motion', async () =>
 
     click(button)
     await nextTick()
-    const clickMotion = navAnimations(button, 'activate')
-    expect(clickMotion.length).toBeGreaterThan(0)
-    expect(clickMotion.every((animation) => targetOf(animation) !== svg)).toBe(true)
-    expect(clickMotion.some(leavesRest)).toBe(true)
+    const partClicks = () => navAnimations(button, 'activate').filter((a) => !isRipple(a))
+    const ripples = () => navAnimations(button, 'activate').filter(isRipple)
+    const firstClick = partClicks()
+    expect(firstClick.length).toBeGreaterThan(0)
+    expect(firstClick.every((animation) => targetOf(animation) !== svg)).toBe(true)
+    expect(firstClick.some(leavesRest)).toBe(true)
+    const [firstRipple] = ripples()
+    expect(ripples()).toHaveLength(1)
 
-    // A second click while the first motion runs adds its own on top...
+    // A second click while the first motion runs adds its own on top and
+    // sends a fresh ripple...
     click(button)
     await nextTick()
-    expect(navAnimations(button, 'activate')).toHaveLength(2 * clickMotion.length)
+    expect(partClicks()).toHaveLength(2 * firstClick.length)
+    expect(ripples()).toHaveLength(1)
+    expect(ripples()[0]).not.toBe(firstRipple)
     // ...but rapid clicking does not pile motion up without bound.
     click(button)
     await nextTick()
-    expect(navAnimations(button, 'activate')).toHaveLength(2 * clickMotion.length)
+    expect(partClicks()).toHaveLength(2 * firstClick.length)
 })
+
+it.each(ICONS)(
+    'clicking the %s icon is heavier than hovering and moves differently',
+    async (_name, icon) => {
+        const button = await mountNavButton(icon)
+        const svg = button.querySelector('svg')
+
+        pointerEnter(button)
+        await nextTick()
+        const entry = navAnimations(button, 'enter')
+        const pop = entry.find((animation) => targetOf(animation) === svg)
+        const hoverMotion = new Map(
+            entry
+                .filter((animation) => targetOf(animation) !== svg)
+                .map((animation) => [
+                    targetOf(animation),
+                    JSON.stringify((animation.effect as KeyframeEffect).getKeyframes()),
+                ]),
+        )
+
+        press(button)
+        click(button)
+        await nextTick()
+        const squash = navAnimations(button, 'press').find(
+            (animation) => targetOf(animation) === svg,
+        )
+        const clickMotion = navAnimations(button, 'activate').filter((a) => !isRipple(a))
+
+        // Pressing crushes the icon harder than hovering ever shrinks it.
+        expect(pop && squash).toBeTruthy()
+        expect(smallestScale(squash!)).toBeLessThan(smallestScale(pop!) - 0.1)
+        // The click has its own motion: never the hover motion of the same part again.
+        expect(clickMotion.some(leavesRest)).toBe(true)
+        for (const animation of clickMotion) {
+            const keyframes = JSON.stringify((animation.effect as KeyframeEffect).getKeyframes())
+            expect(keyframes).not.toBe(hoverMotion.get(targetOf(animation)))
+        }
+    },
+)
 
 it('brings an unfinished entry to rest quickly when the pointer leaves at once', async () => {
     const button = await mountNavButton(DiscoverNavIcon)

@@ -1043,11 +1043,9 @@ async fn establish(
     // Loopback fixtures listen on an ephemeral port while the routed URL keeps
     // the scheme default; honour the port the test address names.
     #[cfg(test)]
-    {
-        port = super::proxy_context::resolver(route.proxy)
-            .test_port(host)
-            .unwrap_or(port);
-    }
+    let port = super::proxy_context::resolver(route.proxy)
+        .test_port(host)
+        .unwrap_or(port);
     let proxy = proxy::intercept(route);
     // A selected origin endpoint cannot be used through a proxy: CONNECT and
     // SOCKS must preserve proxy-side routing and hostname resolution.

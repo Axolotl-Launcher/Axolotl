@@ -6,6 +6,7 @@ import { computed, ref } from 'vue'
 import { type ChallengeDifficulty, dailyChallenges } from '@/data/daily-challenges'
 
 import { stableGreetingIndex, toDateKey } from './home-utils'
+import HomeWidgetFrame from './HomeWidgetFrame.vue'
 
 const { formatMessage, locale } = useVIntl()
 
@@ -41,10 +42,10 @@ const challengeText = computed(() => {
     }
 })
 
-const difficultyDotClass: Record<ChallengeDifficulty, string> = {
-    easy: 'bg-brand-green',
-    medium: 'bg-orange',
-    hard: 'bg-red',
+const difficultyPillClass: Record<ChallengeDifficulty, string> = {
+    easy: 'bg-highlight-green text-brand-green',
+    medium: 'bg-highlight-orange text-brand-orange',
+    hard: 'bg-highlight-red text-brand-red',
 }
 
 function shuffleChallenge() {
@@ -58,38 +59,47 @@ function shuffleChallenge() {
 </script>
 
 <template>
-    <section
-        class="flex min-w-0 flex-col gap-3 border-0 border-b-[1px] border-solid border-[--brand-gradient-border] p-4"
+    <HomeWidgetFrame
+        class="home-sidebar-section home-surface"
+        :title="formatMessage(messages.dailyChallenge)"
+        :icon="SparklesIcon"
     >
-        <div class="flex items-center gap-2">
-            <SparklesIcon
-                class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
-                aria-hidden="true"
-            />
-            <h2 class="m-0 truncate text-lg">
-                {{ formatMessage(messages.dailyChallenge) }}
-            </h2>
+        <template #actions>
             <Button
                 v-tooltip="formatMessage(messages.shuffle)"
-                class="ml-auto"
                 type="quiet"
                 size="2xs"
                 circular
                 icon-only
+                :aria-label="formatMessage(messages.shuffle)"
                 @click="shuffleChallenge"
                 ><UpdatedIcon />
             </Button>
-        </div>
-        <p class="m-0 text-sm leading-relaxed text-[var(--color-text-default)]">
-            {{ challengeText }}
-        </p>
-        <div class="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]">
-            <span
-                class="size-2 rounded-full"
-                :class="difficultyDotClass[challenge.difficulty]"
-                aria-hidden="true"
-            />
-            {{ formatMessage(difficultyMessages[challenge.difficulty]) }}
-        </div>
-    </section>
+        </template>
+        <figure class="home-challenge m-0 flex min-w-0 flex-col gap-2.5">
+            <blockquote
+                class="m-0 text-sm font-medium leading-relaxed text-[var(--color-text-primary)]"
+                aria-live="polite"
+            >
+                {{ challengeText }}
+            </blockquote>
+            <figcaption>
+                <span
+                    class="inline-flex items-center gap-1.5 rounded-full px-2 text-xs font-bold leading-5"
+                    :class="difficultyPillClass[challenge.difficulty]"
+                >
+                    <span class="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                    {{ formatMessage(difficultyMessages[challenge.difficulty]) }}
+                </span>
+            </figcaption>
+        </figure>
+    </HomeWidgetFrame>
 </template>
+
+<style scoped>
+/* The challenge reads as a quote: an accent rule marks it as today's prompt. */
+.home-challenge {
+    @apply pl-3;
+    border-left: 3px solid var(--color-brand);
+}
+</style>

@@ -69,11 +69,11 @@ it.each(['event', 'refresh'] as const)(
         await flushPromises()
         expect(backend.news).toHaveBeenCalledExactlyOnceWith(12)
         expect(view.find('section').exists()).toBe(true)
-        expect(view.find('ul[aria-hidden="true"]').exists()).toBe(true)
+        expect(view.find('.home-skeleton').exists()).toBe(true)
         finish([article])
         await flushPromises()
         expect(view.text()).toContain('Minecraft & updates')
-        expect(view.find('ul[aria-hidden="true"]').exists()).toBe(false)
+        expect(view.find('.home-skeleton').exists()).toBe(false)
     },
 )
 

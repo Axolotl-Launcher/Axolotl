@@ -9,6 +9,7 @@ import {
     HistoryIcon,
     LayoutTemplateIcon,
     LinkIcon,
+    PlayIcon,
     SearchIcon,
     ServerIcon,
     UserIcon,
@@ -59,6 +60,11 @@ const messages = defineMessages({
     shortcutsGroup: {
         id: 'app.home.widgets.group.shortcuts',
         defaultMessage: 'Single-item shortcuts',
+    },
+    launch: { id: 'app.home.widgets.launch', defaultMessage: 'Launch' },
+    launchDescription: {
+        id: 'app.home.widgets.launch-description',
+        defaultMessage: 'Start your Home instance, or switch to another one.',
     },
     greeting: { id: 'app.home.widgets.greeting', defaultMessage: 'Greeting' },
     greetingDescription: {
@@ -128,6 +134,12 @@ const catalogSections = computed(() => [
         label: formatMessage(messages.overviewGroup),
         icon: LayoutTemplateIcon,
         items: [
+            {
+                kind: 'launch' as const,
+                label: formatMessage(messages.launch),
+                description: formatMessage(messages.launchDescription),
+                icon: PlayIcon,
+            },
             {
                 kind: 'greeting' as const,
                 label: formatMessage(messages.greeting),
@@ -357,7 +369,7 @@ defineExpose({ show })
                             @click="chooseKind(item.kind)"
                         >
                             <span
-                                class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-4 text-[var(--color-text-tertiary)] transition-colors group-hover:text-brand"
+                                class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-highlight text-brand transition-transform group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                             >
                                 <component :is="item.icon" class="size-5" aria-hidden="true" />
                             </span>

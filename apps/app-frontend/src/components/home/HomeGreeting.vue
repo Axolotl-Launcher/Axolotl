@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import './home-widget.css'
+
 import { PencilIcon } from '@modrinth/assets'
 import { defineMessages, useVIntl } from '@modrinth/ui'
 import { computed, inject, onUnmounted, ref, watch } from 'vue'
@@ -18,7 +20,8 @@ import { getTimeBucket, stableGreetingIndex } from './home-utils'
 const props = withDefaults(
     defineProps<{
         playerName?: string | null
-        variant?: 'standard' | 'minimal'
+        /** `hero` sits in the launch card header: date and heading, no own height. */
+        variant?: 'standard' | 'minimal' | 'hero'
         dashboardSize?: HomeWidgetSize | null
         greetingMode?: HomeGreetingMode
         greetingText?: string
@@ -233,7 +236,7 @@ const greetingFontFamilies: Record<HomeGreetingFont, string> = {
 }
 
 const headingStyle = computed(() =>
-    props.dashboardSize
+    props.dashboardSize || props.variant === 'hero'
         ? {
               '--home-greeting-font-family': greetingFontFamilies[props.greetingFont],
               '--home-greeting-font-size': `${props.greetingFontSize}px`,
@@ -251,17 +254,19 @@ onUnmounted(() => window.clearInterval(timer))
 
 <template>
     <header
-        class="home-greeting flex min-w-0 flex-col"
+        class="home-greeting home-legible flex min-w-0 flex-col"
         :class="
             variant === 'minimal'
                 ? 'items-center gap-3 text-center'
-                : dashboardSize
-                  ? 'h-full justify-center gap-2'
-                  : 'gap-1 py-2'
+                : variant === 'hero'
+                  ? 'gap-1.5'
+                  : dashboardSize
+                    ? 'h-full justify-center gap-2'
+                    : 'gap-1 py-2'
         "
     >
         <span
-            v-if="variant !== 'minimal' && dashboardSize"
+            v-if="variant !== 'standard' || dashboardSize"
             class="text-xs font-bold leading-none tracking-normal text-[var(--color-text-tertiary)]"
         >
             {{ dateLabel }}
@@ -270,7 +275,11 @@ onUnmounted(() => window.clearInterval(timer))
             <h1
                 class="m-0 max-w-full break-words font-extrabold text-[var(--color-text-primary)]"
                 :class="[
-                    dashboardSize ? 'home-greeting-heading' : 'text-2xl',
+                    dashboardSize || variant === 'hero'
+                        ? 'home-greeting-heading'
+                        : variant === 'minimal'
+                          ? 'text-[2rem] leading-tight tracking-tight'
+                          : 'text-2xl',
                     editable
                         ? 'cursor-pointer rounded-lg transition-transform duration-150 group-hover:-translate-y-0.5 group-focus-within:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-shadow'
                         : '',
@@ -295,11 +304,6 @@ onUnmounted(() => window.clearInterval(timer))
                 <PencilIcon class="size-4" />
             </button>
         </div>
-        <div
-            v-if="variant === 'minimal'"
-            class="h-0.5 w-8 rounded-full bg-brand"
-            aria-hidden="true"
-        />
     </header>
 </template>
 

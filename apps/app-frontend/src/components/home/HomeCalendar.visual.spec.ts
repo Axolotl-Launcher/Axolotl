@@ -56,7 +56,7 @@ const tip = () => document.querySelector<HTMLElement>('[role="tooltip"]')
 
 async function calendar() {
     const host = document.createElement('div')
-    host.style.cssText = 'position:fixed;top:40px;left:12px;width:270px;height:240px;overflow:auto'
+    host.style.cssText = 'position:fixed;top:40px;left:12px;width:270px;height:180px;overflow:auto'
     document.body.append(host)
     cleanup.push(() => host.remove())
     const wrapper = await mountThemed(HomeCalendar, { instances: [] }, 'dark', {

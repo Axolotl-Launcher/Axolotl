@@ -129,3 +129,94 @@ export function getActivePlayerName(
 ): string | null {
     return getActivePlayerAccount(selectedUser, accounts)?.name ?? null
 }
+
+export type LaunchCandidate = {
+    id: string
+    last_played?: string | Date | null
+}
+
+function lastPlayedTime(candidate: LaunchCandidate): number {
+    if (!candidate.last_played) return Number.NEGATIVE_INFINITY
+    const time = new Date(candidate.last_played).getTime()
+    return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time
+}
+
+/**
+ * The instance Home offers to launch: the one chosen for Home, or else the one
+ * played most recently. Returns null only when no instance was ever played and
+ * none was chosen, so Home can ask the player to pick one.
+ */
+export function resolveHomeLaunchInstance<T extends LaunchCandidate>(
+    instances: readonly T[],
+    selectedId: string | null | undefined,
+): { instance: T; chosen: boolean } | null {
+    const selected = selectedId ? instances.find((instance) => instance.id === selectedId) : null
+    if (selected) return { instance: selected, chosen: true }
+
+    let latest: T | null = null
+    for (const instance of instances) {
+        if (lastPlayedTime(instance) === Number.NEGATIVE_INFINITY) continue
+        if (!latest || lastPlayedTime(instance) > lastPlayedTime(latest)) latest = instance
+    }
+    return latest ? { instance: latest, chosen: false } : null
+}
+
+/** Other instances to switch to in one click, most recently played first. */
+export function getQuickSwitchInstances<T extends LaunchCandidate>(
+    instances: readonly T[],
+    currentId: string | null | undefined,
+    limit: number,
+): T[] {
+    return instances
+        .filter((instance) => instance.id !== currentId)
+        .map((instance, index) => ({ instance, index }))
+        .sort(
+            (left, right) =>
+                lastPlayedTime(right.instance) - lastPlayedTime(left.instance) ||
+                left.index - right.index,
+        )
+        .slice(0, Math.max(0, limit))
+        .map(({ instance }) => instance)
+}
+
+export type HomeWorldRowState = {
+    /** The row offers Stop instead of Play. */
+    showStop: boolean
+    playDisabled: boolean
+    /** Why Play is disabled, for its tooltip. */
+    reason: 'no-quick-play' | 'game-open' | 'world-in-use' | null
+}
+
+/**
+ * Play or stop for a world or server row, by the rule the shared world rows
+ * use: Stop belongs to the world the game was joined through (or to a world
+ * the running game holds locked). Any other world of a running instance gets
+ * a disabled Play that says the game is already open, so a running instance
+ * does not turn every one of its worlds and servers into a Stop button.
+ */
+export function getHomeWorldRowState(input: {
+    instanceRunning: boolean
+    /** The game was started by joining this world from this widget. */
+    joinedHere: boolean
+    starting: boolean
+    locked?: boolean
+    supportsQuickPlay: boolean
+}): HomeWorldRowState {
+    const locked = input.locked === true
+    const showStop = (input.joinedHere || (locked && input.instanceRunning)) && !input.starting
+    if (showStop) return { showStop, playDisabled: false, reason: null }
+
+    const playingOther = input.instanceRunning && !input.joinedHere
+    const reason = !input.supportsQuickPlay
+        ? 'no-quick-play'
+        : playingOther
+          ? 'game-open'
+          : locked
+            ? 'world-in-use'
+            : null
+    return {
+        showStop: false,
+        playDisabled: reason !== null || input.starting,
+        reason,
+    }
+}

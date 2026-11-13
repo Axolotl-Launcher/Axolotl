@@ -1,10 +1,11 @@
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 
 import type { GameInstance } from '@/helpers/types'
 
+import { HOME_LAUNCH_KEY, type HomeLaunchContext } from './home-launch'
 import HomeMinimal from './HomeMinimal.vue'
 
 const backend = vi.hoisted(() => ({ processes: vi.fn(), listen: vi.fn() }))
@@ -23,6 +24,13 @@ vi.mock('@/composables/useNetworkStatus', async () => {
     return { useNetworkStatus: () => ({ offline: ref(false) }) }
 })
 vi.mock('@/components/home/HomeGreeting.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/home/home-dashboard-runtime', () => ({
+    useOptionalHomeDashboardRuntime: () => null,
+}))
+vi.mock('@/helpers/worlds', () => ({ get_recent_worlds: async () => [] }))
+vi.mock('@/helpers/instance-icons', () => ({
+    getDisplayInstanceIcon: () => ({ url: null, frameless: false }),
+}))
 vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h } = await import('vue')
@@ -42,14 +50,38 @@ vi.mock('@modrinth/ui', async () => {
         commonMessages: {
             retryButton: { defaultMessage: 'Retry' },
             playButton: { defaultMessage: 'Play' },
+            stopButton: { defaultMessage: 'Stop' },
+            installButton: { defaultMessage: 'Install' },
+            installingLabel: { defaultMessage: 'Installing' },
         },
         defineMessages: (messages: unknown) => messages,
+        formatLoaderLabel: (loader: string) => loader,
         injectNotificationManager: () => ({ handleError: vi.fn() }),
         useRelativeTime: () => () => 'now',
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),
     }
+})
+
+function launchContext(selectedId: string | null) {
+    const selectedInstanceId = ref(selectedId)
+    const context: HomeLaunchContext = {
+        selectedInstanceId: computed(() => selectedInstanceId.value),
+        choose: vi.fn(),
+        select: vi.fn((instance: GameInstance) => {
+            selectedInstanceId.value = instance.id
+        }),
+        create: vi.fn(),
+    }
+    return context
+}
+
+const routerLinkStub = defineComponent({
+    setup:
+        (_, { slots }) =>
+        () =>
+            h('a', slots.default?.()),
 })
 
 it('keeps the minimal home synchronous and makes a failed background process refresh retryable', async () => {
@@ -64,18 +96,12 @@ it('keeps the minimal home synchronous and makes a failed background process ref
         game_version: '1.21',
     } as GameInstance
     const wrapper = mount(HomeMinimal, {
-        props: { instances: [instance], selectedInstanceId: instance.id },
+        props: { instances: [instance] },
         global: {
             plugins: [[VueQueryPlugin, { queryClient }]],
+            provide: { [HOME_LAUNCH_KEY as symbol]: launchContext(instance.id) },
             directives: { tooltip: () => {} },
-            stubs: {
-                RouterLink: defineComponent({
-                    setup:
-                        (_, { slots }) =>
-                        () =>
-                            h('a', slots.default?.()),
-                }),
-            },
+            stubs: { RouterLink: routerLinkStub },
         },
     })
     try {
@@ -119,18 +145,12 @@ it('shows the selected game directory only when the full collection spans multip
 
     const mountHome = (instances: GameInstance[]) =>
         mount(HomeMinimal, {
-            props: { instances, selectedInstanceId: selected.id },
+            props: { instances },
             global: {
                 plugins: [[VueQueryPlugin, { queryClient }]],
+                provide: { [HOME_LAUNCH_KEY as symbol]: launchContext(selected.id) },
                 directives: { tooltip: () => {} },
-                stubs: {
-                    RouterLink: defineComponent({
-                        setup:
-                            (_, { slots }) =>
-                            () =>
-                                h('a', slots.default?.()),
-                    }),
-                },
+                stubs: { RouterLink: routerLinkStub },
             },
         })
 
@@ -143,6 +163,97 @@ it('shows the selected game directory only when the full collection spans multip
     } finally {
         multiDirectory.unmount()
         singleDirectory.unmount()
+        queryClient.clear()
+    }
+})
+
+it('launches the last played instance until one is chosen, and switches in one click', async () => {
+    backend.processes.mockResolvedValue([])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const older = {
+        id: 'older',
+        name: 'Older',
+        install_stage: 'installed',
+        loader: 'fabric',
+        game_version: '1.20.1',
+        last_played: '2026-01-01T10:00:00Z',
+    } as unknown as GameInstance
+    const latest = {
+        id: 'latest',
+        name: 'Latest',
+        install_stage: 'not_installed',
+        loader: 'vanilla',
+        game_version: '1.21',
+        last_played: '2026-02-01T10:00:00Z',
+    } as unknown as GameInstance
+    const context = launchContext(null)
+    const wrapper = mount(HomeMinimal, {
+        props: { instances: [older, latest] },
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            provide: { [HOME_LAUNCH_KEY as symbol]: context },
+            directives: { tooltip: () => {} },
+            stubs: { RouterLink: routerLinkStub },
+        },
+    })
+    try {
+        await flushPromises()
+        // Nothing chosen: the most recently played instance leads, and it is not installed.
+        expect(wrapper.get('.home-launch-name').text()).toBe('Latest')
+        expect(wrapper.get('.home-launch-card').attributes('data-phase')).toBe('not-installed')
+        expect(wrapper.text()).toContain('Install')
+
+        const switcher = wrapper
+            .findAll('.home-launch-recent-card')
+            .find((card) => card.get('.home-launch-recent-name').text() === 'Older')
+        expect(switcher).toBeDefined()
+        await switcher!.trigger('click')
+        await flushPromises()
+        expect(context.select).toHaveBeenCalledWith(older)
+        expect(wrapper.get('.home-launch-name').text()).toBe('Older')
+        expect(wrapper.text()).toContain('Play')
+
+        backend.processes.mockResolvedValue([{ uuid: 'p', instance_id: 'older' }])
+        await queryClient.refetchQueries({ queryKey: ['home', 'instance-processes', 'older'] })
+        await flushPromises()
+        expect(wrapper.get('.home-launch-card').attributes('data-phase')).toBe('running')
+        expect(wrapper.text()).toContain('Stop')
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('asks for an instance when none was ever played', async () => {
+    backend.processes.mockResolvedValue([])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const fresh = {
+        id: 'fresh',
+        name: 'Fresh',
+        install_stage: 'installed',
+        loader: 'vanilla',
+        game_version: '1.21',
+        last_played: null,
+    } as unknown as GameInstance
+    const context = launchContext(null)
+    const wrapper = mount(HomeMinimal, {
+        props: { instances: [fresh] },
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            provide: { [HOME_LAUNCH_KEY as symbol]: context },
+            directives: { tooltip: () => {} },
+            stubs: { RouterLink: routerLinkStub },
+        },
+    })
+    try {
+        await flushPromises()
+        expect(wrapper.get('.home-launch-card').classes()).toContain('is-empty')
+        await wrapper.get('.home-launch-primary').trigger('click')
+        expect(context.choose).toHaveBeenCalledOnce()
+    } finally {
+        wrapper.unmount()
         queryClient.clear()
     }
 })

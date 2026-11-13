@@ -1,11 +1,24 @@
 <script setup lang="ts">
 import { GameIcon } from '@modrinth/assets'
-import { defineMessages, GAME_MODES, injectNotificationManager, useVIntl } from '@modrinth/ui'
+import {
+    ButtonLink,
+    commonMessages,
+    defineMessages,
+    GAME_MODES,
+    injectNotificationManager,
+    useVIntl,
+} from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 
-import { getHomeWidgetCardDensity, type HomeWidgetSize } from '@/components/home/home-dashboard'
+import type { HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
-import WorldItem from '@/components/ui/world/WorldItem.vue'
+import { useHomeLaunchTarget } from '@/components/home/home-launch-context'
+import { useHomeRowMenu } from '@/components/home/home-row-menu'
+import { getHomeWorldRowState } from '@/components/home/home-utils'
+import HomeItemRow from '@/components/home/HomeItemRow.vue'
+import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
+import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { kill, run } from '@/helpers/instance'
@@ -28,7 +41,8 @@ const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
 const handleMinecraftLaunchError = useMinecraftLaunchError()
 const runtime = useHomeDashboardRuntime()
-const { favoriteWorlds, gameVersions, runningInstanceIds } = runtime
+const { favoriteWorlds, favoritesLoaded, gameVersions, runningInstanceIds } = runtime
+const { worldMenu } = useHomeRowMenu()
 const messages = defineMessages({
     pinnedWorlds: {
         id: 'app.home.worlds.pinned',
@@ -38,7 +52,19 @@ const messages = defineMessages({
         id: 'app.home.worlds.empty',
         defaultMessage: 'Favorite a world and it will be pinned here.',
     },
+    hardcore: { id: 'instance.worlds.hardcore', defaultMessage: 'Hardcore mode' },
+    browseWorlds: { id: 'app.home.worlds.browse', defaultMessage: 'Open worlds' },
+    gameAlreadyOpen: {
+        id: 'instance.worlds.game_already_open',
+        defaultMessage: 'Instance is already open',
+    },
+    worldInUse: { id: 'instance.worlds.world_in_use', defaultMessage: 'World is in use' },
+    noWorldQuickPlay: {
+        id: 'instance.worlds.no_singleplayer_quick_play',
+        defaultMessage: 'You can only jump straight into singleplayer worlds on Minecraft 1.20+',
+    },
 })
+const launchTarget = useHomeLaunchTarget(() => props.instances)
 
 const startingWorldKey = ref<string | null>(null)
 const playingWorldKey = ref<string | null>(null)
@@ -53,7 +79,63 @@ const favorites = computed(() =>
         return instance ? [{ instance, world }] : []
     }),
 )
-const worldDensity = computed(() => getHomeWidgetCardDensity(props.dashboardSize))
+
+function worldMeta(world: WorldWithInstance, instance: GameInstance): string {
+    if (world.type !== 'singleplayer') return instance.name
+    const mode = world.hardcore
+        ? formatMessage(messages.hardcore)
+        : formatMessage(GAME_MODES[world.game_mode].message)
+    return `${mode} · ${instance.name}`
+}
+
+function rowState(world: WorldWithInstance, instance: GameInstance) {
+    const key = favoriteKey(world)
+    return getHomeWorldRowState({
+        instanceRunning: runningInstanceIds.value.includes(instance.id),
+        joinedHere: playingWorldKey.value === key,
+        starting: startingWorldKey.value === key,
+        locked: world.type === 'singleplayer' && world.locked,
+        supportsQuickPlay: hasWorldQuickPlaySupport(gameVersions.value, instance.game_version),
+    })
+}
+
+function playLabel(world: WorldWithInstance, instance: GameInstance): string {
+    switch (rowState(world, instance).reason) {
+        case 'no-quick-play':
+            return formatMessage(messages.noWorldQuickPlay)
+        case 'game-open':
+            return formatMessage(messages.gameAlreadyOpen)
+        case 'world-in-use':
+            return formatMessage(messages.worldInUse)
+        default:
+            return formatMessage(commonMessages.playButton)
+    }
+}
+
+function rowMenu(world: WorldWithInstance, instance: GameInstance) {
+    return worldMenu(world, instance, {
+        instanceRunning: runningInstanceIds.value.includes(instance.id),
+        playInstance: () => playInstance(instance),
+        pinChanged: () => Promise.all([runtime.refreshFavorites(), runtime.refreshRecentWorlds()]),
+    })
+}
+
+async function playInstance(instance: GameInstance) {
+    try {
+        await run(instance.id)
+        trackEvent('InstanceStart', {
+            loader: instance.loader,
+            game_version: instance.game_version,
+            source: 'HomePinnedWorld',
+        })
+    } catch (error) {
+        const handled = await handleMinecraftLaunchError(error, {
+            instance_id: instance.id,
+            instance_name: instance.name,
+        })
+        if (!handled) handleSevereError(error, { instanceId: instance.id })
+    }
+}
 
 function favoriteKey(world: WorldWithInstance): string {
     return `${world.instance_id}:${world.type}:${getWorldIdentifier(world)}`
@@ -89,23 +171,6 @@ async function joinWorld(world: WorldWithInstance, instance: GameInstance) {
     }
 }
 
-async function playInstance(instance: GameInstance) {
-    try {
-        await run(instance.id)
-        trackEvent('InstanceStart', {
-            loader: instance.loader,
-            game_version: instance.game_version,
-            source: 'HomePinnedWorld',
-        })
-    } catch (error) {
-        const handled = await handleMinecraftLaunchError(error, {
-            instance_id: instance.id,
-            instance_name: instance.name,
-        })
-        if (!handled) handleSevereError(error, { instanceId: instance.id })
-    }
-}
-
 async function stopInstance(instance: GameInstance) {
     await kill(instance.id).catch(handleError)
     playingWorldKey.value = null
@@ -118,89 +183,61 @@ async function stopInstance(instance: GameInstance) {
 </script>
 
 <template>
-    <section
-        class="home-pinned-worlds flex min-w-0 min-h-0 h-full flex-col gap-3"
+    <HomeWidgetFrame
+        class="home-pinned-worlds"
         :data-size="dashboardSize"
+        :title="formatMessage(messages.pinnedWorlds)"
+        :icon="GameIcon"
+        :badge="favorites.length || null"
+        :dense="dashboardSize?.endsWith('x1')"
+        :loading="!favoritesLoaded"
+        :skeleton-rows="dashboardSize === '1x1' ? 1 : 3"
+        :empty-text="favorites.length === 0 ? formatMessage(messages.emptyWorlds) : null"
+        :empty-icon="GameIcon"
     >
-        <div class="home-widget-heading flex min-w-0 h-8 flex-none items-center gap-2">
-            <h2>{{ formatMessage(messages.pinnedWorlds) }}</h2>
-        </div>
-        <div
-            v-if="favorites.length > 0"
-            class="home-world-list flex min-w-0 min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto pr-1"
-        >
-            <WorldItem
-                v-for="favorite in favorites"
-                :key="favoriteKey(favorite.world)"
-                :world="favorite.world"
-                :playing-instance="runningInstanceIds.includes(favorite.instance.id)"
-                :playing-world="playingWorldKey === favoriteKey(favorite.world)"
-                :starting-instance="startingWorldKey === favoriteKey(favorite.world)"
-                :supports-world-quick-play="
-                    hasWorldQuickPlaySupport(gameVersions, favorite.instance.game_version)
+        <template #empty-action>
+            <ButtonLink
+                :as="RouterLink"
+                :to="
+                    launchTarget
+                        ? `/instance/${encodeURIComponent(launchTarget.id)}/worlds`
+                        : '/library'
                 "
-                :game-mode="
-                    favorite.world.type === 'singleplayer'
-                        ? GAME_MODES[favorite.world.game_mode]
-                        : undefined
-                "
-                :instance-id="favorite.instance.id"
-                :instance-name="favorite.instance.name"
-                :instance-icon="favorite.instance.icon_path"
-                :instance-loader="favorite.instance.loader"
-                :shortcut-instance-id="favorite.instance.id"
-                :flat="dashboard"
-                :dashboard-density="worldDensity"
-                @play="joinWorld(favorite.world, favorite.instance)"
-                @play-instance="playInstance(favorite.instance)"
-                @stop="stopInstance(favorite.instance)"
-                @update="runtime.refreshFavorites"
-            />
-        </div>
-        <div v-else class="home-widget-empty">
-            <GameIcon aria-hidden="true" />
-            <span>{{ formatMessage(messages.emptyWorlds) }}</span>
-        </div>
-    </section>
+                size="sm"
+            >
+                <GameIcon aria-hidden="true" />
+                {{ formatMessage(messages.browseWorlds) }}
+            </ButtonLink>
+        </template>
+        <ul class="home-pinned-list">
+            <li v-for="favorite in favorites" :key="favoriteKey(favorite.world)" class="min-w-0">
+                <HomeItemRow
+                    :title="favorite.world.name"
+                    :to="`/instance/${encodeURIComponent(favorite.instance.id)}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(favorite.world))}`"
+                    :meta="worldMeta(favorite.world, favorite.instance)"
+                    :instance="
+                        favorite.world.icon
+                            ? null
+                            : {
+                                  id: favorite.instance.id,
+                                  iconPath: favorite.instance.icon_path,
+                                  loader: favorite.instance.loader,
+                              }
+                    "
+                    :image-src="favorite.world.icon ?? null"
+                    :running="rowState(favorite.world, favorite.instance).showStop"
+                    :starting="startingWorldKey === favoriteKey(favorite.world)"
+                    :play-disabled="rowState(favorite.world, favorite.instance).playDisabled"
+                    :play-label="playLabel(favorite.world, favorite.instance)"
+                    :stop-label="formatMessage(commonMessages.stopButton)"
+                    @play="joinWorld(favorite.world, favorite.instance)"
+                    @stop="stopInstance(favorite.instance)"
+                >
+                    <template #actions>
+                        <HomeRowMenu :options="rowMenu(favorite.world, favorite.instance)" />
+                    </template>
+                </HomeItemRow>
+            </li>
+        </ul>
+    </HomeWidgetFrame>
 </template>
-
-<style scoped>
-.home-widget-heading h2 {
-    min-width: 0;
-    overflow: hidden;
-    margin: 0;
-    color: var(--color-text-primary);
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.home-pinned-worlds[data-size='1x1'] {
-    gap: 0.375rem;
-}
-
-.home-pinned-worlds[data-size='1x1'] .home-widget-heading {
-    height: 1.5rem;
-}
-
-.home-widget-empty {
-    display: flex;
-    max-width: 20rem;
-    margin: auto;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-text-tertiary);
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    text-align: center;
-}
-
-.home-widget-empty svg {
-    width: 1.5rem;
-    height: 1.5rem;
-    opacity: 0.7;
-}
-</style>

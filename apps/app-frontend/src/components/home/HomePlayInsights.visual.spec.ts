@@ -18,7 +18,9 @@ vi.mock('@modrinth/ui', async () => {
         }),
         commonMessages: { retryButton: { defaultMessage: 'Retry' } },
         defineMessages: (messages: unknown) => messages,
+        useFormatDateTime: () => (date: Date) => date.toDateString(),
         useVIntl: () => ({
+            locale: { value: 'en-US' },
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),
     }
@@ -39,7 +41,10 @@ it('renders without Suspense while statistics load and releases a late process l
     )
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const wrapper = mount(HomePlayInsights, {
-        global: { plugins: [[VueQueryPlugin, { queryClient }]] },
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            directives: { tooltip: () => {} },
+        },
     })
     expect(wrapper.find('section').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('Play something')
@@ -59,7 +64,10 @@ it('offers a local retry for failed statistics instead of displaying an empty re
     backend.listen.mockResolvedValue(vi.fn())
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const wrapper = mount(HomePlayInsights, {
-        global: { plugins: [[VueQueryPlugin, { queryClient }]] },
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            directives: { tooltip: () => {} },
+        },
     })
     try {
         await flushPromises()

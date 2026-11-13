@@ -13,6 +13,8 @@ import { computed } from 'vue'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { get_minecraft_news, type MinecraftNewsItem } from '@/helpers/mc_news'
 
+import HomeWidgetFrame from './HomeWidgetFrame.vue'
+
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 const { offline } = useNetworkStatus()
@@ -47,6 +49,8 @@ const newsItems = computed(() =>
     })),
 )
 const loading = computed(() => newsQuery.isPending.value)
+const featured = computed(() => newsItems.value[0] ?? null)
+const rest = computed(() => newsItems.value.slice(1))
 
 const visible = computed(() => !offline.value && (loading.value || newsItems.value.length > 0))
 
@@ -71,71 +75,109 @@ async function openArticle(item: MinecraftNewsItem) {
 </script>
 
 <template>
-    <section
+    <HomeWidgetFrame
         v-if="visible"
-        class="flex min-w-0 flex-col gap-3 border-0 border-b-[1px] border-solid border-[--brand-gradient-border] p-4"
+        class="home-sidebar-section home-surface"
+        :title="formatMessage(messages.news)"
+        :icon="NewspaperIcon"
+        :loading="loading"
+        :skeleton-rows="NEWS_SKELETON_COUNT"
     >
-        <div class="flex items-center gap-2">
-            <NewspaperIcon
-                class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
-                aria-hidden="true"
-            />
-            <h2 class="m-0 truncate text-lg">
-                {{ formatMessage(messages.news) }}
-            </h2>
-        </div>
-        <ul v-if="loading" class="m-0 flex list-none flex-col gap-1.5 p-0" aria-hidden="true">
-            <li
-                v-for="index in NEWS_SKELETON_COUNT"
-                :key="index"
-                class="flex animate-pulse items-center gap-2.5 px-1.5 py-1.5"
+        <div class="flex min-w-0 flex-col gap-1">
+            <button
+                v-if="featured"
+                v-tooltip="formatMessage(messages.openArticle)"
+                type="button"
+                class="home-news-featured home-row group"
+                @click="openArticle(featured)"
             >
-                <div class="h-9 w-16 shrink-0 rounded-lg bg-surface-4" />
-                <div class="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <div class="h-3 w-full rounded bg-surface-4" />
-                    <div class="h-3 w-1/2 rounded bg-surface-4" />
-                </div>
-            </li>
-        </ul>
-        <ul v-else class="m-0 flex list-none flex-col p-0">
-            <li
-                v-for="item in newsItems"
-                :key="`${item.date ?? ''}:${item.title}`"
-                class="group min-w-0"
-            >
-                <button
-                    v-tooltip="formatMessage(messages.openArticle)"
-                    type="button"
-                    class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left transition-colors hover:bg-surface-4"
-                    @click="openArticle(item)"
-                >
+                <span class="home-news-cover">
                     <img
-                        v-if="item.image_url"
-                        :src="item.image_url"
+                        v-if="featured.image_url"
+                        :src="featured.image_url"
                         alt=""
-                        class="h-9 w-16 shrink-0 rounded-lg object-cover"
                         loading="lazy"
                     />
-                    <div v-else class="h-9 w-16 shrink-0 rounded-lg bg-surface-4" />
-                    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span
-                            class="line-clamp-2 text-sm font-semibold leading-snug text-[var(--color-text-primary)]"
-                        >
-                            {{ item.title }}
-                        </span>
-                        <span
-                            v-if="newsDateLabel(item)"
-                            class="truncate text-xs text-[var(--color-text-tertiary)]"
-                        >
-                            {{ newsDateLabel(item) }}
-                        </span>
-                    </div>
+                </span>
+                <span
+                    class="line-clamp-2 text-sm font-bold leading-snug text-[var(--color-text-primary)]"
+                >
+                    {{ featured.title }}
+                </span>
+                <span
+                    v-if="newsDateLabel(featured)"
+                    class="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]"
+                >
+                    {{ newsDateLabel(featured) }}
                     <ExternalIcon
-                        class="size-3.5 shrink-0 text-[var(--color-text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                        class="size-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
                         aria-hidden="true"
                     />
-                </button>
-            </li>
-        </ul>
-    </section>
+                </span>
+            </button>
+            <ul class="m-0 flex list-none flex-col p-0">
+                <li v-for="item in rest" :key="`${item.date ?? ''}:${item.title}`" class="min-w-0">
+                    <button
+                        v-tooltip="formatMessage(messages.openArticle)"
+                        type="button"
+                        class="home-row group flex w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-1.5 py-1.5 text-left"
+                        @click="openArticle(item)"
+                    >
+                        <img
+                            v-if="item.image_url"
+                            :src="item.image_url"
+                            alt=""
+                            class="h-9 w-14 shrink-0 rounded-[var(--radius-sm)] object-cover"
+                            loading="lazy"
+                        />
+                        <span
+                            v-else
+                            class="h-9 w-14 shrink-0 rounded-[var(--radius-sm)] bg-[var(--home-widget-tint)]"
+                        />
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <span
+                                class="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[var(--color-text-primary)]"
+                            >
+                                {{ item.title }}
+                            </span>
+                            <span
+                                v-if="newsDateLabel(item)"
+                                class="truncate text-xs text-[var(--color-text-tertiary)]"
+                            >
+                                {{ newsDateLabel(item) }}
+                            </span>
+                        </span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </HomeWidgetFrame>
 </template>
+
+<style scoped>
+.home-news-featured {
+    @apply flex w-full cursor-pointer flex-col gap-1.5 border-0 bg-transparent p-1.5 text-left;
+}
+
+.home-news-cover {
+    @apply block aspect-[16/9] w-full overflow-hidden rounded-[var(--radius-md)];
+    background: var(--home-widget-tint);
+}
+
+.home-news-cover img {
+    @apply block size-full object-cover;
+    transition: transform 240ms ease;
+}
+
+.home-news-featured:hover .home-news-cover img {
+    transform: scale(1.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-news-cover img,
+    .home-news-featured:hover .home-news-cover img {
+        transform: none;
+        transition: none;
+    }
+}
+</style>

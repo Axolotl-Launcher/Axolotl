@@ -1,31 +1,24 @@
 <script setup lang="ts">
+import { LinkIcon, NoSignalIcon, ServerIcon, SignalIcon, UnlinkIcon } from '@modrinth/assets'
 import {
-    LinkIcon,
-    MoreVerticalIcon,
-    NoSignalIcon,
-    PinIcon,
-    PlayIcon,
-    ServerIcon,
-    SignalIcon,
-    SpinnerIcon,
-    StopCircleIcon,
-    UnlinkIcon,
-} from '@modrinth/assets'
-import {
-    Avatar,
-    Button,
+    ButtonLink,
     defineMessages,
     injectNotificationManager,
     type MenuAction,
-    OverflowMenu,
-    SmartClickable,
     useVIntl,
 } from '@modrinth/ui'
 import { computed, reactive, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import type { HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
+import { useHomeLaunchTarget } from '@/components/home/home-launch-context'
+import { useHomeRowMenu } from '@/components/home/home-row-menu'
+import { getHomeWorldRowState } from '@/components/home/home-utils'
+import HomeItemRow from '@/components/home/HomeItemRow.vue'
 import HomeLocalServerPickerModal from '@/components/home/HomeLocalServerPickerModal.vue'
+import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
+import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
 import OnlineModeWarningModal from '@/components/multiplayer/servers/OnlineModeWarningModal.vue'
 import ManagedServerIcon from '@/components/multiplayer/servers/ServerIcon.vue'
 import ServerTerminateButton from '@/components/multiplayer/servers/ServerTerminateButton.vue'
@@ -33,13 +26,13 @@ import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { useOnlineModeWarning } from '@/composables/useOnlineModeWarning'
 import { useServers } from '@/composables/useServers'
 import { trackEvent } from '@/helpers/analytics'
-import { kill } from '@/helpers/instance'
+import { kill, run } from '@/helpers/instance'
 import { servers as serversApi } from '@/helpers/servers'
 import type { GameInstance } from '@/helpers/types'
 import {
     getWorldIdentifier,
+    hasServerQuickPlaySupport,
     type ServerWorld,
-    set_world_display_status,
     start_join_server,
     type WorldWithInstance,
 } from '@/helpers/worlds'
@@ -52,11 +45,12 @@ const props = defineProps<{
 }>()
 
 const { addNotification, handleError } = injectNotificationManager()
-const { formatMessage } = useVIntl()
+const { formatMessage, locale } = useVIntl()
 const handleMinecraftLaunchError = useMinecraftLaunchError()
 const { onlineModeWarningModal, confirmOnlineModeLaunch } = useOnlineModeWarning()
 const runtime = useHomeDashboardRuntime()
-const { favoriteWorlds, localServers, runningInstanceIds } = runtime
+const { favoriteWorlds, favoritesLoaded, gameVersions, localServers, runningInstanceIds } = runtime
+const { homePin, worldMenu } = useHomeRowMenu()
 const { startServer, stopServer } = useServers()
 
 const messages = defineMessages({
@@ -81,13 +75,13 @@ const messages = defineMessages({
         id: 'app.home.servers.join',
         defaultMessage: 'Join server',
     },
-    unpin: {
-        id: 'app.home.servers.unpin',
-        defaultMessage: 'Unpin from Home',
+    gameAlreadyOpen: {
+        id: 'instance.worlds.game_already_open',
+        defaultMessage: 'Instance is already open',
     },
-    moreOptions: {
-        id: 'app.home.servers.more-options',
-        defaultMessage: 'More options',
+    noServerQuickPlay: {
+        id: 'instance.worlds.no_server_quick_play',
+        defaultMessage: 'You can only jump straight into servers on Minecraft Alpha 1.0.5+',
     },
     localServer: {
         id: 'app.home.servers.local',
@@ -120,9 +114,62 @@ const messages = defineMessages({
     },
     start: { id: 'app.servers.action.start', defaultMessage: 'Start' },
     stop: { id: 'app.servers.action.stop', defaultMessage: 'Stop' },
+    addServer: { id: 'app.home.servers.add', defaultMessage: 'Add a server' },
 })
+const launchTarget = useHomeLaunchTarget(() => props.instances)
+
+function serverMeta(world: ServerWorld & WorldWithInstance): string {
+    const data = dataFor(world)
+    if (data.status) {
+        // Compact counts ("18K/200K") keep big servers from cutting the line short.
+        const count = new Intl.NumberFormat(locale.value, {
+            notation: 'compact',
+            maximumFractionDigits: 1,
+        })
+        return formatMessage(messages.playersOnline, {
+            online: count.format(data.status.players?.online ?? 0),
+            max: count.format(data.status.players?.max ?? 0),
+        })
+    }
+    return data.refreshing ? world.address : formatMessage(messages.offline)
+}
+
+function serverStatus(world: ServerWorld & WorldWithInstance) {
+    const data = dataFor(world)
+    if (data.refreshing) return 'pending' as const
+    return data.status ? ('online' as const) : ('offline' as const)
+}
 
 const startingServerKey = ref<string | null>(null)
+/** The server the running game was joined through from this widget. */
+const playingServerKey = ref<string | null>(null)
+
+watch(runningInstanceIds, (instanceIds) => {
+    if (playingServerKey.value && !instanceIds.includes(playingServerKey.value.split(':', 1)[0])) {
+        playingServerKey.value = null
+    }
+})
+
+function rowState(world: ServerWorld & WorldWithInstance, instance: GameInstance) {
+    const key = serverKey(world)
+    return getHomeWorldRowState({
+        instanceRunning: runningInstanceIds.value.includes(instance.id),
+        joinedHere: playingServerKey.value === key,
+        starting: startingServerKey.value === key,
+        supportsQuickPlay: hasServerQuickPlaySupport(gameVersions.value, instance.game_version),
+    })
+}
+
+function playLabel(world: ServerWorld & WorldWithInstance, instance: GameInstance): string {
+    switch (rowState(world, instance).reason) {
+        case 'no-quick-play':
+            return formatMessage(messages.noServerQuickPlay)
+        case 'game-open':
+            return formatMessage(messages.gameAlreadyOpen)
+        default:
+            return formatMessage(messages.join)
+    }
+}
 
 const instanceById = computed(
     () => new Map(props.instances.map((instance) => [instance.id, instance])),
@@ -176,18 +223,60 @@ function linkedServer(world: ServerWorld & WorldWithInstance) {
     )
 }
 
-function serverMenuOptions(world: ServerWorld & WorldWithInstance) {
-    const options: MenuAction[] = [{ id: 'unpin', action: () => unpinServer(world) }]
+function serverMenuOptions(world: ServerWorld & WorldWithInstance, instance: GameInstance) {
+    const options = worldMenu(world, instance, {
+        instanceRunning: runningInstanceIds.value.includes(instance.id),
+        playInstance: () => playInstance(instance),
+        refreshServer: () => runtime.refreshServer(instance.id, world.address, true),
+        pinChanged: () => Promise.all([runtime.refreshFavorites(), runtime.refreshRecentWorlds()]),
+    })
     if (!isLocalEntry(world)) return options
 
     const linked = linkedServer(world)
-    if (linked) {
-        options.unshift({ id: 'change-local-server', action: () => openLocalServerPicker(world) })
-        options.push({ id: 'unlink-local-server', action: () => unlinkLocalServer(linked.id) })
-    } else {
-        options.unshift({ id: 'link-local-server', action: () => openLocalServerPicker(world) })
+    const local: MenuAction[] = linked
+        ? [
+              {
+                  id: 'change-local-server',
+                  section: 'manage',
+                  icon: LinkIcon,
+                  label: formatMessage(messages.changeLocalServer),
+                  action: () => openLocalServerPicker(world),
+              },
+              {
+                  id: 'unlink-local-server',
+                  section: 'manage',
+                  icon: UnlinkIcon,
+                  label: formatMessage(messages.unlinkLocalServer),
+                  action: () => void unlinkLocalServer(linked.id),
+              },
+          ]
+        : [
+              {
+                  id: 'link-local-server',
+                  section: 'manage',
+                  icon: LinkIcon,
+                  label: formatMessage(messages.linkLocalServer),
+                  action: () => openLocalServerPicker(world),
+              },
+          ]
+    return [...local, ...options]
+}
+
+async function playInstance(instance: GameInstance) {
+    try {
+        await run(instance.id)
+        trackEvent('InstanceStart', {
+            loader: instance.loader,
+            game_version: instance.game_version,
+            source: 'HomePinnedServer',
+        })
+    } catch (error) {
+        const handled = await handleMinecraftLaunchError(error, {
+            instance_id: instance.id,
+            instance_name: instance.name,
+        })
+        if (!handled) handleSevereError(error, { instanceId: instance.id })
     }
-    return options
 }
 
 function openLocalServerPicker(world: ServerWorld & WorldWithInstance) {
@@ -261,6 +350,7 @@ async function joinServer(world: ServerWorld & WorldWithInstance, instance: Game
             }
         }
         await start_join_server(world.instance_id, world.address)
+        playingServerKey.value = key
         trackEvent('InstanceStart', {
             loader: instance.loader,
             game_version: instance.game_version,
@@ -279,18 +369,12 @@ async function joinServer(world: ServerWorld & WorldWithInstance, instance: Game
 
 async function stopInstance(instance: GameInstance) {
     await kill(instance.id).catch(handleError)
+    playingServerKey.value = null
     trackEvent('InstanceStop', {
         loader: instance.loader,
         game_version: instance.game_version,
         source: 'HomePinnedServer',
     })
-}
-
-async function unpinServer(world: ServerWorld & WorldWithInstance) {
-    await set_world_display_status(world.instance_id, 'server', world.address, 'normal').catch(
-        handleError,
-    )
-    await runtime.refreshFavorites()
 }
 
 async function startLocalServer(serverId: string) {
@@ -303,245 +387,110 @@ async function stopLocalServer(serverId: string) {
     await runtime.refreshPinnedLocalServers()
 }
 
-async function unpinLocalServer(serverId: string) {
-    await serversApi.updateSettings(serverId, { homePinned: false }).catch(handleError)
-    await runtime.refreshPinnedLocalServers()
+function localServerMenu(serverId: string): MenuAction[] {
+    return [
+        homePin(true, async () => {
+            await serversApi.updateSettings(serverId, { homePinned: false })
+            await runtime.refreshPinnedLocalServers()
+        }),
+    ]
 }
 </script>
 
 <template>
-    <section
-        class="home-pinned-servers flex min-w-0 min-h-0 h-full flex-col gap-3"
+    <HomeWidgetFrame
+        class="home-pinned-servers"
         :data-size="dashboardSize"
+        :title="formatMessage(messages.pinnedServers)"
+        :icon="ServerIcon"
+        :badge="servers.length + pinnedLocalServers.length || null"
+        :dense="dashboardSize?.endsWith('x1')"
+        :loading="!favoritesLoaded"
+        :skeleton-rows="dashboardSize === '1x1' ? 1 : 3"
+        :empty-text="hasServers ? null : formatMessage(messages.emptyServers)"
+        :empty-icon="ServerIcon"
     >
-        <div class="home-widget-heading flex min-w-0 h-8 flex-none items-center gap-2">
-            <ServerIcon class="size-5 shrink-0 text-brand" aria-hidden="true" />
-            <h2>{{ formatMessage(messages.pinnedServers) }}</h2>
-        </div>
-        <div v-if="!hasServers" class="home-widget-empty">
-            <ServerIcon aria-hidden="true" />
-            <span>{{ formatMessage(messages.emptyServers) }}</span>
-        </div>
-        <ul
-            v-else
-            class="home-server-list grid grid-cols-1 min-w-0 min-h-0 flex-1 grid-auto-rows-max content-start gap-1 m-0 list-none overflow-x-hidden overflow-y-auto p-0 pr-1"
-        >
+        <template #empty-action>
+            <ButtonLink
+                :as="RouterLink"
+                :to="
+                    launchTarget
+                        ? `/instance/${encodeURIComponent(launchTarget.id)}/worlds`
+                        : '/library'
+                "
+                size="sm"
+            >
+                <ServerIcon aria-hidden="true" />
+                {{ formatMessage(messages.addServer) }}
+            </ButtonLink>
+        </template>
+        <ul class="home-pinned-list">
             <li v-for="server in servers" :key="serverKey(server.world)" class="min-w-0">
-                <SmartClickable>
-                    <template #clickable>
-                        <router-link
-                            :aria-label="server.world.name"
-                            :to="`/instance/${encodeURIComponent(server.instance.id)}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(server.world))}`"
+                <HomeItemRow
+                    :title="server.world.name"
+                    :to="`/instance/${encodeURIComponent(server.instance.id)}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(server.world))}`"
+                    :meta="serverMeta(server.world)"
+                    :meta-icon="dataFor(server.world).status ? SignalIcon : NoSignalIcon"
+                    :tag="isLocalEntry(server.world) ? formatMessage(messages.localServer) : null"
+                    :image-src="
+                        dataFor(server.world).status?.favicon ?? (server.world.icon || null)
+                    "
+                    :image-tint="server.world.address"
+                    :status="serverStatus(server.world)"
+                    :running="rowState(server.world, server.instance).showStop"
+                    :starting="startingServerKey === serverKey(server.world)"
+                    :play-disabled="rowState(server.world, server.instance).playDisabled"
+                    :play-label="playLabel(server.world, server.instance)"
+                    :stop-label="formatMessage(messages.stop)"
+                    @play="joinServer(server.world, server.instance)"
+                    @stop="stopInstance(server.instance)"
+                >
+                    <template #actions>
+                        <HomeRowMenu
+                            class="home-server-menu"
+                            :options="serverMenuOptions(server.world, server.instance)"
                         />
                     </template>
-                    <div class="home-server-row group smart-clickable:highlight-on-hover">
-                        <div class="relative shrink-0">
-                            <Avatar
-                                :src="
-                                    dataFor(server.world).status?.favicon ??
-                                    (server.world.icon || undefined)
-                                "
-                                :tint-by="server.world.address"
-                                size="36px"
-                            />
-                            <span
-                                class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-solid border-bg-raised"
-                                :class="
-                                    dataFor(server.world).refreshing
-                                        ? 'animate-pulse bg-[var(--color-text-tertiary)]'
-                                        : dataFor(server.world).status
-                                          ? 'bg-brand-green'
-                                          : 'bg-red'
-                                "
-                                aria-hidden="true"
-                            />
-                        </div>
-                        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <span
-                                class="truncate text-sm font-semibold text-[var(--color-text-primary)]"
-                            >
-                                {{ server.world.name }}
-                            </span>
-                            <span
-                                v-if="dataFor(server.world).status"
-                                class="flex min-w-0 items-center gap-1 text-xs text-[var(--color-text-tertiary)]"
-                            >
-                                <SignalIcon class="size-3 shrink-0" aria-hidden="true" />
-                                <span class="truncate">
-                                    {{
-                                        formatMessage(messages.playersOnline, {
-                                            online:
-                                                dataFor(server.world).status?.players?.online ?? 0,
-                                            max: dataFor(server.world).status?.players?.max ?? 0,
-                                        })
-                                    }}
-                                </span>
-                            </span>
-                            <span
-                                v-else-if="dataFor(server.world).refreshing"
-                                class="truncate text-xs text-[var(--color-text-tertiary)]"
-                            >
-                                {{ server.world.address }}
-                            </span>
-                            <span
-                                v-else
-                                class="flex min-w-0 items-center gap-1 text-xs text-[var(--color-text-tertiary)]"
-                            >
-                                <NoSignalIcon class="size-3 shrink-0" aria-hidden="true" />
-                                <span class="truncate">{{ formatMessage(messages.offline) }}</span>
-                            </span>
-                        </div>
-                        <div
-                            class="ml-auto flex shrink-0 items-center gap-0.5 smart-clickable:allow-pointer-events"
-                        >
-                            <Button
-                                v-if="runningInstanceIds.includes(server.instance.id)"
-                                v-tooltip="formatMessage(messages.stop)"
-                                type="quiet"
-                                size="2xs"
-                                circular
-                                icon-only
-                                class="!text-red"
-                                @click="stopInstance(server.instance)"
-                                ><StopCircleIcon />
-                            </Button>
-                            <Button
-                                v-else
-                                v-tooltip="formatMessage(messages.join)"
-                                type="quiet"
-                                size="2xs"
-                                circular
-                                icon-only
-                                class="!text-brand opacity-60 transition-opacity group-hover:opacity-100"
-                                :disabled="startingServerKey === serverKey(server.world)"
-                                @click="joinServer(server.world, server.instance)"
-                                ><SpinnerIcon
-                                    v-if="startingServerKey === serverKey(server.world)"
-                                    class="animate-spin"
-                                />
-                                <PlayIcon v-else />
-                            </Button>
-                            <OverflowMenu
-                                class="home-server-menu relative inline-flex size-6 min-w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-solid border-transparent bg-transparent p-0 text-[var(--color-text-default)] transition-[background-color,color,filter,transform] duration-150 hover:bg-surface-4 hover:brightness-[--hover-brightness] active:scale-[0.97] [&>svg]:size-4"
-                                :options="serverMenuOptions(server.world)"
-                                :tooltip="formatMessage(messages.moreOptions)"
-                            >
-                                <MoreVerticalIcon />
-                                <template #link-local-server>
-                                    <LinkIcon aria-hidden="true" />
-                                    {{ formatMessage(messages.linkLocalServer) }}
-                                </template>
-                                <template #change-local-server>
-                                    <LinkIcon aria-hidden="true" />
-                                    {{ formatMessage(messages.changeLocalServer) }}
-                                </template>
-                                <template #unlink-local-server>
-                                    <UnlinkIcon aria-hidden="true" />
-                                    {{ formatMessage(messages.unlinkLocalServer) }}
-                                </template>
-                                <template #unpin>
-                                    <PinIcon class="rotate-45" aria-hidden="true" />
-                                    {{ formatMessage(messages.unpin) }}
-                                </template>
-                            </OverflowMenu>
-                        </div>
-                    </div>
-                </SmartClickable>
+                </HomeItemRow>
             </li>
             <li v-for="server in pinnedLocalServers" :key="'local-' + server.id" class="min-w-0">
-                <SmartClickable>
-                    <template #clickable>
-                        <router-link
-                            :aria-label="server.name"
-                            :to="`/multiplayer/servers/${encodeURIComponent(server.id)}`"
+                <HomeItemRow
+                    :title="server.name"
+                    :to="`/multiplayer/servers/${encodeURIComponent(server.id)}`"
+                    :meta="
+                        server.port
+                            ? `localhost:${server.port}`
+                            : `${server.serverType} ${server.gameVersion}`
+                    "
+                    :tag="formatMessage(messages.localServer)"
+                    :status="server.running ? 'online' : 'offline'"
+                    :running="server.running || server.starting"
+                    :play-disabled="server.stopping"
+                    :play-label="formatMessage(messages.start)"
+                    :stop-label="formatMessage(server.stopping ? messages.stopping : messages.stop)"
+                    @play="startLocalServer(server.id)"
+                    @stop="stopLocalServer(server.id)"
+                >
+                    <template #icon>
+                        <ManagedServerIcon
+                            :icon-path="server.iconPath"
+                            :server-type="server.serverType"
+                            :server-id="server.id"
+                            size="36px"
                         />
                     </template>
-                    <div class="home-server-row group smart-clickable:highlight-on-hover">
-                        <div class="relative shrink-0">
-                            <ManagedServerIcon
-                                :icon-path="server.iconPath"
-                                :server-type="server.serverType"
-                                :server-id="server.id"
-                                size="36px"
-                            />
-                            <span
-                                class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-solid border-bg-raised"
-                                :class="server.running ? 'bg-brand-green' : 'bg-red'"
-                                aria-hidden="true"
-                            />
-                        </div>
-                        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <span
-                                class="truncate text-sm font-semibold text-[var(--color-text-primary)]"
-                                >{{ server.name }}</span
-                            >
-                            <span
-                                class="flex min-w-0 items-center gap-1 text-xs text-[var(--color-text-tertiary)]"
-                            >
-                                <span
-                                    class="shrink-0 rounded bg-surface-4 px-1 text-[10px] font-semibold"
-                                >
-                                    {{ formatMessage(messages.localServer) }}
-                                </span>
-                                <span class="truncate">
-                                    {{
-                                        server.port
-                                            ? `localhost:${server.port}`
-                                            : `${server.serverType} ${server.gameVersion}`
-                                    }}
-                                </span>
-                            </span>
-                        </div>
-                        <div
-                            class="ml-auto flex shrink-0 items-center gap-0.5 smart-clickable:allow-pointer-events"
-                        >
-                            <Button
-                                v-tooltip="
-                                    formatMessage(
-                                        server.stopping
-                                            ? messages.stopping
-                                            : server.running || server.starting
-                                              ? messages.stop
-                                              : messages.start,
-                                    )
-                                "
-                                type="quiet"
-                                size="2xs"
-                                circular
-                                icon-only
-                                :disabled="server.stopping"
-                                :class="
-                                    server.running || server.starting ? '!text-red' : '!text-brand'
-                                "
-                                @click="
-                                    server.running || server.starting
-                                        ? stopLocalServer(server.id)
-                                        : startLocalServer(server.id)
-                                "
-                                ><StopCircleIcon v-if="server.running || server.starting" />
-                                <PlayIcon v-else />
-                            </Button>
-                            <ServerTerminateButton
-                                v-if="server.stopping"
-                                :server-id="server.id"
-                                size="2xs"
-                            />
-                            <OverflowMenu
-                                class="home-server-menu relative inline-flex size-6 min-w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-solid border-transparent bg-transparent p-0 text-[var(--color-text-default)] transition-[background-color,color,filter,transform] duration-150 hover:bg-surface-4 hover:brightness-[--hover-brightness] active:scale-[0.97] [&>svg]:size-4"
-                                :options="[
-                                    { id: 'unpin', action: () => unpinLocalServer(server.id) },
-                                ]"
-                                :tooltip="formatMessage(messages.moreOptions)"
-                            >
-                                <MoreVerticalIcon />
-                                <template #unpin>
-                                    <PinIcon class="rotate-45" aria-hidden="true" />
-                                    {{ formatMessage(messages.unpin) }}
-                                </template>
-                            </OverflowMenu>
-                        </div>
-                    </div>
-                </SmartClickable>
+                    <template #actions>
+                        <ServerTerminateButton
+                            v-if="server.stopping"
+                            :server-id="server.id"
+                            size="2xs"
+                        />
+                        <HomeRowMenu
+                            class="home-server-menu"
+                            :options="localServerMenu(server.id)"
+                        />
+                    </template>
+                </HomeItemRow>
             </li>
         </ul>
         <HomeLocalServerPickerModal
@@ -551,69 +500,5 @@ async function unpinLocalServer(serverId: string) {
             @select="linkLocalServer"
         />
         <OnlineModeWarningModal ref="onlineModeWarningModal" />
-    </section>
+    </HomeWidgetFrame>
 </template>
-
-<style scoped>
-.home-widget-heading h2 {
-    min-width: 0;
-    overflow: hidden;
-    margin: 0;
-    color: var(--color-text-primary);
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.home-server-row {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.5rem;
-    border-radius: 6px;
-    transition: background-color 120ms ease;
-}
-
-/* Two columns only while each keeps room for the player count: a 2-wide card
-   on a narrow dashboard otherwise cut "18179/200000" down to "18179/20000…". */
-.home-pinned-servers[data-size='2x1'] .home-server-list,
-.home-pinned-servers[data-size='2x2'] .home-server-list {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-    column-gap: 0.5rem;
-}
-
-.home-pinned-servers[data-size='1x1'] {
-    gap: 0.375rem;
-}
-
-.home-pinned-servers[data-size='1x1'] .home-widget-heading {
-    height: 1.5rem;
-}
-
-.home-pinned-servers[data-size='1x1'] .home-server-row {
-    gap: 0.5rem;
-    padding: 0.375rem;
-}
-
-.home-widget-empty {
-    display: flex;
-    max-width: 20rem;
-    margin: auto;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-text-tertiary);
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    text-align: center;
-}
-
-.home-widget-empty svg {
-    width: 1.5rem;
-    height: 1.5rem;
-    opacity: 0.7;
-}
-</style>

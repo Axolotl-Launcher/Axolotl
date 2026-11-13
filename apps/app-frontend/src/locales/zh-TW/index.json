@@ -8,6 +8,12 @@
   "app.downloads.slow-downloads.dismiss": {
     "message": "不再提示"
   },
+  "app.home.launch.recent-short": {
+    "message": "最近"
+  },
+  "app.home.row.shortcut-created": {
+    "message": "已建立捷徑"
+  },
   "app.settings.resources.force-multiconnection": {
     "message": "強制多連線下載"
   },
@@ -1856,6 +1862,9 @@
   "app.home.breadcrumb": {
     "message": "首頁"
   },
+  "app.home.calendar.month-total": {
+    "message": "本月 {duration}"
+  },
   "app.home.calendar.next": {
     "message": "下個月"
   },
@@ -2009,6 +2018,9 @@
   "app.home.insights.this-week": {
     "message": "本週遊玩 {duration}"
   },
+  "app.home.insights.this-week-label": {
+    "message": "本週"
+  },
   "app.home.insights.this-week-less": {
     "message": "本週遊玩 {duration}（比上週少 {percent}%）"
   },
@@ -2021,6 +2033,9 @@
   "app.home.insights.title": {
     "message": "遊玩洞察"
   },
+  "app.home.insights.vs-last-week": {
+    "message": "較上週"
+  },
   "app.home.insights.week-top": {
     "message": "本週常玩：{name}"
   },
@@ -2030,20 +2045,44 @@
   "app.home.instances.empty": {
     "message": "還沒有實例"
   },
-  "app.home.instances.pin": {
-    "message": "固定到首頁"
-  },
   "app.home.instances.pinned": {
     "message": "固定的實例"
   },
   "app.home.instances.pinned-empty": {
     "message": "在實例卡片菜單或實例庫中選擇「固定到首頁」，實例就會顯示在這裡。"
   },
-  "app.home.instances.unpin": {
-    "message": "取消固定"
-  },
   "app.home.instances.view-all": {
     "message": "查看全部實例"
+  },
+  "app.home.launch.all-instances": {
+    "message": "全部實例"
+  },
+  "app.home.launch.continue": {
+    "message": "繼續遊玩"
+  },
+  "app.home.launch.home-instance": {
+    "message": "主頁實例"
+  },
+  "app.home.launch.last-world": {
+    "message": "上次進入：{name}"
+  },
+  "app.home.launch.not-installed": {
+    "message": "未安裝"
+  },
+  "app.home.launch.recent": {
+    "message": "最近遊玩"
+  },
+  "app.home.launch.running": {
+    "message": "執行中"
+  },
+  "app.home.launch.switch": {
+    "message": "切換實例"
+  },
+  "app.home.launch.switch-to": {
+    "message": "切換到 {name}"
+  },
+  "app.home.launch.total-played": {
+    "message": "累計 {duration}"
   },
   "app.home.layout.switch-to-information": {
     "message": "切換到資訊首頁"
@@ -2053,9 +2092,6 @@
   },
   "app.home.layout.toggle": {
     "message": "極簡首頁"
-  },
-  "app.home.minimal.change-instance": {
-    "message": "更換首頁實例"
   },
   "app.home.minimal.choose-instance": {
     "message": "選擇實例"
@@ -2084,6 +2120,9 @@
   "app.home.playtime.hours-minutes": {
     "message": "{hours} 小時 {minutes} 分鐘"
   },
+  "app.home.playtime.hours-short": {
+    "message": "{hours} 小時"
+  },
   "app.home.playtime.minutes": {
     "message": "{minutes} 分鐘"
   },
@@ -2101,6 +2140,9 @@
   },
   "app.home.recent.title": {
     "message": "從最近的項目開始"
+  },
+  "app.home.servers.add": {
+    "message": "新增伺服器"
   },
   "app.home.servers.empty": {
     "message": "將伺服器標記為收藏後，就會固定在這裡。"
@@ -2122,9 +2164,6 @@
   },
   "app.home.servers.stop": {
     "message": "停止"
-  },
-  "app.home.servers.unpin": {
-    "message": "取消固定"
   },
   "app.home.shortcut.kind.instance": {
     "message": "例項"
@@ -2197,6 +2236,12 @@
   },
   "app.home.widgets.instance-description": {
     "message": "選擇一個例項，建立獨立的快速啟動入口。"
+  },
+  "app.home.widgets.launch": {
+    "message": "啟動"
+  },
+  "app.home.widgets.launch-description": {
+    "message": "一鍵啟動主頁實例，或切換到其他實例。"
   },
   "app.home.widgets.layout.switch-to-free": {
     "message": "切換到自由小元件佈局"
@@ -2281,6 +2326,9 @@
   },
   "app.home.widgets.world-description": {
     "message": "選擇一個世界，建立獨立的快速遊玩入口。"
+  },
+  "app.home.worlds.browse": {
+    "message": "開啟世界列表"
   },
   "app.home.worlds.empty": {
     "message": "將世界標記為收藏後，就會固定在這裡。"

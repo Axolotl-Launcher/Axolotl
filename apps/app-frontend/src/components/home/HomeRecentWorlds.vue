@@ -1,19 +1,28 @@
 <script setup lang="ts">
-import { HistoryIcon } from '@modrinth/assets'
-import { defineMessages, GAME_MODES, injectNotificationManager, useVIntl } from '@modrinth/ui'
+import { GameIcon, HistoryIcon, ServerIcon } from '@modrinth/assets'
+import {
+    commonMessages,
+    defineMessages,
+    formatLoaderLabel,
+    injectNotificationManager,
+    useRelativeTime,
+    useVIntl,
+} from '@modrinth/ui'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { computed, ref, watch } from 'vue'
 
 import {
-    getHomeWidgetCardDensity,
     HOME_RECENT_DEFAULT_LIMIT,
     type HomeRecentLimit,
     type HomeWidgetSize,
 } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
-import InstanceItem from '@/components/ui/world/InstanceItem.vue'
-import WorldItem from '@/components/ui/world/WorldItem.vue'
+import { useHomeRowMenu } from '@/components/home/home-row-menu'
+import { getHomeWorldRowState } from '@/components/home/home-utils'
+import HomeItemRow from '@/components/home/HomeItemRow.vue'
+import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
+import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { kill, run } from '@/helpers/instance'
@@ -22,7 +31,6 @@ import {
     getWorldIdentifier,
     hasServerQuickPlaySupport,
     hasWorldQuickPlaySupport,
-    type ServerWorld,
     start_join_server,
     start_join_singleplayer_world,
     type WorldWithInstance,
@@ -35,18 +43,23 @@ const props = withDefaults(
         dashboard?: boolean
         dashboardSize?: HomeWidgetSize | null
         limit?: HomeRecentLimit
+        /** The instance the launch card already offers; listing it again adds nothing. */
+        excludeInstanceId?: string | null
     }>(),
     {
         dashboardSize: null,
         limit: HOME_RECENT_DEFAULT_LIMIT,
+        excludeInstanceId: null,
     },
 )
 
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
+const formatRelativeTime = useRelativeTime()
 const handleMinecraftLaunchError = useMinecraftLaunchError()
 const runtime = useHomeDashboardRuntime()
-const { gameVersions, recentWorlds, runningInstanceIds } = runtime
+const { gameVersions, recentWorlds, recentWorldsLoaded, runningInstanceIds } = runtime
+const { instanceMenu, worldMenu } = useHomeRowMenu()
 
 const messages = defineMessages({
     recentTitle: {
@@ -57,6 +70,19 @@ const messages = defineMessages({
         id: 'app.home.recent.empty',
         defaultMessage: 'No recent activity yet.',
     },
+    noServerQuickPlay: {
+        id: 'instance.worlds.no_server_quick_play',
+        defaultMessage: 'You can only jump straight into servers on Minecraft Alpha 1.0.5+',
+    },
+    noWorldQuickPlay: {
+        id: 'instance.worlds.no_singleplayer_quick_play',
+        defaultMessage: 'You can only jump straight into singleplayer worlds on Minecraft 1.20+',
+    },
+    gameAlreadyOpen: {
+        id: 'instance.worlds.game_already_open',
+        defaultMessage: 'Instance is already open',
+    },
+    worldInUse: { id: 'instance.worlds.world_in_use', defaultMessage: 'World is in use' },
 })
 
 type RecentItem =
@@ -78,7 +104,12 @@ const recentItems = computed<RecentItem[]>(() => {
     })
     const coveredInstanceIds = new Set(worldItems.map((item) => item.instance.id))
     const instanceItems: RecentItem[] = props.instances
-        .filter((instance) => instance.last_played && !coveredInstanceIds.has(instance.id))
+        .filter(
+            (instance) =>
+                instance.last_played &&
+                instance.id !== props.excludeInstanceId &&
+                !coveredInstanceIds.has(instance.id),
+        )
         .map((instance) => ({
             type: 'instance',
             last_played: dayjs(instance.last_played),
@@ -89,16 +120,93 @@ const recentItems = computed<RecentItem[]>(() => {
         .sort((a, b) => b.last_played.diff(a.last_played))
         .slice(0, props.limit)
 })
-const itemDensity = computed(() => getHomeWidgetCardDensity(props.dashboardSize))
+
+function versionLabel(instance: GameInstance): string {
+    const loader = instance.loader === 'vanilla' ? 'Minecraft' : formatLoaderLabel(instance.loader)
+    return `${loader} ${instance.game_version}`
+}
+
+function itemMeta(item: RecentItem): string {
+    const when = formatRelativeTime(item.last_played.toISOString())
+    return item.type === 'world'
+        ? `${item.instance.name} · ${when}`
+        : `${versionLabel(item.instance)} · ${when}`
+}
+
+function supportsQuickPlay(item: RecentItem): boolean {
+    if (item.type !== 'world') return true
+    return item.world.type === 'server'
+        ? hasServerQuickPlaySupport(gameVersions.value, item.instance.game_version)
+        : hasWorldQuickPlaySupport(gameVersions.value, item.instance.game_version)
+}
+
+/** Play or stop for a row; an instance row is simply its instance's state. */
+function rowState(item: RecentItem) {
+    const instanceRunning = runningInstanceIds.value.includes(item.instance.id)
+    if (item.type === 'instance') {
+        return { showStop: instanceRunning, playDisabled: false, reason: null }
+    }
+    const key = worldKey(item.world)
+    return getHomeWorldRowState({
+        instanceRunning,
+        joinedHere: playingWorldKey.value === key,
+        starting: startingWorldKey.value === key,
+        locked: item.world.type === 'singleplayer' && item.world.locked,
+        supportsQuickPlay: supportsQuickPlay(item),
+    })
+}
+
+function playLabel(item: RecentItem): string {
+    switch (rowState(item).reason) {
+        case 'no-quick-play':
+            return formatMessage(
+                item.type === 'world' && item.world.type === 'server'
+                    ? messages.noServerQuickPlay
+                    : messages.noWorldQuickPlay,
+            )
+        case 'game-open':
+            return formatMessage(messages.gameAlreadyOpen)
+        case 'world-in-use':
+            return formatMessage(messages.worldInUse)
+        default:
+            return formatMessage(commonMessages.playButton)
+    }
+}
+
+function rowMenu(item: RecentItem) {
+    if (item.type === 'instance') return instanceMenu(item.instance)
+    const { world, instance } = item
+    return worldMenu(world, instance, {
+        instanceRunning: runningInstanceIds.value.includes(instance.id),
+        playInstance: () => playInstance(instance),
+        refreshServer:
+            world.type === 'server'
+                ? () => runtime.refreshServer(instance.id, world.address, true)
+                : undefined,
+        pinChanged: () => Promise.all([runtime.refreshRecentWorlds(), runtime.refreshFavorites()]),
+    })
+}
+
+function itemRoute(item: RecentItem): string {
+    const instancePath = `/instance/${encodeURIComponent(item.instance.id)}`
+    return item.type === 'world'
+        ? `${instancePath}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(item.world))}`
+        : instancePath
+}
+
+function worldIcon(world: WorldWithInstance): string | null {
+    if (world.type === 'server') {
+        return (
+            runtime.getServerData(world.instance_id, world.address).status?.favicon ??
+            world.icon ??
+            null
+        )
+    }
+    return world.icon ?? null
+}
 
 function worldKey(world: WorldWithInstance): string {
     return `${world.instance_id}:${world.type}:${getWorldIdentifier(world)}`
-}
-
-function serverDataFor(world: WorldWithInstance) {
-    return world.type === 'server'
-        ? runtime.getServerData(world.instance_id, world.address)
-        : undefined
 }
 
 watch(runningInstanceIds, (instanceIds) => {
@@ -163,125 +271,61 @@ async function stopInstance(instance: GameInstance) {
 </script>
 
 <template>
-    <section
-        class="home-recent-worlds flex min-w-0 min-h-0 h-full flex-col gap-3"
+    <HomeWidgetFrame
+        class="home-recent-worlds"
         :data-size="dashboardSize"
+        :title="formatMessage(messages.recentTitle)"
+        :icon="HistoryIcon"
+        :dense="dashboardSize?.endsWith('x1')"
+        :loading="!recentWorldsLoaded"
+        :skeleton-rows="Math.min(limit, 2)"
+        :empty-text="recentItems.length === 0 ? formatMessage(messages.emptyRecent) : null"
+        :empty-icon="HistoryIcon"
     >
-        <div class="home-widget-heading flex min-w-0 h-8 flex-none items-center gap-2">
-            <h2>{{ formatMessage(messages.recentTitle) }}</h2>
-        </div>
-        <div
-            v-if="recentItems.length > 0"
-            class="home-recent-list flex min-w-0 min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto pr-1"
-        >
-            <template
+        <ul class="home-pinned-list home-recent-list">
+            <li
                 v-for="item in recentItems"
                 :key="item.type === 'world' ? worldKey(item.world) : `${item.instance.id}:instance`"
+                class="min-w-0"
             >
-                <WorldItem
-                    v-if="item.type === 'world'"
-                    :world="item.world"
-                    :playing-instance="runningInstanceIds.includes(item.instance.id)"
-                    :playing-world="playingWorldKey === worldKey(item.world)"
-                    :starting-instance="startingWorldKey === worldKey(item.world)"
-                    :supports-server-quick-play="
-                        item.world.type === 'server' &&
-                        hasServerQuickPlaySupport(gameVersions, item.instance.game_version)
+                <HomeItemRow
+                    :title="item.type === 'world' ? item.world.name : item.instance.name"
+                    :to="itemRoute(item)"
+                    :meta="itemMeta(item)"
+                    :meta-icon="
+                        item.type === 'world'
+                            ? item.world.type === 'server'
+                                ? ServerIcon
+                                : GameIcon
+                            : null
                     "
-                    :supports-world-quick-play="
-                        item.world.type === 'singleplayer' &&
-                        hasWorldQuickPlaySupport(gameVersions, item.instance.game_version)
+                    :instance="
+                        item.type === 'instance' || !worldIcon(item.world)
+                            ? {
+                                  id: item.instance.id,
+                                  iconPath: item.instance.icon_path,
+                                  loader: item.instance.loader,
+                              }
+                            : null
                     "
-                    :current-protocol="runtime.getProtocolVersion(item.instance.id)"
-                    :refreshing="
-                        item.world.type === 'server'
-                            ? serverDataFor(item.world)?.refreshing
-                            : undefined
+                    :image-src="item.type === 'world' ? worldIcon(item.world) : null"
+                    :running="rowState(item).showStop"
+                    :starting="item.type === 'world' && startingWorldKey === worldKey(item.world)"
+                    :play-disabled="rowState(item).playDisabled"
+                    :play-label="playLabel(item)"
+                    :stop-label="formatMessage(commonMessages.stopButton)"
+                    @play="
+                        item.type === 'world'
+                            ? joinWorld(item.world, item.instance)
+                            : playInstance(item.instance)
                     "
-                    :server-status="
-                        item.world.type === 'server' ? serverDataFor(item.world)?.status : undefined
-                    "
-                    :rendered-motd="
-                        item.world.type === 'server'
-                            ? serverDataFor(item.world)?.renderedMotd
-                            : undefined
-                    "
-                    :game-mode="
-                        item.world.type === 'singleplayer'
-                            ? GAME_MODES[item.world.game_mode]
-                            : undefined
-                    "
-                    :instance-id="item.instance.id"
-                    :instance-name="item.instance.name"
-                    :instance-icon="item.instance.icon_path"
-                    :instance-loader="item.instance.loader"
-                    :shortcut-instance-id="item.instance.id"
-                    :flat="dashboard"
-                    :dashboard-density="itemDensity"
-                    @play="joinWorld(item.world, item.instance)"
-                    @play-instance="playInstance(item.instance)"
                     @stop="stopInstance(item.instance)"
-                    @refresh="
-                        item.world.type === 'server'
-                            ? runtime.refreshServer(
-                                  item.instance.id,
-                                  (item.world as ServerWorld).address,
-                                  true,
-                              )
-                            : undefined
-                    "
-                    @update="runtime.refreshRecentWorlds"
-                />
-                <InstanceItem
-                    v-else
-                    :instance="item.instance"
-                    :last-played="item.last_played"
-                    :flat="dashboard"
-                    :playing="runningInstanceIds.includes(item.instance.id)"
-                    :dashboard-density="itemDensity"
-                />
-            </template>
-        </div>
-        <div v-else class="home-widget-empty">
-            <HistoryIcon aria-hidden="true" />
-            <span>{{ formatMessage(messages.emptyRecent) }}</span>
-        </div>
-    </section>
+                >
+                    <template #actions>
+                        <HomeRowMenu :options="rowMenu(item)" />
+                    </template>
+                </HomeItemRow>
+            </li>
+        </ul>
+    </HomeWidgetFrame>
 </template>
-
-<style scoped>
-.home-widget-heading h2 {
-    min-width: 0;
-    overflow: hidden;
-    margin: 0;
-    color: var(--color-text-primary);
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.home-recent-worlds[data-size='2x1'] {
-    gap: 0.5rem;
-}
-
-.home-widget-empty {
-    display: flex;
-    max-width: 20rem;
-    margin: auto;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-text-tertiary);
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    text-align: center;
-}
-
-.home-widget-empty svg {
-    width: 1.5rem;
-    height: 1.5rem;
-    opacity: 0.7;
-}
-</style>

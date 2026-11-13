@@ -4,8 +4,11 @@ import {
     buildHeatmapDays,
     getActivePlayerAccount,
     getActivePlayerName,
+    getHomeWorldRowState,
     getPlaytimeLevel,
+    getQuickSwitchInstances,
     getTimeBucket,
+    resolveHomeLaunchInstance,
     stableGreetingIndex,
     toDateKey,
 } from './home-utils.ts'
@@ -87,4 +90,84 @@ it('uses only active online accounts for player greetings', () => {
     expect(getActivePlayerName('offline', accounts)).toBe(null)
     expect(getActivePlayerName(undefined, accounts)).toBe(null)
     expect(getActivePlayerName('missing', accounts)).toBe(null)
+})
+
+it('launches the chosen Home instance, or else the one played last', () => {
+    const instances = [
+        { id: 'old', last_played: '2026-01-01T10:00:00Z' },
+        { id: 'never', last_played: null },
+        { id: 'new', last_played: '2026-03-01T10:00:00Z' },
+    ]
+
+    expect(resolveHomeLaunchInstance(instances, 'old')).toEqual({
+        instance: instances[0],
+        chosen: true,
+    })
+    expect(resolveHomeLaunchInstance(instances, 'deleted')).toEqual({
+        instance: instances[2],
+        chosen: false,
+    })
+    expect(resolveHomeLaunchInstance(instances, null)?.instance.id).toBe('new')
+    expect(resolveHomeLaunchInstance([{ id: 'never', last_played: null }], null)).toBeNull()
+    expect(resolveHomeLaunchInstance([], 'old')).toBeNull()
+})
+
+it('offers the other instances to switch to, most recently played first', () => {
+    const instances = [
+        { id: 'a', last_played: '2026-01-01T10:00:00Z' },
+        { id: 'b', last_played: null },
+        { id: 'c', last_played: '2026-03-01T10:00:00Z' },
+        { id: 'd', last_played: '2026-02-01T10:00:00Z' },
+        { id: 'e', last_played: null },
+    ]
+
+    expect(getQuickSwitchInstances(instances, 'c', 3).map(({ id }) => id)).toEqual(['d', 'a', 'b'])
+    expect(getQuickSwitchInstances(instances, null, 10).map(({ id }) => id)).toEqual([
+        'c',
+        'd',
+        'a',
+        'b',
+        'e',
+    ])
+    expect(getQuickSwitchInstances(instances, 'a', 0)).toEqual([])
+})
+
+it('offers Stop only on the world the running game was joined through', () => {
+    const base = { starting: false, supportsQuickPlay: true }
+
+    expect(getHomeWorldRowState({ ...base, instanceRunning: false, joinedHere: false })).toEqual({
+        showStop: false,
+        playDisabled: false,
+        reason: null,
+    })
+    expect(getHomeWorldRowState({ ...base, instanceRunning: true, joinedHere: true })).toEqual({
+        showStop: true,
+        playDisabled: false,
+        reason: null,
+    })
+    // Another world or server of the same running instance: Play, disabled, with the reason.
+    expect(getHomeWorldRowState({ ...base, instanceRunning: true, joinedHere: false })).toEqual({
+        showStop: false,
+        playDisabled: true,
+        reason: 'game-open',
+    })
+    // A world the running game holds open can still be stopped.
+    expect(
+        getHomeWorldRowState({ ...base, instanceRunning: true, joinedHere: false, locked: true })
+            .showStop,
+    ).toBe(true)
+    expect(
+        getHomeWorldRowState({ ...base, instanceRunning: false, joinedHere: false, locked: true }),
+    ).toEqual({ showStop: false, playDisabled: true, reason: 'world-in-use' })
+    expect(
+        getHomeWorldRowState({
+            ...base,
+            instanceRunning: false,
+            joinedHere: false,
+            supportsQuickPlay: false,
+        }).reason,
+    ).toBe('no-quick-play')
+    expect(
+        getHomeWorldRowState({ ...base, instanceRunning: true, joinedHere: true, starting: true }),
+    ).toEqual({ showStop: false, playDisabled: true, reason: null })
 })

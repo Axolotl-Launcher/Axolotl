@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import '@/components/home/home-widget.css'
+
 import {
     ChevronDownIcon,
     ChevronUpIcon,
@@ -19,7 +21,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { useElementSize } from '@vueuse/core'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, inject, ref, shallowRef, watch } from 'vue'
 import Draggable from 'vuedraggable'
 
 import {
@@ -37,6 +39,7 @@ import {
     type HomeDashboardConfig,
     type HomeGreetingFont,
     type HomeGreetingMode,
+    homeWidgetCarriesGreeting,
     type HomeWidgetLayout,
     type HomeWidgetPlacement,
     type HomeWidgetPosition,
@@ -53,9 +56,12 @@ import {
     setHomeWidgetPosition,
 } from '@/components/home/home-dashboard'
 import { provideHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
+import { HOME_LAUNCH_KEY } from '@/components/home/home-launch-context'
+import { resolveHomeLaunchInstance } from '@/components/home/home-utils'
 import HomeCalendar from '@/components/home/HomeCalendar.vue'
 import HomeGreeting from '@/components/home/HomeGreeting.vue'
 import HomeGreetingSettingsModal from '@/components/home/HomeGreetingSettingsModal.vue'
+import HomeLaunchCard from '@/components/home/HomeLaunchCard.vue'
 import HomePinnedInstances from '@/components/home/HomePinnedInstances.vue'
 import HomePinnedServers from '@/components/home/HomePinnedServers.vue'
 import HomePinnedWorlds from '@/components/home/HomePinnedWorlds.vue'
@@ -80,6 +86,14 @@ const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 provideHomeDashboardRuntime(handleError)
 const editing = computed(() => props.editing)
+const launch = inject(HOME_LAUNCH_KEY, null)
+/** The instance a launch card on this page offers, which the other lists then skip. */
+const launchInstanceId = computed(() =>
+    props.config.widgets.some((widget) => widget.kind === 'launch')
+        ? (resolveHomeLaunchInstance(props.instances, launch?.selectedInstanceId.value)?.instance
+              .id ?? null)
+        : null,
+)
 const isFreeLayout = computed(() => props.config.layout === 'free')
 const gridContainer = ref<HTMLElement>()
 const widgetPicker = ref<InstanceType<typeof HomeWidgetPickerModal>>()
@@ -467,7 +481,7 @@ function widgetSizeOptions(widget: HomeWidgetPlacement) {
 function widgetOptions(widget: HomeWidgetPlacement, index: number) {
     const sizeOptions = HOME_WIDGET_SIZE_OPTIONS[widget.kind]
     return [
-        ...(widget.kind === 'greeting'
+        ...(homeWidgetCarriesGreeting(widget.kind)
             ? [
                   {
                       id: 'greeting-settings',
@@ -594,7 +608,11 @@ defineExpose({ openWidgetPicker, setLayout })
                 <template #item="{ element: widget, index }">
                     <article
                         class="home-widget"
-                        :class="{ 'is-free-dragging': freeDrag?.id === widget.id }"
+                        :class="{
+                            'home-surface': widget.kind !== 'greeting',
+                            'home-surface-hero': widget.kind === 'launch',
+                            'is-free-dragging': freeDrag?.id === widget.id,
+                        }"
                         :data-widget-kind="widget.kind"
                         :style="widgetStyle(widget)"
                     >
@@ -654,8 +672,16 @@ defineExpose({ openWidgetPicker, setLayout })
                             </div>
                         </div>
                         <div class="home-widget-content min-w-0 min-h-0 flex-1 overflow-hidden p-4">
+                            <HomeLaunchCard
+                                v-if="widget.kind === 'launch'"
+                                :instances="instances"
+                                :placement="widget"
+                                :dashboard-size="effectiveSize(widget)"
+                                :player-name="playerName"
+                                variant="widget"
+                            />
                             <HomeGreeting
-                                v-if="widget.kind === 'greeting'"
+                                v-else-if="widget.kind === 'greeting'"
                                 :player-name="playerName"
                                 :dashboard-size="effectiveSize(widget)"
                                 :greeting-mode="widget.options?.greetingMode"
@@ -668,6 +694,7 @@ defineExpose({ openWidgetPicker, setLayout })
                                 :instances="instances"
                                 :dashboard-size="effectiveSize(widget)"
                                 :limit="widget.options?.recentLimit"
+                                :exclude-instance-id="launchInstanceId"
                                 dashboard
                             />
                             <HomeCalendar
@@ -772,6 +799,8 @@ defineExpose({ openWidgetPicker, setLayout })
     position: absolute;
 }
 
+/* The surface itself (fill, edge, radius, blur) comes from `.home-surface` in
+   home-widget.css, which derives it from the appearance settings. */
 .home-widget {
     position: relative;
     display: flex;
@@ -780,14 +809,7 @@ defineExpose({ openWidgetPicker, setLayout })
     flex-direction: column;
     overflow: hidden;
     box-sizing: border-box;
-    border: 1px solid transparent;
     border-radius: var(--radius-lg);
-    background: color-mix(
-        in srgb,
-        var(--surface-3) var(--home-widget-bg-opacity, 100%),
-        transparent
-    );
-    box-shadow: var(--shadow-card);
     transition:
         border-color 120ms ease,
         box-shadow 120ms ease,
@@ -795,9 +817,7 @@ defineExpose({ openWidgetPicker, setLayout })
 }
 
 .home-widget[data-widget-kind='greeting'] {
-    border-color: transparent;
-    background: transparent;
-    box-shadow: none;
+    border: 1px solid transparent;
 }
 
 .home-dashboard-grid:not(.is-editing)
@@ -809,44 +829,37 @@ defineExpose({ openWidgetPicker, setLayout })
     filter: brightness(var(--hover-brightness));
 }
 
+/*
+ * While editing, every tile gets a header strip of its own for the drag
+ * handle, the size and the menu, and its content moves down to make room, so
+ * the edit controls never sit on the widget's own header or buttons.
+ */
 .home-widget-edit-bar {
     position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
+    top: 0;
+    right: 0;
+    left: 0;
     z-index: 12;
     display: flex;
-    /* The bar is sized by its content and anchored to the right edge, so
-       revealing the size label and options menu widens it leftwards past the
-       card border. Reserving the full width up front keeps the hit area stable:
-       otherwise the growing bar moves out from under the pointer, the hover
-       ends, the bar collapses, and the widget flickers. */
-    width: calc(2rem + 2.25rem + 0.25rem + 2rem + 0.25rem);
-    max-width: calc(100% - 1rem);
     height: 2.25rem;
     align-items: center;
-    justify-content: flex-end;
-    gap: 0;
-    padding: 0.125rem;
-    border: 1px solid var(--color-divider);
-    border-radius: var(--radius-lg);
-    background: var(--surface-3);
-    box-shadow: var(--shadow-button);
-    overflow: hidden;
-    opacity: 0.9;
-    transition:
-        box-shadow 120ms ease,
-        opacity 120ms ease;
+    gap: 0.25rem;
+    padding: 0 0.25rem 0 0.375rem;
+    border-bottom: 1px dashed var(--home-widget-edit-edge);
+    /* Edit chrome keeps a readable floor at any widget opacity. */
+    background: color-mix(in srgb, var(--surface-content) 92%, transparent);
 }
 
 .home-widget-drag-handle {
     display: inline-flex;
-    width: 2rem;
-    height: 2rem;
+    height: 1.75rem;
+    flex: 1 1 auto;
     align-items: center;
-    justify-content: center;
-    padding: 0;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    padding: 0 0.375rem;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--color-text-tertiary);
     cursor: grab;
@@ -856,54 +869,32 @@ defineExpose({ openWidgetPicker, setLayout })
         color 100ms ease;
 }
 
+.home-widget-drag-handle > svg {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+}
+
 .home-widget-size-label {
-    width: 2.25rem;
-    margin-left: 0.25rem;
-    overflow: hidden;
-    color: var(--color-text-tertiary);
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1;
-    text-align: center;
-    /* Readable without hovering: this label is the only place the chosen size is
-       visible, and hiding it behind a hover kept it out of sight. Hovering still
-       brings it to full opacity (see the `:hover` rule below). */
-    opacity: 0.7;
+    flex: none;
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-max);
+    background: var(--home-widget-tint-strong);
+    color: var(--color-text-default);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1rem;
     white-space: nowrap;
-    transition: opacity 120ms ease;
 }
 
 .home-widget-options {
     display: flex;
-    min-width: 0;
-    width: 2rem;
     flex: 0 0 auto;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 120ms ease;
-}
-
-.home-widget:hover .home-widget-edit-bar,
-.home-widget:focus-within .home-widget-edit-bar {
-    box-shadow: var(--shadow-card);
-    opacity: 1;
-}
-
-.home-widget:hover .home-widget-size-label,
-.home-widget:focus-within .home-widget-size-label {
-    opacity: 1;
-}
-
-.home-widget:hover .home-widget-options,
-.home-widget:focus-within .home-widget-options {
-    opacity: 1;
-    pointer-events: auto;
 }
 
 .home-widget-drag-handle:hover,
 .home-widget-drag-handle:focus-visible {
-    background: var(--surface-4);
+    background: var(--home-widget-tint-strong);
     color: var(--color-text-primary);
     outline: none;
 }
@@ -912,6 +903,7 @@ defineExpose({ openWidgetPicker, setLayout })
     cursor: grabbing;
 }
 
+.home-widget[data-widget-kind='launch'] .home-widget-content,
 .home-widget[data-widget-kind='instance'] .home-widget-content,
 .home-widget[data-widget-kind='world'] .home-widget-content,
 .home-widget[data-widget-kind='server'] .home-widget-content {
@@ -943,17 +935,50 @@ defineExpose({ openWidgetPicker, setLayout })
     will-change: transform;
 }
 
+/* Editing outlines every tile the same way, so the grid reads as one set. */
 .home-dashboard-grid.is-editing .home-widget {
-    border-color: transparent;
+    --home-widget-edit-edge: color-mix(in srgb, var(--color-text-primary) 32%, transparent);
+    border: 1px dashed var(--home-widget-edit-edge);
 }
 
-.home-dashboard-grid.is-editing .home-widget[data-widget-kind='greeting'] {
-    border-color: var(--color-divider);
-    border-style: dashed;
+.home-dashboard-grid.is-editing .home-widget:hover,
+.home-dashboard-grid.is-editing .home-widget:focus-within {
+    --home-widget-edit-edge: var(--color-brand);
+}
+
+.home-dashboard-grid.is-editing .home-widget .home-widget-content {
+    padding-top: 2.75rem;
+}
+
+.home-dashboard-grid.is-editing
+    .home-widget:is(
+        [data-widget-kind='launch'],
+        [data-widget-kind='instance'],
+        [data-widget-kind='world'],
+        [data-widget-kind='server']
+    )
+    .home-widget-content {
+    padding-top: 2.25rem;
 }
 
 .home-dashboard-grid.is-editing .home-widget-content {
     pointer-events: none;
+}
+
+/*
+ * The edit strip takes a row of the tile, and nothing in it can be clicked
+ * anyway: an empty widget says what it is in one line and drops its icon and
+ * next-step button, so nothing is cut off at the bottom.
+ */
+.home-dashboard-grid.is-editing :deep(.home-widget-frame-empty) > :not(p) {
+    display: none;
+}
+
+.home-dashboard-grid.is-editing :deep(.home-widget-frame-empty) > p {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
 }
 
 .home-dashboard-grid.is-editing

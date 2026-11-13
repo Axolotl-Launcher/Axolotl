@@ -25,6 +25,7 @@ import {
     getHomeGreetingOverride,
     HOME_GREETING_GLOBAL_KEY,
     type HomeDashboardConfig,
+    homeWidgetCarriesGreeting,
     normalizeHomeDashboard,
     pruneHomeGreetingOverrides,
     setHomeGreetingOverride,
@@ -33,6 +34,7 @@ import {
     HOME_GREETING_EDITOR_KEY,
     type HomeGreetingEditorContext,
 } from '@/components/home/home-greeting-editor'
+import { HOME_LAUNCH_KEY } from '@/components/home/home-launch-context'
 import { getActivePlayerAccount } from '@/components/home/home-utils'
 import HomeDailyChallenge from '@/components/home/HomeDailyChallenge.vue'
 import HomeDashboard from '@/components/home/HomeDashboard.vue'
@@ -210,6 +212,12 @@ async function loadDashboardConfig() {
         const normalized = normalizeHomeDashboard(settings.home_widgets)
         if (normalized) {
             dashboardConfig.value = normalized
+            // Normalizing can introduce a new widget kind; save it so the widget
+            // keeps its id and removing it later sticks.
+            const savedIntroduced = settings.home_widgets?.introduced ?? []
+            if (normalized.introduced?.some((kind) => !savedIntroduced.includes(kind))) {
+                void dashboardSaveQueue.enqueue(normalized, normalized)
+            }
             return
         }
 
@@ -232,9 +240,18 @@ function updateDashboardConfig(config: HomeDashboardConfig) {
     void dashboardSaveQueue.enqueue(config, previous)
 }
 
-const greetingWidget = computed(
-    () => dashboardConfig.value?.widgets.find((widget) => widget.kind === 'greeting') ?? null,
-)
+/**
+ * The widget that keeps the greeting text: a standalone greeting if there is
+ * one, otherwise the launch card, which shows the greeting in its header.
+ */
+const greetingWidget = computed(() => {
+    const widgets = dashboardConfig.value?.widgets ?? []
+    return (
+        widgets.find((widget) => widget.kind === 'greeting') ??
+        widgets.find((widget) => homeWidgetCarriesGreeting(widget.kind)) ??
+        null
+    )
+})
 /** Text is bound to the active account, or to the global key before anyone signs in. */
 const greetingEditorAccountId = computed(() => playerAccountId.value ?? HOME_GREETING_GLOBAL_KEY)
 const greetingOverride = computed(() =>
@@ -297,6 +314,13 @@ async function selectMinimalInstance(instance: GameInstance) {
 function createInstance() {
     void router.push('/create')
 }
+
+provide(HOME_LAUNCH_KEY, {
+    selectedInstanceId: computed(() => themeStore.minimalHomeInstanceId ?? null),
+    choose: () => instancePicker.value?.show(),
+    select: (instance) => void selectMinimalInstance(instance),
+    create: createInstance,
+})
 
 async function toggleHomeLayout() {
     if (switchingLayout.value) return
@@ -388,14 +412,7 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             @change="updateDashboardConfig"
         />
 
-        <HomeMinimal
-            v-else
-            :instances="instances"
-            :player-name="playerName"
-            :selected-instance-id="themeStore.minimalHomeInstanceId"
-            @choose="instancePicker?.show()"
-            @create="createInstance"
-        />
+        <HomeMinimal v-else :instances="instances" :player-name="playerName" />
     </div>
     <div class="home-floating-controls" :style="floatingControlsStyle">
         <template v-if="!isMinimal">

@@ -1,4 +1,10 @@
 {
+  "app.home.launch.recent-short": {
+    "message": "Recent"
+  },
+  "app.home.row.shortcut-created": {
+    "message": "Shortcut created"
+  },
   "app.minecraft-crash.scan-logs": {
     "message": "Scan to view logs"
   },
@@ -2741,6 +2747,9 @@
   "app.home.breadcrumb": {
     "message": "Home"
   },
+  "app.home.calendar.month-total": {
+    "message": "{duration} this month"
+  },
   "app.home.calendar.next": {
     "message": "Next month"
   },
@@ -2924,6 +2933,9 @@
   "app.home.insights.this-week": {
     "message": "This week: {duration}"
   },
+  "app.home.insights.this-week-label": {
+    "message": "This week"
+  },
   "app.home.insights.this-week-less": {
     "message": "This week: {duration} ({percent}% less than last week)"
   },
@@ -2936,6 +2948,9 @@
   "app.home.insights.title": {
     "message": "Play insights"
   },
+  "app.home.insights.vs-last-week": {
+    "message": "vs last week"
+  },
   "app.home.insights.week-top": {
     "message": "Most played: {name}"
   },
@@ -2945,20 +2960,44 @@
   "app.home.instances.empty": {
     "message": "No instances yet"
   },
-  "app.home.instances.pin": {
-    "message": "Pin to Home"
-  },
   "app.home.instances.pinned": {
     "message": "Pinned instances"
   },
   "app.home.instances.pinned-empty": {
     "message": "Pin an instance from its card menu or the library to keep it here."
   },
-  "app.home.instances.unpin": {
-    "message": "Unpin from Home"
-  },
   "app.home.instances.view-all": {
     "message": "View all instances"
+  },
+  "app.home.launch.all-instances": {
+    "message": "All instances"
+  },
+  "app.home.launch.continue": {
+    "message": "Continue playing"
+  },
+  "app.home.launch.home-instance": {
+    "message": "Home instance"
+  },
+  "app.home.launch.last-world": {
+    "message": "Last in {name}"
+  },
+  "app.home.launch.not-installed": {
+    "message": "Not installed"
+  },
+  "app.home.launch.recent": {
+    "message": "Recently played"
+  },
+  "app.home.launch.running": {
+    "message": "Running"
+  },
+  "app.home.launch.switch": {
+    "message": "Switch instance"
+  },
+  "app.home.launch.switch-to": {
+    "message": "Switch to {name}"
+  },
+  "app.home.launch.total-played": {
+    "message": "{duration} in total"
   },
   "app.home.layout.switch-to-information": {
     "message": "Switch to Information Home"
@@ -2968,9 +3007,6 @@
   },
   "app.home.layout.toggle": {
     "message": "Minimal Home"
-  },
-  "app.home.minimal.change-instance": {
-    "message": "Change Home instance"
   },
   "app.home.minimal.choose-instance": {
     "message": "Choose instance"
@@ -2999,6 +3035,9 @@
   "app.home.playtime.hours-minutes": {
     "message": "{hours}h {minutes}m"
   },
+  "app.home.playtime.hours-short": {
+    "message": "{hours}h"
+  },
   "app.home.playtime.minutes": {
     "message": "{minutes}m"
   },
@@ -3016,6 +3055,9 @@
   },
   "app.home.recent.title": {
     "message": "Start from your recent projects"
+  },
+  "app.home.servers.add": {
+    "message": "Add a server"
   },
   "app.home.servers.change-local-server": {
     "message": "Change linked local server"
@@ -3070,9 +3112,6 @@
   },
   "app.home.servers.unlinked-toast": {
     "message": "Unlinked the local server"
-  },
-  "app.home.servers.unpin": {
-    "message": "Unpin from Home"
   },
   "app.home.shortcut.kind.instance": {
     "message": "Instance"
@@ -3145,6 +3184,12 @@
   },
   "app.home.widgets.instance-description": {
     "message": "Choose one instance for a dedicated launch shortcut."
+  },
+  "app.home.widgets.launch": {
+    "message": "Launch"
+  },
+  "app.home.widgets.launch-description": {
+    "message": "Start your Home instance, or switch to another one."
   },
   "app.home.widgets.layout.switch-to-free": {
     "message": "Switch to free widget layout"
@@ -3229,6 +3274,9 @@
   },
   "app.home.widgets.world-description": {
     "message": "Choose one world for a dedicated play shortcut."
+  },
+  "app.home.worlds.browse": {
+    "message": "Open worlds"
   },
   "app.home.worlds.empty": {
     "message": "Favorite a world and it will be pinned here."

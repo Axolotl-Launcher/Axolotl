@@ -8,15 +8,24 @@ import HomePinnedServers from './HomePinnedServers.vue'
 const backend = vi.hoisted(() => ({
     unpin: vi.fn(),
     link: vi.fn(),
+    join: vi.fn(),
+    running: null as unknown,
     favoriteWorlds: null as unknown,
     localServers: null as unknown,
 }))
 vi.mock('@/helpers/worlds', () => ({
     getWorldIdentifier: () => 'world',
+    hasServerQuickPlaySupport: () => true,
     set_world_display_status: backend.unpin,
-    start_join_server: vi.fn(),
+    showWorldInFolder: vi.fn(),
+    start_join_server: backend.join,
 }))
-vi.mock('@/helpers/instance', () => ({ kill: vi.fn() }))
+vi.mock('@/helpers/instance', () => ({ kill: vi.fn(), run: vi.fn() }))
+vi.mock('@/helpers/utils', () => ({
+    copyToClipboard: vi.fn(),
+    createInstanceShortcut: vi.fn(),
+    showInstanceInFolder: vi.fn(),
+}))
 vi.mock('@/helpers/servers', () => ({
     servers: {
         isLocalAddress: async () => true,
@@ -77,19 +86,33 @@ vi.mock('./home-dashboard-runtime', async () => {
     return {
         useHomeDashboardRuntime: () => ({
             favoriteWorlds: backend.favoriteWorlds,
+            favoritesLoaded: ref(true),
             localServers: backend.localServers,
             pinnedLocalServers: computed(() => []),
-            runningInstanceIds: ref([]),
+            runningInstanceIds: (backend.running ??= ref<string[]>([])),
+            gameVersions: ref([]),
+            refreshServer: vi.fn(),
+            refreshRecentWorlds: vi.fn(),
             getServerData: () => ({ refreshing: false, status: null }),
             refreshPinnedLocalServers: vi.fn(),
             refreshFavorites: vi.fn(),
         }),
     }
 })
+vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/components/multiplayer/servers/ServerIcon.vue', () => ({
+    default: { render: () => null },
+}))
 vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h, ref } = await import('vue')
     return {
         Avatar: defineComponent({ setup: () => () => h('span') }),
+        ButtonLink: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('a', slots.default?.()),
+        }),
         SmartClickable: (
             await import('../../../../../packages/ui/src/components/base/SmartClickable.vue')
         ).default,
@@ -123,6 +146,10 @@ vi.mock('@modrinth/ui', async () => {
                     ])
             },
         }),
+        commonMessages: {
+            openFolderButton: { defaultMessage: 'Open folder' },
+            refreshButton: { defaultMessage: 'Refresh' },
+        },
         defineMessages: (value: unknown) => value,
         injectNotificationManager: () => ({ handleError: vi.fn(), addNotification: vi.fn() }),
         useVIntl: () => ({
@@ -144,6 +171,7 @@ it.each(['1x1', '2x1'] as const)(
                 instance_id: 'instance-one',
                 address: 'localhost:25565',
                 index: 0,
+                display_status: 'favorite',
             },
         ])
         backend.localServers = ref([])
@@ -183,10 +211,57 @@ it.each(['1x1', '2x1'] as const)(
             expect(menu.find('[data-menu-action="change-local-server"]').exists()).toBe(true)
             await menu.get('[data-menu-action="unlink-local-server"]').trigger('click')
             expect(backend.link).toHaveBeenCalledWith('local-one', null)
-            await menu.get('[data-menu-action="unpin"]').trigger('click')
+            await menu.get('[data-menu-action="unpin-home"]').trigger('click')
             expect(backend.unpin).toHaveBeenCalled()
         } finally {
             wrapper.unmount()
         }
     },
 )
+
+it('offers Stop only on the server the running game was joined through', async () => {
+    const { ref } = await import('vue')
+    backend.join.mockReset().mockResolvedValue(undefined)
+    backend.favoriteWorlds = ref(
+        ['one.example', 'two.example'].map((address, index) => ({
+            type: 'server',
+            name: address,
+            instance_id: 'instance-one',
+            address,
+            index,
+            display_status: 'favorite',
+        })),
+    )
+    backend.localServers = ref([])
+    const running = backend.running as ReturnType<typeof ref<string[]>>
+    running.value = []
+    const wrapper = mount(HomePinnedServers, {
+        props: { instances: [{ id: 'instance-one', name: 'Instance' }] as never },
+        global: { directives: { tooltip: {} } },
+    })
+    const plays = () => wrapper.findAll('.home-item-row-play')
+    try {
+        await flushPromises()
+        // The instance runs, started elsewhere: both rows keep a disabled Play.
+        running.value = ['instance-one']
+        await flushPromises()
+        expect(wrapper.findAll('.home-item-row-play.is-stop')).toHaveLength(0)
+        expect(plays().every((play) => play.attributes('disabled') !== undefined)).toBe(true)
+
+        // Joined through the first row: only that row turns into Stop.
+        running.value = []
+        await flushPromises()
+        await plays()[0].trigger('click')
+        await flushPromises()
+        expect(backend.join).toHaveBeenCalledWith('instance-one', 'one.example')
+        running.value = ['instance-one']
+        await flushPromises()
+        const rows = wrapper.findAll('.home-item-row')
+        expect(rows[0].find('.home-item-row-play.is-stop').exists()).toBe(true)
+        expect(rows[1].find('.home-item-row-play.is-stop').exists()).toBe(false)
+        expect(rows[1].get('.home-item-row-play').attributes('disabled')).toBeDefined()
+    } finally {
+        wrapper.unmount()
+        running.value = []
+    }
+})

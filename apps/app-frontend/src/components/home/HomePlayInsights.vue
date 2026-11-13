@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ChartIcon, ClockIcon, GameIcon, TrendingUpIcon } from '@modrinth/assets'
-import { Button, commonMessages, defineMessages, useVIntl } from '@modrinth/ui'
+import { ChartIcon, GameIcon, TrendingUpIcon } from '@modrinth/assets'
+import { Button, commonMessages, defineMessages, useFormatDateTime, useVIntl } from '@modrinth/ui'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, onUnmounted } from 'vue'
 
@@ -8,11 +8,17 @@ import { process_listener } from '@/helpers/events'
 import { type DailyPlaytime, get_daily_playtime } from '@/helpers/instance'
 
 import { toDateKey } from './home-utils'
+import HomeWidgetFrame from './HomeWidgetFrame.vue'
 
-const { formatMessage } = useVIntl()
+const { formatMessage, locale } = useVIntl()
+const formatWeekday = useFormatDateTime({ weekday: 'narrow' })
+const formatDayTitle = useFormatDateTime({ weekday: 'long', month: 'long', day: 'numeric' })
 
 const messages = defineMessages({
     insights: { id: 'app.home.insights.title', defaultMessage: 'Play insights' },
+    thisWeekLabel: { id: 'app.home.insights.this-week-label', defaultMessage: 'This week' },
+    vsLastWeek: { id: 'app.home.insights.vs-last-week', defaultMessage: 'vs last week' },
+    hoursShort: { id: 'app.home.playtime.hours-short', defaultMessage: '{hours}h' },
     thisWeek: { id: 'app.home.insights.this-week', defaultMessage: 'This week: {duration}' },
     thisWeekMore: {
         id: 'app.home.insights.this-week-more',
@@ -144,6 +150,52 @@ const thisWeekLine = computed(() => {
     )
 })
 
+const weekDays = computed(() => {
+    const todayKey = toDateKey(new Date())
+    const days = Array.from({ length: 7 }, (_, offset) => {
+        const date = shiftedDate(weekStart.value, offset)
+        const key = toDateKey(date)
+        return {
+            key,
+            label: formatWeekday(date),
+            title: formatDayTitle(date),
+            seconds: dailyByDate.value.get(key)?.played_seconds ?? 0,
+            today: key === todayKey,
+            future: key > todayKey,
+        }
+    })
+    const peak = Math.max(1, ...days.map((day) => day.seconds))
+    const peakKey = days.reduce((best, day) => (day.seconds > best.seconds ? day : best)).key
+    return days.map((day) => ({
+        ...day,
+        share: day.seconds / peak,
+        peak: day.seconds > 0 && day.key === peakKey,
+    }))
+})
+
+/** Short enough to sit over a bar: hours to one decimal, or minutes. */
+function formatShortDuration(seconds: number): string {
+    if (seconds >= 3600) {
+        return formatMessage(messages.hoursShort, { hours: Math.round(seconds / 360) / 10 })
+    }
+    return formatMessage(messages.minutes, { minutes: Math.max(1, Math.round(seconds / 60)) })
+}
+
+/** The change against last week, as a signed percentage; null without last week. */
+const weekChange = computed(() => {
+    if (lastWeekSeconds.value === 0) return null
+    const ratio = (thisWeekSeconds.value - lastWeekSeconds.value) / lastWeekSeconds.value
+    return {
+        up: ratio > 0,
+        same: Math.round(ratio * 100) === 0,
+        label: new Intl.NumberFormat(locale.value, {
+            style: 'percent',
+            maximumFractionDigits: 0,
+            signDisplay: 'exceptZero',
+        }).format(ratio),
+    }
+})
+
 let disposed = false
 let unlistenProcesses: (() => void) | undefined
 void process_listener((event: { event: string }) => {
@@ -161,63 +213,179 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <section
-        class="flex min-w-0 flex-col gap-3 border-0 border-b-[1px] border-solid border-[--brand-gradient-border] p-4"
+    <HomeWidgetFrame
+        class="home-sidebar-section home-surface"
+        :title="formatMessage(messages.insights)"
+        :icon="ChartIcon"
+        :loading="playtimeQuery.isPending.value"
+        :skeleton-rows="2"
+        :empty-text="
+            !playtimeQuery.isError.value && !hasAnyPlaytime ? formatMessage(messages.empty) : null
+        "
+        :empty-icon="ChartIcon"
     >
-        <div class="flex items-center gap-2">
-            <ChartIcon
-                class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
-                aria-hidden="true"
-            />
-            <h2 class="m-0 truncate text-lg">
-                {{ formatMessage(messages.insights) }}
-            </h2>
-        </div>
-        <div v-if="playtimeQuery.isPending.value" class="flex flex-col gap-2" aria-hidden="true">
-            <div class="h-4 w-3/4 animate-pulse rounded bg-surface-4" />
-            <div class="h-4 w-1/2 animate-pulse rounded bg-surface-4" />
-        </div>
         <Button
-            v-else-if="playtimeQuery.isError.value && !playtimeQuery.data.value"
+            v-if="playtimeQuery.isError.value && !playtimeQuery.data.value"
             @click="playtimeQuery.refetch()"
         >
             {{ formatMessage(commonMessages.retryButton) }}
         </Button>
-        <p v-else-if="!hasAnyPlaytime" class="m-0 text-sm text-[var(--color-text-tertiary)]">
-            {{ formatMessage(messages.empty) }}
-        </p>
-        <ul v-else class="m-0 flex list-none flex-col gap-2 p-0">
-            <li class="flex min-w-0 items-center gap-2 text-sm text-[var(--color-text-default)]">
-                <ClockIcon
-                    class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
-                    aria-hidden="true"
-                />
-                <span class="min-w-0">{{ thisWeekLine }}</span>
-            </li>
-            <li
-                v-if="streakDays > 0"
-                class="flex min-w-0 items-center gap-2 text-sm text-[var(--color-text-default)]"
-            >
-                <TrendingUpIcon
-                    class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
-                    aria-hidden="true"
-                />
-                <span class="min-w-0">{{
-                    formatMessage(messages.streak, { days: streakDays })
+        <div v-else class="flex min-w-0 flex-col gap-3">
+            <div class="flex min-w-0 flex-col gap-0.5">
+                <span class="text-xs font-bold text-[var(--color-text-tertiary)]">{{
+                    formatMessage(messages.thisWeekLabel)
                 }}</span>
-            </li>
-            <li
-                v-if="weekTopInstance"
-                class="flex min-w-0 items-center gap-2 text-sm text-[var(--color-text-default)]"
-            >
-                <GameIcon
-                    class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
-                    aria-hidden="true"
-                />
-                <span class="min-w-0 truncate">
-                    {{ formatMessage(messages.weekTop, { name: weekTopInstance }) }}
+                <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <strong
+                        v-tooltip="thisWeekLine"
+                        class="text-2xl font-extrabold leading-tight tabular-nums text-[var(--color-text-primary)]"
+                        >{{ formatDuration(thisWeekSeconds) }}</strong
+                    >
+                    <span
+                        v-if="weekChange"
+                        class="home-insights-change"
+                        :data-trend="weekChange.same ? 'same' : weekChange.up ? 'up' : 'down'"
+                    >
+                        <TrendingUpIcon v-if="!weekChange.same" aria-hidden="true" />
+                        {{ weekChange.label }}
+                        <span class="font-medium opacity-80">{{
+                            formatMessage(messages.vsLastWeek)
+                        }}</span>
+                    </span>
+                </div>
+            </div>
+
+            <ol class="home-insights-week" :aria-label="formatMessage(messages.thisWeekLabel)">
+                <li
+                    v-for="day in weekDays"
+                    :key="day.key"
+                    v-tooltip="`${day.title}\n${formatDuration(day.seconds)}`"
+                    :class="{
+                        'is-today': day.today,
+                        'is-future': day.future,
+                        'has-time': day.seconds > 0,
+                    }"
+                    :aria-label="`${day.title}: ${formatDuration(day.seconds)}`"
+                    tabindex="0"
+                >
+                    <span class="home-insights-plot">
+                        <span
+                            v-if="day.seconds > 0"
+                            class="home-insights-bar"
+                            :style="{ height: `${Math.max(8, day.share * 100)}%` }"
+                        >
+                            <span class="home-insights-value" :class="{ 'is-peak': day.peak }">{{
+                                formatShortDuration(day.seconds)
+                            }}</span>
+                        </span>
+                    </span>
+                    <span class="home-insights-day" aria-hidden="true">{{ day.label }}</span>
+                </li>
+            </ol>
+
+            <div v-if="streakDays > 0 || weekTopInstance" class="flex min-w-0 flex-wrap gap-1.5">
+                <span v-if="streakDays > 0" class="home-chip">
+                    <TrendingUpIcon aria-hidden="true" />
+                    <span class="truncate">{{
+                        formatMessage(messages.streak, { days: streakDays })
+                    }}</span>
                 </span>
-            </li>
-        </ul>
-    </section>
+                <span v-if="weekTopInstance" class="home-chip">
+                    <GameIcon aria-hidden="true" />
+                    <span class="truncate">{{
+                        formatMessage(messages.weekTop, { name: weekTopInstance })
+                    }}</span>
+                </span>
+            </div>
+        </div>
+    </HomeWidgetFrame>
 </template>
+
+<style scoped>
+.home-insights-change {
+    @apply inline-flex items-center gap-1 rounded-full px-2 text-xs font-bold leading-5;
+    background: var(--home-widget-tint);
+    color: var(--color-text-default);
+}
+
+.home-insights-change svg {
+    @apply size-3.5;
+}
+
+.home-insights-change[data-trend='up'] {
+    @apply bg-highlight-green text-brand-green;
+}
+
+.home-insights-change[data-trend='down'] {
+    @apply bg-highlight-orange text-brand-orange;
+}
+
+.home-insights-change[data-trend='down'] svg {
+    transform: scaleY(-1);
+}
+
+.home-insights-week {
+    @apply relative m-0 grid list-none grid-cols-7 gap-1.5 p-0 pt-4;
+}
+
+.home-insights-week > li {
+    @apply flex min-w-0 flex-col items-center gap-1.5 rounded-[var(--radius-sm)] outline-none;
+}
+
+.home-insights-week > li:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-brand-shadow);
+}
+
+/* Days share one baseline; only days with playtime grow a bar from it. */
+.home-insights-plot {
+    @apply relative flex h-14 w-full items-end justify-center;
+    border-bottom: 2px solid var(--home-widget-tint-strong);
+}
+
+.home-insights-bar {
+    @apply relative block w-3/5 max-w-4 rounded-t-[0.25rem];
+    background: color-mix(in srgb, var(--color-brand) 55%, transparent);
+    transition: height 300ms ease;
+}
+
+.home-insights-week > li.is-today .home-insights-bar {
+    @apply bg-brand;
+}
+
+/* The value shows over the week's longest day, and over any day on hover or focus. */
+.home-insights-value {
+    @apply pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-[0.625rem] font-bold leading-none tabular-nums text-[var(--color-text-default)] opacity-0;
+    transition: opacity 120ms ease;
+}
+
+.home-insights-value.is-peak,
+.home-insights-week > li:hover .home-insights-value,
+.home-insights-week > li:focus-visible .home-insights-value {
+    @apply opacity-100;
+}
+
+.home-insights-day {
+    @apply relative text-[0.6875rem] font-semibold leading-none text-[var(--color-text-tertiary)];
+}
+
+.home-insights-week > li.is-future .home-insights-day {
+    @apply opacity-50;
+}
+
+/* Today: accent label with a dot under it. */
+.home-insights-week > li.is-today .home-insights-day {
+    @apply text-brand;
+}
+
+.home-insights-week > li.is-today .home-insights-day::after {
+    @apply absolute -bottom-1.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-brand;
+    content: '';
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-insights-bar,
+    .home-insights-value {
+        transition: none;
+    }
+}
+</style>

@@ -1,15 +1,32 @@
 <script setup lang="ts">
 import { GridIcon, RightArrowIcon } from '@modrinth/assets'
-import { ButtonLink, defineMessages, injectNotificationManager, useVIntl } from '@modrinth/ui'
+import {
+    ButtonLink,
+    commonMessages,
+    defineMessages,
+    formatLoaderLabel,
+    injectNotificationManager,
+    useRelativeTime,
+    useVIntl,
+} from '@modrinth/ui'
+import dayjs from 'dayjs'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import type { HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
-import HomeInstanceCard from '@/components/home/HomeInstanceCard.vue'
-import { hasMultipleGameDirectories } from '@/helpers/game-directory'
-import { set_pinned } from '@/helpers/instance'
+import { useHomeRowMenu } from '@/components/home/home-row-menu'
+import HomeItemRow from '@/components/home/HomeItemRow.vue'
+import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
+import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
+import GameDirectoryBadge from '@/components/ui/instance/GameDirectoryBadge.vue'
+import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
+import { trackEvent } from '@/helpers/analytics'
+import { hasMultipleGameDirectories, resolveGameDirectory } from '@/helpers/game-directory'
+import { kill, run, set_pinned } from '@/helpers/instance'
+import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import type { GameInstance } from '@/helpers/types'
+import { handleSevereError } from '@/store/error'
 
 const props = defineProps<{
     instances: GameInstance[]
@@ -19,7 +36,10 @@ const props = defineProps<{
 
 const { handleError } = injectNotificationManager()
 const { formatMessage } = useVIntl()
+const formatRelativeTime = useRelativeTime()
+const handleMinecraftLaunchError = useMinecraftLaunchError()
 const { runningInstanceIds } = useHomeDashboardRuntime()
+const { instanceMenu } = useHomeRowMenu()
 const messages = defineMessages({
     pinnedInstances: {
         id: 'app.home.instances.pinned',
@@ -33,6 +53,8 @@ const messages = defineMessages({
         id: 'app.home.instances.view-all',
         defaultMessage: 'View all instances',
     },
+    played: { id: 'app.instance.played', defaultMessage: 'Played {time}' },
+    neverPlayed: { id: 'app.instance.never-played', defaultMessage: 'Never played' },
 })
 
 const pinnedInstances = computed(() =>
@@ -43,106 +65,109 @@ const pinnedInstances = computed(() =>
             (a, b) => new Date(b.pinned_at ?? 0).getTime() - new Date(a.pinned_at ?? 0).getTime(),
         ),
 )
-const cardLayout = computed(() => {
-    if (props.dashboardSize === '1x1') return 'spotlight' as const
-    if (props.dashboardSize === '2x2') return 'tile' as const
-    return 'row' as const
-})
 const showGameDirectory = computed(() => hasMultipleGameDirectories(props.instances))
 
-async function updatePinned(instance: GameInstance, pinned: boolean) {
-    await set_pinned(instance.id, pinned).catch(handleError)
+function instanceMeta(instance: GameInstance): string {
+    const loader = instance.loader === 'vanilla' ? 'Minecraft' : formatLoaderLabel(instance.loader)
+    const played = instance.last_played
+        ? formatMessage(messages.played, {
+              time: formatRelativeTime(dayjs(instance.last_played).toISOString()),
+          })
+        : formatMessage(messages.neverPlayed)
+    return `${loader} ${instance.game_version} · ${played}`
+}
+
+async function playInstance(instance: GameInstance) {
+    try {
+        await run(instance.id)
+        trackEvent('InstanceStart', {
+            loader: instance.loader,
+            game_version: instance.game_version,
+            source: 'HomePinnedInstance',
+        })
+    } catch (error) {
+        const handled = await handleMinecraftLaunchError(error, {
+            instance_id: instance.id,
+            instance_name: instance.name,
+        })
+        if (!handled) handleSevereError(error, { instanceId: instance.id })
+    }
+}
+
+async function stopInstance(instance: GameInstance) {
+    await kill(instance.id).catch(handleError)
+    trackEvent('InstanceStop', {
+        loader: instance.loader,
+        game_version: instance.game_version,
+        source: 'HomePinnedInstance',
+    })
+}
+
+function rowMenu(instance: GameInstance) {
+    return instanceMenu(instance, {
+        pinned: true,
+        update: () => set_pinned(instance.id, false),
+    })
 }
 </script>
 
 <template>
-    <section
-        class="home-pinned-instances flex min-w-0 min-h-0 h-full flex-col gap-3"
+    <HomeWidgetFrame
+        class="home-pinned-instances"
         :data-size="dashboardSize"
+        :title="formatMessage(messages.pinnedInstances)"
+        :icon="GridIcon"
+        :badge="pinnedInstances.length || null"
+        :dense="dashboardSize?.endsWith('x1')"
+        :empty-text="pinnedInstances.length === 0 ? formatMessage(messages.emptyPinned) : null"
+        :empty-icon="GridIcon"
     >
-        <div class="home-widget-heading flex min-w-0 h-8 flex-none items-center gap-2">
-            <h2>
-                {{ formatMessage(messages.pinnedInstances) }}
-            </h2>
+        <template v-if="pinnedInstances.length > 0" #actions>
             <ButtonLink
-                v-if="dashboardSize !== '1x1'"
+                v-tooltip="formatMessage(messages.viewAllInstances)"
                 :as="RouterLink"
                 to="/library"
                 type="quiet"
                 size="2xs"
-                class="ml-auto"
+                circular
+                icon-only
+                :aria-label="formatMessage(messages.viewAllInstances)"
             >
-                <span v-if="dashboardSize === '2x2'">{{
-                    formatMessage(messages.viewAllInstances)
-                }}</span>
                 <RightArrowIcon aria-hidden="true" />
             </ButtonLink>
-        </div>
-        <div
-            v-if="pinnedInstances.length > 0"
-            class="home-instance-list grid min-w-0 min-h-0 flex-1 grid-auto-rows-max gap-1 overflow-x-hidden overflow-y-auto pr-1"
-        >
-            <HomeInstanceCard
-                v-for="instance in pinnedInstances"
-                :key="instance.id"
-                :instance="instance"
-                :pinned="true"
-                :layout="cardLayout"
-                :playing="runningInstanceIds.includes(instance.id)"
-                :show-game-directory="showGameDirectory"
-                @pinned-change="updatePinned"
-            />
-        </div>
-        <div v-else class="home-widget-empty">
-            <GridIcon aria-hidden="true" />
-            <span>{{ formatMessage(messages.emptyPinned) }}</span>
-        </div>
-    </section>
+        </template>
+        <template #empty-action>
+            <ButtonLink :as="RouterLink" to="/library" size="sm">
+                <GridIcon aria-hidden="true" />
+                {{ formatMessage(messages.viewAllInstances) }}
+            </ButtonLink>
+        </template>
+        <ul class="home-pinned-list">
+            <li v-for="instance in pinnedInstances" :key="instance.id" class="min-w-0">
+                <HomeItemRow
+                    :title="instance.name"
+                    :to="`/instance/${encodeURIComponent(instance.id)}`"
+                    :meta="instanceMeta(instance)"
+                    :instance="{
+                        id: instance.id,
+                        iconPath: instance.icon_path,
+                        loader: instance.loader,
+                    }"
+                    :running="runningInstanceIds.includes(instance.id)"
+                    :starting="instanceLaunchStartedAt(instance.id) !== undefined"
+                    :play-label="formatMessage(commonMessages.playButton)"
+                    :stop-label="formatMessage(commonMessages.stopButton)"
+                    @play="playInstance(instance)"
+                    @stop="stopInstance(instance)"
+                >
+                    <template v-if="showGameDirectory" #meta-prefix>
+                        <GameDirectoryBadge :directory="resolveGameDirectory(instance)" />
+                    </template>
+                    <template #actions>
+                        <HomeRowMenu :options="rowMenu(instance)" />
+                    </template>
+                </HomeItemRow>
+            </li>
+        </ul>
+    </HomeWidgetFrame>
 </template>
-
-<style scoped>
-.home-widget-heading h2 {
-    min-width: 0;
-    overflow: hidden;
-    margin: 0;
-    color: var(--color-text-primary);
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.home-pinned-instances[data-size='2x1'] .home-instance-list,
-.home-pinned-instances[data-size='2x2'] .home-instance-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 0.5rem;
-}
-
-.home-pinned-instances[data-size='1x1'] {
-    gap: 0.375rem;
-}
-
-.home-pinned-instances[data-size='1x1'] .home-widget-heading {
-    height: 1.5rem;
-}
-
-.home-widget-empty {
-    display: flex;
-    max-width: 22rem;
-    margin: auto;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-text-tertiary);
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    text-align: center;
-}
-
-.home-widget-empty svg {
-    width: 1.5rem;
-    height: 1.5rem;
-    opacity: 0.7;
-}
-</style>

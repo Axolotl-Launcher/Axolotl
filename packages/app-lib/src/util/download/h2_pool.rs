@@ -1039,7 +1039,7 @@ async fn establish(
         .host_str()
         .unwrap_or_default()
         .trim_matches(['[', ']']);
-    let mut port = destination.port_or_known_default().unwrap_or(HTTPS_PORT);
+    let port = destination.port_or_known_default().unwrap_or(HTTPS_PORT);
     // Loopback fixtures listen on an ephemeral port while the routed URL keeps
     // the scheme default; honour the port the test address names.
     #[cfg(test)]

@@ -71,8 +71,8 @@ pub(crate) async fn create_instance(
             input.link,
             InstanceLink::ModrinthModpack { .. }
                 | InstanceLink::CurseForgeModpack { .. }
-        ) {
-            if let Some(game_dir) =
+        )
+            && let Some(game_dir) =
                 input.game_dir_override.as_deref().map(PathBuf::from)
             {
                 let isolated = is_version_isolated_game_dir(&game_dir);
@@ -112,7 +112,6 @@ pub(crate) async fn create_instance(
                     reserved_game_dir = Some(path);
                 }
             }
-        }
         if let Some(game_dir_override) = input.game_dir_override.as_deref() {
             // External game directories are created before the launcher
             // resolves them with `canonicalize` during installation.

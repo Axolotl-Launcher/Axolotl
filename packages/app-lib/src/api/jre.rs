@@ -128,12 +128,12 @@ async fn automatic_candidates(
                     .ok()?;
             let storage =
                 java_storage::inspect(Path::new(&runtime.path)).await.ok()?;
-            if !storage_approved(&runtime.path, &storage, &document) {
+            if !storage_approved(&runtime.path, &storage, document) {
                 return None;
             }
             let rank = match storage.kind {
                 StorageKind::Local
-                    if Path::new(&runtime.path).starts_with(&root) =>
+                    if Path::new(&runtime.path).starts_with(root) =>
                 {
                     0
                 }

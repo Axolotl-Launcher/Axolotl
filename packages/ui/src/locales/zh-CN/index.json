@@ -47,9 +47,6 @@
   "browse.clear-search": {
     "defaultMessage": "清除搜索"
   },
-  "browse.loading-results": {
-    "defaultMessage": "正在加载结果……"
-  },
   "browse.no-results": {
     "defaultMessage": "没有找到您的查询结果！"
   },
@@ -259,9 +256,6 @@
   },
   "button.reset": {
     "defaultMessage": "重置"
-  },
-  "button.reset-server": {
-    "defaultMessage": "重置服务器"
   },
   "button.retry": {
     "defaultMessage": "重试"
@@ -1175,9 +1169,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "导入 {count} 个实例"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "初始化服务器"
-  },
   "creation-flow.modal.custom-setup.adjunct.hint": {
     "defaultMessage": "下载前会自动选择兼容版本。"
   },
@@ -1348,12 +1339,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "导入实例"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "重置服务器"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "初始化服务器"
   },
   "external-project-license-status.no": {
     "defaultMessage": "否"
@@ -1595,9 +1580,6 @@
   "files.navbar.home": {
     "defaultMessage": "主目录"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "安装 CurseForge 整合包"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "新建文件"
   },
@@ -1609,12 +1591,6 @@
   },
   "files.navbar.share-log": {
     "defaultMessage": "分享日志"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "从 .zip 文件导入"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "通过 .zip 链接导入"
   },
   "files.rename-modal.header": {
     "defaultMessage": "重命名 {name}"
@@ -1660,60 +1636,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "名称为必填项。"
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "安装一个 CurseForge 整合包"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "无法通过该链接找到 CurseForge 整合包。"
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "未找到 CurseForge 整合包"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "输入链接"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "必须是 CurseForge 整合包的链接。"
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "链接必须是有效的。"
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "链接是必填项。"
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "安装"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "安装失败"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "复制版本页面的链接并粘贴到下方。"
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "复制链接"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "浏览 CurseForge 并找到你想要的整合包。"
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "找到整合包"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "进入“文件”标签页并选择要安装的版本。"
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "选择一个版本"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "发生未知错误"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "复制并粘贴 .zip 文件的直链下载链接。"
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "正在用链接上传 .zip 内容"
   },
   "form.label.address-line": {
     "defaultMessage": "地址第 1 行"

@@ -32,7 +32,7 @@ fn classify_volume(
     match (drive_type, device) {
         (2, _) => StorageKind::External,
         (4, _) => StorageKind::Remote,
-        (3, Some((true, _))) | (3, Some((_, 7 | 12 | 13))) => {
+        (3, Some((true, _) | (_, 7 | 12 | 13))) => {
             StorageKind::External
         }
         (3, Some((false, bus))) if bus != 0 && bus != 0x7f => {

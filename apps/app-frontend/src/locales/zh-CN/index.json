@@ -2015,9 +2015,6 @@
   "app.settings.environment-variables.invalid-format": {
     "message": "请使用 NAME=value 格式，以空格分隔。名称和等号不能为空；值可以为空，也可以包含更多等号。"
   },
-  "app.account.signed-in-as": {
-    "message": "登录身份："
-  },
   "app.action-bar.downloading-java": {
     "message": "正在下载 Java {version}"
   },
@@ -2870,9 +2867,6 @@
   "app.auth-servers.unreachable.header": {
     "message": "无法连接到身份验证服务器"
   },
-  "app.auth.sign-in-browser": {
-    "message": "请在刚刚打开的浏览器窗口中登录以继续。"
-  },
   "app.browse.add": {
     "message": "添加"
   },
@@ -3029,9 +3023,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "加入服务器时，添加内容可能会破坏兼容性。当更新服务器实例内容时，任何添加的内容也将丢失。"
   },
-  "app.browse.server.installing": {
-    "message": "安装中"
-  },
   "app.browse.source.all": {
     "message": "所有来源"
   },
@@ -3157,9 +3148,6 @@
   },
   "app.content-favorites.no-matches-title": {
     "message": "没有匹配的收藏"
-  },
-  "app.content-favorites.refreshing": {
-    "message": "正在更新收藏…"
   },
   "app.content-favorites.remove": {
     "message": "从收藏夹移除"
@@ -3352,12 +3340,6 @@
   },
   "app.content-selection.target-changed": {
     "message": "所选内容属于另一个实例。请切换回该实例或先清空选择。"
-  },
-  "app.content.add-from-file": {
-    "message": "从文件添加"
-  },
-  "app.content.install-content": {
-    "message": "安装内容"
   },
   "app.crash-analysis.ai.settings.enabled": {
     "message": "启用本地 LogAgent"
@@ -4570,9 +4552,6 @@
   },
   "app.home.servers.players-online": {
     "message": "{online}/{max} 人在线"
-  },
-  "app.home.servers.stop": {
-    "message": "停止"
   },
   "app.home.servers.unlink-local-server": {
     "message": "取消关联本地服务器"
@@ -8381,24 +8360,6 @@
   "app.lab.command-generator.version.use-data-components": {
     "message": "使用 1.20.5+ 数据组件"
   },
-  "app.lab.skin-editor.auto-save.error": {
-    "message": "自动保存失败"
-  },
-  "app.lab.skin-editor.auto-save.off": {
-    "message": "自动保存已关闭"
-  },
-  "app.lab.skin-editor.auto-save.saved": {
-    "message": "草稿已保存 {time}"
-  },
-  "app.lab.skin-editor.auto-save.saving": {
-    "message": "正在保存草稿…"
-  },
-  "app.lab.skin-editor.auto-save.unsaved": {
-    "message": "有未保存的更改"
-  },
-  "app.lab.skin-editor.auto-save.up-to-date": {
-    "message": "已是最新"
-  },
   "app.lab.skin-editor.description": {
     "message": "在本地创建和编辑 Minecraft 玩家皮肤。"
   },
@@ -8432,26 +8393,17 @@
   "app.lab.skin-editor.retry": {
     "message": "重试"
   },
-  "app.lab.skin-editor.save": {
-    "message": "保存 PNG"
-  },
   "app.lab.skin-editor.settings.auto-save": {
     "message": "自动保存恢复草稿"
   },
   "app.lab.skin-editor.settings.auto-save-description": {
     "message": "恢复草稿仅保存在本设备，与导出的 PNG 文件相互独立。"
   },
-  "app.lab.skin-editor.settings.cancel": {
-    "message": "取消"
-  },
   "app.lab.skin-editor.settings.interval": {
     "message": "保存间隔（秒）"
   },
   "app.lab.skin-editor.settings.interval-description": {
     "message": "请输入 5 到 600 秒之间的数值。"
-  },
-  "app.lab.skin-editor.settings.save": {
-    "message": "保存设置"
   },
   "app.lab.skin-editor.settings.title": {
     "message": "编辑器设置"
@@ -8965,15 +8917,6 @@
   },
   "app.modpack-install.version": {
     "message": "版本"
-  },
-  "app.modpack.change-version": {
-    "message": "更改整合包版本"
-  },
-  "app.modpack.version-name": {
-    "message": "名称"
-  },
-  "app.modpack.version-supports": {
-    "message": "支持"
   },
   "app.multiplayer.back": {
     "message": "返回"
@@ -14177,90 +14120,6 @@
   "drop.help.worlds-title": {
     "message": "存档"
   },
-  "friends.action.add-friend": {
-    "message": "添加好友"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} 个好友请求"
-  },
-  "friends.add-friend.submit": {
-    "message": "发送好友请求"
-  },
-  "friends.add-friend.title": {
-    "message": "添加好友"
-  },
-  "friends.add-friend.username.description": {
-    "message": "这可能与对方的 Minecraft 用户名不同！"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "输入 Modrinth 用户名……"
-  },
-  "friends.add-friend.username.title": {
-    "message": "你好友的 Modrinth 用户名是什么？"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>添加好友</link> 来看看他们都在玩什么！"
-  },
-  "friends.friend.cancel-request": {
-    "message": "取消请求"
-  },
-  "friends.friend.remove-friend": {
-    "message": "删除好友"
-  },
-  "friends.friend.request-sent": {
-    "message": "已发送好友申请"
-  },
-  "friends.friend.view-profile": {
-    "message": "查看个人资料"
-  },
-  "friends.heading": {
-    "message": "好友"
-  },
-  "friends.heading.active": {
-    "message": "活跃"
-  },
-  "friends.heading.offline": {
-    "message": "离线"
-  },
-  "friends.heading.online": {
-    "message": "在线"
-  },
-  "friends.heading.pending": {
-    "message": "待确认"
-  },
-  "friends.no-friends-match": {
-    "message": "没有对应名字“{query}”的好友"
-  },
-  "friends.requests.accept": {
-    "message": "接受"
-  },
-  "friends.requests.cancel": {
-    "message": "取消"
-  },
-  "friends.requests.ignore": {
-    "message": "忽略"
-  },
-  "friends.requests.incoming": {
-    "message": "{username} 向你发送了好友请求"
-  },
-  "friends.requests.none": {
-    "message": "没有待处理的好友请求 :C"
-  },
-  "friends.requests.outgoing": {
-    "message": "你向 {username} 发送了好友请求"
-  },
-  "friends.requests.title": {
-    "message": "查看好友请求"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "搜索好友…"
-  },
-  "friends.section.heading": {
-    "message": "{title} — {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "登录你的 <link>Modrinth 账号</link>，添加好友，看看他们在玩什么！"
-  },
   "instance.add-server.add-and-play": {
     "message": "添加并游玩"
   },
@@ -14446,9 +14305,6 @@
   },
   "instance.files.studio.delete": {
     "message": "移至回收站"
-  },
-  "instance.files.studio.editor-loading": {
-    "message": "正在加载编辑器……"
   },
   "instance.files.studio.edit-deleted": {
     "message": "该文件在编辑保存前已被删除。"
@@ -17002,12 +16858,6 @@
   },
   "app.resources.operation.no-worlds": {
     "message": "安装数据包前，请先在此实例中创建一个单人存档。"
-  },
-  "app.account.modrinth-account": {
-    "message": "Modrinth 账户"
-  },
-  "app.account.sign-in-modrinth": {
-    "message": "登录 Modrinth 账户"
   },
   "app.browse.categories-failed": {
     "message": "无法加载 CurseForge 分类，请稍后重试。"

@@ -1504,8 +1504,8 @@ impl State {
             );
         }
 
-        if !legacy.java_versions.is_empty() {
-            if let Err(error) =
+        if !legacy.java_versions.is_empty()
+            && let Err(error) =
                 JavaVersion::save_all(&documents, &legacy.java_versions).await
             {
                 tracing::warn!(
@@ -1513,7 +1513,6 @@ impl State {
                     "Failed to record the imported Java runtimes"
                 );
             }
-        }
 
         let derived = store::derived_db::DerivedDb::open(
             directories.caches_dir().join(store::derived_db::FILE_NAME),

@@ -33,7 +33,7 @@ pub(crate) async fn attach_initial_instance(
     };
     let key = job_id.to_string();
     let mut row =
-        InstallJobs::read(&mut **tx, &key).await?.ok_or_else(|| {
+        InstallJobs::read(tx, &key).await?.ok_or_else(|| {
             crate::ErrorKind::InputError(
                 "Install initialization job disappeared".into(),
             )
@@ -67,7 +67,7 @@ pub(crate) async fn attach_initial_instance(
     row.instance_id = Some(instance.id.clone());
     row.state = serde_json::to_string(&state)?;
     row.modified = Utc::now().timestamp();
-    InstallJobs::write(&mut **tx, &key, Some(&row)).await
+    InstallJobs::write(tx, &key, Some(&row)).await
 }
 
 fn same_execution(

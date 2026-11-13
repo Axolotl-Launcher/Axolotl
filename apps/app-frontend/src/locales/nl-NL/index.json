@@ -149,9 +149,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Het toevoegen van content kan de compatibiliteit verbreken bij het verbinden met de server. Alle toegevoegde inhoud gaat ook verloren wanneer u de content van de serverinstantie bijwerkt."
   },
-  "app.browse.server.installing": {
-    "message": "Installeren"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "Er zijn geen beschikbare versies die overeenkomen met {compatibilityLabel}. Selecteer toch een versie om te installeren. Afhankelijkheden worden niet automatisch geïnstalleerd."
   },
@@ -433,69 +430,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} online"
-  },
-  "friends.action.add-friend": {
-    "message": "Voeg een vriend toe"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} vriend {count, plural,one {verzoek} other {verzoeken}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "Stuur een vriendschapsverzoek"
-  },
-  "friends.add-friend.title": {
-    "message": "Een vriend toevoegen"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Het kan verschillen van hun Minecraft gebruikersnaam!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Voer Modrinth gebruikersnaam in..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Wat is de Modrinth gebruikersnaam van jouw vriend?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Voeg vrienden toe</link> om te zien wat zij spelen!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Annuleer verzoek"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Verwijder vriend"
-  },
-  "friends.friend.request-sent": {
-    "message": "Vriendschapsverzoek gestuurd"
-  },
-  "friends.friend.view-profile": {
-    "message": "Bekijk profiel"
-  },
-  "friends.heading": {
-    "message": "Vrienden"
-  },
-  "friends.heading.active": {
-    "message": "Actief"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "In behandeling"
-  },
-  "friends.no-friends-match": {
-    "message": "Geen vrienden die overeenkomen met \"{query}\""
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Zoek vrienden..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Log in op een Modrinth account</link> om vrienden toe te voegen en zien wat zij spelen!"
   },
   "instance.add-server.add-and-play": {
     "message": "Toevoegen en spelen"

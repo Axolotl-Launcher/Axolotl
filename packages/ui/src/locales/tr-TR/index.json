@@ -179,9 +179,6 @@
   "button.reset": {
     "defaultMessage": "Sıfırla"
   },
-  "button.reset-server": {
-    "defaultMessage": "Sunucuyu sıfırla"
-  },
   "button.retry": {
     "defaultMessage": "Yeniden dene"
   },
@@ -428,9 +425,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "{count, plural, one {# kurulumu} other {# kurulumu}} içe aktar"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Sunucu kurun"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "İnşaa numarası"
   },
@@ -532,12 +526,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "Kurulum aktar"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "Sunucuyu Yeniden Başlat"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "Sunucu kurun"
   },
   "external-project-license-status.no": {
     "defaultMessage": "Hayır"
@@ -758,9 +746,6 @@
   "files.navbar.home": {
     "defaultMessage": "Ana sayfa"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "CurseForge paketini kur"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "Yeni dosya"
   },
@@ -769,12 +754,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Dosyaları ara"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Upload from .zip file"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": ".zip URL'sinden yükle"
   },
   "files.rename-modal.header": {
     "defaultMessage": "{name} adını değiştir"
@@ -817,60 +796,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "Ad gerekli."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Install a CurseForge modpack"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Belirtilen URL'de CurseForge mod paketi bulunamadı."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge mod paketi bulunamadı"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Bağlantıyı girin"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "URL, bir CurseForge mod paketi sürüm URL'si olmalıdır."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL geçerli olmalıdır."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "URL gerekli."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Kur"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Kurulum başarısız oldu"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Sürüm sayfası URL'sini kopyalayın ve aşağıya yapıştırın."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "URL'yi kopyala"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "CurseForge'a göz atın ve istediğiniz mod paketini bulun."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Mod paketini bulun"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "\"Dosyalar\" sekmesine gidin ve yüklemek istediğiniz sürümü seçin."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Bir sürüm seçin"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Bilinmeyen bir hata oluştu"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Bir .zip dosyasının doğrudan indirme URL'sini kopyalayıp aşağıya yapıştırın."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "URL'den .zip içeriği yükleniyor"
   },
   "form.label.address-line": {
     "defaultMessage": "Adres satırı"

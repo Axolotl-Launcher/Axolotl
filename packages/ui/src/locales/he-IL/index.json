@@ -122,9 +122,6 @@
   "button.reset": {
     "defaultMessage": "איפוס"
   },
-  "button.reset-server": {
-    "defaultMessage": "אפס שרת"
-  },
   "button.retry": {
     "defaultMessage": "נסה שוב"
   },

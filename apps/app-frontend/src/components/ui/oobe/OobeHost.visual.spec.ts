@@ -20,7 +20,7 @@ import { applyTheme, waitFor } from '@/test/visual-harness'
 import OobeHost from './OobeHost.vue'
 import { OOBE_STEP_IDS } from './step-ids'
 import { OOBE_STEPS } from './steps'
-import { steveHead } from './steps/account/accounts'
+import { pickSaved, showPicked, steveHead } from './steps/account/accounts'
 import { cardClock } from './steps/account/card-physics'
 import { createOobeController } from './useOobe'
 
@@ -466,6 +466,7 @@ describe('account art', () => {
             r: (Math.atan2(b, a) * 180) / Math.PI,
             s: Math.hypot(a, b),
             z: Number(style.zIndex),
+            o: Number(style.opacity),
         }
     }
     type Sample = ReturnType<typeof sample>
@@ -542,7 +543,7 @@ describe('account art', () => {
         expect(crossing).toBeGreaterThan(3)
         expect(samples[crossing]!.first.y).toBeLessThan(samples[crossing]!.second.y - 40)
         // No pause on the way: while it is still far from the front it keeps moving.
-        const front = { x: 0, y: 0, r: 0, s: 1, z: 0 }
+        const front = { x: 0, y: 0, r: 0, s: 1, z: 0, o: 1 }
         for (let i = 1; i < samples.length; i++) {
             if (distance(samples[i]!.first, front) < 15) break
             expect(distance(samples[i]!.first, samples[i - 1]!.first)).toBeGreaterThan(1)
@@ -659,6 +660,81 @@ describe('account art', () => {
             cardHead('hidden'),
         ]).toEqual([head('Zuri'), head('Bo'), head('Ida'), head('Alex')])
         await shot('oobe-account-art-drawn')
+    })
+
+    it('keeps the head of a card on its way into the deck when the next pick comes out of it', async () => {
+        await renderAccounts(['Alex', 'Bo', 'Ida', 'Kai', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardOf('Zuri')?.dataset.slot === 'front', { label: 'Zuri drawn' })
+        const going = await follow('Alex', 'Zuri', 8)
+
+        // Notch has no card either, but Alex's is still out beside the stack, on its way in.
+        accountChoice('Notch')!.click()
+        await waitFor(() => cardOf('Notch')?.dataset.slot === 'front', { label: 'Notch drawn' })
+        // Alex keeps its card and goes on into the deck; Notch comes out on one of its own.
+        expect(cardOf('Alex').dataset.slot).toBe('leaving')
+        expect(cardHead('hidden')).toBe(head('Zuri'))
+        const start = sample(cardOf('Notch'))
+        expect(start.y).toBeCloseTo(-46, 0)
+        expect(start.o).toBeLessThan(0.05)
+
+        const after = await follow('Alex', 'Notch', 20)
+        const lastIn = going[going.length - 1]!.first
+        const stepIn = distance(lastIn, going[going.length - 2]!.first)
+        const stepOn = distance(after[0]!.first, lastIn)
+        expect(stepOn).toBeGreaterThan(stepIn * 0.35)
+        expect(stepOn).toBeLessThan(stepIn * 1.6)
+        // Notch fades in as it comes out; Alex fades as it goes in.
+        expect(after[after.length - 1]!.second.o).toBeGreaterThan(0.6)
+        expect(after[after.length - 1]!.first.o).toBeLessThan(lastIn.o)
+        await settleCards()
+        expect(document.querySelector('[data-account="Alex"]')).toBeNull()
+        expect([
+            cardHead('front'),
+            cardHead('left'),
+            cardHead('right'),
+            cardHead('hidden'),
+        ]).toEqual([head('Notch'), head('Bo'), head('Ida'), head('Zuri')])
+    })
+
+    it('keeps the front card in place while a new sign-in is saved, then brings it forward', async () => {
+        await renderAccounts(['Alex', 'Notch'], 'Alex')
+        // As after a Microsoft sign-in: the account is stored, but nothing announced it yet.
+        backend.accounts.push({
+            account_id: 'Zuri',
+            account_type: 'microsoft',
+            profile: { id: 'Zuri', name: 'Zuri' },
+        })
+        showPicked('Zuri')
+        await advance(160)
+        expect(cardOf('Alex').dataset.slot).toBe('front')
+        const still = sample(cardOf('Alex'))
+        expect(Math.hypot(still.x, still.y)).toBeLessThan(0.5)
+        expect(cardOf('Notch').dataset.slot).toBe('left')
+        expect(cardHead('front')).toBe(head('Alex'))
+
+        // Saved: the lists load it, and it comes in at the front.
+        backend.defaultAccount = 'Zuri'
+        pickSaved('Zuri')
+        notifyAccountSelectionChanged()
+        await waitFor(() => cardOf('Zuri')?.dataset.slot === 'front', { label: 'Zuri listed' })
+        await settleCards()
+        expect(cardOf('Alex').dataset.slot).toBe('right')
+    })
+
+    it('follows the launcher again once a pick is saved', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => backend.defaultAccount === 'Zuri', { label: 'Zuri saved' })
+        await flushPromises()
+        await settleCards()
+
+        // Changed elsewhere afterwards, as from the accounts menu.
+        backend.defaultAccount = 'Notch'
+        notifyAccountSelectionChanged()
+        await waitFor(() => cardOf('Notch').dataset.slot === 'front', { label: 'Notch shown' })
+        expect(accountChoice('Notch')!.getAttribute('aria-checked')).toBe('true')
+        expect(accountChoice('Zuri')!.getAttribute('aria-checked')).toBe('false')
     })
 })
 

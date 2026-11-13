@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, readonly, ref, watch } from 'vue'
 
 import steveSkinTexture from '@/assets/skins/steve.png?inline'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
@@ -21,8 +21,17 @@ export type OobeAccount = {
 /** Steve's head, cut from the bundled skin: what an account without a skin shows. */
 export const steveHead = createSkinHeadDataUrl(steveSkinTexture)
 
-/** The account picked last in this step, shown as selected before the launcher has stored it. */
+/**
+ * The account the launcher holds as default, shared by the step and its artwork so a save
+ * shows in both at once.
+ */
+const defaultAccount = ref<string>()
+/** An account picked in this step whose save has not settled: shown as selected meanwhile. */
 const picked = ref<string>()
+/** Numbers every read of the accounts, so an older read never undoes a newer one or a save. */
+let reads = 0
+/** The newest read, or save, that `defaultAccount` reflects. */
+let defaultRead = 0
 
 /**
  * Shows account `id` as selected at once, so the list and the art answer the click rather
@@ -33,27 +42,47 @@ export function showPicked(id: string | undefined) {
 }
 
 /**
+ * The launcher now holds `id`: it becomes the default everywhere and the pick gives way to
+ * it, so later changes to the default show again. Reads begun before the save are ignored.
+ */
+export function pickSaved(id: string) {
+    defaultAccount.value = id
+    defaultRead = reads
+    picked.value = undefined
+}
+
+/**
  * The accounts on this device, the selected one and their rendered heads. It follows
- * `accountSelectionRevision`, so the step and its artwork each keep their own copy in
+ * `accountSelectionRevision`, so the step and its artwork each keep their own list in
  * step without depending on each other.
  */
 export function useOobeAccounts() {
     const { offline } = useNetworkStatus()
     const accounts = ref<OobeAccount[]>([])
-    const defaultAccount = ref<string | undefined>()
-    /** The account to show as selected: the last pick, or the one the launcher holds. */
+    let listRead = 0
+    /**
+     * The account to show as selected: a pick still saving, or the one the launcher holds.
+     * It can name an account this list has not loaded yet, just after a sign-in.
+     */
     const selected = computed(() => picked.value ?? defaultAccount.value)
     /** Rendered heads by skin texture; an account shows Steve until its head is ready. */
     const heads = ref(new Map<string, string>())
 
     async function refresh() {
+        const read = ++reads
         try {
-            const [list, selected] = await Promise.all([
+            const [list, held] = await Promise.all([
                 users(offline.value, true) as unknown as Promise<OobeAccount[]>,
                 get_default_user(offline.value) as Promise<string | undefined>,
             ])
-            accounts.value = [...(list ?? [])].sort(compareMinecraftAccounts)
-            defaultAccount.value = selected ?? undefined
+            if (read > listRead) {
+                listRead = read
+                accounts.value = [...(list ?? [])].sort(compareMinecraftAccounts)
+            }
+            if (read > defaultRead) {
+                defaultRead = read
+                defaultAccount.value = held ?? undefined
+            }
         } catch (error) {
             console.warn('Failed to list Minecraft accounts', error)
         }
@@ -84,5 +113,5 @@ export function useOobeAccounts() {
         return (skin && heads.value.get(skin.texture_key)) ?? steveHead
     }
 
-    return { accounts, defaultAccount, selected, refresh, headOf }
+    return { accounts, defaultAccount: readonly(defaultAccount), selected, refresh, headOf }
 }

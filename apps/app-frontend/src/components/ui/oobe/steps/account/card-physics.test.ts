@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
     type CardMotion,
     type CardPose,
+    headCovered,
     layerOf,
     restingMotion,
     settle,
@@ -68,6 +69,21 @@ describe('card motion', () => {
         const stepAfter = distance(after, at.pose)
         expect(stepAfter).toBeGreaterThan(stepBefore * 0.4)
         expect(stepAfter).toBeLessThan(stepBefore * 1.4)
+    })
+
+    it('lets the hidden card change heads only while the front card covers it', () => {
+        expect(headCovered(SLOT_POSES.hidden, SLOT_POSES.front)).toBe(true)
+        // Still on its way into the deck, out beside the stack.
+        const stowing = run(
+            startMove(restingMotion('front'), 'stow', -1, 0),
+            SLOT_POSES.hidden,
+            160,
+        )
+        expect(headCovered(stowing[stowing.length - 1]!.motion.pose, SLOT_POSES.front)).toBe(false)
+        // The front card still on its way in, or fading in.
+        const rising = run(startMove(restingMotion('right'), 'rise', 1, 0), SLOT_POSES.front, 160)
+        expect(headCovered(SLOT_POSES.hidden, rising[rising.length - 1]!.motion.pose)).toBe(false)
+        expect(headCovered(SLOT_POSES.hidden, { ...SLOT_POSES.front, o: 0.5 })).toBe(false)
     })
 
     it('lets two swapping cards trade stacking order only once they have swung apart', () => {

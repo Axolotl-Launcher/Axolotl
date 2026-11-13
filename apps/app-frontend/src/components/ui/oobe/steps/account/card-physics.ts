@@ -18,6 +18,34 @@ export const SLOT_POSES: Record<CardSlot, CardPose> = {
     hidden: { x: 0, y: -46, r: 0, s: 0.8, o: 0.4, d: 2 },
 }
 
+/**
+ * Where a card goes that lost its place while it could still be seen: into the deck,
+ * fading out on the way, so it is gone without a cut.
+ */
+export const LEAVING_POSE: CardPose = { ...SLOT_POSES.hidden, o: 0 }
+
+/** A card about to be drawn out of the deck, faded out until it comes clear of it. */
+export function emergingMotion(): CardMotion {
+    return { pose: { ...LEAVING_POSE }, velocity: still() }
+}
+
+/**
+ * Whether a card in the hidden card's place has its head out of sight behind the front
+ * card, so it can change heads unseen. Both must be all but at rest in their places.
+ */
+export function headCovered(hidden: CardPose, front: CardPose) {
+    const near = (pose: CardPose, place: CardPose) =>
+        Math.abs(pose.x - place.x) < 6 &&
+        Math.abs(pose.y - place.y) < 6 &&
+        Math.abs(pose.r - place.r) < 3
+    return (
+        near(hidden, SLOT_POSES.hidden) &&
+        near(front, SLOT_POSES.front) &&
+        front.o > 0.95 &&
+        front.d > hidden.d
+    )
+}
+
 /** The side a card swings toward; the hidden card is drawn out to the right. */
 export const SIDE: Record<CardSlot, number> = { front: 0, left: -1, right: 1, hidden: 1 }
 

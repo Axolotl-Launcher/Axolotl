@@ -5,6 +5,7 @@ import { steveHead, useOobeAccounts } from './accounts'
 import {
     CARD_SLOTS,
     type CardLayout,
+    type CardSlot,
     layoutCards,
     moveOf,
     slotOf,
@@ -15,9 +16,12 @@ import {
     type CardMotion,
     type CardPose,
     cardTransform,
+    emergingMotion,
     enteringMotion,
     frontAmount,
+    headCovered,
     layerOf,
+    LEAVING_POSE,
     restingMotion,
     settle,
     SIDE,
@@ -39,9 +43,17 @@ import {
 const { accounts, selected, headOf } = useOobeAccounts()
 
 const layout = ref<CardLayout>({})
+/**
+ * Accounts whose card lost its place while it could still be seen, as when a pick takes the
+ * hidden place from a card still on its way into the deck. They go on into the deck, fading.
+ */
+const leaving = ref<string[]>([])
 /** Each account card's element, written to directly every frame while cards move. */
 const elements = new Map<string, HTMLElement>()
-/** Each account card's motion; its slot in `layout` is where it is heading. */
+/**
+ * Each account card's motion; its slot in `layout` is where it is heading, and a card
+ * without one is leaving.
+ */
 const motions = new Map<string, CardMotion>()
 let frame = 0
 let lastFrame = 0
@@ -69,15 +81,29 @@ function tick() {
     let moving = false
     for (const [id, motion] of motions) {
         const slot = slotOf(layout.value, id)
-        if (!slot) continue
-        const target = SLOT_POSES[slot]
-        const stepped = reducedMotion() ? restingMotion(slot) : stepMotion(motion, target, dt, now)
+        if (!slot && reducedMotion()) {
+            drop(id)
+            continue
+        }
+        const target = slot ? SLOT_POSES[slot] : LEAVING_POSE
+        const stepped =
+            slot && reducedMotion() ? restingMotion(slot) : stepMotion(motion, target, dt, now)
         const rest = settle(stepped, target)
+        if (rest && !slot) {
+            // In the deck and faded out: the card is gone.
+            drop(id)
+            continue
+        }
         motions.set(id, rest ?? stepped)
         if (!rest) moving = true
         draw(id)
     }
     frame = moving ? requestAnimationFrame(tick) : 0
+}
+
+function drop(id: string) {
+    motions.delete(id)
+    leaving.value = leaving.value.filter((other) => other !== id)
 }
 
 function wake() {
@@ -97,18 +123,34 @@ function bindCard(id: string | undefined, element: unknown) {
     } else elements.delete(id)
 }
 
+/**
+ * Gives a pick put on the hidden card a card to come out on. While the hidden card's head is
+ * out of sight that is the hidden card itself, so it seems to have carried the pick's head
+ * all along. While it can be seen, say still on its way into the deck, it keeps its head and
+ * goes on, and the pick comes out of the deck on a card of its own, fading in. A pick whose
+ * card is still in view on its way out just turns back.
+ */
+function takeHiddenCard(pick: string, hidden: string | undefined) {
+    if (motions.has(pick)) return
+    const card = hidden === undefined ? undefined : motions.get(hidden)
+    const frontId = layout.value.front
+    // With no account in front, the placeholder in front covers it.
+    const front = frontId === undefined ? SLOT_POSES.front : motions.get(frontId)?.pose
+    if (hidden !== undefined && card && front && headCovered(card.pose, front)) {
+        motions.set(pick, card)
+        motions.delete(hidden)
+    } else motions.set(pick, emergingMotion())
+}
+
 watch(
     () => [accounts.value.map((account) => account.account_id), selected.value] as const,
     ([ids, pick]) => {
         const shown = layout.value
         const before = withPickOnHiddenCard(shown, ids, pick)
+        if (pick && before.hidden === pick && shown.hidden !== pick)
+            takeHiddenCard(pick, shown.hidden)
         const next = layoutCards(before, ids, pick)
         const now = cardClock.now()
-        // The pick took over the hidden card out of sight, so it moves on from that card.
-        if (shown.hidden && before.hidden && before.hidden !== shown.hidden) {
-            const hidden = motions.get(shown.hidden)
-            if (hidden) motions.set(before.hidden, hidden)
-        }
         for (const slot of CARD_SLOTS) {
             const id = next[slot]
             const move = id ? moveOf(before, next, id) : undefined
@@ -121,34 +163,43 @@ watch(
             const side = SIDE[move === 'rise' || move === 'draw' ? (from ?? slot) : slot]
             motions.set(id, startMove(current, move, side, now))
         }
-        for (const id of [...motions.keys()]) if (!slotOf(next, id)) motions.delete(id)
+        // A card that lost its place goes on into the deck; one whose account is gone, at once.
+        for (const id of [...motions.keys()]) {
+            if (!slotOf(next, id) && (!ids.includes(id) || reducedMotion())) motions.delete(id)
+        }
+        leaving.value = [...motions.keys()].filter((id) => !slotOf(next, id))
         layout.value = next
         wake()
     },
     { immediate: true },
 )
 
-const cards = computed(() =>
+const headOfId = (id: string) => headOf(accounts.value.find((account) => account.account_id === id))
+
+const cards = computed(() => [
     // The hidden card exists only while some account has no visible card.
-    CARD_SLOTS.filter((slot) => slot !== 'hidden' || layout.value.hidden).map((slot) => {
+    ...CARD_SLOTS.filter((slot) => slot !== 'hidden' || layout.value.hidden).map((slot) => {
         const id = layout.value[slot]
         const pose = SLOT_POSES[slot]
         return {
             key: id ?? `empty-${slot}`,
             id,
-            slot,
-            head: id
-                ? headOf(accounts.value.find((account) => account.account_id === id))
-                : slot === 'front'
-                  ? steveHead
-                  : undefined,
+            slot: slot as CardSlot | 'leaving',
+            head: id ? headOfId(id) : slot === 'front' ? steveHead : undefined,
             // Placeholders stay put; account cards are placed by their motion.
             style: id
                 ? undefined
                 : { transform: cardTransform(pose), opacity: pose.o, zIndex: layerOf(pose) },
         }
     }),
-)
+    ...leaving.value.map((id) => ({
+        key: id,
+        id,
+        slot: 'leaving' as const,
+        head: headOfId(id),
+        style: undefined,
+    })),
+])
 </script>
 
 <template>
@@ -283,7 +334,8 @@ const cards = computed(() =>
 
 .slot-left,
 .slot-right,
-.slot-hidden {
+.slot-hidden,
+.slot-leaving {
     .front-only {
         opacity: 0;
     }

@@ -37,7 +37,7 @@ import { handleSevereError, useError } from '@/store/error.js'
 
 import { useOobeStep } from '../../context'
 import OobeChoice from '../../parts/OobeChoice.vue'
-import { type OobeAccount, showPicked, useOobeAccounts } from './accounts'
+import { type OobeAccount, pickSaved, showPicked, useOobeAccounts } from './accounts'
 
 type Account = OobeAccount
 type YggdrasilProfile = { id: string; name: string }
@@ -197,7 +197,7 @@ async function makeDefault(account: Account) {
     try {
         await write
         if (changed) step.markChanged()
-        if (mine === selection) defaultAccount.value = account.account_id
+        if (mine === selection) pickSaved(account.account_id)
     } catch (error) {
         if (isOfflineAccountRestrictedError(error)) errorStore.showAntiPiracyNotice()
         else handleError(error as Error)

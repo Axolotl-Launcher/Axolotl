@@ -24,14 +24,21 @@ export function slotOf(layout: CardLayout, id: string): CardSlot | undefined {
  * Lays out the account cards: the selected account in front and, once there are two or
  * more accounts, up to two others behind it, plus a hidden card from four. Cards keep their
  * slots between updates, and the front card takes the slot of the card that replaces it,
- * so picking an account reads as the two cards trading places.
+ * so picking an account reads as the two cards trading places. An account just signed in
+ * may be selected before `ids` lists it; the front card then waits for it where it is.
  */
 export function layoutCards(
     previous: CardLayout,
     ids: readonly string[],
     selected: string | undefined,
 ): CardLayout {
-    const front = selected && ids.includes(selected) ? selected : undefined
+    const listed = (id: string | undefined): id is string => !!id && ids.includes(id)
+    const waiting = selected !== undefined && !listed(selected)
+    const front = listed(selected)
+        ? selected
+        : waiting && listed(previous.front)
+          ? previous.front
+          : undefined
     const next: CardLayout = front ? { front } : {}
     if (ids.length < 2) return next
 
@@ -57,8 +64,9 @@ export function layoutCards(
 
 /**
  * The layout as it stood, but with a picked account that has no visible card put on the
- * hidden card. That card's head is covered by the front card, so the swap cannot be seen,
- * and the card is drawn out as if it had carried that head all along.
+ * hidden card, so it is drawn out of the deck. An account just signed in to a stack of four
+ * or more comes out of the deck the same way. The art changes the hidden card's head only
+ * while the front card covers it; otherwise the pick comes out on a card of its own.
  */
 export function withPickOnHiddenCard(
     previous: CardLayout,

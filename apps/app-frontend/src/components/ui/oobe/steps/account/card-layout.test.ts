@@ -76,6 +76,20 @@ describe('layoutCards', () => {
         expect(after).toEqual({ front: 'zuri', left: 'notch', right: 'steve', hidden: 'alex' })
     })
 
+    it('keeps the front card where it is while a pick is not listed yet', () => {
+        // Just signed in: picked before this list has loaded the account.
+        const shown = { front: 'alex', left: 'notch' }
+        expect(layoutCards(shown, ['alex', 'notch'], 'zuri')).toEqual(shown)
+        expect(layoutCards({ front: 'alex' }, ['alex'], 'zuri')).toEqual({ front: 'alex' })
+        expect(withPickOnHiddenCard(shown, ['alex', 'notch', 'steve', 'kai'], 'zuri')).toBe(shown)
+        // Once listed, it comes forward as usual.
+        expect(layoutCards(shown, ['alex', 'notch', 'zuri'], 'zuri')).toEqual({
+            front: 'zuri',
+            left: 'notch',
+            right: 'alex',
+        })
+    })
+
     it('shows no account in front while none is selected', () => {
         expect(layoutCards({}, ['alex', 'notch'], undefined)).toEqual({
             left: 'alex',

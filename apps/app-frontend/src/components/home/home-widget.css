@@ -58,7 +58,7 @@
 
 /*
  * Shared rows and tiles inside a widget (instances, worlds, their hover states)
- * paint `bg-surface-2/3/4`. Inside a widget those layers become tints of its
+ * paint the `bg-surface-*` layers. Inside a widget those layers become tints of its
  * fill, so they follow the widget opacity instead of punching opaque blocks
  * into a translucent card. Menus and tooltips teleport out, so they keep the
  * real surfaces.

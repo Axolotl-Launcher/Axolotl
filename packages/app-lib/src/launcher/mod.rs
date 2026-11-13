@@ -1418,7 +1418,8 @@ async fn install_minecraft_with_local_source(
     {
         (std::path::PathBuf::from(java_version.path), false)
     } else if let Some(discovered) =
-        crate::api::jre::find_java_for_version(key).await?
+        crate::api::jre::find_java_for_install(key, &database_cancellation)
+            .await?
     {
         tracing::info!(
             "Reusing discovered Java {} at {}",

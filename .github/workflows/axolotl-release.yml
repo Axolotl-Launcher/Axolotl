@@ -69,7 +69,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node --test scripts/axolotl/release-policy.test.mjs
+          node --test scripts/axolotl/release-policy.test.mjs scripts/axolotl/windows-package-architecture.test.mjs
           node --test scripts/axolotl/aliyunoss-release.test.mjs
           node --test scripts/axolotl/set-version.test.mjs
           node --test scripts/axolotl/update-manifest.test.mjs scripts/axolotl/finalize-github-release.test.mjs scripts/axolotl/publish-update-server.test.mjs scripts/axolotl/cnb-release.test.mjs scripts/axolotl/gitlink-release.test.mjs scripts/axolotl/create-website-release-metadata.test.mjs
@@ -137,6 +137,9 @@ jobs:
             platform: linux
           - name: Windows x64
             runner: windows-2025
+            platform: windows
+          - name: Windows arm64
+            runner: windows-11-arm
             platform: windows
     runs-on: ${{ matrix.runner }}
     env:
@@ -342,6 +345,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TARGET: ${{ inputs.target || 'all' }}
+          AXOLOTL_REQUIRE_WINDOWS_ARM64: ${{ github.event_name == 'push' }}
         run: |
           args=()
           if [[ "$RELEASE_TARGET" != all && "$RELEASE_TARGET" != github ]]; then

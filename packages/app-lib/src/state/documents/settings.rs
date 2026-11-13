@@ -2885,6 +2885,40 @@ mod tests {
             .collect()
     }
 
+    #[tokio::test]
+    async fn forced_download_default_and_explicit_opt_out_round_trip() {
+        let pool = migrated_pool().await;
+        let handle = Handle::new(pool.clone());
+        let local = tempfile::tempdir().unwrap();
+        let documents = Documents::at(local.path().to_path_buf(), &pool);
+        let mut settings = Settings::default();
+
+        store(&documents, &settings).await.unwrap();
+        let download = local.path().join("download.json");
+        assert!(!download.exists());
+        std::fs::write(&download, r#"{"schema_version":1,"data":{}}"#).unwrap();
+        assert!(
+            read(&documents, &handle)
+                .await
+                .unwrap()
+                .force_multiconnection_downloads
+        );
+
+        settings.force_multiconnection_downloads = false;
+        store(&documents, &settings).await.unwrap();
+        assert_eq!(
+            data(local.path(), "download")
+                .get("force_multiconnection_downloads"),
+            Some(&Value::Bool(false))
+        );
+        assert!(
+            !read(&documents, &handle)
+                .await
+                .unwrap()
+                .force_multiconnection_downloads
+        );
+    }
+
     /// A key holding the value the build defaults to says nothing: the read
     /// already answers it, so the document leaves it out even when another key
     /// beside it is written.

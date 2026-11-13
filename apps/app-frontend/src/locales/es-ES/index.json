@@ -152,9 +152,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Añadir contenido puede comprometer la compatibilidad a la hora de unirse a un servidor. Cualquier contenido añadido se perderá cuando actualices la instancia del servidor."
   },
-  "app.browse.server.installing": {
-    "message": "Instalando"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "No hay versiones disponibles que coincidan con {compatibilityLabel}. Selecciona una versión para instalarla de todas formas. Las dependencias no se instalarán automáticamente."
   },
@@ -436,69 +433,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} en línea"
-  },
-  "friends.action.add-friend": {
-    "message": "Agrega a un amigo"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} {count, plural, one {petición} other {peticiones}} de amistad"
-  },
-  "friends.add-friend.submit": {
-    "message": "Envía una petición de amistad"
-  },
-  "friends.add-friend.title": {
-    "message": "Agrega a un amigo"
-  },
-  "friends.add-friend.username.description": {
-    "message": "¡Puede ser diferente de su apodo en Minecraft!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Escribe su apodo en Modrinth..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "¿Cuál es el apodo de tu amigo en Modrinth?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Añade amigos</link> para ver a qué están jugando!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Cancelar petición"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Eliminar amigo"
-  },
-  "friends.friend.request-sent": {
-    "message": "Petición de amistad enviada"
-  },
-  "friends.friend.view-profile": {
-    "message": "Ver perfil"
-  },
-  "friends.heading": {
-    "message": "Amigos"
-  },
-  "friends.heading.active": {
-    "message": "Activos"
-  },
-  "friends.heading.offline": {
-    "message": "Desconectados"
-  },
-  "friends.heading.online": {
-    "message": "Conectados"
-  },
-  "friends.heading.pending": {
-    "message": "Pendientes"
-  },
-  "friends.no-friends-match": {
-    "message": "Ningún apodo concuerda con ''{query}''"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Buscando amigos..."
-  },
-  "friends.section.heading": {
-    "message": "{title}: {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Inicia sesión en una cuenta Modrinth</link> para añadir amigos y ver a qué están jugando!"
   },
   "instance.add-server.add-and-play": {
     "message": "Añadir y jugar"

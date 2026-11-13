@@ -56,6 +56,7 @@ const CHANNELS = ['release', 'beta']
 // Only recent migrations are listed. Dropping to a threshold before them is
 // refused rather than guessed at; --allow-unmapped accepts the risk explicitly.
 const REVERTIBLE_SCHEMA = {
+    20261113120000: {},
     20261112120000: {
         columns: [
             { table: 'settings', column: 'theme_source' },

@@ -5,6 +5,7 @@ import {
     LayoutTemplateIcon,
     MinimizeIcon,
     MoveIcon,
+    PaletteIcon,
     PencilIcon,
     PlusIcon,
     RotateCounterClockwiseIcon,
@@ -16,6 +17,7 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { useQueryClient } from '@tanstack/vue-query'
+import { onClickOutside } from '@vueuse/core'
 import { computed, inject, onUnmounted, provide, type Ref, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -25,14 +27,18 @@ import {
     getHomeGreetingOverride,
     HOME_GREETING_GLOBAL_KEY,
     type HomeDashboardConfig,
+    homeWidgetCarriesGreeting,
     normalizeHomeDashboard,
     pruneHomeGreetingOverrides,
     setHomeGreetingOverride,
+    setHomeMinimalOptions,
 } from '@/components/home/home-dashboard'
 import {
     HOME_GREETING_EDITOR_KEY,
     type HomeGreetingEditorContext,
 } from '@/components/home/home-greeting-editor'
+import { HOME_LAUNCH_KEY } from '@/components/home/home-launch-context'
+import { type HomeMinimalOptions, resolveHomeMinimalLayout } from '@/components/home/home-minimal'
 import { getActivePlayerAccount } from '@/components/home/home-utils'
 import HomeDailyChallenge from '@/components/home/HomeDailyChallenge.vue'
 import HomeDashboard from '@/components/home/HomeDashboard.vue'
@@ -40,6 +46,7 @@ import HomeGreetingAccountModal from '@/components/home/HomeGreetingAccountModal
 import HomeInstancePickerModal from '@/components/home/HomeInstancePickerModal.vue'
 import HomeMinecraftNews from '@/components/home/HomeMinecraftNews.vue'
 import HomeMinimal from '@/components/home/HomeMinimal.vue'
+import HomeMinimalCustomizer from '@/components/home/HomeMinimalCustomizer.vue'
 import HomePlayInsights from '@/components/home/HomePlayInsights.vue'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { get_default_user, users } from '@/helpers/auth'
@@ -106,6 +113,10 @@ const messages = defineMessages({
         id: 'app.home.widgets.reset',
         defaultMessage: 'Restore default widgets',
     },
+    customizeMinimal: {
+        id: 'app.home.minimal.customize',
+        defaultMessage: 'Customize Minimal Home',
+    },
 })
 
 const recentProjectsInHomeFlag: FeatureFlag = 'worlds_in_home'
@@ -134,10 +145,52 @@ const dashboardSaveQueue = createHomeDashboardSaveQueue(
     },
     handleError,
 )
+const floatingControlsBottom = computed(() =>
+    themeStore.getFeatureFlag('page_path') ? '3.5rem' : '1rem',
+)
+const floatingControlsRight = computed(
+    () => `calc(${pageContext.floatingActionBarOffsets?.right.value ?? '0px'} + 1rem)`,
+)
 const floatingControlsStyle = computed(() => ({
-    bottom: themeStore.getFeatureFlag('page_path') ? '3.5rem' : '1rem',
-    right: `calc(${pageContext.floatingActionBarOffsets?.right.value ?? '0px'} + 1rem)`,
+    bottom: floatingControlsBottom.value,
+    right: floatingControlsRight.value,
 }))
+
+/*
+ * The minimal Home's options live in the dashboard config. The customizer
+ * opens from the floating controls, which stay on the page whatever it hides,
+ * so the user can always get back to the options or change the instance.
+ */
+const minimalLayout = computed(() => resolveHomeMinimalLayout(dashboardConfig.value?.minimal))
+const minimalCustomizerOpen = ref(false)
+const minimalCustomizer = ref<InstanceType<typeof HomeMinimalCustomizer>>()
+const minimalCustomizeButton = ref<HTMLButtonElement>()
+const minimalCustomizerStyle = computed(() => ({
+    bottom: `calc(${floatingControlsBottom.value} + 3.25rem)`,
+    right: floatingControlsRight.value,
+}))
+onClickOutside(
+    computed(() => minimalCustomizer.value?.$el as HTMLElement | undefined),
+    () => (minimalCustomizerOpen.value = false),
+    {
+        ignore: [minimalCustomizeButton],
+    },
+)
+
+function changeMinimalInstance() {
+    minimalCustomizerOpen.value = false
+    instancePicker.value?.show()
+}
+
+function updateMinimalOptions(options: HomeMinimalOptions) {
+    updateDashboardConfig(
+        setHomeMinimalOptions(
+            dashboardConfig.value ??
+                createDefaultHomeDashboard(themeStore.getFeatureFlag(recentProjectsInHomeFlag)),
+            options,
+        ),
+    )
+}
 
 const animateSidebarShow = ref(false)
 const sidebarTimer = setTimeout(() => {
@@ -210,6 +263,12 @@ async function loadDashboardConfig() {
         const normalized = normalizeHomeDashboard(settings.home_widgets)
         if (normalized) {
             dashboardConfig.value = normalized
+            // Normalizing can introduce a new widget kind; save it so the widget
+            // keeps its id and removing it later sticks.
+            const savedIntroduced = settings.home_widgets?.introduced ?? []
+            if (normalized.introduced?.some((kind) => !savedIntroduced.includes(kind))) {
+                void dashboardSaveQueue.enqueue(normalized, normalized)
+            }
             return
         }
 
@@ -232,9 +291,18 @@ function updateDashboardConfig(config: HomeDashboardConfig) {
     void dashboardSaveQueue.enqueue(config, previous)
 }
 
-const greetingWidget = computed(
-    () => dashboardConfig.value?.widgets.find((widget) => widget.kind === 'greeting') ?? null,
-)
+/**
+ * The widget that keeps the greeting text: a standalone greeting if there is
+ * one, otherwise the launch card, which shows the greeting in its header.
+ */
+const greetingWidget = computed(() => {
+    const widgets = dashboardConfig.value?.widgets ?? []
+    return (
+        widgets.find((widget) => widget.kind === 'greeting') ??
+        widgets.find((widget) => homeWidgetCarriesGreeting(widget.kind)) ??
+        null
+    )
+})
 /** Text is bound to the active account, or to the global key before anyone signs in. */
 const greetingEditorAccountId = computed(() => playerAccountId.value ?? HOME_GREETING_GLOBAL_KEY)
 const greetingOverride = computed(() =>
@@ -282,7 +350,9 @@ watch(accountChangeRevision, (revision, previousRevision) => {
 
 function resetDashboardConfig() {
     if (!window.confirm(formatMessage(messages.resetWidgets))) return
-    updateDashboardConfig(createDefaultHomeDashboard())
+    // Restoring the widgets leaves the minimal Home as the user set it.
+    const minimal = dashboardConfig.value?.minimal
+    updateDashboardConfig({ ...createDefaultHomeDashboard(), ...(minimal ? { minimal } : {}) })
 }
 
 async function selectMinimalInstance(instance: GameInstance) {
@@ -298,6 +368,13 @@ function createInstance() {
     void router.push('/create')
 }
 
+provide(HOME_LAUNCH_KEY, {
+    selectedInstanceId: computed(() => themeStore.minimalHomeInstanceId ?? null),
+    choose: () => instancePicker.value?.show(),
+    select: (instance) => void selectMinimalInstance(instance),
+    create: createInstance,
+})
+
 async function toggleHomeLayout() {
     if (switchingLayout.value) return
 
@@ -307,6 +384,7 @@ async function toggleHomeLayout() {
     switchingLayout.value = true
     themeStore.homeLayout = nextLayout
     if (nextLayout === 'minimal') dashboardEditing.value = false
+    else minimalCustomizerOpen.value = false
 
     try {
         await updateSettings({ home_layout: nextLayout })
@@ -392,22 +470,19 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             v-else
             :instances="instances"
             :player-name="playerName"
-            :selected-instance-id="themeStore.minimalHomeInstanceId"
-            @choose="instancePicker?.show()"
-            @create="createInstance"
+            :layout="minimalLayout"
         />
     </div>
     <div class="home-floating-controls" :style="floatingControlsStyle">
         <template v-if="!isMinimal">
             <button
                 v-if="dashboardEditing"
-                v-tooltip="formatMessage(messages.addWidget)"
                 type="button"
-                class="home-floating-action"
-                :aria-label="formatMessage(messages.addWidget)"
+                class="home-floating-action home-floating-add"
                 @click="openWidgetPicker"
             >
-                <PlusIcon />
+                <PlusIcon aria-hidden="true" />
+                {{ formatMessage(messages.addWidget) }}
             </button>
             <button
                 v-if="dashboardEditing"
@@ -466,6 +541,21 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             </button>
             <span class="home-floating-divider" aria-hidden="true" />
         </template>
+        <template v-else>
+            <button
+                ref="minimalCustomizeButton"
+                v-tooltip="formatMessage(messages.customizeMinimal)"
+                type="button"
+                class="home-floating-action home-minimal-customize"
+                :class="{ 'is-active': minimalCustomizerOpen }"
+                :aria-label="formatMessage(messages.customizeMinimal)"
+                :aria-expanded="minimalCustomizerOpen"
+                @click="minimalCustomizerOpen = !minimalCustomizerOpen"
+            >
+                <PaletteIcon />
+            </button>
+            <span class="home-floating-divider" aria-hidden="true" />
+        </template>
         <button
             v-tooltip="
                 formatMessage(isMinimal ? messages.switchToInformation : messages.switchToMinimal)
@@ -491,6 +581,16 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
             </span>
         </button>
     </div>
+    <HomeMinimalCustomizer
+        v-if="isMinimal && minimalCustomizerOpen"
+        ref="minimalCustomizer"
+        :style="minimalCustomizerStyle"
+        :options="dashboardConfig?.minimal"
+        :can-change-instance="instances.length > 0"
+        @update="updateMinimalOptions"
+        @close="minimalCustomizerOpen = false"
+        @change-instance="changeMinimalInstance"
+    />
     <Teleport v-if="!isMinimal" to="#sidebar-default-teleport-target">
         <div
             class="flex min-w-0 flex-col slide-enter-active"
@@ -564,6 +664,24 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
 .home-floating-action :deep(svg) {
     width: 1rem;
     height: 1rem;
+}
+
+/* While editing, adding a widget is the main action: a labelled accent pill. */
+.home-floating-action.home-floating-add {
+    width: auto;
+    gap: 0.375rem;
+    padding: 0 0.875rem 0 0.625rem;
+    background: var(--color-brand);
+    color: var(--color-accent-contrast);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.home-floating-action.home-floating-add:hover {
+    background: var(--color-brand);
+    color: var(--color-accent-contrast);
+    filter: brightness(var(--hover-brightness));
 }
 
 .home-floating-divider {

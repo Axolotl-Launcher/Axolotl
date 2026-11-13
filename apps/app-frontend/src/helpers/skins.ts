@@ -199,6 +199,25 @@ export async function normalize_skin_texture(
     })
 }
 
+const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(\..*)?$/i
+
+export function skinExportFilename(
+    skin: Pick<Skin, 'name' | 'texture_key'> | null | undefined,
+): string {
+    const name = skin?.name?.trim() || skin?.texture_key?.trim() || 'skin'
+    let safe = Array.from(name)
+        .filter((char) => {
+            const code = char.charCodeAt(0)
+            return code >= 32 && code !== 127
+        })
+        .join('')
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/[. ]+$/g, '')
+    if (!safe) safe = 'skin'
+    if (WINDOWS_RESERVED_NAMES.test(safe.replace(/\.png$/i, ''))) safe = `_${safe}`
+    return safe.toLowerCase().endsWith('.png') ? safe : `${safe}.png`
+}
+
 export async function unequip_skin(): Promise<void> {
     await invoke('plugin:minecraft-skins|unequip_skin')
 }

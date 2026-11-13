@@ -143,9 +143,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "콘텐츠를 추가하면 서버 접속 시 호환이 안 될 수 있습니다. 또한 서버 인스턴스 콘텐츠를 업데이트하면 임의로 추가된 콘텐츠는 모두 손실됩니다."
   },
-  "app.browse.server.installing": {
-    "message": "설치 중"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "{compatibilityLabel} 버전과 일치하는 버전이 없습니다. 설치할 버전을 선택하세요. 종속성은 자동으로 설치되지 않습니다."
   },
@@ -418,69 +415,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count}명 온라인"
-  },
-  "friends.action.add-friend": {
-    "message": "친구 추가"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count}건의 친구 요청"
-  },
-  "friends.add-friend.submit": {
-    "message": "친구 요청 보내기"
-  },
-  "friends.add-friend.title": {
-    "message": "친구 추가 중"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Minecraft 사용자명과 다를 수 있습니다!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Modrinth 사용자명 입력..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "친구의 Modrinth 사용자명이 무엇인가요?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>친구 추가</link>를 통해 친구들이 무엇을 하는지 확인해 보세요!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "요청 취소"
-  },
-  "friends.friend.remove-friend": {
-    "message": "친구 삭제"
-  },
-  "friends.friend.request-sent": {
-    "message": "친구 요청 전송됨"
-  },
-  "friends.friend.view-profile": {
-    "message": "프로필 보기"
-  },
-  "friends.heading": {
-    "message": "친구"
-  },
-  "friends.heading.active": {
-    "message": "활동 중"
-  },
-  "friends.heading.offline": {
-    "message": "오프라인"
-  },
-  "friends.heading.online": {
-    "message": "온라인"
-  },
-  "friends.heading.pending": {
-    "message": "대기 중"
-  },
-  "friends.no-friends-match": {
-    "message": "\"{query}\"과(와) 일치하는 친구 없음"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "친구 검색 중..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Modrinth 계정으로 로그인</link>하여 친구를 추가하고 무엇을 플레이 중인지 확인하세요!"
   },
   "instance.add-server.add-and-play": {
     "message": "추가 후 플레이"

@@ -101,21 +101,6 @@
   "app.instance.worlds.search-worlds-placeholder": {
     "message": "Pretraži {count} svetova..."
   },
-  "friends.friend.cancel-request": {
-    "message": "Otkaži zahtev"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Ukloni prijatelja"
-  },
-  "friends.friend.request-sent": {
-    "message": "Zahtev za prijateljstvo poslat"
-  },
-  "friends.friend.view-profile": {
-    "message": "Pogledaj profil"
-  },
-  "friends.heading": {
-    "message": "Prijatelji"
-  },
   "instance.add-server.title": {
     "message": "Dodaj server"
   },

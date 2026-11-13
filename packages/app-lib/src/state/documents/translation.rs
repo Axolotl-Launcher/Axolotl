@@ -46,7 +46,7 @@ pub(crate) struct TranslationDocument {
     pub(crate) deepl_api_key: Option<String>,
 }
 
-const PROVIDER: &str = "google";
+const PROVIDER: &str = "bili-index-translate";
 const MODE: &str = "bilingual";
 const STYLE: &str = "weakened";
 const DEEPL_ENDPOINT: &str = "https://api-free.deepl.com/v2/translate";
@@ -133,6 +133,27 @@ async fn from_database(
     })
 }
 
+/// Seed a newly created database before the legacy row supplies its defaults.
+pub(crate) async fn initialize_new_install(
+    documents: &Documents<'_>,
+) -> crate::Result<()> {
+    if !matches!(
+        documents
+            .stored::<TranslationDocument>(DOCUMENT, SCHEMA_VERSION)
+            .await,
+        Stored::Missing
+    ) {
+        return Ok(());
+    }
+    let document = TranslationDocument::default();
+    let Some(document) =
+        without_shipped(documents, DOCUMENT, SCHEMA_VERSION, document).await
+    else {
+        return Ok(());
+    };
+    documents.write(DOCUMENT, SCHEMA_VERSION, &document).await
+}
+
 /// Writes the document the row hands over to, unless one is already in place.
 pub(crate) async fn hand_over_if_missing(documents: &Documents<'_>) -> bool {
     if documents
@@ -211,6 +232,65 @@ mod tests {
         Documents::at(root.path().to_path_buf(), pool)
     }
 
+    #[tokio::test]
+    async fn new_install_uses_bili_without_overwriting_existing_configuration()
+    {
+        let pool = installed_pool().await;
+        let root = tempfile::tempdir().unwrap();
+        let documents = documents(&root, &pool);
+        initialize_new_install(&documents).await.unwrap();
+        assert_eq!(
+            read(&documents).await.unwrap().provider,
+            "bili-index-translate"
+        );
+        update(&documents, |document| {
+            document.provider = "deepl".to_string()
+        })
+        .await
+        .unwrap();
+        initialize_new_install(&documents).await.unwrap();
+        assert_eq!(read(&documents).await.unwrap().provider, "deepl");
+    }
+
+    #[tokio::test]
+    async fn an_existing_document_with_omitted_provider_uses_bili() {
+        let pool = installed_pool().await;
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(
+            root.path().join("translation.json"),
+            r#"{"schema_version":1,"data":{}}"#,
+        )
+        .unwrap();
+        let documents = documents(&root, &pool);
+        initialize_new_install(&documents).await.unwrap();
+        assert_eq!(
+            read(&documents).await.unwrap().provider,
+            "bili-index-translate"
+        );
+    }
+
+    #[test]
+    fn explicit_provider_choices_round_trip_and_missing_provider_uses_bili() {
+        let implicit: TranslationDocument =
+            serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(implicit.provider, "bili-index-translate");
+        for provider in ["google", "deepl", "ai", "bili-index-translate"] {
+            let document: TranslationDocument = serde_json::from_value(
+                serde_json::json!({"provider": provider}),
+            )
+            .unwrap();
+            let stored = serde_json::to_value(&document).unwrap();
+            if provider == "bili-index-translate" {
+                assert!(stored.get("provider").is_none());
+            } else {
+                assert_eq!(stored["provider"], provider);
+            }
+            let restored: TranslationDocument =
+                serde_json::from_value(stored).unwrap();
+            assert_eq!(restored.provider, provider);
+        }
+    }
+
     async fn installed_pool() -> SqlitePool {
         let pool = pool().await;
         create_translation_tables(&pool).await;
@@ -269,7 +349,7 @@ mod tests {
             TranslationDocument::default(),
             "a key the document leaves out is its default, never the row's value"
         );
-        assert_eq!(document.provider, "google");
+        assert_eq!(document.provider, "bili-index-translate");
         assert_eq!(document.mode, "bilingual");
         assert_eq!(document.style, "weakened");
         assert_eq!(document.deepl_api_key, None);
@@ -359,7 +439,8 @@ mod tests {
             .map(String::as_str)
             .collect::<Vec<_>>();
         keys.sort_unstable();
-        assert_eq!(keys, ["deepl_api_key", "target_language"]);
+        assert_eq!(keys, ["deepl_api_key", "provider", "target_language"]);
+        assert_eq!(stored["data"]["provider"], "google");
 
         let document = read(&documents).await.unwrap();
         assert_eq!(document.target_language, "zh-CN");

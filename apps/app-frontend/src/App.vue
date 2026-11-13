@@ -3,21 +3,11 @@ import '@/assets/stylesheets/window-frame.css'
 
 import { ModrinthApiError, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
 import {
-    ChangeSkinIcon,
-    CompassIcon,
-    FlaskConicalIcon,
     FolderOpenIcon,
-    HomeIcon,
-    ImagesIcon,
-    LibraryIcon,
-    PlusIcon,
     RefreshCwIcon,
     RightArrowIcon,
     RotateCounterClockwiseIcon,
-    SettingsIcon,
     SpinnerIcon,
-    UsersIcon,
-    WorldIcon,
     XIcon,
 } from '@modrinth/assets'
 import {
@@ -93,6 +83,18 @@ import MissingJavaModal from '@/components/ui/modal/MissingJavaModal.vue'
 import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
 import ModpackInstallModal from '@/components/ui/modal/ModpackInstallModal.vue'
 import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
+import {
+    CreateNavIcon,
+    DiscoverNavIcon,
+    HomeNavIcon,
+    LabNavIcon,
+    LibraryNavIcon,
+    MultiplayerNavIcon,
+    ScreenshotsNavIcon,
+    SettingsNavIcon,
+    SkinsNavIcon,
+    WorldsNavIcon,
+} from '@/components/ui/nav-icons'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
 import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
@@ -3125,7 +3127,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.home)"
                     to="/"
                 >
-                    <HomeIcon />
+                    <HomeNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('screenshots')"
@@ -3133,7 +3135,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/screenshots"
                     :is-primary="(r) => r.path.startsWith('/screenshots')"
                 >
-                    <ImagesIcon />
+                    <ScreenshotsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="
@@ -3142,7 +3144,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.worlds)"
                     to="/worlds"
                 >
-                    <WorldIcon />
+                    <WorldsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('discover')"
@@ -3152,14 +3154,14 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
                     :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
                 >
-                    <CompassIcon />
+                    <DiscoverNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('skins')"
                     v-tooltip.right="formatMessage(messages.skinSelector)"
                     to="/skins"
                 >
-                    <ChangeSkinIcon />
+                    <SkinsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('multiplayer')"
@@ -3167,7 +3169,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/multiplayer"
                     :is-primary="(r) => r.path.startsWith('/multiplayer')"
                 >
-                    <UsersIcon />
+                    <MultiplayerNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('library')"
@@ -3182,7 +3184,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                                 !!route.query.i)
                     "
                 >
-                    <LibraryIcon />
+                    <LibraryNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('lab')"
@@ -3190,7 +3192,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/lab"
                     :is-primary="(r) => r.path.startsWith('/lab')"
                 >
-                    <FlaskConicalIcon />
+                    <LabNavIcon />
                 </NavButton>
                 <NavButton
                     v-for="page in themePackPages"
@@ -3226,10 +3228,10 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 to="/create"
                 :disabled="offline"
             >
-                <PlusIcon />
+                <CreateNavIcon />
             </NavButton>
             <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
-                <SettingsIcon />
+                <SettingsNavIcon />
             </NavButton>
         </div>
         <AppTitlebar

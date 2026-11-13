@@ -420,12 +420,16 @@ export const useTheming = defineStore('themeStore', {
                 `${Math.min(Math.max(this.transparentBackgroundOpacity, 0), 100)}%`,
             )
         },
+        /**
+         * Publishes the Home widget opacity both as a percentage (for
+         * `color-mix()`) and as a 0-1 number (for lengths such as the blur
+         * radius). `home-widget.css` derives every widget surface from these.
+         */
         setHomeWidgetBackgroundOpacity() {
             const html = document.documentElement
-            html.style.setProperty(
-                '--home-widget-bg-opacity',
-                `${Math.min(Math.max(this.homeWidgetBackgroundOpacity, 0), 100)}%`,
-            )
+            const opacity = Math.min(Math.max(this.homeWidgetBackgroundOpacity, 0), 100)
+            html.style.setProperty('--home-widget-bg-opacity', `${opacity}%`)
+            html.style.setProperty('--home-widget-bg-alpha', `${opacity / 100}`)
         },
         /**
          * The translucent palette for the custom-background mode lives on `body`

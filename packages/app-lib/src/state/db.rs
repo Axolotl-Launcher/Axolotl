@@ -110,7 +110,18 @@ pub(crate) async fn connect(
     })?;
     crate::util::io::create_dir_all(db_dir).await?;
 
-    connect_app_db(&db_path).await
+    let new_install = !db_path.try_exists()?;
+    let pool = connect_app_db(&db_path).await?;
+    if new_install {
+        let documents = super::documents::Documents::at(
+            settings_dir.join(super::documents::DIR_NAME),
+            &pool,
+        )
+        .with_config_root(super::documents::config_root());
+        super::documents::translation::initialize_new_install(&documents)
+            .await?;
+    }
+    Ok(pool)
 }
 
 pub async fn copy_release_database_to_beta(

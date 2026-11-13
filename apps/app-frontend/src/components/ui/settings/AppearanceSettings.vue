@@ -305,6 +305,11 @@ const messages = defineMessages({
         id: 'app.appearance-settings.home-layout.description',
         defaultMessage: 'Choose between Information Home and a focused instance launcher.',
     },
+    homeLayoutMinimalHint: {
+        id: 'app.appearance-settings.home-layout.minimal-hint',
+        defaultMessage:
+            'What Minimal Home shows is set from "Customize Minimal Home" in the corner of the Home page.',
+    },
     homeLayoutStandard: {
         id: 'app.appearance-settings.home-layout.standard',
         defaultMessage: 'Information',
@@ -1151,9 +1156,10 @@ watch(
                         {{ formatMessage(messages.homeLayoutTitle) }}
                     </span>
                 </template>
-                <template #description>{{
-                    formatMessage(messages.homeLayoutDescription)
-                }}</template>
+                <template #description
+                    >{{ formatMessage(messages.homeLayoutDescription) }}
+                    {{ formatMessage(messages.homeLayoutMinimalHint) }}</template
+                >
                 <template #copy>
                     <PinnedOverrideHint key-name="home_layout" @cleared="reloadSettings" />
                 </template>

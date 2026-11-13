@@ -20,6 +20,8 @@ runs:
     - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
       with:
         node-version-file: .nvmrc
+        # workerd has no Windows ARM64 binary; Rust still builds natively for ARM64.
+        architecture: ${{ runner.os == 'Windows' && runner.arch == 'ARM64' && 'x64' || '' }}
         cache: pnpm
     - uses: ./.github/actions/setup-desktop-rust
       if: inputs.package-only != 'true'
@@ -41,10 +43,10 @@ runs:
       uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
       if: runner.os == 'Windows' && inputs.package-only != 'true'
       with:
-        msystem: UCRT64
+        msystem: ${{ runner.arch == 'ARM64' && 'CLANGARM64' || 'UCRT64' }}
         update: true
     - name: Install pinned seed map compiler
-      if: runner.os == 'Windows' && inputs.package-only != 'true'
+      if: runner.os == 'Windows' && runner.arch != 'ARM64' && inputs.package-only != 'true'
       shell: msys2 {0}
       run: |
         set -euo pipefail
@@ -63,11 +65,32 @@ runs:
             exit 1
           fi
         done
+    - name: Install pinned ARM64 seed map compiler
+      if: runner.os == 'Windows' && runner.arch == 'ARM64' && inputs.package-only != 'true'
+      shell: msys2 {0}
+      run: |
+        set -euo pipefail
+        llvm_version=23.1.5-1
+        packages=(clang clang-libs compiler-rt lld llvm-tools llvm-libs)
+        urls=()
+        for package in "${packages[@]}"; do
+          urls+=("https://repo.msys2.org/mingw/clangarm64/mingw-w64-clang-aarch64-${package}-${llvm_version}-any.pkg.tar.zst")
+        done
+        pacman -U --noconfirm --needed "${urls[@]}"
+        for package in "${packages[@]}"; do
+          installed="$(pacman -Q "mingw-w64-clang-aarch64-$package")"
+          expected="mingw-w64-clang-aarch64-$package $llvm_version"
+          if [ "$installed" != "$expected" ]; then
+            echo "Seed map toolchain package mismatch: expected $expected, got $installed" >&2
+            exit 1
+          fi
+        done
     - name: Select native seed map compiler
       if: runner.os == 'Windows' && inputs.package-only != 'true'
       shell: pwsh
       run: |
-        $compiler = Join-Path '${{ steps.seed-map-toolchain.outputs.msys2-location }}' 'ucrt64/bin/gcc.exe'
+        $relativeCompiler = if ('${{ runner.arch }}' -eq 'ARM64') { 'clangarm64/bin/clang.exe' } else { 'ucrt64/bin/gcc.exe' }
+        $compiler = Join-Path '${{ steps.seed-map-toolchain.outputs.msys2-location }}' $relativeCompiler
         if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) { throw "Seed map compiler is missing: $compiler" }
         $compilerDirectory = Split-Path -Parent $compiler
         $env:PATH = "$compilerDirectory;$env:PATH"
@@ -75,8 +98,21 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw "Seed map compiler could not run: $compiler" }
         'int axolotl_seed_map_compiler_check(void) { return 0; }' | & $compiler -x c -fsyntax-only -
         if ($LASTEXITCODE -ne 0) { throw "Seed map compiler could not compile C source: $compiler" }
-        $compilerDirectory >> $env:GITHUB_PATH
+        if ('${{ runner.arch }}' -ne 'ARM64') { $compilerDirectory >> $env:GITHUB_PATH }
         "AXOLOTL_CUBIOMES_CC=$compiler" >> $env:GITHUB_ENV
+    - name: Select ARM64 MSVC dependency compiler
+      if: runner.os == 'Windows' && runner.arch == 'ARM64' && inputs.package-only != 'true'
+      shell: pwsh
+      run: |
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+        $installation = & $vswhere -latest -products '*' -property installationPath
+        if ($LASTEXITCODE -ne 0 -or !$installation) { throw 'Visual Studio installation was not found' }
+        $clang = Get-ChildItem -LiteralPath (Join-Path $installation 'VC/Tools/Llvm') -Filter clang-cl.exe -Recurse -File |
+          Sort-Object FullName | Select-Object -First 1
+        if (!$clang) { throw 'Visual Studio clang-cl is required for ARM64 MSVC dependencies' }
+        # cc-rs supplies the MSVC SDK environment for clang-cl; cubiomes uses its own MinGW compiler.
+        "CC_aarch64_pc_windows_msvc=$($clang.FullName)" >> $env:GITHUB_ENV
+        "CXX_aarch64_pc_windows_msvc=$($clang.FullName)" >> $env:GITHUB_ENV
     - shell: bash
       run: pnpm install --frozen-lockfile
     - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

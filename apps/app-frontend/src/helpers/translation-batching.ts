@@ -115,13 +115,18 @@ export async function translateInBatches(
     request: TranslationRequest,
     onBatch: ((response: TranslationResponse) => void) | undefined,
     execute: (request: TranslationRequest) => Promise<TranslationResponse>,
+    options: { maxItems?: number } = {},
 ): Promise<TranslationResponse> {
     const result: TranslationResponse = {
         segments: request.segments
             .filter((segment) => !prepareTranslationText(segment.text))
             .map(({ id }) => ({ id, text: '' })),
     }
-    const batches = createTranslationBatches(request.segments)
+    const batches = createTranslationBatches(
+        request.segments,
+        DEFAULT_TRANSLATION_BATCH_CHARACTERS,
+        options.maxItems,
+    )
     const limitedExecute = createLimitedExecutor(execute, DEFAULT_TRANSLATION_CONCURRENCY)
 
     const translatedBatches = await mapWithConcurrency(

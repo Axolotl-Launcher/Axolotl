@@ -1,25 +1,4 @@
 {
-  "app.downloads.slow-downloads.title": {
-    "message": "下載緩慢？"
-  },
-  "app.downloads.slow-downloads.description": {
-    "message": "可以前往 <settings-link>下載設定</settings-link> 開啟強制多執行緒下載功能，可能會幫助提升你的下載速度。"
-  },
-  "app.downloads.slow-downloads.dismiss": {
-    "message": "不再提示"
-  },
-  "app.settings.resources.force-multiconnection": {
-    "message": "強制多連線下載"
-  },
-  "app.settings.resources.force-multiconnection-description": {
-    "message": "使用更積極的下載邏輯，可能會改善你的下載速度。當你遇到問題時，請考慮啟用這個選項。"
-  },
-  "app.settings.resources.experimental": {
-    "message": "實驗性"
-  },
-  "app.resources.operation.dependency-analysis-failed": {
-    "message": "依賴分析失敗，可能會導致實例運作不正常"
-  },
   "app.account.signed-in-as": {
     "message": "登入身分："
   },
@@ -593,6 +572,9 @@
   "app.appearance-settings.home-layout.minimal": {
     "message": "極簡"
   },
+  "app.appearance-settings.home-layout.minimal-hint": {
+    "message": "極簡模式顯示哪些內容，可在首頁右下角的「自訂極簡模式」裡調整。"
+  },
   "app.appearance-settings.home-layout.standard": {
     "message": "資訊"
   },
@@ -622,6 +604,15 @@
   },
   "app.appearance-settings.page-transitions.title": {
     "message": "頁面切換過渡動畫"
+  },
+  "app.appearance-settings.sections.advanced-interface": {
+    "message": "進階介面"
+  },
+  "app.appearance-settings.sections.content-behavior": {
+    "message": "內容行為"
+  },
+  "app.appearance-settings.sections.home-navigation": {
+    "message": "首頁與導覽"
   },
   "app.appearance-settings.select-option": {
     "message": "選擇選項"
@@ -1499,6 +1490,15 @@
   "app.downloads.skip-missing-files": {
     "message": "略過"
   },
+  "app.downloads.slow-downloads.description": {
+    "message": "可以前往 <settings-link>下載設定</settings-link> 開啟強制多執行緒下載功能，可能會幫助提升你的下載速度。"
+  },
+  "app.downloads.slow-downloads.dismiss": {
+    "message": "不再提示"
+  },
+  "app.downloads.slow-downloads.title": {
+    "message": "下載緩慢？"
+  },
   "app.downloads.source.alternate": {
     "message": "備用來源"
   },
@@ -1865,6 +1865,42 @@
   "app.home.breadcrumb": {
     "message": "首頁"
   },
+  "app.home.calendar.day-instances": {
+    "message": "{name} 等 {total} 個"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, other {# 天}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "最長一天"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "最長連續"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "最常玩"
+  },
+  "app.home.calendar.legend": {
+    "message": "每天的遊玩時長，從少到多"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "少"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "多"
+  },
+  "app.home.calendar.month-empty": {
+    "message": "本月還沒有遊玩記錄"
+  },
+  "app.home.calendar.month-empty-hint": {
+    "message": "每次遊玩都會按天記在日曆上。"
+  },
+  "app.home.calendar.month-hours-short": {
+    "message": "本月 {hours} 小時"
+  },
+  "app.home.calendar.month-total": {
+    "message": "本月 {duration}"
+  },
   "app.home.calendar.next": {
     "message": "下個月"
   },
@@ -1880,23 +1916,44 @@
   "app.home.calendar.previous": {
     "message": "上個月"
   },
+  "app.home.calendar.stat-days": {
+    "message": "{count, plural, other {天有遊玩}}"
+  },
+  "app.home.calendar.stat-hours": {
+    "message": "{count, plural, other {小時}}"
+  },
   "app.home.calendar.stop": {
     "message": "停止"
   },
   "app.home.calendar.this-month": {
     "message": "回到本月"
   },
+  "app.home.calendar.this-week": {
+    "message": "本週"
+  },
   "app.home.calendar.title": {
     "message": "日曆"
   },
+  "app.home.challenge.difficulty": {
+    "message": "難度：{level}"
+  },
   "app.home.challenge.easy": {
     "message": "簡單"
+  },
+  "app.home.challenge.empty-hint": {
+    "message": "這一局就給自己定個小目標吧。"
+  },
+  "app.home.challenge.empty-title": {
+    "message": "今天沒有挑戰"
   },
   "app.home.challenge.hard": {
     "message": "困難"
   },
   "app.home.challenge.medium": {
     "message": "中等"
+  },
+  "app.home.challenge.number": {
+    "message": "第 {number} 號"
   },
   "app.home.challenge.shuffle": {
     "message": "換一個"
@@ -2009,14 +2066,32 @@
   "app.home.greeting.with-player": {
     "message": "{name}，{greeting}"
   },
+  "app.home.insights.daily-average": {
+    "message": "日均 {duration}"
+  },
   "app.home.insights.empty": {
     "message": "開始遊玩後，這裡會顯示你的統計。"
+  },
+  "app.home.insights.empty-title": {
+    "message": "還沒有遊玩記錄"
+  },
+  "app.home.insights.error-title": {
+    "message": "遊玩記錄載入失敗"
+  },
+  "app.home.insights.ghost-legend": {
+    "message": "虛線柱為上週"
+  },
+  "app.home.insights.last-week": {
+    "message": "上週 {duration}"
   },
   "app.home.insights.streak": {
     "message": "已連續遊玩 {days} 天"
   },
   "app.home.insights.this-week": {
     "message": "本週遊玩 {duration}"
+  },
+  "app.home.insights.this-week-label": {
+    "message": "本週"
   },
   "app.home.insights.this-week-less": {
     "message": "本週遊玩 {duration}（比上週少 {percent}%）"
@@ -2029,6 +2104,18 @@
   },
   "app.home.insights.title": {
     "message": "遊玩洞察"
+  },
+  "app.home.insights.unit-hours": {
+    "message": "{count, plural, other {小時}}"
+  },
+  "app.home.insights.unit-minutes": {
+    "message": "{count, plural, other {分鐘}}"
+  },
+  "app.home.insights.vs-last-week": {
+    "message": "較上週"
+  },
+  "app.home.insights.week-empty": {
+    "message": "本週還沒玩"
   },
   "app.home.insights.week-top": {
     "message": "本週常玩：{name}"
@@ -2048,11 +2135,65 @@
   "app.home.instances.pinned-empty": {
     "message": "在實例卡片菜單或實例庫中選擇「固定到首頁」，實例就會顯示在這裡。"
   },
+  "app.home.instances.pinned-empty-title": {
+    "message": "還沒有固定的實例"
+  },
   "app.home.instances.unpin": {
     "message": "取消固定"
   },
   "app.home.instances.view-all": {
     "message": "查看全部實例"
+  },
+  "app.home.launch.all-instances": {
+    "message": "全部實例"
+  },
+  "app.home.launch.browse-modpacks": {
+    "message": "瀏覽模組包"
+  },
+  "app.home.launch.choose-hint": {
+    "message": "選一個首頁要啟動的實例，之後隨時可以換。"
+  },
+  "app.home.launch.continue": {
+    "message": "繼續遊玩"
+  },
+  "app.home.launch.create-or-import": {
+    "message": "建立或匯入實例"
+  },
+  "app.home.launch.fresh-hint": {
+    "message": "從零建立、從其他啟動器匯入，或者從一個模組包開始。"
+  },
+  "app.home.launch.home-instance": {
+    "message": "主頁實例"
+  },
+  "app.home.launch.last-world": {
+    "message": "上次進入：{name}"
+  },
+  "app.home.launch.not-installed": {
+    "message": "未安裝"
+  },
+  "app.home.launch.quick-pick": {
+    "message": "快速選擇"
+  },
+  "app.home.launch.recent": {
+    "message": "最近遊玩"
+  },
+  "app.home.launch.recent-short": {
+    "message": "最近"
+  },
+  "app.home.launch.running": {
+    "message": "執行中"
+  },
+  "app.home.launch.status-error": {
+    "message": "無法取得執行狀態"
+  },
+  "app.home.launch.switch": {
+    "message": "切換實例"
+  },
+  "app.home.launch.switch-to": {
+    "message": "切換到 {name}"
+  },
+  "app.home.launch.total-played": {
+    "message": "累計 {duration}"
   },
   "app.home.layout.switch-to-information": {
     "message": "切換到資訊首頁"
@@ -2063,11 +2204,41 @@
   "app.home.layout.toggle": {
     "message": "極簡首頁"
   },
+  "app.home.minimal.arrangement": {
+    "message": "排列"
+  },
+  "app.home.minimal.arrangement.bar": {
+    "message": "橫條"
+  },
+  "app.home.minimal.arrangement.row": {
+    "message": "左右"
+  },
+  "app.home.minimal.arrangement.stacked": {
+    "message": "上下置中"
+  },
   "app.home.minimal.change-instance": {
     "message": "更換首頁實例"
   },
   "app.home.minimal.choose-instance": {
     "message": "選擇實例"
+  },
+  "app.home.minimal.customize": {
+    "message": "自訂極簡模式"
+  },
+  "app.home.minimal.customize.close": {
+    "message": "關閉"
+  },
+  "app.home.minimal.density": {
+    "message": "間距"
+  },
+  "app.home.minimal.density.comfortable": {
+    "message": "寬鬆"
+  },
+  "app.home.minimal.density.compact": {
+    "message": "緊湊"
+  },
+  "app.home.minimal.layout": {
+    "message": "版面"
   },
   "app.home.minimal.picker.no-instances": {
     "message": "沒有可用例項"
@@ -2084,14 +2255,80 @@
   "app.home.minimal.picker.title": {
     "message": "選擇首頁實例"
   },
+  "app.home.minimal.position": {
+    "message": "垂直位置"
+  },
+  "app.home.minimal.position.center": {
+    "message": "置中"
+  },
+  "app.home.minimal.position.upper": {
+    "message": "偏上"
+  },
+  "app.home.minimal.preset": {
+    "message": "樣式"
+  },
+  "app.home.minimal.preset.classic": {
+    "message": "經典"
+  },
+  "app.home.minimal.preset.custom": {
+    "message": "自訂"
+  },
+  "app.home.minimal.preset.pure": {
+    "message": "純淨"
+  },
+  "app.home.minimal.preset.standard": {
+    "message": "標準"
+  },
+  "app.home.minimal.show": {
+    "message": "顯示"
+  },
+  "app.home.minimal.show.date": {
+    "message": "日期"
+  },
+  "app.home.minimal.show.greeting": {
+    "message": "問候語"
+  },
+  "app.home.minimal.show.meta": {
+    "message": "資訊標籤"
+  },
+  "app.home.minimal.show.status": {
+    "message": "狀態列"
+  },
+  "app.home.minimal.show.switch": {
+    "message": "「切換實例」按鈕"
+  },
+  "app.home.minimal.surface": {
+    "message": "底板"
+  },
+  "app.home.minimal.surface.card": {
+    "message": "卡片"
+  },
+  "app.home.minimal.surface.plain": {
+    "message": "無"
+  },
+  "app.home.news.empty-title": {
+    "message": "暫時沒有新聞"
+  },
+  "app.home.news.error-title": {
+    "message": "新聞載入失敗"
+  },
+  "app.home.news.offline-title": {
+    "message": "連網後會顯示新聞"
+  },
   "app.home.news.open-article": {
     "message": "在 minecraft.net 上閱讀"
+  },
+  "app.home.news.open-site": {
+    "message": "打開 minecraft.net"
   },
   "app.home.news.title": {
     "message": "Minecraft 新聞"
   },
   "app.home.playtime.hours-minutes": {
     "message": "{hours} 小時 {minutes} 分鐘"
+  },
+  "app.home.playtime.hours-short": {
+    "message": "{hours} 小時"
   },
   "app.home.playtime.minutes": {
     "message": "{minutes} 分鐘"
@@ -2108,11 +2345,26 @@
   "app.home.recent.empty": {
     "message": "還沒有最近活動。"
   },
+  "app.home.recent.empty-hint": {
+    "message": "玩過的世界、伺服器和實例會出現在這裡。"
+  },
+  "app.home.recent.empty-title": {
+    "message": "還沒有最近的項目"
+  },
   "app.home.recent.title": {
     "message": "從最近的項目開始"
   },
+  "app.home.row.shortcut-created": {
+    "message": "已建立捷徑"
+  },
+  "app.home.servers.add": {
+    "message": "新增伺服器"
+  },
   "app.home.servers.empty": {
     "message": "將伺服器標記為收藏後，就會固定在這裡。"
+  },
+  "app.home.servers.empty-title": {
+    "message": "還沒有固定的伺服器"
   },
   "app.home.servers.join": {
     "message": "加入伺服器"
@@ -2144,6 +2396,9 @@
   "app.home.shortcut.kind.world": {
     "message": "世界"
   },
+  "app.home.shortcut.missing-hint": {
+    "message": "它可能已被刪除或移動。換一個目標，或移除這個小元件。"
+  },
   "app.home.shortcut.server.offline": {
     "message": "伺服器離線"
   },
@@ -2153,8 +2408,20 @@
   "app.home.widgets.add": {
     "message": "新增小元件"
   },
+  "app.home.widgets.add-another": {
+    "message": "再新增一個"
+  },
   "app.home.widgets.add-title": {
     "message": "新增小元件"
+  },
+  "app.home.widgets.add-to-home": {
+    "message": "新增到主頁"
+  },
+  "app.home.widgets.added-count": {
+    "message": "{count, plural, =1 {已新增} other {已新增 ×#}}"
+  },
+  "app.home.widgets.added-toast": {
+    "message": "已將「{name}」新增到主頁"
   },
   "app.home.widgets.back": {
     "message": "返回"
@@ -2165,11 +2432,32 @@
   "app.home.widgets.calendar-description": {
     "message": "快速檢視本月日期與遊玩記錄。"
   },
+  "app.home.widgets.categories": {
+    "message": "小元件分類"
+  },
+  "app.home.widgets.category.activity": {
+    "message": "遊玩資料"
+  },
+  "app.home.widgets.category.all": {
+    "message": "全部"
+  },
+  "app.home.widgets.category.collections": {
+    "message": "收藏內容"
+  },
+  "app.home.widgets.category.shortcuts": {
+    "message": "捷徑"
+  },
+  "app.home.widgets.category.start": {
+    "message": "啟動"
+  },
   "app.home.widgets.choose-instance": {
     "message": "選擇例項"
   },
   "app.home.widgets.choose-server": {
     "message": "選擇伺服器"
+  },
+  "app.home.widgets.choose-target": {
+    "message": "選擇它要開啟的內容"
   },
   "app.home.widgets.choose-world": {
     "message": "選擇世界"
@@ -2179,6 +2467,9 @@
   },
   "app.home.widgets.done": {
     "message": "完成編輯"
+  },
+  "app.home.widgets.done-adding": {
+    "message": "完成"
   },
   "app.home.widgets.drag": {
     "message": "拖動小元件"
@@ -2207,6 +2498,12 @@
   "app.home.widgets.instance-description": {
     "message": "選擇一個例項，建立獨立的快速啟動入口。"
   },
+  "app.home.widgets.launch": {
+    "message": "啟動"
+  },
+  "app.home.widgets.launch-description": {
+    "message": "一鍵啟動主頁實例，或切換到其他實例。"
+  },
   "app.home.widgets.layout.switch-to-free": {
     "message": "切換到自由小元件佈局"
   },
@@ -2219,6 +2516,12 @@
   "app.home.widgets.loading": {
     "message": "正在載入……"
   },
+  "app.home.widgets.more": {
+    "message": "還有 {count} 個"
+  },
+  "app.home.widgets.more-label": {
+    "message": "檢視放不下的 {count} 項"
+  },
   "app.home.widgets.move-earlier": {
     "message": "向前移動"
   },
@@ -2227,6 +2530,9 @@
   },
   "app.home.widgets.no-results": {
     "message": "沒有匹配項"
+  },
+  "app.home.widgets.no-widgets": {
+    "message": "沒有符合的小元件"
   },
   "app.home.widgets.options": {
     "message": "小元件選項"
@@ -2248,6 +2554,9 @@
   },
   "app.home.widgets.pinned-worlds-description": {
     "message": "自動彙總所有收藏的單人世界。"
+  },
+  "app.home.widgets.quick-add": {
+    "message": "新增「{name}」"
   },
   "app.home.widgets.recent": {
     "message": "最近遊玩"
@@ -2273,6 +2582,9 @@
   "app.home.widgets.search": {
     "message": "搜尋"
   },
+  "app.home.widgets.search-widgets": {
+    "message": "搜尋小元件"
+  },
   "app.home.widgets.server": {
     "message": "單個伺服器入口"
   },
@@ -2282,8 +2594,14 @@
   "app.home.widgets.size": {
     "message": "尺寸 {size}"
   },
+  "app.home.widgets.size-label": {
+    "message": "尺寸"
+  },
   "app.home.widgets.unavailable": {
     "message": "內容已不可用"
+  },
+  "app.home.widgets.undo": {
+    "message": "復原"
   },
   "app.home.widgets.world": {
     "message": "單個世界入口"
@@ -2291,11 +2609,26 @@
   "app.home.widgets.world-description": {
     "message": "選擇一個世界，建立獨立的快速遊玩入口。"
   },
+  "app.home.worlds.browse": {
+    "message": "開啟世界列表"
+  },
   "app.home.worlds.empty": {
     "message": "將世界標記為收藏後，就會固定在這裡。"
   },
+  "app.home.worlds.empty-title": {
+    "message": "還沒有固定的世界"
+  },
   "app.home.worlds.pinned": {
     "message": "固定的世界"
+  },
+  "app.install.missing-java.body": {
+    "message": "因未找到可用的 Java {version}，本次安裝無法繼續。你可以前往 Java 設定安裝或配置 Java {version}，完成後再重新安裝。"
+  },
+  "app.install.missing-java.open-settings": {
+    "message": "前往 Java 設定"
+  },
+  "app.install.missing-java.title": {
+    "message": "安裝此實例需要 Java {version}"
   },
   "app.install.phase.downloading_content": {
     "message": "正在下載內容"
@@ -2404,6 +2737,123 @@
   },
   "app.instance.create-shortcut": {
     "message": "建立捷徑"
+  },
+  "app.instance.dependencies.all-sources": {
+    "message": "所有來源"
+  },
+  "app.instance.dependencies.all-statuses": {
+    "message": "所有狀態"
+  },
+  "app.instance.dependencies.all-types": {
+    "message": "所有類型"
+  },
+  "app.instance.dependencies.cycle": {
+    "message": "循環依賴"
+  },
+  "app.instance.dependencies.cycle-reference": {
+    "message": "循環依賴在此繼續"
+  },
+  "app.instance.dependencies.direct-dependencies": {
+    "message": "直接依賴"
+  },
+  "app.instance.dependencies.direct-dependents": {
+    "message": "直接依賴方"
+  },
+  "app.instance.dependencies.disabled": {
+    "message": "已停用"
+  },
+  "app.instance.dependencies.file": {
+    "message": "檔案 {file}"
+  },
+  "app.instance.dependencies.graph-direction": {
+    "message": "箭頭從依賴方指向它使用的內容。"
+  },
+  "app.instance.dependencies.graph-hint": {
+    "message": "拖曳畫布以瀏覽關係；拖曳卡片可調整配置。"
+  },
+  "app.instance.dependencies.graph-view": {
+    "message": "關係圖"
+  },
+  "app.instance.dependencies.header": {
+    "message": "依賴關係"
+  },
+  "app.instance.dependencies.isolated-summary": {
+    "message": "{count, number} 個孤立項目未顯示在關係圖中。"
+  },
+  "app.instance.dependencies.local-discovered": {
+    "message": "本機發現"
+  },
+  "app.instance.dependencies.missing": {
+    "message": "遺失"
+  },
+  "app.instance.dependencies.no-content": {
+    "message": "沒有可分析的內容。"
+  },
+  "app.instance.dependencies.no-dependencies": {
+    "message": "找不到依賴關係。"
+  },
+  "app.instance.dependencies.no-graph-relations": {
+    "message": "目前篩選條件下沒有可顯示的關係。"
+  },
+  "app.instance.dependencies.no-matches": {
+    "message": "沒有依賴項符合這些篩選條件。"
+  },
+  "app.instance.dependencies.only-related": {
+    "message": "只顯示相關內容"
+  },
+  "app.instance.dependencies.orphaned": {
+    "message": "孤立依賴"
+  },
+  "app.instance.dependencies.pack-managed": {
+    "message": "由模組包管理"
+  },
+  "app.instance.dependencies.reference": {
+    "message": "在其他位置被引用"
+  },
+  "app.instance.dependencies.required-by": {
+    "message": "依賴方"
+  },
+  "app.instance.dependencies.requires": {
+    "message": "依賴項"
+  },
+  "app.instance.dependencies.reset-zoom": {
+    "message": "重設關係圖檢視"
+  },
+  "app.instance.dependencies.search": {
+    "message": "搜尋依賴項……"
+  },
+  "app.instance.dependencies.show-isolated": {
+    "message": "顯示孤立內容"
+  },
+  "app.instance.dependencies.source": {
+    "message": "來源"
+  },
+  "app.instance.dependencies.stats": {
+    "message": "{nodes, number} 個項目，{edges, number} 個關係"
+  },
+  "app.instance.dependencies.status": {
+    "message": "狀態"
+  },
+  "app.instance.dependencies.tree-view": {
+    "message": "依賴樹"
+  },
+  "app.instance.dependencies.unresolved": {
+    "message": "未解析"
+  },
+  "app.instance.dependencies.unresolved-label": {
+    "message": "依賴詳細資料無法使用。"
+  },
+  "app.instance.dependencies.user-added": {
+    "message": "使用者新增"
+  },
+  "app.instance.dependencies.version": {
+    "message": "版本 {version}"
+  },
+  "app.instance.dependencies.zoom-in": {
+    "message": "放大"
+  },
+  "app.instance.dependencies.zoom-out": {
+    "message": "縮小"
   },
   "app.instance.disable-selected": {
     "message": "停用所選項"
@@ -2966,8 +3416,38 @@
   "app.instances.add-content": {
     "message": "新增內容"
   },
+  "app.instances.batch-edit-groups.add": {
+    "message": "新增"
+  },
+  "app.instances.batch-edit-groups.add-to-group-title": {
+    "message": "新增實例到「{groupName}」"
+  },
+  "app.instances.batch-edit-groups.added": {
+    "message": "已新增"
+  },
+  "app.instances.batch-edit-groups.cancel": {
+    "message": "取消"
+  },
+  "app.instances.batch-edit-groups.create": {
+    "message": "建立分組"
+  },
+  "app.instances.batch-edit-groups.group-name": {
+    "message": "分組名稱"
+  },
+  "app.instances.batch-edit-groups.group-name-placeholder": {
+    "message": "輸入分組名稱"
+  },
   "app.instances.batch-edit-groups.header": {
     "message": "建立分組"
+  },
+  "app.instances.batch-edit-groups.no-instances-found": {
+    "message": "未找到實例"
+  },
+  "app.instances.batch-edit-groups.save-changes": {
+    "message": "儲存"
+  },
+  "app.instances.batch-edit-groups.search-instance": {
+    "message": "搜尋實例"
   },
   "app.instances.copy-path": {
     "message": "複製路徑"
@@ -2984,6 +3464,27 @@
   "app.instances.group-by": {
     "message": "分組方式"
   },
+  "app.instances.group.add-to-group": {
+    "message": "新增到分組"
+  },
+  "app.instances.group.collapse": {
+    "message": "折疊分組"
+  },
+  "app.instances.group.delete-description": {
+    "message": "此分組中的實例將被取消分組。"
+  },
+  "app.instances.group.delete-group": {
+    "message": "刪除分組"
+  },
+  "app.instances.group.edit-name": {
+    "message": "編輯分組名稱"
+  },
+  "app.instances.group.empty": {
+    "message": "拖放實例到此處添加。"
+  },
+  "app.instances.group.expand": {
+    "message": "展開分組"
+  },
   "app.instances.group.game-version": {
     "message": "遊戲版本"
   },
@@ -2993,47 +3494,11 @@
   "app.instances.group.loader": {
     "message": "載入器"
   },
-  "app.instances.group.none": {
-    "message": "無"
-  },
-  "app.instances.group.ungrouped": {
-    "message": "無分組"
-  },
-  "app.instances.group.pinned": {
-    "message": "已置頂"
-  },
-  "app.instances.group.empty": {
-    "message": "拖放實例到此處添加。"
-  },
-  "app.instances.group.edit-name": {
-    "message": "編輯分組名稱"
-  },
-  "app.instances.group.delete-group": {
-    "message": "刪除分組"
-  },
-  "app.instances.group.delete-description": {
-    "message": "此分組中的實例將被取消分組。"
-  },
-  "app.instances.group.move-up": {
-    "message": "上移分組"
-  },
   "app.instances.group.move-down": {
     "message": "下移分組"
   },
-  "app.instances.group.add-to-group": {
-    "message": "新增到分組"
-  },
-  "app.instances.group.new-instance": {
-    "message": "新建實例"
-  },
-  "app.instances.group.collapse": {
-    "message": "折疊分組"
-  },
-  "app.instances.group.expand": {
-    "message": "展開分組"
-  },
-  "app.instances.group.rename-group": {
-    "message": "重新命名分組"
+  "app.instances.group.move-up": {
+    "message": "上移分組"
   },
   "app.instances.group.name-empty": {
     "message": "分組名稱不能為空。"
@@ -3041,53 +3506,20 @@
   "app.instances.group.name-too-long": {
     "message": "分組名稱不能超過 {maxLength} 個字元。"
   },
-  "app.instances.batch-edit-groups.add-to-group-title": {
-    "message": "新增實例到「{groupName}」"
+  "app.instances.group.new-instance": {
+    "message": "新建實例"
   },
-  "app.instances.batch-edit-groups.group-name": {
-    "message": "分組名稱"
+  "app.instances.group.none": {
+    "message": "無"
   },
-  "app.instances.batch-edit-groups.group-name-placeholder": {
-    "message": "輸入分組名稱"
+  "app.instances.group.pinned": {
+    "message": "已置頂"
   },
-  "app.instances.batch-edit-groups.search-instance": {
-    "message": "搜尋實例"
+  "app.instances.group.rename-group": {
+    "message": "重新命名分組"
   },
-  "app.instances.batch-edit-groups.no-instances-found": {
-    "message": "未找到實例"
-  },
-  "app.instances.batch-edit-groups.add": {
-    "message": "新增"
-  },
-  "app.instances.batch-edit-groups.added": {
-    "message": "已新增"
-  },
-  "app.instances.batch-edit-groups.cancel": {
-    "message": "取消"
-  },
-  "app.instances.batch-edit-groups.create": {
-    "message": "建立分組"
-  },
-  "app.instances.batch-edit-groups.save-changes": {
-    "message": "儲存"
-  },
-  "app.library.group.new": {
-    "message": "新建分組"
-  },
-  "app.library.selection.new-group": {
-    "message": "新建分組"
-  },
-  "app.library.selection.remove-from-group": {
-    "message": "移出分組"
-  },
-  "app.library.context-menu.pin-instance": {
-    "message": "置頂實例"
-  },
-  "app.library.context-menu.unpin-instance": {
-    "message": "取消置頂"
-  },
-  "app.library.context-menu.remove-from-group": {
-    "message": "移出分組"
+  "app.instances.group.ungrouped": {
+    "message": "無分組"
   },
   "app.instances.pin-to-home": {
     "message": "固定到首頁"
@@ -3104,44 +3536,44 @@
   "app.instances.selected-count": {
     "message": "已選擇 {count} 個"
   },
+  "app.instances.sort-by": {
+    "message": "排序方式"
+  },
   "app.instances.sort.date-created": {
     "message": "建立日期"
   },
   "app.instances.sort.date-modified": {
     "message": "修改日期"
   },
+  "app.instances.sort.direction.asc-alphabetical": {
+    "message": "A–Z 正序"
+  },
+  "app.instances.sort.direction.asc-date": {
+    "message": "最早的在前"
+  },
+  "app.instances.sort.direction.asc-recency": {
+    "message": "最早遊玩在前"
+  },
+  "app.instances.sort.direction.asc-version": {
+    "message": "舊版本在前"
+  },
+  "app.instances.sort.direction.desc-alphabetical": {
+    "message": "Z–A 倒序"
+  },
+  "app.instances.sort.direction.desc-date": {
+    "message": "最新的在前"
+  },
+  "app.instances.sort.direction.desc-recency": {
+    "message": "最近遊玩在前"
+  },
+  "app.instances.sort.direction.desc-version": {
+    "message": "新版本在前"
+  },
   "app.instances.sort.last-played": {
     "message": "上次遊玩"
   },
   "app.instances.sort.name": {
     "message": "名稱"
-  },
-  "app.instances.sort-by": {
-    "message": "排序方式"
-  },
-  "app.instances.sort.direction.asc-alphabetical": {
-    "message": "A–Z 正序"
-  },
-  "app.instances.sort.direction.desc-alphabetical": {
-    "message": "Z–A 倒序"
-  },
-  "app.instances.sort.direction.asc-version": {
-    "message": "舊版本在前"
-  },
-  "app.instances.sort.direction.desc-version": {
-    "message": "新版本在前"
-  },
-  "app.instances.sort.direction.asc-recency": {
-    "message": "最早遊玩在前"
-  },
-  "app.instances.sort.direction.desc-recency": {
-    "message": "最近遊玩在前"
-  },
-  "app.instances.sort.direction.asc-date": {
-    "message": "最早的在前"
-  },
-  "app.instances.sort.direction.desc-date": {
-    "message": "最新的在前"
   },
   "app.instances.unpin-from-home": {
     "message": "取消固定"
@@ -3223,15 +3655,6 @@
   },
   "app.java-arguments.presets.use": {
     "message": "使用預設"
-  },
-  "app.install.missing-java.body": {
-    "message": "因未找到可用的 Java {version}，本次安裝無法繼續。你可以前往 Java 設定安裝或配置 Java {version}，完成後再重新安裝。"
-  },
-  "app.install.missing-java.open-settings": {
-    "message": "前往 Java 設定"
-  },
-  "app.install.missing-java.title": {
-    "message": "安裝此實例需要 Java {version}"
   },
   "app.java.already-installed": {
     "message": "已安裝"
@@ -3451,108 +3874,6 @@
   },
   "app.lab.gradient-text.title": {
     "message": "漸變文字生成器"
-  },
-  "app.lab.skin-editor.auto-save.error": {
-    "message": "自動儲存失敗"
-  },
-  "app.lab.skin-editor.auto-save.off": {
-    "message": "自動儲存已關閉"
-  },
-  "app.lab.skin-editor.auto-save.saved": {
-    "message": "草稿已儲存 {time}"
-  },
-  "app.lab.skin-editor.auto-save.saving": {
-    "message": "正在儲存草稿…"
-  },
-  "app.lab.skin-editor.auto-save.unsaved": {
-    "message": "有未儲存的變更"
-  },
-  "app.lab.skin-editor.auto-save.up-to-date": {
-    "message": "已是最新"
-  },
-  "app.lab.skin-editor.description": {
-    "message": "在本機建立和編輯 Minecraft 玩家外觀。"
-  },
-  "app.lab.skin-editor.discard-draft-failed": {
-    "message": "無法刪除恢復草稿。請留在目前頁面後重試。"
-  },
-  "app.lab.skin-editor.export-skin": {
-    "message": "Minecraft 外觀 PNG"
-  },
-  "app.lab.skin-editor.load-error-description": {
-    "message": "嵌入式編輯器未能完成載入，請再試一次。"
-  },
-  "app.lab.skin-editor.load-error-title": {
-    "message": "無法載入外觀編輯器"
-  },
-  "app.lab.skin-editor.loading": {
-    "message": "正在載入外觀編輯器"
-  },
-  "app.lab.skin-editor.recovery.body": {
-    "message": "恢復草稿儲存於 {date}。"
-  },
-  "app.lab.skin-editor.recovery.continue": {
-    "message": "繼續"
-  },
-  "app.lab.skin-editor.recovery.start-new": {
-    "message": "新建"
-  },
-  "app.lab.skin-editor.recovery.title": {
-    "message": "要繼續上次的外觀嗎？"
-  },
-  "app.lab.skin-editor.retry": {
-    "message": "再試一次"
-  },
-  "app.lab.skin-editor.save": {
-    "message": "儲存 PNG"
-  },
-  "app.lab.skin-editor.settings.auto-save": {
-    "message": "自動儲存恢復草稿"
-  },
-  "app.lab.skin-editor.settings.auto-save-description": {
-    "message": "恢復草稿僅儲存在本裝置，與匯出的 PNG 檔案相互獨立。"
-  },
-  "app.lab.skin-editor.settings.cancel": {
-    "message": "取消"
-  },
-  "app.lab.skin-editor.settings.interval": {
-    "message": "儲存間隔（秒）"
-  },
-  "app.lab.skin-editor.settings.interval-description": {
-    "message": "請輸入 5 到 600 秒之間的數值。"
-  },
-  "app.lab.skin-editor.settings.save": {
-    "message": "儲存設定"
-  },
-  "app.lab.skin-editor.settings.title": {
-    "message": "編輯器設定"
-  },
-  "app.lab.skin-editor.settings.tooltip": {
-    "message": "外觀編輯器設定"
-  },
-  "app.lab.skin-editor.settings.warn-before-leave": {
-    "message": "離開前提醒未儲存的變更"
-  },
-  "app.lab.skin-editor.settings.warn-before-leave-description": {
-    "message": "關閉自動儲存時，為保護你的作品，此提醒會始終啟用。"
-  },
-  "app.lab.skin-editor.title": {
-    "message": "外觀編輯器"
-  },
-  "app.lab.skin-editor.unsaved.body": {
-    "message": "離開前儲存外觀，或放棄目前的變更。"
-  },
-  "app.lab.skin-editor.unsaved.discard": {
-    "message": "放棄"
-  },
-  "app.lab.skin-editor.unsaved.save": {
-    "message": "儲存 PNG"
-  },
-  "app.lab.skin-editor.unsaved.stay": {
-    "message": "留下"
-  },
-  "app.lab.skin-editor.unsaved.title": {
-    "message": "外觀尚未儲存"
   },
   "app.lab.mod-translation.active-count": {
     "message": "{count} 個任務進行中"
@@ -4901,6 +5222,108 @@
   "app.lab.seed-map.zoom-to-show": {
     "message": "放大以顯示{layer}"
   },
+  "app.lab.skin-editor.auto-save.error": {
+    "message": "自動儲存失敗"
+  },
+  "app.lab.skin-editor.auto-save.off": {
+    "message": "自動儲存已關閉"
+  },
+  "app.lab.skin-editor.auto-save.saved": {
+    "message": "草稿已儲存 {time}"
+  },
+  "app.lab.skin-editor.auto-save.saving": {
+    "message": "正在儲存草稿…"
+  },
+  "app.lab.skin-editor.auto-save.unsaved": {
+    "message": "有未儲存的變更"
+  },
+  "app.lab.skin-editor.auto-save.up-to-date": {
+    "message": "已是最新"
+  },
+  "app.lab.skin-editor.description": {
+    "message": "在本機建立和編輯 Minecraft 玩家外觀。"
+  },
+  "app.lab.skin-editor.discard-draft-failed": {
+    "message": "無法刪除恢復草稿。請留在目前頁面後重試。"
+  },
+  "app.lab.skin-editor.export-skin": {
+    "message": "Minecraft 外觀 PNG"
+  },
+  "app.lab.skin-editor.load-error-description": {
+    "message": "嵌入式編輯器未能完成載入，請再試一次。"
+  },
+  "app.lab.skin-editor.load-error-title": {
+    "message": "無法載入外觀編輯器"
+  },
+  "app.lab.skin-editor.loading": {
+    "message": "正在載入外觀編輯器"
+  },
+  "app.lab.skin-editor.recovery.body": {
+    "message": "恢復草稿儲存於 {date}。"
+  },
+  "app.lab.skin-editor.recovery.continue": {
+    "message": "繼續"
+  },
+  "app.lab.skin-editor.recovery.start-new": {
+    "message": "新建"
+  },
+  "app.lab.skin-editor.recovery.title": {
+    "message": "要繼續上次的外觀嗎？"
+  },
+  "app.lab.skin-editor.retry": {
+    "message": "再試一次"
+  },
+  "app.lab.skin-editor.save": {
+    "message": "儲存 PNG"
+  },
+  "app.lab.skin-editor.settings.auto-save": {
+    "message": "自動儲存恢復草稿"
+  },
+  "app.lab.skin-editor.settings.auto-save-description": {
+    "message": "恢復草稿僅儲存在本裝置，與匯出的 PNG 檔案相互獨立。"
+  },
+  "app.lab.skin-editor.settings.cancel": {
+    "message": "取消"
+  },
+  "app.lab.skin-editor.settings.interval": {
+    "message": "儲存間隔（秒）"
+  },
+  "app.lab.skin-editor.settings.interval-description": {
+    "message": "請輸入 5 到 600 秒之間的數值。"
+  },
+  "app.lab.skin-editor.settings.save": {
+    "message": "儲存設定"
+  },
+  "app.lab.skin-editor.settings.title": {
+    "message": "編輯器設定"
+  },
+  "app.lab.skin-editor.settings.tooltip": {
+    "message": "外觀編輯器設定"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave": {
+    "message": "離開前提醒未儲存的變更"
+  },
+  "app.lab.skin-editor.settings.warn-before-leave-description": {
+    "message": "關閉自動儲存時，為保護你的作品，此提醒會始終啟用。"
+  },
+  "app.lab.skin-editor.title": {
+    "message": "外觀編輯器"
+  },
+  "app.lab.skin-editor.unsaved.body": {
+    "message": "離開前儲存外觀，或放棄目前的變更。"
+  },
+  "app.lab.skin-editor.unsaved.discard": {
+    "message": "放棄"
+  },
+  "app.lab.skin-editor.unsaved.save": {
+    "message": "儲存 PNG"
+  },
+  "app.lab.skin-editor.unsaved.stay": {
+    "message": "留下"
+  },
+  "app.lab.skin-editor.unsaved.title": {
+    "message": "外觀尚未儲存"
+  },
   "app.lab.title": {
     "message": "實驗室"
   },
@@ -4910,11 +5333,29 @@
   "app.lab.tool-count-plural": {
     "message": "{count} 個工具"
   },
+  "app.library.context-menu.pin-instance": {
+    "message": "置頂實例"
+  },
+  "app.library.context-menu.remove-from-group": {
+    "message": "移出分組"
+  },
+  "app.library.context-menu.unpin-instance": {
+    "message": "取消置頂"
+  },
   "app.library.create-instance": {
     "message": "建立新實例"
   },
+  "app.library.group.new": {
+    "message": "新建分組"
+  },
   "app.library.no-instances": {
     "message": "未找到實例"
+  },
+  "app.library.selection.new-group": {
+    "message": "新建分組"
+  },
+  "app.library.selection.remove-from-group": {
+    "message": "移出分組"
   },
   "app.library.tabs.all-instances": {
     "message": "全部實例"
@@ -5252,6 +5693,9 @@
   "app.multiplayer.hongshi.cached": {
     "message": "（快取）"
   },
+  "app.multiplayer.hongshi.cancel": {
+    "message": "取消"
+  },
   "app.multiplayer.hongshi.closed": {
     "message": "紅石聯機 2 房間已關閉。重新建立後會獲得新的聯機地址。"
   },
@@ -5264,35 +5708,29 @@
   "app.multiplayer.hongshi.detected-port": {
     "message": "{instance} — 埠 {port}"
   },
-  "app.multiplayer.hongshi.cancel": {
-    "message": "取消"
-  },
-  "app.multiplayer.hongshi.no-nodes": {
-    "message": "目前沒有已發布的中轉節點，請重新整理列表後重試。"
-  },
   "app.multiplayer.hongshi.error.build-unavailable": {
     "message": "適用於當前裝置的紅石聯機 2 核心暫未發布，請稍後重試。"
-  },
-  "app.multiplayer.hongshi.error.node-list": {
-    "message": "無法取得中轉節點，請檢查網路並重新整理列表。"
-  },
-  "app.multiplayer.hongshi.error.node-unavailable": {
-    "message": "中轉節點未能建立房間，請重新整理節點列表或選擇其他節點。"
-  },
-  "app.multiplayer.hongshi.error.invalid-port": {
-    "message": "請輸入 1 到 65535 之間的本地埠。"
   },
   "app.multiplayer.hongshi.error.install": {
     "message": "無法安裝紅石聯機 2 核心，請檢查網路後重試。"
   },
-  "app.multiplayer.hongshi.error.kernel-start": {
-    "message": "紅石聯機 2 核心未能建立房間，請重試或開啟日誌。"
+  "app.multiplayer.hongshi.error.invalid-port": {
+    "message": "請輸入 1 到 65535 之間的本地埠。"
   },
   "app.multiplayer.hongshi.error.kernel-exit": {
     "message": "紅石聯機 2 核心意外退出，請重新建立房間或開啟日誌。"
   },
   "app.multiplayer.hongshi.error.kernel-output": {
     "message": "紅石聯機 2 核心回傳了無效地址或輸出，請開啟日誌查看詳情。"
+  },
+  "app.multiplayer.hongshi.error.kernel-start": {
+    "message": "紅石聯機 2 核心未能建立房間，請重試或開啟日誌。"
+  },
+  "app.multiplayer.hongshi.error.node-list": {
+    "message": "無法取得中轉節點，請檢查網路並重新整理列表。"
+  },
+  "app.multiplayer.hongshi.error.node-unavailable": {
+    "message": "中轉節點未能建立房間，請重新整理節點列表或選擇其他節點。"
   },
   "app.multiplayer.hongshi.error.unknown": {
     "message": "無法建立紅石聯機 2 房間，請重試或開啟日誌。"
@@ -5302,6 +5740,9 @@
   },
   "app.multiplayer.hongshi.manual-port": {
     "message": "手動輸入埠"
+  },
+  "app.multiplayer.hongshi.no-nodes": {
+    "message": "目前沒有已發布的中轉節點，請重新整理列表後重試。"
   },
   "app.multiplayer.hongshi.node": {
     "message": "中轉節點"
@@ -5642,6 +6083,54 @@
   "app.oobe.dialog-label": {
     "message": "設定 Axolotl Launcher"
   },
+  "app.oobe.java.add.action": {
+    "message": "新增"
+  },
+  "app.oobe.java.add.added": {
+    "message": "已新增 Java {version}，現在用作 Java {major}。"
+  },
+  "app.oobe.java.add.description": {
+    "message": "填入 java 執行檔的路徑，或瀏覽選擇。"
+  },
+  "app.oobe.java.add.invalid": {
+    "message": "無法從這個路徑啟動 Java。"
+  },
+  "app.oobe.java.add.placeholder": {
+    "message": "/path/to/java"
+  },
+  "app.oobe.java.add.title": {
+    "message": "填入已有的 Java"
+  },
+  "app.oobe.java.description": {
+    "message": "Minecraft 需要 Java 才能執行。可以使用已有的 Java，也可以下載一個。"
+  },
+  "app.oobe.java.download.description": {
+    "message": "選擇發行版和版本。下載期間可以繼續設定。"
+  },
+  "app.oobe.java.download.done": {
+    "message": "Java 已下載。"
+  },
+  "app.oobe.java.download.downloading": {
+    "message": "正在下載 Java…"
+  },
+  "app.oobe.java.download.title": {
+    "message": "下載 Java"
+  },
+  "app.oobe.java.found.description": {
+    "message": "為每個 Java 版本選擇要使用的那一個。"
+  },
+  "app.oobe.java.found.title": {
+    "message": "在此裝置上找到"
+  },
+  "app.oobe.java.label": {
+    "message": "Java"
+  },
+  "app.oobe.java.none-found": {
+    "message": "沒有在此裝置上找到 Java。"
+  },
+  "app.oobe.java.title": {
+    "message": "選擇或下載 Java。"
+  },
   "app.oobe.language.description": {
     "message": "選擇後啟動器會立即切換。"
   },
@@ -5726,54 +6215,6 @@
   "app.oobe.migration.use-folder": {
     "message": "使用此資料夾"
   },
-  "app.oobe.java.add.action": {
-    "message": "新增"
-  },
-  "app.oobe.java.add.added": {
-    "message": "已新增 Java {version}，現在用作 Java {major}。"
-  },
-  "app.oobe.java.add.description": {
-    "message": "填入 java 執行檔的路徑，或瀏覽選擇。"
-  },
-  "app.oobe.java.add.invalid": {
-    "message": "無法從這個路徑啟動 Java。"
-  },
-  "app.oobe.java.add.placeholder": {
-    "message": "/path/to/java"
-  },
-  "app.oobe.java.add.title": {
-    "message": "填入已有的 Java"
-  },
-  "app.oobe.java.description": {
-    "message": "Minecraft 需要 Java 才能執行。可以使用已有的 Java，也可以下載一個。"
-  },
-  "app.oobe.java.download.description": {
-    "message": "選擇發行版和版本。下載期間可以繼續設定。"
-  },
-  "app.oobe.java.download.done": {
-    "message": "Java 已下載。"
-  },
-  "app.oobe.java.download.downloading": {
-    "message": "正在下載 Java…"
-  },
-  "app.oobe.java.download.title": {
-    "message": "下載 Java"
-  },
-  "app.oobe.java.found.description": {
-    "message": "為每個 Java 版本選擇要使用的那一個。"
-  },
-  "app.oobe.java.found.title": {
-    "message": "在此裝置上找到"
-  },
-  "app.oobe.java.label": {
-    "message": "Java"
-  },
-  "app.oobe.java.none-found": {
-    "message": "沒有在此裝置上找到 Java。"
-  },
-  "app.oobe.java.title": {
-    "message": "選擇或下載 Java。"
-  },
   "app.oobe.progress": {
     "message": "設定進度"
   },
@@ -5837,18 +6278,6 @@
   "app.project.install-context.install-content-to-instance": {
     "message": "將內容安裝至實例"
   },
-  "app.project.modpack-server.created-description": {
-    "message": "{name} 已就緒。請在多人遊戲中配置並啟動。"
-  },
-  "app.project.modpack-server.created-title": {
-    "message": "伺服器已建立"
-  },
-  "app.project.modpack-server.open": {
-    "message": "開啟伺服器"
-  },
-  "app.project.modpack-server.start": {
-    "message": "開服"
-  },
   "app.project.mcarchive.install": {
     "message": "安裝"
   },
@@ -5884,6 +6313,18 @@
   },
   "app.project.mcarchive.versions": {
     "message": "版本"
+  },
+  "app.project.modpack-server.created-description": {
+    "message": "{name} 已就緒。請在多人遊戲中配置並啟動。"
+  },
+  "app.project.modpack-server.created-title": {
+    "message": "伺服器已建立"
+  },
+  "app.project.modpack-server.open": {
+    "message": "開啟伺服器"
+  },
+  "app.project.modpack-server.start": {
+    "message": "開服"
   },
   "app.project.open-in-mcmod": {
     "message": "在 MC 百科中打開"
@@ -5950,6 +6391,9 @@
   },
   "app.project.versions.start-server": {
     "message": "開服"
+  },
+  "app.resources.operation.dependency-analysis-failed": {
+    "message": "依賴分析失敗，可能會導致實例運作不正常"
   },
   "app.restarting": {
     "message": "正在重新啟動..."
@@ -6052,6 +6496,33 @@
   },
   "app.servers.loading": {
     "message": "載入中"
+  },
+  "app.servers.modpack.background-hint": {
+    "message": "您可以關閉此視窗，下載將在背景持續進行。"
+  },
+  "app.servers.modpack.current-file": {
+    "message": "正在安裝 {file}"
+  },
+  "app.servers.modpack.done": {
+    "message": "安裝完成"
+  },
+  "app.servers.modpack.download-in-background": {
+    "message": "背景下載"
+  },
+  "app.servers.modpack.downloading": {
+    "message": "正在下載整合包檔案..."
+  },
+  "app.servers.modpack.first-run-crashed": {
+    "message": "伺服器在首次啟動時當機。請檢查所選 Java 版本是否相容，然後重試。"
+  },
+  "app.servers.modpack.preparing": {
+    "message": "正在準備伺服器..."
+  },
+  "app.servers.modpack.unsupported-loader-description": {
+    "message": "此整合包使用 {loader}，但 Axolotl 目前僅支援原版、Fabric 與 Quilt 整合包伺服器端。{loader} 支援即將推出。"
+  },
+  "app.servers.modpack.unsupported-loader-title": {
+    "message": "{loader} 伺服器端暫不支援"
   },
   "app.servers.port.change": {
     "message": "修改連接埠"
@@ -6410,6 +6881,18 @@
   "app.servers.status.starting": {
     "message": "啟動中"
   },
+  "app.servers.type.fabric": {
+    "message": "Fabric"
+  },
+  "app.servers.type.forge": {
+    "message": "Forge"
+  },
+  "app.servers.type.paper": {
+    "message": "Paper"
+  },
+  "app.servers.type.vanilla": {
+    "message": "原版"
+  },
   "app.servers.wizard.background-hint": {
     "message": "您可以關閉此視窗，下載將在背景繼續進行。"
   },
@@ -6475,45 +6958,6 @@
   },
   "app.servers.wizard.type-title": {
     "message": "伺服器端類型"
-  },
-  "app.servers.type.vanilla": {
-    "message": "原版"
-  },
-  "app.servers.type.fabric": {
-    "message": "Fabric"
-  },
-  "app.servers.type.paper": {
-    "message": "Paper"
-  },
-  "app.servers.type.forge": {
-    "message": "Forge"
-  },
-  "app.servers.modpack.downloading": {
-    "message": "正在下載整合包檔案..."
-  },
-  "app.servers.modpack.preparing": {
-    "message": "正在準備伺服器..."
-  },
-  "app.servers.modpack.done": {
-    "message": "安裝完成"
-  },
-  "app.servers.modpack.current-file": {
-    "message": "正在安裝 {file}"
-  },
-  "app.servers.modpack.background-hint": {
-    "message": "您可以關閉此視窗，下載將在背景持續進行。"
-  },
-  "app.servers.modpack.first-run-crashed": {
-    "message": "伺服器在首次啟動時當機。請檢查所選 Java 版本是否相容，然後重試。"
-  },
-  "app.servers.modpack.download-in-background": {
-    "message": "背景下載"
-  },
-  "app.servers.modpack.unsupported-loader-title": {
-    "message": "{loader} 伺服器端暫不支援"
-  },
-  "app.servers.modpack.unsupported-loader-description": {
-    "message": "此整合包使用 {loader}，但 Axolotl 目前僅支援原版、Fabric 與 Quilt 整合包伺服器端。{loader} 支援即將推出。"
   },
   "app.settings.about.afdian": {
     "message": "在愛發電贊助"
@@ -6617,6 +7061,12 @@
   "app.settings.defaults.environment-variables-placeholder": {
     "message": "輸入環境變數..."
   },
+  "app.settings.defaults.fullscreen": {
+    "message": "全螢幕"
+  },
+  "app.settings.defaults.fullscreen-description": {
+    "message": "啟動時覆寫 options.txt 檔案，使遊戲以全螢幕模式執行。"
+  },
   "app.settings.defaults.game-language.description": {
     "message": "用於實例首次啟動。已遊玩過的實例會保留遊戲內語言。"
   },
@@ -6628,21 +7078,6 @@
   },
   "app.settings.defaults.game-language.title": {
     "message": "預設遊戲語言"
-  },
-  "app.settings.defaults.fullscreen": {
-    "message": "全螢幕"
-  },
-  "app.settings.defaults.fullscreen-description": {
-    "message": "啟動時覆寫 options.txt 檔案，使遊戲以全螢幕模式執行。"
-  },
-  "app.settings.defaults.maximize-window": {
-    "message": "最大化視窗"
-  },
-  "app.settings.defaults.maximize-window-description": {
-    "message": "啟動時最大化 Minecraft 視窗。"
-  },
-  "app.settings.defaults.maximize-window.unsupported": {
-    "message": "目前的作業系統暫不支援。"
   },
   "app.settings.defaults.height": {
     "message": "高度"
@@ -6658,6 +7093,15 @@
   },
   "app.settings.defaults.java-arguments-placeholder": {
     "message": "輸入 Java 參數..."
+  },
+  "app.settings.defaults.maximize-window": {
+    "message": "最大化視窗"
+  },
+  "app.settings.defaults.maximize-window-description": {
+    "message": "啟動時最大化 Minecraft 視窗。"
+  },
+  "app.settings.defaults.maximize-window.unsupported": {
+    "message": "目前的作業系統暫不支援。"
   },
   "app.settings.defaults.memory": {
     "message": "分配記憶體"
@@ -6689,6 +7133,21 @@
   "app.settings.defaults.pre-launch-placeholder": {
     "message": "輸入啟動前指令..."
   },
+  "app.settings.defaults.sections.after-launch": {
+    "message": "啟動後行為"
+  },
+  "app.settings.defaults.sections.environment": {
+    "message": "環境變數"
+  },
+  "app.settings.defaults.sections.game-language": {
+    "message": "遊戲語言"
+  },
+  "app.settings.defaults.sections.launch-hooks": {
+    "message": "啟動掛鉤"
+  },
+  "app.settings.defaults.sections.window-behavior": {
+    "message": "視窗行為"
+  },
   "app.settings.defaults.width": {
     "message": "寬度"
   },
@@ -6710,11 +7169,59 @@
   "app.settings.developer-mode-enabled": {
     "message": "開發人員模式已啟用。"
   },
+  "app.settings.developer.feature-flags-section-title": {
+    "message": "功能旗標"
+  },
   "app.settings.downloading": {
     "message": "正在下載 v{version}"
   },
+  "app.settings.feature-flags.advanced-filters-collapsed": {
+    "message": "預設摺疊進階篩選"
+  },
+  "app.settings.feature-flags.always-show-app-controls": {
+    "message": "一律顯示應用程式控制項"
+  },
+  "app.settings.feature-flags.auto-install-dependencies": {
+    "message": "自動安裝相依項"
+  },
+  "app.settings.feature-flags.i18n-debug": {
+    "message": "翻譯偵錯"
+  },
+  "app.settings.feature-flags.page-path": {
+    "message": "頁面路徑"
+  },
+  "app.settings.feature-flags.page-transitions": {
+    "message": "頁面切換動畫"
+  },
+  "app.settings.feature-flags.project-background": {
+    "message": "專案背景"
+  },
   "app.settings.feature-flags.reset-to-default": {
     "message": "恢復預設值"
+  },
+  "app.settings.feature-flags.server-project-qa": {
+    "message": "伺服器專案問答"
+  },
+  "app.settings.feature-flags.server-ram-as-bytes-always-on": {
+    "message": "一律以位元組顯示伺服器記憶體"
+  },
+  "app.settings.feature-flags.show-instance-play-time": {
+    "message": "顯示實例遊玩時間"
+  },
+  "app.settings.feature-flags.show-version-environment-column": {
+    "message": "顯示版本環境欄"
+  },
+  "app.settings.feature-flags.skip-non-essential-warnings": {
+    "message": "略過非必要警告"
+  },
+  "app.settings.feature-flags.skip-unknown-pack-warning": {
+    "message": "略過未知整合包警告"
+  },
+  "app.settings.feature-flags.worlds-in-home": {
+    "message": "在首頁顯示世界"
+  },
+  "app.settings.feature-flags.worlds-tab": {
+    "message": "世界分頁"
   },
   "app.settings.groups.data-privacy": {
     "message": "資料與隱私"
@@ -6730,9 +7237,6 @@
   },
   "app.settings.groups.support": {
     "message": "應用與支援"
-  },
-  "app.settings.java.use-console-java": {
-    "message": "啟動 Minecraft 時使用 java 而不是 javaw"
   },
   "app.settings.java.auto-high-performance-mode": {
     "message": "自動為 Java 使用高性能顯示卡"
@@ -6815,6 +7319,9 @@
   "app.settings.java.table.version": {
     "message": "版本"
   },
+  "app.settings.java.use-console-java": {
+    "message": "啟動 Minecraft 時使用 java 而不是 javaw"
+  },
   "app.settings.java.view-installed": {
     "message": "查看已安裝 Java"
   },
@@ -6827,11 +7334,17 @@
   "app.settings.privacy.discord-rpc-description": {
     "message": "在 Discord 中顯示你當前使用啟動器或遊玩的狀態。"
   },
+  "app.settings.privacy.section-title": {
+    "message": "隱私與資料分享"
+  },
   "app.settings.privacy.telemetry": {
     "message": "允許遙測"
   },
   "app.settings.privacy.telemetry-description": {
     "message": "傳送匿名每日活躍訊號和脫敏的啟動器錯誤報告。絕不上傳 Minecraft 日誌或賬戶憑據。"
+  },
+  "app.settings.resources.add-minecraft-directory": {
+    "message": "新增 .minecraft 目錄"
   },
   "app.settings.resources.app-cache": {
     "message": "應用程式快取"
@@ -6839,38 +7352,14 @@
   "app.settings.resources.app-directory": {
     "message": "應用程式目錄"
   },
-  "app.settings.resources.axolotl-data-directory": {
-    "message": "Axolotl 資料目錄"
-  },
   "app.settings.resources.app-directory-description": {
     "message": "啟動器用於儲存全部遊戲檔案的目錄。變更後將在重新啟動啟動器後生效。"
   },
   "app.settings.resources.app-directory-description-portable": {
     "message": "正在以便攜模式運行，所有數據已固定在程序目錄下，無法修改。"
   },
-  "app.settings.resources.minecraft-directories": {
-    "message": "Minecraft 目錄"
-  },
-  "app.settings.resources.minecraft-directories-description": {
-    "message": "新增一或多個供實例使用的外部 .minecraft 資料夾。這些資料夾會與 Axolotl 資料分開保存。"
-  },
-  "app.settings.resources.minecraft-directory-mode": {
-    "message": "遊戲目錄模式"
-  },
-  "app.settings.resources.minecraft-directory-mode.isolated": {
-    "message": "版本隔離"
-  },
-  "app.settings.resources.minecraft-directory-mode.shared": {
-    "message": "共用 .minecraft 目錄"
-  },
-  "app.settings.resources.add-minecraft-directory": {
-    "message": "新增 .minecraft 目錄"
-  },
-  "app.settings.resources.select-minecraft-directory": {
-    "message": "選擇 .minecraft 目錄"
-  },
-  "app.settings.resources.remove-minecraft-directory": {
-    "message": "移除 .minecraft 目錄"
+  "app.settings.resources.axolotl-data-directory": {
+    "message": "Axolotl 資料目錄"
   },
   "app.settings.resources.concurrency.manual": {
     "message": "手動"
@@ -6908,14 +7397,23 @@
   "app.settings.resources.download-mirrors-description": {
     "message": "為每項服務選擇下載來源。當鏡像來源請求失敗時，將自動退回至官方來源。"
   },
+  "app.settings.resources.experimental": {
+    "message": "實驗性"
+  },
+  "app.settings.resources.force-multiconnection": {
+    "message": "強制多連線下載"
+  },
+  "app.settings.resources.force-multiconnection-description": {
+    "message": "使用更積極的下載邏輯，可能會改善你的下載速度。當你遇到問題時，請考慮啟用這個選項。"
+  },
   "app.settings.resources.forced-connection-limit": {
     "message": "實驗性連線數上限"
   },
-  "app.settings.resources.forced-connection-limit-description": {
-    "message": "依各檔案剩餘大小的比例分配連線，預設 72。手動下載額度較低時仍遵守該值。提高上限可能增加網路負載與重試。通常來說，上限越高下載速度越快。如果你認為下載速度不夠快，請酌情提升該值。如果起到反作用，請降低該值。"
-  },
   "app.settings.resources.forced-connection-limit-custom": {
     "message": "自訂"
+  },
+  "app.settings.resources.forced-connection-limit-description": {
+    "message": "依各檔案剩餘大小的比例分配連線，預設 72。手動下載額度較低時仍遵守該值。提高上限可能增加網路負載與重試。通常來說，上限越高下載速度越快。如果你認為下載速度不夠快，請酌情提升該值。如果起到反作用，請降低該值。"
   },
   "app.settings.resources.maximum-downloads": {
     "message": "最大同時下載數"
@@ -6928,6 +7426,21 @@
   },
   "app.settings.resources.maximum-writes-description": {
     "message": "啟動器同時寫入磁碟的最大檔案數。如果經常出現 I/O 錯誤，請降低此值；變更將在重新啟動應用程式後生效。"
+  },
+  "app.settings.resources.minecraft-directories": {
+    "message": "Minecraft 目錄"
+  },
+  "app.settings.resources.minecraft-directories-description": {
+    "message": "新增一或多個供實例使用的外部 .minecraft 資料夾。這些資料夾會與 Axolotl 資料分開保存。"
+  },
+  "app.settings.resources.minecraft-directory-mode": {
+    "message": "遊戲目錄模式"
+  },
+  "app.settings.resources.minecraft-directory-mode.isolated": {
+    "message": "版本隔離"
+  },
+  "app.settings.resources.minecraft-directory-mode.shared": {
+    "message": "共用 .minecraft 目錄"
   },
   "app.settings.resources.minecraft-file-source": {
     "message": "Minecraft 文件、載入器與 Java"
@@ -7022,14 +7535,32 @@
   "app.settings.resources.proxy-username-placeholder": {
     "message": "使用者名稱（可選）"
   },
+  "app.settings.resources.remove-minecraft-directory": {
+    "message": "移除 .minecraft 目錄"
+  },
   "app.settings.resources.reset-import-directory": {
     "message": "使用系統 Downloads 資料夾"
+  },
+  "app.settings.resources.sections.data-storage": {
+    "message": "資料目錄與快取"
+  },
+  "app.settings.resources.sections.download-behavior": {
+    "message": "下載行為"
+  },
+  "app.settings.resources.sections.missing-content": {
+    "message": "缺少的內容"
+  },
+  "app.settings.resources.sections.network-authentication": {
+    "message": "網路驗證"
   },
   "app.settings.resources.select-directory": {
     "message": "選擇新的應用程式目錄"
   },
   "app.settings.resources.select-import-directory": {
     "message": "選擇監控目錄"
+  },
+  "app.settings.resources.select-minecraft-directory": {
+    "message": "選擇 .minecraft 目錄"
   },
   "app.settings.resources.source.automatic": {
     "message": "自動（推薦）"
@@ -7292,6 +7823,18 @@
   "app.settings.updates.channel.title": {
     "message": "更新管道"
   },
+  "app.settings.updates.check": {
+    "message": "檢查更新"
+  },
+  "app.settings.updates.check.title": {
+    "message": "檢查更新"
+  },
+  "app.settings.updates.checking": {
+    "message": "正在檢查更新..."
+  },
+  "app.settings.updates.current-version": {
+    "message": "目前版本 {version}"
+  },
   "app.settings.updates.database-isolation.active": {
     "message": "正在使用"
   },
@@ -7340,27 +7883,6 @@
   "app.settings.updates.database-operation.success": {
     "message": "已成功將 {source} 複製到 {target}。"
   },
-  "app.settings.updates.check": {
-    "message": "檢查更新"
-  },
-  "app.settings.updates.check.title": {
-    "message": "檢查更新"
-  },
-  "app.settings.updates.checking": {
-    "message": "正在檢查更新..."
-  },
-  "app.settings.updates.current-version": {
-    "message": "目前版本 {version}"
-  },
-  "app.settings.updates.latest-version": {
-    "message": "最新 {channel} 版本：{version}"
-  },
-  "app.settings.updates.latest-version-unavailable": {
-    "message": "最新版本暫時無法取得"
-  },
-  "app.settings.updates.latest-version-loading": {
-    "message": "正在取得"
-  },
   "app.settings.updates.disabled": {
     "message": "此組建已停用更新功能。"
   },
@@ -7375,6 +7897,15 @@
   },
   "app.settings.updates.immediate-fetch.beta-description": {
     "message": "Beta 更新一律立即可用。"
+  },
+  "app.settings.updates.latest-version": {
+    "message": "最新 {channel} 版本：{version}"
+  },
+  "app.settings.updates.latest-version-loading": {
+    "message": "正在取得"
+  },
+  "app.settings.updates.latest-version-unavailable": {
+    "message": "最新版本暫時無法取得"
   },
   "app.settings.updates.offline": {
     "message": "請連線至網際網路後再檢查更新。"
@@ -7456,6 +7987,12 @@
   },
   "app.skins.modal.edit-title": {
     "message": "編輯外觀"
+  },
+  "app.skins.modal.export-texture-button": {
+    "message": "匯出材質"
+  },
+  "app.skins.modal.export-texture-failed": {
+    "message": "匯出外觀材質失敗（HTTP {status}）。"
   },
   "app.skins.modal.make-edit-first-tooltip": {
     "message": "請先對外觀進行編輯！"
@@ -7592,146 +8129,53 @@
   "app.symlink-warning.write.header": {
     "message": "共享實例"
   },
-  "app.theme-suite.title": {
-    "message": "主題套件"
+  "app.theme-suite.activate": {
+    "message": "使用"
   },
-  "app.theme-suite.description": {
-    "message": "選擇啟動器的外觀。主題套件可以自帶顏色、樣式和頁面。"
-  },
-  "app.theme-suite.overview-title": {
-    "message": "主題來源"
-  },
-  "app.theme-suite.overview-description": {
-    "message": "選擇啟動器使用的顏色和樣式。"
-  },
-  "app.theme-suite.built-in-name": {
-    "message": "內建主題"
-  },
-  "app.theme-suite.built-in-description": {
-    "message": "預設的 Axolotl 配色，跟隨所選的淺色、深色或 OLED 模式。"
-  },
-  "app.theme-suite.installed-title": {
-    "message": "已安裝的主題套件"
-  },
-  "app.theme-suite.no-packs": {
-    "message": "尚未安裝主題套件。匯入一個套件開始使用。"
-  },
-  "app.theme-suite.import-pack": {
-    "message": "匯入套件"
-  },
-  "app.theme-suite.export-snapshot": {
-    "message": "匯出快照"
-  },
-  "app.theme-suite.exporting-snapshot": {
-    "message": "正在匯出…"
-  },
-  "app.theme-suite.export-snapshot-failed": {
-    "message": "無法匯出快照：{error}"
-  },
-  "app.theme-suite.export-snapshot-done": {
-    "message": "外觀快照已匯出。"
-  },
-  "app.theme-suite.custom-colors": {
-    "message": "自訂顏色"
-  },
-  "app.theme-suite.custom-colors-description": {
-    "message": "自行選擇背景、面板和文字顏色。"
-  },
-  "app.theme-suite.remove-pack": {
-    "message": "移除"
-  },
-  "app.theme-suite.remove-pack-confirm": {
-    "message": "移除 {name}？此操作無法復原。"
-  },
-  "app.theme-suite.remove-pack-data": {
-    "message": "同時刪除套件儲存的資料"
-  },
-  "app.theme-suite.remove-pack-cancel": {
-    "message": "保留套件"
-  },
-  "app.theme-suite.pack-permissions": {
-    "message": "權限"
-  },
-  "app.theme-suite.permission-storage": {
-    "message": "本機儲存"
-  },
-  "app.theme-suite.permission-instances-read": {
-    "message": "讀取實例"
-  },
-  "app.theme-suite.permission-instances-logs": {
-    "message": "讀取實例日誌"
-  },
-  "app.theme-suite.permission-network": {
-    "message": "網路存取"
-  },
-  "app.theme-suite.capability-tokens": {
-    "message": "色彩權杖"
-  },
-  "app.theme-suite.capability-styles": {
-    "message": "樣式"
-  },
-  "app.theme-suite.capability-pages": {
-    "message": "頁面"
-  },
-  "app.theme-suite.import-title": {
-    "message": "匯入主題套件"
-  },
-  "app.theme-suite.import-description": {
-    "message": "主題套件是包含 manifest.json 檔案的 .zip 壓縮檔，用於描述其顏色、樣式和頁面。"
-  },
-  "app.theme-suite.choose-archive": {
-    "message": "選擇檔案"
-  },
-  "app.theme-suite.change-archive": {
-    "message": "更換檔案"
-  },
-  "app.theme-suite.archive-hint": {
-    "message": "選擇要安裝的主題套件壓縮檔（.zip）。"
+  "app.theme-suite.active-badge": {
+    "message": "已啟用"
   },
   "app.theme-suite.archive-filter": {
     "message": "主題套件壓縮檔"
   },
+  "app.theme-suite.archive-hint": {
+    "message": "選擇要安裝的主題套件壓縮檔（.zip）。"
+  },
   "app.theme-suite.archive-limit": {
     "message": "壓縮檔最大為 {size}。"
   },
-  "app.theme-suite.no-archive-chosen": {
-    "message": "尚未選擇壓縮檔。"
-  },
-  "app.theme-suite.invalid-archive": {
-    "message": "只能安裝包含有效 manifest.json 檔案的 .zip 壓縮檔。"
-  },
-  "app.theme-suite.preview-title": {
-    "message": "準備安裝"
-  },
-  "app.theme-suite.install": {
-    "message": "安裝"
-  },
-  "app.theme-suite.installing": {
-    "message": "正在安裝…"
-  },
-  "app.theme-suite.install-failed": {
-    "message": "主題套件安裝失敗。"
-  },
-  "app.theme-suite.colors-title": {
-    "message": "自訂顏色"
-  },
-  "app.theme-suite.colors-description": {
-    "message": "調整{theme}模式下的顏色。儲存後將切換到自訂顏色。"
-  },
-  "app.theme-suite.theme-light": {
-    "message": "淺色"
-  },
-  "app.theme-suite.theme-dark": {
-    "message": "深色"
+  "app.theme-suite.back": {
+    "message": "返回"
   },
   "app.theme-suite.background": {
     "message": "背景"
   },
-  "app.theme-suite.surface": {
-    "message": "面板"
+  "app.theme-suite.built-in-description": {
+    "message": "預設的 Axolotl 配色，跟隨所選的淺色、深色或 OLED 模式。"
   },
-  "app.theme-suite.text": {
-    "message": "文字"
+  "app.theme-suite.built-in-name": {
+    "message": "內建主題"
+  },
+  "app.theme-suite.capability-pages": {
+    "message": "頁面"
+  },
+  "app.theme-suite.capability-styles": {
+    "message": "樣式"
+  },
+  "app.theme-suite.capability-tokens": {
+    "message": "色彩權杖"
+  },
+  "app.theme-suite.change-archive": {
+    "message": "更換檔案"
+  },
+  "app.theme-suite.choose-archive": {
+    "message": "選擇檔案"
+  },
+  "app.theme-suite.close": {
+    "message": "關閉"
+  },
+  "app.theme-suite.colors-description": {
+    "message": "調整{theme}模式下的顏色。儲存後將切換到自訂顏色。"
   },
   "app.theme-suite.colors-preview": {
     "message": "預覽"
@@ -7739,59 +8183,158 @@
   "app.theme-suite.colors-preview-text": {
     "message": "敏捷的棕色狐狸跳過了懶狗。"
   },
+  "app.theme-suite.colors-title": {
+    "message": "自訂顏色"
+  },
+  "app.theme-suite.custom-colors": {
+    "message": "自訂顏色"
+  },
+  "app.theme-suite.custom-colors-description": {
+    "message": "自行選擇背景、面板和文字顏色。"
+  },
+  "app.theme-suite.description": {
+    "message": "選擇啟動器的外觀。主題套件可以自帶顏色、樣式和頁面。"
+  },
+  "app.theme-suite.done": {
+    "message": "完成"
+  },
+  "app.theme-suite.engine-label": {
+    "message": "需要 Axolotl {version}"
+  },
+  "app.theme-suite.export-snapshot": {
+    "message": "匯出快照"
+  },
+  "app.theme-suite.export-snapshot-done": {
+    "message": "外觀快照已匯出。"
+  },
+  "app.theme-suite.export-snapshot-failed": {
+    "message": "無法匯出快照：{error}"
+  },
+  "app.theme-suite.exporting-snapshot": {
+    "message": "正在匯出…"
+  },
+  "app.theme-suite.import-description": {
+    "message": "主題套件是包含 manifest.json 檔案的 .zip 壓縮檔，用於描述其顏色、樣式和頁面。"
+  },
+  "app.theme-suite.import-pack": {
+    "message": "匯入套件"
+  },
+  "app.theme-suite.import-title": {
+    "message": "匯入主題套件"
+  },
+  "app.theme-suite.install": {
+    "message": "安裝"
+  },
+  "app.theme-suite.install-failed": {
+    "message": "主題套件安裝失敗。"
+  },
+  "app.theme-suite.installed-title": {
+    "message": "已安裝的主題套件"
+  },
+  "app.theme-suite.installing": {
+    "message": "正在安裝…"
+  },
+  "app.theme-suite.invalid-archive": {
+    "message": "只能安裝包含有效 manifest.json 檔案的 .zip 壓縮檔。"
+  },
+  "app.theme-suite.load-failed": {
+    "message": "主題套件載入失敗。"
+  },
+  "app.theme-suite.loading": {
+    "message": "正在載入主題套件…"
+  },
+  "app.theme-suite.missing-pack-text": {
+    "message": "主題包「{packId}」已不再安裝，已改用內建主題。"
+  },
+  "app.theme-suite.missing-pack-title": {
+    "message": "主題包無法使用"
+  },
+  "app.theme-suite.no-archive-chosen": {
+    "message": "尚未選擇壓縮檔。"
+  },
+  "app.theme-suite.no-description": {
+    "message": "未提供描述。"
+  },
+  "app.theme-suite.no-packs": {
+    "message": "尚未安裝主題套件。匯入一個套件開始使用。"
+  },
+  "app.theme-suite.overview-description": {
+    "message": "選擇啟動器使用的顏色和樣式。"
+  },
+  "app.theme-suite.overview-title": {
+    "message": "主題來源"
+  },
+  "app.theme-suite.pack-permissions": {
+    "message": "權限"
+  },
+  "app.theme-suite.page.error": {
+    "message": "主題頁面載入失敗。"
+  },
+  "app.theme-suite.page.loading": {
+    "message": "正在載入主題頁面…"
+  },
+  "app.theme-suite.page.missing": {
+    "message": "該主題包或頁面尚未安裝。"
+  },
+  "app.theme-suite.page.title": {
+    "message": "主題包頁面"
+  },
+  "app.theme-suite.page.unavailable": {
+    "message": "主題頁面無法使用"
+  },
+  "app.theme-suite.permission-instances-logs": {
+    "message": "讀取實例日誌"
+  },
+  "app.theme-suite.permission-instances-read": {
+    "message": "讀取實例"
+  },
+  "app.theme-suite.permission-network": {
+    "message": "網路存取"
+  },
+  "app.theme-suite.permission-storage": {
+    "message": "本機儲存"
+  },
+  "app.theme-suite.preview-title": {
+    "message": "準備安裝"
+  },
+  "app.theme-suite.remove-pack": {
+    "message": "移除"
+  },
+  "app.theme-suite.remove-pack-cancel": {
+    "message": "保留套件"
+  },
+  "app.theme-suite.remove-pack-confirm": {
+    "message": "移除 {name}？此操作無法復原。"
+  },
+  "app.theme-suite.remove-pack-data": {
+    "message": "同時刪除套件儲存的資料"
+  },
   "app.theme-suite.reset-colors": {
     "message": "重設"
   },
   "app.theme-suite.save-colors": {
     "message": "儲存"
   },
-  "app.theme-suite.close": {
-    "message": "關閉"
-  },
-  "app.theme-suite.done": {
-    "message": "完成"
-  },
-  "app.theme-suite.active-badge": {
-    "message": "已啟用"
-  },
-  "app.theme-suite.activate": {
-    "message": "使用"
-  },
   "app.theme-suite.size-label": {
     "message": "大小：{size}"
   },
+  "app.theme-suite.surface": {
+    "message": "面板"
+  },
+  "app.theme-suite.text": {
+    "message": "文字"
+  },
+  "app.theme-suite.theme-dark": {
+    "message": "深色"
+  },
+  "app.theme-suite.theme-light": {
+    "message": "淺色"
+  },
+  "app.theme-suite.title": {
+    "message": "主題套件"
+  },
   "app.theme-suite.version-label": {
     "message": "版本 {version}"
-  },
-  "app.theme-suite.engine-label": {
-    "message": "需要 Axolotl {version}"
-  },
-  "app.theme-suite.back": {
-    "message": "返回"
-  },
-  "app.theme-suite.loading": {
-    "message": "正在載入主題套件…"
-  },
-  "app.theme-suite.load-failed": {
-    "message": "主題套件載入失敗。"
-  },
-  "app.theme-suite.no-description": {
-    "message": "未提供描述。"
-  },
-  "app.theme-suite.page.loading": {
-    "message": "正在載入主題頁面…"
-  },
-  "app.theme-suite.page.unavailable": {
-    "message": "主題頁面無法使用"
-  },
-  "app.theme-suite.page.missing": {
-    "message": "該主題包或頁面尚未安裝。"
-  },
-  "app.theme-suite.page.error": {
-    "message": "主題頁面載入失敗。"
-  },
-  "app.theme-suite.page.title": {
-    "message": "主題包頁面"
   },
   "app.translation-settings.ai-model": {
     "message": "文字模型"
@@ -7844,6 +8387,9 @@
   "app.translation-settings.display-mode.translation-only": {
     "message": "僅譯文"
   },
+  "app.translation-settings.display-section-title": {
+    "message": "翻譯顯示"
+  },
   "app.translation-settings.google-ip-pool": {
     "message": "可用: {count}"
   },
@@ -7855,6 +8401,9 @@
   },
   "app.translation-settings.provider.ai": {
     "message": "AI 模型"
+  },
+  "app.translation-settings.provider.bili-index-translate": {
+    "message": "嗶哩嗶哩 Index 翻譯"
   },
   "app.translation-settings.provider.deepl": {
     "message": "DeepL 翻譯"
@@ -8597,12 +9146,6 @@
   "instance.files.studio.delete": {
     "message": "移至回收站"
   },
-  "instance.files.studio.editor-loading": {
-    "message": "正在載入編輯器……"
-  },
-  "instance.files.studio.edit-deleted": {
-    "message": "此檔案在編輯儲存前已被刪除。"
-  },
   "instance.files.studio.discard-image-confirm": {
     "message": "捨棄"
   },
@@ -8617,6 +9160,12 @@
   },
   "instance.files.studio.edit-conflict": {
     "message": "此檔案在開啟後已被外部修改，編輯內容未儲存。"
+  },
+  "instance.files.studio.edit-deleted": {
+    "message": "此檔案在編輯儲存前已被刪除。"
+  },
+  "instance.files.studio.editor-loading": {
+    "message": "正在載入編輯器……"
   },
   "instance.files.studio.empty-description": {
     "message": "從資源管理器開啟檔案。"
@@ -9011,15 +9560,6 @@
   "instance.settings.tabs.window.fullscreen.description": {
     "message": "使遊戲啟動時進入全螢幕模式（透過 options.txt）。"
   },
-  "instance.settings.tabs.window.maximize-window": {
-    "message": "最大化視窗"
-  },
-  "instance.settings.tabs.window.maximize-window.description": {
-    "message": "啟動時最大化 Minecraft 視窗。"
-  },
-  "instance.settings.tabs.window.maximize-window.unsupported": {
-    "message": "目前的作業系統暫不支援。"
-  },
   "instance.settings.tabs.window.height": {
     "message": "高度"
   },
@@ -9028,6 +9568,15 @@
   },
   "instance.settings.tabs.window.height.enter": {
     "message": "輸入高度..."
+  },
+  "instance.settings.tabs.window.maximize-window": {
+    "message": "最大化視窗"
+  },
+  "instance.settings.tabs.window.maximize-window.description": {
+    "message": "啟動時最大化 Minecraft 視窗。"
+  },
+  "instance.settings.tabs.window.maximize-window.unsupported": {
+    "message": "目前的作業系統暫不支援。"
   },
   "instance.settings.tabs.window.width": {
     "message": "寬度"
@@ -10285,218 +10834,5 @@
   },
   "unknown-pack-warning-modal.warning.title": {
     "message": "未知檔案警告"
-  },
-  "app.instance.dependencies.all-sources": {
-    "message": "所有來源"
-  },
-  "app.instance.dependencies.all-statuses": {
-    "message": "所有狀態"
-  },
-  "app.instance.dependencies.all-types": {
-    "message": "所有類型"
-  },
-  "app.instance.dependencies.cycle": {
-    "message": "循環依賴"
-  },
-  "app.instance.dependencies.cycle-reference": {
-    "message": "循環依賴在此繼續"
-  },
-  "app.instance.dependencies.direct-dependencies": {
-    "message": "直接依賴"
-  },
-  "app.instance.dependencies.direct-dependents": {
-    "message": "直接依賴方"
-  },
-  "app.instance.dependencies.disabled": {
-    "message": "已停用"
-  },
-  "app.instance.dependencies.file": {
-    "message": "檔案 {file}"
-  },
-  "app.instance.dependencies.graph-hint": {
-    "message": "拖曳畫布以瀏覽關係；拖曳卡片可調整配置。"
-  },
-  "app.instance.dependencies.graph-view": {
-    "message": "關係圖"
-  },
-  "app.instance.dependencies.header": {
-    "message": "依賴關係"
-  },
-  "app.instance.dependencies.isolated-summary": {
-    "message": "{count, number} 個孤立項目未顯示在關係圖中。"
-  },
-  "app.instance.dependencies.local-discovered": {
-    "message": "本機發現"
-  },
-  "app.instance.dependencies.missing": {
-    "message": "遺失"
-  },
-  "app.instance.dependencies.no-content": {
-    "message": "沒有可分析的內容。"
-  },
-  "app.instance.dependencies.no-dependencies": {
-    "message": "找不到依賴關係。"
-  },
-  "app.instance.dependencies.no-graph-relations": {
-    "message": "目前篩選條件下沒有可顯示的關係。"
-  },
-  "app.instance.dependencies.graph-direction": {
-    "message": "箭頭從依賴方指向它使用的內容。"
-  },
-  "app.instance.dependencies.no-matches": {
-    "message": "沒有依賴項符合這些篩選條件。"
-  },
-  "app.instance.dependencies.only-related": {
-    "message": "只顯示相關內容"
-  },
-  "app.instance.dependencies.orphaned": {
-    "message": "孤立依賴"
-  },
-  "app.instance.dependencies.pack-managed": {
-    "message": "由模組包管理"
-  },
-  "app.instance.dependencies.reference": {
-    "message": "在其他位置被引用"
-  },
-  "app.instance.dependencies.required-by": {
-    "message": "依賴方"
-  },
-  "app.instance.dependencies.requires": {
-    "message": "依賴項"
-  },
-  "app.instance.dependencies.reset-zoom": {
-    "message": "重設關係圖檢視"
-  },
-  "app.instance.dependencies.search": {
-    "message": "搜尋依賴項……"
-  },
-  "app.instance.dependencies.show-isolated": {
-    "message": "顯示孤立內容"
-  },
-  "app.instance.dependencies.source": {
-    "message": "來源"
-  },
-  "app.instance.dependencies.stats": {
-    "message": "{nodes, number} 個項目，{edges, number} 個關係"
-  },
-  "app.instance.dependencies.status": {
-    "message": "狀態"
-  },
-  "app.instance.dependencies.tree-view": {
-    "message": "依賴樹"
-  },
-  "app.instance.dependencies.unresolved": {
-    "message": "未解析"
-  },
-  "app.instance.dependencies.unresolved-label": {
-    "message": "依賴詳細資料無法使用。"
-  },
-  "app.instance.dependencies.user-added": {
-    "message": "使用者新增"
-  },
-  "app.instance.dependencies.version": {
-    "message": "版本 {version}"
-  },
-  "app.instance.dependencies.zoom-in": {
-    "message": "放大"
-  },
-  "app.instance.dependencies.zoom-out": {
-    "message": "縮小"
-  },
-  "app.appearance-settings.sections.advanced-interface": {
-    "message": "進階介面"
-  },
-  "app.appearance-settings.sections.content-behavior": {
-    "message": "內容行為"
-  },
-  "app.appearance-settings.sections.home-navigation": {
-    "message": "首頁與導覽"
-  },
-  "app.settings.defaults.sections.after-launch": {
-    "message": "啟動後行為"
-  },
-  "app.settings.defaults.sections.environment": {
-    "message": "環境變數"
-  },
-  "app.settings.defaults.sections.game-language": {
-    "message": "遊戲語言"
-  },
-  "app.settings.defaults.sections.launch-hooks": {
-    "message": "啟動掛鉤"
-  },
-  "app.settings.defaults.sections.window-behavior": {
-    "message": "視窗行為"
-  },
-  "app.settings.developer.feature-flags-section-title": {
-    "message": "功能旗標"
-  },
-  "app.settings.privacy.section-title": {
-    "message": "隱私與資料分享"
-  },
-  "app.settings.resources.sections.data-storage": {
-    "message": "資料目錄與快取"
-  },
-  "app.settings.resources.sections.download-behavior": {
-    "message": "下載行為"
-  },
-  "app.settings.resources.sections.missing-content": {
-    "message": "缺少的內容"
-  },
-  "app.settings.resources.sections.network-authentication": {
-    "message": "網路驗證"
-  },
-  "app.translation-settings.display-section-title": {
-    "message": "翻譯顯示"
-  },
-  "app.settings.feature-flags.project-background": {
-    "message": "專案背景"
-  },
-  "app.settings.feature-flags.page-path": {
-    "message": "頁面路徑"
-  },
-  "app.settings.feature-flags.worlds-tab": {
-    "message": "世界分頁"
-  },
-  "app.settings.feature-flags.worlds-in-home": {
-    "message": "在首頁顯示世界"
-  },
-  "app.settings.feature-flags.server-project-qa": {
-    "message": "伺服器專案問答"
-  },
-  "app.settings.feature-flags.show-version-environment-column": {
-    "message": "顯示版本環境欄"
-  },
-  "app.settings.feature-flags.server-ram-as-bytes-always-on": {
-    "message": "一律以位元組顯示伺服器記憶體"
-  },
-  "app.settings.feature-flags.always-show-app-controls": {
-    "message": "一律顯示應用程式控制項"
-  },
-  "app.settings.feature-flags.skip-non-essential-warnings": {
-    "message": "略過非必要警告"
-  },
-  "app.settings.feature-flags.skip-unknown-pack-warning": {
-    "message": "略過未知整合包警告"
-  },
-  "app.settings.feature-flags.i18n-debug": {
-    "message": "翻譯偵錯"
-  },
-  "app.settings.feature-flags.show-instance-play-time": {
-    "message": "顯示實例遊玩時間"
-  },
-  "app.settings.feature-flags.page-transitions": {
-    "message": "頁面切換動畫"
-  },
-  "app.settings.feature-flags.advanced-filters-collapsed": {
-    "message": "預設摺疊進階篩選"
-  },
-  "app.settings.feature-flags.auto-install-dependencies": {
-    "message": "自動安裝相依項"
-  },
-  "app.theme-suite.missing-pack-title": {
-    "message": "主題包無法使用"
-  },
-  "app.theme-suite.missing-pack-text": {
-    "message": "主題包「{packId}」已不再安裝，已改用內建主題。"
   }
 }

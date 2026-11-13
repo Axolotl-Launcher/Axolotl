@@ -789,5 +789,37 @@ if (process.platform !== 'win32') {
     check('and says so', nameless.output.includes('names no process'))
 }
 
+console.log('forced download defaults and established preferences')
+{
+    const migration = '20261113120000_default-force-multiconnection-downloads.sql'
+    const previous = fs.readdirSync(migrationsDir)
+        .filter((name) => name.endsWith('.sql') && name < migration)
+        .sort()
+    for (const [label, onboarded, enabled, expected] of [
+        ['fresh', 0, 0, 1],
+        ['established-off', 1, 0, 0],
+        ['established-on', 1, 1, 1],
+    ]) {
+        const file = path.join(directory, `download-default-${label}.db`)
+        const { database, apply } = migratedDatabase(file, previous)
+        database.prepare('UPDATE settings SET onboarded = ?, force_multiconnection_downloads = ?')
+            .run(onboarded, enabled)
+        const before = database.prepare('SELECT * FROM settings').get()
+        apply(migration)
+        const after = database.prepare('SELECT * FROM settings').get()
+        check(`${label} gets the expected download mode`, after.force_multiconnection_downloads === expected)
+        assert.deepEqual({ ...after }, { ...before, force_multiconnection_downloads: expected })
+        check(`${label} keeps valid foreign keys`, database.prepare('PRAGMA foreign_key_check').all().length === 0)
+        database.close()
+
+        const result = run(['--db', file, '--to', '20261113120000', '--apply'])
+        check(`${label} can downgrade the data migration`, result.status === 0, result.output)
+        const upgraded = new DatabaseSync(file)
+        upgraded.exec(fs.readFileSync(path.join(migrationsDir, migration), 'utf8'))
+        check(`${label} can reapply the migration`, upgraded.prepare('SELECT force_multiconnection_downloads AS enabled FROM settings').get().enabled === expected)
+        upgraded.close()
+    }
+}
+
 fs.rmSync(directory, { recursive: true, force: true })
 console.log('\nAll downgrade script checks passed.')

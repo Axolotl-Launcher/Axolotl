@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ProjectPageSkeleton } from '@modrinth/ui'
 import { configuredXss, renderHighlightedString } from '@modrinth/utils'
-import { computed, onScopeDispose, ref, watch } from 'vue'
+import { computed, type ObjectDirective, onScopeDispose, ref, watch } from 'vue'
 
 import { runAfterPageTransitionSettle } from '@/helpers/page-transition'
 import {
@@ -19,6 +19,39 @@ const props = defineProps<{
     style: TranslationStyle
     format?: 'markdown' | 'html'
 }>()
+
+// Retain unchanged nodes so new batches cannot restart their animations or images.
+function updateDescription(element: HTMLElement, html: string) {
+    const template = document.createElement('template')
+    template.innerHTML = html
+    let cursor: ChildNode | null = element.firstChild
+    for (const next of Array.from(template.content.childNodes)) {
+        let matching = cursor
+        while (matching && !matching.isEqualNode(next)) matching = matching.nextSibling
+        if (matching) {
+            while (cursor && cursor !== matching) {
+                const obsolete = cursor
+                cursor = cursor.nextSibling
+                obsolete.remove()
+            }
+            cursor = matching.nextSibling
+        } else {
+            element.insertBefore(next, cursor)
+        }
+    }
+    while (cursor) {
+        const obsolete = cursor
+        cursor = cursor.nextSibling
+        obsolete.remove()
+    }
+}
+
+const vDescriptionHtml: ObjectDirective<HTMLElement, string> = {
+    mounted: (element, binding) => updateDescription(element, binding.value),
+    updated: (element, binding) => {
+        if (binding.value !== binding.oldValue) updateDescription(element, binding.value)
+    },
+}
 
 const renderedDescription = ref<string | null>(null)
 let renderVersion = 0
@@ -51,6 +84,7 @@ watch(
             const template = document.createElement('template')
             template.innerHTML = rendered
             for (const image of template.content.querySelectorAll('img')) {
+                image.referrerPolicy = 'no-referrer'
                 image.loading = 'lazy'
                 image.decoding = 'async'
             }
@@ -72,8 +106,12 @@ const translationOnlyClass = computed(() =>
 
 <template>
     <ProjectPageSkeleton v-if="renderedDescription === null" variant="description" />
-    <!-- eslint-disable-next-line vue/no-v-html -->
-    <div v-else class="markdown-body" :class="translationOnlyClass" v-html="renderedDescription" />
+    <div
+        v-else
+        v-description-html="renderedDescription"
+        class="markdown-body"
+        :class="translationOnlyClass"
+    />
 </template>
 
 <style scoped>

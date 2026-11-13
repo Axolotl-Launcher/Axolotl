@@ -43,7 +43,7 @@ export interface TranslatableHit {
     provider_project_id?: string
 }
 
-export type TranslationProvider = 'google' | 'deepl' | 'ai'
+export type TranslationProvider = 'google' | 'deepl' | 'ai' | 'bili-index-translate'
 export type TranslationMode = 'bilingual' | 'translation-only'
 export type TranslationStyle =
     | 'default'
@@ -73,8 +73,9 @@ export async function translateInBatches(
     request: TranslationRequest,
     onBatch?: (response: TranslationResponse) => void,
     execute: (request: TranslationRequest) => Promise<TranslationResponse> = translate,
+    options: { maxItems?: number } = {},
 ): Promise<TranslationResponse> {
-    return executeTranslationBatches(request, onBatch, execute)
+    return executeTranslationBatches(request, onBatch, execute, options)
 }
 
 interface ProtectedElement {
@@ -386,17 +387,16 @@ export function renderTranslatedDescription(
     mode: TranslationMode,
     style: TranslationStyle,
 ): string {
-    let restored: Map<string, string>
-    try {
-        restored = restorePreparedDescription(prepared, translations)
-    } catch {
-        return prepared.blocks.map((block) => block.originalHtml).join('')
-    }
-
     return prepared.blocks
         .map((block) => {
-            if (!block.translatable) return block.originalHtml
-            const translated = restored.get(block.id) ?? block.originalHtml
+            const text = translations[block.id]
+            if (!block.translatable || !text) return block.originalHtml
+            let translated: string
+            try {
+                translated = restoreTranslatedBlock(block, text)
+            } catch {
+                return block.originalHtml
+            }
             if (mode === 'translation-only') return translated
             return `${block.originalHtml}<div class="ax-translation-block ${translationStyleClass(style)}">${translated}</div>`
         })

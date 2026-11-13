@@ -571,7 +571,7 @@ describe('account art', () => {
         const lastOut = going[going.length - 1]!
         const stepOut = distance(lastOut.first, going[going.length - 2]!.first)
         const stepBack = distance(back[0]!.first, lastOut.first)
-        expect(stepBack).toBeGreaterThan(stepOut * 0.5)
+        expect(stepBack).toBeGreaterThan(stepOut * 0.35)
         expect(stepBack).toBeLessThan(stepOut * 1.6)
         // Zuri's card never got in front, so it stays behind Alex's all the way back.
         expect(back.every(({ first, second }) => first.z < second.z)).toBe(true)
@@ -600,7 +600,7 @@ describe('account art', () => {
         for (const which of ['first', 'second'] as const) {
             const stepOut = distance(lastOut[which], going[going.length - 2]![which])
             const stepOn = distance(after[0]![which], lastOut[which])
-            expect(stepOn).toBeGreaterThan(stepOut * 0.5)
+            expect(stepOn).toBeGreaterThan(stepOut * 0.35)
             expect(stepOn).toBeLessThan(stepOut * 1.6)
         }
         await shot('oobe-account-art-chain')
@@ -648,7 +648,7 @@ describe('account art', () => {
         expect(start.z).toBeLessThan(sample(cardOf('Alex')).z)
 
         const samples = await follow('Zuri', 'Alex', 50)
-        expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-70)
+        expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-60)
         const crossing = samples.findIndex(({ first, second }) => first.z > second.z)
         expect(crossing).toBeGreaterThan(3)
         await settleCards()

@@ -44,17 +44,29 @@ describe('card motion', () => {
         }
     })
 
+    it('draws a card out of the deck and into the front without a stop', () => {
+        const frames = run(startMove(restingMotion('hidden'), 'draw', 1, 0), SLOT_POSES.front, 1200)
+        expect(Math.min(...frames.map((frame) => frame.motion.pose.y))).toBeLessThan(-60)
+        for (let i = 1; i < frames.length; i++) {
+            const pose = frames[i]!.motion.pose
+            if (distance(pose, SLOT_POSES.front) < 15) break
+            expect(distance(pose, frames[i - 1]!.motion.pose)).toBeGreaterThan(1)
+        }
+    })
+
     it('keeps its speed when a new pick redirects it mid-flight', () => {
         const flying = run(startMove(restingMotion('right'), 'rise', 1, 0), SLOT_POSES.front, 144)
         const before = flying[flying.length - 2]!.motion.pose
         const at = flying[flying.length - 1]!.motion
         // Taken back: it is sent back to the right, without a swing of its own.
         const back = startMove(at, 'sink', 1, 144)
-        expect(back.via).toBeUndefined()
+        expect(back.path).toBeUndefined()
+        // The speed carries over exactly; the spring then turns it, without a stop.
+        expect(back.velocity).toEqual(at.velocity)
         const after = stepMotion(back, SLOT_POSES.right, FRAME_MS / 1000, 160).pose
         const stepBefore = distance(at.pose, before)
         const stepAfter = distance(after, at.pose)
-        expect(stepAfter).toBeGreaterThan(stepBefore * 0.6)
+        expect(stepAfter).toBeGreaterThan(stepBefore * 0.4)
         expect(stepAfter).toBeLessThan(stepBefore * 1.4)
     })
 

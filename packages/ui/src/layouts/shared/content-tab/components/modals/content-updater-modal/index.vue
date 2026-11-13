@@ -407,6 +407,7 @@ import ConfirmModal from '#ui/components/modal/ConfirmModal.vue'
 import NewModal from '#ui/components/modal/NewModal.vue'
 import VersionChannelIndicator from '#ui/components/version/VersionChannelIndicator.vue'
 import { useDebugLogger } from '#ui/composables/debug-logger'
+import { useFormatDateTime } from '#ui/composables/format-date-time'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
 import { injectTags } from '#ui/providers'
 import { commonMessages } from '#ui/utils/common-messages'
@@ -419,6 +420,7 @@ import { useContentUpdaterFiltering } from './use-content-updater-filtering'
 import { useContentUpdaterSelection } from './use-content-updater-selection'
 
 const { formatMessage } = useVIntl()
+const formatLongDate = useFormatDateTime({ year: 'numeric', month: 'long', day: 'numeric' })
 const debug = useDebugLogger('ContentUpdaterModal')
 const tags = injectTags(null)
 
@@ -728,14 +730,6 @@ function getVersionTypeBadgeClasses(version: Labrinth.Versions.v2.Version): stri
         default:
             return 'bg-surface-4 border-surface-5 text-[var(--color-text-default)]'
     }
-}
-
-function formatLongDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    })
 }
 
 function formatLoaderGameVersion(version: Labrinth.Versions.v2.Version): string {

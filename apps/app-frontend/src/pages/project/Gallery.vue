@@ -193,6 +193,8 @@ onUnmounted(() => {
             >
                 <img
                     referrerpolicy="no-referrer"
+                    loading="lazy"
+                    decoding="async"
                     :src="entry.image.url"
                     :alt="imageAlt(entry)"
                     class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 
 import {
     firstTagWithArtifacts,
+    hasWindowsArm64Assets,
     portableArtifactName,
     portableTargets,
     requiresArtifacts,
@@ -21,7 +22,12 @@ export function verifyUpdateManifest(manifest, tag, source = 'github', release) 
             .filter((asset) => typeof asset?.digest === 'string')
             .map((asset) => [asset.name, asset.digest.replace(/^sha256:/i, '').toLowerCase()]),
     )
+    const arm64 =
+        hasWindowsArm64Assets(release) ||
+        Object.hasOwn(manifest.platforms ?? {}, 'windows-aarch64') ||
+        Object.hasOwn(manifest.artifacts ?? {}, 'portable-arm64')
     for (const target of updaterTargets) {
+        if (target.arm64 && !arm64) continue
         for (const platform of target.platforms) {
             const update = manifest.platforms?.[platform]
             if (
@@ -60,7 +66,7 @@ export function verifyUpdateManifest(manifest, tag, source = 'github', release) 
             }
             // A stale zip attached to a newer release must not be described as this version's.
             if (
-                (artifact.signature !== undefined || artifact.size !== undefined) &&
+                (target.arm64 || artifact.signature !== undefined || artifact.size !== undefined) &&
                 (typeof artifact.signature !== 'string' ||
                     artifact.signature.trim().length < 32 ||
                     !Number.isSafeInteger(artifact.size) ||
@@ -71,7 +77,7 @@ export function verifyUpdateManifest(manifest, tag, source = 'github', release) 
             const releaseAsset = release?.assets?.find((asset) => asset.name === artifact.name)
             if (artifact.size !== undefined && releaseAsset && artifact.size !== releaseAsset.size)
                 throw new Error(`Manifest artifact ${key} size does not match the release asset`)
-            if (artifact.name !== portableArtifactName(tag)) {
+            if (artifact.name !== portableArtifactName(tag, target)) {
                 throw new Error(`Manifest artifact ${key} does not match ${expectedVersion}`)
             }
             const filename = decodeURIComponent(new URL(artifact.url).pathname.split('/').at(-1))
@@ -85,8 +91,8 @@ export function verifyUpdateManifest(manifest, tag, source = 'github', release) 
         }
     }
     // Releases older than the one that introduced the field never had a manifest with it.
-    if (!requiresArtifacts(tag)) return
     for (const target of portableTargets) {
+        if (target.arm64 ? !arm64 : !requiresArtifacts(tag)) continue
         if (manifest.artifacts?.[target.key]) continue
         throw new Error(
             `Manifest is missing the ${target.key} artifact required since ${firstTagWithArtifacts}`,

@@ -159,7 +159,11 @@ fn build_seed_map_engine() {
                     "-O3",
                     "-std=gnu11",
                     "-fwrapv",
-                    "-static-libgcc",
+                    if architecture == "aarch64" {
+                        "--rtlib=compiler-rt"
+                    } else {
+                        "-static-libgcc"
+                    },
                     "-Wl,--export-all-symbols",
                     // Tauri watches the bundled DLL. Keep identical builds
                     // byte-for-byte stable so syncing it preserves its mtime.

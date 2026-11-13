@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util'
 import {
     app,
     files,
+    output,
     requireFile,
     requireProfile,
     root,
@@ -12,6 +13,10 @@ import {
     sha256,
     version,
 } from './desktop-build-utils.mjs'
+import {
+    verifyWindowsBinaryArchitecture,
+    windowsPackageArchitecture,
+} from './windows-package-architecture.mjs'
 
 const { values } = parseArgs({
     options: {
@@ -24,8 +29,17 @@ const profile = values.profile
 requireProfile(profile)
 const source = path.join(root, 'target', profile)
 const binary = requireFile(path.join(source, 'Axolotl Launcher.exe'))
+const host = output('rustc', ['-vV']).match(/^host: (.+)$/m)?.[1]
+const architecture = windowsPackageArchitecture(host)
 const initialHash = sha256(binary)
 process.env.AXOLOTL_INSTALLER_UI_PATH = requireFile(path.join(source, 'axolotl-installer-ui.exe'))
+for (const file of [
+    binary,
+    process.env.AXOLOTL_INSTALLER_UI_PATH,
+    requireFile(path.join(app, 'resources/seed-map/axolotl-cubiomes.dll')),
+]) {
+    verifyWindowsBinaryArchitecture(fs.readFileSync(file), architecture, file)
+}
 const destination = path.resolve(values.output)
 fs.mkdirSync(destination, { recursive: true })
 const target =
@@ -62,7 +76,7 @@ for (const variant of ['modern', 'native']) {
     const installers = fs.readdirSync(bundleDirectory).filter((file) => file.endsWith('-setup.exe'))
     if (installers.length !== 1) throw new Error(`Expected one ${variant} installer`)
     const installer = path.join(bundleDirectory, installers[0])
-    const name = `Axolotl_Launcher_${version()}_x64_${variant === 'modern' ? 'modern' : 'nsis'}-setup.exe`
+    const name = `Axolotl_Launcher_${version()}_${architecture}_${variant === 'modern' ? 'modern' : 'nsis'}-setup.exe`
     fs.copyFileSync(installer, path.join(destination, name))
     if (variant === 'native' && fs.existsSync(`${installer}.sig`)) {
         fs.copyFileSync(`${installer}.sig`, path.join(destination, `${name}.sig`))
@@ -113,13 +127,16 @@ run(
             AXOLOTL_PORTABLE_SOURCE: portable,
             AXOLOTL_PORTABLE_ZIP: path.join(
                 destination,
-                `Axolotl_Launcher_${version()}_x64_portable.zip`,
+                `Axolotl_Launcher_${version()}_${architecture}_portable.zip`,
             ),
         },
     },
 )
 if (profile === 'release') {
-    const archive = path.join(destination, `Axolotl_Launcher_${version()}_x64_portable.zip`)
+    const archive = path.join(
+        destination,
+        `Axolotl_Launcher_${version()}_${architecture}_portable.zip`,
+    )
     run('pnpm', ['tauri', 'signer', 'sign', archive], { cwd: app })
     requireFile(`${archive}.sig`)
 }

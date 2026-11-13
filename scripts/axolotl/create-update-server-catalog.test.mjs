@@ -41,6 +41,9 @@ const files = [
     'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip',
     'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip.sig',
 ]
+files.push(
+    ...files.filter((name) => name.includes('_x64')).map((name) => name.replace('_x64', '_arm64')),
+)
 // Attached for the website, not installed by the Update Server.
 const webDemo = 'Axolotl_Launcher_1.9.5-beta.1_web_demo.zip'
 
@@ -84,11 +87,11 @@ try {
         'modern',
     )
     assert.equal(
-        catalog.artifacts.find((artifact) => artifact.filename.endsWith('portable.zip')).kind,
+        catalog.artifacts.find((artifact) => artifact.filename.endsWith('_x64_portable.zip')).kind,
         'portable',
     )
     assert.equal(
-        catalog.artifacts.find((artifact) => artifact.filename.endsWith('portable.zip'))
+        catalog.artifacts.find((artifact) => artifact.filename.endsWith('_x64_portable.zip'))
             .signatureFilename,
         'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip.sig',
     )
@@ -97,6 +100,18 @@ try {
             .targetPlatforms,
         ['darwin-aarch64', 'darwin-x86_64'],
     )
+    for (const [suffix, kind, variant] of [
+        ['_arm64_modern-setup.exe', 'installer', 'modern'],
+        ['_arm64_nsis-setup.exe', 'installer', 'native'],
+        ['_arm64_portable.zip', 'portable', 'portable'],
+        ['_arm64-setup.nsis.zip', 'updater', 'tauri'],
+    ]) {
+        const artifact = catalog.artifacts.find((entry) => entry.filename.endsWith(suffix))
+        assert.equal(artifact.architecture, 'aarch64')
+        assert.equal(artifact.kind, kind)
+        assert.equal(artifact.variant, variant)
+        if (kind === 'updater') assert.deepEqual(artifact.targetPlatforms, ['windows-aarch64'])
+    }
     const release = JSON.parse(fs.readFileSync(releasePath, 'utf8'))
     const run = () =>
         spawnSync(

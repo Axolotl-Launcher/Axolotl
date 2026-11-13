@@ -203,3 +203,71 @@ test('generate stable tagged URLs from draft assets and verify the repository an
         fs.rmSync(directory, { recursive: true, force: true })
     }
 })
+
+test('Windows ARM64 metadata is complete, signed and optional for historical releases', async (t) => {
+    const { createUpdateManifest, updaterTargets, portableArtifactName, portableTargets } =
+        await import('./create-update-manifest.mjs')
+    const { verifyUpdateManifest } = await import('./verify-update-manifest.mjs')
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-arm64-manifest-'))
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+    const tag = 'v1.11.0-beta.1'
+    const names = [
+        ...updaterTargets.map((target) => `Axolotl${target.assetSuffix}`),
+        ...portableTargets.map((target) => portableArtifactName(tag, target)),
+    ]
+    const signature = 'signature'.repeat(12)
+    for (const name of names) fs.writeFileSync(path.join(directory, `${name}.sig`), signature)
+    const release = {
+        tag_name: tag,
+        assets: names
+            .flatMap((name) => [name, `${name}.sig`])
+            .map((name) => ({
+                name,
+                size: 123,
+                digest: `sha256:${'a'.repeat(64)}`,
+            })),
+    }
+    const manifest = createUpdateManifest(release, directory, tag)
+    assert(manifest.platforms['windows-aarch64'])
+    assert.equal(
+        manifest.artifacts['portable-arm64'].name,
+        'Axolotl_Launcher_1.11.0-beta.1_arm64_portable.zip',
+    )
+    assert.doesNotThrow(() => verifyUpdateManifest(manifest, tag, 'github', release))
+    for (const damage of [
+        (value) => delete value.platforms['windows-aarch64'],
+        (value) => delete value.artifacts['portable-arm64'],
+        (value) => delete value.artifacts['portable-arm64'].signature,
+        (value) => (value.artifacts['portable-arm64'].name = value.artifacts.portable.name),
+    ]) {
+        const broken = structuredClone(manifest)
+        damage(broken)
+        assert.throws(() => verifyUpdateManifest(broken, tag, 'github', release))
+    }
+    for (const missing of [
+        '_arm64-setup.nsis.zip',
+        '_arm64_portable.zip',
+        '_arm64_portable.zip.sig',
+    ]) {
+        const broken = structuredClone(release)
+        broken.assets = broken.assets.filter((asset) => !asset.name.endsWith(missing))
+        assert.throws(() => createUpdateManifest(broken, directory, tag))
+    }
+    const historical = structuredClone(release)
+    historical.assets = historical.assets.filter((asset) => !asset.name.includes('_arm64'))
+    const oldManifest = createUpdateManifest(historical, directory, tag)
+    assert.equal(oldManifest.platforms['windows-aarch64'], undefined)
+    const previousRequirement = process.env.AXOLOTL_REQUIRE_WINDOWS_ARM64
+    try {
+        process.env.AXOLOTL_REQUIRE_WINDOWS_ARM64 = 'true'
+        assert.throws(
+            () => createUpdateManifest(historical, directory, tag),
+            /missing Windows ARM64/,
+        )
+        assert.doesNotThrow(() => createUpdateManifest(release, directory, tag))
+    } finally {
+        if (previousRequirement === undefined) delete process.env.AXOLOTL_REQUIRE_WINDOWS_ARM64
+        else process.env.AXOLOTL_REQUIRE_WINDOWS_ARM64 = previousRequirement
+    }
+    assert.doesNotThrow(() => verifyUpdateManifest(oldManifest, tag, 'github', historical))
+})

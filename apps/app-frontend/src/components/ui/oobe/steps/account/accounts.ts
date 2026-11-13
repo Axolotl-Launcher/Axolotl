@@ -18,6 +18,10 @@ export type OobeAccount = {
     yggdrasil?: { server_name: string }
 }
 
+/** A head that failed to render is tried again this many times, waiting longer each time. */
+const HEAD_RETRIES = 3
+const HEAD_RETRY_MS = 1000
+
 /** Steve's head, cut from the bundled skin: what an account without a skin shows. */
 export const steveHead = createSkinHeadDataUrl(steveSkinTexture)
 
@@ -91,19 +95,44 @@ export function useOobeAccounts() {
     watch(accountSelectionRevision, () => void refresh())
     onMounted(() => void refresh())
 
+    // Heads render for the listed accounts, and again when the network comes back.
     watch(
-        accounts,
-        (list, _, onCleanup) => {
+        [accounts, offline],
+        ([list], _, onCleanup) => {
             const skins = list.flatMap((account) => getAccountSkin(account) ?? [])
-            onCleanup(retainPlayerHeadTextures(skins.map((skin) => skin.texture_key)))
-            for (const skin of skins) {
-                if (heads.value.has(skin.texture_key)) continue
+            const textures = new Set(skins.map((skin) => skin.texture_key))
+            const release = retainPlayerHeadTextures([...textures])
+            // A head no longer held may be freed by the renderer, so it is rendered afresh
+            // should its account come back.
+            heads.value = new Map([...heads.value].filter(([texture]) => textures.has(texture)))
+            let current = true
+            const retries = new Set<ReturnType<typeof setTimeout>>()
+            onCleanup(() => {
+                current = false
+                retries.forEach(clearTimeout)
+                release()
+            })
+
+            function render(skin: (typeof skins)[number], attempt: number) {
                 getPlayerHeadUrl(skin)
                     .then((url) => {
-                        heads.value = new Map(heads.value).set(skin.texture_key, url)
+                        if (current) heads.value = new Map(heads.value).set(skin.texture_key, url)
                     })
-                    .catch((error) => console.warn('Failed to render an account head', error))
+                    .catch((error) => {
+                        console.warn('Failed to render an account head', error)
+                        // A skin that failed to load may load later; it shows Steve meanwhile.
+                        if (!current || attempt >= HEAD_RETRIES) return
+                        const retry = setTimeout(
+                            () => {
+                                retries.delete(retry)
+                                render(skin, attempt + 1)
+                            },
+                            HEAD_RETRY_MS * 2 ** attempt,
+                        )
+                        retries.add(retry)
+                    })
             }
+            for (const skin of skins) if (!heads.value.has(skin.texture_key)) render(skin, 0)
         },
         { immediate: true },
     )

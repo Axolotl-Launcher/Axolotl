@@ -40,6 +40,9 @@ const backend = vi.hoisted(() => ({
     }>,
     defaultAccount: null as string | null,
     failDefault: false,
+    /** Skin textures rendered as heads, in order, and those whose skin fails to load. */
+    headRenders: [] as string[],
+    brokenSkins: new Set<string>(),
     failSync: false,
     syncPending: null as Promise<void> | null,
     syncImported: 2,
@@ -67,7 +70,11 @@ vi.mock('@tauri-apps/api/event', async (importOriginal) => ({
 }))
 // A head per skin texture, in a colour of its own, so the art shows which account it drew.
 vi.mock('@/helpers/rendering/batch-skin-renderer.ts', () => ({
-    getPlayerHeadUrl: async ({ texture_key }: { texture_key: string }) => headUrl(texture_key),
+    getPlayerHeadUrl: async ({ texture_key }: { texture_key: string }) => {
+        backend.headRenders.push(texture_key)
+        if (backend.brokenSkins.has(texture_key)) throw new Error('skin unavailable')
+        return headUrl(texture_key)
+    },
     retainPlayerHeadTextures: () => () => {},
 }))
 vi.mock('@tauri-apps/plugin-dialog', async (importOriginal) => ({
@@ -150,6 +157,8 @@ afterEach(() => {
     backend.accounts = []
     backend.defaultAccount = null
     backend.failDefault = false
+    backend.headRenders = []
+    backend.brokenSkins.clear()
     backend.failSync = false
     backend.syncPending = null
     backend.syncImported = 2
@@ -471,6 +480,16 @@ describe('account art', () => {
     }
     type Sample = ReturnType<typeof sample>
     const distance = (a: Sample, b: Sample) => Math.hypot(a.x - b.x, a.y - b.y)
+    /**
+     * The frame where the first card comes in front of the second. It starts behind and
+     * trades places once, then stays in front: no flicker back and forth.
+     */
+    function crossingOf(samples: { first: Sample; second: Sample }[]) {
+        const ahead = samples.map(({ first, second }) => first.z > second.z)
+        expect(ahead[0]).toBe(false)
+        expect(ahead.filter((value, i) => i > 0 && value !== ahead[i - 1])).toHaveLength(1)
+        return ahead.indexOf(true)
+    }
     /** Follows two cards for `frames` frames of 16 ms. */
     async function follow(first: string, second: string, frames: number) {
         const samples: { first: Sample; second: Sample }[] = []
@@ -539,7 +558,7 @@ describe('account art', () => {
         // Up and out from behind the front card first.
         expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-40)
         // The two trade stacking order once, and only when Zuri's card is clear above Alex's.
-        const crossing = samples.findIndex(({ first, second }) => first.z > second.z)
+        const crossing = crossingOf(samples)
         expect(crossing).toBeGreaterThan(3)
         expect(samples[crossing]!.first.y).toBeLessThan(samples[crossing]!.second.y - 40)
         // No pause on the way: while it is still far from the front it keeps moving.
@@ -650,8 +669,7 @@ describe('account art', () => {
 
         const samples = await follow('Zuri', 'Alex', 50)
         expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-60)
-        const crossing = samples.findIndex(({ first, second }) => first.z > second.z)
-        expect(crossing).toBeGreaterThan(3)
+        expect(crossingOf(samples)).toBeGreaterThan(3)
         await settleCards()
         expect([
             cardHead('front'),
@@ -720,6 +738,36 @@ describe('account art', () => {
         await waitFor(() => cardOf('Zuri')?.dataset.slot === 'front', { label: 'Zuri listed' })
         await settleCards()
         expect(cardOf('Alex').dataset.slot).toBe('right')
+    })
+
+    it('tries a head that failed to render again, and renders it afresh when its account returns', async () => {
+        const alex = `Alex:https://skins.test/Alex`
+        backend.brokenSkins.add(alex)
+        signIn(['Alex'], 'Alex')
+        await render('en-US', accountOnly)
+        await waitFor(() => backend.headRenders.includes(alex) && !!cardOf('Alex'), {
+            label: 'head tried',
+        })
+        await flushPromises()
+        // The skin did not load: Steve meanwhile, and the head is tried again later.
+        expect(cardHead('front')).toBe(steveHead)
+        backend.brokenSkins.delete(alex)
+        await waitFor(() => cardHead('front') === head('Alex'), {
+            timeoutMs: 4000,
+            label: 'head retried',
+        })
+
+        // Signed out, then back in: its head is rendered afresh, not taken from before.
+        signIn(['Notch'], 'Notch')
+        await waitFor(() => !document.querySelector('[data-account="Alex"]'), {
+            label: 'Alex gone',
+        })
+        const rendered = backend.headRenders.filter((texture) => texture === alex).length
+        signIn(['Alex', 'Notch'], 'Alex')
+        await waitFor(() => cardHead('front') === head('Alex'), { label: 'Alex back' })
+        expect(backend.headRenders.filter((texture) => texture === alex).length).toBeGreaterThan(
+            rendered,
+        )
     })
 
     it('follows the launcher again once a pick is saved', async () => {

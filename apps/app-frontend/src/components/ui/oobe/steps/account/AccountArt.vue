@@ -215,12 +215,13 @@ const cards = computed(() => [
             <g class="oobe-account-stack">
                 <!-- HTML, so the cards can trade stacking order halfway through a swap. -->
                 <foreignObject x="0" y="0" width="400" height="440">
-                    <div class="oobe-account-stage">
+                    <div class="relative h-[440px] w-[400px]">
+                        <!-- Drawn at the front card's size and place, then posed into its slot. -->
                         <div
                             v-for="card in cards"
                             :key="card.key"
                             :ref="(element) => bindCard(card.id, element)"
-                            class="oobe-account-card"
+                            class="absolute left-[104px] top-[96px] h-[252px] w-[192px] origin-center"
                             :class="`slot-${card.slot}`"
                             :style="card.style"
                             data-testid="oobe-account-card"
@@ -244,7 +245,7 @@ const cards = computed(() => [
                                 </g>
                                 <image
                                     v-if="card.head"
-                                    class="oobe-account-head"
+                                    class="[image-rendering:pixelated]"
                                     data-testid="oobe-account-head"
                                     :href="card.head"
                                     x="48"
@@ -316,22 +317,6 @@ const cards = computed(() => [
     animation: oobe-account-float 6s ease-in-out infinite;
 }
 
-.oobe-account-stage {
-    position: relative;
-    width: 400px;
-    height: 440px;
-}
-
-// Every card is drawn at the front card's size and place, then posed into its slot.
-.oobe-account-card {
-    position: absolute;
-    left: 104px;
-    top: 96px;
-    width: 192px;
-    height: 252px;
-    transform-origin: 50% 50%;
-}
-
 .slot-left,
 .slot-right,
 .slot-hidden,
@@ -339,10 +324,6 @@ const cards = computed(() => [
     .front-only {
         opacity: 0;
     }
-}
-
-.oobe-account-head {
-    image-rendering: pixelated;
 }
 
 .oobe-account-badge {

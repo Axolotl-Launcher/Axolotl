@@ -89,10 +89,13 @@ describe('card motion', () => {
     it('lets two swapping cards trade stacking order only once they have swung apart', () => {
         const rising = run(startMove(restingMotion('right'), 'rise', 1, 0), SLOT_POSES.front, 900)
         const sinking = run(startMove(restingMotion('front'), 'sink', 1, 0), SLOT_POSES.right, 900)
-        const crossing = rising.findIndex(
+        const ahead = rising.map(
             (frame, i) => layerOf(frame.motion.pose) > layerOf(sinking[i]!.motion.pose),
         )
-        expect(crossing).toBeGreaterThan(0)
+        // They trade places once and keep them: no flicker back and forth.
+        expect(ahead[0]).toBe(false)
+        expect(ahead.filter((value, i) => i > 0 && value !== ahead[i - 1])).toHaveLength(1)
+        const crossing = ahead.indexOf(true)
         const risingThen = rising[crossing]!.motion.pose
         const sinkingThen = sinking[crossing]!.motion.pose
         expect(risingThen.y).toBeLessThan(sinkingThen.y - 40)

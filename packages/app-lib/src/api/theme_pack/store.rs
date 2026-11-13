@@ -109,7 +109,14 @@ pub async fn install(
 
     let (manifest, extraction) = extracted;
     let port = manifest::origin_port(&manifest.id);
-    if list(storage).await?.iter().any(|pack| {
+    let installed = match list(storage).await {
+        Ok(packs) => packs,
+        Err(error) => {
+            let _ = tokio::fs::remove_dir_all(&staging).await;
+            return Err(error);
+        }
+    };
+    if installed.iter().any(|pack| {
         pack.manifest.id != manifest.id
             && manifest::origin_port(&pack.manifest.id) == port
     }) {

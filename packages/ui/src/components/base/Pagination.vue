@@ -1,6 +1,27 @@
 <template>
     <div v-if="count > 1" class="flex items-center gap-1" :class="{ 'opacity-60': loading }">
         <ButtonLink
+            v-if="showFirstPage && linkFunction"
+            type="quiet"
+            circular
+            icon-only
+            :label="formatMessage(messages.firstPage)"
+            :href="linkFunction(1)"
+            :disabled="loading"
+            @click.prevent="!loading && switchPage(1)"
+        >
+            <ChevronsLeftIcon />
+        </ButtonLink>
+        <IconButton
+            v-else-if="showFirstPage"
+            :label="formatMessage(messages.firstPage)"
+            type="quiet"
+            :disabled="loading"
+            @click="switchPage(1)"
+        >
+            <ChevronsLeftIcon />
+        </IconButton>
+        <ButtonLink
             v-if="page > 1 && linkFunction"
             type="quiet"
             circular
@@ -115,12 +136,35 @@
         >
             <ChevronRightIcon />
         </IconButton>
+        <ButtonLink
+            v-if="showLastPage && linkFunction"
+            type="quiet"
+            circular
+            icon-only
+            :label="formatMessage(messages.lastPage)"
+            :href="linkFunction(count)"
+            :disabled="loading"
+            @click.prevent="!loading && switchPage(count)"
+        >
+            <ChevronsRightIcon />
+        </ButtonLink>
+        <IconButton
+            v-else-if="showLastPage"
+            :label="formatMessage(messages.lastPage)"
+            type="quiet"
+            :disabled="loading"
+            @click="switchPage(count)"
+        >
+            <ChevronsRightIcon />
+        </IconButton>
     </div>
 </template>
 <script setup lang="ts">
 import {
     ChevronLeftIcon,
     ChevronRightIcon,
+    ChevronsLeftIcon,
+    ChevronsRightIcon,
     EllipsisVerticalIcon,
     SpinnerIcon,
 } from '@modrinth/assets'
@@ -152,6 +196,10 @@ const props = withDefaults(
 const { formatMessage } = useVIntl()
 
 const messages = defineMessages({
+    firstPage: {
+        id: 'pagination.first-page',
+        defaultMessage: 'First page',
+    },
     goToPage: {
         id: 'pagination.go-to-page',
         defaultMessage: 'Go to page',
@@ -159,6 +207,10 @@ const messages = defineMessages({
     goToPagePlaceholder: {
         id: 'pagination.go-to-page.placeholder',
         defaultMessage: 'Page',
+    },
+    lastPage: {
+        id: 'pagination.last-page',
+        defaultMessage: 'Last page',
     },
     loadingPage: {
         id: 'pagination.loading-page',
@@ -198,6 +250,12 @@ const pages = computed(() => {
 
     return pages
 })
+
+// Below four pages every page is one click away, so the jump controls would only
+// add width to the bar without shortening any path.
+const hasJumpRange = computed(() => props.count > 3)
+const showFirstPage = computed(() => hasJumpRange.value && props.page > 2)
+const showLastPage = computed(() => hasJumpRange.value && props.page < props.count - 1)
 
 const activeGapIndex = ref<number | null>(null)
 const gapInputValue = ref('')

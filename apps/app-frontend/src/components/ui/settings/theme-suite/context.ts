@@ -31,6 +31,18 @@ export interface ThemeColorDraft {
 const TOKEN_BACKGROUND = '--surface-1'
 const TOKEN_SURFACE = '--surface-3'
 const TOKEN_TEXT = '--color-text-primary'
+const CUSTOM_COLOR_VARIABLES = [
+    '--surface-1',
+    '--surface-1-5',
+    '--surface-2',
+    '--surface-2-5',
+    '--surface-3',
+    '--surface-4',
+    '--surface-5',
+    '--color-text-primary',
+    '--color-text-default',
+    '--color-text-tertiary',
+]
 
 const FALLBACK_COLORS: Record<ThemeColorBucket, ThemeColorDraft> = {
     light: { background: '#ebebeb', surface: '#f8f8f8', text: '#1a202c' },
@@ -55,14 +67,25 @@ function normalizeHex(value: string): string | null {
 export function readColorDefaults(bucket: ThemeColorBucket): ThemeColorDraft {
     const fallback = FALLBACK_COLORS[bucket]
     if (typeof document === 'undefined') return { ...fallback }
-    const style = getComputedStyle(document.documentElement)
+    const root = document.documentElement
+    // Live preview writes the draft onto this same element, so temporarily
+    // remove the inline palette and read the active built-in theme instead.
+    const inline = CUSTOM_COLOR_VARIABLES.map(
+        (name) => [name, root.style.getPropertyValue(name)] as const,
+    )
+    for (const [name] of inline) root.style.removeProperty(name)
+    const style = getComputedStyle(root)
     const read = (name: string, value: string) =>
         normalizeHex(style.getPropertyValue(name)) ?? value
-    return {
+    const defaults = {
         background: read(TOKEN_BACKGROUND, fallback.background),
         surface: read(TOKEN_SURFACE, fallback.surface),
         text: read(TOKEN_TEXT, fallback.text),
     }
+    for (const [name, value] of inline) {
+        if (value) root.style.setProperty(name, value)
+    }
+    return defaults
 }
 
 function colorsFromManifest(
@@ -304,10 +327,7 @@ export function createThemeSuiteContext(
     }
 
     function resetColors() {
-        // Use the documented built-in palette instead of computed styles:
-        // live preview writes the draft onto the same root element, so reading
-        // it back would make Reset restore the previewed custom colors.
-        colorsDraft.value = { ...FALLBACK_COLORS[colorsBucket.value] }
+        colorsDraft.value = readColorDefaults(colorsBucket.value)
     }
 
     async function saveColors() {

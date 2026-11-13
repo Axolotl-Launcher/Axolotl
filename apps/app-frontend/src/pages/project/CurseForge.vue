@@ -1213,11 +1213,16 @@ async function translateProject() {
 
         translationActive.value = true
         const accumulated = { ...translations.value }
-        await translateContent({ ...baseRequest, segments: allSegments }, (response) => {
-            if (requestVersion !== translationRequestVersion) return
-            for (const segment of response.segments) accumulated[segment.id] = segment.text
-            translations.value = { ...accumulated }
-        })
+        await translateContent(
+            { ...baseRequest, segments: allSegments },
+            (response) => {
+                if (requestVersion !== translationRequestVersion) return
+                for (const segment of response.segments) accumulated[segment.id] = segment.text
+                translations.value = { ...accumulated }
+            },
+            undefined,
+            { maxItems: 1 },
+        )
         if (requestVersion !== translationRequestVersion) return
 
         validateTranslatedDescription(prepared, accumulated)

@@ -15038,6 +15038,9 @@
   "app.translation-settings.provider.ai": {
     "message": "AI model"
   },
+  "app.translation-settings.provider.bili-index-translate": {
+    "message": "Bili Index Translate"
+  },
   "app.translation-settings.provider.deepl": {
     "message": "DeepL"
   },

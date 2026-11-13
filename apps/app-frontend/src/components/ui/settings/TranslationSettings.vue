@@ -33,7 +33,7 @@ import SettingsSection from './SettingsSection.vue'
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 const settings = ref<TranslationSettingsState>({
-    provider: 'google',
+    provider: 'bili-index-translate',
     target_language: '',
     mode: 'bilingual',
     auto_translate: false,
@@ -79,6 +79,10 @@ const messages = defineMessages({
     google: {
         id: 'app.translation-settings.provider.google',
         defaultMessage: 'Google Translate (free)',
+    },
+    biliIndexTranslate: {
+        id: 'app.translation-settings.provider.bili-index-translate',
+        defaultMessage: 'Bili Index Translate',
     },
     deepl: {
         id: 'app.translation-settings.provider.deepl',
@@ -252,7 +256,12 @@ const targetLanguage = computed({
 
 function providerName(provider: TranslationProvider) {
     return formatMessage(
-        { google: messages.google, deepl: messages.deepl, ai: messages.ai }[provider],
+        {
+            google: messages.google,
+            deepl: messages.deepl,
+            ai: messages.ai,
+            'bili-index-translate': messages.biliIndexTranslate,
+        }[provider],
     )
 }
 
@@ -278,6 +287,7 @@ function styleName(style: TranslationStyle) {
 }
 
 const translationProviders = computed<TranslationProvider[]>(() => [
+    'bili-index-translate',
     'google',
     ...(aiAvailable.value ? (['ai'] as const) : []),
     'deepl',
@@ -591,7 +601,7 @@ async function clearCache() {
                     </Button>
                 </div>
             </template>
-            <SettingsRow>
+            <SettingsRow class="[--settings-control-width:16rem]">
                 <template #label>{{ formatMessage(messages.provider) }}</template>
                 <template #description>
                     <span v-if="settings.provider === 'google'">

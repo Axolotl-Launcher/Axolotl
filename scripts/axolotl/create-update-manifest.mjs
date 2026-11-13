@@ -15,6 +15,7 @@ export const updaterTargets = [
     { platforms: ['linux-aarch64'], assetSuffix: '_aarch64.AppImage.tar.gz' },
     { platforms: ['linux-x86_64'], assetSuffix: '_amd64.AppImage.tar.gz' },
     { platforms: ['windows-x86_64'], assetSuffix: '_x64-setup.nsis.zip' },
+    { platforms: ['windows-aarch64'], assetSuffix: '_arm64-setup.nsis.zip', arm64: true },
 ]
 
 // Artifacts that are not used by the updater but whose digests packaging channels
@@ -26,6 +27,12 @@ export const updaterTargets = [
 // verification skips the requirement for tags older than the release that introduced it.
 export const portableTargets = [
     { key: 'portable', platform: 'windows-x86_64', assetSuffix: '_x64_portable.zip' },
+    {
+        key: 'portable-arm64',
+        platform: 'windows-aarch64',
+        assetSuffix: '_arm64_portable.zip',
+        arm64: true,
+    },
 ]
 
 // First release whose latest.json describes the portable artifact. Everything at or above it
@@ -33,8 +40,14 @@ export const portableTargets = [
 // cannot gain one and release workflows still re-verify them.
 export const firstTagWithArtifacts = 'v1.11.0'
 
-export function portableArtifactName(tag) {
-    return `Axolotl_Launcher_${releaseVersion(tag)}_x64_portable.zip`
+export function hasWindowsArm64Assets(release) {
+    return (release?.assets ?? []).some((asset) =>
+        /_arm64(?:[-_].*)?\.(?:exe|zip)(?:\.sig)?$/.test(asset.name),
+    )
+}
+
+export function portableArtifactName(tag, target = portableTargets[0]) {
+    return `Axolotl_Launcher_${releaseVersion(tag)}${target.assetSuffix}`
 }
 
 export function requiresArtifacts(tag) {
@@ -45,8 +58,12 @@ export function requiresArtifacts(tag) {
 
 export function createUpdateManifest(release, signaturesPath, tag) {
     verifyRelease(release, tag)
+    const arm64 = hasWindowsArm64Assets(release)
+    if (process.env.AXOLOTL_REQUIRE_WINDOWS_ARM64 === 'true' && !arm64)
+        throw new Error('Release build is missing Windows ARM64 assets')
     const platforms = {}
     for (const target of updaterTargets) {
+        if (target.arm64 && !arm64) continue
         const matches = release.assets.filter((asset) => asset.name.endsWith(target.assetSuffix))
         if (matches.length !== 1) {
             throw new Error(
@@ -71,9 +88,9 @@ export function createUpdateManifest(release, signaturesPath, tag) {
     }
     const artifacts = {}
     for (const target of portableTargets) {
-        if (!requiresArtifacts(tag)) continue
+        if (target.arm64 ? !arm64 : !requiresArtifacts(tag)) continue
         // Matching on the versioned filename keeps a stale zip from another release out.
-        const expectedName = portableArtifactName(tag)
+        const expectedName = portableArtifactName(tag, target)
         const matches = release.assets.filter((asset) => asset.name === expectedName)
         if (matches.length !== 1) {
             throw new Error(
@@ -87,6 +104,11 @@ export function createUpdateManifest(release, signaturesPath, tag) {
             sha256: assetSha256(asset),
             url: assetDownloadUrl(tag, asset.name),
         }
+        if (
+            target.arm64 &&
+            !release.assets.some((candidate) => candidate.name === `${asset.name}.sig`)
+        )
+            throw new Error(`Missing portable signature attachment ${asset.name}.sig`)
         // Published historical portable packages were unsigned. Describe the
         // package's own signature when attached, without borrowing the setup's.
         if (release.assets.some((candidate) => candidate.name === `${asset.name}.sig`)) {

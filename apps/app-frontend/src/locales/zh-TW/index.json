@@ -17,11 +17,26 @@
   "app.home.calendar.month-empty-hint": {
     "message": "每次遊玩都會按天記在日曆上。"
   },
+  "app.home.calendar.stat-days": {
+    "message": "{count, plural, other {天有遊玩}}"
+  },
+  "app.home.calendar.stat-hours": {
+    "message": "{count, plural, other {小時}}"
+  },
+  "app.home.challenge.difficulty": {
+    "message": "難度：{level}"
+  },
   "app.home.challenge.empty-hint": {
     "message": "這一局就給自己定個小目標吧。"
   },
   "app.home.challenge.empty-title": {
     "message": "今天沒有挑戰"
+  },
+  "app.home.challenge.number": {
+    "message": "第 {number} 號"
+  },
+  "app.home.insights.daily-average": {
+    "message": "日均 {duration}"
   },
   "app.home.insights.empty-title": {
     "message": "還沒有遊玩記錄"
@@ -34,6 +49,12 @@
   },
   "app.home.insights.last-week": {
     "message": "上週 {duration}"
+  },
+  "app.home.insights.unit-hours": {
+    "message": "{count, plural, other {小時}}"
+  },
+  "app.home.insights.unit-minutes": {
+    "message": "{count, plural, other {分鐘}}"
   },
   "app.home.insights.week-empty": {
     "message": "本週還沒玩"
@@ -169,6 +190,63 @@
   },
   "app.home.shortcut.missing-hint": {
     "message": "它可能已被刪除或移動。換一個目標，或移除這個小元件。"
+  },
+  "app.home.widgets.add-another": {
+    "message": "再新增一個"
+  },
+  "app.home.widgets.add-to-home": {
+    "message": "新增到主頁"
+  },
+  "app.home.widgets.added-count": {
+    "message": "{count, plural, =1 {已新增} other {已新增 ×#}}"
+  },
+  "app.home.widgets.added-toast": {
+    "message": "已將「{name}」新增到主頁"
+  },
+  "app.home.widgets.categories": {
+    "message": "小元件分類"
+  },
+  "app.home.widgets.category.activity": {
+    "message": "遊玩資料"
+  },
+  "app.home.widgets.category.all": {
+    "message": "全部"
+  },
+  "app.home.widgets.category.collections": {
+    "message": "收藏內容"
+  },
+  "app.home.widgets.category.shortcuts": {
+    "message": "捷徑"
+  },
+  "app.home.widgets.category.start": {
+    "message": "啟動"
+  },
+  "app.home.widgets.choose-target": {
+    "message": "選擇它要開啟的內容"
+  },
+  "app.home.widgets.done-adding": {
+    "message": "完成"
+  },
+  "app.home.widgets.more": {
+    "message": "還有 {count} 個"
+  },
+  "app.home.widgets.more-label": {
+    "message": "檢視放不下的 {count} 項"
+  },
+  "app.home.widgets.no-widgets": {
+    "message": "沒有符合的小元件"
+  },
+  "app.home.widgets.quick-add": {
+    "message": "新增「{name}」"
+  },
+  "app.home.widgets.search-widgets": {
+    "message": "搜尋小元件"
+  },
+  "app.home.widgets.size-label": {
+    "message": "尺寸"
+  },
+  "app.home.widgets.undo": {
+    "message": "復原"
   },
   "app.home.worlds.empty-title": {
     "message": "還沒有固定的世界"
@@ -2377,15 +2455,6 @@
   },
   "app.home.widgets.greeting-description": {
     "message": "隨一天中的時間變化的個性化歡迎語。"
-  },
-  "app.home.widgets.group.collections": {
-    "message": "收藏內容集合"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "概覽"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "單項快捷入口"
   },
   "app.home.widgets.instance": {
     "message": "單個例項入口"

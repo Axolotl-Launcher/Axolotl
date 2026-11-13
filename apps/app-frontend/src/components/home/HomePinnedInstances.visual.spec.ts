@@ -35,6 +35,7 @@ vi.mock('@modrinth/ui', () => {
         Avatar: passthrough,
         ButtonLink: passthrough,
         OverflowMenu: passthrough,
+        PopoutMenu: passthrough,
         commonMessages: {
             playButton: { defaultMessage: 'Play' },
             stopButton: { defaultMessage: 'Stop' },

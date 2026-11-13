@@ -630,11 +630,21 @@ const iconSize = computed(() => {
     position: absolute;
     z-index: 0;
     inset: 0;
-    background: radial-gradient(
-        55% 90% at 100% 35%,
-        color-mix(in srgb, var(--home-launch-tint) var(--home-launch-glow-mix), transparent),
-        transparent 72%
-    );
+    background:
+        radial-gradient(
+            55% 90% at 100% 35%,
+            color-mix(in srgb, var(--home-launch-tint) var(--home-launch-glow-mix), transparent),
+            transparent 72%
+        ),
+        radial-gradient(
+            45% 70% at 0% 100%,
+            color-mix(
+                in srgb,
+                var(--color-brand) calc(var(--home-launch-glow-mix) * 0.5),
+                transparent
+            ),
+            transparent 70%
+        );
     pointer-events: none;
 }
 
@@ -1261,6 +1271,56 @@ a.home-launch-switch {
     }
 }
 
+/*
+ * The dashboard hero gets a lit top edge: a hairline highlight and a faint
+ * sheen that fades down the card, so it reads as the raised piece of the page.
+ */
+.home-launch[data-variant='widget'] .home-launch-card::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-text-primary) 4%, transparent),
+        transparent 34%
+    );
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+    content: '';
+    pointer-events: none;
+}
+
+/* While the game runs, a green light runs along the card's lower edge. */
+.home-launch-card[data-phase='running']::after {
+    position: absolute;
+    z-index: 2;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background:
+        linear-gradient(90deg, transparent, var(--color-green-300) 50%, transparent) 0 0 / 40% 100%
+            no-repeat,
+        color-mix(in srgb, var(--color-green) 55%, transparent);
+    content: '';
+    animation: home-launch-running 2.4s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes home-launch-running {
+    from {
+        background-position:
+            -60% 0,
+            0 0;
+    }
+
+    to {
+        background-position:
+            160% 0,
+            0 0;
+    }
+}
+
 @keyframes home-launch-pulse {
     50% {
         opacity: 0.35;
@@ -1268,7 +1328,8 @@ a.home-launch-switch {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .home-launch-card[data-phase='running'] .home-launch-status-dot {
+    .home-launch-card[data-phase='running'] .home-launch-status-dot,
+    .home-launch-card[data-phase='running']::after {
         animation: none;
     }
 

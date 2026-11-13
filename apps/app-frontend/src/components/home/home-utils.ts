@@ -1,3 +1,5 @@
+import type { InjectionKey, Ref } from 'vue'
+
 export type HomeTimeBucket = 'late-night' | 'dawn' | 'morning' | 'afternoon' | 'evening' | 'night'
 export type PlaytimeView = 'month' | 'year'
 
@@ -219,4 +221,49 @@ export function getHomeWorldRowState(input: {
         playDisabled: reason !== null || input.starting,
         reason,
     }
+}
+
+/**
+ * How a collection widget lays out its items at a given size: a plain list in
+ * one column, a strip of cards when it is wide but one row tall, and a grid of
+ * tiles with the icon as the cover once it is both wide and tall.
+ */
+export type HomeItemVariant = 'row' | 'card' | 'tile'
+
+/**
+ * Where a widget's list puts its "+N" button: a slot in the widget header,
+ * beside the count, provided by HomeWidgetFrame.
+ */
+export const homeWidgetMoreTargetKey: InjectionKey<Ref<HTMLElement | null>> =
+    Symbol('home-widget-more-target')
+
+export function getHomeItemVariant(size: string | null | undefined): HomeItemVariant {
+    if (!size) return 'row'
+    const [columns, rows] = size.split('x').map(Number)
+    if (!(columns >= 2)) return 'row'
+    return rows >= 2 ? 'tile' : 'card'
+}
+
+/**
+ * For each day of a calendar grid, whether it continues a run of played days
+ * from the day to its left and into the day to its right. Runs stay inside a
+ * week row, so a streak reads as one capsule per row.
+ */
+export function getStreakJoins(
+    played: readonly boolean[],
+    columns = 7,
+): { left: boolean; right: boolean }[] {
+    return played.map((on, index) => {
+        const column = index % columns
+        return {
+            left: on && column > 0 && played[index - 1] === true,
+            right: on && column < columns - 1 && played[index + 1] === true,
+        }
+    })
+}
+
+/** The share of a server's slots in use, 0 to 1; null when it does not say. */
+export function getServerFill(online: number | null | undefined, max: number | null | undefined) {
+    if (typeof online !== 'number' || typeof max !== 'number' || max <= 0) return null
+    return Math.min(1, Math.max(0, online / max))
 }

@@ -21,7 +21,8 @@ import {
 } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
 import { useHomeRowMenu } from '@/components/home/home-row-menu'
-import { getHomeWorldRowState } from '@/components/home/home-utils'
+import { getHomeItemVariant, getHomeWorldRowState } from '@/components/home/home-utils'
+import HomeFitList from '@/components/home/HomeFitList.vue'
 import HomeItemRow from '@/components/home/HomeItemRow.vue'
 import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
 import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
@@ -278,6 +279,8 @@ async function stopInstance(instance: GameInstance) {
         source: 'HomeRecentWorld',
     })
 }
+
+const variant = computed(() => getHomeItemVariant(props.dashboardSize))
 </script>
 
 <template>
@@ -299,50 +302,54 @@ async function stopInstance(instance: GameInstance) {
                 {{ formatMessage(messages.viewAllInstances) }}
             </ButtonLink>
         </template>
-        <ul class="home-pinned-list home-recent-list">
-            <li
-                v-for="item in recentItems"
-                :key="item.type === 'world' ? worldKey(item.world) : `${item.instance.id}:instance`"
-                class="min-w-0"
+        <HomeFitList
+            v-slot="{ item, variant: itemVariant }"
+            :items="recentItems"
+            :item-key="
+                (item) =>
+                    item.type === 'world' ? worldKey(item.world) : `${item.instance.id}:instance`
+            "
+            :variant="variant"
+            list-class="home-recent-list"
+        >
+            <HomeItemRow
+                :variant="itemVariant"
+                :title="item.type === 'world' ? item.world.name : item.instance.name"
+                :to="itemRoute(item)"
+                :meta="itemMeta(item)"
+                :meta-icon="
+                    item.type === 'world'
+                        ? item.world.type === 'server'
+                            ? ServerIcon
+                            : GameIcon
+                        : null
+                "
+                :instance="
+                    item.type === 'instance' || !worldIcon(item.world)
+                        ? {
+                              id: item.instance.id,
+                              iconPath: item.instance.icon_path,
+                              loader: item.instance.loader,
+                          }
+                        : null
+                "
+                :image-src="item.type === 'world' ? worldIcon(item.world) : null"
+                :running="rowState(item).showStop"
+                :starting="item.type === 'world' && startingWorldKey === worldKey(item.world)"
+                :play-disabled="rowState(item).playDisabled"
+                :play-label="playLabel(item)"
+                :stop-label="formatMessage(commonMessages.stopButton)"
+                @play="
+                    item.type === 'world'
+                        ? joinWorld(item.world, item.instance)
+                        : playInstance(item.instance)
+                "
+                @stop="stopInstance(item.instance)"
             >
-                <HomeItemRow
-                    :title="item.type === 'world' ? item.world.name : item.instance.name"
-                    :to="itemRoute(item)"
-                    :meta="itemMeta(item)"
-                    :meta-icon="
-                        item.type === 'world'
-                            ? item.world.type === 'server'
-                                ? ServerIcon
-                                : GameIcon
-                            : null
-                    "
-                    :instance="
-                        item.type === 'instance' || !worldIcon(item.world)
-                            ? {
-                                  id: item.instance.id,
-                                  iconPath: item.instance.icon_path,
-                                  loader: item.instance.loader,
-                              }
-                            : null
-                    "
-                    :image-src="item.type === 'world' ? worldIcon(item.world) : null"
-                    :running="rowState(item).showStop"
-                    :starting="item.type === 'world' && startingWorldKey === worldKey(item.world)"
-                    :play-disabled="rowState(item).playDisabled"
-                    :play-label="playLabel(item)"
-                    :stop-label="formatMessage(commonMessages.stopButton)"
-                    @play="
-                        item.type === 'world'
-                            ? joinWorld(item.world, item.instance)
-                            : playInstance(item.instance)
-                    "
-                    @stop="stopInstance(item.instance)"
-                >
-                    <template #actions>
-                        <HomeRowMenu :options="rowMenu(item)" />
-                    </template>
-                </HomeItemRow>
-            </li>
-        </ul>
+                <template #actions>
+                    <HomeRowMenu :options="rowMenu(item)" />
+                </template>
+            </HomeItemRow>
+        </HomeFitList>
     </HomeWidgetFrame>
 </template>

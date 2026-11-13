@@ -15,7 +15,8 @@ import type { HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
 import { useHomeLaunchTarget } from '@/components/home/home-launch-context'
 import { useHomeRowMenu } from '@/components/home/home-row-menu'
-import { getHomeWorldRowState } from '@/components/home/home-utils'
+import { getHomeItemVariant, getHomeWorldRowState } from '@/components/home/home-utils'
+import HomeFitList from '@/components/home/HomeFitList.vue'
 import HomeItemRow from '@/components/home/HomeItemRow.vue'
 import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
 import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
@@ -181,6 +182,8 @@ async function stopInstance(instance: GameInstance) {
         source: 'HomePinnedWorld',
     })
 }
+
+const variant = computed(() => getHomeItemVariant(props.dashboardSize))
 </script>
 
 <template>
@@ -213,35 +216,39 @@ async function stopInstance(instance: GameInstance) {
                 {{ formatMessage(messages.browseWorlds) }}
             </ButtonLink>
         </template>
-        <ul class="home-pinned-list">
-            <li v-for="favorite in favorites" :key="favoriteKey(favorite.world)" class="min-w-0">
-                <HomeItemRow
-                    :title="favorite.world.name"
-                    :to="`/instance/${encodeURIComponent(favorite.instance.id)}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(favorite.world))}`"
-                    :meta="worldMeta(favorite.world, favorite.instance)"
-                    :instance="
-                        favorite.world.icon
-                            ? null
-                            : {
-                                  id: favorite.instance.id,
-                                  iconPath: favorite.instance.icon_path,
-                                  loader: favorite.instance.loader,
-                              }
-                    "
-                    :image-src="favorite.world.icon ?? null"
-                    :running="rowState(favorite.world, favorite.instance).showStop"
-                    :starting="startingWorldKey === favoriteKey(favorite.world)"
-                    :play-disabled="rowState(favorite.world, favorite.instance).playDisabled"
-                    :play-label="playLabel(favorite.world, favorite.instance)"
-                    :stop-label="formatMessage(commonMessages.stopButton)"
-                    @play="joinWorld(favorite.world, favorite.instance)"
-                    @stop="stopInstance(favorite.instance)"
-                >
-                    <template #actions>
-                        <HomeRowMenu :options="rowMenu(favorite.world, favorite.instance)" />
-                    </template>
-                </HomeItemRow>
-            </li>
-        </ul>
+        <HomeFitList
+            v-slot="{ item: favorite, variant: itemVariant }"
+            :items="favorites"
+            :item-key="(favorite) => favoriteKey(favorite.world)"
+            :variant="variant"
+        >
+            <HomeItemRow
+                :variant="itemVariant"
+                :title="favorite.world.name"
+                :to="`/instance/${encodeURIComponent(favorite.instance.id)}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(favorite.world))}`"
+                :meta="worldMeta(favorite.world, favorite.instance)"
+                :instance="
+                    favorite.world.icon
+                        ? null
+                        : {
+                              id: favorite.instance.id,
+                              iconPath: favorite.instance.icon_path,
+                              loader: favorite.instance.loader,
+                          }
+                "
+                :image-src="favorite.world.icon ?? null"
+                :running="rowState(favorite.world, favorite.instance).showStop"
+                :starting="startingWorldKey === favoriteKey(favorite.world)"
+                :play-disabled="rowState(favorite.world, favorite.instance).playDisabled"
+                :play-label="playLabel(favorite.world, favorite.instance)"
+                :stop-label="formatMessage(commonMessages.stopButton)"
+                @play="joinWorld(favorite.world, favorite.instance)"
+                @stop="stopInstance(favorite.instance)"
+            >
+                <template #actions>
+                    <HomeRowMenu :options="rowMenu(favorite.world, favorite.instance)" />
+                </template>
+            </HomeItemRow>
+        </HomeFitList>
     </HomeWidgetFrame>
 </template>

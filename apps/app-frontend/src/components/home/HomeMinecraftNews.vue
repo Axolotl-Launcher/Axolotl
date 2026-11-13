@@ -116,9 +116,10 @@ async function openArticle(item: MinecraftNewsItem) {
 
 <template>
     <HomeWidgetFrame
-        class="home-sidebar-section home-surface"
+        class="home-news home-sidebar-section home-surface"
         :title="formatMessage(messages.news)"
         :icon="NewspaperIcon"
+        :header="featured?.image_url && !loading ? 'eyebrow' : 'bar'"
         :loading="loading"
         :skeleton-rows="NEWS_SKELETON_COUNT"
         :empty-text="emptyText"
@@ -146,61 +147,45 @@ async function openArticle(item: MinecraftNewsItem) {
                 v-if="featured"
                 v-tooltip="formatMessage(messages.openArticle)"
                 type="button"
-                class="home-news-featured home-row group"
+                class="home-news-featured group"
+                :class="{ 'has-cover': featured.image_url }"
                 @click="openArticle(featured)"
             >
-                <span class="home-news-cover">
-                    <img
-                        v-if="featured.image_url"
-                        :src="featured.image_url"
-                        alt=""
-                        loading="lazy"
-                    />
+                <span v-if="featured.image_url" class="home-news-cover" aria-hidden="true">
+                    <img :src="featured.image_url" alt="" loading="lazy" />
                 </span>
-                <span
-                    class="line-clamp-2 text-sm font-bold leading-snug text-[var(--color-text-primary)]"
-                >
-                    {{ featured.title }}
-                </span>
-                <span
-                    v-if="newsDateLabel(featured)"
-                    class="flex items-center gap-1 text-xs text-[var(--color-text-tertiary)]"
-                >
-                    {{ newsDateLabel(featured) }}
-                    <ExternalIcon
-                        class="size-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-                        aria-hidden="true"
-                    />
+                <span class="home-news-featured-copy">
+                    <span class="home-news-featured-title">{{ featured.title }}</span>
+                    <span v-if="newsDateLabel(featured)" class="home-news-featured-date">
+                        {{ newsDateLabel(featured) }}
+                        <ExternalIcon
+                            class="size-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                            aria-hidden="true"
+                        />
+                    </span>
                 </span>
             </button>
-            <ul class="m-0 flex list-none flex-col p-0">
+            <ul class="home-news-list">
                 <li v-for="item in rest" :key="`${item.date ?? ''}:${item.title}`" class="min-w-0">
                     <button
                         v-tooltip="formatMessage(messages.openArticle)"
                         type="button"
-                        class="home-row group flex w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-1.5 py-1.5 text-left"
+                        class="home-news-row home-row group"
                         @click="openArticle(item)"
                     >
                         <img
                             v-if="item.image_url"
                             :src="item.image_url"
                             alt=""
-                            class="h-9 w-14 shrink-0 rounded-[var(--radius-sm)] object-cover"
+                            class="home-news-thumb"
                             loading="lazy"
                         />
-                        <span
-                            v-else
-                            class="h-9 w-14 shrink-0 rounded-[var(--radius-sm)] bg-[var(--home-widget-tint)]"
-                        />
+                        <span v-else class="home-news-thumb" />
                         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <span
-                                class="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[var(--color-text-primary)]"
-                            >
-                                {{ item.title }}
-                            </span>
+                            <span class="home-news-row-title">{{ item.title }}</span>
                             <span
                                 v-if="newsDateLabel(item)"
-                                class="truncate text-xs text-[var(--color-text-tertiary)]"
+                                class="truncate text-[0.6875rem] font-semibold text-[var(--color-text-tertiary)]"
                             >
                                 {{ newsDateLabel(item) }}
                             </span>
@@ -213,12 +198,30 @@ async function openArticle(item: MinecraftNewsItem) {
 </template>
 
 <style scoped>
+/*
+ * The lead story is a cover: the widget's label sits above it, its picture
+ * runs from edge to edge of the card, and the headline and date sit under the
+ * picture on the card's own fill. No text is laid over the picture, so the
+ * artwork's own lettering never fights the headline, in either theme. The rest
+ * are compact rows.
+ */
 .home-news-featured {
-    @apply flex w-full cursor-pointer flex-col gap-1.5 border-0 bg-transparent p-1.5 text-left;
+    @apply relative flex w-full min-w-0 cursor-pointer flex-col gap-1 border-0 bg-transparent p-1.5 text-left;
+    border-radius: var(--radius-md);
+}
+
+.home-news-featured:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px var(--color-brand-shadow);
+}
+
+.home-news-featured.has-cover {
+    @apply -mx-4 mb-1 w-auto gap-2.5 p-0;
+    border-radius: 0;
 }
 
 .home-news-cover {
-    @apply block aspect-[16/9] w-full overflow-hidden rounded-[var(--radius-md)];
+    @apply relative block aspect-video w-full overflow-hidden;
     background: var(--home-widget-tint);
 }
 
@@ -229,6 +232,44 @@ async function openArticle(item: MinecraftNewsItem) {
 
 .home-news-featured:hover .home-news-cover img {
     transform: scale(1.03);
+}
+
+.home-news-featured-copy {
+    @apply flex min-w-0 flex-col gap-1;
+}
+
+.home-news-featured.has-cover .home-news-featured-copy {
+    @apply px-4;
+}
+
+.home-news-featured-title {
+    @apply line-clamp-3 text-base font-extrabold leading-snug text-[var(--color-text-primary)];
+}
+
+.home-news-featured.has-cover .home-news-featured-title {
+    @apply line-clamp-2;
+}
+
+.home-news-featured-date {
+    @apply flex items-center gap-1 text-xs font-semibold text-[var(--color-text-tertiary)];
+}
+
+.home-news-list {
+    @apply m-0 flex list-none flex-col p-0;
+}
+
+.home-news-row {
+    @apply flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-1.5 py-1.5 text-left;
+}
+
+.home-news-thumb {
+    @apply block h-10 w-16 shrink-0 object-cover;
+    border-radius: var(--radius-sm);
+    background: var(--home-widget-tint);
+}
+
+.home-news-row-title {
+    @apply line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[var(--color-text-primary)];
 }
 
 @media (prefers-reduced-motion: reduce) {

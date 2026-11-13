@@ -1,3 +1,5 @@
+import '@/test/visual-styles.scss'
+
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
@@ -75,6 +77,37 @@ it('offers a local retry for failed statistics instead of displaying an empty re
         await wrapper.get('button').trigger('click')
         await flushPromises()
         expect(wrapper.text()).toContain('Play something')
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('leads with the week as one big figure over a chart along the card’s foot', async () => {
+    const today = new Date()
+    const key = (date: Date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    backend.playtime.mockResolvedValue([
+        { date: key(today), played_seconds: 2 * 3600, session_count: 1, top_instance_name: 'FO' },
+    ])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = mount(HomePlayInsights, {
+        attachTo: document.body,
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            directives: { tooltip: () => {} },
+        },
+    })
+    try {
+        await flushPromises()
+        expect(wrapper.get('.home-insights-figure strong').text()).toBe('2')
+        const days = wrapper.findAll('.home-insights-day')
+        expect(days).toHaveLength(7)
+        expect(wrapper.findAll('.home-insights-day.is-today .home-insights-bar')).toHaveLength(1)
+        // The chart runs into the card's padding so its bars stand on the lower edge.
+        const chart = getComputedStyle(wrapper.get('.home-insights-week').element)
+        expect(Number.parseFloat(chart.marginBottom)).toBeLessThan(0)
     } finally {
         wrapper.unmount()
         queryClient.clear()

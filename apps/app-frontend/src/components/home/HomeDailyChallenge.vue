@@ -21,6 +21,8 @@ const messages = defineMessages({
         id: 'app.home.challenge.empty-hint',
         defaultMessage: 'Pick your own goal for this session.',
     },
+    difficulty: { id: 'app.home.challenge.difficulty', defaultMessage: 'Difficulty: {level}' },
+    number: { id: 'app.home.challenge.number', defaultMessage: 'No. {number}' },
 })
 
 const difficultyMessages = {
@@ -49,11 +51,17 @@ const challengeText = computed(() => {
     }
 })
 
-const difficultyPillClass: Record<ChallengeDifficulty, string> = {
-    easy: 'bg-highlight-green text-brand-green',
-    medium: 'bg-highlight-orange text-brand-orange',
-    hard: 'bg-highlight-red text-brand-red',
-}
+/** How many of the three ticks a difficulty fills. */
+const difficultyLevel: Record<ChallengeDifficulty, number> = { easy: 1, medium: 2, hard: 3 }
+
+/** The challenge's number in the list, beside the title: "No. 007". */
+const challengeNumber = computed(() =>
+    challenge.value
+        ? formatMessage(messages.number, {
+              number: String(challengeIndex.value + 1).padStart(3, '0'),
+          })
+        : null,
+)
 
 function shuffleChallenge() {
     if (dailyChallenges.length < 2) return
@@ -67,9 +75,11 @@ function shuffleChallenge() {
 
 <template>
     <HomeWidgetFrame
-        class="home-sidebar-section home-surface"
+        class="home-challenge-card home-sidebar-section home-surface"
         :title="formatMessage(messages.dailyChallenge)"
         :icon="SparklesIcon"
+        header="eyebrow"
+        :badge="challengeNumber"
         :empty-text="challenge ? null : formatMessage(messages.emptyTitle)"
         :empty-hint="formatMessage(messages.emptyHint)"
         :empty-icon="SparklesIcon"
@@ -86,30 +96,120 @@ function shuffleChallenge() {
                 ><UpdatedIcon />
             </Button>
         </template>
-        <figure v-if="challenge" class="home-challenge m-0 flex min-w-0 flex-col gap-2.5">
-            <blockquote
-                class="m-0 text-sm font-medium leading-relaxed text-[var(--color-text-primary)]"
-                aria-live="polite"
+        <Transition name="home-challenge-flip" mode="out-in">
+            <figure
+                v-if="challenge"
+                :key="challengeIndex"
+                class="home-challenge m-0 flex min-w-0 flex-col gap-3"
             >
-                {{ challengeText }}
-            </blockquote>
-            <figcaption>
-                <span
-                    class="inline-flex items-center gap-1.5 rounded-full px-2 text-xs font-bold leading-5"
-                    :class="difficultyPillClass[challenge.difficulty]"
+                <blockquote class="home-challenge-text" aria-live="polite">
+                    {{ challengeText }}
+                </blockquote>
+                <figcaption
+                    class="home-challenge-difficulty"
+                    :data-difficulty="challenge.difficulty"
+                    :aria-label="
+                        formatMessage(messages.difficulty, {
+                            level: formatMessage(difficultyMessages[challenge.difficulty]),
+                        })
+                    "
                 >
-                    <span class="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                    {{ formatMessage(difficultyMessages[challenge.difficulty]) }}
-                </span>
-            </figcaption>
-        </figure>
+                    <span class="home-challenge-ticks" aria-hidden="true">
+                        <span
+                            v-for="tick in 3"
+                            :key="tick"
+                            :class="{ 'is-on': tick <= difficultyLevel[challenge.difficulty] }"
+                        />
+                    </span>
+                    <span aria-hidden="true">{{
+                        formatMessage(difficultyMessages[challenge.difficulty])
+                    }}</span>
+                </figcaption>
+            </figure>
+        </Transition>
     </HomeWidgetFrame>
 </template>
 
 <style scoped>
-/* The challenge reads as a quote: an accent rule marks it as today's prompt. */
+/*
+ * Today's challenge reads as a task card: its number is a small badge beside
+ * the label, the task is the headline, and the difficulty is a row of three
+ * ticks filled in its colour.
+ */
+.home-challenge-card {
+    @apply relative;
+}
+
 .home-challenge {
-    @apply pl-3;
+    @apply relative;
+}
+
+.home-challenge-card :deep(.home-widget-frame-badge) {
+    @apply tabular-nums;
+}
+
+.home-challenge-text {
+    @apply relative m-0 pl-3 text-[0.9375rem] font-semibold leading-relaxed text-[var(--color-text-primary)];
     border-left: 3px solid var(--color-brand);
+}
+
+.home-challenge-difficulty {
+    @apply flex items-center gap-2 text-xs font-bold;
+}
+
+.home-challenge-ticks {
+    @apply flex items-center gap-[3px];
+}
+
+.home-challenge-ticks > span {
+    @apply block h-2 w-4 rounded-full;
+    background: var(--home-widget-tint-strong);
+}
+
+.home-challenge-difficulty[data-difficulty='easy'] {
+    @apply text-brand-green;
+}
+
+.home-challenge-difficulty[data-difficulty='medium'] {
+    @apply text-brand-orange;
+}
+
+.home-challenge-difficulty[data-difficulty='hard'] {
+    @apply text-brand-red;
+}
+
+.home-challenge-ticks > span.is-on {
+    background: currentColor;
+}
+
+/* A new challenge turns over like a card. */
+.home-challenge-flip-enter-active,
+.home-challenge-flip-leave-active {
+    transition:
+        transform 160ms ease,
+        opacity 160ms ease;
+    transform-origin: 50% 50%;
+}
+
+.home-challenge-flip-leave-to {
+    opacity: 0;
+    transform: perspective(600px) rotateX(70deg);
+}
+
+.home-challenge-flip-enter-from {
+    opacity: 0;
+    transform: perspective(600px) rotateX(-70deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-challenge-flip-enter-active,
+    .home-challenge-flip-leave-active {
+        transition: none;
+    }
+
+    .home-challenge-flip-leave-to,
+    .home-challenge-flip-enter-from {
+        transform: none;
+    }
 }
 </style>

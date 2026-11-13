@@ -4,9 +4,12 @@ import {
     buildHeatmapDays,
     getActivePlayerAccount,
     getActivePlayerName,
+    getHomeItemVariant,
     getHomeWorldRowState,
     getPlaytimeLevel,
     getQuickSwitchInstances,
+    getServerFill,
+    getStreakJoins,
     getTimeBucket,
     resolveHomeLaunchInstance,
     stableGreetingIndex,
@@ -170,4 +173,50 @@ it('offers Stop only on the world the running game was joined through', () => {
     expect(
         getHomeWorldRowState({ ...base, instanceRunning: true, joinedHere: true, starting: true }),
     ).toEqual({ showStop: false, playDisabled: true, reason: null })
+})
+
+it('lays collections out as rows, a strip of cards or a grid of tiles by size', () => {
+    expect(getHomeItemVariant(null)).toBe('row')
+    expect(getHomeItemVariant('1x1')).toBe('row')
+    expect(getHomeItemVariant('1x2')).toBe('row')
+    expect(getHomeItemVariant('2x1')).toBe('card')
+    expect(getHomeItemVariant('3x1')).toBe('card')
+    expect(getHomeItemVariant('2x2')).toBe('tile')
+    expect(getHomeItemVariant('3x2')).toBe('tile')
+    expect(getHomeItemVariant('2x3')).toBe('tile')
+})
+
+it('joins played days into one capsule per week row', () => {
+    // Mon..Sun, then the next week: Sat, Sun, Mon must not join across rows.
+    const played = [
+        true,
+        true,
+        false,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+    ]
+    const joins = getStreakJoins(played)
+    expect(joins[0]).toEqual({ left: false, right: true })
+    expect(joins[1]).toEqual({ left: true, right: false })
+    expect(joins[2]).toEqual({ left: false, right: false })
+    expect(joins[3]).toEqual({ left: false, right: false })
+    expect(joins[6]).toEqual({ left: true, right: false })
+    expect(joins[7]).toEqual({ left: false, right: true })
+    expect(joins[8]).toEqual({ left: true, right: false })
+})
+
+it('reports how full a server is only when it says', () => {
+    expect(getServerFill(50, 200)).toBe(0.25)
+    expect(getServerFill(300, 200)).toBe(1)
+    expect(getServerFill(10, 0)).toBeNull()
+    expect(getServerFill(undefined, 20)).toBeNull()
 })

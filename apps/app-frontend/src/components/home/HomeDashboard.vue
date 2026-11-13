@@ -425,7 +425,7 @@ function addWidget(widget: HomeWidgetPlacement) {
 
 function replaceWidgetTarget(widget: HomeWidgetPlacement) {
     replacingWidgetId.value = widget.id
-    widgetPicker.value?.show(widget.kind)
+    widgetPicker.value?.show(widget.kind, true)
 }
 
 function removeWidget(id: string) {
@@ -564,7 +564,14 @@ defineExpose({ openWidgetPicker, setLayout })
 </script>
 
 <template>
-    <HomeWidgetPickerModal ref="widgetPicker" :instances="instances" @add="addWidget" />
+    <HomeWidgetPickerModal
+        ref="widgetPicker"
+        :instances="instances"
+        :widgets="config.widgets"
+        :player-name="playerName"
+        @add="addWidget"
+        @remove="removeWidget"
+    />
     <HomeGreetingSettingsModal
         ref="greetingSettings"
         :player-name="playerName"
@@ -731,7 +738,30 @@ defineExpose({ openWidgetPicker, setLayout })
                         </div>
                     </article>
                 </template>
+                <template v-if="editing && !isFreeLayout && config.widgets.length > 0" #footer>
+                    <button type="button" class="home-widget-add-tile" @click="openWidgetPicker">
+                        <span class="home-widget-add-tile-icon" aria-hidden="true"
+                            ><PlusIcon
+                        /></span>
+                        {{ formatMessage(messages.add) }}
+                    </button>
+                </template>
             </Draggable>
+            <button
+                v-if="editing && isFreeLayout && config.widgets.length > 0"
+                type="button"
+                class="home-widget-add-tile is-wide"
+                @click="openWidgetPicker"
+            >
+                <span class="home-widget-add-tile-icon" aria-hidden="true"><PlusIcon /></span>
+                {{ formatMessage(messages.add) }}
+            </button>
+            <div v-if="!editing && config.widgets.length > 0" class="home-widget-add-hint">
+                <button type="button" class="home-widget-add-link" @click="openWidgetPicker">
+                    <PlusIcon aria-hidden="true" />
+                    {{ formatMessage(messages.add) }}
+                </button>
+            </div>
             <div
                 v-if="config.widgets.length === 0"
                 class="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-divider text-center"
@@ -977,6 +1007,11 @@ defineExpose({ openWidgetPicker, setLayout })
     display: none;
 }
 
+/* The calendar's day list is for clicking; while editing it gives its row to the strip. */
+.home-dashboard-grid.is-editing :deep(.home-calendar-day) {
+    display: none;
+}
+
 .home-dashboard-grid.is-editing :deep(.home-widget-frame-empty-title) {
     display: -webkit-box;
     overflow: hidden;
@@ -1000,6 +1035,105 @@ defineExpose({ openWidgetPicker, setLayout })
     box-shadow: var(--shadow-card);
 }
 
+/*
+ * The way to add a widget. While editing it is a dashed tile in the next free
+ * slot of the grid. Otherwise a quiet line under the widgets offers it, so it
+ * can be found without opening the edit mode first.
+ */
+.home-widget-add-tile {
+    display: flex;
+    min-height: 10rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    border: 1.5px dashed color-mix(in srgb, var(--color-text-primary) 28%, transparent);
+    border-radius: var(--radius-lg);
+    background: transparent;
+    color: var(--color-text-default);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 700;
+    transition:
+        border-color 120ms ease,
+        background-color 120ms ease,
+        color 120ms ease;
+}
+
+.home-widget-add-tile.is-wide {
+    width: 100%;
+    min-height: 4.5rem;
+    flex-direction: row;
+    margin-top: 1rem;
+}
+
+.home-widget-add-tile:hover,
+.home-widget-add-tile:focus-visible {
+    border-color: var(--color-brand);
+    background: color-mix(in srgb, var(--color-brand) 8%, transparent);
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+.home-widget-add-tile:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-brand-shadow);
+}
+
+.home-widget-add-tile-icon {
+    display: flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-max);
+    background: var(--color-brand);
+    color: var(--color-accent-contrast);
+}
+
+.home-widget-add-tile-icon > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.home-widget-add-hint {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.25rem;
+}
+
+.home-widget-add-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.875rem;
+    border: 1px dashed transparent;
+    border-radius: var(--radius-max);
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    transition:
+        border-color 120ms ease,
+        color 120ms ease;
+}
+
+.home-widget-add-link:hover,
+.home-widget-add-link:focus-visible {
+    border-color: color-mix(in srgb, var(--color-text-primary) 28%, transparent);
+    color: var(--color-text-primary);
+    outline: none;
+}
+
+.home-widget-add-link:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-brand-shadow);
+}
+
+.home-widget-add-hint svg {
+    width: 1rem;
+    height: 1rem;
+}
+
 .home-dashboard.is-dragging,
 .home-dashboard.is-dragging * {
     user-select: none;
@@ -1008,6 +1142,11 @@ defineExpose({ openWidgetPicker, setLayout })
 @media (prefers-reduced-motion: reduce) {
     .home-dashboard-grid {
         scroll-behavior: auto;
+    }
+
+    .home-widget-add-tile,
+    .home-widget-add-link {
+        transition: none;
     }
 }
 </style>

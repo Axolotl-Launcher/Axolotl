@@ -107,6 +107,12 @@ vi.mock('@modrinth/ui', async () => {
     const { defineComponent, h, ref } = await import('vue')
     return {
         Avatar: defineComponent({ setup: () => () => h('span') }),
+        PopoutMenu: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('button', slots.default?.()),
+        }),
         ButtonLink: defineComponent({
             setup:
                 (_, { slots }) =>

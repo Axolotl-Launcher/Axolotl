@@ -56,6 +56,15 @@ const messages = defineMessages({
     minutes: { id: 'app.home.playtime.minutes', defaultMessage: '{minutes}m' },
     hoursMinutes: { id: 'app.home.playtime.hours-minutes', defaultMessage: '{hours}h {minutes}m' },
     seconds: { id: 'app.home.playtime.seconds', defaultMessage: '{seconds}s' },
+    unitHours: {
+        id: 'app.home.insights.unit-hours',
+        defaultMessage: '{count, plural, one {hour} other {hours}}',
+    },
+    unitMinutes: {
+        id: 'app.home.insights.unit-minutes',
+        defaultMessage: '{count, plural, one {minute} other {minutes}}',
+    },
+    dailyAverage: { id: 'app.home.insights.daily-average', defaultMessage: 'Avg {duration}' },
 })
 
 const HISTORY_DAYS = 90
@@ -227,6 +236,38 @@ const weekChange = computed(() => {
     }
 })
 
+/**
+ * The week's total as one big figure: hours to one decimal from an hour up,
+ * minutes below that. The unit is set apart so the number carries the card.
+ */
+const heroFigure = computed(() => {
+    const seconds = thisWeekSeconds.value
+    const number = new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 })
+    if (seconds >= 3600) {
+        const hours = Math.round(seconds / 360) / 10
+        return {
+            value: number.format(hours),
+            unit: formatMessage(messages.unitHours, { count: hours }),
+        }
+    }
+    const minutes = Math.max(seconds > 0 ? 1 : 0, Math.round(seconds / 60))
+    return {
+        value: number.format(minutes),
+        unit: formatMessage(messages.unitMinutes, { count: minutes }),
+    }
+})
+
+/** The average of this week's played days, drawn as a reference line once there are two. */
+const dailyAverage = computed(() => {
+    const played = weekDays.value.filter((day) => !day.future && day.seconds > 0)
+    if (played.length < 2) return null
+    const seconds = played.reduce((total, day) => total + day.seconds, 0) / played.length
+    const peak = Math.max(...weekDays.value.map((day) => day.seconds))
+    const share = seconds / Math.max(1, peak)
+    // Right under the tallest bar it would only cover its value.
+    return share > 0.85 ? null : { seconds, share }
+})
+
 let disposed = false
 let unlistenProcesses: (() => void) | undefined
 void process_listener((event: { event: string }) => {
@@ -248,6 +289,7 @@ onUnmounted(() => {
         class="home-sidebar-section home-surface"
         :title="formatMessage(messages.insights)"
         :icon="ChartIcon"
+        header="eyebrow"
         :loading="playtimeQuery.isPending.value"
         :skeleton-rows="2"
         :empty-text="
@@ -267,49 +309,56 @@ onUnmounted(() => {
                 {{ formatMessage(commonMessages.retryButton) }}
             </Button>
         </template>
-        <div class="flex min-w-0 flex-col gap-3">
-            <div class="flex min-w-0 flex-col gap-0.5">
-                <span class="text-xs font-bold text-[var(--color-text-tertiary)]">{{
-                    formatMessage(messages.thisWeekLabel)
-                }}</span>
-                <div
-                    v-if="weekIsEmpty"
-                    class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1"
+        <div class="home-insights flex min-w-0 flex-col">
+            <div class="home-insights-hero">
+                <strong v-if="weekIsEmpty" class="home-insights-empty-week">{{
+                    formatMessage(messages.weekEmpty)
+                }}</strong>
+                <span v-else v-tooltip="thisWeekLine" class="home-insights-figure">
+                    <strong>{{ heroFigure.value }}</strong>
+                    <span>{{ heroFigure.unit }}</span>
+                </span>
+                <span
+                    v-if="weekChange && !weekIsEmpty"
+                    v-tooltip="formatMessage(messages.vsLastWeek)"
+                    class="home-insights-change"
+                    :data-trend="weekChange.same ? 'same' : weekChange.up ? 'up' : 'down'"
                 >
-                    <strong
-                        class="text-xl font-extrabold leading-tight text-[var(--color-text-default)]"
-                        >{{ formatMessage(messages.weekEmpty) }}</strong
-                    >
-                    <span
-                        v-if="lastWeekSeconds > 0"
-                        class="text-xs font-semibold text-[var(--color-text-tertiary)]"
-                        >{{
-                            formatMessage(messages.lastWeek, {
-                                duration: formatDuration(lastWeekSeconds),
-                            })
-                        }}</span
-                    >
-                </div>
-                <div v-else class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <strong
-                        v-tooltip="thisWeekLine"
-                        class="text-2xl font-extrabold leading-tight tabular-nums text-[var(--color-text-primary)]"
-                        >{{ formatDuration(thisWeekSeconds) }}</strong
-                    >
-                    <span
-                        v-if="weekChange"
-                        class="home-insights-change"
-                        :data-trend="weekChange.same ? 'same' : weekChange.up ? 'up' : 'down'"
-                    >
-                        <TrendingUpIcon v-if="!weekChange.same" aria-hidden="true" />
-                        {{ weekChange.label }}
-                        <span class="font-medium opacity-80">{{
-                            formatMessage(messages.vsLastWeek)
-                        }}</span>
-                    </span>
-                </div>
+                    <TrendingUpIcon v-if="!weekChange.same" aria-hidden="true" />
+                    {{ weekChange.label }}
+                </span>
             </div>
+            <p class="home-insights-caption">
+                <span>{{ formatMessage(messages.thisWeekLabel) }}</span>
+                <template v-if="weekIsEmpty && lastWeekSeconds > 0">
+                    <span aria-hidden="true">·</span>
+                    <span>{{
+                        formatMessage(messages.lastWeek, {
+                            duration: formatDuration(lastWeekSeconds),
+                        })
+                    }}</span>
+                </template>
+                <template v-if="streakDays > 0">
+                    <span aria-hidden="true">·</span>
+                    <span class="home-insights-fact">
+                        <TrendingUpIcon aria-hidden="true" />
+                        {{ formatMessage(messages.streak, { days: streakDays }) }}
+                    </span>
+                </template>
+            </p>
+            <p v-if="weekTopInstance" class="home-insights-caption">
+                <span class="home-insights-fact min-w-0">
+                    <GameIcon aria-hidden="true" />
+                    <span class="truncate">{{
+                        formatMessage(messages.weekTop, { name: weekTopInstance })
+                    }}</span>
+                </span>
+            </p>
 
+            <p v-if="showGhostWeek" class="home-insights-legend">
+                <span aria-hidden="true" />
+                {{ formatMessage(messages.ghostLegend) }}
+            </p>
             <ol
                 v-if="!weekIsEmpty || showGhostWeek"
                 class="home-insights-week"
@@ -317,13 +366,26 @@ onUnmounted(() => {
                 :aria-label="formatMessage(messages.thisWeekLabel)"
             >
                 <li
+                    v-if="dailyAverage && !showGhostWeek"
+                    class="home-insights-average"
+                    :style="{ '--home-insights-average': dailyAverage.share }"
+                    aria-hidden="true"
+                >
+                    <span>{{
+                        formatMessage(messages.dailyAverage, {
+                            duration: formatShortDuration(dailyAverage.seconds),
+                        })
+                    }}</span>
+                </li>
+                <li
                     v-for="day in weekDays"
                     :key="day.key"
                     v-tooltip="`${day.title}\n${formatDuration(day.seconds)}`"
+                    class="home-insights-day"
                     :class="{
                         'is-today': day.today,
                         'is-future': day.future,
-                        'has-time': day.seconds > 0,
+                        'has-time': showGhostWeek ? day.ghostSeconds > 0 : day.seconds > 0,
                     }"
                     :aria-label="`${day.title}: ${formatDuration(day.seconds)}`"
                     tabindex="0"
@@ -332,114 +394,154 @@ onUnmounted(() => {
                         <span
                             v-if="showGhostWeek && day.ghostSeconds > 0"
                             class="home-insights-bar is-ghost"
-                            :style="{ height: `${Math.max(8, day.ghostShare * 100)}%` }"
+                            :style="{ height: `${Math.max(22, day.ghostShare * 100)}%` }"
                         />
                         <span
-                            v-else-if="day.seconds > 0"
+                            v-else-if="!showGhostWeek && day.seconds > 0"
                             class="home-insights-bar"
-                            :style="{ height: `${Math.max(8, day.share * 100)}%` }"
+                            :style="{ height: `${Math.max(22, day.share * 100)}%` }"
                         >
                             <span class="home-insights-value" :class="{ 'is-peak': day.peak }">{{
                                 formatShortDuration(day.seconds)
                             }}</span>
                         </span>
                     </span>
-                    <span class="home-insights-day" aria-hidden="true">{{ day.label }}</span>
+                    <span class="home-insights-label" aria-hidden="true">{{ day.label }}</span>
                 </li>
             </ol>
-            <p v-else class="m-0 text-xs leading-snug text-[var(--color-text-tertiary)]">
+            <p v-else class="m-0 mt-3 text-xs leading-snug text-[var(--color-text-tertiary)]">
                 {{ formatMessage(messages.empty) }}
             </p>
-            <p v-if="showGhostWeek" class="home-insights-legend">
-                <span aria-hidden="true" />
-                {{ formatMessage(messages.ghostLegend) }}
-            </p>
-
-            <div v-if="streakDays > 0 || weekTopInstance" class="flex min-w-0 flex-wrap gap-1.5">
-                <span v-if="streakDays > 0" class="home-chip">
-                    <TrendingUpIcon aria-hidden="true" />
-                    <span class="truncate">{{
-                        formatMessage(messages.streak, { days: streakDays })
-                    }}</span>
-                </span>
-                <span v-if="weekTopInstance" class="home-chip">
-                    <GameIcon aria-hidden="true" />
-                    <span class="truncate">{{
-                        formatMessage(messages.weekTop, { name: weekTopInstance })
-                    }}</span>
-                </span>
-            </div>
         </div>
     </HomeWidgetFrame>
 </template>
 
 <style scoped>
+/* The week's total is the headline: a big figure, the unit beside it. */
+.home-insights-hero {
+    @apply flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1;
+}
+
+.home-insights-figure {
+    @apply flex min-w-0 items-baseline gap-1.5 text-[var(--color-text-primary)];
+}
+
+.home-insights-figure > strong {
+    @apply text-[2.75rem] font-black leading-none tabular-nums tracking-tight;
+}
+
+.home-insights-figure > span {
+    @apply text-sm font-bold text-[var(--color-text-tertiary)];
+}
+
+.home-insights-empty-week {
+    @apply text-xl font-extrabold leading-tight text-[var(--color-text-default)];
+}
+
+/* The change against last week: a solid badge, so it reads at a glance. */
 .home-insights-change {
-    @apply inline-flex items-center gap-1 rounded-full px-2 text-xs font-bold leading-5;
-    background: var(--home-widget-tint);
+    @apply inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 text-[0.8125rem] font-extrabold leading-7 tabular-nums;
+    background: var(--home-widget-tint-strong);
     color: var(--color-text-default);
 }
 
 .home-insights-change svg {
-    @apply size-3.5;
+    @apply size-4;
 }
 
 .home-insights-change[data-trend='up'] {
-    @apply bg-highlight-green text-brand-green;
+    @apply bg-brand-green text-[var(--color-accent-contrast)];
 }
 
 .home-insights-change[data-trend='down'] {
-    @apply bg-highlight-orange text-brand-orange;
+    @apply bg-brand-orange text-[var(--color-accent-contrast)];
 }
 
 .home-insights-change[data-trend='down'] svg {
     transform: scaleY(-1);
 }
 
+.home-insights-caption {
+    @apply m-0 mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs font-semibold text-[var(--color-text-tertiary)];
+}
+
+.home-insights-caption + .home-insights-caption {
+    @apply mt-0.5;
+}
+
+.home-insights-fact {
+    @apply inline-flex items-center gap-1;
+}
+
+.home-insights-fact svg {
+    @apply size-3.5 shrink-0 text-brand;
+}
+
+/*
+ * The week as a graphic across the foot of the card: the bars run edge to
+ * edge and stand on the card's lower edge, the day letters sit inside them.
+ */
 .home-insights-week {
-    @apply relative m-0 grid list-none grid-cols-7 gap-1.5 p-0 pt-4;
+    @apply relative m-0 -mx-4 -mb-4 mt-4 grid h-24 list-none grid-cols-7 gap-1 px-2 pb-0 pt-5;
 }
 
-.home-insights-week > li {
-    @apply flex min-w-0 flex-col items-center gap-1.5 rounded-[var(--radius-sm)] outline-none;
+.home-insights-day {
+    @apply relative flex h-full min-w-0 flex-col outline-none;
 }
 
-.home-insights-week > li:focus-visible {
-    box-shadow: 0 0 0 3px var(--color-brand-shadow);
+.home-insights-day:focus-visible {
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 0 0 2px var(--color-brand);
 }
 
-/* Days share one baseline; only days with playtime grow a bar from it. */
 .home-insights-plot {
-    @apply relative flex h-14 w-full items-end justify-center;
-    border-bottom: 2px solid var(--home-widget-tint-strong);
+    @apply flex min-h-0 flex-1 items-end;
 }
 
 .home-insights-bar {
-    @apply relative block w-3/5 max-w-4 rounded-t-[0.25rem];
-    background: color-mix(in srgb, var(--color-brand) 55%, transparent);
-    transition: height 300ms ease;
+    @apply relative block w-full;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: color-mix(in srgb, var(--color-brand) 30%, transparent);
+    transition:
+        height 300ms ease,
+        background-color 120ms ease;
 }
 
-.home-insights-week > li.is-today .home-insights-bar {
+.home-insights-day:hover .home-insights-bar:not(.is-ghost) {
+    background: color-mix(in srgb, var(--color-brand) 46%, transparent);
+}
+
+.home-insights-day.is-today .home-insights-bar {
     @apply bg-brand;
 }
 
 /* Last week's bars behind an empty week: dashed outlines, clearly not this week. */
 .home-insights-bar.is-ghost,
-.home-insights-week > li.is-today .home-insights-bar.is-ghost {
+.home-insights-day.is-today .home-insights-bar.is-ghost {
     border: 1.5px dashed color-mix(in srgb, var(--color-brand) 55%, transparent);
     border-bottom: 0;
-    background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+    background: color-mix(in srgb, var(--color-brand) 8%, transparent);
 }
 
-.home-insights-legend {
-    @apply m-0 flex items-center gap-1.5 text-[0.6875rem] font-semibold text-[var(--color-text-tertiary)];
+/* Day letters share one baseline at the foot of the card, inside the bars. */
+.home-insights-label {
+    @apply pointer-events-none absolute bottom-1.5 left-0 right-0 text-center text-[0.6875rem] font-bold leading-none text-[var(--color-text-tertiary)];
 }
 
-.home-insights-legend > span {
-    @apply inline-block size-2.5 rounded-[0.125rem];
-    border: 1.5px dashed color-mix(in srgb, var(--color-brand) 55%, transparent);
-    background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+.home-insights-day.has-time .home-insights-label {
+    @apply text-[var(--color-text-primary)];
+}
+
+.home-insights-day.is-today .home-insights-label {
+    @apply text-brand;
+}
+
+.home-insights-week:not(.is-ghost) .home-insights-day.is-today.has-time .home-insights-label {
+    @apply text-[var(--color-accent-contrast)];
+}
+
+.home-insights-day.is-future .home-insights-label {
+    @apply opacity-50;
 }
 
 /* The value shows over the week's longest day, and over any day on hover or focus. */
@@ -449,27 +551,34 @@ onUnmounted(() => {
 }
 
 .home-insights-value.is-peak,
-.home-insights-week > li:hover .home-insights-value,
-.home-insights-week > li:focus-visible .home-insights-value {
+.home-insights-day:hover .home-insights-value,
+.home-insights-day:focus-visible .home-insights-value {
     @apply opacity-100;
 }
 
-.home-insights-day {
-    @apply relative text-[0.6875rem] font-semibold leading-none text-[var(--color-text-tertiary)];
+/* A dashed line at the daily average that fades in from the left. */
+.home-insights-average {
+    /* The average's share of the tallest bar, set on the element. */
+    --home-insights-average: 0.5;
+    @apply pointer-events-none absolute left-0 right-0 z-[1] flex h-0 items-end justify-start px-2;
+    bottom: calc(var(--home-insights-average) * (100% - 1.25rem));
+    border-top: 1px dashed color-mix(in srgb, var(--color-text-primary) 40%, transparent);
+    -webkit-mask-image: linear-gradient(to left, transparent, #000 40%);
+    mask-image: linear-gradient(to left, transparent, #000 40%);
 }
 
-.home-insights-week > li.is-future .home-insights-day {
-    @apply opacity-50;
+.home-insights-average > span {
+    @apply mb-0.5 text-[0.625rem] font-bold leading-none tabular-nums text-[var(--color-text-tertiary)];
 }
 
-/* Today: accent label with a dot under it. */
-.home-insights-week > li.is-today .home-insights-day {
-    @apply text-brand;
+.home-insights-legend {
+    @apply m-0 mt-2 flex items-center gap-1.5 text-[0.6875rem] font-semibold text-[var(--color-text-tertiary)];
 }
 
-.home-insights-week > li.is-today .home-insights-day::after {
-    @apply absolute -bottom-1.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-brand;
-    content: '';
+.home-insights-legend > span {
+    @apply inline-block size-2.5 rounded-[0.125rem];
+    border: 1.5px dashed color-mix(in srgb, var(--color-brand) 55%, transparent);
+    background: color-mix(in srgb, var(--color-brand) 8%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

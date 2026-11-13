@@ -47,6 +47,8 @@ import {
 } from '@/helpers/worlds'
 import { handleSevereError } from '@/store/error'
 
+import { useIconTint } from './home-icon-tint'
+
 const props = defineProps<{
     placement: HomeWidgetPlacement
     instances: GameInstance[]
@@ -146,13 +148,34 @@ const shortcutIcon = computed(() => {
         ? (serverData.value?.status?.favicon ?? world.value.icon)
         : world.value.icon
 })
-/** The glow behind the card: the world's or server's icon, else the instance's. */
+/** The picture the card takes its colour from: the world's or server's icon, else the instance's. */
 const artUrl = computed(() => {
     if (shortcutIcon.value) return shortcutIcon.value
     return instance.value
         ? getDisplayInstanceIcon(instance.value.icon_path, instance.value.loader).url
         : null
 })
+/** The icon's own colour washes the card; null keeps the accent colour. */
+const tint = useIconTint(artUrl)
+const iconSize = computed(() => (props.dashboardSize === '2x1' ? '104px' : '64px'))
+const serverOffline = computed(
+    () =>
+        world.value?.type === 'server' &&
+        !serverData.value?.refreshing &&
+        !serverData.value?.status,
+)
+const playDisabled = computed(
+    () =>
+        starting.value ||
+        (instance.value !== undefined &&
+            instanceLaunchStartedAt(instance.value.id) !== undefined) ||
+        !supportsQuickPlay.value,
+)
+const launching = computed(
+    () =>
+        starting.value ||
+        (instance.value !== undefined && instanceLaunchStartedAt(instance.value.id) !== undefined),
+)
 const kindLabel = computed(() =>
     formatMessage(
         props.placement.kind === 'instance'
@@ -351,50 +374,50 @@ watch(
                 </Button>
             </template>
         </HomeWidgetFrame>
-        <div v-else class="home-shortcut-card">
-            <span
-                v-if="artUrl"
-                class="home-shortcut-art"
-                :style="{ backgroundImage: `url(&quot;${artUrl}&quot;)` }"
+        <div
+            v-else
+            class="home-shortcut-card"
+            :class="{ 'is-tinted': tint, 'is-offline': serverOffline }"
+            :style="tint ? { '--home-shortcut-tint': tint } : undefined"
+        >
+            <router-link
+                class="home-shortcut-cover"
+                :to="shortcutRoute"
+                tabindex="-1"
                 aria-hidden="true"
-            />
+            >
+                <Avatar v-if="shortcutIcon" :src="shortcutIcon" :size="iconSize" />
+                <InstanceIcon
+                    v-else-if="instance"
+                    :icon-path="instance.icon_path"
+                    :instance-id="instance.id"
+                    :loader="instance.loader"
+                    :size="iconSize"
+                />
+            </router-link>
             <span class="home-shortcut-kind">
                 <component :is="kindIcon" aria-hidden="true" />
                 {{ kindLabel }}
             </span>
-            <router-link class="home-shortcut-main" :to="shortcutRoute">
-                <Avatar
-                    v-if="shortcutIcon"
-                    class="home-shortcut-icon"
-                    :src="shortcutIcon"
-                    :size="dashboardSize === '2x1' ? '64px' : '44px'"
-                />
-                <InstanceIcon
-                    v-else-if="instance"
-                    class="home-shortcut-icon"
-                    :icon-path="instance.icon_path"
-                    :instance-id="instance.id"
-                    :loader="instance.loader"
-                    :size="dashboardSize === '2x1' ? '64px' : '44px'"
-                />
-                <span class="flex min-w-0 flex-col gap-1">
-                    <strong class="home-shortcut-title">{{ shortcutTitle }}</strong>
-                    <span class="home-shortcut-meta">
-                        <SpinnerIcon
-                            v-if="world?.type === 'server' && serverData?.refreshing"
-                            class="animate-spin"
-                            aria-hidden="true"
-                        />
-                        <component :is="statusIcon" v-else aria-hidden="true" />
-                        <span class="truncate">{{ primaryLabel }}</span>
-                    </span>
-                    <span class="home-shortcut-meta home-shortcut-secondary">
-                        <TimerIcon v-if="world?.type !== 'server'" aria-hidden="true" />
-                        <ServerIcon v-else aria-hidden="true" />
-                        <span class="truncate">{{ secondaryLabel }}</span>
-                    </span>
+            <span class="home-shortcut-copy">
+                <router-link class="home-shortcut-title" :to="shortcutRoute">{{
+                    shortcutTitle
+                }}</router-link>
+                <span class="home-shortcut-meta" :data-state="serverOffline ? 'offline' : null">
+                    <SpinnerIcon
+                        v-if="world?.type === 'server' && serverData?.refreshing"
+                        class="animate-spin"
+                        aria-hidden="true"
+                    />
+                    <component :is="statusIcon" v-else aria-hidden="true" />
+                    <span class="truncate">{{ primaryLabel }}</span>
                 </span>
-            </router-link>
+                <span class="home-shortcut-meta home-shortcut-secondary">
+                    <TimerIcon v-if="world?.type !== 'server'" aria-hidden="true" />
+                    <ServerIcon v-else aria-hidden="true" />
+                    <span class="truncate">{{ secondaryLabel }}</span>
+                </span>
+            </span>
 
             <div class="home-shortcut-action">
                 <Button
@@ -403,11 +426,14 @@ watch(
                     type="colored"
                     color="red"
                     size="lg"
-                    circular
-                    icon-only
+                    :circular="dashboardSize !== '2x1'"
+                    :icon-only="dashboardSize !== '2x1'"
                     :aria-label="formatMessage(commonMessages.stopButton)"
                     @click="stopInstance"
                     ><StopCircleIcon />
+                    <span v-if="dashboardSize === '2x1'">{{
+                        formatMessage(commonMessages.stopButton)
+                    }}</span>
                 </Button>
                 <Button
                     v-else
@@ -415,23 +441,16 @@ watch(
                     type="colored"
                     color="brand"
                     size="lg"
-                    circular
-                    icon-only
+                    :circular="dashboardSize !== '2x1'"
+                    :icon-only="dashboardSize !== '2x1'"
                     :aria-label="playTooltip"
-                    :disabled="
-                        starting ||
-                        (instance && instanceLaunchStartedAt(instance.id) !== undefined) ||
-                        !supportsQuickPlay
-                    "
+                    :disabled="playDisabled"
                     @click="playShortcut"
-                    ><SpinnerIcon
-                        v-if="
-                            starting ||
-                            (instance && instanceLaunchStartedAt(instance.id) !== undefined)
-                        "
-                        class="animate-spin"
-                    />
+                    ><SpinnerIcon v-if="launching" class="animate-spin" />
                     <PlayIcon v-else />
+                    <span v-if="dashboardSize === '2x1'">{{
+                        formatMessage(commonMessages.playButton)
+                    }}</span>
                 </Button>
             </div>
         </div>
@@ -445,24 +464,58 @@ watch(
     }
 }
 
+/*
+ * The target's icon is the card: it sits large in the corner, the card takes
+ * a wash of its colour, and the one button to start it has a fixed place. The
+ * wash is a share of the widget fill, so it fades with the opacity setting.
+ */
 .home-shortcut-card {
-    @apply relative isolate flex h-full min-h-0 min-w-0 flex-col justify-between gap-2 overflow-hidden p-4;
+    --home-shortcut-tint: var(--color-brand);
+    --home-shortcut-wash: calc(var(--home-widget-bg-alpha, 1) * 18% + 8%);
+    @apply relative grid h-full min-h-0 min-w-0 gap-x-3 gap-y-2 overflow-hidden p-4;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+        'cover . kind'
+        'copy copy action';
+    background: radial-gradient(
+        120% 130% at 0% 0%,
+        color-mix(in srgb, var(--home-shortcut-tint) var(--home-shortcut-wash), transparent),
+        transparent 62%
+    );
 }
 
-/* The target's icon, blurred into a glow; it fades with the widget fill. */
-.home-shortcut-art {
-    --home-shortcut-art-mix: calc(var(--home-widget-bg-alpha, 1) * 0.3 + 0.15);
-    @apply pointer-events-none absolute -right-[12%] -top-[30%] z-0 aspect-square w-3/4 bg-contain bg-center bg-no-repeat;
-    filter: blur(32px) saturate(1.5);
-    opacity: var(--home-shortcut-art-mix);
+.home-shortcut-card.is-tinted {
+    --home-shortcut-wash: calc(var(--home-widget-bg-alpha, 1) * 24% + 10%);
 }
 
-.home-shortcut-card > :not(.home-shortcut-art) {
-    @apply relative z-[1];
+.home-shortcut-cover {
+    grid-area: cover;
+    @apply flex self-start;
+    border-radius: var(--radius-lg);
+}
+
+.home-shortcut-cover :deep(img),
+.home-shortcut-cover :deep(.avatar) {
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--surface-1-opaque) 45%, transparent);
+    transition: transform 180ms ease;
+}
+
+.home-shortcut-card:hover .home-shortcut-cover :deep(img),
+.home-shortcut-card:hover .home-shortcut-cover :deep(.avatar) {
+    transform: translateY(-2px) rotate(-2deg);
+}
+
+.home-shortcut-card.is-offline .home-shortcut-cover :deep(img),
+.home-shortcut-card.is-offline .home-shortcut-cover :deep(.avatar) {
+    filter: grayscale(1);
+    opacity: 0.6;
 }
 
 .home-shortcut-kind {
-    @apply flex min-w-0 items-center gap-1 text-[0.6875rem] font-bold uppercase leading-none tracking-wide text-[var(--color-text-tertiary)];
+    grid-area: kind;
+    @apply flex min-w-0 items-center gap-1 self-start text-[0.6875rem] font-extrabold uppercase leading-none tracking-[0.08em] text-[var(--color-text-tertiary)];
 }
 
 .home-shortcut-kind svg,
@@ -470,36 +523,36 @@ watch(
     @apply size-3.5 shrink-0;
 }
 
-.home-shortcut-main {
-    @apply flex min-w-0 items-center gap-3 pr-12 text-inherit no-underline;
-}
-
-.home-shortcut-main:focus-visible {
-    border-radius: var(--radius-md);
-    outline: none;
-    box-shadow: 0 0 0 3px var(--color-brand-shadow);
-}
-
-.home-shortcut-icon {
-    @apply shrink-0;
-    border-radius: var(--radius-md);
-    box-shadow: var(--home-widget-shadow);
+.home-shortcut-copy {
+    grid-area: copy;
+    @apply flex min-w-0 flex-col gap-0.5 self-end;
 }
 
 .home-shortcut-title {
-    @apply min-w-0 truncate text-[0.9375rem] font-extrabold leading-tight text-[var(--color-text-primary)];
+    @apply min-w-0 truncate text-base font-extrabold leading-tight text-[var(--color-text-primary)] no-underline;
 }
 
-.home-shortcut-main:hover .home-shortcut-title {
+.home-shortcut-title:hover {
     @apply underline;
+}
+
+.home-shortcut-title:focus-visible {
+    border-radius: var(--radius-sm);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-brand-shadow);
 }
 
 .home-shortcut-meta {
     @apply flex min-w-0 items-center gap-1 text-xs font-semibold leading-tight text-[var(--color-text-tertiary)];
 }
 
+.home-shortcut-meta[data-state='offline'] {
+    @apply text-brand-red;
+}
+
 .home-shortcut-action {
-    @apply absolute bottom-4 right-4 z-[2];
+    grid-area: action;
+    @apply self-end;
 }
 
 /* 1x1 keeps one meta line: the status says the most. */
@@ -507,15 +560,41 @@ watch(
     display: none;
 }
 
+/* 2x1: the icon fills the height on the left, the button stands on the right. */
 .home-shortcut-widget[data-size='2x1'] .home-shortcut-card {
-    @apply p-5;
+    @apply gap-x-5 p-5;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+        'cover kind action'
+        'cover copy action';
+}
+
+.home-shortcut-widget[data-size='2x1'] .home-shortcut-cover {
+    @apply self-center;
+}
+
+.home-shortcut-widget[data-size='2x1'] .home-shortcut-copy {
+    @apply gap-1 self-center;
 }
 
 .home-shortcut-widget[data-size='2x1'] .home-shortcut-title {
-    @apply text-lg;
+    @apply text-xl;
 }
 
 .home-shortcut-widget[data-size='2x1'] .home-shortcut-action {
-    @apply bottom-5 right-5;
+    @apply self-center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-shortcut-cover :deep(img),
+    .home-shortcut-cover :deep(.avatar) {
+        transition: none;
+    }
+
+    .home-shortcut-card:hover .home-shortcut-cover :deep(img),
+    .home-shortcut-card:hover .home-shortcut-cover :deep(.avatar) {
+        transform: none;
+    }
 }
 </style>

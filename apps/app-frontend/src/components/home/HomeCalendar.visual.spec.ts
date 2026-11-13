@@ -33,6 +33,7 @@ vi.mock('@modrinth/ui', () => ({
     defineMessages: (messages: unknown) => messages,
     injectNotificationManager: () => ({ handleError: vi.fn() }),
     useVIntl: () => ({
+        locale: { value: 'en-US' },
         formatMessage: (message: { defaultMessage: string }, values?: Record<string, unknown>) =>
             new IntlMessageFormat(message.defaultMessage, 'en-US').format(values),
     }),

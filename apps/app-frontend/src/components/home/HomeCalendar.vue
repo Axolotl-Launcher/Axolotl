@@ -41,6 +41,7 @@ import {
     dateFromKey,
     endOfPeriod,
     getPlaytimeLevel,
+    getStreakJoins,
     shiftPeriod,
     startOfPeriod,
     toDateKey,
@@ -52,7 +53,7 @@ const props = defineProps<{
 }>()
 
 const { handleError } = injectNotificationManager()
-const { formatMessage } = useVIntl()
+const { formatMessage, locale } = useVIntl()
 const handleMinecraftLaunchError = useMinecraftLaunchError()
 const { instanceRevision, runningInstanceIds } = useHomeDashboardRuntime()
 const formatPeriod = useFormatDateTime({ month: 'long', year: 'numeric' })
@@ -93,6 +94,14 @@ const messages = defineMessages({
         id: 'app.home.calendar.month-empty-hint',
         defaultMessage: 'Each day you play gets marked on the calendar.',
     },
+    statHours: {
+        id: 'app.home.calendar.stat-hours',
+        defaultMessage: '{count, plural, one {hour} other {hours}}',
+    },
+    statDays: {
+        id: 'app.home.calendar.stat-days',
+        defaultMessage: '{count, plural, one {day played} other {days played}}',
+    },
 })
 
 const todayKey = toDateKey(new Date())
@@ -119,6 +128,26 @@ function heatmapLevel(dateKey: string): number {
 }
 const monthSeconds = computed(() =>
     dailyPlaytime.value.reduce((total, entry) => total + entry.played_seconds, 0),
+)
+/** The month in two big figures: hours played and the number of days with any play. */
+const monthStats = computed(() => {
+    const number = new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 })
+    const hours = Math.round(monthSeconds.value / 360) / 10
+    const days = dailyPlaytime.value.filter((entry) => entry.played_seconds > 0).length
+    return {
+        hours: number.format(hours),
+        hoursUnit: formatMessage(messages.statHours, { count: hours }),
+        days: number.format(days),
+        daysUnit: formatMessage(messages.statDays, { count: days }),
+    }
+})
+/** Played days next to each other in a week join into one capsule. */
+const streakJoins = computed(() =>
+    getStreakJoins(
+        days.value.map(
+            (day) => day.inPeriod && day.dateKey <= todayKey && heatmapLevel(day.dateKey) > 0,
+        ),
+    ),
 )
 
 /** Short enough to sit beside a name: hours to one decimal, or minutes. */
@@ -303,6 +332,23 @@ watch(instanceRevision, async () => {
         </template>
 
         <div class="flex-none">
+            <p v-if="playtimeLoaded && monthSeconds > 0" class="home-calendar-stats">
+                <span
+                    v-tooltip="
+                        formatMessage(messages.monthTotal, {
+                            duration: formatDuration(monthSeconds),
+                        })
+                    "
+                    class="home-calendar-stat"
+                >
+                    <strong>{{ monthStats.hours }}</strong>
+                    <span>{{ monthStats.hoursUnit }}</span>
+                </span>
+                <span class="home-calendar-stat">
+                    <strong>{{ monthStats.days }}</strong>
+                    <span>{{ monthStats.daysUnit }}</span>
+                </span>
+            </p>
             <div
                 class="mb-1 grid grid-cols-7 gap-[0.1875rem] text-center text-[0.6875rem] font-semibold text-[var(--color-text-tertiary)]"
                 aria-hidden="true"
@@ -315,7 +361,7 @@ watch(instanceRevision, async () => {
                 :aria-label="formatMessage(messages.calendar)"
             >
                 <button
-                    v-for="day in days"
+                    v-for="(day, index) in days"
                     :key="day.dateKey"
                     v-tooltip="
                         day.inPeriod && day.dateKey <= todayKey
@@ -332,6 +378,8 @@ watch(instanceRevision, async () => {
                         'is-future': day.inPeriod && day.dateKey > todayKey,
                         'is-today': day.inPeriod && day.dateKey === todayKey,
                         'is-selected': day.inPeriod && day.dateKey === selectedKey,
+                        'joins-left': streakJoins[index]?.left,
+                        'joins-right': streakJoins[index]?.right,
                     }"
                     :data-level="
                         day.inPeriod && day.dateKey <= todayKey
@@ -379,20 +427,6 @@ watch(instanceRevision, async () => {
                     v-if="dayTotalSeconds > 0"
                     class="shrink-0 font-semibold tabular-nums text-[var(--color-text-default)]"
                     >{{ formatShortDuration(dayTotalSeconds) }}</span
-                >
-                <span
-                    v-if="monthSeconds > 0"
-                    v-tooltip="
-                        formatMessage(messages.monthTotal, {
-                            duration: formatDuration(monthSeconds),
-                        })
-                    "
-                    class="ml-auto shrink-0 tabular-nums text-[var(--color-text-tertiary)]"
-                    >{{
-                        formatMessage(messages.monthTotal, {
-                            duration: formatShortDuration(monthSeconds),
-                        })
-                    }}</span
                 >
             </div>
             <p
@@ -475,9 +509,35 @@ watch(instanceRevision, async () => {
 </template>
 
 <style scoped>
+/* The month in two big figures over the grid. */
+.home-calendar-stats {
+    @apply m-0 mb-2.5 flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1;
+}
+
+.home-calendar-stat {
+    @apply inline-flex items-baseline gap-1;
+}
+
+.home-calendar-stat > strong {
+    @apply text-[1.625rem] font-black leading-none tabular-nums tracking-tight text-[var(--color-text-primary)];
+}
+
+.home-calendar-stat > span {
+    @apply text-xs font-bold text-[var(--color-text-tertiary)];
+}
+
+/*
+ * Days are rounded cells whose fill is a share of the accent by playtime.
+ * Today is solid accent. Played days side by side in a week join into one
+ * capsule: the inner corners square off and the gap between them fills in.
+ */
 .home-calendar-cell {
-    @apply flex h-[1.1875rem] cursor-pointer items-center justify-center rounded-[var(--radius-sm)] border-0 p-0 text-[0.6875rem] font-semibold tabular-nums text-[var(--color-text-primary)] outline-none;
-    background: var(--home-widget-tint);
+    --home-calendar-cell: var(--home-widget-tint);
+    --home-calendar-join: 0 0 0 0 transparent;
+    @apply flex h-[1.375rem] cursor-pointer items-center justify-center border-0 p-0 text-[0.6875rem] font-bold tabular-nums text-[var(--color-text-primary)] outline-none;
+    border-radius: 0.4375rem;
+    background: var(--home-calendar-cell);
+    box-shadow: var(--home-calendar-join);
     transition:
         box-shadow 100ms ease,
         background-color 100ms ease;
@@ -488,42 +548,77 @@ watch(instanceRevision, async () => {
 }
 
 .home-calendar-cell.is-future {
-    @apply cursor-default bg-transparent text-[var(--color-text-tertiary)] opacity-50;
+    @apply cursor-default bg-transparent text-[var(--color-text-tertiary)] opacity-60;
+}
+
+/*
+ * Over a background image the days to come keep full strength and sit on a
+ * faint cell in the page colour, which grows as the widget fill fades (the
+ * same share as the text halo), so the numbers read on any picture.
+ */
+html.has-custom-background .home-calendar-cell.is-future {
+    @apply opacity-100;
+    background: color-mix(in srgb, var(--home-widget-halo, transparent) 60%, transparent);
+}
+
+html.has-custom-background .home-calendar-cell[data-level='0']:not(.is-today) {
+    background:
+        linear-gradient(var(--home-calendar-cell), var(--home-calendar-cell)),
+        color-mix(in srgb, var(--home-widget-halo, transparent) 60%, transparent);
 }
 
 /* Playtime levels are shares of the accent, so they follow the theme and stay
    readable over the widget fill at any opacity. */
 .home-calendar-cell[data-level='1'] {
-    background: color-mix(in srgb, var(--color-brand) 22%, transparent);
+    --home-calendar-cell: color-mix(in srgb, var(--color-brand) 20%, transparent);
 }
 
 .home-calendar-cell[data-level='2'] {
-    background: color-mix(in srgb, var(--color-brand) 42%, transparent);
+    --home-calendar-cell: color-mix(in srgb, var(--color-brand) 34%, transparent);
 }
 
 .home-calendar-cell[data-level='3'] {
-    background: color-mix(in srgb, var(--color-brand) 66%, transparent);
+    --home-calendar-cell: color-mix(in srgb, var(--color-brand) 52%, transparent);
 }
 
 .home-calendar-cell[data-level='4'] {
-    @apply bg-brand text-[var(--color-accent-contrast)];
+    --home-calendar-cell: color-mix(in srgb, var(--color-brand) 72%, transparent);
+}
+
+.home-calendar-cell.joins-right {
+    --home-calendar-join: 0.1875rem 0 0 0 var(--home-calendar-cell);
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.home-calendar-cell.joins-left {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
 }
 
 .home-calendar-cell.is-today {
-    box-shadow: inset 0 0 0 1.5px var(--color-brand);
+    --home-calendar-cell: var(--color-brand);
+    @apply font-black text-[var(--color-accent-contrast)];
 }
 
 .home-calendar-cell.is-selected,
 .home-calendar-cell:focus-visible {
     box-shadow:
-        0 0 0 2px var(--color-brand),
+        var(--home-calendar-join),
+        0 0 0 2px var(--color-text-primary),
         0 0 0 4px var(--color-brand-shadow);
+}
+
+.home-calendar-cell.is-today.is-selected {
+    box-shadow:
+        var(--home-calendar-join),
+        0 0 0 2px var(--surface-1-opaque),
+        0 0 0 4px var(--color-brand);
 }
 
 .home-calendar-day {
     border-top: 1px solid var(--home-widget-edge);
 }
-
 /* An empty month: the same quiet icon in a hairline ring as the empty widgets. */
 .home-calendar-empty-art {
     @apply ml-1 flex size-9 shrink-0 items-center justify-center rounded-full text-[var(--color-text-tertiary)];

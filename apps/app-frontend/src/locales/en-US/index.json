@@ -8,11 +8,26 @@
   "app.home.calendar.month-empty-hint": {
     "message": "Each day you play gets marked on the calendar."
   },
+  "app.home.calendar.stat-days": {
+    "message": "{count, plural, one {day played} other {days played}}"
+  },
+  "app.home.calendar.stat-hours": {
+    "message": "{count, plural, one {hour} other {hours}}"
+  },
+  "app.home.challenge.difficulty": {
+    "message": "Difficulty: {level}"
+  },
   "app.home.challenge.empty-hint": {
     "message": "Pick your own goal for this session."
   },
   "app.home.challenge.empty-title": {
     "message": "No challenge today"
+  },
+  "app.home.challenge.number": {
+    "message": "No. {number}"
+  },
+  "app.home.insights.daily-average": {
+    "message": "Avg {duration}"
   },
   "app.home.insights.empty-title": {
     "message": "No playtime yet"
@@ -25,6 +40,12 @@
   },
   "app.home.insights.last-week": {
     "message": "Last week: {duration}"
+  },
+  "app.home.insights.unit-hours": {
+    "message": "{count, plural, one {hour} other {hours}}"
+  },
+  "app.home.insights.unit-minutes": {
+    "message": "{count, plural, one {minute} other {minutes}}"
   },
   "app.home.insights.week-empty": {
     "message": "Nothing played yet"
@@ -160,6 +181,63 @@
   },
   "app.home.shortcut.missing-hint": {
     "message": "It was deleted or moved. Pick another one or remove this widget."
+  },
+  "app.home.widgets.add-another": {
+    "message": "Add another"
+  },
+  "app.home.widgets.add-to-home": {
+    "message": "Add to Home"
+  },
+  "app.home.widgets.added-count": {
+    "message": "{count, plural, =1 {Added} other {Added ×#}}"
+  },
+  "app.home.widgets.added-toast": {
+    "message": "Added {name} to your Home"
+  },
+  "app.home.widgets.categories": {
+    "message": "Widget categories"
+  },
+  "app.home.widgets.category.activity": {
+    "message": "Play data"
+  },
+  "app.home.widgets.category.all": {
+    "message": "All"
+  },
+  "app.home.widgets.category.collections": {
+    "message": "Collections"
+  },
+  "app.home.widgets.category.shortcuts": {
+    "message": "Shortcuts"
+  },
+  "app.home.widgets.category.start": {
+    "message": "Start playing"
+  },
+  "app.home.widgets.choose-target": {
+    "message": "Pick what it opens"
+  },
+  "app.home.widgets.done-adding": {
+    "message": "Done"
+  },
+  "app.home.widgets.more": {
+    "message": "{count} more"
+  },
+  "app.home.widgets.more-label": {
+    "message": "Show the {count} items that do not fit"
+  },
+  "app.home.widgets.no-widgets": {
+    "message": "No widgets match"
+  },
+  "app.home.widgets.quick-add": {
+    "message": "Add {name}"
+  },
+  "app.home.widgets.search-widgets": {
+    "message": "Search widgets"
+  },
+  "app.home.widgets.size-label": {
+    "message": "Size"
+  },
+  "app.home.widgets.undo": {
+    "message": "Undo"
   },
   "app.home.worlds.empty-title": {
     "message": "No pinned worlds"
@@ -3325,15 +3403,6 @@
   },
   "app.home.widgets.greeting-description": {
     "message": "A personal welcome that changes throughout the day."
-  },
-  "app.home.widgets.group.collections": {
-    "message": "Pinned collections"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "Overview"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "Single-item shortcuts"
   },
   "app.home.widgets.instance": {
     "message": "Single instance"

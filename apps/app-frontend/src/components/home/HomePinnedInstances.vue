@@ -16,6 +16,8 @@ import { RouterLink } from 'vue-router'
 import type { HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
 import { useHomeRowMenu } from '@/components/home/home-row-menu'
+import { getHomeItemVariant } from '@/components/home/home-utils'
+import HomeFitList from '@/components/home/HomeFitList.vue'
 import HomeItemRow from '@/components/home/HomeItemRow.vue'
 import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
 import HomeWidgetFrame from '@/components/home/HomeWidgetFrame.vue'
@@ -113,6 +115,8 @@ function rowMenu(instance: GameInstance) {
         update: () => set_pinned(instance.id, false),
     })
 }
+
+const variant = computed(() => getHomeItemVariant(props.dashboardSize))
 </script>
 
 <template>
@@ -147,32 +151,36 @@ function rowMenu(instance: GameInstance) {
                 {{ formatMessage(messages.viewAllInstances) }}
             </ButtonLink>
         </template>
-        <ul class="home-pinned-list">
-            <li v-for="instance in pinnedInstances" :key="instance.id" class="min-w-0">
-                <HomeItemRow
-                    :title="instance.name"
-                    :to="`/instance/${encodeURIComponent(instance.id)}`"
-                    :meta="instanceMeta(instance)"
-                    :instance="{
-                        id: instance.id,
-                        iconPath: instance.icon_path,
-                        loader: instance.loader,
-                    }"
-                    :running="runningInstanceIds.includes(instance.id)"
-                    :starting="instanceLaunchStartedAt(instance.id) !== undefined"
-                    :play-label="formatMessage(commonMessages.playButton)"
-                    :stop-label="formatMessage(commonMessages.stopButton)"
-                    @play="playInstance(instance)"
-                    @stop="stopInstance(instance)"
-                >
-                    <template v-if="showGameDirectory" #meta-prefix>
-                        <GameDirectoryBadge :directory="resolveGameDirectory(instance)" />
-                    </template>
-                    <template #actions>
-                        <HomeRowMenu :options="rowMenu(instance)" />
-                    </template>
-                </HomeItemRow>
-            </li>
-        </ul>
+        <HomeFitList
+            v-slot="{ item: instance, variant: itemVariant }"
+            :items="pinnedInstances"
+            :item-key="(instance) => instance.id"
+            :variant="variant"
+        >
+            <HomeItemRow
+                :variant="itemVariant"
+                :title="instance.name"
+                :to="`/instance/${encodeURIComponent(instance.id)}`"
+                :meta="instanceMeta(instance)"
+                :instance="{
+                    id: instance.id,
+                    iconPath: instance.icon_path,
+                    loader: instance.loader,
+                }"
+                :running="runningInstanceIds.includes(instance.id)"
+                :starting="instanceLaunchStartedAt(instance.id) !== undefined"
+                :play-label="formatMessage(commonMessages.playButton)"
+                :stop-label="formatMessage(commonMessages.stopButton)"
+                @play="playInstance(instance)"
+                @stop="stopInstance(instance)"
+            >
+                <template v-if="showGameDirectory" #meta-prefix>
+                    <GameDirectoryBadge :directory="resolveGameDirectory(instance)" />
+                </template>
+                <template #actions>
+                    <HomeRowMenu :options="rowMenu(instance)" />
+                </template>
+            </HomeItemRow>
+        </HomeFitList>
     </HomeWidgetFrame>
 </template>

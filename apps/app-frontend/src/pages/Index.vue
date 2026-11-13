@@ -477,13 +477,12 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
         <template v-if="!isMinimal">
             <button
                 v-if="dashboardEditing"
-                v-tooltip="formatMessage(messages.addWidget)"
                 type="button"
-                class="home-floating-action"
-                :aria-label="formatMessage(messages.addWidget)"
+                class="home-floating-action home-floating-add"
                 @click="openWidgetPicker"
             >
-                <PlusIcon />
+                <PlusIcon aria-hidden="true" />
+                {{ formatMessage(messages.addWidget) }}
             </button>
             <button
                 v-if="dashboardEditing"
@@ -665,6 +664,24 @@ if (!instancesLoaded || instances.value.length > 0) void fetchPlayerName()
 .home-floating-action :deep(svg) {
     width: 1rem;
     height: 1rem;
+}
+
+/* While editing, adding a widget is the main action: a labelled accent pill. */
+.home-floating-action.home-floating-add {
+    width: auto;
+    gap: 0.375rem;
+    padding: 0 0.875rem 0 0.625rem;
+    background: var(--color-brand);
+    color: var(--color-accent-contrast);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.home-floating-action.home-floating-add:hover {
+    background: var(--color-brand);
+    color: var(--color-accent-contrast);
+    filter: brightness(var(--hover-brightness));
 }
 
 .home-floating-divider {

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import './home-widget.css'
 
-import type { Component } from 'vue'
+import { type Component, provide, ref } from 'vue'
+
+import { homeWidgetMoreTargetKey } from './home-utils'
 
 /*
  * The shared widget layout: header (accent icon, title, badge, actions), then
@@ -28,6 +30,11 @@ withDefaults(
         skeletonRows?: number
         /** Compact header for 1-row widgets. */
         dense?: boolean
+        /**
+         * `bar`: accent icon and title. `eyebrow`: a small label, for widgets
+         * whose content is its own headline (a big figure, a quote, a cover).
+         */
+        header?: 'bar' | 'eyebrow'
     }>(),
     {
         icon: undefined,
@@ -39,20 +46,30 @@ withDefaults(
         emptyTone: 'neutral',
         skeletonRows: 3,
         dense: false,
+        header: 'bar',
     },
 )
+
+/* A list that does not fit puts its "+N" button here (HomeFitList). */
+const moreTarget = ref<HTMLElement | null>(null)
+provide(homeWidgetMoreTargetKey, moreTarget)
 </script>
 
 <template>
-    <section class="home-widget-frame home-surface-bare" :class="{ 'is-dense': dense }">
+    <section
+        class="home-widget-frame home-surface-bare"
+        :class="{ 'is-dense': dense }"
+        :data-header="header"
+    >
         <header class="home-widget-frame-header">
-            <span v-if="icon" class="home-widget-frame-icon" aria-hidden="true">
+            <span v-if="icon && header === 'bar'" class="home-widget-frame-icon" aria-hidden="true">
                 <component :is="icon" />
             </span>
             <h2 class="home-widget-frame-title">{{ title }}</h2>
             <span v-if="badge !== null && badge !== ''" class="home-widget-frame-badge">
                 {{ badge }}
             </span>
+            <span ref="moreTarget" class="home-widget-frame-more" />
             <div v-if="$slots.actions" class="home-widget-frame-actions">
                 <slot name="actions" />
             </div>
@@ -97,7 +114,7 @@ withDefaults(
 }
 
 .home-widget-frame.is-dense {
-    @apply gap-2;
+    @apply gap-1.5;
 }
 
 .home-widget-frame-header {
@@ -120,6 +137,10 @@ withDefaults(
 .home-widget-frame-badge {
     @apply shrink-0 rounded-full px-1.5 text-xs font-bold leading-5 text-[var(--color-text-tertiary)];
     background: var(--home-widget-tint);
+}
+
+.home-widget-frame-more {
+    @apply flex shrink-0 empty:hidden;
 }
 
 .home-widget-frame-actions {
@@ -216,6 +237,18 @@ withDefaults(
     .home-widget-frame.is-dense .home-widget-frame-empty-action {
         justify-content: center;
     }
+}
+
+/*
+ * A small label in place of the bar, for widgets whose content is its own
+ * headline. It is quieter than the title bar so the content leads.
+ */
+.home-widget-frame[data-header='eyebrow'] .home-widget-frame-header {
+    @apply h-6;
+}
+
+.home-widget-frame[data-header='eyebrow'] .home-widget-frame-title {
+    @apply text-[0.6875rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)];
 }
 
 /* Narrow columns drop the icon before they cut the title. */

@@ -14,7 +14,12 @@ import type { HomeWidgetSize } from '@/components/home/home-dashboard'
 import { useHomeDashboardRuntime } from '@/components/home/home-dashboard-runtime'
 import { useHomeLaunchTarget } from '@/components/home/home-launch-context'
 import { useHomeRowMenu } from '@/components/home/home-row-menu'
-import { getHomeWorldRowState } from '@/components/home/home-utils'
+import {
+    getHomeItemVariant,
+    getHomeWorldRowState,
+    getServerFill,
+} from '@/components/home/home-utils'
+import HomeFitList from '@/components/home/HomeFitList.vue'
 import HomeItemRow from '@/components/home/HomeItemRow.vue'
 import HomeLocalServerPickerModal from '@/components/home/HomeLocalServerPickerModal.vue'
 import HomeRowMenu from '@/components/home/HomeRowMenu.vue'
@@ -121,6 +126,13 @@ const messages = defineMessages({
     addServer: { id: 'app.home.servers.add', defaultMessage: 'Add a server' },
 })
 const launchTarget = useHomeLaunchTarget(() => props.instances)
+const variant = computed(() => getHomeItemVariant(props.dashboardSize))
+
+/** How full the server is, for the bar under its status; null when it does not say. */
+function serverFill(world: ServerWorld & WorldWithInstance) {
+    const players = dataFor(world).status?.players
+    return getServerFill(players?.online, players?.max)
+}
 
 function serverMeta(world: ServerWorld & WorldWithInstance): string {
     const data = dataFor(world)
@@ -186,6 +198,19 @@ const servers = computed(() =>
     }),
 )
 const pinnedLocalServers = computed(() => runtime.pinnedLocalServers.value)
+/** Saved servers first, then the pinned local ones, as one list. */
+const entries = computed(() => [
+    ...servers.value.map((server) => ({
+        key: serverKey(server.world),
+        type: 'remote' as const,
+        server,
+    })),
+    ...pinnedLocalServers.value.map((server) => ({
+        key: `local-${server.id}`,
+        type: 'local' as const,
+        server,
+    })),
+])
 const hasServers = computed(() => servers.value.length > 0 || pinnedLocalServers.value.length > 0)
 
 /** Whether each pinned address points back at this machine. */
@@ -431,75 +456,120 @@ function localServerMenu(serverId: string): MenuAction[] {
                 {{ formatMessage(messages.addServer) }}
             </ButtonLink>
         </template>
-        <ul class="home-pinned-list">
-            <li v-for="server in servers" :key="serverKey(server.world)" class="min-w-0">
+        <HomeFitList
+            v-slot="{ item: entry, variant: itemVariant }"
+            :items="entries"
+            :item-key="(entry) => entry.key"
+            :variant="variant"
+        >
+            <template v-if="entry.type === 'remote'">
                 <HomeItemRow
-                    :title="server.world.name"
-                    :to="`/instance/${encodeURIComponent(server.instance.id)}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(server.world))}`"
-                    :meta="serverMeta(server.world)"
-                    :meta-icon="dataFor(server.world).status ? SignalIcon : NoSignalIcon"
-                    :tag="isLocalEntry(server.world) ? formatMessage(messages.localServer) : null"
-                    :image-src="
-                        dataFor(server.world).status?.favicon ?? (server.world.icon || null)
+                    :title="entry.server.world.name"
+                    :to="`/instance/${encodeURIComponent(entry.server.instance.id)}/worlds?highlight=${encodeURIComponent(getWorldIdentifier(entry.server.world))}`"
+                    :tag="
+                        isLocalEntry(entry.server.world)
+                            ? formatMessage(messages.localServer)
+                            : null
                     "
-                    :image-tint="server.world.address"
-                    :status="serverStatus(server.world)"
-                    :running="rowState(server.world, server.instance).showStop"
-                    :starting="startingServerKey === serverKey(server.world)"
-                    :play-disabled="rowState(server.world, server.instance).playDisabled"
-                    :play-label="playLabel(server.world, server.instance)"
+                    :image-src="
+                        dataFor(entry.server.world).status?.favicon ??
+                        (entry.server.world.icon || null)
+                    "
+                    :image-tint="entry.server.world.address"
+                    :status="serverStatus(entry.server.world)"
+                    :dimmed="serverStatus(entry.server.world) === 'offline'"
+                    :variant="itemVariant"
+                    :running="rowState(entry.server.world, entry.server.instance).showStop"
+                    :starting="startingServerKey === serverKey(entry.server.world)"
+                    :play-disabled="
+                        rowState(entry.server.world, entry.server.instance).playDisabled
+                    "
+                    :play-label="playLabel(entry.server.world, entry.server.instance)"
                     :stop-label="formatMessage(messages.stop)"
-                    @play="joinServer(server.world, server.instance)"
-                    @stop="stopInstance(server.instance)"
+                    @play="joinServer(entry.server.world, entry.server.instance)"
+                    @stop="stopInstance(entry.server.instance)"
                 >
+                    <template #extra>
+                        <span class="home-server-status">
+                            <span
+                                class="home-server-state"
+                                :data-state="serverStatus(entry.server.world)"
+                            >
+                                <component
+                                    :is="
+                                        dataFor(entry.server.world).status
+                                            ? SignalIcon
+                                            : NoSignalIcon
+                                    "
+                                    aria-hidden="true"
+                                />
+                                <span class="truncate">{{ serverMeta(entry.server.world) }}</span>
+                            </span>
+                            <span
+                                v-if="serverFill(entry.server.world) !== null"
+                                class="home-server-meter"
+                                role="presentation"
+                            >
+                                <span
+                                    :style="{
+                                        width: `${Math.max(3, (serverFill(entry.server.world) ?? 0) * 100)}%`,
+                                    }"
+                                />
+                            </span>
+                        </span>
+                    </template>
                     <template #actions>
                         <HomeRowMenu
                             class="home-server-menu"
-                            :options="serverMenuOptions(server.world, server.instance)"
+                            :options="serverMenuOptions(entry.server.world, entry.server.instance)"
                         />
                     </template>
                 </HomeItemRow>
-            </li>
-            <li v-for="server in pinnedLocalServers" :key="'local-' + server.id" class="min-w-0">
+            </template>
+            <template v-else>
                 <HomeItemRow
-                    :title="server.name"
-                    :to="`/multiplayer/servers/${encodeURIComponent(server.id)}`"
+                    :title="entry.server.name"
+                    :to="`/multiplayer/servers/${encodeURIComponent(entry.server.id)}`"
                     :meta="
-                        server.port
-                            ? `localhost:${server.port}`
-                            : `${server.serverType} ${server.gameVersion}`
+                        entry.server.port
+                            ? `localhost:${entry.server.port}`
+                            : `${entry.server.serverType} ${entry.server.gameVersion}`
                     "
                     :tag="formatMessage(messages.localServer)"
-                    :status="server.running ? 'online' : 'offline'"
-                    :running="server.running || server.starting"
-                    :play-disabled="server.stopping"
+                    :status="entry.server.running ? 'online' : 'offline'"
+                    :dimmed="!entry.server.running && !entry.server.starting"
+                    :variant="itemVariant"
+                    :running="entry.server.running || entry.server.starting"
+                    :play-disabled="entry.server.stopping"
                     :play-label="formatMessage(messages.start)"
-                    :stop-label="formatMessage(server.stopping ? messages.stopping : messages.stop)"
-                    @play="startLocalServer(server.id)"
-                    @stop="stopLocalServer(server.id)"
+                    :stop-label="
+                        formatMessage(entry.server.stopping ? messages.stopping : messages.stop)
+                    "
+                    @play="startLocalServer(entry.server.id)"
+                    @stop="stopLocalServer(entry.server.id)"
                 >
-                    <template #icon>
+                    <template #icon="{ size }">
                         <ManagedServerIcon
-                            :icon-path="server.iconPath"
-                            :server-type="server.serverType"
-                            :server-id="server.id"
-                            size="36px"
+                            :icon-path="entry.server.iconPath"
+                            :server-type="entry.server.serverType"
+                            :server-id="entry.server.id"
+                            :size="size"
                         />
                     </template>
                     <template #actions>
                         <ServerTerminateButton
-                            v-if="server.stopping"
-                            :server-id="server.id"
+                            v-if="entry.server.stopping"
+                            :server-id="entry.server.id"
                             size="2xs"
                         />
                         <HomeRowMenu
                             class="home-server-menu"
-                            :options="localServerMenu(server.id)"
+                            :options="localServerMenu(entry.server.id)"
                         />
                     </template>
                 </HomeItemRow>
-            </li>
-        </ul>
+            </template>
+        </HomeFitList>
         <HomeLocalServerPickerModal
             ref="localServerPicker"
             :servers="localServers"
@@ -509,3 +579,50 @@ function localServerMenu(serverId: string): MenuAction[] {
         <OnlineModeWarningModal ref="onlineModeWarningModal" />
     </HomeWidgetFrame>
 </template>
+
+<style scoped>
+/*
+ * A server's state is a solid badge with its player count, and a thin bar
+ * under it shows how full it is. An offline server says so in red and its
+ * picture goes grey, so the two read apart at a glance.
+ */
+.home-server-status {
+    @apply mt-0.5 flex min-w-0 flex-col items-start gap-1;
+}
+
+.home-server-state {
+    @apply inline-flex min-w-0 shrink items-center gap-1 rounded-full px-1.5 text-[0.6875rem] font-bold leading-[1.125rem];
+    background: var(--home-widget-tint);
+    color: var(--color-text-default);
+}
+
+.home-server-state svg {
+    @apply size-3 shrink-0;
+}
+
+.home-server-state[data-state='online'] {
+    @apply bg-highlight-green text-brand-green;
+}
+
+.home-server-state[data-state='offline'] {
+    @apply bg-highlight-red text-brand-red;
+}
+
+.home-server-meter {
+    @apply block h-1 w-full max-w-[9rem] overflow-hidden rounded-full;
+    background: var(--home-widget-tint-strong);
+}
+
+.home-server-meter > span {
+    @apply block h-full rounded-full bg-brand-green;
+}
+
+/* A tile has the width for a bar as long as the card. */
+:deep(.home-item-row.is-tile) .home-server-status {
+    @apply gap-1.5;
+}
+
+:deep(.home-item-row.is-tile) .home-server-meter {
+    @apply max-w-none;
+}
+</style>

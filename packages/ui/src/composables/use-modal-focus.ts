@@ -24,6 +24,13 @@ export interface ModalFocusController {
  */
 export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusController {
     let previouslyFocused: HTMLElement | null = null
+    let pendingFocusFrame: number | null = null
+
+    function cancelPendingFocus(): void {
+        if (pendingFocusFrame === null) return
+        cancelAnimationFrame(pendingFocusFrame)
+        pendingFocusFrame = null
+    }
 
     function getFocusableElements(): HTMLElement[] {
         if (!container.value) return []
@@ -32,11 +39,13 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
 
     function captureFocus(): void {
         if (typeof document === 'undefined') return
+        cancelPendingFocus()
         previouslyFocused =
             document.activeElement instanceof HTMLElement ? document.activeElement : null
     }
 
     function focusInitial(attempt = 0): void {
+        cancelPendingFocus()
         const focusable = getFocusableElements()
         const target = focusable[0] ?? container.value
         if (!target) return
@@ -44,10 +53,14 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
         // The opening transition starts with the body hidden, which makes the
         // first focus attempt a no-op. Retry briefly once it becomes visible.
         if (document.activeElement === target || attempt >= 2) return
-        requestAnimationFrame(() => focusInitial(attempt + 1))
+        pendingFocusFrame = requestAnimationFrame(() => {
+            pendingFocusFrame = null
+            focusInitial(attempt + 1)
+        })
     }
 
     function restoreFocus(): void {
+        cancelPendingFocus()
         if (previouslyFocused) {
             previouslyFocused.focus()
         }
@@ -57,7 +70,11 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
     function trapTab(event: KeyboardEvent): void {
         if (event.key !== 'Tab') return
         const focusable = getFocusableElements()
-        if (focusable.length === 0) return
+        if (focusable.length === 0) {
+            event.preventDefault()
+            document.body.focus()
+            return
+        }
 
         const first = focusable[0]
         const last = focusable[focusable.length - 1]

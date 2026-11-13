@@ -17,7 +17,6 @@
                 v-for="(item, index) in notifications"
                 :key="item.id"
                 class="vue-notification-wrapper"
-                :role="item.type === 'error' ? 'alert' : undefined"
                 @mouseenter="stopTimer(item)"
                 @mouseleave="setNotificationTimer(item)"
             >

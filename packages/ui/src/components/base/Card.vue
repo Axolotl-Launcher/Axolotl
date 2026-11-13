@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { DropdownIcon } from '@modrinth/assets'
-import { reactive } from 'vue'
+import { computed, inject, reactive } from 'vue'
 
-import { defineMessages, useVIntl } from '../../composables/i18n'
+import { I18N_INJECTION_KEY } from '../../providers/i18n'
 import Button from './buttons/Button.vue'
 
 const props = defineProps({
@@ -20,17 +20,15 @@ const props = defineProps({
     },
 })
 
-const { formatMessage } = useVIntl()
-const messages = defineMessages({
-    expand: {
-        id: 'button.expand',
-        defaultMessage: 'Expand',
-    },
-    collapse: {
-        id: 'button.collapse',
-        defaultMessage: 'Collapse',
-    },
-})
+const i18n = inject(I18N_INJECTION_KEY, null)
+
+function label(id: string, fallback: string) {
+    const translated = i18n?.t(id)
+    return !translated || translated === id ? fallback : translated
+}
+
+const expandLabel = computed(() => label('button.expand', 'Expand'))
+const collapseLabel = computed(() => label('button.collapse', 'Collapse'))
 
 const state = reactive({
     collapsed: props.defaultCollapsed,
@@ -50,7 +48,7 @@ function toggleCollapsed() {
                     circular
                     icon-only
                     :aria-expanded="!state.collapsed"
-                    :label="formatMessage(state.collapsed ? messages.expand : messages.collapse)"
+                    :label="state.collapsed ? expandLabel : collapseLabel"
                     @click="toggleCollapsed"
                     ><DropdownIcon
                         :style="{ transform: `rotate(${state.collapsed ? 0 : 180}deg)` }"

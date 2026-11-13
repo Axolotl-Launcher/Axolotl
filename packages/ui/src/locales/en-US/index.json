@@ -179,12 +179,6 @@
   "button.collapse": {
     "defaultMessage": "Collapse"
   },
-  "button.dismiss-notification": {
-    "defaultMessage": "Dismiss notification"
-  },
-  "button.expand": {
-    "defaultMessage": "Expand"
-  },
   "button.confirm": {
     "defaultMessage": "Confirm"
   },
@@ -215,6 +209,9 @@
   "button.disable": {
     "defaultMessage": "Disable"
   },
+  "button.dismiss-notification": {
+    "defaultMessage": "Dismiss notification"
+  },
   "button.download": {
     "defaultMessage": "Download"
   },
@@ -226,6 +223,9 @@
   },
   "button.enable": {
     "defaultMessage": "Enable"
+  },
+  "button.expand": {
+    "defaultMessage": "Expand"
   },
   "button.extract": {
     "defaultMessage": "Extract"

@@ -499,3 +499,12 @@ it('wraps Shift+Tab from the modal body to the last focusable element', async ()
     expect(tab(body, true).defaultPrevented).toBe(true)
     expect(document.activeElement).toBe(last)
 })
+
+it('keeps Tab inside a modal that only renders text', async () => {
+    await modal(h('p', 'Read-only notice'), { closable: false })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+
+    body.focus()
+    expect(tab(body).defaultPrevented).toBe(true)
+    expect(body.contains(document.activeElement)).toBe(true)
+})

@@ -155,12 +155,6 @@
   "button.collapse": {
     "defaultMessage": "收起"
   },
-  "button.dismiss-notification": {
-    "defaultMessage": "关闭通知"
-  },
-  "button.expand": {
-    "defaultMessage": "展开"
-  },
   "button.confirm": {
     "defaultMessage": "确认"
   },
@@ -191,6 +185,9 @@
   "button.disable": {
     "defaultMessage": "禁用"
   },
+  "button.dismiss-notification": {
+    "defaultMessage": "关闭通知"
+  },
   "button.download": {
     "defaultMessage": "下载"
   },
@@ -202,6 +199,9 @@
   },
   "button.enable": {
     "defaultMessage": "启用"
+  },
+  "button.expand": {
+    "defaultMessage": "展开"
   },
   "button.extract": {
     "defaultMessage": "解压"

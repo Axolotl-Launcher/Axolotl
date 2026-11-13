@@ -1,5 +1,6 @@
 import '@/test/visual-styles.scss'
 
+import { I18N_INJECTION_KEY } from '@modrinth/ui'
 import { mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
@@ -8,7 +9,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import chinese from '@/locales/zh-CN/index.json'
 
-import { I18N_INJECTION_KEY } from '../../../../../../packages/ui/src/providers/i18n'
 import LogShareSettings from './LogShareSettings.vue'
 
 const i18n = { locale: ref('en-US'), t: (key: string) => key, setLocale: () => {} }
@@ -27,6 +27,8 @@ const calls = vi.hoisted(() => ({
 }))
 
 vi.mock('@modrinth/ui', async () => ({
+    I18N_INJECTION_KEY: (await import('../../../../../../packages/ui/src/providers/i18n'))
+        .I18N_INJECTION_KEY,
     Button: (await import('../../../../../../packages/ui/src/components/base/buttons/Button.vue'))
         .default,
     Card: (await import('../../../../../../packages/ui/src/components/base/Card.vue')).default,

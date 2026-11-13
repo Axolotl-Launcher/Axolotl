@@ -204,7 +204,7 @@
                                         </span>
                                     </div>
                                     <span class="font-medium text-[var(--color-text-default)]">
-                                        {{ formatLongDate(selectedVersion.date_published) }}
+                                        {{ formatPublishedDate(selectedVersion.date_published) }}
                                     </span>
                                 </div>
                                 <div class="flex items-center gap-2">
@@ -421,6 +421,11 @@ import { useContentUpdaterSelection } from './use-content-updater-selection'
 
 const { formatMessage } = useVIntl()
 const formatLongDate = useFormatDateTime({ year: 'numeric', month: 'long', day: 'numeric' })
+
+function formatPublishedDate(value?: string) {
+    const date = value ? new Date(value) : null
+    return date && !Number.isNaN(date.getTime()) ? formatLongDate(date) : '—'
+}
 const debug = useDebugLogger('ContentUpdaterModal')
 const tags = injectTags(null)
 

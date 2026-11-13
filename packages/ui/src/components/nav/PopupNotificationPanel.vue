@@ -1,6 +1,9 @@
 <template>
     <div
         class="popup-notification-group"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
         :class="{
             'has-sidebar': hasSidebar,
             'has-modal': hasModalActive,

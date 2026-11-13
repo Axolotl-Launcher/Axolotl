@@ -15134,6 +15134,12 @@
   "app.skins.modal.edit-title": {
     "message": "Editing skin"
   },
+  "app.skins.modal.export-texture-button": {
+    "message": "Export texture"
+  },
+  "app.skins.modal.export-texture-failed": {
+    "message": "Failed to export the skin texture (HTTP {status})."
+  },
   "app.skins.modal.make-edit-first-tooltip": {
     "message": "Make an edit to the skin first!"
   },

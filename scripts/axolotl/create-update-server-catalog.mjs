@@ -32,16 +32,16 @@ function describe(filename) {
         return { kind: 'updater', platform: targets[0], targetPlatforms: targets, variant: 'tauri' }
     }
     if (filename.endsWith('.sig')) return { kind: 'signature', platform: null, targetPlatforms: [] }
-    if (filename.endsWith('_x64_modern-setup.exe')) {
+    if (/_(?:x64|arm64)_modern-setup\.exe$/.test(filename)) {
         return { kind: 'installer', platform: 'windows', targetPlatforms: [], variant: 'modern' }
     }
-    if (filename.endsWith('_x64_nsis-setup.exe')) {
+    if (/_(?:x64|arm64)_nsis-setup\.exe$/.test(filename)) {
         return { kind: 'installer', platform: 'windows', targetPlatforms: [], variant: 'native' }
     }
-    if (filename.endsWith('_x64-setup.exe')) {
+    if (/_(?:x64|arm64)-setup\.exe$/.test(filename)) {
         return { kind: 'installer', platform: 'windows', targetPlatforms: [], variant: 'legacy' }
     }
-    if (filename.endsWith('_x64_portable.zip')) {
+    if (/_(?:x64|arm64)_portable\.zip$/.test(filename)) {
         return { kind: 'portable', platform: 'windows', targetPlatforms: [], variant: 'portable' }
     }
     if (filename.endsWith('.dmg')) {
@@ -83,12 +83,12 @@ const assets = release.assets
             throw new Error(`Invalid release asset size: ${asset.name}`)
         }
         return {
-        filename: asset.name,
-        size: asset.size,
-        sha256: digest(asset),
+            filename: asset.name,
+            size: asset.size,
+            sha256: digest(asset),
             downloadUrl: asset.browser_download_url,
-        architecture: architecture(asset.name),
-        ...describe(asset.name),
+            architecture: architecture(asset.name),
+            ...describe(asset.name),
         }
     })
 
@@ -113,8 +113,12 @@ for (const artifact of primaryArtifacts) {
             candidate.kind === 'signature' && candidate.filename === `${artifact.filename}.sig`,
     )
     artifact.signatureFilename = signature?.filename ?? null
-    if (artifact.kind === 'updater' && !signature) {
-        throw new Error(`Missing Tauri updater signature for ${artifact.filename}`)
+    if (
+        (artifact.kind === 'updater' ||
+            (artifact.kind === 'installer' && ['deb', 'rpm'].includes(artifact.variant))) &&
+        !signature
+    ) {
+        throw new Error(`Missing updater signature for ${artifact.filename}`)
     }
     const key = [artifact.kind, artifact.platform, artifact.architecture, artifact.variant].join(
         ':',

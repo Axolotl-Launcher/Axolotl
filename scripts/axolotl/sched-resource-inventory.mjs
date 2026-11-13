@@ -13,7 +13,6 @@ import {
     classify,
     compareItems,
     constructionSites,
-    defaultOutDir,
     EXCLUSION_RULES,
     isMain,
     loadPolicy,
@@ -24,6 +23,7 @@ import {
     primitiveNames,
     rankFingerprint,
     repoRoot,
+    resolveOutputDir,
     scanDeclarationLines,
     scanDeclarations,
     scanMethodHits,
@@ -158,8 +158,8 @@ export function buildInventory(policy) {
 
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
-    const outDir = args.out ?? defaultOutDir
     try {
+        const outDir = resolveOutputDir(args.out)
         const result = buildInventory(loadPolicy(args.policy ?? policyPath))
         mkdirSync(path.resolve(repoRoot, outDir), { recursive: true })
         const paths = outputPaths(outDir)

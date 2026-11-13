@@ -324,14 +324,16 @@ test('L0 never awaits a send (K3.4)', () => {
 })
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const runScript = (name, args) => spawnSync(process.execPath, [path.join(here, name), ...args], { encoding: 'utf8' })
+const runScript = (name, args, env = process.env) => spawnSync(process.execPath, [path.join(here, name), ...args], { encoding: 'utf8', env })
 
 test('inventory runs when started by its absolute path', () => {
     const out = mkdtempSync(path.join(os.tmpdir(), 'sched-inventory-'))
     try {
-        const run = runScript('sched-resource-inventory.mjs', ['--out', out])
+        const ignored = path.join(out, 'ignored-env-directory')
+        const run = runScript('sched-resource-inventory.mjs', ['--out', out], { ...process.env, SCHED_ARTIFACT_DIR: ignored })
         assert.equal(run.status, 0, run.stderr)
         assert.ok(existsSync(path.join(out, 'sched-resource-registry.json')), 'the registry was not written')
+        assert.equal(existsSync(ignored), false, '--out must take precedence over SCHED_ARTIFACT_DIR')
     } finally {
         rmSync(out, { recursive: true, force: true })
     }
@@ -345,5 +347,50 @@ test('order check fails, rather than falls back, without an inventory', () => {
         assert.match(run.stderr, /sched-order-annotation-check:/)
     } finally {
         rmSync(empty, { recursive: true, force: true })
+    }
+})
+
+test('artifact consumers require an explicit directory instead of an agent-directory fallback', () => {
+    const env = { ...process.env }
+    delete env.SCHED_ARTIFACT_DIR
+    for (const name of [
+        'sched-resource-inventory.mjs',
+        'sched-resource-consistency-check.mjs',
+        'sched-leaf-primitive-check.mjs',
+        'sched-l0-resource-check.mjs',
+        'sched-level-predicate-check.mjs',
+        'sched-whitelist-check.mjs',
+        'sched-recall-gap-gate.mjs',
+        'sched-order-annotation-check.mjs',
+    ]) {
+        const run = runScript(name, [], env)
+        const expected = ['sched-recall-gap-gate.mjs', 'sched-order-annotation-check.mjs'].includes(name) ? 2 : 1
+        assert.equal(run.status, expected, `${name} must reject an unspecified directory without accepting a fallback`)
+        assert.match(run.stderr, /Set SCHED_ARTIFACT_DIR or pass --out\/--dir/, name)
+    }
+})
+
+test('inventory and reports share the selected environment or CLI artifact directory', () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'sched-artifact-routing-'))
+    try {
+        const artifacts = path.join(directory, 'artifacts')
+        const env = { ...process.env, SCHED_ARTIFACT_DIR: artifacts }
+        const inventory = runScript('sched-resource-inventory.mjs', [], env)
+        assert.equal(inventory.status, 0, inventory.stderr)
+        assert.ok(existsSync(path.join(artifacts, 'sched-resource-registry.json')))
+        const reports = ['sched-level-predicate-report.md', 'sched-governance-table.md']
+        const environmentRun = runScript('sched-level-predicate-check.mjs', ['--write'], env)
+        assert.equal(environmentRun.status, 0, environmentRun.stderr)
+        for (const report of reports) {
+            assert.ok(existsSync(path.join(artifacts, report)), `${report} ignored SCHED_ARTIFACT_DIR`)
+            rmSync(path.join(artifacts, report))
+        }
+        const ignored = path.join(directory, 'ignored-env-directory')
+        const cliRun = runScript('sched-level-predicate-check.mjs', ['--dir', artifacts, '--write'], { ...env, SCHED_ARTIFACT_DIR: ignored })
+        assert.equal(cliRun.status, 0, cliRun.stderr)
+        for (const report of reports) assert.ok(existsSync(path.join(artifacts, report)), `${report} ignored --dir`)
+        assert.equal(existsSync(ignored), false, '--dir must take precedence over SCHED_ARTIFACT_DIR')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
     }
 })

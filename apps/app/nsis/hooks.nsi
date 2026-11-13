@@ -7,6 +7,8 @@
   !endif
 !endif
 
+!include "${__FILEDIR__}\executable-install.nsh"
+
 !macro AxlCheckReparseRemoved PATH
     System::Call 'kernel32::GetFileAttributes(t "${PATH}") i.r5'
     ${If} $5 != -1
@@ -46,7 +48,7 @@
 
 Var /GLOBAL OldInstallDir
 
-!macro NSIS_HOOK_PREINSTALL
+!macro AxlPrepareUpdatePrivileges
     ; The updater is normally launched silently by the Tauri updater plugin.
     ; A current-user install can still target a protected directory, so elevate
     ; only the in-place update process instead of requiring UAC for first-time
@@ -62,6 +64,10 @@ Var /GLOBAL OldInstallDir
         ${EndIf}
       ${EndIf}
     ${EndIf}
+!macroend
+
+!macro NSIS_HOOK_PREINSTALL
+    !insertmacro AxlPrepareUpdatePrivileges
 
     ; The updater already stops the running process and passes /UPDATE. Do not
     ; run the legacy uninstall/migration path during an in-place update, since

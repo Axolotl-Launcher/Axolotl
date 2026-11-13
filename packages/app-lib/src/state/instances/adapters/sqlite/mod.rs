@@ -19,6 +19,7 @@ pub(crate) mod rollback_journals;
 pub(crate) mod screenshot_groups;
 pub(crate) mod screenshot_rows;
 pub(crate) mod server_pack_state;
+pub(crate) mod stored_paths;
 mod values;
 pub(crate) mod write_guards;
 

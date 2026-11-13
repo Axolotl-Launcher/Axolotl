@@ -7,10 +7,11 @@ import {
 import { flushPromises, mount } from '@vue/test-utils'
 import IntlMessageFormat from 'intl-messageformat'
 import { createPinia } from 'pinia'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, provide, ref } from 'vue'
 
+import { notifyAccountSelectionChanged } from '@/helpers/account-state'
 import { MINECRAFT_ROOTS_STORAGE_KEY } from '@/helpers/minecraft-roots'
 import en from '@/locales/en-US/index.json'
 import zh from '@/locales/zh-CN/index.json'
@@ -19,18 +20,29 @@ import { applyTheme, waitFor } from '@/test/visual-harness'
 import OobeHost from './OobeHost.vue'
 import { OOBE_STEP_IDS } from './step-ids'
 import { OOBE_STEPS } from './steps'
+import { pickSaved, showPicked, steveHead } from './steps/account/accounts'
+import { cardClock } from './steps/account/card-physics'
 import { createOobeController } from './useOobe'
+
+function headUrl(textureKey: string) {
+    const hue = [...textureKey].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="hsl(${hue} 60% 45%)"/><rect x="1" y="3" width="2" height="1" fill="white"/><rect x="5" y="3" width="2" height="1" fill="white"/></svg>`
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
 
 const backend = vi.hoisted(() => ({
     patches: [] as Record<string, unknown>[],
     restricted: true,
     accounts: [] as Array<{
         account_id: string
-        account_type: 'yggdrasil'
-        profile: { id: string; name: string }
+        account_type: 'yggdrasil' | 'microsoft'
+        profile: { id: string; name: string; skins?: Array<{ state: string; url: string }> }
     }>,
     defaultAccount: null as string | null,
     failDefault: false,
+    /** Skin textures rendered as heads, in order, and those whose skin fails to load. */
+    headRenders: [] as string[],
+    brokenSkins: new Set<string>(),
     failSync: false,
     syncPending: null as Promise<void> | null,
     syncImported: 2,
@@ -43,6 +55,8 @@ const backend = vi.hoisted(() => ({
         distribution: string | null
     }>,
     javaDefaults: [] as Array<{ parsed_version: number; path: string }>,
+    externalJava: false,
+    acceptExternalJava: false,
     invoke: vi.fn(),
 }))
 
@@ -54,9 +68,19 @@ vi.mock('@tauri-apps/api/event', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     listen: async () => () => {},
 }))
+// A head per skin texture, in a colour of its own, so the art shows which account it drew.
+vi.mock('@/helpers/rendering/batch-skin-renderer.ts', () => ({
+    getPlayerHeadUrl: async ({ texture_key }: { texture_key: string }) => {
+        backend.headRenders.push(texture_key)
+        if (backend.brokenSkins.has(texture_key)) throw new Error('skin unavailable')
+        return headUrl(texture_key)
+    },
+    retainPlayerHeadTextures: () => () => {},
+}))
 vi.mock('@tauri-apps/plugin-dialog', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     open: async () => null,
+    confirm: async () => backend.acceptExternalJava,
 }))
 
 backend.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
@@ -90,6 +114,17 @@ backend.invoke.mockImplementation(async (command: string, args?: Record<string, 
             return backend.javas
         case 'plugin:jre|get_java_default_versions':
             return backend.javaDefaults
+        case 'plugin:jre|get_java_selection_info': {
+            const runtime = backend.javas.find((entry) => entry.path === args?.path)
+            if (!runtime) throw new Error('not a Java runtime')
+            return {
+                runtime,
+                storage: { kind: backend.externalJava ? 'external' : 'local', volume_id: 'volume' },
+                requires_confirmation: backend.externalJava,
+            }
+        }
+        case 'plugin:jre|approve_java_selection':
+            return backend.javas.find((entry) => entry.path === args?.path)
         case 'plugin:jre|set_java_default_version': {
             const java = backend.javas.find((entry) => entry.path === args?.path)
             if (!java) throw new Error('not a Java runtime')
@@ -122,12 +157,16 @@ afterEach(() => {
     backend.accounts = []
     backend.defaultAccount = null
     backend.failDefault = false
+    backend.headRenders = []
+    backend.brokenSkins.clear()
     backend.failSync = false
     backend.syncPending = null
     backend.syncImported = 2
     backend.failImport = false
     backend.javas = []
     backend.javaDefaults = []
+    backend.externalJava = false
+    backend.acceptExternalJava = false
 })
 
 function i18n(locale: 'en-US' | 'zh-CN') {
@@ -387,6 +426,366 @@ it('keeps Skip for existing accounts and failed edits, then keeps Next after a s
     expect(button('Next')!.disabled).toBe(false)
 })
 
+describe('account art', () => {
+    // The cards move on springs driven by `cardClock`; these tests step that clock by hand.
+    let clock = 0
+    const realNow = cardClock.now
+    beforeEach(() => {
+        clock = 0
+        cardClock.now = () => clock
+    })
+    afterEach(() => {
+        cardClock.now = realNow
+    })
+    const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    /** Moves the cards' clock on by `ms`, `step` at a time, letting a frame draw each step. */
+    async function advance(ms: number, step = 16) {
+        for (let elapsed = 0; elapsed < ms; elapsed += step) {
+            clock += Math.min(step, ms - elapsed)
+            await nextFrame()
+        }
+    }
+    const settleCards = () => advance(1600, 100)
+
+    const card = (slot: 'front' | 'left' | 'right' | 'hidden') =>
+        document.querySelector<HTMLElement>(
+            `[data-testid="oobe-account-card"][data-slot="${slot}"]`,
+        )
+    const cardHead = (slot: 'front' | 'left' | 'right' | 'hidden') =>
+        card(slot)?.querySelector('[data-testid="oobe-account-head"]')?.getAttribute('href') ??
+        undefined
+    const cardOf = (name: string) =>
+        document.querySelector<HTMLElement>(
+            `[data-testid="oobe-account-card"][data-account="${name}"]`,
+        )!
+    const head = (name: string) => headUrl(`${name}:https://skins.test/${name}`)
+    const accountChoice = (name: string) =>
+        Array.from(document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="radio"]')).find(
+            (entry) => entry.textContent?.includes(name),
+        )
+    /** Where a card is drawn: offset from the front card's place, turn, size and stacking. */
+    function sample(element: HTMLElement) {
+        const style = getComputedStyle(element)
+        const [a = 1, b = 0, , , x = 0, y = 0] = (
+            style.transform.match(/-?[\d.]+(e-?\d+)?/g) ?? []
+        ).map(Number)
+        return {
+            x,
+            y,
+            r: (Math.atan2(b, a) * 180) / Math.PI,
+            s: Math.hypot(a, b),
+            z: Number(style.zIndex),
+            o: Number(style.opacity),
+        }
+    }
+    type Sample = ReturnType<typeof sample>
+    const distance = (a: Sample, b: Sample) => Math.hypot(a.x - b.x, a.y - b.y)
+    /**
+     * The frame where the first card comes in front of the second. It starts behind and
+     * trades places once, then stays in front: no flicker back and forth.
+     */
+    function crossingOf(samples: { first: Sample; second: Sample }[]) {
+        const ahead = samples.map(({ first, second }) => first.z > second.z)
+        expect(ahead[0]).toBe(false)
+        expect(ahead.filter((value, i) => i > 0 && value !== ahead[i - 1])).toHaveLength(1)
+        return ahead.indexOf(true)
+    }
+    /** Follows two cards for `frames` frames of 16 ms. */
+    async function follow(first: string, second: string, frames: number) {
+        const samples: { first: Sample; second: Sample }[] = []
+        for (let i = 0; i < frames; i++) {
+            await advance(16)
+            samples.push({ first: sample(cardOf(first)), second: sample(cardOf(second)) })
+        }
+        return samples
+    }
+    /** What a sign-in leaves behind: the stored accounts, one selected, and the announcement. */
+    function signIn(names: string[], selected: string) {
+        backend.accounts = names.map((name) => ({
+            account_id: name,
+            account_type: 'microsoft',
+            profile: {
+                id: name,
+                name,
+                skins: [{ state: 'ACTIVE', url: `https://skins.test/${name}` }],
+            },
+        }))
+        backend.defaultAccount = selected
+        notifyAccountSelectionChanged()
+    }
+    async function renderAccounts(names: string[], selected: string) {
+        signIn(names, selected)
+        await render('en-US', accountOnly)
+        await waitFor(
+            () =>
+                names.every((name) => !!accountChoice(name)) &&
+                cardHead('front') === head(selected),
+            { label: 'accounts listed' },
+        )
+        await settleCards()
+    }
+    const accountOnly = OOBE_STEPS.filter((step) => ['account_v1', 'welcome_v1'].includes(step.id))
+
+    it('shows Steve in front until an account signs in, and other accounts behind only from two', async () => {
+        await render('en-US', accountOnly)
+        await waitFor(() => !!cardHead('front'), { label: 'account art' })
+        expect(cardHead('front')).toBe(steveHead)
+        expect(cardHead('left')).toBeUndefined()
+        expect(cardHead('right')).toBeUndefined()
+        await shot('oobe-account-art-steve')
+
+        signIn(['Alex'], 'Alex')
+        await waitFor(() => cardHead('front') === head('Alex'), { label: 'signed-in head' })
+        expect(cardHead('left')).toBeUndefined()
+
+        signIn(['Alex', 'Notch', 'Zuri'], 'Alex')
+        await waitFor(() => cardHead('right') === head('Zuri'), { label: 'back cards' })
+        expect(cardHead('front')).toBe(head('Alex'))
+        expect(cardHead('left')).toBe(head('Notch'))
+        await settleCards()
+        await shot('oobe-account-art-three')
+        applyTheme('light')
+        await shot('oobe-account-art-three-light')
+        applyTheme('dark')
+    })
+
+    it('swings a picked back card up and around to the front without a pause', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
+
+        const samples = await follow('Zuri', 'Alex', 50)
+        // Up and out from behind the front card first.
+        expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-40)
+        // The two trade stacking order once, and only when Zuri's card is clear above Alex's.
+        const crossing = crossingOf(samples)
+        expect(crossing).toBeGreaterThan(3)
+        expect(samples[crossing]!.first.y).toBeLessThan(samples[crossing]!.second.y - 40)
+        // No pause on the way: while it is still far from the front it keeps moving.
+        const front = { x: 0, y: 0, r: 0, s: 1, z: 0, o: 1 }
+        for (let i = 1; i < samples.length; i++) {
+            if (distance(samples[i]!.first, front) < 15) break
+            expect(distance(samples[i]!.first, samples[i - 1]!.first)).toBeGreaterThan(1)
+        }
+        await settleCards()
+        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
+            head('Zuri'),
+            head('Notch'),
+            head('Alex'),
+        ])
+        await shot('oobe-account-art-swapped')
+    })
+
+    it('turns both cards back from where they are, at the speed they have, when a pick is taken back', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
+        const going = await follow('Zuri', 'Alex', 8)
+        await shot('oobe-account-art-reverse-before')
+
+        // Back to Alex while Zuri's card is still swinging out behind it.
+        accountChoice('Alex')!.click()
+        await waitFor(() => cardOf('Alex').dataset.slot === 'front', { label: 'Alex picked back' })
+        const back = await follow('Zuri', 'Alex', 40)
+        // No jump and no stop: the first step back is about as long as the last step out.
+        const lastOut = going[going.length - 1]!
+        const stepOut = distance(lastOut.first, going[going.length - 2]!.first)
+        const stepBack = distance(back[0]!.first, lastOut.first)
+        expect(stepBack).toBeGreaterThan(stepOut * 0.35)
+        expect(stepBack).toBeLessThan(stepOut * 1.6)
+        // Zuri's card never got in front, so it stays behind Alex's all the way back.
+        expect(back.every(({ first, second }) => first.z < second.z)).toBe(true)
+        await shot('oobe-account-art-reverse-after')
+        await settleCards()
+        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
+            head('Alex'),
+            head('Notch'),
+            head('Zuri'),
+        ])
+    })
+
+    it('bends a card still in flight on to its new place when another account is picked', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
+        const going = await follow('Zuri', 'Alex', 8)
+
+        // Notch before Zuri lands: Zuri turns off toward the left, Alex keeps sinking right.
+        accountChoice('Notch')!.click()
+        await waitFor(() => cardOf('Notch').dataset.slot === 'front', { label: 'Notch picked' })
+        expect(cardOf('Zuri').dataset.slot).toBe('left')
+        expect(cardOf('Alex').dataset.slot).toBe('right')
+        const after = await follow('Zuri', 'Alex', 30)
+        const lastOut = going[going.length - 1]!
+        for (const which of ['first', 'second'] as const) {
+            const stepOut = distance(lastOut[which], going[going.length - 2]![which])
+            const stepOn = distance(after[0]![which], lastOut[which])
+            expect(stepOn).toBeGreaterThan(stepOut * 0.35)
+            expect(stepOn).toBeLessThan(stepOut * 1.6)
+        }
+        await shot('oobe-account-art-chain')
+        await settleCards()
+        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
+            head('Notch'),
+            head('Zuri'),
+            head('Alex'),
+        ])
+        await shot('oobe-account-art-chained')
+    })
+
+    it('hides a card from four accounts and draws accounts without a card out of it', async () => {
+        // Sorted, these are Alex, Bo, Ida, Kai, Notch, Zuri: Kai is on the hidden card.
+        await renderAccounts(['Alex', 'Bo', 'Ida', 'Kai', 'Notch', 'Zuri'], 'Alex')
+        expect([cardHead('left'), cardHead('right'), cardHead('hidden')]).toEqual([
+            head('Bo'),
+            head('Ida'),
+            head('Kai'),
+        ])
+        // Only the hidden card's top edge shows; its head lies within the front card.
+        const covered = card('front')!.getBoundingClientRect()
+        const hiddenHead = card('hidden')!
+            .querySelector('[data-testid="oobe-account-head"]')!
+            .getBoundingClientRect()
+        expect(hiddenHead.top).toBeGreaterThan(covered.top)
+        expect(hiddenHead.left).toBeGreaterThan(covered.left)
+        expect(hiddenHead.right).toBeLessThan(covered.right)
+        expect(card('hidden')!.getBoundingClientRect().top).toBeLessThan(covered.top)
+        await shot('oobe-account-art-deck')
+
+        // Zuri has no card: it takes over the hidden card out of sight and is drawn out of it.
+        accountChoice('Zuri')!.click()
+        await waitFor(
+            () =>
+                document.querySelector<HTMLElement>('[data-account="Zuri"]')?.dataset.slot ===
+                'front',
+            { label: 'Zuri drawn' },
+        )
+        expect(cardHead('hidden')).toBe(head('Alex'))
+        const start = sample(cardOf('Zuri'))
+        expect(start.x).toBeCloseTo(0, 0)
+        expect(start.y).toBeCloseTo(-46, 0)
+        expect(start.s).toBeCloseTo(0.8, 2)
+        expect(start.z).toBeLessThan(sample(cardOf('Alex')).z)
+
+        const samples = await follow('Zuri', 'Alex', 50)
+        expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-60)
+        expect(crossingOf(samples)).toBeGreaterThan(3)
+        await settleCards()
+        expect([
+            cardHead('front'),
+            cardHead('left'),
+            cardHead('right'),
+            cardHead('hidden'),
+        ]).toEqual([head('Zuri'), head('Bo'), head('Ida'), head('Alex')])
+        await shot('oobe-account-art-drawn')
+    })
+
+    it('keeps the head of a card on its way into the deck when the next pick comes out of it', async () => {
+        await renderAccounts(['Alex', 'Bo', 'Ida', 'Kai', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardOf('Zuri')?.dataset.slot === 'front', { label: 'Zuri drawn' })
+        const going = await follow('Alex', 'Zuri', 8)
+
+        // Notch has no card either, but Alex's is still out beside the stack, on its way in.
+        accountChoice('Notch')!.click()
+        await waitFor(() => cardOf('Notch')?.dataset.slot === 'front', { label: 'Notch drawn' })
+        // Alex keeps its card and goes on into the deck; Notch comes out on one of its own.
+        expect(cardOf('Alex').dataset.slot).toBe('leaving')
+        expect(cardHead('hidden')).toBe(head('Zuri'))
+        const start = sample(cardOf('Notch'))
+        expect(start.y).toBeCloseTo(-46, 0)
+        expect(start.o).toBeLessThan(0.05)
+
+        const after = await follow('Alex', 'Notch', 20)
+        const lastIn = going[going.length - 1]!.first
+        const stepIn = distance(lastIn, going[going.length - 2]!.first)
+        const stepOn = distance(after[0]!.first, lastIn)
+        expect(stepOn).toBeGreaterThan(stepIn * 0.35)
+        expect(stepOn).toBeLessThan(stepIn * 1.6)
+        // Notch fades in as it comes out; Alex fades as it goes in.
+        expect(after[after.length - 1]!.second.o).toBeGreaterThan(0.6)
+        expect(after[after.length - 1]!.first.o).toBeLessThan(lastIn.o)
+        await settleCards()
+        expect(document.querySelector('[data-account="Alex"]')).toBeNull()
+        expect([
+            cardHead('front'),
+            cardHead('left'),
+            cardHead('right'),
+            cardHead('hidden'),
+        ]).toEqual([head('Notch'), head('Bo'), head('Ida'), head('Zuri')])
+    })
+
+    it('keeps the front card in place while a new sign-in is saved, then brings it forward', async () => {
+        await renderAccounts(['Alex', 'Notch'], 'Alex')
+        // As after a Microsoft sign-in: the account is stored, but nothing announced it yet.
+        backend.accounts.push({
+            account_id: 'Zuri',
+            account_type: 'microsoft',
+            profile: { id: 'Zuri', name: 'Zuri' },
+        })
+        showPicked('Zuri')
+        await advance(160)
+        expect(cardOf('Alex').dataset.slot).toBe('front')
+        const still = sample(cardOf('Alex'))
+        expect(Math.hypot(still.x, still.y)).toBeLessThan(0.5)
+        expect(cardOf('Notch').dataset.slot).toBe('left')
+        expect(cardHead('front')).toBe(head('Alex'))
+
+        // Saved: the lists load it, and it comes in at the front.
+        backend.defaultAccount = 'Zuri'
+        pickSaved('Zuri')
+        notifyAccountSelectionChanged()
+        await waitFor(() => cardOf('Zuri')?.dataset.slot === 'front', { label: 'Zuri listed' })
+        await settleCards()
+        expect(cardOf('Alex').dataset.slot).toBe('right')
+    })
+
+    it('tries a head that failed to render again, and renders it afresh when its account returns', async () => {
+        const alex = `Alex:https://skins.test/Alex`
+        backend.brokenSkins.add(alex)
+        signIn(['Alex'], 'Alex')
+        await render('en-US', accountOnly)
+        await waitFor(() => backend.headRenders.includes(alex) && !!cardOf('Alex'), {
+            label: 'head tried',
+        })
+        await flushPromises()
+        // The skin did not load: Steve meanwhile, and the head is tried again later.
+        expect(cardHead('front')).toBe(steveHead)
+        backend.brokenSkins.delete(alex)
+        await waitFor(() => cardHead('front') === head('Alex'), {
+            timeoutMs: 4000,
+            label: 'head retried',
+        })
+
+        // Signed out, then back in: its head is rendered afresh, not taken from before.
+        signIn(['Notch'], 'Notch')
+        await waitFor(() => !document.querySelector('[data-account="Alex"]'), {
+            label: 'Alex gone',
+        })
+        const rendered = backend.headRenders.filter((texture) => texture === alex).length
+        signIn(['Alex', 'Notch'], 'Alex')
+        await waitFor(() => cardHead('front') === head('Alex'), { label: 'Alex back' })
+        expect(backend.headRenders.filter((texture) => texture === alex).length).toBeGreaterThan(
+            rendered,
+        )
+    })
+
+    it('follows the launcher again once a pick is saved', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => backend.defaultAccount === 'Zuri', { label: 'Zuri saved' })
+        await flushPromises()
+        await settleCards()
+
+        // Changed elsewhere afterwards, as from the accounts menu.
+        backend.defaultAccount = 'Notch'
+        notifyAccountSelectionChanged()
+        await waitFor(() => cardOf('Notch').dataset.slot === 'front', { label: 'Notch shown' })
+        expect(accountChoice('Notch')!.getAttribute('aria-checked')).toBe('true')
+        expect(accountChoice('Zuri')!.getAttribute('aria-checked')).toBe('false')
+    })
+})
+
 it('keeps Skip after a folder sync fails and changes to Next only when retry succeeds', async () => {
     await render('en-US', migrationOnly)
     await waitFor(() => !!button('Use this folder'), { label: 'found folder' })
@@ -637,6 +1036,33 @@ it('groups the Java found on this device and changes Skip to Next once one is ch
     expect(events.complete).toEqual(['java_v1'])
     applyTheme('light')
     await shot('oobe-java-found-light')
+})
+
+it('requires approval before persisting an external Java choice during setup', async () => {
+    backend.externalJava = true
+    backend.javas = [javaRuntime(17, '17.0.12', 'E:/portable/bin/javaw.exe')]
+    const { events } = await render('en-US', javaOnly)
+    const choice = () =>
+        Array.from(document.querySelectorAll<HTMLElement>('.oobe-root [role="radio"]')).find(
+            (entry) => entry.textContent?.includes(backend.javas[0]!.path),
+        )
+    await waitFor(() => !!choice(), { label: 'external Java choice' })
+    choice()!.click()
+    await flushPromises()
+    expect(backend.javaDefaults).toEqual([])
+    expect(events.complete).toEqual([])
+    expect(backend.invoke).not.toHaveBeenCalledWith(
+        'plugin:jre|approve_java_selection',
+        expect.anything(),
+    )
+    backend.acceptExternalJava = true
+    choice()!.click()
+    await waitFor(() => backend.javaDefaults.length === 1, { label: 'approved Java default' })
+    expect(backend.invoke).toHaveBeenCalledWith('plugin:jre|approve_java_selection', {
+        path: 'E:/portable/bin/javaw.exe',
+        volumeId: 'volume',
+    })
+    expect(events.complete).toEqual(['java_v1'])
 })
 
 it('keeps Skip when a typed Java path cannot be started', async () => {

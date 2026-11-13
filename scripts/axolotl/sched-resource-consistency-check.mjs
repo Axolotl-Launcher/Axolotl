@@ -9,7 +9,6 @@
 
 import {
     checkAnnotations,
-    defaultOutDir,
     isMain,
     loadPolicy,
     outputPaths,
@@ -64,7 +63,7 @@ export function checkConsistency(files, policy, crates, annotations) {
 
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
-    const paths = outputPaths(args.dir ?? defaultOutDir)
+    const paths = outputPaths(args.dir)
     const files = Object.fromEntries(Object.entries(paths).map(([name, file]) => [name, readJson(file)]))
     const crates = workspaceCrates()
     const failures = checkConsistency(files, loadPolicy(), crates, scanOrderAnnotations(sourcesOf(crates)))

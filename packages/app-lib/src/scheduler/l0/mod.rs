@@ -17,28 +17,35 @@ use executor::L0Executor;
 use quiesce::QuiesceToken;
 
 static EXECUTOR: OnceLock<Option<L0Executor>> = OnceLock::new();
-/// Set before the quiesce request so an executor initialized concurrently
-/// still starts quiesced instead of racing past the exit request.
+/// Set before the quiesce request. Paired with [`EXECUTOR_PUBLISHED`] in the
+/// Dekker handshake below, so either the exit request or the initializer
+/// observes the other and no executor starts unquiesced.
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
+/// Set after `EXECUTOR` is published. A seq_cst store followed by a seq_cst
+/// load of [`EXIT_REQUESTED`] is the other half of the handshake.
+static EXECUTOR_PUBLISHED: AtomicBool = AtomicBool::new(false);
 
 /// The launcher's L0 executor, started once on first use. `None` if its
 /// driver thread could not start; callers then run the task on the current
 /// runtime.
 fn executor() -> Option<&'static L0Executor> {
-    EXECUTOR
-        .get_or_init(|| {
-            let started = L0Executor::start(Arc::new(ControlTable::new()))
-                .inspect_err(|error| {
-                    tracing::error!(%error, "Could not start the L0 executor");
-                });
-            if EXIT_REQUESTED.load(Ordering::Acquire)
-                && let Ok(executor) = &started
-            {
-                executor.control().request_quiesce();
-            }
-            started.ok()
-        })
-        .as_ref()
+    let installed = EXECUTOR.get_or_init(|| {
+        let started = L0Executor::start(Arc::new(ControlTable::new()))
+            .inspect_err(|error| {
+                tracing::error!(%error, "Could not start the L0 executor");
+            });
+        started.ok()
+    });
+    // Publish before reading the exit flag. `request_exit` stores the flag
+    // before reading this, so with seq_cst at least one side sees the other;
+    // that side quiesces the executor.
+    EXECUTOR_PUBLISHED.store(true, Ordering::SeqCst);
+    if EXIT_REQUESTED.load(Ordering::SeqCst)
+        && let Some(executor) = installed
+    {
+        executor.control().request_quiesce();
+    }
+    installed.as_ref()
 }
 
 /// Runs an L0 task on the L0 executor, or on the current runtime when the
@@ -123,8 +130,11 @@ fn table_of(
 /// Exit: asks L0 to quiesce; its driver leaves at the next safety point.
 /// The executor stays in place (it is static), so this never joins it.
 pub fn request_exit() {
-    EXIT_REQUESTED.store(true, Ordering::Release);
-    if let Some(control) = control() {
+    // Store before reading the publication flag; see `executor`.
+    EXIT_REQUESTED.store(true, Ordering::SeqCst);
+    if EXECUTOR_PUBLISHED.load(Ordering::SeqCst)
+        && let Some(control) = control()
+    {
         control.request_quiesce();
     }
 }

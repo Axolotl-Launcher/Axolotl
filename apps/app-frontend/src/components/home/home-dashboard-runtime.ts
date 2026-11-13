@@ -31,6 +31,9 @@ export type HomeDashboardRuntime = {
     pinnedLocalServers: Ref<ServerInfoData[]>
     gameVersions: Ref<GameVersion[]>
     instanceRevision: Ref<number>
+    /** False until the first answer arrives, so widgets show a skeleton, not "empty". */
+    favoritesLoaded: Ref<boolean>
+    recentWorldsLoaded: Ref<boolean>
     refreshFavorites: () => Promise<void>
     refreshRecentWorlds: () => Promise<void>
     refreshPinnedLocalServers: () => Promise<void>
@@ -55,6 +58,8 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     const pinnedLocalServers = ref<ServerInfoData[]>([])
     const gameVersions = ref<GameVersion[]>([])
     const instanceRevision = ref(0)
+    const favoritesLoaded = ref(false)
+    const recentWorldsLoaded = ref(false)
     const worldsByInstance = reactive<Record<string, World[]>>({})
     const serverData = reactive<Record<string, ServerData>>({})
     const protocolVersions = reactive<Record<string, ProtocolVersion | null>>({})
@@ -131,6 +136,8 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
                 warmServerData(favoriteWorlds.value)
             } catch (error) {
                 handleError(error)
+            } finally {
+                if (!disposed) favoritesLoaded.value = true
             }
         },
         () => disposed,
@@ -145,6 +152,8 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
                 warmServerData(recentWorlds.value)
             } catch (error) {
                 handleError(error)
+            } finally {
+                if (!disposed) recentWorldsLoaded.value = true
             }
         },
         () => disposed,
@@ -195,8 +204,11 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
     void refreshFavorites()
     void refreshRecentWorlds()
 
-    void process_listener((event: { event: string }) => {
-        if (event.event === 'launched' || event.event === 'finished') void refreshRunningInstances()
+    void process_listener(async (event: { event: string }) => {
+        if (disposed || (event.event !== 'launched' && event.event !== 'finished')) return
+        loadedWorlds.clear()
+        instanceRevision.value += 1
+        await Promise.all([refreshRunningInstances(), refreshFavorites(), refreshRecentWorlds()])
     })
         .then((unlisten) => {
             if (disposed) unlisten()
@@ -244,6 +256,8 @@ export function provideHomeDashboardRuntime(handleError: ErrorHandler): HomeDash
         pinnedLocalServers,
         gameVersions,
         instanceRevision,
+        favoritesLoaded,
+        recentWorldsLoaded,
         refreshFavorites,
         refreshRecentWorlds,
         refreshPinnedLocalServers,
@@ -260,4 +274,9 @@ export function useHomeDashboardRuntime() {
     const runtime = inject(HOME_DASHBOARD_RUNTIME_KEY)
     if (!runtime) throw new Error('Home dashboard runtime was not provided')
     return runtime
+}
+
+/** The dashboard runtime when Home shows widgets; null on the minimal Home. */
+export function useOptionalHomeDashboardRuntime() {
+    return inject(HOME_DASHBOARD_RUNTIME_KEY, null)
 }

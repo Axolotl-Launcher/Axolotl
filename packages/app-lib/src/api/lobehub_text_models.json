@@ -1,5 +1,5 @@
 {
-  "source": "LobeHub 47bd681c0b3f91edc5e1bc6ab5d634a4b1311d31 model-bank chat models",
+  "source": "LobeHub 69f8dcdfae1c59a5ffb703b3a0187223987bcd56 model-bank chat models",
   "providers": {
     "ai21": [
       {
@@ -594,6 +594,11 @@
       }
     ],
     "anthropic": [
+      {
+        "id": "claude-fable-5-2",
+        "name": "Claude Fable 5.2",
+        "enabled": true
+      },
       {
         "id": "claude-haiku-5-5",
         "name": "Claude Haiku 5.5",
@@ -1962,6 +1967,11 @@
         "id": "gemini-flash-lite-latest",
         "name": "Gemini Flash-Lite Latest",
         "enabled": false
+      },
+      {
+        "id": "gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "enabled": true
       },
       {
         "id": "gemini-4-argon",
@@ -4958,6 +4968,11 @@
         "enabled": false
       },
       {
+        "id": "google/gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "enabled": true
+      },
+      {
         "id": "google/gemini-3.1-flash-image-preview",
         "name": "Nano Banana 2",
         "enabled": false
@@ -7212,6 +7227,11 @@
     ],
     "vertexai": [
       {
+        "id": "gemini-4-carbon",
+        "name": "Gemini 4 Carbon",
+        "enabled": true
+      },
+      {
         "id": "gemini-3.8-flash",
         "name": "Gemini 3.8 Flash",
         "enabled": true
@@ -8566,6 +8586,11 @@
       {
         "id": "claude-sonnet-5-5",
         "name": "Claude Sonnet 5.5",
+        "enabled": true
+      },
+      {
+        "id": "deepseek-ai/DeepSeek-V4.1-Flash",
+        "name": "DeepSeek V4.1 Flash 1017",
         "enabled": true
       },
       {

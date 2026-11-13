@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { SaveIcon, SettingsIcon } from '@modrinth/assets'
 import {
     Button,
     defineMessages,
@@ -10,13 +9,10 @@ import {
 import { save } from '@tauri-apps/plugin-dialog'
 import { writeFile } from '@tauri-apps/plugin-fs'
 import { platform } from '@tauri-apps/plugin-os'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 
 import { createSkinEditorTheme } from '@/components/lab/skin-editor/skin-editor-theme'
-import SkinEditorRecoveryModal from '@/components/lab/skin-editor/SkinEditorRecoveryModal.vue'
-import SkinEditorSettingsModal from '@/components/lab/skin-editor/SkinEditorSettingsModal.vue'
-import SkinEditorUnsavedChangesModal from '@/components/lab/skin-editor/SkinEditorUnsavedChangesModal.vue'
 import {
     createSkinEditorRequestId,
     loadSkinEditorPreferences,
@@ -24,7 +20,7 @@ import {
     parseSkinEditorMessage,
     saveSkinEditorPreferences,
     shouldPromptBeforeLeave,
-    type SkinEditorAutoSaveStatus,
+    type SkinEditorDialogLabels,
     type SkinEditorEditorMessage,
     type SkinEditorParentMessage,
     type SkinEditorPreferences,
@@ -34,13 +30,9 @@ const { locale, formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
 const platformName = ref<string>()
 const preferences = ref<SkinEditorPreferences>(loadSkinEditorPreferences())
-const settingsModal = shallowRef<InstanceType<typeof SkinEditorSettingsModal>>()
-const recoveryModal = shallowRef<InstanceType<typeof SkinEditorRecoveryModal>>()
-const unsavedModal = shallowRef<InstanceType<typeof SkinEditorUnsavedChangesModal>>()
 const dirty = ref(false)
-const autoSaveStatus = ref<SkinEditorAutoSaveStatus>('idle')
-const lastSavedAt = ref<number>()
 const saveInProgress = ref(false)
+const recoveryUpdatedAt = ref<number>()
 
 const messages = defineMessages({
     title: { id: 'app.lab.skin-editor.title', defaultMessage: 'Skin editor' },
@@ -59,36 +51,62 @@ const messages = defineMessages({
         id: 'app.lab.skin-editor.settings.tooltip',
         defaultMessage: 'Skin editor settings',
     },
-    save: { id: 'app.lab.skin-editor.save', defaultMessage: 'Save PNG' },
-    autoSaveOff: {
-        id: 'app.lab.skin-editor.auto-save.off',
-        defaultMessage: 'Auto-save off',
-    },
-    autoSaveSaving: {
-        id: 'app.lab.skin-editor.auto-save.saving',
-        defaultMessage: 'Saving draft…',
-    },
-    autoSaveSaved: {
-        id: 'app.lab.skin-editor.auto-save.saved',
-        defaultMessage: 'Draft saved {time}',
-    },
-    autoSaveError: {
-        id: 'app.lab.skin-editor.auto-save.error',
-        defaultMessage: 'Auto-save failed',
-    },
-    unsaved: {
-        id: 'app.lab.skin-editor.auto-save.unsaved',
-        defaultMessage: 'Unsaved changes',
-    },
-    upToDate: {
-        id: 'app.lab.skin-editor.auto-save.up-to-date',
-        defaultMessage: 'Up to date',
-    },
     discardDraftFailed: {
         id: 'app.lab.skin-editor.discard-draft-failed',
         defaultMessage:
             'The recovery draft could not be discarded. Stay on this page and try again.',
     },
+    settingsTitle: { id: 'app.lab.skin-editor.settings.title', defaultMessage: 'Editor settings' },
+    autoSave: {
+        id: 'app.lab.skin-editor.settings.auto-save',
+        defaultMessage: 'Automatically save a recovery draft',
+    },
+    autoSaveDescription: {
+        id: 'app.lab.skin-editor.settings.auto-save-description',
+        defaultMessage:
+            'Recovery drafts stay on this device and are separate from exported PNG files.',
+    },
+    interval: {
+        id: 'app.lab.skin-editor.settings.interval',
+        defaultMessage: 'Save interval (seconds)',
+    },
+    intervalDescription: {
+        id: 'app.lab.skin-editor.settings.interval-description',
+        defaultMessage: 'Use a value between 5 and 600 seconds.',
+    },
+    warnBeforeLeave: {
+        id: 'app.lab.skin-editor.settings.warn-before-leave',
+        defaultMessage: 'Warn before leaving with unsaved changes',
+    },
+    warnBeforeLeaveDescription: {
+        id: 'app.lab.skin-editor.settings.warn-before-leave-description',
+        defaultMessage:
+            'When auto-save is off, this warning is always enabled to protect your work.',
+    },
+    recoveryTitle: {
+        id: 'app.lab.skin-editor.recovery.title',
+        defaultMessage: 'Continue last skin?',
+    },
+    recoveryBody: {
+        id: 'app.lab.skin-editor.recovery.body',
+        defaultMessage: 'A recovery draft was saved on {date}.',
+    },
+    recoveryStartNew: {
+        id: 'app.lab.skin-editor.recovery.start-new',
+        defaultMessage: 'Start new',
+    },
+    recoveryContinue: {
+        id: 'app.lab.skin-editor.recovery.continue',
+        defaultMessage: 'Continue',
+    },
+    unsavedTitle: { id: 'app.lab.skin-editor.unsaved.title', defaultMessage: 'Unsaved skin' },
+    unsavedBody: {
+        id: 'app.lab.skin-editor.unsaved.body',
+        defaultMessage: 'Save your skin before leaving, or discard the current changes.',
+    },
+    unsavedStay: { id: 'app.lab.skin-editor.unsaved.stay', defaultMessage: 'Stay' },
+    unsavedDiscard: { id: 'app.lab.skin-editor.unsaved.discard', defaultMessage: 'Discard' },
+    unsavedSave: { id: 'app.lab.skin-editor.unsaved.save', defaultMessage: 'Save PNG' },
 })
 
 const blockbenchLocale = computed(() => {
@@ -113,30 +131,6 @@ const editorUrl = computed(() => {
             ? 'http://axolotl-skin.localhost'
             : 'axolotl-skin://localhost'
     return `${baseUrl}/index.html?embed=skin&lang=${encodeURIComponent(blockbenchLocale.value)}`
-})
-
-const autoSaveLabel = computed(() => {
-    if (!preferences.value.autoSaveEnabled) return formatMessage(messages.autoSaveOff)
-    if (autoSaveStatus.value === 'saving') return formatMessage(messages.autoSaveSaving)
-    if (autoSaveStatus.value === 'error') return formatMessage(messages.autoSaveError)
-    if (autoSaveStatus.value === 'saved' && lastSavedAt.value) {
-        return formatMessage(messages.autoSaveSaved, {
-            time: new Intl.DateTimeFormat(locale.value, {
-                hour: '2-digit',
-                minute: '2-digit',
-            }).format(new Date(lastSavedAt.value)),
-        })
-    }
-    if (dirty.value) return formatMessage(messages.unsaved)
-    if (lastSavedAt.value) {
-        return formatMessage(messages.autoSaveSaved, {
-            time: new Intl.DateTimeFormat(locale.value, {
-                hour: '2-digit',
-                minute: '2-digit',
-            }).format(new Date(lastSavedAt.value)),
-        })
-    }
-    return formatMessage(messages.upToDate)
 })
 
 function clearLoadTimeout() {
@@ -165,8 +159,6 @@ function markEditorError() {
 async function reloadEditor() {
     beginEditorLoad()
     dirty.value = false
-    autoSaveStatus.value = 'idle'
-    lastSavedAt.value = undefined
     if (!editorUrl.value) {
         try {
             platformName.value = await platform()
@@ -192,7 +184,46 @@ function sendConfigToEditor() {
         type: 'axolotl-skin-config',
         autoSaveEnabled: preferences.value.autoSaveEnabled,
         autoSaveIntervalSeconds: preferences.value.autoSaveIntervalSeconds,
+        warnBeforeLeave: preferences.value.warnBeforeLeave,
     })
+}
+
+function formatRecoveryDate(updatedAt: number) {
+    return new Intl.DateTimeFormat(locale.value, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(updatedAt))
+}
+
+function buildDialogLabels(): SkinEditorDialogLabels {
+    return {
+        settingsLabel: formatMessage(messages.settings),
+        settingsTitle: formatMessage(messages.settingsTitle),
+        autoSave: formatMessage(messages.autoSave),
+        autoSaveDescription: formatMessage(messages.autoSaveDescription),
+        interval: formatMessage(messages.interval),
+        intervalDescription: formatMessage(messages.intervalDescription),
+        warnBeforeLeave: formatMessage(messages.warnBeforeLeave),
+        warnBeforeLeaveDescription: formatMessage(messages.warnBeforeLeaveDescription),
+        recoveryTitle: formatMessage(messages.recoveryTitle),
+        recoveryBody: formatMessage(messages.recoveryBody, {
+            date:
+                recoveryUpdatedAt.value !== undefined
+                    ? formatRecoveryDate(recoveryUpdatedAt.value)
+                    : '',
+        }),
+        recoveryStartNew: formatMessage(messages.recoveryStartNew),
+        recoveryContinue: formatMessage(messages.recoveryContinue),
+        unsavedTitle: formatMessage(messages.unsavedTitle),
+        unsavedBody: formatMessage(messages.unsavedBody),
+        unsavedStay: formatMessage(messages.unsavedStay),
+        unsavedDiscard: formatMessage(messages.unsavedDiscard),
+        unsavedSave: formatMessage(messages.unsavedSave),
+    }
+}
+
+function sendLabelsToEditor() {
+    postToEditor({ type: 'axolotl-skin-labels', ...buildDialogLabels() })
 }
 
 function handleFrameLoad() {
@@ -285,6 +316,26 @@ async function handleExportRequest(
     }
 }
 
+const UNSAVED_PROMPT_TIMEOUT_MS = 5 * 60 * 1000
+const unsavedPromptResolvers = new Map<string, (choice: 'stay' | 'discard' | 'save') => void>()
+
+function requestUnsavedChoice(): Promise<'stay' | 'discard' | 'save'> {
+    if (editorState.value !== 'ready') return Promise.resolve('stay')
+    const requestId = createSkinEditorRequestId()
+    return new Promise((resolve) => {
+        const finish = (choice: 'stay' | 'discard' | 'save') => {
+            unsavedPromptResolvers.delete(requestId)
+            resolve(choice)
+        }
+        const timeout = window.setTimeout(() => finish('stay'), UNSAVED_PROMPT_TIMEOUT_MS)
+        unsavedPromptResolvers.set(requestId, (choice) => {
+            window.clearTimeout(timeout)
+            finish(choice)
+        })
+        postToEditor({ type: 'axolotl-skin-prompt-unsaved', requestId })
+    })
+}
+
 async function confirmUnsavedChanges(): Promise<boolean> {
     if (activeSkinActionPromise) return await activeSkinActionPromise
     try {
@@ -296,8 +347,8 @@ async function confirmUnsavedChanges(): Promise<boolean> {
 }
 
 async function promptForUnsavedChanges(): Promise<boolean> {
-    const result = await unsavedModal.value?.prompt()
-    if (result === 'stay' || !result) return false
+    const result = await requestUnsavedChoice()
+    if (result === 'stay') return false
     if (result === 'discard') {
         const discarded = await sendCommand('discard-draft')
         if (!discarded) handleError(new Error(formatMessage(messages.discardDraftFailed)))
@@ -352,17 +403,16 @@ async function handleEditorMessage(event: MessageEvent<unknown>) {
     }
 
     if (message.type === 'axolotl-skin-theme-ready') {
+        recoveryUpdatedAt.value = message.recovery?.updatedAt
         sendThemeToEditor()
         sendConfigToEditor()
+        sendLabelsToEditor()
         markEditorReady()
-        if (message.recovery) recoveryModal.value?.show(message.recovery)
         return
     }
 
     if (message.type === 'axolotl-skin-state') {
         dirty.value = message.dirty
-        autoSaveStatus.value = message.autoSave
-        lastSavedAt.value = message.lastSavedAt
         return
     }
 
@@ -378,24 +428,26 @@ async function handleEditorMessage(event: MessageEvent<unknown>) {
 
     if (message.type === 'axolotl-skin-new-skin-request') {
         await handleNewSkinRequest()
+        return
     }
-}
 
-function openSettings() {
-    settingsModal.value?.show()
-}
+    if (message.type === 'axolotl-skin-settings-change') {
+        try {
+            preferences.value = saveSkinEditorPreferences({
+                autoSaveEnabled: message.autoSaveEnabled,
+                autoSaveIntervalSeconds: message.autoSaveIntervalSeconds,
+                warnBeforeLeave: message.warnBeforeLeave,
+            })
+        } catch (error) {
+            handleError(error)
+        }
+        sendConfigToEditor()
+        return
+    }
 
-function saveSettings(next: SkinEditorPreferences) {
-    preferences.value = saveSkinEditorPreferences(next)
-    sendConfigToEditor()
-}
-
-async function continueRecovery() {
-    await sendCommand('restore-draft')
-}
-
-async function startNewFromRecovery() {
-    await sendCommand('start-new')
+    if (message.type === 'axolotl-skin-prompt-result') {
+        unsavedPromptResolvers.get(message.requestId)?.(message.choice)
+    }
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -434,6 +486,8 @@ watch(
     { immediate: true },
 )
 
+watch(locale, sendLabelsToEditor)
+
 onMounted(async () => {
     window.addEventListener('message', handleEditorMessage)
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -462,6 +516,8 @@ onBeforeUnmount(() => {
         resolve(false)
     }
     commandResolvers.clear()
+    for (const resolve of [...unsavedPromptResolvers.values()]) resolve('stay')
+    unsavedPromptResolvers.clear()
 })
 </script>
 
@@ -492,43 +548,6 @@ onBeforeUnmount(() => {
                 {{ formatMessage(messages.retry) }}
             </Button>
         </div>
-        <div
-            v-if="editorState === 'ready'"
-            class="flex h-10 shrink-0 items-center justify-end gap-2 border-0 border-b border-solid border-surface-4 bg-surface-2 px-3"
-            data-testid="skin-editor-controls"
-        >
-            <span
-                class="whitespace-nowrap text-xs font-medium text-[var(--color-text-tertiary)]"
-                :role="autoSaveStatus === 'error' ? 'alert' : 'status'"
-                :aria-live="autoSaveStatus === 'error' ? 'assertive' : 'polite'"
-            >
-                {{ autoSaveLabel }}
-            </span>
-            <Button
-                v-tooltip="formatMessage(messages.save)"
-                type="quiet"
-                size="sm"
-                icon-only
-                circular
-                :label="formatMessage(messages.save)"
-                :disabled="saveInProgress"
-                @click="sendCommand('request-export', 'manual')"
-            >
-                <SaveIcon aria-hidden="true" />
-            </Button>
-            <Button
-                v-tooltip="formatMessage(messages.settings)"
-                type="quiet"
-                size="sm"
-                icon-only
-                circular
-                :label="formatMessage(messages.settings)"
-                @click="openSettings"
-            >
-                <SettingsIcon aria-hidden="true" />
-            </Button>
-        </div>
-
         <iframe
             v-if="editorUrl"
             :key="`${frameKey}:${editorUrl}`"
@@ -543,18 +562,6 @@ onBeforeUnmount(() => {
             @load="handleFrameLoad"
             @error="markEditorError"
         />
-
-        <SkinEditorSettingsModal
-            ref="settingsModal"
-            :preferences="preferences"
-            @save="saveSettings"
-        />
-        <SkinEditorRecoveryModal
-            ref="recoveryModal"
-            @continue="continueRecovery"
-            @start-new="startNewFromRecovery"
-        />
-        <SkinEditorUnsavedChangesModal ref="unsavedModal" />
     </main>
 </template>
 

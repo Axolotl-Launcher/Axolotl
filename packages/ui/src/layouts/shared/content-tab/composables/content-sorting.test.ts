@@ -74,3 +74,25 @@ test('sorts added dates in both directions with deterministic missing-date fallb
         ['missing', 'older', 'newer'],
     )
 })
+
+test('keeps locale-specific ordering and the input collection intact for large schematic lists', () => {
+    const items = Array.from({ length: 5000 }, (_, index) =>
+        item(String(index), `建筑-${(index * 7919) % 5000}.litematic`),
+    )
+    const original = [...items]
+    assert.deepEqual(
+        sortContentItems(items, 'file-name-asc', 'zh-CN').map((entry) => entry.file_name),
+        Array.from({ length: 5000 }, (_, index) => `建筑-${index}.litematic`),
+    )
+    assert.deepEqual(items, original)
+
+    const localized = [item('a', 'ä.litematic'), item('z', 'z.litematic')]
+    assert.deepEqual(
+        sortContentItems(localized, 'file-name-asc', 'de').map((entry) => entry.id),
+        ['a', 'z'],
+    )
+    assert.deepEqual(
+        sortContentItems(localized, 'file-name-asc', 'sv').map((entry) => entry.id),
+        ['z', 'a'],
+    )
+})

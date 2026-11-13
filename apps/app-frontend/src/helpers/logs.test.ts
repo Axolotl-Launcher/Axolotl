@@ -2,13 +2,21 @@ import { invoke } from '@tauri-apps/api/core'
 import { save } from '@tauri-apps/plugin-dialog'
 import { beforeEach, expect, it, vi } from 'vitest'
 
-import { export_crash_context, export_log_file } from './logs'
+import { export_crash_context, export_log_file, logshare_get_insights } from './logs'
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }))
 
 beforeEach(() => {
     vi.resetAllMocks()
+})
+
+it('passes the selected LogShare file through the existing logs command', async () => {
+    await logshare_get_insights('sAbCdEf', 'crash-reports/crash #1.txt')
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('plugin:logs|logs_logshare_get_insights', {
+        id: 'sAbCdEf',
+        filename: 'crash-reports/crash #1.txt',
+    })
 })
 
 it('returns the saved path after exporting the crash context', async () => {

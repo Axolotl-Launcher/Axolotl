@@ -482,11 +482,8 @@ pub(crate) async fn download_segment(
                                 ) => {
                                     return Err(SegmentDownloadError::MetadataSizeChanged(size));
                                 }
-                                Err(SegmentDownloadError::Transport)
-                                | Err(SegmentDownloadError::Yielded(_))
-                                | Err(SegmentDownloadError::ExhaustedRange(
-                                    _,
-                                )) => {}
+                                Err(SegmentDownloadError::Transport | SegmentDownloadError::Yielded(_) |
+SegmentDownloadError::ExhaustedRange(_)) => {}
                             }
                         } else {
                             hedge_active.store(false, Ordering::Release);

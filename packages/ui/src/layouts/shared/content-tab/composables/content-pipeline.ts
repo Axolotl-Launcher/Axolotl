@@ -141,6 +141,7 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         threshold: 0.4,
         distance: 100,
     })
+    let indexedCollection: ContentItem[] | undefined
 
     function orderedItems(source: () => ContentItem[]) {
         let previousKey: string | undefined
@@ -176,6 +177,16 @@ export function useContentPipeline(config: ContentPipelineConfig) {
             ...item,
             update: null,
         }))
+    })
+
+    const searchCollection = computed(() => {
+        const seenIds = new Set<string>()
+        return [...sortedItems.value, ...modpackItemsNoUpdate.value].filter((item) => {
+            const id = getItemId(item)
+            if (seenIds.has(id)) return false
+            seenIds.add(id)
+            return true
+        })
     })
 
     const filterValidationOptions = computed(() => {
@@ -237,6 +248,11 @@ export function useContentPipeline(config: ContentPipelineConfig) {
         // Step 1: Fuse search once (old code calls fuse.search 3 times, we call once)
         let fuseResults: ContentItem[] | null = null
         if (query) {
+            const collection = searchCollection.value
+            if (indexedCollection !== collection) {
+                fuse.setCollection(collection)
+                indexedCollection = collection
+            }
             fuseResults = fuse.search(query).map((r) => r.item)
         }
 
@@ -393,50 +409,9 @@ export function useContentPipeline(config: ContentPipelineConfig) {
     }
 
     let hasContentSnapshot = false
-    // Register before the pipeline so its first search sees the same snapshot as its counts.
-    watch(
-        () => [sortedItems.value, modpackItemsNoUpdate.value] as const,
-        ([sorted, modpack]) => {
-            const seenIds = new Set<string>()
-            const collection: ContentItem[] = []
-
-            for (const item of sorted) {
-                const id = getItemId(item)
-                if (!seenIds.has(id)) {
-                    seenIds.add(id)
-                    collection.push(item)
-                }
-            }
-
-            for (const item of modpack) {
-                const id = getItemId(item)
-                if (!seenIds.has(id)) {
-                    seenIds.add(id)
-                    collection.push(item)
-                }
-            }
-
-            if (!hasContentSnapshot) fuse.setCollection(collection)
-            else {
-                // Later enrichment remains asynchronous and bounded by the pipeline batch.
-                setTimeout(() => {
-                    fuse.setCollection(collection)
-                }, 0)
-            }
-        },
-        { immediate: true },
-    )
-
     // Publish the first snapshot before rendering; batch only subsequent enrichment.
     watch(
-        [
-            sortedItems,
-            modpackItemsNoUpdate,
-            () => duplicateItems?.value,
-            searchQuery,
-            selectedTypeFilter,
-            selectedStatusFilters,
-        ],
+        [sortedItems, modpackItemsNoUpdate, () => duplicateItems?.value],
         () => {
             if (!hasContentSnapshot) {
                 result.value = runPipeline()
@@ -450,6 +425,18 @@ export function useContentPipeline(config: ContentPipelineConfig) {
             }, 100)
         },
         { immediate: true },
+    )
+
+    // User choices should commit in the next render, independently of enrichment batching.
+    watch(
+        [searchQuery, selectedTypeFilter, selectedStatusFilters, () => config.sortKey?.value],
+        () => {
+            if (pipelineTimer) {
+                clearTimeout(pipelineTimer)
+                pipelineTimer = null
+            }
+            result.value = runPipeline()
+        },
     )
 
     // ---- filter API (compatible with old interface) ----

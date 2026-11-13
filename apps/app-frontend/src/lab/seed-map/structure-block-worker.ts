@@ -1,5 +1,7 @@
 import { gunzipSync, strFromU8 } from 'fflate'
 
+import { errorText } from '@/helpers/error-text'
+
 import type {
     StructureBlocksRequest,
     StructureBlocksResponse,
@@ -46,7 +48,7 @@ scope.onmessage = async (event: MessageEvent<StructureBlocksRequest>) => {
     } catch (error) {
         scope.postMessage({
             type: 'error',
-            message: error instanceof Error ? error.message : String(error),
+            message: errorText(error),
         } satisfies StructureBlocksResponse)
     }
 }

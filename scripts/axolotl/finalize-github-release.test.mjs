@@ -30,6 +30,7 @@ function fixture(t, releaseTag = tag) {
                 .flatMap((name) => [name, `${name}.sig`])
                 .map((name) => ({
                     name,
+                    size: 1234,
                     digest: `sha256:${createHash('sha256').update(name).digest('hex')}`,
                     browser_download_url: `https://github.com/Example/Axolotl/releases/download/untagged-example/${name}`,
                 })),
@@ -169,6 +170,17 @@ test('a published manifest with a divergent portable artifact is rejected', (t) 
     state.calls.length = 0
     assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
     assert(!state.calls.some((args) => ['upload', 'edit'].includes(args[1])))
+})
+
+test('a published portable signature or size cannot diverge from its own release asset', (t) => {
+    for (const field of ['signature', 'size']) {
+        const { directory, state, run } = fixture(t)
+        finalizeGithubRelease(tag, directory, { run })
+        const manifest = JSON.parse(state.manifest)
+        manifest.artifacts.portable[field] = field === 'signature' ? 'different'.repeat(12) : 1235
+        state.manifest = JSON.stringify(manifest)
+        assert.throws(() => finalizeGithubRelease(tag, directory, { run }), /does not match/)
+    }
 })
 
 test('a release older than the artifact field keeps verifying without it', (t) => {

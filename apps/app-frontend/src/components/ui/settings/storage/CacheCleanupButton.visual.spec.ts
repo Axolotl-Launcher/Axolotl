@@ -136,10 +136,10 @@ it('localizes the fallback for a value that cannot be formatted', async () => {
     await wrapper.get('button').trigger('click')
     preferences.locale = 'zh-CN'
     vi.mocked(purgeLauncherCache).mockRejectedValueOnce(
-        // A plain object (safe to log) whose own conversion throws.
-        Object.defineProperty({}, 'toString', {
+        // A plain object (safe to log) whose JSON serialization throws.
+        Object.defineProperty({}, 'toJSON', {
             value() {
-                throw new Error('toString trap')
+                throw new Error('serialization rejected')
             },
         }),
     )
@@ -169,6 +169,24 @@ it('shows the message of a serialized Tauri rejection in the failure details', a
     expect(wrapper.text()).toContain('Could not clear the cache')
     expect(wrapper.text()).toContain('cache in use by a running instance')
     expect(wrapper.text()).not.toContain('[object Object]')
+})
+it('shows structured file details when a cleanup rejection has no message', async () => {
+    const wrapper = mount(CacheCleanupButton)
+    mounted.push(wrapper)
+    await wrapper.get('button').trigger('click')
+    vi.mocked(purgeLauncherCache).mockRejectedValueOnce({
+        path: 'downloads/pack.zip',
+        reason: 'permission denied',
+    })
+    await wrapper
+        .findAll('button')
+        .filter((button) => button.text() === 'Clear cache')[1]
+        .trigger('click')
+    await flushPromises()
+    expect(wrapper.get('details').text()).toContain('downloads/pack.zip')
+    expect(wrapper.get('details').text()).toContain('permission denied')
+    expect(wrapper.text()).not.toContain('[object Object]')
+    expect(wrapper.emitted('cleared')).toBeUndefined()
 })
 it('respects the preference to skip optional warnings', async () => {
     preferences.skipWarnings = true

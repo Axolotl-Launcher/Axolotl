@@ -22,6 +22,14 @@ export async function get_java_default_versions() {
     return await invoke('plugin:jre|get_java_default_versions')
 }
 
+export async function get_java_selection_info(path) {
+    return await invoke('plugin:jre|get_java_selection_info', { path })
+}
+
+export async function approve_java_selection(path, volumeId) {
+    return await invoke('plugin:jre|approve_java_selection', { path, volumeId })
+}
+
 export async function set_java_version(javaVersion) {
     return await invoke('plugin:jre|set_java_version', { javaVersion })
 }

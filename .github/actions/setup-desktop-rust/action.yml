@@ -26,6 +26,9 @@ runs:
         BUILD_TARGET: ${{ inputs.target }}
       run: |
         toolchain="$(node -e 'const fs = require("node:fs"); const source = fs.readFileSync("rust-toolchain.toml", "utf8"); const version = source.match(/^channel\s*=\s*"([^"]+)"/m)?.[1]; if (!version || !/^\d+\.\d+\.\d+$/.test(version)) process.exit(1); process.stdout.write(version);')"
+        if [ "$RUNNER_OS" = Windows ] && [ "$RUNNER_ARCH" = ARM64 ]; then
+          rustup set default-host aarch64-pc-windows-msvc
+        fi
         rustup toolchain install "$toolchain" --profile minimal --component rustfmt
         rustup default "$toolchain"
         if [ -n "$BUILD_TARGET" ]; then

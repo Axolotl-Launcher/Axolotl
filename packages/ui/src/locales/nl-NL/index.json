@@ -155,9 +155,6 @@
   "button.reset": {
     "defaultMessage": "Herstel"
   },
-  "button.reset-server": {
-    "defaultMessage": "Stel server opnieuw in"
-  },
   "button.retry": {
     "defaultMessage": "Probeer opnieuw"
   },
@@ -362,9 +359,6 @@
   "creation-flow.button.import": {
     "defaultMessage": "Importeren"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Stel server in"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "Bouw nummer"
   },
@@ -548,9 +542,6 @@
   "files.navbar.home": {
     "defaultMessage": "Startpagina"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Installeer het CurseForge pakket"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "Nieuw bestand"
   },
@@ -559,12 +550,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Bestanden zoeken"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Uploaden vanuit een .zip-bestand"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Uploaden via een .zip-URL"
   },
   "files.rename-modal.new-name-label": {
     "defaultMessage": "Nieuwe naam"
@@ -604,60 +589,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "De naam is verplicht."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Installeer een CurseForge modpack"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "De modpack van CurseForge kon op die URL niet worden gevonden."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "CurseForge modpack niet gevonden"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Link invoeren"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "De URL moet een URL zijn van een CurseForge modpackversie."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "De URL moet geldig zijn."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "Een URL is vereist."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Installeren"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "Het installeren is mislukt"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Kopieer de URL van de versiepagina en plak deze hieronder."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Kopieer de URL"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Blader door CurseForge en zoek het gewenste modpack."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Zoek de modpack"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Ga naar het tabblad “Bestanden” en kies de versie die je wilt installeren."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Kies een versie"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Er is een onbekende fout opgetreden"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Kopieer en plak de directe downloadlink van een .zip-bestand."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "De inhoud van een .zip-bestand uploaden via een URL"
   },
   "form.label.address-line": {
     "defaultMessage": "Adresregel"

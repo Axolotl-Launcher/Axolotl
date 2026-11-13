@@ -335,7 +335,7 @@ impl FileCapture {
         let transfer = Arc::new(Transfer {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             started: Instant::now(),
-            state: AtomicU8::new(if protocol == "pending" { 0 } else { 1 }),
+            state: AtomicU8::new(u8::from(protocol != "pending")),
             ended_ms: AtomicU64::new(0),
             received: AtomicU64::new(0),
             last_byte_ms: AtomicU64::new(u64::MAX),

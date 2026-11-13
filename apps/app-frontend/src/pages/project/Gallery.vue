@@ -192,6 +192,7 @@ onUnmounted(() => {
                 @click="viewImage(entry)"
             >
                 <img
+                    referrerpolicy="no-referrer"
                     :src="entry.image.url"
                     :alt="imageAlt(entry)"
                     class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
@@ -250,6 +251,7 @@ onUnmounted(() => {
                 class="min-w-0 flex max-h-[calc(100vh-13rem)] w-full items-center justify-center overflow-auto p-4"
             >
                 <img
+                    referrerpolicy="no-referrer"
                     :src="viewerImageUrl"
                     :alt="imageAlt(selectedGalleryItem)"
                     :class="
@@ -260,24 +262,27 @@ onUnmounted(() => {
                     @click="zoomedIn = !zoomedIn"
                 />
             </div>
-            <Button
+            <div v-if="filteredGallery.length > 1" class="absolute left-4 top-1/2 -translate-y-1/2">
+                <Button
+                    circular
+                    icon-only
+                    :label="formatMessage(commonMessages.backButton)"
+                    @click="changeImage(-1)"
+                    ><LeftArrowIcon />
+                </Button>
+            </div>
+            <div
                 v-if="filteredGallery.length > 1"
-                circular
-                icon-only
-                class="absolute left-4 top-1/2 -translate-y-1/2"
-                :aria-label="formatMessage(commonMessages.backButton)"
-                @click="changeImage(-1)"
-                ><LeftArrowIcon />
-            </Button>
-            <Button
-                v-if="filteredGallery.length > 1"
-                circular
-                icon-only
                 class="absolute right-4 top-1/2 -translate-y-1/2"
-                :aria-label="formatMessage(commonMessages.nextButton)"
-                @click="changeImage(1)"
-                ><RightArrowIcon />
-            </Button>
+            >
+                <Button
+                    circular
+                    icon-only
+                    :label="formatMessage(commonMessages.nextButton)"
+                    @click="changeImage(1)"
+                    ><RightArrowIcon />
+                </Button>
+            </div>
         </div>
         <template #actions>
             <div

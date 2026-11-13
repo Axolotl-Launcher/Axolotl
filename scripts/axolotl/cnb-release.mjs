@@ -37,7 +37,9 @@ const assetMirrorConcurrency =
         : 4
 
 if (command !== 'finalize' || !tag || !outputDirectory || !token) {
-    throw new Error('Usage: node cnb-release.mjs finalize <tag> <output-dir>; CNB_TOKEN is required')
+    throw new Error(
+        'Usage: node cnb-release.mjs finalize <tag> <output-dir>; CNB_TOKEN is required',
+    )
 }
 
 const apiHeaders = {
@@ -176,15 +178,15 @@ async function loadGithubRelease(url) {
         headers: githubApiHeaders,
     })
     if (!response.ok) {
-        throw new Error(`Loading GitHub release failed (${response.status}): ${await response.text()}`)
+        throw new Error(
+            `Loading GitHub release failed (${response.status}): ${await response.text()}`,
+        )
     }
     return await response.json()
 }
 
 async function getGithubRelease() {
-    return await loadGithubRelease(
-        `${githubApiBaseUrl}/releases/tags/${encodeURIComponent(tag)}`,
-    )
+    return await loadGithubRelease(`${githubApiBaseUrl}/releases/tags/${encodeURIComponent(tag)}`)
 }
 
 async function getLatestGithubRelease() {
@@ -192,7 +194,9 @@ async function getLatestGithubRelease() {
     if (!isExcludedRelease(latest.tag_name)) return latest
 
     for (let page = 1; ; page++) {
-        const releases = await loadGithubRelease(`${githubApiBaseUrl}/releases?per_page=100&page=${page}`)
+        const releases = await loadGithubRelease(
+            `${githubApiBaseUrl}/releases?per_page=100&page=${page}`,
+        )
         const release = selectLatestStableRelease(releases)
         if (release) return release
         if (releases.length < 100) {
@@ -267,15 +271,23 @@ function createCnbManifest(githubManifest, mirroredNames) {
         'linux-x86_64',
         'windows-x86_64',
     ]
+    if (Object.hasOwn(githubManifest.platforms ?? {}, 'windows-aarch64'))
+        requiredPlatforms.push('windows-aarch64')
     const platforms = {}
     for (const platform of requiredPlatforms) {
         const update = githubManifest.platforms?.[platform]
-        if (!update || typeof update.signature !== 'string' || update.signature.trim().length < 32) {
+        if (
+            !update ||
+            typeof update.signature !== 'string' ||
+            update.signature.trim().length < 32
+        ) {
             throw new Error(`Missing signed GitHub update for ${platform}`)
         }
         const filename = decodeURIComponent(path.posix.basename(new URL(update.url).pathname))
         if (!mirroredNames.has(filename)) {
-            throw new Error(`GitHub release is missing updater artifact ${filename} for ${platform}`)
+            throw new Error(
+                `GitHub release is missing updater artifact ${filename} for ${platform}`,
+            )
         }
         platforms[platform] = {
             ...update,

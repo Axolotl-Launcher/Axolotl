@@ -1,5 +1,7 @@
 import * as deepslate from 'deepslate'
 
+import { errorText } from '@/helpers/error-text'
+
 import type { SchematicBlockState } from './backend'
 import { createBlockGeometry } from './block-geometry'
 import type { SchematicBubbleUv } from './bubble-mesh'
@@ -337,10 +339,7 @@ function buildChunk(message: WorkerMeshMessage) {
     const warnings = new Map<string, string>()
     const reportFluidFailure = (name: string, error: unknown) => {
         if (warnings.has(name)) return
-        warnings.set(
-            name,
-            `Fluid geometry for ${name} failed and was skipped: ${error instanceof Error ? error.message : String(error)}`,
-        )
+        warnings.set(name, `Fluid geometry for ${name} failed and was skipped: ${errorText(error)}`)
     }
     const chunkOrigin = message.chunkPosition.map((value) => value * 16) as [number, number, number]
     const shouldCull = (
@@ -514,7 +513,7 @@ workerScope.onmessage = (event: MessageEvent<SchematicMeshWorkerRequest>) => {
             type: 'error',
             epoch: event.data.epoch,
             jobId: event.data.type === 'mesh' ? event.data.jobId : undefined,
-            message: error instanceof Error ? error.message : String(error),
+            message: errorText(error),
         } satisfies SchematicMeshWorkerResponse)
     }
 }

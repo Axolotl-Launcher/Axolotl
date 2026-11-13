@@ -78,7 +78,13 @@ struct InstallRequest {
     install_dir: String,
     resource_dir: String,
     desktop_shortcut: bool,
+    #[serde(default = "default_file_association")]
+    file_association: bool,
     launch_after: bool,
+}
+
+fn default_file_association() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -636,15 +642,25 @@ fn start_install(
         ));
         let _ = fs::remove_file(&status_path);
 
-        let result = match spawn_installer(&installer, &request, &status_path) {
-            Ok(mut child) => {
-                wait_for_installer(&mut child, &status_path, &proxy)
+        let result =
+            match spawn_installer(&installer, &request, &status_path) {
+                Ok(mut child) => {
+                    wait_for_installer(&mut child, &status_path, &proxy)
+                }
+                Err(error) => Err(InstallFailure {
+                    exit_code: None,
+                    message: error.to_string(),
+                }),
             }
-            Err(error) => Err(InstallFailure {
-                exit_code: None,
-                message: error.to_string(),
-            }),
-        };
+            .and_then(|()| {
+                crate::executable_install::check(
+                    &Path::new(&request.install_dir).join(MAIN_BINARY_NAME),
+                )
+                .map_err(|message| InstallFailure {
+                    exit_code: Some(0),
+                    message,
+                })
+            });
         let _ = fs::remove_file(status_path);
         let _ = proxy.send_event(UserEvent::Finished(result));
     });
@@ -823,6 +839,14 @@ fn installer_arguments(
     if !request.desktop_shortcut {
         arguments.push("/NO_DESKTOP_SHORTCUT".to_string());
     }
+    arguments.push(
+        if request.file_association {
+            "/FILE_ASSOCIATION"
+        } else {
+            "/NO_FILE_ASSOCIATION"
+        }
+        .to_string(),
+    );
     arguments
 }
 
@@ -985,8 +1009,9 @@ fn send_to_webview(webview: Option<&WebView>, payload: serde_json::Value) {
 #[cfg(test)]
 mod tests {
     use super::{
-        MAIN_BINARY_NAME, UiCommand, UninstallRequest, dialog_initial_location,
-        install_dir_requires_elevation, launch_main_process, nsis_value_option,
+        InstallRequest, MAIN_BINARY_NAME, UiCommand, UninstallRequest,
+        dialog_initial_location, install_dir_requires_elevation,
+        installer_arguments, launch_main_process, nsis_value_option,
         remove_webview_data_directory, uninstall_result, uninstaller_arguments,
         webview_data_directory, wide_null,
     };
@@ -1036,6 +1061,28 @@ mod tests {
         };
 
         assert!(request.launch_after);
+        assert!(request.file_association);
+    }
+
+    #[test]
+    fn installer_arguments_follow_the_file_association_choice() {
+        let request = |file_association| InstallRequest {
+            install_dir: r"C:\Axolotl".to_string(),
+            resource_dir: r"C:\AxolotlData".to_string(),
+            desktop_shortcut: true,
+            file_association,
+            launch_after: false,
+        };
+        let status = PathBuf::from(r"C:\Temp\install.status");
+
+        assert!(
+            installer_arguments(&request(true), &status)
+                .contains(&"/FILE_ASSOCIATION".to_string())
+        );
+        assert!(
+            installer_arguments(&request(false), &status)
+                .contains(&"/NO_FILE_ASSOCIATION".to_string())
+        );
     }
 
     #[test]

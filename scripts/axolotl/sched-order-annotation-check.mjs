@@ -15,7 +15,6 @@
 import path from 'node:path'
 import {
     checkAnnotations,
-    defaultOutDir,
     isMain,
     loadPolicy,
     orderCoverage,
@@ -23,6 +22,7 @@ import {
     parseArgs,
     rankFingerprint,
     readJson,
+    resolveOutputDir,
     scanOrderAnnotations,
     sourcesOf,
     workspaceCrates,
@@ -49,11 +49,12 @@ export function evaluateOrder(registry, policy, annotations) {
 
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
-    const dir = args.dir ?? defaultOutDir
-    const paths = outputPaths(dir)
+    let dir
     let registry
     let getpoints
     try {
+        dir = resolveOutputDir(args.dir)
+        const paths = outputPaths(dir)
         registry = readJson(paths.registry)
         getpoints = readJson(paths.getpoints)
     } catch (error) {

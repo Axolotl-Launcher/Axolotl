@@ -228,7 +228,7 @@ where
             let query = format!(
                 "DELETE FROM {table} WHERE instance_id = ? AND file_id IN (SELECT id FROM instance_files WHERE instance_id = ? AND missing = 1)"
             );
-            sqlx::query(&query)
+            sqlx::query(sqlx::AssertSqlSafe(query))
                 .bind(instance_id)
                 .bind(instance_id)
                 .execute(&mut *tx)

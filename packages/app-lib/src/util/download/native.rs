@@ -10,7 +10,7 @@ use crate::util::download::constants::{
     NATIVE_SOFTWARE_MICROSOFT_WINDOWS_CURRENTVERSION_INTERNET_SETTINGS,
 };
 
-use crate::util::fetch::{DownloadRoute, ProxyPolicy};
+use crate::util::fetch::DownloadRoute;
 
 use super::constants::{
     H2_LARGE_FILE_LIMIT as LARGE_FILE_LIMIT,

@@ -124,13 +124,14 @@
         "RUST_*",
         "RUSTFLAGS",
         "FORCE_COLOR",
-        "NEXTEST_*"
+        "NEXTEST_*",
+        "SCHED_*"
       ],
       "passThroughEnv": ["SCCACHE_*", "RUSTC_WRAPPER", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
     },
     "test:e2e": {
       "cache": false,
-      "env": ["CI", "PLAYWRIGHT_BASE_URL", "FORCE_COLOR"]
+      "env": ["CI", "PLAYWRIGHT_BASE_URL", "FORCE_COLOR", "E2E_ARTIFACT_DIR"]
     },
     "fix": {},
     "fix:ancillary": {

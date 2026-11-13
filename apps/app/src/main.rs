@@ -23,10 +23,16 @@ mod api;
 #[cfg(any(target_os = "linux", test))]
 mod appimage;
 mod error;
+#[cfg(windows)]
+#[path = "../../installer-ui/src/executable_install.rs"]
+mod executable_install;
 mod exit_barrier;
 mod lightweight_mode;
 mod mod_translation;
 mod portable;
+#[cfg(windows)]
+#[path = "../../installer-ui/src/portable_update.rs"]
+mod portable_update;
 mod seed_map;
 mod window_frame;
 
@@ -46,6 +52,13 @@ mod updater_impl;
 mod updater_impl_noop;
 
 const BLOCKBENCH_SKIN_RESOURCE_DIR: &str = "resources/blockbench-skin";
+
+/// A toast trigger writes settings through the pool, whose SQLite
+/// `busy_timeout` is 30 s — longer than the exit hard cap. Bound the write so
+/// a contended database cannot preempt the install or the database close.
+#[cfg(feature = "updater")]
+const CHANGELOG_TOAST_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(10);
 
 fn blockbench_skin_response(
     path: &str,
@@ -488,6 +501,15 @@ fn show_window(app: tauri::AppHandle) {
     }
 }
 
+/// Records that the launcher shell has rendered its first initialized frame.
+/// Startup work that is not needed for first paint waits for this signal, so
+/// it must not be sent while only the splash screen is mounted.
+#[tracing::instrument(skip_all)]
+#[tauri::command]
+fn frontend_ready() {
+    State::mark_frontend_ready();
+}
+
 #[tauri::command]
 async fn set_transparent_window_frame(
     enabled: bool,
@@ -632,12 +654,23 @@ fn update_is_pending(_app: &tauri::AppHandle) -> bool {
 /// Quit reaches `RunEvent::Exit` without that event, so the exit handler runs
 /// it once when no pass has happened.
 fn run_exit_steps(app: &tauri::AppHandle) {
-    if let Err(error) = tauri::async_runtime::block_on(
+    // Stop the debounced retry before the bounded exit flush: otherwise it
+    // could wake during database shutdown or the installer and start an
+    // untimed Mojang request.
+    theseus::minecraft_skins::begin_shutdown_flush();
+    let flush = exit_barrier::block_on_with_timeout(
+        exit_barrier::SKIN_FLUSH_TIMEOUT,
         theseus::minecraft_skins::flush_pending_skin_change(),
-    ) {
-        tracing::warn!(
+    );
+    match flush {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => tracing::warn!(
             "Failed to flush pending Minecraft skin change before exit: {error}"
-        );
+        ),
+        Err(_) => tracing::warn!(
+            "Pending Minecraft skin change did not flush within {} s",
+            exit_barrier::SKIN_FLUSH_TIMEOUT.as_secs()
+        ),
     }
     // L0 quiesces while the services and servers stop, so its exit window
     // overlaps steps 3 and 4.
@@ -752,6 +785,19 @@ fn raise_file_descriptor_limit() {
 // if Tauri app is called with arguments, then those arguments will be treated as commands
 // ie: deep links or filepaths for .mrpacks
 fn main() {
+    #[cfg(windows)]
+    if let Err(error) = std::env::current_exe()
+        .map_err(|error| error.to_string())
+        .and_then(|executable| portable_update::recover(&executable))
+    {
+        let _ = DialogBuilder::message()
+            .set_level(MessageLevel::Error)
+            .set_title("Portable update")
+            .set_text(error)
+            .alert()
+            .show();
+        return;
+    }
     // Initialize portable mode first (checks .Axolotl folder and sets THESEUS_CONFIG_DIR)
     // SAFETY: Called at the start of main() before any threads or tokio runtime are spawned
     let _portable = unsafe { portable::init_portable_mode() };
@@ -1025,7 +1071,6 @@ fn main() {
         .plugin(api::translation::init())
         .plugin(api::utils::init())
         .plugin(api::cache::init())
-        .plugin(api::content_favorites::init())
         .plugin(api::content_search::init())
         .plugin(api::resources::init())
         .plugin(api::curseforge::init())
@@ -1039,6 +1084,7 @@ fn main() {
         .manage(api::files::StudioWatchers::default())
         .plugin(api::servers::init())
         .manage(PendingUpdateData::default())
+        .manage(UpdateMethod::detect())
         .invoke_handler(tauri::generate_handler![
             initialize_state,
             get_update_channel,
@@ -1063,6 +1109,7 @@ fn main() {
             toggle_decorations,
             set_transparent_window_frame,
             show_window,
+            frontend_ready,
             restart_app,
             exit_app,
             check_symlink_capability,
@@ -1153,92 +1200,77 @@ fn main() {
                             s.restart_after_pending_update.load(Ordering::Relaxed)
                         })
                         .unwrap_or(false);
-                    if let Some((update, data)) = &*update_data.0.lock().unwrap()
+                    if let Some(update) = update_data.0.lock().unwrap().take()
                     {
                         // Installing waits on the user (an elevation prompt)
                         // by design, so the exit hard cap does not apply.
                         exit_barrier::disarm();
 
-                        fn set_changelog_toast(version: Option<String>) {
-                            let toast_result: theseus::Result<()> = tauri::async_runtime::block_on(async move {
-                                settings::patch(serde_json::json!({ "pending_update_toast_for_version": version })).await?;
-                                Ok(())
-                            });
-                            if let Err(e) = toast_result {
-                                tracing::warn!(
-                                    "Failed to set pending_update_toast: {e}"
-                                )
+                        fn persist_update_notice(version: Option<String>, failure: Option<theseus::state::PendingUpdateFailure>) {
+                            let toast_result =
+                                exit_barrier::block_on_with_timeout(
+                                    CHANGELOG_TOAST_TIMEOUT,
+                                    settings::patch(serde_json::json!({
+                                        "pending_update_toast_for_version": version,
+                                        "pending_update_failure": failure
+                                    })),
+                                );
+                            match toast_result {
+                                Ok(Ok(_)) => {}
+                                Ok(Err(e)) => tracing::warn!(
+                                    "Failed to persist pending update feedback: {e}"
+                                ),
+                                Err(_) => tracing::warn!(
+                                    "Timed out persisting pending update feedback after {} s",
+                                    CHANGELOG_TOAST_TIMEOUT.as_secs()
+                                ),
                             }
                         }
 
-                        let version = update.version.clone();
-                        let install_result = if is_apt_linux() {
-                            tauri::async_runtime::block_on(
-                                install_apt_package(&version, data),
-                            )
-                            .map_err(|error| error.to_string())
-                        } else {
-                            let update = if should_restart {
-                                (**update).clone()
-                            } else {
-                                (**update).clone().restart_after_install(false)
-                            };
-
-                            // Persist the trigger before installing: on Windows
-                            // the updater plugin launches the NSIS installer and
-                            // exits the process via `std::process::exit(0)`
-                            // without returning, so the success path below never
-                            // runs there. Bound this settings write, then lift
-                            // the cap again for the designed install wait.
-                            #[cfg(target_os = "windows")]
-                            {
-                                exit_barrier::rearm(exit_barrier::now_millis());
-                                set_changelog_toast(Some(update.version.clone()));
-                                exit_barrier::disarm();
-                            }
-
-                            update.install(data).map_err(|error| error.to_string())
-                        };
+                        let version = update.version().to_owned();
+                        let portable_worker = update.is_portable();
+                        // Windows installers exit inside the plugin; the portable
+                        // worker instead waits for this process and closes itself.
+                        #[cfg(target_os = "windows")]
+                        {
+                            exit_barrier::rearm(exit_barrier::now_millis());
+                            persist_update_notice(Some(version.clone()), None);
+                            exit_barrier::disarm();
+                        }
+                        let install_result = update.install(should_restart);
 
                         // The install is the designed wait; the remaining
                         // toast and database close are bounded again.
                         exit_barrier::rearm(exit_barrier::now_millis());
 
-                        match install_result {
-                            Ok(()) => {
-                                set_changelog_toast(Some(version.clone()));
-                                if should_restart {
+                        let outcome = exit_barrier::complete_pending_update(
+                            version,
+                            portable_worker,
+                            should_restart,
+                            install_result,
+                            |outcome| persist_update_notice(outcome.toast_version(), outcome.failure_notice()),
+                            |outcome| match &outcome.status {
+                                exit_barrier::PendingUpdateStatus::PortableReady => {
                                     tracing::info!(
-                                        "Pending update installed successfully (version {}); restarting because user requested reload",
-                                        version
-                                    );
-                                    // Restarting on the spot here would skip
-                                    // closing the database; `Exit` requests it
-                                    // after the pool is closed.
-                                    restart_after_update = true;
-                                } else {
-                                    tracing::info!(
-                                        "Pending update installed successfully (version {}); exiting without relaunch (user did not request reload)",
-                                        version
+                                        "Portable update worker is ready (version {}); it will activate after process exit (restart: {})",
+                                        outcome.version, outcome.restart_requested
                                     );
                                 }
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Pending update install failed (version {}): {e}",
-                                    version
-                                );
-                                set_changelog_toast(None);
-
-                                DialogBuilder::message()
-                                    .set_level(MessageLevel::Error)
-                                    .set_title("Update error")
-                                    .set_text(format!("Failed to install update due to an error:\n{e}"))
-                                    .alert()
-                                    .show()
-                                    .unwrap();
-                            }
-                        }
+                                exit_barrier::PendingUpdateStatus::Installed => {
+                                    tracing::info!(
+                                        "Pending update installed successfully (version {}); exiting (restart requested: {})",
+                                        outcome.version, outcome.restart_requested
+                                    );
+                                }
+                                exit_barrier::PendingUpdateStatus::Failed(error) => {
+                                    tracing::error!(
+                                        "Pending update install failed (version {}): {error}",
+                                        outcome.version
+                                    );
+                                }
+                            },
+                        );
+                        restart_after_update = outcome.restart_after_exit();
                     }
                 }
                 // Steps 6–7 of the exit barrier.

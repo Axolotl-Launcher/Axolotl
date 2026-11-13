@@ -18,6 +18,8 @@ function commandLines() {
         'writing_version_info_creates_missing_parent_directory',
         'curseforge',
         'derived_db',
+        'state::db::',
+        'state::db_backup::',
         'state::documents',
         'state::store::tests',
         'scheduler::',
@@ -80,6 +82,20 @@ function helper(name, body) {
 }`
 }
 
+test('checks pool settings through the ownership-aware builder', () => {
+    const wrapper = `async fn open_app_db_pool(db_path: &Path) -> crate::Result<Pool<Sqlite>> {
+        open_app_db_pool_with_ownership(db_path, None).await
+    }`
+    const builder = poolSource().replace('open_app_db_pool(', 'open_app_db_pool_with_ownership(')
+    assert.deepEqual(analyzeDbPool(`${wrapper}\n${builder}`), [])
+    assert.ok(
+        analyzeDbPool(
+            `${wrapper}\n${builder.replace('.journal_mode(SqliteJournalMode::Wal)', '')}`,
+        ).some((entry) => entry.message.includes('WAL')),
+    )
+    assert.ok(analyzeDbPool(wrapper).some((entry) => entry.message.includes('not found')))
+})
+
 function transactionSources({ immediate = true } = {}) {
     const begin = immediate
         ? 'let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;'
@@ -99,7 +115,7 @@ function transactionSources({ immediate = true } = {}) {
 test('accepts a canonical nextest workflow', () => {
     const result = analyzeWorkflow(workflow())
     assert.deepEqual(result.issues, [])
-    assert.equal(result.nextestCount, 17)
+    assert.equal(result.nextestCount, 19)
     assert.equal(result.installVersion, '0.9.150')
 })
 

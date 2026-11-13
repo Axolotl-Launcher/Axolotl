@@ -3,6 +3,8 @@ import { defineMessages, useVIntl } from '@modrinth/ui'
 import { NbtString, NbtTag } from 'deepslate/nbt'
 import { computed, ref, watch } from 'vue'
 
+import { errorText } from '@/helpers/error-text'
+
 import NbtTreeNode from './NbtTreeNode.vue'
 import StudioEditor from './StudioEditor.vue'
 
@@ -42,7 +44,7 @@ function parseContent(content: string) {
         root.value = parsed
         parseError.value = ''
     } catch (error) {
-        parseError.value = error instanceof Error ? error.message : String(error)
+        parseError.value = errorText(error)
     }
 }
 
@@ -170,7 +172,7 @@ function editValue(path: (string | number)[], value: string) {
         parseError.value = ''
         updateContent()
     } catch (error) {
-        parseError.value = error instanceof Error ? error.message : String(error)
+        parseError.value = errorText(error)
     }
 }
 
@@ -212,7 +214,7 @@ function addValue(path: (string | number)[], input: string) {
         parseError.value = ''
         updateContent()
     } catch (error) {
-        parseError.value = error instanceof Error ? error.message : String(error)
+        parseError.value = errorText(error)
     }
 }
 

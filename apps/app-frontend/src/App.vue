@@ -3,21 +3,11 @@ import '@/assets/stylesheets/window-frame.css'
 
 import { ModrinthApiError, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
 import {
-    ChangeSkinIcon,
-    CompassIcon,
-    FlaskConicalIcon,
     FolderOpenIcon,
-    HomeIcon,
-    ImagesIcon,
-    LibraryIcon,
-    PlusIcon,
     RefreshCwIcon,
     RightArrowIcon,
     RotateCounterClockwiseIcon,
-    SettingsIcon,
     SpinnerIcon,
-    UsersIcon,
-    WorldIcon,
     XIcon,
 } from '@modrinth/assets'
 import {
@@ -93,6 +83,18 @@ import MissingJavaModal from '@/components/ui/modal/MissingJavaModal.vue'
 import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
 import ModpackInstallModal from '@/components/ui/modal/ModpackInstallModal.vue'
 import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
+import {
+    CreateNavIcon,
+    DiscoverNavIcon,
+    HomeNavIcon,
+    LabNavIcon,
+    LibraryNavIcon,
+    MultiplayerNavIcon,
+    ScreenshotsNavIcon,
+    SettingsNavIcon,
+    SkinsNavIcon,
+    WorldsNavIcon,
+} from '@/components/ui/nav-icons'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
 import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
@@ -114,6 +116,8 @@ import { startMcpUiBridge } from '@/features/mcp/interface'
 import McpConnectionOverlay from '@/features/mcp/McpConnectionOverlay.vue'
 import { startMcpStateSync } from '@/features/mcp/runtime'
 import { trackEvent } from '@/helpers/analytics'
+import { openManualAppUpdate } from '@/helpers/app-update-download'
+import { createUpdateFailureConsumer } from '@/helpers/app-update-failure'
 import { get_version } from '@/helpers/cache.js'
 import { configureCurseForgeManualDownloadWatcher } from '@/helpers/curseforge'
 import { applySettingChanges, type PrivilegedSettingChange } from '@/helpers/deep-link-settings.ts'
@@ -124,6 +128,7 @@ import {
 } from '@/helpers/direct-link-sync'
 import { getMissingContentScannerSettings } from '@/helpers/downloads-scanner'
 import { classifyDroppedItem } from '@/helpers/drop'
+import { errorText } from '@/helpers/error-text'
 import {
     command_listener,
     drop_classify_progress_listener,
@@ -154,6 +159,7 @@ import {
     getPrivacySettings,
     getUpdateChannel,
     getUpdatePreferences,
+    type PendingUpdateFailure,
     type PrivacySettings,
     savePrivacySettings,
     update as updateSettings,
@@ -464,6 +470,8 @@ watch(
     },
 )
 
+const pendingUpdateFailure = ref<PendingUpdateFailure | null>(null)
+const consumeUpdateFailure = createUpdateFailureConsumer()
 const stateInitialized = ref(false)
 let stopMcpStateSync: (() => void) | undefined
 const privacyConsentModal = ref<InstanceType<typeof PrivacyConsentModal>>()
@@ -1023,7 +1031,7 @@ async function onImportFileReceived({
         notificationManager.removeNotification(processingNotify?.id)
         addNotification({
             title: formatMessage(messages.dropProcessFailedTitle),
-            text: e instanceof Error ? e.message : String(e),
+            text: errorText(e),
             type: 'error',
         })
     }
@@ -1536,6 +1544,7 @@ async function setupApp() {
     const dev = await isDev()
     isDevEnvironment.value = dev
     pendingUpdateAnnouncementVersion.value = pending_update_toast_for_version
+    pendingUpdateFailure.value = initialSettings.pending_update_failure ?? null
     privacyConsentPending.value = telemetry_consent_version < 1
     const oobePending = oobe.prepare(oobe_completed_steps)
     if (oobePending) {
@@ -1591,6 +1600,17 @@ async function setupApp() {
     themeStore.shortcutBindings = resolveAllBindings()
     await localePreparation
     stateInitialized.value = true
+    void nextTick(() => {
+        // The first rAF runs before the frame is painted; the second one runs
+        // after that paint, so deferred I/O cannot contend with it.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                invoke('frontend_ready').catch((error) => {
+                    console.warn('Failed to report frontend readiness', error)
+                })
+            })
+        })
+    })
     const stopMcpSync = await startMcpStateSync()
     const stopMcpUi = await startMcpUiBridge(router)
     const stopMcp = () => {
@@ -1738,6 +1758,24 @@ async function scheduleStartupDialogs() {
         await nextTick()
         updateAnnouncementModal.value.show(pendingUpdateAnnouncementVersion.value)
         return
+    }
+    try {
+        await consumeUpdateFailure(
+            pendingUpdateFailure.value,
+            (failure) =>
+                addNotification({
+                    title: formatMessage(updatePopupMessages.installFailedTitle),
+                    text: formatMessage(updatePopupMessages.installFailedBody, failure),
+                    type: 'warning',
+                    autoCloseMs: null,
+                }),
+            async () => {
+                await updateSettings({ pending_update_failure: null })
+                pendingUpdateFailure.value = null
+            },
+        )
+    } catch (error) {
+        console.warn('Could not consume the pending update failure notice', error)
     }
 }
 
@@ -2507,6 +2545,15 @@ async function handlePrivilegedCommand(e: AppCommand) {
 }
 
 const updatePopupMessages = defineMessages({
+    installFailedTitle: {
+        id: 'app.update-popup.install-failed.title',
+        defaultMessage: 'Launcher update failed',
+    },
+    installFailedBody: {
+        id: 'app.update-popup.install-failed.body',
+        defaultMessage:
+            'The update to v{version} could not be installed. You can try again or update manually. {error}',
+    },
     updateAvailable: {
         id: 'app.update-popup.title',
         defaultMessage: 'Update available',
@@ -2518,6 +2565,14 @@ const updatePopupMessages = defineMessages({
     meteredBody: {
         id: 'app.update-popup.body.metered',
         defaultMessage: `Axolotl Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it.`,
+    },
+    manualBody: {
+        id: 'app.update-popup.body.manual',
+        defaultMessage: `Axolotl Launcher v{version} is available. This copy can't update itself, so download the new version from the website or update it with your package manager.`,
+    },
+    downloadPage: {
+        id: 'app.update-popup.download-page',
+        defaultMessage: 'Download page',
     },
     downloadedBody: {
         id: 'app.update-popup.body.download-complete',
@@ -2587,7 +2642,26 @@ function showDelayedUpdatePopup() {
         return
     }
 
-    if (metered.value && !finishedDownloading.value) {
+    if (update.installMethod === 'manual') {
+        addPopupNotification({
+            title: formatMessage(updatePopupMessages.updateAvailable),
+            text: formatMessage(updatePopupMessages.manualBody, { version: update.version }),
+            type: 'info',
+            autoCloseMs: null,
+            buttons: [
+                {
+                    label: formatMessage(updatePopupMessages.downloadPage),
+                    action: () => downloadAvailableAppUpdate(),
+                    color: 'brand',
+                },
+                {
+                    label: formatMessage(updatePopupMessages.changelog),
+                    action: () => openAppUpdateChangelog(),
+                    keepOpen: true,
+                },
+            ],
+        })
+    } else if (metered.value && !finishedDownloading.value) {
         addPopupNotification({
             title: formatMessage(updatePopupMessages.updateAvailable),
             text: formatMessage(updatePopupMessages.meteredBody, { version: update.version }),
@@ -2690,6 +2764,14 @@ async function performUpdateCheck() {
 
     console.log(`Update ${update.version} is available.`)
 
+    if (update.installMethod === 'manual') {
+        // This copy cannot replace itself; offer the download page instead
+        // of downloading a package that would fail to install on exit.
+        markAppUpdateActionable(update.version)
+        scheduleDelayedUpdatePopup()
+        return 'available'
+    }
+
     metered.value = await isNetworkMetered()
 
     if (!metered.value) {
@@ -2724,7 +2806,12 @@ async function manualUpdateCheck() {
 }
 
 async function downloadAvailableUpdate() {
-    return downloadUpdate(availableUpdate.value)
+    const update = availableUpdate.value
+    if (update?.installMethod === 'manual') {
+        await openManualAppUpdate(update.version, openUrl)
+        return
+    }
+    return downloadUpdate(update)
 }
 
 async function downloadUpdate(versionToDownload: typeof availableUpdate.value) {
@@ -2967,7 +3054,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.home)"
                     to="/"
                 >
-                    <HomeIcon />
+                    <HomeNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('screenshots')"
@@ -2975,7 +3062,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/screenshots"
                     :is-primary="(r) => r.path.startsWith('/screenshots')"
                 >
-                    <ImagesIcon />
+                    <ScreenshotsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="
@@ -2984,7 +3071,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.worlds)"
                     to="/worlds"
                 >
-                    <WorldIcon />
+                    <WorldsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('discover')"
@@ -2994,14 +3081,14 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
                     :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
                 >
-                    <CompassIcon />
+                    <DiscoverNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('skins')"
                     v-tooltip.right="formatMessage(messages.skinSelector)"
                     to="/skins"
                 >
-                    <ChangeSkinIcon />
+                    <SkinsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('multiplayer')"
@@ -3009,7 +3096,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/multiplayer"
                     :is-primary="(r) => r.path.startsWith('/multiplayer')"
                 >
-                    <UsersIcon />
+                    <MultiplayerNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('library')"
@@ -3024,7 +3111,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                                 !!route.query.i)
                     "
                 >
-                    <LibraryIcon />
+                    <LibraryNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('lab')"
@@ -3032,7 +3119,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/lab"
                     :is-primary="(r) => r.path.startsWith('/lab')"
                 >
-                    <FlaskConicalIcon />
+                    <LabNavIcon />
                 </NavButton>
             </NavRail>
             <div class="h-px w-6 mx-auto my-2 bg-surface-5"></div>
@@ -3046,10 +3133,10 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                 to="/create"
                 :disabled="offline"
             >
-                <PlusIcon />
+                <CreateNavIcon />
             </NavButton>
             <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
-                <SettingsIcon />
+                <SettingsNavIcon />
             </NavButton>
         </div>
         <AppTitlebar

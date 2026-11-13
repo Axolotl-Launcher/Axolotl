@@ -15,13 +15,14 @@
 //!    through `request_restart` here, and the frontend's `restart_app` has
 //!    asked before step 1, so Tauri relaunches only after `Exit` returns.
 //!
-//! Budget: the bounded steps total 5 + 5 + 3 = 13 s, under the 15 s hard cap.
-//! A user-requested restart or a pending update gets [`RESTART_CAP`] for steps
-//! 1–5; a restart then gets the ordinary cap again for steps 6–7, while an
-//! update disarms it for the install and [`rearm`] bounds the steps after it
-//! returns. At the cap the barrier records the losses and exits the process;
-//! L3 work is never killed by the barrier, it ends with the process and is
-//! settled as interrupted on the next start.
+//! Budget: step 2 gets 1 s, and steps 3, 4 and 6 total 5 + 5 + 3 = 13 s,
+//! leaving 1 s of the 15 s hard cap for the exit handler and database-close
+//! overhead. A user-requested restart or a pending update gets [`RESTART_CAP`]
+//! for steps 1–5; a restart then gets the ordinary cap again for steps 6–7,
+//! while an update disarms it for the install and [`rearm`] bounds the steps
+//! after it returns. At the cap the barrier records the losses and exits the
+//! process; L3 work is never killed by the barrier, it ends with the process
+//! and is settled as interrupted on the next start.
 //!
 //! Exit paths: the frontend's `exit_app`, the tray's quit, the frontend's
 //! `restart_app` and the updater's restart go through the barrier. macOS
@@ -36,6 +37,17 @@ use std::time::{Duration, Instant};
 
 use theseus::scheduler::tag::Level;
 
+/// Wait for bounded exit work from a synchronous event callback. Constructing
+/// the timer inside the async block keeps it in Tauri's Tokio runtime context.
+pub fn block_on_with_timeout<F: std::future::Future>(
+    duration: Duration,
+    work: F,
+) -> Result<F::Output, tokio::time::error::Elapsed> {
+    tauri::async_runtime::block_on(async {
+        tokio::time::timeout(duration, work).await
+    })
+}
+
 /// Steps 3, 4 and 6.
 pub const STEP_BUDGETS: [Duration; 3] = [
     Duration::from_secs(5),
@@ -43,6 +55,9 @@ pub const STEP_BUDGETS: [Duration; 3] = [
     Duration::from_secs(3),
 ];
 pub const SOFT_WINDOW: Duration = STEP_BUDGETS[0];
+/// Step 2: a pending skin change may call the Mojang API. Bound it to 1 s so
+/// the later steps and database cleanup keep a margin under the hard cap.
+pub const SKIN_FLUSH_TIMEOUT: Duration = Duration::from_secs(1);
 pub const HARD_CAP: Duration = Duration::from_secs(15);
 /// A user-requested restart or a pending update gets one extended pass for
 /// steps 1–5. The update then disarms the cap for the install, which waits on
@@ -265,6 +280,73 @@ pub trait Restarter {
     fn request_restart(&self);
 }
 
+#[cfg(any(feature = "updater", test))]
+#[derive(Debug, PartialEq, Eq)]
+pub enum PendingUpdateStatus {
+    Installed,
+    PortableReady,
+    Failed(String),
+}
+
+#[cfg(any(feature = "updater", test))]
+#[derive(Debug, PartialEq, Eq)]
+pub struct PendingUpdateOutcome {
+    pub version: String,
+    pub status: PendingUpdateStatus,
+    pub restart_requested: bool,
+}
+
+#[cfg(any(feature = "updater", test))]
+impl PendingUpdateOutcome {
+    pub fn failure_notice(
+        &self,
+    ) -> Option<theseus::state::PendingUpdateFailure> {
+        match &self.status {
+            PendingUpdateStatus::Failed(error) => Some(
+                theseus::state::PendingUpdateFailure::new(&self.version, error),
+            ),
+            _ => None,
+        }
+    }
+
+    pub fn toast_version(&self) -> Option<String> {
+        match &self.status {
+            PendingUpdateStatus::Failed(_) => None,
+            _ => Some(self.version.clone()),
+        }
+    }
+
+    pub fn restart_after_exit(&self) -> bool {
+        self.restart_requested && self.status == PendingUpdateStatus::Installed
+    }
+}
+
+/// Records the install result before database finalization. A portable worker
+/// owns its relaunch; failed installs never request a restart here.
+#[cfg(any(feature = "updater", test))]
+pub fn complete_pending_update(
+    version: String,
+    portable_worker: bool,
+    restart_requested: bool,
+    result: Result<(), String>,
+    persist: impl FnOnce(&PendingUpdateOutcome),
+    report: impl FnOnce(&PendingUpdateOutcome),
+) -> PendingUpdateOutcome {
+    let status = match result {
+        Ok(()) if portable_worker => PendingUpdateStatus::PortableReady,
+        Ok(()) => PendingUpdateStatus::Installed,
+        Err(error) => PendingUpdateStatus::Failed(error),
+    };
+    let outcome = PendingUpdateOutcome {
+        version,
+        status,
+        restart_requested,
+    };
+    persist(&outcome);
+    report(&outcome);
+    outcome
+}
+
 /// Steps 6–7: close the database session first, then restart if an update
 /// asked for it, so a restart never skips the clean-shutdown record.
 pub fn finish_exit(
@@ -314,11 +396,42 @@ mod tests {
     }
 
     #[test]
+    fn exit_timeout_works_without_an_entered_runtime() {
+        assert!(tokio::runtime::Handle::try_current().is_err());
+        let result = block_on_with_timeout(Duration::from_secs(1), async {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+            Ok::<_, &str>(42)
+        });
+        assert_eq!(result.unwrap(), Ok(42));
+        assert_eq!(
+            block_on_with_timeout(Duration::from_secs(1), async {
+                Err::<(), _>("flush failed")
+            })
+            .unwrap(),
+            Err("flush failed"),
+        );
+        assert!(
+            block_on_with_timeout(
+                Duration::from_millis(1),
+                std::future::pending::<()>()
+            )
+            .is_err()
+        );
+        assert!(tokio::runtime::Handle::try_current().is_err());
+    }
+
+    #[test]
     fn the_budget_fits_under_the_hard_cap() {
         let total: Duration = STEP_BUDGETS.iter().sum();
         assert_eq!(total, Duration::from_secs(13));
         assert!(total < HARD_CAP);
         assert_eq!(STEP_BUDGETS[0], SOFT_WINDOW);
+        assert_eq!(
+            total + SKIN_FLUSH_TIMEOUT,
+            Duration::from_secs(14),
+            "the bounded steps leave one second for exit-handler and database-close overhead"
+        );
+        assert!(total + SKIN_FLUSH_TIMEOUT < HARD_CAP);
     }
 
     #[test]
@@ -462,6 +575,105 @@ mod tests {
             }]
         );
         drop(pass);
+    }
+
+    #[test]
+    fn pending_update_outcomes_finalize_the_database_before_any_restart() {
+        let _serial = serial();
+        for (
+            result,
+            portable,
+            restart_requested,
+            expected_status,
+            expected_restart,
+        ) in [
+            (Ok(()), false, true, PendingUpdateStatus::Installed, true),
+            (Ok(()), false, false, PendingUpdateStatus::Installed, false),
+            (
+                Ok(()),
+                true,
+                true,
+                PendingUpdateStatus::PortableReady,
+                false,
+            ),
+            (
+                Err("authorization cancelled".to_owned()),
+                false,
+                true,
+                PendingUpdateStatus::Failed("authorization cancelled".into()),
+                false,
+            ),
+            (
+                Err("rpm rejected the package".to_owned()),
+                false,
+                false,
+                PendingUpdateStatus::Failed("rpm rejected the package".into()),
+                false,
+            ),
+        ] {
+            let app = FakeApp(RefCell::default());
+            let toast = RefCell::new(None);
+            let failure = RefCell::new(None);
+            let reported = RefCell::new(None);
+            let outcome = complete_pending_update(
+                "1.2.3".into(),
+                portable,
+                restart_requested,
+                result,
+                |outcome| {
+                    *toast.borrow_mut() = Some(outcome.toast_version());
+                    *failure.borrow_mut() = outcome.failure_notice();
+                    app.0.borrow_mut().push("persist_outcome");
+                },
+                |outcome| {
+                    *reported.borrow_mut() =
+                        Some(format!("{:?}", outcome.status));
+                    app.0.borrow_mut().push("report_outcome");
+                },
+            );
+            assert_eq!(outcome.version, "1.2.3");
+            assert_eq!(outcome.status, expected_status);
+            assert_eq!(
+                *failure.borrow(),
+                match &expected_status {
+                    PendingUpdateStatus::Failed(error) =>
+                        Some(theseus::state::PendingUpdateFailure::new(
+                            "1.2.3", error
+                        )),
+                    _ => None,
+                }
+            );
+            assert_eq!(outcome.restart_after_exit(), expected_restart);
+            assert_eq!(
+                *reported.borrow(),
+                Some(format!("{expected_status:?}"))
+            );
+            assert_eq!(
+                *toast.borrow(),
+                Some(
+                    if matches!(expected_status, PendingUpdateStatus::Failed(_))
+                    {
+                        None
+                    } else {
+                        Some("1.2.3".into())
+                    }
+                ),
+            );
+            finish_exit(
+                || app.0.borrow_mut().push("finish_database_session"),
+                outcome.restart_after_exit(),
+                &app,
+            );
+            let mut expected = vec![
+                "persist_outcome",
+                "report_outcome",
+                "finish_database_session",
+            ];
+            if expected_restart {
+                expected.push("request_restart");
+            }
+            assert_eq!(*app.0.borrow(), expected);
+        }
     }
 
     struct FakeApp(RefCell<Vec<&'static str>>);

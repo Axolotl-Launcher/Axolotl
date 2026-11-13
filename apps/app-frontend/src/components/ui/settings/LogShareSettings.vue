@@ -18,6 +18,7 @@ import {
     update_crash_analysis_ai_settings,
     update_log_share_settings,
 } from '@/helpers/logs'
+import { CLOUD_LOGAGENT_ENABLED } from '@/logagent/availability'
 import type { AnalysisSettings } from '@/logagent/types'
 
 import SettingsRow from './SettingsRow.vue'
@@ -162,7 +163,7 @@ const modelOptions = computed(
             .map((model) => ({ value: model.id, label: model.name || model.id })) ?? [],
 )
 
-const isCustom = computed(() => aiSettings.value.ai_source === 'custom')
+const isCustom = computed(() => !CLOUD_LOGAGENT_ENABLED || aiSettings.value.ai_source === 'custom')
 
 const shareProviderOptions = [
     { value: 'logshare', label: 'LogShare' },
@@ -254,14 +255,19 @@ onMounted(async () => {
 <template>
     <div v-if="!loading" class="flex min-w-0 flex-col gap-6">
         <SettingsSection
+            :id="localSetup ? undefined : 'settings-target-log-share'"
             :title="formatMessage(localSetup ? messages.localSetupTitle : messages.analysisTitle)"
             :description="
-                formatMessage(
-                    localSetup ? messages.localSetupDescription : messages.analysisDescription,
-                )
+                CLOUD_LOGAGENT_ENABLED
+                    ? formatMessage(
+                          localSetup
+                              ? messages.localSetupDescription
+                              : messages.analysisDescription,
+                      )
+                    : undefined
             "
         >
-            <div v-if="!localSetup" id="settings-target-log-share" class="p-4">
+            <div v-if="CLOUD_LOGAGENT_ENABLED && !localSetup" class="p-4">
                 <LogAgentSourcePicker
                     :model-value="aiSettings.ai_source"
                     :disabled="saving"
@@ -360,6 +366,24 @@ onMounted(async () => {
             :title="formatMessage(messages.sharingTitle)"
             :description="formatMessage(messages.sharingDescription)"
         >
+            <SettingsRow
+                v-if="!CLOUD_LOGAGENT_ENABLED && settings.ai_source === 'logshare'"
+                inline-control
+            >
+                <template #label>{{ formatMessage(messages.autoUpload) }}</template>
+                <template #description>{{
+                    formatMessage(messages.autoUploadDescription)
+                }}</template>
+                <template #control
+                    ><Toggle
+                        id="log-share-auto-upload"
+                        :model-value="settings.auto_upload"
+                        :disabled="saving"
+                        @update:model-value="
+                            updateShare({ auto_upload: !!$event, no_storage: false })
+                        "
+                /></template>
+            </SettingsRow>
             <SettingsRow>
                 <template #label>{{ formatMessage(messages.shareProvider) }}</template>
                 <template #control

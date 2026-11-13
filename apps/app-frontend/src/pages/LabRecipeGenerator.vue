@@ -29,6 +29,7 @@ import RecipeItemIcon from '@/components/lab/recipe-generator/RecipeItemIcon.vue
 import RecipeSlotGrid from '@/components/lab/recipe-generator/RecipeSlotGrid.vue'
 import TagPalette from '@/components/lab/recipe-generator/TagPalette.vue'
 import { useResultCountWheel } from '@/composables/lab/useResultCountWheel'
+import { errorText } from '@/helpers/error-text'
 import { createRequestGeneration } from '@/helpers/request-generation'
 import { drawCountOnCanvas } from '@/lab/recipe-generator/count-display'
 import {
@@ -718,7 +719,7 @@ async function loadResources(version: JavaVersionId) {
         )
             return
         resources.value = null
-        resourceError.value = error instanceof Error ? error.message : String(error)
+        resourceError.value = errorText(error)
     } finally {
         if (resourceRequests.isCurrent(request, store.selectedVersion))
             loadingResources.value = false

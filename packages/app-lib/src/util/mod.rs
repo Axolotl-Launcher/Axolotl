@@ -9,6 +9,7 @@ pub(crate) mod fingerprint;
 pub mod http;
 pub mod io;
 pub(crate) mod java_environment;
+pub(crate) mod java_storage;
 pub mod jre;
 pub mod mojang;
 pub mod network;

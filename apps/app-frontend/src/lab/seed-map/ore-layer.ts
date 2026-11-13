@@ -1,5 +1,7 @@
 import { ref } from 'vue'
 
+import { errorText } from '@/helpers/error-text'
+
 import { scanSeedMapOres, SEED_MAP_ENGINE_REVISION, type SeedMapEdition } from './backend.ts'
 import type { SeedMapDimension } from './biomes.ts'
 import {
@@ -152,7 +154,7 @@ export function useSeedMapOreLayer(options: {
             }
         } catch (error) {
             if (generation === refreshGeneration) {
-                options.onError(error instanceof Error ? error.message : String(error))
+                options.onError(errorText(error))
             }
         } finally {
             if (generation === refreshGeneration) {

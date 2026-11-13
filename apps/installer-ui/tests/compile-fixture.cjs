@@ -12,6 +12,7 @@ const { values: options } = parseArgs({
         'tauri-nsis': { type: 'string' },
         nsis: { type: 'string' },
         template: { type: 'string' },
+        'installer-helper': { type: 'string' },
     },
 })
 
@@ -30,8 +31,11 @@ fs.mkdirSync(out, { recursive: true })
 Handlebars.registerHelper('no-escape', (value) => new Handlebars.SafeString(value))
 Handlebars.registerHelper('or', (a, b) => a || b)
 Handlebars.registerHelper('association-description', (a, b) => a || b)
-fs.writeFileSync(path.join(out, 'fixture.exe'), 'fixture binary')
-fs.writeFileSync(path.join(out, 'AxolotlUninstallFixture.exe'), 'fixture binary')
+const helper = path.resolve(
+    options['installer-helper'] || path.join(root, 'target/release/axolotl-installer-ui.exe'),
+)
+fs.copyFileSync(helper, path.join(out, 'fixture.exe'))
+fs.copyFileSync(helper, path.join(out, 'AxolotlUninstallFixture.exe'))
 fs.writeFileSync(path.join(out, 'resource.txt'), 'fixture resource')
 const hook = fs
     .readFileSync(path.join(root, 'apps/app/nsis/hooks.nsi'), 'utf8')
@@ -40,6 +44,10 @@ const hook = fs
         `!define AXL_INSTALLER_UI_PATH "${path.join(out, 'fixture.exe')}"`,
     )
 fs.writeFileSync(path.join(out, 'hooks.nsi'), hook)
+fs.copyFileSync(
+    path.join(root, 'apps/app/nsis/executable-install.nsh'),
+    path.join(out, 'executable-install.nsh'),
+)
 for (const file of ['utils.nsh', 'FileAssociation.nsh']) {
     fs.copyFileSync(path.join(tauri, file), path.join(out, file))
 }

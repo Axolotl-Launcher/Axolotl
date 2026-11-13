@@ -129,6 +129,7 @@ vi.mock('@modrinth/ui', async () => {
         defineMessages: (messages: unknown) => messages,
         getEditorLanguage: () => 'plaintext',
         injectNotificationManager: () => ({ addNotification: studio.notify }),
+        useFormatBytes: () => (bytes: number) => `${bytes} bytes`,
         useVIntl: () => ({
             formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
         }),

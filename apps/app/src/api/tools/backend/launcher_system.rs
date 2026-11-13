@@ -98,7 +98,11 @@ pub(super) async fn execute(
                 let pending =
                     app.state::<crate::updater_impl::PendingUpdateData>();
                 let data = pending.0.lock().map_err(error)?;
-                result["pending_update"]=json!(data.as_ref().map(|(u,b)|json!({"version":u.version,"downloaded_bytes":b.len()})));
+                result["pending_update"] =
+                    json!(data.as_ref().map(|update| json!({
+                        "version": update.version(),
+                        "downloaded_bytes": update.downloaded_bytes()
+                    })));
             }
             #[cfg(not(feature = "updater"))]
             {
@@ -181,7 +185,7 @@ pub(super) async fn execute(
                     },
                 )?;
                 Ok(
-                    json!({"available":true,"update_id":id,"current_version":meta["currentVersion"],"version":version,"published_at":meta["publishedAt"],"force_update":meta["forceUpdate"]}),
+                    json!({"available":true,"update_id":id,"current_version":meta["currentVersion"],"version":version,"published_at":meta["publishedAt"],"force_update":meta["forceUpdate"],"install_method":meta["installMethod"]}),
                 )
             }
             #[cfg(not(feature = "updater"))]

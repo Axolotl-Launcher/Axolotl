@@ -95,11 +95,12 @@ impl Collection for SchedulerTags {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
-        let row: Option<Row> =
-            sqlx::query_as(&format!("{SELECT} WHERE id = ?"))
-                .bind(key)
-                .fetch_optional(&mut *conn)
-                .await?;
+        let row: Option<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "{SELECT} WHERE id = ?"
+        )))
+        .bind(key)
+        .fetch_optional(&mut *conn)
+        .await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -130,9 +131,11 @@ impl Collection for SchedulerTags {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        let rows: Vec<Row> = sqlx::query_as(&format!("{SELECT} ORDER BY id"))
-            .fetch_all(&mut *conn)
-            .await?;
+        let rows: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "{SELECT} ORDER BY id"
+        )))
+        .fetch_all(&mut *conn)
+        .await?;
         Ok(rows.into_iter().filter_map(record_of).collect())
     }
 

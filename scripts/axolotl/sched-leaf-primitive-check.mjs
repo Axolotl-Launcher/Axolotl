@@ -5,7 +5,7 @@
 //
 // Usage: node scripts/axolotl/sched-leaf-primitive-check.mjs [--dir <inventory dir>]
 
-import { defaultOutDir, functionBodies, isMain, loadPolicy, outputPaths, parseArgs, readJson, scanMethodHits, sourcesOf, workspaceCrates } from './sched-utils.mjs'
+import { functionBodies, isMain, loadPolicy, outputPaths, parseArgs, readJson, scanMethodHits, sourcesOf, workspaceCrates } from './sched-utils.mjs'
 
 /** Lock calls in L0 member scopes: whole files, or one function when `fn` is given. */
 export function l0LockHits(sources, members) {
@@ -47,7 +47,7 @@ export function checkLeaves(policy, inventory, sources) {
 if (isMain(import.meta.url)) {
     const args = parseArgs(process.argv.slice(2))
     const policy = loadPolicy()
-    const inventory = readJson(outputPaths(args.dir ?? defaultOutDir).inventory)
+    const inventory = readJson(outputPaths(args.dir).inventory)
     const { failures } = checkLeaves(policy, inventory, sourcesOf(workspaceCrates()))
     for (const leaf of policy.leafPrimitives) {
         const bound = leaf.bounded ? 'bounded' : `unbounded, worst case <= ${leaf.worstCaseMs} ms`

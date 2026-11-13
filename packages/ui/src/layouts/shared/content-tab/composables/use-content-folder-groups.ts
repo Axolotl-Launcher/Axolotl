@@ -1,7 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed } from 'vue'
 
-import { buildFileTreeRows, type FileTreeEntry } from '#ui/utils/file-tree'
+import { createFileTreeRowBuilder, type FileTreeEntry } from '#ui/utils/file-tree'
 
 import type { ContentCardTableItem, ContentItem } from '../types'
 
@@ -85,6 +85,8 @@ export function useContentFolderGroups(options: UseContentFolderGroupsOptions) {
         return paths
     })
 
+    const buildRows = computed(() => createFileTreeRowBuilder(groupedEntries.value, locale.value))
+
     /** Group headers and their children, or flat rows while searching. */
     const folderRows = computed<ContentCardTableItem[]>(() => {
         const entries = groupedEntries.value
@@ -95,7 +97,7 @@ export function useContentFolderGroups(options: UseContentFolderGroupsOptions) {
         }
 
         const rows: ContentCardTableItem[] = []
-        for (const row of buildFileTreeRows(entries, expandedFolderPaths.value, '', locale.value)) {
+        for (const row of buildRows.value(expandedFolderPaths.value)) {
             if (row.kind === 'folder') {
                 const groupId = folderGroupId(row.path)
                 rows.push({

@@ -58,6 +58,10 @@ function assertPublishedManifest(published, expected) {
             throw mismatch()
         }
         if (actual.sha256 !== undefined && actual.sha256 !== wanted.sha256) throw mismatch()
+        if (actual.signature !== undefined || actual.size !== undefined) {
+            if (actual.signature !== wanted.signature || actual.size !== wanted.size)
+                throw mismatch()
+        }
     }
 }
 

@@ -20,6 +20,7 @@ import {
     NewModal,
     useVIntl,
 } from '@modrinth/ui'
+import { useClipboard } from '@vueuse/core'
 import { computed, ref } from 'vue'
 
 import { ChatIcon } from '@/assets/icons'
@@ -333,15 +334,7 @@ const debugInfo = computed(
     () => error.value.message ?? error.value ?? formatMessage(messages.noErrorMessage),
 )
 
-const copied = ref(false)
-
-async function copyToClipboard(text) {
-    await navigator.clipboard.writeText(text)
-    copied.value = true
-    setTimeout(() => {
-        copied.value = false
-    }, 3000)
-}
+const { copy: copyToClipboard, copied } = useClipboard({ copiedDuring: 3000 })
 
 const exportingLogs = ref(false)
 

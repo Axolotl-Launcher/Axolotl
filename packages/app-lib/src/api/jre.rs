@@ -11,7 +11,8 @@ use crate::util::fetch::{
     ContentValidation, DownloadRequest, FetchProgressFn, Integrity,
     ResourceClass, download_to_path, fetch_json,
 };
-use futures::{TryStreamExt, stream};
+use dashmap::DashMap;
+use futures::{StreamExt, TryStreamExt, stream};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -25,6 +26,7 @@ use sysinfo::{MemoryRefreshKind, RefreshKind};
 
 use crate::state::documents;
 use crate::util::io;
+use crate::util::java_storage::{self, JavaStorage, StorageKind};
 use crate::util::jre::extract_java_version;
 use crate::{
     LoadingBarType, State,
@@ -36,6 +38,145 @@ use xz2::read::XzDecoder;
 pub struct RegisteredJavaVersions {
     pub runtimes: Vec<JavaVersion>,
     pub defaults: Vec<JavaVersion>,
+}
+
+#[derive(Serialize)]
+pub struct JavaSelectionInfo {
+    pub runtime: JavaVersion,
+    pub storage: JavaStorage,
+    pub requires_confirmation: bool,
+}
+
+pub async fn get_java_selection_info(
+    path: PathBuf,
+) -> crate::Result<JavaSelectionInfo> {
+    let runtime = check_jre(path).await?;
+    let storage = java_storage::inspect(Path::new(&runtime.path)).await?;
+    let state = State::get().await?;
+    let document =
+        documents::java::read(&documents::Documents::new(&state)).await?;
+    let requires_confirmation =
+        !storage_approved(&runtime.path, &storage, &document);
+    Ok(JavaSelectionInfo {
+        runtime,
+        storage,
+        requires_confirmation,
+    })
+}
+
+/// Records the actual volume that the user reviewed, never a drive letter alone.
+pub async fn approve_java_selection(
+    path: PathBuf,
+    volume_id: String,
+) -> crate::Result<JavaVersion> {
+    let selection = get_java_selection_info(path).await?;
+    if selection.storage.volume_id != volume_id {
+        return Err(crate::ErrorKind::InputError("The Java storage device changed. Select Java again before continuing.".into()).into());
+    }
+    let state = State::get().await?;
+    documents::java::approve_external(
+        &documents::Documents::new(&state),
+        selection.runtime.path.clone(),
+        volume_id,
+    )
+    .await?;
+    ensure_java_storage_approved(&selection.runtime).await?;
+    Ok(selection.runtime)
+}
+
+fn storage_approved(
+    path: &str,
+    storage: &JavaStorage,
+    document: &documents::java::JavaDocument,
+) -> bool {
+    !storage.requires_confirmation()
+        || document.external_approvals.iter().any(|approval| {
+            approval.path == path && approval.volume_id == storage.volume_id
+        })
+}
+
+pub async fn ensure_java_storage_approved(
+    java: &JavaVersion,
+) -> crate::Result<()> {
+    let state = State::get().await?;
+    let document =
+        documents::java::read(&documents::Documents::new(&state)).await?;
+    let storage = java_storage::inspect(Path::new(&java.path)).await?;
+    if storage_approved(&java.path, &storage, &document) {
+        return Ok(());
+    }
+    Err(crate::ErrorKind::LauncherError(format!(
+        "Java at {} is on external, network or unrecognized storage. Select it in Java settings and confirm that the device will remain connected.", java.path
+    )).into())
+}
+
+async fn automatic_candidates(
+    state: &State,
+    candidates: Vec<JavaVersion>,
+    major: u32,
+) -> crate::Result<Vec<JavaVersion>> {
+    let document =
+        documents::java::read(&documents::Documents::new(state)).await?;
+    let root = state.directories.java_versions_dir();
+    let document = &document;
+    let root = &root;
+    Ok(
+        validated_java_candidates(candidates, major, |candidate| async move {
+            let runtime =
+                jre::check_java_at_filepath(Path::new(&candidate.path))
+                    .await
+                    .ok()?;
+            let storage =
+                java_storage::inspect(Path::new(&runtime.path)).await.ok()?;
+            if !storage_approved(&runtime.path, &storage, document) {
+                return None;
+            }
+            let rank = match storage.kind {
+                StorageKind::Local
+                    if Path::new(&runtime.path).starts_with(root) =>
+                {
+                    0
+                }
+                StorageKind::Local => 1,
+                _ => 2,
+            };
+            Some((runtime, rank))
+        })
+        .await,
+    )
+}
+
+async fn validated_java_candidates<Validate, Checked>(
+    candidates: Vec<JavaVersion>,
+    major: u32,
+    mut validate: Validate,
+) -> Vec<JavaVersion>
+where
+    Validate: FnMut(JavaVersion) -> Checked,
+    Checked: Future<Output = Option<(JavaVersion, u8)>>,
+{
+    let mut valid = Vec::new();
+    let mut seen = HashSet::new();
+    for candidate in candidates {
+        if candidate.parsed_version < major
+            || !seen.insert(candidate.path.clone())
+        {
+            continue;
+        }
+        if let Some((java, rank)) = validate(candidate).await
+            && java.parsed_version >= major
+        {
+            valid.push((java, rank));
+        }
+    }
+    valid.sort_by(|(left, left_rank), (right, right_rank)| {
+        (left.parsed_version, left_rank, &left.path).cmp(&(
+            right.parsed_version,
+            right_rank,
+            &right.path,
+        ))
+    });
+    valid.into_iter().map(|(java, _)| java).collect()
 }
 
 /// Read stored Java registrations without discovery, execution or registration.
@@ -106,7 +247,8 @@ async fn register_managed_java_versions(state: &State) -> crate::Result<()> {
                 && JavaVersion::get(java.parsed_version, &documents)
                     .await?
                     .is_none();
-            if set_default {
+            if set_default && ensure_java_storage_approved(&java).await.is_ok()
+            {
                 java.upsert_as_default(&documents).await?;
             } else {
                 java.upsert(&documents).await?;
@@ -185,6 +327,7 @@ pub async fn set_java_default_version(
         ))
         .into());
     }
+    ensure_java_storage_approved(&java_version).await?;
 
     let state = State::get().await?;
     java_version
@@ -402,19 +545,15 @@ pub async fn find_cached_java(
 ) -> crate::Result<Option<JavaVersion>> {
     let state = State::get().await?;
 
-    for entry in DiscoveredJava::get_all(&state.derived).await? {
-        if entry.java.parsed_version != major_version {
-            continue;
-        }
-        let path = PathBuf::from(&entry.java.path);
-        if let Ok(java) = jre::check_java_at_filepath(&path).await
-            && java.parsed_version == major_version
-        {
-            return Ok(Some(java));
-        }
-    }
-
-    Ok(None)
+    let candidates = DiscoveredJava::get_all(&state.derived)
+        .await?
+        .into_iter()
+        .map(|entry| entry.java)
+        .collect();
+    Ok(automatic_candidates(&state, candidates, major_version)
+        .await?
+        .into_iter()
+        .find(|java| java.parsed_version == major_version))
 }
 
 /// Resolves an installed Java for `major_version` without downloading. A miss
@@ -432,23 +571,25 @@ pub async fn find_java_for_version(
         if let Ok(java) = jre::check_java_at_filepath(&path).await
             && java.parsed_version == major_version
         {
-            java.upsert(&documents).await?;
-            return Ok(Some(java));
+            if ensure_java_storage_approved(&java).await.is_ok() {
+                java.upsert(&documents).await?;
+                return Ok(Some(java));
+            }
+        } else {
+            tracing::warn!(major_version, path = %configured.path, "Configured Java default is no longer available; retaining the user's registration");
         }
-
-        tracing::warn!(
-            major_version,
-            path = %configured.path,
-            "Configured Java default is no longer valid"
-        );
-        JavaVersion::remove_default(major_version, &documents).await?;
     }
 
     if let Some(java) = find_cached_java(major_version).await? {
         return Ok(Some(java));
     }
 
-    let scanned = get_available_jres(false, false, false).await?;
+    let scanned = automatic_candidates(
+        &state,
+        get_available_jres(false, false, false).await?,
+        major_version,
+    )
+    .await?;
     if let Some(java) = scanned
         .into_iter()
         .find(|java| java.parsed_version == major_version)
@@ -460,7 +601,10 @@ pub async fn find_java_for_version(
         major_version,
         &JAVA_FULL_SCAN_STATE,
         || find_cached_java(major_version),
-        || refresh_discovered_javas(&state, true, false),
+        || async {
+            let scanned = refresh_discovered_javas(&state, true, false).await?;
+            automatic_candidates(&state, scanned, major_version).await
+        },
     )
     .await
 }
@@ -510,7 +654,10 @@ pub async fn find_compatible_java_for_version(
     jres.extend(
         JavaVersion::get_all(&documents::Documents::new(&state)).await?,
     );
-    Ok(closest_compatible_java(jres.iter(), major_version))
+    Ok(automatic_candidates(&state, jres, major_version)
+        .await?
+        .into_iter()
+        .next())
 }
 
 fn closest_compatible_java<'a>(
@@ -532,6 +679,110 @@ pub async fn auto_install_java(
 const JAVA_INSTALL_STEPS: u64 = 4;
 const JAVA_DOWNLOAD_PROGRESS_MIN_BYTES: u64 = 256 * 1024;
 const MOJANG_RUNTIME_INDEX_URL: &str = "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
+
+#[derive(Default)]
+struct JavaInstalls {
+    active: DashMap<uuid::Uuid, (u32, tokio_util::sync::CancellationToken)>,
+}
+
+struct JavaInstall<'a> {
+    installs: &'a JavaInstalls,
+    id: uuid::Uuid,
+    finished: tokio_util::sync::CancellationToken,
+}
+
+impl JavaInstalls {
+    fn begin(&self, major: u32) -> JavaInstall<'_> {
+        let id = uuid::Uuid::new_v4();
+        let finished = tokio_util::sync::CancellationToken::new();
+        self.active.insert(id, (major, finished.clone()));
+        JavaInstall {
+            installs: self,
+            id,
+            finished,
+        }
+    }
+
+    fn pending(
+        &self,
+        major: u32,
+    ) -> HashMap<uuid::Uuid, tokio_util::sync::CancellationToken> {
+        self.active
+            .iter()
+            .filter_map(|entry| {
+                (entry.value().0 == major)
+                    .then(|| (*entry.key(), entry.value().1.clone()))
+            })
+            .collect()
+    }
+}
+
+impl Drop for JavaInstall<'_> {
+    fn drop(&mut self) {
+        self.installs.active.remove(&self.id);
+        // Every exit, including a failed download or a dropped future, wakes
+        // installers waiting for this attempt to publish a usable runtime.
+        self.finished.cancel();
+    }
+}
+
+static JAVA_INSTALLS: LazyLock<JavaInstalls> =
+    LazyLock::new(JavaInstalls::default);
+
+/// Wait only for runtime installations already requested for this major.
+/// Snapshot before discovery so completion during the initial scan is observed.
+pub(crate) async fn find_java_for_install(
+    major: u32,
+    cancellation: &tokio_util::sync::CancellationToken,
+) -> crate::Result<Option<JavaVersion>> {
+    find_java_after_downloads(&JAVA_INSTALLS, major, cancellation, || {
+        find_java_for_version(major)
+    })
+    .await
+}
+
+async fn find_java_after_downloads<Lookup, Found>(
+    installs: &JavaInstalls,
+    major: u32,
+    cancellation: &tokio_util::sync::CancellationToken,
+    mut lookup: Lookup,
+) -> crate::Result<Option<JavaVersion>>
+where
+    Lookup: FnMut() -> Found,
+    Found: Future<Output = crate::Result<Option<JavaVersion>>>,
+{
+    loop {
+        let mut pending = installs.pending(major);
+        let found = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => {
+                return Err(crate::ErrorKind::OtherError("Install was canceled".into()).into());
+            }
+            found = lookup() => found?,
+        };
+        if found.is_some() {
+            return Ok(found);
+        }
+        // Include attempts requested while discovery was running, while retaining
+        // attempts that completed during it so a stale miss is checked again.
+        pending.extend(installs.pending(major));
+        let mut pending: stream::FuturesUnordered<_> = pending
+            .into_values()
+            .map(tokio_util::sync::CancellationToken::cancelled_owned)
+            .collect();
+        tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => {
+                return Err(crate::ErrorKind::OtherError("Install was canceled".into()).into());
+            }
+            completed = pending.next() => {
+                if completed.is_none() {
+                    return Ok(None);
+                }
+            },
+        }
+    }
+}
 
 static JAVA_INSTALL_LOCK: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
@@ -689,6 +940,7 @@ async fn auto_install_java_inner(
     show_loading: bool,
     reporter: Option<InstallProgressReporter>,
 ) -> crate::Result<Option<PathBuf>> {
+    let _attempt = JAVA_INSTALLS.begin(java_version);
     let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let _install_guard = JAVA_INSTALL_LOCK.lock().await;
@@ -906,12 +1158,14 @@ async fn validate_installed_java(
         Some(java_step_progress(4)),
     )
     .await?;
-    if !test_jre(path.clone(), java_version).await? {
+    let java = check_jre(path.clone()).await?;
+    if java.parsed_version != java_version {
         return Err(crate::ErrorKind::LauncherError(format!(
             "Downloaded Java runtime did not report major version {java_version}"
         ))
         .into());
     }
+    register_installed_java(&java).await?;
     if let Some(loading_bar) = loading_bar {
         emit_loading(loading_bar, 10.0, Some("Done installing java"))?;
     }
@@ -1645,6 +1899,7 @@ async fn download_java_from_feed_inner(
     jdk_version_major: u32,
     reporter: Option<InstallProgressReporter>,
 ) -> crate::Result<PathBuf> {
+    let _attempt = JAVA_INSTALLS.begin(jdk_version_major);
     let _metadata_usage = crate::storage::usage::lease().await?;
     let state = State::get().await?;
     let _install_guard = JAVA_INSTALL_LOCK.lock().await;
@@ -1876,12 +2131,7 @@ async fn download_java_from_feed_inner(
     .await?;
 
     let result = check_jre(executable).await?;
-    result
-        .upsert_as_default(&documents::Documents::new(&state))
-        .await?;
-    if let Some(discovered) = DiscoveredJava::from_java(result.clone()) {
-        discovered.upsert(&state.derived).await?;
-    }
+    register_installed_java(&result).await?;
 
     // Complete the remaining 10 % of the bar
     if let Some(loading_bar) = &loading_bar {
@@ -1889,6 +2139,20 @@ async fn download_java_from_feed_inner(
     }
 
     Ok(result.path.into())
+}
+
+async fn register_installed_java(java: &JavaVersion) -> crate::Result<()> {
+    let state = State::get().await?;
+    let documents = documents::Documents::new(&state);
+    if ensure_java_storage_approved(java).await.is_ok() {
+        java.upsert_as_default(&documents).await?;
+    } else {
+        java.upsert(&documents).await?;
+    }
+    if let Some(discovered) = DiscoveredJava::from_java(java.clone()) {
+        discovered.upsert(&state.derived).await?;
+    }
+    Ok(())
 }
 
 fn system_memory() -> sysinfo::System {
@@ -2121,6 +2385,228 @@ mod tests {
     use std::cell::{Cell, RefCell};
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[tokio::test]
+    async fn install_java_lookup_without_a_download_returns_missing_immediately()
+     {
+        let installs = JavaInstalls::default();
+        let _unrelated = installs.begin(17);
+        let result = find_java_after_downloads(
+            &installs,
+            21,
+            &tokio_util::sync::CancellationToken::new(),
+            || async { Ok(None) },
+        )
+        .await
+        .unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_observes_published_runtime_after_completion() {
+        let installs = JavaInstalls::default();
+        let attempt = installs.begin(21);
+        let _other_attempt = installs.begin(21);
+        let published = RefCell::new(None);
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let mut lookup = Box::pin(find_java_after_downloads(
+            &installs,
+            21,
+            &cancellation,
+            || async { Ok(published.borrow().clone()) },
+        ));
+        assert!(futures::poll!(&mut lookup).is_pending());
+        let expected = java(21, "/managed/java21/bin/java");
+        *published.borrow_mut() = Some(expected.clone());
+        drop(attempt);
+        assert_eq!(lookup.await.unwrap(), Some(expected));
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_keeps_waiting_until_download_finishes() {
+        let installs = JavaInstalls::default();
+        let attempt = installs.begin(21);
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let mut lookup = Box::pin(find_java_after_downloads(
+            &installs,
+            21,
+            &cancellation,
+            || async { Ok(None) },
+        ));
+        // No fixed timer turns an active download into a missing runtime.
+        for _ in 0..150 {
+            assert!(futures::poll!(&mut lookup).is_pending());
+            tokio::task::yield_now().await;
+        }
+        drop(attempt);
+        assert!(lookup.await.unwrap().is_none());
+        assert!(installs.pending(21).is_empty());
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_propagates_cancellation_during_discovery_and_wait()
+     {
+        let installs = JavaInstalls::default();
+        let attempt = installs.begin(21);
+        for blocked_discovery in [false, true] {
+            let cancellation = tokio_util::sync::CancellationToken::new();
+            let mut lookup = Box::pin(find_java_after_downloads(
+                &installs,
+                21,
+                &cancellation,
+                || async {
+                    if blocked_discovery {
+                        std::future::pending::<()>().await;
+                    }
+                    Ok(None)
+                },
+            ));
+            assert!(futures::poll!(&mut lookup).is_pending());
+            cancellation.cancel();
+            assert!(lookup.await.unwrap_err().to_string().contains("canceled"));
+        }
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        cancellation.cancel();
+        drop(attempt);
+        assert!(
+            find_java_after_downloads(&installs, 21, &cancellation, || async {
+                panic!("Canceled lookup must not run discovery")
+            },)
+            .await
+            .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_handles_completion_during_initial_discovery() {
+        let installs = JavaInstalls::default();
+        let attempt = RefCell::new(Some(installs.begin(21)));
+        let scans = Cell::new(0);
+        let expected = java(21, "/managed/java21/bin/java");
+        assert_eq!(
+            find_java_after_downloads(
+                &installs,
+                21,
+                &tokio_util::sync::CancellationToken::new(),
+                || async {
+                    scans.set(scans.get() + 1);
+                    if let Some(attempt) = attempt.borrow_mut().take() {
+                        drop(attempt);
+                        Ok(None)
+                    } else {
+                        Ok(Some(expected.clone()))
+                    }
+                },
+            )
+            .await
+            .unwrap(),
+            Some(expected)
+        );
+        assert_eq!(scans.get(), 2);
+    }
+
+    #[tokio::test]
+    async fn install_java_lookup_includes_download_started_during_discovery() {
+        let installs = JavaInstalls::default();
+        let attempt = RefCell::new(None);
+        let scans = Cell::new(0);
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let mut lookup = Box::pin(find_java_after_downloads(
+            &installs,
+            21,
+            &cancellation,
+            || async {
+                scans.set(scans.get() + 1);
+                if scans.get() == 1 {
+                    *attempt.borrow_mut() = Some(installs.begin(21));
+                }
+                Ok(None)
+            },
+        ));
+        assert!(futures::poll!(&mut lookup).is_pending());
+        drop(attempt.borrow_mut().take());
+        assert!(lookup.await.unwrap().is_none());
+        assert_eq!(scans.get(), 2);
+    }
+
+    #[test]
+    fn external_approval_is_bound_to_runtime_and_volume() {
+        let mut document = documents::java::JavaDocument::default();
+        let storage = JavaStorage {
+            kind: StorageKind::External,
+            volume_id: "volume-a".into(),
+        };
+        assert!(!storage_approved(
+            "E:/jdk/bin/javaw.exe",
+            &storage,
+            &document
+        ));
+        document.external_approvals.push(
+            documents::java::ExternalJavaApproval {
+                path: "E:/jdk/bin/javaw.exe".into(),
+                volume_id: "volume-a".into(),
+            },
+        );
+        assert!(storage_approved(
+            "E:/jdk/bin/javaw.exe",
+            &storage,
+            &document
+        ));
+        assert!(!storage_approved(
+            "E:/other/bin/javaw.exe",
+            &storage,
+            &document
+        ));
+        assert!(!storage_approved(
+            "E:/jdk/bin/javaw.exe",
+            &JavaStorage {
+                kind: StorageKind::External,
+                volume_id: "volume-b".into()
+            },
+            &document
+        ));
+    }
+
+    #[tokio::test]
+    async fn automatic_resolution_rejects_stale_records_and_ranks_local_candidates()
+     {
+        let candidates = vec![
+            java(17, "missing"),
+            java(21, "newer-local"),
+            java(17, "usb"),
+            java(17, "local-b"),
+            java(17, "local-a"),
+        ];
+        for candidates in
+            [candidates.clone(), candidates.into_iter().rev().collect()]
+        {
+            let valid =
+                validated_java_candidates(candidates, 17, |java| async move {
+                    if java.path == "missing" {
+                        return None;
+                    }
+                    let rank = if java.path == "usb" { 2 } else { 1 };
+                    Some((java, rank))
+                })
+                .await;
+            assert_eq!(
+                valid
+                    .iter()
+                    .map(|java| java.path.as_str())
+                    .collect::<Vec<_>>(),
+                ["local-a", "local-b", "usb", "newer-local"]
+            );
+        }
+        let valid = validated_java_candidates(
+            vec![java(17, "missing"), java(21, "available")],
+            17,
+            |candidate| async move {
+                (candidate.path != "missing").then_some((candidate, 1))
+            },
+        )
+        .await;
+        assert_eq!(valid.first().unwrap().path, "available");
+    }
 
     fn java(parsed_version: u32, path: &str) -> JavaVersion {
         JavaVersion {

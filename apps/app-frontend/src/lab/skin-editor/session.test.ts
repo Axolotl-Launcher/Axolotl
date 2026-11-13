@@ -153,4 +153,46 @@ describe('skin editor messages', () => {
             }),
         ).toBeNull()
     })
+
+    it('accepts settings changes and unsaved prompt results from the embedded editor', () => {
+        expect(
+            parseSkinEditorMessage({
+                type: 'axolotl-skin-settings-change',
+                autoSaveEnabled: false,
+                autoSaveIntervalSeconds: 45,
+                warnBeforeLeave: true,
+            }),
+        ).toEqual({
+            type: 'axolotl-skin-settings-change',
+            autoSaveEnabled: false,
+            autoSaveIntervalSeconds: 45,
+            warnBeforeLeave: true,
+        })
+        expect(
+            parseSkinEditorMessage({
+                type: 'axolotl-skin-settings-change',
+                autoSaveEnabled: false,
+                autoSaveIntervalSeconds: '45',
+                warnBeforeLeave: true,
+            }),
+        ).toBeNull()
+        expect(
+            parseSkinEditorMessage({
+                type: 'axolotl-skin-prompt-result',
+                requestId: 'request',
+                choice: 'discard',
+            }),
+        ).toEqual({
+            type: 'axolotl-skin-prompt-result',
+            requestId: 'request',
+            choice: 'discard',
+        })
+        expect(
+            parseSkinEditorMessage({
+                type: 'axolotl-skin-prompt-result',
+                requestId: 'request',
+                choice: 'maybe',
+            }),
+        ).toBeNull()
+    })
 })

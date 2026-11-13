@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 
+import { stageReleaseAssets } from './stage-release-assets.mjs'
+
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-update-catalog-'))
 const releasePath = path.join(directory, 'release.json')
 const output = path.join(directory, 'catalog.json')
@@ -37,7 +39,11 @@ const files = [
     'Axolotl_Launcher_1.9.5-beta.1_x64_nsis-setup.exe',
     'Axolotl_Launcher_1.9.5-beta.1_x64_nsis-setup.exe.sig',
     'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip',
+    'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip.sig',
 ]
+files.push(
+    ...files.filter((name) => name.includes('_x64')).map((name) => name.replace('_x64', '_arm64')),
+)
 // Attached for the website, not installed by the Update Server.
 const webDemo = 'Axolotl_Launcher_1.9.5-beta.1_web_demo.zip'
 
@@ -81,14 +87,31 @@ try {
         'modern',
     )
     assert.equal(
-        catalog.artifacts.find((artifact) => artifact.filename.endsWith('portable.zip')).kind,
+        catalog.artifacts.find((artifact) => artifact.filename.endsWith('_x64_portable.zip')).kind,
         'portable',
+    )
+    assert.equal(
+        catalog.artifacts.find((artifact) => artifact.filename.endsWith('_x64_portable.zip'))
+            .signatureFilename,
+        'Axolotl_Launcher_1.9.5-beta.1_x64_portable.zip.sig',
     )
     assert.deepEqual(
         catalog.artifacts.find((artifact) => artifact.filename.endsWith('_universal.app.tar.gz'))
             .targetPlatforms,
         ['darwin-aarch64', 'darwin-x86_64'],
     )
+    for (const [suffix, kind, variant] of [
+        ['_arm64_modern-setup.exe', 'installer', 'modern'],
+        ['_arm64_nsis-setup.exe', 'installer', 'native'],
+        ['_arm64_portable.zip', 'portable', 'portable'],
+        ['_arm64-setup.nsis.zip', 'updater', 'tauri'],
+    ]) {
+        const artifact = catalog.artifacts.find((entry) => entry.filename.endsWith(suffix))
+        assert.equal(artifact.architecture, 'aarch64')
+        assert.equal(artifact.kind, kind)
+        assert.equal(artifact.variant, variant)
+        if (kind === 'updater') assert.deepEqual(artifact.targetPlatforms, ['windows-aarch64'])
+    }
     const release = JSON.parse(fs.readFileSync(releasePath, 'utf8'))
     const run = () =>
         spawnSync(
@@ -105,6 +128,78 @@ try {
                 env: { ...process.env, GITHUB_REPOSITORY: 'Axolotl-Launcher/Axolotl' },
             },
         )
+    assert.ok(catalog.artifacts.every((artifact) => artifact.kind !== 'signature'))
+    for (const extension of ['deb', 'rpm']) {
+        const packageArtifact = catalog.artifacts.find((artifact) => artifact.variant === extension)
+        assert.equal(packageArtifact.signatureFilename, `${packageArtifact.filename}.sig`)
+        const unsigned = structuredClone(release)
+        unsigned.assets = unsigned.assets.filter(
+            (asset) => asset.name !== packageArtifact.signatureFilename,
+        )
+        fs.writeFileSync(releasePath, JSON.stringify(unsigned))
+        const failure = run()
+        assert.notEqual(failure.status, 0)
+        assert.match(failure.stderr, /Missing updater signature/)
+        assert.deepEqual(JSON.parse(fs.readFileSync(output, 'utf8')), catalog)
+    }
+    const stagingInput = path.join(directory, 'bundle')
+    const stagingOutput = path.join(directory, 'staged')
+    const bundleDirectory = path.join(stagingInput, 'packages')
+    fs.mkdirSync(bundleDirectory, { recursive: true })
+    const stagedNames = [
+        'Axolotl.amd64.deb',
+        'Axolotl.x86_64.rpm',
+        'Axolotl.amd64.AppImage',
+        'Axolotl.amd64.AppImage.tar.gz',
+    ]
+    for (const name of stagedNames) {
+        fs.writeFileSync(path.join(bundleDirectory, name), name)
+        fs.writeFileSync(path.join(bundleDirectory, `${name}.sig`), `signature:${name}`)
+    }
+    for (const extension of ['deb', 'rpm']) {
+        const packageName = stagedNames.find((name) => name.endsWith(`.${extension}`))
+        const sidecar = path.join(bundleDirectory, `${packageName}.sig`)
+        fs.rmSync(sidecar)
+        assert.throws(
+            () =>
+                stageReleaseAssets({
+                    input: stagingInput,
+                    output: stagingOutput,
+                    platform: 'linux',
+                }),
+            /Missing updater signature/,
+        )
+        assert.equal(
+            fs.existsSync(stagingOutput),
+            false,
+            'reject unsigned inputs before publishing any staged artifact',
+        )
+        fs.writeFileSync(sidecar, `signature:${packageName}`)
+    }
+    const signed = []
+    for (const extension of ['deb', 'rpm']) {
+        fs.rmSync(
+            path.join(
+                bundleDirectory,
+                `${stagedNames.find((name) => name.endsWith(`.${extension}`))}.sig`,
+            ),
+        )
+    }
+    stageReleaseAssets(
+        { input: stagingInput, output: stagingOutput, platform: 'linux', signPackages: true },
+        (file) => {
+            signed.push(path.extname(file))
+            fs.writeFileSync(`${file}.sig`, `signed:${path.basename(file)}`)
+        },
+    )
+    assert.deepEqual(signed.sort(), ['.deb', '.rpm'])
+    for (const extension of ['deb', 'rpm']) {
+        const packageName = stagedNames.find((name) => name.endsWith(`.${extension}`))
+        assert.equal(
+            fs.readFileSync(path.join(stagingOutput, `${packageName}.sig`), 'utf8'),
+            `signed:${packageName}`,
+        )
+    }
     release.assets.reverse()
     fs.writeFileSync(releasePath, JSON.stringify(release))
     assert.equal(run().status, 0)

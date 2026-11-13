@@ -16,7 +16,7 @@ pub(crate) const DOCUMENT: &str = "java";
 
 /// Bumped whenever the key set of this document changes, including when a key
 /// is dropped. The document records it; a newer document is still read.
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 
 /// An installed runtime, identified by the path of its executable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +43,14 @@ pub(crate) struct JavaDocument {
     pub(crate) runtimes: Vec<JavaRuntime>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) defaults: Vec<JavaDefault>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) external_approvals: Vec<ExternalJavaApproval>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct ExternalJavaApproval {
+    pub(crate) path: String,
+    pub(crate) volume_id: String,
 }
 
 impl JavaDocument {
@@ -199,7 +207,11 @@ async fn from_database(pool: &SqlitePool) -> crate::Result<JavaDocument> {
                 path: record.path,
             })
             .collect();
-    Ok(JavaDocument { runtimes, defaults })
+    Ok(JavaDocument {
+        runtimes,
+        defaults,
+        external_approvals: Vec::new(),
+    })
 }
 
 /// Writes the document the rows hand over to, unless one is already in place.
@@ -289,6 +301,25 @@ pub(crate) async fn forget(
 ) -> crate::Result<()> {
     update(documents, |document| {
         document.forget(path);
+        document
+            .external_approvals
+            .retain(|approval| approval.path != path);
+    })
+    .await
+}
+
+pub(crate) async fn approve_external(
+    documents: &Documents<'_>,
+    path: String,
+    volume_id: String,
+) -> crate::Result<()> {
+    update(documents, |document| {
+        document
+            .external_approvals
+            .retain(|approval| approval.path != path);
+        document
+            .external_approvals
+            .push(ExternalJavaApproval { path, volume_id });
     })
     .await
 }
@@ -437,6 +468,37 @@ mod tests {
                 .map(|runtime| runtime.major_version)
                 .collect::<Vec<_>>(),
             [21]
+        );
+    }
+
+    #[tokio::test]
+    async fn external_approval_survives_runtime_scans_and_is_removed_when_forgotten()
+     {
+        let pool = installed_pool().await;
+        let root = tempfile::tempdir().unwrap();
+        let documents = documents(&root, &pool);
+        approve_external(
+            &documents,
+            "/java/temurin-17/bin/java".into(),
+            "volume-a".into(),
+        )
+        .await
+        .unwrap();
+        save_all(&documents, Vec::<JavaRuntime>::new())
+            .await
+            .unwrap();
+        let document = read(&documents).await.unwrap();
+        assert_eq!(document.external_approvals.len(), 1);
+        assert_eq!(document.external_approvals[0].volume_id, "volume-a");
+        forget(&documents, "/java/temurin-17/bin/java")
+            .await
+            .unwrap();
+        assert!(
+            read(&documents)
+                .await
+                .unwrap()
+                .external_approvals
+                .is_empty()
         );
     }
 

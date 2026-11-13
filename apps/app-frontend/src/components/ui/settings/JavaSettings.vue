@@ -23,6 +23,7 @@ import { trackEvent } from '@/helpers/analytics'
 import { collectGcContext } from '@/helpers/gc/context'
 import { wait_for_install_job } from '@/helpers/install'
 import { getJavaArgumentPresets } from '@/helpers/java-argument-presets'
+import { confirmJavaSelection } from '@/helpers/java-selection'
 import {
     find_filtered_jres,
     get_java_default_versions,
@@ -292,7 +293,9 @@ async function handleManualAdd() {
     const javaInfo = await get_jre(filePath).catch(handleError)
     if (!javaInfo) return
 
-    await set_java_version(javaInfo).catch(handleError)
+    const selected = await confirmJavaSelection(javaInfo, formatMessage).catch(handleError)
+    if (!selected) return
+    await set_java_version(selected).catch(handleError)
     trackEvent('JavaManualSelect', { path: filePath })
 }
 

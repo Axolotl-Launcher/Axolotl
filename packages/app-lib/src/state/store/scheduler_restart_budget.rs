@@ -53,11 +53,12 @@ impl Collection for SchedulerRestartBudget {
         conn: &mut SqliteConnection,
         key: &Self::Key,
     ) -> crate::Result<Option<Self::Record>> {
-        let row: Option<Row> =
-            sqlx::query_as(&format!("{SELECT} WHERE scope = ?"))
-                .bind(key)
-                .fetch_optional(&mut *conn)
-                .await?;
+        let row: Option<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "{SELECT} WHERE scope = ?"
+        )))
+        .bind(key)
+        .fetch_optional(&mut *conn)
+        .await?;
         Ok(row.map(|row| record_of(row).1))
     }
 
@@ -79,10 +80,11 @@ impl Collection for SchedulerRestartBudget {
     async fn read_all(
         conn: &mut SqliteConnection,
     ) -> crate::Result<Vec<(Self::Key, Self::Record)>> {
-        let rows: Vec<Row> =
-            sqlx::query_as(&format!("{SELECT} ORDER BY scope"))
-                .fetch_all(&mut *conn)
-                .await?;
+        let rows: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "{SELECT} ORDER BY scope"
+        )))
+        .fetch_all(&mut *conn)
+        .await?;
         Ok(rows.into_iter().map(record_of).collect())
     }
 

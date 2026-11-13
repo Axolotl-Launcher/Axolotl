@@ -1,6 +1,36 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn java_selection_commands_match_frontend_and_main_window_permissions() {
+    let runtime = runtime_commands(include_str!("../src/api/jre.rs"));
+    assert_eq!(
+        runtime,
+        manifest_commands(include_str!("../build.rs"), "jre")
+    );
+    let frontend = include_str!("../../app-frontend/src/helpers/jre.js");
+    for command in ["get_java_selection_info", "approve_java_selection"] {
+        assert!(runtime.contains(command));
+        assert!(frontend.contains(&format!("plugin:jre|{command}")));
+    }
+    assert!(frontend.contains("{ path, volumeId }"));
+    assert!(include_str!("../src/api/jre.rs").contains("volume_id: String"));
+    let capability: serde_json::Value =
+        serde_json::from_str(include_str!("../capabilities/plugins.json"))
+            .unwrap();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(
+        capability["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| permission == "jre:default")
+    );
+    assert!(
+        include_str!("../src/main.rs").contains(".plugin(api::jre::init())")
+    );
+}
+
+#[test]
 fn complete_log_export_is_registered_for_the_main_window() {
     let runtime = runtime_commands(include_str!("../src/api/logs.rs"));
     assert_eq!(

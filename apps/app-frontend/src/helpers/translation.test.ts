@@ -117,3 +117,24 @@ it('falls back when a batch returns duplicate segment ids', async () => {
         { id: 'b', text: 'translated-b' },
     ])
 })
+
+it('publishes each paragraph before slower paragraphs complete with single-item batches', async () => {
+    const completions = new Map<string, (response: TranslationResponse) => void>()
+    const published: string[] = []
+    const pending = translateInBatches(
+        request(['first', 'second']),
+        (response) => published.push(...response.segments.map(({ id }) => id)),
+        (batch) =>
+            new Promise((resolve) => {
+                expect(batch.segments).toHaveLength(1)
+                completions.set(batch.segments[0].id, resolve)
+            }),
+        { maxItems: 1 },
+    )
+    completions.get('second')!({ segments: [{ id: 'second', text: 'Translated second' }] })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(published).toEqual(['second'])
+    completions.get('first')!({ segments: [{ id: 'first', text: 'Translated first' }] })
+    await pending
+    expect(published).toEqual(['second', 'first'])
+})

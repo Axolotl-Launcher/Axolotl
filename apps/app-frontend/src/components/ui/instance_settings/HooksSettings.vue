@@ -174,11 +174,11 @@ function normalizeLaunchPreparationTimeout() {
         <StyledInput
             id="pre-launch"
             :model-value="hooks.pre_launch ?? ''"
-            @update:model-value="(value) => (hooks.pre_launch = String(value ?? ''))"
             autocomplete="off"
             :disabled="!overrideHooks"
             :placeholder="formatMessage(messages.preLaunchEnter)"
             wrapper-class="w-full my-2.5"
+            @update:model-value="(value) => (hooks.pre_launch = String(value ?? ''))"
         />
         <p class="m-0">
             {{ formatMessage(messages.preLaunchDescription) }}
@@ -190,11 +190,11 @@ function normalizeLaunchPreparationTimeout() {
         <StyledInput
             id="wrapper"
             :model-value="hooks.wrapper ?? ''"
-            @update:model-value="(value) => (hooks.wrapper = String(value ?? ''))"
             autocomplete="off"
             :disabled="!overrideHooks"
             :placeholder="formatMessage(messages.wrapperEnter)"
             wrapper-class="w-full my-2.5"
+            @update:model-value="(value) => (hooks.wrapper = String(value ?? ''))"
         />
         <p class="m-0">
             {{ formatMessage(messages.wrapperDescription) }}
@@ -206,11 +206,11 @@ function normalizeLaunchPreparationTimeout() {
         <StyledInput
             id="post-exit"
             :model-value="hooks.post_exit ?? ''"
-            @update:model-value="(value) => (hooks.post_exit = String(value ?? ''))"
             autocomplete="off"
             :disabled="!overrideHooks"
             :placeholder="formatMessage(messages.postExitEnter)"
             wrapper-class="w-full my-2.5"
+            @update:model-value="(value) => (hooks.post_exit = String(value ?? ''))"
         />
         <p class="m-0">
             {{ formatMessage(messages.postExitDescription) }}

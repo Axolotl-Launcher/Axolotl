@@ -17,6 +17,7 @@ function item(id: string, fileName: string): ContentItem {
 function setup(initialExpanded: string[] = [], initialItems: ContentItem[] = defaultItems()) {
     const items = ref(initialItems)
     const expandedGroups = ref(new Set(initialExpanded))
+    const locale = ref('en-US')
     const groups = useContentFolderGroups({
         filteredItems: computed(() => items.value),
         modpackChildIdSet: computed(() => new Set<string>()),
@@ -39,9 +40,9 @@ function setup(initialExpanded: string[] = [], initialItems: ContentItem[] = def
         treePath: (entry) => entry.file_name,
         folderGroupId: (path) => `folder:${path}`,
         folderGroupIdPrefix: 'folder:',
-        locale: ref('en-US'),
+        locale,
     })
-    return { groups, expandedGroups, items }
+    return { groups, expandedGroups, items, locale }
 }
 
 function defaultItems() {
@@ -77,4 +78,23 @@ it('still renders folders the user explicitly expanded', async () => {
         { id: 'one', header: undefined },
         { id: 'two', header: undefined },
     ])
+})
+
+it('invalidates cached folder ordering when content or locale changes', async () => {
+    const { groups, expandedGroups, items, locale } = setup(
+        ['folder:root'],
+        [item('accent', 'root/ä.jar'), item('last', 'root/z.jar')],
+    )
+    locale.value = 'de'
+    expect(groups.folderRows.value.map((row) => row.id)).toEqual(['folder:root', 'accent', 'last'])
+    expandedGroups.value = new Set()
+    expect(groups.folderRows.value).toHaveLength(1)
+    locale.value = 'sv'
+    expandedGroups.value = new Set(['folder:root'])
+    await nextTick()
+    expect(groups.folderRows.value.map((row) => row.id)).toEqual(['folder:root', 'last', 'accent'])
+    items.value = [item('new', 'root/new.jar')]
+    await nextTick()
+    expect(groups.folderRows.value.map((row) => row.id)).toEqual(['folder:root', 'new'])
+    expect(groups.folderRows.value[0].groupChildIds).toEqual(['new'])
 })

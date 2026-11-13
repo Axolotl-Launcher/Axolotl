@@ -183,12 +183,18 @@ function checkIntercomPresence(): void {
     isIntercomPresent.value = !!document.querySelector('.intercom-lightweight-app')
 }
 
+let appliedClearance: string | undefined
+
 function updateNotificationClearance(): void {
     const rect = groupEl.value?.getBoundingClientRect()
     const visible = notificationLocation.value === 'right' && rect && rect.height > 0
     // Measure the panel's top edge rather than its height: the panel can be raised
     // by the mobile navbar, notifications' own bottom offset or the intercom bubble.
     const clearance = visible ? `${Math.ceil(window.innerHeight - rect.top + 16)}px` : '0px'
+    // Writing the custom property invalidates style for everything that reads it,
+    // so skip the write when the measured clearance has not changed.
+    if (clearance === appliedClearance) return
+    appliedClearance = clearance
     document.documentElement.style.setProperty('--notification-panel-clearance', clearance)
 }
 
@@ -223,18 +229,31 @@ async function handleErrorAction(notification: WebNotification): Promise<void> {
 onMounted(() => {
     checkIntercomPresence()
 
-    const handleLayoutChange = () => updateNotificationClearance()
-    const observer = new MutationObserver(() => {
-        checkIntercomPresence()
-        updateNotificationClearance()
-    })
+    // Measuring the panel forces a synchronous layout flush, so coalesce every
+    // trigger into one read per frame instead of one per observed mutation.
+    let frame: number | undefined
+    const handleLayoutChange = () => {
+        if (frame !== undefined) return
+        frame = requestAnimationFrame(() => {
+            frame = undefined
+            checkIntercomPresence()
+            updateNotificationClearance()
+        })
+    }
+    const observer = new MutationObserver(handleLayoutChange)
 
     observer.observe(document.body, {
         childList: true,
         subtree: true,
-        attributes: true,
-        attributeFilter: ['class', 'style'],
     })
+
+    // The panel and body classes (such as floating-action-bar-shown) can move it
+    // without resizing it. Observe their attributes, but not descendant attributes
+    // that would trigger measurements for unrelated changes throughout the app.
+    const layoutObserver = new MutationObserver(handleLayoutChange)
+    const layoutAttributes = { attributes: true, attributeFilter: ['class', 'style'] }
+    layoutObserver.observe(document.body, layoutAttributes)
+    if (groupEl.value) layoutObserver.observe(groupEl.value, layoutAttributes)
 
     const resizeObserver = new ResizeObserver(handleLayoutChange)
     if (groupEl.value) resizeObserver.observe(groupEl.value)
@@ -244,10 +263,13 @@ onMounted(() => {
     updateNotificationClearance()
 
     onBeforeUnmount(() => {
+        if (frame !== undefined) cancelAnimationFrame(frame)
         observer.disconnect()
+        layoutObserver.disconnect()
         resizeObserver.disconnect()
         groupEl.value?.removeEventListener('transitionend', handleLayoutChange)
         window.removeEventListener('resize', handleLayoutChange)
+        appliedClearance = undefined
         document.documentElement.style.removeProperty('--notification-panel-clearance')
     })
 })

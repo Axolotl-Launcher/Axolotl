@@ -777,7 +777,7 @@ a.home-launch-name:focus-visible,
 }
 
 .home-launch-recent-all {
-    @apply flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-1 text-xs font-semibold text-[var(--color-text-secondary)];
+    @apply flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-1 text-xs font-semibold text-[var(--color-text-default)];
     transition: color 120ms ease;
 }
 

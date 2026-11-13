@@ -99,6 +99,7 @@ export function createThemeSuiteContext(
     const snapshotExporting = ref(false)
     const snapshotError = ref('')
     const snapshotExported = ref(false)
+    let refreshToken = 0
 
     const activeSource = computed<ThemeSuiteSource>(() => settings.value?.theme_source ?? 'builtin')
 
@@ -127,7 +128,17 @@ export function createThemeSuiteContext(
         colorsDraft.value = { ...(stored ?? fromPack ?? readColorDefaults(bucket)) }
     }
 
+    /**
+     * Invalidates an in-flight refresh before a local mutation changes the
+     * settings snapshot, so the stale read cannot overwrite the new selection.
+     */
+    function invalidateRefresh() {
+        refreshToken += 1
+        loading.value = false
+    }
+
     async function refresh() {
+        const token = ++refreshToken
         loading.value = true
         error.value = ''
         try {
@@ -136,6 +147,7 @@ export function createThemeSuiteContext(
                 getThemePackLimits(),
                 getSettings(),
             ])
+            if (token !== refreshToken) return
             packs.value = nextPacks
             limits.value = nextLimits
             settings.value = nextSettings
@@ -143,9 +155,10 @@ export function createThemeSuiteContext(
             selectedPackId.value = source.startsWith('pack:') ? source.slice('pack:'.length) : null
             resetColorsDraft()
         } catch (failure) {
+            if (token !== refreshToken) return
             error.value = String(failure)
         } finally {
-            loading.value = false
+            if (token === refreshToken) loading.value = false
         }
     }
 
@@ -216,6 +229,7 @@ export function createThemeSuiteContext(
 
     async function selectSource(source: ThemeSuiteSource) {
         if (selectingSource.value || activeSource.value === source) return
+        invalidateRefresh()
         selectingSource.value = source
         error.value = ''
         try {
@@ -234,6 +248,7 @@ export function createThemeSuiteContext(
     async function install() {
         const archivePath = importPath.value
         if (!archivePath || installing.value) return
+        invalidateRefresh()
         installing.value = true
         installError.value = ''
         try {
@@ -252,6 +267,7 @@ export function createThemeSuiteContext(
 
     async function remove(pack: InstalledThemePack, removeData = false) {
         if (removingId.value) return
+        invalidateRefresh()
         removingId.value = pack.manifest.id
         error.value = ''
         try {
@@ -282,6 +298,7 @@ export function createThemeSuiteContext(
 
     async function saveColors() {
         if (!settings.value) return
+        invalidateRefresh()
         const bucket = colorsBucket.value
         error.value = ''
         try {
@@ -302,11 +319,26 @@ export function createThemeSuiteContext(
     }
 
     async function exportSnapshot() {
-        if (snapshotExporting.value || !settings.value) return
+        const current = settings.value
+        if (snapshotExporting.value || !current) return
         snapshotExporting.value = true
         snapshotError.value = ''
         snapshotExported.value = false
         try {
+            // Capture the appearance being exported before opening the native
+            // dialog: the user can change the theme while it is open, and the
+            // archive should match the preview they acted on.
+            const source = activeSource.value
+            const snapshot = await collectCurrentAppearanceSnapshot(
+                source,
+                activeTheme.value,
+                {
+                    themeSource: source,
+                    customThemeColors: current.custom_theme_colors ?? null,
+                    uiFont: current.ui_font ?? null,
+                },
+                current.accent_color ?? null,
+            )
             const now = new Date()
             const stamp = [
                 now.getFullYear(),
@@ -324,17 +356,6 @@ export function createThemeSuiteContext(
             })
             if (!destination) return
             if (!destination.toLowerCase().endsWith('.zip')) destination += '.zip'
-            const source = activeSource.value
-            const snapshot = await collectCurrentAppearanceSnapshot(
-                source,
-                activeTheme.value,
-                {
-                    themeSource: source,
-                    customThemeColors: settings.value.custom_theme_colors ?? null,
-                    uiFont: settings.value.ui_font ?? null,
-                },
-                settings.value.accent_color ?? null,
-            )
             await exportThemePackSnapshot(destination, snapshot)
             snapshotExported.value = true
         } catch (failure) {

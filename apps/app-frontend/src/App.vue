@@ -958,15 +958,19 @@ onUnmounted(async () => {
 const { formatMessage, locale: intlLocale } = useVIntl()
 
 const themePackPages = ref<ThemePackNavPage[]>([])
+let themePackPagesRequest = 0
 
 /** Re-reads the active pack's navigation pages after its source changes. */
 async function refreshThemePackPages(): Promise<void> {
+    const request = ++themePackPagesRequest
     const settings = await getSettings().catch(() => null)
-    if (!settings) return
-    themePackPages.value = await listActiveThemePackPages(
+    if (!settings || request !== themePackPagesRequest) return
+    const pages = await listActiveThemePackPages(
         settings.theme_source ?? 'builtin',
         intlLocale.value,
     ).catch(() => [])
+    if (request !== themePackPagesRequest) return
+    themePackPages.value = pages
 }
 
 function handleThemeSourceChanged(): void {
@@ -976,6 +980,7 @@ function handleThemeSourceChanged(): void {
 window.addEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
 watch(intlLocale, handleThemeSourceChanged)
 onUnmounted(() => {
+    themePackPagesRequest += 1
     window.removeEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
 })
 

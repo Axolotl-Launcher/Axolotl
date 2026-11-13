@@ -52,7 +52,7 @@ device names, and symlinks are rejected.
 }
 ```
 
-- `id` uses `[a-z0-9._-]`; the `axolotl-` prefix is reserved.
+- `id` uses `[a-z0-9._-]`, starts with a letter or digit, does not end with `.`, is not a Windows device name, and the `axolotl-` prefix is reserved.
 - `engines.axolotl` is a semver requirement checked against the running
   launcher version.
 - `tokens` must contain at least `--surface-1`, `--surface-3`, and
@@ -96,7 +96,7 @@ Available methods:
 | Method | Permission | Notes |
 | --- | --- | --- |
 | `network.fetch({ url, method, headers?, body? })` | `network` | HTTPS only, allow-listed host, GET/POST; request 1 MiB, response 8 MiB, 30 s timeout, 4 concurrent and 60 requests/minute per pack; connects directly and ignores system HTTP proxies |
-| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files, 2 MiB per file, 10 MiB total |
+| `storage.list()` / `read(key)` / `write(key, contents)` / `delete(key)` | `storage` | Per-pack directory, 256 files, 2 MiB per file, 10 MiB total; keys use 1-128 ASCII letters, digits, `.`, `_` or `-`, may not start or end with `.` or name a Windows device |
 | `instances.list()` | `instances.read` | Read-only instance summaries |
 | `instances.mods(instanceId)` | `instances.read` | Read-only mod list |
 | `instances.logs(instanceId)` | `instances.logs` | Censored logs, last 256 KiB |

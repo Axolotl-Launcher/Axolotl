@@ -539,6 +539,11 @@ pub fn validate_id(id: &str) -> crate::Result<()> {
             "Theme pack ids may not use the reserved axolotl- prefix",
         ));
     }
+    if id.ends_with('.') || is_windows_device_name(id) {
+        return Err(invalid(
+            "Theme pack ids may not end with '.' or use a Windows device name",
+        ));
+    }
     Ok(())
 }
 
@@ -595,7 +600,7 @@ pub fn validate_relative(path: &str) -> crate::Result<Vec<String>> {
 
 /// Rejects the reserved DOS device names, which Windows resolves in every
 /// directory even without an extension (`con`, `nul.txt`, `COM1`, …).
-fn is_windows_device_name(component: &str) -> bool {
+pub fn is_windows_device_name(component: &str) -> bool {
     let stem = component
         .split('.')
         .next()
@@ -1124,6 +1129,18 @@ mod tests {
             );
         }
         assert!(validate_relative("pages/home.html").is_ok());
+    }
+
+    #[test]
+    fn rejects_windows_device_names_as_ids() {
+        for id in [
+            "con", "con.txt", "prn", "aux", "nul", "com1", "lpt9", "nord.",
+        ] {
+            assert!(validate_id(id).is_err(), "expected {id} to be rejected");
+        }
+        for id in ["console", "com10", "lpt0", "theme-pack"] {
+            assert!(validate_id(id).is_ok(), "expected {id} to be accepted");
+        }
     }
 
     #[test]

@@ -22,6 +22,7 @@ use theseus::theme_pack::archive::ThemePackLimits;
 use theseus::theme_pack::archive::now_seconds;
 use theseus::theme_pack::manifest::MANIFEST_FILE;
 use theseus::theme_pack::manifest::ThemePackManifest;
+use theseus::theme_pack::manifest::is_windows_device_name;
 use theseus::theme_pack::network::ThemeNetworkRequest;
 use theseus::theme_pack::network::ThemeNetworkResponse;
 use theseus::theme_pack::store::InstalledThemePack;
@@ -824,12 +825,17 @@ fn valid_storage_key(key: &str) -> bool {
     !key.is_empty()
         && key.len() <= 128
         && !key.starts_with('.')
+        && !key.ends_with('.')
+        && !is_windows_device_name(key)
         && key.chars().all(|character| {
             character.is_ascii_alphanumeric()
                 || matches!(character, '.' | '_' | '-')
         })
 }
 
+/// Windows resolves the reserved DOS device names in every directory, so a
+/// storage key such as `con` or `lpt1.txt` would address a device instead of a
+/// file in the pack data directory.
 fn storage_file<R: Runtime>(
     app: &AppHandle<R>,
     pack_id: &str,
@@ -1324,6 +1330,21 @@ mod tests {
         std::fs::write(styles.join("theme.css"), ".x { color: red; }").unwrap();
         let storage = ThemePackStorage::new(directory.path());
         (directory, storage)
+    }
+
+    #[test]
+    fn rejects_windows_device_and_trailing_dot_storage_keys() {
+        for key in [
+            "CON", "con.txt", "Prn", "AUX.log", "NUL", "com1", "LPT9.bin",
+            "notes.",
+        ] {
+            assert!(!valid_storage_key(key), "{key}");
+        }
+        for key in
+            ["console", "con-1", "com10", "lpt0", "nul_.txt", "notes.txt"]
+        {
+            assert!(valid_storage_key(key), "{key}");
+        }
     }
 
     #[test]

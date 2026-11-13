@@ -1,7 +1,7 @@
 <template>
     <div
         v-if="count > 1"
-        class="flex items-center gap-1"
+        class="flex flex-wrap items-center gap-1"
         :class="{ 'opacity-60': loading }"
     >
         <ButtonLink
@@ -60,7 +60,7 @@
                     v-if="activeGapIndex === index"
                     ref="gapInput"
                     v-model="gapInputValue"
-                    class="h-8 w-12 rounded-full border border-solid border-brand bg-surface-1 px-2 text-center text-sm text-[var(--color-text-primary)] outline-none focus-visible:ring-4 focus-visible:ring-brand-shadow"
+                    class="h-8 w-12 rounded-full border border-solid border-brand bg-surface-3 px-2 text-center text-sm text-[var(--color-text-primary)] outline-none focus-visible:ring-4 focus-visible:ring-brand-shadow"
                     type="number"
                     inputmode="numeric"
                     min="1"
@@ -163,7 +163,7 @@
         </IconButton>
         <input
             v-model="jumpInputValue"
-            class="ml-1 h-8 w-12 rounded-full border border-solid border-surface-4 bg-surface-1 px-2 text-center text-sm text-[var(--color-text-primary)] outline-none transition-colors hover:border-brand focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand-shadow"
+            class="ml-1 h-8 w-12 rounded-full border border-solid border-surface-4 bg-surface-3 px-2 text-center text-sm text-[var(--color-text-primary)] outline-none transition-colors hover:border-brand focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand-shadow"
             type="number"
             inputmode="numeric"
             min="1"

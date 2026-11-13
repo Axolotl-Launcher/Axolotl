@@ -9,11 +9,11 @@ const { setTimeout: delay } = require('node:timers/promises')
 
 const root = path.resolve(__dirname, '../../..')
 const windows = process.platform === 'win32'
-const helper =
-    process.env.AXOLOTL_INSTALLER_UI_PATH ||
-    ['ci', 'debug', 'release']
-        .map((profile) => path.join(root, 'target', profile, 'axolotl-installer-ui.exe'))
-        .find((candidate) => fs.existsSync(candidate))
+const helper = process.env.AXOLOTL_INSTALLER_UI_PATH
+    ? path.normalize(process.env.AXOLOTL_INSTALLER_UI_PATH)
+    : ['ci', 'debug', 'release']
+          .map((profile) => path.join(root, 'target', profile, 'axolotl-installer-ui.exe'))
+          .find((candidate) => fs.existsSync(candidate))
 const compiler = path.join(process.env.LOCALAPPDATA || '', 'tauri/NSIS/makensis.exe')
 const directory = windows
     ? fs.mkdtempSync(path.join(os.tmpdir(), 'axolotl-executable-test-'))

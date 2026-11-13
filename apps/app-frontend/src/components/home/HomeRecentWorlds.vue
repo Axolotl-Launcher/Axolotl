@@ -294,7 +294,7 @@ async function stopInstance(instance: GameInstance) {
         :empty-icon="HistoryIcon"
     >
         <template #empty-action>
-            <ButtonLink :as="RouterLink" to="/library" size="sm">
+            <ButtonLink :as="RouterLink" to="/library" size="sm" type="quiet" color="brand">
                 <GridIcon aria-hidden="true" />
                 {{ formatMessage(messages.viewAllInstances) }}
             </ButtonLink>

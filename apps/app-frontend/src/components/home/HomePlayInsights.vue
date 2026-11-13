@@ -262,7 +262,7 @@ onUnmounted(() => {
         :empty-icon="ChartIcon"
     >
         <template v-if="emptyState === 'error'" #empty-action>
-            <Button size="sm" @click="playtimeQuery.refetch()">
+            <Button size="sm" type="quiet" color="brand" @click="playtimeQuery.refetch()">
                 <UpdatedIcon aria-hidden="true" />
                 {{ formatMessage(commonMessages.retryButton) }}
             </Button>

@@ -225,6 +225,8 @@ const show = computed(() => stageLayout.value?.show ?? HOME_MINIMAL_STANDARD.sho
 /** Without a target the card explains what to do next, so it keeps its surface. */
 const plain = computed(() => stageLayout.value?.surface === 'plain' && target.value !== null)
 const fresh = computed(() => props.instances.length === 0)
+/** The minimal Home's slim strip: the layout it had before the redesign. */
+const isBar = computed(() => stageLayout.value?.arrangement === 'bar')
 /**
  * Without a card, or with only the name left beside the icon, a full-width
  * row would leave a lopsided gap; the content then takes its own width and
@@ -234,12 +236,14 @@ const fitContent = computed(
     () =>
         !!stageLayout.value &&
         target.value !== null &&
-        stageLayout.value.arrangement === 'row' &&
-        (plain.value || (!show.value.meta && !show.value.recent)),
+        ((stageLayout.value.arrangement === 'row' &&
+            (plain.value || (!show.value.meta && !show.value.recent))) ||
+            (stageLayout.value.arrangement === 'bar' && plain.value)),
 )
 const iconSize = computed(() => {
     const layout = stageLayout.value
     if (layout) {
+        if (layout.arrangement === 'bar') return layout.density === 'compact' ? '28px' : '32px'
         if (layout.arrangement === 'stacked') return layout.density === 'compact' ? '88px' : '112px'
         return layout.density === 'compact' ? '80px' : '104px'
     }
@@ -264,14 +268,16 @@ const iconSize = computed(() => {
                     ? 'home-surface-bare'
                     : plain
                       ? 'home-legible'
-                      : 'home-surface home-surface-hero',
+                      : isBar
+                        ? 'home-surface'
+                        : 'home-surface home-surface-hero',
                 { 'is-empty': !target, 'is-fresh': !target && fresh },
             ]"
             :data-phase="target ? phase : undefined"
             :aria-label="target?.name"
         >
             <span
-                v-if="target && !plain"
+                v-if="target && !plain && !isBar"
                 class="home-launch-glow"
                 :class="{ 'is-tinted': tint }"
                 :style="tint ? { '--home-launch-tint': tint } : undefined"
@@ -321,14 +327,14 @@ const iconSize = computed(() => {
                             <TimerIcon aria-hidden="true" />
                             <span class="truncate">{{ lastPlayed }}</span>
                         </span>
-                        <span v-if="totalPlayed && shape === 'hero'" class="home-chip">
+                        <span v-if="totalPlayed && shape === 'hero' && !isBar" class="home-chip">
                             <ClockIcon aria-hidden="true" />
                             <span class="truncate">{{ totalPlayed }}</span>
                         </span>
                         <GameDirectoryBadge v-if="gameDirectory" :directory="gameDirectory" />
                     </div>
                     <span
-                        v-if="show.meta && lastWorld && shape === 'hero'"
+                        v-if="show.meta && lastWorld && shape === 'hero' && !isBar"
                         class="home-launch-detail"
                     >
                         <ServerIcon v-if="lastWorld.type === 'server'" aria-hidden="true" />
@@ -412,7 +418,7 @@ const iconSize = computed(() => {
                         <button
                             v-if="launch && show.switch"
                             v-tooltip="
-                                shape === 'strip'
+                                shape === 'strip' || isBar
                                     ? formatMessage(messages.switchInstance)
                                     : undefined
                             "
@@ -470,7 +476,7 @@ const iconSize = computed(() => {
                             )
                         }}
                     </h2>
-                    <p v-if="shape === 'hero'" class="home-launch-hint">
+                    <p v-if="shape === 'hero' && !isBar" class="home-launch-hint">
                         {{ formatMessage(fresh ? messages.freshHint : messages.chooseHint) }}
                     </p>
                 </div>
@@ -509,7 +515,9 @@ const iconSize = computed(() => {
                         </router-link>
                     </div>
                     <div
-                        v-if="!fresh && launch && shape === 'hero' && quickSwitch.length > 0"
+                        v-if="
+                            !fresh && launch && shape === 'hero' && !isBar && quickSwitch.length > 0
+                        "
                         class="home-launch-switcher"
                         role="group"
                         :aria-label="formatMessage(messages.quickPick)"
@@ -695,40 +703,22 @@ const iconSize = computed(() => {
 }
 
 /*
- * The empty card's picture: the next step's icon on an accent tile, with two
- * faint tiles fanned out behind it, drawn from the widget tokens only.
+ * The empty card's icon: the same quiet line icon in a hairline ring as the
+ * empty widgets. The launch card is the main way in, so its button keeps the
+ * accent; the picture does not need it.
  */
 .home-launch-empty-icon {
-    @apply relative flex size-16 items-center justify-center rounded-[var(--radius-lg)] text-brand;
+    @apply flex size-14 items-center justify-center rounded-full text-[var(--color-text-tertiary)];
     grid-area: icon;
-    background: color-mix(in srgb, var(--color-brand) 16%, var(--home-widget-fill, transparent));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 30%, transparent);
-}
-
-.home-launch-empty-icon::before,
-.home-launch-empty-icon::after {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    border-radius: inherit;
-    background: var(--home-widget-tint-strong);
-    content: '';
-}
-
-.home-launch-empty-icon::before {
-    transform: translate(-0.5rem, 0.25rem) rotate(-10deg);
-}
-
-.home-launch-empty-icon::after {
-    transform: translate(0.5rem, 0.25rem) rotate(9deg);
+    border: 1px solid var(--home-widget-edge);
 }
 
 .home-launch-empty-icon svg {
-    @apply size-7;
+    @apply size-6;
 }
 
 .home-launch[data-shape='strip'] .home-launch-empty-icon {
-    @apply size-12;
+    @apply size-11;
 }
 
 .home-launch[data-shape='strip'] .home-launch-empty-icon svg {
@@ -1039,6 +1029,117 @@ a.home-launch-switch {
     width: fit-content;
     min-width: min(100%, 22rem);
     max-width: 100%;
+}
+
+/*
+ * The slim strip, after the minimal Home before the redesign: a 32px icon, the
+ * name with one line of plain details under it, and the launch button with
+ * the switch icon on the right; about 88px tall on a card. Details lose their
+ * chip backgrounds here and read as quiet text, as they did then.
+ */
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-card {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    grid-template-areas: 'icon copy footer';
+    column-gap: 1.25rem;
+    row-gap: 0.75rem;
+    padding: 1.25rem 1.25rem 1.25rem 1.125rem;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'][data-density='compact'][data-surface='card']
+    .home-launch-card {
+    column-gap: 1rem;
+    padding: 0.75rem 0.875rem 0.75rem 1rem;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'][data-surface='plain'] .home-launch-card {
+    column-gap: 2rem;
+    padding: 0;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-copy {
+    @apply gap-1;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-name {
+    @apply text-xl font-bold;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-meta {
+    @apply gap-x-4 gap-y-1;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-chip {
+    @apply gap-1.5 p-0 text-sm font-normal text-[var(--color-text-tertiary)];
+    background: transparent;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-chip > svg {
+    @apply size-4;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-footer {
+    justify-content: flex-end;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-primary {
+    min-width: 9rem;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-switch {
+    @apply w-12 justify-center px-0 text-[var(--color-text-default)];
+    background: transparent;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-switch:hover {
+    background: var(--home-widget-tint-strong);
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-switch svg {
+    @apply size-5;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-switch-label {
+    @apply sr-only;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-empty-icon {
+    @apply size-10;
+}
+
+.home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-empty-icon svg {
+    @apply size-5;
+}
+
+/* Too narrow for one line: the button row goes under the name, full width. */
+@container (max-width: 28rem) {
+    .home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-card {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            'icon copy'
+            'footer footer';
+    }
+
+    .home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-actions {
+        width: 100%;
+    }
+
+    .home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-primary {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: none;
+    }
+
+    /* The narrow hero enlarges its icon; the strip keeps its small one. */
+    .home-launch[data-variant='stage'][data-arrangement='bar'][data-shape='hero']
+        .home-launch-icon
+        :deep(.avatar),
+    .home-launch[data-variant='stage'][data-arrangement='bar'][data-shape='hero']
+        .home-launch-icon
+        :deep(img) {
+        width: 32px !important;
+        height: 32px !important;
+    }
 }
 
 /* A narrower strip keeps two quick switches and drops the second chip. */

@@ -53,6 +53,9 @@
   "app.home.minimal.arrangement": {
     "message": "排列"
   },
+  "app.home.minimal.arrangement.bar": {
+    "message": "横条"
+  },
   "app.home.minimal.arrangement.row": {
     "message": "左右"
   },
@@ -92,23 +95,17 @@
   "app.home.minimal.preset": {
     "message": "样式"
   },
+  "app.home.minimal.preset.classic": {
+    "message": "经典"
+  },
   "app.home.minimal.preset.custom": {
     "message": "自定义"
-  },
-  "app.home.minimal.preset.custom-hint": {
-    "message": "按你的喜好组合"
   },
   "app.home.minimal.preset.pure": {
     "message": "纯净"
   },
-  "app.home.minimal.preset.pure-hint": {
-    "message": "只有图标、名称和启动按钮"
-  },
   "app.home.minimal.preset.standard": {
     "message": "标准"
-  },
-  "app.home.minimal.preset.standard-hint": {
-    "message": "问候语、详情和最近游玩"
   },
   "app.home.minimal.show": {
     "message": "显示"

@@ -62,6 +62,9 @@
   "app.home.minimal.arrangement": {
     "message": "排列"
   },
+  "app.home.minimal.arrangement.bar": {
+    "message": "橫條"
+  },
   "app.home.minimal.arrangement.row": {
     "message": "左右"
   },
@@ -101,23 +104,17 @@
   "app.home.minimal.preset": {
     "message": "樣式"
   },
+  "app.home.minimal.preset.classic": {
+    "message": "經典"
+  },
   "app.home.minimal.preset.custom": {
     "message": "自訂"
-  },
-  "app.home.minimal.preset.custom-hint": {
-    "message": "按你的喜好組合"
   },
   "app.home.minimal.preset.pure": {
     "message": "純淨"
   },
-  "app.home.minimal.preset.pure-hint": {
-    "message": "只有圖示、名稱和啟動按鈕"
-  },
   "app.home.minimal.preset.standard": {
     "message": "標準"
-  },
-  "app.home.minimal.preset.standard-hint": {
-    "message": "問候語、詳情和最近遊玩"
   },
   "app.home.minimal.show": {
     "message": "顯示"

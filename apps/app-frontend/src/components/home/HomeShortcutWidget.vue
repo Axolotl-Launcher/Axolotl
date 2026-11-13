@@ -332,18 +332,14 @@ watch(
             :empty-icon="IssuesIcon"
         >
             <template #empty-action>
-                <Button
-                    v-tooltip="formatMessage(messages.replace)"
-                    size="sm"
-                    circular
-                    icon-only
-                    :aria-label="formatMessage(messages.replace)"
-                    @click="emit('replace')"
-                >
+                <Button size="sm" type="quiet" color="brand" @click="emit('replace')">
                     <RefreshCwIcon aria-hidden="true" />
+                    {{ formatMessage(messages.replace) }}
                 </Button>
+                <!-- A 1x1 tile keeps one action; removing stays in the edit menu. -->
                 <Button
                     v-tooltip="formatMessage(messages.remove)"
+                    class="home-shortcut-remove"
                     size="sm"
                     circular
                     icon-only
@@ -443,6 +439,12 @@ watch(
 </template>
 
 <style scoped>
+@container (max-width: 24rem) {
+    .home-shortcut-remove {
+        display: none;
+    }
+}
+
 .home-shortcut-card {
     @apply relative isolate flex h-full min-h-0 min-w-0 flex-col justify-between gap-2 overflow-hidden p-4;
 }

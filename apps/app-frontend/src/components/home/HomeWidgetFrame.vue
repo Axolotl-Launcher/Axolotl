@@ -131,67 +131,38 @@ withDefaults(
 }
 
 /*
- * The empty state: a small picture (the widget's icon on an accent tile, two
- * faint tiles fanned out behind it), what is missing, why, and the next step.
- * It is drawn from the widget tokens, so it follows the theme, the accent and
- * the widget opacity like everything else on the card.
+ * The empty state is quiet on purpose: one line icon in a hairline ring, a
+ * plain title, an optional hint and one ghost action. No tiles, no fills, no
+ * blur, so a page of empty cards reads calmer than a page with data. Only the
+ * action carries the accent; a failure colours the icon, nothing else.
  *
- * Tall widgets centre it in a column. One-row widgets lay it out in a row so
- * it fills the card instead of floating in it; a one-row tile too narrow for
- * that keeps the picture and the text and puts the button under the text.
+ * Tall cards centre it. One-row cards lay it on one line: icon and title on
+ * the left, the action on the right on the title's baseline. A one-row tile
+ * too narrow for that keeps the icon, the title and the action, centred.
  */
 .home-widget-frame-empty {
-    @apply m-auto grid w-full min-w-0 max-w-[20rem] justify-items-center gap-2.5 py-1 text-center;
-    grid-template-areas:
-        'art'
-        'copy'
-        'action';
+    @apply m-auto flex w-full min-w-0 max-w-[18rem] flex-col items-center gap-2 py-1 text-center;
 }
 
 .home-widget-frame-empty-art {
-    @apply relative flex size-11 items-center justify-center rounded-[var(--radius-md)] text-brand;
-    grid-area: art;
-    isolation: isolate;
-    margin: 0.25rem 0.75rem 0.125rem;
-    background: color-mix(in srgb, var(--color-brand) 16%, var(--home-widget-fill, transparent));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 28%, transparent);
-}
-
-.home-widget-frame-empty-art::before,
-.home-widget-frame-empty-art::after {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    border-radius: inherit;
-    background: var(--home-widget-tint-strong);
-    content: '';
-}
-
-.home-widget-frame-empty-art::before {
-    transform: translate(-0.4375rem, 0.1875rem) rotate(-11deg);
-}
-
-.home-widget-frame-empty-art::after {
-    transform: translate(0.4375rem, 0.1875rem) rotate(9deg);
+    @apply flex size-9 shrink-0 items-center justify-center rounded-full text-[var(--color-text-tertiary)];
+    border: 1px solid var(--home-widget-edge);
 }
 
 .home-widget-frame-empty-art :deep(svg) {
-    @apply size-5;
+    @apply size-[1.125rem];
 }
 
 .home-widget-frame-empty[data-tone='warning'] .home-widget-frame-empty-art {
     @apply text-brand-orange;
-    background: color-mix(in srgb, var(--color-orange) 16%, var(--home-widget-fill, transparent));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-orange) 30%, transparent);
 }
 
 .home-widget-frame-empty-copy {
-    @apply flex min-w-0 flex-col gap-1;
-    grid-area: copy;
+    @apply flex min-w-0 flex-col gap-0.5;
 }
 
 .home-widget-frame-empty-title {
-    @apply m-0 text-[0.8125rem] font-bold leading-snug text-[var(--color-text-primary)];
+    @apply m-0 text-[0.8125rem] font-medium leading-snug text-[var(--color-text-default)];
 }
 
 .home-widget-frame-empty-hint {
@@ -199,61 +170,39 @@ withDefaults(
 }
 
 .home-widget-frame-empty-action {
-    @apply flex min-w-0 flex-wrap items-center justify-center gap-1.5;
-    grid-area: action;
+    @apply flex min-w-0 flex-wrap items-center justify-center gap-1;
 }
 
-/* Two or three rows tall: a larger picture, so the state fills the card rather than floating in it. */
-.home-widget-frame:is([data-size$='x2'], [data-size$='x3']) .home-widget-frame-empty {
-    @apply max-w-[22rem] gap-3.5;
-}
-
-.home-widget-frame:is([data-size$='x2'], [data-size$='x3']) .home-widget-frame-empty-art {
-    @apply size-14 rounded-[var(--radius-lg)];
-}
-
-.home-widget-frame:is([data-size$='x2'], [data-size$='x3'])
-    .home-widget-frame-empty-art
-    :deep(svg) {
-    @apply size-6;
-}
-
-.home-widget-frame:is([data-size$='x2'], [data-size$='x3']) .home-widget-frame-empty-title {
-    @apply text-[0.9375rem];
-}
-
-.home-widget-frame:is([data-size$='x2'], [data-size$='x3']) .home-widget-frame-empty-hint {
-    @apply text-[0.8125rem];
-}
-
-/* One row: picture, text and the next step side by side, filling the card. */
+/* One row: icon and text on the left, the action on the right, on one baseline. */
 .home-widget-frame.is-dense .home-widget-frame-empty {
-    @apply my-auto max-w-none items-center justify-items-start gap-x-3.5 gap-y-1.5 py-0 text-left;
+    @apply my-auto grid max-w-none items-baseline gap-x-2.5 gap-y-0.5 py-0 text-left;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: 'art copy action';
+    grid-template-areas:
+        'art copy action'
+        '. copy .';
 }
 
 .home-widget-frame.is-dense .home-widget-frame-empty-art {
-    margin: 0 0.5rem;
+    @apply size-auto self-center rounded-none border-0;
+    grid-area: art;
+}
+
+.home-widget-frame.is-dense .home-widget-frame-empty-copy {
+    grid-area: copy;
 }
 
 .home-widget-frame.is-dense .home-widget-frame-empty-hint {
     @apply line-clamp-2;
 }
 
+.home-widget-frame.is-dense .home-widget-frame-empty-action {
+    @apply flex-nowrap justify-end;
+    grid-area: action;
+}
+
 @container (max-width: 24rem) {
     .home-widget-frame.is-dense .home-widget-frame-empty {
-        grid-template-columns: auto minmax(0, 1fr);
-        grid-template-areas:
-            'art copy'
-            'art action';
-        align-content: center;
-    }
-
-    .home-widget-frame.is-dense .home-widget-frame-empty-art {
-        @apply size-9;
-        align-self: center;
-        margin: 0 0.375rem;
+        @apply m-auto flex w-auto flex-col items-center gap-1.5 text-center;
     }
 
     .home-widget-frame.is-dense .home-widget-frame-empty-hint {
@@ -265,7 +214,7 @@ withDefaults(
     }
 
     .home-widget-frame.is-dense .home-widget-frame-empty-action {
-        justify-content: flex-start;
+        justify-content: center;
     }
 }
 

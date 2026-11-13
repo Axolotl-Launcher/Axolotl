@@ -424,6 +424,8 @@ function localServerMenu(serverId: string): MenuAction[] {
                         : '/library'
                 "
                 size="sm"
+                type="quiet"
+                color="brand"
             >
                 <ServerIcon aria-hidden="true" />
                 {{ formatMessage(messages.addServer) }}

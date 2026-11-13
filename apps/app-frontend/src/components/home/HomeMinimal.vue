@@ -34,6 +34,7 @@ const showGreeting = computed(() => resolved.value.show.date || resolved.value.s
                 variant="minimal"
                 :show-date="resolved.show.date"
                 :show-heading="resolved.show.greeting"
+                :accent-rule="resolved.arrangement === 'bar'"
             />
             <HomeLaunchCard :instances="instances" variant="stage" :stage="resolved" />
         </div>
@@ -60,5 +61,15 @@ const showGreeting = computed(() => resolved.value.show.date || resolved.value.s
 .minimal-home-stage[data-density='compact'] .minimal-home-column {
     max-width: 46rem;
     gap: 1.25rem;
+}
+
+/* The slim strip keeps the proportions it had before the redesign. */
+.minimal-home-stage[data-arrangement='bar'] .minimal-home-column {
+    max-width: 48rem;
+    gap: 2.5rem;
+}
+
+.minimal-home-stage[data-arrangement='bar'][data-density='compact'] .minimal-home-column {
+    gap: 1.5rem;
 }
 </style>

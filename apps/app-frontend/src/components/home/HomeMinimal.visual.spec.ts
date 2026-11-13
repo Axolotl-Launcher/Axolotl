@@ -9,6 +9,7 @@ import type { GameInstance } from '@/helpers/types'
 
 import { HOME_LAUNCH_KEY, type HomeLaunchContext } from './home-launch'
 import {
+    HOME_MINIMAL_CLASSIC,
     HOME_MINIMAL_PURE,
     HOME_MINIMAL_STANDARD,
     resolveHomeMinimalLayout,
@@ -35,12 +36,13 @@ vi.mock('@/components/home/HomeGreeting.vue', async () => {
     const { defineComponent, h } = await import('vue')
     return {
         default: defineComponent({
-            props: ['showDate', 'showHeading'],
+            props: ['showDate', 'showHeading', 'accentRule'],
             setup: (props) => () =>
                 h('header', {
                     'data-greeting': '',
                     'data-show-date': String(props.showDate),
                     'data-show-heading': String(props.showHeading),
+                    'data-accent-rule': String(props.accentRule),
                 }),
         }),
     }
@@ -387,6 +389,55 @@ it('hides each part on its own without leaving an empty greeting behind', async 
             ),
         })
         expect(wrapper.find('[data-greeting]').exists()).toBe(false)
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('draws the classic strip: one slim row with the button beside the name, and the accent rule', async () => {
+    const { wrapper, queryClient } = mountMinimal({ preset: 'classic', ...HOME_MINIMAL_CLASSIC })
+    try {
+        await flushPromises()
+        expect(wrapper.get('[data-greeting]').attributes('data-accent-rule')).toBe('true')
+        expect(wrapper.get('[data-greeting]').attributes('data-show-date')).toBe('false')
+        const card = wrapper.get('.home-launch-card')
+        // A plain card, no hero wash or icon glow, as before the redesign.
+        expect(card.classes()).toContain('home-surface')
+        expect(card.classes()).not.toContain('home-surface-hero')
+        expect(wrapper.find('.home-launch-glow').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-status').exists()).toBe(false)
+        expect(wrapper.find('.home-launch-recent').exists()).toBe(false)
+        // Version and last played only; no total time chip in the strip.
+        expect(wrapper.findAll('.home-launch-meta .home-chip')).toHaveLength(2)
+
+        const cardBox = card.element.getBoundingClientRect()
+        const name = wrapper.get('.home-launch-name').element.getBoundingClientRect()
+        const button = wrapper.get('.home-launch-primary').element.getBoundingClientRect()
+        const switchButton = wrapper.get('.home-launch-switch').element.getBoundingClientRect()
+        expect(cardBox.height).toBeLessThan(100)
+        expect(button.left).toBeGreaterThan(name.right)
+        expect(
+            Math.abs(button.top + button.height / 2 - (switchButton.top + switchButton.height / 2)),
+        ).toBeLessThan(1)
+        expect(button.top).toBeLessThan(name.bottom)
+        expect(cardBox.right - switchButton.right).toBeLessThan(32)
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('wraps the strip under the name at narrow widths instead of overflowing', async () => {
+    const { wrapper, queryClient } = mountMinimal({ preset: 'classic', ...HOME_MINIMAL_CLASSIC })
+    wrapper.element.setAttribute('style', 'width:380px')
+    try {
+        await flushPromises()
+        const card = wrapper.get('.home-launch-card').element as HTMLElement
+        expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth)
+        const name = wrapper.get('.home-launch-name').element.getBoundingClientRect()
+        const button = wrapper.get('.home-launch-primary').element.getBoundingClientRect()
+        expect(button.top).toBeGreaterThanOrEqual(name.bottom)
     } finally {
         wrapper.unmount()
         queryClient.clear()

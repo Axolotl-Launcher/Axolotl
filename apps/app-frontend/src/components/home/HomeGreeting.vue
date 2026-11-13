@@ -37,6 +37,11 @@ const props = withDefaults(
         /** The minimal Home can hide the date or the heading on their own. */
         showDate?: boolean
         showHeading?: boolean
+        /**
+         * The minimal Home's slim-strip layout: a smaller heading with a short
+         * accent rule under it, as the minimal Home had before the redesign.
+         */
+        accentRule?: boolean
     }>(),
     {
         playerName: null,
@@ -50,6 +55,7 @@ const props = withDefaults(
         editable: undefined,
         showDate: true,
         showHeading: true,
+        accentRule: false,
     },
 )
 
@@ -282,7 +288,7 @@ onUnmounted(() => window.clearInterval(timer))
                 :class="[
                     dashboardSize || variant === 'hero'
                         ? 'home-greeting-heading'
-                        : variant === 'minimal'
+                        : variant === 'minimal' && !accentRule
                           ? 'text-[2rem] leading-tight tracking-tight'
                           : 'text-2xl',
                     editable
@@ -309,6 +315,11 @@ onUnmounted(() => window.clearInterval(timer))
                 <PencilIcon class="size-4" />
             </button>
         </div>
+        <div
+            v-if="variant === 'minimal' && accentRule && showHeading"
+            class="home-greeting-rule h-0.5 w-8 rounded-full bg-brand"
+            aria-hidden="true"
+        />
     </header>
 </template>
 

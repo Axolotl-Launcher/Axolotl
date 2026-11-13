@@ -6,6 +6,7 @@ import {
     setHomeMinimalOptions,
 } from './home-dashboard.ts'
 import {
+    HOME_MINIMAL_CLASSIC,
     HOME_MINIMAL_PURE,
     HOME_MINIMAL_STANDARD,
     normalizeHomeMinimalOptions,
@@ -96,4 +97,35 @@ it('saves the options with the dashboard config and keeps them through a reload'
         density: 'compact',
         show: { recent: false, date: true },
     })
+})
+
+it('offers the pre-redesign slim strip as a layout and as the classic preset', () => {
+    const classic = setHomeMinimalPreset(null, 'classic')
+    expect(resolveHomeMinimalLayout(classic)).toEqual(HOME_MINIMAL_CLASSIC)
+    expect(HOME_MINIMAL_CLASSIC).toMatchObject({ arrangement: 'bar', surface: 'card' })
+    // The strip shows the greeting and the details, not the date, status or recent row.
+    expect(HOME_MINIMAL_CLASSIC.show).toEqual({
+        date: false,
+        greeting: true,
+        status: false,
+        meta: true,
+        switch: true,
+        recent: false,
+    })
+
+    // The strip is a layout of its own, so a custom mix can use it with any other option.
+    const custom = normalizeHomeMinimalOptions({
+        preset: 'custom',
+        arrangement: 'bar',
+        surface: 'plain',
+        density: 'compact',
+    })
+    expect(resolveHomeMinimalLayout(custom)).toMatchObject({
+        arrangement: 'bar',
+        surface: 'plain',
+        density: 'compact',
+    })
+    expect(normalizeHomeMinimalOptions({ preset: 'classic' }).preset).toBe('classic')
+    // Saved before the strip existed: still standard.
+    expect(resolveHomeMinimalLayout(normalizeHomeMinimalOptions({})).arrangement).toBe('row')
 })

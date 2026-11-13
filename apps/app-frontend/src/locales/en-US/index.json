@@ -53,6 +53,9 @@
   "app.home.minimal.arrangement": {
     "message": "Arrangement"
   },
+  "app.home.minimal.arrangement.bar": {
+    "message": "Strip"
+  },
   "app.home.minimal.arrangement.row": {
     "message": "Side by side"
   },
@@ -92,23 +95,17 @@
   "app.home.minimal.preset": {
     "message": "Style"
   },
+  "app.home.minimal.preset.classic": {
+    "message": "Classic"
+  },
   "app.home.minimal.preset.custom": {
     "message": "Custom"
-  },
-  "app.home.minimal.preset.custom-hint": {
-    "message": "Your own mix"
   },
   "app.home.minimal.preset.pure": {
     "message": "Pure"
   },
-  "app.home.minimal.preset.pure-hint": {
-    "message": "Icon, name and launch button"
-  },
   "app.home.minimal.preset.standard": {
     "message": "Standard"
-  },
-  "app.home.minimal.preset.standard-hint": {
-    "message": "Greeting, details and recent"
   },
   "app.home.minimal.show": {
     "message": "Show"

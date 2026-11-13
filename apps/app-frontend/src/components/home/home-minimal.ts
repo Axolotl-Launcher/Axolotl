@@ -7,7 +7,7 @@
  * way it did before the options existed.
  */
 
-export const HOME_MINIMAL_PRESETS = ['standard', 'pure', 'custom'] as const
+export const HOME_MINIMAL_PRESETS = ['standard', 'pure', 'classic', 'custom'] as const
 export const HOME_MINIMAL_ELEMENTS = [
     'date',
     'greeting',
@@ -17,7 +17,7 @@ export const HOME_MINIMAL_ELEMENTS = [
     'recent',
 ] as const
 export const HOME_MINIMAL_SURFACES = ['card', 'plain'] as const
-export const HOME_MINIMAL_ARRANGEMENTS = ['row', 'stacked'] as const
+export const HOME_MINIMAL_ARRANGEMENTS = ['row', 'stacked', 'bar'] as const
 export const HOME_MINIMAL_POSITIONS = ['upper', 'center'] as const
 export const HOME_MINIMAL_DENSITIES = ['comfortable', 'compact'] as const
 
@@ -33,7 +33,12 @@ export type HomeMinimalLayout = {
     show: Record<HomeMinimalElement, boolean>
     /** `card` sits the instance on a widget surface; `plain` puts it on the page. */
     surface: HomeMinimalSurface
-    /** `row`: icon beside the text; `stacked`: icon, name and button in one centred column. */
+    /**
+     * `row`: a large icon beside the text; `stacked`: icon, name and button in
+     * one centred column; `bar`: one slim horizontal strip, small icon, name and
+     * details on the left, the launch button on the right (the layout the
+     * minimal Home had before the redesign).
+     */
     arrangement: HomeMinimalArrangement
     /** `upper` sits a little above the middle (optical centre); `center` is the true middle. */
     position: HomeMinimalPosition
@@ -67,9 +72,29 @@ export const HOME_MINIMAL_PURE: HomeMinimalLayout = {
     density: 'comfortable',
 }
 
+/**
+ * The minimal Home as it was before the redesign: the greeting with a short
+ * accent rule, then one slim strip with the instance and its launch button.
+ */
+export const HOME_MINIMAL_CLASSIC: HomeMinimalLayout = {
+    show: {
+        date: false,
+        greeting: true,
+        status: false,
+        meta: true,
+        switch: true,
+        recent: false,
+    },
+    surface: 'card',
+    arrangement: 'bar',
+    position: 'upper',
+    density: 'comfortable',
+}
+
 const PRESET_LAYOUTS: Record<Exclude<HomeMinimalPreset, 'custom'>, HomeMinimalLayout> = {
     standard: HOME_MINIMAL_STANDARD,
     pure: HOME_MINIMAL_PURE,
+    classic: HOME_MINIMAL_CLASSIC,
 }
 
 export const HOME_MINIMAL_DEFAULT_OPTIONS: HomeMinimalOptions = {

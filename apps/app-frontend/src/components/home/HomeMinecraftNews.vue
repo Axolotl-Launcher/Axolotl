@@ -126,7 +126,13 @@ async function openArticle(item: MinecraftNewsItem) {
         :empty-tone="emptyState === 'error' ? 'warning' : 'neutral'"
     >
         <template v-if="emptyState === 'error' || emptyState === 'empty'" #empty-action>
-            <Button v-if="emptyState === 'error'" size="sm" @click="newsQuery.refetch()">
+            <Button
+                v-if="emptyState === 'error'"
+                size="sm"
+                type="quiet"
+                color="brand"
+                @click="newsQuery.refetch()"
+            >
                 <UpdatedIcon aria-hidden="true" />
                 {{ formatMessage(commonMessages.retryButton) }}
             </Button>

@@ -206,6 +206,8 @@ async function stopInstance(instance: GameInstance) {
                         : '/library'
                 "
                 size="sm"
+                type="quiet"
+                color="brand"
             >
                 <GameIcon aria-hidden="true" />
                 {{ formatMessage(messages.browseWorlds) }}

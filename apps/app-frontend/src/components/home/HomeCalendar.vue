@@ -360,7 +360,7 @@ watch(instanceRevision, async () => {
             <span class="home-calendar-empty-art" aria-hidden="true"><CalendarIcon /></span>
             <span class="flex min-w-0 flex-col gap-0.5">
                 <strong
-                    class="text-[0.8125rem] font-bold leading-snug text-[var(--color-text-primary)]"
+                    class="text-[0.8125rem] font-medium leading-snug text-[var(--color-text-default)]"
                     >{{ formatMessage(messages.monthEmpty) }}</strong
                 >
                 <span class="text-xs leading-snug text-[var(--color-text-tertiary)]">{{
@@ -524,22 +524,10 @@ watch(instanceRevision, async () => {
     border-top: 1px solid var(--home-widget-edge);
 }
 
-/* An empty month: the same picture as the other empty widgets, in a row. */
+/* An empty month: the same quiet icon in a hairline ring as the empty widgets. */
 .home-calendar-empty-art {
-    @apply relative ml-1.5 flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-brand;
-    isolation: isolate;
-    background: color-mix(in srgb, var(--color-brand) 16%, var(--home-widget-fill, transparent));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 28%, transparent);
-}
-
-.home-calendar-empty-art::before {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    border-radius: inherit;
-    background: var(--home-widget-tint-strong);
-    content: '';
-    transform: translate(-0.375rem, 0.1875rem) rotate(-11deg);
+    @apply ml-1 flex size-9 shrink-0 items-center justify-center rounded-full text-[var(--color-text-tertiary)];
+    border: 1px solid var(--home-widget-edge);
 }
 
 .home-calendar-empty-art svg {

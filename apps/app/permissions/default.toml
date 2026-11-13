@@ -1,0 +1,41 @@
+# The launcher frontend owns the main webview and needs every application
+# command. Child webviews such as theme pack pages must never receive this
+# permission set; they only get the `theme-pages` capability.
+
+[default]
+description = "Allows the main launcher webview to use every application command."
+permissions = [
+  "allow-initialize-state",
+  "allow-get-update-channel",
+  "allow-get-current-app-database-path",
+  "allow-set-update-channel",
+  "allow-get-update-preferences",
+  "allow-set-update-preferences",
+  "allow-copy-release-database-to-beta",
+  "allow-copy-database-between-channels",
+  "allow-beta-database-exists",
+  "allow-backup-app-db-for-update",
+  "allow-set-discord-activity",
+  "allow-is-dev",
+  "allow-is-portable-mode",
+  "allow-are-updates-enabled",
+  "allow-get-update-size",
+  "allow-check-app-update",
+  "allow-enqueue-update-for-installation",
+  "allow-remove-enqueued-update",
+  "allow-set-restart-after-pending-update",
+  "allow-is-apt-linux",
+  "allow-toggle-decorations",
+  "allow-set-transparent-window-frame",
+  "allow-show-window",
+  "allow-frontend-ready",
+  "allow-restart-app",
+  "allow-exit-app",
+  "allow-check-symlink-capability",
+  "allow-is-elevated",
+  "allow-allow-symlink-target",
+  "allow-lightweight-mode-frontend-ready",
+  "allow-lightweight-mode-set-route",
+  "allow-lightweight-mode-enter",
+  "allow-update-traffic-lights-anchor",
+]

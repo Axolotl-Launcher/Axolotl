@@ -107,28 +107,28 @@
         ],
         "enable": true
       },
-      "capabilities": ["core", "plugins"],
+      "capabilities": ["core", "plugins", "app", "theme-pages"],
       "devCsp": {
         "default-src": "'self' customprotocol: asset:",
         "connect-src": "ipc: http://ipc.localhost asset: http://asset.localhost http://127.0.0.1:5201 ws://127.0.0.1:5201 https://modrinth.com https://*.modrinth.com https://api.mclo.gs http://textures.minecraft.net https://textures.minecraft.net https://fill.papermc.io https://api.papermc.io https://piston-meta.mojang.com https://launchermeta.mojang.com https://meta.fabricmc.net https://files.minecraftforge.net https://maven.minecraftforge.net https://api.purpurmc.org https://mod.mcimirror.top https://admin.axlmc.org 'self' data: blob:",
-        "font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/"],
-        "img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data:",
-        "style-src": "'unsafe-inline' 'self'",
+        "font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/", "axolotl-theme:", "http://axolotl-theme.localhost:*"],
+        "img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data: axolotl-theme: http://axolotl-theme.localhost:*",
+        "style-src": "'unsafe-inline' 'self' axolotl-theme: http://axolotl-theme.localhost:*",
         "script-src": "'self' 'unsafe-eval' 'wasm-unsafe-eval'",
         "worker-src": "'self' blob:",
         "frame-src": "https://www.youtube.com https://www.youtube-nocookie.com https://discord.com 'self' http://axolotl-skin.localhost axolotl-skin://localhost",
-        "media-src": "'self' data: blob: https://*.githubusercontent.com"
+        "media-src": "'self' data: blob: https://*.githubusercontent.com axolotl-theme: http://axolotl-theme.localhost:*"
       },
       "csp": {
         "default-src": "'self' customprotocol: asset:",
         "connect-src": "ipc: http://ipc.localhost asset: http://asset.localhost https://modrinth.com https://*.modrinth.com https://api.mclo.gs http://textures.minecraft.net https://textures.minecraft.net https://fill.papermc.io https://api.papermc.io https://piston-meta.mojang.com https://launchermeta.mojang.com https://meta.fabricmc.net https://files.minecraftforge.net https://maven.minecraftforge.net https://api.purpurmc.org https://mod.mcimirror.top https://admin.axlmc.org 'self' data: blob:",
-        "font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/"],
-        "img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data:",
-        "style-src": "'unsafe-inline' 'self'",
+        "font-src": ["'self'", "data:", "https://cdn-raw.modrinth.com/fonts/", "axolotl-theme:", "http://axolotl-theme.localhost:*"],
+        "img-src": "https: 'unsafe-inline' 'self' asset: http://asset.localhost http://textures.minecraft.net blob: data: axolotl-theme: http://axolotl-theme.localhost:*",
+        "style-src": "'unsafe-inline' 'self' axolotl-theme: http://axolotl-theme.localhost:*",
         "script-src": "'self' 'unsafe-eval' 'wasm-unsafe-eval'",
         "worker-src": "'self' blob:",
         "frame-src": "https://www.youtube.com https://www.youtube-nocookie.com https://discord.com 'self' axolotl-skin://localhost http://axolotl-skin.localhost",
-        "media-src": "'self' data: blob: https://*.githubusercontent.com"
+        "media-src": "'self' data: blob: https://*.githubusercontent.com axolotl-theme: http://axolotl-theme.localhost:*"
       }
     }
   }

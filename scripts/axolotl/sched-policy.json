@@ -15,9 +15,11 @@
     "install/runner.rs queue_resource_plan: admission (S2) -> install_db_semaphore (S5) -> instance content lock (S3)",
     "api/instance/backup.rs *_inner: instance maintenance lock (S2) -> instance content lock (S3) -> REPOSITORY_LOCK (S1)",
     "state/instances/commands/remove_instance.rs: instance maintenance lock (S2) -> synced_options_lock (S7) -> instance content lock (S3)",
-    "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)"
+    "api/instance/run.rs -> launcher/mod.rs run_instance_install_command: instance maintenance lock (S2) -> instance content lock (S3)",
+    "api/theme_pack/store.rs install: INSTALL_LOCK (S7) serializes extraction and directory replacement and takes no other managed lock; ThemePackPageState.pages (S8) only guards the label map",
+    "Theme pack storage accounting and writes share THEME_STORAGE_LOCK so quota and file caps are enforced under one order."
   ],
-  "rankFingerprint": "930365d4a314e9285f3c77601098d6f7182e5a7f35ce21de5de7056e7569aaab",
+  "rankFingerprint": "8025aa26a7dd25ae690198bbbebc4744e0fc5c7e43b31d648b8e5212b7ee406c",
   "classes": {
     "theseus::api::instance::backup::ACTIVE_INSTANCE_OPERATIONS": "S6",
     "theseus::api::instance::backup::BACKUP_CANCELLATIONS": "S6",
@@ -41,9 +43,12 @@
     "theseus::state::State.screenshot_locks": "S3",
     "theseus::state::State.synced_options_lock": "S7",
     "theseus::state::instances::config_sync::DIRTY_INSTANCES": "S8",
+    "theseus::api::theme_pack::store::INSTALL_LOCK": "S7",
+    "theseus_gui::api::theme_pack::ThemePackPageState.pages": "S8",
     "theseus::state::process::LOG_BUFFERS": "S8",
     "theseus::state::process::ProcessManager.processes": "S10",
-    "theseus::util::single_flight::FLIGHTS": "S6"
+    "theseus::util::single_flight::FLIGHTS": "S6",
+    "theseus_gui::api::theme_pack::THEME_STORAGE_LOCK": "S8"
   },
   "longLivedRoots": [
     "InitialPayload"

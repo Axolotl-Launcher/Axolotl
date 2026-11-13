@@ -49,6 +49,7 @@ import LauncherBackgroundSettings from './LauncherBackgroundSettings.vue'
 import PinnedOverrideHint from './PinnedOverrideHint.vue'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSection from './SettingsSection.vue'
+import ThemeSuiteModal from './theme-suite/ThemeSuiteModal.vue'
 
 const props = withDefaults(
     defineProps<{
@@ -60,6 +61,8 @@ const props = withDefaults(
 const themeStore = useTheming()
 const { formatMessage } = useVIntl()
 const { handleError } = injectNotificationManager()
+
+const themeSuiteModal = ref<InstanceType<typeof ThemeSuiteModal> | null>(null)
 
 themeStore.showScrollTop = getShowScrollTop()
 
@@ -89,6 +92,19 @@ const messages = defineMessages({
     colorThemeDescription: {
         id: 'app.appearance-settings.color-theme.description',
         defaultMessage: 'Select your preferred color theme for Axolotl Launcher.',
+    },
+    themeSuiteTitle: {
+        id: 'app.appearance-settings.theme-suite.title',
+        defaultMessage: 'Theme suite',
+    },
+    themeSuiteDescription: {
+        id: 'app.appearance-settings.theme-suite.description',
+        defaultMessage:
+            'Import a theme pack to customize colors, fonts, backgrounds, and launcher pages, or tune the colors yourself.',
+    },
+    themeSuiteManage: {
+        id: 'app.appearance-settings.theme-suite.manage',
+        defaultMessage: 'Manage theme suite',
     },
     accentColorTitle: {
         id: 'app.appearance-settings.accent-color.title',
@@ -765,6 +781,32 @@ watch(
                     system-theme-color="system"
                 />
             </div>
+        </SettingsSection>
+
+        <SettingsSection v-if="props.scope === 'interface'">
+            <template #header>
+                <h2
+                    id="settings-target-appearance-theme-suite"
+                    tabindex="-1"
+                    class="m-0 text-lg font-semibold text-[var(--color-text-primary)]"
+                >
+                    {{ formatMessage(messages.themeSuiteTitle) }}
+                </h2>
+            </template>
+            <SettingsRow>
+                <template #label>
+                    <span>{{ formatMessage(messages.themeSuiteTitle) }}</span>
+                </template>
+                <template #description>
+                    <span>{{ formatMessage(messages.themeSuiteDescription) }}</span>
+                </template>
+                <template #control>
+                    <Button type="outlined" @click="themeSuiteModal?.show()">
+                        {{ formatMessage(messages.themeSuiteManage) }}
+                    </Button>
+                </template>
+            </SettingsRow>
+            <ThemeSuiteModal ref="themeSuiteModal" />
         </SettingsSection>
 
         <SettingsSection v-if="props.scope === 'interface'">

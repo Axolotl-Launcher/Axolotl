@@ -12986,6 +12986,24 @@
   "app.navigation.worlds": {
     "message": "世界"
   },
+  "app.network.offline.description": {
+    "message": "请检查你的网络状况，例如：Wi-Fi 是否开启、网线是否连好、飞行模式开关状态或代理软件设置。"
+  },
+  "app.network.offline.disconnected": {
+    "message": "已断开连接"
+  },
+  "app.network.offline.retry": {
+    "message": "重试"
+  },
+  "app.network.offline.settings": {
+    "message": "网络连接设置"
+  },
+  "app.network.offline.settings-failed": {
+    "message": "无法打开网络设置，请从系统设置中打开。"
+  },
+  "app.network.offline.title": {
+    "message": "无法连接"
+  },
   "app.notification.error-occurred": {
     "message": "发生错误"
   },
@@ -15487,6 +15505,12 @@
   },
   "app.settings.developer.preview-with-action": {
     "message": "显示可选的外部链接按钮"
+  },
+  "app.settings.developer.simulate-offline": {
+    "message": "模拟断网"
+  },
+  "app.settings.developer.simulate-offline-description": {
+    "message": "在当前会话中显示断网页面和连接状态提示，关闭后恢复正常网络状态。"
   },
   "app.settings.downloading": {
     "message": "正在下载 v{version}"

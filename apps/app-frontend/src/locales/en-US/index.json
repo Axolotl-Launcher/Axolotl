@@ -12986,6 +12986,24 @@
   "app.navigation.worlds": {
     "message": "Worlds"
   },
+  "app.network.offline.description": {
+    "message": "Check your network connection: make sure Wi-Fi is on, your network cable is connected, airplane mode is off, and your proxy settings are correct."
+  },
+  "app.network.offline.disconnected": {
+    "message": "Disconnected"
+  },
+  "app.network.offline.retry": {
+    "message": "Retry"
+  },
+  "app.network.offline.settings": {
+    "message": "Network connection settings"
+  },
+  "app.network.offline.settings-failed": {
+    "message": "Unable to open network settings. Open them from your system settings."
+  },
+  "app.network.offline.title": {
+    "message": "Unable to connect"
+  },
   "app.notification.error-occurred": {
     "message": "An error occurred"
   },
@@ -15487,6 +15505,12 @@
   },
   "app.settings.developer.preview-with-action": {
     "message": "Include an optional external-link button"
+  },
+  "app.settings.developer.simulate-offline": {
+    "message": "Simulate being offline"
+  },
+  "app.settings.developer.simulate-offline-description": {
+    "message": "Show the offline page and connection indicator for this session. Turn this off to restore normal connectivity."
   },
   "app.settings.downloading": {
     "message": "Downloading v{version}"

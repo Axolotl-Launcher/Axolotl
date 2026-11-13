@@ -97,6 +97,8 @@ import {
 } from '@/components/ui/nav-icons'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
+import NetworkPageBoundary from '@/components/ui/network/NetworkPageBoundary.vue'
+import NetworkStatusBar from '@/components/ui/network/NetworkStatusBar.vue'
 import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
 import { createOobeController } from '@/components/ui/oobe/useOobe'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
@@ -419,7 +421,13 @@ const {
     fileDrop,
 } = setupProviders(notificationManager, popupNotificationManager, stateInitialization)
 
-const { offline } = useNetworkStatus()
+const { offline, setSimulatedOffline } = useNetworkStatus()
+watch(
+    () => themeStore.devMode,
+    (enabled) => {
+        if (!enabled) setSimulatedOffline(false)
+    },
+)
 
 const OobeHost = defineAsyncComponent(() => import('@/components/ui/oobe/OobeHost.vue'))
 const oobe = createOobeController()
@@ -1597,7 +1605,7 @@ async function setupApp() {
         DiscoverContent: `/browse/${getLastBrowseContentProjectType()}`,
         Library: '/library',
     }
-    const defaultPageRoute = offline.value ? '/library' : defaultPageRoutes[default_page]
+    const defaultPageRoute = defaultPageRoutes[default_page]
     if (defaultPageRoute && defaultPageRoute !== '/') await router.push(defaultPageRoute)
 
     os.value = await getOS()
@@ -2215,12 +2223,6 @@ watch(
     },
 )
 
-watch(offline, (isOffline) => {
-    if (isOffline && (route.path.startsWith('/browse') || route.path.startsWith('/project'))) {
-        void router.push('/library')
-    }
-})
-
 const error = useError()
 
 /**
@@ -2458,13 +2460,6 @@ async function handleCommand(e: AppCommand | null) {
                 text: `Unsupported link: ${e.path ?? ''}`,
                 type: 'warning',
             })
-            return
-        }
-        if (
-            offline.value &&
-            (target.path.startsWith('/browse') || target.path.startsWith('/project'))
-        ) {
-            await router.push('/library')
             return
         }
         await router.push(target)
@@ -3150,7 +3145,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-if="!themeStore.isNavItemHidden('discover')"
                     v-tooltip.right="formatMessage(messages.discoverContent)"
                     :to="discoverContentPath"
-                    :disabled="offline"
                     :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
                     :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
                 >
@@ -3223,11 +3217,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     <QuickInstanceSwitcher />
                 </suspense>
             </div>
-            <NavButton
-                v-tooltip.right="formatMessage(messages.createInstance)"
-                to="/create"
-                :disabled="offline"
-            >
+            <NavButton v-tooltip.right="formatMessage(messages.createInstance)" to="/create">
                 <CreateNavIcon />
             </NavButton>
             <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
@@ -3317,13 +3307,18 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                             "
                             class="page-transition-layer"
                         >
-                            <Suspense
-                                v-if="Component"
-                                @pending="onSuspensePending"
-                                @resolve="onSuspenseResolve"
+                            <NetworkPageBoundary
+                                :requires-network="!!pageRoute.meta.requiresNetwork"
+                                @blocked="onSuspenseResolve"
                             >
-                                <component :is="Component"></component>
-                            </Suspense>
+                                <Suspense
+                                    v-if="Component"
+                                    @pending="onSuspensePending"
+                                    @resolve="onSuspenseResolve"
+                                >
+                                    <component :is="Component"></component>
+                                </Suspense>
+                            </NetworkPageBoundary>
                         </div>
                     </Transition>
                 </RouterView>
@@ -3379,6 +3374,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
         </div>
     </div>
+    <NetworkStatusBar v-if="stateInitialized && !oobeVisible" />
     <I18nDebugPanel />
     <NotificationPanel
         :has-sidebar="sidebarVisible"

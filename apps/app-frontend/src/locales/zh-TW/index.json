@@ -5900,6 +5900,24 @@
   "app.navigation.worlds": {
     "message": "世界"
   },
+  "app.network.offline.description": {
+    "message": "請檢查你的網路狀況，例如：Wi-Fi 是否開啟、網路線是否接好、飛航模式開關狀態或代理軟體設定。"
+  },
+  "app.network.offline.disconnected": {
+    "message": "已中斷連線"
+  },
+  "app.network.offline.retry": {
+    "message": "重試"
+  },
+  "app.network.offline.settings": {
+    "message": "網路連線設定"
+  },
+  "app.network.offline.settings-failed": {
+    "message": "無法開啟網路設定，請從系統設定中開啟。"
+  },
+  "app.network.offline.title": {
+    "message": "無法連線"
+  },
   "app.notification.export-error-logs": {
     "message": "導出錯誤日誌"
   },
@@ -7096,6 +7114,12 @@
   },
   "app.settings.developer.feature-flags-section-title": {
     "message": "功能旗標"
+  },
+  "app.settings.developer.simulate-offline": {
+    "message": "模擬斷線"
+  },
+  "app.settings.developer.simulate-offline-description": {
+    "message": "在目前工作階段顯示斷線頁面和連線狀態提示，關閉後恢復正常網路狀態。"
   },
   "app.settings.downloading": {
     "message": "正在下載 v{version}"

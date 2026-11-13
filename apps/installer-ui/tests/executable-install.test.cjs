@@ -9,8 +9,11 @@ const { setTimeout: delay } = require('node:timers/promises')
 
 const root = path.resolve(__dirname, '../../..')
 const windows = process.platform === 'win32'
-const helper = process.env.AXOLOTL_INSTALLER_UI_PATH
-    ? path.normalize(process.env.AXOLOTL_INSTALLER_UI_PATH)
+const configuredHelper = process.env.AXOLOTL_INSTALLER_UI_PATH
+// makensis's File takes everything after the last backslash as the file name, so
+// CI's mixed-separator D:\a\Axolotl\Axolotl/target/ci/... path would match nothing.
+const helper = configuredHelper
+    ? path.resolve(configuredHelper)
     : ['ci', 'debug', 'release']
           .map((profile) => path.join(root, 'target', profile, 'axolotl-installer-ui.exe'))
           .find((candidate) => fs.existsSync(candidate))

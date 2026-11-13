@@ -158,9 +158,8 @@
             <ChevronsRightIcon />
         </IconButton>
         <input
-            v-if="hasJumpRange"
             v-model="jumpInputValue"
-            class="ml-1 hidden h-8 w-12 rounded-full border border-solid border-surface-4 bg-surface-1 px-2 text-center text-sm text-[var(--color-text-primary)] outline-none transition-colors hover:border-brand focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand-shadow sm:block"
+            class="ml-1 h-8 w-12 rounded-full border border-solid border-surface-4 bg-surface-1 px-2 text-center text-sm text-[var(--color-text-primary)] outline-none transition-colors hover:border-brand focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand-shadow"
             type="number"
             inputmode="numeric"
             min="1"
@@ -266,11 +265,12 @@ const pages = computed(() => {
     return pages
 })
 
-// Below four pages every page is one click away, so the jump controls would only
-// add width to the bar without shortening any path.
-const hasJumpRange = computed(() => props.count > 3)
-const showFirstPage = computed(() => hasJumpRange.value && props.page > 2)
-const showLastPage = computed(() => hasJumpRange.value && props.page < props.count - 1)
+// Every bar offers the same controls: the jump field and the end buttons are not
+// conditional on the page count, so a small result set does not get a bar that
+// behaves differently from a large one. The end buttons only disappear once the
+// reader is already on that end.
+const showFirstPage = computed(() => props.page > 1)
+const showLastPage = computed(() => props.page < props.count)
 
 const activeGapIndex = ref<number | null>(null)
 const gapInputValue = ref('')

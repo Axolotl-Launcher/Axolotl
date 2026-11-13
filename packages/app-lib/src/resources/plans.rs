@@ -899,7 +899,10 @@ impl ResourceService {
                                 .artifact
                                 .as_ref()
                                 .map(artifact_file),
-                            related: node.artifact.as_ref().map(artifact_file),
+                            // This message names the required file and the
+                            // selected file; `related` would repeat the
+                            // former, so it stays unreported.
+                            related: None,
                             required: node.artifact.as_ref().map(artifact_file),
                             actual: existing
                                 .artifact
@@ -1679,7 +1682,10 @@ impl ResourceService {
                                 reason:
                                     ResourceConflictReason::ConflictingReleases,
                                 subject: selected.as_ref().map(artifact_file),
-                                related: expected_file.clone(),
+                                // `expected_file` already fills `required`;
+                                // reporting it as `related` too would say the
+                                // same file twice in one sentence.
+                                related: None,
                                 required: expected_file,
                                 actual: selected.as_ref().map(artifact_file),
                             },
@@ -2163,7 +2169,9 @@ impl ResourceService {
                     let details = ResourceConflictDetails {
                         reason: ResourceConflictReason::ConflictingReleases,
                         subject: Some(metadata.title.clone()),
-                        related: node.artifact.as_ref().map(artifact_file),
+                        // `required` and `actual` already name both files, so
+                        // `related` would duplicate the selected one.
+                        related: None,
                         required: Some(artifact_file(&artifact)),
                         actual: node.artifact.as_ref().map(artifact_file),
                     };
@@ -2758,10 +2766,11 @@ impl ResourceService {
                                     ResourceConflictReason::DependencyVersion,
                                 subject: Some(selection_title.clone()),
                                 related: Some(artifact_file(&expected)),
-                                required: dependency
-                                    .version_constraint
-                                    .clone()
-                                    .or_else(|| Some(artifact_file(&expected))),
+                                // Falling back to the file name here repeats
+                                // `related` verbatim, so the message reads
+                                // "requires X to match X". Report the absence
+                                // instead and let the message name it.
+                                required: dependency.version_constraint.clone(),
                                 actual: existing.as_ref().map(artifact_file),
                             },
                         );
@@ -3217,7 +3226,11 @@ impl ResourceService {
                         subject: None,
                         related: Some(artifact_file(artifact)),
                         required,
-                        actual: Some(artifact_file(artifact)),
+                        // The selected artifact is the same one named above, so
+                        // repeating it here renders "{file} to match {file}".
+                        // Leave it unreported and let the message say the
+                        // required version is unknown instead.
+                        actual: None,
                     },
                 ));
             }

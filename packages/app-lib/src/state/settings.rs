@@ -136,7 +136,7 @@ pub struct Settings {
     pub max_concurrent_writes: usize,
     #[serde(default)]
     pub auto_concurrent_downloads: bool,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub force_multiconnection_downloads: bool,
     #[serde(default = "default_forced_max_concurrent_downloads")]
     pub forced_max_concurrent_downloads: usize,
@@ -373,7 +373,7 @@ impl Default for Settings {
             max_concurrent_downloads: 10,
             max_concurrent_writes: 10,
             auto_concurrent_downloads: true,
-            force_multiconnection_downloads: false,
+            force_multiconnection_downloads: true,
             forced_max_concurrent_downloads:
                 FORCED_DOWNLOAD_CONCURRENCY_DEFAULT,
             minecraft_metadata_source: DownloadSourceMode::Auto,
@@ -1317,9 +1317,9 @@ mod tests {
     }
 
     #[test]
-    fn forced_download_mode_is_opt_in_and_preserves_manual_limits() {
+    fn forced_download_mode_defaults_on_and_preserves_manual_limits() {
         let mut settings = Settings::default();
-        assert!(!settings.force_multiconnection_downloads);
+        assert!(settings.force_multiconnection_downloads);
         let mut legacy = serde_json::to_value(&settings).unwrap();
         legacy
             .as_object_mut()
@@ -1330,7 +1330,7 @@ mod tests {
             .unwrap()
             .remove("forced_max_concurrent_downloads");
         let legacy = serde_json::from_value::<Settings>(legacy).unwrap();
-        assert!(!legacy.force_multiconnection_downloads);
+        assert!(legacy.force_multiconnection_downloads);
         assert_eq!(legacy.forced_max_concurrent_downloads, 72);
         settings.force_multiconnection_downloads = true;
         assert_eq!(
@@ -1352,6 +1352,13 @@ mod tests {
         assert_eq!(restored.forced_max_concurrent_downloads, 128);
         assert!(restored.force_multiconnection_downloads);
         assert_eq!(restored.max_concurrent_downloads, 32);
+
+        settings.force_multiconnection_downloads = false;
+        let saved = serde_json::to_value(&settings).unwrap();
+        let restored = serde_json::from_value::<Settings>(saved).unwrap();
+        assert!(!restored.force_multiconnection_downloads);
+        let restored = Settings::from_record(restored.to_record().unwrap());
+        assert!(!restored.force_multiconnection_downloads);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 <template>
     <div
+        ref="groupEl"
         class="vue-notification-group"
         :class="{
             'intercom-present': isIntercomPresent,
@@ -129,7 +130,7 @@ import {
     XCircleIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useModalStack } from '#ui/composables/modal-stack.ts'
 
@@ -157,6 +158,7 @@ const notifications = computed<WebNotification[]>(() =>
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 )
 const notificationLocation = computed(() => notificationManager.getNotificationLocation())
+const groupEl = ref<HTMLElement | null>(null)
 
 const isIntercomPresent = ref<boolean>(false)
 const copied = ref<Record<string, boolean>>({})
@@ -179,6 +181,13 @@ function getCopyKey(notif: WebNotification): string {
 
 function checkIntercomPresence(): void {
     isIntercomPresent.value = !!document.querySelector('.intercom-lightweight-app')
+}
+
+function updateNotificationClearance(): void {
+    const height = groupEl.value?.getBoundingClientRect().height ?? 0
+    const clearance =
+        notificationLocation.value === 'right' && height > 0 ? `${Math.ceil(height + 32)}px` : '0px'
+    document.documentElement.style.setProperty('--notification-panel-clearance', clearance)
 }
 
 function copyToClipboard(notif: WebNotification): void {
@@ -221,8 +230,15 @@ onMounted(() => {
         subtree: true,
     })
 
+    const resizeObserver = new ResizeObserver(updateNotificationClearance)
+    if (groupEl.value) resizeObserver.observe(groupEl.value)
+    watch(notificationLocation, updateNotificationClearance)
+    updateNotificationClearance()
+
     onBeforeUnmount(() => {
         observer.disconnect()
+        resizeObserver.disconnect()
+        document.documentElement.style.removeProperty('--notification-panel-clearance')
     })
 })
 

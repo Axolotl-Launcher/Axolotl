@@ -15,3 +15,15 @@ it('falls back to the texture key and then to a generic name', () => {
 it('replaces characters that a file name cannot contain', () => {
     expect(skinExportFilename({ name: 'a/b:c*?"<>|d', texture_key: 'abc' })).toBe('a-b-c-d.png')
 })
+
+it('removes control characters and trailing dots or spaces', () => {
+    expect(skinExportFilename({ name: 'bad\u0000name', texture_key: 'abc' })).toBe('badname.png')
+    expect(skinExportFilename({ name: 'name. ', texture_key: 'abc' })).toBe('name.png')
+    expect(skinExportFilename({ name: '\u0001', texture_key: 'abc' })).toBe('skin.png')
+})
+
+it('escapes names that Windows reserves for devices', () => {
+    expect(skinExportFilename({ name: 'CON', texture_key: 'abc' })).toBe('_CON.png')
+    expect(skinExportFilename({ name: 'lpt1.png', texture_key: 'abc' })).toBe('_lpt1.png')
+    expect(skinExportFilename({ name: 'console', texture_key: 'abc' })).toBe('console.png')
+})

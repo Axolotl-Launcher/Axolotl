@@ -26,14 +26,14 @@
                         {{ formatMessage(messages.textureSection) }}
                     </h2>
                     <div class="flex flex-wrap gap-2">
-                        <Button class="!shadow-none" @click="openTextureFileBrowser"
-                            ><UploadIcon /> {{ formatMessage(messages.replaceTextureButton) }}
-                        </Button>
                         <Button
                             class="!shadow-none"
                             :disabled="!canExportTexture"
                             @click="exportTexture"
                             ><DownloadIcon /> {{ formatMessage(messages.exportTextureButton) }}
+                        </Button>
+                        <Button class="!shadow-none" @click="openTextureFileBrowser"
+                            ><UploadIcon /> {{ formatMessage(messages.replaceTextureButton) }}
                         </Button>
                     </div>
                     <input
@@ -168,7 +168,7 @@ import {
 import { arrayBufferToBase64 } from '@modrinth/utils'
 import { save as saveFileDialog } from '@tauri-apps/plugin-dialog'
 import { writeFile } from '@tauri-apps/plugin-fs'
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 
 import {
     type Cape,
@@ -204,6 +204,10 @@ const messages = defineMessages({
     exportTextureButton: {
         id: 'app.skins.modal.export-texture-button',
         defaultMessage: 'Export texture',
+    },
+    exportTextureFailed: {
+        id: 'app.skins.modal.export-texture-failed',
+        defaultMessage: 'Failed to export the skin texture (HTTP {status}).',
     },
     armStyleSection: {
         id: 'app.skins.modal.arm-style-section',
@@ -268,6 +272,7 @@ const isSaving = ref(false)
 
 const uploadedTextureUrl = ref<SkinTextureUrl | null>(null)
 const previewSkin = ref<string>('')
+let resetTimer: ReturnType<typeof setTimeout> | undefined
 
 const variant = ref<SkinModel>('CLASSIC')
 const selectedCape = ref<Cape | undefined>(undefined)
@@ -275,7 +280,10 @@ const props = defineProps<{ capes?: Cape[] }>()
 
 const selectedCapeTexture = computed(() => selectedCape.value?.texture)
 const canEditTextureAndModel = computed(() => currentSkin.value?.source !== 'default')
-const canExportTexture = computed(() => !!(uploadedTextureUrl.value || currentSkin.value))
+const canExportTexture = computed(() => {
+    const texture = uploadedTextureUrl.value?.original ?? currentSkin.value?.texture
+    return !!texture?.startsWith('data:image/')
+})
 const {
     showTopFade: showCapeTopFade,
     showBottomFade: showCapeBottomFade,
@@ -375,13 +383,28 @@ function resetState() {
     isSaving.value = false
 }
 
-function handleModalHide() {
-    setTimeout(() => resetState(), 250)
+function cancelReset() {
+    if (resetTimer !== undefined) {
+        clearTimeout(resetTimer)
+        resetTimer = undefined
+    }
 }
 
+function handleModalHide() {
+    cancelReset()
+    resetTimer = setTimeout(() => {
+        resetTimer = undefined
+        resetState()
+    }, 250)
+}
+
+onBeforeUnmount(cancelReset)
+
 async function show(e: MouseEvent, skin?: Skin) {
+    cancelReset()
     mode.value = skin ? 'edit' : 'new'
     currentSkin.value = skin ?? null
+    uploadedTextureUrl.value = null
     if (skin) {
         variant.value = skin.variant
         selectedCape.value = props.capes?.find((c) => c.id === skin.cape_id)
@@ -397,6 +420,7 @@ async function show(e: MouseEvent, skin?: Skin) {
 }
 
 async function showNew(e: MouseEvent, skinTextureUrl: SkinTextureUrl) {
+    cancelReset()
     mode.value = 'new'
     currentSkin.value = null
     uploadedTextureUrl.value = skinTextureUrl
@@ -440,7 +464,9 @@ async function exportTexture() {
 
         const response = await fetch(textureUrl)
         if (!response.ok) {
-            throw new Error(`Failed to read skin texture: ${response.status}`)
+            throw new Error(
+                formatMessage(messages.exportTextureFailed, { status: response.status }),
+            )
         }
         await writeFile(path, new Uint8Array(await response.arrayBuffer()))
     } catch (error) {

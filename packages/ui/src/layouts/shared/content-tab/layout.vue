@@ -1426,7 +1426,9 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
     @apply flex items-center justify-center rounded-full bg-brand p-3 text-brand-inverted shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-95;
     position: fixed;
     right: calc(var(--right-bar-width, 0px) + 1.5rem);
-    bottom: calc(1rem + var(--floating-action-bar-clearance, 0px));
+    bottom: calc(
+        1rem + var(--floating-action-bar-clearance, 0px) + var(--notification-panel-clearance, 0px)
+    );
     z-index: 60;
 }
 

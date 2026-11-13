@@ -1,6 +1,8 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import type { Skin } from '@/helpers/skins.ts'
+
 import EditSkinModal from './EditSkinModal.vue'
 
 const backend = vi.hoisted(() => ({
@@ -15,6 +17,7 @@ vi.mock('@/helpers/skins.ts', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/helpers/skins.ts')>()
     return {
         ...actual,
+        determineModelType: async () => 'CLASSIC' as const,
         get_normalized_skin_texture: backend.getNormalizedTexture,
     }
 })
@@ -75,7 +78,7 @@ afterEach(() => {
     vi.clearAllMocks()
 })
 
-async function openExport() {
+async function openExport(skinToEdit: Skin = skin) {
     // Normalization changes the bytes, so exporting them instead of the stored texture fails.
     backend.getNormalizedTexture.mockResolvedValue('data:image/png;base64,BAUG')
     wrapper = mount(EditSkinModal, {
@@ -83,8 +86,8 @@ async function openExport() {
         global: { directives: { tooltip: {} } },
     })
     await (
-        wrapper.vm as unknown as { show: (e: MouseEvent, skin: typeof skin) => Promise<void> }
-    ).show(new MouseEvent('click'), skin)
+        wrapper.vm as unknown as { show: (e: MouseEvent, skin: typeof skinToEdit) => Promise<void> }
+    ).show(new MouseEvent('click'), skinToEdit)
     await flushPromises()
 
     const button = wrapper
@@ -119,4 +122,44 @@ it('writes nothing when the save dialog is cancelled', async () => {
     await flushPromises()
 
     expect(backend.writeFile).not.toHaveBeenCalled()
+})
+
+it('disables export for textures that cannot be read without CORS', async () => {
+    const button = await openExport({
+        ...skin,
+        texture: 'https://example.com/skin.png',
+        source: 'custom_external',
+    })
+
+    expect(button.attributes('disabled')).toBeDefined()
+})
+
+it('exports the skin being edited after an earlier texture upload', async () => {
+    backend.save.mockResolvedValue('/tmp/My Skin.png')
+    wrapper = mount(EditSkinModal, {
+        props: { capes: [] },
+        global: { directives: { tooltip: {} } },
+    })
+    const vm = wrapper.vm as unknown as {
+        show: (e: MouseEvent, skin: Skin) => Promise<void>
+        showNew: (e: MouseEvent, texture: { original: string; normalized: string }) => Promise<void>
+    }
+
+    await vm.showNew(new MouseEvent('click'), {
+        original: 'data:image/png;base64,BAUG',
+        normalized: 'data:image/png;base64,BAUG',
+    })
+    await flushPromises()
+    await vm.show(new MouseEvent('click'), skin)
+    await flushPromises()
+
+    const button = wrapper
+        .findAll('button')
+        .find((candidate) => candidate.text().includes('Export texture'))
+    await button!.trigger('click')
+    await flushPromises()
+
+    await vi.waitFor(() => expect(backend.writeFile).toHaveBeenCalledTimes(1))
+    const [, bytes] = backend.writeFile.mock.calls[0]
+    expect(Array.from(bytes as Uint8Array)).toEqual([1, 2, 3])
 })

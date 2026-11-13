@@ -98,11 +98,14 @@ it('fills the caret with the menu surface instead of outlining it', async () => 
     // The stroke drawn during the floating-vue migration outlined every edge of
     // the arrow, including the base that meets the menu, so the caret read as a
     // separate outlined shape floating above the surface.
-    const arrow = content()?.querySelector<SVGElement>('.menu-arrow')
+    const surface = content()!
+    const arrow = surface.querySelector<SVGElement>('.menu-arrow')
     expect(arrow, 'the menu renders its caret').not.toBeNull()
     const style = getComputedStyle(arrow!)
     expect(style.stroke, 'the caret has no outline').toBe('none')
-    expect(style.fill, 'the caret is painted').not.toBe('none')
+    const surfaceFill = getComputedStyle(surface).backgroundColor
+    expect(surfaceFill, 'the menu surface is painted').not.toBe('rgba(0, 0, 0, 0)')
+    expect(style.fill, 'the caret matches the menu surface').toBe(surfaceFill)
 
     wrapper.unmount()
 })

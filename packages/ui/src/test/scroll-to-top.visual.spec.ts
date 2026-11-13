@@ -39,6 +39,7 @@ async function mountScrolledControl() {
             viewport.remove()
             document.documentElement.style.removeProperty('--right-bar-width')
             document.documentElement.style.removeProperty('--floating-action-bar-clearance')
+            document.documentElement.style.removeProperty('--notification-panel-clearance')
         },
     }
 }
@@ -68,6 +69,20 @@ it('stays above the globally managed floating action bar', async () => {
 
         const placement = getComputedStyle(button.element.parentElement!)
         expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(56)
+    } finally {
+        cleanup()
+    }
+})
+
+it('rises above visible notifications instead of hiding below them', async () => {
+    document.documentElement.style.setProperty('--notification-panel-clearance', '112px')
+    const { button, cleanup } = await mountScrolledControl()
+
+    try {
+        expect(button.exists()).toBe(true)
+
+        const placement = getComputedStyle(button.element.parentElement!)
+        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(128)
     } finally {
         cleanup()
     }

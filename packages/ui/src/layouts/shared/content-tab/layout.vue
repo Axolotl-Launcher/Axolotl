@@ -1432,6 +1432,15 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
     z-index: 60;
 }
 
+@media screen and (max-width: 750px) {
+    .scroll-to-top-btn {
+        bottom: calc(
+            1rem + var(--floating-action-bar-clearance, 0px) +
+                var(--notification-panel-clearance, 0px) + var(--size-mobile-navbar-height, 0px)
+        );
+    }
+}
+
 .scroll-to-top-enter-active,
 .scroll-to-top-leave-active {
     transition:

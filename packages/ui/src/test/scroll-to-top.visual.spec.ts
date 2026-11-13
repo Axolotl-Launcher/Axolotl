@@ -1,7 +1,8 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 import ScrollToTopButton from '../components/base/ScrollToTopButton.vue'
+import NotificationPanel from '../components/nav/NotificationPanel.vue'
 import { I18N_INJECTION_KEY } from '../providers/i18n'
 import { mountThemed } from './visual-harness'
 
@@ -54,7 +55,7 @@ it('anchors the floating control to the safe bottom-right of the content pane', 
         const placement = getComputedStyle(button.element.parentElement!)
         expect(placement.position).toBe('fixed')
         expect(Number.parseFloat(placement.right)).toBeGreaterThanOrEqual(324)
-        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(12)
+        expect(Number.parseFloat(placement.bottom)).toBeCloseTo(16, 1)
     } finally {
         cleanup()
     }
@@ -68,22 +69,56 @@ it('stays above the globally managed floating action bar', async () => {
         expect(button.exists()).toBe(true)
 
         const placement = getComputedStyle(button.element.parentElement!)
-        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(56)
+        expect(Number.parseFloat(placement.bottom)).toBeCloseTo(60, 1)
     } finally {
         cleanup()
     }
 })
 
-it('rises above visible notifications instead of hiding below them', async () => {
-    document.documentElement.style.setProperty('--notification-panel-clearance', '112px')
-    const { button, cleanup } = await mountScrolledControl()
+it('publishes clearance from a visible notification panel and lifts the button', async () => {
+    const notificationManager = {
+        getNotifications: () => [{ id: 1, title: 'World imported', text: 'Ready to play' }],
+        getNotificationLocation: () => 'right',
+        stopNotificationTimer: () => {},
+        setNotificationTimer: () => {},
+        removeNotification: () => {},
+    }
+    const panel = await mountThemed(NotificationPanel, { hasSidebar: false }, 'dark', {
+        attachTo: document.body,
+        global: {
+            provide: {
+                [Symbol.for('modrinth:notificationManager')]: notificationManager,
+                [I18N_INJECTION_KEY as symbol]: {
+                    locale: ref('en-US'),
+                    t: (key: string) => key,
+                    setLocale: () => {},
+                },
+            },
+            directives: { tooltip: {} },
+        },
+    })
 
     try {
-        expect(button.exists()).toBe(true)
+        await vi.waitFor(() => {
+            const published = Number.parseFloat(
+                document.documentElement.style.getPropertyValue('--notification-panel-clearance'),
+            )
+            expect(published).toBeGreaterThan(0)
+        })
+        const published = Number.parseFloat(
+            document.documentElement.style.getPropertyValue('--notification-panel-clearance'),
+        )
+        const { button, cleanup } = await mountScrolledControl()
 
-        const placement = getComputedStyle(button.element.parentElement!)
-        expect(Number.parseFloat(placement.bottom)).toBeGreaterThanOrEqual(128)
+        try {
+            expect(button.exists()).toBe(true)
+
+            const placement = getComputedStyle(button.element.parentElement!)
+            expect(Number.parseFloat(placement.bottom)).toBeCloseTo(16 + published, 1)
+        } finally {
+            cleanup()
+        }
     } finally {
-        cleanup()
+        panel.unmount()
     }
 })

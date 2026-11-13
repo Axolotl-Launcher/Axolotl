@@ -184,9 +184,11 @@ function checkIntercomPresence(): void {
 }
 
 function updateNotificationClearance(): void {
-    const height = groupEl.value?.getBoundingClientRect().height ?? 0
-    const clearance =
-        notificationLocation.value === 'right' && height > 0 ? `${Math.ceil(height + 32)}px` : '0px'
+    const rect = groupEl.value?.getBoundingClientRect()
+    const visible = notificationLocation.value === 'right' && rect && rect.height > 0
+    // Measure the panel's top edge rather than its height: the panel can be raised
+    // by the mobile navbar, notifications' own bottom offset or the intercom bubble.
+    const clearance = visible ? `${Math.ceil(window.innerHeight - rect.top + 16)}px` : '0px'
     document.documentElement.style.setProperty('--notification-panel-clearance', clearance)
 }
 
@@ -221,23 +223,31 @@ async function handleErrorAction(notification: WebNotification): Promise<void> {
 onMounted(() => {
     checkIntercomPresence()
 
+    const handleLayoutChange = () => updateNotificationClearance()
     const observer = new MutationObserver(() => {
         checkIntercomPresence()
+        updateNotificationClearance()
     })
 
     observer.observe(document.body, {
         childList: true,
         subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style'],
     })
 
-    const resizeObserver = new ResizeObserver(updateNotificationClearance)
+    const resizeObserver = new ResizeObserver(handleLayoutChange)
     if (groupEl.value) resizeObserver.observe(groupEl.value)
-    watch(notificationLocation, updateNotificationClearance)
+    groupEl.value?.addEventListener('transitionend', handleLayoutChange)
+    window.addEventListener('resize', handleLayoutChange)
+    watch(notificationLocation, handleLayoutChange)
     updateNotificationClearance()
 
     onBeforeUnmount(() => {
         observer.disconnect()
         resizeObserver.disconnect()
+        groupEl.value?.removeEventListener('transitionend', handleLayoutChange)
+        window.removeEventListener('resize', handleLayoutChange)
         document.documentElement.style.removeProperty('--notification-panel-clearance')
     })
 })

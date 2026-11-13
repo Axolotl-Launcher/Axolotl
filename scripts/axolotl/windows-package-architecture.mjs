@@ -20,3 +20,13 @@ export function verifyWindowsBinaryArchitecture(bytes, architecture, label) {
     if (bytes.readUInt16LE(offset + 4) !== machines[architecture])
         throw new Error(`Windows binary architecture does not match ${architecture}: ${label}`)
 }
+
+export function verifyWindowsBundleArchitecture(filename, architecture) {
+    if (
+        !Object.hasOwn(machines, architecture) ||
+        ![`.exe`, `.nsis.zip`].some((extension) =>
+            filename.endsWith(`_${architecture}-setup${extension}`),
+        )
+    )
+        throw new Error(`Windows bundle architecture does not match ${architecture}: ${filename}`)
+}

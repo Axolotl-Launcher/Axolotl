@@ -15,6 +15,7 @@ import {
 } from './desktop-build-utils.mjs'
 import {
     verifyWindowsBinaryArchitecture,
+    verifyWindowsBundleArchitecture,
     windowsPackageArchitecture,
 } from './windows-package-architecture.mjs'
 
@@ -45,9 +46,10 @@ fs.mkdirSync(destination, { recursive: true })
 const target =
     profile === 'release' ? path.join(root, 'target') : path.join(root, 'target/ci-bundle')
 process.env.CARGO_TARGET_DIR = target
-const releaseDirectory = path.join(target, 'release')
+const bundleTarget = architecture === 'arm64' ? host : undefined
+const releaseDirectory = path.join(target, ...(bundleTarget ? [bundleTarget] : []), 'release')
 fs.mkdirSync(releaseDirectory, { recursive: true })
-if (profile !== 'release')
+if (profile !== 'release' || bundleTarget)
     fs.copyFileSync(binary, path.join(releaseDirectory, 'Axolotl Launcher.exe'))
 const bundleDirectory = path.join(releaseDirectory, 'bundle/nsis')
 
@@ -69,12 +71,14 @@ for (const variant of ['modern', 'native']) {
         '--config',
         `tauri-${variant}.conf.json`,
     ]
+    if (bundleTarget) args.push('--target', bundleTarget)
     if (variant === 'modern' && profile === 'release')
         args.push('--config', 'tauri-updater.conf.json')
     if (profile === 'ci') args.push('--no-sign')
     run('pnpm', args, { cwd: app })
     const installers = fs.readdirSync(bundleDirectory).filter((file) => file.endsWith('-setup.exe'))
     if (installers.length !== 1) throw new Error(`Expected one ${variant} installer`)
+    verifyWindowsBundleArchitecture(installers[0], architecture)
     const installer = path.join(bundleDirectory, installers[0])
     const name = `Axolotl_Launcher_${version()}_${architecture}_${variant === 'modern' ? 'modern' : 'nsis'}-setup.exe`
     fs.copyFileSync(installer, path.join(destination, name))
@@ -88,6 +92,7 @@ for (const variant of ['modern', 'native']) {
             .readdirSync(bundleDirectory)
             .filter((file) => file.endsWith('-setup.nsis.zip'))
         if (archives.length !== 1) throw new Error('Missing modern updater archive')
+        verifyWindowsBundleArchitecture(archives[0], architecture)
         for (const suffix of ['', '.sig']) {
             const file = requireFile(path.join(bundleDirectory, `${archives[0]}${suffix}`))
             fs.copyFileSync(file, path.join(destination, path.basename(file)))

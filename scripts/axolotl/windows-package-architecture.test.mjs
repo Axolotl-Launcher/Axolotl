@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
     verifyWindowsBinaryArchitecture,
+    verifyWindowsBundleArchitecture,
     windowsPackageArchitecture,
 } from './windows-package-architecture.mjs'
 
@@ -55,4 +56,24 @@ test('rejects malformed PE headers and unsupported machine types', () => {
         () => verifyWindowsBinaryArchitecture(invalidSignature, 'arm64', 'fixture'),
         /PE header/,
     )
+})
+
+test('rejects bundles named for a different target before staging or renaming', () => {
+    for (const architecture of ['x64', 'arm64']) {
+        for (const extension of ['.exe', '.nsis.zip']) {
+            verifyWindowsBundleArchitecture(
+                `Axolotl_${architecture}-setup${extension}`,
+                architecture,
+            )
+            const other = architecture === 'x64' ? 'arm64' : 'x64'
+            assert.throws(
+                () =>
+                    verifyWindowsBundleArchitecture(
+                        `Axolotl_${other}-setup${extension}`,
+                        architecture,
+                    ),
+                /bundle architecture does not match/,
+            )
+        }
+    }
 })

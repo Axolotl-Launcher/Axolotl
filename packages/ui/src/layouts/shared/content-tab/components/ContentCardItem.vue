@@ -859,6 +859,7 @@ const deleteHovered = ref(false)
                 v-if="overflowOptions?.length"
                 :options="overflowOptions"
                 :disabled="isDisabled"
+                :label="formatMessage(commonMessages.moreOptionsButton)"
             >
                 <MoreVerticalIcon class="size-5" />
             </TeleportOverflowMenu>

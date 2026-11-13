@@ -2,6 +2,7 @@
 import { DropdownIcon } from '@modrinth/assets'
 import { reactive } from 'vue'
 
+import { defineMessages, useVIntl } from '../../composables/i18n'
 import Button from './buttons/Button.vue'
 
 const props = defineProps({
@@ -19,6 +20,18 @@ const props = defineProps({
     },
 })
 
+const { formatMessage } = useVIntl()
+const messages = defineMessages({
+    expand: {
+        id: 'button.expand',
+        defaultMessage: 'Expand',
+    },
+    collapse: {
+        id: 'button.collapse',
+        defaultMessage: 'Collapse',
+    },
+})
+
 const state = reactive({
     collapsed: props.defaultCollapsed,
 })
@@ -33,7 +46,12 @@ function toggleCollapsed() {
         <div v-if="!!$slots.header || collapsible" class="header flex">
             <slot name="header"></slot>
             <div v-if="collapsible" class="btn-group ml-auto">
-                <Button circular icon-only @click="toggleCollapsed"
+                <Button
+                    circular
+                    icon-only
+                    :aria-expanded="!state.collapsed"
+                    :label="formatMessage(state.collapsed ? messages.expand : messages.collapse)"
+                    @click="toggleCollapsed"
                     ><DropdownIcon
                         :style="{ transform: `rotate(${state.collapsed ? 0 : 180}deg)` }"
                     />

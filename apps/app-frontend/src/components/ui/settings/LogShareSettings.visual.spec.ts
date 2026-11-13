@@ -3,11 +3,15 @@ import '@/test/visual-styles.scss'
 import { mount } from '@vue/test-utils'
 import { afterEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import chinese from '@/locales/zh-CN/index.json'
 
+import { I18N_INJECTION_KEY } from '../../../../../../packages/ui/src/providers/i18n'
 import LogShareSettings from './LogShareSettings.vue'
+
+const i18n = { locale: ref('en-US'), t: (key: string) => key, setLocale: () => {} }
 
 const calls = vi.hoisted(() => ({
     saveAI: vi.fn(),
@@ -93,7 +97,7 @@ async function render(width = 900, localSetup = false) {
     const wrapper = mount(LogShareSettings, {
         props: { localSetup },
         attachTo: document.body,
-        global: { plugins: [router] },
+        global: { plugins: [router], provide: { [I18N_INJECTION_KEY]: i18n } },
     })
     wrappers.push(wrapper)
     await vi.waitFor(() => expect(wrapper.find('#crash-analysis-ai-enabled').exists()).toBe(true))

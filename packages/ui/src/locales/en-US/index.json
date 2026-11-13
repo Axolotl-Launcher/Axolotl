@@ -176,6 +176,15 @@
   "button.close": {
     "defaultMessage": "Close"
   },
+  "button.collapse": {
+    "defaultMessage": "Collapse"
+  },
+  "button.dismiss-notification": {
+    "defaultMessage": "Dismiss notification"
+  },
+  "button.expand": {
+    "defaultMessage": "Expand"
+  },
   "button.confirm": {
     "defaultMessage": "Confirm"
   },

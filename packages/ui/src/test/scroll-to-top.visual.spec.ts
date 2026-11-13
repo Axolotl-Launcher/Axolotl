@@ -39,10 +39,12 @@ async function settleNotificationLayout() {
     }
 }
 
-async function mountNotificationPanel() {
+async function mountNotificationPanel(
+    notifications = [{ id: 1, title: 'World imported', text: 'Ready to play' }],
+) {
     const location = ref<'left' | 'right'>('right')
     const notificationManager = {
-        getNotifications: () => [{ id: 1, title: 'World imported', text: 'Ready to play' }],
+        getNotifications: () => notifications,
         getNotificationLocation: () => location.value,
         stopNotificationTimer: () => {},
         setNotificationTimer: () => {},
@@ -153,6 +155,26 @@ it('publishes clearance from a visible notification panel and lifts the button',
         } finally {
             cleanup()
         }
+    } finally {
+        panel.unmount()
+    }
+})
+
+it('exposes notifications as a polite live region and errors as alerts', async () => {
+    const { panel, group } = await mountNotificationPanel([
+        { id: 1, title: 'World imported', text: 'Ready to play' },
+        { id: 2, title: 'Import failed', text: 'Check the file', type: 'error' },
+    ])
+
+    try {
+        expect(group.getAttribute('role')).toBe('log')
+        expect(group.getAttribute('aria-live')).toBe('polite')
+        expect(group.getAttribute('aria-relevant')).toBe('additions')
+
+        const notifications = panel.findAll<HTMLElement>('.vue-notification-wrapper')
+        expect(notifications).toHaveLength(2)
+        expect(notifications[0].attributes('role')).toBeUndefined()
+        expect(notifications[1].attributes('role')).toBe('alert')
     } finally {
         panel.unmount()
     }

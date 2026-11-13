@@ -2,6 +2,9 @@
     <div
         ref="groupEl"
         class="vue-notification-group"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
         :class="{
             'intercom-present': isIntercomPresent,
             'location-left': notificationLocation === 'left',
@@ -14,6 +17,7 @@
                 v-for="(item, index) in notifications"
                 :key="item.id"
                 class="vue-notification-wrapper"
+                :role="item.type === 'error' ? 'alert' : undefined"
                 @mouseenter="stopTimer(item)"
                 @mouseleave="setNotificationTimer(item)"
             >

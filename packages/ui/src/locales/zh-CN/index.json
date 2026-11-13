@@ -152,6 +152,15 @@
   "button.close": {
     "defaultMessage": "关闭"
   },
+  "button.collapse": {
+    "defaultMessage": "收起"
+  },
+  "button.dismiss-notification": {
+    "defaultMessage": "关闭通知"
+  },
+  "button.expand": {
+    "defaultMessage": "展开"
+  },
   "button.confirm": {
     "defaultMessage": "确认"
   },

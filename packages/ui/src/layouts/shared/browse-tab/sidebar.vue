@@ -114,7 +114,13 @@ function getFilterOpenByDefault(filterId: string): boolean {
             <h3 class="m-0 text-lg text-[var(--color-text-primary)]">
                 {{ formatMessage(commonMessages.filtersLabel) }}
             </h3>
-            <Button circular icon-only @click="closeFiltersMenu"><XIcon /> </Button>
+            <Button
+                circular
+                icon-only
+                :label="formatMessage(commonMessages.closeButton)"
+                @click="closeFiltersMenu"
+                ><XIcon />
+            </Button>
         </div>
 
         <div

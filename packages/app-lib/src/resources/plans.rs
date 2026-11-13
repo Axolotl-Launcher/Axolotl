@@ -273,8 +273,9 @@ fn conflict_issue(
     node: &SelectionId,
     blocking: bool,
     message: impl Into<String>,
-    conflict: ResourceConflictDetails,
+    mut conflict: ResourceConflictDetails,
 ) {
+    normalize_conflict_details(&mut conflict);
     plan.issues.push(ResourcePlanIssue {
         code: ResourceIssueCode::VersionConflict,
         selection_id: Some(node.clone()),
@@ -284,6 +285,22 @@ fn conflict_issue(
         conflict: Some(conflict),
         context: None,
     });
+}
+
+/// Keep the expected and selected values available, using the formatter's
+/// generic dependency label when a separate dependency name is unavailable.
+fn normalize_conflict_details(details: &mut ResourceConflictDetails) {
+    match details.reason {
+        ResourceConflictReason::ConflictingReleases => details.related = None,
+        ResourceConflictReason::DependencyVersion
+            if details.related.is_some()
+                && (details.related == details.required
+                    || details.related == details.actual) =>
+        {
+            details.related = None;
+        }
+        _ => {}
+    }
 }
 
 fn selection_failure(
@@ -2766,11 +2783,10 @@ impl ResourceService {
                                     ResourceConflictReason::DependencyVersion,
                                 subject: Some(selection_title.clone()),
                                 related: Some(artifact_file(&expected)),
-                                // Falling back to the file name here repeats
-                                // `related` verbatim, so the message reads
-                                // "requires X to match X". Report the absence
-                                // instead and let the message name it.
-                                required: dependency.version_constraint.clone(),
+                                required: dependency
+                                    .version_constraint
+                                    .clone()
+                                    .or_else(|| Some(artifact_file(&expected))),
                                 actual: existing.as_ref().map(artifact_file),
                             },
                         );
@@ -3226,11 +3242,7 @@ impl ResourceService {
                         subject: None,
                         related: Some(artifact_file(artifact)),
                         required,
-                        // The selected artifact is the same one named above, so
-                        // repeating it here renders "{file} to match {file}".
-                        // Leave it unreported and let the message say the
-                        // required version is unknown instead.
-                        actual: None,
+                        actual: Some(artifact_file(artifact)),
                     },
                 ));
             }
@@ -3686,7 +3698,17 @@ pub(crate) async fn load(
                 && !record.queued
         })
         .ok_or_else(|| invalid("plan was revised or already queued"))?;
-    serde_json::from_str(&record.payload).map_err(Into::into)
+    let mut draft: OperationDraft = serde_json::from_str(&record.payload)?;
+    // Pending plans can have been prepared before conflict formatting changed.
+    for details in draft
+        .plan
+        .issues
+        .iter_mut()
+        .filter_map(|issue| issue.conflict.as_mut())
+    {
+        normalize_conflict_details(details);
+    }
+    Ok(draft)
 }
 
 impl ResourceService {

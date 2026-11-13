@@ -943,7 +943,9 @@ defineExpose({ show, hide })
 }
 
 .home-picker-card-added {
-    @apply inline-flex shrink-0 items-center gap-0.5 rounded-full bg-highlight-green px-1.5 text-[0.6875rem] font-bold leading-[1.125rem] text-brand-green;
+    @apply inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 text-[0.6875rem] font-bold leading-[1.125rem];
+    background: color-mix(in srgb, var(--color-green) 14%, transparent);
+    color: var(--home-status-green-text);
 }
 
 .home-picker-card-added svg {
@@ -1119,7 +1121,8 @@ defineExpose({ show, hide })
 }
 
 .home-picker-feedback {
-    @apply m-0 flex min-h-5 min-w-0 items-center gap-1.5 text-[0.8125rem] font-semibold text-brand-green;
+    @apply m-0 flex min-h-5 min-w-0 items-center gap-1.5 text-[0.8125rem] font-semibold;
+    color: var(--home-status-green-text);
 }
 
 .home-picker-feedback.is-empty {

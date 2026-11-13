@@ -259,6 +259,22 @@ export function getQuickSwitchInstances<T extends LaunchCandidate>(
         .map(({ instance }) => instance)
 }
 
+/**
+ * Instances for a "Recently played" list: the other instances that were ever
+ * played, most recent first. Never-played ones belong to a switcher, not here.
+ */
+export function getRecentInstances<T extends LaunchCandidate>(
+    instances: readonly T[],
+    currentId: string | null | undefined,
+    limit: number,
+): T[] {
+    return getQuickSwitchInstances(
+        instances.filter((instance) => lastPlayedTime(instance) !== Number.NEGATIVE_INFINITY),
+        currentId,
+        limit,
+    )
+}
+
 export type HomeWorldRowState = {
     /** The row offers Stop instead of Play. */
     showStop: boolean

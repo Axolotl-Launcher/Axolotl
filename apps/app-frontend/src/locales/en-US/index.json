@@ -101,6 +101,9 @@
   "app.home.launch.recent-short": {
     "message": "Recent"
   },
+  "app.home.launch.status-error": {
+    "message": "Couldn't check whether it is running"
+  },
   "app.home.minimal.arrangement": {
     "message": "Arrangement"
   },

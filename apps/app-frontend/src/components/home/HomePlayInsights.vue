@@ -213,6 +213,14 @@ const weekDays = computed(() => {
     }))
 })
 
+/**
+ * A bar's height: strictly its share of the longest day, so one minute and an
+ * hour never stand the same. A played day keeps two pixels, only so it shows.
+ */
+function barHeight(share: number): string {
+    return `max(2px, ${(Math.max(0, Math.min(1, share)) * 100).toFixed(2)}%)`
+}
+
 /** Short enough to sit over a bar: hours to one decimal, or minutes. */
 function formatShortDuration(seconds: number): string {
     if (seconds >= 3600) {
@@ -394,12 +402,12 @@ onUnmounted(() => {
                         <span
                             v-if="showGhostWeek && day.ghostSeconds > 0"
                             class="home-insights-bar is-ghost"
-                            :style="{ height: `${Math.max(22, day.ghostShare * 100)}%` }"
+                            :style="{ height: barHeight(day.ghostShare) }"
                         />
                         <span
                             v-else-if="!showGhostWeek && day.seconds > 0"
                             class="home-insights-bar"
-                            :style="{ height: `${Math.max(22, day.share * 100)}%` }"
+                            :style="{ height: barHeight(day.share) }"
                         >
                             <span class="home-insights-value" :class="{ 'is-peak': day.peak }">{{
                                 formatShortDuration(day.seconds)
@@ -449,12 +457,15 @@ onUnmounted(() => {
     @apply size-4;
 }
 
+/* The change is a status word too: its darker shade, on a tint of its colour. */
 .home-insights-change[data-trend='up'] {
-    @apply bg-brand-green text-[var(--color-accent-contrast)];
+    background: color-mix(in srgb, var(--color-green) 12%, transparent);
+    color: var(--home-status-green-text);
 }
 
 .home-insights-change[data-trend='down'] {
-    @apply bg-brand-orange text-[var(--color-accent-contrast)];
+    background: color-mix(in srgb, var(--color-orange) 12%, transparent);
+    color: var(--home-status-orange-text);
 }
 
 .home-insights-change[data-trend='down'] svg {
@@ -479,14 +490,15 @@ onUnmounted(() => {
 
 /*
  * The week as a graphic across the foot of the card: the bars run edge to
- * edge and stand on the card's lower edge, the day letters sit inside them.
+ * edge, their heights strictly in proportion, with the day letters on one
+ * line under them and each value over its bar.
  */
 .home-insights-week {
-    @apply relative m-0 -mx-4 -mb-4 mt-4 grid h-24 list-none grid-cols-7 gap-1 px-2 pb-0 pt-5;
+    @apply relative m-0 -mx-4 -mb-2 mt-4 grid h-28 list-none grid-cols-7 gap-1 px-2 pb-0 pt-5;
 }
 
 .home-insights-day {
-    @apply relative flex h-full min-w-0 flex-col outline-none;
+    @apply relative flex h-full min-w-0 flex-col gap-1 outline-none;
 }
 
 .home-insights-day:focus-visible {
@@ -523,9 +535,9 @@ onUnmounted(() => {
     background: color-mix(in srgb, var(--color-brand) 8%, transparent);
 }
 
-/* Day letters share one baseline at the foot of the card, inside the bars. */
+/* Day letters share one line under the bars. */
 .home-insights-label {
-    @apply pointer-events-none absolute bottom-1.5 left-0 right-0 text-center text-[0.6875rem] font-bold leading-none text-[var(--color-text-tertiary)];
+    @apply pointer-events-none h-3 flex-none text-center text-[0.6875rem] font-bold leading-3 text-[var(--color-text-tertiary)];
 }
 
 .home-insights-day.has-time .home-insights-label {
@@ -534,10 +546,6 @@ onUnmounted(() => {
 
 .home-insights-day.is-today .home-insights-label {
     @apply text-brand;
-}
-
-.home-insights-week:not(.is-ghost) .home-insights-day.is-today.has-time .home-insights-label {
-    @apply text-[var(--color-accent-contrast)];
 }
 
 .home-insights-day.is-future .home-insights-label {
@@ -561,7 +569,8 @@ onUnmounted(() => {
     /* The average's share of the tallest bar, set on the element. */
     --home-insights-average: 0.5;
     @apply pointer-events-none absolute left-0 right-0 z-[1] flex h-0 items-end justify-start px-2;
-    bottom: calc(var(--home-insights-average) * (100% - 1.25rem));
+    /* Above the letters (0.75rem and a 0.25rem gap), over the 1.25rem top padding. */
+    bottom: calc(1rem + var(--home-insights-average) * (100% - 2.25rem));
     border-top: 1px dashed color-mix(in srgb, var(--color-text-primary) 40%, transparent);
     -webkit-mask-image: linear-gradient(to left, transparent, #000 40%);
     mask-image: linear-gradient(to left, transparent, #000 40%);

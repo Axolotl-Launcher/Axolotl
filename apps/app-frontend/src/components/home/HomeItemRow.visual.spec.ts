@@ -100,3 +100,31 @@ it('keeps rows and cards on one line, and greys out a dimmed icon', () => {
         card.done()
     }
 })
+
+it('hides the tile actions until pointed at only for a fine pointer that can hover', () => {
+    const { done } = mountRow({ variant: 'tile' })
+    try {
+        // Every rule that hides the actions sits under a hover-capable, fine-pointer query,
+        // so a touch screen (hover: none, pointer: coarse) always shows them.
+        const hiding: string[] = []
+        const walk = (rules: CSSRuleList, media: string | null) => {
+            for (const rule of Array.from(rules)) {
+                if (rule instanceof CSSMediaRule) walk(rule.cssRules, rule.conditionText)
+                else if (
+                    rule instanceof CSSStyleRule &&
+                    rule.selectorText.includes('.home-item-row-actions') &&
+                    rule.style.opacity === '0'
+                )
+                    hiding.push(media ?? 'none')
+            }
+        }
+        for (const sheet of Array.from(document.styleSheets)) walk(sheet.cssRules, null)
+        expect(hiding.length).toBeGreaterThan(0)
+        for (const media of hiding) {
+            expect(media).toContain('hover: hover')
+            expect(media).toContain('pointer: fine')
+        }
+    } finally {
+        done()
+    }
+})

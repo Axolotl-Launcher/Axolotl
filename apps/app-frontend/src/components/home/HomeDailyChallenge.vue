@@ -149,8 +149,7 @@ function shuffleChallenge() {
 }
 
 .home-challenge-text {
-    @apply relative m-0 pl-3 text-[0.9375rem] font-semibold leading-relaxed text-[var(--color-text-primary)];
-    border-left: 3px solid var(--color-brand);
+    @apply relative m-0 text-[0.9375rem] font-semibold leading-relaxed text-[var(--color-text-primary)];
 }
 
 .home-challenge-difficulty {
@@ -166,20 +165,24 @@ function shuffleChallenge() {
     background: var(--home-widget-tint-strong);
 }
 
+/* The word takes the darker shade of its colour; the ticks keep the plain one. */
 .home-challenge-difficulty[data-difficulty='easy'] {
-    @apply text-brand-green;
+    --home-challenge-tick: var(--color-green);
+    color: var(--home-status-green-text);
 }
 
 .home-challenge-difficulty[data-difficulty='medium'] {
-    @apply text-brand-orange;
+    --home-challenge-tick: var(--color-orange);
+    color: var(--home-status-orange-text);
 }
 
 .home-challenge-difficulty[data-difficulty='hard'] {
-    @apply text-brand-red;
+    --home-challenge-tick: var(--color-red);
+    color: var(--home-status-red-text);
 }
 
 .home-challenge-ticks > span.is-on {
-    background: currentColor;
+    background: var(--home-challenge-tick, currentColor);
 }
 
 /* A new challenge turns over like a card. */

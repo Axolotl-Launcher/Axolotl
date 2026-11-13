@@ -57,6 +57,25 @@
 }
 
 /*
+ * Small status words (running, online, offline, difficulty) in the darker
+ * shade of their colour on light themes, so a 12px line keeps 4.5:1 on a
+ * light card and on the tinted light sidebar. Dots, bars and fills keep the
+ * plain colour.
+ */
+:root {
+    --home-status-green-text: var(--color-green);
+    --home-status-orange-text: var(--color-orange);
+    --home-status-red-text: var(--color-red);
+}
+
+:root:is(.light-mode, .light) {
+    /* Deep enough for the tinted light sidebar too, not only the #f8f8f8 card. */
+    --home-status-green-text: var(--color-green-900);
+    --home-status-orange-text: var(--color-orange-800);
+    --home-status-red-text: var(--color-red-800);
+}
+
+/*
  * Shared rows and tiles inside a widget (instances, worlds, their hover states)
  * paint the `bg-surface-*` layers. Inside a widget those layers become tints of its
  * fill, so they follow the widget opacity instead of punching opaque blocks

@@ -3,7 +3,6 @@ import './home-widget.css'
 
 import {
     ArrowLeftRightIcon,
-    ClockIcon,
     CompassIcon,
     DownloadIcon,
     GameIcon,
@@ -15,7 +14,6 @@ import {
     ServerIcon,
     SpinnerIcon,
     StopCircleIcon,
-    TimerIcon,
 } from '@modrinth/assets'
 import {
     Button,
@@ -27,7 +25,7 @@ import {
 } from '@modrinth/ui'
 import { useQuery } from '@tanstack/vue-query'
 import dayjs from 'dayjs'
-import { computed, inject } from 'vue'
+import { computed, inject, useId } from 'vue'
 
 import GameDirectoryBadge from '@/components/ui/instance/GameDirectoryBadge.vue'
 import InstanceIcon from '@/components/ui/InstanceIcon.vue'
@@ -42,7 +40,11 @@ import { useOptionalHomeDashboardRuntime } from './home-dashboard-runtime'
 import { useIconTint } from './home-icon-tint'
 import { HOME_LAUNCH_KEY, useHomeLaunchState } from './home-launch'
 import { HOME_MINIMAL_STANDARD, type HomeMinimalLayout } from './home-minimal'
-import { getQuickSwitchInstances, resolveHomeLaunchInstance } from './home-utils'
+import {
+    getQuickSwitchInstances,
+    getRecentInstances,
+    resolveHomeLaunchInstance,
+} from './home-utils'
 import HomeGreeting from './HomeGreeting.vue'
 
 const props = withDefaults(
@@ -79,6 +81,10 @@ const messages = defineMessages({
         defaultMessage: 'Continue playing',
     },
     running: { id: 'app.home.launch.running', defaultMessage: 'Running' },
+    statusError: {
+        id: 'app.home.launch.status-error',
+        defaultMessage: "Couldn't check whether it is running",
+    },
     notInstalled: { id: 'app.home.launch.not-installed', defaultMessage: 'Not installed' },
     switchInstance: { id: 'app.home.launch.switch', defaultMessage: 'Switch instance' },
     switchTo: { id: 'app.home.launch.switch-to', defaultMessage: 'Switch to {name}' },
@@ -157,7 +163,10 @@ const shape = computed(() => {
     const rows = Number(props.dashboardSize?.split('x')[1] ?? 2)
     return rows >= 2 ? 'hero' : 'strip'
 })
+/** Any other instance, for picking one when none is chosen yet. */
 const quickSwitch = computed(() => getQuickSwitchInstances(props.instances, target.value?.id, 3))
+/** "Recently played" lists only instances that were played. */
+const recentInstances = computed(() => getRecentInstances(props.instances, target.value?.id, 3))
 const instanceRoute = computed(() =>
     target.value ? `/instance/${encodeURIComponent(target.value.id)}` : '/library',
 )
@@ -212,6 +221,7 @@ const lastWorld = computed(() => {
     return worlds.find((world) => world.instance_id === target.value?.id) ?? null
 })
 const statusLabel = computed(() => {
+    if (phase.value === 'error') return formatMessage(messages.statusError)
     if (phase.value === 'running') return formatMessage(messages.running)
     if (phase.value === 'installing') return formatMessage(commonMessages.installingLabel)
     if (phase.value === 'not-installed') return formatMessage(messages.notInstalled)
@@ -240,6 +250,9 @@ const fitContent = computed(
             (plain.value || (!show.value.meta && !show.value.recent))) ||
             (stageLayout.value.arrangement === 'bar' && plain.value)),
 )
+/** Ties the retry button to the line saying what went wrong. */
+const statusId = useId()
+
 const iconSize = computed(() => {
     const layout = stageLayout.value
     if (layout) {
@@ -311,7 +324,12 @@ const iconSize = computed(() => {
                 </router-link>
 
                 <div class="home-launch-copy">
-                    <span v-if="show.status" class="home-launch-status">
+                    <span
+                        v-if="show.status || phase === 'error'"
+                        :id="statusId"
+                        class="home-launch-status"
+                        :role="phase === 'error' ? 'status' : undefined"
+                    >
                         <span class="home-launch-status-dot" aria-hidden="true" />
                         <span class="truncate">{{ statusLabel }}</span>
                     </span>
@@ -319,18 +337,13 @@ const iconSize = computed(() => {
                         {{ target.name }}
                     </router-link>
                     <div v-if="show.meta" class="home-launch-meta">
-                        <span class="home-chip">
-                            <GameIcon aria-hidden="true" />
-                            <span class="truncate">{{ versionLabel }}</span>
-                        </span>
-                        <span class="home-chip">
-                            <TimerIcon aria-hidden="true" />
-                            <span class="truncate">{{ lastPlayed }}</span>
-                        </span>
-                        <span v-if="totalPlayed && shape === 'hero' && !isBar" class="home-chip">
-                            <ClockIcon aria-hidden="true" />
-                            <span class="truncate">{{ totalPlayed }}</span>
-                        </span>
+                        <span class="home-launch-meta-item">{{ versionLabel }}</span>
+                        <span class="home-launch-meta-item">{{ lastPlayed }}</span>
+                        <span
+                            v-if="totalPlayed && shape === 'hero' && !isBar"
+                            class="home-launch-meta-item"
+                            >{{ totalPlayed }}</span
+                        >
                         <GameDirectoryBadge v-if="gameDirectory" :directory="gameDirectory" />
                     </div>
                     <span
@@ -351,6 +364,7 @@ const iconSize = computed(() => {
                             v-if="phase === 'error'"
                             size="xl"
                             class="home-launch-primary"
+                            :aria-describedby="statusId"
                             @click="state.retry()"
                         >
                             <span class="truncate">{{
@@ -435,7 +449,7 @@ const iconSize = computed(() => {
                     </div>
 
                     <div
-                        v-if="variant === 'widget' && launch && quickSwitch.length > 0"
+                        v-if="variant === 'widget' && launch && recentInstances.length > 0"
                         class="home-launch-switcher"
                         role="group"
                         :aria-label="formatMessage(messages.recent)"
@@ -444,7 +458,7 @@ const iconSize = computed(() => {
                             formatMessage(messages.recentShort)
                         }}</span>
                         <button
-                            v-for="instance in quickSwitch"
+                            v-for="instance in recentInstances"
                             :key="instance.id"
                             v-tooltip="formatMessage(messages.switchTo, { name: instance.name })"
                             type="button"
@@ -547,7 +561,9 @@ const iconSize = computed(() => {
         </section>
 
         <nav
-            v-if="variant === 'stage' && show.recent && launch && target && quickSwitch.length > 0"
+            v-if="
+                variant === 'stage' && show.recent && launch && target && recentInstances.length > 0
+            "
             class="home-launch-recent"
             :aria-label="formatMessage(messages.recent)"
         >
@@ -565,7 +581,7 @@ const iconSize = computed(() => {
                 </button>
             </div>
             <ul class="home-launch-recent-list">
-                <li v-for="instance in quickSwitch" :key="instance.id" class="min-w-0">
+                <li v-for="instance in recentInstances" :key="instance.id" class="min-w-0">
                     <button
                         v-tooltip="formatMessage(messages.switchTo, { name: instance.name })"
                         type="button"
@@ -752,8 +768,20 @@ const iconSize = computed(() => {
     @apply size-2 shrink-0 rounded-full bg-brand;
 }
 
+/*
+ * Status words use the darker shade of their colour, so a small line stays
+ * readable on a light card; the dot keeps the plain colour.
+ */
 .home-launch-card[data-phase='running'] .home-launch-status {
-    @apply text-brand-green;
+    color: var(--home-status-green-text);
+}
+
+.home-launch-card[data-phase='error'] .home-launch-status {
+    color: var(--home-status-orange-text);
+}
+
+.home-launch-card[data-phase='error'] .home-launch-status-dot {
+    @apply bg-brand-orange;
 }
 
 .home-launch-card[data-phase='running'] .home-launch-status-dot {
@@ -797,8 +825,18 @@ a.home-launch-name:focus-visible,
     box-shadow: 0 0 0 3px var(--color-brand-shadow);
 }
 
+/* Version, last played and total time: one quiet line, the items set apart by dots. */
 .home-launch-meta {
-    @apply flex min-w-0 flex-wrap items-center gap-1.5;
+    @apply flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.8125rem] font-semibold leading-snug text-[var(--color-text-tertiary)];
+}
+
+.home-launch-meta-item {
+    @apply min-w-0 truncate;
+}
+
+.home-launch-meta-item + .home-launch-meta-item::before {
+    @apply mr-1.5;
+    content: '·';
 }
 
 .home-launch-detail {
@@ -1076,16 +1114,7 @@ a.home-launch-switch {
 }
 
 .home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-meta {
-    @apply gap-x-4 gap-y-1;
-}
-
-.home-launch[data-variant='stage'][data-arrangement='bar'] .home-chip {
-    @apply gap-1.5 p-0 text-sm font-normal text-[var(--color-text-tertiary)];
-    background: transparent;
-}
-
-.home-launch[data-variant='stage'][data-arrangement='bar'] .home-chip > svg {
-    @apply size-4;
+    @apply text-sm font-normal;
 }
 
 .home-launch[data-variant='stage'][data-arrangement='bar'] .home-launch-footer {

@@ -101,6 +101,9 @@
   "app.home.launch.recent-short": {
     "message": "最近"
   },
+  "app.home.launch.status-error": {
+    "message": "无法获取运行状态"
+  },
   "app.home.minimal.arrangement": {
     "message": "排列"
   },

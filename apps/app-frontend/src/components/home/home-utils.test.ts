@@ -12,6 +12,7 @@ import {
     getHomeWorldRowState,
     getLongestStreak,
     getQuickSwitchInstances,
+    getRecentInstances,
     getServerFill,
     getTimeBucket,
     getWeekSpan,
@@ -208,6 +209,19 @@ it('offers the other instances to switch to, most recently played first', () => 
         'e',
     ])
     expect(getQuickSwitchInstances(instances, 'a', 0)).toEqual([])
+})
+
+it('lists only played instances as recently played', () => {
+    const instances = [
+        { id: 'played', last_played: '2026-01-01T10:00:00Z' },
+        { id: 'never-a', last_played: null },
+        { id: 'never-b', last_played: undefined },
+        { id: 'bad-date', last_played: 'not a date' },
+    ]
+    // Only one instance was ever played: nothing else is "recent".
+    expect(getRecentInstances(instances, 'played', 3)).toEqual([])
+    expect(getRecentInstances(instances, null, 3).map(({ id }) => id)).toEqual(['played'])
+    expect(getRecentInstances(instances, 'never-a', 3).map(({ id }) => id)).toEqual(['played'])
 })
 
 it('offers Stop only on the world the running game was joined through', () => {

@@ -121,13 +121,13 @@ provide(homeWidgetMoreTargetKey, moreTarget)
     @apply flex h-7 min-w-0 flex-none items-center gap-2;
 }
 
+/* A plain, neutral icon: the accent is kept for the launch actions and real states. */
 .home-widget-frame-icon {
-    @apply flex size-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-brand;
-    background: var(--home-widget-accent-tint);
+    @apply flex size-5 shrink-0 items-center justify-center text-[var(--color-text-tertiary)];
 }
 
 .home-widget-frame-icon :deep(svg) {
-    @apply size-4;
+    @apply size-[1.125rem];
 }
 
 .home-widget-frame-title {

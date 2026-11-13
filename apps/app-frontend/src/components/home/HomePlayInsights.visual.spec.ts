@@ -105,9 +105,54 @@ it('leads with the week as one big figure over a chart along the card’s foot',
         const days = wrapper.findAll('.home-insights-day')
         expect(days).toHaveLength(7)
         expect(wrapper.findAll('.home-insights-day.is-today .home-insights-bar')).toHaveLength(1)
-        // The chart runs into the card's padding so its bars stand on the lower edge.
+        // The chart runs into the card's padding at its foot.
         const chart = getComputedStyle(wrapper.get('.home-insights-week').element)
         expect(Number.parseFloat(chart.marginBottom)).toBeLessThan(0)
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('draws bar heights strictly in proportion: one minute, an hour and ten hours', async () => {
+    const monday = new Date()
+    monday.setHours(12, 0, 0, 0)
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+    const key = (offset: number) => {
+        const date = new Date(monday)
+        date.setDate(monday.getDate() + offset)
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    }
+    backend.playtime.mockResolvedValue([
+        { date: key(0), played_seconds: 60, session_count: 1, top_instance_name: 'FO' },
+        { date: key(1), played_seconds: 3600, session_count: 1, top_instance_name: 'FO' },
+        { date: key(2), played_seconds: 36000, session_count: 1, top_instance_name: 'FO' },
+    ])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = mount(HomePlayInsights, {
+        attachTo: document.body,
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            directives: { tooltip: () => {} },
+        },
+    })
+    try {
+        await flushPromises()
+        const heights = wrapper
+            .findAll('.home-insights-day')
+            .slice(0, 3)
+            .map((day) => day.get('.home-insights-bar').element.getBoundingClientRect().height)
+        const plot = wrapper.get('.home-insights-plot').element.getBoundingClientRect().height
+        // Ten hours fills the plot, an hour is a tenth of it, a minute only the visible floor.
+        expect(heights[2]).toBeCloseTo(plot, 0)
+        expect(heights[1]).toBeCloseTo(plot / 10, 0)
+        expect(heights[0]).toBeCloseTo(2, 0)
+        expect(heights[0]).toBeLessThan(heights[1])
+        // Values sit over their bars, outside them.
+        const bar = wrapper.findAll('.home-insights-bar')[2].element.getBoundingClientRect()
+        const value = wrapper.get('.home-insights-value.is-peak').element.getBoundingClientRect()
+        expect(value.bottom).toBeLessThanOrEqual(bar.top + 0.5)
     } finally {
         wrapper.unmount()
         queryClient.clear()

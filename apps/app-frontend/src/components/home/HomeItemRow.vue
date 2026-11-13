@@ -400,18 +400,24 @@ const iconSize = computed(() => (props.variant === 'tile' ? '52px' : '32px'))
     box-shadow: none;
 }
 
-.home-item-row.is-tile:not(.is-running) .home-item-row-actions {
-    opacity: 0;
-    transform: translateY(3px) scale(0.92);
-    transition:
-        opacity 140ms ease,
-        transform 140ms ease;
-}
+/*
+ * Only a mouse can point at a tile first, so only there do the actions wait
+ * for it. On a touch screen (no hover, or a coarse pointer) they always show.
+ */
+@media (hover: hover) and (pointer: fine) {
+    .home-item-row.is-tile:not(.is-running) .home-item-row-actions {
+        opacity: 0;
+        transform: translateY(3px) scale(0.92);
+        transition:
+            opacity 140ms ease,
+            transform 140ms ease;
+    }
 
-.home-item-row.is-tile:hover .home-item-row-actions,
-.home-item-row.is-tile:focus-within .home-item-row-actions {
-    opacity: 1;
-    transform: none;
+    .home-item-row.is-tile:hover .home-item-row-actions,
+    .home-item-row.is-tile:focus-within .home-item-row-actions {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

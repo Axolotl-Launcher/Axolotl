@@ -33,7 +33,6 @@ import InstanceIcon from '@/components/ui/InstanceIcon.vue'
 import { useMinecraftLaunchError } from '@/composables/useMinecraftLaunchError'
 import { trackEvent } from '@/helpers/analytics'
 import { kill, run } from '@/helpers/instance'
-import { getDisplayInstanceIcon } from '@/helpers/instance-icons'
 import { instanceLaunchStartedAt } from '@/helpers/instance-launch-state'
 import type { GameInstance } from '@/helpers/types'
 import {
@@ -46,8 +45,6 @@ import {
     type World,
 } from '@/helpers/worlds'
 import { handleSevereError } from '@/store/error'
-
-import { useIconTint } from './home-icon-tint'
 
 const props = defineProps<{
     placement: HomeWidgetPlacement
@@ -148,15 +145,6 @@ const shortcutIcon = computed(() => {
         ? (serverData.value?.status?.favicon ?? world.value.icon)
         : world.value.icon
 })
-/** The picture the card takes its colour from: the world's or server's icon, else the instance's. */
-const artUrl = computed(() => {
-    if (shortcutIcon.value) return shortcutIcon.value
-    return instance.value
-        ? getDisplayInstanceIcon(instance.value.icon_path, instance.value.loader).url
-        : null
-})
-/** The icon's own colour washes the card; null keeps the accent colour. */
-const tint = useIconTint(artUrl)
 const iconSize = computed(() => (props.dashboardSize === '2x1' ? '104px' : '64px'))
 const serverOffline = computed(
     () =>
@@ -374,12 +362,7 @@ watch(
                 </Button>
             </template>
         </HomeWidgetFrame>
-        <div
-            v-else
-            class="home-shortcut-card"
-            :class="{ 'is-tinted': tint, 'is-offline': serverOffline }"
-            :style="tint ? { '--home-shortcut-tint': tint } : undefined"
-        >
+        <div v-else class="home-shortcut-card" :class="{ 'is-offline': serverOffline }">
             <router-link
                 class="home-shortcut-cover"
                 :to="shortcutRoute"
@@ -465,28 +448,17 @@ watch(
 }
 
 /*
- * The target's icon is the card: it sits large in the corner, the card takes
- * a wash of its colour, and the one button to start it has a fixed place. The
- * wash is a share of the widget fill, so it fades with the opacity setting.
+ * The target's icon is the card: it sits large in the corner on the plain
+ * widget surface, in its own colours, and the one button to start it has a
+ * fixed place. Large washes of colour are kept for the launch card.
  */
 .home-shortcut-card {
-    --home-shortcut-tint: var(--color-brand);
-    --home-shortcut-wash: calc(var(--home-widget-bg-alpha, 1) * 18% + 8%);
     @apply relative grid h-full min-h-0 min-w-0 gap-x-3 gap-y-2 overflow-hidden p-4;
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
         'cover . kind'
         'copy copy action';
-    background: radial-gradient(
-        120% 130% at 0% 0%,
-        color-mix(in srgb, var(--home-shortcut-tint) var(--home-shortcut-wash), transparent),
-        transparent 62%
-    );
-}
-
-.home-shortcut-card.is-tinted {
-    --home-shortcut-wash: calc(var(--home-widget-bg-alpha, 1) * 24% + 10%);
 }
 
 .home-shortcut-cover {
@@ -547,7 +519,7 @@ watch(
 }
 
 .home-shortcut-meta[data-state='offline'] {
-    @apply text-brand-red;
+    color: var(--home-status-red-text);
 }
 
 .home-shortcut-action {

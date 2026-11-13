@@ -110,6 +110,9 @@
   "app.home.launch.recent-short": {
     "message": "最近"
   },
+  "app.home.launch.status-error": {
+    "message": "無法取得執行狀態"
+  },
   "app.home.minimal.arrangement": {
     "message": "排列"
   },

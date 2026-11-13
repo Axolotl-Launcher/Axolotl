@@ -608,11 +608,13 @@ function localServerMenu(serverId: string): MenuAction[] {
 }
 
 .home-server-state[data-state='online'] {
-    @apply bg-highlight-green text-brand-green;
+    background: color-mix(in srgb, var(--color-green) 14%, transparent);
+    color: var(--home-status-green-text);
 }
 
 .home-server-state[data-state='offline'] {
-    @apply bg-highlight-red text-brand-red;
+    background: color-mix(in srgb, var(--color-red) 14%, transparent);
+    color: var(--home-status-red-text);
 }
 
 .home-server-meter {

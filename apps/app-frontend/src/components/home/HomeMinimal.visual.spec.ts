@@ -408,8 +408,9 @@ it('draws the classic strip: one slim row with the button beside the name, and t
         expect(wrapper.find('.home-launch-glow').exists()).toBe(false)
         expect(wrapper.find('.home-launch-status').exists()).toBe(false)
         expect(wrapper.find('.home-launch-recent').exists()).toBe(false)
-        // Version and last played only; no total time chip in the strip.
-        expect(wrapper.findAll('.home-launch-meta .home-chip')).toHaveLength(2)
+        // Version and last played only, as plain text; no total time in the strip.
+        expect(wrapper.findAll('.home-launch-meta .home-launch-meta-item')).toHaveLength(2)
+        expect(wrapper.find('.home-launch-meta .home-chip').exists()).toBe(false)
 
         const cardBox = card.element.getBoundingClientRect()
         const name = wrapper.get('.home-launch-name').element.getBoundingClientRect()
@@ -440,6 +441,98 @@ it('wraps the strip under the name at narrow widths instead of overflowing', asy
         expect(button.top).toBeGreaterThanOrEqual(name.bottom)
     } finally {
         wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('says why it offers Retry when the running check fails, and recovers after it', async () => {
+    backend.processes.mockResolvedValue([])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const instance = {
+        id: 'one',
+        name: 'One',
+        install_stage: 'installed',
+        loader: 'vanilla',
+        game_version: '1.21',
+    } as GameInstance
+    const wrapper = mount(HomeMinimal, {
+        props: {
+            instances: [instance],
+            // A layout without the status line still explains a failure.
+            layout: { ...HOME_MINIMAL_PURE },
+        },
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            provide: { [HOME_LAUNCH_KEY as symbol]: launchContext(instance.id) },
+            directives: { tooltip: () => {} },
+            stubs: { RouterLink: routerLinkStub },
+        },
+    })
+    try {
+        await flushPromises()
+        backend.processes.mockRejectedValueOnce(new Error('process query failed'))
+        await queryClient.refetchQueries({ queryKey: ['home', 'instance-processes', instance.id] })
+        await flushPromises()
+        const status = wrapper.get('.home-launch-status')
+        expect(status.text()).toBe("Couldn't check whether it is running")
+        const retry = wrapper.findAll('button').find((button) => button.text() === 'Retry')!
+        expect(retry.attributes('aria-describedby')).toBe(status.attributes('id'))
+        await retry.trigger('click')
+        await flushPromises()
+        expect(wrapper.text()).toContain('Play')
+        expect(wrapper.text()).not.toContain("Couldn't check")
+    } finally {
+        wrapper.unmount()
+        queryClient.clear()
+    }
+})
+
+it('lists only played instances under Recently played', async () => {
+    backend.processes.mockResolvedValue([])
+    backend.listen.mockResolvedValue(vi.fn())
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const played = {
+        id: 'played',
+        name: 'Played',
+        install_stage: 'installed',
+        loader: 'vanilla',
+        game_version: '1.21',
+        last_played: '2026-01-01T10:00:00Z',
+    } as unknown as GameInstance
+    const never = (id: string) =>
+        ({
+            id,
+            name: id,
+            install_stage: 'installed',
+            loader: 'vanilla',
+            game_version: '1.21',
+            last_played: null,
+        }) as unknown as GameInstance
+    const mountWith = (instances: GameInstance[], selected: string) =>
+        mount(HomeMinimal, {
+            props: { instances },
+            global: {
+                plugins: [[VueQueryPlugin, { queryClient }]],
+                provide: { [HOME_LAUNCH_KEY as symbol]: launchContext(selected) },
+                directives: { tooltip: () => {} },
+                stubs: { RouterLink: routerLinkStub },
+            },
+        })
+    // One played instance, the others never started: no "Recently played" at all.
+    const onlyOne = mountWith([played, never('a'), never('b')], 'played')
+    // A never-played instance chosen for Home: the played one is its only recent.
+    const chosenNew = mountWith([played, never('a'), never('b')], 'a')
+    try {
+        await flushPromises()
+        expect(onlyOne.find('.home-launch-recent').exists()).toBe(false)
+        expect(onlyOne.text()).not.toContain('Never played')
+        expect(chosenNew.findAll('.home-launch-recent-name').map((name) => name.text())).toEqual([
+            'Played',
+        ])
+    } finally {
+        onlyOne.unmount()
+        chosenNew.unmount()
         queryClient.clear()
     }
 })

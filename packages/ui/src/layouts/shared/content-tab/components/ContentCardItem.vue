@@ -478,6 +478,7 @@ const deleteHovered = ref(false)
                 <Button
                     v-else-if="groupSwitchVersion"
                     v-tooltip="formatMessage(commonMessages.switchVersionButton)"
+                    :label="formatMessage(commonMessages.switchVersionButton)"
                     type="quiet"
                     circular
                     icon-only
@@ -489,6 +490,11 @@ const deleteHovered = ref(false)
                 type="quiet"
                 circular
                 icon-only
+                :label="
+                    groupExpanded
+                        ? formatMessage({ id: 'button.collapse', defaultMessage: 'Collapse' })
+                        : formatMessage({ id: 'button.expand', defaultMessage: 'Expand' })
+                "
                 class="flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-default)] transition-colors"
                 @click.stop="emit('toggleExpand')"
                 ><ChevronDownIcon v-if="groupExpanded" class="size-5" />
@@ -787,6 +793,11 @@ const deleteHovered = ref(false)
                             ? disabledTooltip
                             : formatMessage(commonMessages.switchVersionButton)
                     "
+                    :label="
+                        isDisabled && disabledTooltip
+                            ? disabledTooltip
+                            : formatMessage(commonMessages.switchVersionButton)
+                    "
                     type="quiet"
                     circular
                     icon-only
@@ -799,10 +810,10 @@ const deleteHovered = ref(false)
             <template v-for="action in inlineActions" :key="action.id">
                 <Button
                     v-tooltip="action.label"
+                    :label="action.label"
                     type="quiet"
                     circular
                     icon-only
-                    :aria-label="action.label"
                     :disabled="isDisabled"
                     @click="action.action"
                     ><component :is="action.icon" class="size-5" />
@@ -837,6 +848,13 @@ const deleteHovered = ref(false)
                 type="quiet"
                 circular
                 icon-only
+                :label="
+                    formatMessage(
+                        shiftHeld && deleteHovered
+                            ? commonMessages.deleteImmediatelyLabel
+                            : commonMessages.deleteLabel,
+                    )
+                "
                 :disabled="isDisabled"
                 @click="emit('delete', $event)"
                 @mouseenter="deleteHovered = true"

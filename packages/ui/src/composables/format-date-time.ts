@@ -7,13 +7,14 @@ const formatterCache = new LRUCache<string, Intl.DateTimeFormat>({ max: 40 })
 export function useFormatDateTime(options?: Intl.DateTimeFormatOptions) {
     const { locale } = injectI18n()
 
-    function format(date?: Date | number | string): string {
-        if (typeof date === 'number' || typeof date === 'string') {
-            date = new Date(date)
-        }
+    function format(date?: Date | number | string | null): string {
+        if (date === undefined || date === null) return ''
+
+        const value = typeof date === 'number' || typeof date === 'string' ? new Date(date) : date
+        if (Number.isNaN(value.getTime())) return ''
 
         const formatter = getFormatter(locale.value, options)
-        return formatter!.format(date)
+        return formatter!.format(value)
     }
 
     return format

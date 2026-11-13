@@ -152,3 +152,20 @@ for (const multiline of [false, true]) {
         expect(field.attributes('aria-invalid')).toBeUndefined()
     })
 }
+
+it('keeps a caller-supplied aria-invalid unless the field is in error', async () => {
+    const wrapper = await mountThemed(
+        StyledInput,
+        {
+            modelValue: '',
+            inputAttrs: { 'aria-invalid': 'grammar' },
+        },
+        'dark',
+    )
+    cleanup.push(() => wrapper.unmount())
+    const field = wrapper.get<HTMLInputElement>('input')
+    expect(field.attributes('aria-invalid')).toBe('grammar')
+
+    await wrapper.setProps({ error: true })
+    expect(field.attributes('aria-invalid')).toBe('true')
+})

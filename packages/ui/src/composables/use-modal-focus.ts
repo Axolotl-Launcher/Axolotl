@@ -32,9 +32,27 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
         pendingFocusFrame = null
     }
 
+    /**
+     * Hidden inputs, inert subtrees and CSS-hidden controls still match the
+     * selector above, but focusing them silently does nothing. Filtering them
+     * out keeps focus inside the modal instead of leaving it on the trigger.
+     */
+    function isFocusVisible(element: HTMLElement): boolean {
+        if (element.matches('input[type="hidden"]')) return false
+        if (element.closest('[hidden], [inert]')) return false
+        const style = getComputedStyle(element)
+        return (
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            element.getClientRects().length > 0
+        )
+    }
+
     function getFocusableElements(): HTMLElement[] {
         if (!container.value) return []
-        return Array.from(container.value.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR))
+        return Array.from(
+            container.value.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR),
+        ).filter(isFocusVisible)
     }
 
     function captureFocus(): void {
@@ -72,7 +90,9 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
         const focusable = getFocusableElements()
         if (focusable.length === 0) {
             event.preventDefault()
-            document.body.focus()
+            // Keep focus inside the dialog; the body has tabindex="-1".
+            const fallback = container.value ?? document.body
+            fallback.focus()
             return
         }
 

@@ -453,6 +453,19 @@ it('falls back to focusing the modal body when it has no focusable content', asy
     await waitFor(() => document.activeElement === body)
 })
 
+it('skips hidden controls when moving focus into the modal', async () => {
+    await modal(
+        h('div', [
+            h('input', { id: 'hidden-input', type: 'hidden' }),
+            h('button', { id: 'hidden-action', style: { display: 'none' } }, 'Hidden'),
+            h('button', { id: 'visible-action' }, 'Visible'),
+        ]),
+        { closable: false },
+    )
+    await waitFor(() => document.activeElement?.id === 'visible-action')
+    expect(document.activeElement?.id).toBe('visible-action')
+})
+
 it('restores focus to the previously focused element when the modal closes', async () => {
     const trigger = document.createElement('button')
     trigger.textContent = 'Open modal'

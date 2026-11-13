@@ -32,12 +32,11 @@ pub(crate) async fn attach_initial_instance(
         return Ok(());
     };
     let key = job_id.to_string();
-    let mut row =
-        InstallJobs::read(tx, &key).await?.ok_or_else(|| {
-            crate::ErrorKind::InputError(
-                "Install initialization job disappeared".into(),
-            )
-        })?;
+    let mut row = InstallJobs::read(tx, &key).await?.ok_or_else(|| {
+        crate::ErrorKind::InputError(
+            "Install initialization job disappeared".into(),
+        )
+    })?;
     if row.status != InstallJobStatus::Queued.as_str() {
         return Err(crate::ErrorKind::InputError(
             "Install initialization was canceled".into(),

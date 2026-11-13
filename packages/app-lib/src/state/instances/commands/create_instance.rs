@@ -71,47 +71,44 @@ pub(crate) async fn create_instance(
             input.link,
             InstanceLink::ModrinthModpack { .. }
                 | InstanceLink::CurseForgeModpack { .. }
-        )
-            && let Some(game_dir) =
-                input.game_dir_override.as_deref().map(PathBuf::from)
-            {
-                let isolated = is_version_isolated_game_dir(&game_dir);
-                let shared = game_dir
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| {
-                        name.eq_ignore_ascii_case(".minecraft")
-                    });
-                if isolated || shared {
-                    let target = if isolated {
-                        game_dir
-                    } else {
-                        let name = sanitize_instance_name(&input.name);
-                        let name = name.trim_end_matches(['.', ' ']);
-                        if name.is_empty() || matches!(name, "." | "..") {
-                            return Err(crate::ErrorKind::InputError(
-                                "Invalid modpack instance name".into(),
-                            )
-                            .into());
-                        }
-                        game_dir.join("versions").join(name)
-                    };
-                    let path = reserve_modpack_game_dir(&target).await?;
-                    if isolated {
-                        input.game_dir_override =
-                            Some(path.to_string_lossy().into_owned());
-                    } else {
-                        // Shared roots derive their version metadata path from the
-                        // instance name; keep that identity on the reserved directory.
-                        input.name = path
-                            .file_name()
-                            .unwrap()
-                            .to_string_lossy()
-                            .into_owned();
+        ) && let Some(game_dir) =
+            input.game_dir_override.as_deref().map(PathBuf::from)
+        {
+            let isolated = is_version_isolated_game_dir(&game_dir);
+            let shared = game_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.eq_ignore_ascii_case(".minecraft"));
+            if isolated || shared {
+                let target = if isolated {
+                    game_dir
+                } else {
+                    let name = sanitize_instance_name(&input.name);
+                    let name = name.trim_end_matches(['.', ' ']);
+                    if name.is_empty() || matches!(name, "." | "..") {
+                        return Err(crate::ErrorKind::InputError(
+                            "Invalid modpack instance name".into(),
+                        )
+                        .into());
                     }
-                    reserved_game_dir = Some(path);
+                    game_dir.join("versions").join(name)
+                };
+                let path = reserve_modpack_game_dir(&target).await?;
+                if isolated {
+                    input.game_dir_override =
+                        Some(path.to_string_lossy().into_owned());
+                } else {
+                    // Shared roots derive their version metadata path from the
+                    // instance name; keep that identity on the reserved directory.
+                    input.name = path
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .into_owned();
                 }
+                reserved_game_dir = Some(path);
             }
+        }
         if let Some(game_dir_override) = input.game_dir_override.as_deref() {
             // External game directories are created before the launcher
             // resolves them with `canonicalize` during installation.

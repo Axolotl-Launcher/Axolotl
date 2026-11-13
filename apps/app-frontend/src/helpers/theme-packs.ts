@@ -209,6 +209,40 @@ export async function listActiveThemePackPages(
         }))
 }
 
+export type ThemePackPagesRefresher = {
+    refresh: (apply: (pages: ThemePackNavPage[]) => void) => Promise<void>
+    invalidate: () => void
+}
+
+/**
+ * Loads the active pack's navigation pages with latest-result-wins semantics.
+ * `invalidate` must run when the caller is disposed so a pending read cannot
+ * publish into a dead component.
+ */
+export function createThemePackPagesRefresher(
+    readSource: () => Promise<string | null | undefined>,
+    readLocale: () => string,
+    listPages: (
+        source: string | null | undefined,
+        locale: string,
+    ) => Promise<ThemePackNavPage[]> = listActiveThemePackPages,
+): ThemePackPagesRefresher {
+    let request = 0
+    return {
+        async refresh(apply) {
+            const current = ++request
+            const source = await readSource().catch(() => null)
+            if (!source || current !== request) return
+            const pages = await listPages(source, readLocale()).catch(() => [])
+            if (current !== request) return
+            apply(pages)
+        },
+        invalidate() {
+            request += 1
+        },
+    }
+}
+
 /** The origin the Rust `axolotl-theme` protocol serves pack assets from. */
 export const THEME_PACK_ORIGIN = navigator.userAgent.includes('Windows')
     ? 'http://axolotl-theme.localhost'

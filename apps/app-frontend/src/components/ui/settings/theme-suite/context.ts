@@ -100,6 +100,7 @@ export function createThemeSuiteContext(
     const snapshotError = ref('')
     const snapshotExported = ref(false)
     let refreshToken = 0
+    let settingsRevision = 0
 
     const activeSource = computed<ThemeSuiteSource>(() => settings.value?.theme_source ?? 'builtin')
 
@@ -137,8 +138,18 @@ export function createThemeSuiteContext(
         loading.value = false
     }
 
+    /**
+     * Records a settings write so a refresh that read the store before this
+     * write cannot publish the older snapshot afterwards.
+     */
+    function commitSettings(next: AppSettings) {
+        settings.value = next
+        settingsRevision += 1
+    }
+
     async function refresh() {
         const token = ++refreshToken
+        const revision = settingsRevision
         loading.value = true
         error.value = ''
         try {
@@ -147,7 +158,7 @@ export function createThemeSuiteContext(
                 getThemePackLimits(),
                 getSettings(),
             ])
-            if (token !== refreshToken) return
+            if (token !== refreshToken || revision !== settingsRevision) return
             packs.value = nextPacks
             limits.value = nextLimits
             settings.value = nextSettings
@@ -233,7 +244,7 @@ export function createThemeSuiteContext(
         selectingSource.value = source
         error.value = ''
         try {
-            settings.value = await updateSettings({ theme_source: source })
+            commitSettings(await updateSettings({ theme_source: source }))
             selectedPackId.value = source.startsWith('pack:') ? source.slice('pack:'.length) : null
             resetColorsDraft()
             applyRuntimeFromSettings()
@@ -274,7 +285,7 @@ export function createThemeSuiteContext(
             const wasActive = activeSource.value === `pack:${pack.manifest.id}`
             await removeThemePack(pack.manifest.id, removeData)
             if (wasActive) {
-                settings.value = await updateSettings({ theme_source: 'builtin' })
+                commitSettings(await updateSettings({ theme_source: 'builtin' }))
             }
         } catch (failure) {
             error.value = String(failure)
@@ -302,13 +313,15 @@ export function createThemeSuiteContext(
         const bucket = colorsBucket.value
         error.value = ''
         try {
-            settings.value = await updateSettings({
-                theme_source: 'custom',
-                custom_theme_colors: {
-                    ...(settings.value.custom_theme_colors ?? {}),
-                    [bucket]: { ...colorsDraft.value },
-                },
-            })
+            commitSettings(
+                await updateSettings({
+                    theme_source: 'custom',
+                    custom_theme_colors: {
+                        ...(settings.value.custom_theme_colors ?? {}),
+                        [bucket]: { ...colorsDraft.value },
+                    },
+                }),
+            )
             selectedPackId.value = null
             applyRuntimeFromSettings()
             notifyActiveSource()

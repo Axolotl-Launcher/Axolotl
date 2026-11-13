@@ -174,7 +174,7 @@ import { getSidebarExpanded, setSidebarExpanded } from '@/helpers/sidebar-state.
 import { get_opening_command, initialize_state, set_discord_activity } from '@/helpers/state'
 import { applyThemeRuntime, reapplyThemeRuntime } from '@/helpers/theme-pack-runtime'
 import {
-    listActiveThemePackPages,
+    createThemePackPagesRefresher,
     THEME_SOURCE_CHANGED_EVENT,
     type ThemePackNavPage,
 } from '@/helpers/theme-packs'
@@ -958,19 +958,19 @@ onUnmounted(async () => {
 const { formatMessage, locale: intlLocale } = useVIntl()
 
 const themePackPages = ref<ThemePackNavPage[]>([])
-let themePackPagesRequest = 0
+const themePackPagesRefresher = createThemePackPagesRefresher(
+    async () => {
+        const settings = await getSettings().catch(() => null)
+        return settings ? (settings.theme_source ?? 'builtin') : null
+    },
+    () => intlLocale.value,
+)
 
 /** Re-reads the active pack's navigation pages after its source changes. */
 async function refreshThemePackPages(): Promise<void> {
-    const request = ++themePackPagesRequest
-    const settings = await getSettings().catch(() => null)
-    if (!settings || request !== themePackPagesRequest) return
-    const pages = await listActiveThemePackPages(
-        settings.theme_source ?? 'builtin',
-        intlLocale.value,
-    ).catch(() => [])
-    if (request !== themePackPagesRequest) return
-    themePackPages.value = pages
+    await themePackPagesRefresher.refresh((pages) => {
+        themePackPages.value = pages
+    })
 }
 
 function handleThemeSourceChanged(): void {
@@ -980,7 +980,7 @@ function handleThemeSourceChanged(): void {
 window.addEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
 watch(intlLocale, handleThemeSourceChanged)
 onUnmounted(() => {
-    themePackPagesRequest += 1
+    themePackPagesRefresher.invalidate()
     window.removeEventListener(THEME_SOURCE_CHANGED_EVENT, handleThemeSourceChanged)
 })
 

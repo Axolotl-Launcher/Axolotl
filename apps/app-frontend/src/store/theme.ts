@@ -137,7 +137,7 @@ export type CustomThemeColors = {
     dark?: CustomThemePalette
 }
 
-export const CUSTOM_THEME_VARIABLES = [
+const CUSTOM_THEME_VARIABLES = [
     '--surface-1',
     '--surface-1-5',
     '--surface-2',

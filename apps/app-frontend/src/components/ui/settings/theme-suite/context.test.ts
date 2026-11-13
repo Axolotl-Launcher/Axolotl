@@ -85,6 +85,26 @@ describe('theme suite refresh', () => {
         expect(context.loading.value).toBe(false)
     })
 
+    it('does not let a refresh that started during a selection overwrite it', async () => {
+        const stale = deferred<ReturnType<typeof settings>>()
+        const selection = deferred<ReturnType<typeof settings>>()
+        mocks.getSettings.mockReturnValueOnce(stale.promise)
+        mocks.updateSettings.mockReturnValueOnce(selection.promise)
+
+        const context = createThemeSuiteContext(shallowRef(null))
+        const selecting = context.selectSource('pack:chosen')
+        const refresh = context.refresh()
+
+        selection.resolve(settings('pack:chosen'))
+        await selecting
+
+        stale.resolve(settings('builtin'))
+        await refresh
+
+        expect(context.settings.value?.theme_source).toBe('pack:chosen')
+        expect(context.loading.value).toBe(false)
+    })
+
     it('applies the newest refresh result', async () => {
         mocks.getSettings.mockResolvedValue(settings('pack:chosen'))
 

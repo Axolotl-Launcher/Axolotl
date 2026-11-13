@@ -157,6 +157,21 @@
         >
             <ChevronsRightIcon />
         </IconButton>
+        <input
+            v-if="hasJumpRange"
+            v-model="jumpInputValue"
+            class="ml-1 hidden h-8 w-12 rounded-full border border-solid border-surface-4 bg-surface-1 px-2 text-center text-sm text-[var(--color-text-primary)] outline-none transition-colors hover:border-brand focus-visible:border-brand focus-visible:ring-4 focus-visible:ring-brand-shadow sm:block"
+            type="number"
+            inputmode="numeric"
+            min="1"
+            :max="count"
+            :placeholder="formatMessage(messages.goToPagePlaceholder)"
+            :aria-label="formatMessage(messages.goToPage)"
+            :disabled="loading"
+            @keydown.enter.prevent="commitJumpInput"
+            @keydown.esc.prevent="clearJumpInput"
+            @blur="commitJumpInput"
+        />
     </div>
 </template>
 <script setup lang="ts">
@@ -260,6 +275,7 @@ const showLastPage = computed(() => hasJumpRange.value && props.page < props.cou
 const activeGapIndex = ref<number | null>(null)
 const gapInputValue = ref('')
 const gapInput = ref<HTMLInputElement[] | HTMLInputElement>()
+const jumpInputValue = ref('')
 
 async function openGapInput(index: number) {
     activeGapIndex.value = index
@@ -275,20 +291,35 @@ function closeGapInput() {
     gapInputValue.value = ''
 }
 
+function jumpToPage(value: string) {
+    const parsed = Number.parseInt(value, 10)
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > props.count || parsed === props.page) {
+        return
+    }
+    switchPage(parsed)
+}
+
 function commitGapInput() {
     if (activeGapIndex.value === null) return
 
-    const parsed = Number.parseInt(gapInputValue.value, 10)
-    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= props.count && parsed !== props.page) {
-        switchPage(parsed)
-    }
+    jumpToPage(gapInputValue.value)
     closeGapInput()
+}
+
+function commitJumpInput() {
+    jumpToPage(jumpInputValue.value)
+    jumpInputValue.value = ''
+}
+
+function clearJumpInput() {
+    jumpInputValue.value = ''
 }
 
 watch(
     () => props.page,
     () => {
         closeGapInput()
+        clearJumpInput()
     },
 )
 

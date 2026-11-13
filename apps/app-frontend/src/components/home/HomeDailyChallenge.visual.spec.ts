@@ -44,3 +44,34 @@ it('shows an empty state, not a broken quote, when there is no challenge', () =>
         wrapper.unmount()
     }
 })
+
+it('draws as a sidebar section: full width, a divider, the sidebar background, a plain title', () => {
+    document.documentElement.style.setProperty('--brand-gradient-border', 'rgb(10, 20, 30)')
+    const wrapper = mount(HomeDailyChallenge, {
+        attachTo: document.body,
+        global: { directives: { tooltip: () => {} } },
+    })
+    try {
+        const section = wrapper.get('.home-widget-frame')
+        expect(section.attributes('data-variant')).toBe('sidebar')
+        // No widget card inside the sidebar: no surface, edge, radius or margin of its own.
+        expect(section.classes()).not.toContain('home-surface')
+        const style = getComputedStyle(section.element)
+        expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+        expect(style.marginTop).toBe('0px')
+        expect(style.paddingLeft).toBe('16px')
+        expect(style.borderTopWidth).toBe('0px')
+        expect(style.borderBottomWidth).toBe('1px')
+        expect(style.borderBottomColor).toBe('rgb(10, 20, 30)')
+        expect(style.backdropFilter === '' || style.backdropFilter === 'none').toBe(true)
+        // A steady 16px section title with no icon, like the sidebar's other sections;
+        // the empty state still draws under it.
+        const title = getComputedStyle(wrapper.get('.home-widget-frame-title').element)
+        expect(title.fontSize).toBe('16px')
+        expect(wrapper.find('.home-widget-frame-icon').exists()).toBe(false)
+        expect(wrapper.find('.home-widget-frame-empty-title').exists()).toBe(true)
+    } finally {
+        wrapper.unmount()
+        document.documentElement.style.removeProperty('--brand-gradient-border')
+    }
+})

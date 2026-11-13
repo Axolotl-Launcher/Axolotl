@@ -116,10 +116,10 @@ async function openArticle(item: MinecraftNewsItem) {
 
 <template>
     <HomeWidgetFrame
-        class="home-news home-sidebar-section home-surface"
+        class="home-news"
+        variant="sidebar"
         :title="formatMessage(messages.news)"
         :icon="NewspaperIcon"
-        :header="featured?.image_url && !loading ? 'eyebrow' : 'bar'"
         :loading="loading"
         :skeleton-rows="NEWS_SKELETON_COUNT"
         :empty-text="emptyText"

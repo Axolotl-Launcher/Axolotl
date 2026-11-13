@@ -75,10 +75,10 @@ function shuffleChallenge() {
 
 <template>
     <HomeWidgetFrame
-        class="home-challenge-card home-sidebar-section home-surface"
+        class="home-challenge-card"
+        variant="sidebar"
         :title="formatMessage(messages.dailyChallenge)"
         :icon="SparklesIcon"
-        header="eyebrow"
         :badge="challengeNumber"
         :empty-text="challenge ? null : formatMessage(messages.emptyTitle)"
         :empty-hint="formatMessage(messages.emptyHint)"

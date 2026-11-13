@@ -294,10 +294,9 @@ onUnmounted(() => {
 
 <template>
     <HomeWidgetFrame
-        class="home-sidebar-section home-surface"
+        variant="sidebar"
         :title="formatMessage(messages.insights)"
         :icon="ChartIcon"
-        header="eyebrow"
         :loading="playtimeQuery.isPending.value"
         :skeleton-rows="2"
         :empty-text="

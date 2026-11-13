@@ -192,16 +192,13 @@ html.has-custom-background .home-surface {
 }
 
 /*
- * A widget stacked in the Home sidebar: a card on the same surface as the
- * dashboard tiles, so the widget opacity and frosting apply there too.
+ * A section of the Home sidebar (HomeWidgetFrame's `sidebar` variant): drawn
+ * like the sidebar's other sections, full width with a divider under it, on
+ * the sidebar's own background. The Home widget opacity does not apply here.
  */
 .home-sidebar-section {
-    margin: 0.75rem 0.75rem 0;
     padding: 1rem;
-}
-
-.home-sidebar-section:last-child {
-    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--brand-gradient-border);
 }
 
 /*

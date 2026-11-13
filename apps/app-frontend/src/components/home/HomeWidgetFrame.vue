@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import './home-widget.css'
 
-import { type Component, provide, ref } from 'vue'
+import { type Component, computed, provide, ref } from 'vue'
 
 import { homeWidgetMoreTargetKey } from './home-utils'
 
 /*
- * The shared widget layout: header (accent icon, title, badge, actions), then
+ * The shared widget layout: header (icon, title, badge, actions), then
  * a loading skeleton, an empty state or the body. The surface belongs to the
  * container (a dashboard tile or the sidebar), so the frame only reads the
  * tokens from home-widget.css and looks the same in both.
  */
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         title: string
         icon?: Component
@@ -31,10 +31,12 @@ withDefaults(
         /** Compact header for 1-row widgets. */
         dense?: boolean
         /**
-         * `bar`: accent icon and title. `eyebrow`: a small label, for widgets
-         * whose content is its own headline (a big figure, a quote, a cover).
+         * `card`: a dashboard tile; its container gives it the widget surface.
+         * `sidebar`: a section of the app sidebar, drawn like the sidebar's
+         * other sections: full width, a divider under it, the sidebar's own
+         * background and a plain, steady section title.
          */
-        header?: 'bar' | 'eyebrow'
+        variant?: 'card' | 'sidebar'
     }>(),
     {
         icon: undefined,
@@ -46,9 +48,12 @@ withDefaults(
         emptyTone: 'neutral',
         skeletonRows: 3,
         dense: false,
-        header: 'bar',
+        variant: 'card',
     },
 )
+
+/** A sidebar section titles itself in words alone, like the sidebar's other sections. */
+const showIcon = computed(() => !!props.icon && props.variant === 'card')
 
 /* A list that does not fit puts its "+N" button here (HomeFitList). */
 const moreTarget = ref<HTMLElement | null>(null)
@@ -58,11 +63,11 @@ provide(homeWidgetMoreTargetKey, moreTarget)
 <template>
     <section
         class="home-widget-frame home-surface-bare"
-        :class="{ 'is-dense': dense }"
-        :data-header="header"
+        :class="{ 'is-dense': dense, 'home-sidebar-section': variant === 'sidebar' }"
+        :data-variant="variant"
     >
         <header class="home-widget-frame-header">
-            <span v-if="icon && header === 'bar'" class="home-widget-frame-icon" aria-hidden="true">
+            <span v-if="showIcon" class="home-widget-frame-icon" aria-hidden="true">
                 <component :is="icon" />
             </span>
             <h2 class="home-widget-frame-title">{{ title }}</h2>
@@ -239,16 +244,9 @@ provide(homeWidgetMoreTargetKey, moreTarget)
     }
 }
 
-/*
- * A small label in place of the bar, for widgets whose content is its own
- * headline. It is quieter than the title bar so the content leads.
- */
-.home-widget-frame[data-header='eyebrow'] .home-widget-frame-header {
-    @apply h-6;
-}
-
-.home-widget-frame[data-header='eyebrow'] .home-widget-frame-title {
-    @apply text-[0.6875rem] font-extrabold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)];
+/* A sidebar section titles itself like the sidebar's other sections. */
+.home-widget-frame[data-variant='sidebar'] .home-widget-frame-title {
+    @apply text-base font-semibold text-[var(--color-text-default)];
 }
 
 /* Narrow columns drop the icon before they cut the title. */

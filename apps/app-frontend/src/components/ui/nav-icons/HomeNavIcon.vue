@@ -27,42 +27,48 @@ const jump = frames(
     'ease-out',
 )
 
-/** The roof tips from its right eave, like lifting a hat. */
+/**
+ * The roof tips up from its right eave, like lifting a hat, and drops back
+ * onto the walls with a small bounce.
+ */
 const tip = frames(
     'transform',
     [
         [0, 'translateY(0) rotate(0deg)'],
         [0.14, 'translateY(-2px) rotate(12deg)'],
         [0.3, 'translateY(-2.4px) rotate(14deg)', 'ease-in'],
-        [0.48, 'translateY(0.5px) rotate(-3deg)'],
-        [0.64, 'translateY(0) rotate(2.5deg)'],
-        [0.8, 'translateY(0) rotate(-1deg)'],
+        [0.48, 'translateY(0.6px) rotate(0deg)'],
+        [0.64, 'translateY(-0.5px) rotate(0deg)'],
+        [0.8, 'translateY(0.2px) rotate(0deg)'],
         [1, 'translateY(0) rotate(0deg)'],
     ],
     'ease-out',
 )
 
-/** A click knocks on the house: it rattles side to side... */
-const rattle = frames('transform', [
-    [0, 'translateX(0)'],
-    [0.12, 'translateX(-2px)'],
-    [0.26, 'translateX(1.8px)'],
-    [0.4, 'translateX(-1.3px)'],
-    [0.54, 'translateX(0.8px)'],
-    [0.7, 'translateX(-0.4px)'],
-    [1, 'translateX(0)'],
-])
-
-/** ...and the roof clatters up the other way before it drops back. */
-const clatter = frames(
+/** A click stamps on the house: it is squashed flat, then springs back up... */
+const stamp = frames(
     'transform',
     [
-        [0, 'translateY(0) rotate(0deg)'],
-        [0.1, 'translateY(-3px) rotate(-9deg)'],
-        [0.3, 'translateY(0.6px) rotate(5deg)'],
-        [0.5, 'translateY(-0.8px) rotate(-3deg)'],
-        [0.7, 'translateY(0) rotate(1.5deg)'],
-        [1, 'translateY(0) rotate(0deg)'],
+        [0, 'translateY(0) scale(1, 1)'],
+        [0.12, 'translateY(0) scale(1.22, 0.7)'],
+        [0.34, 'translateY(-2.5px) scale(0.9, 1.14)'],
+        [0.54, 'translateY(0) scale(1.07, 0.93)'],
+        [0.74, 'translateY(0) scale(0.98, 1.02)'],
+        [1, 'translateY(0) scale(1, 1)'],
+    ],
+    'ease-out',
+)
+
+/** ...and the roof is thrown straight up and drops back on. */
+const toss = frames(
+    'transform',
+    [
+        [0, 'translateY(0)'],
+        [0.12, 'translateY(0.8px)'],
+        [0.36, 'translateY(-4.5px)', 'ease-in'],
+        [0.58, 'translateY(0.6px)'],
+        [0.76, 'translateY(-0.6px)'],
+        [1, 'translateY(0)'],
     ],
     'ease-out',
 )
@@ -71,12 +77,13 @@ const motion: NavIconMotion = {
     '.home-house': {
         enter: { keyframes: jump, duration: 720 },
         idle: { keyframes: bob((y) => `translateY(${y}px)`, -1.4), duration: 1100, delay: 640 },
-        activate: { keyframes: rattle, duration: 520 },
+        activate: { keyframes: stamp, duration: 600 },
     },
     '.home-roof': {
         enter: { keyframes: tip, duration: 720 },
-        idle: { keyframes: bob((angle) => `rotate(${angle}deg)`, 6), duration: 1100, delay: 900 },
-        activate: { keyframes: clatter, duration: 600 },
+        // While the pointer stays, the roof lifts a little after the house, like a lid.
+        idle: { keyframes: bob((y) => `translateY(${y}px)`, -1), duration: 1100, delay: 900 },
+        activate: { keyframes: toss, duration: 620 },
     },
     '.home-door': { enter: redraw(720) },
 }

@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { frames, type NavIconMotion, swing } from './motion'
+import { frames, type NavIconMotion } from './motion'
 import NavIconSvg from './NavIconSvg.vue'
 
 const BUBBLES = [
@@ -36,16 +36,26 @@ const BUBBLES = [
     { name: 'lab-blast', x: 12, y: -1, r: 1.8 },
 ]
 
-/** A hard shake that dies away. */
-const shake = frames('transform', [
-    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
-    [0.1, 'rotate(-16deg)'],
-    [0.25, 'rotate(13deg)'],
-    [0.4, 'rotate(-9deg)'],
-    [0.55, 'rotate(5.5deg)'],
-    [0.7, 'rotate(-2.5deg)'],
-    [0.85, 'rotate(1deg)'],
-    [1, 'rotate(0deg)'],
+/** The flask boils over: it hops on the bench, hard at first and then less. */
+const boil = frames('transform', [
+    [0, 'translateY(0) scale(1, 1)', 'ease-out'],
+    [0.1, 'translateY(-2.6px) scale(0.94, 1.07)', 'ease-in'],
+    [0.22, 'translateY(0) scale(1.1, 0.9)', 'ease-out'],
+    [0.34, 'translateY(-1.6px) scale(0.97, 1.04)', 'ease-in'],
+    [0.46, 'translateY(0) scale(1.05, 0.95)', 'ease-out'],
+    [0.58, 'translateY(-0.7px) scale(1, 1)', 'ease-in'],
+    [0.7, 'translateY(0) scale(1.02, 0.98)', 'ease-out'],
+    [1, 'translateY(0) scale(1, 1)'],
+])
+
+/** While the pointer stays, the flask gives a little double hop now and then, like a pot on the boil. */
+const burble = frames('transform', [
+    [0, 'translateY(0)', 'ease-out'],
+    [0.08, 'translateY(-1.3px)', 'ease-in'],
+    [0.16, 'translateY(0)', 'ease-out'],
+    [0.24, 'translateY(-0.6px)', 'ease-in'],
+    [0.32, 'translateY(0)'],
+    [1, 'translateY(0)'],
 ])
 
 /**
@@ -89,8 +99,8 @@ const blast: Keyframe[] = [
 
 const motion: NavIconMotion = {
     '.lab-flask': {
-        enter: { keyframes: shake, duration: 900 },
-        idle: { keyframes: swing((angle) => `rotate(${angle}deg)`, 4), duration: 1600, delay: 760 },
+        enter: { keyframes: boil, duration: 900 },
+        idle: { keyframes: burble, duration: 1600, delay: 760 },
         activate: { keyframes: slam, duration: 620 },
     },
     '.lab-blast': { activate: { keyframes: blast, duration: 650, delay: 90, single: true } },
@@ -106,7 +116,7 @@ const motion: NavIconMotion = {
 </script>
 
 <style scoped>
-/* The flask rocks on its base. */
+/* The flask hops and squashes on its base. */
 .lab-flask {
     transform-origin: 12px 22px;
 }

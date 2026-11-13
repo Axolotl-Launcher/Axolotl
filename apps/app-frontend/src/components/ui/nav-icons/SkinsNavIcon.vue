@@ -18,20 +18,26 @@
 </template>
 
 <script setup lang="ts">
-import { frames, type NavIconMotion, swing } from './motion'
+import { bob, frames, type NavIconMotion } from './motion'
 import NavIconSvg from './NavIconSvg.vue'
 
-/** The shirt is flung sideways at once, then swings to rest like a damped pendulum. */
-const fling = frames('transform', [
-    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
-    [0.12, 'rotate(26deg)'],
-    [0.3, 'rotate(-19deg)'],
-    [0.47, 'rotate(12deg)'],
-    [0.63, 'rotate(-6.5deg)'],
-    [0.77, 'rotate(3deg)'],
-    [0.89, 'rotate(-1deg)'],
-    [1, 'rotate(0deg)'],
-])
+/**
+ * The hanger is lifted off the rail and dropped back on: the shirt stretches as
+ * it is yanked up, bunches at the top and stretches again as it lands.
+ */
+const lift = frames(
+    'transform',
+    [
+        [0, 'translateY(0) scale(1, 1)'],
+        [0.14, 'translateY(-8px) scale(0.95, 1.07)'],
+        [0.3, 'translateY(-9.5px) scale(1.04, 0.94)', 'ease-in'],
+        [0.48, 'translateY(0) scale(0.94, 1.09)'],
+        [0.64, 'translateY(0) scale(1.03, 0.97)'],
+        [0.8, 'translateY(0) scale(0.99, 1.01)'],
+        [1, 'translateY(0) scale(1, 1)'],
+    ],
+    'ease-out',
+)
 
 /** A click turns the hanger right round on the rail: back of the shirt, then front again. */
 const turnAround = frames('transform', [
@@ -44,8 +50,9 @@ const turnAround = frames('transform', [
 
 const motion: NavIconMotion = {
     '.skins-hanger': {
-        enter: { keyframes: fling, duration: 1000 },
-        idle: { keyframes: swing((angle) => `rotate(${angle}deg)`, 7), duration: 1800, delay: 760 },
+        enter: { keyframes: lift, duration: 900 },
+        // While the pointer stays, the hanger keeps bobbing gently on the rail.
+        idle: { keyframes: bob((y) => `translateY(${y}px)`, -2.6), duration: 1600, delay: 760 },
         activate: { keyframes: turnAround, duration: 700 },
     },
 }

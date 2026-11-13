@@ -263,6 +263,74 @@ it.each(ICONS)(
     },
 )
 
+/** The turn (degrees) and sideways shift (px) that one keyframe's transform adds. */
+function sidewaysPose(transform: unknown): { angle: number; shift: number } {
+    const text = typeof transform === 'string' ? transform : ''
+    const sum = (pattern: RegExp) =>
+        [...text.matchAll(pattern)].reduce((total, [, value]) => total + Number(value), 0)
+    return {
+        angle: sum(/rotate\((-?[\d.]+)deg\)/g),
+        shift: sum(/translateX\((-?[\d.]+)(?:px)?\)/g) + sum(/translate\((-?[\d.]+)(?:px)?[,)]/g),
+    }
+}
+
+/** How often a run of values changes direction. */
+function reversals(values: number[]): number {
+    let count = 0
+    let direction = 0
+    for (let index = 1; index < values.length; index++) {
+        const step = Math.sign(values[index] - values[index - 1])
+        if (step === 0) continue
+        if (direction !== 0 && step !== direction) count++
+        direction = step
+    }
+    return count
+}
+
+/** Which way a run of values first moves: 1, -1, or 0 if it never moves. */
+function heading(values: number[]): number {
+    const moved = values.find((value) => value !== values[0])
+    return moved === undefined ? 0 : Math.sign(moved - values[0])
+}
+
+it.each(ICONS)('the %s icon never sways from side to side', async (_name, icon) => {
+    const button = await mountNavButton(icon)
+    pointerEnter(button)
+    press(button)
+    click(button)
+    await nextTick()
+    const animations = navAnimations(button)
+    expect(animations.length).toBeGreaterThan(0)
+
+    const turns = new Map<Element | null, Set<number>>()
+    const slides = new Map<Element | null, Set<number>>()
+    for (const animation of animations) {
+        const poses = (animation.effect as KeyframeEffect)
+            .getKeyframes()
+            .map((keyframe) => sidewaysPose(keyframe.transform))
+        const angles = poses.map((pose) => pose.angle)
+        const shifts = poses.map((pose) => pose.shift)
+        const label = `${animation.id} on ${targetOf(animation)?.getAttribute('class')}`
+        // A loop only ever turns or slides one way; a single motion may go out
+        // and come back once, but never on past the rest pose to the other side.
+        const allowed = loopsForever(animation) ? 0 : 1
+        expect(reversals(angles), label).toBeLessThanOrEqual(allowed)
+        expect(reversals(shifts), label).toBeLessThanOrEqual(allowed)
+        for (const [ways, values] of [
+            [turns, angles],
+            [slides, shifts],
+        ] as const) {
+            const way = heading(values)
+            if (!way) continue
+            const target = targetOf(animation)
+            ways.set(target, (ways.get(target) ?? new Set<number>()).add(way))
+        }
+    }
+    // Every motion of a part goes the same way, so hovering and clicking
+    // cannot add up to a swing either.
+    for (const ways of [...turns.values(), ...slides.values()]) expect(ways.size).toBe(1)
+})
+
 it('brings an unfinished entry to rest quickly when the pointer leaves at once', async () => {
     const button = await mountNavButton(DiscoverNavIcon)
     pointerEnter(button)

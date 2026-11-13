@@ -13,18 +13,12 @@ import NavIconSvg from './NavIconSvg.vue'
 
 const TURN_EASING = 'cubic-bezier(0.3, 0.7, 0.4, 1)'
 
-/** A springy half turn; the plus is symmetric, so it ends where it started. */
-const halfTurn = frames(
-    'transform',
-    [
-        [0, 'rotate(0deg)'],
-        [0.45, 'rotate(200deg)'],
-        [0.65, 'rotate(170deg)'],
-        [0.82, 'rotate(184deg)'],
-        [1, 'rotate(180deg)'],
-    ],
-    TURN_EASING,
-)
+/** A half turn that overshoots once and settles; the plus is symmetric, so it ends where it started. */
+const halfTurn = frames('transform', [
+    [0, 'rotate(0deg)', TURN_EASING],
+    [0.5, 'rotate(196deg)', 'ease-in-out'],
+    [1, 'rotate(180deg)'],
+])
 
 /** A click squeezes the plus small, then bursts it open with a quarter twist. */
 const burst = frames(

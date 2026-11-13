@@ -6,7 +6,7 @@
             </clipPath>
         </defs>
         <g :clip-path="`url(#${clipId})`">
-            <g class="worlds-tilt">
+            <g class="worlds-roll">
                 <!--
                     The land repeats every globe-width to the left, so every spin and
                     loop cycle, however they overlap, ends where it began.
@@ -58,15 +58,14 @@ const turn = frames('transform', [
     [1, `translateX(${GLOBE_WIDTH}px)`],
 ])
 
-/** A click knocks the globe on its stand: its axis wobbles hard and settles. */
-const wobble = frames('transform', [
-    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
-    [0.12, 'rotate(-28deg)'],
-    [0.3, 'rotate(20deg)'],
-    [0.48, 'rotate(-12deg)'],
-    [0.64, 'rotate(6deg)'],
-    [0.8, 'rotate(-2.5deg)'],
-    [1, 'rotate(0deg)'],
+/** A click tips the globe towards you: the land rolls down, bounces back up and settles. */
+const roll = frames('transform', [
+    [0, 'translateY(0px)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
+    [0.16, 'translateY(4px)'],
+    [0.4, 'translateY(-1.6px)'],
+    [0.62, 'translateY(0.6px)'],
+    [0.8, 'translateY(-0.2px)'],
+    [1, 'translateY(0px)'],
 ])
 
 const motion: NavIconMotion = {
@@ -74,13 +73,6 @@ const motion: NavIconMotion = {
         enter: { keyframes: spin, duration: 1000 },
         idle: { keyframes: turn, duration: 2400, delay: 900 },
     },
-    '.worlds-tilt': { activate: { keyframes: wobble, duration: 800 } },
+    '.worlds-roll': { activate: { keyframes: roll, duration: 800 } },
 }
 </script>
-
-<style scoped>
-/* The axis wobble turns the land about the globe's centre, inside the rim. */
-.worlds-tilt {
-    transform-origin: 12px 12px;
-}
-</style>

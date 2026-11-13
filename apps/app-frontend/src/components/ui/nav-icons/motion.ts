@@ -32,6 +32,11 @@ export interface NavIconClip {
     restart?: boolean
 }
 
+/**
+ * How one part moves. Parts hop, bob, squash, grow or spin; a single clip may
+ * go out and come back once, but nothing swings or shakes from side to side,
+ * and every clip of a part turns and slides the same way.
+ */
 export interface NavIconPartMotion {
     /** Played once each time the pointer arrives. */
     enter?: NavIconClip
@@ -62,20 +67,6 @@ export function frames(
         [property]: value,
         easing: segmentEasing ?? easing,
     }))
-}
-
-/**
- * A loop that swings to `amplitude` on one side and back through the rest pose
- * to the other, shaped like a sine: fastest through the middle, still at the ends.
- */
-export function swing(transform: (amount: number) => string, amplitude: number): Keyframe[] {
-    return frames('transform', [
-        [0, transform(0), 'ease-out'],
-        [0.25, transform(-amplitude), 'ease-in'],
-        [0.5, transform(0), 'ease-out'],
-        [0.75, transform(amplitude), 'ease-in'],
-        [1, transform(0)],
-    ])
 }
 
 /** A loop that moves from `rest` to `peak` and settles back, still at both ends. */

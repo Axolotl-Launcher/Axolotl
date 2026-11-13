@@ -14,18 +14,12 @@ import NavIconSvg from './NavIconSvg.vue'
 
 const TURN_EASING = 'cubic-bezier(0.3, 0.7, 0.4, 1)'
 
-/** A full turn that starts at speed and ends with a mechanical overshoot. */
-const fullTurn = frames(
-    'transform',
-    [
-        [0, 'rotate(0deg)'],
-        [0.48, 'rotate(400deg)'],
-        [0.66, 'rotate(348deg)'],
-        [0.82, 'rotate(366deg)'],
-        [1, 'rotate(360deg)'],
-    ],
-    TURN_EASING,
-)
+/** A full turn that starts at speed and clicks into place with one overshoot. */
+const fullTurn = frames('transform', [
+    [0, 'rotate(0deg)', TURN_EASING],
+    [0.5, 'rotate(378deg)', 'ease-in-out'],
+    [1, 'rotate(360deg)'],
+])
 
 /**
  * While the pointer stays, the gear keeps turning at an even pace. The outline
@@ -49,17 +43,21 @@ const pulse = frames(
     'ease-out',
 )
 
-/** A click kicks the gear back a notch, like a ratchet catching, and it snaps home... */
-const ratchet = frames('transform', [
-    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
-    [0.16, 'rotate(-50deg)'],
-    [0.36, 'rotate(12deg)'],
-    [0.54, 'rotate(-5deg)'],
-    [0.72, 'rotate(2deg)'],
-    [1, 'rotate(0deg)'],
-])
+/** A click presses the gear in like a button, and it springs back out... */
+const clunk = frames(
+    'transform',
+    [
+        [0, 'scale(1)'],
+        [0.14, 'scale(0.8)'],
+        [0.4, 'scale(1.12)'],
+        [0.62, 'scale(0.97)'],
+        [0.8, 'scale(1.01)'],
+        [1, 'scale(1)'],
+    ],
+    'ease-out',
+)
 
-/** ...while the hub is punched in and springs out. */
+/** ...while the hub is punched in deeper and springs out. */
 const punch = frames(
     'transform',
     [
@@ -76,7 +74,7 @@ const motion: NavIconMotion = {
     '.settings-gear': {
         enter: { keyframes: fullTurn, duration: 950 },
         idle: { keyframes: turn, duration: 3000, delay: 950 },
-        activate: { keyframes: ratchet, duration: 700 },
+        activate: { keyframes: clunk, duration: 700 },
     },
     '.settings-hub': {
         enter: { keyframes: pulse, duration: 950 },

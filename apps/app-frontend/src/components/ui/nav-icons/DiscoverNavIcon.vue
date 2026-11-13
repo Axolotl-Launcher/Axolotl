@@ -9,47 +9,47 @@
 </template>
 
 <script setup lang="ts">
-import { frames, type NavIconMotion, swing } from './motion'
+import { frames, type NavIconMotion } from './motion'
 import NavIconSvg from './NavIconSvg.vue'
 
-const SPIN_EASING = 'cubic-bezier(0.3, 0.7, 0.4, 1)'
+/**
+ * The needle spins off at once, two full turns, and stops dead on north: most
+ * of the way goes by in the first quarter, the rest is one long, smooth stop.
+ */
+const spin = frames('transform', [
+    [0, 'rotate(0deg)', 'cubic-bezier(0.3, 0.44, 0.7, 0.82)'],
+    [0.25, 'rotate(492deg)', 'cubic-bezier(0.15, 0.6, 0.35, 1)'],
+    [1, 'rotate(720deg)'],
+])
 
-/** The needle spins off at once, overshoots north and swings until it settles. */
-const spin = frames(
+/**
+ * While the pointer stays, the needle keeps turning. It looks the same either
+ * way round, so each cycle is a half turn that ends at rest.
+ */
+const turn = frames('transform', [
+    [0, 'rotate(0deg)', 'linear'],
+    [1, 'rotate(180deg)'],
+])
+
+/** A click strikes the needle: it is squeezed small, then flicked on half a turn. */
+const flick = frames(
     'transform',
     [
-        [0, 'rotate(0deg)'],
-        [0.46, 'rotate(745deg)'],
-        [0.62, 'rotate(702deg)'],
-        [0.77, 'rotate(728deg)'],
-        [0.9, 'rotate(716deg)'],
-        [1, 'rotate(720deg)'],
+        [0, 'rotate(0deg) scale(1)'],
+        [0.14, 'rotate(0deg) scale(0.5)'],
+        [0.42, 'rotate(150deg) scale(1.35)'],
+        [0.66, 'rotate(180deg) scale(0.92)'],
+        [0.84, 'rotate(180deg) scale(1.03)'],
+        [1, 'rotate(180deg) scale(1)'],
     ],
-    SPIN_EASING,
+    'ease-out',
 )
-
-/** A click flicks the needle like a struck spring: it twangs back and forth. */
-const twang = frames('transform', [
-    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
-    [0.1, 'rotate(-55deg)'],
-    [0.26, 'rotate(40deg)'],
-    [0.42, 'rotate(-26deg)'],
-    [0.58, 'rotate(15deg)'],
-    [0.74, 'rotate(-7deg)'],
-    [0.88, 'rotate(3deg)'],
-    [1, 'rotate(0deg)'],
-])
 
 const motion: NavIconMotion = {
     '.discover-needle': {
         enter: { keyframes: spin, duration: 1000 },
-        // While the pointer stays, the needle keeps hunting for north.
-        idle: {
-            keyframes: swing((angle) => `rotate(${angle}deg)`, 16),
-            duration: 1400,
-            delay: 850,
-        },
-        activate: { keyframes: twang, duration: 850 },
+        idle: { keyframes: turn, duration: 1600, delay: 700 },
+        activate: { keyframes: flick, duration: 700 },
     },
 }
 </script>

@@ -24,16 +24,14 @@ const hop = frames(
     'ease-out',
 )
 
-/** ...and the leaning one snaps upright, then flops back into place. */
+/** ...and the leaning one snaps upright, then drops back against the shelf with a thud. */
 const flop = frames('transform', [
-    [0, 'rotate(0deg)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
-    [0.22, 'rotate(16deg)'],
-    [0.36, 'rotate(16deg)'],
-    [0.52, 'rotate(-11deg)'],
-    [0.66, 'rotate(5deg)'],
-    [0.79, 'rotate(-2.2deg)'],
-    [0.9, 'rotate(0.8deg)'],
-    [1, 'rotate(0deg)'],
+    [0, 'rotate(0deg) scaleY(1)', 'cubic-bezier(0.2, 0.8, 0.35, 1)'],
+    [0.22, 'rotate(16deg) scaleY(1)'],
+    [0.38, 'rotate(16deg) scaleY(1)', 'ease-in'],
+    [0.6, 'rotate(0deg) scaleY(0.9)', 'ease-out'],
+    [0.8, 'rotate(0deg) scaleY(1.03)'],
+    [1, 'rotate(0deg) scaleY(1)'],
 ])
 
 /** While the pointer stays, the books keep a slow wave going. */
@@ -52,7 +50,7 @@ const pull = frames(
     'ease-out',
 )
 
-/** ...that jolts the books beside it... */
+/** ...that jolts the rest of the shelf. */
 const jolt = frames(
     'transform',
     [
@@ -61,19 +59,6 @@ const jolt = frames(
         [0.56, 'translateY(0.4px) scaleY(0.88)'],
         [0.76, 'translateY(0) scaleY(1.03)'],
         [1, 'translateY(0) scaleY(1)'],
-    ],
-    'ease-out',
-)
-
-/** ...and knocks the leaning one further over for a moment. */
-const knock = frames(
-    'transform',
-    [
-        [0, 'rotate(0deg)'],
-        [0.46, 'rotate(0deg)'],
-        [0.58, 'rotate(-7deg)'],
-        [0.76, 'rotate(3deg)'],
-        [1, 'rotate(0deg)'],
     ],
     'ease-out',
 )
@@ -92,8 +77,8 @@ const motion: NavIconMotion = {
     '.library-book-3': book(2, { keyframes: pull, duration: 650 }),
     '.library-lean': {
         enter: { keyframes: flop, duration: 900 },
-        idle: { keyframes: bob((angle) => `rotate(${angle}deg)`, 6), duration: 1200, delay: 820 },
-        activate: { keyframes: knock, duration: 650 },
+        idle: { keyframes: wave, duration: 1200, delay: 560 + 3 * 160 },
+        activate: { keyframes: jolt, duration: 650 },
     },
 }
 </script>

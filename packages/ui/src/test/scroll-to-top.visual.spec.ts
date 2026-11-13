@@ -88,8 +88,10 @@ async function mountScrolledControl() {
     document.body.append(viewport)
 
     const wrapper = await mountThemed(ScrollToTopButton, {}, 'dark', mountOptions)
-    viewport.scrollTop = 500
-    viewport.dispatchEvent(new Event('scroll'))
+    await new Promise<void>((resolve) => {
+        viewport.addEventListener('scroll', () => resolve(), { once: true })
+        viewport.scrollTop = 500
+    })
     await wrapper.vm.$nextTick()
 
     return {
@@ -147,7 +149,7 @@ it('publishes clearance from a visible notification panel and lifts the button',
             expect(button.exists()).toBe(true)
 
             const placement = getComputedStyle(button.element.parentElement!)
-            expect(Number.parseFloat(placement.bottom)).toBeCloseTo(16 + published, 1)
+            expect(Number.parseFloat(placement.bottom)).toBeCloseTo(published, 1)
         } finally {
             cleanup()
         }
@@ -255,6 +257,86 @@ it('tracks intercom insertion and removal without observing descendant attribute
         intercom.remove()
     }
 })
+
+it.each([
+    { width: 1024, navbar: 0 },
+    { width: 700, navbar: 56 },
+])(
+    'does not add offsets already included in notification clearance at $width px',
+    async ({ width, navbar }) => {
+        document.documentElement.style.setProperty('--floating-action-bar-clearance', '44px')
+        document.body.style.setProperty('--size-mobile-navbar-height', `${navbar}px`)
+        document.body.classList.add('floating-action-bar-shown')
+        await page.viewport(width, 768)
+        const { panel, group, location } = await mountNotificationPanel()
+        const { button, cleanup } = await mountScrolledControl()
+
+        try {
+            await expectPanelClearance(group, navbar ? navbar + 10 : 90)
+            const bottom = () =>
+                Number.parseFloat(getComputedStyle(button.element.parentElement!).bottom)
+            expect(bottom()).toBeCloseTo(
+                Math.max(16 + 44 + navbar, Number.parseFloat(publishedClearance())),
+                1,
+            )
+            location.value = 'left'
+            await vi.waitFor(() => expect(publishedClearance()).toBe('0px'))
+            expect(bottom()).toBeCloseTo(16 + 44 + navbar, 1)
+        } finally {
+            panel.unmount()
+            cleanup()
+            document.body.style.removeProperty('--size-mobile-navbar-height')
+            document.body.classList.remove('floating-action-bar-shown')
+        }
+    },
+)
+
+it('clears the mobile navbar when no notification or floating bar is visible', async () => {
+    document.body.style.setProperty('--size-mobile-navbar-height', '56px')
+    await page.viewport(700, 768)
+    const { button, cleanup } = await mountScrolledControl()
+    try {
+        expect(
+            Number.parseFloat(getComputedStyle(button.element.parentElement!).bottom),
+        ).toBeCloseTo(72, 1)
+    } finally {
+        cleanup()
+        document.body.style.removeProperty('--size-mobile-navbar-height')
+    }
+})
+
+it.each(['end', 'cancel'])(
+    'tracks an upward panel transition until %s, then stops measuring',
+    async (finish) => {
+        const { panel, group } = await mountNotificationPanel()
+        const { button, cleanup } = await mountScrolledControl()
+        try {
+            await expectPanelClearance(group, 24)
+            group.style.transition = 'bottom 600ms linear'
+            group.style.bottom = '160px'
+            await vi.waitFor(() => {
+                const movingBottom = Number.parseFloat(getComputedStyle(group).bottom)
+                expect(movingBottom).toBeGreaterThan(80)
+                expect(movingBottom).toBeLessThan(150)
+                const needed = window.innerHeight - group.getBoundingClientRect().top + 16
+                const actual = Number.parseFloat(
+                    getComputedStyle(button.element.parentElement!).bottom,
+                )
+                // One frame of delivery latency is allowed; the old end-only update is >56px behind.
+                expect(Math.abs(actual - needed)).toBeLessThan(12)
+            })
+            if (finish === 'cancel') group.style.transition = 'none'
+            await expectPanelClearance(group, 160)
+            await settleNotificationLayout()
+            const measure = vi.spyOn(group, 'getBoundingClientRect')
+            await settleNotificationLayout()
+            expect(measure).not.toHaveBeenCalled()
+        } finally {
+            panel.unmount()
+            cleanup()
+        }
+    },
+)
 
 it('cancels pending frames and removes observers, listeners and clearance on unmount', async () => {
     const { panel, group } = await mountNotificationPanel()

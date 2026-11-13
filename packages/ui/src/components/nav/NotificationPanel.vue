@@ -232,13 +232,28 @@ onMounted(() => {
     // Measuring the panel forces a synchronous layout flush, so coalesce every
     // trigger into one read per frame instead of one per observed mutation.
     let frame: number | undefined
+    const movingProperties = new Set<string>()
     const handleLayoutChange = () => {
         if (frame !== undefined) return
         frame = requestAnimationFrame(() => {
             frame = undefined
             checkIntercomPresence()
             updateNotificationClearance()
+            if (movingProperties.size > 0) handleLayoutChange()
         })
+    }
+    const handleTransitionRun = (event: TransitionEvent) => {
+        if (
+            event.target !== groupEl.value ||
+            !['bottom', 'top', 'transform'].includes(event.propertyName)
+        )
+            return
+        movingProperties.add(event.propertyName)
+        handleLayoutChange()
+    }
+    const handleTransitionFinish = (event: TransitionEvent) => {
+        if (event.target === groupEl.value) movingProperties.delete(event.propertyName)
+        handleLayoutChange()
     }
     const observer = new MutationObserver(handleLayoutChange)
 
@@ -257,7 +272,9 @@ onMounted(() => {
 
     const resizeObserver = new ResizeObserver(handleLayoutChange)
     if (groupEl.value) resizeObserver.observe(groupEl.value)
-    groupEl.value?.addEventListener('transitionend', handleLayoutChange)
+    groupEl.value?.addEventListener('transitionrun', handleTransitionRun)
+    groupEl.value?.addEventListener('transitionend', handleTransitionFinish)
+    groupEl.value?.addEventListener('transitioncancel', handleTransitionFinish)
     window.addEventListener('resize', handleLayoutChange)
     watch(notificationLocation, handleLayoutChange)
     updateNotificationClearance()
@@ -267,7 +284,9 @@ onMounted(() => {
         observer.disconnect()
         layoutObserver.disconnect()
         resizeObserver.disconnect()
-        groupEl.value?.removeEventListener('transitionend', handleLayoutChange)
+        groupEl.value?.removeEventListener('transitionrun', handleTransitionRun)
+        groupEl.value?.removeEventListener('transitionend', handleTransitionFinish)
+        groupEl.value?.removeEventListener('transitioncancel', handleTransitionFinish)
         window.removeEventListener('resize', handleLayoutChange)
         appliedClearance = undefined
         document.documentElement.style.removeProperty('--notification-panel-clearance')

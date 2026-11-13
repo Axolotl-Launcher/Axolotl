@@ -3146,6 +3146,9 @@
   "pagination.go-to-page.placeholder": {
     "defaultMessage": "Page"
   },
+  "pagination.jump-limit": {
+    "defaultMessage": "One jump covers up to {count, plural, one {# page} other {# pages}} ahead."
+  },
   "pagination.last-page": {
     "defaultMessage": "Last page"
   },

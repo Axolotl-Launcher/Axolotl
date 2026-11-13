@@ -2702,6 +2702,9 @@
   "pagination.go-to-page.placeholder": {
     "defaultMessage": "页码"
   },
+  "pagination.jump-limit": {
+    "defaultMessage": "一次最多可向后跳转 {count} 页。"
+  },
   "pagination.last-page": {
     "defaultMessage": "最后一页"
   },

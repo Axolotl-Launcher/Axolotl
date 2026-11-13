@@ -163,7 +163,8 @@
             type="number"
             inputmode="numeric"
             min="1"
-            :max="countKnown ? count : undefined"
+            :max="jumpCeiling ?? undefined"
+            :title="jumpLimitHint"
             :placeholder="formatMessage(messages.goToPagePlaceholder)"
             :aria-label="formatMessage(messages.goToPage)"
             :disabled="loading"
@@ -206,12 +207,21 @@ const props = withDefaults(
          * reports where it landed.
          */
         countKnown?: boolean
+        /**
+         * How far ahead of the current page a jump may reach when `count` is not
+         * the real number of pages. Reaching a distant page means the source has
+         * to walk every page in between, so the jump is capped instead of leaving
+         * the reader on a spinner for an unbounded time. Ignored when `countKnown`
+         * is true, where `count` is the real limit.
+         */
+        jumpLimit?: number
     }>(),
     {
         page: 1,
         count: 1,
         loading: false,
         countKnown: true,
+        jumpLimit: 10,
     },
 )
 
@@ -229,6 +239,11 @@ const messages = defineMessages({
     goToPagePlaceholder: {
         id: 'pagination.go-to-page.placeholder',
         defaultMessage: 'Page',
+    },
+    jumpLimit: {
+        id: 'pagination.jump-limit',
+        defaultMessage:
+            'One jump covers up to {count, plural, one {# page} other {# pages}} ahead.',
     },
     lastPage: {
         id: 'pagination.last-page',
@@ -280,6 +295,17 @@ const pages = computed(() => {
 const showFirstPage = computed(() => props.page > 1)
 const showLastPage = computed(() => props.countKnown && props.page < props.count)
 
+/** The highest page a jump may ask for, or `null` when nothing caps it. */
+const jumpCeiling = computed(() => {
+    if (props.countKnown) return props.count
+    return Number.isFinite(props.jumpLimit) ? props.page + props.jumpLimit : null
+})
+
+const jumpLimitHint = computed(() => {
+    if (props.countKnown || !Number.isFinite(props.jumpLimit)) return undefined
+    return formatMessage(messages.jumpLimit, { count: props.jumpLimit })
+})
+
 const activeGapIndex = ref<number | null>(null)
 const gapInputValue = ref('')
 const gapInput = ref<HTMLInputElement[] | HTMLInputElement>()
@@ -315,16 +341,17 @@ function fieldValue(event: Event | undefined, modelValue: string) {
 
 function clampPage(newPage: number) {
     const lowerBounded = Math.max(newPage, 1)
-    return props.countKnown ? Math.min(lowerBounded, props.count) : lowerBounded
+    const ceiling = jumpCeiling.value
+    return ceiling === null ? lowerBounded : Math.min(lowerBounded, ceiling)
 }
 
 function jumpToPage(value: string) {
     const parsed = Number.parseInt(value, 10)
-    if (!Number.isFinite(parsed)) return
+    if (!Number.isFinite(parsed)) return null
 
     const target = clampPage(parsed)
-    if (target === props.page) return
-    switchPage(target)
+    if (target !== props.page) switchPage(target)
+    return target
 }
 
 function commitGapInput(event?: Event) {
@@ -337,8 +364,10 @@ function commitGapInput(event?: Event) {
 function commitJumpInput(event?: Event) {
     if (isImeKeydown(event)) return
 
-    jumpToPage(fieldValue(event, jumpInputValue.value))
-    jumpInputValue.value = ''
+    const target = jumpToPage(fieldValue(event, jumpInputValue.value))
+    // Showing the page that was actually asked for makes a capped jump visible
+    // instead of leaving the typed value looking ignored.
+    jumpInputValue.value = target === null ? '' : String(target)
 }
 
 function clearJumpInput() {

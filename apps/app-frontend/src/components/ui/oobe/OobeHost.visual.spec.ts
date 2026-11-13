@@ -11,6 +11,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, provide, ref } from 'vue'
 
+import { notifyAccountSelectionChanged } from '@/helpers/account-state'
 import { MINECRAFT_ROOTS_STORAGE_KEY } from '@/helpers/minecraft-roots'
 import en from '@/locales/en-US/index.json'
 import zh from '@/locales/zh-CN/index.json'
@@ -19,15 +20,22 @@ import { applyTheme, waitFor } from '@/test/visual-harness'
 import OobeHost from './OobeHost.vue'
 import { OOBE_STEP_IDS } from './step-ids'
 import { OOBE_STEPS } from './steps'
+import { steveHead } from './steps/account/accounts'
 import { createOobeController } from './useOobe'
+
+function headUrl(textureKey: string) {
+    const hue = [...textureKey].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="hsl(${hue} 60% 45%)"/><rect x="1" y="3" width="2" height="1" fill="white"/><rect x="5" y="3" width="2" height="1" fill="white"/></svg>`
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
 
 const backend = vi.hoisted(() => ({
     patches: [] as Record<string, unknown>[],
     restricted: true,
     accounts: [] as Array<{
         account_id: string
-        account_type: 'yggdrasil'
-        profile: { id: string; name: string }
+        account_type: 'yggdrasil' | 'microsoft'
+        profile: { id: string; name: string; skins?: Array<{ state: string; url: string }> }
     }>,
     defaultAccount: null as string | null,
     failDefault: false,
@@ -55,6 +63,11 @@ vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
 vi.mock('@tauri-apps/api/event', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     listen: async () => () => {},
+}))
+// A head per skin texture, in a colour of its own, so the art shows which account it drew.
+vi.mock('@/helpers/rendering/batch-skin-renderer.ts', () => ({
+    getPlayerHeadUrl: async ({ texture_key }: { texture_key: string }) => headUrl(texture_key),
+    retainPlayerHeadTextures: () => () => {},
 }))
 vi.mock('@tauri-apps/plugin-dialog', async (importOriginal) => ({
     ...(await importOriginal<object>()),
@@ -401,6 +414,45 @@ it('keeps Skip for existing accounts and failed edits, then keeps Next after a s
     await waitFor(() => !!accountChoice('Steve'), { label: 'revisited accounts loaded' })
     expect(button('Skip')).toBeUndefined()
     expect(button('Next')!.disabled).toBe(false)
+})
+
+it("draws Steve's head in the art until an account is signed in, then the selected account's", async () => {
+    const artHead = () =>
+        document.querySelector('[data-testid="oobe-account-head"]')?.getAttribute('href')
+    const accountChoice = (name: string) =>
+        Array.from(document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="radio"]')).find(
+            (entry) => entry.textContent?.includes(name),
+        )
+    await render(
+        'en-US',
+        OOBE_STEPS.filter((step) => ['account_v1', 'welcome_v1'].includes(step.id)),
+    )
+    await waitFor(() => !!artHead(), { label: 'account art' })
+    expect(artHead()).toBe(steveHead)
+    await shot('oobe-account-art-steve')
+
+    // A sign-in stores the account and selects it, then announces the change.
+    backend.accounts = ['Alex', 'Notch'].map((name) => ({
+        account_id: name,
+        account_type: 'microsoft',
+        profile: {
+            id: name,
+            name,
+            skins: [{ state: 'ACTIVE', url: `https://skins.test/${name}` }],
+        },
+    }))
+    backend.defaultAccount = 'Alex'
+    notifyAccountSelectionChanged()
+    await waitFor(() => artHead() === headUrl('Alex:https://skins.test/Alex'), {
+        label: 'signed-in head',
+    })
+
+    await waitFor(() => !!accountChoice('Notch'), { label: 'accounts listed' })
+    accountChoice('Notch')!.click()
+    await waitFor(() => artHead() === headUrl('Notch:https://skins.test/Notch'), {
+        label: 'selected head',
+    })
+    await shot('oobe-account-art-selected')
 })
 
 it('keeps Skip after a folder sync fails and changes to Next only when retry succeeds', async () => {

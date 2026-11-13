@@ -1,21 +1,12 @@
 <script setup lang="ts">
-/**
- * Blocky 8×8 face in neutral skin and hair tones, so the avatar reads as a
- * player head whatever the accent is, and without any real skin art.
- */
-const face = [
-    '00000000',
-    '01111110',
-    '12222221',
-    '22222222',
-    '24522542',
-    '22233222',
-    '23666632',
-    '33333333',
-]
-const shades = ['#3b2a20', '#5a3e2b', '#c99a74', '#b5835e', '#ffffff', '#3a4f8f', '#7a4a36']
-const pixels = face.flatMap((row, y) =>
-    [...row].map((value, x) => ({ x, y, fill: shades[Number(value)] })),
+import { computed } from 'vue'
+
+import { useOobeAccounts } from './accounts'
+
+/** The selected account's head; Steve's while there is no account or it has no skin. */
+const { accounts, defaultAccount, headOf } = useOobeAccounts()
+const head = computed(() =>
+    headOf(accounts.value.find((account) => account.account_id === defaultAccount.value)),
 )
 </script>
 
@@ -54,17 +45,17 @@ const pixels = face.flatMap((row, y) =>
                     stroke-opacity="0.5"
                     stroke-width="2"
                 />
-                <g transform="translate(152 132)">
-                    <rect
-                        v-for="pixel in pixels"
-                        :key="`${pixel.x}-${pixel.y}`"
-                        :x="pixel.x * 12"
-                        :y="pixel.y * 12"
-                        width="12.5"
-                        height="12.5"
-                        :fill="pixel.fill"
-                    />
-                </g>
+                <image
+                    :key="head"
+                    class="oobe-account-head"
+                    data-testid="oobe-account-head"
+                    :href="head"
+                    x="152"
+                    y="132"
+                    width="96"
+                    height="96"
+                    preserveAspectRatio="none"
+                />
                 <rect x="140" y="252" width="120" height="13" rx="6.5" fill="var(--surface-5)" />
                 <rect
                     x="160"
@@ -105,6 +96,12 @@ const pixels = face.flatMap((row, y) =>
     animation: oobe-account-float 6s ease-in-out infinite;
 }
 
+.oobe-account-head {
+    image-rendering: pixelated;
+    // A new head (a sign-in, another account picked) fades in over the old spot.
+    animation: oobe-account-head-in 320ms ease-out both;
+}
+
 .oobe-account-badge {
     transform-origin: 290px 110px;
     animation:
@@ -122,6 +119,15 @@ const pixels = face.flatMap((row, y) =>
     }
 }
 
+@keyframes oobe-account-head-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
 @keyframes oobe-account-pop {
     from {
         opacity: 0;
@@ -135,6 +141,7 @@ const pixels = face.flatMap((row, y) =>
 
 @media (prefers-reduced-motion: reduce) {
     .oobe-account-card,
+    .oobe-account-head,
     .oobe-account-badge {
         animation: none;
     }

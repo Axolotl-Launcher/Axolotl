@@ -98,8 +98,21 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw "Seed map compiler could not run: $compiler" }
         'int axolotl_seed_map_compiler_check(void) { return 0; }' | & $compiler -x c -fsyntax-only -
         if ($LASTEXITCODE -ne 0) { throw "Seed map compiler could not compile C source: $compiler" }
-        $compilerDirectory >> $env:GITHUB_PATH
+        if ('${{ runner.arch }}' -ne 'ARM64') { $compilerDirectory >> $env:GITHUB_PATH }
         "AXOLOTL_CUBIOMES_CC=$compiler" >> $env:GITHUB_ENV
+    - name: Select ARM64 MSVC dependency compiler
+      if: runner.os == 'Windows' && runner.arch == 'ARM64' && inputs.package-only != 'true'
+      shell: pwsh
+      run: |
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+        $installation = & $vswhere -latest -products '*' -property installationPath
+        if ($LASTEXITCODE -ne 0 -or !$installation) { throw 'Visual Studio installation was not found' }
+        $clang = Get-ChildItem -LiteralPath (Join-Path $installation 'VC/Tools/Llvm') -Filter clang-cl.exe -Recurse -File |
+          Sort-Object FullName | Select-Object -First 1
+        if (!$clang) { throw 'Visual Studio clang-cl is required for ARM64 MSVC dependencies' }
+        # cc-rs supplies the MSVC SDK environment for clang-cl; cubiomes uses its own MinGW compiler.
+        "CC_aarch64_pc_windows_msvc=$($clang.FullName)" >> $env:GITHUB_ENV
+        "CXX_aarch64_pc_windows_msvc=$($clang.FullName)" >> $env:GITHUB_ENV
     - shell: bash
       run: pnpm install --frozen-lockfile
     - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

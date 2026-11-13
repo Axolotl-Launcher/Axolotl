@@ -84,6 +84,7 @@ watch(
             const template = document.createElement('template')
             template.innerHTML = rendered
             for (const image of template.content.querySelectorAll('img')) {
+                image.referrerPolicy = 'no-referrer'
                 image.loading = 'lazy'
                 image.decoding = 'async'
             }

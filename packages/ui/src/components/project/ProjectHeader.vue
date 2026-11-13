@@ -2,6 +2,7 @@
     <ContentPageHeader>
         <template #icon>
             <Avatar
+                referrerpolicy="no-referrer"
                 loading="lazy"
                 decoding="async"
                 :src="project.icon_url"

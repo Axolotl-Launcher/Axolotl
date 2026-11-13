@@ -50,6 +50,7 @@ it('defers parsing, skips stale bodies and keeps image dimensions while loading 
         await flushPromises()
         expect(wrapper.text()).toBe('Current')
         expect(wrapper.get('img').attributes()).toMatchObject({
+            referrerpolicy: 'no-referrer',
             loading: 'lazy',
             decoding: 'async',
             width: '100',

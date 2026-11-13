@@ -30,6 +30,37 @@ export const ANNOUNCEMENT_CHANGE_TYPES: readonly AnnouncementChangeType[] = [
 
 export const launcherAnnouncements: readonly LauncherAnnouncement[] = [
     {
+        id: 'launcher-1.11.1-beta.1',
+        version: '1.11.1-beta.1',
+        publishedAt: '2026-11-13',
+        title: {
+            'en-US': 'Axolotl Launcher 1.11.1-beta.1',
+            'zh-CN': 'Axolotl Launcher 1.11.1-beta.1',
+        },
+        changes: {
+            added: [
+                {
+                    'en-US':
+                        'Added a disconnected indicator in the bottom-right corner with a connection status tooltip.',
+                    'zh-CN': '新增窗口右下角断网状态提示，悬浮时显示连接状态。',
+                },
+                {
+                    'en-US':
+                        'Added a button to open Windows network settings from the offline page.',
+                    'zh-CN': 'Windows 版断网页面新增一键打开系统网络设置的按钮。',
+                },
+            ],
+            fixed: [
+                {
+                    'en-US':
+                        'Fixed offline navigation to Discover, Favorites, project details, and instance creation, with connection guidance and retry controls.',
+                    'zh-CN':
+                        '修复断网时无法进入浏览、收藏、项目详情和创建实例页面的问题，并显示网络检查提示和重试按钮。',
+                },
+            ],
+        },
+    },
+    {
         id: 'launcher-1.11.0',
         version: '1.11.0',
         publishedAt: '2026-11-13',

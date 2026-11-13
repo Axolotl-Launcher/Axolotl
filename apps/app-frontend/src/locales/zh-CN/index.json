@@ -13010,6 +13010,12 @@
   "app.skins.modal.edit-title": {
     "message": "编辑皮肤中"
   },
+  "app.skins.modal.export-texture-button": {
+    "message": "导出纹理"
+  },
+  "app.skins.modal.export-texture-failed": {
+    "message": "导出皮肤纹理失败（HTTP {status}）。"
+  },
   "app.skins.modal.make-edit-first-tooltip": {
     "message": "请先对皮肤进行编辑！"
   },

@@ -178,8 +178,6 @@
 
 .menu-arrow {
     fill: var(--surface-3);
-    stroke: var(--surface-5);
-    stroke-width: 1px;
 }
 
 .tooltip-arrow {

@@ -25,9 +25,17 @@
                     <h2 class="text-base font-semibold mb-2">
                         {{ formatMessage(messages.textureSection) }}
                     </h2>
-                    <Button class="!shadow-none" @click="openTextureFileBrowser"
-                        ><UploadIcon /> {{ formatMessage(messages.replaceTextureButton) }}
-                    </Button>
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            class="!shadow-none"
+                            :disabled="!canExportTexture"
+                            @click="exportTexture"
+                            ><DownloadIcon /> {{ formatMessage(messages.exportTextureButton) }}
+                        </Button>
+                        <Button class="!shadow-none" @click="openTextureFileBrowser"
+                            ><UploadIcon /> {{ formatMessage(messages.replaceTextureButton) }}
+                        </Button>
+                    </div>
                     <input
                         ref="textureFileInput"
                         type="file"
@@ -143,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { CheckIcon, SaveIcon, SpinnerIcon, UploadIcon, XIcon } from '@modrinth/assets'
+import { CheckIcon, DownloadIcon, SaveIcon, SpinnerIcon, UploadIcon, XIcon } from '@modrinth/assets'
 import {
     Button,
     CapeButton,
@@ -158,7 +166,9 @@ import {
     useVIntl,
 } from '@modrinth/ui'
 import { arrayBufferToBase64 } from '@modrinth/utils'
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { save as saveFileDialog } from '@tauri-apps/plugin-dialog'
+import { writeFile } from '@tauri-apps/plugin-fs'
+import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 
 import {
     type Cape,
@@ -168,6 +178,7 @@ import {
     normalize_skin_texture,
     save_custom_skin,
     type Skin,
+    skinExportFilename,
     type SkinModel,
     type SkinTextureUrl,
 } from '@/helpers/skins.ts'
@@ -189,6 +200,14 @@ const messages = defineMessages({
     replaceTextureButton: {
         id: 'app.skins.modal.replace-texture-button',
         defaultMessage: 'Replace texture',
+    },
+    exportTextureButton: {
+        id: 'app.skins.modal.export-texture-button',
+        defaultMessage: 'Export texture',
+    },
+    exportTextureFailed: {
+        id: 'app.skins.modal.export-texture-failed',
+        defaultMessage: 'Failed to export the skin texture (HTTP {status}).',
     },
     armStyleSection: {
         id: 'app.skins.modal.arm-style-section',
@@ -253,6 +272,7 @@ const isSaving = ref(false)
 
 const uploadedTextureUrl = ref<SkinTextureUrl | null>(null)
 const previewSkin = ref<string>('')
+let resetTimer: ReturnType<typeof setTimeout> | undefined
 
 const variant = ref<SkinModel>('CLASSIC')
 const selectedCape = ref<Cape | undefined>(undefined)
@@ -260,6 +280,10 @@ const props = defineProps<{ capes?: Cape[] }>()
 
 const selectedCapeTexture = computed(() => selectedCape.value?.texture)
 const canEditTextureAndModel = computed(() => currentSkin.value?.source !== 'default')
+const canExportTexture = computed(() => {
+    const texture = uploadedTextureUrl.value?.original ?? currentSkin.value?.texture
+    return !!texture?.startsWith('data:image/')
+})
 const {
     showTopFade: showCapeTopFade,
     showBottomFade: showCapeBottomFade,
@@ -349,7 +373,10 @@ const saveTooltip = computed(() => {
     return undefined
 })
 
+let textureRequest = 0
+
 function resetState() {
+    textureRequest++
     mode.value = 'new'
     currentSkin.value = null
     uploadedTextureUrl.value = null
@@ -359,13 +386,33 @@ function resetState() {
     isSaving.value = false
 }
 
-function handleModalHide() {
-    setTimeout(() => resetState(), 250)
+function cancelReset() {
+    if (resetTimer !== undefined) {
+        clearTimeout(resetTimer)
+        resetTimer = undefined
+    }
 }
 
+function handleModalHide() {
+    textureRequest++
+    cancelReset()
+    resetTimer = setTimeout(() => {
+        resetTimer = undefined
+        resetState()
+    }, 250)
+}
+
+onBeforeUnmount(() => {
+    textureRequest++
+    cancelReset()
+})
+
 async function show(e: MouseEvent, skin?: Skin) {
+    textureRequest++
+    cancelReset()
     mode.value = skin ? 'edit' : 'new'
     currentSkin.value = skin ?? null
+    uploadedTextureUrl.value = null
     if (skin) {
         variant.value = skin.variant
         selectedCape.value = props.capes?.find((c) => c.id === skin.cape_id)
@@ -381,10 +428,14 @@ async function show(e: MouseEvent, skin?: Skin) {
 }
 
 async function showNew(e: MouseEvent, skinTextureUrl: SkinTextureUrl) {
+    const request = ++textureRequest
+    cancelReset()
     mode.value = 'new'
     currentSkin.value = null
     uploadedTextureUrl.value = skinTextureUrl
-    variant.value = await determineModelType(skinTextureUrl.original)
+    const detectedVariant = await determineModelType(skinTextureUrl.original)
+    if (request !== textureRequest) return
+    variant.value = detectedVariant
     selectedCape.value = undefined
 
     await loadPreviewSkin()
@@ -400,6 +451,7 @@ async function setUploadedTexture(skinTextureUrl: SkinTextureUrl) {
 }
 
 function hide() {
+    textureRequest++
     modal.value?.hide()
 }
 
@@ -411,6 +463,29 @@ function openTextureFileBrowser() {
     textureFileInput.value?.click()
 }
 
+async function exportTexture() {
+    try {
+        const textureUrl = uploadedTextureUrl.value?.original ?? currentSkin.value?.texture ?? null
+        if (!textureUrl) return
+
+        const path = await saveFileDialog({
+            defaultPath: skinExportFilename(currentSkin.value),
+            filters: [{ name: 'PNG', extensions: ['png'] }],
+        })
+        if (!path) return
+
+        const response = await fetch(textureUrl)
+        if (!response.ok) {
+            throw new Error(
+                formatMessage(messages.exportTextureFailed, { status: response.status }),
+            )
+        }
+        await writeFile(path, new Uint8Array(await response.arrayBuffer()))
+    } catch (error) {
+        handleError(error)
+    }
+}
+
 async function onTextureFileInputChange(e: Event) {
     const files = (e.target as HTMLInputElement).files
     const file = files?.[0]
@@ -419,19 +494,21 @@ async function onTextureFileInputChange(e: Event) {
         return
     }
 
+    const request = ++textureRequest
     try {
-        const originalSkinTexUrl = `data:image/png;base64,${arrayBufferToBase64(
-            await file.arrayBuffer(),
-        )}`
+        const bytes = await file.arrayBuffer()
+        if (request !== textureRequest) return
+        const originalSkinTexUrl = `data:image/png;base64,${arrayBufferToBase64(bytes)}`
         const skinTextureNormalized = await normalize_skin_texture(originalSkinTexUrl, true)
+        if (request !== textureRequest) return
         await setUploadedTexture({
             original: originalSkinTexUrl,
             normalized: `data:image/png;base64,${arrayBufferToBase64(skinTextureNormalized)}`,
         })
     } catch (error) {
-        handleError(error)
+        if (request === textureRequest) handleError(error)
     } finally {
-        if (textureFileInput.value) {
+        if (request === textureRequest && textureFileInput.value) {
             textureFileInput.value.value = ''
         }
     }

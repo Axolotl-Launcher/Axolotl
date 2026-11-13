@@ -1,5 +1,6 @@
 <template>
     <div
+        ref="groupEl"
         class="vue-notification-group"
         :class="{
             'intercom-present': isIntercomPresent,
@@ -129,7 +130,7 @@ import {
     XCircleIcon,
     XIcon,
 } from '@modrinth/assets'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useModalStack } from '#ui/composables/modal-stack.ts'
 
@@ -157,6 +158,7 @@ const notifications = computed<WebNotification[]>(() =>
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
 )
 const notificationLocation = computed(() => notificationManager.getNotificationLocation())
+const groupEl = ref<HTMLElement | null>(null)
 
 const isIntercomPresent = ref<boolean>(false)
 const copied = ref<Record<string, boolean>>({})
@@ -179,6 +181,21 @@ function getCopyKey(notif: WebNotification): string {
 
 function checkIntercomPresence(): void {
     isIntercomPresent.value = !!document.querySelector('.intercom-lightweight-app')
+}
+
+let appliedClearance: string | undefined
+
+function updateNotificationClearance(): void {
+    const rect = groupEl.value?.getBoundingClientRect()
+    const visible = notificationLocation.value === 'right' && rect && rect.height > 0
+    // Measure the panel's top edge rather than its height: the panel can be raised
+    // by the mobile navbar, notifications' own bottom offset or the intercom bubble.
+    const clearance = visible ? `${Math.ceil(window.innerHeight - rect.top + 16)}px` : '0px'
+    // Writing the custom property invalidates style for everything that reads it,
+    // so skip the write when the measured clearance has not changed.
+    if (clearance === appliedClearance) return
+    appliedClearance = clearance
+    document.documentElement.style.setProperty('--notification-panel-clearance', clearance)
 }
 
 function copyToClipboard(notif: WebNotification): void {
@@ -212,17 +229,67 @@ async function handleErrorAction(notification: WebNotification): Promise<void> {
 onMounted(() => {
     checkIntercomPresence()
 
-    const observer = new MutationObserver(() => {
-        checkIntercomPresence()
-    })
+    // Measuring the panel forces a synchronous layout flush, so coalesce every
+    // trigger into one read per frame instead of one per observed mutation.
+    let frame: number | undefined
+    const movingProperties = new Set<string>()
+    const handleLayoutChange = () => {
+        if (frame !== undefined) return
+        frame = requestAnimationFrame(() => {
+            frame = undefined
+            checkIntercomPresence()
+            updateNotificationClearance()
+            if (movingProperties.size > 0) handleLayoutChange()
+        })
+    }
+    const handleTransitionRun = (event: TransitionEvent) => {
+        if (
+            event.target !== groupEl.value ||
+            !['bottom', 'top', 'transform'].includes(event.propertyName)
+        )
+            return
+        movingProperties.add(event.propertyName)
+        handleLayoutChange()
+    }
+    const handleTransitionFinish = (event: TransitionEvent) => {
+        if (event.target === groupEl.value) movingProperties.delete(event.propertyName)
+        handleLayoutChange()
+    }
+    const observer = new MutationObserver(handleLayoutChange)
 
     observer.observe(document.body, {
         childList: true,
         subtree: true,
     })
 
+    // The panel and body classes (such as floating-action-bar-shown) can move it
+    // without resizing it. Observe their attributes, but not descendant attributes
+    // that would trigger measurements for unrelated changes throughout the app.
+    const layoutObserver = new MutationObserver(handleLayoutChange)
+    const layoutAttributes = { attributes: true, attributeFilter: ['class', 'style'] }
+    layoutObserver.observe(document.body, layoutAttributes)
+    if (groupEl.value) layoutObserver.observe(groupEl.value, layoutAttributes)
+
+    const resizeObserver = new ResizeObserver(handleLayoutChange)
+    if (groupEl.value) resizeObserver.observe(groupEl.value)
+    groupEl.value?.addEventListener('transitionrun', handleTransitionRun)
+    groupEl.value?.addEventListener('transitionend', handleTransitionFinish)
+    groupEl.value?.addEventListener('transitioncancel', handleTransitionFinish)
+    window.addEventListener('resize', handleLayoutChange)
+    watch(notificationLocation, handleLayoutChange)
+    updateNotificationClearance()
+
     onBeforeUnmount(() => {
+        if (frame !== undefined) cancelAnimationFrame(frame)
         observer.disconnect()
+        layoutObserver.disconnect()
+        resizeObserver.disconnect()
+        groupEl.value?.removeEventListener('transitionrun', handleTransitionRun)
+        groupEl.value?.removeEventListener('transitionend', handleTransitionFinish)
+        groupEl.value?.removeEventListener('transitioncancel', handleTransitionFinish)
+        window.removeEventListener('resize', handleLayoutChange)
+        appliedClearance = undefined
+        document.documentElement.style.removeProperty('--notification-panel-clearance')
     })
 })
 

@@ -266,6 +266,15 @@ async function stopInstance(instance: GameInstance) {
     gap: 0.5rem;
 }
 
+.home-recent-worlds[data-size='2x1'] .home-recent-list,
+.home-recent-worlds[data-size='2x2'] .home-recent-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    column-gap: 0.5rem;
+    grid-auto-rows: max-content;
+}
+
 .home-widget-empty {
     display: flex;
     max-width: 20rem;

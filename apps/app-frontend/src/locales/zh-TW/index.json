@@ -7448,6 +7448,12 @@
   "app.skins.modal.edit-title": {
     "message": "編輯外觀"
   },
+  "app.skins.modal.export-texture-button": {
+    "message": "匯出材質"
+  },
+  "app.skins.modal.export-texture-failed": {
+    "message": "匯出外觀材質失敗（HTTP {status}）。"
+  },
   "app.skins.modal.make-edit-first-tooltip": {
     "message": "請先對外觀進行編輯！"
   },

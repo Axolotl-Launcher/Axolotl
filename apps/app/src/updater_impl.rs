@@ -294,11 +294,20 @@ fn select_portable_artifact(
     release: &VersionEntry,
     arch: &str,
 ) -> Result<UpdateArtifact> {
+    let suffix = match arch {
+        "x86_64" => "x64",
+        "aarch64" => "arm64",
+        _ => {
+            return Err(Error::Network(
+                "Unsupported portable update architecture".into(),
+            )
+            .into());
+        }
+    };
     let expected =
-        format!("Axolotl_Launcher_{}_x64_portable.zip", release.version);
+        format!("Axolotl_Launcher_{}_{suffix}_portable.zip", release.version);
     let mut matches = release.artifacts.iter().filter(|entry| {
-        arch == "x86_64"
-            && entry.kind == "portable"
+        entry.kind == "portable"
             && entry.variant.as_deref() == Some("portable")
             && entry.platform == "windows"
             && entry.architecture == arch
@@ -387,6 +396,7 @@ fn update_channel(channel: &str) -> Result<&str> {
 fn update_platform() -> Result<&'static str> {
     match (std::env::consts::OS, std::env::consts::ARCH) {
         ("windows", "x86_64") => Ok("windows-x86_64"),
+        ("windows", "aarch64") => Ok("windows-aarch64"),
         ("linux", "x86_64") => Ok("linux-x86_64"),
         ("linux", "aarch64") => Ok("linux-aarch64"),
         ("macos", "x86_64") => Ok("darwin-x86_64"),
@@ -1612,6 +1622,16 @@ mod tests {
             select_portable_artifact(&release(portable.clone()), "aarch64")
                 .is_err()
         );
+        let mut arm64 = portable.clone();
+        arm64["architecture"] = serde_json::json!("aarch64");
+        arm64["relative_path"] = serde_json::json!(
+            "dist/1.11.0/Axolotl_Launcher_1.11.0_arm64_portable.zip"
+        );
+        assert!(
+            select_portable_artifact(&release(arm64.clone()), "aarch64")
+                .is_ok()
+        );
+        assert!(select_portable_artifact(&release(arm64), "x86_64").is_err());
         for (key, value) in [
             ("kind", serde_json::json!("installer")),
             ("variant", serde_json::json!("modern")),

@@ -32,16 +32,16 @@ function describe(filename) {
         return { kind: 'updater', platform: targets[0], targetPlatforms: targets, variant: 'tauri' }
     }
     if (filename.endsWith('.sig')) return { kind: 'signature', platform: null, targetPlatforms: [] }
-    if (filename.endsWith('_x64_modern-setup.exe')) {
+    if (/_(?:x64|arm64)_modern-setup\.exe$/.test(filename)) {
         return { kind: 'installer', platform: 'windows', targetPlatforms: [], variant: 'modern' }
     }
-    if (filename.endsWith('_x64_nsis-setup.exe')) {
+    if (/_(?:x64|arm64)_nsis-setup\.exe$/.test(filename)) {
         return { kind: 'installer', platform: 'windows', targetPlatforms: [], variant: 'native' }
     }
-    if (filename.endsWith('_x64-setup.exe')) {
+    if (/_(?:x64|arm64)-setup\.exe$/.test(filename)) {
         return { kind: 'installer', platform: 'windows', targetPlatforms: [], variant: 'legacy' }
     }
-    if (filename.endsWith('_x64_portable.zip')) {
+    if (/_(?:x64|arm64)_portable\.zip$/.test(filename)) {
         return { kind: 'portable', platform: 'windows', targetPlatforms: [], variant: 'portable' }
     }
     if (filename.endsWith('.dmg')) {

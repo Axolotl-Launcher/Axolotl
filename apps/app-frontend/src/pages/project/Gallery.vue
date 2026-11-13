@@ -192,6 +192,7 @@ onUnmounted(() => {
                 @click="viewImage(entry)"
             >
                 <img
+                    referrerpolicy="no-referrer"
                     :src="entry.image.url"
                     :alt="imageAlt(entry)"
                     class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
@@ -250,6 +251,7 @@ onUnmounted(() => {
                 class="min-w-0 flex max-h-[calc(100vh-13rem)] w-full items-center justify-center overflow-auto p-4"
             >
                 <img
+                    referrerpolicy="no-referrer"
                     :src="viewerImageUrl"
                     :alt="imageAlt(selectedGalleryItem)"
                     :class="

@@ -13214,6 +13214,9 @@
   "app.translation-settings.provider.ai": {
     "message": "AI 模型"
   },
+  "app.translation-settings.provider.bili-index-translate": {
+    "message": "哔哩哔哩 Index 翻译"
+  },
   "app.translation-settings.provider.deepl": {
     "message": "DeepL 翻译"
   },

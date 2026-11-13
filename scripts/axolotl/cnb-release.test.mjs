@@ -15,6 +15,8 @@ test('CNB mirrors the configured GitHub repository and verifies the final tagged
         'Axolotl_amd64.AppImage.tar.gz',
         'Axolotl_x64-setup.nsis.zip',
         'Axolotl_Launcher_1.11.0-beta.1_x64_portable.zip',
+        'Axolotl_arm64-setup.nsis.zip',
+        'Axolotl_Launcher_1.11.0-beta.1_arm64_portable.zip',
     ]
     const platforms = Object.fromEntries(
         ['darwin-aarch64', 'darwin-x86_64', 'linux-aarch64', 'linux-x86_64', 'windows-x86_64'].map(
@@ -27,6 +29,10 @@ test('CNB mirrors the configured GitHub repository and verifies the final tagged
             ],
         ),
     )
+    platforms['windows-aarch64'] = {
+        signature: 'signature'.repeat(12),
+        url: `https://github.com/Example/Fork/releases/download/${tag}/${names[5]}`,
+    }
     const manifest = {
         version: tag.slice(1),
         platforms,
@@ -38,6 +44,14 @@ test('CNB mirrors the configured GitHub repository and verifies the final tagged
                 url: `https://github.com/Example/Fork/releases/download/${tag}/${names[4]}`,
             },
         },
+    }
+    manifest.artifacts['portable-arm64'] = {
+        platform: 'windows-aarch64',
+        name: names[6],
+        sha256: 'a'.repeat(64),
+        signature: 'signature'.repeat(12),
+        size: 4,
+        url: `https://github.com/Example/Fork/releases/download/${tag}/${names[6]}`,
     }
     const release = {
         id: 123,
@@ -110,6 +124,15 @@ test('CNB mirrors the configured GitHub repository and verifies the final tagged
         output.platforms['darwin-aarch64'].url,
         `https://cnb.cool/axlmc/Axolotl/-/releases/download/${tag}/${names[0]}`,
     )
+    assert.equal(
+        output.platforms['windows-aarch64'].url,
+        `https://cnb.cool/axlmc/Axolotl/-/releases/download/${tag}/${names[5]}`,
+    )
+    assert.equal(
+        output.artifacts['portable-arm64'].url,
+        `https://cnb.cool/axlmc/Axolotl/-/releases/download/${tag}/${names[6]}`,
+    )
+    delete output.artifacts['portable-arm64']
     assert.deepEqual(output.artifacts, {
         portable: {
             platform: 'windows-x86_64',

@@ -125,6 +125,10 @@ allow('runtime-set', [
         'apps/app-frontend/src/store/theme.ts setProperty `--home-widget-bg-opacity`',
     ],
     [
+        'home-widget-bg-alpha',
+        'apps/app-frontend/src/store/theme.ts setProperty `--home-widget-bg-alpha`',
+    ],
+    [
         'minecraft-text-color',
         'apps/app-frontend/src/pages/LabGradientText.vue :style `--minecraft-text-color`',
     ],

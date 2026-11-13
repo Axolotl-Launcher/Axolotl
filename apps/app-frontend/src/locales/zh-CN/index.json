@@ -1,4 +1,280 @@
 {
+  "app.appearance-settings.home-layout.minimal-hint": {
+    "message": "极简模式显示哪些内容，可在主页右下角的「自定义极简模式」里调整。"
+  },
+  "app.home.calendar.day-instances": {
+    "message": "{name} 等 {total} 个"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, other {# 天}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "最长一天"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "最长连续"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "最常玩"
+  },
+  "app.home.calendar.legend": {
+    "message": "每天的游玩时长，从少到多"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "少"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "多"
+  },
+  "app.home.calendar.month-empty": {
+    "message": "本月还没有游玩记录"
+  },
+  "app.home.calendar.month-empty-hint": {
+    "message": "每次游玩都会按天记在日历上。"
+  },
+  "app.home.calendar.month-hours-short": {
+    "message": "本月 {hours} 小时"
+  },
+  "app.home.calendar.stat-days": {
+    "message": "{count, plural, other {天有游玩}}"
+  },
+  "app.home.calendar.stat-hours": {
+    "message": "{count, plural, other {小时}}"
+  },
+  "app.home.calendar.this-week": {
+    "message": "本周"
+  },
+  "app.home.challenge.difficulty": {
+    "message": "难度：{level}"
+  },
+  "app.home.challenge.empty-hint": {
+    "message": "这一局就给自己定个小目标吧。"
+  },
+  "app.home.challenge.empty-title": {
+    "message": "今天没有挑战"
+  },
+  "app.home.challenge.number": {
+    "message": "第 {number} 号"
+  },
+  "app.home.insights.daily-average": {
+    "message": "日均 {duration}"
+  },
+  "app.home.insights.empty-title": {
+    "message": "还没有游玩记录"
+  },
+  "app.home.insights.error-title": {
+    "message": "游玩记录加载失败"
+  },
+  "app.home.insights.ghost-legend": {
+    "message": "虚线柱为上周"
+  },
+  "app.home.insights.last-week": {
+    "message": "上周 {duration}"
+  },
+  "app.home.insights.unit-hours": {
+    "message": "{count, plural, other {小时}}"
+  },
+  "app.home.insights.unit-minutes": {
+    "message": "{count, plural, other {分钟}}"
+  },
+  "app.home.insights.week-empty": {
+    "message": "本周还没玩"
+  },
+  "app.home.instances.pinned-empty-title": {
+    "message": "还没有固定的实例"
+  },
+  "app.home.launch.browse-modpacks": {
+    "message": "浏览整合包"
+  },
+  "app.home.launch.choose-hint": {
+    "message": "选一个主页要启动的实例，之后随时可以换。"
+  },
+  "app.home.launch.create-or-import": {
+    "message": "创建或导入实例"
+  },
+  "app.home.launch.fresh-hint": {
+    "message": "从零创建、从其他启动器导入，或者从一个整合包开始。"
+  },
+  "app.home.launch.quick-pick": {
+    "message": "快速选择"
+  },
+  "app.home.launch.recent-short": {
+    "message": "最近"
+  },
+  "app.home.launch.status-error": {
+    "message": "无法获取运行状态"
+  },
+  "app.home.minimal.arrangement": {
+    "message": "排列"
+  },
+  "app.home.minimal.arrangement.bar": {
+    "message": "横条"
+  },
+  "app.home.minimal.arrangement.row": {
+    "message": "左右"
+  },
+  "app.home.minimal.arrangement.stacked": {
+    "message": "上下居中"
+  },
+  "app.home.minimal.change-instance": {
+    "message": "更换主页实例"
+  },
+  "app.home.minimal.customize": {
+    "message": "自定义极简模式"
+  },
+  "app.home.minimal.customize.close": {
+    "message": "关闭"
+  },
+  "app.home.minimal.density": {
+    "message": "间距"
+  },
+  "app.home.minimal.density.comfortable": {
+    "message": "宽松"
+  },
+  "app.home.minimal.density.compact": {
+    "message": "紧凑"
+  },
+  "app.home.minimal.layout": {
+    "message": "布局"
+  },
+  "app.home.minimal.position": {
+    "message": "垂直位置"
+  },
+  "app.home.minimal.position.center": {
+    "message": "居中"
+  },
+  "app.home.minimal.position.upper": {
+    "message": "偏上"
+  },
+  "app.home.minimal.preset": {
+    "message": "样式"
+  },
+  "app.home.minimal.preset.classic": {
+    "message": "经典"
+  },
+  "app.home.minimal.preset.custom": {
+    "message": "自定义"
+  },
+  "app.home.minimal.preset.pure": {
+    "message": "纯净"
+  },
+  "app.home.minimal.preset.standard": {
+    "message": "标准"
+  },
+  "app.home.minimal.show": {
+    "message": "显示"
+  },
+  "app.home.minimal.show.date": {
+    "message": "日期"
+  },
+  "app.home.minimal.show.greeting": {
+    "message": "问候语"
+  },
+  "app.home.minimal.show.meta": {
+    "message": "信息标签"
+  },
+  "app.home.minimal.show.status": {
+    "message": "状态行"
+  },
+  "app.home.minimal.show.switch": {
+    "message": "「切换实例」按钮"
+  },
+  "app.home.minimal.surface": {
+    "message": "底板"
+  },
+  "app.home.minimal.surface.card": {
+    "message": "卡片"
+  },
+  "app.home.minimal.surface.plain": {
+    "message": "无"
+  },
+  "app.home.news.empty-title": {
+    "message": "暂时没有新闻"
+  },
+  "app.home.news.error-title": {
+    "message": "新闻加载失败"
+  },
+  "app.home.news.offline-title": {
+    "message": "联网后会显示新闻"
+  },
+  "app.home.news.open-site": {
+    "message": "打开 minecraft.net"
+  },
+  "app.home.recent.empty-hint": {
+    "message": "玩过的世界、服务器和实例会出现在这里。"
+  },
+  "app.home.recent.empty-title": {
+    "message": "还没有最近的项目"
+  },
+  "app.home.row.shortcut-created": {
+    "message": "已创建快捷方式"
+  },
+  "app.home.servers.empty-title": {
+    "message": "还没有固定的服务器"
+  },
+  "app.home.shortcut.missing-hint": {
+    "message": "它可能已被删除或移动。换一个目标，或移除这个小组件。"
+  },
+  "app.home.widgets.add-another": {
+    "message": "再添加一个"
+  },
+  "app.home.widgets.add-to-home": {
+    "message": "添加到主页"
+  },
+  "app.home.widgets.added-count": {
+    "message": "{count, plural, =1 {已添加} other {已添加 ×#}}"
+  },
+  "app.home.widgets.added-toast": {
+    "message": "已将「{name}」添加到主页"
+  },
+  "app.home.widgets.categories": {
+    "message": "小组件分类"
+  },
+  "app.home.widgets.category.activity": {
+    "message": "游玩数据"
+  },
+  "app.home.widgets.category.all": {
+    "message": "全部"
+  },
+  "app.home.widgets.category.collections": {
+    "message": "收藏内容"
+  },
+  "app.home.widgets.category.shortcuts": {
+    "message": "快捷方式"
+  },
+  "app.home.widgets.category.start": {
+    "message": "启动"
+  },
+  "app.home.widgets.choose-target": {
+    "message": "选择它要打开的内容"
+  },
+  "app.home.widgets.done-adding": {
+    "message": "完成"
+  },
+  "app.home.widgets.more": {
+    "message": "还有 {count} 个"
+  },
+  "app.home.widgets.more-label": {
+    "message": "查看放不下的 {count} 项"
+  },
+  "app.home.widgets.no-widgets": {
+    "message": "没有匹配的小组件"
+  },
+  "app.home.widgets.quick-add": {
+    "message": "添加「{name}」"
+  },
+  "app.home.widgets.search-widgets": {
+    "message": "搜索小组件"
+  },
+  "app.home.widgets.size-label": {
+    "message": "尺寸"
+  },
+  "app.home.widgets.undo": {
+    "message": "撤销"
+  },
+  "app.home.worlds.empty-title": {
+    "message": "还没有固定的世界"
+  },
   "app.minecraft-crash.scan-logs": {
     "message": "扫码查看日志"
   },
@@ -3941,6 +4217,9 @@
   "app.home.breadcrumb": {
     "message": "主页"
   },
+  "app.home.calendar.month-total": {
+    "message": "本月 {duration}"
+  },
   "app.home.calendar.next": {
     "message": "下个月"
   },
@@ -4124,6 +4403,9 @@
   "app.home.insights.this-week": {
     "message": "本周游玩 {duration}"
   },
+  "app.home.insights.this-week-label": {
+    "message": "本周"
+  },
   "app.home.insights.this-week-less": {
     "message": "本周游玩 {duration}（比上周少 {percent}%）"
   },
@@ -4136,6 +4418,9 @@
   "app.home.insights.title": {
     "message": "游玩洞察"
   },
+  "app.home.insights.vs-last-week": {
+    "message": "较上周"
+  },
   "app.home.insights.week-top": {
     "message": "本周常玩：{name}"
   },
@@ -4145,20 +4430,44 @@
   "app.home.instances.empty": {
     "message": "还没有实例"
   },
-  "app.home.instances.pin": {
-    "message": "固定到主页"
-  },
   "app.home.instances.pinned": {
     "message": "固定的实例"
   },
   "app.home.instances.pinned-empty": {
     "message": "在实例卡片菜单或实例库中选择「固定到主页」，实例就会显示在这里。"
   },
-  "app.home.instances.unpin": {
-    "message": "取消固定"
-  },
   "app.home.instances.view-all": {
     "message": "查看全部实例"
+  },
+  "app.home.launch.all-instances": {
+    "message": "全部实例"
+  },
+  "app.home.launch.continue": {
+    "message": "继续游玩"
+  },
+  "app.home.launch.home-instance": {
+    "message": "主页实例"
+  },
+  "app.home.launch.last-world": {
+    "message": "上次进入：{name}"
+  },
+  "app.home.launch.not-installed": {
+    "message": "未安装"
+  },
+  "app.home.launch.recent": {
+    "message": "最近游玩"
+  },
+  "app.home.launch.running": {
+    "message": "运行中"
+  },
+  "app.home.launch.switch": {
+    "message": "切换实例"
+  },
+  "app.home.launch.switch-to": {
+    "message": "切换到 {name}"
+  },
+  "app.home.launch.total-played": {
+    "message": "累计 {duration}"
   },
   "app.home.layout.switch-to-information": {
     "message": "切换到信息主页"
@@ -4168,9 +4477,6 @@
   },
   "app.home.layout.toggle": {
     "message": "极简主页"
-  },
-  "app.home.minimal.change-instance": {
-    "message": "更换主页实例"
   },
   "app.home.minimal.choose-instance": {
     "message": "选择实例"
@@ -4199,6 +4505,9 @@
   "app.home.playtime.hours-minutes": {
     "message": "{hours} 小时 {minutes} 分钟"
   },
+  "app.home.playtime.hours-short": {
+    "message": "{hours} 小时"
+  },
   "app.home.playtime.minutes": {
     "message": "{minutes} 分钟"
   },
@@ -4211,11 +4520,11 @@
   "app.home.playtime.sessions": {
     "message": "成功启动 {count} 次"
   },
-  "app.home.recent.empty": {
-    "message": "还没有最近活动。"
-  },
   "app.home.recent.title": {
     "message": "从最近的项目开始"
+  },
+  "app.home.servers.add": {
+    "message": "添加服务器"
   },
   "app.home.servers.change-local-server": {
     "message": "更改关联的本地服务器"
@@ -4271,9 +4580,6 @@
   "app.home.servers.unlinked-toast": {
     "message": "已取消关联本地服务器"
   },
-  "app.home.servers.unpin": {
-    "message": "取消固定"
-  },
   "app.home.shortcut.kind.instance": {
     "message": "实例"
   },
@@ -4288,6 +4594,12 @@
   },
   "app.home.shortcut.server.players-online": {
     "message": "{count} 人在线"
+  },
+  "app.home.widgets.launch": {
+    "message": "启动"
+  },
+  "app.home.widgets.launch-description": {
+    "message": "一键启动主页实例，或切换到其他实例。"
   },
   "app.home.widgets.size": {
     "message": "尺寸 {size}"
@@ -4336,15 +4648,6 @@
   },
   "app.home.widgets.greeting-description": {
     "message": "随一天中的时间变化的个性化欢迎语。"
-  },
-  "app.home.widgets.group.collections": {
-    "message": "收藏内容集合"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "概览"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "单项快捷入口"
   },
   "app.home.widgets.instance": {
     "message": "单个实例入口"
@@ -4429,6 +4732,9 @@
   },
   "app.home.widgets.world-description": {
     "message": "选择一个世界，创建独立的快速游玩入口。"
+  },
+  "app.home.worlds.browse": {
+    "message": "打开世界列表"
   },
   "app.home.worlds.empty": {
     "message": "将世界标记为收藏后，就会固定在这里。"
@@ -15669,7 +15975,7 @@
     "message": "复制地址"
   },
   "instance.worlds.create_shortcut": {
-    "message": "创建快照"
+    "message": "创建快捷方式"
   },
   "instance.worlds.game_already_open": {
     "message": "实例已启动"

@@ -1,4 +1,280 @@
 {
+  "app.appearance-settings.home-layout.minimal-hint": {
+    "message": "What Minimal Home shows is set from \"Customize Minimal Home\" in the corner of the Home page."
+  },
+  "app.home.calendar.day-instances": {
+    "message": "{name} · {total} instances"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, one {# day} other {# days}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "Longest day"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "Longest run"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "Most played"
+  },
+  "app.home.calendar.legend": {
+    "message": "Daily playtime, from less to more"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "Less"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "More"
+  },
+  "app.home.calendar.month-empty": {
+    "message": "No playtime this month"
+  },
+  "app.home.calendar.month-empty-hint": {
+    "message": "Each day you play gets marked on the calendar."
+  },
+  "app.home.calendar.month-hours-short": {
+    "message": "{hours}h this month"
+  },
+  "app.home.calendar.stat-days": {
+    "message": "{count, plural, one {day played} other {days played}}"
+  },
+  "app.home.calendar.stat-hours": {
+    "message": "{count, plural, one {hour} other {hours}}"
+  },
+  "app.home.calendar.this-week": {
+    "message": "This week"
+  },
+  "app.home.challenge.difficulty": {
+    "message": "Difficulty: {level}"
+  },
+  "app.home.challenge.empty-hint": {
+    "message": "Pick your own goal for this session."
+  },
+  "app.home.challenge.empty-title": {
+    "message": "No challenge today"
+  },
+  "app.home.challenge.number": {
+    "message": "No. {number}"
+  },
+  "app.home.insights.daily-average": {
+    "message": "Avg {duration}"
+  },
+  "app.home.insights.empty-title": {
+    "message": "No playtime yet"
+  },
+  "app.home.insights.error-title": {
+    "message": "Couldn't load your playtime"
+  },
+  "app.home.insights.ghost-legend": {
+    "message": "Faded bars are last week"
+  },
+  "app.home.insights.last-week": {
+    "message": "Last week: {duration}"
+  },
+  "app.home.insights.unit-hours": {
+    "message": "{count, plural, one {hour} other {hours}}"
+  },
+  "app.home.insights.unit-minutes": {
+    "message": "{count, plural, one {minute} other {minutes}}"
+  },
+  "app.home.insights.week-empty": {
+    "message": "Nothing played yet"
+  },
+  "app.home.instances.pinned-empty-title": {
+    "message": "No pinned instances"
+  },
+  "app.home.launch.browse-modpacks": {
+    "message": "Browse modpacks"
+  },
+  "app.home.launch.choose-hint": {
+    "message": "Pick the instance Home starts. You can change it any time."
+  },
+  "app.home.launch.create-or-import": {
+    "message": "Create or import"
+  },
+  "app.home.launch.fresh-hint": {
+    "message": "Create one from scratch, import one from another launcher, or start from a modpack."
+  },
+  "app.home.launch.quick-pick": {
+    "message": "Quick pick"
+  },
+  "app.home.launch.recent-short": {
+    "message": "Recent"
+  },
+  "app.home.launch.status-error": {
+    "message": "Couldn't check whether it is running"
+  },
+  "app.home.minimal.arrangement": {
+    "message": "Arrangement"
+  },
+  "app.home.minimal.arrangement.bar": {
+    "message": "Strip"
+  },
+  "app.home.minimal.arrangement.row": {
+    "message": "Side by side"
+  },
+  "app.home.minimal.arrangement.stacked": {
+    "message": "Stacked"
+  },
+  "app.home.minimal.change-instance": {
+    "message": "Change Home instance"
+  },
+  "app.home.minimal.customize": {
+    "message": "Customize Minimal Home"
+  },
+  "app.home.minimal.customize.close": {
+    "message": "Close"
+  },
+  "app.home.minimal.density": {
+    "message": "Spacing"
+  },
+  "app.home.minimal.density.comfortable": {
+    "message": "Roomy"
+  },
+  "app.home.minimal.density.compact": {
+    "message": "Compact"
+  },
+  "app.home.minimal.layout": {
+    "message": "Layout"
+  },
+  "app.home.minimal.position": {
+    "message": "Vertical position"
+  },
+  "app.home.minimal.position.center": {
+    "message": "Centered"
+  },
+  "app.home.minimal.position.upper": {
+    "message": "Slightly up"
+  },
+  "app.home.minimal.preset": {
+    "message": "Style"
+  },
+  "app.home.minimal.preset.classic": {
+    "message": "Classic"
+  },
+  "app.home.minimal.preset.custom": {
+    "message": "Custom"
+  },
+  "app.home.minimal.preset.pure": {
+    "message": "Pure"
+  },
+  "app.home.minimal.preset.standard": {
+    "message": "Standard"
+  },
+  "app.home.minimal.show": {
+    "message": "Show"
+  },
+  "app.home.minimal.show.date": {
+    "message": "Date"
+  },
+  "app.home.minimal.show.greeting": {
+    "message": "Greeting"
+  },
+  "app.home.minimal.show.meta": {
+    "message": "Info tags"
+  },
+  "app.home.minimal.show.status": {
+    "message": "Status line"
+  },
+  "app.home.minimal.show.switch": {
+    "message": "Switch instance button"
+  },
+  "app.home.minimal.surface": {
+    "message": "Background"
+  },
+  "app.home.minimal.surface.card": {
+    "message": "Card"
+  },
+  "app.home.minimal.surface.plain": {
+    "message": "None"
+  },
+  "app.home.news.empty-title": {
+    "message": "No news right now"
+  },
+  "app.home.news.error-title": {
+    "message": "Couldn't load the news"
+  },
+  "app.home.news.offline-title": {
+    "message": "News shows up when you are online"
+  },
+  "app.home.news.open-site": {
+    "message": "Open minecraft.net"
+  },
+  "app.home.recent.empty-hint": {
+    "message": "Worlds, servers and instances you play show up here."
+  },
+  "app.home.recent.empty-title": {
+    "message": "No recent activity yet"
+  },
+  "app.home.row.shortcut-created": {
+    "message": "Shortcut created"
+  },
+  "app.home.servers.empty-title": {
+    "message": "No pinned servers"
+  },
+  "app.home.shortcut.missing-hint": {
+    "message": "It was deleted or moved. Pick another one or remove this widget."
+  },
+  "app.home.widgets.add-another": {
+    "message": "Add another"
+  },
+  "app.home.widgets.add-to-home": {
+    "message": "Add to Home"
+  },
+  "app.home.widgets.added-count": {
+    "message": "{count, plural, =1 {Added} other {Added ×#}}"
+  },
+  "app.home.widgets.added-toast": {
+    "message": "Added {name} to your Home"
+  },
+  "app.home.widgets.categories": {
+    "message": "Widget categories"
+  },
+  "app.home.widgets.category.activity": {
+    "message": "Play data"
+  },
+  "app.home.widgets.category.all": {
+    "message": "All"
+  },
+  "app.home.widgets.category.collections": {
+    "message": "Collections"
+  },
+  "app.home.widgets.category.shortcuts": {
+    "message": "Shortcuts"
+  },
+  "app.home.widgets.category.start": {
+    "message": "Start playing"
+  },
+  "app.home.widgets.choose-target": {
+    "message": "Pick what it opens"
+  },
+  "app.home.widgets.done-adding": {
+    "message": "Done"
+  },
+  "app.home.widgets.more": {
+    "message": "{count} more"
+  },
+  "app.home.widgets.more-label": {
+    "message": "Show the {count} items that do not fit"
+  },
+  "app.home.widgets.no-widgets": {
+    "message": "No widgets match"
+  },
+  "app.home.widgets.quick-add": {
+    "message": "Add {name}"
+  },
+  "app.home.widgets.search-widgets": {
+    "message": "Search widgets"
+  },
+  "app.home.widgets.size-label": {
+    "message": "Size"
+  },
+  "app.home.widgets.undo": {
+    "message": "Undo"
+  },
+  "app.home.worlds.empty-title": {
+    "message": "No pinned worlds"
+  },
   "app.minecraft-crash.scan-logs": {
     "message": "Scan to view logs"
   },
@@ -2741,6 +3017,9 @@
   "app.home.breadcrumb": {
     "message": "Home"
   },
+  "app.home.calendar.month-total": {
+    "message": "{duration} this month"
+  },
   "app.home.calendar.next": {
     "message": "Next month"
   },
@@ -2924,6 +3203,9 @@
   "app.home.insights.this-week": {
     "message": "This week: {duration}"
   },
+  "app.home.insights.this-week-label": {
+    "message": "This week"
+  },
   "app.home.insights.this-week-less": {
     "message": "This week: {duration} ({percent}% less than last week)"
   },
@@ -2936,6 +3218,9 @@
   "app.home.insights.title": {
     "message": "Play insights"
   },
+  "app.home.insights.vs-last-week": {
+    "message": "vs last week"
+  },
   "app.home.insights.week-top": {
     "message": "Most played: {name}"
   },
@@ -2945,20 +3230,44 @@
   "app.home.instances.empty": {
     "message": "No instances yet"
   },
-  "app.home.instances.pin": {
-    "message": "Pin to Home"
-  },
   "app.home.instances.pinned": {
     "message": "Pinned instances"
   },
   "app.home.instances.pinned-empty": {
     "message": "Pin an instance from its card menu or the library to keep it here."
   },
-  "app.home.instances.unpin": {
-    "message": "Unpin from Home"
-  },
   "app.home.instances.view-all": {
     "message": "View all instances"
+  },
+  "app.home.launch.all-instances": {
+    "message": "All instances"
+  },
+  "app.home.launch.continue": {
+    "message": "Continue playing"
+  },
+  "app.home.launch.home-instance": {
+    "message": "Home instance"
+  },
+  "app.home.launch.last-world": {
+    "message": "Last in {name}"
+  },
+  "app.home.launch.not-installed": {
+    "message": "Not installed"
+  },
+  "app.home.launch.recent": {
+    "message": "Recently played"
+  },
+  "app.home.launch.running": {
+    "message": "Running"
+  },
+  "app.home.launch.switch": {
+    "message": "Switch instance"
+  },
+  "app.home.launch.switch-to": {
+    "message": "Switch to {name}"
+  },
+  "app.home.launch.total-played": {
+    "message": "{duration} in total"
   },
   "app.home.layout.switch-to-information": {
     "message": "Switch to Information Home"
@@ -2968,9 +3277,6 @@
   },
   "app.home.layout.toggle": {
     "message": "Minimal Home"
-  },
-  "app.home.minimal.change-instance": {
-    "message": "Change Home instance"
   },
   "app.home.minimal.choose-instance": {
     "message": "Choose instance"
@@ -2999,6 +3305,9 @@
   "app.home.playtime.hours-minutes": {
     "message": "{hours}h {minutes}m"
   },
+  "app.home.playtime.hours-short": {
+    "message": "{hours}h"
+  },
   "app.home.playtime.minutes": {
     "message": "{minutes}m"
   },
@@ -3011,11 +3320,11 @@
   "app.home.playtime.sessions": {
     "message": "{count, plural, one {# successful launch} other {# successful launches}}"
   },
-  "app.home.recent.empty": {
-    "message": "No recent activity yet."
-  },
   "app.home.recent.title": {
     "message": "Start from your recent projects"
+  },
+  "app.home.servers.add": {
+    "message": "Add a server"
   },
   "app.home.servers.change-local-server": {
     "message": "Change linked local server"
@@ -3070,9 +3379,6 @@
   },
   "app.home.servers.unlinked-toast": {
     "message": "Unlinked the local server"
-  },
-  "app.home.servers.unpin": {
-    "message": "Unpin from Home"
   },
   "app.home.shortcut.kind.instance": {
     "message": "Instance"
@@ -3131,20 +3437,17 @@
   "app.home.widgets.greeting-description": {
     "message": "A personal welcome that changes throughout the day."
   },
-  "app.home.widgets.group.collections": {
-    "message": "Pinned collections"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "Overview"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "Single-item shortcuts"
-  },
   "app.home.widgets.instance": {
     "message": "Single instance"
   },
   "app.home.widgets.instance-description": {
     "message": "Choose one instance for a dedicated launch shortcut."
+  },
+  "app.home.widgets.launch": {
+    "message": "Launch"
+  },
+  "app.home.widgets.launch-description": {
+    "message": "Start your Home instance, or switch to another one."
   },
   "app.home.widgets.layout.switch-to-free": {
     "message": "Switch to free widget layout"
@@ -3229,6 +3532,9 @@
   },
   "app.home.widgets.world-description": {
     "message": "Choose one world for a dedicated play shortcut."
+  },
+  "app.home.worlds.browse": {
+    "message": "Open worlds"
   },
   "app.home.worlds.empty": {
     "message": "Favorite a world and it will be pinned here."

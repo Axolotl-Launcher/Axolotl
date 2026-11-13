@@ -9,31 +9,60 @@ import HomePinnedInstances from './HomePinnedInstances.vue'
 vi.mock('@/components/home/home-dashboard-runtime', () => ({
     useHomeDashboardRuntime: () => ({ runningInstanceIds: ref([]) }),
 }))
-vi.mock('@/components/home/HomeInstanceCard.vue', () => ({
-    default: defineComponent({
-        props: ['instance', 'showGameDirectory'],
-        setup: (props) => () =>
-            h('div', {
-                'data-home-instance-card': props.instance.id,
-                'data-show-game-directory': String(props.showGameDirectory),
-            }),
-    }),
+vi.mock('@/components/ui/InstanceIcon.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/helpers/instance', () => ({ set_pinned: vi.fn(), run: vi.fn(), kill: vi.fn() }))
+vi.mock('@/helpers/analytics', () => ({ trackEvent: vi.fn() }))
+vi.mock('@/helpers/utils', () => ({
+    copyToClipboard: vi.fn(),
+    createInstanceShortcut: vi.fn(),
+    showInstanceInFolder: vi.fn(),
 }))
-vi.mock('@/helpers/instance', () => ({ set_pinned: vi.fn() }))
-vi.mock('@modrinth/ui', () => ({
-    ButtonLink: defineComponent({
-        props: ['as', 'to', 'type', 'size'],
+vi.mock('@/helpers/worlds', () => ({
+    getWorldIdentifier: vi.fn(),
+    set_world_display_status: vi.fn(),
+    showWorldInFolder: vi.fn(),
+}))
+vi.mock('@/store/error', () => ({ handleSevereError: vi.fn() }))
+vi.mock('@/composables/useMinecraftLaunchError', () => ({ useMinecraftLaunchError: () => vi.fn() }))
+vi.mock('@modrinth/ui', () => {
+    const passthrough = defineComponent({
         setup:
             (_, { slots }) =>
             () =>
                 h('div', slots.default?.()),
-    }),
-    defineMessages: (messages: unknown) => messages,
-    injectNotificationManager: () => ({ handleError: vi.fn() }),
-    useVIntl: () => ({
-        formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
-    }),
-}))
+    })
+    return {
+        Avatar: passthrough,
+        ButtonLink: passthrough,
+        OverflowMenu: passthrough,
+        PopoutMenu: passthrough,
+        commonMessages: {
+            playButton: { defaultMessage: 'Play' },
+            stopButton: { defaultMessage: 'Stop' },
+            openFolderButton: { defaultMessage: 'Open folder' },
+            refreshButton: { defaultMessage: 'Refresh' },
+        },
+        defineMessages: (messages: unknown) => messages,
+        formatLoaderLabel: (loader: string) => loader,
+        injectNotificationManager: () => ({ handleError: vi.fn() }),
+        useRelativeTime: () => () => 'now',
+        useVIntl: () => ({
+            formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+        }),
+    }
+})
+
+const global = {
+    directives: { tooltip: () => {} },
+    stubs: {
+        RouterLink: defineComponent({
+            setup:
+                (_, { slots }) =>
+                () =>
+                    h('a', slots.default?.()),
+        }),
+    },
+}
 
 function instance(id: string, gameDirOverride?: string): GameInstance {
     return {
@@ -52,24 +81,21 @@ it('uses the full pinned instance collection for the game-directory badge thresh
                 instance('external', String.raw`D:\Minecraft\.minecraft`),
             ],
         },
+        global,
     })
     const singleDirectory = mount(HomePinnedInstances, {
         props: {
             instances: [instance('managed-a'), instance('managed-b')],
         },
+        global,
     })
 
     try {
-        expect(
-            multiDirectory
-                .findAll('[data-home-instance-card]')
-                .every((card) => card.attributes('data-show-game-directory') === 'true'),
-        ).toBe(true)
-        expect(
-            singleDirectory
-                .findAll('[data-home-instance-card]')
-                .every((card) => card.attributes('data-show-game-directory') === 'false'),
-        ).toBe(true)
+        // Every row names its game directory once the pinned set spans two of them.
+        expect(multiDirectory.findAll('.home-item-row')).toHaveLength(2)
+        expect(multiDirectory.findAll('[data-game-directory-badge]')).toHaveLength(2)
+        expect(singleDirectory.findAll('.home-item-row')).toHaveLength(2)
+        expect(singleDirectory.find('[data-game-directory-badge]').exists()).toBe(false)
     } finally {
         multiDirectory.unmount()
         singleDirectory.unmount()

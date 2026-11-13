@@ -170,9 +170,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "Přidání obsahu může narušit kompatibilitu při připojení k serveru. Veškerý přidaný obsah se navíc ztratí při aktualizaci obsahu instance serveru."
   },
-  "app.browse.server.installing": {
-    "message": "Instalování"
-  },
   "app.content-install.no-compatible-versions": {
     "message": "Žádné dostupné verze se neshodují s {compatibilityLabel}. Vyberte verzi, kterou chcete přesto nainstalovat. Závislosti nebudou nainstalovány automaticky."
   },
@@ -541,69 +538,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} online"
-  },
-  "friends.action.add-friend": {
-    "message": "Přidat přítele"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} {count, plural, one {žádost} few {žádosti} other {žádostí}} o přátelství"
-  },
-  "friends.add-friend.submit": {
-    "message": "Poslat žádost o přátelství"
-  },
-  "friends.add-friend.title": {
-    "message": "Přidání přítele"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Může se lišit od jejich Minecraft přezdívky!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Zadej přezdívku na Modrinthu..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Jaká je přezdívka tvého přítele na Modrinthu?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Přidej si přátele</link>, abys viděl, co hrají!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Zrušit žádost"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Odebrat přítele"
-  },
-  "friends.friend.request-sent": {
-    "message": "Žádost o přátelství odeslána"
-  },
-  "friends.friend.view-profile": {
-    "message": "Zobrazit profil"
-  },
-  "friends.heading": {
-    "message": "Přátelé"
-  },
-  "friends.heading.active": {
-    "message": "Aktivní"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "Čeká na vyřízení"
-  },
-  "friends.no-friends-match": {
-    "message": "Žádní přátelé neodpovídají ''{query}''"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Hledat přátele..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Přihlas se k Modrinth účtu</link>, abys mohl přidávat přátele a vidět, co hrají!"
   },
   "instance.add-server.add-and-play": {
     "message": "Přidat a hrát"

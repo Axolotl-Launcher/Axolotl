@@ -206,7 +206,7 @@ impl TagRegistry {
     /// Live tags per level, for the read-only scheduler view.
     pub fn live_by_level(&self) -> std::collections::BTreeMap<Level, usize> {
         let mut counts = std::collections::BTreeMap::new();
-        for record in self.live.iter() {
+        for record in &self.live {
             *counts.entry(record.level).or_default() += 1;
         }
         counts

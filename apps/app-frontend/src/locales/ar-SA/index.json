@@ -104,9 +104,6 @@
   "app.browse.hide-added-servers": {
     "message": "إخفاء الخوادم المضافة مسبقًا"
   },
-  "app.browse.server.installing": {
-    "message": "جاري التثبيت"
-  },
   "app.export-modal.export-button": {
     "message": "تصدير"
   },
@@ -307,69 +304,6 @@
   },
   "app.world.world-item.players-online": {
     "message": "{count} متصل حاليا"
-  },
-  "friends.action.add-friend": {
-    "message": "إضافة صديق"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} {count, plural, one {طلب صداقة} other {طلبات صداقة}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "إرسال طلب صداقة"
-  },
-  "friends.add-friend.title": {
-    "message": "جار إضافة صديق"
-  },
-  "friends.add-friend.username.description": {
-    "message": "قد يختلف عن اسم المستخدم الخاص بهم في ماينكرافت!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "أدخل اسم مستخدم Modrinth..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "ما اسم مستخدم صديقك في Modrinth؟"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>أضف أصدقاء</link> لمعرفة ما الذي يلعبونه!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "إلغاء الطلب"
-  },
-  "friends.friend.remove-friend": {
-    "message": "إزالة صديق"
-  },
-  "friends.friend.request-sent": {
-    "message": "إرسال طلب الصداقة"
-  },
-  "friends.friend.view-profile": {
-    "message": "عرض الملف الشخصي"
-  },
-  "friends.heading": {
-    "message": "أصدقاء"
-  },
-  "friends.heading.active": {
-    "message": "نشط"
-  },
-  "friends.heading.offline": {
-    "message": "غير متصل"
-  },
-  "friends.heading.online": {
-    "message": "متصل"
-  },
-  "friends.heading.pending": {
-    "message": "قيد الانتظار"
-  },
-  "friends.no-friends-match": {
-    "message": "لا يوجد أصدقاء يطابقون ‎''{query}''‎"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "ابحث عن الأصدقاء..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>سجّل الدخول إلى حساب Modrinth</link> لإضافة الأصدقاء ومعرفة ما الذي يلعبونه!"
   },
   "instance.add-server.add-and-play": {
     "message": "إضافة واللعب"

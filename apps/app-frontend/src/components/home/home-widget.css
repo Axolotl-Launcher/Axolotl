@@ -1,0 +1,351 @@
+/*
+ * The one place Home widget surfaces are defined.
+ *
+ * Every widget, the launch card and the edit chrome paint from the tokens
+ * below, and the tokens only read settings-driven inputs:
+ *
+ *   --home-widget-bg-opacity / --home-widget-bg-alpha
+ *       "Home widget background opacity" (theme store, on <html>).
+ *   --surface-card
+ *       the card surface of the active palette; in the transparent-window and
+ *       custom-background palettes it already follows the window / component
+ *       opacity, so the widget setting compounds with those (global.scss).
+ *   html.has-custom-background
+ *       a background image is shown, so a translucent widget frosts it.
+ *   --color-brand, --color-divider, --color-text-*
+ *       the theme and accent colour.
+ *
+ * The tokens are declared on the element that uses them, not on :root, so
+ * `var()` resolves against the palette that element inherits (see the
+ * opacity notes in global.scss).
+ */
+
+.home-surface,
+.home-surface-bare {
+    /* 0% fully transparent, 100% the palette's card surface. */
+    --home-widget-alpha: var(--home-widget-bg-opacity, 100%);
+    --home-widget-fill: color-mix(
+        in srgb,
+        var(--surface-card) var(--home-widget-alpha),
+        transparent
+    );
+    /*
+     * The edge never disappears with the fill: a hairline keeps a transparent
+     * widget readable as a card. It is a little stronger when the fill is low.
+     */
+    --home-widget-edge-mix: calc(70% - var(--home-widget-bg-alpha, 1) * 25%);
+    --home-widget-edge: color-mix(
+        in srgb,
+        var(--color-divider) var(--home-widget-edge-mix),
+        transparent
+    );
+    /* Tints derive from the text colour, so they read on any fill or image. */
+    --home-widget-tint: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+    --home-widget-tint-strong: color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+    --home-widget-accent-tint: color-mix(in srgb, var(--color-brand) 14%, transparent);
+    --home-widget-shadow-mix: calc(var(--home-widget-bg-alpha, 1) * 14%);
+    --home-widget-shadow: 0 1px 3px
+        color-mix(in srgb, var(--surface-1-opaque) var(--home-widget-shadow-mix), transparent);
+    --home-widget-wash-mix: calc(var(--home-widget-bg-alpha, 1) * 14% + 6%);
+    --home-widget-wash: color-mix(
+        in srgb,
+        var(--color-brand) var(--home-widget-wash-mix),
+        transparent
+    );
+    --home-widget-radius: var(--radius-lg);
+    --home-widget-blur: 0px;
+}
+
+/*
+ * Small status words (running, online, offline, difficulty) in the darker
+ * shade of their colour on light themes, so a 12px line keeps 4.5:1 on a
+ * light card and on the tinted light sidebar. Dots, bars and fills keep the
+ * plain colour.
+ */
+:root {
+    --home-status-green-text: var(--color-green);
+    --home-status-orange-text: var(--color-orange);
+    --home-status-red-text: var(--color-red);
+}
+
+:root:is(.light-mode, .light) {
+    /* Deep enough for the tinted light sidebar too, not only the #f8f8f8 card. */
+    --home-status-green-text: var(--color-green-900);
+    --home-status-orange-text: var(--color-orange-800);
+    --home-status-red-text: var(--color-red-800);
+}
+
+/*
+ * Shared rows and tiles inside a widget (instances, worlds, their hover states)
+ * paint the `bg-surface-*` layers. Inside a widget those layers become tints of its
+ * fill, so they follow the widget opacity instead of punching opaque blocks
+ * into a translucent card. Menus and tooltips teleport out, so they keep the
+ * real surfaces.
+ */
+.home-surface {
+    --surface-2: var(--home-widget-tint);
+    --surface-3: var(--home-widget-tint);
+    --surface-4: var(--home-widget-tint-strong);
+}
+
+/* Over a background image, the less opaque a widget is the more it frosts. */
+/* "Advanced rendering" off means no blur anywhere, Home included. */
+.disable-advanced-rendering .home-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+html.has-custom-background .home-surface {
+    --home-widget-blur: calc((1 - var(--home-widget-bg-alpha, 1)) * 10px + 2px);
+    /* As the fill fades, a halo in the page colour takes over keeping text readable. */
+    --home-widget-halo-mix: calc((1 - var(--home-widget-bg-alpha, 1)) * 85%);
+    --home-widget-halo: color-mix(
+        in srgb,
+        var(--surface-1-opaque) var(--home-widget-halo-mix),
+        transparent
+    );
+    text-shadow:
+        0 0 1px var(--home-widget-halo),
+        0 1px 4px var(--home-widget-halo);
+}
+
+.home-surface {
+    box-sizing: border-box;
+    border: 1px solid var(--home-widget-edge);
+    border-radius: var(--home-widget-radius);
+    background: var(--home-widget-fill);
+    box-shadow: var(--home-widget-shadow);
+    -webkit-backdrop-filter: blur(var(--home-widget-blur));
+    backdrop-filter: blur(var(--home-widget-blur));
+}
+
+/*
+ * The launch card: the same surface, with an accent wash that keeps the
+ * selected instance the first thing the eye lands on. The wash is a share of
+ * the fill, so at 0% it fades out with it.
+ */
+.home-surface.home-surface-hero {
+    background:
+        radial-gradient(120% 140% at 0% 0%, var(--home-widget-wash), transparent 62%),
+        var(--home-widget-fill);
+}
+
+/* A row inside a widget: list items, day details, news entries. */
+.home-row {
+    border-radius: var(--radius-md);
+    transition: background-color 120ms ease;
+}
+
+.home-row:hover,
+.home-row:focus-within {
+    background: var(--home-widget-tint);
+}
+
+.home-row:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-brand-shadow);
+}
+
+/* A neutral chip: loader/version, counts, labels. */
+.home-chip {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-max);
+    background: var(--home-widget-tint);
+    color: var(--color-text-default);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    white-space: nowrap;
+}
+
+.home-chip > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex: none;
+}
+
+.home-skeleton {
+    border-radius: var(--radius-sm);
+    background: var(--home-widget-tint-strong);
+    animation: home-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes home-skeleton-pulse {
+    50% {
+        opacity: 0.45;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-skeleton {
+        animation: none;
+    }
+
+    .home-row {
+        transition: none;
+    }
+}
+
+/*
+ * A section of the Home sidebar (HomeWidgetFrame's `sidebar` variant): drawn
+ * like the sidebar's other sections, full width with a divider under it, on
+ * the sidebar's own background. The Home widget opacity does not apply here.
+ */
+.home-sidebar-section {
+    padding: 1rem;
+    border-bottom: 1px solid var(--brand-gradient-border);
+}
+
+/*
+ * Text that sits on the page itself (the minimal greeting and labels) has no
+ * fill behind it. Over a background image it gets a halo in the page colour,
+ * so it stays readable in both themes whatever the image is.
+ */
+html.has-custom-background .home-legible {
+    text-shadow:
+        0 0 2px var(--surface-1-opaque),
+        0 0 8px var(--surface-1-opaque),
+        0 0 16px var(--surface-1-opaque);
+}
+
+/*
+ * A list of rows in a collection widget; wide widgets flow it into columns.
+ * `auto-fit` folds the unused columns away, so a single row spans the card
+ * and its play button sits at the card's edge rather than in the middle.
+ */
+.home-pinned-list {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    align-content: start;
+    gap: 0.125rem 0.5rem;
+    /* Only whole rows show (HomeFitList); the rest open from the "+N" button. */
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.home-pinned-list > [data-fit-hidden] {
+    visibility: hidden;
+}
+
+/* "+N" beside a widget's count: the items that did not fit. */
+.home-fit-more {
+    display: inline-flex;
+    height: 1.25rem;
+    flex: none;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0 0.375rem 0 0.5rem;
+    border: 0;
+    border-radius: var(--radius-max);
+    background: var(--home-widget-accent-tint);
+    color: var(--color-brand);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background-color 120ms ease,
+        color 120ms ease;
+}
+
+.home-fit-more > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.home-fit-more:hover,
+.home-fit-more:focus-visible,
+.home-fit-more[data-state='open'] {
+    background: var(--color-brand);
+    color: var(--color-accent-contrast);
+    outline: none;
+}
+
+.home-fit-more:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-brand-shadow);
+}
+
+.home-fit-more-short {
+    display: none;
+}
+
+/* Narrow widgets say "+2" rather than "2 more". */
+@container (max-width: 17rem) {
+    .home-fit-more-long {
+        display: none;
+    }
+
+    .home-fit-more-short {
+        display: inline;
+    }
+}
+
+.home-fit-more-list {
+    display: flex;
+    width: min(20rem, calc(100vw - 2rem));
+    max-height: min(22rem, calc(100vh - 6rem));
+    flex-direction: column;
+    gap: 0.125rem;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.25rem;
+    list-style: none;
+    --surface-2: var(--home-widget-tint);
+    --surface-3: var(--home-widget-tint);
+    --surface-4: var(--home-widget-tint-strong);
+}
+
+/* Wide, one-row widgets: the items as cards side by side. */
+.home-pinned-list[data-variant='card'] {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+    gap: 0.375rem 0.5rem;
+}
+
+/* Wide and tall widgets: a grid of tiles with the icon as the cover. */
+.home-pinned-list[data-variant='tile'] {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 8.75rem), 1fr));
+    grid-auto-rows: min-content;
+    gap: 0.5rem;
+}
+
+/* The "more" button beside a row's play button. */
+.home-row-menu {
+    display: inline-flex;
+    width: 1.75rem;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-max);
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    transition:
+        background-color 120ms ease,
+        color 120ms ease;
+}
+
+.home-row-menu:hover,
+.home-row-menu:focus-visible {
+    background: var(--home-widget-tint-strong);
+    color: var(--color-text-primary);
+}
+
+.home-row-menu > svg {
+    width: 1rem;
+    height: 1rem;
+}

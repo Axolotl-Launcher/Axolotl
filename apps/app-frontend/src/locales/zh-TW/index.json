@@ -1,4 +1,31 @@
 {
+  "app.network.offline.title": {
+    "message": "無法連線"
+  },
+  "app.network.offline.description": {
+    "message": "請檢查你的網路狀況，例如：Wi-Fi 是否開啟、網路線是否接好、飛航模式開關狀態或代理軟體設定。"
+  },
+  "app.network.offline.settings": {
+    "message": "網路連線設定"
+  },
+  "app.network.offline.settings-failed": {
+    "message": "無法開啟網路設定，請從系統設定中開啟。"
+  },
+  "app.network.offline.retry": {
+    "message": "重試"
+  },
+  "app.network.offline.disconnected": {
+    "message": "已中斷連線"
+  },
+  "app.settings.developer.simulate-offline": {
+    "message": "模擬斷線"
+  },
+  "app.settings.developer.simulate-offline-description": {
+    "message": "在目前工作階段顯示斷線頁面和連線狀態提示，關閉後恢復正常網路狀態。"
+  },
+  "app.appearance-settings.home-layout.minimal-hint": {
+    "message": "極簡模式顯示哪些內容，可在首頁右下角的「自訂極簡模式」裡調整。"
+  },
   "app.downloads.slow-downloads.title": {
     "message": "下載緩慢？"
   },
@@ -7,6 +34,279 @@
   },
   "app.downloads.slow-downloads.dismiss": {
     "message": "不再提示"
+  },
+  "app.home.calendar.day-instances": {
+    "message": "{name} 等 {total} 個"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, other {# 天}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "最長一天"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "最長連續"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "最常玩"
+  },
+  "app.home.calendar.legend": {
+    "message": "每天的遊玩時長，從少到多"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "少"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "多"
+  },
+  "app.home.calendar.month-empty": {
+    "message": "本月還沒有遊玩記錄"
+  },
+  "app.home.calendar.month-empty-hint": {
+    "message": "每次遊玩都會按天記在日曆上。"
+  },
+  "app.home.calendar.month-hours-short": {
+    "message": "本月 {hours} 小時"
+  },
+  "app.home.calendar.stat-days": {
+    "message": "{count, plural, other {天有遊玩}}"
+  },
+  "app.home.calendar.stat-hours": {
+    "message": "{count, plural, other {小時}}"
+  },
+  "app.home.calendar.this-week": {
+    "message": "本週"
+  },
+  "app.home.challenge.difficulty": {
+    "message": "難度：{level}"
+  },
+  "app.home.challenge.empty-hint": {
+    "message": "這一局就給自己定個小目標吧。"
+  },
+  "app.home.challenge.empty-title": {
+    "message": "今天沒有挑戰"
+  },
+  "app.home.challenge.number": {
+    "message": "第 {number} 號"
+  },
+  "app.home.insights.daily-average": {
+    "message": "日均 {duration}"
+  },
+  "app.home.insights.empty-title": {
+    "message": "還沒有遊玩記錄"
+  },
+  "app.home.insights.error-title": {
+    "message": "遊玩記錄載入失敗"
+  },
+  "app.home.insights.ghost-legend": {
+    "message": "虛線柱為上週"
+  },
+  "app.home.insights.last-week": {
+    "message": "上週 {duration}"
+  },
+  "app.home.insights.unit-hours": {
+    "message": "{count, plural, other {小時}}"
+  },
+  "app.home.insights.unit-minutes": {
+    "message": "{count, plural, other {分鐘}}"
+  },
+  "app.home.insights.week-empty": {
+    "message": "本週還沒玩"
+  },
+  "app.home.instances.pinned-empty-title": {
+    "message": "還沒有固定的實例"
+  },
+  "app.home.launch.browse-modpacks": {
+    "message": "瀏覽模組包"
+  },
+  "app.home.launch.choose-hint": {
+    "message": "選一個首頁要啟動的實例，之後隨時可以換。"
+  },
+  "app.home.launch.create-or-import": {
+    "message": "建立或匯入實例"
+  },
+  "app.home.launch.fresh-hint": {
+    "message": "從零建立、從其他啟動器匯入，或者從一個模組包開始。"
+  },
+  "app.home.launch.quick-pick": {
+    "message": "快速選擇"
+  },
+  "app.home.launch.recent-short": {
+    "message": "最近"
+  },
+  "app.home.launch.status-error": {
+    "message": "無法取得執行狀態"
+  },
+  "app.home.minimal.arrangement": {
+    "message": "排列"
+  },
+  "app.home.minimal.arrangement.bar": {
+    "message": "橫條"
+  },
+  "app.home.minimal.arrangement.row": {
+    "message": "左右"
+  },
+  "app.home.minimal.arrangement.stacked": {
+    "message": "上下置中"
+  },
+  "app.home.minimal.change-instance": {
+    "message": "更換首頁實例"
+  },
+  "app.home.minimal.customize": {
+    "message": "自訂極簡模式"
+  },
+  "app.home.minimal.customize.close": {
+    "message": "關閉"
+  },
+  "app.home.minimal.density": {
+    "message": "間距"
+  },
+  "app.home.minimal.density.comfortable": {
+    "message": "寬鬆"
+  },
+  "app.home.minimal.density.compact": {
+    "message": "緊湊"
+  },
+  "app.home.minimal.layout": {
+    "message": "版面"
+  },
+  "app.home.minimal.position": {
+    "message": "垂直位置"
+  },
+  "app.home.minimal.position.center": {
+    "message": "置中"
+  },
+  "app.home.minimal.position.upper": {
+    "message": "偏上"
+  },
+  "app.home.minimal.preset": {
+    "message": "樣式"
+  },
+  "app.home.minimal.preset.classic": {
+    "message": "經典"
+  },
+  "app.home.minimal.preset.custom": {
+    "message": "自訂"
+  },
+  "app.home.minimal.preset.pure": {
+    "message": "純淨"
+  },
+  "app.home.minimal.preset.standard": {
+    "message": "標準"
+  },
+  "app.home.minimal.show": {
+    "message": "顯示"
+  },
+  "app.home.minimal.show.date": {
+    "message": "日期"
+  },
+  "app.home.minimal.show.greeting": {
+    "message": "問候語"
+  },
+  "app.home.minimal.show.meta": {
+    "message": "資訊標籤"
+  },
+  "app.home.minimal.show.status": {
+    "message": "狀態列"
+  },
+  "app.home.minimal.show.switch": {
+    "message": "「切換實例」按鈕"
+  },
+  "app.home.minimal.surface": {
+    "message": "底板"
+  },
+  "app.home.minimal.surface.card": {
+    "message": "卡片"
+  },
+  "app.home.minimal.surface.plain": {
+    "message": "無"
+  },
+  "app.home.news.empty-title": {
+    "message": "暫時沒有新聞"
+  },
+  "app.home.news.error-title": {
+    "message": "新聞載入失敗"
+  },
+  "app.home.news.offline-title": {
+    "message": "連網後會顯示新聞"
+  },
+  "app.home.news.open-site": {
+    "message": "打開 minecraft.net"
+  },
+  "app.home.recent.empty-hint": {
+    "message": "玩過的世界、伺服器和實例會出現在這裡。"
+  },
+  "app.home.recent.empty-title": {
+    "message": "還沒有最近的項目"
+  },
+  "app.home.row.shortcut-created": {
+    "message": "已建立捷徑"
+  },
+  "app.home.servers.empty-title": {
+    "message": "還沒有固定的伺服器"
+  },
+  "app.home.shortcut.missing-hint": {
+    "message": "它可能已被刪除或移動。換一個目標，或移除這個小元件。"
+  },
+  "app.home.widgets.add-another": {
+    "message": "再新增一個"
+  },
+  "app.home.widgets.add-to-home": {
+    "message": "新增到主頁"
+  },
+  "app.home.widgets.added-count": {
+    "message": "{count, plural, =1 {已新增} other {已新增 ×#}}"
+  },
+  "app.home.widgets.added-toast": {
+    "message": "已將「{name}」新增到主頁"
+  },
+  "app.home.widgets.categories": {
+    "message": "小元件分類"
+  },
+  "app.home.widgets.category.activity": {
+    "message": "遊玩資料"
+  },
+  "app.home.widgets.category.all": {
+    "message": "全部"
+  },
+  "app.home.widgets.category.collections": {
+    "message": "收藏內容"
+  },
+  "app.home.widgets.category.shortcuts": {
+    "message": "捷徑"
+  },
+  "app.home.widgets.category.start": {
+    "message": "啟動"
+  },
+  "app.home.widgets.choose-target": {
+    "message": "選擇它要開啟的內容"
+  },
+  "app.home.widgets.done-adding": {
+    "message": "完成"
+  },
+  "app.home.widgets.more": {
+    "message": "還有 {count} 個"
+  },
+  "app.home.widgets.more-label": {
+    "message": "檢視放不下的 {count} 項"
+  },
+  "app.home.widgets.no-widgets": {
+    "message": "沒有符合的小元件"
+  },
+  "app.home.widgets.quick-add": {
+    "message": "新增「{name}」"
+  },
+  "app.home.widgets.search-widgets": {
+    "message": "搜尋小元件"
+  },
+  "app.home.widgets.size-label": {
+    "message": "尺寸"
+  },
+  "app.home.widgets.undo": {
+    "message": "復原"
+  },
+  "app.home.worlds.empty-title": {
+    "message": "還沒有固定的世界"
   },
   "app.settings.resources.force-multiconnection": {
     "message": "強制多連線下載"
@@ -19,9 +319,6 @@
   },
   "app.resources.operation.dependency-analysis-failed": {
     "message": "依賴分析失敗，可能會導致實例運作不正常"
-  },
-  "app.account.signed-in-as": {
-    "message": "登入身分："
   },
   "app.action-bar.downloading-java": {
     "message": "正在下載 Java {version}"
@@ -683,9 +980,6 @@
   "app.auth-servers.unreachable.header": {
     "message": "無法連線到驗證伺服器"
   },
-  "app.auth.sign-in-browser": {
-    "message": "請在剛才開啟的瀏覽器視窗中登入以繼續操作。"
-  },
   "app.browse.add": {
     "message": "新增"
   },
@@ -826,9 +1120,6 @@
   },
   "app.browse.server-instance-content-warning": {
     "message": "加入內容可能會導致加入伺服器時發生相容性問題。當你更新伺服器實例內容時，任何新增的內容也會遺失。"
-  },
-  "app.browse.server.installing": {
-    "message": "安裝中"
   },
   "app.browse.source.all": {
     "message": "所有來源"
@@ -1045,12 +1336,6 @@
   },
   "app.content-selection.target-changed": {
     "message": "所選內容屬於另一個例項。請切換回該例項或先清空選擇。"
-  },
-  "app.content.add-from-file": {
-    "message": "從檔案新增"
-  },
-  "app.content.install-content": {
-    "message": "安裝內容"
   },
   "app.crash-analysis.ai.settings.enabled": {
     "message": "啟用 AI 解釋"
@@ -1856,6 +2141,9 @@
   "app.home.breadcrumb": {
     "message": "首頁"
   },
+  "app.home.calendar.month-total": {
+    "message": "本月 {duration}"
+  },
   "app.home.calendar.next": {
     "message": "下個月"
   },
@@ -2009,6 +2297,9 @@
   "app.home.insights.this-week": {
     "message": "本週遊玩 {duration}"
   },
+  "app.home.insights.this-week-label": {
+    "message": "本週"
+  },
   "app.home.insights.this-week-less": {
     "message": "本週遊玩 {duration}（比上週少 {percent}%）"
   },
@@ -2021,6 +2312,9 @@
   "app.home.insights.title": {
     "message": "遊玩洞察"
   },
+  "app.home.insights.vs-last-week": {
+    "message": "較上週"
+  },
   "app.home.insights.week-top": {
     "message": "本週常玩：{name}"
   },
@@ -2030,20 +2324,44 @@
   "app.home.instances.empty": {
     "message": "還沒有實例"
   },
-  "app.home.instances.pin": {
-    "message": "固定到首頁"
-  },
   "app.home.instances.pinned": {
     "message": "固定的實例"
   },
   "app.home.instances.pinned-empty": {
     "message": "在實例卡片菜單或實例庫中選擇「固定到首頁」，實例就會顯示在這裡。"
   },
-  "app.home.instances.unpin": {
-    "message": "取消固定"
-  },
   "app.home.instances.view-all": {
     "message": "查看全部實例"
+  },
+  "app.home.launch.all-instances": {
+    "message": "全部實例"
+  },
+  "app.home.launch.continue": {
+    "message": "繼續遊玩"
+  },
+  "app.home.launch.home-instance": {
+    "message": "主頁實例"
+  },
+  "app.home.launch.last-world": {
+    "message": "上次進入：{name}"
+  },
+  "app.home.launch.not-installed": {
+    "message": "未安裝"
+  },
+  "app.home.launch.recent": {
+    "message": "最近遊玩"
+  },
+  "app.home.launch.running": {
+    "message": "執行中"
+  },
+  "app.home.launch.switch": {
+    "message": "切換實例"
+  },
+  "app.home.launch.switch-to": {
+    "message": "切換到 {name}"
+  },
+  "app.home.launch.total-played": {
+    "message": "累計 {duration}"
   },
   "app.home.layout.switch-to-information": {
     "message": "切換到資訊首頁"
@@ -2053,9 +2371,6 @@
   },
   "app.home.layout.toggle": {
     "message": "極簡首頁"
-  },
-  "app.home.minimal.change-instance": {
-    "message": "更換首頁實例"
   },
   "app.home.minimal.choose-instance": {
     "message": "選擇實例"
@@ -2084,6 +2399,9 @@
   "app.home.playtime.hours-minutes": {
     "message": "{hours} 小時 {minutes} 分鐘"
   },
+  "app.home.playtime.hours-short": {
+    "message": "{hours} 小時"
+  },
   "app.home.playtime.minutes": {
     "message": "{minutes} 分鐘"
   },
@@ -2096,11 +2414,11 @@
   "app.home.playtime.sessions": {
     "message": "成功啟動 {count} 次"
   },
-  "app.home.recent.empty": {
-    "message": "還沒有最近活動。"
-  },
   "app.home.recent.title": {
     "message": "從最近的項目開始"
+  },
+  "app.home.servers.add": {
+    "message": "新增伺服器"
   },
   "app.home.servers.empty": {
     "message": "將伺服器標記為收藏後，就會固定在這裡。"
@@ -2119,12 +2437,6 @@
   },
   "app.home.servers.players-online": {
     "message": "{online}/{max} 人在線"
-  },
-  "app.home.servers.stop": {
-    "message": "停止"
-  },
-  "app.home.servers.unpin": {
-    "message": "取消固定"
   },
   "app.home.shortcut.kind.instance": {
     "message": "例項"
@@ -2183,20 +2495,17 @@
   "app.home.widgets.greeting-description": {
     "message": "隨一天中的時間變化的個性化歡迎語。"
   },
-  "app.home.widgets.group.collections": {
-    "message": "收藏內容集合"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "概覽"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "單項快捷入口"
-  },
   "app.home.widgets.instance": {
     "message": "單個例項入口"
   },
   "app.home.widgets.instance-description": {
     "message": "選擇一個例項，建立獨立的快速啟動入口。"
+  },
+  "app.home.widgets.launch": {
+    "message": "啟動"
+  },
+  "app.home.widgets.launch-description": {
+    "message": "一鍵啟動主頁實例，或切換到其他實例。"
   },
   "app.home.widgets.layout.switch-to-free": {
     "message": "切換到自由小元件佈局"
@@ -2281,6 +2590,9 @@
   },
   "app.home.widgets.world-description": {
     "message": "選擇一個世界，建立獨立的快速遊玩入口。"
+  },
+  "app.home.worlds.browse": {
+    "message": "開啟世界列表"
   },
   "app.home.worlds.empty": {
     "message": "將世界標記為收藏後，就會固定在這裡。"
@@ -3443,24 +3755,6 @@
   "app.lab.gradient-text.title": {
     "message": "漸變文字生成器"
   },
-  "app.lab.skin-editor.auto-save.error": {
-    "message": "自動儲存失敗"
-  },
-  "app.lab.skin-editor.auto-save.off": {
-    "message": "自動儲存已關閉"
-  },
-  "app.lab.skin-editor.auto-save.saved": {
-    "message": "草稿已儲存 {time}"
-  },
-  "app.lab.skin-editor.auto-save.saving": {
-    "message": "正在儲存草稿…"
-  },
-  "app.lab.skin-editor.auto-save.unsaved": {
-    "message": "有未儲存的變更"
-  },
-  "app.lab.skin-editor.auto-save.up-to-date": {
-    "message": "已是最新"
-  },
   "app.lab.skin-editor.description": {
     "message": "在本機建立和編輯 Minecraft 玩家外觀。"
   },
@@ -3494,26 +3788,17 @@
   "app.lab.skin-editor.retry": {
     "message": "再試一次"
   },
-  "app.lab.skin-editor.save": {
-    "message": "儲存 PNG"
-  },
   "app.lab.skin-editor.settings.auto-save": {
     "message": "自動儲存恢復草稿"
   },
   "app.lab.skin-editor.settings.auto-save-description": {
     "message": "恢復草稿僅儲存在本裝置，與匯出的 PNG 檔案相互獨立。"
   },
-  "app.lab.skin-editor.settings.cancel": {
-    "message": "取消"
-  },
   "app.lab.skin-editor.settings.interval": {
     "message": "儲存間隔（秒）"
   },
   "app.lab.skin-editor.settings.interval-description": {
     "message": "請輸入 5 到 600 秒之間的數值。"
-  },
-  "app.lab.skin-editor.settings.save": {
-    "message": "儲存設定"
   },
   "app.lab.skin-editor.settings.title": {
     "message": "編輯器設定"
@@ -5179,15 +5464,6 @@
   },
   "app.minecraft.playing-as": {
     "message": "當前遊玩帳號："
-  },
-  "app.modpack.change-version": {
-    "message": "變更模組包版本"
-  },
-  "app.modpack.version-name": {
-    "message": "名稱"
-  },
-  "app.modpack.version-supports": {
-    "message": "支援"
   },
   "app.multiplayer.back": {
     "message": "返回"
@@ -7448,6 +7724,12 @@
   "app.skins.modal.edit-title": {
     "message": "編輯外觀"
   },
+  "app.skins.modal.export-texture-button": {
+    "message": "匯出材質"
+  },
+  "app.skins.modal.export-texture-failed": {
+    "message": "匯出外觀材質失敗（HTTP {status}）。"
+  },
   "app.skins.modal.make-edit-first-tooltip": {
     "message": "請先對外觀進行編輯！"
   },
@@ -8255,90 +8537,6 @@
   "drop.help.worlds-title": {
     "message": "存檔"
   },
-  "friends.action.add-friend": {
-    "message": "新增好友"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} 個好友{count, plural, other {邀請}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "送出好友邀請"
-  },
-  "friends.add-friend.title": {
-    "message": "新增好友"
-  },
-  "friends.add-friend.username.description": {
-    "message": "這可能與對方的 Minecraft 使用者名稱不同！"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "輸入 Modrinth 使用者名稱..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "你好友的 Modrinth 使用者名稱是什麼？"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>新增好友</link>即可查看他們正在玩什麼！"
-  },
-  "friends.friend.cancel-request": {
-    "message": "取消請求"
-  },
-  "friends.friend.remove-friend": {
-    "message": "移除好友"
-  },
-  "friends.friend.request-sent": {
-    "message": "已送出好友邀請"
-  },
-  "friends.friend.view-profile": {
-    "message": "查看個人檔案"
-  },
-  "friends.heading": {
-    "message": "好友"
-  },
-  "friends.heading.active": {
-    "message": "活躍中"
-  },
-  "friends.heading.offline": {
-    "message": "離線"
-  },
-  "friends.heading.online": {
-    "message": "線上"
-  },
-  "friends.heading.pending": {
-    "message": "待處理"
-  },
-  "friends.no-friends-match": {
-    "message": "找不到相符「{query}」的好友"
-  },
-  "friends.requests.accept": {
-    "message": "接受"
-  },
-  "friends.requests.cancel": {
-    "message": "取消"
-  },
-  "friends.requests.ignore": {
-    "message": "略過"
-  },
-  "friends.requests.incoming": {
-    "message": "{username} 向你送出了好友邀請"
-  },
-  "friends.requests.none": {
-    "message": "暫無待處理的好友邀請 :C"
-  },
-  "friends.requests.outgoing": {
-    "message": "你向 {username} 送出了好友邀請"
-  },
-  "friends.requests.title": {
-    "message": "查看好友邀請"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "搜尋好友..."
-  },
-  "friends.section.heading": {
-    "message": "{title} — {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>登入 Modrinth 帳號</link>即可新增好友並查看他們正在玩什麼！"
-  },
   "instance.add-server.add-and-play": {
     "message": "新增並遊玩"
   },
@@ -8389,9 +8587,6 @@
   },
   "instance.files.studio.delete": {
     "message": "移至回收站"
-  },
-  "instance.files.studio.editor-loading": {
-    "message": "正在載入編輯器……"
   },
   "instance.files.studio.edit-deleted": {
     "message": "此檔案在編輯儲存前已被刪除。"

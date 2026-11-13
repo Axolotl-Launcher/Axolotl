@@ -5,7 +5,6 @@ import { onUnmounted, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { NewInstanceImage } from '@/assets/icons'
-import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { DIRECT_LINKS_CHANGED_EVENT } from '@/helpers/direct-link-sync'
 import { instance_groups_listener, instance_listener } from '@/helpers/events.js'
 import { list } from '@/helpers/instance'
@@ -42,8 +41,6 @@ const refreshInstances = async () => {
 
 window.addEventListener(DIRECT_LINKS_CHANGED_EVENT, refreshInstances)
 
-const { offline } = useNetworkStatus()
-
 const unlistenInstance = await instance_listener(async () => {
     await refreshInstances()
 })
@@ -79,7 +76,7 @@ onUnmounted(() => {
                 <NewInstanceImage />
             </div>
             <h3>{{ formatMessage(messages.noInstances) }}</h3>
-            <Button type="colored" color="brand" :disabled="offline" @click="router.push('/create')"
+            <Button type="colored" color="brand" @click="router.push('/create')"
                 ><PlusIcon />
                 {{ formatMessage(messages.createInstance) }}
             </Button>

@@ -3,21 +3,11 @@ import '@/assets/stylesheets/window-frame.css'
 
 import { ModrinthApiError, TauriModrinthClient, VerboseLoggingFeature } from '@modrinth/api-client'
 import {
-    ChangeSkinIcon,
-    CompassIcon,
-    FlaskConicalIcon,
     FolderOpenIcon,
-    HomeIcon,
-    ImagesIcon,
-    LibraryIcon,
-    PlusIcon,
     RefreshCwIcon,
     RightArrowIcon,
     RotateCounterClockwiseIcon,
-    SettingsIcon,
     SpinnerIcon,
-    UsersIcon,
-    WorldIcon,
     XIcon,
 } from '@modrinth/assets'
 import {
@@ -93,8 +83,22 @@ import MissingJavaModal from '@/components/ui/modal/MissingJavaModal.vue'
 import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
 import ModpackInstallModal from '@/components/ui/modal/ModpackInstallModal.vue'
 import PrivacyConsentModal from '@/components/ui/modal/PrivacyConsentModal.vue'
+import {
+    CreateNavIcon,
+    DiscoverNavIcon,
+    HomeNavIcon,
+    LabNavIcon,
+    LibraryNavIcon,
+    MultiplayerNavIcon,
+    ScreenshotsNavIcon,
+    SettingsNavIcon,
+    SkinsNavIcon,
+    WorldsNavIcon,
+} from '@/components/ui/nav-icons'
 import NavButton from '@/components/ui/NavButton.vue'
 import NavRail from '@/components/ui/NavRail.vue'
+import NetworkPageBoundary from '@/components/ui/network/NetworkPageBoundary.vue'
+import NetworkStatusBar from '@/components/ui/network/NetworkStatusBar.vue'
 import OfflineAccountRestrictionModal from '@/components/ui/OfflineAccountRestrictionModal.vue'
 import { createOobeController } from '@/components/ui/oobe/useOobe'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
@@ -410,7 +414,13 @@ const {
     fileDrop,
 } = setupProviders(notificationManager, popupNotificationManager, stateInitialization)
 
-const { offline } = useNetworkStatus()
+const { offline, setSimulatedOffline } = useNetworkStatus()
+watch(
+    () => themeStore.devMode,
+    (enabled) => {
+        if (!enabled) setSimulatedOffline(false)
+    },
+)
 
 const OobeHost = defineAsyncComponent(() => import('@/components/ui/oobe/OobeHost.vue'))
 const oobe = createOobeController()
@@ -1535,7 +1545,7 @@ async function setupApp() {
         DiscoverContent: `/browse/${getLastBrowseContentProjectType()}`,
         Library: '/library',
     }
-    const defaultPageRoute = offline.value ? '/library' : defaultPageRoutes[default_page]
+    const defaultPageRoute = defaultPageRoutes[default_page]
     if (defaultPageRoute && defaultPageRoute !== '/') await router.push(defaultPageRoute)
 
     os.value = await getOS()
@@ -2141,12 +2151,6 @@ watch(
     { flush: 'post' },
 )
 
-watch(offline, (isOffline) => {
-    if (isOffline && (route.path.startsWith('/browse') || route.path.startsWith('/project'))) {
-        void router.push('/library')
-    }
-})
-
 const error = useError()
 
 /**
@@ -2384,13 +2388,6 @@ async function handleCommand(e: AppCommand | null) {
                 text: `Unsupported link: ${e.path ?? ''}`,
                 type: 'warning',
             })
-            return
-        }
-        if (
-            offline.value &&
-            (target.path.startsWith('/browse') || target.path.startsWith('/project'))
-        ) {
-            await router.push('/library')
             return
         }
         await router.push(target)
@@ -3052,7 +3049,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.home)"
                     to="/"
                 >
-                    <HomeIcon />
+                    <HomeNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('screenshots')"
@@ -3060,7 +3057,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/screenshots"
                     :is-primary="(r) => r.path.startsWith('/screenshots')"
                 >
-                    <ImagesIcon />
+                    <ScreenshotsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="
@@ -3069,24 +3066,23 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     v-tooltip.right="formatMessage(messages.worlds)"
                     to="/worlds"
                 >
-                    <WorldIcon />
+                    <WorldsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('discover')"
                     v-tooltip.right="formatMessage(messages.discoverContent)"
                     :to="discoverContentPath"
-                    :disabled="offline"
                     :is-primary="() => route.path.startsWith('/browse') && !route.query.i"
                     :is-subpage="(route) => route.path.startsWith('/project') && !route.query.i"
                 >
-                    <CompassIcon />
+                    <DiscoverNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('skins')"
                     v-tooltip.right="formatMessage(messages.skinSelector)"
                     to="/skins"
                 >
-                    <ChangeSkinIcon />
+                    <SkinsNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('multiplayer')"
@@ -3094,7 +3090,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/multiplayer"
                     :is-primary="(r) => r.path.startsWith('/multiplayer')"
                 >
-                    <UsersIcon />
+                    <MultiplayerNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('library')"
@@ -3109,7 +3105,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                                 !!route.query.i)
                     "
                 >
-                    <LibraryIcon />
+                    <LibraryNavIcon />
                 </NavButton>
                 <NavButton
                     v-if="!themeStore.isNavItemHidden('lab')"
@@ -3117,7 +3113,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     to="/lab"
                     :is-primary="(r) => r.path.startsWith('/lab')"
                 >
-                    <FlaskConicalIcon />
+                    <LabNavIcon />
                 </NavButton>
             </NavRail>
             <div class="h-px w-6 mx-auto my-2 bg-surface-5"></div>
@@ -3126,15 +3122,11 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                     <QuickInstanceSwitcher />
                 </suspense>
             </div>
-            <NavButton
-                v-tooltip.right="formatMessage(messages.createInstance)"
-                to="/create"
-                :disabled="offline"
-            >
-                <PlusIcon />
+            <NavButton v-tooltip.right="formatMessage(messages.createInstance)" to="/create">
+                <CreateNavIcon />
             </NavButton>
             <NavButton v-tooltip.right="formatMessage(commonMessages.settingsLabel)" to="/settings">
-                <SettingsIcon />
+                <SettingsNavIcon />
             </NavButton>
         </div>
         <AppTitlebar
@@ -3220,13 +3212,18 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
                             "
                             class="page-transition-layer"
                         >
-                            <Suspense
-                                v-if="Component"
-                                @pending="onSuspensePending"
-                                @resolve="onSuspenseResolve"
+                            <NetworkPageBoundary
+                                :requires-network="!!pageRoute.meta.requiresNetwork"
+                                @blocked="onSuspenseResolve"
                             >
-                                <component :is="Component"></component>
-                            </Suspense>
+                                <Suspense
+                                    v-if="Component"
+                                    @pending="onSuspensePending"
+                                    @resolve="onSuspenseResolve"
+                                >
+                                    <component :is="Component"></component>
+                                </Suspense>
+                            </NetworkPageBoundary>
                         </div>
                     </Transition>
                 </RouterView>
@@ -3282,6 +3279,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
             </div>
         </div>
     </div>
+    <NetworkStatusBar v-if="stateInitialized && !oobeVisible" />
     <I18nDebugPanel />
     <NotificationPanel
         :has-sidebar="sidebarVisible"

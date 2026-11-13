@@ -182,9 +182,6 @@
   "button.reset": {
     "defaultMessage": "Redefinir"
   },
-  "button.reset-server": {
-    "defaultMessage": "Reiniciar servidor"
-  },
   "button.retry": {
     "defaultMessage": "Retentar"
   },
@@ -473,9 +470,6 @@
   "creation-flow.button.import-instances": {
     "defaultMessage": "Importar {count, plural, one {# instância} other {# instâncias}}"
   },
-  "creation-flow.button.setup-server": {
-    "defaultMessage": "Configurar servidor"
-  },
   "creation-flow.modal.custom-setup.build-number.label": {
     "defaultMessage": "Número da build"
   },
@@ -577,12 +571,6 @@
   },
   "creation-flow.title.import-instance": {
     "defaultMessage": "Importar Instância"
-  },
-  "creation-flow.title.reset-server": {
-    "defaultMessage": "Reiniciar servidor"
-  },
-  "creation-flow.title.set-up-server": {
-    "defaultMessage": "Configurar servidor"
   },
   "external-project-license-status.no": {
     "defaultMessage": "Não"
@@ -803,9 +791,6 @@
   "files.navbar.home": {
     "defaultMessage": "Início"
   },
-  "files.navbar.install-curseforge-pack": {
-    "defaultMessage": "Instalar pacote do CurseForge"
-  },
   "files.navbar.new-file": {
     "defaultMessage": "Novo arquivo"
   },
@@ -814,12 +799,6 @@
   },
   "files.navbar.search-files": {
     "defaultMessage": "Buscar arquivos"
-  },
-  "files.navbar.upload-from-zip": {
-    "defaultMessage": "Adicionar a partir de arquivo .zip"
-  },
-  "files.navbar.upload-from-zip-url": {
-    "defaultMessage": "Adicionar a partir de um URL .zip"
   },
   "files.rename-modal.header": {
     "defaultMessage": "Renomear {name}"
@@ -862,60 +841,6 @@
   },
   "files.validation.name-required": {
     "defaultMessage": "O nome é obrigatório."
-  },
-  "files.zip-url-modal.cf-header": {
-    "defaultMessage": "Instale um pacote de mods do CurseForge"
-  },
-  "files.zip-url-modal.cf-not-found-text": {
-    "defaultMessage": "Não foi possível encontrar o pacote de mods do CurseForge nessa URL."
-  },
-  "files.zip-url-modal.cf-not-found-title": {
-    "defaultMessage": "Pacote de mods do CurseForge não encontrado"
-  },
-  "files.zip-url-modal.enter-link": {
-    "defaultMessage": "Inserir link"
-  },
-  "files.zip-url-modal.error-cf-url": {
-    "defaultMessage": "A URL deve ser de uma versão de pacote de mods do CurseForge."
-  },
-  "files.zip-url-modal.error-url-invalid": {
-    "defaultMessage": "URL deve ser válido."
-  },
-  "files.zip-url-modal.error-url-required": {
-    "defaultMessage": "O URL é necessário."
-  },
-  "files.zip-url-modal.install-button": {
-    "defaultMessage": "Instalar"
-  },
-  "files.zip-url-modal.install-failed-title": {
-    "defaultMessage": "A instalação falhou"
-  },
-  "files.zip-url-modal.step-copy-description": {
-    "defaultMessage": "Copie o URL da página da versão e cole-o abaixo."
-  },
-  "files.zip-url-modal.step-copy-title": {
-    "defaultMessage": "Copie o URL"
-  },
-  "files.zip-url-modal.step-find-description": {
-    "defaultMessage": "Navegue pelo CurseForge e encontre o pacote de mods que você deseja."
-  },
-  "files.zip-url-modal.step-find-title": {
-    "defaultMessage": "Encontre o pacote de mods"
-  },
-  "files.zip-url-modal.step-select-description": {
-    "defaultMessage": "Acesse a aba \"Arquivos\" e selecione a versão que deseja instalar."
-  },
-  "files.zip-url-modal.step-select-title": {
-    "defaultMessage": "Selecionar uma versão"
-  },
-  "files.zip-url-modal.unknown-error": {
-    "defaultMessage": "Um erro desconhecido aconteceu"
-  },
-  "files.zip-url-modal.zip-description": {
-    "defaultMessage": "Copie e cole o URL de download direto de um arquivo .zip."
-  },
-  "files.zip-url-modal.zip-header": {
-    "defaultMessage": "Enviando conteúdo de arquivo .zip a partir de uma URL"
   },
   "form.label.address-line": {
     "defaultMessage": "Endereço"

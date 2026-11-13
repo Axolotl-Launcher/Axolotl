@@ -17,69 +17,6 @@
   "app.update.complete-toast.title": {
     "message": "Versjon {version} ble installert!"
   },
-  "friends.action.add-friend": {
-    "message": "Legg til en venn"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} venne{count, plural,one {forespørsel} other {forespørsler}}"
-  },
-  "friends.add-friend.submit": {
-    "message": "Send venneforespørsel"
-  },
-  "friends.add-friend.title": {
-    "message": "Legger til en venn"
-  },
-  "friends.add-friend.username.description": {
-    "message": "Det kan være annerledes enn Minecraft-brukernavnet deres!"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "Fyll ut Modrinth-brukernavn..."
-  },
-  "friends.add-friend.username.title": {
-    "message": "Hva er Modrinth-brukernavnet til vennen din?"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>Legg til venner</link> for å se hva de spiller!"
-  },
-  "friends.friend.cancel-request": {
-    "message": "Avbryt forespørsel"
-  },
-  "friends.friend.remove-friend": {
-    "message": "Fjern venn"
-  },
-  "friends.friend.request-sent": {
-    "message": "Venneforespørsel sent"
-  },
-  "friends.friend.view-profile": {
-    "message": "Vis profil"
-  },
-  "friends.heading": {
-    "message": "Venner"
-  },
-  "friends.heading.active": {
-    "message": "Aktiv"
-  },
-  "friends.heading.offline": {
-    "message": "Offline"
-  },
-  "friends.heading.online": {
-    "message": "Online"
-  },
-  "friends.heading.pending": {
-    "message": "Ventende"
-  },
-  "friends.no-friends-match": {
-    "message": "Ingen venner som samsvarer \"{query}\""
-  },
-  "friends.search-friends-placeholder": {
-    "message": "Søk venner..."
-  },
-  "friends.section.heading": {
-    "message": "{title} - {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "<link>Logg inn til en Modrinth-bruker</link> for å legge til venner og se hva de spiller!"
-  },
   "instance.add-server.add-and-play": {
     "message": "Legg til og spill"
   },

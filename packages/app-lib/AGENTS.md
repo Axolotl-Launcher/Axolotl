@@ -6,6 +6,8 @@ For behavior exposed to the frontend through a new or changed native command, fo
 
 ## Data Access Interface
 
+- Settings are the exception to the collection verbs below: they compose from four layers and are read only through `Settings::get`. The layers, the document domains, `schema_version` and the steps for adding or removing a setting belong to the [launcher-settings skill](../../.agents/skills/launcher-settings/SKILL.md).
+
 Records this crate keeps between runs are read and written by its persistence layer, which has two halves of equal standing. `packages/app-lib/src/state/store/` owns the runtime's own records — settings, caches, the bookkeeping the application keeps about itself. `packages/app-lib/src/state/instances/adapters/sqlite/` owns the instance domain's rows — instances, content sets, entries, provider references, pack members, files, playtime, post-upgrade notices. Each half keeps its own statements: the store answers collection verbs, the instance half answers step functions that run inside the unit the caller opened.
 
 **Do not reach the database on your own**: no business module may use `sqlx` or write a statement. Business code calls one of the two halves, and which half owns a row follows from the table that row lives in. Beginning a transaction to group several steps, or handing a pool to one of them, is how a caller reaches the persistence layer; spelling the SQL is not.

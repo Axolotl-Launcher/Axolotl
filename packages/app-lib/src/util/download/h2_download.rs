@@ -643,13 +643,12 @@ async fn single_stream(
     loop {
         let chunk = tokio::select! {
             chunk = super::h2_receive::receive_chunk(&mut stream, "file") => {
-                if let Err(error) = &chunk {
-                    if matches!(classify_download_error(error), H2DownloadFailure::Slow | H2DownloadFailure::Connect)
+                if let Err(error) = &chunk
+                    && matches!(classify_download_error(error), H2DownloadFailure::Slow | H2DownloadFailure::Connect)
                         && super::h2_receive::endpoint_speed(0, connection.active_streams(),
                             aggregate_window.observe(connection.bytes_transferred_for_scheduler(), Instant::now())).is_some() {
                         fetch::request_dns_system_recovery(route, &uri.to_string());
                     }
-                }
                 chunk?
             },
             _ = async {

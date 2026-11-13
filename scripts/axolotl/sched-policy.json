@@ -50,6 +50,11 @@
   ],
   "exclusions": [
     {
+      "ident": "theseus::api::jre::JavaInstalls.active",
+      "rule": "D4",
+      "reason": "Java download lifecycle registry: leaf shard access only for synchronous insert, remove or snapshot; no shard guard crosses an await or acquires another lock"
+    },
+    {
       "ident": "theseus::logger::RotatingLogWriter.state",
       "rule": "D4",
       "reason": "log write lock: leaf primitive only (spec §5.2 leaf table), held for one bounded write"

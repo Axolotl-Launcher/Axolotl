@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { Labrinth } from '@modrinth/api-client'
 import {
+    BoxesIcon,
     ChevronRightIcon,
     CodeIcon,
     CoffeeIcon,
     FileArchiveIcon,
     InfoIcon,
     MonitorIcon,
+    RefreshCwIcon,
     WrenchIcon,
 } from '@modrinth/assets'
 import {
@@ -116,7 +118,7 @@ const tabs = computed<TabbedModalTab[]>(() => [
             id: 'instance.settings.tabs.sync',
             defaultMessage: 'Synchronization',
         }),
-        icon: WrenchIcon,
+        icon: RefreshCwIcon,
         content: SyncSettings,
     },
     {
@@ -132,7 +134,7 @@ const tabs = computed<TabbedModalTab[]>(() => [
             id: 'instance.settings.tabs.core-components',
             defaultMessage: 'Core components',
         }),
-        icon: FileArchiveIcon,
+        icon: BoxesIcon,
         content: CoreComponentsSettings,
     },
     {

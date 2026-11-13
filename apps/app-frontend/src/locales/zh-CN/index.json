@@ -1,4 +1,310 @@
 {
+  "app.network.offline.title": {
+    "message": "无法连接"
+  },
+  "app.network.offline.description": {
+    "message": "请检查你的网络状况，例如：Wi-Fi 是否开启、网线是否连好、飞行模式开关状态或代理软件设置。"
+  },
+  "app.network.offline.settings": {
+    "message": "网络连接设置"
+  },
+  "app.network.offline.settings-failed": {
+    "message": "无法打开网络设置，请从系统设置中打开。"
+  },
+  "app.network.offline.retry": {
+    "message": "重试"
+  },
+  "app.network.offline.disconnected": {
+    "message": "已断开连接"
+  },
+  "app.settings.developer.simulate-offline": {
+    "message": "模拟断网"
+  },
+  "app.settings.developer.simulate-offline-description": {
+    "message": "在当前会话中显示断网页面和连接状态提示，关闭后恢复正常网络状态。"
+  },
+  "app.browse.install.no-matching-version": {
+    "message": "没有符合所选筛选条件的版本。"
+  },
+  "browse.sort.project-published": {
+    "message": "项目首次发布时间"
+  },
+  "app.appearance-settings.home-layout.minimal-hint": {
+    "message": "极简模式显示哪些内容，可在主页右下角的「自定义极简模式」里调整。"
+  },
+  "app.home.calendar.day-instances": {
+    "message": "{name} 等 {total} 个"
+  },
+  "app.home.calendar.insight-days": {
+    "message": "{count, plural, other {# 天}}"
+  },
+  "app.home.calendar.insight-longest": {
+    "message": "最长一天"
+  },
+  "app.home.calendar.insight-streak": {
+    "message": "最长连续"
+  },
+  "app.home.calendar.insight-top": {
+    "message": "最常玩"
+  },
+  "app.home.calendar.legend": {
+    "message": "每天的游玩时长，从少到多"
+  },
+  "app.home.calendar.legend-less": {
+    "message": "少"
+  },
+  "app.home.calendar.legend-more": {
+    "message": "多"
+  },
+  "app.home.calendar.month-empty": {
+    "message": "本月还没有游玩记录"
+  },
+  "app.home.calendar.month-empty-hint": {
+    "message": "每次游玩都会按天记在日历上。"
+  },
+  "app.home.calendar.month-hours-short": {
+    "message": "本月 {hours} 小时"
+  },
+  "app.home.calendar.stat-days": {
+    "message": "{count, plural, other {天有游玩}}"
+  },
+  "app.home.calendar.stat-hours": {
+    "message": "{count, plural, other {小时}}"
+  },
+  "app.home.calendar.this-week": {
+    "message": "本周"
+  },
+  "app.home.challenge.difficulty": {
+    "message": "难度：{level}"
+  },
+  "app.home.challenge.empty-hint": {
+    "message": "这一局就给自己定个小目标吧。"
+  },
+  "app.home.challenge.empty-title": {
+    "message": "今天没有挑战"
+  },
+  "app.home.challenge.number": {
+    "message": "第 {number} 号"
+  },
+  "app.home.insights.daily-average": {
+    "message": "日均 {duration}"
+  },
+  "app.home.insights.empty-title": {
+    "message": "还没有游玩记录"
+  },
+  "app.home.insights.error-title": {
+    "message": "游玩记录加载失败"
+  },
+  "app.home.insights.ghost-legend": {
+    "message": "虚线柱为上周"
+  },
+  "app.home.insights.last-week": {
+    "message": "上周 {duration}"
+  },
+  "app.home.insights.unit-hours": {
+    "message": "{count, plural, other {小时}}"
+  },
+  "app.home.insights.unit-minutes": {
+    "message": "{count, plural, other {分钟}}"
+  },
+  "app.home.insights.week-empty": {
+    "message": "本周还没玩"
+  },
+  "app.home.instances.pinned-empty-title": {
+    "message": "还没有固定的实例"
+  },
+  "app.home.launch.browse-modpacks": {
+    "message": "浏览整合包"
+  },
+  "app.home.launch.choose-hint": {
+    "message": "选一个主页要启动的实例，之后随时可以换。"
+  },
+  "app.home.launch.create-or-import": {
+    "message": "创建或导入实例"
+  },
+  "app.home.launch.fresh-hint": {
+    "message": "从零创建、从其他启动器导入，或者从一个整合包开始。"
+  },
+  "app.home.launch.quick-pick": {
+    "message": "快速选择"
+  },
+  "app.home.launch.recent-short": {
+    "message": "最近"
+  },
+  "app.home.launch.status-error": {
+    "message": "无法获取运行状态"
+  },
+  "app.home.minimal.arrangement": {
+    "message": "排列"
+  },
+  "app.home.minimal.arrangement.bar": {
+    "message": "横条"
+  },
+  "app.home.minimal.arrangement.row": {
+    "message": "左右"
+  },
+  "app.home.minimal.arrangement.stacked": {
+    "message": "上下居中"
+  },
+  "app.home.minimal.change-instance": {
+    "message": "更换主页实例"
+  },
+  "app.home.minimal.customize": {
+    "message": "自定义极简模式"
+  },
+  "app.home.minimal.customize.close": {
+    "message": "关闭"
+  },
+  "app.home.minimal.density": {
+    "message": "间距"
+  },
+  "app.home.minimal.density.comfortable": {
+    "message": "宽松"
+  },
+  "app.home.minimal.density.compact": {
+    "message": "紧凑"
+  },
+  "app.home.minimal.layout": {
+    "message": "布局"
+  },
+  "app.home.minimal.position": {
+    "message": "垂直位置"
+  },
+  "app.home.minimal.position.center": {
+    "message": "居中"
+  },
+  "app.home.minimal.position.upper": {
+    "message": "偏上"
+  },
+  "app.home.minimal.preset": {
+    "message": "样式"
+  },
+  "app.home.minimal.preset.classic": {
+    "message": "经典"
+  },
+  "app.home.minimal.preset.custom": {
+    "message": "自定义"
+  },
+  "app.home.minimal.preset.pure": {
+    "message": "纯净"
+  },
+  "app.home.minimal.preset.standard": {
+    "message": "标准"
+  },
+  "app.home.minimal.show": {
+    "message": "显示"
+  },
+  "app.home.minimal.show.date": {
+    "message": "日期"
+  },
+  "app.home.minimal.show.greeting": {
+    "message": "问候语"
+  },
+  "app.home.minimal.show.meta": {
+    "message": "信息标签"
+  },
+  "app.home.minimal.show.status": {
+    "message": "状态行"
+  },
+  "app.home.minimal.show.switch": {
+    "message": "「切换实例」按钮"
+  },
+  "app.home.minimal.surface": {
+    "message": "底板"
+  },
+  "app.home.minimal.surface.card": {
+    "message": "卡片"
+  },
+  "app.home.minimal.surface.plain": {
+    "message": "无"
+  },
+  "app.home.news.empty-title": {
+    "message": "暂时没有新闻"
+  },
+  "app.home.news.error-title": {
+    "message": "新闻加载失败"
+  },
+  "app.home.news.offline-title": {
+    "message": "联网后会显示新闻"
+  },
+  "app.home.news.open-site": {
+    "message": "打开 minecraft.net"
+  },
+  "app.home.recent.empty-hint": {
+    "message": "玩过的世界、服务器和实例会出现在这里。"
+  },
+  "app.home.recent.empty-title": {
+    "message": "还没有最近的项目"
+  },
+  "app.home.row.shortcut-created": {
+    "message": "已创建快捷方式"
+  },
+  "app.home.servers.empty-title": {
+    "message": "还没有固定的服务器"
+  },
+  "app.home.shortcut.missing-hint": {
+    "message": "它可能已被删除或移动。换一个目标，或移除这个小组件。"
+  },
+  "app.home.widgets.add-another": {
+    "message": "再添加一个"
+  },
+  "app.home.widgets.add-to-home": {
+    "message": "添加到主页"
+  },
+  "app.home.widgets.added-count": {
+    "message": "{count, plural, =1 {已添加} other {已添加 ×#}}"
+  },
+  "app.home.widgets.added-toast": {
+    "message": "已将「{name}」添加到主页"
+  },
+  "app.home.widgets.categories": {
+    "message": "小组件分类"
+  },
+  "app.home.widgets.category.activity": {
+    "message": "游玩数据"
+  },
+  "app.home.widgets.category.all": {
+    "message": "全部"
+  },
+  "app.home.widgets.category.collections": {
+    "message": "收藏内容"
+  },
+  "app.home.widgets.category.shortcuts": {
+    "message": "快捷方式"
+  },
+  "app.home.widgets.category.start": {
+    "message": "启动"
+  },
+  "app.home.widgets.choose-target": {
+    "message": "选择它要打开的内容"
+  },
+  "app.home.widgets.done-adding": {
+    "message": "完成"
+  },
+  "app.home.widgets.more": {
+    "message": "还有 {count} 个"
+  },
+  "app.home.widgets.more-label": {
+    "message": "查看放不下的 {count} 项"
+  },
+  "app.home.widgets.no-widgets": {
+    "message": "没有匹配的小组件"
+  },
+  "app.home.widgets.quick-add": {
+    "message": "添加「{name}」"
+  },
+  "app.home.widgets.search-widgets": {
+    "message": "搜索小组件"
+  },
+  "app.home.widgets.size-label": {
+    "message": "尺寸"
+  },
+  "app.home.widgets.undo": {
+    "message": "撤销"
+  },
+  "app.home.worlds.empty-title": {
+    "message": "还没有固定的世界"
+  },
   "app.minecraft-crash.scan-logs": {
     "message": "扫码查看日志"
   },
@@ -1739,9 +2045,6 @@
   "app.settings.environment-variables.invalid-format": {
     "message": "请使用 NAME=value 格式，以空格分隔。名称和等号不能为空；值可以为空，也可以包含更多等号。"
   },
-  "app.account.signed-in-as": {
-    "message": "登录身份："
-  },
   "app.action-bar.downloading-java": {
     "message": "正在下载 Java {version}"
   },
@@ -2594,9 +2897,6 @@
   "app.auth-servers.unreachable.header": {
     "message": "无法连接到身份验证服务器"
   },
-  "app.auth.sign-in-browser": {
-    "message": "请在刚刚打开的浏览器窗口中登录以继续。"
-  },
   "app.browse.add": {
     "message": "添加"
   },
@@ -2753,9 +3053,6 @@
   "app.browse.server-instance-content-warning": {
     "message": "加入服务器时，添加内容可能会破坏兼容性。当更新服务器实例内容时，任何添加的内容也将丢失。"
   },
-  "app.browse.server.installing": {
-    "message": "安装中"
-  },
   "app.browse.source.all": {
     "message": "所有来源"
   },
@@ -2881,9 +3178,6 @@
   },
   "app.content-favorites.no-matches-title": {
     "message": "没有匹配的收藏"
-  },
-  "app.content-favorites.refreshing": {
-    "message": "正在更新收藏…"
   },
   "app.content-favorites.remove": {
     "message": "从收藏夹移除"
@@ -3076,12 +3370,6 @@
   },
   "app.content-selection.target-changed": {
     "message": "所选内容属于另一个实例。请切换回该实例或先清空选择。"
-  },
-  "app.content.add-from-file": {
-    "message": "从文件添加"
-  },
-  "app.content.install-content": {
-    "message": "安装内容"
   },
   "app.crash-analysis.ai.settings.enabled": {
     "message": "启用本地 LogAgent"
@@ -3941,6 +4229,9 @@
   "app.home.breadcrumb": {
     "message": "主页"
   },
+  "app.home.calendar.month-total": {
+    "message": "本月 {duration}"
+  },
   "app.home.calendar.next": {
     "message": "下个月"
   },
@@ -4124,6 +4415,9 @@
   "app.home.insights.this-week": {
     "message": "本周游玩 {duration}"
   },
+  "app.home.insights.this-week-label": {
+    "message": "本周"
+  },
   "app.home.insights.this-week-less": {
     "message": "本周游玩 {duration}（比上周少 {percent}%）"
   },
@@ -4136,6 +4430,9 @@
   "app.home.insights.title": {
     "message": "游玩洞察"
   },
+  "app.home.insights.vs-last-week": {
+    "message": "较上周"
+  },
   "app.home.insights.week-top": {
     "message": "本周常玩：{name}"
   },
@@ -4145,20 +4442,44 @@
   "app.home.instances.empty": {
     "message": "还没有实例"
   },
-  "app.home.instances.pin": {
-    "message": "固定到主页"
-  },
   "app.home.instances.pinned": {
     "message": "固定的实例"
   },
   "app.home.instances.pinned-empty": {
     "message": "在实例卡片菜单或实例库中选择「固定到主页」，实例就会显示在这里。"
   },
-  "app.home.instances.unpin": {
-    "message": "取消固定"
-  },
   "app.home.instances.view-all": {
     "message": "查看全部实例"
+  },
+  "app.home.launch.all-instances": {
+    "message": "全部实例"
+  },
+  "app.home.launch.continue": {
+    "message": "继续游玩"
+  },
+  "app.home.launch.home-instance": {
+    "message": "主页实例"
+  },
+  "app.home.launch.last-world": {
+    "message": "上次进入：{name}"
+  },
+  "app.home.launch.not-installed": {
+    "message": "未安装"
+  },
+  "app.home.launch.recent": {
+    "message": "最近游玩"
+  },
+  "app.home.launch.running": {
+    "message": "运行中"
+  },
+  "app.home.launch.switch": {
+    "message": "切换实例"
+  },
+  "app.home.launch.switch-to": {
+    "message": "切换到 {name}"
+  },
+  "app.home.launch.total-played": {
+    "message": "累计 {duration}"
   },
   "app.home.layout.switch-to-information": {
     "message": "切换到信息主页"
@@ -4168,9 +4489,6 @@
   },
   "app.home.layout.toggle": {
     "message": "极简主页"
-  },
-  "app.home.minimal.change-instance": {
-    "message": "更换主页实例"
   },
   "app.home.minimal.choose-instance": {
     "message": "选择实例"
@@ -4199,6 +4517,9 @@
   "app.home.playtime.hours-minutes": {
     "message": "{hours} 小时 {minutes} 分钟"
   },
+  "app.home.playtime.hours-short": {
+    "message": "{hours} 小时"
+  },
   "app.home.playtime.minutes": {
     "message": "{minutes} 分钟"
   },
@@ -4211,11 +4532,11 @@
   "app.home.playtime.sessions": {
     "message": "成功启动 {count} 次"
   },
-  "app.home.recent.empty": {
-    "message": "还没有最近活动。"
-  },
   "app.home.recent.title": {
     "message": "从最近的项目开始"
+  },
+  "app.home.servers.add": {
+    "message": "添加服务器"
   },
   "app.home.servers.change-local-server": {
     "message": "更改关联的本地服务器"
@@ -4262,17 +4583,11 @@
   "app.home.servers.players-online": {
     "message": "{online}/{max} 人在线"
   },
-  "app.home.servers.stop": {
-    "message": "停止"
-  },
   "app.home.servers.unlink-local-server": {
     "message": "取消关联本地服务器"
   },
   "app.home.servers.unlinked-toast": {
     "message": "已取消关联本地服务器"
-  },
-  "app.home.servers.unpin": {
-    "message": "取消固定"
   },
   "app.home.shortcut.kind.instance": {
     "message": "实例"
@@ -4288,6 +4603,12 @@
   },
   "app.home.shortcut.server.players-online": {
     "message": "{count} 人在线"
+  },
+  "app.home.widgets.launch": {
+    "message": "启动"
+  },
+  "app.home.widgets.launch-description": {
+    "message": "一键启动主页实例，或切换到其他实例。"
   },
   "app.home.widgets.size": {
     "message": "尺寸 {size}"
@@ -4336,15 +4657,6 @@
   },
   "app.home.widgets.greeting-description": {
     "message": "随一天中的时间变化的个性化欢迎语。"
-  },
-  "app.home.widgets.group.collections": {
-    "message": "收藏内容集合"
-  },
-  "app.home.widgets.group.overview": {
-    "message": "概览"
-  },
-  "app.home.widgets.group.shortcuts": {
-    "message": "单项快捷入口"
   },
   "app.home.widgets.instance": {
     "message": "单个实例入口"
@@ -4429,6 +4741,9 @@
   },
   "app.home.widgets.world-description": {
     "message": "选择一个世界，创建独立的快速游玩入口。"
+  },
+  "app.home.worlds.browse": {
+    "message": "打开世界列表"
   },
   "app.home.worlds.empty": {
     "message": "将世界标记为收藏后，就会固定在这里。"
@@ -8075,24 +8390,6 @@
   "app.lab.command-generator.version.use-data-components": {
     "message": "使用 1.20.5+ 数据组件"
   },
-  "app.lab.skin-editor.auto-save.error": {
-    "message": "自动保存失败"
-  },
-  "app.lab.skin-editor.auto-save.off": {
-    "message": "自动保存已关闭"
-  },
-  "app.lab.skin-editor.auto-save.saved": {
-    "message": "草稿已保存 {time}"
-  },
-  "app.lab.skin-editor.auto-save.saving": {
-    "message": "正在保存草稿…"
-  },
-  "app.lab.skin-editor.auto-save.unsaved": {
-    "message": "有未保存的更改"
-  },
-  "app.lab.skin-editor.auto-save.up-to-date": {
-    "message": "已是最新"
-  },
   "app.lab.skin-editor.description": {
     "message": "在本地创建和编辑 Minecraft 玩家皮肤。"
   },
@@ -8126,26 +8423,17 @@
   "app.lab.skin-editor.retry": {
     "message": "重试"
   },
-  "app.lab.skin-editor.save": {
-    "message": "保存 PNG"
-  },
   "app.lab.skin-editor.settings.auto-save": {
     "message": "自动保存恢复草稿"
   },
   "app.lab.skin-editor.settings.auto-save-description": {
     "message": "恢复草稿仅保存在本设备，与导出的 PNG 文件相互独立。"
   },
-  "app.lab.skin-editor.settings.cancel": {
-    "message": "取消"
-  },
   "app.lab.skin-editor.settings.interval": {
     "message": "保存间隔（秒）"
   },
   "app.lab.skin-editor.settings.interval-description": {
     "message": "请输入 5 到 600 秒之间的数值。"
-  },
-  "app.lab.skin-editor.settings.save": {
-    "message": "保存设置"
   },
   "app.lab.skin-editor.settings.title": {
     "message": "编辑器设置"
@@ -8659,15 +8947,6 @@
   },
   "app.modpack-install.version": {
     "message": "版本"
-  },
-  "app.modpack.change-version": {
-    "message": "更改整合包版本"
-  },
-  "app.modpack.version-name": {
-    "message": "名称"
-  },
-  "app.modpack.version-supports": {
-    "message": "支持"
   },
   "app.multiplayer.back": {
     "message": "返回"
@@ -13010,6 +13289,12 @@
   "app.skins.modal.edit-title": {
     "message": "编辑皮肤中"
   },
+  "app.skins.modal.export-texture-button": {
+    "message": "导出纹理"
+  },
+  "app.skins.modal.export-texture-failed": {
+    "message": "导出皮肤纹理失败（HTTP {status}）。"
+  },
   "app.skins.modal.make-edit-first-tooltip": {
     "message": "请先对皮肤进行编辑！"
   },
@@ -13865,90 +14150,6 @@
   "drop.help.worlds-title": {
     "message": "存档"
   },
-  "friends.action.add-friend": {
-    "message": "添加好友"
-  },
-  "friends.action.view-friend-requests": {
-    "message": "{count} 个好友请求"
-  },
-  "friends.add-friend.submit": {
-    "message": "发送好友请求"
-  },
-  "friends.add-friend.title": {
-    "message": "添加好友"
-  },
-  "friends.add-friend.username.description": {
-    "message": "这可能与对方的 Minecraft 用户名不同！"
-  },
-  "friends.add-friend.username.placeholder": {
-    "message": "输入 Modrinth 用户名……"
-  },
-  "friends.add-friend.username.title": {
-    "message": "你好友的 Modrinth 用户名是什么？"
-  },
-  "friends.add-friends-to-share": {
-    "message": "<link>添加好友</link> 来看看他们都在玩什么！"
-  },
-  "friends.friend.cancel-request": {
-    "message": "取消请求"
-  },
-  "friends.friend.remove-friend": {
-    "message": "删除好友"
-  },
-  "friends.friend.request-sent": {
-    "message": "已发送好友申请"
-  },
-  "friends.friend.view-profile": {
-    "message": "查看个人资料"
-  },
-  "friends.heading": {
-    "message": "好友"
-  },
-  "friends.heading.active": {
-    "message": "活跃"
-  },
-  "friends.heading.offline": {
-    "message": "离线"
-  },
-  "friends.heading.online": {
-    "message": "在线"
-  },
-  "friends.heading.pending": {
-    "message": "待确认"
-  },
-  "friends.no-friends-match": {
-    "message": "没有对应名字“{query}”的好友"
-  },
-  "friends.requests.accept": {
-    "message": "接受"
-  },
-  "friends.requests.cancel": {
-    "message": "取消"
-  },
-  "friends.requests.ignore": {
-    "message": "忽略"
-  },
-  "friends.requests.incoming": {
-    "message": "{username} 向你发送了好友请求"
-  },
-  "friends.requests.none": {
-    "message": "没有待处理的好友请求 :C"
-  },
-  "friends.requests.outgoing": {
-    "message": "你向 {username} 发送了好友请求"
-  },
-  "friends.requests.title": {
-    "message": "查看好友请求"
-  },
-  "friends.search-friends-placeholder": {
-    "message": "搜索好友…"
-  },
-  "friends.section.heading": {
-    "message": "{title} — {count}"
-  },
-  "friends.sign-in-to-add-friends": {
-    "message": "登录你的 <link>Modrinth 账号</link>，添加好友，看看他们在玩什么！"
-  },
   "instance.add-server.add-and-play": {
     "message": "添加并游玩"
   },
@@ -14134,9 +14335,6 @@
   },
   "instance.files.studio.delete": {
     "message": "移至回收站"
-  },
-  "instance.files.studio.editor-loading": {
-    "message": "正在加载编辑器……"
   },
   "instance.files.studio.edit-deleted": {
     "message": "该文件在编辑保存前已被删除。"
@@ -15663,7 +15861,7 @@
     "message": "复制地址"
   },
   "instance.worlds.create_shortcut": {
-    "message": "创建快照"
+    "message": "创建快捷方式"
   },
   "instance.worlds.game_already_open": {
     "message": "实例已启动"
@@ -16690,12 +16888,6 @@
   },
   "app.resources.operation.no-worlds": {
     "message": "安装数据包前，请先在此实例中创建一个单人存档。"
-  },
-  "app.account.modrinth-account": {
-    "message": "Modrinth 账户"
-  },
-  "app.account.sign-in-modrinth": {
-    "message": "登录 Modrinth 账户"
   },
   "app.browse.categories-failed": {
     "message": "无法加载 CurseForge 分类，请稍后重试。"

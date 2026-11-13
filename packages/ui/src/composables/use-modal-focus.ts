@@ -61,13 +61,16 @@ export function useModalFocus(container: Ref<HTMLElement | null>): ModalFocusCon
 
         const first = focusable[0]
         const last = focusable[focusable.length - 1]
+        const active = document.activeElement
 
         if (event.shiftKey) {
-            if (document.activeElement === first) {
+            // The body itself receives fallback focus, so treat it as the
+            // boundary too; otherwise Shift+Tab would reach the page behind.
+            if (active === first || active === container.value) {
                 event.preventDefault()
                 last.focus()
             }
-        } else if (document.activeElement === last) {
+        } else if (active === last) {
             event.preventDefault()
             first.focus()
         }

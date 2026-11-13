@@ -439,6 +439,13 @@ it('keeps the default header as the modal label', async () => {
     expect(label?.textContent).toContain('Export logs')
 })
 
+it('omits aria-labelledby when the header is hidden so aria-label can name the dialog', async () => {
+    await modal(h('p', 'Body'), { hideHeader: true, 'aria-label': 'Local setup' })
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    expect(body.getAttribute('aria-labelledby')).toBeNull()
+    expect(body.getAttribute('aria-label')).toBe('Local setup')
+})
+
 it('falls back to focusing the modal body when it has no focusable content', async () => {
     await modal(h('p', 'Nothing interactive here'), { closable: false })
     const body = document.querySelector<HTMLElement>('.modal-body')!
@@ -475,4 +482,20 @@ it('wraps Tab focus between the first and last focusable elements', async () => 
 
     expect(tab(last).defaultPrevented).toBe(true)
     expect(document.activeElement).toBe(first)
+})
+
+it('wraps Shift+Tab from the modal body to the last focusable element', async () => {
+    await modal(
+        h('div', [
+            h('button', { id: 'first-action' }, 'First'),
+            h('button', { id: 'last-action' }, 'Last'),
+        ]),
+        { closable: false },
+    )
+    const body = document.querySelector<HTMLElement>('.modal-body')!
+    const last = document.querySelector<HTMLElement>('#last-action')!
+
+    body.focus()
+    expect(tab(body, true).defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(last)
 })

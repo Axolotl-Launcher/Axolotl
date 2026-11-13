@@ -23,7 +23,9 @@
                     ref="modalBodyRef"
                     role="dialog"
                     aria-modal="true"
-                    :aria-labelledby="headerId"
+                    :aria-labelledby="
+                        !hideHeader && (header || $slots.title) ? headerId : undefined
+                    "
                     tabindex="-1"
                     class="modal-body flex flex-col bg-surface-3 rounded-2xl border border-solid border-surface-5"
                     :class="{ 'modal-body-fill': fillContent }"

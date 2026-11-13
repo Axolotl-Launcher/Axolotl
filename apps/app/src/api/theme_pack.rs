@@ -296,10 +296,17 @@ fn require_page_permission(
 /// A navigation target may only differ from the exact entry URL by nothing:
 /// a scheme, host, or port change would leave the pack origin and turn the
 /// page into a generic browser window with access to the new host.
-fn same_origin(left: &url::Url, right: &url::Url) -> bool {
-    left.scheme() == right.scheme()
-        && left.host_str() == right.host_str()
-        && left.port_or_known_default() == right.port_or_known_default()
+fn is_allowed_page_location(
+    url: &url::Url,
+    origin: &url::Url,
+    path: &str,
+) -> bool {
+    url.scheme() == origin.scheme()
+        && url.host_str() == origin.host_str()
+        && url.port_or_known_default() == origin.port_or_known_default()
+        && url.path() == path
+        && url.query().is_none()
+        && url.fragment().is_none()
 }
 
 /// Opens a pack page in a child webview. Pack pages never share the main
@@ -349,10 +356,7 @@ pub async fn theme_pack_open_page<R: Runtime>(
         WebviewBuilder::new(label.clone(), WebviewUrl::External(page_url))
             .initialization_script(THEME_PAGE_API)
             .on_navigation(move |url| {
-                same_origin(url, &origin_url)
-                    && url.path() == allowed_path
-                    && url.query().is_none()
-                    && url.fragment().is_none()
+                is_allowed_page_location(url, &origin_url, &allowed_path)
             });
     lock_pages(&state)?.insert(
         label.clone(),
@@ -1557,17 +1561,39 @@ mod tests {
             theme_origin_for("demo")
         ))
         .unwrap();
-        assert!(same_origin(&page, &origin));
+        assert!(is_allowed_page_location(
+            &page,
+            &origin,
+            "/demo/pages/home.html"
+        ));
         let remote =
             url::Url::parse("https://attacker.example/demo/pages/home.html")
                 .unwrap();
-        assert!(!same_origin(&remote, &origin));
+        assert!(!is_allowed_page_location(
+            &remote,
+            &origin,
+            "/demo/pages/home.html"
+        ));
         let other = url::Url::parse(&format!(
             "{}/demo/pages/home.html",
             theme_origin_for("other")
         ))
         .unwrap();
-        assert!(!same_origin(&other, &origin));
+        assert!(!is_allowed_page_location(
+            &other,
+            &origin,
+            "/demo/pages/home.html"
+        ));
+        let query = url::Url::parse(&format!(
+            "{}/demo/pages/home.html?next=https://attacker.example",
+            theme_origin_for("demo")
+        ))
+        .unwrap();
+        assert!(!is_allowed_page_location(
+            &query,
+            &origin,
+            "/demo/pages/home.html"
+        ));
     }
 
     #[test]

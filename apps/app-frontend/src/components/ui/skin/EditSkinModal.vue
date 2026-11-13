@@ -429,11 +429,7 @@ function openTextureFileBrowser() {
 
 async function exportTexture() {
     try {
-        const textureUrl = uploadedTextureUrl.value
-            ? uploadedTextureUrl.value.original
-            : currentSkin.value
-              ? await get_normalized_skin_texture(currentSkin.value)
-              : null
+        const textureUrl = uploadedTextureUrl.value?.original ?? currentSkin.value?.texture ?? null
         if (!textureUrl) return
 
         const path = await saveFileDialog({

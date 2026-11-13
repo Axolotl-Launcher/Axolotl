@@ -76,7 +76,8 @@ afterEach(() => {
 })
 
 async function openExport() {
-    backend.getNormalizedTexture.mockResolvedValue('data:image/png;base64,AQID')
+    // Normalization changes the bytes, so exporting them instead of the stored texture fails.
+    backend.getNormalizedTexture.mockResolvedValue('data:image/png;base64,BAUG')
     wrapper = mount(EditSkinModal, {
         props: { capes: [] },
         global: { directives: { tooltip: {} } },
@@ -93,7 +94,7 @@ async function openExport() {
     return button!
 }
 
-it('writes the current skin texture to the file the user picks', async () => {
+it('writes the stored skin texture to the file the user picks', async () => {
     backend.save.mockResolvedValue('/tmp/My Skin.png')
 
     const button = await openExport()

@@ -1597,6 +1597,20 @@ mod tests {
     }
 
     #[test]
+    fn rejects_opaque_origins_for_pack_assets() {
+        let directory = tempfile::tempdir().unwrap();
+        let page_dir = directory.path().join("themes/demo/pages");
+        std::fs::create_dir_all(&page_dir).unwrap();
+        std::fs::write(page_dir.join("home.html"), "<!doctype html>").unwrap();
+        let storage = ThemePackStorage::new(directory.path());
+        let response = protocol_response_for(
+            &storage,
+            &request(&pack_url("demo", "pages/home.html"), Some("null")),
+        );
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[test]
     fn serves_pack_pages_with_an_ipc_safe_csp() {
         let directory = tempfile::tempdir().unwrap();
         let page_dir = directory.path().join("themes/demo/pages");

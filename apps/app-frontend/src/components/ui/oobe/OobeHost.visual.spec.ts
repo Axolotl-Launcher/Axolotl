@@ -7,7 +7,7 @@ import {
 import { flushPromises, mount } from '@vue/test-utils'
 import IntlMessageFormat from 'intl-messageformat'
 import { createPinia } from 'pinia'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, provide, ref } from 'vue'
 
@@ -416,43 +416,107 @@ it('keeps Skip for existing accounts and failed edits, then keeps Next after a s
     expect(button('Next')!.disabled).toBe(false)
 })
 
-it("draws Steve's head in the art until an account is signed in, then the selected account's", async () => {
-    const artHead = () =>
-        document.querySelector('[data-testid="oobe-account-head"]')?.getAttribute('href')
+describe('account art', () => {
+    const card = (slot: 'front' | 'left' | 'right') =>
+        document.querySelector<HTMLElement>(
+            `[data-testid="oobe-account-card"][data-slot="${slot}"]`,
+        )
+    const cardHead = (slot: 'front' | 'left' | 'right') =>
+        card(slot)?.querySelector('[data-testid="oobe-account-head"]')?.getAttribute('href') ??
+        undefined
+    const head = (name: string) => headUrl(`${name}:https://skins.test/${name}`)
     const accountChoice = (name: string) =>
         Array.from(document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="radio"]')).find(
             (entry) => entry.textContent?.includes(name),
         )
-    await render(
-        'en-US',
-        OOBE_STEPS.filter((step) => ['account_v1', 'welcome_v1'].includes(step.id)),
-    )
-    await waitFor(() => !!artHead(), { label: 'account art' })
-    expect(artHead()).toBe(steveHead)
-    await shot('oobe-account-art-steve')
+    /** What a sign-in leaves behind: the stored accounts, one selected, and the announcement. */
+    function signIn(names: string[], selected: string) {
+        backend.accounts = names.map((name) => ({
+            account_id: name,
+            account_type: 'microsoft',
+            profile: {
+                id: name,
+                name,
+                skins: [{ state: 'ACTIVE', url: `https://skins.test/${name}` }],
+            },
+        }))
+        backend.defaultAccount = selected
+        notifyAccountSelectionChanged()
+    }
+    async function settle() {
+        const finite = document
+            .getAnimations()
+            .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        await Promise.all(finite.map((animation) => animation.finished.catch(() => {})))
+    }
+    const accountOnly = OOBE_STEPS.filter((step) => ['account_v1', 'welcome_v1'].includes(step.id))
 
-    // A sign-in stores the account and selects it, then announces the change.
-    backend.accounts = ['Alex', 'Notch'].map((name) => ({
-        account_id: name,
-        account_type: 'microsoft',
-        profile: {
-            id: name,
-            name,
-            skins: [{ state: 'ACTIVE', url: `https://skins.test/${name}` }],
-        },
-    }))
-    backend.defaultAccount = 'Alex'
-    notifyAccountSelectionChanged()
-    await waitFor(() => artHead() === headUrl('Alex:https://skins.test/Alex'), {
-        label: 'signed-in head',
+    it('shows Steve in front until an account signs in, and other accounts behind only from two', async () => {
+        await render('en-US', accountOnly)
+        await waitFor(() => !!cardHead('front'), { label: 'account art' })
+        expect(cardHead('front')).toBe(steveHead)
+        expect(cardHead('left')).toBeUndefined()
+        expect(cardHead('right')).toBeUndefined()
+        await shot('oobe-account-art-steve')
+
+        signIn(['Alex'], 'Alex')
+        await waitFor(() => cardHead('front') === head('Alex'), { label: 'signed-in head' })
+        expect(cardHead('left')).toBeUndefined()
+
+        signIn(['Alex', 'Notch', 'Zuri'], 'Alex')
+        await waitFor(() => cardHead('right') === head('Zuri'), { label: 'back cards' })
+        expect(cardHead('front')).toBe(head('Alex'))
+        expect(cardHead('left')).toBe(head('Notch'))
+        await settle()
+        await shot('oobe-account-art-three')
+        applyTheme('light')
+        await shot('oobe-account-art-three-light')
+        applyTheme('dark')
     })
 
-    await waitFor(() => !!accountChoice('Notch'), { label: 'accounts listed' })
-    accountChoice('Notch')!.click()
-    await waitFor(() => artHead() === headUrl('Notch:https://skins.test/Notch'), {
-        label: 'selected head',
+    it('slides a picked back card up to the front and the front card into its place', async () => {
+        signIn(['Alex', 'Notch', 'Zuri'], 'Alex')
+        await render('en-US', accountOnly)
+        await waitFor(() => cardHead('right') === head('Zuri') && !!accountChoice('Zuri'), {
+            label: 'three accounts',
+        })
+        await settle()
+
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardHead('front') === head('Zuri'), { label: 'Zuri in front' })
+        expect(cardHead('right')).toBe(head('Alex'))
+        expect(cardHead('left')).toBe(head('Notch'))
+
+        // Halt the swap to check its stacking: the rising card passes in front only halfway.
+        const swap = document
+            .getAnimations()
+            .filter(
+                (animation): animation is CSSAnimation =>
+                    animation instanceof CSSAnimation &&
+                    /rise|sink|front-(in|out)/.test(animation.animationName),
+            )
+        expect(swap.length).toBeGreaterThanOrEqual(2)
+        const at = (progress: number) =>
+            swap.forEach((animation) => {
+                animation.pause()
+                animation.currentTime = 720 * progress
+            })
+        at(0.3)
+        await shot('oobe-account-art-swap-30')
+        at(0.4)
+        expect(getComputedStyle(card('front')!).zIndex).toBe('1')
+        expect(getComputedStyle(card('right')!).zIndex).toBe('3')
+        at(0.5)
+        await shot('oobe-account-art-swap-50')
+        at(0.6)
+        expect(getComputedStyle(card('front')!).zIndex).toBe('3')
+        expect(getComputedStyle(card('right')!).zIndex).toBe('1')
+        at(0.7)
+        await shot('oobe-account-art-swap-70')
+        swap.forEach((animation) => animation.finish())
+        await settle()
+        await shot('oobe-account-art-swapped')
     })
-    await shot('oobe-account-art-selected')
 })
 
 it('keeps Skip after a folder sync fails and changes to Next only when retry succeeds', async () => {

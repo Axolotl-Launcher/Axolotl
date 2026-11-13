@@ -37,7 +37,7 @@ import { handleSevereError, useError } from '@/store/error.js'
 
 import { useOobeStep } from '../../context'
 import OobeChoice from '../../parts/OobeChoice.vue'
-import { type OobeAccount, useOobeAccounts } from './accounts'
+import { type OobeAccount, showPicked, useOobeAccounts } from './accounts'
 
 type Account = OobeAccount
 type YggdrasilProfile = { id: string; name: string }
@@ -139,7 +139,9 @@ const messages = defineMessages({
     },
 })
 
-const { accounts, defaultAccount, refresh, headOf } = useOobeAccounts()
+const { accounts, defaultAccount, selected, refresh, headOf } = useOobeAccounts()
+// A pick left over from an earlier visit is stale; show what the launcher holds.
+showPicked(undefined)
 const open = ref<Exclude<Method, 'microsoft'> | null>(null)
 const working = ref<Method | null>(null)
 
@@ -184,6 +186,7 @@ async function makeDefault(account: Account) {
         return
     }
     const mine = ++selection
+    showPicked(account.account_id)
     const changed = defaultAccount.value !== account.account_id
     // Writes run one at a time, as in the accounts menu, so the backend ends on the last pick.
     const write = defaultUserWrites.then(() => set_default_user(account.account_id))
@@ -199,7 +202,10 @@ async function makeDefault(account: Account) {
         if (isOfflineAccountRestrictedError(error)) errorStore.showAntiPiracyNotice()
         else handleError(error as Error)
         // An earlier pick may have been stored meanwhile; show what the backend now holds.
-        if (mine === selection) await refresh()
+        if (mine === selection) {
+            showPicked(undefined)
+            await refresh()
+        }
     }
 }
 
@@ -329,7 +335,7 @@ async function chooseProfile(profile: YggdrasilProfile) {
                     v-for="account in accounts"
                     :key="account.account_id"
                     role="radio"
-                    :selected="account.account_id === defaultAccount"
+                    :selected="account.account_id === selected"
                     :class="{
                         'opacity-60': account.account_type === 'offline' && antiPiracy.restricted,
                     }"
@@ -346,7 +352,7 @@ async function chooseProfile(profile: YggdrasilProfile) {
                     </span>
                     <template #trailing>
                         <CheckIcon
-                            v-if="account.account_id === defaultAccount"
+                            v-if="account.account_id === selected"
                             class="size-5 shrink-0 text-brand"
                         />
                     </template>

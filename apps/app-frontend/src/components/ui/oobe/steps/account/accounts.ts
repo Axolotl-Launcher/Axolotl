@@ -1,4 +1,4 @@
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import steveSkinTexture from '@/assets/skins/steve.png?inline'
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
@@ -21,6 +21,17 @@ export type OobeAccount = {
 /** Steve's head, cut from the bundled skin: what an account without a skin shows. */
 export const steveHead = createSkinHeadDataUrl(steveSkinTexture)
 
+/** The account picked last in this step, shown as selected before the launcher has stored it. */
+const picked = ref<string>()
+
+/**
+ * Shows account `id` as selected at once, so the list and the art answer the click rather
+ * than the save. `undefined` goes back to the account the launcher holds.
+ */
+export function showPicked(id: string | undefined) {
+    picked.value = id
+}
+
 /**
  * The accounts on this device, the selected one and their rendered heads. It follows
  * `accountSelectionRevision`, so the step and its artwork each keep their own copy in
@@ -30,6 +41,8 @@ export function useOobeAccounts() {
     const { offline } = useNetworkStatus()
     const accounts = ref<OobeAccount[]>([])
     const defaultAccount = ref<string | undefined>()
+    /** The account to show as selected: the last pick, or the one the launcher holds. */
+    const selected = computed(() => picked.value ?? defaultAccount.value)
     /** Rendered heads by skin texture; an account shows Steve until its head is ready. */
     const heads = ref(new Map<string, string>())
 
@@ -71,5 +84,5 @@ export function useOobeAccounts() {
         return (skin && heads.value.get(skin.texture_key)) ?? steveHead
     }
 
-    return { accounts, defaultAccount, refresh, headOf }
+    return { accounts, defaultAccount, selected, refresh, headOf }
 }

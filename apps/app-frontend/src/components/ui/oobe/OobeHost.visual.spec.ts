@@ -7,7 +7,7 @@ import {
 import { flushPromises, mount } from '@vue/test-utils'
 import IntlMessageFormat from 'intl-messageformat'
 import { createPinia } from 'pinia'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { defineComponent, h, provide, ref } from 'vue'
 
@@ -21,6 +21,7 @@ import OobeHost from './OobeHost.vue'
 import { OOBE_STEP_IDS } from './step-ids'
 import { OOBE_STEPS } from './steps'
 import { steveHead } from './steps/account/accounts'
+import { cardClock } from './steps/account/card-physics'
 import { createOobeController } from './useOobe'
 
 function headUrl(textureKey: string) {
@@ -417,6 +418,26 @@ it('keeps Skip for existing accounts and failed edits, then keeps Next after a s
 })
 
 describe('account art', () => {
+    // The cards move on springs driven by `cardClock`; these tests step that clock by hand.
+    let clock = 0
+    const realNow = cardClock.now
+    beforeEach(() => {
+        clock = 0
+        cardClock.now = () => clock
+    })
+    afterEach(() => {
+        cardClock.now = realNow
+    })
+    const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    /** Moves the cards' clock on by `ms`, `step` at a time, letting a frame draw each step. */
+    async function advance(ms: number, step = 16) {
+        for (let elapsed = 0; elapsed < ms; elapsed += step) {
+            clock += Math.min(step, ms - elapsed)
+            await nextFrame()
+        }
+    }
+    const settleCards = () => advance(1600, 100)
+
     const card = (slot: 'front' | 'left' | 'right' | 'hidden') =>
         document.querySelector<HTMLElement>(
             `[data-testid="oobe-account-card"][data-slot="${slot}"]`,
@@ -424,11 +445,40 @@ describe('account art', () => {
     const cardHead = (slot: 'front' | 'left' | 'right' | 'hidden') =>
         card(slot)?.querySelector('[data-testid="oobe-account-head"]')?.getAttribute('href') ??
         undefined
+    const cardOf = (name: string) =>
+        document.querySelector<HTMLElement>(
+            `[data-testid="oobe-account-card"][data-account="${name}"]`,
+        )!
     const head = (name: string) => headUrl(`${name}:https://skins.test/${name}`)
     const accountChoice = (name: string) =>
         Array.from(document.querySelectorAll<HTMLButtonElement>('.oobe-root [role="radio"]')).find(
             (entry) => entry.textContent?.includes(name),
         )
+    /** Where a card is drawn: offset from the front card's place, turn, size and stacking. */
+    function sample(element: HTMLElement) {
+        const style = getComputedStyle(element)
+        const [a = 1, b = 0, , , x = 0, y = 0] = (
+            style.transform.match(/-?[\d.]+(e-?\d+)?/g) ?? []
+        ).map(Number)
+        return {
+            x,
+            y,
+            r: (Math.atan2(b, a) * 180) / Math.PI,
+            s: Math.hypot(a, b),
+            z: Number(style.zIndex),
+        }
+    }
+    type Sample = ReturnType<typeof sample>
+    const distance = (a: Sample, b: Sample) => Math.hypot(a.x - b.x, a.y - b.y)
+    /** Follows two cards for `frames` frames of 16 ms. */
+    async function follow(first: string, second: string, frames: number) {
+        const samples: { first: Sample; second: Sample }[] = []
+        for (let i = 0; i < frames; i++) {
+            await advance(16)
+            samples.push({ first: sample(cardOf(first)), second: sample(cardOf(second)) })
+        }
+        return samples
+    }
     /** What a sign-in leaves behind: the stored accounts, one selected, and the announcement. */
     function signIn(names: string[], selected: string) {
         backend.accounts = names.map((name) => ({
@@ -443,33 +493,16 @@ describe('account art', () => {
         backend.defaultAccount = selected
         notifyAccountSelectionChanged()
     }
-    async function settle() {
-        const finite = document
-            .getAnimations()
-            .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
-        await Promise.all(finite.map((animation) => animation.finished.catch(() => {})))
-    }
-    const cardOf = (name: string) =>
-        document.querySelector<HTMLElement>(
-            `[data-testid="oobe-account-card"][data-account="${name}"]`,
-        )!
-    const motionOf = (element: HTMLElement) =>
-        element.getAnimations().find((animation) => animation.id === 'oobe-account-card-motion')
-    /** The cards' moves, plus the front card's outline fading with them. */
-    const cardMoves = () =>
-        document
-            .getAnimations()
-            .filter(
-                (animation) =>
-                    animation.id === 'oobe-account-card-motion' ||
-                    animation instanceof CSSTransition,
-            )
-    /** The numbers of a computed `matrix(...)` transform. */
-    const matrix = (element: HTMLElement) =>
-        (getComputedStyle(element).transform.match(/-?[\d.]+(e-?\d+)?/g) ?? []).map(Number)
-    function expectSamePlace(actual: number[], expected: number[]) {
-        expect(actual).toHaveLength(6)
-        actual.forEach((value, index) => expect(value).toBeCloseTo(expected[index]!, 1))
+    async function renderAccounts(names: string[], selected: string) {
+        signIn(names, selected)
+        await render('en-US', accountOnly)
+        await waitFor(
+            () =>
+                names.every((name) => !!accountChoice(name)) &&
+                cardHead('front') === head(selected),
+            { label: 'accounts listed' },
+        )
+        await settleCards()
     }
     const accountOnly = OOBE_STEPS.filter((step) => ['account_v1', 'welcome_v1'].includes(step.id))
 
@@ -489,63 +522,104 @@ describe('account art', () => {
         await waitFor(() => cardHead('right') === head('Zuri'), { label: 'back cards' })
         expect(cardHead('front')).toBe(head('Alex'))
         expect(cardHead('left')).toBe(head('Notch'))
-        await settle()
+        await settleCards()
         await shot('oobe-account-art-three')
         applyTheme('light')
         await shot('oobe-account-art-three-light')
         applyTheme('dark')
     })
 
-    it('slides a picked back card up to the front and the front card into its place', async () => {
-        signIn(['Alex', 'Notch', 'Zuri'], 'Alex')
-        await render('en-US', accountOnly)
-        await waitFor(() => cardHead('right') === head('Zuri') && !!accountChoice('Zuri'), {
-            label: 'three accounts',
-        })
-        await settle()
-
+    it('swings a picked back card up and around to the front without a pause', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
         accountChoice('Zuri')!.click()
-        await waitFor(() => cardHead('front') === head('Zuri'), { label: 'Zuri in front' })
-        expect(cardHead('right')).toBe(head('Alex'))
-        expect(cardHead('left')).toBe(head('Notch'))
+        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
 
-        // Halt the swap to check its stacking: the rising card passes in front only halfway.
-        const swap = cardMoves()
-        expect(swap.length).toBeGreaterThanOrEqual(2)
-        const at = (progress: number) =>
-            swap.forEach((animation) => {
-                animation.pause()
-                animation.currentTime = 720 * progress
-            })
-        at(0.3)
-        await shot('oobe-account-art-swap-30')
-        at(0.4)
-        expect(getComputedStyle(card('front')!).zIndex).toBe('1')
-        expect(getComputedStyle(card('right')!).zIndex).toBe('3')
-        at(0.5)
-        await shot('oobe-account-art-swap-50')
-        at(0.6)
-        expect(getComputedStyle(card('front')!).zIndex).toBe('3')
-        expect(getComputedStyle(card('right')!).zIndex).toBe('1')
-        at(0.7)
-        await shot('oobe-account-art-swap-70')
-        swap.forEach((animation) => animation.finish())
-        await settle()
+        const samples = await follow('Zuri', 'Alex', 50)
+        // Up and out from behind the front card first.
+        expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-40)
+        // The two trade stacking order once, and only when Zuri's card is clear above Alex's.
+        const crossing = samples.findIndex(({ first, second }) => first.z > second.z)
+        expect(crossing).toBeGreaterThan(3)
+        expect(samples[crossing]!.first.y).toBeLessThan(samples[crossing]!.second.y - 40)
+        // No pause on the way: while it is still far from the front it keeps moving.
+        const front = { x: 0, y: 0, r: 0, s: 1, z: 0 }
+        for (let i = 1; i < samples.length; i++) {
+            if (distance(samples[i]!.first, front) < 15) break
+            expect(distance(samples[i]!.first, samples[i - 1]!.first)).toBeGreaterThan(1)
+        }
+        await settleCards()
+        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
+            head('Zuri'),
+            head('Notch'),
+            head('Alex'),
+        ])
         await shot('oobe-account-art-swapped')
+    })
+
+    it('turns both cards back from where they are, at the speed they have, when a pick is taken back', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
+        const going = await follow('Zuri', 'Alex', 8)
+        await shot('oobe-account-art-reverse-before')
+
+        // Back to Alex while Zuri's card is still swinging out behind it.
+        accountChoice('Alex')!.click()
+        await waitFor(() => cardOf('Alex').dataset.slot === 'front', { label: 'Alex picked back' })
+        const back = await follow('Zuri', 'Alex', 40)
+        // No jump and no stop: the first step back is about as long as the last step out.
+        const lastOut = going[going.length - 1]!
+        const stepOut = distance(lastOut.first, going[going.length - 2]!.first)
+        const stepBack = distance(back[0]!.first, lastOut.first)
+        expect(stepBack).toBeGreaterThan(stepOut * 0.5)
+        expect(stepBack).toBeLessThan(stepOut * 1.6)
+        // Zuri's card never got in front, so it stays behind Alex's all the way back.
+        expect(back.every(({ first, second }) => first.z < second.z)).toBe(true)
+        await shot('oobe-account-art-reverse-after')
+        await settleCards()
+        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
+            head('Alex'),
+            head('Notch'),
+            head('Zuri'),
+        ])
+    })
+
+    it('bends a card still in flight on to its new place when another account is picked', async () => {
+        await renderAccounts(['Alex', 'Notch', 'Zuri'], 'Alex')
+        accountChoice('Zuri')!.click()
+        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
+        const going = await follow('Zuri', 'Alex', 8)
+
+        // Notch before Zuri lands: Zuri turns off toward the left, Alex keeps sinking right.
+        accountChoice('Notch')!.click()
+        await waitFor(() => cardOf('Notch').dataset.slot === 'front', { label: 'Notch picked' })
+        expect(cardOf('Zuri').dataset.slot).toBe('left')
+        expect(cardOf('Alex').dataset.slot).toBe('right')
+        const after = await follow('Zuri', 'Alex', 30)
+        const lastOut = going[going.length - 1]!
+        for (const which of ['first', 'second'] as const) {
+            const stepOut = distance(lastOut[which], going[going.length - 2]![which])
+            const stepOn = distance(after[0]![which], lastOut[which])
+            expect(stepOn).toBeGreaterThan(stepOut * 0.5)
+            expect(stepOn).toBeLessThan(stepOut * 1.6)
+        }
+        await shot('oobe-account-art-chain')
+        await settleCards()
+        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
+            head('Notch'),
+            head('Zuri'),
+            head('Alex'),
+        ])
+        await shot('oobe-account-art-chained')
     })
 
     it('hides a card from four accounts and draws accounts without a card out of it', async () => {
         // Sorted, these are Alex, Bo, Ida, Kai, Notch, Zuri: Kai is on the hidden card.
-        signIn(['Alex', 'Bo', 'Ida', 'Kai', 'Notch', 'Zuri'], 'Alex')
-        await render('en-US', accountOnly)
-        await waitFor(() => cardHead('hidden') === head('Kai') && !!accountChoice('Zuri'), {
-            label: 'six accounts',
-        })
-        await settle()
-        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
-            head('Alex'),
+        await renderAccounts(['Alex', 'Bo', 'Ida', 'Kai', 'Notch', 'Zuri'], 'Alex')
+        expect([cardHead('left'), cardHead('right'), cardHead('hidden')]).toEqual([
             head('Bo'),
             head('Ida'),
+            head('Kai'),
         ])
         // Only the hidden card's top edge shows; its head lies within the front card.
         const covered = card('front')!.getBoundingClientRect()
@@ -558,123 +632,33 @@ describe('account art', () => {
         expect(card('hidden')!.getBoundingClientRect().top).toBeLessThan(covered.top)
         await shot('oobe-account-art-deck')
 
-        // Zuri has no card: it is put on the hidden card out of sight and drawn out of the deck.
+        // Zuri has no card: it takes over the hidden card out of sight and is drawn out of it.
         accountChoice('Zuri')!.click()
-        await waitFor(() => cardHead('front') === head('Zuri'), { label: 'Zuri drawn' })
+        await waitFor(
+            () =>
+                document.querySelector<HTMLElement>('[data-account="Zuri"]')?.dataset.slot ===
+                'front',
+            { label: 'Zuri drawn' },
+        )
         expect(cardHead('hidden')).toBe(head('Alex'))
-        expect([cardHead('left'), cardHead('right')]).toEqual([head('Bo'), head('Ida')])
+        const start = sample(cardOf('Zuri'))
+        expect(start.x).toBeCloseTo(0, 0)
+        expect(start.y).toBeCloseTo(-46, 0)
+        expect(start.s).toBeCloseTo(0.8, 2)
+        expect(start.z).toBeLessThan(sample(cardOf('Alex')).z)
 
-        const draw = cardMoves()
-        expect(draw.length).toBeGreaterThanOrEqual(2)
-        const at = (progress: number) =>
-            draw.forEach((animation) => {
-                animation.pause()
-                animation.currentTime = 820 * progress
-            })
-        at(0)
-        // It starts in the hidden card's place, with its head already there.
-        const drawnHead = card('front')!.querySelector('[data-testid="oobe-account-head"]')!
-        expect(getComputedStyle(drawnHead).opacity).toBe('1')
-        expect(getComputedStyle(card('front')!).zIndex).toBe('2')
-        at(0.25)
-        await shot('oobe-account-art-draw-25')
-        at(0.4)
-        expect(getComputedStyle(card('front')!).zIndex).toBe('2')
-        expect(getComputedStyle(card('hidden')!).zIndex).toBe('3')
-        at(0.5)
-        await shot('oobe-account-art-draw-50')
-        at(0.6)
-        expect(getComputedStyle(card('front')!).zIndex).toBe('3')
-        expect(getComputedStyle(card('hidden')!).zIndex).toBe('2')
-        at(0.75)
-        await shot('oobe-account-art-draw-75')
-        draw.forEach((animation) => animation.finish())
-        await settle()
+        const samples = await follow('Zuri', 'Alex', 50)
+        expect(Math.min(...samples.map(({ first }) => first.y))).toBeLessThan(-70)
+        const crossing = samples.findIndex(({ first, second }) => first.z > second.z)
+        expect(crossing).toBeGreaterThan(3)
+        await settleCards()
+        expect([
+            cardHead('front'),
+            cardHead('left'),
+            cardHead('right'),
+            cardHead('hidden'),
+        ]).toEqual([head('Zuri'), head('Bo'), head('Ida'), head('Alex')])
         await shot('oobe-account-art-drawn')
-    })
-
-    it('turns both cards around from where they are when the pick is taken back mid-swap', async () => {
-        signIn(['Alex', 'Notch', 'Zuri'], 'Alex')
-        await render('en-US', accountOnly)
-        await waitFor(() => cardHead('right') === head('Zuri') && !!accountChoice('Zuri'), {
-            label: 'three accounts',
-        })
-        await settle()
-
-        accountChoice('Zuri')!.click()
-        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
-        cardMoves().forEach((animation) => {
-            animation.pause()
-            animation.currentTime = 720 * 0.4
-        })
-        const zuriThen = matrix(cardOf('Zuri'))
-        const alexThen = matrix(cardOf('Alex'))
-        expect(getComputedStyle(cardOf('Zuri')).zIndex).toBe('1')
-        await shot('oobe-account-art-reverse-before')
-
-        // Back to Alex before Zuri's card has passed in front.
-        accountChoice('Alex')!.click()
-        await waitFor(() => cardOf('Alex').dataset.slot === 'front', { label: 'Alex picked back' })
-        const zuri = motionOf(cardOf('Zuri'))!
-        const alex = motionOf(cardOf('Alex'))!
-        for (const animation of [zuri, alex]) {
-            animation.pause()
-            animation.currentTime = 0
-        }
-        // Each card sets off from exactly where it was, not from its old slot.
-        expectSamePlace(matrix(cardOf('Zuri')), zuriThen)
-        expectSamePlace(matrix(cardOf('Alex')), alexThen)
-        // Zuri never got in front, so the order stays as it was all the way back.
-        expect(getComputedStyle(cardOf('Zuri')).zIndex).toBe('1')
-        expect(getComputedStyle(cardOf('Alex')).zIndex).toBe('3')
-        for (const animation of [zuri, alex]) animation.currentTime = 300
-        await shot('oobe-account-art-reverse-after')
-        cardMoves().forEach((animation) => animation.finish())
-        await settle()
-        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
-            head('Alex'),
-            head('Notch'),
-            head('Zuri'),
-        ])
-    })
-
-    it('sends a card still in flight on to its new place when another account is picked', async () => {
-        signIn(['Alex', 'Notch', 'Zuri'], 'Alex')
-        await render('en-US', accountOnly)
-        await waitFor(() => cardHead('right') === head('Zuri') && !!accountChoice('Notch'), {
-            label: 'three accounts',
-        })
-        await settle()
-
-        accountChoice('Zuri')!.click()
-        await waitFor(() => cardOf('Zuri').dataset.slot === 'front', { label: 'Zuri picked' })
-        cardMoves().forEach((animation) => {
-            animation.pause()
-            animation.currentTime = 720 * 0.4
-        })
-        const zuriThen = matrix(cardOf('Zuri'))
-        const alexMove = motionOf(cardOf('Alex'))
-
-        // Notch before Zuri lands: Zuri turns off toward the left, Alex keeps sinking to the right.
-        accountChoice('Notch')!.click()
-        await waitFor(() => cardOf('Notch').dataset.slot === 'front', { label: 'Notch picked' })
-        expect(cardOf('Zuri').dataset.slot).toBe('left')
-        expect(cardOf('Alex').dataset.slot).toBe('right')
-        expect(motionOf(cardOf('Alex'))).toBe(alexMove)
-        const zuri = motionOf(cardOf('Zuri'))!
-        zuri.pause()
-        zuri.currentTime = 0
-        expectSamePlace(matrix(cardOf('Zuri')), zuriThen)
-        zuri.currentTime = 300
-        await shot('oobe-account-art-chain')
-        cardMoves().forEach((animation) => animation.finish())
-        await settle()
-        expect([cardHead('front'), cardHead('left'), cardHead('right')]).toEqual([
-            head('Notch'),
-            head('Zuri'),
-            head('Alex'),
-        ])
-        await shot('oobe-account-art-chained')
     })
 })
 

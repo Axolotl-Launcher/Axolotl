@@ -1,27 +1,30 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { steveHead, useOobeAccounts } from './accounts'
 import {
     CARD_SLOTS,
     type CardLayout,
-    type CardMove,
-    type CardSlot,
     layoutCards,
     moveOf,
     slotOf,
     withPickOnHiddenCard,
 } from './card-layout'
 import {
-    CARD_MOTION_MS,
-    cardKeyframes,
+    cardClock,
+    type CardMotion,
     type CardPose,
-    LAYER,
-    OPACITY,
-    POSES,
-    restingPose,
+    cardTransform,
+    enteringMotion,
+    frontAmount,
+    layerOf,
+    restingMotion,
+    settle,
     SIDE,
-} from './card-motion'
+    SLOT_POSES,
+    startMove,
+    stepMotion,
+} from './card-physics'
 
 /**
  * The selected account's card in front, with Steve's head while there is none. With two
@@ -29,109 +32,107 @@ import {
  * card up to the front while the old front card sinks into its place. From four accounts a
  * faint card hides behind the stack; an account without a visible card is drawn out of it.
  *
- * Moves can be interrupted: a pick made while cards are still moving sends every card whose
- * place changed on from wherever it is, and leaves the others to finish their way.
+ * Every account card moves on springs, so a pick made while cards are still moving just
+ * steers them from where they are, at the speed they have: they bend their path, or turn
+ * back when a pick is taken back. Cards whose place did not change carry on as they were.
  */
-const { accounts, defaultAccount, headOf } = useOobeAccounts()
-
-const CARD_MOTION = 'oobe-account-card-motion'
+const { accounts, selected, headOf } = useOobeAccounts()
 
 const layout = ref<CardLayout>({})
-/** Each account card's element, so a move can start from where the card is on screen. */
+/** Each account card's element, written to directly every frame while cards move. */
 const elements = new Map<string, HTMLElement>()
-/** Moves decided before the cards' new slots are rendered, played right after. */
-let queued: { id: string; move: CardMove; from?: CardSlot; start?: CardPose }[] = []
-/** Cards a new move caught mid-flight; their move eases on instead of starting from rest. */
-const movingIds = new Set<string>()
+/** Each account card's motion; its slot in `layout` is where it is heading. */
+const motions = new Map<string, CardMotion>()
+let frame = 0
+let lastFrame = 0
+
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+function draw(id: string) {
+    const element = elements.get(id)
+    const motion = motions.get(id)
+    if (!element || !motion) return
+    const pose: CardPose = motion.pose
+    element.style.transform = cardTransform(pose)
+    element.style.opacity = String(pose.o)
+    element.style.zIndex = String(layerOf(pose))
+    const front = String(frontAmount(pose))
+    element.querySelectorAll<SVGElement>('.front-only').forEach((part) => {
+        part.style.opacity = front
+    })
+}
+
+function tick() {
+    const now = cardClock.now()
+    const dt = Math.min(Math.max(now - lastFrame, 0) / 1000, 1)
+    lastFrame = now
+    let moving = false
+    for (const [id, motion] of motions) {
+        const slot = slotOf(layout.value, id)
+        if (!slot) continue
+        const target = SLOT_POSES[slot]
+        const stepped = reducedMotion() ? restingMotion(slot) : stepMotion(motion, target, dt, now)
+        const rest = settle(stepped, target)
+        motions.set(id, rest ?? stepped)
+        if (!rest) moving = true
+        draw(id)
+    }
+    frame = moving ? requestAnimationFrame(tick) : 0
+}
+
+function wake() {
+    if (frame) return
+    lastFrame = cardClock.now()
+    frame = requestAnimationFrame(tick)
+}
+
+onBeforeUnmount(() => cancelAnimationFrame(frame))
 
 function bindCard(id: string | undefined, element: unknown) {
     if (!id) return
-    if (element instanceof HTMLElement) elements.set(id, element)
-    else elements.delete(id)
-}
-
-/** Where a card is right now, part way through a move or at rest. */
-function currentPose(element: HTMLElement): CardPose {
-    const style = getComputedStyle(element)
-    return {
-        transform: style.transform === 'none' ? POSES.front : style.transform,
-        opacity: Number(style.opacity),
-        layer: Number(style.zIndex) || 0,
-    }
-}
-
-function isMoving(element: HTMLElement) {
-    return element.getAnimations().some((animation) => animation.id === CARD_MOTION)
+    if (element instanceof HTMLElement) {
+        elements.set(id, element)
+        // Placed before the first paint, so a new card never shows at the front card's place.
+        draw(id)
+    } else elements.delete(id)
 }
 
 watch(
-    () => [accounts.value.map((account) => account.account_id), defaultAccount.value] as const,
-    ([ids, selected]) => {
+    () => [accounts.value.map((account) => account.account_id), selected.value] as const,
+    ([ids, pick]) => {
         const shown = layout.value
-        const before = withPickOnHiddenCard(shown, ids, selected)
-        const next = layoutCards(before, ids, selected)
-        // Read before the new slots render, so each move starts where its card is now.
-        const now = new Map<string, { pose: CardPose; moving: boolean }>()
-        for (const slot of CARD_SLOTS) {
-            const id = shown[slot]
-            const element = id ? elements.get(id) : undefined
-            if (id && element)
-                now.set(id, { pose: currentPose(element), moving: isMoving(element) })
+        const before = withPickOnHiddenCard(shown, ids, pick)
+        const next = layoutCards(before, ids, pick)
+        const now = cardClock.now()
+        // The pick took over the hidden card out of sight, so it moves on from that card.
+        if (shown.hidden && before.hidden && before.hidden !== shown.hidden) {
+            const hidden = motions.get(shown.hidden)
+            if (hidden) motions.set(before.hidden, hidden)
         }
-        // The pick took over the hidden card out of sight, so it starts where that card is.
-        if (shown.hidden && before.hidden !== shown.hidden) {
-            const hidden = now.get(shown.hidden)
-            if (hidden && before.hidden) now.set(before.hidden, hidden)
-        }
-        queued = []
         for (const slot of CARD_SLOTS) {
             const id = next[slot]
             const move = id ? moveOf(before, next, id) : undefined
-            if (id && move) {
-                const from = slotOf(before, id)
-                const start = now.get(id)
-                queued.push({ id, move, from, start: start?.pose })
-                if (start?.moving) movingIds.add(id)
-                else movingIds.delete(id)
-            }
+            if (!id || !move) continue
+            const from = slotOf(before, id)
+            const current =
+                motions.get(id) ??
+                (move === 'enter' ? enteringMotion(slot) : restingMotion(from ?? slot))
+            // A card coming forward swings toward the side it came from; one going back toward its new side.
+            const side = SIDE[move === 'rise' || move === 'draw' ? (from ?? slot) : slot]
+            motions.set(id, startMove(current, move, side, now))
         }
+        for (const id of [...motions.keys()]) if (!slotOf(next, id)) motions.delete(id)
         layout.value = next
+        wake()
     },
     { immediate: true },
-)
-
-watch(
-    layout,
-    () => {
-        const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-        for (const { id, move, from, start } of queued) {
-            const element = elements.get(id)
-            const to = slotOf(layout.value, id)
-            if (!element || !to) continue
-            element.getAnimations().forEach((animation) => {
-                if (animation.id === CARD_MOTION) animation.cancel()
-            })
-            if (reduced) continue
-            // A card coming forward swings toward the side it came from; one going back toward its new side.
-            const side = SIDE[move === 'rise' || move === 'draw' ? (from ?? to) : to]
-            const keyframes = cardKeyframes(
-                start ?? restingPose(from ?? to),
-                to,
-                move,
-                side,
-                movingIds.has(id),
-            )
-            element.animate(keyframes, { id: CARD_MOTION, duration: CARD_MOTION_MS[move] })
-        }
-        queued = []
-    },
-    { flush: 'post' },
 )
 
 const cards = computed(() =>
     // The hidden card exists only while some account has no visible card.
     CARD_SLOTS.filter((slot) => slot !== 'hidden' || layout.value.hidden).map((slot) => {
         const id = layout.value[slot]
+        const pose = SLOT_POSES[slot]
         return {
             key: id ?? `empty-${slot}`,
             id,
@@ -141,12 +142,10 @@ const cards = computed(() =>
                 : slot === 'front'
                   ? steveHead
                   : undefined,
-            // At rest in its slot; a move animates from wherever the card was to here.
-            style: {
-                transform: POSES[slot],
-                opacity: OPACITY[slot],
-                zIndex: LAYER[slot],
-            },
+            // Placeholders stay put; account cards are placed by their motion.
+            style: id
+                ? undefined
+                : { transform: cardTransform(pose), opacity: pose.o, zIndex: layerOf(pose) },
         }
     }),
 )
@@ -282,11 +281,6 @@ const cards = computed(() =>
     transform-origin: 50% 50%;
 }
 
-// The front card's outline and button; a transition, so a reversed pick fades them back smoothly.
-.front-only {
-    transition: opacity 360ms ease 180ms;
-}
-
 .slot-left,
 .slot-right,
 .slot-hidden {
@@ -329,10 +323,6 @@ const cards = computed(() =>
     .oobe-account-stack,
     .oobe-account-badge {
         animation: none;
-    }
-
-    .front-only {
-        transition: none;
     }
 }
 </style>

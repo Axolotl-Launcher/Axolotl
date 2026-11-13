@@ -24,7 +24,7 @@ use crate::ErrorKind;
 pub const ORIGIN_FILE: &str = "origin.json";
 const DEFAULT_LIMIT_MB: u64 = 500;
 const DEFAULT_MAX_ENTRIES: usize = 4_096;
-const MAX_STYLESHEET_BYTES: u64 = 4 * 1024 * 1024;
+pub(super) const MAX_STYLESHEET_BYTES: u64 = 4 * 1024 * 1024;
 
 /// How much a theme pack may unpack to. Both limits exist because a zip can be
 /// small and still expand to gigabytes, which is the shape of a zip bomb.

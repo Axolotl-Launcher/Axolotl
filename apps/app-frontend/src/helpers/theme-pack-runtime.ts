@@ -5,7 +5,12 @@ import {
     type ThemePackManifest,
     type ThemePackSnapshot,
 } from '@/helpers/theme-packs'
-import { applyCustomThemeColors, type ColorTheme, type CustomThemeColors } from '@/store/theme'
+import {
+    applyCustomThemeColors,
+    type ColorTheme,
+    type CustomThemeColors,
+    deriveCustomThemeVariables,
+} from '@/store/theme'
 
 export type ThemeRuntimeSource = 'builtin' | 'custom' | `pack:${string}` | null | undefined
 
@@ -181,6 +186,17 @@ export async function collectCurrentAppearanceSnapshot(
         // A pack that has since been uninstalled falls back to the built-in
         // theme at runtime, so the snapshot reflects that instead of failing.
         if (installed) packId = parsed.packId
+    } else if (parsed.kind === 'custom') {
+        // Both palettes are persisted in the settings, so a snapshot must keep
+        // the inactive bucket too; otherwise importing it in the other mode
+        // silently falls back to the built-in colors.
+        const palettes = selection.customThemeColors
+        tokensLight = palettes?.light
+            ? { ...SNAPSHOT_TOKEN_FALLBACKS.light, ...deriveCustomThemeVariables(palettes.light) }
+            : { ...SNAPSHOT_TOKEN_FALLBACKS.light }
+        tokensDark = palettes?.dark
+            ? { ...SNAPSHOT_TOKEN_FALLBACKS.dark, ...deriveCustomThemeVariables(palettes.dark) }
+            : { ...SNAPSHOT_TOKEN_FALLBACKS.dark }
     } else {
         const prefersDark =
             typeof window !== 'undefined' &&

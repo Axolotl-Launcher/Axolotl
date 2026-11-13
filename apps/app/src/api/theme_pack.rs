@@ -893,6 +893,7 @@ static SNAPSHOT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 const THEME_STORAGE_MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const THEME_STORAGE_MAX_TOTAL_BYTES: u64 = 10 * 1024 * 1024;
 const THEME_STORAGE_MAX_FILES: usize = 256;
+const THEME_ASSET_MAX_BYTES: u64 = 64 * 1024 * 1024;
 const THEME_LOG_MAX_CHARS: usize = 256 * 1024;
 
 fn theme_error(
@@ -1313,6 +1314,17 @@ pub(crate) fn protocol_response_for(
     else {
         return protocol_error(StatusCode::NOT_FOUND);
     };
+    let Ok(metadata) = std::fs::metadata(&file_path) else {
+        return protocol_error(StatusCode::NOT_FOUND);
+    };
+    if !metadata.is_file() {
+        return protocol_error(StatusCode::NOT_FOUND);
+    }
+    // The protocol returns a buffered body, so an oversized asset would be
+    // allocated in full before the response reaches the webview.
+    if metadata.len() > THEME_ASSET_MAX_BYTES {
+        return protocol_error(StatusCode::PAYLOAD_TOO_LARGE);
+    }
     let Ok(contents) = std::fs::read(&file_path) else {
         return protocol_error(StatusCode::NOT_FOUND);
     };
@@ -1525,6 +1537,19 @@ mod tests {
             ),
         );
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn rejects_oversized_protocol_assets() {
+        let (directory, storage) = storage_with_css();
+        let large = directory.path().join("themes/demo/styles/large.bin");
+        let file = std::fs::File::create(&large).unwrap();
+        file.set_len(THEME_ASSET_MAX_BYTES + 1).unwrap();
+        let response = protocol_response_for(
+            &storage,
+            &request(&pack_url("demo", "styles/large.bin"), None),
+        );
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 
     #[test]

@@ -127,6 +127,8 @@ archive. Keep persistent page state in `axolotlTheme.storage`.
 | Archive size | 500 MiB |
 | Extracted size | 500 MiB |
 | Entries | 4,096 |
+| Stylesheet | 4 MiB per file |
+| Served asset | 64 MiB per response |
 
 Override with `AXOLOTL_THEME_MAX_ARCHIVE_MB`,
 `AXOLOTL_THEME_MAX_UNCOMPRESSED_MB` (both in megabytes), and

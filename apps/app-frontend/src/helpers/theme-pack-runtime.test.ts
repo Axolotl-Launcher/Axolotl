@@ -12,12 +12,13 @@ import {
 } from '@/helpers/theme-pack-runtime'
 import type { InstalledThemePack, ThemePackManifest } from '@/helpers/theme-packs'
 
-const { applyCustomThemeColors, getThemePack } = vi.hoisted(() => ({
+const { applyCustomThemeColors, deriveCustomThemeVariables, getThemePack } = vi.hoisted(() => ({
     applyCustomThemeColors: vi.fn(),
+    deriveCustomThemeVariables: vi.fn(),
     getThemePack: vi.fn(),
 }))
 
-vi.mock('@/store/theme', () => ({ applyCustomThemeColors }))
+vi.mock('@/store/theme', () => ({ applyCustomThemeColors, deriveCustomThemeVariables }))
 vi.mock('@/helpers/theme-packs', () => ({
     getThemePack,
     themePackAssetUrl: (packId: string, path: string) => `theme://${packId}/${path}`,
@@ -49,6 +50,11 @@ beforeEach(() => {
     resetThemeRuntime()
     vi.clearAllMocks()
     getThemePack.mockResolvedValue(installedPack)
+    deriveCustomThemeVariables.mockImplementation((palette) => ({
+        '--surface-1': palette.background,
+        '--surface-3': palette.surface,
+        '--color-text-primary': palette.text,
+    }))
 })
 
 describe('parseThemeSource', () => {
@@ -109,6 +115,24 @@ describe('collectCurrentAppearanceSnapshot', () => {
         expect(snapshot.tokensLight['--color-text-primary']).toBe('#1a202c')
         expect(snapshot.tokensDark['--surface-1']).toBe('#101215')
         expect(snapshot.tokensDark['--color-text-primary']).toBe('#ffffff')
+    })
+
+    it('keeps both saved palettes when exporting a custom appearance', async () => {
+        const snapshot = await collectCurrentAppearanceSnapshot('custom', 'dark', {
+            themeSource: 'custom',
+            customThemeColors: {
+                light: { background: '#fafafa', surface: '#eeeeee', text: '#111111' },
+                dark: { background: '#121212', surface: '#222222', text: '#eeeeee' },
+            },
+        })
+
+        expect(snapshot.source).toBe('custom')
+        expect(snapshot.tokensLight['--surface-1']).toBe('#fafafa')
+        expect(snapshot.tokensLight['--surface-3']).toBe('#eeeeee')
+        expect(snapshot.tokensLight['--color-text-primary']).toBe('#111111')
+        expect(snapshot.tokensDark['--surface-1']).toBe('#121212')
+        expect(snapshot.tokensDark['--surface-3']).toBe('#222222')
+        expect(snapshot.tokensDark['--color-text-primary']).toBe('#eeeeee')
     })
 })
 

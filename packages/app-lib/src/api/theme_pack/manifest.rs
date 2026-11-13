@@ -15,6 +15,8 @@ use serde::Serialize;
 
 use crate::ErrorKind;
 
+use super::archive::MAX_STYLESHEET_BYTES;
+
 pub const MANIFEST_FILE: &str = "manifest.json";
 pub const SCHEMA_VERSION: u32 = 1;
 
@@ -224,6 +226,20 @@ impl ThemePackManifest {
                 )));
             }
             let path = checked_file(pack_dir, style)?;
+            // `archive::extract` enforces this limit after extraction, but it
+            // calls `validate` first, so checking the file here keeps a huge
+            // CSS entry from being read into memory before it is rejected.
+            let metadata = std::fs::metadata(&path).map_err(|error| {
+                invalid(format!(
+                    "Stylesheet {style} could not be inspected: {error}"
+                ))
+            })?;
+            if metadata.len() > MAX_STYLESHEET_BYTES {
+                return Err(invalid(format!(
+                    "Stylesheet {style} is larger than the {} MB limit",
+                    MAX_STYLESHEET_BYTES / (1024 * 1024)
+                )));
+            }
             let css = std::fs::read_to_string(&path).map_err(|error| {
                 invalid(format!(
                     "Stylesheet {style} could not be read: {error}"
@@ -878,6 +894,25 @@ mod tests {
         manifest()
             .validate(directory.path())
             .expect("the fixture should validate");
+    }
+
+    #[test]
+    fn rejects_a_stylesheet_larger_than_the_limit_before_reading_it() {
+        let directory = pack_dir(&[
+            "styles/theme.css",
+            "assets/background.png",
+            "assets/Inter.woff2",
+            "assets/icon.png",
+            "pages/home.html",
+        ]);
+        let stylesheet = directory.path().join("styles/theme.css");
+        let file = std::fs::File::create(&stylesheet).unwrap();
+        file.set_len(MAX_STYLESHEET_BYTES + 1).unwrap();
+        let error = manifest().validate(directory.path()).unwrap_err();
+        assert!(
+            error.to_string().contains("larger than the 4 MB limit"),
+            "{error}"
+        );
     }
 
     #[test]

@@ -2884,8 +2884,8 @@
     {
       "file": "apps/app/src/api/theme_pack.rs",
       "form": "std::fs",
-      "count": 14,
-      "reason": "reviewed theme pack protocol, snapshot export and pack copy: every path is confined to the themes directory or the caller-selected snapshot destination and no managed resource is acquired (D17)",
+      "count": 15,
+      "reason": "reviewed theme pack protocol, snapshot export and pack copy: every path is confined to the themes directory or the caller-selected snapshot destination; metadata is read before serving an asset so oversized responses are rejected without allocation, and no managed resource is acquired (D17)",
       "sites": [
         "<module>: archive: &mut zip::ZipWriter<std::fs::File>,",
         "<module>: archive: &mut zip::ZipWriter<std::fs::File>,",
@@ -2900,6 +2900,7 @@
         "export_snapshot_archive: let _ = std::fs::remove_file(backup);",
         "export_snapshot_archive: let _ = std::fs::rename(backup, destination);",
         "protocol_response_for: let Ok(contents) = std::fs::read(&file_path) else {",
+        "protocol_response_for: let Ok(metadata) = std::fs::metadata(&file_path) else {",
         "write_snapshot_archive: let file = std::fs::File::create(temporary).map_err(|error| {"
       ]
     },
@@ -2932,13 +2933,14 @@
     {
       "file": "packages/app-lib/src/api/theme_pack/manifest.rs",
       "form": "std::fs",
-      "count": 4,
-      "reason": "reviewed theme pack validation: reads the manifest and CSS files only after canonical path checks within one pack directory; short-lived install/listing work holds no managed resource (D17)",
+      "count": 5,
+      "reason": "reviewed theme pack validation: reads the manifest and CSS files only after canonical path checks within one pack directory; stylesheet size is checked before reading so oversized CSS is rejected without allocation, and short-lived install/listing work holds no managed resource (D17)",
       "sites": [
         "checked_file: let canonical = std::fs::canonicalize(&path).map_err(|_| {",
         "checked_file: let canonical_pack = std::fs::canonicalize(pack_dir).map_err(|error| {",
         "load: std::fs::read(pack_dir.join(MANIFEST_FILE)).map_err(|error| {",
-        "validate: let css = std::fs::read_to_string(&path).map_err(|error| {"
+        "validate: let css = std::fs::read_to_string(&path).map_err(|error| {",
+        "validate: let metadata = std::fs::metadata(&path).map_err(|error| {"
       ]
     },
     {

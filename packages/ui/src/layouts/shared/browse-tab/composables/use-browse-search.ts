@@ -71,6 +71,7 @@ export interface BrowseSearchState {
     totalHits: Ref<number>
     pageCount: ComputedRef<number>
     pageCountKnown: ComputedRef<boolean>
+    cursorPaged: ComputedRef<boolean>
 
     maxResults: Ref<number>
     currentPage: Ref<number>
@@ -87,21 +88,69 @@ export interface BrowseSearchState {
     onFilterChange: () => void
 }
 
-/**
- * How many pages the current result set has.
- *
- * A cursor-paged source answers with `has_more` instead of a total, and the only
- * bound it gives is "one more page than the one just read". When such a source
- * still reports a total, the total describes the whole result set and is the
- * better answer: the page controls can then offer the real range instead of
- * clamping every forward jump to the next page. An unknown total leaves
- * `has_more` as the only bound.
- */
-function pageCountOf(response: BrowseSearchResponse, maxResults: number, page: number) {
-    if (response.has_more !== undefined && response.total_precision === 'unknown')
-        return page + (response.has_more ? 1 : 0)
+/** One page of results, as the page controls see it. */
+interface PageSource {
+    response: BrowseSearchResponse
+    maxResults: number
+    page: number
+}
 
-    return Math.max(1, Math.ceil(response.total_hits / maxResults))
+/** A total a source reported for the current query. */
+interface ReportedTotal {
+    hits: number
+    precision: 'exact' | 'estimate'
+}
+
+/** What the page controls need to know about one response. */
+interface PageInfo {
+    /** How many pages to offer. */
+    count: number
+    /** Whether `count` is the real end of the result set. */
+    known: boolean
+    /** Whether a page is read by walking every page before it. */
+    cursor: boolean
+}
+
+function reportedTotalOf(response: BrowseSearchResponse): ReportedTotal | null {
+    const precision = response.total_precision
+    if (precision !== 'exact' && precision !== 'estimate') return null
+    return { hits: response.total_hits, precision }
+}
+
+/**
+ * The page range to offer for one response.
+ *
+ * A source that answers with `has_more` is cursor-paged: it reads page N by
+ * walking every page before it, and it only reports a total for the first page
+ * of a query. Those are two different facts — a cursor source can name its last
+ * page and still be unable to jump there cheaply — so the count and the way
+ * pages are read are reported separately.
+ *
+ * An estimate is a floor, not an end: CurseForge reports `totalCount: 10000` for
+ * anything larger, so treating it as the end would hide every result past it.
+ */
+function pageInfoOf(source: PageSource, retained: ReportedTotal | null): PageInfo {
+    const { response, maxResults, page } = source
+    const pagesFrom = (total: number) => Math.max(1, Math.ceil(total / maxResults))
+
+    if (response.has_more === undefined) {
+        return { count: pagesFrom(response.total_hits), known: true, cursor: false }
+    }
+
+    // The cursor ran out, so the page the reader is on is the last one. Reaching
+    // it is the only proof a cursor source gives about where its results end.
+    if (response.has_more === false) {
+        return { count: Math.max(1, page), known: true, cursor: true }
+    }
+
+    const total = reportedTotalOf(response) ?? retained
+    if (total?.precision === 'exact') {
+        return { count: pagesFrom(total.hits), known: true, cursor: true }
+    }
+
+    if (total) return { count: pagesFrom(total.hits), known: false, cursor: true }
+
+    return { count: page + 1, known: false, cursor: true }
 }
 
 export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchState {
@@ -280,24 +329,34 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
     })
     const totalHits = computed(() => committed.value?.response.total_hits ?? 0)
     const searchError = ref<string | null>(null)
-    const pageCount = computed(() => {
-        const snapshot = committed.value
-        if (!snapshot) return 1
-        return pageCountOf(snapshot.response, snapshot.maxResults, snapshot.page)
-    })
     /**
-     * A cursor-paged source that cannot report a total only knows that one more
-     * page exists, so `pageCount` is a lower bound there and the page controls
-     * must not treat it as the end of the result set.
+     * The total the first page of the current query reported. A cursor source
+     * only reports one there, so later pages fall back to it instead of letting
+     * the bar shrink to "one page ahead" the moment the reader moves on.
      */
-    const pageCountKnown = computed(() => {
-        const snapshot = committed.value
-        if (!snapshot) return true
-        return (
-            snapshot.response.has_more === undefined ||
-            snapshot.response.total_precision !== 'unknown'
-        )
-    })
+    const retainedTotal = shallowRef<ReportedTotal | null>(null)
+    const pageInfo = computed(() =>
+        committed.value ? pageInfoOf(committed.value, retainedTotal.value) : null,
+    )
+    const pageCount = computed(() => pageInfo.value?.count ?? 1)
+    /**
+     * A count derived from `has_more` or from an estimate is a lower bound, so
+     * the page controls must not treat it as the end of the result set.
+     */
+    const pageCountKnown = computed(() => pageInfo.value?.known ?? true)
+    /**
+     * Cursor-paged sources resolve a page by walking every page before it, which
+     * the page controls need to know even when the count itself is exact.
+     */
+    const cursorPaged = computed(() => pageInfo.value?.cursor ?? false)
+
+    function rememberTotal(response: BrowseSearchResponse) {
+        const reported = reportedTotalOf(response)
+        if (!reported) return
+        // An exact total replaces anything; an estimate only fills a gap.
+        if (reported.precision === 'estimate' && retainedTotal.value?.precision === 'exact') return
+        retainedTotal.value = reported
+    }
 
     let searchVersion = 0
     let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -319,6 +378,8 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         ],
         () => {
             currentPage.value = 1
+            // The retained total belongs to the query that reported it.
+            retainedTotal.value = null
         },
         { deep: true },
     )
@@ -395,9 +456,16 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
                 return
             }
 
-            const count = pageCountOf(response, context.maxResults, context.page)
-            const page = Math.min(response.page ?? context.page, count)
+            const resolvedPage = response.page ?? context.page
+            const info = pageInfoOf(
+                { response, maxResults: context.maxResults, page: resolvedPage },
+                retainedTotal.value,
+            )
+            // An unknown or estimated count is not a bound, so only a known one
+            // can pull the page the source resolved back.
+            const page = info.known ? Math.min(resolvedPage, info.count) : resolvedPage
             committed.value = { ...context, response, page }
+            rememberTotal(response)
             currentPage.value = page
             debug('refreshSearch complete', {
                 version,
@@ -500,6 +568,7 @@ export function useBrowseSearch(options: UseBrowseSearchOptions): BrowseSearchSt
         searchError,
         pageCount,
         pageCountKnown,
+        cursorPaged,
         maxResults,
         currentPage,
         isServerType,

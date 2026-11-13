@@ -3,6 +3,7 @@ import { expect, it, vi } from 'vitest'
 import { defineComponent, nextTick, ref } from 'vue'
 
 import type { BrowseSearchResponse } from '../types'
+import type { UseBrowseSearchOptions } from './use-browse-search'
 import { useBrowseSearch } from './use-browse-search'
 
 vi.mock('vue-router', () => ({
@@ -66,6 +67,40 @@ function deferred<T>() {
 function response(total = 45): BrowseSearchResponse {
     return { projectHits: [], serverHits: [], total_hits: total, per_page: 20 }
 }
+function cursorResponse(
+    page: number,
+    overrides: Partial<BrowseSearchResponse> = {},
+): BrowseSearchResponse {
+    return {
+        projectHits: [],
+        serverHits: [],
+        total_hits: 400,
+        total_precision: 'unknown',
+        has_more: true,
+        per_page: 20,
+        page,
+        ...overrides,
+    }
+}
+
+function mountSearch(search: UseBrowseSearchOptions['search']) {
+    let state!: ReturnType<typeof useBrowseSearch>
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                state = useBrowseSearch({
+                    projectType: ref('mod'),
+                    tags: ref({}),
+                    search,
+                    persistentQueryParams: [],
+                    syncQueryParams: false,
+                })
+                return () => null
+            },
+        }),
+    )
+    return { state, wrapper }
+}
 
 it('retains the committed page through debounce, stale responses, failure and empty success', async () => {
     vi.useFakeTimers()
@@ -112,6 +147,7 @@ it('retains the committed page through debounce, stale responses, failure and em
         await flushPromises()
         expect(state.totalHits.value).toBe(45)
         expect(state.pageCount.value).toBe(3)
+        expect(state.cursorPaged.value).toBe(false)
         expect(state.searchError.value).toBe('Failed')
         const retry = state.refreshSearch()
         pending[2].resolve(response(0))
@@ -167,44 +203,69 @@ it('does not search until prerequisites and restored filters are ready', async (
 })
 
 it('counts the pages a cursor source reports a total for instead of one page ahead', async () => {
-    let state!: ReturnType<typeof useBrowseSearch>
-    const cursorResponse = (page: number, precision: 'exact' | 'unknown') => ({
-        projectHits: [],
-        serverHits: [],
-        total_hits: 400,
-        total_precision: precision,
-        has_more: true,
-        per_page: 20,
-        page,
-    })
     const search = vi
         .fn()
-        .mockImplementationOnce(async () => cursorResponse(5, 'exact'))
-        .mockImplementationOnce(async () => cursorResponse(1, 'unknown'))
-    const wrapper = mount(
-        defineComponent({
-            setup() {
-                state = useBrowseSearch({
-                    projectType: ref('mod'),
-                    tags: ref({}),
-                    search,
-                    persistentQueryParams: [],
-                    syncQueryParams: false,
-                })
-                return () => null
-            },
-        }),
-    )
+        .mockResolvedValueOnce(cursorResponse(1, { total_precision: 'exact' }))
+        .mockResolvedValueOnce(cursorResponse(2, { total_hits: 20 }))
+    const { state, wrapper } = mountSearch(search)
     try {
-        state.currentPage.value = 5
         await state.refreshSearch()
         expect(state.pageCount.value).toBe(20)
         expect(state.pageCountKnown.value).toBe(true)
-        expect(state.currentPage.value).toBe(5)
+        expect(state.cursorPaged.value).toBe(true)
 
-        state.currentPage.value = 1
+        state.currentPage.value = 2
         await state.refreshSearch()
-        expect(state.pageCount.value).toBe(2)
+        // Only the first page of a query reports a total, so the bar keeps the
+        // range it was told about instead of shrinking to "one page ahead".
+        expect(state.pageCount.value).toBe(20)
+        expect(state.pageCountKnown.value).toBe(true)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('follows the page the source resolved instead of the page it was asked for', async () => {
+    const search = vi.fn().mockResolvedValueOnce(cursorResponse(4, { total_precision: 'exact' }))
+    const { state, wrapper } = mountSearch(search)
+    try {
+        state.currentPage.value = 5
+        await state.refreshSearch()
+        // A cursor source that runs out answers with the last page it has.
+        expect(state.currentPage.value).toBe(4)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('treats an exhausted cursor as the end of the results', async () => {
+    const search = vi
+        .fn()
+        .mockResolvedValueOnce(cursorResponse(12, { has_more: false, total_hits: 20 }))
+    const { state, wrapper } = mountSearch(search)
+    try {
+        state.currentPage.value = 20
+        await state.refreshSearch()
+        expect(state.currentPage.value).toBe(12)
+        expect(state.pageCount.value).toBe(12)
+        expect(state.pageCountKnown.value).toBe(true)
+    } finally {
+        wrapper.unmount()
+    }
+})
+
+it('does not let an estimated total end the result set', async () => {
+    const search = vi
+        .fn()
+        .mockResolvedValueOnce(
+            cursorResponse(1, { total_precision: 'estimate', total_hits: 10000 }),
+        )
+    const { state, wrapper } = mountSearch(search)
+    try {
+        await state.refreshSearch()
+        // CurseForge reports 10000 for anything larger, so the number can size the
+        // strip but cannot be treated as the end.
+        expect(state.pageCount.value).toBe(500)
         expect(state.pageCountKnown.value).toBe(false)
     } finally {
         wrapper.unmount()

@@ -1,5 +1,9 @@
 <template>
-    <div v-if="count > 1" class="flex items-center gap-1" :class="{ 'opacity-60': loading }">
+    <div
+        v-if="count > 1"
+        class="flex items-center gap-1"
+        :class="{ 'opacity-60': loading }"
+    >
         <ButtonLink
             v-if="showFirstPage && linkFunction"
             type="quiet"
@@ -60,7 +64,7 @@
                     type="number"
                     inputmode="numeric"
                     min="1"
-                    :max="count"
+                    :max="jumpCeiling ?? undefined"
                     :placeholder="formatMessage(messages.goToPagePlaceholder)"
                     :aria-label="formatMessage(messages.goToPage)"
                     @keydown.enter="commitGapInput"
@@ -168,6 +172,7 @@
             :placeholder="formatMessage(messages.goToPagePlaceholder)"
             :aria-label="formatMessage(messages.goToPage)"
             :disabled="loading"
+            @focus="selectJumpInput"
             @keydown.enter="commitJumpInput"
             @keydown.esc.prevent="clearJumpInput"
             @blur="commitJumpInput"
@@ -208,11 +213,15 @@ const props = withDefaults(
          */
         countKnown?: boolean
         /**
-         * How far ahead of the current page a jump may reach when `count` is not
-         * the real number of pages. Reaching a distant page means the source has
-         * to walk every page in between, so the jump is capped instead of leaving
-         * the reader on a spinner for an unbounded time. Ignored when `countKnown`
-         * is true, where `count` is the real limit.
+         * Whether the source resolves a page by walking every page before it. A
+         * cursor-paged source cannot reach a distant page in one request even
+         * when it can name it, so its forward jumps stay capped.
+         */
+        cursorPaged?: boolean
+        /**
+         * How far ahead of the current page a jump may reach when reaching a page
+         * means walking every page in between. Ignored for sources that read any
+         * page directly.
          */
         jumpLimit?: number
     }>(),
@@ -221,6 +230,7 @@ const props = withDefaults(
         count: 1,
         loading: false,
         countKnown: true,
+        cursorPaged: false,
         jumpLimit: 10,
     },
 )
@@ -255,11 +265,52 @@ const messages = defineMessages({
     },
 })
 
+// Every bar offers the same controls: the jump field and the end buttons are not
+// conditional on the page count, so a small result set does not get a bar that
+// behaves differently from a large one. The end buttons only disappear once the
+// reader is already on that end, or when the source cannot reach it in one go.
+const showFirstPage = computed(() => props.page > 1)
+// A cursor-paged source has no last page it can reach in one request, so naming
+// one would be a button that starts a walk of every page in between.
+const showLastPage = computed(
+    () => !props.cursorPaged && props.countKnown && props.page < props.count,
+)
+
+/**
+ * Whether the jump limit is what bounds this bar: a cursor-paged source walks
+ * every page it skips, and a source with no known end has nothing else to stop
+ * at.
+ */
+const jumpLimitApplies = computed(() => props.cursorPaged || !props.countKnown)
+
+/**
+ * The highest page a jump may ask for, or `null` when nothing caps it.
+ *
+ * A cursor-paged source reads page N by fetching every page before it, so the
+ * jump is capped there even when `count` is exact: naming the last page is one
+ * request for an offset source and a full walk for a cursor one.
+ */
+const jumpCeiling = computed(() => {
+    const end = props.countKnown ? props.count : null
+    if (!jumpLimitApplies.value || !Number.isFinite(props.jumpLimit)) return end
+
+    const ahead = props.page + props.jumpLimit
+    return end === null ? ahead : Math.min(end, ahead)
+})
+
+const jumpLimitHint = computed(() =>
+    jumpLimitApplies.value && Number.isFinite(props.jumpLimit)
+        ? formatMessage(messages.jumpLimit, { count: props.jumpLimit })
+        : undefined,
+)
+
 const pages = computed(() => {
     const pages: ('-' | number)[] = []
 
     const first = 1
-    const last = props.count
+    // The strip never offers a page the bar would refuse to open, so a capped bar
+    // ends its numbers at the last page it can reach from here.
+    const last = Math.min(props.count, jumpCeiling.value ?? props.count)
     const current = props.page
     const prev = current - 1
     const next = current + 1
@@ -288,28 +339,10 @@ const pages = computed(() => {
     return pages
 })
 
-// Every bar offers the same controls: the jump field and the end buttons are not
-// conditional on the page count, so a small result set does not get a bar that
-// behaves differently from a large one. The end buttons only disappear once the
-// reader is already on that end.
-const showFirstPage = computed(() => props.page > 1)
-const showLastPage = computed(() => props.countKnown && props.page < props.count)
-
-/** The highest page a jump may ask for, or `null` when nothing caps it. */
-const jumpCeiling = computed(() => {
-    if (props.countKnown) return props.count
-    return Number.isFinite(props.jumpLimit) ? props.page + props.jumpLimit : null
-})
-
-const jumpLimitHint = computed(() => {
-    if (props.countKnown || !Number.isFinite(props.jumpLimit)) return undefined
-    return formatMessage(messages.jumpLimit, { count: props.jumpLimit })
-})
-
 const activeGapIndex = ref<number | null>(null)
 const gapInputValue = ref('')
 const gapInput = ref<HTMLInputElement[] | HTMLInputElement>()
-const jumpInputValue = ref('')
+const jumpInputValue = ref(String(props.page))
 
 async function openGapInput(index: number) {
     activeGapIndex.value = index
@@ -346,8 +379,12 @@ function clampPage(newPage: number) {
 }
 
 function jumpToPage(value: string) {
-    const parsed = Number.parseInt(value, 10)
-    if (!Number.isFinite(parsed)) return null
+    const trimmed = value.trim()
+    // `Number` rejects the partial reads `parseInt` accepts: a number field can
+    // hold "1e3" or "2.5", and only a whole page is a page. An empty field reads
+    // as 0, which would silently mean the first page, so it is rejected here.
+    const parsed = trimmed === '' ? Number.NaN : Number(trimmed)
+    if (!Number.isSafeInteger(parsed)) return null
 
     const target = clampPage(parsed)
     if (target !== props.page) switchPage(target)
@@ -365,20 +402,30 @@ function commitJumpInput(event?: Event) {
     if (isImeKeydown(event)) return
 
     const target = jumpToPage(fieldValue(event, jumpInputValue.value))
-    // Showing the page that was actually asked for makes a capped jump visible
-    // instead of leaving the typed value looking ignored.
-    jumpInputValue.value = target === null ? '' : String(target)
+    // The field always names a real page: where a capped jump landed, or the page
+    // the reader is on when the value was not usable.
+    jumpInputValue.value = String(target ?? props.page)
 }
 
 function clearJumpInput() {
-    jumpInputValue.value = ''
+    jumpInputValue.value = String(props.page)
+}
+
+/**
+ * The field carries the page number, so the value has to be replaced rather than
+ * typed after: without this a jump to 5 followed by a jump to 20 reads "520".
+ */
+function selectJumpInput(event: FocusEvent) {
+    if (event.target instanceof HTMLInputElement) event.target.select()
 }
 
 watch(
     () => props.page,
-    () => {
+    (page) => {
         closeGapInput()
-        clearJumpInput()
+        // Follow the page instead of clearing: a jump the source capped or
+        // resolved elsewhere should still report the page it landed on.
+        jumpInputValue.value = String(page)
     },
 )
 
